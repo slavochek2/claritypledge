@@ -266,11 +266,13 @@ elif [ "$BACKUP_AGE" -le 2 ]; then echo "CHECK cp.backup ok the newest database 
 else echo "CHECK cp.backup problem the newest database backup is $BACKUP_AGE days old" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 
 echo "=== SELF-HOSTED TEST DATABASE (P1557) ==="
-# Stopgap, knowingly (.claude/rules/skills.md, recurring checks). End state: a scheduled workflow
-# for reachability and certificate (filed in the task inbox); disk and WAL need a gcloud login no
-# workflow holds, so they stay here until one does.
+# Reads, never detects (.claude/rules/skills.md, recurring checks). The monitor is the hourly
+# workflow .github/workflows/selfhosted-health.yml (P1584: reachable, cert, disk, WAL); day-health.sh
+# reads its latest scheduled run and alert issue, and probes from this Mac only until that workflow
+# has run. Before P1584 reaches main, health.sh (the old local probe) is used directly.
 TESTDB_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || TESTDB_ROOT=""
-TESTDB_HEALTH="${TESTDB_ROOT:+$TESTDB_ROOT/scripts/selfhosted/health.sh}"
+TESTDB_HEALTH="${TESTDB_ROOT:+$TESTDB_ROOT/scripts/selfhosted/day-health.sh}"
+[ -n "$TESTDB_ROOT" ] && [ ! -x "$TESTDB_HEALTH" ] && TESTDB_HEALTH="$TESTDB_ROOT/scripts/selfhosted/health.sh"
 if [ -z "$TESTDB_ROOT" ]; then echo "CHECK cp.selfhosted unproven not run inside a checkout of this repository" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 elif [ ! -x "$TESTDB_HEALTH" ]; then echo "CHECK cp.selfhosted skipped the self-hosted test server is not on main yet" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 else
