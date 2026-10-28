@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 245
+**Next ID:** 246
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2988,5 +2988,18 @@ Found during P1557. ./scripts/check-edge-function-secrets.sh --env test exits 1 
 **due:** week
 
 After Mailgun was restored on 2026-10-28, 20 integration tests still fail on the self-hosted TEST server; none is a server defect (evidence: .private/archive/p1557/rerun-mailgun.json). (a) 9 need the storage or AI key kept off the test server by founder rule: the edge-fn-authz-regression banner, upload and playback 403 cases, the p1223 participant forward step, and the p1544 mirror-reply case; those functions check config before auth, so decide whether such tests skip when the key is absent or the functions authorize first. (b) 6 in p1275-create-transcribe-room-rpc call create_transcribe_room without p_consent, a signature migration 20260909100000 dropped; they pass on hosted only through a stale overload there (hosted schema drift). (c) the p1178-reproduce canary expects create-and-sign to seal and send the accepted email, which it no longer does. (d) p630-system-tags-migration scans every point and trips on rows other tests left. (e) 2 edge-fn-authz cases get the right 401 with the self-hosted router's body rather than the hosted gateway's, and enqueue-transcription sent with only the anon header (no Authorization) is refused by the router where hosted lets it through; decide whether supabase/selfhosted/functions-main/index.ts should mirror hosted's fallback to that header. Droppable once each group is fixed or deliberately skipped, or if TEST goes back to hosted.
+
+---
+
+## Review WhatsApp-only hike transport after the next 15+ hike
+
+**ID:** INBOX-245
+**Date:** 2026-10-28
+**Status:** proposed
+**due:** month
+
+After the next social hike with more than 15 people, review whether WhatsApp-only transport (a transport lead per hike plus the private driver list) worked. If people still got stuck, reconsider an in-app ride question next to the recording question on the prepare page (it would overturn P1542 decision 1).
+
+Parked hike ideas from the same 2026-10-28 conversation, unchanged: buddy matching, fun roles growing into Clarity champions, mirroring WhatsApp into Clarity Chat, multi-day hikes and exporting the format to other cities, an agent running hike coordination. Context: P1571.
 
 ---
