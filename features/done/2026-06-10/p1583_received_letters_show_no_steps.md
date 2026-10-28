@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 82
 workstream: letters
 created_date: '2026-10-27'
 tags: [letters, artifacts, p1545, rpc]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-28
 ---
 
 # P1583: Letters sent to me never show "N of M steps" on Artifacts
