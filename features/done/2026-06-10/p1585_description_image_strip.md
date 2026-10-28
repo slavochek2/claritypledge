@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 68
 workstream: events
 created_date: '2026-10-28'
 tags: [events, sales-mastermind, canvas]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
+completed_at: 2026-10-28
 ---
 
 # P1585: Swipeable images inside an event description
