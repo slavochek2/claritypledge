@@ -4,7 +4,7 @@ type: story
 rank: 80
 workstream: foundation
 created_date: '2026-10-28'
-tags: [loading, performance, consistency, ux]
+tags: [loading, consistency, ux, skeleton]
 disclosure: public
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
@@ -14,160 +14,161 @@ exec_effort: high
 driver: heuristic
 ---
 
-# P1586: One way of loading on every page, and pages that load fast
+# P1586: One way of loading, on every page
 
-Replaces P1562 §3 ("One loader"). P1562 is closed by the founder in favour of this spec (2026-10-28). P1562's other parts (the event room's one Back, the room header, Clarity Night's Transcribe control) are not loading work and are not absorbed here; see Related.
+Replaces P1562 §3 ("One loader"); P1562 was closed by the founder on 2026-10-28. Its §1–2 (the event room's one Back, header, Transcribe control) are not loading work and are not here (see Related). The speed half of the founder's ask is **P1587** (page speed); the two ship independently. Revised 2026-10-28 after a three-model spec review (Gemini review model, Codex, Opus; 3 of 3 reported, each load-bearing claim re-run by command before it was folded in).
 
 ## Problem
 
-**Situation.** P1539 (decisions.md 2026-10-22) set one loading standard for signed-in pages: the shell stays still and a 64px mark sits at the viewport centre (`ClarityPageLoader`). 32 files use it. Routes are already split: `App.tsx` lazy-loads 105 routes (P553), so the old bundle spec P119 ("no code-splitting") is out of date.
+**Situation.** P1539 (decisions.md 2026-10-22) set the page loader: inside the signed-in shell the shell stays still and a 64px mark sits at the viewport centre (`ClarityPageLoader` → `ClarityContentLoader`); outside it, the full-viewport boot splash. 35 non-test files use it.
 
-**Complication.** Two things, measured on 2026-10-28 against `main` at `fda656c29` and production:
+**Complication.** Every other loading state was built locally, so the same wait looks different from page to page. Inventory on `main` at `fda656c29`, tests excluded:
 
-1. **Loading still looks different from page to page.** Inventory of `src/` (grep, test files excluded):
-   - 14 call sites draw their own 64px `ClarityLoader` in a page-local box (`min-h-screen`, `py-20`, …), so the mark appears somewhere other than the viewport centre and "jumps" when the next loader takes over (P1562 measured (713,450) then (837,112) on `/groups/cm`).
-   - 8 places show the word "Loading…" as the page or section state.
-   - 6 route-level components render nothing (`return null`) while they load, so the screen goes blank between loaders.
-   - 15 files use skeletons, each drawn differently.
-2. **Pages are slow, mostly on a first visit.** Production, signed out, headless Chrome:
+| Pattern | Count | Effect |
+|---|---|---|
+| Page-local `<ClarityLoader>` in its own centring box | 13 `lg` + 1 `md` | a second large mark at a different place: the "jumping" the founder saw (P1562 measured (713,450) then (837,112) on `/groups/cm`) |
+| The word "Loading…" as a page or section state | 12 sites | text that flashes, which decisions.md 2026-03-16 removed from the page loader for exactly that reason |
+| Centred `Loader2` spinners as a section or page state | 22 files use `Loader2`; the section/page ones are listed in §2 | a third look |
+| `return null` while loading in a route-level component | 6 branches in 5 components | a blank screen between loaders |
+| Skeletons | 8 `*Skeleton` functions in 7 files, about 70 hand-written `animate-pulse` uses, no shared primitive | each drawn differently |
 
-   | Page | Visit | JS finished | Main content (LCP) | DB requests | Sequential rounds | Same table read more than once |
-   |---|---|---|---|---|---|---|
-   | `/feed` (home) | first | 3.0s | **10.0s** | 14 | 4 (last ends 8.7s) | events ×4, point_positions ×3, stories ×2 |
-   | `/feed` | repeat | 0.8s | 0.6s | 7 | — (done 1.6s) | events ×3 |
-   | `/groups/cm` | repeat | 0.8s | 0.6s | 1 | 1 (done 1.7s) | — |
-   | `/events/:slug` (a hike) | first | 3.3s (66 files, 620 KB) | **7.0s** | 10 | 5 (last ends 8.6s) | events ×4, organization ×2 |
-
-   - **Each round waits for the one before.** On the event page: events → event_rsvps → series_reviews/photos/events → organization → organization. Five round trips stack.
-   - **The entry file is 1,059 KB (314 KB gzipped) and every page downloads it first.** Its largest parts by source size: the data-service layer (`src/app/data/`, 545 KB, led by `api.ts` and `letters-service.ts`, which most pages never call), react-dom, react-router, supabase auth/storage/realtime. From the local build of 2026-10-26, not a fresh one.
-   - **The measuring machine's VPN multiplies every round.** One tiny prod query took 1.21–1.36s through the VPN and 0.18–0.47s around it (curl, 3 runs each). The table above was measured through it, so its absolute times overstate what a visitor without a VPN sees; the **counts** (requests, rounds, duplicates, file sizes) do not depend on it. A page with 5 sequential rounds costs 5 × that latency whatever it is.
-   - Signed-in pages were not measured (no session in the headless browser). UNVERIFIED: they add the auth and profile reads (P1297) in front of everything above.
+Inventory commands (re-run by `/dev` at its base): `grep -rnE "<ClarityLoader|<Loader2|Loader2Icon|Loading[.…]|return null|animate-pulse|Skeleton" src --include='*.tsx' --include='*.ts'`, excluding `*.test.*`, `*.spec.*`, `__tests__`.
 
 > **Founder framing, verbatim (2026-10-28):**
 > "loading consistency is about loading consistency everywhere, but also speed of loading of all pages because things are pretty slow. So it's design consistency, but also speed"
 >
 > From P1562 (voice note, 2026-10-24): "review and reuse our standard loading because sometimes it says loading events" · "Sometimes it's at the top, it's weird, it's weirdly jumping this clarity pledge loading"
 
-**Question.** What is the one loading behaviour every page uses, and what makes every page show its content in as few round trips and as little JavaScript as possible?
+**Question.** What is the one set of loading states every page uses, and how do we keep new code from drifting away from it?
 
-**"Every page" ranges over two sets, and this spec covers both by name:** (a) every component that shows a loading state, derived by the guard in §A4 rather than by this list; (b) every route in `App.tsx`, measured by the harness in §B0.
+**"Everywhere"** ranges over every component in `src/` that renders a waiting state, including `src/app/prototypes/events/`, where the production event pages live. The named list in §2 is the starting set. The guard in §5 derives the full set from the source tree, so a member nobody listed still fails the build.
 
 ## Appetite
 
-- **Blast radius: high.** Every page's loading branch and the shared data layer and entry bundle. A wrong change to a data read shows stale or missing data; a wrong bundle split can break offline (the service worker precaches the shell's chunks, P1369).
-- **Reversibility: high.** Code only, no migration. Each part ships as its own commit.
-- **Decision density: low.** The page loader is decided (P1539). Four founder calls, each with a recommended default: the section loading look (§A1), the speed targets (§B), and two copy lines inherited from P1562.
+- **Blast radius: medium-high.** Every page's loading branch, plus two read contracts (the events list, the room roster). No visual change to loaded content.
+- **Reversibility: high.** Code only. No migration, RPC, grant or RLS change.
+- **Decision density: low.** The page loader is decided (P1539). Three founder calls, each with a recommended default: the section look (§1) and two copy lines (§3, §4).
 
 ## Invariants
 
-- **One page loader.** A page that has nothing to show yet renders `ClarityPageLoader` and nothing else (decisions.md 2026-10-22, P1539: "do not add page-local full-screen loaders").
-- `ClarityPageLoader` keeps its CSS-only 300ms anti-flash (decisions.md 2026-03-16, no JS timers) and the loader chain's continuity (`loader-chain.ts`, P1539). `LazyRoute` keeps its key on the outermost boundary (decisions.md 2026-06-16, "Key ChunkErrorBoundary by pathname").
-- `ClarityPageLoader` is never rendered inside an already-drawn page section (decisions.md 2026-04-11, "ClarityPageLoader is a page-gate"): it reserves a full content height.
-- **A read that never answers ends in a readable state, never an endless loader or skeleton** (the rule `NewMessageDialog.tsx` already follows; the EventsList "Loading events…" forever defect, decisions.md 2026-10-01).
-- **Unknown is not "no".** A value still loading (an RSVP, a membership) shows nothing, never the negative answer.
-- **One service-worker version = one build's shell and chunks** (P1369). Any change to chunking keeps offline working: a page opened offline never asks for a chunk that is not cached.
-- **The request-volume guard keeps passing** (`e2e/p1522-idle-request-budget.spec.ts`, decisions.md 2026-10-21 P1522). This spec may only lower its numbers.
-- **A re-read of rows already on screen refreshes them in place** on `/feed` and `/stake`; it never swaps them back to the skeleton (decisions.md 2026-10-05, P1420).
-- The room roster never shows an error state or an empty wall (P1114).
+- **One page loader.** A page that has nothing to show yet renders `ClarityPageLoader` and nothing else (decisions.md 2026-10-22: "do not add page-local full-screen loaders").
+- `ClarityPageLoader` keeps its CSS-only 300ms anti-flash (decisions.md 2026-03-16) and the loader chain's continuity (`loader-chain.ts`, P1539). `LazyRoute` keeps its key on the outermost boundary (decisions.md 2026-06-16, "Key ChunkErrorBoundary by pathname").
+- `ClarityPageLoader` is never rendered inside an already-drawn section (decisions.md 2026-04-11, "ClarityPageLoader is a page-gate").
+- **A wait that never ends becomes a readable state.** Every loading state this spec touches has a deadline, after which it shows a readable line with a Retry (the pattern `NewMessageDialog.tsx` already uses: `READ_DEADLINE`, a hung read ends in an error with Retry). A late answer after the deadline is applied only if it is still for the current view. Deliberate fail-closed waits stay as they are (for example the agent registry's disclosure wait); `/dev` lists any it finds and leaves them.
+- **Unknown is not "no".** A value still loading, or one whose read failed, shows nothing, never the negative answer.
+- The room roster never shows an error state or an empty wall (P1114). A failed first read shows readable text, as it does today.
+- A re-read of rows already on screen refreshes them in place on `/feed` and `/stake`; it never swaps them back to a skeleton (decisions.md 2026-10-05, P1420).
 
 ## Solution
 
-### Part A — one way of loading
+### 1. The rule: four states and no others
 
-**A1. The rule, three kinds and no others.**
+| Situation | Shows |
+|---|---|
+| **Page**: nothing of the page can be drawn yet (route guard, lazy chunk, auth, a read the page's header itself needs) | `ClarityPageLoader` |
+| **Section**: the page's frame (header, tabs, chips) is drawn and a section below it is waiting | the section look (below) |
+| **Operation**: a control is working (a button, "Show more", "Creating session…", a send) | the control's own label or a small inline spinner inside the control |
+| **Optional section** that renders nothing when empty | may render nothing while loading too, only if it cannot push content when it appears (it sits last, or reserves its height) |
 
-| Situation | Shows | Never |
-|---|---|---|
-| Nothing of the page can be drawn yet (route guard, lazy chunk, the page's first read) | `ClarityPageLoader` | text, a page-local `ClarityLoader`, a blank screen |
-| The page's header is drawn and one section is still reading | a skeleton of that section's shape (shared skeleton primitives, one look) | text, a second large mark |
-| A button or a "more" control is working | its own label ("Show more" → "Loading…", "Creating session…") | a page loader |
+A page whose frame is static (a title that does not depend on data) draws the frame and shows the section look below it. It does not hold the page loader for its first read. So a cold load is page loader (chunk, auth) → frame plus section look → content, and the mark is never shown twice.
 
-An optional section that renders nothing when empty may also render nothing while loading, if it does not push content when it appears (it sits last, or reserves its height). `/dev` states which rule each kept `return null` meets.
+**This changes one existing ruling.** decisions.md 2026-04-11 prescribes `<ClarityLoader size="lg">` in a centring div for section waits. That pattern is the second mark at a different place.
 
-**This changes one existing ruling.** decisions.md 2026-04-11 ("ClarityPageLoader is a page-gate") prescribes `<ClarityLoader size="lg">` in a centring div for section loading states. That is the pattern that now draws a second large mark at a different place from the page loader (the "jumping" the founder saw). [FOUNDER DECISION: section loading look. Recommended: a skeleton of the section's shape, superseding the 2026-04-11 prescription for sections (its page-gate half stands). Alternative: keep the inline mark for sections, at a smaller size (`md`), so it never reads as a second page loader.] `/kdd` records whichever is chosen as a superseding entry.
+[FOUNDER DECISION: section look. Recommended: a skeleton of the section's shape, on one shared primitive, superseding the 2026-04-11 prescription for sections (its page-gate half stands). Alternative: a small (`md`, 48px) mark centred in the section, which never reads as a second page loader but stays a mark. Built as the recommended default unless overturned before `/dev`.]
 
-The 14 page-local `ClarityLoader` sites are a mix of both levels: `/dev` classifies each as page level (nothing of the page drawn yet → `ClarityPageLoader`) or section level (→ the section look above), and lists the classification in the PR.
+### 2. Every named member, classified
 
-**A2. Migrate every member of the inventory** (lines on `main` at `fda656c29`; `/dev` re-derives them):
+Lines are on `main` at `fda656c29`; `/dev` re-derives them and lists any member whose class it changes, with the reason.
 
-- **To `ClarityPageLoader`** (page level):
-  - page-local `ClarityLoader`: `org-page.tsx:329`, `org-join-page.tsx:181`, `org-directory-page.tsx:102`, `settings-page.tsx:201`, `create-agreement-page.tsx:300`, `create-story-page.tsx:281`, `letter-reading-page.tsx:1005`, `letter-response-confirm-page.tsx:222`, `clarity-live-page.tsx:4098`, `clarity-pledgers-page.tsx:99`, `artifacts-page.tsx:347`;
-  - text: `EventDetail.tsx:399`, `CreateEvent.tsx:100`, `compare-page.tsx:224, 239, 261`, `EventHostPage.tsx:1280`;
+- **Page → `ClarityPageLoader`:**
+  - page-local mark: `org-page.tsx:329`, `org-join-page.tsx:181`, `org-directory-page.tsx:102`, `settings-page.tsx:201`, `create-agreement-page.tsx:300`, `create-story-page.tsx:281`, `letter-reading-page.tsx:1005`, `letter-response-confirm-page.tsx:222` (`md`), `clarity-live-page.tsx:4098`, `clarity-pledgers-page.tsx:99`;
+  - text: `EventDetail.tsx:399`, `CreateEvent.tsx:100`, `compare-page.tsx:224, 239`, `EventHostPage.tsx:1280`, `transcribe-room-page.tsx:215-224` (spinner plus text), `video-summary-page.tsx:73`, the auth half of `clarity-live-page.tsx:4253-4256` ("Loading...");
   - blank: `EventRoomGate.tsx:86, 96`, `EventRoomMeet.tsx:423`, `EventRoomReady.tsx:103`, `EventArrivingPage.tsx:35`. Where the next step is a redirect, the loader shows until it lands.
-- **To a section skeleton** (section level):
-  - `EventsList.tsx:240` ("Loading events…") → 3 skeleton event cards; a failed read shows a readable line [FOUNDER DECISION: copy of the failure line].
-  - The letters tabs (`inbox-tab.tsx:151`, `sent-tab.tsx:455`, `drafts-tab.tsx:95`) → skeleton rows. `/dev` confirms each is under a drawn page header; if not, it is page level.
-  - The room roster (`EventRoomMeet.tsx`, "Loading who is here…", line 660) → skeleton rows while the **first** read is pending. `getRoomRoster` collapses a failure to `[]` (`event-room-service.ts`), so the read must report failure apart from empty; a failed first read shows a quiet readable line, a failed later poll keeps the last rows (P1114) [FOUNDER DECISION: copy of the unavailable line].
-- **Kept as they are** (button labels and iframe overlays, kind 3 or P1023): `clarity-live-page.tsx:4256`, `clarity-pledgers-page.tsx:128`, `MessageList.tsx:212`, `artifacts-page.tsx:377`, `iframe-load-overlay.tsx` (its labels in `intro-page.tsx`, `chiang-mai-page.tsx`).
-- **`return null` in sections** (`letters-section.tsx:57, 137`, `doc-story-picker.tsx:125`, `point-version-history.tsx:44`, `PrepRoom.tsx:114`): kept only where A1's optional-section rule holds, else a skeleton.
-- **The 15 skeleton files** draw from one shared primitive. None exists today (verified: no skeleton component in `src/components/ui/`; 7 local `*Skeleton` functions and 73 hand-written `animate-pulse` uses). Add one (one radius, one colour, one pulse) and move the existing skeletons onto it without changing their shapes.
+- **Section → the section look:** `artifacts-page.tsx:347` (`ListBody`, under the tabs), `compare-page.tsx:261` (under the header and chips), `EventsList.tsx:240` (§3), the letters tabs `inbox-tab.tsx:151`, `sent-tab.tsx:455`, `drafts-tab.tsx:95`, `review-mode-view.tsx:108`, `my-sessions-page.tsx:256, 371`, `doc-story-picker.tsx:180`, the room roster (§4).
+- **Operation, kept:** "Creating session…" in `clarity-live-page.tsx:4256`, `clarity-pledgers-page.tsx:128`, `MessageList.tsx:212`, `artifacts-page.tsx:377`, `NewMessageDialog.tsx:186` (a dialog read that already has its deadline), and every small `Loader2` inside a button.
+- **Kept, its own rule:** `iframe-load-overlay.tsx` and its labels in `intro-page.tsx`, `chiang-mai-page.tsx` (P1023, a cross-origin embed with no paint signal).
+- **`return null` in sections:** `letters-section.tsx:57, 137`, `doc-story-picker.tsx:125`, `point-version-history.tsx:44`, `PrepRoom.tsx:114`: kept only where the optional-section rule holds, else the section look.
 
-**A3. EventsList shows the list when the events arrive** (from P1562 §3.3). Today it waits for one `isUserRsvpd` call per event (`EventsList.tsx:69-93`). The cards' "Going" mark fills as each read lands; an unknown RSVP shows no mark; a response for an older user or group is dropped; marks clear on sign-out or account change; a failed read never blocks the list.
+### 3. The events list
 
-**A4. A guard that finds members nobody listed.** A unit test scans `src/` and fails on: a page-level text loader (`Loading` text as the whole render of a loading branch), a `<ClarityLoader size="lg">` outside `clarity-loader.tsx` and `iframe-load-overlay.tsx`, and a `return null` on a loading flag in a component rendered directly by a route. It derives its members from the source tree (epistemic gate 7e), carries a short allowlist with one reason per entry for kind-3 labels, and is proven to fail by deleting a migration from the **real** file (gate 7d), not a fixture.
+`EventsList.tsx:69-93` waits for upcoming events, past events, then one `isUserRsvpd` request per event before it shows anything. Three defects sit under the "Loading events…" text:
 
-**A5. Record the standard** in `docs/ux-patterns.md`: a short "Loading" section with A1's table, linking decisions.md 2026-10-22.
+- **Failure looks like empty.** `getUpcomingEvents` and `getPastEvents` return empty arrays on a database error (`events-service-real.ts:280-283` and the past-events branch). The list must tell failure from "no events": the read returns a failure the caller can see, and the list shows a readable line with Retry [FOUNDER DECISION: copy of the line]. An empty success keeps today's empty state.
+- **No deadline, no cancellation.** A hung read keeps the skeleton forever; a response for a previous group or user can land after a switch. Add the deadline from the Invariants and drop any response that is not for the current group and user. Clear RSVP marks on sign-out or account change.
+- **The RSVP marks cost one request per event, and a failed one reads as "not going".** `isUserRsvpd` returns `false` on error (`events-service-real.ts:477-479`). The events read already fetches every RSVP row for these events in one batch, `event_id, profile_id`, for the attendee counts (`events-service-real.ts:293-296`). Derive the viewer's marks from those rows if they reach the caller (UNVERIFIED: `/dev` checks the mapper), else one batched read for the viewer. Either way: no per-event request, the list renders without waiting for marks, a mark whose read failed stays unknown (no mark), and no mark from another account or group ever shows.
 
-### Part B — fast pages
+### 4. The room roster
 
-[FOUNDER DECISION: speed targets. Recommended defaults, each measured by the §B0 harness so it is VPN-independent:
-- **Rounds before content:** at most **2** sequential database rounds before a page's main content draws (today 4–5 on `/feed` and an event page).
-- **Duplicates:** each table read **at most once** per page load, except pagination and declared pollers.
-- **Entry JavaScript:** at most **200 KB gzipped** before the first route chunk (today 314 KB).
-- **First-visit LCP:** at most **2.5s** for `/feed` and `/events/:slug` on Lighthouse mobile against prod, measured without a VPN, as the post-deploy check.]
+`EventRoomMeet.tsx:334` reads the roster through `subscribeToRoomRoster`, not `getRoomRoster`. The subscription already serialises reloads, times out at 10s and keeps the last good rows on a later failure. By contract it reports `[]` before the first success, and `src/tests/p1114-roster-reload-ordering.test.ts:93-98` asserts that. The page then shows "Loading who is here…" for both "not loaded yet" and "first read failed".
 
-**B0. Baseline harness first, before any speed change.** Extend `scripts/measure-idle-requests.mjs` (or a sibling) into a per-route report: for every route in `App.tsx` (public routes signed out, signed-in routes with a verified TEST user, parameterised routes with a seeded id), record the database requests, the rounds (a request that starts after an earlier one ends counts as a new round), duplicate tables, JS bytes before the route chunk, and LCP. A fixed injected latency per database request (for example 300ms via Playwright routing) makes the round count visible and the times comparable run to run. Output goes to `.private/` or the terminal, not the repo root. The report lists **every** route; a route over target is fixed in this spec or set aside only as [FOUNDER DECISION: scope], never silently.
+- Add a status to the subscription (`pending` until the first answer, then `ready` or `failed`), alongside the roster. Keep the `[]` emission and the ordering exactly as they are, so the existing test stays unchanged and green.
+- `pending` → skeleton rows (the section look). `failed` before any success → the readable line with no alarm [FOUNDER DECISION: copy; today's "Loading who is here…" is wrong for a failure]. The next poll retries. `ready` → the roster as today.
 
-**B1. Read each table once per page load.** Find why `events`, `organization`, `stories` and `point_positions` are read several times on one load (likely several components each fetching the same thing: the home events strip, the feed, the offline cache, the event page and its series blocks). Share one read per page through whatever the codebase already uses (the offline cache, a context, a shared hook), keeping each read's existing authorization. This is the follow-up decisions.md 2026-10-21 (P1522) named as the next lever.
+### 5. A guard that finds members nobody listed
 
-**B2. Collapse sequential rounds.** For the routes over target (at least `/feed` and `/events/:slug`), start independent reads together instead of one after another, and fetch dependent data in one query (a PostgREST embed or an existing RPC) where the dependency is only an id the server already knows. No new tables. A new RPC is allowed only with its grant and RLS reviewed (`.claude/rules/database.md`).
+A unit test scans `src/` (including `src/app/prototypes/events/`, excluding demo-only prototype routes, each named with a reason) and fails on:
 
-**B3. Shrink the entry file.** Move code that only some routes use out of the entry chunk: the data-service modules that are imported eagerly through `App.tsx`, contexts and layout (for example `letters-service`, `transcribe-service`, the large parts of `api.ts`), and any vendor that only lazy routes need. Verify by the build's own output (sizes of the entry chunk before and after), and keep the service worker's precache list correct (P1369): an offline e2e opens the shell and one lazy route with the network off.
+1. a large `ClarityLoader` (`lg` or `md`) outside `clarity-loader.tsx` and `iframe-load-overlay.tsx`;
+2. `Loading` text as the whole render of a loading branch;
+3. a `Loader2`, `Loader2Icon` or `animate-spin` element that is not inside a control (button, link, input);
+4. `return null` on a loading flag in a component a route renders directly;
+5. `animate-pulse` outside the shared skeleton primitive.
 
-**B4. Signed-in boot.** The harness measures the signed-in path from navigation to first content (session restore, profile, nav state). If it adds a round the page itself does not need, remove it. Includes the 17 `supabase.auth.getUser()` calls in `src/`: each is a network request to the auth server (decisions.md 2026-04-11, "getUser() hits the network on every call"); a routine identity check reads `getSession()` instead, and a call stays `getUser()` only where server revalidation is the point, with a one-line reason. Nothing changes in who gets the shell (P1421/P1512) or in session handling (P1297).
+It derives its members from the source tree (epistemic gate 7e). It carries an allowlist with one reason per entry, for operation labels and the P1023 overlay. **Each of the five categories gets a positive and a negative control, built by mutating a real file** (gate 7d): reverting one migrated site makes it fail, and an allowed operation label passes. Before it lands it is run against today's tree, and every current hit is classified (gate 7c).
+
+### 6. One skeleton primitive
+
+None exists (no skeleton component in `src/components/ui/`). Add one, with one radius, one colour and one pulse. Move the eight existing skeletons and the new section skeletons onto it without changing their shapes.
+
+### 7. Record the standard
+
+Add a short "Loading" section to `docs/ux-patterns.md` with §1's table, linking decisions.md 2026-10-22 and this spec. `/kdd` writes the decision that supersedes the 2026-04-11 section prescription.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Sharing one read across components shows stale data after a write | MITIGATE | Writes invalidate the shared read the same way they refresh today; the p1420 refresh-in-place tests and the RSVP e2e keep passing |
-| Moving modules out of the entry breaks offline or the update prompt | MITIGATE | The offline e2e in B3 and the P1369/P1416 tests run on a production build |
-| A merged query changes what a signed-out visitor may read | MITIGATE | No RLS or grant changes; any new RPC reviewed per `database.md`; anon reads compared before and after |
-| The guard test flags legitimate labels | MITIGATE | Allowlist with a reason per entry; the guard is run against today's tree and every current hit is classified (gate 7c) |
-| Times through a VPN mislead the targets | MITIGATE | Targets are counts and bytes from the harness; LCP is measured without a VPN |
-| P1542's branch moves event-room lines under this spec | ACCEPT | `/dev` re-derives line numbers; the rule, not the line, is the contract |
-| A server region far from the visitors keeps every round slow | DEFER | Out of scope; the harness reports per-round latency so the case can be made with numbers |
+| A frame drawn before data shows a header that later changes | MITIGATE | Only static frames are drawn early (§1); a header that depends on data waits for the page loader |
+| The guard flags legitimate code | MITIGATE | Allowlist with reasons; run against today's tree first; a negative control per category |
+| Changing the events-read return shape breaks other callers | MITIGATE | `/dev` lists every caller of `getUpcomingEvents`/`getPastEvents` (home rail, feed, offline pack) and keeps their behaviour; the offline read cache keeps its rule (decisions.md 2026-10-04) |
+| The roster status channel changes reload ordering | MITIGATE | Additive: the existing ordering test passes unchanged |
+| A section skeleton flashes on fast loads | ACCEPT | The same 300ms CSS delay as the page loader may be applied; `/dev` decides per skeleton and shows the frames |
+| P1542's branch moves event-room lines | ACCEPT | `/dev` re-derives lines; the class, not the line, is the contract |
+| `fetchRoomRoster` leaves a timed-out request open | DEFER | Not a loading-state defect; noted for P1587's network pass |
 
 **Non-Goals**
 
-- Do NOT change the ClarityLoader mark or its animation (decisions.md 2026-03-16).
-- Do NOT change the boot splash, P1539's shell reservation, its anti-flash or its loader chain.
-- Do NOT change the event room's header, Back or Transcribe control (P1562 §1–2; see Related).
+- Do NOT change the ClarityLoader mark or its animation (decisions.md 2026-03-16), the boot splash, P1539's shell reservation, its anti-flash or its loader chain.
+- Do NOT change the event room's header, Back or Transcribe control (P1562 §1–2).
 - Do NOT change who gets the shell (P1421/P1512) or how sessions restore (P1297).
-- Do NOT add a client data-fetching library unless B1 shows the existing cache and contexts cannot share a read; if so, stop and propose it with the measurement.
-- Do NOT change RLS policies, grants or tables.
-- Do NOT retune pollers (P1522 ruled egress is cut where fresh browsers pay it).
+- Do NOT change query shapes, bundles or request counts except the RSVP marks in §3; speed is P1587.
+- Do NOT add a client-side read cache or request dedupe (decisions.md 2026-10-21, P1527).
+- No migration, RPC, grant or RLS change.
 
 ## Done-When
 
-Visual items are checked at 1440, 375 and 320 with screenshots; speed items with pasted harness output, before and after.
+Visual items: screenshots at 1440, 375 and 320, plus the frame evidence named in the item.
 
-- [ ] Cold loads of `/feed`, `/groups/cm`, `/events`, `/groups/cm/join`, `/events/:slug`, `/events/:slug/room`, `/events/:slug/meet`, `/settings`, `/letters` and `/compare/:slug` with data requests delayed, 100ms frames from navigation until the page resolves: no frame shows "Loading" text; the mark's centre moves at most 8px while visible; no blank content frame after the mark has shown and before the page resolves.
-- [ ] Every A2 member renders its new state, each with a focused test that fails on the old code (pasted non-zero exit) and passes on the new.
-- [ ] The A4 guard passes on the new tree and fails when one migration is reverted in the real file (pasted exit codes).
-- [ ] The events list shows skeleton cards while loading, renders before the RSVP marks with RSVP reads delayed, never shows a previous account's or group's marks, and shows the failure line (not an endless skeleton) when the events read fails.
-- [ ] The room roster shows skeleton rows on the first read, the unavailable line on a failed first read, the last rows on a failed later poll, and the existing empty display on an empty read.
-- [ ] The B0 report covers every route in `App.tsx`, before and after, with each route over target either fixed or listed under a founder scope decision.
-- [ ] `/feed` and `/events/:slug`: rounds before content and duplicate reads meet the targets in the harness.
-- [ ] The entry chunk meets the size target in `vite build` output, and the offline e2e suite (`e2e/offline/`, which runs on a production build) passes, with a case for the shell plus one lazy route opened with the network off.
-- [ ] `p1522-idle-request-budget`, the p1420 tests, the p1114/p1337 room tests and the p1369 service-worker tests (`src/tests/p1369-*`, `e2e/offline/`) pass, with request numbers no higher than before.
-- [ ] `docs/ux-patterns.md` has the Loading section. `[post-deploy]` Lighthouse mobile LCP for `/feed` and `/events/:slug` on prod, without a VPN, against the target.
-
-## Open Questions
-
-1. Are signed-in pages slower in ways this measurement could not see? B0 answers it with a TEST user.
-2. How much of the founder's day-to-day slowness is the VPN? A one-minute check by the founder: open the same event page once with the VPN on and once off, and compare.
+- [ ] Cold loads of `/feed`, `/groups/cm`, `/events`, `/groups/cm/join`, `/events/:slug`, `/events/:slug/room`, `/settings`, `/letters`, `/compare/:slug`, `/artifacts` and `/transcribe` (or their current paths), each with its data requests held for 1.5s so the loader is certain to be visible. Frames are sampled every animation frame (a `requestAnimationFrame` probe recording the mark's centre and any loading text, not 100ms screenshots), from navigation until the main-content marker for that route appears. The pasted per-route output shows:
+  - the mark was visible (so the next checks are not vacuous);
+  - its centre moved at most 8px while visible;
+  - no frame had "Loading" text;
+  - no blank content frame after the mark showed and before content;
+  - at most one mark episode per navigation.
+- [ ] Every §2 member renders its class's state, each with a focused test that fails on the old code (pasted non-zero exit) and passes on the new.
+- [ ] The §5 guard passes on the new tree. Each of its five categories fails when one real migrated site is reverted and passes for an allowlisted operation label (pasted exit codes, 10 runs).
+- [ ] Events list:
+  - skeleton cards while loading;
+  - with RSVP reads delayed, the list renders before the marks;
+  - zero per-event RSVP requests (pasted request log);
+  - a failed RSVP read shows no mark, not "not going";
+  - switching account or group while both the events and RSVP responses are pending never shows the previous account's or group's marks;
+  - a rejected events read and a stalled one (no answer past the deadline) both end in the readable line with Retry, and Retry recovers;
+  - an empty success shows the empty state.
+- [ ] Room roster: skeleton rows while pending; the readable line on a failed first read; the last rows on a failed later poll; `p1114-roster-reload-ordering` and the p1114/p1337 room suites unchanged and green.
+- [ ] All existing skeletons render on the shared primitive, with before/after screenshots showing the same shapes.
+- [ ] `docs/ux-patterns.md` has the Loading section.
 
 ## Related
 
-P1562 (closed 2026-10-28; its §3 lives here. Its §1–2, the event room's one Back, header and Transcribe control, are still unowned) · P1539 (signed-in loading, decisions.md 2026-10-22) · P553 (route lazy-loading) · P119 (bundle size, out of date: superseded by B3) · P1522 (egress, request-volume guard; decisions.md 2026-10-21 names duplicate fetches as the next lever) · P1369 / P1416 (service-worker precache, update prompt) · P1420 (refresh in place) · P1114 (roster degrade rule) · P1297 (cold-load session) · P1549 (join path, moves the same `org-join-page` loader; whichever lands second reuses it) · P1023 (iframe overlay) · decisions.md 2026-03-19 (deferred analytics, lazy pages, self-hosted fonts)
+**P1587** (page speed, the other half of this ask) · P1562 (closed 2026-10-28; its §3 lives here, its §1–2 are still unowned) · P1539 (signed-in loading, decisions.md 2026-10-22) · P1527 (no client read dedupe, decisions.md 2026-10-21) · P1114 (roster degrade rule) · P1420 (refresh in place) · P1023 (iframe overlay) · P1549 (join path, moves the same `org-join-page` loader; whichever lands second reuses it) · decisions.md 2026-03-16 (the mark, CSS anti-flash, no text) · 2026-04-11 (page-gate vs inline, superseded for sections here)
