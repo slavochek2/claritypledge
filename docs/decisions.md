@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-28 [technical]: Self-hosted TEST auth e-mail: a sink that forwards only the founder's mail, with prod's designs (P1557)
+
+**Context:** After the switch, sign-in e-mails from self-hosted TEST went to the stack's mail sink, which was added on purpose so test runs never reach real inboxes, and the founder could not sign in by e-mail. Tests sign up with random `@gmail.com` addresses (`e2e/helpers/test-user.ts`), so sending everything for real through the shared Mailgun domain would mail non-existent inboxes and risk the domain's sending reputation, which prod also depends on.
+**Decision:** Keep the sink (mailpit) and have it auto-relay only the founder's own addresses through a dedicated Mailgun SMTP login; everything else stays in the sink, which is readable over Tailscale only. The magic-link and confirmation e-mails use prod's designs, with each link pointed at the requesting `localhost` origin instead of the production domain. Hand-started dev servers reach this server through a Vite-only `.env.development.local` override, because `migrate.sh` and `deploy-functions.sh` read the hosted project ref from `.env.local`. Google sign-in uses the existing test OAuth client with the self-hosted callback added.
+**Alternatives rejected:** Sending all auth mail for real, because of bounces from synthetic addresses. Sink-only, because the founder cannot sign in from a real inbox. Editing `.env.local`, which would have broken the hosted half of every dual-target migrate and deploy.
+**Consequences:** Prod template changes do not reach TEST by themselves; P1584's weekly report checks for drift. Subjects and the other e-mail types use GoTrue defaults.
+**References:** [P1557](../features/done/2026-06-10/p1557_self_hosted_supabase_test_database.md) · [P1584](../features/p1584_self_hosted_test_server_upkeep_recipe.md)
+
 ## 2026-10-28 [technical]: The TEST database runs as self-hosted Supabase; the test server holds the mail key but no paid AI or storage keys (P1557)
 
 **Context:** Hosted TEST, on the smallest plan, timed out under the concurrent e2e load of several sessions. P1557 moved TEST to a self-hosted Supabase stack on a cloud VM paid from credits, with hosted kept warm as the rollback target.

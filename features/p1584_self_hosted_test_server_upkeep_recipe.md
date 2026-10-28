@@ -44,10 +44,15 @@ Decision density: low; one founder call below.
 2. **/day keeps disk and WAL** (`cp.selfhosted`) until a workflow can hold a gcloud credential.
    [FOUNDER DECISION: give a GitHub workflow a narrowly scoped GCP service account for disk and WAL,
    or keep them in /day.]
-3. **Weekly drift report** in /weekly: running image tags against the pinned stack version, and
-   pending OS security updates on the VM. Report only; an agent proposes the upgrade.
+3. **Weekly drift report** in /weekly: running image tags against the pinned stack version, pending
+   OS security updates on the VM, whether a reboot is pending after an unattended upgrade
+   (`/var/run/reboot-required`; unattended upgrades install security fixes daily but never reboot),
+   and whether the auth e-mail templates still match prod's. Report only; an agent proposes the
+   upgrade or reboot.
 4. **Recipe** in the pp recipe system: create the VM, run the stack, apply migrations, deploy
-   functions (including the shared import map), load the vault, flip the env, roll back.
+   functions (including the shared import map), load the vault, flip the env, point hand-started dev
+   servers at it (`.env.development.local`), set up Google sign-in, set up the founder-only mail
+   relay and the prod e-mail templates, roll back.
 
 ## Risks / Non-Goals
 
@@ -64,7 +69,8 @@ Decision density: low; one founder call below.
 
 - [ ] A scheduled workflow checks reachability and certificate, and an issue opens when the check is
       made to fail once (proven by pointing it at an unreachable host).
-- [ ] /weekly shows the self-hosted image drift and pending OS updates.
+- [ ] /weekly shows the self-hosted image drift, pending OS updates, a pending reboot, and e-mail
+      template drift against prod.
 - [ ] The recipe exists in the pp recipe system and a dry read against the scripts finds no step
       they no longer support.
 - [ ] /day's `cp.selfhosted` comment names the workflow instead of "filed".
