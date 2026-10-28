@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-10-27'
 tags: [e2e, tests, artifacts, p1545]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, fix, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -59,8 +59,8 @@ Non-goal: redesigning the e2e harness; tests outside these seven specs.
 
 ## Done-When
 
-- [ ] Every failing test in the seven specs is classified (stale / infra / real bug) with evidence
-- [ ] The seven specs pass on the branch (flakes named, not hidden)
-- [ ] Each repaired test was seen failing with its guarded behaviour broken
-- [ ] Real app bugs, if any, are reported to the founder rather than silently fixed
-- [ ] Reviewed by Gemini and Codex; findings resolved or recorded
+- [x] Every failing test in the seven specs is classified (stale / infra / real bug) with evidence — table in the run report; stale: P1545 UI moves; infra: 30s hook timeouts and the shared-TEST overload; one real bug (received letters never show steps) split out as P1583
+- [x] The seven specs pass on the branch (flakes named, not hidden) — self-hosted TEST, 2026-10-28: 58 passed, 2 skipped, 1 flaky (`p1512-chat-live:383` lost-reply retry, unedited, passed on retry), 1 failure that was a selector bug in this branch, since fixed and passing. Control on `main` before this branch: 24 failed
+- [x] Each repaired test was seen failing with its guarded behaviour broken — 13 mutation runs (app change, run fails, restore, run passes). The remove-story test first PASSED with the unlink skipped; it now asserts the `doc_stories` row is gone and fails under that mutation. Badge test fails with the Artifacts badge forced to 0
+- [x] Real app bugs, if any, are reported to the founder rather than silently fixed — one: received letters never show "N of M steps" (`get_received_letters_page` returns no step fields); reported and filed as P1583, no app code changed here
+- [x] Reviewed by Gemini and Codex; findings resolved or recorded — round 1: 2 of 2 (2 fixed, 2 set aside with reasons: the draft-page navigation is the real P1545 path; the sender canary moved to the overview per P1545); round 2: 2 of 2, 3 fixed; round 3 Gemini confirmation clean. Receipt written
