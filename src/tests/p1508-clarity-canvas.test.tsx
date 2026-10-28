@@ -61,8 +61,8 @@ describe('box tags', () => {
     ]);
     expect(CANVAS_BOXES.map(b => b.title)).toEqual([
       'Customer Segments', 'Problem', 'Solution',
-      'Go-to-market strategy', 'Offers & Pricing', "How I'll know it's working",
-      'My values', 'My current biggest challenge', "Hypotheses I've falsified",
+      'Go-to-market strategy', 'Offers & Pricing', 'My next milestone',
+      'Guiding values', 'My current biggest challenge', "Hypotheses I've falsified",
     ]);
     expect(CANVAS_LAYERS.map(l => l.title)).toEqual(['Core assumptions', 'Profitability assumptions', 'Founder-fit assumptions']);
     expect(CANVAS_LAYERS.flatMap(l => l.boxes)).toEqual(CANVAS_BOX_TAGS);
