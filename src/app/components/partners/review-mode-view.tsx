@@ -137,7 +137,7 @@ export function ReviewModeView({
         </h2>
 
         {isLoading || failed ? (
-          <SectionWait failed={failed} onRetry={retry}>
+          <SectionWait key={session.id} failed={failed} onRetry={retry}>
             <ReviewIdeasSkeleton />
           </SectionWait>
         ) : liveState.ideasDiscussed === 0 ? (

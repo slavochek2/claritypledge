@@ -157,7 +157,7 @@ export function ClarityPledgersPage() {
         )}
 
         {/* CTA Section */}
-        {!loading && (
+        {!loading && !failed && (
           <div className="text-center mt-20">
             <h2 className="text-3xl font-bold mb-4">Ready to Commit?</h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
