@@ -27,7 +27,7 @@ import { ReferencesList } from "@/app/components/landing/references-list";
 import { WhyNobodyVerifiesSection, NEUTRAL_HIERARCHY_TEXT, type ReasonSource } from "@/app/components/landing/why-nobody-verifies";
 import { GroupTermsSection } from "@/app/components/landing/group-terms-section";
 import { TeamNormSection, NEUTRAL_MAINTAIN_TEXT } from "@/app/components/landing/team-norm-section";
-import { SECTION, MUTED } from "@/app/components/landing/landing-motion";
+import { SECTION } from "@/app/components/landing/landing-motion";
 
 // Only the citations this page uses, numbered in reading order. The hospital-specific
 // HA Thailand source is not used: the hierarchy reason carries no citation here.
@@ -126,7 +126,7 @@ export function ChangeManagersPage() {
             least one objective or failed entirely"; obstacles: mindsets and attitudes 58%,
             technology barriers 8%). Never reword it toward "understanding" (decisions.md, "the
             page's thesis smuggled into a stat"); the sections below make that link. */}
-        <section id="stakes" className={SECTION}>
+        <section id="stakes" className={`${SECTION} scroll-mt-16`}>
           <Reveal className="container mx-auto max-w-3xl text-center">
             <div data-testid="stat-card">
               <p className="text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">
@@ -140,18 +140,18 @@ export function ChangeManagersPage() {
         </section>
 
         {/* 3. Why almost nobody verifies (shared) */}
-        <WhyNobodyVerifiesSection cite={cite} hierarchyText={NEUTRAL_HIERARCHY_TEXT} />
+        <WhyNobodyVerifiesSection cite={cite} hierarchyText={NEUTRAL_HIERARCHY_TEXT} muted />
 
         {/* 4. The exchange (shared, neutral cast) */}
-        <section className={`${SECTION} ${MUTED}`}>
+        <section className={SECTION}>
           <GapExchangeSection cast={TEAM_CAST} />
         </section>
 
         {/* 5. Group Terms (shared) */}
-        <GroupTermsSection />
+        <GroupTermsSection muted />
 
         {/* 6. How it becomes a team norm (shared) */}
-        <TeamNormSection maintainText={NEUTRAL_MAINTAIN_TEXT} muted />
+        <TeamNormSection maintainText={NEUTRAL_MAINTAIN_TEXT} />
 
         {/* 7. Founder credibility (shared) */}
         <FounderCredibility />

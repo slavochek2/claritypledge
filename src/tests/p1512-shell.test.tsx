@@ -529,7 +529,7 @@ describe('P1512 shell — menus do not repeat the nav beside them', () => {
 });
 
 describe('P1512 — the public website, signed in', () => {
-  const SITE = ['/builders', '/hiring', '/coach', '/hospitals', '/founder', '/manifesto', '/about', '/pledgers'];
+  const SITE = ['/builders', '/hiring', '/coach', '/hospitals', '/change-managers', '/founder', '/manifesto', '/about', '/pledgers'];
 
   it.each(SITE)('%s signed in: the public top nav with Open app and Log out, no sidebar, no bottom bar', (path) => {
     const { container } = renderLayout(path, { surface: 'public' });

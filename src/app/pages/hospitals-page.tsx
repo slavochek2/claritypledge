@@ -11,9 +11,9 @@
  * /intro, appears in the hero and the closing section; the hero adds the /builders quiet
  * "or Take the Pledge" link, the pledger strip and the scroll cue.
  *
- * Reveal, RefSup, References and the why / Group Terms / team-norm sections are shared with
- * /change-managers (src/app/components/landing/). CountUpPercent is still duplicated from
- * program-page.tsx, as build-right-thing-landing.tsx already does.
+ * Reveal, RefSup, References, CountUpPercent and the why / Group Terms / team-norm sections are
+ * shared with /change-managers (src/app/components/landing/). program-page.tsx and
+ * build-right-thing-landing.tsx still carry their own copies.
  */
 import { useEffect } from "react";
 import { Link } from "react-router-dom";

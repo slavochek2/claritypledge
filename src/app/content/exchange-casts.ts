@@ -23,4 +23,3 @@ export const TEAM_CAST: ExchangeCast = {
   surface: "change-managers-exchange",
   avatars: { other: "/change-managers/teammate-a.jpg", me: "/change-managers/teammate-b.jpg" },
 };
-
