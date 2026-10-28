@@ -128,7 +128,8 @@ describe('P1558 /change-managers - route, nav, preview', () => {
 
   it('is routed at /change-managers, redirects /change-leads, and leads the Use cases menu', () => {
     const app = read('src/App.tsx');
-    expect(app).toContain('path="/change-managers"');
+    expect(app).toContain('USE_CASE_LANDINGS.map(');
+    expect(read('src/app/routes/use-case-landings.ts')).toContain('path: "/change-managers"');
     expect(app).toContain('LANDING_REDIRECTS.map(');
     expect(read('src/app/routes/landing-redirects.ts')).toContain('["/change-leads", "/change-managers"]');
     expect(read('src/app/components/layout/nav-links.ts')).toContain('{ to: "/change-managers", label: "For change managers"');

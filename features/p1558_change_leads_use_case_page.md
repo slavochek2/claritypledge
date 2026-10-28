@@ -6,8 +6,8 @@ workstream: gtm
 created_date: '2026-10-23'
 tags: [landing, use-case, change-management, outreach]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -57,8 +57,22 @@ Decision density: a few (route name, headline, CTA, indexing).
 A public route inside `ClarityLandingLayout surface="public"`, built the way /hospitals is, added to
 `AUDIENCE_LINKS` per the 2026-10-17 ruling.
 
-[FOUNDER DECISION: route name. Candidates: /change, /change-leads, /transformation.]
-[FOUNDER DECISION: indexed or `noIndex` (/hospitals is `noIndex`).]
+**Resolved (founder, 2026-10-23 to 10-28):**
+- Route `/change-managers`, menu label "For change managers", first in Use cases (the real job title;
+  nobody is called a "change lead"). `/change-leads` redirects (client and server), OG covers both.
+- `noIndex`, as /hospitals.
+- Built on the /hospitals structure by sharing its sections, not copying them: hero → Marco chat
+  (problem) → stat → Why almost nobody verifies → Reveal a gap, then close it (office cast) → Group
+  Terms → How revealing gaps becomes a team norm → founder → closing "Reveal gaps in understanding
+  before your rollout stalls" → References. The as-drafted sections 2 to 5 below were replaced by
+  this; the offer cards and the "How the platform works" section were tried and dropped.
+- Stat: IBM, Making Change Work (2008): 59% of change projects missed at least one objective or
+  failed entirely; top obstacle mindsets and attitudes, not technology. In the source's words; no
+  bridge line (founder deleted it).
+- Headline "Everyone agreed. Then nothing changed."; CTA "Book a 15-min discovery call" → /intro.
+- Open: who sees skipped check-backs (offer draft vs this spec's recognition invariant). The page
+  says nothing about visibility either way.
+
 
 Sections (order and copy drafted in /dev, every heading and the hero approved by the founder before build):
 1. **Hero**: the stall: a change everyone agreed to in the meeting, that does not happen afterwards.
@@ -92,17 +106,17 @@ Job titles may appear in page copy. This deliberately supersedes, for use-case p
 **Non-Goals**
 - Do NOT build any product capability (transcript import, agent drafting, follow-through record).
 - Do NOT add a Thai or other language version.
-- Do NOT change other landings or the shared layout beyond the one menu entry.
+- Do NOT change other landings or the shared layout beyond the one menu entry. **Deviation, founder-directed (2026-10-27, "reuse them everywhere"):** /hospitals sections were extracted into shared components; /hospitals renders and tracks identically (its test suite passes unchanged). Four landing redirects moved into one list (`LANDING_REDIRECTS`) so App.tsx shrinks under the quality ratchet.
 
 ## Acceptance Criteria
 
-- [ ] The page loads at the chosen route with the site's top menu and footer, signed in or not, and appears in the Use cases menu.
-- [ ] A reader can tell, for each capability mentioned, whether it works today or is being built.
-- [ ] Follow-through appears only as recognition, with no ranking of people, and the copy does not commit to names or totals.
-- [ ] Each statistic has an inline citation and a References entry; the 70% failure figure does not appear.
-- [ ] One primary action only, the founder-confirmed CTA, in the hero and a closing section.
-- [ ] Analytics: `landing_page_viewed` with the page's variant on load, and a CTA click event (unit test pre-deploy). `[post-deploy]` confirm in Mixpanel.
-- [ ] Screenshots at 320px, 375px and desktop, reviewed by a separate QA subagent against the visual-qa checklist, plus one read-through as a team member.
+- [x] The page loads at the chosen route with the site's top menu and footer, signed in or not, and appears in the Use cases menu. *(Browser 2026-10-27/28: /change-managers renders with nav + footer, first in Use cases; /change-leads, /hospital, /program, /offers redirect; route + menu tests.)*
+- [x] A reader can tell, for each capability mentioned, whether it works today or is being built. *(Final page names only live capabilities: the Group Terms and the 0 to 10 check. Unbuilt items (agent drafting, transcripts, follow-through record) were removed rather than labelled.)*
+- [x] Follow-through appears only as recognition, with no ranking of people, and the copy does not commit to names or totals. *(Final page does not mention follow-through visibility at all; test asserts no "who didn't" phrasing.)*
+- [x] Each statistic has an inline citation and a References entry; the 70% failure figure does not appear. *(IBM 2008 quotes verified in the PDF this session; Newton 1990 and Camerer 1989 carried from /hospitals; test asserts References and no 70%.)*
+- [x] One primary action only, the founder-confirmed CTA, in the hero and a closing section. *(Test: exactly two primary links, both /intro.)*
+- [x] Analytics: `landing_page_viewed` with the page's variant on load, and a CTA click event (unit test pre-deploy). `[post-deploy]` confirm in Mixpanel. *(Unit tests: variant change-managers, change_managers_cta_clicked, change_managers_exchange_viewed. Mixpanel confirmation is post-deploy and still to do.)*
+- [x] Screenshots at 320px, 375px and desktop, reviewed by a separate QA subagent against the visual-qa checklist, plus one read-through as a team member. *(Five QA-subagent passes across versions, last on the /change-managers build; mobile text too small in full-page captures for contrast/touch-target checks, layout and overflow verified. Reviews: Gemini 4 Argon, Codex x3, Gemini flash x2.)*
 
 ## Open Questions
 

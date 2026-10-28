@@ -25,6 +25,7 @@ import { isAppServerReachable } from "@/lib/reachability";
 import { TermsAcceptanceGate } from "@/app/components/auth/terms-acceptance-gate";
 import { ChatRedirect, DocDetailRedirect, FeedTagRedirect } from "@/app/routes/legacy-redirects";
 import { LANDING_REDIRECTS } from "@/app/routes/landing-redirects";
+import { USE_CASE_LANDINGS } from "@/app/routes/use-case-landings";
 import { LettersRedirect, DocsRedirect } from "@/app/pages/artifacts/legacy-redirects";
 
 // P553: All pages lazy-loaded to reduce initial bundle size
@@ -134,8 +135,6 @@ const AdminTopicsPage = lazy(() => import("@/app/pages/admin-topics-page").then(
 const TopicsPage = lazy(() => import("@/app/pages/topics-page").then(m => ({ default: m.TopicsPage })));
 const LinksMenuPrototype = lazy(() => import("@/app/pages/prototypes/links-menu-prototype").then(m => ({ default: m.LinksMenuPrototype })));
 const AdminUsersPrototype = lazy(() => import("@/app/pages/prototypes/admin-users-prototype").then(m => ({ default: m.AdminUsersPrototype })));
-const ChangeManagersPage = lazy(() => import("@/app/pages/change-managers-page").then(m => ({ default: m.ChangeManagersPage })));
-const HospitalsPage = lazy(() => import("@/app/pages/hospitals-page").then(m => ({ default: m.HospitalsPage })));
 const CoachPartnershipPage = lazy(() => import("@/app/pages/coach-partnership-page").then(m => ({ default: m.CoachPartnershipPage })));
 const ProgramPage = lazy(() => import("@/app/pages/program-page").then(m => ({ default: m.ProgramPage })));
 const BuildRightThingLanding = lazy(() => import("@/app/pages/build-right-thing-landing").then(m => ({ default: m.BuildRightThingLanding })));
@@ -451,25 +450,10 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P1506: unlisted hospitals use-case page (share-by-link; not in nav or sitemap). */}
-        <Route
-          path="/hospitals"
-          element={
-            <ClarityLandingLayout surface="public">
-              <LazyRoute><HospitalsPage /></LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-
-        {/* P1558: change-managers use-case page (noindex; listed in the Use cases menu). /change-leads was its first name. */}
-        <Route
-          path="/change-managers"
-          element={
-            <ClarityLandingLayout surface="public">
-              <LazyRoute><ChangeManagersPage /></LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
+        {/* Use-case landings (P1506 /hospitals, P1558 /change-managers): see use-case-landings.ts */}
+        {USE_CASE_LANDINGS.map(({ path, Page }) => (
+          <Route key={path} path={path} element={<ClarityLandingLayout surface="public"><LazyRoute><Page /></LazyRoute></ClarityLandingLayout>} />
+        ))}
         {/* /hospital, /change-leads, /program, /offers → canonical routes */}
         {LANDING_REDIRECTS.map(([from, to]) => <Route key={from} path={from} element={<Navigate to={to} replace />} />)}
         {/* Offer page — canonical URL is /pricing (P1087, UAT round 5). It was /program,
