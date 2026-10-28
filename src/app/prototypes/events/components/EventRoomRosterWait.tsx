@@ -14,7 +14,12 @@ const SKELETON_ROWS = 3;
 export function RosterWait({ status }: { status: RosterStatus }) {
   if (status === 'pending') {
     return (
-      <div data-testid="room-roster-skeleton" className="space-y-4">
+      <div
+        data-testid="room-roster-skeleton"
+        role="status"
+        aria-label="Loading who is here"
+        className="space-y-4"
+      >
         {Array.from({ length: SKELETON_ROWS }, (_, i) => (
           <div key={i} className="flex items-center gap-3">
             <Skeleton className="h-8 w-8 flex-shrink-0 rounded-full" />

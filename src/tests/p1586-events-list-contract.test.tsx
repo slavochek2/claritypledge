@@ -17,13 +17,20 @@ type Ev = { id: string; title: string };
 
 const mocks = vi.hoisted(() => ({
   user: null as null | { id: string },
+  /** undefined = the session matches the profile (the normal case); set to model a session that moved on. */
+  sessionUserId: undefined as undefined | null | string,
   getUpcomingEvents: vi.fn(),
   getPastEvents: vi.fn(),
   getViewerRsvps: vi.fn(),
   isUserRsvpd: vi.fn(),
 }));
 
-vi.mock('@/auth', () => ({ useAuth: () => ({ user: mocks.user }) }));
+vi.mock('@/auth', () => ({
+  useAuth: () => {
+    const sid = mocks.sessionUserId === undefined ? mocks.user?.id : mocks.sessionUserId;
+    return { user: mocks.user, session: sid ? { user: { id: sid } } : null };
+  },
+}));
 vi.mock('@/app/data/events-service', () => ({
   eventsService: {
     getUpcomingEvents: (...a: unknown[]) => mocks.getUpcomingEvents(...a),
@@ -68,6 +75,7 @@ function ui(orgId?: string) {
 
 beforeEach(() => {
   mocks.user = null;
+  mocks.sessionUserId = undefined;
   mocks.getUpcomingEvents.mockReset().mockResolvedValue([]);
   mocks.getPastEvents.mockReset().mockResolvedValue([]);
   mocks.getViewerRsvps.mockReset().mockResolvedValue([]);
@@ -235,38 +243,25 @@ describe('P1586 events list: RSVP marks', () => {
     expect(screen.queryByTestId('going-mark')).not.toBeInTheDocument();
   });
 
-  it('switching user while events and marks are pending never shows the previous user\'s events or marks', async () => {
-    const eventsA = deferred<Ev[]>();
+  it('switching user while marks are pending never shows the previous user\'s marks on the (group-wide) events', async () => {
+    // The events are the same for every viewer and keyed by the group, so they stay up across the
+    // switch (P1586, A1); only the marks are per person.
     const marksA = deferred<string[]>();
-    mocks.getUpcomingEvents.mockReturnValueOnce(eventsA.promise);
     mocks.getViewerRsvps.mockReturnValueOnce(marksA.promise);
     const view = render(ui());
+    expect(await screen.findByText('Clarity Hike')).toBeInTheDocument();
 
-    // A's events land and A's marks are in flight; then the account changes.
-    await act(async () => {
-      eventsA.resolve([EVENT]);
-    });
-    expect(screen.getByText('Clarity Hike')).toBeInTheDocument();
-
-    const eventsB = deferred<Ev[]>();
     const marksB = deferred<string[]>();
-    mocks.getUpcomingEvents.mockReturnValueOnce(eventsB.promise);
     mocks.getViewerRsvps.mockReturnValueOnce(marksB.promise);
     mocks.user = USER_B;
     view.rerender(ui());
-    // The very render after the switch must not show A's events.
-    expect(screen.queryByText('Clarity Hike')).not.toBeInTheDocument();
+    expect(screen.getByText('Clarity Hike')).toBeInTheDocument();
+    expect(mocks.getUpcomingEvents).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       marksA.resolve([EVENT.id]);
     });
-    expect(screen.queryByTestId('going-mark')).not.toBeInTheDocument();
-
-    await act(async () => {
-      eventsB.resolve([EVENT]);
-    });
-    // B's events are up; A's late marks must not have attached to them.
-    expect(screen.getByText('Clarity Hike')).toBeInTheDocument();
+    // A's late marks must not attach to B's view.
     expect(screen.queryByTestId('going-mark')).not.toBeInTheDocument();
 
     await act(async () => {
@@ -299,5 +294,68 @@ describe('P1586 events list: RSVP marks', () => {
     });
     expect(screen.getByText('New Group Event')).toBeInTheDocument();
     expect(screen.queryByText('Old Group Event')).not.toBeInTheDocument();
+  });
+});
+
+describe('P1586 events list: identity comes from the session (P1560)', () => {
+  beforeEach(() => {
+    mocks.getUpcomingEvents.mockResolvedValue([EVENT]);
+  });
+
+  it('(a) profile still A while the session is already B: no A marks and no marks read for A', async () => {
+    mocks.user = USER_A;
+    mocks.sessionUserId = USER_B.id;
+    mocks.getViewerRsvps.mockResolvedValue([EVENT.id]);
+    render(ui());
+    expect(await screen.findByText('Clarity Hike')).toBeInTheDocument();
+    await act(async () => {});
+    expect(screen.queryByTestId('going-mark')).not.toBeInTheDocument();
+    expect(mocks.getViewerRsvps).not.toHaveBeenCalled();
+  });
+
+  it('(b) null to user after the list drew: the list stays drawn, events are not re-read, only marks are', async () => {
+    mocks.getViewerRsvps.mockResolvedValue([EVENT.id]);
+    const view = render(ui());
+    expect(await screen.findByText('Clarity Hike')).toBeInTheDocument();
+    expect(mocks.getUpcomingEvents).toHaveBeenCalledTimes(1);
+    expect(mocks.getPastEvents).toHaveBeenCalledTimes(1);
+    expect(mocks.getViewerRsvps).not.toHaveBeenCalled();
+
+    mocks.user = USER_A;
+    view.rerender(ui());
+    // The very render after auth resolves: still drawn, never the skeleton.
+    expect(screen.getByText('Clarity Hike')).toBeInTheDocument();
+    expect(screen.queryByTestId('event-list-skeleton')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('going-mark')).toBeInTheDocument();
+    expect(mocks.getUpcomingEvents).toHaveBeenCalledTimes(1);
+    expect(mocks.getPastEvents).toHaveBeenCalledTimes(1);
+    expect(mocks.getViewerRsvps).toHaveBeenCalledTimes(1);
+    expect(mocks.getViewerRsvps).toHaveBeenCalledWith([EVENT.id], USER_A.id);
+  });
+
+  it('(c) A to B: A\'s marks are never visible, not even for one frame', async () => {
+    mocks.user = USER_A;
+    mocks.getViewerRsvps.mockResolvedValueOnce([EVENT.id]);
+    const view = render(ui());
+    expect(await screen.findByTestId('going-mark')).toBeInTheDocument();
+
+    // The session moves to B first; the profile is still A's.
+    const marksB = deferred<string[]>();
+    mocks.getViewerRsvps.mockReturnValueOnce(marksB.promise);
+    mocks.sessionUserId = USER_B.id;
+    view.rerender(ui());
+    expect(screen.queryByTestId('going-mark')).not.toBeInTheDocument();
+
+    // Then B's profile arrives; B's marks are pending, A's must not return.
+    mocks.user = USER_B;
+    view.rerender(ui());
+    expect(screen.queryByTestId('going-mark')).not.toBeInTheDocument();
+    expect(screen.getByText('Clarity Hike')).toBeInTheDocument();
+    expect(mocks.getViewerRsvps).toHaveBeenLastCalledWith([EVENT.id], USER_B.id);
+
+    await act(async () => {
+      marksB.resolve([]);
+    });
+    expect(screen.queryByTestId('going-mark')).not.toBeInTheDocument();
   });
 });

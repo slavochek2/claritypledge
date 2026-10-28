@@ -145,6 +145,21 @@ Add a short "Loading" section to `docs/ux-patterns.md` with §1's table, linking
 - Do NOT add a client-side read cache or request dedupe (decisions.md 2026-10-21, P1527).
 - No migration, RPC, grant or RLS change.
 
+## Cost Budget
+
+Applies because the continuity e2e (`e2e/p1586-loading-continuity.spec.ts`) creates and deletes a test user and an event on the shared TEST organisation (`docs/technical/metered-services.md`, "When this applies" and rule 6). The app code itself adds no request: the events list replaces one `isUserRsvpd` request per event with one batched read, and the roster status reuses the existing subscription.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | 0 new in prod; events list: `N events x 1 isUserRsvpd = N` → `1 batched read`, so fewer for any N ≥ 2 | 0 (no timer, poller or retry loop added; the events-list Retry is a person's click) | Setup: `1 user create + 1 profile insert + 1 event insert + 1 event delete + 1 user delete + 1 ledger sweep = 6`. Routes: `7 measured routes x ≤ 14 REST reads (the largest first-visit count measured on prod, /feed, 2026-10-28) = ≤ 98`. Total `≤ 104` |
+| Egress (bytes) | unchanged | 0 | `≤ 104 responses x ≤ 10 KB (list reads of a seeded test org) = ≤ 1.04 MB`, i.e. about 0.02% of the 5 GB free egress per run |
+| Log lines | 0 new success logs; a failed events read logs once per attempt through the existing `logDbError` (`1 per Retry click`) | 0 | 0 provoked failures: responses are held 1.5s, never failed |
+| Service unit | none | none | `1 test user per run x 0 MAU` (test users never sign in through the hosted auth UI; created and deleted through the admin API, counted by the P1532 run ledger) |
+
+- **Worst case:** a run aborted after setup leaves 1 user and 1 event behind; the P1532 sweep deletes them on the next run (`deleted 1 still alive` in the ledger).
+- **Guard:** the P1532 run ledger prints users created/deleted per run; `p1522-idle-request-budget` keeps the app's request counts from rising.
+- **Not measured:** the exact per-route REST count inside this suite (it holds requests but does not count them); the ≤ 14 bound is the prod measurement above.
+
 ## Done-When
 
 Visual items: screenshots at 1440, 375 and 320, plus the frame evidence named in the item.

@@ -19,7 +19,7 @@ import { FocusHeader } from '@/app/components/layout/focus-header';
 import { ChevronDown, Plus, Star } from 'lucide-react';
 import { SEO } from '@/app/components/seo';
 import { useAuth } from '@/auth';
-import { ClarityPageLoader } from '@/components/ui/clarity-loader';
+import { TopicListSkeleton } from '@/app/components/topics/topic-list-skeleton';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -290,7 +290,7 @@ export function TopicsPage({ embedded = false, returnTo = '/topics', className, 
         </>
       )}
 
-      {state.kind === 'loading' && <ClarityPageLoader />}
+      {state.kind === 'loading' && <TopicListSkeleton />}
 
       {state.kind === 'error' && (
         <div className="rounded-lg border border-border p-4">

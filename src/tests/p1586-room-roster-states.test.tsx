@@ -83,6 +83,9 @@ describe('P1586 §4 — room roster states', () => {
     const skeleton = screen.getByTestId('room-roster-skeleton');
     expect(card.contains(skeleton)).toBe(true);
     expect(skeleton.children.length).toBeGreaterThanOrEqual(3);
+    // Announced to assistive tech, never as visible copy.
+    expect(skeleton.getAttribute('role')).toBe('status');
+    expect(skeleton.getAttribute('aria-label')).toBe('Loading who is here');
     expect(screen.queryByText(/loading who is here/i)).toBeNull();
   });
 

@@ -16,17 +16,23 @@ type Tab = 'upcoming' | 'past';
 /** P1586: a read that has not answered by now is a failure with Retry, never an endless "Loading…". */
 const EVENTS_READ_DEADLINE_MS = 8_000;
 
-/** P1586: the outcome of one events read, tagged with the view (group + viewer) it was made for. A
- *  result is shown only while its key is the CURRENT view's, so a previous group's or user's events and
- *  marks can never render, not even for the one frame between a switch and the new read starting. */
+/** P1586: the outcome of one events read, tagged with the group it was made for. The events are the
+ *  same for every viewer, so the read is keyed by the group only: auth resolving after the list has drawn
+ *  neither blanks it nor re-reads it. A result shows only while its key is the CURRENT group's. */
 interface ListRead {
   key: string;
   status: 'ready' | 'failed';
   upcoming: EventWithHost[];
   past: EventWithHost[];
-  /** The viewer's RSVPs among the listed events. null = not known (still loading, or the read failed):
-   *  shows no mark. Never an empty set standing in for "unknown". */
-  marks: ReadonlySet<string> | null;
+}
+
+/** P1586: the viewer's RSVPs among the listed events, tagged with the exact events read AND the
+ *  session-verified person they were made for. Shown only while both are the current ones, so a previous
+ *  account's marks can never render, not even for the one frame between a switch and the new read. */
+interface MarksRead {
+  forRead: ListRead;
+  userId: string;
+  marks: ReadonlySet<string>;
 }
 
 const NO_EVENTS: EventWithHost[] = [];
@@ -66,7 +72,7 @@ export function EventsList({
   canHost = false,
   isMember = false,
 }: EventsListProps = {}) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const isLoggedIn = !!user;
   const [searchParams] = useSearchParams();
   const seriesParam = searchParams.get('series');
@@ -75,17 +81,24 @@ export function EventsList({
   const [activeTab, setActiveTab] = useState<Tab>('upcoming');
   const [read, setRead] = useState<ListRead | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const userId = user?.id;
-  const viewKey = `${orgId ?? ''}|${userId ?? ''}`;
+  const [marksRead, setMarksRead] = useState<MarksRead | null>(null);
+  // P1560: a person is accepted only while the SESSION says so. AuthContext keeps the previous
+  // person's profile while it fetches the next one, so `user.id` alone would read, and show, account
+  // A's marks for account B. A mismatch means nobody.
+  const viewerId = user && session?.user?.id === user.id ? user.id : undefined;
+  const viewKey = orgId ?? '';
   const current = read?.key === viewKey ? read : null;
-  // `loading`: no answer for THIS view yet. `ready`: the lists are known (an empty list is a fact).
+  // `loading`: no answer for THIS group yet. `ready`: the lists are known (an empty list is a fact).
   // `failed`: the read errored or missed its deadline; the lists are unknown, not empty.
   const loading = current === null;
   const ready = current?.status === 'ready';
   const failed = current?.status === 'failed';
   const upcomingEvents = current?.upcoming ?? NO_EVENTS;
   const pastEvents = current?.past ?? NO_EVENTS;
-  const userRsvps = current?.marks ?? null;
+  // null = not known (no read has answered for this list and this person): shows no mark, never an
+  // empty set standing in for "unknown".
+  const userRsvps =
+    marksRead && marksRead.forRead === current && marksRead.userId === viewerId ? marksRead.marks : null;
   const isOrgScoped = !!orgId;
 
   // When series filter is active, force upcoming tab so the filter is applied.
@@ -96,39 +109,24 @@ export function EventsList({
   }, [isSeriesFiltered]);
 
   useEffect(() => {
-    // `live` is the cancellation: a response for a previous group, user or attempt finds it false and
-    // is dropped. A late answer for the CURRENT view (after the deadline) still lands and replaces the
+    // `live` is the cancellation: a response for a previous group or attempt finds it false and is
+    // dropped. A late answer for the CURRENT group (after the deadline) still lands and replaces the
     // failure line.
     let live = true;
     const key = viewKey;
     const giveUp = setTimeout(() => {
-      if (live) setRead({ key, status: 'failed', upcoming: [], past: [], marks: null });
+      if (live) setRead({ key, status: 'failed', upcoming: [], past: [] });
     }, EVENTS_READ_DEADLINE_MS);
-    const settle = (next: Omit<ListRead, 'key' | 'marks'>) => {
+    const settle = (next: Omit<ListRead, 'key'>) => {
       clearTimeout(giveUp);
-      if (live) setRead({ key, marks: null, ...next });
+      if (live) setRead({ key, ...next });
     };
-
-    // The marks never hold the list: they arrive on their own, in one batched request. A failed read
-    // leaves them unknown (no mark), never "not going".
-    async function loadMarks(ids: string[]) {
-      if (!userId || ids.length === 0) return;
-      try {
-        const rsvped = await eventsService.getViewerRsvps(ids, userId);
-        if (live) setRead((r) => (r && r.key === key ? { ...r, marks: new Set(rsvped) } : r));
-      } catch {
-        // unknown stays unknown
-      }
-    }
 
     Promise.all([
       eventsService.getUpcomingEvents(orgId, { throwOnError: true }),
       eventsService.getPastEvents(orgId, { throwOnError: true }),
     ]).then(
-      ([upcoming, past]) => {
-        settle({ status: 'ready', upcoming, past });
-        if (live) void loadMarks([...upcoming, ...past].map((event) => event.id));
-      },
+      ([upcoming, past]) => settle({ status: 'ready', upcoming, past }),
       () => settle({ status: 'failed', upcoming: [], past: [] }),
     );
 
@@ -136,7 +134,28 @@ export function EventsList({
       live = false;
       clearTimeout(giveUp);
     };
-  }, [viewKey, orgId, userId, attempt]);
+  }, [viewKey, orgId, attempt]);
+
+  // The marks never hold the list: they are their own read, in one batched request, made once the list
+  // is known and a verified person is present. A failed read leaves them unknown (no mark), never
+  // "not going". Keyed by the list read and the person: signing in later reads only these.
+  useEffect(() => {
+    if (!current || current.status !== 'ready' || !viewerId) return;
+    const ids = [...current.upcoming, ...current.past].map((event) => event.id);
+    if (ids.length === 0) return;
+    let live = true;
+    eventsService.getViewerRsvps(ids, viewerId).then(
+      (rsvped) => {
+        if (live) setMarksRead({ forRead: current, userId: viewerId, marks: new Set(rsvped) });
+      },
+      () => {
+        // unknown stays unknown
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [current, viewerId]);
 
   const retry = () => {
     setRead(null);
@@ -326,7 +345,7 @@ export function EventsList({
                 key={event.id}
                 event={event}
                 isLoggedIn={isLoggedIn}
-                userId={user?.id}
+                userId={viewerId}
                 isUserGoing={userRsvps?.has(event.id) ?? false}
               />
             ))}

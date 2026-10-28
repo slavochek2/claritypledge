@@ -280,7 +280,9 @@ export function subscribeToRoomRoster(
     try {
       do {
         dirty = false;
-        const roster = await fetchRoomRoster(eventId);
+        // A throw (not just a null) is a failed read too: otherwise status would stay `pending` for good
+        // and the rejection would escape the fire-and-forget callers (P1586).
+        const roster = await fetchRoomRoster(eventId).catch(() => null);
         if (cancelled) return;
         if (roster !== null) { hasGood = true; setStatus('ready'); onUpdate(roster); }
         else if (!hasGood) { onUpdate([]); setStatus('failed'); }

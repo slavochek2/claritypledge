@@ -82,6 +82,36 @@ describe('subscribeToRoomRoster status (P1586 §4)', () => {
     stop();
   });
 
+  it('a fetch that THROWS counts as a failed read: status leaves pending, roster reports []', async () => {
+    queue.push(Promise.reject(new Error('network down')));
+    const statuses: RosterStatus[] = [];
+    const seen: unknown[][] = [];
+    const stop = subscribeToRoomRoster('e1', (r) => seen.push(r), (s) => statuses.push(s));
+    await flush();
+    expect(statuses).toEqual(['pending', 'failed']);
+    expect(seen).toEqual([[]]);
+    // and the single-flight loop survives it: a later event reads again and recovers
+    queue.push(ok('ann'));
+    realtimeHandler!();
+    await flush();
+    expect(statuses).toEqual(['pending', 'failed', 'ready']);
+    stop();
+  });
+
+  it('a throw after rows were shown keeps the rows and stays ready', async () => {
+    queue.push(ok('ann'));
+    const statuses: RosterStatus[] = [];
+    const seen: string[][] = [];
+    const stop = subscribeToRoomRoster('e1', (r) => seen.push(r.map((m) => m.displayName)), (s) => statuses.push(s));
+    await flush();
+    queue.push(Promise.reject(new Error('network down')));
+    realtimeHandler!();
+    await flush();
+    expect(statuses).toEqual(['pending', 'ready']);
+    expect(seen).toEqual([['ann']]);
+    stop();
+  });
+
   it('is optional: a caller that passes no status callback is unaffected', async () => {
     queue.push(ok('ann'));
     const seen: string[][] = [];
