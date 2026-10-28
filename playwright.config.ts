@@ -119,6 +119,8 @@ export default defineConfig({
   // Test directory
   testDir: './e2e',
 
+  // P1557: refuses a reused dev server booted against another database.
+  globalSetup: './e2e/global-setup.ts',
   // P1522: sweep e2e users that outlived their test (test project only, bounded batch).
   globalTeardown: './e2e/global-teardown.ts',
 
