@@ -6,8 +6,8 @@ workstream: letters
 created_date: '2026-10-27'
 tags: [letters, artifacts, p1545, rpc]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -58,8 +58,8 @@ Non-goal: any UI change; the card already renders the counts when present.
 
 ## Done-When
 
-- [ ] Migration applied on TEST; `get_received_letters_page` returns `steps_completed` and `total_steps`
-- [ ] A test proves a received in-progress letter returns the same N and M the sender sees for that delivery
-- [ ] `e2e/p699-inbox-progress.spec.ts` received-step test passes, and fails with the new columns removed
-- [ ] SD-guard canary and unit suite green
-- [ ] Reviewed by Gemini, Codex and an Opus adversary (migration); findings resolved or recorded
+- [x] Migration applied on TEST; `get_received_letters_page` returns `steps_completed` and `total_steps` — both TEST databases (self-hosted via `migrate.sh --env selfhosted`; plain `migrate.sh` reports it already applied on hosted)
+- [x] A test proves a received in-progress letter returns the same N and M the sender sees for that delivery — the e2e below asserts the receiver's "1 of 3 steps" for the delivery whose sender view the P699 canary asserts as "1 of 3 steps"; Opus confirmed the expression is token-identical to the sender side
+- [x] `e2e/p699-inbox-progress.spec.ts` received-step test passes, and fails with the new columns removed — self-hosted TEST 2026-10-28: fixed 1 passed; keys forced to NULL 1 failed; restored 1 passed
+- [x] SD-guard canary and unit suite green — sd-guard 2 passed; full unit suite green in pre-commit
+- [x] Reviewed by Gemini, Codex and an Opus adversary (migration); findings resolved or recorded — 3 of 3; Opus MEDIUM (malformed snapshot errors the page) and LOW (provenance) fixed; LOW "0 of 0 steps" for a letter with no stories set aside (needs a sealed letter with no snapshots); Gemini confirmation of the final file clean; receipt written
