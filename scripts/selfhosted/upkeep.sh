@@ -45,7 +45,9 @@ if command -v gcloud >/dev/null 2>&1 && gcloud auth print-access-token >/dev/nul
     echo "APTAGE:$(( ( $(date +%s) - $(stat -c %Y /var/lib/apt/periodic/update-success-stamp 2>/dev/null || echo 0) ) / 86400 ))"
     # From the RUNNING auth container, not the compose files: an edited file the container was never
     # recreated from would otherwise pass while GoTrue still fetches something else.
-    E="$(sudo docker inspect supabase-auth --format "{{range .Config.Env}}{{println .}}{{end}}")"
+    # A removed auth container must not end the session: the images line reports it, and an empty URL
+    # pair makes the templates line warn.
+    E="$(sudo docker inspect supabase-auth --format "{{range .Config.Env}}{{println .}}{{end}}" 2>/dev/null || true)"
     echo "TPLURL:$(sed -n "s/^GOTRUE_MAILER_TEMPLATES_MAGIC_LINK=//p" <<< "$E") $(sed -n "s/^GOTRUE_MAILER_TEMPLATES_CONFIRMATION=//p" <<< "$E")"
     if [ -f /var/run/reboot-required ]; then echo "REBOOT:yes $(tr "\n" " " < /var/run/reboot-required.pkgs 2>/dev/null)"; else echo "REBOOT:no"; fi
     echo "END:ok"' 2>/dev/null)" || OUT=""
@@ -122,7 +124,7 @@ else
     if [ "$code" != 200 ]; then
       # The API's own message (a missing permission, a revoked token) is what tells you the fix; it
       # never contains the token. Cut short and stripped of shell-unsafe characters (shell-safety.md).
-      msg="$(python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("message",""))' "$TMP/prod.json" 2>/dev/null | tr -d '<>|' | cut -c1-120)"
+      msg="$(python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("message",""))' "$TMP/prod.json" 2>/dev/null | tr '\r\n' '  ' | tr -d '<>|' | cut -c1-120)"
       report templates unknown "prod config read failed (HTTP $code${msg:+: $msg})"
     else
       # The script prints its own "templates:" line; its exit code carries the verdict.

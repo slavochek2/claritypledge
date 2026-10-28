@@ -129,9 +129,15 @@ so its 10-minute cadence costs no metered unit.
       made to fail once (proven by pointing it at an unreachable host).
 - [ ] /weekly shows the self-hosted image drift, pending OS updates, a pending reboot, and e-mail
       template drift against prod.
-- [ ] The recipe exists in the pp recipe system and a dry read against the scripts finds no step
-      they no longer support.
-- [ ] /day's `cp.selfhosted` comment names the workflow instead of "filed".
+- [x] The recipe exists in the pp recipe system and a dry read against the scripts finds no step
+      they no longer support. 2026-10-28: pp `docs/infra/cp-test-supabase.md` § "Recipe: rebuild from
+      zero" (pp 66ee749). The dry read checked every named flag against the script headers
+      (`migrate.sh --env selfhosted|test`, `--list`, `--allow-empty-ledger`; `deploy-functions.sh --setup
+      --secrets --check-secrets`; `flip-test-env.py selfhosted|hosted|status --file`;
+      `npm run test:e2e:hosted-sql`) and found one gap, fixed: the new-IP step missed `migrate.sh` and
+      `deploy-functions.sh`, so it now uses a grep instead of a list.
+- [x] /day's `cp.selfhosted` comment names the workflow instead of "filed". On main in bd2791a43;
+      traced on main and in the worktree (`CHECK cp.selfhosted ok ...` both ways).
 
 ## Related
 
