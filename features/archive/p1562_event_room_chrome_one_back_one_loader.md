@@ -1,5 +1,6 @@
 ---
-status: week
+status: rejected
+superseded_by: p1586
 type: story
 rank: 70
 workstream: events
@@ -14,6 +15,8 @@ exec_effort: high
 ---
 
 # P1562: Event room chrome, one Back to the event, one loader
+
+> **Closed 2026-10-28 by the founder, replaced by P1586** (loading consistency and page speed on every page). §3 "One loader" moved to P1586 in full. §1–2 (the room's one header, the one Back rule, Clarity Night's Transcribe control) are not loading work and were not moved; they have no owner until re-filed.
 
 ## Problem
 
