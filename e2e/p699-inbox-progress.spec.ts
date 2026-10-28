@@ -247,7 +247,9 @@ test.describe('P699: Inbox Progress Indicator', () => {
 
     // The row must exist; a missing row is a failure, not a skip.
     await expect(resultsButton).toBeVisible({ timeout: 10000 });
-    const row = page.locator('[data-testid="artifact-row"]').filter({ has: resultsButton });
+    const row = page
+      .locator('[data-testid="artifact-row"]')
+      .filter({ has: page.locator(`a[href*="/results?delivery=${completedDeliveryId}"]`) });
     // Completed items show "done", never step progress.
     await expect(row).not.toContainText(/\d+\s+of\s+\d+\s+steps?/i);
   });
