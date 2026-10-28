@@ -250,6 +250,7 @@ test.describe('P699: Inbox Progress Indicator', () => {
     const row = page
       .locator('[data-testid="artifact-row"]')
       .filter({ has: page.locator(`a[href*="/results?delivery=${completedDeliveryId}"]`) });
+    await expect(row, 'exactly one row for the completed delivery').toHaveCount(1);
     // Completed items show "done", never step progress.
     await expect(row).not.toContainText(/\d+\s+of\s+\d+\s+steps?/i);
   });

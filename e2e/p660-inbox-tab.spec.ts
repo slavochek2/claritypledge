@@ -176,25 +176,9 @@ test.describe('P660: Inbox Tab', () => {
     await page.goto('/artifacts');
     await page.waitForLoadState('networkidle');
 
-    // Nav item should show badge count
-    const nav = page.locator('nav');
-    nav.getByText(/Artifacts/i).first();
-
-    // Look for a badge element near the Artifacts nav item
-    nav.locator('[data-badge]').or(
-      nav.locator('.badge').or(
-        nav.locator('[aria-label*="unread"]')
-      )
-    );
-
-    // At least the aria-label should mention unread count
-    const lettersLink = nav.locator('a[href*="artifacts"]').first();
-    if (await lettersLink.isVisible()) {
-      const ariaLabel = await lettersLink.getAttribute('aria-label');
-      if (ariaLabel) {
-        expect(ariaLabel).toMatch(/unread/i);
-      }
-    }
+    // The Artifacts nav entry carries the unread count in its accessible name ("Artifacts, 1 unread");
+    // a missing link or a missing count fails, never skips.
+    await expect(page.getByRole('link', { name: /^Artifacts, \d+ / }).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('opening a received letter navigates and marks it as read', async ({ page }) => {

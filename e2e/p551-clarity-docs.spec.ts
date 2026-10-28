@@ -555,12 +555,13 @@ test.describe('P551: Delete doc', () => {
     await page.waitForURL(/\/artifacts\?tab=letters&list=drafts/, { timeout: 10000 });
 
     // Verify doc is gone from DB
-    const { data } = await supabaseAdmin
+    const gone = await supabaseAdmin
       .from('clarity_docs')
       .select('id')
       .eq('id', doc.id)
-      .single();
-    expect(data, 'Doc should be deleted from DB').toBeNull();
+      .maybeSingle();
+    expect(gone.error, 'the deletion check read itself must succeed').toBeNull();
+    expect(gone.data, 'Doc should be deleted from DB').toBeNull();
   });
 });
 
