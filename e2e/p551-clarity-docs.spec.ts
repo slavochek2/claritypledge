@@ -493,6 +493,23 @@ test.describe('P551: Remove story from doc', () => {
       .eq('id', storyId)
       .single();
     expect(data?.id, 'Story should still exist after removal from doc').toBe(storyId);
+
+    // The unlink must persist: the page hides the card optimistically before the service call,
+    // so only the doc_stories row proves the removal was saved (P1580 mutation finding).
+    await expect
+      .poll(
+        async () => {
+          const res = await supabaseAdmin
+            .from('doc_stories')
+            .select('story_id')
+            .eq('doc_id', docId)
+            .eq('story_id', storyId);
+          expect(res.error).toBeNull();
+          return res.data?.length;
+        },
+        { message: 'the story is unlinked from the doc in the database', timeout: 10000 }
+      )
+      .toBe(0);
   });
 });
 
