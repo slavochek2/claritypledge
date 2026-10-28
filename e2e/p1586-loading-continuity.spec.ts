@@ -43,6 +43,14 @@ const MARK_MIN_OPACITY = 0.05;
 const MAX_CENTRE_MOVE_PX = 8;
 /** Probe gives up this long after install; a route that never reaches its marker fails loudly. */
 const PROBE_GIVE_UP_MS = 40_000;
+/**
+ * Every route keeps sampling this long after its marker first shows. Without it a loader that is still mounted
+ * over loaded content (the marker and the mark both visible, for ever) passes, because sampling stopped on the
+ * very frame the destination appeared.
+ */
+const POST_MARKER_MS = 1000;
+/** After the marker shows, the mark may linger this long (a cross-fade); any mark frame later than this is a loader still covering content. */
+const MARK_GONE_WITHIN_MS = 500;
 
 // ---------------------------------------------------------------------------------------------------
 // The probe. Runs in the page, before any page script (addInitScript). Self-contained: Playwright
@@ -62,6 +70,8 @@ interface ProbeConfig {
   giveUpMs: number;
   /** Keep sampling this long after the marker first shows (0 = stop at the marker). For "drawn once" checks. */
   afterMarkerMs: number;
+  /** Selector for UI that exists only for a resolved signed-in person; reported per frame as `signedIn`. */
+  signedInSelector?: string;
 }
 
 interface MarkSample {
@@ -83,6 +93,8 @@ interface FrameSample {
   skeletons: number;
   contentChars: number;
   markerPresent: boolean;
+  /** A visible element matching `signedInSelector` (false when none was configured). */
+  signedIn: boolean;
 }
 
 interface ProbeResult {
@@ -199,7 +211,17 @@ function installProbe(cfg: ProbeConfig): void {
       if (markerPresent) break;
     }
 
-    return { t: performance.now() - startedAt, marks, loadingText, slowLines, skeletons, contentChars, markerPresent };
+    let signedIn = false;
+    if (cfg.signedInSelector) {
+      for (const el of Array.from(document.querySelectorAll(cfg.signedInSelector))) {
+        if (isVisible(el)) {
+          signedIn = true;
+          break;
+        }
+      }
+    }
+
+    return { t: performance.now() - startedAt, marks, loadingText, slowLines, skeletons, contentChars, markerPresent, signedIn };
   }
 
   let markerAt: number | null = null;
@@ -252,6 +274,13 @@ interface Summary {
   postSkeletonFrames: number;
   postMarkFrames: number;
   postMarkerLostFrames: number;
+  /** Time from the first marker frame to the last sampled frame (how long the probe kept looking after the page showed). */
+  postSpanMs: number;
+  /** Frames after the marker, later than MARK_GONE_WITHIN_MS from it, that still show a loader mark. */
+  lateMarkFrames: number;
+  /** Frame index and time (ms since navigation) of the first frame showing signed-in-only UI; -1 when never. */
+  signedInFrame: number;
+  signedInMs: number;
 }
 
 /** Count visible -> hidden -> visible runs of any per-frame flag. */
@@ -272,6 +301,8 @@ function summarise(result: ProbeResult): Summary {
   // post* group. With no marker the whole run is the loading phase.
   const samples = markerFrame >= 0 ? all.slice(0, markerFrame + 1) : all;
   const post = markerFrame >= 0 ? all.slice(markerFrame + 1) : [];
+  const markerMs = markerFrame >= 0 ? all[markerFrame].t : 0;
+  const signedInFrame = all.findIndex((s) => s.signedIn);
   const markFrames = samples.map((s, i) => (s.marks.length > 0 ? i : -1)).filter((i) => i >= 0);
   const firstMarkFrame = markFrames.length ? markFrames[0] : -1;
 
@@ -312,7 +343,63 @@ function summarise(result: ProbeResult): Summary {
     postSkeletonFrames: post.filter((s) => s.skeletons > 0).length,
     postMarkFrames: post.filter((s) => s.marks.length > 0).length,
     postMarkerLostFrames: post.filter((s) => !s.markerPresent).length,
+    postSpanMs: post.length ? Math.round(post[post.length - 1].t - markerMs) : 0,
+    lateMarkFrames: post.filter((s) => s.marks.length > 0 && s.t - markerMs > MARK_GONE_WITHIN_MS).length,
+    signedInFrame,
+    signedInMs: signedInFrame >= 0 ? all[signedInFrame].t : -1,
   };
+}
+
+/**
+ * What the frames AFTER the marker must show, on every route: the probe kept looking for POST_MARKER_MS, the
+ * destination never went away, and no loader mark is still up once the hand-over grace has passed. A loader that
+ * stays mounted over loaded content fails the last two; a probe that stopped at the marker fails the first.
+ */
+function settleProblems(s: Summary): string[] {
+  const problems: string[] = [];
+  if (s.markerFrame < 0) return problems; // the gaveUp check reports this
+  if (s.postSpanMs < POST_MARKER_MS) problems.push(`sampling stopped ${s.postSpanMs}ms after the marker (needs ${POST_MARKER_MS}ms), so a loader still covering the page could not be seen`);
+  if (s.postMarkerLostFrames > 0) problems.push(`the destination went away again in ${s.postMarkerLostFrames} frame(s) after it showed`);
+  if (s.lateMarkFrames > 0) problems.push(`a loader mark was still visible in ${s.lateMarkFrames} frame(s) more than ${MARK_GONE_WITHIN_MS}ms after the destination showed`);
+  return problems;
+}
+
+/** One held PostgREST response, as the page was given it. */
+interface HeldRead {
+  /** Epoch ms at which it was released to the page. */
+  at: number;
+  status: number;
+  /** `p_id` the request carried (RPCs), when its body was JSON. */
+  pId?: unknown;
+  /** `id` of the row the response carried, when its body was JSON. */
+  bodyId?: unknown;
+}
+
+/**
+ * Is a green "auth resolved late" result about what it claims? The held profile read must have succeeded for THIS
+ * user (a 2xx carrying their id, not a failed or other-user read), have been released after the list was drawn, and the
+ * signed-in UI must then have appeared, never before the profile reached the page.
+ */
+function lateAuthPreconditionProblems(
+  reads: HeldRead[],
+  userId: string,
+  markerEpoch: number,
+  signedInEpoch: number | null,
+  minLateMs: number,
+): string[] {
+  const problems: string[] = [];
+  const mine = reads.filter((r) => r.pId === userId);
+  if (mine.length === 0) return [`no profile read for the test user was released (${reads.length} other profile read(s)), auth cannot have resolved`];
+  const good = mine.filter((r) => r.status >= 200 && r.status < 300 && r.bodyId === userId);
+  if (good.length === 0) {
+    return [`no profile read succeeded for the test user: ${mine.map((r) => `status ${r.status} id ${String(r.bodyId)}`).join('; ')}`];
+  }
+  const profileAt = Math.min(...good.map((r) => r.at));
+  const lateBy = profileAt - markerEpoch;
+  if (lateBy <= minLateMs) problems.push(`the profile arrived ${Math.round(-lateBy)}ms BEFORE the list, so auth did not resolve after the page`);
+  if (signedInEpoch === null) problems.push('the signed-in UI never appeared, so the person never resolved');
+  else if (signedInEpoch < profileAt - 100) problems.push(`the signed-in UI showed ${Math.round(profileAt - signedInEpoch)}ms before the profile reached the page`);
+  return problems;
 }
 
 /** Compress the blank-frame list into ranges so a failure message stays readable. */
@@ -353,27 +440,43 @@ async function holdBackendReads(page: Page, opts: HoldOptions = {}) {
   const restPrefix = new RegExp(`^${escapeRe(origin.replace(/\/$/, ''))}/rest/v1/`);
   let count = 0;
   const fulfilled: Record<string, number[]> = {};
+  const reads: Record<string, HeldRead[]> = {};
   await page.route(restPrefix, async (route) => {
     if (route.request().method() === 'OPTIONS') return route.continue();
     try {
       const path = new URL(route.request().url()).pathname.replace(/^.*\/rest\/v1\//, '');
       const hold = opts.slow?.find((x) => x.path === path)?.ms ?? opts.holdMs ?? HOLD_MS;
       const response = await route.fetch();
+      // What the page is about to be given: status and identity, for the late-auth precondition.
+      let pId: unknown;
+      let bodyId: unknown;
+      try {
+        pId = (route.request().postDataJSON() as { p_id?: unknown } | null)?.p_id;
+      } catch { /* not a JSON body */ }
+      try {
+        const body: unknown = await response.json();
+        const row = Array.isArray(body) ? body[0] : body;
+        bodyId = row && typeof row === 'object' ? (row as { id?: unknown }).id : undefined;
+      } catch { /* empty or non-JSON body */ }
       await new Promise((r) => setTimeout(r, hold));
       count += 1;
-      (fulfilled[path] ??= []).push(Date.now());
+      const at = Date.now();
+      (fulfilled[path] ??= []).push(at);
+      (reads[path] ??= []).push({ at, status: response.status(), pId, bodyId });
       await route.fulfill({ response });
     } catch {
       // The page navigated away or the request was aborted; nothing left to hold.
       await route.continue().catch(() => undefined);
     }
   });
-  return { held: () => count, fulfilled };
+  return { held: () => count, fulfilled, reads };
 }
 
 interface RouteOptions extends HoldOptions {
-  /** Keep sampling this long after the marker first shows, to check the page is not redrawn. */
+  /** Keep sampling this long after the marker first shows (never less than POST_MARKER_MS), to check the page is not redrawn. */
   afterMarkerMs?: number;
+  /** Selector for UI only a resolved signed-in person sees; see ProbeConfig. */
+  signedInSelector?: string;
 }
 
 interface Measured {
@@ -381,6 +484,7 @@ interface Measured {
   result: ProbeResult;
   heldRequests: number;
   fulfilled: Record<string, number[]>;
+  reads: Record<string, HeldRead[]>;
 }
 
 async function measureRoute(
@@ -396,7 +500,8 @@ async function measureRoute(
     markers,
     markMinOpacity: MARK_MIN_OPACITY,
     giveUpMs: PROBE_GIVE_UP_MS,
-    afterMarkerMs: opts.afterMarkerMs ?? 0,
+    afterMarkerMs: Math.max(opts.afterMarkerMs ?? 0, POST_MARKER_MS),
+    signedInSelector: opts.signedInSelector,
   };
   await page.addInitScript(installProbe, cfg);
 
@@ -404,7 +509,7 @@ async function measureRoute(
   await page.waitForFunction(
     () => (window as unknown as { __p1586?: ProbeResult }).__p1586?.done === true,
     null,
-    { timeout: PROBE_GIVE_UP_MS + (opts.afterMarkerMs ?? 0) + 5000, polling: 100 },
+    { timeout: PROBE_GIVE_UP_MS + cfg.afterMarkerMs + 5000, polling: 100 },
   );
   const result = await page.evaluate(() => (window as unknown as { __p1586: ProbeResult }).__p1586);
   const summary = summarise(result);
@@ -415,7 +520,7 @@ async function measureRoute(
   const timeline: string[] = [];
   result.samples.forEach((s, i) => {
     const marks = s.marks.map((m) => `${m.owner}(${Math.round(m.cx)},${Math.round(m.cy)})`).join('') || 'none';
-    const sig = `${marks}${s.skeletons ? '+skel' : ''}${s.contentChars > 0 ? '+text' : ''}${s.markerPresent ? '+MARKER' : ''}`;
+    const sig = `${marks}${s.skeletons ? '+skel' : ''}${s.contentChars > 0 ? '+text' : ''}${s.markerPresent ? '+MARKER' : ''}${s.signedIn ? '+SIGNEDIN' : ''}`;
     if (sig !== last) {
       timeline.push(`f${i}@${Math.round(s.t)}ms:${sig}`);
       last = sig;
@@ -425,7 +530,7 @@ async function measureRoute(
 
   await testInfo.attach(`${name}-samples.json`, { body: JSON.stringify(result.samples), contentType: 'application/json' });
   console.log(`[P1586 ${name}] ${JSON.stringify(summary)} heldRequests=${hold.held()} finalUrl=${page.url()}`);
-  return { summary, result, heldRequests: hold.held(), fulfilled: hold.fulfilled };
+  return { summary, result, heldRequests: hold.held(), fulfilled: hold.fulfilled, reads: hold.reads };
 }
 
 function assertContinuity(name: string, { summary: s, heldRequests }: Measured): void {
@@ -445,6 +550,8 @@ function assertContinuity(name: string, { summary: s, heldRequests }: Measured):
   expect(ranges(s.blankFrames), `${name}: blank content frames after the mark first showed (frame ${s.firstMarkFrame}, marker at ${s.markerFrame})`).toBe('');
   // 5. One episode.
   expect(s.episodes, `${name}: the mark showed ${s.episodes} separate times`).toBeLessThanOrEqual(1);
+  // 6. Hand-over: the loader is gone once the destination showed, and the destination stays (see settleProblems).
+  expect(settleProblems(s), `${name}: the frames after the destination showed`).toEqual([]);
 }
 
 /**
@@ -452,24 +559,25 @@ function assertContinuity(name: string, { summary: s, heldRequests }: Measured):
  * went away. This is the flicker the session-verified identity fix removed: the list is read per group, never
  * per person, so a person arriving late must not put the list back to waiting.
  */
-function assertDrawnOnce(name: string, m: Measured, expectLateAuthMs: number): void {
+function assertDrawnOnce(name: string, m: Measured, expectLateAuthMs: number, userId: string): void {
   const s = m.summary;
   expect(s.postFrames, `${name}: no frames were sampled after the list showed, so redraw could not be seen`).toBeGreaterThan(20);
   expect(s.postSkeletonFrames, `${name}: a skeleton reappeared after the list was visible`).toBe(0);
   expect(s.postMarkFrames, `${name}: the loader mark reappeared after the list was visible`).toBe(0);
   expect(s.postMarkerLostFrames, `${name}: the list went away again after it was visible`).toBe(0);
 
-  // Precondition, not an assertion about the app: the session's profile must have arrived AFTER the list was
-  // drawn, else this run never had the "auth resolves late" shape and a green result means nothing.
+  // Precondition, not an assertion about the app: the session's profile must have been READ SUCCESSFULLY for this
+  // user and have arrived AFTER the list was drawn, and the signed-in UI must have appeared on the back of it, else
+  // this run never had the "auth resolves late" shape (a failed or retried read would look the same) and green means nothing.
   const markerEpoch = m.result.startEpoch + m.result.samples[s.markerFrame].t;
-  const profile = m.fulfilled['rpc/get_profile_by_id'] ?? [];
-  expect(profile.length, `${name}: the profile read was never released, auth cannot have resolved`).toBeGreaterThan(0);
-  const lateBy = Math.min(...profile) - markerEpoch;
-  expect(lateBy, `${name}: the profile arrived ${Math.round(-lateBy)}ms BEFORE the list, so auth did not resolve after the page`).toBeGreaterThan(expectLateAuthMs);
+  const signedInEpoch = s.signedInFrame >= 0 ? m.result.startEpoch + m.result.samples[s.signedInFrame].t : null;
+  const profileReads = m.reads['rpc/get_profile_by_id'] ?? [];
+  expect(lateAuthPreconditionProblems(profileReads, userId, markerEpoch, signedInEpoch, expectLateAuthMs), `${name}: late-auth precondition`).toEqual([]);
   // ...and the sampling window must still have been running well after it, or a redraw caused by the identity
   // change (the marks read, the profile follow-ups) would land after the probe stopped looking.
+  const profileAt = Math.min(...profileReads.filter((r) => r.pId === userId && r.status >= 200 && r.status < 300).map((r) => r.at));
   const windowEndEpoch = m.result.startEpoch + m.result.samples[m.result.samples.length - 1].t;
-  expect(windowEndEpoch - Math.min(...profile), `${name}: sampling stopped too soon after the profile arrived`).toBeGreaterThan(3000);
+  expect(windowEndEpoch - profileAt, `${name}: sampling stopped too soon after the profile arrived`).toBeGreaterThan(3000);
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -503,6 +611,18 @@ const LATE_PROFILE_MS = 11_000;
  */
 const CHAIN_HOLD_MS = 500;
 
+/**
+ * UI that exists only once the signed-in person's profile has resolved: the phone's "You" tab, the desktop rail's
+ * avatar, the expanded sidebar's account button, and the top bar's avatar button (the signed-out hamburger on the
+ * same button has an icon, not an avatar, so it does not match). Until the profile arrives each is a placeholder.
+ */
+const SIGNED_IN_UI = [
+  '[data-testid="bottom-nav-me"]',
+  '[data-testid="rail-avatar"]',
+  'nav[data-nav="sidebar"] button[aria-label="Menu"]',
+  'button[aria-label="Menu"] [data-testid="gravatar-avatar"]',
+].join(', ');
+
 /** Sampling continues this long after the list shows: long enough for the profile, its follow-up reads and the marks read, each held. */
 const LATE_AUTH_WINDOW_MS = 11_000;
 
@@ -514,6 +634,11 @@ test.describe('P1586: per-frame loading continuity', () => {
   let event: TestEvent;
   let roomEvent: TestEvent;
   let cmName: string | null = null;
+  // The group late-auth test needs an event card under /groups/cm, which lists only events of that organization.
+  // Its own host (made an organizer of cm by the helper) and its own event, so the test never depends on what else
+  // is on TEST, and the main test user is not turned into a member of cm (that would change /groups/cm/join).
+  let cmHost: TestUser | null = null;
+  let cmEvent: TestEvent | null = null;
 
   test.beforeAll(async () => {
     user = await createTestUser({ name: 'P1586 Continuity' });
@@ -527,13 +652,23 @@ test.describe('P1586: per-frame loading continuity', () => {
     // e2e/p1114-event-room.spec.ts uses to reach /events/:slug/room as a registered visitor.
     roomEvent = await createTestEvent(other.user.id, new Date(), { title: `P1586 Room Event ${Date.now()}` });
     await rsvpToEvent(roomEvent.id, user.user.id);
-    const { data } = await supabaseAdmin.from('organization').select('name').eq('slug', 'cm').maybeSingle();
+    const { data } = await supabaseAdmin.from('organization').select('id, name').eq('slug', 'cm').maybeSingle();
     cmName = data?.name ?? null;
+    if (data?.id) {
+      cmHost = await createTestUser({ name: 'P1586 Group Host' });
+      cmEvent = await createTestEvent(cmHost.user.id, new Date(Date.now() + 8 * 24 * 60 * 60 * 1000), {
+        title: `P1586 Group Event ${Date.now()}`,
+        orgId: data.id,
+      });
+    }
   });
 
   test.afterAll(async () => {
     if (event?.id) await deleteTestEvent(event.id);
     if (roomEvent?.id) await deleteTestEvent(roomEvent.id);
+    if (cmEvent?.id) await deleteTestEvent(cmEvent.id);
+    // Deleting the host removes its organizer membership with it (cascade path, which the last-organizer guard allows).
+    if (cmHost?.user?.id) await deleteTestUser(cmHost.user.id);
     if (user?.user?.id) await deleteTestUser(user.user.id);
     if (other?.user?.id) await deleteTestUser(other.user.id);
   });
@@ -556,7 +691,7 @@ test.describe('P1586: per-frame loading continuity', () => {
   test('analyser controls: each failure shape is detected', () => {
     const mark = (cx: number, cy: number): MarkSample => ({ cx, cy, w: 64, h: 64, opacity: 1, owner: 'bare-mark' });
     const frame = (over: Partial<FrameSample>): FrameSample => ({
-      t: 0, marks: [], loadingText: [], slowLines: 0, skeletons: 0, contentChars: 0, markerPresent: false, ...over,
+      t: 0, marks: [], loadingText: [], slowLines: 0, skeletons: 0, contentChars: 0, markerPresent: false, signedIn: false, ...over,
     });
     const run = (samples: FrameSample[]) => summarise({ done: true, gaveUp: false, startEpoch: 0, samples });
     const done = frame({ markerPresent: true, contentChars: 10 });
@@ -599,6 +734,72 @@ test.describe('P1586: per-frame loading continuity', () => {
     expect(run([frame({ marks: [mark(640, 360)] }), done, done, done])).toMatchObject({
       postFrames: 2, postSkeletonFrames: 0, postMarkFrames: 0, postMarkerLostFrames: 0,
     });
+  });
+
+  // Gate-7 controls for the hand-over check (settleProblems): a loader that never leaves must fail it, a clean
+  // hand-over (including a short cross-fade) must pass it, and a probe that stopped at the marker must fail it.
+  test('analyser controls: the loader still covering loaded content is detected', () => {
+    const mark: MarkSample = { cx: 640, cy: 360, w: 64, h: 64, opacity: 1, owner: 'content-loader' };
+    const at = (t: number, over: Partial<FrameSample> = {}): FrameSample => ({
+      t, marks: [], loadingText: [], slowLines: 0, skeletons: 0, contentChars: 10, markerPresent: false, signedIn: false, ...over,
+    });
+    const run = (samples: FrameSample[]) => summarise({ done: true, gaveUp: false, startEpoch: 0, samples });
+    // Frames every 100ms; the marker shows at t=200 and the probe keeps going to t=1300.
+    const timeline = (perFrame: (t: number) => Partial<FrameSample>) => {
+      const out: FrameSample[] = [at(0, { marks: [mark], contentChars: 0 }), at(100, { marks: [mark], contentChars: 0 })];
+      for (let t = 200; t <= 1300; t += 100) out.push(at(t, { markerPresent: true, ...perFrame(t) }));
+      return out;
+    };
+
+    // Clean: the mark fades out within the grace and the marker stays.
+    expect(settleProblems(run(timeline((t) => (t <= 300 ? { marks: [mark] } : {}))))).toEqual([]);
+    // BAD: the loader is mounted for ever alongside the marker. The old checks (stop at the marker) pass this shape.
+    const permanent = run(timeline(() => ({ marks: [mark] })));
+    expect(permanent).toMatchObject({ episodes: 1, blankFrames: [], centreRangeY: 0 });
+    expect(settleProblems(permanent)).toEqual([expect.stringContaining('loader mark was still visible')]);
+    // BAD: the loader lingers beyond the grace and then goes (still a loader over loaded content).
+    expect(settleProblems(run(timeline((t) => (t <= 900 ? { marks: [mark] } : {}))))).toEqual([expect.stringContaining('loader mark was still visible')]);
+    // BAD: the destination goes away again.
+    expect(settleProblems(run(timeline((t) => (t >= 600 && t <= 700 ? { markerPresent: false } : {}))))).toEqual([expect.stringContaining('went away again')]);
+    // BAD: sampling stopped at the marker (the old default), so nothing after it was seen.
+    expect(settleProblems(run([at(0, { marks: [mark], contentChars: 0 }), at(100, { markerPresent: true })]))).toEqual([expect.stringContaining('sampling stopped')]);
+    // BAD: sampling stopped 400ms after the marker.
+    expect(settleProblems(run(timeline(() => ({})).filter((f) => f.t <= 600)))).toEqual([expect.stringContaining('sampling stopped')]);
+  });
+
+  // Gate-7 controls for the late-auth precondition: each way the profile read can fail to prove "auth resolved after the
+  // page, successfully, for this person" must be reported.
+  test('analyser controls: the late-auth precondition rejects a failed or foreign profile read', () => {
+    const me = 'user-me';
+    const ok: HeldRead = { at: 20_000, status: 200, pId: me, bodyId: me };
+    const check = (reads: HeldRead[], signedInEpoch: number | null = 20_100) => lateAuthPreconditionProblems(reads, me, 5000, signedInEpoch, 500);
+    expect(check([ok])).toEqual([]);
+    // A failed read (the old code recorded it as "arrived").
+    expect(check([{ ...ok, status: 500, bodyId: undefined }])).toEqual([expect.stringContaining('no profile read succeeded')]);
+    // A 2xx that is somebody else's profile.
+    expect(check([{ ...ok, bodyId: 'user-other' }])).toEqual([expect.stringContaining('no profile read succeeded')]);
+    // A null body (no row for the id).
+    expect(check([{ ...ok, bodyId: undefined }])).toEqual([expect.stringContaining('no profile read succeeded')]);
+    // Only another person's read was released.
+    expect(check([{ ...ok, pId: 'user-other', bodyId: 'user-other' }])).toEqual([expect.stringContaining('no profile read for the test user')]);
+    // A failed read plus a success: timed on the success only. Here the success is before the list was drawn, so rejected...
+    expect(check([{ ...ok, at: 6000, status: 503 }, { ...ok, at: 5100 }])).toEqual([expect.stringContaining('BEFORE the list')]);
+    // ...and an early failure followed by a late success is accepted (the failure is not what is timed).
+    expect(check([{ ...ok, at: 1000, status: 503 }, ok])).toEqual([]);
+    // Arrived before the list was drawn.
+    expect(check([{ ...ok, at: 4000 }], 4100)).toEqual([expect.stringContaining('BEFORE the list')]);
+    // The signed-in UI never appeared.
+    expect(check([ok], null)).toEqual([expect.stringContaining('signed-in UI never appeared')]);
+    // The signed-in UI was already up before the profile reached the page (so it does not depend on it).
+    expect(check([ok], 15_000)).toEqual([expect.stringContaining('before the profile reached the page')]);
+    // The summary carries the first signed-in frame.
+    const run = summarise({
+      done: true, gaveUp: false, startEpoch: 0, samples: [
+        { t: 0, marks: [], loadingText: [], slowLines: 0, skeletons: 0, contentChars: 3, markerPresent: true, signedIn: false },
+        { t: 50, marks: [], loadingText: [], slowLines: 0, skeletons: 0, contentChars: 3, markerPresent: true, signedIn: true },
+      ],
+    });
+    expect(run).toMatchObject({ signedInFrame: 1, signedInMs: 50 });
   });
 
   for (const vp of VIEWPORTS) {
@@ -675,19 +876,20 @@ test.describe('P1586: per-frame loading continuity', () => {
           await setTestSession(page, user.email);
           const m = await measureRoute(page, testInfo, tag('events-list-late-auth'), '/events/list', [
             { selector: '[data-testid="event-card"]' },
-          ], { slow: [{ path: 'rpc/get_profile_by_id', ms: LATE_PROFILE_MS }], afterMarkerMs: LATE_AUTH_WINDOW_MS });
+          ], { slow: [{ path: 'rpc/get_profile_by_id', ms: LATE_PROFILE_MS }], afterMarkerMs: LATE_AUTH_WINDOW_MS, signedInSelector: SIGNED_IN_UI });
           assertContinuity('/events/list (late auth)', m);
-          assertDrawnOnce('/events/list (late auth)', m, 500);
+          assertDrawnOnce('/events/list (late auth)', m, 500, user.user.id);
         });
 
         test(at('/groups/cm, signed in, auth resolves after the list'), async ({ page }, testInfo) => {
-          test.skip(!cmName, 'the seeded group "cm" does not exist on this database');
+          test.skip(!cmName || !cmEvent, 'the seeded group "cm" does not exist on this database');
           await setTestSession(page, user.email);
+          // The marker is this test's own event under cm (seeded in beforeAll), not "any card".
           const m = await measureRoute(page, testInfo, tag('groups-cm-late-auth'), '/groups/cm', [
-            { selector: '[data-testid="event-card"]' },
-          ], { slow: [{ path: 'rpc/get_profile_by_id', ms: LATE_PROFILE_MS }], afterMarkerMs: LATE_AUTH_WINDOW_MS });
+            { selector: '[data-testid="event-card"]', text: escapeRe(cmEvent!.title) },
+          ], { slow: [{ path: 'rpc/get_profile_by_id', ms: LATE_PROFILE_MS }], afterMarkerMs: LATE_AUTH_WINDOW_MS, signedInSelector: SIGNED_IN_UI });
           assertContinuity('/groups/cm (late auth)', m);
-          assertDrawnOnce('/groups/cm (late auth)', m, 500);
+          assertDrawnOnce('/groups/cm (late auth)', m, 500, user.user.id);
         });
 
         test(at('/settings'), async ({ page }, testInfo) => {
