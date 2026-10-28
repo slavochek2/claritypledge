@@ -16,6 +16,11 @@ driver: heuristic
 
 # P1559: Clarity Ledger counts: recognising who follows through
 
+> **Parked 2026-10-28.** The ledger records checks of understanding, so it waits until people can
+> make stories from a transcript and have them checked through chat (P1431, P1484). Live checks
+> come from P1390. Founder: "park ledger until then". Prototype: `/tree/ledger` on branch
+> `feature/p1559-ledger-prototype`.
+
 > **PLACEHOLDER spec.** Captures the idea and the rulings it builds on. Do NOT design the build until
 > discovery calls with change leads (P1558's outreach) have tested the need.
 
@@ -77,3 +82,4 @@ sees follow-through recognised, by name or as a total (founder decision below).
 - [P1558](p1558_change_leads_use_case_page.md): use-case page whose copy follows this spec.
 - hypotheses.md H-ChatFollowThrough, H-CalibrationPredicts; decisions.md 2026-10-23 [product], 2026-10-22 [product].
 - [P1437](p1437_conversation_groups_agents_check_understanding.md): conversation groups.
+- What the ledger records, by source: [P1484](p1484_clarity_chat_letter_loop_v7.md) (async: the letter arrives in the DM and is answered on the letter page, after [P1469](p1469_clarity_chat_letter_loop_v6.md)); [P1390](p1390_room_audio_fills_live_from_the_transcript.md) (live: numbers said in the room are recorded); [P1431](p1431_mirror_agent_letter_chat.md) (the stories being checked, drafted by the mirror agent from a transcript).
