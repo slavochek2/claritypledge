@@ -67,4 +67,16 @@ describe('P1364 — loading: the top Back only', () => {
     expect(screen.getByRole('button', { name: 'Go back' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /go back from the end/i })).toBeNull();
   });
+
+  // P1586: the story page's placeholder lives in story-detail-skeleton.tsx; this pins that the page renders it.
+  it('story page renders its skeleton under the Back while loading', () => {
+    render(
+      <MemoryRouter initialEntries={['/prev', `/story/${ID}`]} initialIndex={1}>
+        <Routes>
+          <Route path="/story/:id" element={<StoryDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('status', { name: 'Loading story' })).toBeTruthy();
+  });
 });

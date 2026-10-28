@@ -5,10 +5,11 @@
 
 import { Skeleton } from '@/components/ui/skeleton';
 
-/** The card placeholder only: the page keeps its own Back (the P1364 drift guard allowlists it there). */
+/** The card placeholder only: the page keeps its own Back (the P1364 drift guard allowlists it there).
+ *  The blocks are aria-hidden, so the card itself announces that the story is loading. */
 export function StoryDetailSkeleton() {
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
+    <div role="status" aria-label="Loading story" className="bg-card border border-border rounded-lg overflow-hidden">
       <div className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <Skeleton className="w-10 h-10 rounded-full" />
