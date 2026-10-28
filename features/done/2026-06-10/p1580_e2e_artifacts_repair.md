@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 81
 workstream: infrastructure
 created_date: '2026-10-27'
 tags: [e2e, tests, artifacts, p1545]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, fix, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-28
 ---
 
 # P1580: Browser tests for docs, drafts, inbox and sent letters fail on main since P1545
