@@ -558,3 +558,23 @@ body {
 .event-description img:not(.not-prose img) {
   cursor: zoom-in;
 }
+
+/* P1585 (founder 2026-10-27): two or more images in ONE description paragraph become a swipeable
+ * strip, the same scroll-snap pattern as the hike photo strip (HikeSections PastHikePhotos). Each
+ * slide shows a sliver of the next, so the swipe is discoverable. Tap still opens the lightbox. */
+.event-description p:has(> img + img) {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.5rem;
+}
+.event-description p:has(> img + img) > img {
+  flex: 0 0 min(88%, 20rem);
+  min-width: 0;
+  margin: 0;
+  scroll-snap-align: start;
+  border: 1px solid hsl(var(--border));
+}
