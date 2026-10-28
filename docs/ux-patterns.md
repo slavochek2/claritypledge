@@ -62,24 +62,23 @@
 
 ## Loading States
 
-**Pattern:** Skeleton UI for main content areas (never spinners overlaid on text).
+**Pattern:** four states, and no others (P1586).
 
-**Skeleton format:** Gray pulsing placeholder boxes matching expected content shape.
+| Situation | Shows |
+|---|---|
+| **Page**: nothing of the page can be drawn yet (route guard, lazy chunk, auth, a read the header needs) | `ClarityPageLoader` (`src/components/ui/clarity-loader.tsx`) |
+| **Section**: the page's frame (header, tabs, chips) is drawn and a section below it is waiting | a skeleton of the section's shape, built from `Skeleton` (`src/components/ui/skeleton.tsx`) |
+| **Operation**: a control is working (a button, "Show more", a send) | the control's own label, or a small spinner inside the control |
+| **Optional section** that renders nothing when empty | may render nothing while loading too, if it cannot push content when it appears |
 
-```tsx
-{loading ? (
-  <div className="max-w-lg mx-auto px-4 py-8">
-    <div className="h-4 bg-muted rounded w-20 mb-6 animate-pulse" /> {/* back button */}
-    <div className="bg-card border...animate-pulse">
-      {/* structured placeholders matching card layout */}
-    </div>
-  </div>
-) : null}
-```
+- A page with a static frame draws it and shows the section skeleton below; it does not hold the page loader for its first read. The mark appears at most once per navigation, at the same place.
+- Never "Loading…" text as a page or section state, never a second large mark, never a centred spinner in a section, never a blank screen between loaders.
+- A wait that never ends becomes a readable line with Retry (a deadline, as in `NewMessageDialog`). Unknown is not "no": a value still loading shows nothing, never the negative answer.
+- Enforced by `src/tests/p1586-loading-states-guard.test.ts`; an exception goes in its allowlist with a reason.
 
-**Rationale:** Skeletons show structure; spinners show activity. Skeletons feel faster because users see the layout forming.
+**Rationale:** one wait looks the same everywhere, and the mark never jumps. The page loader keeps the signed-in shell still (decisions.md 2026-10-22, P1539); skeletons show structure under a drawn frame.
 
-**Examples:** `/story-detail-page.tsx`, `/point-detail-page.tsx`
+**Examples:** `src/app/components/feed/feed-skeleton.tsx`, `src/app/prototypes/events/components/EventListSkeleton.tsx`, `src/app/pages/story-detail-skeleton.tsx`
 
 ---
 
@@ -210,10 +209,7 @@ toast.error('Failed to save. Try again.');
 
 ## Skeleton vs Spinner Philosophy
 
-**Pattern:**
-- **Skeleton UI:** Loading initial page content (shows structure)
-- **Spinner:** Loading state in dialog/modal (short duration)
-- **Loading text:** "Saving...", "Loading..." inline in button (very short operations)
+See [Loading States](#loading-states): skeletons for sections, the page loader for pages, spinners and "Saving…" labels only inside the control that is working.
 
 ---
 
