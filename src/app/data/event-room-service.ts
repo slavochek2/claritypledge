@@ -237,6 +237,10 @@ async function queryRoomRoster(eventId: string): Promise<EventRoomMember[] | nul
   return (data as DbRoomMemberRow[]).map(mapMember);
 }
 
+/** P1586 §4: where the first answer stands. `pending` until a read answers, `ready` once any read
+ * succeeded (and for good: a later failure keeps the rows), `failed` while no read has yet. */
+export type RosterStatus = 'pending' | 'ready' | 'failed';
+
 /** Realtime channel (Decision 3) + a 30s reconciliation poll that is the required degrade
  * path (channel never reaches SUBSCRIBED, or drops). Pre-2026-08-21 this poll was also the
  * only way an opt-out ever reached another viewer's roster (RLS silently dropped that
@@ -245,8 +249,13 @@ async function queryRoomRoster(eventId: string): Promise<EventRoomMember[] | nul
  * a fresh roster
  * fetch on every relevant event — never partial/optimistic patching, so a dropped or
  * out-of-order payload can never leave the roster in a state a full re-fetch wouldn't
- * also produce. Returns an unsubscribe function. */
-export function subscribeToRoomRoster(eventId: string, onUpdate: (roster: EventRoomMember[]) => void): () => void {
+ * also produce. `onStatus` (P1586 §4) is additive: it tells "not loaded yet" from "first read
+ * failed", which the `[]` before the first success cannot. Returns an unsubscribe function. */
+export function subscribeToRoomRoster(
+  eventId: string,
+  onUpdate: (roster: EventRoomMember[]) => void,
+  onStatus?: (status: RosterStatus) => void,
+): () => void {
   let cancelled = false;
   // ONE fetch in flight at a time; an event that arrives meanwhile marks the roster dirty and
   // triggers exactly one more fetch, sent after the current one returned. So the last fetch
@@ -257,6 +266,13 @@ export function subscribeToRoomRoster(eventId: string, onUpdate: (roster: EventR
   let inFlight = false;
   let dirty = false;
   let hasGood = false;
+  let status: RosterStatus = 'pending';
+  const setStatus = (next: RosterStatus) => {
+    if (next === status) return;
+    status = next;
+    onStatus?.(next);
+  };
+  onStatus?.('pending');
 
   const reload = async () => {
     if (inFlight) { dirty = true; return; }
@@ -266,8 +282,8 @@ export function subscribeToRoomRoster(eventId: string, onUpdate: (roster: EventR
         dirty = false;
         const roster = await fetchRoomRoster(eventId);
         if (cancelled) return;
-        if (roster !== null) { hasGood = true; onUpdate(roster); }
-        else if (!hasGood) onUpdate([]);
+        if (roster !== null) { hasGood = true; setStatus('ready'); onUpdate(roster); }
+        else if (!hasGood) { onUpdate([]); setStatus('failed'); }
       } while (dirty && !cancelled);
     } finally {
       inFlight = false;

@@ -80,7 +80,11 @@ export type EventRoomServiceContract = {
   setRoomReadiness: (memberId: string, value: number) => Promise<import('@/app/types').EventRoomSelf>;
   getMyRoomStatus: (eventId: string) => Promise<import('@/app/types').EventRoomSelf | null>;
   getRoomRoster: (eventId: string) => Promise<import('@/app/types').EventRoomMember[]>;
-  subscribeToRoomRoster: (eventId: string, onUpdate: (roster: import('@/app/types').EventRoomMember[]) => void) => () => void;
+  subscribeToRoomRoster: (
+    eventId: string,
+    onUpdate: (roster: import('@/app/types').EventRoomMember[]) => void,
+    onStatus?: (status: import('./event-room-service').RosterStatus) => void,
+  ) => () => void;
 };
 
 export interface CreateEventInput {

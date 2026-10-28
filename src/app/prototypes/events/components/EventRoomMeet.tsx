@@ -97,13 +97,14 @@ import {
   BAR_INNER_CLASS,
   UNDERSTANDING_QUESTION,
 } from '@/app/components/agreements/meeting-principle-view';
-import { setRoomOptIn, setRoomRating, resetRoomAnswer, subscribeToRoomRoster } from '@/app/data/event-room-service';
+import { setRoomOptIn, setRoomRating, resetRoomAnswer, subscribeToRoomRoster, type RosterStatus } from '@/app/data/event-room-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { PracticeRooms } from './PracticeRooms';
+import { RosterWait } from './EventRoomRosterWait';
 import { SHOW_PRACTICE_ROOMS } from './practice-rooms-switch';
 import { RoundCard, type RoundMoment } from '../rounds/RoundCard';
 import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
@@ -265,6 +266,7 @@ export function EventRoomMeet() {
   const transcriptionFailed =
     startFailed || (location.state as { transcriptionFailed?: boolean } | null)?.transcriptionFailed === true;
   const [roster, setRoster] = useState<EventRoomMember[]>([]);
+  const [rosterStatus, setRosterStatus] = useState<RosterStatus>('pending');
   const [submitting, setSubmitting] = useState(false);
   const [writeFailed, setWriteFailed] = useState(false);
   /** After a failed write: did the re-read succeed? Only then does this screen know the
@@ -335,7 +337,7 @@ export function EventRoomMeet() {
     return subscribeToRoomRoster(event.id, (next) => {
       setRoster(next);
       void refreshRef.current();
-    });
+    }, setRosterStatus);
   }, [event?.id]);
 
   // P1386: no prepared / mic marks here — this page is projected on the wall. The host reads them on
@@ -651,14 +653,14 @@ export function EventRoomMeet() {
           {showAnswered && (
           <div data-testid="room-roster" className="bg-card rounded-xl border border-border shadow-sm p-6 space-y-6">
             {roster.length === 0 ? (
-              /* The one case a per-group empty state cannot express. `getRoomRoster` returns
-                 [] on ANY failure and the 30s reconciliation poll pushes that [] through
-                 unconditionally, so this branch covers a transient fetch failure as well as
-                 the pre-first-paint moment — and the spec's Risks require this to degrade to
-                 readable text, "never an error state or an empty wall". With every group
-                 hiding itself when empty, without this the section would render as nothing
-                 at all. */
-              <p className="text-sm text-muted-foreground">Loading who is here…</p>
+              /* The one case a per-group empty state cannot express. The subscription reports
+                 [] before its first success, so this branch covers the pre-first-paint moment,
+                 a failed first read and a roster that really is empty — and the spec's Risks
+                 require each to degrade to readable text (or a skeleton), "never an error state
+                 or an empty wall". With every group hiding itself when empty, without this the
+                 section would render as nothing at all. P1586 §4: `rosterStatus` tells the three
+                 apart, in EventRoomRosterWait. */
+              <RosterWait status={rosterStatus} />
             ) : (
               <>
                 <RosterGroup title="Opted in" testId="room-roster-in" members={inMembers} />
