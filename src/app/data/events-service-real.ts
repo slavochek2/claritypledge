@@ -8,6 +8,7 @@ import { logDbError, throwDbError } from './db-error-logger';
 import { clientHoldsUser, guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
 import { earCountOf } from './ear-count';
 import { slugifyName } from './api';
+import { attachAttendeeCounts, fetchViewerRsvpEventIds, type EventsListReadOptions } from './events-list-reads';
 
 // `status` is NOT auto-managed (no trigger, no cron — intentional).
 // `datetime` is the source of truth for past/upcoming via the grace-period pattern below.
@@ -248,7 +249,7 @@ export function groupEventsByOrg<T>(
 }
 
 /** The shared upcoming-events read: `orgFilter` is one id, a list of ids, or absent (unscoped). */
-async function loadUpcoming(orgFilter?: string | string[]): Promise<{ events: EventWithHost[]; orgIds: (string | null)[] }> {
+async function loadUpcoming(orgFilter?: string | string[], opts?: EventsListReadOptions): Promise<{ events: EventWithHost[]; orgIds: (string | null)[] }> {
   const graceCutoff = getGraceCutoff();
   // P1060: the org filter is applied CONDITIONALLY and last. Omitting orgId must
   // add no `.eq` at all — the standalone /events list stays unfiltered, which is
@@ -278,46 +279,23 @@ async function loadUpcoming(orgFilter?: string | string[]): Promise<{ events: Ev
   const { data, error } = await query;
 
   if (error) {
+    // P1586: the events list opts in to a visible failure; every other caller keeps `[]`.
+    if (opts?.throwOnError) throwDbError('getUpcomingEvents', error, 'Events could not be loaded');
     logDbError('getUpcomingEvents', error);
     return { events: [], orgIds: [] };
   }
 
-  // Fetch attendee counts for all events
   const rows = data as DbEventWithHost[];
   const events = rows.map(mapEventFromDb);
-
-  // Get attendee counts in batch
-  const eventIds = events.map(e => e.id);
-  if (eventIds.length > 0) {
-    // P1366: `profile_id` rides along ONLY to tell whether the host has an RSVP row of their
-    // own (a display input for `displayGoingCount`). The count itself is unchanged: every row.
-    const { data: rsvpCounts } = await supabase
-      .from('event_rsvps')
-      .select('event_id, profile_id')
-      .in('event_id', eventIds);
-
-    if (rsvpCounts) {
-      const countMap = rsvpCounts.reduce((acc, rsvp) => {
-        acc[rsvp.event_id] = (acc[rsvp.event_id] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      events.forEach(event => {
-        event.attendeeCount = countMap[event.id] || 0;
-        event.hostHasRsvp = rsvpCounts.some(
-          (rsvp) => rsvp.event_id === event.id && rsvp.profile_id === event.hostId,
-        );
-      });
-    }
-  }
+  await attachAttendeeCounts(events);
   return { events, orgIds: rows.map((r) => r.org_id ?? null) };
 }
 
 
 export const realEventsService: EventsService = {
-  async getUpcomingEvents(orgId?: string): Promise<EventWithHost[]> {
+  async getUpcomingEvents(orgId?: string, opts?: EventsListReadOptions): Promise<EventWithHost[]> {
     log(' getUpcomingEvents', orgId ?? '(unscoped)');
-    return (await loadUpcoming(orgId)).events;
+    return (await loadUpcoming(orgId, opts)).events;
   },
 
   async getUpcomingEventsByOrg(orgIds: string[]): Promise<Record<string, EventWithHost[]>> {
@@ -328,7 +306,7 @@ export const realEventsService: EventsService = {
     return groupEventsByOrg(events.map((event, i) => ({ orgId: rowOrgs[i], event })), ids);
   },
 
-  async getPastEvents(orgId?: string): Promise<EventWithHost[]> {
+  async getPastEvents(orgId?: string, opts?: EventsListReadOptions): Promise<EventWithHost[]> {
     log(' getPastEvents', orgId ?? '(unscoped)');
 
     const graceCutoff = getGraceCutoff();
@@ -358,39 +336,18 @@ export const realEventsService: EventsService = {
     const { data, error } = await query;
 
     if (error) {
+      if (opts?.throwOnError) throwDbError('getPastEvents', error, 'Events could not be loaded');
       logDbError('getPastEvents', error);
       return [];
     }
 
     const events = (data as DbEventWithHost[]).map(mapEventFromDb);
-
-    // Fetch attendee counts in batch (same as getUpcomingEvents)
-    const eventIds = events.map(e => e.id);
-    if (eventIds.length > 0) {
-      // P1366: `profile_id` rides along ONLY to tell whether the host has an RSVP row of their
-      // own (a display input for `displayGoingCount`). The count itself is unchanged: every row.
-      const { data: rsvpCounts } = await supabase
-        .from('event_rsvps')
-        .select('event_id, profile_id')
-        .in('event_id', eventIds);
-
-      if (rsvpCounts) {
-        const countMap = rsvpCounts.reduce((acc, rsvp) => {
-          acc[rsvp.event_id] = (acc[rsvp.event_id] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-
-        events.forEach(event => {
-          event.attendeeCount = countMap[event.id] || 0;
-          event.hostHasRsvp = rsvpCounts.some(
-            (rsvp) => rsvp.event_id === event.id && rsvp.profile_id === event.hostId,
-          );
-        });
-      }
-    }
+    await attachAttendeeCounts(events);
 
     return events;
   },
+
+  getViewerRsvps: fetchViewerRsvpEventIds,
 
   async getEventBySlug(slug: string): Promise<EventWithHost | null> {
     log(' getEventBySlug:', slug);

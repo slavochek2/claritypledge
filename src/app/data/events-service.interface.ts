@@ -1,3 +1,4 @@
+import type { EventsListReadOptions } from './events-list-reads';
 import type { EventWithHost, EventAttendee, EventPracticeRoom, SeriesContent } from '@/app/types';
 
 export interface EventsService {
@@ -7,16 +8,21 @@ export interface EventsService {
    * standalone /events list) the query is unfiltered and keeps showing every
    * event, org-scoped or not — that is its job (spec Non-Goals).
    */
-  getUpcomingEvents(orgId?: string): Promise<EventWithHost[]>;
+  getUpcomingEvents(orgId?: string, opts?: EventsListReadOptions): Promise<EventWithHost[]>;
   /**
    * P1527: upcoming events of several orgs in ONE read, keyed by org id (every requested id is a
    * key; an org with none maps to []). Each list equals `getUpcomingEvents(thatOrgId)`.
    */
   getUpcomingEventsByOrg(orgIds: string[]): Promise<Record<string, EventWithHost[]>>;
-  getPastEvents(orgId?: string): Promise<EventWithHost[]>;
+  getPastEvents(orgId?: string, opts?: EventsListReadOptions): Promise<EventWithHost[]>;
   getEventBySlug(slug: string): Promise<EventWithHost | null>;
   getEventAttendees(eventId: string): Promise<EventAttendee[]>;
   isUserRsvpd(eventId: string, profileId: string): Promise<boolean>;
+  /**
+   * P1586: which of `eventIds` the viewer is registered for, in ONE request (the events list's marks).
+   * Rejects when the read fails, so a failure is never read as "not going".
+   */
+  getViewerRsvps(eventIds: string[], profileId: string): Promise<string[]>;
   /**
    * P1194: the event's group chat link. Returns null for anyone who is neither
    * the host nor a registered attendee — the gate is RLS on event_private_info,

@@ -12,6 +12,24 @@ import { WEBINAR_SERIES, filterWebinarSeries } from '@/app/data/webinar-series';
 
 type Tab = 'upcoming' | 'past';
 
+/** P1586: a read that has not answered by now is a failure with Retry, never an endless "Loading…". */
+const EVENTS_READ_DEADLINE_MS = 8_000;
+
+/** P1586: the outcome of one events read, tagged with the view (group + viewer) it was made for. A
+ *  result is shown only while its key is the CURRENT view's, so a previous group's or user's events and
+ *  marks can never render, not even for the one frame between a switch and the new read starting. */
+interface ListRead {
+  key: string;
+  status: 'ready' | 'failed';
+  upcoming: EventWithHost[];
+  past: EventWithHost[];
+  /** The viewer's RSVPs among the listed events. null = not known (still loading, or the read failed):
+   *  shows no mark. Never an empty set standing in for "unknown". */
+  marks: ReadonlySet<string> | null;
+}
+
+const NO_EVENTS: EventWithHost[] = [];
+
 interface EventsListProps {
   /** Rendered inside another page (e.g. the Clarity Group Events tab):
    *  drops the page chrome — full-height background, page title, top padding —
@@ -54,10 +72,19 @@ export function EventsList({
   const isSeriesFiltered = seriesParam === WEBINAR_SERIES.SERIES_PARAM;
 
   const [activeTab, setActiveTab] = useState<Tab>('upcoming');
-  const [upcomingEvents, setUpcomingEvents] = useState<EventWithHost[]>([]);
-  const [pastEvents, setPastEvents] = useState<EventWithHost[]>([]);
-  const [userRsvps, setUserRsvps] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const [read, setRead] = useState<ListRead | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const userId = user?.id;
+  const viewKey = `${orgId ?? ''}|${userId ?? ''}`;
+  const current = read?.key === viewKey ? read : null;
+  // `loading`: no answer for THIS view yet. `ready`: the lists are known (an empty list is a fact).
+  // `failed`: the read errored or missed its deadline; the lists are unknown, not empty.
+  const loading = current === null;
+  const ready = current?.status === 'ready';
+  const failed = current?.status === 'failed';
+  const upcomingEvents = current?.upcoming ?? NO_EVENTS;
+  const pastEvents = current?.past ?? NO_EVENTS;
+  const userRsvps = current?.marks ?? null;
   const isOrgScoped = !!orgId;
 
   // When series filter is active, force upcoming tab so the filter is applied.
@@ -68,30 +95,52 @@ export function EventsList({
   }, [isSeriesFiltered]);
 
   useEffect(() => {
-    async function fetchEvents() {
-      const [upcoming, past] = await Promise.all([
-        eventsService.getUpcomingEvents(orgId),
-        eventsService.getPastEvents(orgId),
-      ]);
-      setUpcomingEvents(upcoming);
-      setPastEvents(past);
+    // `live` is the cancellation: a response for a previous group, user or attempt finds it false and
+    // is dropped. A late answer for the CURRENT view (after the deadline) still lands and replaces the
+    // failure line.
+    let live = true;
+    const key = viewKey;
+    const giveUp = setTimeout(() => {
+      if (live) setRead({ key, status: 'failed', upcoming: [], past: [], marks: null });
+    }, EVENTS_READ_DEADLINE_MS);
+    const settle = (next: Omit<ListRead, 'key' | 'marks'>) => {
+      clearTimeout(giveUp);
+      if (live) setRead({ key, marks: null, ...next });
+    };
 
-      if (user) {
-        const allEvents = [...upcoming, ...past];
-        const rsvpChecks = await Promise.all(
-          allEvents.map(event => eventsService.isUserRsvpd(event.id, user.id))
-        );
-        const rsvpSet = new Set<string>();
-        allEvents.forEach((event, i) => {
-          if (rsvpChecks[i]) rsvpSet.add(event.id);
-        });
-        setUserRsvps(rsvpSet);
+    // The marks never hold the list: they arrive on their own, in one batched request. A failed read
+    // leaves them unknown (no mark), never "not going".
+    async function loadMarks(ids: string[]) {
+      if (!userId || ids.length === 0) return;
+      try {
+        const rsvped = await eventsService.getViewerRsvps(ids, userId);
+        if (live) setRead((r) => (r && r.key === key ? { ...r, marks: new Set(rsvped) } : r));
+      } catch {
+        // unknown stays unknown
       }
-
-      setLoading(false);
     }
-    fetchEvents();
-  }, [user, orgId]);
+
+    Promise.all([
+      eventsService.getUpcomingEvents(orgId, { throwOnError: true }),
+      eventsService.getPastEvents(orgId, { throwOnError: true }),
+    ]).then(
+      ([upcoming, past]) => {
+        settle({ status: 'ready', upcoming, past });
+        if (live) void loadMarks([...upcoming, ...past].map((event) => event.id));
+      },
+      () => settle({ status: 'failed', upcoming: [], past: [] }),
+    );
+
+    return () => {
+      live = false;
+      clearTimeout(giveUp);
+    };
+  }, [viewKey, orgId, userId, attempt]);
+
+  const retry = () => {
+    setRead(null);
+    setAttempt((n) => n + 1);
+  };
 
   const seriesEvents = filterWebinarSeries(upcomingEvents);
   const filteredUpcoming = isSeriesFiltered
@@ -108,13 +157,13 @@ export function EventsList({
   // the empty Upcoming state; it is not the user changing filters, so it must not
   // move the filter. Only in org context — the standalone /events list is unchanged.
   const fellThroughToPast =
-    isOrgScoped && !loading && upcomingEvents.length === 0 && pastEvents.length > 0;
+    isOrgScoped && ready && upcomingEvents.length === 0 && pastEvents.length > 0;
   const events =
     activeTab === 'upcoming'
       ? (fellThroughToPast ? pastEvents : filteredUpcoming)
       : pastEvents;
-  const listIsEmpty = !loading && events.length === 0;
-  // `&& !loading` is load-bearing for POSITION, not just visibility. The actions live
+  const listIsEmpty = ready && events.length === 0;
+  // `&& ready` is load-bearing for POSITION, not just visibility. The actions live
   // in two places depending on `listIsEmpty`, which is false while loading — so
   // without this they rendered top-right on first paint and then visibly jumped into
   // the centered empty block once the fetch resolved to zero events. Withholding them
@@ -129,12 +178,12 @@ export function EventsList({
   // only picks the organizer's empty-state copy below.
   const showActions = isOrgScoped
     ? false
-    : isLoggedIn && !isSeriesFiltered && !loading;
+    : isLoggedIn && !isSeriesFiltered && ready;
 
   // P1545 decision 6: the Chiang Mai calendar card lives on the standalone Upcoming list only (never in a
   // group, never in the embedded list, never on the webinar-series filter, never on Past). With events it
   // sits below the list, one level quieter; with none it is the main element.
-  const showCmCard = !isOrgScoped && !embedded && !isSeriesFiltered && !loading && activeTab === 'upcoming';
+  const showCmCard = !isOrgScoped && !embedded && !isSeriesFiltered && ready && activeTab === 'upcoming';
   const hasOurEvents = events.length > 0;
 
   // Host / Co-create. Two positions, one definition:
@@ -195,7 +244,7 @@ export function EventsList({
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Upcoming{!loading && ` (${upcomingEvents.length})`}
+            Upcoming{ready && ` (${upcomingEvents.length})`}
           </button>
           <button
             role="tab"
@@ -207,7 +256,7 @@ export function EventsList({
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            Past{!loading && ` (${pastEvents.length})`}
+            Past{ready && ` (${pastEvents.length})`}
           </button>
         </div>
   );
@@ -235,7 +284,15 @@ export function EventsList({
 
       {/* Events Grid */}
       <div className={embedded ? 'max-w-5xl mx-auto pb-6' : undefined}>
-        {loading ? (
+        {failed ? (
+          <div role="alert" className="flex flex-col items-center gap-3 py-16 text-center">
+            {/* [FOUNDER DECISION: events-list failure copy is a placeholder.] */}
+            <p className="text-muted-foreground">Events could not be loaded.</p>
+            <Button variant="outline" className="min-h-10" onClick={retry}>
+              Retry
+            </Button>
+          </div>
+        ) : loading ? (
           <div className="text-center py-16">
             <div className="text-muted-foreground">Loading events...</div>
           </div>
@@ -271,7 +328,7 @@ export function EventsList({
                 event={event}
                 isLoggedIn={isLoggedIn}
                 userId={user?.id}
-                isUserGoing={userRsvps.has(event.id)}
+                isUserGoing={userRsvps?.has(event.id) ?? false}
               />
             ))}
           </div>

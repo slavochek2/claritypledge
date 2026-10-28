@@ -106,6 +106,10 @@ export const mockEventsService: EventsService = {
     return mockIsRsvpd(eventId);
   },
 
+  async getViewerRsvps(eventIds: string[], _profileId: string): Promise<string[]> {
+    return eventIds.filter((id) => mockIsRsvpd(id));
+  },
+
   isEventFull(event: EventWithHost): boolean {
     // Need to get the mock event to check attendees
     const mockEvent = mockEvents.find(e => e.id === event.id);
