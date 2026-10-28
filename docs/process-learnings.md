@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 243
+**Next ID:** 245
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2966,5 +2966,27 @@ A cold event room load runs the gate's access reads one after another under a si
 **due:** week
 
 From the P1450 final review (2026-10-27): the shared teardown used by ship, park and archive-spec ignores a valid hold, writes no recovery record before removing a slot, and a forced removal blocked by ignored output can leave a half-deleted slot with its bookkeeping gone. Align it with the P1450 tidy invariants. Droppable if teardown is replaced by the tidy removal path.
+
+---
+
+## Hosted TEST function deploys refused by a secrets check that names nothing
+
+**ID:** INBOX-243
+**Date:** 2026-10-28
+**Status:** proposed
+**due:** week
+
+Found during P1557. ./scripts/check-edge-function-secrets.sh --env test exits 1 with "FAIL: required edge function secrets missing" and an EMPTY list. The token it uses works (Management API secrets and functions endpoints answer 200), so this is the check, not the credential. Effect: ./scripts/deploy-functions.sh refuses every hosted TEST deploy, and the P1557 two-target deploy stops before the self-hosted half. Workaround: scripts/selfhosted/deploy-functions.sh deploys the self-hosted server directly.
+
+---
+
+## Clear the 20 integration tests that fail on the self-hosted TEST server (P1557 follow-up)
+
+**ID:** INBOX-244
+**Date:** 2026-10-28
+**Status:** proposed
+**due:** week
+
+After Mailgun was restored on 2026-10-28, 20 integration tests still fail on the self-hosted TEST server; none is a server defect (evidence: .private/archive/p1557/rerun-mailgun.json). (a) 9 need the storage or AI key kept off the test server by founder rule: the edge-fn-authz-regression banner, upload and playback 403 cases, the p1223 participant forward step, and the p1544 mirror-reply case; those functions check config before auth, so decide whether such tests skip when the key is absent or the functions authorize first. (b) 6 in p1275-create-transcribe-room-rpc call create_transcribe_room without p_consent, a signature migration 20260909100000 dropped; they pass on hosted only through a stale overload there (hosted schema drift). (c) the p1178-reproduce canary expects create-and-sign to seal and send the accepted email, which it no longer does. (d) p630-system-tags-migration scans every point and trips on rows other tests left. (e) 2 edge-fn-authz cases get the right 401 with the self-hosted router's body rather than the hosted gateway's, and enqueue-transcription sent with only the anon header (no Authorization) is refused by the router where hosted lets it through; decide whether supabase/selfhosted/functions-main/index.ts should mirror hosted's fallback to that header. Droppable once each group is fixed or deliberately skipped, or if TEST goes back to hosted.
 
 ---
