@@ -239,7 +239,16 @@ the same change, with prices read from the pricing page on the day.
 - [x] Function deploy works against the new server. The two open functions accept an unauthenticated
       call, the other 19 refuse missing, bad and expired tokens. 2026-10-25: 19 of 19 return 401 for
       none, garbage and a real expired token; the valid-token control passes the gate.
-- [ ] Every declared capability in step 11 is proven by its effect.
+- [x] Every declared capability in step 11 is proven by its effect (2026-10-28, self-hosted):
+      email magic link consumed for the right user and refused on reuse; a realtime insert reaches
+      its recipient and not an unrelated user; storage bytes round-trip, a signed URL serves them and
+      a forged token is refused (HTTP 400); a cron tick fires `pg_net` into dispatch-event-emails
+      (HTTP 200 `{"ok":true,"mode":"cron"}`), a wrong or missing cron secret is refused (401); vault
+      reads 4 of 4 secrets before and after a db restart. Google sign-in is a Known limitation. The
+      cron proof found and fixed a real defect: the self-hosted deploy did not ship the shared import
+      map, so about 20 functions could not boot (`d0d0ebd96`). The vault was missing the dispatch
+      URL and cron secret; set on the server only. Paid keys (Mailgun, Gemini) removed from the
+      server's function secrets, per the founder's rule.
 - [x] Per-test comparison table (pass/fail/skip, hosted vs new). Every difference is resolved or
       listed for the founder with its cause. Every new-server-only failure is either a stale test that
       fails on hosted too, or a Known limitation below. Raw-SQL specs run on hosted TEST
@@ -251,12 +260,19 @@ the same change, with prices read from the pricing page on the day.
       prod-style ref are each refused. The one-run lock engages against the new server.
 - [x] Monthly cost written privately; registry row added (2026-10-26). Credit runway: the balance is
       read by the founder from the billing console, not by the agent.
-- [ ] Rollback rehearsed once: env back to hosted TEST, one suite green, then forward again.
-- [ ] Founder approves the repoint. `[post-deploy]` after it, /day `cp.testdb` reads the new server
-      and flags it when it is down (proven by stopping the proxy once), and no tracked file names
-      hosted TEST as the active target.
-- [ ] Recipe proven in the pp recipe system, with the upkeep steps in step 16 wired into /day and the
-      weekly routine.
+- [x] Rollback rehearsed once, on a copy of the env file (`flip-test-env.py --file`): forward 14/14
+      on self-hosted, back to hosted, forward again 14/14; the file is byte-identical after each
+      round trip. The hosted leg reached hosted TEST and was turned away by its own overload probe
+      (exit 75, "no answer in 8s"), twice, so a green hosted suite was not possible on the day:
+      the rollback targets hosted correctly; hosted's own load is the reason for P1557.
+- [x] Founder approves the repoint ("let's switch then", then "ok lets flip if no tests are
+      running"). /day `cp.selfhosted` (named so because `cp.testdb` already measures hosted latency)
+      flags the server when it is down: proxy container stopped once, health read "reachable: warn"
+      and "cert: unknown"; restarted, back to ok. `[post-deploy]` after the flip, /day reads the new
+      server and no tracked file names hosted TEST as the active target.
+- [x] Upkeep: /day reads the server's health (`cp.selfhosted`, on main). The recipe, the scheduled
+      workflow and the weekly drift report moved to P1584 (`features/p1584_self_hosted_test_server_upkeep_recipe.md`)
+      so the switch could ship.
 
 ## Known limitations
 
