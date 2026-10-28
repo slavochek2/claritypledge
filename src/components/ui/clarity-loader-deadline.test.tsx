@@ -87,3 +87,28 @@ describe("ClarityPageLoader deadline across a loader chain (P1586)", () => {
     expect(second.getByRole("button", { name: "Reload" })).toBeTruthy();
   });
 });
+
+describe("ClarityPageLoader deadline after the static splash (P1586)", () => {
+  beforeEach(() => { vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance", "Date"] }); });
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    document.getElementById("app-shell-loader")?.remove();
+    vi.resetModules();
+  });
+
+  // The first loader continues the index.html splash and is seeded with the splash's animation time
+  // (1200ms). That is not waiting: the deadline must still be the full 15s of real time.
+  it("the splash's animation seed does not shorten the first deadline", async () => {
+    const splash = document.createElement("div");
+    splash.id = "app-shell-loader";
+    document.body.appendChild(splash);
+    vi.resetModules(); // loader-chain reads the splash at module load
+    const { ClarityPageLoader: FreshLoader } = await import("./clarity-loader");
+    const view = render(<FreshLoader />);
+    act(() => { vi.advanceTimersByTime(DEADLINE_MS - 300); });
+    expect(view.queryByRole("button", { name: "Reload" })).toBeNull();
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(view.getByRole("button", { name: "Reload" })).toBeTruthy();
+  });
+});

@@ -72,7 +72,10 @@ function SlowLoadNotice({ startedAgoMs }: { startedAgoMs: number }) {
     // Counted from the start of the loader run, not this instance: loaders that replace each other (route
     // guard -> lazy chunk -> page -> redirect target) are one wait, and a fresh 15s per instance let a chain
     // of them wait forever without the notice (measured on the event room gate, P1586 e2e).
-    const t = setTimeout(() => setSlow(true), Math.max(0, PAGE_WAIT_DEADLINE_MS - startedAgoMs));
+    // The first loader after the static splash is seeded with the splash's animation time (SPLASH_SEED_MS),
+    // which is not wall-clock waiting; no wait can be longer than the time since navigation started.
+    const waited = Math.min(startedAgoMs, performance.now());
+    const t = setTimeout(() => setSlow(true), Math.max(0, PAGE_WAIT_DEADLINE_MS - waited));
     return () => clearTimeout(t);
   }, [startedAgoMs]); // fixed for the loader's lifetime: useLoaderChain captures it at mount
   if (!slow) return null;

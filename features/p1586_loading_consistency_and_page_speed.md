@@ -151,14 +151,14 @@ Applies because the continuity e2e (`e2e/p1586-loading-continuity.spec.ts`) crea
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | 0 new in prod; events list: `N events x 1 isUserRsvpd = N` → `1 batched read`, so fewer for any N ≥ 2 | 0 (no timer, poller or retry loop added; the events-list Retry is a person's click) | Setup: `1 user create + 1 profile insert + 1 event insert + 1 event delete + 1 user delete + 1 ledger sweep = 6`. Routes: `7 measured routes x ≤ 14 REST reads (the largest first-visit count measured on prod, /feed, 2026-10-28) = ≤ 98`. Total `≤ 104` |
-| Egress (bytes) | unchanged | 0 | `≤ 104 responses x ≤ 10 KB (list reads of a seeded test org) = ≤ 1.04 MB`, i.e. about 0.02% of the 5 GB free egress per run |
+| Requests | 0 new in prod; events list: `N events x 1 isUserRsvpd = N` → `1 batched read`, so fewer for any N ≥ 2 | 0 (no timer, poller or retry loop added; Retry and Reload are a person's click; the deadlines only change what is shown) | Setup: `2 users x (1 auth create + 1 profile insert) + 2 event inserts + 1 RSVP + 1 room seat (app write) + 2 event deletes + 2 user deletes + 1 ledger sweep = 13`. Routes: `28 measured navigations (14 routes at 1440 + 7 at 375 + 7 at 320) x ≤ 63 REST reads (the largest chain the suite measured, /compare/:slug, 2026-10-28; most routes held 4-37) = ≤ 1,764`. Total `≤ 1,777` |
+| Egress (bytes) | unchanged | 0 | `≤ 1,777 responses x ≤ 10 KB (list reads of a seeded test org) = ≤ 17.8 MB`, about 0.36% of the 5 GB free egress per run; a suite run takes 10-12 minutes, so it is not run per commit |
 | Log lines | 0 new success logs; a failed events read logs once per attempt through the existing `logDbError` (`1 per Retry click`) | 0 | 0 provoked failures: responses are held 1.5s, never failed |
-| Service unit | none | none | `1 test user per run x 0 MAU` (test users never sign in through the hosted auth UI; created and deleted through the admin API, counted by the P1532 run ledger) |
+| Service unit | none | none | `2 test users per run x 0 MAU` (test users never sign in through the hosted auth UI; created and deleted through the admin API, counted by the P1532 run ledger) |
 
-- **Worst case:** a run aborted after setup leaves 1 user and 1 event behind; the P1532 sweep deletes them on the next run (`deleted 1 still alive` in the ledger).
+- **Worst case:** a run aborted after setup leaves 2 users and 2 events behind (cleanup runs in sequence, so one failed delete can strand the rest); the P1532 sweep deletes them on the next run (`deleted N still alive` in the ledger).
 - **Guard:** the P1532 run ledger prints users created/deleted per run; `p1522-idle-request-budget` keeps the app's request counts from rising.
-- **Not measured:** the exact per-route REST count inside this suite (it holds requests but does not count them); the ≤ 14 bound is the prod measurement above.
+- **Measured:** the suite logs `heldRequests` per route (4-37 at 1440 on 2026-10-28; /compare/:slug 37-63 across runs); the ≤ 63 bound is the largest of those.
 
 ## Done-When
 
