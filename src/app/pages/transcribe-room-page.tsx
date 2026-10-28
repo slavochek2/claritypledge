@@ -30,6 +30,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { Button } from '@/components/ui/button';
 import { Sparkles, ShieldOff, Loader2, ArrowDown } from 'lucide-react';
@@ -214,17 +215,8 @@ export function TranscribeRoomPage() {
 
   const mergedRows = useMemo(() => mergeConsecutiveSpeakerRows(messages), [messages]);
 
-  if (!sessionChecked || authLoading || view === 'loading') {
-    return (
-      <div
-        className="flex items-center justify-center h-full pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))] text-muted-foreground"
-        data-testid="transcribe-loading"
-      >
-        <Loader2 className="w-5 h-5 animate-spin mr-2" />
-        Loading...
-      </div>
-    );
-  }
+  // P1586: nothing of the page is drawn yet, so the one page loader.
+  if (!sessionChecked || authLoading || view === 'loading') return <ClarityPageLoader />;
 
   if (!user) return null;
 

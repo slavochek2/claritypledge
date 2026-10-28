@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { TimecodePill } from '@/app/components/shared/timecode-pill';
 import { StoryVideoPlayer, type StoryVideoPlayerHandle } from '@/app/components/shared/story-video-player';
@@ -66,12 +67,14 @@ export function VideoSummaryPage() {
   if (state.status === 'missing') return <NotFoundPage />;
   if (state.status === 'loading') {
     return (
-      <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:py-8" aria-busy="true">
-        {/* P1364 UX Notes — loading: the top Back only (no pill until the content renders). */}
-        <FocusHeader fallback={BACK_FALLBACK} />
-        <p role="status" className="text-sm text-muted-foreground">
-          Loading video summary…
-        </p>
+      <div className="relative" aria-busy="true">
+        {/* P1364 UX Notes — loading: the top Back only (no pill until the content renders). P1586: the page
+            loader is the one wait state; outside the shell Back sits over it (absolute), so the mark does
+            not move down by Back's height. */}
+        <div className="absolute inset-x-0 top-0 z-10 mx-auto w-full max-w-2xl px-4 py-6 sm:py-8">
+          <FocusHeader fallback={BACK_FALLBACK} />
+        </div>
+        <ClarityPageLoader />
       </div>
     );
   }

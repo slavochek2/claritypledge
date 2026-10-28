@@ -10,15 +10,15 @@
  * AD4.1 anti-flash invariants (P692 + P693 KDDs):
  * - Gate on !!session, NOT !!currentUser. currentUser lags session by ~200ms
  *   during profile fetch — gating on currentUser causes a "Sign in" flash.
- * - Use ClarityLoader (inline) NOT ClarityPageLoader (route-gate) for State 7's
- *   "Saving your responses…" spinner.
+ * - P1586: State 7 shows the one page loader (nothing of this page is drawn yet), not a page-local
+ *   mark; "Saving your responses…" stays for screen readers as a status line.
  */
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
-import { ClarityLoader } from '@/components/ui/clarity-loader';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { CheckCircle2 } from 'lucide-react';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import { POSITION_VALUES, type PositionType } from '@/app/types';
@@ -218,14 +218,13 @@ export function LetterResponseConfirmPage() {
   // ---- State 7a / 7b: Loading / Saving ----
   if (pageState === 'waiting-for-session' || pageState === 'confirming') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
-        <ClarityLoader size="md" />
+      <>
+        <ClarityPageLoader />
+        {/* P1586: the visible line is dropped for the one loader; the screen-reader status stays. */}
         {pageState === 'confirming' && (
-          <p className="text-sm text-muted-foreground text-center">
-            Saving your responses…
-          </p>
+          <p role="status" className="sr-only">Saving your responses…</p>
         )}
-      </div>
+      </>
     );
   }
 

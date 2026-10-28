@@ -99,7 +99,11 @@ describe('CreateEvent Auth Check', () => {
       </MemoryRouter>
     );
 
-    // Should show loading
-    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    // P1586: the wait is the one page loader (the mark), not the word "Loading..."; neither
+    // the form nor the sign-up wall shows before the auth check answers.
+    expect(screen.getByRole('img', { name: 'Loading' })).toBeInTheDocument();
+    expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('create-event-form')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sign Up to Host Events')).not.toBeInTheDocument();
   });
 });

@@ -20,7 +20,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRightIcon, CalendarDaysIcon, UsersIcon } from "lucide-react";
 import { SEO } from "@/app/components/seo";
-import { ClarityLoader } from "@/components/ui/clarity-loader";
+import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { OrgParticipantRow } from "@/app/components/organizations/org-participant-row";
 import { groupsRead } from "@/app/data/offline-reads";
 import { readThrough } from "@/lib/offline-read-cache";
@@ -96,13 +96,8 @@ export function OrgDirectoryPage() {
     return <NeedsConnection />;
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen justify-center py-20" data-testid="loader">
-        <ClarityLoader size="lg" />
-      </div>
-    );
-  }
+  // P1586: nothing of the page is drawn yet, so the one page loader.
+  if (loading) return <ClarityPageLoader />;
 
   return (
     <div className="min-h-screen">

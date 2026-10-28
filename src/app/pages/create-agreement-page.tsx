@@ -16,7 +16,7 @@ import { ProfilePickerInput } from '@/app/components/shared/profile-picker-input
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { CURRENT_AGREEMENT_VERSION } from '@/app/content/agreement-versions';
 import { Loader2Icon, GlobeIcon, LockIcon } from 'lucide-react';
-import { ClarityLoader } from '@/components/ui/clarity-loader';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { toast } from 'sonner';
@@ -293,15 +293,7 @@ export function CreateAgreementPage() {
     }
   };
 
-  if (authLoading) {
-    return (
-      <CertificatePageShell className="py-16">
-        <div className="flex items-center justify-center">
-          <ClarityLoader size="lg" />
-        </div>
-      </CertificatePageShell>
-    );
-  }
+  if (authLoading) return <ClarityPageLoader />;
 
   if (!session) {
     return null;

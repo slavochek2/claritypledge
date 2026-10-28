@@ -11,6 +11,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { eventsService } from '@/app/data/events-service';
 import { markEventArrival } from '@/app/data/event-arrival-service';
@@ -32,7 +33,7 @@ export function EventArrivingPage() {
   const [cancelled, setCancelled] = useState(false);
   const [cancelFailed, setCancelFailed] = useState(false);
 
-  if (loading) return null;
+  if (loading) return <ClarityPageLoader />;
   if (cancelled) {
     return (
       <section className="mx-auto flex max-w-sm flex-col items-center gap-4 px-4 py-16 text-center" data-testid="arriving-cancelled">

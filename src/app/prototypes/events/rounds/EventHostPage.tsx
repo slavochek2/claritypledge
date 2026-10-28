@@ -98,6 +98,7 @@ import { FIXED_TOPIC_TAGS, getEventTopicTags } from '@/app/data/event-topic-tags
 import { knownSetTags, setLabel } from '@/lib/set-labels';
 import { eventTopic } from '../prep/prep-plan';
 import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 
 const START_LOCK_MS = 10_000;
 /** A save that has not answered by now is given up on (founder, 2026-10-05: "it just hangs on
@@ -1277,7 +1278,7 @@ export function EventHostPage() {
     }
   }, [pendingNo, state.rounds.length]);
 
-  if (loading || !sessionChecked) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
+  if (loading || !sessionChecked) return <ClarityPageLoader />;
   if (!event || !isHost) {
     return (
       <div className="mx-auto max-w-lg px-4 py-10 text-sm" data-testid="host-not-allowed">

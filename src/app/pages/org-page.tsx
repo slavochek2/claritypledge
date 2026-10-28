@@ -20,7 +20,7 @@ import { XIcon } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
-import { ClarityLoader } from "@/components/ui/clarity-loader";
+import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { OrgHeader } from "@/app/components/organizations/org-header";
@@ -323,13 +323,8 @@ export function OrgPage() {
     [members],
   );
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen justify-center py-20" data-testid="loader">
-        <ClarityLoader size="lg" />
-      </div>
-    );
-  }
+  // P1586: nothing of the page is drawn yet, so the one page loader.
+  if (loading) return <ClarityPageLoader />;
 
   if (loadError) {
     return (

@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLinksTriggerOverride } from '@/app/components/layout/event-links-context';
 import { Share2, Check, Keyboard, Mic, ShieldOff, Sparkles, Loader2 } from 'lucide-react';
-import { ClarityLoader } from '@/components/ui/clarity-loader';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import * as Sentry from '@sentry/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
@@ -4091,15 +4091,7 @@ export function ClarityLivePage() {
   }
 
   // Show loading while restoring session
-  if (isRestoring) {
-    return (
-      <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
-        <div className="flex-1 flex items-center justify-center">
-          <ClarityLoader size="lg" />
-        </div>
-      </div>
-    );
-  }
+  if (isRestoring) return <ClarityPageLoader />;
 
   // P769 / P921: Cold-start or cold-link to an already-ended session — show the
   // explicit ended screen regardless of view. This must precede the `view ===
@@ -4248,17 +4240,17 @@ export function ClarityLivePage() {
     // Show loading while checking auth state OR creating session to prevent flicker
     // The isLoading check prevents flash when guest account is created mid-flow
     // (auth state updates -> isLoggedIn becomes true -> form would briefly show logged-in view)
-    if (isAuthLoading || isLoading) {
+    // P1586: creating a session is an operation and keeps its label; waiting on auth is the page loader.
+    if (isLoading) {
       return (
         <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
           <div className="flex-1 flex items-center justify-center">
-            <div className="animate-pulse text-muted-foreground">
-              {isLoading ? 'Creating session...' : 'Loading...'}
-            </div>
+            <div className="animate-pulse text-muted-foreground">Creating session...</div>
           </div>
         </div>
       );
     }
+    if (isAuthLoading) return <ClarityPageLoader />;
 
     // P511 Task 10: Show rejoin prompt if active session detected in localStorage
     // (P921: sessionEndedOnLoad is handled by the top-level gate above.)

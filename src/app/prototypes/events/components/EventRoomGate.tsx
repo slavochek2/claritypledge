@@ -12,6 +12,7 @@
 import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { cn } from '@/lib/utils';
 import { PRIMARY_BUTTON_CLASS, ANSWER_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
@@ -83,17 +84,18 @@ export function EventRoomGate() {
   const { self, loading: selfLoading } = useEventRoomSelf(event, enterRoom);
   const { isCapturingForEvent } = useRoomCapture();
 
-  if (loading) return null;
+  // P1586: a pending read is the page loader, never a blank frame. The next step is a redirect or a screen.
+  if (loading) return <ClarityPageLoader />;
   // P1369 Scope v2: never visited here and no network — not the register wall.
   if (offline) return <NeedsConnection />;
   if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
-  if (arrivalGate === null) return null;
+  if (arrivalGate === null) return <ClarityPageLoader />;
   if (arrivalGate && event) return <ArrivalQuestion event={event} onHere={arrivalAnswered} />;
-  if (prepGate === null) return null;
+  if (prepGate === null) return <ClarityPageLoader />;
   if (prepGate && !joinedWithoutPrep && event) {
     return <PrepRoomGate event={event} onJoin={() => setJoinedWithoutPrep(true)} />;
   }
-  if (selfLoading) return null;
+  if (selfLoading) return <ClarityPageLoader />;
 
   // P1433 D4 (supersedes P1307 D10): the first visit goes through Ready; a return visit — a
   // readiness value already set — goes straight back to the table, the person's current step.

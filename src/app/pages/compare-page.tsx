@@ -26,6 +26,7 @@ import { getMyRoomStatus } from '@/app/data/event-room-service';
 import { LIVE_ROLE_LINE, liveRole, roundClock, roundTiming } from '@/lib/round-clock';
 import { setLabel } from '@/lib/set-labels';
 import { SEO } from '@/app/components/seo';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { StanceColumn, StatementRow, type Person } from '@/app/components/compare/statement-row';
 
@@ -221,7 +222,8 @@ export function ComparePage() {
   const me = useMemo(() => (user ? toPerson(user, 'You') : null), [user]);
   const them = useMemo(() => (person ? toPerson(person) : null), [person]);
 
-  if (authLoading) return <Shell><Muted>Loading…</Muted></Shell>;
+  // P1586: nothing of the page is drawn yet, so the one page loader (the grey Shell comes with the content).
+  if (authLoading) return <ClarityPageLoader />;
 
   if (!user) {
     const here = `/compare/${slug ?? ''}${tagParam ? `?tag=${encodeURIComponent(tagParam)}` : ''}`;
@@ -236,7 +238,7 @@ export function ComparePage() {
 
   if (person && person.id === viewerId) return <Navigate to={`/p/${person.slug ?? person.id}`} replace />;
 
-  if (!baseReady) return <Shell><Muted>Loading…</Muted></Shell>;
+  if (!baseReady) return <ClarityPageLoader />;
   if (baseReady.error) return <Shell><Muted>Could not load the comparison.</Muted></Shell>;
   if (!person || !me || !them) return <Shell><Muted>We could not find that person.</Muted></Shell>;
 

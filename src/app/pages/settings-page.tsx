@@ -9,7 +9,7 @@ import { useAuth } from "@/auth";
 import { updateProfile, setMyPledge, eraseMyAccount } from "@/app/data/api";
 import { toast } from "sonner";
 import { Loader2Icon, CheckIcon, ShieldOffIcon, Trash2Icon } from "lucide-react";
-import { ClarityLoader } from "@/components/ui/clarity-loader";
+import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { analytics } from "@/lib/mixpanel";
 import { Button } from "@/components/ui/button";
 import { PageFrame, PageHeader } from "@/app/components/layout/page-header";
@@ -193,16 +193,8 @@ export function SettingsPage() {
     navigate("/");
   };
 
-  // Show loading state while checking auth
-  if (authLoading) {
-    return (
-      <div className="container mx-auto px-4 py-16 max-w-2xl">
-        <div className="flex items-center justify-center">
-          <ClarityLoader size="lg" />
-        </div>
-      </div>
-    );
-  }
+  // Show the page loader while checking auth
+  if (authLoading) return <ClarityPageLoader />;
 
   // Don't render if not authenticated (redirect will happen)
   if (!session) {

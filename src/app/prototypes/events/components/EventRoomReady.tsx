@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { SliderTrack } from '@/app/components/partners/slider-track';
 import { PRIMARY_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
@@ -100,7 +101,7 @@ export function EventRoomReady() {
     navigate(`/events/${slug}/meet`, { state: { fromReady: true } });
   }, [self, value, refresh, navigate, slug]);
 
-  if (loading || (granted && selfLoading)) return null;
+  if (loading || (granted && selfLoading)) return <ClarityPageLoader />;
   if (accessOffline) return <NeedsConnection />;
   // P1369 Scope v2: the check-in shows its last-seen state with the strip; needs-connection only
   // when nothing was stored.

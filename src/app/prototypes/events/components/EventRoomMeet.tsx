@@ -74,6 +74,7 @@ import { useGoBack, useReturnToParent } from '@/app/hooks/use-go-back';
 import { ChevronDown } from 'lucide-react';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Button } from '@/components/ui/button';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { cn } from '@/lib/utils';
 import { useOfflineStripShown } from '@/app/contexts/offline-status-context';
 import { roomHeadOffset, useMeasuredHeight } from './room-head-offset';
@@ -420,7 +421,7 @@ export function EventRoomMeet() {
   // A new moment (seated, at the table, the evening over) brings the page back to it.
   useEffect(() => { setViewingBack(null); }, [moment.seated, moment.atTable, moment.eveningOver]);
 
-  if (loading || (granted && selfLoading)) return null;
+  if (loading || (granted && selfLoading)) return <ClarityPageLoader />;
   if (accessOffline) return <NeedsConnection />;
   if (!granted) {
     return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;

@@ -63,6 +63,7 @@ import {
   NEEDS_INTERNET_MESSAGE,
 } from '@/app/hooks/use-online-write-guard';
 import { networkMark } from '@/lib/network-outcome';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 
 /** P1272: how long before an event starts the room row switches from naming the
  * destination ("Event Room") to inviting entry ("Join now"). Founder call,
@@ -392,14 +393,8 @@ export function EventDetail() {
   // P1403 (founder 2026-10-04): "View on Maps" did not say it is where we meet.
   const hikeMeetName = hikeSeriesSlug ? parseHikeDetails(event?.hikeDetails)?.meetName : undefined;
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
+  // P1586: nothing of the page is drawn yet, so the one page loader.
+  if (loading) return <ClarityPageLoader />;
 
   if (!event && offlineMiss) {
     return <NeedsConnection />;

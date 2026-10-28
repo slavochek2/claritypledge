@@ -19,7 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { logDbError } from '../data/db-error-logger';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
-import { ClarityPageLoader, ClarityLoader } from '@/components/ui/clarity-loader';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
 import { LetterStaleTermsModal } from '@/app/components/letters/letter-stale-terms-modal';
@@ -1001,9 +1001,7 @@ export function LetterReadingPage() {
 
         {/* Authenticated one-to-many: show completion summary */}
         {viewState === 'complete' && !!currentUser && !completedDeliveryId && (
-          <div className="flex justify-center py-12">
-            <ClarityLoader size="lg" />
-          </div>
+          <ClarityPageLoader />
         )}
         {viewState === 'complete' && !!currentUser && completedDeliveryId && (
           <LetterCompletionSummary

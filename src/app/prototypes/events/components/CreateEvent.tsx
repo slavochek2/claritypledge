@@ -16,6 +16,7 @@ import { organizationsService } from '@/app/data/organizations-service';
 import type { Organization } from '@/app/data/organizations-service.interface';
 import { DURATIONS, TIMEZONES } from '../utils';
 import { PrepSettingsFields, defaultPreparation, normalizeStatementTag, validateStatementTag } from '../prep/PrepSettingsFields';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 
 export function CreateEvent() {
   const navigate = useNavigate();
@@ -93,14 +94,8 @@ export function CreateEvent() {
     return () => { cancelled = true; };
   }, [orgSlugParam]);
 
-  // Show loading while checking auth
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
+  // Show the page loader while checking auth
+  if (isLoading) return <ClarityPageLoader />;
 
   // Redirect if not logged in
   if (!isAuthenticated) {

@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/auth/AuthContext";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
-import { ClarityLoader } from "@/components/ui/clarity-loader";
+import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { Button } from "@/components/ui/button";
 import { FocusHeader } from "@/app/components/layout/focus-header";
 import { useGoBack } from "@/app/hooks/use-go-back";
@@ -175,13 +175,8 @@ export function OrgJoinPage() {
     }
   }, [org, accepting, user, navigate, orgPath, afterPath, returnPath, fromProfileId]);
 
-  if (loading || authLoading || checkingMembership) {
-    return (
-      <div className="flex min-h-screen justify-center py-20" data-testid="loader">
-        <ClarityLoader size="lg" />
-      </div>
-    );
-  }
+  // P1586: nothing of the page is drawn yet, so the one page loader.
+  if (loading || authLoading || checkingMembership) return <ClarityPageLoader />;
 
   if (notFound || !org) {
     return (
