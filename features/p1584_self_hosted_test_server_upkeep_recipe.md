@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 79
 workstream: infrastructure
 created_date: '2026-10-28'
 tags: [testing, infrastructure, self-hosted, monitoring]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium

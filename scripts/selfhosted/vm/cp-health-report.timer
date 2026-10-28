@@ -1,0 +1,9 @@
+[Unit]
+Description=Every 10 minutes: cp-health-report (ClarityPledge P1584)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target

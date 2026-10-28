@@ -1,0 +1,116 @@
+# Health of the self-hosted TEST server (P1557, P1584): reachability and certificate over public
+# HTTPS, disk and WAL from the VM's own guest-attribute report. Replaces the /day-only probe, which
+# ran only when a session opened (decisions.md 2026-08-09 [process]: monitoring is a scheduled
+# workflow). /day's cp.selfhosted now reads this workflow's latest run and its issue.
+#
+# Credential: cp-test-health-reader, through the existing GitHub Workload Identity pool (repo +
+# main only, no key file). Its only permission is compute.instances.getGuestAttributes on this one
+# VM, so it can read health and nothing else: no SSH, no metadata writes, no other instance.
+#
+# ALERT-ONLY (P866 pattern, same as backup-staleness.yml): the check step is continue-on-error, so a
+# failing server opens/appends a GitHub issue instead of a failure email. The alerting steps are NOT
+# continue-on-error: a broken alerter must fail loudly, and /day reads a failed run as a problem.
+#
+# Failure drill: run it by hand with `host` set to an unreachable name. The issue it opens carries
+# "(drill)" in the title, and only a run against the real host closes the real issue.
+
+name: Self-hosted TEST health
+
+on:
+  schedule:
+    - cron: '17 * * * *' # hourly
+  workflow_dispatch:
+    inputs:
+      host:
+        description: 'Drill only: probe this host instead of the real one'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  issues: write
+  id-token: write
+
+# One run at a time: two overlapping runs could both find no issue and both create one.
+concurrency:
+  group: selfhosted-health
+  cancel-in-progress: false
+
+jobs:
+  selfhosted-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
+        with:
+          workload_identity_provider: projects/865832856153/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: cp-test-health-reader@gen-lang-client-0869694595.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
+
+      # The host input reaches the script through env only; health.sh refuses anything that is not
+      # a plain hostname. pipefail is required: without it tee's exit 0 masks the script's failure
+      # and the outcome below never reads 'failure'.
+      - name: Check health
+        id: health
+        continue-on-error: true
+        env:
+          SELFHOSTED_HOST: ${{ github.event.inputs.host }}
+        run: |
+          set -o pipefail
+          [ -n "$SELFHOSTED_HOST" ] || unset SELFHOSTED_HOST
+          ./scripts/selfhosted/health.sh --source guest-attributes | tee health-output.txt
+
+      - name: Open a GitHub issue on failure
+        if: steps.health.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRILL_HOST: ${{ github.event.inputs.host }}
+        run: |
+          set -euo pipefail
+          TITLE="Self-hosted TEST server health failing"
+          [ -z "$DRILL_HOST" ] || TITLE="$TITLE (drill)"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          {
+            echo "The hourly health check of the self-hosted TEST server failed. warn = the server has a problem; unknown = the check could not read it (a stopped reporter on the VM, or the VM itself is down)."
+            echo ""
+            echo '```'
+            cat health-output.txt
+            echo '```'
+            echo ""
+            echo "If the VM was stopped on purpose, close this issue; the next healthy run after it starts would close it anyway."
+            echo ""
+            echo "Run: $RUN_URL"
+          } > issue-body.md
+          # Author-bound exact-title match (P1155): exact title, not `gh --search` (token match could
+          # swallow the comment into another issue); author == the Actions bot, so this workflow cannot
+          # be induced to append to an issue it did not create; explicit --limit, so an ageing alarm is
+          # never past the first page.
+          existing=$(gh issue list --state open --limit 100 --json number,title,author \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t and .author.login=="app/github-actions") | .number] | first // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file issue-body.md
+          else
+            gh issue create --title "$TITLE" --body-file issue-body.md
+          fi
+
+      # Self-healing signal: a healthy run against the real host closes the open issue, so /day never
+      # flags a resolved outage. A drill run never closes anything.
+      - name: Close the issue on recovery
+        if: steps.health.outcome == 'success' && github.event.inputs.host == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TITLE="Self-hosted TEST server health failing"
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          existing=$(gh issue list --state open --limit 100 --json number,title,author \
+            | jq -r --arg t "$TITLE" '[.[] | select(.title==$t and .author.login=="app/github-actions") | .number] | first // empty')
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "Healthy again. Run: $RUN_URL"
+          fi

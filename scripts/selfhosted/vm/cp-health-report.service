@@ -1,0 +1,7 @@
+[Unit]
+Description=Publish self-hosted TEST disk and WAL as guest attributes (ClarityPledge P1584)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/cp-health-report.sh
