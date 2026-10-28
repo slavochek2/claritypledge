@@ -578,3 +578,35 @@ body {
   scroll-snap-align: start;
   border: 1px solid hsl(var(--border));
 }
+
+/* P1587 (founder 2026-10-28): a task-list item ("- [x] …") in an event description reads as a
+ * visual checklist, not a form: no bullet, tight spacing, and a filled blue tick (the "Reserve a
+ * seat" blue) instead of the browser's grey disabled checkbox. The list keeps its normal indent.
+ * Item-level, so a list mixing task and plain items keeps bullets on the plain ones, and ordered
+ * lists work too. A loose list (items separated by blank lines) wraps the checkbox in a <p>, hence
+ * the second :has() branch. Unticked items get a muted border: they are not controls. */
+.event-description li:has(> input[type='checkbox'], > p:first-child > input[type='checkbox']) {
+  list-style: none;
+  position: relative;
+  padding-left: 1.75rem;
+  margin: 0.375rem 0;
+}
+.event-description li > input[type='checkbox'],
+.event-description li > p:first-child > input[type='checkbox'] {
+  appearance: none;
+  position: absolute;
+  left: 0;
+  top: 0.2em;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  border-radius: 0.25rem;
+  border: 1.5px solid theme('colors.zinc.400');
+  background: transparent;
+  opacity: 1; /* Safari/Firefox dim :disabled controls even with appearance: none */
+}
+.event-description li > input[type='checkbox']:checked,
+.event-description li > p:first-child > input[type='checkbox']:checked {
+  border-color: theme('colors.blue.500');
+  background: theme('colors.blue.500') url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E") center / 80% no-repeat;
+}
