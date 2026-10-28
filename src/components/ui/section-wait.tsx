@@ -37,12 +37,13 @@ export function SectionWait({ children, onRetry, failed = false }: SectionWaitPr
   if (!slow && !failed) return <>{children}</>;
 
   return (
-    <div role="status" className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+    <div role="status" className="flex flex-col items-center justify-center gap-3 py-8 text-center">
       {/* [FOUNDER DECISION: section slow-load copy is a placeholder.] */}
       <p className="text-sm text-muted-foreground">This is taking longer than usual.</p>
+      {/* P1586 visual QA: the same 40px outline button as the page notice and the events-list Retry. */}
       <Button
         variant="outline"
-        size="sm"
+        className="min-h-10"
         onClick={() => {
           setSlow(false);
           setAttempt((n) => n + 1);

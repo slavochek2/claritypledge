@@ -307,7 +307,7 @@ export function EventsList({
       {/* Events Grid */}
       <div className={embedded ? 'max-w-5xl mx-auto pb-6' : undefined}>
         {failed ? (
-          <div role="alert" className="flex flex-col items-center gap-3 py-16 text-center">
+          <div role="alert" className="flex flex-col items-center gap-3 py-8 text-center">
             {/* [FOUNDER DECISION: events-list failure copy is a placeholder.] */}
             <p className="text-muted-foreground">Events could not be loaded.</p>
             <Button variant="outline" className="min-h-10" onClick={retry}>

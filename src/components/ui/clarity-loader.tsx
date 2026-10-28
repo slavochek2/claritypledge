@@ -86,7 +86,7 @@ function SlowLoadNotice({ startedAgoMs }: { startedAgoMs: number }) {
     >
       {/* [FOUNDER DECISION: slow page-load copy is a placeholder.] */}
       <p className="text-sm text-muted-foreground">This is taking longer than usual.</p>
-      <Button variant="outline" size="sm" className="pointer-events-auto" onClick={() => window.location.reload()}>
+      <Button variant="outline" className="pointer-events-auto min-h-10" onClick={() => window.location.reload()}>
         Reload
       </Button>
     </div>
