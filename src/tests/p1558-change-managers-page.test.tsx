@@ -10,9 +10,15 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const track = vi.fn();
 vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
+// jsdom has no layout, so in-view is driven by hand where a test needs scroll-in (as in the hospitals test).
+const inViewMock = { value: false };
+vi.mock('framer-motion', async (orig) => ({
+  ...(await orig<typeof import('framer-motion')>()),
+  useInView: () => inViewMock.value,
+}));
 vi.mock('@/app/components/landing/social-proof', () => ({
   PledgerAvatarStack: () => <div data-testid="pledgers" />,
-  ScrollIndicator: ({ label }: { label: string }) => <button type="button">{label}</button>,
+  ScrollIndicator: ({ label, targetId }: { label: string; targetId: string }) => <button type="button" data-target={targetId}>{label}</button>,
 }));
 vi.mock('@/app/components/landing/founder-credibility', () => ({ FounderCredibility: () => <section data-testid="founder"><h2>Paid for the lesson</h2></section> }));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: (...a: unknown[]) => track(...a) } }));
@@ -20,7 +26,6 @@ vi.mock('@/lib/mixpanel', () => ({ analytics: { track: (...a: unknown[]) => trac
 import { ChangeManagersPage } from '@/app/pages/change-managers-page';
 import { CHANGE_MANAGERS_OG } from '@/app/content/change-managers-og';
 import { LANDING_REDIRECTS } from '@/app/routes/landing-redirects';
-import { TEAM_CAST, HOSPITAL_CAST } from '@/app/content/exchange-casts';
 
 function renderPage() {
   return render(<MemoryRouter><ChangeManagersPage /></MemoryRouter>);
@@ -37,7 +42,9 @@ describe('P1558 /change-managers - content', () => {
     expect(screen.getByText('AI rollouts, new processes, reorganisations. People say yes in the meeting and mean different things.')).toBeInTheDocument();
     expect(screen.getByText('Sounds good 👍')).toBeInTheDocument();
     // the hero scroll cue targets the chat story section
-    expect(document.getElementById('what-nobody-said')).toContainElement(screen.getByText('Sounds good 👍'));
+    // the hero scroll cue's real target holds the chat story
+    const cue = screen.getByRole('button', { name: 'What nobody said' });
+    expect(document.getElementById(cue.dataset.target!)).toContainElement(screen.getByText('Sounds good 👍'));
     const order = [
       'Why almost nobody verifies understanding',
       'Reveal a gap, then close it',
@@ -62,12 +69,12 @@ describe('P1558 /change-managers - content', () => {
     expect(screen.queryByText(/Being built/)).toBeNull();
   });
 
-  it('shows the sourced 28% stat and has no hospital wording', () => {
+  it('shows the sourced IBM 59% stat and has no hospital wording', () => {
     const { container } = renderPage();
     const stat = screen.getByTestId('stat-card');
-    expect(stat).toHaveTextContent('28%');
-    expect(stat).toHaveTextContent(/of executives and middle managers responsible for executing strategy could list three of their company.s strategic priorities/);
-    expect(within(stat).getByRole('link', { name: /Reference 1: Sull, Sull & Yoder \(2018\)/ })).toHaveAttribute('href', '#references');
+    expect(stat).toHaveTextContent('59%');
+    expect(stat).toHaveTextContent('of change projects missed at least one objective or failed entirely. The top obstacle was changing mindsets and attitudes, not technology.');
+    expect(within(stat).getByRole('link', { name: /Reference 1: IBM Global Business Services \(2008\), Making Change Work/ })).toHaveAttribute('href', '#references');
     const text = container.textContent ?? '';
     expect(text).not.toMatch(/patient|hospital|nurse|\bward\b|clinical|\bstaff\b|Dr\. /i);
     expect(text).not.toContain('70%');
@@ -82,7 +89,7 @@ describe('P1558 /change-managers - content', () => {
     expect(screen.queryByRole('link', { name: /HA Thailand/ })).toBeNull();
     const items = within(document.getElementById('references')!).getAllByRole('listitem');
     expect(items).toHaveLength(3);
-    expect(within(items[0]).getByRole('link').getAttribute('href')).toBe('https://sloanreview.mit.edu/article/no-one-knows-your-strategy-not-even-your-top-leaders/');
+    expect(within(items[0]).getByRole('link').getAttribute('href')).toBe('https://www.ibm.com/downloads/cas/ZGOKYPNL');
     expect(within(items[1]).getByRole('link').getAttribute('href')).toMatch(/1990-newton\.pdf$/);
     expect(within(items[2]).getByRole('link').getAttribute('href')).toBe('https://doi.org/10.1086/261651');
   });
@@ -165,11 +172,16 @@ describe('P1558 /change-managers - route, nav, preview', () => {
     expect(srcs.filter((x) => x.startsWith('/hospitals/'))).toEqual([]);
   });
 
-  it('the shared exchange reports its own analytics event on this page', () => {
-    expect(TEAM_CAST.viewEvent).toBe('change_managers_exchange_viewed');
-    expect(HOSPITAL_CAST.viewEvent).toBe('hospitals_exchange_viewed');
-    expect(read('src/app/pages/change-managers-page.tsx')).toContain('<GapExchangeSection cast={TEAM_CAST} />');
-    expect(read('src/app/components/hospitals/gap-exchange.tsx')).toContain('analytics.track(cast.viewEvent)');
+  it('the shared exchange reports its own analytics event on this page, never the hospitals one', () => {
+    inViewMock.value = true;
+    try {
+      renderPage();
+      const events = track.mock.calls.map((c) => c[0]);
+      expect(events).toContain('change_managers_exchange_viewed');
+      expect(events).not.toContain('hospitals_exchange_viewed');
+    } finally {
+      inViewMock.value = false;
+    }
   });
 
   it('vercel.json sends noindex header and bot OG rewrite for /change-managers', () => {

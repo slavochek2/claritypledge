@@ -6,7 +6,7 @@
  *
  * The page's one action, "Book a 15-min discovery call" → /intro, appears in the hero and the
  * closing section; the hero adds the quiet "or Take the Pledge" link, the pledger strip and the
- * scroll cue. The stat is Sull et al. 2018 (MIT SMR).
+ * scroll cue. The stat is IBM, Making Change Work (2008).
  */
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -34,8 +34,8 @@ import { SECTION, MUTED } from "@/app/components/landing/landing-motion";
 const REFERENCES = [
   {
     n: 1,
-    label: "Sull, Sull & Yoder (2018), No One Knows Your Strategy, Not Even Your Top Leaders, MIT Sloan Management Review (4,012 respondents, 124 companies)",
-    url: "https://sloanreview.mit.edu/article/no-one-knows-your-strategy-not-even-your-top-leaders/",
+    label: "IBM Global Business Services (2008), Making Change Work (survey of 1,532 change practitioners)",
+    url: "https://www.ibm.com/downloads/cas/ZGOKYPNL",
   },
   {
     n: 2,
@@ -122,16 +122,18 @@ export function ChangeManagersPage() {
           />
         </section>
 
-        {/* 2b. The stakes. Wording stays within the source: managers responsible for executing
-            strategy, three of their company's priorities (Sull et al. 2018). */}
+        {/* 2b. The stakes. The stat stays in IBM's own words (59 percent of projects "missed at
+            least one objective or failed entirely"; obstacles: mindsets and attitudes 58%,
+            technology barriers 8%). Never reword it toward "understanding" (decisions.md, "the
+            page's thesis smuggled into a stat"); the sections below make that link. */}
         <section id="stakes" className={SECTION}>
           <Reveal className="container mx-auto max-w-3xl text-center">
             <div data-testid="stat-card">
               <p className="text-7xl sm:text-8xl font-bold text-blue-500 tracking-tight">
-                <CountUpPercent target={28} />
+                <CountUpPercent target={59} />
               </p>
               <p className="mt-4 text-lg sm:text-xl font-semibold leading-snug max-w-md mx-auto">
-                of executives and middle managers responsible for executing strategy could list three of their company&rsquo;s strategic priorities.<RefSup n={1} label={REFERENCES[0].label} />
+                of change projects missed at least one objective or failed entirely. The top obstacle was changing mindsets and attitudes, not technology.<RefSup n={1} label={REFERENCES[0].label} />
               </p>
             </div>
           </Reveal>

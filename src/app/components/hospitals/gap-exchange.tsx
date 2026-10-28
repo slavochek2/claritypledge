@@ -180,7 +180,7 @@ export class ExchangeBoundary extends Component<{ children: ReactNode; cast?: Ex
   }
   componentDidCatch(error: unknown) {
     // The visible transcript keeps the page whole; Sentry makes sure the break is noticed.
-    Sentry.captureException(error, { tags: { surface: "hospitals-exchange" } });
+    Sentry.captureException(error, { tags: { surface: (this.props.cast ?? HOSPITAL_CAST).surface } });
   }
   render() {
     return this.state.failed ? <GapExchangeStatic cast={this.props.cast} /> : this.props.children;
