@@ -7,39 +7,58 @@
  *
  *   1. large-clarity-loader — `<ClarityLoader>` whose size is not the literal "sm" (the default
  *      is "md", so a bare `<ClarityLoader />` counts) outside clarity-loader.tsx and
- *      iframe-load-overlay.tsx (P1023, a cross-origin embed with no paint signal).
- *   2. loading-text — "Loading" as visible JSX text, or a "Loading…" string literal rendered
- *      through a JSX expression (`{x ? 'Loading…' : 'Show more'}`). Not counted: attributes
- *      (aria-label, label=), text under an `sr-only` element, comments, and strings outside JSX
- *      (the overlay's `label:` props, lib/chunk-error.ts). The AST sees only what is rendered.
+ *      iframe-load-overlay.tsx (P1023, a cross-origin embed with no paint signal). An aliased
+ *      import (`import { ClarityLoader as Mark }`) is followed.
+ *   2. loading-text — "Loading" as visible JSX text, or a "Loading…" string / template literal
+ *      rendered through a JSX expression (`{x ? 'Loading…' : 'Show more'}`, `{`Loading ${kind}…`}`).
+ *      The capitalised word counts anywhere; a lowercase one counts when it opens the text
+ *      ("loading events…"). Not counted: attributes (aria-label, label=), text under an `sr-only`
+ *      element, comments, strings outside JSX (the overlay's `label:` props, lib/chunk-error.ts),
+ *      prose with the word mid-sentence ("Something went wrong loading your drafts"), and a bare
+ *      `'loading'` string (a status value). The AST sees only what is rendered.
+ *      KNOWN LIMITATION: `const MSG = 'Loading…'` rendered later as `{MSG}` is not seen. The string is
+ *      outside JSX where it is declared, and following it to where it renders needs data-flow
+ *      analysis. Pinned by a control below so the gap is a stated one.
  *   3. loose-spinner — an element that is `Loader2` / `Loader2Icon` (any non-import reference to
- *      the identifier) or carries `animate-spin` and has no control around it. HEURISTIC, since
- *      a regex cannot know what a component is: "a control" = any ancestor-or-self JSX element
- *      whose tag is button, a, input, textarea, select, Link, NavLink, Input, Textarea,
- *      SelectTrigger, anything ending in `Button`, or that has role="button" / role="menuitem".
- *      `icon={Loader2}` on a Button therefore passes (the attribute sits under the Button's own
- *      opening element). An `animate-spin` string with no JSX element around it fails (a spinner
- *      class stored in a constant escapes the control check, so it has to be explained).
- *   4. null-while-loading — `return null` (or `return flag ? null : ...`) on a loading flag
- *      (loading, isLoading, authLoading, !loaded, fetchState === 'loading', isPending, ...) in a
- *      component a route renders directly. "Routed" is derived from src/App.tsx: every component
- *      named inside a `<Route element={...}>` (wrappers and layouts included) is resolved through
- *      App.tsx's imports and `lazy(() => import(...))` consts to a file and an export name; only
- *      the function with that name is checked (a file's helper components are not routed).
- *   5. animate-pulse — `animate-pulse` (not `animate-pulse-subtle-green`) in any string or JSX
- *      text outside src/components/ui/skeleton.tsx, the shared primitive.
+ *      the identifier, under any import alias) or carries `animate-spin` / `animate-[spin…]` and has
+ *      no control around it. HEURISTIC, since a regex cannot know what a component is: "a control" =
+ *      any ancestor-or-self JSX element whose tag is button, a, input, textarea, select, Link,
+ *      NavLink, Input, Textarea, SelectTrigger, anything ending in `Button`, or that has
+ *      role="button" / role="menuitem". `icon={Loader2}` on a Button therefore passes. An
+ *      `animate-spin` string with no JSX element around it fails (a spinner class stored in a
+ *      constant escapes the control check, so it has to be explained).
+ *   4. null-while-loading — a ROUTED component renders nothing: `return null` under ANY guard
+ *      (or none), or `return flag ? null : ...`. Every loading-flag spelling is covered by
+ *      construction (`loading`, `arrivalGate === null`, `!ready`, `!event`, `navigate(); return null`)
+ *      because the flag is not inspected. A genuine "nothing to show" (a signed-out redirect that runs
+ *      in an effect, an unreachable fall-through) is not a wait, and says so in the allowlist.
+ *      "Routed" is derived from every file that renders `<Route element={...}>` (App.tsx and any
+ *      nested `<Routes>`, e.g. prototypes/events/index.tsx) plus the lazy() pages of the route arrays
+ *      in src/app/routes/: component names inside an `element` are resolved through the file's
+ *      imports (`@/…` and relative) and `lazy(() => import(...))` consts to a file and an export name;
+ *      a component declared in the route file itself is routed there. Only the function with that
+ *      name is checked (a file's helper components are not routed).
+ *   5. animate-pulse — `animate-pulse` / `animate-[pulse…]` (not `animate-pulse-subtle-green`) in
+ *      any string or JSX text outside src/components/ui/skeleton.tsx, the shared primitive.
+ *   6. page-loader-in-frame — `<ClarityPageLoader />` (or ClarityContentLoader / ClarityBootLoader,
+ *      under any alias) nested inside another JSX element or an attribute value. The page loader is
+ *      a page gate (decisions.md 2026-04-11): it may only be (part of) a component's whole return,
+ *      as an early return, a ternary arm, a bare arrow body or inside a fragment. A frame that draws
+ *      nothing (a Back-only header, a bare wrapper) is allowlisted with that reason.
  *
  * The scan is the AST (same approach as p1364-back-drift-guard), so comments never count. Test
  * files and src/tests are excluded. Everything under src/app/prototypes/events/ is scanned.
  *
- * Members are derived: the file list comes from walking src/, the routed set from App.tsx. The
- * hand-kept parts are only the two exclusion lists and the ALLOWLIST, and each entry there must
- * name its reason; the stale checks fail when an entry no longer exists or no longer needs its
- * exception. The first describe block runs each detector on known-bad and known-good snippets.
+ * Members are derived: the file list comes from walking src/, the routed set from the route files.
+ * The hand-kept parts are only the two exclusion lists and the ALLOWLIST. An ALLOWLIST entry carries
+ * the exact COUNT of each kind it excuses in that file, so one more occurrence fails the scan and
+ * one fewer fails the stale check; each entry must name its reason. The first describe blocks run
+ * each detector on known-bad and known-good snippets, and the route derivation on a scratch tree.
  */
-import { describe, it, expect } from 'vitest';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { describe, it, expect, afterAll } from 'vitest';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, relative, sep } from 'node:path';
 import ts from 'typescript';
 
 type Kind =
@@ -47,7 +66,8 @@ type Kind =
   | 'loading-text'
   | 'loose-spinner'
   | 'null-while-loading'
-  | 'animate-pulse';
+  | 'animate-pulse'
+  | 'page-loader-in-frame';
 
 interface Finding {
   kind: Kind;
@@ -70,156 +90,227 @@ const EXCLUDED_DEMOS: Record<string, string> = {
 };
 
 /** Each entry is a deliberate exception; the reason is part of the contract. */
-const ALLOWLIST: Record<string, { kinds: Kind[]; why: string }> = {
+const ALLOWLIST: Record<string, { counts: Partial<Record<Kind, number>>; why: string }> = {
   // --- Status indicators: a live dot, a waiting-for-partner line, a typing indicator. Not a page or section wait. ---
   'src/app/components/letters/explain-back-capture.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Status indicator: the red recording dot while the explain-back is being captured.',
   },
   'src/app/components/partners/transcription-input.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Status indicator: the red recording dot while speech is being transcribed.',
   },
   'src/app/components/session/session-bar.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Status indicator: the live-session dot (motion-safe only).',
   },
   'src/app/prototypes/event-transcription/TranscriptionBar.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Status indicator: the live-transcription dot (motion-safe only).',
   },
   'src/app/components/partners/live-mode-view.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 2 },
     why: 'Status indicator: live dots on the waiting-for-partner lines of a running session.',
   },
   'src/app/components/partners/free-mode-success.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Status indicator: dot beside "Waiting for <partner> to continue…" after a finished exchange.',
   },
   'src/app/components/partners/free-mode-view.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Celebration, not a wait: the "Both at 10" line pulses once both partners reach 10.',
   },
   'src/app/components/shared/RatingDots.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Status indicator: the dot for the rating the partner has not given yet.',
   },
   'src/app/components/landing/hard-truth-chat.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Typing-cursor indicator in the scripted chat demo on the landing page.',
   },
   'src/app/pages/chat/MessageRow.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Typing indicator: "<name> is thinking…" while the mirror replies (P1554).',
   },
   'src/app/pages/chat/chat-kit.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Status indicator: the mirror portrait glyph pulses while the first portrait is being painted (P1554). The chat list and message skeletons in this file use <Skeleton>.',
   },
   'src/app/components/partners/rating-card.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Waiting-for-partner text: "Waiting for <partner> to rate…" after the viewer has rated.',
   },
   'src/app/components/partners/demo-level-view.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 4 },
     why: 'Waiting-for-partner text: four "Waiting for <partner> to …" lines in the paired exercise.',
   },
   'src/app/components/partners/position-buttons.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Waiting-for-partner text: "Waiting for partner…" after the viewer picked a position.',
   },
   'src/app/pages/prototypes/new-live-prototype.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Prototype of the live exercise: the same waiting-for-partner status line as free-mode-view.',
   },
   'src/app/components/session/reconnecting-countdown.tsx': {
-    kinds: ['loose-spinner'],
+    counts: { 'loose-spinner': 1 },
     why: 'Status indicator: "Waiting for <partner> to return…" with the reconnect countdown; the partner, not the page, is being waited on.',
   },
   'src/app/components/letters/letter-cover.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Classified at :138: "Setting up your access…" hint under an already-drawn CTA when sign-in is slow (authDelayed). A status line on a drawn page, not a page or section wait.',
   },
 
   // --- Nav slot placeholder (P1421) ---
   'src/app/components/layout/simple-navigation.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'P1421: a ghost nav item that holds the slot while the nav list resolves, so the bar never jumps. Fixed-size placeholder inside the drawn shell, not a content wait.',
   },
 
   // --- Operation states: a control, a send, a save, an upload is working ---
   'src/app/components/pledge/sign-pledge-form.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Classified at :350: pulsing icon inside the submit Button while "Signing…" (isSubmitting). Operation in a control.',
   },
   'src/app/components/social/witness-card.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Classified at :161: pulsing icon inside the submit Button while "Accepting…" (isSubmitting). Operation in a control.',
   },
   'src/app/components/canvas/canvas-share-control.tsx': {
-    kinds: ['loose-spinner'],
+    counts: { 'loose-spinner': 3 },
     why: 'Three per-row save spinners (a share option, an access entry, the general-access select) beside the row control that is saving. Operation, one row at a time.',
   },
   'src/app/components/shared/banner/BannerControls.tsx': {
-    kinds: ['loose-spinner'],
+    counts: { 'loose-spinner': 1 },
     why: 'The "Generating banner" pill replaces the edit pencil while a banner is generated: a control showing its own work.',
   },
   'src/app/components/shared/image-upload-widget.tsx': {
-    kinds: ['loose-spinner'],
+    counts: { 'loose-spinner': 1 },
     why: 'Upload processing: spinner overlaid on the preview of the file being uploaded. Operation.',
   },
   'src/app/components/shared/profile-picker-input.tsx': {
-    kinds: ['loose-spinner'],
+    counts: { 'loose-spinner': 1 },
     why: 'Search/lookup progress inside the picker input (right edge of the field). Operation in an input.',
   },
   'src/app/components/social/point-supersede-banner.tsx': {
-    kinds: ['loose-spinner'],
+    counts: { 'loose-spinner': 1 },
     why: '14px inline spinner where the "Superseded by" link will be, inside a one-line banner. A small inline wait for a link target, not a section.',
   },
   'src/app/pages/chat/MirrorInfoDialog.tsx': {
-    kinds: ['loose-spinner'],
+    counts: { 'loose-spinner': 1 },
     why: 'Operation: a new portrait is being painted; spinner overlays the portrait in the dialog.',
   },
   'src/app/pages/my-sessions-page.tsx': {
-    kinds: ['loose-spinner'],
-    why: 'Status of a record: a session row whose transcript is still being produced ("Transcribing your session…"). The list itself is drawn; the section skeletons in this file use <Skeleton>.',
+    counts: { 'loose-spinner': 1, 'null-while-loading': 1 },
+    why: 'Status of a record: a session row whose transcript is still being produced ("Transcribing your session…"). The list itself is drawn; the section skeletons in this file use <Skeleton>. Also: Not a wait: `if (!user) return null` follows `if (!sessionChecked || isLoading) return <ClarityPageLoader />`; the signed-out redirect runs in an effect.',
   },
   'src/app/pages/clarity-live-page.tsx': {
-    kinds: ['loose-spinner', 'animate-pulse'],
-    why: 'Operation labels kept by spec §2: "Joining session…" (:4155, auto-join after sign-in) and "Creating session…" (:4248). The page waits on auth with the page loader.',
+    counts: { 'loose-spinner': 1, 'animate-pulse': 1, 'null-while-loading': 1 },
+    why: 'Operation labels kept by spec §2: "Joining session…" (:4155, auto-join after sign-in) and "Creating session…" (:4248). The page waits on auth with the page loader. Also: Not a wait: P703 defence in depth, a letter-sourced session shows nothing to a signed-in user who is neither its creator nor its listener (belt and braces for RLS).',
   },
   'src/app/pages/letter-compose-page.tsx': {
-    kinds: ['animate-pulse'],
-    why: 'Classified at :354: the "Sealing your letter…" step, an in-flight seal RPC the writer triggered. A deliberate operation screen, not a data load. Borderline (page-level look): see the P1586 report.',
+    counts: { 'animate-pulse': 1, 'null-while-loading': 1 },
+    why: 'Classified at :354: the "Sealing your letter…" step, an in-flight seal RPC the writer triggered. A deliberate operation screen, not a data load. Borderline (page-level look): see the P1586 report. Also: Not a wait: the closing fall-through after the phase branches (compose, sealing, confirmation) have each returned.',
   },
   'src/app/pages/profile-page-v2.tsx': {
-    kinds: ['animate-pulse'],
+    counts: { 'animate-pulse': 1 },
     why: 'Classified at :985: shimmer over the banner while a new banner is generated (banner.isLoading). The profile is drawn; the banner image is the operation.',
   },
   'src/app/pages/artifacts/artifacts-page.tsx': {
-    kinds: ['loading-text'],
-    why: 'Spec §2 operation: "Loading more…" under the list after "Show more" (:376). The first load uses the section skeleton.',
+    counts: { 'loading-text': 1, 'null-while-loading': 1 },
+    why: 'Spec §2 operation: "Loading more…" under the list after "Show more" (:376). The first load uses the section skeleton. Also: Not a wait: `if (!user) return null` comes after `if (!sessionChecked || isLoading) return <ClarityPageLoader />`; the effect above has already sent the signed-out visitor to /login.',
   },
   'src/app/pages/chat/MessageList.tsx': {
-    kinds: ['loading-text'],
+    counts: { 'loading-text': 1 },
     why: 'Spec §2 operation: the load-earlier-messages button reads "Loading…" while it works.',
   },
   'src/app/pages/chat/NewMessageDialog.tsx': {
-    kinds: ['loading-text', 'animate-pulse'],
+    counts: { 'loading-text': 1, 'animate-pulse': 1 },
     why: 'Spec §2 operation: search progress in the new-message dialog (a dialog read that already has its READ_DEADLINE): a pulsing bar and "Loading…".',
   },
   'src/app/pages/clarity-pledgers-page.tsx': {
-    kinds: ['loading-text'],
+    counts: { 'loading-text': 1 },
     why: 'Spec §2 operation: the "Show more" button reads "Loading…" while the next page loads (:126).',
+  },
+  // --- Category 4: a routed component that renders nothing. Each is a guard that is NOT a wait: auth or
+  // param guards whose redirect runs in an effect, or a state the page cannot reach. A real wait draws
+  // the page loader (`if (authLoading) return <ClarityPageLoader />` sits above every one of these). ---
+  'src/app/pages/agreement-email-confirmation-page.tsx': {
+    counts: { 'null-while-loading': 1 },
+    why: 'Not a wait: no router state (email, agreementId, token) means the effect above redirects away; there is nothing to read.',
+  },
+  'src/app/pages/clarity-demo-page.tsx': {
+    counts: { 'null-while-loading': 1 },
+    why: 'Not a wait: the closing `// Fallback` `return null` of the demo page, after its view branches (start, room, review, done) have each returned.',
+  },
+  'src/app/pages/create-agreement-page.tsx': {
+    counts: { 'null-while-loading': 1 },
+    why: 'Not a wait: `if (!session) return null` follows `if (authLoading) return <ClarityPageLoader />`; the signed-out redirect runs in an effect.',
+  },
+  'src/app/pages/create-story-page.tsx': {
+    counts: { 'null-while-loading': 1 },
+    why: 'Not a wait: `if (!session) return null` follows `if (authLoading) return <ClarityPageLoader />`; the signed-out redirect runs in an effect.',
+  },
+  'src/app/pages/letter-overview-page.tsx': {
+    counts: { 'null-while-loading': 1 },
+    why: 'Not a wait: `if (!payload) return null` follows the loading, error and not-authorized branches, so it only narrows the type for the success render.',
+  },
+  'src/app/pages/letter-response-confirm-page.tsx': {
+    counts: { 'null-while-loading': 1 },
+    why: 'Not a wait: `pageState === "expired"` renders nothing because the effect above navigates to the signup recovery page; the waiting and confirming states use the page loader.',
+  },
+  'src/app/pages/me-page.tsx': {
+    counts: { 'null-while-loading': 2 },
+    why: 'Not a wait: two redirect frames, signed out (to login) and signed in with a slug (to the profile). Both follow the `authLoading` page-loader branch and navigate in an effect.',
+  },
+  'src/app/pages/pledge-confirmation-page.tsx': {
+    counts: { 'null-while-loading': 1 },
+    why: 'Not a wait: no email in the route state means the effect redirects; nothing is read from the server.',
+  },
+  'src/app/pages/settings-page.tsx': {
+    counts: { 'null-while-loading': 1 },
+    why: 'Not a wait: `if (!session) return null` follows `if (authLoading) return <ClarityPageLoader />`; the signed-out redirect runs in an effect.',
+  },
+  'src/app/pages/topics-page.tsx': {
+    counts: { 'null-while-loading': 1 },
+    why: 'Spec §1 state 4, an optional section that renders nothing: the embedded topics list is absent until it has topics, and tells its host page so (onVisibleChange). Standalone, the page draws its own skeleton.',
+  },
+  'src/app/pages/transcribe-room-page.tsx': {
+    counts: { 'null-while-loading': 1 },
+    why: 'Not a wait: `if (!user) return null` follows the page-loader branch (`!sessionChecked || authLoading || view === "loading"`); the signed-out redirect runs in an effect.',
+  },
+
+  // --- Category 6: the page loader inside a frame that is already drawn. Only a Back-only header, a bare
+  // wrapper, or a layout shell that paints nothing may sit around it (decisions.md 2026-04-11). ---
+  'src/app/pages/calibration-breakdown-page.tsx': {
+    counts: { 'page-loader-in-frame': 1 },
+    why: 'P1364 UX Notes: while loading, the top Back (FocusHeader) is the only thing drawn; the page loader sits under it. No section or content frame is on screen.',
+  },
+  'src/app/pages/explain-back-view-page.tsx': {
+    counts: { 'page-loader-in-frame': 1 },
+    why: 'P1364 UX Notes: loading draws the top Back only (FocusHeader) inside a bare padded column; the page loader sits under it.',
+  },
+  'src/app/pages/letter-results-page.tsx': {
+    counts: { 'page-loader-in-frame': 1 },
+    why: 'P1364 UX Notes: loading draws the top Back only (FocusHeader) inside a bare <main>; the page loader sits under it.',
+  },
+  'src/app/pages/video-summary-page.tsx': {
+    counts: { 'page-loader-in-frame': 1 },
+    why: 'P1364 UX Notes + P1586: loading draws the top Back only, absolutely positioned over the page loader so the mark does not move down by Back\'s height. No other frame is drawn.',
+  },
+  'src/app/pages/letter-reading-page.tsx': {
+    counts: { 'page-loader-in-frame': 3 },
+    why: 'The three loaders (cover while skipToComplete, complete while the delivery id resolves) sit inside CertificatePageShell, which is a bare centred column with no background or border (certificate-page-shell.tsx), beside viewState branches that are mutually exclusive. Nothing else is drawn while they show.',
+  },
+  'src/auth/AuthCallbackPage.tsx': {
+    counts: { 'page-loader-in-frame': 1 },
+    why: 'Bare `<div data-status>` wrapper that exists only to keep `status` in the render tree (its own comment); it paints nothing, the page loader is the whole page.',
   },
 };
 
 // ---------------------------------------------------------------------------------------------
 // Detectors
 // ---------------------------------------------------------------------------------------------
-
-const LOADING_FLAG =
-  /\b[a-z]*Loading\b|\bloading\b|![A-Za-z_.]*[Ll]oaded\b|\bfetchState\s*===\s*['"]loading['"]|\b(?:is)?Pending\b|\bstatus\s*===\s*['"](?:loading|pending)['"]/;
 
 /** Tags that make a spinner an operation indicator rather than a section/page wait. */
 function isControlTag(tag: string): boolean {
@@ -307,15 +398,53 @@ function enclosingComponentName(node: ts.Node): string | undefined {
   return undefined;
 }
 
-/** The loading-flag test text guarding a node: nearest `if (...)` whose then-branch contains it, or ternary condition. */
-function guardingCondition(node: ts.Node, sf: ts.SourceFile): string | undefined {
-  let child: ts.Node = node;
-  for (let n: ts.Node | undefined = node.parent; n; child = n, n = n.parent) {
-    if (ts.isIfStatement(n) && n.thenStatement === child) return n.expression.getText(sf);
-    if (ts.isConditionalExpression(n) && n.condition !== child) return n.condition.getText(sf);
-    if (ts.isFunctionLike(n)) return undefined;
+/**
+ * "Loading" as a look: the capitalised word anywhere, or a lowercase one that opens the text
+ * ("loading events…"). A lowercase word mid-sentence is prose ("Something went wrong loading your
+ * drafts") and a bare lowercase string is a status value (`state.kind === 'loading'`).
+ */
+function isLoadingWord(text: string, mayBeStatusValue: boolean): boolean {
+  return /\bLoading\b/.test(text) || (/^\s*loading\b/i.test(text) && !(mayBeStatusValue && text.trim() === 'loading'));
+}
+const SPIN_CLASS = /animate-spin(?![-\w])|animate-\[spin/;
+const PULSE_CLASS = /animate-pulse(?![-\w])|animate-\[pulse/;
+
+const LOADER_NAMES = ['ClarityLoader'];
+const PAGE_LOADER_NAMES = ['ClarityPageLoader', 'ClarityContentLoader', 'ClarityBootLoader'];
+const SPINNER_NAMES = ['Loader2', 'Loader2Icon'];
+
+/** Text a class string can live in: string literals, template parts. */
+function isClassText(node: ts.Node): node is ts.StringLiteralLike | ts.TemplateHead | ts.TemplateMiddle | ts.TemplateTail {
+  return ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node);
+}
+
+/** Local names the file gives the loader, page loader and spinner icons (an `as` alias adds a name). */
+function importedNames(sf: ts.SourceFile): { loader: Set<string>; pageLoader: Set<string>; spinner: Set<string> } {
+  const out = { loader: new Set(LOADER_NAMES), pageLoader: new Set(PAGE_LOADER_NAMES), spinner: new Set(SPINNER_NAMES) };
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !st.importClause?.namedBindings || !ts.isNamedImports(st.importClause.namedBindings)) continue;
+    for (const el of st.importClause.namedBindings.elements) {
+      const original = (el.propertyName ?? el.name).text;
+      if (LOADER_NAMES.includes(original)) out.loader.add(el.name.text);
+      if (PAGE_LOADER_NAMES.includes(original)) out.pageLoader.add(el.name.text);
+      if (SPINNER_NAMES.includes(original)) out.spinner.add(el.name.text);
+    }
   }
-  return undefined;
+  return out;
+}
+
+/**
+ * Is this page loader nested inside another JSX element (a frame already on screen)? Walking up, the
+ * only things allowed between it and the component's render are parentheses, a ternary / `&&` / `||`
+ * arm, and a fragment: i.e. it is (part of) the whole return. A JsxElement ancestor, including an
+ * attribute value such as `fallback={...}`, means something else is drawn around it.
+ */
+function isNestedInFrame(node: ts.Node): boolean {
+  for (let n: ts.Node | undefined = node.parent; n; n = n.parent) {
+    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isJsxAttribute(n)) return true;
+    if (ts.isFunctionLike(n) || ts.isReturnStatement(n) || ts.isSourceFile(n)) return false;
+  }
+  return false;
 }
 
 export interface DetectOptions {
@@ -327,7 +456,7 @@ export interface DetectOptions {
   routedNames?: ReadonlySet<string> | '*';
 }
 
-/** Runs all five detectors over one source text. File-level standard exemptions are applied by the caller. */
+/** Runs all six detectors over one source text. File-level standard exemptions are applied by the caller. */
 export function findLoadingDrift(fileName: string, source: string, opts: DetectOptions = {}): Finding[] {
   const sf = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const findings: Finding[] = [];
@@ -336,10 +465,13 @@ export function findLoadingDrift(fileName: string, source: string, opts: DetectO
     findings.push({ kind, line: at(node), text: (text ?? node.getText(sf)).replace(/\s+/g, ' ').slice(0, 120) });
   const spinnerAnchors = new Set<number>();
 
+  // `import { ClarityLoader as X }` renames the tag; every local name counts.
+  const names = importedNames(sf);
+
   const visit = (node: ts.Node) => {
     // 1. large ClarityLoader
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-      if (node.tagName.getText(sf) === 'ClarityLoader') {
+      if (names.loader.has(node.tagName.getText(sf))) {
         const size = node.attributes.properties.find(
           (p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText(sf) === 'size'
         );
@@ -354,13 +486,18 @@ export function findLoadingDrift(fileName: string, source: string, opts: DetectO
       }
     }
 
-    // 2. "Loading" as visible text: JSX text, or a string literal rendered through a JSX expression.
-    if (ts.isJsxText(node) && /\bLoading\b/.test(node.text) && !insideSrOnly(node, sf)) {
+    // 2. "Loading" as visible text (any case): JSX text, or a string / template literal rendered through
+    // a JSX expression (a template with a substitution is matched by its head, middle and tail parts).
+    if (ts.isJsxText(node) && isLoadingWord(node.text, false) && !insideSrOnly(node, sf)) {
       add('loading-text', node, node.text.trim());
     }
     if (
-      (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
-      /\bLoading\b/.test(node.text) &&
+      (ts.isStringLiteral(node) ||
+        ts.isNoSubstitutionTemplateLiteral(node) ||
+        ts.isTemplateHead(node) ||
+        ts.isTemplateMiddle(node) ||
+        ts.isTemplateTail(node)) &&
+      isLoadingWord(node.text, ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
       insideJsx(node) &&
       !insideJsxAttribute(node) &&
       !insideSrOnly(node, sf)
@@ -368,10 +505,10 @@ export function findLoadingDrift(fileName: string, source: string, opts: DetectO
       add('loading-text', node);
     }
 
-    // 3. loose spinner: Loader2 / Loader2Icon references and animate-spin strings
+    // 3. loose spinner: Loader2 / Loader2Icon references (under any import alias) and animate-spin strings
     if (
       ts.isIdentifier(node) &&
-      (node.text === 'Loader2' || node.text === 'Loader2Icon') &&
+      names.spinner.has(node.text) &&
       !ts.isImportSpecifier(node.parent) &&
       !ts.isImportClause(node.parent) &&
       !ts.isExportSpecifier(node.parent)
@@ -383,10 +520,7 @@ export function findLoadingDrift(fileName: string, source: string, opts: DetectO
         add('loose-spinner', el ?? node);
       }
     }
-    if (
-      (ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) &&
-      /animate-spin(?![-\w])/.test(node.text)
-    ) {
+    if (isClassText(node) && SPIN_CLASS.test(node.text)) {
       const el = nearestElement(node);
       const key = el ? el.getStart(sf) : node.getStart(sf);
       if (!spinnerAnchors.has(key) && !(el && insideControl(el, sf))) {
@@ -395,36 +529,30 @@ export function findLoadingDrift(fileName: string, source: string, opts: DetectO
       }
     }
 
-    // 4. return null on a loading flag, in a routed component
-    if (opts.routedNames) {
-      const reportIf = (n: ts.Node, cond: string | undefined) => {
-        if (cond === undefined || !LOADING_FLAG.test(cond)) return;
-        const name = enclosingComponentName(n);
-        if (opts.routedNames === '*' ? name !== undefined : name !== undefined && opts.routedNames!.has(name)) {
-          add('null-while-loading', n);
-        }
-      };
-      if (ts.isReturnStatement(node) && node.expression) {
-        const e = node.expression;
-        if (e.kind === ts.SyntaxKind.NullKeyword) {
-          reportIf(node, guardingCondition(node, sf));
-        } else if (ts.isConditionalExpression(e)) {
-          const nullBranch = e.whenTrue.kind === ts.SyntaxKind.NullKeyword || e.whenFalse.kind === ts.SyntaxKind.NullKeyword;
-          if (nullBranch) reportIf(node, e.condition.getText(sf));
+    // 4. a routed component renders nothing: `return null` (under any guard, or none) or a ternary with a
+    // null arm. A route that has nothing to paint must say why in the allowlist; a wait must not be blank.
+    if (opts.routedNames && ts.isReturnStatement(node) && node.expression) {
+      const e = node.expression;
+      const blank =
+        e.kind === ts.SyntaxKind.NullKeyword ||
+        (ts.isConditionalExpression(e) &&
+          (e.whenTrue.kind === ts.SyntaxKind.NullKeyword || e.whenFalse.kind === ts.SyntaxKind.NullKeyword));
+      if (blank) {
+        const name = enclosingComponentName(node);
+        if (opts.routedNames === '*' ? name !== undefined : name !== undefined && opts.routedNames.has(name)) {
+          add('null-while-loading', node);
         }
       }
     }
 
-    // 5. animate-pulse outside the primitive
-    if (
-      (ts.isStringLiteralLike(node) ||
-        ts.isTemplateHead(node) ||
-        ts.isTemplateMiddle(node) ||
-        ts.isTemplateTail(node) ||
-        ts.isJsxText(node)) &&
-      /animate-pulse(?![-\w])/.test(node.text)
-    ) {
+    // 5. animate-pulse outside the primitive (the arbitrary-value form `animate-[pulse_…]` included)
+    if ((isClassText(node) || ts.isJsxText(node)) && PULSE_CLASS.test(node.text)) {
       add('animate-pulse', node, node.text.trim());
+    }
+
+    // 6. the page loader drawn inside a frame that is already on screen
+    if (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) {
+      if (names.pageLoader.has(node.tagName.getText(sf)) && isNestedInFrame(node)) add('page-loader-in-frame', node);
     }
 
     ts.forEachChild(node, visit);
@@ -436,6 +564,9 @@ export function findLoadingDrift(fileName: string, source: string, opts: DetectO
 // ---------------------------------------------------------------------------------------------
 // Deriving members from the tree
 // ---------------------------------------------------------------------------------------------
+
+/** Route arrays live here: lazy pages that a route table in App.tsx maps to paths. */
+const ROUTE_ARRAY_DIR = 'src/app/routes/';
 
 function listSourceFiles(dir: string): string[] {
   const out: string[] = [];
@@ -449,8 +580,13 @@ function listSourceFiles(dir: string): string[] {
   return out;
 }
 
-function resolveModule(root: string, spec: string): string | undefined {
-  const base = spec.startsWith('@/') ? join('src', spec.slice(2)) : undefined;
+/** `@/x` and relative specifiers to a repo-relative source file; undefined for packages and misses. */
+function resolveModule(root: string, fromFile: string, spec: string): string | undefined {
+  const base = spec.startsWith('@/')
+    ? join('src', spec.slice(2))
+    : spec.startsWith('.')
+      ? join(dirname(fromFile), spec)
+      : undefined;
   if (!base) return undefined;
   for (const cand of [`${base}.tsx`, `${base}.ts`, join(base, 'index.tsx'), join(base, 'index.ts')]) {
     if (existsSync(join(root, cand))) return cand.split(sep).join('/');
@@ -458,45 +594,132 @@ function resolveModule(root: string, spec: string): string | undefined {
   return undefined;
 }
 
-/**
- * The components a route renders directly, as `file -> exported names` (or '*' for a default export).
- * Read from App.tsx: component identifiers named inside a `<Route element=...>`, resolved through
- * its static imports and `const X = lazy(() => import('@/…').then(m => ({ default: m.Name })))`.
- */
-export function deriveRouted(root: string, appSource: string): Map<string, Set<string> | '*'> {
-  const sf = ts.createSourceFile('App.tsx', appSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const bindings = new Map<string, { file: string; exportName: string }>();
+type RoutedMap = Map<string, Set<string> | '*'>;
 
+function addRouted(routed: RoutedMap, file: string, exportName: string): void {
+  if (exportName === 'default') {
+    routed.set(file, '*');
+    return;
+  }
+  const cur = routed.get(file);
+  if (cur === '*') return;
+  const names = cur ?? new Set<string>();
+  names.add(exportName);
+  routed.set(file, names);
+}
+
+interface Binding {
+  file: string;
+  exportName: string;
+}
+
+/** Static imports and `lazy(() => import('…').then(m => ({ default: m.Name })))` consts of one file. */
+function moduleBindings(root: string, file: string, sf: ts.SourceFile): Map<string, Binding> {
+  const bindings = new Map<string, Binding>();
   for (const st of sf.statements) {
     if (ts.isImportDeclaration(st) && ts.isStringLiteral(st.moduleSpecifier) && st.importClause) {
-      const file = resolveModule(root, st.moduleSpecifier.text);
-      if (!file) continue;
+      const target = resolveModule(root, file, st.moduleSpecifier.text);
+      if (!target) continue;
       const clause = st.importClause;
-      if (clause.name) bindings.set(clause.name.text, { file, exportName: 'default' });
+      if (clause.name) bindings.set(clause.name.text, { file: target, exportName: 'default' });
       if (clause.namedBindings && ts.isNamedImports(clause.namedBindings)) {
         for (const el of clause.namedBindings.elements) {
-          bindings.set(el.name.text, { file, exportName: (el.propertyName ?? el.name).text });
+          bindings.set(el.name.text, { file: target, exportName: (el.propertyName ?? el.name).text });
         }
       }
     }
+  }
+  const lazyOf = (init: ts.Expression): Binding | undefined => {
+    if (!ts.isCallExpression(init) || init.expression.getText(sf) !== 'lazy') return undefined;
+    const text = init.getText(sf);
+    const spec = /import\(\s*["']([^"']+)["']\s*\)/.exec(text)?.[1];
+    const target = spec ? resolveModule(root, file, spec) : undefined;
+    if (!target) return undefined;
+    return { file: target, exportName: /default:\s*m\.(\w+)/.exec(text)?.[1] ?? 'default' };
+  };
+  const visit = (node: ts.Node) => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      const b = lazyOf(node.initializer);
+      if (b) bindings.set(node.name.text, b);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return bindings;
+}
+
+/** Every lazy() page a file declares, bound to a name or not (a route array keeps them in object literals). */
+function lazyPages(root: string, file: string, sf: ts.SourceFile): Binding[] {
+  const out: Binding[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node) && node.expression.getText(sf) === 'lazy') {
+      const text = node.getText(sf);
+      const spec = /import\(\s*["']([^"']+)["']\s*\)/.exec(text)?.[1];
+      const target = spec ? resolveModule(root, file, spec) : undefined;
+      if (target) out.push({ file: target, exportName: /default:\s*m\.(\w+)/.exec(text)?.[1] ?? 'default' });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return out;
+}
+
+/** Does this file render a `<Route element=…>`? Cheap text screen first, then the AST. */
+export function rendersRoutes(source: string): boolean {
+  if (!/<Route\b/.test(source) || !/\belement=/.test(source)) return false;
+  const sf = ts.createSourceFile('x.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let found = false;
+  const visit = (node: ts.Node) => {
+    if (
+      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
+      node.tagName.getText(sf) === 'Route' &&
+      node.attributes.properties.some(p => ts.isJsxAttribute(p) && p.name.getText(sf) === 'element')
+    ) {
+      found = true;
+    }
+    if (!found) ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return found;
+}
+
+/**
+ * Two derivation paths, merged by the caller:
+ *   - a file that renders `<Route element={…}>` (App.tsx, and any nested `<Routes>` such as
+ *     prototypes/events/index.tsx): every component named in an `element` is routed. Resolved through
+ *     the file's imports (`@/…` and relative) and lazy() consts; a component declared in the same file
+ *     is routed there.
+ *   - a route array (src/app/routes/*): its lazy() pages exist only to be mounted by a route, so each
+ *     one is routed.
+ */
+export function deriveRoutedFromFile(root: string, file: string, source: string): RoutedMap {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const bindings = moduleBindings(root, file, sf);
+  const routed: RoutedMap = new Map();
+
+  if (file.startsWith(ROUTE_ARRAY_DIR)) {
+    for (const b of lazyPages(root, file, sf)) addRouted(routed, b.file, b.exportName);
+  }
+
+  const localComponents = new Set<string>();
+  for (const st of sf.statements) {
+    if (ts.isFunctionDeclaration(st) && st.name && /^[A-Z]/.test(st.name.text)) localComponents.add(st.name.text);
     if (ts.isVariableStatement(st)) {
-      for (const decl of st.declarationList.declarations) {
-        if (!ts.isIdentifier(decl.name) || !decl.initializer) continue;
-        const init = decl.initializer;
-        if (!ts.isCallExpression(init) || init.expression.getText(sf) !== 'lazy') continue;
-        const text = init.getText(sf);
-        const spec = /import\(\s*["']([^"']+)["']\s*\)/.exec(text)?.[1];
-        const file = spec ? resolveModule(root, spec) : undefined;
-        if (!file) continue;
-        const named = /default:\s*m\.(\w+)/.exec(text)?.[1];
-        bindings.set(decl.name.text, { file, exportName: named ?? 'default' });
+      for (const d of st.declarationList.declarations) {
+        if (ts.isIdentifier(d.name) && /^[A-Z]/.test(d.name.text) && !bindings.has(d.name.text)) localComponents.add(d.name.text);
       }
     }
   }
 
   const tags = new Set<string>();
+  const collect = (n: ts.Node) => {
+    if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) {
+      const tag = n.tagName.getText(sf);
+      if (/^[A-Z]/.test(tag)) tags.add(tag);
+    }
+    ts.forEachChild(n, collect);
+  };
   const visit = (node: ts.Node) => {
-    const opening = openingOf(node) ?? (ts.isJsxOpeningElement(node) ? node : undefined);
     if (
       (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
       node.tagName.getText(sf) === 'Route'
@@ -504,34 +727,29 @@ export function deriveRouted(root: string, appSource: string): Map<string, Set<s
       const element = node.attributes.properties.find(
         (p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText(sf) === 'element'
       );
-      if (element) {
-        const collect = (n: ts.Node) => {
-          if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) {
-            const tag = n.tagName.getText(sf);
-            if (/^[A-Z]/.test(tag)) tags.add(tag);
-          }
-          ts.forEachChild(n, collect);
-        };
-        collect(element);
-      }
+      if (element) collect(element);
     }
-    void opening;
     ts.forEachChild(node, visit);
   };
   visit(sf);
 
-  const routed = new Map<string, Set<string> | '*'>();
   for (const tag of tags) {
     const b = bindings.get(tag);
-    if (!b) continue;
-    if (b.exportName === 'default') {
-      routed.set(b.file, '*');
-    } else {
-      const cur = routed.get(b.file);
-      if (cur === '*') continue;
-      const names = cur ?? new Set<string>();
-      names.add(b.exportName);
-      routed.set(b.file, names);
+    if (b) addRouted(routed, b.file, b.exportName);
+    else if (localComponents.has(tag)) addRouted(routed, file, tag);
+  }
+  return routed;
+}
+
+/** Merges the routed components of every route-rendering file and route array under src/. */
+export function deriveRouted(root: string, files: string[], read: (f: string) => string): RoutedMap {
+  const routed: RoutedMap = new Map();
+  for (const file of files) {
+    const source = read(file);
+    if (!file.startsWith(ROUTE_ARRAY_DIR) && !rendersRoutes(source)) continue;
+    for (const [target, names] of deriveRoutedFromFile(root, file, source)) {
+      if (names === '*') addRouted(routed, target, 'default');
+      else for (const n of names) addRouted(routed, target, n);
     }
   }
   return routed;
@@ -555,6 +773,17 @@ describe('P1586 loading-states guard — the detectors themselves (controls)', (
     expect(kinds(`const A = () => <ClarityPageLoader />;`)).toEqual([]);
   });
 
+  it('1 an aliased import of ClarityLoader is still the mark (bad), a sm alias passes (good)', () => {
+    const imp = `import { ClarityLoader as Mark } from '@/components/ui/clarity-loader';\n`;
+    expect(kinds(`${imp}const A = () => <div className="min-h-screen flex items-center justify-center"><Mark size="lg" /></div>;`)).toEqual([
+      'large-clarity-loader',
+    ]);
+    expect(kinds(`${imp}const A = () => <Mark />;`)).toEqual(['large-clarity-loader']);
+    expect(kinds(`${imp}const A = () => <Mark size="sm" />;`)).toEqual([]);
+    // an unrelated component that happens to be called Mark in another file is not the loader
+    expect(kinds(`import { Mark } from 'x';\nconst A = () => <Mark size="lg" />;`)).toEqual([]);
+  });
+
   it('2 flags visible "Loading" text and a rendered "Loading…" string, passes aria, sr-only, labels and comments', () => {
     expect(kinds(`const A = () => <p>Loading events…</p>;`)).toEqual(['loading-text']);
     expect(kinds(`const A = () => <p>Loading...</p>;`)).toEqual(['loading-text']);
@@ -566,6 +795,25 @@ describe('P1586 loading-states guard — the detectors themselves (controls)', (
     expect(kinds(`export const CHUNK = ['Loading chunk', 'Loading CSS chunk'];`)).toEqual([]);
     expect(kinds(`// Loading… in a comment\nconst A = () => <>{/* Loading… */}</>;`)).toEqual([]);
     expect(kinds(`const A = () => <p>Downloading</p>;`)).toEqual([]);
+  });
+
+  it('2 lowercase "loading…" and a template literal with a substitution are the same text look (bypasses closed)', () => {
+    // lowercase, opening the text
+    expect(kinds(`const A = () => <p>loading events…</p>;`)).toEqual(['loading-text']);
+    expect(kinds(`const A = () => <p>{busy ? 'loading…' : 'more'}</p>;`)).toEqual(['loading-text']);
+    // a template literal with a substitution: the head, middle or tail carries the word
+    expect(kinds('const A = () => <p>{`Loading ${kind}…`}</p>;')).toEqual(['loading-text']);
+    expect(kinds('const A = () => <p>{`Please wait: ${kind} Loading…`}</p>;')).toEqual(['loading-text']);
+    expect(kinds('const A = () => <p>{`loading ${kind}`}</p>;')).toEqual(['loading-text']);
+    // good: prose that merely contains the lowercase word, status values, attributes
+    expect(kinds(`const A = () => <p>Something went wrong loading your drafts.</p>;`)).toEqual([]);
+    expect(kinds(`const A = () => <p>{state.kind === 'loading' && <Foo />}</p>;`)).toEqual([]);
+    expect(kinds('const A = () => <div aria-label={`Loading ${kind}`} />;')).toEqual([]);
+    expect(kinds('const A = () => <span className="sr-only">{`Loading ${kind}`}</span>;')).toEqual([]);
+    expect(kinds('const msg = `Loading ${kind}…`;')).toEqual([]);
+    // DOCUMENTED LIMITATION: `const MSG = 'Loading…'` rendered later as {MSG} needs data-flow analysis. The
+    // string is outside JSX where it is declared, so it is not seen (see the header of this file).
+    expect(kinds(`const MSG = 'Loading…'; const A = () => <p>{MSG}</p>;`)).toEqual([]);
   });
 
   it('3 flags a loose Loader2 / Loader2Icon / animate-spin, passes one inside a control', () => {
@@ -587,15 +835,35 @@ describe('P1586 loading-states guard — the detectors themselves (controls)', (
     expect(kinds(`const A = () => <div className="hover:animate-spinner-x" />;`)).toEqual([]);
   });
 
-  it('4 flags return null on a loading flag in a routed component only', () => {
+  it('3 an aliased Loader2 and the arbitrary-value animate-[spin…] are loose spinners too (bypasses closed)', () => {
+    expect(kinds(`import { Loader2 as Spinner } from 'lucide-react';\nconst A = () => <div><Spinner /></div>;`)).toEqual(['loose-spinner']);
+    expect(kinds(`import { Loader2 as Spinner } from 'lucide-react';\nconst A = () => <button><Spinner /></button>;`)).toEqual([]);
+    expect(kinds(`const A = () => <div className="animate-[spin_1s_linear_infinite] h-5 w-5" />;`)).toEqual(['loose-spinner']);
+    expect(kinds(`const A = () => <button><span className="animate-[spin_1s_linear_infinite]" /></button>;`)).toEqual([]);
+  });
+
+  it('4 flags a routed component that renders nothing, under any guard, and only a routed one', () => {
+    // loading flags of every shape
     expect(kinds(`function Page() { if (loading) return null; return <div/>; }`, ROUTED)).toEqual(['null-while-loading']);
     expect(kinds(`const Page = () => { if (authLoading || !user) { return null; } return <div/>; };`, ROUTED)).toEqual(['null-while-loading']);
     expect(kinds(`function Page() { if (!loaded) return null; return <div/>; }`, ROUTED)).toEqual(['null-while-loading']);
     expect(kinds(`function Page() { if (fetchState === 'loading') return null; return <div/>; }`, ROUTED)).toEqual(['null-while-loading']);
     expect(kinds(`function Page() { return isLoading ? null : <div/>; }`, ROUTED)).toEqual(['null-while-loading']);
-    // not a loading flag
-    expect(kinds(`function Page() { if (!user) return null; return <div/>; }`, ROUTED)).toEqual([]);
-    expect(kinds(`function Page() { if (isDownloading) return null; return <div/>; }`, ROUTED)).toEqual([]);
+    // the shapes the first version missed: `=== null` gates, `!ready`, `!event`, a redirect then null
+    expect(kinds(`function Page() { if (arrivalGate === null) return null; return <div/>; }`, ROUTED)).toEqual(['null-while-loading']);
+    expect(kinds(`function Page() { if (!ready) return null; return <div/>; }`, ROUTED)).toEqual(['null-while-loading']);
+    expect(kinds(`function Page() { if (!baseReady) return null; return <div/>; }`, ROUTED)).toEqual(['null-while-loading']);
+    expect(kinds(`function Page() { if (!rowsReady) return null; return <div/>; }`, ROUTED)).toEqual(['null-while-loading']);
+    expect(kinds(`function Page() { if (!event) return null; return <div/>; }`, ROUTED)).toEqual(['null-while-loading']);
+    expect(kinds(`function Page() { if (frozen) { navigate('/x', { replace: true }); return null; } return <div/>; }`, ROUTED)).toEqual([
+      'null-while-loading',
+    ]);
+    // a genuine "nothing to show" is still a finding: it needs a reason in the allowlist
+    expect(kinds(`function Page() { if (!user) return null; return <div/>; }`, ROUTED)).toEqual(['null-while-loading']);
+    // good: a page loader or a skeleton is a render, a redirect element is a render
+    expect(kinds(`function Page() { if (loading) return <ClarityPageLoader />; return <div/>; }`, ROUTED)).toEqual([]);
+    expect(kinds(`function Page() { if (arrivalGate === null) return <ClarityPageLoader />; return <div/>; }`, ROUTED)).toEqual([]);
+    expect(kinds(`function Page() { if (!user) return <Navigate to="/login" replace />; return <div/>; }`, ROUTED)).toEqual([]);
     // a helper component in the same file, not the routed export
     expect(kinds(`function Helper() { if (loading) return null; return <div/>; }`, ROUTED)).toEqual([]);
     // not routed at all
@@ -604,6 +872,7 @@ describe('P1586 loading-states guard — the detectors themselves (controls)', (
     expect(kinds(`function Inner() { if (loading) return null; return <div/>; }`, { routedNames: '*' })).toEqual(['null-while-loading']);
     // a null return inside a nested callback is not the component's render
     expect(kinds(`function Page() { const f = () => { if (loading) return null; }; return <div/>; }`, ROUTED)).toEqual([]);
+    expect(kinds(`function Page() { const v = useMemo(() => { if (x) return null; return 1; }, []); return <div/>; }`, ROUTED)).toEqual([]);
   });
 
   it('5 flags animate-pulse, passes animate-pulse-subtle-green and look-alikes', () => {
@@ -614,6 +883,107 @@ describe('P1586 loading-states guard — the detectors themselves (controls)', (
     expect(kinds(`const A = () => <div className="animate-pulse_x motion-safe:animate-pulses" />;`)).toEqual([]);
     expect(kinds(`// animate-pulse in a comment\nconst A = () => <div />;`)).toEqual([]);
     expect(kinds(`const A = () => <Skeleton className="h-4" />;`)).toEqual([]);
+  });
+
+  it('5 the arbitrary-value form animate-[pulse…] is a pulse too (bypass closed)', () => {
+    expect(kinds(`const A = () => <div className="h-4 animate-[pulse_2s_infinite] bg-muted" />;`)).toEqual(['animate-pulse']);
+    expect(kinds(`const A = () => <div className={cn('a', 'motion-safe:animate-[pulse_1s_ease]')} />;`)).toEqual(['animate-pulse']);
+    expect(kinds(`const A = () => <div className="animate-[wiggle_1s]" />;`)).toEqual([]);
+  });
+
+  it('6 the page loader may only be the whole render: bad inside a drawn frame, good as an early return', () => {
+    // good: an early return, a ternary return, a bare arrow body, a fragment that holds only the loader and a redirect
+    expect(kinds(`function Page() { if (loading) return <ClarityPageLoader />; return <main/>; }`)).toEqual([]);
+    expect(kinds(`function Page() { if (loading) { return (<ClarityPageLoader />); } return <main/>; }`)).toEqual([]);
+    expect(kinds(`function Page() { return loading ? <ClarityPageLoader /> : <main/>; }`)).toEqual([]);
+    expect(kinds(`const Page = () => <ClarityPageLoader />;`)).toEqual([]);
+    expect(kinds(`function Page() { return <><Navigate to="/x" replace /><ClarityPageLoader /></>; }`)).toEqual([]);
+    expect(kinds(`function Page() { return ready ? <main/> : null || <ClarityPageLoader />; }`)).toEqual([]);
+    // bad: inside a div, a section, a conditional child of a drawn page, a component, an attribute value
+    expect(kinds(`function Page() { return <div><h1>T</h1>{loading ? <ClarityPageLoader/> : <List/>}</div>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return <div>{loading && <ClarityPageLoader />}<List/></div>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { if (loading) return <div className="p-4"><ClarityPageLoader /></div>; return <main/>; }`)).toEqual([
+      'page-loader-in-frame',
+    ]);
+    expect(kinds(`function Page() { return <Layout><ClarityPageLoader /></Layout>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return <Suspense fallback={<ClarityPageLoader />}><List/></Suspense>; }`)).toEqual(['page-loader-in-frame']);
+    // the shell's content loader and the boot loader are page loaders too
+    expect(kinds(`function Page() { return <div><ClarityContentLoader /></div>; }`)).toEqual(['page-loader-in-frame']);
+    expect(kinds(`function Page() { return <div><ClarityBootLoader /></div>; }`)).toEqual(['page-loader-in-frame']);
+    // an aliased import
+    expect(
+      kinds(`import { ClarityPageLoader as Wait } from '@/components/ui/clarity-loader';\nfunction Page() { return <div><Wait /></div>; }`)
+    ).toEqual(['page-loader-in-frame']);
+    expect(
+      kinds(`import { ClarityPageLoader as Wait } from '@/components/ui/clarity-loader';\nfunction Page() { if (x) return <Wait />; return <main/>; }`)
+    ).toEqual([]);
+  });
+});
+
+describe('P1586 loading-states guard — route derivation (controls on a scratch tree)', () => {
+  const scratch = mkdtempSync(join(tmpdir(), 'p1586-routes-'));
+  const put = (f: string, text = 'export {};') => {
+    mkdirSync(dirname(join(scratch, f)), { recursive: true });
+    writeFileSync(join(scratch, f), text);
+  };
+  put('src/pages/A.tsx');
+  put('src/pages/B.tsx');
+  put('src/nested/index.tsx');
+  put('src/nested/components/Child.tsx');
+  put('src/nested/components/Other.tsx');
+  put('src/pages/Hidden.tsx');
+  put('src/app/routes/arr.ts');
+  put('src/app/pages/Hidden.tsx');
+  afterAll(() => rmSync(scratch, { recursive: true, force: true }));
+
+  const app = `
+    import { A } from '@/pages/A';
+    import B from '@/pages/B';
+    const Hidden = lazy(() => import('@/pages/Hidden').then(m => ({ default: m.Hidden })));
+    function LocalRedirect() { return <Navigate to="/x" />; }
+    export const R = () => (
+      <Routes>
+        <Route path="/a" element={<Layout><A /></Layout>} />
+        <Route path="/b" element={<B />} />
+        <Route path="/l" element={<LocalRedirect />} />
+        <Route path="/n/*" element={<Nested />} />
+      </Routes>
+    );`;
+  const nested = `
+    import { Child } from './components/Child';
+    import { Other } from './components/Other';
+    export const N = () => (<Routes><Route path="c" element={<Child />} /></Routes>);`;
+  const arr = `export const L = [{ path: '/h', Page: lazy(() => import('../pages/Hidden').then((m) => ({ default: m.Hidden }))) }];`;
+
+  it('reads App-style imports (@/), a default import, and a component declared in the same file', () => {
+    const got = deriveRoutedFromFile(scratch, 'src/App.tsx', app);
+    expect(got.get('src/pages/A.tsx')).toContain('A');
+    expect(got.get('src/pages/B.tsx')).toBe('*');
+    expect(got.get('src/App.tsx')).toContain('LocalRedirect');
+    // not named in any route element
+    expect(got.get('src/pages/Hidden.tsx')).toBeUndefined();
+  });
+
+  it('reads a nested <Routes> file through RELATIVE imports', () => {
+    const got = deriveRoutedFromFile(scratch, 'src/nested/index.tsx', nested);
+    expect(got.get('src/nested/components/Child.tsx')).toContain('Child');
+    // imported but never in a route element
+    expect(got.get('src/nested/components/Other.tsx')).toBeUndefined();
+  });
+
+  it('reads a route array: every lazy() page in src/app/routes/ is routed, with a relative import', () => {
+    const got = deriveRoutedFromFile(scratch, 'src/app/routes/arr.ts', arr);
+    expect(got.get('src/app/pages/Hidden.tsx')).toContain('Hidden');
+  });
+
+  it('rendersRoutes finds a file that renders <Route element> and ignores one that only mentions it', () => {
+    expect(rendersRoutes(nested)).toBe(true);
+    expect(rendersRoutes(`// <Route element={x}> in a comment\nexport const A = 1;`)).toBe(false);
+    expect(rendersRoutes(`import { Route } from 'r';\nexport const A = () => <Route path="x" />;`)).toBe(false);
+  });
+
+  it('a parser that finds nothing yields an empty map, so the src/ assertions below would fail', () => {
+    expect(deriveRoutedFromFile(scratch, 'src/App.tsx', 'export const A = 1;').size).toBe(0);
   });
 });
 
@@ -632,7 +1002,10 @@ describe('P1586 loading-states guard — negative controls on real files (an all
     expect(kindsOf('src/app/pages/chat/AttachmentSkeleton.tsx')).toEqual([]);
     expect(kindsOf('src/app/pages/chat/chat-kit.tsx')).not.toContain('loading-text');
     expect(kindsOf('src/app/pages/chat/MessageList.tsx')).toContain('loading-text');
-    expect(ALLOWLIST['src/app/pages/chat/MessageList.tsx']?.kinds).toContain('loading-text');
+    expect(ALLOWLIST['src/app/pages/chat/MessageList.tsx']?.counts['loading-text']).toBe(1);
+    // prose and status values that contain the lowercase word are not loading text
+    expect(read('src/app/components/letters/inbox-tab.tsx')).toContain('Something went wrong loading');
+    expect(kindsOf('src/app/components/letters/inbox-tab.tsx')).not.toContain('loading-text');
   });
 
   it('3 a Loader2 inside a control passes', () => {
@@ -641,10 +1014,13 @@ describe('P1586 loading-states guard — negative controls on real files (an all
     expect(kindsOf(f)).not.toContain('loose-spinner');
   });
 
-  it('4 a routed component that returns null on something other than a loading flag passes', () => {
+  it('4 a routed `if (!user) return null` is seen (and carries its reason in the allowlist)', () => {
     const f = 'src/app/pages/artifacts/artifacts-page.tsx';
     expect(read(f)).toMatch(/if \(!user\) return null;/);
-    expect(kindsOf(f, { routedNames: new Set(['ArtifactsPage']) })).not.toContain('null-while-loading');
+    expect(kindsOf(f, { routedNames: new Set(['ArtifactsPage']) })).toContain('null-while-loading');
+    expect(ALLOWLIST[f]?.counts['null-while-loading']).toBe(1);
+    // a helper that is not the routed export is not checked
+    expect(kindsOf(f, { routedNames: new Set(['NotAComponentInThisFile']) })).not.toContain('null-while-loading');
   });
 
   it('5 animate-pulse-subtle-green is not animate-pulse', () => {
@@ -652,17 +1028,43 @@ describe('P1586 loading-states guard — negative controls on real files (an all
     expect(read(f)).toContain('animate-pulse-subtle-green');
     expect(kindsOf(f)).not.toContain('animate-pulse');
   });
+
+  it('6 a Back-only frame around the page loader is allowlisted with its reason; the migrated gates are clean', () => {
+    expect(kindsOf('src/app/pages/video-summary-page.tsx')).toContain('page-loader-in-frame');
+    expect(ALLOWLIST['src/app/pages/video-summary-page.tsx']?.counts['page-loader-in-frame']).toBe(1);
+    for (const f of [
+      'src/app/prototypes/events/components/EventRoomGate.tsx',
+      'src/app/prototypes/events/components/EventRoomReady.tsx',
+      'src/app/prototypes/events/components/EventDetail.tsx',
+      'src/app/prototypes/events/components/CreateEvent.tsx',
+    ]) {
+      expect(kindsOf(f, { routedNames: '*' }), `${f} is migrated`).toEqual([]);
+    }
+  });
 });
 
 describe('P1586 loading-states guard — src/', () => {
   const root = process.cwd();
   const all = listSourceFiles(join(root, 'src')).map(f => relative(root, f).split(sep).join('/'));
   const files = all.filter(f => !(f in EXCLUDED_DEMOS));
-  const routed = deriveRouted(root, readFileSync(join(root, 'src/App.tsx'), 'utf8'));
+  const routed = deriveRouted(root, all, f => readFileSync(join(root, f), 'utf8'));
 
+  // Parsed once per file: the full scan and the stale check read the same results. Parsing all of src/ is the
+  // cost, so the full scan carries an explicit timeout (under the full suite it ran past vitest's 15s default).
+  const scanned = new Map<string, Finding[]>();
   const scan = (file: string): Finding[] => {
     if (file in STANDARD_FILES) return [];
-    return findLoadingDrift(file, readFileSync(join(root, file), 'utf8'), { routedNames: routed.get(file) });
+    let found = scanned.get(file);
+    if (!found) {
+      found = findLoadingDrift(file, readFileSync(join(root, file), 'utf8'), { routedNames: routed.get(file) });
+      scanned.set(file, found);
+    }
+    return found;
+  };
+  const countByKind = (found: Finding[]) => {
+    const out: Partial<Record<Kind, number>> = {};
+    for (const f of found) out[f.kind] = (out[f.kind] ?? 0) + 1;
+    return out;
   };
 
   it('scans a real tree (the member lists are derived, not empty)', () => {
@@ -673,13 +1075,35 @@ describe('P1586 loading-states guard — src/', () => {
     expect(files.some(f => f.endsWith('.test.tsx') || f.startsWith('src/tests/'))).toBe(false);
   });
 
-  it('derives the routed set from App.tsx (a lazy page, an eager wrapper, an events page)', () => {
+  it('derives the routed set from every derivation path: App.tsx, the nested events <Routes>, and the route arrays', () => {
+    // path 1: App.tsx (a lazy page, an eager wrapper, an events room page hoisted into App.tsx)
     expect(routed.get('src/app/pages/org-page.tsx')).toContain('OrgPage');
     expect(routed.get('src/app/pages/chat/ChatHomePage.tsx')).toBe('*');
     expect(routed.get('src/app/prototypes/events/components/EventRoomMeet.tsx')).toContain('EventRoomMeet');
     expect(routed.get('src/app/prototypes/events/arrival/EventArrivingPage.tsx')).toContain('EventArrivingPage');
-    expect(routed.size).toBeGreaterThan(60);
+    // path 2: the nested <Routes> in prototypes/events/index.tsx, through relative imports
+    for (const [file, name] of [
+      ['EventsList', 'EventsList'],
+      ['CreateEvent', 'CreateEvent'],
+      ['EventDetail', 'EventDetail'],
+      ['EditEvent', 'EditEvent'],
+      ['RsvpConfirm', 'RsvpConfirm'],
+    ]) {
+      expect(routed.get(`src/app/prototypes/events/components/${file}.tsx`), file).toContain(name);
+    }
+    expect(routed.get('src/app/prototypes/events/index.tsx')).toContain('EventsRoot');
+    // path 3: the route arrays in src/app/routes/
+    expect(routed.get('src/app/pages/hospitals-page.tsx')).toContain('HospitalsPage');
+    expect(routed.get('src/app/pages/change-managers-page.tsx')).toContain('ChangeManagersPage');
+    expect(routed.size).toBeGreaterThan(100);
     for (const file of routed.keys()) expect(existsSync(join(root, file)), `${file} routed but missing`).toBe(true);
+  });
+
+  it('the route-rendering files are themselves derived (App.tsx and the events router are found)', () => {
+    const routeFiles = all.filter(f => rendersRoutes(readFileSync(join(root, f), 'utf8')));
+    expect(routeFiles).toContain('src/App.tsx');
+    expect(routeFiles).toContain('src/app/prototypes/events/index.tsx');
+    expect(all.filter(f => f.startsWith('src/app/routes/')).length).toBeGreaterThan(2);
   });
 
   it('every excluded and standard path exists (no dead exclusions)', () => {
@@ -688,26 +1112,31 @@ describe('P1586 loading-states guard — src/', () => {
     }
   });
 
-  it('no loading state outside the four, beyond the allowlist', () => {
+  it('no loading state outside the four, beyond the allowlist (a count above the allowed one fails)', () => {
     const violations: string[] = [];
     for (const file of files) {
-      const allowed = ALLOWLIST[file]?.kinds ?? [];
+      const allowed = ALLOWLIST[file]?.counts ?? {};
+      const seen: Partial<Record<Kind, number>> = {};
       for (const f of scan(file)) {
-        if (!allowed.includes(f.kind)) violations.push(`${file}:${f.line} [${f.kind}] ${f.text}`);
+        seen[f.kind] = (seen[f.kind] ?? 0) + 1;
+        if (seen[f.kind]! > (allowed[f.kind] ?? 0)) violations.push(`${file}:${f.line} [${f.kind}] ${f.text}`);
       }
     }
     expect(
       violations,
       'P1586 §1: a page waits with ClarityPageLoader, a section with <Skeleton>, a control with its own label or a small spinner inside it'
     ).toEqual([]);
-  });
+  }, 60_000);
 
-  it('every allowlist entry still exists, still needs each kind it lists, and names a reason (no stale entries)', () => {
-    for (const [file, { kinds, why }] of Object.entries(ALLOWLIST)) {
+  it('every allowlist entry still exists, counts exactly what it lists, and names a reason (no stale entries)', () => {
+    for (const [file, { counts, why }] of Object.entries(ALLOWLIST)) {
       expect(why.trim().length, `${file} has no reason`).toBeGreaterThan(20);
       expect(files, `${file} is allowlisted but no longer exists`).toContain(file);
-      const found = new Set(scan(file).map(f => f.kind));
-      for (const kind of kinds) expect(found.has(kind), `${file} no longer needs '${kind}'`).toBe(true);
+      const found = countByKind(scan(file));
+      for (const [kind, n] of Object.entries(counts)) {
+        expect(n, `${file} lists '${kind}' with a non-positive count`).toBeGreaterThan(0);
+        expect(found[kind as Kind] ?? 0, `${file}: allowlist says ${n} '${kind}', the file has a different number`).toBe(n);
+      }
     }
   });
 });
