@@ -40,8 +40,8 @@ vi.mock('@/app/data/events-service', () => ({
   },
 }));
 vi.mock('@/app/prototypes/events/components/EventCard', () => ({
-  EventCard: ({ event, isUserGoing }: { event: Ev; isUserGoing?: boolean }) => (
-    <article>
+  EventCard: ({ event, isUserGoing, isLoggedIn }: { event: Ev; isUserGoing?: boolean; isLoggedIn?: boolean }) => (
+    <article data-logged-in={String(!!isLoggedIn)}>
       {event.title}
       {isUserGoing && <span data-testid="going-mark">going</span>}
     </article>
@@ -357,5 +357,30 @@ describe('P1586 events list: identity comes from the session (P1560)', () => {
       marksB.resolve([]);
     });
     expect(screen.queryByTestId('going-mark')).not.toBeInTheDocument();
+  });
+});
+
+describe('P1586 events list: signed-in UI follows the verified viewer (P1560)', () => {
+  beforeEach(() => {
+    mocks.getUpcomingEvents.mockResolvedValue([EVENT]);
+  });
+
+  it('profile A while the session is already B: treated as nobody (no host actions, cards signed out)', async () => {
+    mocks.user = USER_A;
+    mocks.sessionUserId = USER_B.id;
+    render(ui());
+    const card = (await screen.findByText('Clarity Hike')).closest('article');
+    await act(async () => {});
+    expect(card).toHaveAttribute('data-logged-in', 'false');
+    expect(screen.queryByText('Host Event')).not.toBeInTheDocument();
+  });
+
+  it('profile and session agree: the same list shows the host actions and signed-in cards', async () => {
+    mocks.user = USER_A;
+    render(ui());
+    const card = (await screen.findByText('Clarity Hike')).closest('article');
+    await act(async () => {});
+    expect(card).toHaveAttribute('data-logged-in', 'true');
+    expect(screen.getByText('Host Event')).toBeInTheDocument();
   });
 });

@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { DETAILS_BUTTON_CLASS } from '@/app/components/shared/card-action-classes';
-import { TopicListSkeleton } from './topic-list-skeleton';
+import { TopicListWait } from './topic-list-wait';
 import {
   addTopic,
   clearTopicRating,
@@ -536,7 +536,7 @@ export function TopicVotingList({
         </div>
       )}
 
-      {state.kind === 'loading' && <TopicListSkeleton />}
+      {state.kind === 'loading' && <TopicListWait onRetry={load} />}
 
       {state.kind === 'error' && (
         <div className="rounded-lg border border-border p-4">

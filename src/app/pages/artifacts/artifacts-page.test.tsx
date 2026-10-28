@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, cleanup, render, screen, within, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
@@ -1184,6 +1184,30 @@ describe('Artifacts page: split by kind', () => {
       expect(container.querySelector('svg[aria-label="Loading"]')).toBeNull();
       expect(container.querySelector('.animate-spin')).toBeNull();
       expect(skeleton.textContent).toBe('');
+    });
+
+    describe('P1586: a list read that never answers', () => {
+      beforeEach(() => { vi.useFakeTimers(); });
+      afterEach(() => { cleanup(); vi.useRealTimers(); });
+
+      it('ends in the section fallback past the deadline, and Retry reads the list again', async () => {
+        mocks.getDocsByUserOrThrow.mockReturnValue(new Promise(() => {}));
+        renderPage();
+        await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+        expect(screen.getByTestId('artifact-list-skeleton')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+
+        await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+        expect(screen.queryByTestId('artifact-list-skeleton')).toBeNull();
+        expect(screen.getByText(/taking longer than usual/i)).toBeInTheDocument();
+
+        const before = mocks.getDocsByUserOrThrow.mock.calls.length;
+        mocks.getDocsByUserOrThrow.mockResolvedValue([doc()]);
+        fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+        expect(mocks.getDocsByUserOrThrow.mock.calls.length).toBe(before + 1);
+        await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+        expect(screen.getByText('Draft about trust')).toBeInTheDocument();
+      });
     });
 
     it('a list whose source failed shows the message and Retry; the other lists stay usable', async () => {

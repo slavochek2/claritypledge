@@ -6,7 +6,8 @@
  *
  * The caller renders this only while its read is pending, so a late answer for the current view
  * replaces the fallback by the caller leaving the loading branch (this unmounts, its timer clears), and
- * a re-mount starts a fresh deadline. onRetry must re-run that section's read.
+ * a re-mount starts a fresh deadline. onRetry must re-run that section's read. A caller whose read
+ * rejects passes `failed`, so the fallback shows at once; it clears `failed` when it re-runs the read.
  */
 import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "./button";
@@ -19,9 +20,11 @@ interface SectionWaitProps {
   children: ReactNode;
   /** Re-runs the section's read. */
   onRetry: () => void;
+  /** The read rejected: show the fallback at once instead of waiting out the deadline. */
+  failed?: boolean;
 }
 
-export function SectionWait({ children, onRetry }: SectionWaitProps) {
+export function SectionWait({ children, onRetry, failed = false }: SectionWaitProps) {
   const [slow, setSlow] = useState(false);
   // A counter, not the flag, restarts the timer: Retry sets slow back to false in the same batch.
   const [attempt, setAttempt] = useState(0);
@@ -31,7 +34,7 @@ export function SectionWait({ children, onRetry }: SectionWaitProps) {
     return () => clearTimeout(t);
   }, [attempt]);
 
-  if (!slow) return <>{children}</>;
+  if (!slow && !failed) return <>{children}</>;
 
   return (
     <div role="status" className="flex flex-col items-center justify-center gap-3 py-16 text-center">

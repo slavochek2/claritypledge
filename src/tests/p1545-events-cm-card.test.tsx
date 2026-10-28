@@ -17,12 +17,16 @@ const mocks = vi.hoisted(() => ({
   track: vi.fn(),
 }));
 
-vi.mock('@/auth', () => ({ useAuth: () => ({ user: mocks.user }) }));
+// The real hook returns the session beside the profile; the list reads signed-in from the session (P1560).
+vi.mock('@/auth', () => ({
+  useAuth: () => ({ user: mocks.user, session: mocks.user ? { user: { id: mocks.user.id } } : null }),
+}));
 vi.mock('@/app/data/events-service', () => ({
   eventsService: {
     getUpcomingEvents: () => Promise.resolve(mocks.upcoming),
     getPastEvents: () => Promise.resolve(mocks.past),
     isUserRsvpd: () => Promise.resolve(false),
+    getViewerRsvps: () => Promise.resolve([]),
   },
 }));
 vi.mock('@/app/prototypes/events/components/EventCard', () => ({

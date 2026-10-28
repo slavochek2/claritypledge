@@ -73,7 +73,6 @@ export function EventsList({
   isMember = false,
 }: EventsListProps = {}) {
   const { user, session } = useAuth();
-  const isLoggedIn = !!user;
   const [searchParams] = useSearchParams();
   const seriesParam = searchParams.get('series');
   const isSeriesFiltered = seriesParam === WEBINAR_SERIES.SERIES_PARAM;
@@ -86,6 +85,9 @@ export function EventsList({
   // person's profile while it fetches the next one, so `user.id` alone would read, and show, account
   // A's marks for account B. A mismatch means nobody.
   const viewerId = user && session?.user?.id === user.id ? user.id : undefined;
+  // Everything signed-in (host actions, sign-up prompts, the card's host mark) follows the verified
+  // viewer too: a mismatched profile mid-switch is nobody, not the previous account.
+  const isLoggedIn = !!viewerId;
   const viewKey = orgId ?? '';
   const current = read?.key === viewKey ? read : null;
   // `loading`: no answer for THIS group yet. `ready`: the lists are known (an empty list is a fact).

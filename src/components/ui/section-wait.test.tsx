@@ -41,6 +41,17 @@ describe("SectionWait (P1586)", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
   });
 
+  it("failed shows the readable line and Retry at once, before the deadline", () => {
+    const onRetry = vi.fn();
+    render(
+      <SectionWait failed onRetry={onRetry}><div data-testid="skel">skeleton</div></SectionWait>,
+    );
+    expect(screen.queryByTestId("skel")).toBeNull();
+    expect(screen.getByRole("status").textContent?.length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
   it("a re-mount starts a fresh deadline and unmounting clears the timer", () => {
     const { unmount } = render(ui());
     act(() => { vi.advanceTimersByTime(DEADLINE_MS - 1); });

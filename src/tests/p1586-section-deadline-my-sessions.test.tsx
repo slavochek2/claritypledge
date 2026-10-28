@@ -49,4 +49,25 @@ describe('P1586 /sessions transcript deadline', () => {
     expect(read).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId('transcript-skeleton')).toBeTruthy();
   });
+
+  it.each([
+    ['a session transcript', null, fetchSessionTranscript],
+    ['a transcribe-room transcript', 'room-id-1', fetchRoomTranscript],
+  ])('%s: a rejected read shows the fallback at once, Retry reads again', async (_l, roomId, read) => {
+    svc.sessions = [session(roomId)];
+    vi.mocked(read).mockRejectedValueOnce(new Error('network down'));
+    render(<MemoryRouter><MySessionsPage /></MemoryRouter>);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    fireEvent.click(screen.getByText(/Pat Partner/));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    fireEvent.click(screen.getByRole('button', { name: 'Open full transcript' }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+
+    // Well before the 10s deadline: the failure itself ends the skeleton.
+    expect(screen.queryByTestId('transcript-skeleton')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId('transcript-skeleton')).toBeTruthy();
+  });
 });

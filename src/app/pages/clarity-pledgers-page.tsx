@@ -27,9 +27,12 @@ export function ClarityPledgersPage() {
 
   // P1229: one page at a time (PLEDGERS_PAGE_SIZE); "Show more" appends the next page.
   useEffect(() => {
+    // A stalled first read can answer after Retry; only the latest read may write.
+    let cancelled = false;
     const fetchProfiles = async () => {
       try {
         const { profiles, total } = await getVerifiedProfilesPage(0);
+        if (cancelled) return;
         setVerifiedProfiles(profiles);
         setTotalCount(total);
 
@@ -43,11 +46,12 @@ export function ClarityPledgersPage() {
       } catch (error) {
         console.error("Failed to fetch verified profiles", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchProfiles();
+    return () => { cancelled = true; };
   }, [attempt]);
 
   const hasMore = verifiedProfiles.length < totalCount;

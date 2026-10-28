@@ -218,7 +218,7 @@ function formatRoomTranscriptForCopy(transcript: RoomTranscript): string {
  * spoken order. A room with no speech gets the same empty state as any other session.
  */
 function RoomTranscriptView({ roomId, onBack }: { roomId: string; onBack: () => void }) {
-  const { transcript, loading, retry } = useTranscript<RoomTranscript>(roomId, fetchRoomTranscript);
+  const { transcript, loading, failed, retry } = useTranscript<RoomTranscript>(roomId, fetchRoomTranscript);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -241,7 +241,7 @@ function RoomTranscriptView({ roomId, onBack }: { roomId: string; onBack: () => 
   };
 
   if (loading) {
-    return <SectionWait onRetry={retry}><TranscriptSkeleton /></SectionWait>;
+    return <SectionWait failed={failed} onRetry={retry}><TranscriptSkeleton /></SectionWait>;
   }
 
   if (!transcript || transcript.segments.length === 0) {
@@ -315,7 +315,7 @@ function SessionTranscriptView({
   session: SessionSummary;
   onBack: () => void;
 }) {
-  const { transcript, loading, retry } = useTranscript<SessionTranscript>(session.id, fetchSessionTranscript);
+  const { transcript, loading, failed, retry } = useTranscript<SessionTranscript>(session.id, fetchSessionTranscript);
   const [copied, setCopied] = useState(false);
 
   // Escape key handler
@@ -339,7 +339,7 @@ function SessionTranscriptView({
   };
 
   if (loading) {
-    return <SectionWait onRetry={retry}><TranscriptSkeleton /></SectionWait>;
+    return <SectionWait failed={failed} onRetry={retry}><TranscriptSkeleton /></SectionWait>;
   }
 
   if (!transcript || transcript.segments.length === 0) {

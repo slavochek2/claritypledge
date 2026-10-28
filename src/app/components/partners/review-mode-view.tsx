@@ -42,18 +42,21 @@ function useReviewTurns(sessionId: string) {
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    // A stalled read can answer after Retry or a session change; only the latest read may write.
+    let cancelled = false;
     const loadTurns = async () => {
       setIsLoading(true);
       try {
         const loadedTurns = await getLiveTurns(sessionId);
-        setTurns(loadedTurns);
+        if (!cancelled) setTurns(loadedTurns);
       } catch (err) {
         console.error('[Review] Failed to load turns:', err);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
     loadTurns();
+    return () => { cancelled = true; };
   }, [sessionId, attempt]);
 
   return { turns, isLoading, retry: () => setAttempt((n) => n + 1) };
