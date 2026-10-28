@@ -2,7 +2,7 @@
 Description=Every 10 minutes: cp-health-report (ClarityPledge P1584)
 
 [Timer]
-OnBootSec=2min
+OnBootSec=10s
 OnUnitActiveSec=10min
 
 [Install]

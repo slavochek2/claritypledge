@@ -41,7 +41,9 @@ cat > "$T/bin/gcloud" <<EOF
 #!/usr/bin/env bash
 case "\$*" in
   "auth print-access-token") echo tok ;;
-  *get-guest-attributes*) [ -f "$T/ga" ] || exit 1; cat "$T/ga" ;;
+  *get-guest-attributes*) [ -f "$T/ga" ] || exit 1
+    # The real shape (--format=json): a list of {namespace,key,value}. Values with commas stay intact.
+    python3 -I -c 'import json,sys; print(json.dumps([{"namespace":"cp-health","key":k,"value":v} for k,v in (l.rstrip("\n").split(",",1) for l in open(sys.argv[1]) if "," in l)]))' "$T/ga" ;;
   *"compute ssh"*) [ -f "$T/ssh" ] || exit 255; cat "$T/ssh" ;;
   *) exit 1 ;;
 esac
@@ -51,6 +53,7 @@ cat > "$T/bin/gh" <<EOF
 case "\$1 \$2" in
   "run list") [ -f "$T/runs" ] || exit 1; cat "$T/runs" ;;
   "issue list") cat "$T/issues" 2>/dev/null || echo '[]' ;;
+  "workflow view") case "\${GH_VIEW:-yes}" in yes) exit 0 ;; no) echo "HTTP 404: workflow x not found on the default branch" >&2; exit 1 ;; *) echo "error connecting" >&2; exit 1 ;; esac ;;
   *) exit 1 ;;
 esac
 EOF
@@ -106,8 +109,9 @@ expect "day: on main with no scheduled run is unknown, no silent local probe" 2 
 rm -f "$T/runs"
 expect "day: on main with gh failing is unknown, no silent local probe" 2 '^workflow: unknown: could not list' -- "$SH/day-health.sh"
 printf 'DISK:18\nWAL:64\n' > "$T/ssh"
-SELFHOSTED_WORKFLOW_ON_MAIN=no expect "day: before the workflow is on main, the local probe answers" 0 '^source: ok: local probe, because the workflow is not on origin/main' -- "$SH/day-health.sh"
 unset SELFHOSTED_WORKFLOW_ON_MAIN
+GH_VIEW=no expect "day: GitHub says not on main: the local probe answers" 0 '^source: ok: local probe, because the workflow is not on main yet' -- "$SH/day-health.sh"
+GH_VIEW=error expect "day: GitHub unreachable: unknown, never a quiet local probe" 2 '^workflow: unknown: could not ask GitHub' -- "$SH/day-health.sh"
 
 # --- the workflow's alert block, extracted verbatim from the YAML (P1567 pattern) -------------------
 WF="$ROOT/.github/workflows/selfhosted-health.yml"
@@ -120,6 +124,7 @@ echo "gh \$*" >> "$T/gh.log"
 case "\$1 \$2" in
   "run list") [ -f "$T/runs" ] || exit 1; cat "$T/runs" ;;
   "issue list") [ "\${GH_LIST_FAIL:-0}" = 1 ] && exit 1; cat "$T/issues" 2>/dev/null || echo '[]' ;;
+  "workflow view") case "\${GH_VIEW:-yes}" in yes) exit 0 ;; no) echo "HTTP 404: workflow x not found on the default branch" >&2; exit 1 ;; *) echo "error connecting" >&2; exit 1 ;; esac ;;
 esac
 exit 0
 EOF
@@ -177,6 +182,8 @@ good_ssh | sed 's#^RUN:auth .*#RUN:auth supabase/gotrue:v2.180.0#' > "$T/ssh"
 expect "upkeep: a hand-changed image warns" 1 'running a different image than pinned: auth=supabase/gotrue:v2.180.0' -- "$SH/upkeep.sh" --no-prod
 good_ssh | sed 's#^RUN:auth .*#RUN:auth supabase/postgres:17.6.1.136#' > "$T/ssh"
 expect "upkeep: a service on ANOTHER service's pinned image warns" 1 'auth=supabase/postgres:17.6.1.136' -- "$SH/upkeep.sh" --no-prod
+good_ssh | sed '/^RUN:/d' > "$T/ssh"
+expect "upkeep: a fully stopped stack warns (empty run list, NR==FNR trap)" 1 'not running: auth db caddy|not running: ' -- "$SH/upkeep.sh" --no-prod
 good_ssh | sed '/^PIN:/d' > "$T/ssh"
 expect "upkeep: no pinned services listed is unknown" 2 'listed no pinned services' -- "$SH/upkeep.sh" --no-prod
 good_ssh | sed '/^RUN:caddy/d' > "$T/ssh"

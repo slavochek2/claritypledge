@@ -72,8 +72,10 @@ elif [ "$SOURCE" = ssh ]; then
   # Tagged lines, so a banner or warning on stdout can never be read as a number.
   pct="$(printf '%s\n' "$out" | sed -n 's/^DISK:\([0-9][0-9]*\)$/\1/p')"; wal="$(printf '%s\n' "$out" | sed -n 's/^WAL:\([0-9][0-9]*\)$/\1/p')"
 else
+  # JSON, not CSV: gcloud quotes a CSV value that contains a comma ("auth,storage"), which would turn
+  # two down services into "no reading". jq flattens it to key,value lines.
   out="$(gcloud compute instances get-guest-attributes "$VM" --project="$GCP_PROJECT" --zone="$ZONE" \
-    --query-path=cp-health/ --format='csv[no-heading](key,value)' 2>/dev/null)"; ga_rc=$?
+    --query-path=cp-health/ --format=json 2>/dev/null | jq -r '.[] | "\(.key),\(.value)"' 2>/dev/null)"; ga_rc=$?
   [ "$ga_rc" -eq 0 ] || { out=""; why="could not read guest attributes"; }
   attr() { sed -n "/^$1,[0-9][0-9]*$/{s/^$1,//p;q;}" <<< "$out"; }
   ts="$(attr ts)"

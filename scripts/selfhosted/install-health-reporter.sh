@@ -31,7 +31,7 @@ fi
 
 # Assert the read-back in the exact format health.sh parses, so a format the reader cannot use fails
 # here, once, and not every hour in the workflow.
-out="$(gcloud compute instances get-guest-attributes "$VM" "${G[@]}" --query-path=cp-health/ --format='csv[no-heading](key,value)')"
+out="$(gcloud compute instances get-guest-attributes "$VM" "${G[@]}" --query-path=cp-health/ --format=json | jq -r '.[] | "\(.key),\(.value)"')"
 printf '%s\n' "$out"
 ts="$(sed -n 's/^ts,\([0-9][0-9]*\)$/\1/p' <<< "$out")"
 fail() { echo "FAIL: $1" >&2; exit 1; }

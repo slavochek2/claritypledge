@@ -43,7 +43,10 @@ if command -v gcloud >/dev/null 2>&1 && gcloud auth print-access-token >/dev/nul
     echo "APT:$(/usr/lib/update-notifier/apt-check 2>&1)"
     echo "UU:$(systemctl is-enabled unattended-upgrades 2>&1 || true)"
     echo "APTAGE:$(( ( $(date +%s) - $(stat -c %Y /var/lib/apt/periodic/update-success-stamp 2>/dev/null || echo 0) ) / 86400 ))"
-    sudo docker compose config --format json | jq -r ".services.auth.environment | \"TPLURL:\(.GOTRUE_MAILER_TEMPLATES_MAGIC_LINK // \"\") \(.GOTRUE_MAILER_TEMPLATES_CONFIRMATION // \"\")\""
+    # From the RUNNING auth container, not the compose files: an edited file the container was never
+    # recreated from would otherwise pass while GoTrue still fetches something else.
+    E="$(sudo docker inspect supabase-auth --format "{{range .Config.Env}}{{println .}}{{end}}")"
+    echo "TPLURL:$(sed -n "s/^GOTRUE_MAILER_TEMPLATES_MAGIC_LINK=//p" <<< "$E") $(sed -n "s/^GOTRUE_MAILER_TEMPLATES_CONFIRMATION=//p" <<< "$E")"
     if [ -f /var/run/reboot-required ]; then echo "REBOOT:yes $(tr "\n" " " < /var/run/reboot-required.pkgs 2>/dev/null)"; else echo "REBOOT:no"; fi
     echo "END:ok"' 2>/dev/null)" || OUT=""
 fi
@@ -57,8 +60,10 @@ else
   # Per service, so a service switched to another service's pinned image is still caught.
   tag PIN > "$TMP/pin"; tag RUN > "$TMP/run"
   n_svc="$(wc -l < "$TMP/pin" | tr -d ' ')"
-  off="$(awk 'NR==FNR{pin[$1]=$2; next} pin[$1]!=$2{printf "%s=%s ", $1, $2}' "$TMP/pin" "$TMP/run")"
-  down="$(awk 'NR==FNR{up[$1]=1; next} !($1 in up){printf "%s ", $1}' "$TMP/run" "$TMP/pin")"
+  # FILENAME, not NR==FNR: with nothing running, the run list is empty and NR==FNR would read the pin
+  # list as the first file, reporting a fully stopped stack as healthy.
+  off="$(awk -v P="$TMP/pin" 'FILENAME==P{pin[$1]=$2; next} pin[$1]!=$2{printf "%s=%s ", $1, $2}' "$TMP/pin" "$TMP/run")"
+  down="$(awk -v R="$TMP/run" 'FILENAME==R{up[$1]=1; next} !($1 in up){printf "%s ", $1}' "$TMP/run" "$TMP/pin")"
   floating="$(awk '$2 !~ /:[^:]*[0-9]+\.[0-9]+/{printf "%s ", $2}' "$TMP/pin")"
   if [ "$n_svc" = 0 ]; then report images unknown "the VM listed no pinned services"
   elif [ -n "$off" ]; then report images warn "running a different image than pinned: ${off% }"
@@ -114,7 +119,11 @@ else
     code="$(curl -s -m 20 -o "$TMP/prod.json" -w '%{http_code}' "https://api.supabase.com/v1/projects/$PROD_REF/config/auth" \
       -H @<(printf 'Authorization: Bearer %s\n' "$PROD_SUPABASE_ACCESS_TOKEN"))"
     unset PROD_SUPABASE_ACCESS_TOKEN
-    if [ "$code" != 200 ]; then report templates unknown "prod config read failed (HTTP $code)"
+    if [ "$code" != 200 ]; then
+      # The API's own message (a missing permission, a revoked token) is what tells you the fix; it
+      # never contains the token. Cut short and stripped of shell-unsafe characters (shell-safety.md).
+      msg="$(python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("message",""))' "$TMP/prod.json" 2>/dev/null | tr -d '<>|' | cut -c1-120)"
+      report templates unknown "prod config read failed (HTTP $code${msg:+: $msg})"
     else
       # The script prints its own "templates:" line; its exit code carries the verdict.
       t_rc=0; t_out="$(python3 -I "$ROOT/scripts/selfhosted/lib/email_template_drift.py" "$TMP/prod.json" "$TMP/vm" 2>&1)" || t_rc=$?

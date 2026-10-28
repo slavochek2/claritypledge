@@ -14,14 +14,20 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 WORKFLOW="selfhosted-health.yml"; TITLE="Self-hosted TEST server health failing"
 MAX_AGE_S="${SELFHOSTED_MAX_RUN_AGE_S:-10800}"   # hourly schedule; GitHub delays cron runs, so 3 h
 
-ROOT="$(cd "$HERE/../.." && pwd)"
-# SELFHOSTED_WORKFLOW_ON_MAIN=yes|no overrides the lookup (tests only).
+# Ask GitHub, not a local origin/main ref that may be stale. Only a definite "not found on the default
+# branch" means not shipped yet; any other failure is "could not check", never a quiet local probe.
+# SELFHOSTED_WORKFLOW_ON_MAIN=yes|no|error overrides the lookup (tests only).
 on_main="${SELFHOSTED_WORKFLOW_ON_MAIN:-}"
-[ -n "$on_main" ] || { git -C "$ROOT" cat-file -e "origin/main:.github/workflows/$WORKFLOW" 2>/dev/null && on_main=yes || on_main=no; }
-if [ "$on_main" != yes ]; then
-  # The local probe is a real reading, so its verdict stands; the source line says where it came from.
-  echo "source: ok: local probe, because the workflow is not on origin/main yet"; "$HERE/health.sh"; exit $?
+if [ -z "$on_main" ]; then
+  view="$(gh workflow view "$WORKFLOW" 2>&1 >/dev/null)" && on_main=yes \
+    || { case "$view" in *"not found on the default branch"*) on_main=no ;; *) on_main=error ;; esac; }
 fi
+case "$on_main" in
+  yes) ;;
+  no) # The local probe is a real reading, so its verdict stands; the source line says where it came from.
+      echo "source: ok: local probe, because the workflow is not on main yet"; "$HERE/health.sh"; exit $? ;;
+  *)  echo "workflow: unknown: could not ask GitHub whether the workflow is on main (gh)"; exit 2 ;;
+esac
 
 runs="$(gh run list --workflow "$WORKFLOW" --branch main --event schedule --limit 5 \
   --json conclusion,createdAt,status,url 2>/dev/null)" || { echo "workflow: unknown: could not list the workflow's runs (gh)"; exit 2; }

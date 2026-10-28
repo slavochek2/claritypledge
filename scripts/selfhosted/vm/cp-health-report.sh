@@ -18,18 +18,27 @@ put() { curl -sf -m 5 -X PUT -H 'Metadata-Flavor: Google' --data "$2" "$MD/$1" >
 # host itself are not forwarded, so they are unaffected. TCP only, and never port 53: on GCE the same
 # address is the DNS resolver Docker forwards container lookups to, so blocking it all breaks DNS.
 RULE=(-d "$MD_IP" -p tcp ! --dport 53 -j DROP)
+# Create the chain if Docker has not yet (first run at boot, before dockerd): Docker keeps an existing
+# DOCKER-USER chain, so the rule is in place before any container starts.
+iptables -N DOCKER-USER 2>/dev/null || true
 iptables -C DOCKER-USER "${RULE[@]}" 2>/dev/null || iptables -I DOCKER-USER "${RULE[@]}" \
   || { echo "could not block containers from the metadata server; not reporting" >&2; exit 1; }
 
 disk="$(df --output=pcent / | tail -1 | tr -dc 0-9)"
 wal="$(docker exec supabase-db psql -U postgres -At -c 'select (coalesce(sum(size),0)/1048576)::bigint from pg_ls_waldir()' 2>/dev/null | tr -dc 0-9)"
-# Every compose service of the stack that is not running, or is running but unhealthy/restarting.
+# Every compose service of the stack that is not running, restarting, unhealthy, or still "starting"
+# after 5 minutes (a young container starting up is a routine restart, not an outage).
 ps_out="$(docker ps -a --filter label=com.docker.compose.project=supabase --filter label=com.docker.compose.oneoff=False \
   --format '{{.Label "com.docker.compose.service"}} {{.State}} {{.Status}}' 2>/dev/null)" || ps_out=""
-down="$(printf '%s\n' "$ps_out" | awk 'NF && ($2 != "running" || /\(unhealthy\)/) {printf "%s%s", sep, $1; sep=","}')"
+# Against the declared service list too, so a container that was removed outright still counts as down.
+declared="$(cd /opt/supabase/docker && docker compose config --services 2>/dev/null)" || declared=""
+down="$( { printf '%s\n' "$ps_out" | awk 'NF && ($2 != "running" || /\(unhealthy\)/ || (/\(health: starting\)/ && !/Up (Less than a second|[0-9]+ seconds|About a minute|[1-4] minutes)/)) {print $1}'
+           printf '%s\n' "$declared" | awk 'NR==FNR{if(NF)seen[$1]=1; next} NF && !($1 in seen)' <(printf '%s\n' "$ps_out") -
+         } | sort -u | paste -sd, -)"
 case "$disk" in ''|*[!0-9]*) echo "no disk reading" >&2; exit 1 ;; esac
 case "$wal" in ''|*[!0-9]*) echo "no WAL reading" >&2; exit 1 ;; esac
 [ -n "$ps_out" ] || { echo "no container list" >&2; exit 1; }
+[ -n "$declared" ] || { echo "no declared service list" >&2; exit 1; }
 # ts last, so a reader never pairs a fresh ts with a value from the previous run.
 put disk "$disk" && put wal "$wal" && put down "${down:-none}" && put ts "$(date +%s)" \
   || { echo "metadata server refused the write" >&2; exit 1; }

@@ -23,13 +23,15 @@ BOT="app/github-actions"
 fails=0
 sites=0
 
-# One canonical filter is expected across all producers; extract and de-duplicate. Only the roster's
-# files: supply-chain-audit.yml (P1567) binds the author with `gh --author` and its own filter, and
-# globbing every workflow made this canary fail on main for a workflow it does not enrol (P1584).
+# One canonical filter is expected across all producers; extract and de-duplicate.
 # bash 3.2 (macOS default) has no mapfile — read into an array portably.
 FILTERS=()
+# Every workflow, so an un-enrolled copy of the pattern with a drifted filter is still caught. The one
+# exception binds the author with `gh --author` and is tested by scripts/test-p1567-supply-chain-alert.sh.
 PRODUCER_FILES=()
-for p in "${PRODUCERS[@]}"; do PRODUCER_FILES+=(".github/workflows/$p.yml"); done
+for f in .github/workflows/*.yml; do
+  [ "$f" = .github/workflows/supply-chain-audit.yml ] || PRODUCER_FILES+=("$f")
+done
 while IFS= read -r line; do
   [ -n "$line" ] && FILTERS+=("$line")
 done < <(grep -ho "jq -r --arg t \"\$TITLE\" '.*'" "${PRODUCER_FILES[@]}" \

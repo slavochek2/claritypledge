@@ -83,15 +83,18 @@ weekly upkeep run (4 per month). Nothing here is per user or per test run.
 | GitHub API (issue list, plus a create/comment/close on change) | n/a | 1 to 2 per run = up to 1,440/month | n/a |
 | Supabase Management API (weekly: one hosted `select 1`, one prod auth-config read) | n/a | 2 per week = 8/month | n/a |
 | Actions minutes (public repo) | n/a | about 1.5 min per run = 1,080 min/month | n/a |
-| Egress | n/a | under 10 KB per run; weekly upstream `versions.md` about 7 KB | n/a |
+| VM egress, the only billed byte path (Compute Engine row: internet egress per the network pricing page) | n/a | hourly: two TLS handshakes, one for the cert read and one for the reachability probe (each reads 4,862 bytes, measured 2026-10-28 with `openssl s_client`) + the probe's 401 answer (399 bytes, measured with curl) = 4,862 x 2 + 399 = 10,123 bytes per run x 720 = about 7.3 MB/month; weekly: two template fetches (3,909 + 3,755 bytes, the served files) plus their two handshakes (4,862 x 2) = 17,388 bytes x 4 = about 70 KB/month. Total about 7.4 MB/month | n/a |
+| Bytes not billed to us | n/a | guest-attribute read (4 values, about 0.5 KB) and IAM exchanges go Google API to GitHub runner; the VM reporter talks only to the in-VM metadata server; issue lookups, upstream `versions.md` (about 7 KB weekly) and the Management API replies (under 1 KB each) land on the runner or the Mac | n/a |
 | Log lines | n/a | one 5-line run log per run; failures add one issue comment per hourly run while the alert stays open | n/a |
 
 1. **Fits today?** Fits. Compute API and IAM credential calls are not billed (Compute Engine row: billing is
    per VM resource, not per API call), and 720 reads a month sits far under the per-minute read quota.
    GitHub-hosted runners are free for a public repo. The Management API calls are 8 a month. The VM-side
    reporter is one `df` and one `psql` every 10 minutes on a VM that is already paid for.
-2. **Fits at 10x?** Fits: 10x is a run every 6 minutes, still no billed unit, and the reporter's 10-minute
-   cadence is the floor anyway.
+   VM egress of about 7.4 MB/month is about 0.007 GB, a fraction of a cent at the registry's per-GB egress
+   price, paid from credits.
+2. **Fits at 10x?** Fits: 10x is a run every 6 minutes, about 74 MB/month of VM egress (0.07 GB), still a
+   fraction of a cent, and no other billed unit. The reporter's 10-minute cadence is the floor anyway.
 3. **No upgrade needed.**
 
 **Rule 2 (polling needs a reason):** push is not available. The point is to notice the VM going silent,
@@ -103,11 +106,18 @@ so its 10-minute cadence costs no metered unit.
 
 - **The Workload Identity binding is repo-wide, not per workflow.** Any workflow on `main` that asks for
   an ID token can impersonate both `cp-test-health-reader` and the existing `db-backup-writer`. The new
-  account can only read this VM's guest attributes, so it adds little exposure. Narrowing both to their
+  account itself can only read this VM's guest attributes, but this hourly workflow is one more job whose
+  third-party actions (the pinned Google auth and SDK actions) hold an ID token the backup writer also
+  accepts. Narrowing both to their
   own workflow needs an `attribute.workflow_ref` mapping on the shared provider, which the backups also
   use. [FOUNDER DECISION: narrow the shared provider's bindings per workflow, or accept repo-wide.]
 - **Issue lookup reads the newest 100 open issues** (the repo-wide P1155 pattern; P1567 rejected
-  paginating as exotic).
+  paginating as exotic). A failed lookup creates rather than appends (P1567), so a lookup that keeps
+  failing during an outage opens one duplicate issue per hour.
+- **Caddy runs on the host network**, which the container block cannot cover. It is the internet-facing
+  process: if it were compromised it could write a false health report and read the VM's account token
+  (that account has no roles). No container mounts the Docker socket (checked 2026-10-28), so no
+  container can start a host-network one. The block is IPv4: Docker IPv6 is off on the stack's networks.
 - **The template check covers the two templates TEST customises** (magic link and confirmation) and
   confirms the auth service fetches them. Subjects and the other templates are GoTrue defaults on
   purpose (decisions.md 2026-10-28, P1557).
