@@ -8,6 +8,7 @@ import { type ClaritySession, type LiveSessionState, type LiveTurn } from '@/app
 import { getLiveTurns } from '@/app/data/api';
 import { ArrowLeft, CheckCircle2, XCircle, BarChart3, Flag } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SectionWait } from '@/components/ui/section-wait';
 
 /** P1586: the ideas list while the session's turns are read: cards shaped like an idea row. */
 function ReviewIdeasSkeleton() {
@@ -34,22 +35,17 @@ interface ReviewModeViewProps {
   onToggleMode: () => void;
 }
 
-export function ReviewModeView({
-  session,
-  liveState,
-  currentUserName,
-  partnerName,
-  onToggleMode,
-}: ReviewModeViewProps) {
+/** The session's turns from the database; `retry` (the section wait's Retry, P1586) reads them again. */
+function useReviewTurns(sessionId: string) {
   const [turns, setTurns] = useState<LiveTurn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
 
-  // Load turns from database
   useEffect(() => {
     const loadTurns = async () => {
       setIsLoading(true);
       try {
-        const loadedTurns = await getLiveTurns(session.id);
+        const loadedTurns = await getLiveTurns(sessionId);
         setTurns(loadedTurns);
       } catch (err) {
         console.error('[Review] Failed to load turns:', err);
@@ -58,7 +54,19 @@ export function ReviewModeView({
       }
     };
     loadTurns();
-  }, [session.id]);
+  }, [sessionId, attempt]);
+
+  return { turns, isLoading, retry: () => setAttempt((n) => n + 1) };
+}
+
+export function ReviewModeView({
+  session,
+  liveState,
+  currentUserName,
+  partnerName,
+  onToggleMode,
+}: ReviewModeViewProps) {
+  const { turns, isLoading, retry } = useReviewTurns(session.id);
 
   const understoodPercent =
     liveState.ideasDiscussed > 0
@@ -122,7 +130,9 @@ export function ReviewModeView({
         </h2>
 
         {isLoading ? (
-          <ReviewIdeasSkeleton />
+          <SectionWait onRetry={retry}>
+            <ReviewIdeasSkeleton />
+          </SectionWait>
         ) : liveState.ideasDiscussed === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <p>No ideas discussed yet.</p>

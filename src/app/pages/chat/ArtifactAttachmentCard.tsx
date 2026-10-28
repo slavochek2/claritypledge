@@ -16,6 +16,14 @@ import { FOCUS_RING, HOVER } from './chat-kit';
 import { loadArtifact } from './artifact-attachment-cache';
 import { AttachmentSkeleton } from './AttachmentSkeleton';
 
+/**
+ * P1586: how long the skeleton may show before the card says it could not load. The same 20s as the
+ * point/story card (ATTACHMENT_TIMEOUT_MS in AttachmentCard, which imports this file, so it cannot be
+ * imported back). No Retry here: the read is shared while in flight, so a Retry would re-join the
+ * stalled request; reopening the conversation clears the cache and reads again.
+ */
+const ARTIFACT_TIMEOUT_MS = 20_000;
+
 type ArtifactKind = 'canvas' | 'letter';
 type State = { status: 'loading' } | { status: 'error' } | { status: 'ready'; artifact: ChatArtifact };
 
@@ -54,12 +62,15 @@ export function ArtifactAttachmentCard({ kind, id, viewerId, compact = false }: 
   useEffect(() => {
     let live = true;
     setState({ status: 'loading' });
+    // P1586: a wait that never ends becomes a readable line; a late answer below still replaces it.
+    const deadline = setTimeout(() => live && setState((s) => (s.status === 'loading' ? { status: 'error' } : s)), ARTIFACT_TIMEOUT_MS);
     loadArtifact(kind, id, viewerId).then(
       (artifact) => live && setState({ status: 'ready', artifact }),
       () => live && setState({ status: 'error' }),
     );
     return () => {
       live = false;
+      clearTimeout(deadline);
     };
   }, [kind, id, viewerId]);
 

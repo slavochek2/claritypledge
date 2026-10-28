@@ -1,0 +1,53 @@
+/**
+ * @file section-wait.tsx
+ * @description P1586: the deadline for a section wait. Renders the section's skeleton (children) until
+ * the deadline, then a quiet readable line with a Retry. A section wait that never ends must become a
+ * readable state, not a skeleton that hangs forever.
+ *
+ * The caller renders this only while its read is pending, so a late answer for the current view
+ * replaces the fallback by the caller leaving the loading branch (this unmounts, its timer clears), and
+ * a re-mount starts a fresh deadline. onRetry must re-run that section's read.
+ */
+import { useEffect, useState, type ReactNode } from "react";
+import { Button } from "./button";
+
+/** Shorter than the page loader's 15s: the page around the section is already drawn and usable. */
+const SECTION_WAIT_DEADLINE_MS = 10_000;
+
+interface SectionWaitProps {
+  /** The section's skeleton, shown until the deadline. */
+  children: ReactNode;
+  /** Re-runs the section's read. */
+  onRetry: () => void;
+}
+
+export function SectionWait({ children, onRetry }: SectionWaitProps) {
+  const [slow, setSlow] = useState(false);
+  // A counter, not the flag, restarts the timer: Retry sets slow back to false in the same batch.
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), SECTION_WAIT_DEADLINE_MS);
+    return () => clearTimeout(t);
+  }, [attempt]);
+
+  if (!slow) return <>{children}</>;
+
+  return (
+    <div role="status" className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+      {/* [FOUNDER DECISION: section slow-load copy is a placeholder.] */}
+      <p className="text-sm text-muted-foreground">This is taking longer than usual.</p>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          setSlow(false);
+          setAttempt((n) => n + 1);
+          onRetry();
+        }}
+      >
+        Retry
+      </Button>
+    </div>
+  );
+}

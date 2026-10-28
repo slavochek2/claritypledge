@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { FileText, Plus, Lock, Globe, MoreHorizontal, Trash2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { LetterListSkeleton } from './letter-list-skeleton';
+import { SectionWait } from '@/components/ui/section-wait';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
@@ -89,7 +90,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
     }
   };
 
-  if (fetchState === 'loading') return <LetterListSkeleton />;
+  if (fetchState === 'loading') return <SectionWait onRetry={fetchDocs}><LetterListSkeleton /></SectionWait>;
 
   if (fetchState === 'error') {
     return (

@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { ArtifactListSkeleton } from './artifact-list-skeleton';
+import { SectionWait } from '@/components/ui/section-wait';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageFrame } from '@/app/components/layout/page-header';
@@ -344,7 +345,7 @@ function ListBody({ list, data, query, userSlug, onOpen, onRefresh, onClearSearc
     return (
       <div>
         {data.status === 'loading' ? (
-          <ArtifactListSkeleton />
+          <SectionWait onRetry={refresh}><ArtifactListSkeleton /></SectionWait>
         ) : (
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <p className="text-sm text-muted-foreground">

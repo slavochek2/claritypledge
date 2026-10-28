@@ -17,6 +17,8 @@ import { PageFrame, PageHeader } from '@/app/components/layout/page-header';
 import { RoundSummaryScreen } from '@/app/components/partners/round-summary-screen';
 import type { SessionHistoryItem, SessionTranscript } from '@/app/types';
 import { TranscriptSkeleton } from '@/app/pages/my-sessions-skeleton';
+import { SectionWait } from '@/components/ui/section-wait';
+import { useTranscript } from '@/app/pages/use-transcript';
 
 // ─── View state ───────────────────────────────────────────────────────────────
 
@@ -216,21 +218,8 @@ function formatRoomTranscriptForCopy(transcript: RoomTranscript): string {
  * spoken order. A room with no speech gets the same empty state as any other session.
  */
 function RoomTranscriptView({ roomId, onBack }: { roomId: string; onBack: () => void }) {
-  const [transcript, setTranscript] = useState<RoomTranscript | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { transcript, loading, retry } = useTranscript<RoomTranscript>(roomId, fetchRoomTranscript);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetchRoomTranscript(roomId).then((data) => {
-      if (!cancelled) {
-        setTranscript(data);
-        setLoading(false);
-      }
-    });
-    return () => { cancelled = true; };
-  }, [roomId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -252,7 +241,7 @@ function RoomTranscriptView({ roomId, onBack }: { roomId: string; onBack: () => 
   };
 
   if (loading) {
-    return <TranscriptSkeleton />;
+    return <SectionWait onRetry={retry}><TranscriptSkeleton /></SectionWait>;
   }
 
   if (!transcript || transcript.segments.length === 0) {
@@ -326,21 +315,8 @@ function SessionTranscriptView({
   session: SessionSummary;
   onBack: () => void;
 }) {
-  const [transcript, setTranscript] = useState<SessionTranscript | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { transcript, loading, retry } = useTranscript<SessionTranscript>(session.id, fetchSessionTranscript);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetchSessionTranscript(session.id).then((data) => {
-      if (!cancelled) {
-        setTranscript(data);
-        setLoading(false);
-      }
-    });
-    return () => { cancelled = true; };
-  }, [session.id]);
 
   // Escape key handler
   useEffect(() => {
@@ -363,7 +339,7 @@ function SessionTranscriptView({
   };
 
   if (loading) {
-    return <TranscriptSkeleton />;
+    return <SectionWait onRetry={retry}><TranscriptSkeleton /></SectionWait>;
   }
 
   if (!transcript || transcript.segments.length === 0) {

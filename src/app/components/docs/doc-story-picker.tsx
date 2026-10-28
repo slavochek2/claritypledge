@@ -19,6 +19,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SectionWait } from '@/components/ui/section-wait';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
 import { docsService } from '@/app/data/docs-service';
 import type { ContentVisibility, StoryWithAuthor } from '@/app/types';
@@ -192,7 +193,9 @@ export function DocStoryPicker({
         {/* Results area */}
         <div className="flex-1 overflow-y-auto min-h-[200px] max-h-[50vh]">
           {fetchState === 'loading' ? (
-            <StoryPickerSkeleton />
+            <SectionWait key={debouncedQuery} onRetry={fetchStories}>
+              <StoryPickerSkeleton />
+            </SectionWait>
           ) : (
             <>
               {renderEmptyState()}

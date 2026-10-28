@@ -15,7 +15,7 @@ import { Link, Navigate, useLocation, useParams, useSearchParams } from 'react-r
 import { ChevronRight, Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { getProfileBySlug } from '@/app/data/api';
-import { getAnsweredTags, getPositionsFor, getSharedTags, getTagStatements } from '@/app/data/compare-service';
+import { getAnsweredTags, getSharedTags } from '@/app/data/compare-service';
 import {
   ROUNDS_POLL_MS,
   currentRound,
@@ -34,13 +34,13 @@ import { StanceColumn, StatementRow, type Person } from '@/app/components/compar
 export { StatementRow };
 import {
   POSITION_FULL_LABELS,
-  buildCompareRows,
-  type CompareRow,
   type PositionKey,
 } from '@/lib/compare-positions';
 import { cn } from '@/lib/utils';
 import type { Profile } from '@/app/types';
 import { CompareRowsSkeleton } from '@/app/pages/compare-rows-skeleton';
+import { SectionWait } from '@/components/ui/section-wait';
+import { useCompareRows } from '@/app/pages/use-compare-rows';
 
 function toPerson(profile: Profile, name = profile.name): Person {
   return {
@@ -126,15 +126,6 @@ interface BaseResult {
   error: boolean;
 }
 
-interface RowsResult {
-  key: string;
-  rows: CompareRow[];
-  /** Statements only the other person answered (with their position), and how many only you did. */
-  theirsOnly: { pointId: string; statement: string; position: PositionKey }[];
-  mineOnlyCount: number;
-  error: boolean;
-}
-
 export function ComparePage() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -180,38 +171,7 @@ export function ComparePage() {
   const person = baseReady?.person ?? null;
   const activeTag = tagParam ?? baseReady?.tags[0]?.tag ?? null;
 
-  const rowsKey = person && viewerId && activeTag ? `${viewerId}:${person.id}:${activeTag}` : null;
-  const [rowsResult, setRowsResult] = useState<RowsResult | null>(null);
-
-  useEffect(() => {
-    if (!rowsKey || !person || !viewerId || !activeTag) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const statements = await getTagStatements(activeTag);
-        const positions = await getPositionsFor(
-          [viewerId, person.id],
-          statements.map(s => s.id),
-        );
-        const mine = positions.get(viewerId) ?? new Map<string, PositionKey>();
-        const theirs = positions.get(person.id) ?? new Map<string, PositionKey>();
-        const rows = buildCompareRows(statements, mine, theirs);
-        const theirsOnly = statements.flatMap(st => {
-          const position = theirs.get(st.id);
-          return position && !mine.has(st.id) ? [{ pointId: st.id, statement: st.statement, position }] : [];
-        });
-        const mineOnlyCount = statements.filter(st => mine.has(st.id) && !theirs.has(st.id)).length;
-        if (!cancelled) setRowsResult({ key: rowsKey, rows, theirsOnly, mineOnlyCount, error: false });
-      } catch {
-        if (!cancelled) setRowsResult({ key: rowsKey, rows: [], theirsOnly: [], mineOnlyCount: 0, error: true });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [rowsKey, person, viewerId, activeTag]);
-
-  const rowsReady = rowsResult && rowsResult.key === rowsKey ? rowsResult : null;
+  const { rowsReady, retry: retryRows } = useCompareRows(viewerId, person, activeTag);
 
   // The active tag stays in the chip list even when nothing is shared on it (it came from ?tag=).
   const chips = useMemo(() => {
@@ -261,7 +221,7 @@ export function ComparePage() {
   if (!activeTag) {
     body = <Muted>{firstName} hasn&rsquo;t answered any statements yet.</Muted>;
   } else if (!rowsReady) {
-    body = <CompareRowsSkeleton />;
+    body = <SectionWait key={activeTag} onRetry={retryRows}><CompareRowsSkeleton /></SectionWait>;
   } else if (rowsReady.error) {
     body = <Muted>Could not load the comparison.</Muted>;
   } else {

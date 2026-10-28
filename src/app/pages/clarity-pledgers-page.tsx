@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { SEO } from "@/app/components/seo";
 import { UsersIcon } from "lucide-react";
 import { PledgersSkeleton } from "@/app/pages/pledgers-skeleton";
+import { SectionWait } from "@/components/ui/section-wait";
 import { PledgerGrid } from "@/app/components/social/pledger-grid";
 import { analytics } from "@/lib/mixpanel";
 import { DualCTA } from "@/app/components/landing/dual-cta";
@@ -21,6 +22,8 @@ export function ClarityPledgersPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const hasTrackedPageView = useRef(false);
+  // P1586: bumped by the section wait's Retry; the first-page read below runs again.
+  const [attempt, setAttempt] = useState(0);
 
   // P1229: one page at a time (PLEDGERS_PAGE_SIZE); "Show more" appends the next page.
   useEffect(() => {
@@ -45,7 +48,7 @@ export function ClarityPledgersPage() {
     };
 
     fetchProfiles();
-  }, []);
+  }, [attempt]);
 
   const hasMore = verifiedProfiles.length < totalCount;
 
@@ -95,7 +98,9 @@ export function ClarityPledgersPage() {
 
         {/* Pledgers Grid */}
         {loading ? (
-          <PledgersSkeleton />
+          <SectionWait onRetry={() => setAttempt((n) => n + 1)}>
+            <PledgersSkeleton />
+          </SectionWait>
         ) : verifiedProfiles.length > 0 ? (
           <>
             <PledgerGrid

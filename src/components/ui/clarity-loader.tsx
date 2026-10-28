@@ -5,10 +5,12 @@
  * animation (opacity pulse). The blue rounded rectangle stays solid throughout.
  *
  * Anti-flash: ClarityPageLoader uses CSS animation-delay (300ms) to stay
- * invisible on fast loads. Pure CSS — no JS timers, no re-renders.
+ * invisible on fast loads. Pure CSS — no JS timers, no re-renders. The one timer here is the
+ * slow-wait deadline (SlowLoadNotice), which touches only its own element.
  */
 
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { Button } from "./button";
 import { useInShellContent } from "./loader-context";
 import { useLoaderChain } from "./loader-chain";
 
@@ -54,6 +56,37 @@ export function ClarityLoader({ size = "md", className, style }: ClarityLoaderPr
   );
 }
 
+/** P1586: how long a page-level wait may run before the loader says so and offers a way out. */
+const PAGE_WAIT_DEADLINE_MS = 15_000;
+
+/**
+ * P1586: the deadline for every page-level wait, in one place. Own state, so the timer re-renders
+ * only this element, and only once: the loader and its mark are untouched before and after. It is
+ * a separate fixed box under the mark's centre (the mark is 64px: 32px to its edge + 8px gap), so the
+ * mark never moves. A late answer needs no code here: the page stops rendering the loader when its
+ * data arrives, which unmounts this and its timer.
+ */
+function SlowLoadNotice() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), PAGE_WAIT_DEADLINE_MS);
+    return () => clearTimeout(t);
+  }, []);
+  if (!slow) return null;
+  return (
+    <div
+      role="status"
+      className="pointer-events-none fixed inset-x-0 top-1/2 mt-10 flex flex-col items-center gap-3 px-6 text-center"
+    >
+      {/* [FOUNDER DECISION: slow page-load copy is a placeholder.] */}
+      <p className="text-sm text-muted-foreground">This is taking longer than usual.</p>
+      <Button variant="outline" size="sm" className="pointer-events-auto" onClick={() => window.location.reload()}>
+        Reload
+      </Button>
+    </div>
+  );
+}
+
 /**
  * Boot splash: full-viewport centered loader for surfaces with no shell around them
  * (pre-auth, public and focus pages). CSS-based anti-flash: invisible for the first 300ms
@@ -69,6 +102,7 @@ export function ClarityBootLoader() {
       <div className="pointer-events-none fixed inset-0 flex items-center justify-center">
         <ClarityLoader size="lg" />
       </div>
+      <SlowLoadNotice />
     </div>
   );
 }
@@ -93,6 +127,7 @@ export function ClarityContentLoader() {
       <div className="pointer-events-none fixed inset-0 flex items-center justify-center">
         <ClarityLoader size="lg" />
       </div>
+      <SlowLoadNotice />
     </div>
   );
 }

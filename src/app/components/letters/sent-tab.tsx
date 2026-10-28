@@ -42,6 +42,7 @@ import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
 import { LetterReceiverModal } from './letter-receiver-modal';
 import { toast } from 'sonner';
 import { LetterListSkeleton } from './letter-list-skeleton';
+import { SectionWait } from '@/components/ui/section-wait';
 import type { ClarityLetter, LetterDelivery } from '@/app/types';
 
 // ============================================================================
@@ -449,7 +450,7 @@ export function SentTab({ userId }: SentTabProps) {
     };
   }, [fetchData]);
 
-  if (fetchState === 'loading') return <LetterListSkeleton />;
+  if (fetchState === 'loading') return <SectionWait onRetry={fetchData}><LetterListSkeleton /></SectionWait>;
 
   if (fetchState === 'error') {
     return (
