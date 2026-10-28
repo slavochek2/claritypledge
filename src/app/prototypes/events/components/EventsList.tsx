@@ -2,6 +2,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, CalendarDays, Users } from 'lucide-react';
 import { EventCard } from './EventCard';
+import { EventListSkeleton } from './EventListSkeleton';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
 import type { EventWithHost } from '@/app/types';
@@ -293,9 +294,7 @@ export function EventsList({
             </Button>
           </div>
         ) : loading ? (
-          <div className="text-center py-16">
-            <div className="text-muted-foreground">Loading events...</div>
-          </div>
+          <EventListSkeleton />
         ) : events.length > 0 ? (
           <>
             {/* D6's explicit label. Deliberately avoids the phrase "No upcoming

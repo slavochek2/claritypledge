@@ -78,6 +78,24 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe('P1586 events list: the loading look is a skeleton of the cards', () => {
+  it('shows three EventCard-shaped skeleton cards under the drawn header, and no text, mark or spinner', () => {
+    mocks.getUpcomingEvents.mockReturnValue(new Promise(() => {}));
+    const { container } = render(ui());
+
+    // The frame is drawn: the page title is there while the section waits.
+    expect(screen.getByRole('heading', { name: 'Events' })).toBeInTheDocument();
+    const skeleton = screen.getByTestId('event-list-skeleton');
+    expect(skeleton.children).toHaveLength(3);
+    skeleton.querySelectorAll('.animate-pulse').forEach((b) => expect(b.className).toContain('bg-muted'));
+    expect(skeleton.querySelectorAll('.aspect-video')).toHaveLength(3); // a banner slot per card
+    expect(container.textContent).not.toMatch(/loading/i);
+    expect(container.querySelector('svg[aria-label="Loading"]')).toBeNull();
+    expect(container.querySelector('.clarity-page-loader')).toBeNull();
+    expect(container.querySelector('.animate-spin')).toBeNull();
+  });
+});
+
 describe('P1586 events list: failure is not empty', () => {
   it('a rejected read shows the failure line with Retry (not the empty state), and Retry recovers', async () => {
     mocks.getUpcomingEvents.mockRejectedValueOnce(new Error('boom'));
@@ -105,13 +123,13 @@ describe('P1586 events list: failure is not empty', () => {
     vi.useFakeTimers();
     mocks.getUpcomingEvents.mockReturnValueOnce(new Promise(() => {}));
     render(ui());
-    expect(screen.getByText('Loading events...')).toBeInTheDocument();
+    expect(screen.getByTestId('event-list-skeleton')).toBeInTheDocument();
 
     await act(async () => {
       vi.advanceTimersByTime(PAST_DEADLINE_MS);
     });
     expect(screen.getByText(FAILURE_LINE)).toBeInTheDocument();
-    expect(screen.queryByText('Loading events...')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('event-list-skeleton')).not.toBeInTheDocument();
 
     mocks.getUpcomingEvents.mockResolvedValue([EVENT]);
     await act(async () => {

@@ -40,6 +40,7 @@ import {
 } from '@/lib/compare-positions';
 import { cn } from '@/lib/utils';
 import type { Profile } from '@/app/types';
+import { CompareRowsSkeleton } from '@/app/pages/compare-rows-skeleton';
 
 function toPerson(profile: Profile, name = profile.name): Person {
   return {
@@ -260,7 +261,7 @@ export function ComparePage() {
   if (!activeTag) {
     body = <Muted>{firstName} hasn&rsquo;t answered any statements yet.</Muted>;
   } else if (!rowsReady) {
-    body = <Muted>Loading…</Muted>;
+    body = <CompareRowsSkeleton />;
   } else if (rowsReady.error) {
     body = <Muted>Could not load the comparison.</Muted>;
   } else {

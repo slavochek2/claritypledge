@@ -16,6 +16,7 @@ import { SessionList } from '@/app/components/sessions/session-list';
 import { PageFrame, PageHeader } from '@/app/components/layout/page-header';
 import { RoundSummaryScreen } from '@/app/components/partners/round-summary-screen';
 import type { SessionHistoryItem, SessionTranscript } from '@/app/types';
+import { TranscriptSkeleton } from '@/app/pages/my-sessions-skeleton';
 
 // ─── View state ───────────────────────────────────────────────────────────────
 
@@ -251,11 +252,7 @@ function RoomTranscriptView({ roomId, onBack }: { roomId: string; onBack: () => 
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <TranscriptSkeleton />;
   }
 
   if (!transcript || transcript.segments.length === 0) {
@@ -366,11 +363,7 @@ function SessionTranscriptView({
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <TranscriptSkeleton />;
   }
 
   if (!transcript || transcript.segments.length === 0) {

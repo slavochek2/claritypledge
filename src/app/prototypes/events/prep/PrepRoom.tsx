@@ -14,6 +14,7 @@ import { useConnectivity } from '@/app/contexts/offline-status-context';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import type { EventWithHost } from '@/app/types';
 import { PrepStatus } from './PrepPieces';
+import { PrepBannerSkeleton } from './PrepBannerSkeleton';
 import { usePrepState } from './use-prep-state';
 
 const bypassKey = (eventId: string, viewerId: string) => `p1336-room-bypass:${viewerId}:${eventId}`;
@@ -111,7 +112,10 @@ export function PrepRoomBanner({ event, source = 'room' }: { event: EventWithHos
   // prepared (review 2026-10-01).
   const applies = !!(event?.preparationEnabled && !isHost && viewerId && !offline);
   const state = usePrepState(applies ? event : null, viewerId ?? undefined);
-  if (!applies || !event || state.loading || state.error) return null;
+  if (!applies || !event || state.error) return null;
+  // P1586: a banner that is applicable but still being read would push the content below it when it
+  // lands, so it holds its footprint (not-applicable and failed reads still render nothing).
+  if (state.loading) return <PrepBannerSkeleton source={source} />;
   const { progress } = state;
   const started = !!state.prep?.startedAt;
   // From the event page the entry below prepare IS the event: mark it, so prepare's "Back to the event" can pop.

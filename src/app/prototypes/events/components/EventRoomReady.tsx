@@ -24,7 +24,7 @@
  * one, so the two readiness screens now match.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -111,9 +111,14 @@ export function EventRoomReady() {
   const isFrozen = event
     ? Date.now() >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000
     : false;
+  // P1586: the redirect lands in an effect, so the loader holds the frame until it does.
   if (isFrozen) {
-    navigate(`/events/${slug}/meet`, { replace: true });
-    return null;
+    return (
+      <>
+        <Navigate to={`/events/${slug}/meet`} replace />
+        <ClarityPageLoader />
+      </>
+    );
   }
 
   return (

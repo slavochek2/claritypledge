@@ -18,9 +18,25 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
 import { docsService } from '@/app/data/docs-service';
 import type { ContentVisibility, StoryWithAuthor } from '@/app/types';
+
+/** P1586: the results area while stories are read (the dialog and search stay drawn): rows shaped
+ *  like a story row, a text line and a date line. */
+function StoryPickerSkeleton() {
+  return (
+    <div role="status" aria-label="Loading stories" data-testid="story-picker-skeleton" className="space-y-1">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="space-y-2 px-3 py-2">
+          <Skeleton className="h-4 w-4/5" />
+          <Skeleton className="h-3 w-1/4" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface DocStoryPickerProps {
   docId: string;
@@ -176,9 +192,7 @@ export function DocStoryPicker({
         {/* Results area */}
         <div className="flex-1 overflow-y-auto min-h-[200px] max-h-[50vh]">
           {fetchState === 'loading' ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <StoryPickerSkeleton />
           ) : (
             <>
               {renderEmptyState()}

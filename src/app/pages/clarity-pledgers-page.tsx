@@ -10,7 +10,7 @@ import { getVerifiedProfilesPage, PLEDGERS_PAGE_SIZE, type Profile } from "@/app
 import { Button } from "@/components/ui/button";
 import { SEO } from "@/app/components/seo";
 import { UsersIcon } from "lucide-react";
-import { ClarityLoader } from "@/components/ui/clarity-loader";
+import { PledgersSkeleton } from "@/app/pages/pledgers-skeleton";
 import { PledgerGrid } from "@/app/components/social/pledger-grid";
 import { analytics } from "@/lib/mixpanel";
 import { DualCTA } from "@/app/components/landing/dual-cta";
@@ -95,9 +95,7 @@ export function ClarityPledgersPage() {
 
         {/* Pledgers Grid */}
         {loading ? (
-          <div className="flex justify-center py-20" data-testid="loader">
-            <ClarityLoader size="lg" />
-          </div>
+          <PledgersSkeleton />
         ) : verifiedProfiles.length > 0 ? (
           <>
             <PledgerGrid

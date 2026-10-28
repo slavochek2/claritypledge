@@ -12,6 +12,7 @@ import { loadAttachment, type Shareable } from '@/app/data/chat-ui-helpers';
 import type { ChatAttachmentKind } from '@/app/data/chat-mappers';
 import { Button } from '@/components/ui/button';
 import { ArtifactAttachmentCard } from './ArtifactAttachmentCard';
+import { AttachmentSkeleton } from './AttachmentSkeleton';
 
 type State = { status: 'loading' } | { status: 'error' } | { status: 'missing' } | { status: 'ready'; item: Shareable };
 
@@ -138,9 +139,5 @@ function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind:
       </div>
     );
   }
-  return (
-    <div role="status" aria-label="Loading attachment" className={`${NOTE} min-h-16 animate-pulse`}>
-      Loading {kind}…
-    </div>
-  );
+  return <AttachmentSkeleton kind={kind} />;
 }

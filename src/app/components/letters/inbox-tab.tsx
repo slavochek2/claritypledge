@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, ArrowDownLeft, ArrowUpRight, Inbox, Eye, Video } from 'lucide-react';
 import { toast } from 'sonner';
-import { ClarityLoader } from '@/components/ui/clarity-loader';
+import { LetterListSkeleton } from './letter-list-skeleton';
 import { Button } from '@/components/ui/button';
 import { getInboxItems, markDeliveryRead, getUnreadExplainBackCountsByDelivery } from '@/app/data/letters-service';
 import { formatTimeAgo } from '@/app/utils/format-time';
@@ -145,13 +145,7 @@ export function InboxTab({ userId, onUnreadCountChange, openInvite }: InboxTabPr
     }
   };
 
-  if (fetchState === 'loading') {
-    return (
-      <div className="flex justify-center py-12">
-        <ClarityLoader size="lg" />
-      </div>
-    );
-  }
+  if (fetchState === 'loading') return <LetterListSkeleton />;
 
   if (fetchState === 'error') {
     return (

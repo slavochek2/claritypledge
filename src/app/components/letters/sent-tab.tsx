@@ -41,7 +41,7 @@ import {
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
 import { LetterReceiverModal } from './letter-receiver-modal';
 import { toast } from 'sonner';
-import { ClarityLoader } from '@/components/ui/clarity-loader';
+import { LetterListSkeleton } from './letter-list-skeleton';
 import type { ClarityLetter, LetterDelivery } from '@/app/types';
 
 // ============================================================================
@@ -449,13 +449,7 @@ export function SentTab({ userId }: SentTabProps) {
     };
   }, [fetchData]);
 
-  if (fetchState === 'loading') {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <ClarityLoader size="lg" />
-      </div>
-    );
-  }
+  if (fetchState === 'loading') return <LetterListSkeleton />;
 
   if (fetchState === 'error') {
     return (

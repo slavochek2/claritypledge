@@ -4254,24 +4254,20 @@ export function ClarityLivePage() {
 
     // P511 Task 10: Show rejoin prompt if active session detected in localStorage
     // (P921: sessionEndedOnLoad is handled by the top-level gate above.)
-    if (isCheckingRejoin || rejoinSession) {
+    // P1586: nothing of the page is drawn while the stored session is checked, so the page loader.
+    if (isCheckingRejoin) return <ClarityPageLoader />;
+    if (rejoinSession) {
       return (
         <div className="flex flex-col min-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-5rem)]">
           <div className="flex-1 container mx-auto px-4 flex flex-col justify-center">
-            {isCheckingRejoin ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-pulse text-muted-foreground">Checking session...</div>
-              </div>
-            ) : rejoinSession ? (
-              <RejoinPrompt
-                sessionCode={rejoinSession.code}
-                partnerName={rejoinSession.partnerName}
-                guestDisplayName={rejoinSession.guestDisplayName}
-                onRejoin={handleRejoin}
-                onEndSession={handleEndFromRejoin}
-                isRejoining={isRejoining}
-              />
-            ) : null}
+            <RejoinPrompt
+              sessionCode={rejoinSession.code}
+              partnerName={rejoinSession.partnerName}
+              guestDisplayName={rejoinSession.guestDisplayName}
+              onRejoin={handleRejoin}
+              onEndSession={handleEndFromRejoin}
+              isRejoining={isRejoining}
+            />
             {error && <p className="text-sm text-red-600 text-center mt-4">{error}</p>}
           </div>
         </div>

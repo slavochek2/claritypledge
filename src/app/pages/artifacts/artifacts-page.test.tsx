@@ -1176,6 +1176,16 @@ describe('Artifacts page: split by kind', () => {
       expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument();
     });
 
+    it('P1586: the wait under the tabs is a skeleton of the rows, not a mark, spinner or text', () => {
+      mocks.getDocsByUserOrThrow.mockReturnValue(new Promise(() => {}));
+      const { container } = renderPage();
+      const skeleton = screen.getByTestId('artifact-list-skeleton');
+      expect(skeleton.querySelectorAll('.animate-pulse.bg-muted').length).toBeGreaterThan(1);
+      expect(container.querySelector('svg[aria-label="Loading"]')).toBeNull();
+      expect(container.querySelector('.animate-spin')).toBeNull();
+      expect(skeleton.textContent).toBe('');
+    });
+
     it('a list whose source failed shows the message and Retry; the other lists stay usable', async () => {
       const u = user();
       mocks.getAllSentLettersOrThrow.mockRejectedValue(new Error('x'));

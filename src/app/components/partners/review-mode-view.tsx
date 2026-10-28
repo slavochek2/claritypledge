@@ -7,6 +7,24 @@ import { Button } from '@/components/ui/button';
 import { type ClaritySession, type LiveSessionState, type LiveTurn } from '@/app/types';
 import { getLiveTurns } from '@/app/data/api';
 import { ArrowLeft, CheckCircle2, XCircle, BarChart3, Flag } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+
+/** P1586: the ideas list while the session's turns are read: cards shaped like an idea row. */
+function ReviewIdeasSkeleton() {
+  return (
+    <div role="status" aria-label="Loading ideas" data-testid="review-ideas-skeleton" className="space-y-3">
+      {[0, 1].map((i) => (
+        <div key={i} className="rounded-lg border p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-12" />
+          </div>
+          <Skeleton className="h-3 w-2/3" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface ReviewModeViewProps {
   session: ClaritySession;
@@ -104,9 +122,7 @@ export function ReviewModeView({
         </h2>
 
         {isLoading ? (
-          <div className="text-center py-8 text-muted-foreground animate-pulse">
-            Loading session data...
-          </div>
+          <ReviewIdeasSkeleton />
         ) : liveState.ideasDiscussed === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <p>No ideas discussed yet.</p>

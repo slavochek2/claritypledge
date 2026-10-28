@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Plus, Lock, Globe, MoreHorizontal, Trash2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
-import { ClarityLoader } from '@/components/ui/clarity-loader';
+import { LetterListSkeleton } from './letter-list-skeleton';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
@@ -89,13 +89,7 @@ export function DraftsTab({ userId }: DraftsTabProps) {
     }
   };
 
-  if (fetchState === 'loading') {
-    return (
-      <div className="flex justify-center py-12">
-        <ClarityLoader size="lg" />
-      </div>
-    );
-  }
+  if (fetchState === 'loading') return <LetterListSkeleton />;
 
   if (fetchState === 'error') {
     return (

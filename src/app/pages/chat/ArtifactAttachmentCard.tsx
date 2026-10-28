@@ -14,6 +14,7 @@ import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
 import { cn } from '@/lib/utils';
 import { FOCUS_RING, HOVER } from './chat-kit';
 import { loadArtifact } from './artifact-attachment-cache';
+import { AttachmentSkeleton } from './AttachmentSkeleton';
 
 type ArtifactKind = 'canvas' | 'letter';
 type State = { status: 'loading' } | { status: 'error' } | { status: 'ready'; artifact: ChatArtifact };
@@ -63,11 +64,7 @@ export function ArtifactAttachmentCard({ kind, id, viewerId, compact = false }: 
   }, [kind, id, viewerId]);
 
   if (state.status === 'loading') {
-    return (
-      <div role="status" aria-label="Loading attachment" className={cn(CARD, 'min-h-16 animate-pulse text-sm text-muted-foreground')}>
-        Loading {kind}…
-      </div>
-    );
+    return <AttachmentSkeleton kind={kind} />;
   }
   if (state.status === 'error') {
     return (

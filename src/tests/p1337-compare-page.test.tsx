@@ -94,6 +94,19 @@ describe('ComparePage', () => {
     expect(compare.getTagStatements).toHaveBeenCalledWith('ikigai1');
   });
 
+  it('P1586: while the rows are read, the header and chips are drawn and the rows are a skeleton, not "Loading…"', async () => {
+    vi.mocked(compare.getTagStatements).mockReturnValue(new Promise(() => {}));
+    renderAt('/compare/ben-tan');
+
+    expect(await screen.findByRole('heading', { name: 'You and Ben' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '#understanding' })).toBeInTheDocument();
+    const skeleton = screen.getByTestId('compare-rows-skeleton');
+    expect(skeleton.querySelectorAll('.animate-pulse.bg-muted').length).toBeGreaterThan(1);
+    expect(screen.queryByText(/Loading/)).toBeNull();
+    expect(document.querySelector('svg[aria-label="Loading"]')).toBeNull();
+    expect(document.querySelector('.clarity-page-loader')).toBeNull();
+  });
+
   it('a chip rewrites ?tag in place and reloads the rows for that tag', async () => {
     renderAt('/compare/ben-tan');
     await screen.findByText('We disagree on this');
