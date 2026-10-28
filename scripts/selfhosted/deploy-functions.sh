@@ -177,6 +177,11 @@ for fn in "${copy_set[@]}"; do
   cp -R "$FUNCTIONS_DIR/$fn" "$STAGE/functions/$fn"
 done
 find "$STAGE/functions" -name '*.test.ts' -delete
+# P1563: every function's deno.json points at the shared import map and lock one level up.
+for f in deno.json deno.lock; do
+  [ -f "$FUNCTIONS_DIR/$f" ] || die "shared $f not found in $FUNCTIONS_DIR"
+  cp "$FUNCTIONS_DIR/$f" "$STAGE/functions/$f"
+done
 mkdir -p "$STAGE/functions/main"
 cp "$ROUTER_SRC" "$STAGE/functions/main/index.ts"
 cp "$OPEN_LIST" "$STAGE/functions/main/no-verify-jwt-functions.txt"
@@ -211,6 +216,7 @@ for d in "$W"/*/; do
   rm -rf "${FUNCTIONS_VOL:?}/$n"
   cp -R "$d" "$FUNCTIONS_VOL/$n"
 done
+for f in deno.json deno.lock; do cp "$W/$f" "$FUNCTIONS_VOL/$f"; done
 rm -rf "$W"
 chown -R root:root "$FUNCTIONS_VOL"
 docker compose up -d --force-recreate functions >/dev/null 2>&1
