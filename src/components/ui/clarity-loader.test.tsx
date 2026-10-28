@@ -51,13 +51,16 @@ describe("ClarityPageLoader", () => {
     expect(screen.getByRole("img", { name: "Loading" })).toBeTruthy();
   });
 
-  it("has the min-h-screen centering layout", () => {
+  it("holds the page height and centres the mark on the viewport, like the index.html splash (P1586)", () => {
     const { container } = render(<ClarityPageLoader />);
     const wrapper = container.firstElementChild as HTMLElement;
     expect(wrapper.classList.contains("min-h-screen")).toBe(true);
-    expect(wrapper.classList.contains("flex")).toBe(true);
-    expect(wrapper.classList.contains("items-center")).toBe(true);
-    expect(wrapper.classList.contains("justify-center")).toBe(true);
+    // Centring inside the in-flow box put the mark below a public nav (80px jump from the splash).
+    const centre = wrapper.firstElementChild as HTMLElement;
+    for (const c of ["fixed", "inset-0", "flex", "items-center", "justify-center"]) {
+      expect(centre.classList.contains(c)).toBe(true);
+    }
+    expect(centre.querySelector('svg[aria-label="Loading"]')).not.toBeNull();
   });
 
   it("has CSS anti-flash class", () => {

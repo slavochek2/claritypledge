@@ -62,8 +62,11 @@ export function ClarityLoader({ size = "md", className, style }: ClarityLoaderPr
 export function ClarityBootLoader() {
   const style = chainStyle(useLoaderChain());
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 clarity-page-loader" style={style}>
-      <div className="flex justify-center">
+    <div data-testid="boot-loader" className="min-h-screen clarity-page-loader" style={style}>
+      {/* P1586: the box holds the page's height; the mark is viewport-centred like the index.html splash
+          and the content loader. Centring it inside the box put it below a public nav (measured: splash at
+          y=360, this mark at y=440 on a 720px viewport), so the mark jumped on every signed-out cold load. */}
+      <div className="pointer-events-none fixed inset-0 flex items-center justify-center">
         <ClarityLoader size="lg" />
       </div>
     </div>
