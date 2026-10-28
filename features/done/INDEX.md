@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-27
+Last updated: 2026-10-28
 
 ---
 
@@ -433,6 +433,7 @@ Last updated: 2026-10-27
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1557** (Oct 28) TEST runs on self-hosted Supabase: one migrate/deploy run updates both targets under a lock; per-function JWT router fails closed; Playwright refuses a reused dev server pointed at another database; removing the mail key turned 35 auth tests red because functions checked config before auth
 - **P1578** (Oct 27) Day board closes its loops — "fixed" needs a check that ran and enumerated (connection up, a detailed finding); owners are exact tokens on unmerged branches; carry state one run back only; half the build's tests passed with their guard deleted until mutation-checked.
 - **P1450** (Oct 27) Agents tidy finished worktrees/branches themselves — every "already landed?" oracle was wrong after squash ships, so ship now records the tip it shipped; untracked files are never disposable (an extension allowlist leaked `.js`); recovery refs, not a text log; a branch editing git-ops.sh lands code via commit-to-main first
 - **P1567** (Oct 26) Weekly scheduled supply-chain audit — alert step must not depend on the checkout (`GH_REPO`), runs serialized (`concurrency`), audits `main` whatever ref was dispatched, and a simulated clean run never closes a real alert; Codex found all four by probing, the copied pattern (`edge-smoke.yml`) shares two
