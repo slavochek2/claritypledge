@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 79
 workstream: infrastructure
 created_date: '2026-10-28'
 tags: [testing, infrastructure, self-hosted, monitoring]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-10-28
 ---
 
 # P1584: Self-hosted TEST server: scheduled health, weekly upkeep, recipe
