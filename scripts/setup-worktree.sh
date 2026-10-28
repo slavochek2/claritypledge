@@ -137,6 +137,12 @@ if [[ -f "$MAIN_REPO/.env.test.local" ]]; then
   symlink "$MAIN_REPO/.env.test.local" "$WORKTREE/.env.test.local" ".env.test.local"
 fi
 
+# .env.development.local points hand-started dev servers at the self-hosted TEST server (P1557).
+# Vite reads it after .env.local in dev mode; scripts that read .env.local are unaffected.
+if [[ -f "$MAIN_REPO/.env.development.local" ]]; then
+  symlink "$MAIN_REPO/.env.development.local" "$WORKTREE/.env.development.local" ".env.development.local"
+fi
+
 # Copy any feature specs that exist on main but not yet in the worktree.
 # Only tracked specs are copied (git ls-files, not a disk glob) — untracked
 # specs on main (e.g. created with /create-spec but not yet git-added) are
