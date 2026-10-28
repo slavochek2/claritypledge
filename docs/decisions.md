@@ -33150,7 +33150,7 @@ If `UNION ALL`, old column names, or removed logic is visible — the migration 
 
 ## 2026-04-02 [product]: Workshop pricing — €50 entry + time donation (0-10h)
 
-**Context:** Emerged from conversation "Анализ тенденций" (Mar 31). Dual-currency: money filters seriousness at entry, time measures value at exit. "Someone who says '6 hours' after 90 minutes is a stronger signal than any review." Time donations = volunteering for ClarityPledge (content, translation, community, testing). Thailand variant: free + time only (DTV).
+**Context:** Emerged from conversation "Анализ тенденций" (Mar 31). Dual-currency: money filters seriousness at entry, time measures value at exit. "Someone who says '6 hours' after 90 minutes is a stronger signal than any review." Time donations = volunteering for ClarityPledge (content, translation, community, testing). Thailand variant: free + time only (local visa constraint).
 **Decision:** Formalized in facilitator-guide.md and lean-canvas.md revenue table. Separate from €950 de-risking and FCO retainers. P599 scope expanded to include workshop pricing copy on ladischenski.com.
 **Alternatives rejected:** (1) Free only — loses seriousness filter. (2) Fixed price only — loses the WTP signal that time donation provides.
 **Consequences:** First online workshop is free (test). First KL workshop uses €50 + time. Track time donation amounts as WTP proxy alongside monetary PWIW.

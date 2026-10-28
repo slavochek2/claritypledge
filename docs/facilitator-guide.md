@@ -292,7 +292,7 @@ Payment choice happens through a **private post-event form**, not an open conver
 
 ### Regional exceptions
 
-**Thailand (DTV constraint):** Track 1 cash replaced by time-donation-only. Tracks 2 and 3 unchanged. Legal notes in goals.md.
+**Thailand (local visa constraint):** Track 1 cash replaced by time-donation-only. Tracks 2 and 3 unchanged. Legal notes in goals.md.
 
 **Separate from:** ladischenski.com services (€950 de-risking, FCO retainers) have fixed pricing — they are not workshops. Workshop pricing is three-track; coaching services are fixed.
 

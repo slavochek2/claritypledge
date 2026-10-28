@@ -62,7 +62,7 @@ Decision rationale (Path 3 over narrow-founder Path 1 and community-only Path 2)
 
 **See `docs/facilitator-guide.md#workshop-pricing`** — value-anchored three-track pay-what-it's-worth is the single source of truth. Do not duplicate the model here.
 
-**Thailand exception:** if the event is run under DTV constraint, Track 1 cash is replaced by time-donation-only; Tracks 2 and 3 unchanged.
+**Thailand exception:** if the event is run under local visa constraint, Track 1 cash is replaced by time-donation-only; Tracks 2 and 3 unchanged.
 
 ## Success Criteria
 
