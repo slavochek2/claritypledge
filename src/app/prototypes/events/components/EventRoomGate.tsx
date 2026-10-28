@@ -105,5 +105,11 @@ export function EventRoomGate() {
   const alreadyTranscribed = !!event && isCapturingForEvent(event.id);
   const returning = self?.readinessValue != null;
   const destination = alreadyTranscribed || returning ? 'meet' : 'ready';
-  return <Navigate to={`/events/${slug}/${destination}`} replace />;
+  // P1586: the loader beside the redirect keeps the mark on screen through the hop (no blank frame).
+  return (
+    <>
+      <Navigate to={`/events/${slug}/${destination}`} replace />
+      <ClarityPageLoader />
+    </>
+  );
 }

@@ -66,12 +66,15 @@ const PAGE_WAIT_DEADLINE_MS = 15_000;
  * mark never moves. A late answer needs no code here: the page stops rendering the loader when its
  * data arrives, which unmounts this and its timer.
  */
-function SlowLoadNotice() {
+function SlowLoadNotice({ startedAgoMs }: { startedAgoMs: number }) {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setSlow(true), PAGE_WAIT_DEADLINE_MS);
+    // Counted from the start of the loader run, not this instance: loaders that replace each other (route
+    // guard -> lazy chunk -> page -> redirect target) are one wait, and a fresh 15s per instance let a chain
+    // of them wait forever without the notice (measured on the event room gate, P1586 e2e).
+    const t = setTimeout(() => setSlow(true), Math.max(0, PAGE_WAIT_DEADLINE_MS - startedAgoMs));
     return () => clearTimeout(t);
-  }, []);
+  }, [startedAgoMs]); // fixed for the loader's lifetime: useLoaderChain captures it at mount
   if (!slow) return null;
   return (
     <div
@@ -93,7 +96,8 @@ function SlowLoadNotice() {
  * (animation-delay), then fades in. Fast loads never show a flash.
  */
 export function ClarityBootLoader() {
-  const style = chainStyle(useLoaderChain());
+  const elapsed = useLoaderChain();
+  const style = chainStyle(elapsed);
   return (
     <div data-testid="boot-loader" className="min-h-screen clarity-page-loader" style={style}>
       {/* P1586: the box holds the page's height; the mark is viewport-centred like the index.html splash
@@ -102,7 +106,7 @@ export function ClarityBootLoader() {
       <div className="pointer-events-none fixed inset-0 flex items-center justify-center">
         <ClarityLoader size="lg" />
       </div>
-      <SlowLoadNotice />
+      <SlowLoadNotice startedAgoMs={elapsed} />
     </div>
   );
 }
@@ -113,7 +117,8 @@ export function ClarityBootLoader() {
  * Same 300ms CSS anti-flash as the boot splash, and the same 64px mark at the same viewport centre.
  */
 export function ClarityContentLoader() {
-  const style = chainStyle(useLoaderChain());
+  const elapsed = useLoaderChain();
+  const style = chainStyle(elapsed);
   return (
     <div
       data-testid="content-loader"
@@ -127,7 +132,7 @@ export function ClarityContentLoader() {
       <div className="pointer-events-none fixed inset-0 flex items-center justify-center">
         <ClarityLoader size="lg" />
       </div>
-      <SlowLoadNotice />
+      <SlowLoadNotice startedAgoMs={elapsed} />
     </div>
   );
 }

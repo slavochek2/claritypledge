@@ -69,3 +69,21 @@ describe("ClarityPageLoader deadline (P1586)", () => {
     });
   }
 });
+
+describe("ClarityPageLoader deadline across a loader chain (P1586)", () => {
+  beforeEach(() => { vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance", "Date"] }); });
+  afterEach(() => { cleanup(); vi.useRealTimers(); });
+
+  // Loaders that replace each other (guard -> chunk -> page -> redirect target) are one wait: the
+  // deadline counts from the run's start, so a chain of fresh loaders cannot postpone it forever.
+  it("a loader that continues a 10s run shows the notice 5s later, not 15s later", () => {
+    const first = render(<ClarityPageLoader />);
+    act(() => { vi.advanceTimersByTime(10_000); });
+    const second = render(<ClarityPageLoader />); // mounts while the first is still on screen
+    first.unmount();
+    act(() => { vi.advanceTimersByTime(4_900); });
+    expect(second.queryByRole("button", { name: "Reload" })).toBeNull();
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(second.getByRole("button", { name: "Reload" })).toBeTruthy();
+  });
+});

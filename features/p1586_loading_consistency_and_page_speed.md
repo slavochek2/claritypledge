@@ -184,6 +184,15 @@ Visual items: screenshots at 1440, 375 and 320, plus the frame evidence named in
 - [ ] All existing skeletons render on the shared primitive, with before/after screenshots showing the same shapes.
 - [ ] `docs/ux-patterns.md` has the Loading section.
 
+## Known limitations
+
+Recorded under the review stopping rule (decisions.md 2026-10-14 [process]): shapes the reviews found that the current tree does not produce, or behaviour that predates this spec.
+
+- **Guard blind spots** (`src/tests/p1586-loading-states-guard.test.ts`, documented in its header): a `const` message rendered later, `return;`/`undefined` as a blank render, namespace tags (`<UI.ClarityLoader />`), nested ternaries or `&&` chains that evaluate to null, `{false}`/`{null}` beside a page loader inside a fragment (a false positive), and `<Fragment>`-wrapped `Navigate` (a false positive). The allowlist counts per file and kind, not per element.
+- **Service reads that turn an error into "nothing"** (predate P1586; need a service contract change): the transcript readers in `api.ts` resolve `null` on a database error, so a failed read shows "No speech detected"; `getVerifiedProfilesPage` returns an empty page on an RPC error, so a failed first read still shows an empty grid. The page-level `failed` path in this spec catches thrown errors only.
+- **Doc story picker** (predates P1586): it reads twice on first open (`hasAnyStories` is a dependency of `fetchStories`), and its `error` state renders a blank results area with no Retry.
+- **Continuity e2e**: the skipped routes and the widths covered are listed in the e2e file header.
+
 ## Related
 
 **P1587** (page speed, the other half of this ask) · P1562 (closed 2026-10-28; its §3 lives here, its §1–2 are still unowned) · P1539 (signed-in loading, decisions.md 2026-10-22) · P1527 (no client read dedupe, decisions.md 2026-10-21) · P1114 (roster degrade rule) · P1420 (refresh in place) · P1023 (iframe overlay) · P1549 (join path, moves the same `org-join-page` loader; whichever lands second reuses it) · decisions.md 2026-03-16 (the mark, CSS anti-flash, no text) · 2026-04-11 (page-gate vs inline, superseded for sections here)

@@ -6,6 +6,7 @@ import { EditEvent } from './components/EditEvent';
 import { RsvpConfirm } from './components/RsvpConfirm';
 import { NextWebinarRedirect } from './components/NextWebinarRedirect';
 import { WEBINAR_SERIES } from '@/app/data/webinar-series';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 
 /**
  * P1010: `/events` lands on the Clarity Organization page, not the bare list. The nav
@@ -36,7 +37,14 @@ function EventsRoot() {
   const { search } = useLocation();
   const isFunnelTraffic =
     new URLSearchParams(search).get('series') === WEBINAR_SERIES.SERIES_PARAM;
-  return <Navigate to={`${isFunnelTraffic ? '/events/list' : '/groups/cm'}${search}`} replace />;
+  // P1586: a bare <Navigate> renders nothing for a frame between two page loaders (a blank gap on every
+  // signed-out /events cold load); the loader beside it keeps the mark on screen until the target draws.
+  return (
+    <>
+      <Navigate to={`${isFunnelTraffic ? '/events/list' : '/groups/cm'}${search}`} replace />
+      <ClarityPageLoader />
+    </>
+  );
 }
 
 /**
@@ -46,7 +54,12 @@ function EventsRoot() {
  */
 export function WebinarRedirect() {
   const { search } = useLocation();
-  return <Navigate to={`/events/experiment${search}`} replace />;
+  return (
+    <>
+      <Navigate to={`/events/experiment${search}`} replace />
+      <ClarityPageLoader />
+    </>
+  );
 }
 
 export function EventsPrototype() {
