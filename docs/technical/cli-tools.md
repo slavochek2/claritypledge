@@ -20,8 +20,12 @@ Command-line tools installed alongside MCPs for scripting, CI/CD, and automation
 
 **Migration workflow (use this):**
 ```bash
-# Push new migrations to test DB — run after creating any .sql file in supabase/migrations/
+# Push new migrations to the ACTIVE TEST server (P1591: `flip-test-env.py active`, self-hosted or
+# hosted; fails closed if unknown) — run after creating any .sql file in supabase/migrations/
 ./scripts/migrate.sh
+
+# Hosted TEST project explicitly (whatever is active)
+./scripts/migrate.sh --env hosted-test
 
 # Push same migrations to prod DB (after validating on test)
 ./scripts/migrate.sh --env prod
@@ -33,7 +37,7 @@ npx supabase migration list -p "$DB_PASSWORD"
 npx supabase gen types typescript --project-id ayibkeoyukulbsjpxgaw > src/app/types/supabase.ts
 ```
 
-**`scripts/migrate.sh` does:**
+**`scripts/migrate.sh` does (hosted path: `--env hosted-test`, or when hosted is the active TEST):**
 1. Extracts DB password and project ref from env file (`.env.local` by default, `.env.prod` with `--env prod`)
 2. Resolves the Supabase PAT: prod — the locked keychain item only; test — `SUPABASE_TEST_WRITE_TOKEN` (test-project scoped) from `.env.local` (P1318)
 3. Runs `supabase migration list` (shows current state — non-fatal if pooler fails)

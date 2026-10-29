@@ -6,7 +6,8 @@
 #   issues common when feature branches diverge from main on a shared test DB)
 #
 # Usage:
-#   ./scripts/migrate.sh                    # apply to test DB (default, uses .env.local)
+#   ./scripts/migrate.sh                    # apply to the ACTIVE TEST server (P1591: flip-test-env.py active)
+#   ./scripts/migrate.sh --env hosted-test  # hosted TEST project explicitly (uses .env.local)
 #   ./scripts/migrate.sh --env prod         # apply to prod DB (uses .env.prod)
 #   ./scripts/migrate.sh --env prod --yes   # prod, non-interactive: acknowledges the
 #                                           # printed pending list (calling skill must
@@ -43,13 +44,15 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 usage() {
   cat <<'USAGE'
-Usage: ./scripts/migrate.sh [--env local|test|prod] [--yes]
+Usage: ./scripts/migrate.sh [--env local|test|hosted-test|prod] [--yes]
                             [--only <NNN_name.sql>... [--expect-sha <commit>]]
        ./scripts/migrate.sh --env selfhosted [--list] [--allow-empty-ledger]
        ./scripts/migrate.sh -h | --help
 
-  (no flags)          apply pending migrations to the test DB (.env.local)
+  (no flags)          apply pending migrations to the ACTIVE TEST server (P1591): the flip state of
+                      .env.test.local, read by `flip-test-env.py active`. Fails closed if unknown.
   --env test|local    same as no flags
+  --env hosted-test   apply to the hosted TEST project (.env.local), explicitly, whatever is active
   --env prod          apply to prod (.env.prod); asks before applying
   --env selfhosted    apply to the self-hosted TEST server (P1557) over an IAP SSH psql session;
                       no Management API, no `supabase db push` (scripts/selfhosted/migrate.sh)
@@ -115,8 +118,35 @@ while [ $# -gt 0 ]; do
 done
 case "$ENV_NAME" in
   local|test|prod|selfhosted) ;;
-  *) usage_error "unknown --env '$ENV_NAME' (expected local, test, prod or selfhosted)." ;;
+  hosted-test) ;;
+  *) usage_error "unknown --env '$ENV_NAME' (expected local, test, hosted-test, prod or selfhosted)." ;;
 esac
+
+# --- Active TEST (P1591): resolve BEFORE any env file, token or network call ---
+# No env / test / local follows the flip state of .env.test.local. Missing or unknown state is an
+# error here, never a fallback to hosted. selfhosted is reached by `exec` below, so no hosted
+# code runs when it is active.
+RESOLVED_TEST=false
+if [ "$ENV_NAME" = "local" ] || [ "$ENV_NAME" = "test" ]; then
+  # shellcheck source=lib/active-test.sh
+  [ -f "$SCRIPT_DIR/lib/active-test.sh" ] || { echo "ERROR: $SCRIPT_DIR/lib/active-test.sh missing; cannot tell which TEST server is active. Nothing was applied." >&2; exit 1; }
+  source "$SCRIPT_DIR/lib/active-test.sh"
+  active_test_warn_stale "$PROJECT_DIR"
+  ACTIVE_TARGET=$(active_test_target) || { echo "ERROR: cannot resolve the active TEST server (see above). Nothing was applied. Explicit targets: --env selfhosted or --env hosted-test." >&2; exit 1; }
+  RESOLVED_TEST=true
+  if [ "$ACTIVE_TARGET" = "selfhosted" ]; then
+    if [ "$ONLY_MODE" = true ]; then
+      echo "REFUSED: --only is not supported on self-hosted TEST (the active TEST server)." >&2
+      echo "  Plain ./scripts/migrate.sh applies every pending file there; or use --env hosted-test --only ... for the hosted project." >&2
+      exit 1
+    fi
+    ENV_NAME="selfhosted"
+    ORIG_ARGS=(--env selfhosted ${SELFHOSTED_ONLY_FLAGS[@]+"${SELFHOSTED_ONLY_FLAGS[@]}"})
+    [ "$YES_FLAG" = true ] && ORIG_ARGS+=(--yes)
+  else
+    ENV_NAME="hosted-test"
+  fi
+fi
 
 if [ "$ENV_NAME" != "selfhosted" ] && [ ${#SELFHOSTED_ONLY_FLAGS[@]} -gt 0 ]; then
   usage_error "unknown argument '${SELFHOSTED_ONLY_FLAGS[0]}'."
@@ -130,48 +160,10 @@ if [ "$ENV_NAME" = "selfhosted" ]; then
   exec "$SCRIPT_DIR/selfhosted/migrate.sh" "${ORIG_ARGS[@]}"
 fi
 
-# --- Both TEST databases (P1557 switch): one door, both sides, never half silently ---
-# TEST is two databases while the switch runs: hosted TEST and the self-hosted server. A change
-# applied to one only makes the other fail tests for a reason nobody can see. So a test run:
-#   1. checks the self-hosted side can be reached BEFORE anything is applied anywhere,
-#   2. applies to hosted TEST (this same script, inner run),
-#   3. applies the same files to self-hosted.
-# A failure at 3 is reported as HALF-APPLIED with the one command that finishes it; that command
-# is safe to re-run (the self-hosted ledger skips what it already has). One run at a time.
-# Hosted TEST only, with a warning naming the follow-up: --only (applies exactly the listed files,
-# which the self-hosted path does not support) and a scripts copy without the self-hosted script
-# (the hermetic tests of the hosted path run on such a copy).
-if [ "$ENV_NAME" != "prod" ] && [ -z "${CP_MIGRATE_INNER_HOSTED:-}" ] \
-   && { [ "$ONLY_MODE" = true ] || [ ! -x "$SCRIPT_DIR/selfhosted/migrate.sh" ]; }; then
-  echo "WARNING: hosted TEST only this run; self-hosted TEST is NOT updated. Afterwards run: ./scripts/migrate.sh --env selfhosted" >&2
-  CP_MIGRATE_INNER_HOSTED=1
-fi
-if [ "$ENV_NAME" != "prod" ] && [ -z "${CP_MIGRATE_INNER_HOSTED:-}" ]; then
-  LOCK_DIR="$(git -C "$(pwd)" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo /tmp)/cp-test-migrate.lock"
-  mkdir "$LOCK_DIR" 2>/dev/null || { echo "ERROR: another TEST migration is running (lock: $LOCK_DIR). Wait for it, or remove the lock if no run is live." >&2; exit 1; }
-  trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
-  echo ">>> [1/3] Checking the self-hosted TEST server can be reached (nothing applied yet)..."
-  if ! "$SCRIPT_DIR/selfhosted/migrate.sh" --env selfhosted --list; then
-    echo "ERROR: self-hosted TEST is not reachable (often: gcloud login expired, run 'gcloud auth login')." >&2
-    echo "Nothing was applied to either database." >&2
-    exit 1
-  fi
-  echo ">>> [2/3] Applying to hosted TEST..."
-  INNER_ARGS=(--env "$ENV_NAME"); [ "$YES_FLAG" = true ] && INNER_ARGS+=(--yes)
-  if ! CP_MIGRATE_INNER_HOSTED=1 "$SCRIPT_DIR/migrate.sh" "${INNER_ARGS[@]}"; then
-    echo "ERROR: hosted TEST apply failed; self-hosted was not touched. Fix, then re-run ./scripts/migrate.sh" >&2
-    exit 1
-  fi
-  echo ">>> [3/3] Applying to self-hosted TEST..."
-  if ! "$SCRIPT_DIR/selfhosted/migrate.sh" --env selfhosted; then
-    echo "============================================================" >&2
-    echo "HALF-APPLIED: hosted TEST has the new migrations, self-hosted does NOT." >&2
-    echo "Finish it with:  ./scripts/migrate.sh --env selfhosted" >&2
-    echo "============================================================" >&2
-    exit 1
-  fi
-  echo "Done: both TEST databases are up to date."
-  exit 0
+# --- Hosted TEST (explicit --env hosted-test, or hosted is the active TEST) ---
+# The code below keys its test behaviour off ENV_NAME=local; hosted-test is that same path.
+if [ "$ENV_NAME" = "hosted-test" ]; then
+  ENV_NAME="local"
 fi
 
 # shellcheck source=lib/prod-ledger.sh

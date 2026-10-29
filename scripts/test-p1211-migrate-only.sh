@@ -163,11 +163,11 @@ if [ "$RC" -ne 0 ] && grep -q "at least one" "$OUTF"; then ok "empty --only refu
 
 echo "== E. test env skips the CLI"
 build e local
-run e --env local --only 20990101000000_cs.sql
+run e --env hosted-test --only 20990101000000_cs.sql
 if [ "$RC" -eq 0 ] && [ ! -s "$TMPROOT/e/npx.log" ] && printf '%s' "$APPLIED" | grep -q CLIENT_SAFE_BODY && ! printf '%s' "$APPLIED" | grep -q COUPLED_BODY; then
   ok "test --only: no db push, only the listed file (exit 0)"
 else bad "test --only: exit $RC, npx: $(cat "$TMPROOT/e/npx.log" 2>/dev/null), applied: $APPLIED"; fi
-run e --env local
+run e --env hosted-test
 if [ -s "$TMPROOT/e/npx.log" ]; then ok "control: test run without --only takes the CLI path"; else bad "control: CLI path not taken without --only"; fi
 
 echo "== F. the committed blob is what is sent"
@@ -202,7 +202,7 @@ P="$TMPROOT/g2"
 printf -- "-- client-safe: additive\nselect 'ALREADY_EXISTS_BODY';\n" > "$P/supabase/migrations/20990101000000_cs.sql"
 git -C "$P" add supabase/migrations/20990101000000_cs.sql; git -C "$P" commit -q -m ae
 rm -f "$P/supabase/migrations/20990102000000_cp.sql"; git -C "$P" rm -q --cached supabase/migrations/20990102000000_cp.sql; git -C "$P" commit -q -m drop-cp
-run g2 --env local
+run g2 --env hosted-test
 if grep -q 20990101000000 "$P/insert.log" 2>/dev/null; then
   ok "control: test env without --only keeps the old heuristic (row recorded)"
 else bad "control test heuristic: exit $RC, inserts: $(cat "$P/insert.log" 2>/dev/null); $(tail -3 "$OUTF")"; fi

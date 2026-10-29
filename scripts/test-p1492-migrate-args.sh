@@ -112,12 +112,14 @@ run --only "";                                              refused 'migrate.sh 
 run --only 20990101000000_pending.sql --only --yes;         refused 'migrate.sh --only A.sql --only --yes'
 
 echo "== C. control: a valid run reaches the stubs"
-run
-if [ -n "$RAN" ]; then ok "control: no-argument test run invoked a stubbed tool ($(printf '%s' "$RAN" | head -1 | cut -c1-40))"
+# P1591: plain/test/local resolve the active TEST (fail closed here: no flip state in the sandbox);
+# the hosted path these controls exercise is the explicit --env hosted-test.
+run --env hosted-test
+if [ -n "$RAN" ]; then ok "control: hosted-test run invoked a stubbed tool ($(printf '%s' "$RAN" | head -1 | cut -c1-40))"
 else bad "control: valid run invoked nothing — the 'nothing ran' probe is blind"; fi
-run --env test
-if [ -n "$RAN" ]; then ok "control: --env test is accepted and runs"
-else bad "control: --env test invoked nothing (exit $RC, err: $(printf '%s' "$ERR" | head -2))"; fi
+run --env hosted-test --yes
+if [ -n "$RAN" ]; then ok "control: --env hosted-test --yes is accepted and runs"
+else bad "control: --env hosted-test --yes invoked nothing (exit $RC, err: $(printf '%s' "$ERR" | head -2))"; fi
 run --env prod --yes
 if printf '%s' "$RAN" | grep -q '^keychain get'; then ok "control: a prod run reaches the STUBBED keychain helper, not the real one"
 else bad "control: prod run did not reach the keychain stub (ran: [$RAN]) — a real dialog could be what it hits"; fi

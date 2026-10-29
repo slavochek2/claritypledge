@@ -288,7 +288,9 @@ describe('P887: migrate.sh prod pending-ack + post-migrate smoke', () => {
 
   // Scenario D — regression guard: passes today and must keep passing after the fix
   it('test env (no --env prod): behavior unchanged — exits 0, no ack demanded, no smoke run', () => {
-    const { status } = runMigrate([]);
+    // P1591: plain migrate.sh now resolves the active TEST server (fails closed in this sandbox);
+    // the hosted test path this scenario guards is the explicit --env hosted-test.
+    const { status } = runMigrate(['--env', 'hosted-test']);
     expect(status).toBe(0);
     expect(existsSync(smokeMarker)).toBe(false);
   });

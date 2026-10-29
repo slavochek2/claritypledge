@@ -8,6 +8,11 @@ account-wide platform token just to count rows.
     python3 scripts/supabase-readonly-sql.py --env prod "SELECT count(*) AS n FROM public.profiles"
     echo "SELECT ..." | python3 scripts/supabase-readonly-sql.py --env prod
 
+--env test follows the ACTIVE TEST server (P1591; `flip-test-env.py active`): self-hosted TEST is
+read through read-only psql on the VM (same IAP ssh as scripts/selfhosted/migrate.sh, SQL on stdin,
+session and transaction forced read-only), hosted TEST through the Management API. --env hosted-test
+forces the hosted path. An unknown or unreadable active state is exit 2 before any network call.
+
 Output: the result rows as a JSON array on stdout — the same shape a PostgREST GET
 returns, so existing `len(r)` / `r[0]["n"]` parsers keep working.
 
@@ -93,7 +98,7 @@ def _load_env_helpers():
 
 def resolve(env_name):
     rls = _load_env_helpers()
-    env_file = rls.find_env_file(".env.prod" if env_name == "prod" else ".env.local")
+    env_file = rls.find_env_file(".env.prod" if env_name == "prod" else ".env.local")  # hosted-test: .env.local
     token = os.environ.get("SUPABASE_READONLY_TOKEN") or rls.read_env_value(env_file, "SUPABASE_READONLY_TOKEN")
     ref = os.environ.get("SUPABASE_PROJECT_REF_PROD" if env_name == "prod" else "SUPABASE_PROJECT_REF_TEST")
     if not ref:
@@ -106,6 +111,75 @@ def resolve(env_name):
     if not ref:
         fail(f"could not determine the {env_name} project ref")
     return ref, token
+
+
+# Self-hosted TEST target. Same constants as scripts/selfhosted/migrate.sh (a bash file cannot be
+# imported here); change both together.
+SH_GCP_PROJECT = "gen-lang-client-0869694595"
+SH_VM = "cp-test-supabase"
+SH_ZONE = "asia-southeast1-a"
+SH_DB_CONTAINER = "supabase-db"
+
+
+def active_test():
+    """'selfhosted' or 'hosted' from flip-test-env.py active; exit 2 (fail closed) otherwise."""
+    resolver = os.path.join(os.path.dirname(os.path.abspath(__file__)), "selfhosted", "flip-test-env.py")
+    if not os.path.isfile(resolver):
+        fail(f"test: resolver not found ({resolver}); cannot tell which TEST server is active")
+    cmd = [sys.executable, resolver, "active"]
+    if os.environ.get("CP_ACTIVE_TEST_FILE"):
+        cmd += ["--file", os.environ["CP_ACTIVE_TEST_FILE"]]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    out = r.stdout.strip()
+    if r.returncode != 0 or out not in ("selfhosted", "hosted"):
+        fail("test: cannot resolve the active TEST server: " + (r.stderr.strip() or out or "no answer")[:300])
+    return out
+
+
+def selfhosted_query(sql):
+    """Run one read-only query on the self-hosted TEST database; print rows as a JSON array."""
+    body = sql.strip().rstrip(";").strip()
+    if not body:
+        fail("empty SQL")
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".sql", delete=False) as tf:
+        tf.write(body)
+    try:
+        chk = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "selfhosted", "lib", "psql-meta-check.py"), tf.name],
+                             capture_output=True, text=True)
+    finally:
+        os.unlink(tf.name)
+    if chk.returncode != 0:
+        fail("test: SQL contains a psql backslash command; plain SQL only")
+    stdin_sql = ("SET default_transaction_read_only = on;\n"
+                 "BEGIN READ ONLY;\n"
+                 f"SELECT coalesce(json_agg(__q), '[]'::json) FROM ({body}\n) AS __q;\n"
+                 "COMMIT;\n")
+    env = dict(os.environ)
+    if not any(os.access(os.path.join(d, "gcloud"), os.X_OK) for d in env.get("PATH", "").split(os.pathsep)):
+        env["PATH"] = "/opt/homebrew/share/google-cloud-sdk/bin:" + env.get("PATH", "")
+    remote = (f"sudo docker exec -i {SH_DB_CONTAINER} psql -U postgres -d postgres "
+              "-X -q -At -v ON_ERROR_STOP=1")
+    cmd = ["gcloud", "compute", "ssh", SH_VM, f"--project={SH_GCP_PROJECT}", f"--zone={SH_ZONE}",
+           "--tunnel-through-iap", "--quiet", "--command", remote]
+    try:
+        r = subprocess.run(cmd, input=stdin_sql, capture_output=True, text=True, env=env, timeout=120)
+    except FileNotFoundError:
+        fail("test(selfhosted): gcloud not found")
+    except subprocess.TimeoutExpired:
+        fail("test(selfhosted): ssh timed out")
+    if r.returncode != 0:
+        fail("test(selfhosted): query failed (if auth: run 'gcloud auth login'): "
+             + " ".join(r.stderr.split())[-300:])
+    lines = [l for l in r.stdout.splitlines() if l.strip()]
+    try:
+        rows = json.loads(lines[-1])
+    except (IndexError, json.JSONDecodeError):
+        fail(f"test(selfhosted): unparseable psql output: {r.stdout[:200]}")
+    if not isinstance(rows, list):
+        fail("test(selfhosted): rows did not decode to an array")
+    print(json.dumps(rows))
 
 
 def build_query(sql):
@@ -121,10 +195,16 @@ def build_query(sql):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--env", choices=["prod", "test"], default="prod")
+    ap.add_argument("--env", choices=["prod", "test", "hosted-test"], default="prod")
     ap.add_argument("sql", nargs="?", help="SQL (a single SELECT); read from stdin when omitted")
     args = ap.parse_args()
     sql = args.sql if args.sql is not None else sys.stdin.read()
+
+    if args.env == "test":
+        if active_test() == "selfhosted":
+            selfhosted_query(sql)
+            return
+        args.env = "hosted-test"
 
     host = urlparse(API_HOST)
     if API_HOST != "https://api.supabase.com" and host.hostname not in ("127.0.0.1", "localhost"):

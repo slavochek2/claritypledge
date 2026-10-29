@@ -1,0 +1,24 @@
+# P1591: files that already reach hosted TEST directly on 2026-10-29 (ref or hosted-TEST variable families).
+# Ratchet: do not add to this list; shrink it. New code uses scripts/lib/active-test.sh.
+e2e/helpers/e2e-namespace.ts
+e2e/integration/20260605120000_p880_trust_column_guard.spec.ts
+e2e/integration/p1532-e2e-purge-test-users.spec.ts
+e2e/p880-reproduce.spec.ts
+scripts/agent-banner.mjs
+scripts/audit/p1207/probe_lib.py
+scripts/auth-canary.sh
+scripts/event-banner-small.ts
+scripts/lib/test-target.mjs
+scripts/p1528-agent-avatars-to-media-host.mjs
+scripts/selfhosted/flip-test-env.py
+scripts/selfhosted/run-hosted-sql.sh
+src/tests/integration/vitest.config.ts
+src/tests/p1369-sw-config.test.ts
+src/tests/p1417-banner-backfill.test.ts
+src/tests/p1417-event-banner-small-copy.test.tsx
+src/tests/p1528-agent-avatars.test.ts
+src/tests/p1532-sweeper-bounds.test.ts
+src/tests/p1541-e2e-test-db-lock.test.ts
+src/tests/p1557-reused-server-check.test.ts
+src/tests/p1557-test-target.test.ts
+src/tests/p1565-nonprod-image-guard.test.ts

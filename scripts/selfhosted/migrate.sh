@@ -25,6 +25,8 @@
 #
 # Usage (via the front door): ./scripts/migrate.sh --env selfhosted [--list]
 #   --list                print the pending migrations and exit; applies nothing
+#   --applied             print the applied ledger versions, one per line, and nothing else on
+#                         stdout (P1591 drift check); read-only, applies nothing
 #   --allow-empty-ledger  proceed when the ledger has no rows (a genuinely fresh database)
 
 set -euo pipefail
@@ -49,6 +51,7 @@ source "$LIB_DIR/prod-ledger.sh"
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 LIST_ONLY=false
+APPLIED_ONLY=false
 ALLOW_EMPTY_LEDGER=false
 SAW_ENV=false
 while [ $# -gt 0 ]; do
@@ -59,6 +62,7 @@ while [ $# -gt 0 ]; do
     --env=selfhosted) SAW_ENV=true; shift ;;
     --yes) shift ;;  # accepted for parity with the front door; this target has no ack prompt
     --list) LIST_ONLY=true; shift ;;
+    --applied) APPLIED_ONLY=true; LIST_ONLY=true; shift ;;
     --allow-empty-ledger) ALLOW_EMPTY_LEDGER=true; shift ;;
     --only|--expect-sha)
       die "$1 is the prod /push mode (committed blobs) and is not supported for selfhosted." ;;
@@ -89,6 +93,16 @@ remote_psql() {
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
+if [ "$APPLIED_ONLY" = true ]; then
+  # stdout carries only versions; the banner goes to stderr.
+  echo ">>> Target: self-hosted TEST ($EXPECTED_URL), container $DB_CONTAINER on $VM" >&2
+  cat > "$WORK/ledger.sql" <<'SQL'
+SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;
+SQL
+  remote_psql "-At" "$WORK/ledger.sql" > "$WORK/applied.txt" || die "could not read the migration ledger from $VM."
+  cat "$WORK/applied.txt"
+  exit 0
+fi
 echo ">>> Target: self-hosted TEST ($EXPECTED_URL), container $DB_CONTAINER on $VM"
 
 # --- P1042 guard 1 (in-tree version collision): same script migrate.sh runs ---

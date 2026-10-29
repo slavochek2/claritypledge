@@ -550,7 +550,7 @@ echo ""
 # security/npx). Proves the three prod gates hold: pending-list ack refusal,
 # requires-frontend coupling hard-block, mandatory post-migrate smoke — and
 # that test-env behavior stays unchanged.
-MIGRATE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/(migrate|check-migration-client-safety|lib/prod-ledger|test-p1211-migrate-only|test-p1473-migration-client-safety|test-p1492-migrate-args)\.sh|src/tests/p887-reproduce\.test\.ts)$' || true)
+MIGRATE_STAGED=$(echo "$STAGED_FILES" | grep -E '^(scripts/(migrate|check-migration-client-safety|lib/prod-ledger|test-p1211-migrate-only|test-p1473-migration-client-safety|test-p1492-migrate-args|test-p1591-active-test|check-test-drift|check-hosted-test-readers|lib/active-test|selfhosted/migrate)\.sh|scripts/supabase-readonly-sql\.py|scripts/selfhosted/flip-test-env\.py|scripts/hosted-test-readers\.allowlist|src/tests/p887-reproduce\.test\.ts)$' || true)
 if [ -n "$MIGRATE_STAGED" ]; then
     if ! run_quiet "migrate.sh prod-gates canary (P887)" npx vitest run src/tests/p887-reproduce.test.ts; then
         ERRORS=$((ERRORS + 1))
@@ -572,8 +572,19 @@ if [ -n "$MIGRATE_STAGED" ]; then
     if ! run_quiet "client-safety gate canary (P1473)" bash scripts/test-p1473-migration-client-safety.sh; then
         ERRORS=$((ERRORS + 1))
     fi
+    # P1591: migrations and test-side SQL follow the active TEST server; resolver, routing, drift, guard.
+    if ! run_quiet "active-TEST canary (P1591)" bash scripts/test-p1591-active-test.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
 else
     echo ">>> migrate.sh prod-gates canary skipped (no migrate scripts staged)"
+fi
+echo ""
+
+# 4.7c1. Hosted-TEST reader guard (P1591) — always on (a grep): no NEW file may reach the hosted
+# TEST project directly; existing readers are allowlisted in scripts/hosted-test-readers.allowlist.
+if ! run_quiet "no new hosted-TEST readers (P1591)" bash scripts/check-hosted-test-readers.sh; then
+    ERRORS=$((ERRORS + 1))
 fi
 echo ""
 

@@ -4,6 +4,11 @@
     python3 scripts/selfhosted/flip-test-env.py selfhosted [--file PATH]
     python3 scripts/selfhosted/flip-test-env.py hosted     [--file PATH]
     python3 scripts/selfhosted/flip-test-env.py status     [--file PATH]
+    python3 scripts/selfhosted/flip-test-env.py active     [--file PATH]
+
+active (P1591) is the resolver other scripts call: prints exactly "selfhosted" or "hosted" on
+stdout, exit 0. A missing, unreadable, malformed or unknown-state file prints the reason on stderr
+and exits 2. It never writes anything and never guesses.
 
 Default PATH is the main checkout's .env.test.local (every worktree symlinks to it). --file lets a
 rehearsal flip a copy and leave the shared file alone.
@@ -97,8 +102,33 @@ def write_atomic(path, text):
     os.replace(tmp, real)
 
 
+def active(args):
+    """P1591 resolver: fail closed, read-only."""
+    if len(args) not in (1, 3) or (len(args) == 3 and args[1] != '--file'):
+        print('active-test: usage: flip-test-env.py active [--file PATH].', file=sys.stderr)
+        return 2
+    path = Path(args[2]) if len(args) == 3 else Path(__file__).resolve().parents[2] / '.env.test.local'
+    try:
+        text = Path(os.path.realpath(path)).read_text()
+    except OSError as e:
+        print(f'active-test: cannot read {path}: {e.strerror}. Cannot tell which TEST server is active.', file=sys.stderr)
+        return 2
+    bad = shape_error(text)
+    if bad:
+        print(f'active-test: {path}: {bad}. Refusing to guess.', file=sys.stderr)
+        return 2
+    now = state(parse(text))
+    if now == 'unknown':
+        print(f'active-test: {path} is neither cleanly hosted nor cleanly self-hosted. Refusing to guess.', file=sys.stderr)
+        return 2
+    print(now)
+    return 0
+
+
 def main():
     args = sys.argv[1:]
+    if args and args[0] == 'active':
+        sys.exit(active(args))
     # Exact shapes only: a typo such as --flie must never fall through to the shared file.
     if not args or args[0] not in ('selfhosted', 'hosted', 'status') \
             or len(args) not in (1, 3) or (len(args) == 3 and args[1] != '--file'):
