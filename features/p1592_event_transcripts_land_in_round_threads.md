@@ -77,7 +77,11 @@ under Decisions). One copy call remains.
 
 - **The server posts, never the browser.** Posting runs from the stored transcript rows, so a
   closed tab, a page change or a reconnect never loses a line and never posts one twice. Each
-  stored live row maps to at most one chat message (idempotent).
+  stored live row records the chat message it went into. A row that already has one is never
+  posted again (idempotent), including by the after-session-1 run below.
+- **Where a line was posted is recorded at posting time and never recomputed.** Seating changes
+  mid-round with no history (`host_set_round_seats` deletes and re-inserts seats), so nothing after
+  the fact can reconstruct it. The swap follows the recorded placement, never the seating tables.
 - **Words reach a channel only that channel's readers can see.** Transcription posts into an event
   channel are readable exactly by whoever `_chat_access_since` admits (the host, and attendees who
   RSVP'd before the grace window). The posting path adds no reader and widens no policy. A speaker
@@ -85,13 +89,18 @@ under Decisions). One copy call remains.
 - **The destination is the speaker's seat when the line is stored**, read from the round seating
   on the server at that moment. The client never chooses or supplies the destination thread
   (same principle as decisions.md 2026-09-08: server-assigned fields are never client-supplied).
-- **The swap never loses words a person can see in the meantime.** If the cleaned transcript is
-  missing, failed, or marks a speaker incomplete (`incomplete_member_ids`), every thread that
-  speaker's words appear in keeps its live text. Fail toward live text, never toward empty.
+- **The swap fails toward live text, never toward empty, and decides per message.** A message keeps
+  its live text when the cleaned transcript is missing or failed, when its speaker is in
+  `incomplete_member_ids` or their end-of-room job did not complete, when no cleaned sentence was
+  placed in it, or when the cleaned text would pass the 4,000-character limit. The swap never
+  inserts, deletes or empties a message.
+- **Neither appending nor the swap marks a message edited.** `edited_at` stays as it is; it belongs
+  to a person editing their own message (`edit_chat_message`).
 - **Forwards and clarifies keep what they copied.** They already store a snapshot
   (`chat_messages_forward_has_snapshot`), and the swap must not touch snapshots.
 - **The live rows are the stored "old version".** `transcribe_messages` already holds every live
-  line. The swap changes only chat messages and never deletes or edits `transcribe_messages`.
+  line. Nothing in this spec deletes a live row or changes its text. Recording a row's placement is
+  the only addition.
 - **The room page (`/transcribe`) behaves exactly as today.** This spec adds a destination; it
   does not change capture, consent, pause, or the room page.
 
@@ -99,16 +108,27 @@ under Decisions). One copy call remains.
 
 ### Where words go (D1, D2)
 
-- A transcription line belongs to the speaker's seat at the moment the line is stored. If they hold
-  a seat in the event's latest round and that round has not ended, the line goes to that table's
-  round thread. Otherwise it goes to the event channel as a top-level post. That covers between
-  rounds, the "Next round" pool, after the host marks them out, and before round 1.
+- A transcription line belongs to the speaker's seat at the moment the line is stored. **Seated**
+  means all three: they have a seat in the event's latest round; that round has not ended; and the
+  host has not marked them left (`event_round_presence.left_at`) or sitting out that round. A
+  seated speaker's line goes to that table's round thread. Anyone else's line goes to the event
+  channel as a top-level post: before round 1, in the "Next round" pool, after being marked out,
+  and after the host ends the rounds. Seats are assigned when the round starts, so the walk to the
+  table already counts as the new round.
+- The speaker's identity links across the two systems by profile: the transcribe member's
+  `profile_id` matches the event room member's `profile_id` for the same event.
+- The event channel may not exist yet, because it is created lazily (`_chat_ensure_for_user`). The
+  posting path creates it if missing, using the same rule (one per event).
 - A round thread is created the first time anyone at that table in that round is transcribed. It is
   not created for tables where nobody records, because twelve empty threads would bury the few that
-  matter. Its root post is written by the system and titled `Round {n} · {names}`, with the first
-  names of everyone seated at that table in that round, including people not recording and
-  observers (D3). Two names: "Anna & Ben". Three: "Anna, Ben & Cleo". When two seated people share
-  a first name, use the names exactly as the event room's table card shows them.
+  matter. **There is exactly one thread per round and table, enforced by the database**: two
+  people's first lines can arrive in the same instant. Its root post is a system post (no
+  author), titled `Round {n} · {names}` (D3). Two names: "Anna & Ben". Three: "Anna, Ben & Cleo".
+- **Who belongs to a thread:** everyone seated at that table in that round when the thread is
+  created, including people not recording and observers, plus anyone seated there later in the same
+  round. The thread keeps this list itself, because seating has no history, and the title follows
+  it. Names are first names, as the event room shows them. When two people in one title share a
+  first name, `/dev` adds the shortest disambiguation the event room already uses, and says which.
 - Re-seating takes effect with no action from the speaker. The next stored line goes to the new seat.
 
 ### How it looks (D6)
@@ -120,8 +140,9 @@ under Decisions). One copy call remains.
   - someone else posted in that place in between;
   - the pause since their last line is longer than a threshold (`/dev`'s call; start near 60 s
     and say why);
-  - the message would pass the 4,000-character body limit, in which case a new message starts at
-    a sentence boundary.
+  - appending would pass the 4,000-character body limit, in which case the new line starts a new
+    message. A live line is never split across two messages. A single line over the limit (a
+    13-second slice is about 40 words, so this should never happen) is cut at whitespace.
 
   This must be stored, not only displayed. Forward and Clarify act on stored messages, and a
   forward of a 13-second fragment is useless.
@@ -131,9 +152,9 @@ under Decisions). One copy call remains.
 
 ### Finding them (D4)
 
-- The event channel gets a "My rounds" filter. It lists the round threads in which I held a seat, by
-  name, newest round first. Opening one opens the thread. Shown only in an event channel that has
-  at least one round thread.
+- The event channel gets a "My rounds" filter. It lists the round threads whose member list
+  includes me, by name, newest round first. Opening one opens the thread. Shown only in an event
+  channel that has at least one round thread.
 
 ### The bar (D7)
 
@@ -142,25 +163,26 @@ under Decisions). One copy call remains.
   a consent sentence: the explanation stays behind the existing ⓘ (decisions.md 2026-10-02,
   "an info affordance instead of an on-bar sentence").
 - [FOUNDER DECISION: copy. The idle bar's description today reads "Record audio and share transcript
-  with others in the room." It now also posts to the event channel. Draft: "Record audio and post
-  the transcript to this event's channel, where attendees can read it." The ⓘ text gets the same
-  line. Confirm or rewrite.]
+  with others in the room. Transcription follows our Terms and Privacy Policy." It now also posts to
+  the event channel. Draft: "Record audio and post the transcript to this event's channel, where
+  attendees can read it. Transcription follows our Terms and Privacy Policy." The ⓘ text gets the
+  same first sentence. Confirm or rewrite.]
 
 ### The quiet swap (D9, D10)
 
-- When the end-of-room job (`transcribe-room-batch`) writes the room's cleaned transcript, each
-  cleaned segment is placed by its speaker and time into the place that speaker sat at that time:
-  the same rule as live. The transcription messages of each affected place are then rewritten with
-  the cleaned text.
-- Only transcription messages change. Human posts and replies inside a thread stay where they are.
-- No transcription message is deleted or emptied by the swap. If the cleaned text has fewer
-  stretches than the live one, stretches are merged into the existing messages rather than leaving
-  an empty one.
+- The swap works **message by message, never by reseating**. Each live transcription message
+  already has a speaker and a time window: from its first to its last live line. When the end-of-room
+  job (`transcribe-room-batch`) writes the room's cleaned transcript, each cleaned sentence of a
+  speaker goes to that speaker's live transcription message whose window contains the sentence's
+  midpoint. If no window contains it, it goes to the nearest one in time. Each message's text then
+  becomes its sentences joined in order, unless the per-message rule in Invariants keeps its live
+  text.
+- So the swap changes text inside existing messages only. Message count, order, threads, typed
+  posts, and replies all stay as they are.
+- Cleaned sentence times are estimates, good to a few seconds (`audio.py:157-163`), so a sentence
+  near the edge of a window can land in the same speaker's neighbouring message. Next to a round
+  change, that neighbour can sit in the other thread. Accepted under Risks.
 - Nothing is shown to users: no "edited" mark, no "improving" notice.
-- Cleaned segment times are estimates, good to a few seconds (`audio.py:157-163`). Round changes
-  include a 60-second find-your-table window (P1337), during which speech goes to the event channel.
-  So a boundary error moves a sentence to a neighbouring place by a few seconds. That is accepted
-  under Risks.
 
 ### If this ships after session 1
 
@@ -177,7 +199,8 @@ batch, never per-row calls from a script (metered-services rule 1).
 | A lavalier still picks up the partner, so a few passages appear under two names | ACCEPT | Kept visible, never deleted (the batch labels them "also heard by"). Measured in Done-When; a cross-phone de-duplication spec is filed only if the count says so. |
 | The live slice path invents text at a cut (decisions.md 2026-09-11) or repeats a phrase on silence, visible live in the thread | ACCEPT | The cleaned swap replaces it after the room ends. The live text was already visible on the room page; this spec moves it, it does not create it. |
 | In the mastermind, the pair reversing whose canvas they discuss is one round (the in-round speaker swap, P1337), so both canvases land in one thread | DEFER | P1529 makes each role reversal its own round. Until then the host can start the next round with the same pairs re-seated by hand (the host panel supports manual swaps, P1337; whether that is quick enough for session 1 is UNVERIFIED). |
-| A cleaned sentence near a round boundary lands in the neighbouring place | ACCEPT | Segment times are estimates good to a few seconds. The 60-second find-your-table window holds mostly walking chatter. |
+| A cleaned sentence lands in the same speaker's neighbouring message, across a round change too | ACCEPT | Segment times are estimates good to a few seconds (`audio.py:157-163`). It moves one sentence a few seconds. The speech right after a round starts is mostly the walk to the table. |
+| A forward or clarify made while someone is still talking copies only the text so far | ACCEPT | The snapshot is what the person chose at that moment. The live message keeps growing. |
 | Growing one message per stretch re-sends its whole body on every append over Realtime | MITIGATE | The 4,000-character cap bounds it. See Cost Budget. |
 | A speaker's live words land in a thread the other seated person cannot read (late RSVP, account without RSVP) | ACCEPT | Rare. Visibility follows the channel's existing rule, which this spec must not widen (Invariants). |
 | Transcription of every event, Clarity Night included, now lands in that event's channel | ACCEPT | Intended (founder: "LEGO blocks"). The terms already say the transcript is shared with the room. |
@@ -204,7 +227,14 @@ Checked on TEST with an event that has rounds, two attendee accounts and the hos
 - [ ] The host starts round 2 with new seating. The same person's next words appear in the round 2
       thread, without them touching the bar.
 - [ ] While transcribing, the bar names the current destination ("Round 2 · …" or the event channel).
-- [ ] A table where nobody transcribes gets no thread.
+- [ ] A table where nobody transcribes gets no thread. Two people at one table whose first lines
+      arrive together get one thread, not two.
+- [ ] The host marks a seated, transcribing attendee as left mid-round: their next words go to the
+      event channel.
+- [ ] Transcribing in an event whose channel nobody has opened yet still posts: the channel appears
+      with the posts in it.
+- [ ] A transcription message that keeps growing while someone talks shows no "edited" mark, before
+      or after the swap.
 - [ ] "My rounds" lists exactly the round threads the viewer was seated in.
 - [ ] An account that did not RSVP to the event cannot read the threads (RLS check by query, not by UI).
 - [ ] After the room ends and the end-of-room transcript completes, thread text changes to the cleaned
