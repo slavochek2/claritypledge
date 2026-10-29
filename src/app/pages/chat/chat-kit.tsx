@@ -21,6 +21,8 @@ export const HOVER = '[@media(hover:hover)]:hover:bg-accent';
 /** The design system's primary CTA (docs/design-system.md, Button Decision Rules #1): one per screen. */
 export const PRIMARY_CLASS = 'min-h-10 rounded-lg';
 export const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+/** A 40px round icon button (the composer's attach, mic, send and close controls). */
+export const ROUND = 'flex h-10 w-10 shrink-0 items-center justify-center rounded-full';
 
 const SIZE = {
   xs: '!h-5 !w-5 !text-[10px]',

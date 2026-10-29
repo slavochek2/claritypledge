@@ -5,6 +5,8 @@ import type { ChatMessage } from '@/app/data/chat-service';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { backPlan, chatNav, HOME, leavePlan, routeLevel, type NavIntent, type NavPlan } from './chat-view-model';
+import { mergeDictation } from './dictation-text';
+import { clearPendingExcept } from './pending-dictation';
 
 /**
  * While `on`, a press outside every given ref and the Escape key both call `onClose`.
@@ -62,12 +64,32 @@ export function clearDraftsExcept(userId: string | null): void {
   for (const key of [...drafts.keys()]) {
     if (!userId || !key.startsWith(`${userId}:`)) drafts.delete(key);
   }
+  clearPendingExcept(userId); // dictated words waiting for room belong to the same person
 }
 
 /** P1520: give a draft back to ITS slot without showing it anywhere (the composer has moved to another slot). */
 export function stashDraft(key: string, value: string): void {
   // Never over a newer draft written in that slot meanwhile.
   if (value && !drafts.get(key)) drafts.set(key, value);
+}
+
+/** The draft stored under `key` ('' when none). Reads the store, not what a composer shows. */
+export function peekDraft(key: string): string {
+  return drafts.get(key) ?? '';
+}
+
+/**
+ * P1576: put dictated text into the draft of the slot it was spoken in, at the caret it was started
+ * from, without showing it anywhere. For a transcript that resolves after the composer moved to
+ * another chat (or unmounted): unlike `stashDraft` it merges into a draft that already has text.
+ * Returns false, leaving the draft as it was, when the words would take it past the message cap: the
+ * caller then holds them for that chat (`pending-dictation`), so they are neither cut nor lost.
+ */
+export function insertIntoDraft(key: string, text: string, caret: number): boolean {
+  const merged = mergeDictation(drafts.get(key) ?? '', text, caret);
+  if (!merged.fits) return false;
+  if (merged.value) drafts.set(key, merged.value);
+  return true;
 }
 
 export function useDraft(key: string): [string, (value: string) => void] {

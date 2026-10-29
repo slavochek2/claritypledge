@@ -118,6 +118,14 @@ person in that chat, when they ask it about the chat or copy your message into i
 [Privacy Policy](https://claritypledge.com/privacy-policy) explains what is sent to Google's
 Gemini API and how to object.
 
+### Voice in chats
+
+Dictation and voice notes in chats use Google's Gemini API to turn speech into text, and the text
+may be inaccurate: check dictated text before sending. Voice-note audio is kept for 30 days, its
+transcript for as long as the message. A voice note to your mirror agent is answered from its
+transcript, which may contain errors. Do not record other people without their permission. Our
+[Privacy Policy](https://claritypledge.com/privacy-policy) explains what is stored and for how long.
+
 ## Machine Accounts and Public-Source Content
 
 Some accounts on the platform are operated by machines rather than by the person they are

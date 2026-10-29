@@ -59,6 +59,25 @@ export interface ChatMessage {
    * there, or the mirror's answer to it. Only the owner can ever read such a row.
    */
   contextConversationId?: string | null;
+  /** P1576: set on a voice note (human chats and threads only); null / absent on every other message. */
+  audio?: ChatAudio | null;
+}
+
+export type ChatTranscriptStatus = 'pending' | 'done' | 'failed';
+
+/**
+ * P1576: what a client may know about a voice note. The storage path is server-only and never
+ * appears here; playback goes through getVoicePlaybackUrl.
+ */
+export interface ChatAudio {
+  durationMs: number;
+  /** NULL until transcribed, and after a failure. '' is a legitimate transcript (a silent clip). */
+  transcript: string | null;
+  transcriptStatus: ChatTranscriptStatus;
+  /** false once the 30-day retention removed the audio: the bubble reads "Audio expired" and keeps the transcript. */
+  hasAudio: boolean;
+  /** 50 loudness values 0..100 drawn as the bubble's bars; NULL on notes made before waveforms existed. */
+  audioWaveform: number[] | null;
 }
 
 export interface ChatSummary {
@@ -167,6 +186,11 @@ export interface ChatMessageRow {
   attachment_id: string | null;
   client_id?: string | null;
   context_conversation_id?: string | null;
+  audio_duration_ms?: number | null;
+  audio_expired_at?: string | null;
+  transcript?: string | null;
+  transcript_status?: ChatTranscriptStatus | null;
+  audio_waveform?: number[] | null;
 }
 
 export interface ChatSummaryRow {
@@ -257,6 +281,17 @@ export function mapForwardSnapshot(raw: Record<string, unknown> | null): Forward
   };
 }
 
+function mapAudio(row: ChatMessageRow): ChatAudio | null {
+  if (row.audio_duration_ms == null || row.deleted_at !== null) return null;
+  return {
+    durationMs: row.audio_duration_ms,
+    transcript: row.transcript ?? null,
+    transcriptStatus: row.transcript_status ?? 'pending',
+    hasAudio: !row.audio_expired_at,
+    audioWaveform: Array.isArray(row.audio_waveform) ? row.audio_waveform : null,
+  };
+}
+
 export function mapMessageRow(row: ChatMessageRow): ChatMessage {
   return {
     id: row.id,
@@ -277,6 +312,7 @@ export function mapMessageRow(row: ChatMessageRow): ChatMessage {
     attachmentId: row.attachment_id,
     clientId: row.client_id ?? null,
     contextConversationId: row.context_conversation_id ?? null,
+    audio: mapAudio(row),
   };
 }
 
@@ -372,6 +408,12 @@ export function keysetBeforeFilter(before: string | ChatCursor): string {
 /** A chat shows as unread when it has unread messages or the user marked it unread by hand. */
 export function isChatUnread(chat: Pick<ChatSummary, 'unreadCount' | 'manualUnread'>): boolean {
   return chat.unreadCount > 0 || chat.manualUnread;
+}
+
+/** The text the chat list shows for a message: its body, "Message deleted", or "Voice message" for a voice note. */
+export function listBody(m: Pick<ChatMessage, 'isDeleted' | 'body' | 'audio'>): string | null {
+  if (m.isDeleted) return DELETED_MESSAGE_TEXT;
+  return m.audio ? 'Voice message' : m.body;
 }
 
 /** One line for a chat-list row. */

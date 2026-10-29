@@ -3,14 +3,15 @@
  * for the context object keeps Fast Refresh working, as chat-state.ts does for the chat).
  */
 import { createContext, useContext, useEffect } from 'react';
-import type { ChatMessage } from '@/app/data/chat-service';
+import type { ChatMessage, ChatTranscriptStatus } from '@/app/data/chat-service';
+import { voiceStatesToResume } from './mirror-voice';
 import type { MirrorGender, MirrorProfile } from '@/app/data/mirror-service';
 
 /**
  * What the mirror is doing about one of its owner's messages. Absent = nothing to show (answered, or
  * never asked). `unavailable`: the mirror cannot answer on this project.
  */
-export type MirrorReplyStatus = 'thinking' | 'failed' | 'capped' | 'terms';
+export type MirrorReplyStatus = 'thinking' | 'failed' | 'capped' | 'terms' | 'transcribing' | 'transcript_failed';
 
 export type PortraitStatus = 'idle' | 'painting' | 'failed' | 'capped' | 'terms';
 
@@ -23,7 +24,7 @@ export interface MirrorContextValue {
   /** Ask (again) for the mirror's answer to one of the owner's own mirror messages. */
   requestReply: (messageId: string) => void;
   /** Looks up the job states of these messages (after a reload, so a failed one offers Try again). */
-  loadStatuses: (messageIds: string[]) => void;
+  loadStatuses: (messageIds: string[], voice?: Record<string, ChatTranscriptStatus>) => void;
   /** A private question from a channel; resolves once it is stored (the answer follows). */
   ask: (channelId: string, body: string) => Promise<ChatMessage>;
   newFace: () => Promise<void>;
@@ -55,6 +56,6 @@ export function useRestoreMirrorStatuses(rows: ChatMessage[] | null, userId: str
       .filter((m) => m.authorId === userId && (m.kind === 'message' || m.kind === 'clarify') && !m.isDeleted && !answered.has(m.id))
       .slice(-20)
       .map((m) => m.id);
-    loadStatuses(waiting);
+    loadStatuses(waiting, voiceStatesToResume(rows, waiting));
   }, [rows, loadStatuses, userId, enabled]);
 }

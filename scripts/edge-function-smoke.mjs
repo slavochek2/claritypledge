@@ -127,6 +127,12 @@ export const EDGE_FUNCTION_EXPECTATIONS = {
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },
   },
   // P1511. Deployed with gateway JWT verification, so the credential-free deny is the gateway's.
+  // P1576: voice notes. Deployed WITH gateway JWT verification (the cron sweep sends the anon key plus
+  // x-cron-secret), so a credential-free POST is refused by the gateway before the handler runs.
+  'chat-voice': {
+    options: { status: 200, expectCors: true },
+    deny: { status: 401, bodyIncludes: 'Missing authorization header' },
+  },
   'check-login-email': {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },
@@ -180,6 +186,13 @@ export const EDGE_FUNCTION_EXPECTATIONS = {
   // the gateway refuses it, and the deny row below is the gateway's reply, not ours.
   // The handler carries its own 401 'Unauthorized' behind that, which is belt-and-braces
   // and is exercised by handler.test.ts rather than here.
+  // P1576. Dictation: the user's JWT is required, and the gateway enforces it (deploy-functions.sh
+  // gives --no-verify-jwt to create-and-sign alone), so the deny row is the gateway's reply. The
+  // handler's own 401 behind it is exercised by handler.test.ts.
+  'transcribe-clip': {
+    options: { status: 200, expectCors: true },
+    deny: { status: 401, bodyIncludes: 'Missing authorization header' },
+  },
   'transcribe-slice': {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },

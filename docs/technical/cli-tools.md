@@ -149,7 +149,20 @@ After adding/changing this config, authenticate by running `claude /mcp` in a re
 
 ### Supabase CLI Authentication
 
-The CLI requires a separate access token (not related to the MCP). Run `supabase login` in a terminal — it opens a browser OAuth flow. For CLI operations you can also pass `--db-url` directly or use project linking.
+The CLI requires a separate access token (not related to the MCP). **Never `supabase login`** — it saves an account-wide token that reaches prod with no prompt (P1318, see [credentials.md](../../.claude/rules/credentials.md) and [credential-keyring.md](credential-keyring.md)). Use a project-scoped token per call instead:
+
+- **Test edge functions:** `SUPABASE_ACCESS_TOKEN=$SUPABASE_TEST_FUNCTIONS_TOKEN` (from `.env.local`). **Test DB:** `SUPABASE_TEST_WRITE_TOKEN`.
+- **Prod:** read the token from the keychain via `keyring_require` (one dialog per read).
+
+Setting test edge-function secrets (values never on a command line, they are visible in `ps`; put them in a mode-600 env file):
+
+```bash
+SUPABASE_ACCESS_TOKEN=$SUPABASE_TEST_SECRETS_TOKEN npx supabase secrets set --env-file <600-file> --project-ref <test ref>
+```
+
+If this fails with a missing `edge_functions_secrets_write` permission, use `SUPABASE_TEST_SECRETS_TOKEN` (test-only, secrets write); if that is missing too, the **founder** creates a test-project-only token with that scope. Never substitute a broader token and never run `supabase login`.
+
+For other CLI operations pass `--project-ref` explicitly. Never put a `--db-url` containing a password on the command line (it is visible in `ps`).
 
 ### Mixpanel MCP Authentication
 

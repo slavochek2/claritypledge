@@ -237,10 +237,23 @@ are removed from our database, not just hidden. A record that a message was ther
 author and time, stays and shows as "Message deleted". Copies that others forwarded or clarified
 before you deleted it keep their copy.
 
+**Speaking instead of typing.** Signed-in people can use the microphone in any chat composer.
+*Dictation* (the microphone inside the text field) sends your recording to **Google's Gemini API**,
+which returns the text into your field for you to check and edit before sending. The recording is
+not stored by us: it is discarded once the text comes back. A *voice note* (the round microphone
+button, in any chat including your mirror agent chat) is sent as audio: it is
+stored in a private Google Cloud Storage bucket, played only through short-lived links issued to
+the people in that chat, and transcribed once by Google's Gemini API after you send it. The audio
+is deleted after **30 days**, when you delete the message, or when your account is deleted. Its
+transcript is kept with the message, like text, and is removed the same way a message is.
+In your mirror agent chat, the agent reads a voice note's transcript, never the audio, and answers
+only once the transcript is ready; a private question to your mirror inside another chat takes typed
+text only. Recordings are limited to 3 minutes for dictation and 2 minutes for a voice note.
+
 **How it is stored.** Messages are stored in our database at Supabase (see Who Processes Your
 Data) and delivered live through Supabase's real-time service. They are not end-to-end encrypted.
 Chat content is sent to an AI provider only when a mirror agent is asked, as described under
-Your mirror agent in AI features. For each request to a mirror agent we keep which message
+Your mirror agent in AI features, or when you dictate or send a voice note (above). For each request to a mirror agent we keep which message
 triggered it, whether it finished, and whose words it drew on, so that answers can be cleared when
 an account is deleted (below). Mixpanel session recording (see Analytics) is switched
 off on the chat pages, before any chat is shown. If an error happens on a chat page, Sentry's error

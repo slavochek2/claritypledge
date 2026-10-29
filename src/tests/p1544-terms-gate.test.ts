@@ -33,7 +33,6 @@ describe('P1544: the client reads the typed refusal', () => {
 
 describe('P1544: the gate runs first in both functions', () => {
   it.each([
-    ['supabase/functions/mirror-reply/index.ts', ["rpc('mirror_request_reply'", "rpc('_mirror_begin_job'", 'await fetch(`https://generativelanguage']],
     ['supabase/functions/mirror-portrait/index.ts', ["rpc('_mirror_begin_portrait'", 'await runArtistBanner({']],
   ])('%s checks terms before %j', (file, later) => {
     const src = read(file);
@@ -45,5 +44,27 @@ describe('P1544: the gate runs first in both functions', () => {
       expect(gate, `${token} runs before the gate`).toBeLessThan(at);
     }
     expect(src).toContain('TERMS_NOT_ACCEPTED_STATUS');
+  });
+
+  // P1576: mirror-reply's logic moved into handler.ts with two entrances (the user's JWT, and the internal call the
+  // voice-note trigger makes). EACH entrance must check terms before it creates a job or runs one (which reserves
+  // spend and calls the model); index.ts only wires the real dependencies (hasTerms is callerHasCurrentTerms).
+  it.each([
+    ['handleUser', ['d.requestReply(', 'runJob(']],
+    ['handleInternal', ['runJob(']],
+  ])('mirror-reply handler.ts: %s checks terms before %j', (fn, later) => {
+    const src = read('supabase/functions/mirror-reply/handler.ts');
+    const start = src.indexOf(`async function ${fn}(`);
+    expect(start, `${fn} missing`).toBeGreaterThan(-1);
+    const end = src.indexOf('\n}\n', start);
+    const body = src.slice(start, end);
+    const gate = body.indexOf('await d.hasTerms(');
+    expect(gate, 'no gate call').toBeGreaterThan(-1);
+    for (const token of later) {
+      const at = body.indexOf(token);
+      expect(at, `${token} missing`).toBeGreaterThan(-1);
+      expect(gate, `${token} runs before the gate`).toBeLessThan(at);
+    }
+    expect(read('supabase/functions/mirror-reply/index.ts')).toContain('hasTerms: (userId) => callerHasCurrentTerms(service, userId)');
   });
 });

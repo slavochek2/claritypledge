@@ -133,9 +133,17 @@ const ALLOWLIST: Record<string, { counts: Partial<Record<Kind, number>>; why: st
     counts: { 'animate-pulse': 1 },
     why: 'Typing-cursor indicator in the scripted chat demo on the landing page.',
   },
-  'src/app/pages/chat/MessageRow.tsx': {
+  'src/app/pages/chat/MirrorReplyState.tsx': {
     counts: { 'animate-pulse': 1 },
-    why: 'Typing indicator: "<name> is thinking…" while the mirror replies (P1554).',
+    why: 'Typing indicator: "<name> is thinking…" while the mirror replies (P1554; moved out of MessageRow by P1576).',
+  },
+  'src/app/pages/chat/VoiceBubble.tsx': {
+    counts: { 'loose-spinner': 2 },
+    why: 'P1576: the play button spins in place while the audio loads (a control showing its own work), and "Transcribing…" labels its own small spinner.',
+  },
+  'src/app/pages/chat/VoiceControls.tsx': {
+    counts: { 'animate-pulse': 1 },
+    why: 'P1576: the red recording dot blinks while the mic records. A live-recording signal, not a wait.',
   },
   'src/app/pages/chat/chat-kit.tsx': {
     counts: { 'animate-pulse': 1 },

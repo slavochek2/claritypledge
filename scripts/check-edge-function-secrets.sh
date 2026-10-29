@@ -351,7 +351,9 @@ if [ -n "$MISSING" ]; then
     _safe_echo "  - $var (referenced at $site)"
   done
   _safe_echo ""
-  _safe_echo "Set with: SUPABASE_ACCESS_TOKEN=... supabase secrets set VAR=value --project-ref $PROJECT_REF"
+  _safe_echo "Set test secrets with: SUPABASE_ACCESS_TOKEN=\$SUPABASE_TEST_SECRETS_TOKEN npx supabase secrets set --env-file (a mode-600 file) --project-ref $PROJECT_REF"
+  _safe_echo "Prod: token comes from the keyring (keyring_require). Never supabase login (account-wide, reaches prod, P1318)."
+  _safe_echo "Never put secret values on a command line (ps-visible). Use SUPABASE_TEST_SECRETS_TOKEN (test-only, secrets write); never a broader token."
   exit 1
 fi
 

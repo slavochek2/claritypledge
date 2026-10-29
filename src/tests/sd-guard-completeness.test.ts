@@ -63,6 +63,15 @@ const CRITICAL_TOKENS: ReadonlyArray<string> = ['p878_relationship_scope'];
  *             "<functionName>:token:<tokenString>" for token guards.
  */
 const KNOWN_INTENTIONAL_REMOVALS = new Set<string>([
+  // P1576 (20261027120600_p1576_mirror_voice_and_waveform.sql), founder 2026-10-27: voice notes are
+  // allowed in the owner's Mirror chat. A product rule, not an access guard: posting still goes through
+  // _chat_assert_can_post (a non-owner gets 42501), private @mirror asks still cannot carry audio
+  // (chat_messages_audio_shape requires context_conversation_id IS NULL), and the agent answers only a
+  // finished transcript. Pinned by e2e/integration/p1576-chat-voice-notes.spec.ts.
+  'chat_voice_check_post:chat: voice notes are not available in this chat',
+  'chat_commit_voice_note:chat: voice notes are not available in this chat',
+  'chat_voice_reserve_upload:chat: voice notes are not available in this chat',
+
   // P1546 (20261022160000_p1546_threads_everywhere.sql), founder 2026-10-22: threads in every chat.
   // A product rule, not an access guard: the thread root must still be a live root of THIS
   // conversation the caller can read ('chat: thread not available'), and posting still goes through

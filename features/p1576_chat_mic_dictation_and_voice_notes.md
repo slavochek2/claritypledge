@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 77
 workstream: clarity-chat
 created_date: '2026-10-26'
 tags: [chat, voice, transcription, mirror]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -47,7 +47,7 @@ The founder's "everywhere" covers these surfaces:
 |---|---|---|
 | Human 1:1 and group chats (`ConversationPane` → `Composer`) | yes | yes |
 | Thread replies (`ThreadPanel` → `Composer`) | yes | yes |
-| Mirror agent chat (`kind === 'mirror'`, renders through `ConversationPane` → `Composer`; verified in review) | yes | **no** |
+| Mirror agent chat (`kind === 'mirror'`, renders through `ConversationPane` → `Composer`; verified in review) | yes | **yes** (founder, 2026-10-27): the agent answers the transcript, only once it is done |
 | Private @mirror ask inside a human chat (`Composer` `privateTo` set, P1520) | yes | **no** — treated as Mirror |
 | Mirror landing-lab screen (`tree/landing-lab/first/MirrorScreen.tsx`, route is DEV-only today) | [FOUNDER DECISION: scope — include now, or when that landing goes live?] | no |
 | Editing a sent message (`MessageRow` textarea) | [FOUNDER DECISION: scope] | no |
@@ -103,8 +103,18 @@ The founder's "everywhere" covers these surfaces:
   audio immediately.
 - The message shows as an audio bubble with play/pause and duration. The transcript is produced
   after sending and sits under the bubble behind "Show transcript".
-- The Mirror chat never shows the round button. The agent reads text only, so it must see
-  transcript the user has checked.
+- **Mirror chat (founder, 2026-10-27): voice notes allowed.** The agent reads the server transcript, never
+  audio. It must not answer before the transcript is done: `mirror_request_reply` creates no job while the
+  transcript is `pending` (state `transcribing`) and refuses with `transcript_failed` when it failed (the
+  client tells the user it could not hear the message). `_mirror_begin_job` re-checks as a backstop.
+  **The server starts the reply (founder, option A, 2026-10-28):** a trigger on `chat_messages` fires when a
+  voice note's transcript turns `done` (non-blank, owner's own mirror), inserts the one `reply` job and calls
+  `mirror-reply` through pg_net with an internal secret. The browser never asks automatically for a voice
+  note; Try again (user path) remains. Private @mirror asks still take text only.
+- **Bubble (founder, 2026-10-27): WhatsApp/Telegram style.** About 50 waveform bars, computed once at
+  commit from the WAV and stored in `chat_messages.audio_waveform` (numbers only, never the path), drawn as
+  the progress indicator: filled as it plays, tap or drag to seek; duration under it; compact. "Show
+  transcript" stays.
 
 ```
 Empty input, human chat
@@ -123,7 +133,8 @@ Text present → send slot becomes (➤). Mirror chat → send slot is only ever
   feels like a bug. No mainstream product mixes the two engines. Browser speech also needs one fixed
   language (P1295 already found it unfit for room transcription).
 - **Browser speech only.** Rejected: weaker quality, no mixed-language support, absent in Firefox.
-- **Voice notes in Mirror too.** Rejected: the agent would answer unchecked transcript.
+- **Voice notes in Mirror too.** First rejected (the agent would answer unchecked transcript); reversed by
+  the founder on 2026-10-27: the agent answers the transcript, gated on it being done.
 - **Two specs (dictation now, voice notes later).** Rejected by the founder: it doubles spec review,
   `/finish` and UAT overhead.
 - **Reuse `transcribe-slice`.** Rejected: room membership and consent, 5 s slices and a row insert
@@ -152,66 +163,182 @@ Text present → send slot becomes (➤). Mirror chat → send slot is only ever
 
 ## Invariants
 
-- The Mirror agent only ever receives text the user saw in the input before sending.
+- The server, not the browser, starts the Mirror's reply to a voice note, once and only when its transcript
+  is `done` (migration `20261027120700`; the trigger never fails the transcript write). The client never
+  asks automatically for a voice note's reply.
+- The Mirror agent only ever receives text: what the user typed, or the server transcript of their own
+  voice note once `transcript_status = 'done'`. It never answers a voice note whose transcript is pending
+  or failed, and never receives audio.
 - Exactly one primary action in the send slot at any time (P955).
 - Dictation audio is never stored: transcribed, then discarded.
 
 ## Acceptance Criteria
 
-- [ ] In every surface marked "yes" for dictation, tapping the mic, speaking and pressing ✓ puts the
+- [x] In every surface marked "yes" for dictation, tapping the mic, speaking and pressing ✓ puts the
       spoken words into the input, editable, without sending.
-- [ ] ✕ during recording discards the clip and leaves the existing draft untouched.
-- [ ] A 60 s mixed Russian/English clip comes back as text; wait measured and recorded (target < 3 s).
-- [ ] Works on desktop Chrome, iOS Safari and Android Chrome.
-- [ ] Mic denied → a clear message; typing still works.
-- [ ] Human chat, empty input: the round button records and sends a voice note; the other person
+- [x] ✕ during recording discards the clip and leaves the existing draft untouched.
+- [x] A 60 s mixed Russian/English clip comes back as text; wait measured and recorded (target < 3 s).
+- [x] Works on desktop Chrome, iOS Safari and Android Chrome. *(Desktop proven; phones moved to post-ship UAT by the founder, 2026-10-28: "i will do phone after we ship to prod" — see Post-ship UAT.)*
+- [x] Mic denied → a clear message; typing still works.
+- [x] Human chat, empty input: the round button records and sends a voice note; the other person
       sees an audio bubble, can play it, and can open its transcript.
-- [ ] Mirror chat never shows the voice-note button.
-- [ ] With text, a staged attachment or a sendable quote, the send slot shows Send, never the
-      voice-note button; with a private @mirror ask open, no voice-note button.
-- [ ] Transcription failure keeps the clip with Retry / Discard; a double ✓ sends one request.
-- [ ] Switching chat mid-recording discards it; a late transcript lands in the originating chat's
+- [x] Mirror chat shows the voice-note button; the agent answers only after the transcript is done
+      (pending: no job, then one answer), and a failed transcript tells the user instead of answering.
+- [x] The voice bubble shows ~50 server-computed waveform bars that fill as it plays; tap/drag seeks;
+      duration under the bars; "Show transcript" still works.
+- [x] With text, a staged attachment or a sendable quote, the send slot shows Send, never the
+      voice-note button; with a private @mirror ask open, no voice-note button (also in the Mirror chat).
+- [x] Transcription failure keeps the clip with Retry / Discard; a double ✓ sends one request.
+- [x] Switching chat mid-recording discards it; a late transcript lands in the originating chat's
       draft, not the visible one.
-- [ ] Server rejects an over-length clip and an over-rate request (Deno tests, shown failing first).
-- [ ] Voice notes play on prod's CSP (test parses `vercel.json`); a non-member can't fetch the audio.
-- [ ] Deleting a voice note, and account erasure, remove the audio object; the transcript shows
+- [x] Server rejects an over-length clip and an over-rate request (Deno tests, shown failing first).
+- [x] Voice notes play on prod's CSP (test parses `vercel.json`); a non-member can't fetch the audio.
+- [x] Deleting a voice note, and account erasure, remove the audio object; the transcript shows
       "Transcribing…" → text, or "Transcript unavailable".
-- [ ] Real-device check (iOS Safari, Android Chrome) is done by the founder at UAT; the agent
-      provides desktop and emulated evidence.
-- [ ] Privacy page and ToS state voice handling as decided below.
+- [x] Real-device check (iOS Safari, Android Chrome) is done by the founder at UAT; the agent
+      provides desktop and emulated evidence. *(Moved to post-ship UAT by the founder, 2026-10-28.)*
+- [x] Privacy page and ToS state voice handling as decided below (founder approved, 2026-10-28).
+
+### AC evidence (/dev, 2026-10-27)
+
+Ticked items carry test evidence on branch `feature/p1576-chat-mic`: vitest (7,733 passing, full suite),
+Deno (267: `transcribe-clip`, `chat-voice`, `_shared`), DB canary on TEST
+(`e2e/integration/p1576-chat-voice-notes.spec.ts`, 18/18: membership, constraints, ledger + lock under
+15 parallel commits, delete/erase purge, retention, backoff, Realtime carries no path), authenticated
+E2E with Chrome's fake microphone (`e2e/p1576-chat-voice.spec.ts`, 14/14, `--retries=0`; both edge
+functions route-mocked, commits go through the real RPC), the CSP test parsing `vercel.json`, and the
+direct Gemini latency measurement in Cost Budget.
+
+**Still unticked, and why:** the dictation and voice-note end-to-end ACs, object deletion, and
+real devices need the deployed pieces this run did not create (private bucket, the feature's Gemini
+key, the two edge functions on TEST; see Pre-deploy Checklist). Privacy/ToS text is drafted and waits
+on Open Question 1.
+
+### AC evidence (/dev, 2026-10-28)
+
+On TEST, with the migrations through `20261027120700` applied and `chat-voice` / `mirror-reply` deployed:
+integration spec 22/22 (`e2e/integration/p1576-chat-voice-notes.spec.ts`, incl. the server trigger: one
+job per done mirror note, none for blank or non-mirror notes), authenticated E2E 16/16
+(`e2e/p1576-chat-voice.spec.ts`: the Mirror chat offers the voice button, the browser asks nothing,
+"thinking" appears when the transcript lands and clears on the agent reply; 50 waveform bars fill as it
+plays and a tap seeks), vitest 999 (p1576/p1520/p1512/p1544), Deno 111. Live: the trigger's internal
+calls to `mirror-reply` returned 200 `done` with real agent messages; the sweep cron returns 200 and
+purged a queued object; the founder verified dictation on TEST. The bucket `--check` passes with the
+signer's IAM binding. **Not ticked:** phones and the real-device check (founder at UAT) and the
+privacy/ToS wording (Open Question 1).
+
+### Known limitations (accepted, from review)
+
+- A re-PUT with a still-valid upload URL (5 min) after a note was deleted and purged recreates an object
+  no row points to; the bucket's 31-day lifecycle rule removes it.
+- Retention expires at most 100,000 notes per daily run; above that the next day continues.
+- If the backoff write itself fails during a sweep, that path is skipped for the rest of the run only.
+- Edge-function outbound bytes (audio sent to Gemini) may count as Supabase egress: UNVERIFIED, check
+  the usage page after the first week.
+- The level meter was only seen with Chrome's fake microphone; that it responds to a real voice is
+  checked at UAT.
+
+## Post-ship UAT (founder, on prod)
+
+The founder moved the phone checks after the ship (2026-10-28). Not a completion criterion of this build.
+
+- iPhone Safari and Android Chrome: dictation, a voice note in a 1:1 (record, play, tap the bars to seek,
+  Show transcript), and a voice note to the Mirror (no answer while Transcribing…, then one answer).
 
 ## Cost Budget
 
-Gemini 3.5 Transcribe is not in the metered-services registry yet. `/dev` adds its row from the
-pricing page before ship. Audio tokens per second are also UNVERIFIED, so the numbers below are
-formulas.
+**Measured (/dev, 2026-10-27):** a synthetic 60 s mixed EN/RU clip (16 kHz mono WAV, 1.9 MB) sent
+straight to `gemini-3.5-transcribe` came back correct in both languages in 4.65 s cold, then 2.82 /
+2.45 / 2.57 s warm (target < 3 s met warm; edge-function overhead not yet included). It used 1500 prompt
+tokens = **25 audio tokens/s**, matching the pricing page. Price (registry row added): $2.00/1M audio in,
+$12.00/1M out ≈ **$0.005 per audio minute**. Verdict: a heavy user at 10 min of audio/day ≈ $1.50/month;
+100 such users ≈ $150/month, bounded by the feature's own budget-capped key. Fits at 10x only with the
+cap set to match; the per-user rate limit (6 clips/min, 3 min max) bounds a single abuser to ≈ $0.09/min.
 
-| Measure | Per user | Per hour | Per test run |
+**Call counts per action** (from the built code): a dictation = 1 edge call (`transcribe-clip`) + 1
+Gemini call. A voice note = 2 edge calls (`chat-voice` upload + commit) + 1 GCS PUT + 1 ranged GET (header check) + 1
+full GET at commit (waveform bars, only after the header passes) + 1 download + 1 Gemini call, then 1 edge call + 1 GCS GET per playback (URL valid 2 min, fetched again on each play). Audio is WAV
+16 kHz mono = 32 KB/s: a 30 s note is 0.96 MB, the 2 min cap is 3.84 MB. The cron runs 288 SQL checks a
+day and calls the edge function only when there is work (0 calls idle).
+
+**Scenario used for the arithmetic** (assumption, not a measurement — real user counts stay private):
+100 active users a day, each sending 5 voice notes (30 s avg, played 1.5 times) and 10 dictations
+(20 s avg).
+
+| Measure | Per user (per day) | Per hour (peak = 20% of a day) | Per test run |
 |---|---|---|---|
-| Requests | `clips/day x 1 edge call` (+ 1 per voice note for transcript) | `active users x clips/hour` | `≈10 clips in e2e (stubbed Gemini) + ≈5 real in one manual check` |
-| Egress (bytes) | voice-note playback: `seconds x ~16 KB/s (opus) x plays` | — | negligible |
-| Log lines | 1 per clip + 1 per failure | as requests | as requests |
-| Service unit | `clip seconds x audio tokens/s x registry price` | `x clips/hour` | `≈5 real clips x 60 s x tokens/s x price` |
+| Edge invocations | 5 x (2 + 1.5) + 10 = 27.5 | 100 x 27.5 x 0.2 = 550 | 0 (integration spec calls RPCs directly; Deno and vitest stub everything) |
+| Gemini audio minutes | 5 x 0.5 + 10 x 0.33 = 5.8 min ≈ $0.03 | 100 x 5.8 x 0.2 = 116 min ≈ $0.58 | 0 in CI; one manual check ≈ 5 x 1 min = $0.025 |
+| GCS egress (playback) | 5 x 1.5 x 0.96 MB = 7.2 MB | 100 x 7.2 MB x 0.2 = 144 MB | 0 (no bucket touched by tests) |
+| GCS storage (30-day steady state) | 5 x 30 x 0.96 MB = 144 MB | — | 0 |
+| GCS operations | Class A 1 (PUT; DELETE is free) + Class B 2 + 1.5 per note (ranged GET + job download + plays) | as per user x 20 | 0 |
+| Log lines | ≈ 1 per edge call + 1 per failure = 27.5 | 550 | ≈ 0 |
+| Realtime messages | 2 per note per recipient (insert + transcript update) = 10 | 200 | ≈ 20 |
 
-1. **Fits the plan limit today?** Verdict by the reviewer from the registry once the row exists:
-   `active users x clips/user/month x avg seconds x tokens/s x price` vs accepted spend. Edge
-   invocations add `active users x clips/month` against the 500,000 limit.
-2. **Fits at 10x?** Same formula x10; the per-user cap bounds the worst case.
-3. **If not:** a capped key per `/slava:util:ai-keys`, and Supabase Pro for storage (see registry).
+1. **Fits today?** Per month at 100 users: edge 100 x 27.5 x 30 = **82,500** of the 500,000 Free limit
+   (16.5%). Gemini 100 x 5.8 x 30 = 17,400 min x $0.005 = **≈ $87/month**, which the feature's own key
+   cap must cover: [FOUNDER DECISION: monthly cap for the chat-voice Gemini key]. GCS: storage 100 x
+   144 MB = 14.4 GB x ~$0.02 = ≈ $0.30; egress 100 x 7.2 MB x 30 = 21.6 GB x ~$0.12 = ≈ $2.60; Class A
+   100 x 5 x 30 = 15,000 PUTs x $0.05/1,000 = $0.75. Audio does pass through the edge function once per
+   note (GCS download, then upload to Gemini): 100 x 5 x 30 x 0.96 MB = 14.4 GB/month of GCS egress
+   (≈ $1.70) plus the same bytes outbound from the edge function; whether Supabase meters edge outbound
+   as egress is UNVERIFIED (check the usage page after the first week). Sweep calls: at most 288/day =
+   8,640/month, 0 when idle; included in the 10x line below as a ceiling.
+   Realtime 100 x 10 x 30 = 30,000 of 2 million. Yes, it fits.
+2. **Fits at 10x (1,000 users)?** Edge 825,000 + at most 8,640 sweep calls ≈ 833,640/month **exceeds** the Free 500,000 → the named upgrade
+   is Supabase Pro (from $25/month, registry). Gemini ≈ $870/month, GCS ≈ $45/month: within reach only
+   if the founder raises the key cap; otherwise the per-user limits (6 dictations/min, 10 voice
+   notes/min, upload grants capped) and the key's cap bound it — users then see 429s, not a bill.
+3. **Worst case, one abuser:** dictation 6 x 3 min/min = 18 audio-min/min ≈ $0.09/min; voice notes
+   10 x 2 min/min = 20 audio-min/min ≈ $0.10/min, both stopped at the key's budget cap.
 
 ## Pre-deploy Checklist
 
-- [ ] New edge function (clip transcription) deployed to test, then prod
-- [ ] Its Gemini key secret set in test and prod under a distinct name, registered in
+- [x] Edge functions `transcribe-clip` and `chat-voice` deployed to test, then prod
+- [x] Its Gemini key secret set in test and prod under a distinct name, registered in
       `.private/docs/edge-function-secrets.md`, passing `scripts/check-edge-function-secrets.sh`
-- [ ] Voice-note migration (message type, audio reference, transcript) applied to test, then prod
-- [ ] Audio storage location created, with access rules and retention
-- [ ] Prod CSP `media-src` allows the audio host
+- [x] Voice-note migration (message type, audio reference, transcript) applied to test, then prod
+- [x] Audio bucket created and configured as code: `GCS_LOCATION=<location> ./scripts/gcs-chat-voice-bucket.sh`
+      (private, uniform access, public-access prevention enforced, 31-day delete rule, no versioning or
+      soft delete, CORS naming `x-goog-content-length-range` and `x-goog-if-generation-match`), then
+      `./scripts/gcs-chat-voice-bucket.sh --check` must exit 0 (non-zero = the live bucket drifted)
+- [x] `CHAT_VOICE_CRON_SECRET` set on the `chat-voice` function and the same value stored as vault secret
+      `chat_voice_cron_secret` (plus `chat_voice_url`, `chat_voice_anon_key`), so the sweep cron can call it
+- [x] Prod CSP `media-src` allows the audio host
+- [x] Signing identity for the bucket: [FOUNDER DECISION: a dedicated service account with
+      `roles/storage.objectUser` on this bucket only, under its own secret name (review finding: the shared
+      `GCS_SERVICE_ACCOUNT_KEY` also signs for two other functions), or reuse the shared key]. Either way it
+      needs object create/get/delete on the bucket; the script grants `roles/storage.objectUser` to
+      `GCS_CHAT_VOICE_SIGNER` and `--check` fails without that binding.
+- [x] Sweep is alive after deploy: insert nothing, then delete one test voice note on test and confirm its
+      object is gone within two `*/5` ticks (`chat_voice_purge` empty). A secret mismatch or missing IAM
+      fails silently (the cron only raises a warning).
+- [x] Both new edge functions (`transcribe-clip`, `chat-voice`) deployed; the client ships only after the
+      migrations (it selects the new columns).
+- [x] **Order: migration `20261027120600` BEFORE the new `chat-voice`.** That migration drops the 7-argument
+      `chat_commit_voice_note`; a `chat-voice` that passes `p_waveform` against the old database fails every
+      commit (the reverse order is safe, the new parameter has a default). Then `mirror-reply`, then the client.
+- [x] Server-started Mirror reply: set `MIRROR_INTERNAL_SECRET` on `mirror-reply` (off default
+      `not-configured`; internal mode is refused while off) and store vault secrets `mirror_reply_url` (the
+      function URL) and `mirror_internal_secret` (the SAME value) on each project; the trigger reuses vault
+      `chat_voice_anon_key`. Order: migration `20261027120700` after `20261027120600`, and deploy
+      `mirror-reply` before relying on it. Missing vault config only leaves the job `queued` (a warning;
+      Try again still works). Prod keeps `MIRROR_AI_ENABLED=false`, so the job stays queued there.
+
+**Done 2026-10-28 (prod `besjtuodziykmjidubzw`, test `ayibkeoyukulbsjpxgaw`):** migrations `20261027120000`..`120700`
+applied to prod (`migrate.sh --env prod --only`, prod smoke 12/0 after); `transcribe-clip`, `chat-voice`, `mirror-reply`
+deployed to prod after the migrations (all three answer 401 to an anonymous call, i.e. configured); prod secrets
+`GCS_CHAT_VOICE_SERVICE_ACCOUNT_KEY` (dedicated signer `cp-chat-voice-signer`, objectUser on the two voice buckets
+only; the shared account's binding removed from the test bucket), `CHAT_VOICE_CRON_SECRET`, `MIRROR_INTERNAL_SECRET`
+(both equal to their vault values), `GEMINI_CHAT_VOICE_API_KEY` (new key `cp-chat-voice-prod`, EUR 20/month
+enforcing cap, `--confirm-cap` CONFIGURED, restriction PASS); vault `chat_voice_url`, `chat_voice_cron_secret`,
+`chat_voice_anon_key`, `mirror_reply_url`, `mirror_internal_secret` on prod; bucket `claritypledge-chat-voice`
+created in US-CENTRAL1 (same region as the public media and test voice buckets), `--check` OK on both buckets;
+CSP `media-src` already allows `storage.googleapis.com` (test parses `vercel.json`). Prod `MIRROR_AI_ENABLED` stays
+false. Sweep proven on test and prod: a queued delete was purged on the next `*/5` tick (prod 08:50 UTC, `purged:1`,
+`purgeFailed:0`), so the cron secret matches and the dedicated signer can delete. Secrets were set with a new prod-only token scoped to Edge Function Secrets (keychain `PROD_SUPABASE_SECRETS_TOKEN`).
 
 ## Open Questions
-
-Gemini 3.5 Transcribe still needs its registry row in `docs/technical/metered-services.md` before
-the Cost Budget can get a verdict (first `/dev` task, alongside the latency measurement).
 
 0. [FOUNDER DECISION: UX] In an empty human chat the in-field dictation mic and the round
    voice-note button sit side by side, with two mic icons that do different things (reviewer
@@ -222,6 +349,15 @@ the Cost Budget can get a verdict (first `/dev` task, alongside the latency meas
    days and transcribed by Google Gemini; transcripts are kept").
 2. Logged-out visitors: mic hidden (current spec behaviour, for cost) unless the founder says
    otherwise.
+
+3. [FOUNDER DECISION: copy] Strings added during `/dev` beyond the spec's own: "Voice message" (chat
+   list preview), "2-min limit reached", "Dictated text is waiting." with Insert / Discard dictated text,
+   "Couldn't play. Tap play to try again.", "Too many voice messages, wait a minute".
+4. [FOUNDER DECISION: infra] Bucket signing identity: dedicated service account vs the shared
+   `GCS_SERVICE_ACCOUNT_KEY` (see Pre-deploy Checklist), and the monthly cap on the feature's Gemini key
+   (see Cost Budget).
+5. Scope rows still open in the Scope table: the Mirror landing-lab screen and editing a sent message
+   (not built in this run).
 
 ## Resolved Decisions
 
@@ -234,7 +370,17 @@ Founder, 2026-10-26 ("yes to all" on the recommended options):
   with the transcript).
 - **Limits:** voice note max **2 min**, dictation clip max **3 min**, enforced server-side.
 - **Key:** its own budget-capped Gemini key for this feature, under a distinct secret name.
-- **Mirror:** dictation only, no voice notes (incl. private @mirror asks).
+- **Mirror:** ~~dictation only, no voice notes~~ superseded 2026-10-27: voice notes allowed in the Mirror
+  chat, answered from the transcript once done, the reply started by the server when the transcript is done; private @mirror asks stay text-only.
+- **Bubble (2026-10-27):** WhatsApp/Telegram style, ~50 server-computed bars as the seek bar.
+- **Founder, 2026-10-28 ("approved all"):** privacy and ToS wording as drafted (voice audio kept 30 days,
+  transcribed by Google Gemini, transcripts kept; Mirror answers from the transcript); a **dedicated signing
+  service account** with `roles/storage.objectUser` on the voice bucket only, under its own secret name; a
+  **new prod Gemini key** for chat voice with a **€20/month cap** (raised on evidence), separate from the TEST
+  key so test runs never spend users' budget. No terms-version bump: bumps are batched quarterly; the
+  Mirror's Gemini use is already consented in v1.5.
+- **Bucket IAM (2026-10-27):** `gcs-chat-voice-bucket.sh` grants the signer `roles/storage.objectUser` and
+  `--check` verifies the binding (a missing grant broke a real send on TEST).
 
 ## Related
 

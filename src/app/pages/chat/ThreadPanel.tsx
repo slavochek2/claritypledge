@@ -16,6 +16,7 @@ import { useRestoreMirrorStatuses } from './mirror-state';
 import { chatTitle } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
+import { useVoiceSender } from './use-voice-sender';
 import { cn } from '@/lib/utils';
 
 export function ThreadPanel({ summary, rootId, highlightId }: { summary: ChatSummary; rootId: string; highlightId: string | null }) {
@@ -28,6 +29,8 @@ export function ThreadPanel({ summary, rootId, highlightId }: { summary: ChatSum
   // Every Reply inside a thread is a reply to the thread: it just moves focus to the field.
   const onReply = useCallback((_m: ChatMessage) => setFocusToken((t) => t + 1), []);
   const { actions, dialogs } = useMessageActions({ summary, conv, onReply });
+  // P1576: a voice note sent here is a reply in this thread. Never in a mirror thread.
+  const sendVoice = useVoiceSender(conversationId, true, rootId, undefined);
   const close = useBack();
   // A thread that does not exist for this person (a reply, a 1:1, another chat's message) closes itself, the way Back does.
   useEffect(() => {
@@ -82,6 +85,7 @@ export function ThreadPanel({ summary, rootId, highlightId }: { summary: ChatSum
           focusToken={focusToken}
           autoFocus
           onSend={(body) => void conv.send({ body })}
+          onVoiceNote={sendVoice}
         />
       )}
       {dialogs}

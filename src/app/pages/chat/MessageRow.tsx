@@ -20,13 +20,16 @@ import { getMessage, type ChatMessage } from '@/app/data/chat-service';
 import type { ThreadStats } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { AttachmentCard } from './AttachmentCard';
+import { EditBox } from './EditBox';
+import { RepliesLink } from './RepliesLink';
+import { VoiceBubble } from './VoiceBubble';
 import { Quote } from './Quote';
-import { FOCUS_RING, HOVER, MirrorMark, PRIMARY_CLASS, PersonMark, PopMenu, type MenuItem } from './chat-kit';
-import { DESKTOP_HOVER_QUERY, hasFinePointer, useChatNavigate, useDismiss, useMediaQuery } from './chat-hooks';
+import { FOCUS_RING, MirrorMark, PersonMark, PopMenu, type MenuItem } from './chat-kit';
+import { DESKTOP_HOVER_QUERY, useChatNavigate, useDismiss, useMediaQuery } from './chat-hooks';
 import { useChat } from './chat-state';
 import { isLocal, type Row } from './use-conversation';
 import { chatPath, chatTitle, messageSummary, messageTime, mirrorName, mirrorRole, sourceLabel } from './chat-view-model';
-import { useMirror } from './mirror-state';
+import { MirrorReplyState } from './MirrorReplyState';
 
 /** A finger resting this long on a message opens its menu; drifting further than LONG_PRESS_DRIFT_PX is a scroll. */
 export const LONG_PRESS_MS = 500;
@@ -257,49 +260,6 @@ function ClarifyButton({ mirror, onClick }: { mirror: string; onClick: () => voi
   );
 }
 
-/**
- * P1520: what the mirror is doing about this message of its owner: thinking, could not answer (Try again), or out of
- * today's allowance. Nothing once it has answered.
- */
-function MirrorReplyState({ messageId, name }: { messageId: string; name: string }) {
-  const mirror = useMirror();
-  const status = mirror?.statusFor(messageId);
-  if (!mirror || !status) return null;
-  if (status === 'thinking') {
-    return (
-      <p role="status" data-testid="mirror-thinking" className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-        <MirrorMark size="xs" />
-        <span className="animate-pulse">{name} is thinking…</span>
-      </p>
-    );
-  }
-  if (status === 'capped') {
-    return (
-      <p role="status" data-testid="mirror-capped" className="mt-1 text-sm text-muted-foreground">
-        {name} has answered as much as it can today. Try again tomorrow.
-      </p>
-    );
-  }
-  if (status === 'terms') {
-    return (
-      <div role="alert" data-testid="mirror-terms" className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
-        <span>Accept the updated terms to use your mirror agent.</span>
-        <Button variant="ghost" className="min-h-10 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={() => window.location.reload()}>
-          Reload
-        </Button>
-      </div>
-    );
-  }
-  return (
-    <div role="alert" data-testid="mirror-failed" className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
-      <span>{name} could not answer.</span>
-      <Button variant="ghost" className="min-h-10 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={() => mirror.requestReply(messageId)}>
-        Try again
-      </Button>
-    </div>
-  );
-}
-
 export function MessageRow({ msg, mine, viewerId, author, authors, compact, prevMessageId, highlight, stat, actions, inThread = false, privateHere = false }: Props) {
   const local = isLocal(msg) ? msg : null;
   const server: ChatMessage | null = local ? null : msg;
@@ -307,6 +267,9 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   const agent = server?.kind === 'agent';
   /** A reply, or a private @mirror ask: never copied anywhere (the server refuses it too). */
   const ownerOnly = agent || !!server?.contextConversationId;
+  // P1576: a voice note has no words to edit, forward or clarify (each would make an empty message).
+  const voiceNote = server?.audio ? server : null;
+  const noCopy = ownerOnly || !!voiceNote;
   const [selected, setSelected] = useState(false);
   // `more` is the ⋯ menu (what the toolbar lacks); otherwise the full list at the pointer.
   const [menuAt, setMenuAt] = useState<{ x: number; y: number; more?: boolean } | null>(null);
@@ -360,13 +323,13 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
       const open = actions.onThread;
       items.push({ key: 'thread', label: 'Reply in thread', Icon: MessageSquareText, onSelect: () => open(server) });
     }
-    if (!ownerOnly) items.push({ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => actions.onForward(server) });
-    if (actions.onClarify && !ownerOnly) {
+    if (!noCopy) items.push({ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => actions.onForward(server) });
+    if (actions.onClarify && !noCopy) {
       const clarify = actions.onClarify;
       items.push({ key: 'clarify', label: 'Clarify', Icon: MessagesSquare, onSelect: () => clarify(server) });
     }
     if (mine) {
-      moreItems.push({ key: 'edit', label: 'Edit', Icon: Pencil, onSelect: () => { setEditError(null); setDraft(server.body ?? ''); } });
+      if (!voiceNote) moreItems.push({ key: 'edit', label: 'Edit', Icon: Pencil, onSelect: () => { setEditError(null); setDraft(server.body ?? ''); } });
       moreItems.push({ key: 'delete', label: 'Delete', Icon: Trash2, onSelect: () => actions.onDelete(server), danger: true });
     }
     items.push(...moreItems);
@@ -407,7 +370,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
         <ToolButton label="Reply" onClick={() => { setSelected(false); actions.onReply(server); }}>
           <Reply className="h-[18px] w-[18px]" aria-hidden="true" />
         </ToolButton>
-        {!ownerOnly && (
+        {!noCopy && (
           <ToolButton label="Forward" onClick={() => { setSelected(false); actions.onForward(server); }}>
             <Forward className="h-[18px] w-[18px]" aria-hidden="true" />
           </ToolButton>
@@ -417,7 +380,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
             <MessageSquareText className="h-[18px] w-[18px]" aria-hidden="true" />
           </ToolButton>
         )}
-        {!ownerOnly && actions.onClarify && <ClarifyButton mirror={mirror} onClick={() => { setSelected(false); actions.onClarify?.(server); }} />}
+        {!noCopy && actions.onClarify && <ClarifyButton mirror={mirror} onClick={() => { setSelected(false); actions.onClarify?.(server); }} />}
         {moreItems.length > 0 && (
           <ToolButton
             label="More actions"
@@ -539,38 +502,11 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
               {server?.replyToId && !(agent && server.replyToId === prevMessageId) && <QuoteBlock replyToId={server.replyToId} actions={actions} authors={authors} />}
               {local?.replyToId && <QuoteBlock replyToId={local.replyToId} actions={actions} authors={authors} />}
               {draft !== null ? (
-                <div className="mt-1" data-testid="edit-message">
-                  <textarea
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    aria-label="Edit message"
-                    rows={2}
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') {
-                        e.preventDefault();
-                        setDraft(null);
-                      }
-                      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && hasFinePointer()) {
-                        e.preventDefault();
-                        void save();
-                      }
-                    }}
-                    className="block w-full resize-none rounded-lg border bg-background px-3 py-2 text-base outline-none focus:border-gray-500 md:text-[15px]"
-                  />
-                  {editError && <p role="alert" className="mt-1 text-xs text-red-700">{editError}</p>}
-                  <div className="mt-1 flex gap-2">
-                    <Button variant="outline" className="min-h-10" onClick={() => setDraft(null)}>
-                      Cancel
-                    </Button>
-                    <Button className={PRIMARY_CLASS} disabled={saving} onClick={() => void save()}>
-                      Save
-                    </Button>
-                  </div>
-                </div>
+                <EditBox draft={draft} saving={saving} error={editError} onChange={setDraft} onSave={() => void save()} onCancel={() => setDraft(null)} />
               ) : (
                 server?.kind !== 'clarify' && noteEl
               )}
+              {voiceNote && <VoiceBubble msg={voiceNote} />}
               {server && (server.kind === 'forward' || server.kind === 'clarify') && <ForwardedBody msg={server} viewerId={viewerId} />}
               {/* A Clarify's own note sits under its quote; a forward's note sits above it. */}
               {draft === null && server?.kind === 'clarify' && noteEl}
@@ -591,24 +527,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
             </div>
           )}
 
-          {!inThread && actions.onThread && server && stat && stat.count > 0 && (
-            <button
-              type="button"
-              data-testid="replies-link"
-              onClick={() => actions.onThread?.(server)}
-              className={cn('-ml-1 mt-0.5 flex min-h-10 items-center gap-2 rounded-lg px-1 text-sm font-semibold text-blue-700', HOVER, FOCUS_RING)}
-            >
-              <span className="flex -space-x-1.5">
-                {stat.authorIds
-                  .filter((id) => authors[id])
-                  .slice(0, 3)
-                  .map((id) => (
-                    <PersonMark key={id} person={authors[id] as ChatAuthor} size="xs" />
-                  ))}
-              </span>
-              {stat.count === 1 ? '1 reply' : `${stat.count} replies`}
-            </button>
-          )}
+          <RepliesLink inThread={inThread} server={server} stat={stat} authors={authors} onThread={actions.onThread} />
           {selected && toolbar}
         </div>
         {!selected && toolbar}

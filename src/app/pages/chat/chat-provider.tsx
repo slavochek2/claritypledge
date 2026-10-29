@@ -25,6 +25,7 @@ import { useHomeReadiness } from '@/app/routes/home-readiness';
 import {
   blockUser,
   getMyChats,
+  listBody,
   setChatState,
   markRead as markReadRpc,
   sendMessage as sendMessageRpc,
@@ -87,7 +88,7 @@ function patchRow(
           id: m.id,
           authorId: m.authorId,
           authorName,
-          body: m.isDeleted ? 'Message deleted' : m.body,
+          body: listBody(m),
           kind: m.kind,
           isDeleted: m.isDeleted,
           createdAt: m.createdAt,
@@ -98,7 +99,7 @@ function patchRow(
   } else if (chat.lastMessage?.id === m.id) {
     next = {
       ...chat,
-      lastMessage: { ...chat.lastMessage, body: m.isDeleted ? 'Message deleted' : m.body, isDeleted: m.isDeleted },
+      lastMessage: { ...chat.lastMessage, body: listBody(m), isDeleted: m.isDeleted },
     };
   }
   if (next === chat) return { chats, unknown: false };

@@ -42,12 +42,14 @@ interface UseAudioRecorderOptions {
 interface UseAudioRecorderReturn {
   /** Whether recording is currently active */
   isRecording: boolean;
-  /** Start recording from user's microphone */
-  startRecording: () => Promise<void>;
+  /** Start recording from user's microphone. Resolves true once recording, false when it could not start (see `error`). */
+  startRecording: () => Promise<boolean>;
   /** Stop recording and return the audio blob (or null if using chunked mode) */
   stopRecording: () => Promise<Blob | null>;
   /** Error message if recording failed */
   error: string | null;
+  /** P1576: the live microphone stream while recording, for a level meter. Null otherwise. */
+  stream: MediaStream | null;
   /** Current chunk number (for chunked mode) */
   chunkNumber: number;
   /** P566: Force an immediate chunk flush (e.g., on visibilitychange) */
@@ -76,6 +78,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chunkNumber, setChunkNumber] = useState(0);
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -124,7 +127,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     }
   }, [flushAndUploadChunk]);
 
-  const startRecording = useCallback(async () => {
+  const startRecording = useCallback(async (): Promise<boolean> => {
     // Reset state
     setError(null);
     audioChunksRef.current = [];
@@ -142,6 +145,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
       });
 
       streamRef.current = stream;
+      setStream(stream);
 
       // Determine best supported mime type
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -190,6 +194,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
           }
         }, maxDurationMs);
       }
+      return true;
     } catch (err) {
       console.error('[AudioRecorder] Failed to start recording:', err);
 
@@ -204,6 +209,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
       } else {
         setError('Failed to start recording');
       }
+      return false;
     }
   }, [isChunkedMode, chunkIntervalMs, flushAndUploadChunk, maxDurationMs]);
 
@@ -243,6 +249,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
             stream.getTracks().forEach((track) => track.stop());
             streamRef.current = null;
           }
+          setStream(null);
 
           resolve(null); // No blob in chunked mode
           return;
@@ -263,6 +270,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
           stream.getTracks().forEach((track) => track.stop());
           streamRef.current = null;
         }
+        setStream(null);
 
         resolve(audioBlob);
       };
@@ -298,6 +306,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     startRecording,
     stopRecording,
     error,
+    stream,
     chunkNumber,
     requestImmediateFlush,
   };

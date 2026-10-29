@@ -15,16 +15,17 @@ import { AttachDialog, ConfirmDialog, RenameMirrorDialog } from './ChatDialogs';
 import { Composer, type MentionEntry } from './Composer';
 import { ConversationHeader } from './ConversationHeader';
 import { MessageList } from './MessageList';
-import { Quote } from './Quote';
+import { PendingQuote } from './PendingQuote';
 import { InlineError, MessagesSkeleton, MirrorMark } from './chat-kit';
 import { MirrorInfoDialog } from './MirrorInfoDialog';
 import { useMirror, useRestoreMirrorStatuses } from './mirror-state';
 import { useMirrorAsks } from './use-mirror-asks';
 import { isLeavingChat, takeStagedClarify, onClarifyStaged, takeComposerFocus, type StagedClarify, useBack, useChatNavigate, useLeaveChat, usePageVisible } from './chat-hooks';
 import { useChat } from './chat-state';
-import { chatErrorText, chatPath, compareMessages, hasWayBackElsewhere, isChannel, messageSummary, mirrorRole } from './chat-view-model';
+import { chatErrorText, chatPath, compareMessages, hasWayBackElsewhere, isChannel, mirrorRole } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
+import { useVoiceSender } from './use-voice-sender';
 
 interface Props {
   conversationId: string;
@@ -200,8 +201,8 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
         ? null
         : 'No messages yet.';
 
-  const quoteName = replyTo ? (replyTo.authorId ? chat.authors[replyTo.authorId]?.name ?? 'Unknown member' : 'Deleted user') : '';
-
+  // P1576: voice notes go to this conversation, as a reply when one is pending. The mirror takes them too: it answers once the transcript exists.
+  const sendVoice = useVoiceSender(conversationId, true, undefined, replyTo?.id, () => setReplyTo(null));
   const back = useBack();
   const cameFromElsewhere = hasWayBackElsewhere(useLocation().state);
   const leave = useLeaveChat();
@@ -267,37 +268,11 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
           onAttach={privateTo ? undefined : () => setAttaching(true)}
           staged={staged}
           onUnstage={() => setStaged(null)}
-          quote={
-            clarify ? (
-              <div className="px-2 pb-1 pt-1" data-testid="clarify-bar">
-                <Quote
-                  testId="clarify-pending"
-                  label="Clarify"
-                  body={
-                    <>
-                      <span className="mt-0.5 block text-sm font-semibold text-foreground">{clarify.authorName}</span>
-                      <span className="block line-clamp-2 break-words text-sm text-muted-foreground">{messageSummary(clarify.message)}</span>
-                    </>
-                  }
-                  onRemove={() => setClarify(null)}
-                  removeLabel="Cancel clarify"
-                />
-              </div>
-            ) : replyTo && (
-              <div className="px-2 pb-1 pt-1" data-testid="reply-bar">
-                <Quote
-                  testId="reply-pending"
-                  label={`Reply to ${quoteName}`}
-                  body={<span className="mt-0.5 block line-clamp-2 break-words text-sm text-muted-foreground">{messageSummary(replyTo)}</span>}
-                  onRemove={() => setReplyTo(null)}
-                  removeLabel="Cancel reply"
-                />
-              </div>
-            )
-          }
+          quote={<PendingQuote clarify={clarify} replyTo={replyTo} authors={chat.authors} onClearClarify={() => setClarify(null)} onClearReply={() => setReplyTo(null)} />}
           quoteSendable={!!clarify}
           sendDisabled={clarifyBusy}
           mentions={mentions}
+          onVoiceNote={sendVoice}
           privateTo={privateTo}
           onPrivateChange={(entry) => {
             setPrivateTo(entry);

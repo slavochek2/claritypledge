@@ -6,20 +6,26 @@
  * so there is never a dead control. The draft survives switching to another chat.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowUp, Lock, Paperclip, X } from 'lucide-react';
+import { ArrowUp, Paperclip, X } from 'lucide-react';
 import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { cn } from '@/lib/utils';
-import { FOCUS_RING, HOVER } from './chat-kit';
+import { FOCUS_RING, HOVER, ROUND } from './chat-kit';
 import { ShareableCard } from './ShareableCard';
 import { hasFinePointer, stashDraft, useDraft } from './chat-hooks';
 import { matchMentions, mentionQuery, type MentionEntry } from './mention-picker';
+import { DictationSlot, FieldMic } from './DictationControls';
+import { ComposerStatus, VoiceSlot } from './VoiceControls';
+import { useVoiceNote, type VoiceSender } from '@/hooks/use-voice-note';
+import { composerSlots } from './composer-slots';
+import { MentionPicker } from './MentionPicker';
+import { PrivateModeBar } from './PrivateModeBar';
+import { useComposerDictation } from './use-composer-dictation';
 
 export type { MentionEntry };
 
 /** Five 24px lines plus the field's 16px vertical padding. */
 export const COMPOSER_MAX = 136;
 
-const ROUND = 'flex h-10 w-10 shrink-0 items-center justify-center rounded-full';
 
 
 interface Props {
@@ -44,9 +50,14 @@ interface Props {
   /** P1520: the private mode the composer is in (picked from the @ picker), or null. */
   privateTo?: MentionEntry | null;
   onPrivateChange?: (entry: MentionEntry | null) => void;
+  /**
+   * P1576: sends a recorded voice note to this conversation (or thread). Absent where voice notes are not
+   * allowed: the round voice button is then never shown. Private @mirror asks (privateTo) never show it either.
+   */
+  onVoiceNote?: VoiceSender;
 }
 
-export function Composer({ draftKey, placeholder, onSend, onAttach, staged = null, onUnstage, quote, quoteSendable = false, sendDisabled = false, focusToken = 0, autoFocus = false, mentions, privateTo = null, onPrivateChange }: Props) {
+export function Composer({ draftKey, placeholder, onSend, onAttach, staged = null, onUnstage, quote, quoteSendable = false, sendDisabled = false, focusToken = 0, autoFocus = false, mentions, privateTo = null, onPrivateChange, onVoiceNote }: Props) {
   const [value, setValue] = useDraft(draftKey);
   const field = useRef<HTMLTextAreaElement>(null);
   const latest = useRef(value);
@@ -54,6 +65,9 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
   const keyNow = useRef(draftKey);
   keyNow.current = draftKey;
   const [caret, setCaret] = useState(0);
+  // P1576: dictation. The mic, the recorder bar that takes the field's place, and where the words go.
+  const voice = useVoiceNote(draftKey, onVoiceNote);
+  const dict = useComposerDictation(draftKey, field, latest, keyNow, setValue, setCaret, value);
   const [active, setActive] = useState(0);
   const [pickerClosed, setPickerClosed] = useState(false);
   const query = mentions?.length && !privateTo ? mentionQuery(value, caret) : null;
@@ -116,35 +130,12 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
     }
   };
 
+  const slots = composerSlots(sendable, !!onAttach, !!privateTo, dict, voice);
   const hint = privateTo ? `Ask ${privateTo.label} privately` : placeholder;
 
   return (
     <footer className="relative shrink-0 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 lg:px-3 lg:pb-3" data-testid="composer">
-      {pickerOpen && (
-        <div className="absolute inset-x-2 bottom-full z-20 mx-auto max-w-3xl lg:inset-x-3">
-          <ul id={listId} role="listbox" aria-label="Mention" className="mb-1 overflow-hidden rounded-xl border bg-background py-1 shadow-lg" data-testid="mention-picker">
-            {options.map((o, i) => (
-              <li
-                key={o.id}
-                id={`${listId}-${o.id}`}
-                role="option"
-                aria-selected={i === active}
-                tabIndex={-1}
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => pick(o)}
-                onKeyDown={(e) => e.key === 'Enter' && pick(o)}
-                className={cn('flex min-h-11 cursor-pointer items-center gap-2.5 px-3 py-1.5', i === active ? 'bg-accent' : HOVER)}
-              >
-                {o.mark}
-                <span className="min-w-0 truncate text-sm">
-                  <span className="font-semibold text-foreground">{o.label}</span>
-                  <span className="text-muted-foreground"> · {o.detail}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {pickerOpen && <MentionPicker listId={listId} options={options} active={active} onPick={pick} />}
       <form
         className={cn(
           'relative mx-auto w-full max-w-3xl rounded-3xl border bg-background px-1.5 py-1',
@@ -156,22 +147,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
           send();
         }}
       >
-        {privateTo && (
-          <div className="flex min-h-10 items-center gap-2 px-2 pt-0.5" data-testid="private-mode">
-            {privateTo.mark}
-            <span className="min-w-0 flex-1 truncate text-sm">
-              <span className="font-semibold text-foreground">{privateTo.label}</span>
-              <span className="text-muted-foreground"> · </span>
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
-                <Lock className="h-3 w-3" aria-hidden="true" />
-                Private: only you see this
-              </span>
-            </span>
-            <button type="button" aria-label="Stop asking privately" title="Stop asking privately" onClick={() => onPrivateChange?.(null)} className={cn(ROUND, 'text-muted-foreground', HOVER, FOCUS_RING)}>
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-        )}
+        {privateTo && <PrivateModeBar entry={privateTo} onLeave={() => onPrivateChange?.(null)} />}
         {quote}
         {staged && (
           <div className="relative px-2 pt-1" data-testid="staged-attachment">
@@ -184,16 +160,16 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
           </div>
         )}
         <div className="flex items-end gap-0.5">
-          {onAttach && !privateTo && (
+          {slots.attach && (
             <button type="button" aria-label="Attach a point or story" title="Attach a point or story" onClick={onAttach} className={cn(ROUND, 'text-muted-foreground', HOVER, FOCUS_RING)}>
               <Paperclip className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
           {/* The hint is drawn by hand, not as a placeholder: a placeholder wraps (and grows the composer) at a narrow
               width, this one is a single line that ends in an ellipsis. */}
-          <div className="relative min-w-0 flex-1">
+          <div className="relative min-w-0 flex-1" hidden={!slots.field}>
             {value === '' && (
-              <span aria-hidden="true" data-testid="composer-hint" className="pointer-events-none absolute inset-x-0 top-0 block truncate px-2 py-2 text-base leading-6 text-gray-500 md:text-[15px]">
+              <span aria-hidden="true" data-testid="composer-hint" className="pointer-events-none absolute inset-x-0 top-0 block truncate py-2 pl-2 pr-10 text-base leading-6 text-gray-500 md:text-[15px]">
                 {hint}
               </span>
             )}
@@ -202,9 +178,9 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
               value={value}
               onChange={(e) => {
                 setValue(e.target.value);
-                setCaret(e.target.selectionStart ?? e.target.value.length);
+                dict.trackCaret(e.target.selectionStart ?? e.target.value.length);
               }}
-              onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
+              onSelect={(e) => dict.trackCaret(e.currentTarget.selectionStart ?? 0)}
               rows={1}
               aria-label={hint}
               aria-autocomplete={mentions?.length ? 'list' : undefined}
@@ -240,15 +216,19 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
                   send();
                 }
               }}
-              className="block max-h-[136px] min-h-10 w-full min-w-0 resize-none bg-transparent px-2 py-2 text-base leading-6 outline-none md:text-[15px]"
+              className="block max-h-[136px] min-h-10 w-full min-w-0 resize-none bg-transparent py-2 pl-2 pr-10 text-base leading-6 outline-none md:text-[15px]"
             />
+            <FieldMic slots={slots} dict={dict} blocked={voice.busy} />
           </div>
-          {sendable && (
+          <DictationSlot slots={slots} dict={dict} />
+          <VoiceSlot slots={slots} voice={voice} dict={dict} />
+          {slots.send && (
             <button type="submit" aria-label="Send" title="Send" disabled={sendDisabled} className={cn(ROUND, 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50', FOCUS_RING)}>
               <ArrowUp className="h-[18px] w-[18px]" aria-hidden="true" />
             </button>
           )}
         </div>
+        <ComposerStatus dict={dict} voice={voice} />
       </form>
     </footer>
   );

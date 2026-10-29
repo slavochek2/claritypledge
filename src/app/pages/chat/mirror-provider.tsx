@@ -23,7 +23,9 @@ import {
   type MirrorGender,
   type MirrorProfile,
 } from '@/app/data/mirror-service';
+import type { ChatMessage, ChatTranscriptStatus } from '@/app/data/chat-service';
 import { ChatContext, type ChatContextValue } from './chat-state';
+import { voiceStatus } from './mirror-voice';
 import { MirrorContext, type MirrorContextValue, type MirrorReplyStatus, type PortraitStatus } from './mirror-state';
 
 /** A job still "running" this long after it was created died with its request: offer Try again. */
@@ -55,6 +57,8 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
   const [statuses, setStatuses] = useState<Record<string, MirrorReplyStatus>>({});
   const [portraitStatus, setPortraitStatus] = useState<PortraitStatus>('idle');
 
+  const statusesRef = useRef(statuses);
+  statusesRef.current = statuses;
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
   const mirrorId = chat.chats.find((c) => c.kind === 'mirror')?.conversationId ?? null;
@@ -133,6 +137,8 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
     (id: string, since: number = Date.now()) => {
       later(() => {
         if (!mounted.current || answered.current.has(id)) return;
+        // A hidden tab reads nothing (metered-services rule 3): check again later, from the same start.
+        if (document.visibilityState === 'hidden') return recheck(id, since);
         // A failed or empty read keeps polling, but not past the limit a slow job gets.
         const pollAgain = () => {
           if (!mounted.current || answered.current.has(id)) return;
@@ -146,7 +152,8 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
           if (!j) pollAgain();
           else if (j.state === 'done') {
             setStatus(id, undefined);
-            resync();
+            // Hidden since the poll started: read nothing now; the re-sync on return to view brings the reply.
+            if (document.visibilityState !== 'hidden') resync();
           } else if (j.state === 'running' || j.state === 'queued') {
             const started = Math.max(new Date(j.createdAt).getTime(), since);
             if (Date.now() - started > STALE_RUNNING_MS) setStatus(id, 'failed');
@@ -178,6 +185,7 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
               resync(); // the answer is stored; read it now in case its live copy was missed
               break;
             case 'running':
+              setStatus(id, 'thinking');
               recheck(id);
               break;
             case 'capped':
@@ -189,6 +197,12 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
             case 'terms':
               setStatus(id, 'terms');
               break;
+            case 'transcribing': // Try again on a voice note whose transcript is not stored yet
+              setStatus(id, 'transcribing');
+              break;
+            case 'transcript_failed':
+              setStatus(id, 'transcript_failed');
+              break;
             case 'disabled':
               setEnabled(false);
               setStatus(id, undefined);
@@ -197,7 +211,10 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
               setStatus(id, undefined);
           }
         },
-        () => mounted.current && !answered.current.has(id) && setStatus(id, 'failed'),
+        () => {
+          if (!mounted.current || answered.current.has(id)) return;
+          setStatus(id, 'failed');
+        },
       );
     },
     [setStatus, resync, recheck],
@@ -220,11 +237,43 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
     [run],
   );
 
+  /**
+   * The owner's own message just landed in their mirror. A text message is asked for; a voice note is only DISPLAYED:
+   * the server answers it when its transcript is done, and the reply arrives like any message.
+   */
+  const answerOwnMessage = useCallback(
+    (m: ChatMessage) => {
+      if (!m.audio) return requestReply(m.id);
+      asked.current.add(m.id);
+      if (enabledRef.current === false) return;
+      const s = voiceStatus(m.audio);
+      setStatus(m.id, s);
+      // The server is answering: watch its job, so a reply that never comes turns into "failed, Try again".
+      if (s === 'thinking') recheck(m.id);
+    },
+    [requestReply, setStatus, recheck],
+  );
+
+  /** An own voice note in the mirror changed (its transcript landed or failed): update its line, ask nothing. */
+  const showTranscriptUpdate = useCallback(
+    (m: ChatMessage) => {
+      if (m.authorId !== userId || m.conversationId !== mirrorIdRef.current || !m.audio || m.isDeleted) return;
+      if (enabledRef.current === false || answered.current.has(m.id)) return;
+      const s = voiceStatus(m.audio);
+      // Only a note shown as transcribing becomes "thinking": a later edit of an old, answered note must not.
+      if (s === 'thinking' ? statusesRef.current[m.id] !== 'transcribing' : s !== 'transcript_failed') return;
+      setStatus(m.id, s);
+      if (s === 'thinking') recheck(m.id); // as for a text message: a reply that never comes ends as "failed"
+    },
+    [userId, setStatus, recheck],
+  );
+
   useEffect(
     () =>
       subscribe((e) => {
         if (e.type === 'resync') return;
         const m = e.type === 'sent' ? e.message : e.event.message;
+        if (e.type === 'message' && e.event.type === 'UPDATE') return showTranscriptUpdate(m);
         const inserted = e.type === 'sent' || e.event.type === 'INSERT';
         if (!inserted) return;
         if (m.kind === 'agent' && m.replyToId) {
@@ -242,14 +291,14 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
           !(m.kind === 'message' && m.attachmentId && !(m.body ?? '').trim()) &&
           !asked.current.has(m.id)
         ) {
-          requestReply(m.id);
+          answerOwnMessage(m);
         }
       }),
-    [subscribe, userId, requestReply, setStatus],
+    [subscribe, userId, answerOwnMessage, showTranscriptUpdate, setStatus],
   );
 
   const loadStatuses = useCallback(
-    (ids: string[]) => {
+    (ids: string[], voiceStates: Record<string, ChatTranscriptStatus> = {}) => {
       if (!enabledRef.current) return;
       const want = ids.filter((id) => !answered.current.has(id) && !asked.current.has(id));
       if (want.length === 0) return;
@@ -267,6 +316,12 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
                 recheck(id);
               }
             }
+          });
+          // Voice notes with no job: show where the transcript is. The server answers them; nothing is asked here.
+          Object.entries(voiceStates).forEach(([id, transcript]) => {
+            if (jobs.has(id) || answered.current.has(id) || asked.current.has(id)) return;
+            if (transcript === 'failed') setStatus(id, 'transcript_failed');
+            else if (transcript === 'pending') setStatus(id, 'transcribing');
           });
         },
         () => undefined,

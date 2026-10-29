@@ -27,8 +27,10 @@ export interface MirrorProfile {
 /**
  * What one reply request ended in. `disabled`: the mirror agent cannot answer on this project at all.
  * `terms`: the server refused because the caller has not accepted the current terms (P1544).
+ * `transcribing` (202): the voice note's transcript is still pending, no job exists yet. `transcript_failed`
+ * (409 TRANSCRIPT_FAILED): the transcription failed, so the note cannot be answered.
  */
-export type MirrorReplyState = 'done' | 'running' | 'capped' | 'failed' | 'cancelled' | 'disabled' | 'terms';
+export type MirrorReplyState = 'done' | 'running' | 'capped' | 'failed' | 'cancelled' | 'disabled' | 'terms' | 'transcribing' | 'transcript_failed';
 
 export type MirrorJobState = 'queued' | 'running' | 'done' | 'failed' | 'capped' | 'cancelled';
 
@@ -132,7 +134,9 @@ export async function getMirrorAvailability(): Promise<boolean | null> {
 function replyState(status: number, data: Record<string, unknown>): MirrorReplyState {
   if (data.code === 'DISABLED') return 'disabled';
   if (status === 409 && data.code === 'TERMS_NOT_ACCEPTED') return 'terms';
+  if (status === 409 && data.code === 'TRANSCRIPT_FAILED') return 'transcript_failed';
   const s = data.state;
+  if (s === 'transcribing' || s === 'transcript_failed') return s;
   if (s === 'done' || s === 'running' || s === 'capped' || s === 'failed' || s === 'cancelled') return s;
   if (status === 429) return 'capped';
   return 'failed';

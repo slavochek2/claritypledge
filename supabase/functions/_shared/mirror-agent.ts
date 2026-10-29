@@ -9,6 +9,7 @@
  * can pose as an instruction; the worst-case cost reserved before the call.
  */
 
+import { VOICE_LABEL, clarifyCopy } from './mirror-context-fields.ts';
 import type { ArtistEntry } from './artist-pool.ts';
 
 export const MIRROR_MODEL = 'gemini-3.8-flash';
@@ -103,6 +104,8 @@ export interface ContextItem {
   body?: string | null;
   at?: string | null;
   attachment?: string | null;
+  /** P1576: a voice note; body is its transcript when 'transcript', absent when 'untranscribed'. */
+  voice?: 'transcript' | 'untranscribed' | null;
   /** A main-chat thread root's reply count (P1547): shown as "N replies" when the thread is not quoted. */
   replies?: number | null;
   quoted?: { name?: string | null; body?: string | null } | null;
@@ -151,19 +154,14 @@ const TOTALS = new WeakMap<object, number>();
 function clean(item: ContextItem): Record<string, unknown> {
   const out: Record<string, unknown> = { from: item.who === 'owner' ? 'owner' : item.who === 'mirror' ? 'you (the mirror)' : item.name ?? 'someone' };
   if (item.body) out.text = item.body;
+  if (item.voice) out.voice = VOICE_LABEL[item.voice];
   if (item.attachment) out.attached = item.attachment;
   if (typeof item.replies === 'number' && item.replies > 0) out.thread = `${item.replies} ${item.replies === 1 ? 'reply' : 'replies'}`;
   if (item.quoted?.body) out.forwarded = { from: item.quoted.name ?? 'someone', text: item.quoted.body };
   if (item.clarify) {
-    out.copied_for_clarify = {
-      from: item.clarify.from ?? 'someone',
-      in: item.clarify.in ?? null,
-      text: item.clarify.body ?? null,
-      ...(item.clarify.thread?.length ? { thread: item.clarify.thread.map((t) => ({ from: t.name ?? 'someone', text: t.body ?? null })) } : {}),
-    };
-    const shown = item.clarify.thread?.length ?? 0;
-    const total = Math.max(item.clarify.thread_total ?? shown, shown);
-    if (total > shown) TOTALS.set(out.copied_for_clarify as object, total);
+    const { copy, total, shown } = clarifyCopy(item.clarify);
+    out.copied_for_clarify = copy;
+    if (total > shown) TOTALS.set(copy, total);
   }
   return out;
 }
