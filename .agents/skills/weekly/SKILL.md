@@ -864,6 +864,35 @@ echo "date: $(date +%Y-%m-%d)" > ~/.claude_restore_test_last_run
 
 ---
 
+### 2.16 Self-hosted TEST server upkeep (P1584 — report only)
+
+Weekly drift of the self-hosted TEST server: running images vs the pinned stack, the pin vs upstream,
+pending OS security updates, a pending reboot, auth e-mail templates vs prod's, and whether hosted
+TEST (the warm fallback) still answers. Hourly health is a workflow, not this step.
+
+**Before running, say in your reply:** the template check reads the **prod** Management API token
+(read-only, the prod auth config), so one Keychain dialog saying *python* appears, marked 🔔 on this
+tab; the answer is **Allow**, never Always Allow. A declined dialog only makes `templates` unknown.
+
+```bash
+UPKEEP="$(git rev-parse --show-toplevel)/scripts/selfhosted/upkeep.sh"
+if [ ! -x "$UPKEEP" ]; then echo "SELF-HOSTED UPKEEP: skipped (P1584 not on main yet)"
+else UPKEEP_RC=0; UPKEEP_OUT="$("$UPKEEP" 2>&1)" || UPKEEP_RC=$?; printf '%s\n' "$UPKEEP_OUT"; echo "upkeep_exit=$UPKEEP_RC"; fi
+```
+
+**Report to Evidence Picture:** the six lines as printed. Read them whole; never filter by keyword.
+
+**ACTIONS (step 5), one per `warn` line, proposing, never doing** (P1584 Non-Goals: no auto-upgrade):
+- `upstream` → "· Propose a self-hosted stack upgrade to <upstream date> — clone first (pp `docs/infra/cp-test-supabase.md` § Recipe, Upgrade)".
+- `os` / `reboot` → "· Approve a reboot (or security update) of cp-test-supabase — <packages>".
+- `images` → "· Hand change on cp-test-supabase: <detail> — restore the pin or record it in the recipe".
+- `templates` → "· Re-sync TEST auth e-mail templates with prod (recipe step 8)".
+- `hosted` → "· Restore hosted TEST in the Supabase dashboard — the next migrate's hosted leg fails until then".
+
+An `unknown` line is "· Self-hosted upkeep check <name> did not run: <detail>", never omitted.
+
+---
+
 ### 3. Evidence Gathering (fire in parallel with steps 1 and 2.6 — all three are independent)
 
 ```bash
@@ -947,6 +976,7 @@ Sources (collect from the steps above):
 - Privacy hard flags (2.10) / secret-scan non-clean (2.10.1)
 - KDD EV-gate recalibration trigger (2.4.5)
 - Memory hygiene over-limit/stale (2.14)
+- Self-hosted TEST upkeep warn/unknown lines (2.16)
 - Broken CLAUDE.md links / stale docs (1)
 
 **Inside `/day`**, each action is also a finding — work for an agent session, no options:
