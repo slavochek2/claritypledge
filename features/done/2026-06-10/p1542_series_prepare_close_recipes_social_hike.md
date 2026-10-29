@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 55
 workstream: events
 created_date: '2026-10-22'
 tags: [events, social-hike, close, reviews]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-10-29
 ---
 
 # P1542: Prepare and close per series, Social Hike as the second recipe, reviews from the close
