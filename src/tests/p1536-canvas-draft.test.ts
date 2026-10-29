@@ -513,7 +513,7 @@ describe('P1536 reply text', () => {
 // ── The model seam and the stub gate ────────────────────────────────────────
 
 describe('P1536 stub gate: honoured only on non-prod AND with the secret header', () => {
-  const TEST_URL = 'https://ayibkeoyukulbsjpxgaw.supabase.co';
+  const TEST_URL = 'https://nonprodfakeref000000000.supabase.co'; // any non-prod project; never contacted
   const PROD_URL = 'https://besjtuodziykmjidubzw.supabase.co';
   it('allows the stub on a non-prod project with the matching token', () => {
     expect(stubAllowed({ supabaseUrl: TEST_URL, header: 'tok-123', token: 'tok-123' })).toBe(true);

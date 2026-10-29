@@ -42,7 +42,987 @@ Blast radius: one new flow, but it sends people's business material to an AI pro
 points into their account. Reversibility: medium (new edge function + one write function; drafts
 are private rows that can be deleted). Decision density: a few founder calls (below).
 
+## Design v6 (2026-10-29): authoritative
+
+**This section is the current design.** Where anything below it (Solution, Versions, Box guide, Acceptance Criteria,
+Cost Budget, Known limitations) conflicts, this section wins; those sections stay as the history of v1-v3, which is built
+on this branch.
+
+- It folds the founder's 2026-10-29 testing feedback and decisions D1-D19.
+- It went through three hostile review rounds (Gemini 4 Argon and Codex each round): v4 → v5 → v6, with every finding
+  answered in the review ledger at the end of §6. The fourth check, narrow and on the round-3 fixes only, is in the ledger.
+- Evidence tags: **[code]** read at the cited file:line on 2026-10-29; **[hyp]** inference, not run.
+
+**Model + effort for /dev:** S1 engine + migrations and S5 → Opus driver, high, Sonnet subagents build, Opus reviews;
+S2 prompt text → Opus, high, real-model eval; S3, S4, S6 UI → Sonnet subagents under an Opus driver.
+
+### 1. Decisions (founder, binding)
+
+#### D1 — Send updates the draft
+- Every owner message in a canvas thread is applied by one draft run. A message is text, a voice note once transcribed, or an upload once converted.
+- There is no "Update draft" button and no "notes" concept.
+- Run cap per draft: 5 → 30. The daily AI caps (D18) stay the real limit.
+
+Supersedes:
+- Solution, "Draft my canvas" as a separate action.
+- Versions §5 "Update draft".
+- §9 "Revisions per draft are capped" (5).
+- the 2026-10-29 "notes + Update draft" research design.
+
+#### D2 — A run changes only the boxes the message is about
+- With tags (D5): exactly the tagged boxes.
+- Without tags: the boxes the model names as addressed, enforced by the server.
+- Every other box keeps its exact points (same point ids).
+- A first draft (draft has no points and no base) and "Make it about <group>" cover all nine boxes.
+
+Supersedes:
+- Solution step 4 "Re-running before Publish replaces the draft's points".
+- §8 "each revision replaces the draft's points".
+
+#### D3 — Two concepts: talk and Publish
+- **Talk** changes the private draft. **Publish** makes it visible to readers.
+- Publish has one fixed spot in a sticky top bar, the same on phone and desktop and in both Canvas and Chat views.
+- It never leaves the screen. When it cannot run, a status takes its place (§2).
+- **Design rule:**
+  - A button's look changes only when its meaning changes.
+  - Typing changes only the composer's send slot.
+  - Publish is filled and may sit beside a filled Send.
+  - Copy prompt keeps one look always.
+
+Supersedes:
+- The P955 "ladder" in the canvas thread: `CanvasCreateBar`, `CanvasDraftCard` composing, and `openerIsPrimary` (`src/app/pages/chat/canvas-items.ts`) [code].
+
+#### D4 — Workspace layout
+- **≥1280px:** canvas left, chat right, on one screen.
+- **Narrower:** one screen with a `Canvas │ Chat` switch. Both panes stay mounted (CSS-hidden), so scroll, caret and unsent text survive a switch.
+- BottomNav and the event strip are hidden on this screen.
+- Fixes:
+  - the empty band above the thread;
+  - the phone name squeeze (no buttons in the byline row);
+  - grid columns follow container width.
+
+Supersedes:
+- The "Revise in chat" link to `/chats/...`.
+- The pane gate that needs `?thread=`.
+
+#### D5 — Add to chat on every box
+- Owner only, on draft and published versions. Chat icon + label.
+- Inserts an inline reference tag at the caret; several tags per message are allowed.
+- On a published canvas it opens the workspace. The next draft is created by the first Send, upload or voice note, never by the tap.
+- A draft already open from a different base, which has at least one message, asks **Add to my draft / Start over from vN**.
+- The words "New version" leave the UI.
+
+Supersedes:
+- Versions §2 "Start a new version?".
+- §9 paperclip-with-open-draft question.
+- `canvas-new-version-button.tsx`.
+
+#### D6 — Changed marker
+- After a run, a box whose point set differs from the base version's shows **Changed** (owner, draft only).
+- This is computed, not stored (§2).
+- No base (first canvas): never any markers.
+
+#### D7 — Undo
+- Undo after each run restores the draft's state before that run.
+- Repeated taps walk back run by run. There is no redo.
+- An undone run's instruction no longer counts as material (§2).
+
+Supersedes:
+- §8 "Revising or discarding deletes only the points that draft created". That now happens at Publish or Discard only.
+
+#### D8 — Version origin
+- Versions are numbered in order and show their origin **to everyone**: `v3 · 29 Oct · from v1`.
+- The owner never names a version.
+
+#### D9 — One canvas = one sale loop
+- Groups share a canvas only if they are roles in one sale, or one segment described twice.
+- Old pivots go to Hypotheses I've falsified.
+- Non-customer actors never make a segment.
+- Focus order:
+  1. the owner's newest stated focus;
+  2. a group that has paid;
+  3. the group most boxes can be filled for;
+  4. the narrower group.
+- On an existing canvas the current focus stays.
+- Codex blind-labelled the 21 rows of [`features/research/one-canvas-cases-for-p1536.md`](research/one-canvas-cases-for-p1536.md): 21/21 agreement.
+
+#### D10 — Mixed material
+- Draft one canvas, with no question round.
+- The reply's first line names what was found and what was chosen, followed by **[Make it about agencies]** and **[Start an agencies canvas]**.
+
+#### D11 — Copy prompt
+- Produces ONE markdown file.
+- Several businesses → one section per canvas, each starting "This canvas is about <group>."
+- Carries the full box definitions.
+
+#### D12 — Box definitions rewritten (§4)
+
+#### D13 — Shortest possible reply
+- The mirror's reply is as short as possible, visual over text.
+- No "What I decided on my own".
+- Empty-box questions are not repeated in chat.
+
+#### D14 — Naming the agent
+- "Your mirror agent" in canvas surfaces, never a fixed name.
+
+#### D15 — One update at a time (2026-10-29)
+- While a run is in flight, or an upload or voice note is being converted, the owner can type.
+- **Send, upload, voice, Undo and Publish wait.** Each is replaced by a status in its own spot, never disabled.
+- One message ⇒ one run. Runs never batch messages.
+- One active run per owner: while one canvas updates, another canvas's Send shows "Another of your canvases is updating."
+
+Supersedes:
+- v4 coalescing, "messages sent during a run chain the next run", and S1.2.
+
+#### D16 — The second canvas (2026-10-29)
+- **[Start an agencies canvas]** works from the moment the reply shows it.
+- **Publish is a single action**, never bundled with it.
+- After Publish, the publish reply repeats the offer.
+- While an offer is open, the draft's extracted material is kept privately for **at most 30 days after Publish**. It is deleted:
+  - when every offer is started or dismissed;
+  - or at 30 days;
+  - or when the canvas or account is deleted.
+- After expiry, each offer's buttons are replaced by "Send the material again to start this canvas."
+
+Supersedes:
+- v4 J10 (Artifacts menu entry).
+- F3.
+- "only before first publish".
+
+#### D17 — Deletion is said, once (2026-10-29)
+- The publish reply says what happened to the material:
+  - deleted now;
+  - or kept until the offer closes, at most 30 days.
+- Long-term retention for every canvas is a separate future spec: INBOX-239.
+
+#### D18 — Daily caps, permanent (2026-10-29)
+
+| Cap | From | To |
+|---|---|---|
+| Per person, canvas | 20 runs / $3 a day | **60 runs / $6 a day** |
+| Shared canvas bucket | $15 a day | **$45 a day** |
+| Shared total | $50 a day | $50 a day (unchanged) |
+
+- Chat replies keep their own $5.
+- Caps are daily, reset at 00:00 UTC.
+- Google's monthly cap on the production key stays the outer fence. /dev reads its amount and records it here (§8).
+
+#### D19 — Publish never offers a combined choice
+- A screen offers no "X + Y" compound action.
+- Each decision gets its own button, at the moment it is relevant.
+
+---
+
+### 2. The model in one page
+
+#### Workspace and thread
+- **Workspace** = the owner's canvas screen with its chat.
+  - Opened by: Artifacts "Open draft", the chat draft card's Open, Add to chat on any box, a new canvas, or a fork landing.
+  - URL marker `?ws=1`. **S3 changes the shared predicate** `isBottomNavHiddenRoute(pathname, search)`
+    (`src/app/components/layout/bottom-nav-routes.ts:15` [code]: it reads `search` but has no `ws` rule today), and checks
+    that the event-strip consumer uses the same predicate.
+- **←** goes to `location.state.from` when present. Otherwise:
+  - published canvas → its canvas page;
+  - draft-only canvas → Artifacts.
+
+  This also applies to direct entry and reload.
+- **Thread** = one per draft (unchanged).
+- With no open draft, the chat pane shows the newest closed thread ending in its publish reply.
+  - Its composer is live: the first Send, upload or voice note opens the next draft from the version on screen.
+  - Its offers render from `get_canvas_draft_state(p_canvas)`, which returns the open draft and the newest closed draft's
+    offers with `material_expired`. Never from message text.
+
+#### Words used below
+- **run**: one `canvas_draft_runs` row. Kinds:
+  - `message` (triggered by an owner message);
+  - `focus` (a focus switch);
+  - `fork_first` (a fork's first draft).
+- **used run**: a run that reached the model and finished, `done` or `undone`. It counts toward the cap of 30.
+- **applied run**: `done` only. Undo walks applied runs, newest first.
+- **active run**: `queued` or `running`, inside its lease (queued 3 min, running 5 min; `c_dead`, runs migration `:286` [code]).
+  - **One active run per owner** (the existing unique index on `owner_id`, versions migration `:257` [code], kept).
+  - So two canvases never update at once. A second canvas's Send gets `busy_elsewhere`: "Another of your canvases is updating."
+
+#### Lifecycle: one lock protocol, one transition table
+Every RPC below takes, in order:
+1. the per-owner advisory lock (existing);
+2. the draft row;
+3. the run row.
+
+**First step under the lock: expire.** Any active run past its lease is failed with the existing dead-run settlement
+(runs `:308-315` [code]), and its trigger message shows **[Try again]**. So a stale run never blocks anything, and no client
+round trip is needed. `get_canvas_draft_state` does the same.
+
+The same step also fails at once, with no model call and no charge, any queued run whose voice trigger message has `transcript_status = 'failed'`. The client also invokes begin on that change, and begin fails the run the same way, so a failed transcript never waits for the lease.
+
+| Caller | Allowed when | Refuses with | Effect |
+|---|---|---|---|
+| `canvas_workspace_send` (text, upload, voice) | no active run for the owner; draft open or creatable; `p_expected_revision` matches | `busy`, `busy_elsewhere`, `cap_reached`, `stale_view` | message + `queued` run of kind `message` (+ draft open/replace) |
+| `canvas_draft_retry(p_draft, p_failed_run, p_expected_revision, p_client_id)` | the run is the draft's newest and `failed`; idle; not at cap | `busy`, `busy_elsewhere`, `cap_reached`, `stale_view`, `not_retryable` | new `queued` run copying the failed run's kind, trigger message, scope and target offer. **An upload whose material was never written** (extraction failed, or the client left before posting the file): `not_retryable`; its bubble reads "Send the file again." An upload whose material was written and whose drafting failed retries normally: the row's `message_id` is the trigger message, so the selector includes it. |
+| `canvas_draft_switch_focus(p_draft, p_offer, p_expected_revision, p_client_id)` | idle; offer `offered` | `busy`, `busy_elsewhere`, `stale_view`, `not_offered` | `queued` run of kind `focus`, `target_offer_id` on the RUN (the draft is untouched until complete) |
+| `canvas_draft_fork(p_draft, p_offer, p_expected_revision, p_client_id)` | source idle or closed; offer `offered`; `material_until` not passed | `busy`, `busy_elsewhere`, `stale_view`, `expired`, `not_offered` | new canvas + draft + thread + `queued` `fork_first` run, offer `started` |
+| `canvas_draft_offer_dismiss(p_draft, p_offer, p_expected_revision)` | idle (no active run for the owner); offer `offered` (a repeat on a dismissed offer returns ok, writes nothing) | `busy`, `busy_elsewhere`, `stale_view` | offer `dismissed`, revision +1, material rule (§ Retention) |
+| `canvas_draft_undo(p_draft, p_expected_run, p_expected_revision)` | idle; `p_expected_run` = newest applied run | `busy`, `stale_view` | restore its step; run → `undone` |
+| `canvas_draft_publish(p_draft, p_expected_revision)` | idle; `has_points`; `differs_from_base` | `busy`, `stale_view`, `draft_empty`, `no_changes` | publish; cleanup; publish reply |
+| `canvas_draft_discard(p_draft, p_expected_revision)` | idle | `busy`, `stale_view` | discard; cleanup |
+| `_canvas_draft_run_begin(p_run)` (worker) | the run is `queued` AND its input is ready: text at once; voice when transcript `done`; **upload when the invocation carries the file** (claim first, then extract) | `not_ready`, `gone` | `queued → running`, reserve spend; a second call on a running/terminal run returns its state and makes no model call |
+| `_canvas_draft_add_material(p_run, …)` (worker, upload) | the run is `running` | `gone` | material row with `message_id`; a late write for a failed/expired run touches nothing (existing pattern, runs `:576-583` [code]) |
+| `_canvas_draft_run_complete(p_run, …)` / `_fail` (worker) | the run is `running` | `gone` | settle; apply (complete) or fail; a late answer touches nothing |
+
+- Every successful mutation increments `canvas_drafts.revision`.
+- Every RPC that creates a run returns `{run_id, revision}`. Fork also returns `{canvas_id, draft_id, thread_root_id}`.
+- The client invokes `canvas-draft` with that `run_id` right away.
+- `p_client_id` makes Send, retry, focus and fork idempotent: a repeat returns the first result.
+
+#### Inputs
+| Input | How it enters | When the run may begin |
+|---|---|---|
+| Text | `canvas_workspace_send` | at once |
+| Upload | `canvas_workspace_send(p_attachment {kind:'file', label})` creates the message and the run. The client then posts the file to `canvas-draft` with `run_id`. In that one invocation the function: (1) begins (claims `queued → running`, reserves spend); (2) extracts; (3) writes material via `_canvas_draft_add_material` (run is `running`, row gets `message_id`); (4) drafts with the selector, which now includes that row. This replaces today's separate upload handler (`supabase/functions/_shared/canvas-handlers.ts` `handleUpload`) for workspace uploads. | extraction failure fails the run in the same invocation (`unreadable`, `too_large`); no lease wait |
+| Link | inside a text message, as today (`gatherLinks`, `supabase/functions/_shared/canvas-run.ts:113` [code]); material row gets `message_id` | at once |
+| Voice | `canvas_workspace_send(p_attachment {kind:'voice', …})` calls P1576's voice insert (same helper as `send_voice_note`, so a canvas voice note has one write path) | when `transcript_status = 'done'`; the client invokes on that change, and begin returns `not_ready` before it. `failed` fails the run with no model call. |
+
+#### Material and context for a run: one selector
+`_canvas_draft_effective_input(p_draft, p_run)` is used by run begin AND by fork:
+- owner messages (kind `message`, author = owner, voice via its transcript) whose current run is `done`, plus the trigger
+  message;
+- material rows whose `message_id` belongs to those messages;
+- **seed rows** of this draft: rows a fork copied in (`origin = 'fork_seed'`, `message_id` null), always included, in every later run and in a further fork (copied again as seed rows);
+- copied chats (forward/clarify) only in the draft's own thread, as today (runs `:362`, `:402` [code]); **never by fork**.
+
+**Excluded everywhere:**
+- messages whose current run is `undone` or `failed`;
+- their material;
+- **the mirror's replies to undone runs** (replies carry `run_id`; Undo rewrites the reply to "Undone.");
+- every other mirror reply. Replies are never model context: the draft points are the state.
+
+#### Run output and scope
+Run output, in schema order: `focus`, `other_canvases`, `scope`, `actions`, `questions`, `note`.
+
+| Run | Scope | Extra rule |
+|---|---|---|
+| `message`, tagged | exactly `box_refs` | model `scope` ignored |
+| `message`, untagged | model `scope`, validated against `_canvas_box_tags()` | — |
+| first draft (no points, no base) | all nine | — |
+| `focus` | all nine | **customer-facing boxes are rebuilt**: before applying, every current point in the six customer-facing boxes (Customer Segments, Problem, Solution, Go-to-market strategy, Offers & Pricing, My next milestone) leaves the draft. `keep` is refused for them; only `new` and `reword` fill them. The founder-fit three (Guiding values, My current biggest challenge, Hypotheses I've falsified) follow the normal rules. |
+| `fork_first` | all nine | focus fixed to the offer's group |
+
+**Server enforcement in `_canvas_draft_run_complete`:**
+- Source box (of the named point) and destination box must both be in scope. A cross-box move needs both.
+- Anything else is dropped and counted.
+- `questions` and `pending_links` are merged per box, and only for scoped boxes.
+- **Empty scope** (no box addressed): nothing in the draft changes, including focus and offers. No step. The reply is
+  "No box changed." + `note`. It still counts as used.
+- **Focus:**
+  - Stored only after the names filter; a failing focus is replaced by the previous focus, or by null.
+  - Changes only in a `focus` run (from the run's `target_offer_id`) and in the first draft.
+  - A `message` run never changes focus (D9: the current focus stays).
+
+#### Offers: a durable relation, never a snapshot
+`canvas_draft_offers(id uuid, draft_id, group_label, why, state offered|focused|started|dismissed, started_canvas_id, created_run_id, created_at)`,
+closed to clients except through `get_canvas_draft_state`.
+- A run's `other_canvases` output is **merged**:
+  - a group matching an existing offer or the focus (case- and space-normalized) is ignored;
+  - new groups are inserted as `offered`;
+  - at most 3 open offers per draft.
+- Each offer is names-filtered; a failing one is dropped.
+- **Undo never changes an offer's state.**
+  - Undo of the run that created an offer that is still `offered` deletes that offer.
+  - A `started` or `dismissed` offer stays as it is.
+- Offer states: `offered | focused | started | dismissed`. Only `offered ⇄ focused` is reversible.
+- A focus switch re-checks under the lock at complete that its target is still `offered`; otherwise the run fails `not_offered` and changes nothing.
+- On complete, a focus switch:
+  - sets the target `focused`;
+  - inserts the previous focus as a new `offered` row;
+  - records both in the step.
+- Undo of that switch:
+  - restores the focus;
+  - sets the target back to `offered`;
+  - deletes the inserted row.
+- `started` and `dismissed` are never changed by Undo.
+- Merge ignores groups matching a `focused` offer.
+
+#### Steps and Undo
+- Before an applied run changes anything, the step stores:
+  - the draft's point ids, questions, pending_links and focus;
+  - the ids of the offers the run is about to insert.
+- `canvas_draft_undo`:
+  - restores points, questions, links and focus;
+  - deletes the run's still-`offered` new offers;
+  - rewrites the run's reply to "Undone.";
+  - marks the run `undone`;
+  - deletes the step.
+- No redo.
+
+#### Point ledger
+- `canvas_draft_points(draft_id, run_id, point_id, story_ids uuid[])` records every point and engine-written story a draft
+  created. Closed to clients; never deleted by Undo.
+- **Publish:** deletes ledger points that no version tags, and their engine stories when no remaining point links them.
+- **Discard:** the same, for every ledger point not tagged by another version.
+- Owner-written stories are never touched.
+
+#### Changed (D6)
+- Computed in the owner read: per box, the draft's point id set ≠ the base version's.
+- An undo back to the base shows no marker.
+- No base ⇒ no marker.
+
+#### Retention (D16) and deletion
+- **At Publish:**
+  - With no `offered` offer: material is deleted.
+  - Otherwise: `material_until = published_at + 30 days − 1 hour`, so the hourly job deletes it within 30 days of Publish.
+- **When the last `offered` offer becomes started or dismissed:** the closed draft's material is deleted in that same transaction.
+- **Expiry is enforced by time, not by the job.**
+  - Every read and every fork treats `material_until < now()` as expired.
+  - An hourly pg_cron job (existing pattern, e.g. `20260909120000_p1283…` [code]) deletes expired rows.
+  - So physical deletion happens within 30 days whenever the job runs on schedule.
+  - A missed job run leaves the rows unreadable (time-enforced expiry) until the next run deletes them. Known limitation: physical deletion depends on pg_cron running.
+- **A fork's copy is the new canvas's own material** (the owner chose to start it). It follows the new draft's lifecycle:
+  deleted at that draft's Publish (or kept while it has its own offers), discarded with it, and deleted with its canvas or
+  account (`ON DELETE CASCADE`, existing).
+- **Erasure (`erase_chat_data_for`):** other people's words reach a run only through forward/clarify copies in the thread.
+  A fork copies only the owner's own files, links and messages. So no third-party-derived text crosses into a fork by
+  construction, and the existing `derived_refs` cancellation covers both canvases' in-flight runs.
+
+#### Publish spot (one element, one place)
+| Draft state | Spot shows | Element |
+|---|---|---|
+| active run (incl. waiting for transcript or extraction) | Updating… | status text, same footprint |
+| idle, `has_points`, `differs_from_base` | **Publish** (filled) | button |
+| idle, draft from vN, no difference from base | No changes yet | status text |
+| no open draft, version published | Published · v3 | status text |
+| new canvas, no points | Not published yet | status text |
+
+No disabled Publish, ever. The spot never collapses. The server enforces the same rule (`draft_empty`, `no_changes`).
+Publish while the newest run is `failed` is allowed: that message is not part of the version, and its bubble keeps "I couldn't update the draft." The owner saw it before tapping Publish.
+
+#### Composer send slot
+| State | Send slot |
+|---|---|
+| active run | status "Updating…" in the slot (meaning changed ⇒ look changes) |
+| at cap, with something to publish | composer replaced by "This draft has had 30 updates. Publish it to keep going." |
+| at cap, nothing to publish | "This draft has had 30 updates." + **[Start over]** (Discard, then the next Send opens a fresh draft) |
+| `busy_elsewhere` | status "Another of your canvases is updating." |
+| idle | the mic/Send swap only (P1576) |
+
+#### Names filter (applies to every generated surface)
+Today's rule (`supabase/functions/_shared/canvas-names.ts:75-89` [code]):
+- names are learned from text the owner did not write (files, links, copied chats);
+- a weak name the owner also typed is exempt;
+- names that appear only in owner messages are never learned.
+
+**v6 change:**
+- **Owner messages also feed `strong`** for any token on a bundled first-names list (public-domain given-name list,
+  minus the existing `allNotNames` common words), plus the patterns `<Name>:`, `<Name> from <Org>`, `<Name>'s`.
+- Capitalised brand-like tokens in owner messages stay allowed: the owner's own business and platform names must survive.
+- The owner's complete name stays exempt.
+- **Surfaces checked:** points, stories, focus, offers (group + why), questions, note, replies, and the fork's "Your
+  messages" row (scanned as owner messages).
+- **Known limitation, kept in the spec:** heuristic. A surname-only mention or a name absent from the list passes. Tests
+  bound what was modelled, not what is true.
+
+---
+
+### 3. User journeys
+
+All copy is proposed: **[FOUNDER DECISION F1: every quoted user-facing string in §3 and §4.]**
+
+#### J1. First canvas from material (new canvas)
+1. Artifacts `New artifact → Canvas`, or the mirror chat's **+ → Canvas**, opens the workspace on a new canvas.
+   - Chat opener: "Give your mirror agent anything about your business: files, links, a few lines. It drafts your canvas." with **Copy prompt** (outline, fixed look).
+   - Spot: "Not published yet".
+2. Owner uploads a deck. The upload is the first message.
+   - Spot and send slot: "Updating…" (converting, then running).
+   - Owner may type meanwhile; Send waits.
+3. Run 1 ends: reply "Draft ready: 6 of 9 boxes. [Undo]". Spot: **Publish**. Send slot back.
+4. Owner pastes a link and sends → run 2 (scoped to the boxes the link addresses) → "Updated: [Go-to-market strategy] [Offers & Pricing] [Undo]".
+5. Owner taps Publish. Spot: "Published · v1". Publish reply:
+   - (no other groups found) "Published v1. I deleted the text of your uploads; the canvas keeps what I drew from them."
+
+#### J2. Change a box by talking (draft open)
+1. Canvas view: owner taps **Add to chat** on Offers & Pricing.
+   - Phone: the view switches to Chat. The tag lands at the saved caret, and the composer is focused inside the same tap handler (keeps the iOS keyboard).
+2. Owner types "€200 per pilot team, paid by HR", then taps Add to chat on My next milestone. The second tag lands at the caret. One Send.
+3. Spot "Updating…"; the two tagged boxes show "Updating…".
+4. Reply: "Updated: [Offers & Pricing] [My next milestone] [Undo]".
+   - Tapping a chip shows that box (phone: switches view; desktop: scrolls it to center) with a 2-second highlight ring.
+   - Both boxes show **Changed**. Other boxes keep their exact points.
+
+#### J3. Published canvas → next version
+1. Owner on published v2 taps Add to chat on Customer Segments.
+2. The workspace opens with spot "Published · v2" and chat empty state "Talk about any box. Nothing changes for readers until you publish."
+   - **Nothing is written.**
+3. Leave → nothing remains. Or send (text, upload or voice): `canvas_workspace_send` atomically:
+   - opens the draft from v2 (all v2 points tagged into it);
+   - creates the thread with base card "From v2 · 27 Oct";
+   - inserts the message and the queued run.
+4. Version label `v3 · Draft · from v2`. Publish → `v3 · 29 Oct · from v2` for everyone.
+
+#### J4. Add to chat on v1 while a draft from v2 is open
+- **Draft with ≥1 message:** bottom sheet "You have a draft from v2. Add this to it, or start over from v1? Starting over discards that draft." with **[Add to my draft]** (filled) and **[Start over from v1]** (red text).
+  - The choice is held client-side, with the open draft's id and revision.
+  - The first Send passes them, and the server discards and opens in the same transaction.
+  - A changed revision (another tab acted) → `stale_view`. The composer text is kept, and the sheet re-asks with fresh facts.
+- **Draft with no message:** no sheet; replaced at the first Send.
+- **Same base:** no sheet; the tag goes into that draft.
+
+#### J5. Voice note
+- P1576 voice note; tags in the composer attach to it.
+- Bubble "Transcribing…", spot "Updating…".
+- The run is invoked when `transcript_status = done` and reads the transcript.
+- Failed transcript: the run fails with no model call. Line under the bubble: "I couldn't hear this one. Type it instead."
+
+#### J6. Undo
+- The reply of the newest applied run carries **Undo** (ghost).
+- Tap → the canvas returns to the state before that run. The reply line becomes "Undone."
+- The previous applied run's reply now carries Undo.
+- The undone message stays in the thread marked "Undone". It is never material again.
+
+#### J7. Mixed material, two businesses found
+**Reply:**
+- First line: "I found two businesses: café owners and agencies. This canvas is about café owners, since you call them your focus."
+- Buttons: **[Make it about agencies]** **[Start an agencies canvas]**
+- Then "Draft ready: 7 of 9 boxes. [Undo]".
+
+**Owner options:**
+- **Keep:** nothing to do.
+- **Switch:** `canvas_draft_switch_focus(p_draft, p_offer_id)`. A run with scope all boxes and focus = agencies.
+  - Café becomes an offer (so the owner can switch back or start it).
+  - Undo restores focus and offers.
+- **Start second:** `canvas_draft_fork(p_draft, p_offer_id)`.
+  - Creates a new canvas, draft and thread.
+  - Copies, through the one input selector (§2): the owner's own files and links, and one "Your messages" row holding the owner's done messages (voice as transcript). Never failed or undone messages, never other people's copied lines.
+  - Sets focus and queues the first run. The owner lands in the new workspace.
+  - The offer state → `started` (stores the new canvas id). The button becomes "Agencies canvas started · Open".
+  - Idempotent per offer id, under the lock.
+- **Dismiss:** small "×" on the offer row → `dismissed`.
+
+#### J8. Three or more found
+- First line: "I found three businesses: … This canvas is about café owners, since they already pay you."
+- Then one row per other group, max 3: `Agencies  [Make it about this] [Start a canvas]  ×`. [F1: row labels.]
+
+#### J9. A second business appears later (upload into an existing draft)
+- The current focus stays (D9). First line: "Your new file is also about agencies. This canvas stays about café owners." plus the same offer row.
+- Customer-facing boxes may change only with material about café owners.
+- Founder-fit boxes may take business-wide points: Guiding values, My current biggest challenge, Hypotheses I've falsified.
+
+#### J10. After Publish with an open offer (D16, D17)
+1. Publish reply: "Published v1. Your material also covers agencies. [Start an agencies canvas] I keep the text of your uploads for this until you start it or for 30 days, then delete it."
+2. Later taps work as J7 Start second, with the kept material.
+3. At expiry, or when every offer is started or dismissed, the material is deleted. Unused offer buttons read "Send the material again to start this canvas."
+
+#### J11. Edges
+
+| Case | Behaviour |
+|---|---|
+| Run cap (30) reached | Composer replaced by the cap line; Publish available. With nothing to publish: **[Start over]** (§2 Composer send slot). |
+| Run fails / AI daily cap hit | Reply "I couldn't update the draft. [Try again]". Draft untouched. No auto-retry. |
+| Daily cap hit before the call | Reply "Your mirror agent has used today's updates. It can continue tomorrow." No model call, no charge. |
+| Message addresses no box | Reply "No box changed." plus the model's `note` (≤160 chars, names-filtered) when the message asked something. No Undo. Counts toward the cap. |
+| Two tabs | Every mutation carries the revision → `stale_view`, refetch, text kept. |
+| Phone Back / ← | Switch changes replace history; ← per §2. |
+| Viewer / signed out | No Add to chat, no markers, no workspace; labels show origin. |
+| Closed thread opened from the mirror chat | Composer replaced by "Published as v3. [Open canvas]". |
+| Keyboard open on phone | The bar stays visible: `position: sticky` inside the scroll container, the composer pinned to the visual viewport. Verified in WebKit emulation; the founder checks on a real phone at UAT. |
+
+#### Wireframes
+v4 frames below, except:
+- the 375 Chat-composing frame shows the send slot as "Updating…" during a run;
+- the J7 frame gains the "×" per offer row;
+- the J10 publish reply is new.
+
+```
+| Your mirror agent                     |
+| Published v1. Your material also      |
+| covers agencies.                      |
+| ( Start an agencies canvas )        × |
+| I keep the text of your uploads for   |
+| this until you start it or for 30     |
+| days, then delete it.                 |
+```
+
+**375px, published v2, owner (J3 step 1)**
+```
++-------------------------------------+
+| ←  Sales map                [Share] |
+|    v2 · 27 Oct · from v1            |
+|-------------------------------------|
+| Owner Name                          |  byline: name only, no buttons
+| CORE ASSUMPTIONS                    |
+| Customer Segments   [💬 Add to chat]|  quiet text button, 44px, box header,
+| +---------------------------------+ |  never inside the card (card is a <button>)
+| | HR leads in 50-500 teams      > | |
+| +---------------------------------+ |
+| Offers & Pricing    [💬 Add to chat]|
+| What do they buy, and for how much? |  question (owner only)
+|-------------------------------------|
+| [▣ Today's event]                   |
+| Home  Chats  Events  Artifacts  You |
++-------------------------------------+
+```
+
+**375px workspace, Chat view, composing with two tags (J2 step 2)**
+```
++-------------------------------------+
+| ←  Sales map             [Publish]  |  sticky; filled; never moves
+|    v3 · Draft · from v2             |
+| [ Canvas ]  [■ Chat ]               |
+|-------------------------------------|
+|   ┌ From v2 · 27 Oct ┐              |
+|        You: [Customer Segments] Not |
+|        HR leads, people leads       |
+| Updated: [Customer Segments]  Undo  |
+|-------------------------------------|
+| (📎)(⇪) [Offers & Pricing] €200 per |
+|  pilot, paid by HR [My next mi… (➤) |  ➤ Send filled beside filled Publish
++-------------------------------------+
+```
+
+**375px workspace, Canvas view, run in flight (J2 step 3)**
+```
++-------------------------------------+
+| ←  Sales map              Updating… |  status, same footprint, not a button
+|    v3 · Draft · from v2             |
+| [■ Canvas ]  [ Chat ]               |
+|-------------------------------------|
+| Customer Segments   [💬 Add to chat]|
+| Changed                             |
+| | People leads in 50-200 startups>| |
+| Offers & Pricing    [💬 Add to chat]|
+| ◌ Updating…                         |
+| My next milestone   [💬 Add to chat]|
+| ◌ Updating…                         |
++-------------------------------------+
+```
+
+**375px, mixed-material reply (J7)**
+```
+| Your mirror agent                    |
+| I found two businesses: café owners  |
+| and agencies. This canvas is about   |
+| café owners, since you call them     |
+| your focus.                          |
+| ( Make it about agencies )           |  outline, auto width, fixed look
+| ( Start an agencies canvas )         |
+| Draft ready: 7 of 9 boxes.     Undo  |
+```
+
+**375px, J4 dialog (bottom sheet)**
+```
+| You have a draft from v2. Add this   |
+| to it, or start over from v1?        |
+| Starting over discards that draft.   |
+| [        Add to my draft           ] |  filled
+|          Start over from v1          |  red text
+```
+
+**1440px workspace (sidebar expanded 248; canvas ~752; chat 440)**
+```
++------+-------------------------------------------------------------------------------+
+| side | ←  Sales map · v3 · Draft · from v2                                [Publish] |  sticky, spans both
+| bar  |-----------------------------------------------+-------------------------------|
+|      | Owner Name                                    |  ┌ From v2 · 27 Oct ┐          |  pane top = bar bottom
+|      | CORE ASSUMPTIONS                              |      You: [Offers & Pricing]  |  (no empty band)
+|      | Customer Segments 💬Add  Problem 💬Add        |      €200 per pilot team      |
+|      | Changed                                       |  Updated: [Offers & Pricing]  |
+|      | +-------------------+ +-------------------+   |                        Undo   |
+|      | | People leads... > | | Every deadline. > |   |                               |
+|      | +-------------------+ +-------------------+   |                               |
+|      | PROFITABILITY        (2 columns: <720px)      |-------------------------------|
+|      | Offers & Pricing 💬Add  My next milestone 💬  | (📎)(⇪) Write, or add a box   |
+|      | Changed                                       |          to chat… (🎙Aa)(🎤)   |
++------+-----------------------------------------------+-------------------------------+
+```
+Sidebar collapsed at 1440: canvas column ≥720px → 3 columns. 1024-1279px: the 375 layout (bar + switch),
+chat column `max-w-2xl` centred.
+
+---
+
+### 4. Box definitions and Copy prompt (S2)
+
+The v4 definitions below, with these fixes from review:
+
+- **S2.3 fixture:** "a price with no unit or cadence", not "no customer count". The gap question asks for the missing part.
+- **S2.4 fixture:** "I expected HR teams to renew after the pilot; 0 of 4 renewed, so I stopped selling to HR." It yields a Hypotheses I've falsified point and no HR Customer Segments point.
+- **Copy prompt pasted back:**
+  - The pasted text is an owner message (material) like any other.
+  - The run reads its sections; the first becomes the focus.
+  - Each further section becomes an offer (`other_canvases` entry).
+  - A fork copies the owner's messages (J7), so the section text travels without a new field.
+
+
+**One source.** A single module holds the nine definitions; the drafting prompt (`canvas-prompt.ts`), the
+empty-box questions and the Copy prompt all read it. Today three places hold box text (`BOX_GUIDE`,
+`BOX_BRIEF`, `DRAFT_RULES`) and they already diverge (w1 still says "How I'll know it's working" / "My values"
+while main says "My next milestone" / "Guiding values", `main:src/lib/canvas-boxes.ts:24-25` [code]).
+
+**Global rules (replace "every point is a falsifiable bet" and the competitor-swap test):**
+1. **Grounding.** Every factual clause traces to the owner's material. Never invent numbers, dates, prices,
+   motives or obstacles.
+2. **Specificity.** Name observable actors, conditions, actions or terms. Reject category words ("small
+   businesses", "social media", "affordable", "integrity").
+3. **Differentiation only where claimed.** Write a competitive difference only when the owner claims one and
+   gives evidence. A true sentence a competitor could also say is allowed.
+4. **Statement type per box** (below): a fact stays a fact, a plan stays a plan, a target stays a target.
+   Keep the owner's modality: considering, quoted, paid; planned, piloted, live.
+5. **Partial beats empty.** Keep a supported part of a box and put the missing part in the box's gap question
+   (`questions[box]`, shown to the owner under the box). A box is empty only when nothing in it is supported.
+6. **Voice per box** (below). Customer Segments describes the customer and never starts with "I", "We",
+   "My customers" or "I sell to".
+7. **One sale loop** (D9): every customer-facing box is about this canvas's segment (or its roles). The three
+   founder-fit boxes may hold business-wide points.
+
+| Box (tag) | Type · voice | Definition | Shape | Good | Not | Empty / gap question |
+|---|---|---|---|---|---|---|
+| **Customer Segments** (`canvas:segments`) | Description · noun phrase about the customer | The specific people who have the problem and pay (or will), named by role, size or stage, what they do today and what makes it urgent now. Roles in one sale get one point each, starting "Pays:", "Uses:", "Approves:". | `<role + qualifier> who <do X today> <when trigger>` | "Owners of 1-3 independent cafés who do their own books after closing" | "I sell to small businesses" | "Who exactly has this problem, and what are they doing about it today?" |
+| **Problem** (`canvas:problem`) | Observation about the customer · their perspective | Where the customer is now and what it costs (A), what they want (B), and what stops them (obstacle), before they have heard of you. | "Today <customer> <A + cost>; they want <B>, but <obstacle>." The obstacle is a barrier, not a missing product. A, B, obstacle may be partial. | "Today café owners sort a quarter of receipts in the week before the deadline; they want their books closed without losing evenings, but receipts pile up during 14-hour shifts." | "There is no simple bookkeeping app for cafés." | "Where are your customers stuck today, what do they want instead, and what stops them?" |
+| **Solution** (`canvas:solution`) | Mechanism · first person, with status | What you do or hand over, and how it removes the Problem's obstacle. Untested effect says "intended to". | "I <do X>, which removes <obstacle> so they reach <B>." Status: planned / piloted / live. | "Owners photograph each receipt into a chat thread when they pay; I log it the same night, so nothing piles up before the deadline." | "Seamless AI-powered bookkeeping." | Gap if the obstacle link is missing: "Which obstacle in the Problem does this remove?" |
+| **Go-to-market strategy** (`canvas:channels`) | Acquisition path · first person | Where this segment can be reached, the first action you take there, and which paths have brought customers vs. which are plans. Public platform names allowed; private people and firms by role only. | "<place> + <first action>; <result so far or 'not tried yet'>" | "I answer tax questions weekly in two café-owner Facebook groups; 4 of my 6 clients came via an espresso-machine technician who refers me." | "Social media and word of mouth." | "How did your last customer find you, and where do the next ones gather?" |
+| **Offers & Pricing** (`canvas:revenue`) | Commercial terms · terms or "I charge" | What the customer buys, for how much, per what unit, how often, and its state (considering / quoted / paid by N). | "<offer>: <price + currency> per <unit> <cadence>; <state>" | "Monthly books and tax filing: 2,500 baht per shop per month; 6 shops pay this today." | "Affordable packages." | "What exactly does a customer buy, for how much, and has anyone paid it yet?" |
+| **My next milestone** (`canvas:metrics`) | Target · first person | The next result customers produce (pay, renew, refer), with a number and a date. What you will change if you miss it, only if the owner says. | "I aim for <number> <customer action> by <date>[; if not, I <change>]." | "I aim for 10 cafés paying monthly by 31 March 2027." | "Launch the new website and grow." | "What number, by what date, would show this is working?" |
+| **Guiding values** (`canvas:love`) | Decision policy · as written | A rule your business and partners live by, saying which good thing you give up when two good things conflict, and why. Both X and Y are good. Business culture, not a personal habit. | "X over Y, because Z." | "Intellectual honesty over winning the argument, because decisions built on hidden misunderstandings fail later." (P1589) | "Integrity and customer focus." / "I keep weekends for family." | "What does your business choose over something else it cares about, and why? Write it as 'X over Y, because Z'." (P1589) |
+| **My current biggest challenge** (`canvas:good-at`) | Owner's constraint · first person | The obstacle you see as most likely to stop this working now: where you are (A, a number where the material has one), where you want to be (B), and what is in the way. Causes the material does not state are written as "I think". | "I'm at <A>, I want <B>, and the obstacle is <barrier>." | "I'm at 3 replies from my last 20 messages to café owners, I want 10 first calls this month, and I think strangers writing about money look like scams to them." | "Finding time." / a copy of the customer's Problem | "Where are you now, where do you want to be, and what is in the way?" |
+| **Hypotheses I've falsified** (`canvas:world-needs`) | Evidence · first person, past | Something you expected, how you tested it, what happened against it, and what you changed (if you have). Old pivots land here only with what the owner says happened. | "I expected <X>; I <test + sample>; <result>; so I <change>." Decision may be missing (gap). | "I expected owners to want per-receipt pricing; I offered both to 5 prospects; all 5 chose the flat fee, so I dropped per-receipt." | "I learned customers value relationships." | "What did you expect that turned out wrong, and how did you find out?" |
+
+**Copy prompt (D11).** One markdown file. Head: the global rules and the one-sale-loop rule in plain words.
+Body: for each canvas, a section starting `This canvas is about <group>.` followed by the nine headings in
+order, each with its definition and shape from the module above. Several businesses → several sections, first
+the owner's stated focus. Pasted back, the first section drafts this canvas; every further section is recorded
+as an other canvas (J7 buttons) with its section text kept as that canvas's material.
+
+**Drafting prompt additions:** the D9 rule and focus order (text from [`features/research/one-canvas-cases-for-p1536.md`](research/one-canvas-cases-for-p1536.md) §4(i), with "Draft
+a canvas for" replaced by D10's two actions); the scope rule (section 2); "later messages about a box win over
+earlier ones"; schema order `focus, other_canvases, scope, actions, questions`.
+
+---
+
+### 5. Acceptance criteria
+
+#### S1 Engine
+- [ ] **S1.1 Send is atomic.**
+  - One Send in an idle draft creates exactly one message and one `queued` `message` run in one transaction (fault-inject between the inserts: both or neither exist).
+  - A repeat with the same `p_client_id` returns the first result and writes nothing.
+  - The returned `run_id` is invoked by the client and moves to `running`.
+- [ ] **S1.2 Transition table (§2), SQL tests per row.**
+  - Every user RPC refuses with `busy` while a run is active.
+  - A second canvas's Send refuses with `busy_elsewhere`.
+  - Worker calls succeed on their own run: begin claims, complete/fail settle.
+  - Worker calls return `gone` on a failed, expired or cancelled run and write nothing.
+  - Concurrency: Send concurrent with completion (both orders), and Publish concurrent with Undo from two sessions. The loser gets `busy` or `stale_view`, never a partial write.
+- [ ] **S1.3** A tagged message on box X changes only X. The model stub also returns:
+  - an action for an untagged box;
+  - a move whose source box is out of scope;
+  - a question for an out-of-scope box.
+
+  All are dropped and counted. Every other box's point ids, questions and pending links are identical before and after.
+- [ ] **S1.4** An untagged message the stub scopes to Y changes only Y. A first draft fills across all nine boxes.
+- [ ] **S1.5 Cap.**
+  - The 30th used run applies. After it, Send refuses with `cap_reached` and writes no message.
+  - Failed runs do not count; undone runs do.
+  - At the cap with nothing to publish, the composer offers **Start over** (Discard), and the next Send opens a fresh draft.
+- [ ] **S1.6 Inputs.**
+  - Voice: begin returns `not_ready` until `transcript_status = 'done'`, then reads the transcript. `failed` fails the run with no model call and no charge.
+  - Upload, in order, in one invocation: claim → extract → material written with `message_id` → the stub's request contains the extracted text.
+  - An extraction failure fails the run in the same invocation (`unreadable` / `too_large`), and the spot leaves "Updating…" without waiting for a lease.
+  - Try again after an extraction failure, and after a reload before the file was posted, returns `not_retryable`; the bubble reads "Send the file again."
+  - Try again after a drafting failure re-uses the written material (assert on the request).
+  - A material write for a failed run is refused (`gone`).
+- [ ] **S1.7 Draft starts as its base.**
+  - A draft opened from v2 holds v2's point ids before any run.
+  - After a run touching one box, then Publish, v3 keeps the other eight boxes' point ids and other users' positions on them.
+  - v2's `get_canvas` output is byte-identical before and after.
+- [ ] **S1.8 Undo.**
+  - After applied run N, Undo restores exactly the point set, questions, pending links and focus from before N, and the run's reply reads "Undone.". A second Undo restores before N-1.
+  - A stale `p_expected_run` or revision refuses with `stale_view` and changes nothing.
+  - **Regression (Codex 4):** set the price to €500, Undo, then send "add a yearly plan" tagged Offers & Pricing → the stub's request contains neither the undone message nor its reply, and no point contains 500.
+- [ ] **S1.9 Focus eval** (a report, not a release gate).
+  - 21 packs from [`features/research/one-canvas-cases-for-p1536.md`](research/one-canvas-cases-for-p1536.md), 3 real-model runs each. The oracle is the Codex blind labels.
+  - The current `DRAFT_RULES` prompt is the known-bad control.
+  - If the control scores within 2 of the new prompt, the eval is blind: change the packs.
+  - The founder sees the numbers before release.
+- [ ] **S1.10 J9.** On a draft about café owners, an upload about agencies (stubbed) moves no customer-facing box toward agencies, and focus stays café (a `message` run never changes focus). Founder-fit boxes may change.
+- [ ] **S1.11 Origin for readers.**
+  - Readers see `v3 · 29 Oct · from v1`.
+  - A signed-out `get_canvas` returns `from_seq` for published versions only.
+  - A first version shows no "from".
+- [ ] **S1.12 Cleanup.**
+  - After Publish (following a reword and an Undo), every ledger point is tagged v3 or deleted.
+  - Engine stories of deleted ledger points are deleted; owner stories and v1/v2 points are untouched.
+  - The same after Discard.
+  - Steps are gone at both. SQL counts pasted.
+- [ ] **S1.13 Replies.**
+  - "Draft ready: N of 9 boxes." / "Updated:" + chips / "No box changed." + note.
+  - No reply contains "What I decided on my own" or an empty-box question.
+  - Unit test over `buildDraftReply`.
+- [ ] **S1.14 Stale runs.**
+  - A queued run past 3 minutes, or a running run past 5 minutes, is failed by the expire step at the start of any RPC or state read. The spot leaves "Updating…".
+  - `canvas_draft_retry` creates one new run of the same kind: tested for a `message`, a `focus` and a `fork_first` run.
+  - A second invoke of a running run makes no second model call.
+- [ ] **S1.15 Authorization matrix** (SQL tests). Actors: the owner, another signed-in user, a shared-link reader and anonymous.
+  - Tables and columns: `canvas_drafts` (new columns), `canvas_draft_runs`, `canvas_draft_steps`, `canvas_draft_points`, `canvas_draft_offers`, `canvas_draft_material` (incl. `message_id`, `source_material_id`), held points, `chat_messages.box_refs`.
+  - User RPCs: `canvas_workspace_send`, `canvas_draft_retry`, `canvas_draft_undo`, `canvas_draft_switch_focus`, `canvas_draft_fork`, `canvas_draft_offer_dismiss`, `get_canvas_draft_state`, publish, discard.
+  - Worker RPCs: not executable by `authenticated` or `anon` at all.
+  - Only the owner reads or acts. Readers get `from_seq` only.
+- [ ] **S1.16 Names filter** (§2 rule).
+  - Owner-message cases: "Anna from Café Luna pays me" → no point, story, focus, offer, question, note or reply contains "Anna".
+  - Other cases: lowercase "anna", a non-Latin given name on the list, and a label "Anna:".
+  - The owner's own brand ("ClarityPledge helps…") and platforms ("Facebook groups") survive.
+  - A failing focus is not stored; a failing offer is dropped.
+  - On the S2.2 packs, report the count of points dropped by the filter, so false positives are measured, not guessed.
+  - Known limitation stays in the spec.
+- [ ] **S1.17** Context fitting never drops the trigger message: a pack at the token limit still carries it (assert on the request).
+- [ ] **S1.18 Publish guards.** The server refuses `draft_empty` and `no_changes` (a draft undone back to its base) even when called directly.
+
+#### S2 Box definitions + Copy prompt
+- [ ] **S2.1** One module is the only source of box text. Prompt, questions and Copy prompt are byte-equal to it; titles equal `CANVAS_BOXES`.
+- [ ] **S2.2** Real-model eval, 10 packs:
+  - no Customer Segments point starts with "I", "We", "My customers" or "I sell to";
+  - every Guiding values point matches `X over Y, because Z`;
+  - every number in every point appears in the material.
+- [ ] **S2.3** A price with no unit or cadence → an Offers & Pricing point with the price + a gap question.
+- [ ] **S2.4** The renewal fixture (§4) → a Hypotheses I've falsified point, no HR segment point.
+- [ ] **S2.5** A pasted two-section Copy-prompt file drafts section 1's group and records section 2 as an offer. Forking it drafts section 2's group from the copied messages.
+- [ ] **S2.6** Founder signs off every §4 user-facing string (spec checkbox).
+
+#### S3 Workspace + Publish bar
+- [ ] **S3.1** At 1440 and 1280, canvas and chat sit on one screen. Add to chat, Send, Undo, chips and Publish never change `location.pathname`. Exception: fork landing goes to the new canvas.
+- [ ] **S3.2** At 1279, 768 and 375:
+  - `Canvas │ Chat` switch; both panes stay mounted;
+  - scroll position, caret and unsent text survive switches;
+  - BottomNav and the strip are absent;
+  - ← per §2, including direct entry and reload.
+- [ ] **S3.3** The Publish spot has the same bounding box (±1px) in both views and all five states, at 375 and 1440. It is a `<button>` only in the Publish state and never `disabled`.
+- [ ] **S3.4** Typing changes no button except the send slot (S6.2).
+- [ ] **S3.5** No empty band: the pane top equals the bar's bottom at scroll 0 and after scrolling.
+- [ ] **S3.6** The byline holds no buttons. At 375 and 320 the name breaks only between words, and long box headers with Add to chat do not overflow at 320.
+- [ ] **S3.7** Columns follow the container: <520 → 1, 520-719 → 2, ≥720 → 3.
+- [ ] **S3.8** Changed shows per D6, on owner draft views only.
+- [ ] **S3.9** Screenshots at 1440, 1280, 1024, 375, 320 of:
+  - published (owner);
+  - Chat composing;
+  - Canvas updating;
+  - mixed reply;
+  - J4 sheet;
+  - J10 publish reply;
+  - Chat with the keyboard open (WebKit mobile emulation).
+
+  A separate visual-QA subagent checks them.
+
+#### S4 Add to chat tags
+- [ ] **S4.1** The owner sees Add to chat (≥44px) on nine boxes, on draft and published. A viewer and a signed-out visitor see none.
+- [ ] **S4.2** Tag behaviour:
+  - A tap inserts the tag at the saved caret and focuses the composer synchronously in the tap handler.
+  - Two taps give two tags. Backspace after a tag removes the whole tag.
+  - Verified in Playwright WebKit + Chromium mobile; the founder checks on a real phone at UAT.
+- [ ] **S4.3** A sent message stores `box_refs` (validated subset of `_canvas_box_tags()`) and renders tags as chips. A forged value is refused.
+- [ ] **S4.4** On a published canvas:
+  - Tap and leave → `canvas_drafts`, `canvas_versions`, `chat_messages` counts unchanged.
+  - The first Send → one draft, one thread, one message, one run.
+  - Same for a first upload and a first voice note.
+- [ ] **S4.5** J4: the sheet appears only for a different base with ≥1 message. "Start over" discards inside the first Send's transaction. A stale revision → `stale_view` with the text kept.
+- [ ] **S4.6** `grep -rniE "new version" src/app` over user-facing strings returns 0. `canvas-new-version-button.tsx` and its importers are removed.
+
+#### S5 Mixed material and the second canvas
+- [ ] **S5.1 Offer row (real model).**
+  - A two-business pack: the first line names both groups, the chosen one and why, then exactly one offer row.
+  - A referrer/investor-only pack shows no offer.
+- [ ] **S5.2 Focus switch.**
+  - Same draft, one `focus` run.
+  - A malicious stub that `keep`s café points in Offers & Pricing has them refused. After the run, no customer-facing box holds a point from before the switch.
+  - Café becomes an offer.
+  - Undo restores café as focus, its points, and deletes the café offer row.
+  - A failed focus run leaves focus, offers and points untouched.
+  - Switch → Undo → switch again works.
+  - Switch → Undo → fork agencies works; the agencies offer is `offered` again after the Undo.
+- [ ] **S5.3 Fork.**
+  - Creates a new canvas, draft and thread, and a queued `fork_first` run (its `run_id` is returned and invoked). The owner lands in the new workspace.
+  - Its input is `_canvas_draft_effective_input` of the source:
+    - owner files, links and done messages (voice as transcript);
+    - never a failed or undone message;
+    - never a forward/clarify copy (assert on the copied rows).
+  - **The fork's first run request contains the seed material** (assert on the stub's request, not only on the copied rows). A later run in the fork and a second-generation fork include it too.
+  - The offer becomes `started` with Open. A second tap or a second tab opens the same canvas and never forks twice.
+- [ ] **S5.4** A three-business pack → one row per other group, max 3. A later run naming "agencies" again adds no second offer.
+- [ ] **S5.5** = S1.10.
+- [ ] **S5.6 Retention (moved clock).**
+  - Publish with an open offer sets `material_until = published_at + 30 days − 1 hour`, and the publish reply carries the offer.
+  - At `material_until` + 1 minute, a fork refuses `expired` and the state read shows `material_expired` before the job runs.
+  - The hourly job then deletes the rows.
+  - Start or dismiss of the last offer deletes at once.
+  - With no offer, Publish deletes as today.
+- [ ] **S5.7 Offers survive.**
+  - Scoped runs, Undo of later runs and focus switches never change a `started` or `dismissed` offer.
+  - Fork → Undo → tap again opens the existing canvas.
+  - Dismiss while a run is active refuses with `busy` (S1.2). A focus run whose target is no longer `offered` at complete fails `not_offered` and changes nothing.
+- [ ] **S5.8 Erasure by construction.**
+  - A source thread with a clarify copy from person X → fork. The fork's material and first run's `derived_refs` contain nothing of X.
+  - `erase_chat_data_for(X)` leaves the fork untouched and cancels X-derived runs in the source (existing).
+
+#### S6 Design-rule codification
+- [ ] **S6.1** `docs/design-system.md` Button Decision Rules gains rule 9 (text below). No `.claude/rules` edit is needed.
+- [ ] **S6.2** `assertStableVariantsOnInput(container, composer)`:
+  - keys buttons by DOM node identity;
+  - excludes the element marked `data-composer-send` (the send slot, including the P1576 mic/Send swap);
+  - fails if any other button changes variant, mounts or unmounts on composer input.
+- [ ] **S6.3** Gate 7 proof on the REAL `canvas-thread` fixture, with `openerIsPrimary`'s `!composing` restored (mutation of real code): non-zero. Fixed code: zero. Exit codes pasted.
+- [ ] **S6.4** Gate 7c: run over every `/tree/_gate/*` phase that renders a composer. Existing violators are fixed; no other fixture newly fails.
+- [ ] **S6.5** New gate phases: workspace Canvas, Chat composing, busy, Published status, No changes yet, J4 sheet, mixed reply, J10 reply.
+
+
+**Rule 9 text (design-system.md):** "A button's look changes only when its meaning changes. Typing changes only
+the composer's Send. A screen's main action pinned in a sticky top bar (Publish) is filled, auto width, and may
+sit beside a filled Send. When an action cannot run, replace it with a status in the same spot; never disable
+it."
+
+---
+
+### 6. Database and migration changes
+
+**Verified facts (2026-10-29):**
+- Today `_canvas_draft_run_complete` clears and re-inserts every point; every action INSERTs a new point (reword migration `:166-168` [code]).
+- `_canvas_draft_clear_points` finds created points by draft tag (versions `:403-445` [code]).
+- Material rows are only the owner's files and links: `kind IN ('file','link')` (versions `:276` [code]).
+- Copied chats are read from the thread at run begin (runs `:362`, `:402` [code]).
+- One active run per owner is a unique index (versions `:257` [code]).
+
+| Slice | Change |
+|---|---|
+| S1 | **`canvas_drafts`** gains `revision integer NOT NULL DEFAULT 0`, `focus text`, `material_until timestamptz`, `source_draft_id uuid`. `focus` joins the owner column grant. `decided`/`tensions` are no longer written. |
+| S1 | **`canvas_draft_runs`** gains `trigger_message_id uuid REFERENCES chat_messages ON DELETE SET NULL`, `scope text[]`, `target_offer_id uuid`, `client_id uuid` (unique per owner, for idempotency), `reply_message_id uuid`. `kind` becomes `message \| focus \| fork_first` (old rows `draft`/`extract`/`tensions` stay readable). State gains `'undone'`. **The one-active-per-owner index is kept.** |
+| S1 | **New `canvas_draft_steps`** `(draft_id, run_id, point_ids uuid[], questions jsonb, pending_links jsonb, focus text, new_offer_ids uuid[], created_at)`. Closed to clients. Deleted at Publish/Discard. |
+| S1 | **New `canvas_draft_points`** `(draft_id, run_id, point_id, story_ids uuid[])`. Closed to clients. Never deleted by Undo. |
+| S1 | **New `canvas_draft_offers`** `(id, draft_id, group_label, why, state CHECK (state IN ('offered','focused','started','dismissed')), started_canvas_id, created_run_id, created_at)`. Read only through `get_canvas_draft_state`. |
+| S1 | **`canvas_draft_material`** gains `message_id uuid REFERENCES chat_messages ON DELETE CASCADE`, `source_material_id uuid`, `origin text NOT NULL DEFAULT 'message' CHECK (origin IN ('message','fork_seed'))`. `kind` gains `'messages'` (the fork's "Your messages" row). |
+| S1 | **New `canvas_workspace_send(p_canvas, p_from_version, p_expected_draft, p_expected_revision, p_replace, p_body, p_box_refs, p_attachment, p_client_id)`**. Atomic and idempotent. Text, upload and voice; voice calls P1576's voice insert helper (refactor `send_voice_note` to share it if none exists). Replaces the client's `canvas_draft_open` + send pair. Inside it, a new draft tags every private base point (legacy public points: existing private-copy rule). |
+| S1 | **New `_canvas_draft_effective_input(p_draft, p_run)`**: the one selector for runs and forks (§2). |
+| S1 | **`_canvas_draft_run_begin`** works by `p_run`: readiness check (`not_ready`), claim, spend reservation, input via the selector. `c_revisions` 5 → 30 over used runs. |
+| S1 | **`_canvas_draft_add_material`** takes `p_run` and `p_message`. It writes only for a `running` run of that draft (existing late-write rule). |
+| S1 | **`_canvas_draft_run_complete`** gains `p_scope`, `p_focus`, `p_other_canvases`, `p_note`. Order: step, then scoped apply (focus-run rebuild), then per-box merge, then offer merge, then ledger, then reply with `run_id`, then revision. It no longer calls `_canvas_draft_clear_points`. |
+| S1 | **New user RPCs** (signatures in the §2 transition table): `canvas_draft_retry`, `canvas_draft_undo`, `canvas_draft_switch_focus`, `canvas_draft_fork`, `canvas_draft_offer_dismiss`, `get_canvas_draft_state(p_canvas)`. **Replaced:** `canvas_draft_publish(p_draft, p_expected_revision)`, `canvas_draft_discard(p_draft, p_expected_revision)`. `canvas_draft_run_expire` is internal only: the expire step runs at the start of every RPC listed in §2. |
+| S1 | **Publish** sets `canvas_versions.from_seq`, cleans up by the ledger, applies the retention rule and posts the publish reply (D17). |
+| S1 | **Caps (D18)** in `_mirror_limits`: `person_canvas_daily_count` 60, `person_canvas_daily_usd` 6.00, `global_canvas_daily_usd` 45.00. `global_reply_daily_usd` (5.00) and `global_total_daily_usd` (50.00) unchanged (runs `:67-81` [code]). |
+| S1 | **`get_canvas`** returns `from_seq` for published versions to every reader. |
+| S1 | **Names filter** (`canvas-names.ts`): owner messages feed `strong` via a bundled given-name list (new data file, no dependency) and the three patterns in §2. |
+| S4 | `chat_messages.box_refs text[]` (null, or a non-empty subset of `_canvas_box_tags()`). Written only by `canvas_workspace_send`. `forward_chat_message` drops it. |
+| S5 | **pg_cron hourly** `_canvas_draft_material_expire()` (pattern: `20260909120000_p1283…` [code]). |
+
+**House rule:**
+- Every replaced function restates its grants and is diffed against its latest live body.
+- The guard test in `p1536-draft-versions-migration.test.ts` ("newest definition keeps the P1536 edits") is extended to every function replaced here.
+
+#### Review ledger
+
+**v4 reviews:** Gemini 4 Argon 6 HIGH + 6 MEDIUM; Codex 13 HIGH + 5 MEDIUM. Answered in v5.
+
+**v5 reviews:** Gemini 4 Argon 7 HIGH, 5 MEDIUM, 3 LOW; Codex 7 HIGH, 5 MEDIUM, 13 earlier re-checked. Answered here.
+
+| v5 finding | Answer in v6 |
+|---|---|
+| C-1: the universal busy refusal blocks the worker | §2 transition table: user vs worker rows, own-run checks. |
+| C-2: late conversion writes after expiry | Late writes refused for a non-running run (existing pattern, now for upload and voice). Extraction runs inside the run's invocation. |
+| C-3, G-H7: Undo or later runs erase offer state | `canvas_draft_offers` relation; merge rule; Undo never changes started/dismissed (S5.7). |
+| C-4: daily job breaks 30 days; fork copies | Time-enforced expiry on read/fork, hourly job; a fork's copy is the new canvas's own material (§2 Retention, S5.6). |
+| C-5: owner-message names bypass | Given-name list + patterns on owner messages; brands kept; drops measured (S1.16). |
+| C-6, G-H3: fork provenance | By construction: a fork copies only owner text via the one selector; no forward/clarify (S5.8). Gemini's premise (copied chats stored as material, `kind='message'`) is false: material is `file`/`link` only (versions `:276` [code]). |
+| C-7: focus switch leaves mixed focus | Customer-facing rebuild; `keep` refused; malicious-stub test (S5.2). |
+| C-8, G-L1: signatures disagree | One table in §2 with every parameter. |
+| C-9: failed/undone input in forks | The one selector (§2). |
+| C-10, G-M1: cap dead end; "applied" ambiguity | used vs applied defined; Start over at cap; empty scope mutates nothing. |
+| C-11, G-M2-v4: admission after queueing | One active run per owner, checked at enqueue (`busy_elsewhere`). |
+| C-12: `?ws=1` premise false | S3 changes the predicate explicitly. Composer revealed then focused in the same gesture (S4.2). |
+| G-H1: upload/voice outside send | Both go through `canvas_workspace_send` (§2 Inputs). |
+| G-H2: stale deadlock; retry for focus/fork runs | Expire step inside every RPC; retry by failed run id (S1.14). |
+| G-H4: Publish of an empty or unchanged draft | Server `draft_empty` / `no_changes` (S1.18). |
+| G-H5: undone replies in context | Replies are never model context; undone replies rewritten (S1.8). |
+| G-H6: orphan engine stories | Ledger carries `story_ids`; cleanup at Publish and Discard (S1.12). |
+| G-M3: unfiltered focus persisted | Focus stored only after the filter. |
+| G-M4: offers on a closed draft | `get_canvas_draft_state(p_canvas)` returns the newest closed draft's offers. |
+| G-M5: "no separate $5 chat bucket" | False: `global_reply_daily_usd` 5.00 exists (runs `:71` [code]). Monthly cap is F3. |
+| G-L2: focus mutated before completion | `target_offer_id` on the run; applied at complete. |
+| G-L3: untouched-draft definition | Drafts are created only by send or fork, so an open draft always has a message or a run; J4 checks `EXISTS(message OR run)`. |
+
+**v6 reviews (round 3):** Gemini 4 Argon READY with 2 MEDIUM; Codex REVISE with 2 HIGH + 3 MEDIUM. All folded in:
+
+| v6 finding | Answer |
+|---|---|
+| Gemini 1: failed transcript waits for the lease | The expire step and begin fail it at once (§2 Lifecycle). |
+| Gemini 2, Codex 11: retry/focus/fork lack `busy_elsewhere` | Added to every row that creates a run. |
+| Codex N1: upload readiness is circular | Upload invocation claims, then extracts, then writes material, then drafts (§2 Inputs, S1.6). |
+| Codex N2: the selector cannot see fork seed rows | `origin = 'fork_seed'` rows always included; first-run request asserted (S5.3). |
+| Codex N3: failed upload has no retry payload | `not_retryable` + "Send the file again." when no material was written; otherwise retry re-uses it (S1.6). |
+| Codex N4: dismiss contradicts the busy rule | Dismiss follows the lock protocol; focus re-checks its target at complete (S5.7). |
+| Codex N5: Undo consumes the switch target | `focused` state, reversible by Undo (§2 Offers, S5.2). |
+| Codex: 30-day deletion can overrun by an hour | `material_until = published_at + 30 days − 1 hour`. |
+| Codex: names guarantee is not absolute | Kept as a Known limitation; privacy wording softened (F2). |
+| Codex C1: Publish after a failed message | Allowed; that message is not in the version (§2 Publish spot). |
+
+**Round 4 (narrow Codex check of the round-3 fixes):** N1-N4 and three items CLOSED; N5 and the 30-day AC were PARTLY because of two text mismatches (offer state domain missing `focused`; S5.6 still said 30 days). Both fixed.
+
+---
+
+### 7. Risks and non-goals
+
+| Risk | Label | Note |
+|---|---|---|
+| A ~30-60 s wait before the next Send (UNVERIFIED latency) | ACCEPT | Founder D15. Owner keeps typing. Measure real latency on TEST in /dev. |
+| A run left queued when the client closes, until the next open | ACCEPT | Owner-only state. Lease expiry on read (S1.14). No cron needed. |
+| Model scopes an untagged message wrongly | MITIGATE | Server enforces scope. Undo is one tap. |
+| Names filter is heuristic | MITIGATE | Applied to every generated surface (S1.16). Known limitation stays in the spec. |
+| Kept material after Publish (≤30 days, only with an open offer) | MITIGATE | Time-enforced expiry plus an hourly job, deletion on start/dismiss, privacy sentence updated (F2). |
+| Publish filled beside a filled Send | ACCEPT | Founder D3; neither is full width. |
+| Origin shown to everyone reveals restarts | ACCEPT | Founder D8. |
+
+**Non-goals:**
+- on-screen point editing;
+- redo;
+- per-box diff view;
+- version naming or deletion;
+- drag and drop;
+- an Artifacts menu entry for offers (v4 J10);
+- batching messages;
+- server-dispatched runs (pg_net);
+- per-box threads;
+- removing the tension functions (later migration);
+- keeping material for every canvas (INBOX-239).
+
+---
+
+### 8. Open founder decisions (minimal)
+
+- **F1** [FOUNDER DECISION: every quoted user-facing string in §3–§5.]
+- **F2** [FOUNDER DECISION: privacy wording.]
+  - The current draft sentence (Open Question 2) says drafts "do not quote or name other people". The filter is a heuristic (S1.16 Known limitation), so the proposed wording is "are written to avoid naming other people".
+  - Retention addition to Open Question 2: "If your material covers another business, the text read from your files is kept privately until you start or dismiss that canvas, for at most 30 days after you publish, then deleted."]
+- **F3** [FOUNDER DECISION: the monthly Google spend cap on the prod canvas key.] Read 2026-10-29 with `ai-keys --collect-budgets`:
+  - Canvas drafting has its own key, `CANVAS_DRAFT_GEMINI_API_KEY` (`supabase/functions/canvas-draft/index.ts:46` [code]).
+  - TEST key `cp-canvas-test`: monthly cap CONFIGURED (amount in `.private/`).
+  - Prod has no canvas key yet; the Pre-deploy checklist issues one.
+  - The mirror chat runs on a separate key (`cp-mirror`, with its own cap), so a tripped canvas cap never stops chat replies.
+  - Proposed: a monthly cap on the prod canvas key that covers two fully used event days plus normal use (amount in `.private/`). When it trips, drafting pauses until the 1st with the existing "capped" reply.
+- **Before the S1.9/S2.2 real-model evals:** raise the TEST canvas cap enough for about 160 runs (amount in `.private/`). The agent sets it in the Cloud console per `/slava:util:ai-keys`, then runs `--confirm-cap`.
+
+---
+
+### 9. Cost budget delta
+
+**Enforced limits (the bound):**
+- Per run, a $0.27 reservation, settled to actual (existing).
+- Per person, 60 runs and $6.00 a day.
+- Shared canvas bucket, $45 a day; whole mirror, $50 a day.
+- Per draft, 30 applied runs.
+- Per owner, 1 run at a time.
+
+**Charging rules:**
+- Extraction and transcription are charged in their own buckets, as today.
+- A failed call is charged its actual cost, or the full reservation when it may have been billed (existing `failureUsd`, `supabase/functions/_shared/canvas-run.ts:80` [code]).
+- Retries are new runs.
+
+**Expected (UNVERIFIED, measure on TEST in /dev):**
+- ≈ $0.10 per run, so ≤ $3 per fully used draft.
+- An event of 20 owners × 6 runs ≈ $12.
+
 ## Solution
+
+> **Superseded where it conflicts with "Design v6" above.** Kept as the v1-v3 history.
 
 1. **Input.** The owner gives any mix of: files (PDF, deck, document, markdown, text), links
    (website, offer post, profile), and a free-text note ("what I sell, to whom"). Everything is
@@ -91,6 +1071,8 @@ test database in parallel; nothing goes live before P1544 is live.
 and what the thread says about where the material goes.]
 
 ## Versions, drafts and updates (founder, 2026-10-26)
+
+> **Superseded where it conflicts with "Design v6" above.**
 
 Creating and updating are one engine: every run makes a new **draft version** of the canvas.
 
@@ -179,6 +1161,8 @@ Creating and updating are one engine: every run makes a new **draft version** of
 
 ## Box guide (v1, the drafting agent's brief)
 
+> **Superseded where it conflicts with "Design v6" above.**
+
 What each P1535 box means and what a good draft point looks like. The agent's prompt is built from
 this table; the founder edits it here first. Every point is a bet someone could disagree with.
 
@@ -257,6 +1241,8 @@ Material that shows no cost behind a value leaves Values empty and asks the owne
 
 ## Acceptance Criteria
 
+> **Superseded where it conflicts with "Design v6" above.**
+
 - [ ] An owner with a website link and one PDF gets a canvas whose points all trace to those inputs
       (checked against the material, on test, for 3 real attendees' material with their permission).
 - [ ] A box with no source in the material is empty and shown as a question.
@@ -289,6 +1275,8 @@ Material that shows no cost behind a value leaves Values empty and asks the owne
 - [ ] Works at 375px and 320px (screenshots).
 
 ## Cost Budget
+
+> **Superseded where it conflicts with "Design v6" above.**
 
 Model for the budget: `gemini-3.8-flash` (registry: $0.75 input, $3.75 output per 1M tokens through
 2026-12-31). Founder, 2026-10-21: "gemini 3.8 is ok for this".
@@ -328,6 +1316,11 @@ Model for the budget: `gemini-3.8-flash` (registry: $0.75 input, $3.75 output pe
 
 ## Resolved Decisions
 
+- 2026-10-29 (founder): the v6 design decisions D1-D19 ("Design v6" §1), including one update at a time (D15),
+  the second canvas offered again after Publish with material kept at most 30 days while an offer is open (D16),
+  and permanent daily caps of 60 runs / $6 per person, $45 canvas, $50 total (D18).
+- 2026-10-29: Open Question 1 is answered for this spec by D16 (material kept only while an offer is open). Keeping
+  material for every canvas is a separate future spec (inbox item INBOX-239).
 - 2026-10-26 (founder): Open Question 0 is resolved. P1535, P1515, P1544 and P1546 have shipped. A
   re-run creates a new **draft version**, not a replacement of a shared one (see "Versions, drafts and
   updates").
@@ -337,8 +1330,7 @@ Model for the budget: `gemini-3.8-flash` (registry: $0.75 input, $3.75 output pe
 
 ## Open Questions
 
-1. Keep the extracted text (not the files) privately as the owner's source, so a later version can
-   reread it? Agent leans yes; founder call.
+1. ~~Keep the extracted text after Publish?~~ Answered by D16 for this spec; long-term retention is INBOX-239.
 2. [FOUNDER DECISION: privacy-policy sentence, a soft update (no re-acceptance).] Draft for the
    mirror section: "Your mirror agent can turn what you give it (messages, files, links, and copies
    of other chats you can read) into a draft of your Clarity Canvas. The draft is visible only to
@@ -347,6 +1339,8 @@ Model for the budget: `gemini-3.8-flash` (registry: $0.75 input, $3.75 output pe
    people." Uploaded files are listed in the processor table as sent to Gemini and not kept.
 
 ## Known limitations (from /dev review, 2026-10-26)
+
+> **Superseded where it conflicts with "Design v6" above.**
 
 Accepted after three review rounds (Gemini 4 Argon, Codex, Opus adversary); each is a shape the
 reviewers reproduced but that is exotic or costs more than it saves now.
