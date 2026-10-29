@@ -998,7 +998,7 @@ describe('P1536 A9: names inside files and links (a heuristic, not a guarantee)'
     const text = (boxes: string) => `We met in the second week of March, on Monday morning. Then Offers Pricing, Customer Segments, ${boxes} were discussed. See Also Notes.`;
     const found = (t: string) => { const n = derivedNames(build([file('t.txt', t)]), null); return [...n.strong, ...n.weak].join(' '); };
     const names = found(text('Guiding Values and My Next Milestone'));
-    for (const bad of ['March', 'Monday', 'Customer Segments', 'Guiding Values', 'My Next Milestone']) expect(names).not.toContain(bad);
+    for (const bad of ['March', 'Monday', 'Customer Segments', 'Guiding Values', 'My Next Milestone', 'Next Milestone', 'Guiding', 'Milestone']) expect(names).not.toContain(bad);
     // control: a real name in the same two positions IS found, so the positions above are ones the heuristic reads
     expect(found(text('Jane Doe and Bob Smith'))).toContain('Jane Doe');
     expect(found(text('Jane Doe and Bob Smith'))).toContain('Bob Smith');
