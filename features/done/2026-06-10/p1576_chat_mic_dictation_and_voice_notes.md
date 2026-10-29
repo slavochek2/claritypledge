@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 77
 workstream: clarity-chat
 created_date: '2026-10-26'
 tags: [chat, voice, transcription, mirror]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-29
 ---
 
 # P1576: Mic in every chat composer — dictation everywhere, voice notes between people
