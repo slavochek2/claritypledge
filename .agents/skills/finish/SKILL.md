@@ -282,6 +282,8 @@ python3 scripts/review_receipt.py write --snapshot <path from Step 4b.0> --evide
 
 Fix the review, never the evidence. The receipt is what clears the Stop-hook gate.
 
+**A main session that ran the review rounds by hand, outside `/dev` and `/fix`, also runs Step 6.** The receipt clears the Stop hook only; `/ship` gate 2.7 reads the `.finish-reviewed` stamp, and nothing else writes it on this path (P1586 was blocked at ship until it was written by hand).
+
 **Every finding ends in one of two states:**
 - FIXED
 - listed to the founder with one line on why it was set aside
