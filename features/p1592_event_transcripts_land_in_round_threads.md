@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 83
 workstream: clarity-chat
 created_date: '2026-10-29'
 tags: [transcription, clarity-chat, events, rounds]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -426,6 +426,26 @@ the 1,110 writes into up to 1,110 x 12 list reads per event.
 2. **Fits at 10x?** 133,200 Realtime messages and ~270 MB per month for ten times the events: fits.
    The access-check row scales with C and is the one to watch.
 3. Not applicable; both answers are yes.
+
+## Pre-deploy Checklist
+
+The one-time notice is a terms bump to `v1.6` in notice mode (`terms-changes.ts`,
+`requiresConsent: false`: a dismissible banner, dismissing records it). The version is pinned in
+four places that must reach prod together, or acceptances and the mirror agent's terms gate
+disagree.
+
+### Deploy commands (one window, in this order)
+- [ ] Migrations: `20261029180000_p1592_*` and `20261029190000_p1592_terms_v1_6.sql` (`/push` applies them)
+- [ ] Edge functions that read `_shared/terms-version.ts`: `mirror-reply`, `mirror-portrait`,
+      `create-and-open-letter`, `create-and-sign`, `request-letter-response-signin`; plus
+      `transcribe-slice` (destination field)
+- [ ] Frontend (Vercel) with `CURRENT_TERMS_VERSION = 'v1.6'`
+- [ ] Batch worker `services/transcribe-room-batch` with `ROOM_SWAP_ENABLED` unset (swap off until the gate in Done-When is measured)
+
+### Post-deploy verification
+- [ ] A stale-terms account sees the banner, not the blocking dialog; dismissing it records `v1.6`
+- [ ] The mirror agent answers an account that dismissed the banner (server gate reads `v1.6`)
+- [ ] Sentry clean for 10 minutes
 
 ## Open Questions
 

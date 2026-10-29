@@ -19,6 +19,17 @@ export interface TermsChangeSummary {
 }
 
 export const TERMS_CHANGES: Record<string, TermsChangeSummary> = {
+  'v1.6': {
+    // Notice, not re-acceptance (founder, P1592 2026-10-29): transcription at an event now reaches
+    // the event's channel. The person transcribing still switches it on themselves (D7).
+    requiresConsent: false,
+    headline: "At an event, your transcribed words are now posted to the event's channel.",
+    highlights: [
+      "While you're seated at a table in a round, they go to that round's thread.",
+      "The event's host and attendees can read and forward them.",
+      'Nothing changes unless you switch transcription on.',
+    ],
+  },
   'v1.5': {
     // Blocking (founder, P1544): reverses the earlier promise that no AI reads a chat. The mirror agent
     // sends recent chat text, other members' messages included, to the Gemini API (privacy.md).

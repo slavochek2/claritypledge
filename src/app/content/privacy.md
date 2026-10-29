@@ -112,14 +112,23 @@ anonymous, and we treat it as personal data throughout.
 
 A transcribe room is a shared, live transcript that several signed-in people build from their
 own devices. Joining requires you to tap a control: at an event, the "Transcribe for AI
-insights" switch on the ready screen (it starts off) followed by Continue; on `/transcribe`, a
-control that reads "Recorded and visible to everyone in this room". Nothing is captured before
-you do, and your agreement is recorded on our server at the moment you join, not just in your
-browser.
+insights" switch on the ready screen (it starts off) followed by Continue, or Transcribe in the
+event room; on `/transcribe`, a control that reads "Recorded and visible to everyone in this
+room", or, for a room that belongs to an event, "Recorded, and posted to this event's channel
+for its attendees". Nothing is captured before you do, and your agreement is recorded on our
+server at the moment you join, not just in your browser.
 
 While you speak, short segments of your audio are sent to **Google's Gemini API** to be turned
 into text. That text is attributed to you with a timestamp and shown to everyone in the room.
 Your audio is also uploaded to our Google Cloud Storage bucket and kept there.
+
+While you are transcribed at an event, live text attributed to you is posted to that event's
+channel, where its host and attendees can read and forward it. While you are seated at a table
+in a round, it goes to that round's thread in the channel; otherwise it goes to the channel
+itself. The people the event's channel admits (the host, and attendees who registered in time)
+can read it, whether or not they were in the room. After the room ends, the text of those
+channel messages may be replaced with the same words from the saved transcript; the live text
+stays stored with the room.
 
 Transcription keeps running while you move to other pages of the app, and a bar at the top of
 the page shows that it is running. It pauses while you are in a live session, record an
@@ -136,9 +145,10 @@ everyone who took part. When several phones pick up the same sentence, it is kep
 device and marked as also heard by the others; if part of a recording is missing, that
 participant's section is marked incomplete.
 
-Only people who have switched transcription on in a room can read its transcript, live or
-saved — including anything said before they arrived and after they left. Registering for an
-event does not by itself give access.
+The room's own transcript, live or saved, can be read only by people who have switched
+transcription on in that room, including anything said before they arrived and after they left.
+At an event, the text posted to the event's channel (above) can also be read by the event's host
+and attendees.
 
 ### Letters and explain-backs
 

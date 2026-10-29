@@ -119,3 +119,32 @@ def update_transcript_if_unchanged(room_id: str, expected_updated_at: str, row: 
         .eq("room_id", room_id).eq("updated_at", expected_updated_at).execute()
     )
     return bool(result.data)
+
+
+# --- P1592 quiet swap reads and the one write -------------------------------------------------
+
+def read_member_live_rows(room_id: str, member_id: str) -> list[dict]:
+    """This member's live transcription rows in the room, spoken order. chat_message_id is NULL
+    for rows that were never posted to chat."""
+    return (
+        _db().table("transcribe_messages").select("id, text, spoken_at, chat_message_id")
+        .eq("room_id", room_id).eq("member_id", member_id)
+        .order("spoken_at").execute().data or []
+    )
+
+
+def read_chat_messages(ids: list[str]) -> list[dict]:
+    if not ids:
+        return []
+    return (
+        _db().table("chat_messages")
+        .select("id, body, edited_at, deleted_at, thread_root_id, conversation_id")
+        .in_("id", ids).execute().data or []
+    )
+
+
+def apply_transcription_swap(room_id: str, member_id: str, updates: list[dict]) -> int:
+    """ONE call. The RPC re-checks every guard server-side (edited, deleted, author, length)."""
+    return _db().rpc("apply_transcription_swap", {
+        "p_room_id": room_id, "p_member_id": member_id, "p_updates": updates,
+    }).execute().data

@@ -39,3 +39,9 @@ DUPLICATE_MIN_SIMILARITY = 0.6
 # Crash recovery for claimed jobs.
 STALE_PROCESSING_MINUTES = 30
 MAX_ATTEMPTS = 3
+
+# P1592 D9: the quiet swap (cleaned text replaces live text inside chat messages). Default OFF:
+# its pre-registered hand-check gate has not been measured. Only the exact string "true" enables.
+ROOM_SWAP_ENABLED = os.getenv("ROOM_SWAP_ENABLED", "") == "true"
+# Matched live words / live words below this keeps the live text. Reported with the gate measurement.
+SWAP_MIN_RATIO = 0.6

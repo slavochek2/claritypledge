@@ -22,6 +22,7 @@ from datetime import datetime
 
 import audio
 import storage
+import swap
 from config import (
     CHUNK_SECONDS,
     DUPLICATE_MIN_SIMILARITY,
@@ -131,6 +132,11 @@ def process_job(job: dict) -> None:
         write_member_into_room_transcript(room["id"], member["id"], member["display_name"], entries, incomplete)
         storage.finish_job(job_id)
         logger.info("job %s: completed (%s, sentences=%d, incomplete=%s)", job_id, stats, len(entries), incomplete)
+        # P1592 D9: after completion only; run_swap_for_member never raises and is off by default.
+        try:
+            swap.run_swap_for_member(room["id"], member["id"])
+        except Exception:  # noqa: BLE001 — belt and braces: the job is already completed
+            logger.error("job %s: swap raised after completion", job_id, exc_info=True)
     except TranscriptionError as err:
         storage.finish_job(job_id, error=f"gemini_{err.status}", retryable=err.retryable, attempts=attempts)
         logger.error("job %s: Gemini error status=%s retryable=%s", job_id, err.status, err.retryable)
