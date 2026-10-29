@@ -361,6 +361,15 @@ false. Sweep proven on test and prod: a queued delete was purged on the next `*/
 
 ## Resolved Decisions
 
+Founder, 2026-10-29 ("yes to all", post-ship):
+
+- **Two mics (Q0):** give the dictation mic a distinct icon so it cannot be mistaken for the voice-note
+  button. Not built yet; follow-up work.
+- **Logged-out visitors (Q2):** mic stays hidden.
+- **Copy (Q3):** the `/dev`-added strings are approved as shipped.
+- **Scope (Q5):** the Mirror landing-demo screen gets no voice notes, since it is for logged-out visitors, who have no mic.
+  Editing a sent message is not planned.
+
 Founder, 2026-10-26 ("yes to all" on the recommended options):
 
 - **Storage:** private GCS bucket + short-lived signed URLs minted after a chat-membership check.
