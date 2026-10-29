@@ -235,11 +235,14 @@ that room can (`20260823190000_p1149_transcribe_room_tables.sql:150-157`), so th
 - **Notice, not re-acceptance:** no new terms version that blocks existing users. A one-time notice
   of the change is enough; its form and placement are `/dev`'s call within the existing notice
   patterns, and it adds no new screen.
-- [FOUNDER DECISION: copy. The idle bar's description today reads "Record audio and share transcript
-  with others in the room. Transcription follows our Terms and Privacy Policy." It now also posts to
-  the event channel. Draft: "Record audio and post the transcript to this event's channel, where
-  attendees can read it. Transcription follows our Terms and Privacy Policy." The ⓘ text gets the
-  same first sentence. Confirm or rewrite.]
+- [FOUNDER DECISION: copy. The words people actually read are the ⓘ popup's "Where it goes:" line
+  (`capture-controls.tsx:111`, founder-approved 2026-10-02), today "the text appears for everyone in
+  this room, and the audio is kept so the whole conversation can be transcribed afterwards." Draft:
+  "the text is posted to this event's channel, in your round's thread, where the host and attendees
+  can read it. The audio is kept so the whole conversation can be transcribed afterwards." The
+  Transcribe button's description (`room-capture-bar.tsx:238`) is only a desktop hover tooltip and a
+  screen-reader label, nobody sees it on a phone; it gets the same first sentence. Confirm or
+  rewrite.]
 
 ### The quiet swap (D9, D10)
 
