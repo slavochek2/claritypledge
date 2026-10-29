@@ -2,6 +2,7 @@
   "prod": {
     "functions": {
       "_shared": "",
+      "chat-voice": "6e7a01cc9a6ea6b9e699e4860a5f59432e491bfa9088e2f02941e5d527c220d0",
       "check-login-email": "d6658ffed10732ffd3b2fa5e96010616d9be4bff0cc4dbdb1282e9ab415f9065",
       "confirm-letter-response": "3a2bb796bcfa298846b01bd19def9ac605c3beaf1321210d229b90031c6bcf00",
       "create-and-open-letter": "a831f562ffed9edaf8c839c39f854c082b763ca632ac18ec40a84c6b98fb4d15",
@@ -17,11 +18,12 @@
       "generate-event-banner": "e0ad8358fedaeb4cabf356103fc0e470dcd34a344c2ecde5d1d3c9b2106aedee",
       "generate-story-image-url": "f73ca62d28eca3e61b7a04820cf69a70670f4b3292af0035ae3ed3e354dcb2fc",
       "mirror-portrait": "5b28d8de4546e81aab534bb1ba629753c3a96cab02749b49655148e391b6b54b",
-      "mirror-reply": "82571a69b229a24c34df9a4e1e5bc7c43cc790b468c8c859e13be524ac0ae239",
+      "mirror-reply": "f4471726733602f5930afc82864b73f5a7a140997957e0eee921ee4e406a1cd6",
       "request-letter-response-signin": "231ec3b1d5f5e915f4952ba622f169f3a1428d4dae5014bde50642e60bdf82eb",
       "send-agreement-emails": "77d97e2722c657c6275d636dd026a1b5f6be9ed49bb795591445953bfa9627c6",
       "send-event-emails": "663e0947142de2c2298ff5008a21871636807b6513e9ebb16b511aed943e2821",
       "send-letter-emails": "f97d80b680333f6cee643591bb04d12f1f77a832ebeb437feb02b53956a472d9",
+      "transcribe-clip": "82bd8ba8c0213952f704f8a54671d1249f01b2487902cc98ae6bc7e4eaefda15",
       "transcribe-slice": "311a4bd82efd154a3ea60009ef45831454e2e4e4f02ef29a629241ad95ffd374"
     },
     "functions_deployed_at": "2026-10-26T10:24:27Z",
