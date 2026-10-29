@@ -26,9 +26,6 @@ import {
   type UploadProgressState,
 } from '@/app/components/partners/live-mode-view';
 
-// PwaSessionEndBanner uses usePwaInstall() — only rendered when !isGuest.
-// Tests pass isGuest={true} to skip the banner and avoid mocking the hook.
-
 function renderScreen(uploadProgress: UploadProgressState | null) {
   return render(
     <MemoryRouter>

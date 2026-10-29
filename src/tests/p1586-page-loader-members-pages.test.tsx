@@ -61,7 +61,6 @@ import { OrgPage } from '@/app/pages/org-page';
 import { OrgJoinPage } from '@/app/pages/org-join-page';
 import { OrgDirectoryPage } from '@/app/pages/org-directory-page';
 import { TranscribeRoomPage } from '@/app/pages/transcribe-room-page';
-import { PwaInstallProvider } from '@/hooks/use-pwa-install';
 
 const PAGES: Array<[string, string, string, ReactElement]> = [
   ['VideoSummaryPage', '/video/:videoId', '/video/abcDEF12345', <VideoSummaryPage />],
@@ -72,7 +71,7 @@ const PAGES: Array<[string, string, string, ReactElement]> = [
   ['OrgJoinPage', '/groups/:slug/join', '/groups/cm/join', <OrgJoinPage />],
   ['OrgDirectoryPage', '/groups', '/groups', <OrgDirectoryPage />],
   ['TranscribeRoomPage', '/transcribe', '/transcribe', <TranscribeRoomPage />],
-  ['SettingsPage', '/settings', '/settings', <PwaInstallProvider><SettingsPage /></PwaInstallProvider>],
+  ['SettingsPage', '/settings', '/settings', <SettingsPage />],
 ];
 
 describe('P1586 §2 — remaining pages show the one page loader while loading', () => {

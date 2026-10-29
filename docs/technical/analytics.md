@@ -694,14 +694,14 @@ PWA install prompt was triggered.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `source` | string | Where the prompt was triggered from |
+| `source` | string | Where the prompt was triggered from: `avatar_menu` or `return_nudge` (P1593) |
 
 ### `pwa_ios_instructions_shown`
 iOS PWA install instructions were shown to the user.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `source` | string | Where the instructions were shown from |
+| `source` | string | Where the instructions were shown from: `avatar_menu` or `return_nudge` |
 
 ---
 

@@ -120,6 +120,14 @@ describe('P1593 return-visit nudge', () => {
     expect(nudge()).toBeNull();
   });
 
+  it('desktop Chrome with a captured prompt on a return visit: no nudge (mobile only)', () => {
+    stage({ ua: DESKTOP });
+    seedReturnVisit();
+    renderBar();
+    nativePrompt();
+    expect(nudge()).toBeNull();
+  });
+
   it("today's event wins: the strip shows and the nudge does not", () => {
     stage({ ua: IPHONE });
     seedReturnVisit();
@@ -159,6 +167,42 @@ describe('P1593 visit counting', () => {
     expect(recordActivity(t0 + 60_000)).toBe(1);
     expect(recordActivity(t0 + 29 * 60_000)).toBe(1);
     expect(recordActivity(t0 + 29 * 60_000 + 31 * 60_000)).toBe(2);
+  });
+});
+
+describe('P1593 visit counting across tab switches', () => {
+  const setVisibility = (state: 'hidden' | 'visible') => {
+    Object.defineProperty(document, 'visibilityState', { value: state, configurable: true });
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+  };
+  afterEach(() => {
+    vi.useRealTimers();
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+  });
+
+  it('a 35-minute first visit then a tab switch is still visit 1', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-01-01T10:00:00Z'));
+    stage({ ua: IPHONE });
+    renderBar();
+    vi.setSystemTime(new Date('2026-01-01T10:35:00Z'));
+    setVisibility('hidden');
+    vi.setSystemTime(new Date('2026-01-01T10:35:05Z'));
+    setVisibility('visible');
+    expect(localStorage.getItem('pwa_visit_count')).toBe('1');
+    expect(nudge()).toBeNull();
+  });
+
+  it('hidden at t0, back 31 minutes later: visit 2, nudge shows', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-01-01T10:00:00Z'));
+    stage({ ua: IPHONE });
+    renderBar();
+    setVisibility('hidden');
+    vi.setSystemTime(new Date('2026-01-01T10:31:00Z'));
+    setVisibility('visible');
+    expect(localStorage.getItem('pwa_visit_count')).toBe('2');
+    expect(nudge()).toBeInTheDocument();
   });
 });
 

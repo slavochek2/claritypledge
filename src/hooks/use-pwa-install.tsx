@@ -82,14 +82,17 @@ function getIsDismissed(): boolean {
   }
 }
 
-/** Stamps activity and returns the visit count; reloads and route changes inside a visit leave it alone. */
+/**
+ * Stamps activity and returns the visit count; reloads and route changes inside a visit leave it alone.
+ * `countVisit: false` only refreshes the timestamp (used when the page is hidden, so a long visit is never split).
+ */
 // eslint-disable-next-line react-refresh/only-export-components
-export function recordActivity(now = Date.now()): number {
+export function recordActivity(now = Date.now(), countVisit = true): number {
   try {
     const last = parseInt(localStorage.getItem(LAST_ACTIVITY_KEY) ?? '', 10);
     let count = parseInt(localStorage.getItem(VISIT_COUNT_KEY) ?? '', 10);
     if (!Number.isFinite(count)) count = 0;
-    if (!Number.isFinite(last) || now - last >= VISIT_GAP_MS) {
+    if (countVisit && (!Number.isFinite(last) || now - last >= VISIT_GAP_MS)) {
       count += 1;
       localStorage.setItem(VISIT_COUNT_KEY, String(count));
     }
@@ -147,7 +150,8 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
 
   // P1593: stamp activity when the app is left or returned to, so a gap of 30+ minutes starts a new visit.
   useEffect(() => {
-    const onVisibility = () => setVisitCount(recordActivity());
+    const onVisibility = () =>
+      setVisitCount(recordActivity(Date.now(), document.visibilityState !== 'hidden'));
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
@@ -220,9 +224,9 @@ export function useInstallMenuAction(): (() => void) | null {
   return () => { void ctx.openInstall('avatar_menu'); };
 }
 
-/** P1593: return-visit nudge rules (the bottom bar adds "no today's event"). False with no provider. */
+/** P1593: return-visit nudge rules (mobile only; the bottom bar adds "no today's event"). False with no provider. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useInstallNudgeVisible(): boolean {
   const ctx = useContext(PwaInstallContext);
-  return !!ctx && ctx.canOffer && !ctx.isDismissed && ctx.isReturnVisit;
+  return !!ctx && !ctx.isDesktop && ctx.canOffer && !ctx.isDismissed && ctx.isReturnVisit;
 }
