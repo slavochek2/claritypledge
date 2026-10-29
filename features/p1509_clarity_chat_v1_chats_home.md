@@ -6,8 +6,8 @@ workstream: clarity-chat
 created_date: '2026-10-16'
 tags: [clarity-chat, messaging, navigation, events]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev, dev.2]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, dev.2, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -142,7 +142,7 @@ replaces P1503's "one drawer from the avatar" (decisions.md 2026-10-16). Confirm
 - [x] `?state=empty`, `?state=loading` and `?state=fail` each show their state
 - [x] Nothing in the strip list's "Cut" rows appears anywhere in v12
 - [x] The build report includes a table mapping each v12 screen to the existing code or data it would use, and lists what is new for the backend spec
-- [ ] The founder has clicked through v12 and approved it
+- [x] The founder has clicked through v12 and approved it — founder, 2026-10-29: "it works, let's close it"
 
 ## UX Notes
 
@@ -316,7 +316,7 @@ suggested partner terms.
 - [x] Profile menu on mobile is a sheet that closes on swipe-down and outside tap
 - [x] "Invite partner" is the only partner verb anywhere; works with a name and with an email; suggested terms present
 - [x] No "+ New" and no "New chat" anywhere
-- [ ] Transcribe button top-right in every chat header starts capture in one press, live bar shows it; Live invite only in 1:1 ⋯ menu
+- [x] ~~Transcribe button top-right in every chat header starts capture in one press, live bar shows it~~ — **withdrawn 2026-10-29: superseded by P1592** (one Transcribe switch in the event room; where you sit decides the thread). Live invite only in 1:1 ⋯ menu
 - [x] Tools icon+label sits right of the profile picture on desktop, always visible; no "More"; Use cases and Learn are in the profile menu
 - [x] General shows lock + "Members only"
 - [x] Thread forward shows "Thread · N replies" and opens the thread
@@ -327,4 +327,4 @@ suggested partner terms.
 - [x] Mark as unread works on desktop and touch
 - [x] Parity/navigation table in the build report covers every page named above, with no unexplained loss
 - [x] Separate visual-QA subagent passes at desktop, 375 and 320; each Gemini UX finding marked fixed or listed with a reason
-- [ ] The founder has clicked through v16 and approved it
+- [x] The founder has clicked through v16 and approved it — founder, 2026-10-29: "it works, let's close it"
