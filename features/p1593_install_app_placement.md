@@ -7,7 +7,7 @@ created_date: '2026-10-29'
 tags: [pwa, navigation, mobile, install]
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -82,15 +82,15 @@ Menu label: **"Install as app"** (founder decision 2026-10-29). The mobile nudge
 
 ## Acceptance Criteria
 
-- [ ] Signed in on a mobile browser (not installed), the avatar menu shows "Install as app". Tapping it opens the iOS drawer on iPhone and the native prompt on Android.
-- [ ] On desktop Chrome (not installed) the avatar menu shows the item and it triggers the native prompt. On a desktop browser that cannot prompt, the item still shows and opens the generic instructions drawer (founder decision 2026-10-29).
-- [ ] In the installed app, the item and the nudge are absent.
-- [ ] Settings no longer shows an Install card. The celebration dialog and /live session end no longer show install links.
-- [ ] On a first visit no nudge appears. On a later visit (mobile, signed in, not installed) the strip appears above the bottom tabs.
-- [ ] On an event day the "Today's event" strip shows and the nudge does not.
-- [ ] Closing the nudge hides it, and it stays hidden after reload.
-- [ ] Unit tests cover the visibility rules (installed / desktop / iOS / first visit / dismissed / today's event), and existing tests for the removed surfaces are updated or removed.
-- [ ] Checked in a browser at 375px, 320px and desktop.
+- [x] Signed in on a mobile browser (not installed), the avatar menu shows "Install as app". Tapping it opens the iOS drawer on iPhone and the native prompt on Android. — verified: unit tests (iOS drawer, Android native prompt); menu row seen in browser at 375/320. `[post-deploy]` real-device check on iPhone + Android.
+- [x] On desktop Chrome (not installed) the avatar menu shows the item and it triggers the native prompt. On a desktop browser that cannot prompt, the item still shows and opens the generic instructions drawer (founder decision 2026-10-29). — verified: browser (desktop sidebar menu shows item, dev build → generic drawer path) + unit tests (native prompt when captured).
+- [x] In the installed app, the item and the nudge are absent. — verified: unit tests (standalone → absent).
+- [x] Settings no longer shows an Install card. The celebration dialog and /live session end no longer show install links. — verified: components deleted, grep shows no callers; unit + settings tests pass.
+- [x] On a first visit no nudge appears. On a later visit (mobile, signed in, not installed) the strip appears above the bottom tabs. — verified: unit tests with faked clock (first visit none, 31-min gap → nudge, 35-min single visit → none).
+- [x] On an event day the "Today's event" strip shows and the nudge does not. — verified: unit test (today strip wins).
+- [x] Closing the nudge hides it, and it stays hidden after reload. — verified: unit test (dismiss persists across remount).
+- [x] Unit tests cover the visibility rules (installed / desktop / iOS / first visit / dismissed / today's event), and existing tests for the removed surfaces are updated or removed. — verified: src/tests/p1593-install-placement.test.tsx, 18 tests pass; stale p492/p752 references removed.
+- [x] Checked in a browser at 375px, 320px and desktop. — verified 2026-10-29: desktop sidebar menu; 375px and 320px Me sheet (row 44px tall, no horizontal overflow).
 
 ## Related
 
