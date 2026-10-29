@@ -330,7 +330,7 @@ applied to prod (`migrate.sh --env prod --only`, prod smoke 12/0 after); `transc
 deployed to prod after the migrations (all three answer 401 to an anonymous call, i.e. configured); prod secrets
 `GCS_CHAT_VOICE_SERVICE_ACCOUNT_KEY` (dedicated signer `cp-chat-voice-signer`, objectUser on the two voice buckets
 only; the shared account's binding removed from the test bucket), `CHAT_VOICE_CRON_SECRET`, `MIRROR_INTERNAL_SECRET`
-(both equal to their vault values), `GEMINI_CHAT_VOICE_API_KEY` (new key `cp-chat-voice-prod`, EUR 20/month
+(both equal to their vault values), `GEMINI_CHAT_VOICE_API_KEY` (new key `cp-chat-voice-prod`, budget-capped
 enforcing cap, `--confirm-cap` CONFIGURED, restriction PASS); vault `chat_voice_url`, `chat_voice_cron_secret`,
 `chat_voice_anon_key`, `mirror_reply_url`, `mirror_internal_secret` on prod; bucket `claritypledge-chat-voice`
 created in US-CENTRAL1 (same region as the public media and test voice buckets), `--check` OK on both buckets;
@@ -376,7 +376,7 @@ Founder, 2026-10-26 ("yes to all" on the recommended options):
 - **Founder, 2026-10-28 ("approved all"):** privacy and ToS wording as drafted (voice audio kept 30 days,
   transcribed by Google Gemini, transcripts kept; Mirror answers from the transcript); a **dedicated signing
   service account** with `roles/storage.objectUser` on the voice bucket only, under its own secret name; a
-  **new prod Gemini key** for chat voice with a **€20/month cap** (raised on evidence), separate from the TEST
+  **new prod Gemini key** for chat voice with a **monthly budget cap** (raised on evidence; amount in `.private/`), separate from the TEST
   key so test runs never spend users' budget. No terms-version bump: bumps are batched quarterly; the
   Mirror's Gemini use is already consented in v1.5.
 - **Bucket IAM (2026-10-27):** `gcs-chat-voice-bucket.sh` grants the signer `roles/storage.objectUser` and
