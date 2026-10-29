@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 42
 workstream: clarity-chat
 created_date: '2026-10-16'
 tags: [clarity-chat, messaging, navigation, events]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, dev.2, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-10-29
 ---
 
 # P1509: Clarity Chat v12 prototype — chats as the home, groups with event channels, 1:1 messages
