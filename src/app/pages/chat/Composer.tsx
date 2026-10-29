@@ -233,9 +233,10 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
             <FieldMic slots={slots} dict={dict} blocked={voice.busy} />
           </div>
           <DictationSlot slots={slots} dict={dict} />
+          {/* The send slot (rule 9): the voice-note button while the field is empty, Send once there is text. Both carry data-composer-send, which assertStableVariantsOnInput skips. */}
           <VoiceSlot slots={slots} voice={voice} dict={dict} />
           {slots.send && (
-            <button type="submit" aria-label="Send" title="Send" disabled={sendDisabled} className={cn(ROUND, 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50', FOCUS_RING)}>
+            <button type="submit" data-composer-send aria-label="Send" title="Send" disabled={sendDisabled} className={cn(ROUND, 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50', FOCUS_RING)}>
               <ArrowUp className="h-[18px] w-[18px]" aria-hidden="true" />
             </button>
           )}

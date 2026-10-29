@@ -18,6 +18,7 @@ export function VoiceMic({ onClick, disabled }: { onClick: () => void; disabled:
   return (
     <button
       type="button"
+      data-composer-send
       aria-label="Record a voice message"
       title="Record a voice message"
       disabled={disabled}

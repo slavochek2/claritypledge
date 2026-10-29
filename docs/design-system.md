@@ -211,6 +211,8 @@ One question decides every button: **what does it do?** Visual reference: `/tree
 | 7 | Two buttons in a popup | Main action filled — **red if it loses something (rule 5), otherwise blue**; the other is ghost | Desktop: main on the right. Phone: stacked, main on top |
 | 8 | One action inside a message or inline content (Give me a name) | The default Button (filled blue), auto width — not full width | Under the text it belongs to |
 
+**9.** A button's look changes only when its meaning changes. Typing changes only the composer's Send. A screen's main action pinned in a sticky top bar (Publish) is filled, auto width, and may sit beside a filled Send. When an action cannot run, replace it with a status in the same spot; never disable it. [FOUNDER DECISION: wording pending, P1536 S6.1] Checked by `assertStableVariantsOnInput` (`src/tests/p955-stable-variants.ts`, re-exported from `src/tests/p955-gate.test.ts`): it types into a composer and fails if any button outside the send slot (the buttons marked `data-composer-send`) changes look, mounts or unmounts.
+
 `variant="secondary"` (gray fill) is not in this table: it reads as disabled. Use outline instead.
 
 ##### Primary CTA Pattern

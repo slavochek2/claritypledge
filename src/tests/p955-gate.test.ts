@@ -3,7 +3,7 @@
  *
  * This file serves two purposes:
  *   1. Exported assertion functions (assertOnePrimary, assertNoDeadDisabled,
- *      assertNoOverflow320, assertTouchTargets44) — the gate harness that
+ *      assertNoOverflow320, assertTouchTargets44, assertStableVariantsOnInput) — the gate harness that
  *      fires on every UI commit via pre-commit-checks.sh.
  *   2. A regression suite that proves each assertion FAILS against a P952
  *      defect fixture — epistemic gate 7 requirement before trusting the gate.
@@ -14,10 +14,18 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, within } from '@testing-library/react';
 import type { RenderResult } from '@testing-library/react';
-import React from 'react';
+import React, { useState } from 'react';
+import { MemoryRouter } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Composer } from '@/app/pages/chat/Composer';
+import { GateFixture as CanvasThreadGateFixture } from '@/app/tree/_gate/canvas-thread/GateFixture';
 import { P952DefectFixture } from './p955-fixture';
+import { assertStableVariantsOnInput, buttonsChangedOnInput } from './p955-stable-variants';
+
+// P1536 S6.2: the rule-9 assertion lives in p955-stable-variants.ts so other test files can import it without re-registering this file's tests.
+export { assertStableVariantsOnInput, buttonsChangedOnInput };
 
 // ---------------------------------------------------------------------------
 // Assertion library — exported for use by per-surface fixture tests
@@ -332,6 +340,187 @@ describe('P955 gate — failure-path proof against P952 defect fixture', () => {
     expect(() => assertTouchTargets44(container)).toThrow(/touch-target-44/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// P1536 S6.2 / S6.3 — assertStableVariantsOnInput: controls and the real canvas-thread fixture
+//
+// Known-bad controls (the assertion THROWS) and known-good controls (it passes) first, on small components, then on the
+// REAL code: the real Composer, and every phase of the real /tree/_gate/canvas-thread fixture. Today's canvas thread
+// flips some buttons while the owner types (openerIsPrimary, CanvasCreateBar, CanvasDraftCard, the closed strip), so
+// those phases are marked `it.fails` below: slice S3 rebuilds the thread, and when it lands each of those turns red,
+// which is the signal to change `it.fails` to `it` and run the assertion in the blocking gate. The real ThreadPanel and
+// ConversationPane composers are in src/tests/p1536-composer-surfaces.test.tsx.
+// ---------------------------------------------------------------------------
+
+const h = React.createElement;
+
+/** A composer stand-in: a text field plus a send slot (marked), and whatever the caller puts next to it. */
+function TypingSurface({ aside, sendSlot, editable = false }: { aside: (typed: boolean) => React.ReactNode; sendSlot?: (typed: boolean) => React.ReactNode; editable?: boolean }) {
+  const [text, setText] = useState('');
+  const typed = text !== '';
+  const field = editable
+    ? h('div', { role: 'textbox', 'aria-label': 'Message', contentEditable: true, suppressContentEditableWarning: true, onInput: (e: React.FormEvent<HTMLDivElement>) => setText(e.currentTarget.textContent ?? '') })
+    : h('textarea', { 'aria-label': 'Message', value: text, onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => setText(e.target.value) });
+  return h('div', null,
+    aside(typed),
+    h('div', { 'data-testid': 'composer' },
+      field,
+      sendSlot ? sendSlot(typed) : typed ? h('button', { type: 'submit', 'data-composer-send': '', className: 'bg-blue-600 text-white' }, 'Send') : h('button', { type: 'button', 'data-composer-send': '', className: 'border' }, 'Voice note')));
+}
+
+const surface = (aside: (typed: boolean) => React.ReactNode, sendSlot?: (typed: boolean) => React.ReactNode, editable = false) => {
+  const view = render(h(TypingSurface, { aside, sendSlot, editable }));
+  return { container: view.container, composer: within(view.container).getByTestId('composer') };
+};
+const KEEP = () => h(Button, { variant: 'outline' }, 'Keep');
+
+describe('P955 gate — assertStableVariantsOnInput: known-good controls pass', () => {
+  it('a surface whose only change is the send slot passes (the voice-note button becomes Send)', () => {
+    const { container, composer } = surface(() => h(Button, { variant: 'outline' }, 'Copy prompt'));
+    expect(() => assertStableVariantsOnInput(container, composer)).not.toThrow();
+  });
+
+  it('a send slot that mounts, unmounts and changes look is excluded, also when marked on a wrapper', () => {
+    const { container, composer } = surface(
+      () => h(Button, { variant: 'ghost' }, 'Cancel'),
+      (typed) => h('span', { 'data-composer-send': '' }, typed ? h(Button, { variant: 'default' }, 'Send') : null),
+    );
+    expect(() => assertStableVariantsOnInput(container, composer)).not.toThrow();
+  });
+
+  it('a contenteditable composer passes: typing sets its textContent and fires input', () => {
+    const { container, composer } = surface(KEEP, undefined, true);
+    expect(() => assertStableVariantsOnInput(container, composer)).not.toThrow();
+    expect(composer.querySelector('[contenteditable]')!.textContent).toBe(''); // left empty
+  });
+
+  it('the REAL Composer next to a button that keeps its look passes (Send and the voice-note button carry the marker)', () => {
+    localStorage.clear();
+    const view = render(h('div', null, h(Button, { variant: 'outline' }, 'Upload'), h(Composer, { draftKey: 's6-good-control', placeholder: 'Message', onSend: () => undefined })));
+    expect(() => assertStableVariantsOnInput(view.container, within(view.container).getByTestId('composer'))).not.toThrow();
+    expect(within(view.container).queryByRole('button', { name: 'Send' })).toBeNull(); // the check leaves the composer empty
+  });
+});
+
+describe('P955 gate — assertStableVariantsOnInput: known-bad controls throw', () => {
+  it('a button that changes variant while typing (default -> outline) throws', () => {
+    const { container, composer } = surface((typed) => h(Button, { variant: typed ? 'outline' : 'default' }, 'Create canvas'));
+    expect(() => assertStableVariantsOnInput(container, composer)).toThrow(/stable-variants.*Create canvas: look/);
+  });
+
+  // Each change below is invisible to a check that reads only unprefixed colour classes.
+  it.each<[string, (typed: boolean) => Record<string, unknown>]>([
+    ['hand-typed colour (bg-blue-600 -> border)', (t) => ({ className: t ? 'border' : 'bg-blue-600 text-white' })],
+    ['data-variant', (t) => ({ 'data-variant': t ? 'secondary' : 'primary' })],
+    ['opacity (opacity-100 -> opacity-50)', (t) => ({ className: t ? 'opacity-50' : 'opacity-100' })],
+    ['a hover colour (hover:bg-green-500 -> hover:bg-red-500)', (t) => ({ className: t ? 'hover:bg-red-500' : 'hover:bg-green-500' })],
+    ['a breakpoint colour (md:bg-blue-600 -> md:bg-red-600)', (t) => ({ className: t ? 'md:bg-red-600' : 'md:bg-blue-600' })],
+    ['a group state colour (group-hover:text-white -> group-hover:text-black)', (t) => ({ className: t ? 'group-hover:text-black' : 'group-hover:text-white' })],
+    ['an aria state colour (aria-[pressed=true]:bg-blue-600 -> aria-[pressed=true]:bg-red-600)', (t) => ({ className: t ? 'aria-[pressed=true]:bg-red-600' : 'aria-[pressed=true]:bg-blue-600' })],
+    ['a gradient stop (from-blue-500 -> from-red-500)', (t) => ({ className: t ? 'from-red-500' : 'from-blue-500' })],
+    ['the disabled attribute', (t) => ({ disabled: t })],
+    ['the aria-disabled attribute', (t) => ({ 'aria-disabled': t ? 'true' : undefined })],
+    ['an inline style', (t) => ({ style: t ? { background: 'red' } : { background: 'blue' } })],
+  ])('a button whose %s changes while typing throws', (_what, props) => {
+    const { container, composer } = surface((typed) => h('button', { type: 'button', ...props(typed) }, 'Publish'));
+    expect(() => assertStableVariantsOnInput(container, composer)).toThrow(/Publish: look/);
+  });
+
+  it('CONTROL for the table above: the same buttons, with the property held constant, pass', () => {
+    const { container, composer } = surface(() => h('button', { type: 'button', className: 'opacity-50 hover:bg-red-500 md:bg-red-600 from-red-500', style: { background: 'red' }, disabled: true, 'aria-disabled': 'true' }, 'Publish'));
+    expect(() => assertStableVariantsOnInput(container, composer)).not.toThrow();
+  });
+
+  it('a button that mounts while typing throws, and one that unmounts throws', () => {
+    const mounts = surface((typed) => h('div', null, KEEP(), typed ? h(Button, { variant: 'outline' }, 'Appeared') : null));
+    expect(() => assertStableVariantsOnInput(mounts.container, mounts.composer)).toThrow(/Appeared: mounted/);
+    const unmounts = surface((typed) => h('div', null, KEEP(), typed ? null : h(Button, { variant: 'outline' }, 'Vanished')));
+    expect(() => assertStableVariantsOnInput(unmounts.container, unmounts.composer)).toThrow(/Vanished: unmounted/);
+  });
+
+  it('a button replaced by an identical-looking one throws: identity is the DOM node, not the label', () => {
+    const { container, composer } = surface((typed) => h(Button, { key: typed ? 'b' : 'a', variant: 'outline' }, 'Same label'));
+    expect(() => assertStableVariantsOnInput(container, composer)).toThrow(/Same label: (unmounted|mounted)/);
+  });
+
+  it('a contenteditable composer is checked too: a button flipping while typing throws', () => {
+    const { container, composer } = surface((typed) => h(Button, { variant: typed ? 'outline' : 'default' }, 'Create canvas'), undefined, true);
+    expect(() => assertStableVariantsOnInput(container, composer)).toThrow(/Create canvas: look/);
+  });
+});
+
+describe('P955 gate — assertStableVariantsOnInput: never passes without proof that the input reached the app', () => {
+  it('ADVERSARIAL: a textarea with no handler beside a stable button FAILS (the field keeps the text but nothing in the app saw it)', () => {
+    const view = render(h('div', null, KEEP(), h('div', { 'data-testid': 'composer' }, h('textarea', { 'aria-label': 'Message' }))));
+    expect(() => assertStableVariantsOnInput(view.container, within(view.container).getByTestId('composer'))).toThrow(/input did not reach the composer.*no send slot/);
+  });
+
+  it('ADVERSARIAL: a controlled textarea with no onChange snaps back, so the field never holds the text', () => {
+    const view = render(h('div', null, KEEP(), h('div', { 'data-testid': 'composer' }, h('textarea', { 'aria-label': 'Message', value: '', onChange: () => undefined }), h('button', { type: 'button', 'data-composer-send': '' }, 'Voice note'))));
+    expect(() => assertStableVariantsOnInput(view.container, within(view.container).getByTestId('composer'))).toThrow(/input did not reach the composer.*field holds ""/);
+  });
+
+  it('ADVERSARIAL: a send slot that never switches fails, and so does a contenteditable with no handler', () => {
+    const frozen = surface(KEEP, () => h('button', { type: 'button', 'data-composer-send': '' }, 'Voice note'));
+    expect(() => assertStableVariantsOnInput(frozen.container, frozen.composer)).toThrow(/did not switch/);
+    const view = render(h('div', null, KEEP(), h('div', { 'data-testid': 'composer' }, h('div', { contentEditable: true, suppressContentEditableWarning: true, role: 'textbox' }), h('button', { type: 'button', 'data-composer-send': '' }, 'Voice note'))));
+    expect(() => assertStableVariantsOnInput(view.container, within(view.container).getByTestId('composer'))).toThrow(/did not switch/);
+  });
+
+  it('refuses to pass vacuously: no text field, no button outside the composer, or a composer that already holds text', () => {
+    const noField = render(h('div', null, KEEP(), h('div', { 'data-testid': 'composer' })));
+    expect(() => assertStableVariantsOnInput(noField.container, within(noField.container).getByTestId('composer'))).toThrow(/no text field/);
+    const alone = surface(() => null);
+    expect(() => assertStableVariantsOnInput(alone.container, alone.composer)).toThrow(/outside the composer/);
+    const insideOnly = render(h('div', { 'data-testid': 'composer' }, h('textarea', { 'aria-label': 'Message' }), h(Button, { variant: 'outline' }, 'Attach')));
+    expect(() => assertStableVariantsOnInput(insideOnly.container, within(insideOnly.container).getByTestId('composer'))).toThrow(/outside the composer/);
+    const full = render(h('div', null, KEEP(), h('div', { 'data-testid': 'composer' }, h('textarea', { defaultValue: 'already here' }))));
+    expect(() => assertStableVariantsOnInput(full.container, within(full.container).getByTestId('composer'))).toThrow(/already holds text/);
+  });
+});
+
+describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate/canvas-thread fixture', () => {
+  const at = (phase: string) => {
+    localStorage.clear();
+    const view = render(h(MemoryRouter, { initialEntries: [`/tree/_gate/canvas-thread?phase=${phase}`] }, h(CanvasThreadGateFixture)));
+    return { container: view.container, composer: within(view.container).getByTestId('composer') };
+  };
+  // The phases whose buttons change look while typing today, and the COMPLETE set of buttons that change in each (probed
+  // one by one). A new violation on a known-bad phase changes the set and fails the exact-set test below.
+  const VIOLATING: Array<[string, string[]]> = [
+    ['empty', ['Copy prompt']], ['upload-failed', ['Copy prompt']], ['failed-no-items', ['Copy prompt']], ['update-empty', ['Copy prompt']],
+    ['ready', ['Create canvas']], ['links', ['Create canvas']], ['failed', ['Create canvas']], ['failed-nothing-drafted', ['Create canvas']],
+    ['update', ['Create new version']], ['revising', ['Update draft']], ['update-revising', ['Update draft']], ['asked', ['Start a new version']],
+  ];
+  const FOLLOWING = ['reading', 'running', 'drafted', 'published', 'discarded', 'update-running', 'update-drafted'];
+
+  it.each(VIOLATING)('KNOWN-BAD CONTROL, exact set: on today\'s %s phase typing changes exactly %j, each in its look and nothing else', (phase, names) => {
+    const { container, composer } = at(phase);
+    const changed = buttonsChangedOnInput(container, composer);
+    expect(changed.map((c) => c.replace(/ \(.*\)$/, ''))).toEqual(names.map((n) => `${n}: look`));
+    expect(() => assertStableVariantsOnInput(container, composer)).toThrow(/stable-variants/); // the composer was left empty, so it can be checked again
+  });
+
+  it.each(FOLLOWING)('KNOWN-GOOD CONTROL: the assertion passes on the %s phase, which keeps every button\'s look while typing', (phase) => {
+    const { container, composer } = at(phase);
+    expect(buttonsChangedOnInput(container, composer)).toEqual([]);
+  });
+
+  it('the two lists cover every phase of the fixture', () => {
+    const { container } = at('empty');
+    const phases = Array.from(container.querySelectorAll('nav a')).map((a) => new URL(a.getAttribute('href')!, 'http://x').searchParams.get('phase'));
+    expect([...VIOLATING.map(([p]) => p), ...FOLLOWING].sort()).toEqual([...phases].sort());
+  });
+
+  // Slice S3 rebuilds the canvas thread and wires the assertion into the blocking run. Until then each of these fails, and
+  // `it.fails` (the repo's expected-failure form, as in p964-reproduce and p839-parity-positions) keeps the run green while
+  // it does. When S3 lands, every one of them turns red: change `it.fails` to `it`.
+  it.fails.each(VIOLATING)('S3 wires this in: %s phase keeps every button\'s look while typing (today %j flip)', (phase) => {
+    const { container, composer } = at(phase);
+    assertStableVariantsOnInput(container, composer);
+  });
+});
+
 
 // ---------------------------------------------------------------------------
 // Test-validity shape checks (spec 2e)
