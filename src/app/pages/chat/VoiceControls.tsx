@@ -5,7 +5,7 @@
  * red dot, timer, bin and send. State lives in `useVoiceNote`; this file only draws it.
  */
 import { useEffect, useRef } from 'react';
-import { AudioLines, Loader2, SendHorizontal, Trash2 } from 'lucide-react';
+import { Loader2, Mic, SendHorizontal, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { VoiceNote } from '@/hooks/use-voice-note';
 import { FOCUS_RING, HOVER, ROUND } from './chat-kit';
@@ -24,7 +24,7 @@ export function VoiceMic({ onClick, disabled }: { onClick: () => void; disabled:
       onClick={onClick}
       className={cn(ROUND, 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50', FOCUS_RING)}
     >
-      <AudioLines className="h-[18px] w-[18px]" aria-hidden="true" />
+      <Mic className="h-[18px] w-[18px]" aria-hidden="true" />
     </button>
   );
 }

@@ -5,10 +5,9 @@ rank: 82
 workstream: product
 created_date: '2026-10-29'
 tags: [chat, voice, ui]
-withdrawn: '2026-10-29'
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -30,15 +29,13 @@ approved this variant ("okok", 2026-10-29).
 
 > Founder framing, verbatim: "Show me all the options and tell me what you recommend and why." Then, on A2 + blue mic: "okok"
 
-## Resolution (2026-10-29): no change for now
+## Decision (2026-10-29): founder's swapped icons
 
-A mockup drawn like the real composer (one box holding the paperclip, text, grey mic and blue button)
-showed that today's layout has only ONE mic: the grey mic dictates, the blue waveform sends a voice note.
-The "two mics" risk only appears if the blue button becomes a mic, so the Solution below would have
-created the problem it meant to fix, and adding "Aa" buys almost nothing. Founder: "yes good lets do it"
-on keeping the layout. Revisit after the founder's P1576 phone test: if people tap the waveform meaning
-to dictate, or do not read it as a voice note, switch to WhatsApp style (one blue mic, no in-app
-dictation mic in person-to-person chats). The Solution below is kept as the rejected draft.
+Drawn like the real composer (one box), today has one mic: grey mic dictates, blue waveform sends a
+voice note. A blue mic plus a grey mic would put two mics in one box. Founder proposed the swap:
+> "the wave and then ah-ah in gray and then blue mic ... it clarifies that the wave is the ah-ah in a sense that transcribe and people are not confused with other things where it's like in Gemini Go Live"
+
+Approved: "good yes lets do". Earlier drafts (grey mic + Aa, keep as is) are rejected.
 
 ## Appetite
 
@@ -48,8 +45,8 @@ decided above.
 ## Solution
 
 - Round blue voice-note button: waveform icon becomes a standard mic (WhatsApp convention).
-- In-field dictation button: mic with a small "Aa" tag, so the two buttons never look identical.
-- Both stay visible at all times (founder rejected hide-until-typing: it hides dictation from an empty chat).
+- In-field dictation button: waveform with a small "Aa" tag (voice becomes text). Only one mic in the box.
+- Both stay visible at all times.
 
 ## Risks / Non-Goals
 
@@ -64,9 +61,9 @@ decided above.
 
 ## Acceptance Criteria
 
-- [ ] In an empty chat on a phone, the blue button shows a mic and the in-field button shows a mic with "Aa"
-- [ ] Accessible labels unchanged: "Record a voice message" and "Dictate a message"
-- [ ] Screenshots at 320px, 375px and desktop show no overflow or clipping in the composer
+- [x] In an empty chat on a phone, the blue button shows a mic and the in-field button shows a waveform with "Aa"
+- [x] Accessible labels unchanged: "Record a voice message" and "Dictate a message"
+- [x] Screenshots at 320px, 375px and desktop show no overflow or clipping in the composer
 
 ## Related
 

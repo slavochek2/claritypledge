@@ -5,7 +5,7 @@
  * recording, and the status line under it. The wiring to the draft is `use-composer-dictation.ts`.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Check, Loader2, Mic, X } from 'lucide-react';
+import { AudioLines, Check, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { levelFromTimeDomain } from '@/lib/audio/audio-level';
 import type { Dictation } from '@/hooks/use-dictation';
@@ -21,9 +21,10 @@ export function DictationMic({ onClick, disabled }: { onClick: () => void; disab
       title="Dictate a message"
       disabled={disabled}
       onClick={onClick}
-      className={cn(ROUND, 'absolute bottom-0 right-0 text-muted-foreground disabled:opacity-50', HOVER, FOCUS_RING)}
+      className={cn(ROUND, 'absolute bottom-0 right-0 gap-0.5 text-muted-foreground disabled:opacity-50', HOVER, FOCUS_RING)}
     >
-      <Mic className="h-5 w-5" aria-hidden="true" />
+      <AudioLines className="h-[18px] w-[18px]" aria-hidden="true" />
+      <span aria-hidden="true" className="text-[10px] font-semibold leading-none">Aa</span>
     </button>
   );
 }
