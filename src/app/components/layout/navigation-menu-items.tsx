@@ -36,8 +36,10 @@ import {
   UserPlusIcon,
   HistoryIcon,
   GlobeIcon,
+  SmartphoneIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
+import { useInstallMenuAction } from '@/hooks/use-pwa-install';
 import { EVENTS_NAV_TO, PUBLIC_NAV_GROUPS, PUBLIC_SITE_HOME, isEventsNavActive } from './nav-links';
 
 /** The signed-in account block. Not part of PUBLIC_NAV_GROUPS: these three carry test
@@ -57,6 +59,105 @@ const ACCOUNT_GROUP_LABEL = 'Your account';
  */
 function isEntryActive(to: string, pathname: string): boolean {
   return to === EVENTS_NAV_TO ? isEventsNavActive(pathname) : to === pathname;
+}
+
+/** P1593: "Add to home screen", first row of the account block. Renders nothing when there is nothing to offer. */
+function InstallMobileRow({ className, iconClass, onDone }: { className: string; iconClass: string; onDone: () => void }) {
+  const install = useInstallMenuAction();
+  if (!install) return null;
+  return (
+    <button type="button" onClick={() => { onDone(); install(); }} className={className}>
+      <SmartphoneIcon className={iconClass} />
+      Add to home screen
+    </button>
+  );
+}
+
+function InstallDropdownItem() {
+  const install = useInstallMenuAction();
+  if (!install) return null;
+  return (
+    <DropdownMenuItem onClick={install} className="cursor-pointer">
+      <SmartphoneIcon className="w-4 h-4 mr-2" />
+      Add to home screen
+    </DropdownMenuItem>
+  );
+}
+
+/** The signed-in account block, sheet/mobile rows. */
+function AccountGroupMobile({ className, iconClass, labelClass, testIds, onItemClick, onSignOut }: {
+  className: string; iconClass: string; labelClass: string; testIds: boolean; onItemClick: () => void; onSignOut: () => void;
+}) {
+  return (
+  <div
+    role="group"
+    aria-labelledby={groupHeadingId(ACCOUNT_GROUP_LABEL)}
+    className="mt-3 border-t border-border pt-3 flex flex-col"
+  >
+    <div id={groupHeadingId(ACCOUNT_GROUP_LABEL)} className={labelClass}>
+      {ACCOUNT_GROUP_LABEL}
+    </div>
+    <InstallMobileRow className={className} iconClass={iconClass} onDone={onItemClick} />
+    <Link
+      to="/sessions"
+      className={className}
+      onClick={onItemClick}
+    >
+      <HistoryIcon className={iconClass} />
+      Session History
+    </Link>
+    <Link
+      to="/settings"
+      className={className}
+      onClick={onItemClick}
+      data-testid={testIds ? 'settings' : undefined}
+    >
+      <SettingsIcon className={iconClass} />
+      Settings
+    </Link>
+    <button
+      onClick={onSignOut}
+      className={className}
+      data-testid={testIds ? 'sign-out' : undefined}
+    >
+      <LogOutIcon className={iconClass} />
+      Log Out
+    </button>
+  </div>
+  );
+}
+
+/** The signed-in account block, dropdown items. */
+function AccountGroupDropdown({ testIds, onSignOut }: { testIds: boolean; onSignOut: () => void }) {
+  return (
+  <DropdownMenuGroup>
+    <DropdownMenuSeparator />
+    <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      {ACCOUNT_GROUP_LABEL}
+    </DropdownMenuLabel>
+    <InstallDropdownItem />
+    <DropdownMenuItem asChild>
+      <Link to="/sessions" className="cursor-pointer">
+        <HistoryIcon className="w-4 h-4 mr-2" />
+        Session History
+      </Link>
+    </DropdownMenuItem>
+    <DropdownMenuItem asChild data-testid={testIds ? 'settings' : undefined}>
+      <Link to="/settings" className="cursor-pointer">
+        <SettingsIcon className="w-4 h-4 mr-2" />
+        Settings
+      </Link>
+    </DropdownMenuItem>
+    <DropdownMenuItem
+      onClick={onSignOut}
+      className="cursor-pointer"
+      data-testid={testIds ? 'sign-out' : undefined}
+    >
+      <LogOutIcon className="w-4 h-4 mr-2" />
+      Log Out
+    </DropdownMenuItem>
+  </DropdownMenuGroup>
+  );
 }
 
 /** Stable DOM id for a group heading, shared by the label and its `aria-labelledby`. */
@@ -247,40 +348,10 @@ export function NavigationMenuItems({
 
         {/* Signed-in account actions — the fourth group (P1310) */}
         {showUserMenu && !omitAccountGroup && (
-          <div
-            role="group"
-            aria-labelledby={groupHeadingId(ACCOUNT_GROUP_LABEL)}
-            className="mt-3 border-t border-border pt-3 flex flex-col"
-          >
-            <div id={groupHeadingId(ACCOUNT_GROUP_LABEL)} className={groupLabelClass}>
-              {ACCOUNT_GROUP_LABEL}
-            </div>
-            <Link
-              to="/sessions"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <HistoryIcon className={iconClass} />
-              Session History
-            </Link>
-            <Link
-              to="/settings"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-              data-testid={includeTestIds ? 'settings' : undefined}
-            >
-              <SettingsIcon className={iconClass} />
-              Settings
-            </Link>
-            <button
-              onClick={handleSignOut}
-              className={mobileLinkClass}
-              data-testid={includeTestIds ? 'sign-out' : undefined}
-            >
-              <LogOutIcon className={iconClass} />
-              Log Out
-            </button>
-          </div>
+          <AccountGroupMobile
+            className={mobileLinkClass} iconClass={iconClass} labelClass={groupLabelClass} testIds={includeTestIds}
+            onItemClick={handleItemClick} onSignOut={handleSignOut}
+          />
         )}
       </>
     );
@@ -369,32 +440,7 @@ export function NavigationMenuItems({
 
       {/* Signed-in account actions — the fourth group (P1310) */}
       {showUserMenu && !omitAccountGroup && (
-        <DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {ACCOUNT_GROUP_LABEL}
-          </DropdownMenuLabel>
-          <DropdownMenuItem asChild>
-            <Link to="/sessions" className="cursor-pointer">
-              <HistoryIcon className="w-4 h-4 mr-2" />
-              Session History
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild data-testid={includeTestIds ? 'settings' : undefined}>
-            <Link to="/settings" className="cursor-pointer">
-              <SettingsIcon className="w-4 h-4 mr-2" />
-              Settings
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={onSignOut}
-            className="cursor-pointer"
-            data-testid={includeTestIds ? 'sign-out' : undefined}
-          >
-            <LogOutIcon className="w-4 h-4 mr-2" />
-            Log Out
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
+        <AccountGroupDropdown testIds={includeTestIds} onSignOut={onSignOut} />
       )}
     </>
   );

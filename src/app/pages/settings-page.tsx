@@ -13,14 +13,11 @@ import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { analytics } from "@/lib/mixpanel";
 import { Button } from "@/components/ui/button";
 import { PageFrame, PageHeader } from "@/app/components/layout/page-header";
-import { InstallCard } from "@/app/components/pwa/install-card";
-import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { ProfilePhotoField } from "@/app/components/profile/profile-photo-field";
 
 export function SettingsPage() {
   const navigate = useNavigate();
   const { user, session, isLoading: authLoading, refreshProfile, signOut } = useAuth();
-  const { isDesktop } = usePwaInstall();
 
   // Form state
   const [name, setName] = useState("");
@@ -205,14 +202,6 @@ export function SettingsPage() {
     <PageFrame size="reading">
       {/* P1512: Settings is a menu destination with the shell beside it, so no Back above the title. */}
       <PageHeader title="Settings" description="Update your public profile information" />
-
-      {/* P493: PWA install card — mobile only */}
-      {!isDesktop && (
-        <div className="mb-8">
-          <h2 className="text-sm font-medium mb-3 text-muted-foreground">App</h2>
-          <InstallCard />
-        </div>
-      )}
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">

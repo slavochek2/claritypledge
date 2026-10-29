@@ -5,6 +5,7 @@
  */
 import { useState, useEffect, useCallback, createContext, useContext, useRef, type ReactNode } from 'react';
 import { analytics } from '@/lib/mixpanel';
+import { IosInstallDrawer } from '@/app/components/pwa/ios-install-drawer';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -26,12 +27,22 @@ interface PwaInstallContextValue {
   promptInstall: (source: InstallSource) => Promise<void>;
   /** Record a dismiss and start 30-day cooldown */
   dismiss: (source: InstallSource) => void;
+  /** P1593: whether an install action exists here (not installed, and iOS or a captured native prompt) */
+  canOffer: boolean;
+  /** P1593: the native prompt where there is one, otherwise the iOS instruction drawer (mounted once, here) */
+  openInstall: (source: InstallSource) => Promise<void>;
+  /** P1593: 2nd or later visit on this device (a visit = 30+ minutes since the last activity) */
+  isReturnVisit: boolean;
 }
 
-export type InstallSource = 'celebration' | 'session_end' | 'settings';
+export type InstallSource = 'avatar_menu' | 'return_nudge';
 
 const DISMISS_KEY = 'pwa_install_dismissed_at';
 const COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+// P1593: visit counting. A visit starts when 30+ minutes have passed since the last recorded activity.
+const VISIT_COUNT_KEY = 'pwa_visit_count';
+const LAST_ACTIVITY_KEY = 'pwa_last_activity_at';
+const VISIT_GAP_MS = 30 * 60 * 1000;
 
 const PwaInstallContext = createContext<PwaInstallContextValue | null>(null);
 
@@ -71,11 +82,31 @@ function getIsDismissed(): boolean {
   }
 }
 
+/** Stamps activity and returns the visit count; reloads and route changes inside a visit leave it alone. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function recordActivity(now = Date.now()): number {
+  try {
+    const last = parseInt(localStorage.getItem(LAST_ACTIVITY_KEY) ?? '', 10);
+    let count = parseInt(localStorage.getItem(VISIT_COUNT_KEY) ?? '', 10);
+    if (!Number.isFinite(count)) count = 0;
+    if (!Number.isFinite(last) || now - last >= VISIT_GAP_MS) {
+      count += 1;
+      localStorage.setItem(VISIT_COUNT_KEY, String(count));
+    }
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
+    return count;
+  } catch {
+    return 0; // storage unavailable: never count a return visit
+  }
+}
+
 export function PwaInstallProvider({ children }: { children: ReactNode }) {
   const deferredPrompt = useRef<BeforeInstallPromptEvent | null>(null);
   const [canPrompt, setCanPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(getIsInstalled);
   const [isDismissed, setIsDismissed] = useState(getIsDismissed);
+  const [iosDrawerOpen, setIosDrawerOpen] = useState(false);
+  const [visitCount, setVisitCount] = useState(() => recordActivity());
 
   const isIOS = getIsIOS();
   const isDesktop = getIsDesktop();
@@ -114,6 +145,13 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
+  // P1593: stamp activity when the app is left or returned to, so a gap of 30+ minutes starts a new visit.
+  useEffect(() => {
+    const onVisibility = () => setVisitCount(recordActivity());
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
   const promptInstall = useCallback(async (source: InstallSource) => {
     if (deferredPrompt.current) {
       await deferredPrompt.current.prompt();
@@ -137,11 +175,27 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
     setIsDismissed(true);
   }, []);
 
+  const canOffer = !isInstalled && (isIOS || canPrompt);
+
+  const openInstall = useCallback(async (source: InstallSource) => {
+    analytics.track('pwa_install_prompted', { source });
+    if (isIOS) {
+      analytics.track('pwa_ios_instructions_shown', { source });
+      setIosDrawerOpen(true);
+    } else {
+      await promptInstall(source);
+    }
+  }, [isIOS, promptInstall]);
+
   return (
     <PwaInstallContext.Provider
-      value={{ isInstalled, canPrompt, isIOS, isDismissed, isDesktop, promptInstall, dismiss }}
+      value={{
+        isInstalled, canPrompt, isIOS, isDismissed, isDesktop, promptInstall, dismiss,
+        canOffer, openInstall, isReturnVisit: visitCount >= 2,
+      }}
     >
       {children}
+      <IosInstallDrawer open={iosDrawerOpen} onClose={() => setIosDrawerOpen(false)} />
     </PwaInstallContext.Provider>
   );
 }
@@ -153,4 +207,22 @@ export function usePwaInstall(): PwaInstallContextValue {
     throw new Error('usePwaInstall must be used within PwaInstallProvider');
   }
   return ctx;
+}
+
+/**
+ * P1593: the avatar menus' "Add to home screen" item. Returns the action, or null when there is none
+ * to offer (installed; non-iOS without a captured prompt) or no provider is mounted.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useInstallMenuAction(): (() => void) | null {
+  const ctx = useContext(PwaInstallContext);
+  if (!ctx || !ctx.canOffer) return null;
+  return () => { void ctx.openInstall('avatar_menu'); };
+}
+
+/** P1593: return-visit nudge rules (the bottom bar adds "no today's event"). False with no provider. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useInstallNudgeVisible(): boolean {
+  const ctx = useContext(PwaInstallContext);
+  return !!ctx && ctx.canOffer && !ctx.isDismissed && ctx.isReturnVisit;
 }

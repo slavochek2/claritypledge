@@ -9,13 +9,14 @@
  */
 import { useContext, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { HistoryIcon, LayoutGridIcon, LogOutIcon, SettingsIcon, XIcon } from 'lucide-react';
+import { HistoryIcon, LayoutGridIcon, LogOutIcon, SettingsIcon, SmartphoneIcon, XIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { EventLinksButton } from '@/app/components/layout/event-links-menu';
 import { EventLinksContext } from '@/app/components/layout/event-links-context';
 import { NavigationMenuItems } from '@/app/components/layout/navigation-menu-items';
 import { cn } from '@/lib/utils';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
+import { useInstallMenuAction } from '@/hooks/use-pwa-install';
 import { PHONE_TAB_IDS, shellMenuOmissions, useShellEntries, useShellSignOut } from './shell-nav';
 
 /** Every row in the sheet: one left edge (px-2), one icon size (h-5), 44px tall. */
@@ -77,6 +78,7 @@ export function MeSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (
   const entries = useShellEntries();
   const { user } = useNavAuthState();
   const handleSignOut = useShellSignOut();
+  const installAction = useInstallMenuAction(); // P1593
   const links = useContext(EventLinksContext);
   const toolsOpen = !!links?.open;
   // Radix returns focus only to a DialogTrigger, and the Me tab is not one: remember what had focus when
@@ -164,6 +166,16 @@ export function MeSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (
             onItemClick={close}
           />
           <div className="mt-1 flex flex-col border-t border-border pt-1">
+            {installAction && (
+              <button
+                type="button"
+                onClick={() => { close(); installAction(); }}
+                className={cn(SHEET_ROW, 'text-left')}
+              >
+                <SmartphoneIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                Add to home screen
+              </button>
+            )}
             <Link to="/sessions" onClick={close} className={SHEET_ROW}>
               <HistoryIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
               Session History

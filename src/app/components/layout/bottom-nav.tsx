@@ -19,6 +19,8 @@ import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useLiveSession } from "@/app/contexts/live-session-context";
 import { EVENTS_LIST_TO, EVENTS_NAV_TO } from "./nav-links";
 import { isBottomNavHiddenRoute } from "./bottom-nav-routes";
+import { InstallNudge } from "@/app/components/pwa/install-nudge";
+import { useInstallNudgeVisible } from "@/hooks/use-pwa-install";
 import { MeSheet } from "./app-shell/me-sheet";
 import { PHONE_TAB_IDS, useShellEntries, useShellTodaysEvent, type ShellEntry, type ShellEntryId } from "./app-shell/shell-nav";
 
@@ -57,6 +59,7 @@ export function BottomNav() {
   const entries = useShellEntries();
   const todays = useShellTodaysEvent();
   const [meOpen, setMeOpen] = useState(false);
+  const showNudge = useInstallNudgeVisible();
 
   // Only show for logged-in users. P1421: that includes a known session whose profile is
   // still loading — on a slow link the bar used to appear ~10s late, under the user's thumb.
@@ -104,6 +107,8 @@ export function BottomNav() {
           Today's event
         </Link>
       )}
+      {/* P1593: the install nudge takes the Today's-event slot only when that strip is absent. */}
+      {!todays && showNudge && <InstallNudge />}
       <div className="flex items-center justify-around h-16">
         {tabs.map(entry => {
           if (entry.to === null) return null;

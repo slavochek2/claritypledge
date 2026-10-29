@@ -15,7 +15,6 @@ import { Button } from '@/components/ui/button';
 import { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import { AgreementCertificate } from './agreement-certificate';
 import { AddToCalendarButton } from '@/app/components/shared/add-to-calendar-button';
-import { CelebrationInstallLink } from '@/app/components/pwa/celebration-install-link';
 
 interface CelebrationDialogProps {
   open: boolean;
@@ -71,7 +70,6 @@ export function CelebrationDialog({
               description: 'Our first /live session under the Clarity Partner Agreement',
             }}
           />
-          <CelebrationInstallLink />
         </div>
 
         {/* Actions */}

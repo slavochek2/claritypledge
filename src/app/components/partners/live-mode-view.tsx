@@ -50,8 +50,6 @@ import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { analytics } from '@/lib/mixpanel';
-import { InstallBanner } from '@/app/components/pwa/install-banner';
-import { usePwaInstall } from '@/hooks/use-pwa-install';
 
 // ============================================================================
 // P28.1: RECORDING INDICATOR (KISS: always show when session is live)
@@ -301,8 +299,6 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[300px]">
-      {/* P493: Install banner for registered users (guests see signup CTA instead) */}
-      {!isGuest && <PwaSessionEndBanner />}
       <div className="p-8 text-center max-w-sm mx-auto space-y-6">
         {/* P584: CheckCircle icon — replaces DoorOpen + muted circle */}
         <CheckCircle2 className="w-12 h-12 text-blue-500 mx-auto" />
@@ -401,12 +397,6 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGue
       </div>
     </div>
   );
-}
-
-/** P493: Install banner for registered users at session end */
-function PwaSessionEndBanner() {
-  const { dismiss } = usePwaInstall();
-  return <InstallBanner source="session_end" onDismiss={() => dismiss('session_end')} />;
 }
 
 // ============================================================================
