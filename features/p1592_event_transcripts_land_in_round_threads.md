@@ -55,8 +55,9 @@ event channel that every attendee reads. Clarity Night is affected as much as th
 the room page exactly as it is today. Messages already posted stay in the channel unless deleted
 by hand.
 
-**Decision density:** low. The founder settled the model in conversation on 2026-10-29 (recorded
-under Decisions). One copy call remains.
+**Decision density:** low for the product model, which the founder settled on 2026-10-29 (recorded
+under Decisions). Three founder calls remain: the bar copy, the terms wording, and whether the terms
+change needs re-acceptance.
 
 ## Decisions (founder, 2026-10-29)
 
@@ -75,10 +76,19 @@ under Decisions). One copy call remains.
 
 ## Invariants
 
-- **The server posts, never the browser.** Posting runs from the stored transcript rows, so a
-  closed tab, a page change or a reconnect never loses a line and never posts one twice. Each
-  stored live row records the chat message it went into. A row that already has one is never
-  posted again (idempotent), including by the after-session-1 run below.
+- **The server posts, never the browser, and only lines the server itself transcribed.** Posting
+  runs from rows written by `record_transcribe_slice` (service role only). The old client INSERT
+  policy on `transcribe_messages` ("room members can send their own messages", P1149) is revoked
+  in the same change. No client writes there today: the only client uses are reads,
+  `transcribe-service.ts:505` and `api.ts:4587`. Without the revoke, anyone in the room could post
+  arbitrary text labelled "Transcription". A closed tab, a page change or a reconnect never loses a
+  line and never posts one twice. Each stored live row records the chat message it went into. A row
+  that already has one is never posted again (idempotent), including by the after-session-1 run
+  below.
+- **Posting never costs the room a line.** A posting failure (a constraint, a lock, a missing
+  channel) is caught, so the live row is still stored and shown on the room page exactly as today.
+  The row stays unplaced, and the existing sweep tick retries unplaced rows. Failures are logged
+  once per row, not per retry.
 - **Where a line was posted is recorded at posting time and never recomputed.** Seating changes
   mid-round with no history (`host_set_round_seats` deletes and re-inserts seats), so nothing after
   the fact can reconstruct it. The swap follows the recorded placement, never the seating tables.
@@ -91,9 +101,13 @@ under Decisions). One copy call remains.
   (same principle as decisions.md 2026-09-08: server-assigned fields are never client-supplied).
 - **The swap fails toward live text, never toward empty, and decides per message.** A message keeps
   its live text when the cleaned transcript is missing or failed, when its speaker is in
-  `incomplete_member_ids` or their end-of-room job did not complete, when no cleaned sentence was
-  placed in it, or when the cleaned text would pass the 4,000-character limit. The swap never
-  inserts, deletes or empties a message.
+  `incomplete_member_ids` or their end-of-room job did not complete, when the alignment below
+  finds no confident match for it, or when the cleaned text would pass the 4,000-character limit.
+  The swap never inserts, deletes or empties a message.
+- **A person's own edit or delete wins.** Appending never targets a message its author has edited
+  (`edited_at` set) or deleted (`deleted_at` set); the next line starts a new message. The swap
+  skips both. Writing a body into a deleted message would also violate
+  `chat_messages_deleted_is_empty`.
 - **Neither appending nor the swap marks a message edited.** `edited_at` stays as it is; it belongs
   to a person editing their own message (`edit_chat_message`).
 - **Forwards and clarifies keep what they copied.** They already store a snapshot
@@ -122,8 +136,12 @@ under Decisions). One copy call remains.
 - A round thread is created the first time anyone at that table in that round is transcribed. It is
   not created for tables where nobody records, because twelve empty threads would bury the few that
   matter. **There is exactly one thread per round and table, enforced by the database**: two
-  people's first lines can arrive in the same instant. Its root post is a system post (no
-  author), titled `Round {n} · {names}` (D3). Two names: "Anna & Ben". Three: "Anna, Ben & Cleo".
+  people's first lines can arrive in the same instant. Its root post is titled `Round {n} · {names}`
+  (D3). Two names: "Anna & Ben". Three: "Anna, Ben & Cleo".
+- **The root post is an explicit system post**, carrying its own marker. Today a message with no
+  author renders as "Deleted user" (`MessageRow.tsx:81`), as does the chat-list preview and the
+  clarify snapshot. The marker must render as the title alone, with no author line, in all three
+  places, and in forward snapshots.
 - **Who belongs to a thread:** everyone seated at that table in that round when the thread is
   created, including people not recording and observers, plus anyone seated there later in the same
   round. The thread keeps this list itself, because seating has no history, and the title follows
@@ -134,10 +152,15 @@ under Decisions). One copy call remains.
 ### How it looks (D6)
 
 - Transcription messages carry a marker that the chat renders as a small "Transcription" label above
-  italic text. Typed messages, voice notes and dictation are unchanged.
+  italic text. Typed messages, voice notes and dictation are unchanged. The marker's name must not
+  collide with the voice-note `transcript` column (P1576). The label survives Forward and Clarify:
+  the snapshot carries the marker, so a forwarded transcription still reads as transcription.
 - **One stored message per stretch of talk**, not one per 13-second slice. A new line from the same
   speaker in the same place is appended to their latest transcription message, unless:
-  - someone else posted in that place in between;
+  - someone else posted in that place in between (a partner's crosstalk line counts, so
+    two-lavalier tables break stretches more often; accepted);
+  - that message was edited or deleted by its author;
+  - that message holds lines from a different transcribe room (one message never spans two rooms);
   - the pause since their last line is longer than a threshold (`/dev`'s call; start near 60 s
     and say why);
   - appending would pass the 4,000-character body limit, in which case the new line starts a new
@@ -145,7 +168,8 @@ under Decisions). One copy call remains.
     13-second slice is about 40 words, so this should never happen) is cut at whitespace.
 
   This must be stored, not only displayed. Forward and Clarify act on stored messages, and a
-  forward of a 13-second fragment is useless.
+  forward of a 13-second fragment is useless. Appends to one place are serialised (a lock per
+  place), so two lines arriving together never interleave out of order.
 - Author is the speaker, so the speaker's name and avatar show as on any message.
 - The existing message menu (Reply, Forward, Clarify) works on transcription messages as on any
   other. Turning a whole round thread into a canvas update is P1500's job, not this spec's.
@@ -153,15 +177,39 @@ under Decisions). One copy call remains.
 ### Finding them (D4)
 
 - The event channel gets a "My rounds" filter. It lists the round threads whose member list
-  includes me, by name, newest round first. Opening one opens the thread. Shown only in an event
-  channel that has at least one round thread.
+  includes me and that I can read, by name, newest round first. A thread whose root predates my
+  access time (`_chat_access_since`, a late RSVP) is not listed. Opening one opens the thread.
+  Shown only in an event channel that has at least one round thread.
 
 ### The bar (D7)
 
 - While capture runs and the speaker is seated, the running bar shows where the words are going,
   e.g. "Round 2 · Anna & Ben". When not seated, it shows the event channel. It is a place name, not
   a consent sentence: the explanation stays behind the existing ⓘ (decisions.md 2026-10-02,
-  "an info affordance instead of an on-bar sentence").
+  "an info affordance instead of an on-bar sentence"). The destination shown comes from the
+  server's answer to the last slice (where that line was actually posted), never from the client's
+  own reading of the seating, so the bar cannot disagree with the thread.
+
+### The terms (D7 needs them changed, not a new screen)
+
+D7 rests on "the terms already say where it goes". **They currently say the opposite**:
+`tos.md:71` reads "Only people who have switched transcription on in a room can read its
+transcript". `tos.md:66` says the live text "is shown to the room", `privacy.md` says "shown to
+everyone in the room", and the consent tap reads "Recorded and visible to everyone in this room".
+Posting into the event channel widens the audience from the people transcribing to everyone who
+can read the channel: the host and every attendee who RSVP'd in time, whether or not they came.
+Forward then lets any of them copy a line into a direct chat.
+
+So the terms, the privacy policy and the consent tap's wording change in this spec, before any line
+reaches a channel. No new screen is added, which keeps D7.
+
+[FOUNDER DECISION: the new wording for the terms (§Transcribe Rooms), the privacy policy, and the
+consent tap. Draft for the tap: "Recorded, and posted to this event's channel for its attendees".
+Draft for the terms: "While you are transcribed at an event, live text attributed to you is posted
+to that event's channel, where its host and attendees can read and forward it."]
+
+[FOUNDER DECISION: whether a terms change needs a new terms version that existing users accept, or
+applies by notice. It is a legal-feel call, not a technical one.]
 - [FOUNDER DECISION: copy. The idle bar's description today reads "Record audio and share transcript
   with others in the room. Transcription follows our Terms and Privacy Policy." It now also posts to
   the event channel. Draft: "Record audio and post the transcript to this event's channel, where
@@ -170,26 +218,47 @@ under Decisions). One copy call remains.
 
 ### The quiet swap (D9, D10)
 
-- The swap works **message by message, never by reseating**. Each live transcription message
-  already has a speaker and a time window: from its first to its last live line. When the end-of-room
-  job (`transcribe-room-batch`) writes the room's cleaned transcript, each cleaned sentence of a
-  speaker goes to that speaker's live transcription message whose window contains the sentence's
-  midpoint. If no window contains it, it goes to the nearest one in time. Each message's text then
-  becomes its sentences joined in order, unless the per-message rule in Invariants keeps its live
-  text.
+- **Placement by time is ruled out.** The cleaned transcript's sentence times are not measurements.
+  `merge.py:44-61` spreads each 300-second segment's sentences across it in proportion to their
+  length (`config.py:25`). A pause removes time from the recording (`room-capture-context.tsx:547`).
+  So a sentence's time can be off by a minute or more, enough to put words in the wrong message or
+  the wrong round.
+- **The swap aligns by text, per speaker.** Take one speaker's live transcription messages in this
+  room, in order, each with its own live lines. Take the same speaker's cleaned text in order. Align
+  the two word sequences, the same words heard from the same audio, and cut the cleaned text at the
+  points matching each message's boundaries. Each message gets the cleaned text that aligns with its
+  own live words. A message whose span has no confident match keeps its live text (Invariants). The
+  threshold is `/dev`'s call, reported with the measurement below. Alignment is a pure, unit-tested
+  function: no network, no database.
 - So the swap changes text inside existing messages only. Message count, order, threads, typed
-  posts, and replies all stay as they are.
-- Cleaned sentence times are estimates, good to a few seconds (`audio.py:157-163`), so a sentence
-  near the edge of a window can land in the same speaker's neighbouring message. Next to a round
-  change, that neighbour can sit in the other thread. Accepted under Risks.
+  posts, and replies all stay as they are, and a speaker's words can only move between that same
+  speaker's adjacent messages.
+- **Trigger and re-runs:** the swap runs each time the room's cleaned transcript is written. The
+  job rewrites it once per member, and jobs retry (`pipeline.py`). Each run recomputes from the live
+  rows and the latest cleaned text, so it is idempotent, and a member whose job completes late is
+  swapped on that later write.
+- **Pre-registered gate before the swap is switched on:** run the alignment on one real
+  two-lavalier recording, the TEST run below. The swap ships enabled only if, on a hand check of 20
+  random messages, at least 18 got the right cleaned words and none got another message's words.
+  Otherwise it ships disabled: live text stays, and the cleaned transcript still exists for the
+  operator. This is a measurement, not a founder call.
 - Nothing is shown to users: no "edited" mark, no "improving" notice.
 
 ### If this ships after session 1
 
-Session 1's live lines (`transcribe_messages`) and seating (`event_round_seats`) are kept. A one-time
-server-side run then posts session 1 into its threads by the same placement rule, followed by the
-swap, so session 2 is never at risk (decisions.md 2026-10-29 asked for a fallback). It is one SQL
-batch, never per-row calls from a script (metered-services rule 1).
+Session 1's live lines (`transcribe_messages`) are kept, so a one-time server-side run can post
+them, followed by the swap, so that session 2 is never at risk (decisions.md 2026-10-29 asked for a
+fallback). Three limits, stated rather than hidden:
+
+- **Placement is best-effort.** Seating keeps no history, so the run places each line by the round
+  whose start and end times contain its `spoken_at`, at the table its speaker holds in that round's
+  final seating. That is the one place the recorded-placement invariant cannot hold, and it is
+  labelled as such.
+- Posted messages carry the original `spoken_at` as their time, so the channel reads in spoken order.
+- **It runs only if the new terms (above) were live before session 1.** Otherwise session 1 was
+  consented under "only people transcribing can read it", and its lines stay on the room page.
+
+It is one SQL batch, never per-row calls from a script (metered-services rule 1).
 
 ## Risks / Non-Goals
 
@@ -199,14 +268,18 @@ batch, never per-row calls from a script (metered-services rule 1).
 | A lavalier still picks up the partner, so a few passages appear under two names | ACCEPT | Kept visible, never deleted (the batch labels them "also heard by"). Measured in Done-When; a cross-phone de-duplication spec is filed only if the count says so. |
 | The live slice path invents text at a cut (decisions.md 2026-09-11) or repeats a phrase on silence, visible live in the thread | ACCEPT | The cleaned swap replaces it after the room ends. The live text was already visible on the room page; this spec moves it, it does not create it. |
 | In the mastermind, the pair reversing whose canvas they discuss is one round (the in-round speaker swap, P1337), so both canvases land in one thread | DEFER | P1529 makes each role reversal its own round. Until then the host can start the next round with the same pairs re-seated by hand (the host panel supports manual swaps, P1337; whether that is quick enough for session 1 is UNVERIFIED). |
-| A cleaned sentence lands in the same speaker's neighbouring message, across a round change too | ACCEPT | Segment times are estimates good to a few seconds (`audio.py:157-163`). It moves one sentence a few seconds. The speech right after a round starts is mostly the walk to the table. |
+| Text alignment cuts a boundary a few words off, so a word or two moves between one speaker's adjacent messages | ACCEPT | Bounded to the same speaker and adjacent messages. The pre-registered gate switches the swap off if the hand check fails. |
+| Talk during a break between rounds lands in the previous round's thread | ACCEPT | A round ends only when the host starts the next one or ends the rounds (P1337), never on the timer. Pause exists, and the bar names the destination. |
+| Using a new round for each role reversal reaches the 9-round cap (`round_no BETWEEN 1 AND 9`) | DEFER | The mastermind runs about 4 rounds a session. P1529 owns the round model. |
 | A forward or clarify made while someone is still talking copies only the text so far | ACCEPT | The snapshot is what the person chose at that moment. The live message keeps growing. |
 | Growing one message per stretch re-sends its whole body on every append over Realtime | MITIGATE | The 4,000-character cap bounds it. See Cost Budget. |
 | A speaker's live words land in a thread the other seated person cannot read (late RSVP, account without RSVP) | ACCEPT | Rare. Visibility follows the channel's existing rule, which this spec must not widen (Invariants). |
-| Transcription of every event, Clarity Night included, now lands in that event's channel | ACCEPT | Intended (founder: "LEGO blocks"). The terms already say the transcript is shared with the room. |
+| Transcription of every event, Clarity Night included, now lands in that event's channel, readable by attendees who were not in the room | MITIGATE | Intended (founder: "LEGO blocks"), but the current terms say the opposite. The terms, privacy policy and consent tap change first (Solution, The terms). |
+| P1509 (in progress) still lists "Transcribe button top-right in every chat header" and names threads "Table 2 · round 1" | MITIGATE | Superseded by this spec's D1 and D3 (founder, 2026-10-29). Recorded under Related so P1509's build does not add the button. |
 
 **Non-Goals**
-- Do NOT change the `/transcribe` room page, capture, pause, consent recording, or the slice pipeline.
+- Do NOT change the `/transcribe` room page, capture, pause, how consent is recorded, or the slice
+  pipeline. Only the consent tap's wording changes (The terms).
 - Do NOT add cross-phone de-duplication or any check of which microphone is in use (D8).
 - Do NOT add a transcription start button in chat. The event room's bar stays the only start (D1).
 - Do NOT rename tables to rounds in the host panel or change how the host runs rounds. That is P1529.
@@ -221,7 +294,13 @@ Checked on TEST with an event that has rounds, two attendee accounts and the hos
 - [ ] Two attendees seated at table 1 in round 1, both transcribing: their words appear in a thread
       titled "Round 1 · {A} & {B}" in the event channel, while they talk, shown in italic under a
       "Transcription" label.
-- [ ] One person talking for a minute without interruption reads as one message, not four or five.
+- [ ] One person talking for a minute without interruption, with only one person transcribing at the
+      table, reads as one message, not four or five.
+- [ ] The round thread's title post shows its title alone, never "Deleted user", in the thread, in the
+      chat list preview, and inside a forward or clarify of it.
+- [ ] The speaker edits one of their transcription messages: the next line starts a new message, and
+      after the swap the edited message still shows their edit.
+- [ ] A direct client insert into `transcribe_messages` is refused (query as an attendee).
 - [ ] A transcribing attendee who is not seated (before round 1) appears as a top-level post in the
       event channel, not in a thread.
 - [ ] The host starts round 2 with new seating. The same person's next words appear in the round 2
@@ -242,7 +321,10 @@ Checked on TEST with an event that has rounds, two attendee accounts and the hos
       original text. No transcription message reads as deleted or empty. A typed reply inside the
       thread keeps its position.
 - [ ] With the end-of-room job failing, or a speaker marked incomplete, the affected threads keep the
-      live text and show no error.
+      live text and show no error. A member's job completing after the first swap gets that member's
+      messages swapped on the later write.
+- [ ] The new terms, privacy policy and consent tap wording are live before any line reaches a
+      channel.
 - [ ] Typed messages, voice notes and dictation in the same channel look exactly as before.
 
 ## Done-When
@@ -250,15 +332,20 @@ Checked on TEST with an event that has rounds, two attendee accounts and the hos
 - [ ] All Acceptance Criteria above are ticked, with evidence (query output and screenshots).
 - [ ] The posting path is shown idempotent: replaying the same stored live rows posts nothing new.
 - [ ] `transcribe_messages` row count for the test room is unchanged by the swap (old version kept).
+- [ ] The swap gate result recorded: the hand check of 20 random messages from the TEST two-lavalier
+      run (correct / wrong / kept live), and whether the swap ships enabled.
+- [ ] A posting failure (forced, e.g. by a constraint) leaves the line on the room page and retries it
+      from the sweep tick.
 - [ ] Duplicate passages measured on the TEST run with two lavaliers at one table: count passages that
-      appear under both speakers within 30 s, by hand on the thread (the oracle), and compare with the
-      end-of-room job's "also heard by" labels (the second signal). Report both numbers.
+      appear under both speakers within 30 s, by hand on the **live rows before the swap** (the
+      oracle, independent of the cleaned transcript), and compare with the end-of-room job's "also
+      heard by" labels (the second signal). Report both numbers.
       `[post-deploy]` Repeat the same count on session 1's threads. Pre-registered reading: under 1
       per 10 minutes of a thread means the lavalier rule held; over 3 per 10 minutes means a
       cross-phone de-duplication spec is filed.
 - [ ] Clarity Night regression: an event with no rounds still transcribes, and its lines land in the
       event channel as top-level posts.
-- [ ] The founder copy decision above is recorded.
+- [ ] The founder decisions above (bar copy, terms wording, terms version) are recorded.
 
 ## Cost Budget
 
@@ -272,12 +359,20 @@ of rounds. Live slices are 13 s (`room-capture-context.tsx:12`).
 | Egress (Realtime bodies) | 13,320 x ~2 KB average body (half the 4 KB cap) = ~27 MB | 19,944 x 2 KB = ~40 MB | 138 x 2 KB = ~0.3 MB |
 | Edge function invocations | 0 added (posting runs in the database on the stored row; `transcribe-slice` is already invoked per slice) | 0 | 0 |
 | Gemini / audio minutes | 0 added (the swap reuses the end-of-room job that already runs per room) | 0 | 0 |
+| Chat list refetches (`get_my_chats`, which also runs `_chat_ensure_for_user`) | New top-level messages only, never appends (see below). Worst case Clarity Night, all top-level: 6 speakers x 40 min x ~2 stretches/min = 480 new messages x 12 clients = 5,760, fewer after the existing 2 s debounce | 6 x 60 x 2 = 720 x 12 = 8,640 | 2 x 5 x 2 = 20 x 3 = 60 |
+| Realtime access checks | The chat subscription is unfiltered (`chat-service.ts:390-393`), so every change is checked for every connected user site-wide: 1,110 writes x C connected users | 1,662 x C | 46 x C |
 | Log lines | One per failed post, not per retry: at most 1,110 in the worst case | at most 1,662 | at most 46 |
 
+**Required by this budget:** an append (an UPDATE of a transcription message) must not schedule a
+chat-list refetch. Today every top-level UPDATE does (`chat-provider.tsx:294-307`), which would turn
+the 1,110 writes into up to 1,110 x 12 list reads per event.
+
 1. **Fits the plan limit today?** Supabase Free row: 2 million Realtime messages and 5 GB egress a
-   month. Monthly = per-event x events per month (read from the dashboard usage page). At 13,320
-   messages and ~27 MB per event: fits.
-2. **Fits at 10x?** 133,200 messages and ~270 MB per month: fits.
+   month. Monthly Realtime = 13,320 x events per month. Monthly egress = 27 MB x events per month
+   (events per month and C are read from the dashboard usage page). At the current event cadence:
+   fits.
+2. **Fits at 10x?** 133,200 Realtime messages and ~270 MB per month for ten times the events: fits.
+   The access-check row scales with C and is the one to watch.
 3. Not applicable; both answers are yes.
 
 ## Open Questions
@@ -290,8 +385,8 @@ of rounds. Live slices are 13 s (`room-capture-context.tsx:12`).
 ## Related
 
 - **P1500** — canvas from event threads. This spec supplies the threads it assumes; its MITIGATE
-  ("consent and visibility must be settled before any Canvas reads it") is settled here by D7 and
-  the visibility invariant.
+  ("consent and visibility must be settled before any Canvas reads it") is settled here by D7, the
+  terms change, and the visibility invariant.
 - **P1529** — host controls for a canvas event: rounds-not-tables in the host panel, and each role
   reversal as a new round. Built only if session 1 shows the need (decisions.md 2026-10-29).
 - **P1337** — rounds and seats (`event_rounds`, `event_round_seats`) and the event-room transcribe bar.
@@ -299,7 +394,9 @@ of rounds. Live slices are 13 s (`room-capture-context.tsx:12`).
 - **P1237** — crosstalk measured: a phone on the table hears everyone. **P1252** — merged audio from
   several phones is not time-aligned (open). It affects only the end-of-room transcript's timing,
   bounded under Risks.
-- **P1512 / P1509** — the event channel and its threads.
+- **P1512 / P1509** — the event channel and its threads. **Supersedes** P1509's open item
+  "Transcribe button top-right in every chat header" (D1: the event room's bar is the only start) and
+  its "Table 2 · round 1" thread name (D3).
 - decisions.md 2026-10-29 [product] · 2026-10-02 [product] (recorder owns consent) · 2026-09-11
   [technical] (a duplicate ratio is blind to invented text) · 2026-09-08 [technical] (server-assigned
   fields).
