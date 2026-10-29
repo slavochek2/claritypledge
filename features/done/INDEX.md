@@ -76,6 +76,8 @@ Last updated: 2026-10-29
 - **P1534** (Oct 26) Portraits settled at list price per billed call. Gotcha: a run Google refused must keep its reservation, or refusals escape a dollars-only cap.
 - **P1537** (Oct 26) Mirror panel: no gender picker, no privacy line, faces aged 25–40. Gotcha: a server-side change that ignores a UI choice still confuses users until the UI ships too.
 - **P1546** (Oct 26) Threads in every chat — no RLS change needed (per-conversation read); any thread copy must drop mirror agent answers
+- **P1576** (Oct 26) Chat mic dictation and voice notes — server-side trigger races direct test calls; pin migration-order tests to a base, not the tail.
+- **P1590** (Oct 26) Chat mic icons — blue mic = voice note, grey wave+"Aa" = dictation; mock in the real composer box before judging, an outside-the-box sketch misled.
 
 ## Clarity Docs
 
