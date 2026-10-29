@@ -78,6 +78,7 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_MIGRATIONS_DIR = os.path.join(os.path.dirname(HERE), "supabase", "migrations")
 ROLES = ("anon", "authenticated")
 PRIVS = ("SELECT", "INSERT", "UPDATE", "DELETE")
 COLUMN_PRIVS = ("SELECT", "INSERT", "UPDATE")
@@ -711,12 +712,28 @@ def _run(args):
     model = replay(args.migrations_dir)
     live = {env: fetch_live(env) for env in envs}
     findings, unmodelled = compare(envs, live, model)
+    # A test-only table CREATEd by a migration on an unshipped worktree branch is that branch's
+    # pre-ship state, not an unmodelled table. Report it, never gate on it. Prod is never exempt.
+    in_flight = []
+    if args.migrations_dir == DEFAULT_MIGRATIONS_DIR:
+        sys.path.insert(0, os.path.join(HERE, "lib"))
+        from inflight_migrations import inflight_migration_dirs
+        main_root = os.path.dirname(os.path.abspath(subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            cwd=HERE, capture_output=True, text=True).stdout.strip() or HERE))
+        owner = {}
+        for branch, mig in inflight_migration_dirs(main_root):
+            for table in set(replay(mig).tables) - set(model.tables):
+                owner.setdefault(table, branch)
+        in_flight = [(e, t, owner[t]) for e, t in unmodelled if e == "test" and t in owner]
+        unmodelled = [(e, t) for e, t in unmodelled if not (e == "test" and t in owner)]
     gated = gating_unmodelled(envs, live, unmodelled)
     gating = bool(findings or gated or model.unparsed_table)
     if args.json:
         print(json.dumps({"findings": findings, "unmodelled": unmodelled,
                           "unmodelled_gating": gated, "unparsed": model.unparsed,
-                          "unparsed_table": model.unparsed_table}, indent=1, default=sorted))
+                          "unparsed_table": model.unparsed_table,
+                          "in_flight": in_flight}, indent=1, default=sorted))
     elif args.summary:
         bits = []
         if findings:
@@ -732,6 +749,9 @@ def _run(args):
             quiet = len([1 for e, t in unmodelled if (e, t) not in {(a, b) for a, b, _ in gated}])
             quiet += len([u for u in model.unparsed if u not in model.unparsed_table])
             extra = f" (+{quiet} report-only)" if quiet else ""
+            if in_flight:
+                extra += (f" ({len(in_flight)} in-flight on test only, report-only: "
+                          + ", ".join(sorted({b for _, _, b in in_flight})) + ")")
             print(f"Table grants: clean ({' vs '.join(envs + ['migrations'])}; "
                   f"{sum(len(v) for v in live.values())} live tables compared){extra}.")
     else:
@@ -746,7 +766,7 @@ def main(argv=None):
     ap.add_argument("--summary", action="store_true",
                     help="one line of output, for callers like /day")
     ap.add_argument("--migrations-dir",
-                    default=os.path.join(os.path.dirname(HERE), "supabase", "migrations"))
+                    default=DEFAULT_MIGRATIONS_DIR)
     ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args(argv)
     # Exit 1 means "drift found". Anything that stops the check reaching a verdict --

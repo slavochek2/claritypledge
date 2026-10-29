@@ -718,8 +718,26 @@ def main():
     )
     counts = {"prod": len(prod_rows), "test": len(test_rows)}
 
+    # A policy live on TEST only, created by a migration on an unshipped worktree branch, is
+    # that branch's normal pre-ship state, not out-of-band drift. Report it, never gate on it.
+    # Prod is never exempt, and nor is any other direction (an unconditional write still gates).
+    if not args.migrations:
+        sys.path.insert(0, os.path.join(this_root, "scripts", "lib"))
+        from inflight_migrations import inflight_migration_dirs
+        inflight = {}
+        for branch, mig in inflight_migration_dirs(repo_roots()[1]):
+            for key in policy_keys_in_migrations(mig)[0] - file_keys:
+                inflight.setdefault(key, branch)
+        for f in findings:
+            key = (f["schema"], f["table"], f["policy"])
+            if (f["direction"] == DIR_NOT_IN_FILES and key in inflight
+                    and f["detail"].get("live_in") == ["test"]):
+                f["in_flight"] = inflight[key]
+
+    in_flight = [f for f in findings if f.get("in_flight")]
     gating = [f for f in findings
-              if not f["allowlisted"] and f["direction"] in FAILING_DIRECTIONS]
+              if not f["allowlisted"] and not f.get("in_flight")
+              and f["direction"] in FAILING_DIRECTIONS]
 
     baseline_path = args.baseline or default_baseline_path()
     try:
@@ -750,6 +768,7 @@ def main():
             "new": [finding_key(f) for f in new],
             "known": [finding_key(f) for f in known],
             "resolved": [list(k) for k in resolved],
+            "in_flight": [finding_key(f) + [f["in_flight"]] for f in in_flight],
         }, indent=2))
     elif args.summary:
         bits = []
@@ -759,6 +778,9 @@ def main():
             bits.append(f"{len(known)} known-open")
         if resolved:
             bits.append(f"{len(resolved)} resolved since baseline")
+        if in_flight:
+            bits.append(f"{len(in_flight)} in-flight on test only (report-only: "
+                        + ", ".join(sorted({f['in_flight'] for f in in_flight})) + ")")
         if not bits:
             print("RLS drift: clean (no unallowlisted prod-only or absent-from-migrations policy).")
         else:
