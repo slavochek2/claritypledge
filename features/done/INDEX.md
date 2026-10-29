@@ -265,6 +265,7 @@ Last updated: 2026-10-29
 - **P602** (Mar 29) Feed Multi-Tag + Version Filter — fetch all then filter client-side (not server) when dataset is small; `isInternalTag()` must cover both `st\d+` and `v\d+`; tag cloud from ALL content not filtered subset (otherwise multi-select breaks); `searchParams.getAll()` for repeated URL params alongside comma-separated
 
 ## UI / Design System
+- **P1593** (Oct 26) Install as app in avatar menu + return-visit nudge — gate on "not installed", never on beforeinstallprompt: dev has no SW, so it never fires
 - **P1586** (Oct 29) One way of loading, on every page — four states, every wait has a deadline; a bare <Navigate> paints a blank frame
 - **P1539** (Oct 26) Signed-in loading experience — shell reserved up front; in-content loader continues splash fade without moving.
 - **P1506** (Oct 26) /hospitals use-case page — MotionConfig reducedMotion="user" skips only transforms; pathLength draws need their own useReducedMotion check

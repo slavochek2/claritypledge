@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-29 [product]: Install offer lives in the avatar menu, always shown until installed; one return-visit nudge on mobile; no install asks on celebration screens (P1593)
+
+**Context:** The install offer sat in Settings (unfound), on the /live session-end screen and in the agreement celebration dialog, where it competed with the asks that matter there (WhatsApp, community). Installing pays off when a person comes back, not at the moment they finish something.
+**Decision:** "Install as app" is the first row of the account block in every avatar menu (phone Me sheet, desktop dropdown, sidebar), shown whenever the app is not running standalone. Tap: native prompt when the browser captured one, else the iOS drawer, else a generic "browser menu → Install app" drawer. On mobile only, a dismissible strip in the Today's-event slot appears from the second visit (a visit = activity after a 30-minute gap; nothing stamped on leave), Today's event wins, dismiss = 30 days. Settings card, celebration link and session-end banner removed. Label "Install as app" (founder): works on phone and desktop, does not imply an app store.
+**Alternatives rejected:** Show only when the browser can prompt (invisible in dev, in Firefox/Samsung, and before Chrome's engagement heuristic fires; founder could not see the feature). Sticky always-on bar (spends the event slot on a once-ever decision). Prompting on celebration screens (competes with higher-value asks). "Install as mobile app" (wrong on desktop, implies App Store). Nudge by layout width instead of device (founder ruled no desktop nudge).
+**Consequences:** Someone who installed but opens a normal browser tab still sees the menu row; the web cannot detect that case, accepted. `pwa_install_prompted` sources are now `avatar_menu` / `return_nudge`; new event `pwa_install_instructions_shown`. One-tap install can only be seen on a production build (the service worker is off under `vite dev`).
+**References:** [p1593](../features/done/2026-06-10/p1593_install_app_placement.md) · `src/hooks/use-pwa-install.tsx`
+
 ## 2026-10-29 [technical]: Self-hosted TEST now holds AI and storage credentials, all TEST-only. Reverses the 2026-10-28 key rule (P1557). Founder decision
 
 **Context:** The 2026-10-28 rule kept paid AI and cloud-storage keys off the self-hosted TEST server, so the Mirror agent, dictation and chat voice notes could not work on `localhost:5001`. Founder reversed it so these can be tried locally.
