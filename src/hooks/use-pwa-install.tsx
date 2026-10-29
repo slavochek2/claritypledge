@@ -23,8 +23,8 @@ interface PwaInstallContextValue {
   isDismissed: boolean;
   /** Whether the browser is desktop */
   isDesktop: boolean;
-  /** Trigger the native install prompt (Android/Chrome) */
-  promptInstall: (source: InstallSource) => Promise<void>;
+  /** Trigger the native install prompt (Android/Chrome). Resolves false when there was none or it failed. */
+  promptInstall: (source: InstallSource) => Promise<boolean>;
   /** Record a dismiss and start 30-day cooldown */
   dismiss: (source: InstallSource) => void;
   /** P1593: whether an install action exists here (true whenever the app is not installed; founder call, no longer gated on a captured prompt) */
@@ -43,6 +43,7 @@ const COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const VISIT_COUNT_KEY = 'pwa_visit_count';
 const LAST_ACTIVITY_KEY = 'pwa_last_activity_at';
 const VISIT_GAP_MS = 30 * 60 * 1000;
+const ACTIVITY_THROTTLE_MS = 60 * 1000;
 
 const PwaInstallContext = createContext<PwaInstallContextValue | null>(null);
 
@@ -152,22 +153,45 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onVisibility = () =>
       setVisitCount(recordActivity(Date.now(), document.visibilityState !== 'hidden'));
+    // Keep the stamp fresh during use (never counting), so a long visit is not split by a reload.
+    let lastStamp = Date.now();
+    const onInteraction = () => {
+      const now = Date.now();
+      if (now - lastStamp < ACTIVITY_THROTTLE_MS) return;
+      lastStamp = now;
+      recordActivity(now, false);
+    };
+    const onPageHide = () => { recordActivity(Date.now(), false); };
     document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
+    document.addEventListener('pointerdown', onInteraction, true);
+    document.addEventListener('keydown', onInteraction, true);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      document.removeEventListener('pointerdown', onInteraction, true);
+      document.removeEventListener('keydown', onInteraction, true);
+      window.removeEventListener('pagehide', onPageHide);
+    };
   }, []);
 
-  const promptInstall = useCallback(async (source: InstallSource) => {
-    if (deferredPrompt.current) {
-      await deferredPrompt.current.prompt();
-      const { outcome } = await deferredPrompt.current.userChoice;
+  const promptInstall = useCallback(async (source: InstallSource): Promise<boolean> => {
+    const deferred = deferredPrompt.current;
+    if (!deferred) return false;
+    // A captured prompt can be used once; clear it whatever happens.
+    deferredPrompt.current = null;
+    setCanPrompt(false);
+    try {
+      await deferred.prompt();
+      const { outcome } = await deferred.userChoice;
       if (outcome === 'accepted') {
         analytics.track('pwa_install_accepted', { source });
         setIsInstalled(true);
       } else {
         analytics.track('pwa_install_dismissed', { source, via: 'native_prompt' });
       }
-      deferredPrompt.current = null;
-      setCanPrompt(false);
+      return true;
+    } catch {
+      return false; // the browser refused the prompt: the caller falls back to instructions
     }
   }, []);
 
@@ -183,9 +207,8 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
 
   const openInstall = useCallback(async (source: InstallSource) => {
     analytics.track('pwa_install_prompted', { source });
-    if (deferredPrompt.current) {
-      await promptInstall(source);
-    } else if (isIOS) {
+    if (await promptInstall(source)) return;
+    if (isIOS) {
       analytics.track('pwa_ios_instructions_shown', { source });
       setInstructions('ios');
     } else {

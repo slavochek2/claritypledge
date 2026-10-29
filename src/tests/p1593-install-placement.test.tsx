@@ -24,9 +24,14 @@ vi.mock('@/app/hooks/usePendingPartnerInvitationCount', () => ({
   usePendingPartnerInvitationCount: () => ({ count: 0 }),
 }));
 const track = vi.fn();
+vi.mock('@/auth', () => ({
+  useAuth: () => ({ user: null, session: null, isLoading: false, signOut: vi.fn(), refreshProfile: vi.fn() }),
+}));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: (...a: unknown[]) => track(...a) } }));
 
 import { BottomNav } from '@/app/components/layout/bottom-nav';
+import { MeSheet } from '@/app/components/layout/app-shell/me-sheet';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { NavigationMenuItems } from '@/app/components/layout/navigation-menu-items';
 import { PwaInstallProvider, recordActivity } from '@/hooks/use-pwa-install';
 
@@ -68,6 +73,9 @@ function renderBar() {
   );
 }
 
+/** openInstall resolves a microtask later (it awaits the native prompt first), so clicks run inside async act. */
+const click = (el: Element) => act(async () => { fireEvent.click(el); });
+
 const nudge = () => screen.queryByTestId('install-nudge');
 
 beforeEach(() => {
@@ -96,12 +104,12 @@ describe('P1593 return-visit nudge', () => {
     expect(track).toHaveBeenCalledWith('pwa_install_prompted', { source: 'return_nudge' });
   });
 
-  it('2nd visit, iPhone: shows without a prompt, and tapping opens the iOS drawer', () => {
+  it('2nd visit, iPhone: shows without a prompt, and tapping opens the iOS drawer', async () => {
     stage({ ua: IPHONE });
     seedReturnVisit();
     renderBar();
     expect(nudge()).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /add clarity pledge to your home screen/i }));
+    await click(screen.getByRole('button', { name: /add clarity pledge to your home screen/i }));
     expect(screen.getByText(/Add ClarityPledge to your Home Screen/)).toBeInTheDocument();
   });
 
@@ -112,12 +120,12 @@ describe('P1593 return-visit nudge', () => {
     expect(nudge()).toBeNull();
   });
 
-  it('2nd visit, Android without a captured prompt: shows, tapping opens the generic instructions', () => {
+  it('2nd visit, Android without a captured prompt: shows, tapping opens the generic instructions', async () => {
     stage({ ua: ANDROID });
     seedReturnVisit();
     renderBar();
     expect(nudge()).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /add clarity pledge to your home screen/i }));
+    await click(screen.getByRole('button', { name: /add clarity pledge to your home screen/i }));
     expect(screen.getByText(/Open your browser menu/)).toBeInTheDocument();
     expect(track).toHaveBeenCalledWith('pwa_install_instructions_shown', { source: 'return_nudge' });
   });
@@ -215,6 +223,78 @@ describe('P1593 visit counting across tab switches', () => {
   });
 });
 
+describe('P1593 prompt failures and long visits', () => {
+  it('prompt() rejecting falls back to the generic drawer, with no unhandled rejection', async () => {
+    stage({ ua: ANDROID });
+    seedReturnVisit();
+    renderBar();
+    const e = nativePrompt();
+    (e.prompt as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('NotAllowedError'));
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /add clarity pledge to your home screen/i })); });
+    process.off('unhandledRejection', unhandled);
+    expect(screen.getByText(/Open your browser menu/)).toBeInTheDocument();
+    expect(unhandled).not.toHaveBeenCalled();
+  });
+
+  it('interaction keeps the stamp fresh: a 36-minute first visit then a reload is still visit 1', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-01-01T10:00:00Z'));
+    stage({ ua: IPHONE });
+    const first = renderBar();
+    vi.setSystemTime(new Date('2026-01-01T10:29:00Z'));
+    fireEvent.pointerDown(document.body);
+    vi.setSystemTime(new Date('2026-01-01T10:35:00Z'));
+    fireEvent.keyDown(document.body, { key: 'a' });
+    first.unmount();
+    vi.setSystemTime(new Date('2026-01-01T10:36:00Z'));
+    renderBar(); // the reload
+    expect(localStorage.getItem('pwa_visit_count')).toBe('1');
+    expect(nudge()).toBeNull();
+    vi.useRealTimers();
+  });
+});
+
+describe('P1593 install row call sites', () => {
+  const row = () => screen.queryByText('Install as app');
+  const renderSheet = () =>
+    render(
+      <MemoryRouter>
+        <PwaInstallProvider>
+          <MeSheet open onOpenChange={vi.fn()} />
+        </PwaInstallProvider>
+      </MemoryRouter>,
+    );
+  const renderDropdown = () =>
+    render(
+      <MemoryRouter>
+        <PwaInstallProvider>
+          <DropdownMenu open>
+            <DropdownMenuTrigger>menu</DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <NavigationMenuItems onSignOut={vi.fn()} />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </PwaInstallProvider>
+      </MemoryRouter>,
+    );
+
+  it.each([['Me sheet', renderSheet], ['dropdown', renderDropdown]])('%s: shown when not installed, opens the drawer on click', async (_n, renderIt) => {
+    stage({ ua: IPHONE });
+    renderIt();
+    await click(row()!);
+    expect(screen.getByText(/Add ClarityPledge to your Home Screen/)).toBeInTheDocument();
+    expect(track).toHaveBeenCalledWith('pwa_install_prompted', { source: 'avatar_menu' });
+  });
+
+  it.each([['Me sheet', renderSheet], ['dropdown', renderDropdown]])('%s: hidden when installed', (_n, renderIt) => {
+    stage({ ua: IPHONE, standalone: true });
+    renderIt();
+    expect(row()).toBeNull();
+  });
+});
+
 describe('P1593 avatar menu item', () => {
   const renderMenu = () =>
     render(
@@ -226,10 +306,10 @@ describe('P1593 avatar menu item', () => {
     );
   const item = () => screen.queryByRole('button', { name: 'Install as app' });
 
-  it('iPhone: shown, opens the drawer', () => {
+  it('iPhone: shown, opens the drawer', async () => {
     stage({ ua: IPHONE });
     renderMenu();
-    fireEvent.click(item()!);
+    await click(item()!);
     expect(screen.getByText(/Add ClarityPledge to your Home Screen/)).toBeInTheDocument();
     expect(track).toHaveBeenCalledWith('pwa_install_prompted', { source: 'avatar_menu' });
   });
@@ -237,7 +317,7 @@ describe('P1593 avatar menu item', () => {
   it('Android: shown without a prompt (generic instructions); fires the native prompt once captured', async () => {
     stage({ ua: ANDROID });
     renderMenu();
-    fireEvent.click(item()!);
+    await click(item()!);
     expect(screen.getByText(/Open your browser menu/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
     const e = nativePrompt();
@@ -246,10 +326,10 @@ describe('P1593 avatar menu item', () => {
     expect(e.prompt).toHaveBeenCalled();
   });
 
-  it('desktop without a prompt: shown, opens the generic instructions', () => {
+  it('desktop without a prompt: shown, opens the generic instructions', async () => {
     stage({ ua: DESKTOP });
     renderMenu();
-    fireEvent.click(item()!);
+    await click(item()!);
     expect(screen.getByText(/Open your browser menu/)).toBeInTheDocument();
   });
 
