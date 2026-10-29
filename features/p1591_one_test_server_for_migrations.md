@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-10-29'
 tags: [testing, migrations, self-hosted]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, spec-review, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, spec-review, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
