@@ -87,15 +87,25 @@ change needs re-acceptance.
   below.
 - **Posting never costs the room a line.** A posting failure (a constraint, a lock, a missing
   channel) is caught, so the live row is still stored and shown on the room page exactly as today.
-  The row stays unplaced, and the existing sweep tick retries unplaced rows. Failures are logged
-  once per row, not per retry.
-- **Where a line was posted is recorded at posting time and never recomputed.** Seating changes
-  mid-round with no history (`host_set_round_seats` deletes and re-inserts seats), so nothing after
-  the fact can reconstruct it. The swap follows the recorded placement, never the seating tables.
+  The row stays unposted, and the existing sweep tick retries unposted rows into their stored
+  destination. Failures are logged once per row, not per retry.
+- **A line's destination is decided once, stored with the live row when it is written, and never
+  recomputed.** The destination is a round and table, or the event channel itself. It is written in
+  the same step as the live row, outside the posting step that may fail, so a retry after the host
+  re-seats people still posts into the original place. Seating changes mid-round with no history
+  (`host_set_round_seats` deletes and re-inserts seats), so nothing after the fact could reconstruct
+  it. Retries and the swap follow the stored destination, never the seating tables.
 - **Words reach a channel only that channel's readers can see.** Transcription posts into an event
   channel are readable exactly by whoever `_chat_access_since` admits (the host, and attendees who
   RSVP'd before the grace window). The posting path adds no reader and widens no policy. A speaker
   who cannot read the event channel is not posted there; their words stay on the room page only.
+  A speaker who can read the channel but not a round thread's root post, because it was created
+  before their access began (late RSVP), has their line posted to the event channel itself instead
+  of that thread. Ordinary sends refuse such a root (`p1546_threads_everywhere.sql:84-89`) and the
+  client cannot open it (`chat-service.ts:117-128`).
+- **The write path is service-only.** System root posts and transcription messages are written by a
+  function no client can call, which takes no conversation, thread or author argument from outside:
+  all three are derived from the stored live row.
 - **The destination is the speaker's seat when the line is stored**, read from the round seating
   on the server at that moment. The client never chooses or supplies the destination thread
   (same principle as decisions.md 2026-09-08: server-assigned fields are never client-supplied).
@@ -189,6 +199,17 @@ change needs re-acceptance.
   "an info affordance instead of an on-bar sentence"). The destination shown comes from the
   server's answer to the last slice (where that line was actually posted), never from the client's
   own reading of the seating, so the bar cannot disagree with the thread.
+- **This needs a response contract that does not exist today.** `record_transcribe_slice` returns
+  only the new row's id (`p1236_c_record_slice_rpc.sql:33`), the edge function discards it
+  (`transcribe-slice/index.ts:219-225`), and the client keeps no success payload
+  (`transcribe-service.ts:425-450`, `room-capture-context.tsx:388-391`). The `transcribe-slice`
+  response gains the stored destination's label as an additive field, and the capture context
+  carries it to the bar. Existing callers of the RPC keep working. States:
+  - Before the first line, and after a silent slice that stored nothing, the bar keeps the last
+    destination it was told, or names none.
+  - When posting is pending or failed, the bar still shows the stored destination, which is where
+    the retry will post.
+  - After a restored capture (reload, page change), the bar names none until the next line.
 
 ### The terms (D7 needs them changed, not a new screen)
 
@@ -229,14 +250,28 @@ applies by notice. It is a legal-feel call, not a technical one.]
   points matching each message's boundaries. Each message gets the cleaned text that aligns with its
   own live words. A message whose span has no confident match keeps its live text (Invariants). The
   threshold is `/dev`'s call, reported with the measurement below. Alignment is a pure, unit-tested
-  function: no network, no database.
+  function: no network, no database. Its rules:
+  - **Monotonic:** matches keep order in both sequences. A cleaned word never maps before a word it
+    followed.
+  - **Ambiguity is rejected, not guessed:** when a phrase repeats and could match more than one
+    place, those messages keep their live text.
+  - **Unmatched cleaned text**, words the live path missed, goes to the matched message just before
+    it. That holds only when both sit in the same place (thread or channel). Otherwise it goes to
+    the earlier one, and never to a message in a place where that speaker had no live line.
+  - **Crosstalk:** alignment runs per speaker on that speaker's own live rows and cleaned text. A
+    passage "also heard by" someone stays with each speaker who said it live. The batch's labels
+    are not rendered in chat.
+  - **Fixtures** must cover repeated phrases, crosstalk, invented text on silence (the "same
+    sentence fourteen times" case), and a missing live slice.
 - So the swap changes text inside existing messages only. Message count, order, threads, typed
   posts, and replies all stay as they are, and a speaker's words can only move between that same
   speaker's adjacent messages.
-- **Trigger and re-runs:** the swap runs each time the room's cleaned transcript is written. The
-  job rewrites it once per member, and jobs retry (`pipeline.py`). Each run recomputes from the live
-  rows and the latest cleaned text, so it is idempotent, and a member whose job completes late is
-  swapped on that later write.
+- **Trigger and re-runs:** the swap runs each time a member's end-of-room job is marked
+  **completed**, not when the transcript is written. The worker writes the transcript first and
+  marks the job completed second (`pipeline.py:131-132`), so a swap triggered on the write would skip
+  the very member just written. The last member's completion would then trigger nothing. Each run
+  recomputes from the live rows and the latest cleaned text, so it is idempotent, and a member whose
+  job completes late is swapped then.
 - **Pre-registered gate before the swap is switched on:** run the alignment on one real
   two-lavalier recording, the TEST run below. The swap ships enabled only if, on a hand check of 20
   random messages, at least 18 got the right cleaned words and none got another message's words.
@@ -252,7 +287,7 @@ fallback). Three limits, stated rather than hidden:
 
 - **Placement is best-effort.** Seating keeps no history, so the run places each line by the round
   whose start and end times contain its `spoken_at`, at the table its speaker holds in that round's
-  final seating. That is the one place the recorded-placement invariant cannot hold, and it is
+  final seating. That is the one place the stored-destination invariant cannot hold, and it is
   labelled as such.
 - Posted messages carry the original `spoken_at` as their time, so the channel reads in spoken order.
 - **It runs only if the new terms (above) were live before session 1.** Otherwise session 1 was
@@ -266,7 +301,7 @@ It is one SQL batch, never per-row calls from a script (metered-services rule 1)
 |---|---|---|
 | Someone without a lavalier turns transcription on, so their phone picks up the whole table under their name | ACCEPT | D8: the host enforces the rule in the room. P1237 measured phone-on-table capture, and no app check can tell which microphone is in use. |
 | A lavalier still picks up the partner, so a few passages appear under two names | ACCEPT | Kept visible, never deleted (the batch labels them "also heard by"). Measured in Done-When; a cross-phone de-duplication spec is filed only if the count says so. |
-| The live slice path invents text at a cut (decisions.md 2026-09-11) or repeats a phrase on silence, visible live in the thread | ACCEPT | The cleaned swap replaces it after the room ends. The live text was already visible on the room page; this spec moves it, it does not create it. |
+| The live slice path invents text at a cut (decisions.md 2026-09-11) or repeats a phrase on silence, visible live in the thread | ACCEPT | Invented text inside a message that also holds real speech is replaced by the swap. **A message made only of invented text has nothing to align with, so it keeps its live text forever**: D10 forbids emptying it. The live text was already visible on the room page; this spec moves it, it does not create it. If session 1 shows such messages, revisiting D10 for messages nobody used is a founder call. |
 | In the mastermind, the pair reversing whose canvas they discuss is one round (the in-round speaker swap, P1337), so both canvases land in one thread | DEFER | P1529 makes each role reversal its own round. Until then the host can start the next round with the same pairs re-seated by hand (the host panel supports manual swaps, P1337; whether that is quick enough for session 1 is UNVERIFIED). |
 | Text alignment cuts a boundary a few words off, so a word or two moves between one speaker's adjacent messages | ACCEPT | Bounded to the same speaker and adjacent messages. The pre-registered gate switches the swap off if the hand check fails. |
 | Talk during a break between rounds lands in the previous round's thread | ACCEPT | A round ends only when the host starts the next one or ends the rounds (P1337), never on the timer. Pause exists, and the bar names the destination. |
@@ -315,14 +350,23 @@ Checked on TEST with an event that has rounds, two attendee accounts and the hos
 - [ ] A transcription message that keeps growing while someone talks shows no "edited" mark, before
       or after the swap.
 - [ ] "My rounds" lists exactly the round threads the viewer was seated in.
-- [ ] An account that did not RSVP to the event cannot read the threads (RLS check by query, not by UI).
-- [ ] After the room ends and the end-of-room transcript completes, thread text changes to the cleaned
-      version, with no notice shown. A forward and a clarify made before the swap still show their
-      original text. No transcription message reads as deleted or empty. A typed reply inside the
-      thread keeps its position.
+- [ ] An account that is neither the host nor an attendee who RSVP'd cannot read the threads (RLS check
+      by query, not by UI). The host can.
+- [ ] An attendee whose access began after a round thread was created, then seated at that table, has
+      their lines posted to the event channel, not into a thread they cannot open.
+- [ ] After the room ends and every end-of-room job completes, either branch holds, depending on the
+      swap gate in Done-When:
+      - **swap enabled:** thread text changes to the cleaned version, with no notice shown.
+      - **swap disabled:** thread text stays live, with no notice shown.
+
+      In both branches: a forward and a clarify made before the end still show their original text,
+      no transcription message reads as deleted or empty, and a typed reply inside the thread keeps
+      its position.
 - [ ] With the end-of-room job failing, or a speaker marked incomplete, the affected threads keep the
-      live text and show no error. A member's job completing after the first swap gets that member's
-      messages swapped on the later write.
+      live text and show no error. With the swap enabled, a member whose job completes after the
+      others, including the last member, gets their messages swapped when their job completes.
+- [ ] A posting failure followed by the host re-seating people: the retried line still lands in its
+      original place.
 - [ ] The new terms, privacy policy and consent tap wording are live before any line reaches a
       channel.
 - [ ] Typed messages, voice notes and dictation in the same channel look exactly as before.
