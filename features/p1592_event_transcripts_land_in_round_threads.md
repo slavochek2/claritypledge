@@ -56,8 +56,8 @@ the room page exactly as it is today. Messages already posted stay in the channe
 by hand.
 
 **Decision density:** low for the product model, which the founder settled on 2026-10-29 (recorded
-under Decisions). Three founder calls remain: the bar copy, the terms wording, and whether the terms
-change needs re-acceptance.
+under Decisions). The terms wording and notice-not-re-acceptance were settled the same day (§Terms
+below). One founder call remains: the bar copy.
 
 ## Decisions (founder, 2026-10-29)
 
@@ -224,13 +224,17 @@ Forward then lets any of them copy a line into a direct chat.
 So the terms, the privacy policy and the consent tap's wording change in this spec, before any line
 reaches a channel. No new screen is added, which keeps D7.
 
-[FOUNDER DECISION: the new wording for the terms (§Transcribe Rooms), the privacy policy, and the
-consent tap. Draft for the tap: "Recorded, and posted to this event's channel for its attendees".
-Draft for the terms: "While you are transcribed at an event, live text attributed to you is posted
-to that event's channel, where its host and attendees can read and forward it."]
-
-[FOUNDER DECISION: whether a terms change needs a new terms version that existing users accept, or
-applies by notice. It is a legal-feel call, not a technical one.]
+**Decided (founder, 2026-10-29):** adopt the change. The founder had assumed every attendee could
+already read an event's transcript; verified that today only people who switched transcription on in
+that room can (`20260823190000_p1149_transcribe_room_tables.sql:150-157`), so this is a real widening.
+- Consent tap: "Recorded, and posted to this event's channel for its attendees".
+- Terms (§Transcribe Rooms): "While you are transcribed at an event, live text attributed to you is
+  posted to that event's channel, where its host and attendees can read and forward it." The privacy
+  policy line says the same. `tos.md:66,71` and `privacy.md` are rewritten so nothing still says the
+  room only.
+- **Notice, not re-acceptance:** no new terms version that blocks existing users. A one-time notice
+  of the change is enough; its form and placement are `/dev`'s call within the existing notice
+  patterns, and it adds no new screen.
 - [FOUNDER DECISION: copy. The idle bar's description today reads "Record audio and share transcript
   with others in the room. Transcription follows our Terms and Privacy Policy." It now also posts to
   the event channel. Draft: "Record audio and post the transcript to this event's channel, where
@@ -389,7 +393,8 @@ Checked on TEST with an event that has rounds, two attendee accounts and the hos
       cross-phone de-duplication spec is filed.
 - [ ] Clarity Night regression: an event with no rounds still transcribes, and its lines land in the
       event channel as top-level posts.
-- [ ] The founder decisions above (bar copy, terms wording, terms version) are recorded.
+- [ ] The founder decision above (bar copy) is recorded. Terms wording and notice were recorded
+      2026-10-29.
 
 ## Cost Budget
 
