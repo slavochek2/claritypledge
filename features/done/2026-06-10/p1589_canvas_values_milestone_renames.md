@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 70
 workstream: clarity-canvas
 created_date: '2026-10-28'
 tags: [canvas, sales-mastermind]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: low
+completed_at: 2026-10-29
 ---
 
 # P1589: Rename "My values" and "How I'll know it's working"
