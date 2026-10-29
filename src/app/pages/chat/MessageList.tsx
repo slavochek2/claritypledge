@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import type { ChatMessage } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { CountBadge, Divider, InlineError, MessagesSkeleton } from './chat-kit';
+import { leadPlacement } from './lead-placement';
 import { MessageRow, type MessageActions } from './MessageRow';
 import { compareMessages, describeGrouping, dayLabel } from './chat-view-model';
 import { isLocal, type useConversationMessages } from './use-conversation';
@@ -47,9 +48,15 @@ interface Props {
   privateRows?: ChatMessage[];
   /** P1554: shown above the first message, and in place of `empty`: the mirror's greeting. */
   lead?: ReactNode;
+  /** P1536: shown after the last message, inside the scroll (a canvas thread's draft card). */
+  tail?: ReactNode;
+  /** P1536: a message that is kept out of the list (a new canvas thread's root, which only carries the draft's own version). */
+  hideId?: string | null;
+  /** P1536: with `lead`, draw the lead right after this message instead of above all of them (an update thread: the base version card first, then the opener). */
+  leadAfterId?: string | null;
 }
 
-export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages', privateRows, lead }: Props) {
+export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages', privateRows, lead, tail, hideId = null, leadAfterId = null }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -64,7 +71,7 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
   const { status, messages: listed, stats, hasMore, loadingEarlier, loadEarlier, ensureLoaded, lookup, getLoaded, syncVersion, retrySend, discard, edit, reload } = conv;
   // Private rows join in time order. While earlier channel history is not loaded, private rows older than it wait,
   // so they never pile up above a gap; unconfirmed sends stay last.
-  const messages = useMemo(() => {
+  const merged = useMemo(() => {
     if (!privateRows?.length) return listed;
     const locals = listed.filter(isLocal);
     const loaded = listed.filter((m) => !isLocal(m));
@@ -72,6 +79,8 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
     const extra = privateRows.filter((p) => !hasMore || !oldest || compareMessages(p, oldest) >= 0);
     return [...[...loaded, ...extra].sort(compareMessages), ...locals];
   }, [listed, privateRows, hasMore]);
+  const messages = useMemo(() => (hideId ? merged.filter((m) => m.id !== hideId) : merged), [merged, hideId]);
+  const placement = leadPlacement(!!lead, hasMore, leadAfterId, messages);
   const privateIds = useMemo(() => new Set((privateRows ?? []).map((m) => m.id)), [privateRows]);
 
   const pageBack = useCallback(() => {
@@ -214,7 +223,7 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
               </Button>
             </div>
           )}
-          {lead && !hasMore && <div data-testid="message-lead">{lead}</div>}
+          {placement === 'top' && <div data-testid="message-lead">{lead}</div>}
           {messages.length === 0 && !lead && <div className="px-6 py-12 text-center text-sm text-muted-foreground">{empty}</div>}
           <ul role="log" aria-live="polite" aria-relevant="additions" aria-label={label} className="flex flex-col gap-0.5">
             {messages.map((m, i) => {
@@ -241,10 +250,16 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
                     inThread={inThread}
                     privateHere={privateIds.has(m.id)}
                   />
+                  {placement === 'after' && m.id === leadAfterId && (
+                    <li role="presentation" data-testid="message-lead">
+                      {lead}
+                    </li>
+                  )}
                 </Fragment>
               );
             })}
           </ul>
+          {tail && <div data-testid="message-tail">{tail}</div>}
         </div>
       </div>
       {(away || newCount > 0) && (

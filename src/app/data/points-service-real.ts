@@ -19,7 +19,7 @@ import { currentVersionsOnly } from './point-versions';
 import { supabase } from '@/lib/supabase';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { isSystemTag } from '@/lib/feed-utils';
-import { CANVAS_BOX_TAGS, canvasNameOf, canvasTagFor } from '@/lib/canvas-boxes';
+import { CANVAS_BOX_TAGS, canvasOfTag, canvasTagFor } from '@/lib/canvas-boxes';
 import { logDbError, throwDbError } from './db-error-logger';
 import { earCountOf } from './ear-count';
 
@@ -959,10 +959,10 @@ export const realPointsService: PointsService = {
     if (error || !data) throwDbError('getCanvasProjectTags', error, 'Could not load canvases');
     const tags = new Set<string>();
     // R9: only reserved `canvas_<name>` tags name a canvas, so a second user tag on a point never
-    // shows as a canvas of its own.
+    // shows as a canvas of its own. P1536: nor does a draft version (`<canvas>_d<hex>`): it folds into its canvas.
     for (const row of data as { system_tags: string[] | null }[]) {
       for (const t of row.system_tags ?? []) {
-        const name = canvasNameOf(t);
+        const name = canvasOfTag(t);
         if (name) tags.add(name);
       }
     }

@@ -9,7 +9,7 @@ export function messageSummary(m: Pick<ChatMessage, 'body' | 'isDeleted' | 'atta
   if (m.isDeleted) return 'Message deleted';
   if (m.body) return m.body;
   if (m.audio) return 'Voice message';
-  if (m.attachmentKind) return m.attachmentKind === 'point' ? 'A point' : 'A story';
+  if (m.attachmentKind) return m.attachmentKind === 'point' ? 'A point' : m.attachmentKind === 'story' ? 'A story' : 'A canvas';
   return m.kind === 'message' ? '' : 'Forwarded message';
 }
 

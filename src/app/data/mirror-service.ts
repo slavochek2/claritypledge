@@ -135,6 +135,8 @@ function replyState(status: number, data: Record<string, unknown>): MirrorReplyS
   if (data.code === 'DISABLED') return 'disabled';
   if (status === 409 && data.code === 'TERMS_NOT_ACCEPTED') return 'terms';
   if (status === 409 && data.code === 'TRANSCRIPT_FAILED') return 'transcript_failed';
+  // P1536: the server made no job for this message (a change request in a published canvas thread, answered by the client): nothing to show.
+  if (status === 404 && data.code === 'NOT_AVAILABLE') return 'cancelled';
   const s = data.state;
   if (s === 'transcribing' || s === 'transcript_failed') return s;
   if (s === 'done' || s === 'running' || s === 'capped' || s === 'failed' || s === 'cancelled') return s;

@@ -16,7 +16,7 @@ import { matchMentions, mentionQuery, type MentionEntry } from './mention-picker
 import { DictationSlot, FieldMic } from './DictationControls';
 import { ComposerStatus, VoiceSlot } from './VoiceControls';
 import { useVoiceNote, type VoiceSender } from '@/hooks/use-voice-note';
-import { composerSlots } from './composer-slots';
+import { composerSlots, type Slots } from './composer-slots';
 import { MentionPicker } from './MentionPicker';
 import { PrivateModeBar } from './PrivateModeBar';
 import { useComposerDictation } from './use-composer-dictation';
@@ -27,6 +27,11 @@ export type { MentionEntry };
 export const COMPOSER_MAX = 136;
 
 
+
+/** P1536: the caller's control after the paperclip; like every other button in the row it gives way while a recorder bar is up (P1576). */
+function Leading({ slots, children }: { slots: Slots; children: ReactNode }) {
+  return slots.field ? children : null;
+}
 
 interface Props {
   draftKey: string;
@@ -55,9 +60,13 @@ interface Props {
    * allowed: the round voice button is then never shown. Private @mirror asks (privateTo) never show it either.
    */
   onVoiceNote?: VoiceSender;
+  /** P1536: a control that sits in the row after the paperclip and before the field (a canvas thread's upload button). */
+  leading?: ReactNode;
+  /** P1536: told whenever Send shows or goes (text, an attachment or a quote to send), so a bar beside it can keep one primary. */
+  onSendableChange?: (sendable: boolean) => void;
 }
 
-export function Composer({ draftKey, placeholder, onSend, onAttach, staged = null, onUnstage, quote, quoteSendable = false, sendDisabled = false, focusToken = 0, autoFocus = false, mentions, privateTo = null, onPrivateChange, onVoiceNote }: Props) {
+export function Composer({ draftKey, placeholder, onSend, onAttach, staged = null, onUnstage, quote, quoteSendable = false, sendDisabled = false, focusToken = 0, autoFocus = false, mentions, privateTo = null, onPrivateChange, onVoiceNote, leading, onSendableChange }: Props) {
   const [value, setValue] = useDraft(draftKey);
   const field = useRef<HTMLTextAreaElement>(null);
   const latest = useRef(value);
@@ -103,6 +112,8 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
   }, [focusToken, autoFocus, draftKey]);
 
   const sendable = value.trim() !== '' || !!staged || quoteSendable;
+  useEffect(() => onSendableChange?.(sendable), [sendable, onSendableChange]);
+  useEffect(() => () => onSendableChange?.(false), [onSendableChange]);
   const send = () => {
     const text = value.trim();
     if ((!text && !staged && !quoteSendable) || sendDisabled) return;
@@ -165,6 +176,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
               <Paperclip className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
+          <Leading slots={slots}>{leading}</Leading>
           {/* The hint is drawn by hand, not as a placeholder: a placeholder wraps (and grows the composer) at a narrow
               width, this one is a single line that ends in an ellipsis. */}
           <div className="relative min-w-0 flex-1" hidden={!slots.field}>

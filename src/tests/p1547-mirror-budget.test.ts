@@ -23,8 +23,8 @@ describe('P1547: spend — code and SQL never drift', () => {
   const file = newestMigrationDefining('FUNCTION public._mirror_limits()');
   const sql = readFileSync(file, 'utf8');
   const m = sql.match(/'reply_max_usd',\s*([0-9.]+)/);
-  it('the newest _mirror_limits() is the P1547 one and reply_max_usd equals reserveReplyUsd()', () => {
-    expect(basename(file)).toMatch(/p1547/);
+  it('the newest _mirror_limits() is a known one (P1547, then P1536 canvas caps) and reply_max_usd equals reserveReplyUsd()', () => {
+    expect(basename(file)).toMatch(/p1547|p1536/);
     expect(m, 'reply_max_usd in the newest _mirror_limits migration').not.toBeNull();
     expect(Number(m![1])).toBe(reserveReplyUsd());
   });

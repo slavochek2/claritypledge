@@ -85,6 +85,23 @@ export function canvasNameOf(tag: string): string | null {
   return CANVAS_TAG_PATTERN.exec(tag)?.[1]?.toLowerCase() ?? null;
 }
 
+/**
+ * P1536: a version made by the draft flow is named `<canvas>_d<6 hex>` (an internal key, never shown). Its tag is
+ * `canvas_<canvas>_d<hex>`, so a point's tag alone would list every draft version as a canvas of its own.
+ */
+const DRAFT_VERSION_SUFFIX = /_d[0-9a-f]{6}$/;
+
+/** The canvas a version name belongs to: the name without its draft-flow suffix (any other name is its own canvas). */
+export function canvasOfVersionName(version: string): string {
+  return version.replace(DRAFT_VERSION_SUFFIX, '') || version;
+}
+
+/** The CANVAS a `canvas_<version>` tag belongs to, or null for any other tag (use this to list canvases, `canvasNameOf` for versions). */
+export function canvasOfTag(tag: string): string | null {
+  const version = canvasNameOf(tag);
+  return version ? canvasOfVersionName(version) : null;
+}
+
 /** The box a point sits in: its first box tag. One box per point (v9 rule), so the first wins. */
 export function canvasBoxOf(systemTags: readonly string[]): CanvasBoxTag | null {
   const tag = systemTags.find(isCanvasBoxTag);

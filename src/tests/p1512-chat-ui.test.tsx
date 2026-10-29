@@ -6,7 +6,7 @@
  * quote-reply, forward, clarify, attachments the reader cannot see, the blocked composer, the
  * mirror's name and rename, Realtime merge + dedupe, and "no Coming soon / placeholder / mock".
  */
-import { act, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -1230,6 +1230,17 @@ describe('conversation', () => {
     expect(within(welcome).getAllByRole('button')).toHaveLength(1);
     await userEvent.click(within(welcome).getByRole('button', { name: 'Give me a name' }));
     expect(await screen.findByRole('dialog')).toHaveTextContent(/Its role/);
+  });
+
+  it('P1536 visual QA (P955): with a thread open beside the mirror chat, "Give me a name" steps back to an outline (the thread\'s action leads); CONTROL: filled with no thread open', async () => {
+    const root = msg('c-mirror', ME.id, 'a thread root', { id: 'mroot' });
+    renderChat('/chats/c/c-mirror/t/mroot', [mirror('c-mirror'), dmChat], { 'c-mirror': [root] });
+    const name = await within(await screen.findByTestId('mirror-welcome')).findByRole('button', { name: 'Give me a name' });
+    expect(name.className).not.toContain('bg-blue-600');
+    cleanup();
+    renderChat('/chats/c/c-mirror', [mirror('c-mirror'), dmChat], { 'c-mirror': [root] });
+    const filled = await within(await screen.findByTestId('mirror-welcome')).findByRole('button', { name: 'Give me a name' });
+    expect(filled.className).toContain('bg-blue-600');
   });
 
   it('P1554: a named mirror greets by its name and has no naming button', async () => {

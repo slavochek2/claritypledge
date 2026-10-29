@@ -5,22 +5,29 @@
  * and the mirror too); in the mirror, the mirror agent answers inside the thread it was asked in.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, PanelRight, X } from 'lucide-react';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-service';
 import { Composer } from './Composer';
 import { MessageList } from './MessageList';
-import { FOCUS_RING, HOVER } from './chat-kit';
+import { ThreadHeader } from './ThreadHeader';
 import { useBack } from './chat-hooks';
 import { useChat } from './chat-state';
 import { useRestoreMirrorStatuses } from './mirror-state';
+import { useCanvasParts } from './use-canvas-parts';
 import { chatTitle } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
 import { useVoiceSender } from './use-voice-sender';
-import { cn } from '@/lib/utils';
 import { EventRoomLink } from './EventRoomLink';
 
-export function ThreadPanel({ summary, rootId, highlightId }: { summary: ChatSummary; rootId: string; highlightId: string | null }) {
+export function ThreadPanel({ summary, rootId, highlightId, onClose, hideDraftCard = false }: {
+  summary: ChatSummary;
+  rootId: string;
+  highlightId: string | null;
+  /** Closes the panel where it is not the chat's own route (the canvas page): replaces the chat's Back. */
+  onClose?: () => void;
+  /** Beside the canvas page the draft card is left out: the draft is on screen, and the page has its own Publish. */
+  hideDraftCard?: boolean;
+}) {
   const chat = useChat();
   const conversationId = summary.conversationId;
   const conv = useConversationMessages({ conversationId, threadRootId: rootId });
@@ -30,15 +37,28 @@ export function ThreadPanel({ summary, rootId, highlightId }: { summary: ChatSum
   // Every Reply inside a thread is a reply to the thread: it just moves focus to the field.
   const onReply = useCallback((_m: ChatMessage) => setFocusToken((t) => t + 1), []);
   const { actions, dialogs } = useMessageActions({ summary, conv, onReply });
-  // P1576: a voice note sent here is a reply in this thread. Never in a mirror thread.
-  const sendVoice = useVoiceSender(conversationId, true, rootId, undefined);
-  const close = useBack();
+  const back = useBack();
+  const close = onClose ?? back;
   // A thread that does not exist for this person (a reply, a 1:1, another chat's message) closes itself, the way Back does.
   useEffect(() => {
     if (conv.status === 'unavailable') close();
   }, [conv.status, close]);
   const root = conv.server.find((m) => m.id === rootId);
   const rootDeleted = !!root?.isDeleted;
+  // P1536: a thread that starts with a canvas version is a canvas draft's thread (the draft is read from the database).
+  const canvasRoot = summary.kind === 'mirror' && root?.attachmentKind === 'canvas_version';
+  const canvas = useCanvasParts({
+    canvasRoot,
+    rootId,
+    messages: conv.server,
+    userId: chat.userId,
+    ownerSlug: chat.authors[chat.userId]?.slug,
+    mirrorTitle: summary.title,
+    hideDraftCard,
+  });
+  // P1576: a voice note sent here is a reply in this thread. Not in a canvas draft's thread (P1536): its opener holds
+  // the one primary while nothing is typed, and the round voice button would be a second one in the send slot.
+  const sendVoice = useVoiceSender(conversationId, !canvasRoot, rootId, undefined);
   const blockedReason = !summary.canSend
     ? 'You cannot send messages in this chat.'
     : rootDeleted
@@ -51,20 +71,14 @@ export function ThreadPanel({ summary, rootId, highlightId }: { summary: ChatSum
       data-testid="thread-panel"
       className="flex min-h-0 min-w-0 flex-1 flex-col bg-background lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]"
     >
-      <header className="flex min-h-14 shrink-0 items-center gap-1 border-b px-2 lg:gap-2 lg:px-4">
-        <button type="button" onClick={close} aria-label="Back to the conversation" className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-foreground lg:hidden', HOVER, FOCUS_RING)}>
-          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-        </button>
-        <PanelRight className="hidden h-[18px] w-[18px] shrink-0 text-muted-foreground lg:block" aria-hidden="true" />
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
-          <p className="truncate text-xs text-muted-foreground">{chatTitle(summary)}</p>
-        </div>
-        <EventRoomLink chat={summary} />
-        <button type="button" onClick={close} aria-label="Close thread" className={cn('-mr-2 hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground lg:flex', HOVER, FOCUS_RING)}>
-          <X className="h-[18px] w-[18px]" aria-hidden="true" />
-        </button>
-      </header>
+      <ThreadHeader onClose={close} menu={<><EventRoomLink chat={summary} />{canvas.headerMenu}</>}>
+        {canvas.headerTitle ?? (
+          <>
+            <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
+            <p className="truncate text-xs text-muted-foreground">{chatTitle(summary)}</p>
+          </>
+        )}
+      </ThreadHeader>
       <MessageList
         conv={conv}
         actions={actions}
@@ -75,7 +89,9 @@ export function ThreadPanel({ summary, rootId, highlightId }: { summary: ChatSum
         empty="This thread is empty."
         inThread
         earlierLabel="Load earlier replies"
+        {...canvas.list}
       />
+      {canvas.tray}
       {blockedReason ? (
         <div className="shrink-0 border-t px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-testid="thread-composer-blocked">
           <p className="text-sm text-muted-foreground">{blockedReason}</p>
@@ -86,8 +102,10 @@ export function ThreadPanel({ summary, rootId, highlightId }: { summary: ChatSum
           placeholder="Reply in thread"
           focusToken={focusToken}
           autoFocus
+          onSendableChange={canvas.setComposing}
           onSend={(body) => void conv.send({ body })}
           onVoiceNote={sendVoice}
+          leading={canvas.leading}
         />
       )}
       {dialogs}

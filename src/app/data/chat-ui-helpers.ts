@@ -11,6 +11,7 @@ import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
 import { filterByTags } from '@/lib/feed-utils';
 import type { ChatAttachmentKind } from './chat-mappers';
+import { getCanvasVersionCard, type CanvasVersionCardData } from './canvas-draft-service';
 import type { PointSummary, PointWithUserPosition, StoryWithAuthor } from '@/app/types';
 
 /** What a message row needs to show who wrote it. */
@@ -66,6 +67,8 @@ export interface Shareable {
   point?: PointWithUserPosition;
   story?: StoryWithAuthor;
   linkedPoints?: PointSummary[];
+  /** P1536: a canvas version (the draft thread's first row): its label and where it opens. */
+  canvasVersion?: CanvasVersionCardData;
 }
 
 const STORY_TITLE_MAX = 80;
@@ -121,6 +124,10 @@ export function filterShareables(items: Shareable[], query: string, kind: ChatAt
  * normal reader-scoped ones: a private point or story the reader cannot select comes back empty.
  */
 export async function loadAttachment(kind: ChatAttachmentKind, id: string, viewerId: string): Promise<Shareable | null> {
+  if (kind === 'canvas_version') {
+    const card = await getCanvasVersionCard(id, viewerId);
+    return card ? { kind, id, title: card.label, tags: [], canvasVersion: card } : null;
+  }
   if (kind === 'point') {
     const point = await pointsService.getPointWithUserPosition(id, viewerId);
     if (!point) return confirmHidden('points', id);

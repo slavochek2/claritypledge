@@ -8,7 +8,8 @@
  *   draft            Prepare letter · … (Delete draft)
  *   sent             + Add recipient · … (Copy link when public, Preview, Delete letter)
  *   received         Open
- *   own canvas       Share · … (Copy link)
+ *   own canvas       Share · … (Open draft and Discard draft while a draft is open, Copy link)
+ *   own canvas, never published (only a draft)   Open · … (Discard draft)
  *   shared canvas    Open
  *
  * A control that is not possible right now stays focusable and clickable (aria-disabled, muted): hover or focus shows
@@ -38,6 +39,8 @@ import { deleteLetter } from '@/app/data/letters-service';
 import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
 import { canvasCopyAddress } from '@/lib/canvas-copy-address';
 import { canvasService } from '@/app/data/canvas-service';
+import { DiscardDraftDialog } from './discard-draft-dialog';
+import { useCanvasDraftMenu } from './use-canvas-draft-menu';
 import type { ArtifactRow } from './artifacts-view-model';
 
 /** The row action: quiet blue text, 40px tap target (negative margin keeps the row tight). */
@@ -196,6 +199,7 @@ export function ArtifactRowActions({ row, userSlug, onChanged, onOpen }: Props) 
   const [confirm, setConfirm] = useState<'draft' | 'letter' | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const draftMenu = useCanvasDraftMenu(row, userSlug, onChanged);
 
   const name = (label: string) => `${label}: ${row.title}`;
   const { ref } = row;
@@ -318,12 +322,22 @@ export function ArtifactRowActions({ row, userSlug, onChanged, onOpen }: Props) 
       main = <OpenAction href={row.href} label={name('Open')} onOpen={onOpen} />;
       break;
     case 'canvas':
-      menu = [{
-        id: 'copy-link',
-        label: 'Copy link',
-        disabledReason: canvasShared ? undefined : 'Share this canvas first to get a link.',
-        run: () => { void copyCanvasLink(); },
-      }];
+      if (ref.draft?.only) {
+        // Never published (P1536): nothing to share or link to yet. The row opens the draft; "…" can discard it.
+        menu = draftMenu.discard;
+        main = <OpenAction href={row.href} label={name('Open')} onOpen={onOpen} />;
+        break;
+      }
+      menu = [
+        ...draftMenu.open,
+        {
+          id: 'copy-link',
+          label: 'Copy link',
+          disabledReason: canvasShared ? undefined : 'Share this canvas first to get a link.',
+          run: () => { void copyCanvasLink(); },
+        },
+        ...draftMenu.discard,
+      ];
       main = <CanvasShareAction label={name('Share')} canvasName={canvasName} canvasLink={canvasLink} shared={canvasShared} generalAccess={ref.generalAccess} onChanged={onChanged} />;
       break;
   }
@@ -336,6 +350,7 @@ export function ArtifactRowActions({ row, userSlug, onChanged, onOpen }: Props) 
         <RowMenu row={row} menu={menu} onOpen={onOpen} />
       </div>
 
+      <DiscardDraftDialog dialog={draftMenu.dialog} />
       <ConfirmDialog
         open={confirm === 'draft'}
         onOpenChange={open => { if (!open) setConfirm(null); }}

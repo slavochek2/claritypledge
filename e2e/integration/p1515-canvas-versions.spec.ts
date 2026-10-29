@@ -276,25 +276,28 @@ test('a version row cannot name an owner other than the canvas\'s own (the pair 
   await supabaseAdmin.from('canvas_versions').delete().eq('canvas_id', canvasId).eq('name', `${V1}own`);
 });
 
-test('a point is on at most ONE version of a canvas: a second version tag of the same canvas is refused, on insert, on update and when a version is added', async () => {
-  // update: p1a is on v1; the v2 tag would put it on two versions of the same canvas
+test('P1536 reuse: a point may carry the tags of several versions of one canvas (positions and stories then carry over): on update, on insert and when a version is added', async () => {
+  // This REVERSES the P1515 phase 5 integrity rule ("a point is on at most one version"): an unchanged point is
+  // reused by the next version instead of copied, so its positions and added stories stay with it.
   const upd = await supabaseAdmin.from('points').update({ system_tags: [`canvas_${V1}`, `canvas_${V2}`, 'canvas:problem'] }).eq('id', p1a);
-  expect(upd.error, 'tagging a v1 point with the v2 tag is refused').not.toBeNull();
-  // insert
-  const ins = await supabaseAdmin.from('points').insert({ statement: `${TAG} two tags`, first_validator_id: O.user.id, visibility: 'private', tags: [TAG], system_tags: [`canvas_${V1}`, `canvas_${V3}`, 'canvas:problem'] });
-  expect(ins.error, 'a new point with two versions of one canvas is refused').not.toBeNull();
+  expect(upd.error, 'tagging a v1 point with the v2 tag is allowed').toBeNull();
+  expect(ids(await get(cO, V1)), 'v1 still reads it').toEqual([p1a, p1b].sort());
+  expect(ids(await get(cO, V2)), 'and v2 reads it too').toEqual([p1a, p2a].sort());
+  const ins = await supabaseAdmin.from('points').insert({ statement: `${TAG} two tags`, first_validator_id: O.user.id, visibility: 'private', tags: [TAG], system_tags: [`canvas_${V1}`, `canvas_${V3}`, 'canvas:problem'] }).select('id').single();
+  expect(ins.error, 'a new point with two versions of one canvas is allowed').toBeNull();
+  pointIds.push(ins.data!.id as string);
   // a version added later over a point already tagged with its name and another version's
   const both = await mkPoint(O.user.id, 'both tags', V1);
-  const tagFirst = await supabaseAdmin.from('points').update({ system_tags: [`canvas_${V1}`, `canvas_${V1}fresh`, 'canvas:problem'] }).eq('id', both);
-  expect(tagFirst.error, 'a name that is not a version yet may be tagged').toBeNull();
+  expect((await supabaseAdmin.from('points').update({ system_tags: [`canvas_${V1}`, `canvas_${V1}fresh`, 'canvas:problem'] }).eq('id', both)).error).toBeNull();
   const late = await supabaseAdmin.from('canvas_versions').insert({ canvas_id: canvasId, owner_id: O.user.id, name: `${V1}fresh` });
-  expect(late.error, 'adding the version would put that point on two versions').not.toBeNull();
-  // CONTROLS: a point of another canvas plus this canvas's tag is fine; an unchanged point updates fine; the data is intact
-  const cross = await supabaseAdmin.from('points').update({ system_tags: [`canvas_${V1}`, `canvas_${OTHER}`, 'canvas:problem'] }).eq('id', both);
-  expect(cross.error, 'tags of two DIFFERENT canvases are allowed').toBeNull();
-  const same = await supabaseAdmin.from('points').update({ statement: `${TAG} v1 first` }).eq('id', p1a);
-  expect(same.error, 'an ordinary update of a canvas point still works').toBeNull();
-  expect(ids(await get(cO, V1)), 'v1 still reads the same points (plus the extra point)').toEqual([p1a, p1b, both].sort());
+  expect(late.error, 'adding the version over such a point is allowed').toBeNull();
+  expect(ids(await get(cO, `${V1}fresh`)), 'and that version reads it').toEqual([both]);
+  // CONTROLS: a point of another canvas plus this canvas's tag is fine; an ordinary update works; the data is intact
+  expect((await supabaseAdmin.from('points').update({ system_tags: [`canvas_${V1}`, `canvas_${OTHER}`, 'canvas:problem'] }).eq('id', both)).error).toBeNull();
+  expect((await supabaseAdmin.from('points').update({ statement: `${TAG} v1 first` }).eq('id', p1a)).error, 'an ordinary update of a canvas point still works').toBeNull();
+  expect(ids(await get(cO, V3)), 'v3 reads its own point and the reused one').toEqual([p3a, ins.data!.id as string].sort());
+  // put p1a back on v1 alone so nothing after this depends on the reuse
+  await supabaseAdmin.from('points').update({ system_tags: [`canvas_${V1}`, 'canvas:problem'] }).eq('id', p1a);
   expect(ids(await get(cO, V2))).toEqual([p2a]);
 });
 
@@ -314,14 +317,13 @@ test('a version row is immutable: its canvas, owner and name cannot change (a re
   expect(touch.error, 'created_at may change').toBeNull();
 });
 
-test('handing a point to the owner of the canvas re-runs the one-version check (first_validator_id changes, system_tags does not)', async () => {
-  // A point of P's carrying two tags that are NOT versions for P: allowed.
+test('P1536 reuse: handing a point that carries two versions of this canvas to its owner is allowed (the one-version check is gone)', async () => {
   const { data, error } = await supabaseAdmin.from('points').insert({ statement: `${TAG} handed over`, first_validator_id: P.user.id, visibility: 'private', tags: [TAG], system_tags: [`canvas_${V1}`, `canvas_${V2}`, 'canvas:problem'] }).select('id').single();
-  expect(error, 'for another owner these are not versions of one canvas').toBeNull();
+  expect(error).toBeNull();
   pointIds.push(data!.id as string);
   const handover = await supabaseAdmin.from('points').update({ first_validator_id: O.user.id }).eq('id', data!.id);
-  expect(handover.error, 'under the canvas owner the point would be on two versions: refused').not.toBeNull();
-  // CONTROL: a point with one version tag changes hands freely.
+  expect(handover.error, 'under the canvas owner the point is on two versions: allowed').toBeNull();
+  // CONTROL: a point with one version tag changes hands freely, as before.
   const one = await supabaseAdmin.from('points').insert({ statement: `${TAG} handed one`, first_validator_id: P.user.id, visibility: 'private', tags: [TAG], system_tags: [`canvas_${V1}`, 'canvas:problem'] }).select('id').single();
   pointIds.push(one.data!.id as string);
   expect((await supabaseAdmin.from('points').update({ first_validator_id: O.user.id }).eq('id', one.data!.id)).error).toBeNull();

@@ -316,9 +316,9 @@ export function MessagesSkeleton() {
 }
 
 /** What failed, and a Retry that reads again. */
-export function InlineError({ what, onRetry }: { what: string; onRetry: () => void }) {
+export function InlineError({ what, onRetry, compact = false }: { what: string; onRetry: () => void; compact?: boolean }) {
   return (
-    <div role="alert" className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+    <div role="alert" className={cn('flex flex-col items-center gap-3 px-6 text-center', compact ? 'py-4' : 'py-12')}>
       <p className="text-sm text-muted-foreground">Could not load {what}. Try again.</p>
       <Button variant="outline" className="min-h-10" onClick={onRetry}>
         Retry

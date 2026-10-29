@@ -32,6 +32,7 @@ vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }))
 import { ChatContext, type ChatContextValue, type ChatEvent } from '@/app/pages/chat/chat-state';
 import { MirrorContext, type MirrorContextValue } from '@/app/pages/chat/mirror-state';
 import { MirrorProvider } from '@/app/pages/chat/mirror-provider';
+import { registerCanvasThread, resetCanvasThreads } from '@/app/pages/chat/canvas-thread-registry';
 import { MessageRow, type MessageActions } from '@/app/pages/chat/MessageRow';
 import { MirrorMark } from '@/app/pages/chat/chat-kit';
 import { Composer } from '@/app/pages/chat/Composer';
@@ -329,6 +330,46 @@ describe('P1520 MirrorProvider', () => {
     // CONTROL: the same harness does ask for an own mirror message
     fire({ type: 'message', event: { type: 'INSERT', message: msg({ id: 'x6', kind: 'clarify' }) } });
     await waitFor(() => expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledWith('x6'));
+  });
+
+  it('P1536: sends no reply request for a message in a canvas draft thread, and still asks in an ordinary mirror thread', async () => {
+    resetCanvasThreads();
+    registerCanvasThread('canvas-root-1');
+    const { fire } = setup(true);
+    await waitFor(() => expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalled());
+    await act(async () => undefined);
+    fire({ type: 'sent', message: msg({ id: 'in-canvas', threadRootId: 'canvas-root-1' }) });
+    fire({ type: 'message', event: { type: 'INSERT', message: msg({ id: 'in-canvas-2', threadRootId: 'canvas-root-1' }) } });
+    await act(async () => undefined);
+    expect(mirrorSvc.requestMirrorReply).not.toHaveBeenCalled();
+    // CONTROL: an ordinary thread of the same mirror, and a message outside any thread, are still asked
+    fire({ type: 'sent', message: msg({ id: 'in-plain', threadRootId: 'plain-root-1' }) });
+    fire({ type: 'sent', message: msg({ id: 'no-thread' }) });
+    await waitFor(() => expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledTimes(2));
+    expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledWith('in-plain');
+    expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledWith('no-thread');
+    resetCanvasThreads();
+  });
+
+  it('P1536: a message the server made no job for ("no job" answer) ends quietly: no failed or capped state, no status polling, no retry', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      resetCanvasThreads(); // the thread is not known to this tab yet (the answer is what is under test)
+      const { fire, ctx } = setup(true);
+      await waitFor(() => expect(mirrorSvc.getMirrorAvailability).toHaveBeenCalled());
+      await act(async () => undefined);
+      mirrorSvc.requestMirrorReply.mockResolvedValueOnce('cancelled');
+      fire({ type: 'sent', message: msg({ id: 'no-job-1', threadRootId: 'canvas-root-late' }) });
+      await act(async () => undefined);
+      expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledTimes(1);
+      expect(ctx().statusFor('no-job-1')).toBeUndefined();
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+      expect(ctx().statusFor('no-job-1')).toBeUndefined();
+      expect(mirrorSvc.listMirrorJobs).not.toHaveBeenCalled();
+      expect(mirrorSvc.requestMirrorReply).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('a message that arrives before availability is known is asked once the mirror turns out to be on (review fix)', async () => {

@@ -887,8 +887,9 @@ describe('P1545: the share circle beside the byline on a phone', () => {
 });
 
 describe('P1515 phase 5: the version switcher', () => {
-  const V = (name: string, createdAt: string | null = '2026-10-01T10:00:00Z') => ({ name, createdAt });
-  const two = { version: 'sales_v2', versions: [V('sales_v2', '2026-10-22T10:00:00Z'), V('sales', '2026-10-01T10:00:00Z')] };
+  // P1536: a version is named by number and date; the name is only the key that goes in `?v=`.
+  const V = (name: string, createdAt: string | null = '2026-10-01T10:00:00Z', seq: number | null = 1) => ({ name, createdAt, seq, publishedAt: createdAt, draft: false });
+  const two = { version: 'sales_v2', versions: [V('sales_v2', '2026-10-22T10:00:00Z', 2), V('sales', '2026-10-01T10:00:00Z', 1)] };
 
   it('W1: a reader admitted to a two-version canvas gets an outline switcher listing versions newest first with a date, the open one selected', async () => {
     auth.viewerId = 'reader-1';
@@ -902,7 +903,8 @@ describe('P1515 phase 5: the version switcher', () => {
     expect(select.value).toBe('sales_v2');
     const options = within(select).getAllByRole('option');
     expect(options.map(o => (o as HTMLOptionElement).value)).toEqual(['sales_v2', 'sales']);
-    expect(options[0]!.textContent).toMatch(/^sales_v2 · /); // name, then the date
+    expect(options[0]!.textContent).toMatch(/^v2 · /); // number, then the date (P1536: never the internal name)
+    expect(options.map(o => o.textContent).join('|')).not.toContain('sales');
     expect(screen.queryByTestId('canvas-project-tag')).toBeNull();
   });
 

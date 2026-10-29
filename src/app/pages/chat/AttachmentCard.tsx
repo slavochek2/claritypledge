@@ -13,6 +13,7 @@ import type { ChatAttachmentKind } from '@/app/data/chat-mappers';
 import { Button } from '@/components/ui/button';
 import { ArtifactAttachmentCard } from './ArtifactAttachmentCard';
 import { AttachmentSkeleton } from './AttachmentSkeleton';
+import { CanvasVersionCard } from './CanvasVersionCard';
 
 type State = { status: 'loading' } | { status: 'error' } | { status: 'missing' } | { status: 'ready'; item: Shareable };
 
@@ -40,6 +41,8 @@ function useOnline(): boolean {
  * a card sitting in a conversation: Delete from inside a chat is not what anyone expects there.
  */
 export const HIDE_CARD_CHROME = "[&_[aria-label^='More_actions_for_this']]:hidden [&_[aria-label='Add_a_point_to_this_story']]:hidden";
+
+const NOUN: Record<ChatAttachmentKind, string> = { point: 'point', story: 'story', canvas: 'canvas', letter: 'letter', canvas_version: 'canvas' };
 
 /** A small, honest placeholder row: what it is, never an empty box. */
 const NOTE = 'mt-1 flex max-w-md items-center gap-2 rounded-xl border bg-muted/40 px-3 text-sm text-muted-foreground';
@@ -107,8 +110,9 @@ function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind:
 
   if (state.status === 'ready') {
     const { item } = state;
-    const drawable = (item.kind === 'point' && item.point) || (item.kind === 'story' && item.story);
+    const drawable = (item.kind === 'point' && item.point) || (item.kind === 'story' && item.story) || (item.kind === 'canvas_version' && item.canvasVersion);
     if (!drawable) return <p className={`${NOTE} min-h-10 italic`}>Not available to you</p>;
+    if (item.kind === 'canvas_version' && item.canvasVersion) return <CanvasVersionCard data={item.canvasVersion} compact={compact} />;
     return (
       <div className={`mt-1 w-full max-w-md ${HIDE_CARD_CHROME}`} data-testid={`attachment-${kind}`}>
         {item.kind === 'point' && item.point && <FeedPointCard point={item.point} compact={compact} />}
@@ -130,7 +134,7 @@ function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind:
   if (state.status === 'error') {
     return (
       <div className={`${NOTE} py-1`} data-testid="attachment-error">
-        <span className="min-w-0 flex-1">Couldn&apos;t load this {kind}</span>
+        <span className="min-w-0 flex-1">Couldn&apos;t load this {NOUN[kind]}</span>
         {!compact && (
           <Button variant="ghost" className="min-h-10 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={() => void load()}>
             Retry
@@ -139,5 +143,5 @@ function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind:
       </div>
     );
   }
-  return <AttachmentSkeleton kind={kind} />;
+  return <AttachmentSkeleton kind={NOUN[kind]} />;
 }

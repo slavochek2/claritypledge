@@ -97,11 +97,14 @@ describe('canvasService', () => {
   });
 
   it('phase 5: a version is sent only when one is chosen (the old three-argument call is unchanged); the open version and the versions list are mapped, newest first as sent', async () => {
-    rpc.mockResolvedValueOnce({ data: raw({ version: 'sales_v2', versions: [{ name: 'sales_v2', created_at: '2026-10-22T10:00:00Z' }, { name: 'sales', created_at: '2026-10-01T10:00:00Z' }] }), error: null });
+    rpc.mockResolvedValueOnce({ data: raw({ version: 'sales_v2', versions: [{ name: 'sales_v2', created_at: '2026-10-22T10:00:00Z', seq: 2, published_at: '2026-10-22T10:00:00Z' }, { name: 'sales', created_at: '2026-10-01T10:00:00Z', seq: 1, published_at: '2026-10-01T10:00:00Z' }] }), error: null });
     const view = await canvasService.getCanvas('o', 'sales', undefined, undefined, 'sales');
     expect(rpc).toHaveBeenCalledWith('get_canvas', { p_owner: 'o', p_name: 'sales', p_link_token: null, p_version: 'sales' });
     expect(view.version).toBe('sales_v2');
-    expect(view.versions).toEqual([{ name: 'sales_v2', createdAt: '2026-10-22T10:00:00Z' }, { name: 'sales', createdAt: '2026-10-01T10:00:00Z' }]);
+    expect(view.versions).toEqual([
+      { name: 'sales_v2', createdAt: '2026-10-22T10:00:00Z', seq: 2, publishedAt: '2026-10-22T10:00:00Z', draft: false },
+      { name: 'sales', createdAt: '2026-10-01T10:00:00Z', seq: 1, publishedAt: '2026-10-01T10:00:00Z', draft: false },
+    ]);
     rpc.mockResolvedValueOnce({ data: raw(), error: null });
     const older = await canvasService.getCanvas('o', 'sales');
     expect(rpc).toHaveBeenLastCalledWith('get_canvas', { p_owner: 'o', p_name: 'sales', p_link_token: null });

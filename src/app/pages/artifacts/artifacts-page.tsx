@@ -239,6 +239,7 @@ function ArtifactsView({ userId, tab, list, userSlug, setParams }: ViewProps) {
           onCloseSearch={closeSearch}
           onQuery={setQuery}
           showNewLetter={tab === 'letters'}
+          showNewCanvas={tab === 'canvases'}
           creating={creating}
           onCreateLetter={visibility => void handleCreateLetter(visibility)}
         />

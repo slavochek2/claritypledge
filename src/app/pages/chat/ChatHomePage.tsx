@@ -77,7 +77,7 @@ export default function ChatHomePage() {
       </div>
       <div className={cn('min-h-0 min-w-0 flex-1 flex-col', paneClass)}>
         {route.conversationId ? (
-          <ConversationPane conversationId={route.conversationId} highlightId={showThread ? null : highlightId} paneVisible={conversationVisible} />
+          <ConversationPane conversationId={route.conversationId} highlightId={showThread ? null : highlightId} paneVisible={conversationVisible} threadOpen={showThread} />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground" data-testid="no-chat-selected">
             <MessagesSquare className="h-8 w-8" aria-hidden="true" />

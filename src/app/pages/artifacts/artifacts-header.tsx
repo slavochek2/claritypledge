@@ -1,15 +1,17 @@
 /**
  * @file artifacts-header.tsx
  * @description P1545 WP3: the Artifacts title row. Title, a search icon that expands IN PLACE (the title
- * and "New letter" never move), and, on the Letters tab only, the blue "New letter" button. A tap asks
- * "Who can read it?" (Private: only people you send it to; Public: anyone with the link; the draft's
- * visibility is set at creation and governs who can see its stories). Canvases show no New until P1536.
+ * and the New button never move), and the blue New button of the tab: "New letter" on Letters (a tap asks
+ * "Who can read it?": Private: only people you send it to; Public: anyone with the link; the draft's
+ * visibility is set at creation and governs who can see its stories), "New canvas" on Canvases (P1536,
+ * artifacts-new-canvas.tsx: starts a canvas thread with the mirror).
  */
 import { useEffect, useRef, useState } from 'react';
 import { Globe, Lock, Plus, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { ContentVisibility } from '@/app/types';
+import { NewCanvasButton } from './artifacts-new-canvas';
 
 const ICON_BUTTON =
   'flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -22,11 +24,13 @@ interface Props {
   onQuery: (q: string) => void;
   /** The Letters tab is showing: only then is there a New button. */
   showNewLetter: boolean;
+  /** The Canvases tab is showing: only then is there a New canvas button. */
+  showNewCanvas: boolean;
   creating: boolean;
   onCreateLetter: (visibility: ContentVisibility) => void;
 }
 
-export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch, onQuery, showNewLetter, creating, onCreateLetter }: Props) {
+export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch, onQuery, showNewLetter, showNewCanvas, creating, onCreateLetter }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [askOpen, setAskOpen] = useState(false);
   useEffect(() => {
@@ -69,6 +73,8 @@ export function ArtifactsHeader({ searchOpen, query, onOpenSearch, onCloseSearch
           </button>
         )}
       </div>
+
+      {showNewCanvas && <NewCanvasButton searchOpen={searchOpen} />}
 
       {showNewLetter && (
         <Button

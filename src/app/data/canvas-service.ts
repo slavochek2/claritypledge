@@ -67,12 +67,35 @@ export interface CanvasView {
   version: string | null;
   /** the canvas's versions, newest first (empty: an answer from before versions) */
   versions: CanvasVersion[];
+  /** P1536: an admitted caller reads a canvas with no published version ("Nothing published yet"; the owner: "Publish first") */
+  publishedNone: boolean;
+  /** P1536: the OWNER's open draft (null for everyone else, and when there is none) */
+  draft: CanvasOwnerDraft | null;
 }
 
-/** One version of a canvas: its name (the canvas_<name> tag) and when it was made (null when unknown). */
+/**
+ * One version of a canvas: its name (the canvas_<name> tag, a key never shown to a person), when it was made (null when
+ * unknown), and what to call it: `seq` + `publishedAt` make "v{seq} · {date}", `draft` is the owner's unpublished one.
+ */
 export interface CanvasVersion {
   name: string;
   createdAt: string | null;
+  seq: number | null;
+  publishedAt: string | null;
+  draft: boolean;
+}
+
+/** The owner's open draft, as `get_canvas` gives it to the owner alone. `questions` is keyed by box tag. */
+export interface CanvasOwnerDraft {
+  id: string;
+  /** the draft's version name (the `?v=` key) */
+  version: string;
+  questions: Record<string, string>;
+  threadRootId: string;
+  conversationId: string;
+  /** the published version it was started from (null: a first draft) */
+  baseSeq: number | null;
+  runCount: number;
 }
 
 /** One entry of the owner's audience panel. */
@@ -104,6 +127,33 @@ export interface SharedCanvasRef {
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- the rpc returns jsonb: rows are mapped field by field below */
 type Json = Record<string, any>;
+
+function mapVersions(access: Json): CanvasVersion[] {
+  return ((access.versions ?? []) as Json[]).map(v => ({
+    name: String(v.name),
+    createdAt: (v.created_at as string | null) ?? null,
+    seq: typeof v.seq === 'number' ? v.seq : null,
+    publishedAt: (v.published_at as string | null) ?? null,
+    draft: v.draft === true,
+  }));
+}
+
+/** The owner-only draft block; anything else (absent, null, malformed) is no draft. */
+function mapOwnerDraft(raw: unknown): CanvasOwnerDraft | null {
+  const d = raw as Json | null;
+  if (!d || typeof d.id !== 'string') return null;
+  const questions: Record<string, string> = {};
+  for (const [box, q] of Object.entries((d.questions ?? {}) as Json)) if (typeof q === 'string') questions[box] = q;
+  return {
+    id: d.id,
+    version: String(d.version),
+    questions,
+    threadRootId: String(d.thread_root_id),
+    conversationId: String(d.conversation_id),
+    baseSeq: typeof d.base_seq === 'number' ? d.base_seq : null,
+    runCount: Number(d.run_count ?? 0),
+  };
+}
 
 function countsOf(positions: PointPositionWithUser[]): Record<PositionType, number> {
   const counts = Object.fromEntries(LEVELS.map(l => [l, 0])) as Record<PositionType, number>;
@@ -164,7 +214,9 @@ async function getCanvas(ownerId: string, name: string, viewerId?: string, linkT
     generalAccess: access.general_access === 'link' ? 'link' : 'restricted',
     canvasExists: !!access.canvas_exists,
     version: typeof access.version === 'string' ? access.version : null,
-    versions: ((access.versions ?? []) as Json[]).map(v => ({ name: String(v.name), createdAt: (v.created_at as string | null) ?? null })),
+    versions: mapVersions(access),
+    publishedNone: access.published_none === true,
+    draft: mapOwnerDraft(access.draft),
     via: access.via
       ? { kind: access.via.kind, id: access.via.id, name: access.via.name, slug: access.via.slug ?? null }
       : null,

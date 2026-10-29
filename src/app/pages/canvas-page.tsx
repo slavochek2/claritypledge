@@ -33,108 +33,58 @@
  * visitor reads only (the page asks get_canvas signed out too: it answers with content only while the
  * link is open, and with the empty not-found shape otherwise) and gets no write control.
  *
+ * VERSIONS AND DRAFTS (P1536): a version is read as "v{seq} · {date}", or "v{next} · Draft" for the owner's open one (never its
+ * internal name). The owner's draft is theirs alone: Publish in the header (where Share sits on a published version) and, in each
+ * empty box, the question the drafting agent left. A draft has no Share, no Compare and no positions. A canvas with nothing
+ * published reads "Nothing published yet" to readers. The page's parts live in src/app/components/canvas/ (header, grid, card, panel,
+ * publish button); beside it on a wide screen the route wrapper (canvas/canvas-with-thread.tsx) may show the draft's chat thread.
+ *
  * Browse page (src.md): no back button; BottomNav shows on mobile.
  */
 
-import { CanvasBoxPlaceholder, CanvasLoadError, CanvasOwnerSkeleton } from './canvas-page-placeholders';
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import { Link, useLocation, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
+import { CanvasLoadError } from './canvas-page-placeholders';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useLocation, useNavigate, useNavigationType, useParams, useSearchParams } from 'react-router-dom';
 import {
   clearListReturnCache, listReturnCacheGeneration, listReturnCacheKey, readListReturnCache, writeListReturnCache,
 } from '@/lib/list-return-cache';
-import {
-  BarChart3, ChevronDown, ChevronLeft, ChevronRight, CircleAlert, Coins, Contrast, Gem, Handshake,
-  Lightbulb, Megaphone, Users, X, type LucideIcon,
-} from 'lucide-react';
 import { useAuth } from '@/auth';
 import { getProfileBySlugResult } from '@/app/data/api';
 import { toast } from 'sonner';
 import { linkTokenFromAddress, linkTokenVersion, readLinkToken, storeLinkToken, subscribeLinkTokens } from '@/lib/canvas-link-token';
-import { canvasService, type AudienceEntry, type CanvasGeneralAccess, type CanvasVersion, type CanvasVia, type CanvasVisibility } from '@/app/data/canvas-service';
+import { canvasService, type AudienceEntry } from '@/app/data/canvas-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import { FeedPointCard, type FeedPointCardCanvas, type FeedPointCardOwner } from '@/app/components/feed/feed-point-card';
 import { type PositionFilter } from '@/app/components/shared';
 import { PointSpreadRow } from '@/app/components/shared/position-spread';
 import { PointPositionsBlock } from '@/app/components/social/point-positions-block';
-import { FocusHeader } from '@/app/components/layout/focus-header';
-import { Button } from '@/components/ui/button';
-import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
-import { StanceColumn, type Person } from '@/app/components/compare/statement-row';
-import { POSITION_FIRST_PERSON, POSITION_FULL_LABELS } from '@/lib/compare-positions';
-import { contestScore, levelCounts } from '@/lib/position-spread';
+import { levelCounts } from '@/lib/position-spread';
 import { SEO } from '@/app/components/seo';
 import { NotFoundPage } from '@/app/pages/not-found-page';
-import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { useGoBack } from '@/app/hooks/use-go-back';
-import { stripHashtags } from '@/lib/utils';
 import { LetterPositionStoryDialog, type PositionStoryDialogState } from '@/app/components/letters/letter-position-story-dialog';
-import { CanvasShareControl } from '@/app/components/canvas/canvas-share-control';
 import { CanvasAddStoryDialog, type CanvasAddStoryState } from '@/app/components/canvas/canvas-add-story-dialog';
-import { SharedIcon } from '@/app/components/canvas/canvas-audience';
+import { CanvasHeader } from '@/app/components/canvas/canvas-header';
+import { CanvasGrid } from '@/app/components/canvas/canvas-grid';
+import { CanvasCard } from '@/app/components/canvas/canvas-card';
+import { PointPanel } from '@/app/components/canvas/canvas-point-panel';
+import {
+  BOX_TITLES, buildReady, canvasSeoTitle, compareSetup, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, sortBoxesByContest,
+  type CanvasData,
+} from '@/app/components/canvas/canvas-page-data';
 import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
 import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasPath, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
+import type { PointWithUserPosition } from '@/app/types';
 import { ARTIFACTS_CANVASES_MINE } from '@/app/pages/artifacts/legacy-redirect-targets';
-import { CanvasPageTitle } from './canvas/canvas-page-title';
-import { CanvasVersionSlot } from './canvas/canvas-version-slot';
-import { PILL } from './canvas/canvas-pill-classes';
-import { useMarkCanvasRead, ownerPhoneWidth } from './canvas/canvas-page-read';
-import type {
-  PointPositionWithUser,
-  PointWithUserPosition,
-  PositionType,
-  StoryWithAuthor,
-} from '@/app/types';
+import { FocusHeader } from '@/app/components/layout/focus-header';
+import { useMarkCanvasRead } from './canvas/canvas-page-read';
+import { useCanvasDraftSync } from './canvas/use-canvas-draft-sync';
 
 /** Reading order: layer by layer, box by box (sixth round R1). The same order at every width (a
  *  phone stacks it), and Previous / Next walk it. */
 const READING_ORDER: readonly CanvasBoxTag[] = CANVAS_LAYERS.flatMap(l => l.boxes);
 const ORDERED_BOXES = [...CANVAS_BOXES].sort((a, b) => READING_ORDER.indexOf(a.tag) - READING_ORDER.indexOf(b.tag));
-const BOX_TITLES = new Map<CanvasBoxTag, string>(CANVAS_BOXES.map(b => [b.tag, b.title]));
-
-/** A small icon per box, so the canvas can be scanned by shape as well as by title. */
-const BOX_ICONS: Record<CanvasBoxTag, LucideIcon> = {
-  'canvas:segments': Users,
-  'canvas:problem': CircleAlert,
-  'canvas:solution': Lightbulb,
-  'canvas:channels': Megaphone,
-  'canvas:revenue': Coins,
-  'canvas:metrics': BarChart3,
-  'canvas:love': Gem,
-  'canvas:good-at': Contrast,
-  'canvas:world-needs': Handshake,
-};
-/** The canvas stays small: a box shows this many cards, and says how many more it holds (R2).
- * P1535 (founder): one card per box, so the whole canvas fits one screen at the event. */
-const BOX_LIMIT = 1;
-
-type CanvasData =
-  | {
-    status: 'ready';
-    ownerId: string;
-    ownerName: string;
-    owner: Person;
-    points: PointWithUserPosition[];
-    stories: Map<string, StoryWithAuthor[]>;
-    positions: Map<string, PointPositionWithUser[]>;
-    /** P1515: 'private' (no entries) or 'shared'; never null on a canvas the viewer can read */
-    visibility: CanvasVisibility;
-    isOwner: boolean;
-    /** 'link': the owner opened the canvas to anyone with the link */
-    generalAccess: CanvasGeneralAccess;
-    /** the entry that admits a reader (null for the owner) */
-    via: CanvasVia | null;
-    /** the owner's audience, for the lock label and the shared icon (null: not read or not the owner) */
-    audience: AudienceEntry[] | null;
-    /** ids of the stories others added through this canvas */
-    addedStoryIds: string[];
-    /** the version that is open, and every version of the canvas, newest first (P1515 phase 5) */
-    version: string | null;
-    versions: CanvasVersion[];
-  }
-  | { status: 'not-found' }
-  | { status: 'error' };
 
 /** What is on screen, and which viewer + address it was read FOR. */
 interface Loaded {
@@ -236,37 +186,14 @@ export function CanvasPage() {
       const view = requestedVersion
         ? await canvasService.getCanvas(owner.data.id, projectTag, viewerId, readLinkToken(handle, projectTag), requestedVersion)
         : await canvasService.getCanvas(owner.data.id, projectTag, viewerId, readLinkToken(handle, projectTag));
-      // No points: not-found for everyone, EXCEPT the owner of a canvas that has a record (an open link or audience
-      // entries): they must still reach the share control to close it (review), so they get the canvas with an empty state.
-      if (view.points.length === 0 && !(view.isOwner && view.canvasExists)) return settle({ status: 'not-found' });
+      if (isCanvasNotFound(view)) return settle({ status: 'not-found' });
       const audienceResult = await audienceRead;
       // A refresh whose audience read failed keeps the audience already loaded for this canvas; only
       // a first load has none to keep (null: shown as the "could not be read" wording).
       const shown = loadedRef.current;
       const previous = shown?.key === forKey && shown.data.status === 'ready' ? shown.data.audience : null;
       const audience = audienceResult === undefined ? previous : audienceResult;
-      settle({
-        status: 'ready',
-        ownerId: owner.data.id,
-        ownerName: owner.data.name,
-        owner: {
-          name: owner.data.name,
-          photoUrl: owner.data.avatarUrl ?? undefined,
-          avatarColor: owner.data.avatarColor,
-          hasPledged: owner.data.hasPledged ?? false,
-        },
-        points: view.points,
-        stories: view.stories,
-        positions: view.positions,
-        visibility: view.visibility ?? 'private',
-        isOwner: view.isOwner,
-        generalAccess: view.generalAccess,
-        via: view.via,
-        audience,
-        addedStoryIds: view.addedStoryIds,
-        version: view.version ?? null,
-        versions: view.versions ?? [],
-      });
+      settle(buildReady(owner.data, view, audience));
     } catch {
       settle({ status: 'error' });
     }
@@ -308,23 +235,9 @@ export function CanvasPage() {
   const boxes = ready ? sortBoxesByContest(groupPointsByBox(ready.points), ready.positions) : null;
   const ordered = boxes ? ORDERED_BOXES.flatMap(b => boxes.get(b.tag) ?? []) : [];
 
-  // Compare lives in the address too (`?with=`), so a shared link opens the same view.
-  const people = ready ? peopleOf(ready, handle) : new Map<string, CanvasPerson>();
-  // Compare: the viewer against someone (signed out: the owner against someone). The owner is
-  // listed first, then whoever took the most positions.
-  const baseId = viewerId ?? ready?.ownerId ?? '';
-  const others = [...people.values()]
-    .filter(p => p.id !== baseId)
-    .sort((a, b) => Number(b.id === ready?.ownerId) - Number(a.id === ready?.ownerId) || b.count - a.count);
-  const requestedWith = searchParams.get('with');
-  const withPerson = others.find(p => p.id === requestedWith) ?? null;
-  // The viewer's own column reads "You", as on the compare page.
-  const baseKnown: Person | null = !ready
-    ? null
-    : people.get(baseId) ?? (baseId === ready.ownerId ? ready.owner : null);
-  const basePerson: Person | null = !ready
-    ? null
-    : viewerId ? { ...(baseKnown ?? { hasPledged: false }), name: 'You' } : baseKnown;
+  // Compare lives in the address too (`?with=`), so a shared link opens the same view. A draft has none: no positions to compare.
+  const { baseId, others, withPerson, basePerson } = compareSetup(ready, viewerId, handle, searchParams.get('with'));
+  const draftView = !!ready && isViewingDraft(ready);
   // Opening a point from a card PUSHES a history entry (marked in its state), so Back — the
   // browser's, or a phone's back swipe — closes the point instead of leaving the canvas. Every
   // other change replaces the entry it is on and keeps that mark.
@@ -477,6 +390,9 @@ export function CanvasPage() {
   // the point and the box card behind the panel show it (a signed-out one is re-read from the
   // browser by the box card's remount).
   const refresh = useCallback(() => setPanelCloses(n => n + 1), []);
+  // P1536: the draft on screen changed (its thread finished a run) or closed (published or discarded, here or in the thread
+  // beside the page): re-read in place, or leave the draft's address and read the newest published version.
+  useCanvasDraftSync(ready, setParams, refresh);
 
   // D5: the owner as their profile shows them on the open point. Agent or not decides the ear
   // count (an agent holds no reputation, P1104), read once per canvas.
@@ -550,6 +466,7 @@ export function CanvasPage() {
       removePosition: () => canvasService.removePosition(ready.ownerId, projectTag, point.id, tokenNow()),
       reader: !viewerIsOwner,
       readOnly: !viewerId,
+      noPositions: !viewerId || draftView,
       sharedLabel,
       ownStoryAdded: (ready.stories.get(point.id) ?? []).some(st => addedStoryIds.has(st.id) && st.authorId === viewerId),
     }
@@ -567,7 +484,7 @@ export function CanvasPage() {
       key={`${point.id}:${panelCloses}`}
       point={point}
       viewerId={viewerId}
-      positions={ready.positions.get(point.id) ?? []}
+      positions={draftView ? null : ready.positions.get(point.id) ?? []}
       compare={compare}
       selected={point.id === openPoint?.id}
       sharedLabel={sharedLabel}
@@ -580,103 +497,24 @@ export function CanvasPage() {
     <div className="flex flex-col px-4 pb-24 pt-3 lg:px-6 lg:pb-8">
       {/* P1545: a canvas is an artifact; Back returns to where the reader came from, a cold arrival to the canvases list. */}
       <FocusHeader fallback={ARTIFACTS_CANVASES_MINE} />
-      {ready && <SEO title={`${ready.ownerName} · #${ready.version ?? projectTag} — Clarity Pledge`} noIndex />}
-      {/* R10: the name of the thing first, then whose it is: the canvas's title under its small label;
-          under it "by <owner>" (and the version menu, when there is more than one), then Compare,
-          wrapping under them when the row is too narrow. */}
-      <header className="mb-4 flex flex-col gap-2" data-testid="canvas-header-row">
-        {/* The canvas's own name is the title ("Hiring plan for q1", as in Artifacts and the chat card); "Clarity Canvas" is the small label above it. */}
-        <CanvasPageTitle projectTag={projectTag} />
-        {/* Founder, sixth round: Compare sits right after the canvas name, so the line reads
-            "by <owner> · <canvas> · Compare with someone…", not across the page. */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 text-base max-sm:contents md:text-lg" data-testid="canvas-byline">
-            {ready ? (
-              // ml-1 on the photo: the pledge ring draws outside it; keep it inside the gutter.
-              // Phones: with no version switcher the line fills the row, so the share circle sits beside it,
-              // right-aligned; with one, the owner keeps its own line and the switcher takes the row beside Share.
-              <span className={`ml-1 flex min-w-0 max-w-full items-center gap-2.5 max-sm:order-1 ${ownerPhoneWidth(ready.versions.length)}`} data-testid="canvas-owner">
-                <GravatarAvatar
-                  name={ready.owner.name}
-                  photoUrl={ready.owner.photoUrl}
-                  avatarColor={ready.owner.avatarColor}
-                  isPledger={ready.owner.hasPledged}
-                  isAgent={ownerIsAgent}
-                  identityPending={identityPending}
-                  size="sm"
-                />
-                <span className="min-w-0 truncate text-foreground">
-                  by{' '}
-                  <Link
-                    to={`/p/${handle}`}
-                    className="rounded-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                    data-testid="canvas-owner-name"
-                  >
-                    {ready.ownerName}
-                  </Link>
-                </span>
-              </span>
-            ) : (
-              current?.status !== 'error' && <CanvasOwnerSkeleton />
-            )}
-            {ready && <CanvasVersionSlot versions={ready.versions} version={ready.version} onPick={v => setParams({ v, point: null, box: null }, true, false)} />}
-          </div>
-          {/* P1515: Share sits immediately right of Compare, in the same row. */}
-          {ready && (
-            <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 max-sm:contents" data-testid="canvas-actions">
-              <ComparePicker
-                base={basePerson}
-                others={others}
-                withPerson={withPerson}
-                onCompare={id => setParams({ with: id })}
-              />
-              {projectTag && viewerIsOwner && (
-                <CanvasShareControl
-                  name={projectTag}
-                  visibility={ready.visibility}
-                  generalAccess={ready.generalAccess}
-                  link={`${window.location.origin}${canvasPath(handle ?? '', projectTag)}`}
-                  entries={ready.audience}
-                  onChanged={refresh}
-                />
-              )}
-            </div>
-          )}
-        </div>
-        {/* P1515: a reader's one line (the owner's Share button is in the title row above). */}
-        {ready && projectTag && !viewerIsOwner && (ready.via || ready.generalAccess === 'link') && (
-          <p className="flex min-w-0 items-center gap-2 text-sm text-foreground/80" data-testid="canvas-shared-with-you">
-            <SharedIcon label={sharedLabel ?? 'Shared with you'} />
-            <span className="min-w-0">
-              {ready.via ? (
-                <>
-                  {ready.via.kind === 'person' ? 'Shared with you by' : 'Shared with you through'}{' '}
-                  {ready.via.kind === 'event' && ready.via.slug ? (
-                    <Link to={`/events/${ready.via.slug}`} className="rounded-sm font-medium text-blue-600 hover:text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" data-testid="canvas-shared-via">
-                      {ready.via.name}
-                    </Link>
-                  ) : (
-                    <span className="font-medium text-foreground" data-testid="canvas-shared-via">{ready.via.name}</span>
-                  )}
-                </>
-              ) : (
-                <span data-testid="canvas-shared-link">Anyone with the link can see this canvas</span>
-              )}
-            </span>
-          </p>
-        )}
-        {ready && ready.points.length === 0 && (
-          // The owner of a canvas that has a record but no current points: the share control above still works.
-          <p className="text-sm text-muted-foreground" data-testid="canvas-empty-owner">
-            This canvas has no points yet. You can still change who has access above.
-          </p>
-        )}
-      </header>
+      {ready && <SEO title={canvasSeoTitle(ready, projectTag)} noIndex />}
+      <CanvasHeader
+        ready={ready}
+        failed={current?.status === 'error'}
+        handle={handle}
+        projectTag={projectTag}
+        ownerIsAgent={ownerIsAgent}
+        identityPending={identityPending}
+        compare={{ base: basePerson, others, withPerson }}
+        sharedLabel={sharedLabel}
+        onParams={setParams}
+        onChanged={refresh}
+      />
 
       {current?.status === 'error' ? (
         <CanvasLoadError onRetry={() => void read(key)} />
-      ) : (
-        <CanvasGrid boxes={boxes} renderCard={renderCard} onMore={openBoxPanel} />
+      ) : !(ready && hasNothingToShow(ready)) && (
+        <CanvasGrid boxes={boxes} renderCard={renderCard} onMore={openBoxPanel} questions={ready ? draftQuestions(ready) : undefined} />
       )}
 
       {/* One panel for both levels (R2), so stepping from a box's list into a point and back
@@ -717,7 +555,8 @@ export function CanvasPage() {
             // Escape with the owner's story open closes the story, not the panel (review).
             collapseStoriesOnEscape
             // On the card, as on the /point page's card: how everyone spreads, and why it matters.
-            spread={<PointSpreadRow counts={levelCounts(openPositions)} withInfo className="mt-2" />}
+            // A draft has no positions: an empty fragment replaces the default spread row (null would bring it back).
+            spread={draftView ? <></> : <PointSpreadRow counts={levelCounts(openPositions)} withInfo className="mt-2" />}
             // The project tag is where the reader already is: shown, not a link out to the feed.
             activeTag={ready?.version ?? projectTag ?? undefined}
             onPointRemoved={refresh}
@@ -739,7 +578,7 @@ export function CanvasPage() {
           />
           {/* D6: the point page's "Filter by position" block, counting from the canvas's one
               positions read; every author's linked stories come from the canvas's batch read. */}
-          <div className="mt-4">
+          {!draftView && <div className="mt-4">
             <PointPositionsBlock
               positions={openPositions}
               counts={levelCounts(openPositions)}
@@ -756,7 +595,7 @@ export function CanvasPage() {
               collapseOnEscape
               canvas={{ sharedLabel, addedStoryIds, onRemoveAddedStory: id => void removeAddedStory(id) }}
             />
-          </div>
+          </div>}
           </>)}
         </PointPanel>
       )}
@@ -777,430 +616,5 @@ export function CanvasPage() {
         onSaved={() => { closeStoryDialog(); refresh(); }}
       />
     </div>
-  );
-}
-
-/**
- * P1535: the three layers of three boxes, each under its label, in one grid — three columns from
- * 1024px, two from 640px, one below. Every box is shown, filled or not, so the grid keeps its
- * shape. A row is as tall as its tallest box.
- */
-function CanvasGrid({ boxes, renderCard, onMore }: {
-  /** null while loading (skeletons) */
-  boxes: Map<CanvasBoxTag, PointWithUserPosition[]> | null;
-  renderCard: (point: PointWithUserPosition) => ReactNode;
-  onMore: (box: CanvasBoxTag) => void;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="canvas-grid" aria-busy={boxes === null}>
-      {CANVAS_LAYERS.map((layer, i) => (
-        <section key={layer.title} aria-label={layer.title} className="contents" data-testid="canvas-layer">
-          {/* Founder, sixth round: the layers did not read as groups — a rule above, a bigger title,
-              and more room between layers than between boxes. */}
-          <h2 className={`col-span-full flex items-baseline gap-2.5 text-base font-semibold tracking-tight text-foreground md:text-lg ${i === 0 ? '' : 'mt-6'}`} data-testid="canvas-layer-title">
-            {/* Founder, sixth round: the rules between layers read oddly — whitespace groups them,
-                and a number says they are read in order (founder: plain grey, the blue pill distracted). */}
-            <span aria-hidden className="font-mono text-sm font-medium text-foreground/40" data-testid="canvas-layer-number">{String(i + 1).padStart(2, '0')}</span>
-            <span data-testid="canvas-layer-name">{layer.title}</span>
-          </h2>
-          {layer.boxes.map(tag => (
-            <CanvasBox
-              key={tag}
-              tag={tag}
-              title={BOX_TITLES.get(tag) ?? tag}
-              points={boxes ? boxes.get(tag) ?? [] : null}
-              renderCard={renderCard}
-              onMore={() => onMore(tag)}
-            />
-          ))}
-        </section>
-      ))}
-    </div>
-  );
-}
-
-/** The box's icon in a small tinted circle, like the pin on every point card. */
-function BoxIcon({ tag, className = '' }: { tag: CanvasBoxTag; className?: string }) {
-  const Icon = BOX_ICONS[tag];
-  return (
-    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 ${className}`.trim()} data-testid="canvas-box-icon">
-      <Icon aria-hidden className="h-4 w-4" />
-    </span>
-  );
-}
-
-function sortBoxesByContest(
-  boxes: Map<CanvasBoxTag, PointWithUserPosition[]>,
-  positions: Map<string, PointPositionWithUser[]>,
-): Map<CanvasBoxTag, PointWithUserPosition[]> {
-  const score = (p: PointWithUserPosition) => contestScore(levelCounts(positions.get(p.id) ?? []));
-  return new Map([...boxes].map(([tag, points]) => [tag, [...points].sort((a, b) => score(b) - score(a))]));
-}
-
-/**
- * D3, R2: a sentence-case title with its outline icon, no count; one card (P1535) and "See all N",
- * which opens the whole box in the panel. An empty box reads "Empty" to everyone: owners change the
- * canvas through their agent, so there is nothing to offer here.
- */
-function CanvasBox({ tag, title, points, renderCard, onMore }: {
-  tag: CanvasBoxTag;
-  title: string;
-  /** null while loading (skeleton) */
-  points: PointWithUserPosition[] | null;
-  renderCard: (point: PointWithUserPosition) => ReactNode;
-  onMore: () => void;
-}) {
-  const headingId = `canvas-box-${tag.replace(':', '-')}`;
-  const empty = points !== null && points.length === 0;
-  // Founder, sixth round: "1 more" promised one card and opened all of them — the label now says
-  // what opens.
-  const hidden = points ? Math.max(0, points.length - BOX_LIMIT) : 0;
-  const titleColour = empty ? 'text-foreground/60' : 'text-foreground';
-
-  return (
-    <section
-      aria-labelledby={headingId}
-      data-testid={`canvas-box-${tag}`}
-      data-empty={empty || undefined}
-      // Founder (fifth round): white on white hid everything — a grey box holds white cards.
-      className={`flex min-w-0 flex-col rounded-xl border border-border bg-muted/60 p-2 sm:p-2.5`}
-    >
-      <div className="mb-1.5 flex min-w-0 items-center gap-2">
-        {/* The icon in a small tinted circle, like the pin on every point card. */}
-        <BoxIcon tag={tag} className={empty ? 'opacity-60' : ''} />
-        <h3 id={headingId} className={`text-sm font-semibold ${titleColour}`}>{title}</h3>
-      </div>
-      {points === null || empty ? (
-        <CanvasBoxPlaceholder empty={empty} />
-      ) : (
-        <div className="flex flex-col gap-2" data-testid="canvas-box-list">
-          {points.slice(0, BOX_LIMIT).map(point => renderCard(point))}
-          {hidden > 0 && (
-            <button
-              type="button"
-              id={`canvas-more-${tag.replace(':', '-')}`}
-              onClick={onMore}
-              aria-haspopup="dialog"
-              data-testid="canvas-box-more"
-              className="min-h-10 self-end rounded-sm text-sm font-medium text-blue-600 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-            >
-              See all {points.length}
-            </button>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-/** Everyone who took a position on any point of this canvas. */
-interface CanvasPerson extends Person {
-  id: string;
-  slug?: string;
-  /** how many of the canvas's points they took a position on */
-  count: number;
-}
-function peopleOf(
-  ready: { ownerId: string; owner: Person; positions: Map<string, PointPositionWithUser[]> },
-  ownerSlug?: string,
-): Map<string, CanvasPerson> {
-  // The owner is always someone to compare with, positions or not.
-  const people = new Map<string, CanvasPerson>([[ready.ownerId, { ...ready.owner, id: ready.ownerId, slug: ownerSlug, count: 0 }]]);
-  for (const list of ready.positions.values()) {
-    for (const p of list) {
-      const known = people.get(p.userId);
-      if (known) { known.count += 1; known.slug ??= p.userSlug || undefined; continue; }
-      people.set(p.userId, {
-        id: p.userId,
-        slug: p.userSlug || undefined,
-        name: p.userName,
-        photoUrl: p.userAvatarUrl ?? undefined,
-        avatarColor: p.userAvatarColor,
-        hasPledged: p.userHasPledged ?? false,
-        count: 1,
-      });
-    }
-  }
-  return people;
-}
-
-/** Who to compare with — the compare page's person picker in small (R14: no link to the full page). */
-function ComparePicker({ base, others, withPerson, onCompare }: {
-  base: Person | null;
-  others: CanvasPerson[];
-  withPerson: CanvasPerson | null;
-  onCompare: (id: string | null) => void;
-}) {
-  // Nobody else to compare with: the pill is absent, not disabled (P955).
-  if (!base || others.length === 0) return null;
-  return (
-    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 max-sm:order-4 max-sm:basis-full" data-testid="canvas-controls">
-      <label
-        // Founder, sixth round: Compare is a main action but read as a grey filter — a blue
-        // outline until someone is picked.
-        className={`${PILL} pl-3 ${withPerson ? 'border border-blue-300 bg-blue-50 text-blue-800' : 'border border-blue-600 bg-blue-50 text-blue-700 hover:bg-blue-100'}`}
-        data-testid="canvas-compare-picker"
-      >
-        {/* Founder, sixth round: only the arrow opened the menu — the words sat beside it. The
-            words are now what shows, and the menu lies invisibly over the whole pill, so any tap
-            on it opens the list. */}
-        <span aria-hidden className="truncate pr-8">
-          {withPerson ? <><span className="text-foreground/70">Comparing with </span>{withPerson.name}</> : 'Compare positions'}
-        </span>
-        <select
-          aria-label="Compare positions with"
-          value={withPerson?.id ?? ''}
-          onChange={e => onCompare(e.target.value || null)}
-          className="absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-full opacity-0"
-        >
-          {/* Nobody picked: the list holds only people (the placeholder is hidden from it). */}
-          {withPerson ? <option value="">No one</option> : <option value="" disabled hidden>Compare positions</option>}
-          {others.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        <ChevronDown aria-hidden className="pointer-events-none absolute right-3 h-4 w-4 opacity-70" />
-      </label>
-    </div>
-  );
-}
-
-/** A card's compare column is narrow: first names there; the picker above names people in full. */
-function firstName(name: string): string {
-  return name.trim().split(/\s+/)[0] || name;
-}
-
-function stanceLabel(position: PositionType | undefined, firstPerson: boolean): string {
-  if (!position) return 'No position';
-  return (firstPerson ? POSITION_FIRST_PERSON : POSITION_FULL_LABELS)[position];
-}
-
-/**
- * A box card (D4): text to read, no controls inside; the whole card opens the point. Under the
- * statement, always: how everyone spreads, and "Contested" when at least two people stand on each
- * side. When Compare is set, two people's positions in the compare page's columns, small (D8); a
- * person with no position reads "No position", and the card stays where it is.
- */
-function CanvasCard({ point, viewerId, positions, compare, selected, sharedLabel, onOpen }: {
-  point: PointWithUserPosition;
-  viewerId?: string;
-  positions: PointPositionWithUser[];
-  compare: { base: Person; baseId: string; baseIsViewer: boolean; other: CanvasPerson } | null;
-  selected: boolean;
-  /** the shared icon's words; null: the canvas is private to its owner (no icon) */
-  sharedLabel: string | null;
-  onOpen: () => void;
-}) {
-  // Everyone, the owner included: the same read the open point's card and block count from.
-  const counts = levelCounts(positions);
-  // The viewer's own position (signed in: the read; signed out: what this browser kept).
-  const positionOf = (userId: string) => positions.find(p => p.userId === userId)?.position;
-  const viewerPosition = viewerId
-    ? point.userPosition?.position ?? positionOf(viewerId)
-    : (getAnonPosition(point.id) as PositionType | null) ?? undefined;
-  const basePosition = compare
-    ? (compare.baseIsViewer ? viewerPosition ?? positionOf(compare.baseId) : positionOf(compare.baseId))
-    : undefined;
-  const otherPosition = compare ? positionOf(compare.other.id) : undefined;
-
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      data-testid={`canvas-point-card-${point.id}`}
-      data-selected={selected || undefined}
-      className={`group w-full rounded-lg border bg-card p-2.5 text-left shadow-sm transition-all duration-150 hover:-translate-y-px hover:border-blue-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${selected ? 'border-blue-500 ring-2 ring-blue-500' : 'border-border'}`}
-    >
-      <p className="line-clamp-5 break-words text-sm font-medium text-foreground">
-        {/* One visibility idea: the canvas's audience, not the point's own flag, decides who reads it. */}
-        {sharedLabel && <><SharedIcon label={sharedLabel} />{' '}</>}
-        {stripHashtags(point.statement, point.tags)}
-      </p>
-      {/* The card's spread row (no info button: the card is itself one button). Founder, sixth
-          round: nothing invited a click — a quiet chevron, always visible (phones have no hover). */}
-      <div className="mt-1.5 flex items-center justify-between gap-2">
-        <PointSpreadRow counts={counts} testId="canvas-card-spread-row" />
-        <ChevronRight aria-hidden data-testid="canvas-card-open" className="h-4 w-4 shrink-0 text-foreground/40 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
-      </div>
-      {compare && (
-        <div className="mt-2 flex items-start gap-2" data-testid="canvas-card-compare">
-          <StanceColumn
-            compact
-            muted={!basePosition}
-            person={{ ...compare.base, name: firstName(compare.base.name) }}
-            label={stanceLabel(basePosition, compare.baseIsViewer)}
-          />
-          <div className="w-px self-stretch bg-border" />
-          <StanceColumn
-            compact
-            muted={!otherPosition}
-            person={{ ...compare.other, name: firstName(compare.other.name) }}
-            label={stanceLabel(otherPosition, false)}
-          />
-        </div>
-      )}
-    </button>
-  );
-}
-
-/**
- * The open point: a side panel on desktop, a full-screen sheet on mobile — modal on both. The
- * page behind is made `inert` (no focus, no clicks) and a backdrop closes it. Not the Radix
- * dialog: that one locks pointer events on <body>, and the position buttons' menu renders in a
- * portal on <body>, outside the panel. Escape and the close button dismiss it (below 1024px,
- * FocusHeader's back arrow); focus moves in and back. Previous / Next walk the canvas without
- * closing it.
- */
-function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Close point', step, covered = false }: {
-  children: ReactNode;
-  onClose: () => void;
-  label: string;
-  /** what the panel shows: a point's id, or `box:<tag>` for a box's list */
-  viewKey: string;
-  closeLabel?: string;
-  step: { box?: string; boxTag?: CanvasBoxTag; onPrevious?: () => void; onNext?: () => void };
-  /** A dialog the page opened over the panel (the story composer): its keys are its own. */
-  covered?: boolean;
-}) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-  // Read at keydown: the composer's Escape closes it first, and focus falls to <body> before
-  // this listener runs — without this, the same Escape would close the panel too (review).
-  const coveredRef = useRef(covered);
-  coveredRef.current = covered;
-  // What is on screen when the panel closes (Previous / Next change it), for returning focus.
-  const viewKeyRef = useRef(viewKey);
-  viewKeyRef.current = viewKey;
-  useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
-    // The box cards remount when the panel closes (a re-read), so the opener is found again by
-    // its id ("N more") or its test id (a card, unique per point) rather than kept as an element.
-    const openerTestId = opener?.getAttribute('data-testid');
-    const openerSelector = opener?.id
-      ? `#${CSS.escape(opener.id)}`
-      : openerTestId ? `#root [data-testid="${CSS.escape(openerTestId)}"]` : null;
-    panelRef.current?.focus();
-    // Escape closes the panel — unless focus is in something the card opened above it (the share
-    // sheet, a confirmation), which handles its own Escape.
-    const onKey = (e: KeyboardEvent) => {
-      const panel = panelRef.current;
-      if (!panel || coveredRef.current) return;
-      // Something inside handled this Escape already (the spread's info popover, an expanded
-      // story): it closes only that.
-      // Focus on <body> is still "in" the panel: it is modal and #root is inert, so focus can only
-      // land there by falling out of it — a popover that closed, a control that went away (review).
-      const inPanel = panel.contains(document.activeElement) || document.activeElement === document.body;
-      if (e.key === 'Escape' && !e.defaultPrevented && inPanel) onCloseRef.current();
-      // Tab wraps inside the panel (the page behind is inert; this keeps focus off the browser
-      // chrome too). Only while focus is in the panel — a dialog the card opened keeps its own.
-      if (e.key === 'Tab' && inPanel) {
-        const focusables = Array.from(panel.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])',
-        )).filter(el => el.offsetParent !== null);
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-        if (!first || !last) return;
-        if (!panel.contains(document.activeElement)) {
-          e.preventDefault();
-          (e.shiftKey ? last : first).focus();
-        } else if (e.shiftKey && (document.activeElement === first || document.activeElement === panel)) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    const root = document.getElementById('root');
-    root?.setAttribute('inert', '');
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      root?.removeAttribute('inert');
-      document.body.style.overflow = previousOverflow;
-      // The card of the point on screen at close (a box's list: none); else whatever opened the
-      // panel, such as "N more" (never <body>, which is what a panel opened from the address starts with).
-      const card = document.querySelector<HTMLElement>(`[data-testid="canvas-point-card-${viewKeyRef.current}"]`);
-      const reopened = openerSelector ? document.querySelector<HTMLElement>(openerSelector) : null;
-      const target = card ?? (opener?.isConnected && opener !== document.body ? opener : reopened);
-      target?.focus?.();
-    };
-    // Opened once per panel; stepping to another point keeps it open (and keeps the opener).
-  }, []);
-
-  // A new point (or a box's list) starts at its top. Stepping to the first or last point removes the button just
-  // pressed, which drops focus to <body> (outside the panel, where Escape and Tab no longer
-  // reach it): take focus back into the panel.
-  useEffect(() => {
-    bodyRef.current?.scrollTo?.({ top: 0 });
-    const panel = panelRef.current;
-    if (panel && !panel.contains(document.activeElement)) panel.focus();
-  }, [viewKey]);
-
-  /* Portalled to the end of <body>, outside the inert #root: above the fixed top nav and
-     BottomNav (also z-50, but earlier in the document), and still below the menus and dialogs
-     the card opens from inside it, which portal in later. */
-  return createPortal(
-    <>
-      <div aria-hidden data-testid="canvas-panel-backdrop" onClick={onClose} className="fixed inset-0 z-50 hidden bg-black/20 lg:block" />
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={label}
-        tabIndex={-1}
-        data-testid="canvas-point-panel"
-        className="fixed inset-0 z-50 flex flex-col bg-background outline-none lg:inset-y-0 lg:left-auto lg:right-0 lg:w-[480px] lg:border-l lg:border-border lg:shadow-xl"
-      >
-        {/* Founder, sixth round: the box name read smaller than the card under it. It is the
-            breadcrumb: the box's own icon (as on the canvas), one size up, in a header bar. */}
-        <div className="flex shrink-0 items-center gap-1 border-b border-border/60 bg-muted/20 px-2 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))]">
-          {/* Below 1024px the sheet fills the screen: the focus pages' back arrow, closing the
-              panel (never leaving the canvas — P1364 drift-guard allowlist). */}
-          <span className="pl-2 lg:hidden" data-testid="canvas-panel-back">
-            <FocusHeader compact onBack={onClose} aria-label={closeLabel} />
-          </span>
-          {/* Which box this point sits in: Previous / Next cross from box to box. */}
-          <span className="flex min-w-0 flex-1 items-center gap-2.5 px-2" data-testid="canvas-panel-box">
-            {step.boxTag && <BoxIcon tag={step.boxTag} />}
-            {/* P1535: box titles run to 35 characters; two lines fit them at 320px. */}
-            <span className="line-clamp-2 break-words text-base font-semibold tracking-tight text-foreground">{step.box}</span>
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            data-testid="canvas-panel-close"
-            className="hidden h-11 w-11 items-center justify-center rounded-full text-foreground/70 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 lg:flex"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        {/* px-2 on phones: the position buttons drop their labels below a 270px row, and the
-            card's own padding and pin column leave about that much at 375px. */}
-        <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 sm:px-4">{children}</div>
-        {(step.onPrevious || step.onNext) && <nav
-          aria-label="Points on this canvas"
-          className="flex shrink-0 items-center justify-between border-t border-border px-2 py-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))]"
-        >
-          {/* At either end the step is absent, not disabled (no dead controls, P955). Outline: a
-              real alternative to reading on (R6). */}
-          {step.onPrevious ? (
-            <Button variant="outline" onClick={step.onPrevious} className="min-h-11 gap-1 border-blue-600 px-3 text-blue-600 hover:bg-blue-50 hover:text-blue-700" data-testid="canvas-panel-previous">
-              <ChevronLeft className="h-4 w-4" aria-hidden /> Previous
-            </Button>
-          ) : <span />}
-          {step.onNext && (
-            <Button variant="outline" onClick={step.onNext} className="min-h-11 gap-1 border-blue-600 px-3 text-blue-600 hover:bg-blue-50 hover:text-blue-700" data-testid="canvas-panel-next">
-              Next <ChevronRight className="h-4 w-4" aria-hidden />
-            </Button>
-          )}
-        </nav>}
-      </div>
-    </>,
-    document.body,
   );
 }

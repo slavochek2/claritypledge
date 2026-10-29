@@ -12,7 +12,8 @@ export type { ChatKind, ChatSystemKind, ForwardSnapshot, ForwardThreadEntry } fr
 
 /** 'agent': the mirror's own reply (P1520), always in its owner's mirror, with no human author. */
 export type ChatMessageKind = 'message' | 'forward' | 'clarify' | 'agent';
-export type ChatAttachmentKind = 'point' | 'story' | 'canvas' | 'letter';
+/** 'canvas' / 'letter' (P1545): a shared artifact. 'canvas_version' (P1536): a version of the owner's canvas, in their own mirror: the draft thread's first row. */
+export type ChatAttachmentKind = 'point' | 'story' | 'canvas' | 'letter' | 'canvas_version';
 
 /** Shown instead of a removed message body. */
 export const DELETED_MESSAGE_TEXT = 'Message deleted';

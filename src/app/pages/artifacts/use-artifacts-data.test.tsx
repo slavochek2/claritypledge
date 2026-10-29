@@ -20,6 +20,8 @@ vi.mock('@/app/data/letters-service', () => ({
   getAllReceivedLetters: mocks.getAllReceivedLetters,
   getUnreadExplainBackCountsByDelivery: mocks.getUnreadExplainBackCountsByDelivery,
 }));
+// P1536: the owner's open canvas drafts have their own tests (artifacts-canvas-drafts.test.tsx); here there are none.
+vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyOpenCanvasDrafts: vi.fn(async () => []) }));
 vi.mock('@/app/data/canvas-service', () => ({
   canvasService: { listMyCanvases: mocks.listMyCanvases, listSharedWithMe: mocks.listSharedWithMe },
 }));

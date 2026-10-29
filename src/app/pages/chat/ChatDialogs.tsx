@@ -4,6 +4,7 @@
  * shadcn Dialogs: focus is trapped, Escape closes, and focus returns to the control that opened them.
  */
 import { Skeleton } from '@/components/ui/skeleton';
+import { CanvasVersionPicker } from './CanvasVersionPicker';
 import { ShareableCard } from './ShareableCard';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, Forward, Search } from 'lucide-react';
@@ -228,9 +229,11 @@ export function ForwardDialog({
 // ---------------------------------------------------------------------------
 // Attach
 // ---------------------------------------------------------------------------
-export function AttachDialog({ viewerId, onPick, onClose }: { viewerId: string; onPick: (s: Shareable) => void; onClose: () => void }) {
+export function AttachDialog({ viewerId, onPick, onClose, onPickCanvas }: { viewerId: string; onPick: (s: Shareable) => void; onClose: () => void; /** P1536: given in the mirror while canvas drafting is on: adds the Canvases tab, whose pick starts a draft from that version. */ onPickCanvas?: (versionId: string) => void }) {
   const [state, setState] = useState<{ status: 'loading' } | { status: 'error' } | { status: 'ready'; items: Shareable[] }>({ status: 'loading' });
-  const [kind, setKind] = useState<'point' | 'story'>('point');
+  const [tab, setKind] = useState<'point' | 'story' | 'canvas'>('point');
+  const canvasTab = tab === 'canvas';
+  const kind = tab === 'canvas' ? 'point' : tab;
   const [query, setQuery] = useState('');
   const [attempt, setAttempt] = useState(0);
 
@@ -252,45 +255,48 @@ export function AttachDialog({ viewerId, onPick, onClose }: { viewerId: string; 
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className={cn(SHEET, 'sm:max-w-lg')}>
         <DialogHeader className={SHEET_HEAD}>
-          <DialogTitle className="text-base">Attach a point or story</DialogTitle>
+          <DialogTitle className="text-base">{canvasTab ? 'Start from a canvas version' : 'Attach a point or story'}</DialogTitle>
           <DialogDescription className="sr-only">Pick one of your own points or stories to send.</DialogDescription>
         </DialogHeader>
         <div className="shrink-0 space-y-2 px-3 pt-3">
           <div role="tablist" aria-label="Kind" className="flex gap-1 border-b">
-            {(['point', 'story'] as const).map((k) => (
+            {(onPickCanvas ? (['point', 'story', 'canvas'] as const) : (['point', 'story'] as const)).map((k) => (
               <button
                 key={k}
                 type="button"
                 role="tab"
-                aria-selected={kind === k}
+                aria-selected={tab === k}
                 onClick={() => setKind(k)}
-                className={cn('min-h-11 border-b-2 px-4 text-sm font-medium', FOCUS_RING, kind === k ? 'border-blue-600 text-blue-700' : 'border-transparent text-muted-foreground hover:text-foreground')}
+                className={cn('min-h-11 border-b-2 px-4 text-sm font-medium', FOCUS_RING, tab === k ? 'border-blue-600 text-blue-700' : 'border-transparent text-muted-foreground hover:text-foreground')}
               >
-                {k === 'point' ? 'Points' : 'Stories'}
+                {k === 'point' ? 'Points' : k === 'story' ? 'Stories' : 'Canvases'}
               </button>
             ))}
           </div>
-          <label className="flex min-h-11 items-center gap-2 rounded-full bg-muted px-3 text-muted-foreground">
-            <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search words or #tags"
-              aria-label="Search points and stories"
-              className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none md:text-sm"
-            />
-          </label>
+          {!canvasTab && (
+            <label className="flex min-h-11 items-center gap-2 rounded-full bg-muted px-3 text-muted-foreground">
+              <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search words or #tags"
+                aria-label="Search points and stories"
+                className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none md:text-sm"
+              />
+            </label>
+          )}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {state.status === 'loading' && (
+          {canvasTab && onPickCanvas && <CanvasVersionPicker onPick={onPickCanvas} />}
+          {!canvasTab && state.status === 'loading' && (
             <div role="status" aria-busy="true" aria-label="Loading your points and stories" className="space-y-2 p-3">
               {[0, 1, 2].map((i) => (
                 <Skeleton key={i} className="h-16 rounded-xl" />
               ))}
             </div>
           )}
-          {state.status === 'error' && <InlineError what="your points and stories" onRetry={() => setAttempt((a) => a + 1)} />}
-          {state.status === 'ready' && (
+          {!canvasTab && state.status === 'error' && <InlineError what="your points and stories" onRetry={() => setAttempt((a) => a + 1)} />}
+          {!canvasTab && state.status === 'ready' && (
             <ul className="space-y-2 p-3" data-testid="attach-results">
               {items.map((s) => (
                 <li key={s.id} className="relative">

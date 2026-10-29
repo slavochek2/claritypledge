@@ -10,6 +10,7 @@ import { AuthCallbackPage, AuthVerifyPage, EventLinkPage, AuthProvider, useAuth 
 import { AgentAccountsProvider } from "@/app/contexts/agent-accounts-context";
 import { RoomCaptureProvider } from "@/app/contexts/room-capture-context";
 import { ChatProvider } from "@/app/pages/chat/chat-provider";
+import { treeRoutes } from "@/app/tree/tree-routes";
 import { RoomCaptureBarFallback } from "@/app/components/session/room-capture-bar";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { useClearListReturnCacheOnAuthChange } from "@/lib/list-return-cache";
@@ -29,7 +30,6 @@ import { USE_CASE_LANDINGS } from "@/app/routes/use-case-landings";
 import { LettersRedirect, DocsRedirect } from "@/app/pages/artifacts/legacy-redirects";
 
 // P553: All pages lazy-loaded to reduce initial bundle size
-const ClarityPledgeLanding = lazy(() => import("@/app/pages/clarity-pledge-landing").then(m => ({ default: m.ClarityPledgeLanding })));
 const OldLanding2Page = lazy(() => import("@/app/pages/old-landing-2").then(m => ({ default: m.OldLanding2Page })));
 const SignPledgePage = lazy(() => import("@/app/pages/sign-pledge-page").then(m => ({ default: m.SignPledgePage })));
 const PledgeConfirmationPage = lazy(() => import("@/app/pages/pledge-confirmation-page").then(m => ({ default: m.PledgeConfirmationPage })));
@@ -63,7 +63,7 @@ const FeedPage = lazy(() => import("@/app/pages/feed-page").then(m => ({ default
 // P1179: the locked stake surface. GLOBAL route — the content is the same at every
 // event; the Links button carries ?event=<slug> so it persists without nesting.
 const StakePage = lazy(() => import("@/app/pages/stake-page").then(m => ({ default: m.StakePage })));
-const CanvasPage = lazy(() => import("@/app/pages/canvas-page").then(m => ({ default: m.CanvasPage })));
+const CanvasWithThread = lazy(() => import("@/app/pages/canvas/canvas-with-thread").then(m => ({ default: m.CanvasWithThread })));
 const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
 const TranscribeRoomPage = lazy(() => import("@/app/pages/transcribe-room-page").then(m => ({ default: m.TranscribeRoomPage })));
 const MySessionsPage = lazy(() => import("@/app/pages/my-sessions-page").then(m => ({ default: m.MySessionsPage })));
@@ -92,26 +92,7 @@ const LetterResponseConfirmPage = lazy(() => import("@/app/pages/letter-response
 const LetterOverviewPage = lazy(() => import("@/app/pages/letter-overview-page").then(m => ({ default: m.LetterOverviewPage })));
 
 // Dev/prototype pages
-const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
 // P955 fast-state harness: machine-owned gate fixtures under /tree/_gate/* (DEV-only, permanent render substrate — not throwaway).
-const GateFixtureExample = lazy(() => import("@/app/tree/_gate/example/GateFixture").then(m => ({ default: m.GateFixture })));
-const DesignPrivatePage = lazy(() => import("@/app/pages/design-private-page").then(m => ({ default: m.DesignPrivatePage })));
-const DesignButtonsPage = lazy(() => import("@/app/pages/design-buttons-page").then(m => ({ default: m.DesignButtonsPage })));
-const DesignBluePage = lazy(() => import("@/app/pages/design-blue-page").then(m => ({ default: m.DesignBluePage })));
-const GateFixtureTermsUpdate = lazy(() => import("@/app/tree/_gate/terms-update/GateFixture").then(m => ({ default: m.GateFixture })));
-const DesignAuditPage = lazy(() => import("@/app/pages/design-audit-page").then(m => ({ default: m.DesignAuditPage })));
-const LandingV2 = lazy(() => import("@/app/pages/landing-v2").then(m => ({ default: m.LandingV2 })));
-const LandingV3 = lazy(() => import("@/app/pages/landing-v3").then(m => ({ default: m.LandingV3 })));
-const LandingV4 = lazy(() => import("@/app/pages/landing-v4").then(m => ({ default: m.LandingV4 })));
-const LandingWatch = lazy(() => import("@/app/tree/landing-lab/watch/LandingWatch").then(m => ({ default: m.LandingWatch })));
-const LandingDo = lazy(() => import("@/app/tree/landing-lab/do/LandingDo").then(m => ({ default: m.LandingDo })));
-const LandingWild = lazy(() => import("@/app/tree/landing-lab/wild/LandingWild").then(m => ({ default: m.LandingWild })));
-const LandingFirst = lazy(() => import("@/app/tree/landing-lab/first/LandingFirst").then(m => ({ default: m.LandingFirst })));
-const PositionButtonsPrototype = lazy(() => import("@/app/pages/position-buttons-prototype").then(m => ({ default: m.PositionButtonsPrototype })));
-const P1336OnboardingPrototype = lazy(() => import("@/app/pages/prototypes/p1336-onboarding-prototype").then(m => ({ default: m.P1336OnboardingPrototype })));
-const ComparePositionsPrototype = lazy(() => import("@/app/pages/prototypes/p1337-compare-positions-prototype").then(m => ({ default: m.ComparePositionsPrototype })));
-const HostControlsPrototype = lazy(() => import("@/app/pages/prototypes/p1337-host-controls-prototype").then(m => ({ default: m.HostControlsPrototype })));
-const ProfileCompareEntryPrototype = lazy(() => import("@/app/pages/prototypes/p1337-profile-compare-entry-prototype").then(m => ({ default: m.ProfileCompareEntryPrototype })));
 const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => ({ default: m.EventsPrototype })));
 const EventRoomGate = lazy(() => import("@/app/prototypes/events/components/EventRoomGate").then(m => ({ default: m.EventRoomGate })));
 const EventRoomReady = lazy(() => import("@/app/prototypes/events/components/EventRoomReady").then(m => ({ default: m.EventRoomReady })));
@@ -121,20 +102,11 @@ const EventClosePage = lazy(() => import("@/app/prototypes/events/close/EventClo
 const EventArrivingPage = lazy(() => import("@/app/prototypes/events/arrival/EventArrivingPage").then(m => ({ default: m.EventArrivingPage })));
 const EventRoomMeet = lazy(() => import("@/app/prototypes/events/components/EventRoomMeet").then(m => ({ default: m.EventRoomMeet })));
 const EventHostPage = lazy(() => import("@/app/prototypes/events/rounds/EventHostPage").then(m => ({ default: m.EventHostPage })));
-const EventTranscriptionPrototype = lazy(() => import("@/app/prototypes/event-transcription/EventTranscriptionPrototype").then(m => ({ default: m.EventTranscriptionPrototype })));
-const LoadingDemoPage = lazy(() => import("@/app/pages/loading-demo-page").then(m => ({ default: m.LoadingDemoPage })));
-const UspContrastDemo = lazy(() => import("@/app/pages/usp-contrast-demo").then(m => ({ default: m.UspContrastDemo })));
 const NotFoundPage = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundPage })));
-const NotFoundDrift = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundDrift })));
-const NotFoundGlitch = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundGlitch })));
-const NotFoundCompass = lazy(() => import("@/app/pages/not-found-page").then(m => ({ default: m.NotFoundCompass })));
-const NewLivePrototype = lazy(() => import("@/app/pages/prototypes/new-live-prototype").then(m => ({ default: m.NewLivePrototype })));
 const VideoSummaryPage = lazy(() => import("@/app/pages/video-summary-page").then(m => ({ default: m.VideoSummaryPage })));
 const AdminUsersPage = lazy(() => import("@/app/pages/admin-users-page").then(m => ({ default: m.AdminUsersPage })));
 const AdminTopicsPage = lazy(() => import("@/app/pages/admin-topics-page").then(m => ({ default: m.AdminTopicsPage })));
 const TopicsPage = lazy(() => import("@/app/pages/topics-page").then(m => ({ default: m.TopicsPage })));
-const LinksMenuPrototype = lazy(() => import("@/app/pages/prototypes/links-menu-prototype").then(m => ({ default: m.LinksMenuPrototype })));
-const AdminUsersPrototype = lazy(() => import("@/app/pages/prototypes/admin-users-prototype").then(m => ({ default: m.AdminUsersPrototype })));
 const CoachPartnershipPage = lazy(() => import("@/app/pages/coach-partnership-page").then(m => ({ default: m.CoachPartnershipPage })));
 const ProgramPage = lazy(() => import("@/app/pages/program-page").then(m => ({ default: m.ProgramPage })));
 const BuildRightThingLanding = lazy(() => import("@/app/pages/build-right-thing-landing").then(m => ({ default: m.BuildRightThingLanding })));
@@ -999,7 +971,7 @@ export default function ClarityPledgeApp() {
         <Route path="/video/:videoId" element={<ClarityLandingLayout surface="product"><LazyRoute><VideoSummaryPage /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/stake/:tag" element={<ClarityLandingLayout surface="product" compact><LazyRoute><StakePage /></LazyRoute></ClarityLandingLayout>} />
         {/* P1508: an owner's Clarity Canvas — owner + project tag, no canvas record. */}
-        <Route path="/p/:handle/canvas/:projectTag" element={<ClarityLandingLayout surface="product"><LazyRoute><CanvasPage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/p/:handle/canvas/:projectTag" element={<ClarityLandingLayout surface="product"><LazyRoute><CanvasWithThread /></LazyRoute></ClarityLandingLayout>} />
         {/* P602: Clean feed URL shortcut — /feed/understanding → /feed?tag=understanding&sort=oldest&version=latest */}
         <Route path="/feed/:tag" element={<FeedTagRedirect />} />
 
@@ -1137,62 +1109,12 @@ export default function ClarityPledgeApp() {
         {/* P772: LetterRoute handles shortcodes like /letter/st5 → resolves to UUID */}
         <Route path="/letter/:id" element={<LetterRoute />} />
 
-        {/* ============================================================
-            PROTOTYPES — experimental routes under /tree, DEV-GATED BY DEFAULT.
-            Each /tree/* route is wrapped in {import.meta.env.DEV && …}. In prod
-            import.meta.env.DEV is false, so the route is never registered
-            (unreachable — navigating there falls through to the 404) and its path
-            string is stripped from the always-loaded index chunk.
-            IMPORTANT: gating controls REACHABILITY, not bundling. The lazy component
-            chunk still deploys to dist/assets as dead, never-fetched code — a
-            lazy(() => import()) const is not tree-shaken away (see decisions.md:
-            "DEV guard only prevents rendering"; only EXPLICIT import removal strips a
-            chunk). Accepted here: these are mock-free, secret-free, unreachable in prod.
-            Conventions:
-              • One prefix: /tree/*. Never invent another (/_proto, /_preview retired).
-              • Lazy-import new demos — keeps them out of the main index chunk, though
-                the split chunk still ships until the import is explicitly removed.
-              • The /tree/404-* variants share the live not-found-page chunk: their
-                PATH strings are stripped; the variant code rides the prod 404 chunk.
-              • A genuinely prod-reachable route placed here stays ungated on purpose
-                and must carry  // PROD-REACHABLE: <reason>  on its route line.
-            Self-contained: they do NOT import main app code (api.ts, auth, etc.)
-            ============================================================ */}
-        {import.meta.env.DEV && <Route path="/tree" element={<LazyRoute><TreePage /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/_gate/example" element={<LazyRoute><GateFixtureExample /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/design-private" element={<LazyRoute><DesignPrivatePage /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/design-buttons" element={<LazyRoute><DesignButtonsPage /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/design-blue" element={<LazyRoute><DesignBluePage /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/_gate/terms-update" element={<LazyRoute><GateFixtureTermsUpdate /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/design-audit" element={<LazyRoute><DesignAuditPage /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/landing-v2" element={<LazyRoute><LandingV2 /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/landing-v3" element={<LazyRoute><LandingV3 /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/landing-v4" element={<LazyRoute><LandingV4 /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/landing-watch" element={<LazyRoute><LandingWatch /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/landing-do" element={<LazyRoute><LandingDo /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/landing-wild" element={<LazyRoute><LandingWild /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/landing-first" element={<LazyRoute><LandingFirst /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/position-buttons" element={<LazyRoute><PositionButtonsPrototype /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/compare-positions" element={<LazyRoute><ComparePositionsPrototype /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/host-controls" element={<LazyRoute><HostControlsPrototype /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/compare-entry" element={<LazyRoute><ProfileCompareEntryPrototype /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/p1336" element={<LazyRoute><P1336OnboardingPrototype /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/p1336-c" element={<LazyRoute><P1336OnboardingPrototype variant="c" /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/p1336-d" element={<LazyRoute><P1336OnboardingPrototype variant="d" /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/loading-demo" element={<LazyRoute><LoadingDemoPage /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/usp-contrast" element={<LazyRoute><UspContrastDemo /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/links-menu" element={<LazyRoute><LinksMenuPrototype /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/admin-users" element={<LazyRoute><AdminUsersPrototype /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/event-transcription" element={<LazyRoute><EventTranscriptionPrototype /></LazyRoute>} />}
-        {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout surface="public"><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
+        {/* Prototypes under /tree/* (DEV-gated, incl. the P955 gate fixtures): src/app/tree/tree-routes.tsx. */}
+        {import.meta.env.DEV && treeRoutes(LazyRoute)}
         {/* PROD-REACHABLE: (P987) the co-founder offer is still live, so its landing page —
             the page that served "/" until P987 reframed "/" to the key-hire wedge — gets a
             real route + nav entry instead of a dev-only /tree snapshot. */}
         <Route path="/founder" element={<ClarityLandingLayout surface="public"><LazyRoute><OldLanding2Page /></LazyRoute></ClarityLandingLayout>} />
-        {import.meta.env.DEV && <Route path="/tree/404-drift" element={<ClarityLandingLayout surface="public"><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />}
-        {import.meta.env.DEV && <Route path="/tree/404-glitch" element={<ClarityLandingLayout surface="public"><LazyRoute><NotFoundGlitch /></LazyRoute></ClarityLandingLayout>} />}
-        {import.meta.env.DEV && <Route path="/tree/404-compass" element={<ClarityLandingLayout surface="public"><LazyRoute><NotFoundCompass /></LazyRoute></ClarityLandingLayout>} />}
         {/* P1114 rev2: the three room routes, hoisted OUT of the /events/* wildcard
             below (Solution, "REVISED (2)" — "/room collapses to the gate"). The
             wildcard wraps everything in the full ClarityLandingLayout (marketing nav,

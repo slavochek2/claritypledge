@@ -21,6 +21,9 @@ import { formatTimeAgo } from '@/app/utils/format-time';
 import { hasNewSenderProgress, newCountForDelivery } from '@/app/utils/letter-new-activity';
 import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
 import type { CanvasSharedWithMe, MyCanvasRow } from '@/app/data/canvas-service';
+import type { OpenCanvasDraft } from '@/app/data/canvas-open-drafts';
+import { draftLabel } from '@/app/pages/chat/canvas-thread-copy';
+import { withThreadParam } from '@/app/pages/chat/canvas-links';
 import type { ClarityDoc, ClarityLetter, InboxItem, LetterDelivery } from '@/app/types';
 
 export type ArtifactTab = 'letters' | 'canvases';
@@ -74,6 +77,9 @@ export interface ArtifactRow {
     /** Own canvas: its sharing (Copy link needs it shared). */
     generalAccess?: 'restricted' | 'link';
     hasAudience?: boolean;
+    /** Own canvas with an open draft (P1536): its id to discard it, its version (the draft canvas's address) and its thread.
+     *  `only`: the draft is the canvas's only version (nothing published yet), so there is nothing to share or link to. */
+    draft?: { id: string; versionName: string; conversationId: string; threadRootId: string; only: boolean };
   };
 }
 
@@ -85,6 +91,8 @@ export interface ArtifactsSource {
   deliveriesByLetter: Record<string, LetterDelivery[]>;
   inbox: InboxItem[];
   myCanvases: MyCanvasRow[];
+  /** The signed-in person's open canvas drafts (P1536); absent = none. */
+  openDrafts?: OpenCanvasDraft[];
   sharedCanvases: CanvasSharedWithMe[];
   /** The signed-in person's public handle: own canvas addresses are built with it. */
   userSlug: string | null;
@@ -304,20 +312,37 @@ export function sentRow(
   };
 }
 
-export function ownCanvasRow(c: MyCanvasRow, userSlug: string | null): ArtifactRow {
+/** "v3 · Draft · Edited 3d ago": a canvas with an open draft says so first. */
+export function canvasDraftMeta(draft: OpenCanvasDraft, lastEdit: string | null): string {
+  return lastEdit ? `${draftLabel(draft.nextSeq)} · ${canvasMeta(lastEdit)}` : draftLabel(draft.nextSeq);
+}
+
+/** The canvas page on the draft version, carrying the draft's thread: `/p/<slug>/canvas/<name>?v=<draft version>&thread=<root>`. */
+export function draftCanvasHref(userSlug: string, canvasName: string, draft: { versionName: string; threadRootId: string }): string {
+  return withThreadParam(`${canvasPath(userSlug, canvasName)}?v=${encodeURIComponent(draft.versionName)}`, draft.threadRootId);
+}
+
+export function ownCanvasRow(c: MyCanvasRow, userSlug: string | null, draft?: OpenCanvasDraft): ArtifactRow {
+  // A canvas never published shows only "Nothing published yet" at its plain address: its row opens the draft instead.
+  const only = draft?.nextSeq === 1;
   return {
     key: `canvas:${c.name}`,
     kind: 'canvas',
     list: 'mine',
     state: 'canvas',
     title: canvasTitle(c.name),
-    meta: canvasMeta(c.lastEdit),
+    meta: draft ? canvasDraftMeta(draft, c.lastEdit) : canvasMeta(c.lastEdit),
     visibility: c.generalAccess === 'link' ? 'public' : 'private',
     unread: false,
     hasNew: false,
-    href: userSlug ? canvasPath(userSlug, c.name) : null,
+    href: !userSlug ? null : only && draft ? draftCanvasHref(userSlug, c.name, draft) : canvasPath(userSlug, c.name),
     sortAt: ms(c.lastEdit),
-    ref: { canvasName: c.name, generalAccess: c.generalAccess, hasAudience: c.hasAudience },
+    ref: {
+      canvasName: c.name,
+      generalAccess: c.generalAccess,
+      hasAudience: c.hasAudience,
+      draft: draft && { id: draft.draftId, versionName: draft.versionName, conversationId: draft.conversationId, threadRootId: draft.threadRootId, only },
+    },
   };
 }
 
@@ -395,7 +420,7 @@ export function buildArtifacts(src: ArtifactsSource): ArtifactsModel {
       .map(l => sentRow(l, src.deliveriesByLetter[l.id] ?? [], replied[l.id] ?? 0, src.newByDelivery, activity, src.userId ?? null))
       .sort((a, b) => Number(b.hasNew) - Number(a.hasNew) || newestFirst(a, b)),
     received: receivedInboxItems(src.inbox).map(i => receivedLetterRow(i, src.userSlug)).sort(newestFirst),
-    mine: src.myCanvases.map(c => ownCanvasRow(c, src.userSlug)).sort(newestFirst),
+    mine: src.myCanvases.map(c => ownCanvasRow(c, src.userSlug, src.openDrafts?.find(d => d.canvasName === c.name))).sort(newestFirst),
     shared: src.sharedCanvases.map(c => receivedCanvasRow(c, src.userId ?? null)).sort(newestFirst),
   };
 }

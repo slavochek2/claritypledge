@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { FOCUS_RING, HOVER } from './chat-kit';
 import { loadArtifact } from './artifact-attachment-cache';
 import { AttachmentSkeleton } from './AttachmentSkeleton';
+import { ARTIFACT_CARD as CARD, ARTIFACT_DISC as DISC } from './artifact-card-style';
 
 /**
  * P1586: how long the skeleton may show before the card says it could not load. The same 20s as the
@@ -26,9 +27,6 @@ const ARTIFACT_TIMEOUT_MS = 20_000;
 
 type ArtifactKind = 'canvas' | 'letter';
 type State = { status: 'loading' } | { status: 'error' } | { status: 'ready'; artifact: ChatArtifact };
-
-const CARD = 'mt-1 flex w-full max-w-md items-center gap-3 rounded-xl border bg-background px-3 py-2 text-left';
-const DISC = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700';
 
 function firstName(name: string | null): string | null {
   const first = name?.trim().split(/\s+/)[0];

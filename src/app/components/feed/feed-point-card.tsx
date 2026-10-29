@@ -72,7 +72,12 @@ export interface FeedPointCardCanvas {
   ownStoryAdded?: boolean;
   /** a signed-out visitor of a canvas open to anyone with the link: reads only, no position buttons, no story */
   readOnly?: boolean;
+  /** no position buttons, whoever looks (the owner's draft version has no positions); stories stay */
+  noPositions?: boolean;
 }
+
+/** The position buttons show unless the canvas gives no positions to take (a draft) or the visitor only reads. */
+const showsPositionButtons = (canvas?: FeedPointCardCanvas): boolean => !(canvas?.readOnly || canvas?.noPositions);
 
 interface FeedPointCardProps {
   point: PointWithUserPosition;
@@ -607,7 +612,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
                 (since P1366 into the `⋯` menu above); the row is the position buttons alone, so
                 tabbing through it no longer lands on an unrelated control between the last
                 position and the story list. */}
-            {!canvas?.readOnly && <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
+            {showsPositionButtons(canvas) && <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
               <PositionButtons
                 userPosition={effectivePosition}
                 counts={counts}

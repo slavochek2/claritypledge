@@ -27,6 +27,7 @@ import type { ChatMessage, ChatTranscriptStatus } from '@/app/data/chat-service'
 import { ChatContext, type ChatContextValue } from './chat-state';
 import { voiceStatus } from './mirror-voice';
 import { MirrorContext, type MirrorContextValue, type MirrorReplyStatus, type PortraitStatus } from './mirror-state';
+import { isCanvasThread } from './canvas-thread-registry';
 
 /** A job still "running" this long after it was created died with its request: offer Try again. */
 const STALE_RUNNING_MS = 3 * 60_000;
@@ -289,6 +290,8 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
           // A share (a point or story with no text) is filed quietly: the server makes no job for it either.
           // A Clarify always gets an answer, even of a shared point with no note.
           !(m.kind === 'message' && m.attachmentId && !(m.body ?? '').trim()) &&
+          // A canvas draft thread: the mirror stays silent there (no job is made), so no request is sent.
+          !isCanvasThread(m.threadRootId) &&
           !asked.current.has(m.id)
         ) {
           answerOwnMessage(m);

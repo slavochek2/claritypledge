@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docsService } from '@/app/data/docs-service';
 import { getAllReceivedLetters, getAllSentLettersOrThrow, getDeliveriesForLettersOrThrow, getInboxItems, getUnreadExplainBackCountsByDelivery } from '@/app/data/letters-service';
 import { canvasService, type CanvasSharedWithMe, type MyCanvasRow } from '@/app/data/canvas-service';
+import { listMyOpenCanvasDrafts, type OpenCanvasDraft } from '@/app/data/canvas-open-drafts';
 import { buildArtifacts, type ArtifactList, type ArtifactRow, type SentLetter } from './artifacts-view-model';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
 
@@ -41,13 +42,15 @@ interface Sources {
   docs: ClarityDoc[] | null;
   sent: { letters: SentLetter[]; deliveries: Record<string, LetterDelivery[]>; newByDelivery: Record<string, number> } | null;
   myCanvases: MyCanvasRow[] | null;
+  /** The owner's open canvas drafts: a canvas row says "v3 · Draft" and offers Open draft / Discard draft. */
+  openDrafts: OpenCanvasDraft[] | null;
   received: InboxItem[] | null;
   /** Sender-side activity on my own letters (the capped mixed inbox list). */
   activity: InboxItem[] | null;
   sharedCanvases: CanvasSharedWithMe[] | null;
 }
 
-const EMPTY: Sources = { docs: null, sent: null, myCanvases: null, received: null, activity: null, sharedCanvases: null };
+const EMPTY: Sources = { docs: null, sent: null, myCanvases: null, openDrafts: null, received: null, activity: null, sharedCanvases: null };
 
 /** `null` = not settled yet, or failed; `failed` tells the two apart. */
 type Failed = Partial<Record<keyof Sources, boolean>>;
@@ -119,6 +122,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
       run('docs', () => docsService.getDocsByUserOrThrow(forUser)),
       run('sent', () => loadSent(forUser)),
       run('myCanvases', () => canvasService.listMyCanvases()),
+      run('openDrafts', () => listMyOpenCanvasDrafts()),
       run('received', () => getAllReceivedLetters(forUser)),
       run('activity', () => getInboxItems(forUser)),
       run('sharedCanvases', () => canvasService.listSharedWithMe()),
@@ -150,6 +154,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
         // Received rows only from the paged read; the mixed list contributes sender activity alone.
         inbox: [...(sources.received ?? []), ...(sources.activity ?? []).filter(i => i.type !== 'received')],
         myCanvases: sources.myCanvases ?? [],
+        openDrafts: sources.openDrafts ?? [],
         sharedCanvases: sources.sharedCanvases ?? [],
         userSlug,
         userId,
@@ -157,15 +162,17 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
     [sources, userSlug, userId],
   );
 
-  const listState = (keys: (keyof Sources)[], rows: ArtifactRow[]): ListData => {
-    const pending = !keys.every(k => settled[k]);
+  // `soft`: sources that only decorate the rows (the canvases' open drafts). The list waits for them to settle before it
+  // calls itself empty and notes when one failed, but a failed one never makes the list an error and a loaded one never hides a failure of `keys`.
+  const listState = (keys: (keyof Sources)[], rows: ArtifactRow[], soft: (keyof Sources)[] = []): ListData => {
+    const pending = ![...keys, ...soft].every(k => settled[k]);
     const anyLoaded = keys.some(k => loaded[k]);
     // Spinner only while there is nothing to show yet; once any source has rows, show them and keep the rest pending.
     if (pending && rows.length === 0) return { status: 'loading', rows, partial: false, pending: true };
     const failedCount = keys.filter(k => failed[k]).length;
     // Nothing to show and every source failed: the error state. If anything is on screen, keep it.
     if (!pending && failedCount === keys.length && !anyLoaded) return { status: 'error', rows: [], partial: false, pending: false };
-    return { status: 'ready', rows, partial: failedCount > 0, pending };
+    return { status: 'ready', rows, partial: failedCount > 0 || soft.some(k => failed[k]), pending };
   };
 
   return {
@@ -173,7 +180,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
       drafts: listState(['docs'], model.drafts),
       sent: listState(['sent'], model.sent),
       received: listState(['received'], model.received),
-      mine: listState(['myCanvases'], model.mine),
+      mine: listState(['myCanvases'], model.mine, ['openDrafts']),
       shared: listState(['sharedCanvases'], model.shared),
     },
     refresh: () => load(),

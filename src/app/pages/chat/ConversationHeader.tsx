@@ -6,7 +6,7 @@
  * (link to the live event page); the mirror always says whose mirror it is, also on a phone.
  */
 import { Link } from 'react-router-dom';
-import { Archive, ArchiveRestore, ArrowLeft, Ban, CircleDot, ExternalLink, Info, MoreHorizontal, UserRound } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowLeft, Ban, CircleDot, ExternalLink, MoreHorizontal, UserRound } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { ChatSummary } from '@/app/data/chat-service';
 import type { RoundThread } from '@/app/data/chat-round-threads';
@@ -15,6 +15,7 @@ import { ChannelMark, FOCUS_RING, HOVER, MirrorMark, MirrorTitle, PersonMark } f
 import { mirrorLabel } from './chat-view-model';
 import { MyRoundsMenuSection } from './MyRoundsMenu';
 import { EventRoomLink } from './EventRoomLink';
+import { MirrorMenuItems } from './MirrorMenuItems';
 
 export interface HeaderActions {
   onBack: () => void;
@@ -25,6 +26,8 @@ export interface HeaderActions {
   onRename: () => void;
   /** P1520: the mirror's name opens its info panel (face, name, Rename, New portrait). */
   onMirrorInfo?: () => void;
+  /** P1536: the mirror's "New canvas": a new thread that drafts a canvas from what the owner gives it. Absent unless canvas drafting is on. */
+  onNewCanvas?: () => void;
 }
 
 const NAME = 'block truncate text-[15px] font-semibold leading-tight text-foreground sm:text-base sm:leading-normal';
@@ -176,13 +179,7 @@ export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere =
               </Link>
             </DropdownMenuItem>
           )}
-          {chat.kind === 'mirror' && actions.onMirrorInfo && (
-            // P1533: the panel (portrait, Rename, New portrait) is also reachable from the menu, not only by tapping the name.
-            <DropdownMenuItem className="min-h-10" onSelect={actions.onMirrorInfo}>
-              <Info className="mr-2 h-4 w-4" aria-hidden="true" />
-              <span className="min-w-0 truncate">About {chat.title?.trim() || 'your mirror agent'}</span>
-            </DropdownMenuItem>
-          )}
+          {chat.kind === 'mirror' && <MirrorMenuItems chat={chat} actions={actions} />}
           <DropdownMenuItem className="min-h-10" onSelect={actions.onArchive}>
             {chat.archived ? <ArchiveRestore className="mr-2 h-4 w-4" aria-hidden="true" /> : <Archive className="mr-2 h-4 w-4" aria-hidden="true" />}
             {chat.archived ? 'Unarchive' : 'Archive'}

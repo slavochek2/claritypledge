@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { clarifyMessage, getMessage, type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
+import { clarifyMessage, type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
 import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { AttachDialog, ConfirmDialog, RenameMirrorDialog } from './ChatDialogs';
 import { Composer, type MentionEntry } from './Composer';
@@ -20,9 +20,12 @@ import { InlineError, MessagesSkeleton, MirrorMark } from './chat-kit';
 import { MirrorInfoDialog } from './MirrorInfoDialog';
 import { useMirror, useRestoreMirrorStatuses } from './mirror-state';
 import { useMirrorAsks } from './use-mirror-asks';
+import { conversationCopy, readThroughId } from './conversation-derived';
+import { useOpenHitThread } from './use-open-hit-thread';
+import { useCanvasEntry } from './use-start-canvas';
 import { isLeavingChat, takeStagedClarify, onClarifyStaged, takeComposerFocus, type StagedClarify, useBack, useChatNavigate, useLeaveChat, usePageVisible } from './chat-hooks';
 import { useChat } from './chat-state';
-import { chatErrorText, chatPath, compareMessages, hasWayBackElsewhere, isChannel, mirrorRole } from './chat-view-model';
+import { chatErrorText, chatPath, hasWayBackElsewhere, isChannel, mirrorRole } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
 import { useVoiceSender } from './use-voice-sender';
@@ -33,6 +36,8 @@ interface Props {
   highlightId: string | null;
   /** False while CSS hides this pane (a phone showing a thread): nothing here may count as seen. */
   paneVisible: boolean;
+  /** A thread is open beside (or over) this chat: this pane offers no filled primary, so a canvas thread's action is the only one (P955). */
+  threadOpen?: boolean;
 }
 
 /** A link to a chat the person cannot open (never existed, or access ended). */
@@ -48,7 +53,7 @@ function Unavailable() {
   );
 }
 
-export function ConversationPane({ conversationId, highlightId, paneVisible }: Props) {
+export function ConversationPane({ conversationId, highlightId, paneVisible, threadOpen = false }: Props) {
   const chat = useChat();
   const summary = chat.chats.find((c) => c.conversationId === conversationId);
   if (!summary) {
@@ -62,10 +67,12 @@ export function ConversationPane({ conversationId, highlightId, paneVisible }: P
     if (chat.status === 'error') return <InlineError what="this chat" onRetry={() => void chat.refresh()} />;
     return <Unavailable />;
   }
-  return <ConversationBody key={conversationId} summary={summary} highlightId={highlightId} paneVisible={paneVisible} />;
+  return <ConversationBody key={conversationId} summary={summary} highlightId={highlightId} paneVisible={paneVisible} threadOpen={threadOpen} />;
 }
 
-function ConversationBody({ summary, highlightId, paneVisible }: { summary: ChatSummary; highlightId: string | null; paneVisible: boolean }) {
+interface BodyProps { summary: ChatSummary; highlightId: string | null; paneVisible: boolean; threadOpen: boolean }
+
+function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: BodyProps) {
   const chat = useChat();
   const go = useChatNavigate();
   const conversationId = summary.conversationId;
@@ -132,6 +139,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
     readStaged();
   }, [summary.conversationId, location.key, readStaged]);
   useEffect(() => onClarifyStaged(readStaged), [readStaged]);
+  const canvasEntry = useCanvasEntry(summary.kind === 'mirror', () => setAttaching(false));
   const [renaming, setRenaming] = useState(false);
   const [blocking, setBlocking] = useState(false);
   const [target, setTarget] = useState<string | null>(highlightId);
@@ -144,20 +152,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
   const cannotSend = summary.kind === 'dm' && !summary.canSend && !blocked && !unavailable;
   const blockId = other?.id ?? null;
 
-  // A search hit that is a thread reply opens its thread instead, in the chat's place.
-  useEffect(() => {
-    if (!highlightId) return;
-    let live = true;
-    getMessage(highlightId).then(
-      (m) => {
-        if (live && m?.threadRootId) go(chatPath(conversationId, { rootId: m.threadRootId, messageId: m.id }), 'redirect');
-      },
-      () => undefined,
-    );
-    return () => {
-      live = false;
-    };
-  }, [highlightId, conversationId, go]);
+  useOpenHitThread(highlightId, conversationId, go);
   useEffect(() => setTarget(highlightId), [highlightId]);
 
   const onReply = useCallback((m: ChatMessage) => {
@@ -170,13 +165,8 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
   const onThread = useCallback((m: ChatMessage) => go(chatPath(conversationId, { rootId: m.id })), [go, conversationId]);
   const { actions, dialogs } = useMessageActions({ summary, conv, onReply, onThread });
 
-  // Read state: while this chat is open, in front AND on screen, everything up to the newest message is
-  // read. "Through" is a message id, never a time: created_at has microseconds a JS Date cannot say,
-  // and a time just short of the newest message would leave it unread and ask again, forever.
-  const shownNewest = [...conv.server].reverse().find((m) => !m.threadRootId);
-  const listed = summary.lastMessage;
-  const through =
-    listed && (!shownNewest || compareMessages(listed, shownNewest) >= 0) ? listed.id : shownNewest?.id;
+  // Read state: while this chat is open, in front AND on screen, everything up to the newest message is read.
+  const through = readThroughId(conv.server, summary.lastMessage);
   const { markRead, setViewing } = chat;
   const unread = summary.unreadCount > 0 || summary.manualUnread;
   const seen = visible && paneVisible;
@@ -191,15 +181,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
     void markRead(conversationId, through);
   }, [conv.status, seen, unread, markRead, conversationId, through]);
 
-  const first = (other?.name ?? '').split(' ')[0] ?? '';
-  const placeholder =
-    summary.kind === 'dm' ? `Message ${first || 'them'}` : summary.kind === 'group' ? `Message ${summary.org?.name ?? 'the group'}` : summary.kind === 'event' ? `Message ${summary.event?.title ?? 'the event'}` : 'Write to your mirror agent';
-  const empty =
-    summary.kind === 'dm'
-      ? `No messages yet. Say hello${first ? ` to ${first}` : ''}.`
-      : summary.kind === 'mirror'
-        ? null
-        : 'No messages yet.';
+  const { placeholder, empty } = conversationCopy(summary);
 
   // P1576: voice notes go to this conversation, as a reply when one is pending. The mirror takes them too: it answers once the transcript exists.
   const sendVoice = useVoiceSender(conversationId, true, undefined, replyTo?.id, () => setReplyTo(null));
@@ -225,6 +207,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
     },
     onRename: () => setRenaming(true),
     onMirrorInfo: summary.kind === 'mirror' ? () => setInfoOpen(true) : undefined,
+    onNewCanvas: canvasEntry.onNewCanvas,
   };
 
   return (
@@ -238,7 +221,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
         label="Messages"
         targetId={target}
         empty={empty}
-        lead={summary.kind === 'mirror' ? <MirrorGreeting title={summary.title} onName={() => setRenaming(true)} /> : undefined}
+        lead={summary.kind === 'mirror' ? <MirrorGreeting title={summary.title} onName={() => setRenaming(true)} secondary={threadOpen} /> : undefined}
         privateRows={channel && mirrorOn ? privateRows : undefined}
       />
       {blocked || unavailable || cannotSend ? (
@@ -332,9 +315,11 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
         />
       )}
       {dialogs}
+      {canvasEntry.dialog}
       {attaching && (
         <AttachDialog
           viewerId={chat.userId}
+          onPickCanvas={canvasEntry.onPickCanvas}
           onClose={() => setAttaching(false)}
           onPick={(s) => {
             setStaged(s);
@@ -370,9 +355,10 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
 
 /**
  * P1554: the mirror speaks first. Its greeting is always the first message in its chat (drawn here, never stored, so the
- * mirror never reads it back), and while it has no name the greeting keeps the one "Give me a name" button.
+ * mirror never reads it back), and while it has no name the greeting keeps the one "Give me a name" button. With a thread
+ * open beside the chat the thread's action leads, so the button is an outline (`secondary`, P955).
  */
-function MirrorGreeting({ title, onName }: { title: string | null | undefined; onName: () => void }) {
+function MirrorGreeting({ title, onName, secondary }: { title: string | null | undefined; onName: () => void; secondary: boolean }) {
   const painting = useMirror()?.portraitStatus === 'painting';
   return (
     <div className="mx-2 flex gap-2.5 px-2 pb-1.5 pt-2.5" data-testid="mirror-welcome">
@@ -393,7 +379,7 @@ function MirrorGreeting({ title, onName }: { title: string | null | undefined; o
           </p>
         )}
         {!title && (
-          <Button className="mt-2 min-h-10" data-testid="mirror-give-name" onClick={onName}>
+          <Button variant={secondary ? 'outline' : 'default'} className="mt-2 min-h-10" data-testid="mirror-give-name" onClick={onName}>
             Give me a name
           </Button>
         )}
