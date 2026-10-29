@@ -136,6 +136,9 @@ def active_test():
     return out
 
 
+ROWS_MARKER = "P1591ROWS:"
+
+
 def selfhosted_query(sql):
     """Run one read-only query on the self-hosted TEST database; print rows as a JSON array."""
     body = sql.strip().rstrip(";").strip()
@@ -152,9 +155,20 @@ def selfhosted_query(sql):
         os.unlink(tf.name)
     if chk.returncode != 0:
         fail("test: SQL contains a psql backslash command; plain SQL only")
-    stdin_sql = ("SET default_transaction_read_only = on;\n"
-                 "BEGIN READ ONLY;\n"
-                 f"SELECT coalesce(json_agg(__q), '[]'::json) FROM ({body}\n) AS __q;\n"
+    # The caller's SQL never reaches psql's own statement splitter: it travels as a dollar-quoted
+    # literal with a random tag, run by EXECUTE inside a DO block inside a READ ONLY transaction.
+    # A smuggled "; COMMIT; SET ... off; <write>" then fails server-side ("EXECUTE of transaction
+    # commands is not implemented" / "read-write mode must be set before any query"). Verified live
+    # against both review payloads (P1591 finish review, 2026-10-29). postgres here is not a
+    # superuser and cannot SET ROLE to the read-only role, so this is the enforcement layer.
+    import secrets
+    tag = "p1591_" + secrets.token_hex(8)
+    if tag in body:
+        fail("test: SQL collides with the quoting tag; retry")
+    stdin_sql = ("BEGIN READ ONLY;\n"
+                 f"DO $do_{tag}$ DECLARE r text; BEGIN "
+                 "EXECUTE format('SELECT coalesce(json_agg(__q), %L::json)::jsonb::text FROM (%s) AS __q', "
+                 f"'[]', ${tag}${body}\n${tag}$) INTO r; RAISE NOTICE '{ROWS_MARKER}%', r; END $do_{tag}$;\n"
                  "COMMIT;\n")
     env = dict(os.environ)
     if not any(os.access(os.path.join(d, "gcloud"), os.X_OK) for d in env.get("PATH", "").split(os.pathsep)):
@@ -172,11 +186,11 @@ def selfhosted_query(sql):
     if r.returncode != 0:
         fail("test(selfhosted): query failed (if auth: run 'gcloud auth login'): "
              + " ".join(r.stderr.split())[-300:])
-    lines = [l for l in r.stdout.splitlines() if l.strip()]
+    hits = [l.split(ROWS_MARKER, 1)[1] for l in (r.stderr + "\n" + r.stdout).splitlines() if ROWS_MARKER in l]
     try:
-        rows = json.loads(lines[-1])
+        rows = json.loads(hits[-1])
     except (IndexError, json.JSONDecodeError):
-        fail(f"test(selfhosted): unparseable psql output: {r.stdout[:200]}")
+        fail("test(selfhosted): unparseable psql output: " + " ".join(r.stderr.split())[-200:])
     if not isinstance(rows, list):
         fail("test(selfhosted): rows did not decode to an array")
     print(json.dumps(rows))

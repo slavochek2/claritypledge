@@ -44,7 +44,8 @@ if [ -z "$PROD_FILE" ]; then
   TARGET=$(active_test_target) || { echo "check-test-drift: cannot resolve the active TEST server." >&2; exit 2; }
   pl_fetch_prod_versions > "$WORK/prod.raw" || { echo "check-test-drift: cannot read the prod ledger." >&2; exit 2; }
   if [ "$TARGET" = "selfhosted" ]; then
-    "$SCRIPT_DIR/selfhosted/migrate.sh" --env selfhosted --applied > "$WORK/test.raw" 2> "$WORK/test.err" \
+    # No coreutils timeout on macOS: perl alarm bounds the IAP ssh so a dead tunnel cannot hang ship/push.
+    perl -e 'alarm shift; exec @ARGV or exit 127' "${CP_DRIFT_TIMEOUT:-180}" "$SCRIPT_DIR/selfhosted/migrate.sh" --env selfhosted --applied > "$WORK/test.raw" 2> "$WORK/test.err" \
       || { echo "check-test-drift: cannot read the self-hosted TEST ledger: $(tail -n 3 "$WORK/test.err" | tr '<>|' '___')" >&2; exit 2; }
   else
     python3 "$SCRIPT_DIR/supabase-readonly-sql.py" --env hosted-test \

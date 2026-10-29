@@ -102,12 +102,24 @@ def write_atomic(path, text):
     os.replace(tmp, real)
 
 
+def main_checkout():
+    """The MAIN checkout's root, from any worktree: the flip state lives there, never in a worktree copy."""
+    import subprocess
+    here = Path(__file__).resolve().parents[2]
+    try:
+        common = subprocess.run(['git', '-C', str(here), 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+                                capture_output=True, text=True, check=True).stdout.strip()
+        return Path(common).parent
+    except (OSError, subprocess.CalledProcessError):
+        return here
+
+
 def active(args):
     """P1591 resolver: fail closed, read-only."""
     if len(args) not in (1, 3) or (len(args) == 3 and args[1] != '--file'):
         print('active-test: usage: flip-test-env.py active [--file PATH].', file=sys.stderr)
         return 2
-    path = Path(args[2]) if len(args) == 3 else Path(__file__).resolve().parents[2] / '.env.test.local'
+    path = Path(args[2]) if len(args) == 3 else main_checkout() / '.env.test.local'
     try:
         text = Path(os.path.realpath(path)).read_text()
     except OSError as e:

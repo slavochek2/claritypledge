@@ -22,3 +22,5 @@ src/tests/p1541-e2e-test-db-lock.test.ts
 src/tests/p1557-reused-server-check.test.ts
 src/tests/p1557-test-target.test.ts
 src/tests/p1565-nonprod-image-guard.test.ts
+# The guard's own canary: it must name the hosted ref to prove the resolver ignores it.
+scripts/test-p1591-active-test.sh

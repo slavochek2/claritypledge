@@ -143,5 +143,36 @@ printf 'const k = process.env.%s%s;\n' "HOSTED" "_TEST_ANON_KEY" > "$M/scripts/b
 [ "$RC" -eq 1 ] && ok "new file reading a hosted-TEST variable fails the guard" || bad "var mutation (rc=$RC)"
 
 echo ""
+echo "--- finish-review fixes: read-only SQL wrapper, resolver reads the MAIN checkout ---"
+SELF_ENV="$TMPROOT/self.env"
+printf 'VITE_SUPABASE_URL=https://136-85-1-126.sslip.io\nSELFHOSTED_TEST_ORIGIN=https://136-85-1-126.sslip.io\n' > "$SELF_ENV"
+mkdir -p "$TMPROOT/gbin"
+cat > "$TMPROOT/gbin/gcloud" <<'STUB'
+#!/bin/bash
+cat > "$P1591_STDIN"
+echo "NOTICE:  P1591ROWS:[{\"n\": 1}, {\"n\": 2}]" >&2
+STUB
+chmod +x "$TMPROOT/gbin/gcloud"
+OUT=$(P1591_STDIN="$TMPROOT/stdin.sql" CP_ACTIVE_TEST_FILE="$SELF_ENV" PATH="$TMPROOT/gbin:$PATH" SUPABASE_API_HOST=http://127.0.0.1:9 \
+  python3 "$REPO_ROOT/scripts/supabase-readonly-sql.py" --env test "SELECT 1) AS __q; COMMIT; DROP TABLE x; SELECT (1" 2>&1); RC=$?
+[ "$RC" -eq 0 ] && [ "$OUT" = '[{"n": 1}, {"n": 2}]' ] && ok "readonly-sql self-hosted: multi-row NOTICE output parses" || bad "readonly-sql parse (rc=$RC out=$OUT)"
+TAG=$(sed -n 's/.*\$do_\(p1591_[0-9a-f]*\)\$.*/\1/p' "$TMPROOT/stdin.sql" | head -1)
+{ head -1 "$TMPROOT/stdin.sql" | grep -qx 'BEGIN READ ONLY;' && [ -n "$TAG" ] \
+  && grep -qF "\$$TAG\$SELECT 1) AS __q; COMMIT; DROP TABLE x; SELECT (1" "$TMPROOT/stdin.sql"; } \
+  && ok "readonly-sql self-hosted: caller SQL travels only inside the random dollar-quoted literal, in a READ ONLY txn" \
+  || bad "readonly-sql wrapper shape: $(head -c 300 "$TMPROOT/stdin.sql")"
+# Control for the wrapper check: the OLD shape (body spliced as bare SQL) must fail the same assertion.
+printf 'SET default_transaction_read_only = on;\nBEGIN READ ONLY;\nSELECT x FROM (SELECT 1) AS __q; COMMIT; DROP TABLE x; SELECT (1\n) AS __q;\n' > "$TMPROOT/old.sql"
+grep -qE '\$p1591_[0-9a-f]+\$SELECT 1\) AS __q; COMMIT' "$TMPROOT/old.sql" && bad "control: old spliced shape passed the wrapper check" || ok "control: old spliced shape fails the wrapper check"
+# Resolver from a linked worktree whose .env.test.local is a regular hosted file: must read MAIN (Codex repro).
+MR="$TMPROOT/mainrepo"; mkdir -p "$MR/scripts/selfhosted"
+cp "$REPO_ROOT/scripts/selfhosted/flip-test-env.py" "$MR/scripts/selfhosted/"
+git -C "$MR" init -q && git -C "$MR" add scripts && git -C "$MR" -c user.name=t -c user.email=t@example.invalid commit -qm f
+git -C "$MR" worktree add -q --detach "$TMPROOT/wt" 2>/dev/null
+cp "$SELF_ENV" "$MR/.env.test.local"
+printf 'VITE_SUPABASE_URL=https://ayibkeoyukulbsjpxgaw.supabase.co\n' > "$TMPROOT/wt/.env.test.local"
+A=$(python3 "$TMPROOT/wt/scripts/selfhosted/flip-test-env.py" active 2>&1)
+[ "$A" = selfhosted ] && ok "resolver in a worktree reads the main checkout's flip state" || bad "resolver from worktree said: $A"
+
 echo "p1591: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
