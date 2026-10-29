@@ -5,6 +5,7 @@ rank: 82
 workstream: product
 created_date: '2026-10-29'
 tags: [chat, voice, ui]
+withdrawn: '2026-10-29'
 disclosure: public
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
@@ -28,6 +29,16 @@ layout high mis-tap risk. Founder answered P1576 Open Question 0 with "different
 approved this variant ("okok", 2026-10-29).
 
 > Founder framing, verbatim: "Show me all the options and tell me what you recommend and why." Then, on A2 + blue mic: "okok"
+
+## Resolution (2026-10-29): no change for now
+
+A mockup drawn like the real composer (one box holding the paperclip, text, grey mic and blue button)
+showed that today's layout has only ONE mic: the grey mic dictates, the blue waveform sends a voice note.
+The "two mics" risk only appears if the blue button becomes a mic, so the Solution below would have
+created the problem it meant to fix, and adding "Aa" buys almost nothing. Founder: "yes good lets do it"
+on keeping the layout. Revisit after the founder's P1576 phone test: if people tap the waveform meaning
+to dictate, or do not read it as a voice note, switch to WhatsApp style (one blue mic, no in-app
+dictation mic in person-to-person chats). The Solution below is kept as the rejected draft.
 
 ## Appetite
 
