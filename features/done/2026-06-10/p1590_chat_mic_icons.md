@@ -1,16 +1,16 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 82
 workstream: product
 created_date: '2026-10-29'
 tags: [chat, voice, ui]
 disclosure: public
-delivery_stage: create-spec
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
+completed_at: 2026-10-29
 ---
 
 # P1590: Chat composer mic icons that cannot be confused
