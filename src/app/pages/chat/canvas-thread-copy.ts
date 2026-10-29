@@ -3,7 +3,10 @@
  * plain function text next to the control that uses it.
  */
 
-import { CANVAS_BOXES, type CanvasBoxTag } from '@/lib/canvas-boxes';
+// Edge-shared, so the Copy prompt, the drafting prompt and the empty-box questions read one text (precedent: api.ts imports participant-name.ts).
+import {
+  BOX_DEFINITIONS, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, NAMING_RULE, copyPromptSection, globalRulesText,
+} from '../../../../supabase/functions/_shared/canvas-box-definitions.ts';
 
 /**
  * What opens a canvas thread: one message that says what the mirror will do, and a steps card. The ask's second sentence
@@ -21,75 +24,33 @@ export const COPY_PROMPT_LABEL = 'Copy prompt';
 export const COPIED_LABEL = 'Copied';
 export const UPLOAD_LABEL = 'Upload';
 
+// founder may edit (reviewed by Gemini and Codex, 2026-10-28; box text and rules from the shared definitions, Design v6 S2)
 /**
- * What each box asks for, in the words the owner's AI reads: what the box means, a good bet and what not to write. The
- * same meanings as the drafting engine's guide (spec: Box guide), written for someone who has never seen the canvas.
+ * The prompt the owner copies into their own AI: ONE markdown text (D11). Head: the writing rules and the one-sale-loop rule.
+ * Body: the file's shape (one section per canvas, each starting "This canvas is about <group>.", then the nine headings in
+ * order) and, under each heading, its definition and shape. Every box word comes from the shared definitions module.
  */
-const BOX_BRIEF: Record<CanvasBoxTag, string[]> = {
-  'canvas:segments': [
-    'Who pays me, narrow enough that I could find ten of them this week: their role, the size of their business, their situation.',
-    'Good: "I sell to cafe owners with 1-3 shops who still do their own books."',
-    'Not: "Small businesses" or "anyone who wants to grow".',
-  ],
-  'canvas:problem': [
-    'What I believe hurts these people today, as they would say it, before they have heard of me.',
-    'Good: "My customers lose a week to panic before every tax deadline."',
-    'Not: a list of my features.',
-  ],
-  'canvas:solution': [
-    'What I actually do or hand over, concretely enough that someone could picture it. Say if it is only a plan.',
-    'Good: "My clients send me receipts by chat, and I close their books every month."',
-    'Not: a slogan or a promised outcome ("I help owners achieve financial clarity").',
-  ],
-  'canvas:channels': [
-    'Where these people already are and how they first hear of me. Say which channels are only plans.',
-    'Good: "I find clients in two online groups for cafe owners and through one coffee supplier\'s referrals."',
-    'Not: "Social media" or "word of mouth".',
-  ],
-  'canvas:revenue': [
-    'What they buy from me and for how much: the offer, the price, how often they pay.',
-    'Good: "I charge 2,500 baht a month per shop, cancel any time."',
-    'Not: "Affordable" or "flexible pricing".',
-  ],
-  'canvas:metrics': [
-    'A number and a date I have set myself that would prove me wrong if I miss them. Do not choose them for me.',
-    'Good: "I will have 10 paying shops by 31 March."',
-    'Not: "Growth" or "happy customers".',
-  ],
-  'canvas:love': [
-    'Something I keep doing even when it costs me, with the cost named.',
-    'Good: "I correct myself in public, even when it loses me the argument."',
-    'Not: a word with no cost behind it ("integrity", "passion").',
-  ],
-  'canvas:good-at': [
-    'The one obstacle I see as most likely to stop this working right now, and the number that shows it. Do not choose it for me.',
-    'Good: "Getting cafe owners to a first call: only 3 of my last 20 messages got a reply."',
-    'Not: a complaint with no number ("finding time", "scaling", "getting consistent leads").',
-  ],
-  'canvas:world-needs': [
-    'Something I expected about my business, tested, and found wrong: what I expected, what happened, what I changed.',
-    'Good: "I expected owners to want per-receipt pricing; all five I offered it to chose a flat monthly fee, so I dropped it."',
-    'Not: a lesson with no test behind it ("I learned to listen to customers").',
-  ],
-};
-
-// founder may edit (reviewed by Gemini and Codex, 2026-10-28)
-/** The prompt the owner copies into their own AI. Built from the code's box titles and the spec's box guide. */
 export const CANVAS_OWN_AI_PROMPT = [
-  'Help me draft my Clarity Canvas: nine short sections of bets about my business that other people can agree or disagree with.',
+  'Help me draft my Clarity Canvas: nine short sections about my business that other people can agree or disagree with.',
   '',
   'Use only what I have actually told you or shared with you. If you know little about my business, first ask me up to five short questions (who I sell to, what I sell, for how much, what is hard right now), wait for my answers, then write it.',
   '',
   'Rules:',
-  '- Use exactly the nine headings below, in this order.',
-  '- Under each heading, write up to three bets in my voice ("I", "my customers"). A bet is one short sentence specific enough to be proven wrong. Not marketing.',
-  '- Under each bet, add one line starting "Source:" with what I told you or shared that it comes from. Never invent a source; if there is none, leave the bet out.',
-  '- Never invent numbers, customers or results, and never fill a gap from general business knowledge. Under a heading with nothing to go on, write only: Not known yet.',
-  '- Never use the names of other people or companies. Write their role instead ("a coffee supplier").',
-  '- The examples below show the form only. Never reuse their businesses, numbers or claims.',
-  '- Return only the Markdown document, with no introduction or advice. If you can create files, attach it as clarity-canvas.md.',
+  globalRulesText('owner'),
   '',
-  ...CANVAS_BOXES.flatMap((b) => [`## ${b.title}`, ...BOX_BRIEF[b.tag], '']),
+  'Write the answer as ONE Markdown file. Start each canvas with the line "This canvas is about <group>." naming the people it is for. If I have more than one business, write one section per canvas, my main focus first. Every section has the nine headings below, in this order. The lines under each heading say what belongs there; do not copy them.',
+  `- Under each heading write up to ${MAX_POINTS_PER_BOX} points, each one short sentence of at most ${MAX_STATEMENT_CHARS} characters, in the voice named under the heading.`,
+  '- Examples inside a definition show the form only. Never reuse their businesses, numbers or claims.',
+  '- Under each point, add one line starting "Source:" with what I told you or shared that it comes from. Never invent a source; if there is none, leave the point out.',
+  '- Under a heading with nothing to go on, write only: Not known yet.',
+  `- ${NAMING_RULE}`,
+  '- Return only the Markdown file, with no introduction or advice. If you can create files, attach it as clarity-canvas.md.',
+  '',
+  "In the definitions below, 'you' means me, the business owner.",
+  '',
+  'This canvas is about <group>.',
+  '',
+  ...BOX_DEFINITIONS.flatMap((b) => [copyPromptSection(b), '']),
 ].join('\n').trimEnd();
 
 /** A thread whose version was published takes no more changes. This is the question under the owner's next message. */

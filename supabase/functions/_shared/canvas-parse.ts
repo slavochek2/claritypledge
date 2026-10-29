@@ -16,8 +16,9 @@
 
 import { costUsd, type GeminiUsage } from './mirror-agent.ts';
 import {
-  BOX_GUIDE, BOX_TAGS, MAX_DECIDED, MAX_NOTE_CHARS, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, titleOf,
+  BOX_TAGS, MAX_DECIDED, MAX_NOTE_CHARS, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, titleOf,
 } from './canvas-draft.ts';
+import { BOX_DEFINITIONS, emptyQuestionFor } from './canvas-box-definitions.ts';
 import { clean, cutChars, normalizeForQuote, ownerHaystack, quoteIsOwnerSourced } from './canvas-source.ts';
 import { derivedNames, namesMatcher } from './canvas-names.ts';
 import { numbersIn, numbersSupported, sharesWords } from './canvas-support.ts';
@@ -244,7 +245,7 @@ export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {
   const filled = filledBoxes(acc.actions, ctx.base);
   return {
     ok: true, actions: acc.actions, decided: acc.decided, counts: acc.counts, total: acc.actions.length,
-    emptyBoxes: BOX_GUIDE.map((b) => b.tag).filter((t) => !filled.has(t)),
+    emptyBoxes: BOX_DEFINITIONS.map((b) => b.tag).filter((t) => !filled.has(t)),
     droppedUnverified: acc.droppedUnverified, droppedNames: acc.droppedNames, costUsd: read.costUsd,
   };
 }
@@ -253,8 +254,8 @@ export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {
 export function questionsFor(emptyBoxes: readonly string[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (const tag of emptyBoxes) {
-    const g = BOX_GUIDE.find((b) => b.tag === tag);
-    if (g) out[tag] = g.question;
+    const q = emptyQuestionFor(tag);
+    if (q) out[tag] = q;
   }
   return out;
 }

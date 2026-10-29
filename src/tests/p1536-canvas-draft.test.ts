@@ -8,7 +8,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CANVAS_BOXES } from '../lib/canvas-boxes';
-import { BOX_GUIDE, MAX_MATERIAL_TOKENS } from '../../supabase/functions/_shared/canvas-draft';
+import { MAX_MATERIAL_TOKENS } from '../../supabase/functions/_shared/canvas-draft';
+import { BOX_DEFINITIONS } from '../../supabase/functions/_shared/canvas-box-definitions';
 import { assembleMaterial, nameMatcher, normalizeForQuote } from '../../supabase/functions/_shared/canvas-source';
 import { DRAFT_RULES, buildDraftRequest } from '../../supabase/functions/_shared/canvas-prompt';
 import { parseDraft, questionsFor } from '../../supabase/functions/_shared/canvas-parse';
@@ -38,11 +39,11 @@ const material = (text: string) => assembleMaterial({ note: text, links: [], fil
 
 describe('P1536 box guide', () => {
   it('has exactly the nine P1535 boxes, in order, with their titles', () => {
-    expect(BOX_GUIDE.map((b) => b.tag)).toEqual(CANVAS_BOXES.map((b) => b.tag));
-    expect(BOX_GUIDE.map((b) => b.title)).toEqual(CANVAS_BOXES.map((b) => b.title));
+    expect(BOX_DEFINITIONS.map((b) => b.tag)).toEqual(CANVAS_BOXES.map((b) => b.tag));
+    expect(BOX_DEFINITIONS.map((b) => b.title)).toEqual(CANVAS_BOXES.map((b) => b.title));
   });
   it('the Guiding values entry carries the sacrifice test (founder 2026-10-23)', () => {
-    expect(BOX_GUIDE.find((b) => b.tag === 'canvas:love')!.meaning.toLowerCase()).toContain('give something up');
+    expect(BOX_DEFINITIONS.find((b) => b.tag === 'canvas:love')!.definition.toLowerCase()).toContain('give up');
   });
 });
 
@@ -459,9 +460,9 @@ describe('P1536 reply text', () => {
     const t = buildDraftReply(facts);
     expect(t.split('\n')[0]).toBe('Your canvas draft is ready.');
     expect(t).not.toContain('/p/'); // chat text is plain: an address would show as unclickable noise (visual QA, 2026-10-29)
-    expect(t).toContain('What do you keep doing even when it costs you?');
+    expect(t).toContain('What does your business choose over something else it cares about, and why?');
     expect(t).toContain('https://x.example/a (it did not answer in time)');
-    expect(t).toMatch(/Problem: What hurts them/);
+    expect(t).toMatch(/Problem: Where are your customers stuck today/);
     expect(t).toContain('Compared with v1: 2 unchanged, 1 reworded, 1 new.');
     expect(t).toMatch(/left out 1 point I could not tie to your words/);
     expect(t).toMatch(/never names anyone else/);
@@ -506,7 +507,7 @@ describe('P1536 reply text', () => {
     expect(run).toContain("'I drafted your canvas but could not save it. Please try again.'");
   });
   it('questions are keyed by box tag', () => {
-    expect(questionsFor(['canvas:love'])).toEqual({ 'canvas:love': 'What do you keep doing even when it costs you?' });
+    expect(questionsFor(['canvas:love'])).toEqual({ 'canvas:love': "What does your business choose over something else it cares about, and why? Write it as 'X over Y, because Z'." });
   });
 });
 
@@ -706,7 +707,7 @@ describe('P1536 a run, end to end (stubbed model)', () => {
     await executeRun(h.deps, h.params, h.run);
     // The owner's own words may become points in the owner's private draft; that is the product. What the
     // material must never reach is a target: which canvas, which draft, which owner, which box, what visibility.
-    const tags = new Set(BOX_GUIDE.map((b) => b.tag));
+    const tags = new Set(BOX_DEFINITIONS.map((b) => b.tag));
     const allowedArgs: Record<string, string[]> = {
       _canvas_draft_run_complete: ['p_actions', 'p_decided', 'p_questions', 'p_reply', 'p_run', 'p_usd'],
     };
@@ -852,7 +853,7 @@ describe('P1536 A7: the request is counted by the model, never trusted to an est
     expect(counter.seen[0]).toContain('"kind":"draft_point"');
   });
   it('base points count against the same bound: a huge current version leaves less room for material, and the sum fits', async () => {
-    const big = Array.from({ length: 27 }, (_, i): BasePoint => ({ id: `b${i}`, box: BOX_GUIDE[i % 9]!.tag, statement: `Point ${i} ${'word '.repeat(50)}`, story: 'story '.repeat(300) }));
+    const big = Array.from({ length: 27 }, (_, i): BasePoint => ({ id: `b${i}`, box: BOX_DEFINITIONS[i % 9]!.tag, statement: `Point ${i} ${'word '.repeat(50)}`, story: 'story '.repeat(300) }));
     const counter = countingFetch(1.1);
     const m = sent();
     const h = harness({ base_label: 'v1', base_points: big, thread: [{ kind: 'owner_message', text: hugeOwnerText(200_000) }] }, {}, m.model);
@@ -993,7 +994,7 @@ describe('P1536 A9: names inside files and links (a heuristic, not a guarantee)'
     expect(names.strong.join(' ')).toContain('Bob Marley');
   });
   it('months, weekdays and box titles are not names', () => {
-    // canvas-names.ts stops on every WORD of every BOX_GUIDE title, so the renamed boxes ("Guiding values",
+    // canvas-names.ts stops on every WORD of every BOX_DEFINITIONS title, so the renamed boxes ("Guiding values",
     // "My next milestone") are covered by their own words, mid-sentence where a capitalised run is a candidate
     const text = (boxes: string) => `We met in the second week of March, on Monday morning. Then Offers Pricing, Customer Segments, ${boxes} were discussed. See Also Notes.`;
     const found = (t: string) => { const n = derivedNames(build([file('t.txt', t)]), null); return [...n.strong, ...n.weak].join(' '); };

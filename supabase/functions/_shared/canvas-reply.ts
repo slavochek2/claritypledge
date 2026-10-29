@@ -3,7 +3,8 @@
  * [FOUNDER DECISION: the wording of these replies.]
  */
 
-import { BOX_GUIDE } from './canvas-draft.ts';
+import { titleOf } from './canvas-draft.ts';
+import { emptyQuestionFor } from './canvas-box-definitions.ts';
 import type { Decided, DraftCounts } from './canvas-types.ts';
 
 export interface ReplyFacts {
@@ -70,8 +71,8 @@ function emptyBoxLines(f: ReplyFacts): string[] {
   if (f.total === 0 || !f.emptyBoxes.length) return [];
   const lines = ['Your material says nothing about these, so they are empty. Each is a question for you:'];
   for (const tag of f.emptyBoxes) {
-    const g = BOX_GUIDE.find((b) => b.tag === tag);
-    if (g) lines.push(`- ${g.title}: ${g.question}`);
+    const q = emptyQuestionFor(tag);
+    if (q) lines.push(`- ${titleOf(tag)}: ${q}`);
   }
   return lines;
 }

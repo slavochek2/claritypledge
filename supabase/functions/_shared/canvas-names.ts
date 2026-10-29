@@ -19,7 +19,7 @@
  * Pure: no Deno or esm.sh imports.
  */
 
-import { BOX_GUIDE } from './canvas-draft.ts';
+import { BOX_DEFINITIONS } from './canvas-box-definitions.ts';
 import { nameMatcher } from './canvas-source.ts';
 import type { Material } from './canvas-types.ts';
 
@@ -33,7 +33,7 @@ const SEQ_RE = /(?<![\p{L}\p{N}])(\p{Lu}[\p{Ll}'’-]+(?:[ \t]+\p{Lu}[\p{Ll}'’
 const NOT_NAMES = new Set((
   'january february march april may june july august september october november december ' +
   'monday tuesday wednesday thursday friday saturday sunday see also note notes the and for with ' +
-  BOX_GUIDE.flatMap((b) => b.title.toLowerCase().split(/[^\p{L}]+/u)).join(' ')
+  BOX_DEFINITIONS.flatMap((b) => b.title.toLowerCase().split(/[^\p{L}]+/u)).join(' ')
 ).split(' '));
 
 const words = (phrase: string) => phrase.split(/\s+/).map((w) => w.replace(/[.'’-]+$/u, '').toLowerCase()).filter(Boolean);

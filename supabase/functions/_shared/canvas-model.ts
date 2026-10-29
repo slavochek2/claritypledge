@@ -12,7 +12,8 @@
  */
 
 import { isProdProject } from './nonprod-image-guard.ts';
-import { BOX_GUIDE, DRAFT_MODEL, MIN_QUOTE_CHARS } from './canvas-draft.ts';
+import { DRAFT_MODEL, MIN_QUOTE_CHARS } from './canvas-draft.ts';
+import { BOX_DEFINITIONS } from './canvas-box-definitions.ts';
 import type { BasePoint, Material } from './canvas-types.ts';
 import type { GeminiRequest } from './mirror-agent.ts';
 
@@ -106,7 +107,7 @@ const geminiShaped = (obj: unknown) => ({
 });
 
 const STUB_MARKER = /STUB-(REWORD|MOVE|DROP|UNVERIFIED|LEAK)/;
-const TAGS = BOX_GUIDE.map((b) => b.tag);
+const TAGS = BOX_DEFINITIONS.map((b) => b.tag);
 
 /** Sentences of 12 to 300 characters from the owner's own words. */
 function ownerSentences(material: Material | undefined): string[] {

@@ -118,15 +118,14 @@ describe('CANVAS_OWN_AI_PROMPT', () => {
     expect(headings).toHaveLength(9);
   });
 
-  it('asks for bets in the owner\'s voice with a "Source:" line each, "Not known yet", no invented numbers, no other people; stays under about 700 words', () => {
-    for (const phrase of ['Markdown', 'bets', 'in my voice', 'Source:', 'Not known yet', 'Never invent numbers', 'Never use the names of other people']) {
+  it('asks for one Markdown file with a "Source:" line each, "Not known yet", no invented numbers, no other people; stays under about 1100 words (Design v6 S2: the nine definitions and the writing rules)', () => {
+    for (const phrase of ['Markdown', 'This canvas is about', 'Source:', 'Not known yet', 'Never invent numbers', 'Never use the names of other people']) {
       expect(CANVAS_OWN_AI_PROMPT).toContain(phrase);
     }
-    expect(CANVAS_OWN_AI_PROMPT.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(700);
+    expect(CANVAS_OWN_AI_PROMPT.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(1100);
   });
 
-  it('carries the guide\'s good and bad example for every box', () => {
-    expect(CANVAS_OWN_AI_PROMPT.match(/Good:/g)).toHaveLength(9);
-    expect(CANVAS_OWN_AI_PROMPT.match(/Not:/g)).toHaveLength(9);
+  it('carries the definition and the shape of every box (the examples stay in the drafting prompt)', () => {
+    expect(CANVAS_OWN_AI_PROMPT.match(/^Shape: /gm)).toHaveLength(9);
   });
 });
