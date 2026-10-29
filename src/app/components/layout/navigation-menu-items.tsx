@@ -61,14 +61,14 @@ function isEntryActive(to: string, pathname: string): boolean {
   return to === EVENTS_NAV_TO ? isEventsNavActive(pathname) : to === pathname;
 }
 
-/** P1593: "Add to home screen", first row of the account block. Renders nothing when there is nothing to offer. */
+/** P1593: "Install as app", first row of the account block. Renders nothing when there is nothing to offer. */
 function InstallMobileRow({ className, iconClass, onDone }: { className: string; iconClass: string; onDone: () => void }) {
   const install = useInstallMenuAction();
   if (!install) return null;
   return (
     <button type="button" onClick={() => { onDone(); install(); }} className={className}>
       <SmartphoneIcon className={iconClass} />
-      Add to home screen
+      Install as app
     </button>
   );
 }
@@ -79,7 +79,7 @@ function InstallDropdownItem() {
   return (
     <DropdownMenuItem onClick={install} className="cursor-pointer">
       <SmartphoneIcon className="w-4 h-4 mr-2" />
-      Add to home screen
+      Install as app
     </DropdownMenuItem>
   );
 }

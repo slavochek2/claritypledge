@@ -217,7 +217,7 @@ export function usePwaInstall(): PwaInstallContextValue {
 }
 
 /**
- * P1593: the avatar menus' "Add to home screen" item. Returns the action, or null when there is none
+ * P1593: the avatar menus' "Install as app" item. Returns the action, or null when there is none
  * to offer (installed; non-iOS without a captured prompt) or no provider is mounted.
  */
 // eslint-disable-next-line react-refresh/only-export-components

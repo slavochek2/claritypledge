@@ -1,6 +1,6 @@
 /**
  * @file p1593-install-placement.test.tsx
- * @description P1593: visibility rules for the avatar-menu item ("Add to home screen") and the
+ * @description P1593: visibility rules for the avatar-menu item ("Install as app") and the
  * return-visit nudge in the mobile bottom bar. The real provider runs; only the platform
  * (user agent, standalone, beforeinstallprompt, localStorage) and the today's-event hook are staged.
  */
@@ -224,7 +224,7 @@ describe('P1593 avatar menu item', () => {
         </PwaInstallProvider>
       </MemoryRouter>,
     );
-  const item = () => screen.queryByRole('button', { name: 'Add to home screen' });
+  const item = () => screen.queryByRole('button', { name: 'Install as app' });
 
   it('iPhone: shown, opens the drawer', () => {
     stage({ ua: IPHONE });
@@ -242,7 +242,7 @@ describe('P1593 avatar menu item', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
     const e = nativePrompt();
     // The closing drawer still marks the page aria-hidden while it animates out: find the row by text.
-    await act(async () => { fireEvent.click(screen.getByText('Add to home screen')); });
+    await act(async () => { fireEvent.click(screen.getByText('Install as app')); });
     expect(e.prompt).toHaveBeenCalled();
   });
 

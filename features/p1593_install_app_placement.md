@@ -41,7 +41,7 @@ Blast radius: low to medium. It touches the shared avatar menu (every signed-in 
 
 ## Solution
 
-1. **Avatar menu item "Add to home screen".** It goes in the shared avatar menu, in the account group above Sessions/Settings, so it appears in every place that renders the menu: the mobile Me sheet, the desktop top-nav dropdown, and the app sidebar avatar menu. Behaviour:
+1. **Avatar menu item "Install as app".** It goes in the shared avatar menu, in the account group above Sessions/Settings, so it appears in every place that renders the menu: the mobile Me sheet, the desktop top-nav dropdown, and the app sidebar avatar menu. Behaviour:
    - It is hidden when the app is installed.
    - On Android/Chromium with a captured prompt, it fires the native prompt.
    - On iOS it opens the existing iOS instruction drawer.
@@ -58,7 +58,7 @@ Blast radius: low to medium. It touches the shared avatar menu (every signed-in 
 - **Visit counting:** count a visit when ≥30 minutes have passed since the last recorded activity on this device (persistent storage timestamp). Reloads and route changes within a visit never increment the count.
 - **Prompt timing (founder decision 2026-10-29):** the item and the nudge show whenever the app is not installed, never gated on `canPrompt`. A tap fires the native prompt if one was captured, opens the iOS drawer on iOS, and otherwise opens the generic instructions drawer. The nudge stays mobile-only.
 
-CTA text: **"Add to home screen"**. Agents chose it under the founder's delegation, because it describes the iPhone action literally and also reads correctly on Android.
+Menu label: **"Install as app"** (founder decision 2026-10-29). The mobile nudge text stays "Add Clarity Pledge to your home screen". The original CTA text was **"Add to home screen"**. Agents chose it under the founder's delegation, because it describes the iPhone action literally and also reads correctly on Android.
 
 ## Risks / Non-Goals
 
@@ -77,12 +77,12 @@ CTA text: **"Add to home screen"**. Agents chose it under the founder's delegati
 
 ## UI Contract
 
-- Menu item label: `Add to home screen`, with a phone/download icon matching the other menu icons.
+- Menu item label: `Install as app` (founder decision 2026-10-29, replacing "Add to home screen"; the same on every avatar-menu surface), with a phone/download icon matching the other menu icons.
 - Nudge strip: same height and type scale as the "Today's event" strip. Text `Add Clarity Pledge to your home screen`, an × close button with a ≥40px touch target, `aria-label="Dismiss"`.
 
 ## Acceptance Criteria
 
-- [ ] Signed in on a mobile browser (not installed), the avatar menu shows "Add to home screen". Tapping it opens the iOS drawer on iPhone and the native prompt on Android.
+- [ ] Signed in on a mobile browser (not installed), the avatar menu shows "Install as app". Tapping it opens the iOS drawer on iPhone and the native prompt on Android.
 - [ ] On desktop Chrome (not installed) the avatar menu shows the item and it triggers the native prompt. On a desktop browser that cannot prompt, the item still shows and opens the generic instructions drawer (founder decision 2026-10-29).
 - [ ] In the installed app, the item and the nudge are absent.
 - [ ] Settings no longer shows an Install card. The celebration dialog and /live session end no longer show install links.

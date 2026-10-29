@@ -173,7 +173,7 @@ export function MeSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (
                 className={cn(SHEET_ROW, 'text-left')}
               >
                 <SmartphoneIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                Add to home screen
+                Install as app
               </button>
             )}
             <Link to="/sessions" onClick={close} className={SHEET_ROW}>
