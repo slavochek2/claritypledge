@@ -72,7 +72,8 @@ const SHELL_ROUTES: Row[] = [
   { pattern: '/topics', component: 'TopicsPage', files: ['src/app/pages/topics-page.tsx'] },
   { pattern: '/groups/:slug/join', component: 'OrgJoinPage', files: ['src/app/pages/org-join-page.tsx'] },
   { pattern: '/prepare', component: 'PreparePage', files: ['src/app/prototypes/events/prep/PreparePage.tsx'] },
-  { pattern: '/events/:slug/close', component: 'EventClosePage', files: ['src/app/prototypes/events/close/EventClosePage.tsx'] },
+  // P1542 founder UAT round: the close's header (its Backs) lives in CloseHeader.tsx.
+  { pattern: '/events/:slug/close', component: 'EventClosePage', files: ['src/app/prototypes/events/close/EventClosePage.tsx', 'src/app/prototypes/events/close/CloseHeader.tsx'] },
   { pattern: '/events/:slug/confirm', appPath: '/events/*', component: 'EventsPrototype', files: ['src/app/prototypes/events/components/RsvpConfirm.tsx'] },
   {
     pattern: '/events/:slug/prepare', component: 'EventPrepPage', files: ['src/app/prototypes/events/prep/EventPrepPage.tsx'],

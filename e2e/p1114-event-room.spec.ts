@@ -294,7 +294,8 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     // Exactly ONE "Back" on the page, and it is the page-chrome link at the top — not two.
     // (getByRole name-matching is substring by default, so this also covers the shared
     // card's own `onBack` button reappearing: that would make it two.)
-    await expect(page.getByRole('button', { name: 'Back' })).toHaveCount(1);
+    // P1542/P1548: the step bar's "Feedback" step substring-matches "Back" and is not a Back control; leave it out.
+    await expect(page.getByRole('button', { name: 'Back' }).and(page.locator(':not([data-testid^="room-step-"])'))).toHaveCount(1);
 
     // The only way out of the card is to answer — so the opt-out is committed, then reset
     // through the same control a person would use.
@@ -445,7 +446,8 @@ test.describe('P1114 event room (rev2, registered + signed in)', () => {
     // P1337 walkthrough 9 (founder): a closed room opens on Close — thanks + "Give feedback" into
     // P1389's closing sequence — instead of the opt-in roster.
     await expect(page.getByTestId('room-close')).toBeVisible();
-    await expect(page.getByTestId('room-close-feedback')).toHaveAttribute('href', `/events/${frozenEvent.slug}/close`);
+    // P1542 founder UAT round: "Give feedback" opens the close inside the room (?view=feedback), not /close.
+    await expect(page.getByTestId('room-close-feedback')).toHaveText('Give feedback');
     await expect(page.getByTestId('room-opt-in-yes')).toHaveCount(0);
     await expect(roster(page)).toHaveCount(0);
   });
@@ -581,10 +583,12 @@ test.describe('P1114 event page: tab row', () => {
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page.getByTestId('room-meet')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Back' }).click();
+    // P1542/P1548: "Feedback" (the step bar) also substring-matches "Back"; the page's Back is the other one.
+    await page.getByRole('button', { name: 'Back' }).and(page.locator(':not([data-testid^="room-step-"])')).click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}/ready$`));
 
-    await page.getByRole('button', { name: 'Back to event' }).click();
+    // P1562 §1: Ready's Back is the shell bar's "Back to the event".
+    await page.getByRole('button', { name: 'Back to the event' }).click();
     await expect(page).toHaveURL(new RegExp(`/events/${event.slug}(\\?|$)`));
   });
 });

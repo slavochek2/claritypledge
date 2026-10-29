@@ -11,6 +11,7 @@ import { EventLinksMenu } from "@/app/components/layout/event-links-menu";
 import { isPublicSitePath } from "@/app/components/layout/nav-links";
 import { BottomNav } from "@/app/components/layout/bottom-nav";
 import { isBottomNavHiddenRoute } from "@/app/components/layout/bottom-nav-routes";
+import { keepsCompactChrome, useShellOverrides } from "@/app/components/layout/app-menu-override";
 import { LegalFooter } from "@/app/components/layout/legal-footer";
 import { ClarityFooter } from "@/app/components/layout/clarity-footer";
 import { OfflineStrip } from "@/app/components/offline/offline-strip";
@@ -63,9 +64,12 @@ interface ClarityLandingLayoutProps {
   compact?: boolean;
   /** When true, nav shows only the logo — hides everything else including BottomNav. Used on /intro. */
   logoOnly?: boolean;
+  /** P1542 (founder, 2026-10-23): a compact page that a signed-in person still sees inside the signed-in shell
+   *  (sidebar on desktop, bottom tabs on phone). The event room. Signed out it keeps the compact top nav. */
+  roomShell?: boolean;
 }
 
-export function ClarityLandingLayout({ children, surface, chromeFree, compact, logoOnly }: ClarityLandingLayoutProps) {
+export function ClarityLandingLayout({ children, surface, chromeFree, compact, logoOnly, roomShell }: ClarityLandingLayoutProps) {
   const [searchParams] = useSearchParams();
 
   // Embed mode: strip all page chrome (nav, footer, bottom nav)
@@ -90,7 +94,7 @@ export function ClarityLandingLayout({ children, surface, chromeFree, compact, l
 
   return (
     <LiveSessionProvider>
-      <ClarityLandingLayoutInner surface={surface} compact={compact} logoOnly={logoOnly}>{children}</ClarityLandingLayoutInner>
+      <ClarityLandingLayoutInner surface={surface} compact={compact} logoOnly={logoOnly} roomShell={roomShell}>{children}</ClarityLandingLayoutInner>
     </LiveSessionProvider>
   );
 }
@@ -99,7 +103,7 @@ export function ClarityLandingLayout({ children, surface, chromeFree, compact, l
  * Inner layout component — must be inside LiveSessionProvider
  * so useActiveSession can access the session context.
  */
-function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { children: ReactNode; surface: ClarityLayoutSurface; compact?: boolean; logoOnly?: boolean }) {
+function ClarityLandingLayoutInner({ children, surface, compact, logoOnly, roomShell }: { children: ReactNode; surface: ClarityLayoutSurface; compact?: boolean; logoOnly?: boolean; roomShell?: boolean }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { showUserMenu, isProfilePending, sessionChecked, isLoading: authLoading, hasStoredSession } = useNavAuthState();
@@ -168,6 +172,11 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   // The rule lives in immersive-letter-route.ts because room capture pauses on exactly these
   // screens (P1307 D13) — two readers, one definition.
   const isImmersiveLetterRoute = matchImmersiveLetterRoute(location.pathname, location.search, showUserMenu);
+  // P1542: a page on a focus route that declares itself a destination (a hike's registration thank-you and end
+  // of learning) gets the app menu. Only the menu decisions read this; room capture still pauses on the route.
+  // P1542 round 5b: no strip, no room reserved for it.
+  const { chromeImmersive, bottomNavRoute, todaysStripShown } = useShellOverrides(
+    isImmersiveLetterRoute, isBottomNavHiddenRoute(location.pathname, location.search), todaysEvent);
   // Pages that have their own navigation (skip layout nav)
   const hasOwnNavigation = isAlternativeLandingPage;
   // Landing page needs nav but no top padding (hero goes to top)
@@ -177,7 +186,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   // no ActiveSessionBanner (it would collide with the fixed letter progress bar
   // moved to top-0). Exit affordance lives inside the letter's own progress bar row.
   const hasVisibleBanner = (hasActiveSession || roomBarVisible) && !isLivePage && !isImmersiveLetterRoute;
-  const needsTopPadding = !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute && (!heroOwnsTopOffset || hasVisibleBanner);
+  const needsTopPadding = !hasOwnNavigation && !isLivePage && !chromeImmersive && (!heroOwnsTopOffset || hasVisibleBanner);
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
   // P1387: and only where the BottomNav actually shows — same rule, one source.
   // P1512: the public website (landing, audience pages, manifesto, About, Pledgers) read while signed in keeps
@@ -190,14 +199,16 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   // jumping from the viewport centre to the content column centre. Nothing signed-in is DRAWN on this evidence.
   const shellExpected = surface === 'product' && !showSignedInChrome && hasStoredSession && authPending;
   const chromeExpected = showSignedInChrome || shellExpected;
-  const needsBottomPadding = chromeExpected && !publicSiteView && !isLivePage && !logoOnly && !isBottomNavHiddenRoute(location.pathname, location.search);
+  const needsBottomPadding = chromeExpected && !publicSiteView && !isLivePage && !logoOnly && bottomNavRoute;
   // P1512: the signed-in shell. A signed-in person on a normal product/public route gets the
   // sidebar (desktop) and bottom bar (phone) INSTEAD of the top nav, so each route shows exactly
   // one navigation. Everything that keeps its own chrome is excluded: the compact room pages, the
   // logo-only intro, /live and /transcribe, immersive letters, and pages with their own navigation.
   // A completed letter (?done=1) leaves compact mode and so enters the shell, as it re-enters the menus.
-  const shellEligible = !publicSiteView && !hasOwnNavigation && !isLivePage && !isImmersiveLetterRoute
-    && !(compact && !letterDone) && !logoOnly;
+  // P1542 (founder, 2026-10-23, fourth request): the event room (room, ready, arriving, meet) is no longer
+  // excluded — `roomShell` puts it inside the shell like every other signed-in page. /host stays compact.
+  const shellEligible = !publicSiteView && !hasOwnNavigation && !isLivePage && !chromeImmersive
+    && !keepsCompactChrome(compact, letterDone, roomShell) && !logoOnly;
   const signedInShell = showSignedInChrome && shellEligible;
   // P1539: the shell's box (padding, offset, loader) without its drawn chrome — see shellExpected.
   const shellFrame = chromeExpected && shellEligible;
@@ -210,7 +221,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
   const topPadding = shellFrame
     ? shellTopPadding
     : needsTopPadding ? (offlineStripShown ? "pt-16 lg:pt-20" : "pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))]") : "";
-  const bottomPadding = needsBottomPadding ? (todaysEvent ? "pb-[7.5rem] lg:pb-0" : "pb-20 lg:pb-0") : "";
+  const bottomPadding = needsBottomPadding ? (todaysStripShown ? "pb-[7.5rem] lg:pb-0" : "pb-20 lg:pb-0") : "";
   // P1512: the top bar belongs to every shell page except Home, whose chat screens draw their own header.
   const showShellTopBar = signedInShell && !isChatHome;
   const shellColumnPadding = shellFrame ? (sidebarCollapsed ? "lg:pl-16" : "lg:pl-[248px]") : "";
@@ -268,7 +279,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly }: { c
           column's padding; the sidebar starts below it). */}
       <OfflineStrip className={shellFrame ? (sidebarCollapsed ? "lg:-ml-16" : "lg:-ml-[248px]") : ""} />
       {signedInShell && <AppSidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} belowStrip={offlineStripShown} />}
-      {!shellFrame && !hasOwnNavigation && !isImmersiveLetterRoute && (
+      {!shellFrame && !hasOwnNavigation && !chromeImmersive && (
         <SimpleNavigation compact={compact && !letterDone} logoOnly={logoOnly} publicSite={publicSiteView} />
       )}
       {/* P956: top offset grows by env(safe-area-inset-top) to clear the nav, which now

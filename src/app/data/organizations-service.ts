@@ -256,8 +256,8 @@ export const organizationsService: OrganizationsService = {
     return ((data ?? []) as MemberRow[]).map(mapMember);
   },
 
-  async getMyMembership(orgId) {
-    const userId = await requireUserId();
+  async getMyMembership(orgId, viewerId) {
+    const userId = viewerId ?? await requireUserId();
     const { data, error } = await supabase
       .from('membership')
       .select('role, terms_version, accepted_at')

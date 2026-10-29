@@ -23,6 +23,7 @@ import { useUnreadSharedCount } from '@/app/hooks/useUnreadSharedCount';
 import { useOpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
 import { usePendingPartnerInvitationCount } from '@/app/hooks/usePendingPartnerInvitationCount';
 import { useTonightsEvent, tonightsEventHref, type TonightsEvent } from '@/app/hooks/useTonightsEvent';
+import { useHideTodaysStrip } from '@/app/components/layout/app-menu-override';
 import { EVENTS_LIST_TO, EVENTS_NAV_TO, PRICING_PATHS, PUBLIC_NAV_GROUPS } from '@/app/components/layout/nav-links';
 import { useChatUnreadCount } from '@/app/pages/chat/chat-state';
 import { isCanvasPathname } from '@/lib/canvas-boxes';
@@ -99,6 +100,9 @@ export function useShellEntries(): ShellEntry[] {
   const { count: partnerInviteCount } = usePendingPartnerInvitationCount();
   // P1512: unread chats ride on the Chats entry (0 outside the chat provider).
   const unreadChats = useChatUnreadCount();
+  // P1542: on today's event's own pages the sidebar lights "Today's event", so Events stands down (one active row).
+  const todaysSlug = useTonightsEvent()?.slug ?? null;
+  const onTodays = isOnEventPages(pathname, todaysSlug);
 
   const make = (
     id: ShellEntryId,
@@ -107,7 +111,7 @@ export function useShellEntries(): ShellEntry[] {
     Icon: LucideIcon,
     badge = 0,
     badgeNoun = 'unread',
-  ): ShellEntry => ({ id, label, to, Icon, active: to !== null && isShellEntryActive(id, pathname, slug), badge, badgeNoun });
+  ): ShellEntry => ({ id, label, to, Icon, active: to !== null && isShellEntryActive(id, pathname, slug) && !(id === 'events' && onTodays), badge, badgeNoun });
 
   const entries: ShellEntry[] = [
     make('home', 'Home', HOME_PATH, HomeIcon),
@@ -167,18 +171,34 @@ export function shellMenuOmissions(entries: readonly ShellEntry[], ids?: readonl
   return [...shellNavDestinations(entries, ids), ...website, ...WEBSITE_PATHS];
 }
 
+/** P1542: true on the event's own page or any page under it (room, close, prepare, confirm...). */
+export function isOnEventPages(pathname: string, eventSlug: string | null): boolean {
+  return !!eventSlug && isUnder(pathname, `/events/${eventSlug}`);
+}
+
 /**
  * Today's event for the shell: the same event the top nav's "Today's event" button showed, with
  * the same two exclusions — never on the page it points to (the page already is where the button
  * would go), and never on the paid-offer pages (P1351). Null when there is nothing to show.
  */
-export function useShellTodaysEvent(): { event: TonightsEvent; href: string } | null {
+export function useShellTodaysEvent(opts?: { keepOnOwnPage?: boolean }): { event: TonightsEvent; href: string; current: boolean } | null {
   const event = useTonightsEvent();
   const { pathname } = useLocation();
   if (!event || PRICING_PATHS.includes(pathname)) return null;
   const href = tonightsEventHref(event);
-  if (pathname === href) return null;
-  return { event, href };
+  // P1542: the desktop sidebar keeps the row on the event's own pages, as the active row (opts.keepOnOwnPage).
+  if (pathname === href && !opts?.keepOnOwnPage) return null;
+  return { event, href, current: isOnEventPages(pathname, event.slug) };
+}
+
+/**
+ * P1542 round 6b: on a page INSIDE the event the phone's "Today's event" strip points to (its room, learning, feedback,
+ * thank-yous), the strip only points where the person already is and competes with the screen's one action, so the
+ * page hides it. Opt-in per page (`on`), so pages that keep P1433 D1's strip on the event's own pages are unchanged.
+ */
+export function useHideTodaysStripForEvent(eventSlug: string | null | undefined, on: boolean): void {
+  const todays = useTonightsEvent();
+  useHideTodaysStrip(on && !!eventSlug && todays?.slug === eventSlug);
 }
 
 /**

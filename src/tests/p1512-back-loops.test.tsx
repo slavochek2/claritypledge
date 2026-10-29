@@ -432,9 +432,11 @@ describe('event -> Ready / Host / Close / Prepare: the way back to the event doe
   });
 
   it('Ready: its Back pops to the event (and the event\'s own Back then reaches the list)', async () => {
-    mount(eventOpts('/events/night/ready', <EventRoomReady />));
+    // P1562 §2: the event page's room link marks the route state (EventDetail.tsx, `fromEvent`), and Ready's Back is the
+    // shell bar's "Back to the event" — it pops only onto an event page that opened the room.
+    mount({ ...eventOpts('/events/night/ready', <EventRoomReady />), linkState: { fromEvent: true } });
     await openChild();
-    fireEvent.click(await screen.findByTestId('room-back'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Back to the event' }));
     await expectParentBackReachesGrandparent();
   });
 

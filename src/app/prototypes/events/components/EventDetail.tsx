@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { renderEventDescription } from '@/lib/markdown';
@@ -45,6 +46,10 @@ import { isHikeLayout, parseHikeDetails, splitAfterRouteSection } from '../hike/
 import { HikeOrganizerLine, HikeStatsStrip, PastHikePhotos, SeriesReviews, HikeRouteMap } from '../hike/HikeSections';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
+import { GroupChatQuietLink } from '../prep/PrepPieces';
+import { recipeFor } from '../series-recipes';
+import { classifyGroupChat } from '../group-chat-utils';
+import { openedChatLabel, useGroupChatOpened } from '../use-group-chat-opened';
 import { showsTopicVote } from '../topic-vote';
 import { TopicsPage } from '@/app/pages/topics-page';
 import { PrepMarks, groupByOptIn, micLine, useHostOptIns, useHostPrepMarks } from '../prep/PrepMarks';
@@ -63,7 +68,6 @@ import {
   NEEDS_INTERNET_MESSAGE,
 } from '@/app/hooks/use-online-write-guard';
 import { networkMark } from '@/lib/network-outcome';
-import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 
 /** P1272: how long before an event starts the room row switches from naming the
  * destination ("Event Room") to inviting entry ("Join now"). Founder call,
@@ -211,6 +215,7 @@ export function EventDetail() {
   // re-runs when RSVP state changes — a visitor who registers and comes back
   // from the confirm page must see the link without a hard reload.
   const eventId = event?.id;
+  const eventOrgId = event?.orgId;
   const isHostOfEvent = isLoggedIn && !!user && !!event && event.hostId === user.id;
   useEffect(() => {
     if (!eventId || (!isRsvpd && !isHostOfEvent)) {
@@ -286,14 +291,18 @@ export function EventDetail() {
     }
     let cancelled = false;
     setOrganizer(null);
-    eventsService.getEventOrganizer(eventId)
+    // P1542 round 10f (P1527, query shape): the event row this page read carries org_id — read the group by it (one
+    // request), and nothing at all for an event with no group. Only a row without it (an older offline copy) reads via
+    // the event.
+    if (eventOrgId === null) return;
+    (eventOrgId ? eventsService.getOrganizationByIdOrThrow(eventOrgId) : eventsService.getEventOrganizer(eventId))
       .then(org => { if (!cancelled) setOrganizer(org); })
       .catch(error => {
         console.error('[EventDetail] Failed to fetch organizer:', error);
         if (!cancelled) setOrganizer(null);
       });
     return () => { cancelled = true; };
-  }, [eventId]);
+  }, [hikeSeriesSlug, eventId, eventOrgId]);
 
   // Local action states
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -392,6 +401,11 @@ export function EventDetail() {
   const hikeDescriptionParts = useMemo(() => splitAfterRouteSection(descriptionHtml), [descriptionHtml]);
   // P1403 (founder 2026-10-04): "View on Maps" did not say it is where we meet.
   const hikeMeetName = hikeSeriesSlug ? parseHikeDetails(event?.hikeDetails)?.meetName : undefined;
+
+  // P1542 round 6 (decision 43): a hike's group chat stands down once this person opened it — the quiet "Open WhatsApp
+  // group" link until the event has ended, then nothing. Clarity Night's block is unchanged (smartOffers false).
+  const smartChat = !!event && recipeFor(event.seriesSlug).smartOffers;
+  const chatOpen = useGroupChatOpened(event?.id, smartChat ? groupChatUrl : null, user?.id);
 
   // P1586: nothing of the page is drawn yet, so the one page loader.
   if (loading) return <ClarityPageLoader />;
@@ -795,6 +809,8 @@ export function EventDetail() {
             </span>
             <Link
               to={`/events/${slug}/room`}
+              // P1542 round 6 (G): the room's "Back to the event" pops back here only when this page opened it.
+              state={{ fromEvent: true }}
               className="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-transparent px-1 pb-3 text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               {roomRowLabel}
@@ -1073,14 +1089,22 @@ export function EventDetail() {
                   the event — photos, "who has my jacket", where everyone went for food.
                   Cutting it off the moment a hike ends is the opposite of what the block
                   is for. Staying open longer is the feature here, not the leak. */}
-              {!isPast && !isCancelled && (
+              {!isPast && !isCancelled && (smartChat && groupChatUrl && chatOpen.opened !== false ? (
+                // Opened before (or still being read: nothing until it is known, so "Join" never flashes first).
+                chatOpen.opened === true && !hasEnded ? (
+                  <div className="mb-6">
+                    <GroupChatQuietLink url={groupChatUrl} label={openedChatLabel(classifyGroupChat(groupChatUrl).label)} onOpen={() => chatOpen.markOpened('event_page')} />
+                  </div>
+                ) : null
+              ) : (
                 <div className="mb-6">
                 <GroupChatBlock
                   url={groupChatUrl}
                   showLockedState={!!event.hasGroupChat && !isRsvpd && !isHostOfEvent}
+                  onOpen={smartChat ? () => chatOpen.markOpened('event_page') : undefined}
                 />
                 </div>
-              )}
+              ))}
 
               {/* P1515: canvases shared with this event, for the people the event admits. */}
               {!isCancelled && <EventSharedCanvases eventId={event.id} viewerId={user?.id} enabled={isLoggedIn && (isRsvpd || isHostOfEvent)} />}

@@ -179,6 +179,25 @@ publicly-readable `events` query.
 the pre-renumber P-number; see its header)
 **Integration test:** `e2e/integration/p1193-db-schema.spec.ts` (10 cases, live RLS)
 
+### group_chat_opens (P1542 — "has this person opened this event's group chat?")
+
+One row per person and group chat they tapped: `profile_id` (FK `profiles.id`, `ON DELETE CASCADE`),
+`chat_key` (SHA-256 of the normalised invite URL), `first_opened_at`. Primary key `(profile_id, chat_key)`,
+so one WhatsApp group shared by many hikes counts once.
+
+- **The key is computed server-side** from `event_private_info`, so the private URL is never copied into
+  this table and a client cannot claim an arbitrary key.
+- **Reads:** own rows only (`profile_id = auth.uid()`). **Writes:** no insert/update/delete policy at all;
+  the only writer is the `SECURITY DEFINER` RPC `mark_group_chat_opened(p_event_id)`, which refuses
+  (42501) anyone who is neither registered for the event nor its host.
+- **Read RPC:** `group_chat_opened(p_event_id)` returns false for a caller who may not see the chat, so it
+  reveals nothing about events they are not registered for.
+- **Private helpers** `group_chat_key(text)` and `group_chat_key_for_caller(uuid)` have EXECUTE revoked
+  from `PUBLIC`, `anon` and `authenticated`.
+- The client keeps a browser-local record first and falls back to it when the RPCs fail.
+
+**Migration:** `supabase/migrations/20261027170000_p1542_group_chat_opens.sql`
+
 ### event_rsvps column grants (P1321)
 
 `anon` and `authenticated` may SELECT only `id, event_id, profile_id, rsvped_at`

@@ -11,10 +11,13 @@
  * lives here, and the recorder must see it is paused); an automatic pause (/live, letters) still
  * renders nothing, as D3/D13 asked.
  */
-import { useLayoutEffect, useState } from 'react';
+import { useId, useLayoutEffect, useState } from 'react';
 import { ArrowRight, Mic, Pause, Play, Square } from 'lucide-react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
-import { SessionBar } from './session-bar';
+import { Button } from '@/components/ui/button';
+import { SessionBar, type SessionBarAction } from './session-bar';
+import { ShellBarActions } from '@/app/components/layout/app-shell/shell-top-bar';
+import { useShellBarSlot } from '@/app/components/layout/app-shell/shell-top-bar-context';
 import { CaptureInfoButton, OpenRoomButton, PauseResumeButton, StopCaptureButton } from './capture-controls';
 import { SHORT, useCaptureStatus } from './capture-status';
 import { CaptureLevelMeter } from './capture-level-meter';
@@ -237,6 +240,37 @@ const IDLE_TEXT = 'Not transcribing';
  */
 const IDLE_DETAIL = 'Record audio and share transcript with others in the room. Transcription follows our Terms and Privacy Policy.';
 
+/**
+ * P1562 §1a: inside the signed-in shell the idle control is the compact form in the shell top bar's right slot (one
+ * outlined "Transcribe", h-9, and its ⓘ; no "Not transcribing" text). Outside the shell (no right slot) it is today's
+ * full-width row, in place. Either way the same start action, guards, description and "Starting…" state below.
+ */
+function RoomTranscribeCompact({ primary }: { primary: SessionBarAction & { description: string } }) {
+  const descriptionId = useId();
+  return (
+    <div role="group" aria-label="Room transcription" data-testid="room-transcribe-idle" className="flex items-center gap-1">
+      {/* The shared outline button (design-system.md, P1568), at the spec's h-9. */}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={primary.onClick}
+        disabled={primary.disabled}
+        data-testid={primary.testId}
+        title={primary.description}
+        aria-describedby={descriptionId}
+        className="h-9 shrink-0"
+      >
+        {primary.label}
+      </Button>
+      <span id={descriptionId} className="sr-only">
+        {primary.description}
+      </span>
+      <CaptureInfoButton />
+    </div>
+  );
+}
+
 export function RoomTranscribeIdleBar({
   eventId,
   displayName,
@@ -248,9 +282,33 @@ export function RoomTranscribeIdleBar({
 }) {
   const capture = useRoomCapture();
   const { offline } = useConnectivity();
+  const { inShell } = useShellBarSlot('right');
   const [starting, setStarting] = useState(false);
   const busyPhase = capture.phase === 'starting' || capture.phase === 'ending';
   if (offline || busyPhase || capture.isCapturingForEvent(eventId)) return null;
+  const primary = {
+    label: starting ? 'Starting…' : 'Transcribe',
+    description: IDLE_DETAIL,
+    disabled: starting,
+    testId: 'room-transcribe-start',
+    onClick: () => {
+      setStarting(true);
+      void capture
+        .startCapture({ eventId, displayName })
+        .then(result => {
+          if (!result.started) onFailed();
+        })
+        .catch(onFailed)
+        .finally(() => setStarting(false));
+    },
+  };
+  if (inShell) {
+    return (
+      <ShellBarActions>
+        <RoomTranscribeCompact primary={primary} />
+      </ShellBarActions>
+    );
+  }
   return (
     <SessionBar
       tone="idle"
@@ -260,22 +318,7 @@ export function RoomTranscribeIdleBar({
       // Walkthrough 9: the same ⓘ as the running bar — what is recorded and where it goes, one tap
       // away before anyone starts, without a line of small print on every page.
       adornment={<CaptureInfoButton />}
-      primary={{
-        label: starting ? 'Starting…' : 'Transcribe',
-        description: IDLE_DETAIL,
-        disabled: starting,
-        testId: 'room-transcribe-start',
-        onClick: () => {
-          setStarting(true);
-          void capture
-            .startCapture({ eventId, displayName })
-            .then(result => {
-              if (!result.started) onFailed();
-            })
-            .catch(onFailed)
-            .finally(() => setStarting(false));
-        },
-      }}
+      primary={primary}
     />
   );
 }

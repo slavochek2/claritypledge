@@ -24,14 +24,22 @@ interface RatingButtonsProps {
    * Use when embedding inside a chat bubble (P467).
    */
   fullWidth?: boolean;
+  /**
+   * P1542 (founder 2026-10-26): on a narrow screen the scale takes two rows, 0-5 then 6-10 centred under it, so every
+   * number is a >= 40px target; one row again from 520px. Off by default: other surfaces are unchanged.
+   */
+  wrap?: boolean;
 }
 
-export function RatingButtons({ selectedValue, onSelect, disabled, fullWidth }: RatingButtonsProps) {
+export function RatingButtons({ selectedValue, onSelect, disabled, fullWidth, wrap = false }: RatingButtonsProps) {
   return (
     <div
       role="group"
       aria-label="Rating scale from 0 to 10"
-      className={`flex gap-1 w-full${fullWidth ? '' : ' max-w-sm'}`}
+      data-wrap={wrap ? '' : undefined}
+      className={wrap
+        ? `grid grid-cols-12 gap-1 w-full min-[520px]:flex${fullWidth ? '' : ' max-w-sm'}`
+        : `flex gap-1 w-full${fullWidth ? '' : ' max-w-sm'}`}
     >
       {RATING_OPTIONS.map((option) => (
         <button
@@ -45,6 +53,7 @@ export function RatingButtons({ selectedValue, onSelect, disabled, fullWidth }: 
           tabIndex={disabled ? -1 : undefined}
           className={`
             flex-1 min-w-0 min-h-11 py-2.5 rounded-md text-xs font-medium transition-all
+            ${wrap ? `col-span-2 text-sm min-[520px]:text-xs${option.value === 6 ? ' col-start-2' : ''}` : ''}
             ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
             ${
               selectedValue === option.value

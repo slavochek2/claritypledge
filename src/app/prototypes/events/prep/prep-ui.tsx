@@ -68,6 +68,50 @@ export function useMeasuredHeight(): [(node: HTMLDivElement | null) => void, num
   return [ref, height];
 }
 
+/**
+ * P1542 round 6e: a hike's pinned footer (the room's Opt in / Opt out bar and the group terms' "Accept and join").
+ *  - PINNED_FADE_CLASS: the fade above the bar is 128px and EASED (round 7c): solid for the first 28px above the bar,
+ *    then barely lifting (95% at 36px, 90% at 64px) before easing out to transparent at 128px. Why this shape: a line
+ *    reads as "cut" when its top is still visible (< 90% covered) while its bottom is already gone (≥ 95% covered);
+ *    the flat 95→90% stretch is longer than a line, so that never happens at any scroll position, and the tail is
+ *    gentle enough (at most a 0.34 change of cover within one line). A 96px fade cannot do both: measured for every
+ *    scroll offset, the linear 28→96px ramp flags ~40 offsets, and a 96px version of this curve needs a 0.68 tail.
+ *  - PINNED_FADE_OFF_CLASS: once the content is scrolled to its end there is nothing behind the bar to fade, so the fade
+ *    goes (the certificate's bottom border is not washed out), and on desktop the flat bar turns transparent too, so its
+ *    background does not cut the certificate's drop shadow in a hard line (round 7b). Driven by useScrolledToEnd.
+ *  - PINNED_FLAT_DESKTOP_CLASS: from lg the bar is flat (no rounded, bordered card edge against the sidebar); a phone
+ *    keeps its card.
+ */
+export const PINNED_FADE_CLASS =
+  "before:content-[''] before:absolute before:inset-x-0 before:-top-32 before:h-32 before:bg-[linear-gradient(to_top,hsl(var(--background))_0px,hsl(var(--background))_28px,hsl(var(--background)/0.95)_36px,hsl(var(--background)/0.9)_64px,transparent_128px)] before:pointer-events-none before:transition-opacity before:duration-200";
+export const PINNED_FADE_OFF_CLASS = 'before:opacity-0 lg:bg-transparent';
+export const PINNED_FLAT_DESKTOP_CLASS = 'lg:rounded-none lg:border-0 lg:shadow-none';
+
+/**
+ * Round 6e: true once the end of the content (a sentinel element placed after it) has scrolled into view above a
+ * pinned bar of `barHeight` px. Without IntersectionObserver (old browsers, tests) it stays false: the fade simply stays.
+ */
+export function useScrolledToEnd(barHeight: number): [(node: HTMLDivElement | null) => void, boolean] {
+  const [atEnd, setAtEnd] = useState(false);
+  const observer = useRef<IntersectionObserver | null>(null);
+  const node = useRef<HTMLDivElement | null>(null);
+  const observe = useCallback(() => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (!node.current || typeof IntersectionObserver === 'undefined') return;
+    const o = new IntersectionObserver(([entry]) => setAtEnd(!!entry?.isIntersecting), {
+      rootMargin: `0px 0px -${Math.max(0, Math.round(barHeight))}px 0px`,
+      threshold: 0,
+    });
+    o.observe(node.current);
+    observer.current = o;
+  }, [barHeight]);
+  // Round 7c (Gemini): when the sentinel unmounts there is no "end" in view any more — the fade comes back.
+  const ref = useCallback((n: HTMLDivElement | null) => { node.current = n; if (!n) setAtEnd(false); observe(); }, [observe]);
+  useEffect(() => { observe(); return () => observer.current?.disconnect(); }, [observe]);
+  return [ref, atEnd];
+}
+
 export function Title({ children }: { children: ReactNode }) {
   return <h1 className="text-2xl font-bold leading-tight text-foreground">{children}</h1>;
 }

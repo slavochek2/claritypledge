@@ -167,10 +167,22 @@ export function AuthCallbackPage() {
       // For returning users, the profile from useAuth might not be loaded yet.
       // Fetch directly to ensure we preserve existing slugs for returning users.
       // This prevents generating a new slug when an existing user re-verifies.
-      let existingProfile = user;
-      if (!existingProfile) {
-        existingProfile = await getProfile(authUser.id);
-      }
+      // P1542 round 10b (speed): the two reads by id below are independent, so they are sent together. A PostgREST
+      // builder sends nothing until something calls its then(); Promise.resolve() does that at once (on the next
+      // microtask), so the terms read is in flight while the profile is read. It never rejects (PostgREST resolves with
+      // { data, error }), and the Promise.all means a throwing getProfile cannot leave it unobserved.
+      const termsRead = Promise.resolve(
+        supabase
+          .from('profiles')
+          .select('accepted_terms_version')
+          .eq('id', authUser.id)
+          .maybeSingle(),
+      );
+      const [fetchedProfile, { data: existingTermsRow }] = await Promise.all([
+        user ? Promise.resolve(user) : getProfile(authUser.id),
+        termsRead,
+      ]);
+      let existingProfile = fetchedProfile;
 
       // P895: derive from the authoritative fetch — context user may be null on
       // transient fetch failures. Live migration finds a profile by email (not id)
@@ -183,11 +195,6 @@ export function AuthCallbackPage() {
       // accepted; only new rows default to CURRENT_TERMS_VERSION. Without this,
       // every OAuth callback silently bumps every returning user to the current
       // version, defeating the TermsAcceptanceGate re-acceptance modal.
-      const { data: existingTermsRow } = await supabase
-        .from('profiles')
-        .select('accepted_terms_version')
-        .eq('id', authUser.id)
-        .maybeSingle();
       const preservedTermsVersion =
         existingTermsRow?.accepted_terms_version ?? CURRENT_TERMS_VERSION;
 
@@ -461,16 +468,19 @@ export function AuthCallbackPage() {
       // because set_my_pledge(true) requires the caller to already be verified.
       const { error: verifyErr } = await markSelfVerified();
       if (verifyErr) console.warn('⚠️ mark_self_verified failed (non-fatal):', verifyErr.message);
-      const { applied: pledgeApplied, error: pledgeErr } = await setMyPledge(hasPledged);
-      if (pledgeErr) console.warn('⚠️ set_my_pledge failed (non-fatal):', pledgeErr.message);
-      else if (hasPledged && !pledgeApplied) console.warn('⚠️ set_my_pledge(true) was rejected — caller not verified');
-
       // P1093: the caller is verified as of the line above, so RLS now permits their own
       // point_positions writes. Any letter they answered while unverified left its
       // positions in the staging buffer — lift them now. Non-fatal for the same reason
       // as the two accessors above: the profile row exists either way, and a subsequent
       // login re-runs this. Zero replayed is the normal case, not a failure.
-      const { error: replayErr } = await replayLetterPositions();
+      // P1542 round 10 (speed): set_my_pledge and the replay each need only the verification above, not each other,
+      // so they are sent together (one round trip, not two). Both still run strictly after mark_self_verified.
+      const [{ applied: pledgeApplied, error: pledgeErr }, { error: replayErr }] = await Promise.all([
+        setMyPledge(hasPledged),
+        replayLetterPositions(),
+      ]);
+      if (pledgeErr) console.warn('⚠️ set_my_pledge failed (non-fatal):', pledgeErr.message);
+      else if (hasPledged && !pledgeApplied) console.warn('⚠️ set_my_pledge(true) was rejected — caller not verified');
       if (replayErr) console.warn('⚠️ replay_letter_positions failed (non-fatal):', replayErr.message);
 
       // P1487: a new letter reader or agreement partner accepted the terms before they had a

@@ -14,6 +14,7 @@ import { AddToCalendarMenu } from './AddToCalendarMenu';
 import { PrepConfirm } from '../prep/PrepConfirm';
 import { EventShareRow } from './EventShareRow';
 import { isHikeLayout, parseHikeDetails } from '../hike/hike-utils';
+import { offersPreparation, recipeFor } from '../series-recipes';
 
 const AUTO_REDIRECT_DELAY_MS = 10000; // 10 seconds
 
@@ -29,37 +30,58 @@ export function RsvpConfirm() {
   const [event, setEvent] = useState<EventWithHost | null>(null);
   const [loading, setLoading] = useState(true);
   const [groupChatUrl, setGroupChatUrl] = useState<string | null>(null);
+  // Round 10b (Codex): a read that FAILED is not "this event does not exist" — it gets its own state with a retry.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   // Fetch event data
   useEffect(() => {
+    // Round 10b: a new slug starts from nothing (no previous event's chat link), and an answer for an old slug is ignored.
+    let cancelled = false;
+    setLoading(true);
+    setEvent(null);
+    setGroupChatUrl(null);
+    setLoadFailed(false);
     async function fetchEvent() {
       if (!slug) {
         setLoading(false);
         return;
       }
-      const eventData = await eventsService.getEventBySlug(slug);
-      setEvent(eventData);
-      setLoading(false);
+      let eventData: EventWithHost | null = null;
+      try {
+        // Round 10 (speed): this screen shows no guest list, so the event's second read (its attendees) is skipped.
+        eventData = await eventsService.getEventBySlug(slug, { attendees: false, throwOnError: true });
+        if (cancelled) return;
+        setEvent(eventData);
+      } catch (error) {
+        console.error('[RsvpConfirm] Failed to fetch event:', error);
+        if (!cancelled) setLoadFailed(true);
+      } finally {
+        // Round 10b: the page always leaves its loader, whatever the read did.
+        if (!cancelled) setLoading(false);
+      }
 
       // P1194: the moment someone registers is when the group chat matters most.
       // The caller is registered by definition here, but the gate is still the
       // service's — null comes back if the RSVP did not actually land.
       if (eventData?.hasGroupChat) {
         try {
-          setGroupChatUrl(await eventsService.getEventGroupChatUrl(eventData.id));
+          const url = await eventsService.getEventGroupChatUrl(eventData.id);
+          if (!cancelled) setGroupChatUrl(url);
         } catch (error) {
           console.error('[RsvpConfirm] Failed to fetch group chat link:', error);
         }
       }
     }
     fetchEvent();
-  }, [slug]);
+    return () => { cancelled = true; };
+  }, [slug, attempt]);
 
   // Auto-redirect to event page after confirmation (only if event exists)
   useEffect(() => {
     if (!event) return; // Don't redirect if event not loaded or doesn't exist
     // P1336: with preparation on, this screen asks for it — never pulled away from under the question.
-    if (event.preparationEnabled) return;
+    if (offersPreparation(event)) return;
     // P1194: don't pull the page out from under someone reading a group chat
     // invite they have not tapped yet.
     if (groupChatUrl) return;
@@ -74,6 +96,17 @@ export function RsvpConfirm() {
   // Loading state
   if (loading) {
     return <ClarityPageLoader />;
+  }
+
+  // Round 10b: the read failed (network, server) — say so and offer the retry, never "not found". Same shape as the
+  // room's own failed-read message (EventRoomMeet "We could not load the learning." + Try again).
+  if (loadFailed) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-10 text-center" data-testid="rsvp-confirm-error">
+        <p className="text-base text-muted-foreground">We could not load this page.</p>
+        <Button variant="outline" className="mt-4 min-h-11" onClick={() => setAttempt((n) => n + 1)} data-testid="rsvp-confirm-retry">Try again</Button>
+      </div>
+    );
   }
 
   if (!event) {
@@ -91,11 +124,15 @@ export function RsvpConfirm() {
   }
 
   // P1336: preparation on → screen 0 of the preparation (the registered box + the prep block).
-  if (event.preparationEnabled) {
+  // P1542: a series whose preparation is optional (hikes) gets the same screen, in its own words.
+  if (offersPreparation(event)) {
     return (
       <>
         {/* This screen hides the phone bottom bar: it keeps a Back (the shell top bar). */}
-        <FocusHeader onBack={backToEvent} />
+        {/* Round 5c (J): a hike's thank-you names where Back goes (it does go to the event). */}
+        {recipeFor(event.seriesSlug).prepare.offer
+          ? <FocusHeader onBack={backToEvent} label="Back to the event" aria-label="Back to the event" />
+          : <FocusHeader onBack={backToEvent} />}
         <PrepConfirm event={event} groupChatUrl={groupChatUrl} />
       </>
     );

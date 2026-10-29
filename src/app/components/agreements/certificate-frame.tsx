@@ -35,6 +35,9 @@ interface CertificateFrameProps {
   /** Italic serif line under the kicker. */
   epigraph: string;
   className?: string;
+  /** P1542 round 6c: balance the title, kicker and epigraph lines, so a phone never strands one word
+   *  ("Clarity Meeting / Principle"). Opt-in, so every other certificate keeps its wrapping. */
+  balanced?: boolean;
   children: React.ReactNode;
 }
 
@@ -44,8 +47,10 @@ export function CertificateFrame({
   kicker,
   epigraph,
   className = '',
+  balanced = false,
   children,
 }: CertificateFrameProps) {
+  const balance = balanced ? ' [text-wrap:balance]' : '';
   return (
     <div
       role="region"
@@ -60,16 +65,16 @@ export function CertificateFrame({
       <div className="space-y-6">
         <div className="text-center space-y-2 pb-5 border-b-2 border-[#002B5C]">
           <h2
-            className="text-2xl md:text-3xl font-serif tracking-wide text-[#1A1A1A]"
+            className={`text-2xl md:text-3xl font-serif tracking-wide text-[#1A1A1A]${balance}`}
             style={{ fontFamily: CERTIFICATE_SERIF }}
           >
             {title}
           </h2>
-          <p className="text-[10px] md:text-xs text-[#1A1A1A]/60 uppercase tracking-[0.2em] font-sans">
+          <p className={`text-[10px] md:text-xs text-[#1A1A1A]/60 uppercase tracking-[0.2em] font-sans${balance}`}>
             {kicker}
           </p>
           <p
-            className="text-sm md:text-base text-[#1A1A1A]/70 italic"
+            className={`text-sm md:text-base text-[#1A1A1A]/70 italic${balance}`}
             style={{ fontFamily: CERTIFICATE_SERIF }}
           >
             {epigraph}
@@ -86,7 +91,10 @@ export function CertificateFrame({
  * through the shared <OathText> helper so emphasis stays single-sourced with the
  * pledge. Used verbatim by both the bilateral agreement and the org terms.
  */
-export function CertificateOathBody({ sections }: { sections: readonly OathSection[] }) {
+/** `prettyWrap` (P1542 round 7d): `text-wrap: pretty` on the paragraphs and NO hyphenation — a commitment text must
+ *  never split its own key phrases ("the lower of our two num-bers"), which `hyphens: auto` did. Pretty avoids the
+ *  one-word last line; its somewhat ragged right edge is accepted. Opt-in, so every other certificate keeps its wrapping. */
+export function CertificateOathBody({ sections, prettyWrap = false }: { sections: readonly OathSection[]; prettyWrap?: boolean }) {
   return (
     <>
       {sections.map((section) => (
@@ -95,7 +103,7 @@ export function CertificateOathBody({ sections }: { sections: readonly OathSecti
             {section.heading}
           </h3>
           <p
-            className="text-base md:text-lg leading-relaxed text-[#1A1A1A]"
+            className={`text-base md:text-lg leading-relaxed text-[#1A1A1A]${prettyWrap ? ' [text-wrap:pretty]' : ''}`}
             style={{ fontFamily: CERTIFICATE_SERIF }}
           >
             <OathText text={section.text} boldPhrases={section.boldPhrases} variant="tailwind" />

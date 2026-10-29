@@ -142,6 +142,10 @@ export interface MeetingPrincipleViewProps {
   aboveChoice?: ReactNode;
   /** P1336: rendered inside the rating bar, directly above the question. Default: nothing. */
   aboveRating?: ReactNode;
+  /** P1542 round 6c: the certificate's small-caps line (default "A commitment for this conversation"; a hike's
+   *  says "this hike") and balanced title lines. Defaults keep every other caller unchanged. */
+  certificateKicker?: string;
+  balancedCertificate?: boolean;
 }
 
 export function MeetingPrincipleView({
@@ -163,6 +167,8 @@ export function MeetingPrincipleView({
   ratingBarClassName,
   aboveChoice,
   aboveRating,
+  certificateKicker = "A commitment for this conversation",
+  balancedCertificate = false,
 }: MeetingPrincipleViewProps) {
   /**
    * The rating bar is FIXED, so the certificate scrolls behind it — without reserving
@@ -207,7 +213,9 @@ export function MeetingPrincipleView({
       // without it the tail of the longest rung sits under the bar, unscrollable.
       // The choosing bar is measured too (P1336: content above Opt in / Opt out makes it taller
       // than pb-24 clears); never less than pb-24.
-      style={ratingBarHeight > 0 ? { paddingBottom: Math.max(96, ratingBarHeight + 16) } : undefined}
+      // P1542 round 8d: + the bottom-tab lift index.css sets inside the room's learning (0 everywhere else), so the
+      // last lines are not hidden behind the raised bar.
+      style={ratingBarHeight > 0 ? { paddingBottom: `calc(${Math.max(96, ratingBarHeight + 16)}px + var(--shell-bar-lift, 0px))` } : undefined}
     >
       {lead}
 
@@ -219,10 +227,11 @@ export function MeetingPrincipleView({
         <CertificateFrame
           ariaLabel={PRINCIPLE_TITLE}
           title={PRINCIPLE_TITLE}
-          kicker="A commitment for this conversation"
+          kicker={certificateKicker}
+          balanced={balancedCertificate}
           epigraph="We all crave being understood. Let's commit to listen."
         >
-          <CertificateOathBody sections={sectionsForLevel(level)} />
+          <CertificateOathBody sections={sectionsForLevel(level)} prettyWrap={balancedCertificate} />
         </CertificateFrame>
         {afterCertificate}
       </div>
@@ -242,7 +251,9 @@ export function MeetingPrincipleView({
           // px-0 cancels the component's own `p-4` horizontally: BAR_INNER_CLASS owns the
           // horizontal padding, because that is what makes it match the certificate.
           className={cn(
-            "px-0 shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)]",
+            // P1542 round 8c: a marker only — index.css lifts it above the phone's bottom tabs when the learning is
+            // shown inside the signed-in room ([data-in-room]); everywhere else it does nothing.
+            "principle-choice-bar px-0 shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)]",
             BAR_FADE_CLASS,
             ratingBarClassName,
           )}
@@ -306,7 +317,8 @@ export function MeetingPrincipleView({
         <div
           ref={setRatingBarRef}
           className={cn(
-            "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+            // P1542 round 8c: the same marker as the rating bar (index.css, [data-in-room] only).
+            "principle-choice-bar fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
             BAR_FADE_CLASS,
           )}
         >

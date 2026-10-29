@@ -18,7 +18,9 @@ import { markEventArrival } from '@/app/data/event-arrival-service';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { EventRoomGateScreen } from '../components/EventRoomGate';
 import { useEventRoomAccess } from '../components/EventRoomAccess';
-import { mapsUrl, onTimeLine, venueName } from './arrival-text';
+import { mapsUrl, meetLine, onTimeLine, venueName } from './arrival-text';
+import { recipeFor } from '../series-recipes';
+import { parseHikeDetails } from '../hike/hike-utils';
 import { isSessionMismatch } from '@/lib/session-guard';
 import { useSignInAgain } from '@/app/hooks/useSignInAgain';
 
@@ -95,7 +97,9 @@ export function EventArrivingPage() {
           </a>
         )}
       </div>
-      <p className="text-sm text-foreground" data-testid="arriving-on-time">{onTimeLine(event.datetime)}</p>
+      <p className="text-sm text-foreground" data-testid="arriving-on-time">{recipeFor(event.seriesSlug).timeLine === 'meet'
+        ? meetLine(event.datetime, parseHikeDetails(event.hikeDetails)?.meetName ?? venue)
+        : onTimeLine(event.datetime)}</p>
       <div className="flex w-full flex-col items-center gap-1">
         {/* While confirming a release, the safe answer is the one primary on the page. */}
         {!confirmingCancel && <LetterPrimaryCta label="I'm here now" onClick={hereNow} disabled={busy} />}

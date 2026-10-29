@@ -42,12 +42,14 @@ export function isBottomNavHiddenRoute(pathname: string, search: string): boolea
     // would be lost again on the next rename. Missed by the first sweep of this branch
     // because it is a REGEX, not a quoted path string.
     || /^\/(org|groups)\/[^/]+\/join\/?$/.test(pathname)
-    || /^\/(meet|events\/[^/]+\/meet)\/?$/.test(pathname)
+    // P1542 (founder, 2026-10-23): the event room's own /events/:slug/{room,ready,meet} now sit in the signed-in
+    // shell WITH the bottom tabs; the room's fixed Opt in bar is lifted above them (index.css, data-shell-bar).
+    || /^\/meet\/?$/.test(pathname)
     // P1337: /host too — the host panel is run one-handed standing up; the bar covered the
     // who's-here list at 375px.
     // P1387: /confirm too — the 'Do you have 10 minutes to prepare?' screen is the first step of
     // the preparation, and its pinned Prepare now must not compete with the menu.
-    || /^\/(ready|events\/[^/]+\/(ready|room|prepare|confirm|host))\/?$/.test(pathname)
+    || /^\/(ready|events\/[^/]+\/(prepare|confirm|host))\/?$/.test(pathname)
     // P1389: the evening close is focused while its steps run; its thank-you (?done=1) has the menus.
     || (/^\/events\/[^/]+\/close\/?$/.test(pathname) && !letterDone)
     // P1402: the standalone /prepare is focused while its steps run; its end screen (?done=1) is a

@@ -7,6 +7,7 @@ import { mockPointsService } from './points-service-mock';
 import { realPointsService } from './points-service-real';
 import { withListReturnCacheInvalidation } from '@/lib/list-return-cache';
 import { recordOwnPosition } from './own-position-writes';
+import { forgetInFlight } from '@/lib/share-in-flight';
 import { takeCallerGeneration } from './position-write-generation';
 import type { PointsService as PointsServiceType } from './points-service.interface';
 import type { PositionType } from '@/app/types';
@@ -31,12 +32,15 @@ export const pointsService: PointsServiceType = {
   // an answer arriving after a newer write's never overwrites it in the cache.
   async setPosition(pointId: string, userId: string, position: PositionType, reasoning?: string) {
     const generation = takeCallerGeneration(); // read before the first await
-    await baseService.setPosition(pointId, userId, position, reasoning);
+    // P1542 round 9b: a shared tag-points read in flight across this write may carry the old position — never join it.
+    forgetInFlight('tag-points');
+    try { await baseService.setPosition(pointId, userId, position, reasoning); } finally { forgetInFlight('tag-points'); }
     void recordOwnPosition(pointId, userId, position, generation);
   },
   async removePosition(pointId: string, userId: string) {
     const generation = takeCallerGeneration(); // read before the first await
-    await baseService.removePosition(pointId, userId);
+    forgetInFlight('tag-points');
+    try { await baseService.removePosition(pointId, userId); } finally { forgetInFlight('tag-points'); }
     void recordOwnPosition(pointId, userId, null, generation);
   },
 };

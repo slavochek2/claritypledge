@@ -9,6 +9,8 @@ interface GroupChatBlockProps {
   showLockedState?: boolean;
   /** Opt-in: a small text link (brand mark + "Join …") instead of the big brand button. */
   variant?: 'button' | 'link';
+  /** P1542 round 6 (decision 43): called on the tap, so the offer can stand down once opened. */
+  onOpen?: () => void;
 }
 
 /**
@@ -74,7 +76,7 @@ const NEUTRAL = {
  * (P955); a second bar of the same size competes with it. This one sizes to its own
  * label.
  */
-export function GroupChatBlock({ url, showLockedState = false, variant = 'button' }: GroupChatBlockProps) {
+export function GroupChatBlock({ url, showLockedState = false, variant = 'button', onOpen }: GroupChatBlockProps) {
   if (!url) {
     if (!showLockedState) return null;
     return (
@@ -104,6 +106,7 @@ export function GroupChatBlock({ url, showLockedState = false, variant = 'button
         href={href}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={onOpen}
         data-testid="group-chat-link"
         className="inline-flex min-h-10 items-center gap-2 text-sm font-medium text-foreground underline underline-offset-4"
       >
@@ -119,6 +122,7 @@ export function GroupChatBlock({ url, showLockedState = false, variant = 'button
         href={href}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={onOpen}
         data-testid="group-chat-link"
         className={`inline-flex items-center justify-center gap-2.5 h-11 px-5 rounded-full font-semibold text-sm
           transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring

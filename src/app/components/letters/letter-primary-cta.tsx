@@ -40,7 +40,11 @@ export function LetterPrimaryCta({
   className,
 }: LetterPrimaryCtaProps) {
   return (
-    <div className="w-full max-w-sm">
+    // P1542 round 6 (decision 46): `mx-auto` centres the 384px wrapper in any container wider than it. Without it
+    // the wrapper sat flush left inside a 448px card (the "Not now" link 15px off centre at 1440, 0px on a phone).
+    // Every caller's parent is a centred flex column, a centred row, a max-w-sm wrapper or a block that should
+    // centre it, so this only moves the button where it was off centre.
+    <div className="mx-auto w-full max-w-sm">
       <Button
         onClick={onClick}
         disabled={disabled}

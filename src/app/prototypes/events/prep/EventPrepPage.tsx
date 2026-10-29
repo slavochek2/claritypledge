@@ -10,17 +10,23 @@
  * Q&A is the product Dialog. Progress lives in event_preparations (resumes on any device), the
  * once-per-person parts in person_prep_parts.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, stripAgentPrefix } from '@/lib/utils';
 import { useAuth } from '@/auth';
 import { useReturnToParent } from '@/app/hooks/use-go-back';
-import { ClarityPageLoader } from '@/components/ui/clarity-loader';
+import { ClarityContentLoader, ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { isOnlineLocation, onTimeLine } from '../arrival/arrival-text';
+import { useAutoFinish, useStepsDone } from './use-auto-finish';
+import { useEventCommunityName } from '../use-event-community';
+import { useDeclareAppMenu } from '@/app/components/layout/app-menu-override';
+import { useHideTodaysStripForEvent } from '@/app/components/layout/app-shell/shell-nav';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { BAR_INNER_CLASS, MeetingPrincipleView, type PrincipleAnswer } from '@/app/components/agreements/meeting-principle-view';
@@ -30,6 +36,7 @@ import { eventsService } from '@/app/data/events-service';
 import { storiesService } from '@/app/data/stories-service';
 import { getAgentAccounts } from '@/app/data/agent-accounts-service';
 import {
+  getMyPrepParts,
   getResearchPlacesLeft,
   markPrepPart,
   savePreparation,
@@ -45,6 +52,7 @@ import {
   PART_VERSIONS,
   PRINCIPLE_LEVEL,
   STEP_PART,
+  backTarget, nextSnapshot, nextTarget,
   stepLabel,
   stepMinutes,
   type PlanStep,
@@ -52,6 +60,13 @@ import {
 import { EventBox, seriesLabel, SocialProof, socialProofLine } from './PrepPieces';
 import { type StatementsCount, ActionRow, Clip, StatementsActions, StepActions, Title, useMeasuredHeight } from './prep-ui';
 import { isAnswered, usePrepState, type PrepState } from './use-prep-state';
+import { defaultRoomStep, feedbackAlwaysOpen, offersPreparation, recipeFor } from '../series-recipes';
+import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
+import type { PrepRoomEmbed } from './prep-room-embed';
+import { getMyRoomStatus } from '@/app/data/event-room-service';
+import { useFeedbackFinished } from '../use-feedback-finished';
+import { whenVisible } from '../when-visible';
+import { replaceIntoClose } from '../close/close-arrival';
 
 // ─── page: access + data ───────────────────────────────────────────────────────────────
 
@@ -88,7 +103,7 @@ export function EventPrepPage() {
 
   if (authLoading || eventLoading) return <ClarityPageLoader />;
   if (!session) return <Navigate to={`/login?redirect=/events/${slug}/prepare`} replace />;
-  if (!event || !event.preparationEnabled) return <Navigate to={`/events/${slug}`} replace />;
+  if (!event || !offersPreparation(event)) return <Navigate to={`/events/${slug}`} replace />;
   if (registered === null || state.loading) return <ClarityPageLoader />;
   // Preparation belongs to a registration (the host has none of their own).
   if (!registered) return <Navigate to={`/events/${slug}`} replace />;
@@ -173,16 +188,19 @@ const joinNames = (names: string[]) =>
 type Screen = 'plan' | PlanStep | 'end';
 type VideoKey = 'welcome' | 'story' | 'principle';
 
-function PrepFlow({
+export function PrepFlow({
   event,
   groupChatUrl,
   state,
   viewerId,
+  room,
 }: {
   event: EventWithHost;
   groupChatUrl: string | null;
   state: PrepState;
   viewerId: string;
+  /** The learning drawn INSIDE the mounted room page (prep-room-embed.ts). Absent = the /prepare route. */
+  room?: PrepRoomEmbed;
 }) {
   const navigate = useNavigate();
   // The end screen's "Back to the event" must LAND on the event. When the event page opened this (its banner marks
@@ -192,22 +210,55 @@ function PrepFlow({
   const location = useLocation();
   const backToEvent = useReturnToParent(`/events/${event.slug}`, (location.state as { fromEvent?: boolean } | null)?.fromEvent === true);
   const [searchParams, setSearchParams] = useSearchParams();
-  const fromRoom = searchParams.get('from') === 'room';
+  const embedded = !!room;
+  const fromRoom = embedded || searchParams.get('from') === 'room';
   const { prep, plan } = state;
+  // P1542 founder round 3: a hike's flow is learning about the named community, never "preparing".
+  const { words } = recipeFor(event.seriesSlug).prepare;
+  // P1542 founder UAT round 5: learning opened from the room (its Learn step, or the feedback thank-you's Join) stays
+  // INSIDE the room's frame: the app menu, and the room's step bar with Learn as the shown step. Its finish returns to
+  // the room's Opt in step, or (then=join) to the group terms on the feedback thank-you.
+  const inRoom = fromRoom && !!words;
+  const thenJoin = inRoom && !embedded && searchParams.get('then') === 'join';
+  const roomRecipe = recipeFor(event.seriesSlug);
+  // Round 6 (G): the room is ONE history entry — moving between its steps (Learn, Opt in, Give feedback) replaces, so
+  // Back never returns into the learning, and the event-page marker travels along for "Back to the event".
+  const openedByEvent = (location.state as { fromEvent?: boolean } | null)?.fromEvent === true;
+  const onRoomStep = room?.onStep;
+  const toRoom = useCallback((roomStep: RoomStep) => (onRoomStep
+    ? onRoomStep(roomStep)
+    : navigate(`/events/${event.slug}/room`, { replace: true, state: { roomStep, fromEvent: openedByEvent } })), [onRoomStep, navigate, event.slug, openedByEvent]);
+  const finishInRoom = useCallback((roomStep: RoomStep = 'principle') => {
+    if (onRoomStep) onRoomStep(roomStep);
+    else if (thenJoin) navigate(`/events/${event.slug}/close?join=1`, replaceIntoClose(location.state, { joinViaLearning: true }));
+    else navigate(`/events/${event.slug}/room`, { replace: true, state: { roomStep, fromEvent: openedByEvent } });
+  }, [onRoomStep, thenJoin, navigate, event.slug, openedByEvent, location.state]);
+  const { timeLine } = recipeFor(event.seriesSlug);
+  const community = useEventCommunityName(event, !!words);
   const tag = event.statementTag ?? null;
 
+  // P1542 decision (A): a hike's finished steps open again from the list at any time, not only once all is finished.
+  const keepFinished = recipeFor(event.seriesSlug).prepare.keepFinished === true;
   const resumeScreen = (): Screen => {
     if (prep?.completedAt) return 'end';
     if (!prep?.startedAt) return 'plan';
-    const done = prep.stepsDone;
+    const done = state.stepsDone; // P1542 (A): finished elsewhere counts too (a hike's recipe)
     const current = prep.currentStep as PlanStep | null;
     if (current && plan.includes(current) && !done.includes(current)) return current;
-    return plan.find((s) => !done.includes(s)) ?? 'end';
+    // P1542 (A): everything finished elsewhere but not recorded → the list, which records it at once (useAutoFinish).
+    return plan.find((s) => !done.includes(s)) ?? (keepFinished ? 'plan' : 'end');
   };
   const [screen, setScreen] = useState<Screen>(resumeScreen);
+  // P1542 VQA round 5: a hike's end of learning is a destination: the app menu comes back (Clarity Night's end stays
+  // immersive, P1387). The route rule only sees the URL, so the page declares it.
+  useDeclareAppMenu((!!words && screen === 'end') || inRoom);
+  // Round 6b: inside the room the phone's "Today's event" strip would point where the person already is.
+  useHideTodaysStripForEvent(event.slug, inRoom);
   // The end screen is a destination: ?done=1 brings the app menus back (immersive-letter-route.ts),
   // so a prepared attendee always has a way on. Every other screen stays immersive.
   useEffect(() => {
+    // Embedded in the room, the room's URL is not the learning's: nothing to mark (the room already has the app menu).
+    if (embedded) return;
     const isDone = searchParams.get('done') === '1';
     if ((screen === 'end') === isDone) return;
     const params = new URLSearchParams(searchParams);
@@ -215,8 +266,8 @@ function PrepFlow({
     else params.delete('done');
     // Keep the route state: it carries the "opened by the event page" marker that Back to the event reads.
     setSearchParams(params, { replace: true, state: location.state });
-  }, [screen, searchParams, setSearchParams, location.state]);
-  const [stepsDone, setStepsDone] = useState<PrepStepKey[]>(prep?.stepsDone ?? []);
+  }, [embedded, screen, searchParams, setSearchParams, location.state]);
+  const [stepsDone, setStepsDone] = useStepsDone(plan, state.stepsDone);
   const [playRequest, setPlayRequest] = useState(0);
   const [clipPlayed, setClipPlayed] = useState<Record<VideoKey, boolean>>({ welcome: false, story: false, principle: false });
   // Principle: (a) intro + clip (once per person), (b) the decision, (c) host line, (d) 0-10.
@@ -225,6 +276,9 @@ function PrepFlow({
   const [tryAsked, setTryAsked] = useState(false);
   const [principleRating, setPrincipleRating] = useState<number | null>(null);
   const [researchInfoOpen, setResearchInfoOpen] = useState(false);
+  // Round 8c: hidden inside the room (another step shown), no dialog of the learning stays open over the room.
+  const roomActive = room?.active ?? true;
+  useEffect(() => { if (!roomActive) setResearchInfoOpen(false); }, [roomActive]);
   const [micAsked, setMicAsked] = useState(false);
   const [micSetup, setMicSetup] = useState<MicSetup | null>(prep?.micSetup ?? null);
   // P1386: second mic question ("what does your phone plug into?") is shown only after "No, I need one".
@@ -271,7 +325,7 @@ function PrepFlow({
   const isSkippable = (s: PlanStep) => {
     const t = tagFor(s);
     if (!t) return false;
-    if ((shownIds[t]?.length ?? 0) > 0) return false;
+    if (shownIds[t]?.length) return false;
     const pts = pointsFor(s);
     return pts !== null && pts.every(isAnswered);
   };
@@ -280,11 +334,10 @@ function PrepFlow({
   useEffect(() => {
     if (screen !== 'cmp7' && screen !== 'stake') return;
     const t = tagFor(screen);
-    const pts = pointsFor(screen);
-    if (!t || !pts || shownIds[t]) return;
-    setShownIds((prev) => ({ ...prev, [t]: pts.filter((p) => !isAnswered(p)).map((p) => p.id) }));
+    const ids = t ? nextSnapshot(shownIds[t], pointsFor(screen), keepFinished && stepsDone.includes(screen)) : null;
+    if (t && ids) setShownIds((prev) => ({ ...prev, [t]: ids }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, state.cmp7Points, state.eventPoints, shownIds]);
+  }, [screen, state.cmp7Points, state.eventPoints, shownIds, stepsDone, keepFinished]);
 
   /**
    * Writes go out one at a time, in order. Two upserts in flight together can commit in either
@@ -307,15 +360,40 @@ function PrepFlow({
     return run;
   }, [event.id, viewerId, setPrep]);
 
+  // Round 8b (Codex MED 3): a recorded part also refreshes the shared parts (a quiet read, no loading state), so a
+  // long-lived owner of this state (the room keeps it across tab switches) never asks a once-per-person part again.
+  const { setParts } = state;
+  // Round 8c (Codex MED 3): only the LATEST refresh applies — an older read landing after a newer one is dropped.
+  const partsSeq = useRef(0);
+  // Round 8f (metered rule 3): the refresh waits for a visible tab (whenVisible), and every pending wait is cancelled
+  // on unmount.
+  const refreshCancels = useRef<(() => void)[]>([]);
+  useEffect(() => () => { refreshCancels.current.forEach((c) => c()); refreshCancels.current = []; }, []);
+  const { parts } = state;
   const markPart = useCallback((part: keyof typeof PART_VERSIONS, outcome: 'completed' | 'skipped') => {
-    markPrepPart(viewerId, part, PART_VERSIONS[part], outcome).catch(() => undefined);
-  }, [viewerId]);
+    // Round 8f: a skip never downgrades a part already completed at this version (a refresher's "Continue without
+    // video" would otherwise null completed_at — event-prep-service markPrepPart). Skip just moves on.
+    if (outcome === 'skipped' && parts.some((r) => r.part === part && r.contentVersion === PART_VERSIONS[part] && !!r.completedAt)) return;
+    markPrepPart(viewerId, part, PART_VERSIONS[part], outcome)
+      .then(() => {
+        const seq = ++partsSeq.current;
+        const cancel = whenVisible(() => {
+          getMyPrepParts(viewerId).then((rows) => { if (seq === partsSeq.current) setParts(rows); }).catch(() => undefined);
+        });
+        refreshCancels.current.push(cancel);
+      })
+      .catch(() => undefined);
+  }, [viewerId, setParts, parts]);
 
   const go = useCallback(async (next: Screen, done: PrepStepKey[], extra: PrepPatch = {}) => {
     // "Prepared ✓" is only shown once completed_at is on record.
     if (next === 'end') {
       const ok = await save({ ...extra, stepsDone: done, currentStep: null, completedAt: new Date().toISOString() });
       if (!ok) return;
+      // Round 5: learning opened from the thank-you's Join goes straight on to the group terms.
+      // Round 6 (F): learning opened from the room's Learn step ends on its own screen INSIDE the room's frame (what
+      // was learned, then the room's next step), not with a jump back to the room.
+      if (thenJoin || room?.thenJoin) return finishInRoom(); // round 3 (D): in the room too
     }
     setScreen(next);
     setPlayRequest(0);
@@ -328,7 +406,32 @@ function PrepFlow({
       void save({ ...extra, stepsDone: done, currentStep: next });
     }
     window.scrollTo(0, 0);
-  }, [save, state.withPrincipleIntro]);
+  }, [save, state.withPrincipleIntro, thenJoin, room?.thenJoin, finishInRoom]);
+  // Founder UAT round: every step already finished elsewhere → record it and show the end, not an all-ticked list.
+  const autoFinishing = useAutoFinish(event.seriesSlug, prep, screen, plan, stepsDone, go, room);
+
+  // Founder 2026-10-26 (round 8e): finished learning can be gone through again (a refresher, or to show someone).
+  // Reopened in the room after finishing, it shows the plan with its ticked steps — the existing agenda — where any
+  // step opens again, plus the room's next step. Re-viewing never clears completed_at (saves patch only the step).
+  const finished = !!prep?.completedAt;
+  const reviewing = embedded && finished;
+  const roomActiveNow = room?.active ?? false;
+  useEffect(() => {
+    // Round 8f: EVERY reopening of finished learning lands on the ticked list (also from a step being reviewed).
+    if (reviewing && roomActiveNow) setScreen('plan');
+    // Only on (re)opening the Learn view: the end screen right after finishing stays until they leave.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomActiveNow]);
+  const reviewStep = (s: PlanStep) => {
+    setScreen(s);
+    setPlayRequest(0);
+    setTryAsked(false);
+    setMicAsked(false);
+    setAnswer(null);
+    setPrincipleRating(null);
+    setPrincipleIntroDone(s === 'principle' ? !state.withPrincipleIntro : true);
+    window.scrollTo(0, 0);
+  };
 
   const start = () => {
     const first = plan.find((s) => !stepsDone.includes(s) && !isSkippable(s)) ?? 'end';
@@ -341,24 +444,21 @@ function PrepFlow({
     const part = STEP_PART[screen];
     if (part) markPart(part, outcome);
     const done = stepsDone.includes(screen) ? stepsDone : [...stepsDone, screen];
-    // Passed-over statements steps count as done too (nothing left to answer).
-    const rest = plan.slice(plan.indexOf(screen) + 1);
-    const target = rest.find((s) => !done.includes(s) && !isSkippable(s));
-    const skippedOver = rest.slice(0, target ? rest.indexOf(target) : rest.length).filter((s) => !done.includes(s));
+    // Passed-over statements steps count as done too (nothing left to answer). P1542 (A) review: a hike's step reopened
+    // out of order continues to the first unfinished step anywhere; 'end' (completion) only once all are finished.
+    const { target, skippedOver } = nextTarget(plan, screen, done, keepFinished, isSkippable);
     skippedOver.forEach((s) => {
       const p = STEP_PART[s];
       if (p) markPart(p, 'completed');
     });
     const allDone = [...done, ...skippedOver];
     setStepsDone(allDone);
-    void go(target ?? 'end', allDone);
+    void go(target, allDone);
   };
 
   const back = () => {
     if (screen === 'plan' || screen === 'end') return;
-    const before = plan.slice(0, Math.max(plan.indexOf(screen), 0)).reverse();
-    const target = before.find((s) => !isSkippable(s)) ?? 'plan';
-    setScreen(target);
+    setScreen(backTarget(plan, screen, keepFinished, isSkippable)); // P1542 (A): a hike's Back reaches finished steps
     setPlayRequest(0);
     setTryAsked(false);
     setMicAsked(false);
@@ -372,6 +472,8 @@ function PrepFlow({
   /** The plan's back arrow: where the person came from in the app (screen 0, the event page or the
    *  room), else — opened from an email link — the event page. */
   const leavePlan = () => {
+    if (thenJoin) return navigate(`/events/${event.slug}/close`, replaceIntoClose(location.state));
+    if (inRoom) return toRoom('principle');
     if (window.history.state?.idx > 0) navigate(-1);
     else navigate(fromRoom ? `/events/${event.slug}/room` : `/events/${event.slug}`);
   };
@@ -452,12 +554,48 @@ function PrepFlow({
   };
 
   // Every step pins its bar at every width (founder UAT 2026-10-05): the actions stay in one place.
-  const contentPadding = { paddingBottom: barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
+  // Round 8d: + the bottom-tab lift index.css sets inside the room's learning (0 elsewhere): the bars are raised there.
+  const contentPadding = { paddingBottom: barHeight > 0 ? `calc(${barHeight + 24}px + var(--shell-bar-lift, 0px))` : 'max(1.5rem, env(safe-area-inset-bottom))' };
   const proof = state.proof;
   const label = seriesLabel(event);
   const eventPointCount = state.eventPoints?.length ?? null;
   const topic = eventTopic(event.title);
   const stepIndex = screen !== 'plan' && screen !== 'end' ? plan.indexOf(screen) : -1;
+  // Visual review round 5 (D): opened from the room's Learn step, the back arrow sits in the room's row, inline with the bar.
+  const roomRow = inRoom && !thenJoin;
+  // The join context carries its own back arrow; the room row's Back is the shell's "Back to the event" (round 6, G).
+  const ownRow = thenJoin;
+  // Round 6: the room bar ticks what this person actually did — Opt in once answered, Give feedback once finished.
+  // Read-only lookups (get_my_room_status never joins the room).
+  const [roomAnswered, setRoomAnswered] = useState(false);
+  useEffect(() => {
+    if (!roomRow || embedded) return;
+    let cancelled = false;
+    // Round 7e (metered-services rule 3): no request from a hidden tab.
+    const cancelWait = whenVisible(() => {
+      getMyRoomStatus(event.id).then((me) => { if (!cancelled) setRoomAnswered(me?.optedIn != null); }).catch(() => undefined);
+    });
+    return () => { cancelled = true; cancelWait(); };
+  }, [roomRow, embedded, event.id]);
+  const feedbackFinished = useFeedbackFinished(event.id, roomRow && !embedded && !!roomRecipe.roomClose.finished);
+  // Round 6 (F): where the room would open now — Give feedback once it is open and its default, else Opt in.
+  const roomNext: RoomStep = feedbackAlwaysOpen(event) && defaultRoomStep(event) === 'close' ? 'close' : 'principle';
+  const headerBack = () => {
+    if (screen === 'plan' || screen === 'end') return leavePlan();
+    // Round 8f: reviewing finished learning, the back arrow on any step returns to the ticked list (never out of the room).
+    if (reviewing) {
+      setScreen('plan');
+      window.scrollTo(0, 0);
+      return;
+    }
+    if (screen === 'principle') return principleBack();
+    if (screen === 'research' && micAsked) {
+      if (micNeeded) setMicNeeded(false); else setMicAsked(false);
+      window.scrollTo(0, 0);
+      return;
+    }
+    back();
+  };
 
   const statementsBar = (count: Count, loaded: boolean, firstUnansweredId: string | null) => (
     <StatementsActions
@@ -493,31 +631,72 @@ function PrepFlow({
   const optedInLine = proof ? socialProofLine('opted in at', proof.optedInPrevious, proof.optedInThis, label) : null;
   const eventAnswered = (state.eventPoints ?? []).some(isAnswered);
 
+  // Round 8b: embedded in the room, the step header is portalled into the room's sticky head (pinned like the room's
+  // own bar); nothing is drawn while the learning is hidden.
+  const headSlot = room?.headSlot ?? null;
+  const placeHeader = (node: ReactNode) => (embedded ? (headSlot ? createPortal(node, headSlot) : null) : node);
+  if (autoFinishing) return <ClarityContentLoader />;
+
   return (
-    <div className="min-h-[100dvh] bg-background" data-testid="p1336-prep">
-      {(stepIndex >= 0 || screen === 'plan') && (
-        <div ref={headerRef} className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background pt-[env(safe-area-inset-top)]">
+    // data-close-shell: in the room's frame the pinned bars rise above the phone's bottom tabs (index.css).
+    <div className={cn(!embedded && 'min-h-[100dvh]', 'bg-background')} data-testid="p1336-prep" data-close-shell={inRoom ? '' : undefined} data-in-room={inRoom ? '' : undefined}>
+      {/* Round 6 (G): inside the room the header is the room's own: the shell's "← Back to the event" (portalled into
+          the shell top bar, like the room's), then the step bar, sticky like the room's — same place on every view. */}
+      {roomRow && !embedded && <FocusHeader onBack={backToEvent} label="Back to the event" aria-label="Back to the event" />}
+      {(embedded ? stepIndex >= 0 : stepIndex >= 0 || screen === 'plan' || inRoom) && placeHeader(
+        <div
+          ref={headerRef}
+          data-shell-bar={inRoom && !roomRow ? '' : undefined}
+          className={cn(
+            'bg-background',
+            embedded
+              ? 'border-t border-border'
+              : roomRow
+              ? cn('sticky top-[env(safe-area-inset-top)] z-20', stepIndex >= 0 && 'border-b border-border')
+              : 'fixed inset-x-0 top-0 z-50 border-b border-border pt-[env(safe-area-inset-top)]',
+          )}
+        >
+          {/* Visual review round 5: entered from the feedback thank-you's Join, the learning is step 1 of joining, not
+              a trip back to the room's start: a small join context instead of the room's step bar. */}
+          {thenJoin && (
+            // Round 5d: the back arrow inline, left of the join context (as on the group terms after it).
+            <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-2" data-testid="learn-join-context">
+              <FocusHeader compact onBack={headerBack} aria-label="Back" />
+              <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground" data-testid="learn-join-title">Joining {community ?? 'the community'}</p>
+              <p className="text-xs text-muted-foreground" data-testid="learn-join-step">Part 1 of 2 · Short introduction</p>
+              </div>
+            </div>
+          )}
+          {roomRow && !embedded && (
+            // The room's step bar, in the room's own container (no Transcribe bar on a hike: founder decision 2).
+            <div className={cn(BAR_INNER_CLASS, 'flex items-end gap-1 pt-3 pb-2')} data-testid="learn-room-steps">
+              <RoomSteps
+                className="min-w-0 flex-1"
+                current={feedbackAlwaysOpen(event) ? 'close' : 'principle'}
+                viewing={null}
+                onSelect={toRoom}
+                hidden={[...(roomRecipe.room.readiness ? [] : ['ready' as const]), ...(roomRecipe.room.rounds ? [] : ['table' as const, 'compare' as const])]}
+                labels={roomRecipe.room.steps ? { principle: roomRecipe.room.steps.principle, close: roomRecipe.room.steps.close } : undefined}
+                learn={{ done: state.learned, active: true, label: roomRecipe.room.steps?.learn ?? undefined, onOpen: () => undefined }}
+                done={{ principle: roomAnswered, close: feedbackFinished === true }}
+              />
+            </div>
+          )}
           {/* The letter flow's header: back arrow, then the step name over LetterProgressBar. */}
+          {(stepIndex >= 0 || (screen === 'plan' && !inRoom)) && (
           <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-2" data-testid="step-header">
-            <button
+            {!ownRow && <button
               type="button"
-              onClick={
-                screen === 'plan'
-                  ? leavePlan
-                  : screen === 'principle'
-                  ? principleBack
-                  : screen === 'research' && micAsked
-                  ? () => { if (micNeeded) setMicNeeded(false); else setMicAsked(false); window.scrollTo(0, 0); }
-                  : back
-              }
+              onClick={headerBack}
               aria-label="Back"
               data-testid="header-back"
               className="flex-shrink-0 -ml-1 flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-gray-100 transition-colors"
             >
               <ArrowLeft size={20} />
-            </button>
+            </button>}
             {screen === 'plan' ? (
-              <p className="min-w-0 flex-1 text-sm font-semibold leading-snug text-foreground" data-testid="step-name">Preparation</p>
+              <p className="min-w-0 flex-1 text-sm font-semibold leading-snug text-foreground" data-testid="step-name">{words ? '' : 'Preparation'}</p>
             ) : (
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-sm font-semibold leading-snug text-foreground" data-testid="step-name">
@@ -533,9 +712,10 @@ function PrepFlow({
             </div>
             )}
           </div>
+          )}
         </div>
       )}
-      {(stepIndex >= 0 || screen === 'plan') && <div style={{ height: headerHeight }} aria-hidden />}
+      {(stepIndex >= 0 || screen === 'plan' || inRoom) && !roomRow && <div style={{ height: headerHeight }} aria-hidden />}
 
       {showPrincipleView ? (
         <MeetingPrincipleView
@@ -550,7 +730,7 @@ function PrepFlow({
           header={
             answer === null ? (
               <h1 className="pt-2 text-center text-2xl font-bold leading-tight text-foreground" data-testid="principle-decision-question">
-                Do you want to follow this principle with the attendees at the event?
+                {recipeFor(event.seriesSlug).room.principleQuestion.prepare}
               </h1>
             ) : undefined
           }
@@ -566,6 +746,9 @@ function PrepFlow({
           // avatar and one line — and the question is in the host's own voice ("my"), so it relates
           // to the principle above without a long name in it.
           aboveRating={<HostAsksLine event={event} />}
+          // Round 6c (G): a hike's certificate says "this hike" and balances its lines (Clarity Night keeps its own).
+          certificateKicker={words ? recipeFor(event.seriesSlug).room.principleKicker : undefined}
+          balancedCertificate={!!words}
         />
       ) : (
         <main className="mx-auto max-w-2xl space-y-6 px-4 pt-4" style={contentPadding}>
@@ -575,7 +758,8 @@ function PrepFlow({
             <section className="space-y-6 pt-4 lg:pt-10">
               <div className="space-y-1">
                 {/* [DRAFT] */}
-                <Title>Your preparation</Title>
+                {/* Visual review round 5: the resolved name at every width (never the fallback while the name is loading). */}
+                <Title>{words ? (community === undefined ? '\u00a0' : words.planTitle(community)) : 'Your preparation'}</Title>
                 <p className="text-base text-muted-foreground" data-testid="plan-summary">
                   {plan.length} {plan.length === 1 ? 'step' : 'steps'}
                   {state.minutes !== null && <> · about {state.minutes} min</>}
@@ -586,7 +770,18 @@ function PrepFlow({
                   const done = stepsDone.includes(s);
                   const last = i === plan.length - 1;
                   return (
-                    <li key={s} className="flex gap-3" data-testid={`agenda-step-${i + 1}`}>
+                    <li key={s} className="relative flex gap-3" data-testid={`agenda-step-${i + 1}`}>
+                      {/* Round 8e: reviewing finished learning, every row opens its step again (the whole row is the target).
+                          P1542 (A): in a hike, a finished row opens at any time. */}
+                      {(reviewing || (keepFinished && done)) && (
+                        <button
+                          type="button"
+                          className="absolute inset-0 z-10 rounded-md hover:bg-muted/40"
+                          aria-label={`Open again: ${stepLabel(s, eventPointCount, topic)}`}
+                          onClick={() => reviewStep(s)}
+                          data-testid={`agenda-open-${i + 1}`}
+                        />
+                      )}
                       <div className="flex flex-col items-center">
                         <span
                           className={cn(
@@ -602,16 +797,26 @@ function PrepFlow({
                         <p className={cn('min-w-0 text-base font-medium leading-snug text-foreground', done && 'text-muted-foreground')}>
                           {stepLabel(s, eventPointCount, topic)}
                         </p>
-                        <span className="shrink-0 pt-0.5 text-sm tabular-nums text-muted-foreground">
-                          {stepMinutes(s, state.cards, state.withPrincipleIntro)} min
-                        </span>
+                        {/* Visual review round 5 (item 5): until the statements have loaded the card counts are 0, so a
+                            row read "1 min" while the total was still missing. Rows and total now appear together. */}
+                        {state.minutes !== null && (
+                          <span className="shrink-0 pt-0.5 text-sm tabular-nums text-muted-foreground" data-testid={`agenda-minutes-${i + 1}`}>
+                            {stepMinutes(s, state.cards, state.withPrincipleIntro)} min
+                          </span>
+                        )}
                       </div>
                     </li>
                   );
                 })}
               </ol>
               <StepActions ref={barRef}>
-                <LetterPrimaryCta label="Start now" onClick={start} />
+                {reviewing && words ? (
+                  <LetterPrimaryCta label={roomNext === 'close' ? words.roomEnd.toFeedback : words.roomEnd.toOptIn} onClick={() => finishInRoom(roomNext)} />
+                ) : (
+                  <LetterPrimaryCta label="Start now" onClick={start} />
+                )}
+                {/* Round 6 (G): no second way out here — the header's "Back to the event" is it (the old link said
+                    "Back to the event" but went to the room). */}
               </StepActions>
             </section>
           )}
@@ -867,7 +1072,22 @@ function PrepFlow({
             </section>
           )}
 
-          {screen === 'end' && (() => {
+          {screen === 'end' && roomRow && words && (
+            // Round 6 (F, decision 44): learning finished inside the room keeps the room's frame and bar (Learn ticked),
+            // says what was learned and names the room's next step, with ONE way on. No event box, calendar, group chat or
+            // share here: the event page has them.
+            <section className="flex flex-col items-center gap-3 pt-10 text-center" data-testid="learn-room-end">
+              <Check className="h-8 w-8 text-green-600" aria-hidden="true" data-testid="learn-room-end-check" />
+              <h1 className="text-2xl font-bold leading-tight text-foreground text-balance">{words.roomEnd.title}</h1>
+              <p className="max-w-sm text-base text-muted-foreground text-balance" data-testid="learn-room-end-next">
+                {roomNext === 'close' ? words.roomEnd.nextFeedback : words.roomEnd.nextOptIn}
+              </p>
+              <div className="w-full pt-3" data-testid="learn-room-end-actions">
+                <LetterPrimaryCta label={roomNext === 'close' ? words.roomEnd.toFeedback : words.roomEnd.toOptIn} onClick={() => finishInRoom(roomNext)} />
+              </div>
+            </section>
+          )}
+          {screen === 'end' && !roomRow && (() => {
             const hasStories = !fromRoom && !!tag && !!experts && experts.length > 0;
             // Until the experts are read, the next action is not known: render no button rather than
             // one that changes under the person's finger.
@@ -879,9 +1099,12 @@ function PrepFlow({
               // buttons pin in ONE slim row like every step (the 2026-10-01 stacked bar covered the box).
               <section className="space-y-8 pt-4">
                 <div className="space-y-2 text-center">
-                  <Title>Thank you for preparing</Title>
-                  {/* P1380: said once, where people plan their evening (founder-approved copy). */}
-                  {!isOnlineLocation(event.location) && (
+                  <Title>{words ? words.endTitle(community ?? null) : 'Thank you for preparing'}</Title>
+                  {/* P1380: said once, where people plan their evening (founder-approved copy). P1542: a hike says
+                      when and where it meets, plainly (its location is often a map link, still a real place). */}
+                  {/* P1542 VQA round 5: a hike's card below already carries the time and meeting point, so the
+                      line is not repeated (Clarity Night keeps its "We start at … sharp"). */}
+                  {timeLine === 'meet' ? null : !isOnlineLocation(event.location) && (
                     <p className="text-sm text-foreground" data-testid="end-on-time">{onTimeLine(event.datetime)}</p>
                   )}
                   {(micSetup === 'usbc' || micSetup === 'own' || micSetup === 'lightning' || micSetup === 'other') && (
@@ -906,8 +1129,16 @@ function PrepFlow({
                       </p>
                     </div>
                   )}
+                  {/* P1542 VQA round 5: a hike's end of learning is a destination inside the app menu (see
+                      useDeclareAppMenu above), so its one way on sits in the page, not in a bar over the tabs. */}
+                  {words && actionsReady && (
+                    <div className="flex w-full max-w-sm flex-col items-center gap-1" data-testid="end-inline-actions">
+                      {/* Opened from the room, the end is the in-room screen above (round 6, F); this one is the event's. */}
+                      <LetterPrimaryCta label="Back to the event" onClick={toEvent} />
+                    </div>
+                  )}
                   {/* P1387: pinned like every step's actions, on one row. */}
-                  {actionsReady && (
+                  {!words && actionsReady && (
                   <StepActions ref={barRef}>
                     <ActionRow
                       primary={
@@ -924,7 +1155,7 @@ function PrepFlow({
                   </StepActions>
                   )}
                 </div>
-                <EventBox event={event} groupChatUrl={groupChatUrl} testId="end-card" title={null} />
+                <EventBox event={event} groupChatUrl={groupChatUrl} testId="end-card" title={null} plainChatLine={!!words} />
               </section>
             );
           })()}

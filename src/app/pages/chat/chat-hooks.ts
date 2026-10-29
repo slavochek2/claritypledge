@@ -114,22 +114,7 @@ export function hasFinePointer(): boolean {
   return window.matchMedia('(pointer: fine)').matches;
 }
 
-/** Live result of a media query (false where matchMedia does not exist). */
-export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(query).matches === true);
-  useEffect(() => {
-    if (!window.matchMedia) return;
-    const mq = window.matchMedia(query);
-    const update = () => setMatches(mq.matches === true);
-    update();
-    mq.addEventListener?.('change', update);
-    return () => mq.removeEventListener?.('change', update);
-  }, [query]);
-  return matches;
-}
-
-/** Tailwind's lg: the two-pane desktop layout. */
-export const DESKTOP_QUERY = '(min-width: 1024px)';
+export { useMediaQuery, DESKTOP_QUERY } from '@/app/hooks/use-media-query';
 
 /** A wide screen with a real hover: the only place the message toolbar floats over the text. */
 export const DESKTOP_HOVER_QUERY = '(min-width: 1024px) and (hover: hover)';

@@ -38,9 +38,9 @@ export function RosterWait({ status }: { status: RosterStatus }) {
     );
   }
   return (
-    // [FOUNDER DECISION: room roster empty copy is a placeholder.]
+    // Founder decision (P1562): a successful read with no members at all.
     <p data-testid="room-roster-empty" className="text-sm text-muted-foreground">
-      No one is here yet.
+      Nobody is here yet.
     </p>
   );
 }

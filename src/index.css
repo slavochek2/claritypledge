@@ -241,11 +241,40 @@ body:has([data-nav="bottom"]) .mobile-nav-panel {
   }
   /* Full-width fixed bars (terms notice, letter and explain-back action bars) would sit over the
    * sidebar: from lg up they start where the sidebar ends. Collapsed, the sidebar is 4rem wide. */
-  body:has([data-nav="sidebar"]:not([data-collapsed])) [data-shell-bar] {
+  /* P1542: the room's Opt in / Opt out bar is the same kind of bar (founder: "weirdly moved from center"). */
+  body:has([data-nav="sidebar"]:not([data-collapsed])) [data-shell-bar],
+  body:has([data-nav="sidebar"]:not([data-collapsed])) [data-in-room] .principle-choice-bar {
     left: 248px !important;
   }
-  body:has([data-nav="sidebar"][data-collapsed="true"]) [data-shell-bar] {
+  body:has([data-nav="sidebar"][data-collapsed="true"]) [data-shell-bar],
+  body:has([data-nav="sidebar"][data-collapsed="true"]) [data-in-room] .principle-choice-bar {
     left: 4rem !important;
+  }
+}
+
+/* P1542 (founder, 2026-10-23): the event room is inside the signed-in shell, so on a phone its fixed Opt in /
+ * Opt out bar shares the bottom edge with the bottom tabs (h-16, plus the 2.5rem "Today's event" strip on event
+ * day). It sits on top of them instead of under them; the tabs already carry the home-indicator inset. */
+@media (max-width: 1023.98px) {
+  /* A hike's feedback steps (EventClosePage, [data-close-shell]) are in the shell too: their pinned bars likewise. */
+  /* Round 8c: the learning's principle choice bar inside the room (it covered "Opt in" on a phone). */
+  body:has([data-nav="bottom"]) .room-decision-bar,
+  body:has([data-nav="bottom"]) [data-in-room] .principle-choice-bar,
+  body:has([data-nav="bottom"]) [data-close-shell] [data-shell-bar]:has([data-testid="step-actions"]) {
+    bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
+    padding-bottom: 1rem !important;
+  }
+  /* Round 8d: inside the room's learning the content reserves the same lift, so nothing scrolls behind a raised bar. */
+  body:has([data-nav="bottom"]) [data-in-room] {
+    --shell-bar-lift: calc(4rem + env(safe-area-inset-bottom));
+  }
+  body:has([data-nav="bottom"] [data-testid="tonights-event-cta"]) [data-in-room] {
+    --shell-bar-lift: calc(6.5rem + env(safe-area-inset-bottom));
+  }
+  body:has([data-nav="bottom"] [data-testid="tonights-event-cta"]) .room-decision-bar,
+  body:has([data-nav="bottom"] [data-testid="tonights-event-cta"]) [data-in-room] .principle-choice-bar,
+  body:has([data-nav="bottom"] [data-testid="tonights-event-cta"]) [data-close-shell] [data-shell-bar]:has([data-testid="step-actions"]) {
+    bottom: calc(6.5rem + env(safe-area-inset-bottom)) !important;
   }
 }
 

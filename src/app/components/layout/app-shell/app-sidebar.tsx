@@ -190,7 +190,11 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSidebarProps) {
   const entries = useShellEntries();
-  const todays = useShellTodaysEvent();
+  // P1542: kept on the event's own pages, where it is the one active row (Events stands down in shell-nav).
+  const todays = useShellTodaysEvent({ keepOnOwnPage: true });
+  // VQA round 4: one lit row. This instance's own answer decides it, so Events cannot stay lit while a second
+  // read of today's event (shell-nav) is still settling; the CTA itself is filled only when current.
+  const shownEntries = todays?.current ? entries.map(e => (e.id === 'events' ? { ...e, active: false } : e)) : entries;
   const { user, hasPledged, isProfilePending } = useNavAuthState();
   const handleSignOut = useShellSignOut();
   const scroll = useScrollEdges();
@@ -297,7 +301,7 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
             scroll.edges.bottom && 'border-b-border',
           )}
         >
-          {entries.map(entry => (
+          {shownEntries.map(entry => (
             <RailItem key={entry.id} entry={entry} />
           ))}
         </ul>
@@ -338,8 +342,9 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
           <Link
             to={todays.href}
             title={todays.event.title}
+            aria-current={todays.current ? 'page' : undefined}
             data-testid="tonights-event-cta"
-            className="mb-2 flex min-h-10 items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200 dark:hover:bg-blue-900"
+            className="mb-2 flex min-h-10 items-center gap-3 rounded-lg border border-blue-200 px-2.5 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-50 aria-[current=page]:border-blue-500 aria-[current=page]:bg-blue-100 aria-[current=page]:ring-1 aria-[current=page]:ring-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-blue-800 dark:text-blue-200 dark:hover:bg-blue-950 dark:aria-[current=page]:bg-blue-950"
             onClick={() =>
               analytics.track('nav_cta_clicked', { cta: 'tonights_event', device: 'desktop', registered: !!todays.event.registered })
             }
@@ -349,12 +354,12 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
           </Link>
         )}
         <ul aria-label="Menu" className="space-y-0.5">
-          {entries
+          {shownEntries
             .filter(e => e.id !== 'profile')
             .map(entry => (
               <SidebarRow key={entry.id} entry={entry} />
             ))}
-          {entries
+          {shownEntries
             .filter(e => e.id === 'profile')
             .map(entry => (
               <SidebarRow key={entry.id} entry={entry} />

@@ -59,16 +59,26 @@ export async function finishEventClose(eventId: string): Promise<boolean> {
 
 export async function saveEventFeedback(
   eventId: string,
-  fb: { score: number | null; liked: string; improve: string; quoteOk: boolean },
+  // P1542 round 9: quoteOk is no longer sent by answer saves — the server keeps the stored permission (NULL).
+  fb: { score: number | null; liked: string; improve: string; quoteOk?: boolean | null },
 ): Promise<boolean> {
   const { error } = await supabase.rpc('save_event_feedback', {
     p_event_id: eventId,
     p_score: fb.score,
     p_liked: fb.liked,
     p_improve: fb.improve,
-    p_quote_ok: fb.quoteOk,
+    p_quote_ok: fb.quoteOk ?? null,
   });
   if (error) console.error('[close] save_event_feedback failed:', error.code, error.message);
+  return !error;
+}
+
+/** P1542 rounds 9–11: the "you may quote me" box's own write — the only thing that raises the quote permission.
+ *  `clickedAt` (ISO) is when the person clicked: the server applies a click only if it is newer than the one on record
+ *  (20261029200300), so a late or stale write from any tab, remount or device never overwrites a newer click. */
+export async function setEventQuoteOk(eventId: string, quoteOk: boolean, clickedAt: string): Promise<boolean> {
+  const { error } = await supabase.rpc('set_event_quote_ok', { p_event_id: eventId, p_quote_ok: quoteOk, p_clicked_at: clickedAt });
+  if (error) console.error('[close] set_event_quote_ok failed:', error.code, error.message);
   return !error;
 }
 

@@ -7,15 +7,21 @@
  * "Join the room without preparing" enters directly — no confirmation dialog — and is
  * remembered for this browser session, so the gate does not reappear on every visit to /room.
  */
-import { useEffect, useState } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { useConnectivity } from '@/app/contexts/offline-status-context';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
+import { Button } from '@/components/ui/button';
 import type { EventWithHost } from '@/app/types';
 import { PrepStatus } from './PrepPieces';
 import { PrepBannerSkeleton } from './PrepBannerSkeleton';
 import { usePrepState } from './use-prep-state';
+import { gatesRoomOnPreparation, offersPreparation, recipeFor } from '../series-recipes';
+import { MEMBERSHIP_READ_TIMEOUT_MS, useEventCommunityName, useEventMembership } from '../use-event-community';
+import { whenVisible } from '../when-visible';
+import { cn } from '@/lib/utils';
 
 const bypassKey = (eventId: string, viewerId: string) => `p1336-room-bypass:${viewerId}:${eventId}`;
 export function hasBypassedPrep(eventId: string, viewerId: string): boolean {
@@ -49,7 +55,8 @@ export function useRoomPrepGate(event: EventWithHost | null, granted: boolean): 
   const viewerId = useViewerId();
   const { offline } = useConnectivity();
   const isHost = !!(event && viewerId && event.hostId === viewerId);
-  const applies = !!(granted && event?.preparationEnabled && !isHost && viewerId && !offline);
+  // P1542: an optional preparation (hikes) never stops anyone at the door.
+  const applies = !!(granted && gatesRoomOnPreparation(event) && !isHost && viewerId && !offline);
   const state = usePrepState(applies ? event : null, viewerId ?? undefined);
   const [timedOut, setTimedOut] = useState(false);
   const pending = applies && state.loading;
@@ -103,15 +110,23 @@ export function PrepRoomGate({ event, onJoin }: { event: EventWithHost; onJoin: 
  * `source="event"` is the same banner on the event page (where the 24h reminder lands): the
  * preparation then ends on its own end screen rather than "Join the room".
  */
-export function PrepRoomBanner({ event, source = 'room' }: { event: EventWithHost | null; source?: 'room' | 'event' }) {
+export function PrepRoomBanner({ event, source = 'room', centered = false }: {
+  event: EventWithHost | null;
+  source?: 'room' | 'event';
+  /** P1542 VQA round 5: on the centred thank-you screens the optional learning link is centred at every width. */
+  centered?: boolean;
+}) {
   const viewerId = useViewerId();
   const { offline } = useConnectivity();
   const navigate = useNavigate();
   const isHost = !!(event && viewerId && event.hostId === viewerId);
   // Offline the preparation cannot be read: show nothing rather than "not started" to someone who
   // prepared (review 2026-10-01).
-  const applies = !!(event?.preparationEnabled && !isHost && viewerId && !offline);
+  const applies = !!(offersPreparation(event) && !isHost && viewerId && !offline);
   const state = usePrepState(applies ? event : null, viewerId ?? undefined);
+  const offer = event ? recipeFor(event.seriesSlug).prepare.offer : null;
+  // Founder round 3: the link names the community (the event's organising group).
+  const community = useEventCommunityName(event, applies && !!offer);
   if (!applies || !event || state.error) return null;
   // P1586: a banner that is applicable but still being read would push the content below it when it
   // lands, so it holds its footprint (not-applicable and failed reads still render nothing).
@@ -125,6 +140,17 @@ export function PrepRoomBanner({ event, source = 'room' }: { event: EventWithHos
   );
   const status = progress.done === 0 ? 'Preparation not started' : `${progress.done} of ${progress.total} steps`;
   const cta = progress.done === 0 ? 'Start your preparation' : 'Finish your preparation';
+  // P1542 UAT 2026-10-23: where the series makes it optional learning (a hike), it is one quiet link, no status.
+  if (offer) {
+    if (progress.complete || state.learned) return null;
+    return (
+      <div className={`flex min-h-11 items-center text-sm ${centered ? 'w-full justify-center' : ''}`} data-testid="prep-room-banner">
+        <button type="button" onClick={open} className={`min-h-10 text-blue-600 hover:underline ${centered ? 'text-center' : 'text-left'}`} data-testid="prep-room-banner-cta">
+          {progress.done === 0 ? offer.start(community ?? null) : offer.resume(community ?? null)}
+        </button>
+      </div>
+    );
+  }
 
   if (source === 'room') {
     // UAT 2026-10-01: in the room this sits on the Back line, not as a box under it. Prepared →
@@ -158,5 +184,190 @@ export function PrepRoomBanner({ event, source = 'room' }: { event: EventWithHos
         {cta}
       </button>
     </div>
+  );
+}
+
+/** [FOUNDER DECISION: subtitle copy — this is the default until the founder picks.] One constant, so a swap is one line. */
+export const LEARN_INVITATION_SUBTITLE = 'How we talk across differences in opinions, interests and values.';
+
+/**
+ * Round 10b (founder): what this browser last learned, from reads that all answered, about whether the learning
+ * invitation applies to this person. Being a member, or having learned, is a fact about the person and the COMMUNITY,
+ * so the answer is kept per viewer and organising group: a member sees neither card nor placeholder on every later
+ * event of that group on this device. Only "started" (Continue vs Learn more) is per event.
+ */
+interface LearnCardMemory { show: boolean; community: string | null }
+/** What the card shows; frozen at the deadline (round 10f). */
+interface LearnCardDisplay { started: boolean; name: string | null; titleKnown: boolean; minutes: number | null }
+// Round 10f: an event with no group has no community to share an answer with — it is remembered per event.
+export const learnCardCommunityKey = (viewerId: string, orgId: string | null, eventId: string) =>
+  orgId ? `p1542-learn-card:${viewerId}:org:${orgId}` : `p1542-learn-card:${viewerId}:no-org:${eventId}`;
+export const learnCardEventKey = (viewerId: string, eventId: string) => `p1542-learn-card:${viewerId}:event:${eventId}`;
+function readJson<T>(key: string): Partial<T> | null {
+  try { return JSON.parse(localStorage.getItem(key) ?? 'null') as Partial<T> | null; } catch { return null; }
+}
+function writeJson(key: string, value: unknown): void {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode: nothing is remembered */ }
+}
+function readLearnCardMemory(key: string): LearnCardMemory | null {
+  const v = readJson<LearnCardMemory>(key);
+  return v && typeof v.show === 'boolean' ? { show: v.show, community: typeof v.community === 'string' ? v.community : null } : null;
+}
+function readStarted(key: string): boolean {
+  return readJson<{ started: boolean }>(key)?.started === true;
+}
+
+/**
+ * P1542 founder UAT round 6 (A, decision 39) and round 6c (J): on a hike's registration thank-you the learning is ONE
+ * centred invitation — the named community as a heading, one subtitle (LEARN_INVITATION_SUBTITLE), a computed
+ * "6 min" pill, then the page's ONE button, the filled blue "Learn more". A partial learner is invited to continue
+ * ("N min left", "Continue"). A learner (here or anywhere, hasLearned) or a member of the event's group sees nothing:
+ * there is nothing left to ask. Round 10b: while that is unknown its footprint holds a skeleton (see below).
+ */
+export function LearnInvitation({ event, className }: { event: EventWithHost; className?: string }) {
+  const viewerId = useViewerId();
+  const { sessionChecked } = useAuth();
+  const { offline } = useConnectivity();
+  const navigate = useNavigate();
+  const isHost = !!(viewerId && event.hostId === viewerId);
+  const offer = recipeFor(event.seriesSlug).prepare.offer;
+  const applies = !!(offer && offersPreparation(event) && !isHost && viewerId && !offline);
+  // Round 10b (2a): the session is still being restored — who this is is not known yet, so the card's place shows the
+  // placeholder. A signed-out visitor (session checked, no viewer) gets nothing, never a placeholder that stays.
+  const restoring = !viewerId && !sessionChecked && !!offer && offersPreparation(event) && !offline;
+  const state = usePrepState(applies ? event : null, viewerId ?? undefined);
+  const community = useEventCommunityName(event, applies);
+  const member = useEventMembership(event, applies, viewerId);
+  // Founder (round 10b): while it is unknown whether the card applies (learned? member?) and this browser has no trusted
+  // answer, the card's exact footprint shows a placeholder; once the reads settle the card fills it (no movement), or
+  // the placeholder goes — the last block on the page, so nothing below it moves.
+  // (2) The hooks answer only for the inputs they were read for (a disabled hook's idle values read as "unknown"), so
+  // the render where the viewer first becomes known never settles on them.
+  const settled = !state.loading && member !== undefined;
+  const actualShow = settled ? !state.error && !state.learned && member === false : null;
+  // Round 10d/10e: one deadline bounds the WHOLE decision — the preparation read and the membership read, including a
+  // membership read still waiting for the tab to be seen — counted from when the decision starts for this viewer and
+  // event. Once it passes, the decision STAYS timed out for this viewer and event for the rest of this page view: a
+  // trusted memory decides, else the card stays hidden, and a read that answers late is neither shown nor remembered
+  // (the card never appears after the page has settled without it).
+  // Round 10f: the deadline counts only while the tab is seen — a thank-you opened in a background tab starts its 4s
+  // when it is first shown. At the timeout, what the card displays (started, title, minutes) is frozen for this page
+  // view: a late answer changes nothing on screen.
+  const deadlineKey = applies && viewerId ? `${viewerId}:${event.id}` : null;
+  const deciding = !!deadlineKey && !settled;
+  const [timedOut, setTimedOut] = useState<{ key: string; frozen: LearnCardDisplay } | null>(null);
+  const decisionTimedOut = !!deadlineKey && timedOut?.key === deadlineKey;
+  const displayRef = useRef<LearnCardDisplay | null>(null);
+  useEffect(() => {
+    if (!deciding || !deadlineKey || decisionTimedOut) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const cancelWait = whenVisible(() => {
+      timer = setTimeout(() => {
+        setTimedOut({ key: deadlineKey, frozen: displayRef.current ?? { started: false, name: null, titleKnown: true, minutes: null } });
+      }, MEMBERSHIP_READ_TIMEOUT_MS);
+    });
+    return () => { cancelWait(); if (timer) clearTimeout(timer); };
+  }, [deciding, deadlineKey, decisionTimedOut]);
+  // Round 10b (2b): only an answer every read actually gave is remembered. A failed prep read (error) or a membership
+  // read that failed or timed out (null, "unknown") saves nothing, and the earlier memory stays; a null name (no group,
+  // or a failed name read) never overwrites a remembered one.
+  const trusted = settled && !decisionTimedOut && !state.error && member !== null;
+  const liveStarted = settled ? state.progress.done > 0 : (applies && viewerId ? readStarted(learnCardEventKey(viewerId, event.id)) : false);
+  const communityKey = applies && viewerId && event.orgId !== undefined ? learnCardCommunityKey(viewerId, event.orgId, event.id) : null;
+  const memory = communityKey ? readLearnCardMemory(communityKey) : null;
+  // The name: the read's, else the remembered one. While neither is known the title keeps its place, unseen — until the
+  // membership read has settled (2c), by when the name is either known or not coming, and the fallback words show.
+  const liveDisplay: LearnCardDisplay = {
+    started: liveStarted,
+    name: community !== undefined ? community : (memory?.community ?? null),
+    titleKnown: community !== undefined || !!memory?.community || member !== undefined,
+    minutes: state.minutes,
+  };
+  displayRef.current = liveDisplay;
+  const display = decisionTimedOut && timedOut ? timedOut.frozen : liveDisplay;
+  useEffect(() => {
+    if (!applies || !viewerId || !trusted || actualShow === null) return;
+    if (communityKey) {
+      const prior = readLearnCardMemory(communityKey);
+      writeJson(communityKey, { show: actualShow, community: community ?? prior?.community ?? null });
+    }
+    writeJson(learnCardEventKey(viewerId, event.id), { started: state.progress.done > 0 });
+  }, [applies, viewerId, trusted, actualShow, communityKey, community, event.id, state.progress.done]);
+
+  if (restoring && offer) return <LearnCard skeleton className={className} />;
+  if (!applies || !offer) return null;
+  const show = decisionTimedOut ? (memory?.show ?? false) : (actualShow ?? memory?.show ?? null);
+  if (show === false) return null;
+  if (show === null) return <LearnCard skeleton className={className} />;
+  return (
+    <LearnCard
+      className={className}
+      settled={settled}
+      title={display.started ? offer.resume(display.name) : offer.start(display.name)}
+      titleHidden={!display.titleKnown && !decisionTimedOut}
+      started={display.started}
+      minutes={display.minutes}
+      // Round 6d (Codex): NO fromEvent marker — the page below the learning is this thank-you, not the event page,
+      // so the learning's "Back to the event" must replace with the event rather than pop back here.
+      onClick={() => navigate(`/events/${event.slug}/prepare`)}
+    />
+  );
+}
+
+/**
+ * The learning invitation's one layout. `skeleton` (round 10b) draws the same footprint as the app's loading
+ * placeholders do (bg-muted + animate-pulse, as the chat list's): every line and the button keep their real size, so the
+ * card that replaces it moves nothing. The skeleton has no button — a shape, never a dead control.
+ */
+function LearnCard({ className, settled = false, title = '', titleHidden = false, started = false, minutes = null, onClick, skeleton = false }: {
+  className?: string;
+  settled?: boolean;
+  title?: string;
+  titleHidden?: boolean;
+  started?: boolean;
+  minutes?: number | null;
+  onClick?: () => void;
+  skeleton?: boolean;
+}) {
+  const bone = 'rounded-md text-transparent [box-decoration-break:clone]';
+  return (
+    <section
+      className={cn('flex flex-col items-center gap-3 text-center', className)}
+      data-testid={skeleton ? 'learn-card-skeleton' : 'learn-card'}
+      data-settled={settled ? 'true' : 'false'}
+      aria-hidden={skeleton || undefined}
+      aria-busy={skeleton || undefined}
+    >
+      <h2 className="min-h-[2lh] text-2xl font-bold leading-tight text-foreground [text-wrap:balance]" data-testid="learn-card-title">
+        {skeleton
+          ? <Skeleton as="span" className={bone}>Learn about this community</Skeleton>
+          : <span className={cn(titleHidden && 'invisible')}>{title}</span>}
+      </h2>
+      {/* Founder (round 6c, J): title → subtitle → the time pill → the button. */}
+      <p className="text-base text-muted-foreground [text-wrap:balance]" data-testid="learn-card-reason">
+        {skeleton ? <Skeleton as="span" className={bone}>{LEARN_INVITATION_SUBTITLE}</Skeleton> : LEARN_INVITATION_SUBTITLE}
+      </p>
+      {minutes === null ? (
+        <span className="invisible rounded-full px-3 py-0.5 text-sm" aria-hidden="true" data-testid="learn-card-minutes-pending">0 min</span>
+      ) : (
+        <span className="rounded-full bg-muted px-3 py-0.5 text-sm text-muted-foreground" data-testid="learn-card-minutes">
+          {minutes} min{started ? ' left' : ''}
+        </span>
+      )}
+      {/* Founder (round 6c, J): it is the ONE thing on this screen, so it is the filled primary (LetterPrimaryCta's look). */}
+      <div className="mx-auto mt-1 w-full max-w-sm">
+        {skeleton ? (
+          <Skeleton className="min-h-14 w-full rounded-full" data-testid="learn-card-skeleton-button" />
+        ) : (
+          <Button
+            className="min-h-14 w-full rounded-full bg-blue-600 text-base font-bold text-white hover:bg-blue-700"
+            onClick={onClick}
+            data-testid="learn-card-cta"
+          >
+            {started ? 'Continue' : 'Learn more'}
+          </Button>
+        )}
+      </div>
+    </section>
   );
 }

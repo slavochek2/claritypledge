@@ -78,8 +78,10 @@ export function EventShareRow({
           data-testid="share-event"
         >
           {canShareSheet ? <MoreHorizontal className="h-4 w-4" aria-hidden="true" /> : <Link2 className="h-4 w-4" aria-hidden="true" />}
-          {/* Phones: icon only so the six buttons fit one row at 320px; the label returns on wider screens. */}
-          <span className={canShareSheet ? 'hidden sm:inline' : ''}>{copied ? 'Copied!' : canShareSheet ? 'More' : 'Copy link'}</span>
+          {/* Phones: icon only so the six buttons fit one row at 320px; the label returns on wider screens.
+              P1542 VQA: below 640px for "Copy link" too (a narrow window without a share sheet), so the QR
+              button no longer wraps onto a line of its own. The aria-label still names it. */}
+          <span className="hidden sm:inline">{copied ? 'Copied!' : canShareSheet ? 'More' : 'Copy link'}</span>
         </button>
         {/* Founder 2026-10-04: in person ("how do I join?") the other phone just scans. */}
         <button

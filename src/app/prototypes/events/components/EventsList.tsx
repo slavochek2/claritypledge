@@ -146,7 +146,8 @@ export function EventsList({
     const ids = [...current.upcoming, ...current.past].map((event) => event.id);
     if (ids.length === 0) return;
     let live = true;
-    eventsService.getViewerRsvps(ids, viewerId).then(
+    const gaveUp = new AbortController();
+    eventsService.getViewerRsvps(ids, viewerId, { signal: gaveUp.signal }).then(
       (rsvped) => {
         if (live) setMarksRead({ forRead: current, userId: viewerId, marks: new Set(rsvped) });
       },
@@ -156,6 +157,7 @@ export function EventsList({
     );
     return () => {
       live = false;
+      gaveUp.abort();
     };
   }, [current, viewerId]);
 

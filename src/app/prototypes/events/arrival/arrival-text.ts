@@ -49,6 +49,15 @@ export function onTimeLine(datetime: string, timeZone?: string): string {
   return `We start at ${formatTime(new Date(datetime), timeZone)} sharp.`;
 }
 
+/**
+ * P1542 founder round 3: a hike states its meeting time plainly, with the meeting point when there is one
+ * ("sharp" is Clarity Night's tone). `place` is the hike's meeting-place name, else the venue part of the location.
+ */
+export function meetLine(datetime: string, place: string | null | undefined, timeZone?: string): string {
+  const time = formatTime(new Date(datetime), timeZone);
+  return place ? `We meet at ${time} at ${place}.` : `We meet at ${time}.`;
+}
+
 /** The room asks "Have you arrived?" from an hour before the start until the event ends. */
 export const ARRIVAL_OPENS_BEFORE_MS = 60 * 60 * 1000;
 export function arrivalWindowOpen(

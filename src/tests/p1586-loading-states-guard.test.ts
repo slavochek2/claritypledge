@@ -295,6 +295,14 @@ const ALLOWLIST: Record<string, { counts: Partial<Record<Kind, number>>; why: st
 
   // --- Category 6: the page loader inside a frame that is already drawn. Only a Back-only header, a bare
   // wrapper, or a layout shell that paints nothing may sit around it (decisions.md 2026-04-11). ---
+  'src/app/prototypes/events/close/EventClosePage.tsx': {
+    counts: { 'page-loader-in-frame': 1 },
+    why: 'P1542 round 7f/7g: the join step\'s body while the membership read is out. Above it the close draws only its header (Back and the step bar); the body is the step\'s whole content, and the founder asked for the one C-logo loader there, never a blank step.',
+  },
+  'src/app/prototypes/events/components/EventRoomMeet.tsx': {
+    counts: { 'page-loader-in-frame': 1 },
+    why: 'P1542 round 10: the in-room Learn view while its read is out. The room\'s tab head is the only thing drawn above it; the view itself is the content loader, the founder\'s one C-logo loader at its one place, never a blank page.',
+  },
   'src/app/pages/calibration-breakdown-page.tsx': {
     counts: { 'page-loader-in-frame': 1 },
     why: 'P1364 UX Notes: while loading, the top Back (FocusHeader) is the only thing drawn; the page loader sits under it. No section or content frame is on screen.',

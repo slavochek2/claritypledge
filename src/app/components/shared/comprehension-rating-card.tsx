@@ -45,9 +45,11 @@ export interface ComprehensionRatingCardProps {
   /** End labels of the 0-10 row. Default: the comprehension wording (P1389 reuses the card for "recommend"). */
   lowLabel?: string;
   highLabel?: string;
+  /** P1542 (founder 2026-10-26): two rows on a narrow screen so every number is a >= 40px target (RatingButtons wrap). */
+  wrapScale?: boolean;
 }
 
-export function ComprehensionRatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack, disabled = false, submitLabel = 'Submit', ctaClassName, questionClassName, onSelectionChange, initialValue = null, lowLabel = 'Not at all', highLabel = 'Complete cognitive understanding' }: ComprehensionRatingCardProps) {
+export function ComprehensionRatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack, disabled = false, submitLabel = 'Submit', ctaClassName, questionClassName, onSelectionChange, initialValue = null, lowLabel = 'Not at all', highLabel = 'Complete cognitive understanding', wrapScale = false }: ComprehensionRatingCardProps) {
   const [selectedRating, setSelectedRating] = useState<number | null>(initialValue);
 
   const handleSelect = (rating: number) => {
@@ -74,7 +76,7 @@ export function ComprehensionRatingCard({ question, onSelect, className = '', on
           <span>{lowLabel}</span>
           <span>{highLabel}</span>
         </div>
-        <RatingButtons selectedValue={selectedRating} onSelect={handleSelect} disabled={disabled} />
+        <RatingButtons selectedValue={selectedRating} onSelect={handleSelect} disabled={disabled} wrap={wrapScale} />
         <Button
           size="sm"
           className={ctaClassName ?? 'w-full max-w-[200px] mt-2'}

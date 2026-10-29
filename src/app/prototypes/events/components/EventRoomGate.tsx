@@ -10,7 +10,7 @@
  * import it from here rather than duplicating the copy.
  */
 import { useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { PrepRoomGate, useRoomPrepGate } from '../prep/PrepRoom';
 import { ArrivalQuestion, useArrivalGate } from '../arrival/ArrivalGate';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
+import { recipeFor } from '../series-recipes';
 
 const GATE_HEADING = 'This is for people coming to the event';
 const GATE_BODY =
@@ -71,6 +72,8 @@ export function EventRoomGateScreen({
 
 export function EventRoomGate() {
   const { slug, event, loading, granted, isLoggedIn, offline } = useEventRoomAccess();
+  // P1542 round 5: the route state (the step the learning returns to) passes through to the room.
+  const location = useLocation();
   // P1336: a registrant whose preparation is not complete is offered it before the room. The
   // gate is decided BEFORE useEventRoomSelf runs, because that hook joins the room (a public
   // roster row) — someone who chooses "Prepare now" must not be on the roster yet.
@@ -104,11 +107,12 @@ export function EventRoomGate() {
   // Someone already being transcribed has necessarily been to the table, so goes there too.
   const alreadyTranscribed = !!event && isCapturingForEvent(event.id);
   const returning = self?.readinessValue != null;
-  const destination = alreadyTranscribed || returning ? 'meet' : 'ready';
+  // P1542: a series without a readiness step (hikes) goes straight to the room.
+  const destination = alreadyTranscribed || returning || !recipeFor(event?.seriesSlug).room.readiness ? 'meet' : 'ready';
   // P1586: the loader beside the redirect keeps the mark on screen through the hop (no blank frame).
   return (
     <>
-      <Navigate to={`/events/${slug}/${destination}`} replace />
+      <Navigate to={`/events/${slug}/${destination}`} replace state={location.state} />
       <ClarityPageLoader />
     </>
   );

@@ -25,6 +25,10 @@
  *
  * `compact` (P1337 walkthrough 8): the arrow alone, no label and no bottom margin — for a header
  * row that already carries the page's own chrome (the event room's step bar), as /prepare does.
+ *
+ * `inPlace` (P1542 founder UAT round): the shell-bar Back (same look and label), drawn where it is written instead of
+ * in the bar — for a page that pins its own row with the Back in it (the event room's step bar on desktop), so the
+ * bar's row, which would hold only the Back, is not drawn at all.
  */
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -53,15 +57,27 @@ type FocusHeaderProps =
       'aria-label'?: string;
     };
 
+/** The Back's look: the compact room arrow, the shell-bar (or in-place bar) look, or the in-page look. */
+function backClass(compact: boolean, barLook: boolean): string {
+  if (compact) return 'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full p-0 text-foreground hover:bg-muted -ml-2';
+  // In the shell bar: no bottom margin, 40px target, arrow flush with the content edge. P1562: it may shrink (min-w-0, as
+  // a flex item of the bar's left slot) and its label truncates, so it never runs under the bar's right slot; the arrow
+  // stays. No max-w-full: with -ml-3 it would clip the label by 12px with room to spare.
+  if (barLook) return 'inline-flex min-h-10 min-w-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground -ml-3 px-3';
+  return 'inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3';
+}
+
 export function FocusHeader({
   compact = false,
+  inPlace = false,
   ...props
-}: FocusHeaderProps & { /** Arrow only, no label, no bottom margin. */ compact?: boolean }) {
+}: FocusHeaderProps & { /** Arrow only, no label, no bottom margin. */ compact?: boolean; inPlace?: boolean }) {
   const { fallback, onBack, label, parentName, 'aria-label': ariaLabel } = props;
   // Hooks run unconditionally; with `onBack` the fallback is never used.
   const { goBack, willPop, fallbackPath } = useGoBackControl(fallback ?? '/');
   const { inShell } = useShellBarSlot('left');
   const inBar = inShell && !compact;
+  const barLook = inBar || inPlace;
   // Truthful label: the parent is named only when Back will actually go there (a cold arrival, which takes
   // the fallback). When it will pop, it goes wherever the reader came from, so it just says "Back".
   // The event-night fallback swaps the target for the room, so the parent is named only when the effective
@@ -73,21 +89,14 @@ export function FocusHeader({
       type="button"
       variant="ghost"
       onClick={onBack ?? goBack}
-      className={
-        compact
-          ? 'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full p-0 text-foreground hover:bg-muted -ml-2'
-          : inBar
-            ? // In the shell bar: no bottom margin, 40px target, arrow flush with the content edge.
-              'inline-flex min-h-10 items-center gap-1 text-sm text-muted-foreground hover:text-foreground -ml-3 px-3'
-            : 'inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3'
-      }
+      className={backClass(compact, barLook)}
       aria-label={ariaLabel ?? (namesParent ? `Back to ${parentName}` : 'Go back')}
       data-testid={compact ? 'room-back' : undefined}
     >
       <ArrowLeft className={compact ? 'h-5 w-5' : 'w-4 h-4'} />
-      {!compact && text}
+      {!compact && (barLook ? <span className="min-w-0 truncate">{text}</span> : text)}
     </Button>
   );
   // The compact (room) Back is part of a row the page draws itself; it never moves into the bar.
-  return compact ? button : <ShellBarPortal side="left">{button}</ShellBarPortal>;
+  return compact || inPlace ? button : <ShellBarPortal side="left">{button}</ShellBarPortal>;
 }

@@ -14,16 +14,26 @@ import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { savePreparation } from '@/app/data/event-prep-service';
 import type { EventWithHost } from '@/app/types';
-import { EventBox, PrepBlock, PrepStatus, seriesLabel, socialProofLine } from './PrepPieces';
+import { EventBox, PrepBlock, PrepStatus, RegisteredBlock, seriesLabel, socialProofLine } from './PrepPieces';
 import { usePrepState } from './use-prep-state';
+import { recipeFor } from '../series-recipes';
+import { LearnInvitation } from './PrepRoom';
+import { useDeclareAppMenu } from '@/app/components/layout/app-menu-override';
+import { useHideTodaysStripForEvent } from '@/app/components/layout/app-shell/shell-nav';
 
 export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; groupChatUrl: string | null }) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const navigate = useNavigate();
-  const state = usePrepState(event, user?.id);
+  const recipe = recipeFor(event.seriesSlug);
+  // Round 10e: a hike's thank-you never shows the prep status (LearnInvitation reads its own), so it sends no prep reads.
+  const state = usePrepState(event, recipe.prepare.offer ? undefined : user?.id);
   const [remindSaving, setRemindSaving] = useState(false);
-
   const reminded = state.prep?.prepChoice === 'remind';
+  // P1542 VQA round 5: a hike's registration thank-you is a destination with the app menu (bottom tabs on a
+  // phone). /confirm hides them by route for Clarity Night, whose pinned Prepare now would compete (P1387).
+  useDeclareAppMenu(!!recipe.prepare.offer);
+  // Round 6b: this page is inside the event the phone's "Today's event" strip points to — the strip steps aside.
+  useHideTodaysStripForEvent(event.slug, !!recipe.prepare.offer);
   const started = !!state.prep?.startedAt;
 
   const remind = async () => {
@@ -40,6 +50,19 @@ export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; gro
 
   const proof = state.proof;
   const proofLine = proof ? socialProofLine('prepared for', proof.preparedPrevious, proof.preparedThis, seriesLabel(event)) : null;
+
+  // P1542 founder UAT round 6 (A, decision 39): "so many white buttons — where should attention go?" One calm,
+  // centred stack: the success with its quiet links (group chat, calendar, share), 48px of space, then the one
+  // invitation to learn (an outline button, never a blue primary) — or nothing more for a learner or a member.
+  if (recipe.prepare.offer) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 pt-6 pb-20" data-testid="p1336-confirm">
+        {/* Round 10b: the session's id, the one LearnInvitation and the chat-opened flags use (the profile can lag). */}
+        <RegisteredBlock event={event} groupChatUrl={groupChatUrl} viewerId={session?.user?.id ?? user?.id ?? null} />
+        <LearnInvitation event={event} className="mt-12" />
+      </main>
+    );
+  }
 
   return (
     // pb-48 on phones while the pinned Prepare now bar shows (P1387).

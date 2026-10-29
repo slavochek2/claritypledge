@@ -67,7 +67,9 @@ export function useEventRoomAccess(): EventRoomAccess {
     (async () => {
       const userId = isLoggedIn ? viewerId : null;
       const read = await readThrough('event-access', slug, async () => {
-        const found = await eventsService.getEventBySlug(slug);
+        // P1542 round 10b (speed): no room screen shows the guest list, so the event's attendee read is skipped (one
+        // round trip, not two). The registration check stays AFTER the event read: it needs the event's id.
+        const found = await eventsService.getEventBySlug(slug, { attendees: false });
         if (!found) return null;
         let registered = false;
         if (userId) {

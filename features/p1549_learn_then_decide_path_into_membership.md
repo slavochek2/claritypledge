@@ -51,16 +51,32 @@ Decision density: decisions 1-12 are made (defaults applied where marked). New c
 
 [FOUNDER DECISION: existing members who never did the learning. Recommendation: keep them as members (no countdown, no pending state) and invite them once to do the learning; the founder can remove anyone who does not follow the principles; no quiz or verification. Founder leaning matches. Default applied 2026-10-24 (told to the founder, who may overturn it). Building the invite is Increment 2.]
 
-## Prerequisites from P1542 (branch `feature/p1542-series-recipes`, not yet shipped)
+## Relation to P1542 (updated 2026-10-27)
 
-Read this before building. Increment 1 builds on top of P1542 and starts after it ships.
+P1542 (Social Hike prepare and close recipes) ships first, together with P1562. Increment 1 starts on its own branch from `main` after that ship. P1542 built the **event side** of this path. P1549 builds the **groups-page side** and reuses P1542's pieces rather than copying them.
+
+**Built by P1542 (on `main` once it ships):**
+
+- **The event-side path, end to end.** Hike feedback thank-you → "Join <community>" with "Starts with a N-minute introduction to how we meet." (N computed, `PrepPieces.tsx:180`) → the learning, headed "Joining <community> · Part 1 of 2 · Short introduction" (`EventPrepPage.tsx`, `learn-join-context`) → the group terms, "Part 2 of 2 · Group terms", with the primary "Accept and join" (`EventClosePage.tsx`, the `join` step) → "Welcome, you're in" (`JoinedWelcome.tsx`) → the community chat. A learner skips the learning and goes straight to the terms.
+- **`hasLearned`** (`prep-plan.ts:101`): the one eligibility rule, described below.
+- **`cmp7` recorded on the standalone `/prepare`** (round 6b, `PreparePage.tsx`), so finishing `/prepare` counts as learned.
+- **The learn-card memory** (`PrepRoom.tsx`, `learnCardCommunityKey`): per viewer and per group, so a member never sees the learn invitation flash on a new event of the same group.
+- **Feedback is always open on a hike** (recipe flag `feedbackAlwaysOpen`), so the join entry is reachable without a room step.
+- **Layout rule:** every feedback-flow screen is centred on desktop (from 520px) and top-aligned on a phone. The group terms stay top-aligned (long text).
+
+**Reuse in Increment 1, don't rebuild:** the learning screens and their join header, the terms step with "Accept and join", `JoinedWelcome`, and `hasLearned`. Where a piece lives inside `EventClosePage.tsx` or `EventPrepPage.tsx`, extract it into a shared component first (both files are over the 400-line ratchet and may not grow).
+
+**Still to build (this spec, Increment 1):** the groups-page "Join as member" requiring the learning (decision 7), Part 1/Part 2 framing (10), resume (8), learners straight to the terms (9), the signed-out join with its transfer on sign-up (11), read-only terms for non-members (12, default A), and the Back, reload, pending and failure rules in the Solution below. `/groups/:slug/join` today still shows the terms and "Accept terms & join" to every non-member (`org-join-page.tsx:297`, measured 2026-10-27).
+
+**Shared with P1562:** P1562 moves `org-join-page.tsx`'s loader to `ClarityPageLoader`. Increment 1 keeps that loader.
+
+Details of the P1542 pieces Increment 1 depends on:
 
 - **"Learned" is one rule:** `hasLearned(parts, completedAt)` in `src/app/prototypes/events/prep/prep-plan.ts:101-102`. It is true when this event's learning is complete (`completedAt`), **or** when two once-per-person parts are completed at their current version: `cognitive_video` (the cognitive-understanding video) and `cmp7` (the statements).
   - The learning shows **three** steps (story, principle, cmp7). Eligibility needs only **the video and the cmp7 statements**. The principle step is deliberately not required: its intro can be skipped, so it is not proof (the code comment says so).
   - A video counts only when it was played. "Continue without video" records nothing (`PreparePage.tsx`, the story step's `videoBar`).
 - **The event-side join gate exists.** On a hike's feedback thank-you, a non-learner's "Join" opens the learning in the room frame (`EventClosePage.tsx`, the `then=join` button, about :842 on the round 6 tree). Its header reads "Joining <community> · Part 1 of 2 · Short introduction" (`EventPrepPage.tsx` `learn-join-context`). The learning ends on the group terms, "Part 2 of 2 · Group terms". A learner goes straight to the terms.
 - **Round 6b fix (P1542 work, not P1549 work):** the standalone `/prepare` never recorded the `cmp7` part. It only records `cognitive_video` and `principle_intro` (`PreparePage.tsx`, the two `complete(...)` calls). P1542 round 6b records `cmp7` there, signed in and signed out. Without it, a person who finished `/prepare` never satisfies `hasLearned`. **No backfill** of existing users: someone who answered the cmp7 statements before 6b sees that step as not done once.
-- **Not built:** the groups page. `/groups/:slug/join` shows the terms and "Accept terms & join" to every non-member, learned or not (`src/app/pages/org-join-page.tsx:210-305`, measured 2026-10-24).
 
 ## Founder UAT round 6 (2026-10-24): joining from the groups page
 

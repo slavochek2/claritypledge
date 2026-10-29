@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { useAuth } from '@/auth';
 import { eventsService } from '@/app/data/events-service';
@@ -16,7 +17,6 @@ import { organizationsService } from '@/app/data/organizations-service';
 import type { Organization } from '@/app/data/organizations-service.interface';
 import { DURATIONS, TIMEZONES } from '../utils';
 import { PrepSettingsFields, defaultPreparation, normalizeStatementTag, validateStatementTag } from '../prep/PrepSettingsFields';
-import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 
 export function CreateEvent() {
   const navigate = useNavigate();

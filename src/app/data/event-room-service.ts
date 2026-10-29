@@ -213,6 +213,8 @@ async function fetchRoomRoster(eventId: string): Promise<EventRoomMember[] | nul
   const timedOut = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), ROSTER_FETCH_TIMEOUT_MS); });
   try {
     return await Promise.race([queryRoomRoster(eventId), timedOut]);
+  } catch {
+    return null; // P1562: never rejects — a thrown read is a failed read, like an error or a timeout
   } finally {
     clearTimeout(timer);
   }
@@ -250,12 +252,16 @@ export type RosterStatus = 'pending' | 'ready' | 'failed';
  * fetch on every relevant event — never partial/optimistic patching, so a dropped or
  * out-of-order payload can never leave the roster in a state a full re-fetch wouldn't
  * also produce. `onStatus` (P1586 §4) is additive: it tells "not loaded yet" from "first read
- * failed", which the `[]` before the first success cannot. Returns an unsubscribe function. */
+ * failed", which the `[]` before the first success cannot. Returns an unsubscribe function, carrying `refresh()`
+ * (P1562): one more read through this same serialized loop — ordered after every read already sent, so its answer is
+ * the last one applied, and hidden-tab aware (sent now, or on becoming visible). */
+export type RoomRosterSubscription = (() => void) & { refresh: () => void };
+
 export function subscribeToRoomRoster(
   eventId: string,
   onUpdate: (roster: EventRoomMember[]) => void,
   onStatus?: (status: RosterStatus) => void,
-): () => void {
+): RoomRosterSubscription {
   let cancelled = false;
   // ONE fetch in flight at a time; an event that arrives meanwhile marks the roster dirty and
   // triggers exactly one more fetch, sent after the current one returned. So the last fetch
@@ -273,13 +279,23 @@ export function subscribeToRoomRoster(
     onStatus?.(next);
   };
   onStatus?.('pending');
+  // P1562 (metered-services rule 3): a hidden tab makes no request. The first read, a poll tick or a realtime event
+  // while hidden only marks the roster stale; becoming visible sends one read. The channel itself stays subscribed
+  // (a socket, not a REST request).
+  let staleWhileHidden = false;
+  const hidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
 
   const reload = async () => {
+    if (cancelled) return; // after stop(): no refresh, realtime callback or visibility event starts a read
     if (inFlight) { dirty = true; return; }
+    if (hidden()) { staleWhileHidden = true; return; }
     inFlight = true;
     try {
       do {
         dirty = false;
+        // Checked before EVERY fetch: the tab can hide while a read is out and an event queues the next one.
+        if (hidden()) { staleWhileHidden = true; return; }
+        staleWhileHidden = false; // cleared only when a fetch actually starts
         // A throw (not just a null) is a failed read too: otherwise status would stay `pending` for good
         // and the rejection would escape the fire-and-forget callers (P1586).
         const roster = await fetchRoomRoster(eventId).catch(() => null);
@@ -301,12 +317,21 @@ export function subscribeToRoomRoster(
     )
     .subscribe();
 
+  // A read in flight takes it as dirty, so the loop runs it next; the stale flag clears only when that fetch starts.
+  const onVisibility = () => {
+    if (hidden() || !staleWhileHidden) return;
+    void reload();
+  };
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibility);
+
   void reload();
   const pollId = setInterval(() => { void reload(); }, RECONCILE_POLL_MS);
 
-  return () => {
+  const stop = () => {
     cancelled = true;
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibility);
     clearInterval(pollId);
     void supabase.removeChannel(channel);
   };
+  return Object.assign(stop, { refresh: () => { void reload(); } });
 }

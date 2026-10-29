@@ -19,6 +19,35 @@ const PROVIDER_HOSTS: Array<{ provider: GroupChatProvider; hosts: string[]; labe
   { provider: 'discord', hosts: ['discord.gg', 'discord.com', 'discordapp.com'], label: 'Join Discord server' },
 ];
 
+/**
+ * P1542 round 7: the hosts whose invite code lives in the URL PATH (WhatsApp, Telegram, Discord) — for those the query
+ * string and fragment are tracking noise and are dropped from the "opened" key. Signal keeps its group code in the
+ * fragment (https://signal.group/#…), so it, and every unknown host, keeps both. Derived from PROVIDER_HOSTS so the
+ * lists cannot drift. The SERVER keeps its own copy of this list in public.group_chat_key
+ * (supabase/migrations/20261027170100_p1542_group_chat_key_trim.sql) — change both together.
+ */
+export const PATH_CODE_HOSTS: readonly string[] = PROVIDER_HOSTS
+  .filter((p) => p.provider !== 'signal')
+  .flatMap((p) => p.hosts);
+
+/**
+ * The SAME normalisation as the server's key (public.group_chat_key, migration 20261027170100 — keep the two identical):
+ *  1. trim spaces, tabs and line breaks (exactly ' \t\r\n', like btrim(p_url, E' \t\r\n'));
+ *  2. a host whose invite code is in the path (PATH_CODE_HOSTS: WhatsApp, Telegram, Discord; host lower-cased, an
+ *     optional "www." ignored): drop the query string and fragment, then trailing slashes;
+ *  3. any other host (Signal keeps its group code in the fragment; unknown hosts): drop only the trailing slashes
+ *     before the query/fragment, and keep them.
+ * Case is never changed (invite codes are case-sensitive).
+ */
+export function normaliseChatLink(url: string): string {
+  const u = url.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, '');
+  let host = '';
+  try { host = new URL(u).hostname.toLowerCase().replace(/^www\./, ''); } catch { /* not a URL: the "other host" rule */ }
+  if (PATH_CODE_HOSTS.includes(host)) return u.replace(/[?#].*$/, '').replace(/\/+$/, '');
+  const cut = u.search(/[?#]/);
+  return cut === -1 ? u.replace(/\/+$/, '') : u.slice(0, cut).replace(/\/+$/, '') + u.slice(cut);
+}
+
 export function classifyGroupChat(raw: string): GroupChatClassification {
   const value = (raw || '').trim();
 

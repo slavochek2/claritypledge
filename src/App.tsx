@@ -1201,16 +1201,16 @@ export default function ClarityPledgeApp() {
             Router's ranking never has to arbitrate — an explicit three-segment path
             outranks `/events/*` regardless of declaration order, but keeping them
             adjacent to the routes they hoist out of documents the relationship. */}
-        <Route path="/events/:slug/room" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventRoomGate /></LazyRoute></ClarityLandingLayout>} />
-        <Route path="/events/:slug/ready" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventRoomReady /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/events/:slug/room" element={<ClarityLandingLayout surface="product" compact roomShell><LazyRoute><EventRoomGate /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/events/:slug/ready" element={<ClarityLandingLayout surface="product" compact roomShell><LazyRoute><EventRoomReady /></LazyRoute></ClarityLandingLayout>} />
         {/* P1336: the preparation carries its own header and bars, like a letter: immersive while
             in progress (immersive-letter-route.ts), app menus back on the end screen (?done=1). */}
         <Route path="/events/:slug/prepare" element={<ClarityLandingLayout surface="product"><LazyRoute><EventPrepPage /></LazyRoute></ClarityLandingLayout>} />
         {/* P1389: the evening close — QR on the projector after the last round, and a link for anyone who left early. */}
         <Route path="/events/:slug/close" element={<ClarityLandingLayout surface="product"><LazyRoute><EventClosePage /></LazyRoute></ClarityLandingLayout>} />
         {/* P1380: "See you soon" — behind Not yet in the starting-soon email and the room's arrival question. */}
-        <Route path="/events/:slug/arriving" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventArrivingPage /></LazyRoute></ClarityLandingLayout>} />
-        <Route path="/events/:slug/meet" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventRoomMeet /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/events/:slug/arriving" element={<ClarityLandingLayout surface="product" compact roomShell><LazyRoute><EventArrivingPage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/events/:slug/meet" element={<ClarityLandingLayout surface="product" compact roomShell><LazyRoute><EventRoomMeet /></LazyRoute></ClarityLandingLayout>} />
         {/* P1337: the host panel — rounds, the round grid, who's here. ?view=screen is the projector. Host-gated in the page and in every RPC. */}
         <Route path="/events/:slug/host" element={<ClarityLandingLayout surface="product" compact><LazyRoute><EventHostPage /></LazyRoute></ClarityLandingLayout>} />
         {/* PROD-REACHABLE: /events is a live, nav-linked production feature (events list + RSVP), not a prototype — never dev-gate it. */}

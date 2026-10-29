@@ -1,5 +1,6 @@
 import type { StoryVideoQuotesData } from '@/lib/video';
 import type { BannerCredit } from '@/lib/banner-credit';
+import type { EventGroupFields } from './event-fields';
 /**
  * Core TypeScript interfaces for the Clarity Pledge application
  */
@@ -909,7 +910,8 @@ export function ratingLabelToValue(label: LiveRatingLabel): number {
 
 export type EventStatus = 'upcoming' | 'completed' | 'cancelled';
 
-export interface Event {
+// seriesSlug and orgId: see ./event-fields.ts
+export interface Event extends EventGroupFields {
   id: string;
   slug: string;
   title: string;
@@ -941,8 +943,6 @@ export interface Event {
   statementTag?: string;
   /** P1336: recording-volunteer places ("{left} of {n}"). Set via SQL; default 6. */
   researchPlaces?: number;
-  /** P1403: series key (e.g. 'social-hike'). Selects the hike layout — never the title. Read-only. */
-  seriesSlug?: string;
   /** P1403: raw stats snapshot written by publish-run; validated by parseHikeDetails. Read-only. */
   hikeDetails?: unknown;
   /** P1403: OSM-derived route geometry (GeoJSON object); validated by extractRouteLines. Read-only. */

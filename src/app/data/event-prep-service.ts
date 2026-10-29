@@ -10,6 +10,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import type { EventAttendee } from '@/app/types';
+import { forgetInFlight, shareInFlight } from '@/lib/share-in-flight';
 
 export type PrepStepKey = 'plan' | 'welcome' | 'story' | 'principle' | 'cmp7' | 'stake' | 'research';
 export type PrepPart = 'intro_video' | 'cognitive_video' | 'principle_intro' | 'cmp7';
@@ -153,6 +154,9 @@ export function toDbPatch(patch: PrepPatch): Record<string, unknown> {
 /** The caller's own preparation for an event, or null when none exists yet. Throws on a failed read
  * so a caller never mistakes "unknown" for "not started". */
 export async function getMyPreparation(eventId: string, profileId: string): Promise<EventPreparation | null> {
+  return shareInFlight(`prep:${eventId}:${profileId}`, () => readMyPreparation(eventId, profileId));
+}
+async function readMyPreparation(eventId: string, profileId: string): Promise<EventPreparation | null> {
   const { data, error } = await supabase
     .from('event_preparations')
     .select(PREP_COLUMNS)
@@ -165,6 +169,15 @@ export async function getMyPreparation(eventId: string, profileId: string): Prom
 
 /** Creates or updates the caller's row. RLS refuses an event the caller is not registered for. */
 export async function savePreparation(eventId: string, profileId: string, patch: PrepPatch): Promise<EventPreparation> {
+  // P1542 round 9b: a write busts the shared read, before (no new reader joins a pre-write request) and after.
+  forgetInFlight(`prep:${eventId}:${profileId}`);
+  try {
+    return await writePreparation(eventId, profileId, patch);
+  } finally {
+    forgetInFlight(`prep:${eventId}:${profileId}`);
+  }
+}
+async function writePreparation(eventId: string, profileId: string, patch: PrepPatch): Promise<EventPreparation> {
   const { data, error } = await supabase
     .from('event_preparations')
     .upsert({ event_id: eventId, profile_id: profileId, ...toDbPatch(patch) }, { onConflict: 'event_id,profile_id' })
@@ -175,6 +188,9 @@ export async function savePreparation(eventId: string, profileId: string, patch:
 }
 
 export async function getMyPrepParts(profileId: string): Promise<PrepPartRow[]> {
+  return shareInFlight(`prep-parts:${profileId}`, () => readMyPrepParts(profileId));
+}
+async function readMyPrepParts(profileId: string): Promise<PrepPartRow[]> {
   const { data, error } = await supabase
     .from('person_prep_parts')
     .select('part, content_version, completed_at, skipped_at')
@@ -204,8 +220,14 @@ export async function markPrepPart(
     outcome === 'completed'
       ? { profile_id: profileId, part, content_version: contentVersion, completed_at: completedAt ?? now, updated_at: now }
       : { profile_id: profileId, part, content_version: contentVersion, skipped_at: now, completed_at: null, updated_at: now };
-  const { error } = await supabase.from('person_prep_parts').upsert(row, { onConflict: 'profile_id,part' });
-  if (error) throw error;
+  // P1542 round 9b: a write busts the shared parts read, before and after.
+  forgetInFlight(`prep-parts:${profileId}`);
+  try {
+    const { error } = await supabase.from('person_prep_parts').upsert(row, { onConflict: 'profile_id,part' });
+    if (error) throw error;
+  } finally {
+    forgetInFlight(`prep-parts:${profileId}`);
+  }
 }
 
 const EMPTY_PROOF: PrepSocialProof = {
@@ -221,7 +243,7 @@ const EMPTY_PROOF: PrepSocialProof = {
 
 /** Social proof is decoration: a failed read shows nothing rather than a wrong number. */
 export async function getPrepSocialProof(eventId: string): Promise<PrepSocialProof> {
-  const { data, error } = await supabase.rpc('get_event_prep_social_proof', { p_event_id: eventId });
+  const { data, error } = await shareInFlight(`prep-proof:${eventId}`, async () => supabase.rpc('get_event_prep_social_proof', { p_event_id: eventId }));
   if (error || !data) return EMPTY_PROOF;
   return { ...EMPTY_PROOF, ...(data as Partial<PrepSocialProof>) };
 }

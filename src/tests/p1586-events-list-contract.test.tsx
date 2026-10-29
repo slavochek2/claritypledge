@@ -200,7 +200,7 @@ describe('P1586 events list: RSVP marks', () => {
     expect(await screen.findByTestId('going-mark')).toBeInTheDocument();
     expect(mocks.isUserRsvpd).not.toHaveBeenCalled();
     expect(mocks.getViewerRsvps).toHaveBeenCalledTimes(1);
-    expect(mocks.getViewerRsvps).toHaveBeenCalledWith([EVENT.id], USER_A.id);
+    expect(mocks.getViewerRsvps).toHaveBeenCalledWith([EVENT.id], USER_A.id, { signal: expect.any(AbortSignal) });
   });
 
   it('renders the list before the marks resolve', async () => {
@@ -330,7 +330,7 @@ describe('P1586 events list: identity comes from the session (P1560)', () => {
     expect(mocks.getUpcomingEvents).toHaveBeenCalledTimes(1);
     expect(mocks.getPastEvents).toHaveBeenCalledTimes(1);
     expect(mocks.getViewerRsvps).toHaveBeenCalledTimes(1);
-    expect(mocks.getViewerRsvps).toHaveBeenCalledWith([EVENT.id], USER_A.id);
+    expect(mocks.getViewerRsvps).toHaveBeenCalledWith([EVENT.id], USER_A.id, { signal: expect.any(AbortSignal) });
   });
 
   it('(c) A to B: A\'s marks are never visible, not even for one frame', async () => {
@@ -351,7 +351,7 @@ describe('P1586 events list: identity comes from the session (P1560)', () => {
     view.rerender(ui());
     expect(screen.queryByTestId('going-mark')).not.toBeInTheDocument();
     expect(screen.getByText('Clarity Hike')).toBeInTheDocument();
-    expect(mocks.getViewerRsvps).toHaveBeenLastCalledWith([EVENT.id], USER_B.id);
+    expect(mocks.getViewerRsvps).toHaveBeenLastCalledWith([EVENT.id], USER_B.id, { signal: expect.any(AbortSignal) });
 
     await act(async () => {
       marksB.resolve([]);

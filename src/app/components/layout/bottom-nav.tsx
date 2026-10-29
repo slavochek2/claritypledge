@@ -21,6 +21,7 @@ import { EVENTS_LIST_TO, EVENTS_NAV_TO } from "./nav-links";
 import { isBottomNavHiddenRoute } from "./bottom-nav-routes";
 import { InstallNudge } from "@/app/components/pwa/install-nudge";
 import { useInstallNudgeVisible } from "@/hooks/use-pwa-install";
+import { useAppMenuDeclared, useTodaysStripHidden } from "./app-menu-override";
 import { MeSheet } from "./app-shell/me-sheet";
 import { PHONE_TAB_IDS, useShellEntries, useShellTodaysEvent, type ShellEntry, type ShellEntryId } from "./app-shell/shell-nav";
 
@@ -60,6 +61,9 @@ export function BottomNav() {
   const todays = useShellTodaysEvent();
   const [meOpen, setMeOpen] = useState(false);
   const showNudge = useInstallNudgeVisible();
+  // P1542: a page on a focus route can declare itself a destination with the tabs back.
+  const appMenuDeclared = useAppMenuDeclared();
+  const stripHidden = useTodaysStripHidden();
 
   // Only show for logged-in users. P1421: that includes a known session whose profile is
   // still loading — on a slow link the bar used to appear ~10s late, under the user's thumb.
@@ -74,7 +78,7 @@ export function BottomNav() {
     return null;
   }
 
-  if (isBottomNavHiddenRoute(location.pathname, location.search)) {
+  if (!appMenuDeclared && isBottomNavHiddenRoute(location.pathname, location.search)) {
     return null;
   }
 
@@ -93,7 +97,7 @@ export function BottomNav() {
       className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border shadow-sheet pb-[env(safe-area-inset-bottom)]"
       aria-label="Mobile navigation"
     >
-      {todays && (
+      {todays && !stripHidden && (
         <Link
           to={todays.href}
           title={todays.event.title}

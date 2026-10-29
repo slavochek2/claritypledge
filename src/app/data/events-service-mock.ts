@@ -126,7 +126,15 @@ export const mockEventsService: EventsService = {
   // P1194: private, registration-gated details. Keyed by event id, mirroring the
   // event_private_info table the real service reads through RLS.
   // P1264: the archived mock carries no org records, so there is no note to return.
-  async getEventOrganizer(_eventId: string): Promise<{ name: string; slug: string } | null> {
+  async getEventOrganizer(_eventId: string): Promise<{ id: string; name: string; slug: string } | null> {
+    return null;
+  },
+
+  async getEventOrganizerOrThrow(_eventId: string): Promise<{ id: string; name: string; slug: string } | null> {
+    return null;
+  },
+
+  async getOrganizationByIdOrThrow(_orgId: string): Promise<{ id: string; name: string; slug: string } | null> {
     return null;
   },
 

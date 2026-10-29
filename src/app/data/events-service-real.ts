@@ -8,7 +8,8 @@ import { logDbError, throwDbError } from './db-error-logger';
 import { clientHoldsUser, guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
 import { earCountOf } from './ear-count';
 import { slugifyName } from './api';
-import { attachAttendeeCounts, fetchViewerRsvpEventIds, type EventsListReadOptions } from './events-list-reads';
+import { orgIdOf, readEventOrganizer, readOrganizationById, selectEventRowBySlug } from './event-slug-and-group-reads';
+import { attachRsvpCounts, failListRead, fetchViewerRsvpEventIds, selectPastEventRows, type ListReadOptions } from './event-list-reads';
 
 // `status` is NOT auto-managed (no trigger, no cron — intentional).
 // `datetime` is the source of truth for past/upcoming via the grace-period pattern below.
@@ -195,6 +196,7 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     researchPlaces: row.research_places ?? 6,
     // P1403: read-only, like bannerMobileUrl — deliberately absent from updateEvent's mapping.
     seriesSlug: row.series_slug ?? undefined,
+    orgId: orgIdOf(row), // P1542 round 10b: the page's own event row carries its group (no extra read)
     hikeDetails: row.hike_details ?? undefined,
     routeGeojson: row.route_geojson ?? undefined,
     // Attendees fetched separately - components should call getEventAttendees()
@@ -249,7 +251,7 @@ export function groupEventsByOrg<T>(
 }
 
 /** The shared upcoming-events read: `orgFilter` is one id, a list of ids, or absent (unscoped). */
-async function loadUpcoming(orgFilter?: string | string[], opts?: EventsListReadOptions): Promise<{ events: EventWithHost[]; orgIds: (string | null)[] }> {
+async function loadUpcoming(orgFilter?: string | string[], options?: ListReadOptions): Promise<{ events: EventWithHost[]; orgIds: (string | null)[] }> {
   const graceCutoff = getGraceCutoff();
   // P1060: the org filter is applied CONDITIONALLY and last. Omitting orgId must
   // add no `.eq` at all — the standalone /events list stays unfiltered, which is
@@ -279,23 +281,21 @@ async function loadUpcoming(orgFilter?: string | string[], opts?: EventsListRead
   const { data, error } = await query;
 
   if (error) {
-    // P1586: the events list opts in to a visible failure; every other caller keeps `[]`.
-    if (opts?.throwOnError) throwDbError('getUpcomingEvents', error, 'Events could not be loaded');
-    logDbError('getUpcomingEvents', error);
+    failListRead('getUpcomingEvents', error, options);
     return { events: [], orgIds: [] };
   }
 
   const rows = data as DbEventWithHost[];
   const events = rows.map(mapEventFromDb);
-  await attachAttendeeCounts(events);
+  await attachRsvpCounts(events, options);
   return { events, orgIds: rows.map((r) => r.org_id ?? null) };
 }
 
 
 export const realEventsService: EventsService = {
-  async getUpcomingEvents(orgId?: string, opts?: EventsListReadOptions): Promise<EventWithHost[]> {
+  async getUpcomingEvents(orgId?: string, options?: ListReadOptions): Promise<EventWithHost[]> {
     log(' getUpcomingEvents', orgId ?? '(unscoped)');
-    return (await loadUpcoming(orgId, opts)).events;
+    return (await loadUpcoming(orgId, options)).events;
   },
 
   async getUpcomingEventsByOrg(orgIds: string[]): Promise<Record<string, EventWithHost[]>> {
@@ -306,76 +306,36 @@ export const realEventsService: EventsService = {
     return groupEventsByOrg(events.map((event, i) => ({ orgId: rowOrgs[i], event })), ids);
   },
 
-  async getPastEvents(orgId?: string, opts?: EventsListReadOptions): Promise<EventWithHost[]> {
+  async getPastEvents(orgId?: string, options?: ListReadOptions): Promise<EventWithHost[]> {
     log(' getPastEvents', orgId ?? '(unscoped)');
-
-    const graceCutoff = getGraceCutoff();
-    // Past events: completed status OR (cancelled/upcoming AND past grace cutoff)
-    // Grace cutoff = now - 5 hours, so recently-started events stay in "upcoming"
-    // P1060: same conditional org filter as getUpcomingEvents — see the note there.
-    let query = supabase
-      .from('events')
-      .select(`
-        *,
-        host:profiles!events_host_id_fkey (
-          id,
-          full_name:name,
-          slug,
-          headline:role,
-          avatar_color,
-          avatar_url,
-          has_pledged,
-          ears_count
-        )
-      `)
-      .or(`status.eq.completed,and(status.eq.cancelled,datetime.lt.${graceCutoff}),and(status.eq.upcoming,datetime.lt.${graceCutoff})`)
-      .order('datetime', { ascending: false });
-
-    if (orgId) query = query.eq('org_id', orgId);
-
-    const { data, error } = await query;
-
+    // Past: completed, or cancelled/upcoming and past the grace cutoff (now - 5 hours), so recently-started events stay
+    // in "upcoming". P1060: the same conditional org filter as getUpcomingEvents.
+    const { data, error } = await selectPastEventRows(getGraceCutoff(), orgId);
     if (error) {
-      if (opts?.throwOnError) throwDbError('getPastEvents', error, 'Events could not be loaded');
-      logDbError('getPastEvents', error);
+      failListRead('getPastEvents', error, options);
       return [];
     }
-
     const events = (data as DbEventWithHost[]).map(mapEventFromDb);
-    await attachAttendeeCounts(events);
-
+    await attachRsvpCounts(events, options);
     return events;
   },
 
   getViewerRsvps: fetchViewerRsvpEventIds,
 
-  async getEventBySlug(slug: string): Promise<EventWithHost | null> {
+  async getEventBySlug(slug: string, options?: { attendees?: boolean; throwOnError?: boolean }): Promise<EventWithHost | null> {
     log(' getEventBySlug:', slug);
 
-    const { data, error } = await supabase
-      .from('events')
-      .select(`
-        *,
-        host:profiles!events_host_id_fkey (
-          id,
-          full_name:name,
-          slug,
-          headline:role,
-          avatar_color,
-          avatar_url,
-          has_pledged,
-          ears_count
-        )
-      `)
-      .eq('slug', slug)
-      .single();
-
-    if (error || !data) {
+    // P1542 round 10b: throwOnError tells "not found" (null) from "could not read" (a throw); see the sibling module.
+    const data = await selectEventRowBySlug(slug, options?.throwOnError === true);
+    if (!data) {
       log(' getEventBySlug not found:', slug);
       return null;
     }
 
     const event = mapEventFromDb(data as DbEventWithHost);
+
+    // P1542 round 10 (speed, query shape): the thank-you and the room show no guest list — one round trip, not two.
+    if (options?.attendees === false) return event;
 
     // Fetch attendees for this single event
     const attendees = await this.getEventAttendees(event.id);
@@ -461,27 +421,22 @@ export const realEventsService: EventsService = {
 
   // P1403: the organising community for the hike page's "Organized by" line. Two flat
   // queries, same as the footer note below (src.md: no nested selects).
-  async getEventOrganizer(eventId: string): Promise<{ name: string; slug: string } | null> {
-    const { data: ev, error: evError } = await supabase
-      .from('events')
-      .select('org_id')
-      .eq('id', eventId)
-      .maybeSingle();
-    if (evError) {
-      logDbError('getEventOrganizer(event)', evError);
-      return null;
-    }
-    if (!ev?.org_id) return null;
-    const { data: org, error: orgError } = await supabase
-      .from('organization')
-      .select('name, slug')
-      .eq('id', ev.org_id)
-      .maybeSingle();
-    if (orgError) {
-      logDbError('getEventOrganizer(org)', orgError);
-      return null;
-    }
-    return org?.name && org?.slug ? { name: org.name, slug: org.slug } : null;
+  // Null on a failed read as well as for "no group" — right for a display line, which has nothing to show either way.
+  async getEventOrganizer(eventId: string): Promise<{ id: string; name: string; slug: string } | null> {
+    return this.getEventOrganizerOrThrow(eventId).catch(() => null);
+  },
+
+  // P1542 round 6c: the same read, but a failed query THROWS, so a caller deciding something from the answer (is
+  // this person a member?) can tell "the event has no group" (null) from "the lookup failed" (an error).
+  async getEventOrganizerOrThrow(eventId: string): Promise<{ id: string; name: string; slug: string } | null> {
+    // P1542 round 10f (P1527): no client-side sharing — a caller holding the event row reads the group by its id
+    // (getOrganizationByIdOrThrow) and skips this event read altogether.
+    return readEventOrganizer(eventId);
+  },
+
+  // P1542 round 10f: the group itself, by the id the caller's event row already carries. Throws on a failed read.
+  async getOrganizationByIdOrThrow(orgId: string): Promise<{ id: string; name: string; slug: string } | null> {
+    return readOrganizationById(orgId);
   },
 
   // P1264: the organiser's standing note, rendered as the last block on the event
@@ -532,6 +487,8 @@ export const realEventsService: EventsService = {
           author:profiles!series_reviews_author_profile_id_fkey (name, slug, avatar_color, avatar_url, has_pledged, ears_count)
         `)
         .eq('series_slug', seriesSlug)
+        // P1542: a pending or rejected review is never shown (RLS says the same; this is the second lock).
+        .eq('status', 'approved')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true }),
       supabase

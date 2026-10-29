@@ -11,7 +11,11 @@ import { downloadICSFile, getGoogleCalendarUrl, getOffice365Url, getOutlookUrl }
 
 export type CalendarEventData = Parameters<typeof getGoogleCalendarUrl>[0];
 
-export function AddToCalendarMenu({ event }: { event: CalendarEventData }) {
+export function AddToCalendarMenu({ event, trigger = 'button' }: {
+  event: CalendarEventData;
+  /** P1542 round 6 (A): 'link' = a quiet text link ("Add to calendar") with the same menu, centred under it. */
+  trigger?: 'button' | 'link';
+}) {
   const [calendarMenuOpen, setCalendarMenuOpen] = useState(false);
   const calendarMenuRef = useRef<HTMLDivElement>(null);
 
@@ -27,7 +31,18 @@ export function AddToCalendarMenu({ event }: { event: CalendarEventData }) {
   }, []);
 
   return (
-    <div className="relative" ref={calendarMenuRef}>
+    <div className={trigger === 'link' ? 'relative inline-block' : 'relative'} ref={calendarMenuRef}>
+      {trigger === 'link' ? (
+        <button
+          type="button"
+          onClick={() => setCalendarMenuOpen(!calendarMenuOpen)}
+          aria-expanded={calendarMenuOpen}
+          className="inline-flex min-h-10 items-center whitespace-nowrap text-sm font-medium text-foreground underline underline-offset-4 hover:text-muted-foreground"
+          data-testid="add-to-calendar-link"
+        >
+          Add to calendar
+        </button>
+      ) : (
       <Button
         onClick={() => setCalendarMenuOpen(!calendarMenuOpen)}
         variant="outline"
@@ -37,8 +52,11 @@ export function AddToCalendarMenu({ event }: { event: CalendarEventData }) {
         Add to Calendar
         <ChevronDown className="w-3 h-3 ml-auto" />
       </Button>
+      )}
       {calendarMenuOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-20 overflow-hidden">
+        <div className={trigger === 'link'
+          ? 'absolute top-full left-1/2 mt-1 w-56 -translate-x-1/2 bg-card border border-border rounded-lg shadow-lg z-20 overflow-hidden text-left'
+          : 'absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-20 overflow-hidden'}>
           <a
             href={getGoogleCalendarUrl(event)}
             target="_blank"

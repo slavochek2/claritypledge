@@ -25,6 +25,8 @@ FROM public.events e
 JOIN public.event_feedback f ON f.event_id = e.id
 JOIN public.profiles p ON p.id = f.user_id
 WHERE e.slug = '$SLUG'
+  -- P1542 round 9: a row holding only the quote box (an untick before any answer) is not an answer.
+  AND (f.score IS NOT NULL OR f.liked IS NOT NULL OR f.improve IS NOT NULL)
 ORDER BY f.created_at" | python3 -c '
 import json, re, sys
 rows = json.load(sys.stdin)

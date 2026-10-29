@@ -492,7 +492,11 @@ function PrepareFlow({
                 count={statementsCount(screen)}
                 loaded={!!shownIds[screen]}
                 firstUnansweredId={firstUnansweredOf(screen)}
-                onContinue={() => go(after(screen))}
+                // P1542 round 6b: Continue is offered only once every statement has a position (StatementsActions) — the
+                // same moment the event learning records its cmp7 part (EventPrepPage STEP_PART). Recorded here too
+                // (account, or this browser signed out), so finishing /prepare counts as "learned anywhere" (hasLearned).
+                // Skipping records nothing, as there.
+                onContinue={() => { if (screen === 'cmp7') complete('cmp7'); go(after(screen)); }}
                 onSkip={() => go(after(screen))}
                 onRecheck={reloadPoints}
               />

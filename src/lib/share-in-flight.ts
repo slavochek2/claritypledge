@@ -18,3 +18,15 @@ export function shareInFlight<T>(key: string, run: () => Promise<T>): Promise<T>
   inFlight.set(key, p);
   return p;
 }
+
+/**
+ * P1542 round 9b: forget the shared request for `key` (or every key starting with `prefix` + ':'), so the next caller
+ * sends a fresh one. Called after a WRITE (a read in flight across a write may carry the pre-write state) and when a
+ * caller gives up on a stalled read (a later caller must not join a request that may never settle). The request
+ * itself is not cancelled; whoever already holds it still gets its answer.
+ */
+export function forgetInFlight(prefix: string): void {
+  for (const key of [...inFlight.keys()]) {
+    if (key === prefix || key.startsWith(`${prefix}:`)) inFlight.delete(key);
+  }
+}

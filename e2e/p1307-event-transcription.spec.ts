@@ -76,7 +76,11 @@ test.describe('P1307: event transcription', () => {
     await expect(page.getByTestId('room-ready-continue')).toBeVisible();
     await expect(page.getByRole('switch')).toHaveCount(0);
     await page.getByRole('button', { name: /continue/i }).click();
-    await expect(page.getByTestId('room-transcribe-idle')).toContainText('Not transcribing');
+    // P1562 §1a: a verified attendee is in the signed-in shell, so the idle control is the compact "Transcribe" in the
+    // top bar's right slot — no "Not transcribing" text, still nothing pre-selected.
+    await expect(page.getByTestId('room-transcribe-idle')).toBeVisible();
+    await expect(page.locator('[data-shell-top-bar]').getByTestId('room-transcribe-start')).toHaveText('Transcribe');
+    await expect(page.getByText('Not transcribing')).toHaveCount(0);
     await expect(page.getByTestId('room-capture-bar')).toHaveCount(0);
   });
 

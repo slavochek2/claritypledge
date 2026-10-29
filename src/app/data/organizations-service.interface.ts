@@ -105,7 +105,9 @@ export interface OrganizationsService {
    * never backfilled (coa-versions.ts), so this is the only way a surface can show
    * a member the document they actually agreed to rather than today's.
    */
-  getMyMembership(orgId: string): Promise<{ role: OrgRole; termsVersion: number; acceptedAt: string } | null>;
+  /** viewerId (P1542 round 9): the signed-in user's id when the caller has it, saving an auth round trip; RLS still
+   *  limits the read to the caller's own row. */
+  getMyMembership(orgId: string, viewerId?: string): Promise<{ role: OrgRole; termsVersion: number; acceptedAt: string } | null>;
   /**
    * Accept the COA and join as a plain member. Idempotent (duplicate = no-op) —
    * `joined: false` means no row was created (already a member); callers should

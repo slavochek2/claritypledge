@@ -1,4 +1,4 @@
-import type { EventsListReadOptions } from './events-list-reads';
+import type { ListReadOptions } from './event-list-reads';
 import type { EventWithHost, EventAttendee, EventPracticeRoom, SeriesContent } from '@/app/types';
 
 export interface EventsService {
@@ -8,21 +8,25 @@ export interface EventsService {
    * standalone /events list) the query is unfiltered and keeps showing every
    * event, org-scoped or not — that is its job (spec Non-Goals).
    */
-  getUpcomingEvents(orgId?: string, opts?: EventsListReadOptions): Promise<EventWithHost[]>;
+  /** P1562: `throwOnError` makes a failed read throw (a page can say "could not load"); without it, [] as before. */
+  getUpcomingEvents(orgId?: string, options?: ListReadOptions): Promise<EventWithHost[]>;
   /**
    * P1527: upcoming events of several orgs in ONE read, keyed by org id (every requested id is a
    * key; an org with none maps to []). Each list equals `getUpcomingEvents(thatOrgId)`.
    */
   getUpcomingEventsByOrg(orgIds: string[]): Promise<Record<string, EventWithHost[]>>;
-  getPastEvents(orgId?: string, opts?: EventsListReadOptions): Promise<EventWithHost[]>;
-  getEventBySlug(slug: string): Promise<EventWithHost | null>;
+  getPastEvents(orgId?: string, options?: ListReadOptions): Promise<EventWithHost[]>;
+  /** `attendees: false` (P1542 round 10): a screen that shows no guest list skips that second read; `attendees` is then [].
+   *  `throwOnError` (round 10b): a failed read throws instead of returning null, so "not found" stays distinct. */
+  getEventBySlug(slug: string, options?: { attendees?: boolean; throwOnError?: boolean }): Promise<EventWithHost | null>;
   getEventAttendees(eventId: string): Promise<EventAttendee[]>;
   isUserRsvpd(eventId: string, profileId: string): Promise<boolean>;
   /**
    * P1586: which of `eventIds` the viewer is registered for, in ONE request (the events list's marks).
    * Rejects when the read fails, so a failure is never read as "not going".
    */
-  getViewerRsvps(eventIds: string[], profileId: string): Promise<string[]>;
+  /** `signal`: the caller gave up; a read still waiting for a visible tab is dropped. */
+  getViewerRsvps(eventIds: string[], profileId: string, options?: { signal?: AbortSignal }): Promise<string[]>;
   /**
    * P1194: the event's group chat link. Returns null for anyone who is neither
    * the host nor a registered attendee — the gate is RLS on event_private_info,
@@ -32,7 +36,11 @@ export interface EventsService {
   /** P1264: the org's standing footer note for its event pages. Null when unset. */
   getEventOrgFooterNote(eventId: string): Promise<string | null>;
   /** P1403: the organising community's name + slug, for the hike page's "Organized by" line. */
-  getEventOrganizer(eventId: string): Promise<{ name: string; slug: string } | null>;
+  getEventOrganizer(eventId: string): Promise<{ id: string; name: string; slug: string } | null>;
+  /** P1542 round 6c: as getEventOrganizer, but a failed read throws (null = the event has no group). */
+  getEventOrganizerOrThrow(eventId: string): Promise<{ id: string; name: string; slug: string } | null>;
+  /** P1542 round 10f: a group by id (the caller's event row carries org_id) — one read, no event read. Throws on failure. */
+  getOrganizationByIdOrThrow(orgId: string): Promise<{ id: string; name: string; slug: string } | null>;
   /**
    * P1403: series-level reviews and photos (public). Empty lists on error or when the
    * series has none — each hike section hides on its own empty list.
@@ -84,7 +92,7 @@ export type EventRoomServiceContract = {
     eventId: string,
     onUpdate: (roster: import('@/app/types').EventRoomMember[]) => void,
     onStatus?: (status: import('./event-room-service').RosterStatus) => void,
-  ) => () => void;
+  ) => import('./event-room-service').RoomRosterSubscription;
 };
 
 export interface CreateEventInput {

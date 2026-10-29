@@ -245,13 +245,17 @@ export function useGoBack(pageFallback: string): () => void {
  * and popping there would leave the app or land somewhere the label does not say, so this REPLACES the child
  * with the parent. A cold arrival with nothing to pop takes the same replace.
  */
-export function useReturnToParent(parent: string, openedByParent: boolean): () => void {
+export function useReturnToParent(parent: string, openedByParent: boolean, replaceState?: unknown): () => void {
   const navigate = useNavigate();
   const { goBack, willPop } = useGoBackControl(parent);
+  // P1562: the replace can carry the parent's own provenance forward (the room's `fromEvent`), so the parent's Back
+  // still knows what is below it. Kept in a ref: a fresh state object each render must not re-create the callback.
+  const stateRef = useRef(replaceState);
+  stateRef.current = replaceState;
   // Pop only when the entry below really is the parent; never take the event-night room fallback,
   // because this control names its parent.
   return useCallback(() => {
     if (openedByParent && willPop) goBack();
-    else navigate(parent, { replace: true });
+    else navigate(parent, { replace: true, state: stateRef.current });
   }, [openedByParent, willPop, goBack, navigate, parent]);
 }

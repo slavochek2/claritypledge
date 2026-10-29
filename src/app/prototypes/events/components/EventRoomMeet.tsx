@@ -68,16 +68,14 @@
  * times between steps, and a fixed padding sized for one clips the last roster row under
  * another. Same ResizeObserver-on-ref pattern as meeting-terms-page.tsx's own rating bar.
  */
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { useGoBack, useReturnToParent } from '@/app/hooks/use-go-back';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
+import { useHideTodaysStripForEvent } from '@/app/components/layout/app-shell/shell-nav';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { DESKTOP_QUERY, useMediaQuery } from '@/app/hooks/use-media-query';
 import { Button } from '@/components/ui/button';
-import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { cn } from '@/lib/utils';
-import { useOfflineStripShown } from '@/app/contexts/offline-status-context';
-import { roomHeadOffset, useMeasuredHeight } from './room-head-offset';
 import { useAuth } from '@/auth';
 import {
   CertificateFrame,
@@ -86,7 +84,9 @@ import {
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { HOST_VOICED_UNDERSTANDING_QUESTION, HostAsksLine } from './host-asks';
 import { RoomTranscribeIdleBar } from '@/app/components/session/room-capture-bar';
-import { useRoomCapture } from '@/app/contexts/room-capture-context';
+import { RoomStickyHead } from './RoomChrome';
+import { useRoomRoster } from './use-room-roster';
+import { useRoomBack } from './use-room-back';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { sectionsForLevel, type MeetingTermsLevel } from '@/app/content/meeting-terms';
@@ -97,17 +97,27 @@ import {
   BAR_INNER_CLASS,
   UNDERSTANDING_QUESTION,
 } from '@/app/components/agreements/meeting-principle-view';
-import { setRoomOptIn, setRoomRating, resetRoomAnswer, subscribeToRoomRoster, type RosterStatus } from '@/app/data/event-room-service';
+import { setRoomOptIn, setRoomRating, resetRoomAnswer } from '@/app/data/event-room-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { PrepRoomBanner } from '../prep/PrepRoom';
+import { feedbackAlwaysOpen, defaultRoomStep, recipeFor } from '../series-recipes';
+import { usePrepState, type PrepState } from '../prep/use-prep-state';
+import { ClarityContentLoader, ClarityPageLoader } from '@/components/ui/clarity-loader';
+import { PrepFlow } from '../prep/EventPrepPage';
 import { PracticeRooms } from './PracticeRooms';
 import { RosterWait } from './EventRoomRosterWait';
 import { SHOW_PRACTICE_ROOMS } from './practice-rooms-switch';
 import { RoundCard, type RoundMoment } from '../rounds/RoundCard';
 import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
+import { useFeedbackFinished } from '../use-feedback-finished';
+import { CloseInRoom } from '../close/CloseInRoom';
+import { RoomCloseView } from './RoomCloseView';
+import { useRoomViews } from './use-room-views';
+import { useEventCommunityName, useEventMembership } from '../use-event-community';
+import { PINNED_FADE_CLASS, PINNED_FADE_OFF_CLASS, PINNED_FLAT_DESKTOP_CLASS, useScrolledToEnd } from '../prep/prep-ui';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 
 /** Pause between re-reads while a failed write is unreconciled (see `runWrite`). */
@@ -250,23 +260,32 @@ export function EventRoomMeet() {
   const { slug, event, loading, granted, isLoggedIn, offline: accessOffline } = useEventRoomAccess();
   const { self, loading: selfLoading, refresh, runSelfWrite } = useEventRoomSelf(event, granted);
   const { user } = useAuth();
-  const { barVisible: captureBarVisible } = useRoomCapture();
-  const offlineStrip = useOfflineStripShown();
-  const captureBarPx = useMeasuredHeight('[data-testid="room-capture-slot"]', captureBarVisible);
-  const headOffset = roomHeadOffset(offlineStrip, captureBarPx);
   // P1307 Part 1: set by the ready screen when the switch was on but the room could not be
   // joined. Navigation state, so it does not survive a reload — it describes that one attempt.
   const location = useLocation();
-  // Back from the table: to readiness. Ready marks the route state when it opens the table, so then this POPS
-  // (no Ready -> Meet -> Ready growth, and Ready's own Back reaches the event). A return visit enters the table
-  // directly, with no Ready below it: that replaces with Ready. Frozen (the evening is over), Back is the event.
-  const backToReady = useReturnToParent(`/events/${slug}/ready`, (location.state as { fromReady?: boolean } | null)?.fromReady === true);
-  const backToEventFrozen = useGoBack(`/events/${slug}`);
+  // P1562 §2: the room's Back table (to readiness or to the event, past every room entry) — see use-room-back.ts.
+  const roomBack = useRoomBack(slug);
+  // P1542 (founder 2026-10-23): a hike's bar starts with "Learn" (the learning flow), checked once it is complete.
+  const learnsInBar = !!recipeFor(event?.seriesSlug).room.steps?.learn;
+  const learnState = usePrepState(learnsInBar && event ? event : null, user?.id);
+  // P1542 round 6 (G): a hike's room has one header on every view — the shell's "← Back to the event" — and Back
+  // ALWAYS lands on the event page: a pop when the event page opened the room (its Room tab marks the route state,
+  // carried through /room and the learning), otherwise a replace with the event. Never "the previous step".
+  const shellBack = !!recipeFor(event?.seriesSlug).room.backToEvent;
+  // Round 6 (B): finished feedback ends the room's offer and ticks its step.
+  const feedbackRead = useFeedbackFinished(event?.id, granted && !!recipeFor(event?.seriesSlug).roomClose.finished);
+  // P1542 review G2: the feedback finished INSIDE the room counts at once (its thank-you was reached here).
+  const [finishedHere, setFinishedHere] = useState(false);
+  const feedbackFinished = finishedHere || feedbackRead;
+  // Round 6b: the phone's "Today's event" strip would point here — it steps aside inside a hike's room.
+  useHideTodaysStripForEvent(event?.slug, shellBack);
+  // Round 6c (E): once the feedback is in, a definite non-member is invited to join right here (the thank-you's offer).
+  const offerJoin = shellBack && feedbackFinished === true && !!recipeFor(event?.seriesSlug).joinOffer.named;
+  const member = useEventMembership(event, offerJoin, user?.id);
+  const community = useEventCommunityName(event, offerJoin);
   const [startFailed, setStartFailed] = useState(false);
   const transcriptionFailed =
     startFailed || (location.state as { transcriptionFailed?: boolean } | null)?.transcriptionFailed === true;
-  const [roster, setRoster] = useState<EventRoomMember[]>([]);
-  const [rosterStatus, setRosterStatus] = useState<RosterStatus>('pending');
   const [submitting, setSubmitting] = useState(false);
   const [writeFailed, setWriteFailed] = useState(false);
   /** After a failed write: did the re-read succeed? Only then does this screen know the
@@ -295,6 +314,8 @@ export function EventRoomMeet() {
   // Measured bottom-bar height (see file doc comment) — same pattern as
   // meeting-terms-page.tsx's ratingBarHeight.
   const [barHeight, setBarHeight] = useState(0);
+  // Round 6e: a hike's fade above the Opt in bar goes once the certificate is scrolled to its end.
+  const [endRef, atEnd] = useScrolledToEnd(barHeight);
   // P1337 walkthrough 4: once answered, the principle folds to one line; this opens it again.
   const [principleOpen, setPrincipleOpen] = useState(false);
   // P1337: the round's moment, reported by the round card (it owns the poll). While you sit at a
@@ -302,7 +323,25 @@ export function EventRoomMeet() {
   const [moment, setMoment] = useState<RoundMoment>({ seated: false, atTable: false, eveningOver: false, live: false, waiting: false });
   const seated = moment.seated;
   // A step behind the current one the person tapped back to; null = follow the evening.
-  const [viewingBack, setViewingBack] = useState<RoomStep | null>(null);
+  // P1542 round 5: the learning (shown inside the room's frame) returns here on a named step (its finish: Opt in).
+  const [viewingBack, setViewingBack] = useState<RoomStep | null>(() => (location.state as { roomStep?: RoomStep } | null)?.roomStep ?? null);
+  // Founder 2026-10-26 (item 4): the Learn step is drawn INSIDE this page, under the same mounted "Back to the event"
+  // and step bar. It used to navigate to /prepare?from=room and back through /room → /meet: three route changes, each
+  // remounting the page (LazyRoute keys on the pathname) and reloading its data, so the chrome flashed on every tab.
+  // Round 8b: the Learn view is a history entry of its own (?view=learn on the same /meet path — LazyRoute keys on the
+  // pathname only, so the page does not remount), so the phone's Back from the learning returns to the room's step.
+  // Founder UAT round: Share feedback opens here too (?view=feedback) — use-room-views.ts.
+  const { learning, feedback, learnThenJoin, openLearn, openFeedback, leaveView, backFromView } = useRoomViews(learnsInBar);
+  const learningRef = useRef(learning);
+  learningRef.current = learning;
+  // Founder UAT round: on a desktop (lg+) the Back sits on the step bar's own row, in the pinned head.
+  const wide = useMediaQuery(DESKTOP_QUERY);
+  // Round 8b (Codex HIGH 2): once opened, the learning stays MOUNTED (hidden while another step is shown), so its one
+  // serialized save queue and its in-memory progress survive tab switches — a remount would start a second queue
+  // that can race the first.
+  const [learnMounted, setLearnMounted] = useState(false);
+  // Round 8b (Gemini MED 4): the learning's step header is portalled into the room's sticky head, so it stays pinned.
+  const [learnHeadSlot, setLearnHeadSlot] = useState<HTMLDivElement | null>(null);
   const barObserver = useRef<ResizeObserver | null>(null);
   const setBarRef = useCallback((node: HTMLDivElement | null) => {
     barObserver.current?.disconnect();
@@ -332,13 +371,8 @@ export function EventRoomMeet() {
   const refreshRef = useRef(refresh);
   useEffect(() => { refreshRef.current = refresh; }, [refresh]);
 
-  useEffect(() => {
-    if (!event) return;
-    return subscribeToRoomRoster(event.id, (next) => {
-      setRoster(next);
-      void refreshRef.current();
-    }, setRosterStatus);
-  }, [event?.id]);
+  // P1562: the roster with its read state (P1586's pending / ready / failed) — see use-room-roster.ts.
+  const { roster, status: rosterStatus } = useRoomRoster(event?.id, () => { void refreshRef.current(); }, self);
 
   // P1386: no prepared / mic marks here — this page is projected on the wall. The host reads them on
   // the event page (founder, 2026-10-02).
@@ -435,6 +469,8 @@ export function EventRoomMeet() {
     ? Date.now() >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000
     : false;
   const isFrozen = pastGrace && !moment.live;
+  // The host ended the evening (before the grace close) counts as over too, as the default step below reads it.
+  const header = roomBack.header(!(isFrozen || moment.eveningOver) && !!recipeFor(event?.seriesSlug).room.readiness);
 
   const inMembers = roster.filter((m) => m.optedIn === true);
   const outMembers = roster.filter((m) => m.optedIn === false);
@@ -468,24 +504,75 @@ export function EventRoomMeet() {
 
   // P1337 walkthrough 7 — where the evening has this person now. Close only when the host ended
   // the rounds or the event closed; Table, then Compare, while seated in a round.
+  // P1542: a series' room may have no readiness step and no rounds (a hike's), and may open Feedback at the
+  // event's start instead of waiting for the host to end the evening.
+  const roomRecipe = recipeFor(event?.seriesSlug);
+  const hiddenSteps: RoomStep[] = [
+    ...(roomRecipe.room.readiness ? [] : (['ready'] as RoomStep[])),
+    ...(roomRecipe.room.rounds ? [] : (['table', 'compare'] as RoomStep[])),
+  ];
   const currentStep: RoomStep =
-    isFrozen || moment.eveningOver
+    isFrozen || moment.eveningOver || feedbackAlwaysOpen(event)
       ? 'close'
       : moment.seated
         ? moment.atTable ? 'compare' : 'table'
-        : step === 'answered' && !writeFailed ? 'table' : 'principle'; // walkthrough 9: answered → wait at Table (a failed save stays to show it)
-  const viewing: RoomStep = viewingBack ?? currentStep;
+        : step === 'answered' && !writeFailed && roomRecipe.room.rounds ? 'table' : 'principle'; // walkthrough 9: answered → wait at Table (a failed save stays to show it)
+  // A room with no rounds that opened Feedback at the start still opens on the principle and roster (the
+  // Close step is one tap away); once the evening is over it opens on Close like every room.
+  // P1542 (founder 2026-10-23): the default step (defaultRoomStep). Only a step that is open can be the default.
+  // Founder 2026-10-23, one rule for every event: until (start + duration − 30 min) the room opens on the event's
+  // main step (a hike: Opt in; Clarity Night: where it lands today); from then on on Feedback — when Feedback is open
+  // (a Clarity Night's opens when the host ends the evening). Either one is a tap away.
+  const mainView: RoomStep = !roomRecipe.room.rounds ? 'principle' : currentStep;
+  const defaultView: RoomStep = isFrozen || moment.eveningOver
+    ? currentStep
+    : event && defaultRoomStep(event) === 'close' && currentStep === 'close' ? 'close' : mainView;
+  const viewing: RoomStep = viewingBack ?? defaultView;
+  // Round 8b: "Back to the event" from inside the learning skips the Learn entry this page pushed: two entries down is
+  // the event page when the event page opened the room; otherwise replace with the event, as everywhere else.
+  // Round 8c: how many room entries this page has pushed above the one the event page opened, carried IN the history
+  // state (so it survives a reload): opening Learn pushes one (?view=learn on the same path — no remount), leaving it
+  // by a tab REPLACES that entry with the plain room (deterministic: no async pop racing the chosen step or a following
+  // navigation), and the phone's Back from Learn pops it (the entry below carries its own count).
+  // P1562: "Back to the event" returns past those entries in one traversal (useBackToEvent, use-room-back.ts).
   const onStep = (next: RoomStep) => {
+    leaveView();
     if (next === 'ready') {
-      backToReady();
+      roomBack.backToReady();
       return;
     }
-    setViewingBack(next === currentStep ? null : next);
+    setViewingBack(next === defaultView ? null : next);
   };
-  const showPrinciple = viewing === 'principle';
+  // P1542: the card's words come from the series' recipe (Clarity Night's are the default).
+  const closeCopy = recipeFor(event?.seriesSlug).roomClose;
+  const showPrinciple = viewing === 'principle' && !learning;
   // Walkthrough 9 (founder): Table shows the table only — your answer, Change and who opted in
   // stay on Principle, one tap back.
   const showAnswered = showPrinciple;
+
+  const stepBar = (
+    <RoomSteps
+      current={currentStep}
+      viewing={learning ? null : feedback ? 'close' : viewing}
+      onSelect={onStep}
+      hidden={hiddenSteps}
+      labels={roomRecipe.room.steps ? { principle: roomRecipe.room.steps.principle, close: roomRecipe.room.steps.close } : undefined}
+      learn={learnsInBar && event && user?.id !== event.hostId
+        // Round 6 (G): moving between the room's own steps REPLACES, so the room is one history entry and Back
+        // can never return into the learning; the event-page marker travels along for the header's Back.
+        ? {
+            done: !learnState.loading && !learnState.error && learnState.learned,
+            label: roomRecipe.room.steps?.learn ?? undefined,
+            active: learning,
+            // In place, in this mounted page (the loader, or a retry, until the learning's state is known).
+            onOpen: () => openLearn(),
+          }
+        : undefined}
+      // Round 6: a tick means this person did it — Opt in once answered, Give feedback once finished.
+      done={shellBack ? { principle: answered, close: feedbackFinished === true } : undefined}
+      className="min-w-0 flex-1"
+    />
+  );
 
   return (
     // Padding is MEASURED (barHeight), not a static class — see the file doc comment.
@@ -505,12 +592,10 @@ export function EventRoomMeet() {
       {/* Walkthrough 9: the transcribe bar and the step bar stay on screen while Compare's rows
           scroll. Pinned under the fixed nav, below the offline strip's push and the running
           capture bar at its measured height (P1429 A4 — see room-head-offset.ts). */}
-      <div
-        className="sticky z-20 bg-background top-[calc(4rem+var(--room-head-offset)+env(safe-area-inset-top))] lg:top-[calc(5rem+var(--room-head-offset)+env(safe-area-inset-top))]"
-        style={{ '--room-head-offset': headOffset } as CSSProperties}
-        data-testid="room-sticky-head"
-      >
-      {event && !isFrozen && !moment.eveningOver && (
+      <RoomStickyHead>
+      {/* Round 6 (founder decision 2): a series without transcription (a hike) has no Transcribe bar at all.
+          P1562 §1a: in the shell, the compact "Transcribe" in the top bar's right slot; no shell, today's row. */}
+      {event && !isFrozen && !moment.eveningOver && roomRecipe.room.transcribe && (
         <RoomTranscribeIdleBar
           eventId={event.id}
           displayName={user?.name || user?.email || 'Participant'}
@@ -521,26 +606,79 @@ export function EventRoomMeet() {
       {/* Page chrome sits above the columns, at the container's own left edge, rather than
           inside the certificate column — so it does not shift sideways when the layout
           splits into three at min-[1600px]. */}
-      <div className={cn(PAGE_CONTAINER, 'pt-3 pb-2')}>
-        {/* P1336: the preparation stays one tap away for someone who joined without it — on the
-            Back line (UAT 2026-10-01), not as a box under it. */}
-        {/* Walkthrough 8: one header row — a small back arrow beside the step bar (as on
-            /prepare), instead of a "Back" line above it. */}
-        <div className="flex items-end gap-1">
-          <FocusHeader
-            compact
-            onBack={isFrozen ? backToEventFrozen : backToReady}
-            aria-label={isFrozen ? 'Back to the event' : 'Back to readiness'}
-          />
-          <RoomSteps current={currentStep} viewing={viewing} onSelect={onStep} className="min-w-0 flex-1" />
+      {/* P1562 §1 (supersedes walkthrough 8's arrow beside the step bar): the shell's own Back in the shell top bar
+          (same component, size and label as every other event sub-page; in place when there is no shell), then the
+          step bar under it — one header on every room view, hike and Clarity Night. Founder UAT round (P1542): on a
+          desktop (lg+) the Back moves down onto the step bar's row, in the pinned head (the bar's row, which held only
+          the Back, is then not drawn, and the Back stays pinned with the steps); below lg it is as before. */}
+      {wide ? (
+        // Founder UAT (2026-10-29): the Back at the far LEFT of the content area with its whole label; the tabs CENTRED on
+        // the content column, kept clear of the Back by equal side space (no overlap at 1024+, the same on every view).
+        <div className="relative pt-3 pb-2">
+          <div className="absolute left-8 top-1 flex" data-testid="room-head-back">
+            <FocusHeader onBack={header.onBack} label={header.label} aria-label={header.label} inPlace />
+          </div>
+          <div className="flex justify-center px-48" data-testid="room-head-row">
+            <div className="w-full max-w-[32rem]">{stepBar}</div>
+          </div>
         </div>
-      </div>
-      </div>
+      ) : (
+        <div className={cn(PAGE_CONTAINER, 'pt-3 pb-2')}>
+          <div className="flex items-end gap-1" data-testid="room-head-row">
+            <FocusHeader onBack={header.onBack} label={header.label} aria-label={header.label} />
+            {stepBar}
+          </div>
+        </div>
+      )}
+      {/* Round 8b: the embedded learning's step header (step name + progress) lands here, inside the sticky head. */}
+      {(learnsInBar || feedback) && <div ref={setLearnHeadSlot} data-testid="room-learn-head" />}
+      </RoomStickyHead>
+      {event && user && learnsInBar && (learning || learnMounted) && (
+        <LearnInRoom
+          active={learning}
+          state={learnState}
+          onMounted={() => setLearnMounted(true)}
+          render={() => (
+            <PrepFlow
+              event={event}
+              groupChatUrl={null}
+              state={learnState}
+              viewerId={user.id}
+              room={{
+                active: learning,
+                headSlot: learning ? learnHeadSlot : null,
+                thenJoin: learnThenJoin,
+                // P1542 review G3: learning a non-learner's Join started ends on the group terms, still in the room.
+                // Round 4 (R5): a finish that lands after the person picked another view changes nothing.
+                onStep: (next) => {
+                  if (!learningRef.current) return;
+                  if (learnThenJoin) return openFeedback(true, true);
+                  leaveView();
+                  setViewingBack(next === defaultView ? null : next);
+                },
+              }}
+            />
+          )}
+        />
+      )}
+      {/* P1542 review round 4: drawn only while shown (no hidden second copy of the close). Typed answers survive a
+          tab switch in the tab's storage (use-close-draft.ts); the tick comes only from a persisted finish. */}
+      {event && user && feedback && (
+        <CloseInRoom
+          event={event}
+          viewerId={user.id}
+          room={{ headSlot: learnHeadSlot, leave: backFromView, onFinished: () => setFinishedHere(true), learnThenJoin: () => openLearn(true) }}
+        />
+      )}
+      <div className={learning || feedback ? 'hidden' : undefined}>
       <div className={PAGE_CONTAINER}>
         {/* P1336: the preparation stays one tap away for someone who joined without it. The host's
             way to the host panel is the event's Host tab (P1430), not a link here. */}
-        {!seated && (
-          <div className="mt-2 flex items-center justify-end gap-3">
+        {/* P1542 UAT 2026-10-23: where the recipe makes it optional learning (a hike), it is one quiet link that sits
+            before the principle, on the Principle view only — after the hike, Feedback is the one thing on screen. */}
+        {/* Founder 2026-10-23: where the bar has a Learn step (a hike), that step IS the link; nothing here. */}
+        {!seated && !learnsInBar && (
+          <div className={cn('mt-2 flex items-center gap-3', roomRecipe.prepare.offer ? 'justify-start' : 'justify-end')}>
             <PrepRoomBanner event={event} />
           </div>
         )}
@@ -563,7 +701,7 @@ export function EventRoomMeet() {
         <div className="space-y-4">
           {/* P1337: the round — your table, your role, what to talk about. Renders nothing
               until the host starts round 1, and nothing after the evening ends. */}
-          {event && (
+          {event && roomRecipe.room.rounds && (
             <RoundCard
               eventId={event.id}
               statementTag={event.statementTag}
@@ -576,14 +714,14 @@ export function EventRoomMeet() {
             />
           )}
           {viewing === 'close' && (
-            // The way into P1389's closing sequence (/events/:slug/close).
-            <section className="rounded-xl border border-border bg-card p-6 text-center" data-testid="room-close">
-              <h2 className="text-2xl font-semibold">Thanks for coming</h2>
-              <p className="mt-2 text-sm text-muted-foreground">The evening has ended. Two minutes to tell us how it went?</p>
-              <Button asChild className="mt-4 min-h-11 w-full bg-blue-600 hover:bg-blue-700" data-testid="room-close-feedback">
-                <Link to={`/events/${slug}/close`}>Give feedback</Link>
-              </Button>
-            </section>
+            <RoomCloseView
+              closeCopy={closeCopy}
+              feedbackFinished={feedbackFinished}
+              join={offerJoin && member === false && typeof community === 'string' ? { community } : null}
+              learnState={learnState}
+              onOpenFeedback={openFeedback}
+              onLearnFirst={() => openLearn(true)}
+            />
           )}
           {showAnswered && step === 'answered' && (
             <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border bg-card px-4" data-testid="room-principle-folded">
@@ -620,17 +758,18 @@ export function EventRoomMeet() {
           {showPrinciple && step !== 'answered' && (
             // Walkthrough 9 (founder's words): the decision, asked at the top.
             <h1 className="pt-2 text-center text-2xl font-semibold leading-tight text-balance" data-testid="room-principle-question">
-              Do you want to try this principle with the people at this event?
+              {roomRecipe.room.principleQuestion.room}
             </h1>
           )}
           {(showPrinciple ? step !== 'answered' || principleOpen : showAnswered && principleOpen) && (
             <CertificateFrame
               ariaLabel={PRINCIPLE_TITLE}
               title={PRINCIPLE_TITLE}
-              kicker="A commitment for this conversation"
+              kicker={roomRecipe.room.principleKicker}
+              balanced={shellBack}
               epigraph="We all crave being understood. Let's commit to listen."
             >
-              <CertificateOathBody sections={sectionsForLevel(PRINCIPLE_LEVEL)} />
+              <CertificateOathBody sections={sectionsForLevel(PRINCIPLE_LEVEL)} prettyWrap={shellBack} />
             </CertificateFrame>
           )}
 
@@ -724,12 +863,17 @@ export function EventRoomMeet() {
           nothing to do with the decision (this is why `pointer-events` moves to the panel
           alone, not the bar — see below). Below min-[1600px] there is only one column, so
           the full-width bar is correct and nothing changes. */}
+      {/* Round 6e: the end of the room's content, for the fade above the pinned bar (useScrolledToEnd). */}
+      <div ref={endRef} aria-hidden="true" className="h-px" data-testid="room-content-end" />
       {!isFrozen && !barHidden && showPrinciple && (
         <FixedBottomBar
           ref={setBarRef}
           className={cn(
-            'px-0 shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)]',
-            BAR_FADE_CLASS,
+            // P1542: marks the bar index.css lifts above the phone bottom tabs (the room is in the signed-in shell).
+            'room-decision-bar px-0 shadow-[0_-4px_16px_-4px_rgba(0,0,0,0.10)]',
+            // Round 6e: a hike's bar uses the shared pinned-footer treatment (taller fade, off at the end, flat on
+            // desktop); Clarity Night keeps BAR_FADE_CLASS unchanged.
+            shellBack ? cn(PINNED_FADE_CLASS, atEnd && PINNED_FADE_OFF_CLASS, PINNED_FLAT_DESKTOP_CLASS) : BAR_FADE_CLASS,
             // pointer-events-none is NOT cosmetic pairing with the transparency above it:
             // FixedBottomBar is `fixed inset-x-0 z-50`, so at min-[1600px] the now-invisible
             // bar still spans the full width including the roster column and swallows
@@ -792,7 +936,10 @@ export function EventRoomMeet() {
                     onClick={() => void handleAnswer(true)}
                     disabled={submitting}
                     size="lg"
-                    className={cn(PRIMARY_BUTTON_CLASS, 'flex-1')}
+                    // Founder 2026-10-26 (reverses round 6c's neutral pair): a hike's Opt in is the primary — the solid blue
+                    // pill, 56px like the room's other primaries — and Opt out the outlined secondary at the same size.
+                    // Clarity Night keeps its filled Opt in.
+                    className={shellBack ? cn(PRIMARY_BUTTON_CLASS, 'flex-1 min-h-14 rounded-full') : cn(PRIMARY_BUTTON_CLASS, 'flex-1')}
                   >
                     Opt in
                   </Button>
@@ -801,7 +948,7 @@ export function EventRoomMeet() {
                     onClick={() => void handleAnswer(false)}
                     disabled={submitting}
                     size="lg"
-                    className={cn(ANSWER_BUTTON_CLASS, 'flex-1')}
+                    className={cn(ANSWER_BUTTON_CLASS, 'flex-1', shellBack && 'min-h-14 rounded-full')}
                   >
                     Opt out
                   </Button>
@@ -866,6 +1013,45 @@ export function EventRoomMeet() {
           </div>
         </FixedBottomBar>
       )}
+      </div>
     </div>
   );
+}
+
+/**
+ * Round 8b: the room's Learn view. Shows the standard loader while the learning's state is unknown, a retry if the read
+ * failed (Codex HIGH 1: never mount the flow on an unknown state — its writes would build on nothing), and from the
+ * first successful mount keeps the flow mounted, hidden while another step is shown (Codex HIGH 2: one save queue).
+ */
+export function LearnInRoom({ active, state, onMounted, render }: {
+  active: boolean;
+  state: PrepState;
+  onMounted: () => void;
+  render: () => ReactNode;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const ready = !state.loading && !state.error;
+  // Round 8c: hidden, the learning makes no sound — every clip in it is paused the moment another step is shown.
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (active) return;
+    boxRef.current?.querySelectorAll<HTMLMediaElement>('video, audio').forEach((m) => { if (!m.paused) m.pause(); });
+  }, [active]);
+  useEffect(() => {
+    if (ready && !mounted) {
+      setMounted(true);
+      onMounted();
+    }
+  }, [ready, mounted, onMounted]);
+  if (mounted) return <div ref={boxRef} data-testid="room-learn" className={active ? undefined : 'hidden'}>{render()}</div>;
+  if (!active) return null;
+  if (state.error) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-10 text-center" data-testid="room-learn-error">
+        <p className="text-base text-muted-foreground">We could not load the learning.</p>
+        <Button variant="outline" className="mt-4 min-h-11" onClick={() => void state.reload()} data-testid="room-learn-retry">Try again</Button>
+      </div>
+    );
+  }
+  return <div data-testid="room-learn-loading"><ClarityContentLoader /></div>;
 }

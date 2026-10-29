@@ -24,7 +24,7 @@
  * one, so the two readiness screens now match.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -39,6 +39,10 @@ import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { RoomSteps } from '../rounds/RoomSteps';
+import { recipeFor } from '../series-recipes';
+import { useBackToEvent } from '../use-back-to-event';
+import { BACK_TO_EVENT, readRoomNav } from './use-room-back';
+import { RoomStickyHead } from './RoomChrome';
 
 const QUESTION = 'How up for thinking are you right now?';
 const MIDPOINT_LABEL = 'Neutral';
@@ -54,6 +58,10 @@ export function EventRoomReady() {
   const { self, loading: selfLoading, refresh } = useEventRoomSelf(event, granted);
   const navigate = useNavigate();
   const { offline } = useConnectivity();
+  // P1562 §2: Back to the event — a pop when the event page opened the room (the gate replaces itself with /ready and
+  // carries `fromEvent`), otherwise a replace. Meet gets both marks, so its Back pops here and this one still knows.
+  const { fromEvent } = readRoomNav(useLocation().state);
+  const backToEvent = useBackToEvent(slug, fromEvent, 0);
 
   const [value, setValue] = useState(MIDPOINT_VALUE);
   const [touched, setTouched] = useState(false);
@@ -98,8 +106,8 @@ export function EventRoomReady() {
         // Readiness is a note, not a gate — the person still goes in.
       }
     }
-    navigate(`/events/${slug}/meet`, { state: { fromReady: true } });
-  }, [self, value, refresh, navigate, slug]);
+    navigate(`/events/${slug}/meet`, { state: { fromReady: true, fromEvent } });
+  }, [self, value, refresh, navigate, slug, fromEvent]);
 
   if (loading || (granted && selfLoading)) return <ClarityPageLoader />;
   if (accessOffline) return <NeedsConnection />;
@@ -112,10 +120,11 @@ export function EventRoomReady() {
     ? Date.now() >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000
     : false;
   // P1586: the redirect lands in an effect, so the loader holds the frame until it does.
-  if (isFrozen) {
+  // P1542: a series without a readiness step (hikes) never shows this screen; the redirect carries `fromEvent`.
+  if (isFrozen || (event && !recipeFor(event.seriesSlug).room.readiness)) {
     return (
       <>
-        <Navigate to={`/events/${slug}/meet`} replace />
+        <Navigate to={`/events/${slug}/meet`} replace state={fromEvent ? { fromEvent } : undefined} />
         <ClarityPageLoader />
       </>
     );
@@ -124,7 +133,7 @@ export function EventRoomReady() {
   return (
     <div
       data-testid="room-ready"
-      className="flex min-h-[calc(100vh-4rem)] flex-col px-4 py-10 lg:min-h-[calc(100vh-5rem)]"
+      className="flex min-h-[calc(100vh-4rem)] flex-col px-4 pb-10 lg:min-h-[calc(100vh-5rem)]"
     >
       <h1 className="sr-only">Before you meet</h1>
 
@@ -138,13 +147,14 @@ export function EventRoomReady() {
           group below stays max-w-sm and stays vertically centred; only the chrome moves. */}
       {/* P1336: the preparation stays one tap away for someone who joined without it — on the
           Back line (UAT 2026-10-01). */}
-      {/* Walkthrough 8: one header row — a small back arrow beside the step bar (as on /prepare). */}
-      <div className="mx-auto flex w-full max-w-2xl items-end gap-1">
-        {/* Back returns the way the person came: the event page opened this room (the gate replaces itself with
-            /ready), so it POPS and the event's own Back does not land here again; cold arrival: the event, replaced. */}
-        <FocusHeader compact fallback={`/events/${slug}`} />
-        <RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="min-w-0 flex-1" />
-      </div>
+      {/* P1562 §1: the shell top bar's "Back to the event" (in place when there is no shell), the step bar under it, in
+          the room's sticky head — the same head and offset as /meet, so the step bar sits at one y on every room view. */}
+      <RoomStickyHead className="-mx-4 px-4 pt-3 pb-2">
+        <div className="mx-auto flex w-full max-w-2xl items-end gap-1">
+          <FocusHeader onBack={backToEvent} label={BACK_TO_EVENT} aria-label={BACK_TO_EVENT} />
+          <RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="min-w-0 flex-1" />
+        </div>
+      </RoomStickyHead>
       {/* P1336: the preparation stays one tap away for someone who joined without it. */}
       <div className="mx-auto mt-2 flex w-full max-w-2xl justify-end">
         <PrepRoomBanner event={event} />

@@ -39,8 +39,12 @@ test.describe('P1389 evening close', () => {
   let next: TestEvent;
   const users: TestUser[] = [];
   const events: TestEvent[] = [];
+  // The 'cm' group's name, read from the database (never hard-coded: the founder renames groups).
+  let CM_SHORT = '';
 
   test.beforeAll(async () => {
+    const { data: cm } = await supabaseAdmin.from('organization').select('name').eq('slug', 'cm').single();
+    CM_SHORT = (cm!.name as string).split(' · ')[0].trim();
     host = await createTestUser({ name: 'P1389 E2E Host' });
     // The LinkedIn ask is offered only when the host has a LinkedIn link (round 10b).
     await supabaseAdmin.from('profiles').update({ linkedin_url: 'https://www.linkedin.com/in/p1389-test-host', is_verified: true, has_pledged: true }).eq('id', host.user.id);
@@ -98,7 +102,7 @@ test.describe('P1389 evening close', () => {
     // One flow (round 10b): a first-timer sees both asks — join the community, then connect.
     await expect(page.getByTestId('intro-agenda').locator('li')).toHaveCount(6);
     // Founder (round 7): the agenda names each step; the ask is named for what it is.
-    await expect(page.getByTestId('intro-agenda').locator('li').first()).toHaveText('1Net promoter score');
+    await expect(page.getByTestId('intro-agenda').locator('li').first()).toHaveText('1How was it?');
     await expect(page.getByTestId('intro-agenda').locator('li').last()).toHaveText('6Connect on LinkedIn');
     await page.getByRole('button', { name: 'Start feedback' }).click();
     // A small reminder of the evening on the 0-10 screen, not a link out of the flow.
@@ -167,8 +171,8 @@ test.describe('P1389 evening close', () => {
     // First evening, not a member yet: the community, shown as the group's own card.
     await expect(page.getByTestId('ask-community')).toBeVisible();
     await expect(page.getByTestId('step-name')).toHaveText('Decide on joining the community');
-    await expect(page.getByTestId('step-question')).toHaveText('Join the Clarity Practice Community');
-    await expect(page.getByTestId('community-card')).toContainText('Clarity Practice Community');
+    await expect(page.getByTestId('step-question')).toHaveText(`Join the ${CM_SHORT}`);
+    await expect(page.getByTestId('community-card')).toContainText(CM_SHORT);
     await page.getByRole('button', { name: 'Not now' }).click();
     // Then the LinkedIn step, the same evening (no waiting for a later one).
     await expect(page.getByTestId('ask-connect')).toBeVisible();
@@ -221,7 +225,7 @@ test.describe('P1389 evening close', () => {
     await expect(page.getByTestId('ask-connect')).toBeVisible(); // one flow: connect follows
     await page.getByRole('button', { name: 'Not now' }).click();
     await expect(page.getByTestId('step-end')).toBeVisible();
-    await expect(page.getByTestId('end-joined')).toContainText('You joined Clarity Practice Community');
+    await expect(page.getByTestId('end-joined')).toContainText(`You joined ${CM_SHORT}`);
     const { data: org } = await supabaseAdmin.from('organization').select('id').eq('slug', 'cm').single();
     const { data: m } = await supabaseAdmin.from('membership').select('user_id').eq('org_id', org!.id).eq('user_id', u.user.id);
     expect(m).toHaveLength(1);
