@@ -197,17 +197,42 @@ describe('P1593 visit counting across tab switches', () => {
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
   });
 
-  it('a 35-minute first visit then a tab switch is still visit 1', () => {
+  it('a 35-minute first visit kept alive by interaction, then a tab switch, is still visit 1', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-01-01T10:00:00Z'));
     stage({ ua: IPHONE });
     renderBar();
+    vi.setSystemTime(new Date('2026-01-01T10:29:00Z'));
+    fireEvent.pointerDown(document.body);
     vi.setSystemTime(new Date('2026-01-01T10:35:00Z'));
+    fireEvent.pointerDown(document.body);
     setVisibility('hidden');
     vi.setSystemTime(new Date('2026-01-01T10:35:05Z'));
     setVisibility('visible');
     expect(localStorage.getItem('pwa_visit_count')).toBe('1');
     expect(nudge()).toBeNull();
+  });
+
+  it('idle 45 minutes, then a tap: visit 2 and the nudge shows', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-01-01T10:00:00Z'));
+    stage({ ua: IPHONE });
+    renderBar();
+    vi.setSystemTime(new Date('2026-01-01T10:45:00Z'));
+    fireEvent.pointerDown(document.body);
+    expect(localStorage.getItem('pwa_visit_count')).toBe('2');
+    expect(nudge()).toBeInTheDocument();
+  });
+
+  it('idle 2 hours, then a reload with no interaction: visit 2', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-01-01T10:00:00Z'));
+    stage({ ua: IPHONE });
+    const first = renderBar();
+    first.unmount(); // leaving stamps nothing
+    vi.setSystemTime(new Date('2026-01-01T12:00:00Z'));
+    renderBar();
+    expect(localStorage.getItem('pwa_visit_count')).toBe('2');
   });
 
   it('hidden at t0, back 31 minutes later: visit 2, nudge shows', () => {
@@ -238,7 +263,7 @@ describe('P1593 prompt failures and long visits', () => {
     expect(unhandled).not.toHaveBeenCalled();
   });
 
-  it('interaction keeps the stamp fresh: a 36-minute first visit then a reload is still visit 1', () => {
+  it('continuous use (taps at 29 and 35 minutes) then a reload at 36 is still visit 1', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-01-01T10:00:00Z'));
     stage({ ua: IPHONE });

@@ -84,16 +84,16 @@ function getIsDismissed(): boolean {
 }
 
 /**
- * Stamps activity and returns the visit count; reloads and route changes inside a visit leave it alone.
- * `countVisit: false` only refreshes the timestamp (used when the page is hidden, so a long visit is never split).
+ * Stamps activity and returns the visit count. A visit is any activity after 30+ minutes without activity;
+ * reloads and route changes inside a visit leave the count alone.
  */
 // eslint-disable-next-line react-refresh/only-export-components
-export function recordActivity(now = Date.now(), countVisit = true): number {
+export function recordActivity(now = Date.now()): number {
   try {
     const last = parseInt(localStorage.getItem(LAST_ACTIVITY_KEY) ?? '', 10);
     let count = parseInt(localStorage.getItem(VISIT_COUNT_KEY) ?? '', 10);
     if (!Number.isFinite(count)) count = 0;
-    if (countVisit && (!Number.isFinite(last) || now - last >= VISIT_GAP_MS)) {
+    if (!Number.isFinite(last) || now - last >= VISIT_GAP_MS) {
       count += 1;
       localStorage.setItem(VISIT_COUNT_KEY, String(count));
     }
@@ -149,28 +149,29 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // P1593: stamp activity when the app is left or returned to, so a gap of 30+ minutes starts a new visit.
+  // P1593: activity (returning to the tab, or a tap/key at most once a minute) counts a new visit after a
+  // 30+ minute gap and otherwise keeps the stamp fresh, so long continuous use stays one visit.
+  // Nothing is stamped on leaving: an absence must stay measurable.
   useEffect(() => {
-    const onVisibility = () =>
-      setVisitCount(recordActivity(Date.now(), document.visibilityState !== 'hidden'));
-    // Keep the stamp fresh during use (never counting), so a long visit is not split by a reload.
     let lastStamp = Date.now();
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') return;
+      lastStamp = Date.now();
+      setVisitCount(recordActivity(lastStamp));
+    };
     const onInteraction = () => {
       const now = Date.now();
       if (now - lastStamp < ACTIVITY_THROTTLE_MS) return;
       lastStamp = now;
-      recordActivity(now, false);
+      setVisitCount(recordActivity(now));
     };
-    const onPageHide = () => { recordActivity(Date.now(), false); };
     document.addEventListener('visibilitychange', onVisibility);
     document.addEventListener('pointerdown', onInteraction, true);
     document.addEventListener('keydown', onInteraction, true);
-    window.addEventListener('pagehide', onPageHide);
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener('pointerdown', onInteraction, true);
       document.removeEventListener('keydown', onInteraction, true);
-      window.removeEventListener('pagehide', onPageHide);
     };
   }, []);
 
