@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-29 [technical]: The self-hosted TEST server reports its own health; the scheduled monitor only reads it (P1584)
+
+**Context:** Health of the self-hosted TEST server was checked only when a /day session opened. Moving it to an hourly GitHub workflow needed disk and WAL readings, which live inside the VM. Giving CI SSH access would hand an unattended runner a shell on the box.
+**Decision:** A root timer on the VM writes disk, WAL, down-services and a timestamp as GCE guest attributes every 10 minutes. The workflow reads them as a dedicated service account (keyless, through the existing Workload Identity pool) whose custom role holds one permission, read guest attributes, bound on that one instance. A stale or future timestamp reads as unknown, never as ok. Bridged containers are blocked from the metadata server (anything that reaches it can write guest attributes), except DNS on port 53, which shares that address on GCE. The alert step follows the P1155/P1567 pattern; a manual run against a fake host opens a "(drill)" issue that never closes the real one. A weekly upkeep report (image pins, upstream releases, OS updates, reboot, auth e-mail template drift vs prod, hosted TEST still alive) runs from /weekly.
+**Alternatives rejected:** SSH from CI (a shell for an unattended runner); keeping the /day-only probe (blind between sessions); blocking the whole metadata address (broke container DNS when tried).
+**Consequences:** The Workload Identity binding is repo-wide on main, a founder decision to re-check on 2026-12-01 with hosted TEST kept as warm fallback. Two follow-ups are filed in the inbox: the live failure drill, and a prod read token for the template check (today it reports unknown). The block is IPv4-only, and Caddy runs on the host network, so it is outside the block.
+**References:** [p1584 spec](../features/done/2026-06-10/p1584_self_hosted_test_server_upkeep_recipe.md), [.github/workflows/selfhosted-health.yml](../.github/workflows/selfhosted-health.yml)
+
 ## 2026-10-29 [technical]: Every wait is one of four loading states, and every wait ends (P1586)
 
 **Context:** The same wait looked different on every page: the logo in different places, the word "Loading…", blank frames, loose spinners, a handful of hand-rolled pulsing blocks. Some waits never ended: a stalled read left a skeleton or spinner on screen with no way out. A per-frame browser probe also found the logo jumping about 80px on signed-out cold loads and a blank frame at every bare `<Navigate>` redirect.
