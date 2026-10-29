@@ -8,6 +8,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-29 [technical]: Every wait is one of four loading states, and every wait ends (P1586)
+
+**Context:** The same wait looked different on every page: the logo in different places, the word "Loading…", blank frames, loose spinners, a handful of hand-rolled pulsing blocks. Some waits never ended: a stalled read left a skeleton or spinner on screen with no way out. A per-frame browser probe also found the logo jumping about 80px on signed-out cold loads and a blank frame at every bare `<Navigate>` redirect.
+**Decision:** Four states, chosen by what is waiting:
+- **Page** (nothing of the page can be drawn yet): `ClarityPageLoader`, the mark at the viewport centre, same position as the `index.html` splash (P1539).
+- **Section** (the page is drawn, one part is not): a skeleton built from the shared `Skeleton` primitive (`src/components/ui/skeleton.tsx`), wrapped in `SectionWait`.
+- **Operation** (a button is working): the control's own label, or a small spinner inside it.
+- **Optional section** (may legitimately be empty): renders nothing.
+
+Every page and section wait has a deadline. After 15s the page loader adds "taking longer" and Reload. After 10s a section shows a readable line and Retry, and shows it at once when its read rejects. The page deadline counts from the start of the loader chain, capped at time since navigation, so loaders that replace each other (route guard, lazy chunk, page, redirect target) are one wait. A redirect renders the page loader beside its `<Navigate>`. The table lives in `docs/ux-patterns.md` § Loading States. `src/tests/p1586-loading-states-guard.test.ts` enforces it with an AST guard, six categories and an exact-count allowlist.
+**Supersedes:** the section half of 2026-04-11 [technical] "ClarityPageLoader is a page-gate — use ClarityLoader for inline loading states". `ClarityPageLoader` stays a page gate; inline waits are now skeletons, not `ClarityLoader size="lg"`.
+**Alternatives rejected:** (1) One spinner everywhere. Simple to enforce, but it hides the shape of what is coming and moves the eye on every load. (2) Skeletons for whole pages. The shell and the splash already hold the page; a page skeleton would duplicate them and still jump. (3) Client-side read dedupe to make waits shorter. Ruled out by P1527; speed is P1587's job, measured first.
+**Consequences:**
+- A new loading branch picks one of the four states. The guard fails on a loose spinner, "Loading…" text, a blank render or `animate-pulse` outside the primitive.
+- A read whose failure should show Retry must reject. Services that turn an error into "nothing" (the `api.ts` transcript readers, `getVerifiedProfilesPage`) still show an empty state on failure; they need a service contract change.
+- The events list keys viewer marks by the session identity (P1560) and reads them in one batched call. The list renders before the marks.
+**References:** [p1586 spec](../features/done/2026-06-10/p1586_loading_consistency_and_page_speed.md) | [ux-patterns.md](ux-patterns.md) | [clarity-loader.tsx](../src/components/ui/clarity-loader.tsx) | [section-wait.tsx](../src/components/ui/section-wait.tsx) | P1587 (page speed, measure-first)
+
 ## 2026-10-28 [product]: Change managers get a use-case page built from the hospitals sections; job titles allowed on use-case pages (P1558). Founder decision, UNTESTED
 
 **Context:** P1558 asked for a public page to structure the "we agreed on the change and then nothing happened" use case before discovery outreach. Three drafts were built and reviewed. The first two wrote custom sections (cause cards, a four-step how-it-works, an offer-card workflow) and read as long and foreign next to the other use-case pages. The founder asked why existing sections were not reused and pointed at /hospitals as the stronger model.
