@@ -29,7 +29,7 @@ driver: heuristic
 **Situation:** H-ChatFollowThrough (hypotheses.md, 2026-10-23, UNTESTED) says the pledge's
 follow-through becomes visible in chat. Group members say yes to the Clarity Meeting Principle and the
 Clarity Group terms. The Understanding Ledger was scoped on 2026-07-24 as completion counts and
-progress, and was never built; per-card history moved to P1496.
+progress. It was never built in the product; it was prototyped in v10 (P1495) and v11 (P1503 D19), and per-card history moved to P1496.
 **Complication:** A change lead wants to see an agreed change being carried, and a team wants to
 recognise the people who carry it. Nothing shows that today.
 **Question:** What does the ledger's count view show a person and a team, so that answering is
@@ -45,6 +45,8 @@ Reversibility: medium. Decision density: a few.
 
 ## Invariants
 
+- **One list per chat, each item opening its card's Details; no separate ledger page** (P1496, P1503 D19,
+  2026-10-16). The unit is the story, with one state each (decisions.md 2026-10-29 [product]).
 - **Counted against a yes the person gave themselves.** Only people who said yes to the terms appear.
 - **Recognition only.** The view shows answers given. Nothing else about people.
 - **Counts, not scores.** No ranking and no public score (decisions.md 2026-10-22 [product]; calibration

@@ -337,7 +337,7 @@ grep -ril "{key concept}" src/ scripts/ 2>/dev/null | head -10      # already ha
 
 ### The `decisions.md` grep does TWO jobs. Run it twice.
 
-The verdict above answers *does a spec for this already exist*. It does **not** answer *has a ruling already been made that constrains this work* — and `features.md:55-74` requires harvesting those rulings into the new spec. Same axis (grep the **subject**, not the P-number), different question, different report.
+The verdict above answers *does a spec for this already exist*. It does **not** answer *has a ruling already been made that constrains this work* — and `.claude/rules/features.md` § Before Drafting requires harvesting those rulings into the new spec. Same axis (grep the **subject**, not the P-number), different question, different report.
 
 Job 2 widens the term list to the **concrete nouns the work will touch** — the file, table, column, script, function or service names in your own draft Solution. Read the draft, list its proper nouns, grep each. Do **not** grep decision vocabulary (`MUST`, `never`, `rejected`): against a file this size those return noise, not rulings.
 
@@ -349,6 +349,8 @@ scripts/search-decisions.sh "{nouns from your Solution}" 20    # job 2 — rulin
 **Both logs, every time (P1438).** `scripts/search-decisions.sh` searches `docs/decisions.md` and the private `.private/docs/decisions.md` (rulings whose reasons name people). Patterns are ERE, case-insensitive (escape parentheses; `a|b` for alternatives); exit 2 means the search failed (bad pattern, unreadable log) — fix the pattern, never read it as "no rulings". Its first line says whether the private log was searched — **copy that line into your report verbatim**; `PRIVATE LOG: NOT AVAILABLE` means private rulings are unknown, not absent. A `private:` hit is a real ruling: route it into the spec as `private ruling YYYY-MM-DD` with a name-free one-line summary — **never quote private text into the spec**, which is public.
 
 Report job 2 separately — **`RULINGS: <n> found — <one line each>`** or **`RULINGS: none — searched "<terms>"`** — and route anything found into `## Invariants` or `## Risks`, cited by date. Observed 2026-08-26: the run that filed P1158 searched subject terms, returned `NONE`, and harvested no rulings. One grep reporting one verdict is how that happens.
+
+**Rulings also live in open specs, not only in the log.** For every spec named by a `RELATED: pN` verdict above, and every spec your draft lists under Related, read its decision sections (`## Decisions`, `## Decisions already made`, a `Dn` table, `## Invariants`) and the founder-dated lines in its Solution. A ruling made while that work is still open is in neither `features/done/INDEX.md` nor, often, `decisions.md`. Route each one that constrains this work into `## Invariants` or `## Risks`, cited as `pN Dn` or `pN YYYY-MM-DD` (log rulings above are cited by date), and count it in the `RULINGS:` line. Observed 2026-10-28: P1559 listed P1496 under Related, whose Solution already ruled "no separate ledger page; a chat's ⋮ → Clarity Ledger lists that chat's items, each opening Details" (P1503 D19). The spec did not carry it, and its prototype built the separate page the founder then found "disconnected".
 
 **A hit in `decisions.md` outranks an empty `features/` result.** Entries routinely name a filed P-number that may sit unimplemented for weeks — its absence from your `features/` grep usually means your terms were wrong, not that it does not exist.
 
