@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 82
 workstream: infrastructure
 created_date: '2026-10-29'
 tags: [testing, migrations, self-hosted]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, spec-review, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-10-29
 ---
 
 # P1591: Database updates and tests follow the active TEST server
