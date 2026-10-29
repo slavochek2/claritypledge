@@ -4112,6 +4112,7 @@ cmd_ship() {
   fi
 
   require_main_repo
+  warn_test_drift
 
   local journal="$SHIP_JOURNAL_DIR/${pn}.json"
   local journal_exists=0
@@ -5622,6 +5623,20 @@ DESIGN NOTES
 EOF
 }
 
+# ── Test drift warning (P1591) ───────────────────────────────────────────────
+# Non-fatal: tells the operator when prod has migrations the ACTIVE TEST server lacks (the P1576
+# shape). Runs the main checkout's script, so a stale worktree copy cannot skip it. Output is shown
+# whole on stderr (never filtered); any failure to compare is itself reported, never swallowed.
+warn_test_drift() {
+  local script="$REPO_ROOT/scripts/check-test-drift.sh" rc=0
+  [[ -x "$script" ]] || { echo "WARNING: $script missing; test drift not checked." >&2; return 0; }
+  "$script" >&2 || rc=$?
+  if (( rc != 0 )); then
+    echo "WARNING: check-test-drift exited $rc (1 = drift, 2 = could not compare). Not blocking this command." >&2
+  fi
+  return 0
+}
+
 # ── Schema gate (P1211 C2) ────────────────────────────────────────────────────
 # Code must never reach origin/main ahead of its migration. Both push commands run
 # scripts/check-schema-ready.sh (C1) on the exact SHA they will push, BEFORE anything
@@ -5741,6 +5756,7 @@ cmd_ship_to_prod() {
   fi
 
   # ── Step 0.5: Schema gate (P1211) — before anything reaches origin ────────
+  warn_test_drift
   schema_gate_pre "ship-to-prod" "$local_sha" >/dev/null
 
   # ── Step 1: Privacy check (detect-only -- D2) ─────────────────────────────
@@ -6237,6 +6253,7 @@ cmd_push_docs() {
   echo "push-docs: ${ahead_count} commit(s) ahead of origin/main (snapshot ${local_sha:0:9})." >&2
 
   # ── Step 0.5: Schema gate (P1211) — on the PINNED snapshot, --resume included ──
+  warn_test_drift
   schema_gate_pre "push-docs" "$local_sha" >/dev/null
 
   # ── Step 1: Privacy check (D2) ────────────────────────────────────────────
