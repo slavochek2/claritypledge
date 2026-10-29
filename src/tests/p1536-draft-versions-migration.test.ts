@@ -387,6 +387,14 @@ describe('P1536 migrations: replaced bodies', () => {
   it.each(Object.keys(REPLACED))('%s: the source named is the latest migration that defines it', (name) => {
     expect(latestSource(name)).toBe(REPLACED[name]!.source);
   });
+  // A LATER migration that rebuilds one of these functions from an older body would silently drop P1536's change
+  // (the bug the P1576 rebase hit). So the newest definition anywhere must still carry every P1536 edit.
+  it.each(Object.keys(REPLACED))('%s: the newest definition across all migrations still carries the P1536 edits', (name) => {
+    const re = new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+public\\.${name}\\s*\\(`, 'i');
+    const defs = readdirSync(MIG).filter((f) => /^\d{14}_.*\.sql$/.test(f) && re.test(stripComments(read(f)))).sort();
+    const newest = fnBody(read(defs[defs.length - 1]!), name);
+    for (const [, to] of REPLACED[name]!.edits) expect(newest, `${name} in ${defs[defs.length - 1]}`).toContain(norm(to));
+  });
   it('the grants of the replaced client functions are restated exactly as before', () => {
     expect(codeA).toMatch(/REVOKE ALL ON FUNCTION public\.get_canvas\(uuid, text, text, text\) FROM PUBLIC, anon, authenticated;/);
     expect(codeA).toMatch(/GRANT EXECUTE ON FUNCTION public\.get_canvas\(uuid, text, text, text\) TO anon, authenticated;/);

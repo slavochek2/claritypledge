@@ -197,6 +197,8 @@ describe('P1536 around the mirror', () => {
   it('a canvas version in a quote reads "A canvas"', () => {
     expect(messageSummary({ body: null, isDeleted: false, attachmentKind: 'canvas_version', kind: 'message' })).toBe('A canvas');
     expect(messageSummary({ body: null, isDeleted: false, attachmentKind: 'point', kind: 'message' })).toBe('A point');
+    expect(messageSummary({ body: null, isDeleted: false, attachmentKind: 'letter', kind: 'message' })).toBe('A letter');
+    expect(messageSummary({ body: null, isDeleted: false, attachmentKind: 'story', kind: 'message' })).toBe('A story');
   });
 });
 
