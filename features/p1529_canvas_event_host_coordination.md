@@ -41,6 +41,15 @@ from attendees arriving with canvases, through understand-then-challenge rounds,
 their canvas, to session 2. Then decide what the host needs to see and steer at each step; pairing
 on canvas points is one part of it.
 
+## Founder rulings to carry (2026-10-29, from P1592)
+
+- **Rounds, not tables, for the host too.** The host creates rounds. A role reversal (talking about
+  the other person's canvas) is a new round, even when the same pair stays at the same table, so
+  each canvas conversation gets its own thread (P1592 D2).
+- This placeholder is built only if session 1 shows the need (decisions.md 2026-10-29 [product]).
+  When it is, it builds on P1542's per-series recipes (the mastermind as the third recipe) rather
+  than adding a third fixed copy of the event-room steps.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
