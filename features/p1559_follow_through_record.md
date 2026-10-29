@@ -18,8 +18,8 @@ driver: heuristic
 
 > **Parked 2026-10-28.** The ledger records checks of understanding, so it waits until people can
 > make stories from a transcript and have them checked through chat (P1431, P1484). Live checks
-> come from P1390. Founder: "park ledger until then". Prototype: `/tree/ledger` on branch
-> `feature/p1559-ledger-prototype`.
+> come from P1390. Founder: "park ledger until then". The first prototype (`/tree/ledger`, a separate
+> screen sorted by event type) was the wrong shape and was discarded on 2026-10-29 (decisions.md 2026-10-29 [product]).
 
 > **PLACEHOLDER spec.** Captures the idea and the rulings it builds on. Do NOT design the build until
 > discovery calls with change leads (P1558's outreach) have tested the need.
