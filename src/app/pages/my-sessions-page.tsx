@@ -19,6 +19,8 @@ import type { SessionHistoryItem, SessionTranscript } from '@/app/types';
 import { TranscriptSkeleton } from '@/app/pages/my-sessions-skeleton';
 import { SectionWait } from '@/components/ui/section-wait';
 import { useTranscript } from '@/app/pages/use-transcript';
+import { TranscriptCopyControl } from '@/app/pages/transcript-copy-control';
+import { useEscapeBack } from '@/app/pages/use-escape-back';
 
 // ─── View state ───────────────────────────────────────────────────────────────
 
@@ -219,26 +221,7 @@ function formatRoomTranscriptForCopy(transcript: RoomTranscript): string {
  */
 function RoomTranscriptView({ roomId, onBack }: { roomId: string; onBack: () => void }) {
   const { transcript, loading, failed, retry } = useTranscript<RoomTranscript>(roomId, fetchRoomTranscript);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onBack();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onBack]);
-
-  const handleCopy = async () => {
-    if (!transcript) return;
-    try {
-      await navigator.clipboard.writeText(formatRoomTranscriptForCopy(transcript));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      console.error('[P1307] Failed to copy room transcript');
-    }
-  };
+  useEscapeBack(onBack);
 
   if (loading) {
     return <SectionWait failed={failed} onRetry={retry}><TranscriptSkeleton /></SectionWait>;
@@ -254,20 +237,10 @@ function RoomTranscriptView({ roomId, onBack }: { roomId: string; onBack: () => 
 
   return (
     <div data-testid="room-transcript" data-source={transcript.source}>
-      <div className="flex items-center justify-end mb-4">
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-2 py-1"
-          aria-label="Copy transcript to clipboard"
-        >
-          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          {copied ? 'Copied' : 'Copy'}
-        </button>
-      </div>
-
-      <div aria-live="polite" className="sr-only" role="status">
-        {copied ? 'Transcript copied to clipboard' : ''}
-      </div>
+      <TranscriptCopyControl
+        getText={() => formatRoomTranscriptForCopy(transcript)}
+        errorLabel="[P1307] Failed to copy room transcript"
+      />
 
       <div className="space-y-4">
         {transcript.segments.map((segment, i) => (
@@ -316,27 +289,7 @@ function SessionTranscriptView({
   onBack: () => void;
 }) {
   const { transcript, loading, failed, retry } = useTranscript<SessionTranscript>(session.id, fetchSessionTranscript);
-  const [copied, setCopied] = useState(false);
-
-  // Escape key handler
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onBack();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onBack]);
-
-  const handleCopy = async () => {
-    if (!transcript) return;
-    try {
-      await navigator.clipboard.writeText(formatTranscriptForCopy(transcript));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      console.error('[P495] Failed to copy transcript');
-    }
-  };
+  useEscapeBack(onBack);
 
   if (loading) {
     return <SectionWait failed={failed} onRetry={retry}><TranscriptSkeleton /></SectionWait>;
@@ -353,21 +306,10 @@ function SessionTranscriptView({
   return (
     <div>
       {/* Transcript header with copy button */}
-      <div className="flex items-center justify-end mb-4">
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-2 py-1"
-          aria-label="Copy transcript to clipboard"
-        >
-          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          {copied ? 'Copied' : 'Copy'}
-        </button>
-      </div>
-
-      {/* aria-live region for copy feedback */}
-      <div aria-live="polite" className="sr-only" role="status">
-        {copied ? 'Transcript copied to clipboard' : ''}
-      </div>
+      <TranscriptCopyControl
+        getText={() => formatTranscriptForCopy(transcript)}
+        errorLabel="[P495] Failed to copy transcript"
+      />
 
       {/* Segments */}
       <div className="space-y-4">
