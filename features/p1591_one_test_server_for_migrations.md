@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 82
 workstream: infrastructure
@@ -77,7 +77,7 @@ Blast radius: every TEST migration and every test-side SQL read. Reversibility: 
 
 | Risk | Label | Note |
 |---|---|---|
-| Self-hosted TEST lacks AI and storage keys (founder rule), so some voice and Mirror tests cannot pass there | ACCEPT | decisions 2026-10-28; they keep their known-skip, never a hosted fallback |
+| A test that needs a credential self-hosted TEST lacks | ACCEPT | Superseded in part: decisions 2026-10-29 gave self-hosted TEST its AI and storage keys. Any remaining gap keeps a known-skip, never a hosted fallback |
 | Hosted TEST drifts behind once nothing applies to it by default | ACCEPT | Consequence of A; `--env hosted-test` catches it up |
 | gcloud login expired → every TEST migrate fails | ACCEPT | Loud failure is the invariant; message names `gcloud auth login` |
 | A script still hard-codes hosted TEST | MITIGATE | Guard (5) ratchets new readers; existing ones are allowlisted, not fixed here |
@@ -89,13 +89,13 @@ Blast radius: every TEST migration and every test-side SQL read. Reversibility: 
 
 ## Done-When
 
-- [ ] `./scripts/migrate.sh --list` (no env) lists the self-hosted TEST ledger, and hosted is not contacted (shown by a stub/trace)
-- [ ] Resolver fails closed: missing file, `unknown` state each exit non-zero before any network call (3 controls)
-- [ ] `--env hosted-test` reaches the hosted path; `--only` on TEST with self-hosted active is refused
-- [ ] `supabase-readonly-sql.py --env test "select current_setting('transaction_read_only')"` answers from the self-hosted server
-- [ ] Drift comparator flags a prod-only version and passes when equal (injected lists, both controls); live run against prod vs self-hosted prints its verdict
-- [ ] Guard fails on a new script containing the hosted ref, passes on the current tree
-- [ ] Docs name the resolver
+- [x] `./scripts/migrate.sh --list` (no env) lists the self-hosted TEST ledger, and hosted is not contacted (shown by a stub/trace)
+- [x] Resolver fails closed: missing file, `unknown` state each exit non-zero before any network call (3 controls)
+- [x] `--env hosted-test` reaches the hosted path; `--only` on TEST with self-hosted active is refused
+- [x] `supabase-readonly-sql.py --env test "select current_setting('transaction_read_only')"` answers from the self-hosted server
+- [x] Drift comparator flags a prod-only version and passes when equal (injected lists, both controls); live run against prod vs self-hosted prints its verdict
+- [x] Guard fails on a new script containing the hosted ref, passes on the current tree
+- [x] Docs name the resolver
 
 ## Related
 
