@@ -696,6 +696,13 @@ PWA install prompt was triggered.
 |----------|------|-------------|
 | `source` | string | Where the prompt was triggered from: `avatar_menu` or `return_nudge` (P1593) |
 
+### `pwa_install_instructions_shown`
+Generic (non-iOS) install instructions were shown because no native prompt was captured (P1593).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `source` | string | `avatar_menu` or `return_nudge` |
+
 ### `pwa_ios_instructions_shown`
 iOS PWA install instructions were shown to the user.
 

@@ -1,7 +1,8 @@
 /**
  * @file ios-install-drawer.tsx
  * @description P493: Bottom drawer with step-by-step iOS "Add to Home Screen" instructions.
- * Shown on iOS Safari where beforeinstallprompt is not available.
+ * Shown on iOS Safari where beforeinstallprompt is not available. P1593: the `generic` variant is the
+ * browser-neutral fallback when no native prompt was captured (Android/desktop).
  */
 import { Button } from '@/components/ui/button';
 import {
@@ -15,10 +16,11 @@ import { Share, Plus, CheckCircle2 } from 'lucide-react';
 
 interface IosInstallDrawerProps {
   open: boolean;
+  variant?: 'ios' | 'generic';
   onClose: () => void;
 }
 
-export function IosInstallDrawer({ open, onClose }: IosInstallDrawerProps) {
+export function IosInstallDrawer({ open, onClose, variant = 'ios' }: IosInstallDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
       <DrawerContent>
@@ -28,6 +30,11 @@ export function IosInstallDrawer({ open, onClose }: IosInstallDrawerProps) {
           </DrawerTitle>
         </DrawerHeader>
 
+        {variant === 'generic' ? (
+          <p className="px-6 pb-2 text-center text-sm">
+            Open your browser menu and choose "Install app" or "Add to home screen".
+          </p>
+        ) : (
         <div className="px-6 pb-2 space-y-4">
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
@@ -57,6 +64,7 @@ export function IosInstallDrawer({ open, onClose }: IosInstallDrawerProps) {
             </div>
           </div>
         </div>
+        )}
 
         <DrawerFooter>
           <Button onClick={onClose} className="w-full">

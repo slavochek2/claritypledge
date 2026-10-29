@@ -89,7 +89,6 @@ describe('P1593 return-visit nudge', () => {
     stage({ ua: ANDROID });
     seedReturnVisit();
     renderBar();
-    expect(nudge()).toBeNull(); // nothing can act yet
     const e = nativePrompt();
     expect(nudge()).toBeInTheDocument();
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /add clarity pledge to your home screen/i })); });
@@ -113,7 +112,17 @@ describe('P1593 return-visit nudge', () => {
     expect(nudge()).toBeNull();
   });
 
-  it('desktop browser that cannot prompt: no nudge', () => {
+  it('2nd visit, Android without a captured prompt: shows, tapping opens the generic instructions', () => {
+    stage({ ua: ANDROID });
+    seedReturnVisit();
+    renderBar();
+    expect(nudge()).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /add clarity pledge to your home screen/i }));
+    expect(screen.getByText(/Open your browser menu/)).toBeInTheDocument();
+    expect(track).toHaveBeenCalledWith('pwa_install_instructions_shown', { source: 'return_nudge' });
+  });
+
+  it('desktop without a prompt: no nudge (mobile only)', () => {
     stage({ ua: DESKTOP });
     seedReturnVisit();
     renderBar();
@@ -225,21 +234,23 @@ describe('P1593 avatar menu item', () => {
     expect(track).toHaveBeenCalledWith('pwa_install_prompted', { source: 'avatar_menu' });
   });
 
-  it('Android: hidden until the prompt is captured, then fires it', async () => {
+  it('Android: shown without a prompt (generic instructions); fires the native prompt once captured', async () => {
     stage({ ua: ANDROID });
     renderMenu();
-    expect(item()).toBeNull();
+    fireEvent.click(item()!);
+    expect(screen.getByText(/Open your browser menu/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
     const e = nativePrompt();
-    await act(async () => { fireEvent.click(item()!); });
+    // The closing drawer still marks the page aria-hidden while it animates out: find the row by text.
+    await act(async () => { fireEvent.click(screen.getByText('Add to home screen')); });
     expect(e.prompt).toHaveBeenCalled();
   });
 
-  it('desktop without a prompt: absent; desktop Chrome with one: present', () => {
+  it('desktop without a prompt: shown, opens the generic instructions', () => {
     stage({ ua: DESKTOP });
     renderMenu();
-    expect(item()).toBeNull();
-    nativePrompt();
-    expect(item()).toBeInTheDocument();
+    fireEvent.click(item()!);
+    expect(screen.getByText(/Open your browser menu/)).toBeInTheDocument();
   });
 
   it('installed: absent', () => {

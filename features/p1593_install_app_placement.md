@@ -45,8 +45,8 @@ Blast radius: low to medium. It touches the shared avatar menu (every signed-in 
    - It is hidden when the app is installed.
    - On Android/Chromium with a captured prompt, it fires the native prompt.
    - On iOS it opens the existing iOS instruction drawer.
-   - On desktop it shows only when the browser can actually prompt. Desktop browsers without a prompt (e.g. Safari or Firefox desktop) get no item.
-2. **Return-visit nudge (mobile only).** It shows for signed-in people on a mobile layout, not installed, on their 2nd or later visit, and only where the platform can act (native prompt available, or iOS). It renders as a dismissible strip in the same slot above the bottom tabs that "Today's event" uses, and Today's event takes precedence. Tapping it behaves like the menu item. Closing it starts the existing 30-day dismiss cooldown. A "visit" is a new browser session, counted on the device; exact mechanics are the implementer's call.
+   - **Founder decision 2026-10-29: always show when not installed; generic instructions fallback.** Everywhere else (Android or desktop with no captured prompt, e.g. Safari or Firefox desktop) the item still shows and opens a browser-neutral instructions drawer: "Open your browser menu and choose Install app or Add to home screen".
+2. **Return-visit nudge (mobile only).** It shows for signed-in people on a mobile layout, not installed, on their 2nd or later visit, and (founder decision 2026-10-29) whether or not a native prompt was captured. It renders as a dismissible strip in the same slot above the bottom tabs that "Today's event" uses, and Today's event takes precedence. Tapping it behaves like the menu item. Closing it starts the existing 30-day dismiss cooldown. A "visit" is a new browser session, counted on the device; exact mechanics are the implementer's call.
 3. **Remove** the Install card from Settings, the install link from the celebration dialog, and the install banner from /live session end. Delete the components if nothing else uses them.
 4. **Analytics:** keep the existing install events and add source values `avatar_menu` and `return_nudge`. Retire the sources for the removed surfaces.
 
@@ -56,7 +56,7 @@ Blast radius: low to medium. It touches the shared avatar menu (every signed-in 
 - **The iOS drawer needs one shell-level owner.** Today each removed surface mounts its own drawer. Lift drawer open state into `PwaInstallProvider` (e.g. `openInstall(source)` that prompts natively or opens the drawer) and mount the drawer once at the app root, so closing the menu or sheet does not unmount it.
 - **Nudge layout:** the strip is a row holding two sibling buttons (CTA area, × close), never a button nested inside a button. The × gets its 40px touch target from the full strip height (`h-10`) and a ≥40px width.
 - **Visit counting:** count a visit when ≥30 minutes have passed since the last recorded activity on this device (persistent storage timestamp). Reloads and route changes within a visit never increment the count.
-- **Prompt timing:** on non-iOS, the item appears only once `canPrompt` is true. Accept that it may be absent if the menu opens before `beforeinstallprompt` fires, and don't show a placeholder. Menus are opened by a tap, and no layout shift happens while a menu is closed.
+- **Prompt timing (founder decision 2026-10-29):** the item and the nudge show whenever the app is not installed, never gated on `canPrompt`. A tap fires the native prompt if one was captured, opens the iOS drawer on iOS, and otherwise opens the generic instructions drawer. The nudge stays mobile-only.
 
 CTA text: **"Add to home screen"**. Agents chose it under the founder's delegation, because it describes the iPhone action literally and also reads correctly on Android.
 
@@ -67,7 +67,7 @@ CTA text: **"Add to home screen"**. Agents chose it under the founder's delegati
 | iOS never confirms an install, so the nudge can return after the cooldown for someone who did install | ACCEPT | Once they open from the icon, standalone mode hides it for good |
 | Nudge shows on a page that already has a primary bottom action | MITIGATE | Render only in the Today's-event slot, never alongside it |
 | Removing celebration/session-end surfaces lowers prompt count | ACCEPT | Deliberate founder call (2026-10-29), to stop competing with WhatsApp/community asks |
-| Native prompt event not yet captured when the menu opens | MITIGATE | Item hidden (non-iOS) until a prompt is available, so it's never a dead control |
+| Native prompt event not yet captured when the menu opens | MITIGATE | Founder decision 2026-10-29: item always shows when not installed; without a prompt it opens the generic instructions drawer, so it is never a dead control |
 
 **Non-Goals**
 - Do NOT change the service worker, the manifest, or the update-on-resume flow (P1416).
@@ -83,7 +83,7 @@ CTA text: **"Add to home screen"**. Agents chose it under the founder's delegati
 ## Acceptance Criteria
 
 - [ ] Signed in on a mobile browser (not installed), the avatar menu shows "Add to home screen". Tapping it opens the iOS drawer on iPhone and the native prompt on Android.
-- [ ] On desktop Chrome (not installed) the avatar menu shows the item and it triggers the native prompt. On a desktop browser that cannot prompt, the item is absent.
+- [ ] On desktop Chrome (not installed) the avatar menu shows the item and it triggers the native prompt. On a desktop browser that cannot prompt, the item still shows and opens the generic instructions drawer (founder decision 2026-10-29).
 - [ ] In the installed app, the item and the nudge are absent.
 - [ ] Settings no longer shows an Install card. The celebration dialog and /live session end no longer show install links.
 - [ ] On a first visit no nudge appears. On a later visit (mobile, signed in, not installed) the strip appears above the bottom tabs.

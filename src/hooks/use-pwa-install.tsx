@@ -27,9 +27,9 @@ interface PwaInstallContextValue {
   promptInstall: (source: InstallSource) => Promise<void>;
   /** Record a dismiss and start 30-day cooldown */
   dismiss: (source: InstallSource) => void;
-  /** P1593: whether an install action exists here (not installed, and iOS or a captured native prompt) */
+  /** P1593: whether an install action exists here (true whenever the app is not installed; founder call, no longer gated on a captured prompt) */
   canOffer: boolean;
-  /** P1593: the native prompt where there is one, otherwise the iOS instruction drawer (mounted once, here) */
+  /** P1593: the native prompt if captured, else the iOS or generic instruction drawer (mounted once, here) */
   openInstall: (source: InstallSource) => Promise<void>;
   /** P1593: 2nd or later visit on this device (a visit = 30+ minutes since the last activity) */
   isReturnVisit: boolean;
@@ -108,7 +108,7 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
   const [canPrompt, setCanPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(getIsInstalled);
   const [isDismissed, setIsDismissed] = useState(getIsDismissed);
-  const [iosDrawerOpen, setIosDrawerOpen] = useState(false);
+  const [instructions, setInstructions] = useState<'ios' | 'generic' | null>(null);
   const [visitCount, setVisitCount] = useState(() => recordActivity());
 
   const isIOS = getIsIOS();
@@ -179,15 +179,18 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
     setIsDismissed(true);
   }, []);
 
-  const canOffer = !isInstalled && (isIOS || canPrompt);
+  const canOffer = !isInstalled;
 
   const openInstall = useCallback(async (source: InstallSource) => {
     analytics.track('pwa_install_prompted', { source });
-    if (isIOS) {
-      analytics.track('pwa_ios_instructions_shown', { source });
-      setIosDrawerOpen(true);
-    } else {
+    if (deferredPrompt.current) {
       await promptInstall(source);
+    } else if (isIOS) {
+      analytics.track('pwa_ios_instructions_shown', { source });
+      setInstructions('ios');
+    } else {
+      analytics.track('pwa_install_instructions_shown', { source });
+      setInstructions('generic');
     }
   }, [isIOS, promptInstall]);
 
@@ -199,7 +202,7 @@ export function PwaInstallProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      <IosInstallDrawer open={iosDrawerOpen} onClose={() => setIosDrawerOpen(false)} />
+      <IosInstallDrawer open={instructions !== null} variant={instructions ?? 'generic'} onClose={() => setInstructions(null)} />
     </PwaInstallContext.Provider>
   );
 }
