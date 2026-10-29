@@ -57,7 +57,7 @@ by hand.
 
 **Decision density:** low for the product model, which the founder settled on 2026-10-29 (recorded
 under Decisions). The terms wording and notice-not-re-acceptance were settled the same day (§Terms
-below). One founder call remains: the bar copy.
+below), and the bar copy after it. No founder call remains before `/dev`.
 
 ## Decisions (founder, 2026-10-29)
 
@@ -235,14 +235,14 @@ that room can (`20260823190000_p1149_transcribe_room_tables.sql:150-157`), so th
 - **Notice, not re-acceptance:** no new terms version that blocks existing users. A one-time notice
   of the change is enough; its form and placement are `/dev`'s call within the existing notice
   patterns, and it adds no new screen.
-- [FOUNDER DECISION: copy. The words people actually read are the ⓘ popup's "Where it goes:" line
-  (`capture-controls.tsx:111`, founder-approved 2026-10-02), today "the text appears for everyone in
-  this room, and the audio is kept so the whole conversation can be transcribed afterwards." Draft:
-  "the text is posted to this event's channel, in your round's thread, where the host and attendees
-  can read it. The audio is kept so the whole conversation can be transcribed afterwards." The
-  Transcribe button's description (`room-capture-bar.tsx:238`) is only a desktop hover tooltip and a
-  screen-reader label, nobody sees it on a phone; it gets the same first sentence. Confirm or
-  rewrite.]
+- **Bar copy, decided (founder, 2026-10-29).** The words people actually read are the ⓘ popup's
+  "Where it goes:" line (`capture-controls.tsx:111`), today "the text appears for everyone in this
+  room, and the audio is kept so the whole conversation can be transcribed afterwards." In the event
+  room it becomes: "the text is posted to this event's channel, in your round's thread, where the
+  host and attendees can read it. The audio is kept so the whole conversation can be transcribed
+  afterwards." The Transcribe button's description (`room-capture-bar.tsx:238`) is only a desktop
+  hover tooltip and a screen-reader label; it gets the same first sentence. The ⓘ on the
+  `/transcribe` page keeps today's text, since that page does not post to a channel. One ⓘ component serves both (`transcribe-room-page.tsx:443`, `room-capture-bar.tsx:65,136,262`), so it chooses the line by whether the capture belongs to an event.
 
 ### The quiet swap (D9, D10)
 
@@ -396,7 +396,7 @@ Checked on TEST with an event that has rounds, two attendee accounts and the hos
       cross-phone de-duplication spec is filed.
 - [ ] Clarity Night regression: an event with no rounds still transcribes, and its lines land in the
       event channel as top-level posts.
-- [ ] The founder decision above (bar copy) is recorded. Terms wording and notice were recorded
+- [x] The founder decisions (bar copy, terms wording, notice not re-acceptance) are recorded,
       2026-10-29.
 
 ## Cost Budget
