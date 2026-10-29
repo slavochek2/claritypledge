@@ -9,7 +9,7 @@
  */
 import { useContext, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { HistoryIcon, LayoutGridIcon, LogOutIcon, SettingsIcon, SmartphoneIcon, XIcon } from 'lucide-react';
+import { HistoryIcon, LayoutGridIcon, LogOutIcon, SettingsIcon, DownloadIcon, XIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { EventLinksButton } from '@/app/components/layout/event-links-menu';
 import { EventLinksContext } from '@/app/components/layout/event-links-context';
@@ -172,7 +172,7 @@ export function MeSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (
                 onClick={() => { close(); installAction(); }}
                 className={cn(SHEET_ROW, 'text-left')}
               >
-                <SmartphoneIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <DownloadIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
                 Install as app
               </button>
             )}

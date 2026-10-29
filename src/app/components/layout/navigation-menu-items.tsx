@@ -36,7 +36,7 @@ import {
   UserPlusIcon,
   HistoryIcon,
   GlobeIcon,
-  SmartphoneIcon,
+  DownloadIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { useInstallMenuAction } from '@/hooks/use-pwa-install';
@@ -67,7 +67,7 @@ function InstallMobileRow({ className, iconClass, onDone }: { className: string;
   if (!install) return null;
   return (
     <button type="button" onClick={() => { onDone(); install(); }} className={className}>
-      <SmartphoneIcon className={iconClass} />
+      <DownloadIcon className={iconClass} />
       Install as app
     </button>
   );
@@ -78,7 +78,7 @@ function InstallDropdownItem() {
   if (!install) return null;
   return (
     <DropdownMenuItem onClick={install} className="cursor-pointer">
-      <SmartphoneIcon className="w-4 h-4 mr-2" />
+      <DownloadIcon className="w-4 h-4 mr-2" />
       Install as app
     </DropdownMenuItem>
   );
