@@ -14,12 +14,21 @@ exec_effort: high
 driver: heuristic
 ---
 
-# P1559: Clarity Ledger counts: recognising who follows through
+# P1559: Clarity Ledger: recognising checks of understanding, first from event rounds
 
 > **Parked 2026-10-28.** The ledger records checks of understanding, so it waits until people can
 > make stories from a transcript and have them checked through chat (P1431, P1484). Live checks
 > come from P1390. Founder: "park ledger until then". The first prototype (`/tree/ledger`, a separate
 > screen sorted by event type) was the wrong shape and was discarded on 2026-10-29 (decisions.md 2026-10-29 [product]).
+
+> **Rescoped 2026-10-30 (founder): the ledger's first view is the event rounds.** At the sales
+> mastermind a check of understanding already happens, out loud: the owner explains back the
+> partner's reason until the partner says above 8. P1390 reads those numbers from the round threads
+> and writes them here, so the parking condition ("a record cannot come before the check it records")
+> is met for events without checks through chat. Each entry is still a story with one state
+> (decisions.md 2026-10-29 [product]): the partner's reason, understood at the number they said. Group
+> follow-through (terms, chats and letters answered) is a later view. Still built after session 1,
+> on real transcripts. The P1558 discovery-call gate below applies to the group view only.
 
 > **PLACEHOLDER spec.** Captures the idea and the rulings it builds on. Do NOT design the build until
 > discovery calls with change leads (P1558's outreach) have tested the need.
@@ -54,6 +63,14 @@ Reversibility: medium. Decision density: a few.
 
 ## Solution (direction only)
 
+**First view: event rounds (2026-10-30).** One entry per partner reason checked in a round: whose
+reason, on whose canvas, the number the partner said, and, when the box changed in the next version,
+the link to it (P1574). Written by P1390 from the round threads. The founder's research count
+(explain-back tries per owner, session 1 vs session 2, goals.md 3a) is computed from the same entries
+but is a readout for the founder, not a view people see about each other.
+
+**Later view: group follow-through.**
+
 The Understanding Ledger's v1 count view (decisions.md 2026-07-24), at group level. Each person sees
 their own record: when they said yes to the terms, and the chats and letters they answered. The team
 sees follow-through recognised, by name or as a total (founder decision below).
@@ -69,7 +86,8 @@ said 9." The chain:
 
 1. Reasons and numbers are filed: the words from the round threads (P1592), the numbers people said
    out loud (P1390), and why a point changed with whose reason it was (P1574).
-2. The room, or the host's screen, shows whose reasons moved the most canvases.
+2. The room, or the host's screen, names the people whose reasons changed a canvas. Recognition
+   only, no ranking (Invariants: counts, not scores).
 3. People are celebrated for the behaviour, so the room sees that verifying understanding works.
 4. Side effect: data for H-StoryFirst (does verified understanding of a reason move positions?).
 

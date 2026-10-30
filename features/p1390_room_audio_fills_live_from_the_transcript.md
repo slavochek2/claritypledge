@@ -112,6 +112,7 @@ audience.
 ## Done-When
 
 - [ ] A finished event transcript yields spoken numbers attributed to person, round and table, with an error list a human can read
+- [ ] The numbers are written as ledger entries and visible in the Clarity Ledger's first view (P1559, rescoped 2026-10-30), not only in a terminal report
 - [ ] Draft stories are produced and sit awaiting confirmation; none is published automatically
 - [ ] Predicted position changes are offered back to the person with the round and the quote that prompted them
 - [ ] An accuracy rate is measured and recorded, with the errors enumerated rather than summarised
