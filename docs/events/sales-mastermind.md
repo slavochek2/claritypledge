@@ -20,7 +20,9 @@ Stated at registration and on the event page, before anyone comes. Not opt-in at
 1. **Every conversation is recorded**: everyone wears a lavalier and switches transcription on in the
    event room. The words land in that round's thread in the event channel
    ([P1592](../../features/p1592_event_transcripts_land_in_round_threads.md)), and the owner's mirror
-   uses them to draft the next version of their canvas.
+   uses them to draft the next version of their canvas. Stated in the terms and the recording consent
+   (founder, 2026-10-30): "In a discussion round, what you say can be used by that round's Clarity
+   Canvas owner's AI mirror to draft their next version." The canvas never quotes or names anyone else.
 2. **The meeting principle:** explain back what the other person means, to their score, before you
    disagree.
 3. **Arrive with a canvas shared with this event.** In the event room's preparation, the mirror
@@ -45,11 +47,16 @@ loop, and both make a new canvas version between rounds (founder, 2026-10-30).
   feedback on content and on communication at the end of the round. A table may have none, one or
   two observers.
 
-**One canvas per round, a new partner every round.** Each person with a canvas alternates: owner in
-one round, partner on someone else's canvas in the next. Over four rounds everyone with a canvas owns
-twice and partners twice, with four different people, so one weak match touches a quarter of the
-evening, and every version is read by someone who has not seen it. Needs at least five people with a
-canvas so nobody repeats a partner; observers do not count toward that.
+**One canvas per round, a new partner every round.** Everyone with a canvas is the Clarity Canvas
+owner once in rounds 1-2 and once in rounds 3-4 (on the new version), and a partner on someone else's
+canvas in the other two, with four different people. One weak match touches a quarter of the evening,
+and every version is read by someone who has not seen it. Who owns in round 3 may differ from round 1:
+strict round-by-round alternation splits the room into two fixed halves and, at six people, makes a
+fourth new partner impossible (founder, 2026-10-30; exhaustive search). Works from five people with a
+canvas (with an odd number, one observes each round, rotated, and one person owns only once).
+Session 2 avoids session-1 partners where it can: across both sessions a person needs eight different
+partners, so with fewer than nine people with a canvas some repeats are unavoidable, and the host's
+preview names them.
 
 ### The rules (spoken, not in the app)
 
@@ -70,7 +77,7 @@ the `/live` sliders were hard to follow and people wanted to talk to each other,
 
 | Step | What happens | Min |
 |---|---|---|
-| 1 | B reads A's canvas silently and marks **every box B would bet against** (one or more). The pair picks which disagreement to discuss: B can propose, A has the final say (*founder, 2026-10-30*). A, meanwhile, reads their own new version if this is their second round as owner. | 4 |
+| 1 | B reads A's canvas silently and marks **every box B would bet against** (one or more), with the canvas's own position controls; Compare then shows where they differ (founder, 2026-10-30). The pair picks which disagreement to discuss: B can propose, A has the final say (*founder, 2026-10-30*). A, meanwhile, reads their own new version if this is their second round as owner. | 4 |
 | 2 | **Understand.** A speaks, B listens and explains back. A corrects and says a number each time. | until A says above 8 |
 | 3 | **Challenge.** B speaks: why B bets against the chosen box. A explains back B's reason until **B** says above 8. A can take the speaker card back at any time. | the rest of the talk |
 | 4 | **Observer feedback**: where the rules slipped, and one thing on content or communication. | 2 |
@@ -94,14 +101,14 @@ with no stance (P1536 D20).
 |---|---|
 | Opener: the roles and rules, the lanyard cards, recording check, one 90-second explain-back demo with a volunteer | 12 |
 | Seating | 2 |
-| Round 1: half the canvas holders own, half partner | 24 |
+| Discussion round 1: half the canvas holders own, half partner | 24 |
 | Seating (new partner) | 2 |
-| Round 2: the other half own | 24 |
+| Discussion round 2: the other half own | 24 |
 | Canvas update: publish the new version as it is, then optionally mark your stance on changed boxes | 12 |
 | Seating (new partner) | 2 |
-| Round 3: round 1's owners, on their new version | 24 |
+| Discussion round 3: half the canvas holders own, on their new version (the halves may reshuffle) | 24 |
 | Seating (new partner) | 2 |
-| Round 4: round 2's owners, on their new version | 24 |
+| Discussion round 4: the rest own, on their new version | 24 |
 | Close: **everyone**, 30-40 seconds: one canvas change and one real-customer test before session 2 | 10 |
 | Exit card (private, paper) | 5 |
 | Next session date, said while everyone is in the room | 2 |
