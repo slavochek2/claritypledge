@@ -48,6 +48,13 @@ function readGroup(event: { id: string; orgId?: string | null }) {
 /** undefined while the read is out (visual review round 5: callers wait rather than show the fallback first),
  *  null for an event with no group or a failed read. */
 export function useEventCommunityName(event: EventGroupRef, enabled = true): string | null | undefined {
+  const community = useEventCommunity(event, enabled);
+  return community === undefined ? undefined : community?.name ?? null;
+}
+
+/** The event's organising group: its short name and its slug (P1595: the registered page links to the group's page).
+ *  The same one read as useEventCommunityName, with the same undefined / null meanings. */
+export function useEventCommunity(event: EventGroupRef, enabled = true): { name: string; slug: string | null } | null | undefined {
   // Round 10b: the answer carries the inputs it was read for; an answer for other inputs (the disabled hook's null,
   // before the read for the new inputs has even started) reads as undefined — still unknown.
   const ref = refOf(event);
@@ -55,16 +62,16 @@ export function useEventCommunityName(event: EventGroupRef, enabled = true): str
   const orgId = ref?.orgId;
   const idle = !eventId || !enabled || orgId === null;
   const key = `${eventId ?? ''}:${orgId ?? (orgId === null ? 'none' : '?')}:${enabled ? 1 : 0}`;
-  const [answer, setAnswer] = useState<{ key: string; name: string | null } | null>(null);
+  const [answer, setAnswer] = useState<{ key: string; group: { name: string; slug: string | null } | null } | null>(null);
   useEffect(() => {
     setAnswer(null);
-    if (!eventId || !enabled || orgId === null) { setAnswer({ key, name: null }); return; }
+    if (!eventId || !enabled || orgId === null) { setAnswer({ key, group: null }); return; }
     let cancelled = false;
     // Round 7e (metered-services rule 3): no request from a hidden tab.
     const cancelWait = whenVisible(() => {
       (orgId !== undefined ? readGroup({ id: eventId, orgId }) : eventsService.getEventOrganizer(eventId))
-        .then((org) => { if (!cancelled) setAnswer({ key, name: org?.name ? shortCommunityName(org.name) : null }); })
-        .catch(() => { if (!cancelled) setAnswer({ key, name: null }); });
+        .then((org) => { if (!cancelled) setAnswer({ key, group: org?.name ? { name: shortCommunityName(org.name), slug: org.slug || null } : null }); })
+        .catch(() => { if (!cancelled) setAnswer({ key, group: null }); });
     });
     return () => { cancelled = true; cancelWait(); };
   }, [eventId, orgId, enabled, key]);
@@ -72,7 +79,7 @@ export function useEventCommunityName(event: EventGroupRef, enabled = true): str
   // is already dropped: each effect's cleanup sets its `cancelled` (the request fence), and the key check covers the
   // render before it runs.
   if (idle) return null;
-  return answer && answer.key === key ? answer.name : undefined;
+  return answer && answer.key === key ? answer.group : undefined;
 }
 
 /**

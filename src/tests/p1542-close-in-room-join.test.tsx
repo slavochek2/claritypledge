@@ -10,7 +10,7 @@
  *  - the URL stays the room's: no ?done=1, the room's entry state kept, and a left ?join=1 dropped.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 const auth = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
@@ -69,6 +69,7 @@ vi.mock('@/app/prototypes/events/prep/use-prep-state', async (importOriginal) =>
 
 
 import { CloseInRoom } from '@/app/prototypes/events/close/CloseInRoom';
+import { EventClosePage } from '@/app/prototypes/events/close/EventClosePage';
 
 const event = {
   id: 'ev-1', slug: 'walk', title: 'Social Hike: Walk', description: 'd', datetime: '2000-01-01T11:00:00Z', timezone: 'UTC',
@@ -102,5 +103,37 @@ describe('G: a cold in-room ?join=1', () => {
     );
     await waitFor(() => expect(screen.getByTestId('community-terms')).toBeInTheDocument());
     expect(new URLSearchParams(screen.getByTestId('loc').dataset.search).get('join')).toBe('1');
+  });
+});
+
+describe('P1595: the group terms opened from the thank-you — one Back', () => {
+  it('in the room: no "← Group terms" row in the room\'s head, and the terms keep "Not now" (back to the thank-you)', async () => {
+    window.history.replaceState({}, '', '/');
+    const slot = document.createElement('div');
+    document.body.appendChild(slot);
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/events/walk/meet', search: '?view=feedback&join=1', state: { fromEvent: true } }]}>
+        <Routes>
+          <Route path="/events/:slug/meet" element={<CloseInRoom event={event} viewerId="u1" room={{ headSlot: slot, leave: vi.fn() }} />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByTestId('community-terms')).toBeInTheDocument());
+    expect(slot.querySelector('[data-testid="header-back"]')).toBeNull();
+    expect(slot.textContent).not.toContain('Group terms');
+    expect(within(screen.getByTestId('terms-actions')).getByRole('button', { name: 'Not now' })).toBeInTheDocument();
+  });
+
+  it('outside the room (the standalone close): no "Not now" — the shell\'s Back is the way back (round 6c)', async () => {
+    window.history.replaceState({}, '', '/');
+    render(
+      <MemoryRouter initialEntries={['/events/walk/close?join=1']}>
+        <Routes>
+          <Route path="/events/:slug/close" element={<EventClosePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByTestId('community-terms')).toBeInTheDocument());
+    expect(within(screen.getByTestId('terms-actions')).queryByRole('button', { name: 'Not now' })).toBeNull();
   });
 });

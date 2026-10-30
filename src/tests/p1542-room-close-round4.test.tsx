@@ -197,8 +197,10 @@ describe('round 4: the kept-mounted close', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'learning finished' }));
     learnedRef.value = true;
     await waitFor(() => expect(screen.getByTestId('community-terms')).toBeInTheDocument());
-    // Back from the terms to the thank-you; Join again: straight to the terms, no second learning.
-    fireEvent.click(within(document.querySelector('[data-testid="room-learn-head"]') as HTMLElement).getByTestId('header-back'));
+    // Back from the terms to the thank-you (P1595: the terms' own "Not now" — in the room there is no second Back row);
+    // Join again: straight to the terms, no second learning.
+    expect(document.querySelector('[data-testid="room-learn-head"] [data-testid="header-back"]')).toBeNull();
+    fireEvent.click(within(screen.getByTestId('terms-actions')).getByRole('button', { name: 'Not now' }));
     await waitFor(() => expect(screen.getByTestId('step-end')).toBeInTheDocument());
     fireEvent.click(closeJoin());
     await waitFor(() => expect(screen.getByTestId('community-terms')).toBeInTheDocument());

@@ -224,7 +224,10 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly, roomS
   const bottomPadding = needsBottomPadding ? (todaysStripShown ? "pb-[7.5rem] lg:pb-0" : "pb-20 lg:pb-0") : "";
   // P1512: the top bar belongs to every shell page except Home, whose chat screens draw their own header.
   const showShellTopBar = signedInShell && !isChatHome;
-  const shellColumnPadding = shellFrame ? (sidebarCollapsed ? "lg:pl-16" : "lg:pl-[248px]") : "";
+  // P1595: --shell-sidebar-w carries the same width to fixed descendants (the content loader centres on the column).
+  const shellColumnPadding = shellFrame
+    ? (sidebarCollapsed ? "lg:pl-16 lg:[--shell-sidebar-w:4rem]" : "lg:pl-[248px] lg:[--shell-sidebar-w:248px]")
+    : "";
   // P1024: matches `/meet`. This guard was written for `/terms` in P1016 and the route
   // was renamed under it — a rename that silently switched the footer back ON for the one
   // page whose whole design depends on it being off. `/terms-of-service` is a different,

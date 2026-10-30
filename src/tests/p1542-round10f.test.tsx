@@ -21,6 +21,7 @@ const ctl = vi.hoisted(() => ({
   points: (() => new Promise(() => {})) as (tag: string, viewerId: string) => Promise<unknown>,
   membership: (() => new Promise(() => {})) as (orgId: string) => Promise<unknown>,
   orgById: (() => new Promise(() => {})) as (orgId: string) => Promise<unknown>,
+  chatOpened: (() => new Promise(() => {})) as () => Promise<unknown>,
   calls: { organizer: 0, organizerThrow: 0, orgById: 0, membership: 0, proof: 0, prep: 0, points: 0 },
 }));
 
@@ -48,7 +49,7 @@ vi.mock('@/app/data/organizations-service', () => ({
   organizationsService: { getMyMembership: (orgId: string) => { ctl.calls.membership += 1; return ctl.membership(orgId); } },
 }));
 vi.mock('@/app/data/group-chat-opens-service', () => ({
-  readGroupChatOpenedOnServer: () => never(),
+  readGroupChatOpenedOnServer: () => ctl.chatOpened(),
   markGroupChatOpenedOnServer: () => Promise.resolve({ ok: true, refused: false }),
 }));
 
@@ -73,6 +74,7 @@ beforeEach(() => {
   ctl.points = () => never();
   ctl.membership = () => never();
   ctl.orgById = () => never();
+  ctl.chatOpened = () => never();
   ctl.calls = { organizer: 0, organizerThrow: 0, orgById: 0, membership: 0, proof: 0, prep: 0, points: 0 };
   setVisibility('visible');
 });
@@ -158,7 +160,9 @@ describe('5: a timed-out card keeps what it displayed', () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(4300); });
       await act(async () => { answerName({ id: 'org-id-1234', name: 'Late Name', slug: 't' }); await vi.advanceTimersByTimeAsync(30); });
       expect(screen.getByTestId('learn-card-title')).toHaveTextContent('Remembered Name');
-      expect(screen.getByTestId('learn-card-cta')).toHaveTextContent('Learn more');
+      expect(screen.getByTestId('learn-card-cta')).toHaveTextContent('See how we talk'); // P1595 label
+      // P1595 (Codex): name and link are frozen together — the late answer's slug never links the frozen name.
+      expect(screen.queryByTestId('learn-card-community-link')).toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -166,6 +170,29 @@ describe('5: a timed-out card keeps what it displayed', () => {
 });
 
 describe('6: the WhatsApp place is decided per event', () => {
+  it('Gemini (P1595): while the chat place is only held, the dot before it is invisible too — never two dots around a gap', () => {
+    render(<MemoryRouter><RegisteredBlock event={hike('event-a')} groupChatUrl={null} viewerId="user-id-1234" /></MemoryRouter>);
+    const dots = [...screen.getByTestId('registered-links').querySelectorAll('span[aria-hidden="true"]')].filter((d) => d.textContent === '·');
+    expect(dots).toHaveLength(2);
+    expect(dots.filter((d) => !d.className.split(' ').includes('invisible'))).toHaveLength(1); // only "· Share"
+  });
+  it('control: with the chat link shown, both dots are visible', async () => {
+    ctl.chatOpened = () => Promise.resolve({ ok: true, opened: false });
+    render(<MemoryRouter><RegisteredBlock event={hike('event-a')} groupChatUrl="https://chat.whatsapp.com/abc" viewerId="user-id-1234" /></MemoryRouter>);
+    await screen.findByTestId('registered-chat');
+    const dots = [...screen.getByTestId('registered-links').querySelectorAll('span[aria-hidden="true"]')].filter((d) => d.textContent === '·');
+    expect(dots.filter((d) => !d.className.split(' ').includes('invisible'))).toHaveLength(2);
+  });
+  it('P1595 (Codex): the kept place is the real link, invisible — same glyph and label, so the row never rewraps', () => {
+    render(<MemoryRouter><RegisteredBlock event={hike('event-a')} groupChatUrl={null} viewerId="user-id-1234" /></MemoryRouter>);
+    const pending = screen.getByTestId('registered-chat-pending');
+    expect(pending.className).toContain('invisible');
+    const link = pending.querySelector('a[data-testid="group-chat-link"]');
+    expect(link).not.toBeNull();
+    expect(link!.querySelector('svg')).not.toBeNull(); // the 16px glyph
+    expect(link!.textContent).toContain('WhatsApp group');
+  });
+
   it('moving to another event (opened before) re-decides: no place kept there', () => {
     localStorage.setItem(eventChatOpenedHintKey('user-id-1234', 'event-b'), '1');
     const { rerender } = render(<MemoryRouter><RegisteredBlock event={hike('event-a')} groupChatUrl={null} viewerId="user-id-1234" /></MemoryRouter>);
@@ -216,6 +243,46 @@ describe('round 10g: a hidden tab makes no preparation requests', () => {
     unmount();
     await act(async () => { setVisibility('visible'); await new Promise((r) => setTimeout(r, 30)); });
     expect(ctl.calls).toMatchObject({ prep: 0, points: 0, proof: 0 });
+  });
+});
+
+
+describe('P1595 (founder-approved): the registered page names its organiser and links to it', () => {
+  it('"This hike is organised by <name>." with the name linking to /groups/<slug>; the button carries the length; "optional" under it', async () => {
+    ctl.orgById = () => Promise.resolve({ id: 'org-id-1234', name: 'Clarity Practice Community · Chiang Mai', slug: 'clarity-practice' });
+    ctl.membership = () => Promise.resolve(null); // not a member
+    render(<MemoryRouter><LearnInvitation event={hike('event-p1595')} /></MemoryRouter>);
+    const link = await screen.findByTestId('learn-card-community-link');
+    expect(link).toHaveAttribute('href', '/groups/clarity-practice');
+    expect(link).toHaveTextContent('Clarity Practice Community');
+    expect(screen.getByTestId('learn-card-title')).toHaveTextContent('This hike is organised by Clarity Practice Community.');
+    // Gemini review: the organiser line is the card's heading, addressable by id.
+    expect(screen.getByRole('heading', { level: 2, name: /This hike is organised by/ })).toHaveAttribute('id', 'learn-card-title');
+    expect(screen.getByTestId('learn-card-reason')).toHaveTextContent('We welcome honest conversations with people who see the world differently. This short guide shows what to expect.');
+    expect(screen.getByTestId('learn-card-cta')).toHaveTextContent(/^See how we talk/);
+    expect(screen.getByTestId('learn-card-optional')).toHaveTextContent('Optional. You can come without it.');
+    expect(screen.getAllByRole('button')).toHaveLength(1); // one action
+  });
+
+  it('a remembered name with no slug yet: the name shows, plain (no link to a page it cannot name)', () => {
+    localStorage.setItem('p1542-learn-card:user-id-1234:org:org-id-1234', JSON.stringify({ show: true, community: 'Remembered Name' }));
+    render(<MemoryRouter><LearnInvitation event={hike('event-p1595b')} /></MemoryRouter>);
+    expect(screen.getByTestId('learn-card-title')).toHaveTextContent('This hike is organised by Remembered Name.');
+    expect(screen.queryByTestId('learn-card-community-link')).toBeNull();
+  });
+});
+
+describe('P1595 (Codex): every registered hiker sees who organises the hike', () => {
+  it('a member: the "organised by" line with its link stays; no guide copy, no button, no "optional"', async () => {
+    ctl.orgById = () => Promise.resolve({ id: 'org-id-1234', name: 'Clarity Practice Community', slug: 'clarity-practice' });
+    ctl.membership = () => Promise.resolve({ role: 'member' });
+    render(<MemoryRouter><LearnInvitation event={hike('event-member')} /></MemoryRouter>);
+    expect(await screen.findByTestId('learn-card-organiser')).toHaveTextContent('This hike is organised by Clarity Practice Community.');
+    expect(screen.getByTestId('learn-card-community-link')).toHaveAttribute('href', '/groups/clarity-practice');
+    expect(screen.queryByTestId('learn-card-reason')).toBeNull();
+    expect(screen.queryByTestId('learn-card-cta')).toBeNull();
+    expect(screen.queryByTestId('learn-card-optional')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
   });
 });
 

@@ -1,12 +1,12 @@
 ---
-status: today
+status: qa
 type: story
 rank: 1
 workstream: events
 created_date: '2026-10-30'
 tags: [events, social-hike, ux, loading, navigation]
 disclosure: public
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -45,8 +45,8 @@ Non-goals: do NOT define membership benefits; do NOT change registration logic; 
 
 ## Acceptance Criteria
 
-- [ ] The room loader is centred on the content column with the desktop sidebar open and collapsed (screenshots at both, plus 375px)
-- [ ] Share feedback's group join step in the room shows exactly one Back (the room header's)
-- [ ] No other embedded room view renders a second back header (audit listed in the report)
-- [ ] The registered page names the organising community as a link to its page, explains why to learn, and has one primary CTA
-- [ ] The registered page's spacing and hierarchy are checked at 375px, 320px and desktop
+- [x] The room loader is centred on the content column with the desktop sidebar open and collapsed (screenshots at both, plus 375px)
+- [x] Share feedback's group join step in the room shows exactly one Back (the room header's)
+- [x] No other embedded room view renders a second back header (audit listed in the report)
+- [x] The registered page names the organising community as a link to its page, explains why to learn, and has one primary CTA
+- [x] The registered page's spacing and hierarchy are checked at 375px, 320px and desktop

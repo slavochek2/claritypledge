@@ -39,13 +39,19 @@ export type CloseHeaderProps = {
 export function CloseHeader(p: CloseHeaderProps) {
   // P1512: the end screen is a destination with the menus back: its Back is the shell top bar's.
   // Round 5c (J): after submitting, "Back" read like returning to the form; a hike's thank-you names where it goes.
-  // In the room (P1542 review round 3, E): the thank-you and the welcome add no row — the room's head already has
-  // "Back to the event", and the welcome's own "Continue" returns to the thank-you.
-  if (p.embedded && (p.step === 'end' || p.step === 'welcome')) return null;
-  if (p.step === 'end') return <FocusHeader onBack={p.backToEvent} label="Back to the event" aria-label="Back to the event" />;
-  // Round 6b: a hike's group terms use the shell's standard Back (top bar), back to the thank-you.
+  // Screens whose Back returns to the thank-you: the welcome, and a hike's group terms (opened from the thank-you's
+  // Join; never a step of the agenda).
   const toEnd = p.step === 'welcome' || (p.step === 'join' && p.offer);
-  if (toEnd && !p.embedded) return <FocusHeader onBack={p.toEnd} label="Back" aria-label="Back" />;
+  if (p.embedded) {
+    // In the room the room's head already has "Back to the event": the thank-you and the screens that return to it add
+    // no row (P1542 review round 3, E). P1595 (founder UAT): a "← Group terms" row under it read as nested Backs; the
+    // terms' own "Not now" and the welcome's "Continue" return to the thank-you instead.
+    if (p.step === 'end' || toEnd) return null;
+  } else {
+    if (p.step === 'end') return <FocusHeader onBack={p.backToEvent} label="Back to the event" aria-label="Back to the event" />;
+    // Round 6b: outside the room they use the shell's standard Back (top bar), back to the thank-you.
+    if (toEnd) return <FocusHeader onBack={p.toEnd} label="Back" aria-label="Back" />;
+  }
   const row = (
     <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-2" data-testid="step-header">
       {!(p.embedded && p.firstQuestion) && <button

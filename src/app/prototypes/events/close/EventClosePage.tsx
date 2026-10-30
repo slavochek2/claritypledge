@@ -812,6 +812,7 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
             community={community}
             named
             startAtTerms
+            inRoom={!!room}
             quietJoin
             context={joinViaLearning ? (
               <div data-testid="join-context">
@@ -1023,6 +1024,7 @@ function CommunityAsk({
   named = false,
   startAtTerms = false,
   quietJoin = false,
+  inRoom = false,
   context,
   saving,
   barRef,
@@ -1041,6 +1043,9 @@ function CommunityAsk({
   startAtTerms?: boolean;
   /** Round 9: the welcome screen that follows says it, so no toast on top of it. */
   quietJoin?: boolean;
+  /** P1595: in the room there is no step header to go back with, so the terms keep "Not now" even when opened from the
+   *  thank-you (`startAtTerms`). */
+  inRoom?: boolean;
   /** Round 6b: where this step sits ("Group terms", or "Joining … · Part 2 of 2"), above the heading — the page's own
    *  Back lives in the shell top bar. */
   context?: ReactNode;
@@ -1115,7 +1120,7 @@ function CommunityAsk({
               primary={<LetterPrimaryCta label={joining ? 'Joining…' : 'Accept and join'} disabled={joining || saving} onClick={() => void accept()} />}
               // Round 6c (I): opened from the thank-you's Join, the way out is the shell top bar's "Back" (to the
               // thank-you, no refusal recorded — decision 45), so the pinned footer holds "Accept and join" alone.
-              secondary={startAtTerms ? undefined : <LetterPrimaryCta label="Not now" variant="secondary" disabled={joining || saving} onClick={() => onAnswer('no')} />}
+              secondary={startAtTerms && !inRoom ? undefined : <LetterPrimaryCta label="Not now" variant="secondary" disabled={joining || saving} onClick={() => onAnswer('no')} />}
             />
           </div>
           </StepActions>

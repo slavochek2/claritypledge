@@ -58,6 +58,12 @@ import { RsvpConfirm } from '@/app/prototypes/events/components/RsvpConfirm';
 import { eventChatOpenedHintKey } from '@/app/prototypes/events/use-group-chat-opened';
 import type { EventWithHost } from '@/app/types';
 
+/** P1595 (Codex): a member, a learner or a stalled decision gets no offer — no card, no skeleton, no button. The
+ *  "organised by" line may remain (every registered hiker sees who organises the hike). */
+const expectNoOffer = (el: HTMLElement) =>
+  expect(el.querySelector('[data-testid="learn-card"], [data-testid="learn-card-skeleton"], button')).toBeNull();
+
+
 const future = new Date(Date.now() + 7 * 864e5).toISOString();
 const hike = {
   id: 'event-id-1234', slug: 'test-hike', title: 'Social Hike: test', hostId: 'host-id-1234', seriesSlug: 'social-hike',
@@ -99,13 +105,13 @@ describe('2a: the session is still restoring', () => {
     svc.membership = () => Promise.resolve({ role: 'member' });
     const { container } = render(<MemoryRouter><LearnInvitation event={hike} /></MemoryRouter>);
     expect(screen.getByTestId('learn-card-skeleton')).toBeInTheDocument();
-    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    await waitFor(() => expectNoOffer(container));
   });
 
   it('a signed-out visitor (session checked, no viewer) gets nothing — no card, no empty place', () => {
     auth.current = { user: null, sessionChecked: true };
     const { container } = render(<MemoryRouter><LearnInvitation event={hike} /></MemoryRouter>);
-    expect(container).toBeEmptyDOMElement();
+    expectNoOffer(container);
   });
 });
 
@@ -146,7 +152,7 @@ describe('round 10c: the skeleton never pulses forever', () => {
     svc.membership = () => Promise.resolve(null);
     const { container } = render(<MemoryRouter><LearnInvitation event={hike} /></MemoryRouter>);
     expect(screen.getByTestId('learn-card-skeleton')).toBeInTheDocument();
-    await waitFor(() => expect(container).toBeEmptyDOMElement(), { timeout: 6000 });
+    await waitFor(() => expectNoOffer(container), { timeout: 6000 });
     expect(localStorage.getItem(MEMORY)).toBeNull();
   }, 10000);
 });

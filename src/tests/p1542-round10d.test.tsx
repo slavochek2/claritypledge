@@ -58,6 +58,12 @@ import { usePrepState } from '@/app/prototypes/events/prep/use-prep-state';
 import { LearnInvitation } from '@/app/prototypes/events/prep/PrepRoom';
 import type { EventWithHost } from '@/app/types';
 
+/** P1595 (Codex): a member, a learner or a stalled decision gets no offer — no card, no skeleton, no button. The
+ *  "organised by" line may remain (every registered hiker sees who organises the hike). */
+const expectNoOffer = (el: HTMLElement) =>
+  expect(el.querySelector('[data-testid="learn-card"], [data-testid="learn-card-skeleton"], button')).toBeNull();
+
+
 const hikeOf = (id: string) => ({
   id, slug: id, title: 'Social Hike', hostId: 'host-id-1234', seriesSlug: 'social-hike', preparationEnabled: false,
   statementTag: null, datetime: new Date(Date.now() + 864e5).toISOString(), orgId: 'org-id-1234',
@@ -125,7 +131,7 @@ describe('2: the learning card\'s deadline bounds the whole decision', () => {
     ctl.hidden = false;
     await act(async () => { const run = ctl.waiting.splice(0); run.forEach((f) => f()); });
     expect(screen.getByTestId('learn-card-skeleton')).toBeInTheDocument();
-    await waitFor(() => expect(container).toBeEmptyDOMElement(), { timeout: 6000 });
+    await waitFor(() => expectNoOffer(container), { timeout: 6000 });
     expect(localStorage.getItem(MEMORY)).toBeNull();
   }, 15000);
 
@@ -152,10 +158,10 @@ describe('round 10e', () => {
     ctl.prepImpl = () => new Promise((r) => { answerPrep = r; });
     ctl.membership = () => Promise.resolve(null);
     const { container } = render(<MemoryRouter><LearnInvitation event={hikeOf('event-a')} /></MemoryRouter>);
-    await waitFor(() => expect(container).toBeEmptyDOMElement(), { timeout: 6000 });
+    await waitFor(() => expectNoOffer(container), { timeout: 6000 });
     // The read answers late: not learned, not a member — which would be "show" had it been on time.
     await act(async () => { answerPrep(null); await new Promise((r) => setTimeout(r, 50)); });
-    expect(container).toBeEmptyDOMElement();
+    expectNoOffer(container);
     expect(screen.queryByTestId('learn-card-cta')).toBeNull();
     expect(localStorage.getItem(MEMORY)).toBeNull();
   }, 10000);

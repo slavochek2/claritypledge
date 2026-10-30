@@ -26,9 +26,21 @@ describe('the close header inside the room', () => {
   it('welcome: nothing is drawn into the room\'s head (no untitled row, no second Back)', () => {
     expect(inSlot('welcome').childElementCount).toBe(0);
   });
-  it('a question and the group terms: their titled row is drawn into the room\'s head', () => {
+  it('a question: its titled row is drawn into the room\'s head', () => {
     expect(inSlot('score').querySelector('[data-testid="step-name"]')?.textContent).toBe('How was the hike for you?');
-    expect(inSlot('join').querySelector('[data-testid="step-name"]')?.textContent).toBe('Group terms');
+  });
+  it('P1595 (founder UAT): the group terms draw nothing into the room\'s head — no "← Group terms" under "Back to the event"', () => {
+    expect(inSlot('join').childElementCount).toBe(0);
+  });
+  it('P1595 review: only the terms that return to the thank-you (a series with the offer) drop the row; without the offer the row and its step-back stay', async () => {
+    const slot = document.createElement('div');
+    document.body.appendChild(slot);
+    const onBack = vi.fn();
+    render(<MemoryRouter><CloseHeader {...base('join', slot)} offer={false} onBack={onBack} /></MemoryRouter>);
+    const back = slot.querySelector('[data-testid="header-back"]') as HTMLElement;
+    expect(back).not.toBeNull();
+    back.click();
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 
   it('founder UAT (2): inside the room the first question draws no inner Back (the room\'s "Back to the event" is it); later questions keep theirs', () => {

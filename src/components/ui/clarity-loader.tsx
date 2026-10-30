@@ -66,7 +66,7 @@ const PAGE_WAIT_DEADLINE_MS = 15_000;
  * mark never moves. A late answer needs no code here: the page stops rendering the loader when its
  * data arrives, which unmounts this and its timer.
  */
-function SlowLoadNotice({ startedAgoMs }: { startedAgoMs: number }) {
+function SlowLoadNotice({ startedAgoMs, inColumn = false }: { startedAgoMs: number; inColumn?: boolean }) {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
     // Counted from the start of the loader run, not this instance: loaders that replace each other (route
@@ -82,7 +82,7 @@ function SlowLoadNotice({ startedAgoMs }: { startedAgoMs: number }) {
   return (
     <div
       role="status"
-      className="pointer-events-none fixed inset-x-0 top-1/2 mt-10 flex flex-col items-center gap-3 px-6 text-center"
+      className={`pointer-events-none fixed right-0 top-1/2 mt-10 flex flex-col items-center gap-3 px-6 text-center ${inColumn ? 'left-[var(--shell-sidebar-w,0px)]' : 'left-0'}`}
     >
       {/* [FOUNDER DECISION: slow page-load copy is a placeholder.] */}
       <p className="text-sm text-muted-foreground">This is taking longer than usual.</p>
@@ -128,14 +128,15 @@ export function ClarityContentLoader() {
       className="flex min-h-[calc(100dvh-10rem)] w-full flex-1 clarity-page-loader"
       style={style}
     >
-      {/* The box above only holds the content area's height (footer and layout do not jump). The mark itself is
-          viewport-centred at the splash's size, exactly like the index.html splash and the boot loader, so the
-          hand-off splash -> content loader neither moves nor resizes. fixed + pointer-events-none: it never
-          takes a click and never depends on the sidebar offset, bottom bar or strip geometry. */}
-      <div className="pointer-events-none fixed inset-0 flex items-center justify-center">
+      {/* The box above only holds the content area's height (footer and layout do not jump). The mark is fixed (it
+          never takes a click and never depends on the bottom bar or strip geometry) and centred on the CONTENT column:
+          P1595 (founder UAT) — viewport-centred, it sat off-centre beside the desktop sidebar, open or collapsed. The
+          shell sets --shell-sidebar-w (lg only; 0 on a phone, where there is no sidebar). Vertically it stays at the
+          splash's height, so the splash -> content loader hand-off moves only sideways, and only on a desktop. */}
+      <div className="pointer-events-none fixed inset-y-0 right-0 left-[var(--shell-sidebar-w,0px)] flex items-center justify-center" data-testid="content-loader-mark">
         <ClarityLoader size="lg" />
       </div>
-      <SlowLoadNotice startedAgoMs={elapsed} />
+      <SlowLoadNotice startedAgoMs={elapsed} inColumn />
     </div>
   );
 }

@@ -216,7 +216,8 @@ describe('round 6 surfaces (source contract)', () => {
   const prep = read('src/app/prototypes/events/prep/EventPrepPage.tsx');
   it('the group terms opened from the thank-you: one Back (the shell bar\'s), to the thank-you, no refusal written', () => {
     // Round 6c (I): the pinned footer holds "Accept and join" alone; the top bar's "Back" is the way out.
-    expect(close).toMatch(/secondary=\{startAtTerms \? undefined : <LetterPrimaryCta label="Not now"/);
+    // P1595: in the room (no header row there) the terms keep "Not now" back to the thank-you; outside, the top bar's Back.
+    expect(close).toMatch(/secondary=\{startAtTerms && !inRoom \? undefined : <LetterPrimaryCta label="Not now"/);
     // Founder UAT round: the close's header moved to CloseHeader.tsx (EventClosePage.tsx may not grow).
     expect(read('src/app/prototypes/events/close/CloseHeader.tsx')).toMatch(/<FocusHeader onBack=\{p\.toEnd\} label="Back" aria-label="Back" \/>/);
     expect(close).toMatch(/toEnd=\{\(\) => go\('end'\)\}/);
@@ -249,7 +250,10 @@ describe('round 6b fixes (source contract)', () => {
   it('registration: once the chat was opened the link is gone; the caption sits directly under the link', () => {
     expect(pieces).toMatch(/const chat = groupChatUrl && opened === false;/);
     // Round 6c (F): the flow's one group-chat component, the same on the registration and both thank-yous.
-    expect(pieces).toMatch(/<GroupChatOffer url=\{groupChatUrl\} caption="Last-minute changes, questions, lifts\." [\s\S]*?testId="registered-chat"/);
+    // P1595 (founder-approved): on the registration the chat sits in the one quiet row (Add to calendar · WhatsApp group ·
+    // Share) with its caption under the row; the thank-yous keep GroupChatOffer.
+    expect(pieces).toMatch(/<GroupChatQuietLink url=\{chat\.url\} [\s\S]*?testId="registered-chat"/);
+    expect(pieces).toMatch(/data-testid="group-chat-line">\s*Last-minute changes, questions, lifts\./);
     expect(close).toMatch(/<GroupChatOffer url=\{groupChatUrl\} caption=\{recipe\.afterChatCaption\}/);
   });
   it('/prepare records the cmp7 part when its statements are finished (learned anywhere), and not on Skip', () => {
@@ -279,12 +283,16 @@ describe('round 6b fixes (source contract)', () => {
 describe('round 6c (J): the registration learning invitation (source contract)', () => {
   const room = read('src/app/prototypes/events/prep/PrepRoom.tsx');
   const block = room.slice(room.indexOf('export function LearnInvitation'));
-  it('subtitle in one constant (founder decision default), above the pill, then the blue "Learn more"', () => {
-    expect(room).toMatch(/export const LEARN_INVITATION_SUBTITLE = 'How we talk across differences in opinions, interests and values\.';/);
-    expect(block.indexOf('learn-card-reason')).toBeLessThan(block.indexOf('learn-card-minutes'));
-    expect(block.indexOf('learn-card-minutes')).toBeLessThan(block.indexOf('learn-card-cta'));
-    expect(block).toMatch(/\{started \? 'Continue' : 'Learn more'\}/);
-    expect(block).toMatch(/bg-blue-600/);
+  it('P1595 (founder-approved copy): who organises, why, the one blue button with the length, then "optional"', () => {
+    expect(room).toMatch(/export const LEARN_INVITATION_ORGANISED = 'This hike is organised by';/);
+    expect(room).toMatch(/export const LEARN_INVITATION_SUBTITLE = 'We welcome honest conversations with people who see the world differently\. This short guide shows what to expect\.';/);
+    expect(room).toMatch(/export const LEARN_INVITATION_OPTIONAL = 'Optional\. You can come without it\.';/);
+    expect(room).toMatch(/`See how we talk \(\$\{minutes\} min\)`/);
+    expect(block.indexOf('learn-card-title')).toBeLessThan(block.indexOf('learn-card-reason'));
+    expect(block.indexOf('learn-card-reason')).toBeLessThan(block.indexOf('learn-card-cta'));
+    expect(block.indexOf('learn-card-cta')).toBeLessThan(block.indexOf('learn-card-optional'));
+    // P1568 (Gemini review): the colour comes from the Button's default variant, not hand-typed classes.
+    expect(block).not.toMatch(/bg-blue-600/);
     expect(block).not.toMatch(/variant="outline"/);
   });
 });

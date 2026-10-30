@@ -59,7 +59,7 @@ export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; gro
       <main className="mx-auto max-w-2xl px-4 pt-6 pb-20" data-testid="p1336-confirm">
         {/* Round 10b: the session's id, the one LearnInvitation and the chat-opened flags use (the profile can lag). */}
         <RegisteredBlock event={event} groupChatUrl={groupChatUrl} viewerId={session?.user?.id ?? user?.id ?? null} />
-        <LearnInvitation event={event} className="mt-12" />
+        <LearnInvitation event={event} className="mt-6" />
       </main>
     );
   }

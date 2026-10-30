@@ -9,7 +9,7 @@
  */
 import { Skeleton } from '@/components/ui/skeleton';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { useConnectivity } from '@/app/contexts/offline-status-context';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
@@ -19,7 +19,7 @@ import { PrepStatus } from './PrepPieces';
 import { PrepBannerSkeleton } from './PrepBannerSkeleton';
 import { usePrepState } from './use-prep-state';
 import { gatesRoomOnPreparation, offersPreparation, recipeFor } from '../series-recipes';
-import { MEMBERSHIP_READ_TIMEOUT_MS, useEventCommunityName, useEventMembership } from '../use-event-community';
+import { MEMBERSHIP_READ_TIMEOUT_MS, useEventCommunity, useEventCommunityName, useEventMembership } from '../use-event-community';
 import { whenVisible } from '../when-visible';
 import { cn } from '@/lib/utils';
 
@@ -187,8 +187,15 @@ export function PrepRoomBanner({ event, source = 'room', centered = false }: {
   );
 }
 
-/** [FOUNDER DECISION: subtitle copy — this is the default until the founder picks.] One constant, so a swap is one line. */
-export const LEARN_INVITATION_SUBTITLE = 'How we talk across differences in opinions, interests and values.';
+/** P1595 (founder-approved copy, 2026-10-30): the registered page says who organises the hike, why the short guide is
+ *  worth it, the one button, and that it is optional. One place, so a swap is one line. */
+export const LEARN_INVITATION_ORGANISED = 'This hike is organised by';
+export const LEARN_INVITATION_SUBTITLE = 'We welcome honest conversations with people who see the world differently. This short guide shows what to expect.';
+export const LEARN_INVITATION_OPTIONAL = 'Optional. You can come without it.';
+/** The one button: the guide's length in its label (it replaced the separate "6 min" pill). */
+export const learnInvitationCta = (started: boolean, minutes: number | null) =>
+  minutes === null ? (started ? 'Continue' : 'See how we talk')
+  : started ? `Continue (${minutes} min left)` : `See how we talk (${minutes} min)`;
 
 /**
  * Round 10b (founder): what this browser last learned, from reads that all answered, about whether the learning
@@ -198,7 +205,7 @@ export const LEARN_INVITATION_SUBTITLE = 'How we talk across differences in opin
  */
 interface LearnCardMemory { show: boolean; community: string | null }
 /** What the card shows; frozen at the deadline (round 10f). */
-interface LearnCardDisplay { started: boolean; name: string | null; titleKnown: boolean; minutes: number | null }
+interface LearnCardDisplay { started: boolean; name: string | null; slug: string | null; titleKnown: boolean; minutes: number | null }
 // Round 10f: an event with no group has no community to share an answer with — it is remembered per event.
 export const learnCardCommunityKey = (viewerId: string, orgId: string | null, eventId: string) =>
   orgId ? `p1542-learn-card:${viewerId}:org:${orgId}` : `p1542-learn-card:${viewerId}:no-org:${eventId}`;
@@ -236,7 +243,8 @@ export function LearnInvitation({ event, className }: { event: EventWithHost; cl
   // placeholder. A signed-out visitor (session checked, no viewer) gets nothing, never a placeholder that stays.
   const restoring = !viewerId && !sessionChecked && !!offer && offersPreparation(event) && !offline;
   const state = usePrepState(applies ? event : null, viewerId ?? undefined);
-  const community = useEventCommunityName(event, applies);
+  const group = useEventCommunity(event, applies);
+  const community = group === undefined ? undefined : group?.name ?? null;
   const member = useEventMembership(event, applies, viewerId);
   // Founder (round 10b): while it is unknown whether the card applies (learned? member?) and this browser has no trusted
   // answer, the card's exact footprint shows a placeholder; once the reads settle the card fills it (no movement), or
@@ -263,7 +271,7 @@ export function LearnInvitation({ event, className }: { event: EventWithHost; cl
     let timer: ReturnType<typeof setTimeout> | undefined;
     const cancelWait = whenVisible(() => {
       timer = setTimeout(() => {
-        setTimedOut({ key: deadlineKey, frozen: displayRef.current ?? { started: false, name: null, titleKnown: true, minutes: null } });
+        setTimedOut({ key: deadlineKey, frozen: displayRef.current ?? { started: false, name: null, slug: null, titleKnown: true, minutes: null } });
       }, MEMBERSHIP_READ_TIMEOUT_MS);
     });
     return () => { cancelWait(); if (timer) clearTimeout(timer); };
@@ -280,6 +288,9 @@ export function LearnInvitation({ event, className }: { event: EventWithHost; cl
   const liveDisplay: LearnCardDisplay = {
     started: liveStarted,
     name: community !== undefined ? community : (memory?.community ?? null),
+    // P1595 (Codex): the link's slug comes from the SAME answer as the name — a remembered name has none — and is frozen
+    // with it at the deadline, so a late answer can never link a frozen name to another group.
+    slug: community !== undefined ? group?.slug ?? null : null,
     titleKnown: community !== undefined || !!memory?.community || member !== undefined,
     minutes: state.minutes,
   };
@@ -297,13 +308,16 @@ export function LearnInvitation({ event, className }: { event: EventWithHost; cl
   if (restoring && offer) return <LearnCard skeleton className={className} />;
   if (!applies || !offer) return null;
   const show = decisionTimedOut ? (memory?.show ?? false) : (actualShow ?? memory?.show ?? null);
-  if (show === false) return null;
   if (show === null) return <LearnCard skeleton className={className} />;
   return (
     <LearnCard
       className={className}
       settled={settled}
-      title={display.started ? offer.resume(display.name) : offer.start(display.name)}
+      name={display.name}
+      slug={display.slug}
+      // P1595 (Codex): a member or someone who completed the guide still sees who organises the hike; only the guide's
+      // copy, the button and "optional" are the offer.
+      offered={show}
       titleHidden={!display.titleKnown && !decisionTimedOut}
       started={display.started}
       minutes={display.minutes}
@@ -315,14 +329,19 @@ export function LearnInvitation({ event, className }: { event: EventWithHost; cl
 }
 
 /**
- * The learning invitation's one layout. `skeleton` (round 10b) draws the same footprint as the app's loading
- * placeholders do (bg-muted + animate-pulse, as the chat list's): every line and the button keep their real size, so the
- * card that replaces it moves nothing. The skeleton has no button — a shape, never a dead control.
+ * The learning invitation's one layout (P1595, founder-approved): under a thin divider, who organises the hike (the
+ * community name links to its page), why the short guide is worth it, the page's ONE button with the guide's length,
+ * and "optional". `skeleton` (round 10b) draws the same footprint as the app's loading placeholders: every line and the
+ * button keep their real size, so the card that replaces it moves nothing. The skeleton has no button — a shape, never a
+ * dead control.
  */
-function LearnCard({ className, settled = false, title = '', titleHidden = false, started = false, minutes = null, onClick, skeleton = false }: {
+function LearnCard({ className, settled = false, name = null, slug = null, offered = true, titleHidden = false, started = false, minutes = null, onClick, skeleton = false }: {
   className?: string;
   settled?: boolean;
-  title?: string;
+  name?: string | null;
+  slug?: string | null;
+  /** false: only the divider and who organises the hike (a member, or the guide already completed). */
+  offered?: boolean;
   titleHidden?: boolean;
   started?: boolean;
   minutes?: number | null;
@@ -330,44 +349,52 @@ function LearnCard({ className, settled = false, title = '', titleHidden = false
   skeleton?: boolean;
 }) {
   const bone = 'rounded-md text-transparent [box-decoration-break:clone]';
+  const who = name ?? 'this community';
+  // Nothing offered and no group to name: nothing to say.
+  if (!skeleton && !offered && !name) return null;
   return (
     <section
       className={cn('flex flex-col items-center gap-3 text-center', className)}
-      data-testid={skeleton ? 'learn-card-skeleton' : 'learn-card'}
+      data-testid={skeleton ? 'learn-card-skeleton' : offered ? 'learn-card' : 'learn-card-organiser'}
       data-settled={settled ? 'true' : 'false'}
       aria-hidden={skeleton || undefined}
       aria-busy={skeleton || undefined}
     >
-      <h2 className="min-h-[2lh] text-2xl font-bold leading-tight text-foreground [text-wrap:balance]" data-testid="learn-card-title">
-        {skeleton
-          ? <Skeleton as="span" className={bone}>Learn about this community</Skeleton>
-          : <span className={cn(titleHidden && 'invisible')}>{title}</span>}
-      </h2>
-      {/* Founder (round 6c, J): title → subtitle → the time pill → the button. */}
-      <p className="text-base text-muted-foreground [text-wrap:balance]" data-testid="learn-card-reason">
-        {skeleton ? <Skeleton as="span" className={bone}>{LEARN_INVITATION_SUBTITLE}</Skeleton> : LEARN_INVITATION_SUBTITLE}
-      </p>
-      {minutes === null ? (
-        <span className="invisible rounded-full px-3 py-0.5 text-sm" aria-hidden="true" data-testid="learn-card-minutes-pending">0 min</span>
-      ) : (
-        <span className="rounded-full bg-muted px-3 py-0.5 text-sm text-muted-foreground" data-testid="learn-card-minutes">
-          {minutes} min{started ? ' left' : ''}
-        </span>
-      )}
-      {/* Founder (round 6c, J): it is the ONE thing on this screen, so it is the filled primary (LetterPrimaryCta's look). */}
-      <div className="mx-auto mt-1 w-full max-w-sm">
-        {skeleton ? (
-          <Skeleton className="min-h-14 w-full rounded-full" data-testid="learn-card-skeleton-button" />
-        ) : (
-          <Button
-            className="min-h-14 w-full rounded-full bg-blue-600 text-base font-bold text-white hover:bg-blue-700"
-            onClick={onClick}
-            data-testid="learn-card-cta"
-          >
-            {started ? 'Continue' : 'Learn more'}
-          </Button>
+      <hr className="mb-3 w-full max-w-sm border-border" />
+      <h2 id={skeleton ? undefined : "learn-card-title"} className="text-base font-normal text-foreground [text-wrap:balance]" data-testid="learn-card-title">
+        {skeleton ? <Skeleton as="span" className={bone}>{LEARN_INVITATION_ORGANISED} this community.</Skeleton> : (
+          <span className={cn(titleHidden && 'invisible')}>
+            {LEARN_INVITATION_ORGANISED}{' '}
+            {slug && name
+              ? <Link to={`/groups/${slug}`} className="font-semibold underline underline-offset-4 hover:text-muted-foreground" data-testid="learn-card-community-link">{who}</Link>
+              : <span className="font-semibold">{who}</span>}.
+          </span>
         )}
-      </div>
+      </h2>
+      {offered && (
+        <>
+        <p className="text-base text-muted-foreground [text-wrap:balance]" data-testid="learn-card-reason">
+          {skeleton ? <Skeleton as="span" className={bone}>{LEARN_INVITATION_SUBTITLE}</Skeleton> : LEARN_INVITATION_SUBTITLE}
+        </p>
+        {/* The ONE action on this page: the filled primary, full width (founder round 6c, J; P1595). */}
+        <div className="mx-auto mt-2 w-full max-w-sm">
+          {skeleton ? (
+            <Skeleton className="min-h-14 w-full rounded-full" data-testid="learn-card-skeleton-button" />
+          ) : (
+            <Button
+              className="min-h-14 w-full rounded-full text-base font-bold"
+              onClick={onClick}
+              data-testid="learn-card-cta"
+            >
+              {learnInvitationCta(started, minutes)}
+            </Button>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground" data-testid="learn-card-optional">
+          {skeleton ? <Skeleton as="span" className={bone}>{LEARN_INVITATION_OPTIONAL}</Skeleton> : LEARN_INVITATION_OPTIONAL}
+        </p>
+        </>
+      )}
     </section>
   );
 }

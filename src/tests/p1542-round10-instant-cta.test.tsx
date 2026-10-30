@@ -46,6 +46,12 @@ import { LearnInvitation } from '@/app/prototypes/events/prep/PrepRoom';
 import { ChatProvider } from '@/app/pages/chat/chat-provider';
 import type { EventWithHost } from '@/app/types';
 
+/** P1595 (Codex): a member, a learner or a stalled decision gets no offer — no card, no skeleton, no button. The
+ *  "organised by" line may remain (every registered hiker sees who organises the hike). */
+const expectNoOffer = (el: HTMLElement) =>
+  expect(el.querySelector('[data-testid="learn-card"], [data-testid="learn-card-skeleton"], button')).toBeNull();
+
+
 const hike = {
   id: 'event-id-1234',
   slug: 'test-hike',
@@ -81,7 +87,7 @@ describe('round 10/10b: the learning card while the reads that decide it are out
     localStorage.setItem(COMMUNITY_KEY, JSON.stringify({ show: true, community: 'Clarity Practice Community' }));
     render(<MemoryRouter><LearnInvitation event={orgHike} /></MemoryRouter>);
     const cta = screen.getByTestId('learn-card-cta');
-    expect(cta).toHaveTextContent('Learn more');
+    expect(cta).toHaveTextContent('See how we talk'); // P1595: the founder-approved label
     expect(cta.className).toMatch(/bg-blue-600/);
     expect(screen.getByTestId('learn-card-title')).toHaveTextContent('Clarity Practice Community');
   });
@@ -90,7 +96,7 @@ describe('round 10/10b: the learning card while the reads that decide it are out
     localStorage.setItem(COMMUNITY_KEY, JSON.stringify({ show: false, community: 'Clarity Practice Community' }));
     const other = { ...orgHike, id: 'event-id-5678', slug: 'another-hike' } as unknown as EventWithHost;
     const { container } = render(<MemoryRouter><LearnInvitation event={other} /></MemoryRouter>);
-    expect(container).toBeEmptyDOMElement();
+    expectNoOffer(container);
   });
 
   it('per-event progress: a remembered start on this event says "Continue"', () => {

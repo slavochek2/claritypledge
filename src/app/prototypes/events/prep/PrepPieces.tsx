@@ -6,11 +6,11 @@
  * GroupChatBlock's glyphs and line, EventCard's AttendeeAvatarStack, LetterPrimaryCta)
  * — none of those is copied or restyled here.
  */
-import { useState, type ReactNode } from 'react';
+import { useState, type ComponentProps, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { Calendar, MapPin, MessagesSquare, Video } from 'lucide-react';
-import { shareOrCopy } from '@/lib/utils';
+import { cn, shareOrCopy } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import type { EventWithHost } from '@/app/types';
@@ -251,37 +251,71 @@ export function RegisteredBlock({ event, groupChatUrl, viewerId, surface = 'regi
         <br className="sm:hidden" />
         <span className="inline-block">{placeLabel(event)}</span>
       </p>
-      {/* Round 6b: one stack, so nothing wraps unevenly — the group chat with its purpose line directly under it, then
-          "Add to calendar · Share" on their own row. Every link is a full 40px tap target. */}
-      {chat && (
-        <GroupChatOffer url={groupChatUrl} caption="Last-minute changes, questions, lifts." onOpen={() => markOpened(surface)} testId="registered-chat" captionTestId="group-chat-line" />
-      )}
-      {/* Round 10 (founder: "whatsapp group appears and then cta appears") / 10b: the chat offer's place is decided once,
-          from what is known before any read — the event has a chat and this browser has not seen this person open it.
-          Kept, it stays kept (unseen) whatever the reads then say — the link not coming, a failed read, opened elsewhere,
-          or opened right here — so nothing below it ever moves. Not kept (opened before), the link never shows here. */}
-      {!chat && keepChatPlace && (
-        <div className="invisible" aria-hidden="true" data-testid="registered-chat-pending">
-          <GroupChatOffer url={groupChatUrl ?? 'https://chat.whatsapp.com/'} caption="Last-minute changes, questions, lifts." />
-        </div>
-      )}
-      {beforeStart && (
-        <div className="flex items-center justify-center gap-3" data-testid="registered-links">
-          <AddToCalendarMenu event={calendarEvent} trigger="link" />
-          <span aria-hidden="true" className="text-sm text-muted-foreground">·</span>
+      <RegisteredLinks
+        calendar={beforeStart ? calendarEvent : null}
+        chat={chat ? { url: groupChatUrl, onOpen: () => markOpened(surface) } : null}
+        keepChatPlace={keepChatPlace}
+        shareOpen={shareOpen}
+        onShare={() => void share()}
+      />
+      {shareOpen && <EventShareRow title={event.title} url={eventPageUrl(event.slug)} label="" testId="registered-share-row" className="pt-2" />}
+    </section>
+  );
+}
+
+/**
+ * P1595 (founder-approved): the registered page's one quiet row — Add to calendar · WhatsApp group · Share — with the
+ * chat's caption under it. The chat's place is decided once by the caller (round 10b): kept, it stays (unseen while not
+ * shown), so nothing moves; not kept (opened before), it never shows. Calendar and Share only before the start (null).
+ */
+function RegisteredLinks({ calendar, chat, keepChatPlace, shareOpen, onShare }: {
+  calendar: ComponentProps<typeof AddToCalendarMenu>['event'] | null;
+  chat: { url: string; onOpen: () => void } | null;
+  keepChatPlace: boolean;
+  shareOpen: boolean;
+  onShare: () => void;
+}) {
+  const chatPlace = !!chat || keepChatPlace;
+  if (!calendar && !chatPlace) return null;
+  // The dots only from 640px, where the row always fits on one line: on a phone a wrapped row would start a line with
+  // a dot, so there the links are spaced instead (one line at 375px, two at 320px, none starting with a separator).
+  const dot = (visible = true) => (
+    <span aria-hidden="true" className={cn('hidden text-sm text-muted-foreground sm:inline', !visible && 'invisible')}>·</span>
+  );
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:gap-x-3" data-testid="registered-links">
+        {calendar && <AddToCalendarMenu event={calendar} trigger="link" />}
+        {/* The dot before the chat follows the chat: invisible while its place is only held (Gemini review). */}
+        {calendar && chatPlace && dot(!!chat)}
+        {chat ? (
+          <GroupChatQuietLink url={chat.url} label={classifyGroupChat(chat.url).label.replace(/^Join /, '')} onOpen={chat.onOpen} testId="registered-chat" />
+        ) : keepChatPlace && (
+          // Codex review (P1595): the real link, invisible — its glyph, gap and weight hold the exact footprint, so the
+          // row never rewraps (and the button below never moves) when the link resolves.
+          <span className="invisible" aria-hidden="true" data-testid="registered-chat-pending">
+            <GroupChatQuietLink url="https://chat.whatsapp.com/" label="WhatsApp group" />
+          </span>
+        )}
+        {calendar && dot()}
+        {calendar && (
           <button
             type="button"
-            onClick={() => void share()}
+            onClick={onShare}
             aria-expanded={shareOpen}
             className="inline-flex min-h-10 items-center whitespace-nowrap text-sm font-medium text-foreground underline underline-offset-4 hover:text-muted-foreground"
             data-testid="registered-share"
           >
             Share
           </button>
-        </div>
+        )}
+      </div>
+      {chatPlace && (
+        <p className={cn('-mt-2 text-xs text-muted-foreground [text-wrap:balance]', !chat && 'invisible')} aria-hidden={!chat || undefined} data-testid="group-chat-line">
+          Last-minute changes, questions, lifts.
+        </p>
       )}
-      {shareOpen && <EventShareRow title={event.title} url={eventPageUrl(event.slug)} label="" testId="registered-share-row" className="pt-2" />}
-    </section>
+    </>
   );
 }
 

@@ -289,7 +289,7 @@ describe('P1542 round 5: the thank-you invites to join instead of linking to lea
   });
   it('shows the learning invitation on the registration thank-you, not the quiet link', () => {
     // Round 6 (A): one calm centred invitation (LearnInvitation), 48px under the success block.
-    expect(confirm).toMatch(/<LearnInvitation event=\{event\} className="mt-12" \/>/);
+    expect(confirm).toMatch(/<LearnInvitation event=\{event\} className="mt-6" \/>/); // P1595: ~24px, one block
     expect(confirm).not.toMatch(/PrepRoomBanner/);
   });
 });
