@@ -47,6 +47,10 @@ cognitive understanding."* Do not replay the deck for them; they join at the nex
 ## Each round
 
 - [ ] Ring the bell → press **Next round**. Mark leavers or swap people only if needed.
+- **Close the round with hands up (2026-10-30, transcription).** Count down from 10 out loud; put
+  your hand up; everyone who sees a hand puts theirs up and stops talking. Only when the room is
+  quiet, confirm **Next round**. That moment cuts the round's transcript, so a sentence still being
+  spoken lands in the wrong round. Teach it once at the start of round 1.
 - No connection: everyone moves one seat clockwise; pairs pick the statement they're furthest apart on.
 
 ### What the observer does (2026-10-05)

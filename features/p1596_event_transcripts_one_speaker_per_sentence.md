@@ -69,6 +69,36 @@ Research before building (time-boxed, cite sources): how multi-mic bleed is remo
 podcast tools and meeting transcription, and what Gemini's audio docs say about isolating the near
 speaker.
 
+## Redesign (founder, 2026-10-30, after review)
+
+The first build (live text-level dedup, commit b09fea073 on its branch) is withdrawn: reviewers showed
+whole 13 s chunks from different phones rarely match word for word (both copies survive), and a chunk
+holding two speakers went entirely to the louder mic (real words credited to the wrong person). Kept
+from it: per-second loudness capture, the near-voice instruction, and Open going to the thread.
+
+Decided:
+- **Live text stays in the transcription room only.** The chat receives only the clean, attributed
+  version, after the round (events) or after the room ends (no rounds). P1592's live posting into the
+  chat is retired.
+- **One tap to transcribe for the whole event.** Recording continues across rounds.
+- **The host's "next round" confirmation cuts the round**, after the hands-up ritual
+  (`docs/events/facilitator-checklist.md`), with a few seconds of buffer.
+- **Attribution is decided on the audio, second by second, comparing all mics** (the auto-mixer
+  principle), then each person's kept seconds are transcribed. Unit of processing: at least a table;
+  whether to compare across the whole room (catches neighbour-table bleed) is open.
+- **Fallback:** if the clean transcript is not ready or fails, nobody waits: no new canvas version that
+  round, and the next partner reads the canvas as it is (P1529 must allow this).
+
+## Open Questions (to settle before rebuilding)
+
+1. Does it work? Never tested. Settle with a bench test on real recordings: two or three phones,
+   two tables close together, measure misattributed and duplicated sentences.
+2. Which tool: per-second loudest-mic gating then Gemini per person; one mixed stream per table with
+   Gemini diarization given the speaker list; or a dedicated diarization / crosstalk tool. Research,
+   plus the founder's AI-engineer group's experience, plus a Gemini + Codex review of the options.
+3. Per table, or the whole room as one comparison with table metadata (neighbour-table bleed)?
+4. Processing time after the cut, by group size: measure from past events' cleanup jobs.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |

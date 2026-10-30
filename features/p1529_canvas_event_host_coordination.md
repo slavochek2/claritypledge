@@ -368,6 +368,14 @@ then repeated with five with canvases.
    number on v2 is higher than on v1 in the same evening. `[FOUNDER DECISION]` (goals.md unchanged
    until ruled).
 
+## Fallback
+
+- **Transcript not ready after a round (2026-10-30, from P1596).** If a table's clean transcript is
+   late or fails, nothing blocks: the owner does not get a new version that round and the next
+   partner reads the canvas as it is. The host's "next round" confirmation is what cuts a round's
+   transcript; the hands-up ritual precedes it (`docs/events/facilitator-checklist.md`). Transcription
+   is one tap for the whole event.
+
 ## Related
 
 - Run-of-show: `docs/events/sales-mastermind.md`. Goal: `docs/goals.md` 3a.
