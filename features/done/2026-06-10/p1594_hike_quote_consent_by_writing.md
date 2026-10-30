@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 changes: p1542
 rank: 1
@@ -8,10 +8,10 @@ created_date: '2026-10-30'
 tags: [events, social-hike, close, reviews, consent]
 disclosure: public
 pipeline_ran: [create-spec, dev]
-delivery_stage: dev
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-10-30
 ---
 
 # P1594: Hike quotes, writing is the consent
