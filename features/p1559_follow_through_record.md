@@ -23,15 +23,25 @@ driver: heuristic
 
 > **Rescoped 2026-10-30 (founder): the ledger's first view is the event rounds.** At the sales
 > mastermind a check of understanding already happens, out loud: the owner explains back the
-> partner's reason until the partner says above 8. P1390 reads those numbers from the round threads
-> and writes them here, so the parking condition ("a record cannot come before the check it records")
-> is met for events without checks through chat. Each entry is still a story with one state
-> (decisions.md 2026-10-29 [product]): the partner's reason, understood at the number they said. Group
-> follow-through (terms, chats and letters answered) is a later view. Still built after session 1,
-> on real transcripts. The P1558 discovery-call gate below applies to the group view only.
+> partner's reason until the partner says above 8. P1390 reads those checks from the round threads,
+> so the parking condition ("a record cannot come before the check it records") is met for events
+> without checks through chat.
+> - **An entry is a frozen check, not a story.** "Ben's reason, on Anna's canvas, round 2: understood."
+>   It points to the round thread. It becomes a story in Ben's name only when Ben confirms the wording
+>   (P1574, P1458). Only understood checks appear (recognition only); a reason that never reached
+  above 8 stays in the founder's readout (P1390), never in the shared list.
+> - **It lives in the event channel's list**, ordered by round, readable by the event's host and
+>   attendees, the same people who can read the round threads. The event channel is a chat (P1512), so
+>   "one list per chat" holds. This amends decisions.md 2026-10-29 [product] (2) "not organised by
+>   event": for an event, the chat *is* the event.
+> - **No numbers in the view.** The numbers stay in the founder's research readout (P1390).
+> - **Built only if the session 2 opener passes** (below), so still after the mastermind's first
+>   session, as decisions.md 2026-10-29 [product] ordered. Group follow-through (terms, chats and
+>   letters answered) is a later view, and the P1558 discovery-call gate applies to it only.
 
-> **PLACEHOLDER spec.** Captures the idea and the rulings it builds on. Do NOT design the build until
-> discovery calls with change leads (P1558's outreach) have tested the need.
+> **PLACEHOLDER spec.** Captures the idea and the rulings it builds on. Do NOT design the group view
+> until discovery calls with change leads (P1558's outreach) have tested the need; do NOT design the
+> event view until the session 2 opener has passed.
 
 ## Problem
 
@@ -55,7 +65,7 @@ Reversibility: medium. Decision density: a few.
 ## Invariants
 
 - **One list per chat, each item opening its card's Details; no separate ledger page** (P1496, P1503 D19,
-  2026-10-16). The unit is the story, with one state each (decisions.md 2026-10-29 [product]).
+  2026-10-16). The unit is the story (at an event, a frozen check until the partner confirms it as their story; 2026-10-30), with one state each (decisions.md 2026-10-29 [product]).
 - **Counted against a yes the person gave themselves.** Only people who said yes to the terms appear.
 - **Recognition only.** The view shows answers given. Nothing else about people.
 - **Counts, not scores.** No ranking and no public score (decisions.md 2026-10-22 [product]; calibration
@@ -64,10 +74,11 @@ Reversibility: medium. Decision density: a few.
 ## Solution (direction only)
 
 **First view: event rounds (2026-10-30).** One entry per partner reason checked in a round: whose
-reason, on whose canvas, the number the partner said, and, when the box changed in the next version,
-the link to it (P1574). Written by P1390 from the round threads. The founder's research count
-(explain-back tries per owner, session 1 vs session 2, goals.md 3a) is computed from the same entries
-but is a readout for the founder, not a view people see about each other.
+reason, on whose canvas, that it was understood, and, when the box changed in the next version, the link
+to it (P1574). Written by P1390 from the round threads, in the event channel's list. The founder's
+research count (explain-back tries per owner, session 1 vs session 2, goals.md 3a) is not computed
+from these entries: it comes from the Understand step (the partner explains back the owner's canvas),
+which P1390 records attempt by attempt, and it is a readout for the founder only.
 
 **Later view: group follow-through.**
 
@@ -80,20 +91,23 @@ sees follow-through recognised, by name or as a total (founder decision below).
 
 ### Why recognition matters: celebrating reasons that changed a canvas (`UNTESTED`, founder 2026-10-30)
 
-At an event, the ledger can also recognise the people whose reasons changed someone else's mind:
-"Ben's reason about yearly billing changed Anna's pricing box, after Anna explained it back and Ben
-said 9." The chain:
+At an event, the ledger can also recognise the people whose reasons changed a canvas: "Ben's reason
+about yearly billing came before a change to Anna's pricing box, after Anna explained it back to
+Ben's satisfaction." It counts as a change of Anna's mind only when Anna marked a stance on the new box
+(stances are optional at the event, P1529). The chain:
 
 1. Reasons and numbers are filed: the words from the round threads (P1592), the numbers people said
    out loud (P1390), and why a point changed with whose reason it was (P1574).
-2. The room, or the host's screen, names the people whose reasons changed a canvas. Recognition
-   only, no ranking (Invariants: counts, not scores).
+2. The event channel's list, or the host at the session 2 opener, names the people whose reasons
+   changed a canvas. Recognition only: no ranking, no numbers (Invariants: counts, not scores).
 3. People are celebrated for the behaviour, so the room sees that verifying understanding works.
-4. Side effect: data for H-StoryFirst (does verified understanding of a reason move positions?).
+4. Side effect: data for H-StoryParaphrase (verified paraphrase of the story behind a position moves
+   positions).
 
 This is the theory of change's third constraint, "group recursive understanding": participants see
 **each other's** shifts, and "when the room sees its own aggregate delta, the social norm inverts"
-(theory-of-change.md). The founder's further bet: a room that sees it work is more likely to carry the
+(theory-of-change.md). That quote supports showing a count; naming the individual people is the
+founder's added bet (2026-10-30), untested like the rest. The founder's further bet: a room that sees it work is more likely to carry the
 practice outside the room (H-NormFlip; H-ProtocolSpreadsWithoutTool). Related: P1061 (position
 movement analytics).
 
@@ -116,8 +130,12 @@ are not pleased and the room does not lean in, this chain is wrong and none of P
 
 ## Done-When
 
-- [ ] Both founder decisions above are recorded, informed by at least 5 discovery calls.
-- [ ] The spec is expanded into a buildable Solution with Acceptance Criteria, or archived if the calls show no need.
+- [ ] **Event view:** the session 2 opener result is recorded; if it passed, the event view is scoped
+  with Acceptance Criteria (audience, wording, what a wrongly attributed entry looks like and how it
+  is removed); if it failed, the event view is dropped and this decision recorded.
+- [ ] **Group view:** both founder decisions above are recorded, informed by at least 5 discovery calls.
+- [ ] **Group view:** expanded into a buildable Solution with Acceptance Criteria, or dropped if the
+  calls show no need. Dropping one view never drops the other.
 
 ## Related
 

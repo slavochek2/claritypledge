@@ -31,9 +31,11 @@ writes it, it is the owner's guess.
 
 ## Appetite
 
-Placeholder. Not scoped. Blast radius: a cross-user request flow. Decision density: several founder calls.
+Placeholder. Not scoped. Blast radius: one field on a replaced canvas point, plus who may see the
+partner's name on it; a cross-user confirmation flow only for stories in the partner's name (Open
+Question 1). Decision density: a few founder calls.
 
-> Founder, 2026-10-30 (reframe): no async approval request is needed. The partner's reason is already
+> Founder, 2026-10-30 (reframe): no approval request is needed for the link. The partner's reason is already
 > verified in the room: the owner explains it back until the partner says above 8 out of 10
 > (docs/events/sales-mastermind.md, the loop). What is missing is the link from a changed point to
 > the reason that changed it.
@@ -47,17 +49,27 @@ Sketch only (replaces the 2026-10-26 approve/correct/decline request).
 - **Written by the mirror or by the owner.** The mirror writes it when it drafts the version (P1536);
   the owner can write or edit it when they replace a point themselves. Anyone who can see the canvas
   can open a replaced point and read it.
-- **It can point to a partner's reason**: the round thread, who gave the reason, and the number the
-  partner said for the owner's explain-back (read from the transcript, P1390).
-- **The link needs no confirmation; a story in the partner's name does.** "Changed after Ben's reason
-  in round 2" only points to the round thread, which the partner can already read, so it is public
-  with the canvas. A *written story* under Ben's name is different: in the room Ben confirmed Anna's
+- **It can point to a partner's reason**: the round thread and who gave the reason (read from the
+  transcript, P1390). The number the partner said is not shown on the canvas; it stays in the
+  founder's research readout (P1390).
+- **Who sees the partner's name follows who can read the round thread.** A canvas can be shared by
+  public link (P1515; P1536: the draft "never quotes or names another person"), but a round thread is
+  readable only by the event's host and attendees (P1592). So "Changed after Ben's reason in round 2"
+  shows Ben's name, and opens the thread, only for people who can read that thread. Everyone else
+  sees "Changed after a partner's reason". This needs no confirmation, because it reveals nothing
+  the viewer could not already read.
+- **It says the box changed, not that the owner's mind changed.** At the event the owner publishes the
+  mirror's draft as it is and stances are optional (P1529). Only when the owner has marked a stance on
+  the new box does the link count as a change of position.
+- **A story in the partner's name needs the partner's confirmation.** In the room Ben confirmed Anna's
   spoken explain-back, not the mirror's wording. Until Ben confirms the wording it is **"Ben in
-  Anna's eyes"**, private to Anna, with the naming and visibility already decided in
-  [P1458](p1458_clarity_chat_agents_on_other_people.md) (decisions.md 2026-10-12). This matches
+  Anna's eyes"**, private to Anna, with the naming, visibility and Anna's own draft-then-approve
+  step already decided in [P1458](p1458_clarity_chat_agents_on_other_people.md) (decisions.md
+  2026-10-12). P1458 is a placeholder, so this half needs P1458 built first. This matches
   P1390's "do not publish any derived story without the person confirming it".
 - **Purpose: recognition.** It is what P1559 needs to show "your reason changed this canvas", and the
-  data for H-StoryFirst. Value test before building: the host does it by hand at the session 2
+  data for H-StoryParaphrase (verified paraphrase of the story behind a position moves positions).
+  Value test before building: the host does it by hand at the session 2
   opener (docs/events/sales-mastermind.md, Between sessions).
 
 Stories carry over when the point is reused unchanged in a later version (P1536), and stay on the old
@@ -73,13 +85,14 @@ point when it is superseded.
 
 | Risk | Label | Note |
 |---|---|---|
-| Partners never answer requests | DEFER | Decide what the owner sees after no answer |
+| Partners never confirm a story in their name | DEFER | It stays "Ben in Anna's eyes"; the link still works |
+| Partner's name leaks through a public canvas link | MITIGATE | Name shown only to people who can read the round thread |
 | Privacy text does not cover cross-user drafts | DEFER | Settle with the P1536 soft update |
 
 **Non-Goals**
 - Do NOT build before P1536 ships and one event has run with it.
 - Do NOT build before the by-hand recognition at the session 2 opener shows the room cares.
-- Do NOT send the partner an approval request (2026-10-30 reframe).
+- Do NOT ask the partner to approve the link (2026-10-30 reframe). Only a written story in their name asks them.
 
 ## Done-When
 
