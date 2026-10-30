@@ -120,6 +120,14 @@ channel, and make another version before session 2
 ([P1500](../../features/p1500_clarity_chat_canvas_from_event_threads.md): pick the thread from the
 canvas chat). No hand-made fallback.
 
+**Host, between sessions** (by hand, `UNTESTED`, founder 2026-10-30): read the round threads, the
+scores and each new version, and find 2-3 boxes that changed after a reader's reason was explained
+back and scored above 8 by that reader. **Session 2 opener:** name those reasons and the readers who
+gave them. Watch whether those readers are pleased and the room leans in. This tests whether
+recognising reasons that changed a canvas is worth building (supersede reason in
+[P1574](../../features/p1574_canvas_partner_story_requests.md), recognition in
+[P1559](../../features/p1559_follow_through_record.md)); if the room does not care, neither is urgent.
+
 ## Not decided
 
 Name, date, venue, the opener's framing of progress, and the exit card wording: founder decisions,
