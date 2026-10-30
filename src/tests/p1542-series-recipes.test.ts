@@ -100,7 +100,9 @@ describe('P1542 recipes: Social Hike', () => {
     expect(hike.appreciate.question).toBe('Are you open to sharing a recommendation for future hikers?');
     expect(hike.appreciate.placeholder).toBe('What would you tell someone joining their first hike?');
     expect(hike.appreciate.helper).toBeUndefined();
-    expect(hike.appreciate.consent).toBe('Quote me by name to promote future hikes');
+    // Founder 2026-10-30: no box on a hike — writing is the consent, and one line under the text box says so.
+    expect(hike.appreciate.consent).toBeUndefined();
+    expect(hike.appreciate.consentLine).toBe('By sharing, you agree we may publish your words with your name on the series page.');
     expect(hike.appreciate.placeholder).not.toMatch(/next hike|2-3 sentences/);
     // Founder 2026-10-23: just the button with "Takes 2 minutes"; no "We need your feedback".
     // Round 5c (F) + round 6 (B): "Start now" (not the step's own name) and the finished state with no button.

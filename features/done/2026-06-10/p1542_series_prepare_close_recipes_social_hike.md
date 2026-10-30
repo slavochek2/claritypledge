@@ -250,6 +250,32 @@ ticked when nothing is saved — and re-reads it once on entering "What did you 
   save, overwriting what the newer tab saved — the same as before.
 - *Known limitation (not fixed):* a hike review is queued for moderation only on the person's first finish. If they finish without a quote and later go back and add one, no review is queued for it (Gemini review, 2026-10-29; the hand-off migration is already approved for prod).
 
+**Quote consent on a hike, follow-up (founder, 2026-10-30): writing is the consent.** Supersedes the box model above for
+Social Hike; Clarity Night keeps its box and everything above unchanged.
+- No box. Under the recommendation's text box: "By sharing, you agree we may publish your words with your name on the
+  series page." An empty answer is no permission and no review.
+- The server derives the permission from the words on every answer save (`quote_ok` = the words are not empty), in
+  `20261030120000_p1542_quote_consent_by_writing.sql`. The hike close no longer calls `set_event_quote_ok` and sends no
+  permission with its saves. `quote_ok` stays as a column because `finish_event_close`, `scripts/series-reviews.mjs`
+  and `scripts/event-close-results.sh` read it unchanged — the fewest moving parts.
+- Clearing the words withdraws: the person's review for that close (pending or approved) becomes `rejected`, so it
+  leaves the public read at once (this closes the Codex finding that an approved quote stayed public after consent was
+  lowered). Changing the words sends the review back to `pending` with the new words: the founder approves every
+  wording before it is public. A `rejected` review is never revived by a later save.
+- The founder still approves every new quote (pending → approved, `scripts/series-reviews.mjs`), unchanged.
+- Words written after the close finished with an empty answer reach moderation: that save queues the pending review
+  the finish could not (`20261030130000`). Only when NO review exists for that close and person.
+- *Known limitation:* a hiker whose review was rejected — by clearing their quote, or by the founder — and who later
+  writes a new one does not get a new review: a rejected row is never revived, one review per close. The founder can
+  add it by hand from the close results (`scripts/event-close-results.sh`).
+- Words are trimmed of spaces, tabs, line breaks and no-break spaces on both ends; whitespace only counts as empty.
+- The box's write (`set_event_quote_ok`) is refused on a hike (`20261030130000`): the words are the one writer of the
+  permission there, so an older cached tab cannot lower it while the words stay.
+- The founder's approve only publishes the exact pending words it checked: a clear or an edit landing in between makes
+  the write match nothing, and the script refuses (exit 4).
+- An older cached hike tab still shows the box; its write is refused there (above), and the tab shows the server's
+  value again.
+
 The room ticks Share feedback only once the server has confirmed the finish, including a finish made in another tab.
 The automatic "all finished elsewhere" completion waits for a visible tab and for the learning to be the shown view.
 
@@ -324,6 +350,8 @@ for the node-side helpers and the integration spec.
 | Requests | chat: 3 surfaces viewed (event page, registration thank-you, feedback thank-you) x 1 read + 1 tap write = 4 (after a tap, later surfaces in that browser skip the read); worst case, a failed tap on the last surface, then 2 more chat page views each retrying once = 6. Finish save: 1 per close (measured: each of the 4 UI closes in the e2e made exactly 1 call); worst case under a persistent server failure, 8 per visit plus 8 per `online`/`visible` event. Total normally 4 + 1 = 5 | active hikers per hour x 5 (finish-save worst case: open close pages x 8, then silent) | full p1542 e2e run: 3,919 = node helpers 420 (auth 76, tables 331, RPC 13) + browser 3,499 (tables 2,581, RPC 708, mirror-reply edge function 108, websockets 54, auth reads 48). Integration spec: 73 after batching its fixtures (rule 1): auth create/delete/admin 9 (the admin API has no batch endpoint, so one call per user), sign-ins 3, profiles 2, events insert/delete 2 + 2, link rows 1, RSVPs 1, series reviews 7, group_chat_opens table 6, the three RPCs 40. Total 3,919 + 73 = 3,992. Of these, round 6 itself adds 22 group-chat RPC calls and 4 finish saves in the e2e, plus the 73 of the integration spec; most of the rest is the app shell's general reads on every page load (chats, profiles, letters, invites, the mirror function), which predate this spec. **Plus the `p1542-ac-gaps` lane (review round, ESTIMATE, not measured):** 6 users (1 host + 5 people; the run ledger counted 6 created and 6 deleted), 2 events, 4 flows (registration thank-you, feedback thank-you, room end, event page after the event). Estimated from the full run's rate of about 160 browser requests per flow plus about 15 node-side seeding requests per user: about 4 x 160 + 6 x 15 = about 730, so a run of all three suites is about 3,992 + 730 = about 4,720 |
 | Egress (bytes) | 5 requests x about 0.4 KB (boolean body plus headers) = about 2 KB | active hikers per hour x 2 KB | ESTIMATE, not measured: 3,992 requests x an assumed 2 KB average = about 8 MB, before the 54 realtime websocket sessions, whose traffic was not measured. Treat as an order of magnitude, with 2x headroom (about 16 MB) |
 | Log lines | 1 API log line per request = 5 (normal); with the migration missing, each chat surface view logs 1 failed call instead, the same count | active hikers per hour x 5 | 3,992 (the deliberately refused insert and the 42501 checks included) |
+| Requests: quote-consent integration lane (`e2e/integration/p1542-quote-consent-by-writing.spec.ts`, 2026-10-30, MEASURED with a fetch counter preloaded into the Playwright worker and every child process) | n/a (test only) | n/a (on demand only) | 75 per run of its 11 tests = Playwright worker 64 + founder script 8 (3 runs: `list` 2 + `list` 2 + `approve` 4) + run setup/teardown 3. By kind: users 8 (2 users: auth create 2, profile insert 2, sign-in 2, auth delete 2), events 7 (3 events: insert 3, series update 2, delete 2), RPCs 16 (`save_event_feedback` 9, `finish_event_close` 2, `set_event_quote_ok` 2, run-ledger user purge 2 and count 1), reads 35 (`series_reviews` 27, the anon public reads included; `event_feedback` 8), writes 9 (`series_reviews` update 5 and delete 2, `event_feedback` delete 2): 8 + 7 + 16 + 35 + 9 = 75 |
+| Requests: room re-read after a failed answer write (`reconcile-retry.ts`, Codex review) | worst case per unreconciled VISIBLE room per outage, counted in RPCs (Codex review): 9 re-reads (the first at once + 8 retries), each up to 2 RPCs (`get_my_room_status`, then `join_event_room` when no row came back; the join is gated on a visible tab and the loop's abort too) = 9 x 2 = 18 RPCs, spread over 2 + 4 + 8 + 16 + 30 + 30 + 30 + 30 = 150 s of waits (each ±20%: 120-180 s), then 0 until the person taps "Try again" (each tap: at most 18 more; a second tap while a loop runs starts nothing). A hidden tab: 0. Before: one re-read every 2 s with no end = 1,800 re-reads, up to 3,600 RPCs, per hour | 18 RPCs per affected room per outage, plus 18 per "Try again" tap | 0 (no test lane calls it against TEST; the unit tests use fake timers) |
 | Service unit | none from this spec: plain Postgres functions, no tokens. The 108 mirror-reply edge function invocations per e2e run come from the shell, not P1542 | none | 108 edge function invocations (shell, pre-existing) |
 
 1. **Fits the plan limit today?** Split by organisation (prod and TEST are separate since P1538).

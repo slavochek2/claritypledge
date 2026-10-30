@@ -21,7 +21,13 @@ export interface SeriesRecipe {
   close: CloseRecipeItem[];
   /** The "what was good" step's words. */
   appreciate: {
-    question: string; consent: string; placeholder: string; helper?: string;
+    question: string; placeholder: string; helper?: string;
+    /** A "you may quote me" box with these words (Clarity Night). The person's click is the permission. */
+    consent?: string;
+    /** No box: writing IS the permission, and this line under the text box says so (Social Hike, founder 2026-10-30).
+     *  The server derives the permission from the words and withdraws the review when they are cleared
+     *  (20261030120000). A recipe sets `consent` or `consentLine`, never both. */
+    consentLine?: string;
     /** The step header's name; omitted = the shared "Feedback: what was good" (Clarity Night). */
     stepName?: string;
     /** Writing is optional (P1542 VQA round 4): Submit stays enabled, and an empty Submit just continues, saving no quote. */
@@ -133,11 +139,11 @@ export const CLARITY_NIGHT_RECIPE: SeriesRecipe = {
 export const SOCIAL_HIKE_RECIPE: SeriesRecipe = {
   // No topic vote after a hike. The CMP re-check only appears for someone who prepared.
   close: ['score', 'positions', 'stance', 'improve', 'appreciate', 'asks'],
-  // Founder 2026-10-23: a recommendation, one helper line, the consent ticked by default.
+  // Founder 2026-10-23: a recommendation, one helper line. Founder 2026-10-30: no box — writing it is the consent.
   appreciate: {
     // Founder UAT round 5: the question asks for openness to share, and stands alone (no helper line).
     question: 'Are you open to sharing a recommendation for future hikers?',
-    consent: 'Quote me by name to promote future hikes',
+    consentLine: 'By sharing, you agree we may publish your words with your name on the series page.',
     placeholder: 'What would you tell someone joining their first hike?',
     stepName: 'Recommend',
     optional: true,

@@ -375,6 +375,16 @@ body {
     clarity-breathe 2.4s ease-in-out calc(1.2s - var(--loader-elapsed, 0ms)) infinite;
 }
 
+/* Reduced motion: no draw and no breathing. The mark is shown whole and fully opaque at once (dashoffset 0 is the
+ * draw's last frame), so a person who asked for less motion still sees that something is loading. */
+@media (prefers-reduced-motion: reduce) {
+  .clarity-loader-c {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
 /* Anti-flash: loader is invisible for 300ms, then fades in.
  * Pure CSS — no JS timers, no re-renders, no test interference. */
 @keyframes clarity-appear {

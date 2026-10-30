@@ -217,12 +217,13 @@ test.describe('P1542 series recipes', () => {
     await page.getByLabel('How can we improve our next event?').fill('Start earlier.');
     await page.getByRole('button', { name: 'Submit' }).click();
 
-    // AC4 / founder UAT round 5: the openness question, no helper line, the consent ticked by default.
+    // AC4 / founder UAT round 5: the openness question, no helper line. Founder 2026-10-30: no box — writing is the
+    // consent, and one line under the text box says so.
     await expect(page.getByTestId('step-question')).toHaveText(RECOMMEND_Q);
     await expect(page.getByTestId('step-helper')).toHaveCount(0);
     await expect(page.getByText(/next hike, and why|2-3 sentences|What did you enjoy/)).toHaveCount(0);
-    await expect(page.getByTestId('quote-ok')).toHaveText('Quote me by name to promote future hikes');
-    await expect(page.getByTestId('quote-ok').getByRole('checkbox')).toBeChecked();
+    await expect(page.getByTestId('quote-consent-line')).toHaveText('By sharing, you agree we may publish your words with your name on the series page.');
+    await expect(page.getByTestId('quote-ok')).toHaveCount(0);
     // UAT 2026-10-23 #6 (founder): the past-hiker reviews block under the box is gone — it competed with the input.
     await expect(page.getByTestId('review-examples')).toHaveCount(0);
     await expect(page.getByText('P1542 approved example quote.')).toHaveCount(0);
@@ -386,7 +387,7 @@ test.describe('P1542 series recipes', () => {
     void page;
   });
 
-  test('approve is refused when the person withdrew consent or changed the words after the close; unchanged approves', async () => {
+  test('after the close: cleared words withdraw the review (rejected), changed words re-pend it with the new words; unchanged approves', async () => {
     const { execFileSync } = await import('node:child_process');
     const run = (...a: string[]) => {
       try { return { code: 0, out: execFileSync('node', ['scripts/series-reviews.mjs', ...a, '--env', 'test'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) }; }
@@ -400,21 +401,21 @@ test.describe('P1542 series recipes', () => {
       expect(row.status).toBe('pending');
       return { u, row };
     }
-    // Consent withdrawn after finishing (save_event_feedback still works for the attendee).
+    // Consent withdrawn after finishing (founder 2026-10-30: on a hike, by clearing the words; 20261030120000). A box
+    // value sent with the words no longer decides anything on a hike — the words do.
     const a = await pendingFor('P1542 Withdraws', 'P1542 words she later withdrew.');
     expect((await (await asUser(a.u.email)).rpc('save_event_feedback', { p_event_id: hike.id, p_score: 8, p_liked: 'P1542 words she later withdrew.', p_improve: '', p_quote_ok: false })).error).toBeNull();
-    expect(run('list').out).toContain(`[consent withdrawn]`);
-    const refused = run('approve', a.row.id);
-    expect(refused.code).not.toBe(0);
-    expect(refused.out).toContain('consent withdrawn');
-    expect((await reviewsFor(hike.id)).find((r) => r.id === a.row.id)?.status).toBe('pending');
+    expect((await reviewsFor(hike.id)).find((r) => r.id === a.row.id)?.status).toBe('pending'); // a stale box value: ignored
+    expect((await (await asUser(a.u.email)).rpc('save_event_feedback', { p_event_id: hike.id, p_score: 8, p_liked: '', p_improve: '', p_quote_ok: null })).error).toBeNull();
+    expect((await reviewsFor(hike.id)).find((r) => r.id === a.row.id)?.status).toBe('rejected'); // out of the queue
+    expect(run('list').out).not.toContain(a.row.id);
 
-    // Words rewritten after finishing.
+    // Words rewritten after finishing: the review takes the new words and stays pending for the founder.
     const b = await pendingFor('P1542 Rewrites', 'P1542 original words.');
-    await (await asUser(b.u.email)).rpc('save_event_feedback', { p_event_id: hike.id, p_score: 8, p_liked: 'P1542 rewritten words.', p_improve: '', p_quote_ok: true });
-    expect(run('list').out).toContain('[text changed]');
-    expect(run('approve', b.row.id).out).toContain('text changed');
-    expect((await reviewsFor(hike.id)).find((r) => r.id === b.row.id)?.status).toBe('pending');
+    await (await asUser(b.u.email)).rpc('save_event_feedback', { p_event_id: hike.id, p_score: 8, p_liked: 'P1542 rewritten words.', p_improve: '', p_quote_ok: null });
+    const rewritten = (await reviewsFor(hike.id)).find((r) => r.id === b.row.id)!;
+    expect(rewritten).toMatchObject({ status: 'pending', quote: 'P1542 rewritten words.' });
+    expect(run('list').out).not.toContain('[text changed]');
 
     // Unchanged: approves. Then clean up through the afterAll (source_event_id rows).
     const c = await pendingFor('P1542 Unchanged', 'P1542 untouched words.');

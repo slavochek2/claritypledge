@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/auth';
 import { eventsService } from '@/app/data/events-service';
 import { getMyRoomStatus, joinEventRoom } from '@/app/data/event-room-service';
+import { untilVisible } from '@/app/data/event-list-reads';
 import type { EventRoomSelf, EventWithHost } from '@/app/types';
 import { readThrough, rememberOffline } from '@/lib/offline-read-cache';
 import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
@@ -117,8 +118,9 @@ export function useEventRoomAccess(): EventRoomAccess {
 export interface EventRoomSelfState {
   self: EventRoomSelf | null;
   loading: boolean;
-  /** Resolves true when the server answered, false when the read failed. */
-  refresh: () => Promise<boolean>;
+  /** Resolves true when the server answered, false when the read failed. `signal` (the room's re-read after a
+   *  failed write): the join that may follow the status read waits for a visible tab and is dropped once aborted. */
+  refresh: (signal?: AbortSignal) => Promise<boolean>;
   /** Run one of this person's writes and adopt the row it returns, then re-read (see the
    * ordering rules in the hook). Rejects when the write fails. */
   runSelfWrite: (write: () => Promise<EventRoomSelf>) => Promise<void>;
@@ -189,7 +191,7 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
 
   /** One read. Resolves true when the server answered (applied, or superseded by something
    * newer), false when the read FAILED — so a caller can tell "reconciled" from "unknown". */
-  const load = useCallback(async (): Promise<boolean> => {
+  const load = useCallback(async (signal?: AbortSignal): Promise<boolean> => {
     if (!event || !granted) return false;
     const ticket = ++issuedRef.current;
     // P1369 Scope v2: the last-seen row is kept offline; offline, no join is attempted.
@@ -221,6 +223,9 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
       offer(ticket, status);
       return true;
     }
+    // Metered rule 3 (Codex review): the join is a second request — from a caller that can give up, only from a visible
+    // tab and never after it gave up.
+    if (signal && !(await untilVisible(signal))) return false;
     try {
       // join_event_room upserts and never resets an existing answer, so this also recovers
       // the row when the status read itself failed.
@@ -256,7 +261,7 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load is derived from the same [event, granted] pair
   }, [event, granted]);
 
-  const refresh = useCallback(() => load(), [load]);
+  const refresh = useCallback((signal?: AbortSignal) => load(signal), [load]);
 
   /** Runs one of this person's writes (rules 1 and 2 above). Rejects when the write fails,
    * with nothing applied. */

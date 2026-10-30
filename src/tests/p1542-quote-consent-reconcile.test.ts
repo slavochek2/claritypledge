@@ -69,3 +69,18 @@ describe('a failed latest click while an older write is still out', () => {
     expect(getEventClose).not.toHaveBeenCalled();
   });
 });
+
+describe('a series with no box (a hike since 2026-10-30: writing is the consent)', () => {
+  it('enabled = false: entering "What did you like" reads nothing', async () => {
+    const { rerender } = renderHook(({ step }) => useQuoteConsent('ev-1', false, step, false), { initialProps: { step: 'improve' } });
+    rerender({ step: 'appreciate' });
+    await act(async () => {});
+    expect(getEventClose).not.toHaveBeenCalled();
+  });
+
+  it('control: with the box, entering the step reads once', async () => {
+    const { rerender } = renderHook(({ step }) => useQuoteConsent('ev-1', false, step), { initialProps: { step: 'improve' } });
+    rerender({ step: 'appreciate' });
+    await waitFor(() => expect(getEventClose).toHaveBeenCalledTimes(1));
+  });
+});

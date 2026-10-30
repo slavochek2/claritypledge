@@ -381,7 +381,9 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
   useEffect(() => {
     try { sessionStorage.setItem(stepKey, step); } catch { /* best effort */ }
   }, [step, stepKey]);
-  const consent = useQuoteConsent(event.id, initial.quoteOk, step);
+  // A series with the box (Clarity Night) runs it; one where writing is the consent (a hike) has no box to run.
+  const hasQuoteBox = !!recipe.appreciate.consent;
+  const consent = useQuoteConsent(event.id, initial.quoteOk, step, hasQuoteBox);
   // Visual review round 5: arrived from the learning the Join started, the terms are step 2 of joining.
   // Round 5c (C): only the learning's own finish marks this (route state), so the step count is shown only to someone
   // who came through step 1 in this flow; a direct ?join=1 or the learner's Review group terms reads "Group terms".
@@ -443,7 +445,8 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
       score: fb.score !== undefined ? fb.score : score,
       liked: sent.liked,
       improve: sent.improve,
-      quoteOk: await consent.forAnswerSave(), // F1/Z1: an unticked box rides along (re-sent first); a tick never does
+      // F1/Z1: an unticked box rides along (re-sent first); a tick never does. No box: the server reads the words.
+      quoteOk: hasQuoteBox ? await consent.forAnswerSave() : null,
     });
     setSaving(false);
     if (ok) draft.markSaved(sent); // D4: what was sent is saved — its draft goes
@@ -771,14 +774,14 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
               skipLabel: 'Continue without sharing',
               from: 'appreciate',
               optional: recipe.appreciate.optional,
-              extra: (
-                <>
-                  <label className="flex min-h-11 items-center gap-2 text-sm text-foreground" data-testid="quote-ok">
-                    <input type="checkbox" checked={consent.quoteOk} onChange={(e) => consent.toggle(e.target.checked)} className="h-4 w-4 accent-blue-600" />
-                    {recipe.appreciate.consent}
-                  </label>
-                </>
-              ),
+              extra: hasQuoteBox ? (
+                <label className="flex min-h-11 items-center gap-2 text-sm text-foreground" data-testid="quote-ok">
+                  <input type="checkbox" checked={consent.quoteOk} onChange={(e) => consent.toggle(e.target.checked)} className="h-4 w-4 accent-blue-600" />
+                  {recipe.appreciate.consent}
+                </label>
+              ) : recipe.appreciate.consentLine ? (
+                <p className="text-sm text-muted-foreground" data-testid="quote-consent-line">{recipe.appreciate.consentLine}</p>
+              ) : undefined,
             })
         )}
 

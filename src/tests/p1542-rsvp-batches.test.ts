@@ -91,12 +91,15 @@ describe.each([101, 201])('%i events', (n) => {
     expect(list.every((e) => e.attendeeCount === undefined)).toBe(true);
   });
 
-  it('attachRsvpCounts without throwOnError: a later failure leaves every count unset (never partial)', async () => {
+  it('attachRsvpCounts without throwOnError: a later failure leaves every count unset (never partial) and is logged', async () => {
     db.rows = [{ event_id: 'e0', profile_id: 'a' }];
     db.failBatch = expectedBatches - 1;
     const list = events(n);
+    const { logDbError } = await import('@/app/data/db-error-logger');
+    vi.mocked(logDbError).mockClear();
     await attachRsvpCounts(list);
     expect(list.every((e) => e.attendeeCount === undefined)).toBe(true);
+    expect(vi.mocked(logDbError)).toHaveBeenCalledWith('attachRsvpCounts', expect.objectContaining({ message: 'batch failed' }));
   });
 
   it("fetchViewerRsvpEventIds: every in.() has ≤100 ids and the viewer's marks join across batches", async () => {
@@ -148,6 +151,8 @@ describe('fetchViewerRsvpEventIds in a hidden tab (metered rule 3)', () => {
 
 describe('aborted while the reads are in flight', () => {
   it('attachRsvpCounts: the answers are dropped — no event gets a count — and each read carried the signal', async () => {
+    const { logDbError } = await import('@/app/data/db-error-logger');
+    vi.mocked(logDbError).mockClear();
     db.rows = [{ event_id: 'e0', profile_id: 'host' }];
     const gaveUp = new AbortController();
     db.inFlight = () => gaveUp.abort();
@@ -156,6 +161,8 @@ describe('aborted while the reads are in flight', () => {
     expect(db.batches).toHaveLength(2); // sent: the tab was visible and nobody had given up yet
     expect(list.every((e) => e.attendeeCount === undefined && e.hostHasRsvp === undefined)).toBe(true);
     expect(db.signals).toEqual([gaveUp.signal, gaveUp.signal]);
+    // Gemini review: an abort is not a failure — nothing is logged for it.
+    expect(vi.mocked(logDbError)).not.toHaveBeenCalled();
   });
 
   it('fetchViewerRsvpEventIds: [] — the answers are dropped — and each read carried the signal', async () => {

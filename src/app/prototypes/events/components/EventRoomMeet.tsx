@@ -85,6 +85,7 @@ import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-r
 import { HOST_VOICED_UNDERSTANDING_QUESTION, HostAsksLine } from './host-asks';
 import { RoomTranscribeIdleBar } from '@/app/components/session/room-capture-bar';
 import { RoomStickyHead } from './RoomChrome';
+import { useRoomWrite } from './use-room-write';
 import { useRoomRoster } from './use-room-roster';
 import { useRoomBack } from './use-room-back';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
@@ -118,10 +119,8 @@ import { RoomCloseView } from './RoomCloseView';
 import { useRoomViews } from './use-room-views';
 import { useEventCommunityName, useEventMembership } from '../use-event-community';
 import { PINNED_FADE_CLASS, PINNED_FADE_OFF_CLASS, PINNED_FLAT_DESKTOP_CLASS, useScrolledToEnd } from '../prep/prep-ui';
-import type { EventRoomMember, EventRoomSelf } from '@/app/types';
+import type { EventRoomMember } from '@/app/types';
 
-/** Pause between re-reads while a failed write is unreconciled (see `runWrite`). */
-const RECONCILE_RETRY_MS = 2000;
 
 const PRINCIPLE_LEVEL: MeetingTermsLevel = 3;
 const PRINCIPLE_TITLE = 'Clarity Meeting Principle';
@@ -286,30 +285,8 @@ export function EventRoomMeet() {
   const [startFailed, setStartFailed] = useState(false);
   const transcriptionFailed =
     startFailed || (location.state as { transcriptionFailed?: boolean } | null)?.transcriptionFailed === true;
-  const [submitting, setSubmitting] = useState(false);
-  const [writeFailed, setWriteFailed] = useState(false);
-  /** After a failed write: did the re-read succeed? Only then does this screen know the
-   * current answer — and only then may it offer a reset of it. */
-  const [reconciled, setReconciled] = useState(true);
-  /**
-   * Synchronous in-flight latch. `submitting` drives the DISABLED styling, but it cannot
-   * be the guard: it is React state, so two taps dispatched in the same frame both read
-   * `false` before either re-render lands, and both proceed. The card's own
-   * `disabled={submitting}` has the identical one-frame window.
-   *
-   * That window is not cosmetic here — every set_room_opt_in call INSERTs a row into
-   * event_room_answers with a cascade count (migration 20260821120000), so a double tap
-   * writes two history rows into the table the spec's research question reads. A ref flips
-   * synchronously on the first call and closes it.
-   */
-  const inFlight = useRef(false);
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    mountedRef.current = true; // re-set on remount (StrictMode runs effects twice in dev)
-    return () => { mountedRef.current = false; };
-  }, []);
-  /** The current step, readable from inside an async write (see `runWrite`). */
-  const stepKeyRef = useRef<string>('choosing');
+  // The answer writes, their latch and the metered re-read after a failure (use-room-write.ts).
+  const { submitting, writeFailed, setWriteFailed, reconciled, stuck, runWrite, retryReconcile, stepKeyRef } = useRoomWrite(runSelfWrite, refresh);
 
   // Measured bottom-bar height (see file doc comment) — same pattern as
   // meeting-terms-page.tsx's ratingBarHeight.
@@ -376,50 +353,6 @@ export function EventRoomMeet() {
 
   // P1386: no prepared / mic marks here — this page is projected on the wall. The host reads them on
   // the event page (founder, 2026-10-02).
-
-  /**
-   * One write, then adopt the row the RPC RETURNED as the new `self` — not a follow-up read
-   * (ordering against concurrent reads lives in `runSelfWrite`). Only the write's own
-   * failure is reported as "That didn't save": when the write committed and a separate
-   * refresh then failed, the phone used to say it didn't save while the projector already
-   * showed the person opted in (2026-09-18 adversarial review).
-   *
-   * On failure the latch is HELD until a re-read has come back, and only then is the error
-   * shown. The rating step's "Change your choice" appears only if that re-read SUCCEEDED
-   * (`reconciled`): a write whose response was lost may have committed, and a reset must
-   * never be offered against an answer this screen has not caught up with (rounds 2-3).
-   * Retrying an answer or a rating is safe without reconciliation — an identical answer is
-   * deduped server-side and a rating is compare-and-set.
-   */
-  const runWrite = useCallback(async (write: () => Promise<EventRoomSelf>) => {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    setSubmitting(true);
-    setWriteFailed(false);
-    const stepBefore = stepKeyRef.current;
-    try {
-      await runSelfWrite(write);
-    } catch {
-      // Round 4: until a read succeeds this screen does not know the current answer (the
-      // write may have committed with its response lost), so every control stays locked and
-      // the read is retried. Unlocking early let a tap on the OTHER answer record a false
-      // change of mind in the research history. Writes cannot succeed offline anyway.
-      let ok = await refresh().catch(() => false);
-      while (!ok && mountedRef.current) {
-        setReconciled(false);
-        setWriteFailed(true);
-        await new Promise((r) => setTimeout(r, RECONCILE_RETRY_MS));
-        ok = await refresh().catch(() => false);
-      }
-      setReconciled(true);
-      // The re-read may show the write DID commit (response lost): the step moved on, and
-      // "That didn't save" would be false. Flag it only when the step is unchanged.
-      setWriteFailed(stepKeyRef.current === stepBefore);
-    } finally {
-      inFlight.current = false;
-      setSubmitting(false);
-    }
-  }, [runSelfWrite, refresh]);
 
   /** The tap on Opt in / Opt out. Writes the answer with no rating, so the roster shows it
    * at once; the step then derives to `rating` from server state. With no `self` (the
@@ -918,11 +851,12 @@ export function EventRoomMeet() {
 
               {writeFailed && (
                 <p role="status" className="text-center text-sm font-medium text-destructive">
-                  {reconciled
-                    ? <>That didn&apos;t save. Try again.</>
-                    : <>Reconnecting&hellip;</>}
+                  {reconciled ? <>That didn&apos;t save. Try again.</> : stuck ? <>That didn&apos;t save.</> : <>Reconnecting&hellip;</>}
                 </p>
               )}
+              {/* The re-read budget ran out (use-room-write.ts): "Try again" is the only way forward, so it is the filled,
+                  full-width button (Button Decision Rules). */}
+              {stuck && <Button className="min-h-11 w-full" onClick={retryReconcile} data-testid="room-write-retry">Try again</Button>}
 
               {step === 'choosing' && (
                 /* Founder-annotated "this is nice and simple!" on the shipped /meet's copy

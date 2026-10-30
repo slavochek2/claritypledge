@@ -88,8 +88,11 @@ export async function attachRsvpCounts(events: EventWithHost[], options?: ListRe
   // The caller gave up while the reads were out: their answers (or the abort errors) touch nothing.
   if (options?.signal?.aborted) return;
   const failed = results.find((r) => r.error);
-  if (failed?.error && options?.throwOnError) failListRead('attachRsvpCounts', failed.error, options);
-  if (failed) return;
+  // Every failed read is logged; with throwOnError it throws instead (failListRead). Either way no partial counts.
+  if (failed?.error) {
+    failListRead('attachRsvpCounts', failed.error, options);
+    return;
+  }
   // One pass: the count per event, and which (event, person) pairs have a row — so the host's own row is a lookup.
   const countMap: Record<string, number> = {};
   const rsvpPairs = new Set<string>();

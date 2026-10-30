@@ -136,9 +136,12 @@ describe('P1114 rev2: the principle page mirrors the shipped /meet', () => {
     // The synchronous latch is the real guard (the disabled prop only styles, and React
     // state cannot close a same-frame double tap) — proven by e2e, asserted here so it
     // cannot be quietly dropped.
+    // Codex review (P1542): the writes, the latch included, moved to use-room-write.ts (EventRoomMeet is over its size
+    // limit); EventRoomMeet takes them from that hook.
+    expect(/useRoomWrite\(runSelfWrite, refresh\)/.test(s), 'EventRoomMeet.tsx no longer takes its writes from useRoomWrite.').toBe(true);
     expect(
-      /inFlight\.current/.test(s),
-      'EventRoomMeet.tsx no longer holds a synchronous in-flight latch. `submitting` is React state and cannot prevent two taps dispatched in the same frame from both passing the guard — measured: three taps wrote three answer-history rows.',
+      /inFlight\.current/.test(read('src/app/prototypes/events/components/use-room-write.ts')),
+      'use-room-write.ts no longer holds a synchronous in-flight latch. `submitting` is React state and cannot prevent two taps dispatched in the same frame from both passing the guard — measured: three taps wrote three answer-history rows.',
     ).toBe(true);
     expect(/Start meeting/.test(s), 'EventRoomMeet.tsx carries "Start meeting". That exists for one situation — two people, one phone, a host standing there to ask the follow-up out loud. In a room of forty nobody asks, and there is no phone to hand back. This remains the one deliberate divergence from /meet.').toBe(false);
   });

@@ -28,10 +28,10 @@ vi.mock('@/app/contexts/offline-status-context', () => ({
   useOfflineStripShown: () => false,
 }));
 vi.mock('@/app/components/layout/app-shell/shell-nav', () => ({ useHideTodaysStripForEvent: () => {} }));
-const room = vi.hoisted(() => ({ access: {} as Record<string, unknown> }));
+const room = vi.hoisted(() => ({ access: {} as Record<string, unknown>, selfState: null as null | Record<string, unknown> }));
 vi.mock('@/app/prototypes/events/components/EventRoomAccess', () => ({
   useEventRoomAccess: () => room.access,
-  useEventRoomSelf: () => ({ self: null, loading: false, refresh: vi.fn().mockResolvedValue(true), runSelfWrite: vi.fn() }),
+  useEventRoomSelf: () => room.selfState ?? { self: null, loading: false, refresh: vi.fn().mockResolvedValue(true), runSelfWrite: vi.fn() },
 }));
 // The subscription's contract (P1586 onStatus): `pending` at once; a failed first read reports [] then `failed`; a
 // successful read says `ready`, then hands over its rows.
@@ -109,6 +109,7 @@ const readyEntry = { pathname: '/events/night/ready', state: { fromEvent: true }
 
 beforeEach(() => {
   roundMoment.value = null;
+  room.selfState = null;
   roster.onUpdate = null;
   roster.onStatus = null;
   room.access = { slug: 'night', event: open, loading: false, granted: true, isLoggedIn: true, offline: false };
@@ -246,6 +247,36 @@ describe('§1a / viewer states (Done-When evidence)', () => {
     expect(within(bar).getByTestId('room-transcribe-start')).toHaveTextContent('Transcribe');
     expect(screen.queryByTestId('room-back')).toBeNull();
     expect(within(screen.getByTestId('room-sticky-head')).getByTestId('room-steps')).toBeInTheDocument();
+  });
+});
+
+describe('a failed answer whose re-reads run out (use-room-write.ts, Codex review)', () => {
+  it('"That didn\'t save." with the filled "Try again"; a tap starts a new re-read: "Reconnecting…"', async () => {
+    vi.useFakeTimers();
+    try {
+      const self = { id: 'm1', eventId: 'ev-1', optedIn: null, comprehensionRating: null };
+      const refresh = vi.fn().mockResolvedValue(false); // the server stays unreachable
+      room.selfState = { self, loading: false, refresh, runSelfWrite: vi.fn().mockRejectedValue(new Error('down')) };
+      mount([fromReady]);
+      fireEvent.click(screen.getByTestId('room-opt-in-yes'));
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect(screen.getByText('Reconnecting…')).toBeInTheDocument();
+      await act(async () => { await vi.advanceTimersByTimeAsync(4 * 60_000); }); // past the whole budget
+      expect(refresh).toHaveBeenCalledTimes(9);
+      expect(screen.getByText("That didn't save.")).toBeInTheDocument();
+      const retry = screen.getByTestId('room-write-retry');
+      expect(retry).toHaveTextContent('Try again');
+      expect(retry.className).toContain('w-full');
+      expect(retry.className).toContain('bg-blue-600'); // the default filled button, not outline
+      expect(screen.getByTestId('room-opt-in-no')).toBeDisabled(); // still locked
+      fireEvent.click(retry);
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect(refresh).toHaveBeenCalledTimes(10);
+      expect(screen.getByText('Reconnecting…')).toBeInTheDocument();
+      expect(screen.queryByTestId('room-write-retry')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

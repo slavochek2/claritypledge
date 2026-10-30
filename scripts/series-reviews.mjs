@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * P1542: the founder's moderation queue for series reviews (hike pages). A finished hike close with
- * "what was good" and "you may quote me" ticked creates a PENDING review; nothing pending is ever
+ * "what was good" creates a PENDING review (on a hike, writing it is the consent: 20261030120000); nothing pending is ever
  * public. This is the only way a review goes live. Founder-only by construction: it holds the
  * service role (prod: through the per-access keyring lock, one dialog per run), and there is no
  * moderation UI in the app.
@@ -19,6 +19,7 @@ import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+import { consentProblem, moderate } from './lib/series-reviews-core.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PROD_URL = 'https://besjtuodziykmjidubzw.supabase.co';
@@ -67,22 +68,6 @@ const clean = (v) => (v == null ? '-' : String(v).replace(/[\x00-\x08\x0b-\x1f\x
 
 const db = await client();
 
-/**
- * Is the review still what the person agreed to? A review made by a close points at its feedback row
- * (source_event_id + author_profile_id). The person can still edit that row after the close, so approval
- * needs quote_ok still true and the words unchanged. Hand-added reviews (no source) are not checked.
- * Returns null when fine, else a short reason.
- */
-async function consentProblem(r) {
-  if (!r.source_event_id || !r.author_profile_id) return null;
-  const { data: fb, error } = await db.from('event_feedback').select('liked, quote_ok')
-    .eq('event_id', r.source_event_id).eq('user_id', r.author_profile_id).maybeSingle();
-  if (error) return `could not check consent (${error.message})`;
-  if (!fb || !fb.quote_ok) return 'consent withdrawn';
-  // The hand-off stored the first 2000 characters of the trimmed words.
-  if ((fb.liked ?? '').trim().slice(0, 2000) !== r.quote) return 'text changed';
-  return null;
-}
 console.log(`[${env}]`);
 
 if (cmd === 'list') {
@@ -95,29 +80,13 @@ if (cmd === 'list') {
   console.log(`${data.length} ${status} review(s)`);
   for (const r of data) {
     const profile = Array.isArray(r.author) ? r.author[0] : r.author;
-    const problem = r.status === 'pending' ? await consentProblem(r) : null;
+    const problem = r.status === 'pending' ? await consentProblem(db, r) : null;
     console.log(`\n${r.id}  [${r.status}]${problem ? ` [${problem}]` : ''} ${clean(r.series_slug)}  ${r.created_at.slice(0, 10)}`);
     console.log(`  ${clean(r.author_name)}${profile?.slug ? `  (/p/${clean(profile.slug)})` : ''}`);
     console.log(`  "${clean(r.quote)}"`);
   }
 } else {
-  const next = cmd === 'approve' ? 'approved' : 'rejected';
-  const { data: row, error: readErr } = await db.from('series_reviews').select('id, series_slug, status, author_name, quote, source_event_id, author_profile_id').eq('id', id).maybeSingle();
-  if (readErr) { console.error('read failed:', readErr.message); process.exit(2); }
-  if (!row) { console.error('no review with that id'); process.exit(1); }
-  if (next === 'approved') {
-    const problem = await consentProblem(row);
-    if (problem) {
-      console.error(`REFUSED: ${problem} for this review. The person changed their feedback after the close, so approving would publish words they did not agree to. Run: reject ${row.id}`);
-      process.exit(3);
-    }
-  }
-  const patch = { status: next };
-  if (next === 'approved') {
-    const { data: last } = await db.from('series_reviews').select('sort_order').eq('series_slug', row.series_slug).eq('status', 'approved').order('sort_order', { ascending: false }).limit(1);
-    patch.sort_order = (last?.[0]?.sort_order ?? -1) + 1;
-  }
-  const { error } = await db.from('series_reviews').update(patch).eq('id', id);
-  if (error) { console.error('update failed:', error.message); process.exit(2); }
-  console.log(`${clean(row.author_name)}: ${row.status} -> ${next}`);
+  const res = await moderate(db, id, cmd);
+  if (res.code !== 0) { console.error(res.err); process.exit(res.code); }
+  console.log(clean(res.out));
 }

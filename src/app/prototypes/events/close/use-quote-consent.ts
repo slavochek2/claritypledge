@@ -24,7 +24,8 @@ import { toast } from 'sonner';
 import { getEventClose, setEventQuoteOk } from '@/app/data/event-close-service';
 import { whenVisible } from '../when-visible';
 
-export function useQuoteConsent(eventId: string, saved: boolean | null, step: string) {
+/** `enabled` false: the series has no box (writing is the consent, 20261030120000) — no reads, no writes. */
+export function useQuoteConsent(eventId: string, saved: boolean | null, step: string, enabled = true) {
   const [quoteOk, setQuoteOkState] = useState(saved ?? true);
   const clicks = useRef(0); // bumped on every click: a read or a failure from before it is stale
   const inFlight = useRef(0); // box writes not yet answered (round 12, F3: a re-read never overrides one)
@@ -81,8 +82,8 @@ export function useQuoteConsent(eventId: string, saved: boolean | null, step: st
   useEffect(() => {
     const entered = step === 'appreciate' && lastStep.current !== 'appreciate';
     lastStep.current = step;
-    if (entered) return showServer(clicks.current);
-  }, [step, showServer]);
+    if (entered && enabled) return showServer(clicks.current);
+  }, [step, showServer, enabled]);
   const shown = useRef(quoteOk);
   shown.current = quoteOk;
   /** What an answer save sends as p_quote_ok: NULL under a ticked box (an answer save never raises it); false under an

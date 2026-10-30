@@ -55,13 +55,20 @@ vi.mock('@/app/prototypes/events/prep/use-prep-state', async (importOriginal) =>
 
 import { CloseInRoom } from '@/app/prototypes/events/close/CloseInRoom';
 
-const event = {
+// The box (rounds 7–12) is Clarity Night's since the 2026-10-30 follow-up: a hike has no box (writing is the consent,
+// last describe below). So the box cases run on a Clarity Night event (seriesSlug null), the hike cases on a hike.
+const boxEvent = {
+  id: 'ev-1', slug: 'walk', title: 'Clarity Night', description: 'd', datetime: '2000-01-01T11:00:00Z', timezone: 'UTC',
+  durationMinutes: 60, location: 'Somewhere', hostId: 'host-1', hostName: 'H', hasGroupChat: false, preparationEnabled: true,
+  statementTag: null, researchPlaces: 6, attendees: [], seriesSlug: null,
+} as never;
+const hikeEvent = {
   id: 'ev-1', slug: 'walk', title: 'Social Hike: Walk', description: 'd', datetime: '2000-01-01T11:00:00Z', timezone: 'UTC',
   durationMinutes: 60, location: 'Somewhere', hostId: 'host-1', hostName: 'H', hasGroupChat: false, preparationEnabled: true,
   statementTag: null, researchPlaces: 6, attendees: [], seriesSlug: 'social-hike',
 } as never;
 
-function open() {
+function open(event = boxEvent) {
   const slot = document.createElement('div'); // the room's head, where the step header (and its Back) is drawn
   document.body.appendChild(slot);
   return render(
@@ -161,7 +168,7 @@ describe('round 9: consent is written only by the box, on the server', () => {
   it('Gemini: a score save from a stale tab carries no quote permission', async () => {
     const { getEventClose } = await import('@/app/data/event-close-service');
     vi.mocked(getEventClose).mockResolvedValueOnce(row({ score: null, improve: null }));
-    open();
+    open(hikeEvent); // a hike opens at the score (Clarity Night opens on its intro)
     fireEvent.click(await screen.findByRole('button', { name: 'Rate 7' }));
     fireEvent.click(screen.getAllByRole('button', { name: 'Submit' })[0]!);
     await waitFor(async () => expect((await lastSave()) as { score?: number }).toMatchObject({ score: 7 }));
@@ -193,7 +200,7 @@ describe('round 9: consent is written only by the box, on the server', () => {
     const { getEventClose, finishEventClose } = await import('@/app/data/event-close-service');
     // set_event_quote_ok created the row: quote_ok false, every answer NULL, not finished.
     vi.mocked(getEventClose).mockResolvedValueOnce(row({ score: null, liked: null, improve: null, quoteOk: false }));
-    open();
+    open(hikeEvent); // a row an older hike tab's box made; a hike opens at the score
     expect(await screen.findByTestId('step-score')).toBeInTheDocument();
     expect(screen.queryByTestId('step-end')).toBeNull();
     expect(vi.mocked(finishEventClose)).not.toHaveBeenCalled();
@@ -388,3 +395,55 @@ describe('final: an untick shown on screen is re-sent with its own click time be
   });
 });
 
+describe('2026-10-30 follow-up: on a hike, writing the recommendation IS the consent', () => {
+  const row = (r: Record<string, unknown>) => ({ isAttendee: true, score: 8, liked: null, improve: 'More water.', quoteOk: true, asks: [], finished: false, ...r }) as never;
+  const lastSave = async () => {
+    const { saveEventFeedback } = await import('@/app/data/event-close-service');
+    return vi.mocked(saveEventFeedback).mock.calls.at(-1)![1] as { liked?: string; quoteOk?: unknown };
+  };
+
+  it('no box: the founder\'s line sits under the text box', async () => {
+    const { getEventClose } = await import('@/app/data/event-close-service');
+    vi.mocked(getEventClose).mockResolvedValueOnce(row({}));
+    open(hikeEvent);
+    expect(await screen.findByTestId('quote-consent-line')).toHaveTextContent(
+      'By sharing, you agree we may publish your words with your name on the series page.',
+    );
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.queryByTestId('quote-ok')).toBeNull();
+  });
+
+  it('a submitted recommendation sends its words and no permission: the server reads the words, nothing writes the box', async () => {
+    const { getEventClose, setEventQuoteOk } = await import('@/app/data/event-close-service');
+    // An older box refusal on record must not ride along any more: the words decide.
+    vi.mocked(getEventClose).mockResolvedValueOnce(row({ quoteOk: false }));
+    open(hikeEvent);
+    fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'Come, the pace is easy.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    await waitFor(async () => expect((await lastSave()).liked).toBe('Come, the pace is easy.'));
+    expect((await lastSave()).quoteOk ?? null).toBeNull();
+    expect(vi.mocked(setEventQuoteOk)).not.toHaveBeenCalled();
+  });
+
+  it('continuing without sharing clears the words on the server (the withdrawal) and still writes no box', async () => {
+    const { getEventClose, setEventQuoteOk } = await import('@/app/data/event-close-service');
+    vi.mocked(getEventClose).mockResolvedValueOnce(row({ liked: 'Saved before.' }));
+    sessionStorage.setItem('p1389-step:u1:ev-1', 'appreciate');
+    open(hikeEvent);
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue without sharing' }));
+    await waitFor(async () => expect((await lastSave()).liked).toBe(''));
+    expect((await lastSave()).quoteOk ?? null).toBeNull();
+    expect(vi.mocked(setEventQuoteOk)).not.toHaveBeenCalled();
+  });
+
+  it('entering the step makes no consent re-read (there is no box to refresh)', async () => {
+    const { getEventClose } = await import('@/app/data/event-close-service');
+    vi.mocked(getEventClose).mockResolvedValueOnce(row({ improve: null }));
+    sessionStorage.setItem('p1389-step:u1:ev-1', 'improve');
+    open(hikeEvent);
+    fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'More shade.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+    expect(await screen.findByTestId('quote-consent-line')).toBeInTheDocument();
+    expect(vi.mocked(getEventClose)).toHaveBeenCalledTimes(1); // the close's own load only
+  });
+});
