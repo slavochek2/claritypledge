@@ -171,7 +171,7 @@ describe('P1536 WP1: draft versions (test database)', () => {
     const idOf = (statement: string) => rows.find((r) => r.statement === statement)!.id as string;
     p1 = idOf(nn('cafe owners')); p2 = idOf(nn('tax panic')); p3 = idOf(nn('2500 baht'));
     const pos = await admin.from('point_positions').select('position').eq('user_id', O.user.id).in('point_id', [p1, p2, p3]);
-    expect(pos.data).toHaveLength(3);
+    expect(pos.data, 'D20: the engine gives the owner no stance on a point it writes').toHaveLength(0);
     expect((await admin.from('story_points').select('story_id').in('point_id', [p1, p2, p3])).data).toHaveLength(1);
     const reply = (await admin.from('chat_messages').select('author_id, kind, thread_root_id, derived_refs').eq('conversation_id', mirror).eq('body', nn('draft one')).single()).data as Row;
     expect(reply).toMatchObject({ author_id: null, kind: 'agent', thread_root_id: root1 });
@@ -235,7 +235,7 @@ describe('P1536 WP1: draft versions (test database)', () => {
     expect((await cN.from('canvas_drafts').select('id')).data ?? []).toHaveLength(0);
     expect((await cO.from('canvas_drafts').select('id, state, questions').eq('id', d1)).data).toHaveLength(1);
     expect((await cO.from('canvas_drafts').select('pending_links').eq('id', d1)).error, 'the pending links are never granted').not.toBeNull();
-    // writes: nobody can take a position on a draft point, nobody else can publish or discard
+    // writes: nobody but the owner can take a position on a draft point (the owner's own stance: p1536-v6-engine.test.ts, D20), nobody else can publish or discard
     expect((await rpc(cX, 'canvas_set_position', { p_owner: O.user.id, p_name: canvasName, p_point: p1, p_position: 'agree', p_reasoning: null, p_link_token: null })).error).not.toBeNull();
     expect((await rpc(cN, 'canvas_draft_publish', { p_draft: d1 })).error).not.toBeNull();
     expect((await rpc(cN, 'canvas_draft_discard', { p_draft: d1 })).error).not.toBeNull();
@@ -277,6 +277,8 @@ describe('P1536 WP1: draft versions (test database)', () => {
     }
     expect((await get(cN)).access.admitted, 'CONTROL: N is still a stranger').toBe(false);
     expect((await rpc(cX, 'canvas_set_position', { p_owner: O.user.id, p_name: canvasName, p_point: p1, p_position: 'agree', p_reasoning: null, p_link_token: null })).error).toBeNull();
+    // D20: the engine gave the owner no stance on p1; the owner marks it, and it must carry into the next draft like X's
+    expect((await rpc(cO, 'canvas_set_position', { p_owner: O.user.id, p_name: canvasName, p_point: p1, p_position: 'agree', p_reasoning: null, p_link_token: null })).error).toBeNull();
     expect(await ok(cO, 'share_canvas', { p_name: canvasName, p_kind: 'event', p_target: E.id }), 'CONTROL: sharing now works').toBe(true);
   });
 

@@ -101,7 +101,14 @@ const REPLACED: Record<string, Replaced> = {
   '_canvas_draft_run_complete(6 args)': {
     source: C, fn: '_canvas_draft_run_complete', nth: 1,
     edits: [[`IF v_run.id IS NOT NULL AND v_run.state = 'cancelled' THEN`,
-             `${GUARD('_canvas_draft_run_complete(run, owner, ...)')} IF v_run.id IS NOT NULL AND v_run.state = 'cancelled' THEN`]],
+             `${GUARD('_canvas_draft_run_complete(run, owner, ...)')} IF v_run.id IS NOT NULL AND v_run.state = 'cancelled' THEN`],
+            // D20: no automatic stance; a move or a keep (the same words) keeps the owner's stance on the point it copies
+            [`INSERT INTO public.point_positions (point_id, user_id, position) VALUES (v_pid, v_d.owner_id, 'agree'); IF v_story <> '' THEN`,
+             `IF v_type IN ('move', 'keep') AND v_stmt = btrim(v_op.statement) THEN
+                INSERT INTO public.point_positions (point_id, user_id, position)
+                SELECT v_pid, v_d.owner_id, pp.position FROM public.point_positions pp WHERE pp.point_id = v_op.id AND pp.user_id = v_d.owner_id;
+              END IF;
+              IF v_story <> '' THEN`]],
   },
   // erase_chat_data_for: before anything else it takes the engine's per-owner advisory locks (the erased user's and every
   // affected owner's, one sorted set); right after the step-6 context lock it locks the affected draft rows; every P1536 edit
@@ -1139,6 +1146,15 @@ const facts: Record<string, (sql: string) => boolean> = {
     const ordered = [...code.matchAll(/WITH (\w+) AS \( ?SELECT m\.id FROM public\.canvas_draft_material m [^;]*?ORDER BY m\.id FOR UPDATE(?: OF m)?\) ?DELETE FROM public\.canvas_draft_material m USING \1 WHERE m\.id = \1\.id;/g)].length;
     return all >= 4 && ordered === all;
   },
+  // D20: the engine never gives the owner a stance on a point it writes. Every INSERT INTO point_positions in the file is a COPY of the owner's stance on the point
+  // being copied (SELECT ... FROM point_positions WHERE point_id = <source> AND user_id = <owner>), and the two in the run-complete writers sit behind the move / keep test
+  noEngineAutoStance: (sql) => {
+    const code = norm(stripComments(sql));
+    const inserts = code.split('INSERT INTO public.point_positions').length - 1;
+    const copies = [...code.matchAll(/INSERT INTO public\.point_positions \(point_id, user_id, position\) SELECT \w+(?:\.\w+)?, [\w.]+, pp\.position FROM public\.point_positions pp WHERE pp\.point_id = [\w.]+ AND pp\.user_id = [\w.]+;/g)].length;
+    return inserts === 3 && copies === 3 && !/VALUES \([^)]*'agree'\)/.test(code) &&
+      code.includes(norm(`IF v_type = 'move' AND v_stmt = btrim(v_op.statement) THEN INSERT INTO public.point_positions`)) && code.includes(norm(`IF v_type IN ('move', 'keep') AND v_stmt = btrim(v_op.statement) THEN INSERT INTO public.point_positions`));
+  },
   // the hourly job also fails the stale runs of ALL owners, through the per-owner expire (one settle logic), with a TRY lock per owner and the
   // same leases (3 minutes queued, 5 minutes running)
   sweepsStaleRunsOfAllOwners: (sql) => {
@@ -1362,6 +1378,15 @@ describe('CONTROLS: each fact fails on a broken copy of the real file', () => {
   UPDATE public.canvas_drafts d`, `FOR UPDATE)
   DELETE FROM public.canvas_draft_material m USING x WHERE m.id = x.id;
   UPDATE public.canvas_drafts d`))).toBe(false);
+    // D20: an automatic 'agree' put back, or a stance copied for a reword (the move test dropped), must fail
+    expect(facts.noEngineAutoStance!(mutate(`IF v_type = 'move' AND v_stmt = btrim(v_op.statement) THEN
+        INSERT INTO public.point_positions (point_id, user_id, position)
+        SELECT v_pid, v_d.owner_id, pp.position FROM public.point_positions pp WHERE pp.point_id = v_op.id AND pp.user_id = v_d.owner_id;
+      END IF;`, `INSERT INTO public.point_positions (point_id, user_id, position) VALUES (v_pid, v_d.owner_id, 'agree');`))).toBe(false);
+    expect(facts.noEngineAutoStance!(mutate(`IF v_type = 'move' AND v_stmt = btrim(v_op.statement) THEN
+        INSERT INTO public.point_positions`, `IF v_type = 'move' THEN
+        INSERT INTO public.point_positions`))).toBe(false);
+    expect(facts.noEngineAutoStance!(mutate(`IF v_type IN ('move', 'keep') AND v_stmt = btrim(v_op.statement) THEN`, `IF v_type IN ('move', 'keep') THEN`))).toBe(false);
     // the stale-run sweep: a blocking lock, no per-owner expire call, a shorter-than-expire lease, or a job without it must fail
     expect(facts.sweepsStaleRunsOfAllOwners!(mutate(`    CONTINUE WHEN NOT pg_try_advisory_xact_lock(hashtextextended('p1515:canvas_versions:' || v_o.owner_id::text, 0));
     n := n + public._canvas_draft_expire(v_o.owner_id);`, `    PERFORM pg_advisory_xact_lock(hashtextextended('p1515:canvas_versions:' || v_o.owner_id::text, 0));

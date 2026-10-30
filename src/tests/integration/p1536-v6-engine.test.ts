@@ -893,6 +893,37 @@ describe('S1.14 stale runs, Try again', () => {
     expect(await snapshot()).toEqual(before);
     expect(await complete(running.run_id, { actions: [newPt(BOX.problem, 'late')] })).toMatchObject({ status: 'gone' });
   });
+  it('D20: engine-written points start with NO stance; the owner marks one on a draft point (no one else can); a reword starts without one and the old stance stays on the old point; a move keeps it', async () => {
+    const o = await mkOwner('stance'); const n = await mkOwner('stance2'); const ws = new WS(o);
+    await ws.cycle({ body: nn('base') }, { actions: [newPt(BOX.segments, 's1'), newPt(BOX.problem, 'p1')], focus: 'Cafes', others: [] });
+    const stances = async (ids: string[]) => ((await admin.from('point_positions').select('point_id, position').eq('user_id', o.u.user.id).in('point_id', ids)).data ?? []) as Row[];
+    const pts = await ws.points();
+    const seg = pts.find((p) => (p.system_tags as string[]).includes(BOX.segments))!.id as string;
+    const prob = pts.find((p) => (p.system_tags as string[]).includes(BOX.problem))!.id as string;
+    expect(await stances([seg, prob]), 'the engine gives the owner no stance').toHaveLength(0);
+    // the owner can mark a stance on a draft point; another signed-in user cannot
+    const set = (c: SupabaseClient, point: string) => rpc(c, 'canvas_set_position', { p_owner: o.u.user.id, p_name: ws.name, p_point: point, p_position: 'agree', p_reasoning: null, p_link_token: null });
+    expect((await set(o.c, seg)).error).toBeNull();
+    expect((await set(o.c, prob)).error).toBeNull();
+    expect((await set(n.c, seg)).error?.code, 'a stranger cannot take a stance on a draft point').toBe('42501');
+    expect(await stances([seg, prob])).toHaveLength(2);
+    // a reword is a NEW point without a stance; the old point keeps its own; a move copies the same words and keeps the stance
+    await ws.cycle({ body: nn('reword and move') }, { actions: [
+      { action: 'reword', old_point_id: seg, box: BOX.segments, statement: nn('s1 reworded') },
+      { action: 'move', old_point_id: prob, box: BOX.solution }], scope: [BOX.segments, BOX.problem, BOX.solution] });
+    const after = await ws.points();
+    const reworded = after.find((p) => p.statement === nn('s1 reworded'))!.id as string;
+    const moved = after.find((p) => (p.system_tags as string[]).includes(BOX.solution) && p.id !== prob)!.id as string;
+    expect(reworded).not.toBe(seg);
+    expect(await stances([reworded]), 'a reworded point starts without a stance').toHaveLength(0);
+    expect(await stances([seg]), 'the stance stays on the old point').toHaveLength(1);
+    expect(await stances([moved]), 'a moved point keeps the owner\'s stance').toEqual([{ point_id: moved, position: 'agree' }]);
+    // a move that arrives WITH new words is a reword: no stance (the control above: the same words keep it)
+    await ws.cycle({ body: nn('move with new words') }, { actions: [{ action: 'move', old_point_id: moved, box: BOX.channels, statement: nn('moved and reworded') }], scope: [BOX.solution, BOX.channels] });
+    const movedNew = (await ws.points()).find((p) => p.statement === nn('moved and reworded'))!.id as string;
+    expect(movedNew).not.toBe(moved);
+    expect(await stances([movedNew]), 'a move with new words starts without a stance').toHaveLength(0);
+  });
   it('a queued run past 3 minutes and a running run past 5 are failed by the next RPC or state read; a second invoke makes no second call; retry for message, focus and fork_first', async () => {
     const o = await mkOwner('stale'); const ws = new WS(o);
     await ws.cycle({ body: nn('base') }, { actions: [newPt(BOX.segments, 's'), newPt(BOX.problem, 'p')], focus: 'Cafes', others: [{ group: 'Agencies', why: 'w' }] });

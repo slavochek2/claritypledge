@@ -211,6 +211,13 @@ Supersedes:
 - A screen offers no "X + Y" compound action.
 - Each decision gets its own button, at the moment it is relevant.
 
+#### D20 — The owner marks their own stance on draft points (2026-10-30)
+- A point the AI writes or rewords starts with no stance. The owner marks it before Publish, or publishes it unmarked.
+- An unchanged point keeps its stance. A copied point carries the owner's stance from its source.
+- A reworded box drops the old wording's stance without a notice; the box shows Changed again.
+- Why: nothing goes out under the owner's name that they did not endorse (founder: "why should we prevent the user from doing something if there are no negatives?"). Needed by P1529's mid-session canvas update.
+- S3 shows the stance control on draft points.
+
 ---
 
 ### 2. The model in one page
@@ -1375,6 +1382,7 @@ Model for the budget: `gemini-3.8-flash` (registry: $0.75 input, $3.75 output pe
 Accepted after three review rounds (Gemini 4 Argon, Codex, Opus adversary); each is a shape the
 reviewers reproduced but that is exotic or costs more than it saves now.
 
+- **A stance on a kept point is live at once.** A kept (unchanged) draft point is the same row as the published point, so a stance the owner sets on it while drafting shows on the live published version at once.
 - **Names are a heuristic.** Points naming another person are dropped when the name appears as a
   speaker label or a mid-sentence run of capitalised words in a file, link or someone else's lines.
   Lower-case names, a lone first name and one-word speaker labels get through; a place name only a
