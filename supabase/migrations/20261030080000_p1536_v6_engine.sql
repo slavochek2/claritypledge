@@ -874,8 +874,8 @@ BEGIN
               ARRAY[public._canvas_point_box(v_pt.system_tags), v_dtag])
       RETURNING id INTO v_new;
       -- a private COPY of an existing point keeps the owner's stance on the point it copies (none if there is none)
-      INSERT INTO public.point_positions (point_id, user_id, position)
-      SELECT v_new, p_uid, pp.position FROM public.point_positions pp WHERE pp.point_id = v_pt.id AND pp.user_id = p_uid;
+      INSERT INTO public.point_positions (point_id, user_id, position, reasoning)
+      SELECT v_new, p_uid, pp.position, pp.reasoning FROM public.point_positions pp WHERE pp.point_id = v_pt.id AND pp.user_id = p_uid;
       INSERT INTO public.story_points (story_id, point_id, author_id)
       SELECT sp.story_id, v_new, p_uid
         FROM public.story_points sp JOIN public.stories s ON s.id = sp.story_id
@@ -1774,8 +1774,8 @@ BEGIN
       -- point and starts without one; the stance stays on the old point. A move carries the SAME words into another box, so it
       -- keeps the stance the owner had on the point it copies; a move that arrives with NEW words is a reword and gets none.
       IF v_type = 'move' AND v_stmt = btrim(v_op.statement) THEN
-        INSERT INTO public.point_positions (point_id, user_id, position)
-        SELECT v_pid, v_d.owner_id, pp.position FROM public.point_positions pp WHERE pp.point_id = v_op.id AND pp.user_id = v_d.owner_id;
+        INSERT INTO public.point_positions (point_id, user_id, position, reasoning)
+        SELECT v_pid, v_d.owner_id, pp.position, pp.reasoning FROM public.point_positions pp WHERE pp.point_id = v_op.id AND pp.user_id = v_d.owner_id;
       END IF;
       v_sid := NULL;
       IF v_story <> '' THEN
@@ -3522,8 +3522,8 @@ BEGIN
     RETURNING id INTO v_pid;
     -- D20: no stance for a new or reworded point; a move or a keep with the SAME words (a private copy) keeps the owner's stance; with new words it is a reword and gets none
     IF v_type IN ('move', 'keep') AND v_stmt = btrim(v_op.statement) THEN
-      INSERT INTO public.point_positions (point_id, user_id, position)
-      SELECT v_pid, v_d.owner_id, pp.position FROM public.point_positions pp WHERE pp.point_id = v_op.id AND pp.user_id = v_d.owner_id;
+      INSERT INTO public.point_positions (point_id, user_id, position, reasoning)
+      SELECT v_pid, v_d.owner_id, pp.position, pp.reasoning FROM public.point_positions pp WHERE pp.point_id = v_op.id AND pp.user_id = v_d.owner_id;
     END IF;
     IF v_story <> '' THEN
       INSERT INTO public.stories (content, author_id, visibility)

@@ -295,6 +295,9 @@ describe('P1536 WP1: draft versions (test database)', () => {
     const v1 = (await admin.from('canvas_versions').select('id, name').eq('canvas_id', canvasId).eq('published_seq', 1).single()).data as Row;
     v1id = v1.id;
     expect((await rpc(cN, 'canvas_draft_open', { p_from_version: v1id })).error, 'not the owner of the version').not.toBeNull();
+    // D20: the engine gave the owner no stance; the owner marks p1 (kept, same row) and p3 (moved unchanged: the copy keeps position AND reasoning)
+    expect((await rpc(cO, 'canvas_set_position', { p_owner: O.user.id, p_name: canvasName, p_point: p1, p_position: 'agree', p_reasoning: null, p_link_token: null })).error).toBeNull();
+    expect((await rpc(cO, 'canvas_set_position', { p_owner: O.user.id, p_name: canvasName, p_point: p3, p_position: 'disagree', p_reasoning: 'legacy reasoning', p_link_token: null })).error).toBeNull();
     const o2 = await ok(cO, 'canvas_draft_open', { p_from_version: v1id });
     expect(o2).toMatchObject({ status: 'opened', canvas_name: canvasName, from_seq: 1 });
     d2 = o2.draft_id; root2 = o2.thread_root_id; name2 = o2.version_name;
@@ -335,6 +338,13 @@ describe('P1536 WP1: draft versions (test database)', () => {
       expect.objectContaining({ old: p2, new: reworded }),
       expect.objectContaining({ old: p3, new: moved }),
     ]);
+    // the legacy six-argument completion: a move with the same words copies the owner's stance and reasoning, a reword starts with none
+    const copied = await admin.from('point_positions').select('position, reasoning').eq('user_id', O.user.id).eq('point_id', moved);
+    expect(copied.error).toBeNull();
+    expect(copied.data).toEqual([{ position: 'disagree', reasoning: 'legacy reasoning' }]);
+    const rewordedStance = await admin.from('point_positions').select('position').eq('user_id', O.user.id).eq('point_id', reworded);
+    expect(rewordedStance.error).toBeNull();
+    expect(rewordedStance.data, 'a reworded point starts without a stance').toHaveLength(0);
     expect((await pointRow(p2)).superseded_by, 'no link while drafting').toBeNull();
     expect((await pointRow(p3)).superseded_by).toBeNull();
     // positions carried: X's position on p1 shows in the draft; v1 is untouched

@@ -105,8 +105,8 @@ const REPLACED: Record<string, Replaced> = {
             // D20: no automatic stance; a move or a keep (the same words) keeps the owner's stance on the point it copies
             [`INSERT INTO public.point_positions (point_id, user_id, position) VALUES (v_pid, v_d.owner_id, 'agree'); IF v_story <> '' THEN`,
              `IF v_type IN ('move', 'keep') AND v_stmt = btrim(v_op.statement) THEN
-                INSERT INTO public.point_positions (point_id, user_id, position)
-                SELECT v_pid, v_d.owner_id, pp.position FROM public.point_positions pp WHERE pp.point_id = v_op.id AND pp.user_id = v_d.owner_id;
+                INSERT INTO public.point_positions (point_id, user_id, position, reasoning)
+                SELECT v_pid, v_d.owner_id, pp.position, pp.reasoning FROM public.point_positions pp WHERE pp.point_id = v_op.id AND pp.user_id = v_d.owner_id;
               END IF;
               IF v_story <> '' THEN`]],
   },
@@ -1151,7 +1151,7 @@ const facts: Record<string, (sql: string) => boolean> = {
   noEngineAutoStance: (sql) => {
     const code = norm(stripComments(sql));
     const inserts = code.split('INSERT INTO public.point_positions').length - 1;
-    const copies = [...code.matchAll(/INSERT INTO public\.point_positions \(point_id, user_id, position\) SELECT \w+(?:\.\w+)?, [\w.]+, pp\.position FROM public\.point_positions pp WHERE pp\.point_id = [\w.]+ AND pp\.user_id = [\w.]+;/g)].length;
+    const copies = [...code.matchAll(/INSERT INTO public\.point_positions \(point_id, user_id, position, reasoning\) SELECT \w+(?:\.\w+)?, [\w.]+, pp\.position, pp\.reasoning FROM public\.point_positions pp WHERE pp\.point_id = [\w.]+ AND pp\.user_id = [\w.]+;/g)].length;
     return inserts === 3 && copies === 3 && !/VALUES \([^)]*'agree'\)/.test(code) &&
       code.includes(norm(`IF v_type = 'move' AND v_stmt = btrim(v_op.statement) THEN INSERT INTO public.point_positions`)) && code.includes(norm(`IF v_type IN ('move', 'keep') AND v_stmt = btrim(v_op.statement) THEN INSERT INTO public.point_positions`));
   },
@@ -1380,12 +1380,13 @@ describe('CONTROLS: each fact fails on a broken copy of the real file', () => {
   UPDATE public.canvas_drafts d`))).toBe(false);
     // D20: an automatic 'agree' put back, or a stance copied for a reword (the move test dropped), must fail
     expect(facts.noEngineAutoStance!(mutate(`IF v_type = 'move' AND v_stmt = btrim(v_op.statement) THEN
-        INSERT INTO public.point_positions (point_id, user_id, position)
-        SELECT v_pid, v_d.owner_id, pp.position FROM public.point_positions pp WHERE pp.point_id = v_op.id AND pp.user_id = v_d.owner_id;
+        INSERT INTO public.point_positions (point_id, user_id, position, reasoning)
+        SELECT v_pid, v_d.owner_id, pp.position, pp.reasoning FROM public.point_positions pp WHERE pp.point_id = v_op.id AND pp.user_id = v_d.owner_id;
       END IF;`, `INSERT INTO public.point_positions (point_id, user_id, position) VALUES (v_pid, v_d.owner_id, 'agree');`))).toBe(false);
     expect(facts.noEngineAutoStance!(mutate(`IF v_type = 'move' AND v_stmt = btrim(v_op.statement) THEN
         INSERT INTO public.point_positions`, `IF v_type = 'move' THEN
         INSERT INTO public.point_positions`))).toBe(false);
+    expect(facts.noEngineAutoStance!(mutate(`pp.position, pp.reasoning FROM public.point_positions pp WHERE pp.point_id = v_pt.id`, `pp.position, NULL FROM public.point_positions pp WHERE pp.point_id = v_pt.id`))).toBe(false);
     expect(facts.noEngineAutoStance!(mutate(`IF v_type IN ('move', 'keep') AND v_stmt = btrim(v_op.statement) THEN`, `IF v_type IN ('move', 'keep') THEN`))).toBe(false);
     // the stale-run sweep: a blocking lock, no per-owner expire call, a shorter-than-expire lease, or a job without it must fail
     expect(facts.sweepsStaleRunsOfAllOwners!(mutate(`    CONTINUE WHEN NOT pg_try_advisory_xact_lock(hashtextextended('p1515:canvas_versions:' || v_o.owner_id::text, 0));
