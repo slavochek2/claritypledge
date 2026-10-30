@@ -34,10 +34,10 @@ loop with new partners. Pairs; with an odd number, one table of three (see *The 
 
 | Step | What happens | Min |
 |---|---|---|
-| 1 | B reads A's canvas silently and marks the **one box B would bet against**. Both partners read at the same time, at the start of the round. | (4, shared) |
+| 1 | B reads A's canvas silently and marks **every box B would bet against** (one or more). Both partners read at the same time, at the start of the round. The pair picks which disagreement to discuss: B can propose, A has the final say (*founder, 2026-10-30*). | (4, shared) |
 | 2 | B explains back what B understood. A scores 0-10. | 3 |
 | 3 | A corrects; B paraphrases again; A scores again. Repeat until the score is high. | 5 |
-| 4 | B says why B bets against the marked box. A explains back B's reason until **B** scores it high. | 10 |
+| 4 | B says why B bets against the chosen box. A explains back B's reason until **B** scores it high. | 10 |
 | 5 | A notes the one change A will make to the canvas. | 2 |
 
 Then the same for B's canvas. One round: 4 + 21 + 21 = about 46 minutes.
