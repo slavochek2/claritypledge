@@ -239,7 +239,7 @@ What the evening produces, read by a founder-only script (same pattern as
 
 | Risk | Label | Note |
 |---|---|---|
-| Session 1 is ~11 days away and this sits on P1536 (in `/dev`, w1), P1592 (in `/dev`, w5) and P1542 (spec) | MITIGATE | Build order: flow switch, observers and seating first (no dependency), then the round screen, then the next-version tap and update step. If P1542 has not shipped, the "Your canvas" item lives in the mastermind's event room directly and moves into the recipe later. |
+| Session 1 is ~11 days away and this sits on P1536 (in `/dev`, w1) and P1592 (in `/dev`, w5) | MITIGATE | Build order: flow switch, observers and seating first (no dependency), then the round screen, then the next-version tap and update step. P1542's per-series recipes shipped on 2026-10-30 (`features/done/2026-06-10/p1542_series_prepare_close_recipes_social_hike.md`), so the mastermind's preparation is its third recipe. |
 | Owners mark stances on a draft and the build does not support it | MITIGATE | DB level already admits the owner's draft points (`_canvas_point_in_canvas`, w1 `20261029100000`); UI and the reword rule asked of P1536 on 2026-10-30. UNVERIFIED until its answer. |
 | P1536's engine cannot take a round thread as material directly (v6 says "either speed can take, as material, a thread elsewhere that the owner can read") | MITIGATE | `/dev` verifies the call in w1. If missing, it is added to P1536's engine, not rebuilt here. UNVERIFIED. |
 | People do not say their number out loud, so the evening cannot be measured later | MITIGATE | The host's opener and the observer remind them; the lanyard cards carry the line. |
@@ -342,7 +342,8 @@ canvases and two without.
 - P1536 canvas drafting, versions, Publish, stances on drafts (design v6 on branch
   `feature/p1536-canvas-draft-versions`).
 - P1592 transcripts land in round threads (D10 amends its D3).
-- P1542 per-series prepare and close recipes (the mastermind as the third recipe).
+- P1542 per-series prepare and close recipes, shipped 2026-10-30 (the mastermind as the third recipe):
+  `features/done/2026-06-10/p1542_series_prepare_close_recipes_social_hike.md`.
 - P1500 the homework path outside the event (narrowed 2026-10-30).
 - P1390 scores and turns from the transcript (later; D4).
 - P1515 sharing a canvas with an event · P1508 Clarity Canvas · P1337 event rounds · P1430 round labels
