@@ -20,6 +20,7 @@ import {
 } from './canvas-draft.ts';
 import { BOX_DEFINITIONS, emptyQuestionFor } from './canvas-box-definitions.ts';
 import { effectiveScope, readExtras } from './canvas-extras.ts';
+import { shedToValid, type Elem } from './canvas-final-state.ts';
 import { clean, cutChars, normalizeForQuote, ownerHaystack, quoteIsOwnerSourced } from './canvas-source.ts';
 import { derivedNames, namesMatcher } from './canvas-names.ts';
 import { numbersIn, numbersSupported, sharesWords } from './canvas-support.ts';
@@ -35,14 +36,12 @@ interface Acc {
   actions: ResolvedAction[];
   decided: Decided[];
   counts: DraftCounts;
-  perBox: Map<string, number>;
-  statements: Set<string>;
   addressed: Set<string>;
   dropped: number;
   droppedUnverified: number;
   droppedNames: number;
   droppedScope: number;
-  /** New or moved points refused because the box was already full once the points that stay were counted. */
+  /** Actions refused because their box would hold more than the cap, or would hold the same words twice. */
   droppedCap: number;
   /** Boxes a drop removed a point from. */
   changed: Set<string>;
@@ -65,17 +64,11 @@ interface Ctx {
 
 const newAcc = (): Acc => ({
   actions: [], decided: [], counts: { kept: 0, reworded: 0, moved: 0, added: 0, dropped: 0 },
-  perBox: new Map(), statements: new Set(), addressed: new Set(), dropped: 0, droppedUnverified: 0, droppedNames: 0,
+  addressed: new Set(), dropped: 0, droppedUnverified: 0, droppedNames: 0,
   droppedScope: 0, droppedCap: 0, changed: new Set(),
 });
 
 const sameText = (a: string, b: string) => normalizeForQuote(a) === normalizeForQuote(b);
-const stmtKey = (box: string, s: string) => `${box}\u0000${normalizeForQuote(s)}`;
-const countIn = (acc: Acc, box: string) => acc.perBox.get(box) ?? 0;
-const place = (acc: Acc, box: string, statement: string) => {
-  acc.perBox.set(box, countIn(acc, box) + 1);
-  acc.statements.add(stmtKey(box, statement));
-};
 const isBox = (v: unknown): v is string => typeof v === 'string' && BOX_TAGS.has(v);
 
 /** What the owner is told when a link could not be made. */
@@ -89,20 +82,6 @@ function linkNote(old: BasePoint, box: string, how: string, from: string): Decid
 /** A point the run may keep: in scope, and not in a box this run rebuilds. */
 const keepable = (ctx: Ctx, p: BasePoint) => ctx.scope.has(p.box) && !ctx.rebuild.has(p.box);
 
-/**
- * Room left in a box: its cap, less the points placed so far, less the current points no action has named yet (they stay unless an action
- * replaces them, so they hold their place). When the box is full the NEW or MOVED point loses, and is counted.
- */
-const roomIn = (acc: Acc, ctx: Ctx, box: string) =>
-  MAX_POINTS_PER_BOX - countIn(acc, box) - [...ctx.base.values()].filter((p) => p.box === box && !acc.addressed.has(p.id) && keepable(ctx, p)).length;
-
-function keepPoint(acc: Acc, p: BasePoint): void {
-  acc.addressed.add(p.id);
-  acc.actions.push({ action: 'keep', point_id: p.id });
-  acc.counts.kept += 1;
-  place(acc, p.box, p.statement);
-}
-
 function applyDrop(acc: Acc, ctx: Ctx, a: Raw, old: BasePoint | undefined): void {
   if (!old || acc.addressed.has(old.id)) return;
   if (!ctx.scope.has(old.box)) { acc.droppedScope += 1; return; }
@@ -113,19 +92,6 @@ function applyDrop(acc: Acc, ctx: Ctx, a: Raw, old: BasePoint | undefined): void
   // the reason reaches the notes and the posted reply: the same name filter as a conflict; the drop itself stands
   if (why && ctx.namesOther(why)) { acc.droppedNames += 1; why = ''; }
   acc.decided.push({ kind: 'drop', text: `${titleOf(old.box)}: dropped "${cutChars(old.statement, 80)}"${why ? `, because ${why}` : ''}` });
-}
-
-/** Same words, other box: the words come from the stored point, never from the model. */
-function applyMove(acc: Acc, ctx: Ctx, a: Raw, old: BasePoint | undefined): void {
-  const box = a.box;
-  if (!old || acc.addressed.has(old.id) || !isBox(box) || box === old.box) return;
-  if (!ctx.scope.has(old.box) || !ctx.scope.has(box)) { acc.droppedScope += 1; return; } // both the source and the destination must be in scope
-  if (roomIn(acc, ctx, box) <= 0) { acc.droppedCap += 1; return; }
-  acc.addressed.add(old.id);
-  acc.actions.push({ action: 'move', old_point_id: old.id, box, statement: old.statement, story: null });
-  acc.counts.moved += 1;
-  place(acc, box, old.statement);
-  acc.decided.push(linkNote(old, box, `moved here from ${titleOf(old.box)}, {from}`, ctx.from));
 }
 
 /** For a reword: is there a point to reword, in the same box? 'keep' when the words did not change. */
@@ -156,41 +122,99 @@ function rewordSource(ctx: Ctx, old: BasePoint, statement: string): string {
   return [old.statement, old.story, d.statement, d.story].filter(Boolean).join('\n');
 }
 
-function applyWrite(acc: Acc, ctx: Ctx, act: 'reword' | 'new', a: Raw, old: BasePoint | undefined): void {
-  const box = a.box;
-  if (!isBox(box) || typeof a.statement !== 'string') return;
-  const statement = clean(a.statement, MAX_STATEMENT_CHARS);
-  if (!statement) return;
-  if (!ctx.scope.has(box) || (act === 'reword' && old && !ctx.scope.has(old.box))) { acc.droppedScope += 1; return; }
-  if (act === 'reword') {
-    const gate = rewordGate(acc, old, box, statement);
-    if (gate === 'skip') return;
-    if (gate === 'keep' && old) {
-      if (keepable(ctx, old)) { keepPoint(acc, old); return; }
-      acc.droppedScope += 1; // a rebuilt box refuses `keep`, and a reword that says the same words is a keep: refused and counted, not written as new
-      return;
-    }
-  }
-  const vetted = vetEvidence(acc, ctx, a, statement, act === 'reword' && old ? rewordSource(ctx, old, statement) : '');
-  if (!vetted || acc.statements.has(stmtKey(box, statement))) return;
-  if (act === 'new') {
-    if (roomIn(acc, ctx, box) <= 0) { acc.droppedCap += 1; return; }
-    acc.actions.push({ action: 'new', box, statement, story: null });
-    acc.counts.added += 1;
-  } else if (old) {
-    acc.addressed.add(old.id);
-    acc.actions.push({ action: 'reword', old_point_id: old.id, box, statement, story: null });
-    acc.counts.reworded += 1;
-    acc.decided.push(linkNote(old, box, 'reworded from {from}', ctx.from));
-  }
-  place(acc, box, statement);
+// ── The intended final state, then its check ───────────────────────────────
+
+const baseElem = (p: BasePoint, idx: number): Elem => ({ box: p.box, statement: p.statement, origin: 'base', baseId: p.id, idx });
+
+/** A reword with the same words is a keep (a keep is refused in a rebuilt box); with nothing to reword, nothing. */
+function rewordAsKeep(acc: Acc, ctx: Ctx, old: BasePoint | undefined, box: string, statement: string, idx: number): Elem | null | 'write' {
+  const gate = rewordGate(acc, old, box, statement);
+  if (gate === 'go') return 'write';
+  if (gate === 'skip' || !old) return null;
+  if (!keepable(ctx, old)) { acc.droppedScope += 1; return null; }
+  acc.addressed.add(old.id);
+  return baseElem(old, idx);
 }
 
-function applyAction(acc: Acc, ctx: Ctx, a: Raw): void {
+/** A reword or a new point, vetted (quote, names, support) but not yet checked for room or repeats. */
+function intendWrite(acc: Acc, ctx: Ctx, act: 'reword' | 'new', a: Raw, old: BasePoint | undefined, idx: number): Elem | null {
+  const box = a.box;
+  if (!isBox(box) || typeof a.statement !== 'string') return null;
+  const statement = clean(a.statement, MAX_STATEMENT_CHARS);
+  if (!statement) return null;
+  if (!ctx.scope.has(box) || (act === 'reword' && old && !ctx.scope.has(old.box))) { acc.droppedScope += 1; return null; }
+  if (act === 'reword') {
+    const kept = rewordAsKeep(acc, ctx, old, box, statement, idx);
+    if (kept !== 'write') return kept;
+  }
+  if (!vetEvidence(acc, ctx, a, statement, act === 'reword' && old ? rewordSource(ctx, old, statement) : '')) return null;
+  if (act === 'new') return { box, statement, origin: 'new', idx };
+  if (!old) return null;
+  acc.addressed.add(old.id);
+  return { box, statement, origin: 'reword', baseId: old.id, idx };
+}
+
+/** Same words, other box: the words come from the stored point, never from the model. A point already spoken for (an earlier move, a drop) is not moved again: the rest is dropped and counted. */
+function intendMove(acc: Acc, ctx: Ctx, a: Raw, old: BasePoint | undefined, idx: number): Elem | null {
+  const box = a.box;
+  if (!old || !isBox(box) || box === old.box) return null;
+  if (acc.addressed.has(old.id) || !ctx.scope.has(old.box) || !ctx.scope.has(box)) { acc.droppedScope += 1; return null; }
+  acc.addressed.add(old.id);
+  return { box, statement: old.statement, origin: 'move', baseId: old.id, idx };
+}
+
+function intendOne(acc: Acc, ctx: Ctx, a: Raw, idx: number): Elem | null {
   const old = typeof a.point_id === 'string' ? ctx.base.get(a.point_id) : undefined;
-  if (a.action === 'drop') applyDrop(acc, ctx, a, old);
-  else if (a.action === 'move') applyMove(acc, ctx, a, old);
-  else if (a.action === 'reword' || a.action === 'new') applyWrite(acc, ctx, a.action, a, old);
+  if (a.action === 'drop') { applyDrop(acc, ctx, a, old); return null; }
+  if (a.action === 'move') return intendMove(acc, ctx, a, old, idx);
+  return a.action === 'reword' || a.action === 'new' ? intendWrite(acc, ctx, a.action, a, old, idx) : null;
+}
+
+/** The points the model named to keep go first, then every other action in the model's order, then the points nobody named (they stay). */
+function intend(acc: Acc, ctx: Ctx, pc: ParseContext, raw: Raw[]): Elem[] {
+  const elems: Elem[] = [];
+  for (const a of raw) {
+    const p = a.action === 'keep' && typeof a.point_id === 'string' ? ctx.base.get(a.point_id) : undefined;
+    if (p && !acc.addressed.has(p.id) && keepable(ctx, p)) { acc.addressed.add(p.id); elems.push(baseElem(p, -1)); }
+    else if (p && !keepable(ctx, p) && !ctx.rebuild.has(p.box)) acc.droppedScope += 1;
+  }
+  raw.forEach((a, idx) => { const e = intendOne(acc, ctx, a, idx); if (e) elems.push(e); });
+  for (const p of pc.basePoints) if (!acc.addressed.has(p.id) && keepable(ctx, p)) elems.push(baseElem(p, -1));
+  return elems;
+}
+
+/** What a refused action leaves: its current point as it was (nothing in a box this run rebuilds), or nothing for a new point. */
+const revertOf = (ctx: Ctx) => (e: Elem): Elem | null => {
+  const old = e.baseId ? ctx.base.get(e.baseId) : undefined;
+  return old && e.origin !== 'base' && e.origin !== 'new' && keepable(ctx, old) ? baseElem(old, e.idx) : null;
+};
+
+/** The accepted elements as the actions the write applies, with the counters. */
+function emit(acc: Acc, ctx: Ctx, elems: Elem[]): void {
+  for (const e of elems) {
+    const old = e.baseId ? ctx.base.get(e.baseId) : undefined;
+    if (e.origin === 'base' && e.baseId) { acc.actions.push({ action: 'keep', point_id: e.baseId }); acc.counts.kept += 1; }
+    else if (e.origin === 'new') { acc.actions.push({ action: 'new', box: e.box, statement: e.statement, story: null }); acc.counts.added += 1; }
+    else if (e.origin === 'reword' && old) {
+      acc.actions.push({ action: 'reword', old_point_id: old.id, box: e.box, statement: e.statement, story: null });
+      acc.counts.reworded += 1;
+      acc.decided.push(linkNote(old, e.box, 'reworded from {from}', ctx.from));
+    } else if (e.origin === 'move' && old) {
+      acc.actions.push({ action: 'move', old_point_id: old.id, box: e.box, statement: old.statement, story: null });
+      acc.counts.moved += 1;
+      acc.decided.push(linkNote(old, e.box, `moved here from ${titleOf(old.box)}, {from}`, ctx.from));
+    }
+  }
+  acc.counts.dropped = acc.dropped;
+}
+
+/** All the model's actions: the intended final canvas, made valid, then emitted. An empty scope changes nothing and every action is dropped, and counted. */
+function applyAll(acc: Acc, ctx: Ctx, pc: ParseContext, actions: unknown[], inScope: boolean): void {
+  const raw = (inScope ? actions : []).map((r) => (r ?? {}) as Raw);
+  if (!inScope) acc.droppedScope += actions.length;
+  const shed = shedToValid(intend(acc, ctx, pc, raw), { max: MAX_POINTS_PER_BOX, key: normalizeForQuote, revert: revertOf(ctx) });
+  acc.droppedCap += shed.refusedRepeats + shed.refusedCapacity;
+  emit(acc, ctx, shed.elems);
 }
 
 function collectConflicts(acc: Acc, conflicts: unknown, namesOther: (t: string) => boolean): void {
@@ -249,32 +273,6 @@ function buildCtx(pc: ParseContext, scope: readonly string[]): Ctx {
     scope: new Set(scope),
     rebuild: new Set(pc.rebuild ?? []),
   };
-}
-
-/** The points that stay as they are go first, so the per-box counts are true before anything is added. */
-function keepNamedPoints(acc: Acc, ctx: Ctx, raw: Raw[]): void {
-  for (const a of raw) {
-    const p = a.action === 'keep' && typeof a.point_id === 'string' ? ctx.base.get(a.point_id) : undefined;
-    if (p && !acc.addressed.has(p.id) && keepable(ctx, p)) keepPoint(acc, p);
-    else if (p && !keepable(ctx, p) && !ctx.rebuild.has(p.box)) acc.droppedScope += 1;
-  }
-}
-
-/**
- * Capacity is the box's FINAL occupancy, so what leaves a box (a drop, a reword, a move out) is applied before what comes in (a move in, a
- * new point): [new, drop] and [drop, new] give the same result.
- */
-const phase = (a: Raw) => ({ drop: 0, reword: 1, move: 2, new: 3 } as Record<string, number>)[String(a.action)] ?? 4;
-
-/** All the model's actions, applied to the accumulator; a current point in scope that nothing changed stays as it is. */
-function applyAll(acc: Acc, ctx: Ctx, pc: ParseContext, actions: unknown[], inScope: boolean): void {
-  // An empty scope changes nothing: every action the model supplied is dropped, and counted.
-  const raw = (inScope ? actions : []).map((r) => (r ?? {}) as Raw);
-  if (!inScope) acc.droppedScope += actions.length;
-  keepNamedPoints(acc, ctx, raw);
-  for (const a of [...raw].sort((x, y) => phase(x) - phase(y))) applyAction(acc, ctx, a);
-  for (const p of pc.basePoints) if (!acc.addressed.has(p.id) && keepable(ctx, p)) keepPoint(acc, p);
-  acc.counts.dropped = acc.dropped;
 }
 
 export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {

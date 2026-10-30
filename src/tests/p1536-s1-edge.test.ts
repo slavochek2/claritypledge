@@ -505,6 +505,154 @@ describe('review fixes: a box never exceeds its cap, spend is what was made, cha
     // CONTROL: without the drop the box is full and the new point loses, in either position
     expect(parseWith(full, [newRevenue]).droppedCap).toBe(1);
   });
+  it('CLAIM 1: swapping one point between two FULL boxes succeeds (the final occupancy is 3 and 3)', () => {
+    const boxFull = (box: string, tag: string): BasePoint[] => [1, 2, 3].map((n) => ({ id: `${tag}${n}`, box, statement: `${tag} point ${n}` }));
+    const base = [...boxFull(PROBLEM, 'p'), ...boxFull(SOLUTION, 's')];
+    const o = parseWith(base, [{ action: 'move', point_id: 'p1', box: SOLUTION }, { action: 'move', point_id: 's1', box: PROBLEM }]);
+    expect(o.actions.filter((x) => x.action === 'move').map((x) => 'old_point_id' in x && x.old_point_id).sort()).toEqual(['p1', 's1']);
+    expect(o.droppedCap).toBe(0);
+    expect(o.changedBoxes).toEqual([PROBLEM, SOLUTION]);
+    const per = (box: string) => o.actions.filter((x) => (x.action === 'keep' ? base.find((b) => b.id === x.point_id)!.box : x.box) === box).length;
+    expect([per(PROBLEM), per(SOLUTION)]).toEqual([3, 3]); // never over the cap
+    // CONTROL: a one-way move into a full box still loses
+    const one = parseWith(base, [{ action: 'move', point_id: 'p1', box: SOLUTION }]);
+    expect(one.actions.some((x) => x.action === 'move')).toBe(false);
+    expect(one.droppedCap).toBe(1);
+  });
+  describe('moves: one per point, order-independent, cycles', () => {
+    const CH = TAGS[3]!;
+    const pts = (box: string, tag: string, n: number): BasePoint[] => Array.from({ length: n }, (_, i) => ({ id: `${tag}${i + 1}`, box, statement: `${tag} point ${i + 1}` }));
+    const moved = (o: ReturnType<typeof parseWith>) => o.actions.filter((x) => x.action === 'move').map((x) => 'old_point_id' in x && `${x.old_point_id}>${x.box}`).sort();
+    const mv = (id: string, box: string) => ({ action: 'move', point_id: id, box });
+    const finalCounts = (base: BasePoint[], actions: ReturnType<typeof parseWith>['actions']) => {
+      const per = new Map<string, number>();
+      for (const x of actions) { const box = x.action === 'keep' ? base.find((b) => b.id === x.point_id)!.box : x.box; per.set(box, (per.get(box) ?? 0) + 1); }
+      return [...per];
+    };
+
+    it('CLAIM 1a: two moves of the same point count once: the first wins, the second is dropped and counted, and it does not crowd out a real move', () => {
+      const base = [...pts(SOLUTION, 's', 3), ...pts(CH, 'c', 2)];
+      const o = parseWith(base, [mv('s1', CH), mv('c2', SOLUTION), mv('c1', PROBLEM), mv('c1', SOLUTION)]);
+      expect(moved(o)).toEqual([`c1>${PROBLEM}`, `c2>${SOLUTION}`, `s1>${CH}`].sort());
+      expect(o.droppedScope).toBe(1);
+      // the repeat sits between two real moves: it is the one dropped, not the real move listed after it
+      const mid = parseWith(base, [mv('s1', CH), mv('c1', PROBLEM), mv('c1', SOLUTION), mv('c2', SOLUTION)]);
+      expect(moved(mid)).toEqual([`c1>${PROBLEM}`, `c2>${SOLUTION}`, `s1>${CH}`].sort());
+    });
+    it('CLAIM 1b: the later action gives way: a swap survives an extra move into the same box listed after it, and the order alone decides the other way round', () => {
+      const base = [...pts(PROBLEM, 'p', 3), ...pts(SOLUTION, 's', 3), ...pts(CH, 'c', 1)];
+      const swap = [mv('p1', SOLUTION), mv('s1', PROBLEM)];
+      const extra = mv('c1', SOLUTION);
+      const after = parseWith(base, [...swap, extra]);
+      expect(moved(after)).toEqual([`p1>${SOLUTION}`, `s1>${PROBLEM}`].sort());
+      expect(after.droppedCap).toBe(1); // the extra move is the one refused
+      // the same actions, extra first: the LATER action (the swap) loses, deterministically, and the result is still valid
+      const before = parseWith(base, [extra, ...swap]);
+      expect(parseWith(base, [extra, ...swap]).actions).toEqual(before.actions);
+      expect(finalCounts(base, before.actions).every(([, n]) => n <= 3)).toBe(true);
+    });
+    it('Gemini 1: an unrelated move into a hopeless move\'s source box keeps the swap', () => {
+      const base = [...pts(PROBLEM, 'p', 3), ...pts(SOLUTION, 's', 3), ...pts(CH, 'c', 3), ...pts(REVENUE, 'r', 1)];
+      // c1 -> SOLUTION is hopeless (SOLUTION is full after the swap); r1 -> CH lands in c1's source box, so it overflows once c1 goes back
+      const o = parseWith(base, [mv('p1', SOLUTION), mv('s1', PROBLEM), mv('c1', SOLUTION), mv('r1', CH)]);
+      expect(moved(o)).toEqual([`p1>${SOLUTION}`, `s1>${PROBLEM}`].sort());
+      expect(o.droppedCap).toBe(2);
+    });
+    it('Gemini 2: a reword to the words of a point that is reworded or moved away LATER is not dropped', () => {
+      const pair: BasePoint[] = [{ id: 'r1', box: REVENUE, statement: 'An old price note' }, { id: 'r2', box: REVENUE, statement: 'Pricing is 2,500 baht a month for each shop' }];
+      const toR2 = { action: 'reword', point_id: 'r1', box: REVENUE, statement: 'Pricing is 2,500 baht a month for each shop', quote: 'Pricing is 2,500 baht a month for each shop' };
+      const away = parseWith(pair, [toR2, mv('r2', PROBLEM)]);
+      expect(away.counts.reworded).toBe(1);
+      expect(moved(away)).toEqual([`r2>${PROBLEM}`]);
+      const changed = parseWith(pair, [toR2, { action: 'reword', point_id: 'r2', box: REVENUE, statement: 'I also offer a yearly plan at 25,000 baht', quote: 'I also offer a yearly plan at 25,000 baht' }]);
+      expect(changed.counts.reworded).toBe(2);
+      // CONTROL: r2 staying makes the same reword a repeat
+      expect(parseWith(pair, [toR2]).counts.reworded).toBe(0);
+    });
+    it('Gemini 3: a move onto identical words in the target box is refused as a repeat, and the point stays where it was', () => {
+      const base: BasePoint[] = [{ id: 'p1', box: PROBLEM, statement: 'Late filings' }, { id: 's1', box: SOLUTION, statement: 'Late filings' }];
+      const o = parseWith(base, [mv('p1', SOLUTION)]);
+      expect(moved(o)).toEqual([]);
+      expect(o.actions).toEqual([{ action: 'keep', point_id: 'p1' }, { action: 'keep', point_id: 's1' }]);
+      expect(o.droppedCap).toBe(1);
+    });
+    it('capacity: the LATEST new points give way (the first three of four stay), and a new point is refused before a move into the same box', () => {
+      const q = 'Pricing is 2,500 baht a month for each shop';
+      const mk = (statement: string) => ({ action: 'new', box: REVENUE, statement, quote: q });
+      const four = parseWith([], [mk('Pricing is 2,500 baht a month for each shop'), mk('Pricing is 2,500 baht a month'), mk('Pricing is 2,500 baht a month each'), mk('Pricing is 2,500 baht each shop')]);
+      expect(four.actions.map((x) => 'statement' in x && x.statement)).toEqual(['Pricing is 2,500 baht a month for each shop', 'Pricing is 2,500 baht a month', 'Pricing is 2,500 baht a month each']);
+      expect(four.droppedCap).toBe(1);
+      const base = [{ id: 'r1', box: REVENUE, statement: 'Plan one' }, { id: 'r2', box: REVENUE, statement: 'Plan two' }, { id: 'p1', box: PROBLEM, statement: 'Late filings' }];
+      const mixed = parseWith(base, [mv('p1', REVENUE), mk('Pricing is 2,500 baht a month for each shop'), mk('Pricing is 2,500 baht a month')]);
+      expect(moved(mixed)).toEqual([`p1>${REVENUE}`]);
+      expect(mixed.counts.added).toBe(0);
+      expect(mixed.droppedCap).toBe(2);
+    });
+    it('PROPERTY: 200 seeded random action sets never leave a box above 3 or two identical statements in one box', () => {
+      let seed = 20261030;
+      const rand = (n: number) => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed % n; };
+      const sentences = ['Alpha plan costs 100 baht monthly', 'Beta plan costs 200 baht monthly', 'Gamma plan costs 300 baht monthly', 'Delta plan costs 400 baht monthly', 'Omega plan costs 500 baht monthly'];
+      const material = assembleMaterial({ messages: [`${sentences.join('. ')}.`], links: [], files: [] });
+      const boxes = [PROBLEM, SOLUTION, CH];
+      for (let round = 0; round < 200; round++) {
+        const base: BasePoint[] = [];
+        for (const box of boxes) for (let k = rand(4); k > 0; k--) base.push({ id: `b${base.length}`, box, statement: `Base ${base.length} says something distinct` });
+        const actions: unknown[] = [];
+        for (let k = 1 + rand(8); k > 0; k--) {
+          const text = sentences[rand(sentences.length)]!;
+          const point = base.length ? base[rand(base.length)]!.id : 'none';
+          const kind = rand(4);
+          if (kind === 0) actions.push({ action: 'new', box: boxes[rand(3)], statement: text, quote: text });
+          else if (kind === 1) actions.push({ action: 'move', point_id: point, box: boxes[rand(3)] });
+          else if (kind === 2) actions.push({ action: 'drop', point_id: point, why: 'x' });
+          else { const b = base.find((x) => x.id === point); actions.push({ action: 'reword', point_id: point, box: b?.box ?? boxes[0], statement: text, quote: text }); }
+        }
+        const o = parseDraft(gemini({ scope: TAGS, actions }), { material, basePoints: base, baseLabel: null, otherNames: [], scope: { mode: 'fixed', boxes: TAGS } });
+        if (!o.ok) throw new Error(o.code);
+        const finalState = o.actions.map((x) => (x.action === 'keep' ? { box: base.find((b) => b.id === x.point_id)!.box, statement: base.find((b) => b.id === x.point_id)!.statement } : { box: x.box, statement: x.action === 'move' ? base.find((b) => b.id === x.old_point_id)!.statement : x.statement }));
+        const perBox = new Map<string, number>();
+        const seen = new Set<string>();
+        for (const e of finalState) {
+          perBox.set(e.box, (perBox.get(e.box) ?? 0) + 1);
+          const key = `${e.box}|${e.statement.toLowerCase()}`;
+          expect(seen.has(key), `round ${round}: duplicate ${key}`).toBe(false);
+          seen.add(key);
+        }
+        for (const [box, n] of perBox) expect(n, `round ${round}: ${box}`).toBeLessThanOrEqual(3);
+      }
+    });
+    it('CLAIM 1c: a three-box cycle of full boxes succeeds, and the check terminates', () => {
+      const base = [...pts(PROBLEM, 'a', 3), ...pts(SOLUTION, 'b', 3), ...pts(CH, 'c', 3)];
+      const o = parseWith(base, [mv('a1', SOLUTION), mv('b1', CH), mv('c1', PROBLEM)]);
+      expect(moved(o)).toEqual([`a1>${SOLUTION}`, `b1>${CH}`, `c1>${PROBLEM}`].sort());
+      expect(o.droppedCap).toBe(0);
+      // many hopeless moves into one full box still end (bounded by the number of moves)
+      const crowd = Array.from({ length: 40 }, (_, i) => ({ id: `x${i}`, box: PROBLEM, statement: `x ${i}` }));
+      const many = parseWith([...pts(SOLUTION, 's', 3), ...crowd.slice(0, 3)], crowd.slice(0, 3).map((x) => mv(x.id, SOLUTION)));
+      expect(moved(many)).toEqual([]);
+    });
+  });
+  it('CLAIM 3: a reword whose new words equal ANOTHER point that stays in the box is dropped as a repeat, and both points stay', () => {
+    const base: BasePoint[] = [{ id: 'r1', box: REVENUE, statement: 'An old price note' }, { id: 'r2', box: REVENUE, statement: 'Pricing is 2,500 baht a month for each shop' }];
+    const o = parseWith(base, [{ action: 'reword', point_id: 'r1', box: REVENUE, statement: 'Pricing is 2,500 baht a month for each shop', quote: 'Pricing is 2,500 baht a month for each shop' }]);
+    expect(o.actions).toEqual([{ action: 'keep', point_id: 'r1' }, { action: 'keep', point_id: 'r2' }]);
+    expect(o.counts.reworded).toBe(0);
+    // CONTROL: other words are written as a reword
+    const other = parseWith(base, [{ action: 'reword', point_id: 'r1', box: REVENUE, statement: 'Pricing is 2,500 baht a month for each shop, paid yearly', quote: 'Pricing is 2,500 baht a month for each shop' }]);
+    expect(other.counts.reworded).toBe(1);
+  });
+  it('CLAIM 2: a new point whose words are already held by a point that stays is not written twice', () => {
+    const base: BasePoint[] = [{ id: 'r1', box: REVENUE, statement: 'Pricing is 2,500 baht a month for each shop' }];
+    const o = parseWith(base, [newRevenue]);
+    expect(o.actions).toEqual([{ action: 'keep', point_id: 'r1' }]); // the existing point stays, the duplicate is not added
+    expect(o.counts.added).toBe(0);
+    // CONTROL: other words are a new point
+    const other = parseWith(base, [{ ...newRevenue, statement: 'Pricing is 2,500 baht a month for each shop, paid yearly', quote: 'Pricing is 2,500 baht a month for each shop' }]);
+    expect(other.actions.filter((x) => x.action === 'new')).toHaveLength(1);
+    // and when the old point is replaced (dropped) the same words ARE written
+    const replaced = parseWith(base, [{ action: 'drop', point_id: 'r1', why: 'replaced' }, newRevenue]);
+    expect(replaced.actions.filter((x) => x.action === 'new')).toHaveLength(1);
+  });
   it('a box whose points were all dropped is reported changed', () => {
     const o = parseWith([{ id: 'p1', box: PROBLEM, statement: 'Late filings' }, { id: 'p2', box: PROBLEM, statement: 'Lost receipts' }], [
       { action: 'drop', point_id: 'p1', why: 'no longer true' }, { action: 'drop', point_id: 'p2', why: 'no longer true' },

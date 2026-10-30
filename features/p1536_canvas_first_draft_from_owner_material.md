@@ -1240,8 +1240,8 @@ Material that shows no cost behind a value leaves Values empty and asks the owne
 - **Other people's words never appear under their name in a canvas.** Material can include other
   people's words (an event transcript, Clarify copies). The draft writes the owner's own bets in the
   owner's voice. It never quotes or names another person, because a canvas can be shared by public
-  link. A partner's reasons reach a canvas only through the partner-approved story request
-  (P1574).
+  link. Why a point changed, and a story in a partner's name only once the partner confirms it,
+  belong to P1574 (reframed 2026-10-30, decisions.md "Recognising reasons that changed a canvas").
 
 ## Risks / Non-Goals
 
