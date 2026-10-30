@@ -389,11 +389,36 @@ describe('P1536 migrations: replaced bodies', () => {
   });
   // A LATER migration that rebuilds one of these functions from an older body would silently drop P1536's change
   // (the bug the P1576 rebase hit). So the newest definition anywhere must still carry every P1536 edit.
+  // Migration 20261030080000 (Design v6) replaces get_canvas and _mirror_limits again. Their edits are EXTENDED, not dropped:
+  // the v6 substitutions below are the only differences between what this file pins and what the newest body carries
+  // (the v6 file itself is pinned, byte for byte against its source, by p1536-v6-engine-migration.test.ts).
+  const V6 = '20261030080000_p1536_v6_engine.sql';
+  const V6_SUBST: Record<string, Array<[string, string]>> = {
+    _mirror_limits: [
+      [`'person_canvas_daily_usd', 3.00,`, `'person_canvas_daily_usd', 6.00,`],
+      [`'person_canvas_daily_count', 20,`, `'person_canvas_daily_count', 60,`],
+      [`'global_canvas_daily_usd', 15.00,`, `'global_canvas_daily_usd', 45.00,`],
+    ],
+    get_canvas: [
+      [`'created_at', v.created_at) || CASE WHEN v.published_at IS NULL`, `'created_at', v.created_at, 'from_seq', v.from_seq) || CASE WHEN v.published_at IS NULL`],
+      [`'run_count', d.run_count, 'tension_count', d.tension_count)`,
+       `'run_count', d.run_count, 'tension_count', d.tension_count, 'revision', d.revision, 'focus', d.focus, 'changed_boxes', to_jsonb(public._canvas_draft_changed_boxes(d.id)))`],
+    ],
+  };
   it.each(Object.keys(REPLACED))('%s: the newest definition across all migrations still carries the P1536 edits', (name) => {
     const re = new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+public\\.${name}\\s*\\(`, 'i');
     const defs = readdirSync(MIG).filter((f) => /^\d{14}_.*\.sql$/.test(f) && re.test(stripComments(read(f)))).sort();
-    const newest = fnBody(read(defs[defs.length - 1]!), name);
-    for (const [, to] of REPLACED[name]!.edits) expect(newest, `${name} in ${defs[defs.length - 1]}`).toContain(norm(to));
+    const newestFile = defs[defs.length - 1]!;
+    const newest = fnBody(read(newestFile), name);
+    for (const [, to] of REPLACED[name]!.edits) {
+      let want = norm(to);
+      if (newestFile === V6) {
+        for (const [from, sub] of V6_SUBST[name] ?? []) want = want.split(norm(from)).join(norm(sub));
+      } else {
+        expect(V6_SUBST[name], `${name}: a newer migration than ${V6} redefines it`).toBeUndefined();
+      }
+      expect(newest, `${name} in ${newestFile}`).toContain(want);
+    }
   });
   it('the grants of the replaced client functions are restated exactly as before', () => {
     expect(codeA).toMatch(/REVOKE ALL ON FUNCTION public\.get_canvas\(uuid, text, text, text\) FROM PUBLIC, anon, authenticated;/);
@@ -957,16 +982,29 @@ describe('P1536 C: a reword keeps the owner\'s existing private stories', () => 
   const C = '20261029100200_p1536_reword_keeps_stories.sql';
   const rawC = read(C);
   const FN = '_canvas_draft_run_complete';
+  // The six-argument form (the one with p_decided). Design v6 (20261030080000) adds a ten-argument OVERLOAD of the same name
+  // and REPLACES this one with its latest body plus ONE guard that refuses a v6 draft (a legacy draft keeps working through
+  // it), so the current edge function keeps working until it moves; both are pinned by p1536-v6-engine-migration.test.ts.
   const definers = () => readdirSync(MIG).filter((f) => /^\d{14}_.*\.sql$/.test(f))
-    .filter((f) => new RegExp(`CREATE (OR REPLACE )?FUNCTION public\\.${FN}\\(`).test(stripComments(read(f)))).sort();
+    .filter((f) => new RegExp(`CREATE (OR REPLACE )?FUNCTION public\\.${FN}\\(\\s*p_run uuid, p_actions jsonb, p_questions jsonb, p_decided jsonb`).test(stripComments(read(f)))).sort();
   /** The branch that links the owner's existing stories, taken from the LATEST definition of the function. */
   const storyBranch = (body: string) => body.slice(body.indexOf('ELSIF v_type IN'), body.indexOf('END IF;', body.indexOf('ELSIF v_type IN')));
   const relinksReword = (body: string) => storyBranch(body).includes("ELSIF v_type IN ('move', 'keep', 'reword') THEN");
 
-  it('the latest definition of run_complete is C, and its story branch covers reword', () => {
+  // Design v6 (20261030080000) replaces the six-argument form once more, with ONE added guard against a v6 draft (pinned,
+  // body for body, by p1536-v6-engine-migration.test.ts); the story branch must survive in that newest definition too.
+  const V6 = '20261030080000_p1536_v6_engine.sql';
+  /** the body of the six-argument definition inside `sql` (the file also defines the v6 ten-argument form of the same name) */
+  const sixArgBody = (sql: string): string => {
+    const code = stripComments(sql);
+    const a = code.search(new RegExp(`CREATE OR REPLACE FUNCTION public\\.${FN}\\(\\s*p_run uuid, p_actions jsonb, p_questions jsonb, p_decided jsonb`));
+    return norm(code.slice(a, code.indexOf('$$;', code.indexOf('AS $$', a)) + 3));
+  };
+  it('the latest definition of run_complete (six arguments) is C plus the v6 guard, and its story branch covers reword', () => {
     const defs = definers();
-    expect(defs[defs.length - 1]).toBe(C);
-    expect(relinksReword(fnBody(read(defs[defs.length - 1]!), FN))).toBe(true);
+    expect(defs[defs.length - 1]).toBe(V6);
+    expect(defs[defs.length - 2]).toBe(C);
+    expect(relinksReword(sixArgBody(read(V6)))).toBe(true);
   });
   it('C is B\'s body with exactly one edit: the branch also covers reword (nothing else moved)', () => {
     const expected = patched(B, FN, [["ELSIF v_type IN ('move', 'keep') THEN", "ELSIF v_type IN ('move', 'keep', 'reword') THEN"]]);

@@ -7,11 +7,12 @@
  * are called as signed-in clients. One serial story: open, draft, read as everyone, publish, revise, reuse, supersede,
  * discard, then the caps. Every refusal has a control that shows the same call succeeding for someone who must succeed.
  */
+import { traffic } from './p1536-count-fetch'; // first: counts every client's requests (metered-services rule 6)
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createHash, randomBytes } from 'node:crypto';
 import { supabaseAdmin } from '../../../e2e/helpers/supabase-admin';
-import { createTestUser, deleteTestUser, TEST_PASSWORD, type TestUser } from '../../../e2e/helpers/test-user';
+import { createTestUser, deleteTestUsers, TEST_PASSWORD, type TestUser } from '../../../e2e/helpers/test-user';
 import { createTestEvent, deleteTestEvent, type TestEvent } from '../../../e2e/helpers/test-event';
 
 type Row = Record<string, any>;
@@ -118,7 +119,10 @@ afterAll(async () => {
   await admin.from('stories').delete().like('content', `${TAG}%`);
   await admin.from('mirror_ai_spend').delete().in('owner_id', mine);
   if (E) await deleteTestEvent(E.id);
-  for (const u of users) await deleteTestUser(u.user.id);
+  // ONE call for every user the suite created (metered-services rule 1)
+  const gone = await deleteTestUsers(users.map((u) => u.user.id));
+  expect(gone.failed, 'every test user was deleted').toBe(0);
+  console.log(`P1536 legacy live suite traffic (every client, user setup and teardown included): owners=${users.length} requests=${traffic.requests} authRequests=${traffic.authRequests} responseBytes=${traffic.responseBytes} failedResponses=${traffic.failedResponses}`);
 }, 180_000);
 
 describe('P1536 WP1: draft versions (test database)', () => {
@@ -804,7 +808,7 @@ describe('P1536 WP1: draft versions (test database)', () => {
       const d = (await ok(cC, 'canvas_draft_open')).draft_id;
       let granted = 0;
       let last = '';
-      for (let i = 0; i < 14 && last !== 'capped'; i++) {
+      for (let i = 0; i < 24 && last !== 'capped'; i++) {   // D18: the per-person cap is $6.00 a day, so up to 18 extract reservations of $0.35
         const b = await engine('_canvas_draft_run_begin', { p_owner: C.user.id, p_draft: d, p_kind: 'extract', p_speed: 'fast' });
         last = b.status;
         if (b.status === 'run') { granted += 1; await engine('_canvas_draft_run_fail', { p_run: b.run_id, p_code: 'test', p_reply: null, p_actual_usd: 0.35 }); }
@@ -813,7 +817,7 @@ describe('P1536 WP1: draft versions (test database)', () => {
       expect(last).toBe('capped');
       expect((await admin.from('canvas_draft_runs').select('state').eq('owner_id', C.user.id).eq('state', 'capped')).data!.length).toBeGreaterThan(0);
       const mine = (await todaySpend()).filter((r) => r.owner_id === C.user.id && r.bucket === 'canvas');
-      expect(mine.reduce((s, r) => s + Number(r.actual_usd ?? r.reserved_usd), 0)).toBeLessThanOrEqual(3.0 + 1e-6);
+      expect(mine.reduce((s, r) => s + Number(r.actual_usd ?? r.reserved_usd), 0)).toBeLessThanOrEqual(6.0 + 1e-6);
     });
   });
 });

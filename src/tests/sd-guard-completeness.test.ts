@@ -129,6 +129,35 @@ const KNOWN_INTENTIONAL_REMOVALS = new Set<string>([
   //    satisfy the requirement (same spec file, "an agent account may no longer be created
   //    in the RETIRED machine- namespace").
   "create_or_reuse_agent_account:an agent account slug must carry the reserved \"machine-\" prefix; got %",
+
+  // P1536 Design v6 (20261030080000_p1536_v6_engine.sql). The v6 functions are NEW OVERLOADS of the earlier P1536 names
+  // (canvas_draft_publish(uuid, integer), canvas_draft_discard(uuid, integer), _canvas_draft_run_complete with ten
+  // arguments); this canary matches by name, so the retired forms read as removals. None is a dropped guard:
+  //
+  // 1-4. A state refusal is now RETURNED as {status:'refused', code} with nothing written (spec section 2, transition table),
+  //    not raised, so the request keeps the expire step's writes and the client gets the current revision. The checks are
+  //    all still there, one for one: 'a draft run is active' -> busy (publish and discard, S1.2), 'this draft is closed'
+  //    -> stale_view, 'nothing to publish' -> draft_empty (S1.18). Pinned by src/tests/integration/p1536-v6-engine.test.ts
+  //    (S1.2, S1.18) and by the refusalCodes fact in src/tests/p1536-v6-engine-migration.test.ts. The earlier forms stay
+  //    in force on the earlier overloads, which the v6 file restates, each with ONE added guard that refuses a v6 draft
+  //    and with all of its existing checks kept.
+  'canvas_draft_discard:a draft run is active',
+  'canvas_draft_publish:a draft run is active',
+  'canvas_draft_publish:this draft is closed',
+  'canvas_draft_publish:nothing to publish',
+
+  // 5. _canvas_draft_run_complete: 'decided' is retired. v6 no longer writes canvas_drafts.decided or .tensions (spec section 6,
+  //    first S1 row; D13 drops "What I decided on my own"), so there is no p_decided to validate.
+  '_canvas_draft_run_complete:canvas draft: decided must be an array of at most 60',
+
+  // 6-7. _canvas_draft_run_complete: the rule "a named point must be a point of the base version" becomes "a named point
+  //    must be a point of THIS draft" (v6: the draft starts as its base and a run edits it in place, spec section 2). The
+  //    guard is kept, in its v6 wording: 'canvas draft: point is not a point of this draft' (raised; ghost-id test in the v6
+  //    integration suite), and 'a point is named twice' is kept verbatim. 'no base version to take a point from' is not
+  //    applicable: a first canvas has no base but still has a draft, and naming any point in an empty draft raises the new
+  //    message.
+  '_canvas_draft_run_complete:canvas draft: point is not on the base version',
+  '_canvas_draft_run_complete:canvas draft: no base version to take a point from',
 ]);
 
 /**

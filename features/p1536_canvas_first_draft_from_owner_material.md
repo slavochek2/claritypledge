@@ -259,7 +259,7 @@ The same step also fails at once, with no model call and no charge, any queued r
 |---|---|---|---|
 | `canvas_workspace_send` (text, upload, voice) | no active run for the owner; draft open or creatable; `p_expected_revision` matches | `busy`, `busy_elsewhere`, `cap_reached`, `stale_view` | message + `queued` run of kind `message` (+ draft open/replace) |
 | `canvas_draft_retry(p_draft, p_failed_run, p_expected_revision, p_client_id)` | the run is the draft's newest and `failed`; idle; not at cap | `busy`, `busy_elsewhere`, `cap_reached`, `stale_view`, `not_retryable` | new `queued` run copying the failed run's kind, trigger message, scope and target offer. **An upload whose material was never written** (extraction failed, or the client left before posting the file): `not_retryable`; its bubble reads "Send the file again." An upload whose material was written and whose drafting failed retries normally: the row's `message_id` is the trigger message, so the selector includes it. |
-| `canvas_draft_switch_focus(p_draft, p_offer, p_expected_revision, p_client_id)` | idle; offer `offered` | `busy`, `busy_elsewhere`, `stale_view`, `not_offered` | `queued` run of kind `focus`, `target_offer_id` on the RUN (the draft is untouched until complete) |
+| `canvas_draft_switch_focus(p_draft, p_offer, p_expected_revision, p_client_id)` | idle; offer `offered` | `busy`, `busy_elsewhere`, `cap_reached`, `stale_view`, `not_offered` | `queued` run of kind `focus`, `target_offer_id` on the RUN (the draft is untouched until complete) |
 | `canvas_draft_fork(p_draft, p_offer, p_expected_revision, p_client_id)` | source idle or closed; offer `offered`; `material_until` not passed | `busy`, `busy_elsewhere`, `stale_view`, `expired`, `not_offered` | new canvas + draft + thread + `queued` `fork_first` run, offer `started` |
 | `canvas_draft_offer_dismiss(p_draft, p_offer, p_expected_revision)` | idle (no active run for the owner); offer `offered` (a repeat on a dismissed offer returns ok, writes nothing) | `busy`, `busy_elsewhere`, `stale_view` | offer `dismissed`, revision +1, material rule (§ Retention) |
 | `canvas_draft_undo(p_draft, p_expected_run, p_expected_revision)` | idle; `p_expected_run` = newest applied run | `busy`, `stale_view` | restore its step; run → `undone` |
@@ -379,9 +379,16 @@ closed to clients except through `get_canvas_draft_state`.
 - **A fork's copy is the new canvas's own material** (the owner chose to start it). It follows the new draft's lifecycle:
   deleted at that draft's Publish (or kept while it has its own offers), discarded with it, and deleted with its canvas or
   account (`ON DELETE CASCADE`, existing).
+- **A fork carries at most 12 seed rows.** When more would cross, the oldest are merged into one "Earlier material" row.
+  Known limitation: that row and the "Your messages" row each keep at most 200,000 characters, so a very large merge
+  loses its tail, and later forks inherit the loss. A run reads at most 150,000 characters of material anyway.
 - **Erasure (`erase_chat_data_for`):** other people's words reach a run only through forward/clarify copies in the thread.
   A fork copies only the owner's own files, links and messages. So no third-party-derived text crosses into a fork by
   construction, and the existing `derived_refs` cancellation covers both canvases' in-flight runs.
+  - Known limitation: erasure cancels in-flight runs and scrubs replies, but points already in the owner's draft that were
+    written from a forwarded copy stay (they are the owner's draft, as before v6). A later run that reads those points does
+    not carry the sender's ref. `[FOUNDER DECISION: should erasing a sender also remove canvas points written from their
+    forwarded words? Today: no.]`
 
 #### Publish spot (one element, one place)
 | Draft state | Spot shows | Element |
@@ -729,7 +736,9 @@ earlier ones"; schema order `focus, other_canvases, scope, actions, questions`.
 - [ ] **S1.7 Draft starts as its base.**
   - A draft opened from v2 holds v2's point ids before any run.
   - After a run touching one box, then Publish, v3 keeps the other eight boxes' point ids and other users' positions on them.
-  - v2's `get_canvas` output is byte-identical before and after.
+  - v2's `get_canvas` output is byte-identical before and after, except `superseded_by` on exactly the points v3 reworded
+    (the version chain, P800) and v3's own tag on the points v3 kept (versions share a kept point). No `updated_at`,
+    statement, story or position changes.
 - [ ] **S1.8 Undo.**
   - After applied run N, Undo restores exactly the point set, questions, pending links and focus from before N, and the run's reply reads "Undone.". A second Undo restores before N-1.
   - A stale `p_expected_run` or revision refuses with `stale_view` and changes nothing.
@@ -1008,7 +1017,7 @@ it."
 - Per run, a $0.27 reservation, settled to actual (existing).
 - Per person, 60 runs and $6.00 a day.
 - Shared canvas bucket, $45 a day; whole mirror, $50 a day.
-- Per draft, 30 applied runs.
+- Per draft, 30 used runs (undone runs count; Undo does not restore capacity).
 - Per owner, 1 run at a time.
 
 **Charging rules:**
@@ -1019,6 +1028,27 @@ it."
 **Expected (UNVERIFIED, measure on TEST in /dev):**
 - ≈ $0.10 per run, so ≤ $3 per fully used draft.
 - An event of 20 owners × 6 runs ≈ $12.
+
+**Test traffic per run (metered-services rule 6):**
+- The live v6 suite (`src/tests/integration/p1536-v6-engine.test.ts`) runs on the active TEST server, which is the self-hosted one today, so it spends no Supabase organisation quota. Run against hosted TEST (opt-in), it counts against TEST's free quota.
+- The two live files create and delete 68 test owners (57 in the v6 suite, 11 in the legacy suite); their auth calls are inside the counts below.
+- The two cap tests drive 30 runs each and are bounded at 40 iterations; they fail on any worker status other than ok.
+- Bulk setup is one request per batch (rule 1): ageing a draft's runs is one upsert, not one PATCH per run, and each file deletes all its test users in one call.
+- **Measured, one full run (2026-10-30, after the P1592 merge, self-hosted TEST).** Each live file imports the counting fetch wrapper first, so every client is
+  counted, user setup and teardown included. Vitest isolates files, so each file prints its own line:
+  - v6 suite: 1,972 requests, 115 of them auth, 2,863,231 response bytes, 115 failed responses (status ≥ 400).
+  - Legacy suite: 434 requests, 19 auth, 204,277 bytes, 44 failed.
+  - Together: 2,406 requests and 3,067,508 bytes (≈3.1 MB, ≈1.3 KB per response). The model is stubbed, so $0.
+- **Log lines (rule 5):** one access line per request, plus about one error line per failed response (the suites
+  provoke refusals on purpose). That is 2,406 + 159 ≈ 2,570 lines per run.
+- **Against hosted TEST's free plan** (egress 5 GB/month, metered-services registry):
+  - One run is 3.1 MB / 5 GB ≈ 0.06% of the month's egress.
+  - Runs per month × 3.1 MB: 100 runs ≈ 310 MB ≈ 6%. That fits today, and fits at 10x (≈62%).
+  - On the self-hosted TEST server the run spends no Supabase quota, and its logs stay on that server.
+  - Log ingestion on hosted TEST cannot be checked: the registry row gives no ingestion figure (P1530 reads it from the
+    dashboard). So the live suite runs on the self-hosted server by default, and a hosted-TEST run stays opt-in until
+    P1530 supplies the limit.
+- The real-model evals (S1.9, S2.2) run on hosted TEST with the canvas test key: 21 packs × 3 runs × 2 prompts + 10 packs ≈ 136 runs, inside the raised test cap (F3).
 
 ## Solution
 
@@ -1283,11 +1313,11 @@ Model for the budget: `gemini-3.8-flash` (registry: $0.75 input, $3.75 output pe
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests (Supabase) | 1 edge call + 1 batched write inside it = 2 per draft x ≤3 drafts = ≤6 | event-prep peak: 20 attendees x 2 = 40 | e2e, model stubbed: 3 drafts x 2 = 6, plus 2 test users created and deleted = 4 auth calls |
-| Egress (bytes) | response ≈1 KB x ≤3 = ≈3 KB; the canvas page load afterwards is P1508's existing read (size UNVERIFIED) | 20 x 1 KB = 20 KB | 3 x 1 KB = 3 KB |
-| Log lines | 1 per draft + ≤6 per failing draft (5 unreadable links + 1 model error) = ≤7 per draft x 3 = ≤21 | 20 x 7 = ≤140 | ≤21 |
+| Requests (Supabase) | 1 edge call + 1 batched write inside it = 2 per draft x ≤3 drafts = ≤6 | event-prep peak: 20 attendees x 2 = 40 | superseded: measured per run in "Design v6" §9, Test traffic per run (both live files, users created and deleted included) |
+| Egress (bytes) | response ≈1 KB x ≤3 = ≈3 KB; the canvas page load afterwards is P1508's existing read (size UNVERIFIED) | 20 x 1 KB = 20 KB | superseded: §9 (measured) |
+| Log lines | 1 per draft + ≤6 per failing draft (5 unreadable links + 1 model error) = ≤7 per draft x 3 = ≤21 | 20 x 7 = ≤140 | superseded: §9 (requests + failed responses) |
 | Gemini tokens x price | input ≤63k (60k material cap + 3k prompt) x $0.75/1M = $0.047; output ≤14.5k (9 boxes x 3 points x 240 tokens ≈ 6.5k + 8k thinking) x $3.75/1M = $0.054; ≈$0.10 per draft x ≤3 = ≤$0.30 | 20 x $0.10 = $2.00 | stubbed: $0; real-model red-team: 5 drafts x $0.10 = $0.50 |
-| Slow speed and revisions | tension pass + draft = 2 calls x $0.10 = $0.20 per draft; with a cap of 5 revisions per draft version: ≤5 x $0.20 = ≤$1.00 per version | 20 x $0.20 = $4.00 | stubbed: $0 |
+| Slow speed and revisions (v1-v3, superseded) | v6 has no tension pass; caps are D18: 60 runs and $6.00 per person a day, $45.00 canvas a day (§6). Per-run cost ≈$0.10 as above | 20 x $0.10 = $2.00 | stubbed: $0 |
 
 1. **Fits the plan limit today?** Edge invocations: drafts per month = active preparers x ≤3, against
    the registry's 500,000. Gemini: monthly cost = drafts per month x $0.10, on a dedicated

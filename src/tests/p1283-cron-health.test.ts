@@ -41,7 +41,9 @@ describe('P1283 — expected jobs derived from migrations', () => {
     // which this check is meant to start watching. The snapshot of the real directory grows.
     // P1225 (2026-10-14): 20261014130000 adds cleanup_mail_rate_limits, the fifth.
     // P1576: 20261027120000 adds cleanup_transcribe_clip_rate_limits; 20261027120100 adds chat_voice_retention and chat_voice_sweep.
+    // P1536 (Design v6): 20261030080000 adds canvas_draft_material_expire, the hourly deletion of kept material.
     expect(Object.keys(jobs).sort()).toEqual([
+      'canvas_draft_material_expire',
       'chat_voice_retention',
       'chat_voice_sweep',
       'cleanup_expired_ready_submissions',
@@ -63,6 +65,7 @@ describe('P1283 — expected jobs derived from migrations', () => {
     expect(jobs.cleanup_transcribe_clip_rate_limits).toBe('*/15 * * * *');
     expect(jobs.chat_voice_sweep).toBe('*/5 * * * *');
     expect(jobs.chat_voice_retention).toBe('17 3 * * *');
+    expect(jobs.canvas_draft_material_expire).toBe('5 * * * *');
   });
 
   // P1283's repair migration is the one file in the tree that both unschedules and
@@ -378,6 +381,7 @@ describe('P1283 — defects found by adversarial review (codex, 2026-09-09)', ()
     // P1307 (2026-09-15): was "the same three jobs"; transcribe_room_sweep is the fourth.
     // P1225 (2026-10-14): cleanup_mail_rate_limits is the fifth.
     expect(Object.keys(jobs).sort()).toEqual([
+      'canvas_draft_material_expire',
       'chat_voice_retention',
       'chat_voice_sweep',
       'cleanup_expired_ready_submissions',
@@ -478,7 +482,9 @@ describe('P1283 — non-executable SQL must never create an expectation', () => 
   it('the real migrations are unchanged by the comment stripper', () => {
     // P1307 (2026-09-15): transcribe_room_sweep added by 20260914120300.
     // P1225 (2026-10-14): cleanup_mail_rate_limits added by 20261014130000.
+    // P1536 (Design v6): canvas_draft_material_expire added by 20261030080000.
     expect(parseMigrationsForCronJobs(MIGRATIONS_DIR)).toEqual({
+      canvas_draft_material_expire: '5 * * * *',
       chat_voice_retention: '17 3 * * *',
       chat_voice_sweep: '*/5 * * * *',
       cleanup_expired_ready_submissions: '*/5 * * * *',
