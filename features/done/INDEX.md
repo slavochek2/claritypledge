@@ -395,6 +395,7 @@ Last updated: 2026-10-30
 - **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
 
 ## Events & Content
+- **P1595** (Oct 30) Room loader on the content column, one Back, the registered page names its organiser — a centred loader must centre on the shell's content column; the boot splash outside the shell cannot (INBOX-254)
 - **P1594** (Oct 30) Hike quotes: writing is the consent — two writers of one consent (box + words) contradicted each other; let the words be the only writer and make founder approve conditional on the exact words checked
 - **P1542** (Oct 30) Per-series prepare/close recipes, Social Hike close with reviews — rebuilt as one squash on main after 235 commits of drift; a stale worktree runs stale gate scripts, so read tooling from main
 - **P1543** (Oct 22) One community: Clarity Practice Community · Chiang Mai, online group hidden, Events tab on phones — hiding a group must also remove it from every flow that offers it (the close fell back to it)
