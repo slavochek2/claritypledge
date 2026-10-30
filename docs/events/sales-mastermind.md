@@ -82,11 +82,11 @@ its owner, and every gap is a place to fix in the next version.
 
 When their round ends, A taps **Make my next version** in the event room. A's mirror (Clarity
 Pledge's AI) drafts it from the round's thread while A partners on someone else's canvas. At the
-update step, A reads the new version, marks their own stance on every box that changed, and publishes
-it; A's next partner opens that version. A stance on each changed box is A's signature on what the
-mirror wrote: nobody reads a claim the owner never stood behind. Stances can be marked on the draft
-before publishing; a box the mirror rewords later loses its stance and shows as changed again, with no
-notification (founder, 2026-10-30; P1536 confirms its build).
+update step, A **publishes the draft as it is**, then may mark their own stance on the boxes that
+changed; A's next partner opens that version. Marking is optional and never blocks Publish (founder,
+2026-10-30: "He can just publish without putting the stance on boxes"). At the event, owners do not
+refine with the mirror; refining comes after the event (homework, below). New and reworded boxes start
+with no stance (P1536 D20).
 
 ## Run-of-show — session 1, about 2h25
 
@@ -97,7 +97,7 @@ notification (founder, 2026-10-30; P1536 confirms its build).
 | Round 1: half the canvas holders own, half partner | 24 |
 | Seating (new partner) | 2 |
 | Round 2: the other half own | 24 |
-| Update your canvas: read the new version, mark your stance on each changed box, publish | 12 |
+| Canvas update: publish the new version as it is, then optionally mark your stance on changed boxes | 12 |
 | Seating (new partner) | 2 |
 | Round 3: round 1's owners, on their new version | 24 |
 | Seating (new partner) | 2 |
@@ -137,9 +137,9 @@ channel, and make another version before session 2
 canvas chat). No hand-made fallback.
 
 **Host, between sessions** (by hand, `UNTESTED`, founder 2026-10-30): read the round threads (with the
-numbers people said out loud) and each new version, and find 2-3 boxes that changed after a reader's reason was explained
-back and scored above 8 by that reader. **Session 2 opener:** name those reasons and the readers who
-gave them. Watch whether those readers are pleased and the room leans in. This tests whether
+numbers people said out loud) and each new version, and find 2-3 boxes that changed after a partner's reason was explained
+back and scored above 8 by that partner. **Session 2 opener:** name those reasons and the partners who
+gave them. Watch whether those partners are pleased and the room leans in. This tests whether
 recognising reasons that changed a canvas is worth building (supersede reason in
 [P1574](../../features/p1574_canvas_partner_story_requests.md), recognition in
 [P1559](../../features/p1559_follow_through_record.md)); if the room does not care, neither is urgent.

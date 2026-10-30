@@ -79,8 +79,8 @@ flow off returns an event to Clarity Night's flow.
 | D3 | **The rules are spoken, not in the app.** One speaker and one listener at a time; the partner may challenge after the owner says above 8 out of 10; the owner can take the speaker role back at any time; in a challenge the owner explains back until the partner says above 8. Lanyard speaker / listener cards from Clarity Night show the roles; the observer keeps the rules. **No sliders, no scores, no "allow challenge", no phase in the app.** ("We are not changing the subject, we're just changing the rules of what people are allowed to do.") |
 | D4 | **Say your number out loud.** The transcript keeps the scores, so the evening is measured later from the round threads (P1390), not in the app. |
 | D5 | **Observers.** Anyone without a canvas shared with the event joins as an observer (the curious, mentors, the unprepared), and canvas holders sit out a round as observers when numbers are odd. The observer keeps the pair to the rules and gives critical feedback on content and communication at the end of the round (the round's existing observer time). The host can override who is an observer, per person. A table may have none, one or two. |
-| D6 | **A new version between rounds, in both sessions.** When their round ends the owner taps "Make my next version"; their round thread (P1592) feeds their mirror (P1536 engine). At the update step the owner reads the new version, marks their own stance on every changed box, and publishes it. The next partner opens it. |
-| D7 | **Stances can be marked on the draft, before Publish.** A box the mirror rewords afterwards loses its stance automatically and shows as changed again, with no notification. Owned by P1536 (asked 2026-10-30). |
+| D6 | **A new version between rounds, in both sessions.** When their round ends the owner taps "Make my next version"; their round thread (P1592) feeds their mirror (P1536 engine). At the update step the owner **publishes the draft as it is**, then may mark their own stance on changed boxes; marking is optional and never blocks Publish ("He can just publish without putting the stance on boxes"). Owners do not refine with the mirror at the event; refining comes after it. The next partner opens the published version. |
+| D7 | **Stances are optional, before or after Publish.** The owner may mark a stance on a draft (P1536 D20, being built) or on the published version; a box the mirror rewords loses its stance and shows as changed, with no notification (engine-written new and reworded points start with no stance). Publish never waits for stances. Owned by P1536. |
 | D8 | **A third flow, not a changed Clarity Night.** The series chooses the event-room and host flow by default (Clarity Night, Social Hike, Sales Mastermind). The host can switch it per event on the host screen **until round 1 starts**, never after. Builds on P1542's per-series recipes. |
 | D9 | **Preparation in the event room, every step visible.** Draft your canvas with your mirror, publish it, then share it with this event as its own tap. "Your canvas for this event" can be changed, or replaced by a new one, until the event starts; it is fixed from round 1. Nothing is shared in the background. ("we shouldn't do things in the background or hidden … every step should be clear and visible.") |
 | D10 | **Round threads say whose canvas they are about**: "Round 1 · {owner}'s canvas, with {partner}". Amends P1592 D3 ("Round 2 · Anna & Ben"); P1592 owns the code. |
@@ -201,10 +201,11 @@ partner and observer is `/dev`'s call.
   decided on my own"; P1536 v6 names this "the event's between-rounds path").
 - The owner then partners on someone else's canvas in the next round; the draft is ready by the update
   step.
-- **At the update step** (between rounds 2 and 3), the owner's screen shows one task: **read your new
-  version, mark your stance on each box that changed, publish**. "Changed" uses P1536's per-box Changed
-  mark. Stances are marked on the draft (D7). Publish is P1536's Publish. The next partner opens the
-  published version.
+- **At the update step** (between rounds 2 and 3), the owner's screen shows one task: **publish your
+  new version**. Publish is P1536's Publish, and nothing else is required first. After publishing, the
+  changed boxes (P1536's per-box Changed mark) invite an optional stance; new and reworded boxes start
+  with no stance (P1536 D20). The next partner opens the published version. Owners are told not to
+  refine with the mirror at the event (founder, 2026-10-30, relayed by the priorities session).
 - An owner who does not publish keeps their current version; their next partner reads that. Nothing
   publishes on its own.
 - Round 2's owners tap as round 2 ends; the fast path is meant for that window (P1536: "2.5-hour event:
@@ -231,7 +232,8 @@ What the evening produces, read by a founder-only script (same pattern as
 `scripts/event-close-results.sh`):
 
 - Per owner: which version each partner opened, per round.
-- Per owner: how many changed boxes carry the owner's own stance at publish.
+- Per owner: how many changed boxes carry the owner's own stance by the end of the session (optional,
+  so this counts how many owners chose to stand behind the mirror's changes, not a completion rate).
 - **Not here:** the spoken numbers. They stay in the round threads and are counted later through P1390
   (D4), against the versions recorded above.
 
@@ -300,9 +302,9 @@ canvases and two without.
 - [ ] During a round each person sees only their role, whose canvas it is, the rule reminder, and (for
       partners and observers) a link that opens the owner's newest published version. Nothing asks for
       input.
-- [ ] After their round, an owner taps "Make my next version"; at the update step they see the draft
-      and its changed boxes, mark a stance on each on the draft, and publish; the next partner opens
-      that version.
+- [ ] After their round, an owner taps "Make my next version"; at the update step they publish the
+      draft as it is, with no stance required; the changed boxes then accept an optional stance; the
+      next partner opens the published version.
 - [ ] The round thread is titled "Round 1 · {owner}'s canvas, with {partner}".
 - [ ] The host sees owner, partner and observers per table, and at the update step how many owners have
       published.
