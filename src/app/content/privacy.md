@@ -174,12 +174,22 @@ are stored and visible to other members of that group.
 **Feedback after an event.** At the end of an event you can give feedback on your phone: a
 0–10 score, ratings for topics for the next event, whether your view of the event's statements
 changed, what we could improve and what you liked. We store it against your profile and the
-event, and we read it to improve future events; it is not shown to other attendees. If you tick
-"You may quote me by name to invite new people to future events", we may publish what you wrote
-about what you liked, with your name, to promote our events. You can withdraw that permission at
-any time (see Your Rights). We then stop using the quote and remove it where we published it.
-The same screens may ask whether you want to join the event's group or connect with the host on
-LinkedIn; we record your answer so we do not ask again too soon.
+event, and we read it to improve future events. It is not shown to other attendees, except a quote
+you allow us to publish (below). The same screens may ask whether you want to join the event's
+group or connect with the host on LinkedIn; we record your answer so we do not ask again too soon.
+
+**Publishing your quote.** You choose whether what you liked may be published with your name.
+
+- **Social Hikes:** the box for what you liked is also the box for a public quote. The notice
+  under it says that by sharing, you agree we may publish your words with your name on the
+  series page. Writing in it is your permission; leaving it empty means no permission.
+- **Other events:** you give permission by ticking "You may quote me by name to invite new
+  people to future events". We may then use your words, with your name, to promote our events.
+
+We review every quote by hand before we publish it. If you change the words of a Social Hike
+quote, we take the old wording down until we have reviewed the new one. You can withdraw your
+permission at any time: clear your words (Social Hikes), untick the box (other events), or
+contact us (see Your Rights). We then stop using the quote and remove it where we published it.
 
 ### Clarity Chat (Home)
 
@@ -403,7 +413,7 @@ requested. These records are deleted automatically within about 75 minutes.
 | Product newsletter to account holders | Legitimate interest — Art. 6(1)(f), with an unsubscribe in every issue |
 | Analytics and session recording (Mixpanel), error tracking (Sentry) | Legitimate interest — Art. 6(1)(f); you can object at any time no consent step runs before analytics or session recording start |
 | Event feedback, and the answers at the end of an event | Legitimate interest — Art. 6(1)(f): improving our events |
-| Publishing your quote with your name | Consent — Art. 6(1)(a), given by the tick box; you can withdraw it at any time |
+| Publishing your quote with your name | Consent — Art. 6(1)(a), given by writing in the quote box under its publishing notice (Social Hikes) or by the tick box (other events); you can withdraw it at any time |
 | Terms acceptance and consent records | Legitimate interest — Art. 6(1)(f), being able to evidence that consent was given (Art. 7(1)) |
 | Public-source content by machine accounts (below) | Legitimate interest — Art. 6(1)(f): commentary on public statements by public figures |
 

@@ -851,7 +851,7 @@ export function EventRoomMeet() {
 
               {writeFailed && (
                 <p role="status" className="text-center text-sm font-medium text-destructive">
-                  {reconciled ? <>That didn&apos;t save. Try again.</> : stuck ? <>That didn&apos;t save.</> : <>Reconnecting&hellip;</>}
+                  {reconciled ? <>That didn&apos;t save. Try again.</> : stuck ? <>We couldn&apos;t confirm your answer saved.</> : <>Reconnecting&hellip;</>}
                 </p>
               )}
               {/* The re-read budget ran out (use-room-write.ts): "Try again" is the only way forward, so it is the filled,

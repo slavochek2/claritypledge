@@ -263,7 +263,7 @@ describe('a failed answer whose re-reads run out (use-room-write.ts, Codex revie
       expect(screen.getByText('Reconnecting…')).toBeInTheDocument();
       await act(async () => { await vi.advanceTimersByTimeAsync(4 * 60_000); }); // past the whole budget
       expect(refresh).toHaveBeenCalledTimes(9);
-      expect(screen.getByText("That didn't save.")).toBeInTheDocument();
+      expect(screen.getByText("We couldn't confirm your answer saved.")).toBeInTheDocument();
       const retry = screen.getByTestId('room-write-retry');
       expect(retry).toHaveTextContent('Try again');
       expect(retry.className).toContain('w-full');
