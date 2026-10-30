@@ -44,6 +44,10 @@ This applies to **all environments**, including test. Lost test data disrupts ac
 
 **"Kill / reset / clear / close"** are ambiguous. Treat as UPDATE (state mutation) unless the user explicitly says "delete rows" or "remove permanently."
 
+## Two TEST Servers — Use the Active One, From Main's Tooling
+
+TEST is two servers: hosted (Supabase) and self-hosted. One is **active** (`scripts/lib/active-test.sh` reads the flip state in `.env.test.local`), and `localhost:5001` uses it. Apply TEST migrations with **main's** `./scripts/migrate.sh`, which targets the active server; on self-hosted it does not stamp `deploy-manifest.json`, so add the version to `test.migrations` by hand. A worktree runs its **own** `scripts/` copy, so a stale branch can run an old migrate or gate script — run DB tooling from main ([decisions.md](../../docs/decisions.md) 2026-10-29, P1576).
+
 ## Supabase MCP = Test DB Only
 
 The Supabase MCP in `.mcp.json` points at `ayibkeoyukulbsjpxgaw` (**test** project). Every `mcp__supabase__*` call hits test, not prod.

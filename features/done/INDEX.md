@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-10-29
+Last updated: 2026-10-30
 
 ---
 
@@ -395,6 +395,8 @@ Last updated: 2026-10-29
 - **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
 
 ## Events & Content
+- **P1594** (Oct 30) Hike quotes: writing is the consent — two writers of one consent (box + words) contradicted each other; let the words be the only writer and make founder approve conditional on the exact words checked
+- **P1542** (Oct 30) Per-series prepare/close recipes, Social Hike close with reviews — rebuilt as one squash on main after 235 commits of drift; a stale worktree runs stale gate scripts, so read tooling from main
 - **P1543** (Oct 22) One community: Clarity Practice Community · Chiang Mai, online group hidden, Events tab on phones — hiding a group must also remove it from every flow that offers it (the close fell back to it)
 - **P1429** (Oct 7) Clarity Night review fixes: a privacy choice lives in the DB under a per-user lock (a vote and Hide raced 13/40 before); a lost-response retry is answered by an idempotent RPC, never inferred from a re-read (the spec's assumed 23505 was really 22023)
 - **P1337** (Oct 6) Clarity Night rounds: trios by disagreement on the host's bell. Each role is a task beside the name (the observer leads the close, not the clock); Table shows only the table; In / Out / Undecided is host-only

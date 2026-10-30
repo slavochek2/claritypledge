@@ -8,6 +8,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-10-30 [product]: A hike quote is consented by writing it, not by a tick box (P1594)
+
+**Context:** P1542 shipped a "Quote me" tick box on the Social Hike close. A review found that unticking never reached a published review, so an approved quote stayed public after withdrawal. The founder questioned the box itself: on public review sites, writing a recommendation is the permission.
+**Decision:** On the hike close the written answer is the consent, stated in one line under the box ("By sharing, you agree we may publish your words with your name on the series page"). Empty words = no consent. Clearing the words rejects the review at once; changed words go back to pending; words added after an empty finish queue a pending review; a rejected review is never revived. The old box write is refused on hikes. The founder approves every quote, and the approve command only publishes the exact words it checked. Clarity Night keeps its tick box. The privacy policy says the same.
+**Alternatives rejected:** Patching the tick box so unticking also rejects the review (keeps two writers of one consent that can contradict each other); auto-publishing without founder review.
+**Consequences:** `quote_ok` is now derived server-side for hikes; its readers did not change. Cleared-then-rewritten words need a manual review add (rare, accepted).
+**References:** [p1594](../features/done/) · `supabase/migrations/20261030120000_p1542_quote_consent_by_writing.sql` · `20261030130000_p1542_quote_consent_review_fixes.sql` · `scripts/lib/series-reviews-core.mjs` · `src/app/content/privacy.md`
+
+## 2026-10-30 [technical]: A reconcile re-read after a failed write is budgeted, jittered and waits for a visible tab (P1594)
+
+**Context:** The event room re-read every 2 s after a failed write until it succeeded or the room unmounted, about 1,800 reads an hour per open tab during an outage, with no hidden-tab gate (metered rules 3 and 4).
+**Decision:** Re-read at once, then back off (2, 4, 8, 16, 30 s, ×0.8–1.2 jitter), at most 9 reads per loop; every read, including the first and the follow-up room join, waits for a visible tab and stops on unmount. When the budget is spent, controls stay locked and the room offers "Try again" (one more budgeted loop) and says "We couldn't confirm your answer saved." because the write may have committed.
+**Alternatives rejected:** Unlocking after a timeout (lets a tap record a false change of mind); unbounded retry with a cap only on delay (still unbounded requests).
+**Consequences:** Worst case 18 RPCs per affected visible room per outage, 0 hidden; counted in the P1542 Cost Budget. Reuse `retryUntilRead` for any other "locked until reconciled" flow.
+**References:** `src/app/prototypes/events/components/reconcile-retry.ts` · `use-room-write.ts` · [metered-services.md](technical/metered-services.md)
+
+## 2026-10-30 [product]: The in-shell loader centres on the content column, not the window (P1595, amends P1539)
+
+**Context:** P1539 centred the loader on the viewport so the boot splash hand-off never moves. With the desktop sidebar open or collapsed, the founder saw the mark off-centre in the content area.
+**Decision:** Inside the app shell the loader (and its slow-load notice) centres on the content column, using the sidebar width the shell publishes. The boot splash, which has no shell, stays viewport-centred.
+**Alternatives rejected:** Keeping viewport centring (the founder's complaint stands).
+**Consequences:** On a signed-in desktop cold load the mark slides sideways once (about 124 px open, 32 px collapsed; phones unaffected). Follow-up to start the splash in the same place: INBOX-254.
+**References:** [p1595](../features/p1595_event_room_polish_and_registered_page.md) · `src/components/ui/clarity-loader.tsx` · `src/app/layouts/clarity-landing-layout.tsx`
+
 ## 2026-10-29 [product]: Install offer lives in the avatar menu, always shown until installed; one return-visit nudge on mobile; no install asks on celebration screens (P1593)
 
 **Context:** The install offer sat in Settings (unfound), on the /live session-end screen and in the agreement celebration dialog, where it competed with the asks that matter there (WhatsApp, community). Installing pays off when a person comes back, not at the moment they finish something.
@@ -514,7 +538,7 @@ Every page and section wait has a deadline. After 15s the page loader adds "taki
 **Context:** Signed-in pages drew the menu, then a large centred loader, and the legal footer flashed while auth was pending. The founder compared it to Notion, which shows the whole app frame at once.
 **Decision:** One loading standard. The shell (sidebar geometry, offline strip) is reserved immediately for a stored session; content routes show a 64px viewport-centred mark that continues the boot splash's fade without moving or resizing. No footer while auth is pending or on chat home. Collapsed rail shows icons, Tools and the avatar. Sidebar stays open by default, remembered per device. The offline strip spans the full page including the sidebar.
 **Alternatives rejected:** Skeleton screens per page (more surfaces to keep in sync, no measured speed gain); forcing the rail collapsed on some pages (surprising, per-page state).
-**Consequences:** Measured load time did not change; layout shift did. New lazy routes inherit the standard through `LazyRoute`; do not add page-local full-screen loaders.
+**Consequences:** Measured load time did not change; layout shift did. New lazy routes inherit the standard through `LazyRoute`; do not add page-local full-screen loaders. **Amended 2026-10-30 (P1595):** inside the shell the mark now centres on the content column, not the viewport; see that entry.
 **References:** [p1539](../features/done/2026-06-10/p1539_signed_in_loading_experience.md) · `src/components/ui/clarity-loader.tsx` · `src/components/ui/loader-chain.ts`
 
 ## 2026-10-22 [technical]: Threads in every chat; a mirror thread is the mirror agent's context, and copies never carry its answers (P1546)
