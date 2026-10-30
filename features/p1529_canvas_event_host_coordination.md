@@ -12,6 +12,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+blocked_by: [p1536, p1592]
 ---
 
 # P1529: The sales mastermind's own event room and host flow
@@ -22,18 +23,16 @@ driver: heuristic
 seats people into tables of 2-4 by their largest disagreement on public points carrying the event
 tag (`src/app/data/compare-service.ts:27`), gives each seat a role (`first`, `second`, `observer`:
 `supabase/migrations/20261002183700_p1337_event_rounds.sql:55`), and can swap the two speakers at
-half time. Starting a round needs no points (`host_start_round`,
-`20261004183000_p1337_round_minutes.sql`). The room records no scores: nothing in the rounds stores
-a 0-10 (searched the rounds code and the P1337 migrations, 2026-10-30).
+half time. A round has an observer phase (`observer_s`). Starting a round needs no points
+(`host_start_round`, `20261004183000_p1337_round_minutes.sql`).
 
 **Complication:** The sales mastermind (`docs/goals.md` 3a; session 1 around 2026-11-10, session 2
 online two weeks later) runs a different loop on each attendee's Clarity Canvas
 (`docs/events/sales-mastermind.md`, rewritten 2026-10-30). Run on today's room, attendees do not know
-whose canvas a table is about, the canvas points are invisible to pairing, the half-time swap moves
-to the other canvas instead of to the challenge, nothing tells the reader when they may challenge,
-and the owner has no in-event way to turn the conversation into a new version. The founder ruled
-that this must be built **before** session 1, not after it (2026-10-30, replacing decisions.md
-2026-10-29 "built only if session 1 shows the need"):
+whose canvas a table is about, the half-time swap moves to the other canvas instead of to the
+challenge, people without a canvas have no place, and the owner has no in-event way to turn the
+conversation into a new version. The founder ruled that this is built **before** session 1, not after
+it (2026-10-30, replacing decisions.md 2026-10-29 "built only if session 1 shows the need"):
 
 > Founder, 2026-10-30: "We know that the room needs it because we need to assign the rounds,
 > otherwise they don't get created, people don't know who speaks to whom and so on. There is
@@ -46,9 +45,14 @@ that this must be built **before** session 1, not after it (2026-10-30, replacin
 > and then within the event chat channel and then forward to mirror and blah, blah, blah, this is all
 > part of it, needs to be simpler and easier, streamlined, no? For the event."
 
+> Founder, 2026-10-30, on keeping the app out of the conversation: "/live with the sliders and so on
+> proved to be a pretty complex interface and people were struggling to comply … they want to talk to
+> each other. They don't want to look at the app."
+
 **Question:** What do an attendee and the host see, from preparation to the last round, so that each
-owner leaves every conversation with a better canvas they stand behind, the next reader reads that
-better version, and nobody needs the founder to guide them by hand?
+owner leaves every conversation with a better canvas they stand behind, the next partner reads that
+better version, and nobody needs the founder to guide them by hand, while the app stays out of the
+conversation itself?
 
 **The value, in one sentence:** an owner leaves each conversation with a better canvas, without
 paperwork; the next person reads the better version, so the owner can watch their canvas get easier
@@ -59,9 +63,9 @@ to understand.
 **Blast radius: high.** The event room and host screen serve every event. Clarity Night and Social
 Hike must behave exactly as today.
 
-**Reversibility: medium.** Additive migrations (a flow setting per event, a score record, the
-event's canvas per attendee) plus a new flow behind the series. Turning the flow off returns an
-event to Clarity Night's flow; recorded scores stay.
+**Reversibility: medium.** Additive migrations (a flow per event, the event's canvas per attendee, an
+observer flag, the version a round's partner opened) plus a new flow behind the series. Turning the
+flow off returns an event to Clarity Night's flow.
 
 **Decision density: low.** The product model was settled 2026-10-30 (Decisions below). Copy remains
 (marked `[FOUNDER DECISION]`), plus one open question on session 2 being online.
@@ -70,35 +74,36 @@ event to Clarity Night's flow; recorded scores stay.
 
 | # | Ruling |
 |---|---|
-| D1 | **One canvas per round.** Each table has one owner and one reader. A round's thread is about one canvas. |
-| D2 | **A new partner every round, alternating owner and reader** (the chain). Each person owns in one round and reads someone else's canvas in the next. Over four rounds everyone owns twice and reads twice, with four different people. Chosen over "one partner, both canvases" because one weak match then touches a quarter of the evening, and every version is read by someone who has not seen it. |
-| D3 | **Split by the score, not the clock.** Understand first. The owner's score above 8 unlocks the challenge. In the challenge, the owner explains back the reader's reason until the reader scores it above 8. Each person scores only the message that was theirs. The host's clock still ends the round; a pair that never reaches the challenge is a result, not a failure. ("We are not changing the subject, we're just changing the rules of what people are allowed to do.") |
-| D4 | **Scores are entered on sliders, reusing `/live`'s two-sided slider**, so they are recorded and both people see them. Automatic scoring from spoken numbers is P1390, not this spec. |
-| D5 | **A new version between rounds, in both sessions.** The owner's round thread (P1592) feeds the owner's mirror (P1536 engine). At the break the owner reads the new version, marks their own stance on every changed box, and publishes it. The next reader opens it. ("version 2 of the canvas is made in the session 1 … session 1 or session 2, all of them.") |
-| D6 | **The owner marks their stance on every changed box before the next reader.** The mirror wrote the change; the stance is the owner's signature, so nobody reads and scores a claim the owner never stood behind. |
-| D7 | **A third flow, not a changed Clarity Night.** The series chooses the event-room and host flow by default (Clarity Night, Social Hike, Sales Mastermind); the host can switch it per event **before the event starts**, never mid-event. Builds on P1542's per-series recipes. |
-| D8 | **Preparation in the event room, every step visible.** Draft your canvas with your mirror, publish it, then share it with this event as its own tap. "Your canvas for this event" can be changed, or replaced by a new one, until the event starts; it is fixed from round 1. Nothing is shared in the background. ("we shouldn't do things in the background or hidden … every step should be clear and visible, it's just that within event room we can simplify the journey.") |
-| D9 | **Round threads say whose canvas they are about**: "Round 1 · {owner}'s canvas, with {reader}". Amends P1592 D3 ("Round 2 · Anna & Ben"); P1592 owns the code. |
-| D10 | **No hand-made fallback** for canvas drafting or new versions. |
+| D1 | **One canvas per round.** Each table has one Clarity Canvas owner and one partner, plus zero, one or two observers. A round's thread is about one canvas. |
+| D2 | **A new partner every round, alternating owner and partner** (the chain). Each person with a canvas owns in one round and partners on someone else's canvas in the next. Over four rounds everyone with a canvas owns twice and partners twice, with four different people. Chosen over "one partner, both canvases" because one weak match then touches a quarter of the evening, and every version is read by someone who has not seen it. |
+| D3 | **The rules are spoken, not in the app.** One speaker and one listener at a time; the partner may challenge after the owner says above 8 out of 10; the owner can take the speaker role back at any time; in a challenge the owner explains back until the partner says above 8. Lanyard speaker / listener cards from Clarity Night show the roles; the observer keeps the rules. **No sliders, no scores, no "allow challenge", no phase in the app.** ("We are not changing the subject, we're just changing the rules of what people are allowed to do.") |
+| D4 | **Say your number out loud.** The transcript keeps the scores, so the evening is measured later from the round threads (P1390), not in the app. |
+| D5 | **Observers.** Anyone without a canvas shared with the event joins as an observer (the curious, mentors, the unprepared), and canvas holders sit out a round as observers when numbers are odd. The observer keeps the pair to the rules and gives critical feedback on content and communication at the end of the round (the round's existing observer time). The host can override who is an observer, per person. A table may have none, one or two. |
+| D6 | **A new version between rounds, in both sessions.** When their round ends the owner taps "Make my next version"; their round thread (P1592) feeds their mirror (P1536 engine). At the update step the owner reads the new version, marks their own stance on every changed box, and publishes it. The next partner opens it. |
+| D7 | **Stances can be marked on the draft, before Publish.** A box the mirror rewords afterwards loses its stance automatically and shows as changed again, with no notification. Owned by P1536 (asked 2026-10-30). |
+| D8 | **A third flow, not a changed Clarity Night.** The series chooses the event-room and host flow by default (Clarity Night, Social Hike, Sales Mastermind). The host can switch it per event on the host screen **until round 1 starts**, never after. Builds on P1542's per-series recipes. |
+| D9 | **Preparation in the event room, every step visible.** Draft your canvas with your mirror, publish it, then share it with this event as its own tap. "Your canvas for this event" can be changed, or replaced by a new one, until the event starts; it is fixed from round 1. Nothing is shared in the background. ("we shouldn't do things in the background or hidden … every step should be clear and visible.") |
+| D10 | **Round threads say whose canvas they are about**: "Round 1 · {owner}'s canvas, with {partner}". Amends P1592 D3 ("Round 2 · Anna & Ben"); P1592 owns the code. |
+| D11 | **No hand-made fallback** for canvas drafting or new versions. |
+| D12 | **Words:** Clarity Canvas owner, partner, observer. Not "reader". |
 
 ## Invariants
 
 - **Clarity Night and Social Hike are unchanged.** An event whose flow is not Sales Mastermind
   renders, seats and records exactly as today; their existing tests pass unchanged. An event with no
   series and no flow set gets Clarity Night's flow, as P1542 rules for recipes.
-- **A person scores only their own message.** In the understand phase only the owner's score counts;
-  in the challenge phase only the reader's. Enforced on the server, never by hiding a control.
-- **The challenge unlocks on the server's record of the owner's score**, never on the client's
-  slider position alone, so two phones never disagree on the phase.
+- **The app never stands between two people talking.** During a round, the attendee's screen shows
+  who they are with, their role and a link to the canvas. It asks for no input until the round ends.
 - **The flow is fixed once round 1 starts.** A switch after that is refused by the server.
 - **"Your canvas for this event" is one canvas per attendee per event**, fixed once round 1 starts.
   Changing it before then is visible to the owner and stops that canvas being shared with the event.
-- **Every round records which canvas version its reader opened.** Seating has no history
-  (`host_set_round_seats` deletes and re-inserts, P1592), so this is stored when the round starts and
-  never recomputed. It is what makes "did v2 read better than v1?" countable.
-- **Sharing never widens.** Readers reach a canvas only through its existing event share (P1515:
-  host plus people registered by 12 h after the start, decisions.md 2026-10-21). This spec adds no
-  reader and no read policy.
+- **Every round records which canvas version its partner opened**, when the partner opens it, and
+  never recomputes it. Seating has no history (`host_set_round_seats` deletes and re-inserts, P1592).
+  This, with the spoken numbers in the thread, is what makes "did v2 read better than v1?" countable.
+- **Sharing never widens.** Partners and observers reach a canvas only through its existing event
+  share (P1515: host plus people registered by 12 h after the start, decisions.md 2026-10-21). This
+  spec adds no reader and no read policy.
+- **Nothing is drafted, published or shared without the owner's tap.**
 - **Other people's words never appear in a canvas under their name** (P1536 invariant, carried).
 - **Any new surface that names a round uses `roundLabel` / `nextRoundLabel`** (decisions.md P1430
   ruling), never `Round ${roundNo}`.
@@ -106,10 +111,14 @@ event to Clarity Night's flow; recorded scores stay.
 
 ## Solution
 
-### 1. The flow belongs to the event, defaulted from its series (D7)
+### 1. The flow belongs to the event, defaulted from its series (D8)
 
 - Each event has a flow: Clarity Night, Social Hike or Sales Mastermind. The default comes from
-  `events.series_slug`; the host can change it in the event's settings until round 1 starts.
+  `events.series_slug`.
+- **The host's switch** is one row at the top of the host screen's existing settings (where group
+  size lives): "Event flow: {flow} ▾". Choosing another flow applies at once and shows a toast with
+  Undo; there is no Apply button (a disabled Apply would be a dead control, P955). The row is shown
+  until round 1 starts and is gone afterwards; the server refuses a switch after that.
 - A `sales-mastermind` series key exists. **The test event `sales-mastermind-test` has no series
   today** (`series_slug` is null, read on TEST 2026-10-30), so it would fall back to Clarity Night;
   setting it is part of this work.
@@ -117,7 +126,9 @@ event to Clarity Night's flow; recorded scores stay.
   how it selects the room and host screens is `/dev`'s call; prefer the option with fewer moving
   parts, as P1542 does.
 
-### 2. Before the event: "Your canvas for this event" (D8)
+`[FOUNDER DECISION: the row's label and the three flow names as the host sees them.]`
+
+### 2. Before the event: "Your canvas for this event" (D9, D5)
 
 The mastermind's preparation (the event room's preparation item, P1402 pages via the P1542 recipe):
 
@@ -130,171 +141,171 @@ The mastermind's preparation (the event room's preparation item, P1402 pages via
 3. Once done, the item reads "Your canvas for this event: {canvas name} · Change". **Change** lets
    the owner pick another of their canvases or start a new one; the previous canvas visibly stops
    being shared with this event. Available until round 1 starts.
+4. **Without a canvas, the item says you will join as an observer**, and what an observer does. Nobody
+   is turned away for not preparing.
 
-`[FOUNDER DECISION: the item's labels and the Change confirmation text.]`
+`[FOUNDER DECISION: the item's labels, the observer line, and the Change confirmation text.]`
 
-### 3. Seating: one owner, one reader, a new partner each round (D1, D2)
+### 3. Who is an observer (D5)
 
-- The host's preview seats the next round so that each table holds one owner and one reader, owners
-  alternate (a person who owned last round reads this round), and nobody repeats a partner. The
-  existing preview, Shuffle and "Tap two names to swap them" stay.
-- **Odd number:** one table seats a third person, who notes where the reader's paraphrase drifted
-  and hands the note to the owner. The host rotates this seat so nobody holds it twice in a session.
+- **Default:** an attendee with no canvas shared with this event is an observer.
+- **Host override:** on the host screen, each person has an Observer switch the host can flip either
+  way (someone who prepared but prefers to watch; someone whose canvas arrived late). The override is
+  per event and is shown in the seating preview.
+- Canvas holders become observers for one round only when the numbers force it (§4).
+
+### 4. Seating: one owner, one partner, a new partner each round (D1, D2, D5)
+
+- The host's preview seats the next round so that each table holds one owner and one partner, owners
+  alternate (a person who owned last round partners this round), and nobody repeats a partner.
+  Observers are spread across tables, at most two per table; a table with none is fine. The existing
+  preview, Shuffle and "Tap two names to swap them" stay.
+- **Odd number of canvas holders:** one canvas holder observes that round. The host rotates this so
+  nobody sits out twice in a session.
 - **Arithmetic the seating must honour:** four rounds with no repeated partner needs at least five
-  people. When the present group cannot meet every rule (too few people, someone left), the preview
-  names who misses an owning turn or repeats a partner, so the host decides; it never silently breaks
-  a rule.
+  canvas holders; observers do not count. When the present group cannot meet every rule (too few
+  people, someone left), the preview names who misses an owning turn or repeats a partner, so the
+  host decides; it never silently breaks a rule.
 - **Session 2 avoids session 1's partners.** "Haven't met yet" today remembers only rounds of the same
   event (run-of-show § Host and event room). The mastermind's partner history spans the previous
   session of the same series for the same people. How sessions are linked is `/dev`'s call.
-- Pairing by canvas content (largest disagreement on canvas points) is **not** in this spec. With a
-  new partner every round and every owner read twice, the chain does the work disagreement pairing
-  did for Clarity Night. The "disagreement gap" toggle is hidden in this flow.
-- Group size is 2 (3 for the odd table). The host's Clarity Night controls that have no meaning here
-  (topic per round, disagreement gap, recorders together) are hidden in this flow.
+- Pairing by canvas content is **not** in this spec; the chain does the work disagreement pairing did
+  for Clarity Night. The host's Clarity Night controls with no meaning here (topic per round,
+  disagreement gap, recorders together) are hidden in this flow. Group size is 2 plus observers.
 
-`/dev` builds the seating as a pure, unit-tested function, with fixtures for 5 to 12 people, odd and
-even, someone leaving mid-session, and session 2 against session 1's history.
+`/dev` builds the seating as a pure, unit-tested function, with fixtures for 5 to 12 canvas holders,
+odd and even, 0 to 6 observers, someone leaving mid-session, and session 2 against session 1's history.
 
-### 4. A round, as the attendees see it (D1, D3, D4)
+### 5. A round, as people see it (D1, D3)
 
-Each seated person sees their table's round:
+Each seated person sees, and nothing more during the round:
 
-- **Whose canvas this round is about**, and their role: "You're reading {owner}'s canvas" or
-  "{reader} is reading your canvas". The reader gets a link that opens the owner's newest published
-  version (P1515 phase 5: no version chosen opens the newest). The version opened is recorded
-  (Invariants).
-- **Understand.** Both see two sliders, as in `/live`. The owner moves theirs: "How well does
-  {reader} understand your canvas?" The reader may move theirs to say how well they think they
-  understand; it never unlocks anything (calibration data only).
-- **Allow challenge.** When the owner's recorded score is above 8, the owner gets **Allow challenge**.
-  Tapping it moves the table to the challenge, for both phones. The owner may also allow it later
-  than the first 9; it never unlocks by itself.
-- **Challenge.** The reader names the box they bet against and why. The sliders flip: the reader
-  scores how well the owner understood the challenge. Above 8 closes the challenge ("Understood").
-- **The round ends on the host's clock**, in either phase. A table that never reached the challenge
-  shows "Round over" like any other; nothing reads as failure.
-- Scores are written when a slider is released, not while it moves.
+- **Their role and whose canvas it is**: "You're the owner: {partner} is your partner", "You're
+  {owner}'s partner", or "You're observing {owner}'s canvas with {partner}".
+- **For the partner and observers, a link** that opens the owner's newest published version (P1515
+  phase 5: no version chosen opens the newest). The version opened is recorded (Invariants).
+- **A one-line reminder of the rules** for their role, as on the lanyard cards.
 
-This replaces the half-time speaker swap in this flow. Reusing the `first`/`second` roles for owner
-and reader, or adding roles, is `/dev`'s call.
+The half-time speaker swap does not apply in this flow: the owner and partner swap speaker and listener
+themselves, as often as the rules need. The round's observer time is the observer's feedback (about two
+minutes). The round ends on the host's clock. Reusing the `first`/`second`/`observer` roles for owner,
+partner and observer is `/dev`'s call.
 
-`[FOUNDER DECISION: the slider questions, "Allow challenge", "Understood" and the round-over line.]`
+`[FOUNDER DECISION: the three role lines and the rule reminders.]`
 
-### 5. After the owner's round: the next version (D5, D6)
+### 6. After the owner's round: the next version (D6, D7)
 
 - When a round ends, its owner sees **Make my next version** (one tap, visible; nothing starts by
   itself). It hands the owner's mirror the round's thread (P1592) as material and drafts from the
   owner's newest version, using P1536's fast path ("make your own decisions", ending with "What I
   decided on my own"; P1536 v6 names this "the event's between-rounds path").
-- The owner then goes to read someone else's canvas in the next round; the draft is ready by the
-  break.
-- **At the break**, the owner's screen shows one task: **read your new version, mark your stance on
-  each box that changed, publish**. "Changed" uses P1536's per-box Changed mark. Publish is P1536's
-  Publish. The next reader opens the published version.
-- An owner who does not publish keeps their current version; their next reader reads that. Nothing
+- The owner then partners on someone else's canvas in the next round; the draft is ready by the update
+  step.
+- **At the update step** (between rounds 2 and 3), the owner's screen shows one task: **read your new
+  version, mark your stance on each box that changed, publish**. "Changed" uses P1536's per-box Changed
+  mark. Stances are marked on the draft (D7). Publish is P1536's Publish. The next partner opens the
+  published version.
+- An owner who does not publish keeps their current version; their next partner reads that. Nothing
   publishes on its own.
-- Round 2's owners tap after round 2, as the break starts; the fast path is meant for that window
-  (P1536: "2.5-hour event: no time for a slow pass").
+- Round 2's owners tap as round 2 ends; the fast path is meant for that window (P1536: "2.5-hour event:
+  no time for a slow pass").
 
-### 6. The host's screen (D7)
+### 7. The host's screen (D8, D5)
 
-- Per table: owner, reader, phase (understanding / challenge / understood), the latest score.
+- Settings before round 1: the flow row (§1), observer overrides (§3).
+- Per table during a round: owner, partner, observers.
 - Controls kept from today: seating preview, Start round, Extend, End rounds, mark someone left.
-- A break state between rounds 2 and 3 that tells owners to publish, and shows the host how many
-  owners have published.
-- After the session, the host's results list per owner: first understand-score per round with the
-  version read. This is the evening's measurement (§ Measurement).
+- The update step between rounds 2 and 3: how many owners have published; the host starts round 3
+  when ready.
 
-### 7. Round thread names (D9)
+### 8. Round thread names (D10)
 
-The round's thread title carries the owner: "Round 1 · {owner}'s canvas, with {reader}". P1592 builds
+The round's thread title carries the owner: "Round 1 · {owner}'s canvas, with {partner}". P1592 builds
 round threads and is in `/dev` (worktree w5); this spec does not change P1592's code. The amendment is
-recorded in P1592's spec by whichever lands second.
+recorded in P1592's spec by whichever lands second. Observers are thread members, as P1592 already
+rules for everyone seated.
 
 ### Measurement
 
 What the evening produces, read by a founder-only script (same pattern as
 `scripts/event-close-results.sh`):
 
-- Per owner: the first understand-score on v1 (their first owned round) and on v2 (their second),
-  with the version each reader opened. Goal 3a's "fewer explain-back tries" becomes countable inside
-  one session.
+- Per owner: which version each partner opened, per round.
 - Per owner: how many changed boxes carry the owner's own stance at publish.
-- Per table: whether the challenge was reached.
+- **Not here:** the spoken numbers. They stay in the round threads and are counted later through P1390
+  (D4), against the versions recorded above.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Session 1 is ~11 days away and this sits on P1536 (in `/dev`, w1), P1592 (in `/dev`, w5) and P1542 (spec) | MITIGATE | Build order: flow switch + seating + round screen first, then the break step. If P1542 has not shipped, the "Your canvas" item lives in the mastermind's event room directly and moves into the recipe later. |
-| The owner cannot set a stance on a draft before Publish (P1536 v6 does not say) | MITIGATE | `/dev` verifies against w1's build first. If drafts cannot hold stances, the break order becomes Publish, then mark stances, before the next round starts. UNVERIFIED. |
+| Session 1 is ~11 days away and this sits on P1536 (in `/dev`, w1), P1592 (in `/dev`, w5) and P1542 (spec) | MITIGATE | Build order: flow switch, observers and seating first (no dependency), then the round screen, then the next-version tap and update step. If P1542 has not shipped, the "Your canvas" item lives in the mastermind's event room directly and moves into the recipe later. |
+| Owners mark stances on a draft and the build does not support it | MITIGATE | DB level already admits the owner's draft points (`_canvas_point_in_canvas`, w1 `20261029100000`); UI and the reword rule asked of P1536 on 2026-10-30. UNVERIFIED until its answer. |
 | P1536's engine cannot take a round thread as material directly (v6 says "either speed can take, as material, a thread elsewhere that the owner can read") | MITIGATE | `/dev` verifies the call in w1. If missing, it is added to P1536's engine, not rebuilt here. UNVERIFIED. |
-| An owner unlocks the challenge at 9 to be polite | ACCEPT | No build can tell politeness from understanding. The reader's own slider shows the gap. |
-| A draft is not ready by the break | MITIGATE | The tap is offered the moment the owner's round ends; the break shows "still drafting" and the owner can publish at the next seating. |
-| Odd numbers and leavers break the chain's rules | MITIGATE | The preview names every rule it cannot meet; the host decides. |
+| People do not say their number out loud, so the evening cannot be measured later | MITIGATE | The host's opener and the observer remind them; the lanyard cards carry the line. |
+| A pair breaks the rules (two speakers, challenging too early) | ACCEPT | The observer's job; tables without an observer rely on the pair. The founder chose spoken rules over app enforcement. |
+| A draft is not ready by the update step | MITIGATE | The tap is offered the moment the owner's round ends; the update step shows "still drafting" and the owner can publish at the next seating. |
+| Odd numbers, many observers and leavers break the chain's rules | MITIGATE | The preview names every rule it cannot meet; the host decides. |
 | Session 2 is online, and the room assumes people at physical tables | DEFER | Open Questions 1. Session 1 does not depend on it. |
-| Readers see a canvas mid-edit | ACCEPT | Readers open the published version; drafts are private to the owner (P1536). |
-| Scores invite gaming the measurement | ACCEPT | The evening tests whether the features work, not willingness to pay (goals.md 3a, 2026-10-27). |
+| Partners see a canvas mid-edit | ACCEPT | They open the published version; drafts are private to the owner (P1536). |
 
 **Non-Goals**
+- Do NOT add sliders, scores, an "allow challenge" control or any phase tracking to the round (D3).
 - Do NOT change Clarity Night's or Social Hike's room, host screen, seating or close.
 - Do NOT pair by canvas content or add a disagreement score on canvas points.
 - Do NOT score automatically from the transcript (P1390).
-- Do NOT build the homework path outside the event (P1500), the drafting engine or Publish (P1536),
-  or round threads (P1592).
+- Do NOT build the homework path outside the event (P1500), the drafting engine, Publish or stances on
+  drafts (P1536), or round threads (P1592).
 - Do NOT publish, share or start a draft without the owner's tap.
 - Do NOT allow switching the flow, or the event's canvas, after round 1 starts.
 
 ## Cost Budget
 
-Drafting runs are Gemini calls through P1536's canvas key; scores are database writes over Realtime.
-Per run, this uses P1536 v6's estimate from the public price list, ≈ $0.10 (UNVERIFIED; P1536's
-`/dev` owns the real reading, kept with P1536).
+Drafting runs are Gemini calls through P1536's canvas key. Per run, this uses P1536 v6's estimate from
+the public price list, ≈ $0.10 (UNVERIFIED; P1536's `/dev` owns the real reading, kept with P1536).
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
 | Drafting runs | 2 owned rounds x (1 draft + up to 2 corrections) = up to 6 runs per session | 12 owners x 6 runs / 2.4 h ≈ 30 runs | 0 (model stubbed in e2e) |
 | Gemini cost | 6 runs x $0.10 = $0.60 per session | 30 runs x $0.10 = $3.00 | $0 |
-| Score writes | 4 rounds x ~10 slider releases = ~40 | 12 people x 40 / 2.4 h = 200 | ~40 per seeded table |
-| Realtime messages | ~40 writes x 2 phones at the table = ~80 | 200 x 2 = 400 | ~80 |
+| Database writes | flow, observer flag, event canvas, 4 version-opened rows ≈ 7 | 16 people x 7 / 2.4 h ≈ 47 | ≈ 7 per seeded attendee |
 
 1. **Fits the plan limit today?** Gemini lists a price and no cap: a session of 12 owners is
    12 x $0.60 = $7.20, two sessions $14.40, against the canvas key's spend cap proposed in P1536 (kept
-   with P1536). Fits. Supabase: 400 realtime messages an hour against the 2 million a month limit
-   (400 x hours per month of events) fits; the organisation's current reading is in the registry's
-   "Where usage is read".
+   with P1536). Fits. Supabase: a few dozen writes an hour, no new Realtime traffic beyond what the
+   room already sends.
 2. **Fits at 10x?** 120 owners x $0.60 = $72 per session: fits under P1536's proposed cap for one
    session; two sessions at 10x approach it, and the cap's existing "capped" reply pauses drafting.
-   Realtime at 10x is 4,000 an hour: fits.
 3. **Failure cost:** a failed run is charged as P1536 rules; retries are new runs, counted above as
    corrections.
 
 ## Acceptance Criteria
 
-Checked on TEST with a Sales Mastermind event, the host account and at least five attendee accounts.
+Checked on TEST with a Sales Mastermind event, the host account, at least five attendee accounts with
+canvases and two without.
 
 - [ ] An event in the `sales-mastermind` series opens the mastermind flow; a Clarity Night event and a
       Social Hike event open exactly as before (screenshots of each, and existing tests green).
-- [ ] The host switches an event's flow before round 1; after round 1 starts, the switch is refused.
+- [ ] The host changes an event's flow from the host screen before round 1, with Undo; after round 1
+      starts, the row is gone and a direct call is refused.
 - [ ] An attendee drafts a canvas from preparation, publishes it, and shares it with the event, each as
       its own tap; the item then reads "Your canvas for this event: {name} · Change".
 - [ ] Changing the canvas before the start stops the old one being shared with the event; after round 1
       starts, Change is gone.
-- [ ] Six attendees, four rounds: every table has one owner and one reader, owners alternate, nobody
-      repeats a partner. Five attendees: the odd table seats a third person, rotated.
-- [ ] Each seated person sees whose canvas the round is about and their role; the reader's link opens
-      the owner's newest published version.
-- [ ] The challenge is unavailable until the owner's recorded score is above 8; "Allow challenge" moves
-      both phones to the challenge; the reader's slider then closes it.
-- [ ] A reader's slider cannot unlock the challenge, and an owner's slider does not count in the
-      challenge (server-side, checked by direct call).
-- [ ] The round ends on the host's clock in either phase, with no failure wording.
-- [ ] After their round, an owner taps "Make my next version"; at the break they see the draft, the
-      changed boxes, mark a stance on each, and publish; the next reader opens that version.
-- [ ] The round thread is titled "Round 1 · {owner}'s canvas, with {reader}".
-- [ ] The host sees per table owner, reader, phase and latest score, and at the break how many owners
-      have published.
+- [ ] An attendee without a canvas sees that they will join as an observer; the host flips one observer
+      to participant and one participant to observer, and the preview follows.
+- [ ] Six canvas holders and two observers, four rounds: every table has one owner and one partner,
+      owners alternate, nobody repeats a partner, observers are spread at most two per table. Five
+      canvas holders: one sits out as observer each round, rotated.
+- [ ] During a round each person sees only their role, whose canvas it is, the rule reminder, and (for
+      partners and observers) a link that opens the owner's newest published version. Nothing asks for
+      input.
+- [ ] After their round, an owner taps "Make my next version"; at the update step they see the draft
+      and its changed boxes, mark a stance on each on the draft, and publish; the next partner opens
+      that version.
+- [ ] The round thread is titled "Round 1 · {owner}'s canvas, with {partner}".
+- [ ] The host sees owner, partner and observers per table, and at the update step how many owners have
+      published.
 - [ ] Session 2 (a second event of the series with the same attendees) seats nobody with a session-1
       partner when the group allows it.
 
@@ -302,32 +313,37 @@ Checked on TEST with a Sales Mastermind event, the host account and at least fiv
 
 - [ ] All Acceptance Criteria ticked with evidence (screenshots at 375px, 320px and desktop, plus query
       output).
-- [ ] The seating function's fixtures pass: 5-12 people, odd and even, a leaver, session-2 history.
-- [ ] The results script prints, per owner, the first understand-score on each version read and the
-      stance count at publish, on a seeded TEST session.
-- [ ] The two UNVERIFIED P1536 dependencies (stances on a draft; a round thread as material) are
-      resolved and the outcome recorded here.
+- [ ] The seating function's fixtures pass: 5-12 canvas holders, odd and even, 0-6 observers, a leaver,
+      session-2 history.
+- [ ] The results script prints, per owner, the version each partner opened and the stance count at
+      publish, on a seeded TEST session.
+- [ ] The two P1536 dependencies (stances on a draft with the reword rule; a round thread as material)
+      are resolved and the outcome recorded here.
 - [ ] `sales-mastermind-test` carries the `sales-mastermind` series on TEST. `[post-deploy]` the prod
       event is created in the series.
-- [ ] The P1592 thread-title amendment (D9) is recorded in P1592's spec.
+- [ ] The P1592 thread-title amendment (D10) is recorded in P1592's spec.
+- [ ] P1390 carries a note that the mastermind's spoken scores are its first real input (D4).
 
 ## Open Questions
 
 1. **Session 2 is online.** How do pairs talk, and do they use the event room on their phones next to a
    video call? Changes whether the round screen needs a "join the call" link and whether lavalier
    transcription works at home. `[FOUNDER DECISION]` Not needed for session 1.
-2. **Which goal 3a signal to keep.** "Their canvas changed between the sessions" now moves almost by
-   itself, because the mirror drafts the change during the session. Candidate replacements this spec
-   makes countable: owners mark their stance on most changed boxes, and the first score on v2 is
-   higher than on v1 in the same evening. `[FOUNDER DECISION]` (raised 2026-10-30; goals.md unchanged
-   until ruled).
+2. **Do observers wear a lavalier?** Recommended yes: their feedback minutes then reach the owner's
+   round thread and the next version. Costs one lavalier per observer. `[FOUNDER DECISION]`
+3. **Which goal 3a signal to keep.** "Their canvas changed between the sessions" now moves almost by
+   itself, because the mirror drafts the change during the session. Candidate replacements: owners mark
+   their stance on most changed boxes, and the first spoken number on v2 is higher than on v1 in the
+   same evening. `[FOUNDER DECISION]` (raised 2026-10-30; goals.md signal unchanged until ruled).
 
 ## Related
 
 - Run-of-show: `docs/events/sales-mastermind.md` (rewritten 2026-10-30). Goal: `docs/goals.md` 3a.
-- P1536 canvas drafting, versions, Publish (design v6 on branch `feature/p1536-canvas-draft-versions`).
-- P1592 transcripts land in round threads (D9 amends its D3).
+- P1536 canvas drafting, versions, Publish, stances on drafts (design v6 on branch
+  `feature/p1536-canvas-draft-versions`).
+- P1592 transcripts land in round threads (D10 amends its D3).
 - P1542 per-series prepare and close recipes (the mastermind as the third recipe).
 - P1500 the homework path outside the event (narrowed 2026-10-30).
+- P1390 scores and turns from the transcript (later; D4).
 - P1515 sharing a canvas with an event · P1508 Clarity Canvas · P1337 event rounds · P1430 round labels
-  and preview · P1390 scores from the transcript (later) · P1574 partner story requests.
+  and preview · P1574 partner story requests.

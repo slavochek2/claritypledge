@@ -28,85 +28,101 @@ Stated at registration and on the event page, before anyone comes. Not opt-in at
    ([P1536](../../features/p1536_canvas_first_draft_from_owner_material.md)), you publish it, and you
    share it with the event as its own visible step. You can change which canvas you bring until the
    event starts; from round 1 it is fixed. No hand-drafted fallback (founder, 2026-10-30).
+   **Without a canvas you join as an observer** (founder, 2026-10-30), which also welcomes the
+   curious and mentors.
 
 ## Format
 
 Two sessions, same group: session 1 in person, session 2 online two weeks later. Both run the same
 loop, and both make a new canvas version between rounds (founder, 2026-10-30).
 
-**One canvas per round, a new partner every round** (founder, 2026-10-30). Each table has one owner
-and one reader. Each person alternates: owner in one round, reader of someone else's canvas in the
-next. Over four rounds everyone owns twice and reads twice, with four different people, so one weak
-match touches a quarter of the evening, and every version is read by someone who has not seen it.
-Needs at least five people so nobody repeats a partner. With an odd number, one table seats a third
-person (see *The third person*).
+**Three roles** (founder, 2026-10-30):
 
-### The loop — one canvas (owner A, reader B), about 24 minutes
+- **Clarity Canvas owner**: the round is about their canvas. Speaker first.
+- **Partner**: listener first; once they understand the canvas, they may challenge it.
+- **Observer**: anyone who comes without a canvas (curious, a mentor, or unprepared), and canvas
+  holders sitting out a round when numbers are odd. Keeps the pair to the rules and gives critical
+  feedback on content and on communication at the end of the round. A table may have none, one or
+  two observers.
 
-The round is split by the score, not by the clock (founder, 2026-10-30). The host's clock ends the
-round either way; a pair that never reaches the challenge has learned that the canvas does not read
-yet, which is the next version's best input.
+**One canvas per round, a new partner every round.** Each person with a canvas alternates: owner in
+one round, partner on someone else's canvas in the next. Over four rounds everyone with a canvas owns
+twice and partners twice, with four different people, so one weak match touches a quarter of the
+evening, and every version is read by someone who has not seen it. Needs at least five people with a
+canvas so nobody repeats a partner; observers do not count toward that.
+
+### The rules (spoken, not in the app)
+
+The rules are the host's to explain and the observer's to keep, with the speaker / listener lanyard
+cards from Clarity Night. Nothing in the app scores, unlocks or enforces them (founder, 2026-10-30:
+the `/live` sliders were hard to follow and people wanted to talk to each other, not to the app).
+
+- One speaker and one listener at a time, never two of either. The cards show who is which.
+- The partner may challenge only after the owner says the partner understands the canvas **above 8
+  out of 10**.
+- **Say your number out loud** ("I'm at a 7"). The transcript keeps every score, so the evening can be
+  measured later from the round threads (P1390), not from the app.
+- The owner can take the speaker card back at any time ("I think you're missing something"). Then the
+  pair is back in understanding until the owner says above 8 again.
+- In a challenge, the owner explains back the partner's reason until the **partner** says above 8.
+
+### The loop — one canvas (owner A, partner B), about 24 minutes
 
 | Step | What happens | Min |
 |---|---|---|
-| 1 | B reads A's canvas silently and marks **every box B would bet against** (one or more). The pair picks which disagreement to discuss: B can propose, A has the final say (*founder, 2026-10-30*). | 4 |
-| 2 | **Understand.** B explains back what B understood. A corrects; B paraphrases again. A scores B's understanding 0-10 each time. | until A's score is above 8 |
-| 3 | **Challenge**, unlocked by A's score above 8. B says why B bets against the chosen box. A explains back B's reason until **B** scores it above 8. | the rest of the round |
+| 1 | B reads A's canvas silently and marks **every box B would bet against** (one or more). The pair picks which disagreement to discuss: B can propose, A has the final say (*founder, 2026-10-30*). A, meanwhile, reads their own new version if this is their second round as owner. | 4 |
+| 2 | **Understand.** A speaks, B listens and explains back. A corrects and says a number each time. | until A says above 8 |
+| 3 | **Challenge.** B speaks: why B bets against the chosen box. A explains back B's reason until **B** says above 8. A can take the speaker card back at any time. | the rest of the talk |
+| 4 | **Observer feedback**: where the rules slipped, and one thing on content or communication. | 2 |
 
-Each person scores only the message that was theirs: A scores the understanding of the canvas, B the
-understanding of the challenge. Scores are entered in the room on a slider (reusing `/live`'s), so
-they are recorded, not only spoken (P1529).
-
-Reading comes first on purpose: the first score shows whether the **written** canvas works without
+Reading comes first on purpose: the first number shows whether the **written** canvas works without
 its owner, and every gap is a place to fix in the next version.
 
-### The new version (between rounds)
+### The new version
 
-While the round runs, the words land in the round's thread. A's mirror drafts the next version from
-that thread. At the break, A reads the new version, marks their own stance on every box that
-changed, and publishes it. A's next reader opens that version. A stance on each changed box is A's
-signature on what the mirror wrote: nobody reads, and scores, a claim the owner never stood behind.
-
-### The third person (odd number only)
-
-One table seats a third person, who writes down the words where the reader's paraphrase drifted from
-what the owner meant and hands the note to the owner. The host rotates this seat so nobody holds it
-twice.
+When their round ends, A taps **Make my next version** in the event room. A's mirror (Clarity
+Pledge's AI) drafts it from the round's thread while A partners on someone else's canvas. At the
+update step, A reads the new version, marks their own stance on every box that changed, and publishes
+it; A's next partner opens that version. A stance on each changed box is A's signature on what the
+mirror wrote: nobody reads a claim the owner never stood behind. Stances can be marked on the draft
+before publishing; a box the mirror rewords later loses its stance and shows as changed again, with no
+notification (founder, 2026-10-30; P1536 confirms its build).
 
 ## Run-of-show — session 1, about 2h25
 
 | | Min |
 |---|---|
-| Opener: the meeting principle, recording check, one 90-second explain-back demo with a volunteer | 12 |
+| Opener: the roles and rules, the lanyard cards, recording check, one 90-second explain-back demo with a volunteer | 12 |
 | Seating | 2 |
-| Round 1 (half the room owns) | 24 |
+| Round 1: half the canvas holders own, half partner | 24 |
 | Seating (new partner) | 2 |
-| Round 2 (the other half owns) | 24 |
-| Break: read your new version, mark your stance on each changed box, publish | 12 |
+| Round 2: the other half own | 24 |
+| Update your canvas: read the new version, mark your stance on each changed box, publish | 12 |
 | Seating (new partner) | 2 |
-| Round 3 (round 1's owners, on their new version) | 24 |
+| Round 3: round 1's owners, on their new version | 24 |
 | Seating (new partner) | 2 |
-| Round 4 (round 2's owners, on their new version) | 24 |
+| Round 4: round 2's owners, on their new version | 24 |
 | Close: **everyone**, 30-40 seconds: one canvas change and one real-customer test before session 2 | 10 |
 | Exit card (private, paper) | 5 |
 | Next session date, said while everyone is in the room | 2 |
 | **Total** | **145** |
 
-Round 2's owners get their new version drafted from round 2 and review it at the same break, so
-every owner's second reader (rounds 3 and 4) reads the new version.
+Round 1's owners' drafts are ready during round 2; round 2's owners tap as round 2 ends. Everyone
+updates at the same step, so every owner's second partner (rounds 3 and 4) reads the new version.
 
 **Exit card**, three lines: my first impression of one person here · what changed it · will I come
 back. [FOUNDER DECISION: exact wording.]
 
 ## Host and event room
 
-The mastermind gets its own event-room and host flow, chosen by the series, with a per-event switch
-before the event starts; Clarity Night's flow stays as it is
+The mastermind gets its own event-room and host flow, chosen by the series, with a per-event switch on
+the host screen until round 1 starts; Clarity Night's flow stays as it is
 ([P1529](../../features/p1529_canvas_event_host_coordination.md), building on P1542's per-series
-steps; founder, 2026-10-30). It covers: the preparation item (draft, publish, share with the event,
-change canvas until the start), rounds that alternate owner and reader with a new partner each time,
-whose canvas each round is about, the score sliders that unlock the challenge, and the break step
-above.
+steps; founder, 2026-10-30). It covers: the preparation step (draft, publish, share with the event,
+change canvas until the start; no canvas means observer), seating that alternates owner and partner
+with a new partner each time and spreads observers, the host's per-person observer override, whose
+canvas each round is about, the "Make my next version" tap, and the update step. **No scores in the
+app.**
 
 Today's host screen, for reference: "Disagreement gap" has no data (the room reads only public points
 carrying the event tag, `src/app/data/compare-service.ts`, not canvas positions); "Haven't met yet"
@@ -120,8 +136,8 @@ channel, and make another version before session 2
 ([P1500](../../features/p1500_clarity_chat_canvas_from_event_threads.md): pick the thread from the
 canvas chat). No hand-made fallback.
 
-**Host, between sessions** (by hand, `UNTESTED`, founder 2026-10-30): read the round threads, the
-scores and each new version, and find 2-3 boxes that changed after a reader's reason was explained
+**Host, between sessions** (by hand, `UNTESTED`, founder 2026-10-30): read the round threads (with the
+numbers people said out loud) and each new version, and find 2-3 boxes that changed after a reader's reason was explained
 back and scored above 8 by that reader. **Session 2 opener:** name those reasons and the readers who
 gave them. Watch whether those readers are pleased and the room leans in. This tests whether
 recognising reasons that changed a canvas is worth building (supersede reason in
