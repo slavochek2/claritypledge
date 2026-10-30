@@ -128,3 +128,5 @@ audience.
 - [p1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md) — supplies round, table, role and membership, which is the join key for everything here
 - [p1388](p1388_transcribe_consent_controls.md) — the capture quality this depends on
 - [p1061](p1061_point_position_movement_analytics.md) — position movement, measured rather than derived
+- [p1574](p1574_canvas_partner_story_requests.md) — why a canvas point changed and whose reason it was; uses this spec's numbers and draft stories
+- [p1559](p1559_follow_through_record.md) — recognising reasons that changed a canvas; the value chain and its falsifier live there

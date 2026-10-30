@@ -49,8 +49,13 @@ Sketch only (replaces the 2026-10-26 approve/correct/decline request).
   can open a replaced point and read it.
 - **It can point to a partner's reason**: the round thread, who gave the reason, and the number the
   partner said for the owner's explain-back (read from the transcript, P1390).
-- **No extra confirmation.** The partner already confirmed in the room; the owner publishes the
-  version anyway. Every added confirmation is a demand on users with no value named yet.
+- **The link needs no confirmation; a story in the partner's name does.** "Changed after Ben's reason
+  in round 2" only points to the round thread, which the partner can already read, so it is public
+  with the canvas. A *written story* under Ben's name is different: in the room Ben confirmed Anna's
+  spoken explain-back, not the mirror's wording. Until Ben confirms the wording it is **"Ben in
+  Anna's eyes"**, private to Anna, with the naming and visibility already decided in
+  [P1458](p1458_clarity_chat_agents_on_other_people.md) (decisions.md 2026-10-12). This matches
+  P1390's "do not publish any derived story without the person confirming it".
 - **Purpose: recognition.** It is what P1559 needs to show "your reason changed this canvas", and the
   data for H-StoryFirst. Value test before building: the host does it by hand at the session 2
   opener (docs/events/sales-mastermind.md, Between sessions).
@@ -82,7 +87,7 @@ point when it is superseded.
 
 ## Open Questions
 
-1. Does the partner's reason become a story on the canvas, or stay a link to the round thread? (Overlaps P1390 stage 1, "draft stories, filed for approval".)
+1. How does the confirmation request reach the partner: from the partner's **own** mirror in their own chat (no one else's agent writes to them), in the pair's chat sent by the owner, or only shown on the canvas for the partner to confirm when they open it? Decide after the session 2 opener shows recognition is worth it. (Drafting overlaps P1390 stage 1, "draft stories, filed for approval".)
 2. Does the owner also file their own stories this way, so verified understanding can be compared with position moves?
 3. Does the partner get told ("your reason changed Anna's pricing"), or only see it in P1559?
 
@@ -92,4 +97,5 @@ RELATED: [P1536](p1536_canvas_first_draft_from_owner_material.md) canvas draft v
 P1467 / [P1469](p1469_clarity_chat_letter_loop_v6.md) letter loop ("Would you say this?") ·
 [P1390](p1390_room_audio_fills_live_from_the_transcript.md) numbers and stories from the transcript ·
 [P1559](p1559_follow_through_record.md) recognition · P800 supersede ·
+[P1458](p1458_clarity_chat_agents_on_other_people.md) "Alice in Bob's eyes" (naming, visibility; prototyped in P1437 v5) ·
 [P1500](p1500_clarity_chat_canvas_from_event_threads.md) · P1515 sharing
