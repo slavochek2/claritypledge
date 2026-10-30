@@ -61,6 +61,29 @@ sees follow-through recognised, by name or as a total (founder decision below).
 [FOUNDER DECISION: the team sees names of who answered, or a total only ("4 answered this week").]
 [FOUNDER DECISION: what counts as answered: any reply, setting a position, or answering a letter.]
 
+### Why recognition matters: celebrating reasons that changed a canvas (`UNTESTED`, founder 2026-10-30)
+
+At an event, the ledger can also recognise the people whose reasons changed someone else's mind:
+"Ben's reason about yearly billing changed Anna's pricing box, after Anna explained it back and Ben
+said 9." The chain:
+
+1. Reasons and numbers are filed: the words from the round threads (P1592), the numbers people said
+   out loud (P1390), and why a point changed with whose reason it was (P1574).
+2. The room, or the host's screen, shows whose reasons moved the most canvases.
+3. People are celebrated for the behaviour, so the room sees that verifying understanding works.
+4. Side effect: data for H-StoryFirst (does verified understanding of a reason move positions?).
+
+This is the theory of change's third constraint, "group recursive understanding": participants see
+**each other's** shifts, and "when the room sees its own aggregate delta, the social norm inverts"
+(theory-of-change.md). The founder's further bet: a room that sees it work is more likely to carry the
+practice outside the room (H-NormFlip; H-ProtocolSpreadsWithoutTool). Related: P1061 (position
+movement analytics).
+
+**Falsifier, by hand, before building:** at the sales mastermind's session 2 opener the host names 2-3
+reasons that changed a canvas (docs/events/sales-mastermind.md, Between sessions). If the people named
+are not pleased and the room does not lean in, this chain is wrong and none of P1574 / P1390-for-this
+/ this view is urgent.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
