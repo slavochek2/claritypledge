@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 1
 workstream: events
@@ -10,6 +10,7 @@ pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-10-30
 ---
 
 # P1595: Event room polish and the registered page
