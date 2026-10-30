@@ -7,6 +7,7 @@
  */
 
 import { hostIsPublic, type Resolver } from './canvas-hosts.ts';
+import { anySignal } from './abort-signals.ts';
 
 // ── Caps (blueprint section 6) ──────────────────────────────────────────────
 
@@ -78,6 +79,8 @@ export interface LinkDeps {
   fetch: (url: URL, init: RequestInit) => Promise<Response>;
   resolve: Resolver;
   timeoutMs?: number;
+  /** The run's deadline, on top of this read's own timeout. */
+  signal?: AbortSignal;
   maxBytes?: number;
   maxRedirects?: number;
 }
@@ -135,7 +138,7 @@ async function refusalFor(url: URL, resolve: Resolver): Promise<LinkFailure | nu
  */
 export async function readLinkText(raw: string, deps: LinkDeps): Promise<LinkResult> {
   const maxRedirects = deps.maxRedirects ?? MAX_REDIRECTS;
-  const signal = AbortSignal.timeout(deps.timeoutMs ?? LINK_TIMEOUT_MS);
+  const signal = anySignal(deps.signal, AbortSignal.timeout(deps.timeoutMs ?? LINK_TIMEOUT_MS));
   let url: URL;
   try { url = new URL(raw); } catch { return { ok: false, reason: 'invalid' }; }
   for (let hop = 0; hop <= maxRedirects; hop++) {

@@ -14,46 +14,18 @@
  * Pure: no Deno or esm.sh imports.
  */
 
-import { costUsd, type GeminiUsage } from './mirror-agent.ts';
+import { readJson } from './canvas-read.ts';
 import {
   BOX_TAGS, MAX_DECIDED, MAX_NOTE_CHARS, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, titleOf,
 } from './canvas-draft.ts';
 import { BOX_DEFINITIONS, emptyQuestionFor } from './canvas-box-definitions.ts';
+import { effectiveScope, readExtras } from './canvas-extras.ts';
 import { clean, cutChars, normalizeForQuote, ownerHaystack, quoteIsOwnerSourced } from './canvas-source.ts';
 import { derivedNames, namesMatcher } from './canvas-names.ts';
 import { numbersIn, numbersSupported, sharesWords } from './canvas-support.ts';
 import type {
-  BasePoint, Decided, DraftCounts, DraftOutcome, DraftPoint, Failure, ParseContext, ResolvedAction,
+  BasePoint, Decided, DraftCounts, DraftOutcome, DraftPoint, ParseContext, ResolvedAction,
 } from './canvas-types.ts';
-
-// ── The model's JSON ────────────────────────────────────────────────────────
-
-const BLOCKED_FINISH = ['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'RECITATION'];
-
-interface RawResponse {
-  promptFeedback?: { blockReason?: string };
-  candidates?: Array<{ finishReason?: string; content?: { parts?: Array<{ text?: unknown; thought?: unknown }> } }>;
-  usageMetadata?: GeminiUsage;
-}
-
-function answerText(r: RawResponse): string {
-  const parts = r.candidates?.[0]?.content?.parts ?? [];
-  return parts.filter((p) => p && p.thought !== true && typeof p.text === 'string').map((p) => p.text as string).join('').trim();
-}
-
-function readJson(response: unknown): { ok: true; parsed: unknown; costUsd: number | null } | Failure {
-  const r = (response ?? {}) as RawResponse;
-  const cost = costUsd(r.usageMetadata);
-  const finish = r.candidates?.[0]?.finishReason;
-  if (r.promptFeedback?.blockReason || (finish && BLOCKED_FINISH.includes(finish))) return { ok: false, code: 'blocked', costUsd: cost };
-  const text = answerText(r);
-  if (!text) return { ok: false, code: 'empty', costUsd: cost };
-  try {
-    return { ok: true, parsed: JSON.parse(text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')), costUsd: cost };
-  } catch {
-    return { ok: false, code: 'unparsable', costUsd: cost };
-  }
-}
 
 // ── Building the version ────────────────────────────────────────────────────
 
@@ -69,6 +41,11 @@ interface Acc {
   dropped: number;
   droppedUnverified: number;
   droppedNames: number;
+  droppedScope: number;
+  /** New or moved points refused because the box was already full once the points that stay were counted. */
+  droppedCap: number;
+  /** Boxes a drop removed a point from. */
+  changed: Set<string>;
 }
 
 interface Ctx {
@@ -80,11 +57,16 @@ interface Ctx {
   numbers: ReadonlySet<string>;
   /** Draft points an earlier run made from a base point (a reword or a move), by that base point's id. */
   derived: ReadonlyMap<string, DraftPoint>;
+  /** The boxes this run may change. */
+  scope: ReadonlySet<string>;
+  /** Boxes rebuilt by this run: their current points are not kept. */
+  rebuild: ReadonlySet<string>;
 }
 
 const newAcc = (): Acc => ({
   actions: [], decided: [], counts: { kept: 0, reworded: 0, moved: 0, added: 0, dropped: 0 },
   perBox: new Map(), statements: new Set(), addressed: new Set(), dropped: 0, droppedUnverified: 0, droppedNames: 0,
+  droppedScope: 0, droppedCap: 0, changed: new Set(),
 });
 
 const sameText = (a: string, b: string) => normalizeForQuote(a) === normalizeForQuote(b);
@@ -104,6 +86,16 @@ function linkNote(old: BasePoint, box: string, how: string, from: string): Decid
   return { kind: 'link', text: old.is_head === false ? text : text.replace('{from}', () => from) };
 }
 
+/** A point the run may keep: in scope, and not in a box this run rebuilds. */
+const keepable = (ctx: Ctx, p: BasePoint) => ctx.scope.has(p.box) && !ctx.rebuild.has(p.box);
+
+/**
+ * Room left in a box: its cap, less the points placed so far, less the current points no action has named yet (they stay unless an action
+ * replaces them, so they hold their place). When the box is full the NEW or MOVED point loses, and is counted.
+ */
+const roomIn = (acc: Acc, ctx: Ctx, box: string) =>
+  MAX_POINTS_PER_BOX - countIn(acc, box) - [...ctx.base.values()].filter((p) => p.box === box && !acc.addressed.has(p.id) && keepable(ctx, p)).length;
+
 function keepPoint(acc: Acc, p: BasePoint): void {
   acc.addressed.add(p.id);
   acc.actions.push({ action: 'keep', point_id: p.id });
@@ -113,8 +105,10 @@ function keepPoint(acc: Acc, p: BasePoint): void {
 
 function applyDrop(acc: Acc, ctx: Ctx, a: Raw, old: BasePoint | undefined): void {
   if (!old || acc.addressed.has(old.id)) return;
+  if (!ctx.scope.has(old.box)) { acc.droppedScope += 1; return; }
   acc.addressed.add(old.id);
   acc.dropped += 1;
+  acc.changed.add(old.box);
   let why = typeof a.why === 'string' ? clean(a.why, MAX_NOTE_CHARS) : '';
   // the reason reaches the notes and the posted reply: the same name filter as a conflict; the drop itself stands
   if (why && ctx.namesOther(why)) { acc.droppedNames += 1; why = ''; }
@@ -125,7 +119,8 @@ function applyDrop(acc: Acc, ctx: Ctx, a: Raw, old: BasePoint | undefined): void
 function applyMove(acc: Acc, ctx: Ctx, a: Raw, old: BasePoint | undefined): void {
   const box = a.box;
   if (!old || acc.addressed.has(old.id) || !isBox(box) || box === old.box) return;
-  if (countIn(acc, box) >= MAX_POINTS_PER_BOX) return;
+  if (!ctx.scope.has(old.box) || !ctx.scope.has(box)) { acc.droppedScope += 1; return; } // both the source and the destination must be in scope
+  if (roomIn(acc, ctx, box) <= 0) { acc.droppedCap += 1; return; }
   acc.addressed.add(old.id);
   acc.actions.push({ action: 'move', old_point_id: old.id, box, statement: old.statement, story: null });
   acc.counts.moved += 1;
@@ -166,15 +161,20 @@ function applyWrite(acc: Acc, ctx: Ctx, act: 'reword' | 'new', a: Raw, old: Base
   if (!isBox(box) || typeof a.statement !== 'string') return;
   const statement = clean(a.statement, MAX_STATEMENT_CHARS);
   if (!statement) return;
+  if (!ctx.scope.has(box) || (act === 'reword' && old && !ctx.scope.has(old.box))) { acc.droppedScope += 1; return; }
   if (act === 'reword') {
     const gate = rewordGate(acc, old, box, statement);
     if (gate === 'skip') return;
-    if (gate === 'keep' && old) { keepPoint(acc, old); return; }
+    if (gate === 'keep' && old) {
+      if (keepable(ctx, old)) { keepPoint(acc, old); return; }
+      acc.droppedScope += 1; // a rebuilt box refuses `keep`, and a reword that says the same words is a keep: refused and counted, not written as new
+      return;
+    }
   }
   const vetted = vetEvidence(acc, ctx, a, statement, act === 'reword' && old ? rewordSource(ctx, old, statement) : '');
   if (!vetted || acc.statements.has(stmtKey(box, statement))) return;
   if (act === 'new') {
-    if (countIn(acc, box) >= MAX_POINTS_PER_BOX) return;
+    if (roomIn(acc, ctx, box) <= 0) { acc.droppedCap += 1; return; }
     acc.actions.push({ action: 'new', box, statement, story: null });
     acc.counts.added += 1;
   } else if (old) {
@@ -215,38 +215,86 @@ function filledBoxes(actions: ResolvedAction[], base: Map<string, BasePoint>): S
   return filled;
 }
 
-export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {
-  const read = readJson(response);
-  if (!read.ok) return read;
-  const body = (read.parsed ?? {}) as { actions?: unknown; conflicts?: unknown };
-  if (!Array.isArray(body.actions)) return { ok: false, code: 'unparsable', costUsd: read.costUsd };
+/** Boxes that hold a point after the run: out-of-scope current points stay untouched, scoped ones are what the actions leave. */
+function boxesHolding(pc: ParseContext, acc: Acc, ctx: Ctx): Set<string> {
+  const filled = filledBoxes(acc.actions, ctx.base);
+  for (const p of pc.basePoints) if (!ctx.scope.has(p.box)) filled.add(p.box);
+  return filled;
+}
+
+/** Boxes the run wrote to, moved out of, dropped from or rebuilt. */
+function changedBoxesOf(acc: Acc, ctx: Ctx, basePoints: readonly BasePoint[]): string[] {
+  const changed = new Set(acc.changed);
+  for (const a of acc.actions) {
+    if (a.action === 'keep') continue;
+    changed.add(a.box);
+    const old = 'old_point_id' in a ? ctx.base.get(a.old_point_id) : undefined;
+    if (old) changed.add(old.box);
+  }
+  for (const p of basePoints) if (ctx.rebuild.has(p.box) && ctx.scope.has(p.box)) changed.add(p.box);
+  return BOX_DEFINITIONS.map((b) => b.tag).filter((t) => changed.has(t));
+}
+
+/** What every check of one parse needs, built once. */
+function buildCtx(pc: ParseContext, scope: readonly string[]): Ctx {
   const haystack = ownerHaystack(pc.material);
   const ownCanvas = [...pc.basePoints, ...(pc.draftPoints ?? [])].map((p) => `${p.statement} ${p.story ?? ''}`).join('\n');
-  const ctx: Ctx = {
+  return {
     base: new Map(pc.basePoints.map((p) => [p.id, p])),
     from: pc.baseLabel ?? 'the earlier version',
     haystack,
     namesOther: namesMatcher(pc.otherNames, derivedNames(pc.material, pc.ownerName)),
     numbers: new Set([...numbersIn(haystack), ...numbersIn(ownCanvas)]),
     derived: new Map((pc.draftPoints ?? []).filter((d) => d.from_point_id).map((d) => [d.from_point_id as string, d])),
+    scope: new Set(scope),
+    rebuild: new Set(pc.rebuild ?? []),
   };
-  const acc = newAcc();
-  const raw = body.actions.map((r) => (r ?? {}) as Raw);
-  // The points that stay as they are go first, so the per-box counts are true before anything is added.
+}
+
+/** The points that stay as they are go first, so the per-box counts are true before anything is added. */
+function keepNamedPoints(acc: Acc, ctx: Ctx, raw: Raw[]): void {
   for (const a of raw) {
     const p = a.action === 'keep' && typeof a.point_id === 'string' ? ctx.base.get(a.point_id) : undefined;
-    if (p && !acc.addressed.has(p.id)) keepPoint(acc, p);
+    if (p && !acc.addressed.has(p.id) && keepable(ctx, p)) keepPoint(acc, p);
+    else if (p && !keepable(ctx, p) && !ctx.rebuild.has(p.box)) acc.droppedScope += 1;
   }
-  for (const a of raw) applyAction(acc, ctx, a);
-  // A current point the model did not mention, or whose change failed a check, stays as it is.
-  for (const p of pc.basePoints) if (!acc.addressed.has(p.id)) keepPoint(acc, p);
+}
+
+/**
+ * Capacity is the box's FINAL occupancy, so what leaves a box (a drop, a reword, a move out) is applied before what comes in (a move in, a
+ * new point): [new, drop] and [drop, new] give the same result.
+ */
+const phase = (a: Raw) => ({ drop: 0, reword: 1, move: 2, new: 3 } as Record<string, number>)[String(a.action)] ?? 4;
+
+/** All the model's actions, applied to the accumulator; a current point in scope that nothing changed stays as it is. */
+function applyAll(acc: Acc, ctx: Ctx, pc: ParseContext, actions: unknown[], inScope: boolean): void {
+  // An empty scope changes nothing: every action the model supplied is dropped, and counted.
+  const raw = (inScope ? actions : []).map((r) => (r ?? {}) as Raw);
+  if (!inScope) acc.droppedScope += actions.length;
+  keepNamedPoints(acc, ctx, raw);
+  for (const a of [...raw].sort((x, y) => phase(x) - phase(y))) applyAction(acc, ctx, a);
+  for (const p of pc.basePoints) if (!acc.addressed.has(p.id) && keepable(ctx, p)) keepPoint(acc, p);
   acc.counts.dropped = acc.dropped;
+}
+
+export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {
+  const read = readJson(response);
+  if (!read.ok) return read;
+  const body = (read.parsed ?? {}) as Raw;
+  if (!Array.isArray(body.actions)) return { ok: false, code: 'unparsable', costUsd: read.costUsd };
+  const scope = effectiveScope(pc, body.scope);
+  const ctx = buildCtx(pc, scope);
+  const acc = newAcc();
+  applyAll(acc, ctx, pc, body.actions, scope.length > 0);
   collectConflicts(acc, body.conflicts, ctx.namesOther);
-  const filled = filledBoxes(acc.actions, ctx.base);
+  const filled = boxesHolding(pc, acc, ctx);
+  const emptyBoxes = BOX_DEFINITIONS.map((b) => b.tag).filter((t) => !filled.has(t));
+  const extras = readExtras(body, pc, ctx.scope, scope.length ? emptyBoxes.filter((t) => ctx.scope.has(t)) : [], ctx.namesOther);
   return {
-    ok: true, actions: acc.actions, decided: acc.decided, counts: acc.counts, total: acc.actions.length,
-    emptyBoxes: BOX_DEFINITIONS.map((b) => b.tag).filter((t) => !filled.has(t)),
-    droppedUnverified: acc.droppedUnverified, droppedNames: acc.droppedNames, costUsd: read.costUsd,
+    ok: true, actions: acc.actions, decided: acc.decided, counts: acc.counts, total: acc.actions.length, emptyBoxes,
+    droppedUnverified: acc.droppedUnverified, droppedNames: acc.droppedNames + extras.droppedNames, costUsd: read.costUsd,
+    scope, changedBoxes: changedBoxesOf(acc, ctx, pc.basePoints), droppedScope: acc.droppedScope + extras.droppedScope, droppedCap: acc.droppedCap,
+    focus: extras.focus, otherCanvases: extras.otherCanvases, questions: scope.length ? extras.questions : {}, note: extras.note,
   };
 }
 

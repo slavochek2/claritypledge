@@ -24,7 +24,7 @@ import { CanvasCreateBar } from './CanvasCreateBar';
 import { CanvasDraftCard } from './CanvasDraftCard';
 import { CanvasMaterialList, SPINNER } from './CanvasMaterialList';
 import { actionOffered, isDone, isReading, updateOffered, type CanvasItemRow } from './canvas-items';
-import { DRAFT_ERROR_TEXT, NEW_VERSION_LABEL, PUBLISHED_QUESTION, RUN_PROGRESS } from './canvas-thread-copy';
+import { DRAFT_ERROR_TEXT, NEW_VERSION_LABEL, PUBLISHED_QUESTION, RUN_PROGRESS, WAITING_START_LABEL, WAITING_TEXT } from './canvas-thread-copy';
 import type { CanvasThreadStatus } from './use-canvas-thread';
 
 export type Busy = 'run' | 'publish' | 'discard' | null;
@@ -33,6 +33,8 @@ export interface BarProps {
   draft: CanvasDraft;
   run: CanvasDraftRun | null;
   running: boolean;
+  /** A run was made but never started: the tray offers to start it. */
+  waiting?: boolean;
   /** The rows: what the owner added and whether each piece could be read. */
   items: CanvasItemRow[];
   /** Something was added after the newest finished run (a finished canvas can then be updated before it is published). */
@@ -73,7 +75,7 @@ function RunNote({ run, hasDraft }: { run: CanvasDraftRun; hasDraft: boolean }) 
 
 /** What a run in progress says: a spinner and the step. Nothing else (the owner can always leave; it keeps going). */
 function Progress({ busy, run, running }: { busy: Busy; run: CanvasDraftRun | null; running: boolean }) {
-  const text = busy === 'publish' ? 'Publishing…' : busy === 'discard' ? 'Discarding…' : RUN_PROGRESS[run && running ? run.kind : 'draft'];
+  const text = busy === 'publish' ? 'Publishing…' : busy === 'discard' ? 'Discarding…' : RUN_PROGRESS[run && running && (run.kind === 'tensions' || run.kind === 'extract') ? run.kind : 'draft'];
   return (
     <div role="status" className="flex items-center gap-2 text-sm text-foreground" data-testid="canvas-progress">
       <Loader2 className={`h-4 w-4 shrink-0 ${SPINNER}`} aria-hidden="true" />
@@ -156,6 +158,15 @@ function ClosedStrip({ draft, askedAfterPublish, composing, notice, onStartNew }
 /** The tray itself: pure, so the P955 gate fixture can render every state of it. */
 export function CanvasThreadBar(props: BarProps) {
   if (props.draft.state !== 'open') return <ClosedStrip {...props} />;
+  if (props.waiting && !props.running && !props.busy) {
+    return (
+      <div className={SHEET} data-testid="canvas-bar">
+        <p role="status" className="text-sm text-muted-foreground">{WAITING_TEXT}</p>
+        <Button type="button" className="min-h-11" onClick={() => props.onRun()}>{WAITING_START_LABEL}</Button>
+        {props.notice && <Notice text={props.notice} />}
+      </div>
+    );
+  }
   if (props.running || props.busy) {
     return (
       <div className={SHEET} data-testid="canvas-bar">

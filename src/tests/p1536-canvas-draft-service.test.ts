@@ -19,7 +19,6 @@ vi.mock('@/lib/supabase', () => ({ supabase: { functions: { invoke: sb.invoke },
 vi.mock('@/lib/list-return-cache', () => ({ clearListReturnCache: vi.fn() }));
 
 import {
-  CanvasDraftRefusal,
   canvasVersionLabel,
   countDoneCanvasDraftRuns,
   getCanvasDraftAvailability,
@@ -29,10 +28,16 @@ import {
   getLastDoneCanvasDraftRunAt,
   listCanvasMaterial,
   openCanvasDraft,
+  discardCanvasDraft,
+  getCanvasDraftRevision,
   publishCanvasDraft,
-  runCanvasDraft,
+  retryCanvasRun,
+  sendCanvasWorkspaceMessage,
+  startCanvasRun,
+  startQueuedCanvasRun,
   uploadCanvasMaterial,
 } from '@/app/data/canvas-draft-service';
+import { subscribeCanvasDraftEvents } from '@/app/data/canvas-draft-events';
 import { requestMirrorReply } from '@/app/data/mirror-service';
 import { messageSummary } from '@/app/pages/chat/chat-view-model';
 
@@ -52,28 +57,119 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('P1536 run wiring (AC12)', () => {
-  it('the client only ever asks for the fast speed (one create button, no slow path)', async () => {
-    sb.invoke.mockResolvedValue({ data: { run_id: 'run-1', kind: 'draft' }, error: null });
-    await expect(runCanvasDraft('draft-1')).resolves.toEqual({ ok: true, runId: 'run-1', kind: 'draft' });
-    expect(sb.invoke).toHaveBeenLastCalledWith('canvas-draft', { body: { draft_id: 'draft-1', speed: 'fast' } });
-    expect(runCanvasDraft.length).toBe(1);
-  });
-
-  it('an answer that begins with the old tensions pass (an older server) is still read', async () => {
-    sb.invoke.mockResolvedValue({ data: { run_id: 'run-2', kind: 'tensions' }, error: null });
-    await expect(runCanvasDraft('draft-1')).resolves.toEqual({ ok: true, runId: 'run-2', kind: 'tensions' });
+describe('P1536 run wiring (v6: a run is started by its id)', () => {
+  // The v3 tests here asked for the fast speed with a draft id and read an old tensions answer. Both are gone on purpose: the
+  // function takes the id of a run a database function made, and there is one kind of answer.
+  it('starts a run by its id, and reads the kind it answers', async () => {
+    sb.invoke.mockResolvedValueOnce({ data: { run_id: 'run-1', kind: 'message' }, error: null });
+    await expect(startCanvasRun('run-1')).resolves.toEqual({ ok: true, runId: 'run-1', kind: 'message' });
+    expect(sb.invoke).toHaveBeenLastCalledWith('canvas-draft', { body: { run_id: 'run-1' } });
+    sb.invoke.mockResolvedValueOnce({ data: { run_id: 'run-2', kind: 'focus' }, error: null });
+    await expect(startCanvasRun('run-2')).resolves.toEqual({ ok: true, runId: 'run-2', kind: 'focus' });
   });
 
   it('CONTROL: each refusal keeps its own code, and an unknown failure is FAILED', async () => {
-    for (const [status, code] of [[409, 'BUSY'], [409, 'LIMIT'], [429, 'REVISION_CAP'], [409, 'TERMS_NOT_ACCEPTED'], [503, 'DISABLED']] as const) {
+    for (const [status, code] of [[409, 'BUSY'], [409, 'NOT_READY'], [409, 'GONE'], [429, 'CAPPED'], [409, 'TERMS_NOT_ACCEPTED'], [503, 'DISABLED']] as const) {
       sb.invoke.mockResolvedValueOnce(httpError(status, { code }));
-      await expect(runCanvasDraft('draft-1')).resolves.toEqual({ ok: false, code });
+      await expect(startCanvasRun('run-1')).resolves.toEqual({ ok: false, code });
     }
     sb.invoke.mockResolvedValueOnce(httpError(500, {}));
-    await expect(runCanvasDraft('draft-1')).resolves.toEqual({ ok: false, code: 'FAILED' });
+    await expect(startCanvasRun('run-1')).resolves.toEqual({ ok: false, code: 'FAILED' });
     sb.invoke.mockResolvedValueOnce(httpError(429, {}));
-    await expect(runCanvasDraft('draft-1')).resolves.toEqual({ ok: false, code: 'CAPPED' });
+    await expect(startCanvasRun('run-1')).resolves.toEqual({ ok: false, code: 'CAPPED' });
+  });
+
+  it('startQueuedCanvasRun reads the draft\'s queued runs newest first, starts the first, or says there is none', async () => {
+    const seen: Array<[string, ...unknown[]]> = [];
+    const runs = (rows: unknown[]) => {
+      const q: Record<string, unknown> = {};
+      for (const m of ['select', 'eq', 'order']) q[m] = (...a: unknown[]) => { seen.push([m, ...a]); return q; };
+      q.limit = async (...a: unknown[]) => { seen.push(['limit', ...a]); return { data: rows, error: null }; };
+      return q;
+    };
+    sb.from.mockReturnValueOnce(runs([{ id: 'run-7' }]));
+    sb.invoke.mockResolvedValueOnce({ data: { run_id: 'run-7', kind: 'message' }, error: null });
+    await expect(startQueuedCanvasRun('draft-1')).resolves.toMatchObject({ ok: true, runId: 'run-7' });
+    expect(sb.from).toHaveBeenLastCalledWith('canvas_draft_runs');
+    expect(seen).toEqual([['select', 'id'], ['eq', 'draft_id', 'draft-1'], ['eq', 'state', 'queued'], ['order', 'created_at', { ascending: false }], ['limit', 1]]);
+    expect(sb.invoke).toHaveBeenLastCalledWith('canvas-draft', { body: { run_id: 'run-7' } });
+    sb.from.mockReturnValueOnce(runs([]));
+    await expect(startQueuedCanvasRun('draft-1')).resolves.toEqual({ ok: false, code: 'NOT_AVAILABLE' });
+  });
+});
+
+describe('P1536 retry (canvas_draft_retry)', () => {
+  const OK = { status: 'ok', replayed: false, run_id: 'run-9', revision: 6, draft_id: 'd1' };
+  const a = { draftId: 'd1', failedRunId: 'run-3', expectedRevision: 5, clientId: 'cid-9' };
+  it('makes the replacement run with the failed run, the revision and the client id, then starts it by id', async () => {
+    sb.rpc.mockResolvedValueOnce({ data: OK, error: null });
+    sb.invoke.mockResolvedValueOnce({ data: { run_id: 'run-9', kind: 'message' }, error: null });
+    await expect(retryCanvasRun(a)).resolves.toEqual({ ok: true, runId: 'run-9', revision: 6, replayed: false, start: { ok: true, runId: 'run-9', kind: 'message' } });
+    expect(sb.rpc).toHaveBeenCalledWith('canvas_draft_retry', { p_draft: 'd1', p_failed_run: 'run-3', p_expected_revision: 5, p_client_id: 'cid-9' });
+    expect(sb.invoke).toHaveBeenCalledWith('canvas-draft', { body: { run_id: 'run-9' } });
+  });
+  it('a repeat starts nothing a second time; refusals are typed results', async () => {
+    sb.rpc.mockResolvedValueOnce({ data: { ...OK, replayed: true }, error: null });
+    await expect(retryCanvasRun(a)).resolves.toMatchObject({ ok: true, replayed: true, start: null });
+    expect(sb.invoke).not.toHaveBeenCalled();
+    for (const code of ['busy', 'busy_elsewhere', 'cap_reached', 'stale_view', 'not_retryable']) {
+      sb.rpc.mockResolvedValueOnce({ data: { status: 'refused', code, revision: 7 }, error: null });
+      await expect(retryCanvasRun(a)).resolves.toEqual({ ok: false, refused: code, revision: 7 });
+    }
+  });
+});
+
+describe('P1536 upload of a run that is already running', () => {
+  it('a second post of the same file (202 running, no label) is in progress, not a failure', async () => {
+    sb.invoke.mockResolvedValueOnce({ data: { state: 'running', run_id: 'run-1' }, error: null });
+    await expect(uploadCanvasMaterial('run-1', new File(['x'], 'offer.pdf'))).resolves.toEqual({ ok: true, label: '', chars: 0, inProgress: true });
+  });
+});
+
+describe('P1536 send (canvas_workspace_send)', () => {
+  const OK = { status: 'ok', run_id: 'run-1', revision: 4, draft_id: 'd1', canvas_id: 'cv', canvas_name: 'canvas', version_name: 'canvas_d1', thread_root_id: 'r1', conversation_id: 'c1', message_id: 'm1', replayed: false };
+  const args = { canvasId: 'cv', fromVersionId: 'ver-1', expectedDraftId: null, expectedRevision: null, body: 'Price is 500', boxRefs: ['canvas:revenue'], clientId: 'cid-1' };
+
+  it('is ONE database call that replaces the open + send pair, then starts the run of a text message', async () => {
+    sb.rpc.mockResolvedValueOnce({ data: OK, error: null });
+    sb.invoke.mockResolvedValueOnce({ data: { run_id: 'run-1', kind: 'message' }, error: null });
+    const r = await sendCanvasWorkspaceMessage(args);
+    expect(r).toEqual({
+      ok: true, runId: 'run-1', revision: 4, draftId: 'd1', canvasId: 'cv', canvasName: 'canvas', versionName: 'canvas_d1', threadRootId: 'r1',
+      conversationId: 'c1', messageId: 'm1', replayed: false, start: { ok: true, runId: 'run-1', kind: 'message' },
+    });
+    expect(sb.rpc).toHaveBeenCalledTimes(1);
+    expect(sb.rpc).toHaveBeenCalledWith('canvas_workspace_send', {
+      p_canvas: 'cv', p_from_version: 'ver-1', p_expected_draft: null, p_expected_revision: null, p_replace: false,
+      p_body: 'Price is 500', p_box_refs: ['canvas:revenue'], p_attachment: null, p_client_id: 'cid-1',
+    });
+    expect(sb.rpc).not.toHaveBeenCalledWith('canvas_draft_open', expect.anything());
+    expect(sb.invoke).toHaveBeenCalledWith('canvas-draft', { body: { run_id: 'run-1' } });
+  });
+  it('a file or a voice note is not started by the send: the upload or the transcript starts it', async () => {
+    sb.rpc.mockResolvedValueOnce({ data: OK, error: null });
+    const r = await sendCanvasWorkspaceMessage({ ...args, body: null, boxRefs: ['canvas:problem', 'canvas:solution'], attachment: { kind: 'file', label: 'offer.pdf' } });
+    expect(r).toMatchObject({ ok: true, start: null });
+    expect(sb.rpc).toHaveBeenCalledWith('canvas_workspace_send', {
+      p_canvas: 'cv', p_from_version: 'ver-1', p_expected_draft: null, p_expected_revision: null, p_replace: false,
+      p_body: null, p_box_refs: ['canvas:problem', 'canvas:solution'], p_attachment: { kind: 'file', label: 'offer.pdf' }, p_client_id: 'cid-1',
+    });
+    expect(sb.invoke).not.toHaveBeenCalled();
+  });
+  it('a repeat (replayed) starts nothing a second time', async () => {
+    sb.rpc.mockResolvedValueOnce({ data: { ...OK, replayed: true }, error: null });
+    expect(await sendCanvasWorkspaceMessage(args)).toMatchObject({ ok: true, replayed: true, start: null });
+    expect(sb.invoke).not.toHaveBeenCalled();
+  });
+  it.each(['busy', 'busy_elsewhere', 'cap_reached', 'stale_view'])('the refusal %s is a typed result, not a throw, and starts no run', async (code) => {
+    sb.rpc.mockResolvedValueOnce({ data: { status: 'refused', code, revision: 9 }, error: null });
+    await expect(sendCanvasWorkspaceMessage(args)).resolves.toEqual({ ok: false, refused: code, revision: 9 });
+    expect(sb.invoke).not.toHaveBeenCalled();
+  });
+  it('a database error is still thrown (it is not a refusal about the state of things)', async () => {
+    sb.rpc.mockResolvedValueOnce({ data: null, error: { code: 'XX000', message: 'boom' } });
+    await expect(sendCanvasWorkspaceMessage(args)).rejects.toThrow('Could not send this message');
+    expect(sb.invoke).not.toHaveBeenCalled();
   });
 });
 
@@ -95,21 +191,21 @@ describe('P1536 availability', () => {
 });
 
 describe('P1536 upload', () => {
-  it('sends one multipart request with the draft id and the file', async () => {
+  it('sends one multipart request with the run id and the file', async () => {
     sb.invoke.mockResolvedValue({ data: { state: 'added', label: 'offer.pdf', chars: 1200 }, error: null });
     const file = new File(['x'], 'offer.pdf', { type: 'application/pdf' });
-    await expect(uploadCanvasMaterial('draft-1', file)).resolves.toEqual({ ok: true, label: 'offer.pdf', chars: 1200 });
+    await expect(uploadCanvasMaterial('run-1', file)).resolves.toEqual({ ok: true, label: 'offer.pdf', chars: 1200 });
     const body = sb.invoke.mock.calls[0]![1].body as FormData;
     expect(body).toBeInstanceOf(FormData);
-    expect(body.get('draft_id')).toBe('draft-1');
+    expect(body.get('run_id')).toBe('run-1'); // v6: the file belongs to the upload RUN, not to the draft
     expect((body.get('file') as File).name).toBe('offer.pdf');
   });
 
   it('names what could not be read', async () => {
     sb.invoke.mockResolvedValueOnce(httpError(422, { code: 'UNREADABLE' }));
-    await expect(uploadCanvasMaterial('draft-1', new File(['x'], 'a.pdf'))).resolves.toEqual({ ok: false, code: 'UNREADABLE' });
+    await expect(uploadCanvasMaterial('run-1', new File(['x'], 'a.pdf'))).resolves.toEqual({ ok: false, code: 'UNREADABLE' });
     sb.invoke.mockResolvedValueOnce(httpError(415, { code: 'UNSUPPORTED' }));
-    await expect(uploadCanvasMaterial('draft-1', new File(['x'], 'a.exe'))).resolves.toEqual({ ok: false, code: 'UNSUPPORTED' });
+    await expect(uploadCanvasMaterial('run-1', new File(['x'], 'a.exe'))).resolves.toEqual({ ok: false, code: 'UNSUPPORTED' });
   });
 });
 
@@ -119,25 +215,75 @@ describe('P1536 open, publish, refusals', () => {
       data: { status: 'opened', draft_id: 'd1', conversation_id: 'c1', thread_root_id: 'r1', canvas_name: 'canvas', from_seq: 2 },
       error: null,
     });
-    await expect(openCanvasDraft('ver-2')).resolves.toEqual({ status: 'opened', draftId: 'd1', conversationId: 'c1', threadRootId: 'r1', canvasName: 'canvas', fromSeq: 2 });
+    const lookup = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn(async () => ({ data: { revision: 6, canvas_id: 'cv-9' }, error: null })) };
+    lookup.select.mockReturnValue(lookup); lookup.eq.mockReturnValue(lookup);
+    sb.from.mockReturnValueOnce(lookup);
+    await expect(openCanvasDraft('ver-2')).resolves.toEqual({ status: 'opened', draftId: 'd1', conversationId: 'c1', threadRootId: 'r1', canvasName: 'canvas', fromSeq: 2, revision: 6, canvasId: 'cv-9' });
     expect(sb.rpc).toHaveBeenCalledWith('canvas_draft_open', { p_from_version: 'ver-2' });
+    expect(sb.from).toHaveBeenLastCalledWith('canvas_drafts');
+    expect(lookup.select).toHaveBeenCalledWith('revision, canvas_id');
+    expect(lookup.eq).toHaveBeenCalledWith('id', 'd1');
+  });
+
+  it('a revision that cannot be read (an error, no row, no number) is surfaced, never made up as 0', async () => {
+    const opened = { data: { status: 'opened', draft_id: 'd1', conversation_id: 'c1', thread_root_id: 'r1', canvas_name: 'canvas', from_seq: null }, error: null };
+    for (const answer of [{ data: null, error: { code: 'XX000' } }, { data: null, error: null }, { data: {}, error: null }]) {
+      sb.rpc.mockResolvedValueOnce(opened);
+      sb.from.mockReturnValueOnce(table(answer.data, answer.error));
+      await expect(openCanvasDraft(null)).rejects.toThrow('Could not read this draft');
+    }
   });
 
   it('too many open drafts and an active run are refusals the person can act on', async () => {
     sb.rpc.mockResolvedValueOnce({ data: null, error: { code: '54000', message: 'too many open drafts' } });
     await expect(openCanvasDraft(null)).rejects.toMatchObject({ name: 'CanvasDraftRefusal', code: 'TOO_MANY_DRAFTS' });
-    sb.rpc.mockResolvedValueOnce({ data: null, error: { code: '55006', message: 'a draft run is active' } });
-    await expect(publishCanvasDraft('d1')).rejects.toBeInstanceOf(CanvasDraftRefusal);
   });
 
-  it('publishing with nothing in the draft is NOTHING_TO_PUBLISH', async () => {
-    sb.rpc.mockResolvedValueOnce({ data: null, error: { code: '55000', message: 'nothing to publish' } });
-    await expect(publishCanvasDraft('d1')).rejects.toMatchObject({ code: 'NOTHING_TO_PUBLISH' });
+  // The 55006 (active run) and 55000 (nothing to publish) exceptions belong to the legacy one-argument publish. The client calls the v6
+  // overload (draft, expected revision), which returns every state refusal as JSON and raises only for authorization or a bad link;
+  // `canvas_draft_open` is still the legacy function, so its exception contract above stays.
+  it('the v6 publish raises only for authorization or a bad link: that is a plain error, never a state refusal', async () => {
+    sb.rpc.mockResolvedValueOnce({ data: null, error: { code: '42501', message: 'not authorized for this canvas' } });
+    await expect(publishCanvasDraft('d1', 3)).rejects.toThrow('Could not publish this draft');
   });
 
   it('a publish returns the number it got', async () => {
     sb.rpc.mockResolvedValueOnce({ data: { seq: 3, skipped_links: 1 }, error: null });
-    await expect(publishCanvasDraft('d1')).resolves.toEqual({ seq: 3, skippedLinks: 1 });
+    await expect(publishCanvasDraft('d1', 3)).resolves.toEqual({ ok: true, seq: 3, skippedLinks: 1 });
+    expect(sb.rpc).toHaveBeenLastCalledWith('canvas_draft_publish', { p_draft: 'd1', p_expected_revision: 3 });
+  });
+
+  it.each(['busy', 'stale_view', 'draft_empty', 'no_changes'])('Publish refused with %s is a typed result', async (code) => {
+    sb.rpc.mockResolvedValueOnce({ data: { status: 'refused', code, revision: 8 }, error: null });
+    await expect(publishCanvasDraft('d1', 3)).resolves.toEqual({ ok: false, refused: code, revision: 8 });
+  });
+
+  it('a stale_view of Publish or Discard tells whoever shows the draft to re-read, so the next attempt has the new revision; other refusals do not', async () => {
+    const seen: Array<[string, string]> = [];
+    const stop = subscribeCanvasDraftEvents((e) => seen.push([e.kind, e.draftId]));
+    sb.rpc.mockResolvedValueOnce({ data: { status: 'refused', code: 'stale_view', revision: 8 }, error: null });
+    await publishCanvasDraft('d1', 3);
+    sb.rpc.mockResolvedValueOnce({ data: { status: 'refused', code: 'stale_view', revision: 8 }, error: null });
+    await discardCanvasDraft('d2', 3);
+    sb.rpc.mockResolvedValueOnce({ data: { status: 'refused', code: 'busy', revision: 8 }, error: null });
+    await publishCanvasDraft('d3', 3);
+    stop();
+    expect(seen).toEqual([['updated', 'd1'], ['updated', 'd2']]);
+  });
+
+  it('getCanvasDraftRevision reads the draft\'s revision, and throws when it cannot', async () => {
+    sb.from.mockReturnValueOnce(table({ revision: 11, canvas_id: 'cv-1' }));
+    await expect(getCanvasDraftRevision('d1')).resolves.toBe(11);
+    sb.from.mockReturnValueOnce(table(null));
+    await expect(getCanvasDraftRevision('d1')).rejects.toThrow('Could not read this draft');
+  });
+
+  it('Discard passes the expected revision, and a refusal is a typed result', async () => {
+    sb.rpc.mockResolvedValueOnce({ data: { status: 'ok' }, error: null });
+    await expect(discardCanvasDraft('d1', 5)).resolves.toEqual({ ok: true, discarded: true });
+    expect(sb.rpc).toHaveBeenLastCalledWith('canvas_draft_discard', { p_draft: 'd1', p_expected_revision: 5 });
+    sb.rpc.mockResolvedValueOnce({ data: { status: 'refused', code: 'stale_view', revision: 6 }, error: null });
+    await expect(discardCanvasDraft('d1', 5)).resolves.toEqual({ ok: false, refused: 'stale_view', revision: 6 });
   });
 });
 
@@ -230,34 +376,36 @@ describe('P1536 review B: what the thread reads of a draft', () => {
     await expect(getCanvasDraftByThread('r1')).resolves.toMatchObject({ closedAt: null, canvasName: null, versionName: null });
   });
 
-  it('B8: counts the draft runs that finished (a failed run is not one)', async () => {
-    const eqs: Array<[string, string]> = [];
+  it('B8: counts the draft runs that finished, of every drafting kind (v6 message, focus, fork_first and the legacy draft); a failed run is not one', async () => {
+    const seen: Array<[string, ...unknown[]]> = [];
     const q: Record<string, unknown> = {};
     q.select = () => q;
     q.eq = (col: string, val: string) => {
-      eqs.push([col, val]);
-      return eqs.length === 3 ? Promise.resolve({ count: 2, error: null }) : q;
+      seen.push(['eq', col, val]);
+      return seen.length === 3 ? Promise.resolve({ count: 2, error: null }) : q;
     };
+    q.in = (col: string, vals: string[]) => (seen.push(['in', col, vals]), q);
     sb.from.mockReturnValue(q);
     await expect(countDoneCanvasDraftRuns('draft-1')).resolves.toBe(2);
-    expect(eqs).toEqual([['draft_id', 'draft-1'], ['kind', 'draft'], ['state', 'done']]);
+    expect(seen).toEqual([['eq', 'draft_id', 'draft-1'], ['in', 'kind', ['draft', 'message', 'focus', 'fork_first']], ['eq', 'state', 'done']]);
   });
 
   it('C1: the baseline is the start of the newest DRAFT-kind run that finished (never an extract, tension, failed or capped run)', async () => {
     const calls: Array<[string, unknown[]]> = [];
     const q: Record<string, unknown> = {};
-    for (const m of ['select', 'eq', 'order']) q[m] = (...a: unknown[]) => (calls.push([m, a]), q);
+    for (const m of ['select', 'eq', 'in', 'order']) q[m] = (...a: unknown[]) => (calls.push([m, a]), q);
     q.limit = async (...a: unknown[]) => (calls.push(['limit', a]), { data: [{ started_at: '2026-10-27T10:00:05Z', created_at: '2026-10-27T10:00:00Z' }], error: null });
     sb.from.mockReturnValue(q);
     await expect(getLastDoneCanvasDraftRunAt('draft-1')).resolves.toBe('2026-10-27T10:00:05Z');
-    expect(calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['draft_id', 'draft-1'], ['kind', 'draft'], ['state', 'done']]);
+    expect(calls.filter(([m]) => m === 'eq').map(([, a]) => a)).toEqual([['draft_id', 'draft-1'], ['state', 'done']]);
+    expect(calls.find(([m]) => m === 'in')?.[1]).toEqual(['kind', ['draft', 'message', 'focus', 'fork_first']]);
     expect(calls.find(([m]) => m === 'order')?.[1]).toEqual(['created_at', { ascending: false }]);
   });
 
   it('C1: CONTROL: no finished draft run is null; a run with no start time falls back to its creation time', async () => {
     const reply = (data: unknown[]) => {
       const q: Record<string, unknown> = {};
-      for (const m of ['select', 'eq', 'order']) q[m] = () => q;
+      for (const m of ['select', 'eq', 'in', 'order']) q[m] = () => q;
       q.limit = async () => ({ data, error: null });
       return q;
     };

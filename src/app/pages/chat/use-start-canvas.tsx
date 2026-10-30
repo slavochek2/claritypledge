@@ -5,9 +5,9 @@
  */
 import { useCallback, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { discardCanvasDraft } from '@/app/data/canvas-draft-service';
-import { sendMessage } from '@/app/data/chat-service';
+import { CanvasDraftRefusal, discardCanvasDraft, getCanvasDraftRevision, sendCanvasWorkspaceMessage } from '@/app/data/canvas-draft-service';
 import { OpenDraftDialog } from './OpenDraftDialog';
+import { joinCarried } from './canvas-carry';
 import { canvasStartErrorText, startCanvasThread, type StartedCanvasThread } from './canvas-start';
 import { useChat } from './chat-state';
 import { useChatNavigate } from './chat-hooks';
@@ -28,17 +28,24 @@ async function carryClientId(threadRootId: string, index: number): Promise<strin
 }
 
 /**
- * The owner's change requests go into the new thread as its first owner messages, one each and in order (plain
- * messages of theirs, so the next draft reads them as their own words). Only a thread that was really made new takes
- * them; the first failure stops the rest (so nothing lands out of order) and is said, not hidden.
+ * The owner's change requests go into the new thread as its first owner message, sent with canvas_workspace_send so the engine
+ * reads it (a plain chat message has no run and is never input). One message is one run, so the requests are joined, oldest first,
+ * into that one message, and its run starts at once (no Create step). A thread that was really made new only; a failure is said.
  */
 async function carryIntoThread(r: StartedCanvasThread, texts: string[]): Promise<void> {
-  if (r.status !== 'opened') return;
+  if (r.status !== 'opened' || !texts.length) return;
+  const { body, leftOut } = joinCarried(texts);
   try {
-    for (const [i, body] of texts.entries()) {
-      await sendMessage({ conversationId: r.conversationId, threadRootId: r.threadRootId, body, clientId: await carryClientId(r.threadRootId, i) });
+    if (body) {
+      const sent = await sendCanvasWorkspaceMessage({
+        canvasId: r.canvasId, expectedDraftId: r.draftId, expectedRevision: r.revision, body,
+        clientId: await carryClientId(r.threadRootId, 0),
+      });
+      if (!sent.ok) throw new Error(sent.refused);
     }
+    if (leftOut || !body) throw new Error('left out');
   } catch {
+    // [FOUNDER DECISION: wording when only the newest requests fit one message]
     toast.error('Could not carry your message over. Send it again in the new thread.');
   }
 }
@@ -90,7 +97,13 @@ export function useStartCanvas(): { start: (fromVersionId?: string | null, carry
       }}
       onDiscard={async () => {
         try {
-          await discardCanvasDraft(pending.found.draftId);
+          const gone = await discardCanvasDraft(pending.found.draftId, pending.found.revision);
+          if (!gone.ok && gone.refused === 'stale_view') {
+            // the draft moved on since the dialog opened: take its revision now, so the next attempt carries it
+            const fresh = await getCanvasDraftRevision(pending.found.draftId);
+            setPending({ ...pending, found: { ...pending.found, revision: fresh } });
+          }
+          if (!gone.ok) return canvasStartErrorText(gone.refused === 'busy' || gone.refused === 'busy_elsewhere' ? new CanvasDraftRefusal('RUN_ACTIVE') : null);
           const r = await startCanvasThread(pending.fromVersionId);
           await carryIntoThread(r, pending.carry);
           setPending(null);

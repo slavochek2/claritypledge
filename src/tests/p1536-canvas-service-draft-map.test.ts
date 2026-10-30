@@ -26,12 +26,12 @@ describe('getCanvas maps the draft shape', () => {
     rpc.mockResolvedValueOnce(answer({
       version: 'canvas_dabc123', published_none: true,
       versions: [{ name: 'canvas_dabc123', seq: null, published_at: null, created_at: '2026-10-20T10:00:00Z', draft: true }],
-      draft: { id: 'draft-1', version: 'canvas_dabc123', questions: { 'canvas:love': 'Why?', 'canvas:bad': 7 }, thread_root_id: 'root-1', conversation_id: 'conv-1', base_seq: 2, run_count: 3, tension_count: 1 },
+      draft: { id: 'draft-1', version: 'canvas_dabc123', questions: { 'canvas:love': 'Why?', 'canvas:bad': 7 }, thread_root_id: 'root-1', conversation_id: 'conv-1', base_seq: 2, run_count: 3, revision: 7, tension_count: 1 },
     }));
     const view = await canvasService.getCanvas('o', 'canvas');
     expect(view.versions).toEqual([{ name: 'canvas_dabc123', createdAt: '2026-10-20T10:00:00Z', seq: null, publishedAt: null, draft: true }]);
     expect(view.publishedNone).toBe(true);
-    expect(view.draft).toEqual({ id: 'draft-1', version: 'canvas_dabc123', questions: { 'canvas:love': 'Why?' }, threadRootId: 'root-1', conversationId: 'conv-1', baseSeq: 2, runCount: 3 });
+    expect(view.draft).toEqual({ id: 'draft-1', version: 'canvas_dabc123', questions: { 'canvas:love': 'Why?' }, threadRootId: 'root-1', conversationId: 'conv-1', baseSeq: 2, runCount: 3, revision: 7 });
   });
 
   it('CONTROL: an answer with no draft block and no published_none (a reader, or before drafts) maps to none', async () => {

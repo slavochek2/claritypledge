@@ -31,8 +31,8 @@ describe('listMyOpenCanvasDrafts', () => {
     expect(q.from).toHaveBeenCalledWith('canvas_drafts');
     expect(q.eq).toHaveBeenCalledWith('state', 'open');
     expect(drafts).toEqual([
-      { draftId: 'draft-1', canvasName: 'sales_map', conversationId: 'conv-1', threadRootId: 'root-1', nextSeq: 3 },
-      { draftId: 'draft-2', canvasName: 'q4_plan', conversationId: 'conv-1', threadRootId: 'root-2', nextSeq: 2 },
+      { draftId: 'draft-1', canvasName: 'sales_map', conversationId: 'conv-1', threadRootId: 'root-1', revision: 0, nextSeq: 3 },
+      { draftId: 'draft-2', canvasName: 'q4_plan', conversationId: 'conv-1', threadRootId: 'root-2', revision: 0, nextSeq: 2 },
     ]); // cv-other's v7 does not count for either
   });
 

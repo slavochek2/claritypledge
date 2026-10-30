@@ -46,14 +46,13 @@ vi.mock('@/app/components/canvas/canvas-share-control', () => ({ CanvasShareCont
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
 
 import { toast } from 'sonner';
-import { CanvasDraftRefusal } from '@/app/data/canvas-draft-service';
 import { ChatContext } from '@/app/pages/chat/chat-state';
 import { ArtifactsPage } from './artifacts-page';
 
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
 const DAY = 24 * 3600_000;
 const draft = (over: Record<string, unknown> = {}) => ({
-  draftId: 'draft-1', canvasName: 'sales_map', versionName: 'sales_map_dabc12', conversationId: 'conv-mirror', threadRootId: 'root-9', nextSeq: 3, ...over,
+  draftId: 'draft-1', canvasName: 'sales_map', versionName: 'sales_map_dabc12', conversationId: 'conv-mirror', threadRootId: 'root-9', nextSeq: 3, revision: 4, ...over,
 });
 
 function LocationProbe() {
@@ -86,7 +85,7 @@ beforeEach(() => {
     { canvasId: 'cv-2', name: 'q4_plan', generalAccess: 'restricted', hasAudience: false, lastEdit: ago(5 * DAY) },
   ]);
   mocks.listMyOpenCanvasDrafts.mockResolvedValue([draft()]);
-  mocks.discardCanvasDraft.mockResolvedValue(true);
+  mocks.discardCanvasDraft.mockResolvedValue({ ok: true, discarded: true });
   mocks.start.mockResolvedValue(undefined);
 });
 
@@ -204,7 +203,7 @@ describe('a canvas with an open draft', () => {
     const reads = mocks.listMyOpenCanvasDrafts.mock.calls.length;
     mocks.listMyOpenCanvasDrafts.mockResolvedValue([]); // the server closed it
     await u.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Discard' }));
-    await waitFor(() => expect(mocks.discardCanvasDraft).toHaveBeenCalledWith('draft-1'));
+    await waitFor(() => expect(mocks.discardCanvasDraft).toHaveBeenCalledWith('draft-1', 4));
     expect(toast.success).toHaveBeenCalledWith('Draft discarded');
     await waitFor(() => expect(mocks.listMyOpenCanvasDrafts.mock.calls.length).toBeGreaterThan(reads));
     await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['Edited 3d ago', 'Edited 5d ago']));
@@ -212,7 +211,7 @@ describe('a canvas with an open draft', () => {
 
   it('a refused discard (a run is writing) says so and leaves the draft', async () => {
     const u = userEvent.setup();
-    mocks.discardCanvasDraft.mockRejectedValue(new CanvasDraftRefusal('RUN_ACTIVE'));
+    mocks.discardCanvasDraft.mockResolvedValue({ ok: false, refused: 'busy', revision: 1 });
     renderPage('/artifacts?tab=canvases');
     await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v3 · Draft · Edited 3d ago'));
     await openMenu(u, 'Sales map');
@@ -220,6 +219,23 @@ describe('a canvas with an open draft', () => {
     await u.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Discard' }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('That draft is being written right now. Try again in a minute.'));
     expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v3 · Draft · Edited 3d ago');
+  });
+
+  it('a stale discard re-reads the list, and the next attempt sends the draft\'s new revision', async () => {
+    const u = userEvent.setup();
+    mocks.discardCanvasDraft.mockResolvedValueOnce({ ok: false, refused: 'stale_view', revision: 9 });
+    renderPage('/artifacts?tab=canvases');
+    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v3 · Draft · Edited 3d ago'));
+    const reads = mocks.listMyOpenCanvasDrafts.mock.calls.length;
+    mocks.listMyOpenCanvasDrafts.mockResolvedValue([draft({ revision: 9 })]); // what the re-read finds
+    await openMenu(u, 'Sales map');
+    await u.click(await screen.findByRole('menuitem', { name: 'Discard draft' }));
+    await u.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(mocks.discardCanvasDraft).toHaveBeenCalledWith('draft-1', 4));
+    await waitFor(() => expect(mocks.listMyOpenCanvasDrafts.mock.calls.length).toBeGreaterThan(reads)); // re-read on stale_view
+    // the refused discard leaves its dialog open: the same Discard is pressed again, now with the re-read revision
+    await u.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(mocks.discardCanvasDraft).toHaveBeenLastCalledWith('draft-1', 9));
   });
 
   it('a canvas whose only version is the open draft (never published): no Share and no Copy link (nothing to share yet); the row and its Open go to the draft', async () => {

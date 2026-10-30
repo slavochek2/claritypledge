@@ -63,6 +63,9 @@ export const PUBLISHED_QUESTION = 'This version is published. Start a new versio
  * page's word for it, never "View".
  */
 export const CREATE_LABEL = 'Create canvas';
+/** A run was made but never started. [FOUNDER DECISION: wording] */
+export const WAITING_TEXT = 'This update has not started.';
+export const WAITING_START_LABEL = 'Start it';
 export const CREATE_VERSION_LABEL = 'Create new version';
 export const UPDATE_DRAFT_LABEL = 'Update draft';
 export const PUBLISH_LABEL = 'Publish';

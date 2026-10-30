@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { uploadCanvasMaterial, type CanvasMaterialItem } from '@/app/data/canvas-draft-service';
+import { sendCanvasWorkspaceMessage, uploadCanvasMaterial, type CanvasDraft, type CanvasMaterialItem, type CanvasRefusalCode } from '@/app/data/canvas-draft-service';
 import { DRAFT_ERROR_TEXT, MAX_UPLOAD_BYTES } from './canvas-thread-copy';
 import type { UploadItem } from './canvas-items';
 
@@ -20,13 +20,38 @@ export interface CanvasUploads {
 }
 
 /**
- * `onSettled`: re-reads the draft's material; resolves once that read is in. `material`: what the draft holds now (its file
+ * A file goes in two steps (spec section 2, Inputs): `canvas_workspace_send` announces it and makes the run, then the file is posted with that
+ * run's id. `onSettled`: re-reads the draft's material; resolves once that read is in. `material`: what the draft holds now (its file
  * ids are noted when an upload goes up, to tell the file it adds from the ones already there).
  */
-export function useCanvasUploads(draftId: string | null, onSettled: () => Promise<void>, material: CanvasMaterialItem[]): CanvasUploads {
+/** [FOUNDER DECISION: wording] */
+const UPLOAD_WAIT_TEXT = 'The file did not go through. Wait a minute, then try again.';
+
+/** Posts the file; a failed post (the network) is tried once more after a short random pause, because the announced run is already waiting for it. */
+async function postFile(runId: string, file: File): Promise<Awaited<ReturnType<typeof uploadCanvasMaterial>>> {
+  const attempt = async () => {
+    try {
+      return await uploadCanvasMaterial(runId, file);
+    } catch {
+      return { ok: false, code: 'FAILED' } as const;
+    }
+  };
+  const first = await attempt();
+  if (first.ok || first.code !== 'FAILED') return first;
+  await new Promise((resolve) => setTimeout(resolve, 200 + Math.random() * 400));
+  return await attempt();
+}
+
+/** The error code a refused announcement of a file reads as (the sentences are DRAFT_ERROR_TEXT's). */
+const refusedCode = (c: CanvasRefusalCode) => (c === 'busy' || c === 'busy_elsewhere' ? 'BUSY' : c === 'cap_reached' ? 'REVISION_CAP' : 'FAILED');
+
+export function useCanvasUploads(draft: Pick<CanvasDraft, 'id' | 'canvasId' | 'revision'> | null, onSettled: () => Promise<void>, material: CanvasMaterialItem[]): CanvasUploads {
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const inFlight = useRef(false);
   const count = useRef(0);
+  const draftId = draft?.id ?? null;
+  const canvasId = draft?.canvasId ?? null;
+  const revision = draft?.revision ?? null;
   const held = useRef(material);
   held.current = material;
   useEffect(() => setUploads([]), [draftId]);
@@ -46,14 +71,22 @@ export function useCanvasUploads(draftId: string | null, onSettled: () => Promis
       inFlight.current = true;
       const before = held.current.filter((m) => m.kind === 'file').map((m) => m.id);
       try {
-        const r = await uploadCanvasMaterial(draftId, file);
+        const sent = await sendCanvasWorkspaceMessage({ canvasId, expectedDraftId: draftId, expectedRevision: revision, attachment: { kind: 'file', label: file.name }, clientId: crypto.randomUUID() });
+        if (!sent.ok) {
+          // the screen is behind (stale_view) or a run is going: re-read, so the next file carries the draft's current revision
+          settle({ status: 'failed', code: refusedCode(sent.refused) }); // the tray row says why; no second message in a toast
+          void onSettled().catch(() => undefined);
+          return;
+        }
+        const r = await postFile(sent.runId, file);
         if (r.ok) {
           // Hold the row as "reading" until the material that replaces it is in; both change in one render.
           await onSettled().catch(() => undefined);
-          settle({ status: 'read', label: r.label, before });
+          settle({ status: 'read', label: r.label || file.name, before });
         } else {
           settle({ status: 'failed', code: r.code });
-          toast.error(DRAFT_ERROR_TEXT[r.code] ?? 'That did not go through. Try again.');
+          // a post that failed twice leaves the announced run queued for a few minutes, so a new Send or file is refused as busy until it ends
+          toast.error(r.code === 'FAILED' ? UPLOAD_WAIT_TEXT : (DRAFT_ERROR_TEXT[r.code] ?? 'That did not go through. Try again.'));
           void onSettled().catch(() => undefined);
         }
       } catch {
@@ -64,7 +97,7 @@ export function useCanvasUploads(draftId: string | null, onSettled: () => Promis
         inFlight.current = false;
       }
     },
-    [draftId, onSettled],
+    [draftId, canvasId, revision, onSettled],
   );
 
   return { uploads, busy: uploads.some((u) => u.status === 'reading'), upload };

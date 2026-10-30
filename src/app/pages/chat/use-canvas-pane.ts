@@ -23,7 +23,7 @@ export function useCanvasPane({ canvasRoot, rootId, messages, userId }: { canvas
   const canvas = read.thread;
   const canvasOn = useCanvasDraftAvailability(canvasRoot);
   const reloadCanvas = canvas?.reload;
-  const uploader = useCanvasUploads(canvas?.draft.id ?? null, useCallback(() => reloadCanvas?.() ?? Promise.resolve(), [reloadCanvas]), canvas?.material ?? NO_MATERIAL);
+  const uploader = useCanvasUploads(canvas?.draft ?? null, useCallback(() => reloadCanvas?.() ?? Promise.resolve(), [reloadCanvas]), canvas?.material ?? NO_MATERIAL);
   const [composing, setComposing] = useState(false);
   const actions = useCanvasActions({ thread: canvas, available: canvasOn, messages, ownerId: userId, rootId, uploads: uploader.uploads, composing });
   return { read, canvas, canvasOn, uploader, composing, setComposing, ...actions };

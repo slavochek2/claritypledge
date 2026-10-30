@@ -3,54 +3,76 @@
  * link reader). index.ts passes the real ones; src/tests/p1536-canvas-draft.test.ts passes fakes and runs the
  * whole pipeline.
  *
- * The run's state lives in the database (`canvas_draft_runs`), never here: `_canvas_draft_run_begin` made the
- * row, and every path below ends it with `_canvas_draft_run_complete` or `_canvas_draft_run_fail`. A reload therefore loses nothing.
+ * Design v6: a run is one `canvas_draft_runs` row, made by a user RPC (`canvas_workspace_send`, a retry, a focus switch,
+ * a fork) and begun here by its id (`_canvas_draft_run_begin`). Its state lives in the database, never here: every path
+ * below ends it with `_canvas_draft_run_complete` or `_canvas_draft_run_fail`, so a reload loses nothing.
+ *
+ * What a run may change (its scope) comes from the run, not from the model: a tagged message changes exactly its tags, an
+ * untagged one the boxes the model names (validated), the first draft, a focus switch and a fork's first run all nine. A
+ * message run never changes the focus. The database enforces the same rule again at complete.
  *
  * Material is data. This code never lets it choose where anything is written: the target canvas, draft and
  * owner come from the verified caller and the begin row, and the model returns only structured actions on
- * ids it was given (canvas-draft.ts parseDraft).
+ * ids it was given (canvas-parse.ts parseDraft).
  *
  * Logging: fixed codes and counts only. Never material, a URL, a reply, a name or the key.
  */
 
 import { assembleMaterial } from './canvas-source.ts';
 import { RequestTooLarge, fitRequest } from './canvas-fit.ts';
-import type { GeminiRequest, TokenCounter } from './mirror-agent.ts';
+import { DeadlineExceeded } from './canvas-deadline.ts';
+import { costUsd, type GeminiRequest, type GeminiUsage, type TokenCounter } from './mirror-agent.ts';
 import { buildDraftRequest } from './canvas-prompt.ts';
-import { parseDraft, questionsFor } from './canvas-parse.ts';
-import { buildDraftReply, type ReplyFacts } from './canvas-reply.ts';
-import { MAX_LINKS_PER_RUN, extractUrls, linkFailureText, type LinkResult } from './canvas-material.ts';
+import { parseDraft } from './canvas-parse.ts';
+import { buildDraftReply, withCutNote } from './canvas-reply.ts';
+import type { LinkResult } from './canvas-material.ts';
+import { frameOf, scopeOf } from './canvas-frame.ts';
+import { gatherLinks, ownerItems, textOf, toCopies, triggerOf } from './canvas-thread.ts';
 import type { ModelCaller } from './canvas-model.ts';
-import type { BasePoint, CopyInput, DraftPoint, Material, MaterialInput } from './canvas-types.ts';
+import type { BasePoint, Material, MaterialInput } from './canvas-types.ts';
 
-/** The one model call a press of "Draft" means. (The old 'tensions' pass is gone: every run drafts straight away.) */
-export type RunKind = 'draft';
+/** The three kinds of run a user action creates. */
+export type RunKind = 'message' | 'focus' | 'fork_first';
 
 export interface ThreadItem {
   kind: 'owner_message' | 'clarify_copy';
   text?: string | null;
+  message_id?: string | null;
+  /** The boxes the owner tagged the message with (Add to chat). */
+  box_refs?: string[] | null;
+  /** True for the one message that started this run. */
+  is_trigger?: boolean;
   label?: string | null;
   /** clarify_copy: the lines of the copy, each with whose it is. A copy without lines counts as other people's. */
   lines?: Array<{ by: 'owner' | 'other'; text: string }> | null;
 }
-export interface MaterialRow { id?: string; kind: 'file' | 'link'; label: string; text: string }
+export interface MaterialRow { id?: string; kind: 'file' | 'link'; label: string; text: string; message_id?: string | null; origin?: string }
 
 /** The `run` row `_canvas_draft_run_begin` returns when it starts a run (status 'run'). */
 export interface CanvasRun {
   status: 'run';
   run_id: string;
+  kind?: RunKind;
   reserved_usd?: number | null;
-  /** The app path of the draft. Returned by the start RPC; the reply no longer prints it (the draft card links the canvas). */
+  /** The app path of the draft. */
   canvas_path?: string | null;
   /** "v1": the label of the version the draft starts from, or null on a first canvas. */
   base_label?: string | null;
-  base_points: BasePoint[];
+  /** The whole canvas is to be drafted: a fork's first run, or an untagged message on an empty draft with no focus yet. */
+  first_draft?: boolean;
+  /** The business the canvas is about now; a message run never changes it. */
+  focus?: string | null;
+  /** A focus run's target group. */
+  target_group?: string | null;
+  /** The boxes the trigger message was tagged with. */
+  box_refs?: string[] | null;
+  trigger_message_id?: string | null;
+  /** What the draft holds now, with ids: the points the actions act on. */
+  draft_points: BasePoint[];
   material: MaterialRow[];
   thread: ThreadItem[];
   /** Names of other people in the material; no point or story may contain one. */
   other_names: string[];
-  /** What the draft holds now: context for a revision (the draft's own points; `reused` ones are also base points). */
-  draft_points?: DraftPoint[] | null;
   /** The owner's full name: never learned as another person from a file or a link. */
   owner_name?: string | null;
 }
@@ -59,138 +81,183 @@ export interface RpcResult { data: unknown; error: { code?: string; message?: st
 export interface RunDeps {
   rpc: (name: string, args: Record<string, unknown>) => Promise<RpcResult>;
   model: ModelCaller;
-  readLink: (url: string) => Promise<LinkResult>;
+  readLink: (url: string, signal?: AbortSignal) => Promise<LinkResult>;
   /** The model's token counter (free). Absent or failing: the UTF-8 byte bound decides. */
   count?: TokenCounter;
+  /** The invocation's deadline (canvas-deadline.ts), shared by every step. */
+  signal?: AbortSignal;
 }
-export interface RunParams { ownerId: string; draftId: string; kind: RunKind }
+export interface RunParams {
+  ownerId: string;
+  /** What an upload's extraction cost in this invocation (the reservation covers it; the run settles one number). */
+  extraUsd?: number | null;
+}
 export interface RunSummary { state: 'done' | 'failed'; code?: string }
 
-export function toCopies(thread: ThreadItem[]): CopyInput[] {
-  return thread.filter((t) => t.kind === 'clarify_copy').map((t) => ({
-    label: (t.label ?? 'copied chat').slice(0, 80),
-    lines: t.lines ?? (t.text ? [{ by: 'other' as const, text: t.text }] : []),
-  }));
-}
-
-const ownerMessages = (thread: ThreadItem[]): string[] =>
-  thread.filter((t) => t.kind === 'owner_message' && typeof t.text === 'string' && t.text.trim()).map((t) => t.text as string);
-
-/** The cost to charge for a model call that returned nothing: refused upfront costs nothing, else the reservation. */
-function failureUsd(status: number, run: CanvasRun): number | null {
+/** The cost to charge for a model call that returned nothing: refused upfront costs only what the upload already spent, else the reservation. */
+function failureUsd(status: number, run: CanvasRun, extra: number): number | null {
   const refusedUpfront = status >= 400 && status < 500;
-  return refusedUpfront ? 0 : run.reserved_usd ?? null;
+  return refusedUpfront ? extra : run.reserved_usd ?? null;
 }
 
 const failCode = (status: number) => (status === 429 || status === 403 ? 'capped' : status ? `http_${status}` : 'network');
 
 /** Everything one run's steps share. */
-interface Step { deps: RunDeps; run: CanvasRun; input: MaterialInput; material: Material; unreadable: string[]; stub: Record<string, unknown> }
+interface Step {
+  deps: RunDeps; run: CanvasRun; p: RunParams; input: MaterialInput; material: Material; unreadable: string[];
+  stub: Record<string, unknown>; kind: RunKind; extra: number;
+  /** What the run has spent so far, to settle if it ends here: an upload's extraction, then (once a model call is out) the reservation or the reported cost. */
+  ledger: { usd: number | null };
+}
 
+const TIMEOUT_REPLY = 'That took too long, so nothing was changed. Please try again.';
 const TOO_LARGE_REPLY = 'That is more than I can read in one go. Nothing was changed. Try a shorter file, or fewer files.';
 
 /** The request, with the material cut until the model's own count fits the reserved input; or the run's failure. */
 async function fitOrFail<T extends { request: GeminiRequest }>(s: Step, build: (cap: number) => T): Promise<(T & { tokens: number; counted: boolean }) | RunSummary> {
   try {
-    return await fitRequest(build, s.deps.count);
+    return await fitRequest(build, s.deps.count, s.deps.signal);
   } catch (e) {
+    if (e instanceof DeadlineExceeded) return await failRun(s.deps, s.run, s.p, 'timeout', TIMEOUT_REPLY, s.ledger.usd);
     if (!(e instanceof RequestTooLarge)) throw e;
-    return await failRun(s.deps, s.run, 'too_large', TOO_LARGE_REPLY, 0); // nothing was sent: nothing is charged
+    return await failRun(s.deps, s.run, s.p, 'too_large', TOO_LARGE_REPLY, s.extra); // nothing was sent: only an upload's own extraction is charged
   }
 }
 
-async function failRun(deps: RunDeps, run: CanvasRun, code: string, reply: string | null, usd: number | null): Promise<RunSummary> {
-  try {
-    const { error } = await deps.rpc('_canvas_draft_run_fail', { p_run: run.run_id, p_code: code, p_reply: reply, p_actual_usd: usd });
-    if (error) console.error('canvas-draft: fail write failed', { code: error.code });
-  } catch (e) {
-    console.error('canvas-draft: fail write threw', { error: (e as Error).name });
+/** The pause before the one retry of a fail write: 200 to 600 ms, random so many failing writes do not retry together. It ends early when the invocation's deadline fires. */
+const RETRY_PAUSE_MIN_MS = 200;
+const RETRY_PAUSE_SPAN_MS = 400;
+function pauseBeforeRetry(signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const pending: { timer?: ReturnType<typeof setTimeout> } = {};
+    const done = () => { clearTimeout(pending.timer); signal?.removeEventListener('abort', done); resolve(); };
+    pending.timer = setTimeout(done, RETRY_PAUSE_MIN_MS + Math.random() * RETRY_PAUSE_SPAN_MS);
+    signal?.addEventListener('abort', done, { once: true });
+  });
+}
+
+export async function failRun(deps: Pick<RunDeps, 'rpc' | 'signal'>, run: Pick<CanvasRun, 'run_id'>, p: RunParams, code: string, reply: string | null, usd: number | null): Promise<RunSummary> {
+  // One more try if the write fails: a run that stays 'running' blocks the owner until its lease runs out.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const { error } = await deps.rpc('_canvas_draft_run_fail', { p_run: run.run_id, p_owner: p.ownerId, p_code: code, p_reply: reply, p_actual_usd: usd });
+      if (!error) break;
+      console.error('canvas-draft: fail write failed', { code: error.code, attempt });
+    } catch (e) {
+      console.error('canvas-draft: fail write threw', { error: (e as Error).name, attempt });
+    }
+    if (attempt === 1) await pauseBeforeRetry(deps.signal);
   }
   return { state: 'failed', code };
 }
 
-/** New links from the owner's own messages (never from another person's lines), read and kept as material. */
-async function gatherLinks(deps: RunDeps, p: RunParams, run: CanvasRun): Promise<{ unreadable: string[]; rows: Array<{ url: string; text: string }> }> {
-  const unreadable: string[] = [];
-  const rows: Array<{ url: string; text: string }> = [];
-  const known = new Set(run.material.filter((m) => m.kind === 'link').map((m) => m.label));
-  const fresh = ownerMessages(run.thread).flatMap(extractUrls).filter((u, i, all) => !known.has(u) && all.indexOf(u) === i);
-  for (const url of fresh.slice(MAX_LINKS_PER_RUN)) unreadable.push(`${url.slice(0, 200)} (more than ${MAX_LINKS_PER_RUN} links in one go; send the rest again)`);
-  for (const url of fresh.slice(0, MAX_LINKS_PER_RUN)) {
-    const r = await deps.readLink(url);
-    if (!r.ok) { unreadable.push(`${url.slice(0, 200)} (${linkFailureText(r.reason)})`); continue; }
-    rows.push({ url: url.slice(0, 200), text: r.text });
-    // Kept with the draft so a reload or a later run loses nothing; this run uses the text either way.
-    const { error } = await deps.rpc('_canvas_draft_add_material', {
-      p_owner: p.ownerId, p_draft: p.draftId, p_kind: 'link', p_label: url.slice(0, 200), p_text: r.text,
-    });
-    if (error) console.error('canvas-draft: link not kept', { code: error.code });
+const zeroFacts = (s: Step) => ({ total: 0, unreadable: s.unreadable, droppedUnverified: 0, droppedNames: 0 });
+
+type Fitted = { material: Material; request: GeminiRequest };
+
+/** The model call under the invocation's deadline, with the ledger kept true; the answer, or the run's failure. */
+async function askModel(s: Step, fit: Fitted, cut: (reply: string) => string): Promise<{ response: unknown } | RunSummary> {
+  const { run, p, deps } = s;
+  if (deps.signal?.aborted) return await failRun(deps, run, p, 'timeout', TIMEOUT_REPLY, s.ledger.usd);
+  s.ledger.usd = run.reserved_usd ?? null; // the call is about to be out: if the run ends before its cost is known, the reservation is what it may have cost
+  const { response, status } = await deps.model({ kind: 'draft', request: fit.request, stub: { ...s.stub, material: fit.material }, signal: deps.signal });
+  if (response) {
+    const cost = costUsd((response as { usageMetadata?: GeminiUsage }).usageMetadata);
+    s.ledger.usd = cost === null ? run.reserved_usd ?? null : cost + s.extra;
+    return { response };
   }
-  return { unreadable, rows };
+  if (deps.signal?.aborted) return await failRun(deps, run, p, 'timeout', TIMEOUT_REPLY, run.reserved_usd ?? null); // cut while in flight: it may have been billed
+  return await failRun(deps, run, p, failCode(status), cut('I could not draft your canvas just now. Nothing was changed. Please try again in a few minutes.'), failureUsd(status, run, s.extra));
 }
 
-function emptyFacts(s: Pick<Step, 'run' | 'unreadable'>): ReplyFacts {
-  return {
-    baseLabel: s.run.base_label ?? null, counts: { kept: 0, reworded: 0, moved: 0, added: 0, dropped: 0 },
-    total: 0, emptyBoxes: [], unreadable: s.unreadable, droppedUnverified: 0, droppedNames: 0, decided: [],
-  };
+/** The failure a parsed answer amounts to (unusable, or nothing supported), or null when there is something to write. */
+async function failureOf(s: Step, out: ReturnType<typeof parseDraft>, usd: number | null, cut: (reply: string) => string): Promise<RunSummary | null> {
+  const { run, p, deps } = s;
+  if (!out.ok) return await failRun(deps, run, p, out.code, cut('I could not draft your canvas from that. Nothing was changed. Try again, or add more about what you sell and to whom.'), usd);
+  const drops = out.droppedUnverified + out.droppedNames;
+  if (out.scope.length > 0 && out.total === 0 && (drops > 0 || s.kind !== 'message' || run.first_draft)) {
+    return await failRun(deps, run, p, 'nothing_supported', cut(buildDraftReply({ ...zeroFacts(s), outcome: 'failed', droppedUnverified: out.droppedUnverified, droppedNames: out.droppedNames })), usd);
+  }
+  return null;
 }
 
 /** The draft: one model call, the checks, one write. */
 async function runDraft(s: Step): Promise<RunSummary> {
   const { run } = s;
   const baseLabel = run.base_label ?? null;
-  const draftPoints = run.draft_points ?? [];
+  const basePoints = run.draft_points;
+  const frame = frameOf(run, s.kind);
   const fit = await fitOrFail(s, (cap) => {
     const material = assembleMaterial(s.input, cap);
-    return { material, request: buildDraftRequest({ material, basePoints: run.base_points, baseLabel, draftPoints }) };
+    return { material, request: buildDraftRequest({ material, basePoints, baseLabel, frame }) };
   });
   if ('state' in fit) return fit;
-  const { response, status } = await s.deps.model({ kind: 'draft', request: fit.request, stub: { ...s.stub, material: fit.material } });
-  if (!response) {
-    return await failRun(s.deps, run, failCode(status), 'I could not draft your canvas just now. Nothing was changed. Please try again in a few minutes.', failureUsd(status, run));
-  }
-  const out = parseDraft(response, {
-    material: fit.material, basePoints: run.base_points, baseLabel, otherNames: run.other_names, draftPoints, ownerName: run.owner_name,
+  const cut = (reply: string) => withCutNote(reply, fit.material.truncated); // a failure reply says the material was cut too
+  const asked = await askModel(s, fit, cut);
+  if ('state' in asked) return asked;
+  const out = parseDraft(asked.response, {
+    material: fit.material, basePoints, baseLabel, otherNames: run.other_names, ownerName: run.owner_name,
+    scope: scopeOf(frame), rebuild: frame.rebuild, currentFocus: run.focus ?? null, acceptFocus: run.first_draft === true && s.kind === 'message',
   });
-  const usd = out.costUsd ?? run.reserved_usd ?? null;
-  if (!out.ok) return await failRun(s.deps, run, out.code, 'I could not draft your canvas from that. Nothing was changed. Try again, or add more about what you sell and to whom.', usd);
-  if (out.total === 0) {
-    return await failRun(s.deps, run, 'nothing_supported', buildDraftReply({ ...emptyFacts(s), droppedUnverified: out.droppedUnverified, droppedNames: out.droppedNames }), usd);
-  }
+  const usd = out.costUsd !== null ? out.costUsd + s.extra : run.reserved_usd ?? null;
+  return (await failureOf(s, out, usd, cut)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));
+}
+
+type Parsed = Extract<ReturnType<typeof parseDraft>, { ok: true }>;
+
+/** The reply and the one write of a run that has something to say. */
+async function completeDraft(s: Step, out: Parsed, usd: number | null, truncated: boolean): Promise<RunSummary> {
+  const { run, p, deps } = s;
+  const first = run.first_draft === true || s.kind === 'fork_first';
+  const outcome = !out.changedBoxes.length ? 'unchanged' : first ? 'draft' : 'updated';
   const reply = buildDraftReply({
-    baseLabel, counts: out.counts, total: out.total, emptyBoxes: out.emptyBoxes,
-    unreadable: s.unreadable, droppedUnverified: out.droppedUnverified, droppedNames: out.droppedNames, decided: out.decided,
+    outcome, total: out.total, filledBoxes: 9 - out.emptyBoxes.length, changedBoxes: out.changedBoxes, note: out.note,
+    focus: out.focus ?? run.focus ?? null, others: out.otherCanvases.map((o) => o.group),
+    truncated, unreadable: s.unreadable, droppedUnverified: out.droppedUnverified, droppedNames: out.droppedNames,
   });
-  const { data, error } = await s.deps.rpc('_canvas_draft_run_complete', {
-    p_run: run.run_id, p_actions: out.actions, p_questions: questionsFor(out.emptyBoxes), p_decided: out.decided, p_reply: reply, p_usd: usd,
+  const { data, error } = await deps.rpc('_canvas_draft_run_complete', {
+    p_run: run.run_id, p_owner: p.ownerId, p_actions: out.actions, p_questions: out.questions, p_scope: out.scope,
+    p_focus: run.first_draft && s.kind === 'message' ? out.focus : null, // only the first draft takes the model's focus
+    p_other_canvases: out.otherCanvases, p_note: out.note || null, p_reply: reply, p_usd: usd,
   });
   if (error || !data) {
     console.error('canvas-draft: write failed', { code: error?.code });
-    return await failRun(s.deps, run, 'write', 'I drafted your canvas but could not save it. Please try again.', usd);
+    return await failRun(deps, run, p, 'write', 'I drafted your canvas but could not save it. Please try again.', usd);
   }
-  console.log('canvas-draft: done', { points: out.total, dropped: out.droppedUnverified + out.droppedNames, cost: out.costUsd });
+  const answered = data as { status?: string; code?: string };
+  if (answered.status === 'gone') return { state: 'failed', code: 'gone' };
+  if (answered.status === 'failed') return { state: 'failed', code: answered.code ?? 'failed' };
+  console.log('canvas-draft: done', { points: out.total, dropped: out.droppedUnverified + out.droppedNames + out.droppedScope, cost: out.costUsd });
   return { state: 'done' };
 }
 
 export async function executeRun(deps: RunDeps, p: RunParams, run: CanvasRun): Promise<RunSummary> {
+  const ledger: { usd: number | null } = { usd: p.extraUsd ?? 0 };
   try {
-    const { unreadable, rows } = await gatherLinks(deps, p, run);
+    const { unreadable, rows, gone } = await gatherLinks(deps, p, run);
+    if (gone) return { state: 'failed', code: 'gone' };
+    if (deps.signal?.aborted) return await failRun(deps, run, p, 'timeout', TIMEOUT_REPLY, ledger.usd);
+    const trigger = triggerOf(run.thread);
     const input: MaterialInput = {
-      messages: ownerMessages(run.thread),
+      trigger: trigger ? { text: textOf(trigger), tagged: trigger.box_refs ?? null } : null,
+      messages: ownerItems(run.thread).filter((t) => t !== trigger).map(textOf),
       copies: toCopies(run.thread),
       links: [...run.material.filter((m) => m.kind === 'link').map((m) => ({ url: m.label, text: m.text })), ...rows],
       files: run.material.filter((m) => m.kind === 'file').map((m) => ({ name: m.label, text: m.text })),
     };
     const material = assembleMaterial(input);
+    const kind: RunKind = run.kind ?? 'message';
     const step: Step = {
-      deps, run, input, material, unreadable,
-      stub: { material, basePoints: run.base_points, otherNames: run.other_names },
+      deps, run, p, input, material, unreadable, kind, extra: p.extraUsd ?? 0, ledger,
+      stub: { material, basePoints: run.draft_points, otherNames: run.other_names },
     };
-    if (!material.items.some((i) => i.owner)) return await failRun(deps, run, 'no_readable_material', buildDraftReply(emptyFacts(step)), 0);
+    if (!material.items.some((i) => i.owner)) {
+      return await failRun(deps, run, p, 'no_readable_material', buildDraftReply({ ...zeroFacts(step), outcome: 'failed' }), step.extra);
+    }
     return await runDraft(step);
   } catch (e) {
     console.error('canvas-draft: run crashed', { error: (e as Error).name });
-    return await failRun(deps, run, 'internal', 'Something went wrong and nothing was changed. Please try again.', run.reserved_usd ?? null);
+    return await failRun(deps, run, p, 'internal', 'Something went wrong and nothing was changed. Please try again.', ledger.usd);
   }
 }

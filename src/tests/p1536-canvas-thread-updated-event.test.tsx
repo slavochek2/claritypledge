@@ -36,7 +36,7 @@ import { subscribeCanvasDraftEvents, type CanvasDraftEvent } from '@/app/data/ca
 const T1 = '2026-10-28T09:00:00.000Z';
 const T2 = '2026-10-28T09:05:00.000Z';
 const draft = (id: string, root: string) => ({
-  id, versionId: `ver-${id}`, canvasId: `cv-${id}`, baseVersionId: null, conversationId: 'conv', threadRootId: root, state: 'open', runCount: 1,
+  id, versionId: `ver-${id}`, canvasId: `cv-${id}`, baseVersionId: null, conversationId: 'conv', threadRootId: root, state: 'open', runCount: 1, revision: 0,
   tensionCount: 0, closedAt: null, canvasName: `canvas_${id}`, versionName: `v_${id}`,
 });
 const run = (id: string, state: string, at: string, kind = 'draft') => ({ id, kind, speed: 'fast', state, errorCode: null, createdAt: at, startedAt: at });

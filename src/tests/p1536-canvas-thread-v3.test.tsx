@@ -35,9 +35,11 @@ const svc = vi.hoisted(() => ({
   getCanvasDraftByThread: vi.fn(),
   getLatestCanvasRun: vi.fn(),
   listCanvasMaterial: vi.fn(),
-  runCanvasDraft: vi.fn(),
+  startQueuedCanvasRun: vi.fn(),
+  retryCanvasRun: vi.fn(),
   publishCanvasDraft: vi.fn(),
   uploadCanvasMaterial: vi.fn(),
+  sendCanvasWorkspaceMessage: vi.fn(),
   openCanvasDraft: vi.fn(),
   discardCanvasDraft: vi.fn(),
   listMyCanvasVersions: vi.fn(),
@@ -105,7 +107,7 @@ const note = () => msg({ id: 'note-1', body: 'I sell bookkeeping to cafe owners'
 
 const draftRow = (over: Partial<CanvasDraft> = {}): CanvasDraft => ({
   id: 'draft-1', versionId: 'ver-draft', canvasId: 'cv-1', baseVersionId: null, conversationId: MIRROR_ID, threadRootId: ROOT,
-  state: 'open', runCount: 0, closedAt: null, canvasName: null, versionName: null, ...over,
+  state: 'open', runCount: 0, revision: 3, closedAt: null, canvasName: null, versionName: null, ...over,
 });
 const doneRun = (): CanvasDraftRun => ({ id: 'run-1', kind: 'draft', state: 'done', errorCode: null, createdAt: AFTER, startedAt: AFTER });
 const version = (canvasId: string, seq: number) => ({ id: `v-${canvasId}-${seq}`, canvasId, canvasName: 'canvas', name: `canvas_v${seq}`, seq, publishedAt: '2026-10-20T10:00:00.000Z', hasOpenDraft: false });
@@ -158,11 +160,12 @@ beforeEach(() => {
   svc.getCanvasDraftByThread.mockImplementation(async (id: string) => (id === ROOT ? state.draft : null));
   svc.getLatestCanvasRun.mockImplementation(async () => state.run);
   svc.listCanvasMaterial.mockImplementation(async () => state.material);
-  svc.runCanvasDraft.mockResolvedValue({ ok: true, runId: 'run-9', kind: 'draft' });
-  svc.publishCanvasDraft.mockResolvedValue({ seq: 1, skippedLinks: 0 });
+  svc.startQueuedCanvasRun.mockResolvedValue({ ok: true, runId: 'run-9', kind: 'draft' });
+  svc.publishCanvasDraft.mockResolvedValue({ ok: true, seq: 1, skippedLinks: 0 });
   svc.uploadCanvasMaterial.mockResolvedValue({ ok: true, label: 'offer.pdf', chars: 900 });
-  svc.openCanvasDraft.mockResolvedValue({ status: 'opened', draftId: 'draft-new', conversationId: MIRROR_ID, threadRootId: 'root-new', canvasName: 'canvas', fromSeq: 1 });
-  svc.discardCanvasDraft.mockResolvedValue(true);
+  svc.sendCanvasWorkspaceMessage.mockResolvedValue({ ok: true, runId: 'run-up', revision: 4, draftId: 'draft-1', start: null });
+  svc.openCanvasDraft.mockResolvedValue({ status: 'opened', draftId: 'draft-new', revision: 2, canvasId: 'cv-1', conversationId: MIRROR_ID, threadRootId: 'root-new', canvasName: 'canvas', fromSeq: 1 });
+  svc.discardCanvasDraft.mockResolvedValue({ ok: true, discarded: true });
   svc.listMyCanvasVersions.mockImplementation(async () => state.versions);
   svc.countDoneCanvasDraftRuns.mockResolvedValue(1);
   svc.getLastDoneCanvasDraftRunAt.mockResolvedValue(AFTER);
@@ -228,8 +231,8 @@ describe('2. one create button, the fast speed only', () => {
     state.messages = [canvasRoot(), note()];
     await renderThread();
     fireEvent.click(await screen.findByRole('button', { name: 'Create canvas' }));
-    await waitFor(() => expect(svc.runCanvasDraft).toHaveBeenCalledTimes(1));
-    expect(svc.runCanvasDraft).toHaveBeenCalledWith('draft-1');
+    await waitFor(() => expect(svc.startQueuedCanvasRun).toHaveBeenCalledTimes(1));
+    expect(svc.startQueuedCanvasRun).toHaveBeenCalledWith('draft-1');
   });
 
   it('a draft with a base version: "Create new version" is the only create button (no "Decide for me")', async () => {
@@ -240,15 +243,15 @@ describe('2. one create button, the fast speed only', () => {
     expect(screen.queryByRole('button', { name: 'Decide for me' })).not.toBeInTheDocument();
     expect(within(screen.getByTestId('canvas-bar')).getAllByRole('button').map((b) => b.textContent)).toEqual(['Create new version']);
     fireEvent.click(screen.getByRole('button', { name: 'Create new version' }));
-    await waitFor(() => expect(svc.runCanvasDraft).toHaveBeenCalledWith('draft-1'));
+    await waitFor(() => expect(svc.startQueuedCanvasRun).toHaveBeenCalledWith('draft-1'));
   });
 
   it('a server answer that begins with the old tensions pass is still handled (the run shows its progress)', async () => {
     state.messages = [canvasRoot(), note()];
-    svc.runCanvasDraft.mockResolvedValue({ ok: true, runId: 'run-9', kind: 'tensions' });
+    svc.startQueuedCanvasRun.mockResolvedValue({ ok: true, runId: 'run-9', kind: 'tensions' });
     await renderThread();
     fireEvent.click(await screen.findByRole('button', { name: 'Create canvas' }));
-    await waitFor(() => expect(svc.runCanvasDraft).toHaveBeenCalled());
+    await waitFor(() => expect(svc.startQueuedCanvasRun).toHaveBeenCalled());
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
@@ -541,14 +544,14 @@ describe('8. a new thread opens in the thread pane', () => {
 
   it('"Discard it and start here": the discarded draft is gone and the new thread is in the pane', async () => {
     svc.openCanvasDraft
-      .mockResolvedValueOnce({ status: 'open_elsewhere', draftId: 'draft-open', conversationId: MIRROR_ID, threadRootId: 'root-open', canvasName: 'canvas', fromSeq: 1 })
-      .mockResolvedValueOnce({ status: 'opened', draftId: 'draft-new', conversationId: MIRROR_ID, threadRootId: 'root-new', canvasName: 'canvas', fromSeq: 1 });
+      .mockResolvedValueOnce({ status: 'open_elsewhere', draftId: 'draft-open', revision: 2, canvasId: 'cv-1', conversationId: MIRROR_ID, threadRootId: 'root-open', canvasName: 'canvas', fromSeq: 1 })
+      .mockResolvedValueOnce({ status: 'opened', draftId: 'draft-new', revision: 2, canvasId: 'cv-1', conversationId: MIRROR_ID, threadRootId: 'root-new', canvasName: 'canvas', fromSeq: 1 });
     render(<Routed at={`/chats/c/${MIRROR_ID}`} />);
     // the entry is offered once the project's canvas flag has been read
     await act(async () => {});
     fireEvent.click(screen.getByRole('button', { name: 'pick a version' }));
     fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Discard it and start here' }));
-    await waitFor(() => expect(svc.discardCanvasDraft).toHaveBeenCalledWith('draft-open'));
+    await waitFor(() => expect(svc.discardCanvasDraft).toHaveBeenCalledWith('draft-open', 2));
     expect(await screen.findByTestId('canvas-upload')).toBeInTheDocument();
     expect(screen.getByTestId('canvas-opener-ask')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

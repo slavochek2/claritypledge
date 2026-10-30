@@ -1,8 +1,11 @@
 /** P1536: types shared by the canvas draft engine's modules. */
 
 export interface CopyInput { label: string; lines: Array<{ by: 'owner' | 'other'; text: string }> }
+/** The message that started this run: always carried whole, outside the material cap (a message is never cut away to fit older material). */
+export interface TriggerInput { text: string; tagged?: string[] | null }
 export interface MaterialInput {
   note?: string | null;
+  trigger?: TriggerInput | null;
   /** The owner's own messages in the draft's thread, oldest first. */
   messages?: string[];
   /** Copies of other chats (Clarify): the owner's lines are owner words, everyone else's are not. */
@@ -11,7 +14,12 @@ export interface MaterialInput {
   files: Array<{ name: string; text: string }>;
 }
 /** `owner` is true for text a quote may come from. */
-export interface MaterialItem { kind: 'note' | 'link' | 'file' | 'other_person'; source: string; text: string; owner: boolean }
+export interface MaterialItem {
+  kind: 'note' | 'link' | 'file' | 'other_person'; source: string; text: string; owner: boolean;
+  /** The trigger message: the boxes the owner tagged it with (null when untagged). */
+  trigger?: boolean;
+  tagged?: string[] | null;
+}
 export interface Material { items: MaterialItem[]; tokens: number; truncated: boolean }
 
 export interface BasePoint { id: string; box: string; statement: string; story?: string | null; is_head?: boolean }
@@ -22,7 +30,17 @@ export interface DraftPoint {
   from_point_id?: string | null;
   relation?: 'reword' | 'move' | null;
 }
+/** What one run is: its kind, the boxes the owner tagged, the focus now, a focus run's target, and the boxes it rebuilds. */
+export interface RunFrame {
+  kind: 'message' | 'focus' | 'fork_first';
+  firstDraft: boolean;
+  taggedBoxes: readonly string[] | null;
+  focus: string | null;
+  targetGroup: string | null;
+  rebuild: readonly string[];
+}
 export interface DraftContext {
+  frame?: RunFrame;
   material: Material;
   basePoints: BasePoint[];
   /** What the draft holds now: shown to a revision as context only (no ids to act on). */
@@ -44,6 +62,7 @@ export type ResolvedAction =
   | { action: 'move'; old_point_id: string; box: string; statement: string; story: null }
   | { action: 'new'; box: string; statement: string; story: null };
 
+export interface OtherCanvas { group: string; why: string }
 export interface Decided { kind: 'conflict' | 'link' | 'drop'; text: string }
 export interface DraftCounts { kept: number; reworded: number; moved: number; added: number; dropped: number }
 
@@ -51,6 +70,20 @@ export type DraftOutcome =
   | {
     ok: true; actions: ResolvedAction[]; decided: Decided[]; counts: DraftCounts; total: number;
     emptyBoxes: string[]; droppedUnverified: number; droppedNames: number; costUsd: number | null;
+    /** The boxes this run may change (fixed by the run's kind or tags, else the model's own, validated). */
+    scope: string[];
+    /** Boxes at least one action wrote to or removed from: the "Updated:" chips. */
+    changedBoxes: string[];
+    /** Actions, moves and questions outside the scope: dropped, and counted. */
+    droppedScope: number;
+    /** New or moved points refused because their box was full once the points that stay were counted. */
+    droppedCap: number;
+    /** The business the canvas is about, after the names filter; null when absent or refused. */
+    focus: string | null;
+    otherCanvases: OtherCanvas[];
+    /** { box tag: question } for scoped boxes only. */
+    questions: Record<string, string>;
+    note: string;
   }
   | Failure;
 
@@ -63,4 +96,12 @@ export interface ParseContext {
   draftPoints?: DraftPoint[];
   /** The owner's own name: never learned as another person from a file or a link. */
   ownerName?: string | null;
+  /** The run's scope: fixed boxes, or the model's own `scope` (an untagged message). */
+  scope?: { mode: 'fixed'; boxes: readonly string[] } | { mode: 'model' };
+  /** The focus the canvas has now. */
+  currentFocus?: string | null;
+  /** True only for a run that may set the focus (the first draft); every other run's own `focus` is ignored. Default true. */
+  acceptFocus?: boolean;
+  /** Boxes that are rebuilt (a focus run's customer-facing boxes): their current points are never kept. */
+  rebuild?: readonly string[];
 }

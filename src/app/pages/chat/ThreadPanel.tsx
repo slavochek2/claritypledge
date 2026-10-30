@@ -103,7 +103,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, hideDraftCa
           focusToken={focusToken}
           autoFocus
           onSendableChange={canvas.setComposing}
-          onSend={(body) => void conv.send({ body })}
+          onSend={(body) => (canvas.send && body ? canvas.send(body) : void conv.send({ body }))}
           onVoiceNote={sendVoice}
           leading={canvas.leading}
         />

@@ -8,8 +8,11 @@ import { useState, type ReactNode } from 'react';
 import {
   discardCanvasDraft,
   publishCanvasDraft,
-  runCanvasDraft,
+  sendCanvasWorkspaceMessage,
+  retryCanvasRun,
+  startQueuedCanvasRun,
   CanvasDraftRefusal,
+  type CanvasRefusalCode,
 } from '@/app/data/canvas-draft-service';
 import type { ChatMessage } from '@/app/data/chat-service';
 import type { BarProps, Busy } from './canvas-thread';
@@ -26,6 +29,26 @@ function refusalText(e: unknown, kind: Busy): string {
     if (e.code === 'CLOSED') return DRAFT_ERROR_TEXT.DRAFT_CLOSED ?? 'This draft is closed.';
   }
   return 'That did not go through. Try again.';
+}
+
+/** A typed refusal of Publish or Discard, in the sentences this tray already had. stale_view reads as the generic one. */
+function refusedText(code: CanvasRefusalCode, kind: Busy): string {
+  if (code === 'busy' || code === 'busy_elsewhere') return refusalText(new CanvasDraftRefusal('RUN_ACTIVE'), kind);
+  if (code === 'draft_empty' || code === 'no_changes') return refusalText(new CanvasDraftRefusal('NOTHING_TO_PUBLISH'), kind);
+  return refusalText(null, kind); // [FOUNDER DECISION: stale_view wording; S3 owns it]
+}
+
+/** What a refused Send says, in the sentences the tray already had. [FOUNDER DECISION: busy_elsewhere and stale_view wording; S3 owns it] */
+function sendRefusedText(code: CanvasRefusalCode): string {
+  if (code === 'busy' || code === 'busy_elsewhere') return DRAFT_ERROR_TEXT.BUSY ?? 'That did not go through. Try again.';
+  if (code === 'cap_reached') return DRAFT_ERROR_TEXT.REVISION_CAP ?? 'That did not go through. Try again.';
+  return DRAFT_ERROR_TEXT.FAILED ?? 'That did not go through. Try again.';
+}
+
+/** A refused Try again. `not_retryable` is an upload whose file was never kept: the owner sends the file again. [FOUNDER DECISION: wording; the spec's bubble reads "Send the file again."] */
+function retryRefusedText(code: CanvasRefusalCode): string {
+  if (code === 'not_retryable') return 'Send it again.';
+  return sendRefusedText(code);
 }
 
 export function useCanvasActions({
@@ -46,12 +69,12 @@ export function useCanvasActions({
   uploads: UploadItem[];
   /** The composer has text (Send is the one primary now). */
   composing: boolean;
-}): { bar: BarProps | null; onDiscard: (() => void) | null; dialog: ReactNode } {
+}): { bar: BarProps | null; onDiscard: (() => void) | null; dialog: ReactNode; onSend: ((body: string) => Promise<boolean>) | null } {
   const [busy, setBusy] = useState<Busy>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const { start, dialog } = useStartCanvas();
-  if (!thread || available !== true) return { bar: null, onDiscard: null, dialog };
-  const { draft, run, material, running, reload, draftHasPoints, viewPath, nextSeq, lastDraftAt } = thread;
+  if (!thread || available !== true) return { bar: null, onDiscard: null, dialog, onSend: null };
+  const { draft, run, material, running, waiting, reload, draftHasPoints, viewPath, nextSeq, lastDraftAt } = thread;
 
   const act = async (kind: Busy, work: () => Promise<string | null>) => {
     if (busy) return;
@@ -70,6 +93,7 @@ export function useCanvasActions({
     draft,
     run,
     running,
+    waiting,
     items: buildItems({ material, messages, ownerId, rootId, lastDraftAt, uploads }),
     newInput: hasNewSinceRun({ messages, ownerId, rootId, lastDraftAt, material, uploads }),
     composing,
@@ -81,16 +105,39 @@ export function useCanvasActions({
     nextSeq,
     onRun: () =>
       void act('run', async () => {
-        const r = await runCanvasDraft(draft.id);
+        // A failed newest run is tried again with canvas_draft_retry (it makes the replacement run); otherwise a run that was made but never started is started.
+        if (run?.state === 'failed') {
+          const t = await retryCanvasRun({ draftId: draft.id, failedRunId: run.id, expectedRevision: draft.revision, clientId: crypto.randomUUID() });
+          if (!t.ok) return retryRefusedText(t.refused);
+          return t.start && !t.start.ok && t.start.code !== 'BUSY' ? (DRAFT_ERROR_TEXT[t.start.code] ?? 'That did not go through. Try again.') : null;
+        }
+        const r = await startQueuedCanvasRun(draft.id);
         return r.ok || r.code === 'BUSY' ? null : (DRAFT_ERROR_TEXT[r.code] ?? 'That did not go through. Try again.');
       }),
     onPublish: () =>
       void act('publish', async () => {
-        await publishCanvasDraft(draft.id);
-        return null;
+        const r = await publishCanvasDraft(draft.id, draft.revision);
+        return r.ok ? null : refusedText(r.refused, 'publish');
       }),
     onStartNew: () => void start(draft.versionId, changeRequestMessages(messages, ownerId, rootId, draft.closedAt)),
   };
-  const onDiscard = () => void act('discard', async () => ((await discardCanvasDraft(draft.id)) ? null : (DRAFT_ERROR_TEXT.DRAFT_CLOSED ?? null)));
-  return { bar, onDiscard: canDiscardDraft(bar) ? onDiscard : null, dialog };
+  // A text message in an open draft's thread is sent with canvas_workspace_send (message + queued run in one call), then its run
+  // is started by id. `false` hands the text back to the composer. Voice and a published thread keep the chat's own send.
+  const onSend = async (body: string): Promise<boolean> => {
+    try {
+      const r = await sendCanvasWorkspaceMessage({ canvasId: draft.canvasId, expectedDraftId: draft.id, expectedRevision: draft.revision, body, clientId: crypto.randomUUID() });
+      setNotice(!r.ok ? sendRefusedText(r.refused) : r.start && !r.start.ok ? (DRAFT_ERROR_TEXT[r.start.code] ?? null) : null);
+      await reload(); // a refusal means the screen is behind: the next Send carries the revision read here
+      return r.ok;
+    } catch {
+      setNotice(DRAFT_ERROR_TEXT.FAILED ?? null);
+      return false;
+    }
+  };
+  const onDiscard = () => void act('discard', async () => {
+    const r = await discardCanvasDraft(draft.id, draft.revision);
+    if (!r.ok) return refusedText(r.refused, 'discard');
+    return r.discarded ? null : (DRAFT_ERROR_TEXT.DRAFT_CLOSED ?? null);
+  });
+  return { bar, onDiscard: canDiscardDraft(bar) ? onDiscard : null, dialog, onSend: draft.state === 'open' ? onSend : null };
 }

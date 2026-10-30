@@ -1,27 +1,24 @@
 /**
- * P1536: the mirror drafts the owner's Clarity Canvas from their own material, as a DRAFT VERSION.
+ * P1536 (Design v6): the mirror applies each owner message to the Clarity Canvas DRAFT, one run per message.
  *
- * Three actions, all with the owner's JWT:
+ * A user RPC (`canvas_workspace_send`, a retry, a focus switch, a fork) makes a `queued` run and returns its `run_id`. The
+ * client then invokes this function, always with the owner's JWT:
  *
  *   POST { availability: true }                                -> 200 { enabled }
- *   POST multipart: draft_id (uuid) + file (<= 8 MB)           -> 200 { state: 'added', label, chars }
- *        a text/markdown file is decoded; a PDF, image, DOCX or PPTX goes through ONE extraction call.
- *        Only the extracted text is kept (`canvas_draft_material`); the bytes are never stored anywhere.
- *   POST { draft_id, speed: 'fast' | 'slow' }
- *                                                              -> 202 { state: 'running', run_id, kind }
- *        The work runs after the response (EdgeRuntime.waitUntil). The run's state lives in
- *        `canvas_draft_runs`, so a reload loses nothing and a second press cannot start a second run.
- *        Every run is kind 'draft' at the fast speed: it drafts straight away and its reply ends with "What I
- *        decided on my own". 'slow' is still accepted (an old tab may send it) and means 'fast'; a `phase` in
- *        the body is ignored. There is no tensions pass any more.
- *        A draft writes points only: no story is created (the model is not asked for one).
- *   Errors: { error, code } with 400 BAD_REQUEST | 401 | 404 NOT_AVAILABLE | 409 TERMS_NOT_ACCEPTED |
- *   409 DRAFT_CLOSED | 409 BUSY | 409 LIMIT | 413 TOO_LARGE | 415 UNSUPPORTED | 422 UNREADABLE |
- *   429 CAPPED | 429 REVISION_CAP | 503 DISABLED.
+ *   POST { run_id }                                            -> 202 { state: 'running', run_id, kind }
+ *        begins the run (claims it, reserves the spend) and works after the response (EdgeRuntime.waitUntil). A second call on
+ *        a running run answers 202 and makes no second model call.
+ *   POST multipart: run_id (uuid) + file (<= 8 MB)             -> 202 { state: 'running', run_id, label, chars }
+ *        the upload's run: claim FIRST, then extract (a text/markdown file is decoded; a PDF, image, DOCX or PPTX goes
+ *        through ONE extraction call), then write the text as material of that run's message, then draft. Only the
+ *        extracted text is kept (`canvas_draft_material`); the bytes are never stored anywhere. A failure after the claim
+ *        fails the run in the same invocation.
+ *   Errors: { error, code } with 400 BAD_REQUEST | 401 | 404 NOT_AVAILABLE | 409 TERMS_NOT_ACCEPTED | 409 BUSY |
+ *   409 NOT_READY | 409 GONE | 409 LIMIT | 413 TOO_LARGE | 415 UNSUPPORTED | 422 UNREADABLE | 429 CAPPED | 503 DISABLED.
  *
- * Gate order: availability, then the enabled gate, then terms (P1544), then ownership of the draft, then the
- * run's begin (which reserves the spend), then 202. OFF unless CANVAS_DRAFT_AI_ENABLED is "true" and its own
- * spend-capped key is set. Test only until the privacy policy names canvas material (spec Invariants).
+ * Gate order: availability, then the enabled gate, then terms (P1544), then the run's begin (which proves the run is the
+ * caller's, checks its input is ready and reserves the spend), then 202. OFF unless CANVAS_DRAFT_AI_ENABLED is "true" and its
+ * own spend-capped key is set. Test only until the privacy policy names canvas material (spec Invariants).
  *
  * The model is behind a ModelCaller. A deterministic stub answers only on a non-prod project AND when the
  * header x-canvas-draft-stub equals the CANVAS_DRAFT_STUB_TOKEN secret (_shared/canvas-model.ts).
@@ -36,7 +33,7 @@ import { readLinkText } from '../_shared/canvas-material.ts';
 import { STUB_HEADER, geminiCaller, resolveEnabled, stubAllowed, stubCaller } from '../_shared/canvas-model.ts';
 import { geminiTokenCounter } from '../_shared/mirror-agent.ts';
 import { noCount } from '../_shared/canvas-fit.ts';
-import { handleRun, handleUpload, type DraftRow, type DraftService, type HandlerCtx } from '../_shared/canvas-handlers.ts';
+import { handleRun, handleUpload, type DraftService, type HandlerCtx } from '../_shared/canvas-handlers.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -60,15 +57,9 @@ async function resolveAll(host: string): Promise<string[] | null> {
   return all.length ? all : null;
 }
 
-/** The service-role seams the handlers use: the draft functions, and the draft row. */
+/** The service-role seam the handlers use: the draft functions. */
 function draftService(service: SupabaseClient): DraftService {
-  return {
-    rpc: async (name, args) => await service.rpc(name, args),
-    readDraft: async (id) => {
-      const { data, error } = await service.from('canvas_drafts').select('owner_id, state').eq('id', id).maybeSingle();
-      return { data: data as DraftRow | null, error };
-    },
-  };
+  return { rpc: async (name, args) => await service.rpc(name, args) };
 }
 
 /** The model's own (free) token count decides how much material a request holds; the stub and a missing key use the byte bound. */
@@ -111,7 +102,7 @@ Deno.serve(async (req: Request) => {
   const ctx: HandlerCtx = {
     userId: user.id, model, cors, afterResponse: runAfterResponse,
     service: draftService(service),
-    readLink: (url) => readLinkText(url, { fetch: (u, init) => fetch(u, init), resolve: resolveAll }),
+    readLink: (url, signal) => readLinkText(url, { fetch: (u, init) => fetch(u, init), resolve: resolveAll, signal }),
     count: tokenCounter(stubbed),
   };
   return multipart ? await handleUpload(ctx, req) : await handleRun(ctx, body);

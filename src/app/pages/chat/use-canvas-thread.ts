@@ -16,6 +16,7 @@ import {
   type CanvasDraft,
   type CanvasDraftRun,
   type CanvasMaterialItem,
+  isDraftingRunKind,
 } from '@/app/data/canvas-draft-service';
 import { emitCanvasDraftEvent, subscribeCanvasDraftEvents } from '@/app/data/canvas-draft-events';
 import { withThreadParam } from './canvas-links';
@@ -24,13 +25,19 @@ import { withThreadParam } from './canvas-links';
 export const RUN_POLL_MS = 3_000;
 /** A run still "going" this long after it began died with its request (the server counts it dead too): the owner may start again. */
 const RUN_DEAD_MS = 5 * 60_000;
+/** A run made but not claimed within this long is not "going": its start request did not land (see runIsWaiting). */
+const QUEUED_GRACE_MS = 8_000;
+/** The server fails a run that was never claimed after this long (the queued lease). */
+const QUEUED_LEASE_MS = 3 * 60_000;
 
 export interface CanvasThread {
   draft: CanvasDraft;
   run: CanvasDraftRun | null;
   material: CanvasMaterialItem[];
-  /** A run is queued or running now (and young enough to be alive). */
+  /** A run is running now (and young enough to be alive), or was queued a moment ago and is being claimed. */
   running: boolean;
+  /** A run was made but never claimed (its start request did not land): it waits for the owner to start it. */
+  waiting: boolean;
   /** False unless a draft run finished (or that cannot be read): nothing is drafted, so nothing can be published. */
   draftHasPoints: boolean;
   /**
@@ -82,10 +89,10 @@ export function ownerMessagesAfterRoot(messages: ChatMessage[], ownerId: string,
 }
 
 /** The send limit of one chat message (the same 4,000 characters the server checks). */
-const CARRY_MAX_CHARS = 4000;
+export const CARRY_MAX_CHARS = 4000;
 
 /** Cuts text into pieces of at most `max` characters, at a space or line break where there is one. */
-function splitText(text: string, max: number): string[] {
+export function splitText(text: string, max: number): string[] {
   const out: string[] = [];
   let rest = text;
   while (rest.length > max) {
@@ -110,7 +117,16 @@ const startOf = (run: CanvasDraftRun | null): number | null => (run ? Date.parse
 
 export function runIsGoing(run: CanvasDraftRun | null, now = Date.now()): boolean {
   if (!run || (run.state !== 'queued' && run.state !== 'running')) return false;
-  return now - new Date(run.startedAt ?? run.createdAt).getTime() < RUN_DEAD_MS;
+  const age = now - new Date(run.startedAt ?? run.createdAt).getTime();
+  // A queued run is going only while its start request is on its way; after that nothing is running it.
+  return run.state === 'queued' ? age < QUEUED_GRACE_MS : age < RUN_DEAD_MS;
+}
+
+/** A queued run nothing claimed, older than the grace and not yet failed by the server: it needs the owner to start it. */
+export function runIsWaiting(run: CanvasDraftRun | null, now = Date.now()): boolean {
+  if (!run || run.state !== 'queued' || run.startedAt) return false;
+  const age = now - new Date(run.createdAt).getTime();
+  return age >= QUEUED_GRACE_MS && age < QUEUED_LEASE_MS;
 }
 
 const tabIsVisible = (): boolean => typeof document === 'undefined' || document.visibilityState !== 'hidden';
@@ -152,7 +168,7 @@ async function readDraft(rootId: string, ownerId: string, seqs: NextSeqCache, po
   const [run, material] = await Promise.all([getLatestCanvasRun(draft.id), listCanvasMaterial(draft.id)]);
   // Points exist only when a DRAFT-kind run finished: the newest run of any kind says nothing (a file read, a tension
   // run, a capped or cancelled run can all follow a failed draft). When the count cannot be read, assume nothing is there.
-  const newestIsDoneDraft = run?.kind === 'draft' && run.state === 'done';
+  const newestIsDoneDraft = isDraftingRunKind(run?.kind) && run?.state === 'done';
   const finishedBefore = !newestIsDoneDraft && draft.runCount > 0;
   const made = draft.state === 'open' && draft.runCount > 0;
   const [draftHasPoints, lastDraftAt, viewPath, nextSeq] = await Promise.all([
@@ -207,6 +223,7 @@ export function useCanvasThread(rootId: string | null, refreshKey: number, owner
 
   const loaded = read && read.root === rootId ? read.loaded : null;
   const running = runIsGoing(loaded?.run ?? null);
+  const waiting = runIsWaiting(loaded?.run ?? null);
 
   // The canvas page beside this thread (P1536) is told when the draft's points changed: a read shows a NEWER finished draft run
   // than the last one seen for this draft (however many runs came and went between two reads). The first read of a draft only
@@ -253,6 +270,6 @@ export function useCanvasThread(rootId: string | null, refreshKey: number, owner
 
   if (!rootId) return { status: 'idle', thread: null, retry };
   if (!read || read.root !== rootId) return { status: 'loading', thread: null, retry };
-  if (loaded && loaded.draft.threadRootId === rootId) return { status: 'ready', thread: { ...loaded, running, reload: load }, retry };
+  if (loaded && loaded.draft.threadRootId === rootId) return { status: 'ready', thread: { ...loaded, running, waiting, reload: load }, retry };
   return { status: read.error ? 'error' : 'none', thread: null, retry };
 }

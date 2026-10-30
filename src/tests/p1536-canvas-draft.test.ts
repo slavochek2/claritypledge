@@ -94,15 +94,29 @@ describe('P1536 material assembly', () => {
     const m = material('New words about deadlines in my own voice.');
     const draft = buildDraftRequest({ material: m, basePoints: base, baseLabel: 'v1' }).contents[0]!.parts[0]!.text;
     expect(draft).toContain('"id":"p-1"');
-    expect(draft).toContain('Current version v1');
+    expect(draft).toContain('The canvas now, from v1'); // v6: the draft starts as its base, so the data block labels it "the canvas now"
   });
 });
 
 // ── Action parsing ──────────────────────────────────────────────────────────
 
-function response(actions: unknown[], conflicts: unknown[] = []) {
+const BASE_FOR_SCOPE: BasePoint[] = [
+  { id: 'a1', box: 'canvas:problem', statement: '' }, { id: 'a2', box: 'canvas:solution', statement: '' }, { id: 'a3', box: 'canvas:revenue', statement: '' },
+  { id: 'n9', box: 'canvas:solution', statement: '' }, { id: 'n8', box: 'canvas:channels', statement: '' },
+];
+/** The model's own scope defaults to NARROW: exactly the boxes its actions write to or take a point from, so a run that strays outside it is dropped. */
+const scopeOf = (actions: unknown[], base: BasePoint[] = BASE_FOR_SCOPE) => {
+  const boxes = new Set<string>();
+  for (const a of actions as Array<{ box?: string; point_id?: string }>) {
+    if (a.box) boxes.add(a.box);
+    const from = base.find((p) => p.id === a.point_id)?.box;
+    if (from) boxes.add(from);
+  }
+  return [...boxes];
+};
+function response(actions: unknown[], conflicts: unknown[] = [], extra: Record<string, unknown> = {}) {
   return {
-    candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ actions, conflicts }) }] } }],
+    candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ scope: scopeOf(actions), actions, conflicts, ...extra }) }] } }],
     usageMetadata: { promptTokenCount: 1000, candidatesTokenCount: 500 },
   };
 }
@@ -167,7 +181,7 @@ describe('P1536 parseDraft: actions', () => {
     expect(JSON.stringify(r.decided)).not.toMatch(/Anna|Kovacs|churn/);
     expect(r.droppedNames).toBe(1);
     // the whole run: nothing about that person reaches the posted reply or the write
-    const h = harness({ base_label: 'v1', base_points: BASE, other_names: ['Anna Kovacs'], thread: [{ kind: 'owner_message', text: 'We sell bookkeeping to café owners with one to three shops.' }] }, {},
+    const h = harness({ base_label: 'v1', draft_points: BASE, other_names: ['Anna Kovacs'], thread: [{ kind: 'owner_message', text: 'We sell bookkeeping to café owners with one to three shops.' }] }, {},
       async () => ({ response: response([{ action: 'drop', point_id: 'a1', why }, { ...newPoint }]), status: 200 }));
     expect(await executeRun(h.deps, h.params, h.run)).toEqual({ state: 'done' });
     const done = h.by('_canvas_draft_run_complete')[0]!.args;
@@ -226,6 +240,29 @@ describe('P1536 parseDraft: actions', () => {
 });
 
 // ── Nothing invented: the quote control ─────────────────────────────────────
+
+describe('P1536 scope: the model\'s own scope bounds what it may change (untagged message)', () => {
+  const inScope = { action: 'new', box: 'canvas:problem', statement: 'Every tax deadline turns into a panic for them', story: '', quote: 'Every tax deadline turns into a panic for them' };
+  const strays = { action: 'new', box: 'canvas:solution', statement: 'Receipts by chat, books done monthly', story: '', quote: 'Receipts by chat, books done monthly' };
+  it('an action outside the scope is dropped and counted; the in-scope one is written', () => {
+    const r = ok(parseDraft(response([inScope, strays], [], { scope: ['canvas:problem'] }), { material: M, basePoints: [], baseLabel: null, otherNames: [], scope: { mode: 'model' } }));
+    expect(r.actions).toEqual([{ action: 'new', box: 'canvas:problem', statement: inScope.statement, story: null }]);
+    expect(r.droppedScope).toBe(1);
+  });
+  it('end to end: a run whose model strays outside its scope writes nothing for the stray box', async () => {
+    const h = harness({ draft_points: [{ id: 'a2', box: 'canvas:solution', statement: 'Receipts by chat' }], thread: [{ kind: 'owner_message', text: 'Receipts by chat, books done monthly. Every tax deadline turns into a panic for them.' }] }, {},
+      async () => ({ response: response([inScope, strays], [], { scope: ['canvas:problem'] }), status: 200 }));
+    await executeRun(h.deps, h.params, h.run);
+    const a = h.by('_canvas_draft_run_complete')[0]!.args;
+    expect(a.p_scope).toEqual(['canvas:problem']);
+    expect(JSON.stringify(a.p_actions)).not.toContain('canvas:solution');
+    expect(JSON.stringify(a.p_actions)).not.toContain('a2'); // the solution box is untouched: nothing names its point
+  });
+  it('CONTROL (must fail): with the whole canvas as the scope the same stray action is written', () => {
+    const r = ok(parseDraft(response([inScope, strays]), { material: M, basePoints: [], baseLabel: null, otherNames: [], scope: { mode: 'fixed', boxes: BOX_DEFINITIONS.map((b) => b.tag) } }));
+    expect(r.actions.map((a) => ('box' in a ? a.box : ''))).toEqual(['canvas:problem', 'canvas:solution']);
+  });
+});
 
 describe('P1536 quote control: new and reworded points rest on the owner\'s own words', () => {
   it('keeps a point whose quote is in the owner material', () => {
@@ -455,38 +492,45 @@ describe('P1536 link and upload helpers', () => {
 // ── The reply the mirror posts ──────────────────────────────────────────────
 
 describe('P1536 reply text', () => {
-  const facts = { baseLabel: 'v1', counts: { kept: 2, reworded: 1, moved: 0, added: 1, dropped: 0 }, total: 4, emptyBoxes: ['canvas:love', 'canvas:problem'], unreadable: ['https://x.example/a (it did not answer in time)'], droppedUnverified: 1, droppedNames: 1, decided: [{ kind: 'link' as const, text: 'Problem: reworded from v1' }, { kind: 'conflict' as const, text: 'Two parts disagree; I took the newer.' }] };
-  it('names empty boxes as questions and unreadable inputs, and counts what changed; the canvas is linked by the draft card, not by a raw address in the text', () => {
-    const t = buildDraftReply(facts);
-    expect(t.split('\n')[0]).toBe('Your canvas draft is ready.');
-    expect(t).not.toContain('/p/'); // chat text is plain: an address would show as unclickable noise (visual QA, 2026-10-29)
-    expect(t).toContain('What does your business choose over something else it cares about, and why?');
+  // v6 S1.13 / D13: as short as possible. The old assertions about "Your canvas draft is ready", the comparison line, "What I decided on
+  // my own" and the empty-box questions in chat are replaced on purpose: the questions sit under their boxes, and nothing is decided silently.
+  const facts = { total: 4, unreadable: ['https://x.example/a (it did not answer in time)'], droppedUnverified: 1, droppedNames: 1 };
+  it('a first draft says how many boxes it filled, and nothing else about the boxes', () => {
+    const t = buildDraftReply({ ...facts, outcome: 'draft', filledBoxes: 7 });
+    expect(t.split('\n')[0]).toBe('Draft ready: 7 of 9 boxes.');
+    expect(t).not.toContain('/p/'); // chat text is plain: an address would show as unclickable noise
     expect(t).toContain('https://x.example/a (it did not answer in time)');
-    expect(t).toMatch(/Problem: Where are your customers stuck today/);
-    expect(t).toContain('Compared with v1: 2 unchanged, 1 reworded, 1 new.');
     expect(t).toMatch(/left out 1 point I could not tie to your words/);
     expect(t).toMatch(/never names anyone else/);
     expect(t).not.toMatch(/[–—]/);
   });
-  it('lists "What I decided on my own", with every link and conflict', () => {
-    const t = buildDraftReply(facts);
-    expect(t).toContain('What I decided on my own:');
-    expect(t).toContain('- Problem: reworded from v1');
-    expect(t).toContain('- Two parts disagree; I took the newer.');
+  it('an update names the boxes it changed', () => {
+    expect(buildDraftReply({ ...facts, outcome: 'updated', changedBoxes: ['canvas:problem', 'canvas:solution'], unreadable: [], droppedUnverified: 0, droppedNames: 0 }))
+      .toBe('Updated: Problem, Solution.');
   });
-  it('with nothing to decide it still says so', () => {
-    // one plain line, not a heading over "- Nothing conflicted." (visual QA: read as jargon)
-    const t = buildDraftReply({ ...facts, decided: [] });
-    // only what was recorded: an empty list cannot prove the material agreed (conflicts naming others are filtered; Codex r9)
-    expect(t).toContain('What I decided on my own: nothing.');
-    expect(t).not.toMatch(/agreed/);
-    expect(t).not.toContain('Nothing conflicted');
+  it('no change says so, with the model\'s one sentence', () => {
+    expect(buildDraftReply({ total: 0, outcome: 'unchanged', note: 'That is a question, not a change.', unreadable: [], droppedUnverified: 0, droppedNames: 0 }))
+      .toBe('No box changed. I noted: "That is a question, not a change."'); // model text is quoted after a fixed lead-in, never bare
+    expect(buildDraftReply({ total: 0, outcome: 'unchanged', unreadable: [], droppedUnverified: 0, droppedNames: 0 })).toBe('No box changed.');
+  });
+  it('no reply holds "What I decided on my own" or an empty-box question', () => {
+    const all = [
+      buildDraftReply({ ...facts, outcome: 'draft', filledBoxes: 2 }), buildDraftReply({ ...facts, outcome: 'updated', changedBoxes: ['canvas:love'] }),
+      buildDraftReply({ ...facts, outcome: 'unchanged' }), buildDraftReply({ ...facts, total: 0 }),
+    ].join('\n');
+    expect(all).not.toContain('What I decided on my own');
+    for (const b of BOX_DEFINITIONS) if (b.gap) expect(all).not.toContain(b.gap);
+    expect(read('supabase/functions/_shared/canvas-reply.ts')).not.toContain('emptyQuestionFor');
+  });
+  it('mixed material: one line names what was found and what was chosen (D10)', () => {
+    const t = buildDraftReply({ ...facts, outcome: 'draft', filledBoxes: 5, focus: 'cafe owners', others: ['agencies'], unreadable: [] });
+    expect(t.split('\n')[1]).toBe('I found cafe owners and agencies. I drafted cafe owners.');
   });
   it('says plainly when nothing could be drafted', () => {
-    expect(buildDraftReply({ ...facts, total: 0, emptyBoxes: [], decided: [] })).toMatch(/could not draft/i);
+    expect(buildDraftReply({ ...facts, total: 0 })).toMatch(/could not draft/i);
   });
   it('a draft refused because nothing tied to the owner\'s words is one account with one next step, with no count or cause the engine cannot vouch for (visual QA; Opus r9 F1, F2)', () => {
-    const fail = (over: Partial<typeof facts>) => buildDraftReply({ ...facts, total: 0, emptyBoxes: [], unreadable: [], decided: [], droppedUnverified: 0, droppedNames: 0, ...over });
+    const fail = (over: Partial<typeof facts>) => buildDraftReply({ ...facts, total: 0, unreadable: [], droppedUnverified: 0, droppedNames: 0, ...over });
     const HINT = 'Tell me in your own words who you sell to, what you sell and what it costs, then try again.';
     expect(fail({ droppedUnverified: 5 })).toBe(`I could not draft a canvas from that: I could not tie what I found to your own words, so nothing was changed.\n${HINT}`);
     expect(fail({})).toBe(`I could not draft a canvas from that, so nothing was changed.\n${HINT}`);
@@ -542,8 +586,9 @@ interface Call { name: string; args: Record<string, unknown> }
 function harness(over: Partial<CanvasRun> = {}, links: Record<string, ReturnType<typeof okLink> | { ok: false; reason: 'blocked' | 'unreachable' }> = {}, modelOverride?: RunDeps['model']) {
   const calls: Call[] = [];
   const run: CanvasRun = {
-    status: 'run', run_id: 'run-1', reserved_usd: 0.27, canvas_path: '/p/slava/canvas/canvas?v=canvas_d1', base_label: null,
-    base_points: [], material: [], thread: [{ kind: 'owner_message', text: 'We sell bookkeeping to café owners with one to three shops. Receipts by chat, books done monthly.' }],
+    status: 'run', run_id: 'run-1', kind: 'message', first_draft: !('draft_points' in over), reserved_usd: 0.27,
+    canvas_path: '/p/slava/canvas/canvas?v=canvas_d1', base_label: null,
+    draft_points: [], material: [], thread: [{ kind: 'owner_message', text: 'We sell bookkeeping to café owners with one to three shops. Receipts by chat, books done monthly.' }],
     other_names: [], ...over,
   };
   const deps: RunDeps = {
@@ -551,7 +596,7 @@ function harness(over: Partial<CanvasRun> = {}, links: Record<string, ReturnType
     model: modelOverride ?? stubCaller(),
     readLink: async (url) => links[url] ?? { ok: false, reason: 'unreachable' },
   };
-  const params = { ownerId: 'owner-1', draftId: 'draft-1', kind: 'draft' as const };
+  const params = { ownerId: 'owner-1' };
   return { calls, run, deps, params, by: (n: string) => calls.filter((c) => c.name === n) };
 }
 const okLink = (text: string) => ({ ok: true as const, text });
@@ -566,10 +611,12 @@ describe('P1536 a run, end to end (stubbed model)', () => {
     expect((a.p_actions as Array<{ action: string }>).every((x) => x.action === 'new')).toBe(true);
     expect((a.p_actions as unknown[]).length).toBeGreaterThanOrEqual(2);
     expect(Object.keys(a.p_questions as object).length).toBeGreaterThan(0);
-    expect(a.p_reply).toMatch(/^Your canvas draft is ready\.\n/); expect(a.p_reply).not.toContain('/p/'); // the draft card links the canvas
-    expect(a.p_reply).toContain('What I decided on my own:');
+    expect(a.p_reply).toMatch(/^Draft ready: \d of 9 boxes\.$/); expect(a.p_reply).not.toContain('/p/'); // the draft card links the canvas
+    expect(a.p_reply).not.toContain('What I decided on my own');
     expect(a.p_usd).toBeCloseTo(0.00525, 5); // the model's reported usage, not the reservation
-    expect(Object.keys(a).sort()).toEqual(['p_actions', 'p_decided', 'p_questions', 'p_reply', 'p_run', 'p_usd']);
+    expect(a.p_owner).toBe('owner-1');
+    expect(a.p_scope).toEqual(BOX_DEFINITIONS.map((b) => b.tag)); // the first draft covers all nine boxes
+    expect(Object.keys(a).sort()).toEqual(['p_actions', 'p_focus', 'p_note', 'p_other_canvases', 'p_owner', 'p_questions', 'p_reply', 'p_run', 'p_scope', 'p_usd']);
   });
   it('an unreadable link is named in the reply and the rest is still drafted; a readable one is kept as material', async () => {
     const h = harness({ thread: [{ kind: 'owner_message', text: 'We sell bookkeeping to café owners with one to three shops. https://good.example/offer and https://wall.example/me' }] },
@@ -577,7 +624,7 @@ describe('P1536 a run, end to end (stubbed model)', () => {
     await executeRun(h.deps, h.params, h.run);
     const add = h.by('_canvas_draft_add_material');
     expect(add).toHaveLength(1);
-    expect(add[0]!.args).toMatchObject({ p_owner: 'owner-1', p_draft: 'draft-1', p_kind: 'link', p_label: 'https://good.example/offer' });
+    expect(add[0]!.args).toMatchObject({ p_run: 'run-1', p_owner: 'owner-1', p_kind: 'link', p_label: 'https://good.example/offer' }); // v6: material is written for the RUNNING run
     const reply = h.by('_canvas_draft_run_complete')[0]!.args.p_reply as string;
     expect(reply).toContain('I could not read:');
     expect(reply).toContain('https://wall.example/me (it did not answer in time)');
@@ -636,16 +683,19 @@ describe('P1536 a run, end to end (stubbed model)', () => {
   });
   it('a second draft from a current version: unchanged points are kept, a reword and its link are named', async () => {
     const h = harness({
-      base_label: 'v1', base_points: BASE,
+      base_label: 'v1', draft_points: BASE,
       thread: [{ kind: 'owner_message', text: 'Change the problem box. STUB-REWORD Every tax deadline turns into a panic for the owner.' }],
     });
     await executeRun(h.deps, h.params, h.run);
     const done = h.by('_canvas_draft_run_complete')[0]!.args;
     const actions = done.p_actions as Array<{ action: string; old_point_id?: string; point_id?: string }>;
-    expect(actions.filter((a) => a.action === 'keep').map((a) => a.point_id).sort()).toEqual(['a2', 'a3']);
+    // v6: a box the message is not about is out of scope. Its points are not mentioned (the database leaves them alone), so
+    // the old "a2 and a3 are kept" assertion became "a2 and a3 are not touched": no action names them.
+    expect(actions.filter((a) => a.action === 'keep').map((a) => a.point_id)).toEqual([]);
     expect(actions.find((a) => a.action === 'reword')).toMatchObject({ old_point_id: 'a1' });
-    expect(done.p_reply).toContain('Problem: reworded from v1');
-    expect(done.p_reply).toContain('What I decided on my own'); // the one speed: the link is listed there
+    expect(done.p_scope).toEqual(expect.arrayContaining(['canvas:problem']));
+    expect(done.p_scope).not.toContain('canvas:solution');
+    expect(done.p_reply).toMatch(/^Updated: .*Problem/);
   });
   it('POINTS ONLY: no action sent to the run-complete write carries story text, even when the model sends one', async () => {
     const withStories = async (c: Parameters<RunDeps['model']>[0]) => {
@@ -655,7 +705,7 @@ describe('P1536 a run, end to end (stubbed model)', () => {
       return { ...out, response: { ...(out.response as object), candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(body) }] } }] } };
     };
     const h = harness({
-      base_label: 'v1', base_points: BASE,
+      base_label: 'v1', draft_points: BASE,
       thread: [{ kind: 'owner_message', text: 'We sell bookkeeping to café owners with one to three shops. STUB-REWORD Every tax deadline turns into a panic for the owner.' }],
     }, {}, withStories);
     expect(await executeRun(h.deps, h.params, h.run)).toEqual({ state: 'done' });
@@ -670,7 +720,7 @@ describe('P1536 a run, end to end (stubbed model)', () => {
   });
   it('a moved point carries no story text either (its old private stories follow it inside the write)', async () => {
     const h = harness({
-      base_label: 'v1', base_points: [{ id: 'a1', box: 'canvas:problem', statement: 'Every tax deadline is a panic', story: 'It was awful.' }],
+      base_label: 'v1', draft_points: [{ id: 'a1', box: 'canvas:problem', statement: 'Every tax deadline is a panic', story: 'It was awful.' }],
       thread: [{ kind: 'owner_message', text: 'We sell bookkeeping to café owners with one to three shops. STUB-MOVE put it elsewhere.' }],
     });
     await executeRun(h.deps, h.params, h.run);
@@ -709,7 +759,7 @@ describe('P1536 a run, end to end (stubbed model)', () => {
     // material must never reach is a target: which canvas, which draft, which owner, which box, what visibility.
     const tags = new Set(BOX_DEFINITIONS.map((b) => b.tag));
     const allowedArgs: Record<string, string[]> = {
-      _canvas_draft_run_complete: ['p_actions', 'p_decided', 'p_questions', 'p_reply', 'p_run', 'p_usd'],
+      _canvas_draft_run_complete: ['p_actions', 'p_focus', 'p_note', 'p_other_canvases', 'p_owner', 'p_questions', 'p_reply', 'p_run', 'p_scope', 'p_usd'],
     };
     expect(h.calls.map((c) => c.name)).toEqual(['_canvas_draft_run_complete']);
     for (const c of h.calls) {
@@ -755,13 +805,19 @@ describe('P1536 edge function wiring', () => {
   });
   it('the upload handler checks size and ownership before it reads a byte into text, and begins an extract run before the model', () => {
     const upload = handlers.slice(handlers.indexOf('export async function handleUpload'));
-    inOrder(['uploadLengthRefusal(', 'await req.formData()', 'file.size > MAX_UPLOAD_BYTES', 'await ownDraft(c, draftId)', 'classifyUpload(', 'uploadExtract('], upload);
-    const extract = handlers.slice(handlers.indexOf('async function uploadExtract'), handlers.indexOf('/** upload:'));
-    inOrder(["p_kind: 'extract'", "await c.model({ kind: 'extract'", '_canvas_draft_extract_complete'], extract);
+    // v6: the run is claimed FIRST (begin proves the run is the caller's and reserves the spend), then the file is read
+    inOrder(['uploadLengthRefusal(', 'await req.formData()', 'await beginRun(c, runId, true)', 'await readAndDraft('], upload);
+    inOrder(['file.size > MAX_UPLOAD_BYTES', 'await readUploadText(', 'await keepUpload(', 'draftLater('], handlers.slice(handlers.indexOf('async function readAndDraft')));
+    expect(handlers.slice(handlers.indexOf('function draftLater'))).toContain('c.afterResponse(executeRun(');
+    const read = handlers.slice(handlers.indexOf('async function readUploadText'), handlers.indexOf('/** The material function'));
+    inOrder(['classifyUpload(', "await c.model({ kind: 'extract'"], read);
+    const keep = handlers.slice(handlers.indexOf('async function keepUpload'), handlers.indexOf('/** upload:'));
+    expect(keep).toContain("'_canvas_draft_add_material', { p_run: runId, p_owner: c.userId");
   });
   it('the run handler checks ownership, then begins (reserving spend), then works after the response, then answers 202', () => {
     const run = handlers.slice(handlers.indexOf('export async function handleRun'));
-    inOrder(['await ownDraft(c, draftId)', "'_canvas_draft_run_begin'", 'c.afterResponse(executeRun(', "state: 'running', run_id: run.run_id, kind }, 202"], run);
+    inOrder(['await beginRun(c, runId, false)', 'draftLater(', "state: 'running', run_id: run.run_id, kind: run.kind ?? 'message' }, 202"], run);
+    expect(handlers).toContain("'_canvas_draft_run_begin', { p_run: runId, p_owner: c.userId"); // begin proves the run is the caller's
     expect(src).toContain('waitUntil');
   });
   it('the stub needs a non-prod project and the secret header; the real model is the default', () => {
@@ -782,7 +838,7 @@ describe('P1536 edge function wiring', () => {
     expect(read('supabase/functions/_shared/canvas-hosts.ts')).not.toMatch(/\bAAAA\b[\s\S]{0,120}return false/); // no "has an AAAA record: refuse"
   });
   it('uses no storage API: uploaded bytes are never stored, only the extracted text', () => {
-    const files = ['canvas-draft/index.ts', ...['draft', 'types', 'source', 'prompt', 'parse', 'reply', 'hosts', 'material', 'model', 'run', 'handlers', 'support', 'names', 'fit'].map((n) => `_shared/canvas-${n}.ts`)];
+    const files = ['canvas-draft/index.ts', ...['draft', 'types', 'source', 'prompt', 'parse', 'extras', 'thread', 'reply', 'hosts', 'material', 'model', 'run', 'handlers', 'support', 'names', 'given-names', 'fit'].map((n) => `_shared/canvas-${n}.ts`)];
     for (const f of files) {
       expect(read(`supabase/functions/${f}`), f).not.toMatch(/\.storage\b|storage\.from|createSignedUploadUrl|\.upload\(|\.createBucket|Deno\.(write|create|open)/);
     }
@@ -791,10 +847,10 @@ describe('P1536 edge function wiring', () => {
     const all = src + handlers + read('supabase/functions/_shared/canvas-run.ts');
     const rpcs = new Set([...all.matchAll(/'(_canvas_draft_[a-z_]+)'/g)].map((m) => m[1]));
     expect([...rpcs].sort()).toEqual([
-      '_canvas_draft_add_material', '_canvas_draft_extract_complete', '_canvas_draft_run_begin', '_canvas_draft_run_complete', '_canvas_draft_run_fail',
+      '_canvas_draft_add_material', '_canvas_draft_run_begin', '_canvas_draft_run_complete', '_canvas_draft_run_fail',
     ]);
     expect(src + handlers).not.toMatch(/\.from\('(points|stories|canvas_versions|canvases|chat_messages)'\)/);
-    expect(src).toContain(".from('canvas_drafts').select(");
+    expect(src).not.toMatch(/\.from\(/); // v6: the function reads no table at all; begin proves ownership of the run
   });
   it('is registered in the edge-function smoke list', () => {
     expect(read('scripts/edge-function-smoke.mjs')).toContain("'canvas-draft'");
@@ -842,21 +898,20 @@ describe('P1536 A7: the request is counted by the model, never trusted to an est
     const counter = countingFetch(0.2);
     const m = sent();
     const h = harness({
-      base_label: 'v1', base_points: BASE,
-      draft_points: [{ id: 'n1', box: 'canvas:segments', statement: 'Cafe owners with one to three shops', reused: false }],
+      base_label: 'v1', draft_points: [...BASE, { id: 'n1', box: 'canvas:segments', statement: 'Cafe owners with one to three shops' }],
     }, {}, m.model);
     h.deps.count = geminiTokenCounter('k', counter.fn);
     await executeRun(h.deps, h.params, h.run);
     expect(counter.seen).toHaveLength(1);
     expect(counter.seen[0]).toContain('You draft a Clarity Canvas');
     expect(counter.seen[0]).toContain('"kind":"current_point"');
-    expect(counter.seen[0]).toContain('"kind":"draft_point"');
+    expect(counter.seen[0]).toContain('"id":"n1"'); // v6: the draft's own points ARE the current points
   });
   it('base points count against the same bound: a huge current version leaves less room for material, and the sum fits', async () => {
     const big = Array.from({ length: 27 }, (_, i): BasePoint => ({ id: `b${i}`, box: BOX_DEFINITIONS[i % 9]!.tag, statement: `Point ${i} ${'word '.repeat(50)}`, story: 'story '.repeat(300) }));
     const counter = countingFetch(1.1);
     const m = sent();
-    const h = harness({ base_label: 'v1', base_points: big, thread: [{ kind: 'owner_message', text: hugeOwnerText(200_000) }] }, {}, m.model);
+    const h = harness({ base_label: 'v1', draft_points: big, thread: [{ kind: 'owner_message', text: hugeOwnerText(200_000) }] }, {}, m.model);
     h.deps.count = geminiTokenCounter('k', counter.fn);
     await executeRun(h.deps, h.params, h.run);
     expect(counter.tokens(m.requests[0]!)).toBeLessThanOrEqual(MAX_REQUEST_TOKENS);
@@ -1017,35 +1072,33 @@ describe('P1536 A9: names inside files and links (a heuristic, not a guarantee)'
 });
 
 describe('P1536 A10: a revision sees the current draft', () => {
+  // v6: the draft starts as its base, so the draft's points ARE the current points (with ids). The v3 "draft_point" block, its
+  // from_point_id/relation links and the "draft so far" rules are gone on purpose; these tests now pin the v6 shape.
   const DRAFT = [
-    { id: 'a2', box: 'canvas:solution', statement: 'Receipts by chat', reused: true },
-    { id: 'n1', box: 'canvas:segments', statement: 'Cafe owners with one to three shops', story: 'We sell bookkeeping to cafe owners.', reused: false },
+    { id: 'a2', box: 'canvas:solution', statement: 'Receipts by chat' },
+    { id: 'n1', box: 'canvas:segments', statement: 'Cafe owners with one to three shops', story: 'We sell bookkeeping to cafe owners.' },
   ];
-  it('the request carries the draft so far as data, without ids; base points stay the only ids, flagged when already in the draft', () => {
-    const text = buildDraftRequest({
-      material: material('Shorten the second problem, keep the rest.'), basePoints: BASE, baseLabel: 'v1',
-      draftPoints: DRAFT,
-    }).contents[0]!.parts[0]!.text;
-    expect(text).toContain('"kind":"draft_point"');
-    expect(text).toContain('Cafe owners with one to three shops');
-    expect(text).not.toContain('"id":"n1"');
-    expect(text).toMatch(/"id":"a2"[^}]*"in_draft":true/);
-    expect(text).toMatch(/"id":"a1"[^}]*"in_draft":false/);
-    expect(text.match(/"kind":"draft_point"/g)).toHaveLength(1); // the reused one is already shown as a current point
-  });
-  it('with no draft yet there is no draft block', () => {
-    const text = buildDraftRequest({ material: material('Words in my own voice about it.'), basePoints: BASE, baseLabel: 'v1' }).contents[0]!.parts[0]!.text;
+  it('the request carries every draft point as a current point with its id, and no separate draft block', () => {
+    const text = buildDraftRequest({ material: material('Shorten the second problem, keep the rest.'), basePoints: DRAFT, baseLabel: null }).contents[0]!.parts[0]!.text;
+    expect(text).toContain('"id":"n1"');
+    expect(text).toContain('"id":"a2"');
     expect(text).not.toContain('draft_point');
+    expect(text).not.toContain('in_draft');
   });
-  it('the rules say how to use it: write again what the owner did not ask to change; ids only for current points', () => {
-    expect(DRAFT_RULES).toMatch(/draft so far/i);
-    expect(DRAFT_RULES).toMatch(/draft_point/);
+  it('with no points yet there is no current-points block', () => {
+    const text = buildDraftRequest({ material: material('Words in my own voice about it.'), basePoints: [], baseLabel: null }).contents[0]!.parts[0]!.text;
+    expect(text).not.toContain('current_point');
   });
-  it('a run passes the begin row\'s draft_points to the model', async () => {
+  it('the rules say what a run may change and that the other boxes keep their points', () => {
+    expect(DRAFT_RULES).toMatch(/Change only those boxes/);
+    expect(DRAFT_RULES).toMatch(/keeps its points/);
+    expect(DRAFT_RULES).not.toMatch(/draft_point/);
+  });
+  it('a run passes the begin row\'s draft_points to the model as current points', async () => {
     const m = sent();
-    const h = harness({ base_label: 'v1', base_points: BASE, draft_points: DRAFT }, {}, m.model);
+    const h = harness({ base_label: 'v1', draft_points: DRAFT }, {}, m.model);
     await executeRun(h.deps, h.params, h.run);
-    expect(m.requests[0]!.contents[0]!.parts[0]!.text).toContain('"kind":"draft_point"');
+    expect(m.requests[0]!.contents[0]!.parts[0]!.text).toContain('"id":"n1"');
   });
   it('a point of the draft the model writes again needs the same quote rule: nothing is trusted because it was in the draft', () => {
     const r = ok(parseDraft(response([{ action: 'new', box: 'canvas:segments', statement: 'Cafe owners with one to three shops', story: '', quote: 'nowhere in the material at all' }]),
@@ -1146,11 +1199,10 @@ describe('P1536 R6: a revision keeps the reword and the move of the run before',
   const reword = { action: 'reword', point_id: 'a2', box: 'canvas:solution', statement: 'Receipts by chat each week', story: '', quote: 'Receipts by chat each week' };
   const move = { action: 'move', point_id: 'a3', box: 'canvas:channels' };
 
-  it('the request names the base point a draft point derives from, and how', () => {
-    const text = buildDraftRequest({ material: M, basePoints: BASE, baseLabel: 'v1', draftPoints: [RW, MV] }).contents[0]!.parts[0]!.text;
-    expect(text).toMatch(/"kind":"draft_point"[^}]*"from_point_id":"a2"[^}]*"relation":"reword"/);
-    expect(text).toMatch(/"kind":"draft_point"[^}]*"from_point_id":"a3"[^}]*"relation":"move"/);
-    expect(DRAFT_RULES).toMatch(/from_point_id/);
+  it('the v6 request has no from_point_id/relation block: the run no longer passes draft points as context', () => {
+    const text = buildDraftRequest({ material: M, basePoints: BASE, baseLabel: 'v1' }).contents[0]!.parts[0]!.text;
+    expect(text).not.toContain('from_point_id');
+    expect(DRAFT_RULES).not.toMatch(/from_point_id/);
   });
   it('run 2 keeps a reword: the draft point\'s own words are an allowed quote for the same base point, so the link survives', () => {
     const r = run2([reword], [RW]);
@@ -1180,15 +1232,27 @@ describe('P1536 R6: a revision keeps the reword and the move of the run before',
     expect(r.actions.some((a) => a.action === 'reword')).toBe(false);
     expect(r.droppedNames).toBe(1);
   });
-  it('end to end: the begin row\'s links reach the model and the same actions are written again', async () => {
-    const m = sent();
-    const model: RunDeps['model'] = async (c) => {
-      m.requests.push(c.request as GeminiRequest);
-      return { response: response([reword, move]), status: 200 };
-    };
-    const h = harness({ base_label: 'v1', base_points: BASE, draft_points: [RW, MV] }, {}, model);
+  it('a second run on top of an already reworded and moved draft keeps both intact (they are now ordinary draft points)', async () => {
+    const draft: BasePoint[] = [
+      { id: 'n9', box: 'canvas:solution', statement: 'Receipts by chat each week' }, // what the earlier run's reword left
+      { id: 'n8', box: 'canvas:channels', statement: '2,500 baht a month' }, // what the earlier run's move left
+    ];
+    const model: RunDeps['model'] = async () => ({ response: response([{ action: 'keep', point_id: 'n9' }, { action: 'keep', point_id: 'n8' }]), status: 200 });
+    const h = harness({ base_label: 'v1', draft_points: draft }, {}, model);
     expect(await executeRun(h.deps, h.params, h.run)).toEqual({ state: 'done' });
-    expect(m.requests[0]!.contents[0]!.parts[0]!.text).toContain('"from_point_id":"a2"');
+    const acts = h.by('_canvas_draft_run_complete')[0]!.args.p_actions as Array<Record<string, unknown>>;
+    expect(acts).toEqual([{ action: 'keep', point_id: 'n9' }, { action: 'keep', point_id: 'n8' }]);
+    // and a reword of the reworded point with no quote of its own falls back to keeping it, as before
+    const h2 = harness({ base_label: 'v1', draft_points: draft }, {}, async () => ({ response: response([{ action: 'reword', point_id: 'n9', box: 'canvas:solution', statement: 'Receipts by chat every single day', story: '', quote: 'nowhere in the material' }]), status: 200 }));
+    await executeRun(h2.deps, h2.params, h2.run);
+    expect(h2.by('_canvas_draft_run_complete')[0]!.args.p_actions).toContainEqual({ action: 'keep', point_id: 'n9' });
+  });
+  it('end to end: the same reword and move are written again against their current points', async () => {
+    // the earlier run's reword chain is gone (v6 passes no draft points): the reword now stands on the owner's own quote
+    const again = { ...reword, statement: 'Receipts by chat, books done monthly', quote: 'Receipts by chat, books done monthly' };
+    const model: RunDeps['model'] = async () => ({ response: response([again, move]), status: 200 });
+    const h = harness({ base_label: 'v1', draft_points: BASE }, {}, model);
+    expect(await executeRun(h.deps, h.params, h.run)).toEqual({ state: 'done' });
     const acts = h.by('_canvas_draft_run_complete')[0]!.args.p_actions as Array<{ action: string; old_point_id?: string }>;
     expect(acts.filter((a) => a.action === 'reword' || a.action === 'move').map((a) => a.old_point_id).sort()).toEqual(['a2', 'a3']);
   });
@@ -1238,48 +1302,68 @@ describe('P1536 points only: the model is not asked for a story', () => {
   });
 });
 
-describe('P1536 one speed: a request for "slow" does not start a tensions run', () => {
-  const DRAFT_ID = '11111111-1111-4111-8111-111111111111';
-  function ctx(withBase = true) {
+describe('P1536 run by id: the handler begins the run the database made', () => {
+  const RUN_ID = '11111111-1111-4111-8111-111111111111';
+  type Begin = Record<string, unknown>;
+  function ctx(begin: Begin) {
     const rpcs: Array<{ name: string; args: Record<string, unknown> }> = [];
     const pending: Array<Promise<unknown>> = [];
     const c: HandlerCtx = {
       userId: 'owner-1', model: stubCaller(), cors: {}, readLink: async () => ({ ok: false, reason: 'unreachable' }),
       afterResponse: (work) => { pending.push(work); },
       service: {
-        readDraft: async () => ({ data: { owner_id: 'owner-1', state: 'open' }, error: null }),
         rpc: async (name, args): Promise<RpcResult> => {
           rpcs.push({ name, args });
-          if (name !== '_canvas_draft_run_begin') return { data: { ok: true }, error: null };
-          return { data: {
-            status: 'run', run_id: 'run-1', reserved_usd: 0.27, base_label: withBase ? 'v1' : null, base_points: withBase ? BASE : [], material: [],
-            thread: [{ kind: 'owner_message', text: 'Pricing is now 3,000 baht a month for every shop we serve.' }], other_names: [],
-          }, error: null };
+          return name === '_canvas_draft_run_begin' ? { data: begin, error: null } : { data: { ok: true }, error: null };
         },
       },
     };
     return { c, rpcs, settle: async () => { await Promise.all(pending); } };
   }
-  it.each([
-    ['slow', undefined], ['slow', 'tensions'], ['slow', 'draft'], ['fast', 'tensions'],
-  ])('speed %s, phase %s: begins a draft run at the fast speed and ends with a draft, never tensions', async (speed, phase) => {
-    const h = ctx();
-    const res = await handleRun(h.c, { draft_id: DRAFT_ID, speed, ...(phase ? { phase } : {}) });
+  const RUN = {
+    status: 'run', run_id: 'run-1', kind: 'message', first_draft: false, reserved_usd: 0.27, base_label: 'v1', draft_points: BASE, material: [],
+    thread: [{ kind: 'owner_message', text: 'Pricing is now 3,000 baht a month for every shop we serve.', is_trigger: true, message_id: 'm1', box_refs: ['canvas:revenue'] }],
+    other_names: [],
+  };
+  it('begins by run id for the verified caller, answers 202, and works after the response', async () => {
+    const h = ctx(RUN);
+    const res = await handleRun(h.c, { run_id: RUN_ID });
     expect(res.status).toBe(202);
-    expect(await res.json()).toMatchObject({ state: 'running', kind: 'draft' });
+    expect(await res.json()).toMatchObject({ state: 'running', run_id: 'run-1', kind: 'message' });
     await h.settle();
-    const begin = h.rpcs.find((r) => r.name === '_canvas_draft_run_begin')!;
-    expect(begin.args).toMatchObject({ p_kind: 'draft', p_speed: 'fast' });
+    expect(h.rpcs[0]).toMatchObject({ name: '_canvas_draft_run_begin', args: { p_run: RUN_ID, p_owner: 'owner-1', p_has_file: false } });
     expect(h.rpcs.map((r) => r.name)).toEqual(['_canvas_draft_run_begin', '_canvas_draft_run_complete']);
-    expect(String(h.rpcs[1]!.args.p_reply)).toContain('What I decided on my own');
   });
-  it('a request with no valid speed is still refused as BAD_REQUEST, before anything is begun', async () => {
-    const h = ctx();
-    for (const speed of [undefined, 'turbo', 3]) {
-      const res = await handleRun(h.c, { draft_id: DRAFT_ID, speed });
+  it('a body without a valid run_id is BAD_REQUEST before anything is begun (the old draft_id/speed body is not read)', async () => {
+    const h = ctx(RUN);
+    for (const body of [{}, { run_id: 'nope' }, { run_id: 3 }, { draft_id: RUN_ID, speed: 'fast' }]) {
+      const res = await handleRun(h.c, body);
       expect(res.status).toBe(400);
       expect(await res.json()).toMatchObject({ code: 'BAD_REQUEST' });
     }
     expect(h.rpcs).toHaveLength(0);
+  });
+  it('a second invoke on a running run answers 202 and makes no second model call', async () => {
+    let called = 0;
+    const h = ctx({ status: 'running', run_id: 'run-1' });
+    h.c.model = async (c) => { called++; return stubCaller()(c); };
+    const res = await handleRun(h.c, { run_id: RUN_ID });
+    expect(res.status).toBe(202);
+    await h.settle();
+    expect(called).toBe(0);
+    expect(h.rpcs.map((r) => r.name)).toEqual(['_canvas_draft_run_begin']);
+  });
+  it.each([
+    [{ status: 'not_ready', reason: 'transcript_pending' }, 409, 'NOT_READY'],
+    [{ status: 'busy' }, 409, 'BUSY'],
+    [{ status: 'capped' }, 429, 'CAPPED'],
+    [{ status: 'gone', state: 'failed', error_code: 'transcript_failed' }, 409, 'GONE'],
+  ])('a begin that did not start the run (%j) is refused with %s %s and no model call', async (begin, status, code) => {
+    const h = ctx(begin);
+    const res = await handleRun(h.c, { run_id: RUN_ID });
+    expect(res.status).toBe(status);
+    expect(await res.json()).toMatchObject({ code });
+    await h.settle();
+    expect(h.rpcs.map((r) => r.name)).toEqual(['_canvas_draft_run_begin']);
   });
 });

@@ -1,14 +1,15 @@
 /**
- * P1536: the two requests the canvas-draft function serves after its gates: an upload (a file becomes text)
- * and a run (202 now, the work after the response). The runtime wiring (auth, the gates, the clients, the
- * edge runtime) is canvas-draft/index.ts; everything here takes its seams as arguments, so it carries no
- * Deno or esm.sh import.
+ * P1536: the two requests the canvas-draft function serves after its gates, both by RUN ID (Design v6): a run made by a user
+ * RPC (`canvas_workspace_send`, a retry, a focus switch, a fork) is begun here, and the work runs after the response. The
+ * runtime wiring (auth, the gates, the clients, the edge runtime) is canvas-draft/index.ts; everything here takes its seams as
+ * arguments, so it carries no Deno or esm.sh import.
  *
  * Gate order inside each handler, pinned by src/tests/p1536-canvas-draft.test.ts:
- *   upload: size, then the form, then ownership of an open draft, then the file type, then an `extract` run
- *           (which reserves the spend) before the one model call.
- *   run:    ownership of an open draft, then the run's begin (which reserves the spend), then the work
- *           after the response, then 202. Every run is a draft run at the fast speed (no tensions pass).
+ *   run:     the run id, then the run's begin (which proves the run is the caller's, checks its input is ready and
+ *            reserves the spend), then the work after the response, then 202. A second call on a running run begins nothing.
+ *   upload:  the declared size, then the form, then the begin (claim FIRST), then the file's size and type, then the one
+ *            extraction call, then the material written for the running run, then the work after the response.
+ *            A failure after the claim fails the run in the same invocation, so the draft never waits for a lease.
  *
  * Uploaded bytes are decoded or extracted in memory and never stored; only the text is kept.
  */
@@ -18,16 +19,17 @@ import {
   MAX_STORED_TEXT_CHARS, MAX_UPLOAD_BYTES, classifyUpload, cleanLabel, decodeUploadText, uploadLengthRefusal,
 } from './canvas-material.ts';
 import { buildExtractRequest, extractedText, type ModelCaller } from './canvas-model.ts';
-import { executeRun, type CanvasRun, type RpcResult, type RunDeps, type RunKind } from './canvas-run.ts';
+import { RUN_DEADLINE_MS, makeDeadline } from './canvas-deadline.ts';
+import { executeRun, failRun, type CanvasRun, type MaterialRow, type RpcResult, type RunDeps } from './canvas-run.ts';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/** Form overhead allowed on top of the file before the body is refused unread. */
+/** What one extraction call is reserved at (`extract_max_usd`): charged when the model reports no usage. */
+export const EXTRACT_MAX_USD = 0.35;
+/** Posted in the thread when the daily cap stops a run. [FOUNDER DECISION: wording] */
+export const CAP_REPLY = 'I have reached my daily limit for canvas updates, so nothing was changed. Please try again tomorrow.';
 
-export interface DraftRow { owner_id: string; state: string }
 export interface DraftService {
   rpc: (name: string, args: Record<string, unknown>) => Promise<RpcResult>;
-  /** The draft row, read with the service role. */
-  readDraft: (id: string) => Promise<{ data: DraftRow | null; error: unknown }>;
 }
 export interface HandlerCtx {
   service: DraftService;
@@ -37,6 +39,8 @@ export interface HandlerCtx {
   readLink: RunDeps['readLink'];
   /** The model's token counter for the run's request bound (absent: the byte bound). */
   count?: RunDeps['count'];
+  /** The run's deadline in ms (default RUN_DEADLINE_MS); a test sets a short one. */
+  deadlineMs?: number;
   /** Hands work to the edge runtime so the response can go first. */
   afterResponse: (work: Promise<unknown>) => void;
 }
@@ -44,24 +48,35 @@ export interface HandlerCtx {
 const respond = (c: HandlerCtx, body: unknown, status: number) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...c.cors } });
 const unavailable = (c: HandlerCtx) => respond(c, { error: 'Service temporarily unavailable' }, 503);
-const notAvailable = (c: HandlerCtx) => respond(c, { error: 'Not available', code: 'NOT_AVAILABLE' }, 404);
 const badRequest = (c: HandlerCtx, error: string) => respond(c, { error, code: 'BAD_REQUEST' }, 400);
 
-/** The caller's own open draft, or the refusal to send. The id comes from the verified JWT, never the body. */
-async function ownDraft(c: HandlerCtx, draftId: string): Promise<{ draft: DraftRow } | { refuse: Response }> {
-  const { data, error } = await c.service.readDraft(draftId);
-  if (error) return { refuse: unavailable(c) };
-  if (!data || data.owner_id !== c.userId) return { refuse: notAvailable(c) };
-  if (data.state !== 'open') return { refuse: respond(c, { error: 'This draft is closed', code: 'DRAFT_CLOSED' }, 409) };
-  return { draft: data };
+type Begin = { status: string; run_id?: string; reason?: string; state?: string; error_code?: string } & Omit<Partial<CanvasRun>, 'status'>;
+
+/** What a begin that did not start a run means for the caller. The run row is the caller's own (begin proves it), or it is `gone`. */
+function refuseBegin(c: HandlerCtx, b: Begin, runId: string): Response {
+  if (b.status === 'running') return respond(c, { state: 'running', run_id: runId }, 202); // a second invoke: no second model call
+  if (b.status === 'not_ready') return respond(c, { state: 'queued', error: 'The input is not ready yet', code: 'NOT_READY', reason: b.reason ?? null }, 409);
+  if (b.status === 'busy') return respond(c, { error: 'Try again in a moment', code: 'BUSY' }, 409);
+  if (b.status === 'capped') return respond(c, { state: 'capped', error: 'The spending limit is reached', code: 'CAPPED' }, 429);
+  return respond(c, { state: b.state ?? null, error: 'This update is no longer running', code: 'GONE', error_code: b.error_code ?? null }, 409);
 }
 
-/** What a refused begin means for the caller. */
-function refuseBegin(c: HandlerCtx, status: string): Response {
-  if (status === 'busy') return respond(c, { state: 'running', error: 'A run is already going', code: 'BUSY' }, 409);
-  if (status === 'capped') return respond(c, { state: 'capped', error: 'The spending limit is reached', code: 'CAPPED' }, 429);
-  if (status === 'cap_reached') return respond(c, { state: 'capped', error: 'This draft has reached its revision limit', code: 'REVISION_CAP' }, 429);
-  return notAvailable(c);
+async function beginRun(c: HandlerCtx, runId: string, hasFile: boolean): Promise<{ begin: Begin } | { refuse: Response }> {
+  const { data, error } = await c.service.rpc('_canvas_draft_run_begin', { p_run: runId, p_owner: c.userId, p_has_file: hasFile, p_cap_reply: CAP_REPLY });
+  const begin = data as Begin | null;
+  if (error || !begin) {
+    console.error('canvas-draft: begin failed', { code: (error as { code?: string } | null)?.code });
+    return { refuse: unavailable(c) };
+  }
+  if (begin.status !== 'run' || !begin.run_id) return { refuse: refuseBegin(c, begin, runId) };
+  return { begin };
+}
+
+function runOf(begin: Begin, material?: MaterialRow[]): CanvasRun {
+  return {
+    ...(begin as CanvasRun),
+    draft_points: begin.draft_points ?? [], material: material ?? begin.material ?? [], thread: begin.thread ?? [], other_names: begin.other_names ?? [],
+  };
 }
 
 function toBase64(bytes: Uint8Array): string {
@@ -70,94 +85,112 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
-/** The material function's own answer to a kept file. */
-function keptAnswer(c: HandlerCtx, kept: unknown, label: string, chars: number): Response {
-  const status = (kept as { status?: string } | null)?.status;
-  if (!kept) return unavailable(c);
-  if (status === 'limit') return respond(c, { error: 'This draft has the most files it can hold', code: 'LIMIT', label }, 409);
-  if (status === 'denied') return notAvailable(c);
-  return respond(c, { state: 'added', label, chars }, 200);
+/** What an extraction call is charged: the reported usage, else its reservation; a refused request costs nothing. */
+function extractUsd(response: unknown, status: number): number {
+  if (response) return costUsd((response as { usageMetadata?: GeminiUsage }).usageMetadata) ?? EXTRACT_MAX_USD;
+  return status >= 400 && status < 500 ? 0 : EXTRACT_MAX_USD;
 }
 
-async function uploadText(c: HandlerCtx, draftId: string, label: string, bytes: Uint8Array): Promise<Response> {
-  const text = decodeUploadText(bytes);
-  if (!text) return respond(c, { error: 'Nothing readable in that file', code: 'UNREADABLE', label }, 422);
-  const { data, error } = await c.service.rpc('_canvas_draft_add_material', { p_owner: c.userId, p_draft: draftId, p_kind: 'file', p_label: label, p_text: text });
-  return error ? unavailable(c) : keptAnswer(c, data, label, text.length);
+/** Ends the claimed run with a reason and answers the caller with the matching refusal. */
+async function failUpload(c: HandlerCtx, runId: string, code: string, label: string, usd: number, answer: { error: string; code: string; status: number }): Promise<Response> {
+  await failRun(c.service, { run_id: runId }, { ownerId: c.userId }, code, 'I could not read that file. Nothing was changed.', usd);
+  return respond(c, { error: answer.error, code: answer.code, label }, answer.status);
 }
 
-/** What an extraction call is charged: the reported usage, else the reservation; a refused request costs nothing. */
-function extractUsd(response: unknown, status: number, reserved: number | null): number | null {
-  if (response) return costUsd((response as { usageMetadata?: GeminiUsage }).usageMetadata) ?? reserved;
-  return status >= 400 && status < 500 ? 0 : reserved;
-}
-
-/** The extraction produced no text: end the run and say why. */
-async function extractFailed(c: HandlerCtx, runId: string, label: string, hadResponse: boolean, status: number, usd: number | null): Promise<Response> {
-  const capped = status === 429 || status === 403;
-  const code = hadResponse ? 'unreadable' : capped ? 'capped' : 'model_error';
-  await c.service.rpc('_canvas_draft_run_fail', { p_run: runId, p_code: code, p_reply: null, p_actual_usd: usd });
-  return respond(c, { error: 'I could not read that file', code: capped ? 'CAPPED' : 'UNREADABLE', label }, capped ? 429 : 422);
-}
-
-/** One extraction call under its own spend reservation (an 'extract' run). */
-async function uploadExtract(c: HandlerCtx, draftId: string, label: string, mime: string, bytes: Uint8Array): Promise<Response> {
-  const { data: begun, error: beginError } = await c.service.rpc('_canvas_draft_run_begin', { p_owner: c.userId, p_draft: draftId, p_kind: 'extract', p_speed: 'fast' });
-  const begin = begun as { status: string; run_id?: string; reserved_usd?: number | null } | null;
-  if (beginError || !begin) return unavailable(c);
-  if (begin.status !== 'run' || !begin.run_id) return refuseBegin(c, begin.status);
-  const { response, status } = await c.model({ kind: 'extract', request: buildExtractRequest(mime, toBase64(bytes)) });
+/** The text of the file, with the usd its extraction cost; or the run's failure. */
+async function readUploadText(c: HandlerCtx, runId: string, file: File, label: string, signal: AbortSignal, spent: { usd: number }): Promise<{ text: string; usd: number } | { refuse: Response }> {
+  const kind = classifyUpload(file.name, file.type);
+  if (kind.kind === 'unsupported') return { refuse: await failUpload(c, runId, 'unsupported', label, 0, { error: 'That file type is not supported', code: 'UNSUPPORTED', status: 415 }) };
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (kind.kind === 'text') {
+    const text = decodeUploadText(bytes);
+    return text ? { text, usd: 0 } : { refuse: await failUpload(c, runId, 'unreadable', label, 0, { error: 'Nothing readable in that file', code: 'UNREADABLE', status: 422 }) };
+  }
+  spent.usd = EXTRACT_MAX_USD; // the call is about to be out: until its cost is known, a crash settles the extraction at its reservation
+  const { response, status } = await c.model({ kind: 'extract', request: buildExtractRequest(kind.mime, toBase64(bytes)), signal });
+  const usd = extractUsd(response, status);
+  spent.usd = usd;
   const text = response ? extractedText(response)?.slice(0, MAX_STORED_TEXT_CHARS) ?? null : null;
-  const usd = extractUsd(response, status, begin.reserved_usd ?? null);
-  if (!text) return await extractFailed(c, begin.run_id, label, Boolean(response), status, usd);
-  const { data: kept, error } = await c.service.rpc('_canvas_draft_extract_complete', {
-    p_run: begin.run_id, p_owner: c.userId, p_draft: draftId, p_label: label, p_text: text, p_usd: usd,
-  });
-  return error ? unavailable(c) : keptAnswer(c, kept, label, text.length);
+  if (text) return { text, usd };
+  const capped = status === 429 || status === 403;
+  // The deadline cut the call: it was sent, so it may have been billed. It is settled at the extraction's reservation (extractUsd: no response, no 4xx).
+  if (!response && signal.aborted) return { refuse: await failUpload(c, runId, 'timeout', label, usd, { error: 'That took too long', code: 'TIMEOUT', status: 504 }) };
+  const answer = capped ? { error: 'I could not read that file', code: 'CAPPED', status: 429 } : { error: 'I could not read that file', code: 'UNREADABLE', status: 422 };
+  return { refuse: await failUpload(c, runId, response ? 'unreadable' : capped ? 'capped' : 'model_error', label, usd, answer) };
 }
 
-/** upload: a file becomes text; the bytes are never stored. */
+/** The material function's own answer to a kept file: the run's material now, or the reason it was refused. */
+async function keepUpload(c: HandlerCtx, runId: string, label: string, text: string, usd: number): Promise<{ material: MaterialRow[] } | { refuse: Response }> {
+  const { data, error } = await c.service.rpc('_canvas_draft_add_material', { p_run: runId, p_owner: c.userId, p_kind: 'file', p_label: label, p_text: text });
+  const kept = data as { status?: string; material?: MaterialRow[] } | null;
+  if (error || !kept) {
+    // The write did not land and the run is still running: end it, paying for the extraction already made.
+    return { refuse: await failUpload(c, runId, 'write', label, usd, { error: 'Service temporarily unavailable', code: 'UNAVAILABLE', status: 503 }) };
+  }
+  if (kept.status === 'ok') return { material: kept.material ?? [] };
+  if (kept.status === 'gone') return { refuse: respond(c, { error: 'This update is no longer running', code: 'GONE' }, 409) }; // a late write touches nothing
+  if (kept.status === 'limit') return { refuse: await failUpload(c, runId, 'limit', label, usd, { error: 'This draft has the most files it can hold', code: 'LIMIT', status: 409 }) };
+  return { refuse: await failUpload(c, runId, 'denied', label, usd, { error: 'Not available', code: 'NOT_AVAILABLE', status: 404 }) };
+}
+
+type Deadline = ReturnType<typeof makeDeadline> & { handedOver: boolean };
+const startDeadline = (c: HandlerCtx): Deadline => ({ ...makeDeadline(c.deadlineMs ?? RUN_DEADLINE_MS), handedOver: false });
+
+/** The draft after the response, under the invocation's deadline; the deadline's timer ends with it. */
+function draftLater(c: HandlerCtx, dl: Deadline, run: CanvasRun, extraUsd?: number): void {
+  dl.handedOver = true;
+  c.afterResponse(executeRun({ rpc: c.service.rpc, model: c.model, readLink: c.readLink, count: c.count, signal: dl.signal }, { ownerId: c.userId, extraUsd }, run).finally(dl.cancel));
+}
+
+/** upload: claim the run, then a file becomes text kept for it, then the draft runs after the response. */
 export async function handleUpload(c: HandlerCtx, req: Request): Promise<Response> {
   const lengthRefusal = uploadLengthRefusal(req.headers.get('content-length'));
   if (lengthRefusal === 'missing') return respond(c, { error: 'Content-Length required', code: 'BAD_REQUEST' }, 411);
   if (lengthRefusal === 'too_large') return respond(c, { error: 'File too large', code: 'TOO_LARGE' }, 413);
-  let form: FormData;
-  try { form = await req.formData(); } catch { return badRequest(c, 'Invalid request body'); }
-  const draftId = form.get('draft_id');
-  const file = form.get('file');
-  if (typeof draftId !== 'string' || !UUID_RE.test(draftId) || !(file instanceof File)) return badRequest(c, 'draft_id and file are required');
-  if (file.size > MAX_UPLOAD_BYTES) return respond(c, { error: 'File too large', code: 'TOO_LARGE' }, 413);
-  const own = await ownDraft(c, draftId);
-  if ('refuse' in own) return own.refuse;
+  const dl = startDeadline(c);
+  try {
+    let form: FormData;
+    try { form = await req.formData(); } catch { return badRequest(c, 'Invalid request body'); }
+    const runId = form.get('run_id');
+    const file = form.get('file');
+    if (typeof runId !== 'string' || !UUID_RE.test(runId) || !(file instanceof File)) return badRequest(c, 'run_id and file are required');
+    const claimed = await beginRun(c, runId, true);
+    if ('refuse' in claimed) return claimed.refuse;
+    const spent = { usd: 0 };
+    try {
+      return await readAndDraft(c, dl, claimed.begin, runId, file, spent);
+    } catch (e) {
+      // Every way out after the claim ends the run: a throw (an unreadable body, a failing model call) must not leave it running with its spend reserved.
+      console.error('canvas-draft: upload crashed', { error: (e as Error).name });
+      await failRun(c.service, { run_id: runId }, { ownerId: c.userId }, 'internal', 'I could not read that file. Nothing was changed.', spent.usd); // what was actually spent: nothing before the extraction call, its cost after
+      return unavailable(c);
+    }
+  } finally {
+    if (!dl.handedOver) dl.cancel();
+  }
+}
+
+/** After the claim: the size, the text, the kept material, then the draft after the response. */
+async function readAndDraft(c: HandlerCtx, dl: Deadline, begin: Begin, runId: string, file: File, spent: { usd: number }): Promise<Response> {
   const label = cleanLabel(file.name);
-  const kind = classifyUpload(file.name, file.type);
-  if (kind.kind === 'unsupported') return respond(c, { error: 'That file type is not supported', code: 'UNSUPPORTED', label }, 415);
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  return kind.kind === 'text' ? await uploadText(c, draftId, label, bytes) : await uploadExtract(c, draftId, label, kind.mime, bytes);
+  if (file.size > MAX_UPLOAD_BYTES) return await failUpload(c, runId, 'too_large', label, 0, { error: 'File too large', code: 'TOO_LARGE', status: 413 });
+  const read = await readUploadText(c, runId, file, label, dl.signal, spent);
+  if ('refuse' in read) return read.refuse;
+  const kept = await keepUpload(c, runId, label, read.text, read.usd);
+  if ('refuse' in kept) return kept.refuse;
+  const run = runOf(begin, kept.material);
+  draftLater(c, dl, run, read.usd);
+  return respond(c, { state: 'running', run_id: run.run_id, label, chars: read.text.length }, 202);
 }
 
 /** run: 202 now, the work after the response. */
 export async function handleRun(c: HandlerCtx, body: Record<string, unknown>): Promise<Response> {
-  const draftId = typeof body.draft_id === 'string' && UUID_RE.test(body.draft_id) ? body.draft_id : null;
-  // One speed is offered: every run drafts straight away. A client that still says 'slow' (an old tab) is treated as
-  // 'fast' rather than refused: it gets the draft, with "What I decided on my own", never a tensions pass. `phase`
-  // is not read at all, so { phase: 'tensions' } cannot start one either.
-  if (!draftId || (body.speed !== 'fast' && body.speed !== 'slow')) return badRequest(c, 'draft_id and speed are required');
-  const own = await ownDraft(c, draftId);
-  if ('refuse' in own) return own.refuse;
-  const kind: RunKind = 'draft';
-
-  const { data: begun, error } = await c.service.rpc('_canvas_draft_run_begin', { p_owner: c.userId, p_draft: draftId, p_kind: kind, p_speed: 'fast' });
-  const begin = begun as ({ status: string; run_id?: string } & Partial<CanvasRun>) | null;
-  if (error || !begin) {
-    console.error('canvas-draft: begin failed', { code: (error as { code?: string } | null)?.code });
-    return unavailable(c);
-  }
-  if (begin.status !== 'run' || !begin.run_id) return refuseBegin(c, begin.status);
-  const run: CanvasRun = {
-    ...(begin as CanvasRun),
-    base_points: begin.base_points ?? [], material: begin.material ?? [], thread: begin.thread ?? [], other_names: begin.other_names ?? [],
-  };
-  c.afterResponse(executeRun({ rpc: c.service.rpc, model: c.model, readLink: c.readLink, count: c.count }, { ownerId: c.userId, draftId, kind }, run));
-  return respond(c, { state: 'running', run_id: run.run_id, kind }, 202);
+  const runId = typeof body.run_id === 'string' && UUID_RE.test(body.run_id) ? body.run_id : null;
+  if (!runId) return badRequest(c, 'run_id is required');
+  const dl = startDeadline(c);
+  const started = await beginRun(c, runId, false);
+  if ('refuse' in started) { dl.cancel(); return started.refuse; }
+  const run = runOf(started.begin);
+  draftLater(c, dl, run);
+  return respond(c, { state: 'running', run_id: run.run_id, kind: run.kind ?? 'message' }, 202);
 }

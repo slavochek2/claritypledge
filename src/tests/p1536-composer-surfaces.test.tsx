@@ -61,7 +61,7 @@ const msg = (over: Partial<ChatMessage>): ChatMessage => ({
   attachmentId: null, clientId: null, contextConversationId: null, ...over,
 });
 const draftRow = (over: Partial<CanvasDraft>): CanvasDraft => ({
-  id: 'draft-1', versionId: 'ver-draft', canvasId: 'cv-1', baseVersionId: null, conversationId: CONV, threadRootId: ROOT, state: 'open', runCount: 0,
+  id: 'draft-1', versionId: 'ver-draft', canvasId: 'cv-1', baseVersionId: null, conversationId: CONV, threadRootId: ROOT, state: 'open', runCount: 0, revision: 0,
   closedAt: null, canvasName: null, versionName: null, ...over,
 });
 

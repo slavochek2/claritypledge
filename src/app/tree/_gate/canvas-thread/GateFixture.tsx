@@ -20,7 +20,7 @@ import { ThreadHeader } from '@/app/pages/chat/ThreadHeader';
 import { canDiscardDraft, openerIsPrimary, type CanvasItemRow } from '@/app/pages/chat/canvas-items';
 
 const NOW = '2000-01-01T00:00:00.000Z';
-const draft = { id: 'draft-id-1234', versionId: 'version-id-1234', canvasId: 'canvas-id-1234', baseVersionId: null, conversationId: 'conversation-id-1234', threadRootId: 'thread-root-id-1234', state: 'open', runCount: 0, closedAt: null, canvasName: null, versionName: null } as const;
+const draft = { id: 'draft-id-1234', versionId: 'version-id-1234', canvasId: 'canvas-id-1234', baseVersionId: null, conversationId: 'conversation-id-1234', threadRootId: 'thread-root-id-1234', state: 'open', runCount: 0, revision: 0, closedAt: null, canvasName: null, versionName: null } as const;
 const updateDraft = { ...draft, baseVersionId: 'version-id-0001', canvasName: 'example_canvas', versionName: 'example_canvas_d1a2b3' } as const;
 const run = { id: 'run-id-1234', kind: 'draft', state: 'running', errorCode: null, createdAt: NOW, startedAt: NOW } as const;
 const BASE_CARD: CanvasVersionCardData = { title: 'Example canvas', label: 'v2 · Jan 1, 2000', draft: false, href: '/p/example-user/canvas/example_canvas?v=example_v2' };

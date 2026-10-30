@@ -79,7 +79,7 @@ export interface ArtifactRow {
     hasAudience?: boolean;
     /** Own canvas with an open draft (P1536): its id to discard it, its version (the draft canvas's address) and its thread.
      *  `only`: the draft is the canvas's only version (nothing published yet), so there is nothing to share or link to. */
-    draft?: { id: string; versionName: string; conversationId: string; threadRootId: string; only: boolean };
+    draft?: { id: string; versionName: string; conversationId: string; threadRootId: string; only: boolean; revision: number };
   };
 }
 
@@ -341,7 +341,7 @@ export function ownCanvasRow(c: MyCanvasRow, userSlug: string | null, draft?: Op
       canvasName: c.name,
       generalAccess: c.generalAccess,
       hasAudience: c.hasAudience,
-      draft: draft && { id: draft.draftId, versionName: draft.versionName, conversationId: draft.conversationId, threadRootId: draft.threadRootId, only },
+      draft: draft && { id: draft.draftId, versionName: draft.versionName, conversationId: draft.conversationId, threadRootId: draft.threadRootId, only, revision: draft.revision },
     },
   };
 }

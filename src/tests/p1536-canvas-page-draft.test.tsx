@@ -67,7 +67,7 @@ const v1 = { name: V1_NAME, createdAt: '2026-10-01T10:00:00Z', seq: 1, published
 const draftVersion = { name: DRAFT_NAME, createdAt: '2026-10-20T10:00:00Z', seq: null, publishedAt: null, draft: true };
 const draftBlock = {
   id: 'draft-1', version: DRAFT_NAME, questions: { 'canvas:love': 'What do you keep doing even when it costs you?' },
-  threadRootId: 'root-1', conversationId: 'conv-1', baseSeq: 1, runCount: 1,
+  threadRootId: 'root-1', conversationId: 'conv-1', baseSeq: 1, runCount: 1, revision: 0,
 };
 
 /** What `get_canvas` answers, mapped (see canvas-service). */
@@ -257,7 +257,7 @@ describe('Publish', () => {
     expect(getCanvas.mock.calls.at(-1)![4]).toBe(DRAFT_NAME);
     getCanvas.mockResolvedValue(view());
     fireEvent.click(screen.getByTestId('canvas-draft-publish'));
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith('canvas_draft_publish', { p_draft: 'draft-1' }));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('canvas_draft_publish', { p_draft: 'draft-1', p_expected_revision: 0 }));
     // the page reads again (a moment of loading: no Publish and no grid), then shows the published version (the tab title names it)
     await waitFor(() => expect(seoTitle.value).toContain('v1 · Oct')); // the published label has a date; the draft's "v1 · Draft" has none
     expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();

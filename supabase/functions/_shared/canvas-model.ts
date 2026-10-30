@@ -16,6 +16,7 @@ import { DRAFT_MODEL, MIN_QUOTE_CHARS } from './canvas-draft.ts';
 import { BOX_DEFINITIONS } from './canvas-box-definitions.ts';
 import type { BasePoint, Material } from './canvas-types.ts';
 import type { GeminiRequest } from './mirror-agent.ts';
+import { anySignal } from './abort-signals.ts';
 
 export const STUB_HEADER = 'x-canvas-draft-stub';
 export const CALL_TIMEOUT_MS = 90_000;
@@ -33,6 +34,8 @@ export interface ModelCall {
   kind: ModelKind;
   request: GeminiRequest | Record<string, unknown>;
   stub?: StubInput;
+  /** The run's deadline: the call is cut when it fires. */
+  signal?: AbortSignal;
 }
 /** `response` is null when the call failed; `status` is the HTTP status, or 0 for a network error. */
 export interface ModelResult { response: unknown; status: number }
@@ -65,13 +68,13 @@ export function resolveEnabled(flag: boolean, hasKey: boolean, stubbed: boolean)
 
 /** The model's HTTP call. The key travels in a header, never in the URL, and is never logged. */
 export function geminiCaller(apiKey: string, fetchFn: typeof fetch = fetch, timeoutMs = CALL_TIMEOUT_MS): ModelCaller {
-  return async ({ request }) => {
+  return async ({ request, signal }) => {
     try {
       const res = await fetchFn(`https://generativelanguage.googleapis.com/v1beta/models/${DRAFT_MODEL}:generateContent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify(request),
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: anySignal(signal, AbortSignal.timeout(timeoutMs)),
       });
       if (!res.ok) { await res.body?.cancel(); return { response: null, status: res.status }; }
       return { response: await res.json(), status: 200 };
@@ -150,6 +153,7 @@ function stubNewActions(stub: StubInput | undefined, sentences: string[]): Array
  *     next box, STUB-DROP drops it;
  *   - STUB-LEAK adds a point naming the first other person (the name filter must drop it);
  *   - STUB-UNVERIFIED adds a point whose quote is not in the material (the quote check must drop it).
+ * It also returns `scope`: the boxes it wrote to (only an untagged message uses it).
  * Extract: a fixed transcription.
  */
 export function stubCaller(): ModelCaller {
@@ -160,7 +164,9 @@ export function stubCaller(): ModelCaller {
     const sentences = ownerSentences(stub?.material);
     const base = stub?.basePoints ?? [];
     const actions = [...stubBaseActions(base, sentences), ...stubNewActions(stub, sentences)];
-    const conflicts = base.length ? ['Stub conflict: two statements disagree. I chose the newer one.'] : [];
-    return { response: geminiShaped({ actions, conflicts }), status: 200 };
+    // an untagged message's scope is the boxes the stub wrote to (a tagged one ignores it; the server fixes that scope)
+    const boxesOf = (a: Record<string, unknown>) => [a.box, base.find((p) => p.id === a.point_id)?.box];
+    const scope = TAGS.filter((t) => actions.some((a) => a.action !== 'keep' && boxesOf(a).includes(t)));
+    return { response: geminiShaped({ focus: '', other_canvases: [], scope, actions, questions: [], note: '' }), status: 200 };
   };
 }

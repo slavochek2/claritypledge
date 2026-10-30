@@ -29,3 +29,11 @@ export const MAX_NOTE_CHARS = 300;
 export const BOX_TAGS: ReadonlySet<string> = new Set(BOX_DEFINITIONS.map((b) => b.tag));
 const TITLE_OF = new Map(BOX_DEFINITIONS.map((b) => [b.tag, b.title]));
 export const titleOf = (tag: string) => TITLE_OF.get(tag) ?? tag;
+
+/**
+ * The six boxes about the customer and the sale (Design v6 section 2): a focus run rebuilds exactly these. The other three are
+ * the founder-fit boxes. Equal to `_canvas_customer_box_tags()` in the v6 migration (a test pins it).
+ */
+export const CUSTOMER_BOX_TAGS: readonly string[] = [
+  'canvas:segments', 'canvas:problem', 'canvas:solution', 'canvas:channels', 'canvas:revenue', 'canvas:metrics',
+];

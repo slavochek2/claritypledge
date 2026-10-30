@@ -13,6 +13,8 @@
  */
 
 import { requestBytes, type GeminiRequest, type TokenCounter } from './mirror-agent.ts';
+import { DeadlineExceeded } from './canvas-deadline.ts';
+import { raceAbort } from './abort-signals.ts';
 import { MAX_MATERIAL_TOKENS } from './canvas-draft.ts';
 
 /** The input tokens the reservation assumes (see _mirror_limits canvas_max_usd). */
@@ -40,13 +42,15 @@ export const MAX_SEARCH_BYTES = 14;
 export async function fitRequest<T extends Built>(
   build: (materialTokens: number) => T,
   count: TokenCounter = noCount,
+  signal?: AbortSignal,
 ): Promise<Fit<T>> {
   let counting = true;
   /** One measurement of the request for a budget: the model's count, or the UTF-8 bytes once counting failed. */
   const measure = async (cap: number): Promise<Fit<T>> => {
+    if (signal?.aborted) throw new DeadlineExceeded();
     const built = build(cap);
     if (counting) {
-      const n = await count(built.request);
+      const n = await raceAbort(count(built.request), signal, null); // a count still out when the deadline fires is not waited for
       if (n !== null) return { ...built, tokens: n, counted: true };
       counting = false; // not asked again for this run
     }

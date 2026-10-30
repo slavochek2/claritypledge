@@ -45,5 +45,7 @@ export function useCanvasParts(args: { canvasRoot: boolean; rootId: string; mess
     /** The composer's Upload button, while the draft takes files. */
     leading: live?.draft.state === 'open' ? <CanvasUploadButton busy={uploader.busy} onPick={(f) => void uploader.upload(f)} /> : undefined,
     setComposing: pane.setComposing,
+    /** Sends a text message into the open draft (message + run in one call); null: the chat's own send is used. */
+    send: live ? pane.onSend : null,
   };
 }

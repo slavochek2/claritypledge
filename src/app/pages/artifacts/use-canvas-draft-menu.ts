@@ -45,7 +45,15 @@ export function useCanvasDraftMenu(
   const discard = async () => {
     setDiscarding(true);
     try {
-      await discardCanvasDraft(draft.id);
+      const r = await discardCanvasDraft(draft.id, draft.revision);
+      if (!r.ok) {
+        if (r.refused === 'stale_view') onChanged(); // the list re-reads, so the next attempt carries the draft's new revision
+        // busy: a run is going (the reply is already worded); anything else, including stale_view, reads as a failed discard
+        toast.error(r.refused === 'busy' || r.refused === 'busy_elsewhere'
+          ? 'That draft is being written right now. Try again in a minute.'
+          : "Couldn't discard the draft.");
+        return;
+      }
       toast.success('Draft discarded');
       setConfirming(false);
       onChanged();

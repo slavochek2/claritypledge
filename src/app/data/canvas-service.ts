@@ -96,6 +96,8 @@ export interface CanvasOwnerDraft {
   /** the published version it was started from (null: a first draft) */
   baseSeq: number | null;
   runCount: number;
+  /** The draft's revision as the read saw it: Publish passes it back (stale_view when the draft moved on). */
+  revision: number;
 }
 
 /** One entry of the owner's audience panel. */
@@ -152,6 +154,7 @@ function mapOwnerDraft(raw: unknown): CanvasOwnerDraft | null {
     conversationId: String(d.conversation_id),
     baseSeq: typeof d.base_seq === 'number' ? d.base_seq : null,
     runCount: Number(d.run_count ?? 0),
+    revision: Number(d.revision ?? 0),
   };
 }
 

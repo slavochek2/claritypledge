@@ -11,14 +11,17 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import { clearListReturnCache } from '@/lib/list-return-cache';
 import { canvasTitle } from '@/lib/canvas-boxes';
 import { throwDbError } from './db-error-logger';
-import { emitCanvasDraftEvent } from './canvas-draft-events';
+export * from './canvas-draft-calls';
+export * from './canvas-draft-retry';
 
 export type CanvasDraftState = 'open' | 'published' | 'discarded';
 /** `cancelled`: erasing a person's data stopped the run (the database already writes it). */
-export type CanvasRunState = 'queued' | 'running' | 'done' | 'failed' | 'capped' | 'cancelled';
+/* eslint-disable @typescript-eslint/no-explicit-any -- rows are jsonb-shaped: mapped field by field below */
+type Row = Record<string, any>;
+
+export type CanvasRunState = 'queued' | 'running' | 'done' | 'undone' | 'failed' | 'capped' | 'cancelled';
 
 export interface CanvasDraft {
   id: string;
@@ -31,6 +34,8 @@ export interface CanvasDraft {
   state: CanvasDraftState;
   /** Draft runs that finished and counted: above 0 there is something to publish. */
   runCount: number;
+  /** Bumped by every change to the draft: Publish, Discard and Send pass the value the person last saw (stale_view otherwise). */
+  revision: number;
   /** When the draft was published or discarded (null while open): what separates "before Publish" from "after". */
   closedAt: string | null;
   /**
@@ -43,7 +48,7 @@ export interface CanvasDraft {
 
 export interface CanvasDraftRun {
   id: string;
-  kind: 'tensions' | 'draft' | 'extract';
+  kind: 'tensions' | 'draft' | 'extract' | 'message' | 'focus' | 'fork_first';
   state: CanvasRunState;
   errorCode: string | null;
   createdAt: string;
@@ -72,167 +77,6 @@ export interface CanvasVersionOption {
   hasOpenDraft: boolean;
 }
 
-/** `open_elsewhere`: the canvas already has an open draft, in another thread. Nothing new was made. */
-export type OpenDraftResult = {
-  status: 'opened' | 'open_elsewhere';
-  draftId: string;
-  conversationId: string;
-  threadRootId: string;
-  canvasName: string;
-  /** The published version the (open or new) draft started from, or null for a brand-new canvas. */
-  fromSeq: number | null;
-};
-
-/** What the edge function answered to a run or an upload: a stable code the UI turns into a sentence. */
-export type CanvasDraftErrorCode =
-  | 'BUSY' | 'LIMIT' | 'REVISION_CAP' | 'TERMS_NOT_ACCEPTED' | 'DISABLED' | 'NOT_AVAILABLE'
-  | 'TOO_LARGE' | 'UNSUPPORTED' | 'UNREADABLE' | 'DRAFT_CLOSED' | 'CAPPED' | 'BAD_REQUEST' | 'FAILED';
-
-export type RunStart = { ok: true; runId: string; kind: 'tensions' | 'draft' } | { ok: false; code: CanvasDraftErrorCode };
-export type UploadResult = { ok: true; label: string; chars: number } | { ok: false; code: CanvasDraftErrorCode };
-
-/* eslint-disable @typescript-eslint/no-explicit-any -- rpc and table rows are jsonb-shaped: mapped field by field below */
-type Row = Record<string, any>;
-
-/** A refusal the person can act on (not a bug, so never reported): too many open drafts, a run is active, nothing to publish. */
-export class CanvasDraftRefusal extends Error {
-  constructor(readonly code: 'TOO_MANY_DRAFTS' | 'RUN_ACTIVE' | 'NOTHING_TO_PUBLISH' | 'CLOSED') {
-    super(code);
-    this.name = 'CanvasDraftRefusal';
-  }
-}
-
-const REFUSALS: Record<string, CanvasDraftRefusal['code']> = {
-  '54000': 'TOO_MANY_DRAFTS',
-  '55006': 'RUN_ACTIVE',
-};
-
-/** Throws the refusal for a Postgres error code the person can act on, else the usual logged error. */
-function failRpc(context: string, error: { code?: string } | null, message: string, byMessage?: (m: string) => CanvasDraftRefusal['code'] | null): never {
-  const refusal = (error?.code && REFUSALS[error.code]) || byMessage?.(String((error as { message?: string } | null)?.message ?? ''));
-  if (refusal) throw new CanvasDraftRefusal(refusal);
-  return throwDbError(context, error as never, message);
-}
-
-const CODES: ReadonlySet<string> = new Set([
-  'BUSY', 'LIMIT', 'REVISION_CAP', 'TERMS_NOT_ACCEPTED', 'DISABLED', 'NOT_AVAILABLE',
-  'TOO_LARGE', 'UNSUPPORTED', 'UNREADABLE', 'DRAFT_CLOSED', 'CAPPED', 'BAD_REQUEST',
-]);
-
-function asCode(v: unknown, status: number): CanvasDraftErrorCode {
-  if (typeof v === 'string' && CODES.has(v)) return v as CanvasDraftErrorCode;
-  return status === 429 ? 'CAPPED' : 'FAILED';
-}
-
-/**
- * The one place the `canvas-draft` function is called: status code and JSON body, whether it succeeded or not.
- * The cache is cleared after every call that writes (a run or an upload writes the draft's points and material); the
- * availability question is a read, and clearing on it would drop the canvas page's Back entry on every page view.
- */
-async function callCanvasDraft(body: Record<string, unknown> | FormData, writes = true): Promise<{ status: number; data: Row }> {
-  try {
-    const { data, error } = await supabase.functions.invoke('canvas-draft', { body });
-    if (!error) return { status: 200, data: (data ?? {}) as Row };
-    const response = (error as { context?: Response }).context;
-    if (response && typeof response.status === 'number') {
-      let parsed: Row = {};
-      try {
-        parsed = (await response.clone().json()) as Row;
-      } catch {
-        /* not JSON */
-      }
-      return { status: response.status, data: parsed };
-    }
-    return { status: 0, data: {} };
-  } finally {
-    if (writes) clearListReturnCache();
-  }
-}
-
-/**
- * Whether canvas drafting is on for this project: true or false when the server said so, null when the request failed
- * (network, cold start, auth not ready) and the answer is unknown, so the caller may ask again. Same rule as the mirror's.
- */
-export async function getCanvasDraftAvailability(): Promise<boolean | null> {
-  const { status, data } = await callCanvasDraft({ availability: true }, false);
-  if (status !== 200) return null;
-  return data.enabled === true;
-}
-
-/**
- * Start one run. The client only ever asks for the fast speed (one create button, the draft starts straight away). An
- * answer that begins with the tensions pass (an older server) is still read, so the run's progress shows.
- */
-export async function runCanvasDraft(draftId: string): Promise<RunStart> {
-  const { status, data } = await callCanvasDraft({ draft_id: draftId, speed: 'fast' });
-  if (status === 200 || status === 202) {
-    if (typeof data.run_id === 'string') return { ok: true, runId: data.run_id, kind: data.kind === 'tensions' ? 'tensions' : 'draft' };
-    return { ok: false, code: 'FAILED' };
-  }
-  return { ok: false, code: asCode(data.code, status) };
-}
-
-/** One file, one at a time (the server reads it to text and keeps only the text). */
-export async function uploadCanvasMaterial(draftId: string, file: File): Promise<UploadResult> {
-  const form = new FormData();
-  form.append('draft_id', draftId);
-  form.append('file', file);
-  const { status, data } = await callCanvasDraft(form);
-  if (status === 200 && typeof data.label === 'string') return { ok: true, label: data.label, chars: typeof data.chars === 'number' ? data.chars : 0 };
-  return { ok: false, code: asCode(data.code, status) };
-}
-
-/**
- * Opens a draft: a new canvas (no version) or a new version started from one of the caller's published versions.
- * Throws on a database refusal; the error keeps its Postgres `code` (54000: too many open drafts).
- */
-export async function openCanvasDraft(fromVersionId: string | null = null): Promise<OpenDraftResult> {
-  try {
-    const { data, error } = await supabase.rpc('canvas_draft_open', { p_from_version: fromVersionId });
-    if (error || !data) failRpc('openCanvasDraft', error, 'Could not start a canvas draft');
-    const r = data as Row;
-    return {
-      status: r.status === 'open_elsewhere' ? 'open_elsewhere' : 'opened',
-      draftId: String(r.draft_id),
-      conversationId: String(r.conversation_id),
-      threadRootId: String(r.thread_root_id),
-      canvasName: String(r.canvas_name ?? ''),
-      fromSeq: typeof r.from_seq === 'number' ? r.from_seq : null,
-    };
-  } finally {
-    clearListReturnCache();
-  }
-}
-
-/** Discards an open draft. False when it was already closed. Refused (55006) while a run is active. */
-export async function discardCanvasDraft(draftId: string): Promise<boolean> {
-  try {
-    const { data, error } = await supabase.rpc('canvas_draft_discard', { p_draft: draftId });
-    if (error) failRpc('discardCanvasDraft', error, 'Could not discard this draft');
-    // Whoever else shows this draft (the canvas page beside its thread) re-reads: it is closed now, wherever it was closed.
-    emitCanvasDraftEvent({ kind: 'discarded', draftId });
-    return data === true;
-  } finally {
-    clearListReturnCache();
-  }
-}
-
-/** Publishes an open draft. `seq` is the version number it got; `skippedLinks` counts supersede links that were not kept. */
-export async function publishCanvasDraft(draftId: string): Promise<{ seq: number; skippedLinks: number }> {
-  try {
-    const { data, error } = await supabase.rpc('canvas_draft_publish', { p_draft: draftId });
-    if (error || !data) {
-      failRpc('publishCanvasDraft', error, 'Could not publish this draft', (m) =>
-        m.includes('nothing to publish') ? 'NOTHING_TO_PUBLISH' : m.includes('closed') ? 'CLOSED' : null);
-    }
-    const r = data as Row;
-    emitCanvasDraftEvent({ kind: 'published', draftId });
-    return { seq: Number(r.seq), skippedLinks: Number(r.skipped_links ?? 0) };
-  } finally {
-    clearListReturnCache();
-  }
-}
-
 /** The caller's published canvas versions, newest first. */
 export async function listMyCanvasVersions(): Promise<CanvasVersionOption[]> {
   const { data, error } = await supabase.rpc('list_my_canvas_versions');
@@ -253,7 +97,7 @@ export function canvasVersionLabel(seq: number, publishedAt: string): string {
   return `v${seq} · ${new Date(publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }
 
-const DRAFT_COLUMNS = 'id, version_id, canvas_id, base_version_id, conversation_id, thread_root_id, state, run_count, closed_at, canvas_name, version_name';
+const DRAFT_COLUMNS = 'id, version_id, canvas_id, base_version_id, conversation_id, thread_root_id, state, run_count, revision, closed_at, canvas_name, version_name';
 
 function mapDraft(r: Row): CanvasDraft {
   return {
@@ -265,6 +109,7 @@ function mapDraft(r: Row): CanvasDraft {
     threadRootId: r.thread_root_id,
     state: r.state === 'published' || r.state === 'discarded' ? r.state : 'open',
     runCount: Number(r.run_count ?? 0),
+    revision: Number(r.revision ?? 0),
     closedAt: r.closed_at ?? null,
     canvasName: r.canvas_name ?? null,
     versionName: r.version_name ?? null,
@@ -287,13 +132,17 @@ export async function getCanvasDraftViewPath(draft: Pick<CanvasDraft, 'canvasNam
   return slug ? `/p/${slug}/canvas/${encodeURIComponent(draft.canvasName)}?v=${encodeURIComponent(draft.versionName)}` : null;
 }
 
+/** The run kinds that draft points: v6's message, focus and fork_first, and the earlier 'draft' (a legacy draft keeps working). */
+export const DRAFTING_RUN_KINDS = ['draft', 'message', 'focus', 'fork_first'] as const;
+export const isDraftingRunKind = (kind: string | undefined | null): boolean => DRAFTING_RUN_KINDS.some((k) => k === kind);
+
 /** How many draft runs of this draft finished well: above 0 there are points to publish, whatever the newest run did. */
 export async function countDoneCanvasDraftRuns(draftId: string): Promise<number> {
   const { count, error } = await supabase
     .from('canvas_draft_runs')
     .select('id', { count: 'exact', head: true })
     .eq('draft_id', draftId)
-    .eq('kind', 'draft')
+    .in('kind', DRAFTING_RUN_KINDS)
     .eq('state', 'done');
   if (error) throwDbError('countDoneCanvasDraftRuns', error, 'Could not read this draft');
   return count ?? 0;
@@ -309,7 +158,7 @@ export async function getLastDoneCanvasDraftRunAt(draftId: string): Promise<stri
     .from('canvas_draft_runs')
     .select('started_at, created_at')
     .eq('draft_id', draftId)
-    .eq('kind', 'draft')
+    .in('kind', DRAFTING_RUN_KINDS)
     .eq('state', 'done')
     .order('created_at', { ascending: false })
     .limit(1);

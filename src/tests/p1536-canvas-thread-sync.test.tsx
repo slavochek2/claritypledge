@@ -98,7 +98,7 @@ const msg = (over: Partial<ChatMessage>): ChatMessage => ({
   attachmentId: null, clientId: null, contextConversationId: null, ...over,
 });
 const draftRow = (over: Record<string, unknown> = {}) => ({
-  id: 'draft-1', versionId: 'ver-draft', canvasId: 'cv-1', baseVersionId: null, conversationId: CONV, threadRootId: ROOT, state: 'open', runCount: 1,
+  id: 'draft-1', versionId: 'ver-draft', canvasId: 'cv-1', baseVersionId: null, conversationId: CONV, threadRootId: ROOT, state: 'open', runCount: 1, revision: 0,
   tensionCount: 0, closedAt: null, canvasName: 'canvas', versionName: DRAFT_NAME, ...over,
 });
 const doneRun = { id: 'run-1', kind: 'draft', speed: 'fast', state: 'done', errorCode: null, createdAt: '2026-10-28T09:00:00.000Z', startedAt: '2026-10-28T09:00:00.000Z' };
@@ -110,7 +110,7 @@ const point = (box: string) => ({
 }) as unknown as PointWithUserPosition;
 const v1 = { name: 'canvas_d111111', createdAt: '2026-10-01T10:00:00Z', seq: 1, publishedAt: '2026-10-01T10:00:00Z', draft: false };
 const draftVersion = { name: DRAFT_NAME, createdAt: '2026-10-20T10:00:00Z', seq: null, publishedAt: null, draft: true };
-const draftBlock = { id: 'draft-1', version: DRAFT_NAME, questions: {}, threadRootId: ROOT, conversationId: CONV, baseSeq: 1, runCount: 1 };
+const draftBlock = { id: 'draft-1', version: DRAFT_NAME, questions: {}, threadRootId: ROOT, conversationId: CONV, baseSeq: 1, runCount: 1, revision: 0 };
 const base = { stories: new Map(), addedStoryIds: [], positions: new Map(), visibility: 'private' as const, isOwner: true, admitted: true, generalAccess: 'restricted' as const, via: null, canvasExists: true };
 const draftView = (points: PointWithUserPosition[]) => ({ ...base, points, version: DRAFT_NAME, versions: [draftVersion, v1], publishedNone: false, draft: draftBlock });
 const publishedView = () => ({ ...base, points: [point('canvas:problem'), point('canvas:love')], version: 'canvas_d222222', versions: [{ ...v1, name: 'canvas_d222222', seq: 2 }, v1], publishedNone: false, draft: null });
@@ -197,7 +197,7 @@ describe('thread -> canvas: a run that finishes in the thread re-reads the canva
     await u.click(screen.getByLabelText('Canvas draft options'));
     await u.click(await screen.findByRole('menuitem', { name: 'Discard draft' }));
     await u.click(await screen.findByRole('button', { name: 'Yes, discard' }));
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith('canvas_draft_discard', { p_draft: 'draft-1' }));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('canvas_draft_discard', { p_draft: 'draft-1', p_expected_revision: 0 }));
     await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent(DRAFT_NAME));
     expect(screen.getByTestId('where')).toHaveTextContent(`thread=${ROOT}`); // the pane's own param is untouched
     expect(getCanvas.mock.calls.at(-1)![4]).toBeUndefined(); // the newest published version opens

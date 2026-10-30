@@ -8,7 +8,7 @@
  */
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { CanvasDraftRefusal, publishCanvasDraft } from '@/app/data/canvas-draft-service';
+import { CanvasDraftRefusal, publishCanvasDraft, type CanvasRefusalCode } from '@/app/data/canvas-draft-service';
 import type { CanvasOwnerDraft } from '@/app/data/canvas-service';
 
 const REFUSAL_TEXT: Record<CanvasDraftRefusal['code'], string> = {
@@ -17,6 +17,15 @@ const REFUSAL_TEXT: Record<CanvasDraftRefusal['code'], string> = {
   CLOSED: 'This draft is already closed.',
   TOO_MANY_DRAFTS: 'Could not publish this draft.',
 };
+
+/** The typed refusals of Publish, in the sentences this button already had. Any other code reads as the generic one. */
+const REFUSED_TEXT: Partial<Record<CanvasRefusalCode, string>> = {
+  busy: REFUSAL_TEXT.RUN_ACTIVE,
+  busy_elsewhere: REFUSAL_TEXT.RUN_ACTIVE,
+  draft_empty: REFUSAL_TEXT.NOTHING_TO_PUBLISH,
+  no_changes: REFUSAL_TEXT.NOTHING_TO_PUBLISH,
+};
+const GENERIC_TEXT = 'Could not publish this draft. Try again.'; // [FOUNDER DECISION: stale_view wording; S3 owns the publish bar's copy]
 
 export function CanvasPublishButton({ draft, hasPoints, secondary = false }: {
   draft: CanvasOwnerDraft;
@@ -36,9 +45,10 @@ export function CanvasPublishButton({ draft, hasPoints, secondary = false }: {
     setPublishing(true);
     setError(null);
     try {
-      await publishCanvasDraft(draft.id);
+      const r = await publishCanvasDraft(draft.id, draft.revision);
+      if (!r.ok) setError(REFUSED_TEXT[r.refused] ?? GENERIC_TEXT);
     } catch (e) {
-      setError(e instanceof CanvasDraftRefusal ? REFUSAL_TEXT[e.code] : 'Could not publish this draft. Try again.');
+      setError(e instanceof CanvasDraftRefusal ? REFUSAL_TEXT[e.code] : GENERIC_TEXT);
     } finally {
       inFlight.current = false;
       setPublishing(false);

@@ -59,11 +59,10 @@ describe('S2.1 one source', () => {
     }
     expect(Object.keys(asked)).toEqual(all);
     expect(questionsFor(['canvas:nope'])).toEqual({});
-    const reply = buildDraftReply({
-      baseLabel: null, counts: { kept: 0, reworded: 0, moved: 0, added: 1, dropped: 0 }, total: 1, emptyBoxes: all.slice(1),
-      unreadable: [], droppedUnverified: 0, droppedNames: 0, decided: [],
-    });
-    for (const b of BOX_DEFINITIONS.slice(1)) expect(reply, b.tag).toContain(`- ${b.title}: ${asked[b.tag]}`);
+    // v6 (D13, S1.13): the empty-box questions sit under their boxes and are NOT repeated in chat, so the old assertion that the
+    // reply lists "- Title: question" for each empty box is replaced by its opposite.
+    const reply = buildDraftReply({ outcome: 'draft', total: 1, filledBoxes: 1, unreadable: [], droppedUnverified: 0, droppedNames: 0 });
+    for (const b of BOX_DEFINITIONS.slice(1)) expect(reply, b.tag).not.toContain(asked[b.tag]!);
   });
 
   it('the Copy prompt contains the owner-worded rules, the one-sale-loop rule and each box section byte for byte', () => {
@@ -106,14 +105,15 @@ describe('S2.1 one source', () => {
 describe('S2 review fixes', () => {
   const sections = CANVAS_OWN_AI_PROMPT.slice(CANVAS_OWN_AI_PROMPT.indexOf('## Customer Segments'));
 
-  it('1. the drafting prompt shows each box\'s gap question, and the empty question where there is one; the response schema gains no questions field', () => {
+  it('1. the drafting prompt shows each box\'s gap question, and the empty question where there is one; the response schema carries questions for the owner', () => {
     for (const b of BOX_DEFINITIONS) {
       expect(DRAFT_RULES, b.tag).toContain(`when the box is empty or only part is supported: ${b.gap}`);
       if (b.empty) expect(DRAFT_RULES, b.tag).toContain(`when nothing in the box is supported: ${b.empty}`);
     }
     expect(BOX_DEFINITIONS.filter((b) => b.empty).map((b) => b.tag)).toEqual(['canvas:solution']); // CONTROL: the empty branch is exercised
     const req = buildDraftRequest({ material: { items: [], truncated: false }, basePoints: [], baseLabel: null });
-    expect(Object.keys((req.generationConfig!.responseSchema as { properties: object }).properties)).toEqual(['actions', 'conflicts']);
+    // v6 (S1): the model's answer gains focus, other_canvases, scope, questions and note; `conflicts` is gone with "What I decided on my own"
+    expect(Object.keys((req.generationConfig!.responseSchema as { properties: object }).properties)).toEqual(['focus', 'other_canvases', 'scope', 'actions', 'questions', 'note']);
   });
 
   it('2. every Copy prompt section carries its box voice, before its shape', () => {

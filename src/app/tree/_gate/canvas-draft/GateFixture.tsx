@@ -23,7 +23,7 @@ const POINT = {
 
 const DRAFT = {
   id: 'draft-id-1234', version: 'canvas_dabc123', threadRootId: 'thread-root-id-1234', conversationId: 'conversation-id-1234',
-  baseSeq: null, runCount: 1,
+  baseSeq: null, runCount: 1, revision: 1,
   questions: { 'canvas:love': 'What do you keep doing even when it costs you? (fake question)', 'canvas:revenue': 'What does a customer pay, and for what? (fake question)' },
 };
 const DRAFT_VERSION = { name: 'canvas_dabc123', createdAt: NOW, seq: null, publishedAt: null, draft: true };
