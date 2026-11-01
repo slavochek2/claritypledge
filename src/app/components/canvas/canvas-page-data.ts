@@ -216,3 +216,14 @@ export function compareSetup(
     basePerson: viewerId ? { ...(baseKnown ?? { hasPledged: false }), name: 'You' } : baseKnown,
   };
 }
+
+/**
+ * With no `?v=`, the page writes the version it opened into the address and marks that address as already read. The mark is for the very NEXT address
+ * only, and it skips the read only when that address's data really is on screen: if something moved the page on before the adopted address ever rendered (the
+ * workspace going to the open draft from a bare `?ws=1`), a mark left behind would make a later pick of that version skip its read and wait forever.
+ */
+export function adoptionSkipsRead(adopted: { current: string | null }, onScreen: { key: string } | null, key: string): boolean {
+  const skip = adopted.current === key && onScreen?.key === key;
+  adopted.current = null;
+  return skip;
+}

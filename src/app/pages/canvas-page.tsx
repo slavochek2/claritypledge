@@ -69,7 +69,7 @@ import { CanvasCard } from '@/app/components/canvas/canvas-card';
 import { PointPanel } from '@/app/components/canvas/canvas-point-panel';
 import {
   BOX_TITLES, buildReady, canvasSeoTitle, changedBoxes, compareSetup, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, sortBoxesByContest,
-  type CanvasData,
+  type CanvasData, adoptionSkipsRead,
 } from '@/app/components/canvas/canvas-page-data';
 import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
 import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasPath, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
@@ -201,7 +201,7 @@ export function CanvasPage() {
   // Wait for the session check: reading before it would show the owner the public canvas first.
   useEffect(() => {
     if (!sessionChecked) return;
-    if (adoptedKeyRef.current === key) { adoptedKeyRef.current = null; return; } // the page's own address write, data already on screen
+    if (adoptionSkipsRead(adoptedKeyRef, loadedRef.current, key)) return; // the page's own address write, data already on screen
     const back = navigationType === 'POP' ? readListReturnCache<CanvasData>(cacheKey, 'canvas') : undefined;
     if (back) {
       requestRef.current++; // a read still in flight for an earlier address must not land now
