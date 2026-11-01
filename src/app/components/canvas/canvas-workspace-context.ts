@@ -26,6 +26,8 @@ export interface CanvasWorkspaceValue {
    * a gate fixture): then the page shows no Clone. Writes nothing; it only enters the pending state (ws=1, no draft).
    */
   clone: (() => void) | null;
+  /** W3: auth and the chat list are still out, so `clone` being null says nothing yet: Clone's place stays reserved until they answer. */
+  cloneUnknown?: boolean;
   /** W3: the version number of the pending Clone ("New draft from v2"); null when nothing is pending. */
   cloneSeq: number | null;
   /**

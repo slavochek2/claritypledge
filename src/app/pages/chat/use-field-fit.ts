@@ -40,5 +40,9 @@ export function useFieldFit(field: RefObject<HTMLTextAreaElement | null>, value:
     observer.observe(el);
     watching.current = { el, observer };
   });
-  useEffect(() => () => watching.current?.observer.disconnect(), []);
+  // Forgets what it watched as well: StrictMode replays effects on one element, and the check above must then make a new observer rather than trust the old one.
+  useEffect(() => () => {
+    watching.current?.observer.disconnect();
+    watching.current = null;
+  }, []);
 }

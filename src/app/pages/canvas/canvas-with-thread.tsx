@@ -81,7 +81,7 @@ export function CanvasWithThread() {
   // W7: Copy prompt is the primary only while the canvas is empty ("Not published yet") and the thread pane is what is on screen.
   const threadShown = wide ? panelOpen : view === 'chat';
   const copyPromptPrimary = active && threadShown && !publishing && spot.kind === 'not-published';
-  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady: (ready, forVersion) => setReported(prev => ({ ready, forVersion, held: ready ? { ready, identity: identityRef.current } : prev.held })), reloads, showThread, clone: clone.clone, cloneSeq: pendingSeq, ownerBar, copyPromptPrimary }), [active, reloads, showThread, clone.clone, pendingSeq, ownerBar, copyPromptPrimary]);
+  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady: (ready, forVersion) => setReported(prev => ({ ready, forVersion, held: ready ? { ready, identity: identityRef.current } : prev.held })), reloads, showThread, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: pendingSeq, ownerBar, copyPromptPrimary }), [active, reloads, showThread, clone.clone, resolved, pendingSeq, ownerBar, copyPromptPrimary]);
   // The bar shows the last read FOR this canvas (`held`), so name, version and state do not blink away while the page re-reads another version.
   const rename = useCanvasRename(held, projectTag);
   const pickVersion = useCallback((version: string) => {
