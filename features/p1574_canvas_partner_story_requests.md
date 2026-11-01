@@ -3,8 +3,9 @@ status: backlog
 type: story
 rank: 324
 workstream: clarity-canvas
+blocked_by: [p1536]
 created_date: '2026-10-26'
-tags: [canvas, mirror, stories, sales-mastermind]
+tags: [recognition-chain, canvas, mirror, stories, sales-mastermind]
 disclosure: public
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
@@ -60,7 +61,8 @@ Sketch only (replaces the 2026-10-26 approve/correct/decline request).
   the viewer could not already read.
 - **It says the box changed, not that the owner's mind changed.** At the event the owner publishes the
   mirror's draft as it is and stances are optional (P1529). Only when the owner has marked a stance on
-  the new box does the link count as a change of position.
+  the new box does the link count as a change of position. Showing that movement is
+  [P1061](p1061_point_position_movement_analytics.md)'s job, built alongside this link.
 - **A story in the partner's name needs the partner's confirmation.** In the room Ben confirmed Anna's
   spoken explain-back, not the mirror's wording. Until Ben confirms the wording it is **"Ben in
   Anna's eyes"**, private to Anna, with the naming, visibility and Anna's own draft-then-approve
@@ -111,4 +113,5 @@ P1467 / [P1469](p1469_clarity_chat_letter_loop_v6.md) letter loop ("Would you sa
 [P1390](p1390_room_audio_fills_live_from_the_transcript.md) numbers and stories from the transcript ·
 [P1559](p1559_follow_through_record.md) recognition · P800 supersede ·
 [P1458](p1458_clarity_chat_agents_on_other_people.md) "Alice in Bob's eyes" (naming, visibility; prototyped in P1437 v5) ·
-[P1500](p1500_clarity_chat_canvas_from_event_threads.md) · P1515 sharing
+[P1500](p1500_clarity_chat_canvas_from_event_threads.md) · P1515 sharing ·
+[P1061](p1061_point_position_movement_analytics.md) position movement

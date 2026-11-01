@@ -4,7 +4,7 @@ type: story
 rank: 323
 workstream: clarity-chat
 created_date: '2026-10-23'
-tags: [clarity-chat, follow-through, clarity-ledger]
+tags: [recognition-chain, clarity-chat, follow-through, clarity-ledger]
 disclosure: public
 delivery_stage: create-spec
 pipeline_ran: [create-spec]

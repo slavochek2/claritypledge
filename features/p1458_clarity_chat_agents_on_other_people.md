@@ -6,6 +6,7 @@ rank: 1000099
 workstream: clarity-chat
 created_date: '2026-10-12'
 tags:
+  - recognition-chain
   - clarity-chat
   - agent-on
   - theory-of-mind
@@ -47,6 +48,9 @@ on points. Either we do have an entity or we don't."*
 - **Mirror agent** (definitions.md): the user's own agent drafts; the agent-on is the result.
 - **Placeholder P1459 (clarity ledger)**: calibration history lives there.
 - **Placeholder P1460 (connection levels)**: who may see an agent on them.
+- **[P1574](p1574_canvas_partner_story_requests.md) (recognition chain, decisions.md 2026-10-30 and
+  2026-11-01)**: a partner's reason drafted by the owner's mirror stays "Ben in Anna's eyes" until
+  the partner confirms the wording. P1574's confirmation half needs this spec built first.
 
 ### Prerequisites found in review (Codex, 2026-10-12, checked against migrations)
 

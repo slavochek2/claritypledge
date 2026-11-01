@@ -4,7 +4,7 @@ type: story
 disclosure: public
 rank: 91
 created_date: '2026-08-13'
-tags: [points, positions, analytics, placeholder]
+tags: [recognition-chain, points, positions, analytics, placeholder]
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 driver: heuristic
@@ -59,5 +59,7 @@ Deliberately unscoped further. The three consumers above want different cuts and
 - [ ] The event case ([p1055](p1055_norm_measurement_instrument.md)) can be read off the view instead of assembled by hand
 
 ## References
+
+Recognition chain (decisions.md 2026-11-01): built alongside [P1574](p1574_canvas_partner_story_requests.md)'s link, so a canvas change after a partner's reason can be shown as a moved position rather than assumed.
 
 Origin: session 2026-08-13. Table: `point_position_history` (`supabase/migrations/20260204_stories_points_calibration.sql`). Model: [story-point-model.md](../docs/story-point-model.md).
