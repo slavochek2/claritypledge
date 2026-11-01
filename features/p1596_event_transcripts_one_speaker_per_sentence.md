@@ -102,7 +102,7 @@ Decided:
    person and a who-said-what transcript (e.g. the AMI and ICSI meeting corpora; licences not yet
    checked), comparing the methods in question 2 and Gemini 3.5 Transcribe against 3.8 and 4 Argon.
    A real 4-phone, 2-table session confirms the winner afterwards.
-6. Ship together with P1592 (founder, 2026-11-01). P1592 is complete on its branch but carries the
+6. Ship together with P1592? (recommended 2026-11-01, awaiting the founder's choice). P1592 is complete on its branch but carries the
    terms v1.6 change, so shipping it alone would show every user a terms notice for posting that is
    off, and a second notice once P1596 changes what is posted. One terms update, worded for what
    ships; P1592's live-posting checks are ticked in the same live test.
