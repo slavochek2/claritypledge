@@ -216,7 +216,7 @@ on 2026-10-04.
 **Videos (P1517):** a `series_photos` row with `media_type = 'video'` shows as a tap-to-play tile
 (`storage_url` = the mp4, `poster_url` = a jpg poster, both required and both on the bucket). Per clip:
 at most 8 MB, 30 s, 720p; `ffmpeg -map_metadata -1`, H.264/AAC, `-movflags +faststart`; extract a
-stripped first-frame jpg poster. Upload by hand to `hikes/social-hike/<name>-vN.mp4` and
+stripped jpg poster from a real frame, never the first (phone clips often open on a black frame): `ffmpeg -ss 2 -i clip.mp4 -map_metadata -1 -frames:v 1 -vf thumbnail=60 poster.jpg`, then look at it before uploading. Upload by hand to `hikes/social-hike/<name>-vN.mp4` and
 `<name>-vN-poster.jpg` with the P1336 convention (versioned names, one-year `cache-control`, confirm an
 HTTP 206 on a range request; see `features/done/2026-06-10/p1336_registration_carries_opt_in_prep_and_survey.md`),
 then insert the row with an `alt`. Order: the gallery starts with photos and videos are mixed in after the first few (founder 2026-10-20), so give a video a `sort_order` after the first photos; the page also moves the first photo ahead of any leading video. A tap opens the clip full-screen with sound. The same face and consent rules apply.
