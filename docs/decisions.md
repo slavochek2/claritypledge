@@ -206,6 +206,21 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-01 [process]: A UI slice is not ready for UAT until the agent has walked it from every entry point (P1536)
+
+**Context:** P1536 S3 built the owner's canvas workspace: canvas and chat on one screen. It passed 1500+ tests, a Gemini, Codex and Opus review, and per-file visual QA. The founder then tested it and mostly reached the **old** canvas chat thread instead: Artifacts New canvas, mirror + Canvas and New version still called `useStartCanvas`, which navigates to `/chat`. The workspace was reachable only from a draft's Open. Every review had looked at the code and the screens it was given. No one started where a user starts. The founder's feedback repeated points from earlier sessions, and compaction had kept the code details but lost the screen decisions.
+**Decision:**
+- **Walk before UAT.** Before a UI slice goes to the founder, the agent walks the spec's journeys in a real browser at 1440 and 375, from a signed-in owner with nothing yet, starting at every entry point. A separate visual-QA subagent reviews the screenshots.
+- **Evidence:** a journey × viewport pass/fail table with a screenshot per cell (P1536 S3b.11).
+- **Feedback goes into the spec:** walkthrough feedback lands in the spec as journeys and acceptance criteria before any code, so a new session builds from the document and not from memory.
+**Alternatives rejected:**
+- **More code review rounds:** they verified what was built, never what a user reaches.
+- **Patching the reported screens one at a time:** that is the cycle the founder was already describing.
+**Consequences:** P1536 §3b retires the old canvas thread (one owner surface) and adds S3b.11. Status: proposed, to be generalised into `/dev`'s UAT gate after P1536 confirms it.
+**References:** [P1536 §3b](../features/p1536_canvas_first_draft_from_owner_material.md); commit 1f3a21b4f
+
+---
+
 ## 2026-11-01 [technical]: A community chat invite never lives in the repo — short links read it from a Vercel env var
 
 **Context:** A printed poster needed `claritypledge.com/basket` to reach a WhatsApp group. The first version put the invite URL straight into a `vercel.json` redirect and pushed it to the public repo. The founder spotted it afterwards ("we didn't want it in public repo"). The pre-push review had flagged exactly this as a Low finding (bots scrape GitHub for `chat.whatsapp.com/` links) and it was left as accepted, because the link is also printed on the poster. That weighed the wrong thing: a printed poster exposes the link to people at one court, a public commit exposes it to every scraper and keeps it in history. CLAUDE.md already forbids WhatsApp links in docs; it did not say the same for config and code.
