@@ -162,7 +162,8 @@ For each approved change:
 
 1. Bump `CURRENT_TERMS_VERSION` in `src/lib/constants.ts` (e.g., v1.1 → v1.2)
 2. Add the version's entry to `src/app/content/terms-changes.ts`:
-   - `headline`: one plain sentence, shown after "In short:". `highlights`: at most 3 plain-language lines, opened by "Show more". Everything else is left to the full documents.
+   - Write for someone who has never seen the feature and does not know our words. If the version brings something new, `title` announces it and `headline` says what the person gains, so the notice does not read as tighter terms for the same product. Never invent a gain. Costs stay visible in `highlights`: who can see what, and what happens to someone who does not use the feature.
+   - `title`: a few plain words. `headline`: one plain sentence. `highlights`: at most 3 plain-language lines, opened by "Show more". Everything else is left to the full documents.
    - Check every line against the old and new documents. Find the commit that set the previous version with `git log -S "CURRENT_TERMS_VERSION = '<old>'" --oneline -- src/lib/constants.ts`, then compare with `git show <that-sha>:src/app/content/privacy.md` (and `tos.md`). A summary line that is not true of the diff is worse than none.
    - Describe the documents only — never a page, session or recording (the notice renders over every authed page, P1300).
    - `requiresConsent`: `false` = dismissible banner, continued use is acceptance (the default). `true` = blocking popup, only when the change needs fresh explicit consent (a new use of personal data on a consent basis). Write the reason in a comment beside it. If unsure, ask the founder.
