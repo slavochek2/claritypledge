@@ -296,7 +296,7 @@ describe('P1536 version card', () => {
     sb.from.mockReturnValue(table({ slug: 'test-user' }));
     const card = await getCanvasVersionCard('ver-1', 'user-id-1234');
     const href = '/p/test-user/canvas/canvas?v=canvas_d1a2b3';
-    expect(card).toEqual({ title: 'Canvas', label: canvasVersionLabel(2, published.published_at), state: 'published', draft: false, href, openHref: href });
+    expect(card).toEqual({ title: 'Canvas', canvasId: 'cv', label: canvasVersionLabel(2, published.published_at), state: 'published', draft: false, href, openHref: href });
     expect(card?.label).toMatch(/^v2 · /);
   });
 

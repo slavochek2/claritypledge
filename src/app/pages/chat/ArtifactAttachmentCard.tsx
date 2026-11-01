@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { FOCUS_RING, HOVER } from './chat-kit';
 import { loadArtifact } from './artifact-attachment-cache';
 import { AttachmentSkeleton } from './AttachmentSkeleton';
+import { useCanvasRenamed } from './use-canvas-renamed';
 import { ARTIFACT_CARD as CARD, ARTIFACT_DISC as DISC } from './artifact-card-style';
 
 /**
@@ -71,6 +72,11 @@ export function ArtifactAttachmentCard({ kind, id, viewerId, compact = false }: 
       clearTimeout(deadline);
     };
   }, [kind, id, viewerId]);
+
+  // A confirmed rename of this canvas: read again, and keep the card on screen until the new answer comes (a failed re-read changes nothing).
+  useCanvasRenamed(kind === 'canvas' ? id : null, () => {
+    void loadArtifact(kind, id, viewerId).then((artifact) => setState({ status: 'ready', artifact }), () => undefined);
+  });
 
   if (state.status === 'loading') {
     return <AttachmentSkeleton kind={kind} />;

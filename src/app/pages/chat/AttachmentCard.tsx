@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { ArtifactAttachmentCard } from './ArtifactAttachmentCard';
 import { AttachmentSkeleton } from './AttachmentSkeleton';
 import { CanvasVersionCard } from './CanvasVersionCard';
+import { useCanvasRenamed } from './use-canvas-renamed';
 
 type State = { status: 'loading' } | { status: 'error' } | { status: 'missing' } | { status: 'ready'; item: Shareable };
 
@@ -43,6 +44,16 @@ function useOnline(): boolean {
 export const HIDE_CARD_CHROME = "[&_[aria-label^='More_actions_for_this']]:hidden [&_[aria-label='Add_a_point_to_this_story']]:hidden";
 
 const NOUN: Record<ChatAttachmentKind, string> = { point: 'point', story: 'story', canvas: 'canvas', letter: 'letter', canvas_version: 'canvas' };
+
+/** The canvas a ready canvas-version card shows (null: nothing to follow). */
+function shownCanvasId(state: State): string | null {
+  return state.status === 'ready' ? state.item.canvasVersion?.canvasId ?? null : null;
+}
+
+/** A quiet re-read's answer: it replaces the card only when it is still the latest read and found something; otherwise the card stays as it is. */
+function swapIn(now: State, item: Shareable | null, latest: boolean): State {
+  return item && latest ? { status: 'ready', item } : now;
+}
 
 /** A small, honest placeholder row: what it is, never an empty box. */
 const NOTE = 'mt-1 flex max-w-md items-center gap-2 rounded-xl border bg-muted/40 px-3 text-sm text-muted-foreground';
@@ -107,6 +118,13 @@ function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind:
       if (!settled.current) load();
     }
   }, [online, load]);
+
+  // A confirmed rename of the canvas this card shows: read again and swap the card in when it answers (nothing changes if that read fails).
+  useCanvasRenamed(shownCanvasId(state), () => {
+    invalidate();
+    const mine = generation.current;
+    loadAttachment(kind, id, viewerId).then((item) => setState((now) => swapIn(now, item, generation.current === mine)), () => undefined);
+  });
 
   if (state.status === 'ready') {
     const { item } = state;

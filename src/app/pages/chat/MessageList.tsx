@@ -228,7 +228,7 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
             </div>
           )}
           {placement === 'top' && <div data-testid="message-lead">{lead}</div>}
-          {messages.length === 0 && !lead && <div className="px-6 py-12 text-center text-sm text-muted-foreground">{empty}</div>}
+          {messages.length === 0 && !lead && empty != null && <div className="px-6 py-12 text-center text-sm text-muted-foreground">{empty}</div>}
           <ul role="log" aria-live="polite" aria-relevant="additions" aria-label={label} className="flex flex-col gap-0.5">
             {messages.map((m, i) => {
               const g = grouping[i] ?? { dayBreak: false, compact: false };

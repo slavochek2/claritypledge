@@ -50,11 +50,11 @@ describe('6: the Draft tag keeps its width', () => {
   });
 });
 
-describe('6: row 1 fits at 320 (classes only below 360px)', () => {
+describe('6: row 1 fits at 320 (the back button and gap tighten below 640px, the name minimum below 360px)', () => {
   it('back button, row gap and name carry the narrow-only variants', () => {
     bar(viewingDraft);
-    expect(cls(screen.getByTestId('workspace-back'))).toContain('max-[359px]:w-8');
-    expect(cls(screen.getByTestId('workspace-bar-row1'))).toContain('max-[359px]:gap-x-1');
+    expect(cls(screen.getByTestId('workspace-back'))).toContain('max-sm:w-8');
+    expect(cls(screen.getByTestId('workspace-bar-row1'))).toContain('max-sm:gap-x-1');
     expect(cls(screen.getByTestId('canvas-name'))).toContain('max-[359px]:min-w-[2.75rem]');
   });
 });

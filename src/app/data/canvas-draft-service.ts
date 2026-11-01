@@ -223,6 +223,8 @@ export async function listCanvasMaterial(draftId: string): Promise<CanvasMateria
 export interface CanvasVersionCardData {
   /** The canvas's display title (the owner's rename, else its tag read as a title): a published version's and an open draft's card both carry it. */
   title?: string;
+  /** The canvas the card shows (a card follows its canvas's rename); absent when the read did not name it. */
+  canvasId?: string;
   /** An open draft: the number it gets when published (one above the newest published version), when known. */
   nextSeq?: number | null;
   label: string;
@@ -261,9 +263,9 @@ export async function getCanvasVersionCard(versionId: string, viewerId: string):
     const own = slug ? publishedViewHref(slug, v.canvasName, v.name) : null;
     const draftName = slug && v.hasOpenDraft ? await openDraftVersionName(v.canvasId).catch(() => null) : null;
     const open = slug && draftName ? workspaceHref(slug, v.canvasName, draftName) : own;
-    return { title: canvasDisplayTitle(v.canvasTitle, v.canvasName), label: canvasVersionLabel(v.seq, v.publishedAt), state: 'published', draft: false, href: own, openHref: open };
+    return { title: canvasDisplayTitle(v.canvasTitle, v.canvasName), canvasId: v.canvasId, label: canvasVersionLabel(v.seq, v.publishedAt), state: 'published', draft: false, href: own, openHref: open };
   }
-  const { data, error } = await supabase.from('canvas_drafts').select('id, canvas_name, version_name, state').eq('version_id', versionId).maybeSingle();
+  const { data, error } = await supabase.from('canvas_drafts').select('id, canvas_id, canvas_name, version_name, state').eq('version_id', versionId).maybeSingle();
   if (error) throwDbError('getCanvasVersionCard', error, 'Could not read this canvas');
   if (!data) return null;
   const d = data as Row;
@@ -275,5 +277,5 @@ export async function getCanvasVersionCard(versionId: string, viewerId: string):
   }
   const open = slug && d.canvas_name && d.version_name ? workspaceHref(slug, d.canvas_name, d.version_name) : null;
   const facts = d.canvas_name ? await draftCardFacts(String(d.canvas_name), versions) : null;
-  return { ...(facts ? { title: facts.title, nextSeq: facts.nextSeq } : {}), label: 'Draft', state: 'draft', draft: true, href: open, openHref: open };
+  return { ...(facts ? { title: facts.title, nextSeq: facts.nextSeq } : {}), ...(d.canvas_id ? { canvasId: String(d.canvas_id) } : {}), label: 'Draft', state: 'draft', draft: true, href: open, openHref: open };
 }

@@ -6,17 +6,25 @@
  * jsdom has no paint: (a) is observed in the task that committed the run-off render, before any passive effect ran. The browser walk proves the pixels.
  */
 import { createRoot } from 'react-dom/client';
-import { useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { emitCanvasDraftEvent } from '@/app/data/canvas-draft-events';
 import { useSettledRun } from '@/app/pages/canvas/use-settled-run';
 import { publishSpotState } from '@/app/components/canvas/canvas-publish-spot-state';
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 
-const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+/** Until `done()`: never a fixed sleep (under a full-suite load React's first commit and its passive effects can take longer than any short wait). */
+async function until(done: () => boolean): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (!done()) {
+    if (Date.now() > deadline) throw new Error('timed out waiting');
+    await new Promise<void>((r) => setTimeout(r, 1));
+  }
+}
 const READ = { read: 1 };
 
 const seen: string[] = [];
+let subscribed = false;
 function Probe({ runActive }: { runActive: boolean }) {
   const held = useSettledRun(runActive, READ);
   // Declared after the hook, so it runs after the hook's own layout effect in the same commit. The microtask runs when the task that committed ends:
@@ -24,6 +32,8 @@ function Probe({ runActive }: { runActive: boolean }) {
   useLayoutEffect(() => {
     if (!runActive) queueMicrotask(() => seen.push(document.querySelector('output')?.textContent ?? 'none'));
   });
+  // Declared after the hook: when this passive effect has run, so has the hook's subscription to the events.
+  useEffect(() => { subscribed = true; }, []);
   return <output>{String(held)}</output>;
 }
 
@@ -33,6 +43,7 @@ afterEach(() => {
   root = null;
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   seen.length = 0;
+  subscribed = false;
 });
 
 describe('5a: the hold starts in the commit where the run went off', () => {
@@ -42,10 +53,10 @@ describe('5a: the hold starts in the commit where the run went off', () => {
     document.body.appendChild(host);
     root = createRoot(host);
     root.render(<Probe runActive />);
-    await wait(30);
+    await until(() => subscribed && document.querySelector('output')?.textContent === 'true');
     emitCanvasDraftEvent({ kind: 'updated', draftId: 'd1' });
     root.render(<Probe runActive={false} />);
-    await wait(30);
+    await until(() => seen.length > 0);
     expect(seen[0]).toBe('true');
     host.remove();
   });

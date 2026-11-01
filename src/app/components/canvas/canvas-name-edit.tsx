@@ -3,13 +3,17 @@
  * @description P1536 W8: the canvas's name in the owner's header, with ✎. The pencil makes the name an inline input: Enter or leaving the field
  * saves, Escape puts the old name back, an empty name puts the old name back, and 60 characters is the most it takes. It changes the display title
  * only (the address stays). A name that cannot be renamed (a reader, a canvas with no record) is plain text with no ✎. The save itself, its
- * optimistic show and its rollback are the owner's (use-canvas-rename); this component only asks.
+ * optimistic show and its rollback are the owner's (use-canvas-rename); this component only asks. Below 1280px the input lies OVER the rest of
+ * row 1 (the owner bar's row 1 is its positioned parent): from after the back button to before the fixed Publish spot, so the picker and tag are
+ * not squeezed to make room and the owner sees what they type.
  */
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { Pencil } from 'lucide-react';
 import { CANVAS_TITLE_MAX } from '@/lib/canvas-boxes';
 
 const NAME = 'min-w-0 truncate text-base font-semibold text-foreground';
+/** Below 1280px: over row 1, from the back button's edge (40px; 32px below 640px) to the Publish spot's (w-28 and the row gap). */
+const OVERLAY = 'max-xl:absolute max-xl:inset-y-0 max-xl:my-auto max-xl:left-10 max-sm:left-8 max-xl:right-[7.25rem] max-xl:z-10';
 
 export function CanvasNameEdit({ title, canEdit, onSave }: { title: string; canEdit: boolean; onSave: (next: string) => void }) {
   const [editing, setEditing] = useState(false);
@@ -40,7 +44,7 @@ export function CanvasNameEdit({ title, canEdit, onSave }: { title: string; canE
       onChange={e => setDraft(e.target.value)}
       onKeyDown={onKey}
       onBlur={() => finish(true)}
-      className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-base font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      className={`${OVERLAY} h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-base font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
       data-testid="canvas-title-input"
     />
   ) : (

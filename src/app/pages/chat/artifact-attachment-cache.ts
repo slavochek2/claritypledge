@@ -1,5 +1,6 @@
 /** P1545: per-viewer cache for chat artifact attachment reads (kept apart from the card for fast refresh). */
 import { canvasService, type ChatArtifact } from '@/app/data/canvas-service';
+import { subscribeCanvasRenamed } from '@/app/data/canvas-rename-events';
 
 type ArtifactKind = 'canvas' | 'letter';
 
@@ -27,6 +28,12 @@ const cache = new Map<string, Entry>();
 export function clearArtifactAttachmentCache(): void {
   cache.clear();
 }
+
+// A confirmed rename changes what a canvas card says: its cached reads (any viewer's) are dropped, so the next read, a card's own re-read included, asks again.
+// Subscribed here, before any card is, so it runs ahead of the cards' own listeners.
+subscribeCanvasRenamed((canvasId) => {
+  for (const key of [...cache.keys()]) if (key.endsWith(`|canvas|${canvasId}`)) cache.delete(key);
+});
 
 export function loadArtifact(kind: ArtifactKind, id: string, viewerId: string): Promise<ChatArtifact> {
   const key = `${viewerId}|${kind}|${id}`;

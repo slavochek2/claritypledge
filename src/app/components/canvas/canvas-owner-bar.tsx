@@ -104,9 +104,9 @@ export function CanvasOwnerBar({ ready, handle, projectTag, title, canRename, on
   const viewingDraft = !!ready && isViewingDraft(ready);
   return (
     <div className={cn(BAR, !active && STICKY_TOP)} data-testid="workspace-bar" data-owner-bar="">
-      {/* Row 1 is its own non-wrapping row below 1280px (the Publish spot can never be pushed to a second line: W8), and dissolves into the one line from 1280px. */}
-      <div className="order-none flex min-w-0 basis-full items-center gap-x-1.5 max-[359px]:gap-x-1 xl:contents" data-testid="workspace-bar-row1">
-        <Button type="button" variant="ghost" className="order-none h-11 w-10 shrink-0 p-0 max-[359px]:w-8" aria-label="Go back" onClick={onBack} data-testid="workspace-back">
+      {/* Row 1 is its own non-wrapping row below 1280px (the Publish spot can never be pushed to a second line: W8), and dissolves into the one line from 1280px. It is the positioned parent of the rename input, which lies over it below 1280px (canvas-name-edit); below 640px the back button and the gap tighten. */}
+      <div className="order-none flex min-w-0 basis-full items-center gap-x-1.5 max-xl:relative max-sm:gap-x-1 xl:contents" data-testid="workspace-bar-row1">
+        <Button type="button" variant="ghost" className="order-none h-11 w-10 shrink-0 p-0 max-sm:w-8" aria-label="Go back" onClick={onBack} data-testid="workspace-back">
           <ArrowLeft className="h-4 w-4" aria-hidden />
         </Button>
         {/* The name gives way first, but never below a few letters and an ellipsis (a lone letter is not a name). "Draft" never gives way (W4: the state is always named); a pending Clone's longer tag does. */}

@@ -118,7 +118,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
         authors={chat.authors}
         label="Thread messages"
         targetId={highlightId}
-        empty="This thread is empty."
+        empty={canvasRoot ? null : 'This thread is empty.'} // a canvas draft's list is empty only until its read answers; the read's own state says the rest
         inThread
         earlierLabel="Load earlier replies"
         {...canvas.list}

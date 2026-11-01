@@ -7,6 +7,7 @@
 import { supabase } from '@/lib/supabase';
 import { throwDbError } from './db-error-logger';
 import { clearListReturnCache } from '@/lib/list-return-cache';
+import { emitCanvasRenamed } from './canvas-rename-events';
 import type { CanvasGeneralAccess } from './canvas-service';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -120,6 +121,7 @@ export async function renameCanvas(canvasId: string, title: string): Promise<str
   try {
     const { data, error } = await supabase.rpc('canvas_rename', { p_canvas: canvasId, p_title: title });
     if (error || typeof data !== 'string') throwDbError('canvas.rename', error, 'Could not rename this canvas');
+    emitCanvasRenamed(canvasId); // the database confirmed: cards that show this canvas's title read again
     return data as string;
   } finally {
     clearListReturnCache();
