@@ -651,6 +651,133 @@ chat column `max-w-2xl` centred.
 
 ---
 
+### 3b. Founder walkthrough, 2026-11-01 (binding; supersedes §2, §3 and S3 where it says so)
+
+The founder tested on hosted TEST as a first-time owner and mostly reached **the old canvas chat thread, not the S3 workspace**.
+
+Verified 2026-11-01 (Codex-checked):
+- **The three "start" buttons leave the canvas.** Artifacts New canvas (`artifacts-new-canvas.tsx:23`), mirror + Canvas (`use-start-canvas.tsx:129`) and New version (`canvas-new-version-button.tsx:24`) all call `useStartCanvas`. It runs `canvas_draft_open`, which creates the canvas, its version, the thread root and the draft in one call, and then navigates to the chat thread (`use-start-canvas.tsx:74,78`).
+- **Two paths already reach the workspace:** Artifacts Open draft (`use-canvas-draft-menu.ts:70`) and the draft card's Open.
+- **The old thread's controls live in the chat code:** Create canvas / Update draft, "Creating your canvas…", the draft card and the "…" Discard menu (`canvas-thread.tsx:157,180`, `canvas-thread-copy.ts:65-101`, `CanvasThreadHeader.tsx:73`).
+- **The workspace mounts the same pieces:** its chat uses `ThreadPanel`, whose tray is the old `CanvasThreadBar` (`ThreadPanel.tsx:55`).
+
+Root cause: S3 was reviewed as code, and nobody walked the journey from **New canvas**.
+
+**Decisions (founder, 2026-11-01):**
+- **W0. One owner surface.** The canvas workspace is the only place an owner edits a canvas. This changes **presentation and routing only**:
+  - **What stays:** the thread, its messages, forwarded/clarify copies, erasure refs, and the engine's thread-scoped inputs (`20261030080000_p1536_v6_engine.sql:569,615`).
+  - **What goes, everywhere:** the old tray's Create canvas / Update draft / "Creating your canvas…" and the "…" Discard. Send is the update (§2), status is the Publish spot and send slot (§2), and Discard moves to W6.
+  - **Old canvas-thread addresses (`/chat/...` whose root is a `canvas_version` attachment) resolve by that version:**
+    - open draft → `/p/:handle/canvas/:tag?ws=1`;
+    - published version → `/p/:handle/canvas/:tag?v=<version>`;
+    - discarded draft → the canvas page at its newest published version, or Artifacts › Canvases if there is none;
+    - deleted or not the viewer's → the existing unavailable state;
+    - drafting off → the thread stays readable as today.
+  - **The mirror chat keeps its cards:** one per thread root, as today. Each card adds the state of its version and an **Open** that resolves by the same rules.
+- **W1. The canvas is home; the thread is a panel.** `?ws=1` (workspace mode: the panel, Thread button and switcher exist, BottomNav is hidden) is on exactly while the owner is **editing**: a draft is open, or a Clone is pending.
+  - **A published view with nothing being edited:** has no `ws=1`, no panel, no Thread button and no switcher. Only Clone is shown.
+  - **Entry points that land in workspace mode:** New canvas, mirror + Canvas, Clone, a Drafts row.
+  - **Entry points that land in workspace mode only when a draft is open:** a card's Open, an old address (W0).
+  - **Mine:** opens the published view.
+  - **After Publish:** the page REPLACEs to `?v=<new version>` (no `ws=1`), and the panel closes. A toast carries the Publish reply's first line, and the reply stays in the thread.
+  - **New canvas:** keeps today's `canvas_draft_open`. Canvas and draft exist at once, and it lands on `ws=1` instead of `/chat`.
+  - **≥1280:** the thread panel sits on the right and closes with ×. While it is closed, a **Thread** button sits in the header. Open/closed is local UI state, not in the URL, and closing keeps the unsent text and scroll.
+  - **<1280:** a `Canvas | Thread` switcher under the header. A new canvas opens on Thread, everything else on Canvas. The tab is local state, and switching replaces nothing in history.
+  - **Add to chat and reply chips (S4/J2):** <1280 they flip the switcher; ≥1280 they open a closed panel, with focus in the tap handler.
+  - **←:** §2's rule stands (`location.state.from` when in-app). The fallback, for direct entry and reload, becomes Artifacts › Canvases.
+- **W2. A mirror agent you can open from any page (Intercom-style) is a separate future spec** (INBOX-256), built on the W1 panel. Not in P1536.
+- **W3. "New version" → Clone,** with a copy icon, secondary, shown only to the owner on a **published** version.
+  - **Nothing is written on tap** (the J3 rule). The thread opens empty with "Clone v2. Nothing changes for readers until you publish." The header reads `[v2 ▾] New draft from v2`, the spot reads "No changes yet", and there is no Discard (× cancels). The first Send runs `canvas_workspace_send`; leaving before then writes nothing. Cancel (×, or switching away) returns to v2.
+  - **Same-base draft open:** Clone opens that draft.
+  - **Other-base draft open:** the J4 rules apply as written, including the "≥1 message" threshold (no sheet for an untouched draft).
+  - **On a draft:** no Clone, and no "you have an open draft" dialog.
+- **W4. Draft or Published is always named.**
+  - **Header:** `Canvas 4 ✎ [v2 ▾] Draft|Published`.
+  - **Mirror-chat card:** state + **Open** (secondary). The Publish reply there carries **Open canvas**.
+  - **Inside the panel:** no Open buttons. The Publish reply's chip flips to Canvas on <1280.
+- **W5. Canvases list: Drafts / Mine / Shared with me** (like Letters).
+  - **Drafts:** my canvases with an open draft. Opens `?ws=1`.
+  - **Mine:** my canvases with ≥1 published version. Opens the newest published version, with a "Draft open" badge when one exists.
+  - **Neither:** a canvas with neither (never published, draft discarded) appears in no tab.
+- **W6. Discard draft** sits in the thread panel header beside the state, secondary destructive, with the existing confirm. It calls the existing checked discard, which keeps the canvas and version rows (`20261030080000_p1536_v6_engine.sql:701,726`).
+  - **Draft from vN:** returns the page to vN.
+  - **Never-published canvas:** lands on Artifacts › Canvases › Drafts.
+  - **Before the first Send:** an unwritten Clone has nothing to discard. Cancel is the × in W3.
+- **W7. Primary buttons, per state** (supersedes J1's "fixed look" for Copy prompt; composer content never changes either button):
+
+  | Spot state (§2) | Primary | Copy prompt |
+  |---|---|---|
+  | Not published yet (empty new canvas) | Copy prompt | primary |
+  | Updating… / No changes yet / Published · vN | none | secondary (only where shown) |
+  | Publish | Publish | secondary |
+
+  Everything else uses one shared secondary variant (Compare's pill, named in code as one constant): Clone, Share, Discard, Open, Thread, the version picker. The picker carries a chevron and `role=combobox`.
+- **W8. The header.** The Publish spot never moves or collapses (§2 and S3.3 stand).
+  - **≥1280, one line:** ← · name ✎ · [vN ▾] · state · Share · Clone (published) · Thread (panel closed) · Publish spot.
+  - **<1280, row 1:** ← · name ✎ (truncates first) · [vN ▾] · state · Publish spot.
+  - **<1280, row 2:** the switcher · Share (labelled down to 320) · Clone (published).
+  - **Removed:** the "Clarity Canvas" label goes. The header height is identical for draft and published.
+  - **Rename** changes a display title only. A new nullable `canvases.title`, set by an owner-only RPC (≤60 chars, trimmed, non-empty), is read wherever `canvasTitle(canvasName)` is today (`canvas-draft-service.ts:228`), falling back to it. The address tag `canvas_N` and version names never change (`20261029100000_p1536_canvas_draft_versions.sql:169`). Enter or blur saves, Escape reverts, and an empty name reverts.
+- **W9. Hide empty hints:** no "No position yet" when a point has no positions.
+- **W10. Card drag-to-reorder: later.** Moving cards up and down already works.
+- **Access is by ownership, not by role.** Any canvas's owner (an event attendee on their own canvas included) gets W1-W8. Anyone else (a shared reader, an attendee reading someone else's canvas, a signed-out visitor) gets none of: panel, Thread, switcher, ✎, Clone, Discard, the Draft state. Their picker lists published versions only. P1515 reader links (`event-shared-canvases.tsx:50`) and P1529 round threads are unchanged.
+
+**Bugs found in the walkthrough. Each gets a reproduction and a failing test first.**
+- **B1.** "That did not go through. Try again." appeared although the update landed.
+  - Candidates: `use-canvas-uploads.ts:89` (an unsuccessful upload result) and `:94` (the catch). The path through `:81` is success.
+  - Hypothesis to test: an upload is refused (for example a duplicate or "running") while the run it belongs to succeeds.
+- **B2.** After Update draft: "Creating your canvas…", then "Draft not available", with no way out.
+  - Reproduce on the old thread first.
+  - If the cause is in the run or the read (not the retired tray), the test moves to the workspace.
+- **B3.** The "N messages from you" row goes with the old tray (W0).
+- **B4.** On phones, Share is an unlabelled lock icon (now W8).
+
+**Prompt quality (S2 follow-up):**
+- **Q1.** Customer Segments must name who, specifically. Each point needs a role or title, plus at least two of: industry, company size, demographics, psychographics.
+- The founder's Canvas 4 gave vague segments spread over several cards.
+
+**Process for this slice:**
+- Before the founder's UAT, the agent walks J-W1 to J-W5 in a real browser at 1440 and 375, as a signed-in owner with no canvases.
+- Screenshots go to a separate visual-QA subagent (`.claude/rules/visual-qa.md`).
+
+#### J-W1. New canvas, 1440
+1. Artifacts → New canvas → `/p/:handle/canvas/canvas_N?ws=1`: `Canvas N ✎ · Draft`, empty boxes, the spot "Not published yet", and the panel open with the opener and **Copy prompt** (primary).
+2. Send material. The spot and the send slot show Updating…, and the boxes fill in place. The path never changes.
+3. Run done: the spot becomes **Publish** (primary; Copy prompt secondary). Publish → the same path with `?v=v1`, no `ws=1`, the panel closed, the header `· Published`, the spot "Published · v1", Clone shown, and a toast "Published v1…".
+
+#### J-W2. New canvas, 375
+As J-W1, opening on Thread. The first reply's box chips flip to Canvas.
+
+#### J-W3. Clone a published version
+On published v2, tap Clone. Same path, `ws=1` added; the thread opens empty, the header reads `[v2 ▾] New draft from v2`, nothing is written. The first Send creates the draft. Discard (confirm) returns to v2.
+
+#### J-W4. Find and continue a draft
+Artifacts → Canvases → **Drafts** → a row opens `?ws=1` on Canvas, with the panel open at ≥1280.
+
+#### J-W5. From the mirror chat, or an old link
+A card shows `Canvas 4 · v2 · Draft` + Open → as J-W4. An old canvas-thread address resolves per W0.
+
+```
+1440, draft, panel open
++------+---------------------------------------------------------------------------------+
+| side | ← Canvas 4 ✎  [v3 ▾] Draft · from v2                     [Share]   [Publish]   |
+| bar  |-------------------------------------------------+-------------------------------|
+|      | Customer Segments          Problem              | Draft · v3   [Discard]     ×  |
+|      | +------------------+ +------------------+       |  ┌ From v2 · 27 Oct ┐         |
+|      | | Ops leads, 50-200| | Every deadline…  |       |  You: shorter wording         |
+|      | +------------------+ +------------------+       |  Updated: [Problem]    Undo   |
+|      |                                                 | (📎) Write…            (🎤)(➤)|
++------+-------------------------------------------------+-------------------------------+
+
+375, draft                                375, published
++-------------------------------------+   +-------------------------------------+
+| ← Canvas 4 ✎ [v3 ▾] Draft [Publish] |   | ← Canvas 4 ✎ [v2 ▾]  Published · v2 |
+| [■ Canvas ][ Thread ]      [Share]  |   |                   [Share] [⧉ Clone] |
++-------------------------------------+   +-------------------------------------+
+```
+
+---
+
 ### 4. Box definitions and Copy prompt (S2)
 
 The v4 definitions below, with these fixes from review:
@@ -822,6 +949,40 @@ earlier ones"; schema order `focus, other_canvases, scope, actions, questions`.
   - Chat with the keyboard open (WebKit mobile emulation).
 
   A separate visual-QA subagent checks them.
+
+#### S3b Founder walkthrough fixes (§3b)
+- [ ] **S3b.1 (B1, B2)** Each bug is reproduced first, with the reproduction recorded in the spec. Each gets a test that fails before the fix and passes after:
+  - B1: a fixture with a successful run plus the reproduced upload result shows no failure toast;
+  - B2: after the run settles (stub), the surface leaves "Creating your canvas…" within the existing poll interval and never shows "Draft not available" for an open draft.
+- [ ] **S3b.2 (W0)** No owner route renders the old tray controls: Create canvas, Update draft, "Creating your canvas…", "N messages from you", or the "…" Discard (render test over the workspace and the mirror chat).
+  - Old `/chat` canvas-thread addresses resolve per W0, with one test for each of the five cases.
+  - Forwarded/clarify copies still reach a run (an existing engine test stays green).
+- [ ] **S3b.3 (W1)** Each entry point ends with pathname `/p/:handle/canvas/:tag`, with `ws=1` exactly per W1 and the expected version selected (asserted separately for New canvas, mirror + Canvas, Clone, Drafts row, card Open with/without a draft, old address, Mine).
+  - A published view with nothing being edited has no panel, Thread button or switcher.
+  - After Publish, the URL is `?v=<new>` with no `ws=1`.
+  - At 1440 the panel is open; closing and reopening it keeps the unsent text.
+  - At 375 the switcher selects Thread for a new canvas and Canvas otherwise.
+  - Add to chat and chips flip the switcher at 375 and open a closed panel at 1440.
+  - ← without in-app history goes to Artifacts › Canvases.
+- [ ] **S3b.4 (W3)** Clone shows only on an owner's published version.
+  - **Tap, then cancel:** no row in `canvas_drafts`, `canvas_versions`, `chat_messages` or `canvas_draft_runs` is created or changed for that owner (compare `count(*)` and `max(updated_at)`/revision before and after).
+  - **First Send:** creates the draft.
+  - **Same-base draft:** Clone opens it. **Other-base draft:** J4 applies, including its threshold.
+- [ ] **S3b.5 (W4, W5)**
+  - Header and card show the state; the card has Open; the panel has no Open.
+  - Drafts / Mine / Shared with me follow W5; a canvas with neither is in no tab.
+- [ ] **S3b.6 (W6, W7)** For each row of the W7 table, the rendered primary buttons equal the table's. Copy prompt counts as the Thread pane's primary, so a closed panel or the Canvas tab shows zero primaries, never two. The p955-gate passes.
+  - Clone, Share, Discard, Open, Thread and the picker use the one named secondary constant.
+  - The picker has a chevron and `role=combobox`.
+  - Discard sits in the panel header and follows W6 for both cases.
+- [ ] **S3b.7 (W8)** The header follows W8 at 1440, 375 and 320: no horizontal overflow, Share labelled, no "Clarity Canvas", height equal ±1px for draft and published, and the Publish spot's box unchanged.
+  - **Rename:** the RPC refuses non-owners and empty or >60-char titles. The new title shows in the header, Artifacts and cards, and the URL is unchanged.
+- [ ] **S3b.8 (W9)** A point with no positions renders no "No position yet".
+- [ ] **S3b.9 (access)** An owner-attendee gets W1-W8 on their own canvas. A shared reader, an attendee on another's canvas and a signed-out visitor get none of the W-controls, and their picker lists published versions only.
+- [ ] **S3b.10 (Q1)** A labelled fixture set in the S2 eval, with one case per dimension, scored by the existing S2 checker extended with a Q1 rule:
+  - segments missing the role, or carrying fewer than two other dimensions, fail;
+  - complete ones pass.
+- [ ] **S3b.11** Before UAT: a table of J-W1 to J-W5 × {1440, 375} with pass/fail and a screenshot path per cell; the visual-QA subagent's findings with a disposition for each; and `<received> of <spawned>`.
 
 #### S4 Add to chat tags
 - [ ] **S4.1** The owner sees Add to chat (≥44px) on nine boxes, on draft and published. A viewer and a signed-out visitor see none.
