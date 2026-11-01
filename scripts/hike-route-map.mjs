@@ -27,12 +27,13 @@ const TILE = 256;
 
 const geo = JSON.parse(readFileSync(inPath, 'utf8'));
 const lines = [];
+const connectors = []; // kind:'connector' = the walk from the cafe to where the group joins the route (dashed)
 const points = {};
 const visit = (g, kind) => {
   if (!g) return;
   if (g.type === 'FeatureCollection') g.features.forEach(f => visit(f));
   else if (g.type === 'Feature') visit(g.geometry, g.properties?.kind);
-  else if (g.type === 'LineString') lines.push(g.coordinates);
+  else if (g.type === 'LineString') (kind === 'connector' ? connectors : lines).push(g.coordinates);
   else if (g.type === 'MultiLineString') lines.push(...g.coordinates);
   else if (g.type === 'Point' && kind) points[kind] = g.coordinates;
 };
@@ -41,9 +42,10 @@ if (lines.length === 0) {
   console.error('no LineString in input');
   process.exit(1);
 }
-points.start ??= lines[0][0];
+// A `join` point means the group does not use the official start, so no Start pin is drawn.
+if (!points.join) points.start ??= lines[0][0];
 
-const all = [...lines.flat(), ...Object.values(points)];
+const all = [...lines.flat(), ...connectors.flat(), ...Object.values(points)];
 const project = (lon, lat, z) => {
   const n = 2 ** z * TILE;
   const s = Math.sin((lat * Math.PI) / 180);
@@ -76,6 +78,9 @@ for (let tx = Math.floor(ox / TILE); tx <= Math.floor((ox + W) / TILE); tx++) {
 const path = lines
   .map(l => 'M' + l.map(p => toXY(p).map(v => v.toFixed(1)).join(' ')).join(' L'))
   .join(' ');
+const connectorPath = connectors
+  .map(l => 'M' + l.map(p => toXY(p).map(v => v.toFixed(1)).join(' ')).join(' L'))
+  .join(' ');
 const pin = (kind, label, fill) => {
   if (!points[kind]) return '';
   const [x, y] = toXY(points[kind]);
@@ -88,7 +93,8 @@ const html = `<!doctype html><html><body style="margin:0">
 <svg width="${W}" height="${H}" style="position:absolute;left:0;top:0">
 <path d="${path}" fill="none" stroke="#fff" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>
 <path d="${path}" fill="none" stroke="#e11d48" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
-${pin('meet', 'Cafe', '#2563eb')}${pin('start', 'Start', '#111')}${pin('break', 'Break', '#059669')}
+${connectorPath ? `<path d="${connectorPath}" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/><path d="${connectorPath}" fill="none" stroke="#2563eb" stroke-width="5" stroke-dasharray="10 8"/>` : ''}
+${pin('meet', 'Cafe', '#2563eb')}${pin('join', 'Join loop', '#111')}${pin('waterfall', 'Waterfall', '#0284c7')}${pin('start', 'Start', '#111')}${pin('break', 'Break', '#059669')}
 </svg></div></body></html>`;
 
 const browser = await chromium.launch();
