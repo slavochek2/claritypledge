@@ -40,6 +40,8 @@ Parse `datetime` in `Asia/Bangkok` (UTC+7) → local start. End = start + `durat
 
 The event's banner already exists in Supabase Storage from when it was published on claritypledge.com. Download it directly:
 
+**If `~/Downloads/<slug>-upload/clarity-event-photo-square.jpg` exists (prepared by `promote-all`, with the logo), set `LOCAL` to that path, use it for every upload below including manual drags, and skip the download.** Downloading would replace the branded cover with the plain banner.
+
 ```bash
 SLUG="<event-slug>"
 PUBLIC="https://besjtuodziykmjidubzw.supabase.co/storage/v1/object/public/event-banners/${SLUG}.jpg"

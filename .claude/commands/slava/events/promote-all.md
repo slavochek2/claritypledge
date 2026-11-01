@@ -147,9 +147,15 @@ If the banner is auto-generated (no source photo), the downloaded banner above i
 and this table does not apply.
 
 **Subtle logo on platform covers.** Founder, 2026-11-01: add the logo very subtly, e.g. top right, on
-the covers uploaded to other platforms, in colours coherent with the photo. Use the real logo from
-`public/`, clear of every face, and check it survives each platform's crop (Facebook repositions and
-shows ~2.7:1).
+the covers uploaded to other platforms. Use `public/clarity-favicon.svg` unmodified, never recoloured,
+with no wordmark, clear of every face, and check it survives each platform's crop (Facebook repositions
+and shows ~2.7:1). Composite it onto each crop in the table above with ffmpeg:
+`ffmpeg -y -i <crop> -i <logo rasterised to about 6% of the crop's width> -filter_complex "overlay=W-w-32:32" -q:v 2 <output>`.
+
+**One upload folder.** Founder, 2026-11-01: uploads should *"alwas in same palce"*. Save every finished
+cover to `~/Downloads/<slug>-upload/` under the same names as the table above, and pass that folder to
+each platform skill in step 4. Those skills use a cover already there and do not download the banner
+over it. Create it with `mkdir -p` first. Rasterise the logo with `sips -s format png -Z <px> public/clarity-favicon.svg --out <png>` if ffmpeg cannot read the SVG. If the banner is auto-generated, so there is no crop table, copy the logoed banner to all three names there. Tell the founder this one path whenever a manual upload is needed.
 
 ### 3a. Gallery media — recent event photos after the cover
 

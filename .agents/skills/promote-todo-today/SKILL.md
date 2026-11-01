@@ -42,6 +42,8 @@ Parse datetime in `Asia/Bangkok` (UTC+7) to get local date, start time, end time
 
 ### 2. Prepare cover photo
 
+**If `~/Downloads/<slug>-upload/clarity-event-photo.jpg` exists (prepared by `promote-all`, with the logo), set `LOCAL` to that path, use it for every upload below including manual drags, and skip the download.** Downloading would replace the branded cover with the plain banner.
+
 The banner normally already exists — claritypledge.com auto-generates it on event creation. Download it (portable, no credentials):
 
 ```bash
@@ -72,7 +74,7 @@ any of those is never the agent's job.
 
 Click the Upload area (triggers hidden file input). Use the Claude-in-Chrome `file_upload` MCP tool with the `LOCAL` path from step 2.
 
-**Fallback if `file_upload` denied:** tell the user to drag `~/Downloads/clarity-event-photo.jpg` onto the upload area manually (5-second step), wait for them to confirm before proceeding.
+**Fallback if `file_upload` denied:** tell the user to drag `$LOCAL` onto the upload area manually (5-second step), wait for them to confirm before proceeding.
 
 When the media library opens, select the just-uploaded image and click **Add**.
 

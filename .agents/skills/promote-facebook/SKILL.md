@@ -38,6 +38,8 @@ Parse datetime in `Asia/Bangkok` (UTC+7) to get local date, start time, and end 
 
 The banner normally already exists — claritypledge.com auto-generates it on event creation. Download it (portable, no credentials):
 
+**If `~/Downloads/<slug>-upload/clarity-event-photo-fb.jpg` exists (prepared by `promote-all`, with the logo), set `LOCAL` to that path, upload it below, and skip the download.**
+
 ```bash
 SLUG="<event-slug>"
 PUBLIC="https://besjtuodziykmjidubzw.supabase.co/storage/v1/object/public/event-banners/${SLUG}.jpg"

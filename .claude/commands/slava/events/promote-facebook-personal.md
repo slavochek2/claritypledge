@@ -40,6 +40,8 @@ Parse `datetime` in `Asia/Bangkok` (UTC+7). End time = start + `duration_minutes
 
 The banner normally already exists — claritypledge.com auto-generates it on event creation. Download it (portable, no credentials):
 
+**If `~/Downloads/<slug>-upload/clarity-event-photo-fb.jpg` exists (prepared by `promote-all`, with the logo), set `LOCAL` to that path, use it for every upload below including manual drags, and skip the download.** Downloading would replace the branded cover with the plain banner.
+
 ```bash
 SLUG="<event-slug>"
 PUBLIC="https://besjtuodziykmjidubzw.supabase.co/storage/v1/object/public/event-banners/${SLUG}.jpg"
@@ -83,7 +85,7 @@ Call `file_upload` MCP tool with the `LOCAL` path from step 2.
 
 **Fallback if `file_upload` returns "Not allowed":** print this exact instruction and wait:
 
-> Drag `~/Downloads/clarity-event-photo.jpg` onto Facebook's cover-photo area, then reply `done`.
+> Drag `$LOCAL` onto Facebook's cover-photo area, then reply `done`.
 
 Do NOT attempt remote fetch from inside the FB page — Facebook's CSP blocks it.
 
