@@ -155,6 +155,8 @@ Generate 5 HTML files in `.private/posters/work/`, each with base64-embedded her
 - Font: Inter (400/600/700/900)
 - Free tag: pill with accent border + subtle fill
 
+**Logo on every format.** Founder, 2026-11-01: *"future posters should also carry it"*. Embed the real Clarity Pledge logo from `public/` (never redraw it), small, in a top corner of the hero, clear of every face, title and QR. It identifies the host; it never competes with the title. Its colours must sit coherently with the poster's palette: use a monochrome or light version on a dark or busy photo rather than a clashing one.
+
 ### Step 5 — Screenshot at 2x DPR
 
 Start local server, then use Playwright with `deviceScaleFactor: 2`:
@@ -210,6 +212,7 @@ EOF
 6. ✅ No large empty wasted space
 7. ✅ File size >1MB (confirms 2x DPR worked)
 8. ✅ Hero image crisp, not pixelated or cropped awkwardly
+9. ✅ Logo present, legible on the photo, and covering no face
 
 **If any check fails**: fix the HTML template, re-screenshot, re-review. Max 3 iterations — if still failing after 3, show user and ask.
 

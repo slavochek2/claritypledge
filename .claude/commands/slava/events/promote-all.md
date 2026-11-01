@@ -146,6 +146,11 @@ set before promotion; check both are non-null on the event row and render at des
 If the banner is auto-generated (no source photo), the downloaded banner above is the only image
 and this table does not apply.
 
+**Subtle logo on platform covers.** Founder, 2026-11-01: add the logo very subtly, e.g. top right, on
+the covers uploaded to other platforms, in colours coherent with the photo. Use the real logo from
+`public/`, clear of every face, and check it survives each platform's crop (Facebook repositions and
+shows ~2.7:1).
+
 ### 3a. Gallery media — recent event photos after the cover
 
 > *"yes on sharing images on the events we upload - not only facebook also others todo today, luma, app sola etc.."* — founder, 2026-10-20
