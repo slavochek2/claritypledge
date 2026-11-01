@@ -36,8 +36,22 @@ function clientIdFor(key: string): string {
 
 export type NextDraftResult =
   | { ok: true; versionName: string }
-  | { ok: false; why: 'no_version' | 'versions_failed' | 'refused' | 'too_large' };
+  | { ok: false; why: 'no_version' | 'versions_failed' | 'refused' | 'too_large' | 'stale_view' };
 
+/** J4 "Start over from vN": the open draft of another base that the first Send discards in its own transaction, as the screen last saw it. */
+export interface ReplaceDraft { draftId: string; revision: number }
+
+
+/** What a first Send says it is: the same canvas, version, replaced draft and text/file are the same message (so a repeat replays). */
+function sendKey(from: { canvasId: string; id: string }, replace: ReplaceDraft | null, input: { body?: string; file?: File }): string {
+  const what = input.file ? `file:${input.file.name}:${input.file.size}` : `text:${input.body ?? ''}`;
+  return `${from.canvasId}|${from.id}|${replace ? `replace:${replace.draftId}:${replace.revision}|` : ''}${what}`;
+}
+
+/** The refusal as the caller sees it. J4: a stale_view over a draft being replaced is its own case (ask again, keep the text). */
+function refusalOf(refused: string, replace: ReplaceDraft | null): NextDraftResult {
+  return { ok: false, why: replace && refused === 'stale_view' ? 'stale_view' : 'refused' };
+}
 
 async function versionOf(projectTag: string, version: string | null) {
   const all = await listMyCanvasVersions();
@@ -48,8 +62,8 @@ async function versionOf(projectTag: string, version: string | null) {
  * The first Send on a published canvas: opens the next draft from the version on screen and queues its first run.
  * Throws when the outcome is unknown (the network): call again with the same message and the same id is used.
  */
-export async function openNextDraft(args: { projectTag: string; version: string | null; body?: string; file?: File }): Promise<NextDraftResult> {
-  const { projectTag, version, body, file } = args;
+export async function openNextDraft(args: { projectTag: string; version: string | null; body?: string; file?: File; replace?: ReplaceDraft | null }): Promise<NextDraftResult> {
+  const { projectTag, version, body, file, replace = null } = args;
   if (file && file.size > MAX_UPLOAD_BYTES) return { ok: false, why: 'too_large' };
   let from: Awaited<ReturnType<typeof versionOf>>;
   try {
@@ -58,15 +72,15 @@ export async function openNextDraft(args: { projectTag: string; version: string 
     return { ok: false, why: 'versions_failed' }; // nothing was sent: not an unknown outcome
   }
   if (!from) return { ok: false, why: 'no_version' };
-  const key = `${from.canvasId}|${from.id}|${file ? `file:${file.name}:${file.size}` : `text:${body ?? ''}`}`;
+  const key = sendKey(from, replace, { body, file });
   const sent = await sendCanvasWorkspaceMessage({
-    canvasId: from.canvasId, fromVersionId: from.id, expectedDraftId: null, expectedRevision: null,
+    canvasId: from.canvasId, fromVersionId: from.id, expectedDraftId: replace?.draftId ?? null, expectedRevision: replace?.revision ?? null, ...(replace ? { replace: true } : {}),
     ...(file ? { attachment: { kind: 'file' as const, label: file.name } } : { body }),
     clientId: clientIdFor(key),
   });
   if (!sent.ok) {
     unresolved.delete(key); // a definite refusal: the next attempt is a new one
-    return { ok: false, why: 'refused' };
+    return refusalOf(sent.refused, replace);
   }
   unresolved.delete(key);
   // A file is posted with the id of the run the send made; if the post fails the draft is open and a toast says so.

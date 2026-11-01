@@ -2,7 +2,7 @@
  * @file canvas-header.tsx
  * @description The canvas page's header (R10, P1515, P1545, P1536): the canvas's own name as the title under a small "Clarity
  * Canvas" label, then the byline (whose it is and which version: a menu with several, a lone draft says "v1 · Draft"), then, on
- * a row of their own, Compare and Share (or New version), and under them the one line that says what the viewer is looking at: a
+ * a row of their own, Compare and Share (or Clone), and under them the one line that says what the viewer is looking at: a
  * reader's "Shared with you through ...", or "Nothing published yet". The byline holds no buttons, so a long name never competes with
  * one (S3.6). A draft has no Compare and no Share (it cannot be shared, and it has no positions); its Publish lives in the
  * workspace bar (canvas-publish-spot), not here.
@@ -15,7 +15,8 @@ import { CanvasOwnerSkeleton } from '@/app/pages/canvas-page-placeholders';
 import { CanvasShareControl } from './canvas-share-control';
 import { SharedIcon } from './canvas-audience';
 import { ComparePicker } from './canvas-compare-picker';
-import { NewVersionButton } from './canvas-new-version-button';
+import { CloneButton } from './canvas-clone-button';
+import { useCanvasWorkspace } from './canvas-workspace-context';
 import { VersionSwitcher } from './canvas-version-switcher';
 import { isViewingDraft, openVersionLabel, type CanvasPerson, type CanvasReady } from './canvas-page-data';
 
@@ -38,6 +39,7 @@ interface CanvasHeaderProps {
 export function CanvasHeader(props: CanvasHeaderProps) {
   const { ready, failed, handle, projectTag, ownerIsAgent, identityPending, compare, sharedLabel, onParams, onChanged } = props;
   const viewingDraft = !!ready && isViewingDraft(ready);
+  const { cloneSeq } = useCanvasWorkspace();
   return (
     <header className="mb-4 flex flex-col gap-2" data-testid="canvas-header-row">
       {/* P1545: the canvas's own name is the title; "Clarity Canvas" is the small label above it. */}
@@ -78,6 +80,10 @@ export function CanvasHeader(props: CanvasHeaderProps) {
             !failed && <CanvasOwnerSkeleton />
           )}
           {ready && <VersionSlot ready={ready} viewingDraft={viewingDraft} onPick={v => onParams({ v, point: null, box: null }, true, false)} />}
+          {/* W3: a pending Clone names what it will make; nothing is written yet. */}
+          {ready && cloneSeq !== null && !viewingDraft && (
+            <span className="shrink-0 text-sm font-medium text-foreground/70" data-testid="canvas-clone-state">New draft from v{cloneSeq}</span>
+          )}
         </div>
         {/* P1515: Share sits immediately right of Compare, in a row of its own under the byline. */}
         {ready && !isViewingDraft(ready) && (
@@ -97,7 +103,7 @@ export function CanvasHeader(props: CanvasHeaderProps) {
 }
 
 /**
- * The actions row of a published version: Compare, Share (owner), New version (owner). A draft has none of them.
+ * The actions row of a published version: Compare, Share (owner), Clone (owner). A draft has none of them.
  */
 function CanvasHeaderActions({ ready, handle, projectTag, compare, onCompare, onChanged }: {
   ready: CanvasReady;
@@ -121,7 +127,7 @@ function CanvasHeaderActions({ ready, handle, projectTag, compare, onCompare, on
           onChanged={onChanged}
         />
       )}
-      {ownerCanShare && <NewVersionButton version={ready.version} />}
+      {ownerCanShare && <CloneButton ready={ready} />}
     </div>
   );
 }

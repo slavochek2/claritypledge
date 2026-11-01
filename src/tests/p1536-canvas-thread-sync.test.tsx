@@ -197,7 +197,7 @@ describe('thread -> canvas: a run that finishes in the thread re-reads the canva
     act(() => emitCanvasDraftEvent({ kind: 'discarded', draftId: 'draft-1' }));
     await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent(DRAFT_NAME));
     expect(screen.getByTestId('where')).toHaveTextContent('ws=1'); // the workspace marker is untouched
-    expect(getCanvas.mock.calls.at(-1)![4]).toBeUndefined(); // the newest published version opens
+    await waitFor(() => expect(getCanvas.mock.calls.at(-1)![4]).toBeUndefined()); // the newest published version opens (the re-read lands after the address moves)
   });
 });
 
@@ -215,7 +215,7 @@ describe('canvas -> thread: Publish in the workspace bar (W1: the page REPLACEs 
     await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent('ws=1'));
     expect(screen.getByTestId('where')).toHaveTextContent(`/p/ana/canvas/canvas?v=${DRAFT_NAME}`);
     expect(screen.getByTestId('where').textContent).not.toContain('thread=');
-    expect(toastSuccess).toHaveBeenCalledWith('Published v2.');
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Published v2.'));
     await waitFor(() => expect(screen.queryByTestId('workspace-chat-pane')).toBeNull()); // the panel is closed
     expect(screen.queryByTestId('workspace-bar')).toBeNull();
     // and the marker does not come back while the read on screen still shows the draft open

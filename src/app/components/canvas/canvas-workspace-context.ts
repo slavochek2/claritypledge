@@ -21,9 +21,16 @@ export interface CanvasWorkspaceValue {
    * opens a closed panel; either way the composer takes focus INSIDE the call, so the tap handler that made it keeps iOS's keyboard.
    */
   showThread: () => void;
+  /**
+   * W3: Clone the version on screen. Null where the page is not the owner's workspace route (a reader's page, an owner with no mirror chat,
+   * a gate fixture): then the page shows no Clone. Writes nothing; it only enters the pending state (ws=1, no draft).
+   */
+  clone: (() => void) | null;
+  /** W3: the version number of the pending Clone ("New draft from v2"); null when nothing is pending. */
+  cloneSeq: number | null;
 }
 
-const NONE: CanvasWorkspaceValue = { active: false, reportReady: () => undefined, reloads: 0, showThread: () => undefined };
+const NONE: CanvasWorkspaceValue = { active: false, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: null, cloneSeq: null };
 
 export const CanvasWorkspaceContext = createContext<CanvasWorkspaceValue>(NONE);
 

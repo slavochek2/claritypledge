@@ -68,9 +68,9 @@ export function draftLabel(nextSeq: number | null): string {
   return nextSeq && nextSeq > 0 ? `v${nextSeq} · Draft` : 'Draft';
 }
 
-/** The thread header: a draft with no base version is a new canvas; one with a base version is a new version of it. */
+/** The thread header: a draft with no base version is a new canvas; one with a base version is a draft of that canvas (S4.6). */
 export const NEW_CANVAS_TITLE = 'New canvas';
-export const NEW_VERSION_TITLE = 'New version';
+export const DRAFT_TITLE = 'Draft';
 
 /** The menu item that opens a new canvas thread from the mirror. */
 export const NEW_CANVAS_LABEL = 'New canvas';
@@ -79,7 +79,7 @@ export const NEW_CANVAS_LABEL = 'New canvas';
 export const DRAFT_ERROR_TEXT: Record<string, string> = {
   BUSY: 'A draft is already being written. It will show here when it is done.',
   LIMIT: 'This draft has all the files it can hold.',
-  REVISION_CAP: 'This draft has used all its revisions. Publish it, or start a new version.',
+  REVISION_CAP: 'This draft has used all its revisions. Publish it, or discard it and start a new draft.',
   TERMS_NOT_ACCEPTED: 'Accept the updated terms to use your mirror agent.',
   DISABLED: 'Canvas drafting is not available right now.',
   NOT_AVAILABLE: 'This draft is not available.',

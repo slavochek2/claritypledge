@@ -4,7 +4,7 @@
  * A right-hand panel from lg up; the whole screen on a phone. Every chat has threads (P1546: 1:1s
  * and the mirror too); in the mirror, the mirror agent answers inside the thread it was asked in.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-service';
 import { Composer } from './Composer';
 import { MessageList } from './MessageList';
@@ -21,7 +21,7 @@ import { useMessageActions } from './use-message-actions';
 import { useVoiceSender } from './use-voice-sender';
 import { EventRoomLink } from './EventRoomLink';
 
-export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = false, onRunActive, focusable = true }: {
+export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = false, onRunActive, focusable = true, headerActions }: {
   summary: ChatSummary;
   rootId: string;
   highlightId: string | null;
@@ -33,6 +33,8 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   onRunActive?: (active: boolean) => void;
   /** False while the panel is out of reach (the workspace's hidden pane below 1280px): it must not take focus on mount. */
   focusable?: boolean;
+  /** The canvas workspace's Discard (W6): sits in the header beside the title, before the close button. */
+  headerActions?: ReactNode;
 }) {
   const chat = useChat();
   const conversationId = summary.conversationId;
@@ -87,7 +89,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
       data-testid="thread-panel"
       className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col bg-background' : 'flex min-h-0 min-w-0 flex-1 flex-col bg-background lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]'}
     >
-      <ThreadHeader onClose={close} menu={<EventRoomLink chat={summary} />}>
+      <ThreadHeader onClose={close} menu={<><EventRoomLink chat={summary} />{headerActions}</>}>
         {canvas.headerTitle ?? (
           <>
             <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
@@ -106,6 +108,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
         inThread
         earlierLabel="Load earlier replies"
         {...canvas.list}
+        trailing={canvas.trailing}
       />
       {canvas.readState}
       {blockedReason ? (

@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import type { CanvasDraft } from '@/app/data/canvas-draft-service';
 import type { ChatMessage } from '@/app/data/chat-service';
 import { CanvasThreadReadState } from './CanvasReadState';
+import { canvasRetryTrailing } from './canvas-retry-trailing';
 import { CanvasThreadOpener } from './CanvasOpener';
 import { CanvasThreadTitle } from './CanvasThreadHeader';
 import { CanvasUploadButton } from './CanvasUploadButton';
@@ -19,6 +20,8 @@ export function useCanvasParts(args: { canvasRoot: boolean; rootId: string; mess
   /** The first read's state (loading, failed) under the list; nothing otherwise. */
   readState: ReactNode;
   leading: ReactNode;
+  /** A failed newest run's Try again, under the owner message it belongs to (null otherwise). */
+  trailing: { afterId: string; node: ReactNode } | null;
   runActive: boolean;
   send: ((body: string) => Promise<boolean>) | null;
   /** What the retired-address redirect needs: drafting on/off/unknown, the first read's status, and the draft it found. */
@@ -40,6 +43,7 @@ export function useCanvasParts(args: { canvasRoot: boolean; rootId: string; mess
     readState: canvasOn === true ? <CanvasThreadReadState status={pane.read.status} onRetry={pane.read.retry} /> : null,
     /** The composer's Upload button, while the draft takes files. */
     leading: live?.draft.state === 'open' ? <CanvasUploadButton busy={uploader.busy} onPick={(f) => void uploader.upload(f)} /> : undefined,
+    trailing: canvasRetryTrailing(live, args),
     /** A run is going, or a file is being added (D15: Publish waits): the workspace's Publish spot reads "Updating…" meanwhile. */
     runActive: !!live && (live.running || uploader.busy),
     /** Sends a text message into the open draft (message + run in one call); null: the chat's own send is used. */

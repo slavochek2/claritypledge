@@ -10,7 +10,7 @@ import { CanvasGrid } from '@/app/components/canvas/canvas-grid';
 import { CanvasHeader } from '@/app/components/canvas/canvas-header';
 import { groupPointsByBox } from '@/lib/canvas-boxes';
 import { hasNothingToShow, draftQuestions, isViewingDraft, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
-import { ChatContext, type ChatContextValue } from '@/app/pages/chat/chat-state';
+import { CanvasWorkspaceContext, type CanvasWorkspaceValue } from '@/app/components/canvas/canvas-workspace-context';
 import { resetCanvasAvailability, seedCanvasAvailability } from '@/app/pages/chat/use-canvas-availability';
 import type { PointWithUserPosition } from '@/app/types';
 
@@ -45,12 +45,12 @@ const PHASES: Record<string, Partial<CanvasReady>> = {
   'published-reader': { isOwner: false, via: { kind: 'person', id: 'user-id-5678', name: 'Test Owner', slug: null } },
 };
 
-// "New version" needs the chat (its thread is a chat thread): a stand-in with nothing in it, as the fixture never starts one.
-const CHAT_STUB = { refresh: async () => [], userId: 'user-id-1234', authors: { 'user-id-1234': { id: 'user-id-1234', slug: 'example-user' } } } as unknown as ChatContextValue;
+// Clone (W3) comes from the workspace around the page: a stand-in whose Clone does nothing, as the fixture never enters a workspace.
+const WORKSPACE_STUB: CanvasWorkspaceValue = { active: false, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: () => undefined, cloneSeq: null };
 
 export function GateFixture() {
   const [params] = useSearchParams();
-  // Canvas drafting is ON in this fixture only (so the owner's "New version" pill renders); the answer is forgotten on leaving.
+  // Canvas drafting is ON in this fixture only (so the owner's Clone pill renders); the answer is forgotten on leaving.
   useState(() => seedCanvasAvailability(true));
   useEffect(() => resetCanvasAvailability, []);
   const requested = params.get('phase') ?? 'draft';
@@ -58,7 +58,7 @@ export function GateFixture() {
   const ready: CanvasReady = { ...BASE, ...PHASES[phase] };
   const boxes = groupPointsByBox(ready.points);
   return (
-    <ChatContext.Provider value={CHAT_STUB}>
+    <CanvasWorkspaceContext.Provider value={WORKSPACE_STUB}>
     <div className="flex flex-col px-4 pb-24 pt-3 lg:px-6 lg:pb-8">
       <nav style={{ display: 'flex', gap: '0.5rem', padding: '0.5rem', flexWrap: 'wrap' }}>
         {Object.keys(PHASES).map((p) => (
@@ -90,7 +90,7 @@ export function GateFixture() {
         />
       )}
     </div>
-    </ChatContext.Provider>
+    </CanvasWorkspaceContext.Provider>
   );
 }
 

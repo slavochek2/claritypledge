@@ -19,13 +19,15 @@ export function useCanvasPublish(
   ready: CanvasReady | null,
   runActive: boolean,
   onPublished?: (published: { seq: number; versionName: string }) => void,
+  /** W3: a Clone is pending: the spot reads "No changes yet". */
+  pendingClone = false,
 ): { state: PublishSpotState; publishing: boolean; publish: () => void } {
   const [publishing, setPublishing] = useState(false);
   // A refusal's status holds only for the DRAFT and revision it answered: another draft, or any change to this one, clears it.
   const [forced, setForced] = useState<{ draftId: string; revision: number; state: PublishSpotState } | null>(null);
   const inFlight = useRef(false);
   const draft = ready?.draft ?? null;
-  const computed = publishSpotState(ready, runActive);
+  const computed = publishSpotState(ready, runActive, pendingClone);
   const state = forced && draft && forced.draftId === draft.id && forced.revision === draft.revision && computed.kind === 'publish' ? forced.state : computed;
 
   const publish = () => {

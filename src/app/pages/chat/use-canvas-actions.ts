@@ -10,7 +10,7 @@ import { DRAFT_ERROR_TEXT } from './canvas-thread-copy';
 import type { CanvasThread } from './use-canvas-thread';
 
 /** What a refused Send says. [FOUNDER DECISION: busy_elsewhere and stale_view wording; S3 owns it] */
-function sendRefusedText(code: CanvasRefusalCode): string {
+export function sendRefusedText(code: CanvasRefusalCode): string {
   if (code === 'busy' || code === 'busy_elsewhere') return DRAFT_ERROR_TEXT.BUSY ?? 'That did not go through. Try again.';
   if (code === 'cap_reached') return DRAFT_ERROR_TEXT.REVISION_CAP ?? 'That did not go through. Try again.';
   return DRAFT_ERROR_TEXT.FAILED ?? 'That did not go through. Try again.';

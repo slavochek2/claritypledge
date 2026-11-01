@@ -16,7 +16,6 @@ import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { CanvasPublishSpot } from '@/app/components/canvas/canvas-publish-spot';
 import type { PublishSpotState } from '@/app/components/canvas/canvas-publish-spot-state';
 import { CanvasWorkspaceBar, CanvasWorkspaceLayout, type WorkspaceView } from '@/app/components/canvas/canvas-workspace-layout';
-import { ChatContext, type ChatContextValue } from '@/app/pages/chat/chat-state';
 import { stashDraft } from '@/app/pages/chat/chat-hooks';
 import { Composer } from '@/app/pages/chat/Composer';
 import { resetCanvasAvailability, seedCanvasAvailability } from '@/app/pages/chat/use-canvas-availability';
@@ -53,8 +52,6 @@ const readyFor = (published: boolean): CanvasReady => ({
   visibility: 'private', isOwner: true, generalAccess: 'restricted', via: null, audience: [], addedStoryIds: [], publishedNone: false,
   ...(published ? { version: V1.name, versions: [V1], draft: null } : { version: DRAFT_VERSION.name, versions: [DRAFT_VERSION, V1], draft: DRAFT_BLOCK }),
 });
-// The owner's "New version" pill needs the chat: a stand-in with nothing in it.
-const CHAT_STUB = { refresh: async () => [], userId: 'user-id-1234', authors: { 'user-id-1234': { id: 'user-id-1234', slug: 'test-owner' } } } as unknown as ChatContextValue;
 
 /** A thread's worth of fake messages, so the chat pane has a history above the real composer. */
 function FakeThread() {
@@ -73,7 +70,7 @@ export function GateFixture() {
   const config = PHASES[phase] ?? DRAFT;
   const draftKey = `gate-canvas-workspace-${phase}`;
   const [view, setView] = useState<WorkspaceView>(config.view);
-  // Canvas drafting is ON in this fixture only (the owner's "New version" pill on a published canvas); forgotten on leaving.
+  // Canvas drafting is ON in this fixture only (the page's availability question); forgotten on leaving.
   useState(() => {
     seedCanvasAvailability(true);
     if (config.typed) stashDraft(draftKey, 'Make the problem sharper for cafes (fake text)');
@@ -82,7 +79,7 @@ export function GateFixture() {
   const ready = readyFor(config.published);
   const boxes = groupPointsByBox(POINTS);
   return (
-    <ChatContext.Provider value={CHAT_STUB}>
+    <>
       <div className="mx-auto max-w-[1440px]">
         <nav className="flex h-14 flex-wrap items-center gap-2 border-b px-2 text-xs" data-testid="gate-shell-stand-in">
           {Object.keys(PHASES).map(p => (
@@ -123,7 +120,7 @@ export function GateFixture() {
           }
         />
       </div>
-    </ChatContext.Provider>
+    </>
   );
 }
 

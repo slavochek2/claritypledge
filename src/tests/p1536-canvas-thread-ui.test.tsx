@@ -574,7 +574,7 @@ describe('P955: no disabled primary, one primary at a time', () => {
     render(<MemoryRouter initialEntries={['/tree/_gate/canvas-thread?phase=update-empty']}><GateFixture /></MemoryRouter>);
     expect(screen.getAllByRole('link').filter((a) => a.getAttribute('href')?.startsWith('/tree/_gate/canvas-thread?phase=')).length).toBe(4);
     expect(screen.getByTestId('gate-base-card')).toHaveTextContent('Example canvas');
-    expect(screen.getByTestId('canvas-thread-title')).toHaveTextContent('New version · Example canvas');
+    expect(screen.getByTestId('canvas-thread-title')).toHaveTextContent('Draft · Example canvas');
   });
 });
 
@@ -861,11 +861,11 @@ describe('v2: the thread header says what the thread makes', () => {
     expect(screen.queryByRole('heading', { name: 'Thread' })).not.toBeInTheDocument();
   });
 
-  it('an update is "New version · <Canvas title>", and the canvas title links to that canvas\'s page', async () => {
+  it('an update is "Draft · <Canvas title>", and the canvas title links to that canvas\'s page', async () => {
     state.draft = draftRow({ baseVersionId: 'ver-base', canvasName: 'hiring_plan_for_q1' });
     await renderThread();
     const title = await screen.findByTestId('canvas-thread-title');
-    expect(title.textContent).toBe('New version · Hiring plan for q1');
+    expect(title.textContent).toBe('Draft · Hiring plan for q1');
     expect(within(title).getByRole('link', { name: 'Hiring plan for q1' })).toHaveAttribute('href', '/p/test-user/canvas/hiring_plan_for_q1');
   });
 
@@ -874,7 +874,7 @@ describe('v2: the thread header says what the thread makes', () => {
     state.draft = draftRow({ baseVersionId: 'ver-base', canvasName: 'hiring_plan' });
     await renderThread();
     const title = await screen.findByTestId('canvas-thread-title');
-    expect(title.textContent).toBe('New version · Hiring plan');
+    expect(title.textContent).toBe('Draft · Hiring plan');
     expect(within(title).queryByRole('link')).not.toBeInTheDocument();
     cleanup();
     authorSlug = 'test-user';

@@ -5,11 +5,11 @@
  *  - the boxes' questions are the OWNER's, on the draft version only; the page carries no Publish (S3: its one spot is the workspace bar, p1536-canvas-workspace.test.tsx)
  *  - a draft has no Share, no Compare and no positions (spread rows, position buttons); a published version keeps all three
  *  - nothing published: readers read "<Name> hasn't published this canvas yet." (not a 404); the owner reads "Nothing published yet" and has no share control and no "Publish first" text
- *  - "New version" starts a canvas thread from the version on screen
+ *  - (Clone, W3, replaced "New version": its tests are p1536-w3-clone.test.tsx)
  * Each "only" has a control showing the same thing present where it should be.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup, fireEvent, within } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { PointWithUserPosition } from '@/app/types';
 import type { ChatContextValue } from '@/app/pages/chat/chat-state';
@@ -169,7 +169,7 @@ describe('Publish and the questions are the owner\'s, on the draft only', () => 
     expect(within(box).getByTestId('canvas-box-question')).toHaveTextContent(/^What do you keep doing even when it costs you\?$/); // the question alone, no "Question for you" label
     // an empty box with no question is a plain empty box
     expect(within(screen.getByTestId('canvas-box-canvas:metrics')).queryByTestId('canvas-box-question')).toBeNull();
-    expect(screen.queryByTestId('canvas-new-version')).toBeNull(); // not while looking at a draft
+    expect(screen.queryByTestId('canvas-clone')).toBeNull(); // not while looking at a draft (W3)
   });
 
   it('CONTROLS: a reader gets no Publish and no question, even from an answer that carried the draft block', async () => {
@@ -313,40 +313,6 @@ describe('nothing published', () => {
   });
 });
 
-describe('New version', () => {
-  const versionsRow = { id: 'ver-1', canvas_id: 'cv-1', canvas_name: 'canvas', name: V1_NAME, seq: 1, published_at: '2026-10-01T10:00:00Z', has_open_draft: false };
-  beforeEach(() => {
-    rpc.mockImplementation(async (name: string) => (name === 'list_my_canvas_versions' ? { data: [versionsRow], error: null } : { data: null, error: null }));
-  });
-
-  it('starts a draft from the version on screen, and goes to its workspace (W0: never the chat thread)', async () => {
-    getCanvas.mockResolvedValue(view());
-    page();
-    fireEvent.click(await screen.findByTestId('canvas-new-version'));
-    await waitFor(() => expect(startThread).toHaveBeenCalledWith('ver-1'));
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/p/ana/canvas/canvas?v=canvas_dnew&ws=1'));
-    expect(chatValue.refresh).toHaveBeenCalled(); // the chat list knows the thread before the page opens it
-  });
-
-  it('CONTROLS: not offered to a reader, not while drafting is off, not on the draft itself', async () => {
-    auth.viewerId = 'reader-1';
-    getCanvas.mockResolvedValue(view({ isOwner: false, via: { kind: 'event', id: 'e1', name: 'Mastermind', slug: 'mastermind' } }));
-    page();
-    await ready();
-    expect(screen.queryByTestId('canvas-new-version')).toBeNull();
-    cleanup();
-    auth.viewerId = 'owner-1';
-    resetCanvasAvailability();
-    invoke.mockResolvedValue({ data: { enabled: false }, error: null });
-    getCanvas.mockResolvedValue(view());
-    page();
-    await ready();
-    await waitFor(() => expect(invoke).toHaveBeenCalled());
-    expect(screen.queryByTestId('canvas-new-version')).toBeNull();
-    expect(startThread).not.toHaveBeenCalled();
-  });
-});
-
 describe('P955 gate fixture /tree/_gate/canvas-draft', () => {
   const at = (phase: string) => render(<MemoryRouter initialEntries={[`/tree/_gate/canvas-draft?phase=${phase}`]}><GateFixture /></MemoryRouter>);
   const primaries = () => Array.from(document.querySelectorAll('button')).filter(b => b.className.includes('bg-blue-600'));
@@ -440,12 +406,12 @@ describe('review B10: visual QA fixes', () => {
     expect(slot).not.toContain('max-sm:flex-1');
   });
 
-  it('D2: the gate fixture shows the "New version" pill on the owner\'s published canvas, and not on the reader\'s', async () => {
+  it('D2: the gate fixture shows the Clone pill on the owner\'s published canvas, and not on the reader\'s', async () => {
     render(<MemoryRouter initialEntries={['/tree/_gate/canvas-draft?phase=published-owner']}><GateFixture /></MemoryRouter>);
-    expect(await screen.findByTestId('canvas-new-version')).toHaveTextContent('New version');
+    expect(await screen.findByTestId('canvas-clone')).toHaveTextContent('Clone');
     cleanup();
     render(<MemoryRouter initialEntries={['/tree/_gate/canvas-draft?phase=published-reader']}><GateFixture /></MemoryRouter>);
     await screen.findByTestId('canvas-header-row');
-    expect(screen.queryByTestId('canvas-new-version')).toBeNull();
+    expect(screen.queryByTestId('canvas-clone')).toBeNull();
   });
 });
