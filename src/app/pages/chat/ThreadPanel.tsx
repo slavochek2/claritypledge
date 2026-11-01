@@ -56,7 +56,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   // P1536: a thread that starts with a canvas version is a canvas draft's thread (the draft is read from the database).
   const canvasRoot = summary.kind === 'mirror' && root?.attachmentKind === 'canvas_version';
   const ownerSlug = chat.authors[chat.userId]?.slug;
-  const canvas = useCanvasParts({ canvasRoot, rootId, messages: conv.server, userId: chat.userId, ownerSlug, mirrorTitle: summary.title });
+  const canvas = useCanvasParts({ canvasRoot, rootId, messages: conv.server, userId: chat.userId, ownerSlug, mirrorTitle: summary.title, openCanvasFrom: fill ? null : (root?.attachmentId ?? null) });
   // W0: outside the workspace (`fill`) a canvas thread is an old address; it resolves to the canvas, and is held back meanwhile.
   const retired = useRetiredCanvasThread({ enabled: !fill, canvasRoot, ownerSlug, address: canvas.address });
   const runActive = canvas.runActive;

@@ -538,7 +538,9 @@ describe('url state', () => {
     expect(loc('tab=canvases&list=shared')).toMatchObject({ tab: 'canvases', list: 'shared' });
     // a list that belongs to the other tab, or junk, falls back to the tab's default
     expect(loc('tab=letters&list=mine')).toMatchObject({ tab: 'letters', list: 'drafts' });
-    expect(loc('tab=canvases&list=drafts')).toMatchObject({ tab: 'canvases', list: 'mine' });
+    // W5: the Canvases tab has its own Drafts list (its address says `drafts`, like Letters); the Letters-only `received` still falls back
+    expect(loc('tab=canvases&list=drafts')).toMatchObject({ tab: 'canvases', list: 'canvas-drafts' });
+    expect(loc('tab=canvases&list=received')).toMatchObject({ tab: 'canvases', list: 'mine' });
     expect(loc('tab=nonsense&list=toString')).toMatchObject({ tab: 'letters', list: 'drafts', legacy: false });
   });
 

@@ -180,6 +180,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
       drafts: listState(['docs'], model.drafts),
       sent: listState(['sent'], model.sent),
       received: listState(['received'], model.received),
+      'canvas-drafts': listState(['openDrafts'], model['canvas-drafts'], ['myCanvases']),
       mine: listState(['myCanvases'], model.mine, ['openDrafts']),
       shared: listState(['sharedCanvases'], model.shared),
     },

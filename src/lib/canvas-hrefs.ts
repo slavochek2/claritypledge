@@ -7,6 +7,8 @@ import { canvasPath } from '@/lib/canvas-boxes';
 
 /** Artifacts > Canvases: where an owner lands when there is no canvas page to go to. */
 export const ARTIFACTS_CANVASES_MINE = '/artifacts?tab=canvases';
+/** Artifacts > Canvases > Drafts (W5): my canvases with an open draft. Where a never-published canvas lands once its draft is discarded (W6). */
+export const ARTIFACTS_CANVASES_DRAFTS = '/artifacts?tab=canvases&list=drafts';
 
 /** The workspace on a draft: the canvas page on the draft's version with the workspace marker (`ws=1`). Every segment is encoded. */
 export function workspaceHref(ownerSlug: string, canvasName: string, versionName: string | null): string {

@@ -3,7 +3,7 @@
  * @description P1545 WP3: the Artifacts page (route /artifacts), split by kind.
  *
  * Tabs Letters | Canvases (`?tab=letters|canvases`, default letters, replace history); inside Letters a filter
- * Drafts · Sent · Received (`&list=`, default drafts), inside Canvases Mine · Shared with me (default mine). One list
+ * Drafts · Sent · Received (`&list=`, default drafts), inside Canvases Drafts · Mine · Shared with me (default mine; P1536 W5). One list
  * at a time, title search across the current list. One row per item; the row body is not a link, its buttons act (a "…", a
  * secondary and a primary; see artifact-row-actions.tsx) and a sent row opens in place to show who it went to. Old `tab=yours|shared&type=` links are rewritten in place. The data and every rule live in
  * artifacts-view-model.ts and use-artifacts-data.ts; this file is layout and wiring.
@@ -34,6 +34,7 @@ import {
   TAB_LISTS,
   filterByQuery,
   listHasDot,
+  listParam,
   resolveArtifactsLocation,
   tabHasDot,
   type ArtifactList,
@@ -47,6 +48,7 @@ const LIST_LABEL: Record<ArtifactList, string> = {
   drafts: 'Drafts',
   sent: 'Sent',
   received: 'Received',
+  'canvas-drafts': 'Drafts',
   mine: 'Mine',
   shared: 'Shared with me',
 };
@@ -55,6 +57,7 @@ const LIST_NOUN: Record<ArtifactList, string> = {
   drafts: 'drafts',
   sent: 'sent letters',
   received: 'received letters',
+  'canvas-drafts': 'canvas drafts',
   mine: 'canvases',
   shared: 'canvases shared with me',
 };
@@ -121,7 +124,7 @@ function ArtifactsView({ userId, tab, list, userSlug, setParams }: ViewProps) {
         prev => {
           const params = new URLSearchParams(prev);
           params.set('tab', next.tab);
-          if (next.list && next.list !== DEFAULT_LIST[next.tab]) params.set('list', next.list);
+          if (next.list && next.list !== DEFAULT_LIST[next.tab]) params.set('list', listParam(next.list));
           else params.delete('list');
           return params;
         },
@@ -206,6 +209,7 @@ function ArtifactsView({ userId, tab, list, userSlug, setParams }: ViewProps) {
   const lists = useMemo<Record<ArtifactList, ListData>>(
     () => ({
       drafts: data.lists.drafts,
+      'canvas-drafts': data.lists['canvas-drafts'],
       sent: { ...data.lists.sent, rows: withOpened(data.lists.sent.rows) },
       received: { ...data.lists.received, rows: withOpened(data.lists.received.rows) },
       mine: data.lists.mine,
@@ -220,6 +224,7 @@ function ArtifactsView({ userId, tab, list, userSlug, setParams }: ViewProps) {
       drafts: lists.drafts.rows,
       sent: lists.sent.rows,
       received: lists.received.rows,
+      'canvas-drafts': lists['canvas-drafts'].rows,
       mine: lists.mine.rows,
       shared: lists.shared.rows,
     }),
@@ -415,6 +420,8 @@ function EmptyLine({
       return <p className={box}>No letters sent yet.</p>;
     case 'mine':
       return <p className={box}>No canvases here yet.</p>;
+    case 'canvas-drafts':
+      return <p className={box}>No canvas drafts.</p>;
     case 'drafts':
       return (
         <p className={box}>

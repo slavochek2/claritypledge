@@ -11,9 +11,6 @@ import { listMyCanvasVersions, sendCanvasWorkspaceMessage } from '@/app/data/can
 import { MAX_UPLOAD_BYTES } from '@/app/pages/chat/canvas-thread-copy';
 import { postFile } from '@/app/pages/chat/use-canvas-uploads';
 
-// [FOUNDER DECISION F1: spec J3 proposes this exact sentence as the chat's empty state on a published canvas.]
-export const WORKSPACE_EMPTY_TEXT = 'Talk about any box. Nothing changes for readers until you publish.';
-
 /** The client id of each first Send still unresolved, by what it says (canvas, version, text or file). */
 const unresolved = new Map<string, string>();
 /** Runs whose file this page already delivered: a replay (the first response was lost) posts the bytes only when they are not in yet. */

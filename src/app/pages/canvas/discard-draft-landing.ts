@@ -1,17 +1,14 @@
 /**
  * @file discard-draft-landing.ts
  * @description P1536 W6: where the workspace goes after the owner's draft is discarded. A draft from vN returns the page to vN
- * (the published view: no ws=1). A canvas that was never published has no published view: it lands on Artifacts > Canvases.
+ * (the published view: no ws=1). A canvas that was never published has no published view: it lands on Artifacts > Canvases > Drafts.
  * Pure.
  */
-import { ARTIFACTS_CANVASES_MINE, newestPublishedHref, publishedViewHref } from '@/lib/canvas-hrefs';
+import { ARTIFACTS_CANVASES_DRAFTS, newestPublishedHref, publishedViewHref } from '@/lib/canvas-hrefs';
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 
-/**
- * [NOTE for W5] Artifacts > Canvases has no Drafts tab yet, so a never-published canvas lands on the canvases path (the Mine list).
- * When W5 adds the tabs, this one constant becomes the Drafts target.
- */
-export const NEVER_PUBLISHED_TARGET = ARTIFACTS_CANVASES_MINE;
+/** W6: a never-published canvas has no published view; it lands on Artifacts > Canvases > Drafts. */
+export const NEVER_PUBLISHED_TARGET = ARTIFACTS_CANVASES_DRAFTS;
 
 export function discardLanding(args: { ownerSlug: string; canvasName: string; ready: Pick<CanvasReady, 'versions' | 'draft'> }): { href: string; published: boolean } {
   const { ownerSlug, canvasName, ready } = args;

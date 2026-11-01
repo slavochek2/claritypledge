@@ -5,7 +5,7 @@
  *  - an open draft: that draft's thread in the owner's mirror chat. When the page shows ANOTHER version than the draft (the owner is
  *    looking at v2 while a v3 draft is open), a line above the thread says the chat edits the draft and offers "Go to draft"; a
  *    run that starts moves the page there (J4: the chat edits the open draft, §2: Publish and Updating… follow the draft);
- *  - no open draft on a published canvas (J3), or a Clone pending (W3): the empty state and a live composer, with Upload. Nothing is
+ *  - a Clone pending (W3; `ws=1` on a published version with no open draft IS one, however it was entered): the Clone line and a live composer, with Upload. Nothing is
  *    written until the first Send, which opens the next draft from the version on screen; the page then moves to it and its thread
  *    shows here. A Clone started over another base's draft (J4 "Start over") passes that draft, and the Send discards it;
  *  - the open draft's header carries Discard (W6), never in the pending state (× cancels there);
@@ -28,7 +28,7 @@ import { DiscardDraftButton } from './discard-draft-button';
 import type { ClonePending } from './use-clone-canvas';
 import { DRAFT_ERROR_TEXT } from '@/app/pages/chat/canvas-thread-copy';
 import { resetCanvasAvailability, useCanvasDraftAvailability } from '@/app/pages/chat/use-canvas-availability';
-import { WORKSPACE_EMPTY_TEXT, openNextDraft, type NextDraftResult } from './workspace-next-draft';
+import { openNextDraft, type NextDraftResult } from './workspace-next-draft';
 
 // [FOUNDER DECISION: the two strings of the draft line shown when the page is on another version than the open draft.]
 export const DRAFT_LINE_TEXT = 'This chat edits your draft.';
@@ -71,7 +71,7 @@ function failureText(r: NextDraftResult): string | null {
 
 function EmptyChatBody({ ready, projectTag, focusable, onOpened, onRunActive, onRetry, cloning, onStale, onClose }: {
   ready: CanvasReady; projectTag: string; focusable: boolean; onOpened: (versionName: string) => void; onRunActive: (active: boolean) => void; onRetry: () => void;
-  cloning: ClonePending | null; onStale: () => void; onClose: () => void;
+  cloning: ClonePending; onStale: () => void; onClose: () => void;
 }) {
   const { user } = useAuth();
   const on = useCanvasDraftAvailability(true);
@@ -86,7 +86,7 @@ function EmptyChatBody({ ready, projectTag, focusable, onOpened, onRunActive, on
   const run = async (args: { body?: string; file?: File }): Promise<boolean> => {
     setSending(true);
     try {
-      const r = await openNextDraft({ projectTag, version: ready.version, replace: cloning?.replace ? { draftId: cloning.replace.id, revision: cloning.replace.revision } : null, ...args });
+      const r = await openNextDraft({ projectTag, version: ready.version, replace: cloning.replace ? { draftId: cloning.replace.id, revision: cloning.replace.revision } : null, ...args });
       if (r.ok) onOpened(r.versionName);
       else if (r.why === 'stale_view') onStale(); // the draft being replaced moved on: the sheet asks again, the text stays in the composer
       else toast.error(failureText(r));
@@ -105,7 +105,7 @@ function EmptyChatBody({ ready, projectTag, focusable, onOpened, onRunActive, on
         <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
       </ThreadHeader>
       <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-center" data-testid="workspace-chat-empty">
-        <p className="text-sm text-muted-foreground">{cloning ? cloneLine(cloning.seq) : WORKSPACE_EMPTY_TEXT}</p>
+        <p className="text-sm text-muted-foreground">{cloneLine(cloning.seq)}</p>
       </div>
       <Composer
         draftKey={`${user.id}:workspace:${projectTag}`}
@@ -119,7 +119,7 @@ function EmptyChatBody({ ready, projectTag, focusable, onOpened, onRunActive, on
   );
 }
 
-function EmptyChat(props: { ready: CanvasReady; projectTag: string; focusable: boolean; onOpened: (versionName: string) => void; onRunActive: (active: boolean) => void; cloning: ClonePending | null; onStale: () => void; onClose: () => void }) {
+function EmptyChat(props: { ready: CanvasReady; projectTag: string; focusable: boolean; onOpened: (versionName: string) => void; onRunActive: (active: boolean) => void; cloning: ClonePending; onStale: () => void; onClose: () => void }) {
   const [attempt, setAttempt] = useState(0);
   // Retry asks the server again (a failed availability check is not remembered as "off").
   return <EmptyChatBody key={attempt} {...props} onRetry={() => { resetCanvasAvailability(); setAttempt(n => n + 1); }} />;
@@ -164,7 +164,7 @@ export function WorkspaceChat({ mirror, ready, projectTag, focusable, onClose, o
         </div>
       );
     }
-    return <EmptyChat ready={ready} projectTag={projectTag} focusable={focusable} onOpened={onOpened} onRunActive={onRunActive} cloning={null} onStale={onStale} onClose={onClose} />;
+    return <EmptyChat ready={ready} projectTag={projectTag} focusable={focusable} onOpened={onOpened} onRunActive={onRunActive} cloning={{ version: ready.version ?? '', seq: ready.versions.find(v => v.name === ready.version)?.seq ?? null, replace: null }} onStale={onStale} onClose={onClose} />;
   }
   if (draft.conversationId !== mirror.conversationId) return <Unavailable text={DRAFT_ERROR_TEXT.NOT_AVAILABLE} onRetry={() => { void chat?.refresh().catch(() => undefined); onReload?.(); setAttempt(n => n + 1); }} />;
   return (

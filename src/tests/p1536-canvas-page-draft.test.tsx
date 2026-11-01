@@ -143,11 +143,12 @@ describe('labels: a version is a number and a date, or "v{next} · Draft", never
     expect(shownText()).not.toContain(V1_NAME);
   });
 
-  it('a lone draft is badged "v1 · Draft" (a first canvas) beside the canvas name', async () => {
+  it('a lone draft is badged "v1" with the state tag "Draft" beside it (a first canvas, W4)', async () => {
     getCanvas.mockResolvedValue(draftView());
     page();
     await ready();
-    expect(screen.getByTestId('canvas-version-label')).toHaveTextContent(/^v1 · Draft$/);
+    expect(screen.getByTestId('canvas-version-label')).toHaveTextContent(/^v1$/); // W4: the state is its own tag, so the version label carries only the number
+    expect(screen.getByTestId('canvas-state')).toHaveTextContent(/^Draft$/);
     expect(shownText()).not.toContain(DRAFT_NAME);
   });
 });

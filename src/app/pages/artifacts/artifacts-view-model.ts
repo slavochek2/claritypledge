@@ -7,7 +7,7 @@
  * Kept free of React and of the services so each rule is a plain function a unit test can pin.
  *
  * Rules (spec "Resolved Decisions", "Spec review amendments" and "Split by kind"):
- *  - Tabs by kind: Letters (Drafts, Sent, Received) and Canvases (Mine, Shared with me). One list at a time.
+ *  - Tabs by kind: Letters (Drafts, Sent, Received) and Canvases (Drafts, Mine, Shared with me). One list at a time.
  *  - Inbox rows about activity on YOUR letters (completed, reading, responded) never become rows and
  *    never count as unread; they join onto the matching sent letter's "N of M done". What is NEW on a sent
  *    letter comes from its deliveries (started or finished, still unread), never from the capped inbox.
@@ -26,17 +26,9 @@ import { draftLabel } from '@/app/pages/chat/canvas-thread-copy';
 import { workspaceHref } from '@/lib/canvas-hrefs';
 import type { ClarityDoc, ClarityLetter, InboxItem, LetterDelivery } from '@/app/types';
 
-export type ArtifactTab = 'letters' | 'canvases';
-export type ArtifactList = 'drafts' | 'sent' | 'received' | 'mine' | 'shared';
-
-export const ARTIFACT_TABS: readonly ArtifactTab[] = ['letters', 'canvases'];
-/** The lists of each tab, in the order the filter shows them; the first is the default. */
-export const TAB_LISTS: Record<ArtifactTab, readonly ArtifactList[]> = {
-  letters: ['drafts', 'sent', 'received'],
-  canvases: ['mine', 'shared'],
-};
-
-export const DEFAULT_LIST: Record<ArtifactTab, ArtifactList> = { letters: 'drafts', canvases: 'mine' };
+import { TAB_LISTS, type ArtifactList, type ArtifactTab } from './artifacts-location';
+export { ARTIFACT_TABS, DEFAULT_LIST, TAB_LISTS, listParam, resolveArtifactsLocation } from './artifacts-location';
+export type { ArtifactList, ArtifactTab, ArtifactsLocation } from './artifacts-location';
 
 export type ArtifactState = 'draft' | 'sent' | 'canvas' | 'received-letter' | 'received-canvas';
 
@@ -55,6 +47,8 @@ export interface ArtifactRow {
   unread: boolean;
   /** A sent letter with new activity from a recipient: lights the Sent chip, never a row dot. */
   hasNew: boolean;
+  /** A short mark after the title line (W5: "Draft open" on a Mine row whose canvas has an open draft). */
+  badge?: string;
   /** Where a tap goes: the item's existing page. Null when it cannot be built (no handle yet). */
   href: string | null;
   /** Newest first within a list. */
@@ -322,27 +316,54 @@ export function draftCanvasHref(userSlug: string, canvasName: string, draft: { v
   return workspaceHref(userSlug, canvasName, draft.versionName);
 }
 
+/** An open draft is its canvas's only version (nothing published yet): the canvas belongs to Drafts alone. */
+export const isDraftOnly = (draft: OpenCanvasDraft | undefined): boolean => draft?.nextSeq === 1;
+
+const draftRef = (draft: OpenCanvasDraft, only: boolean) =>
+  ({ id: draft.draftId, versionName: draft.versionName, conversationId: draft.conversationId, threadRootId: draft.threadRootId, only, revision: draft.revision });
+
+export const DRAFT_OPEN_BADGE = 'Draft open';
+
+/** W5 Mine: a canvas with at least one published version. Opens the newest published version; a "Draft open" badge when a draft exists. */
 export function ownCanvasRow(c: MyCanvasRow, userSlug: string | null, draft?: OpenCanvasDraft): ArtifactRow {
-  // A canvas never published shows only "Nothing published yet" at its plain address: its row opens the draft instead.
-  const only = draft?.nextSeq === 1;
   return {
     key: `canvas:${c.name}`,
     kind: 'canvas',
     list: 'mine',
     state: 'canvas',
     title: canvasTitle(c.name),
-    meta: draft ? canvasDraftMeta(draft, c.lastEdit) : canvasMeta(c.lastEdit),
+    meta: canvasMeta(c.lastEdit),
+    ...(draft ? { badge: DRAFT_OPEN_BADGE } : {}),
     visibility: c.generalAccess === 'link' ? 'public' : 'private',
     unread: false,
     hasNew: false,
-    href: !userSlug ? null : only && draft ? draftCanvasHref(userSlug, c.name, draft) : canvasPath(userSlug, c.name),
+    href: userSlug ? canvasPath(userSlug, c.name) : null,
     sortAt: ms(c.lastEdit),
     ref: {
       canvasName: c.name,
       generalAccess: c.generalAccess,
       hasAudience: c.hasAudience,
-      draft: draft && { id: draft.draftId, versionName: draft.versionName, conversationId: draft.conversationId, threadRootId: draft.threadRootId, only, revision: draft.revision },
+      draft: draft && draftRef(draft, false),
     },
+  };
+}
+
+
+/** W5 Drafts: a canvas with an open draft. Opens the workspace on that draft (`?ws=1`). `c` is the canvas's row when the owner's list has it. */
+export function canvasDraftRow(draft: OpenCanvasDraft, c: MyCanvasRow | undefined, userSlug: string | null): ArtifactRow {
+  return {
+    key: `canvas-draft:${draft.canvasName}`,
+    kind: 'canvas',
+    list: 'canvas-drafts',
+    state: 'canvas',
+    title: canvasTitle(draft.canvasName),
+    meta: canvasDraftMeta(draft, c?.lastEdit ?? null),
+    visibility: c?.generalAccess === 'link' ? 'public' : 'private',
+    unread: false,
+    hasNew: false,
+    href: userSlug ? draftCanvasHref(userSlug, draft.canvasName, draft) : null,
+    sortAt: ms(c?.lastEdit),
+    ref: { canvasName: draft.canvasName, draft: draftRef(draft, isDraftOnly(draft)) },
   };
 }
 
@@ -420,7 +441,12 @@ export function buildArtifacts(src: ArtifactsSource): ArtifactsModel {
       .map(l => sentRow(l, src.deliveriesByLetter[l.id] ?? [], replied[l.id] ?? 0, src.newByDelivery, activity, src.userId ?? null))
       .sort((a, b) => Number(b.hasNew) - Number(a.hasNew) || newestFirst(a, b)),
     received: receivedInboxItems(src.inbox).map(i => receivedLetterRow(i, src.userSlug)).sort(newestFirst),
-    mine: src.myCanvases.map(c => ownCanvasRow(c, src.userSlug, src.openDrafts?.find(d => d.canvasName === c.name))).sort(newestFirst),
+    // W5: a canvas belongs to Mine with at least one published version, and to Drafts with an open draft; with neither, to no list.
+    'canvas-drafts': (src.openDrafts ?? []).map(d => canvasDraftRow(d, src.myCanvases.find(c => c.name === d.canvasName), src.userSlug)).sort(newestFirst),
+    mine: src.myCanvases
+      .filter(c => !isDraftOnly(src.openDrafts?.find(d => d.canvasName === c.name)))
+      .map(c => ownCanvasRow(c, src.userSlug, src.openDrafts?.find(d => d.canvasName === c.name)))
+      .sort(newestFirst),
     shared: src.sharedCanvases.map(c => receivedCanvasRow(c, src.userId ?? null)).sort(newestFirst),
   };
 }
@@ -449,54 +475,4 @@ export function listHasDot(list: ArtifactList, rows: ArtifactRow[], openedKeys: 
 /** A tab carries a dot when one of its lists does. */
 export function tabHasDot(tab: ArtifactTab, model: ArtifactsModel, openedKeys: ReadonlySet<string> = new Set()): boolean {
   return TAB_LISTS[tab].some(list => listHasDot(list, model[list], openedKeys));
-}
-
-// ---------------------------------------------------------------------------------------------
-// URL state
-// ---------------------------------------------------------------------------------------------
-
-export interface ArtifactsLocation {
-  tab: ArtifactTab;
-  list: ArtifactList;
-  /** The URL used the old `tab=yours|shared` / `type=` scheme: the page rewrites it to `canonical`, replacing history. */
-  legacy: boolean;
-  /** The same URL in the current scheme (unrelated params kept). */
-  canonical: URLSearchParams;
-}
-
-function parseTab(raw: string | null): ArtifactTab {
-  return raw === 'canvases' ? 'canvases' : 'letters';
-}
-
-function parseList(tab: ArtifactTab, raw: string | null): ArtifactList {
-  const lists = TAB_LISTS[tab];
-  return lists.find(l => l === raw) ?? DEFAULT_LIST[tab];
-}
-
-/**
- * Reads the tab and list from the URL: `?tab=letters|canvases` (default letters) and `&list=` (default: the tab's first).
- * Old links keep working: `tab=yours` is Drafts (Mine with `type=canvases`), `tab=shared` is Received (Shared with me
- * with `type=canvases`), and a bare `type=` follows the old default tab, yours.
- */
-export function resolveArtifactsLocation(params: URLSearchParams): ArtifactsLocation {
-  const rawTab = params.get('tab');
-  const type = params.get('type');
-  const legacy = rawTab === 'yours' || rawTab === 'shared' || (rawTab === null && type !== null);
-  let tab: ArtifactTab;
-  let list: ArtifactList;
-  if (legacy) {
-    tab = type === 'canvases' ? 'canvases' : 'letters';
-    const incoming = rawTab === 'shared';
-    list = tab === 'canvases' ? (incoming ? 'shared' : 'mine') : (incoming ? 'received' : 'drafts');
-  } else {
-    tab = parseTab(rawTab);
-    list = parseList(tab, params.get('list'));
-  }
-  const canonical = new URLSearchParams(params);
-  if (legacy) {
-    canonical.set('tab', tab);
-    canonical.set('list', list);
-    canonical.delete('type');
-  }
-  return { tab, list, legacy, canonical };
 }

@@ -154,7 +154,7 @@ describe('Artifacts page: split by kind', () => {
     expect(screen.queryByRole('button', { name: /^(open|edit|results)/i })).toBeNull();
   });
 
-  it('shows each list on its own: Sent, Received, then Canvases Mine and Shared with me', async () => {
+  it('shows each list on its own: Sent, Received, then Canvases Drafts, Mine and Shared with me', async () => {
     renderPage('/artifacts?tab=letters&list=sent');
     await screen.findByText('Hello Tom');
     expect(titles()).toEqual(['Hello Tom']);
@@ -170,7 +170,7 @@ describe('Artifacts page: split by kind', () => {
     await screen.findByText('Sales map');
     expect(titles()).toEqual(['Sales map']);
     expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['Edited 3d ago']);
-    expect(screen.getByRole('group', { name: 'Canvases lists' }).querySelectorAll('button')).toHaveLength(2);
+    expect(screen.getByRole('group', { name: 'Canvases lists' }).querySelectorAll('button')).toHaveLength(3); // W5: Drafts, Mine, Shared with me
     expect(chip('Mine')).toHaveAttribute('aria-pressed', 'true');
     cleanup();
     renderPage('/artifacts?tab=canvases&list=shared');

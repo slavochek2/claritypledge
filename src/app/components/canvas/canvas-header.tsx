@@ -18,7 +18,7 @@ import { ComparePicker } from './canvas-compare-picker';
 import { CloneButton } from './canvas-clone-button';
 import { useCanvasWorkspace } from './canvas-workspace-context';
 import { VersionSwitcher } from './canvas-version-switcher';
-import { isViewingDraft, openVersionLabel, type CanvasPerson, type CanvasReady } from './canvas-page-data';
+import { isViewingDraft, nextSeqOf, type CanvasPerson, type CanvasReady } from './canvas-page-data';
 
 interface CanvasHeaderProps {
   /** null while loading */
@@ -80,10 +80,8 @@ export function CanvasHeader(props: CanvasHeaderProps) {
             !failed && <CanvasOwnerSkeleton />
           )}
           {ready && <VersionSlot ready={ready} viewingDraft={viewingDraft} onPick={v => onParams({ v, point: null, box: null }, true, false)} />}
-          {/* W3: a pending Clone names what it will make; nothing is written yet. */}
-          {ready && cloneSeq !== null && !viewingDraft && (
-            <span className="shrink-0 text-sm font-medium text-foreground/70" data-testid="canvas-clone-state">New draft from v{cloneSeq}</span>
-          )}
+          {/* W4: Draft or Published is always named next to the version; a pending Clone (W3) names what it will make. */}
+          {ready && <CanvasStateTag ready={ready} viewingDraft={viewingDraft} cloneSeq={cloneSeq} />}
         </div>
         {/* P1515: Share sits immediately right of Compare, in a row of its own under the byline. */}
         {ready && !isViewingDraft(ready) && (
@@ -132,19 +130,30 @@ function CanvasHeaderActions({ ready, handle, projectTag, compare, onCompare, on
   );
 }
 
-/** Which version: the menu when the canvas has several; a lone draft says "v1 · Draft" (its number); a lone published version needs no label
+/** Which version: the menu when the canvas has several; a lone draft says "v1" (its number; the state tag beside it says Draft); a lone published version needs no label
  *  (the title above is the canvas). Founder, 2026-10-27: one fact once, no repeated text. */
 function VersionSlot({ ready, viewingDraft, onPick }: { ready: CanvasReady; viewingDraft: boolean; onPick: (version: string) => void }) {
-  if (ready.versions.length < 2 && !viewingDraft) return null;
+  // S3b.9: access is by ownership. Anyone but the owner lists published versions only (the server already withholds a draft from them).
+  const versions = ready.isOwner ? ready.versions : ready.versions.filter(v => !v.draft);
+  if (versions.length < 2 && !viewingDraft) return null;
   return (
     // A lone "Draft" label keeps its own width on a phone, so the owner's name gets the rest of the row; the version menu shares it.
     <span className="flex min-w-0 max-w-full items-center gap-2 max-sm:flex-none" data-testid="canvas-project-slot">
       <span aria-hidden className="hidden shrink-0 text-foreground/40 sm:inline">·</span>
-      {ready.versions.length >= 2
-        ? <VersionSwitcher versions={ready.versions} open={ready.version ?? ready.versions[0]?.name ?? ''} onPick={onPick} />
-        : <span className="shrink-0 text-sm font-medium text-foreground/70" data-testid="canvas-version-label">{openVersionLabel(ready) ?? 'Draft'}</span>}
+      {versions.length >= 2
+        ? <VersionSwitcher versions={versions} open={ready.version ?? versions[0]?.name ?? ''} onPick={onPick} />
+        : <span className="shrink-0 text-sm font-medium text-foreground/70" data-testid="canvas-version-label">v{nextSeqOf(ready.versions)}</span>}
     </span>
   );
+}
+
+/** W4: the state of what is on screen, in words: `Draft`, `Published`, or (a pending Clone, nothing written yet) `New draft from vN`. */
+function CanvasStateTag({ ready, viewingDraft, cloneSeq }: { ready: CanvasReady; viewingDraft: boolean; cloneSeq: number | null }) {
+  const tag = 'shrink-0 text-sm font-medium text-foreground/70';
+  if (viewingDraft) return <span className={tag} data-testid="canvas-state">Draft</span>;
+  if (cloneSeq !== null) return <span className={tag} data-testid="canvas-clone-state">New draft from v{cloneSeq}</span>;
+  if (ready.publishedNone) return null;
+  return <span className={tag} data-testid="canvas-state">Published</span>;
 }
 
 /** A reader of an unpublished canvas, shared by the owner as a person: the "nothing published" line already names them. */

@@ -359,13 +359,15 @@ describe('S3.3: the Publish spot', () => {
     ['publish', () => undefined, 'publish', null],
     ['updating', () => { st.run = { ...doneRun, state: 'running', createdAt: new Date().toISOString(), startedAt: new Date().toISOString() }; }, 'updating', 'Updating…'],
     ['no-changes', () => { getCanvas.mockResolvedValue(draftView({ draft: { ...draftBlock, changedBoxes: [] } })); }, 'no-changes', 'No changes yet'],
-    ['published', () => { getCanvas.mockResolvedValue(publishedView()); st.draft = null; }, 'published', 'Published · v1'],
+    // W1/§3b item 0: `ws=1` on a published version with no draft IS the pending Clone ("No changes yet"); a published view with nothing
+    // being edited has no bar, so "Published · vN" is not reachable on the route (the pure state stays covered by the gate fixture test).
+    ['pending-clone', () => { getCanvas.mockResolvedValue(publishedView()); st.draft = null; }, 'no-changes', 'No changes yet'],
     ['not-published', () => { getCanvas.mockResolvedValue(draftView({ points: [], versions: [draftVersion], publishedNone: true, draft: { ...draftBlock, baseSeq: null, runCount: 0 } })); }, 'not-published', 'Not published yet'],
   ];
 
   it.each(STATES)('%s: one box, a <button> only in the Publish state, never disabled', async (_name, arrange, state, text) => {
     arrange();
-    mount(_name === 'published' ? '/p/ana/canvas/canvas?ws=1' : undefined);
+    mount(_name === 'pending-clone' ? '/p/ana/canvas/canvas?ws=1' : undefined);
     await screen.findByTestId('canvas-grid');
     await waitFor(() => expect(spotState()).toBe(state));
     const spot = screen.getByTestId('publish-spot');
@@ -533,7 +535,7 @@ describe('review G1: the hidden chat pane takes no focus', () => {
   });
 });
 
-describe('review G2: a published canvas with no open draft (J3)', () => {
+describe('review G2: a published canvas with no open draft (J3), now the one pending state (W1)', () => {
   const published = '/p/ana/canvas/canvas?ws=1';
   const sent = { status: 'ok', run_id: 'run-9', revision: 1, draft_id: 'draft-9', canvas_id: 'cv-1', canvas_name: 'canvas', version_name: DRAFT_NAME, thread_root_id: ROOT, conversation_id: CONV, message_id: 'msg-9', replayed: false };
   beforeEach(() => {
@@ -545,11 +547,12 @@ describe('review G2: a published canvas with no open draft (J3)', () => {
   it('shows the empty state and a live composer, and writes NOTHING until the first Send', async () => {
     mount(published);
     await screen.findByTestId('canvas-grid');
-    expect(await screen.findByText('Talk about any box. Nothing changes for readers until you publish.')).toBeInTheDocument();
+    // W1/W3: the old J3 words are gone; a bare ws=1 here is the pending Clone and reads as one.
+    expect(await screen.findByText('Clone v1. Nothing changes for readers until you publish.')).toBeInTheDocument();
     chooseView('chat');
     expect(await within(screen.getByTestId('workspace-chat-pane')).findByTestId('composer')).toBeInTheDocument();
     expect(rpc.mock.calls.filter(c => c[0] === 'canvas_workspace_send')).toEqual([]);
-    expect(spotState()).toBe('published');
+    expect(spotState()).toBe('no-changes');
   });
 
   it('the first Send opens the next draft from the version on screen in ONE call, then the page moves to that draft and its thread shows', async () => {
@@ -858,12 +861,12 @@ describe('round 2 C3/G1/G2/G4: the empty chat is a drawn state, with Upload, no 
     await screen.findByTestId('canvas-grid');
     chooseView('chat');
     const box = await screen.findByTestId('composer');
-    expect(spotState()).toBe('published');
+    expect(spotState()).toBe('no-changes'); // W1: ws=1 with no draft is the pending Clone
     fireEvent.change(within(box).getByRole('textbox'), { target: { value: 'go' } });
     fireEvent.click(within(box).getByRole('button', { name: 'Send' }));
     await waitFor(() => expect(spotState()).toBe('updating'));
     await act(async () => finish({ data: { status: 'refused', code: 'busy', revision: 0 }, error: null }));
-    await waitFor(() => expect(spotState()).toBe('published'));
+    await waitFor(() => expect(spotState()).toBe('no-changes'));
     fireEvent.change(within(box).getByRole('textbox'), { target: { value: '' } });
   });
 

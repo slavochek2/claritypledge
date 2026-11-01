@@ -9,7 +9,7 @@
  *   sent             + Add recipient · … (Copy link when public, Preview, Delete letter)
  *   received         Open
  *   own canvas       Share · … (Open draft and Discard draft while a draft is open, Copy link)
- *   own canvas, never published (only a draft)   Open · … (Discard draft)
+ *   own canvas in Drafts (an open draft)   Open · … (Discard draft)
  *   shared canvas    Open
  *
  * A control that is not possible right now stays focusable and clickable (aria-disabled, muted): hover or focus shows
@@ -322,8 +322,8 @@ export function ArtifactRowActions({ row, userSlug, onChanged, onOpen }: Props) 
       main = <OpenAction href={row.href} label={name('Open')} onOpen={onOpen} />;
       break;
     case 'canvas':
-      if (ref.draft?.only) {
-        // Never published (P1536): nothing to share or link to yet. The row opens the draft; "…" can discard it.
+      if (row.list === 'canvas-drafts') {
+        // W5 Drafts: the row opens the draft in the workspace; "…" can discard it. Nothing to share or link to from here.
         menu = draftMenu.discard;
         main = <OpenAction href={row.href} label={name('Open')} onOpen={onOpen} />;
         break;

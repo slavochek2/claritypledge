@@ -48,16 +48,13 @@ export function useCloneCanvas(args: {
   const checking = useRef(false);
 
   const editingPublished = active && !!ready && ready.isOwner && !isViewingDraft(ready) && !ready.publishedNone && !!ready.version;
-  // Pending = a Clone was tapped (this session) and the owner is still on that published version. A bare `ws=1` on a published
-  // view (a reload, or Add to chat) is the J3 state instead: same empty thread, but its own words and a "Published" spot.
-  // Pending = a Clone was tapped (this session) and the owner is still on that published version. A bare `ws=1` on a published
-  // view (a reload, or Add to chat) is the J3 state instead: same empty thread, but its own words and a "Published" spot.
-  const pending = useMemo<ClonePending | null>(
-    () => (editingPublished && ready && ready.version && intent?.version === ready.version
-      ? { version: ready.version, seq: seqOf(ready), replace: intent.replace }
-      : null),
-    [editingPublished, ready, intent],
-  );
+  // W1/W3: ONE pending state. `ws=1` on a published version with no open draft IS the pending Clone, whatever entered it (the Clone
+  // tap, a reload, Add to chat). With another base's draft open it is pending only when Clone was tapped here (`intent`, J4).
+  const pending = useMemo<ClonePending | null>(() => {
+    if (!editingPublished || !ready || !ready.version) return null;
+    if (intent?.version === ready.version) return { version: ready.version, seq: seqOf(ready), replace: intent.replace };
+    return ready.draft ? null : { version: ready.version, seq: seqOf(ready), replace: null };
+  }, [editingPublished, ready, intent]);
 
   const setMarker = useCallback((on: boolean) => {
     setParams(prev => {
@@ -103,6 +100,12 @@ export function useCloneCanvas(args: {
       }
     })();
   }, [ready, enter, openDraft]);
+
+  // An implicit pending (a reload, Add to chat) is remembered like a tapped one, so switching away cancels it the same way.
+  const implicitVersion = editingPublished && ready && !ready.draft && !intent ? ready.version : null;
+  useEffect(() => {
+    if (implicitVersion) setIntent({ version: implicitVersion, replace: null });
+  }, [implicitVersion]);
 
   // Switching to another version while a Clone is pending cancels it (a draft's own view keeps the workspace).
   const readVersion = ready?.version ?? null;

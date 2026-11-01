@@ -11,10 +11,14 @@ import { canvasRetryTrailing } from './canvas-retry-trailing';
 import { CanvasThreadOpener } from './CanvasOpener';
 import { CanvasThreadTitle } from './CanvasThreadHeader';
 import { CanvasUploadButton } from './CanvasUploadButton';
+import { findPublishReply } from './canvas-publish-reply';
+import { PublishReplyOpen } from './PublishReplyOpen';
 import { useCanvasPane } from './use-canvas-pane';
 import type { CanvasThreadStatus } from './use-canvas-thread';
 
-export function useCanvasParts(args: { canvasRoot: boolean; rootId: string; messages: ChatMessage[]; userId: string; ownerSlug: string | null | undefined; mirrorTitle: string | null | undefined }): {
+export function useCanvasParts(args: { canvasRoot: boolean; rootId: string; messages: ChatMessage[]; userId: string; ownerSlug: string | null | undefined; mirrorTitle: string | null | undefined;
+  /** W4: the root's canvas version, outside the canvas workspace only (its Publish reply carries "Open canvas"; the workspace's panel has no Open). */
+  openCanvasFrom?: string | null }): {
   headerTitle: ReactNode;
   list: { lead: ReactNode; leadAfterId: string | null; hideId: string | null };
   /** The first read's state (loading, failed) under the list; nothing otherwise. */
@@ -43,11 +47,17 @@ export function useCanvasParts(args: { canvasRoot: boolean; rootId: string; mess
     readState: canvasOn === true ? <CanvasThreadReadState status={pane.read.status} onRetry={pane.read.retry} /> : null,
     /** The composer's Upload button, while the draft takes files. */
     leading: live?.draft.state === 'open' ? <CanvasUploadButton busy={uploader.busy} onPick={(f) => void uploader.upload(f)} /> : undefined,
-    trailing: canvasRetryTrailing(live, args),
+    trailing: canvasRetryTrailing(live, args) ?? publishReplyOpen(args),
     /** A run is going, or a file is being added (D15: Publish waits): the workspace's Publish spot reads "Updating…" meanwhile. */
     runActive: !!live && (live.running || uploader.busy),
     /** Sends a text message into the open draft (message + run in one call); null: the chat's own send is used. */
     send: pane.onSend,
     address: { canvasOn, status: pane.read.status, draft: canvas?.draft ?? null },
   };
+}
+
+/** W4: "Open canvas" under the Publish reply of a canvas thread shown outside the workspace. */
+function publishReplyOpen(args: { canvasRoot: boolean; messages: ChatMessage[]; userId: string; openCanvasFrom?: string | null }): { afterId: string; node: ReactNode } | null {
+  const reply = args.canvasRoot && args.openCanvasFrom ? findPublishReply(args.messages) : null;
+  return reply && args.openCanvasFrom ? { afterId: reply.id, node: <PublishReplyOpen versionId={args.openCanvasFrom} viewerId={args.userId} /> } : null;
 }

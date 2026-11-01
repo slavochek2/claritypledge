@@ -2,8 +2,8 @@
  * P1536 v3 on the Artifacts page:
  *  - "New canvas" is on the Canvases tab only (and only with the chat mounted and canvas drafting on); it starts a canvas
  *    thread through the chat's own useStartCanvas
- *  - a canvas with an open draft says "v3 · Draft" in its meta, and its "…" offers Open draft (the draft's thread in the
- *    mirror chat) and Discard draft (a confirm first, then the checked discard, then the list reloads)
+ *  - a canvas with an open draft carries a "Draft open" badge in Mine (W5) and says "v3 · Draft" in its meta on the Drafts tab;
+ *    its "…" offers Open draft (the draft canvas, W1) and Discard draft (a confirm first, then the checked discard, then the list reloads)
  * Each "only" has a control showing the same thing present where it should be.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -72,6 +72,7 @@ function renderPage(url: string, chat = true) {
     </MemoryRouter>,
   );
 }
+const badgeShown = () => waitFor(() => expect(screen.getByTestId('artifact-badge')).toHaveTextContent('Draft open'));
 const openMenu = async (u: ReturnType<typeof userEvent.setup>, title: string) =>
   u.click(await screen.findByRole('button', { name: `Actions for ${title}` }));
 const menuLabels = () => screen.getAllByRole('menuitem').map(m => m.firstElementChild?.textContent ?? m.textContent);
@@ -145,20 +146,23 @@ describe('New canvas', () => {
 });
 
 describe('a canvas with an open draft', () => {
-  it('says "v3 · Draft" in its meta (before the edit time); a canvas without a draft is unchanged', async () => {
+  it('W5: Mine says "Edited 3d ago" with a "Draft open" badge on that row only; the Drafts tab says "v3 · Draft" in its meta', async () => {
     renderPage('/artifacts?tab=canvases');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v3 · Draft · Edited 3d ago'));
+    await badgeShown();
     const rows = screen.getAllByTestId('artifact-row');
-    const meta = (title: string) => within(rows.find(r => within(r).queryByText(title))!).getByTestId('artifact-meta').textContent;
-    expect(meta('Sales map')).toBe('v3 · Draft · Edited 3d ago');
-    expect(meta('Q4 plan')).toBe('Edited 5d ago');
+    const rowOf = (title: string) => rows.find(r => within(r).queryByText(title))!;
+    expect(within(rowOf('Sales map')).getByTestId('artifact-meta')).toHaveTextContent('Edited 3d ago');
+    expect(within(rowOf('Q4 plan')).queryByTestId('artifact-badge')).toBeNull();
+    cleanup();
+    renderPage('/artifacts?tab=canvases&list=drafts');
+    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['v3 · Draft · Edited 3d ago']));
   });
 
   it('an unknown number says just "Draft", and an unknown history is NOT treated as never published (Opus r9 F6)', async () => {
     const u = userEvent.setup();
     mocks.listMyOpenCanvasDrafts.mockResolvedValue([draft({ nextSeq: null })]);
     renderPage('/artifacts?tab=canvases');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('Draft · Edited 3d ago'));
+    await badgeShown(); // an unknown number is not "never published": the canvas stays in Mine, with its Share
     expect(screen.getByRole('button', { name: 'Share: Sales map' })).toBeInTheDocument();
     await openMenu(u, 'Sales map');
     expect(menuLabels()).toEqual(['Open', 'Open draft', 'Copy link', 'Discard draft']);
@@ -169,7 +173,7 @@ describe('a canvas with an open draft', () => {
   it('the "…" offers Open draft and Discard draft only on that row', async () => {
     const u = userEvent.setup();
     renderPage('/artifacts?tab=canvases');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v3 · Draft · Edited 3d ago'));
+    await badgeShown();
     await openMenu(u, 'Sales map');
     expect(menuLabels()).toEqual(['Open', 'Open draft', 'Copy link', 'Discard draft']);
     await u.keyboard('{Escape}');
@@ -180,7 +184,7 @@ describe('a canvas with an open draft', () => {
   it('Open draft opens the DRAFT CANVAS with its thread beside it (the chat card\'s Open goes to the same place), not the chat', async () => {
     const u = userEvent.setup();
     renderPage('/artifacts?tab=canvases');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v3 · Draft · Edited 3d ago'));
+    await badgeShown();
     await openMenu(u, 'Sales map');
     await u.click(await screen.findByRole('menuitem', { name: 'Open draft' }));
     await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/p/me/canvas/sales_map?v=sales_map_dabc12&ws=1'));
@@ -190,7 +194,7 @@ describe('a canvas with an open draft', () => {
   it('Discard draft asks first; Cancel discards nothing; Discard calls the checked discard and reloads the list', async () => {
     const u = userEvent.setup();
     renderPage('/artifacts?tab=canvases');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v3 · Draft · Edited 3d ago'));
+    await badgeShown();
     await openMenu(u, 'Sales map');
     await u.click(await screen.findByRole('menuitem', { name: 'Discard draft' }));
     const dialog = await screen.findByRole('dialog');
@@ -213,19 +217,19 @@ describe('a canvas with an open draft', () => {
     const u = userEvent.setup();
     mocks.discardCanvasDraft.mockResolvedValue({ ok: false, refused: 'busy', revision: 1 });
     renderPage('/artifacts?tab=canvases');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v3 · Draft · Edited 3d ago'));
+    await badgeShown();
     await openMenu(u, 'Sales map');
     await u.click(await screen.findByRole('menuitem', { name: 'Discard draft' }));
     await u.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Discard' }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('That draft is being written right now. Try again in a minute.'));
-    expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v3 · Draft · Edited 3d ago');
+    expect(screen.getByTestId('artifact-badge')).toHaveTextContent('Draft open');
   });
 
   it('a stale discard re-reads the list, and the next attempt sends the draft\'s new revision', async () => {
     const u = userEvent.setup();
     mocks.discardCanvasDraft.mockResolvedValueOnce({ ok: false, refused: 'stale_view', revision: 9 });
     renderPage('/artifacts?tab=canvases');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v3 · Draft · Edited 3d ago'));
+    await badgeShown();
     const reads = mocks.listMyOpenCanvasDrafts.mock.calls.length;
     mocks.listMyOpenCanvasDrafts.mockResolvedValue([draft({ revision: 9 })]); // what the re-read finds
     await openMenu(u, 'Sales map');
@@ -238,16 +242,19 @@ describe('a canvas with an open draft', () => {
     await waitFor(() => expect(mocks.discardCanvasDraft).toHaveBeenLastCalledWith('draft-1', 9));
   });
 
-  it('a canvas whose only version is the open draft (never published): no Share and no Copy link (nothing to share yet); the row and its Open go to the draft', async () => {
+  it('a canvas whose only version is the open draft (never published) is in Drafts and NOT in Mine: no Share and no Copy link; the row and its Open go to the draft', async () => {
     const u = userEvent.setup();
     mocks.listMyOpenCanvasDrafts.mockResolvedValue([draft({ nextSeq: 1 })]);
     renderPage('/artifacts?tab=canvases');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v1 · Draft · Edited 3d ago'));
-    const rows = screen.getAllByTestId('artifact-row');
-    const row = (title: string) => rows.find(r => within(r).queryByText(title))!;
-    const buttons = (r: HTMLElement) => within(within(r).getByTestId('row-actions')).getAllByRole('button').map(b => b.getAttribute('aria-label'));
-    expect(buttons(row('Sales map'))).toEqual(['Open: Sales map', 'Actions for Sales map']);
-    expect(buttons(row('Q4 plan'))).toEqual(['Share: Q4 plan', 'Actions for Q4 plan']); // CONTROL: a canvas with no draft keeps Share
+    await screen.findByText('Q4 plan');
+    expect(screen.queryByText('Sales map')).toBeNull(); // W5: no published version, so not in Mine
+    expect(screen.getByRole('button', { name: 'Share: Q4 plan' })).toBeInTheDocument(); // CONTROL: a canvas with no draft keeps Share
+    cleanup();
+    renderPage('/artifacts?tab=canvases&list=drafts');
+    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['v1 · Draft · Edited 3d ago']));
+    const row = screen.getByTestId('artifact-row');
+    const buttons = within(within(row).getByTestId('row-actions')).getAllByRole('button').map(b => b.getAttribute('aria-label'));
+    expect(buttons).toEqual(['Open: Sales map', 'Actions for Sales map']);
     await openMenu(u, 'Sales map');
     expect(menuLabels()).toEqual(['Open', 'Discard draft']);
     // the discard question does not mention published versions there are none of
@@ -263,7 +270,7 @@ describe('a canvas with an open draft', () => {
 
   it('CONTROL: a draft on a canvas that has published versions keeps Share (it shares the published version)', async () => {
     renderPage('/artifacts?tab=canvases');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v3 · Draft · Edited 3d ago'));
+    await badgeShown();
     expect(screen.getByRole('button', { name: 'Share: Sales map' })).toBeInTheDocument();
   });
 
