@@ -35,7 +35,7 @@ export interface ReplaceDraft { draftId: string; revision: number }
 
 /** What a first Send says it is: the same canvas, version, replaced draft and text/file are the same message (so a repeat replays). */
 function sendKey(from: { canvasId: string; id: string }, replace: ReplaceDraft | null, input: { body?: string; file?: File }): string {
-  const what = input.file ? `file:${input.file.name}:${input.file.size}` : `text:${input.body ?? ''}`;
+  const what = input.file ? `file:${input.file.name}:${input.file.size}:${input.file.lastModified}` : `text:${input.body ?? ''}`;
   return `${from.canvasId}|${from.id}|${replace ? `replace:${replace.draftId}:${replace.revision}|` : ''}${what}`;
 }
 

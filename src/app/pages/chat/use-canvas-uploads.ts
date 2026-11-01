@@ -65,7 +65,7 @@ export function useCanvasUploads(draft: Pick<CanvasDraft, 'id' | 'canvasId' | 'r
       }
       inFlight.current = true;
       setBusy(true);
-      const key = `${draftId}|file:${file.name}:${file.size}`;
+      const key = `${draftId}|file:${file.name}:${file.size}:${file.lastModified}`;
       try {
         const sent = await sendCanvasWorkspaceMessage({ canvasId, expectedDraftId: draftId, expectedRevision: revision, attachment: { kind: 'file', label: file.name }, clientId: unresolved.idFor(key) });
         unresolved.settle(key);

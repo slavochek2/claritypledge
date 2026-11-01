@@ -150,43 +150,73 @@ const deferred = <T,>() => {
 };
 
 describe('4: rename race', () => {
-  it('a late answer to the first save never overwrites the newer title', async () => {
+  it('saves never overlap: the second goes only after the first answered, so the database ends on the newest', async () => {
     const first = deferred<string>();
     const second = deferred<string>();
     svc.rename.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
     const { result } = renderHook(() => useCanvasRename(ownerReady, 'canvas'));
     act(() => result.current.save('First'));
     act(() => result.current.save('Second'));
-    await act(async () => second.resolve('Second'));
+    expect(svc.rename).toHaveBeenCalledTimes(1); // the second waits, so it can never commit before the first
+    expect(result.current.title).toBe('Second'); // shown at once all the same
     await act(async () => first.resolve('First'));
+    expect(svc.rename).toHaveBeenCalledTimes(2);
+    expect(svc.rename.mock.calls[1]![1]).toBe('Second');
+    expect(result.current.title).toBe('Second'); // the first answer never shows over the newer title
+    await act(async () => second.resolve('Second'));
     expect(result.current.title).toBe('Second');
   });
 
-  it('a late FAILURE of the first save neither rolls back nor toasts over the newer title', async () => {
+  it('three quick saves send the first and the newest only', async () => {
+    const first = deferred<string>();
+    const last = deferred<string>();
+    svc.rename.mockReturnValueOnce(first.promise).mockReturnValueOnce(last.promise);
+    const { result } = renderHook(() => useCanvasRename(ownerReady, 'canvas'));
+    act(() => result.current.save('First'));
+    act(() => result.current.save('Second'));
+    act(() => result.current.save('Third'));
+    await act(async () => first.resolve('First'));
+    await act(async () => last.resolve('Third'));
+    expect(svc.rename.mock.calls.map(c => c[1])).toEqual(['First', 'Third']);
+    expect(result.current.title).toBe('Third');
+  });
+
+  it('a FAILURE of the first save neither rolls back nor toasts over the newer title, and the newer one still goes', async () => {
     const first = deferred<string>();
     const second = deferred<string>();
     svc.rename.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
     const { result } = renderHook(() => useCanvasRename(ownerReady, 'canvas'));
     act(() => result.current.save('First'));
     act(() => result.current.save('Second'));
-    await act(async () => second.resolve('Second'));
-    await act(async () => first.reject(new Error('late')));
+    await act(async () => first.reject(new Error('refused')));
     expect(result.current.title).toBe('Second');
     expect(svc.toastError).not.toHaveBeenCalled();
+    expect(svc.rename).toHaveBeenCalledTimes(2);
+    await act(async () => second.resolve('Second'));
+    expect(result.current.title).toBe('Second');
   });
 
-  it('a refused second save restores the last CONFIRMED title, not the first save that was still in flight', async () => {
+  it('a refused second save restores the last CONFIRMED title', async () => {
     const first = deferred<string>();
     const second = deferred<string>();
     svc.rename.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
     const { result } = renderHook(() => useCanvasRename(ownerReady, 'canvas'));
     act(() => result.current.save('First'));
     act(() => result.current.save('Second'));
+    await act(async () => first.resolve('First'));
     await act(async () => second.reject(new Error('refused')));
-    expect(result.current.title).toBe('Canvas'); // nothing was confirmed yet
-    expect(svc.toastError).toHaveBeenCalledTimes(1);
-    await act(async () => first.resolve('First')); // the server did accept the first one
     expect(result.current.title).toBe('First');
+    expect(svc.toastError).toHaveBeenCalledTimes(1);
+  });
+
+  it('a refused only save goes back to the title the page read', async () => {
+    const only = deferred<string>();
+    svc.rename.mockReturnValueOnce(only.promise);
+    const { result } = renderHook(() => useCanvasRename(ownerReady, 'canvas'));
+    act(() => result.current.save('First'));
+    await act(async () => only.reject(new Error('refused')));
+    expect(result.current.title).toBe('Canvas');
+    expect(svc.toastError).toHaveBeenCalledTimes(1);
   });
 
   it('CONTROL: a single save shows at once and the stored (trimmed) title replaces it', async () => {
@@ -279,6 +309,16 @@ describe('14: Send and upload keep one client id until their outcome is known', 
     await act(async () => { await result.current.upload(file); });
     await act(async () => { await result.current.upload(file); });
     expect(idOf(1)).toBe(idOf(0));
+  });
+
+  it('a different file with the same name and size is a new announcement, not a replay of the lost one', async () => {
+    const draft = { id: 'draft-1b', canvasId: 'cv-1', revision: 3 };
+    const { result } = renderHook(() => useCanvasUploads(draft, async () => undefined));
+    svc.send.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce(sent);
+    svc.upload.mockResolvedValue({ ok: true, label: 'plan.pdf', chars: 10 });
+    await act(async () => { await result.current.upload(new File(['x'], 'plan.pdf', { type: 'application/pdf', lastModified: 1000 })); });
+    await act(async () => { await result.current.upload(new File(['y'], 'plan.pdf', { type: 'application/pdf', lastModified: 2000 })); });
+    expect(idOf(1)).not.toBe(idOf(0));
   });
 });
 
