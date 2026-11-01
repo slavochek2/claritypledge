@@ -27,6 +27,8 @@ sweep, and the chat copy review went away.
 4. **Publish the platforms** — one sweep, all tabs filled and open, he clicks Publish in each.
 5. **Confirm the group send** — one confirmation covering the Facebook groups and the chat groups.
 
+**Exception, 2026-11-02:** group-post wording IS reviewed, through the test post in `promote-groups` step 4. See that file.
+
 **Copy is no longer reviewed in chat.** Founder, 2026-08-31: *"no need to show me text, i can
 correct it on live event."* So the old combined copy review is gone as an approval turn. He
 reviews the description by looking at the published event page (touch 3) and the platform copy

@@ -84,34 +84,37 @@ A matched type entry may carry a `do_not_post` array, each entry `{platform, nam
 
 Each group carries a `lang` field (`en`/`es`/`ru`/`de`, default `en` if absent). Collect the **distinct set of langs** across the eligible groups, and resolve one blurb per lang.
 
-**A blurb is a proper invitation, not a headline.** These post into real community group chats as the founder, so the copy must read like a person inviting friends, not a calendar entry. Every language variant must contain, in a warm conversational voice:
+**The post earns the click; the event page carries the logistics.** If a detail helps someone decide whether to come, keep it. If it only helps once they are coming, leave it to the page. Founder, 2026-11-02, after about ten test rounds on one post: both a story-style rewrite and a bare teaser were rejected, and details stayed because a full Sunday out of town is a big ask.
 
-- A personal opener ("Hey everyone 👋 I'd love to invite you…")
-- What it is + when: day, date, start time
-- **Duration** (e.g. "about 5 to 6 hours") — people plan their day around this
-- Pace / vibe / what to expect (relaxed pace, difficulty, scenery)
-- **Meeting point** and any parking/access note
-- What to bring (if physical) and cost/fee if any
-- A clear "all welcome" + the RSVP link
+Hike blurbs only (other event types keep the same click-earning rule and voice, without the hike lines). Structure: one opening line with "free social hike" and the date, then one emoji line each, in this order: where we meet (with what makes the place special), a review of the place, the route, a review of the trail, duration and finish time, what kind of hike it is, what to bring, dinner as optional. Then the footer.
 
-Pull these facts from the event's `description`, `duration_minutes`, `location`, and `datetime` (query the events REST API by slug — same call as Step 1 with `select=description,duration_minutes,location,datetime`). **No em/en dashes** in the copy (founder-voice rule); hyphens in ranges ("5-6") are fine. If the config `blurbs` are still skeletal one-liners, STOP and rewrite them to this standard before probing — a terse headline is not an approvable invitation.
+- **Voice:** address "you", never "everyone". No story style. **No em/en dashes** (founder-voice rule); hyphens in ranges ("5-6") are fine.
+- **Kind-of-hike line, standard wording:** "Self-organized, no guide, not commercial. Just people who like walking. Cut it short whenever you like". Do not describe how the group walks: that is on the event page, and a summary here is easy to get wrong.
+- **Reviews:** quote from the event page with their ratings. Lead with the most attractive true detail of the place.
+- **Footer:** "Organized by the Clarity Practice Community." with no city, then the RSVP link. One link only.
+- **Before the first test,** reread for repeats ("eco-lodge" twice, "free" plus "no fee").
+
+Pull the facts from the event's `description`, `duration_minutes`, `location`, and `datetime` (query the events REST API by slug, same call as Step 1 with `select=description,duration_minutes,location,datetime`). If a hike entry's config `blurbs` do not meet this standard, rewrite them before probing.
 
 **Reference example (English, hike):**
 
 ```
-Hey everyone 👋 I'd love to invite you on a morning hike this Sunday, July 5.
+Hey, I'd like to invite you to a free social hike on Sunday, Nov 8 👋
 
-🥾 Clarity Hike: Buddha Footprint to Doi Pui Peak, in Doi Suthep-Pui National Park
-🕘 9:00 AM start, plan for about 5 to 6 hours including breaks
-🚶 Relaxed pace. We walk as far as we feel like, turn around together, and head back the same way. No pressure to finish the whole route
-📍 Meet at Ban Pa Nok Nook trailhead (a motorbike is easiest for parking)
-⛰️ Forest, mountain views and the Buddha Footprint. Some steep, slippery sections, so bring trail shoes, 2L of water, snacks and a rain jacket
+🕘 We meet at 9:00 at Chai Lai Orchid in Mae Wang, an elephant eco-lodge and cafe by the river. Coffee first
+🐘 "Great experience and definitely a unique one. The staff treats the elephants well." (Chai Lai Orchid, 4.7★, 2,633 reviews)
+🥾 Mae Wang Elephant Camp Loop, about 9.2 km: forest and bamboo, river crossings, a break at the Wang River, then Mae Wang Waterfall and a 23 minute road walk back to the cafe
+🌿 "Amazing hike! lots of waterfalls, a beach to swim, lots of bamboo, great view points." (AllTrails, 4.4★, 34 reviews)
+⏱️ Plan for about 5.5 hours, finishing by 16:00
+🚶 Self-organized, no guide, not commercial. Just people who like walking. Cut it short whenever you like
+🎒 Trail shoes you don't mind getting wet, 2L water, snacks, swimwear if you like, rain jacket, some cash
+🍜 Hungry after? Join us for dinner around 17:00 at Phupha Cafe & Restaurant, a 5 minute drive down the valley
 
-All welcome, no strings attached. Full details and RSVP:
-claritypledge.com/hike?d=260705
+Organized by the Clarity Practice Community.
+Details and RSVP: claritypledge.com/hike?d=261108
 ```
 
-(The `?d=` carries THIS event's date and is mandatory — never copy the suffix from a previous post. See the `{short_url}` rule below.)
+(The `?d=` carries THIS event's date and is mandatory: never copy the suffix from a previous post. See the `{short_url}` rule below.)
 
 Because route, meeting point, duration, and difficulty change every event, the hike `blurbs` are **hand-written per event** in all four languages (translations, not one auto-translated from another — the operator writes/approves each). The `_note` field in the config records this.
 
@@ -124,7 +127,7 @@ Because route, meeting point, duration, and difficulty change every event, the h
 
 **Missing-language hard stop:** if any eligible group's `lang` has no resolvable blurb, STOP before the probe. Report: "Group «{name}» is `lang: {lang}` but no `{lang}` blurb exists. Add `blurbs.{lang}` to the config or remove the group. Not posting." Never fall back to another language — posting English into a Spanish/Russian/German group is a defect, not a degrade.
 
-**Standing PS append (optional, config-driven):** After resolving `blurbs[lang]` from any source above, if the matched type entry defines `ps[lang]` in `.private/event-channels.json`, append it verbatim to the end of the resolved text before placeholder resolution and the guards below run. This lets a standing footer (e.g. a founder-approved cross-promotion) survive the per-event blurb rewrites described above, without re-approval each time. If `ps` exists for the type but has no entry for a given lang, append nothing for that lang — never fall back to another language's `ps` text. Approved 2026-09-15 for the hike type's calendar-scraper footer.
+**Standing PS: off by default.** Do not append `ps[lang]` from the config unless the founder asks for it on this send: a second link competes with RSVP (founder, 2026-11-02, reversing the 2026-09-15 default). When asked for, append it verbatim before placeholder resolution and the guards below; never fall back to another language's `ps`.
 
 **Resolve placeholders (in order), per blurb:**
 
@@ -228,7 +231,9 @@ registration link now.
 
 ### 4. Transport probe
 
-Load Beeper MCP via ToolSearch. Send **each distinct-language blurb** to self-chat chatID `1011` as a transport probe (one message per language, prefixed with the lang code, e.g. `[EN] …`, `[ES] …`).
+When a post image exists, send through the Beeper local API (step 3c), because the MCP `send_message` tool cannot attach. Otherwise load Beeper MCP via ToolSearch. Send **each distinct-language blurb** to self-chat chatID `1011` as a transport probe (one message per language, prefixed with the lang code, e.g. `[EN] …`, `[ES] …`).
+
+**This test post is the founder's copy review.** Send it with the poster attached, show the text in chat as well, and revise from his replies (founder, 2026-11-02). This covers group blurbs only; platform copy is still reviewed in the filled forms.
 
 Show: "Probe sent to your self-chat (1011) — {N} language variant(s). Reply `ok` to continue, or abort."
 
@@ -240,7 +245,7 @@ Wait for `ok`. (Group posting is higher-stakes than DMs — the probe is require
 
 **Verifying "invoked by the orchestrator" — never trust self-report alone.** As in `promote-all.md` step 3b: the skip below is gated on a fact that must be checked against an artifact, not recalled from conversation memory. The invocation must have passed both the resolved group blurbs **and** the run-record path `~/.private/event-state/<slug>.run.json`. Read it now — the skip is valid only if the file exists, its `updated_at` is from earlier in *this same session*, and `"promote_groups"` appears in its `stages_in_scope`. If any of that fails, treat this as a standalone invocation and show the full copy display (item 1) below, even if the caller claims the text was already resolved upstream.
 
-**If invoked by the events orchestrator (`slava:events:run`) with resolved group blurbs passed in, and the run-record check above passes:** **skip item 1 below** — do not re-show the copy for a wording approval. The orchestrator resolved this text at its step 5 and the founder no longer reviews copy in chat (2026-08-31: *"no need to show me text, i can correct it on live event"*).
+**If invoked by the events orchestrator (`slava:events:run`) with resolved group blurbs passed in, and the run-record check above passes:** **skip item 1 below**: the step 4 test post already was the wording review.
 
 **Everything that is not a wording approval still runs, always, under every caller:** the staleness check, the link-liveness check, the transport probe, the `do_not_post` enforcement, and the blast-radius group-count confirmation (item 2 + the ask). Those check facts and send scope, not wording. Under the orchestrator, the blast-radius ask is presented as part of its Stage 7 combined confirmation alongside the Facebook groups — one confirmation, same scope check, not a weaker one.
 
@@ -249,10 +254,12 @@ Wait for `ok`. (Group posting is higher-stakes than DMs — the probe is require
 1. **Full copy for EVERY language, copy-paste ready.** For each distinct language present, print a clearly demarcated block the operator can copy verbatim into a chat — even if only one language is being posted, show all resolved languages. Format per language:
    - A header line: `### <LANGUAGE NAME> — posts to N group(s)`
    - The exact message text on its own lines, bounded above and below by a `---` separator so it copies clean (no blockquote `>` prefixes, no surrounding prose on the text lines).
-   - This is mandatory and never abbreviated — the operator approves the wording from THIS display, not from the self-chat probe. If any language's copy is missing here, that is a skill defect: STOP and fix before asking for approval.
+   - This is mandatory and never abbreviated: it is the final check of the text the test post showed. If any language's copy is missing here, that is a skill defect: STOP and fix before asking for approval.
 2. The full target group list, each row: **name**, **platform**, **lang**, **verified_name** — so the operator sees which language each group receives.
 
 **Blast-radius cap (always runs, orchestrated or standalone):** If the eligible group list contains **6 or more groups**, require the operator to type the exact count as confirmation (e.g., "7") rather than a one-click approval. No bulk gate for large fan-outs.
+
+**Name the groups in the same message as the count.** If the founder's number differs from the eligible list, stop and ask which is right; never send to a subset on a mismatched count (2026-11-02: "10 confirmed" against a list of 7).
 
 Ask: "Post to the above groups? Reply with the group count to confirm, or `abort`." (For ≤5 groups: "Reply `post` to confirm, or `abort`.")
 
@@ -341,7 +348,7 @@ If **any** check fails or the result is ambiguous:
 
 **b. Send:**
 
-Select the blurb for **this group's `lang`** (resolved in Step 3). Send it via Beeper `send_message` to the chat object returned by the verify call — not to a re-resolved config string (avoids TOCTOU drift). A group never receives a language other than its own `lang`.
+Select the blurb for **this group's `lang`** (resolved in Step 3). Send it to the chat object returned by the verify call, via the local API with the attachment when a post image exists (step 3c), otherwise via Beeper `send_message` — not to a re-resolved config string (avoids TOCTOU drift). A group never receives a language other than its own `lang`.
 
 **c. Verify-by-content, not by timestamp:**
 
