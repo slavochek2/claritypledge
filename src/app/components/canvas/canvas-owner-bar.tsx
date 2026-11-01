@@ -109,7 +109,7 @@ export function CanvasOwnerBar({ ready, handle, projectTag, title, canRename, on
         <Button type="button" variant="ghost" className="order-none h-11 w-10 shrink-0 p-0 max-[359px]:w-8" aria-label="Go back" onClick={onBack} data-testid="workspace-back">
           <ArrowLeft className="h-4 w-4" aria-hidden />
         </Button>
-        {/* The name gives way first, but never below a few letters and an ellipsis (a lone letter is not a name); the state tag gives way before that. */}
+        {/* The name gives way first, but never below a few letters and an ellipsis (a lone letter is not a name). "Draft" never gives way (W4: the state is always named); a pending Clone's longer tag does. */}
         <div className="order-1 flex min-w-[4.5rem] max-[359px]:min-w-[2.75rem] flex-1 items-center sm:min-w-[6rem] xl:min-w-0 xl:max-w-[26rem] xl:flex-none" data-testid="canvas-name">
           {ready ? <CanvasNameEdit title={title} canEdit={canRename} onSave={onRename} /> : <Skeleton className="h-5 w-24" />}
         </div>
