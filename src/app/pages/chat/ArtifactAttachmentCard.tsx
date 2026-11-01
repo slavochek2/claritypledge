@@ -6,7 +6,7 @@
  * reads "No longer available" and the message stays. The chat only points to the artifact: Artifacts
  * is its one home.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LayoutGrid, Mail } from 'lucide-react';
 import type { ChatArtifact } from '@/app/data/canvas-service';
@@ -56,26 +56,52 @@ function targetOf(artifact: Extract<ChatArtifact, { available: true }>): string 
   return artifact.deliveryId ? `/letter/${artifact.deliveryId}` : null;
 }
 
+/**
+ * The ordering of one card's reads (the first read and any quiet re-read after a rename). `epoch` moves on when the card changes canvas or leaves: a read
+ * made before that writes nothing. Within an epoch every read takes the next number and may write only if no NEWER read has already written, so an older
+ * answer never replaces a newer one, while a newer read that failed leaves the older one free to be shown.
+ */
+interface Reads {
+  epoch: number;
+  issued: number;
+  applied: number;
+}
+
+/** A read's right to write: asked for once at the start, called when its answer arrives (true once, only if nothing newer has written and the card is unchanged). */
+function takeTurn(reads: Reads): () => boolean {
+  const epoch = reads.epoch;
+  const mine = ++reads.issued;
+  return () => {
+    if (reads.epoch !== epoch || mine < reads.applied) return false;
+    reads.applied = mine;
+    return true;
+  };
+}
+
 export function ArtifactAttachmentCard({ kind, id, viewerId, compact = false }: { kind: ArtifactKind; id: string; viewerId: string; compact?: boolean }) {
   const [state, setState] = useState<State>({ status: 'loading' });
+  const reads = useRef<Reads>({ epoch: 0, issued: 0, applied: 0 });
   useEffect(() => {
-    let live = true;
+    const mine = reads.current;
+    const mayWrite = takeTurn(mine);
     setState({ status: 'loading' });
     // P1586: a wait that never ends becomes a readable line; a late answer below still replaces it.
-    const deadline = setTimeout(() => live && setState((s) => (s.status === 'loading' ? { status: 'error' } : s)), ARTIFACT_TIMEOUT_MS);
+    const deadline = setTimeout(() => setState((s) => (s.status === 'loading' ? { status: 'error' } : s)), ARTIFACT_TIMEOUT_MS);
     loadArtifact(kind, id, viewerId).then(
-      (artifact) => live && setState({ status: 'ready', artifact }),
-      () => live && setState({ status: 'error' }),
+      (artifact) => mayWrite() && setState({ status: 'ready', artifact }),
+      () => mayWrite() && setState({ status: 'error' }),
     );
     return () => {
-      live = false;
+      mine.epoch += 1; // another canvas, or gone: nothing read for this one writes any more
+      mine.applied = 0;
       clearTimeout(deadline);
     };
   }, [kind, id, viewerId]);
 
-  // A confirmed rename of this canvas: read again, and keep the card on screen until the new answer comes (a failed re-read changes nothing).
+  // A confirmed rename of this canvas: read again (the cache was dropped, so this asks anew), and keep the card on screen until the new answer comes (a failed re-read changes nothing).
   useCanvasRenamed(kind === 'canvas' ? id : null, () => {
-    void loadArtifact(kind, id, viewerId).then((artifact) => setState({ status: 'ready', artifact }), () => undefined);
+    const mayWrite = takeTurn(reads.current);
+    void loadArtifact(kind, id, viewerId).then((artifact) => mayWrite() && setState({ status: 'ready', artifact }), () => undefined);
   });
 
   if (state.status === 'loading') {

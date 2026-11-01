@@ -5,7 +5,7 @@
  * keyboard keeps Enter for the new line); the Send button appears once there is something to send,
  * so there is never a dead control. The draft survives switching to another chat.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Paperclip, X } from 'lucide-react';
 import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { cn } from '@/lib/utils';
@@ -21,11 +21,9 @@ import { composerSlots, type Slots } from './composer-slots';
 import { MentionPicker } from './MentionPicker';
 import { PrivateModeBar } from './PrivateModeBar';
 import { useComposerDictation } from './use-composer-dictation';
+import { useFieldFit } from './use-field-fit';
 
 export type { MentionEntry };
-
-/** Five 24px lines plus the field's 16px vertical padding. */
-export const COMPOSER_MAX = 136;
 
 
 
@@ -103,15 +101,8 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
     requestAnimationFrame(() => field.current?.focus());
   };
 
-  // Grow with the text up to ~5 lines, then scroll inside the field.
-  useLayoutEffect(() => {
-    const el = field.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    const full = el.scrollHeight;
-    el.style.height = `${Math.min(full || 40, COMPOSER_MAX)}px`;
-    el.style.overflowY = full > COMPOSER_MAX ? 'auto' : 'hidden';
-  }, [value]);
+  // Grow with the text up to ~5 lines, then scroll inside the field (and again when its width changes).
+  useFieldFit(field, value);
 
   useEffect(() => {
     if (focusToken > 0 || (autoFocus && hasFinePointer())) field.current?.focus();
