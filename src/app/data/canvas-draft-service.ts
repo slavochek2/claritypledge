@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { canvasDisplayTitle } from '@/lib/canvas-boxes';
 import { ARTIFACTS_CANVASES_MINE, newestPublishedHref, publishedViewHref, workspaceHref } from '@/lib/canvas-hrefs';
 import { throwDbError } from './db-error-logger';
+import { listMyCanvases } from './canvas-artifacts';
 export * from './canvas-draft-calls';
 export * from './canvas-draft-retry';
 
@@ -220,8 +221,10 @@ export async function listCanvasMaterial(draftId: string): Promise<CanvasMateria
  * `href` is the same address, kept for callers that link the whole card.
  */
 export interface CanvasVersionCardData {
-  /** The canvas's title (its name, read as a title), when the version is a published one. */
+  /** The canvas's display title (the owner's rename, else its tag read as a title): a published version's and an open draft's card both carry it. */
   title?: string;
+  /** An open draft: the number it gets when published (one above the newest published version), when known. */
+  nextSeq?: number | null;
   label: string;
   state: 'draft' | 'published' | 'discarded';
   draft: boolean;
@@ -235,6 +238,19 @@ async function openDraftVersionName(canvasId: string): Promise<string | null> {
   if (error) throwDbError('getCanvasVersionCard', error, 'Could not read this canvas');
   const name = (data as { version_name?: unknown } | null)?.version_name;
   return typeof name === 'string' ? name : null;
+}
+
+/**
+ * What a draft's card says about its canvas (J-W5: "Canvas 4 · v2 · Draft"): the display title and the number the draft gets. A canvas with a
+ * published version has both on its version rows; one never published gets its title from the owner's canvases read (a failed read falls back to the
+ * tag's own title, never hides the card).
+ */
+async function draftCardFacts(canvasName: string, versions: CanvasVersionOption[]): Promise<{ title: string; nextSeq: number }> {
+  const mine = versions.filter((v) => v.canvasName === canvasName);
+  const nextSeq = mine.reduce((top, v) => Math.max(top, v.seq), 0) + 1;
+  if (mine[0]) return { title: canvasDisplayTitle(mine[0].canvasTitle, canvasName), nextSeq };
+  const row = await listMyCanvases().then((rows) => rows.find((r) => r.name === canvasName), () => undefined);
+  return { title: canvasDisplayTitle(row?.title, canvasName), nextSeq };
 }
 
 export async function getCanvasVersionCard(versionId: string, viewerId: string): Promise<CanvasVersionCardData | null> {
@@ -258,5 +274,6 @@ export async function getCanvasVersionCard(versionId: string, viewerId: string):
     return { label: 'Discarded', state: 'discarded', draft: false, href: open, openHref: open };
   }
   const open = slug && d.canvas_name && d.version_name ? workspaceHref(slug, d.canvas_name, d.version_name) : null;
-  return { label: 'Draft', state: 'draft', draft: true, href: open, openHref: open };
+  const facts = d.canvas_name ? await draftCardFacts(String(d.canvas_name), versions) : null;
+  return { ...(facts ? { title: facts.title, nextSeq: facts.nextSeq } : {}), label: 'Draft', state: 'draft', draft: true, href: open, openHref: open };
 }

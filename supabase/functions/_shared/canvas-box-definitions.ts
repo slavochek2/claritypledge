@@ -4,7 +4,7 @@
  * Copy prompt (src/app/pages/chat/canvas-thread-copy.ts) all read this module and hold no box text of their own.
  *
  * The strings are the spec's section 4 table, copied as written. They are founder-pending copy
- * [FOUNDER DECISION: F1, S2.6 sign-off], so do not reword them here. The spec's "(P1589)" source marks and "(D9)" label are
+ * [FOUNDER DECISION: F1, S2.6 sign-off], so do not reword them here. (Customer Segments' last sentence is the spec's Q1 wording, section 3b, copied as written: [FOUNDER DECISION: wording, S2.6].) The spec's "(P1589)" source marks and "(D9)" label are
  * left out: they point at specs, and a model must not read them as text.
  *
  * Titles repeat CANVAS_BOXES (src/lib/canvas-boxes.ts) because edge code cannot import src/; a test pins the equality
@@ -70,7 +70,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
   {
     tag: 'canvas:segments', title: 'Customer Segments',
     type: 'Description', voice: 'noun phrase about the customer',
-    definition: `The specific people who have the problem and pay (or will), named by role, size or stage, what they do today and what makes it urgent now. Roles in one sale get one point each, starting "Pays:", "Uses:", "Approves:".`,
+    definition: `The specific people who have the problem and pay (or will), named by role, size or stage, what they do today and what makes it urgent now. Roles in one sale get one point each, starting "Pays:", "Uses:", "Approves:". Each point needs a role or title, plus at least two of: industry, company size, demographics, psychographics.`,
     shape: `<role + qualifier> who <do X today> <when trigger>`,
     good: `"Owners of 1-3 independent cafés who do their own books after closing"`,
     not: `"I sell to small businesses"`,

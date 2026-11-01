@@ -8,13 +8,15 @@
  *  - another base with at least one message or run: the J4 sheet ("Add to my draft" opens it; "Start over from vN" goes pending and the
  *    first Send discards it inside its own transaction, passing the draft's id and revision).
  *  - another base, untouched (no message, no run): no sheet; pending, and the first Send replaces it.
- * The "touched" test is a run existing: a v6 send makes its message and its run in one transaction (spec G-L3), so a draft with a
- * message always has a run. A stale_view on that first Send (the draft moved on) puts the sheet back with fresh facts and keeps the text.
+ * The "touched" test is a run existing OR any message in the draft's thread: a v6 send makes its message and its run in one transaction (spec
+ * G-L3), so for a send the two agree; a message that reached the thread another way has no run, and replacing that draft would discard it
+ * unasked. A stale_view on that first Send (the draft moved on) puts the sheet back with fresh facts and keeps the text.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Location } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getCanvasDraftByThread, getLatestCanvasRun } from '@/app/data/canvas-draft-service';
+import { getThreadStats } from '@/app/data/chat-service';
 import { isViewingDraft, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { CANVAS_WORKSPACE_PARAM } from '@/app/components/layout/bottom-nav-routes';
 import { DRAFT_ERROR_TEXT } from '@/app/pages/chat/canvas-thread-copy';
@@ -41,8 +43,10 @@ export function useCloneCanvas(args: {
   openDraft: (versionName: string) => void;
   /** Ask the page to read again. */
   reload: () => void;
+  /** A Clone was entered: the owner is editing now, so the thread panel must be there (it may have been closed on the draft before). */
+  onEnter?: () => void;
 }) {
-  const { eligible, active, ready, setParams, state, openDraft, reload } = args;
+  const { eligible, active, ready, setParams, state, openDraft, reload, onEnter } = args;
   const [intent, setIntent] = useState<{ version: string; replace: OtherDraft | null } | null>(null);
   const [sheet, setSheet] = useState<CloneSheetState | null>(null);
   const checking = useRef(false);
@@ -52,7 +56,8 @@ export function useCloneCanvas(args: {
   // tap, a reload, Add to chat). With another base's draft open it is pending only when Clone was tapped here (`intent`, J4).
   const pending = useMemo<ClonePending | null>(() => {
     if (!editingPublished || !ready || !ready.version) return null;
-    if (intent?.version === ready.version) return { version: ready.version, seq: seqOf(ready), replace: intent.replace };
+    // An intent with nothing to replace ends when a draft appears (opened in another tab): Clone then opens THAT draft (W3), it never pends over it.
+    if (intent?.version === ready.version && (intent.replace || !ready.draft)) return { version: ready.version, seq: seqOf(ready), replace: intent.replace };
     return ready.draft ? null : { version: ready.version, seq: seqOf(ready), replace: null };
   }, [editingPublished, ready, intent]);
 
@@ -70,7 +75,8 @@ export function useCloneCanvas(args: {
     setIntent({ version, replace });
     setSheet(null);
     setMarker(true);
-  }, [setMarker]);
+    onEnter?.();
+  }, [setMarker, onEnter]);
 
   /** × and switching away: back to the published view, nothing was written. */
   const cancel = useCallback(() => {
@@ -90,7 +96,9 @@ export function useCloneCanvas(args: {
     checking.current = true;
     void (async () => {
       try {
-        const touched = d.runCount > 0 || (await getLatestCanvasRun(d.id)) !== null;
+        // Touched: a run, or any message in the draft's thread (a v6 send makes both at once, but a message that reached the thread another way has no run).
+        const touched = d.runCount > 0 || (await getLatestCanvasRun(d.id)) !== null
+          || ((await getThreadStats(d.conversationId, [d.threadRootId])).get(d.threadRootId)?.count ?? 0) > 0;
         if (touched) setSheet({ draft: other, fromSeq: mine, reask: false });
         else enter(version, other); // an untouched draft: no sheet, the first Send replaces it
       } catch {
@@ -106,6 +114,12 @@ export function useCloneCanvas(args: {
   useEffect(() => {
     if (implicitVersion) setIntent({ version: implicitVersion, replace: null });
   }, [implicitVersion]);
+
+  // A draft that appeared while an intent had nothing to replace: forget the intent (the memo above already stopped treating it as pending).
+  const draftAppeared = !!intent && !intent.replace && !!ready?.draft && ready.version === intent.version;
+  useEffect(() => {
+    if (draftAppeared) setIntent(null);
+  }, [draftAppeared]);
 
   // Switching to another version while a Clone is pending cancels it (a draft's own view keeps the workspace).
   const readVersion = ready?.version ?? null;

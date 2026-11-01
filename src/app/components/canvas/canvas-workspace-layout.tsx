@@ -18,8 +18,14 @@ import { CANVAS_WORKSPACE_WIDE_QUERY } from './canvas-workspace-context';
 
 export type WorkspaceView = 'canvas' | 'chat';
 
-/** The shell's top bar is 3.5rem: the workspace box is the rest of the screen. */
-export const WORKSPACE_BOX = 'sticky top-14 flex h-[calc(100dvh-3.5rem)] flex-col';
+/**
+ * Where the owner's header sticks, and how tall the workspace box is. Outside the signed-in shell a top bar of 3.5rem sits above it. INSIDE the shell
+ * (the layout marks it `data-shell-top-nav`) there is no fixed bar: the shell's own top bar is in the flow and hidden while empty, so a 3.5rem sticky
+ * offset would push the whole box 3.5rem down and leave an empty band above the header. There it sticks at the screen edge and the box takes the
+ * whole screen. Scoped to these two canvas elements: no other page's offsets change.
+ */
+export const STICKY_TOP = 'sticky top-14 [[data-shell-top-nav=none]_&]:top-[env(safe-area-inset-top)]';
+export const WORKSPACE_BOX = `${STICKY_TOP} flex h-[calc(100dvh-3.5rem)] flex-col [[data-shell-top-nav=none]_&]:h-[calc(100dvh-env(safe-area-inset-top))]`;
 
 /** Which pane is out of reach, and the classes that keep the other one stacked or out of the flow. Pure, so the layout reads as markup. */
 function panesOf(wide: boolean, view: WorkspaceView, panelOpen: boolean) {

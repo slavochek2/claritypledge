@@ -21,7 +21,7 @@ import { useMessageActions } from './use-message-actions';
 import { useVoiceSender } from './use-voice-sender';
 import { EventRoomLink } from './EventRoomLink';
 
-export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = false, onRunActive, focusable = true, headerActions, canvasTitle }: {
+export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = false, onRunActive, focusable = true, headerActions, canvasTitle, panelTitle }: {
   summary: ChatSummary;
   rootId: string;
   highlightId: string | null;
@@ -37,6 +37,8 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   headerActions?: ReactNode;
   /** W8: the canvas's shown name for an update draft's header (the owner's rename); absent: its tag's title. */
   canvasTitle?: string;
+  /** The canvas workspace names its panel itself ("Draft · v3", beside Discard): it replaces the thread's own header title. */
+  panelTitle?: string;
 }) {
   const chat = useChat();
   const conversationId = summary.conversationId;
@@ -92,7 +94,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
       className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col bg-background' : 'flex min-h-0 min-w-0 flex-1 flex-col bg-background lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]'}
     >
       <ThreadHeader onClose={close} menu={<><EventRoomLink chat={summary} />{headerActions}</>}>
-        {canvas.headerTitle ?? (
+        {panelTitle ? <h2 className="truncate text-base font-semibold text-foreground" data-testid="canvas-thread-title">{panelTitle}</h2> : canvas.headerTitle ?? (
           <>
             <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
             <p className="truncate text-xs text-muted-foreground">{chatTitle(summary)}</p>

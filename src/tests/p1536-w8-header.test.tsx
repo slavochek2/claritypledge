@@ -333,7 +333,8 @@ describe('S3b.7: the owner\'s header, draft and published', () => {
     mount('/p/ana/canvas/canvas');
     await grid();
     await screen.findByTestId('canvas-clone');
-    const strip = (c: string) => c.split(/\s+/).filter(t => !['sticky', 'top-14'].includes(t)).sort().join(' ');
+    // the placement is the sticky offset and its inside-the-shell variant (review fix 9: no empty band above the header there)
+    const strip = (c: string) => c.split(/\s+/).filter(t => !['sticky', 'top-14'].includes(t) && !t.startsWith('[[data-shell-top-nav=none]_&]:top-')).sort().join(' ');
     expect(strip(bar().className)).toBe(strip(draftClass));
     expect(bar().className).toContain('sticky'); // sticky as the workspace is: under the shell's top bar
     expect(bar().className).toContain('top-14');

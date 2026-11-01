@@ -56,11 +56,21 @@ export const CANVAS_OWN_AI_PROMPT = [
 /** "Open" is the Artifacts page's word for going to a canvas, never "View" (the mirror chat's version card). */
 export const OPEN_LABEL = 'Open';
 
-/** The state of a canvas version, in words: what the owner reads under the title of a version card in the chat. */
-export function versionStateLine(data: { state: 'draft' | 'published' | 'discarded'; label: string }): string {
-  if (data.state === 'published') return `${data.label} · Published`;
-  if (data.state === 'discarded') return 'Discarded draft';
-  return 'Draft';
+/**
+ * The state of a canvas version, in two parts: what identifies it (`lead`: "v2 · Nov 1, 2026" for a published one, "v2" for a draft whose number is
+ * known) and the state itself ("Published", "Draft", "Discarded draft"). The card draws the state in its own element that never truncates (W4: Draft or
+ * Published is always named), so on a narrow phone it is the lead that gives way.
+ */
+export function versionStateParts(data: { state: 'draft' | 'published' | 'discarded'; label: string; nextSeq?: number | null }): { lead: string | null; state: string } {
+  if (data.state === 'published') return { lead: data.label, state: 'Published' };
+  if (data.state === 'discarded') return { lead: null, state: 'Discarded draft' };
+  return { lead: data.nextSeq && data.nextSeq > 0 ? `v${data.nextSeq}` : null, state: 'Draft' };
+}
+
+/** The state of a canvas version, in words: what the owner reads under the title of a version card in the chat ("v2 · Nov 1, 2026 · Published", "v2 · Draft"). */
+export function versionStateLine(data: { state: 'draft' | 'published' | 'discarded'; label: string; nextSeq?: number | null }): string {
+  const { lead, state } = versionStateParts(data);
+  return lead ? `${lead} · ${state}` : state;
 }
 
 /** What a draft is called wherever it is labelled (the canvas page, Artifacts): "v3 · Draft". */

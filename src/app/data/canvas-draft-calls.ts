@@ -151,6 +151,20 @@ export async function startQueuedCanvasRun(draftId: string): Promise<RunStart> {
 }
 
 /**
+ * The owner's one read of a canvas's drafting state (`get_canvas_draft_state`). Its first step is the server's expire step: a queued run past its
+ * 3-minute lease, or a running one past 5 minutes, is failed there (its message then shows Try again). The answer is not used: this is how a client
+ * that sees a run still "active" past its lease makes the database settle it, since the plain table reads of the run never do.
+ */
+export async function getCanvasDraftState(canvasId: string): Promise<void> {
+  try {
+    const { error } = await supabase.rpc('get_canvas_draft_state', { p_canvas: canvasId });
+    if (error) throwDbError('getCanvasDraftState', error, 'Could not read this draft');
+  } finally {
+    clearListReturnCache(); // it can fail a run (a write the cached lists never show, but every function that writes clears, so this one does too)
+  }
+}
+
+/**
  * The file of an upload run (`canvas_workspace_send` with a file attachment made the run): ONE request. The function claims
  * the run, reads the file to text (the bytes are never stored), writes it as material of the message and drafts, all in that
  * invocation; a file it cannot read fails the run there.

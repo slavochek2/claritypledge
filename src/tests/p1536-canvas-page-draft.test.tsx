@@ -144,7 +144,8 @@ describe('labels: a version is a number and a date, or "v{next} · Draft", never
   });
 
   it('a lone draft is badged "v1" with the state tag "Draft" beside it (a first canvas, W4)', async () => {
-    getCanvas.mockResolvedValue(draftView());
+    // a first canvas has no base version (review fix 11b: a draft made from a published version reads "Draft · from vN")
+    getCanvas.mockResolvedValue(draftView({ draft: { ...draftBlock, baseSeq: null } }));
     page();
     await ready();
     expect(screen.getByTestId('canvas-version-label')).toHaveTextContent(/^v1$/); // W4: the state is its own tag, so the version label carries only the number

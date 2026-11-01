@@ -203,14 +203,14 @@ describe('W4: the header names the state next to the version', () => {
     expect(screen.queryByTestId('canvas-clone-state')).toBeNull();
   });
 
-  it('the owner\'s draft says Draft, with the version label unchanged beside it', async () => {
+  it('the owner\'s draft says Draft, with where it came from (D8: "Draft · from v2") and the version label unchanged beside it', async () => {
     st.hasV2 = true;
     st.openDraft = draftBlock({ baseSeq: 2 });
     st.draftRow = draftRow();
     mount(`/p/ana/canvas/canvas?v=${DRAFT_NAME}&ws=1`);
     await grid();
     await screen.findByTestId('thread-panel');
-    expect(stateTag()).toBe('Draft');
+    expect(stateTag()).toBe('Draft · from v2');
     expect(within(screen.getByTestId('canvas-project-slot')).getByTestId('canvas-version-select')).toHaveValue(DRAFT_NAME);
     expect(screen.queryByTestId('canvas-clone-state')).toBeNull();
   });

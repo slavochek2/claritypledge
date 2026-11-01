@@ -9,30 +9,24 @@
  */
 import { listMyCanvasVersions, sendCanvasWorkspaceMessage } from '@/app/data/canvas-draft-service';
 import { MAX_UPLOAD_BYTES } from '@/app/pages/chat/canvas-thread-copy';
+import type { CanvasDraftErrorCode } from '@/app/data/canvas-draft-service';
 import { postFile } from '@/app/pages/chat/use-canvas-uploads';
+import { createUnresolvedClientIds } from '@/app/pages/chat/unresolved-client-ids';
 
 /** The client id of each first Send still unresolved, by what it says (canvas, version, text or file). */
-const unresolved = new Map<string, string>();
+const unresolved = createUnresolvedClientIds();
 /** Runs whose file this page already delivered: a replay (the first response was lost) posts the bytes only when they are not in yet. */
 const delivered = new Set<string>();
 
 /** Tests only. */
 export function resetUnresolvedFirstSends(): void {
-  unresolved.clear();
+  unresolved.reset();
   delivered.clear();
 }
 
-function clientIdFor(key: string): string {
-  let id = unresolved.get(key);
-  if (!id) {
-    id = crypto.randomUUID();
-    unresolved.set(key, id);
-  }
-  return id;
-}
-
 export type NextDraftResult =
-  | { ok: true; versionName: string }
+  /** `fileRefusal`: the draft is open but its first file was not read (the post failed or was refused): the caller says so. */
+  | { ok: true; versionName: string; fileRefusal?: CanvasDraftErrorCode }
   | { ok: false; why: 'no_version' | 'versions_failed' | 'refused' | 'too_large' | 'stale_view' };
 
 /** J4 "Start over from vN": the open draft of another base that the first Send discards in its own transaction, as the screen last saw it. */
@@ -73,19 +67,21 @@ export async function openNextDraft(args: { projectTag: string; version: string 
   const sent = await sendCanvasWorkspaceMessage({
     canvasId: from.canvasId, fromVersionId: from.id, expectedDraftId: replace?.draftId ?? null, expectedRevision: replace?.revision ?? null, ...(replace ? { replace: true } : {}),
     ...(file ? { attachment: { kind: 'file' as const, label: file.name } } : { body }),
-    clientId: clientIdFor(key),
+    clientId: unresolved.idFor(key),
   });
   if (!sent.ok) {
-    unresolved.delete(key); // a definite refusal: the next attempt is a new one
+    unresolved.settle(key); // a definite refusal: the next attempt is a new one
     return refusalOf(sent.refused, replace);
   }
-  unresolved.delete(key);
-  // A file is posted with the id of the run the send made; if the post fails the draft is open and a toast says so.
+  unresolved.settle(key);
+  // A file is posted with the id of the run the send made; if the post fails the draft is open and the caller says so.
   // A replay means an earlier attempt's response was lost, so its bytes may never have gone: post them unless this page already did.
+  let fileRefusal: CanvasDraftErrorCode | undefined;
   if (file && !delivered.has(sent.runId)) {
-    const r = await postFile(sent.runId, file).catch(() => null);
-    if (r?.ok) delivered.add(sent.runId);
+    const r = await postFile(sent.runId, file).catch(() => ({ ok: false, code: 'FAILED' }) as const);
+    if (r.ok) delivered.add(sent.runId);
+    else fileRefusal = r.code;
   }
-  return { ok: true, versionName: sent.versionName };
+  return { ok: true, versionName: sent.versionName, ...(fileRefusal ? { fileRefusal } : {}) };
 }
 

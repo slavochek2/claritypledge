@@ -30,6 +30,7 @@ import {
   openCanvasDraft,
   discardCanvasDraft,
   getCanvasDraftRevision,
+  getCanvasDraftState,
   publishCanvasDraft,
   retryCanvasRun,
   sendCanvasWorkspaceMessage,
@@ -318,7 +319,8 @@ describe('P1536 version card', () => {
       t === 'canvas_drafts' ? table({ id: 'draft-1', state: 'open', canvas_name: 'canvas', version_name: 'canvas_dabc123' }) : table({ slug: 'test-user' }),
     );
     const open = '/p/test-user/canvas/canvas?v=canvas_dabc123&ws=1';
-    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toEqual({ label: 'Draft', state: 'draft', draft: true, href: open, openHref: open });
+    // J-W5: the card carries the canvas's title and the number the draft gets
+    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toEqual({ title: 'Canvas', nextSeq: 1, label: 'Draft', state: 'draft', draft: true, href: open, openHref: open });
   });
 
   it('U3 CONTROL: a draft whose names cannot be read stays "Draft" with no Open', async () => {
@@ -343,6 +345,42 @@ describe('P1536 version card', () => {
     sb.rpc.mockResolvedValue({ data: [], error: null });
     sb.from.mockReturnValue(table(null));
     await expect(getCanvasVersionCard('ver-x', 'user-id-1234')).resolves.toBeNull();
+  });
+});
+
+describe('review fix 5: a draft card names its canvas and its version (J-W5: "Canvas 4 · v2 · Draft")', () => {
+  const draftsTable = (t: string) =>
+    t === 'canvas_drafts' ? table({ id: 'draft-1', state: 'open', canvas_name: 'canvas_4', version_name: 'canvas_dabc123' }) : table({ slug: 'test-user' });
+  const rpcBy = (byName: Record<string, unknown[]>) =>
+    sb.rpc.mockImplementation(async (name: string) => ({ data: byName[name] ?? [], error: null }));
+  const published = (over: Record<string, unknown>) => ({ id: 'ver-1', canvas_id: 'cv', canvas_name: 'canvas_4', name: 'canvas_d1a2b3', seq: 1, published_at: '2026-10-26T10:00:00Z', has_open_draft: true, ...over });
+
+  it('a canvas with published versions: its display title, and the next number (newest published + 1)', async () => {
+    sb.from.mockImplementation(draftsTable);
+    rpcBy({ list_my_canvas_versions: [published({ seq: 1, canvas_title: 'Sales map' }), published({ id: 'ver-2', name: 'canvas_d2', seq: 2, canvas_title: 'Sales map' })] });
+    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toMatchObject({ state: 'draft', title: 'Sales map', nextSeq: 3 });
+  });
+
+  it('a canvas never published: the title from the owner\'s canvases read (list_my_artifacts_canvases), number 1', async () => {
+    sb.from.mockImplementation(draftsTable);
+    rpcBy({ list_my_artifacts_canvases: [{ canvas_id: 'cv', name: 'canvas_4', title: 'First idea' }] });
+    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toMatchObject({ state: 'draft', title: 'First idea', nextSeq: 1 });
+  });
+
+  it('never renamed, never published: the tag\'s own title ("Canvas 4"), and a failed canvases read does not hide the card', async () => {
+    sb.from.mockImplementation(draftsTable);
+    sb.rpc.mockImplementation(async (name: string) => (name === 'list_my_artifacts_canvases' ? { data: null, error: { code: 'x', message: 'down' } } : { data: [], error: null }));
+    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toMatchObject({ state: 'draft', title: 'Canvas 4', nextSeq: 1 });
+  });
+});
+
+describe('review fix 3: the state read that runs the server\'s expire step', () => {
+  it('calls get_canvas_draft_state for the canvas, and an error is thrown (the poll asks again)', async () => {
+    sb.rpc.mockResolvedValueOnce({ data: {}, error: null });
+    await expect(getCanvasDraftState('cv-1')).resolves.toBeUndefined();
+    expect(sb.rpc).toHaveBeenLastCalledWith('get_canvas_draft_state', { p_canvas: 'cv-1' });
+    sb.rpc.mockResolvedValueOnce({ data: null, error: { code: '42501', message: 'not authorized' } });
+    await expect(getCanvasDraftState('cv-1')).rejects.toBeTruthy();
   });
 });
 

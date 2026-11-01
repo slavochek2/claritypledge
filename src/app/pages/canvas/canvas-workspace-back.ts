@@ -5,10 +5,10 @@
  */
 import { ARTIFACTS_CANVASES_MINE } from '@/app/pages/artifacts/legacy-redirect-targets';
 
-/** An in-app path only: never another origin, never a protocol-relative address. */
+/** An in-app path only: never another origin, never a protocol-relative address, and never a backslash or whitespace after the slash (browsers read `/\host` as `//host`). */
 export function fromOf(state: unknown): string | null {
   const from = (state as { from?: unknown } | null)?.from;
-  return typeof from === 'string' && /^\/(?!\/)/.test(from) ? from : null;
+  return typeof from === 'string' && /^\/(?![\\/\s])/.test(from) ? from : null;
 }
 
 export function workspaceBackTarget(args: { state: unknown }): string {

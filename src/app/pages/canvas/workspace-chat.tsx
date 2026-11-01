@@ -8,14 +8,14 @@
  *  - a Clone pending (W3; `ws=1` on a published version with no open draft IS one, however it was entered): the Clone line and a live composer, with Upload. Nothing is
  *    written until the first Send, which opens the next draft from the version on screen; the page then moves to it and its thread
  *    shows here. A Clone started over another base's draft (J4 "Start over") passes that draft, and the Send discards it;
- *  - the open draft's header carries Discard (W6), never in the pending state (× cancels there);
+ *  - the open draft's header reads `Draft · vN` beside Discard (W6), a pending Clone's `New draft from vN` with no Discard (× cancels there);
  *  - drafting unavailable, or the draft in another chat: an explicit "could not load" with Retry.
  */
 import { useContext, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { Skeleton } from '@/components/ui/skeleton';
-import { isViewingDraft, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
+import { isViewingDraft, nextSeqOf, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
 import type { ChatSummary } from '@/app/data/chat-service';
 import { InlineError } from '@/app/pages/chat/chat-kit';
@@ -28,6 +28,7 @@ import { DiscardDraftButton } from './discard-draft-button';
 import type { ClonePending } from './use-clone-canvas';
 import { DRAFT_ERROR_TEXT } from '@/app/pages/chat/canvas-thread-copy';
 import { resetCanvasAvailability, useCanvasDraftAvailability } from '@/app/pages/chat/use-canvas-availability';
+import { uploadRefusalText } from '@/app/pages/chat/use-canvas-uploads';
 import { openNextDraft, type NextDraftResult } from './workspace-next-draft';
 
 // [FOUNDER DECISION: the two strings of the draft line shown when the page is on another version than the open draft.]
@@ -87,8 +88,10 @@ function EmptyChatBody({ ready, projectTag, focusable, onOpened, onRunActive, on
     setSending(true);
     try {
       const r = await openNextDraft({ projectTag, version: ready.version, replace: cloning.replace ? { draftId: cloning.replace.id, revision: cloning.replace.revision } : null, ...args });
-      if (r.ok) onOpened(r.versionName);
-      else if (r.why === 'stale_view') onStale(); // the draft being replaced moved on: the sheet asks again, the text stays in the composer
+      if (r.ok) {
+        onOpened(r.versionName);
+        if (r.fileRefusal) toast.error(uploadRefusalText(r.fileRefusal)); // the draft exists now; its first file did not go through
+      } else if (r.why === 'stale_view') onStale(); // the draft being replaced moved on: the sheet asks again, the text stays in the composer
       else toast.error(failureText(r));
       return r.ok;
     } catch {
@@ -102,7 +105,7 @@ function EmptyChatBody({ ready, projectTag, focusable, onOpened, onRunActive, on
     <>
       {/* The panel's header: × closes the panel, or cancels a pending Clone (the owner's onClose decides). */}
       <ThreadHeader onClose={onClose}>
-        <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
+        <h2 className="truncate text-base font-semibold text-foreground" data-testid="canvas-thread-title">{cloning.seq ? `New draft from v${cloning.seq}` : 'New draft'}</h2>
       </ThreadHeader>
       <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-center" data-testid="workspace-chat-empty">
         <p className="text-sm text-muted-foreground">{cloneLine(cloning.seq)}</p>
@@ -155,7 +158,8 @@ export function WorkspaceChat({ mirror, ready, projectTag, canvasTitle, focusabl
   const { user } = useAuth();
   const [attempt, setAttempt] = useState(0);
   const chat = useContext(ChatContext);
-  if (!mirror || !ready) return <Waiting />;
+  // Never for anyone who is not the canvas's owner, whatever the address says (defence in depth: the route gives them no workspace at all).
+  if (!mirror || !ready || !ready.isOwner) return <Waiting />;
   const draft = ready.draft;
   if (cloning && projectTag && !isViewingDraft(ready)) return <EmptyChat ready={ready} projectTag={projectTag} focusable={focusable} onOpened={onOpened} onRunActive={onRunActive} cloning={cloning} onStale={onStale} onClose={onClose} />;
   if (!draft) {
@@ -172,7 +176,7 @@ export function WorkspaceChat({ mirror, ready, projectTag, canvasTitle, focusabl
   return (
     <>
       {!isViewingDraft(ready) && <DraftLine onGo={() => onOpened(draft.version)} />}
-      <ThreadPanel key={`${draft.threadRootId}:${attempt}`} fill summary={mirror} rootId={draft.threadRootId} highlightId={null} canvasTitle={canvasTitle} focusable={focusable} onClose={onClose} onRunActive={onRunActive}
+      <ThreadPanel key={`${draft.threadRootId}:${attempt}`} fill summary={mirror} rootId={draft.threadRootId} highlightId={null} canvasTitle={canvasTitle} panelTitle={`Draft · v${nextSeqOf(ready.versions)}`} focusable={focusable} onClose={onClose} onRunActive={onRunActive}
         headerActions={user?.slug && projectTag ? <DiscardDraftButton ready={ready} ownerSlug={user.slug} canvasName={projectTag} /> : undefined} />
     </>
   );

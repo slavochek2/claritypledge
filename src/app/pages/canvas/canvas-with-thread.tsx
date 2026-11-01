@@ -32,6 +32,7 @@ import { useWorkspacePanel } from './use-workspace-panel';
 import { useCanvasRename } from './use-canvas-rename';
 import { useWorkspacePublish } from './use-workspace-publish';
 import { useFollowDraft } from './use-follow-draft';
+import { useBareWorkspaceDraft } from './use-bare-workspace-draft';
 import { WorkspaceChat } from './workspace-chat';
 
 export function CanvasWithThread() {
@@ -52,23 +53,28 @@ export function CanvasWithThread() {
   const [reloads, setReloads] = useState(0);
   // Below 1280px the chat takes focus only while it is the shown view.
   const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
+  // W1: entering an edit (a draft shown, a Clone) brings the panel with it: it may have been closed on a draft before.
+  const openPanel = useCallback(() => setPanelOpen(true), [setPanelOpen]);
   const openedDraft = useCallback((versionName: string) => {
+    openPanel();
     setParams(prev => {
       const next = new URLSearchParams(prev);
       next.set('v', versionName);
       next.set(CANVAS_WORKSPACE_PARAM, '1');
       return next;
     }, { replace: true, state: location.state });
-  }, [setParams, location.state]);
+  }, [setParams, location.state, openPanel]);
 
   // The page's read counts for Clone only when it was made for the `?v=` now in the address.
   const freshReady = reported.forVersion === params.get('v') ? reported.ready : null;
-  const clone = useCloneCanvas({ eligible, active, ready: freshReady, setParams, state: location.state, openDraft: openedDraft, reload: () => setReloads(n => n + 1) });
+  const clone = useCloneCanvas({ eligible, active, ready: freshReady, setParams, state: location.state, openDraft: openedDraft, reload: () => setReloads(n => n + 1), onEnter: openPanel });
   const pendingSeq = clone.pending ? clone.pending.seq : null;
   const { closedDraftId, spot, publishing, publish } = useWorkspacePublish({ ready: reported.ready, runActive, pendingClone: !!clone.pending, setParams, state: location.state });
   // W8: the owner's header is the bar above the page: for the signed-in owner of a canvas with a mirror chat from the first render (so nothing shifts when
-  // the read lands), and for any owner once the page has read the canvas. Everyone else keeps the reader header in the page.
-  const ownerBar = eligible || !!reported.ready?.isOwner;
+  // the read lands), and for any owner once the page has read the canvas. Once the read HAS answered, it decides: a page that is not the viewer's own
+  // never shows owner controls. Everyone else keeps the reader header in the page.
+  const answered = reported.ready ?? held;
+  const ownerBar = answered ? answered.isOwner : eligible;
   // W7: Copy prompt is the primary only while the canvas is empty ("Not published yet") and the thread pane is what is on screen.
   const threadShown = wide ? panelOpen : view === 'chat';
   const copyPromptPrimary = active && threadShown && !publishing && spot.kind === 'not-published';
@@ -85,6 +91,8 @@ export function CanvasWithThread() {
     }, { state: location.state });
   }, [setParams, location.state]);
   useWorkspaceMarker({ eligible, resolved, params, setParams, state: location.state, reported, closedDraftId });
+  // `?ws=1` with no version and a draft open IS the workspace on that draft (W0).
+  useBareWorkspaceDraft({ eligible, params, reported, pendingClone: !!clone.pending, openDraft: openedDraft });
   // A pending Clone over another base's draft must not be dragged onto that draft by its own first Send.
   useFollowDraft(runActive, clone.pending ? null : reported.ready, openedDraft);
 

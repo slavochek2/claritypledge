@@ -305,14 +305,15 @@ describe('Rename: the owner\'s ✎', () => {
     expect(startEdit().value).toBe('Series A plan');
   });
 
-  it('the title is also the name in the thread header of an update draft (one source, not two)', async () => {
+  it('the name is shown ONCE, in the owner bar: the panel header of an update draft reads "Draft · vN" and does not repeat it (wireframe, review fix 11c)', async () => {
     st.openDraft = draftBlock({ baseSeq: 1 });
     st.draftRow = draftRow({ baseVersionId: 'ver-1' });
     getCanvas.mockImplementation(async (_o: string, _t: string, _v: unknown, _k: unknown, version?: string) => readFor(version, { title: 'Series A plan' }));
     mount(DRAFT_AT);
     await grid();
     await screen.findByTestId('thread-panel');
-    expect(await screen.findByTestId('canvas-thread-title')).toHaveTextContent('Series A plan');
+    expect(title()).toHaveTextContent('Series A plan');
+    expect(await screen.findByTestId('canvas-thread-title')).toHaveTextContent(/^Draft · v\d+$/);
   });
 });
 

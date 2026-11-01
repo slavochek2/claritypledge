@@ -23,7 +23,7 @@ import { CanvasShareControl } from './canvas-share-control';
 import { CanvasStateTag } from './canvas-state-tag';
 import { CanvasVersionSlot } from './canvas-version-switcher';
 import { useCanvasWorkspace } from './canvas-workspace-context';
-import type { WorkspaceView } from './canvas-workspace-layout';
+import { STICKY_TOP, type WorkspaceView } from './canvas-workspace-layout';
 
 /** The bar is two rows below 1280px (the second holds the switcher, Share and Clone) and one line from it. */
 const BAR = 'z-30 flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-b bg-background px-2 py-1 sm:px-3 xl:flex-nowrap';
@@ -55,10 +55,11 @@ function BarActions({ ready, handle, projectTag, title, onChanged, panelOpen, on
   ready: CanvasReady; handle: string | undefined; projectTag: string | null; title: string; onChanged: () => void;
   panelOpen: boolean; onOpenPanel?: () => void; active: boolean;
 }) {
-  const canShare = !!projectTag && !ready.publishedNone;
+  const canShare = ready.isOwner && !!projectTag && !ready.publishedNone;
   const thread = active && !panelOpen && onOpenPanel ? <ThreadButton onOpen={onOpenPanel} /> : null;
   return (
-    <div className="order-7 ml-auto flex min-w-0 items-center gap-1.5 xl:order-10" data-testid="canvas-bar-actions">
+    // Row 2 below 1280px has ONE height whether or not the switcher (44px) is on it: Share and Clone are 40px pills, so the row holds the switcher's height.
+    <div className="order-7 ml-auto flex min-w-0 items-center gap-1.5 max-xl:min-h-11 xl:order-10" data-testid="canvas-bar-actions">
       {canShare && (
         <CanvasShareControl
           name={projectTag}
@@ -102,7 +103,7 @@ export function CanvasOwnerBar({ ready, handle, projectTag, title, canRename, on
   const { cloneSeq } = useCanvasWorkspace();
   const viewingDraft = !!ready && isViewingDraft(ready);
   return (
-    <div className={cn(BAR, !active && 'sticky top-14')} data-testid="workspace-bar" data-owner-bar="">
+    <div className={cn(BAR, !active && STICKY_TOP)} data-testid="workspace-bar" data-owner-bar="">
       <Button type="button" variant="ghost" className="order-none h-11 w-10 shrink-0 p-0" aria-label="Go back" onClick={onBack} data-testid="workspace-back">
         <ArrowLeft className="h-4 w-4" aria-hidden />
       </Button>

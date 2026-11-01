@@ -54,7 +54,6 @@ export function CanvasVersionSlot({ ready, viewingDraft, onPick }: { ready: Canv
   return (
     // A lone "Draft" label keeps its own width on a phone, so the name gets the rest of the row; the version menu shares it.
     <span className="flex min-w-0 max-w-full shrink-0 items-center gap-2 max-sm:flex-none" data-testid="canvas-project-slot">
-      <span aria-hidden className="hidden shrink-0 text-foreground/40 sm:inline">·</span>
       {versions.length >= 2
         ? <VersionSwitcher versions={versions} open={ready.version ?? versions[0]?.name ?? ''} onPick={onPick} />
         : <span className="shrink-0 text-sm font-medium text-foreground/70" data-testid="canvas-version-label">v{nextSeqOf(ready.versions)}</span>}

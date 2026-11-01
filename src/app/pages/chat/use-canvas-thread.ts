@@ -6,8 +6,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getCanvasDraftByThread,
+  getCanvasDraftState,
   getLastDoneCanvasDraftRunAt,
   getLatestCanvasRun,
+  startQueuedCanvasRun,
   type CanvasDraft,
   type CanvasDraftRun,
   isDraftingRunKind,
@@ -16,15 +18,17 @@ import { emitCanvasDraftEvent, subscribeCanvasDraftEvents } from '@/app/data/can
 
 /** How often a going run is re-read (only while the tab is on screen). */
 export const RUN_POLL_MS = 3_000;
-/** A run still "going" this long after it began died with its request (the server counts it dead too): the owner may start again. */
+/** A running run this long after it began is past its lease (the server's own number): the server fails it at its next read. */
 const RUN_DEAD_MS = 5 * 60_000;
-/** A run made but not claimed within this long is not "going": its start request did not land. */
-const QUEUED_GRACE_MS = 8_000;
+/** A queued run's lease (the server's own number, 3 minutes). Within it the run is ACTIVE, claimed or not: it blocks every other Send. */
+export const QUEUED_LEASE_MS = 3 * 60_000;
+/** A run made but not claimed within this long: its start request probably did not land, so the client starts it once more. */
+export const QUEUED_GRACE_MS = 8_000;
 
 export interface CanvasThread {
   draft: CanvasDraft;
   run: CanvasDraftRun | null;
-  /** A run is running now (and young enough to be alive), or was queued a moment ago and is being claimed. */
+  /** A run is active: running, or queued, and still inside its server lease (queued 3 minutes, running 5). */
   running: boolean;
   /**
    * When the newest DRAFT-kind run that finished began (ms), or null. A newer one than the last seen tells the canvas page beside
@@ -67,26 +71,56 @@ export function splitText(text: string, max: number): string[] {
 
 const startOf = (run: CanvasDraftRun | null): number | null => (run ? Date.parse(run.startedAt ?? run.createdAt) : null);
 
+const isActiveState = (run: CanvasDraftRun | null): run is CanvasDraftRun => !!run && (run.state === 'queued' || run.state === 'running');
+const ageOf = (run: CanvasDraftRun, now: number): number => now - new Date(run.startedAt ?? run.createdAt).getTime();
+/** The lease of an active run: how long it counts as active before the server's expire step fails it. */
+const leaseOf = (run: CanvasDraftRun): number => (run.state === 'queued' ? QUEUED_LEASE_MS : RUN_DEAD_MS);
+
+/** S2: an active run is queued or running, inside its lease. A queued run nobody claimed is still active (the server refuses a second Send) until the lease ends. */
 export function runIsGoing(run: CanvasDraftRun | null, now = Date.now()): boolean {
-  if (!run || (run.state !== 'queued' && run.state !== 'running')) return false;
-  const age = now - new Date(run.startedAt ?? run.createdAt).getTime();
-  // A queued run is going only while its start request is on its way; after that nothing is running it.
-  return run.state === 'queued' ? age < QUEUED_GRACE_MS : age < RUN_DEAD_MS;
+  return isActiveState(run) && ageOf(run, now) < leaseOf(run);
 }
 
 const tabIsVisible = (): boolean => typeof document === 'undefined' || document.visibilityState !== 'hidden';
 
 /** The draft, its newest run, and when the newest finished draft run began. A failed secondary read never hides the draft. */
 async function readDraft(rootId: string): Promise<Loaded | null> {
-  const draft = await getCanvasDraftByThread(rootId);
+  let draft = await getCanvasDraftByThread(rootId);
   if (!draft) return null;
-  const run = await getLatestCanvasRun(draft.id);
+  let run = await getLatestCanvasRun(draft.id);
+  // A run still active past its lease: the plain table read never settles it, the server's state read does (its first step is the expire step,
+  // which also moves the draft's revision). A failed call changes nothing here: the next poll asks again.
+  if (isActiveState(run) && ageOf(run, Date.now()) >= leaseOf(run)) {
+    const settled = await getCanvasDraftState(draft.canvasId).then(() => true, () => false);
+    if (settled) {
+      draft = (await getCanvasDraftByThread(rootId)) ?? draft;
+      run = await getLatestCanvasRun(draft.id);
+    }
+  }
   // The baseline of "a newer draft run finished": the newest run when it is that run, else the last one that finished.
   // A failed lookup is "unknown", not "nothing new": baseline 0 keeps a later finished run reportable.
   const newestIsDoneDraft = isDraftingRunKind(run?.kind) && run?.state === 'done';
   const finishedBefore = !newestIsDoneDraft && draft.runCount > 0;
   const lastDraftAt = newestIsDoneDraft ? startOf(run) : finishedBefore ? await getLastDoneCanvasDraftRunAt(draft.id).then((at) => (at ? Date.parse(at) : null), () => 0) : null;
   return { draft, run, lastDraftAt };
+}
+
+/**
+ * A queued run nobody claimed (its start request did not land: a closed tab, a dropped network) is started once more after the grace.
+ * Once per run: a refusal is the server's answer and the lease ends it; NOT_READY (a voice note awaiting its transcript) is not a failure.
+ */
+function useRestartStrandedRun(run: CanvasDraftRun | null, draftId: string | null, load: () => Promise<void>): void {
+  const queuedId = run?.state === 'queued' ? run.id : null;
+  const queuedAt = run ? new Date(run.createdAt).getTime() : 0;
+  const restarted = useRef(new Set<string>());
+  useEffect(() => {
+    if (!queuedId || !draftId || restarted.current.has(queuedId)) return;
+    const t = setTimeout(() => {
+      restarted.current.add(queuedId);
+      void startQueuedCanvasRun(draftId).then(() => load(), () => undefined);
+    }, Math.max(0, queuedAt + QUEUED_GRACE_MS - Date.now()));
+    return () => clearTimeout(t);
+  }, [queuedId, queuedAt, draftId, load]);
 }
 
 /**
@@ -127,6 +161,10 @@ export function useCanvasThread(rootId: string | null, refreshKey: number): Canv
 
   const loaded = read && read.root === rootId ? read.loaded : null;
   const running = runIsGoing(loaded?.run ?? null);
+  // Read until the run settles: past its lease it is still `queued`/`running` in the table until a state read makes the server fail it.
+  const settling = isActiveState(loaded?.run ?? null);
+
+  useRestartStrandedRun(loaded?.run ?? null, loaded?.draft.id ?? null, load);
 
   // The canvas page beside this thread (P1536) is told when the draft's points changed: a read shows a NEWER finished draft run
   // than the last one seen for this draft (however many runs came and went between two reads). The first read of a draft only
@@ -149,8 +187,8 @@ export function useCanvasThread(rootId: string | null, refreshKey: number): Canv
   }, [draftId, load]);
 
   // A hidden tab does not poll; coming back reads once (the run may have ended meanwhile) and polling resumes.
-  const wasRunning = useRef(running);
-  wasRunning.current = running;
+  const wasRunning = useRef(settling);
+  wasRunning.current = settling;
   useEffect(() => {
     const onChange = () => {
       const now = tabIsVisible();
@@ -161,18 +199,28 @@ export function useCanvasThread(rootId: string | null, refreshKey: number): Canv
     return () => document.removeEventListener('visibilitychange', onChange);
   }, [load]);
   useEffect(() => {
-    if (!running || !visible) return;
+    if (!settling || !visible) return;
     const t = setInterval(() => void load(), RUN_POLL_MS);
     return () => clearInterval(t);
-  }, [running, visible, load]);
+  }, [settling, visible, load]);
 
   const retry = useCallback(() => {
     setRead(null);
     void load();
   }, [load]);
 
-  if (!rootId) return { status: 'idle', thread: null, retry };
-  if (!read || read.root !== rootId) return { status: 'loading', thread: null, retry };
-  if (loaded && loaded.draft.threadRootId === rootId) return { status: 'ready', thread: { ...loaded, running, reload: load }, retry };
-  return { status: read.error ? 'error' : 'none', thread: null, retry };
+  return { ...statusOf(rootId, read, loaded, { running, reload: load }), retry };
+}
+
+/** What the read amounts to for this root: nothing asked, still reading, the draft, or why there is none. */
+function statusOf(
+  rootId: string | null,
+  read: { root: string; loaded: Loaded | null; error: boolean } | null,
+  loaded: Loaded | null,
+  live: { running: boolean; reload: () => Promise<void> },
+): { status: CanvasThreadStatus; thread: CanvasThread | null } {
+  if (!rootId) return { status: 'idle', thread: null };
+  if (!read || read.root !== rootId) return { status: 'loading', thread: null };
+  if (loaded && loaded.draft.threadRootId === rootId) return { status: 'ready', thread: { ...loaded, ...live } };
+  return { status: read.error ? 'error' : 'none', thread: null };
 }
