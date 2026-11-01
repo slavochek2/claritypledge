@@ -88,7 +88,7 @@ const html = `<!doctype html><html><body style="margin:0">
 <svg width="${W}" height="${H}" style="position:absolute;left:0;top:0">
 <path d="${path}" fill="none" stroke="#fff" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>
 <path d="${path}" fill="none" stroke="#e11d48" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
-${pin('meet', 'Cafe', '#2563eb')}${pin('start', 'Start', '#111')}
+${pin('meet', 'Cafe', '#2563eb')}${pin('start', 'Start', '#111')}${pin('break', 'Break', '#059669')}
 </svg></div></body></html>`;
 
 const browser = await chromium.launch();
