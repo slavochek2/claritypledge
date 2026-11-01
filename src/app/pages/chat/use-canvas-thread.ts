@@ -20,6 +20,8 @@ import { emitCanvasDraftEvent, subscribeCanvasDraftEvents } from '@/app/data/can
 export const RUN_POLL_MS = 3_000;
 /** A running run this long after it began is past its lease (the server's own number): the server fails it at its next read. */
 const RUN_DEAD_MS = 5 * 60_000;
+/** A first read that has not answered in this long ends as a failed read (Retry shows; a Send that waited on it stops waiting). A late answer still replaces it. */
+export const FIRST_READ_MAX_MS = 15_000;
 /** A queued run's lease (the server's own number, 3 minutes). Within it the run is ACTIVE, claimed or not: it blocks every other Send. */
 export const QUEUED_LEASE_MS = 3 * 60_000;
 /** A run made but not claimed within this long: its start request probably did not land, so the client starts it once more. */
@@ -160,6 +162,12 @@ export function useCanvasThread(rootId: string | null, refreshKey: number): Canv
   }, [rootId, refreshKey, load]);
 
   const loaded = read && read.root === rootId ? read.loaded : null;
+  const firstReadOut = !!rootId && (!read || read.root !== rootId);
+  useEffect(() => {
+    if (!rootId || !firstReadOut) return;
+    const t = setTimeout(() => setRead((prev) => (prev?.root === rootId ? prev : { root: rootId, loaded: null, error: true })), FIRST_READ_MAX_MS);
+    return () => clearTimeout(t);
+  }, [rootId, firstReadOut]);
   const running = runIsGoing(loaded?.run ?? null);
   // Read until the run settles: past its lease it is still `queued`/`running` in the table until a state read makes the server fail it.
   const settling = isActiveState(loaded?.run ?? null);

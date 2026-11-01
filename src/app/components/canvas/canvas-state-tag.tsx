@@ -7,12 +7,14 @@
 import { isViewingDraft, type CanvasReady } from './canvas-page-data';
 
 const TAG = 'min-w-0 truncate text-sm font-medium text-foreground/70';
+/** The word "Draft" is the one thing W4 says is always named: it never shrinks, at any width (the name and the pending tag give way instead). */
+const DRAFT_TAG = 'shrink-0 text-sm font-medium text-foreground/70';
 
 export function CanvasStateTag({ ready, cloneSeq }: { ready: CanvasReady; cloneSeq: number | null }) {
   if (isViewingDraft(ready)) {
     const from = ready.draft?.baseSeq ?? null;
     return (
-      <span className={`${TAG} sm:shrink-0`} data-testid="canvas-state">
+      <span className={DRAFT_TAG} data-testid="canvas-state">
         Draft{from !== null && <span className="max-sm:hidden"> · from v{from}</span>}
       </span>
     );

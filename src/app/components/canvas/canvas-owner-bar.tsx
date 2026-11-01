@@ -105,16 +105,16 @@ export function CanvasOwnerBar({ ready, handle, projectTag, title, canRename, on
   return (
     <div className={cn(BAR, !active && STICKY_TOP)} data-testid="workspace-bar" data-owner-bar="">
       {/* Row 1 is its own non-wrapping row below 1280px (the Publish spot can never be pushed to a second line: W8), and dissolves into the one line from 1280px. */}
-      <div className="order-none flex min-w-0 basis-full items-center gap-x-1.5 xl:contents" data-testid="workspace-bar-row1">
-        <Button type="button" variant="ghost" className="order-none h-11 w-10 shrink-0 p-0" aria-label="Go back" onClick={onBack} data-testid="workspace-back">
+      <div className="order-none flex min-w-0 basis-full items-center gap-x-1.5 max-[359px]:gap-x-1 xl:contents" data-testid="workspace-bar-row1">
+        <Button type="button" variant="ghost" className="order-none h-11 w-10 shrink-0 p-0 max-[359px]:w-8" aria-label="Go back" onClick={onBack} data-testid="workspace-back">
           <ArrowLeft className="h-4 w-4" aria-hidden />
         </Button>
         {/* The name gives way first, but never below a few letters and an ellipsis (a lone letter is not a name); the state tag gives way before that. */}
-        <div className="order-1 flex min-w-[4.5rem] flex-1 items-center sm:min-w-[6rem] xl:min-w-0 xl:max-w-[26rem] xl:flex-none" data-testid="canvas-name">
+        <div className="order-1 flex min-w-[4.5rem] max-[359px]:min-w-[2.75rem] flex-1 items-center sm:min-w-[6rem] xl:min-w-0 xl:max-w-[26rem] xl:flex-none" data-testid="canvas-name">
           {ready ? <CanvasNameEdit title={title} canEdit={canRename} onSave={onRename} /> : <Skeleton className="h-5 w-24" />}
         </div>
         {ready && <div className="order-2 flex shrink-0 items-center"><CanvasVersionSlot ready={ready} viewingDraft={viewingDraft} pendingSeq={cloneSeq} onPick={onPick} /></div>}
-        {ready && <div className="order-3 flex min-w-0 shrink items-center"><CanvasStateTag ready={ready} cloneSeq={cloneSeq} /></div>}
+        {ready && <div className={cn('order-3 flex items-center', viewingDraft ? 'shrink-0' : 'min-w-0 shrink')}><CanvasStateTag ready={ready} cloneSeq={cloneSeq} /></div>}
         <div className="order-4 shrink-0 xl:order-last">{spot}</div>
       </div>
       {active && <ViewSwitch view={view} onView={onView} />}

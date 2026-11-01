@@ -66,11 +66,11 @@ export async function openNextDraft(args: { projectTag: string; version: string 
   if (!from) return { ok: false, why: 'no_version' };
   const key = sendKey(from, replace, { body, file });
   // The thread this makes is a canvas thread: the mirror must know it before the realtime copy of the message (or the answer) lands.
-  const sent = await trackCanvasSend(() => sendCanvasWorkspaceMessage({
+  const sent = await trackCanvasSend((threadKnown) => sendCanvasWorkspaceMessage({
     canvasId: from.canvasId, fromVersionId: from.id, expectedDraftId: replace?.draftId ?? null, expectedRevision: replace?.revision ?? null, ...(replace ? { replace: true } : {}),
     ...(file ? { attachment: { kind: 'file' as const, label: file.name } } : { body }),
-    clientId: unresolved.idFor(key),
-  }), r => (r.ok ? r.threadRootId : null));
+    clientId: unresolved.idFor(key), onThreadKnown: threadKnown,
+  }));
   if (!sent.ok) {
     unresolved.settle(key); // a definite refusal: the next attempt is a new one
     return refusalOf(sent.refused, replace);

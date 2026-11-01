@@ -44,13 +44,15 @@ export function CanvasNameEdit({ title, canEdit, onSave }: { title: string; canE
       data-testid="canvas-title-input"
     />
   ) : (
-    <span className="flex min-w-0 items-center gap-0.5">
+    <span className="relative flex min-w-0 items-center gap-0.5 max-[359px]:min-h-10">
       <h1 className={NAME} title={title} data-testid="canvas-title">{title}</h1>
+      {/* Below 360px the pencil gives way (the row has no room for it): the name itself is the way to rename. */}
+      <button type="button" aria-label="Edit name" onClick={begin} className="absolute inset-0 min-[360px]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" data-testid="canvas-rename-name" />
       <button
         type="button"
         aria-label="Rename canvas"
         onClick={begin}
-        className="flex h-10 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground sm:w-10 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        className="flex h-10 w-8 shrink-0 max-[359px]:hidden items-center justify-center rounded-full text-muted-foreground sm:w-10 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         data-testid="canvas-rename"
       >
         <Pencil className="h-4 w-4" aria-hidden />

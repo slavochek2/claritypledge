@@ -26,13 +26,15 @@ export interface SendSlot {
   active: boolean;
 }
 
-export function sendSlotOf(args: { live: CanvasThread | null; uploading: boolean; elsewhere: boolean; holdFirstRead?: boolean; readStatus: CanvasThreadStatus }): SendSlot {
-  const { live, uploading, elsewhere, holdFirstRead, readStatus } = args;
+export function sendSlotOf(args: { live: CanvasThread | null; uploading: boolean; elsewhere: boolean; holdFirstRead?: boolean; readStatus: CanvasThreadStatus;
+  /** A Send of this canvas thread is waiting for the thread's answer: the slot reads Updating… and Publish waits. */
+  heldSend?: boolean }): SendSlot {
+  const { live, uploading, elsewhere, holdFirstRead, readStatus, heldSend } = args;
   const busy = !!live && (live.running || uploading);
   const held = !!holdFirstRead && readStatus === 'loading';
   return {
-    waiting: busy ? SEND_SLOT_UPDATING : elsewhere ? SEND_SLOT_ELSEWHERE : undefined,
+    waiting: busy || heldSend ? SEND_SLOT_UPDATING : elsewhere ? SEND_SLOT_ELSEWHERE : undefined,
     atCap: !!live && live.draft.state === 'open' && live.draft.runCount >= REVISION_CAP_RUNS,
-    active: busy || held,
+    active: busy || held || !!heldSend,
   };
 }

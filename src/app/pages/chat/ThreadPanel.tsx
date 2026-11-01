@@ -80,7 +80,8 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   // P1536: a thread that starts with a canvas version is a canvas draft's thread (the draft is read from the database).
   const { canvasRoot, rootPending } = canvasThreadFlags({ kind: summary.kind, root, status: conv.status, fromWorkspace: !!workspace });
   const ownerSlug = chat.authors[chat.userId]?.slug;
-  const canvas = useCanvasParts({ canvasRoot, holdSend: rootPending, workspace, rootId, messages: conv.server, userId: chat.userId, ownerSlug, mirrorTitle: summary.title, canvasTitle, openCanvasFrom: fill ? null : (root?.attachmentId ?? null) });
+  const sendPlain = useCallback((body: string | null) => void conv.send({ body }), [conv]);
+  const canvas = useCanvasParts({ canvasRoot, rootPending, sendPlain, workspace, rootId, messages: conv.server, userId: chat.userId, ownerSlug, mirrorTitle: summary.title, canvasTitle, openCanvasFrom: fill ? null : (root?.attachmentId ?? null) });
   // W0: outside the workspace (`fill`) a canvas thread is an old address; it resolves to the canvas, and is held back meanwhile.
   const retired = useRetiredCanvasThread({ enabled: !fill, canvasRoot, ownerSlug, address: canvas.address });
   const runActive = canvas.runActive;
@@ -135,7 +136,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
           placeholder="Reply in thread"
           focusToken={focusToken}
           autoFocus={focusable}
-          onSend={(body) => (canvas.send && body ? canvas.send(body) : void conv.send({ body }))}
+          onSend={(body) => (canvas.send && body ? canvas.send(body) : sendPlain(body))}
           onVoiceNote={sendVoice}
           leading={canvas.leading}
         />

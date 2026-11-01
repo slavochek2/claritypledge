@@ -221,8 +221,8 @@ const mirrorAsks = () => mirrorSvc.requestMirrorReply.mock.calls.map(c => String
 
 // ── 1: a Send before the thread's first read is never a plain message ────────────────────────────────────────────
 
-describe('1: a Send before the canvas thread has loaded is held, then goes through the engine', () => {
-  it('workspace, root message not loaded yet and the draft read still out: nothing is posted (no plain message, no canvas send), the text stays; after the read the same text goes via canvas_workspace_send', async () => {
+describe('1: a Send before the canvas thread has loaded waits, then goes through the engine', () => {
+  it('workspace, root message not loaded yet and the draft read still out: nothing is posted yet (no plain message, no canvas send); after the read the same text goes via canvas_workspace_send by itself', async () => {
     openDraftState();
     st.messages = [];
     st.convStatus = 'loading';
@@ -237,13 +237,11 @@ describe('1: a Send before the canvas thread has loaded is held, then goes throu
     await act(async () => {});
     expect(convSend).not.toHaveBeenCalled();
     expect(sends()).toHaveLength(0);
-    expect(await composerField()).toHaveValue('tighten the problem');
+    expect(toastError).not.toHaveBeenCalled(); // waiting is not a failure
     // the thread arrives: the root message and the draft read
     st.messages = [rootMessage()];
     st.convStatus = 'ready';
     await act(async () => { read.resolve(st.draftRow); });
-    await waitFor(() => expect(screen.queryByTestId('canvas-thread-loading')).toBeNull());
-    fireEvent.click(sendButton());
     await waitFor(() => expect(sends()).toHaveLength(1));
     expect(sends()[0]![1]).toMatchObject({ p_body: 'tighten the problem' });
     expect(convSend).not.toHaveBeenCalled();
@@ -266,17 +264,16 @@ describe('1: the thread route (no workspace) and drafting off', () => {
     await act(async () => {});
   };
 
-  it('an ordinary mirror thread whose first read is out: the Send is held (text kept, nothing posted); the moment its root is known the same Send posts normally', async () => {
+  it('an ordinary mirror thread whose first read is out: the Send waits (nothing posted, no refusal); the moment its root is known the same Send posts normally, by itself', async () => {
     st.messages = [];
     st.convStatus = 'loading';
     const { rerender } = render(panel());
     await type('a reply');
     expect(convSend).not.toHaveBeenCalled();
-    expect(await composerField()).toHaveValue('a reply');
+    expect(toastError).not.toHaveBeenCalled();
     st.messages = [plainRoot()];
     st.convStatus = 'ready';
     rerender(panel());
-    fireEvent.click(sendButton());
     await waitFor(() => expect(convSend).toHaveBeenCalledWith({ body: 'a reply' }));
     expect(sends()).toHaveLength(0);
   });

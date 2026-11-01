@@ -21,7 +21,7 @@ import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-style
 import type { ChatSummary } from '@/app/data/chat-service';
 import { InlineError } from '@/app/pages/chat/chat-kit';
 import { ChatContext } from '@/app/pages/chat/chat-state';
-import { CanvasUploadButton } from '@/app/pages/chat/CanvasUploadButton';
+import { UploadSpot } from '@/app/pages/chat/CanvasUploadButton';
 import { Composer } from '@/app/pages/chat/Composer';
 import { ThreadHeader } from '@/app/pages/chat/ThreadHeader';
 import { ThreadPanel } from '@/app/pages/chat/ThreadPanel';
@@ -146,7 +146,7 @@ function EmptyChatBody({ ready, projectTag, focusable, onOpened, onRunActive, on
         autoFocus={focusable}
         waiting={working ? SEND_SLOT_UPDATING : undefined}
         onSend={body => (body ? run({ body }) : false)}
-        leading={<CanvasUploadButton busy={sending} onPick={file => { if (file) void run({ file }); }} />}
+        leading={<UploadSpot waiting={working} busy={sending} onPick={file => { if (file) void run({ file }); }} />}
       />
     </>
   );

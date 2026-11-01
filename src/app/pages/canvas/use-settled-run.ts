@@ -6,7 +6,7 @@
  * the spot holds from the run's end until the page reports a read newer than the one on screen when the event came. A run that ended without
  * that event (failed, cancelled) changes nothing on the page, so nothing is held. A failsafe lets go if the read never answers.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { subscribeCanvasDraftEvents } from '@/app/data/canvas-draft-events';
 
 /** The longest the spot holds "Updating…" for a read that has not answered. */
@@ -23,7 +23,8 @@ export function useSettledRun<R>(runActive: boolean, read: R | null): boolean {
   useEffect(() => subscribeCanvasDraftEvents((e) => {
     if (e.kind === 'updated') eventAt.current = { read: readNow.current };
   }), []);
-  useEffect(() => {
+  // A layout effect: the hold must be set in the commit where the run went off, before paint (a passive effect shows one frame of the run-off state).
+  useLayoutEffect(() => {
     if (runActive) {
       eventAt.current = undefined;
       wasActive.current = true;

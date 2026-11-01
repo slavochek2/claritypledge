@@ -4,11 +4,9 @@
  * Everything is empty (undefined or null) for an ordinary thread, and while canvas drafting is off or unknown.
  */
 import type { ReactNode } from 'react';
-import { toast } from 'sonner';
 import type { CanvasDraft } from '@/app/data/canvas-draft-service';
 import type { ChatMessage } from '@/app/data/chat-service';
 import { CanvasThreadReadState } from './CanvasReadState';
-import { DRAFT_ERROR_TEXT } from './canvas-thread-copy';
 import { CanvasCapNotice } from './CanvasCapNotice';
 import { sendSlotOf, type CanvasWorkspaceProps } from './canvas-send-slot';
 import { canvasRetryTrailing } from './canvas-retry-trailing';
@@ -18,28 +16,12 @@ import { UploadSpot } from './CanvasUploadButton';
 import { findPublishReply } from './canvas-publish-reply';
 import { PublishReplyOpen } from './PublishReplyOpen';
 import { useCanvasPane } from './use-canvas-pane';
+import { sendOfRoute, sendRouteOf, useHeldSend } from './use-held-send';
 import type { CanvasThreadStatus } from './use-canvas-thread';
 
-const holdSend = async (): Promise<boolean> => {
-  toast.error(DRAFT_ERROR_TEXT.FAILED);
-  return false;
-};
-
-/**
- * W0: "Send is the update". In a canvas thread whose draft is not readable yet (still reading, the read failed, drafting not confirmed) a Send must not
- * fall through to the chat's own send: the text would post as a plain message and start no run, with no error. It is held instead: refused at once (the
- * composer keeps the text), with the read's own state (loading, or the failure with Retry) on screen. Drafting KNOWN to be off stays a readable thread
- * with the chat's own composer, as before; a thread whose draft is closed likewise.
- */
-function sendHeld(canvasRoot: boolean, canvasOn: boolean | null, canvas: { draft: CanvasDraft } | null): boolean {
-  return canvasRoot && canvasOn !== false && !(canvas && canvas.draft.state !== 'open');
-}
-/** The thread's Send: the draft's own when it can take one, a held one while the thread is unread or its root unknown, else null (the chat's own send). */
-function sendOf(onSend: ((body: string) => Promise<boolean>) | null, unknownRoot: boolean | undefined, canvasRoot: boolean, canvasOn: boolean | null, canvas: { draft: CanvasDraft } | null) {
-  return onSend ?? (unknownRoot || sendHeld(canvasRoot, canvasOn, canvas) ? holdSend : null);
-}
-
-export function useCanvasParts(args: { canvasRoot: boolean; /** The thread's first read is out and its root is unknown: a Send is held, never posted as a plain message. */ holdSend?: boolean; /** The canvas workspace's own props for the thread it hosts (also: a canvas draft's thread from the first render). */ workspace?: CanvasWorkspaceProps; rootId: string; messages: ChatMessage[]; userId: string; ownerSlug: string | null | undefined; mirrorTitle: string | null | undefined;
+export function useCanvasParts(args: { canvasRoot: boolean; /** The thread's first read is out and its root is unknown: a Send waits for it, never posted as a plain message blind. */ rootPending?: boolean;
+  /** The chat's own send: where a waiting Send goes when its thread turns out to be plain. */
+  sendPlain: (body: string) => unknown; /** The canvas workspace's own props for the thread it hosts (also: a canvas draft's thread from the first render). */ workspace?: CanvasWorkspaceProps; rootId: string; messages: ChatMessage[]; userId: string; ownerSlug: string | null | undefined; mirrorTitle: string | null | undefined;
   /** W8: the canvas's shown name (the owner's rename); absent: the title of its tag. */
   canvasTitle?: string;
   /** W4: the root's canvas version, outside the canvas workspace only (its Publish reply carries "Open canvas"; the workspace's panel has no Open). */
@@ -63,7 +45,10 @@ export function useCanvasParts(args: { canvasRoot: boolean; /** The thread's fir
   const pane = useCanvasPane(args);
   const { canvas, canvasOn, uploader } = pane;
   const live = canvasOn === true ? canvas : null;
-  const slot = sendSlotOf({ live, uploading: uploader.busy, elsewhere: pane.elsewhere, holdFirstRead: args.workspace?.holdFirstRead, readStatus: pane.read.status });
+  // W0: "Send is the update". A Send before the thread's answer is known waits and then goes the way the answer says (use-held-send), never refused.
+  const route = sendRouteOf({ onSend: pane.onSend, rootPending: !!args.rootPending, canvasRoot: args.canvasRoot, canvasOn, canvas, readStatus: pane.read.status });
+  const held = useHeldSend(route, args.sendPlain);
+  const slot = sendSlotOf({ live, uploading: uploader.busy, elsewhere: pane.elsewhere, holdFirstRead: args.workspace?.holdFirstRead, readStatus: pane.read.status, heldSend: held.pending && args.canvasRoot });
   return {
     /** The header's title for a canvas thread; null: the ordinary "Thread" title. */
     headerTitle: live ? <CanvasThreadTitle draft={live.draft} ownerSlug={args.ownerSlug} title={args.canvasTitle} /> : null,
@@ -84,7 +69,7 @@ export function useCanvasParts(args: { canvasRoot: boolean; /** The thread's fir
     waiting: slot.waiting,
     capNotice: slot.atCap ? <CanvasCapNotice canPublish={!!args.workspace?.canPublish} startOver={args.workspace?.startOver} /> : null,
     /** Sends a text message into the open draft (message + run in one call); null: the chat's own send is used. */
-    send: sendOf(pane.onSend, args.holdSend, args.canvasRoot, canvasOn, canvas),
+    send: sendOfRoute(route, held.hold, held.pending),
     address: { canvasOn, status: pane.read.status, draft: canvas?.draft ?? null },
   };
 }

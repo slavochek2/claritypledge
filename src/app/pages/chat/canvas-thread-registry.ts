@@ -20,24 +20,39 @@ export function isCanvasThread(rootId: string | null | undefined): boolean {
   return !!rootId && roots.has(rootId);
 }
 
+/** A draft-opening send holds the mirror's threaded replies for at most this long, whatever its request does. */
+export const CANVAS_SEND_HOLD_MAX_MS = 15_000;
+
+function releaseWaiters(): void {
+  if (inFlight > 0) return;
+  const now = waiters;
+  waiters = [];
+  now.forEach((go) => go());
+}
+
 /**
- * Runs a send that may open a draft and its thread (the Clone's first Send). The thread it made is registered the moment the
- * server answers, before anyone waiting on `canvasSendsSettled` is told. A throw (outcome unknown) registers nothing and still lets go.
+ * Runs a send that may open a draft and its thread (the Clone's first Send). The send calls `threadKnown(rootId)` the moment the server has
+ * made the thread: the root is registered and the hold ends there, so the run's start request after it holds nothing. The hold also ends when the
+ * send settles (a throw too: outcome unknown, nothing registered) or after CANVAS_SEND_HOLD_MAX_MS, whichever comes first, exactly once.
  */
-export async function trackCanvasSend<R extends { ok: boolean }>(send: () => Promise<R>, threadRootOf: (r: R) => string | null): Promise<R> {
+export async function trackCanvasSend<R>(send: (threadKnown: (rootId: string) => void) => Promise<R>): Promise<R> {
   inFlight += 1;
+  const hold: { on: boolean; timer?: ReturnType<typeof setTimeout> } = { on: true };
+  const release = () => {
+    if (!hold.on) return;
+    hold.on = false;
+    clearTimeout(hold.timer);
+    inFlight = Math.max(0, inFlight - 1);
+    releaseWaiters();
+  };
+  hold.timer = setTimeout(release, CANVAS_SEND_HOLD_MAX_MS);
   try {
-    const r = await send();
-    const root = r.ok ? threadRootOf(r) : null;
-    if (root) registerCanvasThread(root);
-    return r;
+    return await send((rootId) => {
+      registerCanvasThread(rootId);
+      release();
+    });
   } finally {
-    inFlight -= 1;
-    if (inFlight === 0) {
-      const now = waiters;
-      waiters = [];
-      now.forEach((go) => go());
-    }
+    release();
   }
 }
 

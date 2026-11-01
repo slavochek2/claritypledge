@@ -30,9 +30,9 @@ export function statusText(state: PublishSpotState, publishing: boolean): string
 
 /** What the spot answers to, read from the page and from the draft's thread (is a run active?). */
 export function publishSpotState(ready: CanvasReady | null, runActive: boolean, pendingClone = false): PublishSpotState {
-  if (!ready) return { kind: 'loading' }; // the page is reading: neither a button nor a claim about the draft
-  // A run, an upload or a first Send is going (D15): "Updating…" whatever version is on screen; the draft it changes is not the page's.
+  // A run, an upload or a first Send is going (D15): "Updating…" whatever version is on screen (and whether or not the page is reading); the draft it changes is not the page's.
   if (runActive) return { kind: 'updating' };
+  if (!ready) return { kind: 'loading' }; // the page is reading: neither a button nor a claim about the draft
   // W3: a Clone is pending (the owner is editing a published version, nothing written yet): there is nothing to publish.
   if (pendingClone && !isViewingDraft(ready) && !ready.publishedNone) return { kind: 'no-changes' };
   const draft = ready.draft;

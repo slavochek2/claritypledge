@@ -209,6 +209,8 @@ export interface SendCanvasMessageArgs {
   attachment?: { kind: 'file'; label: string } | { kind: 'voice'; duration_ms: number; waveform?: number[] } | null;
   /** Makes the send idempotent: a repeat returns the first result. */
   clientId: string;
+  /** Called with the thread's root as soon as the database has answered OK, before the run is started (that request can be slow). */
+  onThreadKnown?: (rootId: string) => void;
 }
 export interface CanvasSent {
   ok: true;
@@ -253,6 +255,7 @@ export async function sendCanvasWorkspaceMessage(a: SendCanvasMessageArgs): Prom
       canvasName: String(r.canvas_name ?? ''), versionName: String(r.version_name ?? ''), threadRootId: String(r.thread_root_id),
       conversationId: String(r.conversation_id), messageId: String(r.message_id), replayed: r.replayed === true, start: null,
     };
+    a.onThreadKnown?.(sent.threadRootId);
     if (!a.attachment && !sent.replayed) sent.start = await startCanvasRun(sent.runId);
     return sent;
   } finally {

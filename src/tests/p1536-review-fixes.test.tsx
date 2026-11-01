@@ -318,7 +318,7 @@ describe('8: in a canvas thread a Send is never a plain chat message while the d
     expect(await composerField()).toHaveValue('make it shorter');
   });
 
-  it('the draft is still being read (the first read is out): the same', async () => {
+  it('the draft is still being read (the first read is out): the Send waits, nothing is posted to the chat and no refusal is shown', async () => {
     openDraftState();
     byThread.mockImplementation(() => new Promise(() => undefined));
     mount(DRAFT_AT);
@@ -328,7 +328,8 @@ describe('8: in a canvas thread a Send is never a plain chat message while the d
     fireEvent.click(sendButton());
     await act(async () => {});
     expect(convSend).not.toHaveBeenCalled();
-    expect(await composerField()).toHaveValue('make it shorter');
+    expect(sends()).toHaveLength(0);
+    expect(toastError).not.toHaveBeenCalled();
   });
 
   it('CONTROL: with the draft read, Send is the update (one canvas_workspace_send), not a chat message', async () => {
