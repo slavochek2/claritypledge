@@ -482,7 +482,7 @@ describe('S3.1: Send and Publish never change the pathname', () => {
     fireEvent.click(within(screen.getByTestId('composer')).getByRole('button', { name: 'Send' }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('canvas_workspace_send', expect.objectContaining({ p_body: 'sharpen the problem' })));
     expect(screen.getByTestId('path')).toHaveTextContent(path!);
-    fireEvent.click(screen.getByTestId('canvas-draft-publish'));
+    fireEvent.click(await screen.findByTestId('canvas-draft-publish')); // Publish waits ("Updating…") until the Send and its re-read have settled
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('canvas_draft_publish', expect.anything()));
     expect(screen.getByTestId('path')).toHaveTextContent(path!);
     fireEvent.change(field, { target: { value: '' } }); // a refused Send hands the text back: the composer's drafts outlive a test

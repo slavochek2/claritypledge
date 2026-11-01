@@ -127,10 +127,10 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
     const sentFrom = draftKey;
     // A failed send's text goes back to the slot it was written in. If the composer has since switched slot (left
     // private mode), it is stashed there, never shown in the slot now on screen: a private question must not
-    // reappear in a channel's composer (P1520 review).
+    // reappear in a channel's composer (P1520 review). In the slot it was written in, the text comes back ahead of anything typed since.
     const restore = (text: string) => {
       if (keyNow.current !== sentFrom) stashDraft(sentFrom, text);
-      else if (latest.current === '') setValue(text);
+      else setValue(latest.current ? `${text}\n${latest.current}` : text); // what was typed since is kept after it
     };
     setValue('');
     const result = onSend(text || null, staged);

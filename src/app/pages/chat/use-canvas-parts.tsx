@@ -48,7 +48,7 @@ export function useCanvasParts(args: { canvasRoot: boolean; /** The thread's fir
   // W0: "Send is the update". A Send before the thread's answer is known waits and then goes the way the answer says (use-held-send), never refused.
   const route = sendRouteOf({ onSend: pane.onSend, rootPending: !!args.rootPending, canvasRoot: args.canvasRoot, canvasOn, canvas, readStatus: pane.read.status });
   const held = useHeldSend(route, args.sendPlain);
-  const slot = sendSlotOf({ live, uploading: uploader.busy, elsewhere: pane.elsewhere, holdFirstRead: args.workspace?.holdFirstRead, readStatus: pane.read.status, heldSend: held.pending && args.canvasRoot });
+  const slot = sendSlotOf({ live, uploading: uploader.busy, elsewhere: pane.elsewhere, holdFirstRead: args.workspace?.holdFirstRead, readStatus: pane.read.status, sendWaiting: sendWaitingOf(pane.sending, held.pending, args.canvasRoot) });
   return {
     /** The header's title for a canvas thread; null: the ordinary "Thread" title. */
     headerTitle: live ? <CanvasThreadTitle draft={live.draft} ownerSlug={args.ownerSlug} title={args.canvasTitle} /> : null,
@@ -72,6 +72,11 @@ export function useCanvasParts(args: { canvasRoot: boolean; /** The thread's fir
     send: sendOfRoute(route, held.hold, held.pending),
     address: { canvasOn, status: pane.read.status, draft: canvas?.draft ?? null },
   };
+}
+
+/** A Send of this thread is on its way, or one waits for the thread's answer (only a canvas thread's Sends wait on it). */
+function sendWaitingOf(sending: boolean, heldPending: boolean, canvasRoot: boolean): boolean {
+  return sending || (heldPending && canvasRoot);
 }
 
 /** W4: "Open canvas" under the Publish reply of a canvas thread shown outside the workspace. */

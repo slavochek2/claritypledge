@@ -77,13 +77,17 @@ export function useHeldSend(route: SendRoute, sendPlain: (body: string) => unkno
     failed.forEach((h) => h.settle(false));
     if (alive.current) setPending(false);
   };
+  /** The backstop for the Sends still queued; one at a time. */
+  const armTimer = () => {
+    timer.current ??= setTimeout(() => failAll(true), HELD_SEND_MAX_MS);
+  };
   const drain = useCallback(async () => {
     if (draining.current) return;
     draining.current = true;
     try {
       while (queue.current.length > 0 && alive.current) {
         const r = routeNow.current;
-        if (r.kind === 'wait') return;
+        if (r.kind === 'wait') return armTimer(); // the answer went away again with Sends still queued: the backstop must still end them
         stopTimer();
         if (r.kind === 'failed') return failAll(true);
         const item = queue.current.shift() as Held;
@@ -99,7 +103,7 @@ export function useHeldSend(route: SendRoute, sendPlain: (body: string) => unkno
     } finally {
       draining.current = false;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- failAll/stopTimer only touch refs and the setter
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- failAll/stopTimer/armTimer only touch refs and the setter
   }, []);
 
   // The answer arrived (or changed): send what waited.
@@ -120,9 +124,9 @@ export function useHeldSend(route: SendRoute, sendPlain: (body: string) => unkno
   const hold = useCallback((body: string): Promise<boolean> => new Promise<boolean>((settle) => {
     queue.current.push({ body, settle });
     setPending(true);
-    timer.current ??= setTimeout(() => failAll(true), HELD_SEND_MAX_MS);
+    armTimer();
     void drain();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- failAll only touches refs and the setter
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- failAll/armTimer only touches refs and the setter
   }), [drain]);
   return { hold, pending };
 }

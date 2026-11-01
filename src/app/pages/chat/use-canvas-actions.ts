@@ -3,7 +3,9 @@
  * with canvas_workspace_send (message + queued run in one call); the draft is then re-read from the database. Send IS the update (W0):
  * the old tray's Create canvas / Update draft / Publish / Discard are gone. A refusal is said once, as a toast; `false` hands the text
  * back to the composer. `onSend` is null unless the canvas's flag is exactly true, the draft was read, and it is open.
+ * `sending` is true from the moment `onSend` is called until it settles (the re-read is inside it, so a run the Send started is already going when it drops).
  */
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { sendCanvasWorkspaceMessage, type CanvasRefusalCode } from '@/app/data/canvas-draft-service';
 import { DRAFT_ERROR_TEXT } from './canvas-thread-copy';
@@ -20,11 +22,22 @@ export function sendRefusedText(code: CanvasRefusalCode): string {
   return DRAFT_ERROR_TEXT.FAILED ?? 'That did not go through. Try again.';
 }
 
-export function useCanvasActions({ thread, available, onBusyElsewhere }: { thread: CanvasThread | null; available: boolean | null; onBusyElsewhere?: () => void }): { onSend: ((body: string) => Promise<boolean>) | null } {
-  if (!thread || available !== true || thread.draft.state !== 'open') return { onSend: null };
+export function useCanvasActions({ thread, available, onBusyElsewhere }: { thread: CanvasThread | null; available: boolean | null; onBusyElsewhere?: () => void }): { onSend: ((body: string) => Promise<boolean>) | null; sending: boolean } {
+  const draftId = thread?.draft.id ?? null;
+  /** The draft whose Send is on its way: a Send of another draft (or none) does not make this one `sending`, so a draft change lets go by itself. */
+  const [sendingFor, setSendingFor] = useState<string | null>(null);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  if (!thread || available !== true || thread.draft.state !== 'open') return { onSend: null, sending: false };
   const { draft, reload } = thread;
   const onSend = async (body: string): Promise<boolean> => {
     const key = `${draft.id}|${body}`;
+    setSendingFor(draft.id);
     try {
       const r = await sendCanvasWorkspaceMessage({ canvasId: draft.canvasId, expectedDraftId: draft.id, expectedRevision: draft.revision, body, clientId: unresolved.idFor(key) });
       unresolved.settle(key); // an answer, a refusal included: the next Send of these words is a new message
@@ -36,7 +49,9 @@ export function useCanvasActions({ thread, available, onBusyElsewhere }: { threa
     } catch {
       toast.error(DRAFT_ERROR_TEXT.FAILED);
       return false;
+    } finally {
+      if (alive.current) setSendingFor((cur) => (cur === draft.id ? null : cur));
     }
   };
-  return { onSend };
+  return { onSend, sending: sendingFor === draftId };
 }
