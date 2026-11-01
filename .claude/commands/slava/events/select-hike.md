@@ -294,7 +294,8 @@ Once the cafe and GPX exist, and before the description is written:
 1. **Draw the track with `scripts/hike-route-map.mjs` and look at it.** Find repeated sections: AllTrails' "Loop" can be a loop with a tail. Use the track's measured distance, not the listed one.
 2. **Check every named place against the track:** a break spot, waterfall or camp goes in the description only if it is on or beside the track, at a stated km. Review text alone does not place it.
 3. **Measure the shortest foot route from the cafe to the nearest track point** (the brouter command in step 5), and to the official start. If the nearest point saves real walking, offer joining there as the default. Label it unconfirmed until someone has walked it, and put a fallback in the description.
-4. **Compare finish options:** where does the route end, what repeats, and how far is the walk back to the cafe? Prefer the effort first and the reward last. Draw any non-track link as a dashed `connector` with a `join` pin.
+4. **Check the arrows on the drawn map match the planned direction, and pin every stop where the groups meet.**
+5. **Compare finish options:** where does the route end, what repeats, and how far is the walk back to the cafe? Prefer the effort first and the reward last. Draw any non-track link as a dashed `connector` with a `join` pin.
 
 Founder, 2026-11-01: *"of course we will not walk the trailhead"*. Found only when he read the map, and it cut about 40 minutes of road walking.
 

@@ -90,6 +90,9 @@ The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total and to fin
 **Rules that survived founder edits — do not undo them.**
 
 - **Reviews are ordered by predicted appeal to a newcomer, not by date.** Whenever a quote is added, re-rank all approved quotes and rewrite `series_reviews.sort_order`. Rank first what answers "why this group, and will I fit in?": concrete, warm, specific. Rank later anything abstract or that carries a complaint. This is a judgement, so name the order to the founder; no attendee data backs it yet. Founder, 2026-11-01.
+- **Every stop is a meeting point for all groups.** Groups split after the warm-up, meet at the break to hang out together, meet again at any further stop such as a waterfall, then at dinner. Name each stop in the group paragraph and pin it on the map. Founder, 2026-11-01.
+- **The closing section is headed "Dinner after the hike"** when there is a dinner.
+- **Route maps show walking direction with arrows.** `scripts/hike-route-map.mjs` draws them from the coordinate order, so check that order matches the planned direction. Founder, 2026-11-01.
 - **Dinner is an invitation, never "optional".** It closes the day: people talk about the hike, future hikes and the community. Founder, 2026-11-01: "optional" reads as a reason to skip, and it is not about being hungry.
 - **The banner photo is also in the gallery, as the last photo of that upload batch.** Founder, 2026-11-01.
 - **Gallery photos are at most about 1400 px and 500 KB where the photo allows.** Measured 2026-11-01: a 4032 px, 2.4 MB photo displayed 224 px wide. A new file name is required, because bucket objects are cached for a year.
