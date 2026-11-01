@@ -13,6 +13,10 @@ import * as fs from 'fs';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTestUser, deleteTestUser, setTestSession, TEST_PASSWORD, type TestUser } from './helpers/test-user';
+import { isTestProjectUrl } from '../scripts/sweep-e2e-test-users';
+
+// This spec makes users and writes with the service role: it refuses to load against anything but a TEST project.
+if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? '')) throw new Error('p1536-walkthrough: VITE_SUPABASE_URL is not a TEST project. Nothing was run.');
 
 const BASE = process.env.P1536_BASE ?? 'http://localhost:5101';
 const DIR = process.env.P1536_WALK_DIR ?? 'test-results/p1536-walk';
@@ -658,7 +662,6 @@ async function walk(browser: Browser, vp: number, height: number) {
       rec(vp, 'J-W3', wide ? 'header "[v1 ▾] New draft from v1"' : '375 header: a v1 label and "New draft" (the tail "from v1" gives way on a phone)', wide ? /New draft from v1/.test(s.barText ?? '') : (/New draft/.test(s.barText ?? '') && s.versionShown), `bar="${s.barText}" picker="${s.pickerText}" versionShown=${s.versionShown}`, f);
       rec(vp, 'J-W3', 'spot "No changes yet"', s.spotText === 'No changes yet', `spot=${s.spotText}`, f);
       rec(vp, 'J-W3', 'no Discard; no Clone', !s.discard && !s.clone, `discard=${s.discard} clone=${s.clone}`, f);
-      rec(vp, 'J-W3', 'nothing written (no open draft row)', true, 'checked below', f);
       const { count } = await supabaseAdmin.from('canvas_drafts').select('id', { count: 'exact', head: true }).eq('owner_id', user.user.id).eq('state', 'open');
       rec(vp, 'J-W3', 'nothing written on Clone (0 open drafts in DB)', (count ?? -1) === 0, `open drafts=${count}`, f);
       rec(vp, 'J-W3', 'pending header shows [v1 ▾] or the v1 label', s.versionShown, `picker="${s.pickerText}" versionShown=${s.versionShown} bar="${s.barText}"`, f);
