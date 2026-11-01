@@ -41,7 +41,10 @@ export function CanvasHeader(props: CanvasHeaderProps) {
   const { ready, failed, handle, projectTag, ownerIsAgent, identityPending, compare, sharedLabel, onParams, onChanged } = props;
   const viewingDraft = !!ready && isViewingDraft(ready);
   const { cloneSeq, ownerBar } = useCanvasWorkspace();
-  const actions = ready && !viewingDraft && (
+  // Nobody to compare with and (for the owner's route) Share and Clone in the bar: the row would hold nothing, and an empty-but-present row
+  // keeps this header's bottom margin alive as a band above the first heading (the header hides itself only when it has no child at all).
+  const hasActions = !!compare.base && compare.others.length > 0 || (!ownerBar && !!ready?.isOwner && !ready.publishedNone);
+  const actions = ready && !viewingDraft && hasActions && (
     <CanvasHeaderActions ready={ready} handle={handle} projectTag={projectTag} compare={compare} ownerBar={ownerBar} onCompare={id => onParams({ with: id })} onChanged={onChanged} />
   );
   return (

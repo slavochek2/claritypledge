@@ -143,5 +143,5 @@ function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind:
       </div>
     );
   }
-  return <AttachmentSkeleton kind={NOUN[kind]} />;
+  return <AttachmentSkeleton kind={NOUN[kind]} card={kind === 'canvas_version'} />;
 }

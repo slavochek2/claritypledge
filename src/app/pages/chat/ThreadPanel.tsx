@@ -6,6 +6,8 @@
  */
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-service';
+import { canvasThreadFlags } from './canvas-thread-flags';
+import type { CanvasWorkspaceProps } from './canvas-send-slot';
 import { Composer } from './Composer';
 import { MessageList } from './MessageList';
 import { ThreadHeader } from './ThreadHeader';
@@ -21,7 +23,23 @@ import { useMessageActions } from './use-message-actions';
 import { useVoiceSender } from './use-voice-sender';
 import { EventRoomLink } from './EventRoomLink';
 
-export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = false, onRunActive, focusable = true, headerActions, canvasTitle, panelTitle }: {
+/** Why this thread takes no replies, or null. */
+function threadBlockedReason(canSend: boolean, rootDeleted: boolean): string | null {
+  if (!canSend) return 'You cannot send messages in this chat.';
+  return rootDeleted ? "The first message of this thread was deleted, so it can't take new replies." : null;
+}
+
+/** W0: an old canvas-thread address, held back while it resolves to the canvas. */
+function RetiredThread() {
+  return (
+    <section aria-label="Thread" data-testid="thread-retired" aria-busy="true" className="flex min-h-0 min-w-0 flex-1 flex-col bg-background px-4 py-6 lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]">
+      <Skeleton className="h-5 w-2/3" />
+      <span className="sr-only">Opening your canvas</span>
+    </section>
+  );
+}
+
+export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = false, onRunActive, focusable = true, headerActions, canvasTitle, panelTitle, workspace }: {
   summary: ChatSummary;
   rootId: string;
   highlightId: string | null;
@@ -39,6 +57,8 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   canvasTitle?: string;
   /** The canvas workspace names its panel itself ("Draft · v3", beside Discard): it replaces the thread's own header title. */
   panelTitle?: string;
+  /** The canvas workspace's own props for the thread it hosts (its presence: a canvas draft's thread from the first render, before the root has loaded; and the cap's words). */
+  workspace?: CanvasWorkspaceProps;
 }) {
   const chat = useChat();
   const conversationId = summary.conversationId;
@@ -58,9 +78,9 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   const root = conv.server.find((m) => m.id === rootId);
   const rootDeleted = !!root?.isDeleted;
   // P1536: a thread that starts with a canvas version is a canvas draft's thread (the draft is read from the database).
-  const canvasRoot = summary.kind === 'mirror' && root?.attachmentKind === 'canvas_version';
+  const { canvasRoot, rootPending } = canvasThreadFlags({ kind: summary.kind, root, status: conv.status, fromWorkspace: !!workspace });
   const ownerSlug = chat.authors[chat.userId]?.slug;
-  const canvas = useCanvasParts({ canvasRoot, rootId, messages: conv.server, userId: chat.userId, ownerSlug, mirrorTitle: summary.title, canvasTitle, openCanvasFrom: fill ? null : (root?.attachmentId ?? null) });
+  const canvas = useCanvasParts({ canvasRoot, holdSend: rootPending, workspace, rootId, messages: conv.server, userId: chat.userId, ownerSlug, mirrorTitle: summary.title, canvasTitle, openCanvasFrom: fill ? null : (root?.attachmentId ?? null) });
   // W0: outside the workspace (`fill`) a canvas thread is an old address; it resolves to the canvas, and is held back meanwhile.
   const retired = useRetiredCanvasThread({ enabled: !fill, canvasRoot, ownerSlug, address: canvas.address });
   const runActive = canvas.runActive;
@@ -72,20 +92,9 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   // P1576: a voice note sent here is a reply in this thread. Not in a canvas draft's thread (P1536): its opener holds
   // the one primary while nothing is typed, and the round voice button would be a second one in the send slot.
   const sendVoice = useVoiceSender(conversationId, !canvasRoot, rootId, undefined);
-  const blockedReason = !summary.canSend
-    ? 'You cannot send messages in this chat.'
-    : rootDeleted
-      ? "The first message of this thread was deleted, so it can't take new replies."
-      : null;
+  const blockedReason = threadBlockedReason(summary.canSend, rootDeleted);
 
-  if (retired) {
-    return (
-      <section aria-label="Thread" data-testid="thread-retired" aria-busy="true" className="flex min-h-0 min-w-0 flex-1 flex-col bg-background px-4 py-6 lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]">
-        <Skeleton className="h-5 w-2/3" />
-        <span className="sr-only">Opening your canvas</span>
-      </section>
-    );
-  }
+  if (retired) return <RetiredThread />;
 
   return (
     <section
@@ -93,7 +102,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
       data-testid="thread-panel"
       className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col bg-background' : 'flex min-h-0 min-w-0 flex-1 flex-col bg-background lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]'}
     >
-      <ThreadHeader onClose={close} menu={<><EventRoomLink chat={summary} />{headerActions}</>}>
+      <ThreadHeader onClose={close} menu={<><EventRoomLink chat={summary} />{headerActions}</>} workspace={fill ? 'draft' : undefined}>
         {panelTitle ? <h2 className="truncate text-base font-semibold text-foreground" data-testid="canvas-thread-title">{panelTitle}</h2> : canvas.headerTitle ?? (
           <>
             <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
@@ -119,8 +128,9 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
         <div className="shrink-0 border-t px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-testid="thread-composer-blocked">
           <p className="text-sm text-muted-foreground">{blockedReason}</p>
         </div>
-      ) : (
+      ) : canvas.capNotice ?? (
         <Composer
+          waiting={canvas.waiting}
           draftKey={`${chat.userId}:${conversationId}:${rootId}`}
           placeholder="Reply in thread"
           focusToken={focusToken}

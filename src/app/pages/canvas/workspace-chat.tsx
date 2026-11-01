@@ -11,11 +11,12 @@
  *  - the open draft's header reads `Draft · vN` beside Discard (W6), a pending Clone's `New draft from vN` with no Discard (× cancels there);
  *  - drafting unavailable, or the draft in another chat: an explicit "could not load" with Retry.
  */
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isViewingDraft, nextSeqOf, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
+import { publishSpotState } from '@/app/components/canvas/canvas-publish-spot-state';
 import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
 import type { ChatSummary } from '@/app/data/chat-service';
 import { InlineError } from '@/app/pages/chat/chat-kit';
@@ -26,7 +27,7 @@ import { ThreadHeader } from '@/app/pages/chat/ThreadHeader';
 import { ThreadPanel } from '@/app/pages/chat/ThreadPanel';
 import { DiscardDraftButton } from './discard-draft-button';
 import type { ClonePending } from './use-clone-canvas';
-import { DRAFT_ERROR_TEXT } from '@/app/pages/chat/canvas-thread-copy';
+import { DRAFT_ERROR_TEXT, SEND_SLOT_UPDATING } from '@/app/pages/chat/canvas-thread-copy';
 import { resetCanvasAvailability, useCanvasDraftAvailability } from '@/app/pages/chat/use-canvas-availability';
 import { uploadRefusalText } from '@/app/pages/chat/use-canvas-uploads';
 import { openNextDraft, type NextDraftResult } from './workspace-next-draft';
@@ -39,6 +40,8 @@ const NO_VERSION_TEXT = 'Could not find this version to start from.';
 
 // [FOUNDER DECISION: shown when the list of your canvas versions cannot be read at the first Send.]
 const VERSIONS_FAILED_TEXT = 'Could not load your canvas versions. Try again.';
+/** How long an accepted first Send waits for the page to move to its draft before it stops saying "Updating…". */
+const ACCEPTED_HOLD_MS = 20_000;
 // [FOUNDER DECISION: nothing published and no draft; the same sentence the canvas header shows the owner.]
 const NOTHING_PUBLISHED_TEXT = 'Nothing published yet';
 // W3: the pending Clone's empty thread (the spec quotes this line).
@@ -62,6 +65,15 @@ function Unavailable({ text, onRetry }: { text?: string; onRetry: () => void }) 
   );
 }
 
+/** The draft's two ways out: Discard (the panel header) and Start over (the cap line). Neither without the owner's slug and the canvas's tag. */
+function draftButtons(ready: CanvasReady, slug: string | null | undefined, projectTag: string | null): { discard?: ReactNode; startOver?: ReactNode } {
+  if (!slug || !projectTag) return {};
+  return {
+    discard: <DiscardDraftButton ready={ready} ownerSlug={slug} canvasName={projectTag} />,
+    startOver: <DiscardDraftButton ready={ready} ownerSlug={slug} canvasName={projectTag} startOver />,
+  };
+}
+
 function failureText(r: NextDraftResult): string | null {
   if (r.ok) return null;
   if (r.why === 'no_version') return NO_VERSION_TEXT;
@@ -77,11 +89,20 @@ function EmptyChatBody({ ready, projectTag, focusable, onOpened, onRunActive, on
   const { user } = useAuth();
   const on = useCanvasDraftAvailability(true);
   const [sending, setSending] = useState(false);
-  // The first Send is work in flight (D15): the Publish spot reads Updating… meanwhile, and lets go when this goes away.
+  // An ACCEPTED first Send stays "Updating…" (and the Clone line stays gone) until the page has moved to the draft and this goes away: the draft's
+  // own thread takes the status over from there. Failsafe: the page never moved.
+  const [accepted, setAccepted] = useState(false);
   useEffect(() => {
-    onRunActive(sending);
+    if (!accepted) return;
+    const t = setTimeout(() => setAccepted(false), ACCEPTED_HOLD_MS);
+    return () => clearTimeout(t);
+  }, [accepted]);
+  // The first Send is work in flight (D15): the Publish spot reads Updating… meanwhile, and lets go when this goes away.
+  const working = sending || accepted;
+  useEffect(() => {
+    onRunActive(working);
     return () => onRunActive(false);
-  }, [sending, onRunActive]);
+  }, [working, onRunActive]);
   if (on === null) return <Waiting />;
   if (!on || !user) return <Unavailable text={DRAFT_ERROR_TEXT.DISABLED} onRetry={onRetry} />;
   const run = async (args: { body?: string; file?: File }): Promise<boolean> => {
@@ -89,6 +110,7 @@ function EmptyChatBody({ ready, projectTag, focusable, onOpened, onRunActive, on
     try {
       const r = await openNextDraft({ projectTag, version: ready.version, replace: cloning.replace ? { draftId: cloning.replace.id, revision: cloning.replace.revision } : null, ...args });
       if (r.ok) {
+        setAccepted(true);
         onOpened(r.versionName);
         if (r.fileRefusal) toast.error(uploadRefusalText(r.fileRefusal)); // the draft exists now; its first file did not go through
       } else if (r.why === 'stale_view') onStale(); // the draft being replaced moved on: the sheet asks again, the text stays in the composer
@@ -104,17 +126,25 @@ function EmptyChatBody({ ready, projectTag, focusable, onOpened, onRunActive, on
   return (
     <>
       {/* The panel's header: × closes the panel, or cancels a pending Clone (the owner's onClose decides). */}
-      <ThreadHeader onClose={onClose}>
+      <ThreadHeader onClose={onClose} workspace="cancel">
         <h2 className="truncate text-base font-semibold text-foreground" data-testid="canvas-thread-title">{cloning.seq ? `New draft from v${cloning.seq}` : 'New draft'}</h2>
       </ThreadHeader>
-      <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-center" data-testid="workspace-chat-empty">
-        <p className="text-sm text-muted-foreground">{cloneLine(cloning.seq)}</p>
-      </div>
+      {accepted ? (
+        // The Send was accepted: the Clone line has done its job. The thread's own messages take its place (P1586: a section waits as a Skeleton).
+        <div role="status" aria-busy="true" className="flex min-h-0 flex-1 flex-col px-4 py-6" data-testid="workspace-chat-opening">
+          <Skeleton className="h-5 w-2/3" />
+          <span className="sr-only">Opening your draft</span>
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 items-center justify-center p-6 text-center" data-testid="workspace-chat-empty">
+          <p className="text-sm text-muted-foreground">{cloneLine(cloning.seq)}</p>
+        </div>
+      )}
       <Composer
         draftKey={`${user.id}:workspace:${projectTag}`}
         placeholder="Reply in thread"
         autoFocus={focusable}
-        sendDisabled={sending}
+        waiting={working ? SEND_SLOT_UPDATING : undefined}
         onSend={body => (body ? run({ body }) : false)}
         leading={<CanvasUploadButton busy={sending} onPick={file => { if (file) void run({ file }); }} />}
       />
@@ -157,11 +187,14 @@ export function WorkspaceChat({ mirror, ready, projectTag, canvasTitle, focusabl
 }) {
   const { user } = useAuth();
   const [attempt, setAttempt] = useState(0);
+  // The draft a first Send just made: its thread's first read is part of that Send, so the Publish spot keeps "Updating…" through it.
+  const [fresh, setFresh] = useState<string | null>(null);
   const chat = useContext(ChatContext);
   // Never for anyone who is not the canvas's owner, whatever the address says (defence in depth: the route gives them no workspace at all).
   if (!mirror || !ready || !ready.isOwner) return <Waiting />;
   const draft = ready.draft;
-  if (cloning && projectTag && !isViewingDraft(ready)) return <EmptyChat ready={ready} projectTag={projectTag} focusable={focusable} onOpened={onOpened} onRunActive={onRunActive} cloning={cloning} onStale={onStale} onClose={onClose} />;
+  const owner = draftButtons(ready, user?.slug, projectTag);
+  if (cloning && projectTag && !isViewingDraft(ready)) return <EmptyChat ready={ready} projectTag={projectTag} focusable={focusable} onOpened={v => { setFresh(v); onOpened(v); }} onRunActive={onRunActive} cloning={cloning} onStale={onStale} onClose={onClose} />;
   if (!draft) {
     if (ready.publishedNone || !projectTag) {
       return (
@@ -177,7 +210,8 @@ export function WorkspaceChat({ mirror, ready, projectTag, canvasTitle, focusabl
     <>
       {!isViewingDraft(ready) && <DraftLine onGo={() => onOpened(draft.version)} />}
       <ThreadPanel key={`${draft.threadRootId}:${attempt}`} fill summary={mirror} rootId={draft.threadRootId} highlightId={null} canvasTitle={canvasTitle} panelTitle={`Draft · v${nextSeqOf(ready.versions)}`} focusable={focusable} onClose={onClose} onRunActive={onRunActive}
-        headerActions={user?.slug && projectTag ? <DiscardDraftButton ready={ready} ownerSlug={user.slug} canvasName={projectTag} /> : undefined} />
+        workspace={{ holdFirstRead: fresh === draft.version, canPublish: publishSpotState(ready, false).kind === 'publish', startOver: owner.startOver }}
+        headerActions={owner.discard} />
     </>
   );
 }

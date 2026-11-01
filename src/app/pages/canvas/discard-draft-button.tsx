@@ -14,6 +14,8 @@ import { CANVAS_DESTRUCTIVE_PILL } from '@/app/components/canvas/canvas-pill-sty
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { CanvasDraftRefusal, discardCanvasDraft, getCanvasDraftRevision } from '@/app/data/canvas-draft-service';
 import { canvasStartErrorText } from '@/app/pages/chat/canvas-start';
+import { START_OVER_LABEL } from '@/app/pages/chat/canvas-thread-copy';
+import { CANVAS_WORKSPACE_PARAM } from '@/app/components/layout/bottom-nav-routes';
 import { discardLanding } from './discard-draft-landing';
 
 const DISCARD_LABEL = 'Discard';
@@ -21,7 +23,11 @@ const DISCARD_LABEL = 'Discard';
 const STALE_TEXT = 'This draft just changed. Discard it again if you still want to.';
 const FAILED_TEXT = "Couldn't discard the draft.";
 
-export function DiscardDraftButton({ ready, ownerSlug, canvasName }: { ready: CanvasReady; ownerSlug: string; canvasName: string }) {
+/**
+ * `startOver` (§2, a draft at its 30 updates with nothing to publish): the same checked discard, but it lands ready for the next Send: on the
+ * published version the draft came from with `ws=1`, which is the pending Clone (nothing written; the next Send opens a fresh draft).
+ */
+export function DiscardDraftButton({ ready, ownerSlug, canvasName, startOver = false }: { ready: CanvasReady; ownerSlug: string; canvasName: string; startOver?: boolean }) {
   const draft = ready.draft;
   const navigate = useNavigate();
   const location = useLocation();
@@ -50,7 +56,7 @@ export function DiscardDraftButton({ ready, ownerSlug, canvasName }: { ready: Ca
       setAsking(false);
       const { href, published } = discardLanding({ ownerSlug, canvasName, ready });
       // `state` keeps ← pointing where the owner came from; Artifacts has no use for it.
-      navigate(href, { replace: true, ...(published ? { state: location.state } : {}) });
+      navigate(startOver && published ? `${href}${href.includes('?') ? '&' : '?'}${CANVAS_WORKSPACE_PARAM}=1` : href, { replace: true, ...(published ? { state: location.state } : {}) });
     } catch (e) {
       toast.error(e instanceof CanvasDraftRefusal && e.code === 'RUN_ACTIVE' ? canvasStartErrorText(e) : FAILED_TEXT);
     } finally {
@@ -60,8 +66,8 @@ export function DiscardDraftButton({ ready, ownerSlug, canvasName }: { ready: Ca
 
   return (
     <>
-      <button type="button" className={CANVAS_DESTRUCTIVE_PILL} aria-label="Discard draft" onClick={() => setAsking(true)} data-testid="canvas-discard">
-        {DISCARD_LABEL}
+      <button type="button" className={CANVAS_DESTRUCTIVE_PILL} aria-label={startOver ? START_OVER_LABEL : 'Discard draft'} onClick={() => setAsking(true)} data-testid={startOver ? 'canvas-start-over' : 'canvas-discard'}>
+        {startOver ? START_OVER_LABEL : DISCARD_LABEL}
       </button>
       <ConfirmDialog
         open={asking}

@@ -31,7 +31,7 @@ describe('the opener', () => {
   it('is one message and a steps card: "Want to save time?" with Copy prompt, paste, upload (the founder\'s words of 2026-10-28)', () => {
     render(<CanvasThreadOpener title={null} />);
     expect(CANVAS_OPENER_ASK).toBe(
-      "I'll help you get clear on your offer and draft your Clarity Canvas. Send me anything about what you build or sell: your website link, a pitch deck, notes.",
+      'Give your mirror agent anything about your business: files, links, a few lines. It drafts your canvas.',
     );
     expect(screen.getByTestId('canvas-opener-ask')).toHaveTextContent(CANVAS_OPENER_ASK);
     const steps = screen.getByTestId('canvas-opener-steps');

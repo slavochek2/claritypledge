@@ -196,7 +196,11 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
     if (el.scrollTop < TOP_LOAD_PX && hasMore && !loadingEarlier) void pageBack();
   };
 
-  const grouping = useMemo(() => describeGrouping(messages), [messages]);
+  // A message right under the lead (the opener is the mirror's, not the owner's) starts its own author group: it must not fold into the message above the opener.
+  const grouping = useMemo(
+    () => describeGrouping(messages).map((g, i) => (placement === 'after' && messages[i - 1]?.id === leadAfterId ? { ...g, compact: false } : g)),
+    [messages, placement, leadAfterId],
+  );
 
   const fullActions: MessageActions = useMemo(
     () => ({ ...actions, onEdit: edit, onRetry: (id) => void retrySend(id), onDiscard: discard, onJumpTo: (id) => void jumpTo(id), lookup, getLoaded, version: syncVersion }),

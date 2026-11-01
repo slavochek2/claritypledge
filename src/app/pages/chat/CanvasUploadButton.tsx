@@ -7,7 +7,7 @@
 import { useRef } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { UPLOAD_ACCEPT, UPLOAD_LABEL } from './canvas-thread-copy';
+import { UPLOAD_ACCEPT, UPLOAD_LABEL, UPLOAD_WAITS_LABEL } from './canvas-thread-copy';
 
 export function CanvasUploadButton({ busy, onPick }: { busy: boolean; onPick: (file: File | undefined) => void }) {
   const input = useRef<HTMLInputElement>(null);
@@ -40,4 +40,18 @@ export function CanvasUploadButton({ busy, onPick }: { busy: boolean; onPick: (f
       </Button>
     </>
   );
+}
+
+/** D15: while an update runs, Upload waits: its own spot reads a status (a dashed, quiet circle), never a disabled button. */
+export function CanvasUploadWaits() {
+  return (
+    <span role="status" aria-label={UPLOAD_WAITS_LABEL} title={UPLOAD_WAITS_LABEL} data-testid="canvas-upload-waits" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60">
+      <Plus aria-hidden="true" className="h-4 w-4" />
+    </span>
+  );
+}
+
+/** The Upload spot of the composer: the button, or (D15) its waiting status while an update runs. */
+export function UploadSpot({ waiting, busy, onPick }: { waiting: boolean; busy: boolean; onPick: (file: File | undefined) => void }) {
+  return waiting ? <CanvasUploadWaits /> : <CanvasUploadButton busy={busy} onPick={onPick} />;
 }

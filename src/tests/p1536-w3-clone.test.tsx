@@ -302,8 +302,9 @@ describe('S3b.4: tap, then cancel writes nothing', () => {
     fireEvent.click(clone());
     await screen.findByTestId('workspace-chat-empty');
     fireEvent.mouseDown(screen.getByTestId('workspace-view-chat'), { button: 0, ctrlKey: false });
-    // the thread header's own back arrow is the narrow close
-    fireEvent.click(screen.getByLabelText('Back to the conversation'));
+    // walkthrough 3 item 7: no second ← in the panel; the pending Clone's × (the cancel) shows at every width
+    expect(screen.queryByLabelText('Back to the conversation')).toBeNull();
+    fireEvent.click(screen.getByLabelText('Close thread'));
     await waitFor(() => expect(screen.getByTestId('ws')).toHaveTextContent('none'));
     expect(writeRpcs()).toEqual([]);
   });

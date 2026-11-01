@@ -20,7 +20,7 @@ export function sendRefusedText(code: CanvasRefusalCode): string {
   return DRAFT_ERROR_TEXT.FAILED ?? 'That did not go through. Try again.';
 }
 
-export function useCanvasActions({ thread, available }: { thread: CanvasThread | null; available: boolean | null }): { onSend: ((body: string) => Promise<boolean>) | null } {
+export function useCanvasActions({ thread, available, onBusyElsewhere }: { thread: CanvasThread | null; available: boolean | null; onBusyElsewhere?: () => void }): { onSend: ((body: string) => Promise<boolean>) | null } {
   if (!thread || available !== true || thread.draft.state !== 'open') return { onSend: null };
   const { draft, reload } = thread;
   const onSend = async (body: string): Promise<boolean> => {
@@ -28,7 +28,8 @@ export function useCanvasActions({ thread, available }: { thread: CanvasThread |
     try {
       const r = await sendCanvasWorkspaceMessage({ canvasId: draft.canvasId, expectedDraftId: draft.id, expectedRevision: draft.revision, body, clientId: unresolved.idFor(key) });
       unresolved.settle(key); // an answer, a refusal included: the next Send of these words is a new message
-      if (!r.ok) toast.error(sendRefusedText(r.refused));
+      if (!r.ok && r.refused === 'busy_elsewhere' && onBusyElsewhere) onBusyElsewhere(); // the send slot says it (§2); no toast
+      else if (!r.ok) toast.error(sendRefusedText(r.refused));
       else if (r.start && !r.start.ok && DRAFT_ERROR_TEXT[r.start.code]) toast.error(DRAFT_ERROR_TEXT[r.start.code]);
       await reload(); // a refusal means the screen is behind: the next Send carries the revision read here
       return r.ok;

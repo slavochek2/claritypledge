@@ -197,7 +197,7 @@ describe('AC15: the upload control', () => {
     await renderThread();
     expect(await screen.findByTestId('canvas-opener-ask')).toHaveTextContent(CANVAS_OPENER_ASK);
     expect(CANVAS_OPENER_ASK).toBe(
-      "I'll help you get clear on your offer and draft your Clarity Canvas. Send me anything about what you build or sell: your website link, a pitch deck, notes.",
+      'Give your mirror agent anything about your business: files, links, a few lines. It drafts your canvas.',
     );
     const steps = screen.getByTestId('canvas-opener-steps');
     expect(steps).toHaveTextContent('Want to save time?');
@@ -563,7 +563,9 @@ describe('P955: no disabled primary, one primary at a time', () => {
     for (const b of screen.getAllByRole('button')) expect(b).not.toBeDisabled();
     // the fixture is a whole thread: the header, the opener, the real composer with Upload. W0: no tray, no draft card, no header menu.
     expect(screen.getByTestId('canvas-thread-title')).toBeInTheDocument();
-    expect(screen.getByTestId('canvas-opener')).toBeInTheDocument();
+    // walkthrough 3 item 8: the opener is the onboarding of a canvas with no base; an update (a draft cloned from a version) has none
+    if (phase.startsWith('update')) expect(screen.queryByTestId('canvas-opener')).toBeNull();
+    else expect(screen.getByTestId('canvas-opener')).toBeInTheDocument();
     expect(screen.getByTestId('canvas-upload')).toBeInTheDocument();
     expect(screen.getByTestId('composer')).toBeInTheDocument();
     for (const gone of ['canvas-bar', 'canvas-draft-card', 'canvas-material', 'canvas-progress']) expect(screen.queryByTestId(gone)).not.toBeInTheDocument();
@@ -840,7 +842,7 @@ describe('V4: the opener never folds, whatever the owner has sent', () => {
     state.messages = [canvasRoot(), note()];
     await renderThread();
     const opener = await screen.findByTestId('canvas-opener');
-    expect(opener).toHaveTextContent('your website link');
+    expect(opener).toHaveTextContent(CANVAS_OPENER_ASK);
     expect(opener).toHaveTextContent('Want to save time?');
     expect(screen.getByTestId('canvas-opener-steps')).toBeInTheDocument();
     expect(within(opener).getByRole('button', { name: 'Copy prompt' })).toBeInTheDocument();
@@ -913,7 +915,8 @@ describe('v2: the top of the thread', () => {
   it('an update keeps its root: the base version as a canvas card', async () => {
     state.draft = draftRow({ baseVersionId: 'ver-base' });
     await renderThread();
-    await screen.findByTestId('canvas-opener');
+    await waitFor(() => expect(screen.queryByTestId('canvas-loading')).toBeNull());
+    expect(screen.queryByTestId('canvas-opener')).toBeNull(); // the opener is a canvas-with-no-base's onboarding (walkthrough 3 item 8)
     expect(hidden()).toBe('');
   });
 
@@ -981,7 +984,9 @@ describe('v2: the Copy prompt button keeps one look always (D3: an outline)', ()
   it('the gate fixture: Copy prompt is an outline in every phase that shows it, and no phase has two filled controls', () => {
     for (const phase of ['empty', 'update-empty', 'messages', 'update-messages']) {
       const { unmount } = render(<MemoryRouter initialEntries={[`/tree/_gate/canvas-thread?phase=${phase}`]}><GateFixture /></MemoryRouter>);
-      expect(screen.getByRole('button', { name: 'Copy prompt' }).className).not.toContain('bg-blue-600');
+      // an update has no opener, so no Copy prompt (walkthrough 3 item 8); the phases that show it keep its outline look
+      if (phase.startsWith('update')) expect(screen.queryByRole('button', { name: 'Copy prompt' })).toBeNull();
+      else expect(screen.getByRole('button', { name: 'Copy prompt' }).className).not.toContain('bg-blue-600');
       expect(bluePrimaries().length).toBeLessThanOrEqual(1);
       unmount();
     }

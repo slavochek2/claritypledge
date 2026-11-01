@@ -97,11 +97,11 @@ beforeEach(() => {
   svc.getCanvasDraftViewPath.mockResolvedValue(null);
 });
 
-describe('C2: the real thread draws the base-version card before the opener', () => {
-  it('an update thread: base card (the root), then the opener, then the owner messages', async () => {
+describe('C2: the real thread draws the base-version card, and the opener only for a canvas with no base', () => {
+  it('an update thread: base card (the root), then the owner messages: no opener (the onboarding is a new canvas\'s, walkthrough 3 item 8)', async () => {
     state.draft = draftRow({ baseVersionId: 'ver-base' });
     await mount(<ThreadPanel summary={summary} rootId={ROOT} highlightId={null} />);
-    expect(order()).toEqual([ROOT, 'OPENER', 'note-1']);
+    expect(order()).toEqual([ROOT, 'note-1']);
   });
 
   it('CONTROL: a new canvas has no card, so the opener is first and only the owner messages follow', async () => {
@@ -122,8 +122,8 @@ const fixtureOrder = (phase: string) => {
 };
 
 describe('C2: the gate fixture shows the same order the real thread does (no fixture-only ordering)', () => {
-  it('an update: base card, opener, then the owner rows (W0: the draft card at the end of the thread is gone)', () => {
-    expect(fixtureOrder('update-messages')).toEqual(['gate-base-card', 'canvas-opener', 'gate-row', 'gate-row', 'gate-row']);
+  it('an update: base card, then the owner rows, no opener (W0: the draft card at the end of the thread is gone)', () => {
+    expect(fixtureOrder('update-messages')).toEqual(['gate-base-card', 'gate-row', 'gate-row', 'gate-row']);
   });
 
   it('CONTROL: a new canvas has no base card, so the opener is first', () => {

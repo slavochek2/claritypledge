@@ -50,7 +50,7 @@ export function CanvasNameEdit({ title, canEdit, onSave }: { title: string; canE
         type="button"
         aria-label="Rename canvas"
         onClick={begin}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        className="flex h-10 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground sm:w-10 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         data-testid="canvas-rename"
       >
         <Pencil className="h-4 w-4" aria-hidden />

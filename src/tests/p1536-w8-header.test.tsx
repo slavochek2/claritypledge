@@ -189,11 +189,11 @@ import { ARTIFACTS_CANVASES_MINE } from '@/app/pages/artifacts/legacy-redirect-t
 import { lacksSecondaryPill } from './p1536-pill-assert';
 
 const bar = () => screen.getByTestId('workspace-bar');
-/** The bar's direct children by what they hold. */
+/** The bar's parts by what they hold: its direct children, and those of row 1 (its own non-wrapping row below 1280px, `contents` from it). */
 const part = (testid: string) => {
   const el = within(bar()).queryByTestId(testid);
   let node: Element | null = el;
-  while (node && node.parentElement !== bar()) node = node.parentElement;
+  while (node && node.parentElement !== bar() && node.parentElement?.getAttribute('data-testid') !== 'workspace-bar-row1') node = node.parentElement;
   return node;
 };
 const PARTS: Array<[string, string]> = [
@@ -214,14 +214,14 @@ function orderOf(el: Element, width: 'xl' | 'base'): number {
   };
   return (width === 'xl' ? read('xl:') : null) ?? read('') ?? 0;
 }
-/** The visual sequence of the bar's parts at a width, split into rows below 1280px (the break element is order-5). */
+/** The visual sequence of the bar's parts at a width, split into rows below 1280px (row 1 is its own wrapper; row 2 is the bar's remaining children). */
 function layout(width: 'xl' | 'base'): string[][] {
   const present = PARTS.map(([name, id]) => [name, part(id)] as const).filter((p): p is readonly [string, Element] => !!p[1]);
   const shown = present.filter(([, el]) => !(width === 'xl' && el.className.split(/\s+/).includes('xl:hidden')));
   const sorted = [...shown].sort((a, b) => orderOf(a[1], width) - orderOf(b[1], width));
   if (width === 'xl') return [sorted.map(([n]) => n)];
-  const breakAt = orderOf(bar().querySelector('[aria-hidden="true"].basis-full')!, 'base');
-  return [sorted.filter(([, el]) => orderOf(el, 'base') < breakAt).map(([n]) => n), sorted.filter(([, el]) => orderOf(el, 'base') > breakAt).map(([n]) => n)];
+  const inRow1 = (el: Element) => el.parentElement?.getAttribute('data-testid') === 'workspace-bar-row1';
+  return [sorted.filter(([, el]) => inRow1(el)).map(([n]) => n), sorted.filter(([, el]) => !inRow1(el)).map(([n]) => n)];
 }
 const draftOpen = () => { st.hasV2 = false; st.openDraft = draftBlock({ baseSeq: 1, changedBoxes: ['canvas:problem'] }); st.draftRow = draftRow({ baseVersionId: 'ver-1' }); };
 const ready = async () => { await grid(); await screen.findByTestId('thread-panel'); };
@@ -389,7 +389,7 @@ describe('S3.3 / S3b.7: the Publish spot is one box in all five states, and a bu
     await grid();
     await screen.findByTestId('canvas-clone');
     expect(screen.getByTestId('publish-spot').className).toBe(SPOT_BOX);
-    expect(part('publish-spot')).toBe(bar().querySelector(':scope > .shrink-0.order-4'));
+    expect(part('publish-spot')).toBe(bar().querySelector('[data-testid="workspace-bar-row1"] > .shrink-0.order-4'));
   });
 });
 

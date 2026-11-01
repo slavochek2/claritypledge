@@ -10,7 +10,7 @@
  * The REAL route element, canvas page, thread panel, owner's bar and composer; only the database and the chat transport are faked. jsdom cannot paint:
  * what a primary LOOKS like (blue fill) is read from its class list, which is what the P955 gate reads too.
  */
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-mappers';
@@ -207,8 +207,14 @@ const publishable = () => {
   st.openDraft = draftBlock({ baseSeq: 1, changedBoxes: ['canvas:problem'] });
   st.draftRow = draftRow({ baseVersionId: 'ver-1' });
 };
+/** A NEW canvas (no base) with something drafted: the only canvas whose thread carries Copy prompt while it has points (the opener is a new canvas's onboarding only). */
+const publishableNew = () => {
+  st.openDraft = draftBlock({ baseSeq: null });
+  st.draftRow = draftRow();
+  getCanvas.mockImplementation(async (_o: string, _t: string, _v: unknown, _k: unknown, version?: string) => readFor(version, { versions: [draftVersion], publishedNone: true }));
+};
 const spotText = () => screen.getByTestId('publish-spot').textContent;
-const ready = async () => { await grid(); await screen.findByTestId('thread-panel'); await screen.findByTestId('canvas-copy-prompt'); };
+const ready = async () => { await grid(); await screen.findByTestId('thread-panel'); await waitFor(() => expect(screen.queryByTestId('canvas-loading')).toBeNull()); };
 
 describe('S3b.6: the W7 table, row by row (1440: the panel beside the canvas)', () => {
   it('Not published yet (an empty new canvas): Copy prompt is the one primary', async () => {
@@ -221,7 +227,7 @@ describe('S3b.6: the W7 table, row by row (1440: the panel beside the canvas)', 
   });
 
   it('Updating…: no primary; Copy prompt is secondary', async () => {
-    publishable();
+    publishableNew();
     st.latestRun = { id: 'run-1', draftId: 'draft-1', state: 'running', createdAt: new Date().toISOString(), startedAt: new Date().toISOString(), finishedAt: null, errorCode: null };
     mount(DRAFT_AT);
     await ready();
@@ -230,18 +236,18 @@ describe('S3b.6: the W7 table, row by row (1440: the panel beside the canvas)', 
     expect(lacksSecondaryPill(screen.getByTestId('canvas-copy-prompt'))).toEqual([]);
   });
 
-  it('No changes yet: no primary; Copy prompt is secondary', async () => {
+  it('No changes yet (a draft from v1): no primary, and no Copy prompt (it is the onboarding of a canvas with no base: "only where shown")', async () => {
     st.openDraft = draftBlock({ baseSeq: 1, changedBoxes: [] });
     st.draftRow = draftRow({ baseVersionId: 'ver-1' });
     mount(DRAFT_AT);
     await ready();
     expect(spotText()).toContain('No changes yet');
     expect(primaries()).toEqual([]);
-    expect(lacksSecondaryPill(screen.getByTestId('canvas-copy-prompt'))).toEqual([]);
+    expect(screen.queryByTestId('canvas-copy-prompt')).toBeNull();
   });
 
   it('Publish: Publish is the one primary; Copy prompt is secondary', async () => {
-    publishable();
+    publishableNew();
     mount(DRAFT_AT);
     await ready();
     expect(screen.getByTestId('canvas-draft-publish')).toBeInTheDocument();
@@ -312,7 +318,7 @@ describe('S3b.6: a closed panel or the Canvas tab shows ZERO primaries when Copy
 describe('S3b.6: composer content never changes either button', () => {
   it.each([
     ['Not published yet', newCanvas, ['Copy prompt']],
-    ['Publish', publishable, ['Publish']],
+    ['Publish', publishableNew, ['Publish']],
   ] as const)('%s: typing in the composer leaves the primaries (and Copy prompt\'s look) as they were', async (_n, arrange, expected) => {
     arrange();
     mount(DRAFT_AT);

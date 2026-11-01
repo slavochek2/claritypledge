@@ -12,6 +12,7 @@ import { MAX_UPLOAD_BYTES } from '@/app/pages/chat/canvas-thread-copy';
 import type { CanvasDraftErrorCode } from '@/app/data/canvas-draft-service';
 import { postFile } from '@/app/pages/chat/use-canvas-uploads';
 import { createUnresolvedClientIds } from '@/app/pages/chat/unresolved-client-ids';
+import { trackCanvasSend } from '@/app/pages/chat/canvas-thread-registry';
 
 /** The client id of each first Send still unresolved, by what it says (canvas, version, text or file). */
 const unresolved = createUnresolvedClientIds();
@@ -64,11 +65,12 @@ export async function openNextDraft(args: { projectTag: string; version: string 
   }
   if (!from) return { ok: false, why: 'no_version' };
   const key = sendKey(from, replace, { body, file });
-  const sent = await sendCanvasWorkspaceMessage({
+  // The thread this makes is a canvas thread: the mirror must know it before the realtime copy of the message (or the answer) lands.
+  const sent = await trackCanvasSend(() => sendCanvasWorkspaceMessage({
     canvasId: from.canvasId, fromVersionId: from.id, expectedDraftId: replace?.draftId ?? null, expectedRevision: replace?.revision ?? null, ...(replace ? { replace: true } : {}),
     ...(file ? { attachment: { kind: 'file' as const, label: file.name } } : { body }),
     clientId: unresolved.idFor(key),
-  });
+  }), r => (r.ok ? r.threadRootId : null));
   if (!sent.ok) {
     unresolved.settle(key); // a definite refusal: the next attempt is a new one
     return refusalOf(sent.refused, replace);

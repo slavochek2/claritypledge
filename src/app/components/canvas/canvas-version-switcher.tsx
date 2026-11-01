@@ -48,15 +48,21 @@ export function VersionSwitcher({ versions, open, onPick }: { versions: CanvasVe
  * published version needs no label (the title is the canvas). One fact once, no repeated text. Everyone but the owner lists published versions
  * only (the server already withholds a draft from them).
  */
-export function CanvasVersionSlot({ ready, viewingDraft, onPick }: { ready: CanvasReady; viewingDraft: boolean; onPick: (version: string) => void }) {
+export function CanvasVersionSlot({ ready, viewingDraft, pendingSeq = null, onPick }: {
+  ready: CanvasReady;
+  viewingDraft: boolean;
+  /** W3: a Clone is pending on this version (its number): the header carries the version like a published view (several: the picker; one: its label). */
+  pendingSeq?: number | null;
+  onPick: (version: string) => void;
+}) {
   const versions = ready.isOwner ? ready.versions : ready.versions.filter(v => !v.draft);
-  if (versions.length < 2 && !viewingDraft) return null;
+  if (versions.length < 2 && !viewingDraft && pendingSeq === null) return null;
   return (
     // A lone "Draft" label keeps its own width on a phone, so the name gets the rest of the row; the version menu shares it.
     <span className="flex min-w-0 max-w-full shrink-0 items-center gap-2 max-sm:flex-none" data-testid="canvas-project-slot">
       {versions.length >= 2
         ? <VersionSwitcher versions={versions} open={ready.version ?? versions[0]?.name ?? ''} onPick={onPick} />
-        : <span className="shrink-0 text-sm font-medium text-foreground/70" data-testid="canvas-version-label">v{nextSeqOf(ready.versions)}</span>}
+        : <span className="shrink-0 text-sm font-medium text-foreground/70" data-testid="canvas-version-label">v{viewingDraft ? nextSeqOf(ready.versions) : pendingSeq}</span>}
     </span>
   );
 }

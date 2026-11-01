@@ -6,7 +6,7 @@
  * so there is never a dead control. The draft survives switching to another chat.
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowUp, Paperclip, X } from 'lucide-react';
+import { Paperclip, X } from 'lucide-react';
 import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { cn } from '@/lib/utils';
 import { FOCUS_RING, HOVER, ROUND } from './chat-kit';
@@ -14,7 +14,8 @@ import { ShareableCard } from './ShareableCard';
 import { hasFinePointer, stashDraft, useDraft } from './chat-hooks';
 import { matchMentions, mentionQuery, type MentionEntry } from './mention-picker';
 import { DictationSlot, FieldMic } from './DictationControls';
-import { ComposerStatus, VoiceSlot } from './VoiceControls';
+import { ComposerStatus } from './VoiceControls';
+import { SendSlot } from './ComposerSendSlot';
 import { useVoiceNote, type VoiceSender } from '@/hooks/use-voice-note';
 import { composerSlots, type Slots } from './composer-slots';
 import { MentionPicker } from './MentionPicker';
@@ -47,6 +48,11 @@ interface Props {
   quoteSendable?: boolean;
   /** A send is under way that must not be doubled: Send and Enter wait. */
   sendDisabled?: boolean;
+  /**
+   * P1536 D15: something must finish before the next send (a canvas draft's run). The field stays live and keeps its text; Send, Enter and the voice
+   * button wait, and the send slot reads this status in their place (never a disabled button).
+   */
+  waiting?: string;
   /** Changing this value moves focus into the field (a Reply was pressed). */
   focusToken?: number;
   autoFocus?: boolean;
@@ -66,7 +72,7 @@ interface Props {
   onSendableChange?: (sendable: boolean) => void;
 }
 
-export function Composer({ draftKey, placeholder, onSend, onAttach, staged = null, onUnstage, quote, quoteSendable = false, sendDisabled = false, focusToken = 0, autoFocus = false, mentions, privateTo = null, onPrivateChange, onVoiceNote, leading, onSendableChange }: Props) {
+export function Composer({ draftKey, placeholder, onSend, onAttach, staged = null, onUnstage, quote, quoteSendable = false, sendDisabled = false, waiting, focusToken = 0, autoFocus = false, mentions, privateTo = null, onPrivateChange, onVoiceNote, leading, onSendableChange }: Props) {
   const [value, setValue] = useDraft(draftKey);
   const field = useRef<HTMLTextAreaElement>(null);
   const latest = useRef(value);
@@ -116,7 +122,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
   useEffect(() => () => onSendableChange?.(false), [onSendableChange]);
   const send = () => {
     const text = value.trim();
-    if ((!text && !staged && !quoteSendable) || sendDisabled) return;
+    if ((!text && !staged && !quoteSendable) || sendDisabled || waiting) return;
     const before = value;
     const sentFrom = draftKey;
     // A failed send's text goes back to the slot it was written in. If the composer has since switched slot (left
@@ -234,12 +240,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
           </div>
           <DictationSlot slots={slots} dict={dict} />
           {/* The send slot (rule 9): the voice-note button while the field is empty, Send once there is text. Both carry data-composer-send, which assertStableVariantsOnInput skips. */}
-          <VoiceSlot slots={slots} voice={voice} dict={dict} />
-          {slots.send && (
-            <button type="submit" data-composer-send aria-label="Send" title="Send" disabled={sendDisabled} className={cn(ROUND, 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50', FOCUS_RING)}>
-              <ArrowUp className="h-[18px] w-[18px]" aria-hidden="true" />
-            </button>
-          )}
+          <SendSlot slots={slots} voice={voice} dict={dict} waiting={waiting} sendDisabled={sendDisabled} />
         </div>
         <ComposerStatus dict={dict} voice={voice} />
       </form>

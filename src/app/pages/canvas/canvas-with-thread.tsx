@@ -31,6 +31,7 @@ import { useCloneCanvas } from './use-clone-canvas';
 import { useWorkspacePanel } from './use-workspace-panel';
 import { useCanvasRename } from './use-canvas-rename';
 import { useWorkspacePublish } from './use-workspace-publish';
+import { useSettledRun } from './use-settled-run';
 import { useFollowDraft } from './use-follow-draft';
 import { useBareWorkspaceDraft } from './use-bare-workspace-draft';
 import { WorkspaceChat } from './workspace-chat';
@@ -69,7 +70,9 @@ export function CanvasWithThread() {
   const freshReady = reported.forVersion === params.get('v') ? reported.ready : null;
   const clone = useCloneCanvas({ eligible, active, ready: freshReady, setParams, state: location.state, openDraft: openedDraft, reload: () => setReloads(n => n + 1), onEnter: openPanel });
   const pendingSeq = clone.pending ? clone.pending.seq : null;
-  const { closedDraftId, spot, publishing, publish } = useWorkspacePublish({ ready: reported.ready, runActive, pendingClone: !!clone.pending, setParams, state: location.state });
+  // §2: "Updating…" lasts until the page has read what the run changed (the run ends in the thread before the page re-reads its points).
+  const spotRunActive = useSettledRun(runActive, reported.ready);
+  const { closedDraftId, spot, publishing, publish } = useWorkspacePublish({ ready: reported.ready, runActive: spotRunActive, pendingClone: !!clone.pending, setParams, state: location.state });
   // W8: the owner's header is the bar above the page: for the signed-in owner of a canvas with a mirror chat from the first render (so nothing shifts when
   // the read lands), and for any owner once the page has read the canvas. Once the read HAS answered, it decides: a page that is not the viewer's own
   // never shows owner controls. Everyone else keeps the reader header in the page.

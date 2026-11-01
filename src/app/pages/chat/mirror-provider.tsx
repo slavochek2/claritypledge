@@ -27,7 +27,7 @@ import type { ChatMessage, ChatTranscriptStatus } from '@/app/data/chat-service'
 import { ChatContext, type ChatContextValue } from './chat-state';
 import { voiceStatus } from './mirror-voice';
 import { MirrorContext, type MirrorContextValue, type MirrorReplyStatus, type PortraitStatus } from './mirror-state';
-import { isCanvasThread } from './canvas-thread-registry';
+import { canvasSendsSettled, isCanvasThread } from './canvas-thread-registry';
 
 /** A job still "running" this long after it was created died with its request: offer Try again. */
 const STALE_RUNNING_MS = 3 * 60_000;
@@ -36,6 +36,19 @@ const RECHECK_MS = 20_000;
 
 /** Waits before re-asking whether the mirror is on, after a failed check. */
 const AVAILABILITY_RETRY_MS = [1_000, 3_000, 9_000];
+
+/** An own message in the mirror that the mirror answers: a note or a Clarify (not a deleted one, nor a quiet share with no text). Canvas threads are judged apart. */
+function isAskable(m: ChatMessage, userId: string, mirrorId: string | null): boolean {
+  return (
+    m.authorId === userId &&
+    m.conversationId === mirrorId &&
+    (m.kind === 'message' || m.kind === 'clarify') &&
+    !m.isDeleted &&
+    // A share (a point or story with no text) is filed quietly: the server makes no job for it either.
+    // A Clarify always gets an answer, even of a shared point with no note.
+    !(m.kind === 'message' && m.attachmentId && !(m.body ?? '').trim())
+  );
+}
 
 export function MirrorProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
   const chat = useContext(ChatContext);
@@ -282,20 +295,14 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
           setStatus(m.replyToId, undefined);
           return;
         }
-        if (
-          m.authorId === userId &&
-          m.conversationId === mirrorIdRef.current &&
-          (m.kind === 'message' || m.kind === 'clarify') &&
-          !m.isDeleted &&
-          // A share (a point or story with no text) is filed quietly: the server makes no job for it either.
-          // A Clarify always gets an answer, even of a shared point with no note.
-          !(m.kind === 'message' && m.attachmentId && !(m.body ?? '').trim()) &&
-          // A canvas draft thread: the mirror stays silent there (no job is made), so no request is sent.
-          !isCanvasThread(m.threadRootId) &&
-          !asked.current.has(m.id)
-        ) {
-          answerOwnMessage(m);
-        }
+        if (!isAskable(m, userId, mirrorIdRef.current) || asked.current.has(m.id) || isCanvasThread(m.threadRootId)) return;
+        // A threaded message may belong to a canvas thread this tab has not heard of yet (a send is opening its draft right now, and its
+        // answer, which names the thread, can come after this realtime copy): decide when that send is over.
+        const settled = m.threadRootId ? canvasSendsSettled() : null;
+        if (!settled) return answerOwnMessage(m);
+        void settled.then(() => {
+          if (mounted.current && !isCanvasThread(m.threadRootId) && !asked.current.has(m.id)) answerOwnMessage(m);
+        });
       }),
     [subscribe, userId, answerOwnMessage, showTranscriptUpdate, setStatus],
   );

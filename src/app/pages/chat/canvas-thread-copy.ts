@@ -9,12 +9,12 @@ import {
 } from '../../../../supabase/functions/_shared/canvas-box-definitions.ts';
 
 /**
- * What opens a canvas thread: one message that says what the mirror will do, and a steps card. The ask's second sentence
- * and the steps are founder-approved 2026-10-27; the first sentence and "Want to save time?" follow the founder's own
- * wording of 2026-10-28 (founder may edit). Drawn by the client, never stored, and never folded away.
+ * What opens a canvas thread: one message that says what the mirror will do, and a steps card. The steps are founder-approved
+ * 2026-10-27 and "Want to save time?" follows the founder's own wording of 2026-10-28. The message itself is J1's proposed sentence:
+ * [FOUNDER DECISION F1: the opener message text, in the spec's J1]. No "Clarity Canvas" label in it (W8 removed that label). Shown in a canvas with
+ * no base version only; drawn by the client, never stored, and never folded away.
  */
-export const CANVAS_OPENER_ASK =
-  "I'll help you get clear on your offer and draft your Clarity Canvas. Send me anything about what you build or sell: your website link, a pitch deck, notes.";
+export const CANVAS_OPENER_ASK = 'Give your mirror agent anything about your business: files, links, a few lines. It drafts your canvas.';
 export const CANVAS_STEPS_TITLE = 'Want to save time?';
 export const CANVAS_STEP_PASTE = 'Paste it into ChatGPT, Gemini or Claude';
 export const CANVAS_STEP_UPLOAD = 'Upload the answer here';
@@ -101,6 +101,19 @@ export const DRAFT_ERROR_TEXT: Record<string, string> = {
   BAD_REQUEST: 'That did not go through. Try again.',
   FAILED: 'That did not go through. Try again.',
 };
+
+/**
+ * §2 "Composer send slot". [FOUNDER DECISION F1: the four sentences below; the spec quotes them.]
+ * The slot reads a status while the next Send must wait (the owner keeps typing), and at the cap the composer gives way to a sentence.
+ */
+export const SEND_SLOT_UPDATING = 'Updating…';
+export const SEND_SLOT_ELSEWHERE = 'Another of your canvases is updating.';
+export const UPLOAD_WAITS_LABEL = 'Upload waits for the update';
+/** The server's cap on used runs of one draft (`cap_reached`, the 30th used run); `runCount` counts them. */
+export const REVISION_CAP_RUNS = 30;
+export const CAP_LINE = 'This draft has had 30 updates.';
+export const CAP_PUBLISH_LINE = 'This draft has had 30 updates. Publish it to keep going.';
+export const START_OVER_LABEL = 'Start over';
 
 export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 

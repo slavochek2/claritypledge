@@ -85,7 +85,8 @@ export function GateFixture() {
             <CanvasVersionCard data={BASE_CARD} />
           </FakeRow>
         )}
-        <CanvasThreadOpener title={null} />
+        {/* The onboarding of a canvas with no base version only (a draft cloned from one opens with its base card and nothing else). */}
+        {!update && <CanvasThreadOpener title={null} />}
         {messages && <FakeMessages />}
       </div>
       <Composer
