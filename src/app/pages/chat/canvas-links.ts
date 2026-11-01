@@ -4,21 +4,10 @@
  * (anything else is shown as plain text).
  */
 import { canvasPath, isCanvasPathname } from '@/lib/canvas-boxes';
+export { newestPublishedHref, publishedViewHref, retiredThreadTarget, workspaceHref } from '@/lib/canvas-hrefs';
 
 export function canvasPageHref(ownerSlug: string | null | undefined, canvasName: string | null): string | null {
   if (!ownerSlug || !canvasName) return null;
   const path = canvasPath(encodeURIComponent(ownerSlug), canvasName);
   return isCanvasPathname(path) ? path : null;
-}
-
-/**
- * The canvas page's address with the thread it was opened from, `thread=<rootId>`, so the canvas page can show that
- * thread beside the canvas on a wide screen. Any `thread` param already there is replaced, and the other params (the
- * draft version's `?v=`) stay as they are.
- */
-export function withThreadParam(path: string, rootId: string): string {
-  const [pathname = '', query = ''] = path.split('?');
-  const params = new URLSearchParams(query);
-  params.set('thread', rootId);
-  return `${pathname}?${params.toString()}`;
 }

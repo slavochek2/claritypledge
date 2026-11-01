@@ -46,7 +46,7 @@ const PHASES: Record<string, Partial<CanvasReady>> = {
 };
 
 // "New version" needs the chat (its thread is a chat thread): a stand-in with nothing in it, as the fixture never starts one.
-const CHAT_STUB = { refresh: async () => [] } as unknown as ChatContextValue;
+const CHAT_STUB = { refresh: async () => [], userId: 'user-id-1234', authors: { 'user-id-1234': { id: 'user-id-1234', slug: 'example-user' } } } as unknown as ChatContextValue;
 
 export function GateFixture() {
   const [params] = useSearchParams();

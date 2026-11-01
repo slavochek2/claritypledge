@@ -5,7 +5,7 @@
  * One question, answered without a new database function: the owner reads their own `canvas_drafts` rows through the
  * column grant and RLS policy of the P1536 draft migration (canvas name, conversation, thread root, state), and the number
  * the draft gets when published is one above the newest published version of its canvas, from `list_my_canvas_versions`
- * (the same rule the draft card in the chat uses). A failed version read leaves the number unknown ("Draft"); a failed draft
+ * (the same rule the workspace's Publish spot uses). A failed version read leaves the number unknown ("Draft"); a failed draft
  * read throws, so the list can say its drafts could not be read.
  */
 import { supabase } from '@/lib/supabase';

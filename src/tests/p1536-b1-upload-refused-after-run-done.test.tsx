@@ -155,7 +155,7 @@ describe('B1 thread: a successful run plus the refused second post shows no fail
     render(
       <MemoryRouter initialEntries={[`/chats/c/${MIRROR_ID}/t/${ROOT}`]}>
         <ChatContext.Provider value={chatValue()}>
-          <ThreadPanel fill hideDraftCard summary={mirrorChat} rootId={ROOT} highlightId={null} />
+          <ThreadPanel fill summary={mirrorChat} rootId={ROOT} highlightId={null} />
         </ChatContext.Provider>
       </MemoryRouter>,
     );
@@ -179,7 +179,7 @@ describe('B1 thread: a successful run plus the refused second post shows no fail
     render(
       <MemoryRouter initialEntries={[`/chats/c/${MIRROR_ID}/t/${ROOT}`]}>
         <ChatContext.Provider value={chatValue()}>
-          <ThreadPanel fill hideDraftCard summary={mirrorChat} rootId={ROOT} highlightId={null} />
+          <ThreadPanel fill summary={mirrorChat} rootId={ROOT} highlightId={null} />
         </ChatContext.Provider>
       </MemoryRouter>,
     );

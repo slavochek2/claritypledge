@@ -183,7 +183,7 @@ describe('a canvas with an open draft', () => {
     await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toContain('v3 · Draft · Edited 3d ago'));
     await openMenu(u, 'Sales map');
     await u.click(await screen.findByRole('menuitem', { name: 'Open draft' }));
-    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/p/me/canvas/sales_map?v=sales_map_dabc12&thread=root-9'));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/p/me/canvas/sales_map?v=sales_map_dabc12&ws=1'));
     expect(screen.getByTestId('loc').textContent).not.toContain('/chats/');
   });
 
@@ -258,7 +258,7 @@ describe('a canvas with an open draft', () => {
     await u.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     await openMenu(u, 'Sales map');
     await u.click(screen.getByRole('menuitem', { name: 'Open' }));
-    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/p/me/canvas/sales_map?v=sales_map_dabc12&thread=root-9'));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/p/me/canvas/sales_map?v=sales_map_dabc12&ws=1'));
   });
 
   it('CONTROL: a draft on a canvas that has published versions keeps Share (it shares the published version)', async () => {

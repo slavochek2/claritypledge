@@ -215,13 +215,13 @@ describe('P1536 open, publish, refusals', () => {
       data: { status: 'opened', draft_id: 'd1', conversation_id: 'c1', thread_root_id: 'r1', canvas_name: 'canvas', from_seq: 2 },
       error: null,
     });
-    const lookup = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn(async () => ({ data: { revision: 6, canvas_id: 'cv-9' }, error: null })) };
+    const lookup = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn(async () => ({ data: { revision: 6, canvas_id: 'cv-9', version_name: 'canvas_d6' }, error: null })) };
     lookup.select.mockReturnValue(lookup); lookup.eq.mockReturnValue(lookup);
     sb.from.mockReturnValueOnce(lookup);
-    await expect(openCanvasDraft('ver-2')).resolves.toEqual({ status: 'opened', draftId: 'd1', conversationId: 'c1', threadRootId: 'r1', canvasName: 'canvas', fromSeq: 2, revision: 6, canvasId: 'cv-9' });
+    await expect(openCanvasDraft('ver-2')).resolves.toEqual({ status: 'opened', draftId: 'd1', conversationId: 'c1', threadRootId: 'r1', canvasName: 'canvas', fromSeq: 2, revision: 6, canvasId: 'cv-9', versionName: 'canvas_d6' });
     expect(sb.rpc).toHaveBeenCalledWith('canvas_draft_open', { p_from_version: 'ver-2' });
     expect(sb.from).toHaveBeenLastCalledWith('canvas_drafts');
-    expect(lookup.select).toHaveBeenCalledWith('revision, canvas_id');
+    expect(lookup.select).toHaveBeenCalledWith('revision, canvas_id, version_name');
     expect(lookup.eq).toHaveBeenCalledWith('id', 'd1');
   });
 
@@ -290,36 +290,53 @@ describe('P1536 open, publish, refusals', () => {
 describe('P1536 version card', () => {
   const published = { id: 'ver-1', canvas_id: 'cv', canvas_name: 'canvas', name: 'canvas_d1a2b3', seq: 2, published_at: '2026-10-26T10:00:00Z', has_open_draft: false };
 
-  it('a published version is "v{seq} · date" with a link to its page', async () => {
+  it('a published version is "v{seq} · date", Published, and Open is that version', async () => {
     sb.rpc.mockResolvedValue({ data: [published], error: null });
     sb.from.mockReturnValue(table({ slug: 'test-user' }));
     const card = await getCanvasVersionCard('ver-1', 'user-id-1234');
-    expect(card).toEqual({ title: 'Canvas', label: canvasVersionLabel(2, published.published_at), draft: false, href: '/p/test-user/canvas/canvas?v=canvas_d1a2b3' });
+    const href = '/p/test-user/canvas/canvas?v=canvas_d1a2b3';
+    expect(card).toEqual({ title: 'Canvas', label: canvasVersionLabel(2, published.published_at), state: 'published', draft: false, href, openHref: href });
     expect(card?.label).toMatch(/^v2 · /);
   });
 
-  it('the owner\'s own draft is "Draft" with no link', async () => {
+  it('W1: a published version whose canvas has an open draft opens THAT draft in the workspace (card Open with a draft)', async () => {
+    sb.rpc.mockResolvedValue({ data: [{ ...published, has_open_draft: true }], error: null });
+    sb.from.mockImplementation((t: string) => (t === 'canvas_drafts' ? table({ version_name: 'canvas_ddraft1' }) : table({ slug: 'test-user' })));
+    const card = await getCanvasVersionCard('ver-1', 'user-id-1234');
+    expect(card).toMatchObject({ state: 'published', href: '/p/test-user/canvas/canvas?v=canvas_d1a2b3', openHref: '/p/test-user/canvas/canvas?v=canvas_ddraft1&ws=1' });
+  });
+
+  it('the owner\'s own draft is "Draft"; with its names unreadable it has no Open', async () => {
     sb.rpc.mockResolvedValue({ data: [], error: null });
     sb.from.mockReturnValue(table({ id: 'draft-1' }));
-    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toEqual({ label: 'Draft', draft: true, href: null });
+    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toEqual({ label: 'Draft', state: 'draft', draft: true, href: null, openHref: null });
   });
 
-  it('U3: the owner\'s draft with a readable address links to its page', async () => {
+  it('U3: the owner\'s open draft opens in the workspace (ws=1)', async () => {
     sb.rpc.mockResolvedValue({ data: [], error: null });
     sb.from.mockImplementation((t: string) =>
-      t === 'canvas_drafts' ? table({ id: 'draft-1', canvas_name: 'canvas', version_name: 'canvas_dabc123' }) : table({ slug: 'test-user' }),
+      t === 'canvas_drafts' ? table({ id: 'draft-1', state: 'open', canvas_name: 'canvas', version_name: 'canvas_dabc123' }) : table({ slug: 'test-user' }),
     );
-    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toEqual({
-      label: 'Draft', draft: true, href: '/p/test-user/canvas/canvas?v=canvas_dabc123',
-    });
+    const open = '/p/test-user/canvas/canvas?v=canvas_dabc123&ws=1';
+    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toEqual({ label: 'Draft', state: 'draft', draft: true, href: open, openHref: open });
   });
 
-  it('U3 CONTROL: a draft whose names cannot be read stays "Draft" with no link', async () => {
+  it('U3 CONTROL: a draft whose names cannot be read stays "Draft" with no Open', async () => {
     sb.rpc.mockResolvedValue({ data: [], error: null });
     sb.from.mockImplementation((t: string) =>
       t === 'canvas_drafts' ? table({ id: 'draft-1', canvas_name: null, version_name: null }) : table({ slug: 'test-user' }),
     );
-    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toEqual({ label: 'Draft', draft: true, href: null });
+    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toEqual({ label: 'Draft', state: 'draft', draft: true, href: null, openHref: null });
+  });
+
+  it('W0: a discarded draft opens the canvas at its newest published version, or Artifacts when nothing was published', async () => {
+    sb.from.mockImplementation((t: string) =>
+      t === 'canvas_drafts' ? table({ id: 'draft-1', state: 'discarded', canvas_name: 'canvas', version_name: 'canvas_dgone' }) : table({ slug: 'test-user' }),
+    );
+    sb.rpc.mockResolvedValue({ data: [published], error: null });
+    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toMatchObject({ state: 'discarded', openHref: '/p/test-user/canvas/canvas' });
+    sb.rpc.mockResolvedValue({ data: [], error: null });
+    await expect(getCanvasVersionCard('ver-d', 'user-id-1234')).resolves.toMatchObject({ state: 'discarded', openHref: '/artifacts?tab=canvases' });
   });
 
   it('CONTROL: a version that is neither is not available', async () => {

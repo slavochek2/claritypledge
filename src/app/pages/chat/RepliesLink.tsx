@@ -1,17 +1,15 @@
 /**
  * @file RepliesLink.tsx
  * @description P1512: "N replies" under a thread's root message, with the first repliers' faces. Absent inside the
- * thread itself, where there are no threads to open, and when nobody has replied. P1536: a canvas draft's thread root
- * (a canvas version card) in the mirror's main conversation shows it even with no reply yet, as "Open draft thread", so
- * a new draft's thread reads as a thread and can be found again from the conversation.
+ * thread itself, where there are no threads to open, and when nobody has replied. P1536 W0: a canvas draft's thread root
+ * (a canvas version card) has none either: the card's own Open is the one way to the canvas, and the thread is a panel of the
+ * canvas workspace, not a place to browse to from the chat.
  */
-import { MessageSquareText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/app/data/chat-service';
 import type { ThreadStats } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { FOCUS_RING, HOVER, PersonMark } from './chat-kit';
-import { OPEN_DRAFT_THREAD_LABEL } from './canvas-thread-copy';
 
 interface Props {
   inThread: boolean;
@@ -29,15 +27,7 @@ const isCanvasThreadRoot = (m: ChatMessage): boolean => m.attachmentKind === 'ca
 export function RepliesLink({ inThread, server, stat, authors, onThread }: Props) {
   if (inThread || !onThread || !server) return null;
   const count = stat?.count ?? 0;
-  if (count <= 0) {
-    if (!isCanvasThreadRoot(server)) return null;
-    return (
-      <button type="button" data-testid="replies-link" onClick={() => onThread(server)} className={LINK}>
-        <MessageSquareText className="h-4 w-4" aria-hidden="true" />
-        {OPEN_DRAFT_THREAD_LABEL}
-      </button>
-    );
-  }
+  if (isCanvasThreadRoot(server) || count <= 0) return null;
   return (
     <button type="button" data-testid="replies-link" onClick={() => onThread(server)} className={LINK}>
       <span className="flex -space-x-1.5">

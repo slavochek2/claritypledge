@@ -104,7 +104,7 @@ describe('ThreadPanel onClose', () => {
 });
 
 describe('ThreadPanel in the workspace (`fill`)', () => {
-  it('fill: the panel is sized by its frame (no fixed 400/440px width of its own) and the header\'s back and close controls are hidden from 1280px', async () => {
+  it('fill: the panel is sized by its frame (no fixed 400/440px width of its own); W1: the × stays from 1280px (it closes the panel), the back arrow is a phone control', async () => {
     render(
       <MemoryRouter initialEntries={[`/chats/c/${CONV}/t/${ROOT}`]}>
         <ChatContext.Provider value={chatValue([summary()])}>
@@ -115,8 +115,8 @@ describe('ThreadPanel in the workspace (`fill`)', () => {
     await act(async () => {});
     const panel = screen.getByTestId('thread-panel');
     expect(panel.className).not.toMatch(/\b(?:lg|xl):w-\[/);
-    expect(screen.getByLabelText('Close thread').className).toContain('xl:hidden');
-    expect(screen.getByLabelText('Back to the conversation').className).toContain('xl:hidden');
+    expect(screen.getByLabelText('Close thread').className).not.toContain('xl:hidden');
+    expect(screen.getByLabelText('Back to the conversation').className).toContain('lg:hidden');
   });
 
   it('CONTROL: without fill the panel keeps its own 440px width and both controls', async () => {

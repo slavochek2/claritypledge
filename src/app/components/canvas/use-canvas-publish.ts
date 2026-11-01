@@ -14,7 +14,12 @@ import { publishSpotState, stateAfterRefusal, type PublishSpotState } from './ca
 // [FOUNDER DECISION: wording of an unexpected Publish failure; this is the sentence the old Publish button already used.]
 const FAILED_TEXT = 'Could not publish this draft. Try again.';
 
-export function useCanvasPublish(ready: CanvasReady | null, runActive: boolean): { state: PublishSpotState; publishing: boolean; publish: () => void } {
+/** `onPublished`: told once the server confirmed, with the number the version got and the name that keys its `?v=` (the draft's own version row is the one that was published). */
+export function useCanvasPublish(
+  ready: CanvasReady | null,
+  runActive: boolean,
+  onPublished?: (published: { seq: number; versionName: string }) => void,
+): { state: PublishSpotState; publishing: boolean; publish: () => void } {
   const [publishing, setPublishing] = useState(false);
   // A refusal's status holds only for the DRAFT and revision it answered: another draft, or any change to this one, clears it.
   const [forced, setForced] = useState<{ draftId: string; revision: number; state: PublishSpotState } | null>(null);
@@ -30,7 +35,10 @@ export function useCanvasPublish(ready: CanvasReady | null, runActive: boolean):
     void (async () => {
       try {
         const r = await publishCanvasDraft(draft.id, draft.revision);
-        if (r.ok) return;
+        if (r.ok) {
+          onPublished?.({ seq: r.seq, versionName: draft.version });
+          return;
+        }
         const next = stateAfterRefusal(r.refused);
         if (next === 'unknown') toast.error(FAILED_TEXT);
         else if (next === 'reread') emitCanvasDraftEvent({ kind: 'updated', draftId: draft.id });

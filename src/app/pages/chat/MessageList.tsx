@@ -48,15 +48,13 @@ interface Props {
   privateRows?: ChatMessage[];
   /** P1554: shown above the first message, and in place of `empty`: the mirror's greeting. */
   lead?: ReactNode;
-  /** P1536: shown after the last message, inside the scroll (a canvas thread's draft card). */
-  tail?: ReactNode;
   /** P1536: a message that is kept out of the list (a new canvas thread's root, which only carries the draft's own version). */
   hideId?: string | null;
   /** P1536: with `lead`, draw the lead right after this message instead of above all of them (an update thread: the base version card first, then the opener). */
   leadAfterId?: string | null;
 }
 
-export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages', privateRows, lead, tail, hideId = null, leadAfterId = null }: Props) {
+export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages', privateRows, lead, hideId = null, leadAfterId = null }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -259,7 +257,6 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
               );
             })}
           </ul>
-          {tail && <div data-testid="message-tail">{tail}</div>}
         </div>
       </div>
       {(away || newCount > 0) && (

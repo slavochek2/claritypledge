@@ -151,7 +151,7 @@ export function WorkspaceChat({ mirror, ready, projectTag, focusable, onClose, o
   return (
     <>
       {!isViewingDraft(ready) && <DraftLine onGo={() => onOpened(draft.version)} />}
-      <ThreadPanel key={`${draft.threadRootId}:${attempt}`} fill summary={mirror} rootId={draft.threadRootId} highlightId={null} hideDraftCard focusable={focusable} onClose={onClose} onRunActive={onRunActive} />
+      <ThreadPanel key={`${draft.threadRootId}:${attempt}`} fill summary={mirror} rootId={draft.threadRootId} highlightId={null} focusable={focusable} onClose={onClose} onRunActive={onRunActive} />
     </>
   );
 }

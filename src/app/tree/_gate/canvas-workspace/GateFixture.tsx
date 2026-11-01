@@ -1,5 +1,5 @@
 /**
- * P955 gate fixture (P1536 S3, S6.5): the canvas workspace's frame (the bar with ←, the Canvas | Chat switch and the Publish spot, the
+ * P955 gate fixture (P1536 S3, S6.5): the canvas workspace's frame (the bar with ←, the Canvas | Thread switch and the Publish spot, the
  * two panes) built from the REAL parts the route element uses: CanvasWorkspaceBar, CanvasWorkspaceLayout, CanvasPublishSpot,
  * CanvasHeader (title and byline), CanvasGrid, CanvasCard and the real Composer. The canvas and the chat history are fake. A 3.5rem
  * strip stands in for the shell's top bar, so the frame sits where it sits in the app. PERMANENT RENDER SUBSTRATE, never pruned.
@@ -54,7 +54,7 @@ const readyFor = (published: boolean): CanvasReady => ({
   ...(published ? { version: V1.name, versions: [V1], draft: null } : { version: DRAFT_VERSION.name, versions: [DRAFT_VERSION, V1], draft: DRAFT_BLOCK }),
 });
 // The owner's "New version" pill needs the chat: a stand-in with nothing in it.
-const CHAT_STUB = { refresh: async () => [] } as unknown as ChatContextValue;
+const CHAT_STUB = { refresh: async () => [], userId: 'user-id-1234', authors: { 'user-id-1234': { id: 'user-id-1234', slug: 'test-owner' } } } as unknown as ChatContextValue;
 
 /** A thread's worth of fake messages, so the chat pane has a history above the real composer. */
 function FakeThread() {

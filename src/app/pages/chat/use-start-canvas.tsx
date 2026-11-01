@@ -1,16 +1,18 @@
 /**
- * P1536: the chat's way into a canvas thread. `useStartCanvas` starts one (and asks the owner what to do when the
- * canvas already has an open draft); `useCanvasEntry` is what the mirror conversation hangs on its "New canvas" menu
- * item and its paperclip's Canvases tab, so the conversation pane itself only passes the results along.
+ * P1536: every way of starting a canvas. `useStartCanvas` starts one (and asks the owner what to do when the canvas already has an
+ * open draft) and opens the WORKSPACE on the draft: the canvas page on the draft's version with `ws=1`, never the chat thread (W0:
+ * the workspace is the one place an owner edits a canvas). `useCanvasEntry` is what the mirror conversation hangs on its "New
+ * canvas" menu item and its paperclip's Canvases tab, so the conversation pane itself only passes the results along.
  */
 import { useCallback, useState, type ReactNode } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CanvasDraftRefusal, discardCanvasDraft, getCanvasDraftRevision, sendCanvasWorkspaceMessage } from '@/app/data/canvas-draft-service';
 import { OpenDraftDialog } from './OpenDraftDialog';
 import { joinCarried } from './canvas-carry';
 import { canvasStartErrorText, startCanvasThread, type StartedCanvasThread } from './canvas-start';
+import { workspaceHref } from './canvas-links';
 import { useChat } from './chat-state';
-import { useChatNavigate } from './chat-hooks';
 import { useCanvasDraftAvailability } from './use-canvas-availability';
 
 interface Pending {
@@ -53,17 +55,25 @@ async function carryIntoThread(r: StartedCanvasThread, texts: string[]): Promise
 /** `carry`: the messages of the thread the owner is leaving that the new thread should start with, oldest first. */
 export function useStartCanvas(): { start: (fromVersionId?: string | null, carry?: string[]) => Promise<void>; dialog: ReactNode } {
   const chat = useChat();
-  const go = useChatNavigate();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
 
-  /** The thread is made on the server: make sure the mirror is in the list, then open it. */
+  const slug = chat.authors[chat.userId]?.slug ?? null;
+  const here = `${location.pathname}${location.search}`;
+  /** The draft is made on the server: make sure the mirror is in the list (the workspace's chat needs it), then open the workspace on it. */
   const open = useCallback(
-    async (path: string) => {
+    async (found: StartedCanvasThread, newCanvas = false) => {
       await chat.refresh().catch(() => null);
-      go(path);
+      if (!slug || !found.canvasName) {
+        toast.error(canvasStartErrorText(null));
+        return;
+      }
+      // `from`: ← in the workspace goes back to where the owner started. `tab`: a NEW canvas opens on the Thread tab below 1280px (W1).
+      navigate(workspaceHref(slug, found.canvasName, found.versionName ?? null), { state: { from: here, ...(newCanvas ? { tab: 'thread' } : {}) } });
     },
-    [chat, go],
+    [chat, slug, here, navigate],
   );
 
   const start = useCallback(
@@ -75,7 +85,7 @@ export function useStartCanvas(): { start: (fromVersionId?: string | null, carry
         if (r.status === 'open_elsewhere' && fromVersionId) setPending({ found: r, fromVersionId, carry });
         else {
           await carryIntoThread(r, carry);
-          await open(r.path);
+          await open(r, r.status === 'opened' && !fromVersionId);
         }
       } catch (e) {
         toast.error(canvasStartErrorText(e));
@@ -91,9 +101,9 @@ export function useStartCanvas(): { start: (fromVersionId?: string | null, carry
       fromSeq={pending.found.fromSeq}
       onClose={() => setPending(null)}
       onContinue={() => {
-        const path = pending.found.path;
+        const found = pending.found;
         setPending(null);
-        void open(path);
+        void open(found);
       }}
       onDiscard={async () => {
         try {
@@ -107,7 +117,7 @@ export function useStartCanvas(): { start: (fromVersionId?: string | null, carry
           const r = await startCanvasThread(pending.fromVersionId);
           await carryIntoThread(r, pending.carry);
           setPending(null);
-          await open(r.path);
+          await open(r);
           return null;
         } catch (e) {
           return canvasStartErrorText(e);

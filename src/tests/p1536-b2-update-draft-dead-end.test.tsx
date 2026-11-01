@@ -8,8 +8,10 @@
  * "new since the last canvas". Update draft then started "the queued run", and a v6 draft has none (the message's run starts at once),
  * so `startQueuedCanvasRun` answered NOT_AVAILABLE and the tray said so, for a draft that is open and fine.
  *
- * The thread panel is rendered the way the canvas workspace mounts it (`fill`, `hideDraftCard`, `onRunActive`), because the
- * workspace's chat is this same panel: the test is on the code the workspace shares with the old thread.
+ * The thread panel is rendered the way the canvas workspace mounts it (`fill`, `onRunActive`), because the workspace's chat is this
+ * same panel. W0 removed the tray with its Update draft and its progress line, so these tests now pin the other half of B2: nothing in
+ * the panel offers Update draft, says "Creating your canvas…" or says "This draft is not available." for an open draft, and the
+ * workspace's status (`onRunActive`, which the Publish spot reads) ends within the poll interval once the run settles.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -116,7 +118,7 @@ function mount() {
   return render(
     <MemoryRouter initialEntries={[`/chats/c/${MIRROR_ID}/t/${ROOT}`]}>
       <ChatContext.Provider value={chatValue()}>
-        <ThreadPanel fill hideDraftCard summary={mirrorChat} rootId={ROOT} highlightId={null} onRunActive={onRunActive} />
+        <ThreadPanel fill summary={mirrorChat} rootId={ROOT} highlightId={null} onRunActive={onRunActive} />
       </ChatContext.Provider>
     </MemoryRouter>,
   );
@@ -158,7 +160,7 @@ describe('B2: after a file was read and its run is done, the thread has no dead-
     state.run = runRow({ state: 'done' });
     state.material = [fileRow()];
     await renderPanel();
-    await waitFor(() => expect(svc.listCanvasMaterial).toHaveBeenCalled());
+    await waitFor(() => expect(svc.getLatestCanvasRun).toHaveBeenCalled());
     await act(async () => {});
     expect(screen.queryByRole('button', { name: 'Update draft' })).not.toBeInTheDocument();
   });
@@ -178,22 +180,22 @@ describe('B2: after a file was read and its run is done, the thread has no dead-
     expect(screen.queryByRole('button', { name: 'Update draft' })).not.toBeInTheDocument();
   });
 
-  it('Update draft with nothing queued does not say the open draft is not available, and the progress clears', async () => {
-    // a failed Update the owner may press again is a state where Update draft is legitimately on offer
+  it('W0: a note after a capped run offers no Update draft (Send is the update), and never says the open draft is not available', async () => {
     state.messages = [canvasRoot(), msg({ id: 'n1', body: 'Raise the price to 60', createdAt: '2026-10-27T10:30:00.000Z' })];
     state.draft = draftRow({ runCount: 1 });
     state.lastDone = RUN_AT;
     state.run = runRow({ state: 'capped', createdAt: '2026-10-27T11:00:00.000Z', startedAt: '2026-10-27T11:00:00.000Z' });
     await renderPanel();
-    fireEvent.click(await screen.findByRole('button', { name: 'Update draft' }));
-    await waitFor(() => expect(svc.startQueuedCanvasRun).toHaveBeenCalledWith('draft-1'));
-    await waitFor(() => expect(screen.queryByTestId('canvas-progress')).not.toBeInTheDocument());
+    await act(async () => {});
+    expect(screen.queryByRole('button', { name: 'Update draft' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('canvas-bar')).not.toBeInTheDocument();
+    expect(svc.startQueuedCanvasRun).not.toHaveBeenCalled();
     expect(screen.queryByText(NOT_AVAILABLE)).not.toBeInTheDocument();
   });
 });
 
 describe('B2: after the run settles the surface leaves the progress within the poll interval', () => {
-  it('Updating… (the workspace spot) ends and the tray never says the draft is not available', async () => {
+  it('Updating… (the workspace spot) ends within the poll interval, and the panel never says the draft is not available', async () => {
     vi.useFakeTimers();
     try {
       state.draft = draftRow({ runCount: 0 });
@@ -202,7 +204,7 @@ describe('B2: after the run settles the surface leaves the progress within the p
       await act(async () => {
         await vi.advanceTimersByTimeAsync(10);
       });
-      expect(screen.getByTestId('canvas-progress')).toHaveTextContent('Creating your canvas…');
+      expect(screen.queryByText('Creating your canvas…')).not.toBeInTheDocument(); // W0: status is the Publish spot's, not a tray line
       expect(onRunActive).toHaveBeenLastCalledWith(true);
       state.draft = draftRow({ runCount: 1, revision: 6 });
       state.run = runRow({ state: 'done' });
@@ -210,7 +212,6 @@ describe('B2: after the run settles the surface leaves the progress within the p
       await act(async () => {
         await vi.advanceTimersByTimeAsync(RUN_POLL_MS + 50);
       });
-      expect(screen.queryByTestId('canvas-progress')).not.toBeInTheDocument();
       expect(onRunActive).toHaveBeenLastCalledWith(false);
       expect(screen.queryByText(NOT_AVAILABLE)).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Update draft' })).not.toBeInTheDocument();

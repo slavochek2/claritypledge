@@ -16,9 +16,14 @@ export interface CanvasWorkspaceValue {
   reportReady: (ready: CanvasReady | null, forVersion: string | null) => void;
   /** Rises when the chat asks the page to read again (its Retry); 0 until then. */
   reloads: number;
+  /**
+   * W1 (Add to chat, reply box-chips): bring the thread into view from a tap. Below 1280px it flips the switcher to Thread; from 1280px it
+   * opens a closed panel; either way the composer takes focus INSIDE the call, so the tap handler that made it keeps iOS's keyboard.
+   */
+  showThread: () => void;
 }
 
-const NONE: CanvasWorkspaceValue = { active: false, reportReady: () => undefined, reloads: 0 };
+const NONE: CanvasWorkspaceValue = { active: false, reportReady: () => undefined, reloads: 0, showThread: () => undefined };
 
 export const CanvasWorkspaceContext = createContext<CanvasWorkspaceValue>(NONE);
 

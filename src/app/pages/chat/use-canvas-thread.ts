@@ -1,65 +1,43 @@
 /**
  * P1536: the state of a canvas draft behind one mirror thread, read from the database (never held in the page), so a
- * reload loses nothing: the draft, its newest run, and what it has read. While a run is going it is re-read every few
- * seconds; the mirror's own reply arrives in the thread like any message.
+ * reload loses nothing: the draft and its newest run. While a run is going it is re-read every few seconds; the
+ * mirror's own reply arrives in the thread like any message.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ChatMessage } from '@/app/data/chat-service';
 import {
-  countDoneCanvasDraftRuns,
   getCanvasDraftByThread,
-  getCanvasDraftViewPath,
   getLastDoneCanvasDraftRunAt,
   getLatestCanvasRun,
-  listCanvasMaterial,
-  listMyCanvasVersions,
   type CanvasDraft,
   type CanvasDraftRun,
-  type CanvasMaterialItem,
   isDraftingRunKind,
 } from '@/app/data/canvas-draft-service';
 import { emitCanvasDraftEvent, subscribeCanvasDraftEvents } from '@/app/data/canvas-draft-events';
-import { withThreadParam } from './canvas-links';
 
 /** How often a going run is re-read (only while the tab is on screen). */
 export const RUN_POLL_MS = 3_000;
 /** A run still "going" this long after it began died with its request (the server counts it dead too): the owner may start again. */
 const RUN_DEAD_MS = 5 * 60_000;
-/** A run made but not claimed within this long is not "going": its start request did not land (see runIsWaiting). */
+/** A run made but not claimed within this long is not "going": its start request did not land. */
 const QUEUED_GRACE_MS = 8_000;
-/** The server fails a run that was never claimed after this long (the queued lease). */
-const QUEUED_LEASE_MS = 3 * 60_000;
 
 export interface CanvasThread {
   draft: CanvasDraft;
   run: CanvasDraftRun | null;
-  material: CanvasMaterialItem[];
   /** A run is running now (and young enough to be alive), or was queued a moment ago and is being claimed. */
   running: boolean;
-  /** A run was made but never claimed (its start request did not land): it waits for the owner to start it. */
-  waiting: boolean;
-  /** False unless a draft run finished (or that cannot be read): nothing is drafted, so nothing can be published. */
-  draftHasPoints: boolean;
   /**
-   * When the newest DRAFT-kind run that finished began (ms), or null. The one baseline for what is "new", for a link that
-   * could not be read, and for the Update offer: extract and tension runs, and failed, capped or cancelled ones, never move it.
+   * When the newest DRAFT-kind run that finished began (ms), or null. A newer one than the last seen tells the canvas page beside
+   * this thread that the draft's points changed (see the "updated" event below).
    */
   lastDraftAt: number | null;
-  /** The canvas page on the draft version, carrying this thread (`thread=<rootId>`), once a draft exists and its address is readable. */
-  viewPath: string | null;
-  /** The number the next published version of this canvas gets (v1 for a first canvas), or null while a draft is not made or it cannot be read. */
-  nextSeq: number | null;
   reload: () => Promise<void>;
 }
 
 interface Loaded {
   draft: CanvasDraft;
   run: CanvasDraftRun | null;
-  material: CanvasMaterialItem[];
-  draftHasPoints: boolean;
   lastDraftAt: number | null;
-  viewPath: string | null;
-  nextSeq: number | null;
 }
 
 /** `loading`: the first read is out. `error`: it failed and there is nothing to show. `none`: not a draft thread. */
@@ -69,23 +47,6 @@ export interface CanvasThreadRead {
   status: CanvasThreadStatus;
   thread: CanvasThread | null;
   retry: () => void;
-}
-
-const hasText = (s: string | null | undefined): boolean => !!s && s.trim() !== '';
-
-/** A copied chat or a forward carries its own text: the note, the copied message, or any reply of the copied thread. */
-export function copyHasText(m: ChatMessage): boolean {
-  const f = m.forwardSnapshot;
-  return hasText(m.body) || (!!f && (hasText(f.body) || f.thread.some((e) => hasText(e.body))));
-}
-
-/** The owner's own words and copies in the thread; with `after`, only those written after that moment (the publish). */
-export function ownerMessagesAfterRoot(messages: ChatMessage[], ownerId: string, rootId: string, after?: string | null): ChatMessage[] {
-  const from = after ? Date.parse(after) : null;
-  return messages.filter((m) => {
-    if (m.authorId !== ownerId || m.id === rootId || m.isDeleted || (from !== null && !(Date.parse(m.createdAt) > from))) return false;
-    return m.kind === 'message' || ((m.kind === 'clarify' || m.kind === 'forward') && copyHasText(m));
-  });
 }
 
 /** The send limit of one chat message (the same 4,000 characters the server checks). */
@@ -104,15 +65,6 @@ export function splitText(text: string, max: number): string[] {
   return [...out, rest].filter((t) => t !== '');
 }
 
-/** What the owner asked for after Publish, oldest first, one text per message (each short enough to send), to carry into the next version's thread. */
-export function changeRequestMessages(messages: ChatMessage[], ownerId: string, rootId: string, after: string | null): string[] {
-  return ownerMessagesAfterRoot(messages, ownerId, rootId, after).flatMap((m) =>
-    // Only the owner's own words: a copy's quoted lines are other people's, and carried as a plain owner message the
-    // engine would read them as the owner's own (spec §8). The owner can copy them into the new thread again.
-    splitText((m.body ?? '').trim(), CARRY_MAX_CHARS).filter((t) => t !== ''),
-  );
-}
-
 const startOf = (run: CanvasDraftRun | null): number | null => (run ? Date.parse(run.startedAt ?? run.createdAt) : null);
 
 export function runIsGoing(run: CanvasDraftRun | null, now = Date.now()): boolean {
@@ -122,71 +74,26 @@ export function runIsGoing(run: CanvasDraftRun | null, now = Date.now()): boolea
   return run.state === 'queued' ? age < QUEUED_GRACE_MS : age < RUN_DEAD_MS;
 }
 
-/** A queued run nothing claimed, older than the grace and not yet failed by the server: it needs the owner to start it. */
-export function runIsWaiting(run: CanvasDraftRun | null, now = Date.now()): boolean {
-  if (!run || run.state !== 'queued' || run.startedAt) return false;
-  const age = now - new Date(run.createdAt).getTime();
-  return age >= QUEUED_GRACE_MS && age < QUEUED_LEASE_MS;
-}
-
 const tabIsVisible = (): boolean => typeof document === 'undefined' || document.visibilityState !== 'hidden';
 
-/** One above the newest published version of this canvas: what the draft will be called when it is published. A failed read is "unknown". */
-async function readNextSeq(canvasId: string): Promise<number | null> {
-  try {
-    const mine = (await listMyCanvasVersions()).filter((v) => v.canvasId === canvasId);
-    return mine.reduce((top, v) => Math.max(top, v.seq), 0) + 1;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * The draft's next version number, read once per draft: a canvas has one open draft, so its published versions cannot
- * change while the draft is open. A failed read is tried again at the next read that is not the poll; the poll tries a
- * draft at most once, so a running revision never reads every few seconds.
- */
-interface NextSeqCache {
-  known: Map<string, number>;
-  tried: Set<string>;
-}
-
-async function nextSeqOf(draft: CanvasDraft, cache: NextSeqCache, poll: boolean): Promise<number | null> {
-  const known = cache.known.get(draft.id);
-  if (known !== undefined) return known;
-  if (poll && cache.tried.has(draft.id)) return null;
-  cache.tried.add(draft.id);
-  const seq = await readNextSeq(draft.canvasId);
-  if (seq !== null) cache.known.set(draft.id, seq);
-  return seq;
-}
-
-/** Everything about the draft that is read from more than one table. A failed secondary read never hides the draft. */
-async function readDraft(rootId: string, ownerId: string, seqs: NextSeqCache, poll: boolean): Promise<Loaded | null> {
+/** The draft, its newest run, and when the newest finished draft run began. A failed secondary read never hides the draft. */
+async function readDraft(rootId: string): Promise<Loaded | null> {
   const draft = await getCanvasDraftByThread(rootId);
   if (!draft) return null;
-  const [run, material] = await Promise.all([getLatestCanvasRun(draft.id), listCanvasMaterial(draft.id)]);
-  // Points exist only when a DRAFT-kind run finished: the newest run of any kind says nothing (a file read, a tension
-  // run, a capped or cancelled run can all follow a failed draft). When the count cannot be read, assume nothing is there.
+  const run = await getLatestCanvasRun(draft.id);
+  // The baseline of "a newer draft run finished": the newest run when it is that run, else the last one that finished.
+  // A failed lookup is "unknown", not "nothing new": baseline 0 keeps a later finished run reportable.
   const newestIsDoneDraft = isDraftingRunKind(run?.kind) && run?.state === 'done';
   const finishedBefore = !newestIsDoneDraft && draft.runCount > 0;
-  const made = draft.state === 'open' && draft.runCount > 0;
-  const [draftHasPoints, lastDraftAt, viewPath, nextSeq] = await Promise.all([
-    newestIsDoneDraft ? true : finishedBefore ? countDoneCanvasDraftRuns(draft.id).then((n) => n > 0, () => false) : false,
-    // The baseline of "new since the last canvas": the newest run when it is that run, else the last one that finished.
-    // A failed lookup is "unknown", not "nothing new": baseline 0 keeps Update reachable (the server still decides).
-    newestIsDoneDraft ? startOf(run) : finishedBefore ? getLastDoneCanvasDraftRunAt(draft.id).then((at) => (at ? Date.parse(at) : null), () => 0) : null,
-    made ? getCanvasDraftViewPath(draft, ownerId).then((path) => (path ? withThreadParam(path, rootId) : null), () => null) : null,
-    made ? nextSeqOf(draft, seqs, poll) : null,
-  ]);
-  return { draft, run, material, draftHasPoints, lastDraftAt, viewPath, nextSeq };
+  const lastDraftAt = newestIsDoneDraft ? startOf(run) : finishedBefore ? await getLastDoneCanvasDraftRunAt(draft.id).then((at) => (at ? Date.parse(at) : null), () => 0) : null;
+  return { draft, run, lastDraftAt };
 }
 
 /**
  * `rootId` null: this is not a canvas thread (nothing is read). `refreshKey` changes whenever the thread's messages do,
  * which is when the draft can have changed (the mirror's reply landed, the owner added a note).
  */
-export function useCanvasThread(rootId: string | null, refreshKey: number, ownerId: string): CanvasThreadRead {
+export function useCanvasThread(rootId: string | null, refreshKey: number): CanvasThreadRead {
   const [read, setRead] = useState<{ root: string; loaded: Loaded | null; error: boolean } | null>(null);
   const [visible, setVisible] = useState(tabIsVisible);
   const live = useRef(true);
@@ -199,19 +106,16 @@ export function useCanvasThread(rootId: string | null, refreshKey: number, owner
     };
   }, []);
 
-  const seqs = useRef<NextSeqCache>({ known: new Map(), tried: new Set() });
-
-  /** `poll`: the timer's read of a going run (it never re-reads what cannot change while the draft is open). */
-  const load = useCallback(async (poll = false) => {
+  const load = useCallback(async () => {
     if (!rootId) return;
     try {
-      const loaded = await readDraft(rootId, ownerId, seqs.current, poll);
+      const loaded = await readDraft(rootId);
       if (live.current && current.current === rootId) setRead({ root: rootId, loaded, error: false });
     } catch {
       // keep what is shown: the next read (a message, the poll) tries again. With nothing shown, say so.
       if (live.current && current.current === rootId) setRead((prev) => (prev?.root === rootId && prev.loaded ? prev : { root: rootId, loaded: null, error: true }));
     }
-  }, [rootId, ownerId]);
+  }, [rootId]);
 
   useEffect(() => {
     if (!rootId) {
@@ -223,7 +127,6 @@ export function useCanvasThread(rootId: string | null, refreshKey: number, owner
 
   const loaded = read && read.root === rootId ? read.loaded : null;
   const running = runIsGoing(loaded?.run ?? null);
-  const waiting = runIsWaiting(loaded?.run ?? null);
 
   // The canvas page beside this thread (P1536) is told when the draft's points changed: a read shows a NEWER finished draft run
   // than the last one seen for this draft (however many runs came and went between two reads). The first read of a draft only
@@ -259,7 +162,7 @@ export function useCanvasThread(rootId: string | null, refreshKey: number, owner
   }, [load]);
   useEffect(() => {
     if (!running || !visible) return;
-    const t = setInterval(() => void load(true), RUN_POLL_MS);
+    const t = setInterval(() => void load(), RUN_POLL_MS);
     return () => clearInterval(t);
   }, [running, visible, load]);
 
@@ -270,6 +173,6 @@ export function useCanvasThread(rootId: string | null, refreshKey: number, owner
 
   if (!rootId) return { status: 'idle', thread: null, retry };
   if (!read || read.root !== rootId) return { status: 'loading', thread: null, retry };
-  if (loaded && loaded.draft.threadRootId === rootId) return { status: 'ready', thread: { ...loaded, running, waiting, reload: load }, retry };
+  if (loaded && loaded.draft.threadRootId === rootId) return { status: 'ready', thread: { ...loaded, running, reload: load }, retry };
   return { status: read.error ? 'error' : 'none', thread: null, retry };
 }

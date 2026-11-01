@@ -13,20 +13,20 @@ import { useBack } from './chat-hooks';
 import { useChat } from './chat-state';
 import { useRestoreMirrorStatuses } from './mirror-state';
 import { useCanvasParts } from './use-canvas-parts';
+import { useRetiredCanvasThread } from './use-retired-canvas-thread';
+import { Skeleton } from '@/components/ui/skeleton';
 import { chatTitle } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
 import { useVoiceSender } from './use-voice-sender';
 import { EventRoomLink } from './EventRoomLink';
 
-export function ThreadPanel({ summary, rootId, highlightId, onClose, hideDraftCard = false, fill = false, onRunActive, focusable = true }: {
+export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = false, onRunActive, focusable = true }: {
   summary: ChatSummary;
   rootId: string;
   highlightId: string | null;
   /** Closes the panel where it is not the chat's own route (the canvas page): replaces the chat's Back. */
   onClose?: () => void;
-  /** Beside the canvas page the draft card is left out: the draft is on screen, and the page has its own Publish. */
-  hideDraftCard?: boolean;
   /** In the canvas workspace the pane is sized by its frame (full width below 1280px, 440px beside the canvas), not by this panel. */
   fill?: boolean;
   /** The workspace's Publish spot reads "Updating…" while a run goes: told whenever that changes. */
@@ -53,15 +53,10 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, hideDraftCa
   const rootDeleted = !!root?.isDeleted;
   // P1536: a thread that starts with a canvas version is a canvas draft's thread (the draft is read from the database).
   const canvasRoot = summary.kind === 'mirror' && root?.attachmentKind === 'canvas_version';
-  const canvas = useCanvasParts({
-    canvasRoot,
-    rootId,
-    messages: conv.server,
-    userId: chat.userId,
-    ownerSlug: chat.authors[chat.userId]?.slug,
-    mirrorTitle: summary.title,
-    hideDraftCard,
-  });
+  const ownerSlug = chat.authors[chat.userId]?.slug;
+  const canvas = useCanvasParts({ canvasRoot, rootId, messages: conv.server, userId: chat.userId, ownerSlug, mirrorTitle: summary.title });
+  // W0: outside the workspace (`fill`) a canvas thread is an old address; it resolves to the canvas, and is held back meanwhile.
+  const retired = useRetiredCanvasThread({ enabled: !fill, canvasRoot, ownerSlug, address: canvas.address });
   const runActive = canvas.runActive;
   useEffect(() => {
     onRunActive?.(runActive);
@@ -77,13 +72,22 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, hideDraftCa
       ? "The first message of this thread was deleted, so it can't take new replies."
       : null;
 
+  if (retired) {
+    return (
+      <section aria-label="Thread" data-testid="thread-retired" aria-busy="true" className="flex min-h-0 min-w-0 flex-1 flex-col bg-background px-4 py-6 lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]">
+        <Skeleton className="h-5 w-2/3" />
+        <span className="sr-only">Opening your canvas</span>
+      </section>
+    );
+  }
+
   return (
     <section
       aria-label="Thread"
       data-testid="thread-panel"
       className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col bg-background' : 'flex min-h-0 min-w-0 flex-1 flex-col bg-background lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]'}
     >
-      <ThreadHeader onClose={close} menu={<><EventRoomLink chat={summary} />{canvas.headerMenu}</>} hideFromXl={fill}>
+      <ThreadHeader onClose={close} menu={<EventRoomLink chat={summary} />}>
         {canvas.headerTitle ?? (
           <>
             <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
@@ -103,7 +107,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, hideDraftCa
         earlierLabel="Load earlier replies"
         {...canvas.list}
       />
-      {canvas.tray}
+      {canvas.readState}
       {blockedReason ? (
         <div className="shrink-0 border-t px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-testid="thread-composer-blocked">
           <p className="text-sm text-muted-foreground">{blockedReason}</p>

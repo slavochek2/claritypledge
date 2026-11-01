@@ -24,6 +24,8 @@ export type OpenDraftResult = {
   revision: number;
   /** The canvas the draft belongs to (what a Send into it names). */
   canvasId: string;
+  /** The draft's own version name, the `?v=` of its workspace; null when the owner's read did not return it. */
+  versionName: string | null;
 };
 
 /** What the edge function answered to a run or an upload: a stable code the UI turns into a sentence. */
@@ -253,11 +255,12 @@ export async function openCanvasDraft(fromVersionId: string | null = null): Prom
     const { data, error } = await supabase.rpc('canvas_draft_open', { p_from_version: fromVersionId });
     if (error || !data) failRpc('openCanvasDraft', error, 'Could not start a canvas draft');
     const r = data as Row;
-    const { revision, canvasId } = await readOpenedDraft(String(r.draft_id));
+    const { revision, canvasId, versionName } = await readOpenedDraft(String(r.draft_id));
     return {
       status: r.status === 'open_elsewhere' ? 'open_elsewhere' : 'opened',
       revision,
       canvasId,
+      versionName,
       draftId: String(r.draft_id),
       conversationId: String(r.conversation_id),
       threadRootId: String(r.thread_root_id),
@@ -270,12 +273,12 @@ export async function openCanvasDraft(fromVersionId: string | null = null): Prom
 }
 
 /** The draft's revision as it is now (owner column grant). A failed read is an error, never a made-up 0 (which would make the next action stale_view). */
-async function readOpenedDraft(draftId: string): Promise<{ revision: number; canvasId: string }> {
-  const { data, error } = await supabase.from('canvas_drafts').select('revision, canvas_id').eq('id', draftId).maybeSingle();
+async function readOpenedDraft(draftId: string): Promise<{ revision: number; canvasId: string; versionName: string | null }> {
+  const { data, error } = await supabase.from('canvas_drafts').select('revision, canvas_id, version_name').eq('id', draftId).maybeSingle();
   if (error) throwDbError('readOpenedDraft', error, 'Could not read this draft');
-  const row = data as { revision?: unknown; canvas_id?: unknown } | null;
+  const row = data as { revision?: unknown; canvas_id?: unknown; version_name?: unknown } | null;
   if (typeof row?.revision !== 'number' || typeof row.canvas_id !== 'string') throw new Error('Could not read this draft');
-  return { revision: row.revision, canvasId: row.canvas_id };
+  return { revision: row.revision, canvasId: row.canvas_id, versionName: typeof row.version_name === 'string' ? row.version_name : null };
 }
 
 /** The draft's revision as it is now. */

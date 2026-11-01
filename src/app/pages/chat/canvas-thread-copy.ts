@@ -53,56 +53,27 @@ export const CANVAS_OWN_AI_PROMPT = [
   ...BOX_DEFINITIONS.flatMap((b) => [copyPromptSection(b), '']),
 ].join('\n').trimEnd();
 
-/** A thread whose version was published takes no more changes. This is the question under the owner's next message. */
-export const PUBLISHED_QUESTION = 'This version is published. Start a new version?';
-
-/**
- * The draft actions: Create canvas (a first canvas), Create new version (a draft with a base version), Update draft (a
- * finished draft that got more material), then on the draft card Open and Publish. Every one drafts straight away and the
- * mirror lists what it decided on its own (founder, 2026-10-28: one button, no question round). "Open" is the Artifacts
- * page's word for it, never "View".
- */
-export const CREATE_LABEL = 'Create canvas';
-/** A run was made but never started. [FOUNDER DECISION: wording] */
-export const WAITING_TEXT = 'This update has not started.';
-export const WAITING_START_LABEL = 'Start it';
-export const CREATE_VERSION_LABEL = 'Create new version';
-export const UPDATE_DRAFT_LABEL = 'Update draft';
-export const PUBLISH_LABEL = 'Publish';
+/** "Open" is the Artifacts page's word for going to a canvas, never "View" (the mirror chat's version card). */
 export const OPEN_LABEL = 'Open';
-export const NEW_VERSION_LABEL = 'Start a new version';
 
-/** The draft card at the end of the thread: the canvas title, and "v3 · Draft" under it. */
-export const DRAFT_TITLE_FALLBACK = 'Your canvas';
+/** The state of a canvas version, in words: what the owner reads under the title of a version card in the chat. */
+export function versionStateLine(data: { state: 'draft' | 'published' | 'discarded'; label: string }): string {
+  if (data.state === 'published') return `${data.label} · Published`;
+  if (data.state === 'discarded') return 'Discarded draft';
+  return 'Draft';
+}
 
-/** What a draft is called wherever it is labelled (the draft card, the canvas page, Artifacts): "v3 · Draft". */
+/** What a draft is called wherever it is labelled (the canvas page, Artifacts): "v3 · Draft". */
 export function draftLabel(nextSeq: number | null): string {
   return nextSeq && nextSeq > 0 ? `v${nextSeq} · Draft` : 'Draft';
 }
 
-/** The tray row for what the owner wrote in the thread: "1 message from you", "3 messages from you". */
-export function ownerMessagesLabel(n: number): string {
-  return n === 1 ? '1 message from you' : `${n} messages from you`;
-}
-
-/** The link under a canvas draft's thread root in the mirror's main conversation (it has no reply yet, so no "N replies"). */
-export const OPEN_DRAFT_THREAD_LABEL = 'Open draft thread';
-
 /** The thread header: a draft with no base version is a new canvas; one with a base version is a new version of it. */
 export const NEW_CANVAS_TITLE = 'New canvas';
 export const NEW_VERSION_TITLE = 'New version';
-export const DRAFT_MENU_LABEL = 'Canvas draft options';
-export const DISCARD_LABEL = 'Discard draft';
 
 /** The menu item that opens a new canvas thread from the mirror. */
 export const NEW_CANVAS_LABEL = 'New canvas';
-
-/** What a run that is going is called, by its kind. */
-export const RUN_PROGRESS: Record<'tensions' | 'draft' | 'extract', string> = {
-  tensions: 'Creating your canvas…',
-  draft: 'Creating your canvas…',
-  extract: 'Reading your file…',
-};
 
 /** One sentence per refusal of a run or an upload. */
 export const DRAFT_ERROR_TEXT: Record<string, string> = {
@@ -125,15 +96,3 @@ export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 /** The file kinds the server reads (it answers UNSUPPORTED for anything else). */
 export const UPLOAD_ACCEPT = '.pdf,.md,.markdown,.txt,.csv,.json,.docx,.pptx,.png,.jpg,.jpeg,.webp';
-
-/** Why a link was not read, in a few words. */
-export const LINK_FAILED_REASON = 'the page did not open';
-
-/** Why an upload was not read, in a few words. */
-export const UPLOAD_REASON: Record<string, string> = {
-  TOO_LARGE: 'over 8 MB',
-  UNSUPPORTED: 'this kind of file is not supported',
-  UNREADABLE: 'no text found in it',
-  LIMIT: 'the draft is full',
-  BUSY: 'a draft is being written',
-};

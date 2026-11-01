@@ -493,7 +493,7 @@ describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate
   // S3 report: it exits non-zero on exactly those 12 phases, and zero on this code.
   it('KNOWN-GOOD: the assertion passes on every phase of the fixture, and it really typed (the send slot switched, nothing else changed)', () => {
     const phases = phasesOf(at('empty').container);
-    expect(phases.length).toBeGreaterThanOrEqual(19);
+    expect(phases.length).toBeGreaterThanOrEqual(4); // W0 removed the tray phases (their subject is gone): empty, messages, update-empty, update-messages remain
     cleanup();
     for (const phase of phases) {
       const { container, composer } = at(phase);

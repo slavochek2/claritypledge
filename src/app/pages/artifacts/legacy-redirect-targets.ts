@@ -8,7 +8,7 @@
 export const ARTIFACTS_LETTERS_DRAFTS = '/artifacts?tab=letters&list=drafts';
 export const ARTIFACTS_LETTERS_SENT = '/artifacts?tab=letters&list=sent';
 export const ARTIFACTS_LETTERS_RECEIVED = '/artifacts?tab=letters&list=received';
-export const ARTIFACTS_CANVASES_MINE = '/artifacts?tab=canvases';
+export { ARTIFACTS_CANVASES_MINE } from '@/lib/canvas-hrefs';
 
 /** Where an old /letters?tab=… URL now lives. Anything unrecognised goes to the bare Artifacts page. */
 export function legacyLettersTarget(search: string): string {

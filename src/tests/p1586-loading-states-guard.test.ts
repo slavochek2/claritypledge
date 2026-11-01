@@ -193,14 +193,6 @@ const ALLOWLIST: Record<string, { counts: Partial<Record<Kind, number>>; why: st
     counts: { 'loose-spinner': 3 },
     why: 'Three per-row save spinners (a share option, an access entry, the general-access select) beside the row control that is saving. Operation, one row at a time.',
   },
-  'src/app/pages/chat/CanvasMaterialList.tsx': {
-    counts: { 'loose-spinner': 2 },
-    why: 'P1536: a per-row status icon in the canvas thread tray: a file being read spins beside its own label until it turns into a check or a "!". The SPINNER class constant is the one spinner shared with canvas-thread.tsx. Operation, one row at a time.',
-  },
-  'src/app/pages/chat/canvas-thread.tsx': {
-    counts: { 'loose-spinner': 1 },
-    why: 'P1536: the canvas thread progress line ("Creating your canvas…", "Publishing…"): an operation label with its small spinner while a draft run or a publish works. The first read of the tray is a <Skeleton>.',
-  },
   'src/app/components/canvas/canvas-publish-spot.tsx': {
     counts: { 'loose-spinner': 1 },
     why: 'P1536: the workspace bar\'s Publish spot, in the states where work is going ("Updating…", "Publishing…"): the status label with its small muted spinner, in the spot\'s own fixed box, in the place of the Publish button (rule 9: a status replaces the button, it is not a disabled one). The spot\'s own first read is a <Skeleton> in the same box.',

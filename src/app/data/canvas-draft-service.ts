@@ -12,6 +12,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { canvasTitle } from '@/lib/canvas-boxes';
+import { ARTIFACTS_CANVASES_MINE, newestPublishedHref, publishedViewHref, workspaceHref } from '@/lib/canvas-hrefs';
 import { throwDbError } from './db-error-logger';
 export * from './canvas-draft-calls';
 export * from './canvas-draft-retry';
@@ -207,16 +208,30 @@ export async function listCanvasMaterial(draftId: string): Promise<CanvasMateria
 }
 
 /**
- * What a canvas-version attachment shows: "v{seq}" and a link to its page when it is one of the viewer's published
- * versions, "Draft" when it is the viewer's own draft (linked to its page once the draft's address is readable), null
- * when it is neither ("Not available to you").
+ * What a canvas-version attachment shows (W0/W4): the canvas title, the state of its version ("Draft" for the viewer's own open
+ * draft, "v{seq}" for a published one, "Discarded" for a draft thrown away) and where its Open goes. `null`: neither a version of
+ * the viewer's nor their draft ("Not available to you").
+ *  - open draft: Open is the workspace on it;
+ *  - published version: Open is that version, or the workspace on the canvas's open draft when it has one;
+ *  - discarded draft: Open is the canvas at its newest published version, or Artifacts when nothing was ever published.
+ * `href` is the same address, kept for callers that link the whole card.
  */
 export interface CanvasVersionCardData {
   /** The canvas's title (its name, read as a title), when the version is a published one. */
   title?: string;
   label: string;
+  state: 'draft' | 'published' | 'discarded';
   draft: boolean;
   href: string | null;
+  /** Where Open goes; null when the viewer's address is not readable. */
+  openHref: string | null;
+}
+
+async function openDraftVersionName(canvasId: string): Promise<string | null> {
+  const { data, error } = await supabase.from('canvas_drafts').select('version_name').eq('canvas_id', canvasId).eq('state', 'open').maybeSingle();
+  if (error) throwDbError('getCanvasVersionCard', error, 'Could not read this canvas');
+  const name = (data as { version_name?: unknown } | null)?.version_name;
+  return typeof name === 'string' ? name : null;
 }
 
 export async function getCanvasVersionCard(versionId: string, viewerId: string): Promise<CanvasVersionCardData | null> {
@@ -224,17 +239,21 @@ export async function getCanvasVersionCard(versionId: string, viewerId: string):
   const v = versions.find((x) => x.id === versionId);
   if (v) {
     const slug = await getProfileSlug(viewerId, 'getCanvasVersionCard');
-    return {
-      title: canvasTitle(v.canvasName),
-      label: canvasVersionLabel(v.seq, v.publishedAt),
-      draft: false,
-      href: slug ? `/p/${slug}/canvas/${encodeURIComponent(v.canvasName)}?v=${encodeURIComponent(v.name)}` : null,
-    };
+    const own = slug ? publishedViewHref(slug, v.canvasName, v.name) : null;
+    const draftName = slug && v.hasOpenDraft ? await openDraftVersionName(v.canvasId).catch(() => null) : null;
+    const open = slug && draftName ? workspaceHref(slug, v.canvasName, draftName) : own;
+    return { title: canvasTitle(v.canvasName), label: canvasVersionLabel(v.seq, v.publishedAt), state: 'published', draft: false, href: own, openHref: open };
   }
-  const { data, error } = await supabase.from('canvas_drafts').select('id, canvas_name, version_name').eq('version_id', versionId).maybeSingle();
+  const { data, error } = await supabase.from('canvas_drafts').select('id, canvas_name, version_name, state').eq('version_id', versionId).maybeSingle();
   if (error) throwDbError('getCanvasVersionCard', error, 'Could not read this canvas');
   if (!data) return null;
   const d = data as Row;
-  const href = await getCanvasDraftViewPath({ canvasName: d.canvas_name ?? null, versionName: d.version_name ?? null }, viewerId).catch(() => null);
-  return { label: 'Draft', draft: true, href };
+  const slug = d.canvas_name ? await getProfileSlug(viewerId, 'getCanvasVersionCard').catch(() => null) : null;
+  if (d.state === 'discarded') {
+    const kept = versions.some((x) => x.canvasName === d.canvas_name);
+    const open = slug && d.canvas_name ? (kept ? newestPublishedHref(slug, d.canvas_name) : ARTIFACTS_CANVASES_MINE) : null;
+    return { label: 'Discarded', state: 'discarded', draft: false, href: open, openHref: open };
+  }
+  const open = slug && d.canvas_name && d.version_name ? workspaceHref(slug, d.canvas_name, d.version_name) : null;
+  return { label: 'Draft', state: 'draft', draft: true, href: open, openHref: open };
 }

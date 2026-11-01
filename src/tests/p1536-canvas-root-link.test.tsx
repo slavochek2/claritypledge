@@ -1,7 +1,7 @@
 /**
  * @file p1536-canvas-root-link.test.tsx
- * @description P1536 v3: a canvas draft's thread root, seen in the mirror's main conversation, looks like a thread even
- * with no reply yet: it shows a thread link ("Open draft thread") where a message with replies shows "N replies".
+ * @description P1536 W0: a canvas draft's thread root, seen in the mirror's main conversation, is a card with its own Open and has no
+ * thread link ("Open draft thread" and "N replies" are gone: the thread is a panel of the workspace). Ordinary messages keep "N replies".
  * Real MessageList and MessageRow, services mocked.
  */
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -56,20 +56,22 @@ beforeEach(() => {
 });
 
 describe('a canvas draft thread root in the main conversation', () => {
-  it('with no reply yet shows a thread link, and clicking it opens that thread', () => {
-    const root = canvasRoot('root-new');
-    const onThread = mount([root], new Map());
-    const link = screen.getByTestId('replies-link');
-    expect(link).toHaveTextContent('Open draft thread');
-    expect(link.className).toContain('min-h-10');
-    fireEvent.click(link);
-    expect(onThread).toHaveBeenCalledWith(expect.objectContaining({ id: 'root-new' }));
+  it('with no reply yet shows no thread link: the card\'s Open is the way in', () => {
+    mount([canvasRoot('root-new')], new Map());
+    expect(screen.queryByTestId('replies-link')).not.toBeInTheDocument();
   });
 
-  it('with replies it shows the ordinary "N replies" (one link, not two)', () => {
+  it('with replies it shows none either (the replies are the draft\'s thread, a panel of the workspace)', () => {
     mount([canvasRoot('root-new')], new Map([['root-new', { count: 2, authorIds: ['me'] }]]));
-    expect(screen.getAllByTestId('replies-link')).toHaveLength(1);
-    expect(screen.getByTestId('replies-link')).toHaveTextContent('2 replies');
+    expect(screen.queryByTestId('replies-link')).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: an ordinary message with replies still shows "N replies" and opens its thread', () => {
+    const onThread = mount([m('plain')], new Map([['plain', { count: 2, authorIds: ['me'] }]]));
+    const link = screen.getByTestId('replies-link');
+    expect(link).toHaveTextContent('2 replies');
+    fireEvent.click(link);
+    expect(onThread).toHaveBeenCalledWith(expect.objectContaining({ id: 'plain' }));
   });
 
   it('CONTROL: an ordinary message with no replies has no thread link', () => {

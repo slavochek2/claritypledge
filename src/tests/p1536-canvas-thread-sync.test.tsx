@@ -9,8 +9,7 @@
  *  - at most one filled primary is on screen in the combined view (Publish, rule 9; the tray's Update draft is an outline; the thread has no draft card)
  * Each direction has a control showing the same event does nothing to an unrelated draft.
  */
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-mappers';
@@ -32,7 +31,8 @@ const rpc = vi.hoisted(() => vi.fn());
 const invoke = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc, functions: { invoke }, from: vi.fn() } }));
-vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
+const toastSuccess = vi.hoisted(() => vi.fn());
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: toastSuccess }) }));
 vi.mock('@/auth', () => ({
   useAuth: () => ({ session: { user: { id: ME } }, user: { id: ME, slug: 'ana' }, sessionChecked: true }),
 }));
@@ -71,7 +71,6 @@ vi.mock('@/app/pages/chat/MessageRow', () => ({ MessageRow: ({ msg }: { msg: Cha
 vi.mock('@/app/pages/chat/chat-hooks', async () => ({ ...(await vi.importActual<object>('@/app/pages/chat/chat-hooks')), useMediaQuery: () => true }));
 
 import { CanvasWithThread } from '@/app/pages/canvas/canvas-with-thread';
-import { ThreadPanel } from '@/app/pages/chat/ThreadPanel';
 import { ChatContext, type ChatContextValue } from '@/app/pages/chat/chat-state';
 import { resetCanvasAvailability } from '@/app/pages/chat/use-canvas-availability';
 import { resetCanvasThreads } from '@/app/pages/chat/canvas-thread-registry';
@@ -164,7 +163,8 @@ describe('thread -> canvas: a run that finishes in the thread re-reads the canva
     st.run = { ...doneRun, state: 'running', createdAt: new Date().toISOString(), startedAt: new Date().toISOString() };
     mount();
     await ready();
-    expect(screen.getByTestId('canvas-progress')).toBeInTheDocument(); // the thread is writing
+    // the thread is writing: status lives in the spot (W0: no tray progress); the thread reports it from an effect, so wait for it
+    await waitFor(() => expect(screen.getByTestId('publish-spot')).toHaveAttribute('data-state', 'updating'));
     const grid = screen.getByTestId('canvas-grid');
     expect(screen.queryByTestId('canvas-point-card-p-canvas:love')).toBeNull();
     const reads = getCanvas.mock.calls.length;
@@ -189,42 +189,39 @@ describe('thread -> canvas: a run that finishes in the thread re-reads the canva
     expect(getCanvas.mock.calls.length).toBe(reads);
   });
 
-  it('a discard made in the thread\'s "…" menu moves the page off the draft\'s address (the draft is gone)', async () => {
+  it('a draft discarded elsewhere (its event) moves the page off the draft\'s address (the draft is gone); the "…" menu is gone with W0, Discard returns in W6', async () => {
     mount();
     await ready();
+    expect(screen.queryByLabelText('Canvas draft options')).toBeNull();
     getCanvas.mockResolvedValue({ ...publishedView(), version: 'canvas_d111111', versions: [v1], points: [point('canvas:problem')] });
-    const u = userEvent.setup();
-    await u.click(screen.getByLabelText('Canvas draft options'));
-    await u.click(await screen.findByRole('menuitem', { name: 'Discard draft' }));
-    await u.click(await screen.findByRole('button', { name: 'Yes, discard' }));
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith('canvas_draft_discard', { p_draft: 'draft-1', p_expected_revision: 0 }));
+    act(() => emitCanvasDraftEvent({ kind: 'discarded', draftId: 'draft-1' }));
     await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent(DRAFT_NAME));
     expect(screen.getByTestId('where')).toHaveTextContent('ws=1'); // the workspace marker is untouched
     expect(getCanvas.mock.calls.at(-1)![4]).toBeUndefined(); // the newest published version opens
   });
 });
 
-describe('canvas -> thread: Publish in the workspace bar', () => {
-  it('re-reads the thread\'s draft (it now reads published), moves the page off the draft\'s address, and the pane stays', async () => {
+describe('canvas -> thread: Publish in the workspace bar (W1: the page REPLACEs to the new version, the panel closes, a toast says it)', () => {
+  it('re-reads the draft, REPLACEs to ?v=<the published version> with no ws, closes the panel and toasts "Published v2."', async () => {
     mount();
     await ready();
-    expect(screen.queryByText('This version is published.')).toBeNull();
     st.draft = draftRow({ state: 'published', closedAt: '2026-10-28T10:00:00.000Z' }); // what the database says after the publish
-    getCanvas.mockResolvedValue(publishedView());
+    // the draft's own version row is the one published: the same name, now with a number
+    getCanvas.mockResolvedValue({ ...publishedView(), version: DRAFT_NAME, versions: [{ ...v1, name: DRAFT_NAME, seq: 2 }, v1] });
 
     fireEvent.click(screen.getByTestId('canvas-draft-publish'));
 
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('canvas_draft_publish', { p_draft: 'draft-1', p_expected_revision: 0 }));
-    await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent(DRAFT_NAME));
-    expect(screen.getByTestId('where')).toHaveTextContent('ws=1');
-    expect(screen.getByTestId('workspace-chat-pane')).toBeInTheDocument(); // the workspace keeps both panes across the draft's close
-    // the re-read for the published version can land a tick after the address moves (it raced under the full pre-commit run)
-    await waitFor(() => expect(getCanvas.mock.calls.at(-1)![4]).toBeUndefined());
-    // the spot now says what is true: a status, not a button
-    await waitFor(() => {
-      expect(screen.getByTestId('publish-spot')).toHaveAttribute('data-state', 'published');
-      expect(screen.getByTestId('publish-spot-status')).toHaveTextContent('Published · v2');
-    });
+    await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent('ws=1'));
+    expect(screen.getByTestId('where')).toHaveTextContent(`/p/ana/canvas/canvas?v=${DRAFT_NAME}`);
+    expect(screen.getByTestId('where').textContent).not.toContain('thread=');
+    expect(toastSuccess).toHaveBeenCalledWith('Published v2.');
+    await waitFor(() => expect(screen.queryByTestId('workspace-chat-pane')).toBeNull()); // the panel is closed
+    expect(screen.queryByTestId('workspace-bar')).toBeNull();
+    // and the marker does not come back while the read on screen still shows the draft open
+    await act(async () => { await new Promise(r => setTimeout(r, 50)); });
+    expect(screen.getByTestId('where')).not.toHaveTextContent('ws=1');
+    // the spot now says what is true: a status, not a button — in the published view's own header there is no Publish at all
     expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();
   });
 });
@@ -240,24 +237,12 @@ describe('the combined view has at most one filled primary: Publish (rule 9)', (
     expect(filled()).toEqual([publish]);
   });
 
-  it('CONTROL: the same thread outside the combined view (the chat\'s own route) DOES draw the draft card with its Open', async () => {
-    render(
-      <MemoryRouter initialEntries={[`/chats/c/${CONV}/t/${ROOT}`]}>
-        <ChatContext.Provider value={chatValue}>
-          <ThreadPanel summary={summary} rootId={ROOT} highlightId={null} />
-        </ChatContext.Provider>
-      </MemoryRouter>,
-    );
-    expect(await screen.findByTestId('canvas-draft-card')).toBeInTheDocument();
-    expect(within(screen.getByTestId('canvas-draft-card')).getByRole('link', { name: 'Open' })).toBeInTheDocument();
-  });
-
-  it('with something new in the thread, "Update draft" is an OUTLINE (its look follows its meaning, not the composer): Publish stays the one filled control', async () => {
+  it('W0: with a draft open there is no "Update draft" and no tray anywhere; Publish stays the one filled control', async () => {
     st.messages = [...st.messages, msg({ id: 'note-1', body: 'make the problem sharper', createdAt: '2026-10-28T09:30:00.000Z' })];
     mount();
     await ready();
-    const update = await screen.findByRole('button', { name: /update draft/i });
-    expect(update.className).not.toContain('bg-blue-600');
+    expect(screen.queryByRole('button', { name: /update draft/i })).toBeNull();
+    expect(screen.queryByTestId('canvas-bar')).toBeNull();
     expect(filled().map(el => el.textContent)).toEqual(['Publish']);
   });
 

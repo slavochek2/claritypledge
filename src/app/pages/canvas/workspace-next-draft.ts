@@ -69,7 +69,7 @@ export async function openNextDraft(args: { projectTag: string; version: string 
     return { ok: false, why: 'refused' };
   }
   unresolved.delete(key);
-  // A file is posted with the id of the run the send made; if the post fails the draft is open and its tray says so.
+  // A file is posted with the id of the run the send made; if the post fails the draft is open and a toast says so.
   // A replay means an earlier attempt's response was lost, so its bytes may never have gone: post them unless this page already did.
   if (file && !delivered.has(sent.runId)) {
     const r = await postFile(sent.runId, file).catch(() => null);

@@ -82,7 +82,7 @@ function Where() {
   const l = useLocation();
   return <output data-testid="where">{l.pathname}{l.search}</output>;
 }
-const chatValue = { refresh: vi.fn(async () => []) } as unknown as ChatContextValue;
+const chatValue = { refresh: vi.fn(async () => []), userId: 'owner-1', authors: { 'owner-1': { id: 'owner-1', slug: 'ana' } } } as unknown as ChatContextValue;
 function page(at = '/p/ana/canvas/canvas') {
   return render(
     <MemoryRouter initialEntries={[at]}>
@@ -113,7 +113,7 @@ beforeEach(() => {
   invoke.mockReset();
   invoke.mockResolvedValue({ data: { enabled: true }, error: null });
   startThread.mockReset();
-  startThread.mockResolvedValue({ status: 'opened', draftId: 'd2', conversationId: 'conv-1', threadRootId: 'root-2', canvasName: 'canvas', fromSeq: 1, path: '/chats/c/conv-1/t/root-2' });
+  startThread.mockResolvedValue({ status: 'opened', draftId: 'd2', conversationId: 'conv-1', threadRootId: 'root-2', canvasName: 'canvas', versionName: 'canvas_dnew', fromSeq: 1 });
 });
 afterEach(() => cleanup());
 
@@ -319,12 +319,12 @@ describe('New version', () => {
     rpc.mockImplementation(async (name: string) => (name === 'list_my_canvas_versions' ? { data: [versionsRow], error: null } : { data: null, error: null }));
   });
 
-  it('starts a canvas thread from the version on screen, and goes there', async () => {
+  it('starts a draft from the version on screen, and goes to its workspace (W0: never the chat thread)', async () => {
     getCanvas.mockResolvedValue(view());
     page();
     fireEvent.click(await screen.findByTestId('canvas-new-version'));
     await waitFor(() => expect(startThread).toHaveBeenCalledWith('ver-1'));
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/chats/c/conv-1/t/root-2'));
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/p/ana/canvas/canvas?v=canvas_dnew&ws=1'));
     expect(chatValue.refresh).toHaveBeenCalled(); // the chat list knows the thread before the page opens it
   });
 

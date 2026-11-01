@@ -23,7 +23,7 @@ import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
 import type { CanvasSharedWithMe, MyCanvasRow } from '@/app/data/canvas-service';
 import type { OpenCanvasDraft } from '@/app/data/canvas-open-drafts';
 import { draftLabel } from '@/app/pages/chat/canvas-thread-copy';
-import { withThreadParam } from '@/app/pages/chat/canvas-links';
+import { workspaceHref } from '@/lib/canvas-hrefs';
 import type { ClarityDoc, ClarityLetter, InboxItem, LetterDelivery } from '@/app/types';
 
 export type ArtifactTab = 'letters' | 'canvases';
@@ -317,9 +317,9 @@ export function canvasDraftMeta(draft: OpenCanvasDraft, lastEdit: string | null)
   return lastEdit ? `${draftLabel(draft.nextSeq)} · ${canvasMeta(lastEdit)}` : draftLabel(draft.nextSeq);
 }
 
-/** The canvas page on the draft version, carrying the draft's thread: `/p/<slug>/canvas/<name>?v=<draft version>&thread=<root>`. */
-export function draftCanvasHref(userSlug: string, canvasName: string, draft: { versionName: string; threadRootId: string }): string {
-  return withThreadParam(`${canvasPath(userSlug, canvasName)}?v=${encodeURIComponent(draft.versionName)}`, draft.threadRootId);
+/** The workspace on the draft (W1): `/p/<slug>/canvas/<name>?v=<draft version>&ws=1`. */
+export function draftCanvasHref(userSlug: string, canvasName: string, draft: { versionName: string }): string {
+  return workspaceHref(userSlug, canvasName, draft.versionName);
 }
 
 export function ownCanvasRow(c: MyCanvasRow, userSlug: string | null, draft?: OpenCanvasDraft): ArtifactRow {

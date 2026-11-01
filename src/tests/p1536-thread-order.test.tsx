@@ -118,15 +118,15 @@ const fixtureOrder = (phase: string) => {
       <GateFixture />
     </MemoryRouter>,
   );
-  return [...document.querySelectorAll('[data-testid="gate-base-card"], [data-testid="canvas-opener"], [data-testid="gate-row"], [data-testid="canvas-draft-card"]')].map((n) => n.getAttribute('data-testid'));
+  return [...document.querySelectorAll('[data-testid="gate-base-card"], [data-testid="canvas-opener"], [data-testid="gate-row"]')].map((n) => n.getAttribute('data-testid'));
 };
 
 describe('C2: the gate fixture shows the same order the real thread does (no fixture-only ordering)', () => {
-  it('an update: base card, opener, the owner rows, then the draft card', () => {
-    expect(fixtureOrder('update-drafted')).toEqual(['gate-base-card', 'canvas-opener', 'gate-row', 'gate-row', 'gate-row', 'canvas-draft-card']);
+  it('an update: base card, opener, then the owner rows (W0: the draft card at the end of the thread is gone)', () => {
+    expect(fixtureOrder('update-messages')).toEqual(['gate-base-card', 'canvas-opener', 'gate-row', 'gate-row', 'gate-row']);
   });
 
   it('CONTROL: a new canvas has no base card, so the opener is first', () => {
-    expect(fixtureOrder('drafted')).toEqual(['canvas-opener', 'gate-row', 'gate-row', 'gate-row', 'canvas-draft-card']);
+    expect(fixtureOrder('messages')).toEqual(['canvas-opener', 'gate-row', 'gate-row', 'gate-row']);
   });
 });

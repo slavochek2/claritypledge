@@ -337,13 +337,12 @@ describe('S3.2: ← follows §2', () => {
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/artifacts?tab=canvases'));
   });
 
-  it('with no `from`: a canvas with a published version goes to its canvas page', async () => {
+  it('W1: with no `from`, a canvas WITH a published version goes to Artifacts > Canvases too (the fallback no longer depends on what is published)', async () => {
     mount();
     await ready();
-    getCanvas.mockResolvedValue(publishedView()); // the canvas page without ?v opens the newest PUBLISHED version
+    getCanvas.mockResolvedValue(publishedView());
     back();
-    await waitFor(() => expect(screen.getByTestId('path')).toHaveTextContent('/p/ana/canvas/canvas'));
-    await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent('ws=1'));
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/artifacts?tab=canvases'));
   });
 
   it.each(['https://evil.example/x', '//evil.example', 'javascript:alert(1)', 7])('a `from` that is not an in-app path (%s) is ignored', async (from) => {
@@ -402,15 +401,16 @@ describe('S3.3: the Publish spot', () => {
     expect(SPOT_BOX).toMatch(/\bw-28\b/);
   });
 
-  it('Publish calls publishCanvasDraft(draft, revision); the page then leaves the draft address and the spot is a status', async () => {
+  it('Publish calls publishCanvasDraft(draft, revision); W1: the page then REPLACEs to the published version with no ws and the workspace is gone', async () => {
     mount();
     await ready();
-    getCanvas.mockResolvedValue(publishedView({ versions: [{ ...v1, name: 'canvas_d222222', seq: 2 }, v1], version: 'canvas_d222222' }));
+    getCanvas.mockResolvedValue(publishedView({ versions: [{ ...v1, name: DRAFT_NAME, seq: 2 }, v1], version: DRAFT_NAME }));
     st.draft = draftRow({ state: 'published', closedAt: '2026-10-28T10:00:00.000Z' });
     fireEvent.click(screen.getByTestId('canvas-draft-publish'));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('canvas_draft_publish', { p_draft: 'draft-1', p_expected_revision: 0 }));
-    await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent(DRAFT_NAME));
-    await waitFor(() => expect(screen.getByTestId('publish-spot-status')).toHaveTextContent('Published · v2'));
+    await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent('ws=1'));
+    expect(screen.getByTestId('where')).toHaveTextContent(`?v=${DRAFT_NAME}`);
+    await waitFor(() => expect(screen.queryByTestId('canvas-workspace')).toBeNull());
   });
 
   it('while Publish is in flight a second tap does nothing and the spot is a status', async () => {
@@ -503,7 +503,7 @@ describe('review G5: the switch is the project\'s Tabs primitive', () => {
     mount();
     await ready();
     const tabs = within(screen.getByRole('tablist')).getAllByRole('tab');
-    expect(tabs.map(t => t.textContent)).toEqual(['Canvas', 'Chat']);
+    expect(tabs.map(t => t.textContent)).toEqual(['Canvas', 'Thread']); // W1: the second tab is the Thread
     expect(tabs.map(t => t.getAttribute('aria-selected'))).toEqual(['true', 'false']);
     chooseView('chat');
     expect(within(screen.getByRole('tablist')).getAllByRole('tab').map(t => t.getAttribute('aria-selected'))).toEqual(['false', 'true']);

@@ -43,7 +43,7 @@ const run = (id: string, state: string, at: string, kind = 'draft') => ({ id, ki
 
 let events: CanvasDraftEvent[] = [];
 let stop: () => void = () => undefined;
-const hook = (root: string, key = 0) => renderHook(({ r, k }) => useCanvasThread(r, k, 'owner'), { initialProps: { r: root, k: key } });
+const hook = (root: string, key = 0) => renderHook(({ r, k }) => useCanvasThread(r, k), { initialProps: { r: root, k: key } });
 const settled = async (h: ReturnType<typeof hook>, root: string) =>
   waitFor(() => expect(h.result.current.status === 'ready' && h.result.current.thread?.draft.threadRootId === root).toBe(true));
 
