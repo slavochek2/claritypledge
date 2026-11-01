@@ -792,13 +792,13 @@ A card shows `Canvas 4 · v2 · Draft` + Open → as J-W4. An old canvas-thread 
 | J-W4 Find a draft | PASS, `J-W4-1440-draft-row-opened.png` | PASS, `J-W4-375-draft-row-opened.png` |
 | J-W5 Mirror chat, old links | PASS, `J-W5-1440-mirror-chat-cards.png` | PASS, `J-W5-375-mirror-chat-cards.png` |
 
-**The 7 cells that failed on the first full run,** all passing on re-run: 3 hosted database statement timeouts (`57014`), 2 network flaps on the walking machine, 1 test user cleanup timeout pair, 1 the walker's own timing assumption. One further cell (the slot's status up to the reply) was flaky under a check that measured to the reply being shown; measured to the reply being stored it is 8 of 8.
+**The 7 cells that failed on the first full run** all passed on re-run. The walker put them down to hosted slowness (database statement timeouts, `57014`, and cleanup timeouts), network flaps on the walking machine, and its own test's timing assumptions; none was reproduced as an app defect. One further cell (the slot's status up to the reply) was flaky under a check that measured to the reply being shown; measured to the reply being stored it is 8 of 8. Once in a slow run (27s to Publish) a toast appeared during a Send; its text was not captured and it did not recur in 12 further runs, so it is unexplained. After a run ends, the composer is free up to about 1.8s before the reply shows in the thread on a slow host.
 
 **Database proofs (S3b.4, S3b.7), live on hosted TEST.** Clone tapped, and Clone cancelled, each leave all four tables identical, and a real write makes the comparison differ (the control). `canvas_rename`: 42501 for a non-owner and signed out, 22023 for empty and for 61 characters, 60 accepted and trimmed.
 
 **Defects the browser found that reviews and unit tests did not:** a Send before the first read stored as a plain message; the mirror asked to answer a Clone's first Send; a plain thread reply refused in an ordinary mirror chat (a regression from a fix in this slice); the spot flashing a stale state at a run's end; the state tag collapsing to nothing at 320; a page stuck on skeletons after picking a version from a bare `?ws=1`; the composer clipping restored text in development. All fixed, each with a test that failed first.
 
-**Reports received:** reviews of the final code: 2 of 2 on each round of the final diffs (Gemini, Codex), and Opus 1 of 1 on the first round. Browser walk: 1 of 1. Visual QA: 3 of 3 (final pass all screenshots read).
+**Reports received:** code review: 3 of 3 on the first round (Gemini, Codex, Opus), 2 of 2 (Gemini, Codex) on each of the next five rounds, then 1 of 1 (Gemini) on each of the last small diffs. The Codex lens was not run on those last diffs. Browser walk: 1 of 1, one agent resumed for each re-walk. Visual QA: 4 of 4, a separate agent each time, every listed screenshot read.
 
 **Final visual QA: FAIL, four MEDIUM, each set aside with a reason:**
 - 320: no ✎ and a three-letter name. Decided: below 360 the name is the way to rename (tapping it works). For the founder, below.
