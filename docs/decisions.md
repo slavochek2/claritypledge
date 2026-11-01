@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-01 [process]: Moving a test database is not done until both sides are diffed and storage is copied (P1557 follow-up)
+
+**Context:** Two days after testing switched to the self-hosted TEST server, an event page on `localhost:5001` showed an older title and dropped its two description images, and the founder's newest canvases were missing. Three causes, none of them a wrong pointer (dev servers already read `.env.development.local`, which overrides `.env.local`): (1) the server was seeded from a snapshot older than the last days of work on hosted TEST, and work kept landing on hosted TEST after it, from dev servers started before the switch, since Vite reads env files only at startup; (2) storage objects were deliberately not copied (P1557 Known limitations: "tests create their own"), so every picture link still pointed at hosted storage; (3) the P1352 rule renders description images only from the active environment's own storage, so those links were silently dropped, not broken. Checking that a link returns 200 passed while the page still hid it.
+**Decision:** Repaired by hand: all storage objects copied (363, every one size-verified), rows present on hosted TEST and missing on self-hosted inserted without overwriting anything (about 670; about 190 blocked because their auth users do not exist there, mostly test accounts), storage URLs in the self-hosted DB rewritten to its own host (verified none left), and the page checked in a browser. `.env.local` stays pointed at hosted TEST on purpose: the raw-SQL suite (`test:e2e:hosted-sql`) and the rollback path read it.
+**Alternatives rejected:** Repointing `.env.local` (breaks the hosted-only suite and the rollback). Re-seeding from a fresh dump (would discard work already done on the self-hosted server).
+**Consequences:** Any future database move counts as done only after a post-cutover row diff of both sides, a storage copy with URL rewrite, and a restart of every running dev server, verified on a rendered page rather than by URL status. Status: proposed (no checklist or script exists yet).
+**References:** [P1557](../features/done/2026-06-10/p1557_self_hosted_supabase_test_database.md) · `src/lib/markdown.ts` (P1352 own-storage image rule)
+
 ## 2026-11-01 [product]: The recognition chain's readout is a founder-only report first, and position movement (P1061) is built alongside the canvas link (P1390, P1574, P1061, P1458, P1559)
 
 **Context:** Following up 2026-10-30 [product] "Recognising reasons that changed a canvas". Two points were still open: where the founder reads P1390's numbers and error list, and whether the canvas link can claim a changed mind without showing the position move. The founder also asked for the five specs to be grouped as one piece of work.
