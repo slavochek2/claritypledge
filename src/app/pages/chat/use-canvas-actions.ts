@@ -58,7 +58,6 @@ export function useCanvasActions({
   ownerId,
   rootId,
   uploads,
-  composing,
 }: {
   thread: CanvasThread | null;
   available: boolean | null;
@@ -67,8 +66,6 @@ export function useCanvasActions({
   rootId: string;
   /** Files being added from this tab (the upload button's, shown in the tray). */
   uploads: UploadItem[];
-  /** The composer has text (Send is the one primary now). */
-  composing: boolean;
 }): { bar: BarProps | null; onDiscard: (() => void) | null; dialog: ReactNode; onSend: ((body: string) => Promise<boolean>) | null } {
   const [busy, setBusy] = useState<Busy>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -96,7 +93,6 @@ export function useCanvasActions({
     waiting,
     items: buildItems({ material, messages, ownerId, rootId, lastDraftAt, uploads }),
     newInput: hasNewSinceRun({ messages, ownerId, rootId, lastDraftAt, material, uploads }),
-    composing,
     askedAfterPublish: ownerMessagesAfterRoot(messages, ownerId, rootId, draft.closedAt).length > 0,
     busy,
     notice,

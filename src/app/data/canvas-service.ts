@@ -98,6 +98,8 @@ export interface CanvasOwnerDraft {
   runCount: number;
   /** The draft's revision as the read saw it: Publish passes it back (stale_view when the draft moved on). */
   revision: number;
+  /** D6: the boxes (canvas:<box> tags) whose point set differs from the base version's; computed by the read, empty with no base. */
+  changedBoxes: string[];
 }
 
 /** One entry of the owner's audience panel. */
@@ -155,6 +157,7 @@ function mapOwnerDraft(raw: unknown): CanvasOwnerDraft | null {
     baseSeq: typeof d.base_seq === 'number' ? d.base_seq : null,
     runCount: Number(d.run_count ?? 0),
     revision: Number(d.revision ?? 0),
+    changedBoxes: Array.isArray(d.changed_boxes) ? d.changed_boxes.filter((b): b is string => typeof b === 'string') : [],
   };
 }
 

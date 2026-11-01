@@ -1,9 +1,11 @@
 /**
  * @file canvas-header.tsx
  * @description The canvas page's header (R10, P1515, P1545, P1536): the canvas's own name as the title under a small "Clarity
- * Canvas" label, then whose it is and which version (a menu with several; a lone draft says "v1 · Draft"), then Compare and Share (or New version), and under them the one line that says what the viewer is
- * looking at: a reader's "Shared with you through ...", or "Nothing published yet". A draft has no Compare and no Share (it cannot be
- * shared, and it has no positions): Publish takes Share's place.
+ * Canvas" label, then the byline (whose it is and which version: a menu with several, a lone draft says "v1 · Draft"), then, on
+ * a row of their own, Compare and Share (or New version), and under them the one line that says what the viewer is looking at: a
+ * reader's "Shared with you through ...", or "Nothing published yet". The byline holds no buttons, so a long name never competes with
+ * one (S3.6). A draft has no Compare and no Share (it cannot be shared, and it has no positions); its Publish lives in the
+ * workspace bar (canvas-publish-spot), not here.
  */
 import { Link } from 'react-router-dom';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -13,7 +15,6 @@ import { CanvasOwnerSkeleton } from '@/app/pages/canvas-page-placeholders';
 import { CanvasShareControl } from './canvas-share-control';
 import { SharedIcon } from './canvas-audience';
 import { ComparePicker } from './canvas-compare-picker';
-import { CanvasDraftActions } from './canvas-draft-actions';
 import { NewVersionButton } from './canvas-new-version-button';
 import { VersionSwitcher } from './canvas-version-switcher';
 import { isViewingDraft, openVersionLabel, type CanvasPerson, type CanvasReady } from './canvas-page-data';
@@ -46,12 +47,12 @@ export function CanvasHeader(props: CanvasHeaderProps) {
       </div>
       {/* Founder, sixth round: Compare sits right after the canvas name, so the line reads
           "by <owner> · <canvas> · Compare with someone…", not across the page. */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 text-base max-sm:contents md:text-lg" data-testid="canvas-byline">
+      <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-2 text-base md:text-lg" data-testid="canvas-byline">
           {ready ? (
             // ml-1 on the photo: the pledge ring draws outside it; keep it inside the gutter.
             // Phones (P1545): with no version menu the line fills the row, so the share circle sits beside it.
-            <span className={`ml-1 flex min-w-0 max-w-full items-center gap-2.5 max-sm:order-1 ${ready.versions.length >= 2 ? 'max-sm:w-full' : 'max-sm:flex-1'}`} data-testid="canvas-owner">
+            <span className="ml-1 flex min-w-0 max-w-full items-center gap-2.5" data-testid="canvas-owner">
               <GravatarAvatar
                 name={ready.owner.name}
                 photoUrl={ready.owner.photoUrl}
@@ -61,7 +62,8 @@ export function CanvasHeader(props: CanvasHeaderProps) {
                 identityPending={identityPending}
                 size="sm"
               />
-              <span className="min-w-0 text-foreground max-sm:break-words sm:truncate">
+              {/* S3.6: a name wraps between words only (break-normal), never inside one. */}
+              <span className="min-w-0 break-normal text-foreground sm:truncate">
                 by{' '}
                 <Link
                   to={`/p/${handle}`}
@@ -77,8 +79,8 @@ export function CanvasHeader(props: CanvasHeaderProps) {
           )}
           {ready && <VersionSlot ready={ready} viewingDraft={viewingDraft} onPick={v => onParams({ v, point: null, box: null }, true, false)} />}
         </div>
-        {/* P1515: Share sits immediately right of Compare, in the same row. */}
-        {ready && (
+        {/* P1515: Share sits immediately right of Compare, in a row of its own under the byline. */}
+        {ready && !isViewingDraft(ready) && (
           <CanvasHeaderActions
             ready={ready}
             handle={handle}
@@ -95,8 +97,7 @@ export function CanvasHeader(props: CanvasHeaderProps) {
 }
 
 /**
- * The actions row. A published version: Compare, Share (owner), New version (owner). A draft: Publish (and Revise in chat), in Share's
- * place (a draft cannot be shared, and it has no positions to compare), with the way to its thread.
+ * The actions row of a published version: Compare, Share (owner), New version (owner). A draft has none of them.
  */
 function CanvasHeaderActions({ ready, handle, projectTag, compare, onCompare, onChanged }: {
   ready: CanvasReady;
@@ -106,16 +107,9 @@ function CanvasHeaderActions({ ready, handle, projectTag, compare, onCompare, on
   onCompare: (personId: string | null) => void;
   onChanged: () => void;
 }) {
-  if (isViewingDraft(ready)) {
-    return (
-      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 max-sm:contents" data-testid="canvas-actions">
-        {ready.draft && <CanvasDraftActions draft={ready.draft} hasPoints={ready.points.length > 0} />}
-      </div>
-    );
-  }
   const ownerCanShare = ready.isOwner && !ready.publishedNone;
   return (
-    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 max-sm:contents" data-testid="canvas-actions">
+    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2" data-testid="canvas-actions">
       <ComparePicker base={compare.base} others={compare.others} withPerson={compare.withPerson} onCompare={onCompare} />
       {projectTag && ownerCanShare && (
         <CanvasShareControl
@@ -138,7 +132,7 @@ function VersionSlot({ ready, viewingDraft, onPick }: { ready: CanvasReady; view
   if (ready.versions.length < 2 && !viewingDraft) return null;
   return (
     // A lone "Draft" label keeps its own width on a phone, so the owner's name gets the rest of the row; the version menu shares it.
-    <span className={`flex min-w-0 max-w-full items-center gap-2 max-sm:order-2 ${ready.versions.length >= 2 ? 'max-sm:flex-1 max-sm:flex-wrap' : 'max-sm:flex-none'}`} data-testid="canvas-project-slot">
+    <span className="flex min-w-0 max-w-full items-center gap-2 max-sm:flex-none" data-testid="canvas-project-slot">
       <span aria-hidden className="hidden shrink-0 text-foreground/40 sm:inline">·</span>
       {ready.versions.length >= 2
         ? <VersionSwitcher versions={ready.versions} open={ready.version ?? ready.versions[0]?.name ?? ''} onPick={onPick} />

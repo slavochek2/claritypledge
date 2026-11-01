@@ -3,8 +3,8 @@
  * @description P1536: what opens a canvas thread, drawn by the client at the top as mirror messages (never stored, the way
  * the mirror's greeting works): one message ("I'll help you ... Send me anything ...") and, under it, a small steps card
  * "Want to save time?": 1 Copy prompt, 2 paste it into your own AI, 3 upload the answer here, with a "What gets copied"
- * disclosure that shows the prompt. It is never folded away. Copy prompt is the one filled blue button only while nothing
- * has been added (`primary`); it says "Copied" for about two seconds after. When the clipboard refuses, the same text opens
+ * disclosure that shows the prompt. It is never folded away. Copy prompt keeps one look always (an outline, rule 9); it says
+ * "Copied" for about two seconds after. When the clipboard refuses, the same text opens
  * in a dialog to copy by hand.
  */
 import { useState, type ReactNode } from 'react';
@@ -107,10 +107,9 @@ function PromptPreview() {
 }
 
 /**
- * The opener always draws in full, whatever the owner has sent. `primary`: Copy prompt is the filled blue button; false once
- * something was added or the owner is writing (P955: one primary per view).
+ * The opener always draws in full, whatever the owner has sent.
  */
-export function CanvasThreadOpener({ title, primary = true }: { title: string | null | undefined; primary?: boolean }) {
+export function CanvasThreadOpener({ title }: { title: string | null | undefined }) {
   const { copy, copied, showText, setShowText } = useCopyPrompt();
   const dialog = showText && <PromptDialog onClose={() => setShowText(false)} />;
   return (
@@ -131,7 +130,7 @@ export function CanvasThreadOpener({ title, primary = true }: { title: string | 
           <h3 className="text-sm font-semibold text-foreground">{CANVAS_STEPS_TITLE}</h3>
           <ol className="mt-1.5 space-y-1">
             <Step n={1}>
-              <Button type="button" variant={primary ? 'default' : 'outline'} className="min-h-10 gap-1" onClick={() => void copy()}>
+              <Button type="button" variant="outline" className="min-h-10 gap-1" onClick={() => void copy()}>
                 <CopyLabel copied={copied} />
               </Button>
             </Step>

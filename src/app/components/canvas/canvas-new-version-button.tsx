@@ -11,7 +11,7 @@ import { useCanvasDraftAvailability } from '@/app/pages/chat/use-canvas-availabi
 import { useStartCanvas } from '@/app/pages/chat/use-start-canvas';
 
 const PILL_BUTTON =
-  'inline-flex h-10 min-w-0 max-w-full items-center rounded-full border border-foreground/40 bg-muted px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 max-sm:order-3';
+  'inline-flex h-10 min-w-0 max-w-full items-center rounded-full border border-border bg-muted px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 max-sm:order-3';
 
 /** `version`: the open version's name, the key `list_my_canvas_versions` knows it by. */
 export function NewVersionButton({ version }: { version: string | null }) {

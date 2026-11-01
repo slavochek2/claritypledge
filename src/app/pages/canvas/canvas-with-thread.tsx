@@ -1,56 +1,84 @@
 /**
  * @file canvas-with-thread.tsx
- * @description P1536: the canvas page's route element. On a wide screen (1280px and up), the owner's own canvas opened with
- * `?thread=<rootId>` (a draft's "Open", or Artifacts' "Open draft") shows that draft's chat thread on the right, so the owner can
- * keep revising while looking at the canvas. The two stay in step through canvas-draft-events (a finished run re-reads the canvas;
- * a publish or discard on either side moves the other).
- *
- * The pane shows only when ALL hold: the width fits it, a `thread` param, the viewer's mirror chat, their own canvas, and that
- * thread is this canvas's open draft's (use-own-draft-thread). Otherwise this is just the canvas page, whose header then links
- * to the thread ("Revise in chat"). Beside the page the thread has no draft card (the page's header has Publish, an outline here),
- * closing the pane removes only `thread`, replacing the entry with its state kept (the page's panel mark rides in it), and the
- * canvas page stays mounted either way.
+ * @description P1536 D4: the canvas page's route element. On the owner's own canvas, the WORKSPACE puts the canvas and the draft's
+ * chat on one screen: side by side from 1280px, one at a time below (a `Canvas | Chat` switch; both stay mounted). It is marked
+ * `?ws=1` in the address (the shared bottom-nav predicate reads it), and an owner looking at their own draft version is always in
+ * it. The chat is the open draft's thread: the draft comes from the page's own owner read, so no `thread=` param is needed
+ * (an old address that carries one is rewritten to `ws=1`). Publish has its one spot in the bar (canvas-publish-spot).
+ * Anyone else, or an owner with no mirror chat, gets the plain canvas page. The page keeps one position in the tree either way,
+ * so entering the workspace does not remount it.
  */
-import { useCallback, useContext } from 'react';
-import { useLocation, useParams, useSearchParams } from 'react-router-dom';
-import { CanvasPaneContext, CANVAS_PANE_QUERY } from '@/app/components/canvas/canvas-pane-context';
-import { CanvasPage } from '@/app/pages/canvas-page';
-import { ThreadPanel } from '@/app/pages/chat/ThreadPanel';
-import { ChatContext } from '@/app/pages/chat/chat-state';
+import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { useMediaQuery } from '@/app/pages/chat/chat-hooks';
-import { useOwnDraftThread } from './use-own-draft-thread';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useAuth } from '@/auth';
+import { CanvasPublishSpot } from '@/app/components/canvas/canvas-publish-spot';
+import { CanvasWorkspaceBar, CanvasWorkspaceLayout, type WorkspaceView } from '@/app/components/canvas/canvas-workspace-layout';
+import { CANVAS_WORKSPACE_WIDE_QUERY, CanvasWorkspaceContext, type CanvasWorkspaceValue } from '@/app/components/canvas/canvas-workspace-context';
+import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
+import { useCanvasPublish } from '@/app/components/canvas/use-canvas-publish';
+import { CanvasPage } from '@/app/pages/canvas-page';
+import { ChatContext } from '@/app/pages/chat/chat-state';
+import { normalizeProjectTag } from '@/lib/canvas-boxes';
+import { CANVAS_WORKSPACE_PARAM } from '@/app/components/layout/bottom-nav-routes';
+import { workspaceBackTarget } from './canvas-workspace-back';
+import { useWorkspaceMarker } from './use-workspace-marker';
+import { useFollowDraft } from './use-follow-draft';
+import { WorkspaceChat } from './workspace-chat';
 
 export function CanvasWithThread() {
-  const { handle, projectTag } = useParams<{ handle: string; projectTag: string }>();
+  const { handle, projectTag: rawTag } = useParams<{ handle: string; projectTag: string }>();
+  const projectTag = normalizeProjectTag(rawTag);
   const [params, setParams] = useSearchParams();
   const location = useLocation();
-  const wide = useMediaQuery(CANVAS_PANE_QUERY);
-  const mirror = useContext(ChatContext)?.chats.find(c => c.kind === 'mirror') ?? null;
-  const rootId = params.get('thread');
-  const matched = useOwnDraftThread({ rootId, handle, projectTag, mirrorConversationId: mirror?.conversationId ?? null });
-  const show = wide && !!rootId && !!mirror && matched;
-  const closeThread = useCallback(() => {
+  const navigate = useNavigate();
+  const { user, sessionChecked, isLoading } = useAuth();
+  const chat = useContext(ChatContext);
+  const mirror = chat?.chats.find(c => c.kind === 'mirror') ?? null;
+  // Eligibility is a fact once auth and the chat list have answered (a loading list is not "no mirror chat").
+  const resolved = sessionChecked && !isLoading && (!chat || chat.status !== 'loading');
+  const eligible = !!user?.slug && !!handle && handle.toLowerCase() === user.slug.toLowerCase() && !!mirror;
+  const active = eligible && (params.get(CANVAS_WORKSPACE_PARAM) === '1' || params.has('thread'));
+
+  // `held`: the last read that had content, FOR the owner+canvas it was read at. The chat keeps its thread through the page's reloads
+  // (a version change, a re-read), so it is not remounted; but a read of another canvas never shows under this address.
+  const identity = `${(handle ?? '').toLowerCase()}/${projectTag ?? ''}`;
+  const identityRef = useRef(identity);
+  identityRef.current = identity;
+  const [reported, setReported] = useState<{ ready: CanvasReady | null; forVersion: string | null; held: { ready: CanvasReady; identity: string } | null }>({ ready: null, forVersion: null, held: null });
+  const held = reported.held && reported.held.identity === identity ? reported.held.ready : null;
+  const [view, setView] = useState<WorkspaceView>('canvas');
+  const [runActive, setRunActive] = useState(false);
+  const [reloads, setReloads] = useState(0);
+  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady: (ready, forVersion) => setReported(prev => ({ ready, forVersion, held: ready ? { ready, identity: identityRef.current } : prev.held })), reloads }), [active, reloads]);
+  const { state: spot, publishing, publish } = useCanvasPublish(reported.ready, runActive);
+  useWorkspaceMarker({ eligible, resolved, params, setParams, state: location.state, reported });
+  // Below 1280px the chat takes focus only while it is the shown view.
+  const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
+  const openedDraft = useCallback((versionName: string) => {
     setParams(prev => {
       const next = new URLSearchParams(prev);
-      next.delete('thread');
+      next.set('v', versionName);
+      next.set(CANVAS_WORKSPACE_PARAM, '1');
       return next;
     }, { replace: true, state: location.state });
   }, [setParams, location.state]);
 
-  // One tree either way: the canvas page keeps its state when the pane comes and goes (a resize across 1280px).
+  useFollowDraft(runActive, reported.ready, openedDraft);
+
+  const goBack = useCallback(() => {
+    navigate(workspaceBackTarget({ state: location.state, handle, projectTag, published: !!reported.ready && !reported.ready.publishedNone }));
+  }, [navigate, location.state, handle, projectTag, reported.ready]);
+
   return (
-    <CanvasPaneContext.Provider value={show}>
-      <div className="xl:flex xl:items-start" data-testid="canvas-with-thread">
-        <div className="min-w-0 flex-1">
-          <CanvasPage />
-        </div>
-        {show && mirror && rootId && (
-          // Sticky under the shell's top bar (h-14), as tall as what is left of the screen: the thread scrolls inside the pane.
-          <div className="sticky top-14 flex h-[calc(100dvh-3.5rem)] shrink-0" data-testid="canvas-thread-pane">
-            <ThreadPanel key={rootId} summary={mirror} rootId={rootId} highlightId={null} onClose={closeThread} hideDraftCard />
-          </div>
-        )}
-      </div>
-    </CanvasPaneContext.Provider>
+    <CanvasWorkspaceContext.Provider value={workspace}>
+      <CanvasWorkspaceLayout
+        active={active}
+        view={view}
+        bar={<CanvasWorkspaceBar onBack={goBack} view={view} onView={setView} spot={<CanvasPublishSpot state={spot} publishing={publishing} onPublish={publish} />} />}
+        canvas={<CanvasPage />}
+        chat={<WorkspaceChat mirror={active ? mirror : null} ready={held} projectTag={projectTag} focusable={wide || view === 'chat'} onClose={() => setView('canvas')} onRunActive={setRunActive} onOpened={openedDraft} onReload={() => setReloads(n => n + 1)} />}
+      />
+    </CanvasWorkspaceContext.Provider>
   );
 }

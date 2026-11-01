@@ -12,12 +12,12 @@ import { PILL, SELECT } from './canvas-pill-styles';
 export function VersionSwitcher({ versions, open, onPick }: { versions: CanvasVersion[]; open: string; onPick: (version: string) => void }) {
   const next = nextSeqOf(versions);
   return (
-    <label className={`${PILL} border border-foreground/40 bg-muted text-foreground hover:bg-muted/70 max-sm:w-full`} data-testid="canvas-version-picker">
+    <label className={`${PILL} w-fit border border-border bg-muted text-foreground hover:bg-muted/70`} data-testid="canvas-version-picker">
       <select
         aria-label="Version"
         value={open}
         onChange={e => onPick(e.target.value)}
-        className={`${SELECT.replace('max-w-[12rem]', 'max-w-[20rem]')} pl-3`}
+        className={`${SELECT.replace('max-w-[12rem]', 'max-w-[20rem]').replace('max-sm:max-w-none max-sm:flex-1 ', '')} pl-3`}
         data-testid="canvas-version-select"
       >
         {versions.map(v => <option key={v.name} value={v.name}>{versionLabelOf(v, next) ?? 'Version'}</option>)}

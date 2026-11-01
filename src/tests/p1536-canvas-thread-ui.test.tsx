@@ -752,7 +752,7 @@ describe('P955: no disabled primary, one primary at a time', () => {
     ['ready to draft', { items: FILE_ITEMS }, 'Create canvas'],
     ['drafted', { items: FILE_ITEMS, draft: draftRow({ runCount: 1 }), viewDraftPath: '/p/test-user/canvas/canvas?v=x' }, 'Open'],
     ['drafted, no new input', { draft: draftRow({ runCount: 1 }), viewDraftPath: '/p/test-user/canvas/canvas?v=x' }, 'Open'],
-    ['revising a draft (Update draft is the primary, Open steps back)', { items: FILE_ITEMS, newInput: true, draft: draftRow({ runCount: 1 }), viewDraftPath: '/p/test-user/canvas/canvas?v=x' }, 'Update draft'],
+    ['revising a draft (Update draft is an outline now, and Open stays one: Publish is the filled action)', { items: FILE_ITEMS, newInput: true, draft: draftRow({ runCount: 1 }), viewDraftPath: '/p/test-user/canvas/canvas?v=x' }, null],
     ['drafted, address not readable (Publish stays an outline, so no primary)', { draft: draftRow({ runCount: 1 }) }, null],
     ['running', { items: FILE_ITEMS, running: true, run: runRow() }, null],
     ['starting', { items: FILE_ITEMS, busy: 'run' }, null],
@@ -1529,7 +1529,7 @@ describe('the checklist at thread level (rows by status)', () => {
     state.messages = [canvasRoot(), note(), link('n9', 'Also: I now offer yearly plans', new Date(Date.parse(AFTER) + 60_000).toISOString())];
     await renderThread();
     const update = await screen.findByRole('button', { name: 'Update draft' });
-    expect(update.className).toContain('bg-blue-600'); // Update draft is the one primary while it is offered
+    expect(update.className).not.toContain('bg-blue-600'); // Update draft is an outline: its look follows its meaning, and Publish is the filled action
     expect(screen.getByRole('link', { name: 'Open' }).className).not.toContain('bg-blue-600');
     expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument();
   });
@@ -1646,10 +1646,10 @@ describe('the tray by state (bar level)', () => {
     expect(screen.queryByTestId('canvas-material')).not.toBeInTheDocument();
   });
 
-  it('more material after a finished draft: the tray comes back with "Update draft" as the one primary, and Open steps back', () => {
+  it('more material after a finished draft: the tray comes back with "Update draft" (an outline), and Open is an outline too', () => {
     render(<Surface {...base} items={[row({})]} newInput draft={draftRow({ runCount: 1 })} viewDraftPath="/p/test-user/canvas/canvas?v=x" />);
     expect(buttons()).toEqual(['Update draft']);
-    expect(primaries()).toEqual(['Update draft']);
+    expect(primaries()).toEqual([]);
   });
 
   it('published: the prompt to start a new version stays; there is no discard anywhere on the strip', () => {
@@ -1810,41 +1810,48 @@ describe('C2: persisted material counts after a reload', () => {
   });
 });
 
-describe('C3: one primary while the owner is writing', () => {
+describe('C3: typing changes only the send slot (rule 9): no tray or card control changes look', () => {
   const type = (text: string) => fireEvent.change(screen.getByRole('textbox'), { target: { value: text } });
+  const sorted = (xs: string[]) => [...xs].sort();
 
   it.each([
     ['Create', () => { state.messages = [canvasRoot(), note()]; }, 'Create canvas'],
     ['Create new version', () => { state.messages = [canvasRoot(), note()]; state.draft = draftRow({ baseVersionId: 'ver-base' }); }, 'Create new version'],
     ['Open', () => { state.messages = [canvasRoot(), note()]; state.draft = draftRow({ runCount: 1, canvasName: 'canvas', versionName: 'canvas_dabc12' }); state.run = runAt(AFTER, { state: 'done' }); svc.getCanvasDraftViewPath.mockResolvedValue('/p/test-user/canvas/canvas?v=canvas_dabc12'); }, 'Open'],
-  ])('%s: the tray or card primary is the primary until text is typed, then only Send is (and it comes back when the field is cleared)', async (_n, setup, label) => {
+  ])('%s: it keeps its look while text is typed; only Send appears (and goes when the field is cleared)', async (_n, setup, label) => {
     setup();
     await renderThread();
     const role = label === 'Open' ? 'link' : 'button';
-    await screen.findByRole(role, { name: label });
+    const control = await screen.findByRole(role, { name: label });
+    const look = control.className;
     expect(bluePrimaries()).toEqual([label]);
     type('and one more thing');
-    expect(bluePrimaries()).toEqual(['Send']);
-    expect(screen.getByRole(role, { name: label })).toBeInTheDocument();
+    expect(sorted(bluePrimaries())).toEqual(sorted([label, 'Send']));
+    expect(screen.getByRole(role, { name: label })).toBe(control);
+    expect(control.className).toBe(look);
     type('');
     expect(bluePrimaries()).toEqual([label]);
+    expect(control.className).toBe(look);
   });
 
-  it('"Start a new version" gives way to Send the same way', async () => {
+  it('"Start a new version" keeps its look while text is typed; only Send appears', async () => {
     state.draft = draftRow({ state: 'published', runCount: 1, closedAt: '2026-10-26T10:00:00.000Z' });
     state.messages = [canvasRoot(), msg({ id: 'ask', body: 'Raise the price', createdAt: '2026-10-26T11:00:00.000Z' })];
     await renderThread();
-    await screen.findByRole('button', { name: 'Start a new version' });
+    const control = await screen.findByRole('button', { name: 'Start a new version' });
+    const look = control.className;
     expect(bluePrimaries()).toEqual(['Start a new version']);
     type('more');
-    expect(bluePrimaries()).toEqual(['Send']);
+    expect(sorted(bluePrimaries())).toEqual(sorted(['Start a new version', 'Send']));
+    expect(control.className).toBe(look);
   });
 
-  it('the gate fixture, with text in its composer, still has at most one primary on the page in every phase', () => {
-    for (const phase of ['ready', 'update', 'drafted', 'revising', 'asked', 'failed', 'links']) {
+  it('the gate fixture, with text in its composer, adds exactly Send to the filled controls in every phase (nothing else changes)', () => {
+    for (const phase of ['empty', 'ready', 'update', 'drafted', 'revising', 'asked', 'failed', 'links']) {
       const { unmount } = render(<MemoryRouter initialEntries={[`/tree/_gate/canvas-thread?phase=${phase}`]}><GateFixture /></MemoryRouter>);
+      const before = bluePrimaries();
       type('a note typed in the composer');
-      expect(bluePrimaries()).toEqual(['Send']);
+      expect(sorted(bluePrimaries())).toEqual(sorted([...before, 'Send']));
       unmount();
       clearDraftsExcept(null);
     }
@@ -2116,19 +2123,20 @@ describe('v2: the input row order', () => {
   });
 });
 
-describe('v2: the Copy prompt button is the primary only while nothing was added', () => {
+describe('v2: the Copy prompt button keeps one look always (D3: an outline)', () => {
   const copyButton = () => screen.getByRole('button', { name: 'Copy prompt' });
 
-  it('blue in an empty thread; an outline once the owner is writing (Send is the primary then)', async () => {
+  it('an outline in an empty thread and while the owner writes: it never fills, so typing changes only Send', async () => {
     await renderThread();
     await screen.findByTestId('canvas-opener-steps');
-    expect(copyButton().className).toContain('bg-blue-600');
-    expect(bluePrimaries()).toEqual(['Copy prompt']);
+    const look = copyButton().className;
+    expect(look).not.toContain('bg-blue-600');
+    expect(bluePrimaries()).toEqual([]);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'my first note' } });
-    expect(copyButton().className).not.toContain('bg-blue-600');
+    expect(copyButton().className).toBe(look);
     expect(bluePrimaries()).toEqual(['Send']);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '' } });
-    expect(bluePrimaries()).toEqual(['Copy prompt']);
+    expect(bluePrimaries()).toEqual([]);
   });
 
   it('says Copied after the click', async () => {
@@ -2144,11 +2152,10 @@ describe('v2: the Copy prompt button is the primary only while nothing was added
     }
   });
 
-  it('the gate fixture: blue in the empty phases only, never with an item, never twice', () => {
-    for (const [phase, blue] of [['empty', true], ['update-empty', true], ['ready', false], ['update', false], ['drafted', false]] as const) {
+  it('the gate fixture: Copy prompt is an outline in every phase that shows it, and no phase has two filled controls', () => {
+    for (const phase of ['empty', 'update-empty', 'ready', 'update', 'drafted']) {
       const { unmount } = render(<MemoryRouter initialEntries={[`/tree/_gate/canvas-thread?phase=${phase}`]}><GateFixture /></MemoryRouter>);
-      const copy = screen.queryByRole('button', { name: 'Copy prompt' });
-      if (phase === 'empty' || phase === 'update-empty') expect(copy?.className.includes('bg-blue-600')).toBe(blue);
+      expect(screen.getByRole('button', { name: 'Copy prompt' }).className).not.toContain('bg-blue-600');
       expect(bluePrimaries().length).toBeLessThanOrEqual(1);
       unmount();
     }
@@ -2180,7 +2187,7 @@ describe('v2: done means the tray is gone and a draft card closes the thread', (
     expect(bluePrimaries()).toEqual(['Open']);
   });
 
-  it('more material after the draft: the tray comes back with "Update draft" as the primary, Open steps back', async () => {
+  it('more material after the draft: the tray comes back with "Update draft" and Open is an outline too (their looks follow their meaning)', async () => {
     doneThread();
     state.lastDone = RUN_AT;
     state.run = runAt(RUN_AT, { state: 'done' });
@@ -2188,20 +2195,21 @@ describe('v2: done means the tray is gone and a draft card closes the thread', (
     await renderThread();
     const tray = await screen.findByTestId('canvas-bar');
     const update = within(tray).getByRole('button', { name: 'Update draft' });
-    expect(update.className).toContain('bg-blue-600');
+    expect(update.className).not.toContain('bg-blue-600');
     expect(screen.getByTestId('canvas-draft-card')).toBeInTheDocument();
-    expect(bluePrimaries()).toEqual(['Update draft']);
+    expect(bluePrimaries()).toEqual([]);
   });
 
-  it('Open while the owner writes steps back to an outline (Send is the primary)', async () => {
+  it('Open keeps its look while the owner writes (only Send appears)', async () => {
     doneThread();
     await renderThread();
     await screen.findByTestId('canvas-draft-card');
-    await within(screen.getByTestId('canvas-draft-card')).findByRole('link', { name: 'Open' });
+    const open = await within(screen.getByTestId('canvas-draft-card')).findByRole('link', { name: 'Open' });
+    const look = open.className;
     expect(bluePrimaries()).toEqual(['Open']);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'wait, one more thing' } });
-    expect(bluePrimaries()).toEqual(['Send']);
-    expect(within(screen.getByTestId('canvas-draft-card')).getByRole('link', { name: 'Open' }).className).toContain('border');
+    expect([...bluePrimaries()].sort()).toEqual(['Open', 'Send']);
+    expect(within(screen.getByTestId('canvas-draft-card')).getByRole('link', { name: 'Open' }).className).toBe(look);
   });
 
   it('Publish publishes, and the published draft has no card any more', async () => {
@@ -2408,4 +2416,42 @@ describe('P1536 S1: a text message in an open draft\'s thread is sent with canva
     await waitFor(() => expect(conv.send).toHaveBeenCalledWith({ body: 'more' }));
     expect(svc.sendCanvasWorkspaceMessage).not.toHaveBeenCalled();
   });
+});
+
+
+describe('review G4: one filled control among the tray, the card and the closed strip, in EVERY state', () => {
+  const baseBar: BarProps = {
+    draft: draftRow(), run: null, running: false, items: [], newInput: false, askedAfterPublish: false, busy: null, notice: null,
+    onRun: vi.fn(), onPublish: vi.fn(), onStartNew: vi.fn(), viewDraftPath: '/p/test-user/canvas/canvas?v=x',
+  };
+  const read: CanvasItemRow = { key: 'f', kind: 'file', label: 'a.pdf', status: 'read' };
+  const reading: CanvasItemRow = { key: 'g', kind: 'file', label: 'b.pdf', status: 'reading' };
+  const failed: CanvasItemRow = { key: 'h', kind: 'file', label: 'c.pdf', status: 'failed', reason: 'no text found in it' };
+
+  it('across draft state x run count x items x new input x progress x base x asked-after-publish, at most one control is filled (and Open and Create/Start are never both)', () => {
+    let checked = 0;
+    for (const state of ['open', 'published', 'discarded'] as const) {
+      for (const runCount of [0, 1]) {
+        for (const items of [[], [read], [reading], [failed], [read, reading]]) {
+          for (const newInput of [false, true]) {
+            for (const progress of [{}, { running: true }, { busy: 'run' as const }, { busy: 'publish' as const }]) {
+              for (const baseVersionId of [null, 'ver-base']) {
+                for (const askedAfterPublish of [false, true]) {
+                  for (const draftHasPoints of [true, false]) {
+                    const props: BarProps = { ...baseBar, draft: draftRow({ state, runCount, baseVersionId }), items, newInput, askedAfterPublish, draftHasPoints, ...progress };
+                    const view = render(<Surface {...props} />);
+                    const filled = primaries();
+                    expect(filled.length, JSON.stringify({ state, runCount, items: items.map(i => i.status), newInput, progress, baseVersionId, askedAfterPublish, draftHasPoints, filled })).toBeLessThanOrEqual(1);
+                    view.unmount();
+                    checked += 1;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(checked).toBe(3 * 2 * 5 * 2 * 4 * 2 * 2 * 2); // the whole grid was walked
+  }, 120_000);
 });

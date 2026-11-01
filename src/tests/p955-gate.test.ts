@@ -14,13 +14,14 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, within } from '@testing-library/react';
 import type { RenderResult } from '@testing-library/react';
 import React, { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Composer } from '@/app/pages/chat/Composer';
 import { GateFixture as CanvasThreadGateFixture } from '@/app/tree/_gate/canvas-thread/GateFixture';
+import { GateFixture as CanvasWorkspaceGateFixture } from '@/app/tree/_gate/canvas-workspace/GateFixture';
 import { P952DefectFixture } from './p955-fixture';
 import { assertStableVariantsOnInput, buttonsChangedOnInput } from './p955-stable-variants';
 
@@ -345,11 +346,10 @@ describe('P955 gate — failure-path proof against P952 defect fixture', () => {
 // P1536 S6.2 / S6.3 — assertStableVariantsOnInput: controls and the real canvas-thread fixture
 //
 // Known-bad controls (the assertion THROWS) and known-good controls (it passes) first, on small components, then on the
-// REAL code: the real Composer, and every phase of the real /tree/_gate/canvas-thread fixture. Today's canvas thread
-// flips some buttons while the owner types (openerIsPrimary, CanvasCreateBar, CanvasDraftCard, the closed strip), so
-// those phases are marked `it.fails` below: slice S3 rebuilds the thread, and when it lands each of those turns red,
-// which is the signal to change `it.fails` to `it` and run the assertion in the blocking gate. The real ThreadPanel and
-// ConversationPane composers are in src/tests/p1536-composer-surfaces.test.tsx.
+// REAL code: the real Composer, and every phase of the real /tree/_gate/canvas-thread fixture. The canvas thread
+// is rule-9 clean since S3 removed the ladder: every phase is a plain passing test below, and the P1536 workspace fixture
+// (S6.5) is checked the same way in the next block. The real ThreadPanel and ConversationPane composers are in
+// src/tests/p1536-composer-surfaces.test.tsx.
 // ---------------------------------------------------------------------------
 
 const h = React.createElement;
@@ -479,48 +479,69 @@ describe('P955 gate — assertStableVariantsOnInput: never passes without proof 
   });
 });
 
-describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate/canvas-thread fixture', () => {
+describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate/canvas-thread fixture (S6.3, S6.4)', () => {
   const at = (phase: string) => {
     localStorage.clear();
     const view = render(h(MemoryRouter, { initialEntries: [`/tree/_gate/canvas-thread?phase=${phase}`] }, h(CanvasThreadGateFixture)));
     return { container: view.container, composer: within(view.container).getByTestId('composer') };
   };
-  // The phases whose buttons change look while typing today, and the COMPLETE set of buttons that change in each (probed
-  // one by one). A new violation on a known-bad phase changes the set and fails the exact-set test below.
-  const VIOLATING: Array<[string, string[]]> = [
-    ['empty', ['Copy prompt']], ['upload-failed', ['Copy prompt']], ['failed-no-items', ['Copy prompt']], ['update-empty', ['Copy prompt']],
-    ['ready', ['Create canvas']], ['links', ['Create canvas']], ['failed', ['Create canvas']], ['failed-nothing-drafted', ['Create canvas']],
-    ['update', ['Create new version']], ['revising', ['Update draft']], ['update-revising', ['Update draft']], ['asked', ['Start a new version']],
-  ];
-  const FOLLOWING = ['reading', 'running', 'drafted', 'published', 'discarded', 'update-running', 'update-drafted'];
+  const phasesOf = (container: HTMLElement) => Array.from(container.querySelectorAll('nav a')).map((a) => new URL(a.getAttribute('href')!, 'http://x').searchParams.get('phase')!);
 
-  it.each(VIOLATING)('KNOWN-BAD CONTROL, exact set: on today\'s %s phase typing changes exactly %j, each in its look and nothing else', (phase, names) => {
-    const { container, composer } = at(phase);
-    const changed = buttonsChangedOnInput(container, composer);
-    expect(changed.map((c) => c.replace(/ \(.*\)$/, ''))).toEqual(names.map((n) => `${n}: look`));
-    expect(() => assertStableVariantsOnInput(container, composer)).toThrow(/stable-variants/); // the composer was left empty, so it can be checked again
-  });
-
-  it.each(FOLLOWING)('KNOWN-GOOD CONTROL: the assertion passes on the %s phase, which keeps every button\'s look while typing', (phase) => {
-    const { container, composer } = at(phase);
-    expect(buttonsChangedOnInput(container, composer)).toEqual([]);
-  });
-
-  it('the two lists cover every phase of the fixture', () => {
-    const { container } = at('empty');
-    const phases = Array.from(container.querySelectorAll('nav a')).map((a) => new URL(a.getAttribute('href')!, 'http://x').searchParams.get('phase'));
-    expect([...VIOLATING.map(([p]) => p), ...FOLLOWING].sort()).toEqual([...phases].sort());
-  });
-
-  // Slice S3 rebuilds the canvas thread and wires the assertion into the blocking run. Until then each of these fails, and
-  // `it.fails` (the repo's expected-failure form, as in p964-reproduce and p839-parity-positions) keeps the run green while
-  // it does. When S3 lands, every one of them turns red: change `it.fails` to `it`.
-  it.fails.each(VIOLATING)('S3 wires this in: %s phase keeps every button\'s look while typing (today %j flip)', (phase) => {
-    const { container, composer } = at(phase);
-    assertStableVariantsOnInput(container, composer);
+  // S3 removed the ladder (openerIsPrimary, the composing variants of CanvasCreateBar, CanvasDraftCard and the closed strip), so
+  // EVERY phase now keeps every button's look while typing. The 12 phases that failed before S3 were `it.fails`; they are plain
+  // tests now. The Gate 7 proof against the REAL old code (the fixture and its parts restored from the pre-S3 commit) is in the
+  // S3 report: it exits non-zero on exactly those 12 phases, and zero on this code.
+  it('KNOWN-GOOD: the assertion passes on every phase of the fixture, and it really typed (the send slot switched, nothing else changed)', () => {
+    const phases = phasesOf(at('empty').container);
+    expect(phases.length).toBeGreaterThanOrEqual(19);
+    cleanup();
+    for (const phase of phases) {
+      const { container, composer } = at(phase);
+      expect(buttonsChangedOnInput(container, composer), `phase ${phase}`).toEqual([]);
+      expect(() => assertStableVariantsOnInput(container, composer), `phase ${phase}`).not.toThrow();
+      cleanup();
+    }
   });
 });
 
+describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate/canvas-workspace fixture (S6.4, S6.5)', () => {
+  const PHASES = ['canvas', 'chat-composing', 'busy', 'published', 'no-changes'];
+  const at = (phase: string) => {
+    localStorage.clear();
+    const view = render(h(MemoryRouter, { initialEntries: [`/tree/_gate/canvas-workspace?phase=${phase}`] }, h(CanvasWorkspaceGateFixture)));
+    return { container: view.container, composer: within(view.container).getByTestId('composer') };
+  };
+
+  it('the fixture lists exactly the phases this test covers (a new phase must be added here)', () => {
+    const { container } = at('canvas');
+    const listed = Array.from(container.querySelectorAll('nav a')).map((a) => new URL(a.getAttribute('href')!, 'http://x').searchParams.get('phase'));
+    expect(listed.sort()).toEqual([...PHASES].sort());
+  });
+
+  it.each(PHASES)('%s: typing changes no button except the send slot, and the Publish spot is one box that is a button only when it can run', (phase) => {
+    const { container, composer } = at(phase);
+    if (phase === 'chat-composing') {
+      // V4/V5: this phase opens with text typed in, so Send is visible (the P1576 swap shows Send only with text); the assertion starts from empty.
+      expect(within(composer).getByRole('button', { name: 'Send' })).toBeInTheDocument();
+      fireEvent.change(within(composer).getByRole('textbox'), { target: { value: '' } });
+      expect(within(composer).queryByRole('button', { name: 'Send' })).toBeNull();
+    }
+    expect(buttonsChangedOnInput(container, composer)).toEqual([]);
+    expect(() => assertStableVariantsOnInput(container, composer)).not.toThrow();
+    const spot = within(container).getByTestId('publish-spot');
+    expect(spot.querySelectorAll('button').length).toBe(phase === 'canvas' || phase === 'chat-composing' ? 1 : 0);
+    expect(Array.from(container.querySelectorAll('button')).filter((b) => b.disabled)).toEqual([]);
+  });
+
+  it('chat-composing opens on the Chat view, the others on the Canvas view; both panes are always mounted', () => {
+    const chat = at('chat-composing').container;
+    expect(within(chat).getByTestId('workspace-chat-pane')).toHaveAttribute('data-active', 'true');
+    cleanup();
+    const canvas = at('canvas').container;
+    expect(within(canvas).getByTestId('workspace-canvas-pane')).toHaveAttribute('data-active', 'true');
+    expect(within(canvas).getByTestId('workspace-chat-pane')).toBeInTheDocument();
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Test-validity shape checks (spec 2e)

@@ -1,12 +1,12 @@
 /**
  * @file p1536-canvas-thread-sync.test.tsx
- * @description P1536 v3: the REAL canvas page beside the REAL draft thread (the route wrapper, ThreadPanel, the thread's data
- * hook, the page's data loader; only the database and the chat's message transport are faked).
+ * @description P1536 v3 / S3: the REAL canvas page beside the REAL draft thread in the workspace (the route wrapper, ThreadPanel, the
+ * thread's data hook, the page's data loader; only the database and the chat's message transport are faked).
  *  - thread -> canvas: a run that finishes in the thread re-reads the canvas IN PLACE (same grid element, still on the draft's address)
- *  - canvas -> thread: Publish in the page's header re-reads the thread's draft (it reads "published"), the pane stays, the page leaves
+ *  - canvas -> thread: Publish in the workspace bar's spot re-reads the thread's draft (it reads "published"), the pane stays, the page leaves
  *    the draft's address
  *  - thread -> canvas: a discard made in the thread's "…" menu moves the page off the draft's address
- *  - at most one filled primary is on screen in the combined view (Publish is an outline; the thread has no draft card)
+ *  - at most one filled primary is on screen in the combined view (Publish, rule 9; the tray's Update draft is an outline; the thread has no draft card)
  * Each direction has a control showing the same event does nothing to an unrelated draft.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -110,7 +110,7 @@ const point = (box: string) => ({
 }) as unknown as PointWithUserPosition;
 const v1 = { name: 'canvas_d111111', createdAt: '2026-10-01T10:00:00Z', seq: 1, publishedAt: '2026-10-01T10:00:00Z', draft: false };
 const draftVersion = { name: DRAFT_NAME, createdAt: '2026-10-20T10:00:00Z', seq: null, publishedAt: null, draft: true };
-const draftBlock = { id: 'draft-1', version: DRAFT_NAME, questions: {}, threadRootId: ROOT, conversationId: CONV, baseSeq: 1, runCount: 1, revision: 0 };
+const draftBlock = { id: 'draft-1', version: DRAFT_NAME, questions: {}, threadRootId: ROOT, conversationId: CONV, baseSeq: 1, runCount: 1, revision: 0, changedBoxes: ['canvas:problem'] };
 const base = { stories: new Map(), addedStoryIds: [], positions: new Map(), visibility: 'private' as const, isOwner: true, admitted: true, generalAccess: 'restricted' as const, via: null, canvasExists: true };
 const draftView = (points: PointWithUserPosition[]) => ({ ...base, points, version: DRAFT_NAME, versions: [draftVersion, v1], publishedNone: false, draft: draftBlock });
 const publishedView = () => ({ ...base, points: [point('canvas:problem'), point('canvas:love')], version: 'canvas_d222222', versions: [{ ...v1, name: 'canvas_d222222', seq: 2 }, v1], publishedNone: false, draft: null });
@@ -119,7 +119,7 @@ function Where() {
   const l = useLocation();
   return <output data-testid="where">{l.pathname}{l.search}</output>;
 }
-function mount(at = `/p/ana/canvas/canvas?v=${DRAFT_NAME}&thread=${ROOT}`) {
+function mount(at = `/p/ana/canvas/canvas?v=${DRAFT_NAME}&ws=1`) {
   render(
     <MemoryRouter initialEntries={[at]}>
       <ChatContext.Provider value={chatValue}>
@@ -132,7 +132,7 @@ function mount(at = `/p/ana/canvas/canvas?v=${DRAFT_NAME}&thread=${ROOT}`) {
 /** Both halves are up: the canvas grid, the draft's boxes, and the thread's pane with its draft read. */
 async function ready() {
   await screen.findByTestId('canvas-grid');
-  await screen.findByTestId('canvas-thread-pane');
+  await screen.findByTestId('thread-panel');
   await waitFor(() => expect(screen.queryByTestId('canvas-loading')).toBeNull());
 }
 const filled = () => Array.from(document.querySelectorAll('button, a')).filter(el => el.className.toString().split(/\s+/).includes('bg-blue-600'));
@@ -199,12 +199,12 @@ describe('thread -> canvas: a run that finishes in the thread re-reads the canva
     await u.click(await screen.findByRole('button', { name: 'Yes, discard' }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('canvas_draft_discard', { p_draft: 'draft-1', p_expected_revision: 0 }));
     await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent(DRAFT_NAME));
-    expect(screen.getByTestId('where')).toHaveTextContent(`thread=${ROOT}`); // the pane's own param is untouched
+    expect(screen.getByTestId('where')).toHaveTextContent('ws=1'); // the workspace marker is untouched
     expect(getCanvas.mock.calls.at(-1)![4]).toBeUndefined(); // the newest published version opens
   });
 });
 
-describe('canvas -> thread: Publish in the page\'s header', () => {
+describe('canvas -> thread: Publish in the workspace bar', () => {
   it('re-reads the thread\'s draft (it now reads published), moves the page off the draft\'s address, and the pane stays', async () => {
     mount();
     await ready();
@@ -214,24 +214,29 @@ describe('canvas -> thread: Publish in the page\'s header', () => {
 
     fireEvent.click(screen.getByTestId('canvas-draft-publish'));
 
-    expect(await screen.findByText('This version is published.')).toBeInTheDocument(); // the thread re-read without a message arriving
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('canvas_draft_publish', { p_draft: 'draft-1', p_expected_revision: 0 }));
     await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent(DRAFT_NAME));
-    expect(screen.getByTestId('where')).toHaveTextContent(`thread=${ROOT}`);
-    expect(screen.getByTestId('canvas-thread-pane')).toBeInTheDocument(); // the wrapper keeps the pane across the draft's close
+    expect(screen.getByTestId('where')).toHaveTextContent('ws=1');
+    expect(screen.getByTestId('workspace-chat-pane')).toBeInTheDocument(); // the workspace keeps both panes across the draft's close
     expect(getCanvas.mock.calls.at(-1)![4]).toBeUndefined();
+    // the spot now says what is true: a status, not a button
+    await waitFor(() => {
+      expect(screen.getByTestId('publish-spot')).toHaveAttribute('data-state', 'published');
+      expect(screen.getByTestId('publish-spot-status')).toHaveTextContent('Published · v2');
+    });
+    expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();
   });
 });
 
-describe('the combined view has at most one filled primary', () => {
-  it('Publish is an outline beside the thread, there is no draft card, and no "Revise in chat" link; with nothing new the screen has none filled', async () => {
+describe('the combined view has at most one filled primary: Publish (rule 9)', () => {
+  it('there is no draft card, no "Revise in chat" link, and exactly one filled control on screen: Publish', async () => {
     mount();
     await ready();
     const publish = screen.getByTestId('canvas-draft-publish');
-    expect(publish.className).toContain('border-blue-600');
-    expect(publish.className).not.toContain('bg-blue-600');
-    expect(screen.queryByTestId('canvas-draft-card')).toBeNull(); // the draft is on screen; Publish lives in the header
-    expect(screen.queryByTestId('canvas-draft-revise')).toBeNull(); // the thread is beside the page
-    expect(filled().map(el => el.textContent)).toEqual([]);
+    expect(publish.className).toContain('bg-blue-600');
+    expect(screen.queryByTestId('canvas-draft-card')).toBeNull(); // the draft is on screen; Publish lives in the bar
+    expect(screen.queryByTestId('canvas-draft-revise')).toBeNull();
+    expect(filled()).toEqual([publish]);
   });
 
   it('CONTROL: the same thread outside the combined view (the chat\'s own route) DOES draw the draft card with its Open', async () => {
@@ -246,35 +251,26 @@ describe('the combined view has at most one filled primary', () => {
     expect(within(screen.getByTestId('canvas-draft-card')).getByRole('link', { name: 'Open' })).toBeInTheDocument();
   });
 
-  it('with something new in the thread, the thread\'s own action leads: exactly one filled primary, and it is not Publish', async () => {
+  it('with something new in the thread, "Update draft" is an OUTLINE (its look follows its meaning, not the composer): Publish stays the one filled control', async () => {
     st.messages = [...st.messages, msg({ id: 'note-1', body: 'make the problem sharper', createdAt: '2026-10-28T09:30:00.000Z' })];
     mount();
     await ready();
-    await waitFor(() => expect(filled()).toHaveLength(1));
-    expect(filled()[0]!.textContent).toMatch(/update draft/i);
-    expect(screen.getByTestId('canvas-draft-publish').className).not.toContain('bg-blue-600');
+    const update = await screen.findByRole('button', { name: /update draft/i });
+    expect(update.className).not.toContain('bg-blue-600');
+    expect(filled().map(el => el.textContent)).toEqual(['Publish']);
   });
 
-  it('CONTROL: the same draft page WITHOUT the thread beside it (no thread param): Publish is the filled primary and the link to the thread shows', async () => {
+  it('CONTROL: an address with no `ws` marker, on the owner\'s own draft, gains it (replace): the owner on a draft is always in the workspace', async () => {
     mount(`/p/ana/canvas/canvas?v=${DRAFT_NAME}`);
     await screen.findByTestId('canvas-grid');
-    expect(screen.queryByTestId('canvas-thread-pane')).toBeNull();
-    const publish = screen.getByTestId('canvas-draft-publish');
-    expect(publish.className).toContain('bg-blue-600');
-    expect(within(screen.getByTestId('canvas-actions')).getByRole('link', { name: 'Revise in chat' })).toHaveAttribute('href', `/chats/c/${CONV}/t/${ROOT}`);
-    expect(filled()).toEqual([publish]);
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('ws=1'));
+    expect(await screen.findByTestId('workspace-chat-pane')).toBeInTheDocument();
   });
-});
 
-describe('layout inputs', () => {
-  it('with the pane shown the boxes keep two columns (no three from lg), without it three from lg', async () => {
-    mount();
-    await ready();
-    expect(screen.getByTestId('canvas-grid').className).toContain('sm:grid-cols-2');
-    expect(screen.getByTestId('canvas-grid').className).not.toContain('lg:grid-cols-3');
-    cleanup();
-    mount(`/p/ana/canvas/canvas?v=${DRAFT_NAME}`);
-    await screen.findByTestId('canvas-grid');
-    expect(screen.getByTestId('canvas-grid').className).toContain('lg:grid-cols-3');
+  it('an old `thread=` address is rewritten to `ws=1` and the draft comes from the page\'s own read', async () => {
+    mount(`/p/ana/canvas/canvas?v=${DRAFT_NAME}&thread=${ROOT}`);
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('ws=1'));
+    expect(screen.getByTestId('where')).not.toHaveTextContent('thread=');
+    expect(await screen.findByTestId('thread-panel')).toBeInTheDocument();
   });
 });

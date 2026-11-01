@@ -3,7 +3,7 @@
  * @description P1536 v3 (founder, 2026-10-28), the canvas draft thread in the mirror's chat, services mocked:
  *  - the opener never folds (the message and the steps card stay after the owner sends anything);
  *  - one create button, and the client only ever asks for the fast speed;
- *  - while "Update draft" is offered it is the one filled primary and the card's Open steps back;
+ *  - a control's look follows its meaning, never the composer (rule 9): "Update draft" is an outline (Publish is the filled one), the card's Open an outline then;
  *  - the owner's own messages are one row, "N messages from you";
  *  - the draft card: the canvas title, then "v3 · Draft" (the next version number), no "Only you can see this";
  *  - Open carries the thread (`thread=<rootId>`) so the canvas page can show it beside the canvas;
@@ -78,7 +78,8 @@ vi.mock('@/app/pages/chat/use-conversation', () => ({
 import { ThreadPanel } from '@/app/pages/chat/ThreadPanel';
 import { CanvasDraftEnd, CanvasThreadBar, type BarProps } from '@/app/pages/chat/canvas-thread';
 import { CanvasThreadOpener } from '@/app/pages/chat/CanvasOpener';
-import { buildItems, openerIsPrimary, type CanvasItemRow } from '@/app/pages/chat/canvas-items';
+import * as canvasItems from '@/app/pages/chat/canvas-items';
+import { buildItems } from '@/app/pages/chat/canvas-items';
 import { draftLabel, ownerMessagesLabel } from '@/app/pages/chat/canvas-thread-copy';
 import { withThreadParam } from '@/app/pages/chat/canvas-links';
 import { resetCanvasAvailability } from '@/app/pages/chat/use-canvas-availability';
@@ -204,10 +205,11 @@ describe('1. the opener never folds', () => {
     expect(screen.getByTestId('canvas-opener-steps')).toBeInTheDocument();
   });
 
-  it('CONTROL: with nothing added, Copy prompt is the one filled primary', async () => {
+  it('Copy prompt keeps one look always (D3, rule 9): with nothing added it is an outline too, so nothing is filled', async () => {
     await renderThread();
     await screen.findByTestId('canvas-opener-steps');
-    expect(bluePrimaries()).toEqual(['Copy prompt']);
+    expect(bluePrimaries()).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Copy prompt' }).className).toContain('border');
   });
 
   it('P955: in a published thread with a question under it, Copy prompt is not a second primary', async () => {
@@ -256,26 +258,32 @@ describe('2. one create button, the fast speed only', () => {
   });
 });
 
-describe('3. Update draft is the primary while it is offered', () => {
-  it('Update draft is the filled primary and the card\'s Open is an outline', async () => {
+describe('3. Update draft is an outline while it is offered (its look follows its meaning, not the composer)', () => {
+  it('Update draft and the card\'s Open are both outlines (Publish is the filled action, in the workspace bar)', async () => {
     finishedWithNewInput();
     await renderThread();
     const update = await screen.findByRole('button', { name: 'Update draft' });
     const open = await screen.findByRole('link', { name: 'Open' });
-    expect(update.className).toContain('bg-blue-600');
+    expect(update.className).not.toContain('bg-blue-600');
+    expect(update.className).toContain('border');
     expect(open.className).not.toContain('bg-blue-600');
     expect(open.className).toContain('border');
-    expect(bluePrimaries()).toEqual(['Update draft']);
+    expect(bluePrimaries()).toEqual([]);
   });
 
-  it('with text in the composer, Send is the primary and both step back', async () => {
+  it('typing changes only the send slot: neither Update draft nor Open changes look, Send appears and goes', async () => {
     finishedWithNewInput();
     await renderThread();
-    await screen.findByRole('button', { name: 'Update draft' });
+    const update = await screen.findByRole('button', { name: 'Update draft' });
+    const open = await screen.findByRole('link', { name: 'Open' });
+    const looks = () => [update.className, open.className];
+    const before = looks();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'one more thing' } });
     expect(bluePrimaries()).toEqual(['Send']);
+    expect(looks()).toEqual(before);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '' } });
-    expect(bluePrimaries()).toEqual(['Update draft']);
+    expect(bluePrimaries()).toEqual([]);
+    expect(looks()).toEqual(before);
   });
 
   it('CONTROL: with nothing new, there is no Update draft and Open is the primary', async () => {
@@ -303,9 +311,10 @@ describe('3. Update draft is the primary while it is offered', () => {
       </MemoryRouter>
     );
 
-    it('the Update draft button reads as the primary; Open does not', () => {
+    it('the Update draft button is an outline; Open is an outline too while it is offered', () => {
       render(<Surface {...base} />);
-      expect(bluePrimaries()).toEqual(['Update draft']);
+      expect(bluePrimaries()).toEqual([]);
+      expect(screen.getByRole('button', { name: 'Update draft' }).className).toContain('border');
     });
 
     it('a file still being read removes the offer, so Open is the primary', () => {
@@ -313,9 +322,12 @@ describe('3. Update draft is the primary while it is offered', () => {
       expect(bluePrimaries()).toEqual(['Open']);
     });
 
-    it('composing steps both back', () => {
-      render(<Surface {...base} composing />);
-      expect(bluePrimaries()).toEqual([]);
+    it('there is no `composing` input any more: the same bar renders the same buttons with or without it', () => {
+      const without = render(<Surface {...base} />);
+      const plain = Array.from(without.container.querySelectorAll('button, a')).map(el => `${el.textContent}|${el.className}`);
+      without.unmount();
+      const withFlag = render(<Surface {...({ ...base, composing: true } as BarProps)} />);
+      expect(Array.from(withFlag.container.querySelectorAll('button, a')).map(el => `${el.textContent}|${el.className}`)).toEqual(plain);
     });
   });
 });
@@ -712,56 +724,32 @@ describe('10. an upload whose reload did not carry the file keeps its row', () =
   });
 });
 
-describe('11. Copy prompt is the filled primary exactly when nothing else on the page is', () => {
-  const open = { state: 'open', runCount: 0 } as const;
-  const failedFile: CanvasItemRow = { key: 'u', kind: 'file', label: 'scan.pdf', status: 'failed', reason: 'no text found in it' };
-  const readFile: CanvasItemRow = { key: 'f', kind: 'file', label: 'a.pdf', status: 'read' };
-  const readingFile: CanvasItemRow = { key: 'g', kind: 'file', label: 'b.pdf', status: 'reading' };
-
-  it('a fresh draft: with nothing, or only a file that could not be read (no create button shows), Copy prompt leads', () => {
-    expect(openerIsPrimary({ draft: open, items: [] }, false)).toBe(true);
-    expect(openerIsPrimary({ draft: open, items: [failedFile] }, false)).toBe(true);
+describe('11. Copy prompt keeps one look; the filled primaries by fixture phase never depend on the composer', () => {
+  it('the ladder is gone: openerIsPrimary no longer exists (D3 supersedes it)', () => {
+    expect('openerIsPrimary' in canvasItems).toBe(false);
   });
 
-  it('a failed first run with nothing drafted and nothing usable: Copy prompt leads', () => {
-    expect(openerIsPrimary({ draft: { state: 'open', runCount: 1 }, draftHasPoints: false, items: [failedFile] }, false)).toBe(true);
-  });
-
-  it('steps back when the tray\'s create action is on offer, a canvas exists, something is going, or the owner is writing', () => {
-    expect(openerIsPrimary({ draft: open, items: [readFile] }, false)).toBe(false); // Create canvas
-    expect(openerIsPrimary({ draft: { state: 'open', runCount: 1 }, newInput: true, items: [readFile] }, false)).toBe(false); // Update draft
-    expect(openerIsPrimary({ draft: { state: 'open', runCount: 1 }, items: [readFile] }, false)).toBe(false); // Open on the card
-    expect(openerIsPrimary({ draft: open, items: [readFile, readingFile] }, false)).toBe(false); // a file is being read
-    expect(openerIsPrimary({ draft: open, items: [readFile], running: true }, false)).toBe(false);
-    expect(openerIsPrimary({ draft: open, items: [readFile], busy: 'run' }, false)).toBe(false);
-    expect(openerIsPrimary({ draft: open, items: [], busy: 'publish' }, false)).toBe(false);
-    expect(openerIsPrimary({ draft: open, items: [] }, true)).toBe(false); // Send
-    expect(openerIsPrimary({ draft: { state: 'published', runCount: 1 }, items: [] }, false)).toBe(false);
-    expect(openerIsPrimary({ draft: { state: 'discarded', runCount: 0 }, items: [] }, false)).toBe(false);
-  });
-
-  // Every phase of the P955 fixture, composer empty: [phase, the filled primaries]. A phase with none is one where the page
-  // is busy (a run, a file being read, a publish) or closed and quiet; every other open phase has exactly one.
+  // Every phase of the P955 fixture, composer empty: [phase, the filled primaries]. Copy prompt never fills; Update draft is an outline.
   const PHASES: Array<[string, string[]]> = [
-    ['empty', ['Copy prompt']],
+    ['empty', []],
     ['reading', []],
-    ['upload-failed', ['Copy prompt']],
+    ['upload-failed', []],
     ['ready', ['Create canvas']],
     ['links', ['Create canvas']],
     ['running', []],
     ['drafted', ['Open']],
-    ['revising', ['Update draft']],
+    ['revising', []],
     ['failed', ['Create canvas']],
     ['failed-nothing-drafted', ['Create canvas']],
-    ['failed-no-items', ['Copy prompt']],
+    ['failed-no-items', []],
     ['published', []],
     ['asked', ['Start a new version']],
     ['discarded', []],
-    ['update-empty', ['Copy prompt']],
+    ['update-empty', []],
     ['update', ['Create new version']],
     ['update-running', []],
     ['update-drafted', ['Open']],
-    ['update-revising', ['Update draft']],
+    ['update-revising', []],
   ];
 
   it.each(PHASES)('the fixture phase %s has the filled primaries %j', (phase, expected) => {

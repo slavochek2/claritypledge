@@ -17,7 +17,7 @@ export function ComparePicker({ base, others, withPerson, onCompare }: {
   // Nobody else to compare with: the pill is absent, not disabled (P955).
   if (!base || others.length === 0) return null;
   return (
-    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 max-sm:order-4 max-sm:basis-full" data-testid="canvas-controls">
+    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2" data-testid="canvas-controls">
       <label
         // Founder, sixth round: Compare is a main action but read as a grey filter — a blue
         // outline until someone is picked.

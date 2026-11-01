@@ -3,7 +3,8 @@
  * the app mounts, not only the gate fixture: the thread panel (a canvas thread and a plain thread) and the conversation
  * pane (a direct chat and the mirror chat). Providers are the minimal ones the neighbouring tests use
  * (p1536-thread-order.test.tsx): the chat context, a router, and the data hooks replaced by fixed values.
- * Today's canvas thread flips buttons while the owner types (slice S3 rebuilds it), so that surface is `it.fails`.
+ * S3 removed every typing-dependent look from the canvas thread (D3, rule 9), so the canvas surfaces are plain passing tests.
+ * The detector is proven live on the REAL Composer by a known-bad control (a sibling wired to onSendableChange, the old ladder's wiring).
  */
 import { act, cleanup, render, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -47,6 +48,9 @@ import { resetCanvasAvailability } from '@/app/pages/chat/use-canvas-availabilit
 import { resetCanvasThreads } from '@/app/pages/chat/canvas-thread-registry';
 import { ChatContext, type ChatContextValue } from '@/app/pages/chat/chat-state';
 import { assertStableVariantsOnInput, buttonsChangedOnInput } from './p955-stable-variants';
+import { Composer } from '@/app/pages/chat/Composer';
+import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 
 const summary = (over: Partial<ChatSummary>): ChatSummary => ({
   conversationId: CONV, kind: 'mirror', title: 'Mira', other: null, org: null, event: null, ownerFirstName: 'Test',
@@ -121,16 +125,27 @@ describe('rule 9 on the real thread panel composer', () => {
     return mount(<ThreadPanel summary={MIRROR} rootId={ROOT} highlightId={null} />, [MIRROR], `/chats/c/${CONV}/t/${ROOT}`);
   };
 
-  it.each(CANVAS_CASES)('KNOWN-BAD CONTROL: %s flips exactly "%s" while typing', async (_what, button, notes) => {
+  it.each(CANVAS_CASES)('S3: %s keeps every button\'s look while typing (only the send slot changes)', async (_what, _button, notes) => {
     const { container, composer } = await mountCanvas(notes);
     expect(container.querySelector('[data-testid="canvas-opener"]')).not.toBeNull(); // CONTROL: this really is a canvas thread
-    expect(buttonsChangedOnInput(container, composer).map((c) => c.replace(/ \(.*\)$/, ''))).toEqual([`${button}: look`]);
+    expect(buttonsChangedOnInput(container, composer)).toEqual([]);
+    expect(() => assertStableVariantsOnInput(container, composer)).not.toThrow();
   });
 
-  // Slice S3 rebuilds the canvas thread. When it lands each of these turns red: change `it.fails` to `it`.
-  it.fails.each(CANVAS_CASES)('S3 wires this in: %s keeps every button\'s look while typing', async (_what, _button, notes) => {
-    const { container, composer } = await mountCanvas(notes);
-    assertStableVariantsOnInput(container, composer);
+  it('KNOWN-BAD CONTROL on the REAL Composer: a sibling button wired to the composer\'s own sendable signal (the old ladder) is caught', async () => {
+    function OldLadder() {
+      const [typing, setTyping] = useState(false);
+      return (
+        <div>
+          <Button variant={typing ? 'outline' : 'default'}>Create canvas</Button>
+          <Composer draftKey="s6-old-ladder" placeholder="Reply" onSend={() => undefined} onSendableChange={setTyping} />
+        </div>
+      );
+    }
+    localStorage.clear();
+    const { container, composer } = await mount(<OldLadder />, [MIRROR], `/chats/c/${CONV}/t/${ROOT}`);
+    expect(buttonsChangedOnInput(container, composer).map((c) => c.replace(/ \(.*\)$/, ''))).toEqual(['Create canvas: look']);
+    expect(() => assertStableVariantsOnInput(container, composer)).toThrow(/stable-variants.*Create canvas: look/);
   });
 });
 

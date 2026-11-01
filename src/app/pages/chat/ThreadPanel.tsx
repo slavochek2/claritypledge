@@ -19,7 +19,7 @@ import { useMessageActions } from './use-message-actions';
 import { useVoiceSender } from './use-voice-sender';
 import { EventRoomLink } from './EventRoomLink';
 
-export function ThreadPanel({ summary, rootId, highlightId, onClose, hideDraftCard = false }: {
+export function ThreadPanel({ summary, rootId, highlightId, onClose, hideDraftCard = false, fill = false, onRunActive, focusable = true }: {
   summary: ChatSummary;
   rootId: string;
   highlightId: string | null;
@@ -27,6 +27,12 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, hideDraftCa
   onClose?: () => void;
   /** Beside the canvas page the draft card is left out: the draft is on screen, and the page has its own Publish. */
   hideDraftCard?: boolean;
+  /** In the canvas workspace the pane is sized by its frame (full width below 1280px, 440px beside the canvas), not by this panel. */
+  fill?: boolean;
+  /** The workspace's Publish spot reads "Updating…" while a run goes: told whenever that changes. */
+  onRunActive?: (active: boolean) => void;
+  /** False while the panel is out of reach (the workspace's hidden pane below 1280px): it must not take focus on mount. */
+  focusable?: boolean;
 }) {
   const chat = useChat();
   const conversationId = summary.conversationId;
@@ -56,6 +62,12 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, hideDraftCa
     mirrorTitle: summary.title,
     hideDraftCard,
   });
+  const runActive = canvas.runActive;
+  useEffect(() => {
+    onRunActive?.(runActive);
+    // Gone (another thread, a closed draft): what it reported goes with it, so the Publish spot never sticks on "Updating…".
+    return () => onRunActive?.(false);
+  }, [onRunActive, runActive]);
   // P1576: a voice note sent here is a reply in this thread. Not in a canvas draft's thread (P1536): its opener holds
   // the one primary while nothing is typed, and the round voice button would be a second one in the send slot.
   const sendVoice = useVoiceSender(conversationId, !canvasRoot, rootId, undefined);
@@ -69,9 +81,9 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, hideDraftCa
     <section
       aria-label="Thread"
       data-testid="thread-panel"
-      className="flex min-h-0 min-w-0 flex-1 flex-col bg-background lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]"
+      className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col bg-background' : 'flex min-h-0 min-w-0 flex-1 flex-col bg-background lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]'}
     >
-      <ThreadHeader onClose={close} menu={<><EventRoomLink chat={summary} />{canvas.headerMenu}</>}>
+      <ThreadHeader onClose={close} menu={<><EventRoomLink chat={summary} />{canvas.headerMenu}</>} hideFromXl={fill}>
         {canvas.headerTitle ?? (
           <>
             <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
@@ -101,8 +113,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, hideDraftCa
           draftKey={`${chat.userId}:${conversationId}:${rootId}`}
           placeholder="Reply in thread"
           focusToken={focusToken}
-          autoFocus
-          onSendableChange={canvas.setComposing}
+          autoFocus={focusable}
           onSend={(body) => (canvas.send && body ? canvas.send(body) : void conv.send({ body }))}
           onVoiceNote={sendVoice}
           leading={canvas.leading}

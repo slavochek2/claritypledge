@@ -28,7 +28,7 @@ export interface CanvasUploads {
 const UPLOAD_WAIT_TEXT = 'The file did not go through. Wait a minute, then try again.';
 
 /** Posts the file; a failed post (the network) is tried once more after a short random pause, because the announced run is already waiting for it. */
-async function postFile(runId: string, file: File): Promise<Awaited<ReturnType<typeof uploadCanvasMaterial>>> {
+export async function postFile(runId: string, file: File): Promise<Awaited<ReturnType<typeof uploadCanvasMaterial>>> {
   const attempt = async () => {
     try {
       return await uploadCanvasMaterial(runId, file);

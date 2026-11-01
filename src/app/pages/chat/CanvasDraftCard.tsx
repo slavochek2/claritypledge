@@ -1,8 +1,8 @@
 /**
  * @file CanvasDraftCard.tsx
  * @description P1536: the card at the end of a canvas thread once a draft is made: the canvas title, then "v3 · Draft" (the
- * number the next published version will get), then Open (the one primary: the draft's canvas page; an outline while the
- * owner is writing, because Send is the primary then, and while Update draft is offered, because that is) and Publish
+ * number the next published version will get), then Open (the draft's canvas page; an outline while Update draft is offered,
+ * because that is the action then; never different because of what the owner is typing) and Publish
  * (always secondary). It sits after the mirror's reply, in the chat's shared-artifact card look, and is the only place
  * Publish lives.
  */
@@ -21,14 +21,12 @@ interface Props {
   openPath: string | null;
   /** The number the next published version of this canvas gets (v1 for a first canvas), or null when it could not be read. */
   nextSeq?: number | null;
-  /** The composer has text: Send is the one primary now, so Open steps back to an outline (P955). */
-  composing?: boolean;
   /** "Update draft" is offered in the tray: it is the one primary now, so Open steps back to an outline (P955). */
   updating?: boolean;
   onPublish: () => void;
 }
 
-export function CanvasDraftCard({ canvasName, openPath, nextSeq = null, composing = false, updating = false, onPublish }: Props) {
+export function CanvasDraftCard({ canvasName, openPath, nextSeq = null, updating = false, onPublish }: Props) {
   const title = canvasName ? canvasTitle(canvasName) : DRAFT_TITLE_FALLBACK;
   return (
     <div className="mx-2 pb-2 pl-[3.375rem] pr-2 pt-1" data-testid="canvas-draft-card">
@@ -44,7 +42,7 @@ export function CanvasDraftCard({ canvasName, openPath, nextSeq = null, composin
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {openPath && (
-            <Button asChild variant={composing || updating ? 'outline' : 'default'} className="min-h-11">
+            <Button asChild variant={updating ? 'outline' : 'default'} className="min-h-11">
               <Link to={openPath}>{OPEN_LABEL}</Link>
             </Button>
           )}

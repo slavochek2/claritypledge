@@ -3,35 +3,39 @@
  * @description The canvas's nine boxes in three layers (P1535). P1536: on the owner's draft, an empty box shows the question
  * the drafting agent left for the owner (owner only: readers, and the owner on a published version, see a plain empty box).
  */
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { CANVAS_LAYERS, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import type { PointWithUserPosition } from '@/app/types';
 import { CanvasBoxPlaceholder } from '@/app/pages/canvas-page-placeholders';
 import { BoxIcon } from './canvas-box-icon';
 import { BOX_TITLES } from './canvas-page-data';
-import { useCanvasPaneShown } from './canvas-pane-context';
+import { useContainerColumns, type GridColumns } from './use-container-columns';
 
 /** The canvas stays small: a box shows this many cards, and says how many more it holds (R2).
  * P1535 (founder): one card per box, so the whole canvas fits one screen at the event. */
 const BOX_LIMIT = 1;
 
+const COLUMN_CLASS: Record<GridColumns, string> = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3' };
+
 /**
- * P1535: the three layers of three boxes, each under its label, in one grid — three columns from
- * 1024px, two from 640px, one below. Every box is shown, filled or not, so the grid keeps its
+ * P1535: the three layers of three boxes, each under its label, in one grid — columns follow the container (S3.7: under 520px one,
+ * 520 to 719px two, 720px and up three). Every box is shown, filled or not, so the grid keeps its
  * shape. A row is as tall as its tallest box.
  */
-export function CanvasGrid({ boxes, renderCard, onMore, questions }: {
+export function CanvasGrid({ boxes, renderCard, onMore, questions, changed }: {
   /** null while loading (skeletons) */
   boxes: Map<CanvasBoxTag, PointWithUserPosition[]> | null;
   renderCard: (point: PointWithUserPosition) => ReactNode;
   onMore: (box: CanvasBoxTag) => void;
   /** P1536, owner's draft only: the question for each empty box, by box tag */
   questions?: Record<string, string>;
+  /** D6, the owner's draft only: the box tags whose point set differs from the base version's. */
+  changed?: readonly string[];
 }) {
-  // With the draft's thread beside the page the column is about 590px at 1280px: two boxes across, three from 1536px.
-  const columns = useCanvasPaneShown() ? 'sm:grid-cols-2 2xl:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3';
+  const ref = useRef<HTMLDivElement>(null);
+  const columns = useContainerColumns(ref);
   return (
-    <div className={`grid grid-cols-1 gap-2 ${columns}`} data-testid="canvas-grid" aria-busy={boxes === null}>
+    <div ref={ref} className={`grid gap-2 ${COLUMN_CLASS[columns]}`} data-testid="canvas-grid" data-columns={columns} aria-busy={boxes === null}>
       {CANVAS_LAYERS.map((layer, i) => (
         <section key={layer.title} aria-label={layer.title} className="contents" data-testid="canvas-layer">
           {/* Founder, sixth round: the layers did not read as groups — a rule above, a bigger title,
@@ -51,6 +55,7 @@ export function CanvasGrid({ boxes, renderCard, onMore, questions }: {
               renderCard={renderCard}
               onMore={() => onMore(tag)}
               question={questions?.[tag]}
+              changed={changed?.includes(tag) === true}
             />
           ))}
         </section>
@@ -64,7 +69,7 @@ export function CanvasGrid({ boxes, renderCard, onMore, questions }: {
  * which opens the whole box in the panel. An empty box reads "Empty" to everyone (owners change the
  * canvas through their agent, so there is nothing to offer here), except on the owner's draft, where it shows the question.
  */
-function CanvasBox({ tag, title, points, renderCard, onMore, question }: {
+function CanvasBox({ tag, title, points, renderCard, onMore, question, changed }: {
   tag: CanvasBoxTag;
   title: string;
   /** null while loading (skeleton) */
@@ -72,6 +77,7 @@ function CanvasBox({ tag, title, points, renderCard, onMore, question }: {
   renderCard: (point: PointWithUserPosition) => ReactNode;
   onMore: () => void;
   question?: string;
+  changed: boolean;
 }) {
   const headingId = `canvas-box-${tag.replace(':', '-')}`;
   const empty = points !== null && points.length === 0;
@@ -91,7 +97,10 @@ function CanvasBox({ tag, title, points, renderCard, onMore, question }: {
       <div className="mb-1.5 flex min-w-0 items-center gap-2">
         {/* The icon in a small tinted circle, like the pin on every point card. */}
         <BoxIcon tag={tag} className={empty ? 'opacity-60' : ''} />
-        <h3 id={headingId} className={`text-sm font-semibold ${titleColour}`}>{title}</h3>
+        <h3 id={headingId} className={`min-w-0 flex-1 break-words text-sm font-semibold ${titleColour}`}>{title}</h3>
+        {changed && (
+          <span className="shrink-0 rounded-full border border-blue-300 bg-background px-2 py-0.5 text-xs font-medium text-blue-700" data-testid="canvas-box-changed">Changed</span>
+        )}
       </div>
       {points === null ? (
         <CanvasBoxPlaceholder empty={false} />

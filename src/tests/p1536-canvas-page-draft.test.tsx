@@ -2,9 +2,8 @@
  * @file p1536-canvas-page-draft.test.tsx
  * @description P1536 WP4, at page level: a canvas with draft versions.
  *  - labels: the switcher, the byline and the tab title say "v{seq} · {date}" or "v{next} · Draft", never the internal name
- *  - the draft's Publish (in the header, where Share sits on a published version) and the boxes' questions are the OWNER's, on the draft version only
+ *  - the boxes' questions are the OWNER's, on the draft version only; the page carries no Publish (S3: its one spot is the workspace bar, p1536-canvas-workspace.test.tsx)
  *  - a draft has no Share, no Compare and no positions (spread rows, position buttons); a published version keeps all three
- *  - Publish calls canvas_draft_publish, then the page reads the published version (no `?v` of the draft)
  *  - nothing published: readers read "<Name> hasn't published this canvas yet." (not a 404); the owner reads "Nothing published yet" and has no share control and no "Publish first" text
  *  - "New version" starts a canvas thread from the version on screen
  * Each "only" has a control showing the same thing present where it should be.
@@ -38,8 +37,8 @@ vi.mock('@/app/contexts/agent-accounts-context', () => ({ useAgentAccountIds: ()
 vi.mock('@/app/components/seo', () => ({ SEO: ({ title }: { title: string }) => { seoTitle.value = title; return null; } }));
 vi.mock('@/app/pages/not-found-page', () => ({ NotFoundPage: () => <div data-testid="canvas-not-found">not found</div> }));
 vi.mock('@/app/components/feed/feed-point-card', () => ({
-  FeedPointCard: ({ canvas, spread }: { canvas?: { noPositions?: boolean }; spread?: React.ReactNode }) => (
-    <div data-testid="point-card" data-no-positions={String(!!canvas?.noPositions)}>{spread}</div>
+  FeedPointCard: ({ canvas, spread }: { canvas?: { noPositions?: boolean; reader?: boolean; readOnly?: boolean }; spread?: React.ReactNode }) => (
+    <div data-testid="point-card" data-no-positions={String(!!canvas?.noPositions)} data-reader={String(!!canvas?.reader)} data-read-only={String(!!canvas?.readOnly)}>{spread}</div>
   ),
 }));
 vi.mock('@/app/components/social/point-positions-block', () => ({ PointPositionsBlock: () => <div data-testid="positions-block" /> }));
@@ -154,7 +153,7 @@ describe('labels: a version is a number and a date, or "v{next} · Draft", never
 });
 
 describe('Publish and the questions are the owner\'s, on the draft only', () => {
-  it('the owner on the draft sees one Publish in the header (no banner, no "Only you can see this"), no way-back link, and the question (no label) inside the empty box', async () => {
+  it('the owner on the draft sees no Publish in the page header (it lives in the workspace bar), no banner, no way-back link, and the question (no label) inside the empty box', async () => {
     getCanvas.mockResolvedValue(draftView());
     page();
     await ready();
@@ -162,9 +161,10 @@ describe('Publish and the questions are the owner\'s, on the draft only', () => 
     expect(screen.getByTestId('canvas-header-row')).not.toHaveTextContent('Only you can see this');
     expect(screen.queryByTestId('canvas-draft-empty')).toBeNull(); // there are points
     expect(screen.queryByTestId('canvas-draft-thread-link')).toBeNull(); // founder copy: no "Back to the thread" on the page
-    const actions = screen.getByTestId('canvas-actions');
-    expect(within(actions).getAllByRole('button')).toHaveLength(1); // one primary: Publish, where Share sits on a published version
-    expect(within(actions).getByTestId('canvas-draft-publish')).toHaveTextContent('Publish');
+    // S3 / D3: Publish has ONE spot, the workspace bar. The page's header has no actions row on a draft.
+    expect(screen.queryByTestId('canvas-actions')).toBeNull();
+    expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();
+    expect(screen.queryByTestId('canvas-draft-revise')).toBeNull(); // D4: "Revise in chat" is gone with the pane gate
     const box = screen.getByTestId('canvas-box-canvas:love');
     expect(within(box).getByTestId('canvas-box-question')).toHaveTextContent(/^What do you keep doing even when it costs you\?$/); // the question alone, no "Question for you" label
     // an empty box with no question is a plain empty box
@@ -196,7 +196,7 @@ describe('Publish and the questions are the owner\'s, on the draft only', () => 
     await ready();
     expect(screen.getByTestId('canvas-draft-empty')).toHaveTextContent('Nothing is drafted yet.');
     expect(screen.queryByTestId('canvas-draft-thread-link')).toBeNull();
-    expect(within(screen.getByTestId('canvas-actions')).queryByRole('button')).toBeNull(); // no Publish (the thread link is a link)
+    expect(screen.queryByTestId('canvas-actions')).toBeNull();
     expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();
   });
 });
@@ -215,7 +215,7 @@ describe('a draft has no Share, no Compare and no positions; a published version
     expect(screen.queryByTestId('canvas-compare-picker')).toBeNull();
     expect(screen.getByTestId('canvas-point-card-p-canvas:problem')).toBeInTheDocument();
     expect(screen.queryByTestId('canvas-card-spread-row')).toBeNull();
-    expect(screen.getByTestId('canvas-draft-publish')).toBeInTheDocument();
+    expect(screen.queryByTestId('canvas-draft-publish')).toBeNull(); // Publish is in the workspace bar, not the page
   });
 
   it('a draft ignores ?with=: the cards carry no compare columns', async () => {
@@ -225,14 +225,32 @@ describe('a draft has no Share, no Compare and no positions; a published version
     expect(screen.queryByTestId('canvas-card-compare')).toBeNull();
   });
 
-  it('the open point of a draft has no spread row, no positions block and no position buttons (the card is told so)', async () => {
+  it('D20: the open point of the owner\'s draft has no spread row and no positions block, but the OWNER\'s stance control (the card is told positions are on)', async () => {
     getCanvas.mockResolvedValue(draftView(withPositions()));
     page(`/p/ana/canvas/canvas?v=${DRAFT_NAME}&point=p-canvas:problem`);
     const card = await screen.findByTestId('point-card');
-    expect(card).toHaveAttribute('data-no-positions', 'true');
+    expect(card).toHaveAttribute('data-no-positions', 'false'); // was 'true' before D20: the owner marks their own stance before Publish
+    expect(card).toHaveAttribute('data-reader', 'false'); // the owner's, never a reader's
+    expect(card).toHaveAttribute('data-read-only', 'false');
     expect(within(card).queryByTestId('canvas-card-spread-row')).toBeNull();
     expect(card.children).toHaveLength(0); // the spread slot is empty
     expect(screen.queryByTestId('positions-block')).toBeNull();
+  });
+
+  it('D20 CONTROL: a signed-out visitor never gets the stance control (the card is told no positions)', async () => {
+    auth.viewerId = null;
+    getCanvas.mockResolvedValue(view({ isOwner: false, generalAccess: 'link', via: null }));
+    page(`/p/ana/canvas/canvas?point=p-canvas:problem`);
+    expect(await screen.findByTestId('point-card')).toHaveAttribute('data-no-positions', 'true');
+  });
+
+  it('D20 CONTROL: a reader of a published canvas gets a READER\'s card (the owner\'s stance control is the owner\'s only)', async () => {
+    auth.viewerId = 'reader-1';
+    getCanvas.mockResolvedValue(view({ isOwner: false, via: { kind: 'event', id: 'e1', name: 'Mastermind', slug: 'mastermind' } }));
+    page(`/p/ana/canvas/canvas?point=p-canvas:problem`);
+    const card = await screen.findByTestId('point-card');
+    expect(card).toHaveAttribute('data-reader', 'true');
+    expect(card).toHaveAttribute('data-no-positions', 'false'); // readers take positions on a PUBLISHED canvas, as before
   });
 
   it('CONTROL: the same canvas published keeps Share, Compare, the card spread row, the panel\'s spread and positions block', async () => {
@@ -245,48 +263,6 @@ describe('a draft has no Share, no Compare and no positions; a published version
     expect(screen.getByTestId('share-control')).toBeInTheDocument();
     expect(screen.getByTestId('canvas-compare-picker')).toBeInTheDocument();
     expect(screen.getByTestId('canvas-card-spread-row')).toBeInTheDocument();
-  });
-});
-
-describe('Publish', () => {
-  it('calls canvas_draft_publish for the draft, then reads the published version (the draft\'s ?v is dropped)', async () => {
-    rpc.mockImplementation(async (name: string) => (name === 'canvas_draft_publish' ? { data: { seq: 1, skipped_links: 0 }, error: null } : { data: null, error: null }));
-    getCanvas.mockResolvedValue(draftView());
-    page(`/p/ana/canvas/canvas?v=${DRAFT_NAME}`);
-    await ready();
-    expect(getCanvas.mock.calls.at(-1)![4]).toBe(DRAFT_NAME);
-    getCanvas.mockResolvedValue(view());
-    fireEvent.click(screen.getByTestId('canvas-draft-publish'));
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith('canvas_draft_publish', { p_draft: 'draft-1', p_expected_revision: 0 }));
-    // the page reads again (a moment of loading: no Publish and no grid), then shows the published version (the tab title names it)
-    await waitFor(() => expect(seoTitle.value).toContain('v1 · Oct')); // the published label has a date; the draft's "v1 · Draft" has none
-    expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();
-    expect(screen.getByTestId('where')).not.toHaveTextContent('canvas_d');
-    expect(getCanvas.mock.calls.at(-1)![4]).toBeUndefined(); // no version named: the newest published opens
-  });
-
-  it('Publish drops only the draft\'s ?v: the `thread` param stays, so the pane beside the canvas still shows the thread', async () => {
-    rpc.mockImplementation(async (name: string) => (name === 'canvas_draft_publish' ? { data: { seq: 1, skipped_links: 0 }, error: null } : { data: null, error: null }));
-    getCanvas.mockResolvedValue(draftView());
-    page(`/p/ana/canvas/canvas?v=${DRAFT_NAME}&thread=root-1`);
-    await ready();
-    getCanvas.mockResolvedValue(view());
-    fireEvent.click(screen.getByTestId('canvas-draft-publish'));
-    await waitFor(() => expect(seoTitle.value).toContain('v1 · Oct'));
-    expect(screen.getByTestId('where')).toHaveTextContent('thread=root-1');
-    expect(screen.getByTestId('where')).not.toHaveTextContent('canvas_d');
-  });
-
-  it('a refusal is said in words and the draft stays', async () => {
-    rpc.mockImplementation(async (name: string) => (name === 'canvas_draft_publish'
-      ? { data: null, error: { code: '55006', message: 'a run is active' } }
-      : { data: null, error: null }));
-    getCanvas.mockResolvedValue(draftView());
-    page();
-    await ready();
-    fireEvent.click(screen.getByTestId('canvas-draft-publish'));
-    expect(await screen.findByTestId('canvas-draft-error')).toHaveTextContent('being written right now');
-    expect(screen.getByTestId('canvas-draft-publish')).toBeInTheDocument();
   });
 });
 
@@ -376,7 +352,7 @@ describe('P955 gate fixture /tree/_gate/canvas-draft', () => {
   const primaries = () => Array.from(document.querySelectorAll('button')).filter(b => b.className.includes('bg-blue-600'));
 
   it.each([
-    ['draft', 'canvas-draft-publish', 1],
+    ['draft', 'canvas-grid', 0], // Publish is not on this page: its one spot is the workspace bar
     ['draft-empty', 'canvas-draft-empty', 0],
     ['nothing-published-reader', 'canvas-nothing-published', 0],
     ['nothing-published-owner', 'canvas-nothing-published', 0],
@@ -424,48 +400,32 @@ describe('review B10: visual QA fixes', () => {
     expect(Array.from(document.querySelectorAll('button')).filter(b => b.disabled)).toHaveLength(0);
   });
 
-  it('D4: the draft page has no "Back to the thread" banner link (founder copy); its Publish stays a tap target of at least 44px', async () => {
+  it('D4: the draft page has no "Back to the thread" banner link (founder copy) and no actions row at all', async () => {
     getCanvas.mockResolvedValue(draftView());
     page(`/p/ana/canvas/canvas?v=${DRAFT_NAME}`);
     await ready();
-    const actions = screen.getByTestId('canvas-actions');
     expect(screen.queryByTestId('canvas-draft-thread-link')).toBeNull();
     expect(screen.getByTestId('canvas-header-row')).not.toHaveTextContent(/Back to the thread/);
-    expect(within(actions).getByTestId('canvas-draft-publish').className).toContain('min-h-11');
+    expect(screen.queryByTestId('canvas-actions')).toBeNull();
   });
 
-  it('with the thread not beside the page, the draft page links to the thread: "Revise in chat" (an outline) next to Publish; a published version has no such link', async () => {
+  it('D4: "Revise in chat" is gone (the chat is the workspace\'s other pane); neither a draft nor a published version links to the thread from the page', async () => {
     getCanvas.mockResolvedValue(draftView());
     page(`/p/ana/canvas/canvas?v=${DRAFT_NAME}`);
     await ready();
-    const actions = screen.getByTestId('canvas-actions');
-    const link = within(actions).getByRole('link', { name: 'Revise in chat' });
-    expect(link).toHaveAttribute('href', '/chats/c/conv-1/t/root-1'); // the draft's conversation and thread
-    expect(link.className).toContain('border-blue-600');
-    expect(link.className).not.toContain('bg-blue-600'); // an outline: Publish is the one filled primary
-    expect(Array.from(actions.children).map(c => c.getAttribute('data-testid'))).toEqual(['canvas-draft-revise', 'canvas-draft-publish']);
+    expect(screen.queryByRole('link', { name: 'Revise in chat' })).toBeNull();
     cleanup();
     getCanvas.mockResolvedValue(view({ draft: draftBlock }));
     page();
     await ready();
-    expect(screen.queryByTestId('canvas-draft-revise')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Revise in chat' })).toBeNull();
   });
 
-  it('a draft with nothing drafted still links to its thread (that is where it gets made), without a Publish', async () => {
-    getCanvas.mockResolvedValue(draftView({ points: [], draft: { ...draftBlock, runCount: 0, questions: {} } }));
-    page();
-    await ready();
-    expect(screen.getByRole('link', { name: 'Revise in chat' })).toBeInTheDocument();
-    expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();
-  });
-
-  it('V11: Publish is the one filled primary in the header row (blue, like Share\'s place), and nothing blue-tinted frames it', async () => {
+  it('V11: no filled primary in the header row of a draft (Publish is filled in the workspace bar, the one filled action)', async () => {
     getCanvas.mockResolvedValue(draftView());
     page(`/p/ana/canvas/canvas?v=${DRAFT_NAME}`);
     await ready();
-    const publish = screen.getByTestId('canvas-draft-publish');
-    expect(publish.className).toContain('bg-blue-600');
-    expect(Array.from(screen.getByTestId('canvas-header-row').querySelectorAll('button')).filter(b => b.className.includes('bg-blue-600'))).toEqual([publish]);
+    expect(Array.from(screen.getByTestId('canvas-header-row').querySelectorAll('button')).filter(b => b.className.includes('bg-blue-600'))).toEqual([]);
   });
 
   it('V10: at phone width the owner name wraps or takes the free width instead of truncating to "by Test ...", and a lone "Draft" label keeps its own width', async () => {
@@ -474,7 +434,7 @@ describe('review B10: visual QA fixes', () => {
     await ready();
     const name = screen.getByTestId('canvas-owner-name').parentElement as HTMLElement;
     expect(name.className.split(/\s+/)).not.toContain('truncate'); // only from sm up: `sm:truncate`
-    expect(name.className).toContain('max-sm:break-words');
+    expect(name.className).toContain('break-normal'); // S3.6: breaks between words only
     const slot = screen.getByTestId('canvas-project-slot').className.split(/\s+/);
     expect(slot).toContain('max-sm:flex-none'); // not an equal share of the row with the name
     expect(slot).not.toContain('max-sm:flex-1');

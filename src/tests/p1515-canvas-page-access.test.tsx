@@ -829,20 +829,24 @@ describe('P1515 phase 4: the header row', () => {
     expect(getTags).not.toHaveBeenCalled(); // the page no longer reads the owner's canvas list
   });
 
-  it('V1/V2: the switcher has a visible border (outline button) and keeps its muted fill; on a phone it takes the row beside Share (flex-1, Share shrink-0 and ordered next to it)', async () => {
+  it('V1/V2: the switcher has a visible border (outline button) and keeps its muted fill; on a phone it is a compact inline chip (N1), and the actions (Compare, Share) are a row of their own (P1536 S3.6)', async () => {
     auth.viewerId = 'owner-1';
     getCanvas.mockResolvedValue(canvasView(true, { positions: withOtherPosition(), ...versions2 }));
     page();
     await grid();
     const picker = screen.getByTestId('canvas-version-picker');
-    expect(picker.className).toMatch(/border-foreground\/40/);
+    expect(picker.className).toMatch(/border-border/);
     expect(picker.className).toMatch(/bg-muted/);
-    expect(screen.getByTestId('canvas-project-slot').className).toMatch(/max-sm:flex-1/);
-    expect(screen.getByTestId('canvas-project-slot').className).toMatch(/max-sm:order-2/);
-    expect(screen.getByTestId('canvas-controls').className).toMatch(/max-sm:order-4/); // Compare drops under the picker row
-    expect(screen.getByTestId('canvas-controls').className).toMatch(/max-sm:basis-full/); // and takes its own line, so the picker is not squeezed
-    expect(screen.getByTestId('canvas-byline').className).toMatch(/max-sm:contents/);
-    expect(screen.getByTestId('canvas-actions').className).toMatch(/max-sm:contents/);
+    expect(screen.getByTestId('canvas-project-slot').className).not.toMatch(/max-sm:w-full/); // N1: a chip after the name, not a full-width pill
+    expect(picker.className).not.toMatch(/max-sm:w-full/);
+    // Compare lives in the actions row, a row of its own under the byline: it needs no order/basis classes to drop under the picker
+    expect(screen.getByTestId('canvas-controls').className).not.toMatch(/max-sm:(?:order|basis)/);
+    expect(screen.getByTestId('canvas-actions').contains(screen.getByTestId('canvas-controls'))).toBe(true);
+    // S3.6: the byline is its own row and keeps its own box (it is no longer flattened into the actions' row), and holds no buttons.
+    expect(screen.getByTestId('canvas-byline').className).not.toMatch(/max-sm:contents/);
+    expect(screen.getByTestId('canvas-actions').className).not.toMatch(/max-sm:contents/);
+    expect(screen.getByTestId('canvas-byline').contains(screen.getByTestId('canvas-actions'))).toBe(false);
+    expect(within(screen.getByTestId('canvas-byline')).queryAllByRole('button')).toEqual([]);
   });
 });
 
@@ -863,26 +867,28 @@ describe('P1545: the canvas title', () => {
   });
 });
 
-describe('P1545: the share circle beside the byline on a phone', () => {
-  it('with one version the owner line fills the row (flex-1), so the circle sits on the same line, right-aligned', async () => {
+describe('P1545 / P1536 S3.6: the byline and the share circle', () => {
+  it('the owner line is only the avatar and a name that wraps between words (never inside one); Share sits in the actions row, outside the byline', async () => {
     auth.viewerId = 'owner-1';
     getCanvas.mockResolvedValue(canvasView(true));
     page();
     await grid();
     const owner = screen.getByTestId('canvas-owner');
-    expect(owner.className).toMatch(/max-sm:flex-1/);
-    expect(owner.className).not.toMatch(/max-sm:w-full/);
-    expect(owner.className).toMatch(/max-sm:order-1/);
-    expect(screen.getByTestId('share-control').parentElement!.className).toMatch(/max-sm:contents/); // the button joins the header row's flow
+    expect(owner.querySelector('span.break-normal')).not.toBeNull(); // the name: overflow-wrap normal, so it breaks only between words
+    expect(owner.querySelector('.break-words')).toBeNull();
+    const byline = screen.getByTestId('canvas-byline');
+    expect(within(byline).queryAllByRole('button')).toEqual([]);
+    expect(byline.contains(screen.getByTestId('share-control'))).toBe(false);
+    expect(screen.getByTestId('canvas-actions').contains(screen.getByTestId('share-control'))).toBe(true);
   });
 
-  it('CONTROL: with a version switcher the owner keeps its own line, and the switcher takes the row beside Share', async () => {
+  it('CONTROL: with a version switcher the byline still holds no button, and the switcher stays a compact chip on a phone', async () => {
     auth.viewerId = 'owner-1';
     getCanvas.mockResolvedValue(canvasView(true, { version: 'sales_v2', versions: [{ name: 'sales_v2', createdAt: '2026-10-22T10:00:00Z' }, { name: 'sales', createdAt: '2026-10-01T10:00:00Z' }] }));
     page();
     await grid();
-    expect(screen.getByTestId('canvas-owner').className).toMatch(/max-sm:w-full/);
-    expect(screen.getByTestId('canvas-owner').className).not.toMatch(/max-sm:flex-1/);
+    expect(screen.getByTestId('canvas-project-slot').className).not.toMatch(/max-sm:w-full/);
+    expect(within(screen.getByTestId('canvas-byline')).queryAllByRole('button')).toEqual([]);
   });
 });
 
@@ -947,7 +953,7 @@ describe('P1515 phase 5: the version switcher', () => {
     await waitFor(() => expect(getCanvas.mock.calls.at(-1)![4]).toBe('sales'));
   });
 
-  it('X1: the dropdown lists the versions of THIS canvas only, for the owner too: no canvas picker even when the owner has other canvases; it takes the full line on a phone', async () => {
+  it('X1: the dropdown lists the versions of THIS canvas only, for the owner too: no canvas picker even when the owner has other canvases; it is a compact chip on a phone (not a full-width pill)', async () => {
     auth.viewerId = 'owner-1';
     getTags.mockResolvedValue(['sales', 'sales_v2', 'other']);
     getCanvas.mockResolvedValue(canvasView(true, two));
@@ -957,7 +963,7 @@ describe('P1515 phase 5: the version switcher', () => {
     expect(screen.queryByRole('combobox', { name: 'Canvas' })).toBeNull();
     const versions = within(screen.getByTestId('canvas-version-picker')).getByRole('combobox', { name: 'Version' });
     expect(within(versions).getAllByRole('option').map(o => (o as HTMLOptionElement).value)).toEqual(['sales_v2', 'sales']);
-    expect(screen.getByTestId('canvas-version-picker').className).toMatch(/max-sm:w-full/);
+    expect(screen.getByTestId('canvas-version-picker').className).not.toMatch(/max-sm:w-full/);
   });
 
   it('X1b: an owner with ONE canvas (several versions) sees only the version switcher', async () => {

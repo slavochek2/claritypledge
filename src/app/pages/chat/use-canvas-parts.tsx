@@ -7,7 +7,6 @@ import type { ReactNode } from 'react';
 import type { ChatMessage } from '@/app/data/chat-service';
 import { CanvasDraftEnd, CanvasThreadBar, CanvasThreadReadState } from './canvas-thread';
 import { CanvasThreadOpener } from './CanvasOpener';
-import { openerIsPrimary } from './canvas-items';
 import { CanvasDraftMenu, CanvasThreadTitle } from './CanvasThreadHeader';
 import { CanvasUploadButton } from './CanvasUploadButton';
 import { useCanvasPane } from './use-canvas-pane';
@@ -27,14 +26,14 @@ function trayOf(p: Pane): ReactNode {
 
 export function useCanvasParts(args: { canvasRoot: boolean; rootId: string; messages: ChatMessage[]; userId: string; ownerSlug: string | null | undefined; mirrorTitle: string | null | undefined; hideDraftCard?: boolean }) {
   const pane = useCanvasPane(args);
-  const { canvas, canvasOn, bar, composing, uploader, onDiscard } = pane;
+  const { canvas, canvasOn, bar, uploader, onDiscard } = pane;
   const live = canvasOn === true ? canvas : null;
   return {
     /** The header's title for a canvas thread; null: the ordinary "Thread" title. */
     headerTitle: live ? <CanvasThreadTitle draft={live.draft} ownerSlug={args.ownerSlug} /> : null,
     headerMenu: onDiscard ? <CanvasDraftMenu onDiscard={onDiscard} /> : undefined,
     list: {
-      lead: live ? <CanvasThreadOpener title={args.mirrorTitle} primary={!!bar && openerIsPrimary(bar, composing)} /> : undefined,
+      lead: live ? <CanvasThreadOpener title={args.mirrorTitle} /> : undefined,
       // An update's root is the base version: its card comes first, then the opener (a new canvas has no card, the opener is first).
       leadAfterId: live?.draft.baseVersionId ? args.rootId : null,
       tail: bar && !args.hideDraftCard ? <CanvasDraftEnd {...bar} /> : undefined,
@@ -44,7 +43,8 @@ export function useCanvasParts(args: { canvasRoot: boolean; rootId: string; mess
     tray: trayOf(pane),
     /** The composer's Upload button, while the draft takes files. */
     leading: live?.draft.state === 'open' ? <CanvasUploadButton busy={uploader.busy} onPick={(f) => void uploader.upload(f)} /> : undefined,
-    setComposing: pane.setComposing,
+    /** A run is going, this tray's own request, or a file is being added (D15: Publish waits): the workspace's Publish spot reads "Updating…" meanwhile. */
+    runActive: !!live && (live.running || !!bar?.busy || uploader.busy),
     /** Sends a text message into the open draft (message + run in one call); null: the chat's own send is used. */
     send: live ? pane.onSend : null,
   };

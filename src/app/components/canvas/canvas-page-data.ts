@@ -111,6 +111,11 @@ export function draftQuestions(ready: CanvasReady): Record<string, string> | und
   return isViewingDraft(ready) ? ready.draft?.questions : undefined;
 }
 
+/** D6: the boxes that show "Changed": only on the owner's own draft view (computed by the read, never stored); no base, no markers. */
+export function changedBoxes(ready: CanvasReady | null): readonly string[] | undefined {
+  return ready && isViewingDraft(ready) ? ready.draft?.changedBoxes : undefined;
+}
+
 /** The number the open draft gets when published: one above the newest published version (the server's rule). */
 export function nextSeqOf(versions: Pick<CanvasVersion, 'seq' | 'draft'>[]): number {
   return versions.reduce((top, v) => (v.draft || v.seq == null ? top : Math.max(top, v.seq)), 0) + 1;

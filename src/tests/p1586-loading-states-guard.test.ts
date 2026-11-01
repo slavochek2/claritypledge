@@ -201,6 +201,10 @@ const ALLOWLIST: Record<string, { counts: Partial<Record<Kind, number>>; why: st
     counts: { 'loose-spinner': 1 },
     why: 'P1536: the canvas thread progress line ("Creating your canvas…", "Publishing…"): an operation label with its small spinner while a draft run or a publish works. The first read of the tray is a <Skeleton>.',
   },
+  'src/app/components/canvas/canvas-publish-spot.tsx': {
+    counts: { 'loose-spinner': 1 },
+    why: 'P1536: the workspace bar\'s Publish spot, in the states where work is going ("Updating…", "Publishing…"): the status label with its small muted spinner, in the spot\'s own fixed box, in the place of the Publish button (rule 9: a status replaces the button, it is not a disabled one). The spot\'s own first read is a <Skeleton> in the same box.',
+  },
   'src/app/components/shared/banner/BannerControls.tsx': {
     counts: { 'loose-spinner': 1 },
     why: 'The "Generating banner" pill replaces the edit pencil while a banner is generated: a control showing its own work.',

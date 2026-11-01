@@ -41,8 +41,6 @@ export interface BarProps {
   newInput?: boolean;
   /** The owner wrote in the thread after it was published. */
   askedAfterPublish: boolean;
-  /** The composer has text: Send is the one primary now, so the tray's own action steps back to an outline (P955). */
-  composing?: boolean;
   /** A request of this bar's own is in flight. */
   busy: Busy;
   /** A sentence about what just happened that the owner should read. */
@@ -115,7 +113,7 @@ function Notice({ text }: { text: string }) {
 
 /** The sheet of an open draft at rest: the rows and their create action. Null when there is nothing to show. */
 function OpenTray(p: BarProps) {
-  const { draft, run, items, composing = false, notice, onRun } = p;
+  const { draft, run, items, notice, onRun } = p;
   const done = isDone(p);
   // A file being read or refused this session is always shown: the rows are the only progress an upload has.
   const uploading = items.some((i) => i.kind === 'file' && i.status !== 'read');
@@ -128,14 +126,14 @@ function OpenTray(p: BarProps) {
     <div className={SHEET} data-testid="canvas-bar">
       {runNote && <RunNote run={runNote} hasDraft={done} />}
       {rows && <CanvasMaterialList rows={items} />}
-      {actionOffered(p) && <CanvasCreateBar hasBase={draft.baseVersionId !== null} revising={done} composing={composing} onRun={onRun} />}
+      {actionOffered(p) && <CanvasCreateBar hasBase={draft.baseVersionId !== null} revising={done} onRun={onRun} />}
       {notice && <Notice text={notice} />}
     </div>
   );
 }
 
 /** A closed draft: one quiet line (and, for a published one the owner wrote after, the way to a new version). */
-function ClosedStrip({ draft, askedAfterPublish, composing, notice, onStartNew }: BarProps) {
+function ClosedStrip({ draft, askedAfterPublish, notice, onStartNew }: BarProps) {
   return (
     <div className={STRIP} data-testid="canvas-bar">
       {draft.state === 'discarded' ? (
@@ -143,7 +141,7 @@ function ClosedStrip({ draft, askedAfterPublish, composing, notice, onStartNew }
       ) : askedAfterPublish ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <p className="min-w-0 flex-1 text-sm text-foreground">{PUBLISHED_QUESTION}</p>
-          <Button variant={composing ? 'outline' : 'default'} className="min-h-11" onClick={onStartNew}>
+          <Button variant="default" className="min-h-11" onClick={onStartNew}>
             {NEW_VERSION_LABEL}
           </Button>
         </div>
@@ -181,5 +179,5 @@ export function CanvasThreadBar(props: BarProps) {
 /** The draft card at the end of the thread: shown for an open, finished draft while no run or request is going. */
 export function CanvasDraftEnd(props: BarProps) {
   if (props.draft.state !== 'open' || props.running || props.busy || !isDone(props)) return null;
-  return <CanvasDraftCard canvasName={props.draft.canvasName} openPath={props.viewDraftPath ?? null} nextSeq={props.nextSeq ?? null} composing={props.composing} updating={updateOffered(props)} onPublish={props.onPublish} />;
+  return <CanvasDraftCard canvasName={props.draft.canvasName} openPath={props.viewDraftPath ?? null} nextSeq={props.nextSeq ?? null} updating={updateOffered(props)} onPublish={props.onPublish} />;
 }

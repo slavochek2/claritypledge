@@ -40,6 +40,7 @@ const NewLivePrototype = lazy(() => import("@/app/pages/prototypes/new-live-prot
 const LinksMenuPrototype = lazy(() => import("@/app/pages/prototypes/links-menu-prototype").then(m => ({ default: m.LinksMenuPrototype })));
 const AdminUsersPrototype = lazy(() => import("@/app/pages/prototypes/admin-users-prototype").then(m => ({ default: m.AdminUsersPrototype })));
 const GateFixtureCanvasThread = lazy(() => import("@/app/tree/_gate/canvas-thread/GateFixture").then(m => ({ default: m.GateFixture })));
+const GateFixtureCanvasWorkspace = lazy(() => import("@/app/tree/_gate/canvas-workspace/GateFixture").then(m => ({ default: m.GateFixture })));
 const GateFixtureCanvasDraft = lazy(() => import("@/app/tree/_gate/canvas-draft/GateFixture").then(m => ({ default: m.GateFixture })));
 
 type LazyRouteComponent = ComponentType<{ children: ReactNode }>;
@@ -79,6 +80,7 @@ function hubAndFixtureRoutes(LazyRoute: LazyRouteComponent) {
       {import.meta.env.DEV && <Route path="/tree/design-blue" element={<LazyRoute><DesignBluePage /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/_gate/terms-update" element={<LazyRoute><GateFixtureTermsUpdate /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/_gate/canvas-thread" element={<LazyRoute><GateFixtureCanvasThread /></LazyRoute>} />}
+      {import.meta.env.DEV && <Route path="/tree/_gate/canvas-workspace" element={<LazyRoute><GateFixtureCanvasWorkspace /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/_gate/canvas-draft" element={<LazyRoute><GateFixtureCanvasDraft /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/design-audit" element={<LazyRoute><DesignAuditPage /></LazyRoute>} />}
     </>

@@ -7,6 +7,11 @@
 /** P1512: an open conversation is a focus page (its own header and composer); the chat LIST (/chats) keeps the bar. */
 export const CHAT_CONVERSATION_PREFIX = '/chats/c/';
 
+/** P1536: an owner's canvas page (`/p/:handle/canvas/:tag`). With the `?ws=1` marker it is the workspace: canvas and chat on one screen. */
+const CANVAS_PAGE = /^\/p\/[^/]+\/canvas\/[^/]+\/?$/;
+/** The address marker of the workspace (D4). */
+export const CANVAS_WORKSPACE_PARAM = 'ws';
+
 /**
  * True on the routes where the BottomNav hides itself (focus pages with their own header or
  * action bar). P1387: exported so the layout reserves bottom padding by the SAME rule — two
@@ -62,6 +67,9 @@ export function isBottomNavHiddenRoute(pathname: string, search: string): boolea
     // EXACT: one segment only, so /stakeholders or /stake/x/y are not swallowed.
     || /^\/stake\/[^/]+\/?$/.test(pathname);
   const completedLetterReading = letterDone && pathname.startsWith('/letter/');
+  // P1536 D4: the canvas workspace carries its own sticky bar and composer. The event-day strip rides inside BottomNav
+  // and the layout's bottom padding reads this same predicate, so one rule hides all three.
+  if (new URLSearchParams(search).get(CANVAS_WORKSPACE_PARAM) === '1' && CANVAS_PAGE.test(pathname)) return true;
   // P1387: the finished preparation (?done=1) keeps the bar hidden — it covered the end screen's
   // pinned row on every phone. (P1336 had brought it back there.)
   return onFocusRoute && !completedLetterReading;

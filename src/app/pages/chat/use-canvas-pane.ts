@@ -1,10 +1,9 @@
 /**
  * P1536: the state a thread panel needs to host a canvas draft, in one hook: the thread is made known to the mirror, the
- * draft is read, files are uploaded, the draft's actions are wired (use-canvas-actions), and whether the composer has text
- * is kept (the tray and the opener step their primary back while Send is the primary). What to draw from it is
+ * draft is read, files are uploaded, and the draft's actions are wired (use-canvas-actions). What to draw from it is
  * use-canvas-parts.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { CanvasMaterialItem } from '@/app/data/canvas-draft-service';
 import type { ChatMessage } from '@/app/data/chat-service';
 import { registerCanvasThread } from './canvas-thread-registry';
@@ -24,7 +23,6 @@ export function useCanvasPane({ canvasRoot, rootId, messages, userId }: { canvas
   const canvasOn = useCanvasDraftAvailability(canvasRoot);
   const reloadCanvas = canvas?.reload;
   const uploader = useCanvasUploads(canvas?.draft ?? null, useCallback(() => reloadCanvas?.() ?? Promise.resolve(), [reloadCanvas]), canvas?.material ?? NO_MATERIAL);
-  const [composing, setComposing] = useState(false);
-  const actions = useCanvasActions({ thread: canvas, available: canvasOn, messages, ownerId: userId, rootId, uploads: uploader.uploads, composing });
-  return { read, canvas, canvasOn, uploader, composing, setComposing, ...actions };
+  const actions = useCanvasActions({ thread: canvas, available: canvasOn, messages, ownerId: userId, rootId, uploads: uploader.uploads });
+  return { read, canvas, canvasOn, uploader, ...actions };
 }

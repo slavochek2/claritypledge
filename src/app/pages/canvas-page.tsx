@@ -53,8 +53,6 @@ import { getProfileBySlugResult } from '@/app/data/api';
 import { toast } from 'sonner';
 import { linkTokenFromAddress, linkTokenVersion, readLinkToken, storeLinkToken, subscribeLinkTokens } from '@/lib/canvas-link-token';
 import { canvasService, type AudienceEntry } from '@/app/data/canvas-service';
-import { calibrationService } from '@/app/data/calibration-service';
-import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import { FeedPointCard, type FeedPointCardCanvas, type FeedPointCardOwner } from '@/app/components/feed/feed-point-card';
 import { type PositionFilter } from '@/app/components/shared';
 import { PointSpreadRow } from '@/app/components/shared/position-spread';
@@ -70,16 +68,17 @@ import { CanvasGrid } from '@/app/components/canvas/canvas-grid';
 import { CanvasCard } from '@/app/components/canvas/canvas-card';
 import { PointPanel } from '@/app/components/canvas/canvas-point-panel';
 import {
-  BOX_TITLES, buildReady, canvasSeoTitle, compareSetup, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, sortBoxesByContest,
+  BOX_TITLES, buildReady, canvasSeoTitle, changedBoxes, compareSetup, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, sortBoxesByContest,
   type CanvasData,
 } from '@/app/components/canvas/canvas-page-data';
 import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
 import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasPath, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import type { PointWithUserPosition } from '@/app/types';
-import { ARTIFACTS_CANVASES_MINE } from '@/app/pages/artifacts/legacy-redirect-targets';
-import { FocusHeader } from '@/app/components/layout/focus-header';
+import { CanvasPageBack } from '@/app/components/canvas/canvas-page-back';
 import { useMarkCanvasRead } from './canvas/canvas-page-read';
 import { useCanvasDraftSync } from './canvas/use-canvas-draft-sync';
+import { useOwnerIdentity } from './canvas/use-owner-identity';
+import { canvasPageClass, useCanvasWorkspace, useReportCanvasReady, useWorkspaceReload } from '@/app/components/canvas/canvas-workspace-context';
 
 /** Reading order: layer by layer, box by box (sixth round R1). The same order at every width (a
  *  phone stacks it), and Previous / Next walk it. */
@@ -229,6 +228,9 @@ export function CanvasPage() {
   // P1545: opening a canvas someone shared with you marks it read (also what a chat share card leads to).
   // Fire-and-forget; the server ignores the owner and link holders.
   useMarkCanvasRead(ready, projectTag, viewerId);
+  // P1536 D4: inside the owner's workspace the page tells it what it read (the Publish spot depends on it).
+  const workspace = useCanvasWorkspace();
+  useReportCanvasReady(ready, requestedVersion ?? null);
 
   // Founder, sixth round: disagreement found fast — in every box the most contested card comes
   // first (the smaller side biggest), then the rest in canvas order. Previous / Next follow it too.
@@ -393,22 +395,11 @@ export function CanvasPage() {
   // P1536: the draft on screen changed (its thread finished a run) or closed (published or discarded, here or in the thread
   // beside the page): re-read in place, or leave the draft's address and read the newest published version.
   useCanvasDraftSync(ready, setParams, refresh);
+  useWorkspaceReload(refresh);
 
   // D5: the owner as their profile shows them on the open point. Agent or not decides the ear
   // count (an agent holds no reputation, P1104), read once per canvas.
-  const { isAgentAccountId, isLoading: identityPending } = useAgentAccountIds();
-  const ownerId = ready?.ownerId ?? null;
-  const ownerIsAgent = !!ownerId && isAgentAccountId(ownerId);
-  const [ownerEar, setOwnerEar] = useState<{ ownerId: string; ear: number } | null>(null);
-  useEffect(() => {
-    if (!ownerId || identityPending || ownerIsAgent) return;
-    let live = true;
-    calibrationService.getEarsCount(ownerId)
-      .then(ear => { if (live) setOwnerEar({ ownerId, ear }); })
-      // No count is shown rather than a wrong one; the rest of the card stands.
-      .catch(() => undefined);
-    return () => { live = false; };
-  }, [ownerId, identityPending, ownerIsAgent]);
+  const { ownerIsAgent, identityPending, ownerEar } = useOwnerIdentity(ready?.ownerId ?? null);
 
   // D6: the open point's "Filter by position" state lives here, never in the address: the filter
   // resets when the point changes, and an expanded story is remembered per point.
@@ -466,7 +457,8 @@ export function CanvasPage() {
       removePosition: () => canvasService.removePosition(ready.ownerId, projectTag, point.id, tokenNow()),
       reader: !viewerIsOwner,
       readOnly: !viewerId,
-      noPositions: !viewerId || draftView,
+      // D20: the owner marks their own stance on draft points (readers never reach a draft). Publishing does not require one.
+      noPositions: !viewerId,
       sharedLabel,
       ownStoryAdded: (ready.stories.get(point.id) ?? []).some(st => addedStoryIds.has(st.id) && st.authorId === viewerId),
     }
@@ -494,9 +486,9 @@ export function CanvasPage() {
   const openBoxTitle = openBox ? BOX_TITLES.get(openBox) : undefined;
 
   return (
-    <div className="flex flex-col px-4 pb-24 pt-3 lg:px-6 lg:pb-8">
+    <div className={canvasPageClass(workspace.active)}>
       {/* P1545: a canvas is an artifact; Back returns to where the reader came from, a cold arrival to the canvases list. */}
-      <FocusHeader fallback={ARTIFACTS_CANVASES_MINE} />
+      <CanvasPageBack />
       {ready && <SEO title={canvasSeoTitle(ready, projectTag)} noIndex />}
       <CanvasHeader
         ready={ready}
@@ -514,7 +506,7 @@ export function CanvasPage() {
       {current?.status === 'error' ? (
         <CanvasLoadError onRetry={() => void read(key)} />
       ) : !(ready && hasNothingToShow(ready)) && (
-        <CanvasGrid boxes={boxes} renderCard={renderCard} onMore={openBoxPanel} questions={ready ? draftQuestions(ready) : undefined} />
+        <CanvasGrid boxes={boxes} renderCard={renderCard} onMore={openBoxPanel} questions={ready ? draftQuestions(ready) : undefined} changed={changedBoxes(ready)} />
       )}
 
       {/* One panel for both levels (R2), so stepping from a box's list into a point and back

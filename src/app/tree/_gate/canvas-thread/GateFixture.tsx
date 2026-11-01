@@ -6,7 +6,7 @@
  * ?phase=empty | reading | upload-failed | ready | links | running | drafted | revising | failed | failed-no-items | failed-nothing-drafted |
  *         published | asked | discarded | update-empty | update | update-running | update-drafted | update-revising
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { CanvasVersionCardData } from '@/app/data/canvas-draft-service';
 import { CanvasDraftEnd, CanvasThreadBar, type BarProps } from '@/app/pages/chat/canvas-thread';
@@ -17,7 +17,7 @@ import { CanvasVersionCard } from '@/app/pages/chat/CanvasVersionCard';
 import { MirrorMark } from '@/app/pages/chat/chat-kit';
 import { Composer } from '@/app/pages/chat/Composer';
 import { ThreadHeader } from '@/app/pages/chat/ThreadHeader';
-import { canDiscardDraft, openerIsPrimary, type CanvasItemRow } from '@/app/pages/chat/canvas-items';
+import { canDiscardDraft, type CanvasItemRow } from '@/app/pages/chat/canvas-items';
 
 const NOW = '2000-01-01T00:00:00.000Z';
 const draft = { id: 'draft-id-1234', versionId: 'version-id-1234', canvasId: 'canvas-id-1234', baseVersionId: null, conversationId: 'conversation-id-1234', threadRootId: 'thread-root-id-1234', state: 'open', runCount: 0, revision: 0, closedAt: null, canvasName: null, versionName: null } as const;
@@ -94,15 +94,13 @@ export function GateFixture() {
   const [params] = useSearchParams();
   const requested = params.get('phase') ?? 'empty';
   const phase = requested in PHASES ? requested : 'empty';
-  // The real composer reports whether Send shows, and the real parts step their action back to an outline while it does.
-  const [composing, setComposing] = useState(false);
-  const bar: BarProps = { ...BASE, ...PHASES[phase], composing };
+  const bar: BarProps = { ...BASE, ...PHASES[phase] };
   const update = bar.draft.baseVersionId !== null;
   // Like the real list, the thread sits on its latest message (and stays there as the tray under it changes).
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
-  }, [phase, composing]);
+  }, [phase]);
   return (
     <div className="mx-auto flex h-[calc(100dvh-5rem)] max-w-md flex-col border-x bg-background">
       <nav className="flex shrink-0 flex-wrap gap-2 border-b p-2 text-xs">
@@ -121,7 +119,7 @@ export function GateFixture() {
             <CanvasVersionCard data={BASE_CARD} />
           </FakeRow>
         )}
-        <CanvasThreadOpener title={null} primary={openerIsPrimary(bar, composing)} />
+        <CanvasThreadOpener title={null} />
         <FakeMessages phase={phase} items={bar.items.length} />
         <CanvasDraftEnd {...bar} />
       </div>
@@ -131,7 +129,6 @@ export function GateFixture() {
         placeholder="Reply in thread"
         onSend={() => undefined}
         onAttach={() => undefined}
-        onSendableChange={setComposing}
         leading={<CanvasUploadButton busy={phase === 'reading'} onPick={() => undefined} />}
       />
     </div>

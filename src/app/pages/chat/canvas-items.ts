@@ -158,8 +158,8 @@ export function canDiscardDraft(p: { draft: Pick<CanvasDraft, 'state' | 'runCoun
 }
 
 /**
- * What decides which control on the page is the filled primary, from one place: the tray (canvas-thread.tsx), the draft card
- * and the opener all read these, so no state has two and no quiet state has none. `BarProps` satisfies it.
+ * What decides which tray control is on offer, from one place: the tray (canvas-thread.tsx) and the draft card read these.
+ * `BarProps` satisfies it. A control's LOOK never depends on what the owner is typing (design-system rule 9).
  */
 interface BarFacts {
   draft: Pick<CanvasDraft, 'state' | 'runCount'>;
@@ -185,12 +185,3 @@ export const actionOffered = (f: BarFacts): boolean => (!isDone(f) || !!f.newInp
 /** A finished draft got new input and "Update draft" is offered: it is the one primary, and the card's Open steps back. */
 export const updateOffered = (f: BarFacts): boolean => isDone(f) && actionOffered(f);
 
-/**
- * Copy prompt on the opener is the filled primary when it is the only thing left to do: an open draft with nothing made,
- * nothing going (no run, no request, no file being read), no create action on offer, and an empty composer. That covers a
- * fresh draft, one whose only row is a file that could not be read, and a failed first run with nothing usable. While
- * something is going, or a canvas exists, the page has its own primary (or is quietly busy) and the opener steps back.
- */
-export function openerIsPrimary(f: BarFacts, composing: boolean): boolean {
-  return !composing && f.draft.state === 'open' && !f.running && !f.busy && !isDone(f) && !isReading(f) && !actionOffered(f);
-}

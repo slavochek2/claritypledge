@@ -65,14 +65,11 @@ describe('the opener', () => {
     expect(COPIED_MS).toBe(2000);
   });
 
-  it('Copy prompt is the one filled blue button only while nothing has been added; otherwise an outline', () => {
-    const { rerender } = render(<CanvasThreadOpener title={null} primary />);
-    const blue = (b: HTMLElement) => b.className.includes('bg-blue-600');
-    expect(blue(screen.getByRole('button', { name: 'Copy prompt' }))).toBe(true);
-    rerender(<CanvasThreadOpener title={null} primary={false} />);
-    const outline = screen.getByRole('button', { name: 'Copy prompt' });
-    expect(blue(outline)).toBe(false);
-    expect(outline.className).toContain('border');
+  it('Copy prompt keeps one look always: an outline, never the filled blue button (rule 9, D3)', () => {
+    render(<CanvasThreadOpener title={null} />);
+    const button = screen.getByRole('button', { name: 'Copy prompt' });
+    expect(button.className.includes('bg-blue-600')).toBe(false);
+    expect(button.className).toContain('border');
   });
 
   it('"What gets copied" shows the prompt text, and hides it again', () => {
