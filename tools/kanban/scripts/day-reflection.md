@@ -38,7 +38,7 @@ Spawn **one** agent (Agent tool, `subagent_type: general-purpose`, `model: "opus
 can read and write files (P1489: an earlier version of this file said it cannot, which was false), and
 step 3 relies on that: its reply goes to a file, never only into a message.
 
-> From these facts about one working day, draft 3 to 5 statements that each propose a CHANGE —
+> From these facts about one working day, draft 1 to 3 statements that each propose a CHANGE —
 > something to stop, start or do differently. No "keep doing" statements. One sentence each, at most
 > 140 characters, plain words, no ticket numbers, no names of private people (use roles). Prefix a
 > statement with `[weekly]` or `[monthly]` when it is drawn from that review.
@@ -51,9 +51,18 @@ step 3 relies on that: its reply goes to a file, never only into a message.
 > where an earlier decision, conversation or story already answers a question, push past it rather
 > than asking it again.
 >
-> Below: what the founder answered in the last 14 days (do not repeat a statement he answered; where
-> he disagreed or told a story, push on that point from a new angle; never quote his stories back
-> verbatim), then the grounding block.
+> Fewer is better: a statement that does not survive these rules is dropped, never padded. Never
+> raise a topic he answered in the last 14 days, in any wording: where he disagreed, the point is
+> settled unless something new happened since (name it); where he agreed, it is decided. Never
+> argue against a recorded decision (goals, decisions) unless new evidence contradicts it; if you
+> notice the record already answers your statement, drop it. Never attribute words to him that a
+> quote does not carry ("since you said …"). Never propose writing down rules, criteria,
+> falsifiers or metrics for his own judgement: he has rejected that as not needed (2026-11-01).
+> Each statement names one concrete action a reader understands in one pass, without knowing the
+> day's checks; he has repeatedly asked "what are you asking me?" — that is a failed statement.
+>
+> Below: what the founder answered in the last 14 days (never quote his stories back verbatim),
+> then the grounding block.
 >
 > Reply with the draft statements only, one per line.
 
@@ -73,7 +82,7 @@ TERMS="$(tr 'A-Z' 'a-z' < "$W/drafts.txt" | grep -oE '[a-z]{5,}' | sort -u | pas
 
 Continue the **same** writer (SendMessage) with `grounding.txt` pasted inline:
 
-> Here is what is known about your drafts. Rewrite them into the final 3 to 5 statements (same rules).
+> Here is what is known about your drafts. Rewrite them into the final 1 to 3 statements (same rules; drop any the grounding shows is already answered or decided).
 > For each, add the view of "Agent on Slava" — you, writing as the founder's mirror agent:
 > - `position`: where you predict Slava stands on the statement, -3 (strongly disagree) to 3 (strongly
 >   agree). It is your prediction, shown beside his own control; it never answers for him.
@@ -123,7 +132,8 @@ any checker fail — so a statement that misses twice is dropped and named, whil
 
 Statements with a mechanical fail are not sent to the checker in round 1. Spawn a **second, separate** agent (`subagent_type: general-purpose`, `model: "opus"`) and paste
 inline: each statement with the agent's position, story and sources (ref + quote, from
-`candidate.json`), and this pass's issue-card titles (`findings.txt`). Brief:
+`candidate.json`), this pass's issue-card titles (`findings.txt`) and `history.txt` (2026-11-01: the
+mechanical repeat check only catches near-identical wording, so topic repeats reached the board). Brief:
 
 > You check another agent's work; you succeed by finding what is wrong. For each statement, answer
 > `rN: pass` or `rN: fail: <one-line reason>`. Fail it when: the story claims something its quoted
@@ -132,7 +142,11 @@ inline: each statement with the agent's position, story and sources (ref + quote
 > says must be backed by one of the quotes, reasoning between the quotes is fine, and a guess must read
 > as a guess; the story carries tier labels ("Fact:", "Connection:", "Speculation:"); the statement repeats or paraphrases an issue card (the titles below); it is about a
 > personal activity; it is task micromanagement rather than strategy; no reasonable founder could take
-> the opposite side; or the story mostly restates the statement. One line per statement, nothing else.
+> the opposite side; the story mostly restates the statement; it raises a topic the founder answered
+> in the history below, in any wording; it argues against a recorded decision its own sources show
+> ("though the record says …"); it puts words in his mouth no quote carries; it asks him to write
+> down rules or criteria for his own judgement; or a reader new to the day could not say in one
+> pass what action it asks for. Fail when in doubt: fewer statements is the goal. One line per statement, nothing else.
 
 Record the verdicts as `{"r1":["pass"],"r2":["fail: …"]}` in `$W/verdicts.json`. For every fail,
 send the writer the checker's reasons and ask for **only those statements** again (round 2), in the

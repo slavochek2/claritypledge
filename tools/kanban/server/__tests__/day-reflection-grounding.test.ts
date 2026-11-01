@@ -159,7 +159,8 @@ describe('P1445 C: --parse', () => {
     ['no source', three([]), 'r1: the story cites no source'],
     ['a source without a quote', three([{ ref: 'D1', quote: '  ' }]), 'r1: source D1 has no quote'],
     ['a position outside the scale', [{ text: 'a', agent: { ...agent([{ ref: 'D1', quote: 'a quoted phrase' }]), position: 4 } }, ...three([{ ref: 'D1', quote: 'a quoted phrase' }]).slice(1)], 'r1: agent position must be an integer from -3 to 3'],
-    ['two statements', three([{ ref: 'D1', quote: 'a quoted phrase' }]).slice(1), 'need 3 to 5 statements, got 2'],
+    ['no statements', [], 'need 1 to 3 statements, got 0'],
+    ['four statements', [...three([{ ref: 'D1', quote: 'a quoted phrase' }]), ...three([{ ref: 'D1', quote: 'a quoted phrase' }]).slice(2)], 'need 1 to 3 statements, got 4'],
   ])('refuses %s (exit 1, the reason on stderr)', async (_n, st, why) => {
     const r = await check(['--parse'], reply(st as object[]))
     expect(r.code).toBe(1)

@@ -99,7 +99,7 @@ export function parseReply(reply: string, rewrite?: string[]): Reflection {
   const raw = o.statements
   if (rewrite) {
     if (raw.length !== rewrite.length) throw new Refused(`the rewrite must hold exactly ${rewrite.join(', ')}, got ${raw.length} statements`)
-  } else if (raw.length < 3 || raw.length > 5) throw new Refused(`need 3 to 5 statements, got ${raw.length}`)
+  } else if (raw.length < 1 || raw.length > 3) throw new Refused(`need 1 to 3 statements, got ${raw.length}`)
   const ids = new Set<string>()
   const statements = raw.map((x, i): Statement => {
     let id = `r${i + 1}`
