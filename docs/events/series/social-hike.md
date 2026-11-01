@@ -80,7 +80,7 @@ Up to about 15 people, we walk as one group, with someone at the back. If more c
 
 The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total and to finish by [END TIME]. [WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
 
-[END POINT: "We finish where we started, at [CAFE NAME]," for a loop, else the end point,] a good spot for a drink while the others come in. Carpools leave once everyone in them is back. Everyone else heads off when they like. [Optional dinner at [TIME] at [PLACE], [ONE-LINE DESCRIPTION]. [Directions]([MAP_URL])] [Optional: "Still have energy? [EVENT] at [VENUE] from [TIME]. [Details]([URL])"]
+[END POINT: "We finish where we started, at [CAFE NAME]," for a loop, else the end point,] a good spot for a drink while the others come in. Carpools leave once everyone in them is back. Everyone else heads off when they like. [Then join us for dinner around [TIME] at [PLACE], [ONE-LINE DESCRIPTION]. It's where we close the day together: talk about the hike, future hikes, the community, or anything else. [Directions]([MAP_URL])] [Optional: "Still have energy? [EVENT] at [VENUE] from [TIME]. [Details]([URL])"]
 
 *Not a commercial or guided hike: nobody charges, and volunteers at the front and back only help keep the group together. We are all adults looking after ourselves. I try to make it a good day for everyone, but I am not responsible for anyone.*
 
@@ -88,6 +88,12 @@ The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total and to fin
 ```
 
 **Rules that survived founder edits — do not undo them.**
+
+- **Reviews are ordered by predicted appeal to a newcomer, not by date.** Whenever a quote is added, re-rank all approved quotes and rewrite `series_reviews.sort_order`. Rank first what answers "why this group, and will I fit in?": concrete, warm, specific. Rank later anything abstract or that carries a complaint. This is a judgement, so name the order to the founder; no attendee data backs it yet. Founder, 2026-11-01.
+- **Dinner is an invitation, never "optional".** It closes the day: people talk about the hike, future hikes and the community. Founder, 2026-11-01: "optional" reads as a reason to skip, and it is not about being hungry.
+- **The banner photo is also in the gallery, as the last photo of that upload batch.** Founder, 2026-11-01.
+- **Gallery photos are at most about 1400 px and 500 KB where the photo allows.** Measured 2026-11-01: a 4032 px, 2.4 MB photo displayed 224 px wide. A new file name is required, because bucket objects are cached for a year.
+- **Describe the route from its drawn track, not from AllTrails' label.** See `select-hike` step 3b. On 2026-11-08 "Loop" was really a loop with a 2 km tail, and three descriptions were wrong before the map showed it.
 
 - **Hard ceiling 150 words.** The founder cut the template from 350 to 113 words on
   2026-08-24 with the note "cut the bullshit."
@@ -259,7 +265,7 @@ ONLY platform formatting. Edit here to change all platforms at once. Placeholder
   {register_cta}  → the register_cta frontmatter value
   {trail_name} {park} {distance} {type} {elevation} {walk_time} {highlights}
   {cafe_name} {area} {meet_time} {date} {altitude_clause} {duration}
-  {after_hike_line} → the event page's dinner line as plain text, e.g. "Optional dinner after,
+  {after_hike_line} → the event page's dinner line as plain text, e.g. "Then join us for dinner,
                     18:30 at Reform Kafé in the Old City." Omit the line if the page has none.
 Keep it plain text (no markdown) — the most restrictive platform wins.
 -->

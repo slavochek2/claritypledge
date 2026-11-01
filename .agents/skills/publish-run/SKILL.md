@@ -197,7 +197,7 @@ within one session and silently dropped the reviewer quotes the series doc calls
 not be undone. Fill the base from that file; do not reconstruct it from memory or from this skill.
 
 **After the hike — propose it, never skip it silently (founder 2026-10-23).** Fill the base's
-after-hike line: where everyone waits (the end point), an optional dinner, and optionally one
+after-hike line: where everyone waits (the end point), a dinner invitation (wording in the series base, never the word "optional"), and optionally one
 evening event. Dinner: use the `Dinner:` line from `select-hike`'s handoff when it names a place
 (P1571: a restaurant on the way back). Only when it says `skipped`/`none found`, or the handoff is
 absent, fall back to the default: Reform Kafé, Old City (https://maps.app.goo.gl/cbxDYrcWvEE11Skn9),

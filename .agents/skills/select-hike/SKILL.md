@@ -287,9 +287,20 @@ only: **the description still never states a fee** (series base rule, unchanged 
 because a 25-person hike met at a farm with a 100 THB entry and people stood at the gate unsure
 whether to go in.
 
+### 5a. Draw the route and test the way from the cafe — before any route claim
+
+Once the cafe and GPX exist, and before the description is written:
+
+1. **Draw the track with `scripts/hike-route-map.mjs` and look at it.** Find repeated sections: AllTrails' "Loop" can be a loop with a tail. Use the track's measured distance, not the listed one.
+2. **Check every named place against the track:** a break spot, waterfall or camp goes in the description only if it is on or beside the track, at a stated km. Review text alone does not place it.
+3. **Measure the shortest foot route from the cafe to the nearest track point** (the brouter command in step 5), and to the official start. If the nearest point saves real walking, offer joining there as the default. Label it unconfirmed until someone has walked it, and put a fallback in the description.
+4. **Compare finish options:** where does the route end, what repeats, and how far is the walk back to the cafe? Prefer the effort first and the reward last. Draw any non-track link as a dashed `connector` with a `join` pin.
+
+Founder, 2026-11-01: *"of course we will not walk the trailhead"*. Found only when he read the map, and it cut about 40 minutes of road walking.
+
 ### 5b. Dinner on the way back — open it like the cafes
 
-The founder closes the hike with an optional dinner. Prefer a restaurant **on the drive back to the
+The founder closes the hike with a dinner invitation. Prefer a restaurant **on the drive back to the
 city, or near the trailhead**, open at the expected finish time plus about 30 minutes (from the
 step 2 duration). Search Google Maps along that corridor, open 2–4 candidates as tabs (one tab
 each, never a chat list), and post a numbered index: name, rating, review count, hours that day,
@@ -312,6 +323,7 @@ So ask for it **now**, at selection time, while the founder is already making ch
 > skip, the event gets the auto-generated banner and we don't revisit it."
 
 - **Path given:** record it in the handoff. `publish-run` uploads it via `./scripts/event-photo-prep.sh <slug> <path>` after the event row exists, then verifies the crop at desktop and 375 px before anything is promoted.
+- **The banner photo also goes in the gallery, as the last photo of this upload batch** (founder, 2026-11-01).
 - **Skipped:** the auto-generated banner stands, and the photo is **not raised again this run**. A reminder the founder already declined is just a second interruption.
 
 Faces near the top of a wide crop get cut. When a photo is supplied, check the rendered
