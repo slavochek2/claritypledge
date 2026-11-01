@@ -90,6 +90,7 @@ The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total and to fin
 **Rules that survived founder edits — do not undo them.**
 
 - **Reviews are ordered by predicted appeal to a newcomer, not by date.** Whenever a quote is added, re-rank all approved quotes and rewrite `series_reviews.sort_order`. Rank first what answers "why this group, and will I fit in?": concrete, warm, specific. Rank later anything abstract or that carries a complaint. This is a judgement, so name the order to the founder; no attendee data backs it yet. Founder, 2026-11-01.
+- **Gallery videos carry background music instead of their original audio**, old and new, faded out at the end. Upload under a new file name. Founder, 2026-11-01.
 - **Every stop is a meeting point for all groups.** Groups split after the warm-up, meet at the break to hang out together, meet again at any further stop such as a waterfall, then at dinner. Name each stop in the group paragraph and pin it on the map. Founder, 2026-11-01.
 - **The closing section is headed "Dinner after the hike"** when there is a dinner.
 - **Route maps show walking direction with arrows.** `scripts/hike-route-map.mjs` draws them from the coordinate order, so check that order matches the planned direction. Founder, 2026-11-01.
