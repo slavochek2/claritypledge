@@ -137,12 +137,19 @@ export const hasUsableItems = (rows: CanvasItemRow[]): boolean => rows.some((r) 
 /**
  * The owner added something after the last successful draft run began: a note, a link, a copy, a file kept (read from the
  * database's own time, so it holds after a reload) or a file read in this tab. A link the run itself kept is not new.
+ *
+ * `newestRunDone`: the newest run is a finished draft run. A v6 run keeps its file itself (it is claimed first, the text is
+ * written while it runs, then it drafts), so every file in the draft's material was kept by that run or an earlier finished one:
+ * a file is "new" only when the newest run did NOT finish well (failed, capped, cancelled), where the file's own run never applied it.
+ * Without this a file is always later than its own run's start and a finished canvas offered an Update that had nothing to start.
  */
-export function hasNewSinceRun(args: { messages: ChatMessage[]; ownerId: string; rootId: string; lastDraftAt: number | null; material: CanvasMaterialItem[]; uploads: UploadItem[] }): boolean {
+export function hasNewSinceRun(args: { messages: ChatMessage[]; ownerId: string; rootId: string; lastDraftAt: number | null; material: CanvasMaterialItem[]; uploads: UploadItem[]; newestRunDone?: boolean }): boolean {
   const since = args.lastDraftAt;
   if (since === null) return false;
-  if (args.uploads.some((u) => u.status === 'read' && u.at > since)) return true;
-  if (args.material.some((m) => m.kind === 'file' && Date.parse(m.createdAt) > since)) return true;
+  if (!args.newestRunDone) {
+    if (args.uploads.some((u) => u.status === 'read' && u.at > since)) return true;
+    if (args.material.some((m) => m.kind === 'file' && Date.parse(m.createdAt) > since)) return true;
+  }
   return args.messages.some((m) => {
     if (!owned(m, args.ownerId, args.rootId) || !(Date.parse(m.createdAt) > since)) return false;
     return m.kind === 'message' ? (m.body ?? '').trim() !== '' : (m.kind === 'clarify' || m.kind === 'forward') && copyHasText(m);

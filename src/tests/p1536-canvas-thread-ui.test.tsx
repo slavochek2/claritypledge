@@ -1785,8 +1785,11 @@ describe('C2: persisted material counts after a reload', () => {
     state.run = runAt(RUN_AT, { kind: 'draft', state: 'done' });
   };
 
-  it('a file kept after the canvas was made offers Update with no tab-local upload at all', async () => {
-    finished();
+  it('a file kept after the canvas was made, whose own run did not finish well, offers Update with no tab-local upload at all', async () => {
+    // v6 (P1536 B2): a file is kept by its own run, so after a FINISHED newest run no file is new; it is new when that run failed
+    state.draft = draftRow({ runCount: 1 });
+    state.lastDone = RUN_AT;
+    state.run = runAt(AFTER, { kind: 'message', state: 'failed' });
     state.material = [material({ createdAt: MID })];
     await renderThread();
     expect(await screen.findByRole('button', { name: 'Update draft' })).toBeInTheDocument();

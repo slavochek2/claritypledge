@@ -218,7 +218,8 @@ describe('canvas -> thread: Publish in the workspace bar', () => {
     await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent(DRAFT_NAME));
     expect(screen.getByTestId('where')).toHaveTextContent('ws=1');
     expect(screen.getByTestId('workspace-chat-pane')).toBeInTheDocument(); // the workspace keeps both panes across the draft's close
-    expect(getCanvas.mock.calls.at(-1)![4]).toBeUndefined();
+    // the re-read for the published version can land a tick after the address moves (it raced under the full pre-commit run)
+    await waitFor(() => expect(getCanvas.mock.calls.at(-1)![4]).toBeUndefined());
     // the spot now says what is true: a status, not a button
     await waitFor(() => {
       expect(screen.getByTestId('publish-spot')).toHaveAttribute('data-state', 'published');

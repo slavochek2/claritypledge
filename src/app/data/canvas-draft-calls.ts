@@ -50,7 +50,7 @@ const REFUSAL_CODES: ReadonlySet<string> = new Set([
 ]);
 /** The refusal as a typed result; `revision` is the draft's current one, to re-read against. */
 export interface CanvasRefused { ok: false; refused: CanvasRefusalCode; revision: number | null }
-/** `inProgress`: the run is already running (a second post of the same file): nothing was lost, and nothing more is started. */
+/** `inProgress`: the run is already running, or already finished well (a second post of the same file): nothing was lost, and nothing more is started. */
 export type UploadResult = { ok: true; label: string; chars: number; inProgress?: boolean } | { ok: false; code: CanvasDraftErrorCode };
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- rpc and table rows are jsonb-shaped: mapped field by field below */
@@ -160,6 +160,9 @@ export async function uploadCanvasMaterial(runId: string, file: File): Promise<U
   const { status, data } = await callCanvasDraft(form);
   if ((status === 200 || status === 202) && data.state === 'running' && typeof data.label !== 'string') return { ok: true, label: '', chars: 0, inProgress: true };
   if ((status === 200 || status === 202) && typeof data.label === 'string') return { ok: true, label: data.label, chars: typeof data.chars === 'number' ? data.chars : 0 };
+  // A repeat of a post the server had already served (the first answer was lost): the run is over and it ended well, so the file WAS applied.
+  // GONE with any other state (failed, capped, cancelled, undone) is a real refusal.
+  if (status === 409 && data.code === 'GONE' && data.state === 'done') return { ok: true, label: '', chars: 0, inProgress: true };
   return { ok: false, code: asCode(data.code, status) };
 }
 

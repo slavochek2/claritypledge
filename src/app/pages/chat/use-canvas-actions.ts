@@ -12,6 +12,7 @@ import {
   retryCanvasRun,
   startQueuedCanvasRun,
   CanvasDraftRefusal,
+  isDraftingRunKind,
   type CanvasRefusalCode,
 } from '@/app/data/canvas-draft-service';
 import type { ChatMessage } from '@/app/data/chat-service';
@@ -92,7 +93,7 @@ export function useCanvasActions({
     running,
     waiting,
     items: buildItems({ material, messages, ownerId, rootId, lastDraftAt, uploads }),
-    newInput: hasNewSinceRun({ messages, ownerId, rootId, lastDraftAt, material, uploads }),
+    newInput: hasNewSinceRun({ messages, ownerId, rootId, lastDraftAt, material, uploads, newestRunDone: isDraftingRunKind(run?.kind) && run?.state === 'done' }),
     askedAfterPublish: ownerMessagesAfterRoot(messages, ownerId, rootId, draft.closedAt).length > 0,
     busy,
     notice,
@@ -108,7 +109,8 @@ export function useCanvasActions({
           return t.start && !t.start.ok && t.start.code !== 'BUSY' ? (DRAFT_ERROR_TEXT[t.start.code] ?? 'That did not go through. Try again.') : null;
         }
         const r = await startQueuedCanvasRun(draft.id);
-        return r.ok || r.code === 'BUSY' ? null : (DRAFT_ERROR_TEXT[r.code] ?? 'That did not go through. Try again.');
+        // NOT_AVAILABLE here is only "no run is waiting" (a message's run starts when it is sent): nothing to start, and the draft is fine.
+        return r.ok || r.code === 'BUSY' || r.code === 'NOT_AVAILABLE' ? null : (DRAFT_ERROR_TEXT[r.code] ?? 'That did not go through. Try again.');
       }),
     onPublish: () =>
       void act('publish', async () => {
