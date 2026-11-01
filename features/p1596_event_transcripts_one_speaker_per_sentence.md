@@ -98,6 +98,17 @@ Decided:
    plus the founder's AI-engineer group's experience, plus a Gemini + Codex review of the options.
 3. Per table, or the whole room as one comparison with table metadata (neighbour-table bleed)?
 4. Processing time after the cut, by group size: measure from past events' cleanup jobs.
+5. Benchmark source (founder, 2026-11-01): start offline on public meeting recordings with one mic per
+   person and a who-said-what transcript (e.g. the AMI and ICSI meeting corpora; licences not yet
+   checked), comparing the methods in question 2 and Gemini 3.5 Transcribe against 3.8 and 4 Argon.
+   A real 4-phone, 2-table session confirms the winner afterwards.
+6. Ship together with P1592 (founder, 2026-11-01). P1592 is complete on its branch but carries the
+   terms v1.6 change, so shipping it alone would show every user a terms notice for posting that is
+   off, and a second notice once P1596 changes what is posted. One terms update, worded for what
+   ships; P1592's live-posting checks are ticked in the same live test.
+7. A walk-in whose channel access began after P1592's single "Outside rounds" thread was created
+   cannot open it (their unseated lines go to the channel top level). Decide here, alongside when
+   and where clean transcripts post.
 
 ## Risks / Non-Goals
 
