@@ -2,6 +2,16 @@
   "installCommand": "npm ci --ignore-scripts --include=optional",
   "redirects": [
     {
+      "source": "/basket",
+      "destination": "https://chat.whatsapp.com/CJcy3s3f9Jl9NLBTqJpvdv?mode=gi_t",
+      "permanent": false
+    },
+    {
+      "source": "/basketball",
+      "destination": "https://chat.whatsapp.com/CJcy3s3f9Jl9NLBTqJpvdv?mode=gi_t",
+      "permanent": false
+    },
+    {
       "source": "/hospital",
       "destination": "/hospitals",
       "permanent": false
