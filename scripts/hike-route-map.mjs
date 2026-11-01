@@ -34,7 +34,7 @@ const visit = (g, kind) => {
   if (g.type === 'FeatureCollection') g.features.forEach(f => visit(f));
   else if (g.type === 'Feature') visit(g.geometry, g.properties?.kind);
   else if (g.type === 'LineString') (kind === 'connector' ? connectors : lines).push(g.coordinates);
-  else if (g.type === 'MultiLineString') lines.push(...g.coordinates);
+  else if (g.type === 'MultiLineString') (kind === 'connector' ? connectors : lines).push(...g.coordinates);
   else if (g.type === 'Point' && kind) points[kind] = g.coordinates;
 };
 visit(geo);

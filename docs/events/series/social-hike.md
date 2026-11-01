@@ -93,7 +93,7 @@ The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total and to fin
 - **Dinner is an invitation, never "optional".** It closes the day: people talk about the hike, future hikes and the community. Founder, 2026-11-01: "optional" reads as a reason to skip, and it is not about being hungry.
 - **The banner photo is also in the gallery, as the last photo of that upload batch.** Founder, 2026-11-01.
 - **Gallery photos are at most about 1400 px and 500 KB where the photo allows.** Measured 2026-11-01: a 4032 px, 2.4 MB photo displayed 224 px wide. A new file name is required, because bucket objects are cached for a year.
-- **Describe the route from its drawn track, not from AllTrails' label.** See `select-hike` step 3b. On 2026-11-08 "Loop" was really a loop with a 2 km tail, and three descriptions were wrong before the map showed it.
+- **Describe the route from its drawn track, not from AllTrails' label.** See `select-hike` step 5a. On 2026-11-08 "Loop" was really a loop with a 2 km tail, and three descriptions were wrong before the map showed it.
 
 - **Hard ceiling 150 words.** The founder cut the template from 350 to 113 words on
   2026-08-24 with the note "cut the bullshit."
