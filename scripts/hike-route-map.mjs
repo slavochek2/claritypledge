@@ -81,6 +81,27 @@ const path = lines
 const connectorPath = connectors
   .map(l => 'M' + l.map(p => toXY(p).map(v => v.toFixed(1)).join(' ')).join(' L'))
   .join(' ');
+// Direction arrows, in the order the coordinates run. With a `join` pin, the route before the join is not walked.
+const arrows = (line, fill, gap = 95) => {
+  let from = 0;
+  if (points.join && line.length > 50) {
+    const d = c => Math.hypot(c[0] - points.join[0], c[1] - points.join[1]);
+    from = line.reduce((best, c, i) => (d(c) < d(line[best]) ? i : best), 0);
+  }
+  const xy = line.slice(from).map(toXY);
+  let out = '';
+  let run = gap / 2;
+  for (let i = 1; i < xy.length; i++) {
+    const step = Math.hypot(xy[i][0] - xy[i - 1][0], xy[i][1] - xy[i - 1][1]);
+    run += step;
+    if (run < gap || !step) continue;
+    run = 0;
+    const j = Math.max(0, i - 3);
+    const deg = (Math.atan2(xy[i][1] - xy[j][1], xy[i][0] - xy[j][0]) * 180) / Math.PI;
+    out += `<path transform="translate(${xy[i][0].toFixed(1)} ${xy[i][1].toFixed(1)}) rotate(${deg.toFixed(0)})" d="M-7 -8 L9 0 L-7 8 Z" fill="${fill}" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>`;
+  }
+  return out;
+};
 const pin = (kind, label, fill) => {
   if (!points[kind]) return '';
   const [x, y] = toXY(points[kind]);
@@ -94,6 +115,7 @@ const html = `<!doctype html><html><body style="margin:0">
 <path d="${path}" fill="none" stroke="#fff" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>
 <path d="${path}" fill="none" stroke="#e11d48" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
 ${connectorPath ? `<path d="${connectorPath}" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/><path d="${connectorPath}" fill="none" stroke="#2563eb" stroke-width="5" stroke-dasharray="10 8"/>` : ''}
+${lines.map(l => arrows(l, '#e11d48')).join('')}${connectors.map(l => arrows(l, '#2563eb', 70)).join('')}
 ${pin('meet', 'Cafe', '#2563eb')}${pin('join', 'Join loop', '#111')}${pin('waterfall', 'Waterfall', '#0284c7')}${pin('start', 'Start', '#111')}${pin('break', 'Break', '#059669')}
 </svg></div></body></html>`;
 
