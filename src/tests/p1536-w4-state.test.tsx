@@ -89,6 +89,7 @@ import { resetCanvasThreads } from '@/app/pages/chat/canvas-thread-registry';
 import { resetUnresolvedFirstSends } from '@/app/pages/canvas/workspace-next-draft';
 import { clearLinkTokens } from '@/lib/canvas-link-token';
 import { clearListReturnCache } from '@/lib/list-return-cache';
+import { lacksSecondaryPill } from './p1536-pill-assert';
 
 const summary: ChatSummary = {
   conversationId: CONV, kind: 'mirror', title: 'Mira', other: null, org: null, event: null, ownerFirstName: 'Ana',
@@ -277,7 +278,7 @@ describe('S3b.9: nobody but the owner sees the Draft state, the panel, Clone, or
     await grid();
     const options = within(await screen.findByTestId('canvas-version-select')).getAllByRole('option').map(o => o.textContent ?? '');
     expect(options).toHaveLength(3);
-    expect(options.some(o => /Draft/.test(o))).toBe(true);
+    expect(options[0]).toBe('v3'); // the draft is its number; "Draft" is the state tag's word, named once (W8)
   });
 });
 
@@ -286,7 +287,7 @@ describe('W4: the mirror-chat card names the state and carries a secondary Open'
   const renderCard = (data: never, inWorkspace = false) =>
     render(
       <MemoryRouter>
-        <CanvasWorkspaceContext.Provider value={{ active: inWorkspace, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: null, cloneSeq: null }}>
+        <CanvasWorkspaceContext.Provider value={{ active: inWorkspace, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: null, cloneSeq: null, ownerBar: false, copyPromptPrimary: false }}>
           <CanvasVersionCard data={data} />
         </CanvasWorkspaceContext.Provider>
       </MemoryRouter>,
@@ -300,7 +301,7 @@ describe('W4: the mirror-chat card names the state and carries a secondary Open'
     expect(screen.getByTestId('canvas-version-state')).toHaveTextContent(line);
     const open = screen.getByRole('link', { name: 'Open canvas Canvas 4' });
     expect(open).toHaveTextContent('Open');
-    expect(open.className).toContain('bg-secondary'); // the secondary variant
+    expect(lacksSecondaryPill(open)).toEqual([]); // the one secondary pill (W7)
   });
 
   it('inside the workspace\'s thread panel (the canvas is the other pane) the card has NO Open', () => {
@@ -326,7 +327,7 @@ describe('W4: the Publish reply', () => {
     const open = await screen.findByTestId('publish-reply-open');
     expect(open).toHaveTextContent('Open canvas');
     expect(open.getAttribute('href')).toBe('/p/ana/canvas/canvas?v=canvas_d222222');
-    expect(open.className).toContain('bg-secondary');
+    expect(lacksSecondaryPill(open)).toEqual([]); // W7
     // it sits right under the Publish reply
     expect(screen.getByText(/Published v2\./).closest('li')?.nextElementSibling).toContainElement(open);
   });

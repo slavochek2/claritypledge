@@ -89,6 +89,7 @@ import { resetCanvasThreads } from '@/app/pages/chat/canvas-thread-registry';
 import { resetUnresolvedFirstSends } from '@/app/pages/canvas/workspace-next-draft';
 import { clearLinkTokens } from '@/lib/canvas-link-token';
 import { clearListReturnCache } from '@/lib/list-return-cache';
+import { lacksSecondaryPill } from './p1536-pill-assert';
 
 const summary: ChatSummary = {
   conversationId: CONV, kind: 'mirror', title: 'Mira', other: null, org: null, event: null, ownerFirstName: 'Ana',
@@ -193,9 +194,11 @@ describe('S3b.3: ws=1 is on exactly while the owner is editing', () => {
     await screen.findByTestId('canvas-grid');
     await act(async () => {});
     expect(screen.getByTestId('ws')).toHaveTextContent('none');
-    for (const id of ['canvas-workspace', 'workspace-bar', 'workspace-chat-pane', 'workspace-view-switch', 'workspace-thread-button', 'thread-panel']) {
+    for (const id of ['canvas-workspace', 'workspace-chat-pane', 'workspace-view-switch', 'workspace-thread-button', 'thread-panel']) {
       expect(screen.queryByTestId(id), id).toBeNull();
     }
+    // W8 (supersedes "no bar"): the owner's header IS drawn on a published view, with no workspace parts in it
+    expect(screen.getByTestId('workspace-bar')).toBeInTheDocument();
     expect(screen.queryByRole('tablist')).toBeNull();
   });
 
@@ -251,7 +254,7 @@ describe('S3b.3: the panel at 1440', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('ws=1'); // open/closed is local state, not the address
     const thread = screen.getByTestId('workspace-thread-button');
     expect(thread).toHaveTextContent('Thread');
-    expect(thread.className).toContain('bg-secondary'); // the secondary variant
+    expect(lacksSecondaryPill(thread)).toEqual([]); // the one secondary pill (W7)
     fireEvent.click(thread);
     expect(pane).not.toHaveAttribute('inert');
     expect(screen.queryByTestId('workspace-thread-button')).toBeNull();

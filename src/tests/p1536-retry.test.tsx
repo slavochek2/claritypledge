@@ -184,6 +184,7 @@ afterEach(() => {
 
 
 import { retryTargetId } from '@/app/pages/chat/canvas-retry-target';
+import { lacksSecondaryPill } from './p1536-pill-assert';
 
 const failedRun = { id: 'run-failed', kind: 'message', state: 'failed', errorCode: 'model', createdAt: '2026-10-28T09:00:00.000Z', startedAt: '2026-10-28T09:00:00.000Z' };
 const retries = () => rpc.mock.calls.filter(c => c[0] === 'canvas_draft_retry');
@@ -236,7 +237,7 @@ describe('Try again: where it shows', () => {
     await threadReady();
     const button = await screen.findByTestId('canvas-retry-button');
     expect(button).toHaveTextContent('Try again');
-    expect(button.className).toContain('bg-muted'); // the one secondary pill
+    expect(lacksSecondaryPill(button)).toEqual([]); // the one secondary pill (W7: Compare's look)
     const trailing = screen.getByTestId('message-trailing');
     expect(trailing.previousElementSibling).toHaveAttribute('data-msg', 'm1');
     expect(trailing.nextElementSibling).toHaveAttribute('data-msg', 'm2');

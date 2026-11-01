@@ -53,7 +53,7 @@ export function EventSharedCanvases({ eventId, viewerId, enabled }: {
             >
               <span className="min-w-0 truncate">
                 <span className="font-medium text-foreground">{c.ownerName}</span>
-                <span className="text-muted-foreground"> · {c.name}</span>
+                <span className="text-muted-foreground"> · {c.title ?? c.name}</span>
               </span>
             </Link>
           </li>

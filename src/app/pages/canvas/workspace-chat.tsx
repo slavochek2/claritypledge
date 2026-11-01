@@ -14,9 +14,9 @@
 import { useContext, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isViewingDraft, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
+import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
 import type { ChatSummary } from '@/app/data/chat-service';
 import { InlineError } from '@/app/pages/chat/chat-kit';
 import { ChatContext } from '@/app/pages/chat/chat-state';
@@ -129,15 +129,17 @@ function DraftLine({ onGo }: { onGo: () => void }) {
   return (
     <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2" data-testid="workspace-draft-line">
       <p className="min-w-0 text-sm text-muted-foreground">{DRAFT_LINE_TEXT}</p>
-      <Button type="button" variant="outline" className="h-10 shrink-0" onClick={onGo} data-testid="workspace-go-to-draft">{GO_TO_DRAFT_LABEL}</Button>
+      <button type="button" className={CANVAS_SECONDARY_PILL} onClick={onGo} data-testid="workspace-go-to-draft">{GO_TO_DRAFT_LABEL}</button>
     </div>
   );
 }
 
-export function WorkspaceChat({ mirror, ready, projectTag, focusable, onClose, onRunActive, onOpened, onReload, cloning = null, onStale = () => undefined }: {
+export function WorkspaceChat({ mirror, ready, projectTag, canvasTitle, focusable, onClose, onRunActive, onOpened, onReload, cloning = null, onStale = () => undefined }: {
   mirror: ChatSummary | null;
   ready: CanvasReady | null;
   projectTag: string | null;
+  /** W8: the canvas's shown name (the owner's rename, else its tag's title): what an update draft's header links to. */
+  canvasTitle?: string;
   focusable: boolean;
   onClose: () => void;
   onRunActive: (active: boolean) => void;
@@ -170,7 +172,7 @@ export function WorkspaceChat({ mirror, ready, projectTag, focusable, onClose, o
   return (
     <>
       {!isViewingDraft(ready) && <DraftLine onGo={() => onOpened(draft.version)} />}
-      <ThreadPanel key={`${draft.threadRootId}:${attempt}`} fill summary={mirror} rootId={draft.threadRootId} highlightId={null} focusable={focusable} onClose={onClose} onRunActive={onRunActive}
+      <ThreadPanel key={`${draft.threadRootId}:${attempt}`} fill summary={mirror} rootId={draft.threadRootId} highlightId={null} canvasTitle={canvasTitle} focusable={focusable} onClose={onClose} onRunActive={onRunActive}
         headerActions={user?.slug && projectTag ? <DiscardDraftButton ready={ready} ownerSlug={user.slug} canvasName={projectTag} /> : undefined} />
     </>
   );

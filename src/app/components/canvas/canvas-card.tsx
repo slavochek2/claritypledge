@@ -68,8 +68,8 @@ export function CanvasCard({ point, viewerId, positions, compare, selected, shar
       {/* The card's spread row (no info button: the card is itself one button). Founder, sixth
           round: nothing invited a click — a quiet chevron, always visible (phones have no hover). */}
       <div className="mt-1.5 flex items-center justify-between gap-2">
-        {positions ? <PointSpreadRow counts={counts} testId="canvas-card-spread-row" /> : <span />}
-        <ChevronRight aria-hidden data-testid="canvas-card-open" className="h-4 w-4 shrink-0 text-foreground/40 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
+        {positions ? <PointSpreadRow counts={counts} testId="canvas-card-spread-row" hideEmpty /> : <span />}
+        <ChevronRight aria-hidden data-testid="canvas-card-open" className="ml-auto h-4 w-4 shrink-0 text-foreground/40 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
       </div>
       {compare && (
         <div className="mt-2 flex items-start gap-2" data-testid="canvas-card-compare">

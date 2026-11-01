@@ -118,13 +118,13 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe('labels: a version is a number and a date, or "v{next} · Draft", never an internal name', () => {
-  it('the switcher lists "v2 · Draft" and "v1 · date"; the byline label and the tab title agree', async () => {
+  it('the switcher lists "v2" (W8: the state is named once, by the state tag) and "v1 · date"; the tab title still says "v2 · Draft"', async () => {
     getCanvas.mockResolvedValue(draftView({ versions: [draftVersion, v1], publishedNone: false }));
     page(`/p/ana/canvas/canvas?v=${DRAFT_NAME}`);
     await ready();
     const select = within(screen.getByTestId('canvas-version-picker')).getByRole('combobox', { name: 'Version' });
     const labels = within(select).getAllByRole('option').map(o => o.textContent);
-    expect(labels[0]).toBe('v2 · Draft'); // one above the newest published version
+    expect(labels[0]).toBe('v2'); // one above the newest published version; "Draft" is the state tag's word, not the picker's
     expect(labels[1]).toMatch(/^v1 · Oct 1, 2026$/);
     expect(seoTitle.value).toBe('Ana · #canvas · v2 · Draft — Clarity Pledge');
     expect(shownText()).not.toContain(DRAFT_NAME);
@@ -135,7 +135,7 @@ describe('labels: a version is a number and a date, or "v{next} · Draft", never
     getCanvas.mockResolvedValue(view());
     page();
     await ready();
-    expect(screen.getByTestId('canvas-eyebrow')).toHaveTextContent('Clarity Canvas');
+    expect(screen.queryByTestId('canvas-eyebrow')).toBeNull(); // W8: no "Clarity Canvas" label
     expect(screen.getByTestId('canvas-title')).toHaveTextContent(/^Canvas$/);
     expect(screen.queryByTestId('canvas-version-label')).toBeNull(); // no lone "v1 · date" beside the title
     expect(screen.queryByTestId('canvas-project-slot')).toBeNull();

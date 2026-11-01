@@ -83,6 +83,7 @@ import { resetCanvasThreads } from '@/app/pages/chat/canvas-thread-registry';
 import { resetUnresolvedFirstSends } from '@/app/pages/canvas/workspace-next-draft';
 import { clearLinkTokens } from '@/lib/canvas-link-token';
 import { clearListReturnCache } from '@/lib/list-return-cache';
+import { lacksPillShape } from './p1536-pill-assert';
 
 const summary: ChatSummary = {
   conversationId: CONV, kind: 'mirror', title: 'Mira', other: null, org: null, event: null, ownerFirstName: 'Ana',
@@ -233,7 +234,7 @@ describe('W6: Discard sits in the panel header', () => {
     expect(header).not.toBeNull();
     expect(within(header as HTMLElement).getByTestId('canvas-thread-title')).toHaveTextContent('Draft'); // beside the draft's title...
     expect(within(header as HTMLElement).getByLabelText('Close thread')).toBeInTheDocument(); // ...and the close button
-    expect(button.className).toContain('bg-muted'); // the one secondary pill
+    expect(lacksPillShape(button)).toEqual([]); // the one secondary SHAPE (W7: Discard keeps it with destructive text)
     expect(button.className).toContain('text-destructive');
     expect(screen.queryByText('Discard draft')).toBeNull(); // no dialog until it is asked for
   });

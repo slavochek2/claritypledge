@@ -5,7 +5,8 @@
 import { ChevronDown } from 'lucide-react';
 import type { Person } from '@/app/components/compare/statement-row';
 import type { CanvasPerson } from './canvas-page-data';
-import { PILL } from './canvas-pill-styles';
+import { cn } from '@/lib/utils';
+import { CANVAS_SECONDARY_PILL } from './canvas-pill-styles';
 
 /** Who to compare with — the compare page's person picker in small (R14: no link to the full page). */
 export function ComparePicker({ base, others, withPerson, onCompare }: {
@@ -21,13 +22,14 @@ export function ComparePicker({ base, others, withPerson, onCompare }: {
       <label
         // Founder, sixth round: Compare is a main action but read as a grey filter — a blue
         // outline until someone is picked.
-        className={`${PILL} pl-3 ${withPerson ? 'border border-blue-300 bg-blue-50 text-blue-800' : 'border border-blue-600 bg-blue-50 text-blue-700 hover:bg-blue-100'}`}
+        // W7: this pill IS the canvas page's secondary look (CANVAS_SECONDARY_PILL); once someone is picked it softens.
+        className={cn(CANVAS_SECONDARY_PILL, 'relative justify-start pl-3 pr-3 focus-within:ring-2 focus-within:ring-blue-500', withPerson && 'border-blue-300 text-blue-800 hover:bg-blue-50')}
         data-testid="canvas-compare-picker"
       >
         {/* Founder, sixth round: only the arrow opened the menu — the words sat beside it. The
             words are now what shows, and the menu lies invisibly over the whole pill, so any tap
             on it opens the list. */}
-        <span aria-hidden className="truncate pr-8">
+        <span aria-hidden className="truncate pr-6">
           {withPerson ? <><span className="text-foreground/70">Comparing with </span>{withPerson.name}</> : 'Compare positions'}
         </span>
         <select

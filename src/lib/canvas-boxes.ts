@@ -75,6 +75,17 @@ export function canvasTitle(name: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
+/** P1536 W8: the longest a canvas title can be (the database's own limit). */
+export const CANVAS_TITLE_MAX = 60;
+
+/**
+ * P1536 W8: the title a canvas is SHOWN under, from the one place: the owner's rename (`canvases.title`) when there is one, else the name's
+ * canvasTitle. The address tag and the version names never change; only this display does.
+ */
+export function canvasDisplayTitle(title: string | null | undefined, name: string): string {
+  return title && title.trim() ? title : canvasTitle(name);
+}
+
 /** The system tag a canvas named `name` is identified by (its address uses the name alone). */
 export function canvasTagFor(name: string): string {
   return `canvas_${name.toLowerCase()}`;

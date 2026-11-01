@@ -7,6 +7,8 @@
  * has no marker, panel, Thread button or switcher. The marker is read by the shared bottom-nav predicate. The thread is the open
  * draft's: it comes from the page's own owner read (an old `thread=` address is rewritten to `ws=1`). Publish has its one spot in the
  * bar (canvas-publish-spot); after it the page REPLACEs to the new version without the marker and a toast says so.
+ * W8: the owner's ONE header (canvas-owner-bar: name ✎, version, state, Share, Clone, the Publish spot) is drawn here, above the page, for a draft,
+ * a pending Clone and a published view alike; the page keeps only Compare and its status lines. Anyone else gets the reader header in the page.
  * Clone (W3) is the entry into a pending edit: it writes nothing, adds ws=1 to the published view, and the first Send makes the draft
  * (use-clone-canvas); × cancels it. Access is by ownership: anyone else, or an owner with no mirror chat, gets the plain canvas page. The page keeps one position in
  * the tree either way, so entering the workspace does not remount it.
@@ -15,7 +17,8 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useMediaQuery } from '@/app/pages/chat/chat-hooks';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { CanvasPublishSpot } from '@/app/components/canvas/canvas-publish-spot';
-import { CanvasWorkspaceBar, CanvasWorkspaceLayout } from '@/app/components/canvas/canvas-workspace-layout';
+import { CanvasOwnerBar } from '@/app/components/canvas/canvas-owner-bar';
+import { CanvasWorkspaceLayout } from '@/app/components/canvas/canvas-workspace-layout';
 import { CANVAS_WORKSPACE_WIDE_QUERY, CanvasWorkspaceContext, type CanvasWorkspaceValue } from '@/app/components/canvas/canvas-workspace-context';
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { CanvasPage } from '@/app/pages/canvas-page';
@@ -26,6 +29,7 @@ import { useWorkspaceMarker } from './use-workspace-marker';
 import { CloneDraftSheet } from './clone-draft-sheet';
 import { useCloneCanvas } from './use-clone-canvas';
 import { useWorkspacePanel } from './use-workspace-panel';
+import { useCanvasRename } from './use-canvas-rename';
 import { useWorkspacePublish } from './use-workspace-publish';
 import { useFollowDraft } from './use-follow-draft';
 import { WorkspaceChat } from './workspace-chat';
@@ -61,8 +65,25 @@ export function CanvasWithThread() {
   const freshReady = reported.forVersion === params.get('v') ? reported.ready : null;
   const clone = useCloneCanvas({ eligible, active, ready: freshReady, setParams, state: location.state, openDraft: openedDraft, reload: () => setReloads(n => n + 1) });
   const pendingSeq = clone.pending ? clone.pending.seq : null;
-  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady: (ready, forVersion) => setReported(prev => ({ ready, forVersion, held: ready ? { ready, identity: identityRef.current } : prev.held })), reloads, showThread, clone: clone.clone, cloneSeq: pendingSeq }), [active, reloads, showThread, clone.clone, pendingSeq]);
   const { closedDraftId, spot, publishing, publish } = useWorkspacePublish({ ready: reported.ready, runActive, pendingClone: !!clone.pending, setParams, state: location.state });
+  // W8: the owner's header is the bar above the page: for the signed-in owner of a canvas with a mirror chat from the first render (so nothing shifts when
+  // the read lands), and for any owner once the page has read the canvas. Everyone else keeps the reader header in the page.
+  const ownerBar = eligible || !!reported.ready?.isOwner;
+  // W7: Copy prompt is the primary only while the canvas is empty ("Not published yet") and the thread pane is what is on screen.
+  const threadShown = wide ? panelOpen : view === 'chat';
+  const copyPromptPrimary = active && threadShown && !publishing && spot.kind === 'not-published';
+  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady: (ready, forVersion) => setReported(prev => ({ ready, forVersion, held: ready ? { ready, identity: identityRef.current } : prev.held })), reloads, showThread, clone: clone.clone, cloneSeq: pendingSeq, ownerBar, copyPromptPrimary }), [active, reloads, showThread, clone.clone, pendingSeq, ownerBar, copyPromptPrimary]);
+  // The bar shows the last read FOR this canvas (`held`), so name, version and state do not blink away while the page re-reads another version.
+  const rename = useCanvasRename(held, projectTag);
+  const pickVersion = useCallback((version: string) => {
+    setParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('v', version);
+      next.delete('point');
+      next.delete('box');
+      return next;
+    }, { state: location.state });
+  }, [setParams, location.state]);
   useWorkspaceMarker({ eligible, resolved, params, setParams, state: location.state, reported, closedDraftId });
   // A pending Clone over another base's draft must not be dragged onto that draft by its own first Send.
   useFollowDraft(runActive, clone.pending ? null : reported.ready, openedDraft);
@@ -85,9 +106,16 @@ export function CanvasWithThread() {
         active={active}
         view={view}
         panelOpen={panelOpen}
-        bar={<CanvasWorkspaceBar onBack={goBack} view={view} onView={setView} panelOpen={panelOpen} onOpenPanel={() => setPanelOpen(true)} spot={<CanvasPublishSpot state={spot} publishing={publishing} onPublish={publish} />} />}
+        bar={ownerBar ? (
+          <CanvasOwnerBar
+            ready={held} handle={handle} projectTag={projectTag} title={rename.title} canRename={rename.canRename} onRename={rename.save}
+            onPick={pickVersion} onChanged={() => setReloads(n => n + 1)} onBack={goBack} active={active} view={view} onView={setView}
+            panelOpen={panelOpen} onOpenPanel={() => setPanelOpen(true)}
+            spot={<CanvasPublishSpot state={spot} publishing={publishing} onPublish={publish} />}
+          />
+        ) : null}
         canvas={<CanvasPage />}
-        chat={<WorkspaceChat mirror={active ? mirror : null} ready={held} projectTag={projectTag} focusable={(wide && panelOpen) || (!wide && view === 'chat')} onClose={closeThread} onRunActive={setRunActive} onOpened={openedDraft} onReload={() => setReloads(n => n + 1)} cloning={clone.pending} onStale={() => void clone.onStale()} />}
+        chat={<WorkspaceChat mirror={active ? mirror : null} ready={held} projectTag={projectTag} canvasTitle={rename.title} focusable={threadShown} onClose={closeThread} onRunActive={setRunActive} onOpened={openedDraft} onReload={() => setReloads(n => n + 1)} cloning={clone.pending} onStale={() => void clone.onStale()} />}
       />
       <CloneDraftSheet sheet={clone.sheet} onAdd={clone.addToDraft} onStartOver={clone.startOver} onClose={clone.dismissSheet} />
     </CanvasWorkspaceContext.Provider>

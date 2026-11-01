@@ -20,6 +20,7 @@
  * Copy is [FOUNDER DECISION] (spec UI Contract).
  */
 import { CanvasShareFallback } from './canvas-share-fallback';
+import { CANVAS_SECONDARY_PILL } from './canvas-pill-styles';
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Check, CalendarDays, Globe, Link2, Loader2, Lock, Users, X, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -33,10 +34,8 @@ import {
 import { useProfileSearch } from '@/app/hooks/use-profile-search';
 import { ownerLockLabel } from '@/lib/canvas-audience-copy';
 import { canvasCopyAddress } from '@/lib/canvas-copy-address';
-import { shortDate, useIsSheet, useOpenSignal, hiddenTriggerProps, hiddenTriggerClass } from './canvas-share-helpers';
+import { COPIED_MS, shortDate, useIsSheet, useOpenSignal, hiddenTriggerProps, hiddenTriggerClass } from './canvas-share-helpers';
 
-/** "Copied" shows this long, then the button reads "Copy link" again. */
-const COPIED_MS = 2000;
 interface Option {
   kind: 'person' | 'event' | 'group';
   id: string;
@@ -307,13 +306,14 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
       aria-label="Share"
       aria-describedby={stateId}
       title="Share"
-      className={`${hiddenTriggerClass(hideTrigger)}inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full max-sm:order-3 bg-blue-600 px-3 py-2 sm:px-4 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2`}
+      // W7/W8: Share is the canvas page's secondary look (never a filled blue: Publish is the primary), and it keeps its word at every width (B4).
+      className={`${hiddenTriggerClass(hideTrigger)}${CANVAS_SECONDARY_PILL}`}
     >
       {/* Open to anyone with the link: a globe, never a lock (a lock says "restricted"). */}
       {shownAccess === 'link'
         ? <Globe aria-hidden className="h-4 w-4 shrink-0" data-testid="canvas-share-open-icon" />
         : <Lock aria-hidden className="h-4 w-4 shrink-0" data-testid="canvas-share-lock-icon" />}
-      <span className="hidden sm:inline">Share</span>
+      <span>Share</span>
       {/* The state, for assistive technology: who can open the canvas right now. */}
       <span id={stateId} className="sr-only" data-testid="canvas-share-label">{ownerLockLabel(entries, visibility, shownAccess)}</span>
     </button>

@@ -2,7 +2,7 @@
  * @file p1536-workspace-fixture.test.tsx
  * @description P1536 S3 review (visual findings) pinned on the /tree/_gate/canvas-workspace fixture, which renders the real frame,
  * header, grid and composer:
- *  - V3 the canvas title and the owner byline are at the top of the canvas pane
+ *  - V3 (W8: moved) the canvas name is in the owner's bar, which starts the frame; the canvas pane starts with the grid, no title, byline or "Clarity Canvas" label
  *  - V4/V5 the chat-composing phase opens on Chat with text typed in, and Send is visible
  *  - V6/V7 "Changed" shows on draft views that changed (canvas, busy, chat-composing) and never on published or no-changes
  *  - V1/V2 the fixture's stand-in for the shell bar is exactly the 3.5rem the frame subtracts; the bar is one height
@@ -20,11 +20,13 @@ const at = (phase: string) => {
 afterEach(() => cleanup());
 
 describe('the workspace fixture shows what the app shows', () => {
-  it.each(['canvas', 'chat-composing', 'busy', 'published', 'no-changes'])('%s: the canvas pane starts with the canvas title and the owner byline (V3)', (phase) => {
-    const pane = within(at(phase)).getByTestId('workspace-canvas-pane');
-    expect(within(pane).getByTestId('canvas-title')).toHaveTextContent('Example canvas');
-    expect(within(pane).getByTestId('canvas-owner')).toHaveTextContent('Test Owner');
-    expect(within(pane).getByTestId('canvas-byline').querySelectorAll('button')).toHaveLength(0);
+  it.each(['canvas', 'chat-composing', 'busy', 'published', 'no-changes'])('%s: the canvas name is in the owner\'s bar (W8, supersedes V3); the canvas pane carries no title, byline or "Clarity Canvas" label', (phase) => {
+    const view = within(at(phase));
+    expect(within(view.getByTestId('workspace-bar')).getByTestId('canvas-title')).toHaveTextContent('Example canvas');
+    const pane = view.getByTestId('workspace-canvas-pane');
+    expect(within(pane).queryByTestId('canvas-title')).toBeNull();
+    expect(within(pane).queryByTestId('canvas-byline')).toBeNull();
+    expect(pane).not.toHaveTextContent('Clarity Canvas');
   });
 
   it.each([['canvas', 1], ['chat-composing', 1], ['busy', 1], ['published', 0], ['no-changes', 0]])('%s: %i "Changed" mark(s); a draft with no changes, and a published version, have none (V6, V7)', (phase, marks) => {
@@ -48,15 +50,15 @@ describe('the workspace fixture shows what the app shows', () => {
     expect(canvas.queryByRole('button', { name: 'Send' })).toBeNull();
   });
 
-  it('V1/V2: the stand-in shell strip is 3.5rem (h-14), the frame is the rest of the screen, and the bar is one height with nothing above its content', () => {
+  it('V1/V2: the stand-in shell strip is 3.5rem (h-14), the frame is the rest of the screen, and the bar is never squeezed, with nothing above its content (W8)', () => {
     const c = at('canvas');
     expect(within(c).getByTestId('gate-shell-stand-in').className).toContain('h-14');
     const frame = within(c).getByTestId('canvas-workspace');
     expect(frame.className).toContain('h-[calc(100dvh-3.5rem)]');
     const bar = within(c).getByTestId('workspace-bar');
     expect(frame.firstElementChild).toBe(bar);
-    expect(bar.className).toContain('h-12');
-    expect(bar.className).not.toMatch(/\b(?:pt|py|mt)-/);
+    expect(bar.className).toContain('shrink-0'); // W8: as tall as its rows (one line from 1280px, two below), never squeezed
+    expect(bar.className).not.toMatch(/\b(?:pt|mt)-/); // nothing above its content
   });
 
   it('V9: a divider between the canvas and the chat from 1280px', () => {

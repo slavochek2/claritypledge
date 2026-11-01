@@ -87,6 +87,7 @@ import { resetCanvasThreads } from '@/app/pages/chat/canvas-thread-registry';
 import { resetUnresolvedFirstSends } from '@/app/pages/canvas/workspace-next-draft';
 import { clearLinkTokens } from '@/lib/canvas-link-token';
 import { clearListReturnCache } from '@/lib/list-return-cache';
+import { lacksSecondaryPill } from './p1536-pill-assert';
 
 const summary: ChatSummary = {
   conversationId: CONV, kind: 'mirror', title: 'Mira', other: null, org: null, event: null, ownerFirstName: 'Ana',
@@ -200,7 +201,7 @@ describe('S3b.4/S3b.9: Clone shows only to the owner, on a published version', (
     const button = await screen.findByTestId('canvas-clone');
     expect(button).toHaveTextContent('Clone');
     expect(button.querySelector('svg.lucide-copy')).not.toBeNull();
-    expect(button.className).toContain('bg-muted'); // the one secondary pill
+    expect(lacksSecondaryPill(button)).toEqual([]); // the one secondary pill (W7: Compare's look)
     expect(screen.queryByTestId('canvas-new-version')).toBeNull();
     expect(document.body.textContent).not.toMatch(/new version/i);
   });

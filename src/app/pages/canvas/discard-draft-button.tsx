@@ -10,11 +10,10 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
-import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
+import { CANVAS_DESTRUCTIVE_PILL } from '@/app/components/canvas/canvas-pill-styles';
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { CanvasDraftRefusal, discardCanvasDraft, getCanvasDraftRevision } from '@/app/data/canvas-draft-service';
 import { canvasStartErrorText } from '@/app/pages/chat/canvas-start';
-import { cn } from '@/lib/utils';
 import { discardLanding } from './discard-draft-landing';
 
 const DISCARD_LABEL = 'Discard';
@@ -61,7 +60,7 @@ export function DiscardDraftButton({ ready, ownerSlug, canvasName }: { ready: Ca
 
   return (
     <>
-      <button type="button" className={cn(CANVAS_SECONDARY_PILL, 'text-destructive')} aria-label="Discard draft" onClick={() => setAsking(true)} data-testid="canvas-discard">
+      <button type="button" className={CANVAS_DESTRUCTIVE_PILL} aria-label="Discard draft" onClick={() => setAsking(true)} data-testid="canvas-discard">
         {DISCARD_LABEL}
       </button>
       <ConfirmDialog

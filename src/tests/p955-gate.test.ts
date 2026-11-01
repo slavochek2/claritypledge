@@ -505,7 +505,7 @@ describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate
 });
 
 describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate/canvas-workspace fixture (S6.4, S6.5)', () => {
-  const PHASES = ['canvas', 'chat-composing', 'busy', 'published', 'no-changes'];
+  const PHASES = ['canvas', 'chat-composing', 'busy', 'published', 'no-changes', 'published-header', 'panel-closed', 'new-canvas'];
   const at = (phase: string) => {
     localStorage.clear();
     const view = render(h(MemoryRouter, { initialEntries: [`/tree/_gate/canvas-workspace?phase=${phase}`] }, h(CanvasWorkspaceGateFixture)));
@@ -518,7 +518,8 @@ describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate
     expect(listed.sort()).toEqual([...PHASES].sort());
   });
 
-  it.each(PHASES)('%s: typing changes no button except the send slot, and the Publish spot is one box that is a button only when it can run', (phase) => {
+  // published-header is the owner's bar above a plain page: there is no thread, so no composer to type into (its own test below).
+  it.each(PHASES.filter((p) => p !== 'published-header'))('%s: typing changes no button except the send slot, and the Publish spot is one box that is a button only when it can run', (phase) => {
     const { container, composer } = at(phase);
     if (phase === 'chat-composing') {
       // V4/V5: this phase opens with text typed in, so Send is visible (the P1576 swap shows Send only with text); the assertion starts from empty.
@@ -529,8 +530,22 @@ describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate
     expect(buttonsChangedOnInput(container, composer)).toEqual([]);
     expect(() => assertStableVariantsOnInput(container, composer)).not.toThrow();
     const spot = within(container).getByTestId('publish-spot');
-    expect(spot.querySelectorAll('button').length).toBe(phase === 'canvas' || phase === 'chat-composing' ? 1 : 0);
+    expect(spot.querySelectorAll('button').length).toBe(['canvas', 'chat-composing', 'panel-closed'].includes(phase) ? 1 : 0);
     expect(Array.from(container.querySelectorAll('button')).filter((b) => b.disabled)).toEqual([]);
+  });
+
+  it('published-header (W8): the owner\'s bar sits above a plain page, with no thread, no switcher and no primary; the spot says Published and is not a button', () => {
+    localStorage.clear();
+    const { container } = render(h(MemoryRouter, { initialEntries: ['/tree/_gate/canvas-workspace?phase=published-header'] }, h(CanvasWorkspaceGateFixture)));
+    const view = within(container);
+    expect(view.queryByTestId('workspace-chat-pane')).toBeNull();
+    expect(view.queryByTestId('workspace-view-switch')).toBeNull();
+    expect(view.getByTestId('publish-spot-status')).toHaveTextContent('Published · v3');
+    expect(view.getByTestId('canvas-state')).toHaveTextContent('Published');
+    expect(view.getByTestId('canvas-clone')).toBeInTheDocument();
+    expect(Array.from(container.querySelectorAll('button')).filter((b) => b.className.includes('bg-blue-600'))).toEqual([]);
+    expect(Array.from(container.querySelectorAll('button')).filter((b) => b.disabled)).toEqual([]);
+    expect(() => assertOnePrimary(container)).not.toThrow();
   });
 
   it('chat-composing opens on the Chat view, the others on the Canvas view; both panes are always mounted', () => {

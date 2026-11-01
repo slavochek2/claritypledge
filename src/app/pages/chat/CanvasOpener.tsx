@@ -3,13 +3,15 @@
  * @description P1536: what opens a canvas thread, drawn by the client at the top as mirror messages (never stored, the way
  * the mirror's greeting works): one message ("I'll help you ... Send me anything ...") and, under it, a small steps card
  * "Want to save time?": 1 Copy prompt, 2 paste it into your own AI, 3 upload the answer here, with a "What gets copied"
- * disclosure that shows the prompt. It is never folded away. Copy prompt keeps one look always (an outline, rule 9); it says
+ * disclosure that shows the prompt. It is never folded away. Copy prompt is the primary only on an empty new canvas (W7), else the secondary pill; it says
  * "Copied" for about two seconds after. When the clipboard refuses, the same text opens
  * in a dialog to copy by hand.
  */
 import { useState, type ReactNode } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
+import { useCanvasWorkspace } from '@/app/components/canvas/canvas-workspace-context';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { MirrorMark } from './chat-kit';
@@ -72,6 +74,23 @@ function CopyLabel({ copied }: { copied: boolean }) {
   );
 }
 
+/**
+ * W7: Copy prompt is the thread pane's primary only on an empty new canvas ("Not published yet") while the pane is on screen; every other time
+ * (Updating…, No changes yet, Published, Publish) it is the one secondary look. The composer's content never changes it.
+ */
+function CopyPromptButton({ copied, onCopy }: { copied: boolean; onCopy: () => void }) {
+  const { copyPromptPrimary } = useCanvasWorkspace();
+  return copyPromptPrimary ? (
+    <Button type="button" className="h-10 gap-1" onClick={onCopy} data-testid="canvas-copy-prompt">
+      <CopyLabel copied={copied} />
+    </Button>
+  ) : (
+    <button type="button" className={CANVAS_SECONDARY_PILL} onClick={onCopy} data-testid="canvas-copy-prompt">
+      <CopyLabel copied={copied} />
+    </button>
+  );
+}
+
 function Step({ n, children }: { n: number; children: ReactNode }) {
   return (
     <li className="flex min-h-8 items-center gap-2.5 text-sm text-foreground">
@@ -130,9 +149,7 @@ export function CanvasThreadOpener({ title }: { title: string | null | undefined
           <h3 className="text-sm font-semibold text-foreground">{CANVAS_STEPS_TITLE}</h3>
           <ol className="mt-1.5 space-y-1">
             <Step n={1}>
-              <Button type="button" variant="outline" className="min-h-10 gap-1" onClick={() => void copy()}>
-                <CopyLabel copied={copied} />
-              </Button>
+              <CopyPromptButton copied={copied} onCopy={() => void copy()} />
             </Step>
             <Step n={2}>{CANVAS_STEP_PASTE}</Step>
             <Step n={3}>{CANVAS_STEP_UPLOAD}</Step>

@@ -548,7 +548,7 @@ export function CanvasPage() {
             collapseStoriesOnEscape
             // On the card, as on the /point page's card: how everyone spreads, and why it matters.
             // A draft has no positions: an empty fragment replaces the default spread row (null would bring it back).
-            spread={draftView ? <></> : <PointSpreadRow counts={levelCounts(openPositions)} withInfo className="mt-2" />}
+            spread={draftView ? <></> : <PointSpreadRow counts={levelCounts(openPositions)} withInfo className="mt-2" hideEmpty />}
             // The project tag is where the reader already is: shown, not a link out to the feed.
             activeTag={ready?.version ?? projectTag ?? undefined}
             onPointRemoved={refresh}

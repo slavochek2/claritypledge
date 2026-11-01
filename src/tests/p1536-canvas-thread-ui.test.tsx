@@ -86,6 +86,7 @@ import { isCanvasThread, resetCanvasThreads } from '@/app/pages/chat/canvas-thre
 import { useCanvasEntry, useStartCanvas } from '@/app/pages/chat/use-start-canvas';
 import { ChatContext, type ChatContextValue } from '@/app/pages/chat/chat-state';
 import { GateFixture } from '@/app/tree/_gate/canvas-thread/GateFixture';
+import { lacksSecondaryPill } from './p1536-pill-assert';
 
 const mirrorChat: ChatSummary = {
   conversationId: MIRROR_ID, kind: 'mirror', title: 'Mira', other: null, org: null, event: null, ownerFirstName: 'Test',
@@ -487,7 +488,7 @@ describe('the canvas version in a message (W0/W4: its state and an Open)', () =>
     expect(box.querySelector('.bg-blue-100')).not.toBeNull();
     const open = within(box).getByRole('link', { name: 'Open canvas Hiring plan' });
     expect(open).toHaveAttribute('href', href);
-    expect(open.className).toContain('bg-secondary'); // secondary, never a filled primary
+    expect(lacksSecondaryPill(open)).toEqual([]); // the one secondary pill (W7), never a filled primary
     expect(open.className).not.toContain('bg-blue-600');
     expect(box.tagName).not.toBe('A'); // the card itself is not a link: Open is
   });

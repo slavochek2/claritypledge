@@ -10,7 +10,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutGrid } from 'lucide-react';
 import type { CanvasVersionCardData } from '@/app/data/canvas-draft-service';
-import { Button } from '@/components/ui/button';
+import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
 import { ARTIFACT_CARD, ARTIFACT_DISC } from './artifact-card-style';
 import { OPEN_LABEL, versionStateLine } from './canvas-thread-copy';
 import { cn } from '@/lib/utils';
@@ -30,9 +30,8 @@ export function CanvasVersionCard({ data, compact = false }: { data: CanvasVersi
         <span className="block truncate text-xs text-muted-foreground" data-testid="canvas-version-state">{versionStateLine(data)}</span>
       </span>
       {!compact && !inWorkspace && data.openHref && (
-        <Button asChild variant="secondary" className="min-h-10 shrink-0">
-          <Link to={data.openHref} state={{ from: `${pathname}${search}` }} aria-label={`${OPEN_LABEL} canvas ${title}`}>{OPEN_LABEL}</Link>
-        </Button>
+        // W7: Open is the canvas page's one secondary look.
+        <Link to={data.openHref} state={{ from: `${pathname}${search}` }} aria-label={`${OPEN_LABEL} canvas ${title}`} className={CANVAS_SECONDARY_PILL}>{OPEN_LABEL}</Link>
       )}
     </div>
   );

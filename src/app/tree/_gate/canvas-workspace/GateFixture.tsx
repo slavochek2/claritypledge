@@ -1,10 +1,12 @@
 /**
- * P955 gate fixture (P1536 S3, S6.5): the canvas workspace's frame (the bar with ←, the Canvas | Thread switch and the Publish spot, the
- * two panes) built from the REAL parts the route element uses: CanvasWorkspaceBar, CanvasWorkspaceLayout, CanvasPublishSpot,
- * CanvasHeader (title and byline), CanvasGrid, CanvasCard and the real Composer. The canvas and the chat history are fake. A 3.5rem
+ * P955 gate fixture (P1536 S3, S6.5, W7, W8): the canvas workspace's frame (the owner's bar with ←, name ✎, version, state, Share, Clone, the
+ * Canvas | Thread switch and the Publish spot, the two panes) built from the REAL parts the route element uses: CanvasOwnerBar,
+ * CanvasWorkspaceLayout, CanvasPublishSpot, CanvasHeader (the in-page rest of the header), CanvasGrid, CanvasCard, the opener and the real Composer. The canvas and the chat history are fake. A 3.5rem
  * strip stands in for the shell's top bar, so the frame sits where it sits in the app. PERMANENT RENDER SUBSTRATE, never pruned.
  * Obviously fake data only.
  * ?phase=canvas | chat-composing (opens on Chat, with text typed in) | busy | published (no Changed marks) | no-changes (none either)
+ *   | published-header (a published view with nothing being edited: the owner's bar above the page, no workspace) | panel-closed (the thread
+ *   panel closed: Canvas on screen) | new-canvas (an empty new canvas on Thread: the opener's Copy prompt is the one primary)
  * Not yet here (their screens are built by S4 and S5): the J4 sheet, the mixed reply and the J10 publish reply.
  */
 import { useEffect, useState } from 'react';
@@ -12,11 +14,14 @@ import { useSearchParams } from 'react-router-dom';
 import { CanvasCard } from '@/app/components/canvas/canvas-card';
 import { CanvasGrid } from '@/app/components/canvas/canvas-grid';
 import { CanvasHeader } from '@/app/components/canvas/canvas-header';
+import { CanvasOwnerBar } from '@/app/components/canvas/canvas-owner-bar';
+import { CANVAS_WORKSPACE_WIDE_QUERY, CanvasWorkspaceContext, type CanvasWorkspaceValue } from '@/app/components/canvas/canvas-workspace-context';
+import { CanvasThreadOpener } from '@/app/pages/chat/CanvasOpener';
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { CanvasPublishSpot } from '@/app/components/canvas/canvas-publish-spot';
 import type { PublishSpotState } from '@/app/components/canvas/canvas-publish-spot-state';
-import { CanvasWorkspaceBar, CanvasWorkspaceLayout, type WorkspaceView } from '@/app/components/canvas/canvas-workspace-layout';
-import { stashDraft } from '@/app/pages/chat/chat-hooks';
+import { CanvasWorkspaceLayout, type WorkspaceView } from '@/app/components/canvas/canvas-workspace-layout';
+import { stashDraft, useMediaQuery } from '@/app/pages/chat/chat-hooks';
 import { Composer } from '@/app/pages/chat/Composer';
 import { resetCanvasAvailability, seedCanvasAvailability } from '@/app/pages/chat/use-canvas-availability';
 import { groupPointsByBox } from '@/lib/canvas-boxes';
@@ -34,21 +39,25 @@ const POINTS = [
   point('point-id-3', 'canvas:revenue', 'Example bet: a cafe pays a fixed monthly fee (fake data).'),
 ];
 
-interface Phase { spot: PublishSpotState; changed: string[] | undefined; view: WorkspaceView; typed: boolean; published: boolean }
-const DRAFT = { spot: { kind: 'publish' } as PublishSpotState, changed: ['canvas:problem'], view: 'canvas' as WorkspaceView, typed: false, published: false };
+interface Phase { spot: PublishSpotState; changed: string[] | undefined; view: WorkspaceView; typed: boolean; published: boolean; active: boolean; panelOpen: boolean; empty: boolean }
+const DRAFT = { spot: { kind: 'publish' } as PublishSpotState, changed: ['canvas:problem'], view: 'canvas' as WorkspaceView, typed: false, published: false, active: true, panelOpen: true, empty: false };
 const PHASES: Record<string, Phase> = {
   canvas: DRAFT,
   'chat-composing': { ...DRAFT, view: 'chat', typed: true },
   busy: { ...DRAFT, spot: { kind: 'updating' } },
   published: { ...DRAFT, spot: { kind: 'published', seq: 3 }, changed: undefined, published: true },
   'no-changes': { ...DRAFT, spot: { kind: 'no-changes' }, changed: [] },
+  'published-header': { ...DRAFT, spot: { kind: 'published', seq: 3 }, changed: undefined, published: true, active: false },
+  'panel-closed': { ...DRAFT, panelOpen: false },
+  'new-canvas': { ...DRAFT, spot: { kind: 'not-published' }, changed: [], view: 'chat', empty: true },
 };
 
 const V1 = { name: 'canvas_d111111', createdAt: NOW, seq: 1, publishedAt: NOW, draft: false };
 const DRAFT_VERSION = { name: 'canvas_dabc123', createdAt: NOW, seq: null, publishedAt: null, draft: true };
 const DRAFT_BLOCK = { id: 'draft-id-1234', version: 'canvas_dabc123', threadRootId: 'thread-root-id-1234', conversationId: 'conversation-id-1234', baseSeq: 1, runCount: 1, revision: 1, questions: {}, changedBoxes: ['canvas:problem'] };
-const readyFor = (published: boolean): CanvasReady => ({
-  status: 'ready', ownerId: 'user-id-1234', ownerName: 'Test Owner', owner: { name: 'Test Owner', hasPledged: false }, points: POINTS, stories: new Map(), positions: new Map(),
+const readyFor = (published: boolean, empty: boolean): CanvasReady => ({
+  status: 'ready', ownerId: 'user-id-1234', ownerName: 'Test Owner', owner: { name: 'Test Owner', hasPledged: false }, points: empty ? [] : POINTS, stories: new Map(), positions: new Map(),
+  canvasId: 'canvas-id-1234', title: null,
   visibility: 'private', isOwner: true, generalAccess: 'restricted', via: null, audience: [], addedStoryIds: [], publishedNone: false,
   ...(published ? { version: V1.name, versions: [V1], draft: null } : { version: DRAFT_VERSION.name, versions: [DRAFT_VERSION, V1], draft: DRAFT_BLOCK }),
 });
@@ -76,10 +85,18 @@ export function GateFixture() {
     if (config.typed) stashDraft(draftKey, 'Make the problem sharper for cafes (fake text)');
   });
   useEffect(() => resetCanvasAvailability, []);
-  const ready = readyFor(config.published);
-  const boxes = groupPointsByBox(POINTS);
+  const ready = readyFor(config.published, config.empty);
+  const boxes = groupPointsByBox(config.empty ? [] : POINTS);
+  // The route element's context, as the owner's page sees it: the bar is the header (ownerBar), Clone is handed over, and Copy prompt is the
+  // primary only on the empty new canvas with the thread on screen (what CanvasWithThread computes).
+  const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
+  const threadShown = wide ? config.panelOpen : view === 'chat';
+  const workspace: CanvasWorkspaceValue = {
+    active: config.active, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: () => undefined, cloneSeq: null, ownerBar: true,
+    copyPromptPrimary: config.active && threadShown && config.spot.kind === 'not-published',
+  };
   return (
-    <>
+    <CanvasWorkspaceContext.Provider value={workspace}>
       <div className="mx-auto max-w-[1440px]">
         <nav className="flex h-14 flex-wrap items-center gap-2 border-b px-2 text-xs" data-testid="gate-shell-stand-in">
           {Object.keys(PHASES).map(p => (
@@ -87,9 +104,16 @@ export function GateFixture() {
           ))}
         </nav>
         <CanvasWorkspaceLayout
-          active
+          active={config.active}
           view={view}
-          bar={<CanvasWorkspaceBar onBack={() => undefined} view={view} onView={setView} spot={<CanvasPublishSpot state={config.spot} onPublish={() => undefined} />} />}
+          panelOpen={config.panelOpen}
+          bar={
+            <CanvasOwnerBar
+              ready={ready} handle="test-owner" projectTag="example_canvas" title="Example canvas" canRename onRename={() => undefined} onPick={() => undefined}
+              onChanged={() => undefined} onBack={() => undefined} active={config.active} view={view} onView={setView} panelOpen={config.panelOpen}
+              onOpenPanel={() => undefined} spot={<CanvasPublishSpot state={config.spot} onPublish={() => undefined} />}
+            />
+          }
           canvas={
             <div className="px-4 pb-4 pt-3 lg:px-6">
               <CanvasHeader
@@ -114,13 +138,13 @@ export function GateFixture() {
           }
           chat={
             <>
-              <FakeThread />
+              {config.empty ? <div className="min-h-0 flex-1 overflow-y-auto"><CanvasThreadOpener title={null} /></div> : <FakeThread />}
               <Composer draftKey={draftKey} placeholder="Reply in thread" onSend={() => undefined} />
             </>
           }
         />
       </div>
-    </>
+    </CanvasWorkspaceContext.Provider>
   );
 }
 

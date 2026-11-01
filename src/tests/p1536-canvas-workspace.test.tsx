@@ -87,6 +87,7 @@ import { resetUnresolvedFirstSends } from '@/app/pages/canvas/workspace-next-dra
 import { resetCanvasAvailability as resetAvailability } from '@/app/pages/chat/use-canvas-availability';
 import { clearLinkTokens } from '@/lib/canvas-link-token';
 import { clearListReturnCache } from '@/lib/list-return-cache';
+import { lacksSecondaryPill } from './p1536-pill-assert';
 
 const summary: ChatSummary = {
   conversationId: CONV, kind: 'mirror', title: 'Mira', other: null, org: null, event: null, ownerFirstName: 'Ana',
@@ -270,7 +271,7 @@ describe('S3.1/S3.2: the frame', () => {
     expect(spot.className).toBe(SPOT_BOX);
   });
 
-  it('S3.5/V1/V2: ONE box under the shell bar holds the bar (one fixed height) and the panes, which take exactly what is left; nothing is positioned from outside', async () => {
+  it('S3.5/V1/V2 (W8): ONE box under the shell bar holds the owner\'s bar (its own height: one line from 1280px, two rows below; pixels need a browser) and the panes, which take exactly what is left; nothing is positioned from outside', async () => {
     mount();
     await ready();
     const box = screen.getByTestId('canvas-workspace');
@@ -280,9 +281,9 @@ describe('S3.1/S3.2: the frame', () => {
     expect(box.className).toContain('top-14'); // under the shell's 3.5rem bar
     expect(box.className).toContain('h-[calc(100dvh-3.5rem)]'); // the rest of the screen
     expect(box.className).toContain('flex-col');
-    expect(bar.className).toContain('h-12'); // ONE bar height, no breakpoint variants
+    // W8 (supersedes the fixed h-12): the bar is as tall as its rows and never shrinks; the same markup for a draft and a published version
     expect(bar.className).toContain('shrink-0');
-    expect(bar.className).not.toMatch(/\b(?:sm|md|lg|xl|2xl):h-/);
+    expect(bar.className).not.toMatch(/\bh-\d/);
     expect(bar.className).not.toMatch(/\b(?:sm|md|lg|xl):(?:py|pt|mt)-/); // no band above its content
     expect(bar.nextElementSibling).toBe(panes); // nothing between the bar and the panes
     expect(panes.className).toContain('flex-1'); // they take what is left of the box ...
@@ -722,7 +723,7 @@ describe('round 2 C1: the chat edits the open draft even when the page shows ano
     st.run = { ...doneRun, state: 'running', createdAt: new Date().toISOString(), startedAt: new Date().toISOString() };
     mount(published);
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(`v=${DRAFT_NAME}`));
-    expect(getCanvas.mock.calls.some(c => c[4] === DRAFT_NAME)).toBe(true);
+    await waitFor(() => expect(getCanvas.mock.calls.some(c => c[4] === DRAFT_NAME)).toBe(true)); // retried: the URL moves a tick before the read starts
     await waitFor(() => expect(spotState()).toBe('updating'));
   });
 
@@ -732,7 +733,7 @@ describe('round 2 C1: the chat edits the open draft even when the page shows ano
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(`v=${DRAFT_NAME}`));
     await waitFor(() => expect(spotState()).toBe('updating'));
     // the owner picks the published version in the page's own switcher while the run is still going
-    fireEvent.change(within(screen.getByTestId('canvas-version-picker')).getByRole('combobox', { name: 'Version' }), { target: { value: v1.name } });
+    fireEvent.change(within(await screen.findByTestId('canvas-version-picker')).getByRole('combobox', { name: 'Version' }), { target: { value: v1.name } });
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(`v=${v1.name}`));
     await act(async () => { await new Promise(res => setTimeout(res, 150)); });
     expect(screen.getByTestId('where')).toHaveTextContent(`v=${v1.name}`); // not pulled back
@@ -884,12 +885,14 @@ describe('round 2 C3/G1/G2/G4: the empty chat is a drawn state, with Upload, no 
 });
 
 describe('round 2 G5/V8: tab targets and one right edge for the spot', () => {
-  it('the Canvas | Chat tabs are at least 40px (min-h-10) and the tablist fits the 48px bar (h-11 < h-12)', async () => {
+  it('the Canvas | Chat tabs are at least 40px (min-h-10), the tablist is 44px (h-11) and sits in the bar\'s second row below 1280px (W8)', async () => {
     mount();
     await ready();
     for (const id of ['canvas', 'chat'] as const) expect(screen.getByTestId(`workspace-view-${id}`).className).toMatch(/\bh-10\b.*\bmin-h-10\b|\bmin-h-10\b.*\bh-10\b/);
     expect(screen.getByRole('tablist').className).toContain('h-11');
-    expect(screen.getByTestId('workspace-bar').className).toContain('h-12');
+    const bar = screen.getByTestId('workspace-bar');
+    expect(bar.contains(screen.getByRole('tablist'))).toBe(true);
+    expect(screen.getByTestId('workspace-view-switch').className).toContain('xl:hidden'); // gone from 1280px, where the panel is beside the canvas
   });
 
   it('V8: the box is fixed-width with its content right-aligned in EVERY state, so they share one right edge', async () => {
@@ -1000,8 +1003,8 @@ describe('review round 3: replay delivers bytes, held is per canvas, Retry re-re
     mount();
     await ready();
     const cls = screen.getByTestId('canvas-version-picker').className;
-    expect(cls).toMatch(/\bborder-border\b/);
-    expect(cls).not.toMatch(/border-foreground/);
+    expect(cls).toMatch(/\bborder\b/);
+    expect(lacksSecondaryPill(screen.getByTestId('canvas-version-picker'))).toEqual([]); // W7: Compare's pill, one constant
     expect(cls).toMatch(/\bw-fit\b/);
   });
 });

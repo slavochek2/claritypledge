@@ -94,12 +94,15 @@ export function ContestedLabel({ testId = 'contested' }: { testId?: string }) {
  * The spread row of a point card: the spread (or "No positions yet"), "Contested" when it applies,
  * and — where the card is not itself a button — the info button explaining both.
  */
-export function PointSpreadRow({ counts, withInfo = false, testId = 'point-spread-row', className = '' }: {
+export function PointSpreadRow({ counts, withInfo = false, testId = 'point-spread-row', className = '', hideEmpty = false }: {
   counts: LevelCounts;
   withInfo?: boolean;
   testId?: string;
   className?: string;
+  /** W9: a point nobody has taken a position on shows nothing, not "No positions yet" (the canvas). */
+  hideEmpty?: boolean;
 }) {
+  if (hideEmpty && totalPositions(counts) === 0) return null;
   return (
     <div className={`flex flex-wrap items-center gap-x-2 gap-y-1 ${className}`.trim()} data-testid={testId}>
       {totalPositions(counts) > 0

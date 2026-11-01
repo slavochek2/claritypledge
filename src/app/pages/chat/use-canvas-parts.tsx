@@ -17,6 +17,8 @@ import { useCanvasPane } from './use-canvas-pane';
 import type { CanvasThreadStatus } from './use-canvas-thread';
 
 export function useCanvasParts(args: { canvasRoot: boolean; rootId: string; messages: ChatMessage[]; userId: string; ownerSlug: string | null | undefined; mirrorTitle: string | null | undefined;
+  /** W8: the canvas's shown name (the owner's rename); absent: the title of its tag. */
+  canvasTitle?: string;
   /** W4: the root's canvas version, outside the canvas workspace only (its Publish reply carries "Open canvas"; the workspace's panel has no Open). */
   openCanvasFrom?: string | null }): {
   headerTitle: ReactNode;
@@ -36,7 +38,7 @@ export function useCanvasParts(args: { canvasRoot: boolean; rootId: string; mess
   const live = canvasOn === true ? canvas : null;
   return {
     /** The header's title for a canvas thread; null: the ordinary "Thread" title. */
-    headerTitle: live ? <CanvasThreadTitle draft={live.draft} ownerSlug={args.ownerSlug} /> : null,
+    headerTitle: live ? <CanvasThreadTitle draft={live.draft} ownerSlug={args.ownerSlug} title={args.canvasTitle} /> : null,
     list: {
       lead: live ? <CanvasThreadOpener title={args.mirrorTitle} /> : undefined,
       // An update's root is the base version: its card comes first, then the opener (a new canvas has no card, the opener is first).

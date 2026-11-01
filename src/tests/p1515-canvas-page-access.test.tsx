@@ -61,6 +61,7 @@ import { CanvasPage } from '@/app/pages/canvas-page';
 import { canvasPath } from '@/lib/canvas-boxes';
 import { clearLinkTokens, useClearLinkTokensOnAuthChange } from '@/lib/canvas-link-token';
 import { clearListReturnCache, listReturnCacheKey, readListReturnCache } from '@/lib/list-return-cache';
+import { lacksSecondaryPill } from './p1536-pill-assert';
 
 const point = {
   id: 'p1', statement: 'Point one', tags: [], systemTags: ['canvas:problem'], visibility: 'private', userPosition: null,
@@ -802,8 +803,7 @@ describe('P1515 phase 4: the header row', () => {
     expect(screen.getByTestId('canvas-actions').closest('[data-testid="canvas-header-row"]')).not.toBeNull();
     expect(screen.getByTestId('canvas-byline').closest('[data-testid="canvas-header-row"]')).not.toBeNull();
     const picker = screen.getByTestId('canvas-version-picker');
-    expect(picker.className).toMatch(/\bborder\b/);
-    expect(picker.className).toMatch(/bg-muted/);
+    expect(lacksSecondaryPill(picker)).toEqual([]); // W7: the one secondary look (Compare's pill), no longer the grey one
     expect(picker.querySelector('svg')).not.toBeNull(); // the chevron
     expect(within(picker).getByRole('combobox', { name: 'Version' })).toHaveValue('sales_v2');
   });
@@ -829,14 +829,14 @@ describe('P1515 phase 4: the header row', () => {
     expect(getTags).not.toHaveBeenCalled(); // the page no longer reads the owner's canvas list
   });
 
-  it('V1/V2: the switcher has a visible border (outline button) and keeps its muted fill; on a phone it is a compact inline chip (N1), and the actions (Compare, Share) are a row of their own (P1536 S3.6)', async () => {
+  it('V1/V2: the switcher has a visible border (outline button) in the one secondary look (W7: Compare\'s blue outline, no longer the grey fill); on a phone it is a compact inline chip (N1), and the actions (Compare, Share) are a row of their own (P1536 S3.6)', async () => {
     auth.viewerId = 'owner-1';
     getCanvas.mockResolvedValue(canvasView(true, { positions: withOtherPosition(), ...versions2 }));
     page();
     await grid();
     const picker = screen.getByTestId('canvas-version-picker');
-    expect(picker.className).toMatch(/border-border/);
-    expect(picker.className).toMatch(/bg-muted/);
+    expect(picker.className).toMatch(/\bborder\b/);
+    expect(lacksSecondaryPill(picker)).toEqual([]);
     expect(screen.getByTestId('canvas-project-slot').className).not.toMatch(/max-sm:w-full/); // N1: a chip after the name, not a full-width pill
     expect(picker.className).not.toMatch(/max-sm:w-full/);
     // Compare lives in the actions row, a row of its own under the byline: it needs no order/basis classes to drop under the picker
@@ -851,7 +851,7 @@ describe('P1515 phase 4: the header row', () => {
 });
 
 describe('P1545: the canvas title', () => {
-  it('the canvas name, shown the way Artifacts shows it, is the H1; "Clarity Canvas" is a small uppercase label above it', async () => {
+  it('the canvas name, shown the way Artifacts shows it, is the H1; there is no "Clarity Canvas" label above it (W8)', async () => {
     auth.viewerId = 'owner-1';
     getCanvas.mockResolvedValue(canvasView(true));
     page('/p/ana/canvas/hiring_plan_for_q1');
@@ -859,11 +859,8 @@ describe('P1545: the canvas title', () => {
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toHaveTextContent('Hiring plan for q1');
     expect(h1).not.toHaveTextContent('hiring_plan_for_q1');
-    const eyebrow = screen.getByTestId('canvas-eyebrow');
-    expect(eyebrow).toHaveTextContent('Clarity Canvas');
-    expect(eyebrow.className).toMatch(/\buppercase\b/);
-    expect(eyebrow.tagName).not.toMatch(/^H\d$/);
-    expect(h1.compareDocumentPosition(eyebrow) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy(); // label comes first
+    expect(screen.queryByTestId('canvas-eyebrow')).toBeNull();
+    expect(screen.getByTestId('canvas-header-row')).not.toHaveTextContent('Clarity Canvas');
   });
 });
 
@@ -904,7 +901,7 @@ describe('P1515 phase 5: the version switcher', () => {
     await grid();
     const picker = screen.getByTestId('canvas-version-picker');
     expect(picker.className).toMatch(/\bborder\b/);
-    expect(picker.className).toMatch(/bg-muted/);
+    expect(lacksSecondaryPill(picker)).toEqual([]);
     const select = within(picker).getByRole('combobox', { name: 'Version' }) as HTMLSelectElement;
     expect(select.value).toBe('sales_v2');
     const options = within(select).getAllByRole('option');

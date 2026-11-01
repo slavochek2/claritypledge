@@ -35,6 +35,7 @@ import { listReturnCacheGeneration } from '@/lib/list-return-cache';
 import { CanvasShareControl } from '@/app/components/canvas/canvas-share-control';
 import { FeedPointCard, type FeedPointCardCanvas } from '@/app/components/feed/feed-point-card';
 import { ownerLockLabel, readerLine, sharedIconLabel, composerVisibilityCopy } from '@/lib/canvas-audience-copy';
+import { isFilledBlue, lacksSecondaryPill } from './p1536-pill-assert';
 
 beforeEach(() => { rpc.mockReset(); search.results = []; });
 afterEach(() => { cleanup(); });
@@ -503,11 +504,12 @@ describe('phase 4: the share panel (Claude / Notion style)', () => {
     await screen.findByTestId('canvas-share-owner');
   };
 
-  it('AC1: the owner\'s button reads "Share", is blue with a lock; open to the link it wears a globe instead', () => {
+  it('AC1: the owner\'s button reads "Share" in the one secondary look (W7: not a filled blue) with a lock; open to the link it wears a globe instead', () => {
     render(<CanvasShareControl name="x" visibility="private" entries={[]} link={LINK} onChanged={() => undefined} />);
     const button = screen.getByTestId('canvas-share-control');
     expect(button).toHaveTextContent(/^Share/);
-    expect(button.className).toMatch(/\bbg-blue-600\b/);
+    expect(lacksSecondaryPill(button)).toEqual([]);
+    expect(isFilledBlue(button)).toBe(false);
     expect(screen.getByTestId('canvas-share-lock-icon')).toBeInTheDocument();
     expect(screen.queryByTestId('canvas-share-open-icon')).toBeNull();
     cleanup();
@@ -737,7 +739,7 @@ describe('phase 4 review round: the share panel', () => {
     expect(handle.getAttribute('title')).toMatch(/^@a-very-long-handle/);
   });
 
-  it('R10: Copy link is an outline (secondary) button, and so is its "Copied" state; Share is the only filled blue', async () => {
+  it('R10: Copy link is an outline (secondary) button, and so is its "Copied" state; Share is the secondary pill, never a filled blue (W7)', async () => {
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     await open();
@@ -748,8 +750,8 @@ describe('phase 4 review round: the share panel', () => {
     await screen.findByTestId('canvas-share-copied');
     expect(screen.getByTestId('canvas-share-copy').className).not.toMatch(/\bbg-blue-600\b/);
     expect(screen.getByTestId('canvas-share-copy').className).toMatch(/\bborder\b/);
-    expect(screen.getByTestId('canvas-share-control').className).toMatch(/\bbg-blue-600\b/);
-    expect(screen.getByTestId('canvas-share-control').className).toMatch(/rounded-full/);
+    expect(isFilledBlue(screen.getByTestId('canvas-share-control'))).toBe(false);
+    expect(lacksSecondaryPill(screen.getByTestId('canvas-share-control'))).toEqual([]);
   });
 
   it('R11: the phone sheet titles itself with the Radix dialog title: no console warning', async () => {
@@ -874,10 +876,11 @@ describe('phase 4 visual QA: the panel keeps its header and footer in view', () 
     expect(screen.getByTestId('canvas-share-footer').className).toMatch(/\bshrink-0\b/);
   });
 
-  it('V2: on a phone the Share button never shrinks and sits right after the picker (shrink-0, max-sm:order-3)', () => {
+  it('V2: on a phone the Share button never shrinks and keeps its word (shrink-0; B4: no longer an unlabelled lock icon)', () => {
     render(<CanvasShareControl name="x" visibility="private" entries={[]} link={LINK} onChanged={() => undefined} />);
     expect(screen.getByTestId('canvas-share-control').className).toMatch(/\bshrink-0\b/);
-    expect(screen.getByTestId('canvas-share-control').className).toMatch(/max-sm:order-3/);
+    expect(screen.getByTestId('canvas-share-control')).toHaveTextContent(/^Share/);
+    expect(screen.getByTestId('canvas-share-control').querySelector('span.hidden')).toBeNull(); // the word is not hidden below 640px
   });
 
   it('V4: the Close and remove icons are 40px hit areas (h-10 w-10)', async () => {

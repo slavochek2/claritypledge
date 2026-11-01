@@ -44,6 +44,9 @@ export function hiddenTriggerProps(hidden: boolean | undefined): { 'aria-hidden'
   return hidden ? { 'aria-hidden': true, tabIndex: -1 } : {};
 }
 
+/** "Copied" shows this long, then the button reads "Copy link" again. */
+export const COPIED_MS = 2000;
+
 export function hiddenTriggerClass(hidden: boolean | undefined): string {
   return hidden ? 'pointer-events-none invisible ' : '';
 }

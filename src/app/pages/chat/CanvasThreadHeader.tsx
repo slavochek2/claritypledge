@@ -10,7 +10,7 @@ import { canvasTitle } from '@/lib/canvas-boxes';
 import { canvasPageHref } from './canvas-links';
 import { NEW_CANVAS_TITLE, DRAFT_TITLE } from './canvas-thread-copy';
 
-export function CanvasThreadTitle({ draft, ownerSlug }: { draft: Pick<CanvasDraft, 'baseVersionId' | 'canvasName'>; ownerSlug: string | null | undefined }) {
+export function CanvasThreadTitle({ draft, ownerSlug, title }: { draft: Pick<CanvasDraft, 'baseVersionId' | 'canvasName'>; ownerSlug: string | null | undefined; title?: string }) {
   const update = draft.baseVersionId !== null;
   const href = update ? canvasPageHref(ownerSlug, draft.canvasName) : null;
   return (
@@ -21,10 +21,10 @@ export function CanvasThreadTitle({ draft, ownerSlug }: { draft: Pick<CanvasDraf
           <span className="font-normal text-muted-foreground"> · </span>
           {href ? (
             <Link to={href} className="rounded-sm underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-              {canvasTitle(draft.canvasName)}
+              {(title ?? canvasTitle(draft.canvasName))}
             </Link>
           ) : (
-            canvasTitle(draft.canvasName)
+            (title ?? canvasTitle(draft.canvasName))
           )}
         </>
       )}

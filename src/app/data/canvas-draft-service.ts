@@ -11,7 +11,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import { canvasTitle } from '@/lib/canvas-boxes';
+import { canvasDisplayTitle } from '@/lib/canvas-boxes';
 import { ARTIFACTS_CANVASES_MINE, newestPublishedHref, publishedViewHref, workspaceHref } from '@/lib/canvas-hrefs';
 import { throwDbError } from './db-error-logger';
 export * from './canvas-draft-calls';
@@ -71,6 +71,8 @@ export interface CanvasVersionOption {
   id: string;
   canvasId: string;
   canvasName: string;
+  /** P1536 W8: the owner's display title for the canvas (null: never renamed) */
+  canvasTitle?: string | null;
   /** The internal name that keys `?v=`; never shown to a person. */
   name: string;
   seq: number;
@@ -86,6 +88,7 @@ export async function listMyCanvasVersions(): Promise<CanvasVersionOption[]> {
     id: String(r.id),
     canvasId: String(r.canvas_id),
     canvasName: String(r.canvas_name),
+    canvasTitle: typeof r.canvas_title === 'string' ? r.canvas_title : null,
     name: String(r.name),
     seq: Number(r.seq),
     publishedAt: String(r.published_at),
@@ -242,7 +245,7 @@ export async function getCanvasVersionCard(versionId: string, viewerId: string):
     const own = slug ? publishedViewHref(slug, v.canvasName, v.name) : null;
     const draftName = slug && v.hasOpenDraft ? await openDraftVersionName(v.canvasId).catch(() => null) : null;
     const open = slug && draftName ? workspaceHref(slug, v.canvasName, draftName) : own;
-    return { title: canvasTitle(v.canvasName), label: canvasVersionLabel(v.seq, v.publishedAt), state: 'published', draft: false, href: own, openHref: open };
+    return { title: canvasDisplayTitle(v.canvasTitle, v.canvasName), label: canvasVersionLabel(v.seq, v.publishedAt), state: 'published', draft: false, href: own, openHref: open };
   }
   const { data, error } = await supabase.from('canvas_drafts').select('id, canvas_name, version_name, state').eq('version_id', versionId).maybeSingle();
   if (error) throwDbError('getCanvasVersionCard', error, 'Could not read this canvas');

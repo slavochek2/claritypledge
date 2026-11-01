@@ -20,7 +20,7 @@ import { clearListReturnCache } from '@/lib/list-return-cache';
 import { throwDbError } from './db-error-logger';
 import { mapPointFromDb, mapPositionFromDb, mapPositionWithUserFromDb } from './points-service-real';
 import { mapStoryFromDb } from './stories-service-real';
-import { listMyCanvases, listSharedWithMe, markCanvasRead, getChatArtifact } from './canvas-artifacts';
+import { listMyCanvases, listSharedWithMe, listSharedWithEvent, markCanvasRead, getChatArtifact, renameCanvas } from './canvas-artifacts';
 import type {
   PointPositionWithUser,
   PointWithUserPosition,
@@ -71,6 +71,10 @@ export interface CanvasView {
   publishedNone: boolean;
   /** P1536: the OWNER's open draft (null for everyone else, and when there is none) */
   draft: CanvasOwnerDraft | null;
+  /** P1536 W8: the owner's display title for the canvas (null: never renamed; the page falls back to the name's canvasTitle) */
+  title?: string | null;
+  /** P1536 W8: the canvas row's id, for the OWNER only (what a rename takes); null for everyone else and for a canvas with no record */
+  canvasId?: string | null;
 }
 
 /**
@@ -122,12 +126,6 @@ export interface ShareTargets {
   groups: { id: string; name: string; slug: string; public: boolean }[];
 }
 
-export interface SharedCanvasRef {
-  ownerId: string;
-  ownerName: string;
-  ownerSlug: string | null;
-  name: string;
-}
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- the rpc returns jsonb: rows are mapped field by field below */
 type Json = Record<string, any>;
@@ -140,6 +138,14 @@ function mapVersions(access: Json): CanvasVersion[] {
     publishedAt: (v.published_at as string | null) ?? null,
     draft: v.draft === true,
   }));
+}
+
+/** W8: the canvas's display title (everyone who reads it), and its row id (the OWNER only, whatever else the answer carried: it is what a rename takes). */
+function titleOf(access: Json): { title: string | null; canvasId: string | null } {
+  return {
+    title: typeof access.title === 'string' ? access.title : null,
+    canvasId: access.is_owner && typeof access.canvas_id === 'string' ? access.canvas_id : null,
+  };
 }
 
 /** The owner-only draft block; anything else (absent, null, malformed) is no draft. */
@@ -223,6 +229,7 @@ async function getCanvas(ownerId: string, name: string, viewerId?: string, linkT
     versions: mapVersions(access),
     publishedNone: access.published_none === true,
     draft: mapOwnerDraft(access.draft),
+    ...titleOf(access),
     via: access.via
       ? { kind: access.via.kind, id: access.via.id, name: access.via.name, slug: access.via.slug ?? null }
       : null,
@@ -344,16 +351,7 @@ async function removeEventAttendee(eventId: string, userId: string): Promise<voi
   }
 }
 
-/** The canvases shared with an event, for people that event admits (everyone else gets []). */
-async function listSharedWithEvent(eventId: string): Promise<SharedCanvasRef[]> {
-  const { data, error } = await supabase.rpc('list_canvases_shared_with_event', { p_event: eventId });
-  if (error) throwDbError('listSharedWithEvent', error, 'Could not load the canvases shared with this event');
-  return ((data ?? []) as Json[]).map(r => ({
-    ownerId: r.owner_id, ownerName: r.owner_name, ownerSlug: r.owner_slug ?? null, name: r.name,
-  }));
-}
-
-export type { MyCanvasRow, CanvasSharedWithMe, ChatArtifact } from './canvas-artifacts';
+export type { MyCanvasRow, CanvasSharedWithMe, ChatArtifact, SharedCanvasRef } from './canvas-artifacts';
 
 export const canvasService = {
   getCanvas,
@@ -370,6 +368,7 @@ export const canvasService = {
   removeEventAttendee,
   listSharedWithEvent,
   listMyCanvases,
+  renameCanvas,
   listSharedWithMe,
   markCanvasRead,
   getChatArtifact,

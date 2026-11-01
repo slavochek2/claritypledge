@@ -36,7 +36,7 @@ import { LetterReceiverModal } from '@/app/components/letters/letter-receiver-mo
 import { CARD_FOCUS_RING } from '@/app/components/shared/card-action-classes';
 import { docsService } from '@/app/data/docs-service';
 import { deleteLetter } from '@/app/data/letters-service';
-import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
+import { canvasPath } from '@/lib/canvas-boxes';
 import { canvasCopyAddress } from '@/lib/canvas-copy-address';
 import { canvasService } from '@/app/data/canvas-service';
 import { DiscardDraftDialog } from './discard-draft-dialog';
@@ -160,8 +160,10 @@ function RowMenu({ row, menu, onOpen }: { row: ArtifactRow; menu: MenuItem[]; on
 }
 
 /** Share on an own canvas row: the canvas page's own share panel, anchored to this button (its own trigger stays hidden). */
-function CanvasShareAction({ label, canvasName, canvasLink, shared, generalAccess, onChanged }: {
+function CanvasShareAction({ label, title, canvasName, canvasLink, shared, generalAccess, onChanged }: {
   label: string;
+  /** W8: the row's shown title (the owner's rename, else the name's title) */
+  title: string;
   canvasName: string | null | undefined;
   canvasLink: string | null;
   shared: boolean;
@@ -179,7 +181,7 @@ function CanvasShareAction({ label, canvasName, canvasLink, shared, generalAcces
         <div className="pointer-events-none absolute left-0 top-0">
           <CanvasShareControl
             name={canvasName}
-            displayTitle={canvasTitle(canvasName)}
+            displayTitle={title}
             visibility={shared ? 'shared' : 'private'}
             generalAccess={generalAccess ?? 'restricted'}
             entries={null}
@@ -338,7 +340,7 @@ export function ArtifactRowActions({ row, userSlug, onChanged, onOpen }: Props) 
         },
         ...draftMenu.discard,
       ];
-      main = <CanvasShareAction label={name('Share')} canvasName={canvasName} canvasLink={canvasLink} shared={canvasShared} generalAccess={ref.generalAccess} onChanged={onChanged} />;
+      main = <CanvasShareAction label={name('Share')} title={row.title} canvasName={canvasName} canvasLink={canvasLink} shared={canvasShared} generalAccess={ref.generalAccess} onChanged={onChanged} />;
       break;
   }
 

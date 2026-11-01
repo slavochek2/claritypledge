@@ -1,8 +1,8 @@
 /**
  * @file canvas-workspace-layout.tsx
  * @description P1536 D4/W1: the workspace's frame. ONE box as tall as the screen under the shell's top bar (`sticky top-14`, 100dvh minus
- * 3.5rem), split into a bar (←, the Canvas | Thread switch below 1280px, the Thread button from 1280px while the panel is closed, the
- * Publish spot: one fixed height at every width) and the
+ * 3.5rem), split into the owner's bar (canvas-owner-bar: ←, name, version, state, Share, Clone, the Canvas | Thread switch below 1280px, the
+ * Thread button from 1280px while the panel is closed, the Publish spot) and the
  * panes under it, which take exactly what is left (`flex-1 min-h-0`). Nothing is positioned from outside, so the panes start at the
  * bar's real bottom wherever the page above puts the box. From 1280px the panes sit side by side with a divider. Below, one shows at a
  * time: BOTH stay mounted and laid out, the other is `invisible`, `inert` and `aria-hidden` (no focus, no tab stop, no screen reader),
@@ -12,9 +12,6 @@
  * around fake panes.
  */
 import type { ReactNode } from 'react';
-import { ArrowLeft, PanelRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMediaQuery } from '@/app/pages/chat/chat-hooks';
 import { cn } from '@/lib/utils';
 import { CANVAS_WORKSPACE_WIDE_QUERY } from './canvas-workspace-context';
@@ -23,51 +20,6 @@ export type WorkspaceView = 'canvas' | 'chat';
 
 /** The shell's top bar is 3.5rem: the workspace box is the rest of the screen. */
 export const WORKSPACE_BOX = 'sticky top-14 flex h-[calc(100dvh-3.5rem)] flex-col';
-/** One bar height at every width. */
-export const WORKSPACE_BAR = 'flex h-12 shrink-0 items-center gap-1.5 border-b bg-background px-2 sm:px-3';
-
-/** The two views as tabs (the project's Tabs primitive; both panes stay mounted, so there is no TabsContent). The second is the thread. */
-function ViewSwitch({ view, onView }: { view: WorkspaceView; onView: (v: WorkspaceView) => void }) {
-  return (
-    <Tabs value={view} onValueChange={v => onView(v === 'chat' ? 'chat' : 'canvas')} className="xl:hidden" data-testid="workspace-view-switch">
-      <TabsList className="h-11 w-32 p-0.5">
-        <TabsTrigger value="canvas" data-testid="workspace-view-canvas" className="h-10 min-h-10 flex-1 px-2">Canvas</TabsTrigger>
-        <TabsTrigger value="chat" data-testid="workspace-view-chat" className="h-10 min-h-10 flex-1 px-2">Thread</TabsTrigger>
-      </TabsList>
-    </Tabs>
-  );
-}
-
-/** From 1280px, while the panel is closed: the way back to it. */
-function ThreadButton({ onOpen }: { onOpen: () => void }) {
-  return (
-    <Button type="button" variant="secondary" className="hidden h-10 shrink-0 gap-1.5 xl:inline-flex" onClick={onOpen} data-testid="workspace-thread-button">
-      <PanelRight aria-hidden />
-      Thread
-    </Button>
-  );
-}
-
-export function CanvasWorkspaceBar({ onBack, view, onView, spot, panelOpen = true, onOpenPanel }: {
-  onBack: () => void;
-  view: WorkspaceView;
-  onView: (v: WorkspaceView) => void;
-  spot: ReactNode;
-  /** From 1280px: the thread panel is open. While it is closed the bar offers the Thread button. */
-  panelOpen?: boolean;
-  onOpenPanel?: () => void;
-}) {
-  return (
-    <div className={WORKSPACE_BAR} data-testid="workspace-bar">
-      <Button type="button" variant="ghost" className="h-11 w-10 shrink-0 p-0" aria-label="Go back" onClick={onBack} data-testid="workspace-back">
-        <ArrowLeft className="h-4 w-4" aria-hidden />
-      </Button>
-      <ViewSwitch view={view} onView={onView} />
-      {!panelOpen && onOpenPanel && <div className="ml-auto"><ThreadButton onOpen={onOpenPanel} /></div>}
-      <div className={panelOpen || !onOpenPanel ? 'ml-auto shrink-0' : 'shrink-0'}>{spot}</div>
-    </div>
-  );
-}
 
 /** Which pane is out of reach, and the classes that keep the other one stacked or out of the flow. Pure, so the layout reads as markup. */
 function panesOf(wide: boolean, view: WorkspaceView, panelOpen: boolean) {
@@ -84,13 +36,17 @@ function panesOf(wide: boolean, view: WorkspaceView, panelOpen: boolean) {
   };
 }
 
-export function CanvasWorkspaceLayout({ active, bar, canvas, chat, view, panelOpen = true }: { active: boolean; bar: ReactNode; canvas: ReactNode; chat: ReactNode; view: WorkspaceView; panelOpen?: boolean }) {
+/**
+ * `bar` is drawn whether or not the workspace is on (W8: the owner's header is the same bar on a published view): inside the box it is the box's first
+ * child, outside it sits above the page and sticks under the shell's top bar. Null for anyone but the owner (they get the reader header in the page).
+ */
+export function CanvasWorkspaceLayout({ active, bar, canvas, chat, view, panelOpen = true }: { active: boolean; bar: ReactNode | null; canvas: ReactNode; chat: ReactNode; view: WorkspaceView; panelOpen?: boolean }) {
   const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
   const panes = panesOf(wide, view, panelOpen);
   // The same elements in the same places whether or not the workspace is on, so the canvas page is never remounted by it.
   return (
     <div className={active ? WORKSPACE_BOX : undefined} data-testid={active ? 'canvas-workspace' : undefined}>
-      {active ? bar : null}
+      {bar}
       <div className={active ? 'relative min-h-0 flex-1 xl:flex' : undefined}>
         <div
           className={active ? panes.canvasClass : undefined}

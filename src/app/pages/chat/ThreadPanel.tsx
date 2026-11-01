@@ -21,7 +21,7 @@ import { useMessageActions } from './use-message-actions';
 import { useVoiceSender } from './use-voice-sender';
 import { EventRoomLink } from './EventRoomLink';
 
-export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = false, onRunActive, focusable = true, headerActions }: {
+export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = false, onRunActive, focusable = true, headerActions, canvasTitle }: {
   summary: ChatSummary;
   rootId: string;
   highlightId: string | null;
@@ -35,6 +35,8 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   focusable?: boolean;
   /** The canvas workspace's Discard (W6): sits in the header beside the title, before the close button. */
   headerActions?: ReactNode;
+  /** W8: the canvas's shown name for an update draft's header (the owner's rename); absent: its tag's title. */
+  canvasTitle?: string;
 }) {
   const chat = useChat();
   const conversationId = summary.conversationId;
@@ -56,7 +58,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   // P1536: a thread that starts with a canvas version is a canvas draft's thread (the draft is read from the database).
   const canvasRoot = summary.kind === 'mirror' && root?.attachmentKind === 'canvas_version';
   const ownerSlug = chat.authors[chat.userId]?.slug;
-  const canvas = useCanvasParts({ canvasRoot, rootId, messages: conv.server, userId: chat.userId, ownerSlug, mirrorTitle: summary.title, openCanvasFrom: fill ? null : (root?.attachmentId ?? null) });
+  const canvas = useCanvasParts({ canvasRoot, rootId, messages: conv.server, userId: chat.userId, ownerSlug, mirrorTitle: summary.title, canvasTitle, openCanvasFrom: fill ? null : (root?.attachmentId ?? null) });
   // W0: outside the workspace (`fill`) a canvas thread is an old address; it resolves to the canvas, and is held back meanwhile.
   const retired = useRetiredCanvasThread({ enabled: !fill, canvasRoot, ownerSlug, address: canvas.address });
   const runActive = canvas.runActive;

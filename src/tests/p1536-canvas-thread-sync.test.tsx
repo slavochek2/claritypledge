@@ -217,7 +217,10 @@ describe('canvas -> thread: Publish in the workspace bar (W1: the page REPLACEs 
     expect(screen.getByTestId('where').textContent).not.toContain('thread=');
     await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Published v2.'));
     await waitFor(() => expect(screen.queryByTestId('workspace-chat-pane')).toBeNull()); // the panel is closed
-    expect(screen.queryByTestId('workspace-bar')).toBeNull();
+    // W8 (J-W1 end state, supersedes "no bar"): the owner's header stays, now reading Published with the spot "Published · v2"; no switcher or Thread button
+    expect(screen.getByTestId('canvas-state')).toHaveTextContent('Published');
+    expect(screen.getByTestId('publish-spot-status')).toHaveTextContent('Published · v2');
+    expect(screen.queryByTestId('workspace-view-switch')).toBeNull();
     // and the marker does not come back while the read on screen still shows the draft open
     await act(async () => { await new Promise(r => setTimeout(r, 50)); });
     expect(screen.getByTestId('where')).not.toHaveTextContent('ws=1');

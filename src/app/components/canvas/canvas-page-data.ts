@@ -45,6 +45,10 @@ export interface CanvasReady {
   publishedNone: boolean;
   /** P1536: the owner's open draft (never set for anyone else) */
   draft: CanvasOwnerDraft | null;
+  /** P1536 W8: the owner's display title (null or absent: never renamed; shown through canvasDisplayTitle) */
+  title?: string | null;
+  /** P1536 W8: the canvas row's id, the OWNER's only (what a rename takes); absent or null: the canvas has no record, nothing to rename */
+  canvasId?: string | null;
 }
 
 export type CanvasData = CanvasReady | { status: 'not-found' } | { status: 'error' };
@@ -82,6 +86,8 @@ export function buildReady(owner: OwnerProfile, view: CanvasView, audience: Audi
     versions: view.versions ?? [],
     publishedNone: view.publishedNone === true,
     draft: view.isOwner ? view.draft ?? null : null,
+    title: view.title ?? null,
+    canvasId: view.isOwner ? view.canvasId ?? null : null,
   };
 }
 

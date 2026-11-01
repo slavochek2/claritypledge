@@ -405,6 +405,22 @@ describe('P1536 migrations: replaced bodies', () => {
        `'run_count', d.run_count, 'tension_count', d.tension_count, 'revision', d.revision, 'focus', d.focus, 'changed_boxes', to_jsonb(public._canvas_draft_changed_boxes(d.id)))`],
     ],
   };
+  // P1536 W8 (20261101180000) restates six read functions to add the canvas title. Its additions are the only differences between what
+  // this file pins and what the newest body carries (the title file itself is pinned, against its sources, by p1536-canvas-title-migration.test.ts).
+  const TITLE = '20261101180000_p1536_canvas_title.sql';
+  const TITLE_SUBST: Record<string, Array<[string, string]>> = {
+    get_canvas: [[`'published_none', v_pub_none,`, `'published_none', v_pub_none, 'title', (SELECT c.title FROM public.canvases c WHERE c.id = v_canvas), 'canvas_id', CASE WHEN v_is_owner THEN v_canvas END,`]],
+    list_my_artifacts_canvases: [
+      [`last_edit      timestamptz )`, `last_edit      timestamptz, title          text )`],
+      [`COALESCE(tg.edited, c.created_at) FROM tagged tg`, `COALESCE(tg.edited, c.created_at), c.title FROM tagged tg`],
+    ],
+    list_canvases_shared_with_me: [
+      [`unread             boolean )`, `unread             boolean, title              text )`],
+      [`(r.read_at IS NULL OR r.read_at < a.created_at) FROM public.canvases c`, `(r.read_at IS NULL OR r.read_at < a.created_at), c.title FROM public.canvases c`],
+    ],
+    get_chat_artifact_attachment: [[`'is_owner', v_canvas.owner_id = v_uid);`, `'is_owner', v_canvas.owner_id = v_uid, 'title', v_canvas.title);`]],
+    list_canvases_shared_with_event: [[`'owner_slug', pr.slug, 'name', c.name)`, `'owner_slug', pr.slug, 'name', c.name, 'title', c.title)`]],
+  };
   it.each(Object.keys(REPLACED))('%s: the newest definition across all migrations still carries the P1536 edits', (name) => {
     const re = new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+public\\.${name}\\s*\\(`, 'i');
     const defs = readdirSync(MIG).filter((f) => /^\d{14}_.*\.sql$/.test(f) && re.test(stripComments(read(f)))).sort();
@@ -412,8 +428,9 @@ describe('P1536 migrations: replaced bodies', () => {
     const newest = fnBody(read(newestFile), name);
     for (const [, to] of REPLACED[name]!.edits) {
       let want = norm(to);
-      if (newestFile === V6) {
+      if (newestFile === V6 || newestFile === TITLE) {
         for (const [from, sub] of V6_SUBST[name] ?? []) want = want.split(norm(from)).join(norm(sub));
+        if (newestFile === TITLE) for (const [from, sub] of TITLE_SUBST[name] ?? []) want = want.split(norm(from)).join(norm(sub));
       } else {
         expect(V6_SUBST[name], `${name}: a newer migration than ${V6} redefines it`).toBeUndefined();
       }

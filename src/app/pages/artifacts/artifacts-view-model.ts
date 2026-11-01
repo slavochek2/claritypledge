@@ -19,7 +19,7 @@
  */
 import { formatTimeAgo } from '@/app/utils/format-time';
 import { hasNewSenderProgress, newCountForDelivery } from '@/app/utils/letter-new-activity';
-import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
+import { canvasDisplayTitle, canvasPath } from '@/lib/canvas-boxes';
 import type { CanvasSharedWithMe, MyCanvasRow } from '@/app/data/canvas-service';
 import type { OpenCanvasDraft } from '@/app/data/canvas-open-drafts';
 import { draftLabel } from '@/app/pages/chat/canvas-thread-copy';
@@ -331,7 +331,7 @@ export function ownCanvasRow(c: MyCanvasRow, userSlug: string | null, draft?: Op
     kind: 'canvas',
     list: 'mine',
     state: 'canvas',
-    title: canvasTitle(c.name),
+    title: canvasDisplayTitle(c.title, c.name),
     meta: canvasMeta(c.lastEdit),
     ...(draft ? { badge: DRAFT_OPEN_BADGE } : {}),
     visibility: c.generalAccess === 'link' ? 'public' : 'private',
@@ -356,7 +356,7 @@ export function canvasDraftRow(draft: OpenCanvasDraft, c: MyCanvasRow | undefine
     kind: 'canvas',
     list: 'canvas-drafts',
     state: 'canvas',
-    title: canvasTitle(draft.canvasName),
+    title: canvasDisplayTitle(c?.title, draft.canvasName),
     meta: canvasDraftMeta(draft, c?.lastEdit ?? null),
     visibility: c?.generalAccess === 'link' ? 'public' : 'private',
     unread: false,
@@ -393,7 +393,7 @@ export function receivedCanvasRow(c: CanvasSharedWithMe, viewerId: string | null
     kind: 'canvas',
     list: 'shared',
     state: 'received-canvas',
-    title: canvasTitle(c.name),
+    title: canvasDisplayTitle(c.title, c.name),
     meta: sharedMeta(c.ownerName, c.sharedAt, !!viewerId && c.ownerId === viewerId),
     visibility: null,
     unread: c.unread,

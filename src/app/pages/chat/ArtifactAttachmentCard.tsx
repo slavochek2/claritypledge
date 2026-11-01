@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LayoutGrid, Mail } from 'lucide-react';
 import type { ChatArtifact } from '@/app/data/canvas-service';
-import { canvasPath, canvasTitle } from '@/lib/canvas-boxes';
+import { canvasDisplayTitle, canvasPath } from '@/lib/canvas-boxes';
 import { cn } from '@/lib/utils';
 import { FOCUS_RING, HOVER } from './chat-kit';
 import { loadArtifact } from './artifact-attachment-cache';
@@ -91,7 +91,7 @@ export function ArtifactAttachmentCard({ kind, id, viewerId, compact = false }: 
     );
   }
   const Icon = kind === 'canvas' ? LayoutGrid : Mail; // the letter's envelope is the Artifacts list's too
-  const title = (artifact.kind === 'canvas' ? canvasTitle(artifact.name) : artifact.title) || (kind === 'canvas' ? 'Untitled canvas' : 'Untitled letter');
+  const title = (artifact.kind === 'canvas' ? canvasDisplayTitle(artifact.title, artifact.name) : artifact.title) || (kind === 'canvas' ? 'Untitled canvas' : 'Untitled letter');
   const body = (
     <>
       <span className={DISC} aria-hidden="true" data-testid={`attachment-${kind}-disc`}>

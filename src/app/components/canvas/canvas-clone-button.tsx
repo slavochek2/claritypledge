@@ -17,7 +17,7 @@ export function CloneButton({ ready }: { ready: CanvasReady }) {
   const on = useCanvasDraftAvailability(true) === true;
   if (!on || !clone || active || !ready.isOwner || ready.publishedNone || isViewingDraft(ready) || !ready.version) return null;
   return (
-    <button type="button" className={`${CANVAS_SECONDARY_PILL} max-sm:order-3`} onClick={clone} data-testid="canvas-clone">
+    <button type="button" className={CANVAS_SECONDARY_PILL} onClick={clone} data-testid="canvas-clone">
       <Copy className="h-4 w-4" aria-hidden />
       Clone
     </button>

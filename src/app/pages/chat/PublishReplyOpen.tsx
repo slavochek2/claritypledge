@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
 import { getCanvasVersionCard } from '@/app/data/canvas-draft-service';
 import { OPEN_CANVAS_LABEL } from './canvas-publish-reply';
 
@@ -23,9 +23,8 @@ export function PublishReplyOpen({ versionId, viewerId }: { versionId: string; v
   if (!href) return null;
   return (
     <div className="px-4 py-1">
-      <Button asChild variant="secondary" className="min-h-10">
-        <Link to={href} state={{ from: `${pathname}${search}` }} data-testid="publish-reply-open">{OPEN_CANVAS_LABEL}</Link>
-      </Button>
+      {/* W7: Open is the canvas page's one secondary look. */}
+      <Link to={href} state={{ from: `${pathname}${search}` }} className={CANVAS_SECONDARY_PILL} data-testid="publish-reply-open">{OPEN_CANVAS_LABEL}</Link>
     </div>
   );
 }
