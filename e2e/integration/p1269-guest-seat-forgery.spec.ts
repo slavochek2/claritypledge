@@ -327,7 +327,7 @@ test.describe('P1269: guest seat ownership is a secret, not a name', () => {
     expect(data ?? []).toHaveLength(0);
   });
 
-  test('REALTIME: an anon WebSocket subscriber never receives joiner_seat_secret', async () => {
+  test('REALTIME: a subscriber who receives the room\'s updates never receives joiner_seat_secret', async () => {
     // Found by adversarial Codex review, 2026-09-11. clarity_sessions is in the
     // supabase_realtime publication with NO column list, and the client subscribes to its
     // UPDATE events (src/app/data/api.ts, the clarity_session:<id> channel). If Realtime
@@ -348,7 +348,12 @@ test.describe('P1269: guest seat ownership is a secret, not a name', () => {
       lastSeenAt: new Date().toISOString(),
     });
 
+    // P1494: subscribes as the creator. Since P1302 an anon subscriber is refused this row outright
+    // (P1302 A13 pins that it receives nothing), so an anon watcher could never see an event. The
+    // creator is who actually receives these payloads, and is equally not granted the two columns.
     const watcher = makeAnonClient();
+    const { error: watcherSignIn } = await watcher.auth.signInWithPassword({ email: host.email, password: TEST_PASSWORD });
+    expect(watcherSignIn, watcherSignIn?.message).toBeNull();
     let received: Record<string, unknown> | null = null;
     const channel = watcher
       .channel(`p1269-probe:${room.id}`)
@@ -397,11 +402,11 @@ test.describe('P1269: guest seat ownership is a secret, not a name', () => {
       expect(payload.id).toBe(room.id);
       expect(
         Object.prototype.hasOwnProperty.call(payload, 'joiner_seat_secret'),
-        'P1269 VOID: the seat secret was broadcast to an anonymous realtime subscriber — anyone can read it off the wire and take the seat'
+        'P1269 VOID: the seat secret was broadcast to a realtime subscriber — anyone can read it off the wire and take the seat'
       ).toBe(false);
       expect(
         Object.prototype.hasOwnProperty.call(payload, 'joiner_last_seen_at'),
-        'joiner_last_seen_at reached an anon subscriber — the column grant is no longer filtering realtime'
+        'joiner_last_seen_at reached a realtime subscriber — the column grant is no longer filtering realtime'
       ).toBe(false);
     } finally {
       await watcher.removeChannel(channel);

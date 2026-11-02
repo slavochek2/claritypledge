@@ -68,9 +68,10 @@ import { resolveVerificationParticipants } from '@/app/data/live-verification-pa
 import { guestRoundToRecord } from '@/app/data/live-guest-round';
 import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
-import { devLogDriftCompared, devLogDriftSkipped, devLogRealtimeEvent } from '@/lib/live-dev-log';
+import { devLogReactiveReset, devLogStartCheckRejected, devLogDriftCompared, devLogDriftSkipped, devLogLiveUpdate, devLogRatingSubmit, devLogRealtimeEvent } from '@/lib/live-dev-log';
 import { STORAGE_KEYS, storage, clearStoredSession, restoreLiveSession } from '@/lib/live-session-storage';
-import { decideSessionIdChange } from '@/lib/session-rollover';
+import { reportLiveUpdateFailure } from '@/lib/live-update-failure';
+import { decideSessionIdChange, isStaleWrite, mayFollowRolledOver } from '@/lib/session-rollover';
 import { useSessionRollover } from '@/hooks/use-session-rollover';
 import { isDevRecordingActive } from '@/lib/dev-recording';
 import { reportUnlessBlip } from '@/lib/report-unless-blip';
@@ -1117,7 +1118,7 @@ export function ClarityLivePage() {
   };
 
   // P1494: what to do when the room code names another session (see the poll below)
-  const applyIdChange = useSessionRollover(currentSessionIdRef, confirmedLiveStateRef, gracePeriodStartRef, previousPhaseRef, setGuestSeatLost, setGracePeriodStart, setDepartedPartnerName, setIsLocallyRating, setLocalFlowType, setLiveState, setSession, setView, setPendingLiveTransition);
+  const applyIdChange = useSessionRollover(currentSessionIdRef, confirmedLiveStateRef, gracePeriodStartRef, previousPhaseRef, setGuestSeatLost, setGracePeriodStart, setDepartedPartnerName, setIsLocallyRating, setLocalFlowType, setLiveState, setSession, setView, setPendingLiveTransition, isCreatorRef, stopRecording, sessionCodeForChunks, userNameForChunks, sessionForChunks, userForChunks, eventsCollectorRef);
 
   // Subscribe to session updates
   // Note: We intentionally use session?.id and session?.code as dependencies
@@ -1303,7 +1304,9 @@ export function ClarityLivePage() {
       }
 
       try {
-        const freshSession = await getClaritySession(currentCode);
+        // The session held when asking is captured before the await: a delayed answer about a row
+        // the tab has left must not follow it backwards (P1494, see decideSessionIdChange).
+        const [heldWhenAsked, freshSession] = [currentSessionIdRef.current, await getClaritySession(currentCode)];
         if (!freshSession) {
           return;
         }
@@ -1311,7 +1314,7 @@ export function ClarityLivePage() {
         // The code now names a different row than the one this tab holds: either the tab has
         // moved on (stale answer) or the seat was taken over and the room continues as a new
         // session under the same code (P1494).
-        const idChange = decideSessionIdChange(currentSessionIdRef.current, freshSession, currentCode, sessionCodeRef.current, isCreatorRef.current, iAmLeavingRef.current || sessionEndedRef.current || partnerLeftRef.current);
+        const idChange = decideSessionIdChange(currentSessionIdRef.current, heldWhenAsked, freshSession, currentCode, sessionCodeRef.current, isCreatorRef.current, iAmLeavingRef.current || sessionEndedRef.current || partnerLeftRef.current);
         if (idChange !== 'same') {
           applyIdChange(idChange, freshSession);
           return;
@@ -1548,6 +1551,8 @@ export function ClarityLivePage() {
         return;
       }
 
+      // P1494: the session this write began on; a write outlived by a rollover touches nothing
+      const startedOnId = session.id;
       // Capture the confirmed state BEFORE we make changes (for potential revert)
       const stateBeforeUpdate = confirmedLiveStateRef.current;
       const newState = { ...stateBeforeUpdate, ...updates };
@@ -1571,48 +1576,34 @@ export function ClarityLivePage() {
           // is free or abandoned — then retry the write once. A seat someone else now holds stays
           // refused, and the catch below tells the guest instead of offering a retry.
           if (!isGuestSeatLost(firstErr) || isCreatorRef.current || !session.joinerName) throw firstErr;
+          const leaving = () => iAmLeavingRef.current || sessionEndedRef.current || partnerLeftRef.current;
+          // The tab may have moved on or be leaving while the write was refused: then re-joining is pointless
+          if (!mayFollowRolledOver(startedOnId, currentSessionIdRef.current, leaving())) return;
           const rejoined = await joinClaritySession(session.code, session.joinerName);
           if (!rejoined) throw firstErr;
           // P1494: the claim answered with another session (this seat was taken over and the room
-          // continues as a new session). This tab's conversation is over; the write is not retried
-          // against the old row and the guest is returned to the join form.
-          if (rejoined.id !== session.id) throw firstErr;
+          // continues as a new session). The guest holds the new seat, so the tab moves into the
+          // new room and the write, which belonged to the old conversation, is dropped.
+          if (rejoined.id !== session.id) {
+            if (mayFollowRolledOver(startedOnId, currentSessionIdRef.current, leaving())) applyIdChange('follow', rejoined);
+            return;
+          }
           analytics.track('live_guest_seat_recovered', { session_id: session.id });
           await raceWithTimeout(write(), UPDATE_TIMEOUT_MS);
         }
+        if (isStaleWrite(startedOnId, currentSessionIdRef.current)) return;
         // P609: Merge only the written keys into the confirmed ref, preserving
         // any partner updates that arrived via Realtime during the in-flight period.
         // Previously `confirmedLiveStateRef.current = newState` would overwrite partner
         // slider values with stale data captured before the write started.
         confirmedLiveStateRef.current = { ...confirmedLiveStateRef.current, ...updates } as LiveSessionState;
-        if (import.meta.env.DEV) {
-          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-          console.log(`[LiveUpdate] Write succeeded: ${Object.keys(updates).join(', ')}`);
-        }
+        devLogLiveUpdate(true, updates);
       } catch (err) {
+        if (isStaleWrite(startedOnId, currentSessionIdRef.current)) return;
         console.error('[Live Update] Failed to update state:', err);
-        if (import.meta.env.DEV) {
-          console.error(`[LiveUpdate] Write FAILED + REVERTED: ${Object.keys(updates).join(', ')}`);
-        }
-        // P525: Capture failure in Sentry with sanitized state snapshot
-        try {
-          Sentry.captureException(err, {
-            extra: {
-              live_state: sanitizeLiveStateForSentry(stateBeforeUpdate as unknown as Record<string, unknown>),
-              attempted_keys: Object.keys(updates),
-              session_id: session.id,
-            },
-          });
-        } catch { /* never let Sentry break the app */ }
-        // P525: Track failure in Mixpanel
-        try {
-          analytics.track('live_state_update_failed', {
-            session_id: session.id,
-            error_message: err instanceof Error ? err.message : 'unknown',
-            attempted_keys: Object.keys(updates),
-            phase_at_failure: stateBeforeUpdate.ratingPhase,
-          });
-        } catch { /* never let analytics break the app */ }
+        devLogLiveUpdate(false, updates);
+        // P525: Sentry + Mixpanel report of the failed write (state snapshot sanitized)
+        reportLiveUpdateFailure(err, session.id, sanitizeLiveStateForSentry(stateBeforeUpdate as unknown as Record<string, unknown>), stateBeforeUpdate.ratingPhase, updates);
         // Check if it's a migration error
         if (isGuestSeatLost(err)) {
           // P1224: not retryable — this tab no longer holds the guest seat (see the re-join above).
@@ -1630,7 +1621,7 @@ export function ClarityLivePage() {
         updateInFlightRef.current = false;
       }
     },
-    [session]
+    [session, applyIdChange]
   );
 
   // ============================================================================
@@ -1729,10 +1720,7 @@ export function ClarityLivePage() {
     // This prevents race condition where both users tap "I spoke" and submit simultaneously
     const currentState = confirmedLiveStateRef.current;
     if (currentState.checkerName || currentState.ratingPhase !== 'idle') {
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-        console.log(`[Guard] handleStartCheck: ref.ratingPhase=${currentState.ratingPhase}, ref.checkerName=${!!currentState.checkerName}, action=rejected`);
-      }
+      devLogStartCheckRejected(currentState);
       return;
     }
 
@@ -2285,20 +2273,7 @@ export function ClarityLivePage() {
     async (rating: number) => {
       if (!name || !partnerName) return;
 
-      if (import.meta.env.DEV) {
-        const cs = confirmedLiveStateRef.current;
-        // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-        console.log(
-          `[RatingSubmit] ${new Date().toISOString()}`,
-          `rating=${rating}`,
-          `phase=${cs.ratingPhase}`,
-          `checkerName=${cs.checkerName ?? '∅'}`,
-          `checkerSubmitted=${cs.checkerSubmitted}`,
-          `responderSubmitted=${cs.responderSubmitted}`,
-          `inFlight=${updateInFlightRef.current}`,
-          `isCreator=${isCreator}`,
-        );
-      }
+      devLogRatingSubmit(rating, confirmedLiveStateRef.current, updateInFlightRef.current, isCreator);
 
       // Clear local rating state
       setIsLocallyRating(false);
@@ -2575,14 +2550,7 @@ export function ClarityLivePage() {
   const reactiveResetFiredRef = useRef(false);
   useEffect(() => {
     const bothAcknowledged = isBothAcknowledged(liveState);
-    if (import.meta.env.DEV && bothAcknowledged && liveState.ratingPhase !== 'idle') {
-      // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-      console.log(
-        `[ReactiveReset] ${new Date().toISOString()}`,
-        `bothAck=true phase=${liveState.ratingPhase} guard=${reactiveResetFiredRef.current}`,
-        reactiveResetFiredRef.current ? '→ SKIPPED (guard)' : '→ FIRING RESET',
-      );
-    }
+    devLogReactiveReset(bothAcknowledged, liveState.ratingPhase, reactiveResetFiredRef.current);
     if (bothAcknowledged && liveState.ratingPhase !== 'idle' && !reactiveResetFiredRef.current) {
       reactiveResetFiredRef.current = true;
       // Trigger the same reset as handleCelebrationComplete's bothDone branch

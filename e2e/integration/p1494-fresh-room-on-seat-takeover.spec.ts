@@ -44,7 +44,7 @@ test.describe('P1494: fresh room on seat takeover', () => {
     return data!.session!.access_token;
   }
 
-  async function openRoom() {
+  async function openRoom(isPrivate = true) {
     const code = makeRoomCode();
     const { data, error } = await supabaseAdmin
       .from('clarity_sessions')
@@ -52,7 +52,7 @@ test.describe('P1494: fresh room on seat takeover', () => {
         code,
         creator_name: 'p1494 host',
         creator_profile_id: host.user.id,
-        is_private: true,
+        is_private: isPrivate,
         status: 'active',
         demo_status: 'in_progress',
         partnership_status: 'pending',
@@ -72,8 +72,8 @@ test.describe('P1494: fresh room on seat takeover', () => {
     client().rpc('claim_joiner_seat', { p_code: code, p_joiner_name: name, ...(secret ? { p_seat_secret: secret } : {}) });
 
   /** A first guest holds a conversation, then goes quiet past the inactivity window. */
-  async function roomWithAbandonedConversation() {
-    const room = await openRoom();
+  async function roomWithAbandonedConversation(isPrivate = true) {
+    const room = await openRoom(isPrivate);
     const first = await claim(room.code, 'first guest');
     expect(first.error).toBeNull();
     const firstSecret = one(first.data)!.joiner_seat_secret as string;
@@ -344,5 +344,93 @@ test.describe('P1494: fresh room on seat takeover', () => {
       expect(rows).toHaveLength(1);
       expect(rows[0].id).toBe(r.id);
     }
+  });
+
+  /** A room whose creator did NOT ask for privacy, with the same abandoned conversation. */
+  async function publicRoomWithAbandonedConversation() {
+    return roomWithAbandonedConversation(false);
+  }
+
+  async function signedIn(name: string) {
+    const u = await createTestUser({ email: generateTestEmail(), name });
+    extraUsers.push(u);
+    const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email: u.email, password: TEST_PASSWORD });
+    expect(error).toBeNull();
+    await supabaseAdmin.auth.signOut();
+    return { user: u, token: data!.session!.access_token };
+  }
+
+  test('T9: the new session of a non-private room is private, and no transcription can be created for it', async () => {
+    const room = await publicRoomWithAbandonedConversation();
+    const newcomer = await signedIn('P1494 T9 Newcomer');
+    const taken = await client({ token: newcomer.token }).rpc('claim_joiner_seat', { p_code: room.code, p_joiner_name: 'newcomer' });
+    expect(taken.error, taken.error?.message).toBeNull();
+    const next = one(taken.data)!;
+    expect(next.is_private, 'the claim result carries the privacy of the new session').toBe(true);
+
+    expect((await rowById(room.id)).is_private, 'the finished session keeps its own setting').toBe(false);
+    expect((await rowById(next.id as string)).is_private).toBe(true);
+
+    for (const [who, token] of [['creator', await hostToken()], ['newcomer', newcomer.token]] as const) {
+      const c = client({ token });
+      const job = await c.rpc('create_transcription_job', { p_session_id: next.id as string });
+      expect(job.error?.message, `${who} created a job for the new session`).toMatch(/private session/i);
+      const retry = await c.rpc('retry_transcription', { p_session_id: next.id as string });
+      expect(retry.error?.message, `${who} retried a transcription for the new session`).toMatch(/private session/i);
+    }
+    const jobs = await supabaseAdmin.from('transcription_jobs').select('id').eq('session_id', next.id as string);
+    expect(jobs.data ?? []).toHaveLength(0);
+  });
+
+  test('T10: an expired room does not roll over; non-takeover claims on it are unchanged', async () => {
+    const room = await roomWithAbandonedConversation();
+    await supabaseAdmin.from('clarity_sessions').update({ expires_at: new Date(Date.now() - 60_000).toISOString() }).eq('id', room.id);
+    const refused = await claim(room.code, 'newcomer');
+    expect(refused.error?.code).toBe('42501');
+    const rows = await rowsByCode(room.code);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe(room.id);
+    expect((await rowById(room.id)).ended_at).toBeNull();
+
+    // control: the same expired room, seat never claimed, behaves as it did before the rollover existed
+    const empty = await openRoom();
+    await supabaseAdmin.from('clarity_sessions').update({ expires_at: new Date(Date.now() - 60_000).toISOString() }).eq('id', empty.id);
+    const joined = await claim(empty.code, 'first guest');
+    expect(joined.error, joined.error?.message).toBeNull();
+    expect(one(joined.data)!.id).toBe(empty.id);
+  });
+
+  test('T11: sub-room and open invite pointers move; a closed invite stays on the finished row', async () => {
+    const room = await roomWithAbandonedConversation();
+    const open = await createTestUser({ email: generateTestEmail(), name: 'P1494 T11 Open' });
+    const closed = await createTestUser({ email: generateTestEmail(), name: 'P1494 T11 Closed' });
+    extraUsers.push(open, closed);
+    const { data: event, error: eventError } = await supabaseAdmin.from('events').insert({
+      slug: `p1494-t11-${Date.now()}`, title: 'P1494 T11', description: 'fixture',
+      datetime: new Date(Date.now() + 86_400_000).toISOString(), location: 'Test Location', host_id: host.user.id,
+    }).select('id').single();
+    expect(eventError, eventError?.message).toBeNull();
+    createdEventIds.push(event!.id);
+
+    const sub = await supabaseAdmin.from('event_sub_rooms').insert({
+      event_id: event!.id, session_id: room.id, initiator_id: host.user.id, target_id: open.user.id,
+      status: 'active', session_code: room.code,
+    }).select('id').single();
+    expect(sub.error, sub.error?.message).toBeNull();
+    const inviteOpen = await supabaseAdmin.from('clarity_live_invites').insert({ session_id: room.id, target_user_id: open.user.id }).select('id').single();
+    expect(inviteOpen.error, inviteOpen.error?.message).toBeNull();
+    const inviteClosed = await supabaseAdmin.from('clarity_live_invites')
+      .insert({ session_id: room.id, target_user_id: closed.user.id, closed_at: new Date().toISOString() }).select('id').single();
+    expect(inviteClosed.error, inviteClosed.error?.message).toBeNull();
+
+    const next = one((await claim(room.code, 'newcomer')).data)!;
+
+    const subAfter = await supabaseAdmin.from('event_sub_rooms').select('session_id, session_code').eq('id', sub.data!.id).single();
+    expect(subAfter.data?.session_id).toBe(next.id);
+    expect(subAfter.data?.session_code, 'the code in the sub-room row is still the room code').toBe(room.code);
+    const openAfter = await supabaseAdmin.from('clarity_live_invites').select('session_id').eq('id', inviteOpen.data!.id).single();
+    expect(openAfter.data?.session_id).toBe(next.id);
+    const closedAfter = await supabaseAdmin.from('clarity_live_invites').select('session_id').eq('id', inviteClosed.data!.id).single();
+    expect(closedAfter.data?.session_id).toBe(room.id);
   });
 });

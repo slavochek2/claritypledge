@@ -146,6 +146,35 @@ test.describe('P1224: a guest whose seat credential is gone', () => {
     await expect(guestPage).toHaveURL(new RegExp(`/live/${code}`));
     await expect(guestPage.getByPlaceholder('Enter your name')).toBeVisible();
   });
+
+  test('P1494: a tab that lost its credential on an abandoned seat is sent to the join form, and re-joining there opens a new session it acts in', async ({ browser }) => {
+    const { code, roomId, guestPage } = await roomWithGuest(browser);
+    // A seat from before credentials, claimed long ago, in a tab that holds none and is not reloaded.
+    // The tab's own poll sees the missing credential before any write is attempted (P1493), so the
+    // refused-write re-join path is not reachable from a live tab: the join form is the path.
+    await supabaseAdmin.from('clarity_sessions').update({
+      joiner_seat_secret: null,
+      joiner_seat_claimed_at: new Date(Date.now() - 60 * 60_000).toISOString(),
+      joiner_last_seen_at: null,
+    }).eq('id', roomId);
+    await guestPage.evaluate((id) => window.localStorage.removeItem(`cp.seatSecret.${id}`), roomId);
+
+    await expect(guestPage.getByText('You are no longer in this session. Open the session link again to rejoin.')).toBeVisible({ timeout: 20000 });
+    await completeLiveJoinIfPrompted(guestPage, { name: GUEST, timeout: 15000 });
+    await dismissTermsDialog(guestPage);
+
+    // The join opened a new session under the code; the finished one is closed.
+    await expect.poll(async () => (await supabaseAdmin.from('clarity_sessions').select('id').eq('code', code).single()).data?.id, { timeout: 20000 }).not.toBe(roomId);
+    const { data: current } = await supabaseAdmin.from('clarity_sessions').select('id, joiner_name, joiner_seat_secret').eq('code', code).single();
+    expect(current?.joiner_name).toBe(GUEST);
+    expect(current?.joiner_seat_secret, 'the join issued a credential for the new session').not.toBeNull();
+    const { data: old } = await supabaseAdmin.from('clarity_sessions').select('ended_at').eq('id', roomId).single();
+    expect(old?.ended_at, 'the finished session is closed').not.toBeNull();
+
+    // ...and the guest's next action lands on the new session.
+    await speakAndRate(guestPage, 6);
+    await waitForLiveStateKey(code, 'checkerSubmitted', true, 20000);
+  });
 });
 
 test.describe('P1224: a guest keeps acting in its room after a reload', () => {
