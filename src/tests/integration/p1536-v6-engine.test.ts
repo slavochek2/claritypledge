@@ -546,10 +546,12 @@ describe('S1.4 / J9: an upload may record offers on an empty scope; typed and sp
     expect(await lastReply(ws), 'nothing inserted: no J9 line').toBe('Nothing changed on the canvas.');
   }, T);
 
-  it('an upload with a non-empty scope keeps the old path: the engine\'s reply stands and the step exists', async () => {
+  it('an upload with a non-empty scope keeps its step, and the J9 line leads its reply (premise changed by 20261103010000: the database builds the line on every path)', async () => {
     const { ws } = await cafeDraft('j9scoped');
     const { r } = await uploadRun(ws, 'v.md', { scope: [BOX.love], actions: [newPt(BOX.love, 'honesty over speed, because trust')], others: [{ group: 'Agencies', why: 'w' }], reply: 'Updated: Guiding values.' });
-    expect(await lastReply(ws)).toBe('Updated: Guiding values.');
+    const reply = await lastReply(ws);
+    expect(reply.startsWith('Your new file is also about Agencies.')).toBe(true);
+    expect(reply).toContain('Updated: Guiding values.');
     expect((await admin.from('canvas_draft_steps').select('run_id').eq('run_id', r.run_id)).data).toHaveLength(1);
   }, T);
 
