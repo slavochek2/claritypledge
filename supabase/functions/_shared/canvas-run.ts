@@ -25,6 +25,7 @@ import { costUsd, type GeminiRequest, type GeminiUsage, type TokenCounter } from
 import { buildDraftRequest } from './canvas-prompt.ts';
 import { parseDraft } from './canvas-parse.ts';
 import { buildDraftReply, withCutNote } from './canvas-reply.ts';
+import { draftReplyOf, offersToAdd } from './canvas-run-reply.ts';
 import type { LinkResult } from './canvas-material.ts';
 import { frameOf, scopeOf } from './canvas-frame.ts';
 import { gatherLinks, ownerItems, textOf, toCopies, triggerOf } from './canvas-thread.ts';
@@ -46,7 +47,8 @@ export interface ThreadItem {
   /** clarify_copy: the lines of the copy, each with whose it is. A copy without lines counts as other people's. */
   lines?: Array<{ by: 'owner' | 'other'; text: string }> | null;
 }
-export interface MaterialRow { id?: string; kind: 'file' | 'link'; label: string; text: string; message_id?: string | null; origin?: string }
+/** `messages` is a fork's seed row: the owner's own typed messages ("Your messages", "Earlier material"), copied from the canvas it was forked from. */
+export interface MaterialRow { id?: string; kind: 'file' | 'link' | 'messages'; label: string; text: string; message_id?: string | null; origin?: string }
 
 /** The `run` row `_canvas_draft_run_begin` returns when it starts a run (status 'run'). */
 export interface CanvasRun {
@@ -66,6 +68,10 @@ export interface CanvasRun {
   target_group?: string | null;
   /** The boxes the trigger message was tagged with. */
   box_refs?: string[] | null;
+  /** How the run's message arrived: an upload says "Your new file" in J9, a voice note "Your voice note". */
+  input_kind?: 'text' | 'file' | 'voice';
+  /** The offers the draft holds, in every state: a group matching one is never offered again. */
+  offers?: Array<{ id?: string; group_label: string; state: string }>;
   trigger_message_id?: string | null;
   /** What the draft holds now, with ids: the points the actions act on. */
   draft_points: BasePoint[];
@@ -199,6 +205,7 @@ async function runDraft(s: Step): Promise<RunSummary> {
   const out = parseDraft(asked.response, {
     material: fit.material, basePoints, baseLabel, otherNames: run.other_names, ownerName: run.owner_name,
     scope: scopeOf(frame), rebuild: frame.rebuild, currentFocus: run.focus ?? null, acceptFocus: run.first_draft === true && s.kind === 'message',
+    knownGroups: (run.offers ?? []).map((o) => o.group_label), listOffers: s.kind !== 'focus', offersOnEmptyScope: s.kind === 'message' && run.input_kind === 'file',
   });
   const usd = out.costUsd !== null ? out.costUsd + s.extra : run.reserved_usd ?? null;
   return (await failureOf(s, out, usd, cut)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));
@@ -209,17 +216,12 @@ type Parsed = Extract<ReturnType<typeof parseDraft>, { ok: true }>;
 /** The reply and the one write of a run that has something to say. */
 async function completeDraft(s: Step, out: Parsed, usd: number | null, truncated: boolean): Promise<RunSummary> {
   const { run, p, deps } = s;
-  const first = run.first_draft === true || s.kind === 'fork_first';
-  const outcome = !out.changedBoxes.length ? 'unchanged' : first ? 'draft' : 'updated';
-  const reply = buildDraftReply({
-    outcome, total: out.total, filledBoxes: 9 - out.emptyBoxes.length, changedBoxes: out.changedBoxes, note: out.note,
-    focus: out.focus ?? run.focus ?? null, others: out.otherCanvases.map((o) => o.group),
-    truncated, unreadable: s.unreadable, droppedUnverified: out.droppedUnverified, droppedNames: out.droppedNames,
-  });
+  const others = offersToAdd(run, out);
+  const reply = draftReplyOf(run, s.kind, out, others, { truncated, unreadable: s.unreadable });
   const { data, error } = await deps.rpc('_canvas_draft_run_complete', {
     p_run: run.run_id, p_owner: p.ownerId, p_actions: out.actions, p_questions: out.questions, p_scope: out.scope,
     p_focus: run.first_draft && s.kind === 'message' ? out.focus : null, // only the first draft takes the model's focus
-    p_other_canvases: out.otherCanvases, p_note: out.note || null, p_reply: reply, p_usd: usd,
+    p_other_canvases: others, p_note: out.note || null, p_reply: reply, p_usd: usd,
   });
   if (error || !data) {
     console.error('canvas-draft: write failed', { code: error?.code });
@@ -241,7 +243,8 @@ export async function executeRun(deps: RunDeps, p: RunParams, run: CanvasRun): P
     const trigger = triggerOf(run.thread);
     const input: MaterialInput = {
       trigger: trigger ? { text: textOf(trigger), tagged: trigger.box_refs ?? null } : null,
-      messages: ownerItems(run.thread).filter((t) => t !== trigger).map(textOf),
+      // a fork's seed rows are the owner's own typed words: they come first, then the messages of this thread
+      messages: [...run.material.filter((m) => m.kind === 'messages').map((m) => m.text), ...ownerItems(run.thread).filter((t) => t !== trigger).map(textOf)],
       copies: toCopies(run.thread),
       links: [...run.material.filter((m) => m.kind === 'link').map((m) => ({ url: m.label, text: m.text })), ...rows],
       files: run.material.filter((m) => m.kind === 'file').map((m) => ({ name: m.label, text: m.text })),

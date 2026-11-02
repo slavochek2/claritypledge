@@ -292,7 +292,7 @@ export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {
     ok: true, actions: acc.actions, decided: acc.decided, counts: acc.counts, total: acc.actions.length, emptyBoxes,
     droppedUnverified: acc.droppedUnverified, droppedNames: acc.droppedNames + extras.droppedNames, costUsd: read.costUsd,
     scope, changedBoxes: changedBoxesOf(acc, ctx, pc.basePoints), droppedScope: acc.droppedScope + extras.droppedScope, droppedCap: acc.droppedCap,
-    focus: extras.focus, otherCanvases: extras.otherCanvases, questions: scope.length ? extras.questions : {}, note: extras.note,
+    focus: extras.focus, focusReason: extras.focusReason, otherCanvases: extras.otherCanvases, questions: scope.length ? extras.questions : {}, note: extras.note,
   };
 }
 

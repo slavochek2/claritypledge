@@ -112,8 +112,8 @@ describe('S2 review fixes', () => {
     }
     expect(BOX_DEFINITIONS.filter((b) => b.empty).map((b) => b.tag)).toEqual(['canvas:solution']); // CONTROL: the empty branch is exercised
     const req = buildDraftRequest({ material: { items: [], truncated: false }, basePoints: [], baseLabel: null });
-    // v6 (S1): the model's answer gains focus, other_canvases, scope, questions and note; `conflicts` is gone with "What I decided on my own"
-    expect(Object.keys((req.generationConfig!.responseSchema as { properties: object }).properties)).toEqual(['focus', 'other_canvases', 'scope', 'actions', 'questions', 'note']);
+    // v6 (S1): the model's answer gains focus (S5: and focus_reason), other_canvases, scope, questions and note; `conflicts` is gone with "What I decided on my own"
+    expect(Object.keys((req.generationConfig!.responseSchema as { properties: object }).properties)).toEqual(['focus', 'focus_reason', 'other_canvases', 'scope', 'actions', 'questions', 'note']);
   });
 
   it('2. every Copy prompt section carries its box voice, before its shape', () => {

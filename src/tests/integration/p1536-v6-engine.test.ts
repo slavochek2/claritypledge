@@ -446,7 +446,7 @@ describe('S1.3 / S1.4 scope is enforced by the server', () => {
     expect(await fail(r.run_id, 'bad_output', 0.001)).toBe(true);     // the caller fails the run: Try again
   }, T);
 
-  it('an EMPTY scope changes nothing (no step, no focus, no offers), replies "No box changed." and still counts as used', async () => {
+  it('a TYPED message with an EMPTY scope changes nothing (no step, no focus, no offers; an upload is the J9 exception, below), replies "Nothing changed on the canvas." and still counts as used', async () => {
     const o = await mkOwner('empty'); const ws = new WS(o);
     await ws.cycle({ body: nn('base') }, { actions: [newPt(BOX.segments, 'a')], focus: 'Cafes' });
     const ids = await ws.ids(); const before = (await ws.state()).draft!;
@@ -463,8 +463,114 @@ describe('S1.3 / S1.4 scope is enforced by the server', () => {
     expect(after.used_runs).toBe(before.used_runs + 1);
     expect((await admin.from('canvas_draft_steps').select('run_id').eq('run_id', r.run_id)).data).toEqual([]);
     const reply = (await ws.msgs()).filter((m) => m.kind === 'agent').at(-1)!;
-    expect(reply.body).toBe('No box changed. A segment is a group of buyers.');
+    expect(reply.body).toBe('Nothing changed on the canvas. I noted: "A segment is a group of buyers."');
     expect(after.undo_run_id, 'no Undo for a run that changed nothing').not.toBe(r.run_id);
+  }, T);
+});
+
+/**
+ * S1.4's premise changes (decided 2026-11-03 by Gemini Argon and Codex, for the founder at UAT; migration 20261103000000): "an empty scope changes nothing,
+ * including offers" now holds for TYPED and SPOKEN input only. An UPLOAD (input_kind 'file') may persist offers, and the J9 line, with an empty scope:
+ * focus, points, questions and links stay as they were, no step is made. The line is built by the database from the offers it actually inserted.
+ */
+describe('S1.4 / J9: an upload may record offers on an empty scope; typed and spoken input may not', () => {
+  const cafeDraft = async (label: string) => {
+    const o = await mkOwner(label); const ws = new WS(o);
+    await ws.cycle({ body: nn('base') }, { actions: [newPt(BOX.segments, 'a'), newPt(BOX.revenue, 'price 100')], focus: 'Cafes' });
+    return { o, ws };
+  };
+  /** One upload run, claimed and completed the way the edge function does it (the message is the file's label; the text is material). */
+  const uploadRun = async (ws: WS, label: string, done: Done): Promise<{ r: Row; d: Row }> => {
+    const r = await ws.send({ att: { kind: 'file', label } });
+    expect(r.status, JSON.stringify(r)).toBe('ok');
+    expect((await begin(r.run_id, true)).status).toBe('run');
+    expect((await addMat({ p_run: r.run_id, p_kind: 'file', p_label: label, p_text: nn(`${label}: a file about another business`), p_message: null })).status).toBe('ok');
+    const d = await complete(r.run_id, done);
+    expect(d.status, JSON.stringify(d)).toBe('ok');
+    await ws.state();
+    return { r, d };
+  };
+  const stateOf = async (ws: WS) => {
+    const st = (await ws.state()).draft!;
+    return { st, ids: await ws.ids(), rev: st.revision as number, used: st.used_runs as number };
+  };
+  const lastReply = async (ws: WS) => ((await ws.msgs()).filter((m) => m.kind === 'agent').at(-1)!.body as string);
+
+  it('an empty-scope upload records the offer, says J9 from the persisted offer and the current focus, and changes nothing else', async () => {
+    const { ws } = await cafeDraft('j9empty');
+    const before = await stateOf(ws);
+    const { r, d } = await uploadRun(ws, 'agencies.md', {
+      scope: [], actions: [newPt(BOX.problem, 'x')], questions: { [BOX.problem]: 'q?' }, focus: 'Hijacked',
+      others: [{ group: 'Agencies', why: 'The file is about agencies.' }], reply: 'Nothing changed on the canvas.',
+    });
+    expect(d).toMatchObject({ applied: false, scope: [], created: 0, offers_added: 1 });
+    const after = await stateOf(ws);
+    expect(after.st.offers).toMatchObject([{ group_label: 'Agencies', state: 'offered', why: 'The file is about agencies.' }]);
+    expect(after.st.focus, 'the focus stays').toBe('Cafes');
+    expect(after.ids, 'no point moved').toEqual(before.ids);
+    expect(after.st.questions, 'no question changed').toEqual(before.st.questions);
+    expect(after.rev, 'a completed run is one revision, as for any run').toBe(before.rev + 1);
+    expect(after.used, 'and counts as used').toBe(before.used + 1);
+    expect((await admin.from('canvas_draft_steps').select('run_id').eq('run_id', r.run_id)).data, 'no step: nothing to Undo').toEqual([]);
+    expect(after.st.undo_run_id).not.toBe(r.run_id);
+    expect((await lastReply(ws)).split('\n')).toEqual(['Your new file is also about Agencies. This canvas stays about Cafes.', 'Nothing changed on the canvas.']);
+  }, T);
+
+  it('the offer stays dismissable, and a later Undo of an earlier run leaves it', async () => {
+    const { o, ws } = await cafeDraft('j9dismiss');
+    const c2 = await ws.cycle({ body: nn('the price is 200'), refs: [BOX.revenue] }, { actions: [newPt(BOX.revenue, 'price 200')] });
+    await uploadRun(ws, 'agencies.md', { scope: [], others: [{ group: 'Agencies', why: 'w' }], reply: 'Nothing changed on the canvas.' });
+    let st = (await ws.state()).draft!;
+    const undone = await ok(o.c, 'canvas_draft_undo', { p_draft: ws.draft, p_expected_run: st.undo_run_id, p_expected_revision: st.revision });
+    expect(undone.status, 'Undo walks to the newest applied run, which is the price run, not the upload').toBe('ok');
+    expect(undone.undone_run_id).toBe(c2.r.run_id);
+    st = (await ws.state()).draft!;
+    expect(st.offers, 'the upload\'s offer is not an Undo\'s business').toMatchObject([{ group_label: 'Agencies', state: 'offered' }]);
+    expect((await ok(o.c, 'canvas_draft_offer_dismiss', { p_draft: ws.draft, p_offer: st.offers[0].id, p_expected_revision: ws.rev })).status).toBe('ok');
+  }, T);
+
+  it('the merge rules, the cap of 3 and the focus apply: no row and no line for a repeat, the focus itself, or a 4th group', async () => {
+    const { ws } = await cafeDraft('j9merge');
+    await uploadRun(ws, 'a.md', { scope: [], others: [{ group: 'Cafes', why: 'the focus' }, { group: 'Agencies', why: 'w' }, { group: 'agencies  ', why: 'again' }], reply: 'Nothing changed on the canvas.' });
+    expect((await stateOf(ws)).st.offers.map((x: Row) => x.group_label)).toEqual(['Agencies']);
+    expect((await lastReply(ws)).split('\n')[0], 'only what was inserted is said').toBe('Your new file is also about Agencies. This canvas stays about Cafes.');
+    await uploadRun(ws, 'b.md', { scope: [], others: [{ group: 'Retail', why: 'w' }, { group: 'Schools', why: 'w' }, { group: 'Banks', why: 'w' }], reply: 'Nothing changed on the canvas.' });
+    expect((await stateOf(ws)).st.offers.map((x: Row) => x.group_label).sort(), 'at most 3 open').toEqual(['Agencies', 'Retail', 'Schools']);
+    expect((await lastReply(ws)).split('\n')[0], 'two inserted, said together').toBe('Your new file is also about Retail and Schools. This canvas stays about Cafes.');
+    await uploadRun(ws, 'c.md', { scope: [], others: [{ group: 'Agencies', why: 'again' }, { group: 'Banks', why: 'w' }], reply: 'Nothing changed on the canvas.' });
+    expect(await lastReply(ws), 'nothing inserted: no J9 line').toBe('Nothing changed on the canvas.');
+  }, T);
+
+  it('an upload with a non-empty scope keeps the old path: the engine\'s reply stands and the step exists', async () => {
+    const { ws } = await cafeDraft('j9scoped');
+    const { r } = await uploadRun(ws, 'v.md', { scope: [BOX.love], actions: [newPt(BOX.love, 'honesty over speed, because trust')], others: [{ group: 'Agencies', why: 'w' }], reply: 'Updated: Guiding values.' });
+    expect(await lastReply(ws)).toBe('Updated: Guiding values.');
+    expect((await admin.from('canvas_draft_steps').select('run_id').eq('run_id', r.run_id)).data).toHaveLength(1);
+  }, T);
+
+  it('a TYPED message with an empty scope records nothing and says no J9 line', async () => {
+    const { ws } = await cafeDraft('j9typed');
+    const before = await stateOf(ws);
+    const { d } = await ws.cycle({ body: nn('thanks, and by the way agencies too') }, { scope: [], others: [{ group: 'Agencies', why: 'w' }], reply: 'Nothing changed on the canvas.' });
+    expect(d).toMatchObject({ applied: false, offers_added: 0 });
+    expect((await stateOf(ws)).st.offers).toEqual(before.st.offers);
+    expect(await lastReply(ws)).toBe('Nothing changed on the canvas.');
+  }, T);
+
+  it('a VOICE note with an empty scope records nothing and says no J9 line', async () => {
+    const { ws } = await cafeDraft('j9voice');
+    // the owner has not accepted the current terms, so the database-started route is refused and this test begins the run itself (as in S1.6)
+    expect((await admin.from('profiles').update({ accepted_terms_version: null }).eq('id', ws.o.u.user.id)).error).toBeNull();
+    const before = await stateOf(ws);
+    const v = await ws.send({ att: { kind: 'voice', duration_ms: 2000 } });
+    expect(v.status, JSON.stringify(v)).toBe('ok');
+    const msg = (await ws.msgs()).filter((m) => m.audio_duration_ms === 2000)[0]!;
+    await eng('chat_voice_finish_transcription', { p_message: msg.id, p_ok: true, p_text: nn('agencies are another business of mine') });
+    expect((await begin(v.run_id)).status).toBe('run');
+    const d = await complete(v.run_id, { scope: [], others: [{ group: 'Agencies', why: 'w' }], reply: 'Nothing changed on the canvas.' });
+    expect(d).toMatchObject({ status: 'ok', applied: false, offers_added: 0 });
+    expect((await stateOf(ws)).st.offers).toEqual(before.st.offers);
+    expect(await lastReply(ws)).toBe('Nothing changed on the canvas.');
   }, T);
 });
 

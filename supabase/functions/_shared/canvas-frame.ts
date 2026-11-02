@@ -15,6 +15,8 @@ export function frameOf(run: CanvasRun, kind: RunKind): RunFrame {
     focus: run.focus ?? null,
     targetGroup: run.target_group ?? null,
     rebuild: kind === 'focus' ? CUSTOMER_BOX_TAGS : [],
+    inputKind: run.input_kind ?? 'text',
+    knownGroups: (run.offers ?? []).map((o) => ({ group: o.group_label, state: o.state })),
   };
 }
 

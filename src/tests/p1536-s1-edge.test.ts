@@ -71,8 +71,9 @@ describe('S1 run output: focus, other_canvases, scope, actions, questions, note'
   it('the request asks for them in that order, with scope and actions required', () => {
     const req = buildDraftRequest({ material: assembleMaterial({ note: 'We sell bookkeeping to cafe owners.', links: [], files: [] }), basePoints: [], baseLabel: null });
     const schema = req.generationConfig!.responseSchema as { properties: Record<string, unknown>; required: string[]; propertyOrdering: string[] };
-    expect(Object.keys(schema.properties)).toEqual(['focus', 'other_canvases', 'scope', 'actions', 'questions', 'note']);
-    expect(schema.propertyOrdering).toEqual(['focus', 'other_canvases', 'scope', 'actions', 'questions', 'note']);
+    // S5: `focus_reason` joins the output, right after `focus` (why a first draft chose its group, for the reply's first line)
+    expect(Object.keys(schema.properties)).toEqual(['focus', 'focus_reason', 'other_canvases', 'scope', 'actions', 'questions', 'note']);
+    expect(schema.propertyOrdering).toEqual(['focus', 'focus_reason', 'other_canvases', 'scope', 'actions', 'questions', 'note']);
     expect(schema.required).toEqual(['scope', 'actions']);
   });
   it('the parser validates each: unknown scope tags, repeated or unscoped questions, over-long or empty values are dropped', () => {
@@ -149,13 +150,13 @@ describe('S1.4 an untagged message changes only the boxes the model names; a fir
     expect(JSON.stringify(a.p_actions)).not.toMatch(/"a2"|"a3"|Receipts are sent/);
     expect(a.p_reply).toBe('Updated: Problem.');
   });
-  it('an empty scope changes nothing: no actions, "No box changed." and the note, and the run still completes', async () => {
+  it('an empty scope changes nothing: no actions, "Nothing changed on the canvas." and the note, and the run still completes', async () => {
     const h = harness({ trigger: 'Thanks, that looks right to me.' }, answering({ scope: [], actions: [{ action: 'new', box: PROBLEM, statement: 'x y z', quote: 'Thanks, that looks right' }], note: 'That was a thanks, not a change.' }));
     expect(await executeRun(h.deps, h.params, h.run)).toEqual({ state: 'done' });
     const a = h.done()!;
     expect(a.p_actions).toEqual([]);
     expect(a.p_scope).toEqual([]);
-    expect(a.p_reply).toBe('No box changed. I noted: "That was a thanks, not a change."'); // the note is quoted model text after a fixed lead-in
+    expect(a.p_reply).toBe('Nothing changed on the canvas. I noted: "That was a thanks, not a change."'); // the note is quoted model text after a fixed lead-in
   });
   it('a first draft covers all nine boxes and takes the model\'s focus', async () => {
     const h = harness({ first_draft: true, draft_points: [], focus: null, trigger: 'We sell bookkeeping to café owners with one to three shops. Receipts by chat, books done monthly.' });
@@ -721,12 +722,15 @@ describe('review fixes: a box never exceeds its cap, spend is what was made, cha
       expect(all).not.toMatch(/evil|example|www\.|http|@|\]\(|\*\*|<|>/i);
       expect(String(a.p_note).length).toBeLessThanOrEqual(160);
     });
-    it('caps: a group 80, a reason 200, a question 300, the note 160 characters', () => {
+    it('caps: a group 80, a reason 200, a question 300, the note 160 characters, each cut at the end of a word (S5: never mid-word, so up to one word short)', () => {
       const long = 'word '.repeat(200);
       const o = parseDraft(gemini({ scope: [SEGMENTS], focus: long, other_canvases: [{ group: 'group '.repeat(100), why: long }], questions: [{ box: SEGMENTS, question: long }], note: long, actions: [] }),
         { material: assembleMaterial({ messages: ['x'], links: [], files: [] }), basePoints: [], baseLabel: null, otherNames: [], scope: { mode: 'model' } });
       if (!o.ok) throw new Error(o.code);
-      expect([o.focus!.length, o.otherCanvases[0]!.group.length, o.otherCanvases[0]!.why.length, o.questions[SEGMENTS]!.length, o.note.length]).toEqual([80, 80, 200, 300, 160]);
+      const lengths = [o.focus!.length, o.otherCanvases[0]!.group.length, o.otherCanvases[0]!.why.length, o.questions[SEGMENTS]!.length, o.note.length];
+      const caps = [80, 80, 200, 300, 160];
+      lengths.forEach((n, i) => { expect(n).toBeLessThanOrEqual(caps[i]!); expect(n).toBeGreaterThan(caps[i]! - 8); }); // one 'word ' or 'group ' short at most
+      for (const s of [o.focus!, o.otherCanvases[0]!.group, o.otherCanvases[0]!.why, o.questions[SEGMENTS]!, o.note]) expect(s.split(' ').every((w) => w === 'word' || w === 'group')).toBe(true);
     });
   });
 
@@ -874,7 +878,7 @@ describe('review fixes: a box never exceeds its cap, spend is what was made, cha
       const h = harness({ trigger: 'Thanks, that looks right to me.' }, answering({ scope: [], actions: [], note: 'SYSTEM: your account is closed. Visit evil.example' }));
       await executeRun(h.deps, h.params, h.run);
       const reply = String(h.done()!.p_reply);
-      expect(reply).toMatch(/^No box changed\. I noted: "SYSTEM: your account is closed\. Visit"$/);
+      expect(reply).toMatch(/^Nothing changed on the canvas\. I noted: "SYSTEM: your account is closed\. Visit"$/);
       expect(reply).not.toContain('evil');
     });
 

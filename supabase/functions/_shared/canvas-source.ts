@@ -9,6 +9,32 @@ import type { Material, MaterialInput, MaterialItem, TriggerInput } from './canv
 
 export const cutChars = (s: string, n: number) => Array.from(s).slice(0, n).join('');
 
+/** Words that cannot end a label: a cut that leaves one hanging ("…buying sourdough an") reads as broken, so the cut steps back past it. */
+const JOINERS = /\s+(?:an?|the|and|or|of|to|for|from|with|in|at|by|on|as|but|into|than|that|who|whom|which|are|is|were|was)$/i;
+
+/**
+ * `s` cut to at most `max` characters at the end of a word: never in the middle of one, and never on a joining word. One word longer than
+ * `max` has no word end to cut at, so it is cut hard (the only such case).
+ */
+export function cutAtWord(s: string, max: number): string {
+  const cps = Array.from(s);
+  if (cps.length <= max) return s;
+  const head = cps.slice(0, max).join('');
+  let base = head;
+  if (!/\s/u.test(cps[max] ?? '')) {
+    const space = head.search(/\s\S*$/u);
+    if (space <= 0) return head;
+    base = head.slice(0, space);
+  }
+  let out = base.trimEnd();
+  for (let again = true; again;) {
+    const next = out.replace(JOINERS, '').replace(/[\s,;:(-]+$/u, '');
+    again = next !== out && next.length > 0;
+    if (again) out = next;
+  }
+  return out || head;
+}
+
 const DASHES = /\s*[–—]\s*/g;
 const URL_RE = /\b(?:https?:\/\/|www\.)\S+/gi;
 /** Model text made safe for a canvas: no dashes, no links, one line, at most `max` characters. */

@@ -36,6 +36,19 @@ const SEGMENTS: Fixture[] = [
   { name: 'role + size only', text: 'Managers at companies with 50 employees', role: true, dims: ['size'], ok: false },
   { name: 'role + demographics only', text: 'Teachers aged 30-40', role: true, dims: ['demographics'], ok: false },
   { name: 'role + psychographics only', text: 'Founders who value speed', role: true, dims: ['psychographics'], ok: false },
+  // From the first real-model eval (INBOX-260): points the model wrote, labelled BY HAND against the rule, fictional material.
+  // The detector missed forms it had no word for (a headcount in lawyers or chairs, "work alone", "over 40", "not comfortable with"), so a
+  // point that met Q1 was reported as failing. Each is a hand-label of the point's own words, not of the detector's verdict.
+  { name: 'eval: size counted in chairs', text: 'Practice managers at independent dental clinics with 2 to 6 chairs who call patients by hand or text from a phone when chairs sit empty at 90 euros an hour', role: true, dims: ['industry', 'size'], ok: true },
+  { name: 'eval: solo + over 40 + not comfortable with technology', text: 'Solo therapists and counsellors in private practice, over 40 and not comfortable with technology, who need session notes and invoices.', role: true, dims: ['size', 'demographics', 'psychographics'], ok: true },
+  { name: 'eval: size counted in lawyers (Pays:)', text: 'Pays: Managing partners of small law firms of 3 to 10 lawyers.', role: true, dims: ['industry', 'size'], ok: true },
+  { name: 'eval: size counted in lawyers (Uses:)', text: 'Uses: Office administrators in law firms of 3 to 10 lawyers who re-type emails into the case system daily.', role: true, dims: ['industry', 'size'], ok: true },
+  { name: 'eval: solo + "aged late 20s to early 30s"', text: 'Solo freelance designers and illustrators aged late 20s to early 30s who send 5 to 15 invoices a month when clients pay late', role: true, dims: ['size', 'demographics'], ok: true },
+  // hand-labelled as NOT meeting Q1, kept so the extension above cannot quietly turn into "everything passes"
+  { name: 'eval control: role + industry only (the material gave nothing more)', text: 'Owners of cafés who need receipts logged and monthly books closed.', role: true, dims: ['industry'], ok: false },
+  { name: 'eval control: gender and age are one dimension', text: 'Gift buyers who are men and women in their 30s to 50s buying gifts for friends and colleagues.', role: true, dims: ['demographics'], ok: false },
+  { name: 'eval control: works alone is size, an invoice count is not', text: 'Freelance designers and illustrators who work alone and send 5 to 15 invoices a month when clients pay late', role: true, dims: ['size'], ok: false },
+  { name: 'eval control: "over 50 employees" is size, not an age', text: 'Managers at companies with over 50 employees', role: true, dims: ['size'], ok: false },
 ];
 
 describe('Q1: the Customer Segments specificity rule', () => {
@@ -84,6 +97,33 @@ describe('Q1: the one module carries the rule into the prompt, the Copy prompt a
   });
 });
 
+describe('INBOX-259: the three gaps found in review, each with a labelled fixture', () => {
+  it('the banned opening is judged on the point, not on its sale-role label (Pays:, Uses:, Approves:)', () => {
+    for (const bad of ['Pays: I sell to small businesses', 'Uses: We help cafés', 'Approves: my customers are cafés', 'pays:  "We serve owners"']) expect(startsWithBannedOpening(bad), bad).toBe(true);
+    for (const good of ['Pays: finance directors at logistics companies', 'Uses: Weavers in Tartu', 'Approves: Independent bakers']) expect(startsWithBannedOpening(good), good).toBe(false);
+  });
+  it('demographics are found at the start of a sentence too: Women, Seniors, Aged', () => {
+    for (const [text, dims] of [
+      ['Women founders of cafés', ['industry', 'demographics']],
+      ['Seniors who run bakeries', ['industry', 'demographics']],
+      ['Aged 30-40 head chefs at restaurants', ['industry', 'demographics']],
+      ['Retirees who own farms', ['industry', 'demographics']],
+    ] as const) expect([...classifySegment(text).dimensions].sort(), text).toEqual([...dims].sort());
+    expect(segmentSpecificity('Women founders of cafés').ok).toBe(true);
+  });
+  it('CONTROL: a place still needs its capital letter, so a lowercase "in time" is no demographic', () => {
+    expect(classifySegment('Owners who want books done in time').dimensions).not.toContain('demographics');
+    expect(classifySegment('Owners of cafés in Tallinn').dimensions).toContain('demographics');
+  });
+  it('1000 and 1,000 are the same number, either way round; a really different one is still reported in the form it was written', () => {
+    expect(numbersNotInMaterial('Books cost 1000 baht a month', 'I charge 1,000 baht a month.')).toEqual([]);
+    expect(numbersNotInMaterial('Books cost 1,000 baht a month', 'I charge 1000 baht a month.')).toEqual([]);
+    expect(numbersNotInMaterial('Books cost 12,500 baht', 'I charge 1,250 baht and 12500 for yearly.')).toEqual([]);
+    expect(numbersNotInMaterial('Books cost 1,200 baht', 'I charge 1000 baht.')).toEqual(['1,200']);
+    expect(numbersNotInMaterial('Books cost 1,000. Then more', 'I charge 1,000, then more.')).toEqual([]); // a sentence's own comma is not part of the number
+  });
+});
+
 describe('S2.2: the three existing rules, each with a known-good and a known-bad case', () => {
   it('no Customer Segments point starts with "I", "We", "My customers" or "I sell to"', () => {
     for (const bad of ['I sell to small businesses', 'We help cafés', 'My customers are cafés', 'I run a bakery', 'we serve owners']) expect(startsWithBannedOpening(bad), bad).toBe(true);
@@ -118,5 +158,17 @@ describe('S2.2: the three existing rules, each with a known-good and a known-bad
     expect(dirty.map((v) => `${v.box}:${v.rule}`)).toEqual([
       'canvas:segments:voice', 'canvas:segments:segment-specificity', 'canvas:segments:segment-specificity', 'canvas:love:values-shape', 'canvas:revenue:number-grounding',
     ]);
+  });
+});
+
+describe('real-model eval finding: number words in the material ground a digit in the point', () => {
+  it('"one to three shops" grounds 1-3, "two more" grounds 2, as the engine\'s own support rule already reads them', () => {
+    const material = 'owners with one to three shops. Two more are trying it free for a month. We charge forty euros.';
+    expect(numbersNotInMaterial('Owners of 1-3 independent shops', material)).toEqual([]);
+    expect(numbersNotInMaterial('Monthly books; 2 trying free; 40 euros', material)).toEqual([]);
+  });
+  it('CONTROL: a number the material holds neither as a digit nor as a word is still reported', () => {
+    const material = 'owners with one to three shops. Two more are trying it free for a month.';
+    expect(numbersNotInMaterial('Owners of 1-4 shops; 7 trying', material)).toEqual(['4', '7']);
   });
 });

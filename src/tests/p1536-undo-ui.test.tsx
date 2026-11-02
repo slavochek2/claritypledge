@@ -257,7 +257,7 @@ describe('D7/J6: where Undo is', () => {
 
   it('CONTROL: a run that changed no box has no step: the server names an earlier run and Undo sits under THAT reply', async () => {
     srv.runs.push(mkRun('r3', { hasStep: false, reply_message_id: 'a-r3' }));
-    st.messages.push(msg({ id: 'm-r3', body: 'what is a segment?' }), agent({ id: 'a-r3', body: 'No box changed.' }));
+    st.messages.push(msg({ id: 'm-r3', body: 'what is a segment?' }), agent({ id: 'a-r3', body: 'Nothing changed on the canvas.' }));
     syncDraft();
     mount(DRAFT_AT);
     await threadReady();

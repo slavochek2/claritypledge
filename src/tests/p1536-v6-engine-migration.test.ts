@@ -26,6 +26,7 @@ const C = '20261029100200_p1536_reword_keeps_stories.sql';
 const M = '20261030080000_p1536_v6_engine.sql';
 const MERGE = '20261030090000_p1536_p1592_merge_erase_forward.sql';
 const TITLE = '20261101180000_p1536_canvas_title.sql';
+const NOTHING = '20261103000000_p1536_nothing_changed_wording.sql';
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
 const stripComments = (sql: string) => sql.replace(/--[^\n]*/g, '');
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -168,7 +169,8 @@ describe('P1536 v6 migration: replaced bodies', () => {
     // erase_chat_data_for is restated once more by the merge file (P1536 + P1592); every other function ends here
     // get_canvas is restated once more by the canvas-title file (P1536 W8: access.title and access.canvas_id); its edits are pinned there.
     const fn = REPLACED[name]!.fn ?? name;
-    expect(newestDefinition(fn)).toBe(fn === 'erase_chat_data_for' ? MERGE : fn === 'get_canvas' ? TITLE : M);
+    // _canvas_draft_run_complete is restated once more by the 3c wording file (one changed literal, pinned by p1536-s5-nothing-changed.test.ts).
+    expect(newestDefinition(fn)).toBe(fn === 'erase_chat_data_for' ? MERGE : fn === 'get_canvas' ? TITLE : fn === '_canvas_draft_run_complete' ? NOTHING : M);
   });
   it('the earlier 4-argument _canvas_draft_run_fail is NOT redefined; the v6 five-argument form checks the owner, the state and settles the spend', () => {
     expect(stripComments(rawM)).not.toMatch(/FUNCTION public\._canvas_draft_run_fail\(p_run uuid, p_code text/);

@@ -1,5 +1,5 @@
 /**
- * P1536 S2.2 and section 3b Q1: the rules the real-model eval applies to every point the drafting agent writes. Pure (no imports), so the
+ * P1536 S2.2 and section 3b Q1: the rules the real-model eval applies to every point the drafting agent writes. Pure (it imports only the engine's pure number reader), so the
  * eval script and vitest load it as it is; nothing in the running product imports it.
  *
  *  - voice: no Customer Segments point starts with "I", "We", "My customers" or "I sell to";
@@ -12,6 +12,8 @@
  * for the eval's report and for a human read; it is not a language model and it can miss a form it has no word for. Labelled fixtures
  * (src/tests/p1536-s2-eval-rules.test.ts) pin what it finds and what it must reject. A lexicon is extended by adding a fixture first.
  */
+
+import { numbersIn } from './canvas-support.ts';
 
 export type SegmentDimension = 'industry' | 'size' | 'demographics' | 'psychographics';
 
@@ -34,28 +36,35 @@ const INDUSTRY = new RegExp(
   'i',
 );
 
+/** What a practice or a firm counts its size in: "2 to 6 chairs", "3 to 10 lawyers". An invoice or a message count is not a size, so those are not here. */
+const HEADCOUNT_UNITS = 'chairs|rooms|beds|desks|lawyers|doctors|dentists|nurses|therapists|practitioners|stylists|technicians|drivers|partners|developers|engineers|teachers';
+
 /** A count of people or units (staff, shops), a range of them before a unit noun, or a named scale. Bare "small" and "large" are category words and do not count. */
 const SIZE = new RegExp(
-  '\\b\\d[\\d,.]*\\s*(?:(?:-|–|to)\\s*\\d[\\d,.]*\\s*)?(?:staff|employees?|people|seats|users|ftes?|headcount|workers|members)\\b'
-  + '|\\b(?:with|of)\\s+\\d[\\d,.]*\\s*(?:(?:-|–|to)\\s*\\d[\\d,.]*\\s*)?(?:\\w+\\s+){0,2}(?:staff|employees?|people|seats|users|workers|members)\\b'
+  '\\b\\d[\\d,.]*\\s*(?:(?:-|–|to)\\s*\\d[\\d,.]*\\s*)?(?:staff|employees?|people|seats|users|ftes?|headcount|workers|members|' + HEADCOUNT_UNITS + ')\\b'
+  + '|\\b(?:with|of)\\s+\\d[\\d,.]*\\s*(?:(?:-|–|to)\\s*\\d[\\d,.]*\\s*)?(?:\\w+\\s+){0,2}(?:staff|employees?|people|seats|users|workers|members|' + HEADCOUNT_UNITS + ')\\b'
   + '|\\b\\d[\\d,.]*\\s*(?:(?:-|–|to)\\s*\\d[\\d,.]*\\s*)?(?:independent\\s+|small\\s+|local\\s+)?(?:caf[eé]s|shops|stores|locations|outlets|branches|sites|clinics|restaurants|offices|depots|trucks|vehicles)\\b'
-  + '|\\b(?:solo|one-person|one-man|mid-?sized|midsize|enterprise|family-run|owner-operated)\\b'
+  + '|\\b(?:solo|one-person|one-man|mid-?sized|midsize|enterprise|family-run|owner-operated)\\b|\\bwork(?:s|ing)?\\s+alone\\b'
   + '|\\b(?:under|over|above|below|around)\\s+[€$£]?\\d[\\d,.]*\\s*(?:k|m|million|thousand)?\\s*(?:in\\s+)?(?:revenue|turnover|sales)\\b',
   'i',
 );
 
-const DEMOGRAPHICS = new RegExp(
-  '\\baged?\\s+\\d'
+/** Age, gender, life stage, origin: matched in any case, because a point opens with them ("Women founders…", "Seniors who…"). */
+const DEMOGRAPHIC_WORDS = new RegExp(
+  '\\baged?\\s+(?:early\\s+|mid\\s+|mid-|late\\s+)?\\d'
+  // "over 40", "under 30": an age only when nothing counted follows ("over 50 employees" is a size)
+  + '|\\b(?:over|under)\\s+\\d{2}(?=\\s*(?:,|\\.|$|and\\b|who\\b|years?\\b))'
   + '|\\b\\d{2}\\s*(?:-|–|to)\\s*\\d{2}\\s*(?:years?|year-old|yo|y/o)\\b'
   + '|\\b(?:in|into)\\s+their\\s+(?:early\\s+|mid\\s+|mid-|late\\s+)?(?:\\d0s|teens|twenties|thirties|forties|fifties|sixties)\\b'
-  + '|\\b(?:women|men|mothers?|fathers?|moms?|dads?|seniors?|retirees?|retired|millennials?|gen ?z|teenagers?|immigrants?|expats?|first-time|newly)\\b'
-  // a place: "in Tallinn", "based in Estonia" (a capital letter after the preposition keeps "in time" out)
-  + '|\\b(?:in|based in|across|around)\\s+(?:[A-Z][\\p{L}-]+)',
-  'u',
+  + '|\\b(?:women|men|mothers?|fathers?|moms?|dads?|seniors?|retirees?|retired|millennials?|gen ?z|teenagers?|immigrants?|expats?|first-time|newly)\\b',
+  'iu',
 );
+/** A place: "in Tallinn", "based in Estonia". Case-SENSITIVE on purpose: the capital letter after the preposition keeps "in time" out. */
+const DEMOGRAPHIC_PLACE = /\b(?:in|based in|across|around)\s+(?:[A-Z][\p{L}-]+)/u;
 
 const PSYCHOGRAPHICS = new RegExp(
   '\\bwho\\s+(?:also\\s+)?(?:value|prefer|worry|worries|fear|hate|dislike|distrust|mistrust|trust|care about|care deeply|avoid|resist|tend to|like to|love|enjoy|insist|refuse|believe|are\\s+(?:wary|anxious|skeptical|sceptical|cautious|overwhelmed|risk-averse|time-poor|early adopters?))\\b'
+  + '|\\b(?:not|un)\\s*comfortable\\s+with\\b|\\bwary of\\b|\\bafraid of\\b|\\banxious about\\b'
   + '|\\b(?:risk-averse|early adopters?|late adopters?|skeptical|sceptical|time-poor|overwhelmed|ambitious|cautious|privacy-conscious|eco-conscious|price-sensitive|tech-savvy|perfectionists?|pragmatic|conservative)\\b',
   'i',
 );
@@ -74,7 +83,7 @@ export function classifySegment(text: string): SegmentClassification {
   const dimensions: SegmentDimension[] = [];
   if (INDUSTRY.test(t)) dimensions.push('industry');
   if (SIZE.test(t)) dimensions.push('size');
-  if (DEMOGRAPHICS.test(t)) dimensions.push('demographics');
+  if (DEMOGRAPHIC_WORDS.test(t) || DEMOGRAPHIC_PLACE.test(t)) dimensions.push('demographics');
   if (PSYCHOGRAPHICS.test(t)) dimensions.push('psychographics');
   return { role: ROLE.test(t), dimensions };
 }
@@ -89,7 +98,7 @@ export function segmentSpecificity(text: string): { ok: boolean; missing: 'role'
 
 /** S2.2 rule 1: Customer Segments describes the customer and never starts with "I", "We", "My customers" or "I sell to". */
 export function startsWithBannedOpening(text: string): boolean {
-  return /^\s*(?:i|we|my customers)\b/i.test(text.replace(/^["'“”‘’\s]+/, ''));
+  return /^\s*(?:i|we|my customers)\b/i.test(text.replace(SALE_LABEL, '').replace(/^["'“”‘’\s]+/, ''));
 }
 
 /** S2.2 rule 2: a Guiding values point is `X over Y, because Z`. */
@@ -97,10 +106,16 @@ export function isGuidingValueShape(text: string): boolean {
   return /^\s*\S.*\sover\s.+,\s*because\s+\S/i.test(text);
 }
 
-/** S2.2 rule 3: the numbers in a point (digits, thousands commas and decimals kept) that the material does not contain. */
+/** The numbers of a text as written, each with its comparison form: thousands commas and a sentence's own trailing comma are not part of a number. */
+function numbersOf(text: string): Array<{ written: string; key: string }> {
+  return (text.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => ({ written: n.replace(/,$/, ''), key: n.replace(/,$/, '').replace(/,/g, '') }));
+}
+
+/** S2.2 rule 3: the numbers in a point that the material does not contain (1000 and 1,000 are one number), in the form the point wrote them. */
 export function numbersNotInMaterial(text: string, material: string): string[] {
-  const inMaterial = new Set((material.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => n.replace(/,$/, '')));
-  return (text.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => n.replace(/,$/, '')).filter((n) => !inMaterial.has(n));
+  // a number word in the material grounds its digit ("one to three shops" grounds 1-3): the engine's own support rule reads them alike
+  const inMaterial = new Set([...numbersOf(material).map((n) => n.key), ...numbersIn(material)]);
+  return numbersOf(text).filter((n) => !inMaterial.has(n.key)).map((n) => n.written);
 }
 
 export type EvalRule = 'voice' | 'values-shape' | 'number-grounding' | 'segment-specificity';

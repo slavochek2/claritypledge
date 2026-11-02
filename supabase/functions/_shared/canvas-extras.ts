@@ -6,8 +6,8 @@
 
 import { BOX_DEFINITIONS, emptyQuestionFor } from './canvas-box-definitions.ts';
 import { BOX_TAGS } from './canvas-draft.ts';
-import { cleanFreeText, normalizeForQuote } from './canvas-source.ts';
-import type { OtherCanvas, ParseContext } from './canvas-types.ts';
+import { cleanFreeText, cutAtWord, normalizeForQuote } from './canvas-source.ts';
+import { FOCUS_REASONS, type FocusReason, type OtherCanvas, type ParseContext } from './canvas-types.ts';
 
 /** Caps on free model text: a group name or focus 80 characters, a reason 200, a question 300, the note 160 (what the database's own reply keeps). */
 const MAX_FOCUS_CHARS = 80;
@@ -29,6 +29,7 @@ export function effectiveScope(pc: ParseContext, modelScope: unknown): string[] 
 
 export interface Extras {
   focus: string | null;
+  focusReason: FocusReason | null;
   otherCanvases: OtherCanvas[];
   questions: Record<string, string>;
   note: string;
@@ -36,11 +37,12 @@ export interface Extras {
   droppedScope: number;
 }
 
-const textOf = (v: unknown, max: number) => (typeof v === 'string' ? cleanFreeText(v, max) : '');
+/** Free text cleaned, then cut at the end of a word: a label that reaches the owner is never cut in the middle of one. */
+const textOf = (v: unknown, max: number) => (typeof v === 'string' ? cutAtWord(cleanFreeText(v, max * 4), max) : '');
 
-function readOffers(body: Raw, known: string | null | undefined, refuse: (t: string) => boolean): OtherCanvas[] {
+function readOffers(body: Raw, known: ReadonlyArray<string | null | undefined>, refuse: (t: string) => boolean): OtherCanvas[] {
   const offers: OtherCanvas[] = [];
-  const seen = new Set<string>(known ? [normalizeForQuote(known)] : []);
+  const seen = new Set<string>(known.filter((k): k is string => !!k).map(normalizeForQuote));
   for (const o of Array.isArray(body.other_canvases) ? body.other_canvases : []) {
     const group = textOf(typeof o === 'string' ? o : (o as Raw | null)?.group, MAX_FOCUS_CHARS);
     const why = typeof o === 'object' && o ? textOf((o as Raw).why, MAX_WHY_CHARS) : '';
@@ -81,10 +83,16 @@ export function readExtras(body: Raw, pc: ParseContext, scope: ReadonlySet<strin
   const accept = pc.acceptFocus !== false;
   const focusRaw = textOf(body.focus, MAX_FOCUS_CHARS);
   const focus = accept && focusRaw && !refuse(focusRaw) ? focusRaw : null;
-  // a run that cannot set the focus compares an offer with the focus in force
-  const otherCanvases = readOffers(body, accept ? focus : pc.currentFocus, refuse);
+  // the reason is the model's report, not text: one of four words, else nothing (the reply then says only what was found and chosen)
+  const reasonRaw = typeof body.focus_reason === 'string' ? body.focus_reason.trim().toLowerCase() : '';
+  const focusReason = focus && FOCUS_REASONS.includes(reasonRaw as FocusReason) ? (reasonRaw as FocusReason) : null;
+  // a run that cannot set the focus compares an offer with the focus in force; every group the canvas already holds is the same group
+  // however the model words it back. An empty scope changes no offers (the database ignores them) except for an upload (J9), and a focus run lists none.
+  const otherCanvases = (scope.size > 0 || pc.offersOnEmptyScope === true) && pc.listOffers !== false
+    ? readOffers(body, [accept ? focus : pc.currentFocus, pc.currentFocus, ...(pc.knownGroups ?? [])], refuse)
+    : [];
   const { questions, outOfScope } = readQuestions(body, scope, emptyScoped, refuse);
   const noteRaw = textOf(body.note, MAX_NOTE_CHARS);
   const note = noteRaw && !refuse(noteRaw) ? noteRaw : '';
-  return { focus, otherCanvases, questions, note, droppedNames, droppedScope: outOfScope };
+  return { focus, focusReason, otherCanvases, questions, note, droppedNames, droppedScope: outOfScope };
 }

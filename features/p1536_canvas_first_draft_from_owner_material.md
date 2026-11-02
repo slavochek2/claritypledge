@@ -319,7 +319,17 @@ Run output, in schema order: `focus`, `other_canvases`, `scope`, `actions`, `que
 - Anything else is dropped and counted.
 - `questions` and `pending_links` are merged per box, and only for scoped boxes.
 - **Empty scope** (no box addressed): nothing in the draft changes, including focus and offers. No step. The reply is
-  "No box changed." + `note`. It still counts as used.
+  "Nothing changed on the canvas." + `note` (3c wording; it was "No box changed."). It still counts as used.
+  - **Exception: uploads (J9).** A run with `input_kind = 'file'` may persist its offers, and say J9's line, even with an empty scope. Typed and
+    spoken input keep the rule above. The run still changes no point, question, link or focus, and makes no step, so there is nothing to Undo
+    for it and its offers stay dismissable (a later Undo of an earlier run does not touch them). The merge rules, the focus check, the cap of 3 open
+    offers and the names filter apply as for any run. The J9 line ("Your new file is also about A. This canvas stays about F.") is built by the
+    database from the offers it actually inserted and the current focus, so the reply matches durable state; the engine's own reply for such a
+    run carries no J9 line.
+  - **Decided 2026-11-03 by Gemini Argon and Codex, for the founder at UAT.** Why: a real-model measurement found the model names the other group
+    in 10 of 10 uploads about another business (and in 0 of 10 about the same group or a helper), yet 13 of 20 such runs had an empty scope because
+    the file added nothing to this canvas, so J9's offer row was lost exactly when it mattered.
+  - **Failure mode:** a noisy file can leave a misleading offer. The owner dismisses it.
 - **Focus:**
   - Stored only after the names filter; a failing focus is replaced by the previous focus, or by null.
   - Changes only in a `focus` run (from the run's `target_offer_id`) and in the first draft.

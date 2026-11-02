@@ -38,7 +38,13 @@ export interface RunFrame {
   focus: string | null;
   targetGroup: string | null;
   rebuild: readonly string[];
+  /** The groups the canvas already has as offers (the focus itself is `focus`). */
+  knownGroups?: readonly KnownGroup[];
+  /** How the message arrived: an upload is read as what the owner is telling the agent, never as "no request". */
+  inputKind?: 'text' | 'file' | 'voice';
 }
+/** A group the canvas already has (its focus or an offer), so a run says it in the same words and never adds it twice. */
+export interface KnownGroup { group: string; state: string }
 export interface DraftContext {
   frame?: RunFrame;
   material: Material;
@@ -63,6 +69,9 @@ export type ResolvedAction =
   | { action: 'new'; box: string; statement: string; story: null };
 
 export interface OtherCanvas { group: string; why: string }
+/** Why a first draft chose its group: the focus order of D9, as the model reports it. The engine turns each into fixed words. */
+export const FOCUS_REASONS = ['stated', 'paid', 'most_boxes', 'narrower'] as const;
+export type FocusReason = (typeof FOCUS_REASONS)[number];
 export interface Decided { kind: 'conflict' | 'link' | 'drop'; text: string }
 export interface DraftCounts { kept: number; reworded: number; moved: number; added: number; dropped: number }
 
@@ -80,6 +89,8 @@ export type DraftOutcome =
     droppedCap: number;
     /** The business the canvas is about, after the names filter; null when absent or refused. */
     focus: string | null;
+    /** Why the focus was chosen (a first draft only); null when absent or not one of the four. */
+    focusReason: FocusReason | null;
     otherCanvases: OtherCanvas[];
     /** { box tag: question } for scoped boxes only. */
     questions: Record<string, string>;
@@ -104,4 +115,10 @@ export interface ParseContext {
   acceptFocus?: boolean;
   /** Boxes that are rebuilt (a focus run's customer-facing boxes): their current points are never kept. */
   rebuild?: readonly string[];
+  /** Groups the canvas already holds (offers, in any state): a model group matching one is not an offer again. */
+  knownGroups?: readonly string[];
+  /** False for a focus run: the database records the old focus as an offer itself, so the run lists none. Default true. */
+  listOffers?: boolean;
+  /** True for an upload (J9, decided 2026-11-03): its offers are read, and sent to the write, even when the run's scope is empty. Typed and spoken input keep the rule. */
+  offersOnEmptyScope?: boolean;
 }

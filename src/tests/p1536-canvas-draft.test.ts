@@ -510,8 +510,8 @@ describe('P1536 reply text', () => {
   });
   it('no change says so, with the model\'s one sentence', () => {
     expect(buildDraftReply({ total: 0, outcome: 'unchanged', note: 'That is a question, not a change.', unreadable: [], droppedUnverified: 0, droppedNames: 0 }))
-      .toBe('No box changed. I noted: "That is a question, not a change."'); // model text is quoted after a fixed lead-in, never bare
-    expect(buildDraftReply({ total: 0, outcome: 'unchanged', unreadable: [], droppedUnverified: 0, droppedNames: 0 })).toBe('No box changed.');
+      .toBe('Nothing changed on the canvas. I noted: "That is a question, not a change."'); // model text is quoted after a fixed lead-in, never bare
+    expect(buildDraftReply({ total: 0, outcome: 'unchanged', unreadable: [], droppedUnverified: 0, droppedNames: 0 })).toBe('Nothing changed on the canvas.');
   });
   it('no reply holds "What I decided on my own" or an empty-box question', () => {
     const all = [
@@ -522,9 +522,9 @@ describe('P1536 reply text', () => {
     for (const b of BOX_DEFINITIONS) if (b.gap) expect(all).not.toContain(b.gap);
     expect(read('supabase/functions/_shared/canvas-reply.ts')).not.toContain('emptyQuestionFor');
   });
-  it('mixed material: one line names what was found and what was chosen (D10)', () => {
+  it('mixed material: the FIRST line names what was found and what was chosen (D10, J7; S5: it leads, and says why when the model reported a reason)', () => {
     const t = buildDraftReply({ ...facts, outcome: 'draft', filledBoxes: 5, focus: 'cafe owners', others: ['agencies'], unreadable: [] });
-    expect(t.split('\n')[1]).toBe('I found cafe owners and agencies. I drafted cafe owners.');
+    expect(t.split('\n').slice(0, 2)).toEqual(['I found two businesses: cafe owners and agencies. This canvas is about cafe owners.', 'Draft ready: 5 of 9 boxes.']);
   });
   it('says plainly when nothing could be drafted', () => {
     expect(buildDraftReply({ ...facts, total: 0 })).toMatch(/could not draft/i);
