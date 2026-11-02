@@ -17,6 +17,8 @@ export interface CanvasWorkspaceProps {
   startOver?: ReactNode;
   /** 3c X8: the version number this draft was started from (null: a new canvas). A draft with a base opens with the mirror agent's line. */
   baseSeq?: number | null;
+  /** The thread read its open draft at this revision, its newest run a finished draft run (the canvas page beside it must not stay behind it). */
+  onDraftRead?: (draftId: string, revision: number) => void;
 }
 
 export interface SendSlot {

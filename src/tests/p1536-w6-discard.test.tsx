@@ -288,6 +288,7 @@ describe('W6: the confirm and the checked discard', () => {
   it('a draft from v2 (v1 and v2 published) returns to v2, the version it was started from', async () => {
     st.hasV2 = true;
     st.openDraft = draftBlock({ baseSeq: 2, revision: 1 });
+    st.draftRow = draftRow({ revision: 1 }); // one database: the thread reads the revision the page read (a page behind the thread is re-read, use-canvas-catches-up)
     mount(DRAFT_AT);
     await draftReady();
     fireEvent.click(discardButton());
@@ -298,6 +299,7 @@ describe('W6: the confirm and the checked discard', () => {
 
   it('a NEVER-published canvas lands on Artifacts > Canvases (the canvases path; W5 adds the Drafts tab)', async () => {
     st.openDraft = draftBlock({ baseSeq: null, revision: 2 });
+    st.draftRow = draftRow({ revision: 2 }); // one database, as above
     getCanvas.mockImplementation(async () => ({ ...base, points: [point('canvas:problem')], version: DRAFT_NAME, versions: [draftVersion], publishedNone: true, draft: st.openDraft }));
     mount(DRAFT_AT);
     await draftReady();

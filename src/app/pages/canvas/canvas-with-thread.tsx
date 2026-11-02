@@ -28,7 +28,7 @@ import { withoutCloneIntent } from '@/lib/canvas-hrefs';
 import { useCloseThread, useWorkspacePanel } from './use-workspace-panel';
 import { useCanvasRename } from './use-canvas-rename';
 import { useWorkspacePublish } from './use-workspace-publish';
-import { useSettledRun } from './use-settled-run';
+import { useSpotRun } from './use-canvas-catches-up';
 import { useFollowDraft } from './use-follow-draft';
 import { useBareWorkspaceDraft } from './use-bare-workspace-draft';
 import { WorkspaceChat } from './workspace-chat';
@@ -64,8 +64,7 @@ export function CanvasWithThread() {
   const pendingSeq = clone.pending ? clone.pending.seq : null;
   // 3c X13: a pending Clone (the Clone tap, a reload of its address, Start over from the J4 sheet, Add to chat) opens on Thread, because typing is next.
   useThreadOnPending(clone.pending?.version ?? null, setView);
-  // §2: "Updating…" lasts until the page has read what the run changed (the run ends in the thread before the page re-reads its points).
-  const spotRunActive = useSettledRun(runActive, reported.ready);
+  const { spotRunActive, onDraftRead } = useSpotRun(runActive, reported.ready);
   const { closedDraftId, spot, publishing, publish } = useWorkspacePublish({ ready: reported.ready, runActive: spotRunActive, pendingClone: !!clone.pending, setParams, state: navState });
   // W8: the owner's header is the bar above the page: for the signed-in owner of a canvas with a mirror chat from the first render (so nothing shifts when
   // the read lands), and for any owner once the page has read the canvas. Once the read HAS answered, it decides: a page that is not the viewer's own
@@ -73,7 +72,7 @@ export function CanvasWithThread() {
   const answered = reported.ready ?? held;
   const ownerBar = answered ? answered.isOwner : eligible;
   // S4: Add to chat (owner only: the tap exists only where Clone does) and the reply chips; the composer takes the tags from the bus.
-  const add = useAddToChat(reported, held, params.get('v'), ownerBar, clone, panel);
+  const add = useAddToChat(reported, held, params.get('v'), ownerBar, clone, panel, closedDraftId);
   const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...add.tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: pendingSeq, cloning: !!clone.pending, ownerBar }), [active, reportReady, reloads, showThread, add.tap, clone.clone, resolved, pendingSeq, clone.pending, ownerBar]);
   // The bar shows the last read FOR this canvas (`held`), so name, version and state do not blink away while the page re-reads another version.
   const rename = useCanvasRename(held, projectTag);
@@ -99,7 +98,7 @@ export function CanvasWithThread() {
           />
         ) : null}
         canvas={<CanvasPage />}
-        chat={<WorkspaceChat mirror={active ? mirror : null} ready={held} projectTag={projectTag} canvasTitle={rename.title} focusable={wide ? panelOpen : view === 'chat'} onClose={closeThread} onRunActive={setRunActive} onOpened={openedDraft} onReload={() => setReloads(n => n + 1)} cloning={clone.pending} onStale={() => void clone.onStale()} />}
+        chat={<WorkspaceChat mirror={active ? mirror : null} ready={held} projectTag={projectTag} canvasTitle={rename.title} focusable={wide ? panelOpen : view === 'chat'} onClose={closeThread} onRunActive={setRunActive} onDraftRead={onDraftRead} onOpened={openedDraft} onReload={() => setReloads(n => n + 1)} cloning={clone.pending} onStale={() => void clone.onStale()} />}
       />
       <CloneDraftSheet sheet={clone.sheet} onAdd={clone.addToDraft} onStartOver={clone.startOver} onClose={add.dismissSheet} />
     </WorkspaceProviders>

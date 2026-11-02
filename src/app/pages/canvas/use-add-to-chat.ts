@@ -7,6 +7,7 @@
  *    (a pending Clone's or the open draft's, never the other base's draft while the sheet is up). Dismissing the sheet drops it (the caller clears the bus).
  *  - `showBox(tag)`: a reply chip. Below 1280 it switches to Canvas; the box scrolls to the middle and rings for two seconds.
  * Both flip the switcher below 1280 and open a closed panel from 1280, with focus inside the call (use-workspace-panel's `showThread`).
+ * A read that still shows the draft just published as open decides nothing (`closedDraftId`): the tap waits for the read after it, or it would go to a thread that is no longer there.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -41,12 +42,15 @@ export function useAddToChat(
   /** The Clone state: its decision (null: the viewer cannot clone here, so cannot add to chat either), whether one is pending, the J4 sheet, and closing it with no answer. */
   cloneState: { clone: (() => void) | null; pending: ClonePending | null; sheet: unknown; dismissSheet: () => void },
   panel: { showThread: () => void; setView: (v: WorkspaceView) => void; setPanelOpen: (open: boolean) => void },
+  /** The draft just published from this page: until the page has read again, the read on screen still shows it open. */
+  closedDraftId: string | null = null,
 ) {
   const { clone, dismissSheet } = cloneState;
   const pending = !!cloneState.pending;
   const { showThread, setView, setPanelOpen } = panel;
-  const fresh = reported.forVersion === version ? reported.ready : null;
-  const known = knownRead(reported, held, version);
+  const current = (r: CanvasReady | null): CanvasReady | null => (r?.draft && r.draft.id === closedDraftId ? null : r);
+  const fresh = current(reported.forVersion === version ? reported.ready : null);
+  const known = current(knownRead(reported, held, version));
   // "The thread the tags were meant for is on screen": a pending Clone's, or the draft's. A published view with only another base's draft behind it is neither.
   const landed = !!known && (pending || isViewingDraft(known));
   const now = useRef({ landed, known, fresh, clone, pending, sheetOpen: !!cloneState.sheet, setView, setPanelOpen });

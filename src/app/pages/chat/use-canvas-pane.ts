@@ -4,21 +4,32 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import type { ChatMessage } from '@/app/data/chat-service';
+import { isDraftingRunKind } from '@/app/data/canvas-draft-service';
 import { registerCanvasThread } from './canvas-thread-registry';
 import { useCanvasDraftAvailability } from './use-canvas-availability';
 import { useCanvasActions } from './use-canvas-actions';
 import { useCanvasThread } from './use-canvas-thread';
 import { useCanvasUploads } from './use-canvas-uploads';
+import type { CanvasWorkspaceProps } from './canvas-send-slot';
 
 /** How long "Another of your canvases is updating." stays in the send slot after the server said so (no read tells when the other run ends). */
 export const BUSY_ELSEWHERE_MS = 10_000;
 
-export function useCanvasPane({ canvasRoot, rootId, messages }: { canvasRoot: boolean; rootId: string; messages: ChatMessage[] }) {
+export function useCanvasPane({ canvasRoot, rootId, messages, workspace }: { canvasRoot: boolean; rootId: string; messages: ChatMessage[]; workspace?: CanvasWorkspaceProps }) {
   useEffect(() => {
     if (canvasRoot) registerCanvasThread(rootId);
   }, [canvasRoot, rootId]);
   const read = useCanvasThread(canvasRoot ? rootId : null, messages.length);
   const canvas = read.thread;
+  // The open draft as of a finished draft run, which is what changes its boxes (the canvas page beside the thread must not stay behind it). After useCanvasThread's own effects: a
+  // run this read saw end has already told the page, in this same flush.
+  const onDraftRead = workspace?.onDraftRead;
+  const finished = canvas && canvas.draft.state === 'open' && canvas.run?.state === 'done' && isDraftingRunKind(canvas.run.kind) ? canvas.draft : null;
+  const finishedId = finished?.id;
+  const finishedRevision = finished?.revision;
+  useEffect(() => {
+    if (finishedId && finishedRevision !== undefined) onDraftRead?.(finishedId, finishedRevision);
+  }, [onDraftRead, finishedId, finishedRevision]);
   const canvasOn = useCanvasDraftAvailability(canvasRoot);
   const reloadCanvas = canvas?.reload;
   const uploader = useCanvasUploads(canvas?.draft ?? null, useCallback(() => reloadCanvas?.() ?? Promise.resolve(), [reloadCanvas]));

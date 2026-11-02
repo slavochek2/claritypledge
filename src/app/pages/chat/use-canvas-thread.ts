@@ -90,7 +90,7 @@ export function runIsGoing(run: CanvasDraftRun | null, now = Date.now()): boolea
 const tabIsVisible = (): boolean => typeof document === 'undefined' || document.visibilityState !== 'hidden';
 
 /** The draft, its newest run, and when the newest finished draft run began. A failed secondary read never hides the draft. */
-async function readDraft(rootId: string): Promise<Loaded | null> {
+async function readDraft(rootId: string, finishedRuns: Set<string>): Promise<Loaded | null> {
   let draft = await getCanvasDraftByThread(rootId);
   if (!draft) return null;
   let run = await getLatestCanvasRun(draft.id);
@@ -106,6 +106,12 @@ async function readDraft(rootId: string): Promise<Loaded | null> {
   // The baseline of "a newer draft run finished": the newest run when it is that run, else the last one that finished.
   // A failed lookup is "unknown", not "nothing new": baseline 0 keeps a later finished run reportable.
   const newestIsDoneDraft = isDraftingRunKind(run?.kind) && run?.state === 'done';
+  // The draft was read first: a run that finished between the two reads would pair "done" with the revision from before it, which is what the page beside the thread compares with
+  // (use-canvas-catches-up). Read it again, once per finished run: the first answer that shows the run done carries its revision or a later one (the server writes both in one transaction).
+  if (newestIsDoneDraft && run && !finishedRuns.has(run.id)) {
+    draft = (await getCanvasDraftByThread(rootId)) ?? draft;
+    finishedRuns.add(run.id);
+  }
   const finishedBefore = !newestIsDoneDraft && draft.runCount > 0;
   const lastDraftAt = newestIsDoneDraft ? startOf(run) : finishedBefore ? await getLastDoneCanvasDraftRunAt(draft.id).then((at) => (at ? Date.parse(at) : null), () => 0) : null;
   return { draft, run, lastDraftAt };
@@ -186,6 +192,7 @@ export function useCanvasThread(rootId: string | null, refreshKey: number): Canv
   const live = useRef(true);
   const current = useRef(rootId);
   current.current = rootId;
+  const finishedRuns = useRef(new Set<string>());
   useEffect(() => {
     live.current = true;
     return () => {
@@ -196,7 +203,7 @@ export function useCanvasThread(rootId: string | null, refreshKey: number): Canv
   const load = useCallback(async () => {
     if (!rootId) return;
     try {
-      const loaded = await readDraft(rootId);
+      const loaded = await readDraft(rootId, finishedRuns.current);
       if (live.current && current.current === rootId) setRead({ root: rootId, loaded, error: false });
     } catch {
       // keep what is shown: the next read (a message, the poll) tries again. With nothing shown, say so.
