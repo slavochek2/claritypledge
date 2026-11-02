@@ -2,7 +2,7 @@
  * @file p1536-title-baseline.spec.ts
  * @description P1536 section 3c, build step 0: how many characters of the canvas title a person can SEE, per width and view.
  *
- * One fixed title, long enough to be cut at every width: "Acme Bakery Plan for the Northern Region" (39 characters). Default
+ * One fixed title, long enough to be cut at every width: "Acme Bakery Plan for the Northern Region" (40 characters). Default
  * browser font, zoom 100%. Two views of an owner who has a published v1 and an open draft from it: the draft view
  * (`?v=<draft>&ws=1`) and the published view (`?v=<v1>`). The fixture (a published v1, a draft from it, renamed) is made by RPCs and
  * service-role points, as in `p1536-walkthrough.spec.ts` (`widthsWalk`); it is not the thing under test.
@@ -14,7 +14,8 @@
  * CONTROLS (run through the identical probe, in the same page, before any number is trusted):
  *   known-bad  a 90px clipped box of a known text must read under its length and above 0;
  *   known-good an unclipped box of the same text must read all of it;
- *   and at least one measured cell must be cut (visible < total), or the probe is blind to the real title.
+ *   and, when RECORDING, at least one measured cell must be cut (visible < total), or the probe is blind to the real title. Compare mode
+ *   does not require a cut: a header that shows every character at every width is a better result than the baseline.
  *
  * Two modes:
  *   record   (default)           measures, prints the table, writes DIR/measured.json. Asserts only the controls.
@@ -141,15 +142,14 @@ async function ownerApi(email: string): Promise<SupabaseClient> {
   return api;
 }
 
+/** Two requests for any number of points (metered-services rule 1): one insert of the points, one insert of their ledger rows. */
 async function seedDraftPoints(ownerId: string, draftId: string, versionName: string, items: Array<[string, string]>) {
-  for (const [box, statement] of items) {
-    const { data, error } = await supabaseAdmin.from('points').insert({
-      statement, first_validator_id: ownerId, visibility: 'private', tags: [], system_tags: [box, `canvas_${versionName}`],
-    }).select('id').single();
-    if (error) throw new Error(`seed point: ${error.message}`);
-    const { error: e2 } = await supabaseAdmin.from('canvas_draft_points').insert({ draft_id: draftId, point_id: data.id });
-    if (e2) throw new Error(`seed draft point: ${e2.message}`);
-  }
+  const { data, error } = await supabaseAdmin.from('points').insert(items.map(([box, statement]) => ({
+    statement, first_validator_id: ownerId, visibility: 'private', tags: [], system_tags: [box, `canvas_${versionName}`],
+  }))).select('id');
+  if (error || !data || data.length !== items.length) throw new Error(`seed points: ${error?.message ?? 'wrong row count'}`);
+  const { error: e2 } = await supabaseAdmin.from('canvas_draft_points').insert(data.map((r) => ({ draft_id: draftId, point_id: r.id })));
+  if (e2) throw new Error(`seed draft points: ${e2.message}`);
 }
 const SEED_FIRST: Array<[string, string]> = [
   ['canvas:segments', 'Office managers at companies with 20 to 200 staff in Tallinn (SEEDED)'],
@@ -159,7 +159,7 @@ const SEED_FIRST: Array<[string, string]> = [
   ['canvas:metrics', 'Ten office customers signed by March (SEEDED)'],
 ];
 
-/** A published v1 and an open draft from it (the draft holds v1's points, tagged for it, plus one more), renamed TITLE. */
+/** A published v1 and an open draft from it (the draft holds v1's points, from the opener, plus one more), renamed TITLE. */
 async function fixture(email: string, ownerId: string) {
   const api = await ownerApi(email);
   const { data: opened, error } = await api.rpc('canvas_draft_open', { p_from_version: null });
@@ -169,15 +169,12 @@ async function fixture(email: string, ownerId: string) {
   await seedDraftPoints(ownerId, d1.id, d1.version_name, SEED_FIRST);
   const pub = await api.rpc('canvas_draft_publish', { p_draft: d1.id, p_expected_revision: d1.revision });
   if (pub.error) throw new Error(`publish: ${pub.error.message}`);
-  // the draft from v1 (the legacy opener does not copy the base's points; tag them for the draft as the walkthrough's seedCloneDraft does)
+  // the draft from v1: the opener starts it as its base (B5), so it already holds v1's points; assert that instead of tagging them by hand
   const { error: oe } = await api.rpc('canvas_draft_open', { p_from_version: d1.version_id });
   if (oe) throw new Error(`canvas_draft_open from v1: ${oe.message}`);
   const draft = (await supabaseAdmin.from('canvas_drafts').select('id,version_name').eq('owner_id', ownerId).eq('state', 'open').eq('base_version_id', d1.version_id).limit(1).maybeSingle()).data!;
-  const { data: pts } = await supabaseAdmin.from('points').select('id,system_tags').eq('first_validator_id', ownerId).contains('system_tags', [`canvas_${d1.version_name}`]);
-  for (const pt of pts ?? []) {
-    const { error: e } = await supabaseAdmin.from('points').update({ system_tags: [...(pt.system_tags as string[]), `canvas_${draft.version_name}`] }).eq('id', pt.id);
-    if (e) throw new Error(`tag base point: ${e.message}`);
-  }
+  const held = await supabaseAdmin.from('points').select('id', { count: 'exact', head: true }).eq('first_validator_id', ownerId).contains('system_tags', [`canvas_${draft.version_name}`]);
+  if (held.count !== SEED_FIRST.length) throw new Error(`the draft opened from v1 holds ${held.count} points, expected ${SEED_FIRST.length}: B5 is not applied on this database`);
   await seedDraftPoints(ownerId, draft.id, draft.version_name, [['canvas:channels', 'Direct emails to office managers (SEEDED)']]);
   const ren = await api.rpc('canvas_rename', { p_canvas: d1.canvas_id, p_title: TITLE });
   if (ren.error) throw new Error(`rename: ${ren.error.message}`);
@@ -251,9 +248,12 @@ test('P1536 step 0: visible characters of the fixed title, per width and view', 
     console.log(`P1536 title baseline (${COMPARE ? 'compare' : 'record'}) commit ${commit}\n${table}`);
     fs.writeFileSync(`${DIR}/measured.json`, JSON.stringify({ commit, title: TITLE, mode: COMPARE ? 'compare' : 'record', measured }, null, 2));
 
-    // the probe must see the real title cut somewhere, or it is blind to it
-    const anyCut = WIDTHS.some((w) => VIEWS.some((v) => measured[v][w] && measured[v][w]!.visible < measured[v][w]!.total));
-    expect(anyCut, 'CONTROL: at least one width cuts the real title (a probe that reads the full length everywhere is blind)').toBe(true);
+    // Recording the baseline: the probe must see the real title cut somewhere, or it is blind to it. In compare mode the synthetic controls
+    // above are the blindness check, and a header that shows all 40 characters at every width is a better result, not a failure.
+    if (!COMPARE) {
+      const anyCut = WIDTHS.some((w) => VIEWS.some((v) => measured[v][w] && measured[v][w]!.visible < measured[v][w]!.total));
+      expect(anyCut, 'CONTROL: at least one width cuts the real title (a probe that reads the full length everywhere is blind)').toBe(true);
+    }
     for (const v of VIEWS) for (const w of WIDTHS) expect(measured[v][w]!.shown && measured[v][w]!.total === TITLE.length, `[${v} ${w}] the title is on screen and complete in the DOM`).toBe(true);
 
     if (COMPARE) {
