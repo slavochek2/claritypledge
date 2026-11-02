@@ -4,8 +4,9 @@
  * signed-in person, so a page shows exactly one navigation.
  *
  * Expanded (248px): logo and collapse control; Today's event when there is one; Home, Chats,
- * Groups, Artifacts, Events, Partners, My Profile; at the bottom, the avatar menu with a small Tools
- * icon button beside it.
+ * Events, Artifacts, My Profile (SIDEBAR_ENTRY_IDS, 3c X1); at the bottom, the avatar menu with a small Tools
+ * icon button beside it. Partners and Groups are in that menu: the avatar carries the pending-invitation count and is
+ * the active control on their pages.
  * Collapsed (64px): the logo, which turns into the expand icon on hover or keyboard focus
  * (founder decision 5), every nav destination as an icon with a tooltip (P1539), and Tools plus the
  * avatar at the bottom. Hidden labels are aria-labels, so nothing hidden stays tabbable.
@@ -24,6 +25,7 @@ import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { EventLinksButton } from '@/app/components/layout/event-links-menu';
@@ -33,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import {
   HOME_PATH,
+  SIDEBAR_ENTRY_IDS,
   useShellEntries,
   shellMenuOmissions,
   useShellSignOut,
@@ -44,6 +47,45 @@ const ROW_BASE =
   'relative flex min-h-10 w-full items-center gap-3 rounded-lg px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 const ROW_IDLE = 'text-muted-foreground hover:bg-accent hover:text-foreground';
 const ROW_ACTIVE = 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-200';
+
+/** The sidebar's entries in the sidebar's own order (the shared list holds more, and in another order). */
+function sidebarEntries(entries: readonly ShellEntry[]): ShellEntry[] {
+  return SIDEBAR_ENTRY_IDS.map(id => entries.find(e => e.id === id)).filter((e): e is ShellEntry => !!e);
+}
+
+/** Partners, as a row of the avatar menu: it has no sidebar row any more. The badge is the pending-invitation count. */
+function PartnersMenuItem({ entry }: { entry: ShellEntry }) {
+  if (entry.to === null) return null;
+  const { Icon } = entry;
+  return (
+    <DropdownMenuItem asChild>
+      <Link
+        to={entry.to}
+        aria-current={entry.active ? 'page' : undefined}
+        aria-label={entry.badge > 0 ? `${entry.label}, ${entry.badge} ${entry.badgeNoun}` : undefined}
+        className={cn('cursor-pointer', entry.active && 'font-semibold text-foreground')}
+      >
+        <Icon className="mr-2 h-4 w-4" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+        <Badge count={entry.badge} />
+      </Link>
+    </DropdownMenuItem>
+  );
+}
+
+/** The count of pending partner invitations, drawn on the avatar's corner (its words are in the button's accessible name). */
+function AvatarBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      data-badge
+      aria-hidden="true"
+      className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-blue-600 px-1 text-center text-[10px] font-bold leading-4 text-white ring-2 ring-background"
+    >
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+}
 
 function Badge({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -221,6 +263,11 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
   const { user, hasPledged, isProfilePending } = useNavAuthState();
   const handleSignOut = useShellSignOut();
   const scroll = useScrollEdges();
+  const partners = entries.find(e => e.id === 'partners');
+  // Pages no sidebar entry owns (Groups, Partners) light the avatar, which is where they now live.
+  const avatarActive = entries.some(e => !SIDEBAR_ENTRY_IDS.includes(e.id) && e.active);
+  const partnerCount = partners?.badge ?? 0;
+  const avatarName = partnerCount > 0 && partners ? `Menu, ${partnerCount} ${partners.badgeNoun}` : 'Menu';
 
   const shellClass = cn(
     'fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border bg-muted/40 p-2 lg:flex',
@@ -247,20 +294,25 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
         {tip(<DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label="Menu"
+            aria-label={avatarName}
+            aria-current={avatarActive ? 'page' : undefined}
             data-testid={compact ? 'rail-avatar' : undefined}
             className={cn(
-              'flex items-center text-left text-sm font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'flex items-center text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              avatarActive ? ROW_ACTIVE : 'hover:bg-accent',
               compact ? 'h-10 w-10 justify-center rounded-full' : 'min-h-12 w-full gap-3 rounded-lg px-1.5',
             )}
           >
-            <GravatarAvatar
-              name={user.name}
-              avatarColor={user.avatarColor}
-              photoUrl={user.avatarUrl}
-              size="sm"
-              isPledger={hasPledged}
-            />
+            <span className="relative flex shrink-0">
+              <GravatarAvatar
+                name={user.name}
+                avatarColor={user.avatarColor}
+                photoUrl={user.avatarUrl}
+                size="sm"
+                isPledger={hasPledged}
+              />
+              <AvatarBadge count={partnerCount} />
+            </span>
             {!compact && (
               <>
                 <span className="min-w-0 flex-1 truncate">{user.name}</span>
@@ -279,8 +331,9 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
             !compact && 'w-[var(--radix-dropdown-menu-trigger-width)]',
           )}
         >
-          {/* The sidebar already lists Feed, Groups, Events ...: the avatar menu does not repeat them, nor the public-site sections (one website row stands for them). */}
-          <NavigationMenuItems onSignOut={handleSignOut} omitDestinations={shellMenuOmissions(entries)} websiteLink flat />
+          {/* Partners and Groups live here (3c X1). The sidebar already lists Home, Chats, Events ...: the menu does not repeat them, nor the public-site sections (one website row stands for them). */}
+          {partners && <PartnersMenuItem entry={partners} />}
+          <NavigationMenuItems onSignOut={handleSignOut} omitDestinations={shellMenuOmissions(entries, SIDEBAR_ENTRY_IDS)} websiteLink flat />
         </DropdownMenuContent>
       </DropdownMenu>
     );
@@ -325,7 +378,7 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
           )}
         >
           {todays && <RailTodaysEvent todays={todays} />}
-          {shownEntries.map(entry => (
+          {sidebarEntries(shownEntries).map(entry => (
             <RailItem key={entry.id} entry={entry} />
           ))}
         </ul>
@@ -378,16 +431,9 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
           </Link>
         )}
         <ul aria-label="Menu" className="space-y-0.5">
-          {shownEntries
-            .filter(e => e.id !== 'profile')
-            .map(entry => (
-              <SidebarRow key={entry.id} entry={entry} />
-            ))}
-          {shownEntries
-            .filter(e => e.id === 'profile')
-            .map(entry => (
-              <SidebarRow key={entry.id} entry={entry} />
-            ))}
+          {sidebarEntries(shownEntries).map(entry => (
+            <SidebarRow key={entry.id} entry={entry} />
+          ))}
         </ul>
       </div>
 

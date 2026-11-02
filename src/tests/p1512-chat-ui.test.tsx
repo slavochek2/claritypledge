@@ -403,14 +403,20 @@ describe('chat list', () => {
       return { plus, dialog: await screen.findByRole('dialog', { name: 'New message' }) };
     };
 
-    it('has a visible tooltip "New message" on hover and on keyboard focus, and stays an outline button', async () => {
+    // 3c X2 (premise changed): the + is the secondary look at every width, the blue outline pill's colours on the round button,
+    // where it used to be a neutral outline.
+    it('has a visible tooltip "New message" on hover and on keyboard focus, and is the secondary (blue outline pill) look on the round button', async () => {
       const view = renderChat('/chats', chats);
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       const plus = screen.getByRole('button', { name: 'New message' });
       expect(plus).not.toHaveAttribute('title');
       const cls = (plus.getAttribute('class') ?? '').split(/\s+/);
-      expect(cls).toContain('border');
-      expect(cls.filter((c) => /^(bg-|hover:bg-blue|text-white)/.test(c))).toEqual([]);
+      expect(cls).toEqual(expect.arrayContaining(['rounded-full', 'border', 'border-blue-600', 'bg-blue-50', 'text-blue-700', 'hover:bg-blue-100']));
+      // secondary, not primary: never the filled look (solid blue with white text)
+      expect(cls).not.toContain('bg-blue-600');
+      expect(cls).not.toContain('text-white');
+      // no breakpoint swaps the look: it is the same at every width
+      expect(cls.filter((c) => /^(sm|md|lg|xl|min-\[[^\]]+\]|max-\w+):(bg-|border-|text-)/.test(c))).toEqual([]);
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
       await userEvent.hover(plus);
       expect(await screen.findByRole('tooltip')).toHaveTextContent('New message');

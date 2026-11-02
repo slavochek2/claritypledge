@@ -9,7 +9,8 @@ export type ArtifactTab = 'letters' | 'canvases';
 /** `canvas-drafts` is the Canvases tab's Drafts list (W5); its address says `list=drafts`, like the Letters one (LIST_PARAM). */
 export type ArtifactList = 'drafts' | 'sent' | 'received' | 'canvas-drafts' | 'mine' | 'shared';
 
-export const ARTIFACT_TABS: readonly ArtifactTab[] = ['letters', 'canvases'];
+/** Canvases first (3c X14): it is the default tab, so bare `/artifacts` opens Canvases > Mine. */
+export const ARTIFACT_TABS: readonly ArtifactTab[] = ['canvases', 'letters'];
 /** The lists of each tab, in the order the filter shows them; the first is the default. */
 export const TAB_LISTS: Record<ArtifactTab, readonly ArtifactList[]> = {
   letters: ['drafts', 'sent', 'received'],
@@ -38,7 +39,7 @@ export interface ArtifactsLocation {
 }
 
 function parseTab(raw: string | null): ArtifactTab {
-  return raw === 'canvases' ? 'canvases' : 'letters';
+  return raw === 'letters' ? 'letters' : 'canvases';
 }
 
 function parseList(tab: ArtifactTab, raw: string | null): ArtifactList {
@@ -47,7 +48,7 @@ function parseList(tab: ArtifactTab, raw: string | null): ArtifactList {
 }
 
 /**
- * Reads the tab and list from the URL: `?tab=letters|canvases` (default letters) and `&list=` (default: the tab's first).
+ * Reads the tab and list from the URL: `?tab=letters|canvases` (default canvases) and `&list=` (default: the tab's first).
  * Old links keep working: `tab=yours` is Drafts (Mine with `type=canvases`), `tab=shared` is Received (Shared with me
  * with `type=canvases`), and a bare `type=` follows the old default tab, yours.
  */

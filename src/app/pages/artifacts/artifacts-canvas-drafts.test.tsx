@@ -2,7 +2,7 @@
  * P1536 v3 on the Artifacts page:
  *  - "New canvas" is on the Canvases tab only (and only with the chat mounted and canvas drafting on); it starts a canvas
  *    thread through the chat's own useStartCanvas
- *  - a canvas with an open draft carries a "Draft open" badge in Mine (W5) and says "v3 · Draft" in its meta on the Drafts tab;
+ *  - a canvas with an open draft carries the (Draft) tag in Mine (3c X14) after its newest published number, and says the draft number (no tag) on the Drafts tab;
  *    its "…" offers Open draft (the draft canvas, W1) and Discard draft (a confirm first, then the checked discard, then the list reloads)
  * Each "only" has a control showing the same thing present where it should be.
  */
@@ -16,6 +16,7 @@ import type { ChatContextValue } from '@/app/pages/chat/chat-state';
 const mocks = vi.hoisted(() => ({
   listMyCanvases: vi.fn(),
   listMyOpenCanvasDrafts: vi.fn(),
+  listNewestPublishedSeqs: vi.fn(),
   discardCanvasDraft: vi.fn(),
   start: vi.fn(),
   availability: { current: true as boolean | null },
@@ -37,7 +38,7 @@ vi.mock('@/app/data/letters-service', () => ({
 vi.mock('@/app/data/canvas-service', () => ({
   canvasService: { listMyCanvases: mocks.listMyCanvases, listSharedWithMe: vi.fn(async () => []), getAccess: vi.fn(), markCanvasRead: vi.fn() },
 }));
-vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyOpenCanvasDrafts: mocks.listMyOpenCanvasDrafts }));
+vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyOpenCanvasDrafts: mocks.listMyOpenCanvasDrafts, listNewestPublishedSeqs: mocks.listNewestPublishedSeqs }));
 vi.mock('@/app/data/canvas-draft-service', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-draft-service')), discardCanvasDraft: mocks.discardCanvasDraft }));
 vi.mock('@/app/hooks/useOpenLiveInvite', () => ({ useOpenLiveInvite: () => ({ invite: null, loading: false }) }));
 vi.mock('@/app/pages/chat/use-canvas-availability', () => ({ useCanvasDraftAvailability: () => mocks.availability.current }));
@@ -72,7 +73,7 @@ function renderPage(url: string, chat = true) {
     </MemoryRouter>,
   );
 }
-const badgeShown = () => waitFor(() => expect(screen.getByTestId('artifact-badge')).toHaveTextContent('Draft open'));
+const badgeShown = () => waitFor(() => expect(screen.getByTestId('canvas-draft-tag')).toHaveTextContent('Draft'));
 const openMenu = async (u: ReturnType<typeof userEvent.setup>, title: string) =>
   u.click(await screen.findByRole('button', { name: `Actions for ${title}` }));
 const menuLabels = () => screen.getAllByRole('menuitem').map(m => m.firstElementChild?.textContent ?? m.textContent);
@@ -86,6 +87,7 @@ beforeEach(() => {
     { canvasId: 'cv-2', name: 'q4_plan', generalAccess: 'restricted', hasAudience: false, lastEdit: ago(5 * DAY) },
   ]);
   mocks.listMyOpenCanvasDrafts.mockResolvedValue([draft()]);
+  mocks.listNewestPublishedSeqs.mockResolvedValue({ sales_map: 2, q4_plan: 1 });
   mocks.discardCanvasDraft.mockResolvedValue({ ok: true, discarded: true });
   mocks.start.mockResolvedValue(undefined);
 });
@@ -96,6 +98,8 @@ describe('New canvas', () => {
     renderPage('/artifacts?tab=canvases');
     const button = await screen.findByRole('button', { name: 'New canvas' });
     expect(button.className).toMatch(/\bh-10\b/); // 40px, as New letter
+    expect(button.className).toMatch(/\bbg-blue-600\b/); // 3c X2: the chat-list + went secondary; New canvas (and New letter) stay filled
+    expect(button.className).not.toContain('border-blue-600');
     expect(within(button).getByText('New canvas').className).toContain('min-[360px]:inline'); // full label from 360px
     expect(within(button).getByText('New').className).toContain('min-[360px]:hidden'); // short label below
     expect(screen.queryByRole('button', { name: 'New letter' })).toBeNull();
@@ -146,16 +150,22 @@ describe('New canvas', () => {
 });
 
 describe('a canvas with an open draft', () => {
-  it('W5: Mine says "Edited 3d ago" with a "Draft open" badge on that row only; the Drafts tab says "v3 · Draft" in its meta', async () => {
+  it('X14: Mine says the newest PUBLISHED number with the (Draft) tag on that row only; the Drafts tab says the draft number, with no tag', async () => {
     renderPage('/artifacts?tab=canvases');
     await badgeShown();
     const rows = screen.getAllByTestId('artifact-row');
     const rowOf = (title: string) => rows.find(r => within(r).queryByText(title))!;
-    expect(within(rowOf('Sales map')).getByTestId('artifact-meta')).toHaveTextContent('Edited 3d ago');
-    expect(within(rowOf('Q4 plan')).queryByTestId('artifact-badge')).toBeNull();
+    // the draft is v3, so the newest published version is v2
+    expect(within(rowOf('Sales map')).getByTestId('artifact-meta')).toHaveTextContent('v2 · Edited 3d ago');
+    expect(within(rowOf('Sales map')).getByTestId('canvas-draft-tag')).toHaveTextContent('Draft');
+    expect(within(rowOf('Q4 plan')).getByTestId('artifact-meta')).toHaveTextContent('v1 · Edited 5d ago');
+    expect(within(rowOf('Q4 plan')).queryByTestId('canvas-draft-tag')).toBeNull();
+    // "Draft open" is retired: the tag replaced it
+    expect(screen.queryByText('Draft open')).toBeNull();
     cleanup();
     renderPage('/artifacts?tab=canvases&list=drafts');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['v3 · Draft · Edited 3d ago']));
+    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['v3 · Edited 3d ago']));
+    expect(screen.queryByTestId('canvas-draft-tag')).toBeNull();
   });
 
   it('an unknown number says just "Draft", and an unknown history is NOT treated as never published (Opus r9 F6)', async () => {
@@ -210,7 +220,7 @@ describe('a canvas with an open draft', () => {
     await waitFor(() => expect(mocks.discardCanvasDraft).toHaveBeenCalledWith('draft-1', 4));
     expect(toast.success).toHaveBeenCalledWith('Draft discarded');
     await waitFor(() => expect(mocks.listMyOpenCanvasDrafts.mock.calls.length).toBeGreaterThan(reads));
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['Edited 3d ago', 'Edited 5d ago']));
+    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['v2 · Edited 3d ago', 'v1 · Edited 5d ago']));
   });
 
   it('a refused discard (a run is writing) says so and leaves the draft', async () => {
@@ -222,7 +232,7 @@ describe('a canvas with an open draft', () => {
     await u.click(await screen.findByRole('menuitem', { name: 'Discard draft' }));
     await u.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Discard' }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('That draft is being written right now. Try again in a minute.'));
-    expect(screen.getByTestId('artifact-badge')).toHaveTextContent('Draft open');
+    expect(screen.getByTestId('canvas-draft-tag')).toHaveTextContent('Draft');
   });
 
   it('a stale discard re-reads the list, and the next attempt sends the draft\'s new revision', async () => {
@@ -251,7 +261,7 @@ describe('a canvas with an open draft', () => {
     expect(screen.getByRole('button', { name: 'Share: Q4 plan' })).toBeInTheDocument(); // CONTROL: a canvas with no draft keeps Share
     cleanup();
     renderPage('/artifacts?tab=canvases&list=drafts');
-    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['v1 · Draft · Edited 3d ago']));
+    await waitFor(() => expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['v1 · Edited 3d ago']));
     const row = screen.getByTestId('artifact-row');
     const buttons = within(within(row).getByTestId('row-actions')).getAllByRole('button').map(b => b.getAttribute('aria-label'));
     expect(buttons).toEqual(['Open: Sales map', 'Actions for Sales map']);
@@ -281,7 +291,7 @@ describe('a canvas with an open draft', () => {
     await screen.findByText('Sales map');
     expect(await screen.findByText(/Some items could not be loaded/)).toBeInTheDocument();
     expect(screen.queryByText('Something went wrong loading your artifacts.')).toBeNull();
-    expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['Edited 3d ago', 'Edited 5d ago']);
+    expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['v2 · Edited 3d ago', 'v1 · Edited 5d ago']);
     await openMenu(u, 'Sales map');
     expect(menuLabels()).toEqual(['Open', 'Copy link']);
   });

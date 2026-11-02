@@ -2,8 +2,8 @@
  * @file p1536-w5-tabs.test.tsx
  * @description P1536 §3b W5 (S3b.5) + W6 landing: Artifacts > Canvases has three lists, Drafts / Mine / Shared with me (like Letters).
  *  - Drafts: my canvases with an open draft; a row opens the workspace on that draft (`?ws=1`)
- *  - Mine: my canvases with at least one published version; a row opens the newest published version (no ws), with a "Draft open"
- *    badge when a draft exists
+ *  - Mine: my canvases with at least one published version; a row opens the newest published version (no ws), with the (Draft) tag
+ *    when a draft exists (3c X14)
  *  - Shared with me: unchanged
  *  - a canvas with neither (never published, draft discarded) is in no list
  *  - the list is in the address (`list=drafts`, as Letters); a plain `?tab=canvases` is still Mine; the Drafts address is one constant
@@ -19,6 +19,7 @@ import type { ChatContextValue } from '@/app/pages/chat/chat-state';
 const mocks = vi.hoisted(() => ({
   listMyCanvases: vi.fn(),
   listMyOpenCanvasDrafts: vi.fn(),
+  listNewestPublishedSeqs: vi.fn(),
   listSharedWithMe: vi.fn(),
 }));
 
@@ -37,7 +38,7 @@ vi.mock('@/app/data/letters-service', () => ({
 vi.mock('@/app/data/canvas-service', () => ({
   canvasService: { listMyCanvases: mocks.listMyCanvases, listSharedWithMe: mocks.listSharedWithMe, getAccess: vi.fn(), markCanvasRead: vi.fn() },
 }));
-vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyOpenCanvasDrafts: mocks.listMyOpenCanvasDrafts }));
+vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyOpenCanvasDrafts: mocks.listMyOpenCanvasDrafts, listNewestPublishedSeqs: mocks.listNewestPublishedSeqs }));
 vi.mock('@/app/hooks/useOpenLiveInvite', () => ({ useOpenLiveInvite: () => ({ invite: null, loading: false }) }));
 vi.mock('@/app/pages/chat/use-canvas-availability', () => ({ useCanvasDraftAvailability: () => true }));
 vi.mock('@/app/pages/chat/use-start-canvas', () => ({ useStartCanvas: () => ({ start: vi.fn(), dialog: null }) }));
@@ -95,6 +96,7 @@ beforeEach(() => {
   cleanup();
   mocks.listMyCanvases.mockResolvedValue(FIXTURE.canvases);
   mocks.listMyOpenCanvasDrafts.mockResolvedValue(FIXTURE.drafts);
+  mocks.listNewestPublishedSeqs.mockResolvedValue({ both: 3, pub_only: 2 });
   mocks.listSharedWithMe.mockResolvedValue(FIXTURE.shared);
 });
 
@@ -133,7 +135,7 @@ describe('W5: tab membership', () => {
     renderPage(ARTIFACTS_CANVASES_DRAFTS);
     await screen.findByText('Fresh');
     expect(titles()).toEqual(['Fresh', 'Both']);
-    expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['v1 · Draft · Edited 1d ago', 'v4 · Draft · Edited 2d ago']);
+    expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['v1 · Edited 1d ago', 'v4 · Edited 2d ago']);
   });
 
   it('Mine: the canvases with a published version (published only, and published plus a draft); a draft-only canvas is NOT here', async () => {
@@ -192,17 +194,20 @@ describe('W5: where a row goes', () => {
     expect(within(rowOf('Pub only')).getByRole('link', { name: 'Pub only' }).getAttribute('href')).toBe('/p/me/canvas/pub_only');
   });
 
-  it('a Mine row carries a "Draft open" badge when a draft exists, and none when it does not', async () => {
+  it('X14: a Mine row carries the (Draft) tag when a draft exists, and none when it does not; its number is the newest published one', async () => {
     renderPage(ARTIFACTS_CANVASES_MINE);
     await screen.findByText('Both');
-    expect(within(rowOf('Both')).getByTestId('artifact-badge')).toHaveTextContent('Draft open');
-    expect(within(rowOf('Pub only')).queryByTestId('artifact-badge')).toBeNull();
+    expect(within(rowOf('Both')).getByTestId('canvas-draft-tag')).toHaveTextContent('Draft');
+    expect(within(rowOf('Both')).getByTestId('artifact-meta')).toHaveTextContent(/^v3 · /);
+    expect(within(rowOf('Pub only')).queryByTestId('canvas-draft-tag')).toBeNull();
+    expect(within(rowOf('Pub only')).getByTestId('artifact-meta')).toHaveTextContent(/^v2 · /);
   });
 
-  it('a Drafts row has no badge (the list is the state) and no Share', async () => {
+  it('X14: a Drafts row has no tag (the list is the state), says the draft number, and has no Share', async () => {
     renderPage(ARTIFACTS_CANVASES_DRAFTS);
     await screen.findByText('Both');
-    expect(screen.queryByTestId('artifact-badge')).toBeNull();
+    expect(screen.queryByTestId('canvas-draft-tag')).toBeNull();
+    expect(within(rowOf('Both')).getByTestId('artifact-meta')).toHaveTextContent(/^v4 · /);
     expect(screen.queryByRole('button', { name: /^Share:/ })).toBeNull();
   });
 });

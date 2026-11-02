@@ -24,11 +24,12 @@ function renderAt(url: string) {
 
 describe('P1545 legacy Letters URLs land in the Artifacts page', () => {
   it.each([
-    ['/letters', '/artifacts'],
+    // 3c X14 (premise changed): the bare address is Canvases now, so an old Letters address names the Letters tab.
+    ['/letters', '/artifacts?tab=letters'],
     ['/letters?tab=drafts', '/artifacts?tab=letters&list=drafts'],
     ['/letters?tab=sent', '/artifacts?tab=letters&list=sent'],
     ['/letters?tab=inbox', '/artifacts?tab=letters&list=received'],
-    ['/letters?tab=nonsense', '/artifacts'],
+    ['/letters?tab=nonsense', '/artifacts?tab=letters'],
     ['/docs', '/artifacts?tab=letters&list=drafts'],
   ])('%s -> %s', (from, to) => {
     renderAt(from);
@@ -42,6 +43,6 @@ describe('P1545 legacy Letters URLs land in the Artifacts page', () => {
 
   it('maps pure strings', () => {
     expect(legacyLettersTarget('?tab=inbox')).toBe('/artifacts?tab=letters&list=received');
-    expect(legacyLettersTarget('')).toBe('/artifacts');
+    expect(legacyLettersTarget('')).toBe('/artifacts?tab=letters');
   });
 });

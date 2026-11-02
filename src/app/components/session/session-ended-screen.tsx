@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { ARTIFACTS_LETTERS } from '@/app/pages/artifacts/legacy-redirect-targets';
 
 interface SessionEndedScreenProps {
   className?: string;
@@ -16,7 +17,7 @@ export function SessionEndedScreen({ className }: SessionEndedScreenProps) {
         This session has ended
       </h2>
       <Button asChild className="w-full max-w-xs" size="lg">
-        <Link to="/artifacts">Go to Artifacts</Link>
+        <Link to={ARTIFACTS_LETTERS}>Go to Artifacts</Link>
       </Button>
     </div>
   );

@@ -147,6 +147,12 @@ export function useShellEntries(): ShellEntry[] {
 export const PHONE_TAB_IDS: readonly ShellEntryId[] = ['home', 'chats', 'events', 'artifacts'];
 
 /**
+ * The desktop sidebar's own entries, in order (3c X1): the phone bar's destinations plus My Profile. Partners and Groups are not here: they live
+ * under the avatar, which is the active control on their pages. The shared entry list above stays complete; each surface picks its ids.
+ */
+export const SIDEBAR_ENTRY_IDS: readonly ShellEntryId[] = ['home', 'chats', 'events', 'artifacts', 'profile'];
+
+/**
  * The destinations a surface's own nav already links to. The menus behind it (the phone Me sheet, the
  * desktop avatar menu) leave these out instead of listing them a second time; deriving the set from
  * the entries means a menu can never drift from the nav it sits beside. `ids` narrows to a surface

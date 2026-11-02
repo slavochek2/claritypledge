@@ -50,7 +50,7 @@ import { EventLinksMenu } from '@/app/components/layout/event-links-menu';
 import { HomeLegacyRedirect, HomeRedirect, HomeRoute } from '@/app/routes/home-redirect';
 import { PENDING_TIMEOUT_MS } from '@/app/routes/home-readiness';
 import { setNavVerifiedHint } from '@/lib/nav-verified-hint';
-import { isShellEntryActive, PHONE_TAB_IDS } from '@/app/components/layout/app-shell/shell-nav';
+import { isShellEntryActive, PHONE_TAB_IDS, SIDEBAR_ENTRY_IDS, shellMenuOmissions, type ShellEntry, type ShellEntryId } from '@/app/components/layout/app-shell/shell-nav';
 import { AUDIENCE_LINKS, PUBLIC_NAV_GROUPS } from '@/app/components/layout/nav-links';
 
 const signedIn = {
@@ -89,13 +89,14 @@ beforeEach(() => {
 });
 
 describe('P1512 shell — signed-in desktop sidebar', () => {
-  it('lists exactly Home, Chats, Groups, Artifacts, Events, Partners, My Profile and no Search (Tools is an icon at the bottom)', () => {
+  // 3c X1 (premise changed): Partners and Groups moved under the avatar, so the sidebar is the phone bar's destinations plus My Profile.
+  it('lists exactly Home, Chats, Events, Artifacts, My Profile and no Search (Tools is an icon at the bottom)', () => {
     const { container } = renderLayout('/feed');
     const bar = sidebar(container)!;
     expect(bar).not.toBeNull();
     const menu = within(bar).getByRole('list', { name: 'Menu' });
     const labels = Array.from(menu.querySelectorAll('li')).map(li => li.textContent?.trim());
-    expect(labels).toEqual(['Home', 'Chats', 'Groups', 'Artifacts', 'Events', 'Partners', 'My Profile']);
+    expect(labels).toEqual(['Home', 'Chats', 'Events', 'Artifacts', 'My Profile']);
     expect(within(bar).queryByText(/search/i)).toBeNull();
   });
 
@@ -105,10 +106,10 @@ describe('P1512 shell — signed-in desktop sidebar', () => {
     const hrefOf = (name: RegExp) => bar.getByRole('link', { name }).getAttribute('href');
     expect(hrefOf(/^home$/i)).toBe('/feed');
     expect(hrefOf(/^chats$/i)).toBe('/chats');
-    expect(hrefOf(/^groups$/i)).toBe('/groups');
     expect(hrefOf(/^artifacts$/i)).toBe('/artifacts');
     expect(hrefOf(/^events$/i)).toBe('/events/list');
-    expect(hrefOf(/^partners$/i)).toBe('/p/ada/partners');
+    expect(bar.queryByRole('link', { name: /^groups$/i })).toBeNull();
+    expect(bar.queryByRole('link', { name: /^partners/i })).toBeNull();
     expect(hrefOf(/^my profile$/i)).toBe('/p/ada');
   });
 
@@ -118,13 +119,38 @@ describe('P1512 shell — signed-in desktop sidebar', () => {
     expect(current.map(el => el.textContent?.trim())).toEqual(['Artifacts']);
   });
 
-  it('shows the Artifacts and Partners badges', () => {
+  it('shows the Artifacts badge on its row, and the pending-invitation count on the avatar, with the count in its name', () => {
     mockUnread.mockReturnValue({ count: 4, loading: false });
     mockPartnerCount.mockReturnValue({ count: 2, loading: false });
     const { container } = renderLayout('/feed');
     const bar = within(sidebar(container)!);
     expect(bar.getByRole('link', { name: 'Artifacts, 4 unread' }).querySelector('[data-badge]')!.textContent).toBe('4');
-    expect(bar.getByRole('link', { name: 'Partners, 2 pending invitations' }).querySelector('[data-badge]')!.textContent).toBe('2');
+    const avatar = bar.getByRole('button', { name: 'Menu, 2 pending invitations' });
+    expect(avatar.querySelector('[data-badge]')!.textContent).toBe('2');
+    // control: with none pending the avatar is just "Menu" and carries no badge
+    mockPartnerCount.mockReturnValue({ count: 0, loading: false });
+    const none = renderLayout('/feed');
+    const plain = within(sidebar(none.container)!).getAllByRole('button', { name: 'Menu' }).at(-1)!;
+    expect(plain.querySelector('[data-badge]')).toBeNull();
+  });
+
+  it('the avatar is the active entry on /groups and on /p/:slug/partners (no sidebar entry owns them), and on no other route', () => {
+    for (const [route, active] of [['/groups', true], ['/groups/cm', true], ['/p/ada/partners', true], ['/feed', false], ['/artifacts', false], ['/p/ada', false]] as const) {
+      const { container, unmount } = renderLayout(route);
+      const avatar = within(sidebar(container)!).getByRole('button', { name: 'Menu' });
+      expect(avatar.getAttribute('aria-current') === 'page', `${route}`).toBe(active);
+      unmount();
+    }
+  });
+
+  it('collapsed, the rail avatar carries the same count in its name and the same active state', () => {
+    localStorage.setItem(SIDEBAR_KEY, '1');
+    mockPartnerCount.mockReturnValue({ count: 3, loading: false });
+    const { container } = renderLayout('/groups');
+    const avatar = within(sidebar(container)!).getByTestId('rail-avatar');
+    expect(avatar).toHaveAccessibleName('Menu, 3 pending invitations');
+    expect(avatar.querySelector('[data-badge]')!.textContent).toBe('3');
+    expect(avatar).toHaveAttribute('aria-current', 'page');
   });
 
   it('opens the same Tools menu the top nav opened: one grid icon button (tooltip "Tools", 40px) beside the account row, not in the list', () => {
@@ -251,7 +277,7 @@ describe('P1512 shell — collapse', () => {
     const { container } = renderLayout('/feed');
     const bar = sidebar(container)!;
     expect(bar.getAttribute('data-collapsed')).toBe('true');
-    expect(within(bar).queryAllByRole('link')).toHaveLength(7);
+    expect(within(bar).queryAllByRole('link')).toHaveLength(5);
     const expand = within(bar).getByRole('button', { name: 'Expand sidebar' });
     expect(expand).toHaveAttribute('aria-expanded', 'false');
     // The logo is what shows; hover swaps it for the expand icon (both live in the one button).
@@ -465,14 +491,15 @@ describe('P1512 shell — menus do not repeat the nav beside them', () => {
     expect(screen.queryByTestId('me-sheet')).toBeNull();
   });
 
-  it('the desktop avatar menu leaves out Feed, Groups and Events (all in the sidebar) and keeps the rest', async () => {
+  it('the desktop avatar menu leaves out Feed and Events (both in the sidebar) and keeps Partners and Groups, which the sidebar lacks (3c X1)', async () => {
     const user = userEvent.setup();
     const { container } = renderLayout('/feed');
     await user.click(within(sidebar(container) as HTMLElement).getByRole('button', { name: 'Menu' }));
     const menu = within(await screen.findByRole('menu'));
     expect(menu.queryByRole('menuitem', { name: /^feed$/i })).toBeNull();
-    expect(menu.queryByRole('menuitem', { name: /^groups$/i })).toBeNull();
     expect(menu.queryByRole('menuitem', { name: /^events$/i })).toBeNull();
+    expect(menu.getByRole('menuitem', { name: /^groups$/i })).toHaveAttribute('href', '/groups');
+    expect(menu.getByRole('menuitem', { name: /^partners/i })).toHaveAttribute('href', '/p/ada/partners');
     expect(menu.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument();
     expect(menu.getByRole('menuitem', { name: /log out/i })).toBeInTheDocument();
     // No public group heading survives on desktop.
@@ -485,7 +512,7 @@ describe('P1512 shell — menus do not repeat the nav beside them', () => {
     await user.click(within(sidebar(container) as HTMLElement).getByRole('button', { name: 'Menu' }));
     const menu = await screen.findByRole('menu');
     const items = Array.from(menu.querySelectorAll('[role="menuitem"]')).map(el => el.textContent?.trim());
-    expect(items).toEqual(['ClarityPledge website', 'Session History', 'Settings', 'Log Out']);
+    expect(items).toEqual(['Partners', 'Groups', 'ClarityPledge website', 'Session History', 'Settings', 'Log Out']);
     const website = within(menu).getByRole('menuitem', { name: 'ClarityPledge website' });
     const account = within(menu).getByText('Your account');
     expect(website.compareDocumentPosition(account) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -503,6 +530,29 @@ describe('P1512 shell — menus do not repeat the nav beside them', () => {
     const website = menu.getAllByRole('menuitem', { name: 'ClarityPledge website' });
     expect(website).toHaveLength(1);
     expect(website[0]).toHaveAttribute('href', '/builders');
+  });
+
+  it('3c X1: the Partners row in the avatar menu carries its pending-invitation badge, as the phone Me sheet does', async () => {
+    mockPartnerCount.mockReturnValue({ count: 2, loading: false });
+    const user = userEvent.setup();
+    const { container } = renderLayout('/feed');
+    await user.click(within(sidebar(container) as HTMLElement).getByRole('button', { name: 'Menu, 2 pending invitations' }));
+    const row = within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Partners, 2 pending invitations' });
+    expect(row).toHaveAttribute('href', '/p/ada/partners');
+    expect(row.querySelector('[data-badge]')!.textContent).toBe('2');
+  });
+
+  it('3c X1: the shared entry list stays complete; the sidebar has its own ids and the menu omissions come from those ids only', () => {
+    expect(SIDEBAR_ENTRY_IDS).toEqual(['home', 'chats', 'events', 'artifacts', 'profile']);
+    for (const id of PHONE_TAB_IDS) expect(SIDEBAR_ENTRY_IDS).toContain(id);
+    const entry = (id: ShellEntryId, to: string) => ({ id, label: id, to, Icon: () => null, active: false, badge: 0, badgeNoun: '' }) as unknown as ShellEntry;
+    const all = [entry('home', '/feed'), entry('chats', '/chats'), entry('groups', '/groups'), entry('artifacts', '/artifacts'), entry('events', '/events/list'), entry('partners', '/p/ada/partners'), entry('profile', '/p/ada')];
+    const omitted = shellMenuOmissions(all, SIDEBAR_ENTRY_IDS);
+    expect(omitted).toEqual(expect.arrayContaining(['/feed', '/chats', '/artifacts', '/events/list', '/p/ada']));
+    expect(omitted).not.toContain('/groups');
+    expect(omitted).not.toContain('/p/ada/partners');
+    // control: the phone bar's ids leave Groups to the Me sheet, as before
+    expect(shellMenuOmissions(all, PHONE_TAB_IDS)).not.toContain('/groups');
   });
 
   it('every destination the sidebar lists is missing from its avatar menu', async () => {

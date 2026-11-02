@@ -9,7 +9,7 @@ const q = vi.hoisted(() => ({ result: { data: [] as unknown[], error: null as un
 
 vi.mock('@/lib/supabase', () => ({ supabase: { from: q.from, rpc: q.rpc } }));
 
-import { listMyOpenCanvasDrafts } from '@/app/data/canvas-open-drafts';
+import { listMyOpenCanvasDrafts, listNewestPublishedSeqs } from '@/app/data/canvas-open-drafts';
 
 const row = (over: Record<string, unknown> = {}) => ({ id: 'draft-1', canvas_id: 'cv-1', canvas_name: 'sales_map', conversation_id: 'conv-1', thread_root_id: 'root-1', ...over });
 const version = (canvas: string, seq: number) => ({ id: `v-${canvas}-${seq}`, canvas_id: canvas, canvas_name: canvas, name: `n${seq}`, seq, published_at: '2026-10-01T00:00:00Z', has_open_draft: true });
@@ -52,5 +52,19 @@ describe('listMyOpenCanvasDrafts', () => {
     expect((await listMyOpenCanvasDrafts())[0]!.nextSeq).toBeNull();
     q.result = { data: [] as unknown[], error: { code: '42501', message: 'denied' } };
     await expect(listMyOpenCanvasDrafts()).rejects.toBeTruthy();
+  });
+});
+
+describe('listNewestPublishedSeqs (3c X14: a Mine row says the newest PUBLISHED number)', () => {
+  it('is the highest published seq per canvas name, whatever order the versions come in', async () => {
+    q.rpc.mockResolvedValue({ data: [version('sales_map', 2), version('sales_map', 3), version('sales_map', 1), version('q4_plan', 1)], error: null });
+    expect(await listNewestPublishedSeqs()).toEqual({ sales_map: 3, q4_plan: 1 });
+    expect(q.rpc).toHaveBeenCalledWith('list_my_canvas_versions');
+  });
+
+  it('no published versions: no numbers; a failed read throws, so the page can say numbers are missing', async () => {
+    expect(await listNewestPublishedSeqs()).toEqual({});
+    q.rpc.mockResolvedValue({ data: null, error: { code: 'XX000', message: 'boom' } });
+    await expect(listNewestPublishedSeqs()).rejects.toBeTruthy();
   });
 });

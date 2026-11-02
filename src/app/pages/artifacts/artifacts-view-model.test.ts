@@ -530,8 +530,9 @@ describe('dots (Received and Shared with me while unread, Sent while new, tab wh
 describe('url state', () => {
   const loc = (qs: string) => resolveArtifactsLocation(new URLSearchParams(qs));
 
-  it('tab defaults to letters and the list to the tab\'s first; junk falls back', () => {
-    expect(loc('')).toMatchObject({ tab: 'letters', list: 'drafts', legacy: false });
+  // 3c X14 (premise changed): the default tab is Canvases, so the bare address and junk land on Canvases > Mine; Letters is `?tab=letters`.
+  it('tab defaults to canvases and the list to the tab\'s first; junk falls back', () => {
+    expect(loc('')).toMatchObject({ tab: 'canvases', list: 'mine', legacy: false });
     expect(loc('tab=letters&list=sent')).toMatchObject({ tab: 'letters', list: 'sent', legacy: false });
     expect(loc('tab=letters&list=received')).toMatchObject({ tab: 'letters', list: 'received' });
     expect(loc('tab=canvases')).toMatchObject({ tab: 'canvases', list: 'mine' });
@@ -541,7 +542,7 @@ describe('url state', () => {
     // W5: the Canvases tab has its own Drafts list (its address says `drafts`, like Letters); the Letters-only `received` still falls back
     expect(loc('tab=canvases&list=drafts')).toMatchObject({ tab: 'canvases', list: 'canvas-drafts' });
     expect(loc('tab=canvases&list=received')).toMatchObject({ tab: 'canvases', list: 'mine' });
-    expect(loc('tab=nonsense&list=toString')).toMatchObject({ tab: 'letters', list: 'drafts', legacy: false });
+    expect(loc('tab=nonsense&list=toString')).toMatchObject({ tab: 'canvases', list: 'mine', legacy: false });
   });
 
   it.each([

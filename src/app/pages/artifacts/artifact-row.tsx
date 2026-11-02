@@ -10,6 +10,7 @@
  */
 import { Link } from 'react-router-dom';
 import { InlineVisibilityIcon } from '@/app/components/shared/visibility-badge';
+import { CanvasDraftTag } from '@/app/components/canvas/canvas-draft-tag';
 import { ArtifactRowActions } from './artifact-row-actions';
 import type { ArtifactRow as Row } from './artifacts-view-model';
 
@@ -64,9 +65,7 @@ export function ArtifactListRow({ row, userSlug, onOpen, onChanged }: Props) {
           <span className="mt-[3px] flex shrink-0"><InlineVisibilityIcon visibility={row.visibility} /></span>
         )}
         <p data-testid="artifact-meta" className="min-w-0">{row.meta}</p>
-        {row.badge && (
-          <span data-testid="artifact-badge" className="mt-px shrink-0 rounded-full border border-border bg-muted px-2 text-xs font-medium leading-5 text-foreground/80">{row.badge}</span>
-        )}
+        {row.draftTag && <CanvasDraftTag />}
       </div>
     </li>
   );

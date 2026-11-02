@@ -117,7 +117,7 @@ function ArtifactsView({ userId, tab, list, userSlug, setParams }: ViewProps) {
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
 
   // URL writes REPLACE (as /feed, /stake and the old Letters page): Back leaves the page. The default list of a tab
-  // is the bare URL, so `/artifacts` stays the Letters / Drafts address.
+  // is the bare tab URL (the bare `/artifacts` itself is Canvases > Mine; letter flows name `?tab=letters`).
   const update = useCallback(
     (next: { tab: ArtifactTab; list?: ArtifactList }) => {
       setParams(

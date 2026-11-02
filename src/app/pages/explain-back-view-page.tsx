@@ -25,6 +25,7 @@ import {
   markExplainBackRead,
 } from '@/app/data/letters-service';
 import type { ExplainBackRow } from '@/app/types';
+import { ARTIFACTS_LETTERS } from '@/app/pages/artifacts/legacy-redirect-targets';
 
 interface RecorderProfile {
   name: string;
@@ -51,7 +52,7 @@ export function ExplainBackViewPage() {
       return;
     }
     if (!id) {
-      navigate('/artifacts', { replace: true });
+      navigate(ARTIFACTS_LETTERS, { replace: true });
       return;
     }
 
@@ -61,7 +62,7 @@ export function ExplainBackViewPage() {
       const eb = await getExplainBackById(id);
       // Pair-private RLS returns null for non-participants → access gate.
       if (!eb) {
-        if (!cancelled) navigate('/artifacts', { replace: true });
+        if (!cancelled) navigate(ARTIFACTS_LETTERS, { replace: true });
         return;
       }
       if (cancelled) return;
@@ -128,7 +129,7 @@ export function ExplainBackViewPage() {
   // letter card). Only a cold arrival goes to this explain-back's letter results page.
   const backFallback = explainBack
     ? `/letter/${explainBack.letter_id}/results?delivery=${explainBack.delivery_id}`
-    : '/artifacts';
+    : ARTIFACTS_LETTERS;
 
   if (loading || !explainBack) {
     return (

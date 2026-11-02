@@ -133,7 +133,8 @@ describe('P1539 collapsed rail', () => {
     expect(bar.getAttribute('data-collapsed')).toBe('true');
     const menu = within(bar).getByRole('list', { name: 'Menu' });
     const labels = Array.from(menu.querySelectorAll('a')).map(a => a.getAttribute('aria-label'));
-    expect(labels).toEqual(['Home', 'Chats', 'Groups', 'Artifacts', 'Events', 'Partners', 'My Profile']);
+    // 3c X1 (premise changed): Partners and Groups moved under the avatar, so the rail holds the sidebar's five.
+    expect(labels).toEqual(['Home', 'Chats', 'Events', 'Artifacts', 'My Profile']);
     expect(within(bar).getByTestId('rail-avatar')).toBeTruthy();
   });
 });
@@ -177,7 +178,8 @@ describe('P1539 offline strip', () => {
 
 
 describe('P1539 collapsed rail tooltips', () => {
-  const NAV = ['Home', 'Chats', 'Groups', 'Artifacts', 'Events', 'Partners', 'My Profile'];
+  // 3c X1: Partners and Groups are in the avatar menu now, not on the rail.
+  const NAV = ['Home', 'Chats', 'Events', 'Artifacts', 'My Profile'];
 
   // A fresh rail per control (one test each, so each stays well inside the timeout under load):
   // each one must open on its own first hover, not ride on a neighbour's open tooltip.

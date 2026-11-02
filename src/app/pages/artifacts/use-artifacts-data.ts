@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docsService } from '@/app/data/docs-service';
 import { getAllReceivedLetters, getAllSentLettersOrThrow, getDeliveriesForLettersOrThrow, getInboxItems, getUnreadExplainBackCountsByDelivery } from '@/app/data/letters-service';
 import { canvasService, type CanvasSharedWithMe, type MyCanvasRow } from '@/app/data/canvas-service';
-import { listMyOpenCanvasDrafts, type OpenCanvasDraft } from '@/app/data/canvas-open-drafts';
+import { listMyOpenCanvasDrafts, listNewestPublishedSeqs, type OpenCanvasDraft } from '@/app/data/canvas-open-drafts';
 import { buildArtifacts, type ArtifactList, type ArtifactRow, type SentLetter } from './artifacts-view-model';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
 
@@ -44,13 +44,15 @@ interface Sources {
   myCanvases: MyCanvasRow[] | null;
   /** The owner's open canvas drafts: a canvas row says "v3 · Draft" and offers Open draft / Discard draft. */
   openDrafts: OpenCanvasDraft[] | null;
+  /** The newest published number of each canvas, by name: a Mine row leads with it (3c X14). */
+  publishedSeqs: Record<string, number> | null;
   received: InboxItem[] | null;
   /** Sender-side activity on my own letters (the capped mixed inbox list). */
   activity: InboxItem[] | null;
   sharedCanvases: CanvasSharedWithMe[] | null;
 }
 
-const EMPTY: Sources = { docs: null, sent: null, myCanvases: null, openDrafts: null, received: null, activity: null, sharedCanvases: null };
+const EMPTY: Sources = { docs: null, sent: null, myCanvases: null, openDrafts: null, publishedSeqs: null, received: null, activity: null, sharedCanvases: null };
 
 /** `null` = not settled yet, or failed; `failed` tells the two apart. */
 type Failed = Partial<Record<keyof Sources, boolean>>;
@@ -123,6 +125,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
       run('sent', () => loadSent(forUser)),
       run('myCanvases', () => canvasService.listMyCanvases()),
       run('openDrafts', () => listMyOpenCanvasDrafts()),
+      run('publishedSeqs', () => listNewestPublishedSeqs()),
       run('received', () => getAllReceivedLetters(forUser)),
       run('activity', () => getInboxItems(forUser)),
       run('sharedCanvases', () => canvasService.listSharedWithMe()),
@@ -155,6 +158,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
         inbox: [...(sources.received ?? []), ...(sources.activity ?? []).filter(i => i.type !== 'received')],
         myCanvases: sources.myCanvases ?? [],
         openDrafts: sources.openDrafts ?? [],
+        publishedSeqs: sources.publishedSeqs ?? undefined,
         sharedCanvases: sources.sharedCanvases ?? [],
         userSlug,
         userId,
@@ -181,7 +185,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
       sent: listState(['sent'], model.sent),
       received: listState(['received'], model.received),
       'canvas-drafts': listState(['openDrafts'], model['canvas-drafts'], ['myCanvases']),
-      mine: listState(['myCanvases'], model.mine, ['openDrafts']),
+      mine: listState(['myCanvases'], model.mine, ['openDrafts', 'publishedSeqs']),
       shared: listState(['sharedCanvases'], model.shared),
     },
     refresh: () => load(),

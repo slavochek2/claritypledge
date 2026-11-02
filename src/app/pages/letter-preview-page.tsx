@@ -24,6 +24,7 @@ import { pointsService } from '@/app/data/points-service';
 import { useAuth } from '@/auth';
 import { letterUsesPredictions, previewPredictionsKey } from '@/app/utils/letter-prediction-policy';
 import type { LetterMode, LetterStorySnapshot } from '@/app/types';
+import { ARTIFACTS_LETTERS } from '@/app/pages/artifacts/legacy-redirect-targets';
 
 function closePreview(navigate: NavigateFunction): void {
   if (window.history.length <= 1) window.close();
@@ -100,7 +101,7 @@ export function LetterPreviewPage() {
       <main className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center space-y-4">
           <p className="text-muted-foreground">Doc not found or has no stories.</p>
-          <Button variant="link" onClick={() => navigate('/artifacts')}>
+          <Button variant="link" onClick={() => navigate(ARTIFACTS_LETTERS)}>
             Back to Letters
           </Button>
         </div>

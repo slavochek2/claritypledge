@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { triggerConfetti } from '@/lib/confetti';
 import { analytics } from '@/lib/mixpanel';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { ARTIFACTS_LETTERS } from '@/app/pages/artifacts/legacy-redirect-targets';
 
 interface LetterCompletionSummaryProps {
   deliveryId: string;
@@ -75,7 +76,7 @@ export function LetterCompletionSummary({
         </div>
         <div className="flex gap-6 text-sm text-muted-foreground">
           <Link
-            to="/artifacts"
+            to={ARTIFACTS_LETTERS}
             className="underline underline-offset-4 hover:text-foreground transition-colors"
             onClick={() => trackExit('letters')}
           >

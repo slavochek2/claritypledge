@@ -384,6 +384,7 @@ describe('P769: SessionEndedScreen component (canary — unskip after implementa
     );
 
     const cta = screen.getByRole('link', { name: /go to artifacts/i });
-    expect(cta).toHaveAttribute('href', '/artifacts');
+    // 3c X14 (premise changed): a letter flow names the Letters tab; the bare address is Canvases.
+    expect(cta).toHaveAttribute('href', '/artifacts?tab=letters');
   });
 });

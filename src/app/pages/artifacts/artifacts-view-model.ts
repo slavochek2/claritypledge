@@ -22,7 +22,6 @@ import { hasNewSenderProgress, newCountForDelivery } from '@/app/utils/letter-ne
 import { canvasDisplayTitle, canvasPath } from '@/lib/canvas-boxes';
 import type { CanvasSharedWithMe, MyCanvasRow } from '@/app/data/canvas-service';
 import type { OpenCanvasDraft } from '@/app/data/canvas-open-drafts';
-import { draftLabel } from '@/app/pages/chat/canvas-thread-copy';
 import { workspaceHref } from '@/lib/canvas-hrefs';
 import type { ClarityDoc, ClarityLetter, InboxItem, LetterDelivery } from '@/app/types';
 
@@ -47,8 +46,8 @@ export interface ArtifactRow {
   unread: boolean;
   /** A sent letter with new activity from a recipient: lights the Sent chip, never a row dot. */
   hasNew: boolean;
-  /** A short mark after the title line (W5: "Draft open" on a Mine row whose canvas has an open draft). */
-  badge?: string;
+  /** The (Draft) tag after the meta line (3c X14): a Mine row whose canvas has an open draft. */
+  draftTag?: boolean;
   /** Where a tap goes: the item's existing page. Null when it cannot be built (no handle yet). */
   href: string | null;
   /** Newest first within a list. */
@@ -87,6 +86,8 @@ export interface ArtifactsSource {
   myCanvases: MyCanvasRow[];
   /** The signed-in person's open canvas drafts (P1536); absent = none. */
   openDrafts?: OpenCanvasDraft[];
+  /** The newest PUBLISHED number of each of the person's canvases, by canvas name (3c X14); absent = unknown, and a Mine row then leaves the number out. */
+  publishedSeqs?: Record<string, number>;
   sharedCanvases: CanvasSharedWithMe[];
   /** The signed-in person's public handle: own canvas addresses are built with it. */
   userSlug: string | null;
@@ -306,9 +307,15 @@ export function sentRow(
   };
 }
 
-/** "v3 · Draft · Edited 3d ago": a canvas with an open draft says so first. */
+/** "v3 · Edited 3d ago": a canvas row leads with its version number when it is known, and just says when it was edited when it is not. */
+export function canvasNumberedMeta(seq: number | null | undefined, lastEdit: string | null): string {
+  if (!seq) return canvasMeta(lastEdit);
+  return lastEdit ? `v${seq} · ${canvasMeta(lastEdit)}` : `v${seq}`;
+}
+
+/** Drafts (3c X14): the draft's own number, no tag, since the list says it is a draft. */
 export function canvasDraftMeta(draft: OpenCanvasDraft, lastEdit: string | null): string {
-  return lastEdit ? `${draftLabel(draft.nextSeq)} · ${canvasMeta(lastEdit)}` : draftLabel(draft.nextSeq);
+  return canvasNumberedMeta(draft.nextSeq, lastEdit);
 }
 
 /** The workspace on the draft (W1): `/p/<slug>/canvas/<name>?v=<draft version>&ws=1`. */
@@ -322,18 +329,16 @@ export const isDraftOnly = (draft: OpenCanvasDraft | undefined): boolean => draf
 const draftRef = (draft: OpenCanvasDraft, only: boolean) =>
   ({ id: draft.draftId, versionName: draft.versionName, conversationId: draft.conversationId, threadRootId: draft.threadRootId, only, revision: draft.revision });
 
-export const DRAFT_OPEN_BADGE = 'Draft open';
-
-/** W5 Mine: a canvas with at least one published version. Opens the newest published version; a "Draft open" badge when a draft exists. */
-export function ownCanvasRow(c: MyCanvasRow, userSlug: string | null, draft?: OpenCanvasDraft): ArtifactRow {
+/** W5 Mine: a canvas with at least one published version. Opens the newest published version. It leads with that version's number (3c X14), and carries the (Draft) tag when a draft is open. */
+export function ownCanvasRow(c: MyCanvasRow, userSlug: string | null, draft?: OpenCanvasDraft, publishedSeq?: number): ArtifactRow {
   return {
     key: `canvas:${c.name}`,
     kind: 'canvas',
     list: 'mine',
     state: 'canvas',
     title: canvasDisplayTitle(c.title, c.name),
-    meta: canvasMeta(c.lastEdit),
-    ...(draft ? { badge: DRAFT_OPEN_BADGE } : {}),
+    meta: canvasNumberedMeta(publishedSeq, c.lastEdit),
+    ...(draft ? { draftTag: true } : {}),
     visibility: c.generalAccess === 'link' ? 'public' : 'private',
     unread: false,
     hasNew: false,
@@ -445,7 +450,7 @@ export function buildArtifacts(src: ArtifactsSource): ArtifactsModel {
     'canvas-drafts': (src.openDrafts ?? []).map(d => canvasDraftRow(d, src.myCanvases.find(c => c.name === d.canvasName), src.userSlug)).sort(newestFirst),
     mine: src.myCanvases
       .filter(c => !isDraftOnly(src.openDrafts?.find(d => d.canvasName === c.name)))
-      .map(c => ownCanvasRow(c, src.userSlug, src.openDrafts?.find(d => d.canvasName === c.name)))
+      .map(c => ownCanvasRow(c, src.userSlug, src.openDrafts?.find(d => d.canvasName === c.name), src.publishedSeqs?.[c.name]))
       .sort(newestFirst),
     shared: src.sharedCanvases.map(c => receivedCanvasRow(c, src.userId ?? null)).sort(newestFirst),
   };

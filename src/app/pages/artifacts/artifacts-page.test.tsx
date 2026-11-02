@@ -40,7 +40,7 @@ vi.mock('@/app/data/letters-service', () => ({
   getUnreadExplainBackCountsByDelivery: mocks.getUnreadExplainBackCountsByDelivery,
 }));
 // P1536: the owner's open canvas drafts have their own tests (artifacts-canvas-drafts.test.tsx); here there are none.
-vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyOpenCanvasDrafts: vi.fn(async () => []) }));
+vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyOpenCanvasDrafts: vi.fn(async () => []), listNewestPublishedSeqs: vi.fn(async () => ({})) }));
 vi.mock('@/app/data/canvas-service', () => ({
   canvasService: {
     listMyCanvases: mocks.listMyCanvases,
@@ -87,7 +87,8 @@ function LocationProbe() {
   return <div data-testid="loc" data-nav={nav} data-state={JSON.stringify(loc.state ?? null)}>{loc.pathname + loc.search}</div>;
 }
 
-function renderPage(url = '/artifacts') {
+// 3c X14: bare `/artifacts` is Canvases now, so the Letters tests name their tab; the bare address has its own test below.
+function renderPage(url = '/artifacts?tab=letters') {
   return render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
@@ -135,8 +136,20 @@ const chip = (label: string) => screen.getByRole('button', { name: named(label) 
 const tab = (label: string) => screen.getByRole('tab', { name: named(label) });
 
 describe('Artifacts page: split by kind', () => {
-  it('defaults to Letters, Drafts: one list at a time, no headings, no All chip, no Yours / Shared with you tabs', async () => {
-    renderPage();
+  it('X14: bare /artifacts opens Canvases, Mine: Canvases is the first tab and Letters the second, each keeping its own unread dot', async () => {
+    renderPage('/artifacts');
+    await screen.findByText('Sales map');
+    expect(screen.getAllByRole('tab').map(t => t.textContent)).toEqual(['Canvases', 'Letters']);
+    expect(tab('Canvases')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Letters')).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getAllByRole('button', { pressed: true }).map(b => b.textContent)).toEqual(['Mine']);
+    expect(titles()).toEqual(['Sales map']);
+    // Letters keeps its unread dot while it is the tab behind: the received letter is unread
+    expect(await screen.findByRole('tab', { name: 'Letters, new' })).toBeInTheDocument();
+  });
+
+  it('X14: ?tab=letters opens Letters, Drafts: one list at a time, no headings, no All chip, no Yours / Shared with you tabs', async () => {
+    renderPage('/artifacts?tab=letters');
     await screen.findByText('Draft about trust');
     expect(tab('Letters')).toHaveAttribute('aria-selected', 'true');
     expect(tab('Canvases')).toHaveAttribute('aria-selected', 'false');
@@ -308,6 +321,7 @@ describe('Artifacts page: split by kind', () => {
     it('the dots do not depend on which list is open: every tab and chip dot is the same whichever list the page opens on', async () => {
       const urls = [
         '/artifacts',
+        '/artifacts?tab=letters',
         '/artifacts?tab=letters&list=sent',
         '/artifacts?tab=letters&list=received',
         '/artifacts?tab=canvases',
@@ -319,7 +333,7 @@ describe('Artifacts page: split by kind', () => {
         await screen.findByRole('tab', { name: 'Letters, new' });
         await screen.findByRole('tab', { name: 'Canvases, new' });
         // and the chips of the open tab carry theirs
-        if (url.includes('canvases')) {
+        if (url === '/artifacts' || url.includes('canvases')) {
           expect(await screen.findByRole('button', { name: 'Shared with me, unread' })).toBeInTheDocument();
           expect(screen.getByRole('button', { name: 'Mine' })).toBeInTheDocument();
         } else {
@@ -524,7 +538,7 @@ describe('Artifacts page: split by kind', () => {
       renderPage();
       await screen.findByText('Draft about trust');
       await u.click(within(rows()[0]!).getByRole('button', { name: 'Actions for Draft about trust' }));
-      expect(loc()).toBe('/artifacts'); // the menu opened, nothing navigated
+      expect(loc()).toBe('/artifacts?tab=letters'); // the menu opened, nothing navigated
       await u.keyboard('{Escape}');
       await u.click(within(rows()[0]!).getByRole('link', { name: 'Draft about trust' }));
       await waitFor(() => expect(loc()).toBe('/letters/drafts/d1'));
@@ -578,7 +592,7 @@ describe('Artifacts page: split by kind', () => {
       expect(rows()[0]!).not.toHaveTextContent('Add at least one story first.');
       await u.click(btn);
       expect(toast).toHaveBeenCalledWith('Add at least one story first.');
-      expect(loc()).toBe('/artifacts'); // neither the row nor compose opened
+      expect(loc()).toBe('/artifacts?tab=letters'); // neither the row nor compose opened
     });
 
     it('on desktop, hovering the muted Prepare letter shows its reason as a tooltip', async () => {
@@ -937,7 +951,7 @@ describe('Artifacts page: split by kind', () => {
       await u.click(screen.getByRole('button', { name: 'New letter' }));
       await u.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));
       expect(mocks.createDoc).not.toHaveBeenCalled();
-      expect(loc()).toBe('/artifacts');
+      expect(loc()).toBe('/artifacts?tab=letters');
     });
 
     it('a failed create says so and stays on the page, ready to try again', async () => {
@@ -948,7 +962,7 @@ describe('Artifacts page: split by kind', () => {
       await u.click(screen.getByRole('button', { name: 'New letter' }));
       await u.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /^Private\s*Only people you send it to$/ }));
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't create draft."));
-      expect(loc()).toBe('/artifacts');
+      expect(loc()).toBe('/artifacts?tab=letters');
       await waitFor(() => expect(screen.getByRole('button', { name: 'New letter' })).toBeEnabled());
     });
   });
@@ -1240,7 +1254,8 @@ describe('Artifacts page: split by kind', () => {
       mocks.getAllReceivedLetters.mockResolvedValue([]);
       mocks.listSharedWithMe.mockResolvedValue([]);
       const expectations: [string, RegExp | string][] = [
-        ['/artifacts', /Nothing here yet\./],
+        ['/artifacts?tab=letters', /Nothing here yet\./],
+        ['/artifacts', 'No canvases here yet.'],
         ['/artifacts?tab=letters&list=sent', 'No letters sent yet.'],
         ['/artifacts?tab=letters&list=received', 'Nothing has been shared with you yet.'],
         ['/artifacts?tab=canvases', 'No canvases here yet.'],

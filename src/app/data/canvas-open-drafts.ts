@@ -46,3 +46,13 @@ export async function listMyOpenCanvasDrafts(): Promise<OpenCanvasDraft[]> {
     nextSeq: versions ? versions.filter((v) => v.canvasId === r.canvas_id).reduce((top, v) => Math.max(top, v.seq), 0) + 1 : null,
   }));
 }
+
+/**
+ * 3c X14: the newest PUBLISHED number of each of the owner's canvases, by canvas name, for a Mine row ("v3 · Edited 3d ago"). A canvas with no
+ * published version has no entry. A failed read throws, so the list can say numbers are missing instead of showing wrong ones.
+ */
+export async function listNewestPublishedSeqs(): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  for (const v of await listMyCanvasVersions()) out[v.canvasName] = Math.max(out[v.canvasName] ?? 0, v.seq);
+  return out;
+}
