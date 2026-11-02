@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-02 [technical]: Facebook's iOS bridge throw is filtered by exact message, not by the whole bridge
+
+**Context:** Sentry JAVASCRIPT-REACT-3Z recorded one TypeError from code injected by Facebook's iOS in-app browser. No frame was ours, and our source never reads `window.webkit`.
+**Decision:** Add one anchored `ignoreErrors` pattern, under the P988 rule that this layer is right for errors our bundle never sees.
+**Alternatives rejected:** Matching longer `window.webkit.messageHandlers.*` paths, because none has been observed and an unmatched variant only over-reports. Adding `Type: ` prefixes to the older anchored patterns, because Sentry also tests the bare value, so they already match.
+**Consequences:** A different wording from the same bridge will report once and need its own decision. Also found while shipping: gate 2.5 in `ship-gates.sh` resolves only `feature/pN-*` for the spec, while gate 3.8 and `git-ops.sh` also accept `fix/pN-*`, so a `fix/` branch's ticked spec is read from main's unticked copy and refused. P1599 shipped by renaming its branch to `feature/`; the mismatch is not fixed.
+**References:** [P1599](../features/done/2026-06-10/p1599_sentry_3z_facebook_ios_bridge_noise.md) · `src/lib/sentry-filters.ts`
+
 ## 2026-11-02 [product]: A hike's host walks the learning too, so they can show people where to click
 
 **Context:** The event room hid "Learn the principle" from the host, and the database refused a host's preparation row because a host has no RSVP (P1336). The founder usually hosts: *"if I as a host cannot show ... then I cannot show, by example, other people where to click."*
