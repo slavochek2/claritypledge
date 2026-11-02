@@ -541,12 +541,15 @@ describe('P955 gate — assertTopBarMainAction (rule 9, top-bar clause): known-g
 });
 
 describe('P955 gate — assertStableVariantsOnInput and assertTopBarMainAction against the REAL /tree/_gate/canvas-workspace fixture (S6.4, S6.5, 3c S6.1)', () => {
-  const PHASES = ['canvas', 'chat-composing', 'busy', 'published', 'nothing-to-publish', 'published-header', 'panel-closed', 'new-canvas', 'pending-clone'];
+  const PHASES = ['canvas', 'chat-composing', 'busy', 'published', 'nothing-to-publish', 'published-header', 'panel-closed', 'new-canvas', 'pending-clone', 'j4-sheet', 'mixed-reply', 'j10-reply'];
+  // j4-sheet is a modal over the page (everything behind it is aria-hidden, so the bar has no reachable control) and j10-reply is a thread panel with no bar and no composer: each has its own test below.
+  const OWN_TEST = ['j4-sheet', 'j10-reply'];
+  const BAR_PHASES = PHASES.filter((p) => !OWN_TEST.includes(p));
   /** What the spot holds in each phase (3c X4): the filled control, or a status. */
   const FILLED: Record<string, 'canvas-draft-publish' | 'canvas-share-control' | null> = {
     canvas: 'canvas-draft-publish', 'chat-composing': 'canvas-draft-publish', 'panel-closed': 'canvas-draft-publish',
     published: 'canvas-share-control', 'published-header': 'canvas-share-control',
-    busy: null, 'nothing-to-publish': null, 'new-canvas': null, 'pending-clone': null,
+    busy: null, 'nothing-to-publish': null, 'new-canvas': null, 'pending-clone': null, 'mixed-reply': 'canvas-draft-publish',
   };
   const at = (phase: string) => {
     localStorage.clear();
@@ -561,7 +564,7 @@ describe('P955 gate — assertStableVariantsOnInput and assertTopBarMainAction a
   });
 
   // Gate 7c: the gate runs over EVERY existing phase, legitimate ones included, and each must still pass.
-  it.each(PHASES)('%s: the bar passes rule 9 (one main action, furthest right, auto width, nothing disabled) and the spot is a filled button only when it can act', (phase) => {
+  it.each(BAR_PHASES)('%s: the bar passes rule 9 (one main action, furthest right, auto width, nothing disabled) and the spot is a filled button only when it can act', (phase) => {
     const { container } = at(phase);
     const bar = within(container).getByTestId('workspace-bar');
     expect(() => assertTopBarMainAction(bar)).not.toThrow();
@@ -571,7 +574,7 @@ describe('P955 gate — assertStableVariantsOnInput and assertTopBarMainAction a
   });
 
   // published-header is the owner's bar above a plain page: there is no thread, so no composer to type into (its own test below).
-  it.each(PHASES.filter((p) => p !== 'published-header'))('%s: typing changes no button except the send slot', (phase) => {
+  it.each(BAR_PHASES.filter((p) => p !== 'published-header'))('%s: typing changes no button except the send slot', (phase) => {
     const { container, composer } = at(phase);
     if (!composer) throw new Error(`phase ${phase} has no composer to type into`);
     if (phase === 'chat-composing') {
@@ -582,6 +585,42 @@ describe('P955 gate — assertStableVariantsOnInput and assertTopBarMainAction a
     }
     expect(buttonsChangedOnInput(container, composer)).toEqual([]);
     expect(() => assertStableVariantsOnInput(container, composer)).not.toThrow();
+  });
+
+  it('j4-sheet (S6.5): the real sheet opens over the page with one filled button (Add to my draft, last), Start over in red text, nothing disabled, both 44px', () => {
+    const { container } = at('j4-sheet');
+    const sheet = within(document.body).getByTestId('clone-draft-sheet');
+    const buttons = within(sheet).getAllByRole('button').filter((b) => b.getAttribute('data-testid'));
+    expect(buttons.map((b) => b.getAttribute('data-testid'))).toEqual(['clone-start-over', 'clone-add-to-draft']);
+    expect(buttons.filter(isFilledControl).map((b) => b.getAttribute('data-testid'))).toEqual(['clone-add-to-draft']);
+    expect(buttons.every((b) => b.className.includes('min-h-11') && !(b as HTMLButtonElement).disabled)).toBe(true);
+    expect(buttons[0]!.className).toContain('text-destructive');
+    expect(within(sheet).getByText(/Add this to it, or start over from v1\? Starting over discards that draft\./)).toBeInTheDocument();
+    // the page behind keeps its own single main action (Share on a published version)
+    expect(container.querySelector('[data-testid="canvas-share-control"]')).not.toBeNull();
+  });
+
+  it('mixed-reply (S6.5): the mirror\'s reply names two groups and one offer row per other group follows, each a secondary pill with the focus switch and Start; no second main action', () => {
+    const { container } = at('mixed-reply');
+    expect(within(container).getByTestId('gate-mixed-reply')).toHaveTextContent('two businesses');
+    expect(within(container).getAllByTestId('canvas-offer-row')).toHaveLength(2);
+    expect(within(container).getAllByTestId('canvas-offer-switch')).toHaveLength(2);
+    expect(within(container).getAllByTestId('canvas-offer-start')).toHaveLength(2);
+    const rows = within(container).getByTestId('canvas-offers');
+    expect(reachableControls(rows).filter(isFilledControl)).toEqual([]);
+    expect(reachableControls(rows).filter((b) => (b as HTMLButtonElement).disabled)).toEqual([]);
+  });
+
+  it('j10-reply (S6.5): a published draft\'s thread in the chat panel has offer rows with Start only, the closed line with Open canvas, no composer and no filled control', () => {
+    const { container } = at('j10-reply');
+    expect(within(container).getAllByTestId('canvas-offer-start')).toHaveLength(2);
+    expect(within(container).queryByTestId('canvas-offer-switch')).toBeNull();
+    expect(within(container).getByTestId('canvas-closed-line')).toHaveTextContent('Published as v2.');
+    expect(within(container).getByTestId('canvas-closed-open')).toHaveTextContent('Open canvas');
+    expect(within(container).queryByTestId('composer')).toBeNull();
+    expect(within(container).queryByRole('textbox')).toBeNull();
+    expect(reachableControls(container).filter(isFilledControl)).toEqual([]);
+    expect(Array.from(container.querySelectorAll('button')).filter((b) => b.disabled)).toEqual([]);
   });
 
   it('FAILURE PATH (gate 7) on the real fixture: a second filled button put into the real bar makes the gate throw', () => {

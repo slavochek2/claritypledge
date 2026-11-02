@@ -71,13 +71,12 @@ function wrap(ui: ReactNode, at: string) {
   );
 }
 
-function Mirror({ carry = [] as string[] }: { carry?: string[] }) {
+function Mirror() {
   const { start, dialog } = useStartCanvas();
   return (
     <>
       <CanvasPlusMenu />
       <button type="button" onClick={() => void start('ver-2')}>plus-canvas</button>
-      <button type="button" onClick={() => void start('ver-2', carry)}>start-with-carry</button>
       {dialog}
     </>
   );
@@ -145,14 +144,6 @@ describe('S3b.3: each start lands on the workspace of the new draft', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Discard it and start here' }));
     await expectWorkspace('sales_map', 'sales_map_dnew');
     expect(svc.discardCanvasDraft).toHaveBeenCalledWith('draft-open', 2);
-  });
-
-  it('change requests are still carried into the new thread as one engine message, and the owner still lands on the workspace', async () => {
-    wrap(<Mirror carry={['shorter wording', 'add a pricing box']} />, '/chats/c/conv-1');
-    fireEvent.click(await screen.findByText('start-with-carry'));
-    await expectWorkspace('canvas_7', 'canvas_7_dabc12');
-    expect(svc.sendCanvasWorkspaceMessage).toHaveBeenCalledTimes(1);
-    expect(svc.sendCanvasWorkspaceMessage.mock.calls[0]![0]).toMatchObject({ canvasId: 'cv-1', expectedDraftId: 'draft-new', body: expect.stringContaining('shorter wording') });
   });
 
   it('a failed start is said in a sentence and nothing navigates', async () => {

@@ -621,123 +621,22 @@ describe('B1: no polling in a hidden tab', () => {
   });
 });
 
-/**
- * W0: the tray's "Start a new version" button is gone (a published thread is no longer an owner surface), but the start itself and
- * the carrying of change requests into the new thread are kept: this harness calls the hook the way the next slice's Clone will.
- */
-function CarryHarness({ carry, from = 'ver-draft' }: { carry: string[]; from?: string }) {
+/** The hook a start entry uses, from a version (the + menu's Clone a version lands here). */
+function StartHarness({ from = 'ver-draft' }: { from?: string }) {
   const { start, dialog } = useStartCanvas();
   return (
     <>
-      <button type="button" onClick={() => void start(from, carry)}>Start a new version</button>
+      <button type="button" onClick={() => void start(from)}>Start from a version</button>
       {dialog}
     </>
   );
 }
-const startWith = async (carry: string[]) => {
-  wrap(<CarryHarness carry={carry} />, `/chats/c/${MIRROR_ID}`);
-  fireEvent.click(await screen.findByRole('button', { name: 'Start a new version' }));
+const startFrom = async () => {
+  wrap(<StartHarness />, `/chats/c/${MIRROR_ID}`);
+  fireEvent.click(await screen.findByRole('button', { name: 'Start from a version' }));
 };
 const opened = (over: Record<string, unknown> = {}) => ({ status: 'opened', draftId: 'draft-new', revision: 2, canvasId: 'cv-1', conversationId: MIRROR_ID, threadRootId: 'root-new', canvasName: 'canvas', versionName: 'canvas_dnew', fromSeq: 1, ...over });
 
-describe('B5: the change request goes with the new version', () => {
-  it('is sent as the first owner message of the new draft, before the owner lands in its workspace', async () => {
-    await startWith(['Raise the price to 60']);
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/p/test-user/canvas/canvas?v=canvas_dnew&ws=1'));
-    // v6: a plain chat message has no run and is never engine input, so the change request goes with canvas_workspace_send into the
-    // new draft, which starts the run itself (no separate Create step: a queued run nobody starts only locks the owner out)
-    expect(svc.sendCanvasWorkspaceMessage).toHaveBeenCalledTimes(1);
-    expect(svc.sendCanvasWorkspaceMessage).toHaveBeenCalledWith(expect.objectContaining({
-      canvasId: 'cv-1', expectedDraftId: 'draft-new', expectedRevision: 2, body: 'Raise the price to 60', clientId: expect.any(String),
-    }));
-    expect(chatSvc.sendMessage).not.toHaveBeenCalled();
-  });
-
-  it('the same text goes along when the owner discards the draft that was open elsewhere', async () => {
-    svc.openCanvasDraft
-      .mockResolvedValueOnce(opened({ status: 'open_elsewhere', draftId: 'draft-open', threadRootId: 'root-open', versionName: 'canvas_dopen' }))
-      .mockResolvedValueOnce(opened());
-    await startWith(['Raise the price to 60']);
-    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Discard it and start here' }));
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('v=canvas_dnew'));
-    expect(svc.sendCanvasWorkspaceMessage).toHaveBeenCalledWith(expect.objectContaining({ expectedDraftId: 'draft-new', body: 'Raise the price to 60' }));
-  });
-
-  it('CONTROL: continuing the draft open elsewhere sends nothing', async () => {
-    svc.openCanvasDraft.mockResolvedValue(opened({ status: 'open_elsewhere', draftId: 'draft-open', threadRootId: 'root-open', versionName: 'canvas_dopen' }));
-    await startWith(['Raise the price to 60']);
-    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Continue it there' }));
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('v=canvas_dopen'));
-    expect(svc.sendCanvasWorkspaceMessage).not.toHaveBeenCalled();
-    expect(chatSvc.sendMessage).not.toHaveBeenCalled();
-  });
-
-  it('if the message cannot be carried over, the owner is told and still lands in the new draft\'s workspace', async () => {
-    svc.sendCanvasWorkspaceMessage.mockRejectedValueOnce(new Error('network'));
-    await startWith(['Raise the price to 60']);
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('v=canvas_dnew'));
-    expect(toastFn.error).toHaveBeenCalledWith(expect.stringContaining('Send it again'));
-  });
-});
-describe('U2: the messages after Publish are carried as ONE message (one message is one run)', () => {
-  // v3 sent each message on its own. A run applies one message and only one run is active per owner, so the later sends would be
-  // refused as busy: the requests are now joined, oldest first, into one canvas_workspace_send, newest-first up to the 4,000 characters
-  // a message may hold. What does not fit is left out and the owner is told. [FOUNDER DECISION: wording]
-  const start = async (...carry: string[]) => {
-    await startWith(carry);
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('v=canvas_dnew'));
-  };
-  const sent = () => svc.sendCanvasWorkspaceMessage.mock.calls.map((c) => c[0] as { body: string; clientId: string });
-
-  it('two short messages are one send, oldest first, and that send starts its run', async () => {
-    await start('one', 'two');
-    expect(sent()).toHaveLength(1);
-    expect(sent()[0]).toMatchObject({ body: 'one\n\ntwo' });
-    expect(sent()[0]).not.toHaveProperty('startRun');
-    expect(toastFn.error).not.toHaveBeenCalled();
-  });
-
-  it('two 3,000-character messages do not fit one: the newest goes, under the limit, and the owner is told the rest was left out', async () => {
-    const a = 'a'.repeat(3000);
-    const b = 'b'.repeat(3000);
-    await start(a, b);
-    expect(sent().map((x) => x.body)).toEqual([b]);
-    expect(toastFn.error).toHaveBeenCalledWith(expect.stringContaining('Send it again'));
-  });
-
-  it('one request longer than the limit is split into pieces under 4,000 characters; the newest piece that fits goes, and the owner is told the rest was left out', async () => {
-    const long = `${'x'.repeat(3500)} ${'y'.repeat(3500)}`;
-    // the pieces are what the thread hands over: the same split the helper makes
-    const { splitText, CARRY_MAX_CHARS } = await import('@/app/pages/chat/use-canvas-thread');
-    await start(...splitText(long, CARRY_MAX_CHARS));
-    expect(sent()).toHaveLength(1);
-    expect(sent()[0]!.body.length).toBeLessThanOrEqual(4000);
-    expect(sent()[0]!.body).toContain('y'.repeat(3500)); // the newest words go
-    expect(sent()[0]!.body).not.toContain('x');
-    expect(toastFn.error).toHaveBeenCalledWith(expect.stringContaining('Send it again'));
-  });
-
-  it('the client id is the same when the same carry is run again into the same thread, and differs for another thread', async () => {
-    await start('one');
-    const first = sent()[0]!.clientId;
-    expect(first.length).toBeGreaterThan(0);
-    svc.sendCanvasWorkspaceMessage.mockClear();
-    fireEvent.click(screen.getByRole('button', { name: 'Start a new version' }));
-    await waitFor(() => expect(svc.sendCanvasWorkspaceMessage).toHaveBeenCalledTimes(1));
-    expect(sent()[0]!.clientId).toBe(first);
-    svc.sendCanvasWorkspaceMessage.mockClear();
-    svc.openCanvasDraft.mockResolvedValue(opened({ draftId: 'draft-n2', threadRootId: 'root-new-2' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Start a new version' }));
-    await waitFor(() => expect(svc.sendCanvasWorkspaceMessage).toHaveBeenCalledTimes(1));
-    expect(sent()[0]!.clientId).not.toBe(first);
-  });
-
-  it('a send that is refused or fails is said, and the owner still lands in the new draft\'s workspace', async () => {
-    svc.sendCanvasWorkspaceMessage.mockResolvedValueOnce({ ok: false, refused: 'busy', revision: 2 });
-    await start('one');
-    expect(toastFn.error).toHaveBeenCalledWith(expect.stringContaining('Send it again'));
-  });
-});
 describe('B6: a failed first read is not a blank', () => {
   it('says it could not load, with a Retry that reads again', async () => {
     svc.getCanvasDraftByThread.mockRejectedValueOnce(new Error('offline'));
@@ -790,21 +689,10 @@ describe('B6: a failed first read is not a blank', () => {
 
 const bluePrimaries = () => [...screen.queryAllByRole('button'), ...screen.queryAllByRole('link')].filter((b) => b.className.includes('bg-blue-600')).map((b) => b.getAttribute('aria-label') ?? b.textContent);
 
-describe('C5: a canvas thread is known to the mirror before its first message is sent', () => {
-  it('starting a new version registers the new thread before the carried message goes out', async () => {
-    const seen: boolean[] = [];
-    svc.sendCanvasWorkspaceMessage.mockImplementation(async () => {
-      seen.push(isCanvasThread('root-new'));
-      return { ok: true, runId: 'run-c', revision: 3, draftId: 'draft-new', start: null };
-    });
-    await startWith(['Raise the price to 60']);
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('v=canvas_dnew'));
-    expect(seen).toEqual([true]);
-  });
-
-  it('continuing a draft that is open elsewhere registers that thread too, and an ordinary one is never registered', async () => {
+describe('C5: a canvas thread is known to the mirror before the owner lands in it', () => {
+  it('continuing a draft that is open elsewhere registers that thread, and an ordinary one is never registered', async () => {
     svc.openCanvasDraft.mockResolvedValue(opened({ status: 'open_elsewhere', draftId: 'draft-open', threadRootId: 'root-open', versionName: 'canvas_dopen' }));
-    await startWith(['Raise the price']);
+    await startFrom();
     fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Continue it there' }));
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('v=canvas_dopen'));
     expect(isCanvasThread('root-open')).toBe(true);

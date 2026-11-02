@@ -290,7 +290,8 @@ function spotVerdict(spot: Array<[number, string]>) {
   const i = spot.findIndex(x => x[1] === 'updating');
   const after = i < 0 ? [] : spot.slice(i + 1);
   const last = after.length ? after[after.length - 1][1] : '';
-  const bad = after.filter((x, k) => (x[1] === 'not-published') || (x[1] === 'loading') || (x[1] === 'no-changes' && k !== after.length - 1));
+  // 3c X7: the spot is loading | updating | publish | nothing ('Nothing to publish yet') | publishing. A mid-run 'nothing' or 'loading' is a flash of the wrong claim.
+  const bad = after.filter((x, k) => x[1] === 'loading' || (x[1] === 'nothing' && k !== after.length - 1));
   return { sawUpdating: i >= 0, last, bad, text: spot.map(x => `${x[1]}@${x[0]}ms`).join(' → ') };
 }
 
@@ -389,16 +390,17 @@ async function draftingEnabled(token: string): Promise<{ enabled: boolean | null
   try { return { enabled: (JSON.parse(raw) as { enabled?: boolean }).enabled === true, raw }; } catch { return { enabled: null, raw: `${res.status} ${raw.slice(0, 100)}` }; }
 }
 
-/** SEEDED: stands in for a finished run. Points a run would have written, kept by the draft (service role). */
+/**
+ * SEEDED: stands in for a finished run. Points a run would have written, kept by the draft (service role). Two requests for any number of
+ * points (metered-services rule 1): one insert of the points, one insert of their ledger rows.
+ */
 async function seedDraftPoints(ownerId: string, draftId: string, versionName: string, items: Array<[string, string]>) {
-  for (const [box, statement] of items) {
-    const { data, error } = await supabaseAdmin.from('points').insert({
-      statement, first_validator_id: ownerId, visibility: 'private', tags: [], system_tags: [box, `canvas_${versionName}`],
-    }).select('id').single();
-    if (error) throw new Error(`seed point: ${error.message}`);
-    const { error: e2 } = await supabaseAdmin.from('canvas_draft_points').insert({ draft_id: draftId, point_id: data.id });
-    if (e2) throw new Error(`seed draft point: ${e2.message}`);
-  }
+  const { data, error } = await supabaseAdmin.from('points').insert(items.map(([box, statement]) => ({
+    statement, first_validator_id: ownerId, visibility: 'private', tags: [], system_tags: [box, `canvas_${versionName}`],
+  }))).select('id');
+  if (error || !data || data.length !== items.length) throw new Error(`seed points: ${error?.message ?? 'wrong row count'}`);
+  const { error: e2 } = await supabaseAdmin.from('canvas_draft_points').insert(data.map(r => ({ draft_id: draftId, point_id: r.id })));
+  if (e2) throw new Error(`seed draft points: ${e2.message}`);
 }
 
 const SEED_FIRST: Array<[string, string]> = [
@@ -411,20 +413,16 @@ const SEED_FIRST: Array<[string, string]> = [
 const SEED_SECOND: Array<[string, string]> = [['canvas:channels', 'Direct emails to office managers (SEEDED)']];
 
 /**
- * SEEDED clone: canvas_draft_open(p_from_version) is the legacy opener and does not copy the base (the v6 `_canvas_draft_new`, reached by the
- * first Send, does). So the draft is opened by the RPC and the base's points are given the draft's tag by the service role, which is what
- * `_canvas_draft_new` does ("the draft starts as its base"); then one new point is added to a box the base left empty.
+ * SEEDED clone: canvas_draft_open(p_from_version) starts the draft as its base (B5), so it already holds the base's points and each is tagged with
+ * the draft's version. The seed asserts that instead of tagging them by hand (which would tag every point twice), then adds one new point to a box
+ * the base left empty.
  */
 async function seedCloneDraft(api: SupabaseClient, ownerId: string, baseVersionId: string): Promise<{ id: string; version_name: string }> {
-  const { data: base } = await supabaseAdmin.from('canvas_versions').select('name').eq('id', baseVersionId).single();
   const { error } = await api.rpc('canvas_draft_open', { p_from_version: baseVersionId });
   if (error) throw new Error(`canvas_draft_open from v1: ${error.message}`);
   const row = (await supabaseAdmin.from('canvas_drafts').select('id,version_name').eq('owner_id', ownerId).eq('state', 'open').eq('base_version_id', baseVersionId).limit(1).maybeSingle()).data!;
-  const { data: pts } = await supabaseAdmin.from('points').select('id,system_tags').eq('first_validator_id', ownerId).contains('system_tags', [`canvas_${base!.name}`]);
-  for (const pt of pts ?? []) {
-    const { error: e } = await supabaseAdmin.from('points').update({ system_tags: [...(pt.system_tags as string[]), `canvas_${row.version_name}`] }).eq('id', pt.id);
-    if (e) throw new Error(`tag base point: ${e.message}`);
-  }
+  const held = await supabaseAdmin.from('points').select('id', { count: 'exact', head: true }).eq('first_validator_id', ownerId).contains('system_tags', [`canvas_${row.version_name}`]);
+  if (held.count !== SEED_FIRST.length) throw new Error(`the draft opened from v1 holds ${held.count} points, expected ${SEED_FIRST.length}: B5 is not applied on this database`);
   await seedDraftPoints(ownerId, row.id, row.version_name, SEED_SECOND);
   return row;
 }
@@ -501,7 +499,7 @@ async function walk(browser: Browser, vp: number, height: number) {
       rec(vp, J1, 'spot "Nothing to publish yet" (3c X7)', s.spotText === 'Nothing to publish yet', `spot=${s.spotText} (${s.spotState})`, f);
       if (wide) rec(vp, J1, 'panel open, no Thread button', s.panel && !s.threadBtn, `panel=${s.panel} threadBtn=${s.threadBtn}`, f);
       else rec(vp, J1, 'opens on Thread tab with Canvas|Thread switcher', viaButton ? (s.switcher && s.panel && s.onThreadTab === true) : null, `${viaButton ? '' : 'NOT REACHED via the button (opened by deep link, which does not carry the new-canvas Thread-tab hint): '}switcher=${s.switcher} panel=${s.panel} onThreadTab=${s.onThreadTab}`, f);
-      rec(vp, J1, 'Copy prompt visible and the ONE primary', enabled ? (s.copyPrompt && primariesOf(s).length === 1 && primariesOf(s)[0] === 'canvas-copy-prompt') : null, `${enabled ? '' : 'NOT REACHED: the opener and Copy prompt mount only while drafting is on (use-canvas-parts.tsx live=canvasOn===true); with it off the panel shows the plain thread and the empty root as a blank bubble. '}copyPrompt=${s.copyPrompt} blue=${JSON.stringify(s.blue)}`, f);
+      rec(vp, J1, 'Copy prompt visible and SECONDARY: no filled button on the new canvas but the send slot (3c X9; supersedes W7\'s primary)', enabled ? (s.copyPrompt && primariesOf(s).length === 0) : null, `${enabled ? '' : 'NOT REACHED: the opener and Copy prompt mount only while drafting is on (use-canvas-parts.tsx live=canvasOn===true); with it off the panel shows the plain thread and the empty root as a blank bubble. '}copyPrompt=${s.copyPrompt} blue=${JSON.stringify(s.blue)}`, f);
       rec(vp, J1, 'opener reads "Give your mirror agent anything about your business: files, links, a few lines. It drafts your canvas."', enabled ? s.panelText.includes(OPENER) : null, `panel text="${s.panelText.slice(0, 260)}"`, f);
       rec(vp, J1, 'no "Clarity Canvas" label in the header', !s.clarityCanvasText, `header text="${s.barText}"`, f);
       rec(vp, J1, 'OBSERVATION: the opener copy itself says "draft your Clarity Canvas"', null, `"Clarity Canvas" appears on the page (outside the header): ${s.clarityCanvasOnPage}`, f);
@@ -578,7 +576,7 @@ async function walk(browser: Browser, vp: number, height: number) {
       const fD = await shot(page, vp, J1, 'run-done');
       await sample(page, vp, 'run-done-publish');
       rec(vp, J1, 'a real run started and finished (Updating… then Publish)', v.sawUpdating && v.last === 'publish', `${v.text} (${Math.round((Date.now() - tSend) / 1000)}s incl. checks)`, fD);
-      rec(vp, J1, 'the spot never shows not-published or no-changes between Updating… and Publish (25ms sampler)', v.sawUpdating && v.bad.length === 0, `${v.text}`, fD);
+      rec(vp, J1, 'the spot never shows "Nothing to publish yet" or a read between Updating… and Publish (25ms sampler)', v.sawUpdating && v.bad.length === 0, `${v.text}`, fD);
       rec(vp, J1, 'boxes filled in place', sD.points > 0, `points=${sD.points}`, fD);
       rec(vp, J1, 'path never changed', new URL(page.url()).pathname === pathBefore && page.url().includes('ws=1'), page.url(), fD);
       rec(vp, J1, 'spot is Publish (primary), Copy prompt secondary', sD.spotState === 'publish' && primariesOf(sD).length === 1 && primariesOf(sD)[0] === 'canvas-draft-publish', `spot=${sD.spotState} blue=${JSON.stringify(sD.blue)} copyPrompt=${sD.copyPrompt}`, fD);
@@ -591,13 +589,13 @@ async function walk(browser: Browser, vp: number, height: number) {
       await startLogs(page, user.name);
       await page.locator('[data-composer-send]').first().click();
       const second = await expect.poll(async () => (await snap(page)).spotState, { timeout: 30_000, intervals: [100] }).toBe('updating').then(() => true).catch(() => false);
-      await expect.poll(async () => (await snap(page)).spotState, { timeout: 240_000, intervals: [200] }).toMatch(/publish|no-changes/).catch(() => undefined);
+      await expect.poll(async () => (await snap(page)).spotState, { timeout: 240_000, intervals: [200] }).toMatch(/publish|nothing/).catch(() => undefined);
       await page.waitForTimeout(500);
       const l2 = await readLogs(page);
       const v2 = spotVerdict(l2.spot);
       const fS = await shot(page, vp, J1, 'kept-text-sent');
-      rec(vp, J1, 'the kept text can be sent after the run: a second real run', second && /publish|no-changes/.test(v2.last), v2.text, fS);
-      rec(vp, J1, 'second run: no not-published between Updating… and the end', v2.bad.length === 0, v2.text, fS);
+      rec(vp, J1, 'the kept text can be sent after the run: a second real run', second && /publish|nothing/.test(v2.last), v2.text, fS);
+      rec(vp, J1, 'second run: no wrong status between Updating… and the end', v2.bad.length === 0, v2.text, fS);
     });
 
     if (!wide && !enabled) rec(vp, J1, 'first reply box chips flip to Canvas', null, 'NOT REACHED: no run, so no first reply with box chips');
@@ -662,15 +660,17 @@ async function walk(browser: Browser, vp: number, height: number) {
       rec(vp, 'J-W3', 'header: the "New draft" tag, no number and no picker until the first Send (3c X6)', /New draft/.test(s.barText ?? '') && !s.picker && !/from v1/.test(s.barText ?? ''), `bar="${s.barText}" picker="${s.pickerText}"`, f);
       rec(vp, 'J-W3', 'spot "Nothing to publish yet" (3c X7)', s.spotText === 'Nothing to publish yet', `spot=${s.spotText}`, f);
       rec(vp, 'J-W3', 'no Discard; no Clone', !s.discard && !s.clone, `discard=${s.discard} clone=${s.clone}`, f);
+      const cancelInBar = await page.getByTestId('workspace-bar').getByTestId('canvas-cancel-clone').isVisible().catch(() => false);
+      rec(vp, 'J-W3', 'Cancel sits in the page header of a pending Clone (3c X6; table: Thread, Cancel, the status)', cancelInBar, `cancel in bar=${cancelInBar} bar="${s.barText}"`, f);
       const { count } = await supabaseAdmin.from('canvas_drafts').select('id', { count: 'exact', head: true }).eq('owner_id', user.user.id).eq('state', 'open');
       rec(vp, 'J-W3', 'nothing written on Clone (0 open drafts in DB)', (count ?? -1) === 0, `open drafts=${count}`, f);
-      rec(vp, 'J-W3', 'pending header shows [v1 ▾] or the v1 label', s.versionShown, `picker="${s.pickerText}" versionShown=${s.versionShown} bar="${s.barText}"`, f);
+      rec(vp, 'J-W3', 'pending header has no number and no picker until the first Send (3c X6; the table: (New draft), Cancel, the status)', !s.versionShown, `picker="${s.pickerText}" versionShown=${s.versionShown} bar="${s.barText}"`, f);
       rec(vp, 'J-W3', 'pending: the thread has no onboarding and no Copy prompt', !s.copyPrompt && !/Want to save time|Give your mirror agent|Copy prompt/.test(s.panelText), `copyPrompt=${s.copyPrompt} panel="${s.panelText.slice(0, 200)}"`, f);
       rec(vp, 'J-W3', 'pending: the panel has a × (or Cancel) to cancel', s.closeControls.length > 0, `controls=${JSON.stringify(s.closeControls)} backArrows=${JSON.stringify(s.backArrows)}`, f);
       rec(vp, 'J-W3', 'pending: exactly one back arrow in Thread view', wide ? null : s.backArrows.length === 1, `backArrows=${JSON.stringify(s.backArrows)} (visible buttons labelled back)`, f);
       rec(vp, 'J-W3', `pending header @${vp}: at most two rows; name not one letter`, (s.barRows ?? 9) <= 2 && (s.titleInfo ? s.titleInfo.inside >= 3 || !s.titleInfo.clipped : false), `rows=${s.barRows} name=${JSON.stringify(s.titleInfo)} tag=${JSON.stringify(s.tagInfo)} barH=${s.barBox?.h}`, f);
       if (wide) rec(vp, 'J-W3', 'panel open at 1440', s.panel, '', f);
-      else rec(vp, 'J-W3', 'OBSERVATION 375: Clone opens on the Thread tab (W1 says everything but a new canvas opens on Canvas; W3 says the thread opens empty)', null, `onThreadTab=${s.onThreadTab} panel=${s.panel}`, f);
+      else rec(vp, 'J-W3', '375: a pending Clone opens on the Thread tab, because typing is next (3c X13)', s.onThreadTab === true && s.panel, `onThreadTab=${s.onThreadTab} panel=${s.panel}`, f);
     });
     // x cancels back to the published view
     if (enabled) await step(vp, 'J-W3', 'cancel-x', async () => {
@@ -692,7 +692,7 @@ async function walk(browser: Browser, vp: number, height: number) {
     });
     // Clone again; first Send creates the draft
     if (!enabled) await step(vp, 'J-W3', 'clone-again-first-send', async () => {
-      rec(vp, 'J-W3', 'Clone again, first Send creates the draft', null, 'NOT REACHED: the first Send needs a run (drafting is off). FALLBACK: the draft is opened by the canvas_draft_open RPC from v1 (what the first Send starts from; the legacy opener does not copy the base, so the base points are tagged into the draft by the service role) and given 1 SEEDED point in a new box.');
+      rec(vp, 'J-W3', 'Clone again, first Send creates the draft', null, 'NOT REACHED: the first Send needs a run (drafting is off). FALLBACK: the draft is opened by the canvas_draft_open RPC from v1 (what the first Send starts from; B5: it starts as its base, so it already holds the points of v1) and given 1 SEEDED point in a new box.');
       const { data: pubRow } = await supabaseAdmin.from('canvas_drafts').select('version_id').eq('owner_id', user.user.id).eq('state', 'published').limit(1).maybeSingle();
       await seedCloneDraft(api, user.user.id, pubRow!.version_id);
       // (a) the literal W0 address, bare ?ws=1: what does an owner with a published v1 AND an open draft land on?
@@ -710,7 +710,7 @@ async function walk(browser: Browser, vp: number, height: number) {
       const s = await sample(page, vp, 'clone-draft-after-send');
       const f = await shot(page, vp, 'J-W3', 'draft-from-v1-seeded');
       rec(vp, 'J-W3', 'SEEDED draft from v1: header Draft, Clone gone, Publish offered', s.state === 'Draft' && !s.clone && s.spotState === 'publish', `state=${s.state} clone=${s.clone} spot=${s.spotText}/${s.spotState} bar="${s.barText}" discard=${s.discard}`, f);
-      rec(vp, 'J-W3', 'SEEDED draft from v1: ws=1 kept, header names "from v1" (spec: "Draft · from v1")', s.url.includes('ws=1') && /from v1/i.test(s.barText ?? ''), `url=${s.url} bar="${s.barText}"`, f);
+      rec(vp, 'J-W3', 'SEEDED draft from v1: ws=1 kept; the header says the version in the picker, with no "from v1" (3c X6: D8\'s origin stays in the picker rows)', s.url.includes('ws=1') && !/from v1/i.test(s.barText ?? '') && s.picker, `url=${s.url} picker=${s.picker} "${s.pickerText}" bar="${s.barText}"`, f);
     });
     if (enabled) await step(vp, 'J-W3', 'clone-again-first-send', async () => {
       if (!(await page.getByTestId('canvas-clone').isVisible().catch(() => false))) { await page.goto(`${v1Url.pathname}?v=${vName}`); await expect(page.getByTestId('canvas-clone')).toBeVisible(); }
@@ -725,7 +725,7 @@ async function walk(browser: Browser, vp: number, height: number) {
       const t0 = Date.now();
       await expect.poll(async () => (await snap(page)).spotState, { timeout: 30_000, intervals: [100] }).toBe('updating').catch(() => undefined);
       await shot(page, vp, 'J-W3', 'first-send-updating');
-      await expect.poll(async () => (await snap(page)).spotState, { timeout: 240_000, intervals: [200] }).toMatch(/publish|no-changes/).catch(() => undefined);
+      await expect.poll(async () => (await snap(page)).spotState, { timeout: 240_000, intervals: [200] }).toMatch(/publish|nothing/).catch(() => undefined);
       await page.waitForTimeout(1000);
       const logs = await readLogs(page);
       const cl = composerVerdict(await readComposerLog(page));
@@ -733,11 +733,12 @@ async function walk(browser: Browser, vp: number, height: number) {
       const f = await shot(page, vp, 'J-W3', 'draft-after-first-send');
       const { data: drafts } = await supabaseAdmin.from('canvas_drafts').select('id,state,version_name,conversation_id,thread_root_id').eq('owner_id', user.user.id).eq('state', 'open');
       rec(vp, 'J-W3', 'first Send creates the draft (1 open draft)', (drafts?.length ?? 0) === 1, `drafts=${JSON.stringify(drafts)} run ${Math.round((Date.now() - t0) / 1000)}s spot=${s.spotText}`, f);
-      rec(vp, 'J-W3', 'header Draft; Clone gone; Discard in the panel header', /^Draft/.test(s.state ?? '') && !s.clone && (s.discard || !wide), `state=${s.state} clone=${s.clone} discard=${s.discard} bar="${s.barText}"`, f);
+      const discardInBar = await page.getByTestId('workspace-bar').getByTestId('canvas-discard').isVisible().catch(() => false);
+      rec(vp, 'J-W3', 'header (Draft) tag; Clone gone; Discard in the page header at every width, with the panel open or not (3c X6, X13)', /^Draft/.test(s.state ?? '') && !s.clone && discardInBar, `state=${s.state} clone=${s.clone} discard in bar=${discardInBar} bar="${s.barText}"`, f);
       rec(vp, 'J-W3', 'ws=1 kept', s.url.includes('ws=1'), s.url, f);
-      const ph = (await page.getByTestId('thread-panel').locator('header').first().innerText().catch(() => '')).replace(/\s+/g, ' ');
-      rec(vp, 'J-W3', wide ? 'header reads "Draft · from v1" on the clone\'s draft (1440 wireframe)' : '375: header row 1 reads "Draft" only (375 wireframe has no "from")', wide ? /Draft\s*·\s*from v1/.test(s.barText ?? '') : null, `bar="${s.barText}"`, f);
-      rec(vp, 'J-W3', 'thread panel header reads "Draft · vN"', /Draft\s*·\s*v\d+/.test(ph), `panel header="${ph}" panelVisible=${s.panel}`, f);
+      const ph = (await page.getByTestId('canvas-thread-title').first().innerText().catch(() => '')).replace(/\s+/g, ' ');
+      rec(vp, 'J-W3', 'the clone\'s header reads [vN ▾] (Draft) and never "from v1" (3c X6)', !/from v1/i.test(s.barText ?? '') && s.picker && /v\d+/.test(s.pickerText ?? '') && /^Draft/.test(s.state ?? ''), `bar="${s.barText}" picker="${s.pickerText}"`, f);
+      rec(vp, 'J-W3', 'the panel header is the mirror agent\'s face and name with "Your mirror agent"; "Draft · vN" and "New draft from v1" are gone (3c X8)', /Your mirror agent/.test(ph) && !/Draft\s*·\s*v\d+|New draft from/.test(ph), `panel header="${ph}" panelVisible=${s.panel}`, f);
       rec(vp, 'J-W3', 'no blank message bubble in the thread', s.blankMessages === 0, `blankMessages=${s.blankMessages}`, f);
       // re-checks of the fixes
       rec(vp, 'J-W3', "during the Clone's first Send, canvas-upload-waits shows and canvas-upload is gone (20ms sampler)", cl.uploadWaitsNoUpload && !cl.uploadBoth, `uploadWaitsShownWithoutUpload=${cl.uploadWaitsNoUpload} uploadAndWaitsTogether=${cl.uploadBoth} samples=${cl.samples}`, f);
@@ -746,7 +747,7 @@ async function walk(browser: Browser, vp: number, height: number) {
       const ce = since(CONSOLE, tClone, vp);
       rec(vp, 'J-W3', "the Clone's first Send makes no mirror-reply request and no console error", mr.length === 0 && ce.length === 0, `mirror-reply=${JSON.stringify(mr.map(r => r.status))} console=${JSON.stringify(ce.map(c => c.text.slice(0, 80)))} canvas calls=${JSON.stringify(since(REQLOG, tClone, vp).map(r => `${r.url}:${r.status}`))}`, f);
       const vc = spotVerdict(logs.spot);
-      rec(vp, 'J-W3', 'the clone run: no not-published / mid-run no-changes between Updating… and the end (25ms sampler)', vc.sawUpdating && vc.bad.length === 0, vc.text, f);
+      rec(vp, 'J-W3', 'the clone run: no mid-run "Nothing to publish yet" or read between Updating… and the end (25ms sampler)', vc.sawUpdating && vc.bad.length === 0, vc.text, f);
       const blankSamples = logs.blank.filter(b => b[1] > 0);
       rec(vp, 'J-W3', "no blank grey bubble after the Clone's first Send (25ms sampler: a card or a card-shaped skeleton only)", blankSamples.length === 0, `blank/skeleton changes=${JSON.stringify(logs.blank)}`, f);
       rec(vp, 'J-W3', "the Clone's thread has no onboarding and no Copy prompt after its first Send", !s.copyPrompt && !/Want to save time|Give your mirror agent|Copy prompt/.test(s.panelText), `copyPrompt=${s.copyPrompt} panel="${s.panelText.slice(0, 220)}"`, f);
@@ -814,10 +815,13 @@ async function walk(browser: Browser, vp: number, height: number) {
     await step(vp, 'J-W4', 'drafts-tab', async () => {
       await toCanvasesTab(page);
       await page.getByRole('button', { name: 'Drafts' }).or(page.getByRole('tab', { name: 'Drafts' })).first().click();
-      await page.waitForTimeout(1500);
+      await page.getByTestId('artifact-row').first().waitFor({ timeout: 30_000 }).catch(() => undefined); // the list reads from the server: wait for it, not a fixed time
+      await page.waitForTimeout(500);
       const f = await shot(page, vp, 'J-W4', 'canvases-drafts-list');
       const rows = await page.getByTestId('artifact-row').allInnerTexts();
       rec(vp, 'J-W4', 'Drafts tab lists the canvas with an open draft', rows.length >= 1, `rows=${JSON.stringify(rows.map(r => r.replace(/\s+/g, ' ')))}`, f);
+      const draftTags = await page.getByTestId('artifact-row').first().getByTestId('canvas-draft-tag').count();
+      rec(vp, 'J-W4', 'Drafts row reads the draft\'s number and carries no (Draft) tag: the list says it (3c X14)', /\bv\d+\b/.test(rows[0] ?? '') && draftTags === 0, `row=${JSON.stringify((rows[0] ?? '').replace(/\s+/g, ' '))} draftTags=${draftTags}`, f);
       await page.getByTestId('artifact-row').first().getByRole('link').first().click();
       await page.waitForURL(/\/canvas\/canvas(?:_\d+)?/, { timeout: 20_000 });
       await page.waitForTimeout(2000);
@@ -830,11 +834,12 @@ async function walk(browser: Browser, vp: number, height: number) {
     await step(vp, 'J-W4', 'mine-tab', async () => {
       await toCanvasesTab(page);
       await page.getByRole('button', { name: 'Mine' }).or(page.getByRole('tab', { name: 'Mine' })).first().click();
-      await page.waitForTimeout(1500);
+      await page.getByTestId('artifact-row').first().waitFor({ timeout: 30_000 }).catch(() => undefined);
+      await page.waitForTimeout(500);
       const f = await shot(page, vp, 'J-W4', 'canvases-mine-list');
       const rows = await page.getByTestId('artifact-row').allInnerTexts();
-      const badge = await page.getByTestId('artifact-badge').allInnerTexts();
-      rec(vp, 'J-W4', 'Mine lists the published canvas with a "Draft open" badge', rows.length === 1 && badge.some(b => /Draft open/i.test(b)), `rows=${JSON.stringify(rows.map(r => r.replace(/\s+/g, ' ')))} badges=${JSON.stringify(badge)}`, f);
+      const tags = await page.getByTestId('artifact-row').first().getByTestId('canvas-draft-tag').allInnerTexts();
+      rec(vp, 'J-W4', 'Mine lists the canvas with its newest PUBLISHED number and the (Draft) tag, not "Draft open" (3c X14)', rows.length === 1 && /\bv1\b/.test(rows[0] ?? '') && tags.length === 1 && /^Draft$/.test(tags[0]!.trim()) && !/Draft open/i.test(rows[0] ?? ''), `rows=${JSON.stringify(rows.map(r => r.replace(/\s+/g, ' ')))} tags=${JSON.stringify(tags)} (the walk's open draft is from v1, so the newest published number is v1 and the draft is v2)`, f);
       await page.getByTestId('artifact-row').first().getByRole('link').first().click();
       await page.waitForURL(/\/canvas\/canvas(?:_\d+)?/, { timeout: 20_000 });
       await page.waitForTimeout(2000);
@@ -879,22 +884,25 @@ async function walk(browser: Browser, vp: number, height: number) {
       const texts = (await cards.allInnerTexts()).map(t => t.replace(/\s+/g, ' '));
       const states = await cards.evaluateAll(els => els.map(e => e.getAttribute('data-state')));
       const clipped = await cards.getByTestId('canvas-version-state').evaluateAll(els => els.map(e => ({ text: e.textContent, clipped: (e as HTMLElement).scrollWidth > (e as HTMLElement).clientWidth })));
+      const tagged = await cards.evaluateAll(els => els.map(e => e.querySelectorAll('[data-testid="canvas-draft-tag"]').length));
+      const buttons = await cards.evaluateAll(els => els.map(e => (e.querySelector('a') as HTMLElement | null)?.textContent?.trim() ?? null));
       rec(vp, 'J-W5', 'one card per thread root (3 expected: published, update draft, new draft)', texts.length === 3, `cards=${JSON.stringify(texts)} states=${JSON.stringify(states)}`, f0 && f);
-      rec(vp, 'J-W5', 'a card names its state as "Canvas N · vN · Draft|Published" (spec wording)', texts.some(t => /Draft/.test(t)) && texts.some(t => /Published/.test(t)), `cards=${JSON.stringify(texts)}`, f);
-      rec(vp, 'J-W5', 'the state word is fully readable (not clipped by an ellipsis)', clipped.every(c => !c.clipped), `state lines=${JSON.stringify(clipped)}`, f);
+      // 3c X10: a card's state is its THREAD'S draft's: open = (Draft) tag + Open draft; published = "vN · date" + View, with no state word (X5); discarded says so
+      rec(vp, 'J-W5', 'cards by thread state (3c X10): open = (Draft) tag + "Open draft"; published = "vN · date" + "View" with no state word', states.length === 3 && states.every((st, i) => (st === 'draft' ? tagged[i] === 1 && buttons[i] === 'Open draft' : st === 'published' ? tagged[i] === 0 && buttons[i] === 'View' && /\bv\d+ ·/.test(texts[i]!) && !/Published/.test(texts[i]!) : false)) && states.filter(st => st === 'draft').length === 2 && states.filter(st => st === 'published').length === 1, `states=${JSON.stringify(states)} tags=${JSON.stringify(tagged)} buttons=${JSON.stringify(buttons)} cards=${JSON.stringify(texts)}`, f);
+      rec(vp, 'J-W5', 'the state text is fully readable (the tag never truncates; not clipped by an ellipsis)', clipped.every(c => !c.clipped), `state lines=${JSON.stringify(clipped)}`, f);
       for (let i = 0; i < texts.length; i++) {
         await page.goto(page.url());
         await page.waitForTimeout(2500);
         const c = page.getByTestId('attachment-canvas_version').nth(i);
         const label = (await c.innerText()).replace(/\s+/g, ' ');
-        await c.getByTestId('canvas-card-open').or(c.getByRole('button', { name: /^Open/ })).or(c.getByRole('link', { name: /^Open/ })).first().click();
+        const isDraft = (await c.getAttribute('data-state')) === 'draft'; // read before the click: the card is not on the page after it
+        await c.getByRole('link', { name: /^(Open draft|View) canvas/ }).first().click(); // 3c X10: Open draft on an open thread, View on a published one
         await page.waitForTimeout(3500);
         const sO = await snap(page);
         const fO = await shot(page, vp, 'J-W5', `card-${i}-open`);
-        rec(vp, 'J-W5', `card ${i + 1} "${label.slice(0, 50)}": Open lands where its version resolves`, null, `url=${sO.url} state=${sO.state} panel=${sO.panel} switcher=${sO.switcher} spot=${sO.spotText} (for a Draft card the spec says ?ws=1 on Canvas, as J-W4; for Published, ?v=<version> with no ws=1)`, fO);
-        const isDraft = /Draft/.test(label);
-        if (isDraft) rec(vp, 'J-W5', `Draft card Open lands on ?ws=1, as J-W4`, sO.url.includes('ws=1') && (wide ? sO.panel : sO.switcher), `url=${sO.url} panel=${sO.panel} switcher=${sO.switcher}`, fO);
-        else rec(vp, 'J-W5', `Published card whose canvas has an open draft: Open lands in the workspace (W1: a card's Open lands in workspace mode only when a draft is open)`, sO.url.includes('ws=1') && /Draft/.test(sO.state ?? ''), `url=${sO.url} state=${sO.state} panel=${sO.panel} switcher=${sO.switcher} (the card says Published but Open shows the Draft)`, fO);
+        rec(vp, 'J-W5', `card ${i + 1} "${label.slice(0, 50)}": its button lands where its thread's state says`, null, `url=${sO.url} state=${sO.state} panel=${sO.panel} switcher=${sO.switcher} spot=${sO.spotText}`, fO);
+        if (isDraft) rec(vp, 'J-W5', `Open draft lands on ?ws=1 on Canvas, as J-W4 (3c X10, X13)`, sO.url.includes('ws=1') && (wide ? sO.panel : sO.switcher && sO.onThreadTab === false), `url=${sO.url} panel=${sO.panel} switcher=${sO.switcher} onThreadTab=${sO.onThreadTab}`, fO);
+        else rec(vp, 'J-W5', `View on the published card lands on its version, ?v=<version> with no ws=1, even while another draft is open (3c X10; supersedes W1)`, sO.url.includes(`v=${vName}`) && !sO.url.includes('ws=1') && sO.state === null && !sO.panel, `url=${sO.url} state=${sO.state} panel=${sO.panel} switcher=${sO.switcher}`, fO);
         await page.goBack().catch(() => undefined);
       }
     });
@@ -904,13 +912,31 @@ async function walk(browser: Browser, vp: number, height: number) {
         if (!d) { rec(vp, 'J-W5', label, null, 'NOT REACHED: no such draft row'); return; }
         await page.goto(`/chats/c/${d.conversation_id}/t/${d.thread_root_id}`);
         await page.waitForURL(u => !/\/chats\//.test(u.pathname), { timeout: 25_000 }).catch(() => undefined);
-        await page.waitForTimeout(2500);
+        await page.getByTestId('canvas-state').waitFor({ timeout: 30_000 }).catch(() => undefined); // the page has read the draft (its (Draft) tag shows) before the check looks; a page that never gets there still fails the check
+        await page.waitForTimeout(1000);
         const s = await snap(page);
         const f = await shot(page, vp, 'J-W5', shotName);
         const okk = check(s, page.url()); rec(vp, 'J-W5', label, okk ? true : (enabled ? false : null), `${enabled ? '' : 'NOT REACHED with drafting off (spec: drafting off, the thread stays readable as today; W0 resolution is gated on drafting being on). '}${expectText} | got url=${s.url}`, f);
       });
     await oldAddr('old address, open draft -> /canvas/:tag?ws=1', openDraft, (s, u) => /\/canvas\/canvas(?:_\d+)?/.test(u) && u.includes('ws=1') && /^Draft/.test(s.state ?? ''), 'expect /canvas/:tag?ws=1 showing the draft', 'old-address-open-draft');
-    await oldAddr('old address, published version -> ?v=<version>', pubDraft, (s, u) => /\/canvas\/canvas(?:_\d+)?/.test(u) && u.includes(`v=${vName}`) && !u.includes('ws=1') && !s.panel, 'expect ?v=<version name>, no ws, no panel', 'old-address-published');
+    // 3c X11 narrows W0: only an OPEN draft's thread address redirects. A published or discarded one stays readable in the chat's own panel: the history, no composer,
+    // upload or voice, and the closed line in their place.
+    const closedAddr = async (label: string, d: { conversation_id: string; thread_root_id: string } | undefined, line: RegExp, openCanvas: boolean, shotName: string) =>
+      step(vp, 'J-W5', label, async () => {
+        if (!d) { rec(vp, 'J-W5', label, null, 'NOT REACHED: no such draft row'); return; }
+        const addr = `/chats/c/${d.conversation_id}/t/${d.thread_root_id}`;
+        await page.goto(addr);
+        await page.getByTestId('canvas-closed-line').waitFor({ timeout: 30_000 }).catch(() => undefined);
+        await page.waitForTimeout(1500);
+        const f = await shot(page, vp, 'J-W5', shotName);
+        const lineText = ((await page.getByTestId('canvas-closed-line').textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ').trim();
+        const panel = page.getByTestId('thread-panel');
+        const composers = await panel.getByTestId('composer').count();
+        const open = await page.getByTestId('canvas-closed-open').count();
+        const here = new URL(page.url());
+        rec(vp, 'J-W5', label, here.pathname === addr && line.test(lineText) && composers === 0 && (openCanvas ? open === 1 : open === 0), `url=${here.pathname} line="${lineText}" composers=${composers} open canvas buttons=${open}`, f);
+      });
+    await closedAddr('old address, published draft stays readable in the chat panel: "Published as vN." + Open canvas, no composer (3c X11)', pubDraft, /^Published as v\d+\./, true, 'old-address-published');
 
     // ---------------------------------------------------------------- Discard (W6) on the open clone draft
     cur.j = 'J-W3';
@@ -923,12 +949,14 @@ async function walk(browser: Browser, vp: number, height: number) {
       await expect(discard).toBeVisible({ timeout: 30_000 });
       const sd = await snap(page);
       const f0 = await shot(page, vp, 'J-W3', 'discard-visible');
-      rec(vp, 'J-W3', 'Discard sits in the thread panel header', sd.discard, 'secondary destructive pill; blue buttons=' + JSON.stringify(sd.blue), f0);
+      const discardInBar2 = await page.getByTestId('workspace-bar').getByTestId('canvas-discard').isVisible().catch(() => false);
+      rec(vp, 'J-W3', 'Discard sits in the page header, so it is there with the thread panel closed too (3c X6)', sd.discard && discardInBar2, `discard in bar=${discardInBar2}; secondary destructive pill; blue buttons=` + JSON.stringify(sd.blue), f0);
       await discard.click();
       await page.getByRole('dialog').waitFor({ state: 'visible' });
       const f1 = await shot(page, vp, 'J-W3', 'discard-confirm', 900);
       await page.getByRole('dialog').getByRole('button', { name: /^Discard/ }).click();
       await expect.poll(() => new URL(page.url()).searchParams.get('ws'), { timeout: 30_000 }).toBeNull();
+      if (enabled) await page.getByTestId('canvas-clone').waitFor({ timeout: 20_000 }).catch(() => undefined); // the published view has loaded; a page that never shows Clone still fails the check below
       await page.waitForTimeout(1500);
       s = await snap(page);
       const f = await shot(page, vp, 'J-W3', 'after-discard');
@@ -936,7 +964,7 @@ async function walk(browser: Browser, vp: number, height: number) {
       void f1;
     });
     cur.j = 'J-W5';
-    await oldAddr('old address, discarded draft -> newest published version', openDraft, (s, u) => /\/canvas\/canvas(?:_\d+)?/.test(u) && !u.includes('ws=1') && s.spotState === 'share', 'expect the canvas page at its newest published version (Share in the spot, 3c X4), no ws', 'old-address-discarded');
+    await closedAddr('old address, discarded draft stays readable in the chat panel: "This draft was discarded.", no button, no composer (3c X11)', openDraft, /^This draft was discarded\./, false, 'old-address-discarded');
 
     // ---------------------------------------------------------------- Rename
     cur.j = 'Rename';
@@ -1034,7 +1062,7 @@ async function walk(browser: Browser, vp: number, height: number) {
         const s = await sample(page, vp, `pixel-clone-pending-${w}`);
         const f = await shot(page, w, 'Pixel', `clone-pending-${w}`);
         rec(vp, 'Pixel', `workspace @${w}: no horizontal overflow`, s.scrollWidth <= s.innerWidth, `scrollWidth=${s.scrollWidth} innerWidth=${s.innerWidth}`, f);
-        rec(vp, 'Pixel', `workspace @${w}: Share labelled "Share"`, /Share/.test(s.shareText ?? ''), `share="${s.shareText}"`, f);
+        rec(vp, 'Pixel', `workspace @${w}: no Share on a draft or a pending Clone (3c X6: Share is absent on every draft)`, !s.share && s.shareText === null, `share=${s.share} "${s.shareText}" spot="${s.spotText}"`, f);
         rec(vp, 'Pixel', `workspace @${w}: no "Clarity Canvas" text`, !s.clarityCanvasText, '', f);
         rec(vp, 'Pixel', `workspace @${w}: at most one primary`, primariesOf(s).length <= 1, `blue=${JSON.stringify(s.blue)}`, f);
         band(s, 'workspace', w, f);
@@ -1381,7 +1409,7 @@ async function immediateWalk(browser: Browser, vp: number, height: number, mode:
     rec(vp, J, 'no toast at all during the Send and the run (20ms sampler)', cv.maxToasts === 0, `max toasts=${cv.maxToasts} samples=${cv.samples}`, fD);
     rec(vp, J, 'while it waits the composer slot reads Updating… and the field is empty (20ms sampler)', cv.slotUpdatingFieldEmpty, `first Updating… in the slot at ${cv.slotUpdatingFirstAt}ms; send call at ${sends[0] ? sends[0].t - tSend : 'none'}ms`, fD);
     rec(vp, J, 'the run ends in Publish with boxes filled', v.last === 'publish' && sD.points > 0, `${v.text} points=${sD.points}`, fD);
-    rec(vp, J, 'the spot never shows not-published, no-changes or loading between Updating… and Publish (25ms sampler)', v.sawUpdating && v.bad.length === 0, v.text, fD);
+    rec(vp, J, 'the spot never shows "Nothing to publish yet" or loading between Updating… and Publish (25ms sampler)', v.sawUpdating && v.bad.length === 0, v.text, fD);
     const msgs = (await supabaseAdmin.from('chat_messages').select('id,body,thread_root_id,canvas_run_id').eq('author_id', user.user.id).not('body', 'is', null)).data ?? [];
     const mine = msgs.filter(m => (m.body ?? '').includes('Acme Test Bakery sells sourdough'));
     const runs = mine[0] ? (await supabaseAdmin.from('canvas_draft_runs').select('id,state,kind,trigger_message_id').eq('trigger_message_id', mine[0].id)).data ?? [] : [];
@@ -1836,7 +1864,7 @@ async function sendStatus(browser: Browser, vp: number, height: number, double: 
     rec(vp, J, 'the slot reads Updating… within 100 ms of the tap', !!firstUpd && firstUpd[0] - (tap ?? 0) <= 100, `tap at ${tap}ms; first Updating… at ${firstUpd?.[0]}ms; gap ${firstUpd && tap !== null ? firstUpd[0] - tap : 'none'}ms; send call ${sends[0] ? 'present' : 'missing'}`, f);
     rec(vp, J, 'from the tap until the reply is stored, every sample has the status or the text', bare.length === 0 && replyAt !== null, `samples in the window=${window_.length} (tap ${tap}ms .. reply STORED at ${storedAt}ms by the database's created_at [first seen by the poller at ${seenAtPage}ms], shown in the thread at ${shownAt}ms; samples after the store are dropped: ${after.length - window_.length}) with neither status nor text in the window=${bare.length} ${bare.slice(0, 6).map(r => `${r[0]}ms`).join(',')}; for comparison, bare samples before the reply was SHOWN=${bareToShown.length}`, f);
     rec(vp, J, 'one canvas_workspace_send (200), no toast', sends.length === 1 && sends[0].status === 200 && composerVerdict(rows).maxToasts === 0, `calls=${JSON.stringify(sends.map(x => x.status))} max toasts=${composerVerdict(rows).maxToasts}${rows.find(r => r[8]) ? ` first toast at ${rows.find(r => r[8])![0]}ms: "${rows.find(r => r[8])![8]}"` : ''}`, f);
-    rec(vp, J, 'the spot never shows not-published, no-changes or loading between Updating… and Publish', v.sawUpdating && v.bad.length === 0 && v.last === 'publish', v.text, f);
+    rec(vp, J, 'the spot never shows "Nothing to publish yet" or loading between Updating… and Publish', v.sawUpdating && v.bad.length === 0 && v.last === 'publish', v.text, f);
   } finally {
     rec(vp, 'env', `every Supabase request went to (${J})`, hostOk(), JSON.stringify(Object.fromEntries(HOSTS)));
     await ctx.close().catch(() => undefined);

@@ -57,22 +57,6 @@ export interface CanvasThreadRead {
   retry: () => void;
 }
 
-/** The send limit of one chat message (the same 4,000 characters the server checks). */
-export const CARRY_MAX_CHARS = 4000;
-
-/** Cuts text into pieces of at most `max` characters, at a space or line break where there is one. */
-export function splitText(text: string, max: number): string[] {
-  const out: string[] = [];
-  let rest = text;
-  while (rest.length > max) {
-    const at = Math.max(rest.lastIndexOf(' ', max), rest.lastIndexOf('\n', max));
-    const cut = at > 0 ? at : max;
-    out.push(rest.slice(0, cut).trim());
-    rest = rest.slice(cut).trim();
-  }
-  return [...out, rest].filter((t) => t !== '');
-}
-
 const startOf = (run: CanvasDraftRun | null): number | null => (run ? Date.parse(run.startedAt ?? run.createdAt) : null);
 
 const isActiveState = (run: CanvasDraftRun | null): run is CanvasDraftRun => !!run && (run.state === 'queued' || run.state === 'running');

@@ -8,7 +8,8 @@
  *   | nothing-to-publish (a draft with a base and no difference: the status in the spot) | published-header (a published view with nothing being
  *   edited: the owner's bar above the page, no workspace: Clone, Share) | panel-closed (the thread panel closed: Canvas on screen)
  *   | new-canvas (an empty new canvas on Thread: the opener's Copy prompt) | pending-clone (a Clone pending: (New draft), Cancel, the status)
- * Not yet here (their screens are built by S4 and S5): the J4 sheet, the mixed reply and the J10 publish reply.
+ *   | j4-sheet (the J4 sheet over a published version with another draft open) | mixed-reply (a mixed pack's reply and its offer rows, J7 to J9, in the open draft's thread)
+ *   | j10-reply (a published draft's thread in the chat's own panel: offer rows with Start, the closed line; no workspace, no composer). Those three come from ThreadStates.tsx.
  */
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -24,6 +25,7 @@ import type { PublishSpotState } from '@/app/components/canvas/canvas-publish-sp
 import { CanvasWorkspaceLayout, type WorkspaceView } from '@/app/components/canvas/canvas-workspace-layout';
 import { DiscardDraftButton } from '@/app/pages/canvas/discard-draft-button';
 import { stashDraft } from '@/app/pages/chat/chat-hooks';
+import { ClosedPublishedThread, J4Sheet, MixedReply } from './ThreadStates';
 import { Composer } from '@/app/pages/chat/Composer';
 import { resetCanvasAvailability, seedCanvasAvailability } from '@/app/pages/chat/use-canvas-availability';
 import { groupPointsByBox } from '@/lib/canvas-boxes';
@@ -42,8 +44,9 @@ const POINTS = [
 ];
 
 type OnScreen = 'draft' | 'published' | 'pending';
-interface Phase { spot: PublishSpotState; changed: string[] | undefined; view: WorkspaceView; typed: boolean; onScreen: OnScreen; active: boolean; panelOpen: boolean; empty: boolean; draftOpen: boolean; baseSeq: number | null }
-const DRAFT: Phase = { spot: { kind: 'publish' }, changed: ['canvas:problem'], view: 'canvas', typed: false, onScreen: 'draft', active: true, panelOpen: true, empty: false, draftOpen: true, baseSeq: 1 };
+type Screen = 'j4' | 'mixed' | 'closed' | null;
+interface Phase { screen: Screen; spot: PublishSpotState; changed: string[] | undefined; view: WorkspaceView; typed: boolean; onScreen: OnScreen; active: boolean; panelOpen: boolean; empty: boolean; draftOpen: boolean; baseSeq: number | null }
+const DRAFT: Phase = { screen: null, spot: { kind: 'publish' }, changed: ['canvas:problem'], view: 'canvas', typed: false, onScreen: 'draft', active: true, panelOpen: true, empty: false, draftOpen: true, baseSeq: 1 };
 const PHASES: Record<string, Phase> = {
   canvas: DRAFT,
   'chat-composing': { ...DRAFT, view: 'chat', typed: true },
@@ -54,6 +57,9 @@ const PHASES: Record<string, Phase> = {
   'panel-closed': { ...DRAFT, panelOpen: false },
   'new-canvas': { ...DRAFT, spot: { kind: 'nothing' }, changed: [], view: 'chat', empty: true, baseSeq: null },
   'pending-clone': { ...DRAFT, spot: { kind: 'nothing' }, changed: undefined, view: 'chat', onScreen: 'pending', draftOpen: false },
+  'j4-sheet': { ...DRAFT, screen: 'j4', spot: { kind: 'nothing' }, changed: undefined, onScreen: 'published', active: false },
+  'mixed-reply': { ...DRAFT, screen: 'mixed', view: 'chat' },
+  'j10-reply': { ...DRAFT, screen: 'closed' },
 };
 
 const V1 = { name: 'canvas_d111111', createdAt: NOW, seq: 1, publishedAt: NOW, draft: false };
@@ -78,6 +84,16 @@ function FakeThread() {
   );
 }
 
+function PhaseNav() {
+  return (
+    <nav className="flex h-14 flex-wrap items-center gap-2 border-b px-2 text-xs" data-testid="gate-shell-stand-in">
+      {Object.keys(PHASES).map(p => (
+        <a key={p} href={`/tree/_gate/canvas-workspace?phase=${p}`} className="underline">{p}</a>
+      ))}
+    </nav>
+  );
+}
+
 export function GateFixture() {
   const [params] = useSearchParams();
   const requested = params.get('phase') ?? 'canvas';
@@ -93,6 +109,14 @@ export function GateFixture() {
   useEffect(() => resetCanvasAvailability, []);
   const ready = readyFor(config);
   const boxes = groupPointsByBox(config.empty ? [] : POINTS);
+  if (config.screen === 'closed') {
+    return (
+      <div className="mx-auto max-w-[1440px]">
+        <PhaseNav />
+        <ClosedPublishedThread />
+      </div>
+    );
+  }
   // The route element's context, as the owner's page sees it: the bar is the header (ownerBar) and Clone is handed over. Copy prompt is the
   // secondary pill everywhere (3c X9), so the context carries nothing about it.
   const workspace: CanvasWorkspaceValue = {
@@ -101,11 +125,7 @@ export function GateFixture() {
   return (
     <CanvasWorkspaceContext.Provider value={workspace}>
       <div className="mx-auto max-w-[1440px]">
-        <nav className="flex h-14 flex-wrap items-center gap-2 border-b px-2 text-xs" data-testid="gate-shell-stand-in">
-          {Object.keys(PHASES).map(p => (
-            <a key={p} href={`/tree/_gate/canvas-workspace?phase=${p}`} className="underline">{p}</a>
-          ))}
-        </nav>
+        <PhaseNav />
         <CanvasWorkspaceLayout
           active={config.active}
           view={view}
@@ -143,11 +163,12 @@ export function GateFixture() {
           }
           chat={
             <>
-              {config.empty ? <div className="min-h-0 flex-1 overflow-y-auto"><CanvasThreadOpener title={null} /></div> : <FakeThread />}
+              {config.empty ? <div className="min-h-0 flex-1 overflow-y-auto"><CanvasThreadOpener title={null} /></div> : config.screen === 'mixed' ? <MixedReply /> : <FakeThread />}
               <Composer draftKey={draftKey} placeholder="Reply in thread" onSend={() => undefined} />
             </>
           }
         />
+        {config.screen === 'j4' && <J4Sheet />}
       </div>
     </CanvasWorkspaceContext.Provider>
   );
