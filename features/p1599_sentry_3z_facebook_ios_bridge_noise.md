@@ -10,8 +10,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [sentry, observability, noise, in-app-browser]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1599: Facebook iOS in-app browser bridge throw reports to Sentry as our error
