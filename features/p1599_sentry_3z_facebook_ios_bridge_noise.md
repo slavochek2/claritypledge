@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 86
 severity: low
@@ -10,8 +10,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [sentry, observability, noise, in-app-browser]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1599: Facebook iOS in-app browser bridge throw reports to Sentry as our error
@@ -53,11 +53,11 @@ Sentry records `TypeError: undefined is not an object (evaluating 'window.webkit
 
 Add an anchored `ignoreErrors` pattern, as P988's decision allows for host-injected errors (`docs/decisions.md`, P988 [technical]). Sentry tests the bare value and `Type: value` separately, so both forms are pinned in tests. Longer property paths on the same bridge are deliberately not matched: none has been observed, and missing one fails toward reporting.
 
-The fix was built before this spec on `fix/sentry-3z-fb-ios-bridge`.
+The fix was built before this spec existed; its branch was renamed to `fix/p1599-sentry-3z-fb-ios-bridge`.
 
 ## Acceptance Criteria
 
-- [ ] The exact 3Z message, bare and with the `TypeError: ` prefix, is dropped
-- [ ] An application error wrapping that message still reports
-- [ ] A different undefined access still reports
-- [ ] The test for the 3Z message fails when the pattern is removed
+- [x] The exact 3Z message, bare and with the `TypeError: ` prefix, is dropped
+- [x] An application error wrapping that message still reports
+- [x] A different undefined access still reports
+- [x] The test for the 3Z message fails when the pattern is removed

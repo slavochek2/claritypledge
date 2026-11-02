@@ -41,9 +41,10 @@ export const IGNORED_ERROR_PATTERNS: RegExp[] = [
   /Object Not Found Matching Id/i,
 
   // P988 — code injected into the page by the HOST browser, not shipped by us.
-  // Every observed event has zero application frames: the only entries are
+  // Observed events have zero application frames. The first cases carry only
   // Sentry's own instrumentation wrappers plus an <anonymous> frame, with
-  // mechanism auto.browser.browserapierrors.setTimeout.
+  // mechanism auto.browser.browserapierrors.setTimeout; others differ, and the
+  // note on each pattern says how (JAVASCRIPT-REACT-3Z: named frames, onerror).
   //
   // Telegram Mini Apps SDK: injected by Telegram's in-app browser when an
   // /events/* link is opened from a chat (JAVASCRIPT-REACT-2C, -2M, -2K, -2B,
@@ -70,7 +71,7 @@ export const IGNORED_ERROR_PATTERNS: RegExp[] = [
   // processLargestContentfulPaintEvent) reads window.webkit.messageHandlers, which is absent
   // in that WebView (JAVASCRIPT-REACT-3Z). Zero application frames; our source never touches
   // window.webkit. ANCHORED, with or without the "TypeError: " prefix Sentry also tests.
-  /^(TypeError: )?undefined is not an object \(evaluating 'window\.webkit\.messageHandlers'\)$/,
+  /^(?:TypeError: )?undefined is not an object \(evaluating 'window\.webkit\.messageHandlers'\)$/,
 ];
 
 /**
