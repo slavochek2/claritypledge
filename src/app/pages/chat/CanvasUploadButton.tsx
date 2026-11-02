@@ -1,12 +1,13 @@
 /**
  * @file CanvasUploadButton.tsx
- * @description P1536: the upload control of a canvas thread, in the composer to the left of the paperclip: a secondary
- * button with a plus and "Upload". One file at a time; the server reads it to text and keeps only the text. Shown only in
- * a canvas thread while drafting is on. The upload itself (and its row in the checklist) lives in use-canvas-uploads.
+ * @description P1536: the upload control of a canvas thread, in the composer's first spot: the paperclip icon (3c X3: + creates, the paperclip
+ * attaches, the same meaning as in the mirror chat), named "Upload". One file at a time; the server reads it to text and keeps only the text.
+ * Shown only in a canvas thread while drafting is on. The upload itself (and its row in the checklist) lives in use-canvas-uploads.
  */
 import { useRef } from 'react';
-import { Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Paperclip } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { FOCUS_RING, HOVER, ROUND } from './chat-kit';
 import { UPLOAD_ACCEPT, UPLOAD_LABEL, UPLOAD_WAITS_LABEL } from './canvas-thread-copy';
 
 export function CanvasUploadButton({ busy, onPick }: { busy: boolean; onPick: (file: File | undefined) => void }) {
@@ -26,18 +27,18 @@ export function CanvasUploadButton({ busy, onPick }: { busy: boolean; onPick: (f
           onPick(file);
         }}
       />
-      <Button
+      <button
         type="button"
-        variant="outline"
+        aria-label={UPLOAD_LABEL}
+        title={UPLOAD_LABEL}
         aria-busy={busy}
         data-testid="canvas-upload"
         onClick={() => !busy && input.current?.click()}
-        className="h-10 shrink-0 gap-1 rounded-full border-blue-600 px-3 text-blue-600 hover:text-blue-700"
+        className={cn(ROUND, 'text-muted-foreground', HOVER, FOCUS_RING)}
       >
-        {/* a static plus while a file reads: the checklist row is what spins */}
-        <Plus aria-hidden="true" />
-        {UPLOAD_LABEL}
-      </Button>
+        {/* static while a file reads: the checklist row is what spins */}
+        <Paperclip className="h-5 w-5" aria-hidden="true" />
+      </button>
     </>
   );
 }
@@ -46,7 +47,7 @@ export function CanvasUploadButton({ busy, onPick }: { busy: boolean; onPick: (f
 export function CanvasUploadWaits() {
   return (
     <span role="status" aria-label={UPLOAD_WAITS_LABEL} title={UPLOAD_WAITS_LABEL} data-testid="canvas-upload-waits" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60">
-      <Plus aria-hidden="true" className="h-4 w-4" />
+      <Paperclip aria-hidden="true" className="h-4 w-4" />
     </span>
   );
 }

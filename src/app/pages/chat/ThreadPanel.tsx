@@ -122,6 +122,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
         earlierLabel="Load earlier replies"
         {...canvas.list}
         trailing={canvas.trailing}
+        after={canvas.after}
       />
       {canvas.readState}
       {blockedReason ? (

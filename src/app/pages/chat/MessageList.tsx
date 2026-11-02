@@ -54,9 +54,11 @@ interface Props {
   leadAfterId?: string | null;
   /** P1536: something drawn right under one message (a failed run's Try again sits under the owner message it belongs to). */
   trailing?: { afterId: string; node: ReactNode } | null;
+  /** P1536 D7: nodes drawn right under messages, by message id (Undo under the mirror's reply; the "Undone" mark under an owner message). */
+  after?: Record<string, ReactNode>;
 }
 
-export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages', privateRows, lead, hideId = null, leadAfterId = null, trailing = null }: Props) {
+export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages', privateRows, lead, hideId = null, leadAfterId = null, trailing = null, after }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -257,6 +259,11 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
                   {trailing && m.id === trailing.afterId && (
                     <li role="presentation" data-testid="message-trailing">
                       {trailing.node}
+                    </li>
+                  )}
+                  {after?.[m.id] && (
+                    <li role="presentation" data-testid="message-after">
+                      {after[m.id]}
                     </li>
                   )}
                   {placement === 'after' && m.id === leadAfterId && (

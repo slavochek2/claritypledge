@@ -24,3 +24,20 @@ export function publishedViewHref(ownerSlug: string, canvasName: string, version
 export function newestPublishedHref(ownerSlug: string, canvasName: string): string {
   return canvasPath(encodeURIComponent(ownerSlug), canvasName);
 }
+
+/**
+ * 3c X3: "Clone a version" from the mirror chat's + picks a version, navigates to it and then runs the same clone() decision as the Clone button, once the
+ * version has loaded. The pick rides in the navigation's state (never the address, so nothing is bookmarked or shared) and is consumed once: the page strips it.
+ */
+export const CLONE_INTENT_KEY = 'cloneThisVersion';
+
+export function hasCloneIntent(state: unknown): boolean {
+  return !!state && typeof state === 'object' && (state as Record<string, unknown>)[CLONE_INTENT_KEY] === true;
+}
+
+/** The navigation state with the Clone intent removed (every other key, such as `from`, stays). */
+export function withoutCloneIntent<T>(state: T): T {
+  if (!hasCloneIntent(state)) return state;
+  const { [CLONE_INTENT_KEY]: _consumed, ...rest } = state as Record<string, unknown>;
+  return rest as T;
+}

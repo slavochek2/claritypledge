@@ -2,7 +2,8 @@
  * @file p1536-w0-start-entries.test.tsx
  * @description P1536 §3b W0/W1 (S3b.3): every way of starting a canvas lands on the WORKSPACE, never on the chat thread.
  * Each entry's final pathname, its exact `ws`, and the selected version (`v`) are asserted separately:
- *  - Artifacts New canvas;  - the mirror's New canvas menu item;  - the mirror's + > Canvas (a picked version);
+ *  - Artifacts New canvas;  - the mirror chat's + > New canvas (3c X3 premise change: it was the "..." menu's New canvas, and the paperclip's Canvases tab started a draft from a
+ *    picked version; that tab is gone and "Clone a version" navigates instead, see p1536-x3-*.test.tsx; `start(versionId)` stays covered below as the hook's own contract);
  *  - the "open draft elsewhere" dialog (continue / discard) lands on the workspace of the right draft;
  *  - the carried change requests still go into the new thread (the engine's thread-scoped input).
  */
@@ -25,7 +26,8 @@ vi.mock('sonner', () => ({ toast: toastFn }));
 vi.mock('@/app/data/canvas-draft-service', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-draft-service')), ...svc }));
 
 import { NewCanvasButton } from '@/app/pages/artifacts/artifacts-new-canvas';
-import { useCanvasEntry, useStartCanvas } from '@/app/pages/chat/use-start-canvas';
+import { useStartCanvas } from '@/app/pages/chat/use-start-canvas';
+import { CanvasPlusMenu } from '@/app/pages/chat/CanvasPlusMenu';
 import { ChatContext, type ChatContextValue } from '@/app/pages/chat/chat-state';
 import { resetCanvasAvailability } from '@/app/pages/chat/use-canvas-availability';
 import { resetCanvasThreads } from '@/app/pages/chat/canvas-thread-registry';
@@ -70,14 +72,12 @@ function wrap(ui: ReactNode, at: string) {
 }
 
 function Mirror({ carry = [] as string[] }: { carry?: string[] }) {
-  const entry = useCanvasEntry(true, vi.fn());
   const { start, dialog } = useStartCanvas();
   return (
     <>
-      <button type="button" onClick={() => entry.onNewCanvas?.()}>menu-new-canvas</button>
-      <button type="button" onClick={() => entry.onPickCanvas?.('ver-2')}>plus-canvas</button>
+      <CanvasPlusMenu />
+      <button type="button" onClick={() => void start('ver-2')}>plus-canvas</button>
       <button type="button" onClick={() => void start('ver-2', carry)}>start-with-carry</button>
-      {entry.dialog}
       {dialog}
     </>
   );
@@ -110,14 +110,15 @@ describe('S3b.3: each start lands on the workspace of the new draft', () => {
     expect(svc.openCanvasDraft).toHaveBeenCalledWith(null);
   });
 
-  it('the mirror menu New canvas: the same', async () => {
+  it('the mirror chat\'s + > New canvas: the same', async () => {
     wrap(<Mirror />, '/chats/c/conv-1');
-    fireEvent.click(await screen.findByText('menu-new-canvas'));
+    fireEvent.pointerDown(await screen.findByTestId('composer-plus'), { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'New canvas' }));
     await expectWorkspace('canvas_7', 'canvas_7_dabc12');
     expect(screen.getByTestId('from')).toHaveTextContent('/chats/c/conv-1');
   });
 
-  it('the mirror + > Canvas (a picked version): the workspace on the draft made from it', async () => {
+  it('start from a picked version (the hook\'s contract; no screen calls it with a version since 3c X3): the workspace on the draft made from it', async () => {
     svc.openCanvasDraft.mockResolvedValue(opened({ canvasName: 'sales_map', versionName: 'sales_map_d99', fromSeq: 1 }));
     wrap(<Mirror />, '/chats/c/conv-1');
     fireEvent.click(await screen.findByText('plus-canvas'));

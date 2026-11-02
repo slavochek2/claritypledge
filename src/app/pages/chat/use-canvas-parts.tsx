@@ -11,6 +11,8 @@ import { CanvasThreadReadState } from './CanvasReadState';
 import { CanvasCapNotice } from './CanvasCapNotice';
 import { sendSlotOf, type CanvasWorkspaceProps } from './canvas-send-slot';
 import { canvasRetryTrailing } from './canvas-retry-trailing';
+import { canvasUndoAfter } from './canvas-undo-after';
+import { useCanvasUndo } from './use-canvas-undo';
 import { canvasListParts } from './canvas-list-parts';
 import { CanvasThreadTitle } from './CanvasThreadHeader';
 import { UploadSpot } from './CanvasUploadButton';
@@ -37,6 +39,8 @@ export interface CanvasParts {
   leading: ReactNode;
   /** A failed newest run's Try again, under the owner message it belongs to (null otherwise). */
   trailing: { afterId: string; node: ReactNode } | null;
+  /** D7: Undo (or its waiting status) under the newest applied run's reply, and "Undone" under the owner messages it undid, by message id. */
+  after: Record<string, ReactNode>;
   runActive: boolean;
   /** D15: why the next Send must wait (its status for the send slot), or undefined. */
   waiting: string | undefined;
@@ -55,6 +59,7 @@ export function useCanvasParts(args: CanvasPartsArgs): CanvasParts {
   const pane = useCanvasPane(args);
   const { canvas, canvasOn, uploader } = pane;
   const live = canvasOn === true ? canvas : null;
+  const undo = useCanvasUndo(live);
   // W0: "Send is the update". A Send before the thread's answer is known waits and then goes the way the answer says (use-held-send), never refused.
   const route = sendRouteOf({ onSend: pane.onSend, rootPending: !!args.rootPending, canvasRoot: args.canvasRoot, canvasOn, canvas, readStatus: pane.read.status });
   const held = useHeldSend(route, args.sendPlain);
@@ -68,6 +73,7 @@ export function useCanvasParts(args: CanvasPartsArgs): CanvasParts {
     /** The composer's Upload button, while the draft takes files. */
     leading: live?.draft.state === 'open' ? <UploadSpot waiting={!!slot.waiting} busy={uploader.busy} onPick={(f) => void uploader.upload(f)} /> : undefined,
     trailing: canvasRetryTrailing(live, args) ?? publishReplyOpen(args),
+    after: canvasUndoAfter(undo),
     closedLine: closedThreadLine(live, args),
     /** A run is going, or a file is being added (D15: Publish waits): the workspace's Publish spot reads "Updating…" meanwhile. */
     runActive: slot.active,

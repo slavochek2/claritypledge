@@ -84,7 +84,8 @@ import { resetCanvasAvailability } from '@/app/pages/chat/use-canvas-availabilit
 import { RUN_POLL_MS } from '@/app/pages/chat/use-canvas-thread';
 import { clearDraftsExcept } from '@/app/pages/chat/chat-hooks';
 import { isCanvasThread, resetCanvasThreads } from '@/app/pages/chat/canvas-thread-registry';
-import { useCanvasEntry, useStartCanvas } from '@/app/pages/chat/use-start-canvas';
+import { useStartCanvas } from '@/app/pages/chat/use-start-canvas';
+import { CanvasPlusMenu } from '@/app/pages/chat/CanvasPlusMenu';
 import { ChatContext, type ChatContextValue } from '@/app/pages/chat/chat-state';
 import { GateFixture } from '@/app/tree/_gate/canvas-thread/GateFixture';
 import { lacksSecondaryPill } from './p1536-pill-assert';
@@ -179,16 +180,13 @@ beforeEach(() => {
 });
 
 describe('AC15: the upload control', () => {
-  it('shows in a canvas thread while drafting is on: a secondary button, plus and "Upload", before the field', async () => {
+  it('shows in a canvas thread while drafting is on: the paperclip icon named "Upload" (3c X3 premise change: it was a blue "+ Upload" pill), before the field', async () => {
     await renderThread();
     const upload = await screen.findByTestId('canvas-upload');
     expect(upload).toHaveAccessibleName('Upload');
-    expect(upload).toHaveTextContent('Upload');
-    expect(upload.querySelector('svg')).not.toBeNull();
-    // secondary: the Button outline variant (white, bordered), never the filled primary
-    expect(upload.className).toContain('border');
+    expect(upload.querySelector('svg.lucide-paperclip')).not.toBeNull();
+    expect(upload.querySelector('svg.lucide-plus')).toBeNull();
     expect(upload.className).not.toContain('bg-blue-600');
-    expect(upload.className).toContain('text-blue-600');
     // it sits in the composer row, before the field
     const composer = screen.getByTestId('composer');
     expect(composer).toContainElement(upload);
@@ -309,19 +307,18 @@ describe('AC16: drafting off', () => {
     expect(screen.queryByTestId('canvas-upload')).not.toBeInTheDocument();
   });
 
-  function Entry({ part }: { part: 'menu' | 'paperclip' }) {
-    const entry = useCanvasEntry(true, vi.fn());
+  function Entry({ part }: { part: 'menu' | 'paperclip' | 'plus' }) {
+    if (part === 'plus') return <CanvasPlusMenu />;
     return part === 'menu' ? (
-      <ConversationHeader chat={mirrorChat} blocked={false} actions={{ onBack: vi.fn(), onArchive: vi.fn(), onMarkUnread: vi.fn(), onBlock: vi.fn(), onUnblock: vi.fn(), onRename: vi.fn(), onNewCanvas: entry.onNewCanvas } as HeaderActions} />
+      <ConversationHeader chat={mirrorChat} blocked={false} actions={{ onBack: vi.fn(), onArchive: vi.fn(), onMarkUnread: vi.fn(), onBlock: vi.fn(), onUnblock: vi.fn(), onRename: vi.fn() } as HeaderActions} />
     ) : (
-      <AttachDialog viewerId={ME} onPick={vi.fn()} onClose={vi.fn()} onPickCanvas={entry.onPickCanvas} />
+      <AttachDialog viewerId={ME} onPick={vi.fn()} onClose={vi.fn()} />
     );
   }
 
   it('the mirror menu has no New canvas', async () => {
     state.available = false;
     wrap(<Entry part="menu" />, `/chats/c/${MIRROR_ID}`);
-    await waitFor(() => expect(svc.getCanvasDraftAvailability).toHaveBeenCalled());
     await act(async () => {});
     fireEvent.pointerDown(screen.getByRole('button', { name: 'More' }), { button: 0, ctrlKey: false, pointerType: 'mouse' });
     expect(within(screen.getByRole('menu')).queryByRole('menuitem', { name: 'New canvas' })).not.toBeInTheDocument();
@@ -330,10 +327,17 @@ describe('AC16: drafting off', () => {
   it('the paperclip has no Canvases tab', async () => {
     state.available = false;
     wrap(<Entry part="paperclip" />, `/chats/c/${MIRROR_ID}`);
-    await waitFor(() => expect(svc.getCanvasDraftAvailability).toHaveBeenCalled());
     await act(async () => {});
     expect(screen.getByRole('tab', { name: 'Points' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Canvases' })).not.toBeInTheDocument();
+  });
+
+  it('the + is not there (3c X3 premise change: it creates, so it is gone with the rest)', async () => {
+    state.available = false;
+    wrap(<Entry part="plus" />, `/chats/c/${MIRROR_ID}`);
+    await waitFor(() => expect(svc.getCanvasDraftAvailability).toHaveBeenCalled());
+    await act(async () => {});
+    expect(screen.queryByTestId('composer-plus')).not.toBeInTheDocument();
   });
 });
 
@@ -384,72 +388,53 @@ describe('P1536 S1: a file post that fails after the announcement is tried once 
   });
 });
 
-describe('AC9: the paperclip lists canvas versions', () => {
+describe('AC9 (3c X3 premise change): Clone a version lists the canvas versions', () => {
   const versions = [
     { id: 'ver-2', canvasId: 'cv-1', canvasName: 'canvas', name: 'canvas_dbbb22', seq: 2, publishedAt: '2026-10-26T10:00:00Z', hasOpenDraft: false },
     { id: 'ver-1', canvasId: 'cv-1', canvasName: 'canvas', name: 'canvas_daaa11', seq: 1, publishedAt: '2026-10-20T10:00:00Z', hasOpenDraft: false },
   ];
+  const openClone = async () => {
+    wrap(<CanvasPlusMenu />, `/chats/c/${MIRROR_ID}`);
+    fireEvent.pointerDown(await screen.findByTestId('composer-plus'), { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Clone a version' }));
+    return screen.findByRole('dialog', { name: 'Clone a version' });
+  };
 
-  function Paperclip({ onPicked = vi.fn() }: { onPicked?: () => void }) {
-    const entry = useCanvasEntry(true, onPicked);
-    return (
-      <>
-        <AttachDialog viewerId={ME} onPick={vi.fn()} onClose={vi.fn()} onPickCanvas={entry.onPickCanvas} />
-        {entry.dialog}
-      </>
-    );
-  }
-
-  it('lists the versions as "v{seq} · date" under a Canvases tab, and picking an older one starts a draft from it', async () => {
+  it('lists the versions as "v{seq} · date", and picking an older one navigates to it without starting anything', async () => {
     svc.listMyCanvasVersions.mockResolvedValue(versions);
-    const onPicked = vi.fn();
-    wrap(<Paperclip onPicked={onPicked} />, `/chats/c/${MIRROR_ID}`);
-    fireEvent.click(await screen.findByRole('tab', { name: 'Canvases' }));
-    const list = await screen.findByTestId('canvas-version-results');
+    const dialog = await openClone();
+    const list = await within(dialog).findByTestId('canvas-version-results');
     const rows = within(list).getAllByRole('button');
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent(/^v2 · /);
     expect(rows[1]).toHaveTextContent(/^v1 · /);
     fireEvent.click(rows[1]!);
-    await waitFor(() => expect(svc.openCanvasDraft).toHaveBeenCalledWith('ver-1'));
-    expect(onPicked).toHaveBeenCalled();
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/p/test-user/canvas/canvas?v=canvas_dnew&ws=1')); // W0: the workspace, not the chat thread
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/p/test-user/canvas/canvas?v=canvas_daaa11'));
+    expect(screen.getByTestId('where')).not.toHaveTextContent('ws=1'); // the page decides what Clone does, once the version has loaded
+    expect(svc.openCanvasDraft).not.toHaveBeenCalled();
   });
 
-  it('says so when there is no published canvas, and CONTROL: points and stories are still the first tabs', async () => {
-    wrap(<Paperclip />, `/chats/c/${MIRROR_ID}`);
-    expect(await screen.findByRole('tab', { name: 'Points' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Stories' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('tab', { name: 'Canvases' }));
-    expect(await screen.findByText(/no published canvas yet/)).toBeInTheDocument();
+  it('says so when there is no published canvas', async () => {
+    const dialog = await openClone();
+    expect(await within(dialog).findByText(/no published canvas yet/)).toBeInTheDocument();
   });
 
   it('a version that has an open draft says so before it is picked', async () => {
     svc.listMyCanvasVersions.mockResolvedValue([{ ...versions[0]!, hasOpenDraft: true }]);
-    wrap(<Paperclip />, `/chats/c/${MIRROR_ID}`);
-    fireEvent.click(await screen.findByRole('tab', { name: 'Canvases' }));
-    expect(await screen.findByText('has an open draft')).toBeInTheDocument();
+    const dialog = await openClone();
+    expect(await within(dialog).findByText('has an open draft')).toBeInTheDocument();
   });
 });
 
-describe('the entry point: New canvas in the mirror\'s menu', () => {
-  function Menu() {
-    const entry = useCanvasEntry(true, vi.fn());
-    return (
-      <>
-        <ConversationHeader chat={mirrorChat} blocked={false} actions={{ onBack: vi.fn(), onArchive: vi.fn(), onMarkUnread: vi.fn(), onBlock: vi.fn(), onUnblock: vi.fn(), onRename: vi.fn(), onNewCanvas: entry.onNewCanvas } as HeaderActions} />
-        {entry.dialog}
-      </>
-    );
-  }
+describe('the entry point: New canvas in the mirror chat\'s + (3c X3 premise change: it was the "..." menu)', () => {
+  const openMenu = async () => {
+    wrap(<CanvasPlusMenu />, `/chats/c/${MIRROR_ID}`);
+    fireEvent.pointerDown(await screen.findByTestId('composer-plus'), { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'New canvas' }));
+  };
 
   it('opens a brand-new canvas in the workspace (W0)', async () => {
-    wrap(<Menu />, `/chats/c/${MIRROR_ID}`);
-    // availability is asked once the pane mounts; the item appears when the answer is exactly true
-    await waitFor(() => expect(svc.getCanvasDraftAvailability).toHaveBeenCalled());
-    await act(async () => {});
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'More' }), { button: 0, ctrlKey: false, pointerType: 'mouse' });
-    fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'New canvas' }));
+    await openMenu();
     await waitFor(() => expect(svc.openCanvasDraft).toHaveBeenCalledWith(null));
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/p/test-user/canvas/canvas?v=canvas_dnew&ws=1'));
   });
@@ -457,19 +442,10 @@ describe('the entry point: New canvas in the mirror\'s menu', () => {
   it('a failed start is said in a sentence, and nothing navigates', async () => {
     const { CanvasDraftRefusal } = await import('@/app/data/canvas-draft-service');
     svc.openCanvasDraft.mockRejectedValueOnce(new CanvasDraftRefusal('TOO_MANY_DRAFTS'));
-    wrap(<Menu />, `/chats/c/${MIRROR_ID}`);
-    await act(async () => {});
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'More' }), { button: 0, ctrlKey: false, pointerType: 'mouse' });
-    fireEvent.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'New canvas' }));
+    await openMenu();
     await waitFor(() => expect(toastFn.error).toHaveBeenCalledWith(expect.stringContaining('too many open canvas drafts')));
     expect(screen.getByTestId('where')).toHaveTextContent(`/chats/c/${MIRROR_ID}`);
     expect(screen.getByTestId('where')).not.toHaveTextContent('/t/');
-  });
-
-  it('CONTROL: a channel\'s menu never offers it', () => {
-    wrap(<ConversationHeader chat={{ ...mirrorChat, kind: 'group', title: 'Team' }} blocked={false} actions={{ onBack: vi.fn(), onArchive: vi.fn(), onMarkUnread: vi.fn(), onBlock: vi.fn(), onUnblock: vi.fn(), onRename: vi.fn(), onNewCanvas: vi.fn() } as HeaderActions} />);
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'More' }), { button: 0, ctrlKey: false, pointerType: 'mouse' });
-    expect(within(screen.getByRole('menu')).queryByRole('menuitem', { name: 'New canvas' })).not.toBeInTheDocument();
   });
 });
 

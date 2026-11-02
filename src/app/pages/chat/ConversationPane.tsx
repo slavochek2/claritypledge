@@ -22,7 +22,7 @@ import { useMirror, useRestoreMirrorStatuses } from './mirror-state';
 import { useMirrorAsks } from './use-mirror-asks';
 import { conversationCopy, readThroughId } from './conversation-derived';
 import { useOpenHitThread } from './use-open-hit-thread';
-import { useCanvasEntry } from './use-start-canvas';
+import { CanvasPlusMenu } from './CanvasPlusMenu';
 import { isLeavingChat, takeStagedClarify, onClarifyStaged, takeComposerFocus, type StagedClarify, useBack, useChatNavigate, useLeaveChat, usePageVisible } from './chat-hooks';
 import { useChat } from './chat-state';
 import { chatErrorText, chatPath, hasWayBackElsewhere, isChannel, mirrorRole } from './chat-view-model';
@@ -38,6 +38,11 @@ interface Props {
   paneVisible: boolean;
   /** A thread is open beside (or over) this chat: this pane offers no filled primary, so a canvas thread's action is the only one (P955). */
   threadOpen?: boolean;
+}
+
+/** 3c X3: the + of the owner's mirror chat's main composer. A private @mirror ask hides the paperclip, so it hides this too. */
+function mirrorPlus(summary: ChatSummary, privateTo: MentionEntry | null) {
+  return summary.kind === 'mirror' && !privateTo ? <CanvasPlusMenu /> : undefined;
 }
 
 /** A link to a chat the person cannot open (never existed, or access ended). */
@@ -139,7 +144,6 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
     readStaged();
   }, [summary.conversationId, location.key, readStaged]);
   useEffect(() => onClarifyStaged(readStaged), [readStaged]);
-  const canvasEntry = useCanvasEntry(summary.kind === 'mirror', () => setAttaching(false));
   const [renaming, setRenaming] = useState(false);
   const [blocking, setBlocking] = useState(false);
   const [target, setTarget] = useState<string | null>(highlightId);
@@ -207,7 +211,6 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
     },
     onRename: () => setRenaming(true),
     onMirrorInfo: summary.kind === 'mirror' ? () => setInfoOpen(true) : undefined,
-    onNewCanvas: canvasEntry.onNewCanvas,
   };
 
   return (
@@ -249,6 +252,8 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
           focusToken={focusToken}
           autoFocus
           onAttach={privateTo ? undefined : () => setAttaching(true)}
+          // 3c X3: the owner's mirror chat's main composer only, hidden where the paperclip is hidden
+          leading={mirrorPlus(summary, privateTo)}
           staged={staged}
           onUnstage={() => setStaged(null)}
           quote={<PendingQuote clarify={clarify} replyTo={replyTo} authors={chat.authors} onClearClarify={() => setClarify(null)} onClearReply={() => setReplyTo(null)} />}
@@ -315,11 +320,9 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
         />
       )}
       {dialogs}
-      {canvasEntry.dialog}
       {attaching && (
         <AttachDialog
           viewerId={chat.userId}
-          onPickCanvas={canvasEntry.onPickCanvas}
           onClose={() => setAttaching(false)}
           onPick={(s) => {
             setStaged(s);

@@ -96,6 +96,9 @@ export const CLOSED_THREAD_TITLE = 'Thread';
 
 /** The menu item that opens a new canvas thread from the mirror. */
 export const NEW_CANVAS_LABEL = 'New canvas';
+/** 3c X3: the + on the mirror chat's composer creates; its second item clones a published version. [FOUNDER DECISION: wording, built as written in the spec's wording table.] */
+export const CLONE_VERSION_LABEL = 'Clone a version';
+export const CREATE_LABEL = 'Create';
 
 /** One sentence per refusal of a run or an upload. */
 export const DRAFT_ERROR_TEXT: Record<string, string> = {
@@ -121,6 +124,12 @@ export const DRAFT_ERROR_TEXT: Record<string, string> = {
 export const SEND_SLOT_UPDATING = 'Updating…';
 export const SEND_SLOT_ELSEWHERE = 'Another of your canvases is updating.';
 export const UPLOAD_WAITS_LABEL = 'Upload waits for the update';
+/** D7 / J6 / D15: Undo sits under the mirror's reply of the newest applied run; while an update runs its spot is a status. [FOUNDER DECISION: wording, built as written; the spec quotes "Undo", "Undone." and "Undone".] */
+export const UNDO_LABEL = 'Undo';
+export const UNDO_WAITS_LABEL = 'Undo waits for the update';
+export const UNDONE_MARK = 'Undone';
+/** The two-tab case: this tab's Undo named a run or a revision that is no longer the draft's. [FOUNDER DECISION: wording] */
+export const UNDO_STALE_TEXT = 'This draft changed since you last looked. Check it, then try Undo again.';
 /** The server's cap on used runs of one draft (`cap_reached`, the 30th used run); `runCount` counts them. */
 /**
  * 3c X8: the line the mirror agent opens a draft's thread with when the draft has a base (drawn on screen from the base's number; never stored).

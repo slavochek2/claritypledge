@@ -1,8 +1,7 @@
 /**
  * P1536: every way of starting a canvas. `useStartCanvas` starts one (and asks the owner what to do when the canvas already has an
  * open draft) and opens the WORKSPACE on the draft: the canvas page on the draft's version with `ws=1`, never the chat thread (W0:
- * the workspace is the one place an owner edits a canvas). `useCanvasEntry` is what the mirror conversation hangs on its "New
- * canvas" menu item and its paperclip's Canvases tab, so the conversation pane itself only passes the results along.
+ * the workspace is the one place an owner edits a canvas). The mirror chat's + (CanvasPlusMenu) calls it for "New canvas".
  */
 import { useCallback, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -13,7 +12,6 @@ import { joinCarried } from './canvas-carry';
 import { canvasStartErrorText, startCanvasThread, type StartedCanvasThread } from './canvas-start';
 import { workspaceHref } from './canvas-links';
 import { useChat } from './chat-state';
-import { useCanvasDraftAvailability } from './use-canvas-availability';
 
 interface Pending {
   found: StartedCanvasThread;
@@ -127,24 +125,4 @@ export function useStartCanvas(): { start: (fromVersionId?: string | null, carry
   ) : null;
 
   return { start, dialog };
-}
-
-/** For the mirror conversation: the two entries into a canvas thread, present only while canvas drafting is on. */
-export function useCanvasEntry(isMirror: boolean, onPicked: () => void): {
-  onNewCanvas: (() => void) | undefined;
-  onPickCanvas: ((versionId: string) => void) | undefined;
-  dialog: ReactNode;
-} {
-  const on = useCanvasDraftAvailability(isMirror) === true;
-  const { start, dialog } = useStartCanvas();
-  return {
-    onNewCanvas: on ? () => void start(null) : undefined,
-    onPickCanvas: on
-      ? (versionId) => {
-          onPicked();
-          void start(versionId);
-        }
-      : undefined,
-    dialog,
-  };
 }

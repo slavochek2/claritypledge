@@ -26,8 +26,6 @@ export interface HeaderActions {
   onRename: () => void;
   /** P1520: the mirror's name opens its info panel (face, name, Rename, New portrait). */
   onMirrorInfo?: () => void;
-  /** P1536: the mirror's "New canvas": a new thread that drafts a canvas from what the owner gives it. Absent unless canvas drafting is on. */
-  onNewCanvas?: () => void;
 }
 
 const NAME = 'block truncate text-[15px] font-semibold leading-tight text-foreground sm:text-base sm:leading-normal';

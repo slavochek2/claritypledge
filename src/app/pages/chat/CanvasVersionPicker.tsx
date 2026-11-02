@@ -1,7 +1,7 @@
 /**
  * @file CanvasVersionPicker.tsx
- * @description P1536: the paperclip's Canvases tab. Lists the owner's published canvas versions; picking one starts a draft
- * from it (not an attachment), so a new thread can begin from any version, not only the newest.
+ * @description P1536 3c X3: the body of the + menu's "Clone a version" dialog. Lists the owner's published canvas versions; picking one hands that version
+ * back (the caller navigates to it and clones it), so a clone can begin from any version, not only the newest.
  */
 import { useEffect, useState } from 'react';
 import { LayoutGrid } from 'lucide-react';
@@ -12,7 +12,7 @@ import { FOCUS_RING, HOVER, InlineError } from './chat-kit';
 
 const versionLabel = (v: Pick<CanvasVersionOption, 'seq' | 'publishedAt'>) => canvasVersionLabel(v.seq, v.publishedAt);
 
-export function CanvasVersionPicker({ onPick }: { onPick: (versionId: string) => void }) {
+export function CanvasVersionPicker({ onPick }: { onPick: (version: CanvasVersionOption) => void }) {
   const [state, setState] = useState<{ status: 'loading' } | { status: 'error' } | { status: 'ready'; items: CanvasVersionOption[] }>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -47,8 +47,8 @@ export function CanvasVersionPicker({ onPick }: { onPick: (versionId: string) =>
         <li key={v.id}>
           <button
             type="button"
-            onClick={() => onPick(v.id)}
-            aria-label={`Start from canvas ${versionLabel(v)}`}
+            onClick={() => onPick(v)}
+            aria-label={`Clone ${versionLabel(v)}`}
             className={cn('flex min-h-14 w-full items-center gap-3 rounded-xl border px-3 text-left', HOVER, FOCUS_RING)}
           >
             <LayoutGrid className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
