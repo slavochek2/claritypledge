@@ -149,6 +149,16 @@ test.describe('P1307: enter_transcribe_room — event registration gate', () => 
     if (!error) createdRoomIds.push((data as Array<{ room_id: string }>)[0]!.room_id);
   });
 
+  test('create_transcribe_room refuses ANY event, even for the host (P1596: the shared event room goes through enter_transcribe_room)', async () => {
+    const hostClient = await clientFor(host);
+    const sessionId = await sessionFor(host, 'create-host');
+    const { data, error } = await hostClient.rpc('create_transcribe_room', {
+      p_code: roomCode(), p_display_name: 'P1307 Host', p_session_id: sessionId, p_consent: true, p_event_id: event.id,
+    });
+    expect(error, 'a host may not create a second room for the event').not.toBeNull();
+    if (!error) createdRoomIds.push((data as Array<{ room_id: string }>)[0]!.room_id);
+  });
+
   test('p_event_id null (ad-hoc room) needs no RSVP check at all — unaffected control', async () => {
     const client = await clientFor(stranger);
     const sessionId = await sessionFor(stranger, 'adhoc');

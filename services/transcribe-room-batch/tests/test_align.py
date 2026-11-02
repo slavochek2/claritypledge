@@ -107,3 +107,28 @@ def test_never_empty_or_whitespace():
 def test_unmatched_leading_words_go_to_first_message():
     out = align_messages(msgs("we ship on monday for sure"), "Um, so, we ship on Monday for sure")
     assert out == ["Um, so, we ship on Monday for sure"]
+
+
+def _placed(*pairs):
+    return [{"id": f"m{i}", "place": pl, "live_text": t} for i, (pl, t) in enumerate(pairs)]
+
+
+def test_cross_place_gap_is_dropped():
+    live = _placed(("thread-1", "the first point is cost"), ("channel", "the third point is risk"))
+    cleaned = "The first point is cost. The second point is quality and speed. The third point is risk."
+    out = align_messages(live, cleaned)
+    assert out == ["The first point is cost.", "The third point is risk."]
+
+
+def test_same_place_gap_still_attaches_to_the_earlier_message():
+    live = _placed(("thread-1", "the first point is cost"), ("thread-1", "the third point is risk"))
+    cleaned = "The first point is cost. The second point is quality and speed. The third point is risk."
+    out = align_messages(live, cleaned)
+    assert out[0] == "The first point is cost. The second point is quality and speed."
+    assert out[1] == "The third point is risk."
+
+
+def test_two_different_threads_drop_the_gap():
+    live = _placed(("thread-1", "the first point is cost"), ("thread-2", "the third point is risk"))
+    out = align_messages(live, "The first point is cost. Extra words nobody posted. The third point is risk.")
+    assert out[0] == "The first point is cost."

@@ -55,3 +55,61 @@ def transcribe_segment(wav: bytes) -> str:
     part = (((payload.get("candidates") or [{}])[0].get("content") or {}).get("parts") or [{}])[0]
     text = (part.get("audioTranscription") or {}).get("text", part.get("text"))
     return text.strip() if isinstance(text, str) else ""
+
+
+# P1596: fixed instruction, a constant. No display name, room code, event title or transcript
+# text is ever interpolated into it.
+VERBATIM_INSTRUCTION = (
+    "Transcribe this audio verbatim, in the language spoken. Output only the words that were said, "
+    "as plain text, with no labels, timestamps or commentary. If nothing is said, output nothing."
+)
+
+
+def transcribe_verbatim_argon(wav: bytes) -> str:
+    """P1596: one ≤60 s masked WAV in, plain text out, via CLEAN_MODEL (default gemini-4-argon).
+
+    Key: the same BATCH project key as transcribe_segment (GEMINI_BATCH_API_KEY, P1162), sent in
+    the x-goog-api-key header, never in the URL. A missing key raises a non-retryable error.
+    """
+    from config import CLEAN_MODEL
+
+    if not GEMINI_API_KEY:
+        raise TranscriptionError(None, retryable=False)
+    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{CLEAN_MODEL}:generateContent"
+    body = json.dumps({
+        "contents": [{"parts": [
+            {"text": VERBATIM_INSTRUCTION},
+            {"inlineData": {"mimeType": "audio/wav", "data": base64.b64encode(wav).decode("ascii")}},
+        ]}],
+    }).encode("utf-8")
+    request = urllib.request.Request(
+        endpoint, data=body, method="POST",
+        headers={"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=GEMINI_TIMEOUT_SECONDS) as response:
+            payload = json.loads(response.read())
+    except urllib.error.HTTPError as err:
+        raise TranscriptionError(err.code, retryable=err.code == 429 or err.code >= 500) from None
+    except (urllib.error.URLError, TimeoutError):
+        raise TranscriptionError(None, retryable=True) from None
+    require_complete_answer(payload)
+    return extract_answer_text(payload)
+
+
+def require_complete_answer(payload: dict) -> None:
+    """No candidate, or one that did not finish with STOP (safety block, token limit, recitation), is an
+    unreliable answer and must never read as silence. Retryable; only a status-free error, no body."""
+    candidates = payload.get("candidates")
+    if not isinstance(candidates, list) or not candidates or not isinstance(candidates[0], dict):
+        raise TranscriptionError(None, retryable=True)
+    reason = candidates[0].get("finishReason")
+    if reason is not None and reason != "STOP":
+        raise TranscriptionError(None, retryable=True)
+
+
+def extract_answer_text(payload: dict) -> str:
+    """Join the non-thought text parts of the first candidate."""
+    parts = ((payload.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+    texts = [p["text"] for p in parts if isinstance(p, dict) and not p.get("thought") and isinstance(p.get("text"), str)]
+    return "".join(texts).strip()

@@ -18,6 +18,7 @@ import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
 import { useVoiceSender } from './use-voice-sender';
 import { cn } from '@/lib/utils';
+import { EventRoomLink } from './EventRoomLink';
 
 export function ThreadPanel({ summary, rootId, highlightId }: { summary: ChatSummary; rootId: string; highlightId: string | null }) {
   const chat = useChat();
@@ -59,6 +60,7 @@ export function ThreadPanel({ summary, rootId, highlightId }: { summary: ChatSum
           <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
           <p className="truncate text-xs text-muted-foreground">{chatTitle(summary)}</p>
         </div>
+        <EventRoomLink chat={summary} />
         <button type="button" onClick={close} aria-label="Close thread" className={cn('-mr-2 hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground lg:flex', HOVER, FOCUS_RING)}>
           <X className="h-[18px] w-[18px]" aria-hidden="true" />
         </button>

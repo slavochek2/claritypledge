@@ -15,6 +15,7 @@ import { createClaritySession } from './api';
 // Shared with slice-recorder.ts: the same defect appeared at three layers of this feature,
 // so the deadline lives in one place rather than three copies that drift.
 import { withDeadline, RequestTimeoutError } from '@/lib/with-deadline';
+import { parseSliceDestination, settleSliceResponse, type SliceDestination } from './transcribe-slice-destination';
 
 export interface TranscribeRoom {
   id: string;
@@ -422,7 +423,7 @@ function bytesToBase64(bytes: Uint8Array): string {
  */
 export const SLICE_REQUEST_TIMEOUT_MS = 15_000;
 
-async function postSlicePayload(body: Record<string, unknown>): Promise<void> {
+async function postSlicePayload(body: Record<string, unknown>): Promise<unknown> {
   const { data: { session } } = await withDeadline(
     supabase.auth.getSession(),
     SLICE_REQUEST_TIMEOUT_MS,
@@ -439,14 +440,7 @@ async function postSlicePayload(body: Record<string, unknown>): Promise<void> {
     // also covers a body that streams forever after a 200.
     signal: AbortSignal.timeout(SLICE_REQUEST_TIMEOUT_MS),
   });
-  if (!response.ok) {
-    const detail = await withDeadline(
-      response.json().catch(() => ({})),
-      SLICE_REQUEST_TIMEOUT_MS,
-      'transcribe-slice error body',
-    ).catch(() => ({}));
-    throw new Error(`transcribe-slice ${response.status}: ${(detail as { error?: string }).error ?? 'unknown'}`);
-  }
+  return settleSliceResponse(response, SLICE_REQUEST_TIMEOUT_MS);
 }
 
 /**
@@ -485,8 +479,12 @@ export async function prewarmSlicePath(roomId: string): Promise<void> {
  *
  * It is also NOT the ordering key and must not become one; `spoken_at` is DB-assigned.
  */
-export async function sendAudioSlice(roomId: string, sequence: number, wav: Uint8Array): Promise<void> {
-  await postSlicePayload({ roomId, sequence, audio: bytesToBase64(wav) });
+export async function sendAudioSlice(
+  roomId: string,
+  sequence: number,
+  wav: Uint8Array,
+): Promise<SliceDestination | null> {
+  return parseSliceDestination(await postSlicePayload({ roomId, sequence, audio: bytesToBase64(wav) }));
 }
 
 export async function getRoomMembers(roomId: string): Promise<TranscribeRoomMember[]> {

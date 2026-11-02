@@ -164,7 +164,11 @@ export function ForwardDialog({
             <div className="min-h-0 flex-1 overflow-y-auto p-4" data-testid="forward-preview">
               <div className="rounded-xl border bg-muted/40 p-3">
                 <p className="text-xs font-medium text-muted-foreground">
-                  Forwarded from <span className="font-semibold text-foreground">{source.forwardSnapshot?.authorName ?? authorName}</span>
+                  {source.systemKind || source.forwardSnapshot?.systemKind ? (
+                    'Forwarded'
+                  ) : (
+                    <>Forwarded from <span className="font-semibold text-foreground">{source.forwardSnapshot?.authorName ?? authorName}</span></>
+                  )}
                 </p>
                 <p className="mt-1 line-clamp-4 whitespace-pre-wrap break-words text-sm text-foreground">
                   {source.forwardSnapshot?.body ?? messageSummary(source)}

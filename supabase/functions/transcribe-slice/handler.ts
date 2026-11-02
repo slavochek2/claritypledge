@@ -25,6 +25,7 @@
  */
 import { dedupeSliceText } from './dedup.ts';
 import { validateSliceRequest, VERR } from './validate.ts';
+import { storeLine, type SliceDestination } from './store-line.ts';
 
 /**
  * Decision 6 ceiling 1. Founder-answered 2026-09-08: 180 minutes.
@@ -101,7 +102,10 @@ export interface HandlerDeps {
   getPreviousText: (memberId: string) => Promise<string | null>;
   /** Service-role write: one row, plus the slice counter, in one call. spoken_at is the
    *  column DEFAULT and is never passed. */
-  insertMessage: (roomId: string, memberId: string, text: string) => Promise<void>;
+  insertMessage: (roomId: string, memberId: string, text: string) => Promise<unknown>;
+  /** P1592: service-role read of where the stored line was (or will be, on retry) posted.
+   *  Optional so older callers keep working; a throw or null never fails the slice. */
+  getDestination?: (messageId: string) => Promise<SliceDestination | null>;
   /** Injected so the room hard-stop is testable without waiting three hours. */
   now: () => Date;
 }
@@ -213,12 +217,7 @@ export async function handleTranscribeSlice(req: Request, deps: HandlerDeps): Pr
     return json(200, { text: '', stripped: deduped.strippedTokens });
   }
 
-  try {
-    await deps.insertMessage(parsed.roomId, m.memberId, text);
-  } catch (err) {
-    console.error('[transcribe-slice] insert failed:', err);
-    return json(500, { error: ERR.persist });
-  }
-
-  return json(200, { text, stripped: deduped.strippedTokens });
+  const stored = await storeLine(deps, parsed.roomId, m.memberId, text);
+  if (!stored.ok) return json(500, { error: ERR.persist });
+  return json(200, { text, stripped: deduped.strippedTokens, destination: stored.destination });
 }

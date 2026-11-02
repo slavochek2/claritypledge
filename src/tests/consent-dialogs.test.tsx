@@ -64,7 +64,7 @@ describe('TermsUpdateDialog', () => {
     render(<TermsUpdateDialog {...defaultProps} />);
 
     expect(
-      screen.getByRole('heading', { name: /we've updated our terms and privacy policy/i })
+      screen.getByRole('heading', { name: /^new feature/i })
     ).toBeInTheDocument();
   });
 
@@ -78,7 +78,7 @@ describe('TermsUpdateDialog', () => {
     render(<TermsUpdateDialog {...defaultProps} />);
 
     const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveTextContent(/by continuing, you agree to the updated terms\./i);
+    expect(dialog).toHaveTextContent(/to continue, you need to agree to them\./i);
     expect(dialog.textContent ?? '').not.toMatch(/session|record/i);
   });
 
@@ -96,7 +96,7 @@ describe('TermsUpdateDialog', () => {
     expect(privacyLink).toHaveAttribute('href', '/privacy-policy');
   });
 
-  it('calls onAccept when Continue is clicked', async () => {
+  it('calls onAccept when Agree and continue is clicked', async () => {
     const onAccept = vi.fn();
     const { TermsUpdateDialog } = await import(
       '@/app/components/live-meeting/terms-update-dialog'

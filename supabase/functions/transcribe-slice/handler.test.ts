@@ -691,3 +691,32 @@ Deno.test('P1307: control — a member whose capture is running is still transcr
   assertEquals((await call(deps, 'alice', SLICE)).status, 200);
   assertEquals(deps.transcribed.length, 1);
 });
+
+// ── P1592: the response tells the bar where the line went ─────────────────────
+
+Deno.test('P1592: the success response carries the stored destination', async () => {
+  const deps = makeDeps({
+    insertMessage: () => Promise.resolve('row-1'),
+    getDestination: (id) => Promise.resolve(id === 'row-1' ? { kind: 'round', label: 'Round 2 · Anna & Ben' } : null),
+  });
+  const r = await call(deps, 'alice', SLICE);
+  assertEquals(r.status, 200);
+  assertEquals(r.body.destination, { kind: 'round', label: 'Round 2 · Anna & Ben' });
+});
+
+Deno.test('P1592: a failing destination read never fails the slice (destination: null)', async () => {
+  const deps = makeDeps({
+    insertMessage: () => Promise.resolve('row-1'),
+    getDestination: () => Promise.reject(new Error('rpc down')),
+  });
+  const r = await call(deps, 'alice', SLICE);
+  assertEquals(r.status, 200);
+  assertEquals(r.body.destination, null);
+  assertEquals(r.body.text, 'hello there world');
+});
+
+Deno.test('P1592: no row id or no reader means destination: null, still 200', async () => {
+  const r = await call(makeDeps(), 'alice', SLICE);
+  assertEquals(r.status, 200);
+  assertEquals(r.body.destination, null);
+});

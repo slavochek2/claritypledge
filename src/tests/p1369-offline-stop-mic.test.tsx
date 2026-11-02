@@ -35,7 +35,10 @@ vi.mock('@/app/data/transcribe-service', () => ({
 vi.mock('@/app/data/api', () => ({ uploadRoomAudioChunk: upload }));
 vi.mock('@/lib/audio/slice-recorder', () => ({
   createSerialSender: () => vi.fn(),
-  createSliceRecorder: vi.fn().mockResolvedValue({ stop: vi.fn() }),
+  createSliceRecorder: vi.fn().mockImplementation(async (_s: unknown, opts: { onArchiveChunk?: (w: Uint8Array, tail: boolean) => void }) => ({
+    // P1596: the archive is cut from the tap; its stop() hands over the unfinished tail synchronously.
+    stop: () => opts.onArchiveChunk?.(new Uint8Array([82, 73, 70, 70]), true),
+  })),
 }));
 vi.mock('@/app/contexts/room-capture-core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/app/contexts/room-capture-core')>()),
@@ -43,21 +46,6 @@ vi.mock('@/app/contexts/room-capture-core', async (importOriginal) => ({
 }));
 
 import { RoomCaptureProvider, useRoomCapture } from '@/app/contexts/room-capture-context';
-
-class FakeRecorder {
-  state: 'inactive' | 'recording' | 'paused' = 'inactive';
-  ondataavailable: ((e: { data: Blob }) => void) | null = null;
-  onstop: (() => void) | null = null;
-  start() { this.state = 'recording'; }
-  requestData() { this.ondataavailable?.({ data: new Blob(['part']) }); }
-  pause() { this.state = 'paused'; }
-  resume() { this.state = 'recording'; }
-  stop() {
-    this.ondataavailable?.({ data: new Blob(['tail']) });
-    this.state = 'inactive';
-    setTimeout(() => this.onstop?.(), 0);
-  }
-}
 
 let ctx: ReturnType<typeof useRoomCapture>;
 function Harness() {
@@ -71,7 +59,6 @@ beforeEach(() => {
   // Offline: nothing that goes to the network ever settles.
   upload.mockReset().mockImplementation(() => new Promise(() => {}));
   endRpc.mockReset().mockImplementation(() => new Promise(() => {}));
-  vi.stubGlobal('MediaRecorder', FakeRecorder);
   Object.defineProperty(navigator, 'mediaDevices', {
     configurable: true,
     value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: trackStop }] }) },
@@ -92,7 +79,7 @@ describe('P1369: Stop microphone works offline', () => {
 
     await act(async () => {
       void ctx.endMyCapture('r1'); // never settles offline — not awaited
-      await new Promise((r) => setTimeout(r, 20)); // the recorder's onstop turn, nothing more
+      await new Promise((r) => setTimeout(r, 20)); // one turn, nothing more
     });
 
     expect(trackStop).toHaveBeenCalled();

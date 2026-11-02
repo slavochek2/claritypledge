@@ -18,6 +18,7 @@ import { CountBadge, Divider, InlineError, MessagesSkeleton } from './chat-kit';
 import { MessageRow, type MessageActions } from './MessageRow';
 import { compareMessages, describeGrouping, dayLabel } from './chat-view-model';
 import { isLocal, type useConversationMessages } from './use-conversation';
+import { continuesTranscription } from './transcription-run';
 
 export type ConversationApi = ReturnType<typeof useConversationMessages>;
 export type ListActions = Omit<MessageActions, 'onJumpTo' | 'lookup' | 'getLoaded' | 'version' | 'onRetry' | 'onDiscard' | 'onEdit'>;
@@ -233,6 +234,7 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
                     authors={authors}
                     compact={g.compact}
                     prevMessageId={messages[i - 1]?.id}
+                    continuesTranscription={continuesTranscription(messages[i - 1], m, g.dayBreak || !g.compact)}
                     highlight={flashId === m.id}
                     stat={stats.get(m.id)}
                     actions={fullActions}

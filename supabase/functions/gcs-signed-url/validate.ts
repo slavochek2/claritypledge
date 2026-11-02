@@ -18,12 +18,12 @@ export const ROOM_PREFIX_RE = new RegExp(`^rooms/([A-Z0-9]{6})/([a-z0-9-]{0,100}
 
 // devRecordingFilenamePrefix() ('_dev_') + sanitised name + `_chunk_NNN` / `_events_NNN` /
 // `events` + one of two extensions. Lowercase only — the client lowercases before sending.
-export const FILE_NAME_RE = /^[a-z0-9_-]{1,160}\.(webm|json)$/;
+export const FILE_NAME_RE = /^[a-z0-9_-]{1,160}\.(webm|wav|json)$/;
 
 // use-audio-recorder.ts picks `audio/webm;codecs=opus` → `audio/webm` → `audio/mp4`; the
 // events payloads are `application/json`. A Blob's reported type is forwarded verbatim,
 // so the codecs parameter must be admitted with a bounded alphabet.
-export const CONTENT_TYPE_RE = /^(audio\/(webm|mp4)(;codecs=[a-z0-9.,-]{1,40})?|application\/json)$/;
+export const CONTENT_TYPE_RE = /^(audio\/(webm|mp4)(;codecs=[a-z0-9.,-]{1,40})?|audio\/wav|application\/json)$/;
 
 export type UploadTarget =
   | { kind: 'session'; code: string }
@@ -55,6 +55,9 @@ export function isValidContentType(contentType: unknown): contentType is string 
 export function isConsistentFileType(fileName: string, contentType: string): boolean {
   if (fileName.endsWith('.json')) return contentType === 'application/json';
   if (fileName.endsWith('.webm')) return contentType.startsWith('audio/');
+  // P1596: room archive chunks are self-contained WAV. `.wav` is only ever admitted under a room prefix
+  // (SESSION_OWNED_RE has no wav shape, ROOM_FILE_NAME_RE does).
+  if (fileName.endsWith('.wav')) return contentType === 'audio/wav';
   return false;
 }
 
@@ -83,5 +86,5 @@ export function parseSessionObject(fileName: string): SessionObject | null {
 }
 
 // Under `rooms/<code>/<who>-<memberId>/` the client (uploadRoomAudioChunk) only ever writes
-// `chunk_NNN.webm` — the member identity already lives in the prefix, so no name segment.
-export const ROOM_FILE_NAME_RE = /^(?:_dev_)?chunk_\d{3}\.webm$/;
+// `chunk_NNN.wav` (P1596; `.webm` is what clients before it wrote and may still be uploading) — the member identity already lives in the prefix, so no name segment.
+export const ROOM_FILE_NAME_RE = /^(?:_dev_)?chunk_\d{3}\.(?:webm|wav)$/;

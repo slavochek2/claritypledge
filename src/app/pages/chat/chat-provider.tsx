@@ -17,6 +17,7 @@
  * Mounted once above the routes so the Home badge in the sidebar and the phone bottom bar works on
  * every page, not only on Home. It stays idle inside ?embed=true, /live* and /transcribe*.
  */
+import { isTranscriptionAppend, patchRow } from './chat-refetch';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -25,20 +26,18 @@ import { useHomeReadiness } from '@/app/routes/home-readiness';
 import {
   blockUser,
   getMyChats,
-  listBody,
   setChatState,
   markRead as markReadRpc,
   sendMessage as sendMessageRpc,
   subscribeToChat,
   unblockUser,
   type ChatMemberState,
-  type ChatMessageEvent,
   type ChatSummary,
 } from '@/app/data/chat-service';
 import { getChatAuthors, type ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { clearDraftsExcept, useChatNavigate } from './chat-hooks';
 import { ChatContext, type ChatContextValue, type ChatEvent, type LocalMessage, type SendInput } from './chat-state';
-import { chatErrorText, compareMessages, compareTimestamps, HOME, unreadChatCount } from './chat-view-model';
+import { chatErrorText, compareTimestamps, HOME, unreadChatCount } from './chat-view-model';
 import { MirrorProvider } from './mirror-provider';
 
 /** After a Realtime event: a full list read waits for this much quiet. */
@@ -64,48 +63,6 @@ interface Override {
   archived?: boolean;
   manualUnread?: boolean;
   read?: boolean;
-}
-
-/** Applies one message event to the list row it belongs to. `unknown` means the list has no such chat. */
-function patchRow(
-  chats: ChatSummary[],
-  event: ChatMessageEvent,
-  me: string,
-  viewing: string | null,
-  authorName: string | null,
-): { chats: ChatSummary[]; unknown: boolean } {
-  const m = event.message;
-  const i = chats.findIndex((c) => c.conversationId === m.conversationId);
-  if (i < 0) return { chats, unknown: true };
-  const chat = chats[i] as ChatSummary;
-  let next = chat;
-  if (event.type === 'INSERT') {
-    const isNewest = !chat.lastMessage || compareMessages(m, { id: chat.lastMessage.id, createdAt: chat.lastMessage.createdAt }) >= 0;
-    if (isNewest) {
-      next = {
-        ...chat,
-        lastMessage: {
-          id: m.id,
-          authorId: m.authorId,
-          authorName,
-          body: listBody(m),
-          kind: m.kind,
-          isDeleted: m.isDeleted,
-          createdAt: m.createdAt,
-        },
-        unreadCount: m.authorId !== me && viewing !== m.conversationId ? chat.unreadCount + 1 : chat.unreadCount,
-      };
-    }
-  } else if (chat.lastMessage?.id === m.id) {
-    next = {
-      ...chat,
-      lastMessage: { ...chat.lastMessage, body: listBody(m), isDeleted: m.isDeleted },
-    };
-  }
-  if (next === chat) return { chats, unknown: false };
-  const copy = chats.slice();
-  copy[i] = next;
-  return { chats: copy, unknown: false };
 }
 
 export function ChatProvider({ children }: { children: ReactNode }) {
@@ -305,7 +262,7 @@ function ChatProviderInner({ userId, enabled, listShown, children }: { userId: s
         if (unknown) {
           if (timer.current) clearTimeout(timer.current);
           void refresh();
-        } else scheduleRefresh();
+        } else if (!isTranscriptionAppend(event)) scheduleRefresh();
       },
       (state: ChatMemberState) => {
         // Another device of this user changed read / archive state.

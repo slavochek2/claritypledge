@@ -9,7 +9,7 @@
  * contribution" happened.
  *
  * What it owns, and the spec line each piece answers to:
- *   - The microphone stream, the 30 s archive recorder and the 13 s slice recorder. The mic is
+ *   - The microphone stream, the PCM tap that feeds both the 30 s WAV archive and the 13 s live slices. The mic is
  *     requested only after the join RPC returns a member row with consent_given_at
  *     (Invariant: nothing is captured before consent is recorded on the server).
  *   - The hard stop: the first 410 (or 403) from either the slice path or the archive path,
@@ -53,8 +53,21 @@ import {
   sendAudioSlice,
   touchRoomCapture,
 } from '@/app/data/transcribe-service';
+import type { SliceDestination } from '@/app/data/transcribe-slice-destination';
 import { uploadRoomAudioChunk } from '@/app/data/api';
+import {
+  CAPTURE_STORAGE_KEY,
+  clearStoredCapture,
+  isHardStopError,
+  readStoredCapture,
+  writeStoredCapture,
+  type StoredCapture,
+} from './room-capture-storage';
 import { createSerialSender, createSliceRecorder, type SliceRecorder } from '@/lib/audio/slice-recorder';
+import { openCapturedRoom } from '@/app/data/event-chat-path';
+import { endGraceMs } from '@/lib/audio-upload-budget';
+import { startTapWithRetry, stillResuming } from './room-capture-tap';
+import { pumpUploadQueue, useExpiringFlag, type UploadJob } from './room-capture-uploads';
 import { isImmersiveLetterRoute } from '@/app/layouts/immersive-letter-route';
 import {
   CAPTURE_CAP_MINUTES,
@@ -63,7 +76,6 @@ import {
   PAUSED_HEARTBEAT_INTERVAL_MS,
   SILENCE_RMS_FLOOR,
   SILENCE_WARN_AFTER_MS,
-  STALL_AFTER_CONSECUTIVE_FAILURES,
   acquireCaptureLock,
   captureReducer,
   decidePauseTransition,
@@ -89,13 +101,8 @@ export type { CaptureAction, CaptureLock, CapturePhase, CaptureState } from './r
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-/** The archive recorder's flush cadence — one chunk_NNN.webm per interval. */
-const CHUNK_INTERVAL_MS = 30_000;
 /** Failed archive uploads are retried from a bounded queue, never dropped silently. */
-const UPLOAD_MAX_ATTEMPTS = 3;
 const UPLOAD_QUEUE_LIMIT = 10;
-/** The running capture, per browser, so a reload re-attaches and a second tab observes. */
-const CAPTURE_STORAGE_KEY = 'cp_room_capture';
 /** Speaking cue: input level above this within the last SPEAKING_HOLD_MS reads as speaking. */
 const SPEAKING_RMS_THRESHOLD = 0.02;
 const SPEAKING_HOLD_MS = 1_500;
@@ -106,48 +113,6 @@ const OBSERVE_RETRY_MS = 15_000;
 const PAUSE_RECHECK_MS = 5_000;
 /** P1388: how long the bar says the microphone changed after an unplug. */
 const MIC_SWITCHED_NOTICE_MS = 8_000;
-
-// ─── Persisted running capture ───────────────────────────────────────────────
-
-interface StoredCapture {
-  userId: string;
-  roomId: string;
-  roomCode: string;
-  memberId: string;
-  eventId: string | null;
-  joinedAt: string;
-  displayName: string;
-}
-
-function readStoredCapture(): StoredCapture | null {
-  try {
-    const raw = localStorage.getItem(CAPTURE_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoredCapture;
-    return parsed.userId && parsed.roomId && parsed.memberId && parsed.roomCode ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredCapture(record: StoredCapture): void {
-  try {
-    localStorage.setItem(CAPTURE_STORAGE_KEY, JSON.stringify(record));
-  } catch { /* private browsing — reload resume is lost, capture itself is not */ }
-}
-
-function clearStoredCapture(): void {
-  try {
-    localStorage.removeItem(CAPTURE_STORAGE_KEY);
-  } catch { /* ignore */ }
-}
-
-function isHardStopError(err: unknown): boolean {
-  // transcribe-slice: "transcribe-slice 410: …"; gcs-signed-url via api.ts:
-  // "Failed to get signed URL: 410 …". A 403 means this person is no longer a consented member.
-  const message = err instanceof Error ? err.message : String(err);
-  return /(?:transcribe-slice|signed URL:) (?:403|410)\b/.test(message);
-}
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
@@ -177,6 +142,10 @@ export interface RoomCaptureContextValue {
   roomCode: string | null;
   eventId: string | null;
   memberId: string | null;
+  /** P1592: where the server last said it posted this person's words. Null until a line is
+   *  stored in this page session, and again after a restored capture. Never the client's own
+   *  reading of the seating. */
+  destination: SliceDestination | null;
   /** True when the bar should be on screen for this person on the current route. */
   barVisible: boolean;
   /** Joins (switch on + Continue) and starts capture. See CaptureStartResult. */
@@ -205,6 +174,10 @@ export interface RoomCaptureContextValue {
   pausedByLiveRecord: boolean;
   /** P1388: re-open the default mic after it was lost — only on the person's tap. */
   reconnectMic: () => Promise<void>;
+  /** P1596: the microphone is open but the audio tap could not start (after retries): nothing is being recorded. */
+  tapDown: boolean;
+  /** P1596: at least one archive chunk could not be saved (dropped after its retries, or shed from a full queue). */
+  audioLost: boolean;
   isCapturingForEvent: (eventId: string) => boolean;
   speakingMemberIds: ReadonlySet<string>;
   /** In-flow bar slots (the layout, the room page). With none mounted, App renders a fallback. */
@@ -220,6 +193,7 @@ const RoomCaptureContext = createContext<RoomCaptureContextValue>({
   roomCode: null,
   eventId: null,
   memberId: null,
+  destination: null,
   barVisible: false,
   startCapture: () => Promise.resolve({ started: false, reason: 'join' }),
   endMyCapture: () => Promise.resolve(),
@@ -234,6 +208,8 @@ const RoomCaptureContext = createContext<RoomCaptureContextValue>({
   micSwitched: false,
   stopping: false,
   reconnectMic: () => Promise.resolve(),
+  tapDown: false,
+  audioLost: false,
   pausedByLiveRecord: false,
   isCapturingForEvent: () => false,
   speakingMemberIds: new Set(),
@@ -246,31 +222,17 @@ export function useRoomCapture(): RoomCaptureContextValue {
   return useContext(RoomCaptureContext);
 }
 
-interface UploadJob {
-  blob: Blob;
-  isLast: boolean;
-  attempts: number;
-  /** The capture this chunk belongs to, bound when it is queued. End clears storedRef before
-   *  the recorder's asynchronous onstop delivers the tail, so reading storedRef at upload time
-   *  dropped the last chunk — and a stale job could upload under the NEXT capture's record. */
-  record: StoredCapture;
-  /** Reserved once, on the first attempt, and reused by every retry. Reserving per attempt
-   *  (the first version) turned one transient upload failure into a permanent gap in the chunk
-   *  sequence, which the whole-recording pass reads as missing audio (external review). */
-  chunkNumber?: number;
-}
 
 /** How long End waits for the final archive chunk to upload before telling the server the
  *  capture ended. gcs-signed-url refuses uploads once capture_ended_at is set, so an end RPC
  *  sent first made the tail — and any queued chunks — undeliverable (external review). */
-const END_UPLOAD_GRACE_MS = 10_000;
 
 interface MediaHandles {
   stream: MediaStream | null;
-  recorder: MediaRecorder | null;
-  chunkParts: Blob[];
-  chunkTimer: ReturnType<typeof setInterval> | null;
   slices: SliceRecorder | null;
+  /** Set only while stopMedia stops the tap: the final archive chunk it emits synchronously is
+   *  uploaded (as the last one) for a person's own End, and dropped otherwise. */
+  tail: { record: StoredCapture | null; flush: boolean } | null;
   uploadQueue: UploadJob[];
   uploading: boolean;
   lock: CaptureLock | null;
@@ -281,7 +243,7 @@ interface MediaHandles {
 
 function emptyHandles(): MediaHandles {
   return {
-    stream: null, recorder: null, chunkParts: [], chunkTimer: null, slices: null,
+    stream: null, slices: null, tail: null,
     uploadQueue: [], uploading: false, lock: null, lastLoudAt: 0, lastSignalAt: 0,
   };
 }
@@ -303,6 +265,9 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
    *  explain-back or a letter screen — those still hold the pause). */
   const [userResumed, setUserResumed] = useState(false);
   const [stopping, setStopping] = useState(false);
+  const [tapDown, setTapDown] = useState(false);
+  const { on: audioLost, mark: markAudioLost, clear: clearAudioLost } = useExpiringFlag(60_000); // a loss is news for a minute
+  const [destination, setDestination] = useState<SliceDestination | null>(null);
   const levelListeners = useRef(new Set<(rms: number) => void>());
   /**
    * P1388 review, HIGH 1–3. Every media setup awaits (getUserMedia, AudioContext.resume,
@@ -329,57 +294,27 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
 
   const hardStopRef = useRef<(reason: string) => void>(noop);
 
-  const pumpUploads = useCallback(async () => {
-    const h = media.current;
-    if (h.uploading) return;
-    h.uploading = true;
-    try {
-      for (let job = h.uploadQueue[0]; job; job = h.uploadQueue[0]) {
-        const { record } = job;
-        try {
-          // Decision 6: the number is issued by the server, so a reload, a pause/resume or a
-          // second visit can never overwrite an earlier chunk.
-          if (job.chunkNumber === undefined) job.chunkNumber = await reserveRoomChunkNumber(record.roomId);
-          await uploadRoomAudioChunk(record.roomCode, record.displayName, record.memberId, job.blob, job.chunkNumber, job.isLast);
-          h.uploadQueue.shift();
-        } catch (err) {
-          if (isHardStopError(err)) {
-            h.uploadQueue.length = 0;
-            hardStopRef.current('archive refused');
-            return;
-          }
-          job.attempts += 1;
-          if (job.attempts >= UPLOAD_MAX_ATTEMPTS) {
-            console.error('[room-capture] archive chunk dropped after retries:', err);
-            h.uploadQueue.shift();
-          } else {
-            const delayMs = 2_000 * job.attempts;
-            await new Promise((r) => setTimeout(r, delayMs));
-          }
-        }
-      }
-    } finally {
-      h.uploading = false;
-    }
-  }, []);
+  const pumpUploads = useCallback(() => pumpUploadQueue(media.current, {
+    reserve: reserveRoomChunkNumber,
+    upload: uploadRoomAudioChunk,
+    onHardStop: () => hardStopRef.current('archive refused'),
+    onDropped: markAudioLost,
+  }), [markAudioLost]);
 
-  const enqueueChunk = useCallback((isLast: boolean, record: StoredCapture | null = storedRef.current) => {
+  /** P1596: one self-contained 16 kHz mono WAV (about 960 KB per 30 s) cut from the live-slice tap. */
+  const enqueueChunk = useCallback((wav: Uint8Array, isLast: boolean, record: StoredCapture | null = storedRef.current) => {
     const h = media.current;
-    if (h.chunkParts.length === 0) return;
-    if (!record) {
-      h.chunkParts = [];
-      return;
-    }
-    const blob = new Blob(h.chunkParts, { type: 'audio/webm' });
-    h.chunkParts = [];
+    if (!record) return;
+    const blob = new Blob([wav as BlobPart], { type: 'audio/wav' });
     if (h.uploadQueue.length >= UPLOAD_QUEUE_LIMIT) {
       // Keep the in-flight head; shed the oldest waiting chunk rather than grow without bound.
       console.error('[room-capture] archive upload queue full — dropping the oldest pending chunk');
+      markAudioLost();
       h.uploadQueue.splice(1, 1);
     }
     h.uploadQueue.push({ blob, isLast, attempts: 0, record });
     void pumpUploads();
-  }, [pumpUploads]);
+  }, [pumpUploads, markAudioLost]);
 
   const startSlices = useCallback(async (roomId: string) => {
     const h = media.current;
@@ -388,7 +323,11 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     const send = createSerialSender(
       (wav, sequence) => sendAudioSlice(roomId, sequence, wav),
       {
-        onSuccess: () => dispatch({ type: 'SLICE_SUCCEEDED' }),
+        onSuccess: (_sequence, told) => {
+          dispatch({ type: 'SLICE_SUCCEEDED' });
+          // P1592: a silent slice (nothing stored) tells nothing, so the last place told stays.
+          if (told && genRef.current === gen) setDestination(told);
+        },
         onError: (err, sequence) => {
           if (isHardStopError(err)) {
             hardStopRef.current('slice refused');
@@ -404,12 +343,21 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
       },
     );
     const slices = await createSliceRecorder(h.stream, {
+      // The archive: 30 s WAV chunks and the tail when this recorder stops (pause, unplug, End).
+      onArchiveChunk: (wav, isTail) => {
+        if (h.tail) {
+          if (h.tail.flush && isTail) enqueueChunk(wav, true, h.tail.record);
+          return;
+        }
+        if (genRef.current !== gen) return;
+        enqueueChunk(wav, false);
+      },
       // Nothing leaves while paused or after this capture ended, whatever the recorder emits.
       onSlice: (wav, sequence) => {
         if (pausedRef.current || genRef.current !== gen) return;
         send(wav, sequence);
       },
-      onError: (err) => console.error('[room-capture] slice recorder error:', err),
+      onError: (err) => console.error('[room-capture] slice recorder error:', err), onContextGap: markAudioLost,
       onLevel: (rms) => {
         const now = Date.now();
         if (rms >= SPEAKING_RMS_THRESHOLD) h.lastLoudAt = now;
@@ -428,50 +376,41 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     h.slices = slices;
     // No level could arrive while the tap was being built; the silence clock starts now.
     h.lastSignalAt = Date.now();
-  }, []);
+  }, [enqueueChunk, markAudioLost]);
 
   /**
    * `flushTail`: upload the recording since the last archive chunk. Only a person's own End asks
    * for it. Sign-out, a server refusal (410) and teardown drop the tail: after sign-out no chunk
    * may reach the bucket (AC), and after a 410 the server refuses it anyway.
    */
-  /** Resolves once the recorder's final onstop has run (immediately if nothing was recording). */
+  /** Stops the tap (its archive tail is emitted synchronously) and releases the microphone. */
   const stopMedia = useCallback(({ flushTail = false }: { flushTail?: boolean } = {}): Promise<void> => {
     const h = media.current;
     // Bound now, synchronously: every caller clears storedRef right after this returns, and the
-    // recorder's onstop runs later.
+    // tap's stop flush (bound through h.tail) runs inside stopMedia.
     const record = storedRef.current;
     genRef.current += 1;
     // A getUserMedia that never settles (an unanswered permission prompt) must not leave
     // recovery and Reconnect locked for the rest of the session (adversarial review 2).
     reconnectingRef.current = false;
     pausedRef.current = false;
-    if (h.chunkTimer) clearInterval(h.chunkTimer);
-    h.chunkTimer = null;
-    // Order matters: the slice recorder stops (and flushes its final partial slice) before the
-    // archive recorder, whose onstop releases the shared stream's tracks.
-    h.slices?.stop();
+    // Order matters: the tap stops (flushing its final partial slice and archive tail) before the
+    // shared stream's tracks are released.
+    h.tail = { record, flush: flushTail };
+    try {
+      h.slices?.stop();
+    } finally {
+      h.tail = null;
+    }
     h.slices = null;
-    const recorder = h.recorder;
     const stream = h.stream;
-    h.recorder = null;
     h.stream = null;
     h.lock?.release();
     h.lock = null;
-    if (recorder && recorder.state !== 'inactive') {
-      return new Promise<void>((resolve) => {
-        recorder.onstop = () => {
-          if (flushTail) enqueueChunk(true, record);
-          else h.chunkParts = [];
-          stream?.getTracks().forEach((t) => t.stop());
-          resolve();
-        };
-        recorder.stop();
-      });
-    }
     stream?.getTracks().forEach((t) => t.stop());
+    setTapDown(false); clearAudioLost();
     return Promise.resolve();
-  }, [enqueueChunk]);
+  }, [clearAudioLost]);
 
   /** Resolves when the archive upload queue is empty and nothing is in flight. */
   const uploadsDrained = useCallback(() => new Promise<void>((resolve) => {
@@ -482,14 +421,6 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     };
     check();
   }), []);
-
-  const startArchiveTimer = useCallback((recorder: MediaRecorder) => {
-    media.current.chunkTimer = setInterval(() => {
-      if (recorder.state === 'recording') recorder.requestData();
-      // requestData delivers asynchronously; enqueue on the next turn so the part is included.
-      setTimeout(() => enqueueChunk(false), 0);
-    }, CHUNK_INTERVAL_MS);
-  }, [enqueueChunk]);
 
   const trackEndedRef = useRef<(roomId: string) => void>(noop);
 
@@ -512,58 +443,30 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     // Our own track.stop() does not fire 'ended', so this only ever means the device went away.
     // The stream is audio-only ({ audio: true }), so every track is the microphone.
     for (const track of stream.getTracks()) track.onended = () => trackEndedRef.current(roomId);
-    const recorder = new MediaRecorder(stream);
-    h.recorder = recorder;
-    h.chunkParts = [];
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) h.chunkParts.push(e.data);
-    };
     // Opened during a pause (unplug recovery, or Pause tapped while the mic was starting):
-    // hold the stream, record nothing. resumeMedia starts the recorder and the slices.
+    // hold the stream, record nothing. resumeMedia starts the tap.
     if (pausedRef.current) return;
-    recorder.start();
-    startArchiveTimer(recorder);
     void prewarmSlicePath(roomId).catch((err) => console.warn('[room-capture] pre-warm failed (non-fatal):', err));
-    try {
-      await startSlices(roomId);
-    } catch (err) {
-      // The archive is already recording; only live text is lost. Counted toward the stall
-      // state so the bar says so rather than implying live text is flowing.
-      console.error('[room-capture] live slices could not start:', err);
-      for (let i = 0; i < STALL_AFTER_CONSECUTIVE_FAILURES; i++) dispatch({ type: 'SLICE_FAILED' });
-    }
-  }, [startArchiveTimer, startSlices]);
+    // The archive is cut from the same tap, so a tap that will not start means nothing is being recorded: retried,
+    // then the bar says so (it used to count toward "stalled", which claims the words are still being recorded).
+    setTapDown(!(await startTapWithRetry(() => startSlices(roomId), () => genRef.current === gen)));
+  }, [startSlices]);
 
   /** Decision 8 (T3: hold). Only these two functions change if the iPhone measurement flips it. */
   const pauseMedia = useCallback(() => {
     const h = media.current;
     pausedRef.current = true;
-    if (h.chunkTimer) clearInterval(h.chunkTimer);
-    h.chunkTimer = null;
-    h.slices?.stop();
+    h.slices?.stop();   // emits the archive chunk up to the pause
     h.slices = null;
-    if (h.recorder?.state === 'recording') {
-      h.recorder.requestData();
-      h.recorder.pause();
-      setTimeout(() => enqueueChunk(false), 0);
-    }
-  }, [enqueueChunk]);
+    setTapDown(false);
+  }, []);
 
   const resumeMedia = useCallback(async (roomId: string) => {
     const h = media.current;
-    const recorder = h.recorder;
     pausedRef.current = false;
-    if (!recorder || !h.stream) return;
-    if (recorder.state === 'paused') recorder.resume();
-    else if (recorder.state === 'inactive') recorder.start(); // opened during the pause
-    if (h.chunkTimer) clearInterval(h.chunkTimer);
-    startArchiveTimer(recorder);
-    try {
-      await startSlices(roomId);
-    } catch (err) {
-      console.error('[room-capture] live slices could not resume:', err);
-    }
-  }, [startArchiveTimer, startSlices]);
+    if (!h.stream) return;
+    setTapDown(!(await startTapWithRetry(() => startSlices(roomId), stillResuming(genRef, pausedRef))));
+  }, [startSlices]);
 
   /**
    * P1388 unplug recovery. Keeps the archive so far (the chunk up to the unplug is queued, not
@@ -577,44 +480,24 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   const releaseIfDead = useCallback((): boolean => {
     const h = media.current;
     if (!h.stream || h.stream.getTracks().every((t) => t.readyState !== 'ended')) return false;
-    if (h.chunkTimer) clearInterval(h.chunkTimer);
-    h.chunkTimer = null;
     h.slices?.stop();
     h.slices = null;
-    if (h.recorder && h.recorder.state !== 'inactive') {
-      h.recorder.onstop = () => enqueueChunk(false);
-      h.recorder.stop();
-    }
-    h.recorder = null;
     h.stream.getTracks().forEach((t) => t.stop());
     h.stream = null;
     setMicLost(true);
     return true;
-  }, [enqueueChunk]);
+  }, []);
 
   const recoverFromTrackEnded = useCallback(async (roomId: string) => {
     const h = media.current;
     if (h.stream === null || reconnectingRef.current) return;
     reconnectingRef.current = true;
     setMicLost(true);
-    if (h.chunkTimer) clearInterval(h.chunkTimer);
-    h.chunkTimer = null;
-    h.slices?.stop();
+    h.slices?.stop();   // the archive chunk up to the unplug is queued by the tap's stop flush
     h.slices = null;
-    const old = h.recorder;
-    h.recorder = null;
     h.stream?.getTracks().forEach((t) => t.stop());
     h.stream = null;
     const gen = genRef.current;
-    if (old && old.state !== 'inactive') {
-      await new Promise<void>((resolve) => {
-        old.onstop = () => resolve();
-        old.stop();
-      });
-    }
-    // Also when the recorder had already stopped itself as its track ended: its final data is
-    // already in chunkParts, and startMedia would otherwise clear it.
-    enqueueChunk(false);
     if (genRef.current !== gen || storedRef.current?.roomId !== roomId) { // ended meanwhile
       reconnectingRef.current = false;
       return;
@@ -631,7 +514,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     } finally {
       reconnectingRef.current = false;
     }
-  }, [enqueueChunk, startMedia, releaseIfDead]);
+  }, [startMedia, releaseIfDead]);
   trackEndedRef.current = (roomId: string) => void recoverFromTrackEnded(roomId);
 
   /**
@@ -641,10 +524,14 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
    */
   const reconnectMic = useCallback(async () => {
     const roomId = storedRef.current?.roomId;
-    if (!roomId || media.current.stream || reconnectingRef.current) return;
+    if (!roomId || reconnectingRef.current) return;
     reconnectingRef.current = true;
     const gen = genRef.current;
     try {
+      if (media.current.stream) {   // the mic is open but the tap is not: only the tap is started again
+        if (!media.current.slices && !pausedRef.current) setTapDown(!(await startTapWithRetry(() => startSlices(roomId), () => genRef.current === gen)));
+        return;
+      }
       await startMedia(roomId);
       if (genRef.current === gen && media.current.stream && !releaseIfDead()) setMicLost(false);
     } catch (err) {
@@ -652,7 +539,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     } finally {
       reconnectingRef.current = false;
     }
-  }, [startMedia, releaseIfDead]);
+  }, [startMedia, startSlices, releaseIfDead]);
 
   const teardownLocal = useCallback((forgetRecord: boolean) => {
     stopMedia();
@@ -675,12 +562,13 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     if (stateRef.current.phase === 'idle' || endingRef.current) return;
     endingRef.current = true;
     // P1388: the tap is answered at once. The mic stops on the next line; what takes up to
-    // END_UPLOAD_GRACE_MS is saving the tail, which must finish before the End RPC.
+    // the grace (endGraceMs: the queued bytes at 256 kbit/s) is saving the tail, which must finish before the End RPC.
     setStopping(true);
     // The microphone is released at once — End must never wait on the network to stop
     // recording. The bar stays until the server has recorded the End, so what the person sees
     // disappear is an end that exists, not one that is still in flight.
     const stopped = stopMedia({ flushTail: true });
+    const grace = endGraceMs(media.current.uploadQueue.reduce((n, j) => n + j.blob.size, 0));
     clearStoredCapture();
     storedRef.current = null;
     try {
@@ -689,7 +577,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
       // the upload. Bounded: a stuck upload never holds End open for more than the grace period.
       await Promise.race([
         stopped.then(uploadsDrained),
-        new Promise<void>((resolve) => setTimeout(resolve, END_UPLOAD_GRACE_MS)),
+        new Promise<void>((resolve) => setTimeout(resolve, grace)),
       ]);
       await endMyCaptureRpc(roomId);
     } catch (err) {
@@ -1035,9 +923,14 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const open = useCallback(() => {
-    const code = stateRef.current.roomCode;
-    if (code) navigate(`/transcribe/${code}`);
+    openCapturedRoom(stateRef.current, navigate);
   }, [navigate]);
+
+  // P1592: the place named by the bar belongs to one capture. When capture is gone it goes too,
+  // so the next capture (or a restored one) names none until its first stored line.
+  useEffect(() => {
+    if (state.phase === 'idle') setDestination(null);
+  }, [state.phase]);
 
   const pausedByLiveRecord =
     state.phase === 'paused' && !manualPaused && !pauseLocation && explainBackHolds === 0 && liveSessionActive;
@@ -1048,6 +941,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     roomCode: state.roomCode ?? null,
     eventId: state.eventId ?? null,
     memberId: state.memberId ?? null,
+    destination,
     // P1388: a MANUAL pause keeps the bar up (its Resume lives there); an automatic pause on
     // /live or a letter screen still hides it, as P1307 D3/D13 asked.
     barVisible:
@@ -1069,13 +963,15 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     micSwitched,
     stopping,
     reconnectMic,
+    tapDown,
+    audioLost,
     pausedByLiveRecord,
     isCapturingForEvent: (eventId: string) => state.eventId === eventId && LIVE_PHASES.has(state.phase),
     speakingMemberIds: new Set(speaking.keys()),
     registerBarSlot,
     barSlotCount,
   }), [state, pauseLocation, startCapture, endMyCapture, open, holdPause, manualPaused, pauseMine, resumeMine,
-    subscribeLevel, inputSilent, micLost, micSwitched, stopping, reconnectMic, pausedByLiveRecord, speaking, registerBarSlot, barSlotCount]);
+    subscribeLevel, inputSilent, micLost, micSwitched, stopping, reconnectMic, tapDown, audioLost, pausedByLiveRecord, speaking, registerBarSlot, barSlotCount, destination]);
 
   return <RoomCaptureContext.Provider value={value}>{children}</RoomCaptureContext.Provider>;
 }

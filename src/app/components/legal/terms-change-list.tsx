@@ -1,27 +1,53 @@
 import { useState } from 'react';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
-import { TERMS_CHANGES } from '@/app/content/terms-changes';
+import { TERMS_CHANGES, type TermsChangeSummary } from '@/app/content/terms-changes';
 
-/** The consent line both terms notices use, so the two variants never drift apart. */
-export const TERMS_CONSENT_LINE = 'By continuing, you agree to the updated terms.';
+/** The consent sentence for screen readers; TermsFinePrint is its visible form with links. */
+export const TERMS_CONSENT_LINE = 'Our Terms and Privacy Policy are updated. To continue, you need to agree to them.';
 
 // Links and the toggle are muted on purpose (founder): the only thing that should
 // draw the eye is the accept button.
 const MUTED_LINK = 'text-muted-foreground underline hover:text-foreground';
 
-/** "We've updated our Terms and Privacy Policy", each document linked in place. */
+/** Opens the notice with what is new, not with the fact that documents changed (P1596). */
 export function TermsTitle() {
+  return <>{TERMS_CHANGES[CURRENT_TERMS_VERSION]?.title ?? "We've updated our Terms and Privacy Policy"}</>;
+}
+
+/** The legal line under every notice: each document linked, then the agreement. */
+export function TermsFinePrint({ required = false }: { required?: boolean }) {
   return (
     <>
-      We've updated our{' '}
+      Our{' '}
       <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className={MUTED_LINK}>
         Terms
       </a>{' '}
       and{' '}
       <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className={MUTED_LINK}>
         Privacy Policy
-      </a>
+      </a>{' '}
+      are updated. {required ? 'To continue, you need to agree to them.' : 'By continuing, you agree to them.'}
     </>
+  );
+}
+
+/** Earlier changes that needed consent and that this person never saw. */
+export function TermsMissedChanges({ missed }: { missed: TermsChangeSummary[] }) {
+  if (missed.length === 0) return null;
+  return (
+    <div className="space-y-2 text-sm" data-testid="terms-missed">
+      {/* What forced this popup stays readable without opening anything (terms-changes.ts); the detail is one tap away. */}
+      {missed.map((entry) => (
+        <details key={entry.title}>
+          <summary className="cursor-pointer">{entry.headline}</summary>
+          <ul className="mt-1 list-disc space-y-1 pl-5">
+            {entry.highlights.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </details>
+      ))}
+    </div>
   );
 }
 
@@ -33,7 +59,6 @@ export function TermsChangeList() {
   return (
     <div className="space-y-2 text-sm">
       <p>
-        <span className="font-medium">In short:</span>{' '}
         {changes.headline}{' '}
         <button
           type="button"

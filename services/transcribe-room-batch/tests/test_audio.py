@@ -93,3 +93,18 @@ def test_select_member_chunks_reads_the_layout_the_upload_function_actually_writ
     refs = audio.select_member_chunks(objects, "ABC234", MEMBER)
     assert [r.number for r in refs] == [0, 1]
     assert audio.room_listing_prefixes("ABC234") == ["rooms/ABC234/", "sessions/roomsABC234"]
+
+
+def test_room_run_pieces_are_at_most_15_minutes_and_keep_every_sample_in_order():
+    hdr = EBML_MAGIC + b"H"
+    run = [(ref(i), (hdr if i == 0 else b"c%03d" % i)) for i in range(100)]   # 100 chunks = 50 min at 30 s
+
+    def decode(b):   # 30 s per chunk, one byte marker per chunk so order is checkable
+        chunks = 1 + b.count(b"c")
+        return b"\x01\x00" * (480000 * chunks)
+
+    run[0] = (run[0][0], hdr)
+    pieces = list(audio.iter_run_pieces(run, max_s=900, chunk_s=30, decode=decode))
+    assert all(audio.pcm_duration_ms(p) <= 900_000 for _, p in pieces)
+    assert len(pieces) == 4 and sum(audio.pcm_duration_ms(p) for _, p in pieces) == 100 * 30_000
+    assert [o for o, _ in pieces] == [0, 900_000, 1_800_000, 2_700_000]

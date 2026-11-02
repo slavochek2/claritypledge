@@ -38,10 +38,11 @@ vi.mock('@/app/data/transcribe-service', () => ({
 vi.mock('@/app/data/api', () => ({ uploadRoomAudioChunk: upload }));
 vi.mock('@/lib/audio/slice-recorder', () => ({
   createSerialSender: () => vi.fn(),
-  createSliceRecorder: vi.fn().mockImplementation(async (_s: unknown, opts: { onLevel?: (r: number) => void }) => {
+  createSliceRecorder: vi.fn().mockImplementation(async (_s: unknown, opts: { onLevel?: (r: number) => void; onArchiveChunk?: (w: Uint8Array, tail: boolean) => void }) => {
     sliceState.onLevel = opts.onLevel ?? null;
     sliceState.started += 1;
-    return { stop: () => { sliceState.stopped += 1; } };
+    // P1596: the archive is cut from the tap; stop() hands over the unfinished tail synchronously.
+    return { stop: () => { sliceState.stopped += 1; opts.onArchiveChunk?.(new Uint8Array([82, 73, 70, 70]), true); } };
   }),
 }));
 vi.mock('@/app/contexts/room-capture-core', async (importOriginal) => ({
@@ -50,25 +51,6 @@ vi.mock('@/app/contexts/room-capture-core', async (importOriginal) => ({
 }));
 
 import { RoomCaptureProvider, useRoomCapture } from '@/app/contexts/room-capture-context';
-
-/** A MediaRecorder whose stop() delivers the final data and fires onstop on a LATER turn — as
- *  browsers do, and as the bug needs. */
-class FakeRecorder {
-  static last: FakeRecorder | null = null;
-  constructor() { FakeRecorder.last = this; }
-  state: 'inactive' | 'recording' | 'paused' = 'inactive';
-  ondataavailable: ((e: { data: Blob }) => void) | null = null;
-  onstop: (() => void) | null = null;
-  start() { this.state = 'recording'; }
-  requestData() { this.ondataavailable?.({ data: new Blob(['part']) }); }
-  pause() { this.state = 'paused'; }
-  resume() { this.state = 'recording'; }
-  stop() {
-    this.ondataavailable?.({ data: new Blob(['tail']) });
-    this.state = 'inactive';
-    setTimeout(() => this.onstop?.(), 0);
-  }
-}
 
 let ctx: ReturnType<typeof useRoomCapture>;
 function Harness() {
@@ -94,7 +76,6 @@ beforeEach(() => {
   sliceState.onLevel = null; sliceState.started = 0; sliceState.stopped = 0;
   tracks.list = [];
   auth.value = { user: { id: 'u1' }, sessionChecked: true };
-  vi.stubGlobal('MediaRecorder', FakeRecorder);
   Object.defineProperty(navigator, 'mediaDevices', {
     configurable: true,
     value: {
@@ -108,17 +89,17 @@ beforeEach(() => {
 });
 
 describe('P1388: manual pause at the provider', () => {
-  it('Pause pauses the recorder, stops live slices, uploads nothing more; Resume restarts them', async () => {
+  it('Pause stops the tap (live slices and archive), uploads nothing more; Resume restarts them', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     render(tree());
     await act(async () => { await ctx.startCapture({ eventId: 'e1', displayName: 'A' }); });
-    const rec = FakeRecorder.last!;
-    expect(rec.state).toBe('recording');
+    expect(sliceState.started).toBe(1);
 
     await act(async () => { ctx.pauseMine(); });
     expect(ctx.phase).toBe('paused');
     expect(ctx.manualPaused).toBe(true);
-    expect(rec.state, 'the recorder must not be writing while paused').toBe('paused');
+    expect(sliceState.stopped, 'the tap (and so the archive) is stopped while paused').toBe(1);
+    expect(upload, 'the audio up to the pause is archived').toHaveBeenCalledTimes(1);
     expect(sliceState.stopped).toBe(1);
     expect(ctx.barVisible, 'a manual pause keeps the bar (and its Resume) on screen').toBe(true);
 
@@ -129,7 +110,6 @@ describe('P1388: manual pause at the provider', () => {
 
     await act(async () => { ctx.resumeMine(); });
     expect(ctx.phase).toBe('capturing');
-    expect(rec.state).toBe('recording');
     expect(sliceState.started).toBe(2);
     vi.useRealTimers();
   });
@@ -183,10 +163,10 @@ describe('P1388 review: setup races', () => {
     await act(async () => { tracks.list[0].onended?.(); });
     await waitFor(() => expect(gum()).toHaveBeenCalledTimes(2));
     await act(async () => { await ctx.endMyCapture('r1'); });
-    const recordersBefore = FakeRecorder.last;
+    const startsBefore = sliceState.started;
     await act(async () => { release(); await Promise.resolve(); });
     expect(late.stop, 'the late stream must be stopped').toHaveBeenCalled();
-    expect(FakeRecorder.last, 'no recorder is created on it').toBe(recordersBefore);
+    expect(sliceState.started, 'no tap is created on it').toBe(startsBefore);
   });
 
   it('HIGH 2 — Pause while the slice recorder is still starting: it is stopped on arrival, nothing is sent', async () => {
@@ -207,7 +187,6 @@ describe('P1388 review: setup races', () => {
     await act(async () => { ctx.pauseMine(); });
     await act(async () => { finish(); await started; });
     expect(lateSlices.stop, 'a slice recorder that finished starting mid-pause must stop').toHaveBeenCalled();
-    expect(FakeRecorder.last!.state).toBe('paused');
   });
 
   it('HIGH 3 — unplug while paused: the new mic is opened but the recorder does not start until Resume', async () => {
@@ -217,11 +196,8 @@ describe('P1388 review: setup races', () => {
     const startsBefore = sliceState.started;
     await act(async () => { tracks.list[0].onended?.(); });
     await waitFor(() => expect(tracks.list).toHaveLength(2));
-    const rec = FakeRecorder.last!;
-    expect(rec.state, 'recorder on the new mic must not record during the pause').toBe('inactive');
     expect(sliceState.started, 'no slices during the pause').toBe(startsBefore);
     await act(async () => { ctx.resumeMine(); });
-    expect(rec.state).toBe('recording');
     expect(sliceState.started).toBe(startsBefore + 1);
   });
 

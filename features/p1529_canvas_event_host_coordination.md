@@ -370,6 +370,8 @@ then repeated with five with canvases.
 
 ## Fallback
 
+- **Recording as a condition of a seat (founder, 2026-11-02, P1596 solo test).** Decide: joining a table means recording, so stopping is rare and warned; the host sees who stopped and is told. Also whether the chat shows "being transcribed" during a round, and how an attendee stays in the room while checking the live text.
+- **Standalone /transcribe rooms never reach an event chat (P1596 solo test, 2026-11-02).** Only a room entered from the event carries the event; a person who opens a plain /transcribe room during an event records audio that no thread receives. Decide whether event pages should steer them, or the plain room should warn.
 - **Transcript not ready after a round (2026-10-30, from P1596).** If a table's clean transcript is
    late or fails, nothing blocks: the owner does not get a new version that round and the next
    partner reads the canvas as it is. The host's "next round" confirmation is what cuts a round's

@@ -15,6 +15,7 @@ const mockRecordTermsAcceptance = vi.fn();
 const mockSignOut = vi.fn();
 const mockUseAuth = vi.fn();
 
+vi.mock('@/app/data/terms-accepted', () => ({ getAcceptedTermsVersion: async () => 'v1.5' }));
 vi.mock('@/app/data/api', () => ({
   needsTermsAcceptance: (...args: unknown[]) => mockNeedsTermsAcceptance(...args),
   recordTermsAcceptance: (...args: unknown[]) => mockRecordTermsAcceptance(...args),

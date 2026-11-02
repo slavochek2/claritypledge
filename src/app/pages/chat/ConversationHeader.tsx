@@ -9,9 +9,12 @@ import { Link } from 'react-router-dom';
 import { Archive, ArchiveRestore, ArrowLeft, Ban, CircleDot, ExternalLink, Info, MoreHorizontal, UserRound } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { ChatSummary } from '@/app/data/chat-service';
+import type { RoundThread } from '@/app/data/chat-round-threads';
 import { cn } from '@/lib/utils';
 import { ChannelMark, FOCUS_RING, HOVER, MirrorMark, MirrorTitle, PersonMark } from './chat-kit';
 import { mirrorLabel } from './chat-view-model';
+import { MyRoundsMenuSection } from './MyRoundsMenu';
+import { EventRoomLink } from './EventRoomLink';
 
 export interface HeaderActions {
   onBack: () => void;
@@ -114,7 +117,18 @@ function Title({ chat, onMirrorInfo }: { chat: ChatSummary; onMirrorInfo?: () =>
   }
 }
 
-export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere = false }: { chat: ChatSummary; blocked: boolean; actions: HeaderActions; /** Reached from another place (Clarify, a link to an original): the arrow shows at every width. */ cameFromElsewhere?: boolean }) {
+interface HeaderProps {
+  chat: ChatSummary;
+  blocked: boolean;
+  actions: HeaderActions;
+  /** Reached from another place (Clarify, a link to an original): the arrow shows at every width. */
+  cameFromElsewhere?: boolean;
+  /** P1592: an event channel's round threads the viewer was seated in, listed in the menu under "My rounds". */
+  rounds?: RoundThread[];
+  onOpenRound?: (rootMessageId: string) => void;
+}
+
+export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere = false, rounds, onOpenRound }: HeaderProps) {
   const other = chat.other;
   const canBlock = chat.kind === 'dm' && !!other?.id;
   return (
@@ -129,7 +143,7 @@ export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere =
       </button>
       <div className="min-w-0 flex-1">
         <Title chat={chat} onMirrorInfo={actions.onMirrorInfo} />
-      </div>
+      </div><EventRoomLink chat={chat} />
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <button type="button" aria-label="More" className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground', HOVER, FOCUS_RING)}>
@@ -137,6 +151,7 @@ export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere =
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-60">
+          <MyRoundsMenuSection threads={rounds} onOpen={onOpenRound} />
           {chat.kind === 'dm' && other?.slug && (
             <DropdownMenuItem asChild className="min-h-10">
               <Link to={`/p/${other.slug}`}>

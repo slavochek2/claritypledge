@@ -192,7 +192,7 @@ export async function handleGcsSignedUrl(req: Request, deps: HandlerDeps): Promi
       return json(410, { error: ERR.captureTooLong });
     }
     // The member identity is already in the prefix; the only object the room client
-    // writes there is chunk_NNN.webm.
+    // writes there is chunk_NNN.wav (or the older .webm).
     if (!ROOM_FILE_NAME_RE.test(fileName)) return json(400, { error: ERR.badFileName });
   }
 

@@ -10,6 +10,7 @@ import { MemoryRouter } from 'react-router-dom';
 
 const mockNeedsTermsAcceptance = vi.fn();
 
+vi.mock('@/app/data/terms-accepted', () => ({ getAcceptedTermsVersion: async () => 'v1.5' }));
 vi.mock('@/app/data/api', () => ({
   needsTermsAcceptance: (...args: unknown[]) => mockNeedsTermsAcceptance(...args),
   recordTermsAcceptance: vi.fn(),
@@ -57,7 +58,7 @@ describe('P1300 — terms re-acceptance popup on a non-session page', () => {
     const dialog = await renderGateOn('/groups/example-group');
     await waitFor(() => expect(dialog).toHaveTextContent("Show more"));
 
-    expect(dialog).toHaveTextContent(/you agree to the updated terms\./i);
+    expect(dialog).toHaveTextContent(/by continuing, you agree to them\./i);
     expect(dialog.textContent ?? '').not.toMatch(/session/i);
     expect(dialog.textContent ?? '').not.toMatch(/record/i);
   });

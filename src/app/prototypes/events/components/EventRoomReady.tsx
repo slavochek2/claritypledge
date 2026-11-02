@@ -27,7 +27,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
-import { FocusHeader } from '@/app/components/layout/focus-header';
 import { SliderTrack } from '@/app/components/partners/slider-track';
 import { PRIMARY_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
 import { getRoomReadinessDistribution, setRoomReadiness } from '@/app/data/event-room-service';
@@ -41,8 +40,8 @@ import { PrepRoomBanner } from '../prep/PrepRoom';
 import { RoomSteps } from '../rounds/RoomSteps';
 import { recipeFor } from '../series-recipes';
 import { useBackToEvent } from '../use-back-to-event';
-import { BACK_TO_EVENT, readRoomNav } from './use-room-back';
-import { RoomStickyHead } from './RoomChrome';
+import { readRoomNav } from './use-room-back';
+import { RoomHeadCapture, RoomHeadRow, RoomStickyHead } from './RoomChrome';
 
 const QUESTION = 'How up for thinking are you right now?';
 const MIDPOINT_LABEL = 'Neutral';
@@ -150,10 +149,13 @@ export function EventRoomReady() {
       {/* P1562 §1: the shell top bar's "Back to the event" (in place when there is no shell), the step bar under it, in
           the room's sticky head — the same head and offset as /meet, so the step bar sits at one y on every room view. */}
       <RoomStickyHead className="-mx-4 px-4 pt-3 pb-2">
-        <div className="mx-auto flex w-full max-w-2xl items-end gap-1">
-          <FocusHeader onBack={backToEvent} label={BACK_TO_EVENT} aria-label={BACK_TO_EVENT} />
-          <RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="min-w-0 flex-1" />
-        </div>
+        {/* Founder, solo test 2026-11-02: "← Event" on the tabs row, the transcription bar (if running) under it. */}
+        <RoomHeadRow
+          className="mx-auto w-full max-w-2xl"
+          onBack={backToEvent}
+          tabs={<RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="min-w-0 flex-1" />}
+        />
+        <RoomHeadCapture />
       </RoomStickyHead>
       {/* P1336: the preparation stays one tap away for someone who joined without it. */}
       <div className="mx-auto mt-2 flex w-full max-w-2xl justify-end">

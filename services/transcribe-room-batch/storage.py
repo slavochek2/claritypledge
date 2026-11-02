@@ -11,9 +11,10 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from config import MAX_ATTEMPTS, STALE_PROCESSING_MINUTES, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL
+from config import MAX_ATTEMPTS, retry_delay_s, STALE_PROCESSING_MINUTES, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL
 
 logger = logging.getLogger(__name__)
+
 
 _client = None
 
@@ -148,3 +149,81 @@ def apply_transcription_swap(room_id: str, member_id: str, updates: list[dict]) 
     return _db().rpc("apply_transcription_swap", {
         "p_room_id": room_id, "p_member_id": member_id, "p_updates": updates,
     }).execute().data
+
+
+# --- P1596 clean round jobs (table transcribe_round_clean_jobs; ids and counts only in logs) ---------
+
+ROUND_JOBS = "transcribe_round_clean_jobs"
+
+
+def claim_round_job(job_id: str) -> Optional[dict]:
+    """Atomic pending -> processing, only once not_before has passed. None when not due or already owned."""
+    rows = _db().rpc("claim_round_clean_job", {"p_job_id": job_id}).execute().data or []
+    return rows[0] if rows else None
+
+
+def clean_enabled() -> bool:
+    """The P1592 kill switch (transcribe_channel_posting.enabled). Off: nothing is claimed, swept or sent."""
+    rows = _db().table("transcribe_channel_posting").select("enabled").eq("singleton", True).limit(1).execute().data or []
+    return bool(rows and rows[0].get("enabled"))
+
+
+def oldest_due_round_job_id(exclude: list[str] | None = None) -> Optional[str]:
+    now = datetime.now(timezone.utc).isoformat()
+    q = _db().table(ROUND_JOBS).select("id").eq("status", "pending").lte("not_before", now)
+    if exclude:
+        q = q.not_.in_("id", exclude)
+    rows = q.order("not_before").limit(1).execute().data or []
+    return rows[0]["id"] if rows else None
+
+
+def reset_stale_round_jobs() -> int:
+    """ONE service-only SQL call (a single UPDATE): stale processing -> pending (dispatched_at cleared, so the tick
+    sends it again), or failed once MAX_ATTEMPTS is used. Returns how many rows it changed."""
+    data = _db().rpc("reset_stale_round_jobs", {
+        "p_stale_minutes": STALE_PROCESSING_MINUTES, "p_max_attempts": MAX_ATTEMPTS}).execute().data
+    return int(data or 0)
+
+
+def load_room_codes(room_ids: list[str]) -> dict[str, str]:
+    if not room_ids:
+        return {}
+    rows = _db().table("transcribe_rooms").select("id, code").in_("id", room_ids).execute().data or []
+    return {r["id"]: r["code"] for r in rows}
+
+
+def load_capture_ended(member_ids: list[str]) -> dict[str, Optional[str]]:
+    """member id -> capture_ended_at (None while they are still capturing)."""
+    if not member_ids:
+        return {}
+    rows = _db().table("transcribe_room_members").select("id, capture_ended_at").in_("id", member_ids).execute().data or []
+    return {r["id"]: r.get("capture_ended_at") for r in rows}
+
+
+def finish_round_job(job_id: str, attempts: int, error: Optional[str] = None, retryable: bool = False,
+                     completed: bool = False) -> None:
+    """Record the outcome of the claim that had `attempts`. Fenced on it: a worker whose claim was reset (and
+    maybe re-claimed) updates nothing. completed=True with an error is a finished job: 'partial_table' posted what existed, others posted nothing."""
+    now = datetime.now(timezone.utc)
+    if error is None or completed:
+        update = {"status": "completed", "error": error, "completed_at": now.isoformat()}
+    elif retryable and attempts < MAX_ATTEMPTS:
+        update = {"status": "pending", "error": error, "dispatched_at": None,
+                  "not_before": (now + timedelta(seconds=retry_delay_s())).isoformat()}
+    else:
+        update = {"status": "failed", "error": error}
+    update["updated_at"] = now.isoformat()
+    _db().table(ROUND_JOBS).update(update).eq("id", job_id).eq("status", "processing").eq("attempts", attempts).execute()
+
+
+def defer_round_job(job_id: str, attempts: int, not_before_iso: str) -> None:
+    """Back to pending WITHOUT using the attempt this claim took (not ready yet, or the switch is off)."""
+    _db().table(ROUND_JOBS).update({
+        "status": "pending", "attempts": max(attempts - 1, 0), "not_before": not_before_iso,
+        "dispatched_at": None, "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", job_id).eq("status", "processing").eq("attempts", attempts).execute()
+
+
+def post_clean_round(job_id: str, attempt: int, items: list[dict], partial: bool = False) -> int:
+    """ONE transaction for the whole job. Refused (raises) for a stale attempt; on any failure nothing is posted."""
+    return _db().rpc("post_clean_round", {"p_job_id": job_id, "p_attempt": attempt, "p_items": items, "p_partial": partial}).execute().data

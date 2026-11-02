@@ -32,9 +32,9 @@ describe('the idle transcription banner', () => {
     // Walkthrough 9: the ⓘ is there before anyone starts.
     expect(within(bar).getByTestId('capture-info')).toBeInTheDocument();
     // P1388: the short bar has no second line — the start screen's description rides on the button.
-    expect(screen.getByText(/Record audio/)).toHaveClass('sr-only'); // read out, never a visible line
+    expect(screen.getByText(/posted to your round's thread/)).toHaveClass('sr-only'); // read out, never a visible line
     const button = screen.getByTestId('room-transcribe-start');
-    expect(button).toHaveAccessibleDescription(expect.stringContaining('Record audio and share transcript with others in the room'));
+    expect(button).toHaveAccessibleDescription(expect.stringContaining("After each round, a clean version is posted to your round's thread, where the host and attendees can read it."));
     expect(button).toHaveTextContent('Transcribe');
     expect(button.className).toContain('border'); // outlined, not a second filled primary
     expect(button.className).not.toContain('bg-blue-500');

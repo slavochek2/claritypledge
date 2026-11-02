@@ -8,27 +8,26 @@
  * what the toolbar does not (Edit, Delete: your own messages), so nothing is offered twice. Mark as
  * unread is not here: it marks the whole chat, so it lives on the chat (list row, header menu).
  */
-import { AuthorNameSkeleton, QuoteSkeleton, UnlinkedAuthorMark } from './MessageRowPlaceholders';
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { UnlinkedAuthorMark } from './MessageRowPlaceholders';
+import { AuthorName, ForwardedBody, MessageNote, QuoteBlock, TranscriptionMark } from './MessageParts';
+import { MessageToolbar } from './MessageToolbar';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { toast } from 'sonner';
-import { Forward, Lock, MessageSquareText, MessagesSquare, MoreHorizontal, Pencil, Reply, Trash2 } from 'lucide-react';
-import { useAuth } from '@/auth';
+import { Forward, Lock, MessageSquareText, MessagesSquare, Pencil, Reply, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { getMessage, type ChatMessage } from '@/app/data/chat-service';
+import type { ChatMessage } from '@/app/data/chat-service';
 import type { ThreadStats } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { AttachmentCard } from './AttachmentCard';
 import { EditBox } from './EditBox';
 import { RepliesLink } from './RepliesLink';
 import { VoiceBubble } from './VoiceBubble';
-import { Quote } from './Quote';
-import { FOCUS_RING, MirrorMark, PersonMark, PopMenu, type MenuItem } from './chat-kit';
-import { DESKTOP_HOVER_QUERY, useChatNavigate, useDismiss, useMediaQuery } from './chat-hooks';
+import { FOCUS_RING, PersonMark, PopMenu, MirrorMark, type MenuItem } from './chat-kit';
+import { DESKTOP_HOVER_QUERY, useDismiss, useMediaQuery } from './chat-hooks';
 import { useChat } from './chat-state';
 import { isLocal, type Row } from './use-conversation';
-import { chatPath, chatTitle, messageSummary, messageTime, mirrorName, mirrorRole, sourceLabel } from './chat-view-model';
+import { chatTitle, messageTime, mirrorName, mirrorRole } from './chat-view-model';
 import { MirrorReplyState } from './MirrorReplyState';
 
 /** A finger resting this long on a message opens its menu; drifting further than LONG_PRESS_DRIFT_PX is a scroll. */
@@ -65,6 +64,8 @@ interface Props {
   compact: boolean;
   /** The id of the message rendered directly above this one: the mirror's answer to it needs no quote. */
   prevMessageId?: string;
+  /** The message before is a transcription by the same author: the run already carries its "Transcribed" pill. */
+  continuesTranscription?: boolean;
   highlight: boolean;
   stat?: ThreadStats;
   actions: MessageActions;
@@ -77,190 +78,7 @@ interface Props {
   privateHere?: boolean;
 }
 
-function AuthorName({ author, authorId, pending, className }: { author: ChatAuthor | undefined; authorId: string | null; pending: boolean; className?: string }) {
-  if (!authorId) return <span className={cn('font-semibold text-muted-foreground', className)}>Deleted user</span>;
-  // The profile is still on its way: a quiet bar, never a flash of "Unknown".
-  if (pending) return <AuthorNameSkeleton />;
-  const name = author?.name ?? 'Unknown member';
-  if (!author?.slug) return <span className={cn('font-semibold', className)}>{name}</span>;
-  return (
-    <Link to={`/p/${author.slug}`} className={cn('font-semibold hover:underline hover:underline-offset-2', FOCUS_RING, className)}>
-      {name}
-    </Link>
-  );
-}
-
-/**
- * The message a reply points at: its author and words, "Original message deleted", or not available.
- * A loaded source is read from the live message list, so an edit, a delete or an erasure shows at
- * once; a source that is not loaded is read once and again whenever the conversation re-syncs.
- */
-function QuoteBlock({ replyToId, actions, authors }: { replyToId: string; actions: MessageActions; authors: Record<string, ChatAuthor> }) {
-  const [fetched, setFetched] = useState<ChatMessage | null | undefined>(undefined);
-  const { lookup, getLoaded, version } = actions;
-  const { missingAuthors } = useChat();
-  const loaded = getLoaded(replyToId);
-  useEffect(() => {
-    if (loaded) return;
-    let live = true;
-    lookup(replyToId).then(
-      (m) => live && setFetched(m),
-      () => live && setFetched(null),
-    );
-    return () => {
-      live = false;
-    };
-  }, [replyToId, lookup, loaded, version]);
-  const quoted = loaded ?? fetched;
-  if (quoted === undefined) return <QuoteSkeleton />;
-  const name = quoted?.authorId ? authors[quoted.authorId]?.name ?? (missingAuthors.has(quoted.authorId) ? 'Unknown member' : '') : 'Deleted user';
-  const text = quoted === null ? 'Original message not available' : quoted.isDeleted ? 'Original message deleted' : messageSummary(quoted);
-  const jumpable = !!quoted && !quoted.isDeleted;
-  const unavailable = quoted === null || quoted.isDeleted;
-  return (
-    <Quote
-      testId="reply-quote"
-      label={unavailable ? 'Reply' : `Reply to ${name}`}
-      summary={unavailable ? text : `Reply to ${name}: ${text}`}
-      body={<span className={cn('mt-0.5 block line-clamp-2 break-words text-sm text-muted-foreground', unavailable && 'italic')}>{text}</span>}
-      onJump={jumpable ? () => actions.onJumpTo(quoted.id) : undefined}
-      className="my-1"
-    />
-  );
-}
-
-/** Tap-to-jump: the source is read when pressed (through the reader's own access), not on every render. */
-function useJumpToOriginal(sourceId: string | null) {
-  const go = useChatNavigate();
-  const [busy, setBusy] = useState(false);
-  return async () => {
-    if (!sourceId || busy) return;
-    setBusy(true);
-    try {
-      const target = await getMessage(sourceId);
-      if (target && !target.isDeleted) {
-        // On top of where they are, so Back returns here.
-        go(chatPath(target.conversationId, { rootId: target.threadRootId ?? undefined, messageId: target.id }), 'follow');
-      } else {
-        toast("The original isn't available to you any more.");
-      }
-    } catch {
-      toast.error('Could not open the original. Try again.');
-    } finally {
-      setBusy(false);
-    }
-  };
-}
-
-function ForwardedBody({ msg, viewerId }: { msg: ChatMessage; viewerId: string }) {
-  const { chats } = useChat();
-  const { user } = useAuth();
-  const snap = msg.forwardSnapshot;
-  // Hooks run before the early return: the jump target is null whenever there is no original to reach.
-  const removed = !!snap && snap.body === null && !msg.attachmentKind;
-  const hasOriginal = !!snap && !!msg.forwardedFromMessageId && !removed && snap.authorName !== 'Deleted user';
-  const jump = useJumpToOriginal(hasOriginal ? msg.forwardedFromMessageId : null);
-  if (!snap) return null;
-  const clarify = msg.kind === 'clarify';
-  const mirror = mirrorName(chats.find((c) => c.kind === 'mirror'));
-  // The clarifier owns the mirror: their own words read "You". Decided by the original author's id, never by a name
-  // (two people can share one). No id (erased account, or a row without it) means the snapshot's name, which erasure
-  // sets to "Deleted user".
-  const clarifiedAuthor = user?.id && msg.forwardAuthorId === user.id ? 'You' : snap.authorName;
-  // An erased author's text is gone from the copy too (removed, above): say so instead of showing an empty card;
-  // and there is nowhere to go from a copy whose author was erased or whose text was removed (hasOriginal).
-  const label = clarify ? (
-    <>
-      <MirrorMark size="xs" className="mr-1 align-text-bottom" />Sent to {mirror} to clarify · from {sourceLabel(snap.conversationKind, snap.conversationTitle)}
-    </>
-  ) : (
-    <>
-      Forwarded from <span className="font-semibold text-foreground">{snap.authorName}</span>
-    </>
-  );
-  return (
-    <Quote
-      testId={clarify ? 'clarified-card' : 'forwarded-card'}
-      summary={`${clarify ? `Clarify, ${clarifiedAuthor}` : `Forwarded from ${snap.authorName}`}: ${snap.body ?? 'message removed'}`}
-      label={
-        <>
-          {label}
-          {removed && <span data-testid="snapshot-removed"> · Message removed</span>}
-        </>
-      }
-      onJump={hasOriginal ? () => void jump() : undefined}
-      body={
-        <>
-          {clarify && (
-            <span className="mt-1 block text-sm font-semibold text-foreground" data-testid="clarified-author">
-              {clarifiedAuthor}
-            </span>
-          )}
-          {snap.body && <span className="mt-1 block whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground">{snap.body}</span>}
-        </>
-      }
-    >
-      {msg.attachmentKind && msg.attachmentId && <AttachmentCard kind={msg.attachmentKind} id={msg.attachmentId} viewerId={viewerId} compact />}
-      {snap.thread.length > 0 && (
-        <span className="mt-2 block space-y-1.5 border-t pt-2" data-testid="forwarded-thread">
-          {snap.thread.map((t, i) => (
-            <span key={`${t.createdAt}-${i}`} className="block text-sm">
-              <span className="font-semibold text-foreground">{t.authorName}</span>
-              {t.body === null ? (
-                <span className="text-muted-foreground"> · Message removed</span>
-              ) : (
-                <>
-                  <span className="text-muted-foreground">: </span>
-                  <span className="whitespace-pre-wrap break-words text-foreground">{t.body}</span>
-                </>
-              )}
-            </span>
-          ))}
-        </span>
-      )}
-    </Quote>
-  );
-}
-
-function ToolButton({ label, onClick, children }: { label: string; onClick: (e: ReactMouseEvent<HTMLButtonElement>) => void; children: React.ReactNode }) {
-  // Icons only, on purpose: five labelled buttons cannot share one row at 320, and an action bar that wraps
-  // looks broken. The name is on the button for assistive tech and the hover tip; the long-press menu has the words.
-  // Clarify is the one labelled button (ClarifyButton): it wears the mirror's face and the word.
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground lg:h-9 lg:w-9', FOCUS_RING)}
-    >
-      {children}
-    </button>
-  );
-}
-
-/**
- * Clarify: the mirror's face and the word. The name and tip say whose mirror ("Clarify with Ada's mirror").
- * Below 360px the word drops out (face only, still 40px) so the five buttons keep one row at 320.
- */
-function ClarifyButton({ mirror, onClick }: { mirror: string; onClick: () => void }) {
-  const label = `Clarify with ${mirror}`;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      data-testid="clarify-button"
-      className={cn('flex h-10 min-w-10 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2 text-muted-foreground hover:bg-accent hover:text-foreground min-[360px]:px-2.5 lg:h-9 lg:px-2', FOCUS_RING)}
-    >
-      <MirrorMark size="xs" />
-      <span className="hidden text-sm font-medium min-[360px]:inline">Clarify</span>
-    </button>
-  );
-}
-
-export function MessageRow({ msg, mine, viewerId, author, authors, compact, prevMessageId, highlight, stat, actions, inThread = false, privateHere = false }: Props) {
+export function MessageRow({ msg, mine, viewerId, author, authors, compact, prevMessageId, continuesTranscription, highlight, stat, actions, inThread = false, privateHere = false }: Props) {
   const local = isLocal(msg) ? msg : null;
   const server: ChatMessage | null = local ? null : msg;
   const live = !!server && !server.isDeleted;
@@ -354,46 +172,22 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
     }
   };
 
-  const showHeader = !compact;
+  // P1592: a thread's root (a round's, or the event's "Outside rounds") is a system post: its body is a title, shown alone (no avatar, no author line).
+  const system = !!server?.systemKind;
+  const showHeader = !compact && !system;
   const toolbar =
     server && live && draft === null && !privateHere ? (
-      <div
-        role="toolbar"
-        aria-label="Message actions"
-        className={cn(
-          'flex items-center gap-0.5 rounded-2xl border bg-background p-0.5 shadow',
-          selected
-            ? 'mt-1.5 inline-flex max-w-full flex-nowrap'
-            : 'pointer-events-none absolute -top-5 right-3 z-10 opacity-0 transition-opacity focus-within:pointer-events-auto focus-within:opacity-100 lg:[@media(hover:hover)]:group-hover:pointer-events-auto lg:[@media(hover:hover)]:group-hover:opacity-100',
-        )}
-      >
-        <ToolButton label="Reply" onClick={() => { setSelected(false); actions.onReply(server); }}>
-          <Reply className="h-[18px] w-[18px]" aria-hidden="true" />
-        </ToolButton>
-        {!noCopy && (
-          <ToolButton label="Forward" onClick={() => { setSelected(false); actions.onForward(server); }}>
-            <Forward className="h-[18px] w-[18px]" aria-hidden="true" />
-          </ToolButton>
-        )}
-        {!ownerOnly && actions.onThread && !server.threadRootId && (
-          <ToolButton label="Thread" onClick={() => { setSelected(false); actions.onThread?.(server); }}>
-            <MessageSquareText className="h-[18px] w-[18px]" aria-hidden="true" />
-          </ToolButton>
-        )}
-        {!noCopy && actions.onClarify && <ClarifyButton mirror={mirror} onClick={() => { setSelected(false); actions.onClarify?.(server); }} />}
-        {moreItems.length > 0 && (
-          <ToolButton
-            label="More actions"
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              setSelected(false);
-              setMenuAt({ x: r.right - 208, y: r.bottom + 4, more: true });
-            }}
-          >
-            <MoreHorizontal className="h-[18px] w-[18px]" aria-hidden="true" />
-          </ToolButton>
-        )}
-      </div>
+      <MessageToolbar
+        message={server}
+        selected={selected}
+        noCopy={noCopy}
+        ownerOnly={ownerOnly}
+        mirror={mirror}
+        actions={actions}
+        hasMore={moreItems.length > 0}
+        onDone={() => setSelected(false)}
+        onMore={(at) => { setSelected(false); setMenuAt({ ...at, more: true }); }}
+      />
     ) : null;
 
   const authorId = msg.authorId;
@@ -401,12 +195,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   const authorPending = !!authorId && !author && !missingAuthors.has(authorId);
   const time = local ? (local.failed ? '' : 'Sending…') : messageTime(msg.createdAt);
 
-  const noteEl = msg.body && (
-    <p className="whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground">
-      {msg.body}
-      {server?.editedAt && <span className="ml-1.5 text-xs text-muted-foreground" data-testid="edited-mark">(edited)</span>}
-    </p>
-  );
+  const noteEl = msg.body && <MessageNote body={msg.body} editedAt={server?.editedAt ?? null} system={system} />;
   return (
     <li ref={row} data-msg={msg.id} data-testid="message">
       {/* Right-click and long press are pointer shortcuts only: every item they offer is also reachable by keyboard, on the toolbar or in its ⋯ menu. */}
@@ -462,7 +251,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
           if ((e.pointerType !== 'mouse' || !desktopHover) && items.length && !(e.target as HTMLElement).closest(INTERACTIVE)) setSelected((s) => !s);
         }}
       >
-        <div className="w-9 shrink-0">
+        {!system && <div className="w-9 shrink-0">
           {showHeader && agent && <MirrorMark size="md" />}
           {showHeader && !agent &&
             (authorId && author?.slug ? (
@@ -472,7 +261,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
             ) : (
               <UnlinkedAuthorMark author={author} authorId={authorId} pending={authorPending} />
             ))}
-        </div>
+        </div>}
         <div className="min-w-0 flex-1">
           {showHeader && (
             <div className="flex flex-wrap items-baseline gap-x-1.5 leading-6">
@@ -485,6 +274,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
                 <AuthorName author={author} authorId={authorId} pending={authorPending} className="min-w-0 max-w-full truncate text-[15px] text-foreground" />
               )}
               {time && <span className="text-xs text-muted-foreground">{time}</span>}
+              <TranscriptionMark msg={server} continues={continuesTranscription} />
             </div>
           )}
           {(privateHere || askedIn) && (
@@ -493,6 +283,8 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
               {privateHere ? 'Private: only you see this' : `Asked privately in ${chatTitle(askedIn as NonNullable<typeof askedIn>)}`}
             </p>
           )}
+          {/* No header line in a grouped message: the pill then sits on a line of its own above the words. */}
+          {!showHeader && <TranscriptionMark msg={server} continues={continuesTranscription} grouped />}
           {compact && local && !local.failed && <span className="sr-only">Sending</span>}
 
           {server?.isDeleted ? (

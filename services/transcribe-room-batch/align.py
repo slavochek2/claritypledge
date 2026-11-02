@@ -17,12 +17,15 @@ Rules (spec "The quiet swap"):
     message's matched start; `other` = best score among windows starting L or more words away.
     Ambiguous (None) when other >= min_ratio and other >= own. A repeated phrase scores the
     same elsewhere, so every message sharing it is rejected; its unrepeated neighbours are not.
-  * Unmatched cleaned words go to the EARLIER neighbour, and only when that neighbour is the very
-    next message (no message in between): up to the next message's first matched word. If the
-    next message is rejected, the extension is capped (max(8, L) words) so a stray match cannot
-    drag far text in. Leading words go to the first message only if it is message 0; trailing
-    words go to the last message only if it is the last one. A rejected message never receives
-    words. Words nobody may own are dropped (the cleaned transcript stays stored).
+  * Unmatched cleaned words go to the EARLIER neighbour, only when that neighbour is the very
+    next message AND both have the same `place` (thread root or conversation). Gap words between
+    messages in DIFFERENT places are dropped, never attached to either side (they stay in the
+    operator's cleaned transcript). Same-place gaps run up to the next message's first matched
+    word; if that next message is rejected, the extension is capped (max(8, L) words) so a stray
+    match cannot drag far text in. Leading words go to the first message only if it is message 0;
+    trailing words go to the last message only if it is the last one (in both cases the first/last
+    message is the only neighbour, so the place is trivially the same). A rejected message never
+    receives words. Dropped words are fine.
   * Never returns empty/whitespace text or text over MAX_CHARS (D10): returns None instead.
   * A message made only of invented text matches (almost) nothing -> ratio below min_ratio -> None.
 Whitespace in the output is normalised to single spaces (tokens are split on whitespace).
@@ -148,7 +151,7 @@ def align_messages(messages: list[dict], cleaned_text: str, *, min_ratio: float 
         end = anchors[i][-1] + 1
         if i == n_msg - 1:
             end = n_words
-        elif anchors[i + 1]:
+        elif anchors[i + 1] and messages[i + 1].get("place") == messages[i].get("place"):
             nxt = anchors[i + 1][0]
             if accepted[i + 1]:
                 end = max(end, nxt)

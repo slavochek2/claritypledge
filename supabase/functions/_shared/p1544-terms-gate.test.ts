@@ -3,7 +3,7 @@
 // fails closed on everything else (old version, no row, read error, empty value).
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import { callerHasCurrentTerms, TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS } from './terms-gate.ts';
-import { SERVER_CURRENT_TERMS_VERSION } from './terms-version.ts';
+import { MIRROR_CONSENT_VERSIONS, SERVER_CURRENT_TERMS_VERSION } from './terms-version.ts';
 
 function stub(result: { data: { accepted_terms_version?: unknown } | null; error: unknown }, seen: string[] = []) {
   return {
@@ -22,6 +22,13 @@ Deno.test('P1544: the current version passes, and the profile read is by the giv
   const seen: string[] = [];
   assertEquals(await callerHasCurrentTerms(stub({ data: { accepted_terms_version: SERVER_CURRENT_TERMS_VERSION }, error: null }, seen), 'u-1'), true);
   assertEquals(seen, ['u-1']);
+});
+
+Deno.test('P1592: v1.5 (the mirror consent) and v1.6 (the notice version) both pass; the list is exactly those two', async () => {
+  assertEquals([...MIRROR_CONSENT_VERSIONS], ['v1.5', 'v1.6']);
+  for (const v of MIRROR_CONSENT_VERSIONS) {
+    assertEquals(await callerHasCurrentTerms(stub({ data: { accepted_terms_version: v }, error: null }), 'u-1'), true, v);
+  }
 });
 
 Deno.test('P1544: a superseded version, a null, an empty string and a missing row are refused', async () => {

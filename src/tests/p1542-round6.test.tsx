@@ -227,7 +227,8 @@ describe('round 6 surfaces (source contract)', () => {
     expect(close).toMatch(/groupChatUrl && chat\.opened === false/);
   });
   it('the room reads finished feedback, hides the Transcribe bar for a hike, and Back always lands on the event', () => {
-    expect(room).toMatch(/roomRecipe\.room\.transcribe && \(\s*<RoomTranscribeIdleBar/);
+    // founder, solo test 2026-11-02: the idle bar now sits under the tabs row, passed to RoomHeadCapture.
+    expect(room).toMatch(/roomRecipe\.room\.transcribe \? \(\s*<RoomTranscribeIdleBar/);
     // P1562 §2: the room's Back table lives in use-room-back.ts; Back to the event pops when the event page opened the
     // room, else replaces (useBackToEvent, past every room entry above it).
     expect(room).toMatch(/const roomBack = useRoomBack\(slug\);/);

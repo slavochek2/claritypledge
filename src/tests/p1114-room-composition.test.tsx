@@ -247,13 +247,13 @@ describe('P1114 rev2: chrome and routing', () => {
 });
 
 describe('P1114 rev2: back navigation out of the room', () => {
-  it('EventRoomReady.tsx and EventRoomMeet.tsx use FocusHeader, not a hand-rolled back button', () => {
+  it('EventRoomReady.tsx and EventRoomMeet.tsx draw their Back through FocusHeader, not a hand-rolled back button', () => {
+    // founder, solo test 2026-11-02: the Back moved onto the tabs row; both pages now render RoomHeadRow (RoomChrome.tsx),
+    // which is where FocusHeader is imported.
+    const chrome = read('src/app/prototypes/events/components/RoomChrome.tsx');
+    expect(/from\s*['"]@\/app\/components\/layout\/focus-header['"]/.test(chrome), 'RoomChrome.tsx does not import FocusHeader').toBe(true);
     for (const p of [ROOM_READY, ROOM_MEET]) {
-      const s = read(p);
-      expect(
-        /from\s*['"]@\/app\/components\/layout\/focus-header['"]/.test(s),
-        `${p} does not import FocusHeader. src.md: "Never define inline BackButton components — use FocusHeader." Without a back control, a signed-in attendee on /ready or /meet has no way out except the browser's own back button.`,
-      ).toBe(true);
+      expect(/<RoomHeadRow\b/.test(read(p)), `${p} does not render RoomHeadRow, so it has no Back`).toBe(true);
     }
   });
 });

@@ -137,7 +137,7 @@ test('RPC: an outsider holding a real message id cannot forward, clarify, reply,
     'B forwards m1 to own mirror',
   );
   expect(bFwd.kind).toBe('forward');
-  expect(Object.keys(bFwd.forward_snapshot as object).sort(), 'an ordinary forward snapshot is exactly the allowlist').toEqual(['author_name', 'body', 'created_at']);
+  expect(Object.keys(bFwd.forward_snapshot as object).sort(), 'an ordinary forward snapshot is exactly the allowlist').toEqual(['author_name', 'body', 'created_at', 'is_transcription', 'system_kind']); // P1592: two marks added to the allowlist
   const bClar = await ok<Row>(sB.client.rpc('clarify_chat_message', { p_source: m1.id }), 'B clarifies m1');
   expect(bClar.kind).toBe('clarify');
 
@@ -415,13 +415,13 @@ test('clarify: copies the message and its thread into the caller\'s own mirror o
   expect(fwdOfClarify.forward_snapshot, 'the original snapshot is kept').toBeTruthy();
   expect('thread' in (fwdOfClarify.forward_snapshot as object), 'a forwarded clarify drops its thread').toBe(false);
   // M2 (D5): a forward is built from an allowlist, so nothing about the SOURCE chat reaches the new audience.
-  expect(Object.keys(fwdOfClarify.forward_snapshot as object).sort(), 'forwarded clarify snapshot keys are exactly the allowlist').toEqual(['author_name', 'body', 'created_at']);
+  expect(Object.keys(fwdOfClarify.forward_snapshot as object).sort(), 'forwarded clarify snapshot keys are exactly the allowlist').toEqual(['author_name', 'body', 'created_at', 'is_transcription', 'system_kind']); // P1592: two marks added to the allowlist
   expect(JSON.stringify(fwdOfClarify.forward_snapshot), 'the source chat title does not travel').not.toContain('General');
   const fwdOfDmClarify = await ok<Row>(
     sB.client.rpc('forward_chat_message', { p_source: dmClarify.id, p_target_conversation: gconv }),
     'B forwards the dm clarify copy to the group',
   );
-  expect(Object.keys(fwdOfDmClarify.forward_snapshot as object).sort(), 'dm clarify forwarded: allowlist only (no title, no ref)').toEqual(['author_name', 'body', 'created_at']);
+  expect(Object.keys(fwdOfDmClarify.forward_snapshot as object).sort(), 'dm clarify forwarded: allowlist only (no title, no ref)').toEqual(['author_name', 'body', 'created_at', 'is_transcription', 'system_kind']); // P1592: two marks added to the allowlist
   expect(fwdOfClarify.forward_snapshot?.body).toBe(`root-${RUN}`);
   const inSource = (await adminMessages(gconv)).filter((r) => r.kind === 'clarify');
   expect(inSource, 'nothing is posted into the source chat').toEqual([]);

@@ -8,6 +8,21 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-02 [technical]: Event room archive is 16 kHz WAV from the live PCM tap, not MediaRecorder
+
+**Context:** P1596's cleaned transcripts depend on every person's archive. In a founder test, a hidden Safari delayed MediaRecorder data, and its MP4 pieces were unreadable to the worker.
+**Decision:** The room archive is built from the PCM tap as 30 s WAV chunks; the worker reads WAV, WebM and MP4. A suspended audio context is resumed, and lost time is told to the person.
+**Alternatives rejected:** Keeping MediaRecorder with a worker MP4 reader: hidden-tab delays stay.
+**Consequences:** Upload measured at about 281 MB per person-hour in the test (WAV 115 MB of it per the test's split with the live slices), which matters on mobile data. UNTESTED on real iPhones over several minutes; the suspended-context fix is unproven in real Safari. Falsifier: a people test where a hidden iPhone leaves gaps despite the resume.
+**References:** [P1596](../features/p1596_event_transcripts_one_speaker_per_sentence.md)
+
+## 2026-11-02 [technical]: A round's words stay with the round, even when the room ended first
+
+**Context:** Mics can stop during an open round. The room-end job used to post seated people's table speech to "After the last round", and the later cut dropped the room. Moving those words to the round made the cut their only route to chat, and review found three ways that route lost them: a close over 3 h after the start, a host who never closes, and tidying the people list after the end.
+**Decision:** The cut keeps a room that ended during the round; the worker cleans only up to the audio that exists and measures missing audio against the table's own last audio; the sweep tick closes a round 2 h after every room of its event ended, at the last room's end, but only a round that started after posting was switched on, so older speech under older consent wording is never posted; seat changes while every room is ended are not moves.
+**Alternatives rejected:** Closing the round the moment the last room ends: a short stop or restart would end a live round on the host. Leaving the words in "After the last round": they would be misfiled across every table.
+**Consequences:** A table's text can arrive up to about 2 h late if the host never closes. Audio truly spanning over 3 h in one round is still refused, and a table whose mics all died early carries no missing-audio mark. Known limits are listed in the P1596 spec. A migration rebuilding a function must diff against its newest definition: one here copied an older one and undid a fix until review caught it.
+**References:** `supabase/migrations/20261102170000_p1596_open_round_at_room_end.sql`, `20261102180000_p1596_abandoned_open_rounds.sql`, `20261102183000_p1596_seat_log_restore_newcomer.sql`
 ## 2026-11-02 [product]: Active channel moves to warm-network change leads through a group kickoff; slow outreach starts now, pilots after mastermind session 2. Founder decision, UNTESTED
 
 **Context:** This morning's entry "Organisers-first withdrawn; all outreach stays parked" parked outreach until there was "something specific to offer". Working through the minimum loop produced a specific offer, and the founder decided to start. This **partly reverses** that entry: organisers stay withdrawn, but "outreach of any kind stays parked" no longer holds.
@@ -213,7 +228,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** Inside the app shell the loader (and its slow-load notice) centres on the content column, using the sidebar width the shell publishes. The boot splash, which has no shell, stays viewport-centred.
 **Alternatives rejected:** Keeping viewport centring (the founder's complaint stands).
 **Consequences:** On a signed-in desktop cold load the mark slides sideways once (about 124 px open, 32 px collapsed; phones unaffected). Follow-up to start the splash in the same place: INBOX-254.
-**References:** [p1595](../features/p1595_event_room_polish_and_registered_page.md) · `src/components/ui/clarity-loader.tsx` · `src/app/layouts/clarity-landing-layout.tsx`
+**References:** [p1595](../features/done/2026-06-10/p1595_event_room_polish_and_registered_page.md) · `src/components/ui/clarity-loader.tsx` · `src/app/layouts/clarity-landing-layout.tsx`
 
 ## 2026-10-29 [product]: Install offer lives in the avatar menu, always shown until installed; one return-visit nudge on mobile; no install asks on celebration screens (P1593)
 

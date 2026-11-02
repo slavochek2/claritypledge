@@ -6,7 +6,7 @@
  * the letter to open.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -18,6 +18,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Link } from 'react-router-dom';
+import { TermsChangeList, TermsMissedChanges, TermsTitle } from '@/app/components/legal/terms-change-list';
+import type { TermsChangeSummary } from '@/app/content/terms-changes';
+import { termsPrompt } from '@/app/content/terms-prompt';
+import { getAcceptedTermsVersion } from '@/app/data/terms-accepted';
+import { useAuth } from '@/auth/AuthContext';
 
 interface LetterStaleTermsModalProps {
   open: boolean;
@@ -32,6 +37,23 @@ export function LetterStaleTermsModal({
 }: LetterStaleTermsModalProps) {
   const [checked, setChecked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [missed, setMissed] = useState<TermsChangeSummary[]>([]);
+  const { user } = useAuth();
+  const userId = user?.id;
+
+  // Earlier versions needing consent that this person skipped. A failed read shows only the current one.
+  useEffect(() => {
+    if (!open || !userId) return;
+    let cancelled = false;
+    getAcceptedTermsVersion(userId)
+      .then((accepted) => {
+        if (!cancelled) setMissed(termsPrompt(accepted).missed);
+      })
+      .catch((err) => console.error('[letter-reading] Accepted terms read failed:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [open, userId]);
 
   const handleAccept = async () => {
     if (!checked || isLoading) return;
@@ -51,17 +73,21 @@ export function LetterStaleTermsModal({
       }}
     >
       <DialogContent
-        className="sm:max-w-md"
+        className="flex max-h-[100dvh] flex-col sm:max-w-md"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Updated Terms</DialogTitle>
+          <DialogTitle className="leading-snug"><TermsTitle /></DialogTitle>
           <DialogDescription>
-            We&rsquo;ve updated our Terms of Service and Privacy Policy since you last
-            agreed. Please review and accept to continue.
+            Our Terms and Privacy Policy are updated. To open this letter, you need to agree to them.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+          <TermsChangeList />
+          <TermsMissedChanges missed={missed} />
+        </div>
 
         <div className="space-y-4 py-2">
           <div className="flex gap-4 text-sm">
@@ -107,7 +133,7 @@ export function LetterStaleTermsModal({
             disabled={!checked || isLoading}
             aria-disabled={!checked || isLoading}
           >
-            {isLoading ? 'Saving...' : 'Accept & continue'}
+            {isLoading ? 'Saving...' : 'Agree and continue'}
           </Button>
         </DialogFooter>
       </DialogContent>

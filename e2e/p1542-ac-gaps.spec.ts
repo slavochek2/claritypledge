@@ -62,9 +62,9 @@ test.describe('P1542 AC gaps', () => {
     await setTestSession(page, u.email);
     await page.goto(`/events/${futureHike.slug}/confirm`);
     const card = page.getByTestId('learn-card');
-    await expect(card.getByTestId('learn-card-title')).toHaveText(`Continue learning about ${COMMUNITY}`, { timeout: 30_000 });
-    await expect(card.getByTestId('learn-card-minutes')).toHaveText(/^\d+ min left$/);
-    await expect(card.getByTestId('learn-card-cta')).toHaveText('Continue');
+    // P1595: the title names the organiser; the one button carries "Continue" and the minutes left.
+    await expect(card.getByTestId('learn-card-title')).toHaveText(`This hike is organised by ${COMMUNITY}.`, { timeout: 30_000 });
+    await expect(card.getByTestId('learn-card-cta')).toHaveText(/^Continue \(\d+ min left\)$/);
   });
 
   test('feedback thank-you, partial learner non-member: the line under Join reads "About N minutes left of the introduction."', async ({ page }) => {

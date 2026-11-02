@@ -50,11 +50,15 @@ describe('P1283 — expected jobs derived from migrations', () => {
       'cleanup_transcribe_clip_rate_limits',
       'dispatch_event_emails',
       'transcribe_room_sweep',
+      'transcribe_round_clean',
     ]);
     expect(jobs.dispatch_event_emails).toBe('*/30 * * * *');
     expect(jobs.cleanup_expired_ready_submissions).toBe('*/5 * * * *');
     expect(jobs.cleanup_stale_live_invites).toBe('0 * * * *');
     expect(jobs.transcribe_room_sweep).toBe('*/2 * * * *');
+    // P1596: 20261101120000 unschedules P1592's transcribe_post_retry and adds transcribe_round_clean.
+    expect(jobs.transcribe_post_retry).toBeUndefined();
+    expect(jobs.transcribe_round_clean).toBe('* * * * *');
     expect(jobs.cleanup_mail_rate_limits).toBe('*/15 * * * *');
     expect(jobs.cleanup_transcribe_clip_rate_limits).toBe('*/15 * * * *');
     expect(jobs.chat_voice_sweep).toBe('*/5 * * * *');
@@ -382,6 +386,7 @@ describe('P1283 — defects found by adversarial review (codex, 2026-09-09)', ()
       'cleanup_transcribe_clip_rate_limits',
       'dispatch_event_emails',
       'transcribe_room_sweep',
+      'transcribe_round_clean',
     ]);
   });
 
@@ -482,6 +487,7 @@ describe('P1283 — non-executable SQL must never create an expectation', () => 
       cleanup_transcribe_clip_rate_limits: '*/15 * * * *',
       dispatch_event_emails: '*/30 * * * *',
       transcribe_room_sweep: '*/2 * * * *',
+      transcribe_round_clean: '* * * * *',
     });
   });
 });

@@ -22,7 +22,8 @@ from pydantic import BaseModel
 
 import storage
 from config import PORT
-from pipeline import process_job
+from serial import round_lock, run_round_serialized
+from pipeline import drain_round_jobs, process_job, process_round_job
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -44,12 +45,21 @@ async def health():
 
 @app.post("/process")
 async def process(req: ProcessRequest):
+    runner = process_job
     claimed = storage.claim_job(req.job_id)
+    if claimed is None:
+        # P1596: a clean-round job id arrives through the same enqueue path (uuids never collide).
+        claimed = storage.claim_round_job(req.job_id)
+        runner = process_round_job
     if claimed is None:
         logger.info("process: job %s not claimed (no-op)", req.job_id)
         return JSONResponse(status_code=200, content={"claimed": False})
 
-    task = asyncio.create_task(asyncio.to_thread(process_job, claimed))
+    if runner is process_round_job:
+        # P1596: one clean-round job at a time per instance; this handler still answers 202 at once.
+        task = asyncio.create_task(run_round_serialized(runner, claimed))
+    else:
+        task = asyncio.create_task(asyncio.to_thread(runner, claimed))
     _BACKGROUND_TASKS.add(task)
     task.add_done_callback(_BACKGROUND_TASKS.discard)
     logger.info("process: job %s claimed (attempt %s) → 202", claimed["id"], claimed.get("attempts"))
@@ -73,6 +83,9 @@ async def sweep():
             continue
         await asyncio.to_thread(process_job, claimed)
         processed.append(job_id)
+    # P1596: due clean-round jobs: skipped while the kill switch is off; one retrying job never stalls the rest.
+    async with round_lock():
+        processed.extend(await asyncio.to_thread(drain_round_jobs))
     logger.info("sweep: processed %d job(s)", len(processed))
     return {"processed": len(processed), "jobs": processed}
 

@@ -14,9 +14,11 @@
  *   - Auth in: `x-cron-secret` compared against CRON_SECRET. `Authorization` carries the
  *     project anon key only to satisfy the gateway's JWT check (same arrangement as
  *     dispatch-event-emails; see migration 20260907170000).
- *   - Task name = job id, so a duplicate trigger fire is deduplicated by Cloud Tasks.
+ *   - Task name = job id, so a duplicate trigger fire is deduplicated by Cloud Tasks. A round-clean dispatch
+ *     (P1596) also sends an optional `attempt` marker that joins the name, so a retry's redispatch is not swallowed.
  */
 import { SignJWT, importPKCS8 } from 'jose';
+import { taskName, validAttempt } from './task-name.ts';
 
 const GCP_PROJECT = 'gen-lang-client-0869694595';
 const LOCATION = 'us-east4';
@@ -64,6 +66,21 @@ async function googleAccessToken(): Promise<string> {
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
+/** The validated request body, or the error to return. */
+async function parseBody(req: Request): Promise<{ jobId: string; attempt?: string } | string> {
+  let body: { job_id?: unknown; attempt?: unknown } | null;
+  try {
+    body = await req.json();
+  } catch {
+    return 'Invalid request body';
+  }
+  const jobId = body?.job_id;
+  const attempt = body?.attempt;
+  if (typeof jobId !== 'string' || !JOB_ID_RE.test(jobId)) return 'missing or invalid job_id';
+  if (attempt !== undefined && attempt !== null && !validAttempt(attempt)) return 'invalid attempt';
+  return { jobId, attempt: typeof attempt === 'string' ? attempt : undefined };
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json(405, { error: 'method not allowed' });
   if (!secretMatches(req.headers.get('x-cron-secret'), CRON_SECRET)) return json(401, { error: 'Unauthorized' });
@@ -72,15 +89,9 @@ Deno.serve(async (req) => {
     return json(500, { error: 'Service temporarily unavailable' });
   }
 
-  let jobId: unknown;
-  try {
-    jobId = (await req.json())?.job_id;
-  } catch {
-    return json(400, { error: 'Invalid request body' });
-  }
-  if (typeof jobId !== 'string' || !JOB_ID_RE.test(jobId)) {
-    return json(400, { error: 'missing or invalid job_id' });
-  }
+  const parsed = await parseBody(req);
+  if (typeof parsed === 'string') return json(400, { error: parsed });
+  const { jobId, attempt } = parsed;
 
   try {
     const token = await googleAccessToken();
@@ -90,7 +101,7 @@ Deno.serve(async (req) => {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         task: {
-          name: `${parent}/tasks/room-job-${jobId}`,
+          name: taskName(parent, jobId, attempt),
           httpRequest: {
             httpMethod: 'POST',
             url: `${SERVICE_URL}/process`,

@@ -64,7 +64,7 @@ test('smoke: popup on a non-session page describes the documents only, with no c
   const dialog = page.locator(NOTICE);
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText("Show more");
-  await expect(dialog).toContainText('you agree to the updated terms.');
+  await expect(dialog).toContainText('you agree to them.');
   await expect(dialog).not.toContainText(/session/i);
   await expect(dialog).not.toContainText(/record/i);
 

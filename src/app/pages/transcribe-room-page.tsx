@@ -25,15 +25,17 @@
 import { CaptureInfoButton, PauseResumeButton, SessionStopButton, StopCaptureButton } from '@/app/components/session/capture-controls';
 import { useCaptureStatus } from '@/app/components/session/capture-status';
 import { CaptureLevelMeter } from '@/app/components/session/capture-level-meter';
+import { ConsentSection } from '@/app/pages/ConsentLabel';
 import { RoomPeople } from '@/app/components/session/room-people';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
+import { EndedEventNote, TranscribeRoomTop } from './transcribe-room-event-links';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { Button } from '@/components/ui/button';
-import { Sparkles, ShieldOff, Loader2, ArrowDown } from 'lucide-react';
+import { Loader2, ArrowDown } from 'lucide-react';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { analytics } from '@/lib/mixpanel';
 import {
@@ -236,6 +238,7 @@ export function TranscribeRoomPage() {
           {/* [FOUNDER DECISION: copy] */}
           The room&rsquo;s audio has been saved.
         </p>
+        <EndedEventNote />
         {members.length > 0 && (
           <p className="text-xs text-muted-foreground mb-6" data-testid="transcribe-ended-roster">
             Was in the room: {members.map((m) => m.displayName).join(', ')}
@@ -269,34 +272,7 @@ export function TranscribeRoomPage() {
       >
         <FocusHeader fallback={BACK_FALLBACK} />
         <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Join the transcription room</h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          {/* [FOUNDER DECISION: copy] — P1236 removed a "corrected transcript afterwards" promise
-              from this screen because nothing kept it. Restore one only once the saved transcript
-              is live and verified. */}
-          Your spoken words will be transcribed live and shown to everyone in this room,
-          attributed to you with a timestamp. The room&rsquo;s audio is recorded.
-        </p>
-
-        <button
-          type="button"
-          onClick={() => setConsentGiven((prev) => !prev)}
-          aria-pressed={consentGiven}
-          className={`w-full flex items-center gap-3 rounded-lg border px-4 py-3 mb-6 min-h-11 text-left transition-colors ${
-            consentGiven
-              ? 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100'
-              : 'border-border text-muted-foreground hover:bg-muted'
-          }`}
-          data-testid="transcribe-recording-toggle"
-        >
-          {consentGiven ? (
-            <Sparkles className="w-5 h-5 text-blue-500 shrink-0" />
-          ) : (
-            <ShieldOff className="w-5 h-5 shrink-0" />
-          )}
-          <span className="font-medium">
-            {consentGiven ? 'Recorded and visible to everyone in this room' : 'Not yet agreed — tap to agree'}
-          </span>
-        </button>
+        <ConsentSection agreed={consentGiven} code={urlCode} onToggle={() => setConsentGiven((prev) => !prev)} />
 
         {joinError && <p className="text-sm text-red-600 mb-4" data-testid="transcribe-join-error">{joinError}</p>}
 
@@ -341,9 +317,7 @@ export function TranscribeRoomPage() {
             Leaving does not end capture (P1307 D7); End Session does. */}
         {/* Tighter than FocusHeader's page default (mb-4): on a phone every row here is taken
             from the live transcript. The button itself stays 44 px tall. */}
-        <div className="shrink-0 -mt-2 [&>button]:mb-0" data-testid="transcribe-top-back">
-          <FocusHeader fallback={BACK_FALLBACK} />
-        </div>
+        <TranscribeRoomTop running={showRunningRoom} fallback={BACK_FALLBACK} />
 
         {showReadOnlyRoom ? (
           <>
@@ -429,18 +403,18 @@ export function TranscribeRoomPage() {
  * own "Listening" line; anything else (paused, stalled, no sound, mic gone) replaces it.
  */
 function TranscribeCaptureRow({ onStop, people }: { onStop: () => void; people: ReactNode }) {
-  const { phase } = useRoomCapture();
+  const { phase, eventId } = useRoomCapture();
   const status = useCaptureStatus();
   const healthy = !status.warn && phase !== 'paused';
   // P1388 (founder, phone test 2026-10-02): the controls on ONE line — meter at the start,
   // ⓘ · Pause · Stop at the end — and the status text on its own line under them.
   return (
     <div className="mb-2" data-testid="transcribe-listening-indicator" role="status">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
         {people}
         <div className="flex items-center gap-2 ml-auto">
-          <CaptureInfoButton />
+          <CaptureInfoButton forEvent={!!eventId} />
           {(phase === 'capturing' || phase === 'stalled' || phase === 'paused') && <PauseResumeButton />}
           <StopCaptureButton onClick={onStop} testId="transcribe-end-session-button" />
         </div>

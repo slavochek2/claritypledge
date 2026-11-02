@@ -1,13 +1,13 @@
 ---
-status: in-progress
+status: blocked
 type: story
 rank: 83
 workstream: clarity-chat
 created_date: '2026-10-29'
 tags: [transcription, clarity-chat, events, rounds]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -63,12 +63,12 @@ below), and the bar copy after it. No founder call remains before `/dev`.
 
 | # | Ruling |
 |---|---|
-| D1 | **Transcription is one switch; your place decides where the words land.** The switch stays where it is today, the event room's transcription bar. While you are seated at a table in a running round, your words go to that table's thread. When you are not seated, they go to the event channel itself. When the host re-seats you, your next words go to the new place, without stopping or restarting capture. |
+| D1 | **Transcription is one switch; your place decides where the words land.** The switch stays where it is today, the event room's transcription bar. While you are seated at a table in a running round, your words go to that table's thread. When you are not seated, they go to the event channel's single **"Outside rounds"** thread, not the channel's top level (the one exception: a person who cannot open that thread, see Known limitations). When the host re-seats you, your next words go to the new place, without stopping or restarting capture. *Changed 2026-11-01 (founder, after seeing it live): unseated speech used to land at the channel top level, where it buried the round threads. The thread's name "Outside rounds" is the agent's pick* `[FOUNDER DECISION: name]`. |
 | D2 | **Rounds, not tables.** The unit people find later is one conversation: one table in one round. Each gets its own thread. A new round always means a new thread, even if the same people stay at the same table. |
 | D3 | **Thread name: round and people**, e.g. "Round 2 · Anna & Ben". People remember whom they talked with better than a table number. |
-| D4 | **A "My rounds" filter** in the event channel lists only the round threads I was seated in. No message search. |
+| D4 | **"My rounds" in the channel header's three-dot menu** lists only the round threads I was seated in, newest first, under a small "My rounds" heading above the usual items. No message search, no strip under the header, no new header button. *Changed 2026-11-01 (founder, after seeing it live): it was a full-width collapsible strip under the header.* |
 | D5 | **Live, as it is spoken.** Text lands while people talk, as on the room page. It does not wait for the end. |
-| D6 | **Transcription looks different from typing:** italic text under a small "Transcription" label. One message per stretch of one person's talk, as the room page shows it, not one per audio slice. |
+| D6 | **Transcription looks different from typing:** a small rounded "Transcribed" pill on the author line, right after the time; the text is set like a typed message, not italic. *Changed 2026-11-01 (founder, after seeing it live): it was an uppercase "Transcription" label above italic text.* One message per stretch of one person's talk, as the room page shows it, not one per audio slice. |
 | D7 | **No extra consent screen.** The terms and the bar's ⓘ already say what is recorded and where it goes. The person recording owns consent, and the visible lavalier is the notice (decisions.md 2026-10-02). The bar names where the words are going right now. |
 | D8 | **One lavalier per person is the rule, and the host enforces it, not the app.** Only people wearing a lavalier turn transcription on. No cross-phone de-duplication is built (P1237: a phone lying on a table picks up everyone). |
 | D9 | **The cleaned end-of-room transcript replaces the live text quietly.** Nothing announces it and no link is added. People keep using the thread itself (forward, clarify, canvas), so it should hold the best text. The old live text stays stored and is never shown, so the operator can check what changed. |
@@ -136,8 +136,8 @@ below), and the bar copy after it. No founder call remains before `/dev`.
   means all three: they have a seat in the event's latest round; that round has not ended; and the
   host has not marked them left (`event_round_presence.left_at`) or sitting out that round. A
   seated speaker's line goes to that table's round thread. Anyone else's line goes to the event
-  channel as a top-level post: before round 1, in the "Next round" pool, after being marked out,
-  and after the host ends the rounds. Seats are assigned when the round starts, so the walk to the
+  channel's single "Outside rounds" thread: before round 1, in the "Next round" pool, after being
+  marked out, and after the host ends the rounds. Seats are assigned when the round starts, so the walk to the
   table already counts as the new round.
 - The speaker's identity links across the two systems by profile: the transcribe member's
   `profile_id` matches the event room member's `profile_id` for the same event.
@@ -148,6 +148,16 @@ below), and the bar copy after it. No founder call remains before `/dev`.
   matter. **There is exactly one thread per round and table, enforced by the database**: two
   people's first lines can arrive in the same instant. Its root post is titled `Round {n} · {names}`
   (D3). Two names: "Anna & Ben". Three: "Anna, Ben & Cleo".
+- **"Outside rounds" is one thread per event channel**, enforced by the database (a key on the
+  conversation), created the first time anyone unseated is transcribed, like a round thread. Its
+  root is a system post with its own marker (`outside_rounds`), titled "Outside rounds" (the name is
+  defined once, in SQL). It has no round, no names and no member list, so it is never listed in
+  "My rounds", never retitled, and a forward or clarify of it keeps its title as it is. The same
+  readability rule applies: a speaker whose access began after that root was created has their line
+  posted at the channel top level, because they cannot open the thread. Erasure removes a person's
+  own lines in it like anywhere else; there is nothing to rename. A Clarify of a line in it, or of its root, copies
+  that message alone and none of the thread's other lines: the thread holds an event's worth of many
+  speakers, and a private copy must not carry other people's words.
 - **The root post is an explicit system post**, carrying its own marker. Today a message with no
   author renders as "Deleted user" (`MessageRow.tsx:81`), as does the chat-list preview and the
   clarify snapshot. The marker must render as the title alone, with no author line, in all three
@@ -161,8 +171,10 @@ below), and the bar copy after it. No founder call remains before `/dev`.
 
 ### How it looks (D6)
 
-- Transcription messages carry a marker that the chat renders as a small "Transcription" label above
-  italic text. Typed messages, voice notes and dictation are unchanged. The marker's name must not
+- Transcription messages carry a marker that the chat renders as a small rounded "Transcribed" pill
+  beside the author's name and the time, with the text set like a typed message (not italic). In a
+  grouped run of messages with no author line, the pill sits on a line of its own above the words.
+  A deleted message shows no pill. Typed messages, voice notes and dictation are unchanged. The marker's name must not
   collide with the voice-note `transcript` column (P1576). The label survives Forward and Clarify:
   the snapshot carries the marker, so a forwarded transcription still reads as transcription.
 - **One stored message per stretch of talk**, not one per 13-second slice. A new line from the same
@@ -186,10 +198,12 @@ below), and the bar copy after it. No founder call remains before `/dev`.
 
 ### Finding them (D4)
 
-- The event channel gets a "My rounds" filter. It lists the round threads whose member list
-  includes me and that I can read, by name, newest round first. A thread whose root predates my
-  access time (`_chat_access_since`, a late RSVP) is not listed. Opening one opens the thread.
-  Shown only in an event channel that has at least one round thread.
+- The event channel's three-dot menu gets a "My rounds" section: a small heading, then one item per
+  round thread whose member list includes me and that I can read, by name, newest round first,
+  above the usual items (Event page, Archive, Mark as unread), with a separator between. A thread
+  whose root predates my access time (`_chat_access_since`, a late RSVP) is not listed. Choosing one
+  opens the thread. The section appears only when I have at least one such thread; otherwise the
+  menu is as it always was. The "Outside rounds" thread is not a round and is never listed.
 
 ### The bar (D7)
 
@@ -333,69 +347,38 @@ It is one SQL batch, never per-row calls from a script (metered-services rule 1)
 
 Checked on TEST with an event that has rounds, two attendee accounts and the host account.
 
-- [ ] Two attendees seated at table 1 in round 1, both transcribing: their words appear in a thread
-      titled "Round 1 · {A} & {B}" in the event channel, while they talk, shown in italic under a
-      "Transcription" label.
-- [ ] One person talking for a minute without interruption, with only one person transcribing at the
+- [x] One person talking for a minute without interruption, with only one person transcribing at the
       table, reads as one message, not four or five.
-- [ ] The round thread's title post shows its title alone, never "Deleted user", in the thread, in the
+- [x] The round thread's title post shows its title alone, never "Deleted user", in the thread, in the
       chat list preview, and inside a forward or clarify of it.
-- [ ] The speaker edits one of their transcription messages: the next line starts a new message, and
+- [x] The speaker edits one of their transcription messages: the next line starts a new message, and
       after the swap the edited message still shows their edit.
-- [ ] A direct client insert into `transcribe_messages` is refused (query as an attendee).
-- [ ] A transcribing attendee who is not seated (before round 1) appears as a top-level post in the
-      event channel, not in a thread.
-- [ ] The host starts round 2 with new seating. The same person's next words appear in the round 2
+- [x] A direct client insert into `transcribe_messages` is refused (query as an attendee).
+- [x] The host starts round 2 with new seating. The same person's next words appear in the round 2
       thread, without them touching the bar.
-- [ ] While transcribing, the bar names the current destination ("Round 2 · …" or the event channel).
-- [ ] A table where nobody transcribes gets no thread. Two people at one table whose first lines
-      arrive together get one thread, not two.
-- [ ] The host marks a seated, transcribing attendee as left mid-round: their next words go to the
+- [x] The host marks a seated, transcribing attendee as left mid-round: their next words go to the
       event channel.
-- [ ] Transcribing in an event whose channel nobody has opened yet still posts: the channel appears
+- [x] Transcribing in an event whose channel nobody has opened yet still posts: the channel appears
       with the posts in it.
-- [ ] A transcription message that keeps growing while someone talks shows no "edited" mark, before
+- [x] A transcription message that keeps growing while someone talks shows no "edited" mark, before
       or after the swap.
-- [ ] "My rounds" lists exactly the round threads the viewer was seated in.
-- [ ] An account that is neither the host nor an attendee who RSVP'd cannot read the threads (RLS check
+- [x] An account that is neither the host nor an attendee who RSVP'd cannot read the threads (RLS check
       by query, not by UI). The host can.
-- [ ] An attendee whose access began after a round thread was created, then seated at that table, has
+- [x] An attendee whose access began after a round thread was created, then seated at that table, has
       their lines posted to the event channel, not into a thread they cannot open.
-- [ ] After the room ends and every end-of-room job completes, either branch holds, depending on the
-      swap gate in Done-When:
-      - **swap enabled:** thread text changes to the cleaned version, with no notice shown.
-      - **swap disabled:** thread text stays live, with no notice shown.
 
       In both branches: a forward and a clarify made before the end still show their original text,
       no transcription message reads as deleted or empty, and a typed reply inside the thread keeps
       its position.
-- [ ] With the end-of-room job failing, or a speaker marked incomplete, the affected threads keep the
-      live text and show no error. With the swap enabled, a member whose job completes after the
-      others, including the last member, gets their messages swapped when their job completes.
-- [ ] A posting failure followed by the host re-seating people: the retried line still lands in its
+- [x] A posting failure followed by the host re-seating people: the retried line still lands in its
       original place.
-- [ ] The new terms, privacy policy and consent tap wording are live before any line reaches a
-      channel.
-- [ ] Typed messages, voice notes and dictation in the same channel look exactly as before.
 
 ## Done-When
 
-- [ ] All Acceptance Criteria above are ticked, with evidence (query output and screenshots).
-- [ ] The posting path is shown idempotent: replaying the same stored live rows posts nothing new.
-- [ ] `transcribe_messages` row count for the test room is unchanged by the swap (old version kept).
-- [ ] The swap gate result recorded: the hand check of 20 random messages from the TEST two-lavalier
-      run (correct / wrong / kept live), and whether the swap ships enabled.
-- [ ] A posting failure (forced, e.g. by a constraint) leaves the line on the room page and retries it
+- [x] The posting path is shown idempotent: replaying the same stored live rows posts nothing new.
+- [x] `transcribe_messages` row count for the test room is unchanged by the swap (old version kept).
+- [x] A posting failure (forced, e.g. by a constraint) leaves the line on the room page and retries it
       from the sweep tick.
-- [ ] Duplicate passages measured on the TEST run with two lavaliers at one table: count passages that
-      appear under both speakers within 30 s, by hand on the **live rows before the swap** (the
-      oracle, independent of the cleaned transcript), and compare with the end-of-room job's "also
-      heard by" labels (the second signal). Report both numbers.
-      `[post-deploy]` Repeat the same count on session 1's threads. Pre-registered reading: under 1
-      per 10 minutes of a thread means the lavalier rule held; over 3 per 10 minutes means a
-      cross-phone de-duplication spec is filed.
-- [ ] Clarity Night regression: an event with no rounds still transcribes, and its lines land in the
-      event channel as top-level posts.
 - [x] The founder decisions (bar copy, terms wording, notice not re-acceptance) are recorded,
       2026-10-29.
 
@@ -411,9 +394,10 @@ of rounds. Live slices are 13 s (`room-capture-context.tsx:12`).
 | Egress (Realtime bodies) | 13,320 x ~2 KB average body (half the 4 KB cap) = ~27 MB | 19,944 x 2 KB = ~40 MB | 138 x 2 KB = ~0.3 MB |
 | Edge function invocations | 0 added (posting runs in the database on the stored row; `transcribe-slice` is already invoked per slice) | 0 | 0 |
 | Gemini / audio minutes | 0 added (the swap reuses the end-of-room job that already runs per room) | 0 | 0 |
-| Chat list refetches (`get_my_chats`, which also runs `_chat_ensure_for_user`) | New top-level messages only, never appends (see below). Worst case Clarity Night, all top-level: 6 speakers x 40 min x ~2 stretches/min = 480 new messages x 12 clients = 5,760, fewer after the existing 2 s debounce | 6 x 60 x 2 = 720 x 12 = 8,640 | 2 x 5 x 2 = 20 x 3 = 60 |
+| Chat list refetches (`get_my_chats`, which also runs `_chat_ensure_for_user`) | New top-level messages only, never appends (see below). Unseated lines are now replies in the one "Outside rounds" thread and schedule no list refetch, so this is an upper bound. Old worst case, all top-level: 6 speakers x 40 min x ~2 stretches/min = 480 new messages x 12 clients = 5,760, fewer after the existing 2 s debounce | 6 x 60 x 2 = 720 x 12 = 8,640 | 2 x 5 x 2 = 20 x 3 = 60 |
 | Realtime access checks | The chat subscription is unfiltered (`chat-service.ts:390-393`), so every change is checked for every connected user site-wide: 1,110 writes x C connected users | 1,662 x C | 46 x C |
 | Log lines | One per failed post, not per retry: at most 1,110 in the worst case | at most 1,662 | at most 46 |
+| Test users (Auth Admin calls) | 0 | 0 | 13 users per full P1592 run (database canary 9: 6 shared plus 3 created by the late tests; UI e2e 4), each created and deleted: 26 Auth Admin calls. The opt-in erasure interleaving run (`scripts/test-p1592-erasure-interleaving.sh`, not part of the default suite) adds 9 users (host plus eight people it creates in its `beforeAll`: three Erased/Staying pairs, Zoe and Yan): 18 calls, 44 in all when it runs |
 
 **Required by this budget:** an append (an UPDATE of a transcription message) must not schedule a
 chat-list refetch. Today every top-level UPDATE does (`chat-provider.tsx:294-307`), which would turn
@@ -427,12 +411,20 @@ the 1,110 writes into up to 1,110 x 12 list reads per event.
    The access-check row scales with C and is the one to watch.
 3. Not applicable; both answers are yes.
 
-## Pre-deploy Checklist
+## Deploy and after-deploy steps (run at /push; founder chose to ship first, 2026-11-02)
 
 The one-time notice is a terms bump to `v1.6` in notice mode (`terms-changes.ts`,
 `requiresConsent: false`: a dismissible banner, dismissing records it). The version is pinned in
 four places that must reach prod together, or acceptances and the mirror agent's terms gate
 disagree.
+
+### Before the deploy window
+- [x] (2026-11-02: prod's ledger holds neither version, both pending.) Migration version clash check. Hosted Supabase TEST's ledger already holds version
+      `20261029180000`, written by P1542's pre-renumber run (`p1542_quote_ok_click_order`, now
+      `20261029200300` on main), so a push there would skip this migration as applied. Read prod's
+      ledger for `20261029180000` and `20261029190000`; if either is present, renumber this feature's
+      two migrations (and the canary file name, the manifest stamp and the self-hosted TEST ledger row)
+      to fresh versions before shipping. P1536's merge migration `20261030090000` must still sort after them.
 
 ### Deploy commands (one window, in this order)
 - [ ] Migrations: `20261029180000_p1592_*` and `20261029190000_p1592_terms_v1_6.sql` (`/push` applies them)
@@ -441,11 +433,51 @@ disagree.
       `transcribe-slice` (destination field)
 - [ ] Frontend (Vercel) with `CURRENT_TERMS_VERSION = 'v1.6'`
 - [ ] Batch worker `services/transcribe-room-batch` with `ROOM_SWAP_ENABLED` unset (swap off until the gate in Done-When is measured)
+- [ ] Posting ships OFF (`transcribe_channel_posting.enabled = false`). Turn it on only after the
+      frontend with the new terms, privacy policy and consent wording is live, which is the AC
+      "the new wording is live before any line reaches a channel". Turning it off again leaves
+      the room page exactly as it is today.
 
 ### Post-deploy verification
 - [ ] A stale-terms account sees the banner, not the blocking dialog; dismissing it records `v1.6`
 - [ ] The mirror agent answers an account that dismissed the banner (server gate reads `v1.6`)
 - [ ] Sentry clean for 10 minutes
+- [ ] P1596 deploy additions: `GCS_UPLOAD_SECRET` set for prod's `gcs-signed-url`, which is deployed with the WAV rule; the prod worker gets the P1596 code; the test worker `transcribe-room-batch-test` and its secrets are deleted afterwards
+- [ ] The `transcribe_post_retry` cron job's runs show `succeeded` in `cron.job_run_details`. The
+      per-row COMMIT inside a cron-CALLed procedure was proven on hosted Supabase TEST on
+      2026-10-30 (pg_cron 1.6.4, background workers off, Postgres 17): a throwaway procedure
+      committing three rows ran `succeeded` with all three rows stored. Check prod's pg_cron
+      version matches before relying on it.
+
+## Known limitations (accepted in /dev review)
+
+- **A retried line can land after newer lines.** A line whose first post failed is posted by the
+  retry as a new message, created after lines that posted in the meantime, so the channel reads
+  slightly out of spoken order there. Retries are rare (a lock or a missing channel).
+- **An edit saved from an older draft overwrites lines appended while the editor was open.** The
+  lines stay on the room page; `edit_chat_message` has no version check, and adding one changes a
+  shared RPC used by every chat.
+- **A walk-in cannot open the Outside rounds thread.** A person whose access to the event channel
+  began after the Outside rounds thread was created (a walk-in RSVP at the door) cannot open that
+  thread, the same readability rule as round threads; their own unseated lines go to the channel's top
+  level. Round threads last one round; this thread lasts the whole event, so the rule bites more
+  often. Revisit in P1596, which owns when and where cleaned transcripts post.
+- **A Clarify of an Outside rounds line copies only that line.** It carries no reply thread and no other
+  speaker's words, unlike a Clarify of a round-thread line, which copies the thread so far.
+- **Copies of a round title carry only "Round {n}".** A forward or clarify of a round thread's
+  title post shows the round, not the names, so an erased person's name never survives in
+  someone else's copy.
+- **A person's own line posting at the very moment they delete their account can deadlock with the
+  erasure.** Postgres cancels one side; if it cancels the erasure, deleting the account fails and is
+  retried. Predates this round's changes (round 1 posting path); not made worse.
+- **Erasure races are proven by an opt-in test, not the default suite.**
+  `scripts/test-p1592-erasure-interleaving.sh` (needs gcloud and the self-hosted TEST VM) pins four
+  overlaps with psql sessions; the first three were seen failing against broken code. The fourth (an
+  unseated speaker's line into the Outside rounds thread) was written without a database run and has
+  not yet been seen to pass or fail. Not tested: the seating path
+  after a thread-lock timeout (`p1592.seat_lock_gave_up`), where a skipped join names nobody.
+- **"My rounds" lists only the viewer's own threads**, so an attendee who sat at no recorded table
+  sees no filter, even when the channel has round threads.
 
 ## Open Questions
 
@@ -453,6 +485,44 @@ disagree.
    reversal before P1529 exists? UNVERIFIED; check before session 1 or accept one thread per pair.
 2. How long are `transcribe_messages` kept? The "old version kept" rule relies on them; retention not
    checked.
+
+## After deploy: to prove with real people (founder, 2026-11-02)
+
+Real people can only reach this on prod, so the founder moved these here to ship first and test after, with no lawyer read. They are NOT proven; tick them from the people test.
+
+- [ ] Two attendees seated at table 1 in round 1, both transcribing: their words appear in a thread
+      titled "Round 1 · {A} & {B}" in the event channel, while they talk, each message marked by a
+      "Transcribed" pill beside the author and time, in plain (not italic) text.
+- [ ] A transcribing attendee who is not seated (before round 1) appears in the event channel's single
+      "Outside rounds" thread, not at the channel top level and not in a round thread; two unseated
+      speakers land in the same thread (one root).
+- [ ] While transcribing, the bar names the current destination ("Round 2 · …" or the event channel).
+- [ ] A table where nobody transcribes gets no thread. Two people at one table whose first lines
+      arrive together get one thread, not two.
+- [ ] "My rounds", in the channel header's three-dot menu, lists exactly the round threads the viewer
+      was seated in, newest first, and never the "Outside rounds" thread.
+- [ ] After the room ends and every end-of-room job completes, either branch holds, depending on the
+      swap gate in Done-When:
+      - **swap enabled:** thread text changes to the cleaned version, with no notice shown.
+      - **swap disabled:** thread text stays live, with no notice shown.
+- [ ] With the end-of-room job failing, or a speaker marked incomplete, the affected threads keep the
+      live text and show no error. With the swap enabled, a member whose job completes after the
+      others, including the last member, gets their messages swapped when their job completes.
+- [ ] The new terms, privacy policy and consent tap wording are live before any line reaches a
+      channel.
+- [ ] Typed messages, voice notes and dictation in the same channel look exactly as before.
+- [ ] All Acceptance Criteria above are ticked, with evidence (query output and screenshots).
+- [ ] The swap gate result recorded: the hand check of 20 random messages from the TEST two-lavalier
+      run (correct / wrong / kept live), and whether the swap ships enabled.
+- [ ] Duplicate passages measured on the TEST run with two lavaliers at one table: count passages that
+      appear under both speakers within 30 s, by hand on the **live rows before the swap** (the
+      oracle, independent of the cleaned transcript), and compare with the end-of-room job's "also
+      heard by" labels (the second signal). Report both numbers.
+      `[post-deploy]` Repeat the same count on session 1's threads. Pre-registered reading: under 1
+      per 10 minutes of a thread means the lavalier rule held; over 3 per 10 minutes means a
+      cross-phone de-duplication spec is filed.
+- [ ] Clarity Night regression: an event with no rounds still transcribes, and its lines land in the
+      event channel's "Outside rounds" thread.
 
 ## Related
 

@@ -17,6 +17,8 @@ export const STATUS = {
   micLost: 'Microphone disconnected — nothing is being recorded',
   micSwitched: 'Microphone changed — still recording',
   stopping: 'Stopped — saving the last few seconds…',
+  notRecording: 'Not recording — the recorder could not start. Tap Reconnect to try again',
+  audioLost: 'Part of your audio could not be saved — still recording',
 } as const;
 
 /** Short words for the short bar — each state named, never a vague "check mic" for a state
@@ -24,14 +26,16 @@ export const STATUS = {
 export const SHORT = {
   running: '● Recording', observing: 'Recording in another tab', stopping: 'Stopping…', micLost: 'Mic lost',
   paused: 'Paused', autoPaused: 'Paused', micSwitched: 'Mic changed', silent: 'No sound', stalled: 'Live text stalled',
+  notRecording: 'Not recording', audioLost: 'Audio gap',
 } as const;
 
 export type CaptureStatusKind = keyof typeof SHORT;
 
 export function useCaptureStatus(): { text: string; warn: boolean; kind: CaptureStatusKind } {
-  const { phase, manualPaused, inputSilent, micLost, micSwitched, stopping } = useRoomCapture();
+  const { phase, manualPaused, inputSilent, micLost, micSwitched, stopping, tapDown, audioLost } = useRoomCapture();
   if (stopping) return { text: STATUS.stopping, warn: false, kind: 'stopping' };
   if (micLost) return { text: STATUS.micLost, warn: true, kind: 'micLost' };
+  if (tapDown) return { text: STATUS.notRecording, warn: true, kind: 'notRecording' };
   if (phase === 'paused' && manualPaused) return { text: STATUS.paused, warn: false, kind: 'paused' };
   // Paused by the app (an explain-back, a /live session) — never claim to be transcribing.
   if (phase === 'paused') return { text: STATUS.autoPaused, warn: false, kind: 'autoPaused' };
@@ -39,5 +43,6 @@ export function useCaptureStatus(): { text: string; warn: boolean; kind: Capture
   if (micSwitched) return { text: STATUS.micSwitched, warn: false, kind: 'micSwitched' };
   if (inputSilent) return { text: STATUS.silent, warn: true, kind: 'silent' };
   if (phase === 'stalled') return { text: STATUS.stalled, warn: true, kind: 'stalled' };
+  if (audioLost) return { text: STATUS.audioLost, warn: true, kind: 'audioLost' };
   return { text: STATUS.running, warn: false, kind: 'running' };
 }

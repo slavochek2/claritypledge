@@ -480,6 +480,14 @@ Cloud Run service; member-scoped SELECT. Sessions reference it through
 `is_final BOOLEAN CHECK (is_final = true)`, `created_at`. Indexes: `(room_id, spoken_at)` (P1149)
 and `(member_id, spoken_at)` (P1236 — the de-duplication read, ~900 times per member-hour).
 
+**P1592 columns on `transcribe_messages`** (all written only by the service-role path, never by a client;
+`INSERT`, `UPDATE` and `DELETE` are revoked from `authenticated`, and the P1149 INSERT policy is dropped):
+`dest_kind TEXT` (`channel` / `round` / `none`; NULL only on rows from before P1592), `dest_event_id`,
+`dest_round_id` (FK `event_rounds`, `ON DELETE SET NULL`), `dest_table_no` — where the line goes, decided ONCE
+in the same INSERT and never recomputed — plus `chat_message_id` (FK `chat_messages`, `SET NULL`), `posted_at`
+(idempotency: a row with it set is never posted again) and `post_failed_at` (first failure; logged only on the
+NULL to set change). Partial index `transcribe_messages_unposted (spoken_at, id)` serves the retry.
+
 **`spoken_at` is the de-duplication ordering key and is never client-supplied.** The ingest function
 validates its payload against an allow-list, so the column cannot be set from a request even by
 accident. A client that can set it chooses the merge order.
@@ -498,6 +506,12 @@ accident. A client that can set it chooses the merge order.
 | `reserve_room_chunk_number(uuid)` | `authenticated` | P1307: reserves and returns the caller's next archive chunk number. |
 | `transcribe_room_sweep_tick()` | `service_role` ONLY (pg_cron) | P1307: ends stale/capped members, ends fully-ended rooms, creates their jobs. Idempotent. |
 | `claim_room_transcription_job(uuid)` | `service_role` ONLY | P1307: atomic `pending → processing` for the Cloud Run worker. |
+| `record_transcribe_slice(uuid, uuid, text)` (P1592) | `service_role` ONLY | Same signature and return. Also decides and stores the line's destination and posts it into the event channel / round thread inside a subtransaction with a 2 s `lock_timeout`; a posting failure never loses the row. |
+| `transcribe_message_destination(uuid)` (P1592) | `service_role` ONLY | `{kind, label}` for the stored destination (or where the line actually landed); NULL for an unknown id. |
+| `apply_transcription_swap(uuid, uuid, jsonb)` (P1592) | `service_role` ONLY | The quiet swap: bodies only, never `edited_at`, never insert/delete; optional `expected_body` per update is a compare-and-swap. |
+| `transcribe_post_retry_tick()` / `transcribe_post_retry_run()` (P1592) | `service_role` / cron | The function posts a small batch (tests, manual); the PROCEDURE is the pg_cron job `transcribe_post_retry` (every minute) and COMMITs per row. Both do nothing while the kill switch is off. |
+| `get_my_round_threads(uuid)` (P1592) | `authenticated` | The caller's round threads in one event conversation (member AND root created at or after their chat access), newest round first. |
+| `_transcribe_*` internals (P1592) | none | `_transcribe_post_line`, `_transcribe_decide_destination`, `_transcribe_retry_one`, `_transcribe_retitle_thread` (the one place a title is built), `_transcribe_round_title`, `_transcribe_thread_roster`, `_transcribe_bare_root_title`, `_transcribe_lock_place`, `_transcribe_seat_joins_thread` (AFTER INSERT and AFTER UPDATE OF table_no triggers on `event_round_seats`). Lock order: transcribe row, speaker, thread, place, message rows. |
 
 **Two live P1065 notes on these functions, both found by reading the catalog rather than the
 migration text.** `join_transcribe_room` was `anon`-executable after its own migration ran, because
@@ -524,7 +538,24 @@ atomically.
 `20260914120100_p1307_transcribe_chunk_sequence.sql`,
 `20260914120200_p1307_transcribe_member_cap_source.sql`,
 `20260914120300_p1307_transcribe_room_jobs_transcripts_sweep.sql`,
-`20260914120400_p1307_join_room_starts_new_capture.sql`.
+`20260914120400_p1307_join_room_starts_new_capture.sql`,
+`20261029180000_p1592_event_transcripts_round_threads.sql`.
+
+**P1592 — event transcripts in the event channel.** New columns on `chat_messages`: `system_kind TEXT`
+(`round_thread` or `outside_rounds`: a thread's root post, author NULL, body = the title) and `is_transcription BOOLEAN NOT
+NULL DEFAULT false`. New tables, no client privileges at all:
+`chat_round_threads (id, event_id, round_id FK event_rounds CASCADE, table_no, conversation_id FK, root_message_id FK, created_at, UNIQUE (round_id, table_no))`,
+`chat_round_thread_members (thread_id, profile_id, display_name, PK (thread_id, profile_id))` (the thread keeps
+its own member list because seating keeps no history),
+`chat_outside_round_threads (conversation_id PK FK CASCADE, root_message_id UNIQUE FK CASCADE, created_at)` (the
+event channel's single "Outside rounds" thread: where a transcribing attendee who is not seated is posted), and
+`transcribe_channel_posting (singleton PK, enabled DEFAULT false, updated_at)` — the **kill switch**: ships
+OFF, service role only; while off no destination is decided, nothing is posted and the room page is as before.
+No read policy was widened: round-thread messages are ordinary `chat_messages` rows in the event conversation.
+`_chat_forward_snapshot` and the forward / clarify snapshots carry `is_transcription` and `system_kind`;
+a copied root carries `Round {n}` without names. `get_my_chats()` gained `last_system_kind` and
+`last_is_transcription` at the end of its return. `erase_chat_data_for` removes the person from thread members
+and re-titles their threads.
 
 ---
 

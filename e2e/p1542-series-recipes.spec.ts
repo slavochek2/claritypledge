@@ -677,7 +677,8 @@ test.describe('P1542 series recipes', () => {
     await expect(card).not.toContainText('!');
     await expect(card.getByTestId('registered-when')).toContainText(' · ');
     // The quiet links: the group chat (with its purpose line), Add to calendar, Share.
-    const chat = card.getByTestId('group-chat-link');
+    // P1595: the real link is `registered-chat`; `group-chat-link` inside the card is the invisible placeholder that holds its place.
+    const chat = card.getByTestId('registered-chat');
     await expect(chat).toHaveAttribute('href', GROUP_CHAT, { timeout: 20_000 });
     // Round 6c (F): the flow's one group-chat component — "WhatsApp group" with its caption directly under it.
     await expect(chat).toHaveText('WhatsApp group');
@@ -688,29 +689,25 @@ test.describe('P1542 series recipes', () => {
     // Round 6b: the caption sits directly under its link; calendar and share share the next row; every link >= 40px.
     const [chatB, lineB, calB, shareB] = await Promise.all([chat, card.getByTestId('group-chat-line'), card.getByTestId('add-to-calendar-link'), card.getByTestId('registered-share')].map(async (l) => (await l.boundingBox())!));
     expect(lineB.y).toBeGreaterThanOrEqual(chatB.y + chatB.height - 1);
-    expect(calB.y).toBeGreaterThan(lineB.y);
+    // P1595: chat, calendar and share are ONE row (one line at 375px); the caption sits under the row.
+    expect(Math.abs(calB.y - chatB.y)).toBeLessThanOrEqual(1);
     expect(Math.abs(calB.y - shareB.y)).toBeLessThanOrEqual(1);
     for (const b of [chatB, calB, shareB]) expect(b.height).toBeGreaterThanOrEqual(40);
-    // The learning invitation: named heading, computed pill, one reason, ONE outline button.
+    // P1595 (founder-approved copy): who organises the hike, one reason, the ONE button with the guide's length, "Optional".
     const learnCard = page.getByTestId('learn-card');
-    await expect(learnCard.getByTestId('learn-card-title')).toHaveText(`Learn about ${COMMUNITY}`, { timeout: 20_000 });
-    await expect(learnCard.getByTestId('learn-card-title')).toHaveClass(/text-2xl/);
-    await expect(learnCard.getByTestId('learn-card-minutes')).toHaveText(/^\d+ min$/);
-    // Round 6c (J): title → subtitle → pill → button; the subtitle is the founder-decision default (one constant).
-    await expect(learnCard.getByTestId('learn-card-reason')).toHaveText('How we talk across differences in opinions, interests and values.');
-    const [subB, pillB] = [(await learnCard.getByTestId('learn-card-reason').boundingBox())!, (await learnCard.getByTestId('learn-card-minutes').boundingBox())!];
-    expect(subB.y).toBeLessThan(pillB.y);
+    await expect(learnCard.getByTestId('learn-card-title')).toHaveText(`This hike is organised by ${COMMUNITY}.`, { timeout: 20_000 });
+    await expect(learnCard.getByTestId('learn-card-reason')).toHaveText('We welcome honest conversations with people who see the world differently. This short guide shows what to expect.');
     const learn = learnCard.getByTestId('learn-card-cta');
-    await expect(learn).toHaveText('Learn more');
-    await expect(page.getByText(/optional/i)).toHaveCount(0);
+    await expect(learn).toHaveText(/^See how we talk \(\d+ min\)$/);
+    await expect(learnCard.getByTestId('learn-card-optional')).toHaveText('Optional. You can come without it.');
     // Round 6c (J): exactly one button-looking control on the page — the blue "Learn more" (the links are text links).
     const main = page.getByTestId('p1336-confirm');
     await expect(main.locator('.bg-blue-600')).toHaveCount(1);
     await expect(learn).toHaveClass(/bg-blue-600/);
     await expect(main.locator('button.border, a.border')).toHaveCount(0);
-    // 48px between the success and the invitation.
+    // P1595: 24px (mt-6) between the success and the invitation, which opens with its divider.
     const [cardBox, learnBox] = [(await card.boundingBox())!, (await learnCard.boundingBox())!];
-    expect(learnBox.y - (cardBox.y + cardBox.height)).toBeGreaterThanOrEqual(47);
+    expect(learnBox.y - (cardBox.y + cardBox.height)).toBeGreaterThanOrEqual(23);
     await expect(page.getByTestId('prep-block')).toHaveCount(0);
     await expect(page.locator('[data-nav="bottom"]')).toBeVisible();
     // VQA round 4 (founder: one active menu item on every hike page, commit 37e9c4acf): a hike a week away is never the
@@ -725,7 +722,7 @@ test.describe('P1542 series recipes', () => {
     await tapExternal(page, chat);
     // Round 10 / 10b (commit 3ac98fba7, founder: nothing on the confirm page moves): the tapped link's place is kept,
     // unseen (`registered-chat-pending`, `invisible`), so the copy inside it still exists — it must not be visible.
-    await expect(card.getByTestId('group-chat-link')).toBeHidden();
+    await expect(card.getByTestId('registered-chat')).toHaveCount(0);
     await expect(card.getByTestId('group-chat-line')).toBeHidden();
     await page.reload();
     await expect(page.getByTestId('registered-when')).toBeVisible({ timeout: 20_000 });
@@ -764,7 +761,7 @@ test.describe('P1542 series recipes', () => {
     await page.setViewportSize(PHONE);
     await setTestSession(page, u.email);
     await page.goto(`/events/${futureHike.slug}/confirm`);
-    await expect(page.getByTestId('registered-card').getByTestId('group-chat-link')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('registered-card').getByTestId('registered-chat')).toBeVisible({ timeout: 20_000 });
     // Give the invitation's reads time to land, then prove it never appears.
     await page.waitForTimeout(3000);
     await expect(page.getByTestId('learn-card')).toHaveCount(0);
@@ -974,9 +971,9 @@ test.describe('P1542 series recipes', () => {
     await passAsks(page);
     const { data: fb } = await supabaseAdmin.from('event_feedback').select('liked, quote_ok').eq('event_id', hike.id).eq('user_id', u.user.id).single();
     expect(fb?.liked ?? '').toBe('');
-    // P1542 rounds 9–11: the box's default tick is kept even with no words (only the box can change it, and every
-    // reader that publishes a quote also needs the words) — so no words, no review, below.
-    expect(fb?.quote_ok).toBe(true);
+    // P1542 (founder, hike quotes: writing is the consent): a hike has no "Quote me" box, so an empty finish gives no consent
+    // (false), and no words means no review, below.
+    expect(fb?.quote_ok).toBe(false);
     expect((await reviewsFor(hike.id)).filter((r) => r.author_profile_id === u.user.id)).toHaveLength(0);
 
     // (1) The feedback thank-you, on desktop: still one lit row. (6) Its card carries the success mark.

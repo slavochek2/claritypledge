@@ -13,6 +13,7 @@
 import { ArrowRight, Info, Mic, Pause, Play, Square } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
+import { EVENT_TEXT_ARRIVES, whereItGoesText } from './capture-copy';
 
 
 /** P1388 (founder, 2026-10-02): one compact row — Pause and Stop together as the recording
@@ -65,9 +66,9 @@ export function OpenRoomButton({ onClick, testId }: { onClick: () => void; testI
 }
 
 export function PauseResumeButton() {
-  const { phase, pauseMine, resumeMine, micLost, stopping, reconnectMic } = useRoomCapture();
+  const { phase, pauseMine, resumeMine, micLost, tapDown, stopping, reconnectMic } = useRoomCapture();
   if (phase === 'observing') return null; // another tab holds the mic; it pauses there
-  if (micLost) {
+  if (micLost || tapDown) {
     // Nothing to pause. Capture comes back only on this tap — never on its own.
     return (
       <button type="button" onClick={() => void reconnectMic()} disabled={stopping} data-testid="capture-reconnect" className={CONTROL_CLASS}>
@@ -95,7 +96,8 @@ export function PauseResumeButton() {
   );
 }
 
-export function CaptureInfoButton() {
+/** `forEvent`: the capture belongs to an event, so its words are posted to the event's channel. */
+export function CaptureInfoButton({ forEvent = false }: { forEvent?: boolean } = {}) {
   return (
     <Popover>
       <PopoverTrigger
@@ -108,7 +110,8 @@ export function CaptureInfoButton() {
       <PopoverContent className="text-sm space-y-2" data-testid="capture-info-sheet">
         {/* Wording approved by the founder 2026-10-02. */}
         <p><span className="font-medium">What’s recorded:</span> your microphone, while this says Transcribing. Paused records nothing.</p>
-        <p><span className="font-medium">Where it goes:</span> the text appears for everyone in this room, and the audio is kept so the whole conversation can be transcribed afterwards.</p>
+        <p><span className="font-medium">Where it goes:</span> {whereItGoesText(forEvent)}</p>
+        {forEvent && <p data-testid="capture-info-arrives"><span className="font-medium">When:</span> {EVENT_TEXT_ARRIVES}</p>}
         <p><span className="font-medium">Your part:</span> you’re the one recording, so let the people around you know, and pause whenever someone asks.</p>
         <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy policy</a>
       </PopoverContent>

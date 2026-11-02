@@ -10,6 +10,7 @@ const mockNeedsTermsAcceptance = vi.fn();
 const mockRecordTermsAcceptance = vi.fn();
 const mockUseAuth = vi.fn();
 
+vi.mock('@/app/data/terms-accepted', () => ({ getAcceptedTermsVersion: async () => null }));
 vi.mock('@/app/data/api', () => ({
   needsTermsAcceptance: (...args: unknown[]) => mockNeedsTermsAcceptance(...args),
   recordTermsAcceptance: (...args: unknown[]) => mockRecordTermsAcceptance(...args),
@@ -18,7 +19,7 @@ vi.mock('@/auth/AuthContext', () => ({ useAuth: () => mockUseAuth() }));
 vi.mock('@sentry/react', () => ({ captureException: vi.fn() }));
 vi.mock('@/app/content/terms-changes', () => ({
   TERMS_CHANGES: new Proxy({}, {
-    get: () => ({ requiresConsent: false, headline: 'Headline one', highlights: ['Highlight one'] }),
+    get: () => ({ requiresConsent: false, kind: 'feature', title: 'Title one', headline: 'Headline one', highlights: ['Highlight one'] }),
   }),
 }));
 
@@ -53,11 +54,11 @@ describe('TermsAcceptanceGate — notice mode', () => {
     expect(screen.getByText('page content')).toBeInTheDocument();
   });
 
-  it('"Accept" records acceptance and hides the banner', async () => {
+  it('"Continue" records acceptance and hides the banner', async () => {
     mockNeedsTermsAcceptance.mockResolvedValue(true);
     mockRecordTermsAcceptance.mockResolvedValue(undefined);
     renderGate();
-    fireEvent.click(await screen.findByRole('button', { name: /^accept$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^continue$/i }));
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Terms update' })).not.toBeInTheDocument());
     expect(mockRecordTermsAcceptance).toHaveBeenCalledWith('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d', 'notice');
   });
@@ -66,7 +67,7 @@ describe('TermsAcceptanceGate — notice mode', () => {
     mockNeedsTermsAcceptance.mockResolvedValue(true);
     mockRecordTermsAcceptance.mockRejectedValue(new Error('network'));
     renderGate();
-    fireEvent.click(await screen.findByRole('button', { name: /^accept$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^continue$/i }));
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Terms update' })).not.toBeInTheDocument());
   });
 

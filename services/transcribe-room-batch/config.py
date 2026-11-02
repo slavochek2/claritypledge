@@ -6,6 +6,7 @@ change to one is a change in one place.
 """
 
 import os
+import random
 
 GCS_BUCKET = os.getenv("GCS_BUCKET", "claritypledge-ml-training")
 
@@ -45,3 +46,15 @@ MAX_ATTEMPTS = 3
 ROOM_SWAP_ENABLED = os.getenv("ROOM_SWAP_ENABLED", "") == "true"
 # Matched live words / live words below this keeps the live text. Reported with the gate measurement.
 SWAP_MIN_RATIO = 0.6
+
+# P1596: the clean round pass. Model for per-track verbatim transcription (benchmark winner,
+# founder's pick 2026-11-01). Same batch key as GEMINI_API_KEY.
+CLEAN_MODEL = os.getenv("CLEAN_MODEL", "gemini-4-argon")
+
+
+RETRY_BACKOFF_S = 60
+
+
+def retry_delay_s() -> float:
+    """Retry backoff with jitter (metered-services rule 4): 60 s plus up to 50% random, so retrying jobs spread out."""
+    return RETRY_BACKOFF_S * (1 + 0.5 * random.random())

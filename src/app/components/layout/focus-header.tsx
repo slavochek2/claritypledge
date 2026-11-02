@@ -67,11 +67,22 @@ function backClass(compact: boolean, barLook: boolean): string {
   return 'inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-11 px-3';
 }
 
+/** The bar-look label: truncates; below 360px it can shrink to the arrow alone (screen readers keep it). */
+function barLabelClass(arrowOnly: boolean | undefined): string {
+  return 'min-w-0 truncate' + (arrowOnly ? ' max-[359px]:sr-only' : '');
+}
+
 export function FocusHeader({
   compact = false,
   inPlace = false,
+  arrowOnlyBelow360,
   ...props
-}: FocusHeaderProps & { /** Arrow only, no label, no bottom margin. */ compact?: boolean; inPlace?: boolean }) {
+}: FocusHeaderProps & {
+  /** Arrow only, no label, no bottom margin. */ compact?: boolean;
+  inPlace?: boolean;
+  /** The label shrinks to the arrow below 360px (screen readers keep it, and the aria-label). */
+  arrowOnlyBelow360?: boolean;
+}) {
   const { fallback, onBack, label, parentName, 'aria-label': ariaLabel } = props;
   // Hooks run unconditionally; with `onBack` the fallback is never used.
   const { goBack, willPop, fallbackPath } = useGoBackControl(fallback ?? '/');
@@ -94,7 +105,7 @@ export function FocusHeader({
       data-testid={compact ? 'room-back' : undefined}
     >
       <ArrowLeft className={compact ? 'h-5 w-5' : 'w-4 h-4'} />
-      {!compact && (barLook ? <span className="min-w-0 truncate">{text}</span> : text)}
+      {!compact && (barLook ? <span className={barLabelClass(arrowOnlyBelow360)}>{text}</span> : text)}
     </Button>
   );
   // The compact (room) Back is part of a row the page draws itself; it never moves into the bar.

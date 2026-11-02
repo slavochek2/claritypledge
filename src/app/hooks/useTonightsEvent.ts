@@ -18,6 +18,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
+import { recipeFor } from '@/app/prototypes/events/series-recipes';
 
 export interface TonightsEvent {
   slug: string;
@@ -25,7 +26,9 @@ export interface TonightsEvent {
   datetime: string;
   durationMinutes: number | null;
   preparationEnabled: boolean;
-  /** P1433: true when it came from the person's own RSVP; false for the public in-window pick. */
+  /** The series key (`events.series_slug`); its recipe says whether the event runs a room flow. */
+  seriesSlug?: string | null;
+  /** P1433: true when the person can enter the room (their own RSVP, or they host it); false for the public in-window pick. */
   registered?: boolean;
 }
 
@@ -37,6 +40,7 @@ interface CandidateEvent {
   status: string | null;
   duration_minutes?: number | null;
   preparation_enabled?: boolean | null;
+  series_slug?: string | null;
 }
 
 /** Calendar date (YYYY-MM-DD) of `instant` in `timeZone`; falls back to UTC on a bad zone. */
@@ -67,8 +71,15 @@ export function pickTonightsEvent(events: CandidateEvent[], now: Date): Tonights
         datetime: e.datetime,
         durationMinutes: e.duration_minutes ?? null,
         preparationEnabled: !!e.preparation_enabled,
+        seriesSlug: e.series_slug ?? null,
       }
     : null;
+}
+
+/** The earliest event today that the person HOSTS (a host has no RSVP but can enter the room): marked as able to enter. */
+export function pickHostedEvent(events: CandidateEvent[], now: Date): TonightsEvent | null {
+  const picked = pickTonightsEvent(events, now);
+  return picked ? { ...picked, registered: true } : null;
 }
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -93,13 +104,17 @@ export function todaysEventWindowOpen(
 }
 
 /**
- * P1428/P1433: where "Today's event" leads. The room, for an event that runs one (preparation on)
- * while the event-night window is open. Otherwise the event page: hours before, or for an event
- * with no room flow (a hike), the page with the time and place is right.
+ * P1428/P1433: where "Today's event" leads. The room, for an event that runs one while the event-night window is
+ * open: preparation on, or a person who can enter (registered, or hosting) at an event whose series recipe runs rounds.
+ * Otherwise the event page: hours before, or for an event with no room flow (a hike without preparation), the page
+ * with the time and place is right.
  */
 export function tonightsEventHref(event: TonightsEvent, now: Date = new Date()): string {
   const page = `/events/${event.slug}`;
-  return event.preparationEnabled && todaysEventWindowOpen(event, now) ? `${page}/room` : page;
+  // Founder, solo test 2026-11-02: a REGISTERED person goes to the room while the window is on, preparation or not
+  // (the room gate never blocks on an optional preparation). The public pick stays prep-enabled only.
+  const hasRoom = event.preparationEnabled || (event.registered === true && recipeFor(event.seriesSlug).room.rounds);
+  return hasRoom && todaysEventWindowOpen(event, now) ? `${page}/room` : page;
 }
 
 /**
@@ -133,6 +148,7 @@ export function pickWindowEvent(events: CandidateEvent[], now: Date): TonightsEv
         datetime: e.datetime,
         durationMinutes: e.duration_minutes ?? null,
         preparationEnabled: true,
+        seriesSlug: e.series_slug ?? null,
         registered: false,
       }
     : null;
@@ -148,7 +164,7 @@ export function __resetTonightsEventCacheForTest(): void {
   publicCache = null;
 }
 
-const EVENT_COLUMNS = 'slug, title, datetime, timezone, status, duration_minutes, preparation_enabled';
+const EVENT_COLUMNS = 'slug, title, datetime, timezone, status, duration_minutes, preparation_enabled, series_slug';
 
 /**
  * P1433: prep-enabled events that could be in their window around now. `events` is publicly
@@ -185,17 +201,23 @@ async function fetchTonightsEvent(userId: string): Promise<TonightsEvent | null>
   // A ±36h window covers every timezone's "today"; the exact filter is pickTonightsEvent.
   const from = new Date(now.getTime() - 36 * 3600 * 1000).toISOString();
   const to = new Date(now.getTime() + 36 * 3600 * 1000).toISOString();
-  const { data, error } = await supabase
-    .from('event_rsvps')
-    .select(`event:events!inner(${EVENT_COLUMNS})`)
-    .eq('profile_id', userId)
-    .gte('event.datetime', from)
-    .lte('event.datetime', to);
-  if (error || !data) return null;
-  const events = (data as unknown as { event: CandidateEvent | CandidateEvent[] | null }[])
+  const [rsvps, hosted] = await Promise.all([
+    supabase
+      .from('event_rsvps')
+      .select(`event:events!inner(${EVENT_COLUMNS})`)
+      .eq('profile_id', userId)
+      .gte('event.datetime', from)
+      .lte('event.datetime', to),
+    // A host has no RSVP but can enter the room (the room's own gate says so): their event counts as theirs too.
+    supabase.from('events').select(EVENT_COLUMNS).eq('host_id', userId).gte('datetime', from).lte('datetime', to),
+  ]);
+  const mine = hosted.error || !hosted.data ? null : pickHostedEvent(hosted.data as unknown as CandidateEvent[], now);
+  if (rsvps.error || !rsvps.data) return mine;
+  const events = (rsvps.data as unknown as { event: CandidateEvent | CandidateEvent[] | null }[])
     .flatMap(r => (Array.isArray(r.event) ? r.event : r.event ? [r.event] : []));
   const picked = pickTonightsEvent(events, now);
-  return picked ? { ...picked, registered: true } : null;
+  const registered = picked ? { ...picked, registered: true } : null;
+  return [registered, mine].filter((e): e is TonightsEvent => !!e).sort((a, b) => a.datetime.localeCompare(b.datetime))[0] ?? null;
 }
 
 /**

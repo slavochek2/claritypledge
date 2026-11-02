@@ -160,8 +160,9 @@ export function RoomSteps({
                     shown ? 'font-semibold text-foreground' : labels && reached ? 'text-foreground' : 'text-muted-foreground',
                     // Round 6e: at 320 a tick + "Give feedback" fits its cell — a hairline gap and tighter tracking.
                     labels && 'max-[359px]:gap-px max-[359px]:tracking-tighter',
-                    // A short bar (a hike's three verbs) keeps every label at 320px; the five-step bar drops them.
-                    !shown && !labels && 'max-[360px]:sr-only',
+                    // Founder, solo test 2026-11-02: tab names stay visible on phones. The five-step bar's labels get a
+                    // smaller, tighter face below 360px so all five fit beside the arrow-only Back at 320px.
+                    !labels && 'max-[359px]:text-[10px] max-[359px]:tracking-tighter',
                   )}
                   data-testid={`room-step-${key}-text`}
                 >

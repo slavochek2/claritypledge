@@ -11,17 +11,18 @@
  * lives here, and the recorder must see it is paused); an automatic pause (/live, letters) still
  * renders nothing, as D3/D13 asked.
  */
-import { useId, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowRight, Mic, Pause, Play, Square } from 'lucide-react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
-import { Button } from '@/components/ui/button';
-import { SessionBar, type SessionBarAction } from './session-bar';
-import { ShellBarActions } from '@/app/components/layout/app-shell/shell-top-bar';
-import { useShellBarSlot } from '@/app/components/layout/app-shell/shell-top-bar-context';
+import type { SliceDestination } from '@/app/data/transcribe-slice-destination';
+import { EVENT_TRANSCRIBE_FIRST_SENTENCE } from './capture-copy';
+import { SessionBar } from './session-bar';
+import { EVENT_TEXT_ARRIVES_SHORT } from './capture-copy';
 import { CaptureInfoButton, OpenRoomButton, PauseResumeButton, StopCaptureButton } from './capture-controls';
 import { SHORT, useCaptureStatus } from './capture-status';
 import { CaptureLevelMeter } from './capture-level-meter';
 import { useConnectivity, useOfflineStripShown } from '@/app/contexts/offline-status-context';
+import { useRoomBarClaimed } from './room-bar-owner';
 
 const VISIBLE_PHASES = new Set(['capturing', 'stalled', 'observing', 'paused']);
 
@@ -55,7 +56,8 @@ const ICON_BUTTON =
  * recorder scrolling the feed always sees that capture is running (P1307 D9).
  */
 function CompactCaptureBar({ roomId }: { roomId: string }) {
-  const { phase, open, endMyCapture, pauseMine, resumeMine, micLost, stopping, reconnectMic } = useRoomCapture();
+  const { phase, open, endMyCapture, pauseMine, resumeMine, micLost, tapDown, stopping, reconnectMic, eventId, destination } = useRoomCapture();
+  const needsReconnect = micLost || tapDown;   // nothing is being recorded: the one way back is this tap
   const status = useCaptureStatus();
   const paused = phase === 'paused';
   const short = SHORT[status.kind];
@@ -63,17 +65,19 @@ function CompactCaptureBar({ roomId }: { roomId: string }) {
     <div role="status" aria-label={`Room transcription: ${status.text}`} data-testid="room-capture-bar" data-form="short"
       className="relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-1 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200">
       <div className="max-w-4xl mx-auto flex items-center gap-2">
-        <span data-warn={status.warn} className="text-sm font-medium text-blue-900 data-[warn=true]:text-red-800">{short}</span>
+        <span data-warn={status.warn} className="text-sm font-medium text-blue-900 data-[warn=true]:text-red-800 shrink-0">{short}</span>
+        <CaptureDestination destination={eventId ? null : destination} className="min-w-0 flex-1 basis-0" />
+        {eventId && <span className="hidden min-w-0 flex-1 basis-0 truncate text-xs text-muted-foreground lg:block" title={EVENT_TEXT_ARRIVES_SHORT} data-testid="capture-event-hint">{EVENT_TEXT_ARRIVES_SHORT}</span>}
         {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
-        <CaptureInfoButton />
+        <CaptureInfoButton forEvent={!!eventId} />
         <div className="ml-auto flex items-center gap-2">
-          {micLost && (
+          {needsReconnect && (
             <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={() => void reconnectMic()}
               aria-label="Reconnect mic" data-testid="capture-reconnect">
               <Mic className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
-          {phase !== 'observing' && !micLost && (
+          {phase !== 'observing' && !needsReconnect && (
             <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={paused ? resumeMine : pauseMine}
               aria-label={paused ? 'Resume' : 'Pause'} aria-pressed={paused}>
               {paused ? <Play className="h-4 w-4" aria-hidden="true" /> : <Pause className="h-4 w-4" aria-hidden="true" />}
@@ -92,8 +96,24 @@ function CompactCaptureBar({ roomId }: { roomId: string }) {
   );
 }
 
+/**
+ * P1592: the place the last stored line belongs to, as a place name ("Round 2 · Anna & Ben", or the
+ * event's title). Comes from the server's answer to the last stored line, never from the client's
+ * own reading of the seating. Renders nothing until a line has told us (and after a restore).
+ */
+function CaptureDestination({ destination, className = '' }: { destination: SliceDestination | null; className?: string }) {
+  const label = destination?.label;
+  if (!label) return null;
+  return (
+    <span data-testid="capture-destination" title={label}
+      className={`truncate text-sm text-blue-800 ${className}`}>
+      {label}
+    </span>
+  );
+}
+
 export function RoomCaptureBar({ short = false }: { short?: boolean }) {
-  const { phase, roomId, open, endMyCapture, manualPaused, pausedByLiveRecord } = useRoomCapture();
+  const { phase, roomId, open, endMyCapture, manualPaused, pausedByLiveRecord, eventId, destination } = useRoomCapture();
   const { offline } = useConnectivity();
   const status = useCaptureStatus();
   // Offline, the End RPC fails or hangs after the microphone is already off; until it settles the
@@ -132,11 +152,16 @@ export function RoomCaptureBar({ short = false }: { short?: boolean }) {
       testId="room-capture-bar"
       ariaLabel="Room transcription active"
       showDot={false}
-      text={<span data-warn={status.warn} className="data-[warn=true]:text-red-800">{status.text}</span>}
+      text={
+        <span className="flex min-w-0 items-center gap-2">
+          <span data-warn={status.warn} className="data-[warn=true]:text-red-800 shrink-0">{status.text}</span>
+          <CaptureDestination destination={eventId ? null : destination} />
+        </span>
+      }
       adornment={
         <>
           {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
-          <CaptureInfoButton />
+          <CaptureInfoButton forEvent={!!eventId} />
         </>
       }
       extra={
@@ -166,11 +191,13 @@ export function RoomCaptureBarSlot({ topNav = 'all' }: {
   const { registerBarSlot, barVisible } = useRoomCapture();
   // The nav moves down exactly when the offline STRIP shows — read the same signal it reads.
   const offline = useOfflineStripShown();
+  // The event room draws the bar itself, under its tabs row; the slot stays registered (no fallback) but draws nothing.
+  const claimed = useRoomBarClaimed();
   useLayoutEffect(() => registerBarSlot(), [registerBarSlot]);
   // P1388 (founder, 2026-10-02): the short bar, stuck under the fixed nav — so a recorder
   // browsing the feed always sees that capture is running (D9) and can pause it.
   // Offline, the nav sits 1.75rem lower under the offline strip (simple-navigation.tsx).
-  return barVisible ? (
+  return barVisible && !claimed ? (
     // data-testid: the event room measures this slot (any form of the bar) to pin its own head below it (P1429 A4).
     <div data-testid="room-capture-slot" className={`sticky z-30 ${topNav === 'none'
       ? 'top-[env(safe-area-inset-top)]'
@@ -234,42 +261,13 @@ export function RoomCaptureBarFallback() {
  * event room nothing changes.
  */
 const IDLE_TEXT = 'Not transcribing';
+/** Never breaks: a 320 px phone put "Not" and "transcribing" on two lines beside the button. */
+const idleLabel = <span className="whitespace-nowrap">{IDLE_TEXT}</span>;
 /**
  * What the tap does — the switch's description from the old start screen — and the terms reminder
  * that switch carried (founder, 2026-09-14), now that this tap is the only way in (walkthrough 7).
  */
-const IDLE_DETAIL = 'Record audio and share transcript with others in the room. Transcription follows our Terms and Privacy Policy.';
-
-/**
- * P1562 §1a: inside the signed-in shell the idle control is the compact form in the shell top bar's right slot (one
- * outlined "Transcribe", h-9, and its ⓘ; no "Not transcribing" text). Outside the shell (no right slot) it is today's
- * full-width row, in place. Either way the same start action, guards, description and "Starting…" state below.
- */
-function RoomTranscribeCompact({ primary }: { primary: SessionBarAction & { description: string } }) {
-  const descriptionId = useId();
-  return (
-    <div role="group" aria-label="Room transcription" data-testid="room-transcribe-idle" className="flex items-center gap-1">
-      {/* The shared outline button (design-system.md, P1568), at the spec's h-9. */}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={primary.onClick}
-        disabled={primary.disabled}
-        data-testid={primary.testId}
-        title={primary.description}
-        aria-describedby={descriptionId}
-        className="h-9 shrink-0"
-      >
-        {primary.label}
-      </Button>
-      <span id={descriptionId} className="sr-only">
-        {primary.description}
-      </span>
-      <CaptureInfoButton />
-    </div>
-  );
-}
+const IDLE_DETAIL = `${EVENT_TRANSCRIBE_FIRST_SENTENCE} Transcription follows our Terms and Privacy Policy.`;
 
 export function RoomTranscribeIdleBar({
   eventId,
@@ -282,10 +280,21 @@ export function RoomTranscribeIdleBar({
 }) {
   const capture = useRoomCapture();
   const { offline } = useConnectivity();
-  const { inShell } = useShellBarSlot('right');
   const [starting, setStarting] = useState(false);
+  // Stopping leaves the person asking "did it work?": say when the text comes (founder, solo test 2026-11-02).
+  const capturing = capture.isCapturingForEvent(eventId);
+  const [stopped, setStopped] = useState(false);
+  const wasCapturing = useRef(capturing);
+  useEffect(() => {
+    if (wasCapturing.current && !capturing) setStopped(true);
+    if (capturing) setStopped(false);
+    wasCapturing.current = capturing;
+  }, [capturing]);
   const busyPhase = capture.phase === 'starting' || capture.phase === 'ending';
-  if (offline || busyPhase || capture.isCapturingForEvent(eventId)) return null;
+  // Founder, solo test 2026-11-02: one bar on screen. Whatever capture is running (this event's or any other),
+  // the running bar is the bar; the idle one never shows beside it.
+  const running = VISIBLE_PHASES.has(capture.phase);
+  if (offline || busyPhase || capturing || running) return null;
   const primary = {
     label: starting ? 'Starting…' : 'Transcribe',
     description: IDLE_DETAIL,
@@ -296,28 +305,27 @@ export function RoomTranscribeIdleBar({
       void capture
         .startCapture({ eventId, displayName })
         .then(result => {
-          if (!result.started) onFailed();
+          if (!result.started) {
+            setStopped(false); // the mic never opened: there is no text to promise
+            onFailed();
+          }
         })
-        .catch(onFailed)
+        .catch(() => {
+          setStopped(false);
+          onFailed();
+        })
         .finally(() => setStarting(false));
     },
   };
-  if (inShell) {
-    return (
-      <ShellBarActions>
-        <RoomTranscribeCompact primary={primary} />
-      </ShellBarActions>
-    );
-  }
   return (
     <SessionBar
       tone="idle"
       testId="room-transcribe-idle"
       ariaLabel="Room transcription"
-      text={IDLE_TEXT}
+      text={stopped ? <>{idleLabel}. {EVENT_TEXT_ARRIVES_SHORT}</> : idleLabel}
       // Walkthrough 9: the same ⓘ as the running bar — what is recorded and where it goes, one tap
       // away before anyone starts, without a line of small print on every page.
-      adornment={<CaptureInfoButton />}
+      adornment={<CaptureInfoButton forEvent />}
       primary={primary}
     />
   );

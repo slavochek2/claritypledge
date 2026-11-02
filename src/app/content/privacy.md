@@ -114,21 +114,23 @@ A transcribe room is a shared, live transcript that several signed-in people bui
 own devices. Joining requires you to tap a control: at an event, the "Transcribe for AI
 insights" switch on the ready screen (it starts off) followed by Continue, or Transcribe in the
 event room; on `/transcribe`, a control that reads "Recorded and visible to everyone in this
-room", or, for a room that belongs to an event, "Recorded, and posted to this event's channel
-for its attendees". Nothing is captured before you do, and your agreement is recorded on our
+room", or, for a room that belongs to an event, "Recorded. A clean transcript is posted to this
+event's channel after each round. Anything said outside a round is posted after the room ends.". Nothing is captured before you do, and your agreement is recorded on our
 server at the moment you join, not just in your browser.
 
 While you speak, short segments of your audio are sent to **Google's Gemini API** to be turned
-into text. That text is attributed to you with a timestamp and shown to everyone in the room.
+into text. That text is attributed to you with a timestamp and shown to everyone in the room (at an event, live text stays in the transcribe room).
 Your audio is also uploaded to our Google Cloud Storage bucket and kept there.
 
-While you are transcribed at an event, live text attributed to you is posted to that event's
-channel, where its host and attendees can read and forward it. While you are seated at a table
-in a round, it goes to that round's thread in the channel; otherwise it goes to the channel
-itself. The people the event's channel admits (the host, and attendees who registered in time)
-can read it, whether or not they were in the room. After the room ends, the text of those
-channel messages may be replaced with the same words from the saved transcript; the live text
-stays stored with the room.
+While you are transcribed at an event, live text stays in the transcribe room. When the host
+starts the next round, your recording from that round is compared second by second with the
+recordings of the others at your table, and each second is kept only for the loudest microphone.
+Audio you did not keep is not sent for this step. The kept audio is sent to Google's Gemini API,
+and the resulting text is posted under your name to that round's thread in the event's channel.
+Speech outside a round is posted the same way after the room ends, in an "Outside rounds" thread.
+Words said while someone louder was speaking may not appear. The people the event's channel
+admits (the host, and attendees who registered in time) can read and forward this text, whether
+or not they were in the room. A nearby person's microphone can pick up your voice and post it under their name, even if you have not switched transcription on.
 
 Transcription keeps running while you move to other pages of the app, and a bar at the top of
 the page shows that it is running. It pauses while you are in a live session, record an
@@ -147,7 +149,7 @@ participant's section is marked incomplete.
 
 The room's own transcript, live or saved, can be read only by people who have switched
 transcription on in that room, including anything said before they arrived and after they left.
-At an event, the text posted to the event's channel (above) can also be read by the event's host
+At an event, the transcript posted to the event's channel (above) can also be read by the event's host
 and attendees.
 
 ### Letters and explain-backs

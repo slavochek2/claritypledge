@@ -23,6 +23,7 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { LetterCover } from '@/app/components/letters/letter-cover';
 import { LetterCompletionSummary } from '@/app/components/letters/letter-completion-summary';
 import { LetterStaleTermsModal } from '@/app/components/letters/letter-stale-terms-modal';
+import { recordTermsAcceptance } from '@/app/data/api';
 import { LetterCheckEmail } from '@/app/components/letters/letter-check-email';
 import { LetterFlowContent } from '@/app/components/letters/letter-flow-content';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
@@ -753,17 +754,7 @@ export function LetterReadingPage() {
   const handleStaleTermsAccept = useCallback(async () => {
     if (!currentUser) return;
     try {
-      const { error: updErr } = await supabase
-        .from('profiles')
-        .update({ accepted_terms_version: CURRENT_TERMS_VERSION })
-        .eq('id', currentUser.id);
-      if (updErr) throw updErr;
-      // Client-side audit row — server-side IP hashing not available here, so leave ip_hash null
-      await supabase.from('terms_acceptances').insert({
-        user_id: currentUser.id,
-        terms_version: CURRENT_TERMS_VERSION,
-        user_agent: navigator.userAgent,
-      });
+      await recordTermsAcceptance(currentUser.id);
       setShowStaleTerms(false);
       setStaleTermsResolved(true);
     } catch (err) {

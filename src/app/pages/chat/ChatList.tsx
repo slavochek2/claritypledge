@@ -6,6 +6,7 @@
  * Search looks in three places at once: your own chats by title (here, no request), people you
  * share a group, event or partnership with (searchPeople), and message text (searchMessages).
  */
+import { listPreview, searchHitHeading } from './chat-preview';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -27,7 +28,6 @@ import {
   INVITE_PARTNER_PATH,
   listTime,
   mirrorRole,
-  previewLine,
   searchChats,
   splitChats,
   unreadChatCount,
@@ -55,7 +55,7 @@ function ChatRow({ chat, active, viewerId, onOpen }: { chat: ChatSummary; active
   const [menu, setMenu] = useState(false);
   const title = chatTitle(chat);
   const unread = isChatUnread(chat);
-  const preview = previewLine(chat, viewerId);
+  const preview = listPreview(chat, viewerId);
   const when = listTime(chat.lastMessage?.createdAt);
 
   const leaveIfOpen = () => {
@@ -277,7 +277,7 @@ function SearchResults({ query, chats, onOpen }: { query: string; chats: ChatSum
                   <button type="button" onClick={() => onOpen(chat, hit.messageId)} className={cn('block min-h-14 w-full px-3 py-2 text-left', HOVER, FOCUS_RING)}>
                     <span className="flex items-baseline gap-2">
                       <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
-                        {hit.authorName ?? 'Deleted user'} · {chatTitle(chat)}
+                        {searchHitHeading(hit, chatTitle(chat))}
                       </span>
                       <span className="shrink-0 text-xs text-muted-foreground">{listTime(hit.createdAt)}</span>
                     </span>

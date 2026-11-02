@@ -23,8 +23,8 @@ def chat(**over):
 
 def test_build_updates_groups_rows_per_message_and_uses_only_this_members_segments():
     ups = swap.build_swap_updates(ROWS, chat(), SEGS, M)
-    assert ups == [{"chat_message_id": "c1", "body": "Hello there, how are you?"},
-                   {"chat_message_id": "c2", "body": "I am fine, thanks."}]
+    assert ups == [{"chat_message_id": "c1", "body": "Hello there, how are you?", "expected_body": "hello there how are you"},
+                   {"chat_message_id": "c2", "body": "I am fine, thanks.", "expected_body": "i am fine thanks"}]
 
 
 def test_edited_and_deleted_messages_are_not_updated_but_keep_their_position():
@@ -77,3 +77,10 @@ def test_any_exception_is_swallowed(monkeypatch):
         raise RuntimeError("db down")
     monkeypatch.setattr(swap.storage, "apply_transcription_swap", boom, raising=False)
     swap.run_swap_for_member("room", M)  # must not raise
+
+
+def test_every_update_carries_the_body_that_was_read_as_expected_body(monkeypatch):
+    calls = _wire(monkeypatch)
+    swap.run_swap_for_member("room", M)
+    assert [(u["chat_message_id"], u["expected_body"]) for u in calls[0]] == [
+        ("c1", "hello there how are you"), ("c2", "i am fine thanks")]

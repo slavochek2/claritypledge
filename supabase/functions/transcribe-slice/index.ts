@@ -192,12 +192,23 @@ Deno.serve((req: Request) =>
       // not at all (Decision 6 ceiling 2). Two separate writes would let a failed insert
       // leave the counter advanced, or a failed bump leave the ceiling unenforced.
       // spoken_at is NOT passed — it is the column's own DEFAULT now().
-      const { error } = await serviceClient.rpc('record_transcribe_slice', {
+      const { data, error } = await serviceClient.rpc('record_transcribe_slice', {
         p_room_id: roomId,
         p_member_id: memberId,
         p_text: text,
       });
       if (error) throw new Error(error.message);
+      return typeof data === 'string' ? data : null;
+    },
+
+    getDestination: async (messageId) => {
+      const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const { data, error } = await serviceClient.rpc('transcribe_message_destination', { p_id: messageId });
+      if (error) throw new Error(error.message);
+      if (!data || typeof data !== 'object') return null;
+      const d = data as { kind?: unknown; label?: unknown };
+      if (d.kind !== 'round' && d.kind !== 'channel' && d.kind !== 'none') return null;
+      return { kind: d.kind, label: typeof d.label === 'string' ? d.label : null };
     },
   }),
 );

@@ -72,8 +72,6 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { useHideTodaysStripForEvent } from '@/app/components/layout/app-shell/shell-nav';
-import { FocusHeader } from '@/app/components/layout/focus-header';
-import { DESKTOP_QUERY, useMediaQuery } from '@/app/hooks/use-media-query';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
@@ -84,7 +82,7 @@ import {
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { HOST_VOICED_UNDERSTANDING_QUESTION, HostAsksLine } from './host-asks';
 import { RoomTranscribeIdleBar } from '@/app/components/session/room-capture-bar';
-import { RoomStickyHead } from './RoomChrome';
+import { RoomHeadCapture, RoomHeadRow, RoomStickyHead } from './RoomChrome';
 import { useRoomWrite } from './use-room-write';
 import { useRoomRoster } from './use-room-roster';
 import { useRoomBack } from './use-room-back';
@@ -311,8 +309,6 @@ export function EventRoomMeet() {
   const { learning, feedback, learnThenJoin, openLearn, openFeedback, leaveView, backFromView } = useRoomViews(learnsInBar);
   const learningRef = useRef(learning);
   learningRef.current = learning;
-  // Founder UAT round: on a desktop (lg+) the Back sits on the step bar's own row, in the pinned head.
-  const wide = useMediaQuery(DESKTOP_QUERY);
   // Round 8b (Codex HIGH 2): once opened, the learning stays MOUNTED (hidden while another step is shown), so its one
   // serialized save queue and its in-memory progress survive tab switches — a remount would start a second queue
   // that can race the first.
@@ -403,7 +399,6 @@ export function EventRoomMeet() {
     : false;
   const isFrozen = pastGrace && !moment.live;
   // The host ended the evening (before the grace close) counts as over too, as the default step below reads it.
-  const header = roomBack.header(!(isFrozen || moment.eveningOver) && !!recipeFor(event?.seriesSlug).room.readiness);
 
   const inMembers = roster.filter((m) => m.optedIn === true);
   const outMembers = roster.filter((m) => m.optedIn === false);
@@ -523,46 +518,26 @@ export function EventRoomMeet() {
       {/* P1337: transcription is started from the room itself — the banner's idle state, in the
           place the running banner takes once it starts. */}
       {/* Walkthrough 9: the transcribe bar and the step bar stay on screen while Compare's rows
-          scroll. Pinned under the fixed nav, below the offline strip's push and the running
-          capture bar at its measured height (P1429 A4 — see room-head-offset.ts). */}
+          scroll. Pinned under the fixed nav, below the offline strip's push; the running capture
+          bar is drawn inside the head (P1429 A4 — see room-head-offset.ts). */}
       <RoomStickyHead>
-      {/* Round 6 (founder decision 2): a series without transcription (a hike) has no Transcribe bar at all.
-          P1562 §1a: in the shell, the compact "Transcribe" in the top bar's right slot; no shell, today's row. */}
-      {event && !isFrozen && !moment.eveningOver && roomRecipe.room.transcribe && (
-        <RoomTranscribeIdleBar
-          eventId={event.id}
-          displayName={user?.name || user?.email || 'Participant'}
-          onFailed={() => setStartFailed(true)}
-        />
-      )}
-
-      {/* Page chrome sits above the columns, at the container's own left edge, rather than
-          inside the certificate column — so it does not shift sideways when the layout
-          splits into three at min-[1600px]. */}
-      {/* P1562 §1 (supersedes walkthrough 8's arrow beside the step bar): the shell's own Back in the shell top bar
-          (same component, size and label as every other event sub-page; in place when there is no shell), then the
-          step bar under it — one header on every room view, hike and Clarity Night. Founder UAT round (P1542): on a
-          desktop (lg+) the Back moves down onto the step bar's row, in the pinned head (the bar's row, which held only
-          the Back, is then not drawn, and the Back stays pinned with the steps); below lg it is as before. */}
-      {wide ? (
-        // Founder UAT (2026-10-29): the Back at the far LEFT of the content area with its whole label; the tabs CENTRED on
-        // the content column, kept clear of the Back by equal side space (no overlap at 1024+, the same on every view).
-        <div className="relative pt-3 pb-2">
-          <div className="absolute left-8 top-1 flex" data-testid="room-head-back">
-            <FocusHeader onBack={header.onBack} label={header.label} aria-label={header.label} inPlace />
-          </div>
-          <div className="flex justify-center px-48" data-testid="room-head-row">
-            <div className="w-full max-w-[32rem]">{stepBar}</div>
-          </div>
-        </div>
-      ) : (
-        <div className={cn(PAGE_CONTAINER, 'pt-3 pb-2')}>
-          <div className="flex items-end gap-1" data-testid="room-head-row">
-            <FocusHeader onBack={header.onBack} label={header.label} aria-label={header.label} />
-            {stepBar}
-          </div>
-        </div>
-      )}
+      {/* Founder, solo test 2026-11-02 (supersedes P1562 §1 and UAT 2026-10-29): "← Event" on the tabs row, always to the
+          event, the arrow alone below 360px; the transcription bar (running, or idle for a series that transcribes; a
+          hike has none) directly under that row, full width, on desktop and phones. */}
+      <RoomHeadRow
+        className="mx-auto w-full max-w-2xl px-4 pt-3 pb-2 lg:max-w-none lg:px-8"
+        onBack={roomBack.backToEvent}
+        tabs={stepBar}
+      />
+      <RoomHeadCapture
+        idle={event && !isFrozen && !moment.eveningOver && roomRecipe.room.transcribe ? (
+          <RoomTranscribeIdleBar
+            eventId={event.id}
+            displayName={user?.name || user?.email || 'Participant'}
+            onFailed={() => setStartFailed(true)}
+          />
+        ) : undefined}
+      />
       {/* Round 8b: the embedded learning's step header (step name + progress) lands here, inside the sticky head. */}
       {(learnsInBar || feedback) && <div ref={setLearnHeadSlot} data-testid="room-learn-head" />}
       </RoomStickyHead>

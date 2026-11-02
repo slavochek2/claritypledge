@@ -137,6 +137,29 @@ function RailTip({ label, children }: { label: string; children: ReactElement })
   );
 }
 
+/** Founder, solo test 2026-11-02: Today's event stays on the collapsed rail, as an icon; its name is for screen readers and the tooltip. */
+export function RailTodaysEvent({ todays }: { todays: NonNullable<ReturnType<typeof useShellTodaysEvent>> }) {
+  return (
+    <li>
+      <RailTip label="Today's event">
+        <Link
+          to={todays.href}
+          title={todays.event.title}
+          aria-label="Today's event"
+          aria-current={todays.current ? 'page' : undefined}
+          data-testid="tonights-event-cta-rail"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-200 text-blue-700 transition-colors hover:bg-blue-50 aria-[current=page]:border-blue-500 aria-[current=page]:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-blue-800 dark:text-blue-200 dark:hover:bg-blue-950"
+          onClick={() =>
+            analytics.track('nav_cta_clicked', { cta: 'tonights_event', device: 'desktop', registered: !!todays.event.registered })
+          }
+        >
+          <CalendarCheckIcon className="h-5 w-5" aria-hidden="true" />
+        </Link>
+      </RailTip>
+    </li>
+  );
+}
+
 /**
  * The rail's destination list scrolls on its own when the window is short. A hairline appears on the
  * edge that has more behind it, so the cut-off row reads as scrollable rather than missing.
@@ -301,6 +324,7 @@ export function AppSidebar({ collapsed, onToggle, belowStrip = false }: AppSideb
             scroll.edges.bottom && 'border-b-border',
           )}
         >
+          {todays && <RailTodaysEvent todays={todays} />}
           {shownEntries.map(entry => (
             <RailItem key={entry.id} entry={entry} />
           ))}

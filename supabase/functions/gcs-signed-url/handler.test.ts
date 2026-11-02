@@ -425,3 +425,44 @@ Deno.test('validators admit every shape the client produces', () => {
   assertEquals(parseSessionObject('_dev_events.json'), { kind: 'shared' });
   assertEquals(parseSessionObject('chunk_000.webm'), { kind: 'owned', owner: 'chunk_000' });
 });
+
+// ── P1596: room archive chunks are self-contained WAV ───────────────────────
+
+Deno.test('P1596: a room member may upload chunk_NNN.wav as audio/wav, and old .webm chunks still pass', async () => {
+  const deps = makeDeps();
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  for (const [fileName, contentType] of [['chunk_000.wav', 'audio/wav'], ['_dev_chunk_001.wav', 'audio/wav'], ['chunk_002.webm', 'audio/webm']]) {
+    assertEquals((await status(deps, 'alice', { sessionCode: roomPrefix, fileName, contentType })).status, 200, fileName);
+  }
+  assertEquals(deps.forwarded.length, 3);
+});
+
+Deno.test('P1596: .wav must be declared audio/wav, never JSON or another audio type', async () => {
+  assertEquals(isConsistentFileType('chunk_000.wav', 'audio/wav'), true);
+  for (const ct of ['audio/webm', 'audio/mp4', 'application/json']) assertEquals(isConsistentFileType('chunk_000.wav', ct), false, ct);
+  const deps = makeDeps();
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  assertEquals(await status(deps, 'alice', { sessionCode: roomPrefix, fileName: 'chunk_000.wav', contentType: 'audio/webm' }), { status: 400, error: ERR.typeMismatch });
+  assertEquals(deps.forwarded.length, 0);
+});
+
+Deno.test('P1596: .wav is a room-only name: a /live session prefix refuses it', async () => {
+  const deps = makeDeps();
+  for (const fileName of ['alice-smith_chunk_000.wav', 'alice-smith.wav', 'chunk_000.wav']) {
+    assertEquals((await status(deps, 'alice', { sessionCode: 'ABC234', fileName, contentType: 'audio/wav' })).status >= 400, true, fileName);
+  }
+  assertEquals(deps.forwarded.length, 0);
+});
+
+Deno.test('P1596: every room gate still applies to a .wav chunk (another member, malformed names)', async () => {
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  const body = { sessionCode: roomPrefix, fileName: 'chunk_004.wav', contentType: 'audio/wav' };
+  const bob = makeDeps();
+  assertEquals(await status(bob, 'bob', body), { status: 403, error: ERR.notParticipant });
+  assertEquals(bob.forwarded.length, 0);
+  for (const bad of ['chunk_0000.wav', 'x_chunk_000.wav', 'chunk_000.wav.exe', 'events.wav']) {
+    const d = makeDeps();
+    assertEquals((await status(d, 'alice', { ...body, fileName: bad })).status, 400, bad);
+    assertEquals(d.forwarded.length, 0);
+  }
+});

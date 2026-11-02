@@ -116,51 +116,56 @@ beforeEach(() => {
 });
 
 describe('§1/§1a: one header in the shell', () => {
-  it('Back to readiness and a compact Transcribe sit in the shell top bar; no compact arrow, no "Not transcribing"', () => {
+  it('founder, solo test 2026-11-02 (supersedes §1a): Back in the shell top bar; Transcribe is one full-width row, never in the bar', () => {
     mount([fromReady], true);
     const bar = shellBar();
-    expect(within(bar).getByRole('button', { name: 'Back to readiness' })).toHaveTextContent('Back to readiness');
-    const start = within(bar).getByTestId('room-transcribe-start');
-    expect(start).toHaveTextContent('Transcribe');
-    expect(start.className).toContain('h-9');
-    // Round 4 (G6/C6): the shared <Button variant="outline" size="sm"> (design-system.md, P1568), not hand-typed classes.
-    expect(start.className.split(' ')).toEqual(expect.arrayContaining(['border-input', 'bg-background', 'shadow-sm']));
-    expect(start.className).not.toContain('border-blue-300');
-    expect(start).toHaveAccessibleDescription(expect.stringContaining('Record audio and share transcript'));
-    expect(within(bar).getByTestId('capture-info')).toBeInTheDocument();
-    expect(screen.queryByText('Not transcribing')).toBeNull();
+    expect(within(bar).queryByRole('button', { name: /Back/ })).toBeNull();
+    expect(within(bar).queryByTestId('room-transcribe-start')).toBeNull();
+    const head = screen.getByTestId('room-sticky-head');
+    // founder, solo test 2026-11-02: the Back is "← Event" on the tabs row, always to the event; "Back to readiness" is gone.
+    const back = within(head).getByRole('button', { name: 'Back to the event' });
+    expect(back).toHaveTextContent('Event');
+    expect(within(head).queryByRole('button', { name: 'Back to readiness' })).toBeNull();
+    // The transcription bar sits directly under the tabs row.
+    const row = within(head).getByTestId('room-head-row');
+    expect(row.contains(back)).toBe(true);
+    expect(row.compareDocumentPosition(within(head).getByTestId('room-transcribe-idle')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(head).getByTestId('room-transcribe-idle')).toHaveTextContent('Not transcribing');
+    expect(within(head).getByTestId('room-transcribe-start')).toHaveTextContent('Transcribe');
+    expect(within(head).getByTestId('capture-info')).toBeInTheDocument();
     expect(screen.queryByTestId('room-back')).toBeNull();
-    // The step bar stays in the page's own sticky head.
-    expect(within(screen.getByTestId('room-sticky-head')).getByTestId('room-step-principle')).toBeInTheDocument();
+    expect(within(head).getByTestId('room-step-principle')).toBeInTheDocument();
   });
 
   it('no shell (an unverified viewer): the same Back in place, and today\'s full-width Transcribe row', () => {
     mount([fromReady], false);
     const head = screen.getByTestId('room-sticky-head');
-    expect(within(head).getByRole('button', { name: 'Back to readiness' })).toHaveTextContent('Back to readiness');
+    // founder, solo test 2026-11-02: the Back is "← Event" on the tabs row, always to the event; "Back to readiness" is gone.
+    expect(within(head).getByRole('button', { name: 'Back to the event' })).toHaveTextContent('Event');
     expect(within(head).getByTestId('room-transcribe-idle')).toHaveTextContent('Not transcribing');
   });
 
   it('frozen: no Transcribe anywhere, and Back is "Back to the event"', () => {
     room.access = { ...room.access as object, event: frozen };
     mount([fromReady], true);
-    expect(within(shellBar()).getByRole('button', { name: 'Back to the event' })).toBeInTheDocument();
+    expect(within(screen.getByTestId('room-sticky-head')).getByRole('button', { name: 'Back to the event' })).toBeInTheDocument();
     expect(screen.queryByTestId('room-transcribe-start')).toBeNull();
   });
 });
 
 describe('§2: the Back table', () => {
-  it('opened by Ready: pops to Ready', async () => {
-    mount(['/events/night', readyEntry, fromReady]);
-    fireEvent.click(screen.getByRole('button', { name: 'Back to readiness' }));
-    await waitFor(() => expect(page()).toHaveTextContent('ready'));
+  it('opened by Ready: Back goes past Ready to the event (the Ready tab is the way to readiness)', async () => {
+    // founder, solo test 2026-11-02: the Back is "← Event" on the tabs row, always to the event; "Back to readiness" is gone.
+    mount(['/events', '/events/night', readyEntry, fromReady]);
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the event' }));
+    await waitFor(() => expect(page()).toHaveTextContent('event'));
   });
 
-  it('a return visit (no Ready below): replaces with Ready and carries fromEvent, so Ready can still pop to the event', async () => {
+  it('a return visit (no Ready below): Back goes to the event', async () => {
+    // founder, solo test 2026-11-02: the Back is "← Event" on the tabs row, always to the event; "Back to readiness" is gone.
     mount(['/events', '/events/night', { pathname: '/events/night/meet', state: { fromEvent: true } }]);
-    fireEvent.click(screen.getByRole('button', { name: 'Back to readiness' }));
-    await waitFor(() => expect(page()).toHaveTextContent('ready'));
-    expect(JSON.parse(page().dataset.state!)).toEqual({ fromEvent: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the event' }));
+    await waitFor(() => expect(page()).toHaveTextContent('event'));
   });
 
   it('frozen, opened through Ready: Back returns past Ready to the event, whose own Back then reaches the list', async () => {
@@ -235,16 +240,16 @@ describe('§1a / viewer states (Done-When evidence)', () => {
     expect(ready).toBeDisabled();
     fireEvent.click(ready);
     expect(screen.getByTestId('room-close')).toBeInTheDocument();
-    fireEvent.click(within(shellBar()).getByRole('button', { name: 'Back to the event' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the event' }));
     await waitFor(() => expect(page()).toHaveTextContent('event'));
   });
 
-  it('the host on /meet sees the attendee header: the shell-bar Back and the compact Transcribe', () => {
+  it('the host on /meet sees the attendee header: the shell-bar Back and the full-width Transcribe', () => {
     room.access = { ...room.access as object, event: { ...open, hostId: 'u1' } }; // the signed-in user hosts it
     mount([fromReady], true);
-    const bar = shellBar();
-    expect(within(bar).getByRole('button', { name: 'Back to readiness' })).toBeInTheDocument();
-    expect(within(bar).getByTestId('room-transcribe-start')).toHaveTextContent('Transcribe');
+    // founder, solo test 2026-11-02: the Back is "← Event" on the tabs row, always to the event; "Back to readiness" is gone.
+    expect(within(screen.getByTestId('room-sticky-head')).getByRole('button', { name: 'Back to the event' })).toBeInTheDocument();
+    expect(within(screen.getByTestId('room-sticky-head')).getByTestId('room-transcribe-start')).toHaveTextContent('Transcribe');
     expect(screen.queryByTestId('room-back')).toBeNull();
     expect(within(screen.getByTestId('room-sticky-head')).getByTestId('room-steps')).toBeInTheDocument();
   });

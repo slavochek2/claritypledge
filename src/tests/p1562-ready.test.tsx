@@ -86,8 +86,10 @@ function mountReady(entries: (string | { pathname: string; state: unknown })[], 
 describe("/ready's Back: the shell top bar's \"Back to the event\"", () => {
   it('renders in the shell top bar, labelled, and there is no compact arrow', () => {
     mountReady([{ pathname: '/events/night/ready', state: { fromEvent: true } }], true);
+    // founder, solo test 2026-11-02: "← Event" on the tabs row in the sticky head, not in the shell bar.
     const bar = document.querySelector('[data-shell-top-bar]') as HTMLElement;
-    expect(within(bar).getByRole('button', { name: 'Back to the event' })).toHaveTextContent('Back to the event');
+    expect(within(bar).queryByRole('button', { name: /Back/ })).toBeNull();
+    expect(within(screen.getByTestId('room-head-row')).getByRole('button', { name: 'Back to the event' })).toHaveTextContent('Event');
     expect(screen.queryByTestId('room-back')).toBeNull();
   });
 
@@ -125,13 +127,15 @@ describe('round 5 (B1, B2): the head of /ready', () => {
 
   it('B1: in the shell bar the Back may shrink and its label truncates; the arrow and the accessible name stay', () => {
     mountReady([{ pathname: '/events/night/ready', state: { fromEvent: true } }], true);
-    const back = within(document.querySelector('[data-shell-top-bar]') as HTMLElement).getByRole('button', { name: 'Back to the event' });
+    // founder, solo test 2026-11-02: the Back is on the tabs row; its label is "Event", the arrow alone below 360px.
+    const back = within(screen.getByTestId('room-head-row')).getByRole('button', { name: 'Back to the event' });
     expect(back.className.split(' ')).toContain('min-w-0');
     // Not max-w-full: with the button's -ml-3, the slot sizes to the button minus 12px, and a 100% cap then clips the
     // label by 12px even with nothing in the right slot ("Back to the e…" at 375, final screenshots).
     expect(back.className.split(' ')).not.toContain('max-w-full');
     const label = back.querySelector('span');
-    expect(label?.textContent).toBe('Back to the event');
+    expect(label?.textContent).toBe('Event');
+    expect(label?.className.split(' ')).toContain('max-[359px]:sr-only');
     expect(label?.className.split(' ')).toEqual(expect.arrayContaining(['min-w-0', 'truncate']));
     expect(back.querySelector('svg')).not.toBeNull();
   });

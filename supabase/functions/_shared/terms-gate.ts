@@ -4,14 +4,15 @@
  * The blocking terms popup is a client control. A cached old client, or a direct API call, never
  * sees it. mirror-reply and mirror-portrait therefore read the caller's recorded acceptance here
  * and refuse, before any job is reserved and before any model call, unless it is the current
- * version (SERVER_CURRENT_TERMS_VERSION, the one place the server names it).
+ * version, or a notice-only successor of a version that already carried the mirror consent
+ * (MIRROR_CONSENT_VERSIONS in terms-version.ts, the one place the server names them).
  *
  * The read uses the service client on the id taken from the verified JWT: a caller cannot name
  * another profile, and the column grants on profiles (P877) do not apply to the service role.
  * It fails closed: a missing row, a read error or any other value refuses.
  */
 
-import { isCurrentTermsVersion } from './terms-version.ts';
+import { hasMirrorConsentVersion } from './terms-version.ts';
 
 /** A service-role supabase-js client; only `from('profiles').select().eq().maybeSingle()` is used. */
 // deno-lint-ignore no-explicit-any
@@ -24,7 +25,7 @@ export async function callerHasCurrentTerms(service: ProfileReader, userId: stri
     error: unknown;
   };
   if (error || !data) return false;
-  return isCurrentTermsVersion(data.accepted_terms_version);
+  return hasMirrorConsentVersion(data.accepted_terms_version);
 }
 
 /** The typed refusal the client turns into "Accept the updated terms". Nothing else is in the body. */

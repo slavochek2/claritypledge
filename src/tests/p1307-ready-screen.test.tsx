@@ -47,7 +47,7 @@ describe('P1307 D2/D12 after P1337 walkthrough 7: consent is the room bar\'s "Tr
     const s = read(IDLE_BAR);
     for (const copy of [
       'Not transcribing',
-      'Record audio and share transcript with others in the room',
+      'EVENT_TRANSCRIBE_FIRST_SENTENCE', // P1592: the description opens with the channel sentence (capture-copy.ts)
       // Founder, 2026-09-14: a reminder, not an agreement.
       'Transcription follows our Terms and Privacy Policy',
     ]) {

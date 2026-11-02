@@ -7,16 +7,16 @@
  *  - `fromReady` — Ready opened Meet (Clarity Night), so Ready is the entry below;
  *  - `roomDepth` — how many entries a hike room pushed above its first one (its Learn view, see EventRoomMeet).
  *
- * Clarity Night's Meet goes to Ready ("Back to readiness": pop when Ready opened it, else replace, carrying
- * `fromEvent`). Every other room view — a hike's, a frozen Meet, Ready itself — goes to the event, past every room
- * entry above it (useBackToEvent). `closeState` is what the room hands /close, so the thank-you can do the same.
+ * Founder, solo test 2026-11-02: the room's Back ALWAYS goes to the event ("← Event" on the tabs row), past every room
+ * entry above it (useBackToEvent); "Back to readiness" is gone — the Ready tab (backToReady) does that job. `closeState` is what the room hands /close, so the thank-you can do the same.
  */
 import { useLocation } from 'react-router-dom';
 import { useBackPast, useBackToEvent } from '../use-back-to-event';
 
-/** [FOUNDER DECISION: copy, proposed — today's accessible name] Clarity Night Meet's Back, to /ready. */
-export const BACK_TO_READINESS = 'Back to readiness';
+/** The accessible name of the room's Back (founder, solo test 2026-11-02: "Back to readiness" is gone, the Ready tab does that job). */
 export const BACK_TO_EVENT = 'Back to the event';
+/** The visible label, on the tabs row: "← Event" (the arrow alone below 360px). */
+export const BACK_LABEL = 'Event';
 
 export type RoomNavState = { fromEvent?: boolean; fromReady?: boolean; roomDepth?: number };
 
@@ -38,9 +38,6 @@ export function useRoomBack(slug: string | undefined) {
   return {
     backToEvent,
     backToReady,
-    /** The header's Back: to readiness (Clarity Night's open Meet), else to the event. */
-    header: (toReadiness: boolean) =>
-      toReadiness ? { onBack: backToReady, label: BACK_TO_READINESS } : { onBack: backToEvent, label: BACK_TO_EVENT },
     /** Route state for the room's pushes of /close: the room is below it, and so is everything under the room. */
     closeState: { fromRoom: true, fromEvent: nav.fromEvent, roomDepth: nav.depth },
     /** The same, as navigate options for a push (the room's Join: /close?join=1, or the learning before it). */

@@ -13,8 +13,8 @@ import { clarifyMessage, getMessage, type ChatMessage, type ChatSummary } from '
 import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { AttachDialog, ConfirmDialog, RenameMirrorDialog } from './ChatDialogs';
 import { Composer, type MentionEntry } from './Composer';
-import { ConversationHeader } from './ConversationHeader';
 import { MessageList } from './MessageList';
+import { ConversationTop } from './MyRounds';
 import { PendingQuote } from './PendingQuote';
 import { InlineError, MessagesSkeleton, MirrorMark } from './chat-kit';
 import { MirrorInfoDialog } from './MirrorInfoDialog';
@@ -229,7 +229,7 @@ function ConversationBody({ summary, highlightId, paneVisible }: { summary: Chat
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="conversation" data-chat-open={conversationId}>
-      <ConversationHeader chat={summary} blocked={blocked} actions={headerActions} cameFromElsewhere={cameFromElsewhere} />
+      <ConversationTop summary={summary} blocked={blocked} actions={headerActions} cameFromElsewhere={cameFromElsewhere} />
       <MessageList
         conv={conv}
         actions={actions}

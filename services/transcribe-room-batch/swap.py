@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def build_swap_updates(rows: list[dict], chat: dict[str, dict], segments: list[dict], member_id: str) -> list[dict]:
     """Pure part of the swap. rows = this member's live rows (spoken order); chat = id -> chat
-    message row. Returns [{"chat_message_id", "body"}] for messages whose text should change.
+    message row. Returns [{"chat_message_id", "body", "expected_body"}] (expected_body = the body read now; the RPC updates only if it still equals it) for messages whose text should change.
 
     Every live row stays a position in the alignment, including rows never posted (no
     chat_message_id) and messages the user edited or deleted: their words are real speech, so
@@ -52,7 +52,7 @@ def build_swap_updates(rows: list[dict], chat: dict[str, dict], segments: list[d
         if new_body is None or msg is None or msg.get("edited_at") or msg.get("deleted_at"):
             continue
         if new_body != msg.get("body"):
-            updates.append({"chat_message_id": g["id"], "body": new_body})
+            updates.append({"chat_message_id": g["id"], "body": new_body, "expected_body": msg.get("body")})
     return updates
 
 

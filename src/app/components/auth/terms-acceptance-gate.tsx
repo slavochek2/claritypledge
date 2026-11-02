@@ -3,10 +3,11 @@ import { useLocation } from 'react-router-dom';
 import { reportUnlessBlip } from '@/lib/report-unless-blip';
 import { useAuth } from '@/auth/AuthContext';
 import { needsTermsAcceptance, recordTermsAcceptance } from '@/app/data/api';
+import { getAcceptedTermsVersion } from '@/app/data/terms-accepted';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
 import { TermsNoticeBanner } from '@/app/components/legal/terms-notice-banner';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
-import { TERMS_CHANGES } from '@/app/content/terms-changes';
+import { termsPrompt, type TermsPrompt } from '@/app/content/terms-prompt';
 import { analytics } from '@/lib/mixpanel';
 
 interface TermsAcceptanceGateProps {
@@ -27,11 +28,6 @@ const GATE_EXEMPT_PREFIXES = ['/auth/'];
 // such as /privacy-policy-preview must stay gated.
 const GATE_EXEMPT_EXACT_PATHS = ['/terms-of-service', '/privacy-policy'];
 
-// Blocking popup only when the current version needs fresh consent. A version
-// with no summary entry also blocks: the safe side when nobody decided.
-const GATE_MODE: 'block' | 'notice' =
-  TERMS_CHANGES[CURRENT_TERMS_VERSION]?.requiresConsent === false ? 'notice' : 'block';
-
 function reportAcceptFailure(err: unknown) {
   reportUnlessBlip(err, {
     context: 'terms-acceptance-gate',
@@ -51,6 +47,7 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
   const { user, isLoading, signOut } = useAuth();
   const location = useLocation();
   const [showDialog, setShowDialog] = useState(false);
+  const [prompt, setPrompt] = useState<TermsPrompt>({ mode: 'block', missed: [] });
   const [isAccepting, setIsAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const gateShownTrackedRef = useRef<string | null>(null);
@@ -70,17 +67,22 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
     }
     const userId = user.id;
     let cancelled = false;
-    needsTermsAcceptance(userId).then((needs) => {
+    needsTermsAcceptance(userId).then(async (needs) => {
+      if (!needs) return;
+      const accepted = await getAcceptedTermsVersion(userId);
+      if (accepted === CURRENT_TERMS_VERSION) return; // accepted between the two reads
+      const next = termsPrompt(accepted);
       // Guard against user-switch races: if the user changed while the query
       // was in flight, discard the result rather than apply it to the wrong user.
-      if (!cancelled && needs && user.id === userId) {
+      if (!cancelled && user.id === userId) {
+        setPrompt(next);
         setShowDialog(true);
         if (gateShownTrackedRef.current !== userId) {
           gateShownTrackedRef.current = userId;
-          analytics.track('tos_gate_shown', { terms_version: CURRENT_TERMS_VERSION, mode: GATE_MODE });
+          analytics.track('tos_gate_shown', { terms_version: CURRENT_TERMS_VERSION, mode: next.mode });
         }
       }
-    });
+    }).catch(reportAcceptFailure); // nothing shown on this load; the next load asks again
     return () => {
       cancelled = true;
     };
@@ -92,7 +94,7 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
     setAcceptError(null);
     try {
       await recordTermsAcceptance(user.id);
-      analytics.track('tos_accepted', { terms_version: CURRENT_TERMS_VERSION, mode: GATE_MODE });
+      analytics.track('tos_accepted', { terms_version: CURRENT_TERMS_VERSION, mode: prompt.mode });
       setShowDialog(false);
     } catch (err) {
       reportAcceptFailure(err);
@@ -112,7 +114,7 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
     setIsAccepting(true);
     try {
       await recordTermsAcceptance(user.id, 'notice');
-      analytics.track('tos_accepted', { terms_version: CURRENT_TERMS_VERSION, mode: GATE_MODE });
+      analytics.track('tos_accepted', { terms_version: CURRENT_TERMS_VERSION, mode: prompt.mode });
     } catch (err) {
       reportAcceptFailure(err);
     } finally {
@@ -132,11 +134,12 @@ export function TermsAcceptanceGate({ children }: TermsAcceptanceGateProps) {
     <>
       {children}
       {/* The banner is fixed, so an in-app link to a legal page would otherwise carry it along. */}
-      {GATE_MODE === 'notice' && showDialog && !isExemptPath && (
+      {prompt.mode === 'notice' && showDialog && !isExemptPath && (
         <TermsNoticeBanner onDismiss={handleDismissNotice} isLoading={isAccepting} />
       )}
       <TermsUpdateDialog
-        open={GATE_MODE === 'block' && showDialog}
+        open={prompt.mode === 'block' && showDialog && !isExemptPath}
+        missed={prompt.missed}
         onAccept={handleAccept}
         onCancel={handleCancel}
         isLoading={isAccepting}

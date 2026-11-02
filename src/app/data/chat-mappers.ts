@@ -5,32 +5,17 @@
  * The service (chat-service.ts) is the only caller that touches the network.
  */
 
-export type ChatKind = 'dm' | 'group' | 'event' | 'mirror';
+import { DELETED_USER_NAME, mapForwardSnapshot, type ChatKind, type ChatSystemKind, type ForwardSnapshot } from './chat-snapshot';
+
+export { DELETED_USER_NAME, mapForwardSnapshot };
+export type { ChatKind, ChatSystemKind, ForwardSnapshot, ForwardThreadEntry } from './chat-snapshot';
+
 /** 'agent': the mirror's own reply (P1520), always in its owner's mirror, with no human author. */
 export type ChatMessageKind = 'message' | 'forward' | 'clarify' | 'agent';
 export type ChatAttachmentKind = 'point' | 'story' | 'canvas' | 'letter';
 
-/** Shown for an author that no longer exists (account erased). */
-export const DELETED_USER_NAME = 'Deleted user';
 /** Shown instead of a removed message body. */
 export const DELETED_MESSAGE_TEXT = 'Message deleted';
-
-export interface ForwardThreadEntry {
-  authorName: string;
-  body: string | null;
-  createdAt: string;
-}
-
-export interface ForwardSnapshot {
-  authorName: string;
-  body: string | null;
-  createdAt: string;
-  conversationKind: ChatKind | null;
-  /** Clarify only: the source chat as the clarifier saw it (dm: the other person; group: "<Org> · General"; event: its title). */
-  conversationTitle: string | null;
-  /** Clarify only: the replies of the thread the message sat in, oldest first. */
-  thread: ForwardThreadEntry[];
-}
 
 export interface ChatMessage {
   id: string;
@@ -61,6 +46,10 @@ export interface ChatMessage {
   contextConversationId?: string | null;
   /** P1576: set on a voice note (human chats and threads only); null / absent on every other message. */
   audio?: ChatAudio | null;
+  /** P1592: a line the server transcribed from speech. Rendered under a "Transcription" label, in italics. */
+  isTranscription?: boolean;
+  /** P1592: a system post (no author): rendered as its body, a title, alone. */
+  systemKind?: ChatSystemKind | null;
 }
 
 export type ChatTranscriptStatus = 'pending' | 'done' | 'failed';
@@ -100,6 +89,9 @@ export interface ChatSummary {
     kind: ChatMessageKind;
     isDeleted: boolean;
     createdAt: string;
+    /** P1592: the preview of a system post is its title alone; a transcription is a transcription. */
+    isTranscription?: boolean;
+    systemKind?: ChatSystemKind | null;
   } | null;
   unreadCount: number;
   manualUnread: boolean;
@@ -191,6 +183,8 @@ export interface ChatMessageRow {
   transcript?: string | null;
   transcript_status?: ChatTranscriptStatus | null;
   audio_waveform?: number[] | null;
+  is_transcription?: boolean | null;
+  system_kind?: ChatSystemKind | null;
 }
 
 export interface ChatSummaryRow {
@@ -218,6 +212,8 @@ export interface ChatSummaryRow {
   last_message_kind: ChatMessageKind | null;
   last_message_deleted: boolean | null;
   last_message_at: string | null;
+  last_system_kind?: ChatSystemKind | null;
+  last_is_transcription?: boolean | null;
   unread_count: number;
   manual_unread: boolean;
   archived: boolean;
@@ -252,35 +248,6 @@ export interface ChatConversationRow {
 // ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
-function asString(v: unknown): string | null {
-  return typeof v === 'string' ? v : null;
-}
-
-function mapThread(raw: unknown): ForwardThreadEntry[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((e) => {
-    const entry = (e ?? {}) as Record<string, unknown>;
-    return {
-      authorName: asString(entry.author_name) ?? DELETED_USER_NAME,
-      body: asString(entry.body),
-      createdAt: asString(entry.created_at) ?? '',
-    };
-  });
-}
-
-export function mapForwardSnapshot(raw: Record<string, unknown> | null): ForwardSnapshot | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const kind = asString(raw.conversation_kind);
-  return {
-    authorName: asString(raw.author_name) ?? DELETED_USER_NAME,
-    body: asString(raw.body),
-    createdAt: asString(raw.created_at) ?? '',
-    conversationKind: kind === 'dm' || kind === 'group' || kind === 'event' || kind === 'mirror' ? kind : null,
-    conversationTitle: asString(raw.conversation_title),
-    thread: mapThread(raw.thread),
-  };
-}
-
 function mapAudio(row: ChatMessageRow): ChatAudio | null {
   if (row.audio_duration_ms == null || row.deleted_at !== null) return null;
   return {
@@ -313,6 +280,8 @@ export function mapMessageRow(row: ChatMessageRow): ChatMessage {
     clientId: row.client_id ?? null,
     contextConversationId: row.context_conversation_id ?? null,
     audio: mapAudio(row),
+    isTranscription: row.is_transcription === true,
+    systemKind: row.system_kind ?? null,
   };
 }
 
@@ -346,6 +315,8 @@ export function mapSummaryRow(row: ChatSummaryRow): ChatSummary {
           kind: row.last_message_kind ?? 'message',
           isDeleted: row.last_message_deleted === true,
           createdAt: row.last_message_at ?? '',
+          isTranscription: row.last_is_transcription === true,
+          systemKind: row.last_system_kind ?? null,
         }
       : null,
     unreadCount: row.unread_count,

@@ -13,6 +13,7 @@ import { holdRoomCode, heldSeatSecrets } from '@/lib/room-capability';
 import { clearOfflineReadCacheWithin, roomCodeDigest } from '@/lib/offline-read-cache';
 import { parseBannerCredit } from '@/lib/banner-credit';
 import { boundedInList } from './query-limits';
+import { archiveDurationMs, uploadTimeoutMs } from '@/lib/audio-upload-budget';
 import { earCountOf } from './ear-count';
 import { letterUsesPredictions } from '@/app/utils/letter-prediction-policy';
 import type { LetterMode } from '@/app/types';
@@ -3405,27 +3406,20 @@ async function getSignedUploadUrl(
  */
 async function uploadToGCS(uploadUrl: string, blob: Blob, contentType: string): Promise<void> {
   return withRetry(async () => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-    let response: Response;
-    try {
-      response = await fetch(uploadUrl, {
-        method: 'PUT',
-        // P812: ONLY send headers the Cloud Function includes in its canonical
-        // signed request. The ml-training signer does NOT sign
-        // x-goog-content-length-range, so including it causes GCS to reject
-        // the PUT with MalformedSecurityHeader. Content-Type IS signed.
-        // See scripts/probe-gcs-upload*.mjs for the disproof.
-        headers: {
-          'Content-Type': contentType,
-        },
-        body: blob,
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeoutId);
-    }
+    // P1596: the abort scales with the blob (a 960 KB chunk needs 30 s at 256 kbit/s; it may run for twice that).
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      // P812: ONLY send headers the Cloud Function includes in its canonical
+      // signed request. The ml-training signer does NOT sign
+      // x-goog-content-length-range, so including it causes GCS to reject
+      // the PUT with MalformedSecurityHeader. Content-Type IS signed.
+      // See scripts/probe-gcs-upload*.mjs for the disproof.
+      headers: {
+        'Content-Type': contentType,
+      },
+      body: blob,
+      signal: AbortSignal.timeout(uploadTimeoutMs(blob.size)),
+    });
 
     if (!response.ok) {
       // For 403s, read body to surface SignatureDoesNotMatch (deterministic — never worth retrying)
@@ -3623,8 +3617,9 @@ export async function uploadRoomAudioChunk(
   const { gcsPathPrefix, sanitizedParticipant } = buildRoomAudioPathSegments(roomCode, participantName, memberId);
   const paddedChunkNum = String(chunkNumber).padStart(3, '0');
   const devPrefix = devRecordingFilenamePrefix(); // P809
-  const chunkFileName = `${devPrefix}chunk_${paddedChunkNum}.webm`;
-  const contentType = chunkBlob.type || 'audio/webm';
+  // P1596: room archive chunks are self-contained WAV, whatever browser produced them.
+  const chunkFileName = `${devPrefix}chunk_${paddedChunkNum}.wav`;
+  const contentType = 'audio/wav';
 
   try {
     const { uploadUrl } = await getSignedUploadUrl(gcsPathPrefix, chunkFileName, contentType);
@@ -3632,11 +3627,11 @@ export async function uploadRoomAudioChunk(
 
     if (isLastChunk) {
       const totalChunks = chunkNumber + 1;
-      const durationMs = totalChunks * 30000;
+      const durationMs = archiveDurationMs(chunkNumber, chunkBlob.size);
       const { error: dbError } = await supabase.from('ml_training_sessions').insert({
         session_code: roomCode,
         user_name: participantName,
-        audio_path: `gs://claritypledge-ml-training/${gcsPathPrefix}/${devPrefix}chunk_*.webm`,
+        audio_path: `gs://claritypledge-ml-training/${gcsPathPrefix}/${devPrefix}chunk_*.wav`,
         duration_ms: durationMs,
         chunk_count: totalChunks,
       });
@@ -3876,8 +3871,8 @@ export async function consumePendingTermsAcceptance(termsNonce: string): Promise
  * Record terms acceptance for a user.
  * Updates profile and creates audit trail entry.
  * @param userId - The user's UUID
- * @param mode - 'explicit' (clicked Continue on the blocking popup) or 'notice'
- *   (dismissed the non-blocking banner; continued use is acceptance)
+ * @param mode - 'explicit' (clicked Agree and continue on the blocking popup) or 'notice'
+ *   (clicked Continue on the non-blocking banner; continued use is acceptance)
  */
 export async function recordTermsAcceptance(
   userId: string,

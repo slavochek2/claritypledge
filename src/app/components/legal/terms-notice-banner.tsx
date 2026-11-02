@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { TermsChangeList, TermsTitle, TERMS_CONSENT_LINE } from '@/app/components/legal/terms-change-list';
+import { TermsChangeList, TermsFinePrint, TermsTitle } from '@/app/components/legal/terms-change-list';
 
 interface TermsNoticeBannerProps {
   onDismiss: () => void;
@@ -31,7 +31,7 @@ export function TermsNoticeBanner({ onDismiss, isLoading = false }: TermsNoticeB
       aria-label="Terms update"
       data-shell-bar
       style={{ bottom: navOffset }}
-      className={`fixed inset-x-0 z-50 border-t border-border bg-background shadow-sheet ${navOffset ? '' : 'pb-[env(safe-area-inset-bottom)]'}`}
+      className={`fixed inset-x-0 z-50 max-h-[100dvh] overflow-y-auto border-t border-border bg-background shadow-sheet ${navOffset ? '' : 'pb-[env(safe-area-inset-bottom)]'}`}
     >
       <div className="mx-auto flex max-w-2xl flex-col px-4 pt-3">
         <p className="text-sm font-semibold">
@@ -41,9 +41,9 @@ export function TermsNoticeBanner({ onDismiss, isLoading = false }: TermsNoticeB
           <TermsChangeList />
         </div>
         <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">{TERMS_CONSENT_LINE}</p>
+          <p className="text-sm text-muted-foreground"><TermsFinePrint /></p>
           <Button className="h-10 shrink-0" onClick={onDismiss} disabled={isLoading}>
-            Accept
+            Continue
           </Button>
         </div>
       </div>

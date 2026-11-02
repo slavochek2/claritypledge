@@ -19,6 +19,7 @@
  * `MediaRecorder` attached to the same stream.
  */
 import { withDeadline } from '@/lib/with-deadline';
+import { watchContext } from './context-gap';
 
 /** Bound on the one-time audio-setup awaits (`resume`, `addModule`). Generous next to the
  *  ~15 s network deadlines because this is a same-origin asset on an already-warm
@@ -42,6 +43,11 @@ export const LEAD_IN_MS = 1_000;
  *  otherwise up to 13 s of the last utterance never reaches live text. Below this length the
  *  flush is skipped: a near-empty slice is noise, not speech. */
 export const FINAL_SLICE_MIN_MS = 500;
+
+/** P1596: the room archive is cut from the same PCM tap, in self-contained WAV chunks of this length,
+ *  with no overlap. A tail shorter than ARCHIVE_TAIL_MIN_MS is not worth a chunk. */
+export const ARCHIVE_CHUNK_MS = 30_000;
+export const ARCHIVE_TAIL_MIN_MS = 250;
 
 /** Headroom over one slice, so a late timer tick does not read past the write pointer and
  *  silently lose the oldest part of the slice it is assembling. */
@@ -199,8 +205,8 @@ export function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array
  * archival upload path still carries every second of the audio, so the record is intact
  * and only the live view degrades.
  */
-export function createSerialSender(
-  send: (wav: Uint8Array, sequence: number) => Promise<void>,
+export function createSerialSender<T = void>(
+  send: (wav: Uint8Array, sequence: number) => Promise<T>,
   options: {
     maxPending?: number;
     onError?: (err: unknown, sequence: number) => void;
@@ -208,11 +214,11 @@ export function createSerialSender(
     /** A slice reached the server and was accepted. Used to clear a stall indicator —
      *  without it, "no successes" and "no attempts" are indistinguishable to the caller,
      *  which is precisely how a jammed queue stayed invisible for a day (P1236). */
-    onSuccess?: (sequence: number) => void;
+    onSuccess?: (sequence: number, result: T) => void;
   } = {},
 ): (wav: Uint8Array, sequence: number) => void {
   const maxPending = options.maxPending ?? 3;
-  let tail: Promise<void> = Promise.resolve();
+  let tail: Promise<unknown> = Promise.resolve();
   let pending = 0;
 
   return (wav, sequence) => {
@@ -225,7 +231,7 @@ export function createSerialSender(
     pending++;
     tail = tail
       .then(() => send(wav, sequence))
-      .then(() => { options.onSuccess?.(sequence); })
+      .then((result) => { options.onSuccess?.(sequence, result); })
       .catch((err) => { options.onError?.(err, sequence); })
       .finally(() => { pending--; });
   };
@@ -239,7 +245,54 @@ export function rootMeanSquare(samples: Float32Array): number {
   return Math.sqrt(sum / samples.length);
 }
 
+/**
+ * P1596: accumulates the tap's blocks and emits one WAV per `chunkMs` of audio, counted in SAMPLES (not by
+ * timer, which a hidden Safari tab throttles). `flush` emits what is left. Each chunk is resampled and
+ * encoded on its own, so every chunk is a complete file. Pure and unit-tested.
+ */
+export class ArchiveChunker {
+  private blocks: Float32Array[] = [];
+  private held = 0;
+  private readonly chunkSamples: number;
+
+  constructor(private readonly captureRate: number, chunkMs: number, private readonly emit: (wav: Uint8Array) => void) {
+    this.chunkSamples = Math.round((chunkMs / 1000) * captureRate);
+  }
+
+  push(block: Float32Array): void {
+    this.blocks.push(block);
+    this.held += block.length;
+    while (this.held >= this.chunkSamples) this.cut(this.chunkSamples);
+  }
+
+  /** Emit the remainder if it is at least `minMs` long; always empties the buffer. */
+  flush(minMs: number): void {
+    if (this.held > 0 && this.held >= (minMs / 1000) * this.captureRate) this.cut(this.held);
+    this.blocks = [];
+    this.held = 0;
+  }
+
+  private cut(count: number): void {
+    const out = new Float32Array(count);
+    let filled = 0;
+    while (filled < count) {
+      const block = this.blocks[0];
+      const take = Math.min(block.length, count - filled);
+      out.set(block.subarray(0, take), filled);
+      filled += take;
+      if (take === block.length) this.blocks.shift();
+      else this.blocks[0] = block.subarray(take);
+    }
+    this.held -= count;
+    this.emit(encodeWav(resampleTo(out, this.captureRate, TARGET_SAMPLE_RATE), TARGET_SAMPLE_RATE));
+  }
+}
+
 export interface SliceRecorderOptions {
+  /** P1596: one self-contained 16 kHz mono WAV per 30 s of audio, and the unfinished tail on stop().
+   *  `isTail` is true only for the stop() flush. */
+  onArchiveChunk?: (wav: Uint8Array, isTail: boolean) => void;
+  archiveChunkMs?: number;
   /** Called with one encoded WAV per cadence tick. Sequence starts at 0 and only grows. */
   onSlice: (wav: Uint8Array, sequence: number) => void;
   /** Non-fatal problems (a failed worklet load, a dropped context). */
@@ -247,6 +300,8 @@ export interface SliceRecorderOptions {
   /** P1307 D4: the input level of each worklet block, for the transient "…" speaking cue.
    *  Never persisted and never sent to the transcriber. */
   onLevel?: (rms: number) => void;
+  /** P1596: the context was not running for this many ms (over 2 s) while capture was on; those samples never arrived. */
+  onContextGap?: (ms: number) => void;
   /** Overridable for tests and for a future cadence change. */
   intervalMs?: number;
   leadInMs?: number;
@@ -259,10 +314,8 @@ export interface SliceRecorder {
 /**
  * Attaches a PCM tap to `stream` and starts emitting slices.
  *
- * Does NOT own the stream: the caller keeps it, because Decision 7 tees the same
- * `MediaStream` into a `MediaRecorder` for the archival path. Stopping this recorder must
- * therefore never stop the tracks — that would silently kill the recording too, which is
- * the exact coupling this feature exists to remove.
+ * Does NOT own the stream: the caller keeps it. Stopping this recorder must never stop the
+ * tracks. P1596: the room archive is cut from this same tap; there is no MediaRecorder.
  */
 export async function createSliceRecorder(
   stream: MediaStream,
@@ -321,11 +374,17 @@ export async function createSliceRecorder(
   const tap = new AudioWorkletNode(context, 'pcm-tap');
   // Samples received since the last emitted slice — what the final flush on stop() sends.
   let samplesSinceTick = 0;
+  let stopping = false;
+  const archive = options.onArchiveChunk
+    ? new ArchiveChunker(captureRate, options.archiveChunkMs ?? ARCHIVE_CHUNK_MS, (wav) => options.onArchiveChunk?.(wav, stopping))
+    : null;
   tap.port.onmessage = (event: MessageEvent<Float32Array>) => {
     ring.push(event.data);
+    archive?.push(event.data);
     samplesSinceTick += event.data.length;
     options.onLevel?.(rootMeanSquare(event.data));
   };
+  const unwatch = watchContext(context, (ms) => options.onContextGap?.(ms));
   source.connect(tap);
   // Deliberately NOT connected to context.destination: routing the microphone to the
   // speakers is feedback, not monitoring. An AudioWorkletNode pulls input without a
@@ -354,6 +413,7 @@ export async function createSliceRecorder(
   return {
     stop: () => {
       clearInterval(timer);
+      unwatch();
       tap.port.onmessage = null;
       // P1307 Part 4: the final partial slice. Synchronous and BEFORE the graph is torn down,
       // so the caller's sender still receives it. Carries the usual lead-in so the server's
@@ -366,6 +426,12 @@ export async function createSliceRecorder(
         options.onError?.(err);
       }
       samplesSinceTick = 0;
+      stopping = true;
+      try {
+        archive?.flush(ARCHIVE_TAIL_MIN_MS);
+      } catch (err) {
+        options.onError?.(err);
+      }
       try {
         source.disconnect();
         tap.disconnect();

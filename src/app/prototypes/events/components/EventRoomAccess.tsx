@@ -13,6 +13,7 @@
  * `useEventRoomAccess()` reports access is not granted — "the gate is the same wall
  * on every door," not decoration on one route.
  */
+import { supabase } from '@/lib/supabase';
 import { useParams } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/auth';
@@ -22,6 +23,7 @@ import { untilVisible } from '@/app/data/event-list-reads';
 import type { EventRoomSelf, EventWithHost } from '@/app/types';
 import { readThrough, rememberOffline } from '@/lib/offline-read-cache';
 import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
+import { withDeadline } from '@/lib/with-deadline';
 
 export interface EventRoomAccess {
   slug: string | undefined;
@@ -37,6 +39,15 @@ export interface EventRoomAccess {
   /** P1369 Scope v2: the access check could not reach the server and nothing is stored — the
    * room shows needs-connection, never the register wall (which would be a false statement). */
   offline: boolean;
+}
+
+const NAME_DEADLINE_MS = 5_000;
+
+/** The profile's name. A read that failed, or found no profile yet, throws: a name may still come, so nobody joins as "Guest". */
+async function readProfileName(id: string): Promise<string> {
+  const { data, error } = await supabase.from('profiles').select('name').eq('id', id).maybeSingle();
+  if (error || !data) throw error ?? new Error('profile not found yet');
+  return (data as { name?: string }).name ?? '';
 }
 
 export function useEventRoomAccess(): EventRoomAccess {
@@ -229,7 +240,12 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
     try {
       // join_event_room upserts and never resets an existing answer, so this also recovers
       // the row when the status read itself failed.
-      const joined = await joinEventRoom(event.id, user?.name || 'Guest');
+      // The profile may not have loaded yet on a first visit; a stored "Guest" would then title this person's threads.
+      // The read is the third request of a refresh: bounded, and dropped with the caller that gave up. A name that does
+      // not arrive joins nobody (no "Guest" title); the next refresh tries again.
+      const name = user?.name || (viewerId ? await withDeadline(readProfileName(viewerId), NAME_DEADLINE_MS, 'profile name read') : null);
+      if (signal?.aborted) return false;
+      const joined = await joinEventRoom(event.id, name || 'Guest');
       offer(ticket, joined);
       // P1369 Scope v2 item 5: a first visit's check-in (the row the join just created) is the
       // last-seen state too — without this, only a SECOND visit left anything to show offline.

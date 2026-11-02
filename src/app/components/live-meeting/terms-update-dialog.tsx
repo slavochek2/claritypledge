@@ -8,7 +8,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useRef } from 'react';
-import { TermsChangeList, TermsTitle, TERMS_CONSENT_LINE } from '@/app/components/legal/terms-change-list';
+import type { TermsChangeSummary } from '@/app/content/terms-changes';
+import { TermsChangeList, TermsFinePrint, TermsMissedChanges, TermsTitle, TERMS_CONSENT_LINE } from '@/app/components/legal/terms-change-list';
 
 interface TermsUpdateDialogProps {
   open: boolean;
@@ -28,6 +29,8 @@ interface TermsUpdateDialogProps {
   errorMessage?: string | null;
   /** Label for the secondary button. The global gate passes "Decline and log out", which is what it does there. */
   cancelLabel?: string;
+  /** Earlier versions needing consent that this person skipped. */
+  missed?: TermsChangeSummary[] | null;
 }
 
 export function TermsUpdateDialog({
@@ -38,6 +41,7 @@ export function TermsUpdateDialog({
   dismissible = true,
   errorMessage = null,
   cancelLabel = 'Cancel',
+  missed,
 }: TermsUpdateDialogProps) {
   const acceptRef = useRef<HTMLButtonElement>(null);
   return (
@@ -48,6 +52,7 @@ export function TermsUpdateDialog({
       }}
     >
       <DialogContent
+        className="flex max-h-[100dvh] flex-col"
         hideCloseButton={!dismissible}
         onPointerDownOutside={dismissible ? undefined : (e) => e.preventDefault()}
         onEscapeKeyDown={dismissible ? undefined : (e) => e.preventDefault()}
@@ -64,13 +69,15 @@ export function TermsUpdateDialog({
           <DialogDescription className="sr-only">{TERMS_CONSENT_LINE}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
           <TermsChangeList />
+          <TermsMissedChanges missed={missed ?? []} />
+        </div>
 
-          {/* Describe the documents only: the global TermsAcceptanceGate renders this over
-              every authed route, so a sentence about the page or a session is false on most of them. */}
-          <p className="text-sm text-muted-foreground">
-            {TERMS_CONSENT_LINE}
+        {/* Outside the scroll area: what is being asked must stay visible on a small phone. */}
+        <div className="space-y-3">
+          <p className="text-sm">
+            <TermsFinePrint required />
           </p>
 
           {errorMessage && (

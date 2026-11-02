@@ -137,31 +137,15 @@ beforeEach(() => {
 afterEach(() => { window.matchMedia = realMatchMedia; });
 
 describe('(1) the step bar on the Back row, desktop only', () => {
-  it('lg+: "Back to the event" sits on the step bar\'s own row in the pinned head; the shell bar row holds nothing', () => {
+  it('founder, solo test 2026-11-02 (supersedes UAT 2026-10-29): on lg+ "← Event" is on the tabs row in the pinned head, the tabs a centred column of the row\'s grid', () => {
     setWide(true);
     mount('walk', { fromEvent: true, roomStep: 'close' });
-    const head = screen.getByTestId('room-sticky-head');
-    const back = within(head).getByRole('button', { name: 'Back to the event' });
-    const steps = within(head).getByTestId('room-step-close');
-    // One row: the Back and the step bar are siblings' contents of the same flex row.
-    // Founder UAT (2026-10-29): the Back is in the same pinned head, at its far left (not inside the tabs' row).
-    expect(back.closest('[data-testid="room-head-back"]')).not.toBeNull();
-    expect(steps.closest('[data-testid="room-head-row"]')).not.toBeNull();
-    expect(within(shellBar()).queryByRole('button', { name: 'Back to the event' })).toBeNull();
-    expect(shellBar().textContent).toBe('');
-  });
-
-  it('founder UAT (1): on lg+ "Back to the event" sits at the far left of the content area, its full label, outside the tabs\' row', () => {
-    setWide(true);
-    mount('walk', { fromEvent: true, roomStep: 'close' });
-    const back = within(screen.getByTestId('room-sticky-head')).getByRole('button', { name: 'Back to the event' });
-    expect(back).toHaveTextContent('Back to the event');
-    // Not squeezed into the centred row beside the tabs (that row truncated it to "Back to the e…").
-    expect(back.closest('[data-testid="room-head-row"]')).toBeNull();
-    expect(back.closest('[data-testid="room-head-back"]')).not.toBeNull();
-    expect(back.closest('[class*="max-w-"]')).toBeNull();
-    // The tabs are centred on the content column, with equal side space keeping them clear of the Back.
-    expect(screen.getByTestId('room-head-row').className.split(' ')).toEqual(expect.arrayContaining(['justify-center', 'px-48']));
+    const row = screen.getByTestId('room-head-row');
+    const back = within(row).getByRole('button', { name: 'Back to the event' });
+    expect(back).toHaveTextContent('Event');
+    expect(within(shellBar()).queryByRole('button', { name: /Back/ })).toBeNull();
+    expect(within(screen.getByTestId('room-sticky-head')).getByTestId('room-step-close').closest('[data-testid="room-head-row"]')).not.toBeNull();
+    expect(row.className.split(' ')).toContain('lg:grid-cols-[1fr_minmax(0,32rem)_1fr]');
   });
 
   it.skip('D6 (superseded by founder UAT (1): the Back no longer shares the tabs\' row)', () => {
@@ -174,10 +158,10 @@ describe('(1) the step bar on the Back row, desktop only', () => {
     expect(back.querySelector('span')!.className).toContain('truncate');
   });
 
-  it('below lg: the Back stays in the shell top bar and the step bar under it, in the room\'s sticky head', () => {
+  it('below lg: "← Event" and the step bar share the row in the room\'s sticky head (founder, solo test 2026-11-02)', () => {
     mount('walk', { fromEvent: true, roomStep: 'close' });
-    expect(within(shellBar()).getByRole('button', { name: 'Back to the event' })).toBeInTheDocument();
-    expect(within(shellBar()).queryByTestId('room-step-close')).toBeNull();
+    expect(within(screen.getByTestId('room-head-row')).getByRole('button', { name: 'Back to the event' })).toBeInTheDocument();
+    expect(within(shellBar()).queryByRole('button', { name: /Back/ })).toBeNull();
     expect(within(screen.getByTestId('room-sticky-head')).getByTestId('room-step-close')).toBeInTheDocument();
   });
 });
@@ -241,7 +225,7 @@ describe('review round: one history model for the room\'s views', () => {
     expect(state().roomDepth).toBe(1); // view to view replaces: still one entry above the room
     fireEvent.click(screen.getByTestId('room-step-principle'));
     await waitFor(() => expect(loc().dataset.search).toBe(''));
-    fireEvent.click(within(shellBar()).getByRole('button', { name: 'Back to the event' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the event' }));
     await waitFor(() => expect(screen.getByTestId('page')).toHaveTextContent('event'));
   });
 
@@ -279,7 +263,7 @@ describe('review round: one history model for the room\'s views', () => {
     expect(state()).toMatchObject({ fromEvent: true });
   });
 
-  it('C1: Clarity Night ready → meet → feedback, "Back to readiness" lands on Ready', async () => {
+  it('C1: Clarity Night ready → meet → feedback, Back lands on the event (founder, solo test 2026-11-02: "Back to readiness" is gone)', async () => {
     room.access = { ...room.access as object, slug: 'night', event: { ...night, datetime: '2099-01-01T11:00:00Z' } };
     const meet = { fromReady: true, fromEvent: true };
     mount('night', {}, [
@@ -290,8 +274,8 @@ describe('review round: one history model for the room\'s views', () => {
       { pathname: '/events/night/meet', search: '?view=feedback', state: { ...meet, roomDepth: 1, pushedView: true } },
     ]);
     await waitFor(() => expect(screen.getByTestId('close-in-room')).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: 'Back to readiness' }));
-    await waitFor(() => expect(screen.getByTestId('page')).toHaveTextContent('ready'));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to the event' }));
+    await waitFor(() => expect(screen.getByTestId('page')).toHaveTextContent('event'));
   });
 
   it('G6: a cold ?view=feedback URL shows Share feedback as the current step, whatever step was in view', async () => {

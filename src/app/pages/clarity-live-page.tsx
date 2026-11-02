@@ -37,7 +37,6 @@ import {
   type ClaritySession,
   recordTermsAcceptance,
   recordSessionConsent,
-  needsTermsAcceptance,
   createTranscriptionJob,
   // P703: Letter-sourced session
   getLetterBaselineRatings,
@@ -47,6 +46,7 @@ import {
   completeClaritySessionKeepalive,
 } from '@/app/data/api';
 import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
+import { blockingTermsPrompt, useJoinTermsPopup } from '@/app/data/terms-accepted';
 import { analytics } from '@/lib/mixpanel';
 import { useAuth } from '@/auth';
 import {
@@ -472,10 +472,10 @@ export function ClarityLivePage() {
   useGuestSeatPresence(session?.id ?? null, !isCreator && !user?.id && view === 'live');
 
   // P37.2a: Consent flow state
-  const [showTermsUpdateDialog, setShowTermsUpdateDialog] = useState(false);
   const [consentLoading, setConsentLoading] = useState(false);
   // Store pending join info for after consent or mic retry
   const pendingJoinRef = useRef<{ code: string; userId?: string; joinName?: string } | null>(null);
+  const { missed: missedTerms, setMissed: setMissedTerms, cancel: cancelTerms } = useJoinTermsPopup(pendingJoinRef);
 
   // P396: Prevents auto-join effect from firing more than once
   const autoJoinFiredRef = useRef(false);
@@ -3008,7 +3008,7 @@ export function ClarityLivePage() {
       await recordTermsAcceptance(user.id);
       await recordSessionConsent(pendingJoinRef.current.code, user.id);
 
-      setShowTermsUpdateDialog(false);
+      setMissedTerms(null);
       await completeJoin(pendingJoinRef.current.code, user.name || name);
 
     } catch (err) {
@@ -3018,6 +3018,7 @@ export function ClarityLivePage() {
       setConsentLoading(false);
     }
   };
+
 
   // P703: Bootstrap letter-sourced session — writes explain-back phase + baseline ratings to DB.
   // Called by the creator immediately after creating a letter-sourced session. The joiner
@@ -3333,9 +3334,10 @@ export function ClarityLivePage() {
 
     if (user) {
       // Logged-in user: check if terms acceptance needed
-      const needsAcceptance = await needsTermsAcceptance(user.id);
-      if (needsAcceptance) {
-        setShowTermsUpdateDialog(true);
+      // A notice-only version never blocks a join: the global banner tells them (P1596).
+      const prompt = await blockingTermsPrompt(user.id);
+      if (prompt) {
+        setMissedTerms(prompt.missed);
       } else {
         // Terms current, record session consent and join directly
         try {
@@ -4096,15 +4098,7 @@ export function ClarityLivePage() {
           </div>
 
           {/* Terms update dialog (for logged-in users only) */}
-          <TermsUpdateDialog
-            open={showTermsUpdateDialog}
-            onAccept={handleTermsAccept}
-            onCancel={() => {
-              setShowTermsUpdateDialog(false);
-              pendingJoinRef.current = null;
-            }}
-            isLoading={consentLoading}
-          />
+          <TermsUpdateDialog open={missedTerms !== null} missed={missedTerms} onAccept={handleTermsAccept} onCancel={cancelTerms} isLoading={consentLoading} />
 
           {/* B48 Fix: Mic dialog must be rendered in all views */}
           <MicrophonePermissionDialog
@@ -4361,15 +4355,7 @@ export function ClarityLivePage() {
           </div>
 
           {/* Terms update dialog (for logged-in users only) */}
-          <TermsUpdateDialog
-            open={showTermsUpdateDialog}
-            onAccept={handleTermsAccept}
-            onCancel={() => {
-              setShowTermsUpdateDialog(false);
-              pendingJoinRef.current = null;
-            }}
-            isLoading={consentLoading}
-          />
+          <TermsUpdateDialog open={missedTerms !== null} missed={missedTerms} onAccept={handleTermsAccept} onCancel={cancelTerms} isLoading={consentLoading} />
 
           {/* B48 Fix: Mic dialog must be rendered in all views */}
           <MicrophonePermissionDialog
