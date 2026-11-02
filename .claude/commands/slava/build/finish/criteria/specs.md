@@ -29,6 +29,16 @@ You are reviewing changes to `features/p*.md` — feature specification files. T
 - No "TBD", "TODO", or placeholder sections
 - If architecture section exists: build sequence is present
 
+## Founder asks with no criterion
+
+Reviews that read only the spec cannot see a request that never reached it. So read the founder's messages too: what the caller passed, or the messages since the spec's last commit (`/finish` Step 4 says how to get them).
+
+List every specific request or objection about what the product should do or show that has **no acceptance criterion**. A criterion is a checkbox line naming the visible element or behaviour. A mention in prose, a decision, a journey step, a wireframe or a table does not count: that is how the requests get lost (P1536: voice in canvas threads and the mirror chat's + were both written in prose, had no checkbox, and were not built). Skip passing thoughts, questions the founder answered themselves, and anything the spec declines with a reason.
+
+Add a second table: Ask (the founder's words, under 20 words) | Nearest spec text, or none | Why it is not a criterion. End with `Uncovered: N.` This is advisory, not a block: the builder answers one line per ask, criterion added, declined with a reason, or escalated to the founder.
+
+Proven 2026-11-02 on real messages: against P1536's spec before S3c it flagged the audio button and the paperclip's canvases; against the spec with S3c it flagged neither.
+
 ## Cost budget
 
 - A spec whose Solution matches "When this applies" in `docs/technical/metered-services.md` carries `## Cost Budget`. Table and severities (HIGH blocks the ship): that doc.

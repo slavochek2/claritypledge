@@ -141,6 +141,14 @@ Find all specific issues (expect 3-15 for typical changes). If genuinely clean, 
 )
 ```
 
+**For `specs`, also pass the founder's messages** since the spec's last commit, for the "Founder asks" check. In a session that holds them, use the conversation. Otherwise:
+```bash
+# The commit before the last one, so an amendment just committed is still covered. A spec with one commit uses that date; with none, there is no bound.
+SINCE="$(git log -2 --format=%cs -- <spec> | tail -1)"
+~/.agents/bin/hist '.' --project "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)" --role user --since "${SINCE:-2000-01-01}" --jsonl
+```
+The `'.'` query is required: with none, `hist` prints its usage and no messages. The role `user` also holds task notifications, skill prompts and cross-session messages (`Another Claude session sent…`), and `--project` reaches beyond this feature: keep only the founder's own words about it.
+
 ### Step 4b: External reviewers by stakes (P1505 — always, in addition to the subagents above)
 
 Founder ruling 2026-10-16: start with the cheapest, add as stakes rise, and keep the bar for Codex

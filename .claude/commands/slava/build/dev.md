@@ -740,6 +740,7 @@ Feature implementation complete.
 After successful commit, mark the feature ready for QA — do NOT move to `features/done/` yet.
 
 1. **AC completeness check:** Review each `## Acceptance Criteria` checkbox. Only mark `[x]` for items you actually implemented and verified in this run. If any items remain `[ ]` (e.g., layers not yet fixed in a matryoshka spec), do NOT set `status: qa`. Report: "Cannot mark as ready — {N} acceptance criteria still unchecked: {list}."
+1b. **Founder asks:** If the spec changed since `/dev` began or the founder sent feedback during this build, spawn one reviewer with the "Founder asks with no criterion" section of `.claude/commands/slava/build/finish/criteria/specs.md`, the spec, and the founder's messages (`/finish` Step 4 says how to get them). `/finish code` does not run it. Answer each listed ask in the UAT report: criterion added (commit that spec edit before reporting), declined with a reason, or escalated. Advisory: the list itself blocks nothing, but a criterion you add is a real one, and while it is unticked step 1 holds `status: qa`.
 2. **Determine test URL:** Run `pwd` to identify worktree slot. Look up port from `docs/technical/worktree-setup.md` (w0=5001, w1=5100, w2=5200, etc.). If on main (w0), port is 5001.
 3. **If `*.tsx` files changed: Auto-run visual verification** (do not ask — just do it).
    - **Pre-check:** Run `mcp__claude-in-chrome__tabs_context_mcp` to verify Chrome MCP is available. If it errors → skip to fallback immediately (don't spawn).

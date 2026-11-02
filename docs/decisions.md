@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-02 [process]: A request with no checkbox is checked against the founder's own words
+
+**Context:** On P1536 the founder asked for voice in canvas threads and a + in the mirror chat more than once: *"I think I mentioned it twice or three times already and nothing changed."* The agent had agreed to both on 2026-10-29. Both reached the spec only as prose, code switched voice off the same day, and a later section dropped the repeat. Every check compared the build to the spec, so none could see it.
+**Decision:** `/finish`'s spec review and `/dev`'s UAT gate read the founder's messages since the spec's last commit and list asks with no acceptance criterion. Advisory: the builder answers one line per ask. A confirmed KDD item, applied the same day.
+**Alternatives rejected:** A "Founder asks" table in each spec (kept by the same agent that drops asks, and a second list beside the criteria). Extending `/create-spec` (the losses were in amendments, where it does not run). A comment sweep (228 tagged comments, no signal).
+**Consequences:** One more read per spec review, and noise from a role that also holds notifications. Proof on real messages: the spec before S3c was flagged for voice and the paperclip's canvases, the spec with S3c for neither. Falsifier: the founder repeats an ask at UAT that this check saw and listed as covered.
+**References:** [criteria/specs.md](../.claude/commands/slava/build/finish/criteria/specs.md) · [dev.md](../.claude/commands/slava/build/dev.md)
+
+---
+
 ## 2026-11-02 [product]: A page header has one filled action, at the far right, and published needs no word
 
 **Context:** Walking the P1536 canvas workspace, the founder found "Published" twice on one header, Share on an unpublished draft, a status line where they expected Publish, and two secondary buttons with no main one: *"we always have this issue is the primary and secondary buttons."* An earlier QA round had seen the duplicate and closed it as low severity because the spec asked for it.
