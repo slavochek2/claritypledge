@@ -324,12 +324,16 @@ test.describe('P1224: a guest room is written only by its seated guest', () => {
     const claim = await anonWith({ code: room.code })
       .rpc('claim_joiner_seat', { p_code: room.code, p_joiner_name: 'p1224 returning legacy guest' });
     expect(claim.error, claim.error?.message).toBeNull();
-    const fresh = (Array.isArray(claim.data) ? claim.data[0] : claim.data)?.joiner_seat_secret as string;
+    const claimedRow = Array.isArray(claim.data) ? claim.data[0] : claim.data;
+    const fresh = claimedRow?.joiner_seat_secret as string;
     expect(fresh).toMatch(/^[0-9a-f-]{36}$/);
+    // P1494: a takeover opens a new row under the code, so the write goes to the id the claim returned.
+    const claimedId = claimedRow.id as string;
+    createdSessionIds.push(claimedId);
     const w = await anonWith({ code: room.code, secret: fresh })
-      .rpc('patch_live_state', { p_session_id: room.id, p_patch: { recovered: true } });
+      .rpc('patch_live_state', { p_session_id: claimedId, p_patch: { recovered: true } });
     expect(w.error, w.error?.message).toBeNull();
-    expect((await readRow(room.id)).live_state?.recovered).toBe(true);
+    expect((await readRow(claimedId)).live_state?.recovered).toBe(true);
   });
 
   test('C5: a signed-in joiner writes by identity, no seat secret, on both paths (unchanged)', async () => {

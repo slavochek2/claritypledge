@@ -228,13 +228,14 @@ test.describe('P1269: guest seat ownership is a secret, not a name', () => {
     const before = await readSeat(room.id);
 
     const newcomer = makeAnonClient();
-    const { error } = await newcomer.rpc('claim_joiner_seat', {
+    const { data: claimedRows, error } = await newcomer.rpc('claim_joiner_seat', {
       p_code: room.code,
       p_joiner_name: 'Newcomer',
     });
     expect(error, `an abandoned seat refused a fresh claim: ${error?.message}`).toBeNull();
 
-    const after = await readSeat(room.id);
+    // P1494: a takeover opens a new row under the code, so the seat is read by the id the claim returned.
+    const after = await readSeat((Array.isArray(claimedRows) ? claimedRows[0] : claimedRows).id);
     expect(after.joiner_name).toBe('Newcomer');
     // A fresh claim must mint a NEW secret, or the previous holder could still act as the seat.
     expect(after.joiner_seat_secret, 'the abandoned seat kept its old secret').not.toBe(before.joiner_seat_secret);
@@ -292,13 +293,14 @@ test.describe('P1269: guest seat ownership is a secret, not a name', () => {
     });
 
     const newcomer = makeAnonClient();
-    const { error } = await newcomer.rpc('claim_joiner_seat', {
+    const { data: claimedRows, error } = await newcomer.rpc('claim_joiner_seat', {
       p_code: room.code,
       p_joiner_name: 'Newcomer',
     });
     expect(error, `a long-abandoned legacy seat stayed stranded: ${error?.message}`).toBeNull();
 
-    const after = await readSeat(room.id);
+    // P1494: read the seat by the id the claim returned (a takeover opens a new row under the code).
+    const after = await readSeat((Array.isArray(claimedRows) ? claimedRows[0] : claimedRows).id);
     expect(after.joiner_name).toBe('Newcomer');
     expect(after.joiner_seat_secret).toBeTruthy();
   });

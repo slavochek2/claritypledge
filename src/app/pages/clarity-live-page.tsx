@@ -68,6 +68,10 @@ import { resolveVerificationParticipants } from '@/app/data/live-verification-pa
 import { guestRoundToRecord } from '@/app/data/live-guest-round';
 import { badgeService } from '@/app/data/badge-service';
 import { supabase } from '@/lib/supabase';
+import { devLogDriftCompared, devLogDriftSkipped, devLogRealtimeEvent } from '@/lib/live-dev-log';
+import { STORAGE_KEYS, storage, clearStoredSession, restoreLiveSession } from '@/lib/live-session-storage';
+import { decideSessionIdChange } from '@/lib/session-rollover';
+import { useSessionRollover } from '@/hooks/use-session-rollover';
 import { isDevRecordingActive } from '@/lib/dev-recording';
 import { reportUnlessBlip } from '@/lib/report-unless-blip';
 import { mergeInFlight, isStateRegression, isPhaseRegression } from '@/app/lib/live-state-merge';
@@ -103,21 +107,10 @@ type ViewState = 'start' | 'waiting' | 'live';
 // CONSTANTS
 // ============================================================================
 
-/** Session persistence keys (per-tab using sessionStorage instead of localStorage) */
-const STORAGE_KEYS = {
-  SESSION_CODE: 'clarity_live_session_code',
-  SESSION_ID: 'clarity_live_session_id',
-  USER_NAME: 'clarity_live_user_name',
-  IS_CREATOR: 'clarity_live_is_creator',
-} as const;
-
 /** Polling interval for fallback session updates (ms)
  * Set to 1000ms for more responsive sync when realtime subscription fails
  * (common on mobile networks with unreliable WebSocket connections) */
 const POLL_INTERVAL_MS = 1000;
-
-/** Use sessionStorage for tab-isolated storage (each tab has its own session data) */
-const storage = typeof window !== 'undefined' ? window.sessionStorage : null;
 
 // ============================================================================
 // P525: Utility functions for deadlock prevention and observability
@@ -413,6 +406,9 @@ export function ClarityLivePage() {
   const [error, setError] = useState<string | null>(null);
   // P1224: set when a guest's write is refused and re-joining could not restore the seat.
   const [guestSeatLost, setGuestSeatLost] = useState(false);
+  // P23.2/P23.3: local rating-screen state (not shared); declared here because the poll effect resets it
+  const [isLocallyRating, setIsLocallyRating] = useState(false);
+  const [localFlowType, setLocalFlowType] = useState<'check' | 'prove'>('check');
   const [isLoading, setIsLoading] = useState(false);
   const [isCreator, setIsCreator] = useState(false);
   const [isRestoring, setIsRestoring] = useState(true); // For session restoration
@@ -988,78 +984,10 @@ export function ClarityLivePage() {
     }
   }, [view, isCreator, micStatus, isPrivate, requestMicPermission]);
 
-  // Helper to clear stored session
-  const clearStoredSession = () => {
-    storage?.removeItem(STORAGE_KEYS.SESSION_CODE);
-    storage?.removeItem(STORAGE_KEYS.SESSION_ID);
-    storage?.removeItem(STORAGE_KEYS.USER_NAME);
-    storage?.removeItem(STORAGE_KEYS.IS_CREATOR);
-  };
-
   // HIGH #6: Restore session from sessionStorage on mount
   // IMPORTANT: Skip restoration if user is joining via link (urlCode takes priority)
   useEffect(() => {
-    const restoreSession = async () => {
-      try {
-        // If user clicked a join link (/live/ABCD12), check if it matches the stored session.
-        // Same code = guest refreshed mid-session → restore. Different code = new session intent → clear.
-        if (isJoinViaLink) {
-          const savedCode = storage?.getItem(STORAGE_KEYS.SESSION_CODE);
-          if (savedCode && savedCode.toUpperCase() === urlCode?.toUpperCase()) {
-            // Same session — fall through to restoration below
-          } else {
-            clearStoredSession(); // Different session — clear old data
-            setIsRestoring(false);
-            return;
-          }
-        }
-
-        const savedCode = storage?.getItem(STORAGE_KEYS.SESSION_CODE);
-        const savedName = storage?.getItem(STORAGE_KEYS.USER_NAME);
-        const savedIsCreator = storage?.getItem(STORAGE_KEYS.IS_CREATOR);
-
-        if (savedCode && savedName) {
-          const restoredSession = await getClaritySession(savedCode);
-
-          if (restoredSession) {
-            setSession(restoredSession);
-            setName(savedName);
-            setIsCreator(savedIsCreator === 'true');
-
-            // Sync live state from session
-            if (restoredSession.liveState) {
-              setLiveState({ ...DEFAULT_LIVE_STATE, ...restoredSession.liveState } as LiveSessionState);
-            }
-
-            // Determine view based on session state
-            // B48: Use pendingLiveTransition to trigger mic permission gate
-            const restoredLiveState = restoredSession.liveState as Record<string, unknown> | null;
-            const sessionAlreadyEnded = restoredLiveState?.sessionEnded === true || restoredLiveState?.joinerEnded === true;
-            if (restoredSession.joinerName && !sessionAlreadyEnded) {
-              setPendingLiveTransition(true);
-            } else if (restoredSession.joinerName && sessionAlreadyEnded) {
-              // Session ended — don't restore into live view, start fresh
-              clearStoredSession();
-            } else if (savedIsCreator === 'true') {
-              setView('waiting');
-            } else {
-              // Joiner without session - clear storage
-              clearStoredSession();
-            }
-          } else {
-            // Session expired or invalid
-            clearStoredSession();
-          }
-        }
-      } catch (err) {
-        console.error('[Live] Failed to restore session:', err);
-        clearStoredSession();
-      } finally {
-        setIsRestoring(false);
-      }
-    };
-
-    restoreSession();
+    void restoreLiveSession(isJoinViaLink, urlCode, setSession, setName, setIsCreator, setLiveState, setPendingLiveTransition, setView, setIsRestoring);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- session restore runs once on mount; urlCode is stable from URL
   }, [isJoinViaLink]);
 
@@ -1125,7 +1053,10 @@ export function ClarityLivePage() {
     // P595: Polling fallback — if realtime subscription drops, this catches ended sessions
     const pollInterval = setInterval(async () => {
       const activeSession = await getActiveSessionByCode(rejoinSession.code);
-      if (!activeSession) {
+      // P1494: a guest's prompt for a session whose code now names another row offers a
+      // conversation that is finished.
+      const rolledOver = activeSession != null && rejoinSession.role === 'joiner' && activeSession.id !== rejoinSession.sessionId;
+      if (!activeSession || rolledOver) {
         // Session ended or expired — clear the stale rejoin prompt
         clearActiveSession();
         setRejoinSession(null);
@@ -1184,6 +1115,9 @@ export function ClarityLivePage() {
     storage?.setItem(STORAGE_KEYS.USER_NAME, userName);
     storage?.setItem(STORAGE_KEYS.IS_CREATOR, creator.toString());
   };
+
+  // P1494: what to do when the room code names another session (see the poll below)
+  const applyIdChange = useSessionRollover(currentSessionIdRef, confirmedLiveStateRef, gracePeriodStartRef, previousPhaseRef, setGuestSeatLost, setGracePeriodStart, setDepartedPartnerName, setIsLocallyRating, setLocalFlowType, setLiveState, setSession, setView, setPendingLiveTransition);
 
   // Subscribe to session updates
   // Note: We intentionally use session?.id and session?.code as dependencies
@@ -1292,20 +1226,7 @@ export function ClarityLivePage() {
         // the phase (P671) or boolean submission flags (P976) at the same phase.
         const stateRegression = isStateRegression(confirmedLiveStateRef.current, mergedState);
 
-        if (import.meta.env.DEV) {
-          const incoming = updatedSession.liveState as Record<string, unknown>;
-          const prevPhase = confirmedLiveStateRef.current.ratingPhase;
-          const nextPhase = mergedState.ratingPhase;
-          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-          console.log(
-            `[Realtime] ${new Date().toISOString()} Event ${stateRegression ? 'REJECTED (regression)' : updateInFlightRef.current ? 'MERGED (inFlight)' : 'applied'}:`,
-            `phase=${prevPhase}→${nextPhase}`,
-            `checkerSubmitted=${incoming.checkerSubmitted ?? '∅'}`,
-            `responderSubmitted=${incoming.responderSubmitted ?? '∅'}`,
-            `celebCreator=${incoming.celebrationAcknowledgedByCreator ?? '∅'}`,
-            `celebJoiner=${incoming.celebrationAcknowledgedByJoiner ?? '∅'}`,
-          );
-        }
+        devLogRealtimeEvent(updatedSession.liveState as Record<string, unknown>, confirmedLiveStateRef.current, mergedState, stateRegression, updateInFlightRef.current);
 
         if (stateRegression) {
           // Stale echo — skip state application entirely.
@@ -1387,8 +1308,12 @@ export function ClarityLivePage() {
           return;
         }
 
-        // Guard: Ignore if session ID doesn't match current (user may have exited/rejoined)
-        if (currentSessionIdRef.current !== freshSession.id) {
+        // The code now names a different row than the one this tab holds: either the tab has
+        // moved on (stale answer) or the seat was taken over and the room continues as a new
+        // session under the same code (P1494).
+        const idChange = decideSessionIdChange(currentSessionIdRef.current, freshSession, currentCode, sessionCodeRef.current, isCreatorRef.current, iAmLeavingRef.current || sessionEndedRef.current || partnerLeftRef.current);
+        if (idChange !== 'same') {
+          applyIdChange(idChange, freshSession);
           return;
         }
 
@@ -1503,10 +1428,7 @@ export function ClarityLivePage() {
         const hasJoiner = hasJoinerRef.current;
 
         if (!hasLiveState || !hasJoiner) {
-          if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-            console.log(`[Drift Poll] SKIPPED: hasLiveState=${hasLiveState}, hasJoiner=${hasJoiner}`);
-          }
+          devLogDriftSkipped(hasLiveState, hasJoiner);
           return;
         }
 
@@ -1549,10 +1471,8 @@ export function ClarityLivePage() {
 
         const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift || livePositionsDrift || livePositionsCreatorDrift || livePositionsJoinerDrift || ratingInitiatedByDrift || freeSliderCreatorDrift || freeSliderJoinerDrift;
 
-        if (import.meta.env.DEV) {
-          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-          console.log(`[Drift Poll] server.ratingInitiatedBy=${serverState.ratingInitiatedBy}, local.ratingInitiatedBy=${localState.ratingInitiatedBy}, drift=${ratingInitiatedByDrift}, serverHasUpdate=${serverHasUpdate}`);
-        }
+
+        devLogDriftCompared(serverState, localState, ratingInitiatedByDrift, serverHasUpdate);
 
         if (serverHasUpdate) {
           // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
@@ -1653,6 +1573,10 @@ export function ClarityLivePage() {
           if (!isGuestSeatLost(firstErr) || isCreatorRef.current || !session.joinerName) throw firstErr;
           const rejoined = await joinClaritySession(session.code, session.joinerName);
           if (!rejoined) throw firstErr;
+          // P1494: the claim answered with another session (this seat was taken over and the room
+          // continues as a new session). This tab's conversation is over; the write is not retried
+          // against the old row and the guest is returned to the join form.
+          if (rejoined.id !== session.id) throw firstErr;
           analytics.track('live_guest_seat_recovered', { session_id: session.id });
           await raceWithTimeout(write(), UPDATE_TIMEOUT_MS);
         }
@@ -1717,9 +1641,7 @@ export function ClarityLivePage() {
   // Opens rating screen locally - does NOT affect shared state
   // checkerName is only set when someone actually submits their rating
   // This allows both users to tap "I spoke" independently
-  const [isLocallyRating, setIsLocallyRating] = useState(false);
   // P23.3: Track which flow type we're in locally ('check' = "Did you get it?", 'prove' = "Did I get it?")
-  const [localFlowType, setLocalFlowType] = useState<'check' | 'prove'>('check');
   // P686: Track whether the current user is a certified certifier (badge giver)
   const [isCertifier, setIsCertifier] = useState(false);
 

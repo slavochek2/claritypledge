@@ -114,8 +114,10 @@ test.describe('P1224: a guest whose seat credential is gone', () => {
     } catch (e) {
       throw new Error(`${(e as Error).message}\nFailed REST calls:\n${refusedGuestWrites.join('\n') || '(none)'}`);
     }
-    expect(await seatSecretOf(roomId), 're-joining issued a credential').not.toBeNull();
-    const { data } = await supabaseAdmin.from('clarity_sessions').select('joiner_name').eq('id', roomId).single();
+    // P1494: re-claiming a seat with no credential after the quiet period opens a new row under the code, so read the current row for the code.
+    const { data: current } = await supabaseAdmin.from('clarity_sessions').select('id').eq('code', code).single();
+    expect(await seatSecretOf(current!.id as string), 're-joining issued a credential').not.toBeNull();
+    const { data } = await supabaseAdmin.from('clarity_sessions').select('joiner_name').eq('id', current!.id).single();
     expect(data?.joiner_name).toBe(GUEST);
   });
 
