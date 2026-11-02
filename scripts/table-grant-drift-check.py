@@ -290,6 +290,8 @@ def replay(migrations_dir):
                     if old:
                         model.rename(old, new)
                 continue
+            if re.match(r"revoke\s+grant\s+option\s+for\b", low):
+                continue  # P1597: removes the right to re-grant, not the privilege itself
             if low.startswith(("grant ", "revoke ")):
                 m = _GRANT.match(body)
                 if not m:
@@ -505,27 +507,18 @@ def compare(envs, live, model):
     return findings, unmodelled
 
 
-def _revokes(text, priv, table, role):
-    """True if this migration's own text revokes exactly this privilege on this table from this role."""
-    sql = re.sub(r"--[^\n]*", "", text)
-    pat = (r"\brevoke\b[^;]*\b(?:%s|all)\b[^;]*\bon\b[^;]*\b%s\b[^;]*\bfrom\b[^;]*\b(?:%s|public)\b"
-           % (re.escape(priv), re.escape(table), re.escape(role)))
-    return re.search(pat, sql, re.I) is not None
-
-
-def split_test_ahead(findings, branch_models, ledger, main_model):
-    """P1597. -> (real, excused). Excused only when: test lacks a table-level privilege that main's
-    migrations grant (so prod is not the odd one out), the branch's final state also lacks it, and a
-    branch-only migration ON TEST'S LEDGER itself revokes that privilege. Anything else stays real."""
+def split_test_ahead(findings, branch_models, main_model):
+    """P1597. -> (real, excused). branch_models holds, per unshipped branch, a replay of main's
+    migrations plus ONLY that branch's migrations on test's ledger. A finding is excused only when
+    test lacks a table-level privilege that main grants and that replay predicts it lacks."""
     real, excused = [], []
     for f in findings:
         owner = None
         table, priv, role = f["table"], f["priv"], f["role"]
         if (f.get("test") is False and f["column"] is None and table in main_model.tables
                 and priv in main_model.expected(table)[0][role]):
-            for branch, model, new in branch_models:
-                if (table in model.tables and priv not in model.expected(table)[0][role]
-                        and any(v in ledger and _revokes(text, priv, table, role) for v, text in new.items())):
+            for branch, model in branch_models:
+                if table in model.tables and priv not in model.expected(table)[0][role]:
                     owner = branch
                     break
         if owner:
@@ -535,22 +528,38 @@ def split_test_ahead(findings, branch_models, ledger, main_model):
     return real, excused
 
 
+def applied_model(main_dir, branch_dir, ledger):
+    """Replay main plus the branch-only migrations on the ledger; None if the branch has none."""
+    import shutil
+    import tempfile
+    version = lambda n: n.split("_", 1)[0]
+    main_names = [n for n in os.listdir(main_dir) if n.endswith(".sql")]
+    main_versions = {version(n) for n in main_names}
+    extra = [n for n in os.listdir(branch_dir) if n.endswith(".sql")
+             and version(n) not in main_versions and version(n) in ledger]
+    if not extra:
+        return None
+    with tempfile.TemporaryDirectory() as d:
+        for n in main_names:
+            shutil.copy(os.path.join(main_dir, n), d)
+        for n in extra:
+            shutil.copy(os.path.join(branch_dir, n), d)
+        return replay(d)
+
+
 def _test_ahead(findings, main_root, main_model):
     from inflight_migrations import inflight_migration_dirs
     if not any(f.get("test") is False for f in findings):
         return findings, []
-    version = lambda n: n.split("_", 1)[0]
-    main_versions = {version(n) for n in os.listdir(DEFAULT_MIGRATIONS_DIR)}
     ledger = {r["version"] for r in run_sql("test", "select version from supabase_migrations.schema_migrations")}
     if not ledger:
         raise CouldNotRun("test: migration ledger read returned no rows")
     models = []
     for branch, mig in inflight_migration_dirs(main_root):
-        new = {version(n): open(os.path.join(mig, n), errors="replace").read()
-               for n in os.listdir(mig) if n.endswith(".sql") and version(n) not in main_versions}
-        if new:
-            models.append((branch, replay(mig), new))
-    return split_test_ahead(findings, models, ledger, main_model)
+        m = applied_model(DEFAULT_MIGRATIONS_DIR, mig, ledger)
+        if m:
+            models.append((branch, m))
+    return split_test_ahead(findings, models, main_model)
 
 
 def render(envs, findings, unmodelled, model, live):
@@ -751,33 +760,41 @@ def _self_test_gating():
         check("broken check-rls-scope.py import exits 2", proc.returncode == 2
               and "COULD NOT RUN" in proc.stdout, (proc.returncode, proc.stdout[-200:], proc.stderr[-200:]))
     # P1597: test tighter than prod is excused only by an unshipped revoke already on test's ledger.
-    with tempfile.TemporaryDirectory() as d:
-        with open(os.path.join(d, "1_a.sql"), "w") as fh:
-            fh.write("create table public.t (id int);\nrevoke delete on public.t from anon;")
-        main_m = replay(d)
-        with open(os.path.join(d, "2_b.sql"), "w") as fh:
-            fh.write("revoke insert on public.t from anon;")
-        bm = replay(d)
-    new = {"2": "revoke insert on public.t from anon;"}
-    tighter = {"table": "t", "role": "anon", "priv": "INSERT", "column": None, "prod": True, "test": False}
-    def run(f, branch_new=new, ledger=frozenset({"2"})):
-        return split_test_ahead([f], [("b", bm, branch_new)], ledger, main_m)
-    r, e = run(tighter)
-    check("unshipped revoke on the ledger excuses test being tighter", not r and e[0]["branch"] == "b", (r, e))
-    r, e = run(tighter, ledger=frozenset())
-    check("the same revoke NOT on test's ledger excuses nothing", r and not e, (r, e))
-    r, e = run(tighter, branch_new={"1": "select 1 from public.t;", "2": new["2"]}, ledger=frozenset({"1"}))
-    check("an applied migration that only mentions the table excuses nothing", r and not e, (r, e))
-    r, e = run(tighter, branch_new={"2": "-- revoke insert on public.t from anon;"})
-    check("a revoke in a comment excuses nothing", r and not e, (r, e))
-    r, e = run(dict(tighter, priv="UPDATE"))
-    check("a privilege the branch does not revoke stays real", r and not e, (r, e))
-    r, e = run(dict(tighter, priv="DELETE"), branch_new={"2": "revoke delete on public.t from anon;"})
-    check("prod wider than the migrations stays real", r and not e, (r, e))
-    r, e = run(dict(tighter, prod=False, test=True))
-    check("test WIDER than prod always stays real", r and not e, (r, e))
-    r, e = run({"table": "t", "role": "anon", "priv": "INSERT", "column": None, "migrations": True, "prod": False})
-    check("prod drift is never excused", r and not e, (r, e))
+    with tempfile.TemporaryDirectory() as root:
+        md, bd = os.path.join(root, "main"), os.path.join(root, "branch")
+        os.mkdir(md); os.mkdir(bd)
+        with open(os.path.join(md, "1_a.sql"), "w") as fh:
+            fh.write("create table public.t (id int, c int);\nrevoke delete on public.t from anon;")
+        def write(name, sql):
+            with open(os.path.join(bd, name), "w") as fh:
+                fh.write(sql)
+        write("2_rev.sql", "revoke insert on public.t from anon;")
+        write("3_col.sql", "revoke update (c) on public.t from anon;")
+        write("4_opt.sql", "revoke grant option for select on public.t from anon;")
+        write("5_cmt.sql", "/* revoke select on public.t from anon; */ select 1;")
+        main_m = replay(md)
+        tighter = {"table": "t", "role": "anon", "priv": "INSERT", "column": None, "prod": True, "test": False}
+        def run(f, ledger):
+            m = applied_model(md, bd, ledger)
+            return split_test_ahead([f], [("b", m)] if m else [], main_m)
+        r, e = run(tighter, {"2"})
+        check("unshipped revoke on the ledger excuses test being tighter", not r and e[0]["branch"] == "b", (r, e))
+        r, e = run(tighter, set())
+        check("the same revoke NOT on test's ledger excuses nothing", r and not e, (r, e))
+        r, e = run(tighter, {"3", "5"})
+        check("another applied migration does not excuse an unapplied revoke", r and not e, (r, e))
+        r, e = run(dict(tighter, priv="UPDATE"), {"3"})
+        check("a column-level revoke does not excuse a table-level loss", r and not e, (r, e))
+        r, e = run(dict(tighter, priv="SELECT"), {"4"})
+        check("revoking only the grant option excuses nothing", r and not e, (r, e))
+        r, e = run(dict(tighter, priv="SELECT"), {"5"})
+        check("a revoke inside a block comment excuses nothing", r and not e, (r, e))
+        r, e = run(dict(tighter, priv="DELETE"), {"2"})
+        check("prod wider than the migrations stays real", r and not e, (r, e))
+        r, e = run(dict(tighter, prod=False, test=True), {"2"})
+        check("test WIDER than prod always stays real", r and not e, (r, e))
+        r, e = run({"table": "t", "role": "anon", "priv": "INSERT", "column": None, "migrations": True, "prod": False}, {"2"})
+        check("prod drift is never excused", r and not e, (r, e))
     return failures
 
 
