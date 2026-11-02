@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   getAllReceivedLetters: vi.fn(),
   listMyCanvases: vi.fn(),
   listSharedWithMe: vi.fn(),
+  listMyCanvasDraftState: vi.fn(),
   getUnreadExplainBackCountsByDelivery: vi.fn(),
 }));
 vi.mock('@/app/data/docs-service', () => ({ docsService: { getDocsByUserOrThrow: mocks.getDocsByUserOrThrow } }));
@@ -21,7 +22,7 @@ vi.mock('@/app/data/letters-service', () => ({
   getUnreadExplainBackCountsByDelivery: mocks.getUnreadExplainBackCountsByDelivery,
 }));
 // P1536: the owner's open canvas drafts have their own tests (artifacts-canvas-drafts.test.tsx); here there are none.
-vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyOpenCanvasDrafts: vi.fn(async () => []), listNewestPublishedSeqs: vi.fn(async () => ({})) }));
+vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyCanvasDraftState: mocks.listMyCanvasDraftState }));
 vi.mock('@/app/data/canvas-service', () => ({
   canvasService: { listMyCanvases: mocks.listMyCanvases, listSharedWithMe: mocks.listSharedWithMe },
 }));
@@ -44,6 +45,7 @@ beforeEach(() => {
   mocks.getAllReceivedLetters.mockResolvedValue([]);
   mocks.listMyCanvases.mockResolvedValue([]);
   mocks.listSharedWithMe.mockResolvedValue([]);
+  mocks.listMyCanvasDraftState.mockResolvedValue({ drafts: [], newestSeqs: {} });
   mocks.getUnreadExplainBackCountsByDelivery.mockResolvedValue({});
 });
 
@@ -179,5 +181,51 @@ describe('useArtifactsData progressive loading', () => {
     await waitFor(() => expect(result.current.lists.shared.status).toBe('error'));
     expect(result.current.lists.drafts.status).toBe('ready');
     expect(result.current.lists.mine.status).toBe('ready');
+  });
+});
+
+describe('3c X14 cost: what a refresh reads, and when', () => {
+  afterEach(() => { vi.useRealTimers(); Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true }); });
+
+  it('one draft-state read (drafts and numbers together) per refresh, however many lists show it', async () => {
+    const { result } = renderHook(() => useArtifactsData('me', 'me'));
+    await waitFor(() => expect(result.current.lists.mine.status).toBe('ready'));
+    expect(mocks.listMyCanvasDraftState).toHaveBeenCalledTimes(1);
+    await act(async () => { await result.current.refresh(); });
+    expect(mocks.listMyCanvasDraftState).toHaveBeenCalledTimes(2);
+    expect(mocks.listMyCanvases).toHaveBeenCalledTimes(2);
+  });
+
+  it('the Letters tab reads no canvases at all (its dots come from the letters and the canvases shared with me), and opening Canvases reads them once', async () => {
+    const { result, rerender } = renderHook(({ open }) => useArtifactsData('me', 'me', open), { initialProps: { open: false } });
+    await waitFor(() => expect(result.current.lists.drafts.status).toBe('ready'));
+    await waitFor(() => expect(result.current.lists.shared.status).toBe('ready'));
+    expect(mocks.listMyCanvases).not.toHaveBeenCalled();
+    expect(mocks.listMyCanvasDraftState).not.toHaveBeenCalled();
+    expect(mocks.listSharedWithMe).toHaveBeenCalledTimes(1); // the Canvases tab dot still reads
+    rerender({ open: true });
+    await waitFor(() => expect(result.current.lists.mine.status).toBe('ready'));
+    expect(mocks.listMyCanvases).toHaveBeenCalledTimes(1);
+    expect(mocks.listMyCanvasDraftState).toHaveBeenCalledTimes(1);
+    // control: nothing else was re-read by the switch
+    expect(mocks.getDocsByUserOrThrow).toHaveBeenCalledTimes(1);
+  });
+
+  it('a tab that mounts hidden makes no request; it reads once when it becomes visible', async () => {
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    renderHook(() => useArtifactsData('me', 'me'));
+    await act(async () => { await Promise.resolve(); });
+    for (const m of [mocks.getDocsByUserOrThrow, mocks.getAllSentLettersOrThrow, mocks.getAllReceivedLetters, mocks.getInboxItems, mocks.listMyCanvases, mocks.listSharedWithMe, mocks.listMyCanvasDraftState]) {
+      expect(m).not.toHaveBeenCalled();
+    }
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await Promise.resolve(); });
+    await waitFor(() => expect(mocks.getDocsByUserOrThrow).toHaveBeenCalledTimes(1));
+    expect(mocks.listMyCanvasDraftState).toHaveBeenCalledTimes(1);
+  });
+
+  it('control: a tab that mounts visible reads at once', async () => {
+    renderHook(() => useArtifactsData('me', 'me'));
+    await waitFor(() => expect(mocks.getDocsByUserOrThrow).toHaveBeenCalledTimes(1));
   });
 });

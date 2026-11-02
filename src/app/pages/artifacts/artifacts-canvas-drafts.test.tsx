@@ -38,7 +38,10 @@ vi.mock('@/app/data/letters-service', () => ({
 vi.mock('@/app/data/canvas-service', () => ({
   canvasService: { listMyCanvases: mocks.listMyCanvases, listSharedWithMe: vi.fn(async () => []), getAccess: vi.fn(), markCanvasRead: vi.fn() },
 }));
-vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyOpenCanvasDrafts: mocks.listMyOpenCanvasDrafts, listNewestPublishedSeqs: mocks.listNewestPublishedSeqs }));
+// The data module answers drafts and numbers from ONE read; the tests keep feeding the two answers separately.
+vi.mock('@/app/data/canvas-open-drafts', () => ({
+  listMyCanvasDraftState: async () => ({ drafts: await mocks.listMyOpenCanvasDrafts(), newestSeqs: await mocks.listNewestPublishedSeqs() }),
+}));
 vi.mock('@/app/data/canvas-draft-service', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-draft-service')), discardCanvasDraft: mocks.discardCanvasDraft }));
 vi.mock('@/app/hooks/useOpenLiveInvite', () => ({ useOpenLiveInvite: () => ({ invite: null, loading: false }) }));
 vi.mock('@/app/pages/chat/use-canvas-availability', () => ({ useCanvasDraftAvailability: () => mocks.availability.current }));
@@ -291,7 +294,8 @@ describe('a canvas with an open draft', () => {
     await screen.findByText('Sales map');
     expect(await screen.findByText(/Some items could not be loaded/)).toBeInTheDocument();
     expect(screen.queryByText('Something went wrong loading your artifacts.')).toBeNull();
-    expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['v2 · Edited 3d ago', 'v1 · Edited 5d ago']);
+    // the numbers come from the same single read as the drafts, so a failed read leaves them out rather than showing a half-answer
+    expect(screen.getAllByTestId('artifact-meta').map(m => m.textContent)).toEqual(['Edited 3d ago', 'Edited 5d ago']);
     await openMenu(u, 'Sales map');
     expect(menuLabels()).toEqual(['Open', 'Copy link']);
   });

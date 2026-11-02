@@ -38,7 +38,10 @@ vi.mock('@/app/data/letters-service', () => ({
 vi.mock('@/app/data/canvas-service', () => ({
   canvasService: { listMyCanvases: mocks.listMyCanvases, listSharedWithMe: mocks.listSharedWithMe, getAccess: vi.fn(), markCanvasRead: vi.fn() },
 }));
-vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyOpenCanvasDrafts: mocks.listMyOpenCanvasDrafts, listNewestPublishedSeqs: mocks.listNewestPublishedSeqs }));
+// The data module answers drafts and numbers from ONE read; the tests keep feeding the two answers separately.
+vi.mock('@/app/data/canvas-open-drafts', () => ({
+  listMyCanvasDraftState: async () => ({ drafts: await mocks.listMyOpenCanvasDrafts(), newestSeqs: await mocks.listNewestPublishedSeqs() }),
+}));
 vi.mock('@/app/hooks/useOpenLiveInvite', () => ({ useOpenLiveInvite: () => ({ invite: null, loading: false }) }));
 vi.mock('@/app/pages/chat/use-canvas-availability', () => ({ useCanvasDraftAvailability: () => true }));
 vi.mock('@/app/pages/chat/use-start-canvas', () => ({ useStartCanvas: () => ({ start: vi.fn(), dialog: null }) }));

@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { docsService } from '@/app/data/docs-service';
 import { getAllReceivedLetters, getAllSentLettersOrThrow, getDeliveriesForLettersOrThrow, getInboxItems, getUnreadExplainBackCountsByDelivery } from '@/app/data/letters-service';
 import { canvasService, type CanvasSharedWithMe, type MyCanvasRow } from '@/app/data/canvas-service';
-import { listMyOpenCanvasDrafts, listNewestPublishedSeqs, type OpenCanvasDraft } from '@/app/data/canvas-open-drafts';
+import { listMyCanvasDraftState, type CanvasDraftState } from '@/app/data/canvas-open-drafts';
 import { buildArtifacts, type ArtifactList, type ArtifactRow, type SentLetter } from './artifacts-view-model';
 import type { ClarityDoc, InboxItem, LetterDelivery } from '@/app/types';
 
@@ -42,17 +42,15 @@ interface Sources {
   docs: ClarityDoc[] | null;
   sent: { letters: SentLetter[]; deliveries: Record<string, LetterDelivery[]>; newByDelivery: Record<string, number> } | null;
   myCanvases: MyCanvasRow[] | null;
-  /** The owner's open canvas drafts: a canvas row says "v3 · Draft" and offers Open draft / Discard draft. */
-  openDrafts: OpenCanvasDraft[] | null;
-  /** The newest published number of each canvas, by name: a Mine row leads with it (3c X14). */
-  publishedSeqs: Record<string, number> | null;
+  /** The owner's open canvas drafts and the newest published number of each canvas, from ONE versions read (3c X14): a Mine row leads with its number, a draft offers Open draft / Discard draft. */
+  openDrafts: CanvasDraftState | null;
   received: InboxItem[] | null;
   /** Sender-side activity on my own letters (the capped mixed inbox list). */
   activity: InboxItem[] | null;
   sharedCanvases: CanvasSharedWithMe[] | null;
 }
 
-const EMPTY: Sources = { docs: null, sent: null, myCanvases: null, openDrafts: null, publishedSeqs: null, received: null, activity: null, sharedCanvases: null };
+const EMPTY: Sources = { docs: null, sent: null, myCanvases: null, openDrafts: null, received: null, activity: null, sharedCanvases: null };
 
 /** `null` = not settled yet, or failed; `failed` tells the two apart. */
 type Failed = Partial<Record<keyof Sources, boolean>>;
@@ -72,13 +70,19 @@ async function loadSent(userId: string): Promise<NonNullable<Sources['sent']>> {
   return { letters, deliveries, newByDelivery };
 }
 
-export function useArtifactsData(userId: string, userSlug: string | null): ArtifactsData {
+/**
+ * `canvasesOpen`: whether the Canvases tab is showing. Its reads (the owner's canvases, and their drafts with the version numbers) feed only the Mine and Drafts
+ * lists, never a dot (those come from the letters and from what is shared with me), so while Letters shows they are not read, and opening Canvases reads them once.
+ */
+export function useArtifactsData(userId: string, userSlug: string | null, canvasesOpen = true): ArtifactsData {
   const [sources, setSources] = useState<Sources>(EMPTY);
   const [failed, setFailed] = useState<Failed>({});
   const [settled, setSettled] = useState<Partial<Record<keyof Sources, boolean>>>({});
   const mounted = useRef(true);
   const userRef = useRef(userId);
   userRef.current = userId;
+  const canvasesOpenRef = useRef(canvasesOpen);
+  canvasesOpenRef.current = canvasesOpen;
   // Newest request number per source: a response from an older request is dropped.
   const generation = useRef<Partial<Record<keyof Sources, number>>>({});
   // Request number of the load still in flight per source (cleared when that newest request settles).
@@ -93,7 +97,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
 
   // `skipInFlight` is for the timer/focus poll: a source whose previous load has not answered yet is left alone,
   // so a slow source is not restarted (and its answer discarded) every tick. An explicit load supersedes.
-  const load = useCallback(async (skipInFlight = false) => {
+  const load = useCallback(async (skipInFlight = false, scope: 'all' | 'canvases' = 'all') => {
     const forUser = userId;
     const run = <K extends keyof Sources>(key: K, fn: () => Promise<NonNullable<Sources[K]>>) => {
       if (skipInFlight && inFlight.current[key] !== undefined) return Promise.resolve();
@@ -120,16 +124,19 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
         },
       );
     };
-    await Promise.all([
-      run('docs', () => docsService.getDocsByUserOrThrow(forUser)),
-      run('sent', () => loadSent(forUser)),
-      run('myCanvases', () => canvasService.listMyCanvases()),
-      run('openDrafts', () => listMyOpenCanvasDrafts()),
-      run('publishedSeqs', () => listNewestPublishedSeqs()),
-      run('received', () => getAllReceivedLetters(forUser)),
-      run('activity', () => getInboxItems(forUser)),
-      run('sharedCanvases', () => canvasService.listSharedWithMe()),
-    ]);
+    const canvasReads = scope === 'canvases' || canvasesOpenRef.current
+      ? [run('myCanvases', () => canvasService.listMyCanvases()), run('openDrafts', () => listMyCanvasDraftState())]
+      : [];
+    const rest = scope === 'canvases'
+      ? []
+      : [
+          run('docs', () => docsService.getDocsByUserOrThrow(forUser)),
+          run('sent', () => loadSent(forUser)),
+          run('received', () => getAllReceivedLetters(forUser)),
+          run('activity', () => getInboxItems(forUser)),
+          run('sharedCanvases', () => canvasService.listSharedWithMe()),
+        ];
+    await Promise.all([...rest, ...canvasReads]);
   }, [userId]);
 
   useEffect(() => {
@@ -137,7 +144,8 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
     setSources(EMPTY);
     setFailed({});
     setSettled({});
-    void load();
+    // Metered rule 3: a tab that mounts hidden reads nothing; the first visibilitychange below reads it.
+    if (document.visibilityState === 'visible') void load();
     const tick = () => { if (document.visibilityState === 'visible') void load(true); };
     const interval = setInterval(tick, POLL_MS);
     document.addEventListener('visibilitychange', tick);
@@ -146,6 +154,14 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
       document.removeEventListener('visibilitychange', tick);
     };
   }, [load]);
+
+  // Opening Canvases reads its two sources once (the mount already did when it opened there); hidden, the next visibilitychange reads them.
+  const wasOpen = useRef(canvasesOpen);
+  useEffect(() => {
+    const opened = canvasesOpen && !wasOpen.current;
+    wasOpen.current = canvasesOpen;
+    if (opened && document.visibilityState === 'visible') void load(true, 'canvases');
+  }, [canvasesOpen, load]);
 
   const model = useMemo(
     () =>
@@ -157,8 +173,8 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
         // Received rows only from the paged read; the mixed list contributes sender activity alone.
         inbox: [...(sources.received ?? []), ...(sources.activity ?? []).filter(i => i.type !== 'received')],
         myCanvases: sources.myCanvases ?? [],
-        openDrafts: sources.openDrafts ?? [],
-        publishedSeqs: sources.publishedSeqs ?? undefined,
+        openDrafts: sources.openDrafts?.drafts ?? [],
+        publishedSeqs: sources.openDrafts?.newestSeqs ?? undefined,
         sharedCanvases: sources.sharedCanvases ?? [],
         userSlug,
         userId,
@@ -185,7 +201,7 @@ export function useArtifactsData(userId: string, userSlug: string | null): Artif
       sent: listState(['sent'], model.sent),
       received: listState(['received'], model.received),
       'canvas-drafts': listState(['openDrafts'], model['canvas-drafts'], ['myCanvases']),
-      mine: listState(['myCanvases'], model.mine, ['openDrafts', 'publishedSeqs']),
+      mine: listState(['myCanvases'], model.mine, ['openDrafts']),
       shared: listState(['sharedCanvases'], model.shared),
     },
     refresh: () => load(),

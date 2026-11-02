@@ -1763,6 +1763,26 @@ A reply on a root reads that root alone; replies in one moment are one query. Pe
    Fits.
 3. **Upgrade:** none needed for this step; the over-plan standing of the organisation (P1530) is unchanged by it.
 
+**3c X14 (the Artifacts page's canvas reads).** The page refreshes on a 15 s timer while visible and on every tab return (a poll that predates X14: "today's inbox/sent behaviour" in the hook's header; the page has
+no push channel, so its written reason is on-demand reads cannot show a letter or share that arrives while the tab is open). X14 added a Mine number per row, which first cost a second versions read per refresh (two per poll) and ran on the Letters tab too, where nothing uses it.
+Now: ONE `list_my_canvas_versions` read feeds both the draft numbers and the Mine numbers (`listMyCanvasDraftState`, one snapshot, so a publish cannot make them disagree), and the
+Letters tab reads no canvases at all, because its dots come from the letters and from what is shared with me (`useArtifactsData`'s `canvasesOpen`). A tab that mounts hidden reads nothing until it
+becomes visible (metered-services rule 3; the mount read was unguarded before X14, a one-line fix made here). Inputs: P = refreshes per visible hour = 3600 / 15 = 240, T = tab returns per person per hour,
+V = versions the person has published = 20, D = open drafts = 3, C = canvases = 10 (sizes as in the X10 figures; the 150 B per canvas row is UNVERIFIED).
+
+| Measure | Canvases tab, per refresh | Per visible hour (P = 240, T = 0) | Before (versions read twice, Letters tab too) |
+|---|---|---|---|
+| Canvas requests | 1 canvases RPC + 1 drafts query + 1 versions read = **3**; the Letters tab **0** | 240 x 3 = **720** on Canvases, **0** on Letters (+ 3 per tab return) | 4 per refresh = 240 x 4 = **960**, on either tab |
+| Egress | 200 B x V (4 KB) + 250 B x D (0.75 KB) + 150 B x C (1.5 KB) = **6.25 KB** | 240 x 6.25 KB = **1.5 MB** | 10.25 KB per refresh = 2.46 MB |
+| Log lines | 3 access lines | 720 | 960 |
+
+The five letter reads (drafts, sent letters with their deliveries, received, activity, shared) are the page's existing poll and are unchanged here.
+
+1. **Fits the plan limit today?** The limit that binds is egress, 5 GB per month on the Free plan (registry). 1.5 MB per owner per visible hour x 40 visible hours per owner per month = 60 MB; for 10 owners with
+   canvases that is 600 MB, 12% of 5 GB. Verdict: fits, as a share of the page's reads, on the dashboard's reading (the values stay private). Request counts have no registry cap; they are shown for the idle-request test.
+2. **Fits at 10x?** 100 owners x 60 MB = 6,000 MB = 6 GB, over the 5 GB, so at 10x the canvas reads alone would not fit on the Free plan; before this change it would have been 100 x 98 MB = 9.8 GB.
+3. **Upgrade:** Supabase Pro, from $25/month (registry), at the point more than about 80 owners poll the Canvases tab (5,000 MB / 60 MB = 83).
+
 ## Pre-deploy Checklist
 
 ### Secrets to provision

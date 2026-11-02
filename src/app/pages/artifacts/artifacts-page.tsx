@@ -109,7 +109,7 @@ interface ViewProps {
 function ArtifactsView({ userId, tab, list, userSlug, setParams }: ViewProps) {
   const navigate = useNavigate();
   const { invite } = useOpenLiveInvite();
-  const data = useArtifactsData(userId, userSlug);
+  const data = useArtifactsData(userId, userSlug, tab === 'canvases');
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);

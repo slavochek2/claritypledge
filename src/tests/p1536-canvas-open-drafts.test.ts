@@ -9,7 +9,9 @@ const q = vi.hoisted(() => ({ result: { data: [] as unknown[], error: null as un
 
 vi.mock('@/lib/supabase', () => ({ supabase: { from: q.from, rpc: q.rpc } }));
 
-import { listMyOpenCanvasDrafts, listNewestPublishedSeqs } from '@/app/data/canvas-open-drafts';
+import { listMyCanvasDraftState } from '@/app/data/canvas-open-drafts';
+
+const listMyOpenCanvasDrafts = async () => (await listMyCanvasDraftState()).drafts;
 
 const row = (over: Record<string, unknown> = {}) => ({ id: 'draft-1', canvas_id: 'cv-1', canvas_name: 'sales_map', conversation_id: 'conv-1', thread_root_id: 'root-1', ...over });
 const version = (canvas: string, seq: number) => ({ id: `v-${canvas}-${seq}`, canvas_id: canvas, canvas_name: canvas, name: `n${seq}`, seq, published_at: '2026-10-01T00:00:00Z', has_open_draft: true });
@@ -41,9 +43,9 @@ describe('listMyOpenCanvasDrafts', () => {
     expect((await listMyOpenCanvasDrafts())[0]!.nextSeq).toBe(1);
   });
 
-  it('no drafts: no second read', async () => {
+  it('no drafts: still the one versions read, because a Mine row needs its newest number', async () => {
     expect(await listMyOpenCanvasDrafts()).toEqual([]);
-    expect(q.rpc).not.toHaveBeenCalled();
+    expect(q.rpc).toHaveBeenCalledTimes(1);
   });
 
   it('a failed version read leaves the number unknown; a failed draft read throws', async () => {
@@ -55,16 +57,39 @@ describe('listMyOpenCanvasDrafts', () => {
   });
 });
 
-describe('listNewestPublishedSeqs (3c X14: a Mine row says the newest PUBLISHED number)', () => {
-  it('is the highest published seq per canvas name, whatever order the versions come in', async () => {
-    q.rpc.mockResolvedValue({ data: [version('sales_map', 2), version('sales_map', 3), version('sales_map', 1), version('q4_plan', 1)], error: null });
-    expect(await listNewestPublishedSeqs()).toEqual({ sales_map: 3, q4_plan: 1 });
+describe('listMyCanvasDraftState (3c X14: ONE versions read per refresh feeds both the draft numbers and the Mine numbers)', () => {
+  it('reads list_my_canvas_versions exactly once, however many drafts and canvases there are', async () => {
+    q.result = { data: [row(), row({ id: 'draft-2', canvas_id: 'cv-2', canvas_name: 'q4_plan', thread_root_id: 'root-2' })], error: null };
+    q.rpc.mockResolvedValue({ data: [version('sales_map', 2), version('sales_map', 3), version('q4_plan', 1)], error: null });
+    await listMyCanvasDraftState();
+    expect(q.rpc).toHaveBeenCalledTimes(1);
     expect(q.rpc).toHaveBeenCalledWith('list_my_canvas_versions');
   });
 
-  it('no published versions: no numbers; a failed read throws, so the page can say numbers are missing', async () => {
-    expect(await listNewestPublishedSeqs()).toEqual({});
+  it('the Mine numbers are the highest published seq per canvas name, whatever order the versions come in', async () => {
+    q.rpc.mockResolvedValue({ data: [version('sales_map', 2), version('sales_map', 3), version('sales_map', 1), version('q4_plan', 1)], error: null });
+    expect((await listMyCanvasDraftState()).newestSeqs).toEqual({ sales_map: 3, q4_plan: 1 });
+  });
+
+  it('both answers come from the same snapshot: a draft is one above the number its Mine row shows', async () => {
+    // canvas_id and canvas_name are the same string in this fixture, so one canvas is one key
+    q.result = { data: [row({ canvas_id: 'sales_map' })], error: null };
+    q.rpc.mockResolvedValue({ data: [version('sales_map', 4)], error: null });
+    const state = await listMyCanvasDraftState();
+    expect(state.newestSeqs!.sales_map).toBe(4);
+    expect(state.drafts[0]!.nextSeq).toBe(5);
+  });
+
+  it('a failed versions read leaves both unknown (no numbers, never wrong ones) and still returns the drafts', async () => {
+    q.result = { data: [row()], error: null };
     q.rpc.mockResolvedValue({ data: null, error: { code: 'XX000', message: 'boom' } });
-    await expect(listNewestPublishedSeqs()).rejects.toBeTruthy();
+    const state = await listMyCanvasDraftState();
+    expect(state.newestSeqs).toBeNull();
+    expect(state.drafts).toHaveLength(1);
+    expect(state.drafts[0]!.nextSeq).toBeNull();
+  });
+
+  it('no published versions: no numbers, an empty map (not unknown)', async () => {
+    expect((await listMyCanvasDraftState()).newestSeqs).toEqual({});
   });
 });

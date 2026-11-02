@@ -1,6 +1,6 @@
 /**
  * @file canvas-open-drafts.ts
- * @description P1536: the owner's open canvas drafts, for the Artifacts list ("v3 · Draft", Open draft, Discard draft).
+ * @description P1536: the owner's open canvas drafts and their version numbers, for the Artifacts list (the draft's number, the (Draft) tag, Open draft, Discard draft).
  *
  * One question, answered without a new database function: the owner reads their own `canvas_drafts` rows through the
  * column grant and RLS policy of the P1536 draft migration (canvas name, conversation, thread root, state), and the number
@@ -27,16 +27,35 @@ export interface OpenCanvasDraft {
   revision: number;
 }
 
-export async function listMyOpenCanvasDrafts(): Promise<OpenCanvasDraft[]> {
+/** The owner's open drafts and the newest PUBLISHED number of each of their canvases, answered from one snapshot. */
+export interface CanvasDraftState {
+  drafts: OpenCanvasDraft[];
+  /** canvas name -> its newest published number (a Mine row says "v3 · ..."); no entry for a canvas with none published; null when the versions could not be read */
+  newestSeqs: Record<string, number> | null;
+}
+
+/**
+ * Everything the Artifacts page needs about the owner's drafts and version numbers, from ONE `list_my_canvas_versions` read per refresh (3c X14:
+ * the draft numbers and the Mine numbers used to be two reads, two per 15-second poll, that could disagree during a publish). The draft rows are read
+ * alongside it. A failed versions read leaves every number unknown (`nextSeq` null, `newestSeqs` null) and never fails the drafts; a failed draft
+ * read throws.
+ */
+export async function listMyCanvasDraftState(): Promise<CanvasDraftState> {
+  const versionsRead = listMyCanvasVersions().catch(() => null);
   const { data, error } = await supabase
     .from('canvas_drafts')
     .select('id, canvas_id, canvas_name, version_name, conversation_id, thread_root_id, revision')
     .eq('state', 'open');
-  if (error) throwDbError('listMyOpenCanvasDrafts', error, 'Could not read your canvas drafts');
+  const versions = await versionsRead;
+  if (error) throwDbError('listMyCanvasDraftState', error, 'Could not read your canvas drafts');
   const rows = (data ?? []) as { id: string; canvas_id: string; canvas_name: string; version_name: string; conversation_id: string; thread_root_id: string; revision?: number }[];
-  if (rows.length === 0) return [];
-  const versions = await listMyCanvasVersions().catch(() => null);
-  return rows.map((r) => ({
+  let newestSeqs: Record<string, number> | null = null;
+  if (versions) {
+    const top: Record<string, number> = {};
+    for (const v of versions) top[v.canvasName] = Math.max(top[v.canvasName] ?? 0, v.seq);
+    newestSeqs = top;
+  }
+  const drafts = rows.map((r) => ({
     draftId: r.id,
     canvasName: r.canvas_name,
     versionName: r.version_name,
@@ -45,14 +64,5 @@ export async function listMyOpenCanvasDrafts(): Promise<OpenCanvasDraft[]> {
     revision: Number(r.revision ?? 0),
     nextSeq: versions ? versions.filter((v) => v.canvasId === r.canvas_id).reduce((top, v) => Math.max(top, v.seq), 0) + 1 : null,
   }));
-}
-
-/**
- * 3c X14: the newest PUBLISHED number of each of the owner's canvases, by canvas name, for a Mine row ("v3 · Edited 3d ago"). A canvas with no
- * published version has no entry. A failed read throws, so the list can say numbers are missing instead of showing wrong ones.
- */
-export async function listNewestPublishedSeqs(): Promise<Record<string, number>> {
-  const out: Record<string, number> = {};
-  for (const v of await listMyCanvasVersions()) out[v.canvasName] = Math.max(out[v.canvasName] ?? 0, v.seq);
-  return out;
+  return { drafts, newestSeqs };
 }
