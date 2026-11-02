@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -11,13 +11,13 @@ tags:
   - p1542
 disclosure: public
 created_date: 2026-11-02
-delivery_stage: ship
 pipeline_ran: [change-request, dev, ship]
+completed_at: 2026-11-02
 ---
 
 # P1598: A hike's host walks "Learn the principle" in the room
 
-> **Redesign of:** [P1542: Prepare and close per series](done/2026-06-10/p1542_series_prepare_close_recipes_social_hike.md)
+> **Redesign of:** [P1542: Prepare and close per series](p1542_series_prepare_close_recipes_social_hike.md)
 > **What was wrong:** The room's step bar hid "Learn the principle" when the viewer was the host, and the `event_preparations` INSERT policy refused a host's row because a host has no RSVP. The host saw only "Decide" and "Share feedback".
 
 ## Operating Mode
