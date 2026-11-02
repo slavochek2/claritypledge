@@ -37,16 +37,39 @@ export interface Extras {
   droppedScope: number;
 }
 
-/** Free text cleaned, then cut at the end of a word: a label that reaches the owner is never cut in the middle of one. */
-const textOf = (v: unknown, max: number) => (typeof v === 'string' ? cutAtWord(cleanFreeText(v, max * 4), max) : '');
+/** Free text cleaned (the whole of it, up to four times the cap), before anything is cut. */
+const fullOf = (v: unknown, max: number) => (typeof v === 'string' ? cleanFreeText(v, max * 4) : '');
+/** The cleaned text cut at the end of a word: a label that reaches the owner is never cut in the middle of one. */
+const cutOf = (full: string, max: number) => cutAtWord(full, max);
+
+/**
+ * A group label is a short noun phrase: letters, digits, spaces and a few joiners. A sentence, a colon, a bracket, a quote or any
+ * other mark is refused, so the label of an upload can never read as an instruction to a later run (Opus 7, Codex 1). It is held to
+ * eight words, the length the prompt asks for. The prompt also quotes every stored label as data: this is the second wall.
+ */
+const MAX_LABEL_WORDS = 8;
+const LABEL_SHAPE = /^[\p{L}\p{N}][\p{L}\p{N} '’&/+,-]*$/u;
+function groupLabelOf(v: unknown, max: number, refuse: (t: string) => boolean): string {
+  const full = fullOf(v, max);
+  if (!full || !LABEL_SHAPE.test(full) || refuse(full)) return '';
+  return cutOf(full.split(/\s+/).slice(0, MAX_LABEL_WORDS).join(' '), max);
+}
+
+/** Free text the names filter has passed: the filter reads the whole cleaned text, so a name past the cut is still a name. */
+function passedText(v: unknown, max: number, refuse: (t: string) => boolean): string {
+  const full = fullOf(v, max);
+  return full && !refuse(full) ? cutOf(full, max) : '';
+}
 
 function readOffers(body: Raw, known: ReadonlyArray<string | null | undefined>, refuse: (t: string) => boolean): OtherCanvas[] {
   const offers: OtherCanvas[] = [];
   const seen = new Set<string>(known.filter((k): k is string => !!k).map(normalizeForQuote));
   for (const o of Array.isArray(body.other_canvases) ? body.other_canvases : []) {
-    const group = textOf(typeof o === 'string' ? o : (o as Raw | null)?.group, MAX_FOCUS_CHARS);
-    const why = typeof o === 'object' && o ? textOf((o as Raw).why, MAX_WHY_CHARS) : '';
-    if (!group || seen.has(normalizeForQuote(group)) || refuse(group) || refuse(why)) continue;
+    const group = groupLabelOf(typeof o === 'string' ? o : (o as Raw | null)?.group, MAX_FOCUS_CHARS, refuse);
+    if (!group || seen.has(normalizeForQuote(group))) continue;
+    const whyFull = typeof o === 'object' && o ? fullOf((o as Raw).why, MAX_WHY_CHARS) : '';
+    if (whyFull && refuse(whyFull)) continue;
+    const why = whyFull ? cutOf(whyFull, MAX_WHY_CHARS) : '';
     seen.add(normalizeForQuote(group));
     if (offers.length < MAX_OFFERS) offers.push({ group, why });
   }
@@ -61,10 +84,10 @@ function readQuestions(body: Raw, scope: ReadonlySet<string>, emptyScoped: reado
     ? body.questions.map((q) => [(q as Raw | null)?.box, (q as Raw | null)?.question] as const)
     : Object.entries((body.questions && typeof body.questions === 'object' ? body.questions : {}) as Raw);
   for (const [box, q] of raw) {
-    const t = textOf(q, MAX_QUESTION_CHARS);
-    if (typeof box !== 'string' || !BOX_TAGS.has(box) || !t || box in questions) continue;
+    const full = fullOf(q, MAX_QUESTION_CHARS);
+    if (typeof box !== 'string' || !BOX_TAGS.has(box) || !full || box in questions) continue;
     if (!scope.has(box)) { outOfScope += 1; continue; }
-    if (!refuse(t)) questions[box] = t;
+    if (!refuse(full)) questions[box] = cutOf(full, MAX_QUESTION_CHARS);
   }
   for (const tag of emptyScoped) {
     const q = emptyQuestionFor(tag);
@@ -81,8 +104,7 @@ export function readExtras(body: Raw, pc: ParseContext, scope: ReadonlySet<strin
     return false;
   };
   const accept = pc.acceptFocus !== false;
-  const focusRaw = textOf(body.focus, MAX_FOCUS_CHARS);
-  const focus = accept && focusRaw && !refuse(focusRaw) ? focusRaw : null;
+  const focus = accept ? groupLabelOf(body.focus, MAX_FOCUS_CHARS, refuse) || null : null;
   // the reason is the model's report, not text: one of four words, else nothing (the reply then says only what was found and chosen)
   const reasonRaw = typeof body.focus_reason === 'string' ? body.focus_reason.trim().toLowerCase() : '';
   const focusReason = focus && FOCUS_REASONS.includes(reasonRaw as FocusReason) ? (reasonRaw as FocusReason) : null;
@@ -92,7 +114,6 @@ export function readExtras(body: Raw, pc: ParseContext, scope: ReadonlySet<strin
     ? readOffers(body, [accept ? focus : pc.currentFocus, pc.currentFocus, ...(pc.knownGroups ?? [])], refuse)
     : [];
   const { questions, outOfScope } = readQuestions(body, scope, emptyScoped, refuse);
-  const noteRaw = textOf(body.note, MAX_NOTE_CHARS);
-  const note = noteRaw && !refuse(noteRaw) ? noteRaw : '';
+  const note = passedText(body.note, MAX_NOTE_CHARS, refuse);
   return { focus, focusReason, otherCanvases, questions, note, droppedNames, droppedScope: outOfScope };
 }

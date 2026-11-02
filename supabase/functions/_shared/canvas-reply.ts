@@ -26,8 +26,6 @@ export interface ReplyFacts {
   others?: string[];
   /** Why the first draft chose its group, when the model reported one of the four reasons. */
   focusReason?: FocusReason | null;
-  /** J9: groups a later message or upload is also about (each becomes an offer), what carried them, and the focus that stays. */
-  alsoAbout?: { groups: string[]; input: 'text' | 'file' | 'voice'; focus: string | null };
   /** Part of what was sent was too long to read in full. */
   truncated?: boolean;
   unreadable: string[];
@@ -81,16 +79,6 @@ function foundLine(f: ReplyFacts): string[] {
   return [`I found ${NUMBER_WORDS[all.length] ?? all.length} businesses: ${joinGroups(all)}. This canvas is about ${f.focus}${reason}.`];
 }
 
-/** [FOUNDER DECISION: wording for a message or a voice note; J9 gives the upload's.] */
-const INPUT_NOUN = { file: 'new file', voice: 'voice note', text: 'message' } as const;
-
-/** J9: a later input about another business. The focus stays, and the offer row says the rest. */
-function alsoAboutLine(f: ReplyFacts): string[] {
-  const a = f.alsoAbout;
-  if (!a?.groups.length || f.outcome === 'failed') return [];
-  return [`Your ${INPUT_NOUN[a.input]} is also about ${joinGroups(a.groups)}.${a.focus ? ` This canvas stays about ${a.focus}.` : ''}`];
-}
-
 function leftOutLines(f: ReplyFacts): string[] {
   const lines: string[] = [];
   if (f.truncated && f.outcome !== 'failed') lines.push(CUT_NOTE);
@@ -108,5 +96,5 @@ export function buildDraftReply(f: ReplyFacts): string {
   const failed = (f.outcome ?? (f.total === 0 ? 'failed' : 'draft')) === 'failed';
   // One next step per reply: an unreadable input already says what to send instead.
   const retry = failed && !f.unreadable.length ? [RETRY_HINT] : [];
-  return [...foundLine(f), ...alsoAboutLine(f), ...headline(f), ...leftOutLines(f), ...unreadableLines(f.unreadable), ...retry].join('\n');
+  return [...foundLine(f), ...headline(f), ...leftOutLines(f), ...unreadableLines(f.unreadable), ...retry].join('\n');
 }

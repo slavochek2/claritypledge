@@ -47,7 +47,11 @@ export interface ThreadItem {
   /** clarify_copy: the lines of the copy, each with whose it is. A copy without lines counts as other people's. */
   lines?: Array<{ by: 'owner' | 'other'; text: string }> | null;
 }
-/** `messages` is a fork's seed row: the owner's own typed messages ("Your messages", "Earlier material"), copied from the canvas it was forked from. */
+/**
+ * `messages` is a fork's seed row. "Your messages" holds the owner's own typed messages. "Earlier material" is the fork's consolidation of the OLDEST seed rows of any
+ * kind (files and links among them): it is not the owner's typed words, so it is read as a file (Opus 4). The label is the database's own literal (canvas_draft_fork).
+ */
+export const OWN_MESSAGES_LABEL = 'Your messages';
 export interface MaterialRow { id?: string; kind: 'file' | 'link' | 'messages'; label: string; text: string; message_id?: string | null; origin?: string }
 
 /** The `run` row `_canvas_draft_run_begin` returns when it starts a run (status 'run'). */
@@ -177,12 +181,20 @@ async function askModel(s: Step, fit: Fitted, cut: (reply: string) => string): P
   return await failRun(deps, run, p, failCode(status), cut('I could not draft your canvas just now. Nothing was changed. Please try again in a few minutes.'), failureUsd(status, run, s.extra));
 }
 
+/**
+ * J9: an upload into a canvas that already has a first draft whose own points all failed, but which reports another group. The run is not a failure: it completes with
+ * nothing applied (the database then records the offers and says the J9 line), because failing it would lose the offers exactly when the file was about another business (Opus 3).
+ */
+function keepsOffers(run: CanvasRun, kind: RunKind, out: Parsed): boolean {
+  return kind === 'message' && run.input_kind === 'file' && run.first_draft !== true && out.otherCanvases.length > 0;
+}
+
 /** The failure a parsed answer amounts to (unusable, or nothing supported), or null when there is something to write. */
 async function failureOf(s: Step, out: ReturnType<typeof parseDraft>, usd: number | null, cut: (reply: string) => string): Promise<RunSummary | null> {
   const { run, p, deps } = s;
   if (!out.ok) return await failRun(deps, run, p, out.code, cut('I could not draft your canvas from that. Nothing was changed. Try again, or add more about what you sell and to whom.'), usd);
   const drops = out.droppedUnverified + out.droppedNames;
-  if (out.scope.length > 0 && out.total === 0 && (drops > 0 || s.kind !== 'message' || run.first_draft)) {
+  if (out.scope.length > 0 && out.total === 0 && (drops > 0 || s.kind !== 'message' || run.first_draft) && !keepsOffers(run, s.kind, out)) {
     return await failRun(deps, run, p, 'nothing_supported', cut(buildDraftReply({ ...zeroFacts(s), outcome: 'failed', droppedUnverified: out.droppedUnverified, droppedNames: out.droppedNames })), usd);
   }
   return null;
@@ -234,6 +246,8 @@ async function completeDraft(s: Step, out: Parsed, usd: number | null, truncated
   return { state: 'done' };
 }
 
+const isOwnMessages = (m: MaterialRow) => m.kind === 'messages' && m.label === OWN_MESSAGES_LABEL;
+
 export async function executeRun(deps: RunDeps, p: RunParams, run: CanvasRun): Promise<RunSummary> {
   const ledger: { usd: number | null } = { usd: p.extraUsd ?? 0 };
   try {
@@ -243,11 +257,11 @@ export async function executeRun(deps: RunDeps, p: RunParams, run: CanvasRun): P
     const trigger = triggerOf(run.thread);
     const input: MaterialInput = {
       trigger: trigger ? { text: textOf(trigger), tagged: trigger.box_refs ?? null } : null,
-      // a fork's seed rows are the owner's own typed words: they come first, then the messages of this thread
-      messages: [...run.material.filter((m) => m.kind === 'messages').map((m) => m.text), ...ownerItems(run.thread).filter((t) => t !== trigger).map(textOf)],
+      // a fork's "Your messages" seed row is the owner's own typed words: it comes first, then the messages of this thread
+      messages: [...run.material.filter(isOwnMessages).map((m) => m.text), ...ownerItems(run.thread).filter((t) => t !== trigger).map(textOf)],
       copies: toCopies(run.thread),
       links: [...run.material.filter((m) => m.kind === 'link').map((m) => ({ url: m.label, text: m.text })), ...rows],
-      files: run.material.filter((m) => m.kind === 'file').map((m) => ({ name: m.label, text: m.text })),
+      files: run.material.filter((m) => m.kind === 'file' || (m.kind === 'messages' && !isOwnMessages(m))).map((m) => ({ name: m.label, text: m.text })),
     };
     const material = assembleMaterial(input);
     const kind: RunKind = run.kind ?? 'message';

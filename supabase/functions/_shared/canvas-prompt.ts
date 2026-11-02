@@ -97,7 +97,19 @@ const DRAFT_SCHEMA = {
   propertyOrdering: ['focus', 'focus_reason', 'other_canvases', 'scope', 'actions', 'questions', 'note'],
 };
 
-function dataBlock(ctx: Pick<DraftContext, 'material' | 'basePoints' | 'baseLabel'>): string {
+/**
+ * The groups this canvas already has, as ONE quoted data item. A group label is text the model wrote about the owner's material (and
+ * once an upload's own words), stored and read back by later runs: it is data, never part of the instruction. The instruction refers to
+ * this item by name, so no stored label is ever written after <<INSTRUCTION>>.
+ */
+function groupsItem(f: RunFrame | undefined): string {
+  if (!f) return '';
+  const others = (f.knownGroups ?? []).filter((g) => g.group.trim()).map((g) => ({ group: g.group, state: g.state }));
+  if (!f.focus && !f.targetGroup && !others.length) return '';
+  return quoteData({ kind: 'canvas_groups', focus: f.focus ?? null, ...(f.targetGroup ? { target_group: f.targetGroup } : {}), other_groups: others }) + '\n';
+}
+
+function dataBlock(ctx: Pick<DraftContext, 'material' | 'basePoints' | 'baseLabel'> & { frame?: RunFrame }): string {
   const base = ctx.basePoints.map((p) => quoteData({
     kind: 'current_point', id: p.id, box: p.box, statement: p.statement, story: cutChars(p.story ?? '', 400),
   }) + '\n').join('');
@@ -105,47 +117,46 @@ function dataBlock(ctx: Pick<DraftContext, 'material' | 'basePoints' | 'baseLabe
     kind: i.kind, whose: i.owner ? 'owner' : 'other_person', source: i.source, text: i.text,
     ...(i.trigger ? { this_run: true, tagged_boxes: i.tagged ?? [] } : {}),
   }) + '\n').join('');
-  return `<<DATA>>\n${ctx.basePoints.length ? `(The canvas now${ctx.baseLabel ? `, from ${ctx.baseLabel}` : ''}:)\n${base}` : ''}${mat}<</DATA>>`;
+  return `<<DATA>>\n${ctx.basePoints.length ? `(The canvas now${ctx.baseLabel ? `, from ${ctx.baseLabel}` : ''}:)\n${base}` : ''}${groupsItem(ctx.frame)}${mat}<</DATA>>`;
 }
 
 const ALL_NINE = 'all nine boxes';
 
-/** The groups the canvas already has, in the words it has them in: a group the material is about again is said in those exact words, never reworded. */
-function knownGroupsLine(f: RunFrame): string {
-  const seen = new Set<string>();
-  const items: string[] = [];
-  const add = (group: string, role: string) => {
-    const key = group.trim().toLowerCase().replace(/\s+/g, ' ');
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    items.push(`"${group.replace(/["\n]/g, ' ')}" (${role})`);
-  };
-  if (f.focus) add(f.focus, 'this canvas\'s focus');
-  for (const g of f.knownGroups ?? []) add(g.group, g.state === 'offered' ? 'offered' : g.state === 'focused' ? 'earlier focus' : g.state);
-  if (!items.length) return '';
-  return ` Groups this canvas already has: ${items.join(', ')}. If the material is about one of them, say it in "other_canvases" in its exact words from this list, or leave it out; never word the same group differently.`;
+/**
+ * The groups the canvas already has are in the data item "canvas_groups", in the words it has them in: a group the material is about again is said in
+ * those exact words, never reworded. The line names no label itself.
+ */
+function knownGroupsLine(f: RunFrame, firstDraft = false): string {
+  const has = !!f.focus || (f.knownGroups ?? []).some((g) => g.group.trim());
+  if (!has) return '';
+  const focusNote = firstDraft ? ' If the focus you choose is one of them, set "focus" in its exact words from that list.' : '';
+  return ` The data item "canvas_groups" lists the groups this canvas already has (its "focus" and its "other_groups"). If the material is about one of them, say it in "other_canvases" in its exact words from that item, or leave it out; never word the same group differently.${focusNote}`;
 }
 const titles = (tags: readonly string[]) => tags.map((t) => titleOf(t)).join(', ');
 
 /** An upload is the owner's message: without this the model reads the bare file name as "no request" and changes (and reports) nothing. */
 const FILE_LINE = ` The owner added a file with this message (the message is only its name; the file's text is in the data). Read the file as what the owner is telling you: an upload is never a message with no request. Return in "scope" the boxes the file adds something to for this canvas's group, including Guiding values, My current biggest challenge and Hypotheses I've falsified when the file speaks to them. If the file is also about another group, list that group in "other_canvases". Return an empty "scope" only when the file adds nothing to this canvas.`;
 
+/** A tagged message that came with a file: the scope is the tags, but a file can still be about another group. */
+const FILE_TAGGED_LINE = ` The owner added a file with this message (the message is only its name; the file's text is in the data). Read the file as what the owner is telling you about those boxes. If the file is also about another group, list that group in "other_canvases".`;
+
 /** What THIS run may change and set, written from the run's kind: the server enforces the same rule. */
 export function frameInstruction(f: RunFrame): string {
   if (f.kind === 'focus') {
-    return `This run switches the canvas to a new focus: "${f.targetGroup ?? ''}". It may change ${ALL_NINE}. The six customer-facing boxes (${titles(f.rebuild)}) are rebuilt for this group: write them again as "new" or "reword" actions, never "keep". Use only the owner's material about this group. Return "scope" as all nine boxes and leave "focus" empty. Leave "other_canvases" and "focus_reason" empty too: the server already keeps the earlier focus and the other groups as offers, and a group worded again would only be a second copy.`;
+    return `This run switches the canvas to a new focus: the "target_group" of the data item "canvas_groups". It may change ${ALL_NINE}. The six customer-facing boxes (${titles(f.rebuild)}) are rebuilt for this group: write them again as "new" or "reword" actions, never "keep". Use only the owner's material about this group. Return "scope" as all nine boxes and leave "focus" empty. Leave "other_canvases" empty and leave out "focus_reason": the server already keeps the earlier focus and the other groups as offers, and a group worded again would only be a second copy.`;
   }
   if (f.kind === 'fork_first') {
-    return `This is the first draft of a new canvas about "${f.focus ?? ''}". It may change ${ALL_NINE}; every point is a "new" action. Use only the material about this group. Return "scope" as all nine boxes; "focus" is already set.`;
+    return `This is the first draft of a new canvas about the "focus" of the data item "canvas_groups". It may change ${ALL_NINE}; every point is a "new" action. Use only the material about this group. Return "scope" as all nine boxes; "focus" is already set. Leave out "focus_reason".`;
   }
   if (f.taggedBoxes?.length) {
-    return `The owner's message (marked this_run) is tagged with: ${titles(f.taggedBoxes)}. This run may change only those boxes. Return "scope" as exactly those boxes. The focus stays${f.focus ? ` ("${f.focus}")` : ''}; leave "focus" empty.${knownGroupsLine(f)}`;
+    const file = f.inputKind === 'file' ? FILE_TAGGED_LINE : '';
+    return `The owner's message (marked this_run) is tagged with: ${titles(f.taggedBoxes)}. This run may change only those boxes. Return "scope" as exactly those boxes.${file} The focus stays; leave "focus" empty and leave out "focus_reason".${knownGroupsLine(f)}`;
   }
   if (f.firstDraft) {
-    return `This is the owner's first draft. It may change ${ALL_NINE}; every point is a "new" action. Return "scope" as all nine boxes. Set "focus" to the one group the canvas is about: the owner's newest stated focus, else a group that has paid, else the group most boxes can be filled for, else the narrower group. If the material is about other groups too, draft only the focus and list the others in "other_canvases". Set "focus_reason" to why you chose it: "stated" if the owner's newest words name it as their focus, "paid" if it is a group that has already paid the owner, "most_boxes" if the material fills the most boxes for it, "narrower" if none of those decides and it is the narrower group.`;
+    return `This is the owner's first draft. It may change ${ALL_NINE}; every point is a "new" action. Return "scope" as all nine boxes. Set "focus" to the one group the canvas is about: the owner's newest stated focus, else a group that has paid, else the group most boxes can be filled for, else the narrower group. If the material is about other groups too, draft only the focus and list the others in "other_canvases". Set "focus_reason" to why you chose it: "stated" if the owner's newest words name it as their focus, "paid" if it is a group that has already paid the owner, "most_boxes" if the material fills the most boxes for it, "narrower" if none of those decides and it is the narrower group.${knownGroupsLine(f, true)}`;
   }
   const file = f.inputKind === 'file' ? FILE_LINE : '';
-  return `The owner's message is marked this_run.${file} Return in "scope" only the boxes it is about, and change only those. The focus stays${f.focus ? ` ("${f.focus}")` : ''}: never change it from a message, and leave "focus" empty. Material about another group moves no customer-facing box toward that group; you may list it in "other_canvases". Leave "focus_reason" empty.${knownGroupsLine(f)}`;
+  return `The owner's message is marked this_run.${file} Return in "scope" only the boxes it is about, and change only those. The focus stays: never change it from a message, and leave "focus" empty. Material about another group moves no customer-facing box toward that group; you may list it in "other_canvases". Leave out "focus_reason".${knownGroupsLine(f)}`;
 }
 
 export function buildDraftRequest(ctx: DraftContext): GeminiRequest {
@@ -154,7 +165,7 @@ export function buildDraftRequest(ctx: DraftContext): GeminiRequest {
   const instruction = `${frameInstruction(frame)} Return only JSON, following the rules.${cutNote}`;
   return {
     systemInstruction: { parts: [{ text: DRAFT_RULES }] },
-    contents: [{ role: 'user', parts: [{ text: `${dataBlock(ctx)}\n\n<<INSTRUCTION>>\n${instruction}` }] }],
+    contents: [{ role: 'user', parts: [{ text: `${dataBlock({ ...ctx, frame })}\n\n<<INSTRUCTION>>\n${instruction}` }] }],
     generationConfig: {
       maxOutputTokens: MAX_OUT_TOKENS,
       temperature: 0.4,

@@ -26,7 +26,7 @@ const C = '20261029100200_p1536_reword_keeps_stories.sql';
 const M = '20261030080000_p1536_v6_engine.sql';
 const MERGE = '20261030090000_p1536_p1592_merge_erase_forward.sql';
 const TITLE = '20261101180000_p1536_canvas_title.sql';
-const NOTHING = '20261103000000_p1536_nothing_changed_wording.sql';
+const SERVER_REVIEW = '20261103010000_p1536_server_review_fixes.sql';
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
 const stripComments = (sql: string) => sql.replace(/--[^\n]*/g, '');
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -170,7 +170,9 @@ describe('P1536 v6 migration: replaced bodies', () => {
     // get_canvas is restated once more by the canvas-title file (P1536 W8: access.title and access.canvas_id); its edits are pinned there.
     const fn = REPLACED[name]!.fn ?? name;
     // _canvas_draft_run_complete is restated once more by the 3c wording file (one changed literal, pinned by p1536-s5-nothing-changed.test.ts).
-    expect(newestDefinition(fn)).toBe(fn === 'erase_chat_data_for' ? MERGE : fn === 'get_canvas' ? TITLE : fn === '_canvas_draft_run_complete' ? NOTHING : M);
+    // The server review file (20261103010000) restates three of them once more, each with its edits pinned by p1536-sr-migration.test.ts: the run-id form of _canvas_draft_run_begin is
+    // a NEW definition there (this file's 4-argument legacy overload is restated byte for byte after it), the 6-argument _canvas_draft_run_complete is restated byte for byte, and erase_chat_data_for gains one step.
+    expect(newestDefinition(fn)).toBe(['erase_chat_data_for', '_canvas_draft_run_complete', '_canvas_draft_run_begin'].includes(fn) ? SERVER_REVIEW : fn === 'get_canvas' ? TITLE : M);
   });
   it('the earlier 4-argument _canvas_draft_run_fail is NOT redefined; the v6 five-argument form checks the owner, the state and settles the spend', () => {
     expect(stripComments(rawM)).not.toMatch(/FUNCTION public\._canvas_draft_run_fail\(p_run uuid, p_code text/);
@@ -240,7 +242,7 @@ describe('P1536 + P1592: the newest erase_chat_data_for and forward_chat_message
   it.each(Object.keys(P1592_MARKERS))('%s: the newest definition holds every P1536 marker and every P1592 marker', (name) => {
     const newest = newestDefinition(name);
     const body = fnBody(read(newest), name);
-    expect(newest).toBe(MERGE);
+    expect(newest).toBe(name === 'erase_chat_data_for' ? SERVER_REVIEW : MERGE);
     expect(missing(body, P1536_MARKERS[name]!), `${name}: P1536 markers missing in ${newest}`).toEqual([]);
     expect(missing(body, P1592_MARKERS[name]!), `${name}: P1592 markers missing in ${newest}`).toEqual([]);
   });
@@ -795,7 +797,8 @@ const mergeFacts = {
 describe(`P1536 + P1592 merge: whole deltas, lock order and grants of the newest definitions (P1592 from ${P1592_SRC}; P1536 from ${P1536_SRC})`, () => {
   const sql = read(MERGE);
   it('the merge file is the newest definition of all four functions', () => {
-    expect(newestDefinition('erase_chat_data_for')).toBe(MERGE);
+    // erase_chat_data_for gained one step in the server review file (20261103010000: its edit is pinned by p1536-sr-migration.test.ts against THIS file's body); the other three end here
+    expect(newestDefinition('erase_chat_data_for')).toBe(SERVER_REVIEW);
     expect(newestDefinition('erase_my_account')).toBe(MERGE);
     expect(newestDefinition('_erase_lock_canvas_owners')).toBe(MERGE);
     expect(newestDefinition('forward_chat_message')).toBe(MERGE);

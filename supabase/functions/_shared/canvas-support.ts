@@ -60,7 +60,7 @@ function wordsToDigits(lower: string): string {
 }
 
 /** "2,500" and "2500" are one number; "2,5" is a decimal comma. */
-function digitsOf(raw: string): string {
+export function digitsOf(raw: string): string {
   if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(raw)) return raw.replace(/,/g, '');
   return raw.replace(',', '.');
 }

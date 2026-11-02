@@ -2040,3 +2040,172 @@ describe('S1.15 held points', () => {
     expect((own.points as Row[]).map((p) => p.id).sort()).toEqual(held);
   }, T);
 });
+
+// ── Server review batch (Opus, Gemini, Codex on 1af491639): behaviour of migration 20261103010000 ─────────────────────────────────
+// Every test here fails on the database BEFORE that migration is applied (the red run) and passes after it. The migration is applied by the main session.
+describe('server review fixes (migration 20261103010000)', () => {
+  const cafeDraft = async (label: string, extra: Row[] = []) => {
+    const o = await mkOwner(label); const ws = new WS(o);
+    await ws.cycle({ body: nn('base') }, {
+      actions: [newPt(BOX.segments, 'a'), newPt(BOX.problem, 'Receipts pile up'), newPt(BOX.revenue, 'price 100'), ...extra], focus: 'Cafes',
+      questions: { [BOX.problem]: 'orig problem question?' },
+    });
+    return { o, ws };
+  };
+  /** One upload run, claimed and completed the way the edge function does it. */
+  const uploadRun = async (ws: WS, label: string, done: Done): Promise<{ r: Row; d: Row }> => {
+    const r = await ws.send({ att: { kind: 'file', label } });
+    expect(r.status, JSON.stringify(r)).toBe('ok');
+    expect((await begin(r.run_id, true)).status).toBe('run');
+    expect((await addMat({ p_run: r.run_id, p_kind: 'file', p_label: label, p_text: nn(`${label}: a file about another business`), p_message: null })).status).toBe('ok');
+    const d = await complete(r.run_id, done);
+    expect(d.status, JSON.stringify(d)).toBe('ok');
+    await ws.state();
+    return { r, d };
+  };
+  const lastReply = async (ws: WS) => ((await ws.msgs()).filter((m) => m.kind === 'agent').at(-1)!.body as string);
+  const stepRows = async (run: string) => ((await admin.from('canvas_draft_steps').select('run_id').eq('run_id', run)).data ?? []) as Row[];
+
+  it('Opus 1: a retried upload stays an upload: it begins with no bytes, and its offer and J9 line survive', async () => {
+    const { o, ws } = await cafeDraft('sr1');
+    const up = await ws.send({ att: { kind: 'file', label: 'agencies.md' } });
+    expect((await begin(up.run_id, true)).status).toBe('run');
+    expect((await addMat({ p_run: up.run_id, p_kind: 'file', p_label: 'agencies.md', p_text: nn('a file about agencies'), p_message: null })).status).toBe('ok');
+    expect(await fail(up.run_id, 'model', 0.01)).toBe(true);
+    const st = await ws.state();
+    const retry = await ok(o.c, 'canvas_draft_retry', { p_draft: ws.draft, p_failed_run: up.run_id, p_expected_revision: st.draft.revision, p_client_id: randomUUID() });
+    expect(retry.status, JSON.stringify(retry)).toBe('ok');
+    expect((await admin.from('canvas_draft_runs').select('input_kind').eq('id', retry.run_id).single()).data, 'the retry keeps the upload kind').toMatchObject({ input_kind: 'file' });
+    const b = await begin(retry.run_id, false);
+    expect(b, 'a retry needs no bytes: the kept text is enough').toMatchObject({ status: 'run', input_kind: 'file' });
+    expect(b.material.map((x: Row) => x.text)).toEqual([nn('a file about agencies')]);
+    const d = await complete(retry.run_id, { scope: [], others: [{ group: 'Agencies', why: 'w' }], reply: null });
+    expect(d).toMatchObject({ status: 'ok', applied: false, offers_added: 1 });
+    expect((await lastReply(ws)).split('\n')[0]).toBe('Your new file is also about Agencies. This canvas stays about Cafes.');
+  }, T);
+
+  it('Opus 1 CONTROL: a first-time upload with no bytes and no kept text is still not_ready', async () => {
+    const { ws } = await cafeDraft('sr1c');
+    const up = await ws.send({ att: { kind: 'file', label: 'x.md' } });
+    expect(await begin(up.run_id, false)).toMatchObject({ status: 'not_ready', reason: 'file_missing' });
+  }, T);
+
+  it('Gemini 1: the J9 line is built from the rows the database inserted, on a SCOPED run too, in the right noun; a NULL reply does not lose it', async () => {
+    const { ws } = await cafeDraft('sr3');
+    await uploadRun(ws, 'a.md', { scope: [], others: [{ group: 'Agencies', why: 'w' }], reply: 'Nothing changed on the canvas.' });
+    // scoped upload (founder-fit box gets a point): 'agencies  ' is the offer that exists (the database's own key), 'Lawyers' is new
+    await uploadRun(ws, 'v.md', { scope: [BOX.love], actions: [newPt(BOX.love, 'honesty over speed, because trust')], others: [{ group: 'agencies  ', why: 'again' }, { group: 'Lawyers', why: 'w' }], reply: 'Updated: Guiding values.' });
+    expect((await lastReply(ws)).split('\n')).toEqual(['Your new file is also about Lawyers. This canvas stays about Cafes.', 'Updated: Guiding values.']);
+    expect((await ws.state()).draft!.offers.map((x: Row) => x.group_label).sort()).toEqual(['Agencies', 'Lawyers']);
+    // a typed scoped message says "message"; a NULL reply text still carries the line
+    await ws.cycle({ body: nn('also schools'), refs: [BOX.love] }, { actions: [newPt(BOX.love, 'candour over comfort, because trust')], others: [{ group: 'Schools', why: 'w' }], reply: null });
+    expect((await lastReply(ws)).split('\n')[0]).toBe('Your message is also about Schools. This canvas stays about Cafes.');
+    // nothing inserted (the cap of 3 is full): no line at all
+    await ws.cycle({ body: nn('also banks'), refs: [BOX.love] }, { actions: [newPt(BOX.love, 'plain words over polish, because trust')], others: [{ group: 'Banks', why: 'w' }], reply: 'Updated: Guiding values.' });
+    expect(await lastReply(ws)).toBe('Updated: Guiding values.');
+  }, T);
+
+  it('Gemini 2: a scoped run that changed no point makes no step, moves no question, says so, and still records its offers', async () => {
+    const { ws } = await cafeDraft('sr4');
+    const keep = ((await ws.byBox())[BOX.problem] ?? []).map((id) => ({ action: 'keep', point_id: id }));
+    expect(keep).toHaveLength(1);
+    const before = (await ws.state()).draft!;
+    const { r, d } = await uploadRun(ws, 'same.md', { scope: [BOX.problem], actions: keep, questions: { [BOX.problem]: 'a brand new question?' }, others: [{ group: 'Agencies', why: 'w' }], reply: null });
+    expect(d).toMatchObject({ applied: false, created: 0, offers_added: 1 });
+    expect(await stepRows(r.run_id), 'no phantom Undo step').toEqual([]);
+    const st = (await ws.state()).draft!;
+    expect(st.questions, 'the question stays what it was').toEqual(before.questions);
+    expect(st.undo_run_id, 'Undo still points at the earlier applied run').not.toBe(r.run_id);
+    expect(st.used_runs).toBe(before.used_runs + 1);
+    expect((await lastReply(ws)).split('\n')).toEqual(['Your new file is also about Agencies. This canvas stays about Cafes.', 'Nothing changed on the canvas.']);
+    expect(st.offers).toMatchObject([{ group_label: 'Agencies', state: 'offered' }]);
+  }, T);
+
+  it('Gemini 2 CONTROL: a scoped run that rewords a point is a step, and its question applies', async () => {
+    const { ws } = await cafeDraft('sr4c');
+    const ids = (await ws.byBox())[BOX.problem] ?? [];
+    const { r, d } = await uploadRun(ws, 'real.md', { scope: [BOX.problem], actions: [{ action: 'reword', point_id: ids[0], box: BOX.problem, statement: nn('Receipts pile up every week') }], questions: { [BOX.problem]: 'a brand new question?' }, reply: 'Updated: Problem.' });
+    expect(d).toMatchObject({ applied: true, created: 1 });
+    expect(await stepRows(r.run_id)).toHaveLength(1);
+    expect((await ws.state()).draft!.questions[BOX.problem]).toBe('a brand new question?');
+  }, T);
+
+  it('Opus 2: an offer that matches a first draft\'s focus becomes that focus, and Undo of that draft gives the offer back', async () => {
+    const { o, ws } = await cafeDraft('sr5');
+    await uploadRun(ws, 'agencies.md', { scope: [], others: [{ group: 'Agencies', why: 'w' }], reply: 'Nothing changed on the canvas.' });
+    let st = (await ws.state()).draft!;
+    const undone = await ok(o.c, 'canvas_draft_undo', { p_draft: ws.draft, p_expected_run: st.undo_run_id, p_expected_revision: st.revision });
+    expect(undone.status, 'Undo walks past the upload (it has no step) to the first draft').toBe('ok');
+    st = (await ws.state()).draft!;
+    expect(st).toMatchObject({ focus: null, has_points: false });
+    expect(st.offers).toMatchObject([{ group_label: 'Agencies', state: 'offered' }]);
+    // the next untagged message is a first draft again, and it picks agencies
+    const { d } = await ws.cycle({ body: nn('agencies are who I sell to') }, { actions: [newPt(BOX.segments, 'Agencies'), newPt(BOX.problem, 'Agency invoices')], focus: 'agencies ', others: [{ group: 'Cafes', why: 'w' }] });
+    expect(d).toMatchObject({ applied: true });
+    st = (await ws.state()).draft!;
+    expect(st.focus).toBe('agencies');
+    expect(st.offers.filter((x: Row) => x.state === 'offered').map((x: Row) => x.group_label), 'no offer beside the canvas that is about it').toEqual(['Cafes']);
+    expect(st.offers.find((x: Row) => x.group_label === 'Agencies')).toMatchObject({ state: 'focused' });
+    // Undo of that first draft: the row is an offer again, the focus is gone
+    const again = await ok(o.c, 'canvas_draft_undo', { p_draft: ws.draft, p_expected_run: st.undo_run_id, p_expected_revision: st.revision });
+    expect(again.status).toBe('ok');
+    st = (await ws.state()).draft!;
+    expect(st.focus).toBeNull();
+    expect(st.offers.find((x: Row) => x.group_label === 'Agencies')).toMatchObject({ state: 'offered' });
+  }, T);
+
+  it('Opus 5: a fork\'s first run still knows the people named in the source thread\'s copies, and stores none of them', async () => {
+    const o = await mkOwner('sr8'); const ws = new WS(o);
+    await ws.cycle({ body: nn('cafes and agencies') }, { actions: [newPt(BOX.segments, 'Cafe owners'), newPt(BOX.problem, 'Receipts')], focus: 'Cafe owners', others: [{ group: 'Agencies', why: 'w' }] });
+    const X = await mkOwner('sr8x');
+    await admin.from('chat_messages').insert({
+      conversation_id: ws.conv, author_id: o.u.user.id, kind: 'clarify', thread_root_id: ws.root, forward_author_id: X.u.user.id,
+      forward_snapshot: { author_name: 'Wojciech Brzeczyszczykiewicz', body: nn('SRX words'), created_at: new Date().toISOString() },
+    });
+    const st = await ws.state();
+    const src = await ws.send({ body: nn('source run reading the copy') });
+    expect((await begin(src.run_id)).other_names, 'POSITIVE CONTROL: the source run knows the name').toContain('Wojciech Brzeczyszczykiewicz');
+    await fail(src.run_id, 'x', 0.001);
+    const st2 = await ws.state();
+    const fk = await ok(o.c, 'canvas_draft_fork', { p_draft: ws.draft, p_offer: st.draft.offers[0].id, p_expected_revision: st2.draft.revision, p_client_id: randomUUID() });
+    expect(fk.status, JSON.stringify(fk)).toBe('ok');
+    const fb = await begin(fk.run_id);
+    expect(fb.other_names, 'the fork\'s first run knows it too').toContain('Wojciech Brzeczyszczykiewicz');
+    expect(JSON.stringify([fb.thread, fb.material]), 'and still reads none of the copy').not.toContain('SRX');
+    const stored = JSON.stringify(((await admin.from('canvas_draft_material').select('label, text').eq('draft_id', fk.draft_id)).data ?? []));
+    expect(stored, 'the name is stored nowhere in the fork').not.toContain('Brzeczyszczykiewicz');
+  }, T);
+
+  it('Opus 8: erasing a person deletes the open offers their words produced, and clears the reason of the rest; offers of other runs stay', async () => {
+    const o = await mkOwner('sr10'); const ws = new WS(o);
+    await ws.cycle({ body: nn('cafes') }, { actions: [newPt(BOX.segments, 'Cafe owners'), newPt(BOX.love, 'honesty over speed, because trust')], focus: 'Cafes', others: [{ group: 'Agencies', why: 'before the copy' }] });
+    const X = await mkOwner('sr10x');
+    await admin.from('chat_messages').insert({
+      conversation_id: ws.conv, author_id: o.u.user.id, kind: 'clarify', thread_root_id: ws.root, forward_author_id: X.u.user.id,
+      forward_snapshot: { author_name: 'Erasee', body: nn('ERASEE private words'), created_at: new Date().toISOString() },
+    });
+    const xref = (await admin.rpc('_chat_author_ref', { p_id: X.u.user.id })).data as string;
+    const readRun = async (n: string, group: string) => {
+      const r = await ws.send({ body: nn(n), refs: [BOX.love] });
+      const b = await begin(r.run_id);
+      expect(JSON.stringify(b.thread), 'POSITIVE CONTROL: the run read the copy').toContain('ERASEE private words');
+      expect((await admin.from('canvas_draft_runs').select('derived_refs').eq('id', r.run_id).single()).data!.derived_refs).toContain(xref);
+      await complete(r.run_id, { actions: [newPt(BOX.love, `${n} candour over comfort, because trust`)], others: [{ group, why: `from ${n}` }] });
+      await ws.state();
+    };
+    await readRun('run two', 'Retail');
+    await readRun('run three', 'Wholesale');
+    const offers = ((await ws.state()).draft!.offers as Row[]);
+    expect(offers.map((x) => x.group_label).sort()).toEqual(['Agencies', 'Retail', 'Wholesale']);
+    const wholesale = offers.find((x) => x.group_label === 'Wholesale')!;
+    expect((await ok(o.c, 'canvas_draft_offer_dismiss', { p_draft: ws.draft, p_offer: wholesale.id, p_expected_revision: ws.rev })).status).toBe('ok');
+    const revBefore = (await ws.state()).draft!.revision as number;
+    const erased = await eng('erase_chat_data_for', { p_uid: X.u.user.id });
+    expect(erased).toMatchObject({ canvas_draft_offers_erased: 1, canvas_draft_offer_reasons_cleared: 1 });
+    const rows = ((await admin.from('canvas_draft_offers').select('group_label, state, why').eq('draft_id', ws.draft)).data ?? []) as Row[];
+    expect(rows.map((x) => x.group_label).sort(), 'the open offer of a run that read X is gone').toEqual(['Agencies', 'Wholesale']);
+    expect(rows.find((x) => x.group_label === 'Agencies'), 'an offer of a run that did not read X is untouched').toMatchObject({ state: 'offered', why: 'before the copy' });
+    expect(rows.find((x) => x.group_label === 'Wholesale'), 'a dismissed one keeps its label and loses its reason').toMatchObject({ state: 'dismissed', why: null });
+    expect(((await ws.state()).draft!.revision as number), 'the draft moved, so an open view refetches').toBeGreaterThan(revBefore);
+  }, T);
+});

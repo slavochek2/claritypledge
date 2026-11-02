@@ -102,7 +102,7 @@ describe('S5 defect 2: no second offer for a group the canvas already has', () =
       material: assembleMaterial({ note: 'x', links: [], files: [] }), basePoints: [], baseLabel: null,
       frame: { kind: 'focus', firstDraft: false, taggedBoxes: null, focus: OLD_FOCUS, targetGroup: 'agencies', rebuild: [] },
     }).contents[0]!.parts[0]!.text;
-    expect(t).toMatch(/Leave "other_canvases" and "focus_reason" empty/);
+    expect(t).toMatch(/Leave "other_canvases" empty and leave out "focus_reason"/);   // premise changed (server review, Codex 2): focus_reason has no empty value, so it is left out
   });
   it('a message run drops a group the canvas already holds as an offer, however it is cased or spaced', async () => {
     const h = harness({
@@ -256,6 +256,9 @@ describe('S5 defect 4: the first reply says why the group was chosen (J7, J8)', 
 // ── 5. J9 ───────────────────────────────────────────────────────────────────
 
 describe('S5 defect 5: J9, a later upload about another business', () => {
+  // Premise changed (server review, Gemini 1): the J9 line ("Your new file is also about A. This canvas stays about F.") is no longer built by the engine on ANY path.
+  // The database writes it, from the offers it actually inserted (after its own merge) and the focus in force, so it can never name a group the merge dropped or reworded.
+  // Its wording and every path are pinned in the "server review fixes" block of src/tests/integration/p1536-v6-engine.test.ts. What stays here is what the engine sends to the write.
   const UPLOAD = 'The agencies we talked to want a retainer for bookkeeping. I value honesty over speed, because trust is slow to build.';
   const LOVE_POINT = { action: 'new', box: LOVE, statement: 'I value honesty over speed, because trust is slow to build', quote: 'I value honesty over speed, because trust is slow to build' };
   const base: BasePoint[] = [{ id: 's1', box: SEGMENTS, statement: 'Café owners with one to three shops' }];
@@ -264,36 +267,26 @@ describe('S5 defect 5: J9, a later upload about another business', () => {
     await executeRun(h.deps, h.params, h.run);
     return { h, lines: String(h.done()!.p_reply).split('\n') };
   };
-  it('an upload: "Your new file is also about agencies. This canvas stays about café owners." first, then the update line', async () => {
-    const { lines } = await reply({ input_kind: 'file' } as Partial<CanvasRun>, { other_canvases: [{ group: 'agencies', why: 'The file is about agencies.' }] });
-    expect(lines[0]).toBe('Your new file is also about agencies. This canvas stays about café owners.');
-    expect(lines[1]).toBe('Updated: Guiding values.');
+  it('the engine\'s reply never carries a J9 line, whatever the input kind: it is the update line alone', async () => {
+    for (const input_kind of ['file', 'text', 'voice'] as const) {
+      const { h, lines } = await reply({ input_kind } as Partial<CanvasRun>, { other_canvases: [{ group: 'agencies', why: 'The file is about agencies.' }], note: 'Nothing about other groups here.' });
+      expect(lines, input_kind).toEqual(['Updated: Guiding values.']);
+      expect(h.done()!.p_other_canvases, `${input_kind}: the group goes to the write`).toEqual([{ group: 'agencies', why: 'The file is about agencies.' }]);
+    }
   });
-  it('the engine writes it, whatever the model\'s own note says', async () => {
-    const { lines } = await reply({ input_kind: 'file' } as Partial<CanvasRun>, { other_canvases: [{ group: 'agencies' }], note: 'Nothing about other groups here.' });
-    expect(lines[0]).toMatch(/^Your new file is also about agencies\./);
+  it('two new groups go to the write together', async () => {
+    const { h } = await reply({ input_kind: 'file' } as Partial<CanvasRun>, { other_canvases: [{ group: 'agencies' }, { group: 'freelancers' }] });
+    expect(h.done()!.p_other_canvases).toEqual([{ group: 'agencies', why: '' }, { group: 'freelancers', why: '' }]);
   });
-  it('two new groups are said together', async () => {
-    const { lines } = await reply({ input_kind: 'file' } as Partial<CanvasRun>, { other_canvases: [{ group: 'agencies' }, { group: 'freelancers' }] });
-    expect(lines[0]).toBe('Your new file is also about agencies and freelancers. This canvas stays about café owners.');
-  });
-  it('typed and spoken input say message and voice note, not file', async () => {
-    expect((await reply({ input_kind: 'text' } as Partial<CanvasRun>, { other_canvases: [{ group: 'agencies' }] })).lines[0]).toMatch(/^Your message is also about agencies\./);
-    expect((await reply({ input_kind: 'voice' } as Partial<CanvasRun>, { other_canvases: [{ group: 'agencies' }] })).lines[0]).toMatch(/^Your voice note is also about agencies\./);
-  });
-  it('the offer goes to the write beside the line, and the focus still does not move', async () => {
+  it('the offer goes to the write, and the focus still does not move', async () => {
     const { h } = await reply({ input_kind: 'file' } as Partial<CanvasRun>, { focus: 'agencies', other_canvases: [{ group: 'agencies' }] });
     expect(h.done()!.p_focus).toBeNull();
     expect(h.done()!.p_other_canvases).toEqual([{ group: 'agencies', why: '' }]);
   });
-  it('no line when no group is new: the focus itself, a known offer, or no other group at all', async () => {
-    expect((await reply({ input_kind: 'file' } as Partial<CanvasRun>, { other_canvases: [{ group: 'Café owners' }] })).lines[0]).toBe('Updated: Guiding values.');
-    expect((await reply({ input_kind: 'file', offers: [{ id: 'o', group_label: 'agencies', state: 'started' }] } as Partial<CanvasRun>, { other_canvases: [{ group: 'agencies' }] })).lines[0]).toBe('Updated: Guiding values.');
-    expect((await reply({ input_kind: 'file' } as Partial<CanvasRun>, {})).lines[0]).toBe('Updated: Guiding values.');
-  });
-  it('no line when the offer will not be written: an empty scope changes nothing, including offers', async () => {
-    const { lines } = await reply({ input_kind: 'text' } as Partial<CanvasRun>, { scope: [], actions: [], other_canvases: [{ group: 'agencies' }], note: 'A thanks.' });
-    expect(lines.join('\n')).not.toMatch(/also about/);
+  it('no group is sent when none is new: the focus itself, a known offer, or no other group at all', async () => {
+    expect((await reply({ input_kind: 'file' } as Partial<CanvasRun>, { other_canvases: [{ group: 'Café owners' }] })).h.done()!.p_other_canvases).toEqual([]);
+    expect((await reply({ input_kind: 'file', offers: [{ id: 'o', group_label: 'agencies', state: 'started' }] } as Partial<CanvasRun>, { other_canvases: [{ group: 'agencies' }] })).h.done()!.p_other_canvases).toEqual([]);
+    expect((await reply({ input_kind: 'file' } as Partial<CanvasRun>, {})).h.done()!.p_other_canvases).toEqual([]);
   });
   it('UPLOAD exception (decided 2026-11-03): with an empty scope the offers still go to the write, validated, and the reply carries no J9 line of its own (the database builds it from what it inserted)', async () => {
     const { h, lines } = await reply({ input_kind: 'file', offers: [{ id: 'o', group_label: 'Retail', state: 'offered' }] } as Partial<CanvasRun>,
@@ -314,18 +307,13 @@ describe('S5 defect 5: J9, a later upload about another business', () => {
       expect(h.done()!.p_other_canvases, input_kind).toEqual([]);
     }
   });
-  it('no line past the 3-open-offers cap: the database would add no row, so the reply must not promise one', async () => {
+  it('past the 3-open-offers cap the engine sends no group: the database would add no row', async () => {
     const open = ['a', 'b', 'c'].map((g, i) => ({ id: `o${i}`, group_label: g, state: 'offered' }));
-    const { lines } = await reply({ input_kind: 'file', offers: open } as Partial<CanvasRun>, { other_canvases: [{ group: 'agencies' }] });
-    expect(lines.join('\n')).not.toMatch(/also about/);
+    const { h } = await reply({ input_kind: 'file', offers: open } as Partial<CanvasRun>, { other_canvases: [{ group: 'agencies' }] });
+    expect(h.done()!.p_other_canvases).toEqual([]);
   });
-  it('the line also leads a "nothing changed" reply, and uses the focus in force', async () => {
+  it('a "nothing changed" reply is the sentence alone, whatever the focus', async () => {
     const { lines } = await reply({ input_kind: 'file', focus: 'bakeries' } as Partial<CanvasRun>, { scope: [PROBLEM], actions: [], other_canvases: [{ group: 'agencies' }] });
-    expect(lines[0]).toBe('Your new file is also about agencies. This canvas stays about bakeries.');
-    expect(lines[1]).toMatch(/^Nothing changed on the canvas/);
-  });
-  it('no focus known: the line says only what was found', async () => {
-    const { lines } = await reply({ input_kind: 'file', focus: null } as Partial<CanvasRun>, { other_canvases: [{ group: 'agencies' }] });
-    expect(lines[0]).toBe('Your new file is also about agencies.');
+    expect(lines).toEqual(['Nothing changed on the canvas.']);
   });
 });

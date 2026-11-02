@@ -20,17 +20,20 @@ export function offersToAdd(run: Pick<CanvasRun, 'offers'>, out: Pick<Parsed, 'o
   return out.otherCanvases.slice(0, Math.max(0, MAX_OPEN_OFFERS - open));
 }
 
-/** The reply: "Draft ready", "Updated" or "No box changed", led by the found-line (a first draft, J7, J8) or the also-about line (J9). */
+/**
+ * The reply: "Draft ready", "Updated" or "Nothing changed on the canvas.", led by the found-line of a first draft (J7, J8).
+ *
+ * J9 ("Your new file is also about A. This canvas stays about F.") is NOT built here: the database writes it from the offers it actually inserted and the
+ * focus in force, on every path (scoped or empty scope), so the line can never name a group the merge dropped or reworded (Gemini 1).
+ * A fork's first draft carries no found-line either: the owner chose its group, so there is nothing "found" and no reason to give (Gemini 4); the other groups
+ * the run reports still go to the write as offers.
+ */
 export function draftReplyOf(run: CanvasRun, kind: RunKind, out: Parsed, others: readonly OtherCanvas[], extra: { truncated: boolean; unreadable: string[] }): string {
-  const first = run.first_draft === true || kind === 'fork_first';
-  const groups = others.map((o) => o.group);
+  const first = run.first_draft === true && kind !== 'fork_first';
   return buildDraftReply({
-    outcome: !out.changedBoxes.length ? 'unchanged' : first ? 'draft' : 'updated',
+    outcome: !out.changedBoxes.length ? 'unchanged' : run.first_draft === true || kind === 'fork_first' ? 'draft' : 'updated',
     total: out.total, filledBoxes: 9 - out.emptyBoxes.length, changedBoxes: out.changedBoxes, note: out.note,
-    focus: out.focus ?? run.focus ?? null, focusReason: first ? out.focusReason : null, others: first ? groups : [],
-    // J9: a later message or upload about another business. Built here from what the model reports, never left to the model to write.
-    // an empty-scope upload persists its offers too (J9), but the DATABASE writes its line, from the offers it inserted: this reply never does
-    alsoAbout: !first && kind === 'message' && out.scope.length > 0 && groups.length ? { groups, input: run.input_kind ?? 'text', focus: run.focus ?? null } : undefined,
+    focus: out.focus ?? run.focus ?? null, focusReason: first ? out.focusReason : null, others: first ? others.map((o) => o.group) : [],
     truncated: extra.truncated, unreadable: extra.unreadable, droppedUnverified: out.droppedUnverified, droppedNames: out.droppedNames,
   });
 }

@@ -230,8 +230,9 @@ describe('S1.10 J9: a message run never changes the focus', () => {
     expect(frameInstruction({ ...base, kind: 'message' })).toContain('Return in "scope" only the boxes it is about');
     expect(frameInstruction({ ...base, kind: 'message', firstDraft: true })).toContain('first draft');
     expect(frameInstruction({ ...base, kind: 'message', taggedBoxes: [REVENUE] })).toContain('Offers & Pricing');
-    expect(frameInstruction({ ...base, kind: 'focus', targetGroup: 'agencies', rebuild: CUSTOMER_BOX_TAGS })).toContain('"agencies"');
-    expect(frameInstruction({ ...base, kind: 'fork_first' })).toContain('new canvas about "cafés"');
+    // premise changed (server review, Opus 7 / Codex 1): a stored group label is data, so the instruction points at the data item that holds it instead of quoting it
+    expect(frameInstruction({ ...base, kind: 'focus', targetGroup: 'agencies', rebuild: CUSTOMER_BOX_TAGS })).toContain('"target_group" of the data item "canvas_groups"');
+    expect(frameInstruction({ ...base, kind: 'fork_first' })).toContain('first draft of a new canvas about the "focus" of the data item "canvas_groups"');
     expect(DRAFT_RULES).toContain('The current focus stays');
   });
 });
@@ -722,14 +723,17 @@ describe('review fixes: a box never exceeds its cap, spend is what was made, cha
       expect(all).not.toMatch(/evil|example|www\.|http|@|\]\(|\*\*|<|>/i);
       expect(String(a.p_note).length).toBeLessThanOrEqual(160);
     });
-    it('caps: a group 80, a reason 200, a question 300, the note 160 characters, each cut at the end of a word (S5: never mid-word, so up to one word short)', () => {
+    it('caps: a group and a focus eight words (and 80 characters), a reason 200, a question 300, the note 160 characters, each cut at the end of a word (S5: never mid-word, so up to one word short)', () => {
       const long = 'word '.repeat(200);
       const o = parseDraft(gemini({ scope: [SEGMENTS], focus: long, other_canvases: [{ group: 'group '.repeat(100), why: long }], questions: [{ box: SEGMENTS, question: long }], note: long, actions: [] }),
         { material: assembleMaterial({ messages: ['x'], links: [], files: [] }), basePoints: [], baseLabel: null, otherNames: [], scope: { mode: 'model' } });
       if (!o.ok) throw new Error(o.code);
       const lengths = [o.focus!.length, o.otherCanvases[0]!.group.length, o.otherCanvases[0]!.why.length, o.questions[SEGMENTS]!.length, o.note.length];
       const caps = [80, 80, 200, 300, 160];
-      lengths.forEach((n, i) => { expect(n).toBeLessThanOrEqual(caps[i]!); expect(n).toBeGreaterThan(caps[i]! - 8); }); // one 'word ' or 'group ' short at most
+      // premise changed (server review, Opus 7): a group label and a focus are held to eight words as well (a noun phrase, never a sentence)
+      expect(o.focus!.split(' ')).toHaveLength(8);
+      expect(o.otherCanvases[0]!.group.split(' ')).toHaveLength(8);
+      lengths.forEach((n, i) => { expect(n).toBeLessThanOrEqual(caps[i]!); if (i > 1) expect(n).toBeGreaterThan(caps[i]! - 8); }); // one 'word ' short at most
       for (const s of [o.focus!, o.otherCanvases[0]!.group, o.otherCanvases[0]!.why, o.questions[SEGMENTS]!, o.note]) expect(s.split(' ').every((w) => w === 'word' || w === 'group')).toBe(true);
     });
   });

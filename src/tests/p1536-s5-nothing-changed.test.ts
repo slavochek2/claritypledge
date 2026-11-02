@@ -2,7 +2,9 @@
  * P1536 3c wording table: an update that changed nothing reads "Nothing changed on the canvas. I noted: …" (without the note when there is none).
  * It supersedes "No box changed." in section 2, J11 and S1.13. Two places write it: the engine's reply (canvas-reply.ts) and the database's own fallback
  * when a run completes with no reply (`_canvas_draft_run_complete`, migration 20261103000000). The database behaviour is proved on the test
- * database by src/tests/integration/p1536-v6-engine.test.ts; this pins the SHAPE: the new body is the v6 body with exactly that one literal changed.
+ * database by src/tests/integration/p1536-v6-engine.test.ts; this pins the SHAPE of migration 20261103000000 only: its body is the v6 body with the wording literal and the J9
+ * upload exception changed (the header of that file said "exactly one changed line" before the exception was added; it is superseded by 20261103010000, whose shape is pinned in
+ * src/tests/p1536-sr-migration.test.ts).
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';

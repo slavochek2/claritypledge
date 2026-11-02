@@ -1021,11 +1021,15 @@ describe('P1536 C: a reword keeps the owner\'s existing private stories', () => 
     const defs = definers();
     // The 3c wording file (20261103000000) restates this overload byte for byte, after its 10-argument sibling, so sd-guard-completeness (one body per
     // name per file) keeps seeing the v6 guard: it is the newest definer and the body is v6's, unchanged.
+    // The server review file (20261103010000) restates it once more, byte for byte, for the same reason.
     const WORDING = '20261103000000_p1536_nothing_changed_wording.sql';
-    expect(defs[defs.length - 1]).toBe(WORDING);
-    expect(defs[defs.length - 2]).toBe(V6);
-    expect(defs[defs.length - 3]).toBe(C);
+    const SERVER_REVIEW = '20261103010000_p1536_server_review_fixes.sql';
+    expect(defs[defs.length - 1]).toBe(SERVER_REVIEW);
+    expect(defs[defs.length - 2]).toBe(WORDING);
+    expect(defs[defs.length - 3]).toBe(V6);
+    expect(defs[defs.length - 4]).toBe(C);
     expect(sixArgBody(read(WORDING))).toBe(sixArgBody(read(V6)));
+    expect(sixArgBody(read(SERVER_REVIEW))).toBe(sixArgBody(read(V6)));
     expect(relinksReword(sixArgBody(read(V6)))).toBe(true);
   });
   it('C is B\'s body with exactly one edit: the branch also covers reword (nothing else moved)', () => {

@@ -13,7 +13,7 @@
  * (src/tests/p1536-s2-eval-rules.test.ts) pin what it finds and what it must reject. A lexicon is extended by adding a fixture first.
  */
 
-import { numbersIn } from './canvas-support.ts';
+import { digitsOf, numbersIn } from './canvas-support.ts';
 
 export type SegmentDimension = 'industry' | 'size' | 'demographics' | 'psychographics';
 
@@ -106,9 +106,12 @@ export function isGuidingValueShape(text: string): boolean {
   return /^\s*\S.*\sover\s.+,\s*because\s+\S/i.test(text);
 }
 
-/** The numbers of a text as written, each with its comparison form: thousands commas and a sentence's own trailing comma are not part of a number. */
+/**
+ * The numbers of a text as written, each with its comparison form. "2,500" and "2500" are one number; "1,5" is a decimal comma (1.5), never 15: the key
+ * is the engine's own (digitsOf), so this checker cannot accept a tenfold invention the engine would refuse. A sentence's own trailing comma is not part of a number.
+ */
 function numbersOf(text: string): Array<{ written: string; key: string }> {
-  return (text.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => ({ written: n.replace(/,$/, ''), key: n.replace(/,$/, '').replace(/,/g, '') }));
+  return (text.match(/\d+(?:[.,]\d+)*/g) ?? []).map((n) => ({ written: n, key: digitsOf(n) }));
 }
 
 /** S2.2 rule 3: the numbers in a point that the material does not contain (1000 and 1,000 are one number), in the form the point wrote them. */

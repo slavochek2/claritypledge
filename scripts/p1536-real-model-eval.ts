@@ -148,10 +148,10 @@ async function runJ9(load: (f: string) => Promise<any>, key: string, repeat: num
       usd += Number((d2 ?? f2)?.p_usd ?? (f2 as { p_actual_usd?: number } | undefined)?.p_actual_usd ?? 0);
       const acts = ((d2?.p_actions as Array<{ action: string; box?: string; statement?: string }>) ?? []).filter((a) => a.action !== 'keep');
       const persisted = ((d2?.p_other_canvases as Array<{ group: string }>) ?? []).map((o) => o.group);
-      // The database part is stubbed here: for an upload on an empty scope the migration writes the J9 line from the offers it inserts. This mirrors that line
-      // (the same words) so the first line shown is what the owner would read; the engine's own reply for that run carries no J9 line.
+      // The database part is stubbed here: the migration writes the J9 line, on every path, from the offers it inserts. This mirrors that line
+      // (the same words) so the first line shown is what the owner would read; the engine's own reply never carries a J9 line.
       const joined = persisted.length < 2 ? persisted[0] ?? '' : `${persisted.slice(0, -1).join(', ')} and ${persisted[persisted.length - 1]}`;
-      const dbLine = d2 && ((d2.p_scope as unknown[]) ?? []).length === 0 && persisted.length ? `Your new file is also about ${joined}.${focus ? ` This canvas stays about ${focus}.` : ''}` : '';
+      const dbLine = d2 && persisted.length ? `Your new file is also about ${joined}.${focus ? ` This canvas stays about ${focus}.` : ''}` : '';
       const reply = dbLine ? `${dbLine}\n${String(d2?.p_reply ?? '')}` : String(d2?.p_reply ?? f2?.p_reply ?? '');
       rows.push({
         pair: pair.id, kind: pair.kind, run: n, focus, modelScope: rawSecond?.scope ?? null, modelOthers: rawSecond?.others ?? null, secondDone: !!d2, reported: ((d2?.p_other_canvases as unknown[]) ?? []).length,
@@ -180,14 +180,14 @@ function arg(name: string, fallback?: string): string | undefined {
 }
 
 /** Every value in the prod env file: the explicit EVAL_PROD_ENV_FILE, else the nearest `.env.prod` above the cwd (a worktree sits three levels under the repo root). */
-function prodEnvValues(): string[] {
+function prodEnvValues(): string[] | null {
   const explicit = process.env.EVAL_PROD_ENV_FILE;
-  if (explicit) return existsSync(explicit) ? envFileValues(readFileSync(explicit, 'utf8')) : [];
+  if (explicit) return existsSync(explicit) ? envFileValues(readFileSync(explicit, 'utf8')) : null; // null: none found, which the guard refuses
   for (let dir = process.cwd(), i = 0; i < 6; i++, dir = dirname(dir)) {
     const f = join(dir, '.env.prod');
     if (existsSync(f)) return envFileValues(readFileSync(f, 'utf8'));
   }
-  return [];
+  return null;
 }
 
 async function main(): Promise<void> {

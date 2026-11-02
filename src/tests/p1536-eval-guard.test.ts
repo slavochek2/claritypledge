@@ -28,7 +28,7 @@ describe('refuseNonTest', () => {
   });
   it('CONTROL: allows a test project URL, no URL at all, and a key no prod file holds', () => {
     expect(refuseNonTest({ key: KEY, env: { SUPABASE_URL: TEST_URL }, prodValues: ['other'] })).toBeNull();
-    expect(refuseNonTest({ key: KEY, env: {}, prodValues: [] })).toBeNull();
+    expect(refuseNonTest({ key: KEY, env: {}, prodValues: ['other'] })).toBeNull();   // premise changed (server review, Opus 11): [] is no evidence, see p1536-sr-engine.test.ts
   });
   it('the refusal never contains the key', () => {
     const msg = refuseNonTest({ key: KEY, env: {}, prodValues: [KEY] })!;
