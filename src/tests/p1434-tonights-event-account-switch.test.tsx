@@ -7,7 +7,7 @@
  * whose lookup it answered.
  */
 import { renderHook, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const mockUseAuth = vi.fn();
 vi.mock('@/auth', () => ({ useAuth: () => mockUseAuth() }));
@@ -39,6 +39,10 @@ const eventRow = (slug: string) => ({
 });
 
 describe('P1434: no previous account\'s event in the header', () => {
+// Only Date is pinned: two hours from now crosses into tomorrow late in the event's zone, and then it is not tonight's event (failed 2 hours a day).
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-06-10T10:00:00Z')); });
+afterEach(() => { vi.useRealTimers(); });
+
   beforeEach(() => {
     __resetTonightsEventCacheForTest();
     rsvpFor = { 'user-a': Promise.resolve(eventRow('a-night')) };

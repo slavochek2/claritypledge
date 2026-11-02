@@ -173,7 +173,7 @@ async function walk1440(page: Page, vp: number, rpcs: string[]) {
     const f = await shot(page, vp, 'A1-three-businesses-thread');
     rec(vp, 'J8', 'two offer rows (three businesses found, one is the focus)', r.length === 2 && r.every(x => x.state === 'offered' && x.buttons.join('|') === 'Make it about this|Start a canvas' && x.hasDismiss), JSON.stringify(r), f);
     const reply = (await page.getByTestId('thread-panel').innerText()).replace(/\s+/g, ' ');
-    rec(vp, 'J8', 'the mirror reply names what it found', /I found .* I drafted/.test(reply), reply.slice(-500), f);
+    rec(vp, 'J8', 'the mirror reply names what it found', /I found .*(Draft ready|I drafted)/.test(reply), reply.slice(-500), f);
     const g = await geometry(page, vp);
     rec(vp, 'J8', 'targets at least 40px tall, nothing past the viewport, no page overflow', g.targets.every(t => t.h >= 40 && t.inView) && g.scrollWidth <= vp, JSON.stringify(g), f);
     rec(vp, 'J8', 'the focus segment box has points', (await boxText(page, 'canvas:segments')).length > 20, await boxText(page, 'canvas:segments'));

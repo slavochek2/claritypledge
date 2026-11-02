@@ -9,6 +9,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
         [data-sonner-toaster][data-y-position="top"] {
           top: calc(3.5rem + env(safe-area-inset-top)) !important;
         }
+        /* P1536: below 1280px the canvas owner bar is two rows (about 100px), so a toast at the usual place sits on its Clone and Share and blocks them for its whole time. While that bar
+           is on the page the toaster starts 3.5rem lower, for every toast the page raises. From 1280px the bar is one row and the usual place is clear of it. */
+        @media (max-width: 1279px) {
+          body:has([data-owner-bar]) [data-sonner-toaster][data-y-position="top"] {
+            top: calc(7rem + env(safe-area-inset-top)) !important;
+          }
+        }
       `}</style>
       <Sonner
         theme="light"

@@ -2,7 +2,7 @@
  * @file p1536-s5-toast-offset.test.ts
  * @description P1536 S5 review: the Publish toast that carries "See offer" stays 12 seconds. The shared Toaster puts toasts 3.5rem from the top, which is right for a one-row header
  * and lands ON the two-row canvas bar below 1280px: measured at 375px, the toast (top 56px, bottom 179px) covered Clone and Share, so neither could be tapped while it showed.
- * So the toast carries a class that moves it under the bar at that width only. The real hook; only the database calls and the toast are faked.
+ * The offset is now the Toaster's own rule for every toast on the page (p1536-toast-offset-shared.test.tsx); this file keeps what is specific to the See offer toast. The real hook; only the database calls and the toast are faked.
  */
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
@@ -37,11 +37,15 @@ beforeEach(() => {
   getMessage.mockResolvedValue({ id: 'msg-reply', body: 'Published v2. Your material also covers agencies. I keep the text of your uploads for this until you start it or for 30 days, then delete it.' });
 });
 
-describe('the See offer toast sits under the canvas bar', () => {
-  it('below 1280px it is moved down by the height of the second bar row (a class that applies at that width only)', async () => {
+describe('the See offer toast is placed by the Toaster, not by a class of its own', () => {
+  // The offset below 1280px is the Toaster's rule for every toast on the page (p1536-toast-offset-shared.test.tsx). A per-toast margin on top of it would move this one toast twice as far.
+  it('with an open offer: the long duration and the action, and NO className', async () => {
     publish.mockResolvedValue({ ok: true, seq: 2, skippedLinks: 0, replyMessageId: 'msg-reply', openOffers: 1 });
     await publishOnce();
-    expect(String(toastSuccess.mock.calls[0]![1]?.className)).toContain('max-[1279px]:mt-14');
+    const opts = toastSuccess.mock.calls[0]![1] as Record<string, unknown>;
+    expect(opts.className).toBeUndefined();
+    expect(opts.duration).toBeGreaterThanOrEqual(10_000);
+    expect(opts.action).toBeDefined();
   });
 
   it('a toast with no offer is the plain one it always was (no options)', async () => {

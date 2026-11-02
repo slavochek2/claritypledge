@@ -208,6 +208,24 @@ async function newOwner(browser: Browser, vp: number, height: number, name: stri
   return { user, ctx, page, cur };
 }
 
+/**
+ * V round 1: after Publish the toast can sit on top of the header's Clone button at phone widths, and sonner holds a toast while the pointer is over it. Record whether the toast covers
+ * Clone's centre, then move the pointer away and wait for it to leave, so the walk goes on as a person's second tap would.
+ */
+async function clearPublishToast(page: Page, vp: number, j: string) {
+  const covered = await page.evaluate(() => {
+    const b = document.querySelector<HTMLElement>('[data-testid="canvas-clone"]');
+    if (!b) return null;
+    const r = b.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return !!hit && !!hit.closest('[data-sonner-toast], [data-sonner-toaster]');
+  });
+  const t0 = Date.now();
+  await page.mouse.move(2, 400);
+  await page.locator('[data-sonner-toast]').first().waitFor({ state: 'detached', timeout: 15_000 }).catch(() => undefined);
+  rec(vp, j, 'V1: the Publish toast does not cover the Clone button when it is tapped', covered === false || covered === null, `toast covered Clone's centre at tap time: ${covered}; left ${Date.now() - t0}ms after the pointer moved away`);
+}
+
 async function toCanvasesTab(page: Page) {
   await page.goto('/artifacts');
   await page.getByRole('tab', { name: 'Canvases' }).click();
@@ -648,6 +666,7 @@ async function walk(browser: Browser, vp: number, height: number) {
     const v1Url = new URL(page.url());
     if (!enabled) rec(vp, 'J-W3', 'Clone on published v1 (pending state, x cancels, Clone again)', null, 'NOT REACHED: the Clone button is not rendered (canvas-clone-button.tsx returns null unless the server says drafting is on). The pending-Clone cells (same path + ws=1, the mirror agent line, "New draft", "Nothing to publish yet", nothing written, Cancel) were not exercised.');
     if (enabled) await step(vp, 'J-W3', 'clone', async () => {
+      await clearPublishToast(page, vp, 'J-W3');
       await page.getByTestId('canvas-clone').click();
       await expect.poll(() => new URL(page.url()).searchParams.get('ws'), { timeout: 20_000 }).toBe('1');
       await page.waitForTimeout(1500);
