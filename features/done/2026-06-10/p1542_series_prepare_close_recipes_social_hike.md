@@ -11,6 +11,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 completed_at: 2026-10-29
+superseded_by: p1598
 ---
 
 # P1542: Prepare and close per series, Social Hike as the second recipe, reviews from the close
