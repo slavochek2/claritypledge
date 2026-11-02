@@ -13,11 +13,13 @@ import { DRAFT_TAG_LABEL } from './canvas-draft-tag';
 import { CANVAS_SECONDARY_PILL } from './canvas-pill-styles';
 
 /**
- * What the picker lists for a version: a published one its number and date, the owner's draft its number and "(Draft)". A native <option> holds text only,
+ * What the picker lists for a version: a published one its number, date and origin ("from v1", D8), the owner's draft its number and "(Draft)". A native <option> holds text only,
  * so the draft row says the tag's word in text; the header beside the closed picker draws the real tag component.
  */
 function optionText(v: CanvasVersion, next: number): string {
-  return v.draft ? `v${next} (${DRAFT_TAG_LABEL})` : versionLabelOf(v, next) ?? 'Version';
+  if (v.draft) return `v${next} (${DRAFT_TAG_LABEL})`;
+  const label = versionLabelOf(v, next) ?? 'Version';
+  return v.fromSeq != null ? `${label} · from v${v.fromSeq}` : label; // D8: the origin shows to everyone
 }
 
 /** The pill's own text: just the number of the open version. */

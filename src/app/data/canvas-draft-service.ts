@@ -27,7 +27,7 @@ export type CanvasRunState = 'queued' | 'running' | 'done' | 'undone' | 'failed'
 
 export interface CanvasDraft {
   id: string;
-  /** The draft's own version row (what a published thread's "Start a new version?" starts from). */
+  /** The draft's own version row. */
   versionId: string;
   canvasId: string;
   baseVersionId: string | null;

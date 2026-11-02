@@ -87,6 +87,8 @@ export interface CanvasVersion {
   seq: number | null;
   publishedAt: string | null;
   draft: boolean;
+  /** D8: the published version this one was started from (`get_canvas` gives it to every reader; absent for a first version and for a draft). */
+  fromSeq?: number;
 }
 
 /** The owner's open draft, as `get_canvas` gives it to the owner alone. `questions` is keyed by box tag. */
@@ -137,6 +139,7 @@ function mapVersions(access: Json): CanvasVersion[] {
     seq: typeof v.seq === 'number' ? v.seq : null,
     publishedAt: (v.published_at as string | null) ?? null,
     draft: v.draft === true,
+    fromSeq: typeof v.from_seq === 'number' ? v.from_seq : undefined,
   }));
 }
 

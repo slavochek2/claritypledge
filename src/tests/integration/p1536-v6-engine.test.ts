@@ -2211,3 +2211,226 @@ describe('server review fixes (migration 20261103010000)', () => {
     expect(((await ws.state()).draft!.revision as number), 'the draft moved, so an open view refetches').toBeGreaterThan(revBefore);
   }, T);
 });
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Close-out audit gaps (S1.2, S1.3, S1.8, S3c.3 / S4.5, S4.4, S5.3, A4, A13). Each test says whether it was red first or a coverage gap.
+// ---------------------------------------------------------------------------------------------------------------------------------
+describe('close audit: boxes the first sweep found without a live assertion', () => {
+  /** An owner whose canvas has a PUBLISHED v1 holding the given boxes, and no open draft (ws.draft is empty). */
+  async function publishedBase(label: string, boxes: Record<string, string>) {
+    const o = await mkOwner(label); const ws = new WS(o);
+    await ws.cycle({ body: nn('base') }, { actions: Object.entries(boxes).map(([box, s]) => newPt(box, s)) });
+    const v1name = ws.vname;
+    const first = await ok(o.c, 'canvas_draft_publish', { p_draft: ws.draft, p_expected_revision: ws.rev });
+    expect(first, JSON.stringify(first)).toMatchObject({ status: 'ok', seq: 1 });
+    const v1 = (await admin.from('canvas_versions').select('id').eq('canvas_id', ws.canvas).eq('name', v1name).single()).data as Row;
+    ws.draft = '';
+    return { o, ws, v1id: v1.id as string, v1name, v1ids: await ws.ids() };
+  }
+  const reword = (old: string, box: string, s: string): Row => ({ action: 'reword', old_point_id: old, box, statement: nn(s) });
+
+  it('S1.2 worker calls on a CANCELLED run (erased person) return gone and write nothing', async () => {
+    const o = await mkOwner('s12c'); const ws = new WS(o); const X = await mkOwner('s12cx');
+    await ws.cycle({ body: nn('base') }, { actions: [newPt(BOX.segments, 'a')] });
+    await admin.from('chat_messages').insert({
+      conversation_id: ws.conv, author_id: o.u.user.id, kind: 'clarify', thread_root_id: ws.root, forward_author_id: X.u.user.id,
+      forward_snapshot: { author_name: 'Cancelled Person', body: nn('CANCELLED words'), created_at: new Date().toISOString() },
+    });
+    const r = await ws.send({ body: nn('reads the copy') });
+    expect((await begin(r.run_id)).status).toBe('run');
+    const erased = await eng('erase_chat_data_for', { p_uid: X.u.user.id });
+    expect(erased.canvas_draft_runs_cancelled, JSON.stringify(erased)).toBeGreaterThanOrEqual(1);
+    expect((await ws.runs()).find((x) => x.id === r.run_id)).toMatchObject({ state: 'cancelled' });
+    const pts = await ws.ids(); const msgs = (await ws.msgs()).length;
+    expect(await complete(r.run_id, { actions: [newPt(BOX.problem, 'late')] })).toMatchObject({ status: 'gone', state: 'cancelled' });
+    expect(await begin(r.run_id)).toMatchObject({ status: 'gone' });
+    expect(await addMat({ p_run: r.run_id, p_kind: 'link', p_label: 'l', p_text: 'late text', p_message: null })).toMatchObject({ status: 'gone' });
+    expect(await fail(r.run_id, 'late', 0.002)).toBe(false);
+    expect(await ws.ids(), 'no point written').toEqual(pts);
+    expect((await ws.msgs()).length, 'no reply posted').toBe(msgs);
+    expect((await ws.runs()).find((x) => x.id === r.run_id)).toMatchObject({ state: 'cancelled' });
+    // CONTROL: the owner's next Send is a normal run (the cancelled one no longer blocks); the erase moved the revision, so read it first
+    await ws.state();
+    expect((await ws.send({ body: nn('after') })).status).toBe('ok');
+  }, T);
+
+  it('S1.3 + S1.8 a pending link on another box stays identical through a scoped run; Undo restores the pending links run by run', async () => {
+    const { o, ws, v1id } = await publishedBase('s13l', { [BOX.segments]: 's1', [BOX.problem]: 'p1', [BOX.revenue]: 'r1' });
+    const first = await ws.send({ from: v1id, body: nn('price is 200'), refs: [BOX.revenue] });
+    expect(first.status, JSON.stringify(first)).toBe('ok');
+    await begin(first.run_id);
+    const revOld = (await ws.byBox())[BOX.revenue]![0]!;
+    await complete(first.run_id, { actions: [reword(revOld, BOX.revenue, 'r1 at 200')] });
+    await ws.state();
+    const links1 = (await ws.draftRow()).pending_links as Row[];
+    expect(links1, 'a reword of a base point records one link').toHaveLength(1);
+    expect(links1[0]).toMatchObject({ old: revOld });
+    // a scoped run on ANOTHER box
+    const probOld = (await ws.byBox())[BOX.problem]![0]!;
+    const second = await ws.cycle({ body: nn('problem is rework'), refs: [BOX.problem] }, { actions: [reword(probOld, BOX.problem, 'p1 is rework')] });
+    const links2 = (await ws.draftRow()).pending_links as Row[];
+    expect(links2, 'the new link is added').toHaveLength(2);
+    expect(links2.find((l) => l.old === revOld), 'the link on the other box is identical').toEqual(links1[0]);
+    // a scoped run that changes nothing leaves every link identical
+    await ws.cycle({ body: nn('segments are fine'), refs: [BOX.segments] }, { actions: [] });
+    expect(((await ws.draftRow()).pending_links as Row[]).sort((a, b) => String(a.old).localeCompare(String(b.old))), 'a no-change scoped run touches no link')
+      .toEqual([...links2].sort((a, b) => String(a.old).localeCompare(String(b.old))));
+    // S1.8: Undo, newest first, restores the pending links
+    const undo = async (runId: string) => ok(o.c, 'canvas_draft_undo', { p_draft: ws.draft, p_expected_run: runId, p_expected_revision: (await ws.state()).draft!.revision });
+    const noChange = (await ws.runs()).at(-1)!.id as string;
+    expect((await undo(noChange)).status).toBe('ok');
+    expect((await ws.draftRow()).pending_links, 'undoing the no-change run keeps both links').toHaveLength(2);
+    expect((await undo(second.r.run_id)).status).toBe('ok');
+    expect((await ws.draftRow()).pending_links, 'undoing the problem reword restores exactly the first link').toEqual(links1);
+    expect((await undo(first.run_id)).status).toBe('ok');
+    expect((await ws.draftRow()).pending_links, 'undoing the first reword leaves no link').toEqual([]);
+  }, T);
+
+  it('S3c.3 / S4.5 Start over (p_replace) discards the old draft inside the first Send\'s transaction; a stale revision refuses and writes nothing; a failure after the discard rolls it back', async () => {
+    const { o, ws, v1id, v1ids } = await publishedBase('s45', { [BOX.segments]: 's1', [BOX.revenue]: 'r1' });
+    const s1 = await ws.send({ from: v1id, body: nn('price is 200'), refs: [BOX.revenue] });
+    await begin(s1.run_id);
+    await complete(s1.run_id, { actions: [reword((await ws.byBox())[BOX.revenue]![0]!, BOX.revenue, 'r1 at 200')] });
+    await ws.state();
+    const oldDraft = ws.draft; const oldRev = ws.rev; const oldV = ws.vname;
+    const oldIds = await ws.ids();
+    const base = { canvas: ws.canvas, from: v1id, draft: oldDraft, replace: true, body: nn('start over text'), refs: [BOX.segments] };
+    const snap = async () => ({
+      draft: (await admin.from('canvas_drafts').select('id, state, revision').eq('id', oldDraft).single()).data,
+      open: ((await admin.from('canvas_drafts').select('id').eq('canvas_id', ws.canvas).eq('state', 'open')).data ?? []).map((d) => d.id),
+      ids: await ws.ids(), msgs: (await ws.msgs()).length,
+    });
+    const before = await snap();
+    expect(before.draft).toMatchObject({ state: 'open', revision: oldRev });
+
+    // stale revision: refused, nothing written, the old draft survives
+    refused(await send(o, { ...base, rev: oldRev - 1 }), 'stale_view');
+    expect(await snap()).toEqual(before);
+
+    // a failure AFTER the discard (no version named on a canvas with a published one) raises, and the whole transaction rolls back
+    await expect(send(o, { ...base, from: null, rev: oldRev })).rejects.toThrow(/no draft is open and no version to start from/);
+    expect(await snap(), 'the old draft is still open, its revision and points untouched').toEqual(before);
+
+    // CONTROL: the real Start over succeeds, and the discard happened in that same call
+    const fresh = await send(o, { ...base, rev: oldRev });
+    expect(fresh, JSON.stringify(fresh)).toMatchObject({ status: 'ok', replayed: false });
+    expect(fresh.draft_id).not.toBe(oldDraft);
+    expect((await admin.from('canvas_drafts').select('state').eq('id', oldDraft).single()).data).toMatchObject({ state: 'discarded' });
+    expect(((await admin.from('canvas_drafts').select('id').eq('canvas_id', ws.canvas).eq('state', 'open')).data ?? []).map((d) => d.id)).toEqual([fresh.draft_id]);
+    // the old draft's own points are gone; v1's points are untouched and carry the new draft's tag
+    const leftOld = ((await admin.from('points').select('id').eq('first_validator_id', o.u.user.id).contains('system_tags', [`canvas_${oldV}`])).data ?? []);
+    expect(leftOld, 'nothing is left under the discarded draft\'s tag').toEqual([]);
+    expect(oldIds.some((id) => !v1ids.includes(id)), 'the old draft had a point of its own (the reword)').toBe(true);
+    ws.draft = fresh.draft_id; ws.vname = fresh.version_name; ws.root = fresh.thread_root_id; ws.conv = fresh.conversation_id; ws.rev = fresh.revision;
+    expect(await ws.ids(), 'the new draft starts as v1 again').toEqual(v1ids);
+    expect((await ws.runs()).map((r) => r.state)).toEqual(['queued']);
+    expect((await ws.msgs()).map((m) => m.body)).toEqual([nn('start over text')]);
+  }, T);
+
+  it('S4.4 a first UPLOAD on a published canvas opens the draft from that version, one message, one run, and the file text lands as its material', async () => {
+    const { o, ws, v1id, v1ids } = await publishedBase('s44', { [BOX.segments]: 's1', [BOX.problem]: 'p1' });
+    const up = await ws.send({ from: v1id, att: { kind: 'file', label: 'notes.pdf' } });
+    expect(up, JSON.stringify(up)).toMatchObject({ status: 'ok', replayed: false });
+    expect(await ws.ids(), 'the draft starts as v1').toEqual(v1ids);
+    expect((await ws.state()).draft).toMatchObject({ base_seq: 1, differs_from_base: false });
+    expect((await ws.msgs()).map((m) => m.body)).toEqual(['notes.pdf']);
+    expect((await ws.runs())[0]).toMatchObject({ input_kind: 'file', state: 'queued', scope: null });
+    expect(await begin(up.run_id, false)).toMatchObject({ status: 'not_ready', reason: 'file_missing' });
+    expect(await begin(up.run_id, true)).toMatchObject({ status: 'run', input_kind: 'file', first_draft: false });
+    const m = await addMat({ p_run: up.run_id, p_kind: 'file', p_label: 'notes.pdf', p_text: nn('NOTES: bakeries pay monthly'), p_message: null });
+    expect(m.status, JSON.stringify(m)).toBe('ok');
+    expect((await admin.from('canvas_draft_material').select('message_id, origin').eq('id', m.id).single()).data).toMatchObject({ message_id: (await ws.msgs())[0]!.id, origin: 'message' });
+    const kept = (await ws.byBox())[BOX.segments]![0]!;
+    const done = await complete(up.run_id, { actions: [{ action: 'keep', point_id: kept }, newPt(BOX.segments, 'Bakeries')], scope: [BOX.segments] });
+    expect(done.status, JSON.stringify(done)).toBe('ok');
+    await ws.state();
+    expect((await ws.runs())[0]).toMatchObject({ state: 'done' });
+    expect(await ws.ids(), 'v1\'s points are kept and the new one added').toEqual(expect.arrayContaining(v1ids));
+    expect((await ws.ids()).length).toBe(v1ids.length + 1);
+    // the owner of a published canvas never needed a thread of the canvas's own: the reader's v1 is untouched
+    expect(o.u.user.id).toBeTruthy();
+  }, T);
+
+  it('S5.3 a fork seed carries a voice message\'s transcript; an undone voice message\'s transcript stays out', async () => {
+    const o = await mkOwner('s53v'); const ws = new WS(o);
+    // no model call: this owner has not accepted the terms, so the database-started run is refused and the test drives the stub itself
+    expect((await admin.from('profiles').update({ accepted_terms_version: null }).eq('id', o.u.user.id)).error).toBeNull();
+    await ws.cycle({ body: nn('cafes and agencies') }, { actions: [newPt(BOX.segments, 'Cafe owners'), newPt(BOX.problem, 'Receipts')], focus: 'Cafe owners', others: [{ group: 'Agencies', why: 'w' }] });
+    const offer = (await ws.state()).draft!.offers[0].id as string;
+    const voice = async (ms: number, text: string, end: 'done' | 'undo') => {
+      const v = await ws.send({ att: { kind: 'voice', duration_ms: ms }, refs: end === 'undo' ? [BOX.channels] : null });
+      expect(v.status, JSON.stringify(v)).toBe('ok');
+      const msg = (await ws.msgs()).find((m) => m.audio_duration_ms === ms)!;
+      await eng('chat_voice_finish_transcription', { p_message: msg.id, p_ok: true, p_text: text });
+      expect((await begin(v.run_id)).status).toBe('run');
+      await complete(v.run_id, { actions: end === 'undo' ? [newPt(BOX.channels, 'undone voice point')] : [] , scope: end === 'undo' ? [BOX.channels] : [] });
+      await ws.state();
+      if (end === 'undo') await ok(o.c, 'canvas_draft_undo', { p_draft: ws.draft, p_expected_run: v.run_id, p_expected_revision: ws.rev });
+      return (await ws.state()).draft!;
+    };
+    await voice(3100, nn('GOODVOICE my agencies pay per client'), 'done');
+    const st = await voice(2100, nn('UNDONEVOICE words'), 'undo');
+    const fk = await ok(o.c, 'canvas_draft_fork', { p_draft: ws.draft, p_offer: offer, p_expected_revision: st.revision, p_client_id: randomUUID() });
+    expect(fk.status, JSON.stringify(fk)).toBe('ok');
+    const seed = ((await admin.from('canvas_draft_material').select('text, origin').eq('draft_id', fk.draft_id)).data ?? []) as Row[];
+    const seedText = seed.map((s) => s.text).join('\n');
+    expect(seedText, 'the voice transcript is in the seed').toContain('GOODVOICE my agencies pay per client');
+    expect(seedText, 'CONTROL: an undone voice message is not').not.toContain('UNDONEVOICE');
+    expect(seed.every((s) => s.origin === 'fork_seed')).toBe(true);
+    const fb = await begin(fk.run_id);
+    expect(JSON.stringify([fb.thread, fb.material]), 'the first run of the fork reads it').toContain('GOODVOICE');
+  }, T);
+
+  it('A4 a reader takes a position on a point of a v6-PUBLISHED canvas through the checked function; a draft-only point refuses; the position survives a carried point into v2', async () => {
+    const { o, ws, v1id, v1name } = await publishedBase('a4', { [BOX.segments]: 's1', [BOX.problem]: 'p1' });
+    const reader = await mkOwner('a4r'); const owner = o.u.user.id;
+    const link = await ok(o.c, 'set_canvas_general_access', { p_name: ws.name, p_access: 'link' });
+    const carried = (await ws.byBox())[BOX.segments]![0]!;
+    const setPos = (point: string, position = 'agree') => rpc(reader.c, 'canvas_set_position', { p_owner: owner, p_name: ws.name, p_point: point, p_position: position, p_reasoning: null, p_link_token: link.link_token });
+    const set = await setPos(carried);
+    expect(set.error, JSON.stringify(set.error)).toBeNull();
+    const stored = async (point: string) => ((await admin.from('point_positions').select('position').eq('point_id', point).eq('user_id', reader.u.user.id)).data ?? []);
+    expect(await stored(carried)).toEqual([{ position: 'agree' }]);
+    // the owner reads it, with the reader's name, on v1
+    const own = await ok(o.c, 'get_canvas', { p_owner: owner, p_name: ws.name, p_link_token: null, p_version: v1name });
+    expect((own.positions as Row[]).some((p) => p.point_id === carried && p.user_id === reader.u.user.id)).toBe(true);
+    // a point that exists only in an OPEN DRAFT refuses (A3), and writes nothing
+    const draftSend = await ws.send({ from: v1id, body: nn('add a channel'), refs: [BOX.channels] });
+    await begin(draftSend.run_id);
+    await complete(draftSend.run_id, { actions: [newPt(BOX.channels, 'draft only channel')] });
+    const draftOnly = (await ws.byBox())[BOX.channels]![0]!;
+    const refusedSet = await setPos(draftOnly);
+    expect(refusedSet.error, 'a draft-only point takes no reader position').not.toBeNull();
+    expect(await stored(draftOnly)).toEqual([]);
+    // Publish v2: the carried point keeps its id, and with it the reader's position
+    expect((await ok(o.c, 'canvas_draft_publish', { p_draft: ws.draft, p_expected_revision: (await ws.state()).draft!.revision })).status).toBe('ok');
+    expect(await stored(carried)).toEqual([{ position: 'agree' }]);
+    // and the reader can now take one on the new v2 point
+    expect((await setPos(draftOnly, 'disagree')).error).toBeNull();
+    expect(await stored(draftOnly)).toEqual([{ position: 'disagree' }]);
+  }, T);
+
+  it('A13 a copied event-transcript thread (stub: the typed snapshot of one) names its speakers and its channel to the engine, and stores none of them', async () => {
+    const o = await mkOwner('a13'); const ws = new WS(o);
+    await ws.cycle({ body: nn('base') }, { actions: [newPt(BOX.segments, 'a')] });
+    // STUB: the real event transcript thread needs the live round-table pipeline (P1592/P1596). This is the shape its copy takes in a draft thread.
+    await admin.from('chat_messages').insert({
+      conversation_id: ws.conv, author_id: o.u.user.id, kind: 'clarify', thread_root_id: ws.root,
+      forward_snapshot: {
+        conversation_title: 'Round table 3', conversation_title_ref: 'ref-title-a13',
+        thread: [
+          { author_name: 'Speaker One A13', author_ref: 'ref-one-a13', body: nn('A13 sentence one'), created_at: new Date().toISOString() },
+          { author_name: 'Speaker Two A13', author_ref: 'ref-two-a13', body: nn('A13 sentence two'), created_at: new Date().toISOString() },
+        ],
+      },
+    });
+    const r = await ws.send({ body: nn('draft from the transcript') });
+    const b = await begin(r.run_id);
+    expect(b.status).toBe('run');
+    for (const name of ['Speaker One A13', 'Speaker Two A13', 'Round table 3']) expect(b.other_names, `the engine is told ${name}`).toContain(name);
+    await complete(r.run_id, { actions: [newPt(BOX.problem, 'p')] });
+    const stored = JSON.stringify([(await admin.from('points').select('statement').like('statement', `${TAG}%`).eq('first_validator_id', o.u.user.id)).data,
+      (await admin.from('canvas_draft_material').select('label, text').eq('draft_id', ws.draft)).data]);
+    expect(stored, 'no speaker name is stored in a point or in the material').not.toMatch(/Speaker (One|Two) A13/);
+  }, T);
+});
