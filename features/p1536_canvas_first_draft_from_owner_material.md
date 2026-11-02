@@ -814,6 +814,179 @@ LOW, recorded and not changed: toast over header row 2 at 375; Share absent on a
 
 **Known limitations:** the Q1 detector is a keyword list, proven on labelled fixtures; the real-model eval has not run. The 30-update cap is walked with 30 seeded runs. Hosted TEST was slow enough at times to fail a read; the page shows its load error and Retry.
 
+### 3c. Founder walkthrough 2, 2026-11-02 (binding; supersedes §1, §2, §3, §3b and S3, S3b where it says so)
+
+**Scope ruling (founder, 2026-11-02): P1536 ships whole.** Nothing the spec already decided is postponed. In scope:
+- Add to chat, inline tags and reply chips (D5, J2, S4).
+- Undo (D7).
+- Mixed material: offer rows, focus switch, fork, dismiss, retention (D10, J7 to J10, S5).
+- The design-rule gates (S6).
+- The real-model evals (S2, Q1).
+- Follow-ups INBOX-259, 260, 261 and 263.
+- Everything below.
+
+Only W2 and W10 stay out, as the founder already ruled.
+
+**Every criterion gets a verdict before /ship.** Gate 2.5 counts any unticked box, so each one in §5 and in the older `## Acceptance Criteria` block ends ticked with evidence, or deleted with its replacement named in prose. A box only the founder can settle is settled by the founder, then ticked or deleted. Ticked S3b boxes that 3c makes false (S3b.5, S3b.6, S3b.7) are rewritten or deleted the same way. J-W1 to J-W5 are read through the header table below wherever their text names a removed state.
+
+#### B5. A draft started from a version can start empty (reproduced)
+- **Evidence (hosted TEST, read-only, 2026-11-02):** the founder's `canvas_4` v1 holds 18 points. Its open draft v2 has no run, no message and 0 points. All nine boxes read "Empty" and "Changed", and the spot says "Not published yet" although v1 exists.
+- **Control:** `canvas_5` v2, made by Clone then Send, kept its points and marked only Solution.
+- **Cause (hypothesis, from reading the code; the failing test decides):** `canvas_draft_open(p_from_version)` (`20261029100000`) puts no base points in the draft. v6's `_canvas_draft_new` does, and v6 did not restate the opener.
+- **Still reachable today:** paperclip → Canvases → pick a version (`useCanvasEntry.onPickCanvas` → `useStartCanvas` → `startCanvasThread`, `canvas-draft-calls.ts:272`).
+- **Fix, failing test first:**
+  1. An RPC-level test: opening from a published version with points gives a draft holding those points, with no box Changed.
+  2. A migration keeps the opener's wrapper and JSON response and replaces only its construction with `_canvas_draft_new(uid, canvas_id, base_id, NULL, NULL)`. Regression tests cover: untouched-draft reuse, `open_elsewhere`, authorization, the open-draft cap, zero initial runs, the root attachment, inherited focus, private point identity and legacy public-point copying.
+  3. X3 moves the client off this path.
+- **Existing empty drafts:** prod has none (drafting is unreleased). The founder discards the TEST one.
+
+#### Decisions
+
+**X1. Navigation.** The desktop sidebar becomes Home, Chats, Events, Artifacts, My Profile: the phone bar's destinations plus My Profile. Partners and Groups move under the avatar.
+- The shared entry list stays complete; the sidebar gets its own list of visible ids.
+- `shellMenuOmissions` is passed only those ids, so Groups appears in the avatar menu by itself. Partners has no menu row, so the avatar menu gets one with its badge, as the phone's Me sheet does by hand.
+- The pending-partner-invitation count shows on the avatar, with the count in its accessible name.
+- On `/groups` and `/p/:slug/partners` the avatar shows the active state, since no sidebar entry owns them.
+
+**X2. Chat list +.** Secondary at every width: the blue outline pill's colours on the round button. The list rows are that page's content. Artifacts' New canvas and New letter stay filled.
+
+**X3. + means create, the paperclip means attach.**
+- The owner's mirror chat's main composer gets a + beside the paperclip, while drafting is on, hidden where the paperclip is hidden (`privateTo`). No other composer gets one: not threads, not other chats. Its menu:
+  - **New canvas:** today's opener with no base.
+  - **Clone a version:** pick a version, navigate to it, then run the same `clone()` decision as the Clone button, consumed once the version has loaded. No draft: pending. Same base: opens that draft. Other base with ≥1 message: the J4 sheet. Other base untouched: pending, replaced in the first Send's transaction.
+- The paperclip keeps Points and Stories only. The Attach dialog's Canvases tab goes, and "New canvas" leaves the "…" menu.
+- In a canvas thread, "+ Upload" becomes the paperclip icon, opening the file picker: attaching something to the message, the same meaning as in the mirror chat. D15's status in that spot stays.
+- Letters and points join the + menu in their own specs.
+
+**X4. One rule for the header: the main action is the furthest-right button, filled blue.** Publish on a draft, Share on a published version. The table below is the whole rule; S3c.4 iterates it. Supersedes W4's "Draft or Published is always named", W7's table and "Share is secondary", W6's position and W8's order.
+- Clone, Thread and the version picker use the one named secondary pill. Compare stays where it is.
+- Discard follows design-system rule 5: red text, no box, then the existing confirm. Cancel follows rule 3: ghost.
+- Only Updating… and Publishing… replace the main action. A failed update stays on its message with Try again, and the cap line stays in the composer, both per §2. Publish still shows if its guard passes.
+- The spot's box keeps its width in every state and holds Publish, Share or a status, so nothing beside it moves. Amends S3.3: a button in the Publish and Share states only.
+
+| State | Beside the name | Right side, left to right (last = the spot) |
+|---|---|---|
+| Published, owner, no draft | `[vN ▾]` | Clone, **Share** |
+| Published, owner, draft open, reached by View (no `ws=1`) | `[vN ▾]` | Clone (W3, J4), **Share** |
+| Published, owner, draft open, picked from the picker (`ws=1`) | `[vN ▾]` | Thread*, **Share**; the panel keeps Go to draft |
+| Pending Clone | (New draft) | Thread*, Cancel, empty spot |
+| Never published, no points | (Draft), no picker | Thread*, Discard, empty spot |
+| Never published, with points (also newest run failed, or at the cap) | (Draft), no picker | Thread*, Discard, **Publish** |
+| Draft with a base, no points left, or no difference from base | `[vN ▾]` (Draft) | Thread*, Discard, empty spot |
+| Draft with a base, points and a difference, including newest run failed, or at the cap | `[vN ▾]` (Draft) | Thread*, Discard, **Publish** |
+| Updating or Publishing | (Draft) with no picker if never published; otherwise `[vN ▾]` (Draft). A pending Clone's number and picker appear when its first Send creates the draft | Thread*, status in the spot; no Discard (the RPC refuses `busy`) |
+| At the cap, nothing to publish | (Draft), plus `[vN ▾]` if it has a base | Thread*, empty spot; Start over in the composer only |
+| A run on another canvas (`busy_elsewhere`) | as the draft | Thread*, Discard, **Publish** if this draft has points and differs, else empty spot (both RPCs check only this draft's run: `_canvas_draft_busy_code(..., false)`, v6 engine `:2674`, `:2790`; §2's "idle" wording for Discard is corrected here); the composer says why Send waits |
+| Reader or signed out | `[vN ▾]` published versions only | nothing filled, no W-controls |
+| Drafting off, published, owner | `[vN ▾]` | **Share** |
+| Drafting off, draft, owner | (Draft), plus `[vN ▾]` if it has a base | nothing |
+
+*Thread shows only at ≥1280 while the panel is closed. Bold is the one filled action. Where two rows fit, the more specific wins: "At the cap, nothing to publish" overrides the no-points and no-difference rows, because Start over replaces Discard there.
+
+**X5. Published needs no word.** "Published" and "Published · vN" leave the header for owner and reader: a version with no Draft tag is published. The version sits beside the name. The name belongs to the canvas, and versions are not renamed (D8).
+
+**X6. Draft is a tag.**
+- **(Draft)** is one tag component, visible at a glance, in: the header, the picker's draft row, the mirror-chat card, and a Mine row. A pending Clone uses the same tag reading **New draft**, with no number until the first Send and no picker (Cancel first to read another version).
+- The closed picker shows the number only, never the tag.
+- Share is absent on every draft; the access dialog stays on the published view. "from vN" leaves the header; D8's origin stays in the picker rows.
+- Discard moves to the page header so it is there with the panel closed. Its behaviour stays as W6. Cancel sits in the same place on a pending Clone, as well as the panel's ×, so a closed panel or the Canvas tab never traps the owner.
+- The picker stays on a draft (the founder questioned this): reading v1 is how the owner compares and reaches Share. A version picked from a draft loses the (Draft) tag, and the panel keeps Go to draft.
+
+**X7. Before there is anything to publish, there is no Publish.** [FOUNDER DECISION: hide, or disabled as the founder first suggested. Default: hide, because D3 and rule 9 forbid a disabled Publish and the p955-gate blocks it. Disabled needs a recorded exception.]
+- Publish shows only when the draft has points AND (it has no base, or it differs from its base), and nothing blocks it. The server's `no_changes` and `draft_empty` refusals stay, and both return the spot to empty and re-read.
+- The texts "No changes yet", "Not published yet", "Published · vN" and "Nothing published yet" go; the state distinctions and the settled-read hold stay.
+- Supersedes D3's "a status takes its place" for nothing-to-publish, the §2 spot table's last three rows, S3.3's five states, J1 step 1 and J3 step 2.
+
+**X8. The mirror agent is visibly there.**
+- The panel header becomes the mirror agent's face and name, plus ×. "New draft from v1" and "Draft · v2" leave it.
+- A thread of a draft with a base opens, before and after the first Send, with a line from the mirror agent (face, name): "This is a new draft from v1. Tell me what to change. Readers keep seeing v1 until you publish." It takes the place of the owner-authored "v1 · Published" root card and of "Clone v1. Nothing changes for readers until you publish." Supersedes J3's base card.
+- The line is drawn on screen from the base's number. It is not stored, not given to the model, and not counted as a message.
+- A new canvas keeps its opener and Copy prompt, under the same header.
+
+**X9. Voice notes in every canvas thread: a new path, not a switch.** Flipping `!canvasRoot` alone would post a plain note with no run, so nothing would happen.
+- The round voice button shows on a draft, a pending Clone and a new canvas, as in every other chat. Copy prompt is secondary everywhere (supersedes W7's Copy prompt row).
+- The `chat-voice` commit gets a canvas mode: it validates the stored bytes as today and uses the upload key's id as the client id. `chat-voice` calls the database with the service role and `canvas_workspace_send` reads `auth.uid()`, so this needs a new service-only function that takes the verified caller's id and shares the send's one transaction (no second copy of its logic). It is not callable by users, and a test proves it cannot act for another owner. Transcription then starts as today. Upload receipts and idempotency survive a lost response. A first voice note on a pending Clone creates the draft (S4.4).
+- The run starts when the transcript lands, whether or not the tab is open, by the pattern P1576 uses for mirror replies (decisions.md: the server owns the trigger when it can). A trigger on `transcript_status`: on `done` it calls `canvas-draft`'s begin for the queued run over an internal, service-only authenticated route; on `failed` it settles the run in the database, with no model call and no charge. The URL and secret are provisioned on both TEST servers and in the Pre-deploy Checklist for prod. A dispatch that fails or never arrives is recovered by the existing lease expiry and the client's invoke, which stays as a harmless retry.
+
+**X10. A card says what its thread is.**
+- A card's state comes from the draft whose `thread_root_id` is this message, never from the attached version: a clone's root attaches its BASE, so today a live draft's card reads "v1 · Published". A root with no draft row uses the attached version as today.
+- **Open:** (Draft) tag, `v2`, **Open draft**, going to the workspace. **Published:** `v2 · date` (the version that draft became), **View**, going to `?v=<that version>` with no `ws=1`, even while another draft is open. **Discarded:** says so, no button.
+- Supersedes W4's named state on published cards and W1's "a card's Open lands in workspace mode when a draft is open". The pill look stays (W4, a recorded exception to design rule 4).
+
+**X11. The thread looks like a thread.**
+- A canvas thread root shows the same "N replies" link as every other thread in the chat (`RepliesLink`, now not suppressed for them), hidden at 0.
+- On a draft it opens the workspace with the thread showing (below 1280, the Thread tab).
+- On a published or discarded card it opens the mirror chat's own thread panel, in place: the history, no composer, upload or voice, J11's closed line in their place, and live J10 offer rows. No new state on the canvas page. W0 narrows: only an open draft's thread address redirects; a published or discarded one stays readable here. W0's tests for those two change premise.
+- A root with no resolvable draft shows no link.
+
+**X12. No text where the boxes already say it, and Changed means something.**
+- "Nothing is drafted yet." goes. "You can still change who has access above." goes for everyone. A reader of an empty canvas keeps "This canvas has no points yet."
+- **Changed** means: differs from the version this draft started from. With B5 fixed, a box can only be empty against a base that had points if an update emptied it, and hiding that would hide a removal before Publish. [FOUNDER DECISION: default is that such a box reads Empty with a **Removed** tag; other changed boxes read Changed.] A first canvas shows neither (D6).
+
+**X13. Phone header (<1280).** Supersedes W8's rows.
+- Row 1: `← · name ✎ · [vN ▾] · (Draft)`. Row 2: the switcher, then the table's actions right-aligned, labelled down to 320. Discard is never icon-only.
+- The switcher's active side uses the app's selected look (the Artifacts filter pill's blue outline and tint), so the header keeps one filled button.
+- A pending Clone is two rows: `← · name ✎ · (New draft)`, then the switcher, Cancel, empty spot.
+- A published version picked from a draft (`ws=1`) keeps the switcher, and row 2 adds **Go to draft** before Share, so the way back is on the Canvas tab too. The Thread tab stays the open draft's thread, with today's line above it.
+- Published with nothing being edited has no switcher, so row 2 is `Clone, Share`. The founder asked whether one row would do: build measures name, picker, Clone and Share on one row at 375. If the fixed title shows at least 12 characters there, one row; otherwise two. The result is reported. A reader's header is one row, and so is an owner's with drafting off (`← · name ✎ · [vN ▾] · Share`, or `(Draft)` and nothing). Header height stays equal for owner draft and owner published when both are two rows; S3b.7's rule otherwise goes.
+- A pending Clone (including Start over from the J4 sheet) opens on Thread, because typing is next. Anything that opens an existing draft (Open draft, Clone or Clone a version landing on one, Add to my draft) opens on Canvas, because the owner came to look. Supersedes W1 and S3b.3 here. The line from X8 must stay visible with the phone keyboard up, or the composer does not take focus on landing.
+
+**X14. Artifacts.**
+- Canvases is the first tab and bare `/artifacts`'s default. The default list stays Mine. The Letters tab keeps its unread dot. A person with no canvases sees the existing empty state.
+- Every letter flow that links to bare `/artifacts` today (14 sites: letter results, reading, preview, completion, explain-back, session ended, and the `/letters` redirect) names `?tab=letters`, so finishing a letter still lands on Letters. Only the nav entries stay bare.
+- Rows stay per canvas, and the picker holds the versions. A draft is the next unpublished version, shown under its canvas, so the list keeps the name Drafts.
+- Mine: newest PUBLISHED number, plus the (Draft) tag when one is open (replaces "Draft open"). Drafts: the draft's number, no tag, since the list says it.
+
+**X15. Publish toast.** It is the reply's first line (W1, D17 stand), and with an open offer it carries **See offer**, opening the thread as X11. This withdraws the earlier recommendation of a short fixed toast: the panel closes at Publish, so the toast is the only place the retention sentence is seen without opening anything. A rename goes live to readers at once, and saving says so (wording below).
+
+#### Wording to approve at UAT [FOUNDER DECISION: all of these are defaults, built as written]
+| Where | Default |
+|---|---|
+| + menu | New canvas · Clone a version |
+| Pending tag | New draft |
+| Line from the mirror agent | This is a new draft from v1. Tell me what to change. Readers keep seeing v1 until you publish. |
+| Cards | Open draft · View |
+| Emptied box | Removed |
+| Rename saved | Name updated for everyone. |
+| An update changed nothing (J11; supersedes "No box changed." in §2, J11 and S1.13) | Nothing changed on the canvas. I noted: … (without the note when there is none) |
+| A discarded thread's closed line | This draft was discarded. |
+
+#### V. Visual revision, a stage of this spec (before UAT)
+The founder's complaint was not broken behaviour. It was order, redundancy and buttons in the wrong rank, and the last QA round saw "Published twice" and closed it as LOW because the spec asked for it. So this stage has its own critics, its own control and its own exit.
+
+1. **Image route first (build step 0).** `ask-model-gemini` is text-only today. Add image input to `~/.agents/bin/ask-model` (its own history, outside this repo), keeping served-model verification. Critic A has no text-only fallback.
+2. **Control before trusting a critic.** Both critics get the founder's ten 2026-11-02 screenshots, with the browser chrome cropped off and the annotations masked, and must independently report: Published twice; "New draft from v1" twice; Share on a draft; Changed on Empty; text above empty boxes. A critic that misses one has its prompt changed and re-runs before its verdicts count.
+3. **Shots.** Real browser, real model, TEST fixture accounts only, at 1440, 1280, 1279, 1024, 768, 390, 375 and 320, with the resize verified. Every row of the header table, plus: failed run; read-only thread; panel closed; Canvas and Thread tabs; phone keyboard open; the + menu; Add to chat with tags; reply chips; Undo; offer rows; J4 sheet; Discard confirm; open picker; stance control (D20); rename; cards (draft, published, discarded); Artifacts tabs and rows; sidebar and avatar menu; chat list.
+4. **Critic A: Gemini Argon on the images. Critic B: a separate visual-QA subagent** with the screenshots and `.claude/rules/visual-qa.md`, never the diff. Both are asked, per screen:
+   - What is the one main action? Name every other filled element. Only the send slot may be one.
+   - For each element: what would be lost if it were removed?
+   - Does the same fact appear in the header, the panel and the card?
+   - Is the order what a person needs first, next, last?
+   - Is draft or published clear within a second?
+   - Does the same thing look and read the same on every screen, on desktop and phone?
+   - Does each button's label say where it goes?
+   - Touch targets ≥44px; no element jumps between states; the fixed title's visible length against the baseline.
+5. **Exit.** The critic assigns severity and the builder may not lower it. Every finding is FIXED or goes to the founder with one line on why not; "the spec asks for it" escalates, it does not close, and any redundancy finding goes to the founder at any severity. After fixes, re-shoot and re-critique the changed screens. The stage ends when a round has no open HIGH or MEDIUM.
+
+#### Build order (each X gets its own failing test first)
+0. The image route and the V control. A baseline table: one fixed title, font and zoom, visible characters and a screenshot per width, committed before the header changes.
+1. B5.
+2. X9 voice.
+3. X10 and X11 (card read by thread).
+4. S6.1's rule 9 and the gate changes, then X4 to X8 and X12, X13, X15.
+5. X3, X14, X1, X2.
+6. Undo (D7, client; the server's `canvas_draft_undo` exists).
+7. S4: Add to chat, tags, chips.
+8. S5: offers, switch, fork, dismiss, publish reply (the server functions exist).
+9. The rest of S6, with S6.5's phases changed to X7's states.
+10. Follow-ups 259, 261 and 263, then the real-model evals (S2, Q1 as INBOX-260, S5.1).
+11. A verdict for every box.
+12. J and J-W walks, then stage V, then the founder's UAT.
+
+**S6.1's rule 9 becomes** [FOUNDER DECISION: wording, already pending in the design system]: "A button's look changes only when its meaning changes. Typing changes only the composer's Send. A page's single main action in a top bar (Publish, Share) is filled, auto width, furthest right, and may sit beside a filled Send; everything else in that bar is the secondary pill or rule 5. When an action is waiting, a status takes its spot. When there is nothing to act on, it is absent and its space is kept. Never disabled." Rule 6's Share icon stays for cards.
+
+**Tests that change premise here** (each noted in its commit): the W7 table test, the state-tag and spot tests, the Discard position, S3b.3's card and phone Clone cells, the Attach dialog's Canvases tab, W0's published and discarded cases, the Artifacts default tab, and the walkthrough spec's spot text.
+
 ### 4. Box definitions and Copy prompt (S2)
 
 The v4 definitions below, with these fixes from review:
@@ -1019,6 +1192,22 @@ earlier ones"; schema order `focus, other_canvases, scope, actions, questions`.
   - segments missing the role, or carrying fewer than two other dimensions, fail;
   - complete ones pass.
 - [x] **S3b.11** Before UAT: a table of J-W1 to J-W5 × {1440, 375} with pass/fail and a screenshot path per cell; the visual-QA subagent's findings with a disposition for each; and `<received> of <spawned>`.
+
+#### S3c Founder walkthrough 2 (§3c)
+- [ ] **S3c.1 (B5)** The RPC test fails before the fix and passes after. A draft opened from a version with points holds them and shows no Changed. Each regression case in B5 has a test. Control: a new canvas with no base is still empty.
+- [ ] **S3c.2 (X1, X2)** Sidebar entries and order as X1 at ≥1024, expanded and collapsed. Partners and Groups appear after opening the avatar menu; both pages show the avatar active. A pending invitation shows on the avatar, with the count in its accessible name. The phone bar and Me sheet are unchanged. The chat-list + has the secondary look at 1440 and 375.
+- [ ] **S3c.3 (X3)** The + shows beside the paperclip on the mirror's main composer at 1440, 375 and 320 with no overflow, and on no thread or other chat. New canvas lands as J-W1. Clone a version has one test each for: no draft, same-base draft, other base touched (J4 sheet), other base untouched (replaced only in the first Send's transaction, with stale revision recovery). Tap then cancel writes nothing (table compare as S3b.4). The paperclip dialog has no Canvases tab, the "…" menu has no New canvas, and a canvas thread's upload is the paperclip.
+- [ ] **S3c.4 (X4 to X7)** A render test iterates every row of the header table, asserting items, order and which one is filled. The spot's box staying put across rows is checked in Playwright. Publish cases: points and a difference shows it; all points removed does not; failed newest run with a difference does; at the cap with a difference does; draft A with a run active on draft B does. `no_changes` and `draft_empty` return an empty spot. Share never renders on a draft. "No changes yet", "Not published yet", "Published · vN", "Nothing published yet" and "from vN" do not render in the header. The p955-gate passes.
+- [ ] **S3c.5 (X8)** The panel header shows the mirror's face and name. The line shows on a pending Clone and after first Send, with no root card in the panel. After cancel and after first Send, `chat_messages` holds no such row.
+- [ ] **S3c.6 (X9)** The voice button shows on a draft, a pending Clone and a new canvas; Copy prompt renders secondary. A first voice note creates exactly one draft, thread, message, run and transcription, including after a lost response and on concurrent commits. Invalid or missing audio is refused and writes nothing. A control where a note posts with no run fails the test. The new function refuses a call that is not the service role, and cannot act for another owner. The run begins only after the transcript is done, with the tab closed as well. A failed transcript fails the run with no model call and no charge, also with the tab closed. A failed dispatch recovers. Walked once with a real recording on hosted TEST.
+- [ ] **S3c.7 (X10)** Fixture: Clone v1, Send. The card reads (Draft) v2 and Open draft opens the workspace. After Publish it reads v2 and View opens v2 with no `ws=1`, also while another draft is open. Two threads cloned from one base, one discarded and one published, each show their own state. A root with no draft row uses the attached version.
+- [ ] **S3c.8 (X11)** "N replies" shows on a canvas root with replies, singular at 1, hidden at 0. A draft's opens the workspace thread. A published or discarded one opens the chat's own panel in place with no composer, upload or voice, the closed line, and working offer rows. An open draft's old address still redirects; a published or discarded one's stays readable. Another viewer gets the existing unavailable state.
+- [ ] **S3c.9 (X12)** The removed sentences do not render; a reader of an empty canvas sees "This canvas has no points yet." An update that empties a box the base had shows Empty and Removed; a changed box with points shows Changed; a first canvas shows neither.
+- [ ] **S3c.10 (X13)** At 375 and 320: rows as X13 (including a pending Clone and a version picked from a draft, whose row 2 has Go to draft), no overflow, Discard labelled, the switcher's active side in the selected look, and equal height for owner draft and published when both are two rows ±1px. The one-row measurement is reported. A reader's header is one row. A pending Clone opens on Thread with the line visible (WebKit shot with the keyboard state); landing on an existing draft opens on Canvas. The fixed title shows no fewer characters than step 0's baseline at any width, and rename stays reachable.
+- [ ] **S3c.11 (X14)** Bare `/artifacts` opens Canvases > Mine; `?tab=letters` opens Letters. A grep finds no letter page linking to bare `/artifacts`; `/letters` and back from letter results land on Letters. Mine and Drafts rows read as X14.
+- [ ] **S3c.12 (X15, wording)** The Publish toast is the reply's first line. With an offer, the retention sentence is visible without opening anything and See offer opens the thread. Saving a rename shows its line. Each row of the wording table renders as written.
+- [ ] **S3c.13 (V)** The control's results for both critics; the state × viewport table; both critics' findings with the critic's severity and a disposition each; proof Gemini received images (served model, image count, and that it reported things only visible in them); `<received> of <spawned>`.
+- [ ] **S3c.14 (scope)** Gate 2.5 passes: no unticked box remains in the spec, and every deleted one has its replacement named in prose.
 
 #### S4 Add to chat tags
 - [ ] **S4.1** The owner sees Add to chat (≥44px) on nine boxes, on draft and published. A viewer and a signed-out visitor see none.
