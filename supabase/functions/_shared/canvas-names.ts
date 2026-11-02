@@ -74,7 +74,8 @@ function midSentenceNames(text: string): string[] {
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const TOKEN_RE = /[\p{L}][\p{L}'’-]*/gu;
-const NAME = `\\p{Lu}[\\p{L}'’-]*`;
+/** A capitalised name is at most 40 characters: unbounded, `[\\p{L}'’-]*` swallows a whole line of hyphens or apostrophes from every start, which is quadratic on a hostile upload. */
+const NAME = `\\p{Lu}[\\p{L}'’-]{0,39}`;
 /** "Anna:", "Anna Schmidt:", "Anna from Café Luna", "Anna's": the three shapes a person is introduced in a message. */
 const INTRO_RES = [
   new RegExp(`(?<![\\p{L}\\p{N}])(${NAME}(?:[ \\t]+${NAME})?)[ \\t]*:`, 'gu'),

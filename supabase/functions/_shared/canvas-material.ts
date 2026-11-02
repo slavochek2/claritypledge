@@ -33,11 +33,56 @@ const MIN_LINK_TEXT_CHARS = 20;
 
 // ── Links ───────────────────────────────────────────────────────────────────
 
+const RAW_TEXT_TAGS = ['script', 'style', 'noscript', 'template'] as const;
+
+/** The raw-text element that opens at `at` (`<script`, any case), or null. */
+function rawTextTagAt(html: string, at: number): (typeof RAW_TEXT_TAGS)[number] | null {
+  for (const name of RAW_TEXT_TAGS) if (html.slice(at + 1, at + 1 + name.length).toLowerCase() === name) return name;
+  return null;
+}
+
+/** Where the closer `</name  >` of a raw-text element ends (the index after its `>`), searching from `from`; -1 when there is none. */
+function rawTextCloseEnd(html: string, name: string, from: number): number {
+  for (let at = html.indexOf('</', from); at >= 0; at = html.indexOf('</', at + 2)) {
+    if (html.slice(at + 2, at + 2 + name.length).toLowerCase() !== name) continue;
+    let k = at + 2 + name.length;
+    while (k < html.length && /\s/.test(html.charAt(k))) k++;
+    if (html[k] === '>') return k + 1;
+  }
+  return -1;
+}
+
+/**
+ * The visible text of a page: raw-text elements (script, style, noscript, template), comments and tags dropped, the common entities decoded. ONE left-to-right scan
+ * with indexOf, never a regular expression over the body: `<[^>]*>` and `<!--[\s\S]*?-->` retry from every `<` that has no closer, which is quadratic on a hostile page
+ * of a few hundred KB and holds the function in one synchronous call that no deadline can interrupt. Here every search that fails is remembered, so each `<` costs a
+ * bounded amount and the whole scan is linear in the page.
+ */
 export function htmlToText(html: string): string {
-  return html
-    .replace(/<(script|style|noscript|template)[\s\S]*?<\/\1\s*>/gi, ' ')
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<[^>]*>/g, ' ')
+  const parts: string[] = [];
+  const noCloser = new Set<string>();
+  const lastGt = html.lastIndexOf('>');
+  let noComment = false;
+  let i = 0;
+  while (i < html.length) {
+    const lt = html.indexOf('<', i);
+    if (lt < 0 || lt > lastGt) { parts.push(html.slice(i)); break; }   // no `>` is left: nothing after `i` can be a tag, a comment or a raw-text element
+    parts.push(html.slice(i, lt));
+    if (!noComment && html.startsWith('<!--', lt)) {
+      const end = html.indexOf('-->', lt + 4);
+      if (end >= 0) { parts.push(' '); i = end + 3; continue; }
+      noComment = true;
+    }
+    const raw = rawTextTagAt(html, lt);
+    if (raw && !noCloser.has(raw)) {
+      const end = rawTextCloseEnd(html, raw, lt + 1);
+      if (end >= 0) { parts.push(' '); i = end; continue; }
+      noCloser.add(raw);
+    }
+    parts.push(' ');
+    i = html.indexOf('>', lt + 1) + 1;
+  }
+  return parts.join('')
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
     .replace(/\s+/g, ' ').trim();
 }
@@ -49,7 +94,9 @@ export function extractUrls(text: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
   for (const m of text.matchAll(URL_FIND)) {
-    let u = m[0].replace(/[.,;:!?)\]}]+$/, '');
+    let end = m[0].length;
+    while (end > 0 && '.,;:!?)]}'.includes(m[0].charAt(end - 1))) end--;   // trailing punctuation, one backward scan (a regex here retries from every start of a long run)
+    let u = m[0].slice(0, end);
     if (/^www\./i.test(u)) u = `https://${u}`;
     if (u.length > 2000 || seen.has(u)) continue;
     seen.add(u);
