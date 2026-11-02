@@ -55,15 +55,16 @@ describe('S3.8: Changed marks (D6), owner draft views only', () => {
   const boxes = new Map();
   const marks = (changed?: readonly string[]) => {
     render(<CanvasGrid boxes={boxes} renderCard={() => null} onMore={() => undefined} changed={changed} />);
-    return screen.queryAllByTestId('canvas-box-changed').map(el => el.closest('section')!.getAttribute('data-testid'));
+    // 3c X12 (premise change): this grid holds no points, so a listed box is one an update EMPTIED and reads Removed; the same marks, one tag each.
+    return [...screen.queryAllByTestId('canvas-box-changed'), ...screen.queryAllByTestId('canvas-box-removed')].map(el => el.closest('section')!.getAttribute('data-testid'));
   };
 
   it('marks exactly the boxes the read lists, and nothing else', () => {
     expect(marks(['canvas:problem', 'canvas:revenue'])).toEqual(['canvas-box-canvas:problem', 'canvas-box-canvas:revenue']);
     cleanup();
     const view = render(<CanvasGrid boxes={boxes} renderCard={() => null} onMore={() => undefined} changed={['canvas:problem']} />);
-    expect(within(view.getByTestId('canvas-box-canvas:problem')).getByTestId('canvas-box-changed')).toHaveTextContent('Changed');
-    expect(within(view.getByTestId('canvas-box-canvas:love')).queryByTestId('canvas-box-changed')).toBeNull();
+    expect(within(view.getByTestId('canvas-box-canvas:problem')).getByTestId('canvas-box-removed')).toHaveTextContent('Removed');
+    expect(within(view.getByTestId('canvas-box-canvas:love')).queryByTestId('canvas-box-removed')).toBeNull();
   });
 
   it('CONTROLS: no list (published version, a reader), an empty list (a draft with no base, or undone back to the base) show no mark', () => {

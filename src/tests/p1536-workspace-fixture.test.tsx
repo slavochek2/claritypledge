@@ -20,7 +20,7 @@ const at = (phase: string) => {
 afterEach(() => cleanup());
 
 describe('the workspace fixture shows what the app shows', () => {
-  it.each(['canvas', 'chat-composing', 'busy', 'published', 'no-changes'])('%s: the canvas name is in the owner\'s bar (W8, supersedes V3); the canvas pane carries no title, byline or "Clarity Canvas" label', (phase) => {
+  it.each(['canvas', 'chat-composing', 'busy', 'published', 'nothing-to-publish'])('%s: the canvas name is in the owner\'s bar (W8, supersedes V3); the canvas pane carries no title, byline or "Clarity Canvas" label', (phase) => {
     const view = within(at(phase));
     expect(within(view.getByTestId('workspace-bar')).getByTestId('canvas-title')).toHaveTextContent('Example canvas');
     const pane = view.getByTestId('workspace-canvas-pane');
@@ -29,14 +29,16 @@ describe('the workspace fixture shows what the app shows', () => {
     expect(pane).not.toHaveTextContent('Clarity Canvas');
   });
 
-  it.each([['canvas', 1], ['chat-composing', 1], ['busy', 1], ['published', 0], ['no-changes', 0]])('%s: %i "Changed" mark(s); a draft with no changes, and a published version, have none (V6, V7)', (phase, marks) => {
+  it.each([['canvas', 1], ['chat-composing', 1], ['busy', 1], ['published', 0], ['nothing-to-publish', 0]])('%s: %i "Changed" mark(s); a draft with no changes, and a published version, have none (V6, V7)', (phase, marks) => {
     expect(within(at(phase)).queryAllByTestId('canvas-box-changed')).toHaveLength(marks);
   });
 
-  it('no-changes says "No changes yet" and published says "Published · v3", neither with a mark', () => {
-    expect(within(at('no-changes')).getByTestId('publish-spot-status')).toHaveTextContent('No changes yet');
+  it('nothing-to-publish says "Nothing to publish yet" and published (a version picked from the draft) has Share in the spot, neither with a mark (3c X7/X4, premise change: "No changes yet" and "Published · v3" are gone)', () => {
+    expect(within(at('nothing-to-publish')).getByTestId('publish-spot-status')).toHaveTextContent('Nothing to publish yet');
     cleanup();
-    expect(within(at('published')).getByTestId('publish-spot-status')).toHaveTextContent('Published · v3');
+    const published = within(at('published'));
+    expect(published.getByTestId('publish-spot')).toHaveAttribute('data-state', 'share');
+    expect(published.queryByTestId('publish-spot-status')).toBeNull();
   });
 
   it('chat-composing opens on Chat with text typed in, so Send is visible (V4, V5); the other phases open on Canvas with the mic', () => {

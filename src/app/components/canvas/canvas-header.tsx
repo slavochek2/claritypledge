@@ -3,7 +3,7 @@
  * @description The canvas page's own header (R10, P1515, P1545, P1536). For a READER (and any page mounted outside the owner's route): the canvas's
  * name as the title, then the byline (whose it is and which version: a menu with several), then, on a row of their own, Compare, and under them the one
  * line that says what the viewer is looking at: a reader's "Shared with you through ...", or "Nothing published yet". The byline holds no buttons, so a
- * long name never competes with one (S3.6). There is no "Clarity Canvas" label (W8). A reader sees published versions only and no Draft state.
+ * long name never competes with one (S3.6). There is no "Clarity Canvas" label (W8). A reader sees published versions only and no Draft state; the version sits beside the name with no word for "published" (X5).
  * For the OWNER, inside the route element (W8): the name, version, state, Share and Clone live in the owner's bar (canvas-owner-bar), drawn above
  * the page; this header then keeps only Compare and the status lines. A draft has no Compare (it has no positions); its Publish lives in the bar's spot.
  */
@@ -17,8 +17,8 @@ import { SharedIcon } from './canvas-audience';
 import { ComparePicker } from './canvas-compare-picker';
 import { CloneButton } from './canvas-clone-button';
 import { useCanvasWorkspace } from './canvas-workspace-context';
-import { CanvasStateTag } from './canvas-state-tag';
 import { CanvasVersionSlot } from './canvas-version-switcher';
+import { headerRow } from './canvas-header-model';
 import { isViewingDraft, type CanvasPerson, type CanvasReady } from './canvas-page-data';
 
 interface CanvasHeaderProps {
@@ -40,7 +40,7 @@ interface CanvasHeaderProps {
 export function CanvasHeader(props: CanvasHeaderProps) {
   const { ready, failed, handle, projectTag, ownerIsAgent, identityPending, compare, sharedLabel, onParams, onChanged } = props;
   const viewingDraft = !!ready && isViewingDraft(ready);
-  const { cloneSeq, ownerBar } = useCanvasWorkspace();
+  const { ownerBar } = useCanvasWorkspace();
   // Nobody to compare with and (for the owner's route) Share and Clone in the bar: the row would hold nothing, and an empty-but-present row
   // keeps this header's bottom margin alive as a band above the first heading (the header hides itself only when it has no child at all).
   const hasActions = !!compare.base && compare.others.length > 0 || (!ownerBar && !!ready?.isOwner && !ready.publishedNone);
@@ -59,9 +59,8 @@ export function CanvasHeader(props: CanvasHeaderProps) {
             ) : (
               !failed && <CanvasOwnerSkeleton />
             )}
-            {ready && <CanvasVersionSlot ready={ready} viewingDraft={viewingDraft} onPick={v => onParams({ v, point: null, box: null }, true, false)} />}
-            {/* W4: Draft or Published is always named next to the version; a pending Clone (W3) names what it will make. */}
-            {ready && <CanvasStateTag ready={ready} cloneSeq={cloneSeq} />}
+            {/* X5/X6: the version sits beside the name; no word for "published" (a version with no Draft tag is published). A reader of this header sees published versions only. */}
+            {ready && <CanvasVersionSlot ready={ready} show={headerRow({ owner: false, drafting: false, onScreen: 'published', hasPublished: ready.versions.some(v => !v.draft && v.seq !== null), hasBase: false, workspace: false, draftOpen: false, spot: 'nothing', busy: false, atCap: false, threadButton: false, goToDraft: false }).picker} onPick={v => onParams({ v, point: null, box: null }, true, false)} />}
           </div>
           {/* P1515: Share sits immediately right of Compare, in a row of its own under the byline. */}
           {actions}
@@ -140,7 +139,7 @@ function personSharedNothing(ready: CanvasReady): boolean {
   return ready.publishedNone && !isViewingDraft(ready) && ready.via?.kind === 'person';
 }
 
-/** The lines under the title row: how the viewer reaches this canvas, a draft with nothing in it, or why the canvas is empty. */
+/** The lines under the title row: how the viewer reaches this canvas, why the canvas is empty. */
 function CanvasStatusLines({ ready, sharedLabel, viewingDraft }: {
   ready: CanvasReady;
   sharedLabel: string | null;
@@ -170,18 +169,15 @@ function CanvasStatusLines({ ready, sharedLabel, viewingDraft }: {
           </span>
         </p>
       )}
-      {viewingDraft && ready.points.length === 0 && (
-        <p className="text-sm text-muted-foreground" data-testid="canvas-draft-empty">Nothing is drafted yet.</p>
-      )}
       {ready.publishedNone && !viewingDraft && (
         <p className="text-sm text-muted-foreground" data-testid="canvas-nothing-published">
           {ready.isOwner ? 'Nothing published yet' : `${ready.ownerName} hasn't published this canvas yet.`}
         </p>
       )}
       {!ready.publishedNone && ready.points.length === 0 && (
-        // The owner of a canvas that has a record but no current points: the share control above still works.
+        // A published version with no points (X12: the sentence about access is gone for everyone; the boxes say the rest).
         <p className="text-sm text-muted-foreground" data-testid="canvas-empty-owner">
-          This canvas has no points yet. You can still change who has access above.
+          This canvas has no points yet.
         </p>
       )}
     </>

@@ -1,12 +1,13 @@
 /**
- * P955 gate fixture (P1536 S3, S6.5, W7, W8): the canvas workspace's frame (the owner's bar with ←, name ✎, version, state, Share, Clone, the
- * Canvas | Thread switch and the Publish spot, the two panes) built from the REAL parts the route element uses: CanvasOwnerBar,
+ * P955 gate fixture (P1536 S3, S6.5, W7, W8, 3c X4): the canvas workspace's frame (the owner's bar with ←, name ✎, version, the (Draft) tag, the table's
+ * items, the Canvas | Thread switch and the spot, the two panes) built from the REAL parts the route element uses: CanvasOwnerBar,
  * CanvasWorkspaceLayout, CanvasPublishSpot, CanvasHeader (the in-page rest of the header), CanvasGrid, CanvasCard, the opener and the real Composer. The canvas and the chat history are fake. A 3.5rem
  * strip stands in for the shell's top bar, so the frame sits where it sits in the app. PERMANENT RENDER SUBSTRATE, never pruned.
  * Obviously fake data only.
- * ?phase=canvas | chat-composing (opens on Chat, with text typed in) | busy | published (no Changed marks) | no-changes (none either)
- *   | published-header (a published view with nothing being edited: the owner's bar above the page, no workspace) | panel-closed (the thread
- *   panel closed: Canvas on screen) | new-canvas (an empty new canvas on Thread: the opener's Copy prompt is the one primary)
+ * ?phase=canvas | chat-composing (opens on Chat, with text typed in) | busy | published (a published version picked from the open draft: Thread, Share)
+ *   | nothing-to-publish (a draft with a base and no difference: the status in the spot) | published-header (a published view with nothing being
+ *   edited: the owner's bar above the page, no workspace: Clone, Share) | panel-closed (the thread panel closed: Canvas on screen)
+ *   | new-canvas (an empty new canvas on Thread: the opener's Copy prompt) | pending-clone (a Clone pending: (New draft), Cancel, the status)
  * Not yet here (their screens are built by S4 and S5): the J4 sheet, the mixed reply and the J10 publish reply.
  */
 import { useEffect, useState } from 'react';
@@ -15,12 +16,13 @@ import { CanvasCard } from '@/app/components/canvas/canvas-card';
 import { CanvasGrid } from '@/app/components/canvas/canvas-grid';
 import { CanvasHeader } from '@/app/components/canvas/canvas-header';
 import { CanvasOwnerBar } from '@/app/components/canvas/canvas-owner-bar';
+import { CANVAS_CANCEL_TEXT } from '@/app/components/canvas/canvas-pill-styles';
 import { CanvasWorkspaceContext, type CanvasWorkspaceValue } from '@/app/components/canvas/canvas-workspace-context';
 import { CanvasThreadOpener } from '@/app/pages/chat/CanvasOpener';
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
-import { CanvasPublishSpot } from '@/app/components/canvas/canvas-publish-spot';
 import type { PublishSpotState } from '@/app/components/canvas/canvas-publish-spot-state';
 import { CanvasWorkspaceLayout, type WorkspaceView } from '@/app/components/canvas/canvas-workspace-layout';
+import { DiscardDraftButton } from '@/app/pages/canvas/discard-draft-button';
 import { stashDraft } from '@/app/pages/chat/chat-hooks';
 import { Composer } from '@/app/pages/chat/Composer';
 import { resetCanvasAvailability, seedCanvasAvailability } from '@/app/pages/chat/use-canvas-availability';
@@ -39,27 +41,31 @@ const POINTS = [
   point('point-id-3', 'canvas:revenue', 'Example bet: a cafe pays a fixed monthly fee (fake data).'),
 ];
 
-interface Phase { spot: PublishSpotState; changed: string[] | undefined; view: WorkspaceView; typed: boolean; published: boolean; active: boolean; panelOpen: boolean; empty: boolean }
-const DRAFT = { spot: { kind: 'publish' } as PublishSpotState, changed: ['canvas:problem'], view: 'canvas' as WorkspaceView, typed: false, published: false, active: true, panelOpen: true, empty: false };
+type OnScreen = 'draft' | 'published' | 'pending';
+interface Phase { spot: PublishSpotState; changed: string[] | undefined; view: WorkspaceView; typed: boolean; onScreen: OnScreen; active: boolean; panelOpen: boolean; empty: boolean; draftOpen: boolean; baseSeq: number | null }
+const DRAFT: Phase = { spot: { kind: 'publish' }, changed: ['canvas:problem'], view: 'canvas', typed: false, onScreen: 'draft', active: true, panelOpen: true, empty: false, draftOpen: true, baseSeq: 1 };
 const PHASES: Record<string, Phase> = {
   canvas: DRAFT,
   'chat-composing': { ...DRAFT, view: 'chat', typed: true },
   busy: { ...DRAFT, spot: { kind: 'updating' } },
-  published: { ...DRAFT, spot: { kind: 'published', seq: 3 }, changed: undefined, published: true },
-  'no-changes': { ...DRAFT, spot: { kind: 'no-changes' }, changed: [] },
-  'published-header': { ...DRAFT, spot: { kind: 'published', seq: 3 }, changed: undefined, published: true, active: false },
+  published: { ...DRAFT, spot: { kind: 'nothing' }, changed: undefined, onScreen: 'published' },
+  'nothing-to-publish': { ...DRAFT, spot: { kind: 'nothing' }, changed: [] },
+  'published-header': { ...DRAFT, spot: { kind: 'nothing' }, changed: undefined, onScreen: 'published', active: false, draftOpen: false },
   'panel-closed': { ...DRAFT, panelOpen: false },
-  'new-canvas': { ...DRAFT, spot: { kind: 'not-published' }, changed: [], view: 'chat', empty: true },
+  'new-canvas': { ...DRAFT, spot: { kind: 'nothing' }, changed: [], view: 'chat', empty: true, baseSeq: null },
+  'pending-clone': { ...DRAFT, spot: { kind: 'nothing' }, changed: undefined, view: 'chat', onScreen: 'pending', draftOpen: false },
 };
 
 const V1 = { name: 'canvas_d111111', createdAt: NOW, seq: 1, publishedAt: NOW, draft: false };
 const DRAFT_VERSION = { name: 'canvas_dabc123', createdAt: NOW, seq: null, publishedAt: null, draft: true };
-const DRAFT_BLOCK = { id: 'draft-id-1234', version: 'canvas_dabc123', threadRootId: 'thread-root-id-1234', conversationId: 'conversation-id-1234', baseSeq: 1, runCount: 1, revision: 1, questions: {}, changedBoxes: ['canvas:problem'] };
-const readyFor = (published: boolean, empty: boolean): CanvasReady => ({
-  status: 'ready', ownerId: 'user-id-1234', ownerName: 'Test Owner', owner: { name: 'Test Owner', hasPledged: false }, points: empty ? [] : POINTS, stories: new Map(), positions: new Map(),
+const draftBlock = (baseSeq: number | null, changed: string[]) => ({ id: 'draft-id-1234', version: 'canvas_dabc123', threadRootId: 'thread-root-id-1234', conversationId: 'conversation-id-1234', baseSeq, runCount: 1, revision: 1, questions: {}, changedBoxes: changed });
+const readyFor = (c: Phase): CanvasReady => ({
+  status: 'ready', ownerId: 'user-id-1234', ownerName: 'Test Owner', owner: { name: 'Test Owner', hasPledged: false }, points: c.empty ? [] : POINTS, stories: new Map(), positions: new Map(),
   canvasId: 'canvas-id-1234', title: null,
-  visibility: 'private', isOwner: true, generalAccess: 'restricted', via: null, audience: [], addedStoryIds: [], publishedNone: false,
-  ...(published ? { version: V1.name, versions: [V1], draft: null } : { version: DRAFT_VERSION.name, versions: [DRAFT_VERSION, V1], draft: DRAFT_BLOCK }),
+  visibility: 'private', isOwner: true, generalAccess: 'restricted', via: null, audience: [], addedStoryIds: [], publishedNone: c.baseSeq === null && c.onScreen === 'draft',
+  ...(c.onScreen === 'draft'
+    ? { version: DRAFT_VERSION.name, versions: c.baseSeq === null ? [DRAFT_VERSION] : [DRAFT_VERSION, V1], draft: draftBlock(c.baseSeq, c.changed ?? []) }
+    : { version: V1.name, versions: c.draftOpen ? [DRAFT_VERSION, V1] : [V1], draft: c.draftOpen ? draftBlock(1, ['canvas:problem']) : null }),
 });
 
 /** A thread's worth of fake messages, so the chat pane has a history above the real composer. */
@@ -85,12 +91,12 @@ export function GateFixture() {
     if (config.typed) stashDraft(draftKey, 'Make the problem sharper for cafes (fake text)');
   });
   useEffect(() => resetCanvasAvailability, []);
-  const ready = readyFor(config.published, config.empty);
+  const ready = readyFor(config);
   const boxes = groupPointsByBox(config.empty ? [] : POINTS);
   // The route element's context, as the owner's page sees it: the bar is the header (ownerBar) and Clone is handed over. Copy prompt is the
   // secondary pill everywhere (3c X9), so the context carries nothing about it.
   const workspace: CanvasWorkspaceValue = {
-    active: config.active, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: () => undefined, cloneSeq: null, ownerBar: true,
+    active: config.active, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: () => undefined, cloneSeq: config.onScreen === 'pending' ? 1 : null, ownerBar: true,
   };
   return (
     <CanvasWorkspaceContext.Provider value={workspace}>
@@ -108,7 +114,9 @@ export function GateFixture() {
             <CanvasOwnerBar
               ready={ready} handle="test-owner" projectTag="example_canvas" title="Example canvas" canRename onRename={() => undefined} onPick={() => undefined}
               onChanged={() => undefined} onBack={() => undefined} active={config.active} view={view} onView={setView} panelOpen={config.panelOpen}
-              onOpenPanel={() => undefined} spot={<CanvasPublishSpot state={config.spot} onPublish={() => undefined} />}
+              onOpenPanel={() => undefined} spotState={config.spot} onPublish={() => undefined} onGoToDraft={() => undefined}
+              discard={<DiscardDraftButton ready={ready} ownerSlug="test-owner" canvasName="example_canvas" />}
+              cancel={<button type="button" className={CANVAS_CANCEL_TEXT} data-testid="canvas-cancel-clone">Cancel</button>}
             />
           }
           canvas={

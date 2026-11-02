@@ -2,7 +2,7 @@
  * @file p1536-pending-unified.test.tsx
  * @description P1536 §3b item 0 (W1 + W3): ONE pending state. W1: "`?ws=1` ... is on exactly while the owner is editing: a draft is open,
  * or a Clone is pending." So `ws=1` on a published version with no open draft IS the pending Clone, whatever entered it: the Clone tap, a
- * reload of that address, or Add to chat. All three render identically (the Clone line, "New draft from vN", the "No changes yet" spot,
+ * reload of that address, or Add to chat. All three render identically (the mirror agent line, the "New draft" tag, the "Nothing to publish yet" spot,
  * no Discard, a live composer) and write nothing. The old J3 words ("Talk about any box...") and the "Published" spot are gone under ws=1.
  * The REAL route element, canvas page, thread panel and composer; only the database and the chat transport are faked.
  */
@@ -196,13 +196,14 @@ const grid = () => screen.findByTestId('canvas-grid');
 const clone = () => screen.getByTestId('canvas-clone');
 
 const PUB = '/p/ana/canvas/canvas?ws=1';
-const CLONE_LINE = 'Clone v1. Nothing changes for readers until you publish.';
+// 3c X8 (premise change): the pending Clone opens with the mirror agent's line, not "Clone v1. Nothing changes for readers until you publish."
+const CLONE_LINE = 'This is a new draft from v1. Tell me what to change. Readers keep seeing v1 until you publish.';
 
 /** What the owner sees of the pending state, as plain data, so the three entries can be compared for equality. */
 function pendingFacts() {
   return {
-    line: screen.getByTestId('workspace-chat-empty').textContent,
-    state: screen.getByTestId('canvas-clone-state').textContent,
+    line: screen.getByTestId('agent-line').textContent?.replace(/^.*?(This is a new draft)/, '$1'),
+    state: screen.getByTestId('canvas-state').textContent,
     spot: screen.getByTestId('publish-spot').textContent,
     spotState: screen.getByTestId('publish-spot').getAttribute('data-state'),
     discard: screen.queryByTestId('canvas-discard') !== null,
@@ -234,10 +235,10 @@ const ENTRIES: Array<[string, () => Promise<void>]> = [
 ];
 
 describe('item 0: the three entries are one state', () => {
-  it.each(ENTRIES)('%s: the Clone line, "New draft from v1", "No changes yet", no Discard, a live composer, nothing written', async (_name, enter) => {
+  it.each(ENTRIES)('%s: the mirror agent line, the "New draft" tag, "Nothing to publish yet", no Discard, a live composer, nothing written', async (_name, enter) => {
     await enter();
     expect(pendingFacts()).toEqual({
-      line: CLONE_LINE, state: 'New draft from v1', spot: 'No changes yet', spotState: 'no-changes', discard: false, cloneButton: false, composer: true, ws: '1',
+      line: CLONE_LINE, state: 'New draft', spot: 'Nothing to publish yet', spotState: 'nothing', discard: false, cloneButton: false, composer: true, ws: '1',
     });
     expect(writeRpcs()).toEqual([]);
     expect(edgeWrites()).toEqual([]);
@@ -279,15 +280,19 @@ describe('item 0: leaving the pending state (any entry) writes nothing', () => {
     expect(edgeWrites()).toEqual([]);
   });
 
-  it('the bare ws=1 entry: switching to another version cancels it, like a tapped Clone does', async () => {
+  it('the bare ws=1 entry: Cancel leaves it (3c X6, premise change: a pending Clone has no picker, so "Cancel first to read another version"); the picker is back on the published view and reads the other version with no ws=1', async () => {
     st.hasV2 = true;
     mount('/p/ana/canvas/canvas?v=canvas_d222222&ws=1');
     await grid();
     await screen.findByTestId('workspace-chat-empty');
-    expect(screen.getByTestId('workspace-chat-empty')).toHaveTextContent('Clone v2.');
-    fireEvent.change(screen.getByTestId('canvas-version-select'), { target: { value: 'canvas_d111111' } });
+    expect(screen.getByTestId('agent-line')).toHaveTextContent('This is a new draft from v2.');
+    expect(screen.queryByTestId('canvas-version-picker')).toBeNull(); // no picker while it is pending
+    fireEvent.click(screen.getByTestId('canvas-cancel-clone'));
     await waitFor(() => expect(screen.getByTestId('ws')).toHaveTextContent('none'));
     expect(screen.queryByTestId('workspace-chat-pane')).toBeNull();
+    fireEvent.change(await screen.findByTestId('canvas-version-select'), { target: { value: 'canvas_d111111' } });
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('v=canvas_d111111'));
+    expect(screen.getByTestId('ws')).toHaveTextContent('none');
     expect(writeRpcs()).toEqual([]);
   });
 
@@ -306,7 +311,7 @@ describe('item 0: leaving the pending state (any entry) writes nothing', () => {
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(`v=${DRAFT_NAME}`));
     expect(screen.getByTestId('ws')).toHaveTextContent('1');
     expect(await screen.findByTestId('thread-panel')).toBeInTheDocument();
-    expect(screen.queryByTestId('canvas-clone-state')).toBeNull(); // a draft now: the header says Draft
+    expect(screen.queryByTestId('canvas-clone-state')).toBeNull(); // a draft now: the header says Draft (the pending tag read "New draft")
     expect(screen.getByTestId('canvas-state')).toHaveTextContent('Draft');
   });
 });
@@ -317,7 +322,7 @@ describe('item 0: CONTROLS', () => {
     await grid();
     await screen.findByTestId('canvas-clone');
     expect(screen.queryByTestId('workspace-chat-empty')).toBeNull();
-    expect(screen.queryByTestId('canvas-clone-state')).toBeNull();
+    expect(screen.queryByTestId('canvas-state')).toBeNull(); // no tag at all on a published version (3c X5)
     expect(screen.queryByTestId('workspace-chat-pane')).toBeNull();
   });
 
@@ -329,6 +334,6 @@ describe('item 0: CONTROLS', () => {
     await grid();
     expect(await screen.findByTestId('workspace-draft-line')).toBeInTheDocument();
     expect(screen.queryByTestId('workspace-chat-empty')).toBeNull();
-    expect(screen.queryByTestId('canvas-clone-state')).toBeNull();
+    expect(screen.queryByTestId('canvas-state')).toBeNull(); // published, not pending
   });
 });

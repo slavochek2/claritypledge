@@ -1,10 +1,10 @@
 /**
  * @file p1536-w8-header.test.tsx
  * @description P1536 §3b W8 (S3b.7) and S3b.9: the owner's ONE header for a draft, a pending Clone and a published version, and the reader header.
- *  - ≥1280, one line: ← · name ✎ · [vN ▾] · state · Share · Clone (published) · Thread (panel closed) · Publish spot.
- *    <1280, row 1: ← · name ✎ · [vN ▾] · state · Publish spot; row 2: the Canvas | Thread switcher · Share · Clone.
- *  - no "Clarity Canvas" label; Share is labelled at every width (B4); the name truncates first; the Publish spot is one box in all five states.
- *  - the same markup for a draft and a published version (height equal), and a published owner view HAS the bar (spot "Published · vN", Clone, no panel).
+ *  - 3c X4/X13 rewrote the layout cases (each says so): ≥1280, one line: ← · name ✎ · [vN ▾] · (Draft) · the items (Clone, Thread, Discard) · the spot (Share, Publish or a status).
+ *    <1280, row 1: ← · name ✎ · [vN ▾] · (Draft); row 2: the Canvas | Thread switcher, then the items and the spot, right-aligned.
+ *  - no "Clarity Canvas" label; Share is labelled at every width (B4); the name truncates first; the Publish spot is one box in every state.
+ *  - the same markup for a draft and a published version (height equal), and a published owner view HAS the bar (Share in the spot, Clone, no panel).
  *  - S3b.9: a shared reader, an attendee on another's canvas and a signed-out visitor get the reader header: no ✎, Clone, Discard, Thread, switcher, Draft
  *    state or Publish spot, and their picker lists published versions only.
  * jsdom has no layout: the pixel checks (no horizontal overflow at 1440 / 375 / 320, header height equal ±1px, the spot's bounding box ±1px) belong to the browser walkthrough.
@@ -186,7 +186,7 @@ import { CanvasPublishSpot } from '@/app/components/canvas/canvas-publish-spot';
 import { SPOT_BOX, type PublishSpotState } from '@/app/components/canvas/canvas-publish-spot-state';
 import { isBottomNavHiddenRoute } from '@/app/components/layout/bottom-nav-routes';
 import { ARTIFACTS_CANVASES_MINE } from '@/app/pages/artifacts/legacy-redirect-targets';
-import { lacksSecondaryPill } from './p1536-pill-assert';
+import { lacksMainAction } from './p1536-pill-assert';
 
 const bar = () => screen.getByTestId('workspace-bar');
 /** The bar's parts by what they hold: its direct children, and those of row 1 (its own non-wrapping row below 1280px, `contents` from it). */
@@ -197,7 +197,7 @@ const part = (testid: string) => {
   return node;
 };
 const PARTS: Array<[string, string]> = [
-  ['back', 'workspace-back'], ['name', 'canvas-name'], ['version', 'canvas-project-slot'], ['state', 'canvas-state'], ['spot', 'publish-spot'],
+  ['back', 'workspace-back'], ['name', 'canvas-name'], ['version', 'canvas-project-slot'], ['state', 'canvas-state'],
   ['switcher', 'workspace-view-switch'], ['actions', 'canvas-bar-actions'],
 ];
 /** `order-N` at a width: 'xl' reads `xl:order-*` first. last = Infinity. */
@@ -227,51 +227,62 @@ const draftOpen = () => { st.hasV2 = false; st.openDraft = draftBlock({ baseSeq:
 const ready = async () => { await grid(); await screen.findByTestId('thread-panel'); };
 
 describe('S3b.7: the owner\'s header, draft and published', () => {
-  it('a draft at 1280+: ← · name ✎ · [v2 ▾] · Draft · Share · the Publish spot, on one line; no Clone, no Thread button (the panel is open)', async () => {
+  /** The bar's right side, left to right: the testids of its items, then the spot's state (the spot is the last child). */
+  const right = () => {
+    const actions = part('canvas-bar-actions')!;
+    const spot = within(actions as HTMLElement).queryByTestId('publish-spot');
+    expect(spot ? actions.lastElementChild!.contains(spot) : true).toBe(true); // the spot is the furthest right
+    return [...actions.querySelectorAll('[data-testid]')].map(e => e.getAttribute('data-testid')!).filter(id => ['canvas-clone', 'workspace-thread-button', 'canvas-discard', 'canvas-cancel-clone', 'publish-spot'].includes(id));
+  };
+
+  it('a draft at 1280+ (3c X4, premise change): ← · name ✎ · [v2 ▾] · (Draft) · Discard · the spot (Publish), on one line; no Share, no Clone, no Thread button (the panel is open)', async () => {
     draftOpen();
     mount(DRAFT_AT);
     await ready();
-    expect(layout('xl')).toEqual([['back', 'name', 'version', 'state', 'actions', 'spot']]);
+    expect(layout('xl')).toEqual([['back', 'name', 'version', 'state', 'actions']]);
+    expect(right()).toEqual(['canvas-discard', 'publish-spot']);
     expect(screen.getByTestId('canvas-title')).toHaveTextContent('Canvas');
     expect(screen.getByTestId('canvas-rename')).toBeInTheDocument();
     expect(screen.getByTestId('canvas-state')).toHaveTextContent('Draft');
     expect(within(bar()).getByTestId('canvas-version-select')).toHaveValue(DRAFT_NAME);
-    expect(within(bar()).getByTestId('canvas-share-control')).toBeInTheDocument();
+    expect(screen.queryByTestId('canvas-share-control')).toBeNull(); // Share is never on a draft
     expect(screen.queryByTestId('canvas-clone')).toBeNull();
     expect(screen.queryByTestId('workspace-thread-button')).toBeNull();
   });
 
-  it('a draft below 1280: row 1 ← · name ✎ · [v2 ▾] · Draft · spot; row 2 the Canvas | Thread switcher · Share', async () => {
+  it('a draft below 1280 (3c X13, premise change): row 1 ← · name ✎ · [v2 ▾] · (Draft); row 2 the Canvas | Thread switcher · Discard · Publish', async () => {
     stubWidth(false);
     draftOpen();
     mount(DRAFT_AT);
     await grid();
     await screen.findByTestId('canvas-title');
-    expect(layout('base')).toEqual([['back', 'name', 'version', 'state', 'spot'], ['switcher', 'actions']]);
-    expect(within(bar()).getByTestId('canvas-share-control')).toBeInTheDocument();
+    expect(layout('base')).toEqual([['back', 'name', 'version', 'state'], ['switcher', 'actions']]);
+    expect(right()).toEqual(['canvas-discard', 'publish-spot']);
   });
 
-  it('a published version at 1280+: ← · name ✎ · Published · Share · Clone · the spot "Published · v1"; no switcher, no Thread button, no panel', async () => {
+  it('a published version at 1280+ (3c X4/X5, premise change): ← · name ✎ · [v1 ▾] · Clone · Share (the spot); no tag, no "Published"; no switcher, no Thread button, no panel', async () => {
     mount('/p/ana/canvas/canvas');
     await grid();
     await screen.findByTestId('canvas-clone');
-    expect(layout('xl')).toEqual([['back', 'name', 'state', 'actions', 'spot']]);
-    expect(screen.getByTestId('canvas-state')).toHaveTextContent('Published');
-    expect(screen.getByTestId('publish-spot-status')).toHaveTextContent('Published · v1');
-    expect(within(bar()).getByTestId('canvas-clone')).toBeInTheDocument();
+    expect(layout('xl')).toEqual([['back', 'name', 'version', 'actions']]);
+    expect(right()).toEqual(['canvas-clone', 'publish-spot']);
+    expect(screen.getByTestId('publish-spot')).toHaveAttribute('data-state', 'share');
+    expect(screen.queryByTestId('canvas-state')).toBeNull();
+    expect(bar()).not.toHaveTextContent('Published');
     for (const id of ['workspace-view-switch', 'workspace-thread-button', 'workspace-chat-pane', 'canvas-workspace']) expect(screen.queryByTestId(id), id).toBeNull();
     expect(screen.queryByText('Clarity Canvas')).toBeNull();
   });
 
-  it('a published version below 1280: row 1 ← · name ✎ · spot; row 2 Share · Clone (no switcher outside the workspace)', async () => {
+  it('a published version below 1280 (3c X13, premise change): row 1 ← · name ✎ · [v1 ▾]; row 2 Clone · Share (no switcher outside the workspace)', async () => {
     stubWidth(false);
     mount('/p/ana/canvas/canvas');
     await grid();
     await screen.findByTestId('canvas-clone');
-    expect(layout('base')).toEqual([['back', 'name', 'state', 'spot'], ['actions']]);
+    expect(layout('base')).toEqual([['back', 'name', 'version'], ['actions']]);
+    expect(right()).toEqual(['canvas-clone', 'publish-spot']);
   });
 
-  it('the panel closed (1280+): the Thread button sits between Clone/Share and the spot, in the header, and only there', async () => {
+  it('the panel closed (1280+): the Thread button leads the right side in the header, and only there', async () => {
     draftOpen();
     mount(DRAFT_AT);
     await ready();
@@ -279,9 +290,8 @@ describe('S3b.7: the owner\'s header, draft and published', () => {
     const thread = screen.getByTestId('workspace-thread-button');
     expect(bar().contains(thread)).toBe(true);
     expect(part('canvas-bar-actions')!.contains(thread)).toBe(true);
-    expect(thread.className).toContain('xl:inline-flex'); // gone below 1280, where the switcher is
-    expect(thread.className).toContain('hidden');
-    expect(layout('xl')).toEqual([['back', 'name', 'version', 'state', 'actions', 'spot']]);
+    expect(right()).toEqual(['workspace-thread-button', 'canvas-discard', 'publish-spot']);
+    expect(layout('xl')).toEqual([['back', 'name', 'version', 'state', 'actions']]);
   });
 
   it('no "Clarity Canvas" label anywhere, on a draft or a published version', async () => {
@@ -308,7 +318,7 @@ describe('S3b.7: the owner\'s header, draft and published', () => {
     for (let el: Element | null = word; el && el !== share.parentElement; el = el.parentElement) {
       expect(el.className, el.tagName).not.toMatch(/\bhidden\b|max-sm:hidden|sm:hidden|sr-only/);
     }
-    expect(lacksSecondaryPill(share)).toEqual([]);
+    expect(lacksMainAction(share)).toEqual([]); // 3c X4 (premise change): Share is the filled main action of a published version
   });
 
   it('the name truncates first: it takes the free width and shrinks; every other part keeps its size', async () => {
@@ -319,7 +329,8 @@ describe('S3b.7: the owner\'s header, draft and published', () => {
     expect(name.className).toMatch(/\bmin-w-0\b/);
     expect(name.className).toMatch(/\bflex-1\b/);
     expect(screen.getByTestId('canvas-title').className).toContain('truncate');
-    for (const id of ['canvas-project-slot', 'publish-spot', 'workspace-back']) expect(part(id)!.className, id).toMatch(/\bshrink-0\b/);
+    for (const id of ['canvas-project-slot', 'workspace-back']) expect(part(id)!.className, id).toMatch(/\bshrink-0\b/);
+    expect(screen.getByTestId('publish-spot').className).toMatch(/\bshrink-0\b/); // the spot's own fixed box (it is on row 2 below 1280px)
     expect(screen.getByTestId('canvas-state').className).toContain('shrink-0');
   });
 
@@ -363,13 +374,11 @@ describe('S3b.7: the owner\'s header, draft and published', () => {
   });
 });
 
-describe('S3.3 / S3b.7: the Publish spot is one box in all five states, and a button only in Publish (never disabled)', () => {
+describe('S3.3 / S3b.7 / 3c X7: the Publish spot is one box in all its states, and a button only in Publish (never disabled)', () => {
   const STATES: Array<[string, PublishSpotState, boolean]> = [
     ['Updating…', { kind: 'updating' }, false],
     ['Publish', { kind: 'publish' }, true],
-    ['No changes yet', { kind: 'no-changes' }, false],
-    ['Published · v3', { kind: 'published', seq: 3 }, false],
-    ['Not published yet', { kind: 'not-published' }, false],
+    ['Nothing to publish yet', { kind: 'nothing' }, false],
   ];
   it.each(STATES)('%s: the same footprint (SPOT_BOX), a <button> only in Publish, never disabled', (text, state, isButton) => {
     render(<CanvasPublishSpot state={state} onPublish={() => undefined} />);
@@ -378,18 +387,19 @@ describe('S3.3 / S3b.7: the Publish spot is one box in all five states, and a bu
     expect(document.querySelectorAll('button[disabled], [aria-disabled="true"]')).toHaveLength(0);
     expect(screen.getByTestId('publish-spot')).toHaveTextContent(text);
   });
-  it('and the route puts the same box in the header for a draft (Publish) and a published version (Published · v1)', async () => {
+  it('and the route puts the same box in the header for a draft (Publish) and a published version (Share): furthest right in both', async () => {
     draftOpen();
     mount(DRAFT_AT);
     await ready();
     expect(screen.getByTestId('publish-spot').className).toBe(SPOT_BOX);
+    expect(part('canvas-bar-actions')!.lastElementChild!.contains(screen.getByTestId('publish-spot'))).toBe(true);
     cleanup();
     st.openDraft = null; st.draftRow = null;
     mount('/p/ana/canvas/canvas');
     await grid();
     await screen.findByTestId('canvas-clone');
     expect(screen.getByTestId('publish-spot').className).toBe(SPOT_BOX);
-    expect(part('publish-spot')).toBe(bar().querySelector('[data-testid="workspace-bar-row1"] > .shrink-0.order-4'));
+    expect(part('canvas-bar-actions')!.lastElementChild!.contains(screen.getByTestId('publish-spot'))).toBe(true);
   });
 });
 

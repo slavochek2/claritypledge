@@ -1,8 +1,8 @@
 /**
  * @file p1536-w6-discard.test.tsx
- * @description P1536 §3b W6 (S3b.6, Discard bullet): Discard draft in the thread panel's header, beside the draft's state. The REAL route element,
+ * @description P1536 §3b W6 (S3b.6, Discard bullet), as 3c X4/X6 moved it: Discard draft in the PAGE header (so it is there with the panel closed), red text with no box (design-system rule 5). The REAL route element,
  * canvas page, thread panel and composer (only the database and the chat's message transport are faked):
- *  - a secondary pill with destructive text, in the panel header; absent in the pending (unwritten) Clone state
+ *  - red text with no box, in the page header, with the panel open or closed; absent in the pending (unwritten) Clone state (Cancel is there)
  *  - behind the confirm dialog; Cancel calls nothing; Discard calls the CHECKED discard with the draft's id and the revision the screen holds
  *  - a draft from vN lands on vN (published view: no ws=1, REPLACE); a never-published canvas lands on Artifacts > Canvases
  *  - stale_view re-reads the revision (the next press carries it); busy says the draft is being written
@@ -83,7 +83,7 @@ import { resetCanvasThreads } from '@/app/pages/chat/canvas-thread-registry';
 import { resetUnresolvedFirstSends } from '@/app/pages/canvas/workspace-next-draft';
 import { clearLinkTokens } from '@/lib/canvas-link-token';
 import { clearListReturnCache } from '@/lib/list-return-cache';
-import { lacksPillShape } from './p1536-pill-assert';
+import { hasBox, lacksDiscardText } from './p1536-pill-assert';
 
 const summary: ChatSummary = {
   conversationId: CONV, kind: 'mirror', title: 'Mira', other: null, org: null, event: null, ownerFirstName: 'Ana',
@@ -221,22 +221,29 @@ async function draftReady() {
   await screen.findByTestId('thread-panel');
   await waitFor(() => expect(screen.queryByTestId('canvas-loading')).toBeNull());
 }
-const discardButton = () => within(screen.getByTestId('thread-panel')).getByTestId('canvas-discard');
+const discardButton = () => within(screen.getByTestId('workspace-bar')).getByTestId('canvas-discard');
 const confirm = async () => within(await screen.findByRole('dialog'));
 
-describe('W6: Discard sits in the panel header', () => {
-  it('a secondary pill with destructive text, inside the thread panel\'s header, beside the draft title and the close button', async () => {
+describe('W6 / X6: Discard sits in the page header', () => {
+  it('red text with no box (rule 5), labelled, in the page header and not in the thread panel (3c X4/X6, premise change: it moved out of the panel header)', async () => {
     mount(DRAFT_AT);
     await draftReady();
     const button = discardButton();
     expect(button).toHaveTextContent('Discard');
-    const header = button.closest('header');
-    expect(header).not.toBeNull();
-    expect(within(header as HTMLElement).getByTestId('canvas-thread-title')).toHaveTextContent('Draft'); // beside the draft's title...
-    expect(within(header as HTMLElement).getByLabelText('Close thread')).toBeInTheDocument(); // ...and the close button
-    expect(lacksPillShape(button)).toEqual([]); // the one secondary SHAPE (W7: Discard keeps it with destructive text)
-    expect(button.className).toContain('text-destructive');
+    expect(button.closest('[data-testid="workspace-bar"]')).not.toBeNull();
+    expect(within(screen.getByTestId('thread-panel')).queryByTestId('canvas-discard')).toBeNull();
+    expect(lacksDiscardText(button)).toEqual([]);
+    expect(hasBox(button)).toBe(false);
+    expect(button.className).toContain('text-red-600');
     expect(screen.queryByText('Discard draft')).toBeNull(); // no dialog until it is asked for
+  });
+
+  it('it is there with the panel closed (the reason it moved)', async () => {
+    mount(DRAFT_AT);
+    await draftReady();
+    fireEvent.click(screen.getByLabelText('Close thread'));
+    expect(screen.getByTestId('workspace-chat-pane')).toHaveAttribute('inert');
+    expect(discardButton()).toBeVisible();
   });
 
   it('NOT offered in the pending Clone state (nothing is written there; × cancels), nor when no draft is open', async () => {

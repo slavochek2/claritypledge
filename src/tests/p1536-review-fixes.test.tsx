@@ -357,11 +357,13 @@ describe('11: the header and the panel read as drawn', () => {
     expect([...slot.querySelectorAll('span')].some(s => s.textContent?.trim() === '·')).toBe(false);
   });
 
-  it('(b) a draft from a base reads "Draft · from v1"', async () => {
+  it('(b) a draft from a base reads "Draft" with the version in the picker beside it, and no "from v1" (3c X6, premise change)', async () => {
     openDraftState({ baseSeq: 1 });
     mount(DRAFT_AT);
     await grid();
-    expect(await screen.findByTestId('canvas-state')).toHaveTextContent('Draft · from v1');
+    expect(await screen.findByTestId('canvas-state')).toHaveTextContent(/^Draft$/);
+    expect(within(screen.getByTestId('workspace-bar')).getByTestId('canvas-version-short')).toHaveTextContent(/^v2$/);
+    expect(screen.getByTestId('workspace-bar')).not.toHaveTextContent('from v1');
   });
 
   it('(b) CONTROL: a new canvas (no base) reads just "Draft"', async () => {
@@ -371,23 +373,24 @@ describe('11: the header and the panel read as drawn', () => {
     expect(await screen.findByTestId('canvas-state')).toHaveTextContent(/^Draft$/);
   });
 
-  it('(c) the panel header reads "Draft · vN" beside Discard (not "Thread / Your mirror agent"); Discard keeps its label', async () => {
+  it('(c) the panel header is the mirror agent (3c X8, premise change: not "Draft · vN"), and Discard is in the page header, labelled (3c X6)', async () => {
     openDraftState({ baseSeq: 1 });
     mount(DRAFT_AT);
     await grid();
     const title = await screen.findByTestId('canvas-thread-title');
-    expect(title).toHaveTextContent('Draft · v2');
-    const header = title.closest('header')!;
-    expect(header).not.toHaveTextContent(/Thread|Your mirror agent/);
-    expect(within(header).getByTestId('canvas-discard')).toHaveTextContent('Discard');
+    expect(title).toHaveTextContent('Your mirror agent');
+    expect(title.closest('header')!).not.toHaveTextContent(/Draft · v|Discard/);
+    expect(within(screen.getByTestId('workspace-bar')).getByTestId('canvas-discard')).toHaveTextContent('Discard');
   });
 
-  it('(c) a pending Clone reads "New draft from v1" in the panel header', async () => {
+  it('(c) a pending Clone: the panel header is the mirror agent and the page header carries the "New draft" tag (3c X6/X8, premise change)', async () => {
     mount('/p/ana/canvas/canvas?v=canvas_d111111');
     await grid();
     fireEvent.click(await screen.findByTestId('canvas-clone'));
     const title = await screen.findByTestId('canvas-thread-title');
-    expect(title).toHaveTextContent('New draft from v1');
+    expect(title).toHaveTextContent('Your mirror agent');
+    expect(title).not.toHaveTextContent('New draft from v1');
+    expect(screen.getByTestId('canvas-state')).toHaveTextContent('New draft');
   });
 });
 

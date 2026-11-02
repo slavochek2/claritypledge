@@ -305,7 +305,7 @@ describe('Rename: the owner\'s ✎', () => {
     expect(startEdit().value).toBe('Series A plan');
   });
 
-  it('the name is shown ONCE, in the owner bar: the panel header of an update draft reads "Draft · vN" and does not repeat it (wireframe, review fix 11c)', async () => {
+  it('the name is shown ONCE, in the owner bar: the panel header is the mirror agent (3c X8, premise change: it read "Draft · vN") and does not repeat it (wireframe, review fix 11c)', async () => {
     st.openDraft = draftBlock({ baseSeq: 1 });
     st.draftRow = draftRow({ baseVersionId: 'ver-1' });
     getCanvas.mockImplementation(async (_o: string, _t: string, _v: unknown, _k: unknown, version?: string) => readFor(version, { title: 'Series A plan' }));
@@ -313,7 +313,9 @@ describe('Rename: the owner\'s ✎', () => {
     await grid();
     await screen.findByTestId('thread-panel');
     expect(title()).toHaveTextContent('Series A plan');
-    expect(await screen.findByTestId('canvas-thread-title')).toHaveTextContent(/^Draft · v\d+$/);
+    const panelTitle = await screen.findByTestId('canvas-thread-title');
+    expect(panelTitle).toHaveTextContent('Your mirror agent');
+    expect(panelTitle).not.toHaveTextContent('Series A plan');
   });
 });
 

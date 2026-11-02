@@ -51,12 +51,12 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   onRunActive?: (active: boolean) => void;
   /** False while the panel is out of reach (the workspace's hidden pane below 1280px): it must not take focus on mount. */
   focusable?: boolean;
-  /** The canvas workspace's Discard (W6): sits in the header beside the title, before the close button. */
+  /** A menu or action beside the title, before the close button (the canvas workspace no longer uses it: its Discard moved to the page header, 3c X6). */
   headerActions?: ReactNode;
   /** W8: the canvas's shown name for an update draft's header (the owner's rename); absent: its tag's title. */
   canvasTitle?: string;
-  /** The canvas workspace names its panel itself ("Draft · v3", beside Discard): it replaces the thread's own header title. */
-  panelTitle?: string;
+  /** The canvas workspace names its panel itself (3c X8: the mirror agent's face and name): it replaces the thread's own header title. */
+  panelTitle?: ReactNode;
   /** The canvas workspace's own props for the thread it hosts (its presence: a canvas draft's thread from the first render, before the root has loaded; and the cap's words). */
   workspace?: CanvasWorkspaceProps;
 }) {
@@ -81,7 +81,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   const { canvasRoot, rootPending } = canvasThreadFlags({ kind: summary.kind, root, status: conv.status, fromWorkspace: !!workspace });
   const ownerSlug = chat.authors[chat.userId]?.slug;
   const sendPlain = useCallback((body: string | null) => void conv.send({ body }), [conv]);
-  const canvas = useCanvasParts({ canvasRoot, rootPending, sendPlain, workspace, rootId, messages: conv.server, userId: chat.userId, ownerSlug, mirrorTitle: summary.title, canvasTitle, openCanvasFrom: fill ? null : (root?.attachmentId ?? null) });
+  const canvas = useCanvasParts({ canvasRoot, rootPending, sendPlain, workspace, rootId, messages: conv.server, userId: chat.userId, ownerSlug, mirror: summary, canvasTitle, openCanvasFrom: fill ? null : (root?.attachmentId ?? null) });
   // W0: outside the workspace (`fill`) a canvas thread is an old address; it resolves to the canvas, and is held back meanwhile.
   const retired = useRetiredCanvasThread({ enabled: !fill, canvasRoot, ownerSlug, address: canvas.address });
   const runActive = canvas.runActive;
@@ -103,7 +103,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
       className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col bg-background' : 'flex min-h-0 min-w-0 flex-1 flex-col bg-background lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]'}
     >
       <ThreadHeader onClose={close} menu={<><EventRoomLink chat={summary} />{headerActions}</>} workspace={fill ? 'draft' : undefined}>
-        {panelTitle ? <h2 className="truncate text-base font-semibold text-foreground" data-testid="canvas-thread-title">{panelTitle}</h2> : canvas.headerTitle ?? (
+        {panelTitle ?? canvas.headerTitle ?? (
           <>
             <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
             <p className="truncate text-xs text-muted-foreground">{chatTitle(summary)}</p>

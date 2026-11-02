@@ -122,6 +122,15 @@ export const SEND_SLOT_UPDATING = 'Updating…';
 export const SEND_SLOT_ELSEWHERE = 'Another of your canvases is updating.';
 export const UPLOAD_WAITS_LABEL = 'Upload waits for the update';
 /** The server's cap on used runs of one draft (`cap_reached`, the 30th used run); `runCount` counts them. */
+/**
+ * 3c X8: the line the mirror agent opens a draft's thread with when the draft has a base (drawn on screen from the base's number; never stored).
+ * [FOUNDER DECISION: wording, built as written in the spec's wording table.]
+ */
+export const baseDraftLine = (seq: number | null): string => {
+  const v = seq ? `v${seq}` : 'this version';
+  return `This is a new draft from ${v}. Tell me what to change. Readers keep seeing ${v} until you publish.`;
+};
+
 export const REVISION_CAP_RUNS = 30;
 export const CAP_LINE = 'This draft has had 30 updates.';
 export const CAP_PUBLISH_LINE = 'This draft has had 30 updates. Publish it to keep going.';

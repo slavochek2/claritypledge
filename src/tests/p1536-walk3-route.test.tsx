@@ -457,7 +457,7 @@ describe('4: the Publish spot keeps "Updating…" until the read after the run h
   }
   const run = (state: string) => ({ id: 'run-1', draftId: 'draft-1', kind: 'message', state, createdAt: new Date().toISOString(), startedAt: new Date().toISOString(), finishedAt: null, scope: [], replyMessageId: null });
 
-  it('a run ends before the page has read its points: the spot goes Updating… -> Publish, never through "Not published yet"', async () => {
+  it('a run ends before the page has read its points: the spot goes Updating… -> Publish, never through "Nothing to publish yet" (3c X7 renamed "Not published yet")', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       let points = false;
@@ -485,14 +485,13 @@ describe('4: the Publish spot keeps "Updating…" until the read after the run h
       await act(async () => { afterRun.resolve(null); });
       await waitFor(() => expect(screen.getByTestId('publish-spot')).toHaveAttribute('data-state', 'publish'));
       stop();
-      expect(seen).not.toContain('not-published');
-      expect(seen).not.toContain('no-changes');
+      expect(seen).not.toContain('nothing');
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('a Clone\'s first Send: Updating… from the Send on, never "No changes yet" in between', async () => {
+  it('a Clone\'s first Send: Updating… from the Send on, never "Nothing to publish yet" in between (3c X7 renamed "No changes yet")', async () => {
     const answer = deferred<{ data: unknown; error: null }>();
     const threadRead = deferred<Record<string, unknown> | null>();
     rpc.mockImplementation((name: string) => (name === 'canvas_workspace_send' ? answer.promise : Promise.resolve({ data: null, error: null })));
@@ -500,7 +499,7 @@ describe('4: the Publish spot keeps "Updating…" until the read after the run h
     await grid();
     fireEvent.click(await screen.findByTestId('canvas-clone'));
     await screen.findByTestId('workspace-chat-empty');
-    expect(screen.getByTestId('publish-spot')).toHaveAttribute('data-state', 'no-changes');
+    expect(screen.getByTestId('publish-spot')).toHaveAttribute('data-state', 'nothing');
     fireEvent.change(await composerField(), { target: { value: 'first words' } });
     const { seen, stop } = watchSpot();
     fireEvent.click(sendButton());
@@ -518,7 +517,7 @@ describe('4: the Publish spot keeps "Updating…" until the read after the run h
     await act(async () => { threadRead.resolve(st.draftRow); });
     await waitFor(() => expect(screen.getByTestId('publish-spot')).toHaveAttribute('data-state', 'updating'));
     stop();
-    expect(seen[0]).toBe('no-changes'); // the pending Clone, before the Send
+    expect(seen[0]).toBe('nothing'); // the pending Clone, before the Send
     expect(seen.slice(1).filter(s => s !== 'updating' && s !== 'loading')).toEqual([]);
   });
 });
@@ -532,15 +531,17 @@ describe('5/6/11: the bar\'s first row holds the name usably, never wraps, and t
     ['published', async () => { mount('/p/ana/canvas/canvas'); await grid(); await screen.findByTestId('canvas-clone'); }],
   ];
 
-  it.each(states)('%s: row 1 is one non-wrapping row holding the back arrow, the name, the state and the Publish spot (the spot is a fixed box, never wrapped away)', async (_n, open) => {
+  it.each(states)('%s: row 1 is one non-wrapping row holding the back arrow and the name (3c X13, premise change: the spot moved to row 2, which holds the switcher, the items and the spot, a fixed box never wrapped away)', async (_n, open) => {
     await open();
     const bar = screen.getByTestId('workspace-bar');
     const row = within(bar).getByTestId('workspace-bar-row1');
     expect(row.className).not.toMatch(/(^|\s)flex-wrap(\s|$)/);
-    for (const id of ['workspace-back', 'canvas-name', 'publish-spot']) expect(row.contains(within(bar).getByTestId(id)), id).toBe(true);
-    expect(row.contains(within(bar).getByTestId('canvas-bar-actions'))).toBe(false); // row 2 holds the switcher, Share and Clone
+    for (const id of ['workspace-back', 'canvas-name']) expect(row.contains(within(bar).getByTestId(id)), id).toBe(true);
+    expect(row.contains(within(bar).getByTestId('canvas-bar-actions'))).toBe(false);
     const spot = within(bar).getByTestId('publish-spot');
-    expect(spot.className).toMatch(/\bw-28\b/);
+    expect(row.contains(spot)).toBe(false);
+    expect(within(bar).getByTestId('canvas-bar-actions').contains(spot)).toBe(true);
+    expect(spot.className).toMatch(/\bw-24\b/); // 3c X13 (premise change): 96px
     expect(spot.className).toMatch(/\bshrink-0\b/);
   });
 
@@ -551,31 +552,28 @@ describe('5/6/11: the bar\'s first row holds the name usably, never wraps, and t
     expect(name.querySelector('h1')?.className).toContain('truncate');
   });
 
-  it('a pending Clone names itself "New draft" and drops "from vN" below 640px (the panel header keeps the whole)', async () => {
+  it('a pending Clone names itself with the "New draft" tag, which never shrinks, with no "from vN" (3c X6, premise change); the panel header is the mirror agent', async () => {
     await states[0]![1]();
-    const tag = screen.getByTestId('canvas-clone-state');
-    expect(tag.firstChild?.textContent).toBe('New draft');
-    const tail = within(tag).getByTestId('canvas-clone-state-tail');
-    expect(tail).toHaveTextContent('from v1');
-    expect(tail.className).toContain('max-sm:hidden');
-    expect(screen.getByTestId('canvas-thread-title')).toHaveTextContent('New draft from v1');
+    const tag = screen.getByTestId('canvas-state');
+    expect(tag).toHaveTextContent(/^New draft$/);
+    expect(tag.className).toContain('shrink-0');
+    expect(screen.getByTestId('canvas-thread-title')).toHaveTextContent('Your mirror agent');
+    expect(screen.getByTestId('workspace-bar')).not.toHaveTextContent('from v1');
   });
 
-  it('11: the pending header carries the version: one version reads "v1" (as a draft does), several give the picker with the version on screen selected', async () => {
+  it('11 (3c X6, premise change): the pending header carries no number and no picker until the first Send creates the draft; the version is in the mirror agent\'s line', async () => {
     await states[0]![1]();
-    expect(within(screen.getByTestId('workspace-bar')).getByTestId('canvas-project-slot')).toHaveTextContent('v1');
+    expect(within(screen.getByTestId('workspace-bar')).queryByTestId('canvas-project-slot')).toBeNull();
     expect(within(screen.getByTestId('workspace-bar')).queryByTestId('canvas-version-select')).toBeNull();
+    expect(screen.getByTestId('agent-line')).toHaveTextContent('from v1');
     cleanup();
     st.hasV2 = true;
     mount('/p/ana/canvas/canvas?v=canvas_d222222');
     await grid();
     fireEvent.click(await screen.findByTestId('canvas-clone'));
     await screen.findByTestId('workspace-chat-empty');
-    const select = within(screen.getByTestId('workspace-bar')).getByTestId('canvas-version-select') as HTMLSelectElement;
-    expect(select.value).toBe('canvas_d222222');
-    expect(select).toHaveAttribute('role', 'combobox');
-    expect(within(screen.getByTestId('workspace-bar')).getByTestId('canvas-version-short')).toHaveTextContent('v2');
-    expect(screen.getByTestId('canvas-clone-state')).toHaveTextContent('New draft from v2');
+    expect(within(screen.getByTestId('workspace-bar')).queryByTestId('canvas-version-select')).toBeNull();
+    expect(screen.getByTestId('agent-line')).toHaveTextContent('from v2');
   });
 });
 
@@ -648,8 +646,8 @@ describe('8: the opener and Copy prompt show only when the draft has no base ver
 
 // ── 10: the pending line leaves when the Send is accepted ────────────────────────────────────────────────────────
 
-describe('10: the Clone line does not linger after the Send was accepted', () => {
-  it('while the Send is in flight the line stays; once it is accepted it is gone (a Skeleton holds the place) even though the page has not moved to the draft yet', async () => {
+describe('10: the mirror agent\'s line stays after the Send was accepted (3c X8, premise change: it replaced "the Clone line does not linger")', () => {
+  it('in flight the line shows; once accepted the line still shows and a Skeleton holds the place of the thread below it, even though the page has not moved to the draft yet', async () => {
     const answer = deferred<{ data: unknown; error: null }>();
     rpc.mockImplementation((name: string) => (name === 'canvas_workspace_send' ? answer.promise : Promise.resolve({ data: null, error: null })));
     getCanvas.mockImplementation(async (_o: string, _t: string, _v: unknown, _k: unknown, version?: string) => (version === DRAFT_NAME ? new Promise(() => undefined) : readFor(version)));
@@ -660,10 +658,11 @@ describe('10: the Clone line does not linger after the Send was accepted', () =>
     fireEvent.change(await composerField(), { target: { value: 'first words' } });
     fireEvent.click(sendButton());
     await waitFor(() => expect(sends()).toHaveLength(1));
-    expect(screen.getByTestId('workspace-chat-empty')).toHaveTextContent('Clone v1.'); // in flight: not accepted yet
+    expect(screen.getByTestId('agent-line')).toHaveTextContent('This is a new draft from v1.'); // in flight: not accepted yet
+    expect(screen.queryByTestId('workspace-chat-opening')).toBeNull();
     await act(async () => { answer.resolve({ data: sentRow, error: null }); });
-    await waitFor(() => expect(screen.queryByTestId('workspace-chat-empty')).toBeNull());
-    expect(screen.getByTestId('workspace-chat-opening')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('workspace-chat-opening')).toBeInTheDocument());
+    expect(screen.getByTestId('agent-line')).toBeInTheDocument(); // before and after the first Send
     expect(document.body).not.toHaveTextContent('Nothing changes for readers until you publish');
   });
 });

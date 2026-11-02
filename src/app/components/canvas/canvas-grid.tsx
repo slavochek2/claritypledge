@@ -99,7 +99,8 @@ function CanvasBox({ tag, title, points, renderCard, onMore, question, changed }
         <BoxIcon tag={tag} className={empty ? 'opacity-60' : ''} />
         <h3 id={headingId} className={`min-w-0 flex-1 break-words text-sm font-semibold ${titleColour}`}>{title}</h3>
         {changed && (
-          <span className="shrink-0 rounded-full border border-blue-300 bg-background px-2 py-0.5 text-xs font-medium text-blue-700" data-testid="canvas-box-changed">Changed</span>
+          // 3c X12: changed = differs from the version the draft started from. A box the base had and an update emptied reads Empty with Removed (hiding it would hide a removal before Publish); any other changed box reads Changed.
+          <span className="shrink-0 rounded-full border border-blue-300 bg-background px-2 py-0.5 text-xs font-medium text-blue-700" data-testid={empty ? 'canvas-box-removed' : 'canvas-box-changed'}>{empty ? 'Removed' : 'Changed'}</span>
         )}
       </div>
       {points === null ? (

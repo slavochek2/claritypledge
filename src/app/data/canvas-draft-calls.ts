@@ -335,9 +335,11 @@ export async function discardCanvasDraft(draftId: string, expectedRevision: numb
 
 /**
  * Publishes an open draft the person last saw at `expectedRevision`. `seq` is the version number it got; `skippedLinks` counts
- * supersede links that were not kept. Refusals are typed results: busy, stale_view, draft_empty, no_changes.
+ * supersede links that were not kept. `replyMessageId` is the publish reply the server posted into the thread (null when the answer carried none: the
+ * toast reads its first line, 3c X15) and `openOffers` the offers still open on it (the toast's "See offer"). Refusals are typed results: busy,
+ * stale_view, draft_empty, no_changes.
  */
-export async function publishCanvasDraft(draftId: string, expectedRevision: number): Promise<{ ok: true; seq: number; skippedLinks: number } | CanvasRefused> {
+export async function publishCanvasDraft(draftId: string, expectedRevision: number): Promise<{ ok: true; seq: number; skippedLinks: number; replyMessageId: string | null; openOffers: number } | CanvasRefused> {
   try {
     const { data, error } = await supabase.rpc('canvas_draft_publish', { p_draft: draftId, p_expected_revision: expectedRevision });
     if (error || !data) {
@@ -347,7 +349,7 @@ export async function publishCanvasDraft(draftId: string, expectedRevision: numb
     const refused = refusalOf(r);
     if (refused) return staleToEvent(refused, draftId);
     emitCanvasDraftEvent({ kind: 'published', draftId });
-    return { ok: true, seq: Number(r.seq), skippedLinks: Number(r.skipped_links ?? 0) };
+    return { ok: true, seq: Number(r.seq), skippedLinks: Number(r.skipped_links ?? 0), replyMessageId: typeof r.reply_message_id === 'string' ? r.reply_message_id : null, openOffers: Number(r.open_offers ?? 0) };
   } finally {
     clearListReturnCache();
   }

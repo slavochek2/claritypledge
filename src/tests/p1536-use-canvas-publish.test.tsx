@@ -28,7 +28,7 @@ describe('C1: a refusal belongs to one draft at one revision', () => {
   const refuse = async (result: { current: ReturnType<typeof useCanvasPublish> }) => {
     publish.mockResolvedValue({ ok: false, refused: 'no_changes', revision: 0 });
     act(() => result.current.publish());
-    await waitFor(() => expect(result.current.state.kind).toBe('no-changes'));
+    await waitFor(() => expect(result.current.state.kind).toBe('nothing'));
   };
 
   it('draft A refused with no_changes: the spot says so; draft B at the SAME revision still offers Publish', async () => {
@@ -50,6 +50,6 @@ describe('C1: a refusal belongs to one draft at one revision', () => {
     const { result, rerender } = renderHook(({ r }) => useCanvasPublish(r, false), { initialProps: { r: ready('draft-A', 0) } });
     await refuse(result);
     rerender({ r: ready('draft-A', 0) });
-    expect(result.current.state.kind).toBe('no-changes');
+    expect(result.current.state.kind).toBe('nothing');
   });
 });

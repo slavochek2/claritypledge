@@ -24,9 +24,12 @@ import { GateFixture as CanvasThreadGateFixture } from '@/app/tree/_gate/canvas-
 import { GateFixture as CanvasWorkspaceGateFixture } from '@/app/tree/_gate/canvas-workspace/GateFixture';
 import { P952DefectFixture } from './p955-fixture';
 import { assertStableVariantsOnInput, buttonsChangedOnInput } from './p955-stable-variants';
+import { assertTopBarMainAction, isFilledControl, reachableControls } from './p955-top-bar';
 
 // P1536 S6.2: the rule-9 assertion lives in p955-stable-variants.ts so other test files can import it without re-registering this file's tests.
 export { assertStableVariantsOnInput, buttonsChangedOnInput };
+// P1536 3c S6.1: rule 9's top-bar clause (one filled main action, furthest right, auto width, nothing disabled) lives in p955-top-bar.ts for the same reason.
+export { assertTopBarMainAction };
 
 // ---------------------------------------------------------------------------
 // Assertion library — exported for use by per-surface fixture tests
@@ -504,12 +507,51 @@ describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate
   });
 });
 
-describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate/canvas-workspace fixture (S6.4, S6.5)', () => {
-  const PHASES = ['canvas', 'chat-composing', 'busy', 'published', 'no-changes', 'published-header', 'panel-closed', 'new-canvas'];
+describe('P955 gate — assertTopBarMainAction (rule 9, top-bar clause): known-good and known-bad controls', () => {
+  const bar = (...controls: React.ReactNode[]) => render(h('div', { 'data-testid': 'bar' }, ...controls)).container.firstElementChild as HTMLElement;
+  const FILLED = 'inline-flex h-11 bg-blue-600 px-4 text-white';
+  const PILL = 'inline-flex h-10 rounded-full border border-blue-600 bg-blue-50 text-blue-700';
+
+  it('known-good: the secondary pill, then the one filled main action furthest right, auto width', () => {
+    expect(() => assertTopBarMainAction(bar(h('button', { className: PILL }, 'Clone'), h('button', { className: FILLED }, 'Share')))).not.toThrow();
+  });
+  it('known-good: no filled control at all (a status sits in the spot)', () => {
+    expect(() => assertTopBarMainAction(bar(h('button', { className: PILL }, 'Thread'), h('p', null, 'Nothing to publish yet')))).not.toThrow();
+  });
+  it('known-good: a filled Send in the composer slot is not the bar\'s concern, and an inert pane is not reachable', () => {
+    expect(() => assertTopBarMainAction(bar(h('button', { className: FILLED }, 'Publish'), h('button', { 'data-composer-send': '', className: FILLED }, 'Send')))).not.toThrow();
+    expect(() => assertTopBarMainAction(bar(h('button', { className: PILL }, 'Clone'), h('div', { inert: true }, h('button', { className: FILLED }, 'Hidden')), h('button', { className: FILLED }, 'Share')))).not.toThrow();
+  });
+  it('known-bad: a second filled control throws', () => {
+    expect(() => assertTopBarMainAction(bar(h('button', { className: FILLED }, 'Publish'), h('button', { className: FILLED }, 'Share')))).toThrow(/top-bar.*2 filled controls/);
+  });
+  it('known-bad: a filled control that is not furthest right throws', () => {
+    expect(() => assertTopBarMainAction(bar(h('button', { className: FILLED }, 'Publish'), h('button', { className: PILL }, 'Clone')))).toThrow(/furthest-right/);
+  });
+  it('known-bad: a full-width filled control throws', () => {
+    expect(() => assertTopBarMainAction(bar(h('button', { className: `${FILLED} w-full` }, 'Publish')))).toThrow(/not auto width/);
+  });
+  it('known-bad: a disabled control (a button where a status belongs) throws', () => {
+    expect(() => assertTopBarMainAction(bar(h('button', { className: PILL, disabled: true }, 'Publish')))).toThrow(/disabled control/);
+    expect(() => assertTopBarMainAction(bar(h('button', { className: PILL, 'aria-disabled': 'true' }, 'Publish')))).toThrow(/disabled control/);
+  });
+  it('refuses to pass a bar with nothing in it', () => {
+    expect(() => assertTopBarMainAction(bar(h('p', null, 'text')))).toThrow(/nothing was checked/);
+  });
+});
+
+describe('P955 gate — assertStableVariantsOnInput and assertTopBarMainAction against the REAL /tree/_gate/canvas-workspace fixture (S6.4, S6.5, 3c S6.1)', () => {
+  const PHASES = ['canvas', 'chat-composing', 'busy', 'published', 'nothing-to-publish', 'published-header', 'panel-closed', 'new-canvas', 'pending-clone'];
+  /** What the spot holds in each phase (3c X4): the filled control, or a status. */
+  const FILLED: Record<string, 'canvas-draft-publish' | 'canvas-share-control' | null> = {
+    canvas: 'canvas-draft-publish', 'chat-composing': 'canvas-draft-publish', 'panel-closed': 'canvas-draft-publish',
+    published: 'canvas-share-control', 'published-header': 'canvas-share-control',
+    busy: null, 'nothing-to-publish': null, 'new-canvas': null, 'pending-clone': null,
+  };
   const at = (phase: string) => {
     localStorage.clear();
     const view = render(h(MemoryRouter, { initialEntries: [`/tree/_gate/canvas-workspace?phase=${phase}`] }, h(CanvasWorkspaceGateFixture)));
-    return { container: view.container, composer: within(view.container).getByTestId('composer') };
+    return { container: view.container, composer: within(view.container).queryByTestId('composer') };
   };
 
   it('the fixture lists exactly the phases this test covers (a new phase must be added here)', () => {
@@ -518,9 +560,20 @@ describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate
     expect(listed.sort()).toEqual([...PHASES].sort());
   });
 
+  // Gate 7c: the gate runs over EVERY existing phase, legitimate ones included, and each must still pass.
+  it.each(PHASES)('%s: the bar passes rule 9 (one main action, furthest right, auto width, nothing disabled) and the spot is a filled button only when it can act', (phase) => {
+    const { container } = at(phase);
+    const bar = within(container).getByTestId('workspace-bar');
+    expect(() => assertTopBarMainAction(bar)).not.toThrow();
+    expect(reachableControls(bar).filter(isFilledControl).map((el) => el.getAttribute('data-testid'))).toEqual(FILLED[phase] ? [FILLED[phase]] : []);
+    expect(Array.from(container.querySelectorAll('button')).filter((b) => b.disabled)).toEqual([]);
+    expect(within(container).getByTestId('publish-spot')).toBeInTheDocument();
+  });
+
   // published-header is the owner's bar above a plain page: there is no thread, so no composer to type into (its own test below).
-  it.each(PHASES.filter((p) => p !== 'published-header'))('%s: typing changes no button except the send slot, and the Publish spot is one box that is a button only when it can run', (phase) => {
+  it.each(PHASES.filter((p) => p !== 'published-header'))('%s: typing changes no button except the send slot', (phase) => {
     const { container, composer } = at(phase);
+    if (!composer) throw new Error(`phase ${phase} has no composer to type into`);
     if (phase === 'chat-composing') {
       // V4/V5: this phase opens with text typed in, so Send is visible (the P1576 swap shows Send only with text); the assertion starts from empty.
       expect(within(composer).getByRole('button', { name: 'Send' })).toBeInTheDocument();
@@ -529,22 +582,29 @@ describe('P955 gate — assertStableVariantsOnInput against the REAL /tree/_gate
     }
     expect(buttonsChangedOnInput(container, composer)).toEqual([]);
     expect(() => assertStableVariantsOnInput(container, composer)).not.toThrow();
-    const spot = within(container).getByTestId('publish-spot');
-    expect(spot.querySelectorAll('button').length).toBe(['canvas', 'chat-composing', 'panel-closed'].includes(phase) ? 1 : 0);
-    expect(Array.from(container.querySelectorAll('button')).filter((b) => b.disabled)).toEqual([]);
   });
 
-  it('published-header (W8): the owner\'s bar sits above a plain page, with no thread, no switcher and no primary; the spot says Published and is not a button', () => {
+  it('FAILURE PATH (gate 7) on the real fixture: a second filled button put into the real bar makes the gate throw', () => {
+    const { container } = at('canvas');
+    const bar = within(container).getByTestId('workspace-bar');
+    expect(() => assertTopBarMainAction(bar)).not.toThrow();
+    const extra = document.createElement('button');
+    extra.className = 'bg-blue-600 text-white';
+    extra.textContent = 'Second main action';
+    within(bar).getByTestId('canvas-bar-actions').prepend(extra);
+    expect(() => assertTopBarMainAction(bar)).toThrow(/top-bar.*2 filled controls/);
+  });
+
+  it('published-header (W8, X4): the owner\'s bar sits above a plain page with no thread and no switcher; Share is the one filled control, with Clone beside it', () => {
     localStorage.clear();
     const { container } = render(h(MemoryRouter, { initialEntries: ['/tree/_gate/canvas-workspace?phase=published-header'] }, h(CanvasWorkspaceGateFixture)));
     const view = within(container);
     expect(view.queryByTestId('workspace-chat-pane')).toBeNull();
     expect(view.queryByTestId('workspace-view-switch')).toBeNull();
-    expect(view.getByTestId('publish-spot-status')).toHaveTextContent('Published · v3');
-    expect(view.getByTestId('canvas-state')).toHaveTextContent('Published');
+    expect(view.getByTestId('canvas-share-control')).toBeInTheDocument();
     expect(view.getByTestId('canvas-clone')).toBeInTheDocument();
-    expect(Array.from(container.querySelectorAll('button')).filter((b) => b.className.includes('bg-blue-600'))).toEqual([]);
-    expect(Array.from(container.querySelectorAll('button')).filter((b) => b.disabled)).toEqual([]);
+    expect(view.queryByTestId('canvas-state')).toBeNull(); // no word for "published"
+    expect(Array.from(container.querySelectorAll('button')).filter((b) => b.className.includes('bg-blue-600')).map((b) => b.getAttribute('data-testid'))).toEqual(['canvas-share-control']);
     expect(() => assertOnePrimary(container)).not.toThrow();
   });
 

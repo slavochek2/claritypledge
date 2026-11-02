@@ -1,16 +1,16 @@
 /**
  * @file discard-draft-button.tsx
- * @description P1536 W6: Discard in the thread panel's header, beside the draft's state. A secondary pill with destructive text, behind
- * the project's confirm dialog. It calls the CHECKED discard (`discardCanvasDraft(draft, revision)`; the database keeps the canvas and
+ * @description P1536 W6, 3c X4/X6: Discard, now in the owner's page header (so it is there with the panel closed). Design-system rule 5: red text, no box,
+ * behind the project's confirm dialog. It calls the CHECKED discard (`discardCanvasDraft(draft, revision)`; the database keeps the canvas and
  * version rows). stale_view re-reads the draft's revision and says so (the next press carries it); busy says the draft is being written.
  * After a discard the page leaves the draft: a draft from vN returns to vN (published view, no ws=1); a canvas never published
- * lands on Artifacts > Canvases. Not drawn in the pending Clone state: nothing is written there, and × cancels.
+ * lands on Artifacts > Canvases. Not drawn in the pending Clone state: nothing is written there, and Cancel (or the panel's ×) leaves it.
  */
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
-import { CANVAS_DESTRUCTIVE_PILL } from '@/app/components/canvas/canvas-pill-styles';
+import { CANVAS_DISCARD_TEXT } from '@/app/components/canvas/canvas-pill-styles';
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { CanvasDraftRefusal, discardCanvasDraft, getCanvasDraftRevision } from '@/app/data/canvas-draft-service';
 import { canvasStartErrorText } from '@/app/pages/chat/canvas-start';
@@ -66,7 +66,7 @@ export function DiscardDraftButton({ ready, ownerSlug, canvasName, startOver = f
 
   return (
     <>
-      <button type="button" className={CANVAS_DESTRUCTIVE_PILL} aria-label={startOver ? START_OVER_LABEL : 'Discard draft'} onClick={() => setAsking(true)} data-testid={startOver ? 'canvas-start-over' : 'canvas-discard'}>
+      <button type="button" className={CANVAS_DISCARD_TEXT} aria-label={startOver ? START_OVER_LABEL : 'Discard draft'} onClick={() => setAsking(true)} data-testid={startOver ? 'canvas-start-over' : 'canvas-discard'}>
         {startOver ? START_OVER_LABEL : DISCARD_LABEL}
       </button>
       <ConfirmDialog

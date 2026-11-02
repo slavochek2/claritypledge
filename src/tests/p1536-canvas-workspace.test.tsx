@@ -38,7 +38,7 @@ const toastError = vi.hoisted(() => vi.fn());
 const upload = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc, functions: { invoke }, from: vi.fn() } }));
-vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: toastError }) }));
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: toastError, success: vi.fn() }) })); // 3c X15: Publish and a rename now toast success
 vi.mock('@/auth', () => ({
   useAuth: () => ({ session: { user: { id: ME } }, user: { id: ME, slug: st.slug }, sessionChecked: true }),
 }));
@@ -359,11 +359,11 @@ describe('S3.3: the Publish spot', () => {
   const STATES: Array<[string, () => void, string, string | null]> = [
     ['publish', () => undefined, 'publish', null],
     ['updating', () => { st.run = { ...doneRun, state: 'running', createdAt: new Date().toISOString(), startedAt: new Date().toISOString() }; }, 'updating', 'Updating…'],
-    ['no-changes', () => { getCanvas.mockResolvedValue(draftView({ draft: { ...draftBlock, changedBoxes: [] } })); }, 'no-changes', 'No changes yet'],
-    // W1/§3b item 0: `ws=1` on a published version with no draft IS the pending Clone ("No changes yet"); a published view with nothing
-    // being edited has no bar, so "Published · vN" is not reachable on the route (the pure state stays covered by the gate fixture test).
-    ['pending-clone', () => { getCanvas.mockResolvedValue(publishedView()); st.draft = null; }, 'no-changes', 'No changes yet'],
-    ['not-published', () => { getCanvas.mockResolvedValue(draftView({ points: [], versions: [draftVersion], publishedNone: true, draft: { ...draftBlock, baseSeq: null, runCount: 0 } })); }, 'not-published', 'Not published yet'],
+    // 3c X7 (premise change): every status with nothing to publish reads "Nothing to publish yet"; the texts "No changes yet" and "Not published yet" are gone.
+    ['no-changes', () => { getCanvas.mockResolvedValue(draftView({ draft: { ...draftBlock, changedBoxes: [] } })); }, 'nothing', 'Nothing to publish yet'],
+    // W1/§3b item 0: `ws=1` on a published version with no draft IS the pending Clone.
+    ['pending-clone', () => { getCanvas.mockResolvedValue(publishedView()); st.draft = null; }, 'nothing', 'Nothing to publish yet'],
+    ['not-published', () => { getCanvas.mockResolvedValue(draftView({ points: [], versions: [draftVersion], publishedNone: true, draft: { ...draftBlock, baseSeq: null, runCount: 0 } })); }, 'nothing', 'Nothing to publish yet'],
   ];
 
   it.each(STATES)('%s: one box, a <button> only in the Publish state, never disabled', async (_name, arrange, state, text) => {
@@ -386,7 +386,7 @@ describe('S3.3: the Publish spot', () => {
 
   it('the spot component alone: every state renders the same footprint, and only Publish is a button (and it has no disabled attribute)', () => {
     const kinds = [
-      { kind: 'loading' }, { kind: 'updating' }, { kind: 'publish' }, { kind: 'no-changes' }, { kind: 'published', seq: 3 }, { kind: 'not-published' },
+      { kind: 'loading' }, { kind: 'updating' }, { kind: 'publish' }, { kind: 'nothing' },
     ] as const;
     const boxes = kinds.map(state => {
       const view = render(<CanvasPublishSpot state={state} onPublish={() => undefined} />);
@@ -401,7 +401,7 @@ describe('S3.3: the Publish spot', () => {
     expect(new Set(boxes).size).toBe(1);
     expect(boxes[0]).toBe(SPOT_BOX);
     expect(SPOT_BOX).toMatch(/\bh-11\b/); // 44px: a tap target
-    expect(SPOT_BOX).toMatch(/\bw-28\b/);
+    expect(SPOT_BOX).toMatch(/\bw-24\b/); // 3c X13 (premise change): 96px, so the switcher, Discard and the spot fit one row at 320px
   });
 
   it('Publish calls publishCanvasDraft(draft, revision); W1: the page then REPLACEs to the published version with no ws and the workspace is gone', async () => {
@@ -430,8 +430,8 @@ describe('S3.3: the Publish spot', () => {
   });
 
   it.each([
-    ['no_changes', 'no-changes', 'No changes yet'],
-    ['draft_empty', 'not-published', 'Not published yet'],
+    ['no_changes', 'nothing', 'Nothing to publish yet'],
+    ['draft_empty', 'nothing', 'Nothing to publish yet'],
   ])('a %s refusal puts the matching status in the spot (no error text), until the draft moves on', async (code, state, text) => {
     rpc.mockImplementation(async (name: string) => (name === 'canvas_draft_publish' ? { data: { status: 'refused', code, revision: 0 }, error: null } : { data: null, error: null }));
     mount();
@@ -548,12 +548,12 @@ describe('review G2: a published canvas with no open draft (J3), now the one pen
   it('shows the empty state and a live composer, and writes NOTHING until the first Send', async () => {
     mount(published);
     await screen.findByTestId('canvas-grid');
-    // W1/W3: the old J3 words are gone; a bare ws=1 here is the pending Clone and reads as one.
-    expect(await screen.findByText('Clone v1. Nothing changes for readers until you publish.')).toBeInTheDocument();
+    // W1/W3: a bare ws=1 here is the pending Clone. 3c X8 (premise change): it opens with the mirror agent's line, not "Clone v1. Nothing changes for readers until you publish."
+    expect(await screen.findByTestId('agent-line')).toHaveTextContent('This is a new draft from v1. Tell me what to change. Readers keep seeing v1 until you publish.');
     chooseView('chat');
     expect(await within(screen.getByTestId('workspace-chat-pane')).findByTestId('composer')).toBeInTheDocument();
     expect(rpc.mock.calls.filter(c => c[0] === 'canvas_workspace_send')).toEqual([]);
-    expect(spotState()).toBe('no-changes');
+    expect(spotState()).toBe('nothing');
   });
 
   it('the first Send opens the next draft from the version on screen in ONE call, then the page moves to that draft and its thread shows', async () => {
@@ -692,7 +692,7 @@ describe('review V8/V10: the spot keeps one box in every state, and work shows a
     };
     expect(view({ kind: 'updating' })).toBe(true);
     expect(view({ kind: 'publish' }, true)).toBe(true);
-    for (const kind of ['no-changes', 'not-published', 'published', 'publish']) expect(view({ kind, seq: 2 })).toBe(false);
+    for (const kind of ['nothing', 'publish', 'loading']) expect(view({ kind })).toBe(false);
   });
 });
 
@@ -710,7 +710,7 @@ describe('round 2 C1: the chat edits the open draft even when the page shows ano
     mount(published);
     await screen.findByTestId('canvas-grid');
     expect(await screen.findByTestId('workspace-draft-line')).toHaveTextContent('This chat edits your draft.');
-    expect(spotState()).toBe('published');
+    expect(spotState()).toBe('share'); // 3c X4 (premise change): a published version's spot is Share, not "Published · vN"
     expect(screen.getByTestId('thread-panel')).toBeInTheDocument(); // the draft's thread, not an empty box
     fireEvent.click(screen.getByTestId('workspace-go-to-draft'));
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(`v=${DRAFT_NAME}`));
@@ -882,12 +882,12 @@ describe('round 2 C3/G1/G2/G4: the empty chat is a drawn state, with Upload, the
     await screen.findByTestId('canvas-grid');
     chooseView('chat');
     const box = await screen.findByTestId('composer');
-    expect(spotState()).toBe('no-changes'); // W1: ws=1 with no draft is the pending Clone
+    expect(spotState()).toBe('nothing'); // W1: ws=1 with no draft is the pending Clone
     fireEvent.change(within(box).getByRole('textbox'), { target: { value: 'go' } });
     fireEvent.click(within(box).getByRole('button', { name: 'Send' }));
     await waitFor(() => expect(spotState()).toBe('updating'));
     await act(async () => finish({ data: { status: 'refused', code: 'busy', revision: 0 }, error: null }));
-    await waitFor(() => expect(spotState()).toBe('no-changes'));
+    await waitFor(() => expect(spotState()).toBe('nothing'));
     fireEvent.change(within(box).getByRole('textbox'), { target: { value: '' } });
   });
 
@@ -917,9 +917,9 @@ describe('round 2 G5/V8: tab targets and one right edge for the spot', () => {
 
   it('V8: the box is fixed-width with its content right-aligned in EVERY state, so they share one right edge', async () => {
     const { SPOT_BOX } = await import('@/app/components/canvas/canvas-publish-spot-state');
-    expect(SPOT_BOX).toContain('w-28');
+    expect(SPOT_BOX).toContain('w-24');
     expect(SPOT_BOX).toContain('justify-end');
-    for (const state of [{ kind: 'updating' }, { kind: 'no-changes' }, { kind: 'published', seq: 3 }, { kind: 'not-published' }] as const) {
+    for (const state of [{ kind: 'updating' }, { kind: 'nothing' }] as const) {
       const v = render(<CanvasPublishSpot state={state} onPublish={() => undefined} />);
       const status = v.getByTestId('publish-spot-status');
       expect(status.className).toContain('justify-end');
@@ -927,7 +927,8 @@ describe('round 2 G5/V8: tab targets and one right edge for the spot', () => {
       v.unmount();
     }
     const b = render(<CanvasPublishSpot state={{ kind: 'publish' }} onPublish={() => undefined} />);
-    expect(b.getByTestId('canvas-draft-publish').className).toContain('w-full'); // the button fills the box: its right edge IS the box's
+    // 3c X4 / rule 9 (premise change): the main action is AUTO width, right-aligned in the box: its right edge is still the box's
+    expect(b.getByTestId('canvas-draft-publish').className).not.toContain('w-full');
   });
 });
 

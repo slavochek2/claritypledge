@@ -217,9 +217,10 @@ describe('canvas -> thread: Publish in the workspace bar (W1: the page REPLACEs 
     expect(screen.getByTestId('where').textContent).not.toContain('thread=');
     await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Published v2.'));
     await waitFor(() => expect(screen.queryByTestId('workspace-chat-pane')).toBeNull()); // the panel is closed
-    // W8 (J-W1 end state, supersedes "no bar"): the owner's header stays, now reading Published with the spot "Published · v2"; no switcher or Thread button
-    await waitFor(() => expect(screen.getByTestId('canvas-state')).toHaveTextContent('Published')); // the page's re-read lands after the panel closes
-    expect(screen.getByTestId('publish-spot-status')).toHaveTextContent('Published · v2');
+    // W8 (J-W1 end state, supersedes "no bar"): the owner's header stays; 3c X4/X5 (premise change): no "Published" word, the spot is Share, and no (Draft) tag; no switcher or Thread button
+    await waitFor(() => expect(screen.queryByTestId('canvas-state')).toBeNull()); // the page's re-read lands after the panel closes: a version with no Draft tag is published
+    expect(screen.getByTestId('publish-spot')).toHaveAttribute('data-state', 'share');
+    expect(screen.queryByTestId('publish-spot-status')).toBeNull();
     expect(screen.queryByTestId('workspace-view-switch')).toBeNull();
     // and the marker does not come back while the read on screen still shows the draft open
     await act(async () => { await new Promise(r => setTimeout(r, 50)); });

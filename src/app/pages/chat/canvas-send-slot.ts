@@ -15,6 +15,8 @@ export interface CanvasWorkspaceProps {
   canPublish?: boolean;
   /** At the cap with nothing to publish: the workspace's Start over. */
   startOver?: ReactNode;
+  /** 3c X8: the version number this draft was started from (null: a new canvas). A draft with a base opens with the mirror agent's line. */
+  baseSeq?: number | null;
 }
 
 export interface SendSlot {

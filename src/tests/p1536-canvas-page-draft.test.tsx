@@ -124,32 +124,33 @@ describe('labels: a version is a number and a date, or "v{next} · Draft", never
     await ready();
     const select = within(screen.getByTestId('canvas-version-picker')).getByRole('combobox', { name: 'Version' });
     const labels = within(select).getAllByRole('option').map(o => o.textContent);
-    expect(labels[0]).toBe('v2'); // one above the newest published version; "Draft" is the state tag's word, not the picker's
+    // 3c X6 (premise change): the closed picker shows the number only, but its draft ROW says "(Draft)" (a native option holds text, not the tag component)
+    expect(labels[0]).toBe('v2 (Draft)'); // one above the newest published version
     expect(labels[1]).toMatch(/^v1 · Oct 1, 2026$/);
     expect(seoTitle.value).toBe('Ana · #canvas · v2 · Draft — Clarity Pledge');
     expect(shownText()).not.toContain(DRAFT_NAME);
     expect(shownText()).not.toContain(V1_NAME);
   });
 
-  it('a one-version canvas shows the canvas name as its title and no version label (founder copy, 2026-10-27); the tab title still says which version', async () => {
+  it('a one-version canvas shows the canvas name as its title and its version beside it as the picker (3c X5, premise change: the version sits beside the name); the tab title says which version', async () => {
     getCanvas.mockResolvedValue(view());
     page();
     await ready();
     expect(screen.queryByTestId('canvas-eyebrow')).toBeNull(); // W8: no "Clarity Canvas" label
     expect(screen.getByTestId('canvas-title')).toHaveTextContent(/^Canvas$/);
-    expect(screen.queryByTestId('canvas-version-label')).toBeNull(); // no lone "v1 · date" beside the title
-    expect(screen.queryByTestId('canvas-project-slot')).toBeNull();
+    expect(screen.queryByTestId('canvas-version-label')).toBeNull(); // no lone "v1 · date" label: the picker carries the number
+    expect(within(screen.getByTestId('canvas-project-slot')).getByTestId('canvas-version-short')).toHaveTextContent(/^v1$/);
     expect(seoTitle.value).toBe('Ana · #canvas · v1 · Oct 1, 2026 — Clarity Pledge');
     expect(shownText()).not.toContain(V1_NAME);
   });
 
-  it('a lone draft is badged "v1" with the state tag "Draft" beside it (a first canvas, W4)', async () => {
-    // a first canvas has no base version (review fix 11b: a draft made from a published version reads "Draft · from vN")
-    getCanvas.mockResolvedValue(draftView({ draft: { ...draftBlock, baseSeq: null } }));
+  it('a lone draft (a first canvas) shows no version label and no picker in the page header (3c X6, premise change: "(Draft)" and the picker are the owner bar\'s, with no number for a never-published canvas)', async () => {
+    getCanvas.mockResolvedValue(draftView({ draft: { ...draftBlock, baseSeq: null }, versions: [draftVersion], publishedNone: true }));
     page();
     await ready();
-    expect(screen.getByTestId('canvas-version-label')).toHaveTextContent(/^v1$/); // W4: the state is its own tag, so the version label carries only the number
-    expect(screen.getByTestId('canvas-state')).toHaveTextContent(/^Draft$/);
+    expect(screen.queryByTestId('canvas-version-label')).toBeNull();
+    expect(screen.queryByTestId('canvas-project-slot')).toBeNull();
+    expect(screen.queryByTestId('canvas-state')).toBeNull(); // the old "Draft · from vN" state word is gone from this header
     expect(shownText()).not.toContain(DRAFT_NAME);
   });
 });
@@ -192,11 +193,12 @@ describe('Publish and the questions are the owner\'s, on the draft only', () => 
     expect(screen.queryByTestId('canvas-box-question')).toBeNull();
   });
 
-  it('a draft with nothing drafted says so and has no Publish (no dead control), and no way-back link either', async () => {
+  it('a draft with nothing drafted has no Publish (no dead control), no way-back link, and says nothing in words (3c X12, premise change: "Nothing is drafted yet." is gone, the empty boxes say it)', async () => {
     getCanvas.mockResolvedValue(draftView({ points: [], draft: { ...draftBlock, runCount: 0, questions: {} } }));
     page();
     await ready();
-    expect(screen.getByTestId('canvas-draft-empty')).toHaveTextContent('Nothing is drafted yet.');
+    expect(screen.queryByTestId('canvas-draft-empty')).toBeNull();
+    expect(screen.getByTestId('canvas-header-row')).not.toHaveTextContent('Nothing is drafted yet');
     expect(screen.queryByTestId('canvas-draft-thread-link')).toBeNull();
     expect(screen.queryByTestId('canvas-actions')).toBeNull();
     expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();
@@ -321,7 +323,7 @@ describe('P955 gate fixture /tree/_gate/canvas-draft', () => {
 
   it.each([
     ['draft', 'canvas-grid', 0], // Publish is not on this page: its one spot is the workspace bar
-    ['draft-empty', 'canvas-draft-empty', 0],
+    ['draft-empty', 'canvas-grid', 0], // 3c X12 (premise change): no sentence; the boxes say it
     ['nothing-published-reader', 'canvas-nothing-published', 0],
     ['nothing-published-owner', 'canvas-nothing-published', 0],
     ['published-owner', 'canvas-grid', 0],
@@ -397,14 +399,14 @@ describe('review B10: visual QA fixes', () => {
   });
 
   it('V10: at phone width the owner name wraps or takes the free width instead of truncating to "by Test ...", and a lone "Draft" label keeps its own width', async () => {
-    getCanvas.mockResolvedValue(draftView());
+    getCanvas.mockResolvedValue(draftView({ versions: [draftVersion, v1], publishedNone: false }));
     page(`/p/ana/canvas/canvas?v=${DRAFT_NAME}`);
     await ready();
     const name = screen.getByTestId('canvas-owner-name').parentElement as HTMLElement;
     expect(name.className.split(/\s+/)).not.toContain('truncate'); // only from sm up: `sm:truncate`
     expect(name.className).toContain('break-normal'); // S3.6: breaks between words only
     const slot = screen.getByTestId('canvas-project-slot').className.split(/\s+/);
-    expect(slot).toContain('max-sm:flex-none'); // not an equal share of the row with the name
+    expect(slot).toContain('shrink-0'); // 3c X5 (premise change): the version picker keeps its own width; the name takes the rest of the row
     expect(slot).not.toContain('max-sm:flex-1');
   });
 

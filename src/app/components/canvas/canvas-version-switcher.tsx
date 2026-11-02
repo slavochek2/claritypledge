@@ -1,7 +1,7 @@
 /**
  * @file canvas-version-switcher.tsx
  * @description P1515 phase 5: the canvas's versions, newest first, for everyone the canvas admits; choosing one puts it in the address
- * (`?v=`). P1536: the open version reads "v{seq}" (the owner's open draft: "v{next}"; its state is the state tag beside it, named once), and
+ * (`?v=`). P1536: the open version reads "v{seq}" (the owner's open draft: "v{next}"; its state is the (Draft) tag beside it, named once), and
  * the list reads "v{seq} · {date}". The internal name is only the option's value, never its text. W7: the picker is a pill in the one
  * secondary look (CANVAS_SECONDARY_PILL) with a chevron; the native select lies invisibly over the whole pill (role=combobox), so any tap opens the list.
  */
@@ -9,11 +9,15 @@ import { ChevronDown } from 'lucide-react';
 import type { CanvasVersion } from '@/app/data/canvas-service';
 import { cn } from '@/lib/utils';
 import { nextSeqOf, versionLabelOf, type CanvasReady } from './canvas-page-data';
+import { DRAFT_TAG_LABEL } from './canvas-draft-tag';
 import { CANVAS_SECONDARY_PILL } from './canvas-pill-styles';
 
-/** What the picker lists for a version: the draft is only its number (the state tag names it), a published one its number and date. */
+/**
+ * What the picker lists for a version: a published one its number and date, the owner's draft its number and "(Draft)". A native <option> holds text only,
+ * so the draft row says the tag's word in text; the header beside the closed picker draws the real tag component.
+ */
 function optionText(v: CanvasVersion, next: number): string {
-  return v.draft ? `v${next}` : versionLabelOf(v, next) ?? 'Version';
+  return v.draft ? `v${next} (${DRAFT_TAG_LABEL})` : versionLabelOf(v, next) ?? 'Version';
 }
 
 /** The pill's own text: just the number of the open version. */
@@ -44,25 +48,16 @@ export function VersionSwitcher({ versions, open, onPick }: { versions: CanvasVe
 }
 
 /**
- * Which version: the picker when the canvas has several; a lone draft says its number ("v1"; the state tag beside it says Draft); a lone
- * published version needs no label (the title is the canvas). One fact once, no repeated text. Everyone but the owner lists published versions
- * only (the server already withholds a draft from them).
+ * X5/X6: the version sits beside the name as the picker, for a published version or a draft with a base. The closed picker shows the number only, never
+ * the tag (the header's tag component sits beside it). Whether it shows at all is the header table's call (`show`, from headerRow); everyone but the owner
+ * lists published versions only (the server already withholds a draft from them). A lone version is still a picker: the number is the one fact it names.
  */
-export function CanvasVersionSlot({ ready, viewingDraft, pendingSeq = null, onPick }: {
-  ready: CanvasReady;
-  viewingDraft: boolean;
-  /** W3: a Clone is pending on this version (its number): the header carries the version like a published view (several: the picker; one: its label). */
-  pendingSeq?: number | null;
-  onPick: (version: string) => void;
-}) {
+export function CanvasVersionSlot({ ready, show, onPick }: { ready: CanvasReady; show: boolean; onPick: (version: string) => void }) {
   const versions = ready.isOwner ? ready.versions : ready.versions.filter(v => !v.draft);
-  if (versions.length < 2 && !viewingDraft && pendingSeq === null) return null;
+  if (!show || versions.length === 0) return null;
   return (
-    // A lone "Draft" label keeps its own width on a phone, so the name gets the rest of the row; the version menu shares it.
-    <span className="flex min-w-0 max-w-full shrink-0 items-center gap-2 max-sm:flex-none" data-testid="canvas-project-slot">
-      {versions.length >= 2
-        ? <VersionSwitcher versions={versions} open={ready.version ?? versions[0]?.name ?? ''} onPick={onPick} />
-        : <span className="shrink-0 text-sm font-medium text-foreground/70" data-testid="canvas-version-label">v{viewingDraft ? nextSeqOf(ready.versions) : pendingSeq}</span>}
+    <span className="flex min-w-0 max-w-full shrink-0 items-center" data-testid="canvas-project-slot">
+      <VersionSwitcher versions={versions} open={ready.version ?? versions[0]?.name ?? ''} onPick={onPick} />
     </span>
   );
 }

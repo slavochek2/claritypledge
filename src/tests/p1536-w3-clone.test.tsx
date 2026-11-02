@@ -4,7 +4,7 @@
  * composer (only the database and the chat's message transport are faked):
  *  - Clone shows only to the owner on a PUBLISHED version: never on a draft, never to a reader or a signed-out visitor, never with drafting off
  *  - tap, then cancel: NO write call at all (the unit-level proxy for the spec's row-count check: no rpc/edge call that writes was made), the page
- *    returns to the published view by REPLACE, and the pending state reads as specified (line, state text, "No changes yet", no Discard)
+ *    returns to the published view by REPLACE, and the pending state reads as specified (3c: the mirror agent's line, the "New draft" tag, "Nothing to publish yet", Cancel and no Discard)
  *  - the first Send creates the draft from THAT version in one call
  *  - a same-base draft: Clone opens it; another base with a run: the J4 sheet; another base untouched: no sheet, the first Send replaces it
  *  - a stale first Send over a replaced draft: the sheet asks again, the text stays
@@ -253,10 +253,11 @@ describe('S3b.4: tap, then cancel writes nothing', () => {
     expect(screen.getByTestId('ws')).toHaveTextContent('1');
     expect(screen.getByTestId('where')).toHaveTextContent('/p/ana/canvas/canvas?ws=1');
     expect(screen.getByTestId('nav-type')).toHaveTextContent('REPLACE');
-    expect(screen.getByTestId('workspace-chat-empty')).toHaveTextContent('Clone v1. Nothing changes for readers until you publish.');
-    expect(screen.getByTestId('canvas-clone-state')).toHaveTextContent('New draft from v1');
-    expect(screen.getByTestId('publish-spot')).toHaveTextContent('No changes yet');
-    expect(screen.getByTestId('publish-spot').getAttribute('data-state')).toBe('no-changes');
+    // 3c X8/X6/X7 (premise change): the mirror agent's line, the "New draft" tag, and the spot's "Nothing to publish yet"
+    expect(screen.getByTestId('agent-line')).toHaveTextContent('This is a new draft from v1. Tell me what to change. Readers keep seeing v1 until you publish.');
+    expect(screen.getByTestId('canvas-state')).toHaveTextContent('New draft');
+    expect(screen.getByTestId('publish-spot')).toHaveTextContent('Nothing to publish yet');
+    expect(screen.getByTestId('publish-spot').getAttribute('data-state')).toBe('nothing');
     expect(screen.queryByTestId('canvas-discard')).toBeNull();
     expect(screen.queryByTestId('canvas-clone')).toBeNull(); // already editing: absent, not disabled
     expect(screen.getByTestId('composer')).toBeInTheDocument();
@@ -280,17 +281,19 @@ describe('S3b.4: tap, then cancel writes nothing', () => {
     expect(edgeWrites()).toEqual([]);
   });
 
-  it('switching to another version while it is pending cancels it (nothing written)', async () => {
+  it('Cancel (in the page header, rule 3) leaves a pending Clone with nothing written; the picker is not there while pending (3c X6, premise change: it replaced "switching to another version cancels it")', async () => {
     st.hasV2 = true;
     mount('/p/ana/canvas/canvas?v=canvas_d222222');
     await grid();
     await screen.findByTestId('canvas-clone');
     fireEvent.click(clone());
     await screen.findByTestId('workspace-chat-empty');
-    expect(screen.getByTestId('workspace-chat-empty')).toHaveTextContent('Clone v2.');
-    fireEvent.change(screen.getByTestId('canvas-version-select'), { target: { value: 'canvas_d111111' } });
+    expect(screen.getByTestId('agent-line')).toHaveTextContent('This is a new draft from v2.');
+    expect(screen.queryByTestId('canvas-version-picker')).toBeNull();
+    fireEvent.click(screen.getByTestId('canvas-cancel-clone'));
     await waitFor(() => expect(screen.getByTestId('ws')).toHaveTextContent('none'));
     expect(screen.queryByTestId('workspace-chat-pane')).toBeNull();
+    expect(await screen.findByTestId('canvas-version-picker')).toBeInTheDocument(); // the picker is back on the published view
     expect(writeRpcs()).toEqual([]);
   });
 
@@ -389,7 +392,7 @@ describe('S3b.4: a draft is already open', () => {
     fireEvent.click(clone());
     fireEvent.click(within(await screen.findByTestId('clone-draft-sheet')).getByRole('button', { name: 'Start over from v2' }));
     await screen.findByTestId('workspace-chat-empty'); // the clone's empty thread, not the open draft's thread
-    expect(screen.getByTestId('workspace-chat-empty')).toHaveTextContent('Clone v2.');
+    expect(screen.getByTestId('agent-line')).toHaveTextContent('This is a new draft from v2.');
     expect(screen.queryByTestId('thread-panel')).toBeNull();
     expect(screen.queryByTestId('workspace-go-to-draft')).toBeNull();
     expect(screen.queryByTestId('canvas-discard')).toBeNull();

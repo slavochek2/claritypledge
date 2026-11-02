@@ -1,0 +1,90 @@
+/**
+ * @file p1536-x4-header-model.test.ts
+ * @description P1536 3c X4 (S3c.4): the header table, row by row, against the ONE pure function that decides it (headerRow). The expectations below
+ * are typed from the spec's table, not derived from the code: beside the name, the right side left to right, and which one is filled. "Where two
+ * rows fit, the more specific wins" is pinned by the cap rows. The bar that draws the header reads the same function (p1536-x4-header-bar.test.tsx).
+ */
+import { describe, expect, it } from 'vitest';
+import { headerRow, type HeaderInput } from '@/app/components/canvas/canvas-header-model';
+
+/** A published, owner, drafting-on, nothing-else baseline; each row overrides what makes it that row. */
+const BASE: HeaderInput = {
+  owner: true, drafting: true, onScreen: 'published', hasPublished: true, hasBase: false, workspace: false, draftOpen: false,
+  spot: 'nothing', busy: false, atCap: false, threadButton: false, goToDraft: false,
+};
+
+interface Row { name: string; input: Partial<HeaderInput>; tag: 'draft' | 'new-draft' | null; picker: boolean; items: string[]; spot: 'share' | 'publish' | 'status' | 'none' }
+
+/** The table of 3c X4, one entry per row (a row whose right side has Thread* is run with the Thread button on AND off below). */
+const ROWS: Row[] = [
+  { name: 'Published, owner, no draft', input: {}, tag: null, picker: true, items: ['clone'], spot: 'share' },
+  { name: 'Published, owner, draft open, reached by View (no ws=1)', input: { draftOpen: true }, tag: null, picker: true, items: ['clone'], spot: 'share' },
+  { name: 'Published, owner, draft open, picked from the picker (ws=1)', input: { draftOpen: true, workspace: true }, tag: null, picker: true, items: ['thread'], spot: 'share' },
+  { name: 'Pending Clone', input: { onScreen: 'pending', workspace: true }, tag: 'new-draft', picker: false, items: ['thread', 'cancel'], spot: 'status' },
+  { name: 'Never published, no points', input: { onScreen: 'draft', hasPublished: false, workspace: true, draftOpen: true, spot: 'nothing' }, tag: 'draft', picker: false, items: ['thread', 'discard'], spot: 'status' },
+  { name: 'Never published, with points (also newest run failed, or at the cap)', input: { onScreen: 'draft', hasPublished: false, workspace: true, draftOpen: true, spot: 'publish' }, tag: 'draft', picker: false, items: ['thread', 'discard'], spot: 'publish' },
+  { name: 'Draft with a base, no points left, or no difference from base', input: { onScreen: 'draft', hasBase: true, workspace: true, draftOpen: true, spot: 'nothing' }, tag: 'draft', picker: true, items: ['thread', 'discard'], spot: 'status' },
+  { name: 'Draft with a base, points and a difference (also newest run failed, or at the cap)', input: { onScreen: 'draft', hasBase: true, workspace: true, draftOpen: true, spot: 'publish' }, tag: 'draft', picker: true, items: ['thread', 'discard'], spot: 'publish' },
+  { name: 'Updating, never published', input: { onScreen: 'draft', hasPublished: false, workspace: true, draftOpen: true, spot: 'updating', busy: true }, tag: 'draft', picker: false, items: ['thread'], spot: 'status' },
+  { name: 'Publishing, with a base', input: { onScreen: 'draft', hasBase: true, workspace: true, draftOpen: true, spot: 'publish', busy: true }, tag: 'draft', picker: true, items: ['thread'], spot: 'status' },
+  { name: 'Pending Clone while its first Send is going: no picker yet, no Discard, no Cancel', input: { onScreen: 'pending', workspace: true, spot: 'updating', busy: true }, tag: 'new-draft', picker: false, items: ['thread'], spot: 'status' },
+  { name: 'At the cap, nothing to publish, with a base: Start over is in the composer, not here', input: { onScreen: 'draft', hasBase: true, workspace: true, draftOpen: true, spot: 'nothing', atCap: true }, tag: 'draft', picker: true, items: ['thread'], spot: 'status' },
+  { name: 'At the cap, nothing to publish, never published', input: { onScreen: 'draft', hasPublished: false, workspace: true, draftOpen: true, spot: 'nothing', atCap: true }, tag: 'draft', picker: false, items: ['thread'], spot: 'status' },
+  { name: 'At the cap WITH something to publish: the specific row does not apply, Discard stays', input: { onScreen: 'draft', hasBase: true, workspace: true, draftOpen: true, spot: 'publish', atCap: true }, tag: 'draft', picker: true, items: ['thread', 'discard'], spot: 'publish' },
+  { name: 'A run on another canvas, this draft has points and differs: as the draft, Publish', input: { onScreen: 'draft', hasBase: true, workspace: true, draftOpen: true, spot: 'publish', busy: false }, tag: 'draft', picker: true, items: ['thread', 'discard'], spot: 'publish' },
+  { name: 'A run on another canvas, this draft has nothing to publish: the status', input: { onScreen: 'draft', hasBase: true, workspace: true, draftOpen: true, spot: 'nothing', busy: false }, tag: 'draft', picker: true, items: ['thread', 'discard'], spot: 'status' },
+  { name: 'Published picked from the picker (ws=1) while the open draft is updating: the status holds the spot, never a flash of Share', input: { draftOpen: true, workspace: true, spot: 'updating', busy: true }, tag: null, picker: true, items: ['thread'], spot: 'status' },
+  { name: 'Published picked from the picker (ws=1) while the page is reading again after a first Send: the skeleton holds the spot, never a flash of Share', input: { draftOpen: true, workspace: true, spot: 'loading' }, tag: null, picker: true, items: ['thread'], spot: 'status' },
+  { name: 'A Clone\'s first Send was accepted: the address moved, the last read is still the old published one with no draft, the page is reading: the skeleton holds the spot', input: { draftOpen: false, workspace: true, spot: 'loading' }, tag: null, picker: true, items: ['thread'], spot: 'status' },
+  { name: 'Reader or signed out', input: { owner: false }, tag: null, picker: true, items: [], spot: 'none' },
+  { name: 'Reader of a canvas with nothing published', input: { owner: false, hasPublished: false }, tag: null, picker: false, items: [], spot: 'none' },
+  { name: 'Drafting off, published, owner', input: { drafting: false }, tag: null, picker: true, items: [], spot: 'share' },
+  { name: 'Drafting off, draft, owner, with a base', input: { drafting: false, onScreen: 'draft', hasBase: true, draftOpen: true }, tag: 'draft', picker: true, items: [], spot: 'none' },
+  { name: 'Drafting off, draft, owner, never published', input: { drafting: false, onScreen: 'draft', hasPublished: false, draftOpen: true }, tag: 'draft', picker: false, items: [], spot: 'none' },
+];
+
+describe('X4: the header table, every row', () => {
+  it.each(ROWS)('$name', ({ input, tag, picker, items, spot }) => {
+    // Thread is a table item only while the panel is closed on a wide screen, and only in the workspace: with the button on it leads the items.
+    const off = headerRow({ ...BASE, ...input, threadButton: false });
+    expect(off.items).toEqual(items.filter(i => i !== 'thread'));
+    const on = headerRow({ ...BASE, ...input, threadButton: true });
+    expect(on.items).toEqual(items);
+    expect(on.tag).toBe(tag);
+    expect(on.picker).toBe(picker);
+    expect(on.spot).toBe(spot);
+  });
+
+  it('exactly one filled item per row at most, and it is the spot: Share on a published view, Publish on a draft, nothing else', () => {
+    for (const r of ROWS) {
+      const row = headerRow({ ...BASE, ...r.input, threadButton: true });
+      expect(row.filled).toBe(r.spot === 'share' || r.spot === 'publish' ? r.spot : null);
+      expect(row.items).not.toContain('share');
+      expect(row.items).not.toContain('publish');
+    }
+  });
+
+  it('Share never appears on a draft or a pending Clone (a draft has no access dialog)', () => {
+    for (const r of ROWS.filter(r => r.input.onScreen === 'draft' || r.input.onScreen === 'pending')) {
+      expect(headerRow({ ...BASE, ...r.input }).spot).not.toBe('share');
+    }
+  });
+
+  it('Thread leads the right side whenever it is there (before Cancel and Discard)', () => {
+    expect(headerRow({ ...BASE, onScreen: 'pending', workspace: true, threadButton: true }).items).toEqual(['thread', 'cancel']);
+    expect(headerRow({ ...BASE, onScreen: 'draft', hasBase: true, draftOpen: true, workspace: true, spot: 'publish', threadButton: true }).items).toEqual(['thread', 'discard']);
+  });
+
+  it('X13: on a phone a published version picked from a draft adds Go to draft before Share; nowhere else', () => {
+    expect(headerRow({ ...BASE, draftOpen: true, workspace: true, goToDraft: true }).items).toEqual(['go-to-draft']);
+    expect(headerRow({ ...BASE, draftOpen: true, workspace: true, goToDraft: true, threadButton: true }).items).toEqual(['thread', 'go-to-draft']);
+    expect(headerRow({ ...BASE, draftOpen: true, workspace: false, goToDraft: true }).items).toEqual(['clone']);
+    expect(headerRow({ ...BASE, onScreen: 'draft', hasBase: true, draftOpen: true, workspace: true, goToDraft: true, spot: 'publish' }).items).not.toContain('go-to-draft');
+  });
+
+  it('CONTROL (gate 7): a deliberately wrong table (Share on a draft) is caught by the same comparison', () => {
+    const row = headerRow({ ...BASE, onScreen: 'draft', hasBase: true, draftOpen: true, workspace: true, spot: 'publish' });
+    expect(row.spot === 'share').toBe(false);
+    expect(() => expect(row.spot).toBe('share')).toThrow();
+  });
+});

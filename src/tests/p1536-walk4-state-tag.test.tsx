@@ -4,49 +4,43 @@
  * rename stays reachable through the name itself because the pencil is hidden there. jsdom has no layout: these pin the classes that make it true,
  * the browser walk proves the pixels.
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 
 vi.mock('@/app/components/canvas/canvas-version-switcher', () => ({ CanvasVersionSlot: () => <span data-testid="picker">v1</span> }));
 vi.mock('@/app/components/canvas/canvas-share-control', () => ({ CanvasShareControl: () => null }));
 vi.mock('@/app/components/canvas/canvas-clone-button', () => ({ CloneButton: () => null }));
-vi.mock('@/app/components/canvas/canvas-workspace-context', () => ({ useCanvasWorkspace: () => ({ cloneSeq: null }) }));
+vi.mock('@/app/components/canvas/canvas-workspace-context', () => ({ useCanvasWorkspace: () => ({ cloneSeq: null }), CANVAS_WORKSPACE_WIDE_QUERY: '(min-width: 1280px)' }));
 
 import { CanvasOwnerBar } from '@/app/components/canvas/canvas-owner-bar';
-import { CanvasStateTag } from '@/app/components/canvas/canvas-state-tag';
+import { CanvasDraftTag } from '@/app/components/canvas/canvas-draft-tag';
 import { CanvasNameEdit } from '@/app/components/canvas/canvas-name-edit';
 
 afterEach(() => cleanup());
 
-const viewingDraft = { isOwner: true, version: 'd', draft: { version: 'd', baseSeq: 1 }, publishedNone: false } as unknown as CanvasReady;
-const published = { isOwner: true, version: 'v1', draft: null, publishedNone: false } as unknown as CanvasReady;
+const viewingDraft = { isOwner: true, version: 'd', versions: [], draft: { version: 'd', baseSeq: 1, runCount: 1, changedBoxes: [] }, publishedNone: false } as unknown as CanvasReady;
 const cls = (el: HTMLElement) => el.className.split(/\s+/);
 
 const bar = (ready: CanvasReady, onRename = vi.fn()) => render(
-  <CanvasOwnerBar ready={ready} handle="ana" projectTag="canvas" title="My canvas" canRename onRename={onRename} onPick={vi.fn()} onChanged={vi.fn()} onBack={vi.fn()} active={false} view="canvas" onView={vi.fn()} spot={<span data-testid="spot" />} />,
+  <CanvasOwnerBar ready={ready} handle="ana" projectTag="canvas" title="My canvas" canRename onRename={onRename} onPick={vi.fn()} onChanged={vi.fn()} onBack={vi.fn()} active={false} view="canvas" onView={vi.fn()} spotState={{ kind: 'nothing' }} onPublish={vi.fn()} />,
 );
 
-describe('6: the Draft tag keeps its width', () => {
-  it('the tag never shrinks, and neither does its wrapper while viewing a draft', () => {
+describe('6 (3c X6, premise change: the CanvasStateTag is the (Draft) tag component now): the Draft tag keeps its width', () => {
+  it('the tag never shrinks, never truncates, and neither does its wrapper', () => {
     bar(viewingDraft);
-    const tag = screen.getByTestId('canvas-state');
+    const wrapper = screen.getByTestId('canvas-state');
+    const tag = within(wrapper).getByTestId('canvas-draft-tag');
     expect(cls(tag)).toContain('shrink-0');
     expect(cls(tag)).not.toContain('truncate');
-    expect(cls(tag.parentElement as HTMLElement)).toContain('shrink-0');
-    expect(cls(tag.parentElement as HTMLElement)).not.toContain('min-w-0');
+    expect(cls(wrapper)).toContain('shrink-0');
+    expect(cls(wrapper)).not.toContain('min-w-0');
   });
-  it('the " · from vN" tail still hides below 640px', () => {
-    render(<CanvasStateTag ready={viewingDraft} cloneSeq={null} />);
-    expect(screen.getByText(/from v1/).className).toContain('max-sm:hidden');
-  });
-  it('CONTROL: the pending "New draft" tag still truncates, and its wrapper still shrinks', () => {
-    render(<CanvasStateTag ready={published} cloneSeq={2} />);
-    expect(cls(screen.getByTestId('canvas-clone-state'))).toContain('truncate');
-    cleanup();
-    bar(published);
-    const pubTag = screen.getByTestId('canvas-state');
-    expect(cls(pubTag.parentElement as HTMLElement)).toContain('min-w-0');
+  it('the tag component alone: "Draft" by default, any words as children ("New draft"), and it is a tag, not a control: no button, no blue', () => {
+    const { container } = render(<><CanvasDraftTag /><CanvasDraftTag>New draft</CanvasDraftTag></>);
+    expect([...container.querySelectorAll('[data-testid="canvas-draft-tag"]')].map(e => e.textContent)).toEqual(['Draft', 'New draft']);
+    expect(container.querySelector('button, a')).toBeNull();
+    expect(container.innerHTML).not.toMatch(/bg-blue|text-blue|border-blue/);
   });
 });
 

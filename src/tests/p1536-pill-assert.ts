@@ -4,7 +4,7 @@
  * holds every token of CANVAS_SECONDARY_PILL, except the spacing and justification a caller may legitimately tune (px/pl/pr/gap/justify). One helper so a
  * test never hand-types the look it is checking.
  */
-import { CANVAS_DESTRUCTIVE_PILL, CANVAS_PILL_SHAPE, CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
+import { CANVAS_CANCEL_TEXT, CANVAS_DISCARD_TEXT, CANVAS_MAIN_ACTION, CANVAS_PILL_SHAPE, CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
 
 const TUNABLE = /^(?:px|pl|pr|gap|justify|w)-|^(?:hover|focus-within|max-sm|sm):|^(?:inline-flex|hidden|xl:inline-flex)$/;
 const tokens = (cls: string): string[] => cls.split(/\s+/).filter(Boolean);
@@ -14,6 +14,11 @@ const missing = (el: Element, from: string): string[] => tokens(from).filter(t =
 export const lacksSecondaryPill = (el: Element): string[] => missing(el, CANVAS_SECONDARY_PILL);
 /** the tokens of the shared SHAPE this element lacks (Discard: same shape, destructive colours) */
 export const lacksPillShape = (el: Element): string[] => missing(el, CANVAS_PILL_SHAPE);
-export const lacksDestructivePill = (el: Element): string[] => missing(el, CANVAS_DESTRUCTIVE_PILL);
+/** 3c X4: Discard is design-system rule 5 (red text, no box); Cancel is rule 3 (ghost); the main action is the filled blue. */
+export const lacksDiscardText = (el: Element): string[] => missing(el, CANVAS_DISCARD_TEXT);
+export const lacksCancelText = (el: Element): string[] => missing(el, CANVAS_CANCEL_TEXT);
+export const lacksMainAction = (el: Element): string[] => missing(el, CANVAS_MAIN_ACTION);
+/** a box: any border or fill class (rule 5 and rule 3 buttons have none) */
+export const hasBox = (el: Element): boolean => tokens(el.getAttribute('class') ?? '').some(t => /^(?:border|bg-)/.test(t) && !/^(?:hover|focus)/.test(t));
 /** a filled-blue primary (the default Button) */
 export const isFilledBlue = (el: Element): boolean => tokens(el.getAttribute('class') ?? '').includes('bg-blue-600');

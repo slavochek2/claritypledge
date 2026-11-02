@@ -911,12 +911,12 @@ describe('P1515 phase 5: the version switcher', () => {
     expect(screen.queryByTestId('canvas-project-tag')).toBeNull();
   });
 
-  it('W2: a one-version canvas shows the plain name, unchanged (also an answer with no versions at all)', async () => {
+  it('W2: a one-version canvas shows the plain name with its version beside it as the picker (3c X5, premise change: the version sits beside the name); an answer with no versions at all has no picker', async () => {
     auth.viewerId = 'reader-1';
     getCanvas.mockResolvedValue(canvasView(false, { version: 'sales', versions: [V('sales')] }));
     page();
     await grid();
-    expect(screen.queryByTestId('canvas-version-picker')).toBeNull();
+    expect(screen.getByTestId('canvas-version-picker')).toBeInTheDocument();
     expect(screen.getByTestId('canvas-title')).toHaveTextContent('Sales');
     expect(screen.queryByTestId('canvas-project-tag')).toBeNull();
     cleanup();

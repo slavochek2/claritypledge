@@ -14,12 +14,16 @@ import { publishSpotState, stateAfterRefusal, type PublishSpotState } from './ca
 // [FOUNDER DECISION: wording of an unexpected Publish failure; this is the sentence the old Publish button already used.]
 const FAILED_TEXT = 'Could not publish this draft. Try again.';
 
-/** `onPublished`: told once the server confirmed, with the number the version got and the name that keys its `?v=` (the draft's own version row is the one that was published). */
+/**
+ * `onPublished`: told once the server confirmed, with the number the version got, the name that keys its `?v=` (the draft's own version row is the one that was
+ * published), the publish reply the server posted (its id, for the toast's first line) and how many offers are still open on it.
+ */
+export type PublishedInfo = { seq: number; versionName: string; replyMessageId: string | null; openOffers: number };
 export function useCanvasPublish(
   ready: CanvasReady | null,
   runActive: boolean,
-  onPublished?: (published: { seq: number; versionName: string }) => void,
-  /** W3: a Clone is pending: the spot reads "No changes yet". */
+  onPublished?: (published: PublishedInfo) => void,
+  /** W3: a Clone is pending: the spot reads "Nothing to publish yet". */
   pendingClone = false,
 ): { state: PublishSpotState; publishing: boolean; publish: () => void } {
   const [publishing, setPublishing] = useState(false);
@@ -38,7 +42,7 @@ export function useCanvasPublish(
       try {
         const r = await publishCanvasDraft(draft.id, draft.revision);
         if (r.ok) {
-          onPublished?.({ seq: r.seq, versionName: draft.version });
+          onPublished?.({ seq: r.seq, versionName: draft.version, replyMessageId: r.replyMessageId, openOffers: r.openOffers });
           return;
         }
         const next = stateAfterRefusal(r.refused);

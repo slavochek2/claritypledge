@@ -12,6 +12,8 @@ import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { canvasDisplayTitle } from '@/lib/canvas-boxes';
 
 export const RENAME_FAILED_TEXT = "Couldn't rename this canvas.";
+// [FOUNDER DECISION: wording, built as written in the spec's X15 table.] A rename goes live to every reader at once, so saving says so.
+export const RENAME_SAVED_TEXT = 'Name updated for everyone.';
 
 export function useCanvasRename(ready: CanvasReady | null, projectTag: string | null): { title: string; canRename: boolean; save: (next: string) => void } {
   const canvasId = ready?.isOwner ? ready.canvasId ?? null : null;
@@ -35,7 +37,7 @@ export function useCanvasRename(ready: CanvasReady | null, projectTag: string | 
     canvasService.renameCanvas(id, next).then(
       stored => {
         confirmed.current = { canvasId: id, title: stored };
-        settle(() => setSaved({ canvasId: id, title: stored }));
+        settle(() => { setSaved({ canvasId: id, title: stored }); toast.success(RENAME_SAVED_TEXT); });
       },
       () => settle(() => {
         setSaved(confirmed.current?.canvasId === id ? { canvasId: id, title: confirmed.current.title } : null);

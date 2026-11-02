@@ -117,9 +117,13 @@ export function draftQuestions(ready: CanvasReady): Record<string, string> | und
   return isViewingDraft(ready) ? ready.draft?.questions : undefined;
 }
 
-/** D6: the boxes that show "Changed": only on the owner's own draft view (computed by the read, never stored); no base, no markers. */
+/**
+ * D6, 3c X12: the boxes that differ from the version this draft started from: only on the owner's own draft view (computed by the read, never stored). A draft
+ * with no base (a first canvas) has nothing to differ from, so it shows no marker whatever the read carried. The grid shows such a box as Changed, or as
+ * Removed when an update emptied it.
+ */
 export function changedBoxes(ready: CanvasReady | null): readonly string[] | undefined {
-  return ready && isViewingDraft(ready) ? ready.draft?.changedBoxes : undefined;
+  return ready && isViewingDraft(ready) && ready.draft && ready.draft.baseSeq !== null ? ready.draft.changedBoxes : undefined;
 }
 
 /** The number the open draft gets when published: one above the newest published version (the server's rule). */

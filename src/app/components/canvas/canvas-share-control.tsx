@@ -20,7 +20,7 @@
  * Copy is [FOUNDER DECISION] (spec UI Contract).
  */
 import { CanvasShareFallback } from './canvas-share-fallback';
-import { CANVAS_SECONDARY_PILL } from './canvas-pill-styles';
+import { ShareTrigger } from './canvas-share-trigger';
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Check, CalendarDays, Globe, Link2, Loader2, Lock, Users, X, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -34,7 +34,7 @@ import {
 import { useProfileSearch } from '@/app/hooks/use-profile-search';
 import { ownerLockLabel } from '@/lib/canvas-audience-copy';
 import { canvasCopyAddress } from '@/lib/canvas-copy-address';
-import { COPIED_MS, shortDate, useIsSheet, useOpenSignal, hiddenTriggerProps, hiddenTriggerClass } from './canvas-share-helpers';
+import { COPIED_MS, shortDate, useIsSheet, useOpenSignal } from './canvas-share-helpers';
 
 interface Option {
   kind: 'person' | 'event' | 'group';
@@ -82,9 +82,11 @@ interface CanvasShareControlProps {
   openSignal?: number;
   /** P1545: the heading shown in the panel (e.g. "sales map"); every read and write still uses `name`. Defaults to `name`. */
   displayTitle?: string;
+  /** 3c X4: the owner's bar draws Share as the page's one main action (filled). */
+  main?: boolean;
 }
 
-export function CanvasShareControl({ name, visibility, generalAccess = 'restricted', entries, link, onChanged, hideTrigger, openSignal, displayTitle }: CanvasShareControlProps) {
+export function CanvasShareControl({ name, visibility, generalAccess = 'restricted', entries, link, onChanged, hideTrigger, openSignal, displayTitle, main = false }: CanvasShareControlProps) {
   const sheet = useIsSheet();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<{ entries: AudienceEntry[]; generalAccess: CanvasGeneralAccess; linkToken: string | null; targets: ShareTargets } | null>(null);
@@ -293,30 +295,10 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
     if (confirmOpen) { e.preventDefault(); return; }
     if (listOpen) { e.preventDefault(); setListDismissed(true); setActiveKey(null); }
   };
-  const shownAccess = access;
   const panelTitle = displayTitle ?? name;
 
   const button = (
-    <button
-      type="button"
-      onClick={sheet ? openPanel : undefined}
-      aria-haspopup="dialog"
-      {...hiddenTriggerProps(hideTrigger)}
-      data-testid="canvas-share-control"
-      aria-label="Share"
-      aria-describedby={stateId}
-      title="Share"
-      // W7/W8: Share is the canvas page's secondary look (never a filled blue: Publish is the primary), and it keeps its word at every width (B4).
-      className={`${hiddenTriggerClass(hideTrigger)}${CANVAS_SECONDARY_PILL}`}
-    >
-      {/* Open to anyone with the link: a globe, never a lock (a lock says "restricted"). */}
-      {shownAccess === 'link'
-        ? <Globe aria-hidden className="h-4 w-4 shrink-0" data-testid="canvas-share-open-icon" />
-        : <Lock aria-hidden className="h-4 w-4 shrink-0" data-testid="canvas-share-lock-icon" />}
-      <span>Share</span>
-      {/* The state, for assistive technology: who can open the canvas right now. */}
-      <span id={stateId} className="sr-only" data-testid="canvas-share-label">{ownerLockLabel(entries, visibility, shownAccess)}</span>
-    </button>
+    <ShareTrigger onClick={sheet ? openPanel : undefined} hideTrigger={hideTrigger} stateId={stateId} access={access} stateLabel={ownerLockLabel(entries, visibility, access)} main={main} />
   );
 
   const body = (

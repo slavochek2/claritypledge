@@ -1,7 +1,7 @@
 /**
  * @file p1536-w4-state.test.tsx
- * @description P1536 §3b W4 (S3b.5) + S3b.9: Draft or Published is always named.
- *  - the canvas header names the state next to the version: `Draft`, `Published`, or (a pending Clone) `New draft from vN`
+ * @description P1536 §3b W4 (S3b.5) + S3b.9, as 3c X5/X6 rewrote the header: a draft is a TAG, published needs no word.
+ *  - the canvas header names a draft with the (Draft) tag beside the version, a pending Clone `New draft`; a published version has no tag (a version with no Draft tag is published)
  *  - the mirror-chat card names the state and carries a secondary Open; the Publish reply in the mirror's own thread view carries
  *    "Open canvas" to the PUBLISHED version
  *  - inside the workspace's thread panel there are NO Open buttons
@@ -196,32 +196,36 @@ const rootCard = () => msg({ id: ROOT, body: null, threadRootId: null, attachmen
 const stateTag = () => screen.getByTestId('canvas-state').textContent;
 
 describe('W4: the header names the state next to the version', () => {
-  it('a published version says Published (the owner, no workspace)', async () => {
+  it('a published version says nothing: no "Published", no tag (the owner, no workspace; 3c X5, premise change)', async () => {
     mount('/p/ana/canvas/canvas');
     await grid();
     await screen.findByTestId('canvas-clone');
-    expect(stateTag()).toBe('Published');
+    expect(screen.queryByTestId('canvas-state')).toBeNull();
+    expect(screen.getByTestId('workspace-bar')).not.toHaveTextContent('Published');
     expect(screen.queryByTestId('canvas-clone-state')).toBeNull();
   });
 
-  it('the owner\'s draft says Draft, with where it came from (D8: "Draft · from v2") and the version label unchanged beside it', async () => {
+  it('the owner\'s draft says Draft (a tag), the version it will be beside it as the picker, and no "from v2" (3c X6, premise change: D8\'s origin stays in the picker rows)', async () => {
     st.hasV2 = true;
     st.openDraft = draftBlock({ baseSeq: 2 });
     st.draftRow = draftRow();
     mount(`/p/ana/canvas/canvas?v=${DRAFT_NAME}&ws=1`);
     await grid();
     await screen.findByTestId('thread-panel');
-    expect(stateTag()).toBe('Draft · from v2');
+    expect(stateTag()).toBe('Draft');
+    expect(screen.getByTestId('workspace-bar')).not.toHaveTextContent('from v2');
     expect(within(screen.getByTestId('canvas-project-slot')).getByTestId('canvas-version-select')).toHaveValue(DRAFT_NAME);
     expect(screen.queryByTestId('canvas-clone-state')).toBeNull();
   });
 
-  it('a pending Clone says "New draft from v1" and not Published', async () => {
+  it('a pending Clone says "New draft" (the same tag component) and not Published, with no number and no picker until the first Send (3c X6, premise change)', async () => {
     mount('/p/ana/canvas/canvas?ws=1');
     await grid();
     await screen.findByTestId('workspace-chat-empty');
-    expect(screen.getByTestId('canvas-clone-state')).toHaveTextContent('New draft from v1');
-    expect(screen.queryByTestId('canvas-state')).toBeNull();
+    expect(stateTag()).toBe('New draft');
+    expect(within(screen.getByTestId('canvas-state')).getByTestId('canvas-draft-tag')).toBeInTheDocument();
+    expect(screen.queryByTestId('canvas-version-picker')).toBeNull();
+    expect(screen.getByTestId('workspace-bar')).not.toHaveTextContent('Published');
   });
 
   it('a canvas with nothing published names no state (the "Nothing published yet" line speaks)', async () => {
@@ -245,13 +249,13 @@ describe('S3b.9: nobody but the owner sees the Draft state, the panel, Clone, or
     ['a signed-out visitor', () => { st.signedIn = false; }],
   ];
 
-  it.each(audiences)('%s: Published only, no Draft tag, no Clone, no panel, no Thread button, no switcher', async (_n, arrange) => {
+  it.each(audiences)('%s: published only, no Draft tag, no Clone, no panel, no Thread button, no switcher', async (_n, arrange) => {
     arrange();
     asReader();
     mount('/p/ana/canvas/canvas?ws=1');
     await grid();
     await act(async () => {});
-    expect(stateTag()).toBe('Published');
+    expect(screen.queryByTestId('canvas-state')).toBeNull(); // 3c X5 (premise change): no tag and no "Published" word for a reader either
     expect(screen.queryByTestId('canvas-clone')).toBeNull();
     expect(screen.queryByTestId('workspace-chat-pane')).toBeNull();
     expect(screen.queryByTestId('workspace-thread-button')).toBeNull();
@@ -279,7 +283,7 @@ describe('S3b.9: nobody but the owner sees the Draft state, the panel, Clone, or
     await grid();
     const options = within(await screen.findByTestId('canvas-version-select')).getAllByRole('option').map(o => o.textContent ?? '');
     expect(options).toHaveLength(3);
-    expect(options[0]).toBe('v3'); // the draft is its number; "Draft" is the state tag's word, named once (W8)
+    expect(options[0]).toBe('v3 (Draft)'); // 3c X6 (premise change): the draft row says its number and "(Draft)" (a native option holds text)
   });
 });
 

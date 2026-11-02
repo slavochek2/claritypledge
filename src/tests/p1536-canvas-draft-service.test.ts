@@ -249,9 +249,11 @@ describe('P1536 open, publish, refusals', () => {
     await expect(publishCanvasDraft('d1', 3)).rejects.toThrow('Could not publish this draft');
   });
 
-  it('a publish returns the number it got', async () => {
-    sb.rpc.mockResolvedValueOnce({ data: { seq: 3, skipped_links: 1 }, error: null });
-    await expect(publishCanvasDraft('d1', 3)).resolves.toEqual({ ok: true, seq: 3, skippedLinks: 1 });
+  it('a publish returns the number it got, and (3c X15, premise change: two more fields) the reply the server posted and the offers still open', async () => {
+    sb.rpc.mockResolvedValueOnce({ data: { seq: 3, skipped_links: 1, reply_message_id: 'msg-9', open_offers: 2 }, error: null });
+    await expect(publishCanvasDraft('d1', 3)).resolves.toEqual({ ok: true, seq: 3, skippedLinks: 1, replyMessageId: 'msg-9', openOffers: 2 });
+    sb.rpc.mockResolvedValueOnce({ data: { seq: 4 }, error: null });
+    await expect(publishCanvasDraft('d1', 3)).resolves.toEqual({ ok: true, seq: 4, skippedLinks: 0, replyMessageId: null, openOffers: 0 });
     expect(sb.rpc).toHaveBeenLastCalledWith('canvas_draft_publish', { p_draft: 'd1', p_expected_revision: 3 });
   });
 

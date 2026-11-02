@@ -1,6 +1,6 @@
 /**
  * @file p1536-w7-primaries.test.tsx
- * @description P1536 §3b W7 (S3b.6): primary buttons, per state, and the one shared secondary look.
+ * @description P1536 §3b W7 (S3b.6): primary buttons, per state, and the one shared secondary look. 3c X4 rewrote the header table (the file's premise changed where it names "Published · vN", "No changes yet", "Not published yet", Share as secondary and Discard as a pill): each such case says so below.
  *  - For each row of the W7 table the rendered primaries equal the table's. 3c X9 supersedes W7's Copy prompt row: Copy prompt is the secondary pill
  *    EVERYWHERE, so on an empty new canvas ("Not published yet") there is no primary at all (the spot is a status), and a closed panel or the Canvas tab
  *    shows zero primaries as before. (The header table itself is rewritten by X4 in a later step; these cases only change where Copy prompt was counted.)
@@ -185,7 +185,7 @@ const DRAFT_AT = `/p/ana/canvas/canvas?v=${DRAFT_NAME}&ws=1`;
 import { CanvasVersionCard } from '@/app/pages/chat/CanvasVersionCard';
 import { ComparePicker } from '@/app/components/canvas/canvas-compare-picker';
 import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
-import { isFilledBlue, lacksDestructivePill, lacksPillShape, lacksSecondaryPill } from './p1536-pill-assert';
+import { hasBox, isFilledBlue, lacksDiscardText, lacksMainAction, lacksSecondaryPill } from './p1536-pill-assert';
 
 /** What a person can press that is filled blue: not inside an inert or aria-hidden pane, and not the composer's Send. */
 const primaries = (): string[] =>
@@ -218,11 +218,11 @@ const spotText = () => screen.getByTestId('publish-spot').textContent;
 const ready = async () => { await grid(); await screen.findByTestId('thread-panel'); await waitFor(() => expect(screen.queryByTestId('canvas-loading')).toBeNull()); };
 
 describe('S3b.6: the W7 table, row by row (1440: the panel beside the canvas)', () => {
-  it('Not published yet (an empty new canvas): no primary; Copy prompt is secondary (X9 supersedes W7)', async () => {
+  it('Nothing to publish yet (an empty new canvas; 3c X7 renamed "Not published yet"): no primary; Copy prompt is secondary (X9 supersedes W7)', async () => {
     newCanvas();
     mount(DRAFT_AT);
     await ready();
-    expect(spotText()).toContain('Not published yet');
+    expect(spotText()).toContain('Nothing to publish yet');
     expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();
     expect(primaries()).toEqual([]);
     expect(lacksSecondaryPill(screen.getByTestId('canvas-copy-prompt'))).toEqual([]);
@@ -239,12 +239,12 @@ describe('S3b.6: the W7 table, row by row (1440: the panel beside the canvas)', 
     expect(lacksSecondaryPill(screen.getByTestId('canvas-copy-prompt'))).toEqual([]);
   });
 
-  it('No changes yet (a draft from v1): no primary, and no Copy prompt (it is the onboarding of a canvas with no base: "only where shown")', async () => {
+  it('Nothing to publish yet (a draft from v1 with no difference; 3c X7 renamed "No changes yet"): no primary, and no Copy prompt (it is the onboarding of a canvas with no base: "only where shown")', async () => {
     st.openDraft = draftBlock({ baseSeq: 1, changedBoxes: [] });
     st.draftRow = draftRow({ baseVersionId: 'ver-1' });
     mount(DRAFT_AT);
     await ready();
-    expect(spotText()).toContain('No changes yet');
+    expect(spotText()).toContain('Nothing to publish yet');
     expect(primaries()).toEqual([]);
     expect(screen.queryByTestId('canvas-copy-prompt')).toBeNull();
   });
@@ -258,20 +258,20 @@ describe('S3b.6: the W7 table, row by row (1440: the panel beside the canvas)', 
     expect(lacksSecondaryPill(screen.getByTestId('canvas-copy-prompt'))).toEqual([]);
   });
 
-  it('Published · vN (the owner on a published version, nothing being edited): no primary at all, and no thread to carry a Copy prompt', async () => {
+  it('Share (the owner on a published version, nothing being edited; 3c X4 replaced "Published · vN"): Share is the ONE primary, and no thread to carry a Copy prompt', async () => {
     mount('/p/ana/canvas/canvas');
     await grid();
     await screen.findByTestId('canvas-clone');
-    expect(spotText()).toContain('Published · v1');
-    expect(primaries()).toEqual([]);
+    expect(screen.getByTestId('publish-spot')).toHaveAttribute('data-state', 'share');
+    expect(primaries()).toEqual([expect.stringMatching(/^Share/)]);
     expect(screen.queryByTestId('canvas-copy-prompt')).toBeNull();
   });
 
-  it('a Clone pending (nothing written): the spot says No changes yet, and no primary', async () => {
+  it('a Clone pending (nothing written): the spot says Nothing to publish yet (3c X7), and no primary', async () => {
     mount('/p/ana/canvas/canvas?ws=1');
     await grid();
     await screen.findByTestId('workspace-chat-empty');
-    expect(spotText()).toContain('No changes yet');
+    expect(spotText()).toContain('Nothing to publish yet');
     expect(primaries()).toEqual([]);
   });
 });
@@ -349,29 +349,30 @@ describe('S3b.6: one shared secondary look (Compare\'s pill), named once', () =>
     expect(lacksSecondaryPill(screen.getByTestId('canvas-compare-picker'))).toEqual([]);
   });
 
-  it('Clone, Share and the version picker (the owner on a published version with two versions) wear it; the picker has a chevron and role=combobox', async () => {
+  it('Clone and the version picker wear it, Share wears the filled main action (3c X4, premise change: Share is the main action of a published version); the picker has a chevron and role=combobox', async () => {
     st.hasV2 = true;
     mount('/p/ana/canvas/canvas');
     await grid();
     await screen.findByTestId('canvas-clone');
     expect(lacksSecondaryPill(screen.getByTestId('canvas-clone'))).toEqual([]);
-    expect(lacksSecondaryPill(screen.getByTestId('canvas-share-control'))).toEqual([]);
+    expect(lacksMainAction(screen.getByTestId('canvas-share-control'))).toEqual([]);
+    expect(isFilledBlue(screen.getByTestId('canvas-share-control'))).toBe(true);
     const picker = screen.getByTestId('canvas-version-picker');
     expect(lacksSecondaryPill(picker)).toEqual([]);
     expect(within(picker).getByTestId('canvas-version-chevron')).toBeInTheDocument();
     expect(within(picker).getByTestId('canvas-version-select')).toHaveAttribute('role', 'combobox');
     expect(within(picker).getByRole('combobox', { name: 'Version' })).toBeInTheDocument();
-    for (const el of [screen.getByTestId('canvas-clone'), screen.getByTestId('canvas-share-control'), picker]) expect(isFilledBlue(el)).toBe(false);
+    for (const el of [screen.getByTestId('canvas-clone'), picker]) expect(isFilledBlue(el)).toBe(false);
   });
 
-  it('Thread (panel closed) and Discard (panel header) wear it; Discard keeps the shape with destructive text', async () => {
+  it('Thread (panel closed) wears it; Discard is rule 5 (red text, no box; 3c X4, premise change: it was a pill with destructive text)', async () => {
     publishable();
     mount(DRAFT_AT);
     await ready();
     const discard = screen.getByTestId('canvas-discard');
-    expect(lacksPillShape(discard)).toEqual([]);
-    expect(lacksDestructivePill(discard)).toEqual([]);
-    expect(discard.className).toContain('text-destructive');
+    expect(lacksDiscardText(discard)).toEqual([]);
+    expect(hasBox(discard)).toBe(false);
+    expect(discard.className).toContain('text-red-600');
     fireEvent.click(screen.getByLabelText('Close thread'));
     expect(lacksSecondaryPill(screen.getByTestId('workspace-thread-button'))).toEqual([]);
   });
