@@ -8,6 +8,21 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-02 [product]: Correction to today's minimum-loop entries, after two hostile reviews and a code check. Founder-approved
+
+**Context:** Two reviews (Gemini, Opus; 2 of 2 reported) of the four 2026-11-02 entries below. Their load-bearing claims were checked against code and the log before this entry was written.
+**Corrections:**
+1. **Answering a letter. The "no account" step was wrong, in both directions.** A one-to-one letter link: the recipient presses Open, with the terms and "create an account" stated under the button. A one-time sign-in link then goes to the address the letter was sent to; opening it creates the account and returns them to the letter signed in (P1487). That works today and costs one extra email click. No path exists for answering without any account (P1456 is backlog), and for one-to-one letters none is needed. A team (one-to-many) letter can be read signed out, but rating asks the reader to "Sign in to continue" through the general login, which has no per-recipient email link. /prepare is not linked from the letter page.
+2. **The leader fails first out loud, not in a team letter.** One-to-many letters have no author prediction by design (P1379). The leader scores low on themselves in the meeting, or sends one-to-one letters, which carry the prediction and the email sign-in path.
+3. **The ledger follows the 2026-10-30 rules** (P1559): only understood checks are shown, with no numbers in the view, and gaps stay out of the shared list. "The group sees what was found, plus the leader's low score" is withdrawn.
+4. **The closing signal moves to the answering side** (H-NormFlip puts the obligation on answering; deferred norm-cascade steps stay deferred). The loop counts as closed when recipients answer the next letter without being chased, not when a non-leader sends one, which a leader can order and which tests the missing letter-builder more than the norm. **Falsifier, replacing the earlier one:** across the first 3 leaders, fewer than half of recipients answer the second letter within 2 weeks without a chase. Thresholds agent-proposed, `[FOUNDER DECISION: overwrite]`.
+5. **The entry trigger is a stuck disagreement, real or false.** Which one it is shows only after the check, so a false disagreement cannot be promised either. This repeats the 2026-09-21 offer and the 2026-10-27 entry ("free conflict mediation... but why?"); both should have been cited.
+6. **Acquisition runs on founder hours until the transcript-to-letter step ships.** Event, conversation, a hand-built letter and a one-on-one per leader is consulting-shaped. Measure **founder hours per leader won**; expect it to fall only after that step exists.
+7. **Segment unchanged.** "Values-aligned teams with high-stakes decisions" is a filter inside the recorded segment (lean-canvas §Customer Segments, Active focus), not a new one; changing the segment goes through /docs-strategy-update. H-NormFlip says start low-stakes, so first letters take a low-stakes topic even inside a high-stakes team.
+8. **Organisers-first withdrawal, corrected reason.** The 2026-10-28 entry made organisers a spread channel, never payers. They are paused because all outreach is parked (2026-10-27), not because they cannot pay.
+**Consequences:** The minimum loop's missing pieces are now: transcript → points → stories → letter (by hand today), a team-letter answer path that is as easy as the one-to-one path (or one-to-one letters per team member), a /prepare link from the letter, and the ledger view (P1559, parked behind the sales mastermind per 2026-10-29). The lean-canvas organiser-led channel still needs reverting through /docs-strategy-update. Spec mapping and priority against sales mastermind session 1 are still open.
+**References:** 2026-10-30 [product] (ledger rules) · 2026-10-29 [product] (sales mastermind first) · 2026-10-27 [product] · features/p1456_clarity_chat_no_account_path.md · features/p1379_public_letters_skip_author_prediction.md · features/p1559_follow_through_record.md · hypotheses.md H-NormFlip
+
 ## 2026-11-02 [product]: Hike reviews show in full, in the swipe row, with no tap (P1600)
 
 **Context:** Review cards on hike pages stopped after 6 lines with no way to read on, so long recommendations lost their last sentences.
