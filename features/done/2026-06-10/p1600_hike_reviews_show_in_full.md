@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 86
 workstream: events
 created_date: '2026-11-02'
 tags: [events, hike, reviews, ux]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-11-02
 ---
 
 # P1600: Hike page reviews show in full
