@@ -21,6 +21,8 @@ Sends personalized event invitation emails via Mailgun to contacts with an email
 
 ### 1. Load audience
 
+If this is an event invite with no audience file yet, build it with `scripts/events/email-audience.sh <slug> <series-word>`: past RSVPs minus people already registered, the host, test accounts, and Mailgun suppressions. It asks for both keychain reads together, prints counts only, and refuses to overwrite an existing file. RSVPs are not attendance, so word the email "you signed up", never "you came".
+
 Read `[campaign_path]/audience.md`. Select rows where `Email` is set AND `status` is `active` (not `declined`, `paused`, `email_sent`).
 
 If rows with `status: email_sent` already exist: show count and ask — "N contacts already emailed. Send to remaining X only, or resend all?" Default: remaining only.

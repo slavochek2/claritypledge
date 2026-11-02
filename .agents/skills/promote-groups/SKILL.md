@@ -159,6 +159,8 @@ Because route, meeting point, duration, and difficulty change every event, the h
 
 After placeholders are resolved, assert **each** resolved blurb text contains the current event's date string, formatted the way step 3's `{date}` resolution produced it for that language (e.g. `en` → "Jul 5"; `es`/`ru`/`de` → "5.7" or the explicit localized form). If the matched type entry in `.private/event-channels.json` also defines a `venue_token` (optional field — see schema note below), assert that token is present too. This is a plain substring test, run for every language, not an LLM read of "does this sound current."
 
+**Hand-written dates in other languages:** when a language's blurb writes the date in words ("8 de noviembre"), put that exact wording in the type entry's optional `date_tokens` map, e.g. `{"es": "8 de noviembre"}`. The check uses `date_tokens[lang]` when present and the `{date}` format otherwise. Update it for every event, or it fails as stale, which is the safe direction.
+
 **Third mandatory token — the cache-buster.** Assert each resolved blurb contains the literal
 string `?d=<this event's date as YYMMDD>`. This is the same plain substring test, and it is
 what makes a **stale** `?d=` a hard stop rather than a judgment call: a blurb copied from last
@@ -257,7 +259,11 @@ Wait for `ok`. (Group posting is higher-stakes than DMs — the probe is require
    - This is mandatory and never abbreviated: it is the final check of the text the test post showed. If any language's copy is missing here, that is a skill defect: STOP and fix before asking for approval.
 2. The full target group list, each row: **name**, **platform**, **lang**, **verified_name** — so the operator sees which language each group receives.
 
+**A scheduled send needs a live machine.** A send set for a later time happens only if this session and Beeper are running and the laptop is awake. Say so when agreeing the time, and rerun the preflight just before sending.
+
 **Blast-radius cap (always runs, orchestrated or standalone):** If the eligible group list contains **6 or more groups**, require the operator to type the exact count as confirmation (e.g., "7") rather than a one-click approval. No bulk gate for large fan-outs.
+
+**One message settles the whole send.** Run `scripts/events/group-check.py preflight <type>` first; it reopens Beeper if needed and reports identity plus deleted messages and moderation words for each group. Put the group names, the count, and every flagged group with a recommendation into this one ask, so one reply decides both scope and risky groups. A general "go" is not the count: ask once more, with nothing sent.
 
 **Name the groups in the same message as the count.** If the founder's number differs from the eligible list, stop and ask which is right; never send to a subset on a mismatched count (2026-11-02: "10 confirmed" against a list of 7).
 
@@ -385,8 +391,7 @@ For each `verify_unavailable` or `verify_needed` group, note: "Re-trigger requir
 
 "Sent and verified" is a snapshot. Admins and bots delete later (2026-10-02: a large WhatsApp group deleted
 the post hours after a clean verify). A few hours after posting, and again at the start of the next
-promote run, list each group's recent messages via the Beeper local API and look for the founder's
-post with `isDeleted: true`. A deleted post → report it, and set that group's entry in
+promote run, run `scripts/events/group-check.py recheck <slug>` (exit 1 means a post was deleted; "unknown" means it has scrolled out of the messages read, not that it survived). A deleted post → report it, and set that group's entry in
 `.private/event-channels.json` to `excluded` with the date and evidence, so the next event skips it.
 
 ---
