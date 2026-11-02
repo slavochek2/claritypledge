@@ -174,7 +174,7 @@ function DraftLine({ onGo }: { onGo: () => void }) {
   );
 }
 
-export function WorkspaceChat({ mirror, ready, projectTag, canvasTitle, focusable, onClose, onRunActive, onDraftRead, onOpened, onReload, cloning = null, onStale = () => undefined }: {
+export function WorkspaceChat({ mirror, ready, projectTag, canvasTitle, focusable, onClose, onRunActive, onDraftRead, onThreadAnswered, onOpened, onReload, cloning = null, onStale = () => undefined }: {
   mirror: ChatSummary | null;
   ready: CanvasReady | null;
   projectTag: string | null;
@@ -185,6 +185,8 @@ export function WorkspaceChat({ mirror, ready, projectTag, canvasTitle, focusabl
   onRunActive: (active: boolean) => void;
   /** The thread read its open draft at this revision, its newest run a finished draft run (the page must not stay behind it). */
   onDraftRead?: (draftId: string, revision: number) => void;
+  /** The thread's first read has answered (whatever it said): whether a run is going is known from here on. */
+  onThreadAnswered?: (rootId: string) => void;
   /** The page should show this draft version (after a first Send, or "Go to draft"). */
   onOpened: (versionName: string) => void;
   /** Ask the canvas page to read again (Retry when the draft is in another chat). */
@@ -219,7 +221,7 @@ export function WorkspaceChat({ mirror, ready, projectTag, canvasTitle, focusabl
     <>
       {!isViewingDraft(ready) && <DraftLine onGo={() => onOpened(draft.version)} />}
       <ThreadPanel key={`${draft.threadRootId}:${attempt}`} fill summary={mirror} rootId={draft.threadRootId} highlightId={null} canvasTitle={canvasTitle} panelTitle={<MirrorPanelTitle mirror={mirror} />} focusable={focusable} onClose={onClose} onRunActive={onRunActive}
-        workspace={{ onDraftRead, holdFirstRead: fresh === draft.version, canPublish: publishSpotState(ready, false).kind === 'publish', startOver: owner.startOver, baseSeq: draft.baseSeq }} />
+        workspace={{ onDraftRead, onThreadAnswered, holdFirstRead: fresh === draft.version, canPublish: publishSpotState(ready, false).kind === 'publish', startOver: owner.startOver, baseSeq: draft.baseSeq }} />
     </>
   );
 }

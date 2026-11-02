@@ -65,7 +65,7 @@ export function useCanvasParts(args: CanvasPartsArgs): CanvasParts {
   // W0: "Send is the update". A Send before the thread's answer is known waits and then goes the way the answer says (use-held-send), never refused.
   const route = sendRouteOf({ onSend: pane.onSend, rootPending: !!args.rootPending, canvasRoot: args.canvasRoot, canvasOn, canvas, readStatus: pane.read.status });
   const held = useHeldSend(route, args.sendPlain);
-  const slot = sendSlotOf({ live, uploading: uploader.busy, elsewhere: pane.elsewhere, holdFirstRead: args.workspace?.holdFirstRead, readStatus: pane.read.status, sendWaiting: sendWaitingOf(pane.sending, held.pending, args.canvasRoot) });
+  const slot = sendSlotOf({ live, uploading: uploader.busy, elsewhere: pane.elsewhere, holdFirstRead: args.workspace?.holdFirstRead, readStatus: pane.read.status, runGoing: !!canvas?.running, sendWaiting: sendWaitingOf(pane.sending, held.pending, args.canvasRoot) });
   return {
     /** The header's title for a canvas thread; null: the ordinary "Thread" title. */
     headerTitle: live ? <CanvasThreadTitle draft={live.draft} ownerSlug={args.ownerSlug} title={args.canvasTitle} /> : null,

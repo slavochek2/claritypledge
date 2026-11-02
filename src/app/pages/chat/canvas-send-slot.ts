@@ -19,6 +19,8 @@ export interface CanvasWorkspaceProps {
   baseSeq?: number | null;
   /** The thread read its open draft at this revision, its newest run a finished draft run (the canvas page beside it must not stay behind it). */
   onDraftRead?: (draftId: string, revision: number) => void;
+  /** The thread's first read has answered (whatever it said): reported in a layout effect, in the commit that shows it. */
+  onThreadAnswered?: (rootId: string) => void;
 }
 
 export interface SendSlot {
@@ -31,14 +33,16 @@ export interface SendSlot {
 }
 
 export function sendSlotOf(args: { live: CanvasThread | null; uploading: boolean; elsewhere: boolean; holdFirstRead?: boolean; readStatus: CanvasThreadStatus;
+  /** The thread read a run going, whether or not drafting's availability has answered yet: Publish waits for a run the thread knows about (`live` waits for availability too). */
+  runGoing?: boolean;
   /** A Send of this canvas thread is waiting for the thread's answer, or is on its way and not yet re-read: the slot reads Updating… and Publish waits. */
   sendWaiting?: boolean }): SendSlot {
-  const { live, uploading, elsewhere, holdFirstRead, readStatus, sendWaiting } = args;
+  const { live, uploading, elsewhere, holdFirstRead, readStatus, runGoing, sendWaiting } = args;
   const busy = !!live && (live.running || uploading);
   const held = !!holdFirstRead && readStatus === 'loading';
   return {
     waiting: busy || sendWaiting ? SEND_SLOT_UPDATING : elsewhere ? SEND_SLOT_ELSEWHERE : undefined,
     atCap: !!live && live.draft.state === 'open' && live.draft.runCount >= REVISION_CAP_RUNS,
-    active: busy || held || !!sendWaiting,
+    active: busy || held || !!runGoing || !!sendWaiting,
   };
 }

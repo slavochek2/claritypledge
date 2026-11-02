@@ -64,8 +64,8 @@ export function CanvasWithThread() {
   const pendingSeq = clone.pending ? clone.pending.seq : null;
   // 3c X13: a pending Clone (the Clone tap, a reload of its address, Start over from the J4 sheet, Add to chat) opens on Thread, because typing is next.
   useThreadOnPending(clone.pending?.version ?? null, setView);
-  const { spotRunActive, onDraftRead } = useSpotRun(runActive, reported.ready);
-  const { closedDraftId, spot, publishing, publish } = useWorkspacePublish({ ready: reported.ready, runActive: spotRunActive, pendingClone: !!clone.pending, setParams, state: navState });
+  const { spotRunActive, threadUnknown, onDraftRead, onThreadAnswered } = useSpotRun(runActive, reported.ready, active);
+  const { closedDraftId, spot, publishing, publish } = useWorkspacePublish({ ready: threadUnknown ? null : reported.ready, runActive: spotRunActive, pendingClone: !!clone.pending, setParams, state: navState });
   // W8: the owner's header is the bar above the page: for the signed-in owner of a canvas with a mirror chat from the first render (so nothing shifts when
   // the read lands), and for any owner once the page has read the canvas. Once the read HAS answered, it decides: a page that is not the viewer's own
   // never shows owner controls. Everyone else keeps the reader header in the page.
@@ -98,7 +98,7 @@ export function CanvasWithThread() {
           />
         ) : null}
         canvas={<CanvasPage />}
-        chat={<WorkspaceChat mirror={active ? mirror : null} ready={held} projectTag={projectTag} canvasTitle={rename.title} focusable={wide ? panelOpen : view === 'chat'} onClose={closeThread} onRunActive={setRunActive} onDraftRead={onDraftRead} onOpened={openedDraft} onReload={() => setReloads(n => n + 1)} cloning={clone.pending} onStale={() => void clone.onStale()} />}
+        chat={<WorkspaceChat mirror={active ? mirror : null} ready={held} projectTag={projectTag} canvasTitle={rename.title} focusable={wide ? panelOpen : view === 'chat'} onClose={closeThread} onRunActive={setRunActive} onDraftRead={onDraftRead} onThreadAnswered={onThreadAnswered} onOpened={openedDraft} onReload={() => setReloads(n => n + 1)} cloning={clone.pending} onStale={() => void clone.onStale()} />}
       />
       <CloneDraftSheet sheet={clone.sheet} onAdd={clone.addToDraft} onStartOver={clone.startOver} onClose={add.dismissSheet} />
     </WorkspaceProviders>

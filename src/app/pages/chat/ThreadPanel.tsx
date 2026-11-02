@@ -15,6 +15,7 @@ import { useBack } from './chat-hooks';
 import { useChat } from './chat-state';
 import { useRestoreMirrorStatuses } from './mirror-state';
 import { useCanvasParts } from './use-canvas-parts';
+import { useReportRunActive } from './use-canvas-pane';
 import { useRetiredCanvasThread } from './use-retired-canvas-thread';
 import { Skeleton } from '@/components/ui/skeleton';
 import { chatTitle } from './chat-view-model';
@@ -85,11 +86,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   // W0: outside the workspace (`fill`) a canvas thread is an old address; it resolves to the canvas, and is held back meanwhile.
   const retired = useRetiredCanvasThread({ enabled: !fill, canvasRoot, ownerSlug, address: canvas.address });
   const runActive = canvas.runActive;
-  useEffect(() => {
-    onRunActive?.(runActive);
-    // Gone (another thread, a closed draft): what it reported goes with it, so the Publish spot never sticks on "Updating…".
-    return () => onRunActive?.(false);
-  }, [onRunActive, runActive]);
+  useReportRunActive(runActive, onRunActive);
   // P1576: a voice note sent here is a reply in this thread; in a canvas draft's thread (3c X9) it is the draft's update (use-thread-voice).
   const sendVoice = useThreadVoice(conversationId, rootId, canvasRoot, rootPending, canvas.voice);
   const blockedReason = threadBlockedReason(summary.canSend, rootDeleted);

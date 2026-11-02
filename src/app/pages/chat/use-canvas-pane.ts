@@ -2,7 +2,7 @@
  * P1536: the state a thread panel needs to host a canvas draft, in one hook: the thread is made known to the mirror, the
  * draft is read, a file can be added, and Send is wired (use-canvas-actions). What to draw from it is use-canvas-parts.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import type { ChatMessage } from '@/app/data/chat-service';
 import { isDraftingRunKind } from '@/app/data/canvas-draft-service';
 import { registerCanvasThread } from './canvas-thread-registry';
@@ -30,6 +30,12 @@ export function useCanvasPane({ canvasRoot, rootId, messages, workspace }: { can
   useEffect(() => {
     if (finishedId && finishedRevision !== undefined) onDraftRead?.(finishedId, finishedRevision);
   }, [onDraftRead, finishedId, finishedRevision]);
+  // In a layout effect, with the run's rising edge (ThreadPanel): the spot must not show one frame of Publish between this answer and "a run is going".
+  const onThreadAnswered = workspace?.onThreadAnswered;
+  const answered = read.status !== 'loading' && read.status !== 'idle';
+  useLayoutEffect(() => {
+    if (answered) onThreadAnswered?.(rootId);
+  }, [answered, onThreadAnswered, rootId]);
   const canvasOn = useCanvasDraftAvailability(canvasRoot);
   const reloadCanvas = canvas?.reload;
   const uploader = useCanvasUploads(canvas?.draft ?? null, useCallback(() => reloadCanvas?.() ?? Promise.resolve(), [reloadCanvas]));
@@ -41,4 +47,18 @@ export function useCanvasPane({ canvasRoot, rootId, messages, workspace }: { can
   }, [elsewhere]);
   const actions = useCanvasActions({ thread: canvas, available: canvasOn, onBusyElsewhere: useCallback(() => setElsewhere(true), []) });
   return { read, canvas, canvasOn, uploader, elsewhere, ...actions };
+}
+
+/**
+ * Tells the workspace's Publish spot whether a run is going. A run seen going is told in the commit that shows it, with the thread's first answer (above), so the spot never draws a button in between.
+ * Its end stays a passive effect: the 'updated' event comes first. Gone (another thread, a closed draft): what it reported goes with it, so the spot never sticks on "Updating…".
+ */
+export function useReportRunActive(runActive: boolean, onRunActive?: (active: boolean) => void): void {
+  useLayoutEffect(() => {
+    if (runActive) onRunActive?.(true);
+  }, [onRunActive, runActive]);
+  useEffect(() => {
+    onRunActive?.(runActive);
+    return () => onRunActive?.(false);
+  }, [onRunActive, runActive]);
 }

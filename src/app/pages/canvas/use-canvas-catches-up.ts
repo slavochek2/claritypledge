@@ -50,11 +50,29 @@ export function useCanvasCatchesUp(read: CanvasReady | null): { behind: boolean;
 }
 
 /**
- * §2: what the Publish spot counts as a run going. "Updating…" lasts until the page has read what the run changed: the run ends in the thread before the page re-reads its points (useSettledRun),
- * and a run can also end before the thread first looked, with the page's read older than that end (useCanvasCatchesUp).
+ * X4, X7: until the thread has answered for the draft on screen, whether a run is going is unknown, so the spot offers no Publish (a tap would reach a busy server). The thread reports its answer in a
+ * layout effect, in the commit that shows it, so no frame shows a Publish that a run then takes back. `hosted`: a thread can be there at all. A thread that never answers lets go after SETTLE_MAX_MS.
  */
-export function useSpotRun(runActive: boolean, read: CanvasReady | null): { spotRunActive: boolean; onDraftRead: (draftId: string, revision: number) => void } {
+function useThreadAnswer(hosted: boolean, read: CanvasReady | null): { unknown: boolean; onThreadAnswered: (rootId: string) => void } {
+  const [answered, setAnswered] = useState<string | null>(null);
+  const [gaveUpOn, setGaveUpOn] = useState<string | null>(null);
+  const root = hosted && read && isViewingDraft(read) ? read.draft?.threadRootId ?? null : null;
+  const waiting = !!root && answered !== root && gaveUpOn !== root;
+  useEffect(() => {
+    if (!waiting) return;
+    const t = setTimeout(() => setGaveUpOn(root), SETTLE_MAX_MS);
+    return () => clearTimeout(t);
+  }, [waiting, root]);
+  return { unknown: waiting, onThreadAnswered: setAnswered };
+}
+
+/**
+ * §2: what the Publish spot counts as a run going. "Updating…" lasts until the page has read what the run changed: the run ends in the thread before the page re-reads its points (useSettledRun),
+ * and a run can also end before the thread first looked, with the page's read older than that end (useCanvasCatchesUp). `threadUnknown`: the thread has not answered yet (useThreadAnswer).
+ */
+export function useSpotRun(runActive: boolean, read: CanvasReady | null, hosted: boolean) {
   const settling = useSettledRun(runActive, read);
   const { behind, onDraftRead } = useCanvasCatchesUp(read);
-  return { spotRunActive: settling || behind, onDraftRead };
+  const { unknown, onThreadAnswered } = useThreadAnswer(hosted, read);
+  return { spotRunActive: settling || behind, threadUnknown: unknown, onDraftRead, onThreadAnswered };
 }

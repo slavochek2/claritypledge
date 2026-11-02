@@ -21,6 +21,8 @@ const st = vi.hoisted(() => ({
   draft: null as Record<string, unknown> | null,
   /** Answers of the draft read in order, before `draft` takes over: lets a test say what each read saw. */
   draftAnswers: [] as Record<string, unknown>[],
+  /** The thread's draft read waits for this (null: it answers at once). */
+  threadGate: null as Promise<unknown> | null,
   run: null as Record<string, unknown> | null,
   messages: [] as unknown[],
   canvasCalls: 0,
@@ -50,7 +52,7 @@ vi.mock('@/app/components/canvas/canvas-add-story-dialog', () => ({ CanvasAddSto
 vi.mock('@/app/components/canvas/canvas-share-control', () => ({ CanvasShareControl: () => null }));
 vi.mock('@/app/data/canvas-draft-service', async () => ({
   ...(await vi.importActual<object>('@/app/data/canvas-draft-service')),
-  getCanvasDraftByThread: async () => st.draftAnswers.shift() ?? st.draft,
+  getCanvasDraftByThread: async () => { await st.threadGate; return st.draftAnswers.shift() ?? st.draft; },
   getLatestCanvasRun: async () => st.run,
   listCanvasMaterial: async () => [],
   countDoneCanvasDraftRuns: async () => 1,
@@ -146,6 +148,7 @@ beforeEach(() => {
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} });
   st.draft = draftRow();
   st.draftAnswers = [];
+  st.threadGate = null;
   st.run = doneRun;
   st.messages = [msg({ id: ROOT, body: null, threadRootId: null, attachmentKind: 'canvas_version', attachmentId: 'ver-draft' })];
   rpc.mockImplementation(async (name: string) => (name === 'canvas_draft_publish' ? { data: { seq: 2, skipped_links: 0 }, error: null } : name === 'canvas_draft_discard' ? { data: true, error: null } : { data: null, error: null }));
@@ -266,6 +269,67 @@ describe('a run that finished before the thread first looked', () => {
     expect(spot()).toBe('nothing');
     expect(getCanvas).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId('canvas-grid')).toBeInTheDocument();
+  });
+});
+
+describe('the spot while the thread has not answered: never a live Publish over a run it does not know about (X4: only Updating… and Publishing… replace the main action, and the settled-read hold stays)', () => {
+  const going = () => ({ ...doneRun, kind: 'message', state: 'running', createdAt: new Date().toISOString(), startedAt: new Date().toISOString() });
+  const publishable = () => {
+    getCanvas.mockResolvedValue(rev(0, ['canvas:problem']));
+    st.draft = draftRow({ revision: 0 });
+  };
+
+  it('the page answered first, the thread\'s first read is out: no Publish, a loading spot; a run going then reads Updating…', async () => {
+    publishable();
+    st.run = going();
+    const gate = deferred<undefined>();
+    st.threadGate = gate.promise;
+    mount();
+    await screen.findByTestId('thread-panel');
+    await settle();
+    expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();
+    expect(spot()).toBe('loading');
+    await act(async () => { gate.resolve(undefined); });
+    await waitFor(() => expect(spot()).toBe('updating'));
+    expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();
+  });
+
+  it('the availability answer is out, the thread has read a run going: Updating…, not Publish (availability does not decide whether a run is going)', async () => {
+    publishable();
+    st.run = going();
+    const available = deferred<{ data: { enabled: boolean }; error: null }>();
+    invoke.mockReturnValue(available.promise);
+    mount();
+    await screen.findByTestId('thread-panel');
+    await waitFor(() => expect(spot()).toBe('updating'));
+    await settle();
+    expect(spot()).toBe('updating');
+    await act(async () => { available.resolve({ data: { enabled: true }, error: null }); });
+    expect(spot()).toBe('updating');
+  });
+
+  it('a settled draft: Publish comes as soon as the thread answers', async () => {
+    publishable();
+    const gate = deferred<undefined>();
+    st.threadGate = gate.promise;
+    mount();
+    await screen.findByTestId('thread-panel');
+    await settle();
+    expect(spot()).toBe('loading');
+    await act(async () => { gate.resolve(undefined); });
+    await waitFor(() => expect(spot()).toBe('publish'));
+  });
+
+  it('a thread read that never answers: the wait ends after the failsafe, and the spot says what the page read says', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    publishable();
+    st.threadGate = new Promise(() => undefined);
+    mount();
+    await screen.findByTestId('thread-panel');
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); });
+    expect(spot()).toBe('loading');
+    await act(async () => { await vi.advanceTimersByTimeAsync(SETTLE_MAX_MS + 100); });
+    expect(spot()).toBe('publish');
   });
 });
 
