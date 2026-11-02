@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { callerHasCurrentTerms } from '../_shared/terms-gate.ts';
 import { transcribeWav } from '../_shared/gemini-transcribe.ts';
 import { createGcsSigner, deleteObject, downloadObject, downloadObjectCapped, putHeaders, readObjectHead, signUrl, urlSignerFor } from './gcs.ts';
 import { handleChatVoice, MAX_UPLOAD_BYTES, MIN_UPLOAD_BYTES, PLAYBACK_TTL_SECONDS, UPLOAD_TTL_SECONDS, type CanvasCommitResult, type CommitResult, type PlaybackTarget, type PostCheck, type UploadCheck } from './handler.ts';
@@ -124,7 +125,7 @@ Deno.serve((req: Request) =>
     // P1536 X9: a voice note in a canvas thread. canvas_voice_send is service-role only and acts for p_uid, the user the Bearer token
     // resolved to; it makes the message, its run and (for a first note) the draft in one transaction.
     commitCanvas: async (input): Promise<CanvasCommitResult> => {
-      const { data, code } = await rpc<Record<string, unknown>>('canvas_voice_send', {
+      const { data, error } = (await service.rpc('canvas_voice_send', {
         p_uid: input.userId,
         p_canvas: input.canvasId,
         p_from_version: input.fromVersionId,
@@ -136,12 +137,18 @@ Deno.serve((req: Request) =>
         p_duration_ms: input.durationMs,
         p_waveform: input.waveform,
         p_client_id: input.clientId,
-      }, ['42501', '22023', '54000']);
-      if (code === '54000') return { kind: 'rate' };
-      if (code === '22023') return { kind: 'invalid' };
-      if (code === '42501' || !data) return { kind: 'forbidden' };
-      return { kind: 'ok', result: data };
+      })) as { data: Record<string, unknown> | null; error: RpcError };
+      if (error) {
+        // 54000 is two different limits: the voice rate limit, and the send's own cap on open drafts (its message says which)
+        if (error.code === '54000') return /open drafts/i.test(error.message ?? '') ? { kind: 'draft_cap' } : { kind: 'rate' };
+        if (error.code === '22023') return { kind: 'invalid' };
+        if (error.code === '42501') return { kind: 'forbidden' };
+        throw new Error(`canvas_voice_send failed: ${error.code ?? ''} ${error.message ?? ''}`.trim());
+      }
+      return data ? { kind: 'ok', result: data } : { kind: 'forbidden' };
     },
+    // 3c X9: the same gate canvas-draft applies before it begins a run, applied before anything is written
+    hasTerms: (userId) => callerHasCurrentTerms(service, userId),
 
     playbackTarget: async (userId, messageId): Promise<PlaybackTarget> => {
       const { data, code } = await rpc<string>('chat_voice_playback_target', { p_uid: userId, p_message: messageId }, ['42501']);

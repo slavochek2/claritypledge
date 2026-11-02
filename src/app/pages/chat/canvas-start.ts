@@ -4,6 +4,7 @@
  * where they are; whoever called it opens the workspace on the draft (use-start-canvas).
  */
 import { CanvasDraftRefusal, openCanvasDraft, type OpenDraftResult } from '@/app/data/canvas-draft-service';
+import { TOO_MANY_DRAFTS_TEXT } from './canvas-thread-copy';
 import { registerCanvasThread } from './canvas-thread-registry';
 
 export type StartedCanvasThread = OpenDraftResult;
@@ -24,7 +25,7 @@ export async function startCanvasThread(fromVersionId?: string | null): Promise<
 /** What to tell the owner when starting a thread failed. */
 export function canvasStartErrorText(e: unknown): string {
   if (e instanceof CanvasDraftRefusal) {
-    if (e.code === 'TOO_MANY_DRAFTS') return 'You have too many open canvas drafts. Publish or discard one first.';
+    if (e.code === 'TOO_MANY_DRAFTS') return TOO_MANY_DRAFTS_TEXT;
     if (e.code === 'RUN_ACTIVE') return 'That draft is being written right now. Try again in a minute.';
   }
   return 'Could not start a canvas. Try again.';

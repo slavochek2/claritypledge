@@ -10,6 +10,7 @@
  * (reason 'unsupported'), whatever the UI shows.
  */
 
+import { clearListReturnCache } from '@/lib/list-return-cache';
 import { supabase } from '@/lib/supabase';
 import { mapMessageRow, type ChatMessage, type ChatMessageRow } from './chat-mappers';
 
@@ -18,11 +19,11 @@ import { mapMessageRow, type ChatMessage, type ChatMessageRow } from './chat-map
  * same audio again cannot work. Like `too_long`, `forbidden` and `unsupported` it carries no `receipt`; use
  * `isFinalVoiceFailure` rather than listing reasons yourself.
  */
-export type VoiceNoteFailure = 'too_long' | 'rate' | 'forbidden' | 'unsupported' | 'bad_audio' | 'failed';
+export type VoiceNoteFailure = 'too_long' | 'rate' | 'forbidden' | 'unsupported' | 'bad_audio' | 'too_many_drafts' | 'terms' | 'failed';
 
 /** True when retrying the same recording cannot succeed (the caller should not offer Retry). */
 export function isFinalVoiceFailure(e: VoiceNoteError): boolean {
-  return e.reason === 'too_long' || e.reason === 'forbidden' || e.reason === 'unsupported' || e.reason === 'bad_audio';
+  return e.reason === 'too_long' || e.reason === 'forbidden' || e.reason === 'unsupported' || e.reason === 'bad_audio' || e.reason === 'too_many_drafts';
 }
 
 /**
@@ -52,16 +53,22 @@ const REASON_BY_STATUS: Record<number, VoiceNoteFailure> = {
   400: 'bad_audio', 403: 'forbidden', 413: 'too_long', 422: 'unsupported', 429: 'rate',
 };
 
+/** The two 409s a canvas voice note can get; the body's `code` tells them apart (a 409 means nothing else on this function). */
+const REASON_BY_CODE: Record<string, VoiceNoteFailure> = { TOO_MANY_DRAFTS: 'too_many_drafts', TERMS_NOT_ACCEPTED: 'terms' };
+
 /** supabase-js hands a non-2xx back as an error whose `context` is the Response; read status and server text from it. */
 async function voiceError(action: string, error: { message: string; context?: unknown }): Promise<VoiceNoteError> {
   const res = error.context instanceof Response ? error.context : null;
   const status = res?.status ?? null;
   let detail = error.message;
+  let code: string | null = null;
   if (res) {
-    const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
+    const body = (await res.json().catch(() => null)) as { error?: unknown; code?: unknown } | null;
     if (typeof body?.error === 'string') detail = body.error;
+    if (typeof body?.code === 'string') code = body.code;
   }
-  return new VoiceNoteError((status && REASON_BY_STATUS[status]) || 'failed', status, `voice note ${action} failed: ${detail}`);
+  const reason = (code && REASON_BY_CODE[code]) || (status && REASON_BY_STATUS[status]) || 'failed';
+  return new VoiceNoteError(reason, status, `voice note ${action} failed: ${detail}`);
 }
 
 interface UploadGrant {
@@ -112,17 +119,23 @@ export async function commitVoiceClip(
   extra: Record<string, unknown>,
   answer: 'message' | 'canvas',
 ): Promise<Record<string, unknown>> {
-  const { data, error } = await supabase.functions.invoke('chat-voice', {
-    body: { mode: 'commit', conversationId: receipt.conversationId, objectKey: receipt.objectKey, ...extra },
-  });
-  if (error || !data?.[answer]) {
-    const failure = await voiceError('commit', error ?? { message: `no ${answer} returned` });
-    // The object is stored: let the caller retry the commit instead of recording and uploading again.
-    throw FINAL_STATUSES.has(failure.status ?? 0)
-      ? failure
-      : new VoiceNoteError(failure.reason, failure.status, failure.message, receipt);
+  try {
+    const { data, error } = await supabase.functions.invoke('chat-voice', {
+      body: { mode: 'commit', conversationId: receipt.conversationId, objectKey: receipt.objectKey, ...extra },
+    });
+    if (error || !data?.[answer]) {
+      const failure = await voiceError('commit', error ?? { message: `no ${answer} returned` });
+      // The object is stored: let the caller retry the commit instead of recording and uploading again.
+      throw FINAL_STATUSES.has(failure.status ?? 0) || isFinalVoiceFailure(failure)
+        ? failure
+        : new VoiceNoteError(failure.reason, failure.status, failure.message, receipt);
+    }
+    return data as Record<string, unknown>;
+  } finally {
+    // A canvas voice note is a write the cached lists can show (it makes a draft and its canvas, copying points), exactly as the typed canvas send is,
+    // and a lost response may have committed: so, like that send, this clears whatever the outcome. Upload-sign and playback write nothing and do not.
+    clearListReturnCache();
   }
-  return data as Record<string, unknown>;
 }
 
 /**

@@ -24,6 +24,8 @@ const RUN_DEAD_MS = 5 * 60_000;
 export const FIRST_READ_MAX_MS = 15_000;
 /** A queued run's lease (the server's own number, 3 minutes). Within it the run is ACTIVE, claimed or not: it blocks every other Send. */
 export const QUEUED_LEASE_MS = 3 * 60_000;
+/** How long a voice run may wait for its transcript before the server ends it (the server's own number). Its 3-minute lease counts from the landing. */
+export const VOICE_WAIT_MS = 30 * 60_000;
 /** A run made but not claimed within this long: its start request probably did not land, so the client starts it once more. */
 export const QUEUED_GRACE_MS = 8_000;
 
@@ -74,9 +76,11 @@ export function splitText(text: string, max: number): string[] {
 const startOf = (run: CanvasDraftRun | null): number | null => (run ? Date.parse(run.startedAt ?? run.createdAt) : null);
 
 const isActiveState = (run: CanvasDraftRun | null): run is CanvasDraftRun => !!run && (run.state === 'queued' || run.state === 'running');
-const ageOf = (run: CanvasDraftRun, now: number): number => now - new Date(run.startedAt ?? run.createdAt).getTime();
+const isWaitingVoice = (run: CanvasDraftRun): boolean => run.state === 'queued' && run.inputKind === 'voice';
+/** Where a run's lease counts from: its start, or creation; a voice run's dispatch lease counts from the moment its transcript landed. */
+const ageOf = (run: CanvasDraftRun, now: number): number => now - new Date((isWaitingVoice(run) && run.readyAt) || run.startedAt || run.createdAt).getTime();
 /** The lease of an active run: how long it counts as active before the server's expire step fails it. */
-const leaseOf = (run: CanvasDraftRun): number => (run.state === 'queued' ? QUEUED_LEASE_MS : RUN_DEAD_MS);
+const leaseOf = (run: CanvasDraftRun): number => (isWaitingVoice(run) && !run.readyAt ? VOICE_WAIT_MS : run.state === 'queued' ? QUEUED_LEASE_MS : RUN_DEAD_MS);
 
 /** S2: an active run is queued or running, inside its lease. A queued run nobody claimed is still active (the server refuses a second Send) until the lease ends. */
 export function runIsGoing(run: CanvasDraftRun | null, now = Date.now()): boolean {
@@ -107,22 +111,42 @@ async function readDraft(rootId: string): Promise<Loaded | null> {
   return { draft, run, lastDraftAt };
 }
 
+/** The pause before the n-th start request of one run (n >= 1): 10 s, then 20, 40, and one a minute. */
+const startPauseMs = (n: number): number => Math.min(60_000, 10_000 * 2 ** (n - 1));
+/** At most this many start requests per run: about 18 minutes of asking, then the server's lease decides. */
+const MAX_START_ASKS = 20;
+
 /**
- * A queued run nobody claimed (its start request did not land: a closed tab, a dropped network) is started once more after the grace.
- * Once per run: a refusal is the server's answer and the lease ends it; NOT_READY (a voice note awaiting its transcript) is not a failure.
+ * A queued run nobody claimed (its start request did not land, or the server's own dispatch was lost) is started by the client after the grace.
+ * A start answered NOT_READY (a voice note whose transcript was still pending) is asked again with a growing pause, so a transcript that landed
+ * with its dispatch lost is begun by an open tab; any other answer is the server's and ends the asking, and so does the run leaving `queued`.
  */
 function useRestartStrandedRun(run: CanvasDraftRun | null, draftId: string | null, load: () => Promise<void>): void {
   const queuedId = run?.state === 'queued' ? run.id : null;
   const queuedAt = run ? new Date(run.createdAt).getTime() : 0;
-  const restarted = useRef(new Set<string>());
+  const asks = useRef(new Map<string, { n: number; last: number; done: boolean }>());
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    if (!queuedId || !draftId || restarted.current.has(queuedId)) return;
+    if (!queuedId || !draftId) return;
+    const mine = asks.current.get(queuedId) ?? { n: 0, last: 0, done: false };
+    asks.current.set(queuedId, mine);
+    if (mine.done || mine.n >= MAX_START_ASKS) return;
+    const due = mine.n === 0 ? queuedAt + QUEUED_GRACE_MS : mine.last + startPauseMs(mine.n);
+    let alive = true;
     const t = setTimeout(() => {
-      restarted.current.add(queuedId);
-      void startQueuedCanvasRun(draftId).then(() => load(), () => undefined);
-    }, Math.max(0, queuedAt + QUEUED_GRACE_MS - Date.now()));
-    return () => clearTimeout(t);
-  }, [queuedId, queuedAt, draftId, load]);
+      if (mine.done) return;
+      mine.n += 1;
+      mine.last = Date.now();
+      void startQueuedCanvasRun(draftId).then(
+        (r) => {
+          if (r.ok || r.code !== 'NOT_READY') mine.done = true;
+          return load();
+        },
+        () => { mine.done = true; },
+      ).finally(() => { if (alive) setTick((k) => k + 1); });
+    }, Math.max(0, due - Date.now()));
+    return () => { alive = false; clearTimeout(t); };
+  }, [queuedId, queuedAt, draftId, load, tick]);
 }
 
 /**

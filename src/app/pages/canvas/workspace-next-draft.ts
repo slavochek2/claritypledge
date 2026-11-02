@@ -90,7 +90,7 @@ export async function openNextDraft(args: { projectTag: string; version: string 
 }
 
 
-/** A first voice note's refusal: the draft being replaced moved on (ask again) or the database refused; the clip is stored and `receipt` retries it. */
+/** A first voice note's refusal: the page's view is stale (a draft being replaced moved on, or one appeared) or the database refused; the clip is stored and `receipt` retries it. */
 export type FirstVoiceResult = NextDraftResult | { ok: false; why: 'refused' | 'stale_view'; receipt: VoiceUploadReceipt };
 
 /**
@@ -115,6 +115,6 @@ export async function openNextDraftByVoice(args: {
     { canvasId: from.canvasId, fromVersionId: from.id, expectedDraftId: replace?.draftId ?? null, expectedRevision: replace?.revision ?? null, replace: !!replace },
     resume,
   ).then((answer) => { if (answer.ok) threadKnown(answer.sent.threadRootId); return answer; }));
-  if (!r.ok) return { ok: false, why: replace && r.refused === 'stale_view' ? 'stale_view' : 'refused', receipt: r.receipt };
+  if (!r.ok) return { ok: false, why: r.refused === 'stale_view' ? 'stale_view' : 'refused', receipt: r.receipt }; // a stale view is told apart with or without a draft to replace: either way the page must re-read
   return { ok: true, versionName: r.sent.versionName };
 }

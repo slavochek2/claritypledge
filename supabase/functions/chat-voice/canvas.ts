@@ -5,6 +5,7 @@
  * first note, the thread, the message, its run and the audio row, in one transaction) through `commitCanvas`, acting for the user the
  * Bearer token resolved to. Nothing in the request names who that is. Kept out of handler.ts so that file stays under its size limit.
  */
+import { TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS } from '../_shared/terms-gate.ts';
 import { checkStoredClip, pcmOf, waveformBars } from './clip.ts';
 import { ERR } from './errors.ts';
 
@@ -32,6 +33,8 @@ export type CanvasCommitResult =
   | { kind: 'forbidden' }
   | { kind: 'unsupported' }
   | { kind: 'rate' }
+  /** The owner already has the most open canvas drafts there can be (the send's own refusal, not the voice rate limit). */
+  | { kind: 'draft_cap' }
   | { kind: 'invalid' };
 
 export type CanvasFields = Omit<CanvasCommitInput, 'userId' | 'conversationId' | 'objectKey' | 'durationMs' | 'clientId' | 'waveform'>;
@@ -42,6 +45,8 @@ export interface CanvasDeps {
   readObjectHead: (objectKey: string) => Promise<{ head: Uint8Array; size: number } | null>;
   readObject: (objectKey: string) => Promise<Uint8Array | null>;
   commitCanvas: (input: CanvasCommitInput) => Promise<CanvasCommitResult>;
+  /** Whether the caller has accepted the current terms (the same gate canvas-draft's route applies before it begins a run). */
+  hasTerms: (userId: string) => Promise<boolean>;
   background: (task: Promise<unknown>) => void;
   transcribeMessage: (messageId: string) => Promise<unknown>;
 }
@@ -83,26 +88,29 @@ function parseCanvas(raw: unknown): CanvasFields | undefined {
 export type CanvasRequest =
   | { kind: 'none' }
   | { kind: 'refused'; status: number; error: string }
-  | { kind: 'canvas'; fields: CanvasFields; commitCanvas: CanvasDeps['commitCanvas'] };
+  | { kind: 'canvas'; fields: CanvasFields; commitCanvas: CanvasDeps['commitCanvas']; hasTerms: CanvasDeps['hasTerms'] };
 
 /**
  * Is this commit a canvas note, and may it be one? A canvas note has no thread or reply target to name (the database finds the draft's
  * thread), and a deployment without `commitCanvas` refuses it rather than posting a plain note that no run would ever read.
  */
 export function canvasRequestOf(
-  body: Record<string, unknown>, threadRootId: string | null, replyToId: string | null, commitCanvas: CanvasDeps['commitCanvas'] | undefined,
+  body: Record<string, unknown>, threadRootId: string | null, replyToId: string | null,
+  gates: { commitCanvas?: CanvasDeps['commitCanvas']; hasTerms?: CanvasDeps['hasTerms'] },
 ): CanvasRequest {
   if (body.canvas === undefined) return { kind: 'none' };
   const fields = parseCanvas(body.canvas);
   if (!fields || threadRootId !== null || replyToId !== null) return { kind: 'refused', status: 400, error: ERR.invalidId };
-  if (!commitCanvas) return { kind: 'refused', status: 422, error: ERR.unsupported };
-  return { kind: 'canvas', fields, commitCanvas };
+  // A deployment without the canvas function, or without the terms read, refuses: never a plain note, never a skipped gate.
+  if (!gates.commitCanvas || !gates.hasTerms) return { kind: 'refused', status: 422, error: ERR.unsupported };
+  return { kind: 'canvas', fields, commitCanvas: gates.commitCanvas, hasTerms: gates.hasTerms };
 }
 
 function failure(r: Exclude<CanvasCommitResult, { kind: 'ok' }>, json: Json): Response {
   if (r.kind === 'unsupported') return json(422, { error: ERR.unsupported });
   if (r.kind === 'rate') return json(429, { error: ERR.rate });
   if (r.kind === 'invalid') return json(400, { error: ERR.invalidBody });
+  if (r.kind === 'draft_cap') return json(409, { error: ERR.draftCap, code: 'TOO_MANY_DRAFTS' });
   return json(403, { error: ERR.notMember });
 }
 
@@ -114,6 +122,10 @@ function failure(r: Exclude<CanvasCommitResult, { kind: 'ok' }>, json: Json): Re
 export async function commitCanvasNote(
   key: string, clientId: string, who: { userId: string; conversationId: string; fields: CanvasFields }, deps: CanvasDeps, json: Json,
 ): Promise<Response> {
+  // The terms come first: a caller without the current terms gets no draft, no thread, no note and no paid transcription (canvas-draft's route
+  // would refuse their run with this same answer, after all of that had been written).
+  if (!(await deps.hasTerms(who.userId))) return json(TERMS_NOT_ACCEPTED_STATUS, TERMS_NOT_ACCEPTED_BODY);
+
   const send = (durationMs: number, waveform: number[] | null) => deps.commitCanvas({
     userId: who.userId, conversationId: who.conversationId, objectKey: key, durationMs, clientId, waveform, ...who.fields,
   });

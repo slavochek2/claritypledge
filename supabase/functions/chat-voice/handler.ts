@@ -93,6 +93,8 @@ export interface HandlerDeps {
   commitMessage: (input: CommitInput) => Promise<CommitResult>;
   /** P1536 X9. Absent: a canvas commit is refused (422), never posted as a plain note with no run. */
   commitCanvas?: (input: CanvasCommitInput) => Promise<CanvasCommitResult>;
+  /** P1536 X9: the caller has the current terms. Absent: a canvas commit is refused (422), the gate is never skipped. */
+  hasTerms?: (userId: string) => Promise<boolean>;
   playbackTarget: (userId: string, messageId: string) => Promise<PlaybackTarget>;
   signPlayback: (objectKey: string) => Promise<string>;
   /** EdgeRuntime.waitUntil in production: keeps the isolate alive for the transcript job. */
@@ -194,6 +196,18 @@ async function upload(body: Record<string, unknown>, userId: string, deps: Handl
   return json(200, { uploadUrl, uploadHeaders: headers, objectKey, maxBytes: MAX_UPLOAD_BYTES, expiresInSeconds: UPLOAD_TTL_SECONDS });
 }
 
+/**
+ * The upload key a commit names: this conversation's prefix (a member of two chats cannot commit one chat's upload into the other), and the CALLER's
+ * own segment, checked before ANY storage call and before the failure paths, which delete: without it a member could name a fellow member's object
+ * and have the rejection delete it. Returns the key and its upload id (the message's client id), or the refusal.
+ */
+function keyGate(objectKey: unknown, conversationId: string, userId: string, json: Json): { key: string; uploadId: string } | Response {
+  const keyMatch = typeof objectKey === 'string' ? KEY_RE.exec(objectKey) : null;
+  if (!keyMatch || keyMatch[1].toLowerCase() !== conversationId.toLowerCase()) return json(400, { error: ERR.badKey });
+  if (keyMatch[2].toLowerCase() !== userId.toLowerCase()) return json(403, { error: ERR.notYours });
+  return { key: objectKey as string, uploadId: keyMatch[3].toLowerCase() };
+}
+
 async function commit(body: Record<string, unknown>, userId: string, deps: HandlerDeps, json: Json) {
   const { conversationId, objectKey } = body;
   const threadRootId = optionalUuid(body.threadRootId);
@@ -202,18 +216,11 @@ async function commit(body: Record<string, unknown>, userId: string, deps: Handl
     return json(400, { error: ERR.invalidId });
   }
   // P1536 X9: a voice note in a canvas thread (canvas.ts). The other gates below apply to it unchanged.
-  const canvasReq = canvasRequestOf(body, threadRootId, replyToId, deps.commitCanvas);
+  const canvasReq = canvasRequestOf(body, threadRootId, replyToId, deps);
   if (canvasReq.kind === 'refused') return json(canvasReq.status, { error: canvasReq.error });
-  const keyMatch = typeof objectKey === 'string' ? KEY_RE.exec(objectKey) : null;
-  // The prefix must be THIS conversation: a member of two chats cannot commit one chat's upload into the other.
-  if (!keyMatch || keyMatch[1].toLowerCase() !== conversationId.toLowerCase()) {
-    return json(400, { error: ERR.badKey });
-  }
-  const key = objectKey as string;
-
-  // A key is one person's. Checked before ANY storage call and before the failure paths below, which
-  // delete: without it a member could name a fellow member's object and have the rejection delete it.
-  if (keyMatch[2].toLowerCase() !== userId.toLowerCase()) return json(403, { error: ERR.notYours });
+  const gate = keyGate(objectKey, conversationId, userId, json);
+  if (gate instanceof Response) return gate;
+  const { key, uploadId } = gate;
 
   const refused = refusal(await deps.checkPost(userId, conversationId), json);
   if (refused) return refused;
@@ -225,7 +232,7 @@ async function commit(body: Record<string, unknown>, userId: string, deps: Handl
     durationMs,
     threadRootId,
     replyToId,
-    clientId: keyMatch[3].toLowerCase(),
+    clientId: uploadId,
     waveform,
   });
   const failure = (r: Exclude<CommitResult, { kind: 'ok' }>) =>
@@ -233,7 +240,7 @@ async function commit(body: Record<string, unknown>, userId: string, deps: Handl
       : r.kind === 'rate' ? { status: 429, error: ERR.rate }
       : { status: 403, error: ERR.notMember };
 
-  if (canvasReq.kind === 'canvas') return await commitCanvasNote(key, keyMatch[3].toLowerCase(), { userId, conversationId, fields: canvasReq.fields }, { ...deps, commitCanvas: canvasReq.commitCanvas }, json);
+  if (canvasReq.kind === 'canvas') return await commitCanvasNote(key, uploadId, { userId, conversationId, fields: canvasReq.fields }, { ...deps, commitCanvas: canvasReq.commitCanvas, hasTerms: canvasReq.hasTerms }, json);
 
   // Already a message: replay it. The database returns the first row (same author, same upload id);
   // the stored object is referenced by that message, so no path from here may delete it.

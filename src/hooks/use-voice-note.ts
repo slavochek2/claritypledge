@@ -23,6 +23,7 @@ import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { isDictationSupported } from '@/hooks/use-dictation';
 import { VoiceNoteError, type VoiceUploadReceipt } from '@/app/data/chat-voice-service';
 import { blobToWav16k } from '@/lib/audio/clip-wav';
+import { DRAFT_ERROR_TEXT, TOO_MANY_DRAFTS_TEXT } from '@/app/pages/chat/canvas-thread-copy';
 
 /** Founder, 2026-10-26: a voice note is at most 2 minutes. The server enforces it by decoded length. */
 export const VOICE_MAX_MS = 120_000;
@@ -45,6 +46,8 @@ export function voiceErrorText(error: unknown): string {
     if (error.reason === 'too_long') return 'That voice message is too long (2 minutes at most).';
     if (error.reason === 'forbidden') return "You can't send voice messages in this chat.";
     if (error.reason === 'unsupported') return "Voice messages aren't available in this chat.";
+    if (error.reason === 'too_many_drafts') return TOO_MANY_DRAFTS_TEXT;
+    if (error.reason === 'terms') return DRAFT_ERROR_TEXT.TERMS_NOT_ACCEPTED ?? "Couldn't send the voice message.";
   }
   return "Couldn't send the voice message.";
 }
@@ -53,7 +56,7 @@ export function voiceErrorText(error: unknown): string {
 function worthRetrying(error: unknown): boolean {
   if (!(error instanceof VoiceNoteError)) return true;
   // A commit refused as bad audio (400) is final: the same stored object is refused again.
-  return error.status !== 400 && (error.reason === 'rate' || error.reason === 'failed');
+  return error.status !== 400 && (error.reason === 'rate' || error.reason === 'failed' || error.reason === 'terms');
 }
 
 export interface VoiceNote {

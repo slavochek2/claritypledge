@@ -1747,13 +1747,27 @@ Model for the budget: `gemini-3.8-flash` (registry: $0.75 input, $3.75 output pe
 - [ ] Dedicated spend-capped Gemini key issued via `/slava:util:ai-keys`, set as an edge-function
       secret on test, then prod.
 - [ ] Availability flag set on test; on prod only after the privacy policy item below is live.
+- [ ] X9 voice notes, on EACH project (hosted TEST, self-hosted TEST, prod): edge secret `CANVAS_DRAFT_INTERNAL_SECRET` on `canvas-draft`, and
+      the same value in the database vault as `canvas_draft_internal_secret`. Vault row `canvas_draft_url` (the `canvas-draft` function URL).
+      `chat_voice_anon_key` is reused from the chat-voice sweep (already present wherever voice notes are). Names only, never values. Until
+      all three exist, the transcript trigger only warns and the run waits for the client's start or its lease.
 
 ### Deploy commands
 - [ ] Privacy policy (`src/app/content/privacy.md`, processor table) names canvas material as sent
       to the AI provider; amended text live before the prod flag is set.
 - [ ] New edge function deployed to prod after merge (`/push` handles function deploys).
+- [ ] X9: migrations `20261102100000_p1536_x9_voice_notes.sql` and then `20261102110000_p1536_x9_review_fixes.sql` applied BEFORE the functions
+      on every project (the new `chat-voice` calls `canvas_voice_send`, and the review fixes add the run's `ready_at` and its lease). Then deploy
+      both `chat-voice` and `canvas-draft` to that project.
+- [ ] The voice bucket's CORS lists the origin the app is served from (the test bucket lists the worktree ports, not every dev port).
 
 ### Post-deploy verification
+- [ ] X9 secret probe, on each project, because a wrong or missing secret is otherwise SILENT (the database never reads its call's answer):
+      POST `canvas-draft` with header `x-canvas-draft-internal` set to a WRONG value expects 401; with the RIGHT value (the vault's
+      `canvas_draft_internal_secret`) and a body of all-zero `run_id` and `owner_id` expects 409 `TERMS_NOT_ACCEPTED` (it reached the terms gate).
+      A 401 on the right value means the function's `CANVAS_DRAFT_INTERNAL_SECRET` and the vault row differ; a 404 or 5xx means `canvas_draft_url` is wrong.
+- [ ] X9 end to end, once per project: one real voice note (or `P1536_X9_DEPLOYED=1` on the test projects) leaves the run `queued` within seconds of
+      its transcript, with no client request.
 - [ ] One real draft on prod from the founder's own material; canvas private until shared.
 - [ ] Sentry shows no new errors from the function in the first 10 minutes.
 

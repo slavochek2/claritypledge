@@ -542,6 +542,10 @@ describe('S1.5 the cap of 30 used runs', () => {
 describe('S1.6 inputs: voice, upload, link material', () => {
   it('voice: begin is not_ready until the transcript is done, then reads it; a failed transcript fails the run with no model call and no charge', async () => {
     const o = await mkOwner('voice'); const ws = new WS(o);
+    // 3c X9: a finished transcript now makes the DATABASE call canvas-draft to begin the run (and the real model). This test drives the run itself with
+    // stubbed worker calls, so its owner has NOT accepted the current terms: the route's terms gate then answers 409 before any begin or model call, and the
+    // run stays queued for this test's own begin. (The dispatch itself is proved in p1536-x9-voice.test.ts.)
+    expect((await admin.from('profiles').update({ accepted_terms_version: null }).eq('id', o.u.user.id)).error).toBeNull();
     const v = await ws.send({ att: { kind: 'voice', duration_ms: 3000 }, refs: [BOX.problem] });
     expect(v, JSON.stringify(v)).toMatchObject({ status: 'ok' });
     const msg = (await ws.msgs())[0]!;
@@ -549,6 +553,10 @@ describe('S1.6 inputs: voice, upload, link material', () => {
     expect((await ws.runs())[0]).toMatchObject({ input_kind: 'voice', state: 'queued' });
     expect(await begin(v.run_id)).toMatchObject({ status: 'not_ready', reason: 'transcript_pending' });
     await eng('chat_voice_finish_transcription', { p_message: msg.id, p_ok: true, p_text: nn('my customers are bakeries') });
+    // the dispatch (pg_net) has had time to arrive and be refused: nothing but this test begins the run, and nothing was reserved or charged
+    await new Promise((res) => setTimeout(res, 5000));
+    expect((await ws.runs()).find((r) => r.id === v.run_id), 'the database-started route did not begin it').toMatchObject({ state: 'queued', spend_id: null });
+    expect(((await admin.from('mirror_ai_spend').select('id').eq('owner_id', o.u.user.id)).data ?? []), 'and reserved nothing').toHaveLength(0);
     const b = await begin(v.run_id);
     expect(b.status).toBe('run');
     expect(b.thread.map((t: Row) => t.text)).toEqual([nn('my customers are bakeries')]);

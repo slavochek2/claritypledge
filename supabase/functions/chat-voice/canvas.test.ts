@@ -37,10 +37,10 @@ function wav(seconds: number, opts: { rate?: number } = {}): Uint8Array {
   return b;
 }
 
-interface Calls { canvas: CanvasCommitInput[]; plain: number; read: string[]; body: string[]; background: Promise<unknown>[]; transcribed: string[]; deleted: string[] }
+interface Calls { canvas: CanvasCommitInput[]; terms: string[]; plain: number; read: string[]; body: string[]; background: Promise<unknown>[]; transcribed: string[]; deleted: string[] }
 
 function makeDeps(over: Partial<HandlerDeps> = {}, audio: Uint8Array = wav(5)): HandlerDeps & { calls: Calls } {
-  const calls: Calls = { canvas: [], plain: 0, read: [], body: [], background: [], transcribed: [], deleted: [] };
+  const calls: Calls = { canvas: [], terms: [], plain: 0, read: [], body: [], background: [], transcribed: [], deleted: [] };
   return {
     calls,
     corsHeaders: {},
@@ -55,6 +55,7 @@ function makeDeps(over: Partial<HandlerDeps> = {}, audio: Uint8Array = wav(5)): 
     readObject: (k) => { calls.body.push(k); return Promise.resolve(audio); },
     isKeyCommitted: () => Promise.resolve(false),
     commitMessage: () => { calls.plain++; return Promise.resolve({ kind: 'ok', message: { id: MSG } }); },
+    hasTerms: (uid) => { calls.terms.push(uid); return Promise.resolve(true); },
     commitCanvas: (input) => {
       calls.canvas.push(input);
       return Promise.resolve({ kind: 'ok', result: { status: 'ok', replayed: false, message_id: MSG, run_id: 'r1', draft_id: DRAFT } });
@@ -241,4 +242,53 @@ Deno.test('control: a commit with no canvas field is still the plain voice note,
   assertEquals(res.status, 200);
   assertEquals(deps.calls.plain, 1);
   assertEquals(deps.calls.canvas.length, 0);
+});
+
+// ── X9 review fixes ──────────────────────────────────────────────────────────
+
+Deno.test('canvas commit: a caller without the current terms is refused (409) before the clip is read or anything is written', async () => {
+  const deps = makeDeps({ hasTerms: (uid) => { deps.calls.terms.push(uid); return Promise.resolve(false); } });
+  const { status, json } = await commit(deps, CLONE);
+  assertEquals(status, 409);
+  assertEquals(json, { error: 'terms_not_accepted', code: 'TERMS_NOT_ACCEPTED' });
+  assertEquals(deps.calls.terms, [ALICE]); // asked for the verified caller
+  assertEquals(deps.calls.read.length + deps.calls.body.length + deps.calls.canvas.length + deps.calls.background.length, 0);
+});
+
+Deno.test('canvas commit: the terms gate follows membership and the key checks, and a replay is gated too', async () => {
+  const other = makeDeps();
+  await commit(other, CLONE, {}, 'bob', BOB_KEY); // not a member: refused before the terms are even read
+  assertEquals(other.calls.terms.length, 0);
+  const replay = makeDeps({ isKeyCommitted: () => Promise.resolve(true), hasTerms: () => Promise.resolve(false) });
+  assertEquals((await commit(replay, CLONE)).status, 409);
+  assertEquals(replay.calls.canvas.length, 0);
+});
+
+Deno.test('canvas commit: a deployment that cannot read terms refuses the canvas mode instead of skipping the gate', async () => {
+  const deps = makeDeps({ hasTerms: undefined });
+  const { status } = await commit(deps, CLONE);
+  assertEquals(status, 422);
+  assertEquals(deps.calls.canvas.length + deps.calls.plain, 0);
+});
+
+Deno.test('control: a plain voice note never reads the terms (it stays as it was)', async () => {
+  const deps = makeDeps();
+  const res = await handleChatVoice(new Request('https://example.com', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer alice' },
+    body: JSON.stringify({ mode: 'commit', conversationId: MIRROR, objectKey: KEY }),
+  }), deps);
+  assertEquals(res.status, 200);
+  assertEquals(deps.calls.terms.length, 0);
+});
+
+Deno.test('canvas commit: the open-drafts cap is its own answer (409, TOO_MANY_DRAFTS), not the voice rate limit', async () => {
+  const deps = makeDeps({ commitCanvas: () => Promise.resolve({ kind: 'draft_cap' }) });
+  const { status, json } = await commit(deps, NEW_CANVAS);
+  assertEquals(status, 409);
+  assertEquals(json.code, 'TOO_MANY_DRAFTS');
+  assertEquals(deps.calls.background.length, 0);
+  const rate = makeDeps({ commitCanvas: () => Promise.resolve({ kind: 'rate' }) });
+  const r = await commit(rate, NEW_CANVAS);
+  assertEquals(r.status, 429);
+  assertEquals(r.json.code, undefined);
 });

@@ -324,13 +324,16 @@ describe('S3c.6 X9: a voice note arrives only through the voice commit', () => {
     expect(strip(await counts(o.id)), 'a pending Clone: nothing was written').toEqual(before);
     expect(((await admin.from('canvas_drafts').select('id').eq('owner_id', o.id).eq('state', 'open')).data ?? []), 'no draft was opened').toHaveLength(0);
 
-    // CONTROL: the same owner typing works, and the same note through the voice commit works, so the refusal above is about the path
-    const typed = await rpc(o.c, 'canvas_workspace_send', {
+    // CONTROL: typing works, and the same note through the voice commit works, so the refusal above is about the path. They are two owners on
+    // purpose: an owner has ONE active run, and the typed send's queued run would make the owner's next send busy_elsewhere.
+    const other = await mkOwner('forgedControl');
+    const typed = await rpc(other.c, 'canvas_workspace_send', {
       p_canvas: null, p_from_version: null, p_expected_draft: null, p_expected_revision: null, p_replace: false,
       p_body: nn('typed'), p_box_refs: null, p_attachment: null, p_client_id: randomUUID(),
     });
     expect(typed.error, JSON.stringify(typed.error)).toBeNull();
-    expect((await voiceOk(voiceArgs(o))).status).toBe('ok');
+    const voiced = await voiceOk(voiceArgs(o));
+    expect(voiced.status, JSON.stringify(voiced)).toBe('ok');
   }, T);
 
   it('the signal is not something a client can send: set_config is not callable, and a service-role call without a user is still "sign in required"', async () => {
@@ -401,6 +404,118 @@ describe('S3c.6 X9: the run follows the transcript, with no tab open', () => {
     const st = await ok(o.c, 'get_canvas_draft_state', { p_canvas: r.canvas_id });
     expect(st.draft.active_run, 'the expire step failed it').toBeNull();
     expect(await runOf(r.run_id)).toMatchObject({ state: 'failed', error_code: 'abandoned' });
+  }, T);
+});
+
+describe('S3c.6 X9 review fixes: a voice run waits for its transcript, and its dispatch lease starts when the transcript lands', () => {
+  const claim = (id: string) => eng('chat_voice_claim_transcription', { p_message: id });
+  const finish = (id: string, a: { ok: boolean; text?: string; final?: boolean }) =>
+    eng('chat_voice_finish_transcription', { p_message: id, p_ok: a.ok, p_text: a.text ?? null, p_final: a.final ?? false });
+  const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
+  const MIN = 60_000;
+  /** An owner whose terms are NOT current: the database-started route then answers 409 before any begin or model call, so these tests drive the run themselves. */
+  async function mkQuiet(label: string): Promise<Owner> {
+    const o = await mkOwner(label);
+    expect((await admin.from('profiles').update({ accepted_terms_version: null }).eq('id', o.id)).error).toBeNull();
+    return o;
+  }
+  const age = async (run: string, cols: Record<string, string>) => expect((await admin.from('canvas_draft_runs').update(cols).eq('id', run)).error).toBeNull();
+  const state = (o: Owner, canvas: string) => ok(o.c, 'get_canvas_draft_state', { p_canvas: canvas });
+  const begin = (run: string, owner: string) => eng('_canvas_draft_run_begin', { p_run: run, p_owner: owner, p_has_file: false, p_cap_reply: null });
+
+  it('a transcript that lands at minute 5 still starts the run: 5 minutes of waiting is not a lease, and the dispatch lease starts at the landing', async () => {
+    const o = await mkQuiet('wait5'); const r = await voiceOk(voiceArgs(o));
+    await age(r.run_id, { created_at: ago(5 * MIN) });
+    const s = await state(o, r.canvas_id);                                    // the expire step runs here
+    expect(await runOf(r.run_id), 'still waiting after 5 minutes').toMatchObject({ state: 'queued', error_code: null });
+    expect(s.draft.active_run, 'and still the owner\'s one active run').not.toBeNull();
+    await claim(r.message_id);
+    await finish(r.message_id, { ok: true, text: nn('my customers are bakeries') });   // the transcript lands, 5 minutes late
+    const landed = await runOf(r.run_id);
+    expect(landed, 'the landing stamps the start of the dispatch lease').toMatchObject({ state: 'queued' });
+    expect(Date.now() - Date.parse(landed.ready_at as string), 'ready_at is now, not the run\'s age').toBeLessThan(60_000);
+    const b = await begin(r.run_id, o.id);
+    expect(b.status, JSON.stringify(b)).toBe('run');                           // not 'gone / abandoned'
+    expect(b.thread.map((t: Row) => t.text)).toEqual([nn('my customers are bakeries')]);
+  }, T);
+
+  it('the wait is bounded: a transcript still not here after 30 minutes ends the run, with no model call and no charge', async () => {
+    const o = await mkQuiet('wait31'); const r = await voiceOk(voiceArgs(o));
+    await age(r.run_id, { created_at: ago(29 * MIN) });
+    await state(o, r.canvas_id);
+    expect(await runOf(r.run_id), 'inside the bound').toMatchObject({ state: 'queued' });
+    await age(r.run_id, { created_at: ago(31 * MIN) });
+    await state(o, r.canvas_id);
+    expect(await runOf(r.run_id)).toMatchObject({ state: 'failed', error_code: 'abandoned', spend_id: null });
+    expect(await spendRows(o.id)).toBe(0);
+  }, T);
+
+  it('a landed transcript whose dispatch never arrives still ends: 3 minutes after the landing, not after the run\'s age', async () => {
+    const o = await mkQuiet('lease3'); const r = await voiceOk(voiceArgs(o));
+    await age(r.run_id, { created_at: ago(10 * MIN) });
+    await claim(r.message_id);
+    await finish(r.message_id, { ok: true, text: nn('hello there') });
+    await state(o, r.canvas_id);
+    expect(await runOf(r.run_id), '10 minutes old but landed just now').toMatchObject({ state: 'queued' });
+    await age(r.run_id, { ready_at: ago(4 * MIN) });
+    await state(o, r.canvas_id);
+    expect(await runOf(r.run_id)).toMatchObject({ state: 'failed', error_code: 'abandoned', spend_id: null });
+  }, T);
+
+  it('a landed transcript the trigger did not stamp (a run made before this fix) is stamped by the next engine call, so it is never failed for its age', async () => {
+    const o = await mkQuiet('unstamped'); const r = await voiceOk(voiceArgs(o));
+    await claim(r.message_id);
+    await finish(r.message_id, { ok: true, text: nn('hello there') });
+    await age(r.run_id, { created_at: ago(10 * MIN), ready_at: null as unknown as string });
+    await state(o, r.canvas_id);
+    const after = await runOf(r.run_id);
+    expect(after).toMatchObject({ state: 'queued' });
+    expect(Date.now() - Date.parse(after.ready_at as string)).toBeLessThan(60_000);
+  }, T);
+
+  it('the hourly sweep agrees: it leaves a waiting voice run alone and ends the one past the bound', async () => {
+    const o = await mkQuiet('sweep'); const r = await voiceOk(voiceArgs(o));
+    await age(r.run_id, { created_at: ago(6 * MIN) });
+    await eng('_canvas_draft_expire_all', {});
+    expect(await runOf(r.run_id)).toMatchObject({ state: 'queued' });
+    await age(r.run_id, { created_at: ago(31 * MIN) });
+    await eng('_canvas_draft_expire_all', {});
+    expect(await runOf(r.run_id)).toMatchObject({ state: 'failed', error_code: 'abandoned' });
+  }, T);
+
+  it('CONTROL: a typed run keeps its 3-minute lease from creation, and a final transcript failure still settles a waiting run at once', async () => {
+    const o = await mkQuiet('typed'); 
+    const typed = await rpc(o.c, 'canvas_workspace_send', {
+      p_canvas: null, p_from_version: null, p_expected_draft: null, p_expected_revision: null, p_replace: false,
+      p_body: nn('typed'), p_box_refs: null, p_attachment: null, p_client_id: randomUUID(),
+    });
+    expect(typed.error, JSON.stringify(typed.error)).toBeNull();
+    await age(typed.data.run_id, { created_at: ago(4 * MIN) });
+    await state(o, typed.data.canvas_id);
+    expect(await runOf(typed.data.run_id)).toMatchObject({ state: 'failed', error_code: 'abandoned' });
+    const v = await mkQuiet('failedfinal'); const r = await voiceOk(voiceArgs(v));
+    await age(r.run_id, { created_at: ago(8 * MIN) });
+    await claim(r.message_id);
+    await finish(r.message_id, { ok: false, final: true });
+    expect(await runOf(r.run_id)).toMatchObject({ state: 'failed', error_code: 'transcript_failed', spend_id: null });
+  }, T);
+});
+
+describe('S3c.6 X9 review fixes: a repeated commit is held to the same key as the first', () => {
+  it('a replay with another key for the same upload id is refused; the right key replays the first result, also after the audio row is gone', async () => {
+    const o = await mkOwner('replaykey');
+    const args = voiceArgs(o);
+    const first = await voiceOk(args);
+    const other = await voiceSend({ ...args, p_object_key: `${o.conv}/${o.id}/${randomUUID()}.wav` });
+    expect(other.error?.code, JSON.stringify(other.error)).toBe('22023');
+    expect(other.error?.message).toContain('stored under another key');
+    const foreign = await voiceSend({ ...args, p_object_key: `${randomUUID()}/${o.id}/${args.p_client_id as string}.wav` });
+    expect(foreign.error?.message).toContain('stored under another key');
+    expect(strip(await counts(o.id)), 'nothing was written by either').toEqual(ONE);
+    expect(await voiceOk(args), 'the right key replays the first result').toMatchObject({ replayed: true, run_id: first.run_id });
+    // the clip's audio row is deleted once a transcript fails for good; a late repeat of the same commit still returns the first result
+    await admin.from('chat_voice_audio').delete().eq('message_id', first.message_id);
+    expect(await voiceOk(args)).toMatchObject({ replayed: true, run_id: first.run_id });
   }, T);
 });
 

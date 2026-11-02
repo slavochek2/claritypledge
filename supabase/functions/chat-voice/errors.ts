@@ -14,5 +14,6 @@ export const ERR = {
   rate: 'Too many voice notes, try again in a minute',
   uploadRate: 'Too many uploads, try again in a few minutes',
   gone: 'The audio is no longer available',
+  draftCap: 'Too many open canvas drafts',
   internal: 'Service temporarily unavailable',
 } as const;

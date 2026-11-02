@@ -33,16 +33,6 @@ export function useCanvasActions({ thread, available, onBusyElsewhere }: { threa
   const draftId = thread?.draft.id ?? null;
   const latest = useRef({ thread, onBusyElsewhere });
   latest.current = { thread, onBusyElsewhere };
-  const onVoice = useCallback<VoiceSender>(async (wav, attempt) => {
-    const t = latest.current.thread;
-    if (!t || t.draft.state !== 'open') throw new VoiceNoteError('forbidden', 403, 'canvas voice note: no open draft');
-    const { draft, reload } = t;
-    const r = await sendCanvasVoiceNote(draft.conversationId, wav, { canvasId: draft.canvasId, expectedDraftId: draft.id, expectedRevision: draft.revision }, attempt?.resume);
-    await reload().catch(() => undefined); // the note's message and run are in; a refusal means the screen is behind
-    if (r.ok) return;
-    if (r.refused === 'busy_elsewhere') latest.current.onBusyElsewhere?.(); // the send slot says it (§2)
-    throw new VoiceNoteError('failed', 409, `canvas voice note refused: ${r.refused}`, r.receipt);
-  }, []);
   /** The draft whose Send is on its way: a Send of another draft (or none) does not make this one `sending`, so a draft change lets go by itself. */
   const [sendingFor, setSendingFor] = useState<string | null>(null);
   const alive = useRef(true);
@@ -51,6 +41,21 @@ export function useCanvasActions({ thread, available, onBusyElsewhere }: { threa
     return () => {
       alive.current = false;
     };
+  }, []);
+  const onVoice = useCallback<VoiceSender>(async (wav, attempt) => {
+    const t = latest.current.thread;
+    if (!t || t.draft.state !== 'open') throw new VoiceNoteError('forbidden', 403, 'canvas voice note: no open draft');
+    const { draft, reload } = t;
+    setSendingFor(draft.id);
+    try {
+      const r = await sendCanvasVoiceNote(draft.conversationId, wav, { canvasId: draft.canvasId, expectedDraftId: draft.id, expectedRevision: draft.revision }, attempt?.resume);
+      await reload().catch(() => undefined); // the note's message and run are in; a refusal means the screen is behind
+      if (r.ok) return;
+      if (r.refused === 'busy_elsewhere') latest.current.onBusyElsewhere?.(); // the send slot says it (§2)
+      throw new VoiceNoteError('failed', 409, `canvas voice note refused: ${r.refused}`, r.receipt);
+    } finally {
+      if (alive.current) setSendingFor((cur) => (cur === draft.id ? null : cur));
+    }
   }, []);
   if (!thread || available !== true || thread.draft.state !== 'open') return { onSend: null, onVoice: null, sending: false };
   const { draft, reload } = thread;

@@ -142,13 +142,14 @@ describe('migration 20261102100000: voice notes in every canvas thread', () => {
     for (const [name, fact] of Object.entries(facts)) expect(fact(sql), name).toBe(true);
   });
 
-  it('is the newest definition of canvas_workspace_send (a later body would silently drop the gate)', () => {
+  it('is the newest definition of canvas_workspace_send (a later body would silently drop the gate); the review-fixes migration amends three of the others', () => {
     const files = readdirSync(MIG).filter((f) => /^\d{14}_.*\.sql$/.test(f)).sort();
     const defs = (name: string) => files.filter((f) => new RegExp(`CREATE (OR REPLACE )?FUNCTION public\\.${name}\\(`).test(stripComments(read(f))));
+    const FIX = '20261102110000_p1536_x9_review_fixes.sql';
     expect(defs('canvas_workspace_send')).toEqual([V6, NEW]);
-    expect(defs('canvas_voice_send')).toEqual([NEW]);
-    expect(defs('_canvas_voice_transcript_settled')).toEqual([NEW]);
-    expect(defs('_canvas_draft_expire').pop(), 'the expire step the trigger calls is still the v6 one').toBe(V6);
+    expect(defs('canvas_voice_send')).toEqual([NEW, FIX]); // the FIX body is pinned in p1536-x9-review-migration.test.ts
+    expect(defs('_canvas_voice_transcript_settled')).toEqual([NEW, FIX]);
+    expect(defs('_canvas_draft_expire').pop(), 'the expire step the trigger calls: the review-fixes lease').toBe(FIX);
     expect(NEW > V6, 'it runs after the v6 engine').toBe(true);
   });
 

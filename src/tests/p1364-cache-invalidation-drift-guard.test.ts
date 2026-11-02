@@ -41,6 +41,11 @@ const ALLOWLIST: Record<string, string> = {
   // P1515: send-event-emails writes only event_rsvps' email-scheduling columns (reminder_scheduled_at,
   // feedback_scheduled_at), never a registration row's existence: nothing a canvas read depends on.
   'src/lib/event-emails.ts#invokeEventEmails': 'writes only the email-scheduling columns of event_rsvps',
+  // P1536 X9: chat-voice became a derived writer when its commit mode began calling canvas_voice_send (a canvas voice note creates a draft, which copies
+  // points and makes a canvases row). The derivation is per edge FUNCTION, not per mode, so the two client calls that are not the commit are named here.
+  // The commit (commitVoiceClip) is NOT listed: it clears in a finally, as the typed canvas send does.
+  'src/app/data/chat-voice-service.ts#storeVoiceClip': 'mode upload: signs a PUT URL and takes one per-user rate-ledger slot; no row a cached list renders',
+  'src/app/data/chat-voice-service.ts#getVoicePlaybackUrl': 'mode playback: signs a short-lived GET URL; reads only',
 };
 
 // ─── Derivation from the database and edge-function sources ──────────────────
@@ -339,6 +344,31 @@ describe('P1364 cache-invalidation drift guard — the detector itself (controls
     };`;
     const wrapped = new Map([['svc.ts', new Set(['setPosition'])]]);
     expect(violations(findWrites('svc.ts', src, d), wrapped)).toEqual(['svc.ts:3 sneaky() point_positions.delete']);
+  });
+});
+
+describe('P1364 cache-invalidation drift guard — chat-voice (a writer only through its commit)', () => {
+  const dv: Derived = { tables: new Set(BASE_CACHED_TABLES), rpcs: new Set(), edgeFunctions: new Set(['chat-voice']) };
+  const VOICE = 'src/app/data/chat-voice-service.ts';
+  const flagged = (src: string) => violations(findWrites(VOICE, src, dv), new Map());
+
+  it('CONTROL: a real writer through chat-voice still fails: a new function that commits with no clear, or clears BEFORE the call, is flagged', () => {
+    expect(flagged(`export async function sneakyCommit() { await supabase.functions.invoke('chat-voice', { body: { mode: 'commit' } }); }`))
+      .toEqual([`${VOICE}:1 sneakyCommit() edge chat-voice`]);
+    expect(flagged(`export async function early() { clearListReturnCache(); await supabase.functions.invoke('chat-voice', {}); }`)).toHaveLength(1);
+  });
+
+  it('the exceptions are per function, not per file: only upload-sign and playback are named, and a same-file lookalike is still flagged', () => {
+    expect(Object.keys(ALLOWLIST).filter(k => k.startsWith(VOICE))).toEqual([`${VOICE}#storeVoiceClip`, `${VOICE}#getVoicePlaybackUrl`]);
+    expect(flagged(`export async function storeVoiceClipTwo() { await supabase.functions.invoke('chat-voice', { body: { mode: 'upload' } }); }`)).toHaveLength(1);
+    expect(flagged(`export async function storeVoiceClip() { await supabase.functions.invoke('chat-voice', { body: { mode: 'upload' } }); }`), 'the named upload-sign is the exception').toEqual([]);
+  });
+
+  it('the real commit clears after itself (and is not an exception), as the typed canvas send does', () => {
+    const real = findWrites(VOICE, readFileSync(join(root, VOICE), 'utf8'), derived).filter(w => w.fn === 'commitVoiceClip');
+    expect(real.length).toBeGreaterThan(0);
+    expect(real.every(w => w.covered), 'commitVoiceClip clears the list-return cache after the call').toBe(true);
+    expect(ALLOWLIST[`${VOICE}#commitVoiceClip`]).toBeUndefined();
   });
 });
 
