@@ -4,9 +4,10 @@
  * Each renders null when its data is absent, so every section hides independently
  * and an old hike with none of them renders today's page.
  */
-import { useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Repeat, MoveHorizontal, Map as MapIcon, PlayIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, Repeat, MoveHorizontal, Map as MapIcon, PlayIcon } from 'lucide-react';
 import type { SeriesPhoto, SeriesReview } from '@/app/types';
 import { safeLinkHref } from '../location-utils';
 import { PersonAvatar } from '@/components/ui/person-avatar';
@@ -180,12 +181,41 @@ export function PastHikePhotos({ photos, mapUrl, onOpenImage }: { photos: Series
 // ---------------------------------------------------------------------------
 
 export function SeriesReviews({ reviews }: { reviews: SeriesReview[] }) {
+  // Founder P1600: every review reads to its last word, with no tap. Mouse users get arrows, since they cannot swipe.
+  const rowRef = useRef<HTMLUListElement>(null);
+  const [canScroll, setCanScroll] = useState({ back: false, forward: false });
+  const measure = useCallback(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    const back = row.scrollLeft > 1;
+    const forward = row.scrollLeft + row.clientWidth < row.scrollWidth - 1;
+    setCanScroll(prev => (prev.back === back && prev.forward === forward ? prev : { back, forward }));
+  }, []);
+  useEffect(() => {
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure, reviews.length]);
+  const scrollByCard = (direction: 1 | -1) => {
+    const row = rowRef.current;
+    const card = row?.querySelector('li');
+    if (!row || !card) return;
+    row.scrollBy({ left: direction * (card.getBoundingClientRect().width + 12), behavior: 'smooth' });
+  };
   if (reviews.length === 0) return null;
   const single = reviews.length === 1;
   return (
     <section data-testid="hike-reviews" aria-label={HIKE_LABELS.reviews} className="not-prose w-0 min-w-full mb-6">
-      <h2 className="text-xl font-bold text-foreground mt-8 mb-3">{HIKE_LABELS.reviews} <span className="font-normal text-muted-foreground">({reviews.length})</span></h2>
-      <ul className="flex gap-3 overflow-x-auto snap-x snap-mandatory overscroll-x-contain pb-2">
+      <div className="mt-8 mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-xl font-bold text-foreground">{HIKE_LABELS.reviews} <span className="font-normal text-muted-foreground">({reviews.length})</span></h2>
+        {(canScroll.back || canScroll.forward) && (
+          <div className="hidden items-center gap-2 [@media(hover:hover)_and_(pointer:fine)]:flex">
+            <Button type="button" variant="outline" size="icon" aria-label={HIKE_LABELS.reviewsPrevious} aria-disabled={!canScroll.back} onClick={() => canScroll.back && scrollByCard(-1)} className={`h-10 w-10 rounded-full ${canScroll.back ? '' : 'opacity-40 hover:bg-transparent'}`}><ChevronLeft className="h-5 w-5" /></Button>
+            <Button type="button" variant="outline" size="icon" aria-label={HIKE_LABELS.reviewsNext} aria-disabled={!canScroll.forward} onClick={() => canScroll.forward && scrollByCard(1)} className={`h-10 w-10 rounded-full ${canScroll.forward ? '' : 'opacity-40 hover:bg-transparent'}`}><ChevronRight className="h-5 w-5" /></Button>
+          </div>
+        )}
+      </div>
+      <ul ref={rowRef} onScroll={measure} className="flex items-start gap-3 overflow-x-auto snap-x snap-mandatory overscroll-x-contain pb-2 -mr-4 pr-4 sm:mr-0 sm:pr-0">
         {reviews.map(review => {
           // A linked profile wins over the legacy stored path; either must be a safe in-app path.
           const profilePath = safeInternalPath(
@@ -196,11 +226,11 @@ export function SeriesReviews({ reviews }: { reviews: SeriesReview[] }) {
             <li
               key={review.id}
               data-testid="hike-review"
-              className={`snap-start flex-shrink-0 flex flex-col justify-between rounded-lg border border-border p-3 ${single ? 'w-full' : 'w-[85%] sm:w-80'}`}
+              className={`snap-start flex-shrink-0 flex flex-col rounded-lg border border-border p-3 ${single ? 'w-full' : 'w-[92%] sm:w-[44%]'}`}
             >
               <figure>
                 <span aria-hidden="true" className="block h-6 font-serif text-4xl leading-none text-blue-600/40">“</span>
-                <blockquote className={`text-[15px] leading-relaxed text-foreground ${single ? "" : "line-clamp-6"}`}>{review.quote}</blockquote>
+                <blockquote className="text-[15px] leading-relaxed text-foreground">{review.quote}</blockquote>
               </figure>
               {/* Founder 2026-10-04: the reviewer is a person — their photo (pledge ring when they
                   pledged) and a plain name link, never a button or chip. sm = 40px. */}

@@ -162,8 +162,8 @@ describe('P1517 amendment: reviews are a swipe strip', () => {
     expect(screen.getAllByTestId('hike-review')).toHaveLength(3);
     for (const li of screen.getAllByTestId('hike-review')) {
       expect(li.className).toMatch(/snap-start/);
-      expect(li.className).toMatch(/w-\[85%\]/); // peeks the next card on mobile
-      expect(li.className).toMatch(/sm:w-80/);
+      expect(li.className).toMatch(/w-\[92%\]/); // peeks the next card on mobile
+      expect(li.className).toMatch(/sm:w-\[44%\]/);
     }
     expect(screen.getByRole('link', { name: 'Person a' }).getAttribute('href')).toBe('/p/a');
   });

@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 86
 workstream: events
 created_date: '2026-11-02'
 tags: [events, hike, reviews, ux]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
@@ -32,7 +32,7 @@ Blast radius: one component on hike pages. Reversibility: git revert. Decision d
 
 ## Solution
 
-Show every review in full inside the existing swipeable row, with cards in a row sharing one height and no tap needed. An independent visual review by the Gemini review model (`gemini-4-argon`) of desktop and mobile screenshots feeds the refinements. The founder then approves on localhost.
+Show every review in full inside the existing swipeable row, with each card as tall as its own text and no tap needed. Mouse users get previous/next arrows. An independent visual review by the Gemini review model (`gemini-4-argon`) of desktop and mobile screenshots feeds the refinements. The founder then approves on localhost.
 
 ## Alternatives Considered
 
@@ -46,7 +46,7 @@ Show every review in full inside the existing swipeable row, with cards in a row
 | Risk | Label | Note |
 |---|---|---|
 | A long quote makes the whole row tall on a phone | MITIGATE | Check at 320px and 375px with the longest real quote; fall back to the pop-up if the founder rejects it |
-| Short quotes leave empty space in a tall card | ACCEPT | Judged in the visual review |
+| Cards of different heights look uneven | ACCEPT | Chosen over dead space inside short cards after the visual review; the founder judges it on localhost |
 
 **Non-Goals**
 - Do NOT add a moderation UI or change the schema.
@@ -54,8 +54,8 @@ Show every review in full inside the existing swipeable row, with cards in a row
 
 ## Acceptance Criteria
 
-- [ ] With several reviews, every review reads to its last word without any tap, at 320px, 375px and desktop
-- [ ] Reviews still swipe sideways, and all cards in the row are the same height
-- [ ] No horizontal page overflow at 320px
-- [ ] Gemini review model critique received; each finding fixed or rejected with a reason
-- [ ] Founder approved the look on localhost
+- [x] With several reviews, every review reads to its last word without any tap, at 320px, 375px and desktop
+- [x] Reviews still swipe sideways on touch, and mouse users can reach every review with visible arrows
+- [x] No horizontal page overflow at 320px
+- [x] Gemini review model critique received; each finding fixed or rejected with a reason
+- [x] Founder approved the look on localhost
