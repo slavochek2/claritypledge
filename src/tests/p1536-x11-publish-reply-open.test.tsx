@@ -9,21 +9,21 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CanvasVersionCardData } from '@/app/data/canvas-draft-service';
 
-const svc = vi.hoisted(() => ({ getCanvasRootCard: vi.fn() }));
-const helpers = vi.hoisted(() => ({ loadAttachment: vi.fn() }));
+const svc = vi.hoisted(() => ({ getCanvasRootCard: vi.fn(), getCanvasDraftsByThreads: vi.fn(), listMyCanvasVersions: vi.fn(), getProfileSlug: vi.fn() }));
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
 vi.mock('@/app/data/canvas-draft-service', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-draft-service')), ...svc }));
-vi.mock('@/app/data/chat-ui-helpers', async () => ({ ...(await vi.importActual<object>('@/app/data/chat-ui-helpers')), loadAttachment: helpers.loadAttachment }));
+vi.mock('@/app/data/canvas-artifacts', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-artifacts')), listMyCanvases: vi.fn(async () => []) }));
 
 import { PublishReplyOpen } from '@/app/pages/chat/PublishReplyOpen';
 import { AttachmentCard } from '@/app/pages/chat/AttachmentCard';
+import { resetCanvasRootStore } from '@/app/pages/chat/canvas-root-store';
 
 const HREF = '/p/ana/canvas/canvas_4?v=canvas_dd3';
 const published = { title: 'Canvas', label: 'v3 · Nov 2, 2026', state: 'published', draft: false, href: HREF, openHref: HREF, seq: 3, hasThread: true, draftId: 'd-1' } as CanvasVersionCardData;
 const mount = () => render(<MemoryRouter><PublishReplyOpen rootId="root-1" versionId="ver-1" viewerId="me" /></MemoryRouter>);
 
-beforeEach(() => vi.clearAllMocks());
-afterEach(cleanup);
+beforeEach(() => { resetCanvasRootStore(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); resetCanvasRootStore(); });
 
 describe('PublishReplyOpen', () => {
   it('reads through the thread, and shows Open canvas to the published version', async () => {
@@ -59,15 +59,18 @@ describe('PublishReplyOpen', () => {
   });
 });
 
-describe('the root card\'s own Retry reads through the thread again', () => {
-  it('a refused first read shows the chat\'s error with Retry; Retry asks again with the root id and the card comes', async () => {
-    helpers.loadAttachment.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ kind: 'canvas_version', id: 'ver-1', title: 'v', tags: [], canvasVersion: published });
+describe('the root card\'s own Retry reads the chat\'s batch again', () => {
+  it('a refused first read shows the chat\'s error with Retry; Retry asks again for this root and the card comes', async () => {
+    const row = { id: 'd-1', versionId: 'ver-d3', canvasId: 'cv-1', baseVersionId: null, conversationId: 'conv', threadRootId: 'root-1', state: 'published', runCount: 1, revision: 1, closedAt: null, canvasName: 'canvas_4', versionName: 'canvas_dd3' };
+    svc.getCanvasDraftsByThreads.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(new Map([['root-1', row]]));
+    svc.listMyCanvasVersions.mockResolvedValue([{ id: 'ver-d3', canvasId: 'cv-1', canvasName: 'canvas_4', canvasTitle: null, name: 'canvas_dd3', seq: 3, publishedAt: '2026-11-02T10:00:00Z', hasOpenDraft: false }]);
+    svc.getProfileSlug.mockResolvedValue('ana');
     render(<MemoryRouter><AttachmentCard kind="canvas_version" id="ver-1" viewerId="me" rootId="root-1" /></MemoryRouter>);
-    await act(async () => {});
+    await act(async () => { await new Promise((r) => setTimeout(r, 15)); });
     expect(screen.getByTestId('attachment-error')).toBeInTheDocument();
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Retry' })); });
-    expect(helpers.loadAttachment).toHaveBeenCalledTimes(2);
-    expect(helpers.loadAttachment).toHaveBeenLastCalledWith('canvas_version', 'ver-1', 'me', 'root-1');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Retry' })); await new Promise((r) => setTimeout(r, 15)); });
+    expect(svc.getCanvasDraftsByThreads).toHaveBeenCalledTimes(2);
+    expect(svc.getCanvasDraftsByThreads).toHaveBeenLastCalledWith(['root-1']);
     expect(screen.getByTestId('canvas-version-state')).toHaveTextContent('v3 · Nov 2, 2026');
   });
 });

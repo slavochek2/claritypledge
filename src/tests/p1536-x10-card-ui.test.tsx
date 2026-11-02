@@ -13,15 +13,17 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CanvasVersionCardData } from '@/app/data/canvas-draft-service';
 
-const svc = vi.hoisted(() => ({ getCanvasRootCard: vi.fn(), getCanvasVersionCard: vi.fn() }));
+const svc = vi.hoisted(() => ({ getCanvasDraftsByThreads: vi.fn(), listMyCanvasVersions: vi.fn(), getProfileSlug: vi.fn(), getCanvasVersionCard: vi.fn() }));
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
 vi.mock('@/app/data/canvas-draft-service', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-draft-service')), ...svc }));
+vi.mock('@/app/data/canvas-artifacts', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-artifacts')), listMyCanvases: vi.fn(async () => []) }));
 
 import { AttachmentCard } from '@/app/pages/chat/AttachmentCard';
 import { CanvasVersionCard } from '@/app/pages/chat/CanvasVersionCard';
 import { CanvasDraftTag } from '@/app/components/canvas/canvas-draft-tag';
 import { CanvasWorkspaceContext } from '@/app/components/canvas/canvas-workspace-context';
 import { lacksSecondaryPill } from './p1536-pill-assert';
+import { resetCanvasRootStore } from '@/app/pages/chat/canvas-root-store';
 
 const OPEN = '/p/ana/canvas/canvas_4?v=canvas_dd2&ws=1';
 const V2 = '/p/ana/canvas/canvas_4?v=canvas_dd2';
@@ -40,8 +42,8 @@ const draw = (data: CanvasVersionCardData, inWorkspace = false) =>
     </MemoryRouter>,
   );
 
-afterEach(cleanup);
-beforeEach(() => vi.clearAllMocks());
+afterEach(() => { cleanup(); resetCanvasRootStore(); });
+beforeEach(() => { resetCanvasRootStore(); vi.clearAllMocks(); });
 
 describe('X10: the card by state', () => {
   it('open: the (Draft) tag, v2, and Open draft going to the workspace (a secondary pill)', () => {
@@ -107,13 +109,17 @@ describe('X6 (built here, reused by step 4): one (Draft) tag component', () => {
 describe('X10: which read feeds the card', () => {
   const mount = (props: { compact?: boolean; rootId?: string }) =>
     render(<MemoryRouter><AttachmentCard kind="canvas_version" id="ver-1" viewerId="me" {...props} /></MemoryRouter>);
+  const row = { id: 'd-1', versionId: 'ver-d2', canvasId: 'cv-1', baseVersionId: 'ver-1', conversationId: 'conv', threadRootId: 'root-1', state: 'open', runCount: 1, revision: 1, closedAt: null, canvasName: 'canvas_4', versionName: 'canvas_dd2' };
 
-  it('a thread root\'s card is read through ITS THREAD, with the root\'s own id', async () => {
-    svc.getCanvasRootCard.mockResolvedValue(openDraft);
+  it('a thread root\'s card is derived from the chat\'s batched read of the drafts BY THREAD ROOT, never from the attached version', async () => {
+    svc.getCanvasDraftsByThreads.mockResolvedValue(new Map([['root-1', row]]));
+    svc.listMyCanvasVersions.mockResolvedValue([]);
+    svc.getProfileSlug.mockResolvedValue('ana');
     mount({ rootId: 'root-1' });
     await screen.findByTestId('canvas-draft-tag');
-    expect(svc.getCanvasRootCard).toHaveBeenCalledWith('root-1', 'ver-1', 'me');
+    expect(svc.getCanvasDraftsByThreads).toHaveBeenCalledWith(['root-1']);
     expect(svc.getCanvasVersionCard).not.toHaveBeenCalled();
+    expect(screen.getByRole('link', { name: /^Open draft canvas/ })).toHaveAttribute('href', OPEN);
   });
 
   it('CONTROL: a card with no root id (an attachment in a quote or a reply) is read by the attached version, as before', async () => {
@@ -121,11 +127,19 @@ describe('X10: which read feeds the card', () => {
     mount({});
     await screen.findByTestId('attachment-canvas_version');
     expect(svc.getCanvasVersionCard).toHaveBeenCalledWith('ver-1', 'me');
-    expect(svc.getCanvasRootCard).not.toHaveBeenCalled();
+    expect(svc.getCanvasDraftsByThreads).not.toHaveBeenCalled();
   });
 
-  it('a card with no thread and no version of the viewer\'s is "Not available to you"', async () => {
-    svc.getCanvasRootCard.mockResolvedValue(null);
+  it('a quote\'s compact card of a root attachment is not a thread root either: it reads the attached version', async () => {
+    svc.getCanvasVersionCard.mockResolvedValue(card({ hasThread: undefined, draftId: undefined }));
+    mount({ rootId: 'root-1', compact: true });
+    await screen.findByTestId('attachment-canvas_version');
+    expect(svc.getCanvasDraftsByThreads).not.toHaveBeenCalled();
+  });
+
+  it('a root with no draft and no version of the viewer\'s is "Not available to you"', async () => {
+    svc.getCanvasDraftsByThreads.mockResolvedValue(new Map());
+    svc.getCanvasVersionCard.mockResolvedValue(null);
     mount({ rootId: 'root-1' });
     expect(await screen.findByText('Not available to you')).toBeInTheDocument();
   });

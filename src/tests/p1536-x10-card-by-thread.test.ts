@@ -15,7 +15,7 @@ const sb = vi.hoisted(() => ({ rpc: vi.fn(), from: vi.fn() }));
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc: sb.rpc, from: sb.from, functions: { invoke: vi.fn() } } }));
 vi.mock('@/lib/list-return-cache', () => ({ clearListReturnCache: vi.fn() }));
 
-import { getCanvasRootCard, getCanvasRootThread } from '@/app/data/canvas-draft-service';
+import { cardFromDraft, getCanvasDraftsByThreads, getCanvasRootCard } from '@/app/data/canvas-draft-service';
 
 const ME = 'user-id-1234';
 const ROOT_A = 'root-a';
@@ -39,6 +39,12 @@ function chain(table: string) {
   q.eq = (col: string, val: unknown) => {
     filters[col] = val;
     return q;
+  };
+  // a batched read: .in('thread_root_id', ids) answers the rows of those ids (and records what was asked)
+  q.in = async (col: string, vals: unknown[]) => {
+    state.filters.push({ table, filters: { [`${col}:in`]: vals } });
+    if (table === 'canvas_drafts' && col === 'thread_root_id') return { data: vals.map((v) => state.drafts[String(v)]).filter(Boolean), error: null };
+    return { data: [], error: null };
   };
   q.maybeSingle = async () => {
     state.filters.push({ table, filters: { ...filters } });
@@ -145,37 +151,60 @@ describe('P1527: no client read dedupe (a stalled read must not be what Retry jo
     expect(retry).toMatchObject({ state: 'draft', hasThread: true });
     expect(state.filters.filter((f) => f.table === 'canvas_drafts' && f.filters.thread_root_id === ROOT_A)).toHaveLength(2);
   });
-
-  it('the same holds for the thread read behind the "N replies" link', async () => {
-    state.drafts[ROOT_A] = draftRow({});
-    state.stallNext = true;
-    void getCanvasRootThread(ROOT_A, ME);
-    await expect(getCanvasRootThread(ROOT_A, ME)).resolves.toMatchObject({ state: 'open' });
-  });
 });
 
-describe('X11: the thread read behind "N replies" (what the draft is, and where an open one goes)', () => {
-  it('an open draft: its state, its id, and the workspace address (the one read that needs the viewer\'s slug)', async () => {
-    state.drafts[ROOT_A] = draftRow({});
-    await expect(getCanvasRootThread(ROOT_A, ME)).resolves.toEqual({ state: 'open', draftId: 'draft-a', openHref: '/p/test-user/canvas/canvas?v=canvas_dd2&ws=1' });
-    expect(state.filters.map((f) => f.table)).toEqual(['canvas_drafts', 'profiles']);
-  });
-
-  it('a published or discarded draft: its state and id, no address, and nothing else is read (one request)', async () => {
-    state.drafts[ROOT_A] = draftRow({ state: 'published' });
-    state.drafts[ROOT_B] = draftRow({ id: 'draft-b', thread_root_id: ROOT_B, state: 'discarded' });
-    await expect(getCanvasRootThread(ROOT_A, ME)).resolves.toEqual({ state: 'published', draftId: 'draft-a', openHref: null });
-    await expect(getCanvasRootThread(ROOT_B, ME)).resolves.toEqual({ state: 'discarded', draftId: 'draft-b', openHref: null });
-    expect(state.filters.map((f) => f.table)).toEqual(['canvas_drafts', 'canvas_drafts']);
+describe('the batched read behind every card and "N replies" link of a chat (3c X10/X11, review round 2)', () => {
+  it('N roots are ONE request, asked by thread_root_id in a list, and each draft comes back under its root', async () => {
+    state.drafts[ROOT_A] = draftRow({ id: 'draft-a' });
+    state.drafts[ROOT_B] = draftRow({ id: 'draft-b', thread_root_id: ROOT_B, state: 'published' });
+    const byRoot = await getCanvasDraftsByThreads([ROOT_A, ROOT_B, 'root-none']);
+    expect([...byRoot.keys()].sort()).toEqual([ROOT_A, ROOT_B]);
+    expect(byRoot.get(ROOT_B)).toMatchObject({ id: 'draft-b', state: 'published', threadRootId: ROOT_B });
+    expect(sb.from).toHaveBeenCalledTimes(1);
+    expect(state.filters).toEqual([{ table: 'canvas_drafts', filters: { 'thread_root_id:in': [ROOT_A, ROOT_B, 'root-none'] } }]);
     expect(sb.rpc).not.toHaveBeenCalled();
   });
 
-  it('no draft the viewer can read: null', async () => {
-    await expect(getCanvasRootThread(ROOT_A, ME)).resolves.toBeNull();
+  it('a chat of more than 50 canvas roots is one request per 50 (the ids travel in the address)', async () => {
+    const ids = Array.from({ length: 120 }, (_v, i) => `root-${i}`);
+    await getCanvasDraftsByThreads(ids);
+    expect(sb.from).toHaveBeenCalledTimes(3);
+    expect(state.filters.map((f) => (f.filters['thread_root_id:in'] as string[]).length)).toEqual([50, 50, 20]);
   });
 
-  it('an open draft whose names cannot be read has no address (the link then has nowhere to go)', async () => {
-    state.drafts[ROOT_A] = draftRow({ canvas_name: null, version_name: null });
-    await expect(getCanvasRootThread(ROOT_A, ME)).resolves.toMatchObject({ state: 'open', openHref: null });
+  it('no roots is no request at all', async () => {
+    await expect(getCanvasDraftsByThreads([])).resolves.toEqual(new Map());
+    expect(sb.from).not.toHaveBeenCalled();
+  });
+
+  it('a refused batch rejects (the store keeps what it knew)', async () => {
+    sb.from.mockImplementationOnce(() => ({ select: () => ({ in: async () => ({ data: null, error: { code: 'x', message: 'down' } }) }) }));
+    await expect(getCanvasDraftsByThreads([ROOT_A])).rejects.toBeTruthy();
+  });
+});
+
+describe('cardFromDraft: the card, derived from a draft and what was already read (no request of its own)', () => {
+  const ctx = (over: Record<string, unknown> = {}) => ({ versions: [], slug: 'test-user', titles: new Map<string, string | null | undefined>(), ...over });
+  const mapped = (over: Record<string, unknown>) => ({ id: 'draft-a', versionId: 'ver-d2', canvasId: 'cv-1', baseVersionId: 'ver-1', conversationId: 'conv-1', threadRootId: ROOT_A, state: 'open', runCount: 1, revision: 3, closedAt: null, canvasName: 'canvas', versionName: 'canvas_dd2', ...over }) as never;
+  const published = { id: 'ver-d2', canvasId: 'cv-1', canvasName: 'canvas', canvasTitle: null, name: 'canvas_dd2', seq: 2, publishedAt: '2026-10-05T10:00:00Z', hasOpenDraft: false };
+  const v1 = { ...published, id: 'ver-1', name: 'canvas_d1', seq: 1, publishedAt: '2026-10-01T10:00:00Z' };
+
+  it('open: the (Draft) tag data, the number it gets and the workspace address', () => {
+    expect(cardFromDraft(mapped({}), ctx({ versions: [v1] }))).toMatchObject({ state: 'draft', draft: true, nextSeq: 2, hasThread: true, draftId: 'draft-a', openHref: '/p/test-user/canvas/canvas?v=canvas_dd2&ws=1' });
+  });
+
+  it('published: the version the draft became, View with no ws=1', () => {
+    const card = cardFromDraft(mapped({ state: 'published' }), ctx({ versions: [published, v1] }));
+    expect(card).toMatchObject({ state: 'published', seq: 2, openHref: '/p/test-user/canvas/canvas?v=canvas_dd2' });
+    expect(card.label).toMatch(/^v2 · /);
+  });
+
+  it('discarded: says so, with the canvas title (the owner\'s own title when it was never published)', () => {
+    const card = cardFromDraft(mapped({ state: 'discarded' }), ctx({ titles: new Map([['canvas', 'First idea']]) }));
+    expect(card).toMatchObject({ state: 'discarded', title: 'First idea', openHref: '/artifacts?tab=canvases' });
+  });
+
+  it('with no readable slug an open draft has no address (never a guessed one)', () => {
+    expect(cardFromDraft(mapped({}), ctx({ slug: null, versions: [v1] })).openHref).toBeNull();
   });
 });

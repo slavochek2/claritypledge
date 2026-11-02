@@ -156,6 +156,10 @@ test('X10 + X11: the mirror chat card by thread state, "N replies", the open dra
         const links = await linkTexts();
         rec(vp, 'S3c.8 "N replies": canvas 1 root 1 (its Publish reply), A 3 (2 + Publish reply), B 1 (singular), C 2, canvas 2 root none (0 replies, hidden)', JSON.stringify(links) === JSON.stringify(['1 reply', '3 replies', '1 reply', '2 replies', null]), `links=${JSON.stringify(links)}`, f1);
 
+        // the link is a real anchor with the address known now (a modifier click or "open in new tab" follows it)
+        const hrefs = await Promise.all([0, 1, 2, 3].map(async (n) => (await linkOf(n).count()) === 0 ? null : await linkOf(n).getAttribute('href')));
+        rec(vp, 'MEDIUM 2: "N replies" is a real anchor: A and B (closed) to their chat thread address, C (open) to its workspace', hrefs[1]?.includes(`/t/${rootOf.get('A')}`) === true && hrefs[2]?.includes(`/t/${rootOf.get('B')}`) === true && hrefs[3] === `${path}?v=${C.version_name}&ws=1`, JSON.stringify(hrefs), f1);
+
         // published A: opens the chat's own panel in place
         await linkOf(1).click();
         const closed = page.getByTestId('canvas-closed-line');
@@ -243,6 +247,10 @@ test('X10 + X11: the mirror chat card by thread state, "N replies", the open dra
         await expect.poll(async () => cardRows.count(), { timeout: 40_000, intervals: [500] }).toBeGreaterThanOrEqual(5);
         await expect(cardRows.nth(3).getByTestId('replies-link')).toBeVisible({ timeout: 30_000 });
         await expect(cardRows.nth(3).getByTestId('canvas-draft-tag')).toBeVisible();
+        await page.waitForTimeout(1500);
+        const mountReqs = [...requests];
+        rec(vp, 'request cost of mounting the chat with 5 canvas cards and 4 links: ONE canvas_drafts query for all roots + ONE versions read, not a read per card or link',
+          mountReqs.filter((r) => /canvas_drafts/.test(r)).length === 1 && mountReqs.filter((r) => /list_my_canvas_versions/.test(r)).length === 1, `${mountReqs.length} requests: ${mountReqs.join(' | ')}`);
         // C is published in "another tab" (RPC); this page sees no signal. The tap reads the current state: the chat's own panel, not the workspace.
         const cRev = (await supabaseAdmin.from('canvas_drafts').select('revision').eq('id', C.id).single()).data!.revision as number;
         const pubC = await api.rpc('canvas_draft_publish', { p_draft: C.id, p_expected_revision: cRev });

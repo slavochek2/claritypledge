@@ -11,7 +11,7 @@ import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
 import { filterByTags } from '@/lib/feed-utils';
 import type { ChatAttachmentKind } from './chat-mappers';
-import { getCanvasRootCard, getCanvasVersionCard, type CanvasVersionCardData } from './canvas-draft-service';
+import { getCanvasVersionCard, type CanvasVersionCardData } from './canvas-draft-service';
 import type { PointSummary, PointWithUserPosition, StoryWithAuthor } from '@/app/types';
 
 /** What a message row needs to show who wrote it. */
@@ -123,10 +123,9 @@ export function filterShareables(items: Shareable[], query: string, kind: ChatAt
  * The attachment as the reader may see it, or null ("Not available to you"). The services are the
  * normal reader-scoped ones: a private point or story the reader cannot select comes back empty.
  */
-export async function loadAttachment(kind: ChatAttachmentKind, id: string, viewerId: string, rootId?: string): Promise<Shareable | null> {
+export async function loadAttachment(kind: ChatAttachmentKind, id: string, viewerId: string): Promise<Shareable | null> {
   if (kind === 'canvas_version') {
-    // 3c X10: the card of a canvas thread's root is its thread's draft's; an attachment anywhere else (a quote, a reply) is read by the version it names.
-    const card = rootId ? await getCanvasRootCard(rootId, id, viewerId) : await getCanvasVersionCard(id, viewerId);
+    const card = await getCanvasVersionCard(id, viewerId);
     return card ? { kind, id, title: card.label, tags: [], canvasVersion: card } : null;
   }
   if (kind === 'point') {

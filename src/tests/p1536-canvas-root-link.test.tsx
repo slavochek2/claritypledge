@@ -1,27 +1,31 @@
 /**
  * @file p1536-canvas-root-link.test.tsx
- * @description P1536 §3c X11 (S3c.8), supersedes W0's "no thread link on a canvas root": a canvas thread root shows the same "N replies" link as every other
- * thread in the chat (`RepliesLink`), hidden at 0, singular at 1. By what the thread's draft is:
- *  - OPEN draft: opens the workspace with the thread showing (the Thread tab below 1280px), REPLACE-free (a plain push, so Back returns to the chat);
+ * @description P1536 §3c X11 (S3c.8), supersedes W0's "no thread link on a canvas root": a canvas thread root shows the same "N replies" link as every other thread in the chat
+ * (`RepliesLink`), hidden at 0, singular at 1. By what the thread's draft is (read in the chat's ONE batched read, canvas-root-store):
+ *  - OPEN draft: opens the workspace with the thread showing (the Thread tab below 1280px);
  *  - PUBLISHED or DISCARDED: opens the mirror chat's own thread panel in place (`onThread`), no new state on the canvas page;
  *  - no resolvable draft (an unreadable one, someone else's): no link at all.
- * The root's card is read through its thread (AttachmentCard gets the root's id). Real MessageList and MessageRow; the canvas reads are faked.
+ * It is a REAL ANCHOR with the address known now: a modifier or middle click follows it (a new tab, copy link) and checks nothing; only a plain left click reads the CURRENT state first,
+ * with visible pending feedback, and a superseded read never decides where it goes. Real MessageList and MessageRow; the canvas reads are faked.
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-mappers';
 import type { ConversationApi } from '@/app/pages/chat/MessageList';
-import type { CanvasRootThread } from '@/app/data/canvas-draft-service';
+import type { CanvasDraft } from '@/app/data/canvas-draft-service';
 import { emitCanvasDraftEvent } from '@/app/data/canvas-draft-events';
+import { resetCanvasRootStore } from '@/app/pages/chat/canvas-root-store';
+import { chatPath } from '@/app/pages/chat/chat-view-model';
 
-const svc = vi.hoisted(() => ({ getCanvasRootThread: vi.fn() }));
+const svc = vi.hoisted(() => ({ getCanvasDraftsByThreads: vi.fn(), listMyCanvasVersions: vi.fn(), getProfileSlug: vi.fn() }));
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
 vi.mock('sonner', () => ({ toast: vi.fn() }));
 vi.mock('@/auth', () => ({ useAuth: () => ({ session: { user: { id: 'me' } }, user: { id: 'me' } }) }));
 vi.mock('@/app/data/canvas-draft-service', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-draft-service')), ...svc }));
-vi.mock('@/app/pages/chat/AttachmentCard', () => ({ AttachmentCard: ({ rootId }: { rootId?: string }) => <div data-testid="attachment-card" data-root-id={rootId ?? ''} /> }));
+vi.mock('@/app/data/canvas-artifacts', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-artifacts')), listMyCanvases: vi.fn(async () => []) }));
+vi.mock('@/app/pages/chat/AttachmentCard', () => ({ AttachmentCard: ({ rootId, count }: { rootId?: string; count?: number }) => <div data-testid="attachment-card" data-root-id={rootId ?? ''} data-count={count ?? ''} /> }));
 
 import { MessageList } from '@/app/pages/chat/MessageList';
 import { ChatContext, type ChatContextValue } from '@/app/pages/chat/chat-state';
@@ -40,7 +44,7 @@ const m = (id: string, over: Partial<ChatMessage> = {}): ChatMessage => ({
 const canvasRoot = (id: string) => m(id, { body: null, attachmentKind: 'canvas_version', attachmentId: 'ver-1' });
 
 const chatValue = {
-  userId: 'me', status: 'ready', error: null, chats: [mirrorChat], authors: {}, missingAuthors: new Set(), ensureAuthors: vi.fn(), outbox: [], subscribe: () => () => undefined,
+  userId: 'me', status: 'ready', error: null, chats: [mirrorChat], authors: { me: { id: 'me', name: 'Me', slug: 'test-user', avatarUrl: null, avatarColor: null, hasPledged: false } }, missingAuthors: new Set(), ensureAuthors: vi.fn(), outbox: [], subscribe: () => () => undefined,
 } as unknown as ChatContextValue;
 
 function Where() {
@@ -68,21 +72,33 @@ function mount(messages: ChatMessage[], stats: Map<string, { count: number; auth
 }
 
 const WS = '/p/test-user/canvas/canvas_4?v=canvas_dd2&ws=1';
-const OPEN: CanvasRootThread = { state: 'open', draftId: 'd-1', openHref: WS };
-const PUBLISHED: CanvasRootThread = { state: 'published', draftId: 'd-1', openHref: null };
-const DISCARDED: CanvasRootThread = { state: 'discarded', draftId: 'd-1', openHref: null };
+const CHAT_THREAD = chatPath('c', { rootId: 'root-new' });
+const draft = (state: CanvasDraft['state'], over: Partial<CanvasDraft> = {}): CanvasDraft => ({
+  id: 'd-1', versionId: 'ver-d2', canvasId: 'cv-1', baseVersionId: 'ver-1', conversationId: 'conv', threadRootId: 'root-new', state, runCount: 1, revision: 1, closedAt: null,
+  canvasName: 'canvas_4', versionName: 'canvas_dd2', ...over,
+});
+/** What the database says for the root now (null: no draft the viewer can read). */
+let now: CanvasDraft | null;
+const idle = () => act(async () => { await new Promise((r) => setTimeout(r, 15)); });
+const link = () => screen.getByTestId('replies-link') as HTMLAnchorElement;
 
 beforeEach(() => {
+  resetCanvasRootStore();
   vi.clearAllMocks();
-  svc.getCanvasRootThread.mockResolvedValue(OPEN);
+  now = draft('open');
+  svc.getCanvasDraftsByThreads.mockImplementation(async () => new Map(now ? [['root-new', now]] : []));
+  svc.listMyCanvasVersions.mockResolvedValue([]);
+  svc.getProfileSlug.mockResolvedValue('test-user');
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} });
   vi.stubGlobal('matchMedia', (q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
 });
 
+const twoReplies = new Map([['root-new', { count: 2, authorIds: ['me'] }]]);
+
 describe('X11: a canvas draft thread root in the main conversation', () => {
   it('with no reply yet shows no link', async () => {
     mount([canvasRoot('root-new')], new Map());
-    await screen.findByTestId('attachment-card');
+    await idle();
     expect(screen.queryByTestId('replies-link')).not.toBeInTheDocument();
   });
 
@@ -91,90 +107,128 @@ describe('X11: a canvas draft thread root in the main conversation', () => {
     expect(await screen.findByTestId('replies-link')).toHaveTextContent(text);
   });
 
-  it('on an OPEN draft it opens the workspace with the thread showing (the Thread tab), and does not open the chat\'s panel', async () => {
-    const onThread = mount([canvasRoot('root-new')], new Map([['root-new', { count: 2, authorIds: ['me'] }]]));
-    fireEvent.click(await screen.findByTestId('replies-link'));
+  it('on an OPEN draft it is a real anchor to the workspace; a plain click opens it with the thread showing (the Thread tab), and not the chat\'s panel', async () => {
+    const onThread = mount([canvasRoot('root-new')], twoReplies);
+    await screen.findByTestId('replies-link');
+    expect(link().getAttribute('href')).toBe(WS);
+    fireEvent.click(link());
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(WS));
     expect(screen.getByTestId('where').dataset.tab).toBe('thread');
     expect(screen.getByTestId('where').dataset.from).toBe('/chats/c/c'); // the workspace's back arrow returns to the chat
     expect(onThread).not.toHaveBeenCalled();
-    expect(svc.getCanvasRootThread).toHaveBeenCalledWith('root-new', 'me');
   });
 
-  it.each([
-    ['published', PUBLISHED],
-    ['discarded', DISCARDED],
-  ])('on a %s thread it opens the chat\'s own thread panel in place (onThread), and goes nowhere else', async (_n, data) => {
-    svc.getCanvasRootThread.mockResolvedValue(data);
-    const onThread = mount([canvasRoot('root-new')], new Map([['root-new', { count: 2, authorIds: ['me'] }]]));
-    fireEvent.click(await screen.findByTestId('replies-link'));
+  it.each([['published'], ['discarded']] as const)('on a %s thread it is an anchor to the chat\'s own thread address; a plain click opens the panel in place (onThread)', async (state) => {
+    now = draft(state);
+    const onThread = mount([canvasRoot('root-new')], twoReplies);
+    await screen.findByTestId('replies-link');
+    expect(link().getAttribute('href')).toBe(CHAT_THREAD);
+    fireEvent.click(link());
     await waitFor(() => expect(onThread).toHaveBeenCalledWith(expect.objectContaining({ id: 'root-new' }))); // the tap reads the current state first
     expect(screen.getByTestId('where')).toHaveTextContent('/chats/c/c');
   });
 
   it.each([
-    ['a root with no draft the viewer can read (not theirs, or gone)', null],
-    ['an open draft whose address cannot be read (it has nowhere to go)', { state: 'open', draftId: 'd-1', openHref: null } as CanvasRootThread],
-  ])('%s shows no link', async (_n, data) => {
-    svc.getCanvasRootThread.mockResolvedValue(data);
-    mount([canvasRoot('root-new')], new Map([['root-new', { count: 2, authorIds: ['me'] }]]));
-    await waitFor(() => expect(svc.getCanvasRootThread).toHaveBeenCalled());
-    await screen.findByTestId('attachment-card');
+    ['a root with no draft the viewer can read (not theirs, or gone)', () => { now = null; }],
+    ['an open draft whose address cannot be read (it has nowhere to go)', () => { now = draft('open', { versionName: null }); }],
+    ['a read that is refused (never a link that goes nowhere)', () => { svc.getCanvasDraftsByThreads.mockRejectedValue(new Error('offline')); }],
+  ])('%s shows no link', async (_n, arrange) => {
+    arrange();
+    mount([canvasRoot('root-new')], twoReplies);
+    await waitFor(() => expect(svc.getCanvasDraftsByThreads).toHaveBeenCalled());
+    await idle();
     expect(screen.queryByTestId('replies-link')).not.toBeInTheDocument();
   });
 
-  it('a read that fails shows no link (never a link that goes nowhere)', async () => {
-    svc.getCanvasRootThread.mockRejectedValue(new Error('offline'));
-    mount([canvasRoot('root-new')], new Map([['root-new', { count: 2, authorIds: ['me'] }]]));
-    await waitFor(() => expect(svc.getCanvasRootThread).toHaveBeenCalled());
-    expect(screen.queryByTestId('replies-link')).not.toBeInTheDocument();
+  it('MEDIUM 2: a modifier or middle click follows the anchor (known address, a new tab): nothing is read, nothing is intercepted', async () => {
+    const onThread = mount([canvasRoot('root-new')], twoReplies);
+    await screen.findByTestId('replies-link');
+    const reads = svc.getCanvasDraftsByThreads.mock.calls.length;
+    for (const init of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }]) {
+      expect(fireEvent.click(link(), init)).toBe(true); // true: not preventDefault-ed, so the browser follows the anchor
+    }
+    await idle();
+    expect(svc.getCanvasDraftsByThreads.mock.calls.length).toBe(reads);
+    expect(onThread).not.toHaveBeenCalled();
+    expect(screen.getByTestId('where')).toHaveTextContent('/chats/c/c');
   });
 
-  it('item 1: an OPEN link whose draft was published elsewhere: the tap reads the current state and opens the chat\'s panel, never the workspace', async () => {
-    const onThread = mount([canvasRoot('root-new')], new Map([['root-new', { count: 2, authorIds: ['me'] }]]));
-    await screen.findByTestId('replies-link'); // drawn from the open state
-    svc.getCanvasRootThread.mockResolvedValue(PUBLISHED); // published in another tab; no signal has reached this tab
-    fireEvent.click(screen.getByTestId('replies-link'));
+  it('MEDIUM 2: while the tap\'s read is out the link shows it (aria-busy and a spinner), a second click is ignored, and it ends', async () => {
+    const onThread = mount([canvasRoot('root-new')], twoReplies);
+    await screen.findByTestId('replies-link');
+    let answer: (m: Map<string, CanvasDraft>) => void = () => undefined;
+    svc.getCanvasDraftsByThreads.mockImplementationOnce(() => new Promise((r) => { answer = r; }));
+    expect(link()).toHaveAttribute('aria-busy', 'false');
+    fireEvent.click(link());
+    await waitFor(() => expect(link()).toHaveAttribute('aria-busy', 'true'));
+    expect(link().querySelector('svg.animate-spin')).not.toBeNull();
+    const reads = svc.getCanvasDraftsByThreads.mock.calls.length;
+    fireEvent.click(link());
+    expect(svc.getCanvasDraftsByThreads.mock.calls.length).toBe(reads);
+    await act(async () => answer(new Map([['root-new', draft('published')]])));
+    await waitFor(() => expect(onThread).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(link()).toHaveAttribute('aria-busy', 'false'));
+  });
+
+  it('item 1: a link drawn for an OPEN draft, published elsewhere: the tap reads the current state and opens the chat\'s panel, never the workspace', async () => {
+    const onThread = mount([canvasRoot('root-new')], twoReplies);
+    await screen.findByTestId('replies-link');
+    now = draft('published'); // published in another tab; no signal has reached this tab
+    fireEvent.click(link());
     await waitFor(() => expect(onThread).toHaveBeenCalledWith(expect.objectContaining({ id: 'root-new' })));
     expect(screen.getByTestId('where')).toHaveTextContent('/chats/c/c');
-    expect(svc.getCanvasRootThread).toHaveBeenCalledTimes(2); // mount + the tap
   });
 
-  it('item 1: the other way round (a link drawn for a closed thread, a draft open now) the tap goes to the workspace', async () => {
-    svc.getCanvasRootThread.mockResolvedValue(PUBLISHED);
-    const onThread = mount([canvasRoot('root-new')], new Map([['root-new', { count: 2, authorIds: ['me'] }]]));
+  it('item 1: the other way round (drawn for a closed thread, a draft open now) the tap goes to the workspace', async () => {
+    now = draft('published');
+    const onThread = mount([canvasRoot('root-new')], twoReplies);
     await screen.findByTestId('replies-link');
-    svc.getCanvasRootThread.mockResolvedValue(OPEN);
-    fireEvent.click(screen.getByTestId('replies-link'));
+    now = draft('open');
+    fireEvent.click(link());
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(WS));
     expect(onThread).not.toHaveBeenCalled();
   });
 
-  it('item 1: the thread was discarded and the tab came back: the link already reads the new state before any tap', async () => {
-    const onThread = mount([canvasRoot('root-new')], new Map([['root-new', { count: 2, authorIds: ['me'] }]]));
+  it('item 1: discarded elsewhere and the tab came back: the link reads the new state before any tap, with ONE query', async () => {
+    mount([canvasRoot('root-new')], twoReplies);
     await screen.findByTestId('replies-link');
-    svc.getCanvasRootThread.mockResolvedValue(DISCARDED);
+    now = draft('discarded');
+    const before = svc.getCanvasDraftsByThreads.mock.calls.length;
     act(() => emitCanvasDraftEvent({ kind: 'discarded', draftId: 'd-1' }));
-    await waitFor(() => expect(svc.getCanvasRootThread).toHaveBeenCalledTimes(2));
-    svc.getCanvasRootThread.mockClear();
-    fireEvent.click(screen.getByTestId('replies-link'));
-    await waitFor(() => expect(onThread).toHaveBeenCalled());
+    await waitFor(() => expect(link().getAttribute('href')).toBe(CHAT_THREAD));
+    expect(svc.getCanvasDraftsByThreads.mock.calls.length - before).toBe(1);
   });
 
-  it('item 1: a draft deleted meanwhile: the tap has nothing to open and goes nowhere (and the link goes)', async () => {
-    const onThread = mount([canvasRoot('root-new')], new Map([['root-new', { count: 2, authorIds: ['me'] }]]));
+  it('item 1: a draft deleted meanwhile: the tap has nothing to open and goes nowhere, and the link goes', async () => {
+    const onThread = mount([canvasRoot('root-new')], twoReplies);
     await screen.findByTestId('replies-link');
-    svc.getCanvasRootThread.mockResolvedValue(null);
-    fireEvent.click(screen.getByTestId('replies-link'));
+    now = null;
+    fireEvent.click(link());
     await waitFor(() => expect(screen.queryByTestId('replies-link')).not.toBeInTheDocument());
     expect(onThread).not.toHaveBeenCalled();
     expect(screen.getByTestId('where')).toHaveTextContent('/chats/c/c');
   });
 
-  it('the root\'s card is told it is a thread root (it reads its thread\'s draft); a canvas version attached to a REPLY is not', async () => {
-    mount([canvasRoot('root-new'), m('reply', { threadRootId: 'root-new', attachmentKind: 'canvas_version', attachmentId: 'ver-9' })], new Map());
+  it('item 3: the tap\'s read A sees OPEN and is slow; a publish event\'s read B sees published and returns first: the tap follows B (the chat\'s panel, not the workspace)', async () => {
+    const onThread = mount([canvasRoot('root-new')], twoReplies);
+    await screen.findByTestId('replies-link');
+    let answerA: (m: Map<string, CanvasDraft>) => void = () => undefined;
+    svc.getCanvasDraftsByThreads.mockImplementationOnce(() => new Promise((r) => { answerA = r; })); // A
+    fireEvent.click(link());
+    await waitFor(() => expect(link()).toHaveAttribute('aria-busy', 'true'));
+    now = draft('published');
+    act(() => emitCanvasDraftEvent({ kind: 'published', draftId: 'd-1' })); // B
+    await waitFor(() => expect(link().getAttribute('href')).toBe(CHAT_THREAD));
+    await act(async () => answerA(new Map([['root-new', draft('open')]]))); // A answers late, stale
+    await waitFor(() => expect(onThread).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('where')).toHaveTextContent('/chats/c/c');
+  });
+
+  it('the root\'s card is told it is a thread root and its reply count; a canvas version attached to a REPLY is not', async () => {
+    mount([canvasRoot('root-new'), m('reply', { threadRootId: 'root-new', attachmentKind: 'canvas_version', attachmentId: 'ver-9' })], twoReplies);
     const cards = await screen.findAllByTestId('attachment-card');
     expect(cards.map((c) => c.getAttribute('data-root-id'))).toEqual(['root-new', '']);
+    expect(cards[0]!.getAttribute('data-count')).toBe('2');
   });
 
   it('CONTROL: an ordinary message with replies still shows "N replies" and opens its thread', () => {

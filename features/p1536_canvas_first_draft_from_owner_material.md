@@ -1741,6 +1741,28 @@ Model for the budget: `gemini-3.8-flash` (registry: $0.75 input, $3.75 output pe
    Gemini cost fits only within the key's cap.
 3. **Upgrade:** Supabase Pro, from $25/month (registry).
 
+**3c X10/X11 (the mirror chat's canvas cards and "N replies" links).** One shared read of the chat's canvas thread roots, not a read per card and per link
+(`src/app/pages/chat/canvas-root-store.ts`; the counts are pinned by `p1536-x11-root-store.test.ts` and `p1536-x10-card-refresh.test.tsx`, and measured in
+`e2e/p1536-x10-x11.spec.ts`). Inputs: N = canvas thread roots in the chat's loaded messages, N_open = those whose draft is open, F = changed-state roots on a signal,
+M = chat mounts per person per hour, T = tab returns per person per hour, R = replies arriving on a canvas root per person per hour.
+
+| Measure | Per mount | Per tab return | Before (per card and per link) |
+|---|---|---|---|
+| Requests | 1 drafts query (`thread_root_id` in a list, 50 ids per query) + 1 versions read = **2**, at any N ≤ 50; +1 only when the chat does not know the viewer's slug, +1 only when a card's canvas has no published version | 1 drafts query for the N_open roots (none when N_open = 0) + 1 versions read only when F ≥ 1, however large F is = **1 to 2** | N x (drafts + versions + slug = 3) cards + N x (drafts + slug = 2) links = 5N, **50 at N = 10**, up to 60 with titles |
+| Egress | 250 B x N (drafts) + 200 B x V (the viewer's V versions) = 2.5 KB + 4 KB at N = 10, V = 20 | 250 B x N_open = 2.5 KB at N_open = 10; + 200 B x V = 4 KB only when F ≥ 1 | 5N x ≈1.5 KB = 75 KB per mount and per tab return at N = 10 |
+| Log lines | 2 access lines | 1 to 2 access lines | 5N = 50 |
+
+A hidden tab makes zero requests, on mount too: what is due waits and is read when the tab returns (metered-services rule 3). No timer polls (rule 2), a failed read waits for the next
+signal or the person's Retry (rule 4), and a read is a fresh query every time. A closed (published or discarded) draft never changes, so it drops out of every signal's query.
+A reply on a root reads that root alone; replies in one moment are one query. Per hour per person: requests = M x 2 + T x (1 + [F ≥ 1]) + R x 1, at most 2M + 2T + R.
+
+1. **Fits the plan limit today?** Egress per person per hour = M x 6.5 KB + T x 6.5 KB + R x 0.3 KB at N = 10, V = 20 (a closed draft's rows are in the mount only);
+   the monthly figure is that x active hours x active owners with canvases, compared with the registry's 5 GB egress on the dashboard's reading (the values stay private, the
+   verdict is: fits; this reduces the net traffic of the previous design, 5N requests per return, by about 25x at N = 10).
+2. **Fits at 10x?** N = 100 roots: ceil(100 / 50) = 2 drafts queries + 1 versions read at a mount; a tab return still asks only the open ones (one query while N_open ≤ 50).
+   Fits.
+3. **Upgrade:** none needed for this step; the over-plan standing of the organisation (P1530) is unchanged by it.
+
 ## Pre-deploy Checklist
 
 ### Secrets to provision

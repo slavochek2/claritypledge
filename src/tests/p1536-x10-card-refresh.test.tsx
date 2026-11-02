@@ -1,117 +1,223 @@
 /**
  * @file p1536-x10-card-refresh.test.tsx
- * @description P1536 3c X10, review fix 1: a canvas thread root's card, kept mounted in the mirror chat, learns that its draft was published or discarded elsewhere
- * from a REAL signal (the same-tab canvas event for its draft, the tab returning, a new reply), and re-reads QUIETLY: the card stays up, in the same element, until the
- * new answer arrives (no skeleton); a refused re-read changes nothing; a hidden tab makes no request; another draft's event says nothing.
+ * @description P1536 3c X10 (review round 2): the cards of a chat's canvas thread roots come from ONE batched read of their drafts (+ one of the versions), not a read per card.
+ *  - 10 mounted cards are 2 requests; a hidden tab asks nothing (mount included)
+ *  - a mounted card follows its draft being published or discarded elsewhere on a real signal (the tab returning, the same-tab event, a new reply), in the same element, without a
+ *    skeleton, and only a card whose state CHANGED fetches its detail again; a closed card listens for nothing; a refused re-read keeps the card
+ *  - a first read that is refused (or stalls for 20 s of a visible tab) is the chat's own error with Retry, and Retry reads again
+ *  - a root with no draft the viewer can read shows the attached version's card (once), or "Not available to you"
+ *  - a rename of the canvas reads the detail again, and the card shows the new title
  */
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CanvasVersionCardData } from '@/app/data/canvas-draft-service';
+import type { CanvasDraft, CanvasVersionCardData, CanvasVersionOption } from '@/app/data/canvas-draft-service';
 
-const helpers = vi.hoisted(() => ({ loadAttachment: vi.fn() }));
-vi.mock('@/app/data/chat-ui-helpers', async () => ({ ...(await vi.importActual<object>('@/app/data/chat-ui-helpers')), loadAttachment: helpers.loadAttachment }));
+const svc = vi.hoisted(() => ({ getCanvasDraftsByThreads: vi.fn(), listMyCanvasVersions: vi.fn(), getProfileSlug: vi.fn(), getCanvasVersionCard: vi.fn() }));
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
+vi.mock('@/app/data/canvas-draft-service', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-draft-service')), ...svc }));
+vi.mock('@/app/data/canvas-artifacts', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-artifacts')), listMyCanvases: vi.fn(async () => []) }));
 
 import { AttachmentCard } from '@/app/pages/chat/AttachmentCard';
 import { emitCanvasDraftEvent } from '@/app/data/canvas-draft-events';
+import { emitCanvasRenamed } from '@/app/data/canvas-rename-events';
+import { resetCanvasRootStore } from '@/app/pages/chat/canvas-root-store';
+import { ChatContext, type ChatContextValue } from '@/app/pages/chat/chat-state';
 
-const OPEN = '/p/ana/canvas/canvas_4?v=canvas_dd2&ws=1';
-const V2 = '/p/ana/canvas/canvas_4?v=canvas_dd2';
-const data = (over: Partial<CanvasVersionCardData>): CanvasVersionCardData => ({
-  title: 'Canvas 4', canvasId: 'cv-1', label: 'Draft', state: 'draft', draft: true, nextSeq: 2, href: OPEN, openHref: OPEN, hasThread: true, draftId: 'd-1', ...over,
+/** A chat that knows its viewer's slug (the real one does: its authors include the viewer), so no slug read is needed. */
+const chatValue = { userId: 'me', authors: { me: { id: 'me', name: 'Ana', slug: 'ana', avatarUrl: null, avatarColor: null, hasPledged: false } } } as unknown as ChatContextValue;
+
+const draft = (n: number, state: CanvasDraft['state'] = 'open'): CanvasDraft => ({
+  id: `d-${n}`, versionId: `ver-d${n}`, canvasId: `cv-${n}`, baseVersionId: null, conversationId: 'conv', threadRootId: `root-${n}`, state, runCount: 1, revision: 1, closedAt: null,
+  canvasName: `canvas_${n}`, versionName: `canvas_d${n}`,
 });
-const openCard = data({});
-const publishedCard = data({ label: 'v2 · Nov 2, 2026', state: 'published', draft: false, seq: 2, href: V2, openHref: V2, nextSeq: undefined });
-const item = (card: CanvasVersionCardData) => ({ kind: 'canvas_version', id: 'ver-1', title: 'v', tags: [], canvasVersion: card });
+const version = (n: number, title: string | null = null): CanvasVersionOption => ({ id: `ver-d${n}`, canvasId: `cv-${n}`, canvasName: `canvas_${n}`, canvasTitle: title, name: `canvas_d${n}`, seq: 1, publishedAt: '2026-10-05T10:00:00Z', hasOpenDraft: false });
 
-const card = () => screen.getByTestId('attachment-canvas_version');
+let current: Map<string, CanvasDraft>;
+let versions: CanvasVersionOption[];
+const idle = () => act(async () => { await new Promise((r) => setTimeout(r, 15)); });
 function setVisibility(v: 'visible' | 'hidden') {
   Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
   document.dispatchEvent(new Event('visibilitychange'));
 }
-const mount = async (refreshKey = 2) => {
-  const view = render(<MemoryRouter><AttachmentCard kind="canvas_version" id="ver-1" viewerId="me" rootId="root-1" refreshKey={refreshKey} /></MemoryRouter>);
-  await act(async () => {});
+const requests = () => svc.getCanvasDraftsByThreads.mock.calls.length + svc.listMyCanvasVersions.mock.calls.length + svc.getProfileSlug.mock.calls.length;
+const cards = (n: number, count = 2) => (
+  <MemoryRouter>
+    <ChatContext.Provider value={chatValue}>
+      {Array.from({ length: n }, (_v, i) => <AttachmentCard key={i} kind="canvas_version" id={`ver-${i + 1}`} viewerId="me" rootId={`root-${i + 1}`} count={count} />)}
+    </ChatContext.Provider>
+  </MemoryRouter>
+);
+const mount = async (n = 1, count = 2) => {
+  const view = render(cards(n, count));
+  await idle();
   return view;
 };
 
 beforeEach(() => {
-  vi.resetAllMocks();
+  resetCanvasRootStore();
+  vi.clearAllMocks();
   Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
-  helpers.loadAttachment.mockResolvedValue(item(openCard));
+  current = new Map(Array.from({ length: 10 }, (_v, i) => [`root-${i + 1}`, draft(i + 1)]));
+  versions = [version(1)];
+  svc.getCanvasDraftsByThreads.mockImplementation(async (ids: string[]) => new Map(ids.filter((i) => current.has(i)).map((i) => [i, current.get(i)!])));
+  svc.listMyCanvasVersions.mockImplementation(async () => versions);
+  svc.getProfileSlug.mockResolvedValue('ana');
+  svc.getCanvasVersionCard.mockResolvedValue(null);
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  resetCanvasRootStore();
+  vi.useRealTimers();
+});
 
-describe('item 1: a mounted card follows its draft being published or discarded elsewhere', () => {
-  it('open card, thread published elsewhere, the tab comes back: the card reads published (same element, View, no tag)', async () => {
-    await mount();
-    expect(screen.getByTestId('canvas-draft-tag')).toBeInTheDocument();
-    const before = card();
-    helpers.loadAttachment.mockResolvedValue(item(publishedCard));
-    await act(async () => setVisibility('visible'));
-    expect(card()).toBe(before);
-    expect(screen.queryByTestId('canvas-draft-tag')).toBeNull();
-    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent('v2 · Nov 2, 2026');
-    expect(screen.getByRole('link', { name: /^View canvas/ })).toHaveAttribute('href', V2);
-    expect(helpers.loadAttachment).toHaveBeenLastCalledWith('canvas_version', 'ver-1', 'me', 'root-1');
+describe('the request cost', () => {
+  it('10 cards are 2 requests at mount (one for their drafts, one for the versions), each card is drawn from them', async () => {
+    versions = Array.from({ length: 10 }, (_v, i) => version(i + 1));
+    await mount(10);
+    expect(svc.getCanvasDraftsByThreads).toHaveBeenCalledTimes(1);
+    expect(svc.getCanvasDraftsByThreads.mock.calls[0]![0]).toHaveLength(10);
+    expect(requests()).toBe(2); // the chat knows the viewer's slug, so nothing else is read
+    expect(svc.getProfileSlug).not.toHaveBeenCalled();
+    expect(screen.getAllByTestId('attachment-canvas_version')).toHaveLength(10);
+    expect(screen.getAllByTestId('canvas-draft-tag')).toHaveLength(10);
   });
 
-  it('the same-tab event for its draft re-reads; another draft\'s, and "updated", do not', async () => {
-    await mount();
-    helpers.loadAttachment.mockResolvedValue(item(publishedCard));
+  it('a hidden tab asks nothing at mount, and the cards are drawn when it returns', async () => {
+    setVisibility('hidden');
+    await mount(3);
+    expect(requests()).toBe(0);
+    expect(screen.queryByTestId('attachment-canvas_version')).toBeNull();
+    await act(async () => setVisibility('visible'));
+    await idle();
+    expect(screen.getAllByTestId('attachment-canvas_version')).toHaveLength(3);
+  });
+});
+
+describe('item 1: a mounted card follows its draft being published or discarded elsewhere', () => {
+  it('open card, thread published elsewhere, the tab comes back: published (same element, View, no tag), ONE drafts query + the detail', async () => {
+    await mount(3);
+    expect(screen.getAllByTestId('canvas-draft-tag')).toHaveLength(3);
+    const first = screen.getAllByTestId('attachment-canvas_version')[0]!;
+    vi.clearAllMocks();
+    versions = [version(1), { ...version(1), id: 'ver-d1' }];
+    current.set('root-1', draft(1, 'published'));
+    await act(async () => setVisibility('visible'));
+    await idle();
+    expect(screen.getAllByTestId('attachment-canvas_version')[0]).toBe(first);
+    expect(first.getAttribute('data-state')).toBe('published');
+    expect(screen.getAllByTestId('canvas-draft-tag')).toHaveLength(2);
+    expect(screen.getAllByRole('link', { name: /^View canvas/ })).toHaveLength(1);
+    expect(svc.getCanvasDraftsByThreads).toHaveBeenCalledTimes(1);
+    expect(requests()).toBe(2); // the drafts of the three roots + the versions, for the one that changed
+  });
+
+  it('nothing changed on a tab return: ONE request, no skeleton, the cards untouched', async () => {
+    await mount(3);
+    const before = screen.getAllByTestId('attachment-canvas_version');
+    vi.clearAllMocks();
+    await act(async () => setVisibility('visible'));
+    await idle();
+    expect(requests()).toBe(1);
+    expect(screen.getAllByTestId('attachment-canvas_version')).toEqual(before);
+    expect(screen.queryByTestId('attachment-card-loading')).toBeNull();
+  });
+
+  it('the same-tab event for its draft re-reads that root; another draft\'s and "updated" do not', async () => {
+    await mount(2);
+    vi.clearAllMocks();
     await act(async () => emitCanvasDraftEvent({ kind: 'published', draftId: 'another' }));
     await act(async () => emitCanvasDraftEvent({ kind: 'updated', draftId: 'd-1' }));
-    expect(helpers.loadAttachment).toHaveBeenCalledTimes(1);
-    await act(async () => emitCanvasDraftEvent({ kind: 'published', draftId: 'd-1' }));
-    expect(helpers.loadAttachment).toHaveBeenCalledTimes(2);
-    expect(screen.queryByTestId('canvas-draft-tag')).toBeNull();
+    await idle();
+    expect(requests()).toBe(0);
+    current.set('root-1', draft(1, 'discarded'));
+    await act(async () => emitCanvasDraftEvent({ kind: 'discarded', draftId: 'd-1' }));
+    await idle();
+    expect(screen.getAllByTestId('attachment-canvas_version')[0]!.getAttribute('data-state')).toBe('discarded');
+    expect(screen.getAllByTestId('attachment-canvas_version')[0]).toHaveTextContent('Discarded draft');
   });
 
   it('a new reply (its count changes) re-reads; the same count does not', async () => {
-    const view = await mount(2);
-    helpers.loadAttachment.mockResolvedValue(item(publishedCard));
-    view.rerender(<MemoryRouter><AttachmentCard kind="canvas_version" id="ver-1" viewerId="me" rootId="root-1" refreshKey={2} /></MemoryRouter>);
-    await act(async () => {});
-    expect(helpers.loadAttachment).toHaveBeenCalledTimes(1);
-    view.rerender(<MemoryRouter><AttachmentCard kind="canvas_version" id="ver-1" viewerId="me" rootId="root-1" refreshKey={3} /></MemoryRouter>);
-    await act(async () => {});
-    expect(helpers.loadAttachment).toHaveBeenCalledTimes(2);
-    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent('v2 · Nov 2, 2026');
+    const view = await mount(1, 2);
+    vi.clearAllMocks();
+    current.set('root-1', draft(1, 'published'));
+    view.rerender(cards(1, 2));
+    await idle();
+    expect(requests()).toBe(0);
+    view.rerender(cards(1, 3));
+    await idle();
+    expect(screen.getByTestId('attachment-canvas_version').getAttribute('data-state')).toBe('published');
   });
 
-  it('a hidden tab makes no request, and reads when it comes back (rule 3)', async () => {
-    await mount();
-    act(() => setVisibility('hidden'));
-    helpers.loadAttachment.mockResolvedValue(item(publishedCard));
-    await act(async () => emitCanvasDraftEvent({ kind: 'discarded', draftId: 'd-1' }));
-    expect(helpers.loadAttachment).toHaveBeenCalledTimes(1);
+  it('a CLOSED card (published or discarded) never changes again, so it asks nothing on a tab return, an event or a reply', async () => {
+    current.set('root-1', draft(1, 'published'));
+    const view = await mount(1, 2);
+    vi.clearAllMocks();
     await act(async () => setVisibility('visible'));
-    expect(helpers.loadAttachment).toHaveBeenCalledTimes(2);
+    await act(async () => emitCanvasDraftEvent({ kind: 'discarded', draftId: 'd-1' }));
+    view.rerender(cards(1, 3));
+    await idle();
+    expect(requests()).toBe(0);
   });
 
   it('a refused re-read keeps the card as it was (no error state in its place)', async () => {
-    await mount();
-    helpers.loadAttachment.mockRejectedValue(new Error('offline'));
+    await mount(1);
+    svc.getCanvasDraftsByThreads.mockRejectedValueOnce(new Error('offline'));
     await act(async () => setVisibility('visible'));
+    await idle();
     expect(screen.getByTestId('canvas-draft-tag')).toBeInTheDocument();
     expect(screen.queryByTestId('attachment-error')).toBeNull();
   });
 
-  it('a CLOSED card (published or discarded) never changes again, so it listens for nothing: no request on tab return, event or reply', async () => {
-    helpers.loadAttachment.mockResolvedValue(item(publishedCard));
-    const view = await mount(2);
-    await act(async () => setVisibility('visible'));
-    await act(async () => emitCanvasDraftEvent({ kind: 'discarded', draftId: 'd-1' }));
-    view.rerender(<MemoryRouter><AttachmentCard kind="canvas_version" id="ver-1" viewerId="me" rootId="root-1" refreshKey={3} /></MemoryRouter>);
-    await act(async () => {});
-    expect(helpers.loadAttachment).toHaveBeenCalledTimes(1);
+  it('a rename of the canvas reads the detail again, and the card shows the new title (in the same element)', async () => {
+    versions = [version(1, null)];
+    await mount(1);
+    const el = screen.getByTestId('attachment-canvas_version');
+    expect(el).toHaveTextContent('Canvas 1');
+    versions = [version(1, 'Acme Bakery Plan')];
+    await act(async () => emitCanvasRenamed('cv-1'));
+    await idle();
+    expect(screen.getByTestId('attachment-canvas_version')).toBe(el);
+    expect(el).toHaveTextContent('Acme Bakery Plan');
+  });
+});
+
+describe('a card that cannot be drawn', () => {
+  it('a refused first read is the chat\'s own error with Retry, and Retry reads again and the card comes', async () => {
+    svc.getCanvasDraftsByThreads.mockRejectedValueOnce(new Error('offline'));
+    await mount(1);
+    expect(screen.getByTestId('attachment-error')).toHaveTextContent('Couldn\'t load this canvas');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Retry' })); });
+    await idle();
+    expect(screen.getByTestId('canvas-draft-tag')).toBeInTheDocument();
+    expect(svc.getCanvasDraftsByThreads).toHaveBeenCalledTimes(2);
   });
 
-  it('a card with no thread (a quote, or a root with no draft) listens for nothing: no draft id, so no event re-reads it', async () => {
-    helpers.loadAttachment.mockResolvedValue(item(data({ hasThread: undefined, draftId: undefined, state: 'published', draft: false, label: 'v1 · Nov 1, 2026' })));
-    await mount();
-    await act(async () => emitCanvasDraftEvent({ kind: 'published', draftId: 'd-1' }));
-    expect(helpers.loadAttachment).toHaveBeenCalledTimes(1);
+  it('a first read that never answers is a skeleton, and after 20 s of a VISIBLE tab the same error with Retry (every wait ends)', async () => {
+    svc.getCanvasDraftsByThreads.mockImplementationOnce(() => new Promise(() => undefined));
+    vi.useFakeTimers();
+    render(cards(1));
+    await act(async () => { await vi.advanceTimersByTimeAsync(5); });
+    expect(screen.getByTestId('attachment-card-loading')).toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(19_000); });
+    expect(screen.queryByTestId('attachment-error')).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_500); });
+    expect(screen.getByTestId('attachment-error')).toBeInTheDocument();
+  });
+
+  it('a root with no draft the viewer can read shows the attached version\'s card (read once)', async () => {
+    current = new Map();
+    const published: CanvasVersionCardData = { title: 'Canvas 4', label: 'v1 · Nov 1, 2026', state: 'published', draft: false, href: '/x', openHref: '/x', seq: 1 };
+    svc.getCanvasVersionCard.mockResolvedValue(published);
+    await mount(1);
+    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent('v1 · Nov 1, 2026');
+    expect(svc.getCanvasVersionCard).toHaveBeenCalledTimes(1);
+    expect(svc.getCanvasVersionCard).toHaveBeenCalledWith('ver-1', 'me');
+  });
+
+  it('and when that is not the viewer\'s either: "Not available to you"', async () => {
+    current = new Map();
+    await mount(1);
+    expect(screen.getByText('Not available to you')).toBeInTheDocument();
   });
 });

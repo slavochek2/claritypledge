@@ -5,15 +5,18 @@
  * (an open draft: the workspace, on its Thread tab; a published or discarded one: the chat's own thread panel, in place). A root with no draft the viewer can
  * read shows none, and neither does one whose read failed: a link that goes nowhere is worse than none.
  */
-import { useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useContext, useRef, useState, type MouseEvent } from 'react';
+import { Loader2 } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/app/data/chat-service';
 import type { ThreadStats } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { FOCUS_RING, HOVER, PersonMark } from './chat-kit';
 import { isCanvasThreadRoot } from './canvas-root';
-import { useCanvasRootThread } from './use-canvas-root-thread';
+import { rootLinkTarget } from './canvas-root-link';
+import { ChatContext } from './chat-state';
+import { useCanvasRootSlot } from './use-canvas-root-slot';
 
 interface Props {
   inThread: boolean;
@@ -44,34 +47,56 @@ function LinkBody({ stat, authors }: { stat: ThreadStats; authors: Record<string
   );
 }
 
+/** A plain left click: the only one that checks the current state first. Modifier and middle clicks follow the anchor to its known address (a new tab, copy link). */
+const isPlainClick = (e: MouseEvent): boolean => e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.defaultPrevented;
+
 /**
- * 3c X11: a canvas thread root's link, by what its draft is. Nothing until the draft is known, and nothing when there is none to resolve. What it draws is kept
- * fresh by real signals (a reply arriving, the tab returning, the same-tab event), and the TAP reads the current state itself, so a stale link never lands wrong:
- * an open draft is edited in the workspace (its thread is the panel there; below 1280px it opens on the Thread tab, and `from` is where its back arrow returns),
- * a published or discarded one is read in the chat's own thread panel.
+ * 3c X11: a canvas thread root's link, by what its draft is. It is a real anchor with the address known NOW (opened in a new tab by a modifier click, copied from the menu). Nothing
+ * is drawn until the draft is known, and nothing when there is none to resolve. What it knows comes from the chat's one batched read (canvas-root-store), kept fresh by real signals; a
+ * plain left click reads the CURRENT state first (short bound, with a spinner and aria-busy meanwhile) and goes where that says: an open draft to the workspace (below 1280px on the
+ * Thread tab; `from` is where its back arrow returns), a published or discarded one to the chat's own thread panel.
  */
 function CanvasRepliesLink({ server, stat, authors, onThread, viewerId }: { server: ChatMessage; stat: ThreadStats; authors: Record<string, ChatAuthor>; onThread: (m: ChatMessage) => void; viewerId: string }) {
-  const { thread, resolveNow } = useCanvasRootThread(server.id, viewerId, stat.count);
+  const chat = useContext(ChatContext);
+  const slug = chat?.authors[viewerId]?.slug ?? null;
+  const { snap, readNow } = useCanvasRootSlot({ rootId: server.id, viewerId, slug, count: stat.count });
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const tapping = useRef(false);
-  if (!thread || (thread.state === 'open' && !thread.openHref)) return null; // an open draft whose address cannot be read has nowhere to go
+  const [pending, setPending] = useState(false);
+  const target = snap.status === 'ready' ? rootLinkTarget(snap.draft, snap.detail?.slug ?? slug, server) : null;
+  if (!target) return null;
+  const from = `${pathname}${search}`;
   const tap = async () => {
     if (tapping.current) return;
     tapping.current = true;
+    setPending(true);
     try {
-      const now = await resolveNow();
-      if (!now) return; // gone since it was drawn: there is nothing to open, and the link follows
-      if (now.state === 'open' && now.openHref) navigate(now.openHref, { state: { tab: 'thread', from: `${pathname}${search}` } });
-      else if (now.state !== 'open') onThread(server);
+      const now = rootLinkTarget(await readNow(), snap.detail?.slug ?? slug, server); // null: gone since it was drawn, and the link goes with the next render
+      if (!now) return;
+      if (now.workspace) navigate(now.href, { state: { tab: 'thread', from } });
+      else onThread(server);
     } finally {
       tapping.current = false;
+      setPending(false);
     }
   };
   return (
-    <button type="button" data-testid="replies-link" onClick={() => void tap()} className={LINK}>
+    <Link
+      to={target.href}
+      state={target.workspace ? { tab: 'thread', from } : undefined}
+      data-testid="replies-link"
+      aria-busy={pending}
+      onClick={(e) => {
+        if (!isPlainClick(e)) return;
+        e.preventDefault();
+        void tap();
+      }}
+      className={cn(LINK, pending && 'opacity-70')}
+    >
       <LinkBody stat={stat} authors={authors} />
-    </button>
+      {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+    </Link>
   );
 }
 

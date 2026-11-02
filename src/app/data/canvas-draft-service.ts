@@ -125,7 +125,7 @@ function mapDraft(r: Row): CanvasDraft {
   };
 }
 
-async function getProfileSlug(profileId: string, context: string): Promise<string | null> {
+export async function getProfileSlug(profileId: string, context: string): Promise<string | null> {
   const { data, error } = await supabase.from('profiles').select('slug').eq('id', profileId).maybeSingle();
   if (error) throwDbError(context, error, 'Could not read this canvas');
   return (data as { slug?: string | null } | null)?.slug ?? null;
@@ -284,56 +284,83 @@ export async function getCanvasVersionCard(versionId: string, viewerId: string):
   return { ...(facts ? { title: facts.title, nextSeq: facts.nextSeq } : {}), ...(d.canvas_id ? { canvasId: String(d.canvas_id) } : {}), label: 'Draft', state: 'draft', draft: true, href: open, openHref: open };
 }
 
+/** What a root's card is derived from besides its draft: the viewer's published versions, the viewer's slug, and the owner's own title for a canvas with no published version. */
+export interface RootCardContext {
+  versions: CanvasVersionOption[];
+  slug: string | null;
+  /** By canvas name: the owner's title for a canvas that has no published version yet (null/undefined: never renamed). */
+  titles?: Map<string, string | null | undefined>;
+}
+
+/** Whether a draft's card needs the owner's canvases read for its title (a canvas with no published version has the title only there). */
+export const cardNeedsCanvasTitle = (draft: Pick<CanvasDraft, 'canvasName' | 'state'>, versions: CanvasVersionOption[]): boolean =>
+  draft.state !== 'published' && !!draft.canvasName && !versions.some((v) => v.canvasName === draft.canvasName);
+
 /**
- * 3c X10 (a card says what its thread is): a canvas thread root's card, read from the draft whose `thread_root_id` is this message, never from the
- * version the root attaches (a clone's root attaches its BASE, so the attached version said "published" while the draft was live).
+ * 3c X10 (a card says what its thread is): a canvas thread root's card, derived from the draft whose `thread_root_id` is that message, never from the version the root attaches
+ * (a clone's root attaches its BASE, so the attached version said "published" while the draft was live). Pure: it reads nothing, so every card of a chat can be derived from
+ * ONE batched read of the drafts and one of the versions.
  *  - open draft:       the (Draft) tag, the number it gets, Open draft: the workspace;
  *  - published draft:  `v2 · date` (the version the draft became), View: that version, plain, with no `ws=1` whatever else is open;
  *  - discarded draft:  says so; its Open address is kept for the canvas page, but the card draws no button for it.
- * A root with no draft row the viewer can read falls back to the attached version's own card, as before, and says so (`hasThread` absent).
- * Every call is its own read: a client dedupe of in-flight reads was rejected (decisions.md 2026-10-21, P1527), and a Retry must never join a stalled one.
+ */
+export function cardFromDraft(draft: CanvasDraft, ctx: RootCardContext): CanvasVersionCardData {
+  const thread = { hasThread: true, draftId: draft.id, canvasId: draft.canvasId };
+  const slug = draft.canvasName ? ctx.slug : null;
+  const mine = ctx.versions.filter((v) => v.canvasName === draft.canvasName);
+  const titleOf = (): string => (mine[0] ? canvasDisplayTitle(mine[0].canvasTitle, mine[0].canvasName) : canvasDisplayTitle(ctx.titles?.get(draft.canvasName ?? ''), draft.canvasName ?? ''));
+  if (draft.state === 'discarded') {
+    const open = slug && draft.canvasName ? (mine.length ? newestPublishedHref(slug, draft.canvasName) : ARTIFACTS_CANVASES_MINE) : null;
+    return { ...(draft.canvasName ? { title: titleOf() } : {}), label: 'Discarded', state: 'discarded', draft: false, href: open, openHref: open, ...thread };
+  }
+  if (draft.state === 'published') {
+    const v = ctx.versions.find((x) => x.id === draft.versionId);
+    const view = slug && v ? publishedViewHref(slug, v.canvasName, v.name) : null;
+    return { title: v ? canvasDisplayTitle(v.canvasTitle, v.canvasName) : 'Canvas', label: v ? canvasVersionLabel(v.seq, v.publishedAt) : 'Published', state: 'published', draft: false, href: view, openHref: view, ...(v ? { seq: v.seq } : {}), ...thread };
+  }
+  const open = slug && draft.canvasName && draft.versionName ? workspaceHref(slug, draft.canvasName, draft.versionName) : null;
+  const nextSeq = mine.reduce((top, v) => Math.max(top, v.seq), 0) + 1;
+  return { ...(draft.canvasName ? { title: titleOf(), nextSeq } : {}), label: 'Draft', state: 'draft', draft: true, href: open, openHref: open, ...thread };
+}
+
+/**
+ * One card read on its own (the closed thread's footer, the Publish reply's Open canvas): the draft of this thread, then what its card needs. A root with no draft row the
+ * viewer can read falls back to the attached version's own card, as before, and says so (`hasThread` absent). Every call is its own read: a client dedupe of in-flight reads
+ * was rejected (decisions.md 2026-10-21, P1527), and a Retry must never join a stalled one. The chat's cards do NOT come through here: they share the batched read below.
  */
 export async function getCanvasRootCard(rootId: string, versionId: string, viewerId: string): Promise<CanvasVersionCardData | null> {
   const draft = await getCanvasDraftByThread(rootId);
   if (!draft) return getCanvasVersionCard(versionId, viewerId);
   const versions = await listMyCanvasVersions();
   const slug = draft.canvasName ? await getProfileSlug(viewerId, 'getCanvasRootCard').catch(() => null) : null;
-  const thread = { hasThread: true, draftId: draft.id };
-  if (draft.state === 'discarded') {
-    const title = draft.canvasName ? (await draftCardFacts(draft.canvasName, versions)).title : undefined;
-    const kept = versions.some((x) => x.canvasName === draft.canvasName);
-    const open = slug && draft.canvasName ? (kept ? newestPublishedHref(slug, draft.canvasName) : ARTIFACTS_CANVASES_MINE) : null;
-    return { ...(title ? { title } : {}), canvasId: draft.canvasId, label: 'Discarded', state: 'discarded', draft: false, href: open, openHref: open, ...thread };
+  const titles = new Map<string, string | null | undefined>();
+  if (cardNeedsCanvasTitle(draft, versions) && draft.canvasName) {
+    const row = await listMyCanvases().then((rows) => rows.find((r) => r.name === draft.canvasName), () => undefined);
+    titles.set(draft.canvasName, row?.title);
   }
-  if (draft.state === 'published') {
-    const v = versions.find((x) => x.id === draft.versionId);
-    const view = slug && v ? publishedViewHref(slug, v.canvasName, v.name) : null;
-    return {
-      title: v ? canvasDisplayTitle(v.canvasTitle, v.canvasName) : 'Canvas', canvasId: draft.canvasId, label: v ? canvasVersionLabel(v.seq, v.publishedAt) : 'Published',
-      state: 'published', draft: false, href: view, openHref: view, ...(v ? { seq: v.seq } : {}), ...thread,
-    };
-  }
-  const open = slug && draft.canvasName && draft.versionName ? workspaceHref(slug, draft.canvasName, draft.versionName) : null;
-  const facts = draft.canvasName ? await draftCardFacts(draft.canvasName, versions) : null;
-  return { ...(facts ? { title: facts.title, nextSeq: facts.nextSeq } : {}), canvasId: draft.canvasId, label: 'Draft', state: 'draft', draft: true, href: open, openHref: open, ...thread };
-}
-
-/** What a canvas thread root's draft is, for its "N replies" link (3c X11): the state, the draft, and where an OPEN one goes. */
-export interface CanvasRootThread {
-  state: CanvasDraftState;
-  draftId: string;
-  /** The workspace on an open draft, when its address is readable; null for a closed one (it is read in the chat's own panel). */
-  openHref: string | null;
+  return cardFromDraft(draft, { versions, slug, titles });
 }
 
 /**
- * The link's own read, narrower than the card's: one request for a closed draft, two for an open one (the viewer's slug for the workspace address). The card
- * needs versions and titles too, the link does not. Null: no draft this viewer can read. Not shared with any other read (P1527).
+ * The drafts of many thread roots in ONE request (`thread_root_id` in a list): what every card and "N replies" link of a chat is derived from. Owner-only through RLS, so a root
+ * that is not the viewer's, or has no draft, is simply absent from the answer. Each call is a fresh query, never a shared or kept answer (P1527 rejected the in-flight dedupe;
+ * this is a query-shape change, the kind it endorsed).
  */
-export async function getCanvasRootThread(rootId: string, viewerId: string): Promise<CanvasRootThread | null> {
-  const draft = await getCanvasDraftByThread(rootId);
-  if (!draft) return null;
-  if (draft.state !== 'open') return { state: draft.state, draftId: draft.id, openHref: null };
-  const slug = draft.canvasName && draft.versionName ? await getProfileSlug(viewerId, 'getCanvasRootThread').catch(() => null) : null;
-  return { state: 'open', draftId: draft.id, openHref: slug && draft.canvasName && draft.versionName ? workspaceHref(slug, draft.canvasName, draft.versionName) : null };
+/** Thread roots asked about per query (see getCanvasDraftsByThreads). */
+const DRAFTS_PER_QUERY = 50;
+
+export async function getCanvasDraftsByThreads(rootIds: string[]): Promise<Map<string, CanvasDraft>> {
+  const out = new Map<string, CanvasDraft>();
+  // The ids travel in the request address: 50 per query keeps it far below any URL limit (a chat of up to 50 canvas roots is still ONE request).
+  const chunks: string[][] = [];
+  for (let i = 0; i < rootIds.length; i += DRAFTS_PER_QUERY) chunks.push(rootIds.slice(i, i + DRAFTS_PER_QUERY));
+  const answers = await Promise.all(chunks.map((ids) => supabase.from('canvas_drafts').select(DRAFT_COLUMNS).in('thread_root_id', ids)));
+  for (const { data, error } of answers) {
+    if (error) throwDbError('getCanvasDraftsByThreads', error, 'Could not read these drafts');
+    for (const row of (data ?? []) as Row[]) {
+      const draft = mapDraft(row);
+      out.set(draft.threadRootId, draft);
+    }
+  }
+  return out;
 }
