@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-02 [product]: Hike reviews show in full, in the swipe row, with no tap (P1600)
+
+**Context:** Review cards on hike pages stopped after 6 lines with no way to read on, so long recommendations lost their last sentences.
+**Decision:** Every review shows in full inside the sideways row. Each card is as tall as its own text. Mouse users get arrows, because they cannot swipe.
+**Alternatives rejected:** Tap to expand in place (one card growing shifts the page). A stacked list (conflicts with the 2026-10-04 swipe-row ruling). Trimming quotes (edits people's words). A "read more" pop-up stays the fallback if the row proves too tall on phones.
+**Consequences:** On a 320px phone the row can reach about 590px, pushing what follows further down the page. This placement was reviewed on a test event, not inside a real route section, so check it on a real hike page after the push.
+**References:** [p1600](../features/done/2026-06-10/p1600_hike_reviews_show_in_full.md)
+
 ## 2026-11-02 [product]: The minimum loop: a leader's transcript becomes a letter, the team answers, a ledger keeps it going. Founder-endorsed, UNTESTED
 
 **Context:** A long session (2026-10-27→11-02) that began as outreach list-building kept failing on "what are we offering?". Every offer drafted in conversation (training, mediation, an audit) reduced to the founder's hours. The founder named the actual gap: after someone asks "did we mean the same thing?", nothing follows. Nothing records, rewards or tracks it, so the norm dies. Expectation-setting and knowledge transfer exist. Bicchieri's other two conditions (people see others doing it; doing it pays) do not.
