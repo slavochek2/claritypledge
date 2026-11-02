@@ -11,6 +11,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-mappers';
 
 const ME = 'user-id-me';
@@ -32,7 +34,8 @@ const svc = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
-vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
+const toastError = vi.hoisted(() => vi.fn());
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: toastError }) }));
 vi.mock('@/app/data/canvas-draft-service', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-draft-service')), ...svc }));
 vi.mock('@/app/pages/chat/use-message-actions', () => ({ useMessageActions: () => ({ actions: {}, dialogs: null }) }));
 vi.mock('@/app/pages/chat/use-conversation', () => ({
@@ -64,11 +67,12 @@ const msg = (over: Partial<ChatMessage>): ChatMessage => ({
   attachmentId: null, clientId: null, contextConversationId: null, ...over,
 });
 
+const who = { slug: 'ana' as string | null };
 function chatValue(chats: ChatSummary[]): ChatContextValue {
   return {
     userId: ME, status: 'ready', error: null, chats, unreadCount: 0, refresh: vi.fn(async () => chats), setArchived: vi.fn(), setManualUnread: vi.fn(),
     markRead: vi.fn(), subscribe: () => () => undefined, setViewing: vi.fn(), revision: 0,
-    authors: { [ME]: { id: ME, name: 'Ana', slug: 'ana', avatarUrl: null, avatarColor: null, hasPledged: false } },
+    authors: { [ME]: { id: ME, name: 'Ana', slug: who.slug, avatarUrl: null, avatarColor: null, hasPledged: false } },
     missingAuthors: new Set(), ensureAuthors: vi.fn(), outbox: [], sendMessage: vi.fn(), retrySend: vi.fn(), discardSend: vi.fn(), block: vi.fn(), unblock: vi.fn(), goToChat: vi.fn(), resync: vi.fn(),
   } as ChatContextValue;
 }
@@ -110,6 +114,7 @@ beforeEach(() => {
   resetCanvasAvailability();
   resetCanvasThreads();
   state.available = true;
+  who.slug = 'ana';
   state.messages = [msg({ id: ROOT, body: null, threadRootId: null, attachmentKind: 'canvas_version', attachmentId: 'ver-1' })];
   svc.getCanvasDraftAvailability.mockImplementation(async () => state.available);
   svc.getCanvasDraftByThread.mockResolvedValue(null);
@@ -216,5 +221,29 @@ describe('S3c.3 (X3): what the two items do', () => {
     expect(screen.getByTestId('intent').textContent === 'clone').toBe(true);
     expect(screen.getByTestId('from').textContent === `/chats/c/${CONV}`).toBe(true);
     expect(svc.openCanvasDraft).not.toHaveBeenCalled();
+  });
+});
+
+describe('review: Clone a version with no known owner slug', () => {
+  it('says so in the start-a-canvas sentence and goes nowhere, instead of closing silently', async () => {
+    who.slug = null;
+    await mount(pane(MIRROR), [MIRROR], `/chats/c/${CONV}`);
+    fireEvent.pointerDown(await screen.findByTestId('composer-plus'), { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Clone a version' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Clone a version' });
+    fireEvent.click(await within(dialog).findByRole('button', { name: /v1/ }));
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Could not start a canvas. Try again.'));
+    expect(screen.getByTestId('path').textContent).toBe(`/chats/c/${CONV}`);
+    expect(screen.getByTestId('intent').textContent).toBe('none');
+  });
+});
+
+describe('review: the dialog reuses the chat sheet classes', () => {
+  it('CanvasPlusMenu holds no copy of the sheet class strings', () => {
+    const src = readFileSync(join(process.cwd(), 'src/app/pages/chat/CanvasPlusMenu.tsx'), 'utf8');
+    expect(src).not.toMatch(/max-h-\[85dvh\]/);
+    expect(src).not.toMatch(/min-h-14 shrink-0/);
+    expect(src).toMatch(/\bSHEET\b/);
+    expect(src).toMatch(/\bSHEET_HEAD\b/);
   });
 });

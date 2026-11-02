@@ -13,7 +13,7 @@ vi.mock('@/lib/supabase', () => ({ supabase: { rpc: sb.rpc, functions: { invoke:
 const clearCache = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/list-return-cache', () => ({ clearListReturnCache: clearCache }));
 
-import { readCanvasUndoTarget, undoCanvasRun } from '@/app/data/canvas-draft-undo';
+import { nextTargetAfterUndo, readCanvasUndoTarget, undoCanvasRun } from '@/app/data/canvas-draft-undo';
 import { subscribeCanvasDraftEvents, type CanvasDraftEvent } from '@/app/data/canvas-draft-events';
 
 const run = (over: Record<string, unknown>) => ({
@@ -41,7 +41,7 @@ describe('D7: readCanvasUndoTarget', () => {
     sb.rpc.mockResolvedValue(state(draftWith()));
     const t = await readCanvasUndoTarget('cv-1', 'draft-1');
     expect(sb.rpc).toHaveBeenCalledWith('get_canvas_draft_state', { p_canvas: 'cv-1' });
-    expect(t).toEqual({ draftId: 'draft-1', revision: 7, runId: 'r2', replyMessageId: 'a-2', undoneMessageIds: [] });
+    expect(t).toEqual({ draftId: 'draft-1', revision: 7, runId: 'r2', replyMessageId: 'a-2', undoneMessageIds: [], replies: { r1: 'a-1', r2: 'a-2' }, triggers: { r1: 'm-1', r2: 'm-2' } });
   });
 
   it('the owner messages of undone runs are returned, to be marked "Undone"', async () => {
@@ -51,7 +51,7 @@ describe('D7: readCanvasUndoTarget', () => {
 
   it('no run has a step (undo_run_id null): nothing to undo, but the undone marks are still there', async () => {
     sb.rpc.mockResolvedValue(state(draftWith({ undo_run_id: null, runs: [run({ id: 'r1', state: 'undone', trigger_message_id: 'm-1' })] })));
-    expect(await readCanvasUndoTarget('cv-1', 'draft-1')).toEqual({ draftId: 'draft-1', revision: 7, runId: null, replyMessageId: null, undoneMessageIds: ['m-1'] });
+    expect(await readCanvasUndoTarget('cv-1', 'draft-1')).toEqual({ draftId: 'draft-1', revision: 7, runId: null, replyMessageId: null, undoneMessageIds: ['m-1'], replies: { r1: 'a-r' }, triggers: { r1: 'm-1' } });
   });
 
   it('the run has no reply message: the target has a run and no reply (nothing to hang Undo on)', async () => {
@@ -59,16 +59,46 @@ describe('D7: readCanvasUndoTarget', () => {
     expect((await readCanvasUndoTarget('cv-1', 'draft-1'))?.replyMessageId).toBeNull();
   });
 
-  it('no open draft, or another draft than the thread\'s: null', async () => {
-    sb.rpc.mockResolvedValue(state(null));
-    expect(await readCanvasUndoTarget('cv-1', 'draft-1')).toBeNull();
+  it('an open draft that is another draft than the thread\'s: nothing is borrowed from it (an empty target for this draft, never its runs)', async () => {
     sb.rpc.mockResolvedValue(state(draftWith({ id: 'draft-other' })));
-    expect(await readCanvasUndoTarget('cv-1', 'draft-1')).toBeNull();
+    expect(await readCanvasUndoTarget('cv-1', 'draft-1')).toMatchObject({ draftId: 'draft-1', runId: null, replyMessageId: null, undoneMessageIds: [] });
   });
 
   it('a failed read is an error, never "nothing to undo"', async () => {
     sb.rpc.mockResolvedValue({ data: null, error: { message: 'boom', code: 'XX000' } });
     await expect(readCanvasUndoTarget('cv-1', 'draft-1')).rejects.toThrow();
+  });
+});
+
+describe('J6 review: the undone marks of a CLOSED draft (published or discarded), from closed_undone', () => {
+  const closed = (map: Record<string, string[]>, draft: Record<string, unknown> | null = null) => ({ data: { canvas_id: 'cv-1', draft, closed_draft: null, closed_undone: map }, error: null });
+
+  it('no open draft: the marks come from closed_undone under this draft id, and nothing can be undone', async () => {
+    sb.rpc.mockResolvedValue(closed({ 'draft-1': ['m-1', 'm-2'], 'draft-other': ['m-9'] }));
+    expect(await readCanvasUndoTarget('cv-1', 'draft-1')).toMatchObject({ draftId: 'draft-1', runId: null, replyMessageId: null, undoneMessageIds: ['m-1', 'm-2'] });
+  });
+
+  it('a closed draft with nothing undone: an empty target (the read happened), never null', async () => {
+    sb.rpc.mockResolvedValue(closed({ 'draft-other': ['m-9'] }));
+    expect(await readCanvasUndoTarget('cv-1', 'draft-1')).toMatchObject({ draftId: 'draft-1', runId: null, undoneMessageIds: [] });
+  });
+
+  it('an answer from a server without closed_undone (before the migration): an empty target, never a throw', async () => {
+    sb.rpc.mockResolvedValue({ data: { canvas_id: 'cv-1', draft: null, closed_draft: null }, error: null });
+    expect(await readCanvasUndoTarget('cv-1', 'draft-1')).toMatchObject({ runId: null, undoneMessageIds: [] });
+  });
+});
+
+describe('D7 review: nextTargetAfterUndo (Undo moves on with no read)', () => {
+  const t = { draftId: 'draft-1', revision: 7, runId: 'r2', replyMessageId: 'a-2', undoneMessageIds: [] as string[], replies: { r1: 'a-1', r2: 'a-2' }, triggers: { r1: 'm-1', r2: 'm-2' } };
+  it('the next run is the one the undo call named: its reply, the new revision, and the undone run\'s owner message marked', () => {
+    expect(nextTargetAfterUndo(t, { revision: 8, undoneRunId: 'r2', nextUndoRunId: 'r1' })).toMatchObject({ runId: 'r1', replyMessageId: 'a-1', revision: 8, undoneMessageIds: ['m-2'] });
+  });
+  it('no next run: nothing to undo, the message is still marked', () => {
+    expect(nextTargetAfterUndo(t, { revision: 9, undoneRunId: 'r2', nextUndoRunId: null })).toMatchObject({ runId: null, replyMessageId: null, undoneMessageIds: ['m-2'] });
+  });
+  it('a run the last read did not list has no reply to hang Undo on (null, never a guess)', () => {
+    expect(nextTargetAfterUndo(t, { revision: 8, undoneRunId: 'r2', nextUndoRunId: 'r0' }).replyMessageId).toBeNull();
   });
 });
 

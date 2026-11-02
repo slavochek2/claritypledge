@@ -17,8 +17,8 @@ import { chatErrorText, chatTitle, messageSummary } from './chat-view-model';
 
 /** Phone dialogs float with a side margin and rounded corners all round (the base only rounds from sm up). */
 const DIALOG = 'w-[calc(100vw-2rem)] rounded-lg sm:max-w-sm';
-const SHEET = '[&>button.absolute]:top-2 flex max-h-[85dvh] w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-lg p-0 sm:w-full sm:max-w-md';
-const SHEET_HEAD = 'flex min-h-14 shrink-0 justify-center border-b px-4 py-2 pr-14 text-left';
+export const SHEET = '[&>button.absolute]:top-2 flex max-h-[85dvh] w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-lg p-0 sm:w-full sm:max-w-md';
+export const SHEET_HEAD = 'flex min-h-14 shrink-0 justify-center border-b px-4 py-2 pr-14 text-left';
 
 // ---------------------------------------------------------------------------
 // Confirm

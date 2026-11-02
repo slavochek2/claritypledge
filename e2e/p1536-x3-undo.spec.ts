@@ -323,3 +323,51 @@ for (const [vp, height, touch] of [[1440, 900, false], [375, 812, true]] as cons
     }
   });
 }
+
+test('Undo (real model) at 1440: a failed read of where Undo goes is said with Try again, retried once on tab return, and Try again recovers', async ({ browser }) => {
+  const vp = 1440;
+  const user = await createTestUser({ name: 'P1536 Undo read' });
+  const ctx = await browser.newContext({ viewport: { width: vp, height: 900 }, baseURL: BASE });
+  await ctx.addInitScript(() => { try { localStorage.setItem('letter_intensity_preview_seen_at_v2', String(Date.now())); } catch { /* none */ } });
+  const page = await ctx.newPage();
+  let failing = true;
+  const reads: Array<{ aborted: boolean }> = [];
+  await page.route('**/rest/v1/rpc/get_canvas_draft_state', route => { reads.push({ aborted: failing }); return failing ? route.abort('failed') : route.continue(); });
+  try {
+    await setTestSession(page, user.email);
+    await page.goto('/chats');
+    await page.getByText('Your mirror agent').first().waitFor({ timeout: 40_000 });
+    await page.getByText('Your mirror agent').first().click();
+    await page.getByTestId('composer-plus').waitFor({ timeout: 40_000 });
+    await page.getByTestId('composer-plus').click();
+    await page.getByRole('menuitem', { name: 'New canvas' }).click();
+    await page.waitForURL(u => /\/canvas\//.test(u.pathname) && u.searchParams.get('ws') === '1', { timeout: 40_000 });
+    const composer = page.getByTestId('composer').getByRole('textbox').first();
+    await composer.waitFor({ timeout: 30_000 });
+    await composer.fill(MATERIAL);
+    await page.locator('[data-composer-send]').first().click();
+    await expect.poll(async () => page.getByTestId('canvas-undo-retry').count(), { timeout: 150_000, intervals: [1000] }).toBe(1);
+    const afterFail = { retry: await page.getByTestId('canvas-undo-retry').innerText(), undo: await page.getByTestId('canvas-undo').count(), reads: reads.length };
+    rec(vp, 'a failed read: no Undo, but "Undo did not load." with Try again, under the mirror reply', /Undo did not load\./.test(afterFail.retry) && /Try again/.test(afterFail.retry) && afterFail.undo === 0, JSON.stringify(afterFail), await shot(page, vp, 'undo-read-failed'));
+    await page.waitForTimeout(6000); // let the run's own settling (a new draft revision is a legitimate new read) finish
+    const quiet = reads.length;
+    await page.waitForTimeout(10_000);
+    rec(vp, 'no retry on a timer (no loop): once the draft stopped changing, the read count did not move in 10 s', reads.length === quiet, `at the failure=${afterFail.reads} settled=${quiet} 10 s later=${reads.length}`);
+    afterFail.reads = reads.length;
+
+    // tab return: the read is asked once more (still failing here: the Try again stays)
+    await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); document.dispatchEvent(new Event('visibilitychange')); });
+    await page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); document.dispatchEvent(new Event('visibilitychange')); });
+    await expect.poll(() => reads.length, { timeout: 10_000 }).toBe(afterFail.reads + 1);
+    rec(vp, 'tab return asks once more (and only once)', true, `reads=${reads.length}`);
+
+    // the network is back: Try again recovers
+    failing = false;
+    await page.getByTestId('canvas-undo-retry-button').click();
+    await expect.poll(async () => page.getByTestId('canvas-undo').count(), { timeout: 20_000 }).toBe(1);
+    rec(vp, 'Try again recovers: Undo shows and the retry line is gone', (await page.getByTestId('canvas-undo-retry').count()) === 0, `reads=${reads.length}`, await shot(page, vp, 'undo-read-recovered'));
+  } finally {
+    await ctx.close();
+    await deleteTestUser(user.user.id).catch(() => undefined);
+  }
+});

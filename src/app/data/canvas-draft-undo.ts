@@ -23,24 +23,33 @@ export interface CanvasUndoTarget {
   replyMessageId: string | null;
   /** The owner messages whose run was undone: marked "Undone", never material again. */
   undoneMessageIds: string[];
+  /** Run id to the mirror's reply message, and run id to its owner message, for every run the answer lists: what lets the screen move Undo to the next run the moment an undo succeeds (`nextTargetAfterUndo`), before the next read lands. */
+  replies: Record<string, string>;
+  triggers: Record<string, string>;
 }
 
 /**
- * The server's answer to "what would Undo do?" for the open draft `draftId` of `canvasId`. Null when the canvas has no open draft or it is another one than the
- * thread's. A failed read is an error, never "nothing to undo". (Its first step is the server's expire step, so it is read when a run has settled or the
+ * The server's answer to "what would Undo do?" for the draft `draftId` of `canvasId`, and which owner messages of it were undone. For a draft that is no longer open the target
+ * has no run and only the marks. A failed read is an error, never "nothing to undo". (Its first step is the server's expire step, so it is read when a run has settled or the
  * draft changed, not on a timer: see use-canvas-undo.)
  */
-export async function readCanvasUndoTarget(canvasId: string, draftId: string): Promise<CanvasUndoTarget | null> {
+export async function readCanvasUndoTarget(canvasId: string, draftId: string): Promise<CanvasUndoTarget> {
   try {
     const { data, error } = await supabase.rpc('get_canvas_draft_state', { p_canvas: canvasId });
     if (error || !data) failRpc('readCanvasUndoTarget', error, 'Could not read this draft');
     const d = (data as Row).draft as Row | null;
-    if (!d || d.id !== draftId || typeof d.revision !== 'number') return null;
+    // This thread's draft is closed (published or discarded), or the open draft is another one: nothing can be undone here, but the owner messages whose run was undone stay marked
+    // (J6): `closed_undone` lists them by closed draft. A server without that key (before its migration) just has no marks, never an error.
+    if (!d || d.id !== draftId || typeof d.revision !== 'number') {
+      const marks = ((data as Row).closed_undone as Record<string, unknown> | undefined)?.[draftId];
+      return { draftId, revision: 0, runId: null, replyMessageId: null, undoneMessageIds: Array.isArray(marks) ? marks.map(String) : [], replies: {}, triggers: {} };
+    }
     const runs = (Array.isArray(d.runs) ? d.runs : []) as Row[];
     const runId = typeof d.undo_run_id === 'string' ? d.undo_run_id : null;
     const reply = runs.find(r => r.id === runId)?.reply_message_id;
     const undone = runs.filter(r => r.state === 'undone' && typeof r.trigger_message_id === 'string').map(r => String(r.trigger_message_id));
-    return { draftId, revision: d.revision, runId, replyMessageId: typeof reply === 'string' ? reply : null, undoneMessageIds: undone };
+    const pick = (col: string): Record<string, string> => Object.fromEntries(runs.filter(r => typeof r.id === 'string' && typeof r[col] === 'string').map(r => [String(r.id), String(r[col])]));
+    return { draftId, revision: d.revision, runId, replyMessageId: typeof reply === 'string' ? reply : null, undoneMessageIds: undone, replies: pick('reply_message_id'), triggers: pick('trigger_message_id') };
   } finally {
     clearListReturnCache(); // the server's expire step can fail a run: a write the cached lists never show
   }
@@ -64,4 +73,19 @@ export async function undoCanvasRun(a: { draftId: string; expectedRunId: string;
   } finally {
     clearListReturnCache();
   }
+}
+
+/**
+ * What the screen knows the moment an undo succeeds, with no read: the undo call said which run is next (`nextUndoRunId`) and the revision; the last read said each run's reply and
+ * owner message. So Undo moves to the next reply and the undone message is marked at once, and the read for the new revision only confirms it.
+ */
+export function nextTargetAfterUndo(t: CanvasUndoTarget, r: { revision: number; undoneRunId: string; nextUndoRunId: string | null }): CanvasUndoTarget {
+  const trigger = t.triggers[r.undoneRunId];
+  return {
+    ...t,
+    revision: r.revision,
+    runId: r.nextUndoRunId,
+    replyMessageId: r.nextUndoRunId ? t.replies[r.nextUndoRunId] ?? null : null,
+    undoneMessageIds: trigger && !t.undoneMessageIds.includes(trigger) ? [...t.undoneMessageIds, trigger] : t.undoneMessageIds,
+  };
 }

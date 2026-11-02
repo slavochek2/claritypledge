@@ -14,7 +14,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { CanvasVersionOption } from '@/app/data/canvas-draft-service';
 import { CLONE_INTENT_KEY } from '@/lib/canvas-hrefs';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { SHEET, SHEET_HEAD } from './ChatDialogs';
 import { CanvasVersionPicker } from './CanvasVersionPicker';
+import { canvasStartErrorText } from './canvas-start';
 import { CLONE_VERSION_LABEL, CREATE_LABEL, NEW_CANVAS_LABEL } from './canvas-thread-copy';
 import { publishedViewHref } from './canvas-links';
 import { FOCUS_RING, HOVER, ROUND } from './chat-kit';
@@ -26,8 +29,8 @@ import { useStartCanvas } from './use-start-canvas';
 function CloneVersionDialog({ onPick, onClose }: { onPick: (v: CanvasVersionOption) => void; onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex max-h-[85dvh] w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden rounded-lg p-0 sm:w-full sm:max-w-md [&>button.absolute]:top-2">
-        <DialogHeader className="flex min-h-14 shrink-0 justify-center border-b px-4 py-2 pr-14 text-left">
+      <DialogContent className={cn(SHEET, 'sm:max-w-md')}>
+        <DialogHeader className={SHEET_HEAD}>
           <DialogTitle className="text-base">{CLONE_VERSION_LABEL}</DialogTitle>
           <DialogDescription className="sr-only">Pick one of your published canvas versions. Nothing changes for readers until you publish.</DialogDescription>
         </DialogHeader>
@@ -74,7 +77,9 @@ export function CanvasPlusMenu() {
           onClose={() => setPicking(false)}
           onPick={(v) => {
             setPicking(false);
-            if (slug) navigate(publishedViewHref(slug, v.canvasName, v.name), { state: { from: here, [CLONE_INTENT_KEY]: true } });
+            // No slug, no address: say so (the sentence a failed start uses) instead of closing the dialog and doing nothing.
+            if (!slug) toast.error(canvasStartErrorText(null));
+            else navigate(publishedViewHref(slug, v.canvasName, v.name), { state: { from: here, [CLONE_INTENT_KEY]: true } });
           }}
         />
       )}

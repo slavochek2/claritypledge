@@ -333,7 +333,9 @@ describe('D7/J6/S1.8: a tap restores the draft', () => {
     expect(screen.queryByTestId('canvas-undo')).toBeNull();
     expect(screen.queryByText(/redo/i)).toBeNull();
     expect(undoCalls()).toHaveLength(2);
-    expect(stateReads()).toHaveLength(3); // the first look, and one after each Undo (the revision moved): no read in between
+    await waitFor(() => expect(stateReads().length).toBeGreaterThanOrEqual(2)); // the first look, and a confirming read after the Undos (one per DISTINCT revision seen: two quick taps may share one)
+    await act(async () => { await new Promise(r => setTimeout(r, 200)); });
+    expect(stateReads().length).toBeLessThanOrEqual(3); // never more than one read per change of the draft
   });
 
   it('a double tap sends one call', async () => {
@@ -437,5 +439,71 @@ describe('metered reads: one per change of the draft, none while the tab is hidd
     await act(async () => { window.dispatchEvent(new Event('focus')); });
     await act(async () => {});
     expect(stateReads()).toHaveLength(1);
+  });
+});
+
+describe('review: a failed read shows its recovery, and Undo does not blink while the next read is in flight', () => {
+  const failOnce = () => {
+    let failed = false;
+    rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => {
+      if (name === 'get_canvas_draft_state') {
+        if (!failed) { failed = true; return { data: null, error: { code: 'XX000', message: 'boom' } }; }
+        return { data: serverState(), error: null };
+      }
+      if (name === 'canvas_draft_undo') return { data: serverUndo(String(args.p_expected_run), Number(args.p_expected_revision)), error: null };
+      return { data: null, error: null };
+    });
+  };
+
+  it('a failed read: no Undo, but a visible "Undo did not load." with Try again under the newest reply; Try again reads once more and Undo appears', async () => {
+    failOnce();
+    mount(DRAFT_AT);
+    await threadReady();
+    const retry = await screen.findByTestId('canvas-undo-retry');
+    expect(retry).toHaveTextContent('Undo did not load.');
+    expect(under('canvas-undo-retry')).toBe('a-r2');
+    expect(screen.queryByTestId('canvas-undo')).toBeNull();
+    expect(stateReads()).toHaveLength(1);
+    fireEvent.click(screen.getByTestId('canvas-undo-retry-button'));
+    expect(await screen.findByTestId('canvas-undo')).toBeInTheDocument();
+    expect(screen.queryByTestId('canvas-undo-retry')).toBeNull();
+    expect(stateReads()).toHaveLength(2);
+  });
+
+  it('a failed read is not retried on a timer (no loop), and is retried once when the tab comes back', async () => {
+    failOnce();
+    mount(DRAFT_AT);
+    await threadReady();
+    await screen.findByTestId('canvas-undo-retry');
+    await act(async () => { await new Promise(r => setTimeout(r, 400)); });
+    expect(stateReads()).toHaveLength(1); // nothing on its own
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+    expect(await screen.findByTestId('canvas-undo')).toBeInTheDocument();
+    expect(stateReads()).toHaveLength(2);
+  });
+
+  it('after a successful Undo the next Undo shows at once, from what the undo call and the last read already told: no blink while the read for the new revision is in flight', async () => {
+    mount(DRAFT_AT);
+    await threadReady();
+    const button = await screen.findByTestId('canvas-undo');
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>(r => { release = r; });
+    rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => {
+      if (name === 'get_canvas_draft_state') { await gate; return { data: serverState(), error: null }; }
+      if (name === 'canvas_draft_undo') return { data: serverUndo(String(args.p_expected_run), Number(args.p_expected_revision)), error: null };
+      return { data: null, error: null };
+    });
+    fireEvent.click(button);
+    await waitFor(() => expect(undoCalls()).toHaveLength(1));
+    await waitFor(() => expect(stateReads()).toHaveLength(2)); // the read for the new revision is out and held
+    expect(under('canvas-undo')).toBe('a-r1'); // ...and Undo is already under the previous reply
+    expect(under('canvas-undone-mark')).toBe('m-r2'); // ...and the undone message is already marked
+    release();
+    await waitFor(() => expect(stateReads()).toHaveLength(2));
+    await act(async () => {});
+    expect(under('canvas-undo')).toBe('a-r1');
   });
 });

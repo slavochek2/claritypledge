@@ -11,7 +11,7 @@ import { CanvasThreadReadState } from './CanvasReadState';
 import { CanvasCapNotice } from './CanvasCapNotice';
 import { sendSlotOf, type CanvasWorkspaceProps } from './canvas-send-slot';
 import { canvasRetryTrailing } from './canvas-retry-trailing';
-import { canvasUndoAfter } from './canvas-undo-after';
+import { canvasUndoAfter, newestMirrorMessageId } from './canvas-undo-after';
 import { useCanvasUndo } from './use-canvas-undo';
 import { canvasListParts } from './canvas-list-parts';
 import { CanvasThreadTitle } from './CanvasThreadHeader';
@@ -73,7 +73,7 @@ export function useCanvasParts(args: CanvasPartsArgs): CanvasParts {
     /** The composer's Upload button, while the draft takes files. */
     leading: live?.draft.state === 'open' ? <UploadSpot waiting={!!slot.waiting} busy={uploader.busy} onPick={(f) => void uploader.upload(f)} /> : undefined,
     trailing: canvasRetryTrailing(live, args) ?? publishReplyOpen(args),
-    after: canvasUndoAfter(undo),
+    after: canvasUndoAfter(undo, undo.failed ? newestMirrorMessageId(args.messages, args.userId, args.rootId) : null),
     closedLine: closedThreadLine(live, args),
     /** A run is going, or a file is being added (D15: Publish waits): the workspace's Publish spot reads "Updating…" meanwhile. */
     runActive: slot.active,
