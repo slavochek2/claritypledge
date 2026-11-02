@@ -898,7 +898,7 @@ Only W2 and W10 stay out, as the founder already ruled.
 - Supersedes the §2 spot table's last three rows, S3.3's five states, J1 step 1 and J3 step 2.
 
 **X8. The mirror agent is visibly there.**
-- The panel header becomes the mirror agent's face and name, plus ×. "New draft from v1" and "Draft · v2" leave it.
+- The panel header becomes the mirror agent's face and name with "Your mirror agent", as the mirror chat's header does, plus ×. "New draft from v1" and "Draft · v2" leave it. The name is read from the owner's mirror, never written in the code. This amends D14 on the panel header: the owner's own named mirror is shown there; the fixed wording stays everywhere else in canvas surfaces.
 - A thread of a draft with a base opens, before and after the first Send, with a line from the mirror agent (face, name): "This is a new draft from v1. Tell me what to change. Readers keep seeing v1 until you publish." It takes the place of the owner-authored "v1 · Published" root card and of "Clone v1. Nothing changes for readers until you publish." Supersedes J3's base card.
 - The line is drawn on screen from the base's number. It is not stored, not given to the model, and not counted as a message.
 - A new canvas keeps its opener and Copy prompt, under the same header.
@@ -968,6 +968,24 @@ The founder's complaint was not broken behaviour. It was order, redundancy and b
    - Does each button's label say where it goes?
    - Touch targets ≥44px; no element jumps between states; the fixed title's visible length against the baseline.
 5. **Exit.** The critic assigns severity and the builder may not lower it. Every finding is FIXED or goes to the founder with one line on why not; "the spec asks for it" escalates, it does not close, and any redundancy finding goes to the founder at any severity. After fixes, re-shoot and re-critique the changed screens. The stage ends when a round has no open HIGH or MEDIUM.
+
+#### Baseline: title visibility before the header change (build step 0)
+Measured on commit `738418664fd844392ac38016d840b979df71aa4f`, hosted TEST, before any header change. Title `Acme Bakery Plan for the Northern Region` (40 characters), the owner's canvas with a published v1 and an open draft from it. Font Inter 16px, weight 600 (the title's own style), browser default, zoom 100%. Chromium; phone widths (390, 375, 320) in a touch, mobile-emulated context, the rest in a desktop one. Each resize verified with `window.innerWidth`.
+
+"Visible" is per-character Range rects inside the title's visible box (its own box, clipped by clipping ancestors and the viewport, with an ellipsis's width taken off the right edge), not string length. Controls through the same probe: an unclipped box reads every character, a 90px clipped box reads under its length and above 0, and the real title reads under 40 at the three phone widths. Checked against the screenshots at 320 draft ("Acm…", 3), 390 published ("Acme Bakery …", 12) and 1280 draft (whole title).
+
+| Width | Draft view (`?v=<draft>&ws=1`) | Published view (`?v=<v1>`) |
+|---|---|---|
+| 1440 | 40 of 40 | 40 of 40 |
+| 1280 | 40 of 40 | 40 of 40 |
+| 1279 | 40 of 40 | 40 of 40 |
+| 1024 | 40 of 40 | 40 of 40 |
+| 768 | 40 of 40 | 40 of 40 |
+| 390 | 7 of 40 | 12 of 40 |
+| 375 | 5 of 40 | 10 of 40 |
+| 320 | 3 of 40 | 7 of 40 |
+
+S3c.10's comparison re-runs `e2e/p1536-title-baseline.spec.ts` with `P1536_COMPARE=1`, which fails any cell below this table (the table is stored in the spec file as `BASELINE`). Screenshots: `.private/evidence/p1536-s3c/baseline/`. The 40-character title fits whole from 768 up, so those cells guard against a regression and say nothing about how a longer title behaves there; the phone cells carry the information.
 
 #### Build order (each X gets its own failing test first)
 0. The image route and the V control. A baseline table: one fixed title, font and zoom, visible characters and a screenshot per width, committed before the header changes.
@@ -1199,7 +1217,7 @@ earlier ones"; schema order `focus, other_canvases, scope, actions, questions`.
 - [ ] **S3c.2 (X1, X2)** Sidebar entries and order as X1 at ≥1024, expanded and collapsed. Partners and Groups appear after opening the avatar menu; both pages show the avatar active. A pending invitation shows on the avatar, with the count in its accessible name. The phone bar and Me sheet are unchanged. The chat-list + has the secondary look at 1440 and 375.
 - [ ] **S3c.3 (X3)** The + shows beside the paperclip on the mirror's main composer at 1440, 375 and 320 with no overflow, and on no thread or other chat. New canvas lands as J-W1. Clone a version has one test each for: no draft, same-base draft, other base touched (J4 sheet), other base untouched (replaced only in the first Send's transaction, with stale revision recovery). Tap then cancel writes nothing (table compare as S3b.4). The paperclip dialog has no Canvases tab, the "…" menu has no New canvas, and a canvas thread's upload is the paperclip.
 - [ ] **S3c.4 (X4 to X7)** A render test iterates every row of the header table, asserting items, order and which one is filled. The spot's box staying put across rows is checked in Playwright. Publish cases: points and a difference shows it; all points removed does not; failed newest run with a difference does; at the cap with a difference does; draft A with a run active on draft B does. `no_changes` and `draft_empty` return the spot to "Nothing to publish yet". Every row marked so in the table shows that text in the spot. Share never renders on a draft. "No changes yet", "Not published yet", "Published · vN", "Nothing published yet" and "from vN" do not render in the header. The p955-gate passes.
-- [ ] **S3c.5 (X8)** The panel header shows the mirror's face and name. The line shows on a pending Clone and after first Send, with no root card in the panel. After cancel and after first Send, `chat_messages` holds no such row.
+- [ ] **S3c.5 (X8)** The panel header shows the mirror's face and name with "Your mirror agent", read from the owner's mirror: a grep finds no hard-coded mirror name in the canvas surfaces, and a fixture whose mirror has a different name shows that name. The line shows on a pending Clone and after first Send, with no root card in the panel. After cancel and after first Send, `chat_messages` holds no such row.
 - [ ] **S3c.6 (X9)** The voice button shows on a draft, a pending Clone and a new canvas; Copy prompt renders secondary. A first voice note creates exactly one draft, thread, message, run and transcription, including after a lost response and on concurrent commits. Invalid or missing audio is refused and writes nothing. A control where a note posts with no run fails the test. The new function refuses a call that is not the service role, and cannot act for another owner. The run begins only after the transcript is done, with the tab closed as well. A failed transcript fails the run with no model call and no charge, also with the tab closed. A failed dispatch recovers. Walked once with a real recording on hosted TEST.
 - [ ] **S3c.7 (X10)** Fixture: Clone v1, Send. The card reads (Draft) v2 and Open draft opens the workspace. After Publish it reads v2 and View opens v2 with no `ws=1`, also while another draft is open. Two threads cloned from one base, one discarded and one published, each show their own state. A root with no draft row uses the attached version.
 - [ ] **S3c.8 (X11)** "N replies" shows on a canvas root with replies, singular at 1, hidden at 0. A draft's opens the workspace thread. A published or discarded one opens the chat's own panel in place with no composer, upload or voice, the closed line, and working offer rows. An open draft's old address still redirects; a published or discarded one's stays readable. Another viewer gets the existing unavailable state.
@@ -1208,6 +1226,7 @@ earlier ones"; schema order `focus, other_canvases, scope, actions, questions`.
 - [ ] **S3c.11 (X14)** Bare `/artifacts` opens Canvases > Mine; `?tab=letters` opens Letters. A grep finds no letter page linking to bare `/artifacts`; `/letters` and back from letter results land on Letters. Mine and Drafts rows read as X14.
 - [ ] **S3c.12 (X15, wording)** The Publish toast is the reply's first line. With an offer, the retention sentence is visible without opening anything and See offer opens the thread. Saving a rename shows its line. Each row of the wording table renders as written.
 - [ ] **S3c.13 (V)** The control's results for both critics; the state × viewport table; both critics' findings with the critic's severity and a disposition each; proof Gemini received images (served model, image count, and that it reported things only visible in them); `<received> of <spawned>`.
+- [ ] **S3c.15 (J11, W4; the founder's "I need a button to go there")** From the mirror chat, the Publish reply carries **Open canvas**, and a closed thread's "Published as v3." carries it too. Each goes to that published version with no `ws=1`, at 1440 and 375.
 - [ ] **S3c.14 (scope)** Gate 2.5 passes: no unticked box remains in the spec, and every deleted one has its replacement named in prose.
 
 #### S4 Add to chat tags
