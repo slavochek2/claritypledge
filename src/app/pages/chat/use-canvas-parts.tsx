@@ -6,6 +6,7 @@
 import type { ReactNode } from 'react';
 import type { CanvasDraft } from '@/app/data/canvas-draft-service';
 import type { ChatMessage } from '@/app/data/chat-service';
+import type { VoiceSender } from '@/hooks/use-voice-note';
 import { CanvasThreadReadState } from './CanvasReadState';
 import { CanvasCapNotice } from './CanvasCapNotice';
 import { sendSlotOf, type CanvasWorkspaceProps } from './canvas-send-slot';
@@ -39,6 +40,8 @@ export function useCanvasParts(args: { canvasRoot: boolean; /** The thread's fir
   /** §2: the open draft has had its 30 updates: this sentence takes the composer's place (null otherwise). */
   capNotice: ReactNode;
   send: ((body: string) => Promise<boolean>) | null;
+  /** X9: the round voice button's sender while the open draft takes notes (null otherwise). */
+  voice: VoiceSender | null;
   /** What the retired-address redirect needs: drafting on/off/unknown, the first read's status, and the draft it found. */
   address: { canvasOn: boolean | null; status: CanvasThreadStatus; draft: CanvasDraft | null };
 } {
@@ -70,6 +73,7 @@ export function useCanvasParts(args: { canvasRoot: boolean; /** The thread's fir
     capNotice: slot.atCap ? <CanvasCapNotice canPublish={!!args.workspace?.canPublish} startOver={args.workspace?.startOver} /> : null,
     /** Sends a text message into the open draft (message + run in one call); null: the chat's own send is used. */
     send: sendOfRoute(route, held.hold, held.pending),
+    voice: pane.onVoice,
     address: { canvasOn, status: pane.read.status, draft: canvas?.draft ?? null },
   };
 }

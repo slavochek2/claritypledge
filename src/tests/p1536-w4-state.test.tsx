@@ -287,7 +287,7 @@ describe('W4: the mirror-chat card names the state and carries a secondary Open'
   const renderCard = (data: never, inWorkspace = false) =>
     render(
       <MemoryRouter>
-        <CanvasWorkspaceContext.Provider value={{ active: inWorkspace, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: null, cloneSeq: null, ownerBar: false, copyPromptPrimary: false }}>
+        <CanvasWorkspaceContext.Provider value={{ active: inWorkspace, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: null, cloneSeq: null, ownerBar: false }}>
           <CanvasVersionCard data={data} />
         </CanvasWorkspaceContext.Provider>
       </MemoryRouter>,

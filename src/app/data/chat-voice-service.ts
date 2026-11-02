@@ -81,6 +81,51 @@ export interface SendVoiceNoteOptions {
 const FINAL_STATUSES = new Set([400, 403, 404, 413, 422]);
 
 /**
+ * Step one of every voice note: the clip is stored (a signed PUT for a server-derived key), or the receipt of an earlier attempt for this
+ * conversation is reused. Throws a VoiceNoteError (no receipt: nothing is stored yet) when the grant or the PUT fails.
+ */
+export async function storeVoiceClip(
+  conversationId: string,
+  wav: Blob,
+  opts: { threadRootId?: string; resume?: VoiceUploadReceipt },
+): Promise<VoiceUploadReceipt> {
+  const resume = opts.resume?.conversationId === conversationId ? opts.resume : null;
+  if (resume) return resume;
+  const { data: grant, error: upError } = await supabase.functions.invoke('chat-voice', {
+    body: { mode: 'upload', conversationId, ...(opts.threadRootId ? { threadRootId: opts.threadRootId } : {}) },
+  });
+  if (upError || !grant) throw await voiceError('upload', upError ?? { message: 'no upload grant' });
+  const { uploadUrl, uploadHeaders, objectKey } = grant as UploadGrant;
+
+  // The signature commits to these exact headers; sending others (or none) is a 403 from storage.
+  const put = await fetch(uploadUrl, { method: 'PUT', headers: uploadHeaders, body: wav });
+  if (!put.ok) throw new VoiceNoteError('failed', put.status, `voice note upload failed: storage returned ${put.status}`);
+  return { conversationId, objectKey };
+}
+
+/**
+ * Step two: commits the stored clip with `extra` fields and returns the server's JSON when it holds `answer`. A failure after the clip is
+ * stored carries the receipt (retry commits the SAME object), unless the same object would be refused again.
+ */
+export async function commitVoiceClip(
+  receipt: VoiceUploadReceipt,
+  extra: Record<string, unknown>,
+  answer: 'message' | 'canvas',
+): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.functions.invoke('chat-voice', {
+    body: { mode: 'commit', conversationId: receipt.conversationId, objectKey: receipt.objectKey, ...extra },
+  });
+  if (error || !data?.[answer]) {
+    const failure = await voiceError('commit', error ?? { message: `no ${answer} returned` });
+    // The object is stored: let the caller retry the commit instead of recording and uploading again.
+    throw FINAL_STATUSES.has(failure.status ?? 0)
+      ? failure
+      : new VoiceNoteError(failure.reason, failure.status, failure.message, receipt);
+  }
+  return data as Record<string, unknown>;
+}
+
+/**
  * Sends a recorded WAV (16 kHz mono 16-bit, max 2 minutes) as a voice note. Resolves with the new message.
  * On a failure after the audio was stored, the thrown VoiceNoteError carries a `receipt`; pass it back
  * as `resume` when the user taps Retry.
@@ -90,37 +135,11 @@ export async function sendVoiceNote(
   wav: Blob,
   opts: SendVoiceNoteOptions = {},
 ): Promise<ChatMessage> {
-  let receipt = opts.resume?.conversationId === conversationId ? opts.resume : null;
-  if (!receipt) {
-    const { data: grant, error: upError } = await supabase.functions.invoke('chat-voice', {
-      body: { mode: 'upload', conversationId, ...(opts.threadRootId ? { threadRootId: opts.threadRootId } : {}) },
-    });
-    if (upError || !grant) throw await voiceError('upload', upError ?? { message: 'no upload grant' });
-    const { uploadUrl, uploadHeaders, objectKey } = grant as UploadGrant;
-
-    // The signature commits to these exact headers; sending others (or none) is a 403 from storage.
-    const put = await fetch(uploadUrl, { method: 'PUT', headers: uploadHeaders, body: wav });
-    if (!put.ok) throw new VoiceNoteError('failed', put.status, `voice note upload failed: storage returned ${put.status}`);
-    receipt = { conversationId, objectKey };
-  }
-  const objectKey = receipt.objectKey;
-
-  const { data, error } = await supabase.functions.invoke('chat-voice', {
-    body: {
-      mode: 'commit',
-      conversationId,
-      objectKey,
-      ...(opts.threadRootId ? { threadRootId: opts.threadRootId } : {}),
-      ...(opts.replyToId ? { replyToId: opts.replyToId } : {}),
-    },
-  });
-  if (error || !data?.message) {
-    const failure = await voiceError('commit', error ?? { message: 'no message returned' });
-    // The object is stored: let the caller retry the commit instead of recording and uploading again.
-    throw FINAL_STATUSES.has(failure.status ?? 0)
-      ? failure
-      : new VoiceNoteError(failure.reason, failure.status, failure.message, receipt);
-  }
+  const receipt = await storeVoiceClip(conversationId, wav, opts);
+  const data = await commitVoiceClip(receipt, {
+    ...(opts.threadRootId ? { threadRootId: opts.threadRootId } : {}),
+    ...(opts.replyToId ? { replyToId: opts.replyToId } : {}),
+  }, 'message');
   return mapMessageRow(data.message as ChatMessageRow);
 }
 

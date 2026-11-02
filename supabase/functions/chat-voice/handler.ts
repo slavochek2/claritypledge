@@ -8,6 +8,9 @@
  *   commit    {conversationId, objectKey, threadRootId?, replyToId?} → validates the stored clip, inserts
  *                                                                 the message AS the caller, then
  *                                                                 transcribes in the background
+ *   commit    {conversationId, objectKey, canvas: {...}}         → P1536 X9, a voice note in a canvas thread: the same validation,
+ *                                                                 then ONE database call (canvas_voice_send) that makes the message
+ *                                                                 AND its run (and the draft, for a first note), AS the caller
  *   playback  {messageId}                                      → 2-minute signed GET
  *   sweep     (x-cron-secret only)                             → retry stuck transcripts, drain the purge queue
  *
@@ -20,6 +23,8 @@
  * client-sent duration does not exist in this API. A failed commit never deletes anything: see `reject`.
  */
 import { bearerUserId } from '../_shared/bearer.ts';
+import { canvasRequestOf, commitCanvasNote, type CanvasCommitInput, type CanvasCommitResult } from './canvas.ts';
+import { ERR } from './errors.ts';
 import { BYTES_PER_SECOND, checkStoredClip, pcmOf, VOICE_MAX_MS, WAV_HEADER_BYTES, waveformBars } from './clip.ts';
 
 export { VOICE_MAX_MS };
@@ -34,23 +39,8 @@ export const HEADER_SLACK_BYTES = 1024;
 export const MIN_UPLOAD_BYTES = WAV_HEADER_BYTES;
 export const MAX_UPLOAD_BYTES = (VOICE_MAX_MS / 1000) * BYTES_PER_SECOND + WAV_HEADER_BYTES + HEADER_SLACK_BYTES;
 
-export const ERR = {
-  unauthorized: 'Unauthorized',
-  invalidBody: 'Invalid request body',
-  invalidMode: 'Invalid mode',
-  invalidId: 'Invalid id',
-  badKey: 'Invalid object key',
-  notMember: 'Not a member of this conversation',
-  notYours: 'That upload belongs to someone else',
-  unsupported: 'Voice notes are not available in this chat',
-  notFound: 'Upload not found',
-  badAudio: 'The recording is not a valid 16 kHz mono WAV',
-  tooLong: 'The recording is longer than the 2 minute limit',
-  rate: 'Too many voice notes, try again in a minute',
-  uploadRate: 'Too many uploads, try again in a few minutes',
-  gone: 'The audio is no longer available',
-  internal: 'Service temporarily unavailable',
-} as const;
+export { ERR };
+export type { CanvasCommitInput, CanvasCommitResult };
 
 export type PostCheck = 'ok' | 'forbidden' | 'unsupported';
 export type UploadCheck = PostCheck | 'rate';
@@ -101,6 +91,8 @@ export interface HandlerDeps {
   /** True when a committed message already references this object (its audio row exists). */
   isKeyCommitted: (objectKey: string) => Promise<boolean>;
   commitMessage: (input: CommitInput) => Promise<CommitResult>;
+  /** P1536 X9. Absent: a canvas commit is refused (422), never posted as a plain note with no run. */
+  commitCanvas?: (input: CanvasCommitInput) => Promise<CanvasCommitResult>;
   playbackTarget: (userId: string, messageId: string) => Promise<PlaybackTarget>;
   signPlayback: (objectKey: string) => Promise<string>;
   /** EdgeRuntime.waitUntil in production: keeps the isolate alive for the transcript job. */
@@ -209,6 +201,9 @@ async function commit(body: Record<string, unknown>, userId: string, deps: Handl
   if (!isUuid(conversationId) || threadRootId === undefined || replyToId === undefined) {
     return json(400, { error: ERR.invalidId });
   }
+  // P1536 X9: a voice note in a canvas thread (canvas.ts). The other gates below apply to it unchanged.
+  const canvasReq = canvasRequestOf(body, threadRootId, replyToId, deps.commitCanvas);
+  if (canvasReq.kind === 'refused') return json(canvasReq.status, { error: canvasReq.error });
   const keyMatch = typeof objectKey === 'string' ? KEY_RE.exec(objectKey) : null;
   // The prefix must be THIS conversation: a member of two chats cannot commit one chat's upload into the other.
   if (!keyMatch || keyMatch[1].toLowerCase() !== conversationId.toLowerCase()) {
@@ -237,6 +232,8 @@ async function commit(body: Record<string, unknown>, userId: string, deps: Handl
     r.kind === 'unsupported' ? { status: 422, error: ERR.unsupported }
       : r.kind === 'rate' ? { status: 429, error: ERR.rate }
       : { status: 403, error: ERR.notMember };
+
+  if (canvasReq.kind === 'canvas') return await commitCanvasNote(key, keyMatch[3].toLowerCase(), { userId, conversationId, fields: canvasReq.fields }, { ...deps, commitCanvas: canvasReq.commitCanvas }, json);
 
   // Already a message: replay it. The database returns the first row (same author, same upload id);
   // the stored object is referenced by that message, so no path from here may delete it.

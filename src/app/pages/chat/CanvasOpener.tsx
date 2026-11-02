@@ -3,7 +3,7 @@
  * @description P1536: what opens a canvas thread, drawn by the client at the top as mirror messages (never stored, the way
  * the mirror's greeting works): one message ("I'll help you ... Send me anything ...") and, under it, a small steps card
  * "Want to save time?": 1 Copy prompt, 2 paste it into your own AI, 3 upload the answer here, with a "What gets copied"
- * disclosure that shows the prompt. It is never folded away. Copy prompt is the primary only on an empty new canvas (W7), else the secondary pill; it says
+ * disclosure that shows the prompt. It is never folded away. Copy prompt is always the secondary pill (3c X9); it says
  * "Copied" for about two seconds after. When the clipboard refuses, the same text opens
  * in a dialog to copy by hand.
  */
@@ -11,7 +11,6 @@ import { useState, type ReactNode } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
-import { useCanvasWorkspace } from '@/app/components/canvas/canvas-workspace-context';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { MirrorMark } from './chat-kit';
@@ -74,17 +73,9 @@ function CopyLabel({ copied }: { copied: boolean }) {
   );
 }
 
-/**
- * W7: Copy prompt is the thread pane's primary only on an empty new canvas ("Not published yet") while the pane is on screen; every other time
- * (Updating…, No changes yet, Published, Publish) it is the one secondary look. The composer's content never changes it.
- */
+/** Copy prompt is the one secondary pill everywhere, on every canvas (3c X9, superseding W7's primary on an empty new canvas). */
 function CopyPromptButton({ copied, onCopy }: { copied: boolean; onCopy: () => void }) {
-  const { copyPromptPrimary } = useCanvasWorkspace();
-  return copyPromptPrimary ? (
-    <Button type="button" className="h-10 gap-1" onClick={onCopy} data-testid="canvas-copy-prompt">
-      <CopyLabel copied={copied} />
-    </Button>
-  ) : (
+  return (
     <button type="button" className={CANVAS_SECONDARY_PILL} onClick={onCopy} data-testid="canvas-copy-prompt">
       <CopyLabel copied={copied} />
     </button>

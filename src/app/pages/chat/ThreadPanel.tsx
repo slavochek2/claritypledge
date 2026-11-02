@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { chatTitle } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
-import { useVoiceSender } from './use-voice-sender';
+import { useThreadVoice } from './use-thread-voice';
 import { EventRoomLink } from './EventRoomLink';
 
 /** Why this thread takes no replies, or null. */
@@ -90,9 +90,8 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
     // Gone (another thread, a closed draft): what it reported goes with it, so the Publish spot never sticks on "Updating…".
     return () => onRunActive?.(false);
   }, [onRunActive, runActive]);
-  // P1576: a voice note sent here is a reply in this thread. Not in a canvas draft's thread (P1536): its opener holds
-  // the one primary while nothing is typed, and the round voice button would be a second one in the send slot.
-  const sendVoice = useVoiceSender(conversationId, !canvasRoot, rootId, undefined);
+  // P1576: a voice note sent here is a reply in this thread; in a canvas draft's thread (3c X9) it is the draft's update (use-thread-voice).
+  const sendVoice = useThreadVoice(conversationId, rootId, canvasRoot, canvas.voice);
   const blockedReason = threadBlockedReason(summary.canSend, rootDeleted);
 
   if (retired) return <RetiredThread />;

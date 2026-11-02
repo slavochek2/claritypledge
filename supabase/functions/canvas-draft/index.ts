@@ -13,6 +13,8 @@
  *        through ONE extraction call), then write the text as material of that run's message, then draft. Only the
  *        extracted text is kept (`canvas_draft_material`); the bytes are never stored anywhere. A failure after the claim
  *        fails the run in the same invocation.
+ *   Internal (P1536 X9): POST { run_id, owner_id } with header x-canvas-draft-internal = CANVAS_DRAFT_INTERNAL_SECRET (no JWT). The database calls it when a
+ *   voice note's transcript lands, so the run begins with the tab closed too (_shared/canvas-internal.ts). It acts for owner_id; begin proves the run is theirs.
  *   Errors: { error, code } with 400 BAD_REQUEST | 401 | 404 NOT_AVAILABLE | 409 TERMS_NOT_ACCEPTED | 409 BUSY |
  *   409 NOT_READY | 409 GONE | 409 LIMIT | 413 TOO_LARGE | 415 UNSUPPORTED | 422 UNREADABLE | 429 CAPPED | 503 DISABLED.
  *
@@ -34,6 +36,7 @@ import { STUB_HEADER, geminiCaller, resolveEnabled, stubAllowed, stubCaller } fr
 import { geminiTokenCounter } from '../_shared/mirror-agent.ts';
 import { noCount } from '../_shared/canvas-fit.ts';
 import { handleRun, handleUpload, type DraftService, type HandlerCtx } from '../_shared/canvas-handlers.ts';
+import { INTERNAL_HEADER, INTERNAL_SECRET_OFF, handleInternalRun, type InternalDeps } from '../_shared/canvas-internal.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -43,6 +46,8 @@ const KEY_OFF = 'not-configured';
 const GEMINI_KEY = Deno.env.get('CANVAS_DRAFT_GEMINI_API_KEY') ?? KEY_OFF;
 /** Set on the test project only. Empty (the default) means the stub can never be used. */
 const STUB_TOKEN = Deno.env.get('CANVAS_DRAFT_STUB_TOKEN') ?? '';
+/** The shared secret the transcript trigger sends (vault: canvas_draft_internal_secret). Off by default: the internal route is then closed. */
+const INTERNAL_SECRET = Deno.env.get('CANVAS_DRAFT_INTERNAL_SECRET') ?? INTERNAL_SECRET_OFF;
 
 const json = (body: unknown, status: number, cors: Record<string, string>) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...cors } });
@@ -71,6 +76,35 @@ function runAfterResponse(work: Promise<unknown>): void {
   rt?.waitUntil?.(work);
 }
 
+/**
+ * X9: the internal route's seams. Always the real model (the stub needs a header the database does not send), under the same switch and
+ * terms gate as the browser's route. The route reads no table: begin proves the run belongs to the owner the database named.
+ */
+function internalDeps(cors: Record<string, string>): InternalDeps {
+  const svc = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  const realModel = geminiCaller(GEMINI_KEY);
+  return {
+    secret: INTERNAL_SECRET,
+    enabled: resolveEnabled(ENABLED_FLAG, GEMINI_KEY !== KEY_OFF, false),
+    cors,
+    hasTerms: (ownerId) => callerHasCurrentTerms(svc, ownerId),
+    handle: (ownerId, internalBody) => handleRun({
+      userId: ownerId, model: realModel, cors, afterResponse: runAfterResponse, service: draftService(svc),
+      readLink: (url, signal) => readLinkText(url, { fetch: (u, init) => fetch(u, init), resolve: resolveAll, signal }),
+      count: tokenCounter(false),
+    }, internalBody),
+  };
+}
+
+/** The signed-in caller of a browser request, or null for a missing, malformed or rejected token. */
+async function verifiedUser(req: Request): Promise<{ id: string } | null> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  const { data: { user }, error } = await anon.auth.getUser(authHeader.slice('Bearer '.length));
+  return error || !user ? null : user;
+}
+
 Deno.serve(async (req: Request) => {
   const baseCors = buildCorsHeaders(req);
   const cors = { ...baseCors, 'Access-Control-Allow-Headers': `${baseCors['Access-Control-Allow-Headers'] ?? ''}, ${STUB_HEADER}` };
@@ -78,15 +112,15 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405, cors);
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) return json({ error: 'Service temporarily unavailable' }, 500, cors);
 
+  // X9: the database starts a voice note's run. A request that carries the header is internal ONLY and never falls through to the JWT path.
+  if (req.headers.get(INTERNAL_HEADER) !== null) return await handleInternalRun(req, internalDeps(cors));
+
   const stubbed = stubAllowed({ supabaseUrl: SUPABASE_URL, header: req.headers.get(STUB_HEADER), token: STUB_TOKEN });
   const enabled = resolveEnabled(ENABLED_FLAG, GEMINI_KEY !== KEY_OFF, stubbed);
   const model = stubbed ? stubCaller() : geminiCaller(GEMINI_KEY);
 
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401, cors);
-  const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
-  const { data: { user }, error: authError } = await anon.auth.getUser(authHeader.slice('Bearer '.length));
-  if (authError || !user) return json({ error: 'Unauthorized' }, 401, cors);
+  const user = await verifiedUser(req);
+  if (!user) return json({ error: 'Unauthorized' }, 401, cors);
 
   const multipart = (req.headers.get('content-type') ?? '').toLowerCase().startsWith('multipart/form-data');
   let body: Record<string, unknown> = {};

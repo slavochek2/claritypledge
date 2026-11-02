@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { transcribeWav } from '../_shared/gemini-transcribe.ts';
 import { createGcsSigner, deleteObject, downloadObject, downloadObjectCapped, putHeaders, readObjectHead, signUrl, urlSignerFor } from './gcs.ts';
-import { handleChatVoice, MAX_UPLOAD_BYTES, MIN_UPLOAD_BYTES, PLAYBACK_TTL_SECONDS, UPLOAD_TTL_SECONDS, type CommitResult, type PlaybackTarget, type PostCheck, type UploadCheck } from './handler.ts';
+import { handleChatVoice, MAX_UPLOAD_BYTES, MIN_UPLOAD_BYTES, PLAYBACK_TTL_SECONDS, UPLOAD_TTL_SECONDS, type CanvasCommitResult, type CommitResult, type PlaybackTarget, type PostCheck, type UploadCheck } from './handler.ts';
 import { runSweep, runTranscription, type JobDeps } from './job.ts';
 
 // ── Entry point ──────────────────────────────────────────────────────────────
@@ -119,6 +119,28 @@ Deno.serve((req: Request) =>
       if (code === '22023') return { kind: 'unsupported' };
       if (code === '42501' || !data) return { kind: 'forbidden' };
       return { kind: 'ok', message: data };
+    },
+
+    // P1536 X9: a voice note in a canvas thread. canvas_voice_send is service-role only and acts for p_uid, the user the Bearer token
+    // resolved to; it makes the message, its run and (for a first note) the draft in one transaction.
+    commitCanvas: async (input): Promise<CanvasCommitResult> => {
+      const { data, code } = await rpc<Record<string, unknown>>('canvas_voice_send', {
+        p_uid: input.userId,
+        p_canvas: input.canvasId,
+        p_from_version: input.fromVersionId,
+        p_expected_draft: input.expectedDraftId,
+        p_expected_revision: input.expectedRevision,
+        p_replace: input.replace,
+        p_box_refs: input.boxRefs,
+        p_object_key: input.objectKey,
+        p_duration_ms: input.durationMs,
+        p_waveform: input.waveform,
+        p_client_id: input.clientId,
+      }, ['42501', '22023', '54000']);
+      if (code === '54000') return { kind: 'rate' };
+      if (code === '22023') return { kind: 'invalid' };
+      if (code === '42501' || !data) return { kind: 'forbidden' };
+      return { kind: 'ok', result: data };
     },
 
     playbackTarget: async (userId, messageId): Promise<PlaybackTarget> => {

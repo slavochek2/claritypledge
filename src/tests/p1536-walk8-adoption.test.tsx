@@ -59,7 +59,7 @@ function Host({ moveToDraft }: { moveToDraft: boolean }) {
   const goRef = useRef(go);
   goRef.current = go;
   const value = useMemo<CanvasWorkspaceValue>(() => ({
-    active: true, reloads: 0, showThread: () => undefined, clone: null, cloneSeq: null, ownerBar: true, copyPromptPrimary: false,
+    active: true, reloads: 0, showThread: () => undefined, clone: null, cloneSeq: null, ownerBar: true,
     reportReady: (ready, forVersion) => {
       if (!moveToDraft || moved.current || !ready || forVersion !== null) return;
       moved.current = true;

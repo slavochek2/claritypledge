@@ -205,8 +205,8 @@ export interface SendCanvasMessageArgs {
   body?: string | null;
   /** The boxes the message is tagged with (Add to chat). */
   boxRefs?: string[] | null;
-  /** `{kind:'file', label}` (post the file with `uploadCanvasMaterial` next) or `{kind:'voice', duration_ms, waveform?}`. */
-  attachment?: { kind: 'file'; label: string } | { kind: 'voice'; duration_ms: number; waveform?: number[] } | null;
+  /** `{kind:'file', label}` (post the file with `uploadCanvasMaterial` next). A voice note is not sent here: it goes through chat-voice (canvas-voice-service), which the database requires. */
+  attachment?: { kind: 'file'; label: string } | null;
   /** Makes the send idempotent: a repeat returns the first result. */
   clientId: string;
   /** Called with the thread's root as soon as the database has answered OK, before the run is started (that request can be slow). */
@@ -228,8 +228,17 @@ export interface CanvasSent {
   start: RunStart | null;
 }
 
+/** The success answer of the canvas send (`canvas_workspace_send`, and `canvas_voice_send` through chat-voice) as the client reads it. */
+export function canvasSentOf(r: Row): CanvasSent {
+  return {
+    ok: true, runId: String(r.run_id), revision: Number(r.revision), draftId: String(r.draft_id), canvasId: String(r.canvas_id),
+    canvasName: String(r.canvas_name ?? ''), versionName: String(r.version_name ?? ''), threadRootId: String(r.thread_root_id),
+    conversationId: String(r.conversation_id), messageId: String(r.message_id), replayed: r.replayed === true, start: null,
+  };
+}
+
 /**
- * Sends one owner message (text, an upload or a voice note) and makes the one queued run that applies it, in one database
+ * Sends one owner message (text or an upload) and makes the one queued run that applies it, in one database
  * call: this replaces `canvas_draft_open` followed by a separate send. A text message then starts its run. Refusals are a
  * typed result (`ok: false`), never a throw: busy, busy_elsewhere, cap_reached, stale_view.
  */
@@ -250,11 +259,7 @@ export async function sendCanvasWorkspaceMessage(a: SendCanvasMessageArgs): Prom
     const r = data as Row;
     const refused = refusalOf(r);
     if (refused) return refused;
-    const sent: CanvasSent = {
-      ok: true, runId: String(r.run_id), revision: Number(r.revision), draftId: String(r.draft_id), canvasId: String(r.canvas_id),
-      canvasName: String(r.canvas_name ?? ''), versionName: String(r.version_name ?? ''), threadRootId: String(r.thread_root_id),
-      conversationId: String(r.conversation_id), messageId: String(r.message_id), replayed: r.replayed === true, start: null,
-    };
+    const sent = canvasSentOf(r);
     a.onThreadKnown?.(sent.threadRootId);
     if (!a.attachment && !sent.replayed) sent.start = await startCanvasRun(sent.runId);
     return sent;

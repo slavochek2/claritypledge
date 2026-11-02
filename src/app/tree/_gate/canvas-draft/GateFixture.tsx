@@ -46,7 +46,7 @@ const PHASES: Record<string, Partial<CanvasReady>> = {
 };
 
 // Clone (W3) comes from the workspace around the page: a stand-in whose Clone does nothing, as the fixture never enters a workspace.
-const WORKSPACE_STUB: CanvasWorkspaceValue = { active: false, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: () => undefined, cloneSeq: null, ownerBar: false, copyPromptPrimary: false };
+const WORKSPACE_STUB: CanvasWorkspaceValue = { active: false, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: () => undefined, cloneSeq: null, ownerBar: false };
 
 export function GateFixture() {
   const [params] = useSearchParams();

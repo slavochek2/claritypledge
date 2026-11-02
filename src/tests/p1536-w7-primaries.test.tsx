@@ -1,8 +1,9 @@
 /**
  * @file p1536-w7-primaries.test.tsx
  * @description P1536 §3b W7 (S3b.6): primary buttons, per state, and the one shared secondary look.
- *  - For each row of the W7 table the rendered primaries equal the table's. Copy prompt counts as the Thread pane's primary: it is the primary only on
- *    an empty new canvas ("Not published yet") while the thread pane is on screen, so a closed panel or the Canvas tab shows ZERO primaries, never two.
+ *  - For each row of the W7 table the rendered primaries equal the table's. 3c X9 supersedes W7's Copy prompt row: Copy prompt is the secondary pill
+ *    EVERYWHERE, so on an empty new canvas ("Not published yet") there is no primary at all (the spot is a status), and a closed panel or the Canvas tab
+ *    shows zero primaries as before. (The header table itself is rewritten by X4 in a later step; these cases only change where Copy prompt was counted.)
  *    "Rendered" means reachable: a pane that is inert / aria-hidden (closed panel, hidden tab) draws nothing a person can press.
  *  - Composer content never changes either button.
  *  - Clone, Share, Discard (same shape, destructive text), Open, Thread and the version picker all wear the ONE constant (Compare's pill), and the
@@ -217,13 +218,15 @@ const spotText = () => screen.getByTestId('publish-spot').textContent;
 const ready = async () => { await grid(); await screen.findByTestId('thread-panel'); await waitFor(() => expect(screen.queryByTestId('canvas-loading')).toBeNull()); };
 
 describe('S3b.6: the W7 table, row by row (1440: the panel beside the canvas)', () => {
-  it('Not published yet (an empty new canvas): Copy prompt is the one primary', async () => {
+  it('Not published yet (an empty new canvas): no primary; Copy prompt is secondary (X9 supersedes W7)', async () => {
     newCanvas();
     mount(DRAFT_AT);
     await ready();
     expect(spotText()).toContain('Not published yet');
     expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();
-    expect(primaries()).toEqual(['Copy prompt']);
+    expect(primaries()).toEqual([]);
+    expect(lacksSecondaryPill(screen.getByTestId('canvas-copy-prompt'))).toEqual([]);
+    expect(isFilledBlue(screen.getByTestId('canvas-copy-prompt'))).toBe(false);
   });
 
   it('Updating…: no primary; Copy prompt is secondary', async () => {
@@ -273,21 +276,22 @@ describe('S3b.6: the W7 table, row by row (1440: the panel beside the canvas)', 
   });
 });
 
-describe('S3b.6: a closed panel or the Canvas tab shows ZERO primaries when Copy prompt would be the primary (never two)', () => {
-  it('1440: × closes the panel (zero primaries); Thread opens it again (Copy prompt)', async () => {
+describe('S3b.6: a closed panel or the Canvas tab shows ZERO primaries, and the open Thread pane none either (Copy prompt is secondary, X9)', () => {
+  it('1440: × closes the panel (zero primaries); Thread opens it again (still none)', async () => {
     newCanvas();
     mount(DRAFT_AT);
     await ready();
-    expect(primaries()).toEqual(['Copy prompt']);
+    expect(primaries()).toEqual([]);
     fireEvent.click(screen.getByLabelText('Close thread'));
     expect(screen.getByTestId('workspace-chat-pane')).toHaveAttribute('inert');
     expect(primaries()).toEqual([]);
     expect(primariesByClass()).toEqual([]); // not even in the hidden pane
     fireEvent.click(screen.getByTestId('workspace-thread-button'));
-    expect(primaries()).toEqual(['Copy prompt']);
+    expect(primaries()).toEqual([]);
+    expect(screen.getByTestId('canvas-copy-prompt')).toBeVisible();
   });
 
-  it('375: the Canvas tab shows zero primaries; the Thread tab shows Copy prompt', async () => {
+  it('375: the Canvas tab shows zero primaries; the Thread tab shows Copy prompt, as a secondary', async () => {
     stubWidth(false);
     newCanvas();
     mount(DRAFT_AT);
@@ -298,7 +302,8 @@ describe('S3b.6: a closed panel or the Canvas tab shows ZERO primaries when Copy
     expect(primariesByClass()).toEqual([]); // the Thread pane is mounted but hidden: its Copy prompt is not a primary then
     fireEvent.mouseDown(screen.getByTestId('workspace-view-chat'), { button: 0 });
     fireEvent.click(screen.getByTestId('workspace-view-chat'));
-    expect(primaries()).toEqual(['Copy prompt']);
+    expect(primaries()).toEqual([]);
+    expect(lacksSecondaryPill(screen.getByTestId('canvas-copy-prompt'))).toEqual([]);
     fireEvent.mouseDown(screen.getByTestId('workspace-view-canvas'), { button: 0 });
     fireEvent.click(screen.getByTestId('workspace-view-canvas'));
     expect(primaries()).toEqual([]);
@@ -317,7 +322,7 @@ describe('S3b.6: a closed panel or the Canvas tab shows ZERO primaries when Copy
 
 describe('S3b.6: composer content never changes either button', () => {
   it.each([
-    ['Not published yet', newCanvas, ['Copy prompt']],
+    ['Not published yet', newCanvas, []],
     ['Publish', publishableNew, ['Publish']],
   ] as const)('%s: typing in the composer leaves the primaries (and Copy prompt\'s look) as they were', async (_n, arrange, expected) => {
     arrange();

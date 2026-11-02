@@ -36,14 +36,9 @@ export interface CanvasWorkspaceValue {
    * the page draws its whole header.
    */
   ownerBar: boolean;
-  /**
-   * W7: Copy prompt is the thread pane's primary only while it is the ONE primary of the view: the canvas is empty ("Not published yet") and
-   * the thread pane is what is on screen. Otherwise it is secondary (a closed panel or the Canvas tab shows no primary at all).
-   */
-  copyPromptPrimary: boolean;
 }
 
-const NONE: CanvasWorkspaceValue = { active: false, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: null, cloneSeq: null, ownerBar: false, copyPromptPrimary: false };
+const NONE: CanvasWorkspaceValue = { active: false, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: null, cloneSeq: null, ownerBar: false };
 
 export const CanvasWorkspaceContext = createContext<CanvasWorkspaceValue>(NONE);
 

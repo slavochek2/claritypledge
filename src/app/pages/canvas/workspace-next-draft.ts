@@ -8,6 +8,8 @@
  * instead of opening a second draft.
  */
 import { listMyCanvasVersions, sendCanvasWorkspaceMessage } from '@/app/data/canvas-draft-service';
+import { sendCanvasVoiceNote } from '@/app/data/canvas-voice-service';
+import type { VoiceUploadReceipt } from '@/app/data/chat-voice-service';
 import { MAX_UPLOAD_BYTES } from '@/app/pages/chat/canvas-thread-copy';
 import type { CanvasDraftErrorCode } from '@/app/data/canvas-draft-service';
 import { postFile } from '@/app/pages/chat/use-canvas-uploads';
@@ -87,3 +89,32 @@ export async function openNextDraft(args: { projectTag: string; version: string 
   return { ok: true, versionName: sent.versionName, ...(fileRefusal ? { fileRefusal } : {}) };
 }
 
+
+/** A first voice note's refusal: the draft being replaced moved on (ask again) or the database refused; the clip is stored and `receipt` retries it. */
+export type FirstVoiceResult = NextDraftResult | { ok: false; why: 'refused' | 'stale_view'; receipt: VoiceUploadReceipt };
+
+/**
+ * The first voice note on a pending Clone (3c X9): the same first Send as `openNextDraft`, with the recorded clip as the message. The clip is
+ * stored and committed by chat-voice, which makes the draft, the thread, the note and its run in one transaction; the run begins on the server
+ * when the transcript lands. The upload id is the message's client id, so a retry with the receipt can only replay, never duplicate.
+ * Throws a VoiceNoteError when the clip could not be stored or committed (it carries the receipt when the same clip can be committed again).
+ */
+export async function openNextDraftByVoice(args: {
+  conversationId: string; projectTag: string; version: string | null; wav: Blob; replace?: ReplaceDraft | null; resume?: VoiceUploadReceipt;
+}): Promise<FirstVoiceResult> {
+  const { conversationId, projectTag, version, wav, replace = null, resume } = args;
+  let from: Awaited<ReturnType<typeof versionOf>>;
+  try {
+    from = await versionOf(projectTag, version);
+  } catch {
+    return { ok: false, why: 'versions_failed' }; // nothing was sent
+  }
+  if (!from) return { ok: false, why: 'no_version' };
+  const r = await trackCanvasSend((threadKnown) => sendCanvasVoiceNote(
+    conversationId, wav,
+    { canvasId: from.canvasId, fromVersionId: from.id, expectedDraftId: replace?.draftId ?? null, expectedRevision: replace?.revision ?? null, replace: !!replace },
+    resume,
+  ).then((answer) => { if (answer.ok) threadKnown(answer.sent.threadRootId); return answer; }));
+  if (!r.ok) return { ok: false, why: replace && r.refused === 'stale_view' ? 'stale_view' : 'refused', receipt: r.receipt };
+  return { ok: true, versionName: r.sent.versionName };
+}

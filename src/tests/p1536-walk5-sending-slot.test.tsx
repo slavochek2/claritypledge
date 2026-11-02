@@ -161,7 +161,7 @@ describe('A: useCanvasActions.sending', () => {
     await act(async () => { pending.resolve({ ok: true, runId: 'r', revision: 4, draftId: 'draft-1', start: null }); await done; });
     expect(result.current.sending).toBe(false);
     const closed = renderHook(() => useCanvasActions({ thread: null, available: true }));
-    expect(closed.result.current).toEqual({ onSend: null, sending: false });
+    expect(closed.result.current).toEqual({ onSend: null, onVoice: null, sending: false }); // 3c X9 added onVoice: a closed thread has no voice sender either
   });
 
   it('a draft change lets it go, and unmounting mid-send raises no state warning', async () => {

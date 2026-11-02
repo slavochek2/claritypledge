@@ -15,13 +15,13 @@ import { CanvasCard } from '@/app/components/canvas/canvas-card';
 import { CanvasGrid } from '@/app/components/canvas/canvas-grid';
 import { CanvasHeader } from '@/app/components/canvas/canvas-header';
 import { CanvasOwnerBar } from '@/app/components/canvas/canvas-owner-bar';
-import { CANVAS_WORKSPACE_WIDE_QUERY, CanvasWorkspaceContext, type CanvasWorkspaceValue } from '@/app/components/canvas/canvas-workspace-context';
+import { CanvasWorkspaceContext, type CanvasWorkspaceValue } from '@/app/components/canvas/canvas-workspace-context';
 import { CanvasThreadOpener } from '@/app/pages/chat/CanvasOpener';
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { CanvasPublishSpot } from '@/app/components/canvas/canvas-publish-spot';
 import type { PublishSpotState } from '@/app/components/canvas/canvas-publish-spot-state';
 import { CanvasWorkspaceLayout, type WorkspaceView } from '@/app/components/canvas/canvas-workspace-layout';
-import { stashDraft, useMediaQuery } from '@/app/pages/chat/chat-hooks';
+import { stashDraft } from '@/app/pages/chat/chat-hooks';
 import { Composer } from '@/app/pages/chat/Composer';
 import { resetCanvasAvailability, seedCanvasAvailability } from '@/app/pages/chat/use-canvas-availability';
 import { groupPointsByBox } from '@/lib/canvas-boxes';
@@ -87,13 +87,10 @@ export function GateFixture() {
   useEffect(() => resetCanvasAvailability, []);
   const ready = readyFor(config.published, config.empty);
   const boxes = groupPointsByBox(config.empty ? [] : POINTS);
-  // The route element's context, as the owner's page sees it: the bar is the header (ownerBar), Clone is handed over, and Copy prompt is the
-  // primary only on the empty new canvas with the thread on screen (what CanvasWithThread computes).
-  const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
-  const threadShown = wide ? config.panelOpen : view === 'chat';
+  // The route element's context, as the owner's page sees it: the bar is the header (ownerBar) and Clone is handed over. Copy prompt is the
+  // secondary pill everywhere (3c X9), so the context carries nothing about it.
   const workspace: CanvasWorkspaceValue = {
     active: config.active, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: () => undefined, cloneSeq: null, ownerBar: true,
-    copyPromptPrimary: config.active && threadShown && config.spot.kind === 'not-published',
   };
   return (
     <CanvasWorkspaceContext.Provider value={workspace}>

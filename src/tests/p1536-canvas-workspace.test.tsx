@@ -787,7 +787,7 @@ describe('round 2 C2: a first Send keeps its client id until the outcome is know
   });
 });
 
-describe('round 2 C3/G1/G2/G4: the empty chat is a drawn state, with Upload, no voice, and Updating… while it works', () => {
+describe('round 2 C3/G1/G2/G4: the empty chat is a drawn state, with Upload, the voice button (3c X9), and Updating… while it works', () => {
   beforeEach(() => {
     getCanvas.mockResolvedValue(publishedView());
     st.draft = null;
@@ -830,13 +830,22 @@ describe('round 2 C3/G1/G2/G4: the empty chat is a drawn state, with Upload, no 
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
-  it('G1: the composer has Upload and no voice-note button (as on a canvas thread); picking a file opens the next draft through the first-send path and posts the file', async () => {
+  // 3c X9 changes G1's premise: a pending Clone and an open draft's thread both carry the round voice button now (p1536-x9-voice-ui.test.tsx walks the notes).
+  const withRecorder = () => {
+    Object.defineProperty(globalThis.navigator, 'mediaDevices', { value: { getUserMedia: vi.fn() }, configurable: true });
+    vi.stubGlobal('MediaRecorder', vi.fn());
+    vi.stubGlobal('AudioContext', vi.fn());
+  };
+  afterEach(() => { Object.defineProperty(globalThis.navigator, 'mediaDevices', { value: undefined, configurable: true }); });
+
+  it('G1: the composer has Upload and the voice-note button; picking a file opens the next draft through the first-send path and posts the file', async () => {
+    withRecorder();
     rpc.mockImplementation(async (name: string) => (name === 'canvas_workspace_send' ? { data: SENT, error: null } : { data: null, error: null }));
     open();
     await screen.findByTestId('canvas-grid');
     chooseView('chat');
     const box = await screen.findByTestId('composer');
-    expect(within(box).queryByRole('button', { name: 'Record a voice message' })).toBeNull();
+    expect(within(box).getByRole('button', { name: 'Record a voice message' })).toBeInTheDocument();
     expect(within(box).getByTestId('canvas-upload')).toBeInTheDocument();
     const file = new File(['x'], 'offer.pdf', { type: 'application/pdf' });
     fireEvent.change(within(box).getByTestId('canvas-upload-input'), { target: { files: [file] } });
@@ -847,11 +856,22 @@ describe('round 2 C3/G1/G2/G4: the empty chat is a drawn state, with Upload, no 
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(`v=${DRAFT_NAME}`));
   });
 
-  it('G1 CONTROL: the real canvas thread (an open draft) has no voice-note button either', async () => {
+  it('G1 CONTROL: the real canvas thread (an open draft) has the voice-note button too, once its draft is read', async () => {
+    withRecorder();
     getCanvas.mockResolvedValue(draftView());
     st.draft = draftRow();
     mount();
     await ready();
+    chooseView('chat');
+    expect(await within(screen.getByTestId('composer')).findByRole('button', { name: 'Record a voice message' })).toBeInTheDocument();
+  });
+
+  it('G1 CONTROL: a browser that cannot record has no voice button in either (the button follows the browser, as in every chat)', async () => {
+    getCanvas.mockResolvedValue(draftView());
+    st.draft = draftRow();
+    mount();
+    await ready();
+    chooseView('chat');
     expect(within(screen.getByTestId('composer')).queryByRole('button', { name: 'Record a voice message' })).toBeNull();
   });
 

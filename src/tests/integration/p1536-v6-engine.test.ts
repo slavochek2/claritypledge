@@ -64,7 +64,24 @@ interface SendOpts {
   canvas?: string | null; from?: string | null; draft?: string | null; rev?: number | null; replace?: boolean;
   body?: string | null; refs?: string[] | null; att?: Row | null; client?: string;
 }
-const send = (o: Owner, a: SendOpts) => ok(o.c, 'canvas_workspace_send', {
+/**
+ * 3c X9 changes this helper's premise: a voice attachment is no longer accepted from a signed-in client (the voice button goes through chat-voice,
+ * which calls canvas_voice_send as the service role after it has read the stored clip). So a voice send here is made the way chat-voice makes it:
+ * the service role, naming the verified owner and the key the clip is stored under (the owner's mirror conversation, the owner, the client id).
+ * Typed and file sends are unchanged.
+ */
+async function voiceSend(o: Owner, a: SendOpts): Promise<Row> {
+  const uid = o.u.user.id;
+  await eng('_chat_ensure_mirror', { p_uid: uid });
+  const conv = ((await admin.from('chat_conversations').select('id').eq('kind', 'mirror').eq('owner_id', uid).single()).data as Row).id as string;
+  const client = a.client ?? randomUUID();
+  return eng('canvas_voice_send', {
+    p_uid: uid, p_canvas: a.canvas ?? null, p_from_version: a.from ?? null, p_expected_draft: a.draft ?? null, p_expected_revision: a.rev ?? null,
+    p_replace: a.replace ?? false, p_box_refs: a.refs ?? null, p_object_key: `${conv}/${uid}/${client}.wav`.toLowerCase(),
+    p_duration_ms: a.att!.duration_ms, p_waveform: a.att!.waveform ?? null, p_client_id: client,
+  });
+}
+const send = (o: Owner, a: SendOpts) => a.att?.kind === 'voice' ? voiceSend(o, a) : ok(o.c, 'canvas_workspace_send', {
   p_canvas: a.canvas ?? null, p_from_version: a.from ?? null, p_expected_draft: a.draft ?? null, p_expected_revision: a.rev ?? null,
   p_replace: a.replace ?? false, p_body: a.body ?? null, p_box_refs: a.refs ?? null, p_attachment: a.att ?? null,
   p_client_id: a.client ?? randomUUID(),
