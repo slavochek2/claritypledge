@@ -8,7 +8,7 @@
  */
 import type { ReactNode } from 'react';
 import { MirrorMark, MirrorTitle } from '@/app/pages/chat/chat-kit';
-import { mirrorLabel } from '@/app/pages/chat/chat-view-model';
+import { mirrorLabel, mirrorRole } from '@/app/pages/chat/chat-view-model';
 import { baseDraftLine } from '@/app/pages/chat/canvas-thread-copy';
 import type { ChatSummary } from '@/app/data/chat-service';
 
@@ -32,7 +32,7 @@ export function MirrorAgentLine({ mirror, seq }: { mirror: MirrorNames; seq: num
     <div className="flex items-start gap-2 px-4 py-3" data-testid="agent-line">
       <MirrorMark size="sm" className="mt-0.5" />
       <div className="min-w-0">
-        <p className="text-xs font-medium text-muted-foreground">{mirror.title ?? 'Your mirror agent'}</p>
+        <p className="text-xs font-medium text-muted-foreground">{mirror.title || mirrorRole(mirror)}</p>
         <p className="mt-0.5 rounded-lg bg-muted px-3 py-2 text-sm text-foreground">{baseDraftLine(seq)}</p>
       </div>
     </div>

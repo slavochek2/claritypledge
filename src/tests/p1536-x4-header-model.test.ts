@@ -5,7 +5,8 @@
  * rows fit, the more specific wins" is pinned by the cap rows. The bar that draws the header reads the same function (p1536-x4-header-bar.test.tsx).
  */
 import { describe, expect, it } from 'vitest';
-import { headerRow, type HeaderInput } from '@/app/components/canvas/canvas-header-model';
+import { headerInputOf, headerRow, type HeaderInput } from '@/app/components/canvas/canvas-header-model';
+import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 
 /** A published, owner, drafting-on, nothing-else baseline; each row overrides what makes it that row. */
 const BASE: HeaderInput = {
@@ -86,5 +87,41 @@ describe('X4: the header table, every row', () => {
     const row = headerRow({ ...BASE, onScreen: 'draft', hasBase: true, draftOpen: true, workspace: true, spot: 'publish' });
     expect(row.spot === 'share').toBe(false);
     expect(() => expect(row.spot).toBe('share')).toThrow();
+  });
+});
+
+/** A read as the owner's bar sees it. */
+const readyOf = (o: { onScreen: 'published' | 'draft'; draft?: boolean; hasPublished?: boolean }): CanvasReady => ({
+  isOwner: true, version: o.onScreen === 'draft' ? 'd' : 'v1', publishedNone: o.hasPublished === false,
+  versions: [...(o.draft || o.onScreen === 'draft' ? [{ name: 'd', draft: true, seq: null }] : []), ...(o.hasPublished === false ? [] : [{ name: 'v1', draft: false, seq: 1 }])],
+  draft: o.draft || o.onScreen === 'draft' ? { version: 'd', baseSeq: 1, runCount: 1, changedBoxes: [] } : null,
+}) as unknown as CanvasReady;
+const inputOf = (ready: CanvasReady, over: Partial<Parameters<typeof headerInputOf>[0]> = {}) =>
+  headerInputOf({ ready, drafting: true, workspace: true, pendingSeq: null, cloning: false, spot: 'nothing', publishing: false, threadButton: false, goToDraft: false, ...over });
+
+describe('review: ONE source for the pending Clone (the bar and the thread panel agree)', () => {
+  it('ws=1 on a published version with no open draft IS the pending Clone, even before the Clone state has read (a reload of the pending address)', () => {
+    const input = inputOf(readyOf({ onScreen: 'published' }));
+    expect(input.onScreen).toBe('pending');
+    expect(headerRow(input)).toMatchObject({ tag: 'new-draft', picker: false, spot: 'status' });
+  });
+  it('the Clone state saying so (a J4 start over: a draft of another base is open) is pending too, whatever the version number is', () => {
+    expect(inputOf(readyOf({ onScreen: 'published', draft: true }), { cloning: true }).onScreen).toBe('pending');
+    expect(inputOf(readyOf({ onScreen: 'published', draft: true }), { pendingSeq: 2 }).onScreen).toBe('pending');
+  });
+  it('CONTROLS: with a draft open and no Clone it is the picked-from-the-picker row; without ws=1 a published view is a published view; a draft on screen is a draft', () => {
+    expect(inputOf(readyOf({ onScreen: 'published', draft: true })).onScreen).toBe('published');
+    expect(inputOf(readyOf({ onScreen: 'published' }), { workspace: false }).onScreen).toBe('published');
+    expect(inputOf(readyOf({ onScreen: 'draft' })).onScreen).toBe('draft');
+  });
+  it('drafting off: ws=1 on a published version is not a Clone (there is no workspace without drafting)', () => {
+    expect(inputOf(readyOf({ onScreen: 'published' }), { drafting: false }).onScreen).toBe('published');
+  });
+});
+
+describe('review: an owner with nothing published and no draft (the table has no row; the nearest rule, 9: nothing to act on, a status says so)', () => {
+  it('no picker, no tag, no Clone (there is no version to clone), no Share (nothing to share): the status "Nothing to publish yet" in the spot', () => {
+    const input = inputOf(readyOf({ onScreen: 'published', hasPublished: false }), { workspace: false });
+    expect(headerRow(input)).toEqual({ tag: null, picker: false, items: [], spot: 'status', filled: null });
   });
 });

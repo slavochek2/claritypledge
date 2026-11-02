@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 
 const publish = vi.hoisted(() => vi.fn());
+const emitted = vi.hoisted(() => vi.fn());
+vi.mock('@/app/data/canvas-draft-events', () => ({ emitCanvasDraftEvent: emitted }));
 vi.mock('@/app/data/canvas-draft-service', () => ({ publishCanvasDraft: publish }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
@@ -22,7 +24,17 @@ const ready = (draftId: string, revision: number): CanvasReady => ({
   draft: { id: draftId, version: NAME, questions: {}, threadRootId: 'r', conversationId: 'c', baseSeq: null, runCount: 1, revision, changedBoxes: [] },
 } as unknown as CanvasReady);
 
-beforeEach(() => publish.mockReset());
+beforeEach(() => { publish.mockReset(); emitted.mockReset(); });
+
+describe('X7: no_changes and draft_empty return the spot to "Nothing to publish yet" AND re-read', () => {
+  it.each(['no_changes', 'draft_empty'])('%s: the status shows and the page is told to read the draft again', async (code) => {
+    const { result } = renderHook(() => useCanvasPublish(ready('draft-A', 0), false));
+    publish.mockResolvedValue({ ok: false, refused: code, revision: 0 });
+    act(() => result.current.publish());
+    await waitFor(() => expect(result.current.state.kind).toBe('nothing'));
+    expect(emitted).toHaveBeenCalledWith({ kind: 'updated', draftId: 'draft-A' });
+  });
+});
 
 describe('C1: a refusal belongs to one draft at one revision', () => {
   const refuse = async (result: { current: ReturnType<typeof useCanvasPublish> }) => {

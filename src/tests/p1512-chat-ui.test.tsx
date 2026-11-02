@@ -411,7 +411,7 @@ describe('chat list', () => {
       const plus = screen.getByRole('button', { name: 'New message' });
       expect(plus).not.toHaveAttribute('title');
       const cls = (plus.getAttribute('class') ?? '').split(/\s+/);
-      expect(cls).toEqual(expect.arrayContaining(['rounded-full', 'border', 'border-blue-600', 'bg-blue-50', 'text-blue-700', 'hover:bg-blue-100']));
+      expect(cls).toEqual(expect.arrayContaining(['rounded-full', 'border', 'border-blue-600', 'bg-blue-50', 'text-blue-700', '[@media(hover:hover)]:hover:bg-blue-100']));
       // secondary, not primary: never the filled look (solid blue with white text)
       expect(cls).not.toContain('bg-blue-600');
       expect(cls).not.toContain('text-white');

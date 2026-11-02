@@ -48,7 +48,11 @@ export function useCanvasPublish(
         const next = stateAfterRefusal(r.refused);
         if (next === 'unknown') toast.error(FAILED_TEXT);
         else if (next === 'reread') emitCanvasDraftEvent({ kind: 'updated', draftId: draft.id });
-        else setForced({ draftId: draft.id, revision: draft.revision, state: next });
+        else {
+          // X7: no_changes and draft_empty return the spot to "Nothing to publish yet" AND read the draft again (the status holds for this revision only).
+          setForced({ draftId: draft.id, revision: draft.revision, state: next });
+          emitCanvasDraftEvent({ kind: 'updated', draftId: draft.id });
+        }
       } catch {
         toast.error(FAILED_TEXT);
       } finally {

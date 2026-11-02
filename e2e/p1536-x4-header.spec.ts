@@ -232,6 +232,7 @@ test('P1536 X4 header: every state at every width', async ({ browser }) => {
         expect.soft(Math.abs(by('draft-publish', w).bar!.h - by('published-view', w).bar!.h) <= 1, `[${w}] equal header height: draft ${by('draft-publish', w).bar!.h} vs published ${by('published-view', w).bar!.h}`).toBe(true);
         expect.soft(by('pending-clone', w).switcher, `[pending-clone ${w}] switcher`).toBe(true);
         expect.soft(by('picked-ws', w).goToDraft, `[picked-ws ${w}] Go to draft in row 2`).toBe(true);
+        expect.soft(by('picked-ws', w).bar!.h, `[picked-ws ${w}] switcher, Go to draft and Share fit TWO rows labelled (bar ${by('picked-ws', w).bar!.h}px vs ${by('published-view', w).bar!.h}px)`).toBe(by('published-view', w).bar!.h);
         expect.soft(by('published-clean', w).switcher, `[published-clean ${w}] no switcher`).toBe(false);
         // the spot is on the second row, below the name's row
         expect.soft(by('draft-publish', w).spot!.y > by('draft-publish', w).row1!.y + by('draft-publish', w).row1!.h - 2, `[draft-publish ${w}] spot is on row 2`).toBe(true);

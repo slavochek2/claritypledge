@@ -46,8 +46,8 @@ const NO_VERSION_TEXT = 'Could not find this version to start from.';
 const VERSIONS_FAILED_TEXT = 'Could not load your canvas versions. Try again.';
 /** How long an accepted first Send waits for the page to move to its draft before it stops saying "Updating…". */
 const ACCEPTED_HOLD_MS = 20_000;
-// [FOUNDER DECISION: nothing published and no draft; the same sentence the canvas header shows the owner.]
-const NOTHING_PUBLISHED_TEXT = 'Nothing published yet';
+// [FOUNDER DECISION: nothing published and no draft: the thread has nothing to say, so it says what the Publish spot says (3c X7). The header no longer has its own sentence.]
+const NOTHING_PUBLISHED_TEXT = 'Nothing to publish yet';
 
 function Waiting() {
   return (

@@ -84,7 +84,6 @@ import { CanvasPublishSpot } from '@/app/components/canvas/canvas-publish-spot';
 import { SPOT_BOX } from '@/app/components/canvas/canvas-publish-spot-state';
 import { assertStableVariantsOnInput } from './p955-stable-variants';
 import { resetUnresolvedFirstSends } from '@/app/pages/canvas/workspace-next-draft';
-import { resetCanvasAvailability as resetAvailability } from '@/app/pages/chat/use-canvas-availability';
 import { clearLinkTokens } from '@/lib/canvas-link-token';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { lacksSecondaryPill } from './p1536-pill-assert';
@@ -805,20 +804,13 @@ describe('round 2 C3/G1/G2/G4: the empty chat is a drawn state, with Upload, the
     expect(screen.queryByTestId('composer')).toBeNull();
   });
 
-  it('C3: drafting off shows an explicit "could not load" with Retry, and Retry asks the server again', async () => {
+  it('C3 (3c X4/X13, premise change: it read "drafting off shows could not load with Retry"): drafting off on a ws=1 address has no workspace at all: no panel, no switcher, and the marker leaves the address', async () => {
     invoke.mockResolvedValue({ data: { enabled: false }, error: null });
     open();
     await screen.findByTestId('canvas-grid');
-    chooseView('chat');
-    const box = await screen.findByTestId('workspace-chat-unavailable');
-    expect(box).toHaveTextContent('Canvas drafting is not available right now.');
-    expect(within(box).getByRole('alert')).toHaveTextContent('Could not load this chat. Try again.');
-    const asked = invoke.mock.calls.length;
-    invoke.mockResolvedValue({ data: { enabled: true }, error: null });
-    resetAvailability(); // (the session answer is forgotten by Retry itself; this keeps the test independent of module state)
-    fireEvent.click(within(box).getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByTestId('composer')).toBeInTheDocument();
-    expect(invoke.mock.calls.length).toBeGreaterThan(asked);
+    await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent('ws=1'));
+    expect(screen.queryByTestId('workspace-chat-pane')).toBeNull();
+    expect(screen.queryByTestId('workspace-view-switch')).toBeNull();
   });
 
   it('C3: a draft that lives in another chat is "could not load" with Retry, not an empty box', async () => {
@@ -1012,11 +1004,11 @@ describe('review round 3: replay delivers bytes, held is per canvas, Retry re-re
     expect(toastError.mock.calls[0]![0]).toBe('Could not load your canvas versions. Try again.');
   });
 
-  it('L2: nothing published and no draft: the chat pane says so in words', async () => {
+  it('L2: nothing published and no draft: the chat pane says so in words ("Nothing to publish yet", the spot\'s own words)', async () => {
     getCanvas.mockResolvedValue(publishedView({ points: [], version: null, versions: [], publishedNone: true }));
     mount(pub);
     const empty = await screen.findByTestId('workspace-chat-empty');
-    expect(empty).toHaveTextContent('Nothing published yet');
+    expect(empty).toHaveTextContent('Nothing to publish yet'); // 3c review: the pane says what the Publish spot says (the header has no sentence of its own)
   });
 
   it('V1: the version chip has a hairline border (the border token) and hugs its text', async () => {

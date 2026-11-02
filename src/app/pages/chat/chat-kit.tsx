@@ -18,11 +18,6 @@ import type { ChatSummary } from '@/app/data/chat-mappers';
 
 /** Hover tint only where a real pointer exists (a tap must not leave a row stuck lit). */
 export const HOVER = '[@media(hover:hover)]:hover:bg-accent';
-/**
- * The secondary look (3c X2): the blue outline pill's colours (the canvas page's CANVAS_SECONDARY_PILL), for a round icon button. The shape is the
- * caller's; the colours are the same at every width.
- */
-export const SECONDARY_ROUND_COLOURS = 'border-blue-600 bg-blue-50 text-blue-700 hover:bg-blue-100';
 /** The design system's primary CTA (docs/design-system.md, Button Decision Rules #1): one per screen. */
 export const PRIMARY_CLASS = 'min-h-10 rounded-lg';
 export const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';

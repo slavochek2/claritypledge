@@ -288,10 +288,12 @@ describe('nothing published', () => {
     expect(await screen.findByTestId('canvas-not-found')).toBeInTheDocument();
   });
 
-  it('the owner whose canvas has nothing published reads "Nothing published yet": no share control, and no "Publish first" text at all (founder copy, 2026-10-27)', async () => {
+  it('the owner whose canvas has nothing published gets the empty boxes and no sentence (3c X12/S3c.4, premise change: "Nothing published yet" does not render in the header): no share control, and no "Publish first" text at all', async () => {
     getCanvas.mockResolvedValue(view({ points: [], version: null, versions: [], publishedNone: true }));
     page();
-    expect(await screen.findByTestId('canvas-nothing-published')).toHaveTextContent('Nothing published yet');
+    expect(await screen.findByTestId('canvas-grid')).toBeInTheDocument();
+    expect(screen.queryByTestId('canvas-nothing-published')).toBeNull();
+    expect(screen.getByTestId('canvas-header-row')).not.toHaveTextContent('Nothing published yet');
     expect(screen.queryByTestId('share-control')).toBeNull();
     expect(screen.queryByTestId('canvas-publish-first')).toBeNull();
     expect(screen.queryByText(/Publish first|then share/i)).toBeNull();
@@ -325,7 +327,7 @@ describe('P955 gate fixture /tree/_gate/canvas-draft', () => {
     ['draft', 'canvas-grid', 0], // Publish is not on this page: its one spot is the workspace bar
     ['draft-empty', 'canvas-grid', 0], // 3c X12 (premise change): no sentence; the boxes say it
     ['nothing-published-reader', 'canvas-nothing-published', 0],
-    ['nothing-published-owner', 'canvas-nothing-published', 0],
+    ['nothing-published-owner', 'canvas-grid', 0], // 3c S3c.4 (premise change): the owner reads the empty boxes, no sentence
     ['published-owner', 'canvas-grid', 0],
     ['published-reader', 'canvas-grid', 0],
   ])('%s renders its state with %i primary action(s), none disabled', (phase, testId, primary) => {
@@ -348,7 +350,7 @@ describe('review B10: visual QA fixes', () => {
     expect(screen.queryByText(/Shared with you by/)).toBeNull();
   });
 
-  it('D7 CONTROL: a reader of a published canvas still reads who shared it, and the owner of an unpublished one still reads "Nothing published yet"', async () => {
+  it('D7 CONTROL: a reader of a published canvas still reads who shared it, and the owner of an unpublished one reads no sentence (3c S3c.4, premise change)', async () => {
     auth.viewerId = 'reader-1';
     getCanvas.mockResolvedValue(view({ isOwner: false, via: { kind: 'person', id: 'owner-1', name: 'Ana', slug: 'ana' } }));
     page();
@@ -358,13 +360,14 @@ describe('review B10: visual QA fixes', () => {
     auth.viewerId = 'owner-1';
     getCanvas.mockResolvedValue(view({ points: [], version: null, versions: [], publishedNone: true }));
     page();
-    expect(await screen.findByTestId('canvas-nothing-published')).toHaveTextContent('Nothing published yet');
+    expect(await screen.findByTestId('canvas-grid')).toBeInTheDocument();
+    expect(screen.queryByTestId('canvas-nothing-published')).toBeNull();
   });
 
   it('D3: nothing published, the owner has no "Publish first, then share" pill that reads as a disabled button: no such text, no disabled control', async () => {
     getCanvas.mockResolvedValue(view({ points: [], version: null, versions: [], publishedNone: true }));
     page();
-    await screen.findByTestId('canvas-nothing-published');
+    await screen.findByTestId('canvas-grid');
     expect(screen.queryByTestId('canvas-publish-first')).toBeNull();
     expect(screen.queryByText(/Publish first|then share/i)).toBeNull();
     expect(Array.from(document.querySelectorAll('button')).filter(b => b.disabled)).toHaveLength(0);

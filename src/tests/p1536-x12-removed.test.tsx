@@ -17,7 +17,7 @@ vi.mock('@/app/contexts/agent-accounts-context', () => ({ useAgentAccountIds: ()
 
 import { CanvasGrid } from '@/app/components/canvas/canvas-grid';
 import { CanvasHeader } from '@/app/components/canvas/canvas-header';
-import { changedBoxes } from '@/app/components/canvas/canvas-page-data';
+import { changedBoxes, hasNothingToShow } from '@/app/components/canvas/canvas-page-data';
 import { groupPointsByBox } from '@/lib/canvas-boxes';
 
 afterEach(() => cleanup());
@@ -87,5 +87,18 @@ describe('X12: the sentences that repeat what the boxes say', () => {
     header({ isOwner: true, version: 'd', versions: [{ name: 'd', draft: true, seq: null }] as never, publishedNone: true, draft: { id: 'd1', version: 'd', questions: {}, threadRootId: 'r', conversationId: 'c', baseSeq: null, runCount: 0, revision: 1, changedBoxes: [] } });
     expect(document.body).not.toHaveTextContent('Nothing is drafted yet');
     expect(screen.queryByTestId('canvas-draft-empty')).toBeNull();
+  });
+  it('S3c.4: the owner of a canvas with nothing published and no draft reads no "Nothing published yet" in the header (the nine empty boxes say it); a reader keeps the one-line "has not published" sentence', () => {
+    header({ isOwner: true, canvasId: 'c1', publishedNone: true, version: null, versions: [] as never });
+    expect(screen.getByTestId('canvas-header-row')).not.toHaveTextContent('Nothing published yet');
+    expect(screen.queryByTestId('canvas-nothing-published')).toBeNull();
+    cleanup();
+    header({ publishedNone: true, version: null, versions: [] as never });
+    expect(screen.getByTestId('canvas-nothing-published')).toHaveTextContent("Ana hasn't published this canvas yet.");
+  });
+  it('the owner of that canvas still gets the grid (hasNothingToShow is for readers); a reader does not', () => {
+    const base = { isOwner: true, publishedNone: true, draft: null } as unknown as CanvasReady;
+    expect(hasNothingToShow(base)).toBe(false);
+    expect(hasNothingToShow({ ...base, isOwner: false } as CanvasReady)).toBe(true);
   });
 });

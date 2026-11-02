@@ -107,9 +107,9 @@ export function isViewingDraft(ready: CanvasReady): boolean {
   return ready.isOwner && !!ready.draft && ready.draft.version === ready.version;
 }
 
-/** Nothing to read: nothing published and no draft open on screen (the grid is replaced by one line). */
+/** Nothing to read: a READER of a canvas with nothing published (the grid is replaced by one line). The owner gets the grid (nine empty boxes say it: 3c X12). */
 export function hasNothingToShow(ready: CanvasReady): boolean {
-  return ready.publishedNone && !isViewingDraft(ready);
+  return ready.publishedNone && !ready.isOwner && !isViewingDraft(ready);
 }
 
 /** The owner's questions for the empty boxes, keyed by box tag: only on the draft, only for the owner. */

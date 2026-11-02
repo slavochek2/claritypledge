@@ -2,7 +2,7 @@
  * @file canvas-header.tsx
  * @description The canvas page's own header (R10, P1515, P1545, P1536). For a READER (and any page mounted outside the owner's route): the canvas's
  * name as the title, then the byline (whose it is and which version: a menu with several), then, on a row of their own, Compare, and under them the one
- * line that says what the viewer is looking at: a reader's "Shared with you through ...", or "Nothing published yet". The byline holds no buttons, so a
+ * line that says what the viewer is looking at: a reader's "Shared with you through ...", or a reader's "<owner> hasn't published this canvas yet.". The byline holds no buttons, so a
  * long name never competes with one (S3.6). There is no "Clarity Canvas" label (W8). A reader sees published versions only and no Draft state; the version sits beside the name with no word for "published" (X5).
  * For the OWNER, inside the route element (W8): the name, version, state, Share and Clone live in the owner's bar (canvas-owner-bar), drawn above
  * the page; this header then keeps only Compare and the status lines. A draft has no Compare (it has no positions); its Publish lives in the bar's spot.
@@ -169,10 +169,8 @@ function CanvasStatusLines({ ready, sharedLabel, viewingDraft }: {
           </span>
         </p>
       )}
-      {ready.publishedNone && !viewingDraft && (
-        <p className="text-sm text-muted-foreground" data-testid="canvas-nothing-published">
-          {ready.isOwner ? 'Nothing published yet' : `${ready.ownerName} hasn't published this canvas yet.`}
-        </p>
+      {ready.publishedNone && !viewingDraft && !ready.isOwner && (
+        <p className="text-sm text-muted-foreground" data-testid="canvas-nothing-published">{`${ready.ownerName} hasn't published this canvas yet.`}</p>
       )}
       {!ready.publishedNone && ready.points.length === 0 && (
         // A published version with no points (X12: the sentence about access is gone for everyone; the boxes say the rest).

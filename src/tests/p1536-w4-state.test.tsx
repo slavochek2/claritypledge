@@ -228,11 +228,12 @@ describe('W4: the header names the state next to the version', () => {
     expect(screen.getByTestId('workspace-bar')).not.toHaveTextContent('Published');
   });
 
-  it('a canvas with nothing published names no state (the "Nothing published yet" line speaks)', async () => {
+  it('a canvas with nothing published names no state, and the header says nothing in words (3c S3c.4, premise change: the empty boxes speak)', async () => {
     getCanvas.mockImplementation(async () => readFor(undefined, { points: [], version: null, versions: [], publishedNone: true }));
     mount('/p/ana/canvas/canvas');
-    await screen.findByTestId('canvas-nothing-published');
+    await screen.findByTestId('canvas-grid');
     expect(screen.queryByTestId('canvas-state')).toBeNull();
+    expect(screen.queryByTestId('canvas-nothing-published')).toBeNull();
   });
 });
 

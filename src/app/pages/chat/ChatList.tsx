@@ -16,7 +16,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { isChatUnread, searchMessages, searchPeople, startDm, type ChatPerson, type ChatSearchHit, type ChatSummary } from '@/app/data/chat-service';
-import { ChannelMark, CountBadge, FOCUS_RING, HOVER, InlineError, ListSkeleton, MirrorMark, PersonMark, SECONDARY_ROUND_COLOURS } from './chat-kit';
+import { ChannelMark, CountBadge, FOCUS_RING, HOVER, InlineError, ListSkeleton, MirrorMark, PersonMark } from './chat-kit';
+import { SECONDARY_PILL_COLOURS } from '@/app/components/canvas/canvas-pill-styles';
 import { useChatNavigate, useLeaveChat } from './chat-hooks';
 import { NewMessageDialog } from './NewMessageDialog';
 import { useChat } from './chat-state';
@@ -371,7 +372,7 @@ export function ChatList({ activeId }: { activeId: string | null }) {
                   type="button"
                   aria-label="New message"
                   onClick={() => setComposing(true)}
-                  className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full border', SECONDARY_ROUND_COLOURS, FOCUS_RING)}
+                  className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full border', SECONDARY_PILL_COLOURS, FOCUS_RING)}
                 >
                   <Plus className="h-5 w-5" aria-hidden="true" />
                 </button>

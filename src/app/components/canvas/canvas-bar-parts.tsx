@@ -24,10 +24,10 @@ import type { WorkspaceView } from './canvas-workspace-layout';
 
 /** The two views as tabs (the project's Tabs primitive; both panes stay mounted, so there is no TabsContent). The second is the thread. X13: the active side wears the app's selected look (the blue outline and tint of the Artifacts filter pill), so the header keeps one filled button. */
 export function ViewSwitch({ view, onView }: { view: WorkspaceView; onView: (v: WorkspaceView) => void }) {
-  const side = 'h-10 min-h-10 flex-1 border border-transparent px-1 min-[360px]:px-1.5 data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-none';
+  const side = 'h-10 min-h-10 flex-1 border border-transparent px-0.5 max-[359px]:text-xs min-[360px]:px-1.5 data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-none';
   return (
     <Tabs value={view} onValueChange={v => onView(v === 'chat' ? 'chat' : 'canvas')} className="order-6 xl:hidden" data-testid="workspace-view-switch">
-      <TabsList className="h-11 w-32 p-0.5 max-[359px]:w-[7.5rem]">
+      <TabsList className="h-11 w-32 p-0.5 max-[359px]:w-[6.5rem]">
         <TabsTrigger value="canvas" data-testid="workspace-view-canvas" className={side}>Canvas</TabsTrigger>
         <TabsTrigger value="chat" data-testid="workspace-view-chat" className={side}>Thread</TabsTrigger>
       </TabsList>
@@ -98,7 +98,7 @@ function itemNode(item: HeaderItem, ready: CanvasReady | null, slots: BarSlots):
     case 'clone': return ready && <CloneButton ready={ready} />;
     case 'thread': return slots.onOpenPanel && <ThreadButton onOpen={slots.onOpenPanel} />;
     case 'go-to-draft': return slots.onGoToDraft && (
-      <button type="button" className={CANVAS_SECONDARY_PILL} onClick={slots.onGoToDraft} data-testid="workspace-go-to-draft-bar">{GO_TO_DRAFT_LABEL}</button>
+      <button type="button" className={`${CANVAS_SECONDARY_PILL} max-[359px]:px-2`} onClick={slots.onGoToDraft} data-testid="workspace-go-to-draft-bar">{GO_TO_DRAFT_LABEL}</button>
     );
     case 'cancel': return slots.cancel;
     case 'discard': return slots.discard;

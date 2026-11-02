@@ -30,6 +30,8 @@ export interface CanvasWorkspaceValue {
   cloneUnknown?: boolean;
   /** W3: the version number of the pending Clone ("New draft from v2"); null when nothing is pending. */
   cloneSeq: number | null;
+  /** 3c review: the Clone state is pending (its number may be unknown): what the header reads, with the thread panel, as THE pending state. */
+  cloning?: boolean;
   /**
    * W8: the owner's header is the route's bar (canvas-owner-bar), drawn above the page. The page then drops its own name, byline, state, Share and
    * Clone and keeps Compare and its status lines; outside the route element (a reader's page, a test that mounts the page alone) it is false and

@@ -25,9 +25,12 @@ export function canvasListParts(args: {
 }): { lead: ReactNode; leadAfterId: string | null; hideId: string | null } {
   const { canvasRoot, rootId, workspace, mirror, canvas, canvasOn } = args;
   const live = canvasOn === true ? canvas : null;
-  const hasBase = !!canvas?.draft.baseVersionId;
+  // The workspace's presence says this is a canvas draft's thread from the first render, and `baseSeq` says what it started from: a draft with a base shows the agent's line
+  // (and not the base root card) BEFORE the thread's first read, so it does not blink out between a pending Clone's first Send and the draft's read.
+  const baseKnown = canvasOn !== false && !!workspace && workspace.baseSeq != null;
   let lead: ReactNode;
-  if (live && !live.draft.baseVersionId) lead = <CanvasThreadOpener title={mirror.title} />;
-  else if (live && workspace) lead = <MirrorAgentLine mirror={mirror} seq={workspace.baseSeq ?? null} />;
-  return { lead, leadAfterId: null, hideId: canvasRoot && canvasOn !== false && (!hasBase || !!workspace) ? rootId : null };
+  if (baseKnown && workspace) lead = <MirrorAgentLine mirror={mirror} seq={workspace.baseSeq ?? null} />;
+  else if (live && !live.draft.baseVersionId) lead = <CanvasThreadOpener title={mirror.title} />;
+  const hide = canvasOn !== false && (baseKnown || (canvasRoot && (!canvas?.draft.baseVersionId || !!workspace)));
+  return { lead, leadAfterId: null, hideId: hide ? rootId : null };
 }

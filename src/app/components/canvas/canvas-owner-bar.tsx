@@ -27,12 +27,12 @@ const BAR = 'z-30 flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-
 /** The table's row for what the bar shows (null while the page is still reading), with the width and drafting facts it needs. */
 function useBarRow(args: { ready: CanvasReady | null; active: boolean; panelOpen: boolean; canOpenPanel: boolean; canGoToDraft: boolean; spotState: PublishSpotState; publishing: boolean }) {
   const { ready, active, panelOpen, canOpenPanel, canGoToDraft, spotState, publishing } = args;
-  const { cloneSeq } = useCanvasWorkspace();
+  const { cloneSeq, cloning } = useCanvasWorkspace();
   const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
   const drafting = useCanvasDraftAvailability(true) !== false;
   if (!ready) return null;
   return headerRow(headerInputOf({
-    ready, drafting, workspace: active, pendingSeq: cloneSeq, spot: spotState.kind, publishing,
+    ready, drafting, workspace: active, pendingSeq: cloneSeq, cloning, spot: spotState.kind, publishing,
     threadButton: active && wide && !panelOpen && canOpenPanel, goToDraft: active && !wide && canGoToDraft,
   }));
 }

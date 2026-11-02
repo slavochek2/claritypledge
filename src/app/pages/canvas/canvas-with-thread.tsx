@@ -38,7 +38,7 @@ export function CanvasWithThread() {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { handle, projectTag, mirror, resolved, eligible, active } = useWorkspaceAccess(params);
+  const { handle, projectTag, mirror, resolved, eligible, workspace: workspaceOk, active } = useWorkspaceAccess(params);
 
   const { reported, held, reportReady } = useReportedCanvas(handle, projectTag);
   const { view, setView, panelOpen, setPanelOpen, showThread } = useWorkspacePanel(location.state);
@@ -52,7 +52,7 @@ export function CanvasWithThread() {
 
   // The page's read counts for Clone only when it was made for the `?v=` now in the address.
   const freshReady = reported.forVersion === params.get('v') ? reported.ready : null;
-  const clone = useCloneCanvas({ eligible, active, ready: freshReady, setParams, state: location.state, openDraft: openExistingDraft, reload: () => setReloads(n => n + 1), onEnter: openPanel });
+  const clone = useCloneCanvas({ eligible: workspaceOk, active, ready: freshReady, setParams, state: location.state, openDraft: openExistingDraft, reload: () => setReloads(n => n + 1), onEnter: openPanel });
   const pendingSeq = clone.pending ? clone.pending.seq : null;
   // 3c X13: a pending Clone (the Clone tap, a reload of its address, Start over from the J4 sheet, Add to chat) opens on Thread, because typing is next.
   useThreadOnPending(clone.pending?.version ?? null, setView);
@@ -65,12 +65,12 @@ export function CanvasWithThread() {
   const answered = reported.ready ?? held;
   const ownerBar = answered ? answered.isOwner : eligible;
   const threadShown = wide ? panelOpen : view === 'chat';
-  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: pendingSeq, ownerBar }), [active, reportReady, reloads, showThread, clone.clone, resolved, pendingSeq, ownerBar]);
+  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: pendingSeq, cloning: !!clone.pending, ownerBar }), [active, reportReady, reloads, showThread, clone.clone, resolved, pendingSeq, clone.pending, ownerBar]);
   // The bar shows the last read FOR this canvas (`held`), so name, version and state do not blink away while the page re-reads another version.
   const rename = useCanvasRename(held, projectTag);
-  useWorkspaceMarker({ eligible, resolved, params, setParams, state: location.state, reported, closedDraftId });
+  useWorkspaceMarker({ eligible: workspaceOk, resolved, params, setParams, state: location.state, reported, closedDraftId });
   // `?ws=1` with no version and a draft open IS the workspace on that draft (W0).
-  useBareWorkspaceDraft({ eligible, params, reported, pendingClone: !!clone.pending, openDraft: openExistingDraft });
+  useBareWorkspaceDraft({ eligible: workspaceOk, params, reported, pendingClone: !!clone.pending, openDraft: openExistingDraft });
   // A pending Clone over another base's draft must not be dragged onto that draft by its own first Send.
   useFollowDraft(runActive, clone.pending ? null : reported.ready, openedDraft);
 
