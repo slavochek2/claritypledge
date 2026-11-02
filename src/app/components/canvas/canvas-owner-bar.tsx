@@ -11,7 +11,7 @@
  * not drawn for them. Pure layout over the page's read: the real canvas and chat are not its business, so the P955 gate fixture renders it too.
  */
 import type { ReactNode } from 'react';
-import { useCanvasDraftAvailability } from '@/app/pages/chat/use-canvas-availability';
+import { useCanvasDraftsOff } from '@/app/pages/chat/use-canvas-availability';
 import { useMediaQuery } from '@/app/pages/chat/chat-hooks';
 import { cn } from '@/lib/utils';
 import { BarActions, BarRow1, ViewSwitch } from './canvas-bar-parts';
@@ -29,7 +29,7 @@ function useBarRow(args: { ready: CanvasReady | null; active: boolean; panelOpen
   const { ready, active, panelOpen, canOpenPanel, canGoToDraft, spotState, publishing } = args;
   const { cloneSeq, cloning } = useCanvasWorkspace();
   const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
-  const drafting = useCanvasDraftAvailability(true) !== false;
+  const drafting = !useCanvasDraftsOff();
   if (!ready) return null;
   return headerRow(headerInputOf({
     ready, drafting, workspace: active, pendingSeq: cloneSeq, cloning, spot: spotState.kind, publishing,

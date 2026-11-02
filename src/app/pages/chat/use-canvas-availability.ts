@@ -36,6 +36,14 @@ export function seedCanvasAvailability(on: boolean): void {
   settled = on;
 }
 
+/**
+ * True only when the server SAID drafting is off. `useCanvasDraftAvailability` also answers false after its retries ran out, which is "could not tell", not "off": a brief
+ * outage must not take a workspace away from its owner. (`settled` is set by an answer only, never by running out of retries.)
+ */
+export function useCanvasDraftsOff(): boolean {
+  return useCanvasDraftAvailability(true) === false && settled === false;
+}
+
 /** `active` false: nothing is asked (not a mirror, or not a canvas thread) and the answer is null. */
 export function useCanvasDraftAvailability(active = true): boolean | null {
   const [on, setOn] = useState<boolean | null>(active ? settled : null);

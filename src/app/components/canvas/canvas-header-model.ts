@@ -59,9 +59,9 @@ const status = (tag: HeaderRow['tag'], picker: boolean, items: HeaderItem[]): He
 
 /** A published version on screen. */
 function publishedRow(i: HeaderInput): HeaderRow {
-  // An owner with nothing published and no draft: no row of the table covers it (a gap, flagged). The nearest rule is design-system rule 9: with nothing to act on a status
-  // says so in the spot. No picker or tag (no version), no Clone (nothing to clone) and no Share (nothing to share).
-  if (!i.hasPublished && !i.draftOpen) return status(null, false, []);
+  // An owner with nothing published and no draft: no row of the table covers it with drafting on (a gap, flagged). The nearest rule is design-system rule 9: with nothing to act on
+  // a status says so in the spot; with drafting off X4's rows show nothing. No picker or tag (no version), no Clone (nothing to clone) and no Share (nothing to share).
+  if (!i.hasPublished && !i.draftOpen) return i.drafting ? status(null, false, []) : { tag: null, picker: false, items: [], spot: 'none', filled: null };
   // In the workspace a published view is a version picked from an open draft, or the moment after a Clone's first Send, when the address has moved to the new draft and the
   // last read is still the old published one (no draft in it yet): either way the owner is editing.
   const editing = i.drafting && i.workspace;
@@ -69,8 +69,8 @@ function publishedRow(i: HeaderInput): HeaderRow {
   if (editing && i.threadButton) items.push('thread');
   if (editing && i.goToDraft) items.push('go-to-draft');
   if (!editing && i.drafting) items.push('clone');
-  // "Only Updating… and Publishing… replace the main action": the draft being edited is being written (or the page is reading it), so the status holds the spot, never a flash of Share.
-  if (editing && (i.busy || i.spot === 'loading')) return status(null, true, items);
+  // "Only Updating… and Publishing… replace the main action": the draft being edited is being written, so the status holds the spot. A re-read keeps Share.
+  if (editing && i.busy) return status(null, true, items);
   return { tag: null, picker: true, items, spot: 'share', filled: 'share' };
 }
 

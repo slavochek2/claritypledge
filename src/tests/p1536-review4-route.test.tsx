@@ -3,7 +3,7 @@
  * @description P1536 step 4 review round, through the REAL route element: (3) with canvas drafting OFF a `?ws=1` address has no workspace: no switcher, no panel, no marker, ONE row
  * (X4, X13); (2) the bar and the thread panel read ONE pending Clone, including on a reload of its address. Only the database and the transport are faked.
  */
-import { cleanup, render, screen, within, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, within, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-mappers';
@@ -231,5 +231,24 @@ describe('2: the header and the thread panel read ONE pending Clone', () => {
     expect(within(bar).queryByTestId('canvas-version-picker')).toBeNull();
     expect(within(bar).getByTestId('publish-spot')).toHaveTextContent('Nothing to publish yet');
     expect(within(bar).getByTestId('canvas-cancel-clone')).toBeInTheDocument();
+  });
+});
+
+describe('review 5, item 1: "could not tell" is not "off"', () => {
+  it('four failed availability checks (an outage) keep the workspace: ws=1 stays, the panel stays, and the bar still has its switcher', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      stubWidth(false);
+      invoke.mockResolvedValue({ data: null, error: { message: 'down' } }); // status 0: the check could not tell
+      mount('/p/ana/canvas/canvas?ws=1');
+      await screen.findByTestId('canvas-grid');
+      await act(async () => { await vi.advanceTimersByTimeAsync(14_000); }); // 1s + 3s + 9s of retries: the hook now answers false
+      await act(async () => {});
+      expect(screen.getByTestId('where')).toHaveTextContent('ws=1');
+      expect(screen.getByTestId('workspace-view-switch')).toBeInTheDocument();
+      expect(screen.getByTestId('workspace-chat-pane')).toBeInTheDocument(); // the panel is still there (its unavailable state with Retry is the existing `!on` state, covered by the C3 tests)
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

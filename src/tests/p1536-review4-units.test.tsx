@@ -6,6 +6,8 @@
  */
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
+import { vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import type { ChatSummary } from '@/app/data/chat-service';
 import { canvasListParts } from '@/app/pages/chat/canvas-list-parts';
@@ -20,7 +22,7 @@ const tokens = (cls: string) => cls.split(/\s+/).filter(Boolean);
 
 describe('5: the agent line before the draft thread has read', () => {
   it('a pending Clone whose first Send just made the draft: the thread is not read yet (no live draft), the workspace says the base is v1: the line shows, the root card is hidden', () => {
-    const parts = canvasListParts({ canvasRoot: false, rootId: 'root-1', workspace: { baseSeq: 1 }, mirror: mirror('Zed'), canvas: null, canvasOn: null });
+    const parts = canvasListParts({ canvasRoot: true, rootId: 'root-1', workspace: { baseSeq: 1 }, mirror: mirror('Zed'), canvas: null, canvasOn: null });
     render(<>{parts.lead}</>);
     expect(screen.getByTestId('agent-line')).toHaveTextContent('This is a new draft from v1.');
     expect(parts.hideId).toBe('root-1');
@@ -40,6 +42,20 @@ describe('5: the agent line before the draft thread has read', () => {
     const closed = { draft: { baseVersionId: 'ver-1', state: 'published' } } as never;
     expect(canvasListParts({ canvasRoot: true, rootId: 'r', workspace: undefined, mirror: mirror('Zed'), canvas: closed, canvasOn: true }).hideId).toBeNull();
     expect(canvasListParts({ canvasRoot: true, rootId: 'r', workspace: { baseSeq: 1 }, mirror: mirror('Zed'), canvas: null, canvasOn: false })).toMatchObject({ lead: undefined, hideId: null });
+  });
+});
+
+describe('review 5, items 3 and 4', () => {
+  it('3: a draft with a base but an unknown number (baseSeq null, the thread has read) still shows the agent line, saying "this version"', () => {
+    const canvas = { draft: { baseVersionId: 'ver-1', state: 'open' } } as never;
+    const parts = canvasListParts({ canvasRoot: true, rootId: 'r', workspace: { baseSeq: null }, mirror: mirror('Zed'), canvas, canvasOn: true });
+    render(<>{parts.lead}</>);
+    expect(screen.getByTestId('agent-line')).toHaveTextContent('This is a new draft from this version.');
+    expect(parts.hideId).toBe('r');
+  });
+  it('4: a root that is not a canvas root (canvasRoot false) is never hidden, whatever the base says', () => {
+    expect(canvasListParts({ canvasRoot: false, rootId: 'r', workspace: { baseSeq: 1 }, mirror: mirror('Zed'), canvas: null, canvasOn: null }).hideId).toBeNull();
+    expect(canvasListParts({ canvasRoot: false, rootId: 'r', workspace: { baseSeq: 1 }, mirror: mirror('Zed'), canvas: { draft: { baseVersionId: 'v', state: 'open' } } as never, canvasOn: true }).hideId).toBeNull();
   });
 });
 
@@ -67,5 +83,31 @@ describe('6: the main action is the design system\'s Button; the mirror\'s name 
     expect(list).toContain('SECONDARY_PILL_COLOURS');
     expect(kit).not.toContain('SECONDARY_ROUND_COLOURS'); // the copy is gone
     expect(list + kit).not.toMatch(/border-blue-600 bg-blue-50 text-blue-700/); // and no hand-typed second copy
+  });
+});
+
+describe('review 5, item 1: confirmed off is not could-not-tell', () => {
+  it('useCanvasDraftsOff: true only when the server SAID off; four failed checks make the availability false but the drafts are not off', async () => {
+    vi.resetModules();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const calls = { answer: null as boolean | null };
+      vi.doMock('@/app/data/canvas-draft-service', () => ({ getCanvasDraftAvailability: async () => calls.answer }));
+      const mod = await import('@/app/pages/chat/use-canvas-availability');
+      mod.resetCanvasAvailability();
+      const failed = renderHook(() => ({ on: mod.useCanvasDraftAvailability(true), off: mod.useCanvasDraftsOff() }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(14_000); });
+      expect(failed.result.current).toEqual({ on: false, off: false });
+      failed.unmount();
+      mod.resetCanvasAvailability();
+      calls.answer = false;
+      const off = renderHook(() => ({ on: mod.useCanvasDraftAvailability(true), off: mod.useCanvasDraftsOff() }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+      expect(off.result.current).toEqual({ on: false, off: true });
+    } finally {
+      vi.useRealTimers();
+      vi.doUnmock('@/app/data/canvas-draft-service');
+      vi.resetModules();
+    }
   });
 });

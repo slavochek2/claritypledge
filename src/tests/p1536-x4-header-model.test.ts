@@ -35,8 +35,7 @@ const ROWS: Row[] = [
   { name: 'A run on another canvas, this draft has points and differs: as the draft, Publish', input: { onScreen: 'draft', hasBase: true, workspace: true, draftOpen: true, spot: 'publish', busy: false }, tag: 'draft', picker: true, items: ['thread', 'discard'], spot: 'publish' },
   { name: 'A run on another canvas, this draft has nothing to publish: the status', input: { onScreen: 'draft', hasBase: true, workspace: true, draftOpen: true, spot: 'nothing', busy: false }, tag: 'draft', picker: true, items: ['thread', 'discard'], spot: 'status' },
   { name: 'Published picked from the picker (ws=1) while the open draft is updating: the status holds the spot, never a flash of Share', input: { draftOpen: true, workspace: true, spot: 'updating', busy: true }, tag: null, picker: true, items: ['thread'], spot: 'status' },
-  { name: 'Published picked from the picker (ws=1) while the page is reading again after a first Send: the skeleton holds the spot, never a flash of Share', input: { draftOpen: true, workspace: true, spot: 'loading' }, tag: null, picker: true, items: ['thread'], spot: 'status' },
-  { name: 'A Clone\'s first Send was accepted: the address moved, the last read is still the old published one with no draft, the page is reading: the skeleton holds the spot', input: { draftOpen: false, workspace: true, spot: 'loading' }, tag: null, picker: true, items: ['thread'], spot: 'status' },
+  { name: 'Published picked from the picker (ws=1) while the page is reading again: Share STAYS (X4: only Updating and Publishing replace the main action; premise change, it was a skeleton)', input: { draftOpen: true, workspace: true, spot: 'loading' }, tag: null, picker: true, items: ['thread'], spot: 'share' },
   { name: 'Reader or signed out', input: { owner: false }, tag: null, picker: true, items: [], spot: 'none' },
   { name: 'Reader of a canvas with nothing published', input: { owner: false, hasPublished: false }, tag: null, picker: false, items: [], spot: 'none' },
   { name: 'Drafting off, published, owner', input: { drafting: false }, tag: null, picker: true, items: [], spot: 'share' },
@@ -123,5 +122,12 @@ describe('review: an owner with nothing published and no draft (the table has no
   it('no picker, no tag, no Clone (there is no version to clone), no Share (nothing to share): the status "Nothing to publish yet" in the spot', () => {
     const input = inputOf(readyOf({ onScreen: 'published', hasPublished: false }), { workspace: false });
     expect(headerRow(input)).toEqual({ tag: null, picker: false, items: [], spot: 'status', filled: null });
+  });
+});
+
+describe('review 5, item 5: drafting off follows X4 (nothing to show), also for a never-published canvas with no draft', () => {
+  it('drafting off, nothing published, no draft: no items, no spot; with drafting on the same state is rule 9\'s status', () => {
+    expect(headerRow({ ...BASE, owner: true, drafting: false, hasPublished: false })).toEqual({ tag: null, picker: false, items: [], spot: 'none', filled: null });
+    expect(headerRow({ ...BASE, owner: true, drafting: true, hasPublished: false })).toMatchObject({ spot: 'status' });
   });
 });
