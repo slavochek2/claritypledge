@@ -34,6 +34,8 @@ export type VoicePhase = 'idle' | 'starting' | 'recording' | 'ready' | 'sending'
 /** `resume`: the upload already stored by an earlier attempt, to be committed again rather than uploaded again. */
 export interface VoiceAttempt {
   resume?: VoiceUploadReceipt;
+  /** P1536 S4/J5: the canvas boxes tagged in the composer when the note was sent (a canvas thread's sender passes them on). */
+  boxRefs?: string[];
 }
 export type VoiceSender = (wav: Blob, opts?: VoiceAttempt) => Promise<unknown>;
 type Sender = VoiceSender;

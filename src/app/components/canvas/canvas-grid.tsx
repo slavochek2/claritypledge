@@ -7,6 +7,7 @@ import { useRef, type ReactNode } from 'react';
 import { CANVAS_LAYERS, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import type { PointWithUserPosition } from '@/app/types';
 import { CanvasBoxPlaceholder } from '@/app/pages/canvas-page-placeholders';
+import { AddToChatButton } from './canvas-add-to-chat';
 import { BoxIcon } from './canvas-box-icon';
 import { BOX_TITLES } from './canvas-page-data';
 import { useContainerColumns, type GridColumns } from './use-container-columns';
@@ -92,7 +93,7 @@ function CanvasBox({ tag, title, points, renderCard, onMore, question, changed }
       data-testid={`canvas-box-${tag}`}
       data-empty={empty || undefined}
       // Founder (fifth round): white on white hid everything — a grey box holds white cards.
-      className={`flex min-w-0 flex-col rounded-xl border border-border bg-muted/60 p-2 sm:p-2.5`}
+      className={`flex min-w-0 flex-col rounded-xl border border-border bg-muted/60 p-2 data-[highlight]:ring-2 data-[highlight]:ring-blue-500 sm:p-2.5`}
     >
       <div className="mb-1.5 flex min-w-0 items-center gap-2">
         {/* The icon in a small tinted circle, like the pin on every point card. */}
@@ -102,6 +103,7 @@ function CanvasBox({ tag, title, points, renderCard, onMore, question, changed }
           // 3c X12: changed = differs from the version the draft started from. A box the base had and an update emptied reads Empty with Removed (hiding it would hide a removal before Publish); any other changed box reads Changed.
           <span className="shrink-0 rounded-full border border-blue-300 bg-background px-2 py-0.5 text-xs font-medium text-blue-700" data-testid={empty ? 'canvas-box-removed' : 'canvas-box-changed'}>{empty ? 'Removed' : 'Changed'}</span>
         )}
+        <AddToChatButton tag={tag} title={title} />
       </div>
       {points === null ? (
         <CanvasBoxPlaceholder empty={false} />

@@ -27,3 +27,15 @@ export function useWorkspacePanel(locationState: unknown): {
   }, []);
   return { view, setView, panelOpen, setPanelOpen, showThread };
 }
+
+/**
+ * × on the panel: from 1280px it closes the panel; below, it returns to the canvas tab. In a pending Clone it cancels instead (W3): back to the published
+ * view, nothing was written.
+ */
+export function useCloseThread(wide: boolean, cloning: boolean, cancelClone: () => void, setPanelOpen: (open: boolean) => void, setView: (v: WorkspaceView) => void): () => void {
+  return useCallback(() => {
+    if (cloning) cancelClone();
+    else if (wide) setPanelOpen(false);
+    else setView('canvas');
+  }, [wide, cloning, cancelClone, setPanelOpen, setView]);
+}

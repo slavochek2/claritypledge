@@ -11,7 +11,7 @@ import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { cn } from '@/lib/utils';
 import { FOCUS_RING, HOVER, ROUND } from './chat-kit';
 import { ShareableCard } from './ShareableCard';
-import { hasFinePointer, stashDraft, useDraft } from './chat-hooks';
+import { hasFinePointer, stashDraft, useDraft, useLatest } from './chat-hooks';
 import { matchMentions, mentionQuery, type MentionEntry } from './mention-picker';
 import { DictationSlot, FieldMic } from './DictationControls';
 import { ComposerStatus } from './VoiceControls';
@@ -22,6 +22,8 @@ import { MentionPicker } from './MentionPicker';
 import { PrivateModeBar } from './PrivateModeBar';
 import { useComposerDictation } from './use-composer-dictation';
 import { useFieldFit } from './use-field-fit';
+import { useComposerTags } from './use-composer-tags';
+import { hasWords } from './composer-tags';
 
 export type { MentionEntry };
 
@@ -73,13 +75,12 @@ interface Props {
 export function Composer({ draftKey, placeholder, onSend, onAttach, staged = null, onUnstage, quote, quoteSendable = false, sendDisabled = false, waiting, focusToken = 0, autoFocus = false, mentions, privateTo = null, onPrivateChange, onVoiceNote, leading, onSendableChange }: Props) {
   const [value, setValue] = useDraft(draftKey);
   const field = useRef<HTMLTextAreaElement>(null);
-  const latest = useRef(value);
-  latest.current = value;
-  const keyNow = useRef(draftKey);
-  keyNow.current = draftKey;
+  const latest = useLatest(value);
+  const keyNow = useLatest(draftKey);
   const [caret, setCaret] = useState(0);
   // P1576: dictation. The mic, the recorder bar that takes the field's place, and where the words go.
-  const voice = useVoiceNote(draftKey, onVoiceNote);
+  const tags = useComposerTags(field, value, setValue, onVoiceNote);
+  const voice = useVoiceNote(draftKey, tags.voice);
   const dict = useComposerDictation(draftKey, field, latest, keyNow, setValue, setCaret, value);
   const [active, setActive] = useState(0);
   const [pickerClosed, setPickerClosed] = useState(false);
@@ -108,7 +109,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
     if (focusToken > 0 || (autoFocus && hasFinePointer())) field.current?.focus();
   }, [focusToken, autoFocus, draftKey]);
 
-  const sendable = value.trim() !== '' || !!staged || quoteSendable;
+  const sendable = hasWords(value) || !!staged || quoteSendable;
   useEffect(() => onSendableChange?.(sendable), [sendable, onSendableChange]);
   useEffect(() => () => onSendableChange?.(false), [onSendableChange]);
   const send = () => {
@@ -197,6 +198,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
               aria-activedescendant={pickerOpen && options[active] ? `${listId}-${options[active].id}` : undefined}
               maxLength={4000}
               onKeyDown={(e) => {
+                if (tags.onKeyDown(e)) return;
                 if (pickerOpen) {
                   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                     e.preventDefault();

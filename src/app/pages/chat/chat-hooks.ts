@@ -116,6 +116,13 @@ export function hasFinePointer(): boolean {
 
 export { useMediaQuery, DESKTOP_QUERY } from '@/app/hooks/use-media-query';
 
+/** A ref that always holds the latest `value` (assigned during render), for handlers and effects that must not re-subscribe on every change. */
+export function useLatest<T>(value: T): { current: T } {
+  const ref = useRef(value);
+  ref.current = value;
+  return ref;
+}
+
 /** A wide screen with a real hover: the only place the message toolbar floats over the text. */
 export const DESKTOP_HOVER_QUERY = '(min-width: 1024px) and (hover: hover)';
 

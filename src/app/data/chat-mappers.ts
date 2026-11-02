@@ -51,6 +51,8 @@ export interface ChatMessage {
   isTranscription?: boolean;
   /** P1592: a system post (no author): rendered as its body, a title, alone. */
   systemKind?: ChatSystemKind | null;
+  /** P1536 S4: the canvas boxes an owner tagged this message with ("Add to chat"); null on every other message. */
+  boxRefs?: string[] | null;
 }
 
 export type ChatTranscriptStatus = 'pending' | 'done' | 'failed';
@@ -186,6 +188,7 @@ export interface ChatMessageRow {
   audio_waveform?: number[] | null;
   is_transcription?: boolean | null;
   system_kind?: ChatSystemKind | null;
+  box_refs?: string[] | null;
 }
 
 export interface ChatSummaryRow {
@@ -283,6 +286,7 @@ export function mapMessageRow(row: ChatMessageRow): ChatMessage {
     audio: mapAudio(row),
     isTranscription: row.is_transcription === true,
     systemKind: row.system_kind ?? null,
+    boxRefs: row.box_refs?.length ? row.box_refs : null,
   };
 }
 

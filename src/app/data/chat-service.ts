@@ -40,7 +40,7 @@ export const MESSAGE_COLUMNS =
   'id, conversation_id, author_id, body, created_at, edited_at, deleted_at, reply_to_id, thread_root_id, ' +
   'forwarded_from_message_id, forward_author_id, forward_snapshot, kind, attachment_kind, attachment_id, client_id, ' +
   'context_conversation_id, audio_duration_ms, audio_expired_at, transcript, transcript_status, audio_waveform, ' +
-  'is_transcription, system_kind';
+  'is_transcription, system_kind, box_refs';
 
 const CONVERSATION_COLUMNS =
   'id, kind, org_id, event_id, owner_id, dm_user_a, dm_user_b, title, created_at, last_message_at';

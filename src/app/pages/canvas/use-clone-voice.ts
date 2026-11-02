@@ -61,7 +61,7 @@ export function useCloneVoice(args: CloneVoiceArgs): VoiceSender {
     a.onSending(true);
     try {
       const r = await openNextDraftByVoice({
-        conversationId: a.conversationId, projectTag: identity.projectTag, version: identity.version, wav, resume: attempt?.resume, replace: identity.replace,
+        conversationId: a.conversationId, projectTag: identity.projectTag, version: identity.version, wav, resume: attempt?.resume, replace: identity.replace, boxRefs: attempt?.boxRefs,
       });
       if (r.ok) {
         if (resumeKey) identities.current.delete(resumeKey); // sent: nothing to remember

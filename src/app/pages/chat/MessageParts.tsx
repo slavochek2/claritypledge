@@ -13,6 +13,7 @@ import { getMessage, type ChatMessage } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { AuthorNameSkeleton, QuoteSkeleton } from './MessageRowPlaceholders';
 import { MessageAttachment } from './MessageAttachment';
+import { CanvasMessageBody } from './CanvasMessageBody';
 import { Quote } from './Quote';
 import { FOCUS_RING, MirrorMark } from './chat-kit';
 import { useChatNavigate } from './chat-hooks';
@@ -40,13 +41,13 @@ export function TranscriptionMark({ msg, grouped = false, continues = false }: {
 }
 
 /** A message's words: plain (a transcription is set like a typed message), or a bold title for a system post; "(edited)" only from edited_at. */
-export function MessageNote({ body, editedAt, system }: { body: string; editedAt: string | null; system: boolean }) {
+export function MessageNote({ body, editedAt, system, boxRefs, authorId }: { body: string; editedAt: string | null; system: boolean; boxRefs?: string[] | null; authorId?: string | null }) {
   return (
     <p
       data-testid={system ? 'system-title' : undefined}
       className={cn('whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground', system && 'font-semibold')}
     >
-      {body}
+      <CanvasMessageBody body={body} boxRefs={boxRefs} authorId={authorId ?? null} />
       {editedAt && <span className="ml-1.5 text-xs text-muted-foreground" data-testid="edited-mark">(edited)</span>}
     </p>
   );

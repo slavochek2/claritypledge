@@ -22,6 +22,13 @@ export interface CanvasWorkspaceValue {
    */
   showThread: () => void;
   /**
+   * D5 / J3 / J4: the tap of Add to chat on a box. Null where the viewer is not the canvas's owner with a workspace (then no box offers it); written nothing on a
+   * published canvas: it enters the pending Clone (or asks J4's question) and the tag waits for the composer.
+   */
+  addToChat?: ((tag: string) => void) | null;
+  /** J2: a reply's box chip: shows that box (below 1280 it switches to Canvas), scrolls it to the middle and rings it for two seconds. Null outside the owner's workspace. */
+  showBox?: ((tag: string) => void) | null;
+  /**
    * W3: Clone the version on screen. Null where the page is not the owner's workspace route (a reader's page, an owner with no mirror chat,
    * a gate fixture): then the page shows no Clone. Writes nothing; it only enters the pending state (ws=1, no draft).
    */

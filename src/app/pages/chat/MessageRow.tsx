@@ -16,8 +16,7 @@ import { Link } from 'react-router-dom';
 import { Forward, Lock, MessageSquareText, MessagesSquare, Pencil, Reply, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { ChatMessage } from '@/app/data/chat-service';
-import type { ThreadStats } from '@/app/data/chat-service';
+import type { ChatMessage, ThreadStats } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { EditBox } from './EditBox';
 import { RepliesLink } from './RepliesLink';
@@ -195,7 +194,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   const authorPending = !!authorId && !author && !missingAuthors.has(authorId);
   const time = local ? (local.failed ? '' : 'Sending…') : messageTime(msg.createdAt);
 
-  const noteEl = msg.body && <MessageNote body={msg.body} editedAt={server?.editedAt ?? null} system={system} />;
+  const noteEl = msg.body && <MessageNote body={msg.body} editedAt={server?.editedAt ?? null} system={system} boxRefs={msg.boxRefs} authorId={msg.authorId} />;
   return (
     <li ref={row} data-msg={msg.id} data-testid="message">
       {/* Right-click and long press are pointer shortcuts only: every item they offer is also reachable by keyboard, on the toolbar or in its ⋯ menu. */}

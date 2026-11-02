@@ -14,6 +14,7 @@ import { MAX_UPLOAD_BYTES } from '@/app/pages/chat/canvas-thread-copy';
 import type { CanvasDraftErrorCode } from '@/app/data/canvas-draft-service';
 import { postFile } from '@/app/pages/chat/use-canvas-uploads';
 import { createUnresolvedClientIds } from '@/app/pages/chat/unresolved-client-ids';
+import { decodeTagged } from '@/app/pages/chat/composer-tags';
 import { trackCanvasSend } from '@/app/pages/chat/canvas-thread-registry';
 
 /** The client id of each first Send still unresolved, by what it says (canvas, version, text or file). */
@@ -66,11 +67,12 @@ export async function openNextDraft(args: { projectTag: string; version: string 
     return { ok: false, why: 'versions_failed' }; // nothing was sent: not an unknown outcome
   }
   if (!from) return { ok: false, why: 'no_version' };
-  const key = sendKey(from, replace, { body, file });
+  const key = sendKey(from, replace, { body, file }); // the body as the composer made it, tags included
+  const { text, refs } = decodeTagged(body ?? ''); // S4: tag tokens become "[Title]" in the words, and the boxes go as their own list
   // The thread this makes is a canvas thread: the mirror must know it before the realtime copy of the message (or the answer) lands.
   const sent = await trackCanvasSend((threadKnown) => sendCanvasWorkspaceMessage({
     canvasId: from.canvasId, fromVersionId: from.id, expectedDraftId: replace?.draftId ?? null, expectedRevision: replace?.revision ?? null, ...(replace ? { replace: true } : {}),
-    ...(file ? { attachment: { kind: 'file' as const, label: file.name } } : { body }),
+    ...(file ? { attachment: { kind: 'file' as const, label: file.name } } : { body: text, ...(refs.length ? { boxRefs: refs } : {}) }),
     clientId: unresolved.idFor(key), onThreadKnown: threadKnown,
   }));
   if (!sent.ok) {
@@ -101,8 +103,10 @@ export type FirstVoiceResult = NextDraftResult | { ok: false; why: 'refused' | '
  */
 export async function openNextDraftByVoice(args: {
   conversationId: string; projectTag: string; version: string | null; wav: Blob; replace?: ReplaceDraft | null; resume?: VoiceUploadReceipt;
+  /** The boxes tagged in the composer when the note was sent (J5). */
+  boxRefs?: string[];
 }): Promise<FirstVoiceResult> {
-  const { conversationId, projectTag, version, wav, replace = null, resume } = args;
+  const { conversationId, projectTag, version, wav, replace = null, resume, boxRefs } = args;
   let from: Awaited<ReturnType<typeof versionOf>>;
   try {
     from = await versionOf(projectTag, version);
@@ -112,7 +116,7 @@ export async function openNextDraftByVoice(args: {
   if (!from) return { ok: false, why: 'no_version' };
   const r = await trackCanvasSend((threadKnown) => sendCanvasVoiceNote(
     conversationId, wav,
-    { canvasId: from.canvasId, fromVersionId: from.id, expectedDraftId: replace?.draftId ?? null, expectedRevision: replace?.revision ?? null, replace: !!replace },
+    { canvasId: from.canvasId, fromVersionId: from.id, expectedDraftId: replace?.draftId ?? null, expectedRevision: replace?.revision ?? null, replace: !!replace, boxRefs },
     resume,
   ).then((answer) => { if (answer.ok) threadKnown(answer.sent.threadRootId); return answer; }));
   if (!r.ok) return { ok: false, why: r.refused === 'stale_view' ? 'stale_view' : 'refused', receipt: r.receipt }; // a stale view is told apart with or without a draft to replace: either way the page must re-read

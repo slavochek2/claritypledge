@@ -16,6 +16,7 @@ import { sendCanvasVoiceNote } from '@/app/data/canvas-voice-service';
 import { VoiceNoteError } from '@/app/data/chat-voice-service';
 import type { VoiceSender } from '@/hooks/use-voice-note';
 import { DRAFT_ERROR_TEXT } from './canvas-thread-copy';
+import { decodeTagged } from './composer-tags';
 import { createUnresolvedClientIds } from './unresolved-client-ids';
 import type { CanvasThread } from './use-canvas-thread';
 
@@ -48,7 +49,7 @@ export function useCanvasActions({ thread, available, onBusyElsewhere }: { threa
     const { draft, reload } = t;
     setSendingFor(draft.id);
     try {
-      const r = await sendCanvasVoiceNote(draft.conversationId, wav, { canvasId: draft.canvasId, expectedDraftId: draft.id, expectedRevision: draft.revision }, attempt?.resume);
+      const r = await sendCanvasVoiceNote(draft.conversationId, wav, { canvasId: draft.canvasId, expectedDraftId: draft.id, expectedRevision: draft.revision, boxRefs: attempt?.boxRefs }, attempt?.resume);
       await reload().catch(() => undefined); // the note's message and run are in; a refusal means the screen is behind
       if (r.ok) return;
       if (r.refused === 'busy_elsewhere') latest.current.onBusyElsewhere?.(); // the send slot says it (§2)
@@ -60,10 +61,11 @@ export function useCanvasActions({ thread, available, onBusyElsewhere }: { threa
   if (!thread || available !== true || thread.draft.state !== 'open') return { onSend: null, onVoice: null, sending: false };
   const { draft, reload } = thread;
   const onSend = async (body: string): Promise<boolean> => {
-    const key = `${draft.id}|${body}`;
+    const key = `${draft.id}|${body}`; // the body as the composer made it: the same words with other tags are another message
+    const { text, refs } = decodeTagged(body); // S4: tag tokens become "[Title]" in the words, and the boxes go as their own list
     setSendingFor(draft.id);
     try {
-      const r = await sendCanvasWorkspaceMessage({ canvasId: draft.canvasId, expectedDraftId: draft.id, expectedRevision: draft.revision, body, clientId: unresolved.idFor(key) });
+      const r = await sendCanvasWorkspaceMessage({ canvasId: draft.canvasId, expectedDraftId: draft.id, expectedRevision: draft.revision, body: text, ...(refs.length ? { boxRefs: refs } : {}), clientId: unresolved.idFor(key) });
       unresolved.settle(key); // an answer, a refusal included: the next Send of these words is a new message
       if (!r.ok && r.refused === 'busy_elsewhere' && onBusyElsewhere) onBusyElsewhere(); // the send slot says it (§2); no toast
       else if (!r.ok) toast.error(sendRefusedText(r.refused));
