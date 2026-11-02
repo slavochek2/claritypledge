@@ -280,6 +280,19 @@ describe('FeedPointCard inside a canvas', () => {
     expect(offered(bindings({ ownStoryAdded: true }))).toBe(false);
   });
 
+  it('P1536: the owner\'s draft view says a kept point takes no story (absent, not disabled); CONTROL: the same card without the flag offers it', () => {
+    const voted = { ...point, userPosition: { id: 'pp', pointId: 'p1', userId: 'viewer-1', position: 'agree' } } as unknown as PointWithUserPosition;
+    const offered = (canvas: FeedPointCardCanvas) => {
+      const view = render(<MemoryRouter><FeedPointCard point={voted} surface="canvas" linkedStories={[ownerStory]} canvas={canvas} onAddStory={() => undefined} /></MemoryRouter>);
+      const found = screen.queryByRole('button', { name: 'Add a story for this point' }) !== null;
+      const disabled = screen.queryByRole('button', { name: 'Add a story for this point', hidden: true })?.hasAttribute('disabled') ?? false;
+      view.unmount();
+      return { found, disabled };
+    };
+    expect(offered(bindings())).toEqual({ found: true, disabled: false });
+    expect(offered(bindings({ noAddStory: true }))).toEqual({ found: false, disabled: false });
+  });
+
   it('a reader gets no Details link-out, no card menu, and no story page behind the owner\'s story', () => {
     const MENU = { name: 'More actions for this point' };
     const reader = card(bindings());

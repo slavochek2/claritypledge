@@ -74,7 +74,12 @@ export interface FeedPointCardCanvas {
   readOnly?: boolean;
   /** no position buttons, whoever looks (the owner's draft version has no positions); stories stay */
   noPositions?: boolean;
+  /** P1536: no "Add a story" (the owner's draft view of a point kept from a published version: a story there would be read at once by that version's readers). Absent, not disabled. */
+  noAddStory?: boolean;
 }
+
+/** "Add a story" is offered inside a canvas unless the viewer already added one here, the draft view keeps the point from a published version (P1536), or the visitor only reads. */
+const canvasTakesStory = (canvas?: FeedPointCardCanvas): boolean => !(canvas?.ownStoryAdded || canvas?.noAddStory || canvas?.readOnly);
 
 /** The position buttons show unless the canvas gives no positions to take (a draft) or the visitor only reads. */
 const showsPositionButtons = (canvas?: FeedPointCardCanvas): boolean => !(canvas?.readOnly || canvas?.noPositions);
@@ -283,7 +288,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
   const viewerStory = viewerId && linkedStories
     ? linkedStories.find((linked) => linked.authorId === viewerId)
     : undefined;
-  const addStoryCopy = viewerId && authedEffective && linkedStories !== undefined && !viewerStory && !canvas?.ownStoryAdded && !canvas?.readOnly
+  const addStoryCopy = viewerId && authedEffective && linkedStories !== undefined && !viewerStory && canvasTakesStory(canvas)
     ? getPositionCTACopy(getPositionGroup(authedEffective))
     : null;
 

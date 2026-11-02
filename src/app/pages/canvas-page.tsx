@@ -68,7 +68,7 @@ import { CanvasGrid } from '@/app/components/canvas/canvas-grid';
 import { CanvasCard } from '@/app/components/canvas/canvas-card';
 import { PointPanel } from '@/app/components/canvas/canvas-point-panel';
 import {
-  BOX_TITLES, buildReady, canvasSeoTitle, changedBoxes, compareSetup, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, sortBoxesByContest,
+  BOX_TITLES, buildReady, canvasSeoTitle, changedBoxes, compareSetup, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, sortBoxesByContest, storyFlags,
   type CanvasData, adoptionSkipsRead,
 } from '@/app/components/canvas/canvas-page-data';
 import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
@@ -460,7 +460,7 @@ export function CanvasPage() {
       // D20: the owner marks their own stance on draft points (readers never reach a draft). Publishing does not require one.
       noPositions: !viewerId,
       sharedLabel,
-      ownStoryAdded: (ready.stories.get(point.id) ?? []).some(st => addedStoryIds.has(st.id) && st.authorId === viewerId),
+      ...storyFlags(ready, point, addedStoryIds, viewerId),
     }
     : undefined;
   const removeAddedStory = async (storyId: string) => {

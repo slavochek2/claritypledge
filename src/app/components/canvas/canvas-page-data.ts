@@ -231,3 +231,34 @@ export function adoptionSkipsRead(adopted: { current: string | null }, onScreen:
   adopted.current = null;
   return skip;
 }
+
+/*
+ * P1536 (security review): what the owner's DRAFT view may write to published readers' eyes. A point kept from a published version is the same row in the draft and in that version,
+ * and `get_canvas` returns the owner's stories on a version's points with no version condition, so a story added from the draft is read at once by everyone who reads the published
+ * version, and Discard does not take it back (S1.7: the published read does not change while a draft is open). So in the draft view the card offers no Add story on such a point.
+ * A point new to the draft keeps it (nobody else reads it yet), and so does the published view (the owner writing into that very version).
+ * [FOUNDER DECISION, flagged for UAT: the draft view takes no story on a kept point; no new sentence, the link is absent, never disabled (design rule 9).]
+ */
+/** The tag the database puts on a point for a version: `'canvas_' || version name`. */
+const versionTag = (name: string): string => `canvas_${name}`;
+
+/** The point also belongs to a published version (any of them, not only the newest). */
+export function pointKeptFromPublished(ready: CanvasReady, point: { systemTags?: string[] }): boolean {
+  const published = new Set(ready.versions.filter(v => !v.draft).map(v => versionTag(v.name)));
+  return (point.systemTags ?? []).some(t => published.has(t));
+}
+
+/** In the owner's draft view, a kept point takes no story. */
+export const addStoryBlocked = (ready: CanvasReady, point: { systemTags?: string[] }): boolean => isViewingDraft(ready) && pointKeptFromPublished(ready, point);
+
+/**
+ * The two flags the card is handed about stories: the viewer already added one through the canvas (one per person per point), and the draft view's kept point (above).
+ * One call in the page, so the page does not grow.
+ */
+export function storyFlags(ready: CanvasReady, point: { id: string; systemTags?: string[] }, addedStoryIds: ReadonlySet<string>, viewerId: string | undefined): { ownStoryAdded: boolean; noAddStory: boolean } {
+  return {
+    ownStoryAdded: (ready.stories.get(point.id) ?? []).some(st => addedStoryIds.has(st.id) && st.authorId === viewerId),
+    noAddStory: addStoryBlocked(ready, point),
+  };
+}
+
