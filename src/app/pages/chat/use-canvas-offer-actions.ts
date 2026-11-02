@@ -8,7 +8,7 @@
  * Every call passes the revision the offers were read at. A refusal changes nothing, is said once (a toast, the way Undo says it) and the rows are read again; a stale answer never
  * decides navigation (the owner only lands anywhere on a success the server just gave). One action at a time (`pending`), and a lost answer retries under the SAME client id.
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { CanvasDraftRefusal } from '@/app/data/canvas-draft-calls';
@@ -27,8 +27,13 @@ const unresolved = createUnresolvedClientIds();
 export type OfferAction = 'switch' | 'start' | 'dismiss';
 export interface PendingOffer { id: string; action: OfferAction }
 
+/** How long "Another of your canvases is updating." stays after the server said so (nothing reads when the other canvas ends, so the status ends by itself, as the send slot's does). */
+export const OFFER_ELSEWHERE_MS = 10_000;
+
 export interface CanvasOfferActions {
   pending: PendingOffer | null;
+  /** The server refused an action because another of the owner's canvases is updating, a moment ago. */
+  elsewhere: boolean;
   switchTo: (offerId: string) => void;
   start: (offerId: string) => void;
   dismiss: (offerId: string) => void;
@@ -46,7 +51,13 @@ export function useCanvasOfferActions(a: {
   const navigate = useNavigate();
   const location = useLocation();
   const [pending, setPending] = useState<PendingOffer | null>(null);
+  const [elsewhere, setElsewhere] = useState(false);
   const busy = useRef(false);
+  useEffect(() => {
+    if (!elsewhere) return;
+    const t = setTimeout(() => setElsewhere(false), OFFER_ELSEWHERE_MS);
+    return () => clearTimeout(t);
+  }, [elsewhere]);
   const slug = chat.authors[chat.userId]?.slug ?? null;
   const here = `${location.pathname}${location.search}`;
 
@@ -58,7 +69,8 @@ export function useCanvasOfferActions(a: {
     let left = false;
     try {
       const r = await call(read);
-      if (r.refused) {
+      if (r.refused === 'busy_elsewhere') setElsewhere(true); // said in the row, for a moment, not as a toast
+      else if (r.refused) {
         const text = offerRefusedText(r.refused);
         if (text) toast.error(text);
       } else if (r.leave) {
@@ -92,6 +104,7 @@ export function useCanvasOfferActions(a: {
     unresolved.settle(key);
     if (!res.ok) return { refused: res.refused };
     if (res.threadRootId) registerCanvasThread(res.threadRootId); // the mirror stays silent in the new canvas's thread
+    if (res.start && !res.start.ok && DRAFT_ERROR_TEXT[res.start.code]) toast.error(DRAFT_ERROR_TEXT[res.start.code]); // the run is made; the new canvas's own thread starts it again
     return {
       refused: null,
       leave: () => {
@@ -109,5 +122,5 @@ export function useCanvasOfferActions(a: {
     return { refused: res.ok ? null : res.refused };
   }), [run]);
 
-  return { pending, switchTo, start, dismiss };
+  return { pending, elsewhere, switchTo, start, dismiss };
 }

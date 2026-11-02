@@ -139,11 +139,27 @@ async function walk(browser: Browser, vp: number, height: number, closedOnly = f
   }
 }
 
-/** The publish toast: its text, and the See offer action. */
+/**
+ * The publish toast: its text, the See offer action, and which of the page's top-bar controls (buttons and links in the bar: the top 110px below 1280px where it is two rows, the top 56px above) it sits on top of. A control whose centre is
+ * inside the toast cannot be tapped while the toast shows: `elementFromPoint` there is the toast, not the control. Settled first: a toast is mid-slide for its first moments.
+ */
 async function toastInfo(page: Page) {
   const t = page.locator('[data-sonner-toast]').first();
   await t.waitFor({ state: 'visible', timeout: 20_000 });
-  return { text: ((await t.innerText()) || '').replace(/\s+/g, ' ').trim(), hasSeeOffer: (await t.getByRole('button', { name: 'See offer' }).count()) > 0 };
+  await page.waitForTimeout(800);
+  const covered = await page.evaluate(() => {
+    const toast = document.querySelector('[data-sonner-toast]');
+    if (!toast) return [];
+    const r = toast.getBoundingClientRect();
+    return [...document.querySelectorAll('button, a, [role="button"]')]
+      .filter((el) => !toast.contains(el))
+      .map((el) => { const b = el.getBoundingClientRect(); return { name: (el.getAttribute('data-testid') || el.textContent || '').trim().slice(0, 30), top: b.top, cx: b.left + b.width / 2, cy: b.top + b.height / 2, w: b.width, h: b.height }; })
+      .filter((c) => c.w > 0 && c.h > 0 && c.top >= 0 && c.top < (window.innerWidth < 1280 ? 110 : 56) && c.cx >= r.left && c.cx <= r.right && c.cy >= r.top && c.cy <= r.bottom)
+      .filter((c) => !!document.elementFromPoint(c.cx, c.cy)?.closest('[data-sonner-toast]'))
+      .map((c) => c.name);
+  });
+  const rect = await t.evaluate((e) => { const b = e.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom) }; });
+  return { text: ((await t.innerText()) || '').replace(/\s+/g, ' ').trim(), hasSeeOffer: (await t.getByRole('button', { name: 'See offer' }).count()) > 0, covered, rect };
 }
 
 async function walk1440(page: Page, vp: number, rpcs: string[]) {
@@ -211,6 +227,7 @@ async function walk1440(page: Page, vp: number, rpcs: string[]) {
     await page.getByTestId('canvas-draft-publish').click();
     const t = await toastInfo(page);
     const f = await shot(page, vp, 'A5-publish-toast', 200);
+    rec(vp, 'toast', 'the toast sits on no top-bar control (nothing to tap is under it)', t.covered.length === 0, `covered=${JSON.stringify(t.covered)} rect=${JSON.stringify(t.rect)}`, f);
     rec(vp, 'J10', 'the toast is the publish reply: Published v1, the group, the retention sentence, See offer', /^Published v1\./.test(t.text) && /I keep the text of your uploads/.test(t.text) && /30 days/.test(t.text) && t.hasSeeOffer, t.text, f);
     await page.locator('[data-sonner-toast]').first().getByRole('button', { name: 'See offer' }).click();
     await expect(page.getByTestId('canvas-closed-line')).toBeVisible({ timeout: 30_000 });
@@ -317,6 +334,7 @@ async function walk375(page: Page, vp: number, closedOnly = false) {
     await page.getByTestId('canvas-draft-publish').click();
     const t = await toastInfo(page);
     const f = await shot(page, vp, 'C2-publish-toast', 200);
+    rec(vp, 'toast', 'the toast sits on no top-bar control (nothing to tap is under it)', t.covered.length === 0, `covered=${JSON.stringify(t.covered)} rect=${JSON.stringify(t.rect)}`, f);
     rec(vp, 'J10', 'the toast carries the retention sentence and See offer', /^Published v1\./.test(t.text) && /30 days/.test(t.text) && t.hasSeeOffer, t.text, f);
     if (!t.hasSeeOffer) return;
     await page.locator('[data-sonner-toast]').first().getByRole('button', { name: 'See offer' }).click();

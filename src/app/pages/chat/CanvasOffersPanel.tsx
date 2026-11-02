@@ -18,7 +18,7 @@ function WiredRows({ view, status, reload, placement }: PanelProps) {
   const actions = useCanvasOfferActions({ read: view.read, reread: view.reread, reload });
   return (
     <CanvasOfferRows
-      read={view.read} failed={view.failed} onRetry={view.retry} status={status} pending={actions.pending} placement={placement}
+      read={view.read} failed={view.failed} onRetry={view.retry} status={status ?? (actions.elsewhere ? 'elsewhere' : null)} pending={actions.pending} placement={placement}
       onSwitch={actions.switchTo} onStart={actions.start} onDismiss={actions.dismiss}
     />
   );

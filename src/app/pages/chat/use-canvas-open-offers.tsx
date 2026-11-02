@@ -21,11 +21,11 @@ export function newestThreadMessageId(messages: ChatMessage[], rootId: string): 
   return best?.id ?? null;
 }
 
-/** The message list's "after" nodes with the offer block added under its message; when Undo (or its status) already sits there, the block follows it. */
+/** The message list's "after" nodes with the offer block added under its message; when Undo (or its status) already sits there, the offer rows come first and Undo last (J7: the buttons, then "Draft ready... Undo"). */
 export function withOfferRows(after: Record<string, ReactNode>, rows: { afterId: string; node: ReactNode } | null): Record<string, ReactNode> {
   if (!rows) return after;
   const there = after[rows.afterId];
-  return { ...after, [rows.afterId]: there ? <>{there}{rows.node}</> : rows.node };
+  return { ...after, [rows.afterId]: there ? <>{rows.node}{there}</> : rows.node };
 }
 
 export function useOpenOfferRows(live: CanvasThread | null, messages: ChatMessage[], rootId: string): { afterId: string; node: ReactNode } | null {
@@ -33,6 +33,6 @@ export function useOpenOfferRows(live: CanvasThread | null, messages: ChatMessag
   const view = useCanvasOffers({ canvasId: open ? live.draft.canvasId : null, draftId: open ? live.draft.id : null, key: openOffersKey(live) });
   const afterId = newestThreadMessageId(messages, rootId);
   if (!open || !afterId || (!liveOffers(view.read).length && !view.failed)) return null;
-  const status: OfferRowsStatus = live.running ? 'updating' : view.read?.activeElsewhere ? 'elsewhere' : null;
+  const status: OfferRowsStatus = live.running ? 'updating' : null; // another canvas updating is said by the row after a refusal (CanvasOffersPanel), never from a read that can go stale
   return { afterId, node: <CanvasOffersPanel view={view} status={status} reload={live.reload} placement="thread" /> };
 }

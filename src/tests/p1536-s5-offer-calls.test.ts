@@ -38,12 +38,12 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('readCanvasOffers: the offers of one draft, from the one state read', () => {
-  it('an OPEN draft: its offers (a focused one included, so the row logic can drop it), the revision they were read at, and who is busy', async () => {
+  it('an OPEN draft: its offers (a focused one included, so the row logic can drop it), the revision they were read at', async () => {
     sb.rpc.mockResolvedValue(stateOf());
     const r = await readCanvasOffers('cv-1', 'draft-1');
     expect(sb.rpc).toHaveBeenCalledWith('get_canvas_draft_state', { p_canvas: 'cv-1' });
     expect(r).toEqual({
-      draftId: 'draft-1', revision: 7, closed: false, materialExpired: false, activeElsewhere: false,
+      draftId: 'draft-1', revision: 7, closed: false, materialExpired: false,
       offers: [
         { id: 'o-1', group: 'Agencies', why: 'Half of it is about agencies', state: 'offered', startedCanvasId: null },
         { id: 'o-2', group: 'Cafe owners', why: 'Half of it is about agencies', state: 'focused', startedCanvasId: null },
@@ -80,8 +80,8 @@ describe('readCanvasOffers: the offers of one draft, from the one state read', (
   });
 });
 
-describe('one batched read (metered-services): the Undo read and the offers read share one request', () => {
-  it('both asked in the same moment: ONE get_canvas_draft_state', async () => {
+describe('one batched read (metered-services; decisions.md P1527 allows no in-flight dedupe, canvas-root-store batches the MOMENT OF ASKING)', () => {
+  it('Undo and the offers asked in the same moment: ONE get_canvas_draft_state, which is a fresh request', async () => {
     sb.rpc.mockResolvedValue(stateOf());
     const [u, o] = await Promise.all([readCanvasUndoTarget('cv-1', 'draft-1'), readCanvasOffers('cv-1', 'draft-1')]);
     expect(sb.rpc).toHaveBeenCalledTimes(1);
@@ -89,23 +89,37 @@ describe('one batched read (metered-services): the Undo read and the offers read
     expect(o?.revision).toBe(7);
   });
 
-  it('a read made AFTER a write asks again, and never joins one that was already in flight before it', async () => {
+  it('a read asked AFTER another was already sent never joins it: it is its own request (a write may have landed in between)', async () => {
     let release: (v: unknown) => void = () => undefined;
     sb.rpc.mockImplementationOnce(() => new Promise((r) => { release = r; }));
-    const before = readCanvasOffers('cv-1', 'draft-1'); // in flight, started before the write
+    const before = readCanvasOffers('cv-1', 'draft-1');
+    await vi.waitFor(() => expect(sb.rpc).toHaveBeenCalledTimes(1)); // sent, not answered
     sb.rpc.mockResolvedValueOnce(stateOf({ draft: { id: 'draft-1', revision: 8, offers: [] } }));
-    const after = await readCanvasOffers('cv-1', 'draft-1', { fresh: true });
+    const after = await readCanvasOffers('cv-1', 'draft-1');
     expect(sb.rpc).toHaveBeenCalledTimes(2);
     expect(after?.revision).toBe(8);
     release(stateOf());
-    await before;
+    expect((await before)?.revision).toBe(7); // the earlier answer is the earlier asker's, never handed to the later one
   });
 
-  it('two reads one after the other (nothing in flight) are two requests: the read is shared, never cached', async () => {
+  it('two reads one after the other are two requests: the read is batched, never cached', async () => {
     sb.rpc.mockResolvedValue(stateOf());
     await readCanvasOffers('cv-1', 'draft-1');
     await readCanvasOffers('cv-1', 'draft-1');
     expect(sb.rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it('two different canvases asked in the same moment are two requests (a batch is per canvas)', async () => {
+    sb.rpc.mockResolvedValue(stateOf());
+    await Promise.all([readCanvasOffers('cv-1', 'draft-1'), readCanvasOffers('cv-2', 'draft-1')]);
+    expect(sb.rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it('a failed batch fails every asker of it (neither gets "no offers")', async () => {
+    sb.rpc.mockResolvedValue({ data: null, error: { message: 'boom', code: 'XX000' } });
+    const r = await Promise.allSettled([readCanvasUndoTarget('cv-1', 'draft-1'), readCanvasOffers('cv-1', 'draft-1')]);
+    expect(r.map((x) => x.status)).toEqual(['rejected', 'rejected']);
+    expect(sb.rpc).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -128,11 +142,12 @@ describe('switchCanvasFocus: "Make it about this"', () => {
     expect(sb.invoke).not.toHaveBeenCalled();
   });
 
-  it('a REPLAY (the first answer was lost) returns the first result and starts no second run', async () => {
+  it('a REPLAY (the first answer was lost) returns the first result and STARTS its run again: the first start may never have gone out, and starting a run that is already going or done is harmless', async () => {
     sb.rpc.mockResolvedValue({ data: { ...ok.data, replayed: true }, error: null });
+    sb.invoke.mockResolvedValue({ data: { run_id: 'run-9', kind: 'focus' }, error: null });
     const r = await switchCanvasFocus({ draftId: 'draft-1', offerId: 'o-1', expectedRevision: 7, clientId: 'c-1' });
-    expect(r).toMatchObject({ ok: true, replayed: true });
-    expect(sb.invoke).not.toHaveBeenCalled();
+    expect(r).toMatchObject({ ok: true, replayed: true, runId: 'run-9', start: { ok: true } });
+    expect(sb.invoke).toHaveBeenCalledWith('canvas-draft', { body: { run_id: 'run-9' } });
   });
 
   it('an authorization failure throws', async () => {
@@ -153,6 +168,21 @@ describe('forkCanvasFromOffer: "Start a canvas"', () => {
     expect(sb.invoke).toHaveBeenCalledWith('canvas-draft', { body: { run_id: 'run-f' } });
     expect(r).toMatchObject({ ok: true, alreadyStarted: false, canvasId: 'cv-new', canvasName: 'canvas_5', versionName: 'canvas_v5', draftId: 'draft-new', threadRootId: 'root-new', runId: 'run-f' });
     expect(clearCache).toHaveBeenCalled();
+  });
+
+  it('a REPLAY of the fork (the first answer was lost, the new canvas\'s first run may still be queued) STARTS that run; a run that already went is answered harmlessly', async () => {
+    sb.rpc.mockResolvedValue({ data: { ...forked.data, replayed: true }, error: null });
+    sb.invoke.mockResolvedValue({ data: { run_id: 'run-f', kind: 'fork_first' }, error: null });
+    const r = await forkCanvasFromOffer(args);
+    expect(sb.invoke).toHaveBeenCalledWith('canvas-draft', { body: { run_id: 'run-f' } });
+    expect(r).toMatchObject({ ok: true, alreadyStarted: false, canvasName: 'canvas_5', draftId: 'draft-new', runId: 'run-f', start: { ok: true } });
+  });
+
+  it('a replay whose run already finished: the start is answered GONE and the fork still returns the canvas (nothing thrown)', async () => {
+    sb.rpc.mockResolvedValue({ data: { ...forked.data, replayed: true }, error: null });
+    sb.invoke.mockResolvedValue({ data: null, error: { context: new Response(JSON.stringify({ code: 'GONE', state: 'done' }), { status: 409 }) } });
+    const r = await forkCanvasFromOffer(args);
+    expect(r).toMatchObject({ ok: true, canvasName: 'canvas_5', start: { ok: false, code: 'GONE' } });
   });
 
   it('a SECOND TAP (the offer is already started) returns the canvas that exists, starts NOTHING and says so', async () => {

@@ -34,8 +34,6 @@ export interface CanvasOffersRead {
   closed: boolean;
   /** A closed draft's kept material has passed its time while an offer is still open: Start is replaced by "Send the material again". */
   materialExpired: boolean;
-  /** An open draft only: another of the owner's canvases is updating (one active run per owner). */
-  activeElsewhere: boolean;
   offers: CanvasOffer[];
 }
 
@@ -51,17 +49,17 @@ const offersOf = (d: Row): CanvasOffer[] => (Array.isArray(d.offers) ? (d.offers
 
 /**
  * The offers of draft `draftId` of `canvasId`, or null when the answer does not list that draft (a discarded draft keeps no offers; a closed one with none left is not listed).
- * A failed read is an error, never "no offers". `fresh`: the read must see a write made a moment ago (it never joins a request sent before it).
+ * A failed read is an error, never "no offers". Every read is a fresh request (canvas-draft-state-read batches only the asks of one tick).
  */
-export async function readCanvasOffers(canvasId: string, draftId: string, opts: { fresh?: boolean } = {}): Promise<CanvasOffersRead | null> {
-  const data = await readCanvasDraftState(canvasId, opts);
+export async function readCanvasOffers(canvasId: string, draftId: string): Promise<CanvasOffersRead | null> {
+  const data = await readCanvasDraftState(canvasId);
   const open = data.draft as Row | null;
   if (open && open.id === draftId && typeof open.revision === 'number') {
-    return { draftId, revision: open.revision, closed: false, materialExpired: false, activeElsewhere: open.active_elsewhere === true, offers: offersOf(open) };
+    return { draftId, revision: open.revision, closed: false, materialExpired: false, offers: offersOf(open) };
   }
   const closed = ((Array.isArray(data.closed_drafts) ? data.closed_drafts : []) as Row[]).find((c) => c.id === draftId);
   if (!closed || typeof closed.revision !== 'number') return null;
-  return { draftId, revision: closed.revision, closed: true, materialExpired: closed.material_expired === true, activeElsewhere: false, offers: offersOf(closed) };
+  return { draftId, revision: closed.revision, closed: true, materialExpired: closed.material_expired === true, offers: offersOf(closed) };
 }
 
 interface OfferCallArgs {
@@ -75,7 +73,10 @@ interface OfferCallArgs {
 
 export type SwitchResult = { ok: true; runId: string; revision: number; replayed: boolean; start: RunStart | null } | CanvasRefused;
 
-/** "Make it about this": a `focus` run on the open draft. The run it made is started here (a replay of an earlier call starts nothing again). */
+/**
+ * "Make it about this": a `focus` run on the open draft. The run it made is started here. A REPLAY (the first answer was lost) starts it again too: the first start may never have gone
+ * out, and the start of a run that is already going, or finished, is answered without a second model call.
+ */
 export async function switchCanvasFocus(a: OfferCallArgs): Promise<SwitchResult> {
   try {
     const { data, error } = await supabase.rpc('canvas_draft_switch_focus', { p_draft: a.draftId, p_offer: a.offerId, p_expected_revision: a.expectedRevision, p_client_id: a.clientId });
@@ -83,9 +84,8 @@ export async function switchCanvasFocus(a: OfferCallArgs): Promise<SwitchResult>
     const r = data as Row;
     const refused = refusalOf(r);
     if (refused) return staleToEvent(refused, a.draftId);
-    const replayed = r.replayed === true;
     const runId = String(r.run_id);
-    return { ok: true, runId, revision: Number(r.revision), replayed, start: replayed ? null : await startCanvasRun(runId) };
+    return { ok: true, runId, revision: Number(r.revision), replayed: r.replayed === true, start: await startCanvasRun(runId) };
   } finally {
     clearListReturnCache();
   }
@@ -98,7 +98,7 @@ export type ForkResult =
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 
 /**
- * "Start a canvas": the server makes the new canvas, draft and thread and queues its first run; that run is started here. An offer that is already `started` answers with the
+ * "Start a canvas": the server makes the new canvas, draft and thread and queues its first run; that run is started here, a replay of the call included (a lost first answer can leave the run queued; starting a run that is going or finished is harmless). An offer that is already `started` answers with the
  * canvas it started (`alreadyStarted`, no run, `draftId` null once that canvas has no open draft), so a second tap and a second tab open the same canvas.
  */
 export async function forkCanvasFromOffer(a: OfferCallArgs): Promise<ForkResult> {
@@ -112,7 +112,7 @@ export async function forkCanvasFromOffer(a: OfferCallArgs): Promise<ForkResult>
     const alreadyStarted = r.already_started === true;
     return {
       ok: true, alreadyStarted, canvasId: String(r.canvas_id), canvasName: String(r.canvas_name ?? ''), versionName: str(r.version_name), draftId: str(r.draft_id),
-      threadRootId: str(r.thread_root_id), runId, start: runId && r.replayed !== true ? await startCanvasRun(runId) : null,
+      threadRootId: str(r.thread_root_id), runId, start: runId ? await startCanvasRun(runId) : null,
     };
   } finally {
     clearListReturnCache();

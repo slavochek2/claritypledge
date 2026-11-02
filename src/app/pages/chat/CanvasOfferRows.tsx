@@ -45,13 +45,14 @@ function Status({ children }: { children: string }) {
 
 function Controls(p: CanvasOfferRowsProps & { offer: CanvasOffer }) {
   const { offer, read, status, pending } = p;
-  const mine = pending?.id === offer.id ? pending.action : null;
+  // D15: while an action is out, EVERY row's controls give way to a status (its own words on the row it is about), so no button can fire a second time and none is disabled.
+  if (pending?.id === offer.id && pending.action === 'switch') return <Status>{OFFER_SWITCHING_LABEL}</Status>;
+  if (pending?.id === offer.id && pending.action === 'start') return <Status>{OFFER_STARTING_LABEL}</Status>;
+  if (pending) return <Status>{OFFER_UPDATING_LABEL}</Status>;
   if (offer.state === 'started') {
-    return <button type="button" className={CANVAS_SECONDARY_PILL} data-testid="canvas-offer-open" onClick={() => p.onStart(offer.id)}>{mine === 'start' ? OFFER_STARTING_LABEL : OFFER_OPEN_LABEL}</button>;
+    return <button type="button" className={CANVAS_SECONDARY_PILL} data-testid="canvas-offer-open" onClick={() => p.onStart(offer.id)}>{OFFER_OPEN_LABEL}</button>;
   }
   if (read?.materialExpired) return <p className="text-sm text-muted-foreground" data-testid="canvas-offer-expired">{OFFER_EXPIRED_LINE}</p>;
-  if (mine === 'switch') return <Status>{OFFER_SWITCHING_LABEL}</Status>;
-  if (mine === 'start') return <Status>{OFFER_STARTING_LABEL}</Status>;
   if (status === 'updating') return <Status>{OFFER_UPDATING_LABEL}</Status>;
   if (status === 'elsewhere') return <Status>{OFFER_ELSEWHERE_LABEL}</Status>;
   return (
