@@ -43,8 +43,8 @@ export const IGNORED_ERROR_PATTERNS: RegExp[] = [
   // P988 — code injected into the page by the HOST browser, not shipped by us.
   // Observed events have zero application frames. The first cases carry only
   // Sentry's own instrumentation wrappers plus an <anonymous> frame, with
-  // mechanism auto.browser.browserapierrors.setTimeout; others differ, and the
-  // note on each pattern says how (JAVASCRIPT-REACT-3Z: named frames, onerror).
+  // mechanism auto.browser.browserapierrors.setTimeout. Not all match that shape:
+  // JAVASCRIPT-REACT-3Z has named frames and mechanism auto.browser.global_handlers.onerror.
   //
   // Telegram Mini Apps SDK: injected by Telegram's in-app browser when an
   // /events/* link is opened from a chat (JAVASCRIPT-REACT-2C, -2M, -2K, -2B,
