@@ -544,7 +544,9 @@ def applied_model(main_dir, branch_dir, ledger):
             shutil.copy(os.path.join(main_dir, n), d)
         for n in extra:
             shutil.copy(os.path.join(branch_dir, n), d)
-        return replay(d)
+        m = replay(d)
+    # A statement the parser could not read may be a re-grant: the replay proves nothing then.
+    return None if m.unparsed_table else m
 
 
 def _test_ahead(findings, main_root, main_model):
@@ -772,6 +774,7 @@ def _self_test_gating():
         write("3_col.sql", "revoke update (c) on public.t from anon;")
         write("4_opt.sql", "revoke grant option for select on public.t from anon;")
         write("5_cmt.sql", "/* revoke select on public.t from anon; */ select 1;")
+        write("6_bad.sql", "revoke references on public.t from anon;\ngrant insert on public.t, to anon;")
         main_m = replay(md)
         tighter = {"table": "t", "role": "anon", "priv": "INSERT", "column": None, "prod": True, "test": False}
         def run(f, ledger):
@@ -789,6 +792,8 @@ def _self_test_gating():
         check("revoking only the grant option excuses nothing", r and not e, (r, e))
         r, e = run(dict(tighter, priv="SELECT"), {"5"})
         check("a revoke inside a block comment excuses nothing", r and not e, (r, e))
+        r, e = run(tighter, {"2", "6"})
+        check("an unparsed statement on the branch voids the excuse", r and not e, (r, e))
         r, e = run(dict(tighter, priv="DELETE"), {"2"})
         check("prod wider than the migrations stays real", r and not e, (r, e))
         r, e = run(dict(tighter, prod=False, test=True), {"2"})
