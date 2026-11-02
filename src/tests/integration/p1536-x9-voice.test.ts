@@ -394,16 +394,36 @@ describe('S3c.6 X9: the run follows the transcript, with no tab open', () => {
     expect(third, 'a repeat makes no second model call').toMatchObject({ status: 'running' });
   }, T);
 
-  it('a run whose dispatch never arrived is settled by its lease, and its owner can try again', async () => {
+  // (3c X9 review fix: a voice run waits up to 30 minutes for its transcript, so the lease split into the two cases below; see "review fixes".)
+  it('a run still waiting for a transcript is settled only past the 30-minute bound, and its owner can then try again', async () => {
     const o = await mkOwner('lease');
     const r = await voiceOk(voiceArgs(o));
-    // age the run past its 3-minute lease, with the transcript still pending: no dispatch can have happened
-    const aged = new Date(Date.now() - 4 * 60_000).toISOString();
-    const { error } = await admin.from('canvas_draft_runs').update({ created_at: aged }).eq('id', r.run_id);
-    expect(error).toBeNull();
+    await expect(admin.from('canvas_draft_runs').update({ created_at: new Date(Date.now() - 4 * 60_000).toISOString() }).eq('id', r.run_id)).resolves.toMatchObject({ error: null });
+    const waiting = await ok(o.c, 'get_canvas_draft_state', { p_canvas: r.canvas_id });
+    expect(waiting.draft.active_run, '4 minutes of waiting is not a lease').not.toBeNull();
+    expect(await runOf(r.run_id)).toMatchObject({ state: 'queued' });
+    await admin.from('canvas_draft_runs').update({ created_at: new Date(Date.now() - 31 * 60_000).toISOString() }).eq('id', r.run_id);
     const st = await ok(o.c, 'get_canvas_draft_state', { p_canvas: r.canvas_id });
     expect(st.draft.active_run, 'the expire step failed it').toBeNull();
-    expect(await runOf(r.run_id)).toMatchObject({ state: 'failed', error_code: 'abandoned' });
+    expect(await runOf(r.run_id)).toMatchObject({ state: 'failed', error_code: 'abandoned', spend_id: null });
+    // a transcript that never came is not retryable (there is nothing to read): the owner sends a new note
+    const again = await voiceOk(voiceArgs(o, { canvas: r.canvas_id, draft: r.draft_id, rev: st.draft.revision }));
+    expect(again.status, JSON.stringify(again)).toBe('ok');
+  }, T);
+
+  it('a landed transcript whose dispatch never arrived is settled 3 minutes after ready_at, and its owner can try again', async () => {
+    const o = await mkOwner('lease2');
+    await admin.from('profiles').update({ accepted_terms_version: null }).eq('id', o.id); // the route refuses (409) before any begin: this test drives the run itself
+    const r = await voiceOk(voiceArgs(o));
+    await eng('chat_voice_claim_transcription', { p_message: r.message_id });
+    await eng('chat_voice_finish_transcription', { p_message: r.message_id, p_ok: true, p_text: nn('hello there'), p_final: false });
+    await admin.from('canvas_draft_runs').update({ ready_at: new Date(Date.now() - 4 * 60_000).toISOString() }).eq('id', r.run_id);
+    const st = await ok(o.c, 'get_canvas_draft_state', { p_canvas: r.canvas_id });
+    expect(st.draft.active_run, 'the expire step failed it').toBeNull();
+    expect(await runOf(r.run_id)).toMatchObject({ state: 'failed', error_code: 'abandoned', spend_id: null });
+    // its transcript is fine, so Try again (a new run on the same note) is offered and works
+    const retry = await ok(o.c, 'canvas_draft_retry', { p_draft: r.draft_id, p_failed_run: r.run_id, p_expected_revision: st.draft.revision, p_client_id: randomUUID() });
+    expect(retry.status, JSON.stringify(retry)).toBe('ok');
   }, T);
 });
 

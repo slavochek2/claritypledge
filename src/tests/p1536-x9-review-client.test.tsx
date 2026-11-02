@@ -22,7 +22,7 @@ vi.mock('@/app/data/canvas-voice-service', () => ({ sendCanvasVoiceNote: m.sendC
 vi.mock('@/app/pages/chat/chat-state', () => ({ useChat: () => ({ resync: m.resync }) }));
 
 import { VoiceNoteError, isFinalVoiceFailure, sendVoiceNote } from '@/app/data/chat-voice-service';
-import { voiceErrorText } from '@/hooks/use-voice-note';
+import { voiceErrorText, voiceRetryable } from '@/hooks/use-voice-note';
 import { useCloneVoice, type CloneVoiceArgs } from '@/app/pages/canvas/use-clone-voice';
 import { useCanvasActions } from '@/app/pages/chat/use-canvas-actions';
 import { canvasThreadFlags } from '@/app/pages/chat/canvas-thread-flags';
@@ -68,15 +68,66 @@ describe('a pending Clone\'s note lands on the target it was recorded for', () =
     await expect(result.current(wav)).rejects.toBeInstanceOf(VoiceNoteError);
     expect(m.openByVoice.mock.calls[0]![0].replace).toEqual({ draftId: 'draft-a', revision: 2 });
 
-    m.openByVoice.mockResolvedValue({ ok: true, versionName: 'canvas_x' });
+    m.openByVoice.mockResolvedValueOnce({ ok: false, why: 'refused', receipt: RECEIPT }); // refused again (busy): the clip stays stored
     rerender(replacing('canvas_d1', 'draft-a', 3)); // the sheet asked again: same version, fresher revision
-    await result.current(wav, { resume: RECEIPT });
+    await result.current(wav, { resume: RECEIPT }).catch(() => undefined);
     expect(m.openByVoice.mock.calls[1]![0].replace).toEqual({ draftId: 'draft-a', revision: 3 });
+    m.openByVoice.mockResolvedValueOnce({ ok: true, versionName: 'canvas_x' });
 
     rerender(replacing('canvas_d2', 'draft-b', 9)); // another version, another draft: not this clip's
     await result.current(wav, { resume: RECEIPT });
     expect(m.openByVoice.mock.calls[2]![0]).toMatchObject({ version: 'canvas_d1' });
     expect(m.openByVoice.mock.calls[2]![0].replace).toEqual({ draftId: 'draft-a', revision: 3 });
+  });
+});
+
+describe('the identity is also captured from a failure that is THROWN with a receipt (the commit itself failed after the clip was stored)', () => {
+  it('a thrown commit failure keeps its clip on the version it was recorded for: the Retry after picking another version goes to the first', async () => {
+    m.openByVoice.mockRejectedValueOnce(new VoiceNoteError('failed', 500, 'down', RECEIPT));
+    const { result, rerender } = renderHook((p: CloneVoiceArgs) => useCloneVoice(p), { initialProps: args() });
+    await expect(result.current(wav)).rejects.toMatchObject({ receipt: RECEIPT });
+    rerender(args({ version: 'canvas_d2', cloning: { version: 'canvas_d2', seq: 2, replace: null } }));
+    m.openByVoice.mockResolvedValueOnce({ ok: true, versionName: 'canvas_x' });
+    await result.current(wav, { resume: RECEIPT });
+    expect(m.openByVoice.mock.calls[1]![0]).toMatchObject({ version: 'canvas_d1', resume: RECEIPT });
+  });
+
+  it('what is remembered is let go once the clip is sent or nothing is kept for it', async () => {
+    m.openByVoice.mockRejectedValueOnce(new VoiceNoteError('failed', 500, 'down', RECEIPT));
+    const { result, rerender } = renderHook((p: CloneVoiceArgs) => useCloneVoice(p), { initialProps: args() });
+    await result.current(wav).catch(() => undefined);
+    m.openByVoice.mockResolvedValueOnce({ ok: true, versionName: 'canvas_x' });
+    await result.current(wav, { resume: RECEIPT });                       // sent: forgotten
+    rerender(args({ version: 'canvas_d2', cloning: { version: 'canvas_d2', seq: 2, replace: null } }));
+    m.openByVoice.mockResolvedValueOnce({ ok: true, versionName: 'canvas_y' });
+    await result.current(wav, { resume: RECEIPT });
+    expect(m.openByVoice.mock.calls[2]![0], 'no stale identity outlives a sent clip').toMatchObject({ version: 'canvas_d2' });
+
+    m.openByVoice.mockRejectedValueOnce(new VoiceNoteError('failed', 500, 'down', { ...RECEIPT, objectKey: 'k2' }));
+    await result.current(wav).catch(() => undefined);
+    m.openByVoice.mockRejectedValueOnce(new VoiceNoteError('bad_audio', 400, 'refused'));   // the retry is refused for good: nothing kept
+    await result.current(wav, { resume: { ...RECEIPT, objectKey: 'k2' } }).catch(() => undefined);
+    rerender(args({ version: 'canvas_d3', cloning: { version: 'canvas_d3', seq: 3, replace: null } }));
+    m.openByVoice.mockResolvedValueOnce({ ok: true, versionName: 'canvas_z' });
+    await result.current(wav, { resume: { ...RECEIPT, objectKey: 'k2' } });
+    expect(m.openByVoice.mock.calls[5]![0]).toMatchObject({ version: 'canvas_d3' });
+  });
+});
+
+describe('a terms refusal keeps its Retry, and the Retry commits the same stored clip once the terms are accepted', () => {
+  it('first commit 409 TERMS_NOT_ACCEPTED (receipt kept, Retry offered); after acceptance the retry skips the upload and the commit goes through', async () => {
+    const http = (status: number, body: unknown) => ({ data: null, error: { message: 'x', context: new Response(JSON.stringify(body), { status }) } });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
+    const grant = { data: { uploadUrl: 'https://storage.googleapis.com/b/k?sig', uploadHeaders: {}, objectKey: RECEIPT.objectKey }, error: null };
+    m.invoke.mockResolvedValueOnce(grant).mockResolvedValueOnce(http(409, { error: 'terms_not_accepted', code: 'TERMS_NOT_ACCEPTED' }));
+    const err = await sendVoiceNote('conv-1', wav).catch((e) => e as VoiceNoteError);
+    expect(voiceRetryable(err)).toBe(true);
+    m.invoke.mockClear();
+    m.invoke.mockResolvedValueOnce({ data: { message: { id: 'm1', conversation_id: 'conv-1', author_id: 'u', created_at: '2026-11-02T10:00:00Z', kind: 'message', audio_duration_ms: 5000, transcript_status: 'pending' } }, error: null });
+    await sendVoiceNote('conv-1', wav, { resume: (err as VoiceNoteError).receipt });
+    expect(m.invoke, 'one request: the commit; the stored clip is not uploaded again').toHaveBeenCalledTimes(1);
+    expect(m.invoke.mock.calls[0]![1].body).toMatchObject({ mode: 'commit', objectKey: RECEIPT.objectKey });
+    vi.unstubAllGlobals();
   });
 });
 

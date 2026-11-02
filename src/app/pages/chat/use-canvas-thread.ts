@@ -111,27 +111,54 @@ async function readDraft(rootId: string): Promise<Loaded | null> {
   return { draft, run, lastDraftAt };
 }
 
-/** The pause before the n-th start request of one run (n >= 1): 10 s, then 20, 40, and one a minute. */
-const startPauseMs = (n: number): number => Math.min(60_000, 10_000 * 2 ** (n - 1));
-/** At most this many start requests per run: about 18 minutes of asking, then the server's lease decides. */
-const MAX_START_ASKS = 20;
+/** A typed run's single start request, after this long unclaimed. */
+const TYPED_START_GRACE_MS = QUEUED_GRACE_MS;
+/** After a voice transcript lands, the database's own dispatch has this long to begin the run before the client asks (it normally takes about 2 s). */
+const VOICE_START_GRACE_MS = 10_000;
+/** The spread (jitter) added to that grace, so two tabs on one run do not ask in the same second. */
+const VOICE_START_JITTER_MS = 5_000;
+/** The first pause between a voice run's asks; it doubles, and is stretched by up to half again by the jitter. */
+const VOICE_START_PAUSE_MS = 15_000;
+/** At most this many asks for one landed voice run (within its 3-minute lease, which is the real bound): about 6 requests in the worst case. */
+const MAX_VOICE_ASKS = 3;
+/** A tab that comes back after its ask was due waits this long (plus its jitter) before asking, so a returning tab never fires in the instant it is shown. */
+const RESUME_WAIT_MS = 1_000;
+const RESUME_JITTER_MS = 4_000;
+
+/** An answer after which asking again can help: the server was busy, was not ready, or the request did not get through. */
+const worthAskingAgain = (code: string): boolean => code === 'BUSY' || code === 'NOT_READY' || code === 'FAILED';
+
+interface Asks { n: number; last: number; done: boolean; jitter: number }
 
 /**
- * A queued run nobody claimed (its start request did not land, or the server's own dispatch was lost) is started by the client after the grace.
- * A start answered NOT_READY (a voice note whose transcript was still pending) is asked again with a growing pause, so a transcript that landed
- * with its dispatch lost is begun by an open tab; any other answer is the server's and ends the asking, and so does the run leaving `queued`.
+ * A queued run nobody claimed is started by the client when something CAN start it.
+ *  - A typed run: one ask after the grace (its own start request did not land), as before.
+ *  - A voice run waits for its transcript, and nothing can start it before that: while `readyAt` is empty the client makes NO start call at all (the
+ *    normal poll is what notices the transcript landing). Once it has landed and the database's own dispatch has had a short grace, the client asks,
+ *    spread by jitter, at most MAX_VOICE_ASKS times and only while the tab is on screen (metered-services rules 3 and 4); a tab that was hidden resumes
+ *    on becoming visible, after a jittered wait. The server's lease, 3 minutes from the landing, is the bound.
+ * Request count: a voice run whose dispatch works costs the client 0 start requests; a stranded one costs 2 per ask (the queued-run lookup and the
+ * start), 6 at most, per tab that is on screen.
  */
-function useRestartStrandedRun(run: CanvasDraftRun | null, draftId: string | null, load: () => Promise<void>): void {
+function useRestartStrandedRun(run: CanvasDraftRun | null, draftId: string | null, load: () => Promise<void>, visible: boolean): void {
   const queuedId = run?.state === 'queued' ? run.id : null;
+  const voice = run?.inputKind === 'voice';
+  const readyAt = run?.readyAt ? Date.parse(run.readyAt) : null;
   const queuedAt = run ? new Date(run.createdAt).getTime() : 0;
-  const asks = useRef(new Map<string, { n: number; last: number; done: boolean }>());
+  const asks = useRef(new Map<string, Asks>());
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (!queuedId || !draftId) return;
-    const mine = asks.current.get(queuedId) ?? { n: 0, last: 0, done: false };
+    if (voice && (readyAt === null || !visible)) return; // nothing can start it yet, or nobody is looking
+    const mine = asks.current.get(queuedId) ?? { n: 0, last: 0, done: false, jitter: Math.random() };
     asks.current.set(queuedId, mine);
-    if (mine.done || mine.n >= MAX_START_ASKS) return;
-    const due = mine.n === 0 ? queuedAt + QUEUED_GRACE_MS : mine.last + startPauseMs(mine.n);
+    if (mine.done || mine.n >= (voice ? MAX_VOICE_ASKS : 1)) return;
+    const now = Date.now();
+    let due: number;
+    if (!voice) due = queuedAt + TYPED_START_GRACE_MS;
+    else if (mine.n === 0) due = (readyAt as number) + VOICE_START_GRACE_MS + mine.jitter * VOICE_START_JITTER_MS;
+    else due = mine.last + VOICE_START_PAUSE_MS * 2 ** (mine.n - 1) * (1 + mine.jitter * 0.5);
+    const wait = due > now || !voice ? Math.max(0, due - now) : RESUME_WAIT_MS + mine.jitter * RESUME_JITTER_MS;
     let alive = true;
     const t = setTimeout(() => {
       if (mine.done) return;
@@ -139,14 +166,14 @@ function useRestartStrandedRun(run: CanvasDraftRun | null, draftId: string | nul
       mine.last = Date.now();
       void startQueuedCanvasRun(draftId).then(
         (r) => {
-          if (r.ok || r.code !== 'NOT_READY') mine.done = true;
+          if (r.ok || !voice || !worthAskingAgain(r.code)) mine.done = true;
           return load();
         },
-        () => { mine.done = true; },
+        () => { mine.done = !voice; },
       ).finally(() => { if (alive) setTick((k) => k + 1); });
-    }, Math.max(0, due - Date.now()));
+    }, wait);
     return () => { alive = false; clearTimeout(t); };
-  }, [queuedId, queuedAt, draftId, load, tick]);
+  }, [queuedId, voice, readyAt, queuedAt, visible, draftId, load, tick]);
 }
 
 /**
@@ -196,7 +223,7 @@ export function useCanvasThread(rootId: string | null, refreshKey: number): Canv
   // Read until the run settles: past its lease it is still `queued`/`running` in the table until a state read makes the server fail it.
   const settling = isActiveState(loaded?.run ?? null);
 
-  useRestartStrandedRun(loaded?.run ?? null, loaded?.draft.id ?? null, load);
+  useRestartStrandedRun(loaded?.run ?? null, loaded?.draft.id ?? null, load, visible);
 
   // The canvas page beside this thread (P1536) is told when the draft's points changed: a read shows a NEWER finished draft run
   // than the last one seen for this draft (however many runs came and went between two reads). The first read of a draft only

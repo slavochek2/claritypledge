@@ -1414,9 +1414,15 @@ describe('S1.15 authorization matrix', () => {
     expect((await col(o.c, 'canvas_drafts', 'id, revision, focus')).data!.length, 'owner reads revision and focus').toBeGreaterThan(0);
     expect((await col(n.c, 'canvas_drafts', 'id, revision, focus')).data, 'a stranger reads no row').toEqual([]);
     for (const c of ['material_until', 'source_draft_id', 'pending_links']) expect(denied((await col(o.c, 'canvas_drafts', c)).error), `canvas_drafts.${c}`).toBe(true);
-    for (const c of ['scope', 'client_id', 'trigger_message_id', 'reply_message_id', 'target_offer_id', 'input_kind', 'created_revision', 'derived_refs']) {
+    for (const c of ['scope', 'client_id', 'trigger_message_id', 'reply_message_id', 'target_offer_id', 'created_revision', 'derived_refs']) {
       expect(denied((await col(o.c, 'canvas_draft_runs', c)).error), `canvas_draft_runs.${c}`).toBe(true);
     }
+    // 3c X9 review fix (migration 20261102110000) grants the owner `input_kind` and `ready_at`: the client's own lease arithmetic needs them (a voice run waits
+    // up to 30 minutes for its transcript and its 3-minute dispatch lease counts from ready_at; without them it would call the server's expire step in a loop
+    // and drop "Updating…" at 3 minutes). Still the owner's alone: RLS (owner_id = auth.uid()) applies to every granted column, and anon has no grant at all.
+    expect((await col(o.c, 'canvas_draft_runs', 'id, input_kind, ready_at')).error, 'the owner reads input_kind and ready_at').toBeNull();
+    expect((await col(n.c, 'canvas_draft_runs', 'id, input_kind, ready_at')).data, 'a stranger reads no row').toEqual([]);
+    expect(denied((await col(anon, 'canvas_draft_runs', 'id, input_kind, ready_at')).error), 'anonymous (and so a link reader, who is anonymous or a stranger) is refused').toBe(true);
     for (const c of ['message_id', 'source_material_id', 'origin', 'text']) expect(denied((await col(o.c, 'canvas_draft_material', c)).error), `canvas_draft_material.${c}`).toBe(true);
     expect((await col(n.c, 'canvas_draft_runs', 'id, state')).data).toEqual([]);
     // chat_messages.box_refs: the owner reads their own tags, nobody else reads the message

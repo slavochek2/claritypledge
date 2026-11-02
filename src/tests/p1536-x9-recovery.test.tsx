@@ -83,34 +83,103 @@ describe('a voice run waiting for its transcript (the client\'s lease matches th
   });
 });
 
-describe('the client\'s start request is a real retry (a transcript that landed with its dispatch lost)', () => {
-  it('a start answered NOT_READY is asked again, and the run it finds ready is begun; then it stops asking', async () => {
+/** The tab's visibility, as the page reports it. */
+const setVisible = (v: boolean) => {
+  Object.defineProperty(document, 'visibilityState', { value: v ? 'visible' : 'hidden', configurable: true });
+  document.dispatchEvent(new Event('visibilitychange'));
+};
+const landed = (agoMs: number) => voiceRun({ readyAt: new Date(Date.now() - agoMs).toISOString() });
+
+describe('the client\'s start request: only when something can start (a landed transcript whose dispatch was lost)', () => {
+  beforeEach(() => { vi.spyOn(Math, 'random').mockReturnValue(0.5); setVisible(true); });
+  afterEach(() => { vi.restoreAllMocks(); setVisible(true); });
+
+  it('while the transcript is pending the client makes NO start call at all, for as long as the wait lasts (the poll is what notices)', async () => {
     renderHook(() => useCanvasThread('root-1', 0));
-    await settle(30_000);
-    expect(svc.startQueued.mock.calls.length, 'asked again after the first NOT_READY').toBeGreaterThanOrEqual(2);
-    // the transcript lands (its dispatch was lost): the next ask begins the run
+    await settle(25 * MIN);
+    expect(svc.startQueued).not.toHaveBeenCalled();
+  });
+
+  it('a transcript that lands at minute 20 still recovers: a short grace after the landing, then one ask that begins the run, then nothing', async () => {
+    renderHook(() => useCanvasThread('root-1', 0));
+    await settle(20 * MIN);
+    expect(svc.startQueued).not.toHaveBeenCalled();
     svc.startQueued.mockResolvedValue({ ok: true, runId: 'run-1', kind: 'message' });
-    current = voiceRun({ readyAt: new Date().toISOString() });
-    await settle(90_000);
-    const begun = svc.startQueued.mock.calls.length;
+    current = landed(0);                                                  // the transcript lands; its dispatch is lost
+    await settle(6_000);
+    expect(svc.startQueued, 'inside the grace the database\'s own dispatch has the floor').not.toHaveBeenCalled();
+    await settle(12_000);
+    expect(svc.startQueued).toHaveBeenCalledTimes(1);
+    expect(svc.startQueued).toHaveBeenCalledWith('draft-1');
     current = voiceRun({ state: 'running', startedAt: new Date().toISOString(), readyAt: new Date().toISOString() });
     await settle(5 * MIN);
-    expect(svc.startQueued.mock.calls.length, 'nothing more once the run is going').toBe(begun);
+    expect(svc.startQueued, 'nothing more once the run is going').toHaveBeenCalledTimes(1);
   });
 
-  it('is not hammered: at most one ask per 10 seconds early on, backing off to one a minute', async () => {
+  it('when the dispatch works (the run is running within the grace) the client never asks', async () => {
     renderHook(() => useCanvasThread('root-1', 0));
+    await settle(60_000);
+    current = landed(0);
+    await settle(3_000);
+    current = voiceRun({ state: 'running', startedAt: new Date().toISOString(), readyAt: new Date().toISOString() });
     await settle(2 * MIN);
-    expect(svc.startQueued.mock.calls.length).toBeLessThanOrEqual(5);
-    const at2 = svc.startQueued.mock.calls.length;
-    await settle(5 * MIN);
-    expect(svc.startQueued.mock.calls.length - at2, 'five more minutes: one a minute at most').toBeLessThanOrEqual(6);
+    expect(svc.startQueued).not.toHaveBeenCalled();
   });
 
-  it('a refusal that is not "not ready yet" is the server\'s answer and is never asked again', async () => {
-    svc.startQueued.mockResolvedValue({ ok: false, code: 'GONE' });
+  it('is bounded: a start the server keeps refusing as busy is asked 3 times at most, and the lease (3 minutes from the landing) ends the rest', async () => {
+    svc.startQueued.mockResolvedValue({ ok: false, code: 'BUSY' });
+    current = landed(0);
     renderHook(() => useCanvasThread('root-1', 0));
-    await settle(5 * MIN);
+    await settle(3 * MIN);
+    expect(svc.startQueued.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(svc.startQueued.mock.calls.length).toBeLessThanOrEqual(3);
+  });
+
+  it('a refusal that is not "try again" is the server\'s answer and is never asked again', async () => {
+    svc.startQueued.mockResolvedValue({ ok: false, code: 'GONE' });
+    current = landed(0);
+    renderHook(() => useCanvasThread('root-1', 0));
+    await settle(3 * MIN);
+    expect(svc.startQueued).toHaveBeenCalledTimes(1);
+  });
+
+  it('a hidden tab makes zero start calls, however long the run has been stranded, and asks once (spread by jitter) when it is shown again', async () => {
+    current = landed(0);
+    renderHook(() => useCanvasThread('root-1', 0));
+    setVisible(false);
+    await settle(3 * MIN);
+    expect(svc.startQueued, 'hidden: nothing, however long').not.toHaveBeenCalled();
+    svc.startQueued.mockResolvedValue({ ok: true, runId: 'run-1', kind: 'message' });
+    current = landed(20_000);                                             // (still inside its 3-minute lease, its ask long due)
+    setVisible(true);
+    await settle(1_000);
+    expect(svc.startQueued, 'not in the instant the tab returns: jitter first').not.toHaveBeenCalled();
+    await settle(6_000);
+    expect(svc.startQueued).toHaveBeenCalledTimes(1);
+  });
+
+  it('two tabs do not fire together: the first ask of each is spread by jitter', async () => {
+    const at = async (random: number) => {
+      cleanup();
+      vi.clearAllMocks();
+      vi.setSystemTime(T0);
+      current = landed(0);
+      svc.startQueued.mockResolvedValue({ ok: false, code: 'GONE' });
+      (Math.random as unknown as ReturnType<typeof vi.fn>).mockReturnValue(random);
+      renderHook(() => useCanvasThread('root-1', 0));
+      for (let t = 0; t < 40_000 && svc.startQueued.mock.calls.length === 0; t += 500) await settle(500);
+      return Date.now() - T0.getTime();
+    };
+    const first = await at(0.05);
+    const second = await at(0.95);
+    expect(second - first, 'the two tabs\' first asks differ by seconds, not milliseconds').toBeGreaterThanOrEqual(3_000);
+  });
+
+  it('CONTROL: a typed run keeps what it had: one ask after the 8-second grace, and no second one', async () => {
+    current = voiceRun({ inputKind: 'text', readyAt: null });
+    svc.startQueued.mockResolvedValue({ ok: false, code: 'NOT_READY' });
+    renderHook(() => useCanvasThread('root-1', 0));
+    await settle(60_000);
     expect(svc.startQueued).toHaveBeenCalledTimes(1);
   });
 });

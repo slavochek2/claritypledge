@@ -53,6 +53,10 @@ export function voiceErrorText(error: unknown): string {
 }
 
 /** Sending the same clip again can succeed: the network, a rate limit, a server hiccup. */
+export function voiceRetryable(error: unknown): boolean {
+  return worthRetrying(error);
+}
+
 function worthRetrying(error: unknown): boolean {
   if (!(error instanceof VoiceNoteError)) return true;
   // A commit refused as bad audio (400) is final: the same stored object is refused again.
