@@ -7,7 +7,7 @@ created_date: '2026-10-21'
 tags: [canvas, agent, sales-mastermind, onboarding]
 disclosure: public
 delivery_stage: dev
-pipeline_ran: [create-spec, dev, dev.2]
+pipeline_ran: [create-spec, dev, dev.2, dev.3]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -869,14 +869,14 @@ Only W2 and W10 stay out, as the founder already ruled.
 | Published, owner, no draft | `[vN ▾]` | Clone, **Share** |
 | Published, owner, draft open, reached by View (no `ws=1`) | `[vN ▾]` | Clone (W3, J4), **Share** |
 | Published, owner, draft open, picked from the picker (`ws=1`) | `[vN ▾]` | Thread*, **Share**; the panel keeps Go to draft |
-| Pending Clone | (New draft) | Thread*, Cancel, empty spot |
-| Never published, no points | (Draft), no picker | Thread*, Discard, empty spot |
+| Pending Clone | (New draft) | Thread*, Cancel, "Nothing to publish yet" |
+| Never published, no points | (Draft), no picker | Thread*, Discard, "Nothing to publish yet" |
 | Never published, with points (also newest run failed, or at the cap) | (Draft), no picker | Thread*, Discard, **Publish** |
-| Draft with a base, no points left, or no difference from base | `[vN ▾]` (Draft) | Thread*, Discard, empty spot |
+| Draft with a base, no points left, or no difference from base | `[vN ▾]` (Draft) | Thread*, Discard, "Nothing to publish yet" |
 | Draft with a base, points and a difference, including newest run failed, or at the cap | `[vN ▾]` (Draft) | Thread*, Discard, **Publish** |
 | Updating or Publishing | (Draft) with no picker if never published; otherwise `[vN ▾]` (Draft). A pending Clone's number and picker appear when its first Send creates the draft | Thread*, status in the spot; no Discard (the RPC refuses `busy`) |
-| At the cap, nothing to publish | (Draft), plus `[vN ▾]` if it has a base | Thread*, empty spot; Start over in the composer only |
-| A run on another canvas (`busy_elsewhere`) | as the draft | Thread*, Discard, **Publish** if this draft has points and differs, else empty spot (both RPCs check only this draft's run: `_canvas_draft_busy_code(..., false)`, v6 engine `:2674`, `:2790`; §2's "idle" wording for Discard is corrected here); the composer says why Send waits |
+| At the cap, nothing to publish | (Draft), plus `[vN ▾]` if it has a base | Thread*, "Nothing to publish yet"; Start over in the composer only |
+| A run on another canvas (`busy_elsewhere`) | as the draft | Thread*, Discard, **Publish** if this draft has points and differs, else "Nothing to publish yet" (both RPCs check only this draft's run: `_canvas_draft_busy_code(..., false)`, v6 engine `:2674`, `:2790`; §2's "idle" wording for Discard is corrected here); the composer says why Send waits |
 | Reader or signed out | `[vN ▾]` published versions only | nothing filled, no W-controls |
 | Drafting off, published, owner | `[vN ▾]` | **Share** |
 | Drafting off, draft, owner | (Draft), plus `[vN ▾]` if it has a base | nothing |
@@ -892,10 +892,10 @@ Only W2 and W10 stay out, as the founder already ruled.
 - Discard moves to the page header so it is there with the panel closed. Its behaviour stays as W6. Cancel sits in the same place on a pending Clone, as well as the panel's ×, so a closed panel or the Canvas tab never traps the owner.
 - The picker stays on a draft (the founder questioned this): reading v1 is how the owner compares and reaches Share. A version picked from a draft loses the (Draft) tag, and the panel keeps Go to draft.
 
-**X7. Before there is anything to publish, there is no Publish.** [FOUNDER DECISION: hide, or disabled as the founder first suggested. Default: hide, because D3 and rule 9 forbid a disabled Publish and the p955-gate blocks it. Disabled needs a recorded exception.]
-- Publish shows only when the draft has points AND (it has no base, or it differs from its base), and nothing blocks it. The server's `no_changes` and `draft_empty` refusals stay, and both return the spot to empty and re-read.
+**X7. Before there is anything to publish, the spot says so.** Founder, 2026-11-02 (decisions.md [product]), replacing the hide default: a hidden Publish leaves people not knowing publishing exists. So the spot shows the status "Nothing to publish yet" in the same box. It is a status, not a disabled button, so D3, rule 9 and the p955-gate stand with no exception.
+- Publish shows only when the draft has points AND (it has no base, or it differs from its base), and nothing blocks it. The server's `no_changes` and `draft_empty` refusals stay, and both return the spot to "Nothing to publish yet" and re-read.
 - The texts "No changes yet", "Not published yet", "Published · vN" and "Nothing published yet" go; the state distinctions and the settled-read hold stay.
-- Supersedes D3's "a status takes its place" for nothing-to-publish, the §2 spot table's last three rows, S3.3's five states, J1 step 1 and J3 step 2.
+- Supersedes the §2 spot table's last three rows, S3.3's five states, J1 step 1 and J3 step 2.
 
 **X8. The mirror agent is visibly there.**
 - The panel header becomes the mirror agent's face and name, plus ×. "New draft from v1" and "Draft · v2" leave it.
@@ -921,12 +921,12 @@ Only W2 and W10 stay out, as the founder already ruled.
 
 **X12. No text where the boxes already say it, and Changed means something.**
 - "Nothing is drafted yet." goes. "You can still change who has access above." goes for everyone. A reader of an empty canvas keeps "This canvas has no points yet."
-- **Changed** means: differs from the version this draft started from. With B5 fixed, a box can only be empty against a base that had points if an update emptied it, and hiding that would hide a removal before Publish. [FOUNDER DECISION: default is that such a box reads Empty with a **Removed** tag; other changed boxes read Changed.] A first canvas shows neither (D6).
+- **Changed** means: differs from the version this draft started from. With B5 fixed, a box can only be empty against a base that had points if an update emptied it, and hiding that would hide a removal before Publish. Founder confirmed 2026-11-02: such a box reads Empty with a **Removed** tag; other changed boxes read Changed. A first canvas shows neither (D6).
 
 **X13. Phone header (<1280).** Supersedes W8's rows.
 - Row 1: `← · name ✎ · [vN ▾] · (Draft)`. Row 2: the switcher, then the table's actions right-aligned, labelled down to 320. Discard is never icon-only.
 - The switcher's active side uses the app's selected look (the Artifacts filter pill's blue outline and tint), so the header keeps one filled button.
-- A pending Clone is two rows: `← · name ✎ · (New draft)`, then the switcher, Cancel, empty spot.
+- A pending Clone is two rows: `← · name ✎ · (New draft)`, then the switcher, Cancel, "Nothing to publish yet".
 - A published version picked from a draft (`ws=1`) keeps the switcher, and row 2 adds **Go to draft** before Share, so the way back is on the Canvas tab too. The Thread tab stays the open draft's thread, with today's line above it.
 - Published with nothing being edited has no switcher, so row 2 is `Clone, Share`. The founder asked whether one row would do: build measures name, picker, Clone and Share on one row at 375. If the fixed title shows at least 12 characters there, one row; otherwise two. The result is reported. A reader's header is one row, and so is an owner's with drafting off (`← · name ✎ · [vN ▾] · Share`, or `(Draft)` and nothing). Header height stays equal for owner draft and owner published when both are two rows; S3b.7's rule otherwise goes.
 - A pending Clone (including Start over from the J4 sheet) opens on Thread, because typing is next. Anything that opens an existing draft (Open draft, Clone or Clone a version landing on one, Add to my draft) opens on Canvas, because the owner came to look. Supersedes W1 and S3b.3 here. The line from X8 must stay visible with the phone keyboard up, or the composer does not take focus on landing.
@@ -947,6 +947,7 @@ Only W2 and W10 stay out, as the founder already ruled.
 | Line from the mirror agent | This is a new draft from v1. Tell me what to change. Readers keep seeing v1 until you publish. |
 | Cards | Open draft · View |
 | Emptied box | Removed |
+| The spot with nothing to publish | Nothing to publish yet |
 | Rename saved | Name updated for everyone. |
 | An update changed nothing (J11; supersedes "No box changed." in §2, J11 and S1.13) | Nothing changed on the canvas. I noted: … (without the note when there is none) |
 | A discarded thread's closed line | This draft was discarded. |
@@ -983,7 +984,7 @@ The founder's complaint was not broken behaviour. It was order, redundancy and b
 11. A verdict for every box.
 12. J and J-W walks, then stage V, then the founder's UAT.
 
-**S6.1's rule 9 becomes** [FOUNDER DECISION: wording, already pending in the design system]: "A button's look changes only when its meaning changes. Typing changes only the composer's Send. A page's single main action in a top bar (Publish, Share) is filled, auto width, furthest right, and may sit beside a filled Send; everything else in that bar is the secondary pill or rule 5. When an action is waiting, a status takes its spot. When there is nothing to act on, it is absent and its space is kept. Never disabled." Rule 6's Share icon stays for cards.
+**S6.1's rule 9 becomes** [FOUNDER DECISION: wording, already pending in the design system]: "A button's look changes only when its meaning changes. Typing changes only the composer's Send. A page's single main action in a top bar (Publish, Share) is filled, auto width, furthest right, and may sit beside a filled Send; everything else in that bar is the secondary pill or rule 5. When an action is waiting, a status takes its spot. When there is nothing to act on, a status says so in the same spot. Never disabled." Rule 6's Share icon stays for cards.
 
 **Tests that change premise here** (each noted in its commit): the W7 table test, the state-tag and spot tests, the Discard position, S3b.3's card and phone Clone cells, the Attach dialog's Canvases tab, W0's published and discarded cases, the Artifacts default tab, and the walkthrough spec's spot text.
 
@@ -1197,7 +1198,7 @@ earlier ones"; schema order `focus, other_canvases, scope, actions, questions`.
 - [ ] **S3c.1 (B5)** The RPC test fails before the fix and passes after. A draft opened from a version with points holds them and shows no Changed. Each regression case in B5 has a test. Control: a new canvas with no base is still empty.
 - [ ] **S3c.2 (X1, X2)** Sidebar entries and order as X1 at ≥1024, expanded and collapsed. Partners and Groups appear after opening the avatar menu; both pages show the avatar active. A pending invitation shows on the avatar, with the count in its accessible name. The phone bar and Me sheet are unchanged. The chat-list + has the secondary look at 1440 and 375.
 - [ ] **S3c.3 (X3)** The + shows beside the paperclip on the mirror's main composer at 1440, 375 and 320 with no overflow, and on no thread or other chat. New canvas lands as J-W1. Clone a version has one test each for: no draft, same-base draft, other base touched (J4 sheet), other base untouched (replaced only in the first Send's transaction, with stale revision recovery). Tap then cancel writes nothing (table compare as S3b.4). The paperclip dialog has no Canvases tab, the "…" menu has no New canvas, and a canvas thread's upload is the paperclip.
-- [ ] **S3c.4 (X4 to X7)** A render test iterates every row of the header table, asserting items, order and which one is filled. The spot's box staying put across rows is checked in Playwright. Publish cases: points and a difference shows it; all points removed does not; failed newest run with a difference does; at the cap with a difference does; draft A with a run active on draft B does. `no_changes` and `draft_empty` return an empty spot. Share never renders on a draft. "No changes yet", "Not published yet", "Published · vN", "Nothing published yet" and "from vN" do not render in the header. The p955-gate passes.
+- [ ] **S3c.4 (X4 to X7)** A render test iterates every row of the header table, asserting items, order and which one is filled. The spot's box staying put across rows is checked in Playwright. Publish cases: points and a difference shows it; all points removed does not; failed newest run with a difference does; at the cap with a difference does; draft A with a run active on draft B does. `no_changes` and `draft_empty` return the spot to "Nothing to publish yet". Every row marked so in the table shows that text in the spot. Share never renders on a draft. "No changes yet", "Not published yet", "Published · vN", "Nothing published yet" and "from vN" do not render in the header. The p955-gate passes.
 - [ ] **S3c.5 (X8)** The panel header shows the mirror's face and name. The line shows on a pending Clone and after first Send, with no root card in the panel. After cancel and after first Send, `chat_messages` holds no such row.
 - [ ] **S3c.6 (X9)** The voice button shows on a draft, a pending Clone and a new canvas; Copy prompt renders secondary. A first voice note creates exactly one draft, thread, message, run and transcription, including after a lost response and on concurrent commits. Invalid or missing audio is refused and writes nothing. A control where a note posts with no run fails the test. The new function refuses a call that is not the service role, and cannot act for another owner. The run begins only after the transcript is done, with the tab closed as well. A failed transcript fails the run with no model call and no charge, also with the tab closed. A failed dispatch recovers. Walked once with a real recording on hosted TEST.
 - [ ] **S3c.7 (X10)** Fixture: Clone v1, Send. The card reads (Draft) v2 and Open draft opens the workspace. After Publish it reads v2 and View opens v2 with no `ws=1`, also while another draft is open. Two threads cloned from one base, one discarded and one published, each show their own state. A root with no draft row uses the attached version.
