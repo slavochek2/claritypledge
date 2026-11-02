@@ -77,6 +77,13 @@ describe('X15: the Publish toast is the reply\'s first line', () => {
     expect(Where.current).toBe('/chats/c/conv-1/t/root-1'); // the same address X11's "N replies" uses for a published thread
   });
 
+  it('S5: the toast with See offer stays long enough to read its three sentences and reach the action (more than the default 4 seconds); a toast with no offer keeps the default', async () => {
+    publish.mockResolvedValue({ ok: true, seq: 2, skippedLinks: 0, replyMessageId: 'msg-reply', openOffers: 1 });
+    await done(setup());
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
+    expect(toastSuccess.mock.calls[0]![1]?.duration).toBeGreaterThanOrEqual(10_000);
+  });
+
   it('a reply that cannot be read (or none was reported) still toasts what is certain: the number it got, never a silent skip', async () => {
     getMessage.mockRejectedValue(new Error('down'));
     const hook = setup();

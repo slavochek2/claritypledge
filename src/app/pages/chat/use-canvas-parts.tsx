@@ -13,6 +13,7 @@ import { sendSlotOf, type CanvasWorkspaceProps } from './canvas-send-slot';
 import { canvasRetryTrailing } from './canvas-retry-trailing';
 import { canvasUndoAfter, newestMirrorMessageId } from './canvas-undo-after';
 import { useCanvasUndo } from './use-canvas-undo';
+import { useOpenOfferRows, withOfferRows } from './use-canvas-open-offers';
 import { canvasListParts } from './canvas-list-parts';
 import { CanvasThreadTitle } from './CanvasThreadHeader';
 import { UploadSpot } from './CanvasUploadButton';
@@ -60,6 +61,7 @@ export function useCanvasParts(args: CanvasPartsArgs): CanvasParts {
   const { canvas, canvasOn, uploader } = pane;
   const live = canvasOn === true ? canvas : null;
   const undo = useCanvasUndo(live);
+  const offerRows = useOpenOfferRows(live, args.messages, args.rootId); // S5: the open draft's offer rows (J7 to J9), one block under the newest message
   // W0: "Send is the update". A Send before the thread's answer is known waits and then goes the way the answer says (use-held-send), never refused.
   const route = sendRouteOf({ onSend: pane.onSend, rootPending: !!args.rootPending, canvasRoot: args.canvasRoot, canvasOn, canvas, readStatus: pane.read.status });
   const held = useHeldSend(route, args.sendPlain);
@@ -73,7 +75,7 @@ export function useCanvasParts(args: CanvasPartsArgs): CanvasParts {
     /** The composer's Upload button, while the draft takes files. */
     leading: live?.draft.state === 'open' ? <UploadSpot waiting={!!slot.waiting} busy={uploader.busy} onPick={(f) => void uploader.upload(f)} /> : undefined,
     trailing: canvasRetryTrailing(live, args) ?? publishReplyOpen(args),
-    after: canvasUndoAfter(undo, undo.failed ? newestMirrorMessageId(args.messages, args.userId, args.rootId) : null),
+    after: withOfferRows(canvasUndoAfter(undo, undo.failed ? newestMirrorMessageId(args.messages, args.userId, args.rootId) : null), offerRows),
     closedLine: closedThreadLine(live, args),
     /** A run is going, or a file is being added (D15: Publish waits): the workspace's Publish spot reads "Updating…" meanwhile. */
     runActive: slot.active,
@@ -100,5 +102,5 @@ function publishReplyOpen(args: { canvasRoot: boolean; rootId: string; messages:
 /** 3c X11: the line that takes a CLOSED draft's composer in the mirror chat's own thread panel (never inside the workspace, which has no `openCanvasFrom`). */
 function closedThreadLine(live: CanvasThread | null, args: { rootId: string; userId: string; openCanvasFrom?: string | null }): ReactNode {
   if (!live || live.draft.state === 'open' || !args.openCanvasFrom) return null;
-  return <CanvasClosedLine rootId={args.rootId} versionId={args.openCanvasFrom} viewerId={args.userId} draftState={live.draft.state} />;
+  return <CanvasClosedLine rootId={args.rootId} versionId={args.openCanvasFrom} viewerId={args.userId} draftState={live.draft.state} canvasId={live.draft.canvasId} draftId={live.draft.id} />;
 }
