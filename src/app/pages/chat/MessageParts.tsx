@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { getMessage, type ChatMessage } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { AuthorNameSkeleton, QuoteSkeleton } from './MessageRowPlaceholders';
-import { AttachmentCard } from './AttachmentCard';
+import { MessageAttachment } from './MessageAttachment';
 import { Quote } from './Quote';
 import { FOCUS_RING, MirrorMark } from './chat-kit';
 import { useChatNavigate } from './chat-hooks';
@@ -221,7 +221,7 @@ export function ForwardedBody({ msg, viewerId }: { msg: ChatMessage; viewerId: s
       onJump={hasOriginal ? () => void jump() : undefined}
       body={<SnapshotWords snap={snap} clarify={clarify} clarifiedAuthor={clarifiedAuthor} />}
     >
-      {msg.attachmentKind && msg.attachmentId && <AttachmentCard kind={msg.attachmentKind} id={msg.attachmentId} viewerId={viewerId} compact />}
+      <MessageAttachment msg={msg} server={null} viewerId={viewerId} compact />
       {snap.thread.length > 0 && <ForwardedThread thread={snap.thread} />}
     </Quote>
   );

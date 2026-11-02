@@ -59,16 +59,17 @@ function swapIn(now: State, item: Shareable | null, latest: boolean): State {
 const NOTE = 'mt-1 flex max-w-md items-center gap-2 rounded-xl border bg-muted/40 px-3 text-sm text-muted-foreground';
 
 /**
+ * `rootId` (3c X10): the message this card is the root of, when it is the first message of a canvas thread: the card then says what THAT thread's draft is.
  * `compact`: drawn inside a quote block (a forwarded or clarified message): the compact standard card, no vote buttons
  * and no Retry button (a quote can itself be a button, and buttons do not nest).
  */
-export function AttachmentCard(props: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean }) {
+export function AttachmentCard(props: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean; rootId?: string }) {
   // P1545: canvases and letters have their own reader-judged card; points and stories keep the feed cards.
   if (props.kind === 'canvas' || props.kind === 'letter') return <ArtifactAttachmentCard {...props} kind={props.kind} />;
   return <FeedItemAttachmentCard {...props} />;
 }
 
-function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean }) {
+function FeedItemAttachmentCard({ kind, id, viewerId, compact = false, rootId }: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean; rootId?: string }) {
   const [state, setState] = useState<State>({ status: 'loading' });
   const online = useOnline();
   // One generation per card: every read takes the next number, and only the read holding the current
@@ -90,7 +91,7 @@ function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind:
       invalidate();
       setState({ status: 'error' });
     }, ATTACHMENT_TIMEOUT_MS);
-    loadAttachment(kind, id, viewerId).then(
+    loadAttachment(kind, id, viewerId, ...(rootId ? [rootId] : [])).then(
       (item) => {
         if (!current()) return;
         clearTimeout(timer.current);
@@ -102,7 +103,7 @@ function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind:
         setState({ status: 'error' });
       },
     );
-  }, [kind, id, viewerId, invalidate]);
+  }, [kind, id, viewerId, rootId, invalidate]);
   useEffect(() => {
     load();
     return invalidate;
@@ -123,7 +124,7 @@ function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind:
   useCanvasRenamed(shownCanvasId(state), () => {
     invalidate();
     const mine = generation.current;
-    loadAttachment(kind, id, viewerId).then((item) => setState((now) => swapIn(now, item, generation.current === mine)), () => undefined);
+    loadAttachment(kind, id, viewerId, ...(rootId ? [rootId] : [])).then((item) => setState((now) => swapIn(now, item, generation.current === mine)), () => undefined);
   });
 
   if (state.status === 'ready') {

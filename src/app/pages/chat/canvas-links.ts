@@ -4,7 +4,7 @@
  * (anything else is shown as plain text).
  */
 import { canvasPath, isCanvasPathname } from '@/lib/canvas-boxes';
-export { newestPublishedHref, publishedViewHref, retiredThreadTarget, workspaceHref } from '@/lib/canvas-hrefs';
+export { newestPublishedHref, publishedViewHref, workspaceHref } from '@/lib/canvas-hrefs';
 
 export function canvasPageHref(ownerSlug: string | null | undefined, canvasName: string | null): string | null {
   if (!ownerSlug || !canvasName) return null;

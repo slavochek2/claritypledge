@@ -376,10 +376,10 @@ describe('S3b.6: one shared secondary look (Compare\'s pill), named once', () =>
     expect(lacksSecondaryPill(screen.getByTestId('workspace-thread-button'))).toEqual([]);
   });
 
-  it('Open (the mirror chat\'s card) wears it', () => {
+  it('View / Open draft (the mirror chat\'s card, 3c X10) wears it', () => {
     const data = { title: 'Canvas 4', label: 'v2 · Oct 10, 2026', state: 'published', draft: false, href: '/x', openHref: '/x' } as never;
     render(<MemoryRouter><CanvasVersionCard data={data} /></MemoryRouter>);
-    expect(lacksSecondaryPill(screen.getByRole('link', { name: 'Open canvas Canvas 4' }))).toEqual([]);
+    expect(lacksSecondaryPill(screen.getByRole('link', { name: 'View canvas Canvas 4' }))).toEqual([]);
   });
 
   it('CONTROL (gate 7): a filled Button and an old grey pill are both caught by the same predicate', () => {

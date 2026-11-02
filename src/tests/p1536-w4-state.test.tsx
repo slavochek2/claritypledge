@@ -61,6 +61,7 @@ vi.mock('@/app/data/canvas-draft-service', async () => ({
   getCanvasDraftByThread: byThread,
   getLatestCanvasRun: async () => st.latestRun,
   getCanvasVersionCard: async () => st.card,
+  getCanvasRootCard: async () => st.card, // 3c X10: a thread root's card is read through its thread (these fixtures have no draft row for it, so it is the same card)
   listCanvasMaterial: async () => [],
   countDoneCanvasDraftRuns: async () => 1,
   getLastDoneCanvasDraftRunAt: async () => '2026-10-28T09:00:00.000Z',
@@ -282,7 +283,8 @@ describe('S3b.9: nobody but the owner sees the Draft state, the panel, Clone, or
   });
 });
 
-describe('W4: the mirror-chat card names the state and carries a secondary Open', () => {
+// 3c X10 changes this block's premise: the card is the thread's draft's state, and published needs no word (X5). One button: Open draft or View; none inside the workspace.
+describe('X10 (was W4): the mirror-chat card by state, with its one secondary button', () => {
   const card = (over: Record<string, unknown>) => ({ title: 'Canvas 4', label: 'v2 · Oct 10, 2026', state: 'published', draft: false, href: '/x', openHref: '/x', ...over }) as never;
   const renderCard = (data: never, inWorkspace = false) =>
     render(
@@ -294,19 +296,19 @@ describe('W4: the mirror-chat card names the state and carries a secondary Open'
     );
 
   it.each([
-    ['published', card({}), 'v2 · Oct 10, 2026 · Published'],
-    ['draft', card({ state: 'draft', draft: true, label: 'Draft' }), 'Draft'],
-  ])('%s: the state line and a secondary Open', (_n, data, line) => {
+    ['published', card({}), 'v2 · Oct 10, 2026', 'View canvas Canvas 4', 'View'],
+    ['draft', card({ state: 'draft', draft: true, label: 'Draft', nextSeq: 2 }), 'Draftv2', 'Open draft canvas Canvas 4', 'Open draft'],
+  ])('%s: the state line and a secondary button', (_n, data, line, name, label) => {
     renderCard(data);
     expect(screen.getByTestId('canvas-version-state')).toHaveTextContent(line);
-    const open = screen.getByRole('link', { name: 'Open canvas Canvas 4' });
-    expect(open).toHaveTextContent('Open');
+    const open = screen.getByRole('link', { name });
+    expect(open).toHaveTextContent(label);
     expect(lacksSecondaryPill(open)).toEqual([]); // the one secondary pill (W7)
   });
 
-  it('inside the workspace\'s thread panel (the canvas is the other pane) the card has NO Open', () => {
+  it('inside the workspace\'s thread panel (the canvas is the other pane) the card has NO button', () => {
     renderCard(card({}), true);
-    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent('Published');
+    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent('v2 · Oct 10, 2026');
     expect(screen.queryByRole('link')).toBeNull();
   });
 });

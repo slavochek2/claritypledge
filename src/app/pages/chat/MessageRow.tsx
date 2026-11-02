@@ -19,7 +19,6 @@ import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/app/data/chat-service';
 import type { ThreadStats } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
-import { AttachmentCard } from './AttachmentCard';
 import { EditBox } from './EditBox';
 import { RepliesLink } from './RepliesLink';
 import { VoiceBubble } from './VoiceBubble';
@@ -29,6 +28,7 @@ import { useChat } from './chat-state';
 import { isLocal, type Row } from './use-conversation';
 import { chatTitle, messageTime, mirrorName, mirrorRole } from './chat-view-model';
 import { MirrorReplyState } from './MirrorReplyState';
+import { MessageAttachment } from './MessageAttachment';
 
 /** A finger resting this long on a message opens its menu; drifting further than LONG_PRESS_DRIFT_PX is a scroll. */
 export const LONG_PRESS_MS = 500;
@@ -302,7 +302,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
               {server && (server.kind === 'forward' || server.kind === 'clarify') && <ForwardedBody msg={server} viewerId={viewerId} />}
               {/* A Clarify's own note sits under its quote; a forward's note sits above it. */}
               {draft === null && server?.kind === 'clarify' && noteEl}
-              {msg.attachmentKind && msg.attachmentId && !(server && server.kind !== 'message') && <AttachmentCard kind={msg.attachmentKind} id={msg.attachmentId} viewerId={viewerId} />}
+              <MessageAttachment msg={msg} server={server} viewerId={viewerId} />
             </>
           )}
           {server && mine && !server.isDeleted && <MirrorReplyState messageId={server.id} name={mirrorDisplay} />}
@@ -319,7 +319,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
             </div>
           )}
 
-          <RepliesLink inThread={inThread} server={server} stat={stat} authors={authors} onThread={actions.onThread} />
+          <RepliesLink inThread={inThread} server={server} stat={stat} authors={authors} onThread={actions.onThread} viewerId={viewerId} />
           {selected && toolbar}
         </div>
         {!selected && toolbar}

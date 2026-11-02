@@ -45,6 +45,7 @@ const svc = vi.hoisted(() => ({
   discardCanvasDraft: vi.fn(),
   listMyCanvasVersions: vi.fn(),
   getCanvasVersionCard: vi.fn(),
+  getCanvasRootCard: vi.fn(),
   countDoneCanvasDraftRuns: vi.fn(),
   getLastDoneCanvasDraftRunAt: vi.fn(),
   getCanvasDraftViewPath: vi.fn(),
@@ -169,6 +170,7 @@ beforeEach(() => {
   svc.openCanvasDraft.mockResolvedValue({ status: 'opened', draftId: 'draft-new', revision: 2, canvasId: 'cv-1', conversationId: MIRROR_ID, threadRootId: 'root-new', canvasName: 'canvas', versionName: 'canvas_dnew', fromSeq: 1 });
   svc.discardCanvasDraft.mockResolvedValue({ ok: true, discarded: true });
   svc.listMyCanvasVersions.mockResolvedValue([]);
+  svc.getCanvasRootCard.mockResolvedValue(null); // 3c X10: a root's card is read through its thread; the card is not what these tests are about
   svc.countDoneCanvasDraftRuns.mockResolvedValue(1);
   svc.getLastDoneCanvasDraftRunAt.mockImplementation(async () => state.lastDone);
   svc.getCanvasDraftViewPath.mockResolvedValue(null);
@@ -478,15 +480,15 @@ describe('the canvas version in a message (W0/W4: its state and an Open)', () =>
     </MemoryRouter>
   );
 
-  it('a published version is the chat\'s artifact card: icon disc, the canvas title, "v2 · date · Published", and a secondary Open to its page', async () => {
+  it('a published version is the chat\'s artifact card (3c X10): icon disc, the canvas title, "v2 · date" with no state word, and a secondary View to its page', async () => {
     const href = '/p/test-user/canvas/canvas?v=canvas_d1a2b3';
     svc.getCanvasVersionCard.mockResolvedValue({ title: 'Hiring plan', label: 'v2 · Oct 26, 2026', state: 'published', draft: false, href, openHref: href });
     render(card('canvas_version'));
     const box = await screen.findByTestId('attachment-canvas_version');
     expect(box).toHaveTextContent('Hiring plan');
-    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent('v2 · Oct 26, 2026 · Published');
+    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent(/^v2 · Oct 26, 2026$/);
     expect(box.querySelector('.bg-blue-100')).not.toBeNull();
-    const open = within(box).getByRole('link', { name: 'Open canvas Hiring plan' });
+    const open = within(box).getByRole('link', { name: 'View canvas Hiring plan' });
     expect(open).toHaveAttribute('href', href);
     expect(lacksSecondaryPill(open)).toEqual([]); // the one secondary pill (W7), never a filled primary
     expect(open.className).not.toContain('bg-blue-600');
@@ -504,17 +506,17 @@ describe('the canvas version in a message (W0/W4: its state and an Open)', () =>
         </Routes>
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByRole('link', { name: /^Open canvas/ }));
+    fireEvent.click(await screen.findByRole('link', { name: /^Open draft canvas/ }));
     expect(await screen.findByTestId('from-probe')).toHaveTextContent(`/chats/c/${MIRROR_ID}`);
   });
 
-  it('an open draft reads "Draft" and Open goes to its workspace', async () => {
+  it('an open draft reads with the (Draft) tag and Open draft goes to its workspace', async () => {
     const open = '/p/test-user/canvas/canvas?v=canvas_dabc&ws=1';
     svc.getCanvasVersionCard.mockResolvedValue({ label: 'Draft', state: 'draft', draft: true, href: open, openHref: open });
     render(card('canvas_version'));
     const box = await screen.findByTestId('attachment-canvas_version');
-    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent('Draft');
-    expect(within(box).getByRole('link', { name: /^Open canvas/ })).toHaveAttribute('href', open);
+    expect(within(screen.getByTestId('canvas-version-state')).getByTestId('canvas-draft-tag')).toHaveTextContent('Draft');
+    expect(within(box).getByRole('link', { name: /^Open draft canvas/ })).toHaveAttribute('href', open);
   });
 
   it('a draft whose address is not readable has no Open', async () => {
@@ -1023,16 +1025,17 @@ describe('P1536 S1: a text message in an open draft\'s thread is sent with canva
     await waitFor(() => expect(svc.sendCanvasWorkspaceMessage).toHaveBeenCalledTimes(2));
     expect(svc.sendCanvasWorkspaceMessage).toHaveBeenLastCalledWith(expect.objectContaining({ expectedRevision: 9 }));
   });
-  it('a published draft\'s thread keeps the chat\'s own send (the next draft is S3\'s)', async () => {
+  // 3c X11 supersedes this test's premise ("a published draft's thread keeps the chat's own send"): a closed canvas thread, read in the chat's own panel, has
+  // no composer at all, and J11's closed line stands in its place. Nothing can be sent into it, by the draft's send or the chat's.
+  it('a published draft\'s thread has no composer: its closed line stands in the place (3c X11)', async () => {
     state.draft = draftRow({ state: 'published', runCount: 1, closedAt: '2026-10-26T10:00:00.000Z' });
     state.messages = [canvasRoot(), note()];
+    svc.getCanvasRootCard.mockResolvedValue({ title: 'Canvas', label: 'v2 · Oct 26, 2026', state: 'published', draft: false, href: '/p/test-user/canvas/canvas?v=canvas_dabc', openHref: '/p/test-user/canvas/canvas?v=canvas_dabc', seq: 2, hasThread: true });
     await renderThread();
-    await screen.findByTestId('canvas-opener');
-    type('more');
-    send();
-    await waitFor(() => expect(conv.send).toHaveBeenCalledWith({ body: 'more' }));
+    expect(await screen.findByTestId('canvas-closed-line')).toHaveTextContent('Published as v2.');
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByTestId('canvas-upload')).toBeNull();
+    expect(conv.send).not.toHaveBeenCalled();
     expect(svc.sendCanvasWorkspaceMessage).not.toHaveBeenCalled();
   });
 });
-
-

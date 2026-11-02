@@ -16,16 +16,17 @@ import { CanvasThreadTitle } from './CanvasThreadHeader';
 import { UploadSpot } from './CanvasUploadButton';
 import { findPublishReply } from './canvas-publish-reply';
 import { PublishReplyOpen } from './PublishReplyOpen';
+import { CanvasClosedLine } from './CanvasClosedLine';
 import { useCanvasPane } from './use-canvas-pane';
 import { sendOfRoute, sendRouteOf, useHeldSend } from './use-held-send';
-import type { CanvasThreadStatus } from './use-canvas-thread';
+import type { CanvasThread, CanvasThreadStatus } from './use-canvas-thread';
 
 export function useCanvasParts(args: { canvasRoot: boolean; /** The thread's first read is out and its root is unknown: a Send waits for it, never posted as a plain message blind. */ rootPending?: boolean;
   /** The chat's own send: where a waiting Send goes when its thread turns out to be plain. */
   sendPlain: (body: string) => unknown; /** The canvas workspace's own props for the thread it hosts (also: a canvas draft's thread from the first render). */ workspace?: CanvasWorkspaceProps; rootId: string; messages: ChatMessage[]; userId: string; ownerSlug: string | null | undefined; mirrorTitle: string | null | undefined;
   /** W8: the canvas's shown name (the owner's rename); absent: the title of its tag. */
   canvasTitle?: string;
-  /** W4: the root's canvas version, outside the canvas workspace only (its Publish reply carries "Open canvas"; the workspace's panel has no Open). */
+  /** W4: the root's canvas version, outside the canvas workspace only (its Publish reply carries "Open canvas", and a closed thread says what became of it; the workspace's panel has neither). */
   openCanvasFrom?: string | null }): {
   headerTitle: ReactNode;
   list: { lead: ReactNode; leadAfterId: string | null; hideId: string | null };
@@ -39,6 +40,8 @@ export function useCanvasParts(args: { canvasRoot: boolean; /** The thread's fir
   waiting: string | undefined;
   /** §2: the open draft has had its 30 updates: this sentence takes the composer's place (null otherwise). */
   capNotice: ReactNode;
+  /** 3c X11: a CLOSED draft's thread read outside the workspace: the line that takes the composer's place (null otherwise). */
+  closedLine: ReactNode;
   send: ((body: string) => Promise<boolean>) | null;
   /** X9: the round voice button's sender while the open draft takes notes (null otherwise). */
   voice: VoiceSender | null;
@@ -67,6 +70,7 @@ export function useCanvasParts(args: { canvasRoot: boolean; /** The thread's fir
     /** The composer's Upload button, while the draft takes files. */
     leading: live?.draft.state === 'open' ? <UploadSpot waiting={!!slot.waiting} busy={uploader.busy} onPick={(f) => void uploader.upload(f)} /> : undefined,
     trailing: canvasRetryTrailing(live, args) ?? publishReplyOpen(args),
+    closedLine: closedThreadLine(live, args),
     /** A run is going, or a file is being added (D15: Publish waits): the workspace's Publish spot reads "Updating…" meanwhile. */
     runActive: slot.active,
     waiting: slot.waiting,
@@ -84,7 +88,13 @@ function sendWaitingOf(sending: boolean, heldPending: boolean, canvasRoot: boole
 }
 
 /** W4: "Open canvas" under the Publish reply of a canvas thread shown outside the workspace. */
-function publishReplyOpen(args: { canvasRoot: boolean; messages: ChatMessage[]; userId: string; openCanvasFrom?: string | null }): { afterId: string; node: ReactNode } | null {
+function publishReplyOpen(args: { canvasRoot: boolean; rootId: string; messages: ChatMessage[]; userId: string; openCanvasFrom?: string | null }): { afterId: string; node: ReactNode } | null {
   const reply = args.canvasRoot && args.openCanvasFrom ? findPublishReply(args.messages) : null;
-  return reply && args.openCanvasFrom ? { afterId: reply.id, node: <PublishReplyOpen versionId={args.openCanvasFrom} viewerId={args.userId} /> } : null;
+  return reply && args.openCanvasFrom ? { afterId: reply.id, node: <PublishReplyOpen rootId={args.rootId} versionId={args.openCanvasFrom} viewerId={args.userId} /> } : null;
+}
+
+/** 3c X11: the line that takes a CLOSED draft's composer in the mirror chat's own thread panel (never inside the workspace, which has no `openCanvasFrom`). */
+function closedThreadLine(live: CanvasThread | null, args: { rootId: string; userId: string; openCanvasFrom?: string | null }): ReactNode {
+  if (!live || live.draft.state === 'open' || !args.openCanvasFrom) return null;
+  return <CanvasClosedLine rootId={args.rootId} versionId={args.openCanvasFrom} viewerId={args.userId} draftState={live.draft.state} />;
 }

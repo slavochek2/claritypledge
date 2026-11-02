@@ -24,22 +24,3 @@ export function publishedViewHref(ownerSlug: string, canvasName: string, version
 export function newestPublishedHref(ownerSlug: string, canvasName: string): string {
   return canvasPath(encodeURIComponent(ownerSlug), canvasName);
 }
-
-/**
- * Where an old canvas-thread address (a chat thread whose root is a canvas version) goes, by the state of the thread's draft:
- *  - open draft: the workspace on it;  published: that version, plain;
- *  - discarded: the canvas page at its newest published version, or Artifacts when nothing was ever published.
- * Null when the draft's names cannot be read: the caller leaves the thread as it is.
- */
-export function retiredThreadTarget(args: {
-  ownerSlug: string;
-  draft: { state: 'open' | 'published' | 'discarded'; canvasName: string | null; versionName: string | null };
-  hasPublished: boolean;
-  artifactsHref?: string;
-}): string | null {
-  const { ownerSlug, draft, hasPublished, artifactsHref = ARTIFACTS_CANVASES_MINE } = args;
-  if (!draft.canvasName) return null;
-  if (draft.state === 'discarded') return hasPublished ? newestPublishedHref(ownerSlug, draft.canvasName) : artifactsHref;
-  if (!draft.versionName) return null;
-  return draft.state === 'open' ? workspaceHref(ownerSlug, draft.canvasName, draft.versionName) : publishedViewHref(ownerSlug, draft.canvasName, draft.versionName);
-}

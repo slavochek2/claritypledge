@@ -55,6 +55,10 @@ export interface CanvasDraftRun {
   errorCode: string | null;
   createdAt: string;
   startedAt: string | null;
+  /** `voice`: the run waits for a transcript. Null when the server did not say (an older read). */
+  inputKind: string | null;
+  /** When a voice run's transcript landed (its dispatch lease counts from here); null while it has not. */
+  readyAt: string | null;
 }
 
 /** One thing the owner gave the draft: the text that was read, never the file. */
@@ -183,7 +187,7 @@ export async function getCanvasDraftByThread(rootId: string): Promise<CanvasDraf
 export async function getLatestCanvasRun(draftId: string): Promise<CanvasDraftRun | null> {
   const { data, error } = await supabase
     .from('canvas_draft_runs')
-    .select('id, kind, state, error_code, created_at, started_at')
+    .select('id, kind, state, error_code, created_at, started_at, input_kind, ready_at')
     .eq('draft_id', draftId)
     .order('created_at', { ascending: false })
     .limit(1);
@@ -197,6 +201,8 @@ export async function getLatestCanvasRun(draftId: string): Promise<CanvasDraftRu
     errorCode: r.error_code ?? null,
     createdAt: r.created_at,
     startedAt: r.started_at ?? null,
+    inputKind: typeof r.input_kind === 'string' ? r.input_kind : null,
+    readyAt: typeof r.ready_at === 'string' ? r.ready_at : null,
   };
 }
 
@@ -233,13 +239,12 @@ export interface CanvasVersionCardData {
   href: string | null;
   /** Where Open goes; null when the viewer's address is not readable. */
   openHref: string | null;
-}
-
-async function openDraftVersionName(canvasId: string): Promise<string | null> {
-  const { data, error } = await supabase.from('canvas_drafts').select('version_name').eq('canvas_id', canvasId).eq('state', 'open').maybeSingle();
-  if (error) throwDbError('getCanvasVersionCard', error, 'Could not read this canvas');
-  const name = (data as { version_name?: unknown } | null)?.version_name;
-  return typeof name === 'string' ? name : null;
+  /** A published card: the number of the version it is (3c X10: "v2 · date" is the version the thread's draft became). */
+  seq?: number;
+  /** True when the card was read from the draft whose thread this is (X10); absent when it fell back to the version the root attaches. */
+  hasThread?: boolean;
+  /** The draft whose thread it is, when `hasThread`. */
+  draftId?: string;
 }
 
 /**
@@ -261,9 +266,8 @@ export async function getCanvasVersionCard(versionId: string, viewerId: string):
   if (v) {
     const slug = await getProfileSlug(viewerId, 'getCanvasVersionCard');
     const own = slug ? publishedViewHref(slug, v.canvasName, v.name) : null;
-    const draftName = slug && v.hasOpenDraft ? await openDraftVersionName(v.canvasId).catch(() => null) : null;
-    const open = slug && draftName ? workspaceHref(slug, v.canvasName, draftName) : own;
-    return { title: canvasDisplayTitle(v.canvasTitle, v.canvasName), canvasId: v.canvasId, label: canvasVersionLabel(v.seq, v.publishedAt), state: 'published', draft: false, href: own, openHref: open };
+    // 3c X10: View is that version, plain, whatever else is open on the canvas (W1's redirect to an open draft is superseded).
+    return { title: canvasDisplayTitle(v.canvasTitle, v.canvasName), canvasId: v.canvasId, label: canvasVersionLabel(v.seq, v.publishedAt), state: 'published', draft: false, href: own, openHref: own, seq: v.seq };
   }
   const { data, error } = await supabase.from('canvas_drafts').select('id, canvas_id, canvas_name, version_name, state').eq('version_id', versionId).maybeSingle();
   if (error) throwDbError('getCanvasVersionCard', error, 'Could not read this canvas');
@@ -278,4 +282,49 @@ export async function getCanvasVersionCard(versionId: string, viewerId: string):
   const open = slug && d.canvas_name && d.version_name ? workspaceHref(slug, d.canvas_name, d.version_name) : null;
   const facts = d.canvas_name ? await draftCardFacts(String(d.canvas_name), versions) : null;
   return { ...(facts ? { title: facts.title, nextSeq: facts.nextSeq } : {}), ...(d.canvas_id ? { canvasId: String(d.canvas_id) } : {}), label: 'Draft', state: 'draft', draft: true, href: open, openHref: open };
+}
+
+/**
+ * 3c X10 (a card says what its thread is): a canvas thread root's card, read from the draft whose `thread_root_id` is this message, never from the
+ * version the root attaches (a clone's root attaches its BASE, so the attached version said "published" while the draft was live).
+ *  - open draft:       the (Draft) tag, the number it gets, Open draft: the workspace;
+ *  - published draft:  `v2 · date` (the version the draft became), View: that version, plain, with no `ws=1` whatever else is open;
+ *  - discarded draft:  says so; its Open address is kept for the canvas page, but the card draws no button for it.
+ * A root with no draft row the viewer can read falls back to the attached version's own card, as before, and says so (`hasThread` absent).
+ */
+async function readCanvasRootCard(rootId: string, versionId: string, viewerId: string): Promise<CanvasVersionCardData | null> {
+  const draft = await getCanvasDraftByThread(rootId);
+  if (!draft) return getCanvasVersionCard(versionId, viewerId);
+  const versions = await listMyCanvasVersions();
+  const slug = draft.canvasName ? await getProfileSlug(viewerId, 'getCanvasRootCard').catch(() => null) : null;
+  const thread = { hasThread: true, draftId: draft.id };
+  if (draft.state === 'discarded') {
+    const title = draft.canvasName ? (await draftCardFacts(draft.canvasName, versions)).title : undefined;
+    const kept = versions.some((x) => x.canvasName === draft.canvasName);
+    const open = slug && draft.canvasName ? (kept ? newestPublishedHref(slug, draft.canvasName) : ARTIFACTS_CANVASES_MINE) : null;
+    return { ...(title ? { title } : {}), canvasId: draft.canvasId, label: 'Discarded', state: 'discarded', draft: false, href: open, openHref: open, ...thread };
+  }
+  if (draft.state === 'published') {
+    const v = versions.find((x) => x.id === draft.versionId);
+    const view = slug && v ? publishedViewHref(slug, v.canvasName, v.name) : null;
+    return {
+      title: v ? canvasDisplayTitle(v.canvasTitle, v.canvasName) : 'Canvas', canvasId: draft.canvasId, label: v ? canvasVersionLabel(v.seq, v.publishedAt) : 'Published',
+      state: 'published', draft: false, href: view, openHref: view, ...(v ? { seq: v.seq } : {}), ...thread,
+    };
+  }
+  const open = slug && draft.canvasName && draft.versionName ? workspaceHref(slug, draft.canvasName, draft.versionName) : null;
+  const facts = draft.canvasName ? await draftCardFacts(draft.canvasName, versions) : null;
+  return { ...(facts ? { title: facts.title, nextSeq: facts.nextSeq } : {}), canvasId: draft.canvasId, label: 'Draft', state: 'draft', draft: true, href: open, openHref: open, ...thread };
+}
+
+/** Reads of a root's card still in flight, shared: the card and its "N replies" link of one message mount together and ask once. Dropped when settled, so nothing here goes stale. */
+const rootCardReads = new Map<string, Promise<CanvasVersionCardData | null>>();
+
+export function getCanvasRootCard(rootId: string, versionId: string, viewerId: string): Promise<CanvasVersionCardData | null> {
+  const key = `${viewerId}|${rootId}|${versionId}`;
+  const open = rootCardReads.get(key);
+  if (open) return open;
+  const read = readCanvasRootCard(rootId, versionId, viewerId).finally(() => rootCardReads.delete(key));
+  rootCardReads.set(key, read);
+  return read;
 }

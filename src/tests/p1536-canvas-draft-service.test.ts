@@ -36,6 +36,7 @@ import {
   sendCanvasWorkspaceMessage,
   startCanvasRun,
   startQueuedCanvasRun,
+  getLatestCanvasRun,
   uploadCanvasMaterial,
 } from '@/app/data/canvas-draft-service';
 import { subscribeCanvasDraftEvents } from '@/app/data/canvas-draft-events';
@@ -296,15 +297,17 @@ describe('P1536 version card', () => {
     sb.from.mockReturnValue(table({ slug: 'test-user' }));
     const card = await getCanvasVersionCard('ver-1', 'user-id-1234');
     const href = '/p/test-user/canvas/canvas?v=canvas_d1a2b3';
-    expect(card).toEqual({ title: 'Canvas', canvasId: 'cv', label: canvasVersionLabel(2, published.published_at), state: 'published', draft: false, href, openHref: href });
+    expect(card).toEqual({ title: 'Canvas', canvasId: 'cv', label: canvasVersionLabel(2, published.published_at), state: 'published', draft: false, href, openHref: href, seq: 2 });
     expect(card?.label).toMatch(/^v2 · /);
   });
 
-  it('W1: a published version whose canvas has an open draft opens THAT draft in the workspace (card Open with a draft)', async () => {
+  // 3c X10 supersedes W1 here: View is the version itself, plain, whatever else is open on the canvas.
+  it('X10 (was W1): a published version whose canvas has an open draft still opens THAT VERSION, plain (no ws=1)', async () => {
     sb.rpc.mockResolvedValue({ data: [{ ...published, has_open_draft: true }], error: null });
     sb.from.mockImplementation((t: string) => (t === 'canvas_drafts' ? table({ version_name: 'canvas_ddraft1' }) : table({ slug: 'test-user' })));
     const card = await getCanvasVersionCard('ver-1', 'user-id-1234');
-    expect(card).toMatchObject({ state: 'published', href: '/p/test-user/canvas/canvas?v=canvas_d1a2b3', openHref: '/p/test-user/canvas/canvas?v=canvas_ddraft1&ws=1' });
+    expect(card).toMatchObject({ state: 'published', href: '/p/test-user/canvas/canvas?v=canvas_d1a2b3', openHref: '/p/test-user/canvas/canvas?v=canvas_d1a2b3' });
+    expect(card?.openHref).not.toContain('ws=1');
   });
 
   it('the owner\'s own draft is "Draft"; with its names unreadable it has no Open', async () => {
@@ -491,5 +494,22 @@ describe('P1536 review B: what the thread reads of a draft', () => {
     sb.from.mockClear();
     await expect(getCanvasDraftViewPath({ canvasName: null, versionName: null } as never, 'user-id-1234')).resolves.toBeNull();
     expect(sb.from).not.toHaveBeenCalled();
+  });
+});
+
+describe('P1536 X9: the newest run says whether it waits for a transcript and when that landed', () => {
+  const selects: Array<[string, ...unknown[]]> = [];
+  const runs = (rows: unknown[]) => {
+    const q: Record<string, unknown> = {};
+    for (const m of ['select', 'eq', 'order']) q[m] = (...a: unknown[]) => { selects.push([m, ...a]); return q; };
+    q.limit = async () => ({ data: rows, error: null });
+    return q;
+  };
+  it('reads input_kind and ready_at, and maps them (null when absent)', async () => {
+    sb.from.mockReturnValueOnce(runs([{ id: 'r1', kind: 'message', state: 'queued', error_code: null, created_at: 'c', started_at: null, input_kind: 'voice', ready_at: '2026-11-02T10:00:00Z' }]));
+    await expect(getLatestCanvasRun('d1')).resolves.toMatchObject({ inputKind: 'voice', readyAt: '2026-11-02T10:00:00Z' });
+    expect(selects.find(([m]) => m === 'select')?.[1]).toContain('input_kind, ready_at');
+    sb.from.mockReturnValueOnce(runs([{ id: 'r2', kind: 'message', state: 'done', error_code: null, created_at: 'c', started_at: 's' }]));
+    await expect(getLatestCanvasRun('d1')).resolves.toMatchObject({ inputKind: null, readyAt: null });
   });
 });

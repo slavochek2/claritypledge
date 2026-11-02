@@ -47,7 +47,7 @@ import { useCanvasRename } from '@/app/pages/canvas/use-canvas-rename';
 import { useCloneCanvas } from '@/app/pages/canvas/use-clone-canvas';
 import { fromOf } from '@/app/pages/canvas/canvas-workspace-back';
 import { CanvasVersionCard } from '@/app/pages/chat/CanvasVersionCard';
-import { versionStateLine } from '@/app/pages/chat/canvas-thread-copy';
+import { versionStateParts } from '@/app/pages/chat/canvas-thread-copy';
 import { canvasRetryTrailing } from '@/app/pages/chat/canvas-retry-trailing';
 
 afterEach(() => {
@@ -124,7 +124,7 @@ describe('3: a queued run that is never claimed (S2 lifecycle: active = queued w
     svc.startQueued.mockResolvedValue({ ok: false, code: 'NOT_READY' });
     const { result } = renderHook(() => useCanvasThread('root-1', 0));
     await settle(60_000);
-    expect(svc.startQueued).toHaveBeenCalledTimes(1);
+    expect(svc.startQueued).toHaveBeenCalledTimes(1); // a typed run keeps its single ask (a voice run's retry is in p1536-x9-recovery.test.tsx)
     expect(result.current.thread?.running).toBe(true);
     expect(svc.toastError).not.toHaveBeenCalled();
   });
@@ -232,27 +232,26 @@ describe('4: rename race', () => {
 
 // ── 6: the mirror card never truncates its state ──────────────────────────────────────────────────────────────────
 
-describe('6: the mirror card names the state first-class', () => {
+// 3c X10 changes this block's premise (W4's "Published is named on the card" is superseded; X5: a published version needs no word, a draft is a tag).
+describe('6: the mirror card never truncates its state (X10: the tag and the discarded words; the identifying part gives way)', () => {
   const published = { title: 'Canvas', label: 'v1 · Nov 1, 2026', state: 'published' as const, draft: false, href: '/x', openHref: '/x' };
 
-  it('Published is in its own element that does not shrink or truncate; the date is the part that truncates', () => {
+  it('a published card is its number and date with no state word, and the date is the part that truncates', () => {
     render(<MemoryRouter><CanvasVersionCard data={published} /></MemoryRouter>);
-    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent('v1 · Nov 1, 2026 · Published');
-    const word = screen.getByTestId('canvas-version-state-name');
-    expect(word).toHaveTextContent('Published');
-    expect(word.className).toContain('shrink-0');
-    expect(word.className).not.toContain('truncate');
+    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent(/^v1 · Nov 1, 2026$/);
+    expect(screen.queryByTestId('canvas-version-state-name')).toBeNull();
     expect(screen.getByTestId('canvas-version-state-lead').className).toContain('truncate');
   });
 
-  it('a draft reads "v2 · Draft" (J-W5), a discarded one "Discarded draft"', () => {
-    expect(versionStateLine({ state: 'draft', label: 'Draft', nextSeq: 2 })).toBe('v2 · Draft');
-    expect(versionStateLine({ state: 'draft', label: 'Draft' })).toBe('Draft');
-    expect(versionStateLine({ state: 'discarded', label: 'Discarded' })).toBe('Discarded draft');
+  it('a draft is the (Draft) tag and its number (J-W5: "Canvas 4 · v2"), a discarded one "Discarded draft"', () => {
+    expect(versionStateParts({ state: 'draft', label: 'Draft', nextSeq: 2 })).toEqual({ lead: 'v2', tag: true, state: null });
+    expect(versionStateParts({ state: 'draft', label: 'Draft' })).toEqual({ lead: null, tag: true, state: null });
+    expect(versionStateParts({ state: 'discarded', label: 'Discarded' })).toEqual({ lead: null, tag: false, state: 'Discarded draft' });
     render(<MemoryRouter><CanvasVersionCard data={{ title: 'Canvas 4', label: 'Draft', nextSeq: 2, state: 'draft', draft: true, href: '/x', openHref: '/x' }} /></MemoryRouter>);
     expect(screen.getByText('Canvas 4')).toBeInTheDocument();
-    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent('v2 · Draft');
-    expect(screen.getByTestId('canvas-version-state-name').className).toContain('shrink-0');
+    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent('Draft');
+    expect(screen.getByTestId('canvas-version-state')).toHaveTextContent('v2');
+    expect(screen.getByTestId('canvas-draft-tag').className).toContain('shrink-0'); // the tag never shrinks
   });
 });
 

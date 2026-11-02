@@ -91,7 +91,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
     return () => onRunActive?.(false);
   }, [onRunActive, runActive]);
   // P1576: a voice note sent here is a reply in this thread; in a canvas draft's thread (3c X9) it is the draft's update (use-thread-voice).
-  const sendVoice = useThreadVoice(conversationId, rootId, canvasRoot, canvas.voice);
+  const sendVoice = useThreadVoice(conversationId, rootId, canvasRoot, rootPending, canvas.voice);
   const blockedReason = threadBlockedReason(summary.canSend, rootDeleted);
 
   if (retired) return <RetiredThread />;
@@ -128,7 +128,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
         <div className="shrink-0 border-t px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-testid="thread-composer-blocked">
           <p className="text-sm text-muted-foreground">{blockedReason}</p>
         </div>
-      ) : canvas.capNotice ?? (
+      ) : canvas.closedLine ?? canvas.capNotice ?? (
         <Composer
           waiting={canvas.waiting}
           draftKey={`${chat.userId}:${conversationId}:${rootId}`}

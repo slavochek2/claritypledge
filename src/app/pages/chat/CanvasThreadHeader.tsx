@@ -2,20 +2,22 @@
  * @file CanvasThreadHeader.tsx
  * @description P1536: what a canvas thread puts in the thread header. The title says what the thread makes: "New canvas"
  * for a draft with no base version, "Draft · <canvas title>" for an update, where the canvas title links to that
- * canvas's page. (The "…" Discard menu is gone with W0: Discard returns in the panel header.)
+ * canvas's page. (The "…" Discard menu is gone with W0: Discard returns in the panel header.) 3c X11: a thread that is no longer a draft (published or
+ * discarded, read in the mirror chat's own panel) says "Thread · <canvas title>", never "Draft" or "New canvas".
  */
 import { Link } from 'react-router-dom';
 import type { CanvasDraft } from '@/app/data/canvas-draft-service';
 import { canvasTitle } from '@/lib/canvas-boxes';
 import { canvasPageHref } from './canvas-links';
-import { NEW_CANVAS_TITLE, DRAFT_TITLE } from './canvas-thread-copy';
+import { NEW_CANVAS_TITLE, DRAFT_TITLE, CLOSED_THREAD_TITLE } from './canvas-thread-copy';
 
-export function CanvasThreadTitle({ draft, ownerSlug, title }: { draft: Pick<CanvasDraft, 'baseVersionId' | 'canvasName'>; ownerSlug: string | null | undefined; title?: string }) {
-  const update = draft.baseVersionId !== null;
+export function CanvasThreadTitle({ draft, ownerSlug, title }: { draft: Pick<CanvasDraft, 'baseVersionId' | 'canvasName'> & { state?: CanvasDraft['state'] }; ownerSlug: string | null | undefined; title?: string }) {
+  const closed = !!draft.state && draft.state !== 'open';
+  const update = closed || draft.baseVersionId !== null;
   const href = update ? canvasPageHref(ownerSlug, draft.canvasName) : null;
   return (
     <h2 className="truncate text-base font-semibold text-foreground" data-testid="canvas-thread-title">
-      {update ? DRAFT_TITLE : NEW_CANVAS_TITLE}
+      {closed ? CLOSED_THREAD_TITLE : update ? DRAFT_TITLE : NEW_CANVAS_TITLE}
       {update && draft.canvasName && (
         <>
           <span className="font-normal text-muted-foreground"> · </span>

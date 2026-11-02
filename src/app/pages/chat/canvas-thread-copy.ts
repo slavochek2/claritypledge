@@ -53,25 +53,35 @@ export const CANVAS_OWN_AI_PROMPT = [
   ...BOX_DEFINITIONS.flatMap((b) => [copyPromptSection(b), '']),
 ].join('\n').trimEnd();
 
-/** "Open" is the Artifacts page's word for going to a canvas, never "View" (the mirror chat's version card). */
+/** What an owner at the cap of open canvas drafts is told, wherever the refusal shows (a start, a first note). */
+export const TOO_MANY_DRAFTS_TEXT = 'You have too many open canvas drafts. Publish or discard one first.';
+
+/** "Open" is the Artifacts page's word for going to a canvas. */
 export const OPEN_LABEL = 'Open';
+/** 3c X10, the mirror-chat card's one button by state [FOUNDER DECISION: wording table, "Open draft · View"]; a discarded card has none. */
+export const OPEN_DRAFT_LABEL = 'Open draft';
+export const VIEW_LABEL = 'View';
+export function cardButtonLabel(state: 'draft' | 'published' | 'discarded'): string | null {
+  return state === 'draft' ? OPEN_DRAFT_LABEL : state === 'published' ? VIEW_LABEL : null;
+}
 
 /**
- * The state of a canvas version, in two parts: what identifies it (`lead`: "v2 · Nov 1, 2026" for a published one, "v2" for a draft whose number is
- * known) and the state itself ("Published", "Draft", "Discarded draft"). The card draws the state in its own element that never truncates (W4: Draft or
- * Published is always named), so on a narrow phone it is the lead that gives way.
+ * What a canvas thread's card says about its state (3c X10, X5): an open draft is the (Draft) tag and, when known, its number; a published
+ * version is `v2 · date` with no state word (a version with no Draft tag is published); a discarded draft says "Discarded draft". `lead` is what
+ * identifies it and gives way first on a phone; `tag` says to draw the (Draft) tag; `state` is the words that never truncate.
  */
-export function versionStateParts(data: { state: 'draft' | 'published' | 'discarded'; label: string; nextSeq?: number | null }): { lead: string | null; state: string } {
-  if (data.state === 'published') return { lead: data.label, state: 'Published' };
-  if (data.state === 'discarded') return { lead: null, state: 'Discarded draft' };
-  return { lead: data.nextSeq && data.nextSeq > 0 ? `v${data.nextSeq}` : null, state: 'Draft' };
+export function versionStateParts(data: { state: 'draft' | 'published' | 'discarded'; label: string; nextSeq?: number | null }): { lead: string | null; tag: boolean; state: string | null } {
+  if (data.state === 'published') return { lead: data.label, tag: false, state: null };
+  if (data.state === 'discarded') return { lead: null, tag: false, state: 'Discarded draft' };
+  return { lead: data.nextSeq && data.nextSeq > 0 ? `v${data.nextSeq}` : null, tag: true, state: null };
 }
 
-/** The state of a canvas version, in words: what the owner reads under the title of a version card in the chat ("v2 · Nov 1, 2026 · Published", "v2 · Draft"). */
-export function versionStateLine(data: { state: 'draft' | 'published' | 'discarded'; label: string; nextSeq?: number | null }): string {
-  const { lead, state } = versionStateParts(data);
-  return lead ? `${lead} · ${state}` : state;
-}
+/**
+ * A closed canvas thread's line, in the place of its composer (J11, X11) [FOUNDER DECISION: wording table; "This draft was discarded." is the default,
+ * "Published as v3." is J11's own text]. The number is the version the draft became; when it cannot be read the line still says it was published.
+ */
+export const DISCARDED_THREAD_LINE = 'This draft was discarded.';
+export const publishedAsLine = (seq: number | undefined): string => (seq ? `Published as v${seq}.` : 'Published.');
 
 /** What a draft is called wherever it is labelled (the canvas page, Artifacts): "v3 · Draft". */
 export function draftLabel(nextSeq: number | null): string {
@@ -81,6 +91,8 @@ export function draftLabel(nextSeq: number | null): string {
 /** The thread header: a draft with no base version is a new canvas; one with a base version is a draft of that canvas (S4.6). */
 export const NEW_CANVAS_TITLE = 'New canvas';
 export const DRAFT_TITLE = 'Draft';
+/** 3c X11: the panel header of a canvas thread that is published or discarded (the chat's own thread title) [FOUNDER DECISION: wording]. */
+export const CLOSED_THREAD_TITLE = 'Thread';
 
 /** The menu item that opens a new canvas thread from the mirror. */
 export const NEW_CANVAS_LABEL = 'New canvas';

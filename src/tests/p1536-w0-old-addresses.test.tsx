@@ -3,8 +3,8 @@
  * @description P1536 §3b W0 (S3b.2): an old canvas-thread address (a chat thread whose root is a canvas version) resolves by the
  * thread's draft, with REPLACE navigation, one test per case:
  *  1. open draft          -> /p/:handle/canvas/:tag?v=<draft>&ws=1
- *  2. published version   -> /p/:handle/canvas/:tag?v=<version>              (no ws)
- *  3. discarded draft     -> the canvas page at its newest published version, or Artifacts > Canvases when none was ever published
+ *  2. published version   -> stays readable in the chat's own thread panel (3c X11 narrows W0: only an open draft's address moves)
+ *  3. discarded draft     -> stays readable too (same)
  *  4. deleted / not yours -> nothing moves: the thread keeps its existing behaviour
  *  5. drafting off        -> the thread stays readable as it is
  * Plus: the workspace's own mount of the panel (`fill`) never redirects, and the thread is held behind a skeleton while the answer is out.
@@ -110,35 +110,31 @@ describe('S3b.2 / W0: an old canvas-thread address resolves by the thread\'s dra
     expect(screen.queryByTestId('thread-panel')).not.toBeInTheDocument();
   });
 
-  it('case 2, published version: that version, plain (no ws)', async () => {
+  // 3c X11 narrows W0: only an open draft's address redirects. A published or discarded thread stays readable where it is (the mirror chat's own panel).
+  it('case 2 (3c X11), published version: the thread stays readable here, nothing moves', async () => {
     state.draft = draftRow({ state: 'published', closedAt: '2026-10-26T10:00:00.000Z' });
     mount();
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/p/test-user/canvas/canvas?v=canvas_dabc'));
-    expect(screen.getByTestId('where').textContent).not.toContain('ws=1');
-    expect(screen.getByTestId('nav-type')).toHaveTextContent('REPLACE');
+    await screen.findByTestId('thread-panel');
+    await act(async () => {});
+    expect(screen.getByTestId('where')).toHaveTextContent(`/chats/c/${CONV}/t/${ROOT}`);
+    expect(screen.getByTestId('nav-type')).toHaveTextContent('POP');
+    expect(screen.queryByTestId('thread-retired')).not.toBeInTheDocument();
   });
 
-  it('case 3a, discarded draft: the canvas page at its newest published version (no ?v)', async () => {
+  it('case 3 (3c X11), discarded draft: the thread stays readable here, with or without a published version of the canvas', async () => {
     state.draft = draftRow({ state: 'discarded', closedAt: '2026-10-26T10:00:00.000Z' });
     state.versions = [{ id: 'v1', canvasId: 'cv-1', canvasName: 'canvas', name: 'canvas_d1', seq: 1, publishedAt: '2026-10-01T10:00:00Z', hasOpenDraft: false }];
+    const first = mount();
+    await screen.findByTestId('thread-panel');
+    await act(async () => {});
+    expect(screen.getByTestId('where')).toHaveTextContent(`/chats/c/${CONV}/t/${ROOT}`);
+    first.unmount();
+    state.versions = [];
     mount();
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/p/test-user/canvas/canvas'));
-    expect(screen.getByTestId('where').textContent).toBe('/p/test-user/canvas/canvas');
-    expect(screen.getByTestId('nav-type')).toHaveTextContent('REPLACE');
-  });
-
-  it('case 3b, discarded draft of a canvas never published: Artifacts > Canvases', async () => {
-    state.draft = draftRow({ state: 'discarded', closedAt: '2026-10-26T10:00:00.000Z' });
-    mount();
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/artifacts?tab=canvases'));
-    expect(screen.getByTestId('nav-type')).toHaveTextContent('REPLACE');
-  });
-
-  it('case 3c, CONTROL: another canvas\'s published version does not count as this canvas having one', async () => {
-    state.draft = draftRow({ state: 'discarded', closedAt: '2026-10-26T10:00:00.000Z' });
-    state.versions = [{ id: 'v9', canvasId: 'cv-9', canvasName: 'other_canvas', name: 'other_d1', seq: 1, publishedAt: '2026-10-01T10:00:00Z', hasOpenDraft: false }];
-    mount();
-    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/artifacts?tab=canvases'));
+    await screen.findByTestId('thread-panel');
+    await act(async () => {});
+    expect(screen.getByTestId('where')).toHaveTextContent(`/chats/c/${CONV}/t/${ROOT}`);
+    expect(screen.getByTestId('nav-type')).toHaveTextContent('POP');
   });
 
   it('case 4, deleted or not the viewer\'s (no draft readable): nothing moves, and the thread keeps its existing behaviour', async () => {
