@@ -252,7 +252,7 @@ above is a monthly figure that grows by 0.1152 GB for every person-hour recorded
 
 ## After deploy: to prove with real people (founder, 2026-11-02)
 
-Real people can only reach this on prod, so the founder moved these here to ship first and test after, with no lawyer read. They are NOT proven; tick them from the people test.
+Real people can only reach this on prod, so the founder moved these here to ship first and test after. They are NOT proven; tick them from the people test.
 
 - [ ] With two people at one table, each on their own mic, a sentence one of them says appears once,
       under that person, in the table's thread.

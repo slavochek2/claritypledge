@@ -488,7 +488,7 @@ disagree.
 
 ## After deploy: to prove with real people (founder, 2026-11-02)
 
-Real people can only reach this on prod, so the founder moved these here to ship first and test after, with no lawyer read. They are NOT proven; tick them from the people test.
+Real people can only reach this on prod, so the founder moved these here to ship first and test after. They are NOT proven; tick them from the people test.
 
 - [ ] Two attendees seated at table 1 in round 1, both transcribing: their words appear in a thread
       titled "Round 1 · {A} & {B}" in the event channel, while they talk, each message marked by a
