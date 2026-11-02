@@ -51,6 +51,12 @@ test.describe('P1513: system_tags insert guard', () => {
     return (data as { system_tags: string[] }).system_tags;
   }
 
+  // 42501 alone is not enough: an RLS denial has the same code and would pass with the guard gone.
+  function expectGuardRejection(error: { code: string; message: string }) {
+    expect(error.code, `rejection code: ${error.message}`).toBe('42501');
+    expect(error.message).toBe('system_tags are set by the system only');
+  }
+
   test('verified user INSERT of a point with system_tags stores none', async () => {
     const { data, error } = await userClient
       .from('points')
@@ -63,7 +69,7 @@ test.describe('P1513: system_tags insert guard', () => {
       .single();
     // Spec allows reject OR strip; either way nothing forged may be stored.
     if (error) {
-      expect(error.code, `rejection code: ${error.message}`).toBe('42501');
+      expectGuardRejection(error);
     } else {
       pointIds.push(data!.id);
       expect(await storedTags('points', data!.id)).toEqual([]);
@@ -82,7 +88,7 @@ test.describe('P1513: system_tags insert guard', () => {
       .select('id')
       .single();
     if (error) {
-      expect(error.code, `rejection code: ${error.message}`).toBe('42501');
+      expectGuardRejection(error);
     } else {
       storyIds.push(data!.id);
       expect(await storedTags('stories', data!.id)).toEqual([]);
@@ -118,5 +124,16 @@ test.describe('P1513: system_tags insert guard', () => {
     expect(error, `clean insert: ${error?.message}`).toBeNull();
     pointIds.push(data!.id);
     expect(await storedTags('points', data!.id)).toEqual([]);
+  });
+
+  test('verified user INSERT of a story without system_tags is unaffected', async () => {
+    const { data, error } = await userClient
+      .from('stories')
+      .insert({ author_id: userId, content: `P1513 clean story ${Date.now()}`, visibility: 'private' })
+      .select('id')
+      .single();
+    expect(error, `clean story insert: ${error?.message}`).toBeNull();
+    storyIds.push(data!.id);
+    expect(await storedTags('stories', data!.id)).toEqual([]);
   });
 });
