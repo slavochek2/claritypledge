@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 85
 workstream: events
 created_date: '2026-10-30'
 tags: [transcription, events, attribution, chat]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-02
 ---
 
 # P1596: Event transcripts credit each sentence to one speaker; "Open" goes to your table's thread
@@ -137,7 +137,7 @@ cost decision. Cron: one job per minute, stops at the kill switch; it reads one 
 
 ### Room archive as WAV (the archive each person saves for the whole event)
 
-Format follows [metered-services.md](../docs/technical/metered-services.md). Prices are the GCS registry row's, whose
+Format follows [metered-services.md](../../../docs/technical/metered-services.md). Prices are the GCS registry row's, whose
 provenance is a search summary and third-party guides (the official page came back truncated): **unverified, re-read the
 vendor page before a decision rests on them.** Event size is an assumption, not a measurement: "today" is one event of 30
 people for 2 hours = 60 person-hours; "10x" is 600 person-hours. A round is 15 minutes with changeover, 3 rounds an hour.
