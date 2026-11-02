@@ -371,3 +371,56 @@ test('Undo (real model) at 1440: a failed read of where Undo goes is said with T
     await deleteTestUser(user.user.id).catch(() => undefined);
   }
 });
+
+/** One applied run made the way the engine makes it (send, begin, complete with a point in a scoped box); no model is called. */
+async function appliedRun(api: SupabaseClient, ownerId: string, ws: { canvas: string | null; draft: string | null; rev: number | null }, statement: string) {
+  const sent = await api.rpc('canvas_workspace_send', { p_canvas: ws.canvas, p_from_version: null, p_expected_draft: ws.draft, p_expected_revision: ws.rev, p_replace: false, p_body: statement, p_box_refs: null, p_attachment: null, p_client_id: crypto.randomUUID() });
+  if (sent.error || sent.data?.status !== 'ok') throw new Error(`send: ${JSON.stringify(sent.error ?? sent.data)}`);
+  const b = await supabaseAdmin.rpc('_canvas_draft_run_begin', { p_run: sent.data.run_id, p_owner: ownerId, p_has_file: false, p_cap_reply: null });
+  if (b.error || b.data?.status !== 'run') throw new Error(`begin: ${JSON.stringify(b.error ?? b.data)}`);
+  const c = await supabaseAdmin.rpc('_canvas_draft_run_complete', { p_run: sent.data.run_id, p_owner: ownerId, p_actions: [{ action: 'new', box: 'canvas:segments', statement }], p_questions: {}, p_scope: ['canvas:segments'], p_focus: null, p_other_canvases: [], p_note: null, p_reply: `Updated: ${statement}`, p_usd: 0.001 });
+  if (c.error || c.data?.status !== 'ok') throw new Error(`complete: ${JSON.stringify(c.error ?? c.data)}`);
+  ws.canvas = sent.data.canvas_id; ws.draft = sent.data.draft_id;
+  const st = await api.rpc('get_canvas_draft_state', { p_canvas: ws.canvas });
+  ws.rev = st.data.draft.revision;
+  return { run: sent.data.run_id as string, conv: sent.data.conversation_id as string, root: sent.data.thread_root_id as string };
+}
+
+test('J6 at 1440: after Undo and Publish the closed thread still marks the undone message, with no Undo, one read when opened', async ({ browser }) => {
+  const vp = 1440;
+  const user = await createTestUser({ name: 'P1536 Undo closed' });
+  const ctx = await browser.newContext({ viewport: { width: vp, height: 900 }, baseURL: BASE });
+  await ctx.addInitScript(() => { try { localStorage.setItem('letter_intensity_preview_seen_at_v2', String(Date.now())); } catch { /* none */ } });
+  const page = await ctx.newPage();
+  const reads: number[] = [];
+  page.on('request', r => { if (/rpc\/get_canvas_draft_state/.test(r.url())) reads.push(Date.now()); });
+  try {
+    const api = await ownerApi(user.email);
+    const ws = { canvas: null as string | null, draft: null as string | null, rev: null as number | null };
+    await appliedRun(api, user.user.id, ws, 'First segment SEEDED');
+    const r2 = await appliedRun(api, user.user.id, ws, 'Second segment SEEDED');
+    const u = await api.rpc('canvas_draft_undo', { p_draft: ws.draft, p_expected_run: r2.run, p_expected_revision: ws.rev });
+    if (u.error || u.data?.status !== 'ok') throw new Error(`undo: ${JSON.stringify(u.error ?? u.data)}`);
+    const st = await api.rpc('get_canvas_draft_state', { p_canvas: ws.canvas });
+    const pub = await api.rpc('canvas_draft_publish', { p_draft: ws.draft, p_expected_revision: st.data.draft.revision });
+    if (pub.error || pub.data?.status !== 'ok') throw new Error(`publish: ${JSON.stringify(pub.error ?? pub.data)}`);
+    const answer = await api.rpc('get_canvas_draft_state', { p_canvas: ws.canvas });
+    rec(vp, 'the server answer after Publish carries the undone owner message under the published draft', JSON.stringify(answer.data.closed_undone) === JSON.stringify({ [ws.draft!]: [(await supabaseAdmin.from('canvas_draft_runs').select('trigger_message_id').eq('id', r2.run).single()).data!.trigger_message_id] }), JSON.stringify(answer.data.closed_undone));
+
+    await setTestSession(page, user.email);
+    reads.length = 0;
+    await page.goto(`/chats/c/${r2.conv}/t/${r2.root}`);
+    await expect.poll(async () => page.getByTestId('canvas-undone-mark').count(), { timeout: 40_000, intervals: [500] }).toBe(1);
+    await page.waitForTimeout(3000);
+    const info = await page.evaluate(() => {
+      const mark = document.querySelector('[data-testid="canvas-undone-mark"]');
+      const under = mark?.closest('li')?.previousElementSibling as HTMLElement | null;
+      return { under: under?.innerText.replace(/\s+/g, ' ').slice(0, 90) ?? null, undo: document.querySelectorAll('[data-testid="canvas-undo"]').length, retry: document.querySelectorAll('[data-testid="canvas-undo-retry"]').length, waits: document.querySelectorAll('[data-testid="canvas-undo-waits"]').length };
+    });
+    rec(vp, 'the closed thread marks the undone owner message "Undone" (and only that one), with no Undo, no retry line, no waiting status', /Second segment/.test(info.under ?? '') && info.undo === 0 && info.retry === 0 && info.waits === 0, JSON.stringify(info), await shot(page, vp, 'closed-thread-undone-mark'));
+    rec(vp, 'a closed thread makes one get_canvas_draft_state read when opened, no more (3 s later)', reads.length === 1, `reads=${reads.length}`);
+  } finally {
+    await ctx.close();
+    await deleteTestUser(user.user.id).catch(() => undefined);
+  }
+});

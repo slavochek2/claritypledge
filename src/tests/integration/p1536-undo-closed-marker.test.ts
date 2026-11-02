@@ -32,7 +32,7 @@ const call = async (c: SupabaseClient, fn: string, args: Record<string, unknown>
   return data as Row;
 };
 
-/** One applied run, the way the engine makes it: send (message + queued run), begin, complete with one new point. Returns the run and its owner message. */
+/** One applied run, the way the engine makes it: send (message + queued run), begin, complete with one new point in a SCOPED box (a run whose scope is empty changes nothing, has no step and cannot be undone). Returns the run and its owner message. */
 async function appliedRun(o: { u: TestUser; c: SupabaseClient }, ws: { canvas: string | null; draft: string | null; rev: number | null }, statement: string) {
   const sent = await call(o.c, 'canvas_workspace_send', {
     p_canvas: ws.canvas, p_from_version: null, p_expected_draft: ws.draft, p_expected_revision: ws.rev, p_replace: false, p_body: `${TAG} ${statement}`,
@@ -43,7 +43,7 @@ async function appliedRun(o: { u: TestUser; c: SupabaseClient }, ws: { canvas: s
   const begun = await call(admin as unknown as SupabaseClient, '_canvas_draft_run_begin', { p_run: sent.run_id, p_owner: uid, p_has_file: false, p_cap_reply: null });
   expect(begun.status, JSON.stringify(begun)).toBe('run');
   const done = await call(admin as unknown as SupabaseClient, '_canvas_draft_run_complete', {
-    p_run: sent.run_id, p_owner: uid, p_actions: [{ action: 'new', box: 'canvas:segments', statement: `${TAG} ${statement}` }], p_questions: {}, p_scope: [], p_focus: null,
+    p_run: sent.run_id, p_owner: uid, p_actions: [{ action: 'new', box: 'canvas:segments', statement: `${TAG} ${statement}` }], p_questions: {}, p_scope: ['canvas:segments'], p_focus: null,
     p_other_canvases: [], p_note: null, p_reply: `${TAG} reply ${statement}`, p_usd: 0.001,
   });
   expect(done.status, JSON.stringify(done)).toBe('ok');
@@ -74,9 +74,12 @@ describe('J6: the undone mark survives the draft closing', () => {
     const r2 = await appliedRun(o, ws, 'second');
     const open = await call(o.c, 'get_canvas_draft_state', { p_canvas: ws.canvas });
     expect(open.closed_undone, 'an open draft has no closed drafts to list').toEqual({});
-    expect((await call(o.c, 'canvas_draft_undo', { p_draft: ws.draft, p_expected_run: r2.run, p_expected_revision: ws.rev })).status).toBe('ok');
+    expect(open.draft.undo_run_id, 'the newest APPLIED run (one that changed a box, so it has a step) is the one Undo undoes').toBe(r2.run);
+    const undone = await call(o.c, 'canvas_draft_undo', { p_draft: ws.draft, p_expected_run: r2.run, p_expected_revision: ws.rev });
+    expect(undone.status, `undo: ${JSON.stringify(undone)}`).toBe('ok');
     const rev = (await call(o.c, 'get_canvas_draft_state', { p_canvas: ws.canvas })).draft.revision;
-    expect((await call(o.c, 'canvas_draft_publish', { p_draft: ws.draft, p_expected_revision: rev })).status).toBe('ok');
+    const published = await call(o.c, 'canvas_draft_publish', { p_draft: ws.draft, p_expected_revision: rev });
+    expect(published.status, `publish: ${JSON.stringify(published)}`).toBe('ok');
     const after = await call(o.c, 'get_canvas_draft_state', { p_canvas: ws.canvas });
     expect(after.draft, 'the draft is closed: no open draft').toBeNull();
     expect(after.closed_draft.id).toBe(ws.draft);
