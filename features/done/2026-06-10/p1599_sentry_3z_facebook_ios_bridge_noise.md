@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 86
 severity: low
@@ -10,8 +10,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [sentry, observability, noise, in-app-browser]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-11-02
 ---
 
 # P1599: Facebook iOS in-app browser bridge throw reports to Sentry as our error
