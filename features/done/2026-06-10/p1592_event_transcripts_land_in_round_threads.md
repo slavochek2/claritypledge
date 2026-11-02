@@ -1,17 +1,17 @@
 ---
-status: blocked
+status: all-done
 type: story
 rank: 83
 workstream: clarity-chat
 created_date: '2026-10-29'
 tags: [transcription, clarity-chat, events, rounds]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-11-02
 ---
 
 # P1592: Event transcripts land in the event channel, one thread per round table
