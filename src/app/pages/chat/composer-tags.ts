@@ -37,10 +37,13 @@ export function insertTagAt(value: string, caret: number, tag: string): Edit | n
   return next.length > COMPOSER_MAX ? null : { value: next, caret: at + insert.length };
 }
 
-/** Backspace with the caret directly after a token: the value without it. Null: not after a token (an ordinary Backspace). */
+/**
+ * Backspace with the caret directly after a token, or after the one space a tap puts behind it: the value without the token (and that space), so the press right
+ * after a tap removes what the tap added. Null: not after a token (an ordinary Backspace).
+ */
 export function removeTagBefore(value: string, caret: number): Edit | null {
-  const t = tokens(value).find(([, end]) => end === caret);
-  return t ? { value: value.slice(0, t[0]) + value.slice(t[1]), caret: t[0] } : null;
+  const t = tokens(value).find(([, end]) => end === caret || (end === caret - 1 && value[end] === ' '));
+  return t ? { value: value.slice(0, t[0]) + value.slice(caret), caret: t[0] } : null;
 }
 
 /** Where a caret that is inside a token should go (its start when it moved left into it, its end otherwise); null: it is not inside one. */
@@ -64,4 +67,29 @@ export function decodeTagged(value: string): { text: string; refs: string[] } {
     return `[${label}]`;
   });
   return { text: text.split(TAG_MARK).join(''), refs: [...refs].sort() };
+}
+
+/** How many tokens of each box the value holds. */
+export function tagCounts(value: string): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [start, end] of tokens(value)) {
+    const tag = TAG_BY_TITLE.get(value.slice(start + 2, end - 2));
+    if (tag) out[tag] = (out[tag] ?? 0) + 1;
+  }
+  return out;
+}
+
+/** The value without `counts[tag]` tokens of each box, the first ones in the text; tokens beyond the counts (added since) stay. */
+export function removeTagTokens(value: string, counts: Record<string, number>): string {
+  const left = { ...counts };
+  let out = '';
+  let at = 0;
+  for (const [start, end] of tokens(value)) {
+    const tag = TAG_BY_TITLE.get(value.slice(start + 2, end - 2));
+    if (!tag || !left[tag]) continue;
+    left[tag] -= 1;
+    out += value.slice(at, start);
+    at = end;
+  }
+  return out + value.slice(at);
 }

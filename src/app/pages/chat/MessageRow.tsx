@@ -194,7 +194,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   const authorPending = !!authorId && !author && !missingAuthors.has(authorId);
   const time = local ? (local.failed ? '' : 'Sending…') : messageTime(msg.createdAt);
 
-  const noteEl = msg.body && <MessageNote body={msg.body} editedAt={server?.editedAt ?? null} system={system} boxRefs={msg.boxRefs} authorId={msg.authorId} />;
+  const noteEl = msg.body && <MessageNote body={msg.body} editedAt={server?.editedAt ?? null} system={system} boxRefs={msg.boxRefs} agent={agent} />;
   return (
     <li ref={row} data-msg={msg.id} data-testid="message">
       {/* Right-click and long press are pointer shortcuts only: every item they offer is also reachable by keyboard, on the toolbar or in its ⋯ menu. */}

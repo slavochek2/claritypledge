@@ -10,43 +10,72 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { toast } from 'sonner';
 import { highlightBox } from '@/app/components/canvas/canvas-box-highlight';
 import { isViewingDraft, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import type { WorkspaceView } from '@/app/components/canvas/canvas-workspace-layout';
 import { createComposerTagBus } from '@/app/pages/chat/composer-tag-bus';
+import type { ReportedCanvas } from './use-reported-canvas';
 import type { ClonePending } from './use-clone-canvas';
 
+// [FOUNDER DECISION: said when a tapped box could not be added to the chat because the page never finished reading.]
+export const TAG_DROPPED_TEXT = 'Could not add that box to the chat. Tap Add to chat again.';
+
+/**
+ * What the tap knows about the version on screen: the page's fresh read for the address, else the last read of THAT SAME version (a re-read in flight, or a failed
+ * one, leaves the fresh one null; a draft or a pending Clone is decided from the old read, and Clone itself, which needs the fresh one, waits for it).
+ */
+function knownRead(reported: ReportedCanvas, held: CanvasReady | null, version: string | null): CanvasReady | null {
+  const fresh = reported.forVersion === version ? reported.ready : null;
+  return fresh ?? (held && (version === null || held.version === version) ? held : null);
+}
+
 export function useAddToChat(
-  /** The page's read for the version in the address; null while it loads. */
-  ready: CanvasReady | null,
+  reported: ReportedCanvas,
+  /** The last read for this canvas, kept through re-reads. */
+  held: CanvasReady | null,
+  /** The `?v=` in the address. */
+  version: string | null,
   /** The viewer is the canvas's owner with the owner's header: only then are Add to chat and the chips offered. */
   owner: boolean,
-  /** The Clone state: its decision (null: the viewer cannot clone here, so cannot add to chat either), whether one is pending, and closing the J4 sheet with no answer. */
-  cloneState: { clone: (() => void) | null; pending: ClonePending | null; dismissSheet: () => void },
+  /** The Clone state: its decision (null: the viewer cannot clone here, so cannot add to chat either), whether one is pending, the J4 sheet, and closing it with no answer. */
+  cloneState: { clone: (() => void) | null; pending: ClonePending | null; sheet: unknown; dismissSheet: () => void },
   panel: { showThread: () => void; setView: (v: WorkspaceView) => void; setPanelOpen: (open: boolean) => void },
 ) {
   const { clone, dismissSheet } = cloneState;
   const pending = !!cloneState.pending;
   const { showThread, setView, setPanelOpen } = panel;
+  const fresh = reported.forVersion === version ? reported.ready : null;
+  const known = knownRead(reported, held, version);
   // "The thread the tags were meant for is on screen": a pending Clone's, or the draft's. A published view with only another base's draft behind it is neither.
-  const landed = !!ready && (pending || isViewingDraft(ready));
-  const now = useRef({ landed, ready, clone, pending, setView, setPanelOpen });
-  now.current = { landed, ready, clone, pending, setView, setPanelOpen };
+  const landed = !!known && (pending || isViewingDraft(known));
+  const now = useRef({ landed, known, fresh, clone, pending, sheetOpen: !!cloneState.sheet, setView, setPanelOpen });
+  now.current = { landed, known, fresh, clone, pending, sheetOpen: !!cloneState.sheet, setView, setPanelOpen };
   const bus = useMemo(() => {
     const b = createComposerTagBus();
-    // A tag that lands without a tap to show it (the draft opened, the sheet's answer taken) brings the thread into view.
-    b.configure(() => now.current.landed, () => { now.current.setView('chat'); now.current.setPanelOpen(true); });
+    // A tag that lands without a tap to show it (the draft opened, the sheet's answer taken) brings the thread into view; one that waited too long is said, not lost silently.
+    b.configure(() => now.current.landed, () => { now.current.setView('chat'); now.current.setPanelOpen(true); }, () => {
+      if (now.current.sheetOpen) return true; // the owner is still being asked: it waits for the answer
+      toast.error(TAG_DROPPED_TEXT);
+      return false;
+    });
     return b;
   }, []);
   // Whatever waited (the draft opened, the sheet's answer taken) is taken once the thread it was meant for is the one on screen.
   useEffect(() => bus.flush(false), [bus, landed]);
 
-  // A tap before the page's first read lands (the boxes draw while it loads) waits for it: whether the version is published or a draft decides what the tap does.
-  const [early, setEarly] = useState(false);
-  const decide = useCallback((sync: boolean) => {
-    const { ready: r, clone: cloneNow, pending: isPending } = now.current;
-    const published = !!r && !isViewingDraft(r) && !r.publishedNone;
-    if (published && !isPending && cloneNow) return cloneNow();
+  /** What a tap does once the version is known; false: not yet (the read it needs is out). */
+  const decide = useCallback((sync: boolean): boolean => {
+    const { known: r, fresh: f, clone: cloneNow, pending: isPending } = now.current;
+    if (!r) return false;
+    if (!isViewingDraft(r) && !r.publishedNone && !isPending) {
+      if (!f || !cloneNow) return false; // Clone's decision needs the read for this very address
+      // Nothing is written: Clone only enters the pending state, whose composer exists after the address (`ws=1`) has changed. The router applies a location change in a React
+      // transition, which a flushSync in the tap does not reach (measured in a real browser: the focus is still on the page when the handler returns), so the composer
+      // cannot be in the handler here; the tag lands, and the field is focused, as soon as it is mounted (the bus's late landing).
+      cloneNow();
+      return true;
+    }
     // a draft or a pending Clone: bring the thread into view, then the tag goes in (inside this same tap when there is one)
     if (sync) showThread();
     else {
@@ -54,18 +83,20 @@ export function useAddToChat(
       now.current.setPanelOpen(true);
     }
     bus.flush(sync);
+    return true;
   }, [bus, showThread]);
+  // A tap that has to wait for the read (the boxes draw while the page loads or re-reads) is decided when it arrives, unless its tag was dropped meanwhile.
+  const [early, setEarly] = useState(false);
   const addToChat = useCallback((tag: string) => {
     bus.hold(tag);
-    if (now.current.ready) decide(true);
-    else setEarly(true);
+    if (!decide(true)) setEarly(true);
   }, [bus, decide]);
-  const loaded = !!ready;
+  const actionable = !!known && (isViewingDraft(known) || pending || known.publishedNone || !!fresh);
   useEffect(() => {
-    if (!early || !loaded) return;
+    if (!early || !actionable) return;
     setEarly(false);
-    decide(false);
-  }, [early, loaded, decide]);
+    if (bus.size() > 0) decide(false);
+  }, [early, actionable, bus, decide]);
 
   const showBox = useCallback((tag: string) => {
     flushSync(() => now.current.setView('canvas'));

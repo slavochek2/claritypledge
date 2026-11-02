@@ -12,31 +12,36 @@ import { flushSync } from 'react-dom';
 import { toast } from 'sonner';
 import type { VoiceSender } from '@/hooks/use-voice-note';
 import { ComposerTagContext } from './composer-tag-bus';
-import { decodeTagged, insertTagAt, removeTagBefore, snapOutOfTag, stripTags } from './composer-tags';
+import { editStoredDraft } from './chat-hooks';
+import { insertTagAt, removeTagBefore, removeTagTokens, snapOutOfTag, tagCounts } from './composer-tags';
 
 // [FOUNDER DECISION: said when a tag would take the message past its cap.]
 export const TAG_TOO_LONG_TEXT = 'That message is too long to add another box.';
 
-export function useComposerTags(field: RefObject<HTMLTextAreaElement | null>, value: string, setValue: (v: string) => void, onVoiceNote: VoiceSender | undefined): {
+export function useComposerTags(field: RefObject<HTMLTextAreaElement | null>, draftKey: string, value: string, setValue: (v: string) => void, onVoiceNote: VoiceSender | undefined): {
   onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => boolean;
   voice: VoiceSender | undefined;
 } {
   const bus = useContext(ComposerTagContext);
-  const now = useRef({ value, setValue, onVoiceNote });
-  now.current = { value, setValue, onVoiceNote };
+  const now = useRef({ value, setValue, onVoiceNote, key: draftKey });
+  now.current = { value, setValue, onVoiceNote, key: draftKey };
   const caret = useRef<number | null>(null);
   useEffect(() => {
     if (value === '') caret.current = null;
   }, [value]);
 
-  /** Sets the value, then puts the caret after the edit and focuses the field (inside the tap handler when `sync`: a phone's keyboard needs that). */
+  /**
+   * Sets the value, then puts the caret after the edit and focuses the field (inside the tap handler when `sync`: a phone's keyboard needs that). The value and caret
+   * the NEXT edit starts from are set at once, not when React renders: several tags queued together each land on the one before.
+   */
   const place = useCallback((next: string, at: number, sync: boolean) => {
+    now.current.value = next;
+    caret.current = at;
     const settle = () => {
       const el = field.current;
       if (!el) return;
       el.focus();
       el.setSelectionRange(at, at);
-      caret.current = at;
     };
     if (sync) {
       flushSync(() => now.current.setValue(next));
@@ -57,10 +62,15 @@ export function useComposerTags(field: RefObject<HTMLTextAreaElement | null>, va
     });
   }, [bus, place]);
 
-  // The caret as the field reports it; one that lands inside a token goes to the token's edge.
+  // The caret as the field reports it; one that lands inside a token goes to the token's edge. Attached to whatever textarea the ref holds NOW, checked after every
+  // render, so a field that mounts later (or is replaced) is listened to as well.
+  const listening = useRef<{ el: HTMLTextAreaElement; off: () => void } | null>(null);
   useEffect(() => {
     const el = field.current;
-    if (!bus || !el) return;
+    if (!bus || listening.current?.el === el) return;
+    listening.current?.off();
+    listening.current = null;
+    if (!el) return;
     const track = () => {
       const at = el.selectionStart ?? 0;
       const prev = caret.current ?? at;
@@ -70,8 +80,9 @@ export function useComposerTags(field: RefObject<HTMLTextAreaElement | null>, va
     };
     const events = ['select', 'keyup', 'click', 'input'] as const;
     events.forEach(n => el.addEventListener(n, track));
-    return () => events.forEach(n => el.removeEventListener(n, track));
-  }, [bus, field]);
+    listening.current = { el, off: () => events.forEach(n => el.removeEventListener(n, track)) };
+  });
+  useEffect(() => () => listening.current?.off(), []);
 
   const onKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>): boolean => {
     if (!bus || e.key !== 'Backspace' || e.nativeEvent.isComposing || e.currentTarget.selectionStart !== e.currentTarget.selectionEnd) return false;
@@ -82,12 +93,17 @@ export function useComposerTags(field: RefObject<HTMLTextAreaElement | null>, va
     return true;
   }, [bus, place]);
 
-  // J5: a voice note carries the tags in the field and clears them once it is sent; a failed note keeps them (its Retry sends the same field).
+  // J5: a voice note carries the tags in the field when it is submitted, and on success removes exactly those (a tag added since stays), from the composer slot it was
+  // sent from (if the composer has moved to another chat meanwhile, that slot's stored draft is edited and the visible one is left alone). A failed note keeps them.
   const voice = useMemo<VoiceSender | undefined>(() => {
     if (!bus || !onVoiceNote) return onVoiceNote;
     return async (wav, opts) => {
-      const sent = await onVoiceNote(wav, { ...opts, boxRefs: decodeTagged(now.current.value).refs });
-      now.current.setValue(stripTags(now.current.value).trim());
+      const counts = tagCounts(now.current.value);
+      const key = now.current.key;
+      const sent = await onVoiceNote(wav, { ...opts, boxRefs: Object.keys(counts).sort() });
+      const without = (v: string) => { const r = removeTagTokens(v, counts); return r.trim() === '' ? '' : r; };
+      if (now.current.key === key) now.current.setValue(without(now.current.value));
+      else editStoredDraft(key, without);
       return sent;
     };
   }, [bus, onVoiceNote]);

@@ -79,7 +79,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
   const keyNow = useLatest(draftKey);
   const [caret, setCaret] = useState(0);
   // P1576: dictation. The mic, the recorder bar that takes the field's place, and where the words go.
-  const tags = useComposerTags(field, value, setValue, onVoiceNote);
+  const tags = useComposerTags(field, draftKey, value, setValue, onVoiceNote);
   const voice = useVoiceNote(draftKey, tags.voice);
   const dict = useComposerDictation(draftKey, field, latest, keyNow, setValue, setCaret, value);
   const [active, setActive] = useState(0);

@@ -78,7 +78,7 @@ vi.mock('@/app/pages/chat/use-conversation', () => ({
 // The real body component (chips); the row around it is a stand-in.
 vi.mock('@/app/pages/chat/MessageRow', async () => {
   const { CanvasMessageBody } = await import('@/app/pages/chat/CanvasMessageBody');
-  return { MessageRow: ({ msg }: { msg: ChatMessage }) => <li data-msg={msg.id}>{msg.body ? <CanvasMessageBody body={msg.body} boxRefs={msg.boxRefs} authorId={msg.authorId} /> : 'card'}</li> };
+  return { MessageRow: ({ msg }: { msg: ChatMessage }) => <li data-msg={msg.id}>{msg.body ? <CanvasMessageBody body={msg.body} boxRefs={msg.boxRefs} agent={msg.kind === 'agent'} /> : 'card'}</li> };
 });
 
 import { CanvasWithThread } from '@/app/pages/canvas/canvas-with-thread';
@@ -90,6 +90,7 @@ import { resetUnresolvedFirstSends } from '@/app/pages/canvas/workspace-next-dra
 import { clearLinkTokens } from '@/lib/canvas-link-token';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { tagToken } from '@/app/pages/chat/composer-tags';
+import { CANVAS_CHIP } from '@/app/components/canvas/canvas-pill-styles';
 
 const summary: ChatSummary = {
   conversationId: CONV, kind: 'mirror', title: 'Mira', other: null, org: null, event: null, ownerFirstName: 'Ana',
@@ -249,6 +250,16 @@ describe('S4.1 who sees Add to chat', () => {
   });
 });
 
+describe('the one chip look', () => {
+  it('the Changed marker on a box wears the same chip classes as a box named in a message', async () => {
+    st.openDraft = draftBlock({ baseSeq: 1, changedBoxes: ['canvas:problem'] });
+    st.draftRow = draftRow();
+    mount(DRAFT_AT);
+    await draftReady();
+    expect((await screen.findByTestId('canvas-box-changed')).className).toContain(CANVAS_CHIP);
+  });
+});
+
 describe('S4.2 tags in the composer', () => {
   it('a tap puts the token at the saved caret and the composer has focus when the tap handler returns; two taps, two tags', async () => {
     openDraftState();
@@ -270,12 +281,13 @@ describe('S4.2 tags in the composer', () => {
     openDraftState();
     mount(DRAFT_AT);
     await draftReady();
-    tapAdd('canvas:revenue'); // the caret is now after the space that follows the token
-    fireEvent.keyDown(field(), { key: 'Backspace' }); // after the space: the browser's own Backspace, not the tag's
-    expect(field().value).toBe(`${REVENUE_TOKEN} `);
-    field().setSelectionRange(REVENUE_TOKEN.length, REVENUE_TOKEN.length); // directly after the token
+    tapAdd('canvas:revenue'); // the caret is after the space the tap added behind the token
+    fireEvent.keyDown(field(), { key: 'Backspace' }); // ONE press right after the tap removes the whole tag (and that space)
+    expect(field().value).toBe('');
+    typeInto(`${REVENUE_TOKEN} words`);
+    field().setSelectionRange(REVENUE_TOKEN.length, REVENUE_TOKEN.length); // directly after a token with no space: still the whole token
     fireEvent.keyDown(field(), { key: 'Backspace' });
-    expect(field().value).toBe(' '); // the whole token went, not one letter of it
+    expect(field().value).toBe(' words'); // the whole token went, not one letter of it
   });
 
   it('a tags-only field shows the voice button, not Send; words bring Send', async () => {
@@ -352,6 +364,21 @@ describe('S4.4 a published canvas', () => {
     expect(a.p_from_version).toBe('ver-1');
     expect(a.p_box_refs).toEqual(['canvas:segments']);
     expect(a.p_body).toBe('[Customer Segments] Not HR leads');
+  });
+});
+
+describe('S4.2 focus after a tap on a published canvas', () => {
+  // Not provable here: testing-library flushes everything after a handler. In a real browser the composer is mounted AFTER the handler returns (the router applies `ws=1` in a
+  // transition), which the walk records; what is asserted is that it is then mounted, holds the tag and has the focus.
+  it('the composer is mounted, holds the tag and has the focus once the pending Clone has rendered', async () => {
+    mount('/p/ana/canvas/canvas');
+    await grid();
+    await waitFor(() => expect(screen.getAllByText('Add to chat')).toHaveLength(9));
+    await act(async () => {}); // the page's read and the chat list have answered
+    tapAdd('canvas:segments'); // synchronous: fireEvent.click returns when the handler has
+    expect(screen.getByTestId('workspace-chat-empty')).toBeInTheDocument();
+    expect(field().value).toContain(SEGMENTS_TOKEN);
+    expect(document.activeElement).toBe(field());
   });
 });
 
@@ -486,7 +513,7 @@ describe('W1 / J2: the thread comes into view from a tap', () => {
 });
 
 describe('J2 step 4: reply chips', () => {
-  const reply = () => msg({ id: 'agent-1', authorId: 'agent-1', body: 'Updated: Offers & Pricing, My next milestone.' });
+  const reply = () => msg({ id: 'agent-1', authorId: null, kind: 'agent', body: 'Updated: Offers & Pricing, My next milestone.' });
   beforeEach(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
     openDraftState();
@@ -499,11 +526,16 @@ describe('J2 step 4: reply chips', () => {
     const chips = screen.getAllByTestId('reply-box-chip');
     expect(chips.map(c => c.textContent)).toEqual(['Offers & Pricing', 'My next milestone']);
     expect(chips[0]!.className).toContain('min-h-10');
+    expect(chips[0]!.className).toContain(CANVAS_CHIP); // the one chip look: the same as the "Changed" marker on a box
     expect(document.querySelector('[data-msg="agent-1"]')?.textContent).toContain('Updated:');
   });
 
-  it('the viewer\'s own message that looks like a reply is not chips', async () => {
-    st.messages = [msg({ id: ROOT, body: null, threadRootId: null, attachmentKind: 'canvas_version', attachmentId: 'ver-draft' }), msg({ id: 'mine', authorId: ME, body: 'Updated: Problem.' })];
+  it('a person\'s message that looks like a reply (the owner\'s own, or another participant\'s) is not chips: only a message of kind agent is', async () => {
+    st.messages = [
+      msg({ id: ROOT, body: null, threadRootId: null, attachmentKind: 'canvas_version', attachmentId: 'ver-draft' }),
+      msg({ id: 'mine', authorId: ME, body: 'Updated: Problem.' }),
+      msg({ id: 'other', authorId: 'someone-else', body: 'Updated: Solution.' }),
+    ];
     mount(DRAFT_AT);
     await draftReady();
     expect(screen.queryByTestId('reply-box-chip')).toBeNull();

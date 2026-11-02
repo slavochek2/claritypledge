@@ -87,20 +87,20 @@ describe('J5 the composer hands its tags to the voice sender, and clears them on
     const setValue = vi.fn();
     const sender = vi.fn(async (_wav: Blob, _opts?: unknown) => undefined);
     const field = { current: document.createElement('textarea') };
-    const { result } = renderHook(() => useComposerTags(field, `${tagToken(REVENUE)} `, setValue, sender), { wrapper });
+    const { result } = renderHook(() => useComposerTags(field, 'u:k', `${tagToken(REVENUE)} `, setValue, sender), { wrapper });
     await act(async () => { await result.current.voice?.(new Blob(['x'])); });
     expect(sender.mock.calls[0]![1]).toEqual({ boxRefs: [REVENUE] });
     expect(setValue).toHaveBeenLastCalledWith('');
     setValue.mockClear();
     const failing = vi.fn(async () => { throw new Error('nope'); });
-    const again = renderHook(() => useComposerTags(field, `${tagToken(REVENUE)} `, setValue, failing), { wrapper });
+    const again = renderHook(() => useComposerTags(field, 'u:k', `${tagToken(REVENUE)} `, setValue, failing), { wrapper });
     await act(async () => { await again.result.current.voice?.(new Blob(['x'])).catch(() => undefined); });
     expect(setValue).not.toHaveBeenCalled();
   });
   it('outside a workspace the sender is the caller\'s own and no key is handled', () => {
     const sender = vi.fn(async () => undefined);
     const field = { current: document.createElement('textarea') };
-    const { result } = renderHook(() => useComposerTags(field, '', vi.fn(), sender));
+    const { result } = renderHook(() => useComposerTags(field, 'u:k', '', vi.fn(), sender));
     expect(result.current.voice).toBe(sender);
   });
 });

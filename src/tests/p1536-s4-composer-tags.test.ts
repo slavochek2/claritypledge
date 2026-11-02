@@ -4,7 +4,7 @@
  * marks); Send turns the tokens into plain "[Offers & Pricing]" text plus the box list the server validates; Backspace after a token removes the whole token.
  */
 import { describe, expect, it } from 'vitest';
-import { decodeTagged, hasWords, insertTagAt, removeTagBefore, snapOutOfTag, stripTags, TAG_MARK, tagToken } from '@/app/pages/chat/composer-tags';
+import { decodeTagged, hasWords, insertTagAt, removeTagBefore, removeTagTokens, snapOutOfTag, stripTags, tagCounts, TAG_MARK, tagToken } from '@/app/pages/chat/composer-tags';
 
 const REVENUE = 'canvas:revenue';
 const METRICS = 'canvas:metrics';
@@ -38,8 +38,26 @@ describe('P1536 S4.2 tag tokens in the composer text', () => {
     const gone = removeTagBefore(v, afterToken);
     expect(gone?.value).toBe(' words');
     expect(gone?.caret).toBe(0);
-    expect(removeTagBefore(v, afterToken + 1)).toBeNull(); // after the space: an ordinary Backspace
+    expect(removeTagBefore(v + 'x', v.length + 1)).toBeNull(); // after a letter: an ordinary Backspace
     expect(removeTagBefore('plain', 5)).toBeNull();
+  });
+
+  it('Backspace just after a tap (the caret is after the space the tap added) removes the token and that space in one press', () => {
+    const tapped = insertTagAt('', 0, REVENUE);
+    const gone = removeTagBefore(tapped?.value ?? '', tapped?.caret ?? 0);
+    expect(gone).toEqual({ value: '', caret: 0 });
+    const mid = insertTagAt('price high', 6, REVENUE); // "price <token> high": caret after the space that follows the token
+    const goneMid = removeTagBefore(mid?.value ?? '', mid?.caret ?? 0);
+    expect(goneMid?.value).toBe('price high');
+  });
+
+  it('counts the tokens of each box, and removes only that many, first ones first', () => {
+    const v = `${tagToken(REVENUE)} a ${tagToken(METRICS)} b ${tagToken(REVENUE)}`;
+    expect(tagCounts(v)).toEqual({ [METRICS]: 1, [REVENUE]: 2 });
+    // a voice note was sent with ONE Offers & Pricing token and the Milestone one; a second Offers & Pricing token was added after
+    const after = removeTagTokens(v, { [REVENUE]: 1, [METRICS]: 1 });
+    expect(after).toBe(` a  b ${tagToken(REVENUE)}`);
+    expect(tagCounts(after)).toEqual({ [REVENUE]: 1 });
   });
 
   it('a caret inside a token snaps to the near edge by the direction it moved', () => {

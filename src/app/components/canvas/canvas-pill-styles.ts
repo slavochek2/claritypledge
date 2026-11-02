@@ -37,3 +37,9 @@ export const CANVAS_DISCARD_TEXT =
 /** Cancel (design-system rule 3): ghost, muted text, no box. 44px tall. */
 export const CANVAS_CANCEL_TEXT =
   'inline-flex h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
+
+/**
+ * A small outlined label on the canvas: the "Changed" marker on a box, and a box named in a message (the owner's tag, the agent's "Updated:" reply). One look, so a chip in the
+ * thread is recognisably the marker on the box it names. Shape and colour only: the caller sets spacing and, for a tappable one, the 40px height.
+ */
+export const CANVAS_CHIP = 'rounded-full border border-blue-300 bg-background px-2 py-0.5 text-xs font-medium text-blue-700';

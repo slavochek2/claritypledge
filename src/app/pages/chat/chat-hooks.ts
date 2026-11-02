@@ -92,6 +92,13 @@ export function insertIntoDraft(key: string, text: string, caret: number): boole
   return true;
 }
 
+/** Changes the stored draft of a slot without showing it anywhere (for a slot the composer has left). */
+export function editStoredDraft(key: string, edit: (value: string) => string): void {
+  const next = edit(drafts.get(key) ?? '');
+  if (next) drafts.set(key, next);
+  else drafts.delete(key);
+}
+
 export function useDraft(key: string): [string, (value: string) => void] {
   const [value, setValue] = useState(() => drafts.get(key) ?? '');
   useEffect(() => {

@@ -9,6 +9,7 @@ import type { PointWithUserPosition } from '@/app/types';
 import { CanvasBoxPlaceholder } from '@/app/pages/canvas-page-placeholders';
 import { AddToChatButton } from './canvas-add-to-chat';
 import { BoxIcon } from './canvas-box-icon';
+import { CANVAS_CHIP } from './canvas-pill-styles';
 import { BOX_TITLES } from './canvas-page-data';
 import { useContainerColumns, type GridColumns } from './use-container-columns';
 
@@ -95,16 +96,17 @@ function CanvasBox({ tag, title, points, renderCard, onMore, question, changed }
       // Founder (fifth round): white on white hid everything — a grey box holds white cards.
       className={`flex min-w-0 flex-col rounded-xl border border-border bg-muted/60 p-2 data-[highlight]:ring-2 data-[highlight]:ring-blue-500 sm:p-2.5`}
     >
-      <div className="mb-1.5 flex min-w-0 items-center gap-2">
+      {/* The header row wraps: when the title (at least 6.5rem, so no word of it breaks) and Add to chat do not fit side by side, the button takes its own line at the right. */}
+      <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-x-2">
         {/* The icon in a small tinted circle, like the pin on every point card. */}
         <BoxIcon tag={tag} className={empty ? 'opacity-60' : ''} />
-        <h3 id={headingId} className={`min-w-0 flex-1 break-words text-sm font-semibold ${titleColour}`}>{title}</h3>
-        {changed && (
-          // 3c X12: changed = differs from the version the draft started from. A box the base had and an update emptied reads Empty with Removed (hiding it would hide a removal before Publish); any other changed box reads Changed.
-          <span className="shrink-0 rounded-full border border-blue-300 bg-background px-2 py-0.5 text-xs font-medium text-blue-700" data-testid={empty ? 'canvas-box-removed' : 'canvas-box-changed'}>{empty ? 'Removed' : 'Changed'}</span>
-        )}
+        <h3 id={headingId} className={`min-w-[6.5rem] flex-1 break-words text-sm font-semibold ${titleColour}`}>{title}</h3>
         <AddToChatButton tag={tag} title={title} />
       </div>
+      {changed && (
+        // 3c X12: changed = differs from the version the draft started from. A box the base had and an update emptied reads Empty with Removed (hiding it would hide a removal before Publish); any other changed box reads Changed. On its own line under the header (the wireframes'), so a narrow header keeps its title whole.
+        <span className={`mb-1.5 self-start ${CANVAS_CHIP}`} data-testid={empty ? 'canvas-box-removed' : 'canvas-box-changed'}>{empty ? 'Removed' : 'Changed'}</span>
+      )}
       {points === null ? (
         <CanvasBoxPlaceholder empty={false} />
       ) : empty ? (

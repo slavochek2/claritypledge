@@ -41,13 +41,13 @@ export function TranscriptionMark({ msg, grouped = false, continues = false }: {
 }
 
 /** A message's words: plain (a transcription is set like a typed message), or a bold title for a system post; "(edited)" only from edited_at. */
-export function MessageNote({ body, editedAt, system, boxRefs, authorId }: { body: string; editedAt: string | null; system: boolean; boxRefs?: string[] | null; authorId?: string | null }) {
+export function MessageNote({ body, editedAt, system, boxRefs, agent = false }: { body: string; editedAt: string | null; system: boolean; boxRefs?: string[] | null; agent?: boolean }) {
   return (
     <p
       data-testid={system ? 'system-title' : undefined}
       className={cn('whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground', system && 'font-semibold')}
     >
-      <CanvasMessageBody body={body} boxRefs={boxRefs} authorId={authorId ?? null} />
+      <CanvasMessageBody body={body} boxRefs={boxRefs} agent={agent} />
       {editedAt && <span className="ml-1.5 text-xs text-muted-foreground" data-testid="edited-mark">(edited)</span>}
     </p>
   );
