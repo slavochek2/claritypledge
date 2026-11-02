@@ -8,6 +8,13 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-02 [product]: A hike's host walks the learning too, so they can show people where to click
+
+**Context:** The event room hid "Learn the principle" from the host, and the database refused a host's preparation row because a host has no RSVP (P1336). The founder usually hosts: *"if I as a host cannot show ... then I cannot show, by example, other people where to click."*
+**Decision:** The step shows for the host, and the INSERT policy on `event_preparations` allows a registrant or the event's host, each for their own row only. `/events/:slug/prepare` admits the host.
+**Alternatives rejected:** Auto-RSVP for the host (changes the headcount). Read-only for the host (no saved state, the Learn tick never completes).
+**Consequences:** P1336's "the host has no preparation" no longer holds; "the host is excluded from every count" still does, and an integration test now pins it with a finished host row. A host who already learned lands on the end screen with the finished steps reopenable (`use-auto-finish.ts`), not the first-time steps; a test attendee account shows those. **UNTESTED** as a demo aid. Falsifier: the founder still needs a second account to show people where to click.
+
 ## 2026-11-02 [process]: A request with no checkbox is checked against the founder's own words
 
 **Context:** On P1536 the founder asked for voice in canvas threads and a + in the mirror chat more than once: *"I think I mentioned it twice or three times already and nothing changed."* The agent had agreed to both on 2026-10-29. Both reached the spec only as prose, code switched voice off the same day, and a later section dropped the repeat. Every check compared the build to the spec, so none could see it.

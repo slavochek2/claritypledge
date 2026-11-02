@@ -37,6 +37,7 @@ test.describe('P1336: event_preparations + per-event setup', () => {
   let host: TestUser;
   let alice: TestUser; // prepares, opts in
   let bob: TestUser; // another attendee, opts out
+  let stranger: TestUser; // neither registered nor the host
   let eventId: string;
   const roomIds: string[] = [];
   const sessionIds: string[] = [];
@@ -45,6 +46,7 @@ test.describe('P1336: event_preparations + per-event setup', () => {
     host = await createTestUser({ name: 'P1336 Host' });
     alice = await createTestUser({ name: 'P1336 Alice' });
     bob = await createTestUser({ name: 'P1336 Bob' });
+    stranger = await createTestUser({ name: 'P1336 Stranger' });
     const { data: ev, error } = await supabaseAdmin
       .from('events')
       .insert({
@@ -71,7 +73,7 @@ test.describe('P1336: event_preparations + per-event setup', () => {
     if (roomIds.length) await supabaseAdmin.from('transcribe_rooms').delete().in('id', roomIds);
     if (sessionIds.length) await supabaseAdmin.from('clarity_sessions').delete().in('id', sessionIds);
     if (eventId) await supabaseAdmin.from('events').delete().eq('id', eventId);
-    for (const u of [host, alice, bob]) if (u?.user?.id) await deleteTestUser(u.user.id);
+    for (const u of [host, alice, bob, stranger]) if (u?.user?.id) await deleteTestUser(u.user.id);
   });
 
   test('schema: events columns have their defaults', async () => {
@@ -95,7 +97,14 @@ test.describe('P1336: event_preparations + per-event setup', () => {
 
     const h = await clientFor(host); // the host has no RSVP row
     const { error: hostInsert } = await h.from('event_preparations').insert({ event_id: eventId, profile_id: host.user.id });
-    expect(hostInsert, 'insert must require an RSVP').not.toBeNull();
+    expect(hostInsert, 'the host may keep their own learning without an RSVP (founder 2026-11-02)').toBeNull();
+
+    // The real refusal: neither registered nor the host, and not someone else's row either.
+    const st = await clientFor(stranger);
+    const { error: strangerInsert } = await st.from('event_preparations').insert({ event_id: eventId, profile_id: stranger.user.id });
+    expect(strangerInsert, 'insert must require an RSVP or being the host').not.toBeNull();
+    const { error: forgedInsert } = await h.from('event_preparations').insert({ event_id: eventId, profile_id: stranger.user.id });
+    expect(forgedInsert, 'a host cannot create a row for someone else').not.toBeNull();
 
     const b = await clientFor(bob);
     const { error: bobErr } = await b
@@ -114,11 +123,22 @@ test.describe('P1336: event_preparations + per-event setup', () => {
 
     const h = await clientFor(host);
     const { data: hostRows } = await h.from('event_preparations').select('profile_id').eq('event_id', eventId);
-    expect((hostRows ?? []).map((r) => r.profile_id).sort()).toEqual([alice.user.id, bob.user.id].sort());
+    expect((hostRows ?? []).map((r) => r.profile_id).sort()).toEqual([alice.user.id, bob.user.id, host.user.id].sort());
 
     const { data: hostView, error: hvErr } = await h.rpc('get_event_prep_host_view', { p_event_id: eventId });
     expect(hvErr).toBeNull();
     expect((hostView as unknown[]).length).toBe(2);
+
+    // The host's own finished learning moves no count: not the list above, not the public proof.
+    const { data: proofBefore } = await anon().rpc('get_event_prep_social_proof', { p_event_id: eventId });
+    const { error: hostDone } = await h.from('event_preparations')
+      .update({ completed_at: new Date().toISOString(), opted_in: true })
+      .eq('event_id', eventId).eq('profile_id', host.user.id);
+    expect(hostDone).toBeNull();
+    const { data: proofAfter } = await anon().rpc('get_event_prep_social_proof', { p_event_id: eventId });
+    expect(proofAfter).toEqual(proofBefore);
+    const { data: hostViewAfter } = await h.rpc('get_event_prep_host_view', { p_event_id: eventId });
+    expect((hostViewAfter as { profile_id: string }[]).map((r) => r.profile_id)).not.toContain(host.user.id);
     const { error: notHost } = await b.rpc('get_event_prep_host_view', { p_event_id: eventId });
     expect(notHost, 'host view must refuse a non-host').not.toBeNull();
   });

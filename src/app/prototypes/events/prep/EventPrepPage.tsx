@@ -91,7 +91,7 @@ export function EventPrepPage() {
         const isRsvpd = await eventsService.isUserRsvpd(found.id, user.id).catch(() => false);
         if (cancelled) return;
         setRegistered(isRsvpd);
-        if (isRsvpd && found.hasGroupChat) {
+        if ((isRsvpd || found.hostId === user.id) && found.hasGroupChat) {
           eventsService.getEventGroupChatUrl(found.id).then((u) => !cancelled && setGroupChatUrl(u)).catch(() => undefined);
         }
       }
@@ -105,8 +105,8 @@ export function EventPrepPage() {
   if (!session) return <Navigate to={`/login?redirect=/events/${slug}/prepare`} replace />;
   if (!event || !offersPreparation(event)) return <Navigate to={`/events/${slug}`} replace />;
   if (registered === null || state.loading) return <ClarityPageLoader />;
-  // Preparation belongs to a registration (the host has none of their own).
-  if (!registered) return <Navigate to={`/events/${slug}`} replace />;
+  // Preparation belongs to a registration, or to the host: founder 2026-11-02, a host shows people where to click.
+  if (!registered && user?.id !== event.hostId) return <Navigate to={`/events/${slug}`} replace />;
   if (state.error) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-16 text-center">

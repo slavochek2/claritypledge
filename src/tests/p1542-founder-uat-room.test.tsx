@@ -182,6 +182,14 @@ describe('(1) the step bar on the Back row, desktop only', () => {
   });
 });
 
+describe('the host sees the Learn step too', () => {
+  it('founder 2026-11-02: a hike\'s host (the signed-in user) gets "Learn the principle" in the step bar, like any attendee', () => {
+    room.access = { ...room.access as object, event: { ...hike, hostId: 'u1' } };
+    mount('walk', { fromEvent: true });
+    expect(screen.getByTestId('room-step-learn')).toBeInTheDocument();
+  });
+});
+
 describe('(2) Share feedback opens inside the room', () => {
   it('a hike\'s "Start now": the same /meet page, ?view=feedback, one more room entry; Back returns to the room', async () => {
     mount('walk', { fromEvent: true, roomStep: 'close' });

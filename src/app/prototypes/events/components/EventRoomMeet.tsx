@@ -490,7 +490,7 @@ export function EventRoomMeet() {
       onSelect={onStep}
       hidden={hiddenSteps}
       labels={roomRecipe.room.steps ? { principle: roomRecipe.room.steps.principle, close: roomRecipe.room.steps.close } : undefined}
-      learn={learnsInBar && event && user?.id !== event.hostId
+      learn={learnsInBar && event
         // Round 6 (G): moving between the room's own steps REPLACES, so the room is one history entry and Back
         // can never return into the learning; the event-page marker travels along for the header's Back.
         ? {
