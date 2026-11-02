@@ -8,6 +8,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-02 [product]: A page header has one filled action, at the far right, and published needs no word
+
+**Context:** Walking the P1536 canvas workspace, the founder found "Published" twice on one header, Share on an unpublished draft, a status line where they expected Publish, and two secondary buttons with no main one: *"we always have this issue is the primary and secondary buttons."* An earlier QA round had seen the duplicate and closed it as low severity because the spec asked for it.
+**Decision:** The main action is the furthest-right button and the only filled one in the bar: Publish on a draft, Share on a published version. A version with no Draft tag is published, so the word goes. Draft is a tag, not plain text, wherever a draft appears. Nothing a person cannot act on yet takes a disabled button (D3, rule 9, the p955-gate), but it must not vanish either: the founder pointed out that a hidden Publish leaves people not knowing publishing exists, so the spot says "Nothing to publish yet". A page's state table, one row per state, is the rule; prose is not.
+**Alternatives rejected:** A disabled Publish (a dead control, blocked by the gate). An empty, reserved spot (the agent's first default: quiet, but tells nobody what comes next). Naming Published everywhere (W4, reversed here).
+**Consequences:** Design-system rule 9 is extended to any page's single top-bar action. Falsifier: at UAT the owner still looks for what to do next on an unchanged draft.
+**References:** [P1536 §3c](../features/p1536_canvas_first_draft_from_owner_material.md) X4 to X7
+
+---
+
+## 2026-11-02 [process]: Decided work is not postponed to make a release smaller
+
+**Context:** After the walkthrough the agent sorted the remaining P1536 work into "must do" and "can wait" (Add to chat, Undo, mixed material). The founder: *"we are not optimizing for execution time... we're optimizing for my attention... why are we postponing?"* Nothing in the sort was a user, correctness or security reason. Splitting it would have meant a second round of the founder's attention on things already decided.
+**Decision:** When work is already decided in a spec, the agent does not propose deferring it unless it names a reason from the Quality Over Build Speed ranking. "It can wait" is not one, and a smaller first release is not a benefit on its own. Everything decided goes in one spec, in dependency order.
+**Alternatives rejected:** A two-stage ship (the agent's recommendation, withdrawn: no ranked reason held). Deferring only Undo (a reversal would have meant retelling the agent or discarding a whole draft).
+**Consequences:** A bigger branch before the first real user. Falsifier: a defect in the postponed-then-included slices delays the core flow reaching UAT by more than the extra review catches.
+**References:** [P1536 §3c](../features/p1536_canvas_first_draft_from_owner_material.md) scope ruling
+
+---
+
+## 2026-11-02 [process]: A visual critic proves it can see the problem before its verdict counts
+
+**Context:** The P1536 S3b.11 walk reported 0 failing checks and visual QA set its remaining findings aside, then the founder's own walk produced ten annotated screenshots of redundancy, wrong button rank and a missing voice button. The checks asserted what the spec said, and the spec had asked for some of the redundancy.
+**Decision:** P1536's stage V, proposed as the pattern for UI-heavy specs: critics first run on known-bad screenshots and must report the known problems; the critic sets severity and the builder may not lower it; "the spec asks for it" escalates to the founder and does not close a finding; redundancy findings reach the founder at any severity. Gemini must receive actual images: a text-only review does not count.
+**Alternatives rejected:** More checks in the walk (they bind to the spec, which was the thing that was wrong). The same QA subagent with a longer checklist (it had seen the duplicate already).
+**Consequences:** `ask-model` needs image input. Status: proposed for `/dev` generally once P1536 has run it; INBOX-262 tracks the walk-before-UAT half. Falsifier: the control passes and the founder's UAT still finds the same class of problem.
+**References:** [P1536 §3c](../features/p1536_canvas_first_draft_from_owner_material.md) stage V
+
+---
+
 ## 2026-11-01 [technical]: A community chat invite never lives in the repo — short links read it from a Vercel env var
 
 **Context:** A printed poster needed `claritypledge.com/basket` to reach a WhatsApp group. The first version put the invite URL straight into a `vercel.json` redirect and pushed it to the public repo. The founder spotted it afterwards ("we didn't want it in public repo"). The pre-push review had flagged exactly this as a Low finding (bots scrape GitHub for `chat.whatsapp.com/` links) and it was left as accepted, because the link is also printed on the poster. That weighed the wrong thing: a printed poster exposes the link to people at one court, a public commit exposes it to every scraper and keeps it in history. CLAUDE.md already forbids WhatsApp links in docs; it did not say the same for config and code.
