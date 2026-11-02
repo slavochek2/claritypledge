@@ -1417,7 +1417,7 @@ describe('S1.15 authorization matrix', () => {
     for (const c of ['scope', 'client_id', 'trigger_message_id', 'reply_message_id', 'target_offer_id', 'created_revision', 'derived_refs']) {
       expect(denied((await col(o.c, 'canvas_draft_runs', c)).error), `canvas_draft_runs.${c}`).toBe(true);
     }
-    // 3c X9 review fix (migration 20261102110000) grants the owner `input_kind` and `ready_at`: the client's own lease arithmetic needs them (a voice run waits
+    // 3c X9 review fix (migration 20261102110100) grants the owner `input_kind` and `ready_at`: the client's own lease arithmetic needs them (a voice run waits
     // up to 30 minutes for its transcript and its 3-minute dispatch lease counts from ready_at; without them it would call the server's expire step in a loop
     // and drop "Updating…" at 3 minutes). Still the owner's alone: RLS (owner_id = auth.uid()) applies to every granted column, and anon has no grant at all.
     expect((await col(o.c, 'canvas_draft_runs', 'id, input_kind, ready_at')).error, 'the owner reads input_kind and ready_at').toBeNull();

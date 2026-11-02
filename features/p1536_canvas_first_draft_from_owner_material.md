@@ -1798,7 +1798,7 @@ The five letter reads (drafts, sent letters with their deliveries, received, act
 - [ ] Privacy policy (`src/app/content/privacy.md`, processor table) names canvas material as sent
       to the AI provider; amended text live before the prod flag is set.
 - [ ] New edge function deployed to prod after merge (`/push` handles function deploys).
-- [ ] X9: migrations `20261102100000_p1536_x9_voice_notes.sql` and then `20261102110000_p1536_x9_review_fixes.sql` applied BEFORE the functions
+- [ ] X9: migrations `20261102100100_p1536_x9_voice_notes.sql` and then `20261102110100_p1536_x9_review_fixes.sql` applied BEFORE the functions
       on every project (the new `chat-voice` calls `canvas_voice_send`, and the review fixes add the run's `ready_at` and its lease). Then deploy
       both `chat-voice` and `canvas-draft` to that project.
 - [ ] The voice bucket's CORS lists the origin the app is served from (the test bucket lists the worktree ports, not every dev port).

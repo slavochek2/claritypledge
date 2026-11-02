@@ -1,6 +1,6 @@
 /**
  * @file p1536-x9-review-migration.test.ts
- * @description Source contract for migration 20261102110000 (X9 review fixes). The behaviour is proved on the test database by
+ * @description Source contract for migration 20261102110100 (X9 review fixes). The behaviour is proved on the test database by
  * src/tests/integration/p1536-x9-voice.test.ts ("review fixes" blocks); this pins the SHAPE, and each fact fails against a mutated copy (gate 7).
  *   - _canvas_draft_expire is the v6 body plus ONLY: the 30-minute voice wait, the lazy lease stamp, and the three lease conditions (voice runs by
  *     ready_at, voice runs not yet landed by the wait, every other run by creation as before);
@@ -12,8 +12,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const MIG = join(__dirname, '..', '..', 'supabase', 'migrations');
-const FIX = '20261102110000_p1536_x9_review_fixes.sql';
-const X9 = '20261102100000_p1536_x9_voice_notes.sql';
+const FIX = '20261102110100_p1536_x9_review_fixes.sql';
+const X9 = '20261102100100_p1536_x9_voice_notes.sql';
 const V6 = '20261030080000_p1536_v6_engine.sql';
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
 const stripComments = (sql: string) => sql.replace(/--[^\n]*/g, '');
@@ -80,7 +80,7 @@ const facts: Record<string, (sql: string) => boolean> = {
   },
 };
 
-describe('migration 20261102110000: X9 review fixes', () => {
+describe('migration 20261102110100: X9 review fixes', () => {
   const sql = read(FIX);
   it('every fact holds for the real file', () => {
     for (const [name, fact] of Object.entries(facts)) expect(fact(sql), name).toBe(true);

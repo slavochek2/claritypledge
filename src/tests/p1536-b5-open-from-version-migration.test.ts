@@ -1,6 +1,6 @@
 /**
  * @file p1536-b5-open-from-version-migration.test.ts
- * @description P1536 3c B5 source contract for migration 20261102090000 (canvas_draft_open starts a draft as its base):
+ * @description P1536 3c B5 source contract for migration 20261102090100 (canvas_draft_open starts a draft as its base):
  *   - the opener is its LATEST previous body (20261029100000) plus only the edits named here: the declarations the inline construction
  *     needed go, and the inline construction (the canvas, the draft version, the thread root, the draft row) is replaced by the engine's
  *     _canvas_draft_new_canvas / _canvas_draft_new(uid, canvas, base, NULL, NULL), with the JSON response read from the new draft row;
@@ -14,7 +14,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const MIG = join(__dirname, '..', '..', 'supabase', 'migrations');
-const NEW = '20261102090000_p1536_b5_open_from_version.sql';
+const NEW = '20261102090100_p1536_b5_open_from_version.sql';
 const PREV = '20261029100000_p1536_canvas_draft_versions.sql';
 const V6 = '20261030080000_p1536_v6_engine.sql';
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
@@ -81,7 +81,7 @@ const facts: Record<string, (sql: string) => boolean> = {
   },
 };
 
-describe('migration 20261102090000: canvas_draft_open starts a draft as its base', () => {
+describe('migration 20261102090100: canvas_draft_open starts a draft as its base', () => {
   const sql = read(NEW);
 
   it('every fact holds for the real file', () => {

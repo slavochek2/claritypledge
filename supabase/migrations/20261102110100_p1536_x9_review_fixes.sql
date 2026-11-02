@@ -1,7 +1,7 @@
--- P1536 section 3c, X9 review fixes (adversarial and external review of 4b9771a30). The applied migration 20261102100000 stays as it is.
+-- P1536 section 3c, X9 review fixes (adversarial and external review of 4b9771a30). The applied migration 20261102100100 stays as it is.
 --
 -- diffed against: 20261030080000_p1536_v6_engine.sql (_canvas_draft_expire: its v6 body with the voice-run lease below and nothing else);
---   20261102100000_p1536_x9_voice_notes.sql (_canvas_voice_transcript_settled: that body plus the lease stamp; canvas_voice_send: that body with
+--   20261102100100_p1536_x9_voice_notes.sql (_canvas_voice_transcript_settled: that body plus the lease stamp; canvas_voice_send: that body with
 --   search_path '' and the key check on every result).
 -- client-safe: one nullable column, two column grants (a client may now read a run's input_kind and ready_at), and three function bodies. No
 --   signature, no existing grant or answer changes for a client. A run that is not a voice run expires exactly as before.

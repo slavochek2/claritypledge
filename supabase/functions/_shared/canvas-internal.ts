@@ -2,7 +2,7 @@
  * P1536 section 3c, X9: the internal, service-only route by which the DATABASE starts a canvas run.
  *
  * When a voice note's transcript lands, a trigger on chat_messages.transcript_status calls canvas-draft over pg_net with the queued
- * run's id (migration 20261102100000), so the run begins whether or not the owner's tab is open. The route is P1576's pattern for the
+ * run's id (migration 20261102100100), so the run begins whether or not the owner's tab is open. The route is P1576's pattern for the
  * mirror reply: a shared secret in a header (never a JWT), and a request that carries the header is internal ONLY and never falls
  * back to the JWT path.
  *

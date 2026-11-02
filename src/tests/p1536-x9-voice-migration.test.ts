@@ -1,6 +1,6 @@
 /**
  * @file p1536-x9-voice-migration.test.ts
- * @description P1536 3c X9 source contract for migration 20261102100000 (voice notes in every canvas thread):
+ * @description P1536 3c X9 source contract for migration 20261102100100 (voice notes in every canvas thread):
  *   - the send exists ONCE: canvas_workspace_send is the v6 body plus ONE gate (a voice attachment from anyone but the service role is refused,
  *     before any write), so every guard it had stays; canvas_voice_send calls it, so a voice note meets every one of them;
  *   - canvas_voice_send is service-role only, acts for the id it is given by making auth.uid() that id and the role claim 'service_role' for its
@@ -16,7 +16,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const MIG = join(__dirname, '..', '..', 'supabase', 'migrations');
-const NEW = '20261102100000_p1536_x9_voice_notes.sql';
+const NEW = '20261102100100_p1536_x9_voice_notes.sql';
 const V6 = '20261030080000_p1536_v6_engine.sql';
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
 const stripComments = (sql: string) => sql.replace(/--[^\n]*/g, '');
@@ -135,7 +135,7 @@ const facts: Record<string, (sql: string) => boolean> = {
   },
 };
 
-describe('migration 20261102100000: voice notes in every canvas thread', () => {
+describe('migration 20261102100100: voice notes in every canvas thread', () => {
   const sql = read(NEW);
 
   it('every fact holds for the real file', () => {
@@ -145,7 +145,7 @@ describe('migration 20261102100000: voice notes in every canvas thread', () => {
   it('is the newest definition of canvas_workspace_send (a later body would silently drop the gate); the review-fixes migration amends three of the others', () => {
     const files = readdirSync(MIG).filter((f) => /^\d{14}_.*\.sql$/.test(f)).sort();
     const defs = (name: string) => files.filter((f) => new RegExp(`CREATE (OR REPLACE )?FUNCTION public\\.${name}\\(`).test(stripComments(read(f))));
-    const FIX = '20261102110000_p1536_x9_review_fixes.sql';
+    const FIX = '20261102110100_p1536_x9_review_fixes.sql';
     expect(defs('canvas_workspace_send')).toEqual([V6, NEW]);
     expect(defs('canvas_voice_send')).toEqual([NEW, FIX]); // the FIX body is pinned in p1536-x9-review-migration.test.ts
     expect(defs('_canvas_voice_transcript_settled')).toEqual([NEW, FIX]);

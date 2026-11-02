@@ -1,5 +1,5 @@
 /**
- * P1536 section 3c, B5: a draft opened from a published version starts as that version (migration 20261102090000).
+ * P1536 section 3c, B5: a draft opened from a published version starts as that version (migration 20261102090100).
  *   npm run test:integration -- src/tests/integration/p1536-b5-open-from-version.test.ts
  *
  * canvas_draft_open(p_from_version) is called as the signed-in owner, exactly as the client's startCanvasThread does. The published

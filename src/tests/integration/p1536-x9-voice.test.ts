@@ -1,5 +1,5 @@
 /**
- * P1536 section 3c, X9: voice notes in every canvas thread (migration 20261102100000).
+ * P1536 section 3c, X9: voice notes in every canvas thread (migration 20261102100100).
  *   npm run test:integration -- src/tests/integration/p1536-x9-voice.test.ts
  *
  * canvas_voice_send is the service-only function chat-voice calls after it has validated the STORED bytes (that check is unit-tested
