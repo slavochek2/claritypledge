@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: task
 rank: 86
 workstream: infrastructure
 created_date: '2026-11-02'
 tags: [day, monitoring, noise]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -55,11 +55,11 @@ Blast radius: medium. A wrong rule hides a real alarm in the daily run. Reversib
 
 ## Done-When
 
-- [ ] Each of the four rules has a test showing the noisy input stays quiet.
-- [ ] Each of the four rules has a control showing the real problem still fires, per the Invariants.
-- [ ] The grant check run against the live databases reports the P1592 drift as test ahead and exits 0.
-- [ ] Existing test suites for the changed scripts still pass.
-- [ ] Reviewed by Gemini 4 Argon and Opus, and Codex if needed, findings resolved.
+- [x] Each of the four rules has a test showing the noisy input stays quiet.
+- [x] Each of the four rules has a control showing the real problem still fires, per the Invariants.
+- [x] The grant check run against the live databases reports the P1592 drift as test ahead and exits 0.
+- [x] Existing test suites for the changed scripts still pass.
+- [x] Reviewed by Gemini 4 Argon and Opus, and Codex if needed, findings resolved.
 
 ## Alternatives Considered
 

@@ -684,8 +684,10 @@ r = d[0] if d else {}
 mins = r.get("mins_since_ok")
 if mins is None or float(mins) > 90:
     why.append("no successful dispatch in 90 minutes")
-if int(r.get("non_2xx_6h") or 0) > 0:
-    why.append("dispatch answered non-2xx")
+# P1597: one refusal with nothing overdue is noise; a repeat is a problem. Silence, overdue and stuck stay below.
+non_2xx = int(r.get("non_2xx_6h") or 0)
+if non_2xx >= 2:
+    why.append("dispatch answered non-2xx %d times in 6 hours" % non_2xx)
 failing = [j.get("jobname") for j in c if int(j.get("failed_24h") or 0) > 0]
 if failing:
     why.append("%d scheduled jobs failing" % len(failing))
@@ -693,7 +695,7 @@ if int(counts[0]) + int(counts[1]) > 0:
     why.append("emails overdue and unsent")
 if int(counts[2]) > 0:
     why.append("sends stuck pending")
-print("CHECK cp.email " + ("problem " + ", ".join(why) if why else "ok dispatch delivering, no failing job, nothing overdue"))
+print("CHECK cp.email " + ("problem " + ", ".join(why) if why else "ok dispatch delivering, no failing job, nothing overdue" + (", 1 refused call in 6 hours" if non_2xx == 1 else "")))
 ' | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 
 echo -e "\n=== SUPABASE TEST DB + FREE-PLAN QUOTA ==="
@@ -776,8 +778,8 @@ If response is a JSON object with `message` key (not array): `⚠ User activity:
 **Read `last_ok_dispatch` FIRST — it is the only line that can detect a silent failure.**
 `mins_since_ok` should be under ~60 (the job runs every 30 min). Over ~90 minutes, or
 `last_ok_dispatch` null, means **nothing is being delivered** — report
-`⚠ EVENT EMAIL DISPATCH SILENT: no successful dispatch in N minutes`. `non_2xx_6h > 0`
-means dispatches are being refused. **Never conclude the dispatcher is healthy from a green
+`⚠ EVENT EMAIL DISPATCH SILENT: no successful dispatch in N minutes`. `non_2xx_6h >= 2`
+means dispatches are being refused; a single one is noted in the check detail only (P1597). **Never conclude the dispatcher is healthy from a green
 cron row alone** (the history is in `.private/docs/`, P1256).
 
 **Then read the cron rows — they catch a different failure: the job not running at all.**
@@ -1232,7 +1234,7 @@ fi
 echo "table_grant_exit=$TGD_RC"
 if [ "$TGD_RC" -ge 2 ]; then echo "CHECK cp.tablegrants not-run the table grant check did not run (exit $TGD_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 elif [ "$TGD_RC" -eq 1 ]; then echo "CHECK cp.tablegrants problem table/column grants drifted, or a live table no migration creates is open to anon/authenticated" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
-else echo "CHECK cp.tablegrants ok no table or column grant outside the migrations" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
+else echo "CHECK cp.tablegrants ok no unexplained table or column grant drift" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 echo "=== PRIVILEGE FLOOR (P1207) ==="
 # Third catalog, third blind spot closed. The RLS check reads pg_policies and the function-grant
 # check reads EXECUTE on pg_proc; NEITHER reads table/column privileges or pg_default_acl, so

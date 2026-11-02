@@ -505,6 +505,54 @@ def compare(envs, live, model):
     return findings, unmodelled
 
 
+def _revokes(text, priv, table, role):
+    """True if this migration's own text revokes exactly this privilege on this table from this role."""
+    sql = re.sub(r"--[^\n]*", "", text)
+    pat = (r"\brevoke\b[^;]*\b(?:%s|all)\b[^;]*\bon\b[^;]*\b%s\b[^;]*\bfrom\b[^;]*\b(?:%s|public)\b"
+           % (re.escape(priv), re.escape(table), re.escape(role)))
+    return re.search(pat, sql, re.I) is not None
+
+
+def split_test_ahead(findings, branch_models, ledger, main_model):
+    """P1597. -> (real, excused). Excused only when: test lacks a table-level privilege that main's
+    migrations grant (so prod is not the odd one out), the branch's final state also lacks it, and a
+    branch-only migration ON TEST'S LEDGER itself revokes that privilege. Anything else stays real."""
+    real, excused = [], []
+    for f in findings:
+        owner = None
+        table, priv, role = f["table"], f["priv"], f["role"]
+        if (f.get("test") is False and f["column"] is None and table in main_model.tables
+                and priv in main_model.expected(table)[0][role]):
+            for branch, model, new in branch_models:
+                if (table in model.tables and priv not in model.expected(table)[0][role]
+                        and any(v in ledger and _revokes(text, priv, table, role) for v, text in new.items())):
+                    owner = branch
+                    break
+        if owner:
+            excused.append({**f, "branch": owner})
+        else:
+            real.append(f)
+    return real, excused
+
+
+def _test_ahead(findings, main_root, main_model):
+    from inflight_migrations import inflight_migration_dirs
+    if not any(f.get("test") is False for f in findings):
+        return findings, []
+    version = lambda n: n.split("_", 1)[0]
+    main_versions = {version(n) for n in os.listdir(DEFAULT_MIGRATIONS_DIR)}
+    ledger = {r["version"] for r in run_sql("test", "select version from supabase_migrations.schema_migrations")}
+    if not ledger:
+        raise CouldNotRun("test: migration ledger read returned no rows")
+    models = []
+    for branch, mig in inflight_migration_dirs(main_root):
+        new = {version(n): open(os.path.join(mig, n), errors="replace").read()
+               for n in os.listdir(mig) if n.endswith(".sql") and version(n) not in main_versions}
+        if new:
+            models.append((branch, replay(mig), new))
+    return split_test_ahead(findings, models, ledger, main_model)
+
+
 def render(envs, findings, unmodelled, model, live):
     gated = gating_unmodelled(envs, live, unmodelled)
     gated_keys = {(e, t) for e, t, _ in gated}
@@ -702,6 +750,34 @@ def _self_test_gating():
                               capture_output=True, text=True, timeout=60)
         check("broken check-rls-scope.py import exits 2", proc.returncode == 2
               and "COULD NOT RUN" in proc.stdout, (proc.returncode, proc.stdout[-200:], proc.stderr[-200:]))
+    # P1597: test tighter than prod is excused only by an unshipped revoke already on test's ledger.
+    with tempfile.TemporaryDirectory() as d:
+        with open(os.path.join(d, "1_a.sql"), "w") as fh:
+            fh.write("create table public.t (id int);\nrevoke delete on public.t from anon;")
+        main_m = replay(d)
+        with open(os.path.join(d, "2_b.sql"), "w") as fh:
+            fh.write("revoke insert on public.t from anon;")
+        bm = replay(d)
+    new = {"2": "revoke insert on public.t from anon;"}
+    tighter = {"table": "t", "role": "anon", "priv": "INSERT", "column": None, "prod": True, "test": False}
+    def run(f, branch_new=new, ledger=frozenset({"2"})):
+        return split_test_ahead([f], [("b", bm, branch_new)], ledger, main_m)
+    r, e = run(tighter)
+    check("unshipped revoke on the ledger excuses test being tighter", not r and e[0]["branch"] == "b", (r, e))
+    r, e = run(tighter, ledger=frozenset())
+    check("the same revoke NOT on test's ledger excuses nothing", r and not e, (r, e))
+    r, e = run(tighter, branch_new={"1": "select 1 from public.t;", "2": new["2"]}, ledger=frozenset({"1"}))
+    check("an applied migration that only mentions the table excuses nothing", r and not e, (r, e))
+    r, e = run(tighter, branch_new={"2": "-- revoke insert on public.t from anon;"})
+    check("a revoke in a comment excuses nothing", r and not e, (r, e))
+    r, e = run(dict(tighter, priv="UPDATE"))
+    check("a privilege the branch does not revoke stays real", r and not e, (r, e))
+    r, e = run(dict(tighter, priv="DELETE"), branch_new={"2": "revoke delete on public.t from anon;"})
+    check("prod wider than the migrations stays real", r and not e, (r, e))
+    r, e = run(dict(tighter, prod=False, test=True))
+    check("test WIDER than prod always stays real", r and not e, (r, e))
+    r, e = run({"table": "t", "role": "anon", "priv": "INSERT", "column": None, "migrations": True, "prod": False})
+    check("prod drift is never excused", r and not e, (r, e))
     return failures
 
 
@@ -714,7 +790,7 @@ def _run(args):
     findings, unmodelled = compare(envs, live, model)
     # A test-only table CREATEd by a migration on an unshipped worktree branch is that branch's
     # pre-ship state, not an unmodelled table. Report it, never gate on it. Prod is never exempt.
-    in_flight = []
+    in_flight, test_ahead = [], []
     if args.migrations_dir == DEFAULT_MIGRATIONS_DIR:
         sys.path.insert(0, os.path.join(HERE, "lib"))
         from inflight_migrations import inflight_migration_dirs
@@ -727,13 +803,15 @@ def _run(args):
                 owner.setdefault(table, branch)
         in_flight = [(e, t, owner[t]) for e, t in unmodelled if e == "test" and t in owner]
         unmodelled = [(e, t) for e, t in unmodelled if not (e == "test" and t in owner)]
+        if len(envs) == 2:
+            findings, test_ahead = _test_ahead(findings, main_root, model)
     gated = gating_unmodelled(envs, live, unmodelled)
     gating = bool(findings or gated or model.unparsed_table)
     if args.json:
         print(json.dumps({"findings": findings, "unmodelled": unmodelled,
                           "unmodelled_gating": gated, "unparsed": model.unparsed,
                           "unparsed_table": model.unparsed_table,
-                          "in_flight": in_flight}, indent=1, default=sorted))
+                          "in_flight": in_flight, "test_ahead": test_ahead}, indent=1, default=sorted))
     elif args.summary:
         bits = []
         if findings:
@@ -752,10 +830,17 @@ def _run(args):
             if in_flight:
                 extra += (f" ({len(in_flight)} in-flight on test only, report-only: "
                           + ", ".join(sorted({b for _, _, b in in_flight})) + ")")
+            if test_ahead:
+                extra += (" (test ahead of prod, waiting on: "
+                          + ", ".join(sorted({f["table"] + " " + f["branch"] for f in test_ahead})) + ")")
             print(f"Table grants: clean ({' vs '.join(envs + ['migrations'])}; "
                   f"{sum(len(v) for v in live.values())} live tables compared){extra}.")
     else:
         render(envs, findings, unmodelled, model, live)
+        if test_ahead:
+            print("\nTEST AHEAD OF PROD (report-only, an unshipped migration explains it):")
+            for t, b in sorted({(f["table"], f["branch"]) for f in test_ahead}):
+                print(f"    {t}: waiting on {b}")
     return 1 if gating else 0
 
 
