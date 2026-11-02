@@ -302,7 +302,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
               {server && (server.kind === 'forward' || server.kind === 'clarify') && <ForwardedBody msg={server} viewerId={viewerId} />}
               {/* A Clarify's own note sits under its quote; a forward's note sits above it. */}
               {draft === null && server?.kind === 'clarify' && noteEl}
-              <MessageAttachment msg={msg} server={server} viewerId={viewerId} />
+              <MessageAttachment msg={msg} server={server} viewerId={viewerId} stat={stat} />
             </>
           )}
           {server && mine && !server.isDeleted && <MirrorReplyState messageId={server.id} name={mirrorDisplay} />}

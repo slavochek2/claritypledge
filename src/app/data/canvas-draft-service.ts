@@ -291,8 +291,9 @@ export async function getCanvasVersionCard(versionId: string, viewerId: string):
  *  - published draft:  `v2 · date` (the version the draft became), View: that version, plain, with no `ws=1` whatever else is open;
  *  - discarded draft:  says so; its Open address is kept for the canvas page, but the card draws no button for it.
  * A root with no draft row the viewer can read falls back to the attached version's own card, as before, and says so (`hasThread` absent).
+ * Every call is its own read: a client dedupe of in-flight reads was rejected (decisions.md 2026-10-21, P1527), and a Retry must never join a stalled one.
  */
-async function readCanvasRootCard(rootId: string, versionId: string, viewerId: string): Promise<CanvasVersionCardData | null> {
+export async function getCanvasRootCard(rootId: string, versionId: string, viewerId: string): Promise<CanvasVersionCardData | null> {
   const draft = await getCanvasDraftByThread(rootId);
   if (!draft) return getCanvasVersionCard(versionId, viewerId);
   const versions = await listMyCanvasVersions();
@@ -317,14 +318,22 @@ async function readCanvasRootCard(rootId: string, versionId: string, viewerId: s
   return { ...(facts ? { title: facts.title, nextSeq: facts.nextSeq } : {}), canvasId: draft.canvasId, label: 'Draft', state: 'draft', draft: true, href: open, openHref: open, ...thread };
 }
 
-/** Reads of a root's card still in flight, shared: the card and its "N replies" link of one message mount together and ask once. Dropped when settled, so nothing here goes stale. */
-const rootCardReads = new Map<string, Promise<CanvasVersionCardData | null>>();
+/** What a canvas thread root's draft is, for its "N replies" link (3c X11): the state, the draft, and where an OPEN one goes. */
+export interface CanvasRootThread {
+  state: CanvasDraftState;
+  draftId: string;
+  /** The workspace on an open draft, when its address is readable; null for a closed one (it is read in the chat's own panel). */
+  openHref: string | null;
+}
 
-export function getCanvasRootCard(rootId: string, versionId: string, viewerId: string): Promise<CanvasVersionCardData | null> {
-  const key = `${viewerId}|${rootId}|${versionId}`;
-  const open = rootCardReads.get(key);
-  if (open) return open;
-  const read = readCanvasRootCard(rootId, versionId, viewerId).finally(() => rootCardReads.delete(key));
-  rootCardReads.set(key, read);
-  return read;
+/**
+ * The link's own read, narrower than the card's: one request for a closed draft, two for an open one (the viewer's slug for the workspace address). The card
+ * needs versions and titles too, the link does not. Null: no draft this viewer can read. Not shared with any other read (P1527).
+ */
+export async function getCanvasRootThread(rootId: string, viewerId: string): Promise<CanvasRootThread | null> {
+  const draft = await getCanvasDraftByThread(rootId);
+  if (!draft) return null;
+  if (draft.state !== 'open') return { state: draft.state, draftId: draft.id, openHref: null };
+  const slug = draft.canvasName && draft.versionName ? await getProfileSlug(viewerId, 'getCanvasRootThread').catch(() => null) : null;
+  return { state: 'open', draftId: draft.id, openHref: slug && draft.canvasName && draft.versionName ? workspaceHref(slug, draft.canvasName, draft.versionName) : null };
 }

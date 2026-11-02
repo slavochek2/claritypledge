@@ -15,6 +15,7 @@ import { ArtifactAttachmentCard } from './ArtifactAttachmentCard';
 import { AttachmentSkeleton } from './AttachmentSkeleton';
 import { CanvasVersionCard } from './CanvasVersionCard';
 import { useCanvasRenamed } from './use-canvas-renamed';
+import { useCanvasRootRefresh } from './use-canvas-root-refresh';
 
 type State = { status: 'loading' } | { status: 'error' } | { status: 'missing' } | { status: 'ready'; item: Shareable };
 
@@ -50,6 +51,12 @@ function shownCanvasId(state: State): string | null {
   return state.status === 'ready' ? state.item.canvasVersion?.canvasId ?? null : null;
 }
 
+/** The OPEN draft a ready canvas-version card is the thread of (null: nothing to follow). A published or discarded draft never changes again, so a closed card listens for nothing. */
+function shownDraftId(state: State): string | null {
+  const card = state.status === 'ready' ? state.item.canvasVersion : undefined;
+  return card?.state === 'draft' ? card.draftId ?? null : null;
+}
+
 /** A quiet re-read's answer: it replaces the card only when it is still the latest read and found something; otherwise the card stays as it is. */
 function swapIn(now: State, item: Shareable | null, latest: boolean): State {
   return item && latest ? { status: 'ready', item } : now;
@@ -59,17 +66,18 @@ function swapIn(now: State, item: Shareable | null, latest: boolean): State {
 const NOTE = 'mt-1 flex max-w-md items-center gap-2 rounded-xl border bg-muted/40 px-3 text-sm text-muted-foreground';
 
 /**
+ * `refreshKey` (3c X10): the root's reply count; a change is a signal to read the card again (a Publish reply is a reply).
  * `rootId` (3c X10): the message this card is the root of, when it is the first message of a canvas thread: the card then says what THAT thread's draft is.
  * `compact`: drawn inside a quote block (a forwarded or clarified message): the compact standard card, no vote buttons
  * and no Retry button (a quote can itself be a button, and buttons do not nest).
  */
-export function AttachmentCard(props: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean; rootId?: string }) {
+export function AttachmentCard(props: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean; rootId?: string; refreshKey?: number }) {
   // P1545: canvases and letters have their own reader-judged card; points and stories keep the feed cards.
   if (props.kind === 'canvas' || props.kind === 'letter') return <ArtifactAttachmentCard {...props} kind={props.kind} />;
   return <FeedItemAttachmentCard {...props} />;
 }
 
-function FeedItemAttachmentCard({ kind, id, viewerId, compact = false, rootId }: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean; rootId?: string }) {
+function FeedItemAttachmentCard({ kind, id, viewerId, compact = false, rootId, refreshKey }: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean; rootId?: string; refreshKey?: number }) {
   const [state, setState] = useState<State>({ status: 'loading' });
   const online = useOnline();
   // One generation per card: every read takes the next number, and only the read holding the current
@@ -120,12 +128,17 @@ function FeedItemAttachmentCard({ kind, id, viewerId, compact = false, rootId }:
     }
   }, [online, load]);
 
-  // A confirmed rename of the canvas this card shows: read again and swap the card in when it answers (nothing changes if that read fails).
-  useCanvasRenamed(shownCanvasId(state), () => {
+  // A quiet re-read: the card stays on screen until the new answer comes, and a failed re-read changes nothing.
+  const rereadQuietly = () => {
     invalidate();
     const mine = generation.current;
     loadAttachment(kind, id, viewerId, ...(rootId ? [rootId] : [])).then((item) => setState((now) => swapIn(now, item, generation.current === mine)), () => undefined);
-  });
+  };
+  // A confirmed rename of the canvas this card shows.
+  useCanvasRenamed(shownCanvasId(state), rereadQuietly);
+  // 3c X10: a thread root's card follows its draft being published or discarded elsewhere, on a real signal (the same-tab event, the tab returning, a new reply).
+  const followed = shownDraftId(state);
+  useCanvasRootRefresh(followed, rereadQuietly, refreshKey, followed !== null);
 
   if (state.status === 'ready') {
     const { item } = state;

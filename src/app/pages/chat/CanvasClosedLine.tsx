@@ -13,29 +13,51 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
 import { getCanvasRootCard, type CanvasVersionCardData } from '@/app/data/canvas-draft-service';
+import { SectionWait } from '@/components/ui/section-wait';
+import { Skeleton } from '@/components/ui/skeleton';
 import { OPEN_CANVAS_LABEL } from './canvas-publish-reply';
 import { DISCARDED_THREAD_LINE, publishedAsLine } from './canvas-thread-copy';
 
-type Read = { status: 'loading' } | { status: 'ready'; card: CanvasVersionCardData | null };
+const FOOTER = 'shrink-0 border-t px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]';
+
+type Read = { status: 'loading' } | { status: 'failed' } | { status: 'ready'; card: CanvasVersionCardData | null };
+
+/** A published thread's number and address come from its own read, which can stall or be refused: the wait ends in a readable line with Retry (P1586's SectionWait). A discarded thread reads nothing. */
+function usePublishedCard(args: { rootId: string; versionId: string; viewerId: string; enabled: boolean }): { read: Read; retry: () => void } {
+  const { rootId, versionId, viewerId, enabled } = args;
+  const [read, setRead] = useState<Read>({ status: 'loading' });
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    let live = true;
+    setRead({ status: 'loading' });
+    getCanvasRootCard(rootId, versionId, viewerId).then(
+      (card) => { if (live) setRead({ status: 'ready', card }); },
+      () => { if (live) setRead({ status: 'failed' }); },
+    );
+    return () => { live = false; };
+  }, [rootId, versionId, viewerId, enabled, attempt]);
+  return { read, retry: () => setAttempt((n) => n + 1) };
+}
 
 export function CanvasClosedLine({ rootId, versionId, viewerId, draftState }: { rootId: string; versionId: string; viewerId: string; draftState: 'published' | 'discarded' }) {
   const { pathname, search } = useLocation();
-  const [read, setRead] = useState<Read>({ status: 'loading' });
-  useEffect(() => {
-    let live = true;
-    getCanvasRootCard(rootId, versionId, viewerId).then(
-      (card) => { if (live) setRead({ status: 'ready', card }); },
-      () => { if (live) setRead({ status: 'ready', card: null }); }, // an unread card still says what became of the thread
-    );
-    return () => { live = false; };
-  }, [rootId, versionId, viewerId, draftState]);
-  const card = read.status === 'ready' ? read.card : null;
   const published = draftState === 'published';
-  // A published line names its number, which the thread's read gives: hold the place (no composer, no flash of "Published.") until it has answered.
-  if (published && read.status === 'loading') return <div className="min-h-[4.25rem] shrink-0 border-t" aria-hidden="true" data-testid="canvas-closed-line-loading" />;
+  const { read, retry } = usePublishedCard({ rootId, versionId, viewerId, enabled: published });
+  if (published && read.status !== 'ready') {
+    // The number is the read's: hold the place with a skeleton (no premature "Published.", never a composer) until it answers, fails or the deadline passes.
+    return (
+      <div className={FOOTER} data-testid="canvas-closed-line-wait">
+        <SectionWait onRetry={retry} failed={read.status === 'failed'}>
+          <Skeleton className="h-10 w-2/3" />
+        </SectionWait>
+      </div>
+    );
+  }
+  const card = read.status === 'ready' ? read.card : null;
   const href = published ? card?.href ?? null : null;
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-testid="canvas-closed-line">
+    <div className={`${FOOTER} flex flex-wrap items-center gap-x-3 gap-y-1`} data-testid="canvas-closed-line">
       <p className="min-w-0 flex-1 text-sm text-muted-foreground">{published ? publishedAsLine(card?.seq) : DISCARDED_THREAD_LINE}</p>
       {href && (
         <Link to={href} state={{ from: `${pathname}${search}` }} className={CANVAS_SECONDARY_PILL} data-testid="canvas-closed-open">{OPEN_CANVAS_LABEL}</Link>

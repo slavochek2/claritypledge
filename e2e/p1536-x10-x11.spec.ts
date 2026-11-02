@@ -201,7 +201,7 @@ test('X10 + X11: the mirror chat card by thread state, "N replies", the open dra
         await expect(linkOf(3)).toBeVisible({ timeout: 30_000 });
         await linkOf(3).click();
         await expect.poll(() => page.url(), { timeout: 30_000 }).toContain('ws=1');
-        await page.waitForTimeout(2500);
+        await expect.poll(async () => (await page.getByTestId('thread-panel').innerText().catch(() => '')).includes('a note in C 1'), { timeout: 20_000, intervals: [400] }).toBe(true).catch(() => undefined); // the replies load after the panel mounts
         const ws = await page.evaluate(() => {
           const vis = (id: string) => { const e = document.querySelector(`[data-testid="${id}"]`) as HTMLElement | null; if (!e) return false; const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden' && r.right > 0 && r.left < innerWidth; };
           const sw = document.querySelector('[data-testid="workspace-view-chat"]');
@@ -223,6 +223,50 @@ test('X10 + X11: the mirror chat card by thread state, "N replies", the open dra
         rec(vp, 'S3c.8 a discarded thread\'s old address stays readable (no redirect)', page.url().includes(`/t/${rootOf.get('B')}`), page.url());
 
         rec(vp, 'no page error and no HTTP >= 400 during the walk', errors.length === 0, JSON.stringify(errors.slice(0, 6)));
+      } finally {
+        await ctx.close().catch(() => undefined);
+      }
+    }
+    // ---- review fix 1, in the real browser: published ELSEWHERE while the mirror chat stays mounted (1440)
+    {
+      const vp = 1440;
+      const ctx = await browser.newContext({ viewport: { width: vp, height: 900 }, baseURL: BASE });
+      await ctx.addInitScript(() => { try { localStorage.setItem('letter_intensity_preview_seen_at_v2', String(Date.now())); } catch { /* none */ } });
+      const page = await ctx.newPage();
+      const requests: string[] = [];
+      page.on('request', (r) => { if (/\/rest\/v1\/(canvas_drafts|profiles)|list_my_canvas_versions/.test(r.url())) requests.push(`${r.method()} ${r.url().split('/rest/v1/')[1]?.slice(0, 60) ?? r.url().slice(-40)}`); });
+      try {
+        await setTestSession(page, user.email);
+        const chat = `/chats/c/${A.conversation_id}`;
+        await page.goto(chat);
+        const cardRows = page.getByTestId('message').filter({ has: page.getByTestId('attachment-canvas_version') });
+        await expect.poll(async () => cardRows.count(), { timeout: 40_000, intervals: [500] }).toBeGreaterThanOrEqual(5);
+        await expect(cardRows.nth(3).getByTestId('replies-link')).toBeVisible({ timeout: 30_000 });
+        await expect(cardRows.nth(3).getByTestId('canvas-draft-tag')).toBeVisible();
+        // C is published in "another tab" (RPC); this page sees no signal. The tap reads the current state: the chat's own panel, not the workspace.
+        const cRev = (await supabaseAdmin.from('canvas_drafts').select('revision').eq('id', C.id).single()).data!.revision as number;
+        const pubC = await api.rpc('canvas_draft_publish', { p_draft: C.id, p_expected_revision: cRev });
+        if (pubC.error) throw new Error(`publish C elsewhere: ${pubC.error.message}`);
+        await cardRows.nth(3).getByTestId('replies-link').click();
+        await page.getByTestId('canvas-closed-line').waitFor({ timeout: 20_000 });
+        await page.waitForTimeout(600);
+        const fT = await shot(page, vp, 'tap-after-published-elsewhere');
+        rec(vp, 'item 1 click safety: C was published elsewhere; the link still drawn for an open draft, the TAP opens the chat\'s own panel (closed line "Published as v3."), not the workspace',
+          /\/chats\/c\//.test(new URL(page.url()).pathname) && !page.url().includes('ws=1') && ((await page.getByTestId('canvas-closed-line').textContent()) ?? '').startsWith('Published as v3.'), page.url(), fT);
+        // D (canvas 2) is published elsewhere; the page learns when the tab comes back (visibilitychange), and its card reads published
+        await page.goto(chat);
+        await expect.poll(async () => cardRows.count(), { timeout: 40_000, intervals: [500] }).toBeGreaterThanOrEqual(5);
+        await expect(cardRows.nth(4).getByTestId('canvas-draft-tag')).toBeVisible({ timeout: 30_000 });
+        await seedPoints(ownerId, D.id, D.version_name, [['canvas:segments', 'Founders of small agencies (SEEDED)']]);
+        const dRev = (await supabaseAdmin.from('canvas_drafts').select('revision').eq('id', D.id).single()).data!.revision as number;
+        const pubD = await api.rpc('canvas_draft_publish', { p_draft: D.id, p_expected_revision: dRev });
+        if (pubD.error) throw new Error(`publish D elsewhere: ${pubD.error.message}`);
+        const before = requests.length;
+        await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+        await expect.poll(async () => cardRows.nth(4).getByTestId('canvas-draft-tag').count(), { timeout: 20_000, intervals: [400] }).toBe(0);
+        const fD = await shot(page, vp, 'card-after-tab-return');
+        const dText = ((await cardRows.nth(4).getByTestId('attachment-canvas_version').innerText()) ?? '').replace(/\s+/g, ' ');
+        rec(vp, 'item 1: D was published elsewhere; the tab returns; the mounted card reads published (View, no tag) without a reload', /v1 · /.test(dText) && (await cardRows.nth(4).getByRole('link', { name: /^View/ }).count()) === 1, `${dText}; requests after the signal=${requests.length - before} (${requests.slice(before).join(' | ')})`, fD);
       } finally {
         await ctx.close().catch(() => undefined);
       }
