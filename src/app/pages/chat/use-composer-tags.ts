@@ -29,6 +29,13 @@ export function useComposerTags(field: RefObject<HTMLTextAreaElement | null>, dr
   useEffect(() => {
     if (value === '') caret.current = null;
   }, [value]);
+  // Whether THIS composer is still on screen: a note that completes after the owner left and came back belongs to a composer that is gone, and its `setValue` would write its
+  // old text over what the new one holds.
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
 
   /**
    * Sets the value, then puts the caret after the edit and focuses the field (inside the tap handler when `sync`: a phone's keyboard needs that). The value and caret
@@ -94,7 +101,7 @@ export function useComposerTags(field: RefObject<HTMLTextAreaElement | null>, dr
   }, [bus, place]);
 
   // J5: a voice note carries the tags in the field when it is submitted, and on success removes exactly those (a tag added since stays), from the composer slot it was
-  // sent from (if the composer has moved to another chat meanwhile, that slot's stored draft is edited and the visible one is left alone). A failed note keeps them.
+  // sent from (if the composer has moved to another chat, or was left, meanwhile, that slot's CURRENT stored draft is edited and the visible one is left alone). A failed note keeps them.
   const voice = useMemo<VoiceSender | undefined>(() => {
     if (!bus || !onVoiceNote) return onVoiceNote;
     return async (wav, opts) => {
@@ -102,7 +109,8 @@ export function useComposerTags(field: RefObject<HTMLTextAreaElement | null>, dr
       const key = now.current.key;
       const sent = await onVoiceNote(wav, { ...opts, boxRefs: Object.keys(counts).sort() });
       const without = (v: string) => { const r = removeTagTokens(v, counts); return r.trim() === '' ? '' : r; };
-      if (now.current.key === key) now.current.setValue(without(now.current.value));
+      // On screen, in the slot it was sent from: the visible text. Anywhere else (another chat, or this composer left): the slot's CURRENT stored draft, which may hold text typed since.
+      if (alive.current && now.current.key === key) now.current.setValue(without(now.current.value));
       else editStoredDraft(key, without);
       return sent;
     };

@@ -13,7 +13,7 @@ import type { VoiceSender } from '@/hooks/use-voice-note';
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 
 import { ComposerTagContext, createComposerTagBus } from '@/app/pages/chat/composer-tag-bus';
-import { clearDraftsExcept, peekDraft, stashDraft } from '@/app/pages/chat/chat-hooks';
+import { clearDraftsExcept, editStoredDraft, peekDraft, stashDraft, useDraft } from '@/app/pages/chat/chat-hooks';
 import { useComposerTags } from '@/app/pages/chat/use-composer-tags';
 import { tagCounts, tagToken } from '@/app/pages/chat/composer-tags';
 
@@ -91,6 +91,30 @@ describe('a voice note\'s completion removes only what it carried, where it was 
     await act(async () => { done(); });
     expect(field().value).toBe(`${tagToken(PROBLEM)} other chat`);
     expect(tagCounts(peekDraft('u:slot-a'))).toEqual({});
+  });
+});
+
+/** The composer as it is: its text lives in the draft store (`useDraft`), so a write from an old instance shows in the next one. */
+function StoreHarness({ voice, draftKey }: { voice: VoiceSender; draftKey: string }) {
+  const field = useRef<HTMLTextAreaElement>(null);
+  const [value, setValue] = useDraft(draftKey);
+  const tags = useComposerTags(field, draftKey, value, setValue, voice);
+  return <div><textarea ref={field} aria-label="field" value={value} onChange={e => setValue(e.target.value)} /><button type="button" onClick={() => void tags.voice?.(new Blob(['x']))}>voice</button></div>;
+}
+
+describe('a voice note that completes after the composer was left and come back to', () => {
+  it('edits the CURRENT stored draft: the text typed since survives, the submitted tag goes', async () => {
+    let done: () => void = () => undefined;
+    const sender = vi.fn((_w: Blob, _o?: unknown) => new Promise<void>(r => { done = r; }));
+    editStoredDraft('u:slot-a', () => `${tagToken(REVENUE)} `);
+    const first = render(<ComposerTagContext.Provider value={bus}><StoreHarness voice={sender} draftKey="u:slot-a" /></ComposerTagContext.Provider>);
+    fireEvent.click(screen.getByText('voice'));
+    first.unmount(); // left the chat
+    editStoredDraft('u:slot-a', v => `${v}typed since`); // came back (a new composer) and typed
+    await act(async () => { done(); });
+    expect(peekDraft('u:slot-a')).toBe('typed since');
+    render(<ComposerTagContext.Provider value={bus}><StoreHarness voice={sender} draftKey="u:slot-a" /></ComposerTagContext.Provider>);
+    expect(field().value).toBe('typed since');
   });
 });
 

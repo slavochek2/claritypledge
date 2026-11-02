@@ -56,8 +56,12 @@ describe('P1536 S4.2 tag tokens in the composer text', () => {
     expect(tagCounts(v)).toEqual({ [METRICS]: 1, [REVENUE]: 2 });
     // a voice note was sent with ONE Offers & Pricing token and the Milestone one; a second Offers & Pricing token was added after
     const after = removeTagTokens(v, { [REVENUE]: 1, [METRICS]: 1 });
-    expect(after).toBe(` a  b ${tagToken(REVENUE)}`);
+    expect(after).toBe(`a b ${tagToken(REVENUE)}`); // each token went with the space that followed it: no orphan spaces
     expect(tagCounts(after)).toEqual({ [REVENUE]: 1 });
+    // a token at the end takes the space before it; one alone leaves nothing
+    expect(removeTagTokens(`words ${tagToken(REVENUE)}`, { [REVENUE]: 1 })).toBe('words');
+    expect(removeTagTokens(`${tagToken(REVENUE)} `, { [REVENUE]: 1 })).toBe('');
+    expect(removeTagTokens(`a ${tagToken(REVENUE)} ${tagToken(METRICS)} b`, { [REVENUE]: 1, [METRICS]: 1 })).toBe('a b');
   });
 
   it('a caret inside a token snaps to the near edge by the direction it moved', () => {

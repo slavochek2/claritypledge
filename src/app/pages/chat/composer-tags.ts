@@ -79,7 +79,10 @@ export function tagCounts(value: string): Record<string, number> {
   return out;
 }
 
-/** The value without `counts[tag]` tokens of each box, the first ones in the text; tokens beyond the counts (added since) stay. */
+/**
+ * The value without `counts[tag]` tokens of each box, the first ones in the text; tokens beyond the counts (added since) stay. A removed token takes one space with it (the one after
+ * it, else the one before it), so what is left has no orphan spaces: "a T b" becomes "a b", and "T" alone becomes "".
+ */
 export function removeTagTokens(value: string, counts: Record<string, number>): string {
   const left = { ...counts };
   let out = '';
@@ -88,8 +91,10 @@ export function removeTagTokens(value: string, counts: Record<string, number>): 
     const tag = TAG_BY_TITLE.get(value.slice(start + 2, end - 2));
     if (!tag || !left[tag]) continue;
     left[tag] -= 1;
-    out += value.slice(at, start);
-    at = end;
+    const after = value[end] === ' ';
+    const before = !after && start > at && value[start - 1] === ' ';
+    out += value.slice(at, before ? start - 1 : start);
+    at = after ? end + 1 : end;
   }
   return out + value.slice(at);
 }

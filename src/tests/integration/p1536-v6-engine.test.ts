@@ -480,15 +480,18 @@ describe('S1.4 / J9: an upload may record offers on an empty scope; typed and sp
     return { o, ws };
   };
   /** One upload run, claimed and completed the way the edge function does it (the message is the file's label; the text is material). */
-  const uploadRun = async (ws: WS, label: string, done: Done): Promise<{ r: Row; d: Row }> => {
+  // Every step of an upload is its own mutation and moves the revision (the send, the claim, the material write: S1.6), so a revision read BEFORE the upload
+  // differs from the one after the run by all of them. `revBeforeComplete` is read right before the completing call: the run's own bump is d.revision minus it.
+  const uploadRun = async (ws: WS, label: string, done: Done): Promise<{ r: Row; d: Row; revBeforeComplete: number }> => {
     const r = await ws.send({ att: { kind: 'file', label } });
     expect(r.status, JSON.stringify(r)).toBe('ok');
     expect((await begin(r.run_id, true)).status).toBe('run');
     expect((await addMat({ p_run: r.run_id, p_kind: 'file', p_label: label, p_text: nn(`${label}: a file about another business`), p_message: null })).status).toBe('ok');
+    const revBeforeComplete = (await ws.state()).draft!.revision as number;
     const d = await complete(r.run_id, done);
     expect(d.status, JSON.stringify(d)).toBe('ok');
     await ws.state();
-    return { r, d };
+    return { r, d, revBeforeComplete };
   };
   const stateOf = async (ws: WS) => {
     const st = (await ws.state()).draft!;
@@ -499,7 +502,7 @@ describe('S1.4 / J9: an upload may record offers on an empty scope; typed and sp
   it('an empty-scope upload records the offer, says J9 from the persisted offer and the current focus, and changes nothing else', async () => {
     const { ws } = await cafeDraft('j9empty');
     const before = await stateOf(ws);
-    const { r, d } = await uploadRun(ws, 'agencies.md', {
+    const { r, d, revBeforeComplete } = await uploadRun(ws, 'agencies.md', {
       scope: [], actions: [newPt(BOX.problem, 'x')], questions: { [BOX.problem]: 'q?' }, focus: 'Hijacked',
       others: [{ group: 'Agencies', why: 'The file is about agencies.' }], reply: 'Nothing changed on the canvas.',
     });
@@ -509,7 +512,9 @@ describe('S1.4 / J9: an upload may record offers on an empty scope; typed and sp
     expect(after.st.focus, 'the focus stays').toBe('Cafes');
     expect(after.ids, 'no point moved').toEqual(before.ids);
     expect(after.st.questions, 'no question changed').toEqual(before.st.questions);
-    expect(after.rev, 'a completed run is one revision, as for any run').toBe(before.rev + 1);
+    expect(d.revision, 'the completing call is one revision, as for any run').toBe(revBeforeComplete + 1);
+    expect(after.rev).toBe(d.revision);
+    expect(revBeforeComplete, 'the send, the claim and the material write each moved it before (the fixture, not the empty-scope path)').toBe(before.rev + 3);
     expect(after.used, 'and counts as used').toBe(before.used + 1);
     expect((await admin.from('canvas_draft_steps').select('run_id').eq('run_id', r.run_id)).data, 'no step: nothing to Undo').toEqual([]);
     expect(after.st.undo_run_id).not.toBe(r.run_id);

@@ -67,6 +67,8 @@ export function useAddToChat(
   }, []);
   // Whatever waited (the draft opened, the sheet's answer taken) is taken once the thread it was meant for is the one on screen.
   useEffect(() => bus.flush(false), [bus, landed]);
+  // Leaving the workspace disposes what is held: no timer outlives it, so no sentence about a tap is said on another page, and an open sheet cannot keep one re-arming.
+  useEffect(() => () => bus.clear(), [bus]);
 
   /** What a tap does once the version is known; false: not yet (the read it needs is out). */
   const decide = useCallback((sync: boolean): boolean => {

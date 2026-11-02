@@ -29,22 +29,24 @@ export function useCanvasCatchesUp(read: CanvasReady | null): { behind: boolean;
   const behind = !!draft && draft.id === seen?.draftId && draft.revision < seen.revision;
   const draftId = draft?.id;
   const seenRevision = seen?.revision ?? -1;
-  // The spot lets go of a read that answered and is still behind (nothing more is coming), that failed, or that never answers: it says what the read on screen says.
-  const [gaveUpOn, setGaveUpOn] = useState<CanvasReady | null>(null);
+  // The spot lets go of a read that answered and is still behind (nothing more is coming), that failed, or that never answers: it says what the read on screen says. It gives up on a
+  // REVISION of a draft (the one the thread has seen), not on one read of it: a later, unrelated re-read of the same draft does not make it wait again; only the thread seeing a newer revision does.
+  const giveUpKey = draftId ? `${draftId}:${seenRevision}` : null;
+  const [gaveUp, setGaveUp] = useState<string | null>(null);
   useEffect(() => {
     if (!behind || !draftId) return;
     const out = asked.current.read === read;
     const askedAlready = asked.current.draftId === draftId && asked.current.revision >= seenRevision;
     asked.current = { read: asked.current.read, draftId, revision: seenRevision };
-    if (!out && askedAlready) setGaveUpOn(read);
+    if (!out && askedAlready) setGaveUp(giveUpKey);
     else if (!out) emitCanvasDraftEvent({ kind: 'updated', draftId });
-  }, [behind, draftId, read, seenRevision]);
+  }, [behind, draftId, read, seenRevision, giveUpKey]);
   useEffect(() => {
     if (!behind) return;
-    const t = setTimeout(() => setGaveUpOn(read), SETTLE_MAX_MS);
+    const t = setTimeout(() => setGaveUp(giveUpKey), SETTLE_MAX_MS);
     return () => clearTimeout(t);
-  }, [behind, read]);
-  return { behind: behind && gaveUpOn !== read, onDraftRead };
+  }, [behind, read, giveUpKey]);
+  return { behind: behind && gaveUp !== giveUpKey, onDraftRead };
 }
 
 /**

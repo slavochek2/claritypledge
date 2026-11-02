@@ -54,7 +54,11 @@ export function createComposerTagBus(): ComposerTagBus {
       const arm = () => {
         entry.timer = setTimeout(() => {
           if (onExpire()) arm();
-          else held = held.filter(h => h !== entry);
+          else {
+            // one sentence for the batch: tags tapped together wait for the same thread, so they are dropped together
+            held.forEach(h => clearTimeout(h.timer));
+            held = [];
+          }
         }, HELD_MAX_MS);
       };
       arm();

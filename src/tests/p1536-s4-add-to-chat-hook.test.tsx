@@ -47,6 +47,43 @@ describe('a draft, with the fresh read out', () => {
   });
 });
 
+describe('several tags held at once', () => {
+  it('expire together: ONE sentence, and nothing is left held', () => {
+    const { hook } = setup({ reported: rep(null), held: publishedView, version: 'canvas_d1' });
+    act(() => {
+      hook.result.current.tap.addToChat?.('canvas:revenue');
+      hook.result.current.tap.addToChat?.('canvas:problem');
+      hook.result.current.tap.addToChat?.('canvas:solution');
+    });
+    act(() => { vi.advanceTimersByTime(HELD_MAX_MS + 1); });
+    expect(toastError).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.bus.size()).toBe(0);
+    act(() => { vi.advanceTimersByTime(HELD_MAX_MS * 3); });
+    expect(toastError).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('leaving the workspace', () => {
+  it('a held tag is disposed with it: no sentence after leaving, and no timer left running', () => {
+    const { hook } = setup({ reported: rep(null), held: publishedView, version: 'canvas_d1' });
+    act(() => hook.result.current.tap.addToChat?.('canvas:revenue'));
+    hook.unmount();
+    act(() => { vi.advanceTimersByTime(HELD_MAX_MS * 3); });
+    expect(toastError).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it('even with the J4 sheet open (which keeps re-arming): leaving ends the waiting', () => {
+    const clone = vi.fn();
+    const panel = { showThread: vi.fn(), setView: vi.fn(), setPanelOpen: vi.fn() };
+    const hook = renderHook(() => useAddToChat(rep(publishedView, 'canvas_d1'), publishedView, 'canvas_d1', true, { clone, pending: null, sheet: {}, dismissSheet: vi.fn() }, panel));
+    act(() => hook.result.current.tap.addToChat?.('canvas:revenue'));
+    act(() => { vi.advanceTimersByTime(HELD_MAX_MS * 2); });
+    expect(vi.getTimerCount()).toBeGreaterThan(0); // the sheet keeps it waiting
+    hook.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
 describe('the owner is still being asked (the J4 sheet is up)', () => {
   it('a held tag is not dropped while the sheet waits for an answer', () => {
     const clone = vi.fn();

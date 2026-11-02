@@ -50,24 +50,22 @@ export function useCanvasOffers(a: { canvasId: string | null; draftId: string | 
   const [state, setState] = useState<Read | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const [again, setAgain] = useState(0);
-  const [resumed, setResumed] = useState(0);
   const asked = useRef<string | null>(null);
   /** The number of the newest request: only it may write, whatever order the answers come in. */
   const newest = useRef(0);
   const keyNow = useRef(key);
   keyNow.current = key;
   const wasVisible = useRef(visible);
+  /** How many times the tab has come back since something was asked: part of the signal's mark, so a return asks again even when nothing about the draft changed. */
+  const returns = useRef(0);
 
-  // The tab coming back is a signal of its own: it asks again even when nothing about the draft changed. (A tab that was hidden before anything was asked has nothing to renew: the
-  // read below sends its first request itself.)
+  // One effect, one ask per signal. The tab coming back is a signal of its own, noticed HERE (not by a state update that re-renders and asks a second time, which also made the offers' ask
+  // land a render after Undo's, outside its batch). A tab that was hidden before anything was asked has nothing to renew: this read sends its first request itself.
   useEffect(() => {
-    if (visible && !wasVisible.current && asked.current !== null) setResumed((n) => n + 1);
+    if (visible && !wasVisible.current && asked.current !== null) returns.current += 1;
     wasVisible.current = visible;
-  }, [visible]);
-
-  useEffect(() => {
     if (!key || !visible || !canvasId || !draftId) return;
-    const mark = `${key}:${again}:${resumed}`;
+    const mark = `${key}:${again}:${returns.current}`;
     if (asked.current === mark) return;
     asked.current = mark;
     const mine = ++newest.current;
@@ -87,7 +85,7 @@ export function useCanvasOffers(a: { canvasId: string | null; draftId: string | 
       },
     );
     return () => clearTimeout(deadline); // a hidden tab or a new key: the next signal sends its own request with its own deadline
-  }, [key, visible, canvasId, draftId, again, resumed]);
+  }, [key, visible, canvasId, draftId, again]);
 
   const mine = state && state.draftId === draftId ? state : null;
   const reread = useCallback(() => { asked.current = null; setAgain((n) => n + 1); }, []);

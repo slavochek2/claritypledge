@@ -293,6 +293,35 @@ describe('the next draft on the same page (the walk: publish, Add to chat, Send)
   });
 });
 
+describe('the spot gives up on a revision, and an unrelated re-read does not take that back', () => {
+  const readOf = (revision: number): CanvasReady => buildReady(
+    { id: ME, name: 'Ana' },
+    { ...rev(revision), version: 'v-A', draft: { ...draftBlock, id: 'A', version: 'v-A', revision } } as unknown as Parameters<typeof buildReady>[1],
+    null,
+  );
+  it('the answer is still behind: the spot lets go; another read of the same draft (a new object, still behind) never makes it Updating… again', () => {
+    const seen: boolean[] = [];
+    const h = renderHook(({ read }) => { const r = useCanvasCatchesUp(read); seen.push(r.behind); return r; }, { initialProps: { read: readOf(2) } });
+    act(() => h.result.current.onDraftRead('A', 3)); // the thread read revision 3: the page (2) is behind and is asked
+    expect(h.result.current.behind).toBe(true);
+    h.rerender({ read: readOf(2) }); // the answer: still at 2: nothing more is coming
+    expect(h.result.current.behind).toBe(false);
+    seen.length = 0;
+    h.rerender({ read: readOf(2) }); // an unrelated re-read of the same draft
+    h.rerender({ read: readOf(2) });
+    expect(seen).not.toContain(true); // not even for one render
+    expect(h.result.current.behind).toBe(false);
+  });
+  it('a NEWER revision seen by the thread is news again: the page is asked and the spot waits', () => {
+    const h = renderHook(({ read }) => useCanvasCatchesUp(read), { initialProps: { read: readOf(2) } });
+    act(() => h.result.current.onDraftRead('A', 3));
+    h.rerender({ read: readOf(2) });
+    expect(h.result.current.behind).toBe(false);
+    act(() => h.result.current.onDraftRead('A', 4));
+    expect(h.result.current.behind).toBe(true);
+  });
+});
+
 describe('Add to chat after Publish, before the page has read again', () => {
   const publishedAfter = () => ({ ...publishedView(), version: DRAFT_NAME, versions: [{ ...v1, name: DRAFT_NAME, seq: 2 }, v1] });
 
