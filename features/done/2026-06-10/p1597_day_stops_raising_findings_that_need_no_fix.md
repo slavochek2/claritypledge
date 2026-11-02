@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 86
 workstream: infrastructure
 created_date: '2026-11-02'
 tags: [day, monitoring, noise]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-02
 ---
 
 # P1597: /day stops raising findings that need no fix
