@@ -43,6 +43,17 @@ A run touching server-wide state takes every slot, so it runs alone. Which specs
 
 The wait message names every holder. The rules and docs that say "one run at a time" are corrected, so agents read the new limit.
 
+## Resolved Decisions (Gemini 4 Argon review, 2026-11-03; 1 of 1 reported)
+
+1. **Which specs a run covers** is resolved from the run's file, directory and project arguments with the config's own project rules. A run whose set includes any server-wide spec is exclusive. A full suite stays exclusive until those specs move out.
+2. **Inside an exclusive run,** server-wide specs must not race each other: they run with one worker.
+3. **An exclusive waiter blocks new one-slot runs from taking free slots** while it drains, or it starves; it takes all slots at once or holds none. The claim goes stale like any other owner.
+4. **Detection covers** writes to unscoped tables, global tick RPCs and cron, and helpers those specs import; each path has a known member.
+5. **A held slot records its dev-server port.** A run on a port already held waits, because a shared server dies with the run that started it (P1234).
+6. **The older-leftovers sweep runs only when no other slot is held.** A run always deletes its own users.
+7. **Load test protocol:** the same fixed workload at each level, started together, measured only while all runs overlap: failures, retries, worst database response, auth 429s, Mac load and free memory. Other sessions on the server count toward the level and are named.
+8. **Saved-auth users** (`.private/test-auth/local.json`) are audited; mutating specs do not share one across runs.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
