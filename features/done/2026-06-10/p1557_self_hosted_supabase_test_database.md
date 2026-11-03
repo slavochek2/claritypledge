@@ -248,7 +248,7 @@ the same change, with prices read from the pricing page on the day.
       cron proof found and fixed a real defect: the self-hosted deploy did not ship the shared import
       map, so about 20 functions could not boot (`d0d0ebd96`). The vault was missing the dispatch
       URL and cron secret; set on the server only. Paid keys (Mailgun, Gemini) removed from the
-      server's function secrets, per the founder's rule.
+      server's function secrets, per the founder's rule (reversed in part 2026-10-29, see decisions.md).
 - [x] Per-test comparison table (pass/fail/skip, hosted vs new). Every difference is resolved or
       listed for the founder with its cause. Every new-server-only failure is either a stale test that
       fails on hosted too, or a Known limitation below. Raw-SQL specs run on hosted TEST

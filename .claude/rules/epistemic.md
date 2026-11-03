@@ -48,6 +48,12 @@ was instrumenting the write path so a recurrence self-reports — a mitigation, 
 
 Before declaring "the model/schema/system can't represent X" — grep the seed data, migration, or live row. Spec prose and type definitions are not reality; the database and runtime state are. Verify against the artifact, not the documentation about the artifact. This includes infra capacity numbers (GPU quota, instance limits, tier counts): a stale doc is not authoritative — verify against the live source (provider console / CLI / quota API) before designing around the constraint.
 
+## 3b. A person's rule is quoted from the decision log, not from a note about it
+
+Before telling the founder or a brief that a limit exists because of their rule, read the rule's entry in `docs/decisions.md` this session and check for a later reversal (`grep` the topic, newest first). Cite its date and title. A spec, brief or summary saying "the founder's rule" is a claim about a decision and inherits no authority. If there is no entry, say the limit has an unknown reason.
+
+Incident: P1536, 2026-11-03. A spec note blamed a rule that had been narrowed the same day; a day of testing went to the wrong server, and the founder was told twice that "your own rule" blocked the fix.
+
 ## 4. Read the manifest before guessing among N paths
 
 When N candidate paths could be canonical (plugin versions, worktree slots, env files, migration directories) — read the registry/manifest/index that names the active one. Don't guess from filesystem order, recency, or naming heuristics. If a manifest exists, it wins.

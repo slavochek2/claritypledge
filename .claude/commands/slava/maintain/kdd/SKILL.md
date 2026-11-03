@@ -204,6 +204,8 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **Skip this step if:** the session produced no stakeholder-facing Q&A (e.g. a pure technical/refactor session).
 
+4.5. **If an entry reverses or narrows an earlier one:** (a) add to the old entry, as its first line, `**Reversed <date>, see "<title>".**`; (b) grep the old rule's tokens across `features/`, `docs/` and `.claude/worktrees/*/features/` (worktrees matter: a branch's spec can carry a claim main does not); (c) correct each hit that states the old rule as current, or file it with `/note`. Control: the sweep must find at least the old entry itself.
+
 5. **Update done-features index:**
 
    After any feature is closed (moved to `features/done/`), append it to `features/done/INDEX.md` — except a `disclosure: embargo` spec, whose close is appended to `.private/features/done/INDEX.md`, never the public index.

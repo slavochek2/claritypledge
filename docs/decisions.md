@@ -364,6 +364,8 @@ Every page and section wait has a deadline. After 15s the page loader adds "taki
 
 ## 2026-10-28 [technical]: The TEST database runs as self-hosted Supabase; the test server holds the mail key but no paid AI or storage keys (P1557)
 
+**Reversed in part 2026-10-29, see "Self-hosted TEST now holds AI and storage credentials, all TEST-only".**
+
 **Context:** Hosted TEST, on the smallest plan, timed out under the concurrent e2e load of several sessions. P1557 moved TEST to a self-hosted Supabase stack on a cloud VM paid from credits, with hosted kept warm as the rollback target.
 **Decision:** (1) `migrate.sh` and `deploy-functions.sh` on TEST update both targets in one run, under one lock, and a late failure prints HALF-APPLIED, so the two schemas cannot drift silently. (2) The self-hosted edge router decides JWT verification per function from `supabase/no-verify-jwt-functions.txt` and fails closed, because upstream has only a global switch. (3) Playwright refuses to reuse a dev server whose served database differs from the run's target (`e2e/global-setup.ts`). (4) Key policy: the paid AI and cloud-storage keys stay off the test server by founder rule. The mail-sending key was removed with them, then restored the same day: without it the mail and letter functions fail their config check before their auth check, and 35 tests that passed on hosted failed, most of them security tests. Hosted TEST sends mail too, so restoring it adds no new exposure.
 **Alternatives rejected:** A larger hosted plan, which was a recurring cost. Leaving the mail key out, because about 35 security tests would stay red and the switch would not be at parity. Mirroring hosted's gateway quirks into the router now; that waits on INBOX-244.
