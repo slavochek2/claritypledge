@@ -79,7 +79,12 @@ export async function crossCheck(check, { fetchJson = get, vars = env() } = {}) 
   const stale = []
   const points = await fetchJson(check.env, `points?tags=cs.%7B${encodeURIComponent(check.tag)}%7D&select=id`, vars)
   if (!points.length) stale.push(`no points tagged ${check.tag} on ${check.env}`)
-  const rows = await fetchJson(check.env, `events?slug=eq.${encodeURIComponent(check.event)}&select=datetime`, vars)
+  let rows = await fetchJson(check.env, `events?slug=eq.${encodeURIComponent(check.event)}&select=datetime`, vars)
+  // P1603: a hidden event is invisible to the table read; the link (exact slug) opens it through get_event_by_slug.
+  // Absent on a server that has not applied the migration: that is "not found", as before.
+  if (!rows.length) {
+    rows = await fetchJson(check.env, `rpc/get_event_by_slug?p_slug=${encodeURIComponent(check.event)}&select=datetime`, vars).catch(() => [])
+  }
   if (!rows.length) stale.push(`no event ${check.event} on ${check.env}`)
   else if (new Date(rows[0].datetime).getTime() !== new Date(check.datetime).getTime()) {
     stale.push(`date: block says ${check.datetime}, ${check.env} row says ${rows[0].datetime}`)

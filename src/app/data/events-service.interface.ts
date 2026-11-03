@@ -33,8 +33,9 @@ export interface EventsService {
    * not a caller-side check, so an unauthorized caller never receives the URL.
    */
   getEventGroupChatUrl(eventId: string): Promise<string | null>;
-  /** P1264: the org's standing footer note for its event pages. Null when unset. */
-  getEventOrgFooterNote(eventId: string): Promise<string | null>;
+  /** P1264: the org's standing footer note for its event pages. Null when unset. P1603: `orgId` is the group the caller's event
+   *  row already carries (null = none), so a hidden event not yet readable by id still gets its note. */
+  getEventOrgFooterNote(eventId: string, orgId?: string | null): Promise<string | null>;
   /** P1403: the organising community's name + slug, for the hike page's "Organized by" line. */
   getEventOrganizer(eventId: string): Promise<{ id: string; name: string; slug: string } | null>;
   /** P1542 round 6c: as getEventOrganizer, but a failed read throws (null = the event has no group). */
@@ -61,7 +62,8 @@ export interface EventsService {
   updateEvent(eventId: string, data: UpdateEventInput): Promise<boolean>;
   cancelEvent(eventId: string): Promise<boolean>;
   uncancelEvent(eventId: string): Promise<boolean>;
-  rsvpToEvent(eventId: string, profileId: string): Promise<boolean>;
+  /** P1603: `slug` is the link the RSVP was offered on; it lets a link holder RSVP to a hidden event they cannot yet read by id. */
+  rsvpToEvent(eventId: string, profileId: string, slug?: string): Promise<boolean>;
   cancelRsvp(eventId: string, profileId: string): Promise<boolean>;
 
   // P406: Practice Rooms
@@ -116,6 +118,8 @@ export interface CreateEventInput {
   preparationEnabled?: boolean;
   /** P1336: point tag for the positions step; '' clears it. */
   statementTag?: string;
+  /** P1603: hidden = not listed, readable only with the link (plus its host and the registered). */
+  isHidden?: boolean;
 }
 
 export interface UpdateEventInput extends Partial<CreateEventInput> {

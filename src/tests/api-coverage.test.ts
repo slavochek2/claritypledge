@@ -659,8 +659,14 @@ describe('mapEventFromDb / mapEventWithHostFromDb via getEventBySlug', () => {
       }) as any
     );
 
+    // P1603: no row from the table -> the exact-slug function is asked; it has none either.
+    vi.mocked(supabase.rpc).mockReturnValue({
+      select: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }),
+    } as any);
+
     const result = await getEventBySlug('nonexistent-event');
     expect(result).toBeNull();
+    expect(supabase.rpc).toHaveBeenCalledWith('get_event_by_slug', { p_slug: 'nonexistent-event' });
   });
 
   it('maps null max_attendees to undefined in the Event type', async () => {

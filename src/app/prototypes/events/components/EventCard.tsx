@@ -5,6 +5,7 @@ import { formatDateShort, formatTime } from '../utils';
 import { classifyLocation, getLocationDisplayLabel } from '../location-utils';
 import { AttendeeAvatarStack } from './AttendeeAvatarStack';
 import { displayGoingCount } from '@/app/utils/event-going';
+import { HiddenEventMark } from './HiddenEventMark';
 import { BannerImage } from '@/app/components/shared/banner/BannerImage';
 
 interface EventCardProps {
@@ -48,7 +49,7 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
       )}
 
       {/* Status badges row */}
-      {(userIsHost || isUserGoing || isCancelled) && (
+      {(userIsHost || isUserGoing || isCancelled || event.isHidden) && (
         <div className="px-4 pt-3 flex flex-wrap gap-1">
           {/* Relationship badge - show for both upcoming and cancelled */}
           {userIsHost && (
@@ -71,6 +72,8 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
               {isCancelled ? 'You Were Going' : "You're Going"}
             </span>
           )}
+          {/* P1603: only the host and the registered ever receive a hidden event in a list */}
+          {event.isHidden && <HiddenEventMark />}
           {/* Cancelled badge - show below relationship badge */}
           {isCancelled && (
             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 flex items-center gap-1">

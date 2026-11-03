@@ -8,7 +8,10 @@ import { logDbError, throwDbError } from './db-error-logger';
 import { clientHoldsUser, guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
 import { earCountOf } from './ear-count';
 import { slugifyName } from './api';
-import { orgIdOf, readEventOrganizer, readOrganizationById, selectEventRowBySlug } from './event-slug-and-group-reads';
+import { orgIdOf, readEventOrganizer, readEventOrgFooterNote, readOrganizationById, readRsvpGate, selectEventRowBySlug } from './event-slug-and-group-reads';
+import { hiddenSlugEnding } from './event-hidden-slug';
+import { rsvpToHiddenEvent } from './event-hidden-rsvp';
+import { eventUpdateColumns } from './event-write-columns';
 import { attachRsvpCounts, failListRead, fetchViewerRsvpEventIds, selectPastEventRows, type ListReadOptions } from './event-list-reads';
 
 // `status` is NOT auto-managed (no trigger, no cron — intentional).
@@ -88,6 +91,7 @@ interface DbEventWithHost {
   /** P1179: JSONB [{tag, label?}] — extra Links-menu entries, [] on every row by default. */
   links: { tag: string; label?: string }[] | null;
   has_group_chat?: boolean | null;
+  is_hidden?: boolean | null; // P1603
   /** P1336 */
   preparation_enabled?: boolean | null;
   statement_tag?: string | null;
@@ -191,6 +195,7 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     // standard entries rather than crash the room's menu.
     links: Array.isArray(row.links) ? row.links : [],
     hasGroupChat: row.has_group_chat ?? false, // P1194
+    isHidden: row.is_hidden === true, // P1603
     preparationEnabled: row.preparation_enabled ?? false, // P1336
     statementTag: row.statement_tag ?? undefined,
     researchPlaces: row.research_places ?? 6,
@@ -225,11 +230,12 @@ function asciiFallbackSlug(title: string): string {
 
 // P986: romanizes the title via P985's slugifyName (e.g. 这是一个活动 → "zhe-shi-yi-ge-huo-dong")
 // so non-Latin event titles keep a readable slug instead of dropping to "".
-export async function generateSlug(title: string): Promise<string> {
+export async function generateSlug(title: string, hidden = false): Promise<string> {
   const dateStr = new Date().toISOString().split('T')[0];
   const romanized = await slugifyName(title);
   const titleSlug = romanized || asciiFallbackSlug(title);
-  const randomSuffix = Math.random().toString(36).slice(2, 6);
+  // P1603: a hidden event's link ends in a long crypto-random string; a public one keeps the short ending.
+  const randomSuffix = hidden ? hiddenSlugEnding() : Math.random().toString(36).slice(2, 6);
   return `${titleSlug}-${dateStr}-${randomSuffix}`;
 }
 
@@ -272,6 +278,7 @@ async function loadUpcoming(orgFilter?: string | string[], options?: ListReadOpt
       )
     `)
     .gte('datetime', graceCutoff)
+    .eq('is_hidden', false) // P1603: a global list never shows a hidden event, even one its viewer may read
     .in('status', ['upcoming', 'cancelled'])  // Include cancelled future events
     .order('datetime', { ascending: true });
 
@@ -442,36 +449,8 @@ export const realEventsService: EventsService = {
   // P1264: the organiser's standing note, rendered as the last block on the event
   // page. Two flat queries rather than a nested select — src.md bans nested selects
   // against PostgREST as unreliable, and this runs once per page view.
-  async getEventOrgFooterNote(eventId: string): Promise<string | null> {
-    log(' getEventOrgFooterNote:', eventId);
-
-    const { data: ev, error: evError } = await supabase
-      .from('events')
-      .select('org_id')
-      .eq('id', eventId)
-      .maybeSingle();
-
-    if (evError) {
-      logDbError('getEventOrgFooterNote(event)', evError);
-      return null;
-    }
-    if (!ev?.org_id) return null;
-
-    const { data: org, error: orgError } = await supabase
-      .from('organization')
-      .select('event_footer_note')
-      .eq('id', ev.org_id)
-      .maybeSingle();
-
-    if (orgError) {
-      logDbError('getEventOrgFooterNote(org)', orgError);
-      return null;
-    }
-
-    const note = org?.event_footer_note;
-    // Whitespace-only is "unset" as far as the render path is concerned, so a note
-    // cleared to spaces cannot produce an empty bordered block.
-    return note && note.trim().length > 0 ? note : null;
+  async getEventOrgFooterNote(eventId: string, orgId?: string | null): Promise<string | null> {
+    return readEventOrgFooterNote(eventId, orgId);
   },
 
   // P1403: series-level reviews + photos. Public tables (RLS SELECT for anon), so this
@@ -554,7 +533,7 @@ export const realEventsService: EventsService = {
       return null;
     }
 
-    const slug = await generateSlug(data.title);
+    const slug = await generateSlug(data.title, data.isHidden === true);
 
     const { data: created, error } = await supabase
       .from('events')
@@ -572,6 +551,7 @@ export const realEventsService: EventsService = {
         // NULL, but writing it makes the standalone case visible at the call site.
         // The DB trigger rejects a non-null org_id the host does not organize.
         org_id: data.orgId ?? null,
+        is_hidden: data.isHidden === true, // P1603
         // P1336: the series default is decided by the form; absent = the column default (off).
         ...(data.preparationEnabled !== undefined ? { preparation_enabled: data.preparationEnabled } : {}),
         ...(data.statementTag !== undefined ? { statement_tag: data.statementTag || null } : {}),
@@ -653,18 +633,7 @@ export const realEventsService: EventsService = {
       return false;
     }
 
-    // Map camelCase to snake_case for DB
-    const updateData: Record<string, unknown> = {};
-    if (data.title !== undefined) updateData.title = data.title;
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.datetime !== undefined) updateData.datetime = data.datetime;
-    if (data.durationMinutes !== undefined) updateData.duration_minutes = data.durationMinutes;
-    if (data.timezone !== undefined) updateData.timezone = data.timezone;
-    if (data.location !== undefined) updateData.location = data.location;
-    if (data.maxAttendees !== undefined) updateData.max_attendees = data.maxAttendees;
-    if ('bannerUrl' in data) updateData.banner_url = data.bannerUrl ?? null;
-    if (data.preparationEnabled !== undefined) updateData.preparation_enabled = data.preparationEnabled; // P1336
-    if (data.statementTag !== undefined) updateData.statement_tag = data.statementTag || null; // P1336
+    const updateData = eventUpdateColumns(data);
 
     // Only allow update if user is the host (authorization check)
     const { error, data: updated } = await supabase
@@ -700,7 +669,7 @@ export const realEventsService: EventsService = {
 
     // Fire-and-forget: send update emails — skip for banner-only changes
     // P1336: preparation settings change nothing an attendee was told, so they mail nobody either.
-    const SILENT_KEYS = ['banner_url', 'preparation_enabled', 'statement_tag'];
+    const SILENT_KEYS = ['banner_url', 'preparation_enabled', 'statement_tag', 'is_hidden'];
     const isBannerOnly = Object.keys(updateData).length > 0 && Object.keys(updateData).every(k => SILENT_KEYS.includes(k));
     if (!isBannerOnly) {
       invokeEventEmails('update', eventId);
@@ -788,7 +757,8 @@ export const realEventsService: EventsService = {
     return true;
   },
 
-  async rsvpToEvent(eventId: string, profileId: string): Promise<boolean> {
+  // P1603: `slug` is the link the RSVP was offered on; a hidden event cannot be read by id before the first RSVP.
+  async rsvpToEvent(eventId: string, profileId: string, slug?: string): Promise<boolean> {
     log(' rsvpToEvent:', { eventId, profileId });
 
     // KNOWN LIMITATION: Capacity check is not fully atomic with insert.
@@ -797,16 +767,13 @@ export const realEventsService: EventsService = {
     // For MVP traffic levels this is acceptable. For production scale,
     // consider using a database trigger or stored procedure.
     // See: code review 2026-01-19
-    const { data: event, error: eventError } = await supabase
-      .from('events')
-      .select('id, max_attendees, status')
-      .eq('id', eventId)
-      .single();
+    const event = await readRsvpGate(eventId, slug);
 
-    if (eventError || !event) {
+    if (!event) {
       log('ERROR: rsvpToEvent: Event not found');
       return false;
     }
+    if (event.is_hidden) return rsvpToHiddenEvent(eventId, profileId, slug, true); // P1603: the link is the proof
 
     // Don't allow RSVP to cancelled events
     if (event.status === 'cancelled') {
@@ -1299,6 +1266,7 @@ export const realEventsService: EventsService = {
       `)
       .gte('datetime', graceCutoff)
       .eq('status', 'upcoming')
+      .eq('is_hidden', false) // P1603: a hidden event the viewer can read is not a "public event" to suggest
       .neq('host_id', excludeProfileId)
       .order('datetime', { ascending: true })
       .limit(limit);

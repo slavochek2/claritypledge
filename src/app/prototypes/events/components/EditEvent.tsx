@@ -16,6 +16,7 @@ import { FocusHeader } from '@/app/components/layout/focus-header';
 import { eventsService } from '@/app/data/events-service';
 import type { EventWithHost } from '@/app/types';
 import { DURATIONS, TIMEZONES } from '../utils';
+import { HiddenEventField } from './HiddenEventField';
 import { PrepSettingsFields, normalizeStatementTag, validateStatementTag } from '../prep/PrepSettingsFields';
 
 export function EditEvent() {
@@ -38,6 +39,7 @@ export function EditEvent() {
   // P1336: the event's own setting (the series default applies on create only).
   const [preparationEnabled, setPreparationEnabled] = useState(false);
   const [statementTag, setStatementTag] = useState('');
+  const [isHidden, setIsHidden] = useState(false); // P1603
   // P1194: true when the existing link could not be READ. An empty field then means
   // "unknown", not "the host cleared it" — and the two must not submit the same value.
   const [groupChatLoadFailed, setGroupChatLoadFailed] = useState(false);
@@ -67,6 +69,7 @@ export function EditEvent() {
         setDescription(eventData.description);
         setPreparationEnabled(eventData.preparationEnabled ?? false);
         setStatementTag(eventData.statementTag ?? '');
+        setIsHidden(eventData.isHidden === true);
         // P1194: the group chat link lives in the RLS-gated side table, not on the
         // event row. The host passes that gate, so this returns their own value.
         if (eventData.hasGroupChat) {
@@ -196,6 +199,7 @@ export function EditEvent() {
       ...(groupChatLoadFailed && !groupChatUrl.trim() ? {} : { groupChatUrl: groupChatUrl.trim() }),
       preparationEnabled,
       statementTag: normalizeStatementTag(statementTag),
+      isHidden,
     });
 
     setIsSubmitting(false);
@@ -353,6 +357,9 @@ export function EditEvent() {
                   </p>
             }
           </div>
+
+          {/* P1603: link-only event. Switching an existing event on keeps its link; links already sent keep working. */}
+          <HiddenEventField checked={isHidden} onCheckedChange={setIsHidden} />
 
           {/* P1336: per-event preparation */}
           <PrepSettingsFields

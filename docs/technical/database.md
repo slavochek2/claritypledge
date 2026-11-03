@@ -181,6 +181,22 @@ publicly-readable `events` query.
 the pre-renumber P-number; see its header)
 **Integration test:** `e2e/integration/p1193-db-schema.spec.ts` (10 cases, live RLS)
 
+### Hidden events (P1603 — "visible only with the link")
+
+`events.is_hidden boolean NOT NULL DEFAULT false`. The database refuses a hidden event to strangers; no screen filters it.
+
+- **`events` SELECT** ("Events are viewable unless hidden"): `NOT is_hidden OR host_id = auth.uid() OR app_private.viewer_has_rsvp(id)`. Only a hidden row reaches the helper.
+- **An id is not access.** `event_rsvps` is public-by-id for public events, so the INSERT policy ("Authenticated users can RSVP") also requires `NOT app_private.event_is_hidden(event_id)`: a direct RSVP for a hidden event is refused. Registering for one goes through `rsvp_to_event_by_slug(p_slug) → 'ok' | 'already' | 'full' | 'cancelled' | 'not_found'` (authenticated only; locks the events row; the removed-registration and rsvped_at triggers still fire). The client only calls it for a hidden event (`src/app/data/event-hidden-rsvp.ts`).
+- **Rows that carry a hidden event's id** are returned only to its host, the people themselves and the registered: `event_rsvps`, `event_practice_rooms`, `event_room_members` (SELECT policies call `app_private.viewer_sees_event(event_id)`).
+- **`get_event_by_slug(p_slug text) RETURNS SETOF events`** (SECURITY DEFINER, anon + authenticated, allowlisted): one event, hidden or not, by EXACT slug. No list, no id lookup. The event page uses it when the table shows no row (`selectEventRowBySlugWith` in `event-slug-and-group-reads.ts`); `api/og.ts` reads every event through it and adds `noindex` for a hidden one.
+- **`app_private` schema** holds the three policy helpers (SECURITY DEFINER, `search_path = ''`). It is not in the API's exposed schemas, so they cannot be called from the browser; they exist in a separate schema so they are not `public` RPCs (an exposed `event_is_hidden(id)` would be an oracle). They read `events`/`event_rsvps` as their owner, which is what keeps `events` ↔ `event_rsvps` from recursing.
+- **Global discovery filters explicitly** (`.eq('is_hidden', false)`): the upcoming and past lists, org events/participation/summaries, the public tonight's-event candidates, the topic-tag cloud, `getUpcomingPublicEvents`, and `api/series-redirect.ts`. The host and the registered can read a hidden row, so the access rule alone would let it displace a public one.
+- **Link:** a hidden event created as hidden gets a 16-character crypto-random slug ending (`event-hidden-slug.ts`); switching an existing event to hidden keeps its slug.
+- **Known limit:** a link holder who has not registered sees no attendee names or count on the page (their RSVP reads return nothing), so a capped event shows no "full" until they try; the server still enforces capacity.
+- **Operator tools:** a service-role read sees hidden events. `scripts/events/email-audience.py` skips hidden events as past audiences.
+
+Migrations: `20261103030000_p1603_hidden_events.sql` (column, first policy, `get_event_by_slug`), `20261103040000_p1603_hidden_event_ids_private.sql` (helpers, RSVP/room policies, `rsvp_to_event_by_slug`). Tests: `e2e/integration/20261103030000_p1603_hidden_events.spec.ts`, `e2e/p1603-hidden-events.spec.ts`, `src/tests/p1603-*.test.ts*`.
+
 ### group_chat_opens (P1542 — "has this person opened this event's group chat?")
 
 One row per person and group chat they tapped: `profile_id` (FK `profiles.id`, `ON DELETE CASCADE`),

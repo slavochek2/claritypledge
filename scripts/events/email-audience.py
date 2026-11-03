@@ -28,10 +28,12 @@ def rsvps(ids):
         offset += 1000
 
 
-events = q(f"events?select=id,slug,datetime,status,host_id&or=(title.ilike.*{word}*,slug.ilike.*{word}*)&limit=1000")
+events = q(f"events?select=id,slug,datetime,status,host_id,is_hidden&or=(title.ilike.*{word}*,slug.ilike.*{word}*)&limit=1000")
 cur = next(e for e in events if e["slug"] == slug)
 now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-past = [e for e in events if e["datetime"] < now and e["status"] != "cancelled" and e["id"] != cur["id"]]
+# P1603: this key sees hidden events. Their RSVPs are a private group's people: never a past audience for another event
+# (the named event, `cur`, may itself be hidden, and is read by its slug above).
+past = [e for e in events if e["datetime"] < now and e["status"] != "cancelled" and e["id"] != cur["id"] and not e.get("is_hidden")]
 assert past, "no past events matched"
 attended, registered = rsvps([e["id"] for e in past]), rsvps([cur["id"]])
 ids = sorted(attended - registered - {cur.get("host_id")})

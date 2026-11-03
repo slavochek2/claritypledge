@@ -21,6 +21,7 @@ import {
   type StartingSoonRsvp,
 } from '../_shared/starting-soon.ts';
 import { clearMessageIds } from '../_shared/rsvp-message-ids.ts';
+import { callerHasRsvp } from '../_shared/rsvp-guard.ts';
 
 /**
  * P1256: is this stored value an id Mailgun can actually be asked to cancel?
@@ -43,6 +44,12 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
 // ── Action handlers ───────────────────────────────────────────────────────────
+
+// P1603: the confirmation carries the event's title and link. Only someone holding an RSVP row gets it; anyone else
+// gets the same plain success and nothing is sent (an event id must not reveal a hidden event).
+async function handleRsvpIfRegistered(supabase: SupabaseClient, eventId: string, userId: string) {
+  if (await callerHasRsvp(supabase, eventId, userId)) await handleRsvp(supabase, eventId, userId);
+}
 
 async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: string) {
   const { data: event } = await supabase
@@ -428,7 +435,7 @@ serve(async (req: Request) => {
 
     switch (action) {
       case 'rsvp':
-        await handleRsvp(supabaseClient, eventId, authenticatedUserId);
+        await handleRsvpIfRegistered(supabaseClient, eventId, authenticatedUserId);
         break;
       case 'cancel':
         await handleCancel(supabaseClient, eventId);

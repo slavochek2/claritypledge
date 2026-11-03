@@ -43,6 +43,26 @@ async function supabaseGet(
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 }
 
+/** P1603: a Supabase RPC call (POST). Same failure contract as supabaseGet: a non-OK response throws OgFetchError. */
+async function supabaseRpcOne(
+  fn: string,
+  args: Record<string, unknown>,
+): Promise<Record<string, unknown> | null> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_ANON_KEY ?? '',
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(args),
+  });
+  if (!res.ok) throw new OgFetchError(res.status);
+  const rows = await res.json();
+  return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+}
+
 /** Throws if `column` is not present, boundary-anchored, in `selectedColumns`
  *  — a bare `,`/`(`/`)`/string-edge on both sides, so it matches a nested embed
  *  selector (`profiles!fkey(name,agent_accounts(operator_name))`) without also
@@ -117,10 +137,9 @@ export function eventExcerpt(rawDesc: string): string {
 }
 
 async function ogForEvent(slug: string): Promise<OgData | null> {
-  const row = await supabaseGet(
-    'events',
-    `slug=eq.${encodeURIComponent(slug)}&select=title,description,datetime,location,banner_url`,
-  );
+  // P1603: through get_event_by_slug (exact slug), so a hidden event's link still gets its share card. The function
+  // returns the whole row; only these columns are read from it.
+  const row = await supabaseRpcOne('get_event_by_slug', { p_slug: slug });
   if (!row) return null;
   // No bindClaim here: every word below is either a fetched column verbatim
   // (`description`) or a formatted `datetime`/`location` — no synthesized
@@ -145,6 +164,8 @@ async function ogForEvent(slug: string): Promise<OgData | null> {
     image: (row.banner_url as string) || DEFAULT_IMAGE,
     url: `${BASE_URL}/events/${slug}`,
     type: 'article',
+    // P1603: a hidden event's card works from its link, and tells search engines to leave the page out.
+    noIndex: row.is_hidden === true,
   };
 }
 

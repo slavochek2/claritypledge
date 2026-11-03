@@ -9,6 +9,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-03 [technical]: A hidden event is enforced by the database, and an event id is worth nothing for it
+
+**Context:** Hosts need events only visible with the link, and a friends test needs one. Every event was readable by anyone through the public key, and many tables and functions took an event id on trust. The rule in the 2026-06-23 entry "Unconfirmed experiments are NOT DB events" said there is no hidden state; hidden events now exist, and the rest of that entry stands.
+**Decision:** `events.is_hidden`, off by default. The read rule allows a hidden event only to its host and people who RSVP'd. The link opens it through an exact-slug read, and RSVP to a hidden event requires the slug. Global lists filter hidden events explicitly, even for the host, so a hidden event cannot displace a public one.
+**Alternatives rejected:** A filter in the app: the public key reads the table directly. "An id reveals nothing": two reviews chained public banner folders, then an RSVP email, to hand a stranger the link, so every id-keyed path was closed instead, and a test now derives open tables and functions from the catalog and fails on an unclassified one.
+**Consequences:** All P1603 migrations go to prod before the client. Anonymous listing of the two banner buckets is gone; public image URLs are unaffected. Someone with the link sees no attendee names until they RSVP. UNTESTED on prod until the friends test. Falsifier: a stranger reaching a hidden event's title, link or attendees without the link.
+**References:** [P1603](../features/p1603_hidden_events_link_only.md)
+
 ## 2026-11-03 [technical]: An evaluated /day cause is a ledger record with an expiry, read at render time (P1605)
 
 **Context:** The entry below left the mechanism open. Only Park carried across runs, so one cause came back under each new label.

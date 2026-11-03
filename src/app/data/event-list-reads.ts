@@ -59,6 +59,7 @@ export async function selectPastEventRows(graceCutoff: string, orgId?: string) {
   let query = supabase
     .from('events')
     .select(EVENT_WITH_HOST)
+    .eq('is_hidden', false) // P1603: a global list never shows a hidden event, even one its viewer may read
     .or(`status.eq.completed,and(status.eq.cancelled,datetime.lt.${graceCutoff}),and(status.eq.upcoming,datetime.lt.${graceCutoff})`)
     .order('datetime', { ascending: false });
   // P1060: the org filter is conditional — omitting orgId adds no `.eq`, so the standalone list stays unfiltered.

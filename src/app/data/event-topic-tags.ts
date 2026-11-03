@@ -16,6 +16,7 @@ export async function getEventTopicTags(): Promise<string[]> {
   const { data, error } = await supabase
     .from('events')
     .select('statement_tag')
+    .eq('is_hidden', false) // P1603: a hidden event's topic is not a public tag
     .not('statement_tag', 'is', null);
   if (error || !data) return [];
   return [...new Set((data as { statement_tag: string | null }[]).map((r) => r.statement_tag).filter((t): t is string => !!t))];

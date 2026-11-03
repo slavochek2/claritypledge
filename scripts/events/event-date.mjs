@@ -121,7 +121,13 @@ async function fetchRow(env, slug) {
     ? ['https://besjtuodziykmjidubzw.supabase.co', vars.PROD_SUPABASE_ANON_KEY]
     : [vars.VITE_SUPABASE_URL, vars.VITE_SUPABASE_ANON_KEY]
   const r = await fetch(`${url}/rest/v1/events?slug=eq.${encodeURIComponent(slug)}&select=slug,datetime,timezone`, { headers: { apikey: key, Authorization: `Bearer ${key}` } })
-  const rows = await r.json()
+  let rows = await r.json()
+  if (!Array.isArray(rows) || !rows.length) {
+    // P1603: a hidden event is invisible to the table read; its exact slug opens it through get_event_by_slug (anon).
+    // A server without that function answers an error object, which falls through to "not found" below.
+    const h = await fetch(`${url}/rest/v1/rpc/get_event_by_slug?p_slug=${encodeURIComponent(slug)}&select=slug,datetime,timezone`, { headers: { apikey: key, Authorization: `Bearer ${key}` } })
+    rows = await h.json().catch(() => [])
+  }
   if (!Array.isArray(rows) || !rows.length) throw new Error(`no event "${slug}" on ${env}`)
   return rows[0]
 }

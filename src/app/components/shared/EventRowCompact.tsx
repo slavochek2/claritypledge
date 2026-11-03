@@ -6,6 +6,7 @@
 import { Link } from "react-router-dom";
 import { CalendarIcon, Crown, CheckCircle2, Ban } from "lucide-react";
 import type { EventWithHost } from "@/app/types";
+import { HiddenEventMark } from "@/app/prototypes/events/components/HiddenEventMark";
 import { classifyLocation } from "@/app/prototypes/events/location-utils";
 
 interface EventRowCompactProps {
@@ -59,6 +60,7 @@ export function EventRowCompact({ event, role }: EventRowCompactProps) {
           {formatEventDate(event.datetime)}
         </div>
       </div>
+      {event.isHidden && <HiddenEventMark />} {/* P1603 */}
       {/* Role/Status Badge */}
       {isCancelled ? (
         <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-red-50 text-red-700 border border-red-200">

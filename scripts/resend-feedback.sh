@@ -69,6 +69,8 @@ EVENT_TITLE=$(echo "$EVENT_JSON" | python3 -c "import sys,json; d=json.load(sys.
 
 if [[ -z "$EVENT_TITLE" ]]; then
   echo "Error: event $EVENT_ID not found in prod" >&2
+  echo "If this is a hidden (link-only) event: anon cannot read a hidden event by id, and its RSVP list is private to its host." >&2
+  echo "No anon door by id exists (by design, P1603); this script cannot send for it without a credential it does not read." >&2
   exit 1
 fi
 

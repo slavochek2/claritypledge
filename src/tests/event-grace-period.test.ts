@@ -20,6 +20,7 @@ const mockGte = vi.fn();
 const mockOr = vi.fn();
 const mockOrder = vi.fn();
 const mockIn = vi.fn();
+const mockEq = vi.fn(); // P1603: every global list adds .eq('is_hidden', false)
 const mockSelect = vi.fn();
 const mockFrom = vi.fn();
 
@@ -49,13 +50,14 @@ describe('P494: Event grace period', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
 
-    // Chain: from().select().gte().in().order() for getUpcomingEvents
-    // Chain: from().select().or().order() for getPastEvents
+    // Chain: from().select().gte().eq('is_hidden').in().order() for getUpcomingEvents
+    // Chain: from().select().eq('is_hidden').or().order() for getPastEvents
     mockOrder.mockResolvedValue({ data: [], error: null });
     mockIn.mockReturnValue({ order: mockOrder });
-    mockGte.mockReturnValue({ in: mockIn });
+    mockEq.mockReturnValue({ in: mockIn, or: mockOr });
+    mockGte.mockReturnValue({ eq: mockEq });
     mockOr.mockReturnValue({ order: mockOrder });
-    mockSelect.mockReturnValue({ gte: mockGte, or: mockOr });
+    mockSelect.mockReturnValue({ gte: mockGte, eq: mockEq });
     mockFrom.mockReturnValue({ select: mockSelect });
 
     const module = await import('@/app/data/events-service-real');

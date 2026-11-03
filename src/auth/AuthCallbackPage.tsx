@@ -559,7 +559,7 @@ export function AuthCallbackPage() {
           try {
             const event = await getEventBySlug(eventSlug);
             if (event) {
-              const rsvpSuccess = await rsvpToEvent(event.id, authUser.id);
+              const rsvpSuccess = await rsvpToEvent(event.id, authUser.id, eventSlug); // P1603: the link, for a hidden event
               if (rsvpSuccess) {
                 // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
                 if (import.meta.env.DEV) console.log('✅ Auto-RSVP successful for event:', eventSlug);

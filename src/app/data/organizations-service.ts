@@ -147,6 +147,7 @@ export const organizationsService: OrganizationsService = {
     const { data: eventRows, error: eventErr } = await supabase
       .from('events')
       .select('id, org_id')
+      .eq('is_hidden', false) // P1603: a group's numbers never count a hidden event
       .in('org_id', orgIds);
     if (eventErr) throw new Error(`Failed to load org events: ${eventErr.message}`);
 
@@ -210,6 +211,7 @@ export const organizationsService: OrganizationsService = {
     const { data, error } = await supabase
       .from('events')
       .select('org_id, datetime, status')
+      .eq('is_hidden', false) // P1603: a group's numbers never count a hidden event
       .in('org_id', orgIds);
     if (error) throw new Error(`Failed to load org events: ${error.message}`);
 

@@ -22,6 +22,8 @@ import { CURRENT_PLEDGE_VERSION } from '@/app/content/pledge-text';
 import * as Sentry from '@sentry/react';
 import { logDbError } from './db-error-logger';
 import { clientHasSession, clientHoldsUser, guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
+import { readRsvpGate, selectEventRowBySlugWith } from './event-slug-and-group-reads';
+import { rsvpToHiddenEvent } from './event-hidden-rsvp';
 import { getSeatSecret, setSeatSecret, clearSeatSecret, restoreSeatSecret } from './seat-secret';
 import type { AuthError } from '@supabase/supabase-js';
 import { mergeConsecutiveSpeakerRows } from '@/app/components/session/transcript-merge';
@@ -4103,25 +4105,13 @@ export async function getPastEvents(): Promise<EventWithHost[]> {
  * Returns null if not found
  */
 export async function getEventBySlug(slug: string): Promise<EventWithHost | null> {
-
-  const { data, error } = await supabase
-    .from('events')
-    .select(`
-      *,
-      profiles:host_id (name, slug, role, avatar_color, avatar_url, has_pledged, ears_count)
-    `)
-    .eq('slug', slug)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return null;
-    }
-    console.error('[Events API] Error fetching event:', error);
-    return null;
-  }
-
-  return mapEventWithHostFromDb(data);
+  // P1603: a direct read, then the exact-slug function for a hidden event the viewer holds the link to.
+  const data = await selectEventRowBySlugWith(
+    '*, profiles:profiles!events_host_id_fkey (name, slug, role, avatar_color, avatar_url, has_pledged, ears_count)',
+    slug,
+    false,
+  );
+  return data ? mapEventWithHostFromDb(data as Parameters<typeof mapEventWithHostFromDb>[0]) : null;
 }
 
 /**
@@ -4275,7 +4265,7 @@ export async function createEvent(input: CreateEventInput): Promise<Event | null
  * Checks capacity before inserting
  * Returns false if event is full or already RSVP'd
  */
-export async function rsvpToEvent(eventId: string, profileId: string): Promise<boolean> {
+export async function rsvpToEvent(eventId: string, profileId: string, slug?: string): Promise<boolean> {
 
   // Check if already RSVP'd
   const alreadyRsvpd = await isUserRsvpd(eventId, profileId);
@@ -4284,16 +4274,13 @@ export async function rsvpToEvent(eventId: string, profileId: string): Promise<b
   }
 
   // Check capacity
-  const { data: event, error: eventError } = await supabase
-    .from('events')
-    .select('max_attendees, status')
-    .eq('id', eventId)
-    .single();
+  const event = await readRsvpGate(eventId, slug); // P1603: a hidden event is read through its slug until the first RSVP
 
-  if (eventError || !event) {
-    console.error('[Events API] Event not found:', eventError);
+  if (!event) {
+    console.error('[Events API] Event not found:', eventId);
     return false;
   }
+  if (event.is_hidden) return rsvpToHiddenEvent(eventId, profileId, slug, false); // P1603: the link is the proof
 
   if (event.status !== 'upcoming') {
     return false;

@@ -16,6 +16,7 @@ import { eventsService } from '@/app/data/events-service';
 import { organizationsService } from '@/app/data/organizations-service';
 import type { Organization } from '@/app/data/organizations-service.interface';
 import { DURATIONS, TIMEZONES } from '../utils';
+import { HiddenEventField } from './HiddenEventField';
 import { PrepSettingsFields, defaultPreparation, normalizeStatementTag, validateStatementTag } from '../prep/PrepSettingsFields';
 
 export function CreateEvent() {
@@ -42,6 +43,7 @@ export function CreateEvent() {
   const [preparationEnabled, setPreparationEnabled] = useState(false);
   const [preparationTouched, setPreparationTouched] = useState(false);
   const [statementTag, setStatementTag] = useState('');
+  const [isHidden, setIsHidden] = useState(false); // P1603: off unless the host ticks it
   useEffect(() => {
     if (!preparationTouched) setPreparationEnabled(defaultPreparation(title));
   }, [title, preparationTouched]);
@@ -168,6 +170,7 @@ export function CreateEvent() {
       groupChatUrl: groupChatUrl.trim(),
       preparationEnabled: preparationTouched ? preparationEnabled : defaultPreparation(title),
       statementTag: normalizeStatementTag(statementTag),
+      isHidden,
     });
 
     setIsSubmitting(false);
@@ -340,6 +343,9 @@ export function CreateEvent() {
                 </p>
             }
           </div>
+
+          {/* P1603: link-only event */}
+          <HiddenEventField checked={isHidden} onCheckedChange={setIsHidden} />
 
           {/* P1336: per-event preparation */}
           <PrepSettingsFields

@@ -183,6 +183,7 @@ async function fetchPublicWindowCandidates(): Promise<CandidateEvent[]> {
     .from('events')
     .select(EVENT_COLUMNS)
     .eq('preparation_enabled', true)
+    .eq('is_hidden', false) // P1603: the public candidates; a hidden event reaches only its host and the registered, via their own reads below
     .gte('datetime', from)
     .lte('datetime', to);
   if (error || !data) return [];

@@ -22,6 +22,8 @@ vi.mock('@/app/prototypes/events/banner-utils', () => ({
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: (table: string) => mockFrom(table),
+    // P1603: with no row from the table, getEventBySlug asks the exact-slug function; it has none either.
+    rpc: () => ({ select: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }),
     auth: {
       getUser: () => mockGetUser(),
       // P1441: rsvpToEvent first checks the client holds the RSVPing user.
@@ -76,8 +78,10 @@ describe('realEventsService', () => {
           // Events query - now uses .in() for status filter
           return {
             gte: vi.fn().mockReturnValue({
-              in: vi.fn().mockReturnValue({
-                order: vi.fn().mockResolvedValue({ data: mockDbEvents, error: null }),
+              eq: vi.fn().mockReturnValue({ // P1603: .eq('is_hidden', false)
+                in: vi.fn().mockReturnValue({
+                  order: vi.fn().mockResolvedValue({ data: mockDbEvents, error: null }),
+                }),
               }),
             }),
           };
@@ -107,8 +111,10 @@ describe('realEventsService', () => {
     it('returns empty array on error', async () => {
       mockSelect.mockReturnValue({
         gte: vi.fn().mockReturnValue({
-          in: vi.fn().mockReturnValue({
-            order: vi.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
+          eq: vi.fn().mockReturnValue({ // P1603: .eq('is_hidden', false)
+            in: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
+            }),
           }),
         }),
       });

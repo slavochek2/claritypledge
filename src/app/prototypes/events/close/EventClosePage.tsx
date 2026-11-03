@@ -921,7 +921,7 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
                     onClick={async () => {
                       let ok: boolean | undefined;
                       try {
-                        ok = await once(() => eventsService.rsvpToEvent(nextEvent.id, viewerId));
+                        ok = await once(() => eventsService.rsvpToEvent(nextEvent.id, viewerId, nextEvent.slug));
                       } catch (err) {
                         // P1441: the client could not act as this person, so nothing was sent.
                         if (isSessionMismatch(err)) return signInAgain(nextEvent.slug);

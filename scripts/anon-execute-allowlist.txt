@@ -142,3 +142,9 @@ submit_calendar_source(text,text)             # signed-out visitors suggest an e
 # the same empty shape (shown as not-found) for every other canvas, with no hint that it is open.
 # Every write function and the owner's tools stay closed to anon.
 get_canvas(uuid,text,text,text)               # a signed-out visitor opens a canvas shared with anyone with the link (P1515) — src/app/data/canvas-service.ts:108
+
+# --- 2026-11-03, P1603: a hidden event opens from its link, signed out ---
+# One event by EXACT slug (hidden or not), never a list and never by id; the slug is the proof. The event page falls
+# back to it when the table shows no row, and the share preview (api/og.ts) reads every event through it. The
+# registration function rsvp_to_event_by_slug is signed-in only and is not listed here.
+get_event_by_slug(text)                       # a signed-out visitor opens a hidden event from its link, and the share preview reads it (P1603) — src/app/data/event-slug-and-group-reads.ts:19

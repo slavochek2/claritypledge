@@ -6,6 +6,7 @@ import { renderEventDescription } from '@/lib/markdown';
 import { shouldShowRsvpRepeat, RSVP_REPEAT_LABEL, RSVP_REPEAT_LOADING_LABEL, type RsvpTrigger } from '../rsvp-repeat';
 import { shareOrCopy } from '@/lib/utils';
 import { toast } from 'sonner';
+import { takeHiddenRsvpRefusal } from '@/app/data/event-hidden-rsvp';
 import { isSessionMismatch } from '@/lib/session-guard';
 import { useSignInAgain } from '@/app/hooks/useSignInAgain';
 import {
@@ -26,6 +27,8 @@ import {
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GroupChatBlock } from './GroupChatBlock';
+import { HiddenEventMark } from './HiddenEventMark';
+import { SEO } from '@/app/components/seo';
 import { EventSharedCanvases } from '@/app/components/canvas/event-shared-canvases';
 import { OrgFooterNote } from './OrgFooterNote';
 import { ImageLightbox } from '@/app/components/shared/image-lightbox';
@@ -256,14 +259,14 @@ export function EventDetail() {
     // Clear before fetching — see the note on the group-chat effect above. Two
     // orgs run events here, so a stale note is the wrong organiser's words.
     setOrgFooterNote(null);
-    eventsService.getEventOrgFooterNote(eventId)
+    eventsService.getEventOrgFooterNote(eventId, eventOrgId)
       .then(note => { if (!cancelled) setOrgFooterNote(note); })
       .catch(error => {
         console.error('[EventDetail] Failed to fetch org footer note:', error);
         if (!cancelled) setOrgFooterNote(null);
       });
     return () => { cancelled = true; };
-  }, [eventId]);
+  }, [eventId, eventOrgId]);
 
   // P1403: the hike layout is selected by the stored series key, never the title.
   // Non-hike events make no request and render no hike section.
@@ -488,7 +491,7 @@ export function EventDetail() {
     const sentAt = networkMark();
     let success: boolean;
     try {
-      success = await eventsService.rsvpToEvent(event.id, user.id);
+      success = await eventsService.rsvpToEvent(event.id, user.id, event.slug);
     } catch (err) {
       setIsActionLoading(false);
       // P1441: the client could not act as this person, so nothing was sent.
@@ -496,9 +499,15 @@ export function EventDetail() {
       throw err;
     }
     setIsActionLoading(false);
+    const refusal = success ? null : takeHiddenRsvpRefusal();
     if (success) {
       setIsRsvpd(true);
       navigate(`/events/${slug}/confirm`, { state: { fromEvent: true } });
+    } else if (refusal) {
+      // P1603: the link door said why. Show the state the page already has a message for: the "Event Full" button,
+      // or the cancelled banner, instead of the generic failure.
+      setEvent(e => (e ? (refusal === 'full' ? { ...e, attendeeCount: e.maxAttendees ?? e.attendeeCount } : { ...e, status: 'cancelled' }) : e));
+      toast.error(refusal === 'full' ? 'This event is full.' : 'This event has been cancelled.');
     } else {
       // P1369: the service returns false for "full" AND for a request that never got through.
       toast.error(writeFailureMessage(null, 'Couldn\'t sign you up. The event may be full or no longer available.', sentAt));
@@ -833,6 +842,9 @@ export function EventDetail() {
           {/* Left Column - Event Details */}
           <div className="flex-1">
             <div className={`bg-card rounded-xl border shadow-sm p-6 mb-6 ${isCancelled ? 'border-red-200' : 'border-border'}`}>
+              {/* P1603: a hidden event's host is reminded on the page; crawlers are told not to index it. */}
+              {event.isHidden && <SEO title={event.title} url={`/events/${event.slug}`} noIndex />}
+              {isHost && event.isHidden && <HiddenEventMark className="mb-3" />}
               {/* Title + Share */}
               <div className="flex items-start justify-between gap-2 mb-4">
                 <h1 className="text-2xl md:text-3xl font-bold">{event.title}</h1>

@@ -39,6 +39,8 @@ export async function createTestEvent(
     timezone?: string;
     status?: 'upcoming' | 'live' | 'completed' | 'cancelled';
     orgId?: string | null;
+    /** P1603: a hidden event (link-only). Omitted = the column default, public. */
+    isHidden?: boolean;
   } = {}
 ): Promise<TestEvent> {
   // P1179: `Date.now()` alone is NOT unique across Playwright workers — three
@@ -96,6 +98,7 @@ export async function createTestEvent(
       host_id: hostId,
       status: options.status || 'upcoming',
       ...(options.orgId !== undefined && { org_id: options.orgId }),
+      ...(options.isHidden !== undefined && { is_hidden: options.isHidden }),
     })
     .select('id, slug, host_id, title, org_id')
     .single();

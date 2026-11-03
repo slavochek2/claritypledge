@@ -245,6 +245,7 @@ export function SEO({
       removeMeta("name", "twitter:title");
       removeMeta("name", "twitter:description");
       removeMeta("name", "twitter:image");
+      removeMeta("name", "robots"); // P1603: a noindex set for one page must not outlive it
       // Canonical is NOT removed — it is reset to the site root, matching the static
       // default index.html ships. A route without its own <SEO> then degrades to the
       // site root rather than inheriting the previous route's URL, and crawlers never
