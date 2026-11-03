@@ -56,7 +56,7 @@ interface Place { before: string; after: string; next: string }
 const CLAUSE_CHARS = 200;
 const MAX_PLACES = 50;
 const MAX_ANSWER_CHARS = 2000;
-const AFTER_ENDS = new RegExp(`[;.!?](?:\\s|$)|,\\s*(?!${RATE_START})|\\b(?:and|but)\\b`, 'iu');
+const AFTER_ENDS = new RegExp(`[;.!?](?:\\s|$)|,(?!\\s*${RATE_START})|\\b(?:and|but)\\b`, 'iu');
 const unsaid = (s: string) => s.replace(NEGATED, ' ');
 /** A money amount in the owner's words ("1500 euros", "€20"). Another price ends a number's clause: its terms belong to that offer, not this one. */
 const MONEY_SOURCE = `(?:${CURRENCY}\\s*\\d[\\d.]*|\\d[\\d.]*\\s*${CURRENCY}(?![\\p{L}]))`;
@@ -84,7 +84,7 @@ function placesOf(n: string, text: string): Place[] {
     if (out.length >= MAX_PLACES) break;
     const rest = text.slice(m.index + n.length, m.index + n.length + CLAUSE_CHARS);
     const after = untilNextPrice(rest).split(AFTER_ENDS)[0] ?? '';
-    const before = sinceLastPrice(text.slice(Math.max(0, m.index - CLAUSE_CHARS), m.index)).split(/[;.!?](?:\s|$)|\b(?:and|but)\b/).pop() ?? '';
+    const before = sinceLastPrice(text.slice(Math.max(0, m.index - CLAUSE_CHARS), m.index)).split(/,(?!\s*each(?:\s+one)?\s+(?:pays?|costs?)\b)|;|[.!?](?:\s|$)|\b(?:and|but)\b/).pop() ?? '';
     const next = referringSentence(/^[^.!?]*[.!?]\s+((?:it|that|this|which|the price|per|each|every|for\s+(?:each|every))\b[^.!?\d]*)(?:[.!?]|$)/i.exec(rest)?.[1] ?? '');
     out.push({ before: unsaid(before), after: unsaid(after), next: unsaid(next) });
   }
@@ -152,7 +152,7 @@ function termAtPlace(term: Term, p: Place): boolean {
 
 /** The words that name an offer: its label ahead of the price, without the terms and the little words. */
 function labelWords(label: string): string[] {
-  return (label.toLowerCase().match(/\p{L}{3,}/gu) ?? []).filter((w) => !/^(?:per|each|every|once|the|and|for|with|monthly|yearly|weekly|daily|annual|annually|quarterly|hourly|one|off|time)$/.test(w));
+  return (label.toLowerCase().match(/\p{L}{3,}/gu) ?? []).filter((w) => !/^(?:per|each|every|once|the|and|for|with|monthly|yearly|weekly|daily|annual|annually|quarterly|hourly|one|off|time|fees?|prices?|pricing|costs?|charges?|rates?|plans?|packages?|services?|payments?)$/.test(w));
 }
 
 /**
@@ -167,7 +167,7 @@ function ownerStates(raw: string, price: string, owner: string, answer: string, 
   if (!holds.length) return false;
   if (holds.length === places.length) return true;
   const words = labelWords(label);
-  return holds.some((p) => words.some((w) => new RegExp(`\\b${escapeWord(w)}`, 'iu').test(`${p.before} ${p.after}`)));
+  return words.length > 0 && holds.some((p) => words.every((w) => new RegExp(`\\b${escapeWord(w)}`, 'iu').test(`${p.before} ${p.after}`)));
 }
 
 // ── The statement, clause by clause ─────────────────────────────────────────
@@ -244,7 +244,7 @@ function cleanPriced(p: PricedClause, states: (raw: string) => boolean): string 
 }
 
 /** "Setup at 1500 euros and support at 20 euros per month": an "and" or "but" that opens another priced offer ends the clause, so each price answers for its own terms. */
-const CLAUSE_SEPARATOR = new RegExp(`(;\\s*|[.!?]\\s+|[.!?]$|,\\s+(?!${RATE_START})|\\s+(?:and|but|plus)\\s+(?=[^;.!?,]{0,120}?${MONEY_SOURCE}))`, 'iu');
+const CLAUSE_SEPARATOR = new RegExp(`(;\\s*|[.!?]\\s+|[.!?]$|,(?!\\s*${RATE_START})\\s+|\\s+(?:and|but|plus)\\s+(?=[^;.!?,]{0,120}?${MONEY_SOURCE}))`, 'iu');
 
 /** The clauses that stayed, each with the separator that stood before the next one that stayed, and the statement's own last mark. */
 function rejoin(kept: ReadonlyArray<string | null>, seps: readonly string[], statement: string): string {

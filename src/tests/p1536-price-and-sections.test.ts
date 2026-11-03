@@ -503,6 +503,16 @@ describe('review round: a price answers only for its own offer, through parseDra
   ])('fail closed: %s', (_l, statement, ownerText, expected) => {
     expect(groundPriceTerms(statement, owner(ownerText))).toBe(expected);
   });
+  it.each([
+    ['a cadence in another comma clause is not the price\'s', 'Setup: 1500 euros per month.', 'we offer monthly support, setup costs 1500 euros.', 'Setup: 1500 euros.'],
+    ['control: "each pays" after a comma keeps the unit, a cadence clause still does not cross', 'Retainer: 900 euros per agency; Setup: 1500 euros per month.', 'three agencies, each pays 900 euros. we offer monthly support, setup costs 1500 euros.', 'Retainer: 900 euros per agency; Setup: 1500 euros.'],
+    ['a generic word ("fee") does not make two offers one', 'Setup fee: 500 euros per month.', 'setup fee costs 500 euros. support fee costs 500 euros per month.', 'Setup fee: 500 euros.'],
+    ['control: forward "per shop, per month" passes', 'Fee: 180 euros per shop per month.', 'it costs 180 euros per shop, per month.', 'Fee: 180 euros per shop per month.'],
+    ['control: a term in the same comma-free clause', 'Fee: 20 euros monthly.', 'the monthly fee is 20 euros.', 'Fee: 20 euros monthly.'],
+    ['control: the offer\'s own words and generic words at its place', 'Setup fee: 500 euros one-off.', 'setup fee costs 500 euros one-off. support fee costs 500 euros per month.', 'Setup fee: 500 euros one-off.'],
+  ])('strict: %s', (_l, statement, ownerText, expected) => {
+    expect(groundPriceTerms(statement, owner(ownerText))).toBe(expected);
+  });
   it('a term that would take another price with it counts the point as dropped and asks, never cuts the price away', () => {
     const t = 'Setup costs 1500 euros and support costs 20 euros per month.';
     expect(groundPriceTerms('Setup: 1500 euros per firm with support at 20 euros per month.', owner(t))).toBe('');
