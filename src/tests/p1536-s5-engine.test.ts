@@ -209,12 +209,13 @@ describe('S5 defect 3: nothing the owner reads is cut in the middle of a word', 
 // ── 4. the first reply says why ─────────────────────────────────────────────
 
 describe('S5 defect 4: the first reply says why the group was chosen (J7, J8)', () => {
-  const firstDraft = (obj: Record<string, unknown>) => {
-    const h = harness({ first_draft: true, draft_points: [], focus: null, trigger: CAFE_MSG }, answering({ scope: TAGS, actions: [POINT], ...obj }));
+  const firstDraft = (obj: Record<string, unknown>, trigger = CAFE_MSG) => {
+    const h = harness({ first_draft: true, draft_points: [], focus: null, trigger }, answering({ scope: TAGS, actions: [POINT], ...obj }));
     return executeRun(h.deps, h.params, h.run).then(() => String(h.done()!.p_reply).split('\n'));
   };
   it('J7: two businesses, chosen because the owner calls it their focus', async () => {
-    const lines = await firstDraft({ focus: 'café owners', focus_reason: 'stated', other_canvases: [{ group: 'agencies' }] });
+    // the owner now has to say so: the reason is checked against their words (p1536-price-and-sections.test.ts)
+    const lines = await firstDraft({ focus: 'café owners', focus_reason: 'stated', other_canvases: [{ group: 'agencies' }] }, `${CAFE_MSG} Café owners are my focus.`);
     expect(lines[0]).toBe('I found two businesses: café owners and agencies. This canvas is about café owners, since you call them your focus.');
     expect(lines[1]).toMatch(/^Draft ready: \d of 9 boxes\.$/);
   });

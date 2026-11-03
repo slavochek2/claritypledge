@@ -208,6 +208,40 @@ describe('S2.5: a Copy-prompt paste has labelled sections', () => {
     expect(copyPromptSections(mat(note(PASTE), note('Café owners are my focus.', { source: 'owner messages' })))).toBeNull();
     expect(copyPromptSections(mat(note(PASTE), note('Some notes on the side.', { kind: 'file', source: 'notes.md' })))).toBeNull();
   });
+  it.each([
+    ['Here it is:'], ['here it is'], ['Here is my canvas.'], ["Here's what ChatGPT gave me:"], ['This is the file from my AI.'], ['Ok, here you go!'],
+  ])('one short line above the paste in the owner\'s message: %s', (leadIn) => {
+    expect(copyPromptSections(mat(note(`${leadIn}\n\n${PASTE}`, { trigger: true })))).toEqual(['café owners with one to three shops', 'marketing agencies with 10 to 40 staff']);
+    expect(copyPromptSections(mat(note(`${leadIn}\n${PASTE}`, { trigger: true })))).toHaveLength(2);
+  });
+  it.each([
+    ['a stated focus', 'My focus is café owners:'],
+    ['a stated focus, no focus word', 'Cafés first:'],
+    ['a group named', 'Here is my canvas for agencies:'],
+    ['which section counts', 'Use the second one:'],
+    ['a heading', '## Here it is'],
+    ['a quote mark', '> Here it is'],
+    ['quoted words', '"Here it is"'],
+    ['markup', '**Here it is**'],
+    ['a number', 'Here is draft 2:'],
+    ['too long', `${'here it is '.repeat(8)}:`],
+    ['a second line', 'Here it is:\nHere it is:'],
+    ['words between the line and the paste', 'Here it is:\n\nA colleague wrote this.'],
+  ])('not a lead-in: %s', (_label, leadIn) => {
+    expect(copyPromptSections(mat(note(`${leadIn}\n\n${PASTE}`, { trigger: true })))).toBeNull();
+  });
+  it('a lead-in is the owner\'s own message only: never in a file, an older message or a copied chat', () => {
+    const leadIn = `Here it is:\n\n${PASTE}`;
+    expect(copyPromptSections(mat(note('clarity-canvas.md', { trigger: true }), note(leadIn, { kind: 'file', source: 'clarity-canvas.md' })))).toBeNull();
+    expect(copyPromptSections(mat(note(leadIn, { source: 'owner messages' })))).toBeNull();
+  });
+  it('a lead-in never rescues a quoted document, or a paste beside the owner\'s stated focus', () => {
+    const quoted = PASTE.split('\n').map((l) => `> ${l}`).join('\n');
+    expect(copyPromptSections(mat(note(`Here it is:\n\n${quoted}`, { trigger: true })))).toBeNull();
+    expect(copyPromptSections(mat(note(`Here it is:\n\n${SECTION_1}`, { trigger: true })))).toBeNull();
+    expect(copyPromptSections(mat(note('Café owners are my focus.', { trigger: true }), note(`Here it is:\n\n${PASTE}`, { source: 'owner messages' })))).toBeNull();
+    expect(copyPromptSections(mat(note(`Here it is:\n\n${PASTE}`, { trigger: true }), note('Some notes on the side.', { kind: 'file', source: 'notes.md' })))).toBeNull();
+  });
   it('a label naming a third party is refused at intake: the first leaves the choice to the model, a further one is left out', () => {
     const names = (t: string) => /\bMaris\b/.test(t);
     expect(copyPromptSections(mat(note(`${sectionOf('clients of Maris')}\n\n${SECTION_2}`)), names)).toBeNull();
@@ -276,6 +310,13 @@ describe('S2.5 in the engine: the first section is the focus, the further ones o
     const h = harness({ ...secondPicked, actions: [CAFE_POINT] }, { trigger: long });
     await executeRun(h.deps, { ownerId: 'o' }, h.run);
     expect(h.done()!.p_focus).toBe('café owners with one to three shops');
+  });
+  it('a lead-in line changes nothing: the first section is the focus, the reason stands', async () => {
+    const h = harness(secondPicked, { trigger: `Here it is:\n\n${PASTE}` });
+    await executeRun(h.deps, { ownerId: 'o' }, h.run);
+    expect(h.done()!.p_focus).toBe('café owners with one to three shops');
+    expect(offersOf(h.done()!)).toEqual(['marketing agencies with 10 to 40 staff']);
+    expect(String(h.done()!.p_reply).split('\n')[0]).toContain('since you call them your focus.');
   });
   it('a file shaped exactly like the paste never overrides the owner\'s own message or the model\'s answer', async () => {
     const said = { scope: TAGS, focus: 'café owners', focus_reason: 'stated', other_canvases: [], actions: [{ ...CAFE_POINT, quote: 'bookkeeping for café owners' }] };
@@ -378,5 +419,34 @@ describe('owner text is hostile input: these checks stay linear on it', () => {
     ['many openings', 'This canvas is about x\n'.repeat(big / 23)],
   ])('section reading on %s', (_label, text) => {
     within(1500, () => copyPromptSections(mat(note(text))));
+  });
+});
+
+describe('the reason "since you call them your focus" is checked against the owner\'s words', () => {
+  const answer = (focus: string) => ({ scope: TAGS, focus, focus_reason: 'stated', other_canvases: [{ group: 'agencies' }], actions: [{ action: 'new', box: 'canvas:segments', statement: 'Owners of cafés and their shops', quote: 'owners of cafés and their shops' }] });
+  const firstLine = async (focus: string, trigger: string) => {
+    const h = harness(answer(focus), { trigger });
+    await executeRun(h.deps, { ownerId: 'o' }, h.run);
+    return String(h.done()!.p_reply).split('\n')[0];
+  };
+  const NEUTRAL = (focus: string) => `I found two businesses: ${focus} and agencies. This canvas is about ${focus}.`;
+  it.each([
+    ['nothing said about focus', 'I help owners of cafés and their shops. Agencies also asked.'],
+    ['a focus on another group of owners', 'I help owners of cafés and their shops. My focus is dog owners.'],
+    ['the group only pays', 'I help owners of cafés and their shops, 6 pay me. Agencies also asked.'],
+    ['a focus on something else', 'I help owners of cafés and their shops. My focus is agencies this year.'],
+    ['a customer\'s main problem, not the owner\'s focus', 'I help owners of cafés and their shops. Café owners have one main problem.'],
+    ['a focus the owner denies', 'I help owners of cafés and their shops. My focus is not café owners any more.'],
+  ])('neutral when: %s', async (_label, trigger) => {
+    expect(await firstLine('café owners', trigger)).toBe(NEUTRAL('café owners'));
+  });
+  it.each([
+    ['My main business is owners of cafés and their shops.'],
+    ['I help owners of cafés and their shops, and my focus is café owners.'],
+    ['We now only work with owners of cafés and their shops.'],
+    ['I am focusing on owners of cafés and their shops this year.'],
+    ['I help owners of cafés and their shops. My main business, and the one I am focusing on this year, is bookkeeping for independent cafe owners.'], // the S5.1 pack's sentence
+  ])('stands when the owner says so: %s', async (trigger) => {
+    expect(await firstLine('café owners', trigger)).toBe(`${NEUTRAL('café owners').slice(0, -1)}, since you call them your focus.`);
   });
 });

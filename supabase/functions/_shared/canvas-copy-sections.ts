@@ -4,7 +4,8 @@
  * model), and that exact shape is knowable, so spec section 4's rule is decided here: the first section is the focus, each further one an offer.
  *
  * It decides only an untagged first draft, and only when the paste is the whole of what the owner gave: their one message, or one file with only its name as the message. Anything else the
- * owner said leaves the choice to the model, so a document can never outrank the owner's own words. A shape that differs in any way (quoted, inside a larger document, a heading missing or out
+ * owner said leaves the choice to the model, so a document can never outrank the owner's own words. The one exception is a single line above a paste in their message that says nothing at all
+ * ("Here it is:"): every word of it must be on a short list, so a stated focus, a group or a section's number is not a lead-in. A shape that differs in any way (quoted, inside a larger document, a heading missing or out
  * of order, a line before the first heading) is not this paste, and the model decides as for any material. A label passes the same shape and names filter as a model's. Pure: no Deno or esm.sh imports.
  */
 
@@ -22,6 +23,25 @@ const HEADINGS = BOX_DEFINITIONS.map((b) => plainTitle(b.title));
 
 /** A line without the markdown an AI writes around a heading: "## …", "**…**". A quote mark or a list mark stays, so a quoted line is not this line. */
 const bare = (line: string) => line.replace(/^#{1,6}\s+/, '').replace(/^\*\*(.*)\*\*$/, '$1').replace(/:$/, '').trim();
+
+/** The only words a lead-in may hold: enough to say "here it is", too few to say who the canvas is about or which section counts. */
+const LEAD_IN_WORDS = new Set(("a ai an and answer are as asked back below by canvas chatgpt claude clarity copilot doc document done draft file filled for from gave gemini go got hello here here's heres hi i in is it it's its made markdown me my of ok okay out output paste pasted prompt response result sure thanks the this what with wrote you your").split(' '));
+const MAX_LEAD_IN_CHARS = 80;
+
+/** One short line with no markup, no quote mark and nothing to say: no heading, no ">", no quoted words, no number. */
+function isLeadIn(line: string): boolean {
+  const plain = line.trim().replace(/’/g, "'");
+  if (plain.length > MAX_LEAD_IN_CHARS || !/^[\p{L}' ,.:!-]+$/u.test(plain)) return false;
+  const words = plain.toLowerCase().split(/[ ,.:!-]+/).filter(Boolean);
+  return words.length > 0 && words.every((w) => LEAD_IN_WORDS.has(w));
+}
+
+/** The owner's message without the one lead-in line above a paste, when its first line is one. */
+function withoutLeadIn(text: string): string {
+  const start = text.trimStart();
+  const end = start.indexOf('\n');
+  return end > 0 && isLeadIn(start.slice(0, end)) ? start.slice(end + 1) : text;
+}
 
 /** The groups of a text that is entirely the Copy prompt's answer, else null. */
 function pasteSections(text: string): string[] | null {
@@ -48,7 +68,7 @@ function pasteSections(text: string): string[] | null {
 /** The one item that is the paste, when it is the whole of what the owner gave. An upload's message is only the file's name, and is not the owner saying anything else. */
 function soleOwnerPaste(items: readonly MaterialItem[]): string[] | null {
   const own = items.filter((i) => i.owner);
-  const candidates = own.filter((i) => i.kind === 'note' || i.kind === 'file').map((item) => ({ item, groups: pasteSections(item.text) })).filter((c) => c.groups);
+  const candidates = own.filter((i) => i.kind === 'note' || i.kind === 'file').map((item) => ({ item, groups: pasteSections(item.trigger ? withoutLeadIn(item.text) : item.text) })).filter((c) => c.groups);
   const paste = candidates[0];
   if (candidates.length !== 1 || !paste) return null;
   const others = own.filter((i) => i !== paste.item);

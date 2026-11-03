@@ -6,7 +6,8 @@
 
 import { BOX_DEFINITIONS, emptyQuestionFor } from './canvas-box-definitions.ts';
 import { BOX_TAGS } from './canvas-draft.ts';
-import { cleanFreeText, cutAtWord, normalizeForQuote, trimHangingWords } from './canvas-source.ts';
+import { cleanFreeText, cutAtWord, normalizeForQuote, ownerHaystack, trimHangingWords } from './canvas-source.ts';
+import { contentWords } from './canvas-support.ts';
 import { FOCUS_REASONS, type FocusReason, type OtherCanvas, type ParseContext } from './canvas-types.ts';
 
 /** Caps on free model text: a group name or focus 80 characters, a reason 200, a question 300, the note 160 (what the database's own reply keeps). */
@@ -98,6 +99,22 @@ function readQuestions(body: Raw, scope: ReadonlySet<string>, emptyScoped: reado
   return { questions, outOfScope };
 }
 
+const FIRST_PERSON = /\b(?:i|i'm|we|we're|my|our)\b/;
+const FOCUS_SAID = /\b(?:focus(?:es|ed|ing)?|concentrat\w+|prioriti[sz]\w+|priority|(?:main|core|primary)\s+(?:business|customers?|clients?|market|offer|group|work|bet|one)|(?:mainly|only|just)\s+(?:sell|serve|work))\b/;
+const FOCUS_DENIED = /\b(?:not|no longer|never|stopped|moved away|used to)\b/;
+/** Words every group shares: naming them is not naming this group ("dog owners" is not "café owners"). */
+const GENERIC_GROUP_WORDS = new Set(['owner', 'customer', 'client', 'people', 'business', 'firm', 'company', 'team', 'small', 'independent', 'local', 'group']);
+
+/**
+ * Did the owner say this group is their focus? The reason "since you call them your focus" is the model's claim about the owner's words, so, like a quote, it is checked against them: one
+ * first-person sentence with a focus word that names the group and does not deny it. A heuristic that leans to silence: without it the reply gives no reason, which is true, not a wrong one.
+ */
+function ownerCallsItTheirFocus(focus: string, owner: string): boolean {
+  const named = [...contentWords(focus)].filter((w) => !GENERIC_GROUP_WORDS.has(w));
+  return owner.split(/[.!?;](?:\s|$)/).some((sentence) => FIRST_PERSON.test(sentence) && FOCUS_SAID.test(sentence) && !FOCUS_DENIED.test(sentence)
+    && [...contentWords(sentence)].some((w) => named.includes(w)));
+}
+
 /** `focus`, `other_canvases`, `questions` and `note` after the names filter (`namesOther`). */
 export function readExtras(body: Raw, pc: ParseContext, scope: ReadonlySet<string>, emptyScoped: readonly string[], namesOther: (t: string) => boolean): Extras {
   let droppedNames = 0;
@@ -109,7 +126,9 @@ export function readExtras(body: Raw, pc: ParseContext, scope: ReadonlySet<strin
   const focus = accept ? groupLabelOf(body.focus, MAX_FOCUS_CHARS, refuse) || null : null;
   // the reason is the model's report, not text: one of four words, else nothing (the reply then says only what was found and chosen)
   const reasonRaw = typeof body.focus_reason === 'string' ? body.focus_reason.trim().toLowerCase() : '';
-  const focusReason = focus && FOCUS_REASONS.includes(reasonRaw as FocusReason) ? (reasonRaw as FocusReason) : null;
+  const claimed = focus && FOCUS_REASONS.includes(reasonRaw as FocusReason) ? (reasonRaw as FocusReason) : null;
+  // a pasted Copy prompt's first section is the owner's main focus by the prompt's own rule (canvas-copy-sections.ts); any other "stated" has to be in the owner's words
+  const focusReason = claimed === 'stated' && !pc.sections && !ownerCallsItTheirFocus(focus ?? '', ownerHaystack(pc.material)) ? null : claimed;
   // a run that cannot set the focus compares an offer with the focus in force; every group the canvas already holds is the same group
   // however the model words it back. An empty scope changes no offers (the database ignores them) except for an upload (J9), and a focus run lists none.
   const otherCanvases = (scope.size > 0 || pc.offersOnEmptyScope === true) && pc.listOffers !== false
