@@ -95,8 +95,7 @@ Read all Supabase keys directly from `.env.local` — do **NOT** use `supabase p
 
 **Load pattern (all bash steps):**
 ```bash
-set -a && source .env.local && set +a
-set -a; source .env.test.local; set +a   # the active TEST server (P1606)
+set -a && source .env.local && source .env.test.local && set +a   # .env.test.local: the active TEST server (P1606)
 PROD_URL="https://besjtuodziykmjidubzw.supabase.co"
 TEST_URL="$VITE_SUPABASE_URL"
 ```
@@ -122,7 +121,7 @@ SELECT id, content, system_tags FROM stories WHERE system_tags @> ARRAY['st2'] L
 
 Fallback (curl) — keys from `.env.local`, prod URL hardcoded:
 ```bash
-set -a && source .env.local && set +a
+set -a && source .env.local && source .env.test.local && set +a   # .env.test.local: the active TEST server (P1606)
 curl -s -G "https://besjtuodziykmjidubzw.supabase.co/rest/v1/stories" \
   --data-urlencode "select=id,content,system_tags" \
   --data-urlencode 'system_tags=cs.{"st2"}' \
@@ -147,7 +146,7 @@ Query the point linked to this story:
 
 ```bash
 # Get point via story_points join (keys from .env.local — see Credentials)
-set -a && source .env.local && set +a
+set -a && source .env.local && source .env.test.local && set +a   # .env.test.local: the active TEST server (P1606)
 curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/story_points?select=point_id,points(id,statement,context)&story_id=eq.{STORY_ID}" \
   -H "apikey: $PROD_SUPABASE_ANON_KEY" -H "Authorization: Bearer $PROD_SUPABASE_ANON_KEY"
 ```
@@ -205,7 +204,7 @@ ABSOLUTELY NO percentages, NO numbers, NO digits anywhere in the image.
 **Primary model:** `nano-banana-pro-preview` (Nano Banana Pro). Use `run_in_background` — generation takes 30-90s and will timeout in foreground.
 
 ```bash
-source .env.local
+source .env.local; source .env.test.local
 curl -s --max-time 120 -X POST \
   "https://generativelanguage.googleapis.com/v1beta/models/nano-banana-pro-preview:generateContent" \
   -H "x-goog-api-key: $GEMINI_API_KEY" \
@@ -317,7 +316,7 @@ is behind the per-access lock (P1239/P1316): the block below raises one authoriz
 founder to click **Allow**, never "Always Allow". A declined dialog stops before the prod write.
 
 ```bash
-set -a && source .env.local && set +a
+set -a && source .env.local && source .env.test.local && set +a   # .env.test.local: the active TEST server (P1606)
 STORY_ID="<prod story id from Step 1>"
 IMG_URL="$(cat /tmp/story-image-url.txt)"   # canonical URL from Step 9 — never re-type
 
