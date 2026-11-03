@@ -1,5 +1,6 @@
 ---
 status: all-done
+disclosure: public
 type: task
 rank: 231
 workstream: infrastructure
