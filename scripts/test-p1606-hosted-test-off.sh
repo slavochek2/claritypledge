@@ -80,7 +80,6 @@ deploy "$T/missing" my-fn
 { [ "$RC" -ne 0 ] && [ -z "$RAN" ]; } && ok "unknown active server: fails closed, nothing ran" || bad "unknown state (rc=$RC ran='$RAN')"
 deploy "$T/hosted" my-fn
 if printf '%s' "$RAN" | grep -q SELFHOSTED-DEPLOY; then bad "hosted active must not deploy to self-hosted"; else ok "hosted active: takes the hosted path, not self-hosted"; fi
-rm -rf "$R/.git"; [ -d "$R/.git" ] || true
 
 echo "== C. daily latency check names the active server"
 grep -q 'TESTDB_ENV_FILE:-$MAIN/.env.test.local' scripts/check-test-db-latency.sh && ok "latency check reads .env.test.local" || bad "latency check still reads another file"
