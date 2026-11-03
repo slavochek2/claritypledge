@@ -157,7 +157,7 @@ if grep -q '^gh issue create' "$T/gh.log"; then bad "alert control: mutant witho
 printf 'VITE_SUPABASE_URL=https://hostedref.supabase.co\nSUPABASE_TEST_WRITE_TOKEN=sbp_fake\n' > "$T/env"
 export UPKEEP_ENV_FILE="$T/env"
 printf '200\n## 2026-08-03\n- a:1.0\n' > "$T/curl-upstream"
-printf '400\n{"message":"project is paused"}' > "$T/curl-hosted"  # P1606: paused is the default
+printf '400\n{"message":"Database is possibly not accessible at the moment"}' > "$T/curl-hosted"  # P1606: paused is the default
 good_ssh() {
   cat <<'EOF'
 PIN:auth supabase/gotrue:v2.189.0
@@ -206,7 +206,7 @@ expect "upkeep: upstream ahead of the pin warns with the change count" 1 'pinned
 printf '200\n## 2026-08-03\n- a:1.0\n' > "$T/curl-upstream"
 printf '201\n[{"ok":1}]' > "$T/curl-hosted"
 expect "upkeep: hosted TEST switched on warns" 1 '^hosted: warn: hosted TEST is switched on' -- "$SH/upkeep.sh" --no-prod
-printf '400\n{"message":"project is paused"}' > "$T/curl-hosted"
+printf '400\n{"message":"Database is possibly not accessible at the moment"}' > "$T/curl-hosted"
 printf 'VITE_SUPABASE_URL="https://hostedref.supabase.co"\nSUPABASE_TEST_WRITE_TOKEN="sbp_fake"\n' > "$T/env"
 expect "upkeep: quoted .env.local values still work" 2 '^hosted: ok' -- "$SH/upkeep.sh" --no-prod
 printf 'VITE_SUPABASE_URL=https://besjtuodziykmjidubzw.supabase.co\nSUPABASE_TEST_WRITE_TOKEN=sbp_fake\n' > "$T/env"

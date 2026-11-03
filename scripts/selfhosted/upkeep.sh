@@ -156,7 +156,7 @@ else
   if [ "$code" = 201 ] && grep -q '"ok":1' "$TMP/hosted.json"; then
     report hosted warn "hosted TEST is switched on; pause it in the dashboard once the founder's use has ended"
   elif [ "$code" = 000 ]; then report hosted unknown "no answer from the Management API"
-  elif grep -qiE 'paus|inactive|restor' "$TMP/hosted.json"; then report hosted ok "hosted TEST is paused (the default, P1606)"
+  elif grep -qiE 'paus|inactive|restor|not accessible' "$TMP/hosted.json"; then report hosted ok "hosted TEST is paused (the default, P1606)"
   else report hosted warn "hosted TEST did not answer and does not read as paused (HTTP $code)"; fi
 fi
 unset tok

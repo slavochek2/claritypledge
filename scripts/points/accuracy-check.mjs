@@ -263,7 +263,7 @@ export function target(env, root = mainRoot()) {
   const local = path.join(root, '.env.local')
   const [url, key] = env === 'prod'
     ? [envVar(path.join(root, '.env.prod'), 'VITE_SUPABASE_URL'), envVar(local, 'PROD_SUPABASE_ANON_KEY')]
-    : env === 'test' ? [envVar(local, 'VITE_SUPABASE_URL'), envVar(local, 'VITE_SUPABASE_ANON_KEY')] : [null, null]
+    : env === 'test' ? [envVar(path.join(root, '.env.test.local'), 'VITE_SUPABASE_URL'), envVar(path.join(root, '.env.test.local'), 'VITE_SUPABASE_ANON_KEY')] : [null, null]
   if (!url || !key) throw new Error(`cannot resolve ${env} URL + anon key (env must be test or prod)`)
   return { url, key }
 }

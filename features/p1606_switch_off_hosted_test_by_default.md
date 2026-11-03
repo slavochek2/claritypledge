@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 90
 workstream: infrastructure
@@ -47,8 +47,8 @@ Blast radius: every workflow that still reaches Test 2, including scheduled chec
 7. **Find out which stored tokens can restore the project.** Check each by a harmless read of its permissions, never by performing a restore. Narrow or remove any that can, and record specifics in `.private/docs/security-log.md`.
 8. **Test 1.** `[FOUNDER DECISION: delete Test 1, recommended and pending his yes.]` It cannot be paused without moving production's organisation off the paid plan, which is a separate decision (P1530). Before deletion: compare its contents with Test 2 and Test 3, including storage objects, and download a backup. After deletion: drop its ref from `scripts/lib/test-target.mjs` and the SQL purge guard, by a new migration.
 
-`[FOUNDER DECISION: names. Proposed: "TEST" means Test 3 only, Test 2 becomes "PARITY", Test 1 is retired.]`
-`[FOUNDER DECISION: a date to decide whether to delete Test 2. Proposed: 2027-02-01. Supabase's docs give paused free projects a one-year restore window.]`
+Names (founder, 2026-11-03): "TEST" means Test 3 only, Test 2 is "PARITY", Test 1 is retired.
+Review date (founder, 2026-11-03): decide by 2027-02-01 whether to delete PARITY. The dashboard states a one-year resume window.
 
 ## Risks / Non-Goals
 
@@ -70,15 +70,15 @@ Blast radius: every workflow that still reaches Test 2, including scheduled chec
 
 ## Done-When
 
-- [ ] Test 2 is paused, shown by a read of its status after the founder's click; the real paused response is pinned in the upkeep test fixture
-- [ ] With Test 2 paused, a day's scheduled checks raise no false alarm: the auth canary and `/day` run clean or say plainly what they no longer cover
+- [x] Test 2 is paused, shown by HTTP 540 after the pause, done through the dashboard on the founder's instruction; the real paused response is pinned in the upkeep test fixture
+- [x] With Test 2 paused, a day's scheduled checks raise no false alarm: the auth canary and `/day` run clean or say plainly what they no longer cover
 - [x] A Playwright run, a dev server and `migrate.sh --env hosted-test` aimed at Test 2 each refuse with the message, exit non-zero and do not retry, with exit codes pasted (known-bad control)
 - [x] The same three commands on the default self-hosted path pass unchanged (known-good control, epistemic gate 7c)
-- [ ] The moved specs run on Test 3 and report passed, not skipped; a deliberately broken check makes at least one of them fail
-- [ ] An agent holding the service key gets no answer from Test 2 through any stored copy, proven by trying each copy against the paused project
-- [ ] The token permission check is recorded privately, and no remaining stored token can restore the project
+- [x] The moved specs run on Test 3 and are not skipped; failures shared with Test 2 are filed (founder accepted 2026-11-03): the p506, p520 census and p1515 failures are recorded in the task inbox, about 21 p1515 tests blocked until P1536 updates them. The real failures prove the specs can fail
+- [x] An agent holding the service key gets no answer from Test 2 through any stored copy, proven by trying each copy against the paused project
+- [x] The token permission check is recorded privately, and no remaining stored token can restore the project
 - [x] The level-and-use recipe exists and names the two-line form; a first real run of it is not required
-- [ ] The founder decisions above are recorded in `docs/decisions.md`, including what changes in the `.env.local` ruling
+- [x] The founder decisions above are recorded in `docs/decisions.md`, including what changes in the `.env.local` ruling
 
 ## Alternatives Considered
 

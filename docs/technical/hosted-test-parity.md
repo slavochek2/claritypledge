@@ -1,8 +1,10 @@
 # Switching hosted TEST on (P1606)
 
-Hosted TEST is paused by default. Self-hosted TEST is the one default server. Switching hosted TEST on is the founder's decision, one use at a time.
+Hosted TEST, called PARITY, is paused by default. Self-hosted TEST is the one default server. Switching hosted TEST on is the founder's decision, one use at a time.
 
 Why it stays: it is the only environment running on Supabase's own platform. It is not a rollback for a multi-agent load: it is on the smallest plan and timed out under that load.
+
+Decide by 2027-02-01 whether to delete it if no justified use has come up. Supabase's dashboard allows resuming a paused project for up to one year.
 
 ## When it is justified
 
