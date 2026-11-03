@@ -157,7 +157,7 @@ if grep -q '^gh issue create' "$T/gh.log"; then bad "alert control: mutant witho
 printf 'VITE_SUPABASE_URL=https://hostedref.supabase.co\nSUPABASE_TEST_WRITE_TOKEN=sbp_fake\n' > "$T/env"
 export UPKEEP_ENV_FILE="$T/env"
 printf '200\n## 2026-08-03\n- a:1.0\n' > "$T/curl-upstream"
-printf '201\n[{"ok":1}]' > "$T/curl-hosted"
+printf '400\n{"message":"project is paused"}' > "$T/curl-hosted"  # P1606: paused is the default
 good_ssh() {
   cat <<'EOF'
 PIN:auth supabase/gotrue:v2.189.0
@@ -177,7 +177,7 @@ EOF
 }
 good_ssh > "$T/ssh"
 expect "upkeep: all good except the skipped template check" 2 '^images: ok: 3 services on the pinned images \(release 2026-08-03\); floating tag: caddy:2' -- "$SH/upkeep.sh" --no-prod
-expect "upkeep: hosted answering is ok" 2 '^hosted: ok' -- "$SH/upkeep.sh" --no-prod
+expect "upkeep: paused hosted TEST is ok" 2 '^hosted: ok: hosted TEST is paused' -- "$SH/upkeep.sh" --no-prod
 good_ssh | sed 's#^RUN:auth .*#RUN:auth supabase/gotrue:v2.180.0#' > "$T/ssh"
 expect "upkeep: a hand-changed image warns" 1 'running a different image than pinned: auth=supabase/gotrue:v2.180.0' -- "$SH/upkeep.sh" --no-prod
 good_ssh | sed 's#^RUN:auth .*#RUN:auth supabase/postgres:17.6.1.136#' > "$T/ssh"
@@ -204,9 +204,9 @@ good_ssh > "$T/ssh"
 printf '200\n## 2026-10-16\n- b:2.0\n- c:3.0\n## 2026-09-01\n- d:1.1\n## 2026-08-03\n- a:1.0\n' > "$T/curl-upstream"
 expect "upkeep: upstream ahead of the pin warns with the change count" 1 'pinned 2026-08-03, upstream 2026-10-16: 3 image changes' -- "$SH/upkeep.sh" --no-prod
 printf '200\n## 2026-08-03\n- a:1.0\n' > "$T/curl-upstream"
-printf '400\n{"message":"project is paused"}' > "$T/curl-hosted"
-expect "upkeep: paused hosted TEST warns" 1 'hosted TEST is paused' -- "$SH/upkeep.sh" --no-prod
 printf '201\n[{"ok":1}]' > "$T/curl-hosted"
+expect "upkeep: hosted TEST switched on warns" 1 '^hosted: warn: hosted TEST is switched on' -- "$SH/upkeep.sh" --no-prod
+printf '400\n{"message":"project is paused"}' > "$T/curl-hosted"
 printf 'VITE_SUPABASE_URL="https://hostedref.supabase.co"\nSUPABASE_TEST_WRITE_TOKEN="sbp_fake"\n' > "$T/env"
 expect "upkeep: quoted .env.local values still work" 2 '^hosted: ok' -- "$SH/upkeep.sh" --no-prod
 printf 'VITE_SUPABASE_URL=https://besjtuodziykmjidubzw.supabase.co\nSUPABASE_TEST_WRITE_TOKEN=sbp_fake\n' > "$T/env"

@@ -12,7 +12,7 @@
 #   reboot     /var/run/reboot-required (unattended upgrades install security fixes but never reboot)
 #   templates  the auth service fetches the served templates, and they match prod's (one Keychain
 #              dialog: the prod Management API token). --no-prod skips it and reports unknown.
-#   hosted     hosted TEST, the warm fallback, is not paused (free projects pause when idle)
+#   hosted     hosted TEST is paused, its default state (P1606); warns when it is switched on
 # Format "<check>: ok|warn|unknown: <detail>". Exit 0 all ok, 1 any warn, 2 any unknown (and no warn).
 # Output contract (shell-safety.md): no redirect or pipe tokens in status lines.
 set -uo pipefail
@@ -140,7 +140,8 @@ else
 fi
 
 # --- hosted fallback ------------------------------------------------------------------------------
-# The routine-half test token in .env.local; .env.local stays on hosted TEST by design (P1557).
+# P1606: hosted TEST is paused by default, so paused is ok and answering is the thing to report.
+# The routine-half test token in .env.local; .env.local still names hosted TEST (P1557).
 envval() { grep "^$1=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r' | sed -E "s/^[\"']//; s/[\"']$//"; }
 ref="$(envval VITE_SUPABASE_URL | sed 's|https://||' | cut -d. -f1)"
 tok="$(envval SUPABASE_TEST_WRITE_TOKEN)"
@@ -152,11 +153,11 @@ else
   code="$(curl -s -m 20 -o "$TMP/hosted.json" -w '%{http_code}' -X POST "https://api.supabase.com/v1/projects/$ref/database/query" \
     -H @<(printf 'Authorization: Bearer %s\n' "$tok") -H 'Content-Type: application/json' \
     --data '{"query":"select 1 as ok","read_only":true}')"
-  if [ "$code" = 201 ] && grep -q '"ok":1' "$TMP/hosted.json"; then report hosted ok "hosted TEST answers queries (warm fallback)"
+  if [ "$code" = 201 ] && grep -q '"ok":1' "$TMP/hosted.json"; then
+    report hosted warn "hosted TEST is switched on; pause it in the dashboard once the founder's use has ended"
   elif [ "$code" = 000 ]; then report hosted unknown "no answer from the Management API"
-  elif grep -qiE 'paus|inactive|restor' "$TMP/hosted.json"; then
-    report hosted warn "hosted TEST is paused; restore it in the dashboard or the next migrate fails its hosted leg"
-  else report hosted warn "hosted TEST did not answer a query (HTTP $code); the next migrate's hosted leg will fail"; fi
+  elif grep -qiE 'paus|inactive|restor' "$TMP/hosted.json"; then report hosted ok "hosted TEST is paused (the default, P1606)"
+  else report hosted warn "hosted TEST did not answer and does not read as paused (HTTP $code)"; fi
 fi
 unset tok
 

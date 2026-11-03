@@ -8,6 +8,7 @@ import { existsSync } from 'node:fs'
 import { runtimeCaching, createShellPrecache } from './src/pwa/workbox-config'
 import { appBuildFingerprintPlugin } from './src/pwa/app-build-fingerprint'
 import { worktreeSlot, portForSlot } from './scripts/lib/worktree-port.mjs'
+import { refuseHostedTestRun } from './scripts/lib/hosted-test-guard.mjs'
 
 // ES Module equivalent of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -89,6 +90,16 @@ export default defineConfig({
     chunkSizeWarningLimit: 1400, // heic2any is ~1353kB, lazy-loaded so no perf impact
   },
   plugins: [
+    // P1606: a dev server aimed at hosted TEST is refused while self-hosted is active. Dev server
+    // only: build, preview and vitest are untouched.
+    {
+      name: 'p1606-hosted-test-guard',
+      configResolved(config) {
+        const isPreview = (config as { isPreview?: boolean }).isPreview || process.argv[2] === 'preview'
+        if (config.command !== 'serve' || isPreview) return
+        refuseHostedTestRun({ url: config.env.VITE_SUPABASE_URL, surface: 'dev-server' })
+      },
+    },
     // P1416: <meta name="app-build"> — a fingerprint of the app's own inputs, so the update prompt
     // ignores deploys that change nothing users run (docs, skills, tests). Build only.
     appBuildFingerprintPlugin(__dirname),

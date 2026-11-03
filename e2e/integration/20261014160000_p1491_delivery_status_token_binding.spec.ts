@@ -16,13 +16,10 @@
  *        e2e/integration/20261014160000_p1491_delivery_status_token_binding.spec.ts
  */
 import { test, expect } from '@playwright/test';
-import fs from 'node:fs';
-import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
-import { isHostedTestUrl, HOSTED_SQL_ONLY, notHostedSqlTarget } from '../helpers/e2e-namespace';
+import { testDbSql as testDbQuery } from '../helpers/test-db-sql';
 import { createTestUser, deleteTestUser, generateTestEmail, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
 import {
   createTestDoc,
@@ -32,8 +29,6 @@ import {
   deleteTestLetter,
 } from '../helpers/test-letter';
 
-// P1557: this spec runs raw SQL, so it skips on the self-hosted server (see e2e-namespace.ts).
-test.skip(notHostedSqlTarget(), HOSTED_SQL_ONLY);
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
@@ -70,38 +65,6 @@ async function readDelivery(id: string) {
   return data!;
 }
 
-
-function readEnvLocal(name: string): string {
-  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-  // Worktrees have no .env.local of their own; fall back to the main checkout's.
-  for (const root of [repoRoot, path.resolve(repoRoot, '../../..')]) {
-    const f = path.join(root, '.env.local');
-    if (!fs.existsSync(f)) continue;
-    const line = fs.readFileSync(f, 'utf8').split('\n').find((l) => l.startsWith(`${name}=`));
-    if (line) return line.slice(name.length + 1).trim().replace(/^["']|["']$/g, '');
-  }
-  return '';
-}
-
-/**
- * One SQL statement on the TEST database through the Management API (test-scoped write token,
- * the one migrate.sh uses). Used only to hold a row lock the way a concurrent writer would.
- */
-async function testDbQuery(sql: string): Promise<unknown> {
-  const ref = new URL(SUPABASE_URL).hostname.split('.')[0];
-  // The Management API exists only for the hosted TEST projects (the self-hosted server has none: P1557 step 10).
-  if (!isHostedTestUrl(new URL(SUPABASE_URL).origin)) throw new Error(`refusing to run raw SQL against ${ref}: hosted TEST only`);
-  const token = readEnvLocal('SUPABASE_TEST_WRITE_TOKEN');
-  if (!token) throw new Error('SUPABASE_TEST_WRITE_TOKEN missing from .env.local');
-  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: sql }),
-  });
-  const body = await res.text();
-  if (!res.ok) throw new Error(`test DB query failed (${res.status}): ${body}`);
-  return JSON.parse(body);
-}
 
 const PAST = () => new Date(Date.now() - 60 * 60 * 1000).toISOString();
 const FUTURE = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();

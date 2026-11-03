@@ -17,7 +17,7 @@
  * inside a transaction through the Management API and rolls it back.
  */
 import { test, expect } from '@playwright/test';
-import { notHostedSqlTarget } from '../helpers/e2e-namespace';
+import { testDbSql } from '../helpers/test-db-sql';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, generateTestEmail, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
@@ -52,43 +52,8 @@ async function signIn(email: string): Promise<SupabaseClient> {
 }
 
 
-/**
- * Management-API SQL runner (TEST project). Playwright loads .env.test.local,
- * which carries no access token; fall back to the repo's .env.local so the
- * transactional checks below can run locally. Returns null when no token is
- * available — callers skip.
- */
-async function managementQuery(sql: string): Promise<Record<string, unknown>[] | null> {
-  const ref = process.env.VITE_SUPABASE_URL?.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
-  // .env.local first: Playwright's dotenv loads .env.test.local, whose access
-  // token is a different (stale) PAT on this machine — the P1173-era keychain
-  // shadow. The repo's .env.local holds the live one.
-  //
-  // These checks WRITE on the test project (UPDATE auth.users, CREATE POLICY), so they prefer
-  // SUPABASE_TEST_WRITE_TOKEN — scoped to the test project with Database read-write (P1214) —
-  // and fall back to the account-wide token only when it is absent, saying so.
-  let envFile = '';
-  try {
-    const fs = await import('node:fs');
-    const path = await import('node:path');
-    envFile = fs.readFileSync(path.resolve(process.cwd(), '.env.local'), 'utf8');
-  } catch {
-    envFile = '';
-  }
-  const fromFile = (name: string) =>
-    envFile.match(new RegExp(`^${name}=(.+)$`, 'm'))?.[1]?.trim().replace(/^"|"$/g, '');
-  const token = fromFile('SUPABASE_TEST_WRITE_TOKEN') || process.env.SUPABASE_TEST_WRITE_TOKEN;
-  // P1318: no fallback to the account-wide token — it reaches prod.
-  // P1557: only hosted TEST has the Management API; elsewhere the SQL-backed checks skip by name.
-  if (!token || !ref || notHostedSqlTarget()) return null;
-  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: sql }),
-  });
-  if (!res.ok) throw new Error(`management API ${res.status}: ${await res.text()}`);
-  return (await res.json()) as Record<string, unknown>[];
-}
+/** Raw SQL on this run's TEST server. It never returns null: a failure to run fails the test. */
+const managementQuery = (sql: string) => testDbSql(sql);
 
 test.describe('P1222: public agreements do not expose partner_email / invitation_token', () => {
   let creator: TestUser;
@@ -381,9 +346,6 @@ test.describe('P1222: red state against the prod-shaped policy (transactional, r
   });
 
   test('with the P422 policy in place, anon sees partner_email and invitation_token; the transaction is rolled back', async () => {
-    const probe = await managementQuery('SELECT 1 AS ok');
-    test.skip(probe === null, 'no Management API access token available — transactional red-state check not run');
-
     // One request = one transaction on the Management API; explicit ROLLBACK
     // closes it and a failure anywhere also rolls back.
     const rows = await managementQuery(`

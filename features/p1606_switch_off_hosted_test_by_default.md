@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 90
 workstream: infrastructure
 created_date: '2026-11-03'
 tags: [testing, self-hosted, supabase, guard]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -38,9 +38,9 @@ Blast radius: every workflow that still reaches Test 2, including scheduled chec
 
 ## Solution
 
-1. **Before the pause, move what would raise a false alarm or stop work.** The scheduled auth canary and any `/day` check that reads Test 2 stop depending on it. Enumerate first: the ratchet allowlist `scripts/hosted-test-readers.allowlist`, `.env.local` readers and `.mcp.json`. For each, record whether it moves, is removed, or stays and refuses clearly. This reverses the 2026-10-30 ruling that `.env.local` stays pointed at hosted TEST for the raw-SQL suite and the rollback path, so item 3 and the record in `docs/decisions.md` must say so.
+1. **Before the pause, move what would raise a false alarm or stop work.** The scheduled auth canary and any `/day` check that reads Test 2 stop depending on it. Enumerate first: the ratchet allowlist `scripts/hosted-test-readers.allowlist`, `.env.local` readers and `.mcp.json`. For each, record whether it moves, is removed, or stays and refuses clearly. Function deploys follow the active server, as migrations already do, because a deploy that reaches hosted TEST first would abort before reaching self-hosted. `.env.local` keeps its hosted values, so the 2026-10-30 ruling stands in part: the raw-SQL suite no longer reads them, the rollback path and the explicit hosted tools still do, and a tool left reading them fails loudly while the project is paused rather than moving to another server without saying so. Repointing the file was rejected: it is gitignored, so the change could not be reviewed, and the hosted tools would need a second home for those values.
 2. **Pause Test 2.** The founder does this in the dashboard, once no running session depends on it (check open worktrees first; the founder refused downtime for concurrent sessions on 2026-10-21).
-3. **Move the hosted-only specs.** The specs that only run on Test 2, because they use its Management API for raw SQL (the five named by `test:e2e:hosted-sql`, plus any others found by searching the skip conditions), get a raw-SQL route on Test 3 and run there by default. The route uses a database connection reached the way the existing self-hosted tooling reaches it; it does not add a public HTTP endpoint.
+3. **Move the hosted-only specs.** The specs that only run on Test 2, because they use its Management API for raw SQL (the five named by `test:e2e:hosted-sql`, plus any others found by searching the skip conditions), get a raw-SQL route on Test 3 and run there by default. The route goes over the existing private SSH path to the same database service Supabase's API uses, so result shapes match and no public HTTP endpoint is added.
 4. **Refuse clearly.** Playwright, the dev server and `migrate.sh --env hosted-test` stop with a message naming the request form below when Test 2 is the target and no founder decision is recorded for this run. Build on P1602's check rather than beside it.
 5. **Request form.** An agent that believes Test 2 is needed asks the founder in two lines: what only real Supabase can show, and the failed Test 3 run that proves it. Justified: behaviour of Supabase's own platform that Test 3 cannot reproduce (gateway, hosted auth, captcha, rate limits). Not justified: Test 3 lacks a key or feature (fix Test 3), speed, or a note saying so.
 6. **Bring it level before use, and pause after.** A documented recipe: restore, compare Test 2's schema with production's, rebuild by the P1538 procedure if they differ, confirm an empty diff, use it, pause it. Reading production's schema takes the existing keychain approval.
@@ -78,7 +78,7 @@ Blast radius: every workflow that still reaches Test 2, including scheduled chec
 - [ ] An agent holding the service key gets no answer from Test 2 through any stored copy, proven by trying each copy against the paused project
 - [ ] The token permission check is recorded privately, and no remaining stored token can restore the project
 - [ ] The level-and-use recipe exists and names the two-line form; a first real run of it is not required
-- [ ] The founder decisions above are recorded in `docs/decisions.md`, including the reversal of the `.env.local` ruling
+- [ ] The founder decisions above are recorded in `docs/decisions.md`, including what changes in the `.env.local` ruling
 
 ## Alternatives Considered
 

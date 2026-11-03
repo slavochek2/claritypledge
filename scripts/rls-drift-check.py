@@ -196,8 +196,49 @@ def resolve_credentials(env_name, prefer_readonly=True):
     return ref, token, source
 
 
+def test_is_selfhosted():
+    """True when the active TEST server is self-hosted (P1606). Unknown state raises: fail closed."""
+    resolver = os.path.join(os.path.dirname(os.path.abspath(__file__)), "selfhosted", "flip-test-env.py")
+    cmd = [sys.executable, resolver, "active"]
+    if os.environ.get("CP_ACTIVE_TEST_FILE"):
+        cmd += ["--file", os.environ["CP_ACTIVE_TEST_FILE"]]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    out = r.stdout.strip()
+    if r.returncode != 0 or out not in ("selfhosted", "hosted"):
+        raise RuntimeError("test: cannot resolve the active TEST server: " + (r.stderr.strip() or out or "no answer")[:300])
+    return out == "selfhosted"
+
+
+class SelfHostedSqlRefused(Exception):
+    """The self-hosted database refused the SQL itself (run-test-sql.sh exit 3)."""
+
+
+def selfhosted_sql(sql, read_only=True, timeout=120):
+    """Raw SQL on self-hosted TEST over the private route; the same result shape as the Management API."""
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "selfhosted", "run-test-sql.sh")
+    r = subprocess.run([script] + (["--read-only"] if read_only else []), input=sql,
+                       capture_output=True, text=True, timeout=timeout)
+    if r.returncode == 3:
+        raise SelfHostedSqlRefused(r.stderr.strip()[:600])
+    if r.returncode != 0:
+        raise RuntimeError("test: " + (r.stderr.strip() or f"run-test-sql exited {r.returncode}")[:300])
+    try:
+        return json.loads(r.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"test: unparseable SQL result: {r.stdout[:200]}") from exc
+
+
 def fetch_policies(env_name):
     """Run the pg_policies SELECT against one project. Raises RuntimeError on any failure."""
+    if env_name == "test" and test_is_selfhosted():
+        try:
+            parsed = selfhosted_sql(POLICY_QUERY)
+        except SelfHostedSqlRefused as exc:
+            raise RuntimeError(f"test: the database refused the policy query: {exc}") from exc
+        if not isinstance(parsed, list) or not parsed:
+            raise RuntimeError("test: pg_policies returned no rows on self-hosted TEST; refusing to report a clean database")
+        return parsed
+
     ref, token, source = resolve_credentials(env_name)
     if not ref:
         raise RuntimeError(f"{env_name}: could not determine project ref (source: {source})")

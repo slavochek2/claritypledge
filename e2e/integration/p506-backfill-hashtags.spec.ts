@@ -12,12 +12,10 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { HOSTED_SQL_ONLY, notHostedSqlTarget } from '../helpers/e2e-namespace';
+import { testDbSql } from '../helpers/test-db-sql';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, type TestUser } from '../helpers/test-user';
 
-// P1557: this spec runs raw SQL, so it skips on the self-hosted server (see e2e-namespace.ts).
-test.skip(notHostedSqlTarget(), HOSTED_SQL_ONLY);
 
 test.describe('P506: Hashtag backfill migration', () => {
   let testUser: TestUser;
@@ -106,37 +104,7 @@ test.describe('P506: Hashtag backfill migration', () => {
       ) WHERE (tags = '{}' OR tags IS NULL) AND first_validator_id = '${testUser.user.id}';
     `;
 
-    // A write on the test project: prefer the test-scoped read-write token (P1214), and say so
-    // when falling back to the account-wide one.
-    //
-    // Read the repo's .env.local first, as P1222 does: Playwright's dotenv loads only
-    // .env.test.local, which does not carry the scoped token and whose access token is stale —
-    // reading process.env alone took the fallback and got a 401 on every run.
-    let envFile = '';
-    try {
-      const fs = await import('node:fs');
-      const path = await import('node:path');
-      envFile = fs.readFileSync(path.resolve(process.cwd(), '.env.local'), 'utf8');
-    } catch {
-      envFile = '';
-    }
-    const fromFile = (name: string) =>
-      envFile.match(new RegExp(`^${name}=(.+)$`, 'm'))?.[1]?.trim().replace(/^"|"$/g, '');
-    const token = fromFile('SUPABASE_TEST_WRITE_TOKEN') || process.env.SUPABASE_TEST_WRITE_TOKEN;
-    // P1318: no fallback to the account-wide token — it reaches prod.
-    const projectRef = process.env.VITE_SUPABASE_URL?.match(/https:\/\/([^.]+)/)?.[1];
-    if (token && projectRef) {
-      const res = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: backfillSQL }),
-      });
-      if (!res.ok) {
-        console.warn(`[P506] Management API backfill failed: ${res.status}`);
-      }
-    } else {
-      console.warn('[P506] SUPABASE_ACCESS_TOKEN not set — skipping backfill execution');
-    }
+    await testDbSql(backfillSQL);
   });
 
   test.afterAll(async () => {

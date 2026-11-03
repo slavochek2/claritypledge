@@ -11,7 +11,7 @@
 # Exit contract, matching the other day-cp checks:
 #   0 — every sample answered 200 and the median is at or under the threshold.
 #   1 — a finding: median over the threshold, or a sample that was not HTTP 200.
-#   2 — could not run: the test URL or anon key is missing from .env.local.
+#   2 — could not run: the test URL or anon key is missing from .env.test.local.
 # The last line of stdout is `TESTDB: <token>`, which day-cp.md turns into the CHECK line.
 # Output contract (.claude/rules/shell-safety.md): no redirect tokens in status lines.
 #
@@ -20,9 +20,10 @@
 # TESTDB_ENV_FILE overrides the env file — set it to /dev/null to watch the not-run path.
 set -uo pipefail
 
-# .env.local lives in the MAIN checkout (gitignored), so resolve it there, not in a worktree.
+# P1606: .env.test.local names the active TEST server; .env.local still names hosted TEST, which is
+# paused by default. It lives in the MAIN checkout (gitignored), so resolve it there, not in a worktree.
 MAIN="$(dirname "$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir)")"
-ENV_FILE="${TESTDB_ENV_FILE:-$MAIN/.env.local}"
+ENV_FILE="${TESTDB_ENV_FILE:-$MAIN/.env.test.local}"
 WARN_MS="${TESTDB_WARN_MS:-2000}"
 case "$WARN_MS" in
   ''|*[!0-9]*) echo "TESTDB: not-run TESTDB_WARN_MS is not a whole number of ms"; exit 2 ;;
@@ -32,7 +33,7 @@ envval() { grep -m1 "^$1=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d "\"'\r
 URL="${TESTDB_URL:-$(envval VITE_SUPABASE_URL)}"
 KEY="$(envval VITE_SUPABASE_ANON_KEY)"
 if [ -z "$URL" ] || [ -z "$KEY" ]; then
-  echo "TESTDB: not-run the test project URL or anon key is not in .env.local"
+  echo "TESTDB: not-run the test server URL or anon key is not in .env.test.local"
   exit 2
 fi
 

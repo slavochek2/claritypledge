@@ -14,7 +14,7 @@ Default PATH is the main checkout's .env.test.local (every worktree symlinks to 
 rehearsal flip a copy and leave the shared file alone.
 
 selfhosted: backs the file up beside itself (mode 600), keeps the hosted values as HOSTED_TEST_*
-lines (scripts/selfhosted/run-hosted-sql.sh reads them), and writes the self-hosted URL and keys
+lines (kept for a deliberate hosted run, P1606), and writes the self-hosted URL and keys
 plus SELFHOSTED_TEST_ORIGIN. hosted: restores the main values from the HOSTED_TEST_* lines and
 drops the self-hosted ones. Every other line is kept as it is.
 

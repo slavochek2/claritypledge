@@ -581,6 +581,11 @@ else
 fi
 echo ""
 
+# 4.7c0. Hosted TEST switched off by default (P1606): guard, migrate and deploy routing. Hermetic.
+if ! run_quiet "hosted TEST off by default (P1606)" bash scripts/test-p1606-hosted-test-off.sh; then
+    ERRORS=$((ERRORS + 1))
+fi
+
 # 4.7c1. Hosted-TEST reader guard (P1591) — always on (a grep): no NEW file may reach the hosted
 # TEST project directly; existing readers are allowlisted in scripts/hosted-test-readers.allowlist.
 if ! run_quiet "no new hosted-TEST readers (P1591)" bash scripts/check-hosted-test-readers.sh; then

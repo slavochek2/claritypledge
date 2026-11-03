@@ -234,6 +234,14 @@ def run_sql(env_name, sql, timeout=90, needs_role_switch=False):
     Raises ApiError carrying the server's message on any non-200, so callers can
     distinguish "the function raised" from "the request failed".
     """
+    if env_name == "test" and _rls.test_is_selfhosted():
+        # P1606: the private route's read-only mode matches the read-only endpoint below, and its
+        # read-write mode (the guard leg's SET LOCAL ROLE) matches the other one.
+        try:
+            return _rls.selfhosted_sql(sql, read_only=not needs_role_switch, timeout=timeout)
+        except _rls.SelfHostedSqlRefused as exc:
+            raise ApiError(400, str(exc)) from exc
+
     ref, token, source = resolve_credentials(env_name, prefer_readonly=not needs_role_switch)
     if not ref:
         raise RuntimeError(f"{env_name}: could not determine project ref (source: {source})")

@@ -160,6 +160,18 @@ if [ "$ENV_NAME" = "selfhosted" ]; then
   exec "$SCRIPT_DIR/selfhosted/migrate.sh" "${ORIG_ARGS[@]}"
 fi
 
+# --- P1606: an explicit --env hosted-test while self-hosted is active needs the founder's decision ---
+# Hosted TEST is switched off by default. The pause is the wall; this turns its timeout into a message.
+if [ "$ENV_NAME" = "hosted-test" ] && [ "$RESOLVED_TEST" = false ] && [ -z "${CP_HOSTED_TEST_REASON:-}" ]; then
+  # shellcheck source=lib/active-test.sh
+  source "$SCRIPT_DIR/lib/active-test.sh"
+  if [ "$(active_test_target 2>/dev/null || true)" = "selfhosted" ]; then
+    echo "REFUSED: hosted TEST is switched off; the founder decides when it is switched on. Nothing was applied." >&2
+    echo "  Plain ./scripts/migrate.sh applies to the active TEST server. See docs/technical/hosted-test-parity.md." >&2
+    exit 1
+  fi
+fi
+
 # --- Hosted TEST (explicit --env hosted-test, or hosted is the active TEST) ---
 # The code below keys its test behaviour off ENV_NAME=local; hosted-test is that same path.
 if [ "$ENV_NAME" = "hosted-test" ]; then

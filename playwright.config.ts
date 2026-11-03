@@ -10,6 +10,7 @@ import { worktreePort } from './scripts/lib/worktree-port.mjs';
 import { guardTestDbRun } from './scripts/lib/e2e-test-db-lock.mjs';
 import { isTestProjectUrl } from './scripts/sweep-e2e-test-users';
 import { testTargetConfigError } from './scripts/lib/test-target.mjs';
+import { refuseHostedTestRun } from './scripts/lib/hosted-test-guard.mjs';
 
 // Load test environment variables from .env.test.local
 const __filename = fileURLToPath(import.meta.url);
@@ -50,6 +51,9 @@ const PORT = getWorktreePort();
 // silently switches this lock and the teardown sweep off. Fail loudly instead.
 const targetConfigError = testTargetConfigError(process.env);
 if (targetConfigError) throw new Error(`[P1557] ${targetConfigError}`);
+
+// P1606: hosted TEST is switched off by default; say so before anything waits on it.
+refuseHostedTestRun({ url: process.env.VITE_SUPABASE_URL, surface: 'playwright' });
 
 guardTestDbRun({
   repoDir: __dirname,

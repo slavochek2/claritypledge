@@ -32,35 +32,32 @@ for arg in "$@"; do
   prev_arg="$arg"
 done
 
-# --- Both TEST databases (P1557 switch): same one door as migrate.sh ---
-# Reach the self-hosted server first (read-only migration listing; the secrets check fails by design
-# because paid keys are never copied there), deploy to hosted TEST (inner run), then deploy the same functions to self-hosted. A failure at the last step is HALF-DEPLOYED.
-if [ "$ENV_NAME" != "prod" ] && [ -z "${CP_DEPLOY_INNER_HOSTED:-}" ] && [ ! -x "$SCRIPT_DIR/selfhosted/deploy-functions.sh" ]; then
-  echo "WARNING: hosted TEST only this run; self-hosted TEST is NOT updated. Afterwards run: scripts/selfhosted/deploy-functions.sh" >&2
+# --- TEST follows the active server (P1606; migrate.sh has done this since P1591) ---
+# Fails closed when the active server is unknown. Hosted is reached only when it is active, or by an
+# explicit --env hosted-test with the founder's decision on record.
+if [ "$ENV_NAME" = "hosted-test" ]; then
   CP_DEPLOY_INNER_HOSTED=1
+  if [ -z "${CP_HOSTED_TEST_REASON:-}" ]; then
+    # shellcheck source=lib/active-test.sh
+    source "$SCRIPT_DIR/lib/active-test.sh"
+    if [ "$(active_test_target 2>/dev/null || true)" = "selfhosted" ]; then
+      echo "REFUSED: hosted TEST is switched off; the founder decides when it is switched on. Nothing was deployed." >&2
+      echo "  See docs/technical/hosted-test-parity.md." >&2
+      exit 1
+    fi
+  fi
 fi
 if [ "$ENV_NAME" != "prod" ] && [ -z "${CP_DEPLOY_INNER_HOSTED:-}" ]; then
-  LOCK_DIR="$(git -C "$(pwd)" rev-parse --path-format=absolute --git-common-dir)/cp-test-deploy.lock"
-  mkdir "$LOCK_DIR" 2>/dev/null || { echo "ERROR: another TEST deploy is running (lock: $LOCK_DIR). Wait for it, or remove the lock if no run is live." >&2; exit 1; }
-  trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
-  echo "[1/3] Checking the self-hosted TEST server can be reached (nothing deployed yet)..."
-  if ! "$SCRIPT_DIR/selfhosted/migrate.sh" --env selfhosted --list >/dev/null; then
-    echo "ERROR: self-hosted TEST is not reachable (often: gcloud login expired). Nothing was deployed." >&2
-    exit 1
+  # shellcheck source=lib/active-test.sh
+  source "$SCRIPT_DIR/lib/active-test.sh"
+  ACTIVE_TARGET=$(active_test_target) || { echo "ERROR: cannot resolve the active TEST server (see above). Nothing was deployed." >&2; exit 1; }
+  if [ "$ACTIVE_TARGET" = "selfhosted" ]; then
+    LOCK_DIR="$(git -C "$(pwd)" rev-parse --path-format=absolute --git-common-dir)/cp-test-deploy.lock"
+    mkdir "$LOCK_DIR" 2>/dev/null || { echo "ERROR: another TEST deploy is running (lock: $LOCK_DIR). Wait for it, or remove the lock if no run is live." >&2; exit 1; }
+    trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+    "$SCRIPT_DIR/selfhosted/deploy-functions.sh" ${FUNCTION_NAME:+"$FUNCTION_NAME"}
+    exit $?
   fi
-  echo "[2/3] Deploying to hosted TEST..."
-  if ! CP_DEPLOY_INNER_HOSTED=1 "$SCRIPT_DIR/deploy-functions.sh" "$@"; then
-    echo "ERROR: hosted TEST deploy failed; self-hosted was not touched." >&2
-    exit 1
-  fi
-  echo "[3/3] Deploying to self-hosted TEST..."
-  if ! "$SCRIPT_DIR/selfhosted/deploy-functions.sh" ${FUNCTION_NAME:+"$FUNCTION_NAME"}; then
-    echo "HALF-DEPLOYED: hosted TEST has the new functions, self-hosted does NOT." >&2
-    echo "Finish it with: scripts/selfhosted/deploy-functions.sh ${FUNCTION_NAME}" >&2
-    exit 1
-  fi
-  echo "Done: functions deployed to both TEST targets."
-  exit 0
 fi
 
 # --- Determine project ref ---

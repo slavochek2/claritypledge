@@ -27,9 +27,6 @@
  */
 
 import { test, expect } from '@playwright/test';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
@@ -39,10 +36,8 @@ import {
 } from '../helpers/test-organization';
 import { createTestDoc, deleteTestLetter } from '../helpers/test-letter';
 // The single TEST-origin allowlist (P1557); a deny-one guard would pass any project that is not literally prod.
-import { TEST_PROJECT_REFS, isHostedTestUrl, HOSTED_SQL_ONLY, notHostedSqlTarget } from '../helpers/e2e-namespace';
+import { testDbSql as testDbQuery } from '../helpers/test-db-sql';
 
-// P1557: this spec runs raw SQL, so it skips on the self-hosted server (see e2e-namespace.ts).
-test.skip(notHostedSqlTarget(), HOSTED_SQL_ONLY);
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 type Canvas = { points: Row[]; stories: Row[]; positions: Row[]; visibility: string | null; access: Row };
@@ -58,40 +53,6 @@ const DAY = 86_400_000;
 const pointIdsCreated: string[] = [];
 const CANVAS_POINTS_TRIGGER = 'trg_p1515_canvas_points_are_private';
 const NAME_LEGACY = `${NAME}legacy`;
-
-function readEnvLocal(name: string): string {
-  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-  // Worktrees have no .env.local of their own; fall back to the main checkout's.
-  for (const root of [repoRoot, path.resolve(repoRoot, '../../..')]) {
-    const f = path.join(root, '.env.local');
-    if (!fs.existsSync(f)) continue;
-    const line = fs.readFileSync(f, 'utf8').split('\n').find((l) => l.startsWith(`${name}=`));
-    if (line) return line.slice(name.length + 1).trim().replace(/^["']|["']$/g, '');
-  }
-  return '';
-}
-
-/** Raw SQL on the TEST database (Management API, the test-scoped write token migrate.sh uses). */
-async function testDbQuery(sql: string): Promise<Array<Record<string, unknown>>> {
-  // `URL` is the file's own const (the project URL string), so the class is reached through globalThis.
-  let url: globalThis.URL | null = null;
-  try { url = new globalThis.URL(process.env.VITE_SUPABASE_URL ?? ''); } catch { /* refused below */ }
-  const ref = url?.hostname.split('.')[0] ?? '';
-  // The Management API exists only for the hosted TEST projects (the self-hosted server has none: P1557 step 10).
-  if (!url || !isHostedTestUrl(url.origin)) {
-    throw new Error(`refusing to run raw SQL against ${ref || 'an unknown project'}: hosted TEST only (${TEST_PROJECT_REFS.join(', ')})`);
-  }
-  const token = readEnvLocal('SUPABASE_TEST_WRITE_TOKEN');
-  if (!token) throw new Error('SUPABASE_TEST_WRITE_TOKEN missing from .env.local');
-  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: sql }),
-  });
-  const body = await res.text();
-  if (!res.ok) throw new Error(`test DB query failed (${res.status}): ${body}`);
-  return JSON.parse(body);
-}
 
 const sqlText = (v: string) => `'${v.replace(/'/g, "''")}'`;
 

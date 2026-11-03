@@ -11,7 +11,6 @@ scripts/event-banner-small.ts
 scripts/lib/test-target.mjs
 scripts/p1528-agent-avatars-to-media-host.mjs
 scripts/selfhosted/flip-test-env.py
-scripts/selfhosted/run-hosted-sql.sh
 src/tests/integration/vitest.config.ts
 src/tests/p1369-sw-config.test.ts
 src/tests/p1417-banner-backfill.test.ts

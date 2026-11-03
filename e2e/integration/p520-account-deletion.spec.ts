@@ -29,11 +29,8 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { HOSTED_SQL_ONLY, notHostedSqlTarget } from '../helpers/e2e-namespace';
+import { testDbSql } from '../helpers/test-db-sql';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, TEST_PASSWORD, type TestUser } from '../helpers/test-user';
 import { createTestStory } from '../helpers/test-story';
@@ -43,8 +40,6 @@ import { createTestAgreement, deleteTestAgreement } from '../helpers/test-agreem
 import { createTestSessionInDB } from '../helpers/test-session';
 import { createEarCountData } from '../helpers/test-calibration';
 
-// P1557: this spec runs raw SQL, so it skips on the self-hosted server (see e2e-namespace.ts).
-test.skip(notHostedSqlTarget(), HOSTED_SQL_ONLY);
 
 const TOMBSTONE = 'Deleted user';
 
@@ -106,42 +101,9 @@ async function countWhere(table: string, col: string, value: string): Promise<nu
  * schema rather than from a hand-written one — a hand-written list cannot fail when a
  * new personal-data table is added, which is the property these tests exist to hold.
  */
-function readEnvLocal(name: string): string {
-  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-  const envLocal = path.join(repoRoot, '.env.local');
-  if (!fs.existsSync(envLocal)) return '';
-  const line = fs.readFileSync(envLocal, 'utf8').split('\n').find((l) => l.startsWith(`${name}=`));
-  return line ? line.slice(name.length + 1).trim().replace(/^["']|["']$/g, '') : '';
-}
-
-/**
- * The census only READS the catalogue, so it prefers the scoped `Database: Read` token on the
- * read-only endpoint (P1214). The account-wide token stays a fallback, announced every run.
- *
- * .env.local before the environment for both: playwright.config.ts loads .env.test.local,
- * which may carry an older copy of the same variable.
- */
-function managementToken(): { token: string; readOnly: boolean } {
-  const scoped = readEnvLocal('SUPABASE_READONLY_TOKEN') || process.env.SUPABASE_READONLY_TOKEN || '';
-  if (scoped) return { token: scoped, readOnly: true };
-  // P1318: no fallback to the account-wide token — it reaches prod.
-  throw new Error(
-    'SUPABASE_READONLY_TOKEN is not set in .env.local or the environment. The P520 census ' +
-    'tests need catalogue access; without it the census is unproven, so this fails rather than skips.',
-  );
-}
-
+/** The census only READS the catalogue, so every query runs read-only. */
 async function catalogQuery<T = Record<string, unknown>>(sql: string): Promise<T[]> {
-  const { token, readOnly } = managementToken();
-  const ref = new URL(process.env.VITE_SUPABASE_URL!).hostname.split('.')[0];
-  const endpoint = readOnly ? '/database/query/read-only' : '/database/query';
-  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}${endpoint}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: sql }),
-  });
-  if (!res.ok) throw new Error(`catalogue query failed (${res.status}): ${await res.text()}`);
-  return (await res.json()) as T[];
+  return testDbSql<T>(sql, { readOnly: true });
 }
 
 /** Service-role count of rows whose text column contains the needle (case-insensitive). */
