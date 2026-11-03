@@ -40,11 +40,12 @@ export function CanvasNameEdit({ title, canEdit, onSave }: { title: string; canE
       maxLength={CANVAS_TITLE_MAX}
       aria-label="Canvas name"
       autoFocus
-      onFocus={e => e.currentTarget.select()}
+      // select-all with the caret at the START (a backward selection), so a long name reads from its first letter instead of scrolling to its tail
+      onFocus={e => { const el = e.currentTarget; el.setSelectionRange(0, el.value.length, 'backward'); requestAnimationFrame(() => { el.scrollLeft = 0; }); }}
       onChange={e => setDraft(e.target.value)}
       onKeyDown={onKey}
       onBlur={() => finish(true)}
-      className={`${OVERLAY} h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-base font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
+      className={`${OVERLAY} h-10 min-w-0 flex-1 xl:w-[26rem] xl:flex-none rounded-md border border-input bg-background px-2 text-base font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
       data-testid="canvas-title-input"
     />
   ) : (

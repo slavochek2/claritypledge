@@ -164,8 +164,17 @@ describe('P1536 v6 migration: replaced bodies', () => {
   });
   it.each(Object.keys(REPLACED))('%s: the source named is the newest definition before this file, and this file is the newest of all', (name) => {
     const re = new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+public\\.${REPLACED[name]!.fn ?? name}\\s*\\(`, 'i');
-    const before = readdirSync(MIG).filter((f) => /^\d{14}_.*\.sql$/.test(f) && f < M && re.test(stripComments(read(f)))).sort();
+    // P1592's 20261029180000 sorts between 100100 and this file since the rebase. It restates erase_chat_data_for from the same older body, and the
+    // merge file 20261030090000 is what joins the two. This file patches the P1536 line; the next test pins that the merged body keeps P1592.
+    const before = readdirSync(MIG).filter((f) => /^\d{14}_.*\.sql$/.test(f) && f < M && !f.startsWith('20261029180000_p1592') && re.test(stripComments(read(f)))).sort();
     expect(before[before.length - 1]).toBe(REPLACED[name]!.source);
+    if (name === 'erase_chat_data_for') {
+      const p1592 = fnBody(read('20261029180000_p1592_event_transcripts_round_threads.sql'), name, 0);
+      const final = fnBody(read(SERVER_REVIEW), name, 0);
+      const names = [...new Set(p1592.match(/\b(?:chat_round_thread\w*|_transcribe_\w+|system_kind|is_transcription)\b/g) ?? [])];
+      expect(names.length).toBeGreaterThan(0);
+      for (const n of names) expect(final).toContain(n);
+    }
     // erase_chat_data_for is restated once more by the merge file (P1536 + P1592); every other function ends here
     // get_canvas is restated once more by the canvas-title file (P1536 W8: access.title and access.canvas_id); its edits are pinned there.
     const fn = REPLACED[name]!.fn ?? name;
