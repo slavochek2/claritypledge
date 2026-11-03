@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 6
 workstream: infrastructure
 created_date: '2026-11-03'
 tags: [testing, e2e, self-hosted, concurrency]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-03
 ---
 
 # P1607: Let e2e runs share the self-hosted TEST server in parallel
@@ -164,4 +164,4 @@ Set the limit to 1 for the old behaviour, or revert the commit.
 
 ## Related
 
-- [P1541](done/2026-06-10/p1541_test_db_capacity_guard_for_concurrent_e2e.md), [P1572](done/2026-06-10/p1572_e2e_lock_guard_accuracy.md), [P1557](done/2026-06-10/p1557_self_hosted_supabase_test_database.md), [P1604](p1604_transcription_belongs_to_a_chat.md)
+- [P1541](p1541_test_db_capacity_guard_for_concurrent_e2e.md), [P1572](p1572_e2e_lock_guard_accuracy.md), [P1557](p1557_self_hosted_supabase_test_database.md), [P1604](../../p1604_transcription_belongs_to_a_chat.md)
