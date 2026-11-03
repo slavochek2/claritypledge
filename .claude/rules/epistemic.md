@@ -50,9 +50,9 @@ Before declaring "the model/schema/system can't represent X" — grep the seed d
 
 ## 3b. A person's rule is quoted from the decision log, not from a note about it
 
-Before telling the founder or a brief that a limit exists because of their rule, read the rule's entry in `docs/decisions.md` this session and check for a later reversal (`grep` the topic, newest first). Cite its date and title. A spec, brief or summary saying "the founder's rule" is a claim about a decision and inherits no authority. If there is no entry, say the limit has an unknown reason.
+Before telling the founder or a brief that a limit exists because of their rule, read the rule's entry in `docs/decisions.md` this session and check for a later reversal (`grep` the topic, newest first). Cite its date and title. A spec, brief or summary saying "the founder's rule" is a claim about a decision and inherits no authority. If there is no entry, say the limit has an unknown reason. The same applies before a claimed limit decides where work runs: reading the entry settles whether a rule forbids it, and gate 3 still requires checking the live state, so "no rule forbids it" is not "it is ready", and "it is off" is a task to fix before it is a reason to route around.
 
-Incident: P1536, 2026-11-03. A spec note blamed a rule that had been narrowed the same day; a day of testing went to the wrong server, and the founder was told twice that "your own rule" blocked the fix.
+Incident: P1536. The spec note, written 2026-10-29, blamed a rule narrowed that same day. On 2026-11-02 and 11-03 a day of testing went to the non-default server, and the founder was told twice that "your own rule" blocked the fix.
 
 ## 4. Read the manifest before guessing among N paths
 

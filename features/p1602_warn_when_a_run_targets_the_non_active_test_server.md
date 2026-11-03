@@ -35,7 +35,19 @@ Blast radius: every dev server and Playwright start, though only as stderr outpu
 
 ## Solution
 
-One shared check, called where Playwright config already guards test database runs and from the Vite dev server at start. When the active server is self-hosted and the run's Supabase URL is hosted TEST, print to stderr that hosted is opt-in, and ask why it is needed. An environment variable records the reason, and is then printed instead, and included in the Playwright run header.
+One shared check, called where Playwright config already guards test database runs and from the Vite dev server at start. When the active server is self-hosted and the run's Supabase URL is hosted TEST, print to stderr that hosted is opt-in, and ask why it is needed. `CP_HOSTED_TEST_REASON` records the reason; it is then printed in place of the question, and in the line Playwright prints at startup from its global setup. The check is one direction only: a self-hosted run while hosted is active is a deliberate flip state and stays silent.
+
+| Active server | Run target | Mode | Reason set | This check prints |
+|---|---|---|---|---|
+| self-hosted | hosted | dev server (`vite` serve), Playwright run | no | warning with the question |
+| self-hosted | hosted | dev server, Playwright run | yes | the reason |
+| self-hosted | hosted | Playwright `--list` or `--ui` | any | same as a run: the target is real, and a config load must not hide it |
+| self-hosted | hosted | CI, vitest, `vite build` or `preview` | any | nothing |
+| self-hosted | self-hosted | any | any | nothing |
+| hosted | any | any | any | nothing |
+| unresolved (flip file missing or unreadable) | any | dev server, Playwright run | any | one note, then continue |
+
+"Nothing" concerns this check's output only; other startup warnings are unaffected.
 
 ## Risks / Non-Goals
 
@@ -44,6 +56,7 @@ One shared check, called where Playwright config already guards test database ru
 | Warning lost behind `tail` or in a backgrounded dev server | ACCEPT | Playwright's header carries it too; state the limit in the guard's comment |
 | A private vitest config bypasses it | DEFER | No shared integration setup exists to host it; revisit if it recurs |
 | Noise on correct runs | MITIGATE | Silent on every default flow, proven by the workflow runs below |
+| The stale premise is supplied as the reason | ACCEPT | A warning cannot force a re-check: it puts the question in the agent's output on day one, and gate 3b covers checking it. This reduces recurrence and does not eliminate it |
 
 **Non-Goals**
 - Do NOT refuse or slow any run.
@@ -54,8 +67,8 @@ One shared check, called where Playwright config already guards test database ru
 
 - [ ] A hosted run while self-hosted is active prints the warning and exits 0, shown by a canary beside `scripts/test-p1591-active-test.sh`
 - [ ] The same canary with a self-hosted URL prints nothing (the control)
-- [ ] With the reason set, the reason is printed instead, and appears in the Playwright run header
-- [ ] Real runs stay silent: default dev server, default Playwright, CI, vitest, `--list`, `--ui`, build, and the flip state set to hosted
+- [ ] With the reason set, the reason is printed instead, and appears in Playwright's startup line
+- [ ] Every row of the matrix is proven: the helper by the canary, and one real default dev server, one real default Playwright run and one real hosted Playwright run by hand
 - [ ] A missing flip file prints one note, and the dev server still starts
 
 ## Alternatives Considered

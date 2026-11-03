@@ -204,7 +204,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **Skip this step if:** the session produced no stakeholder-facing Q&A (e.g. a pure technical/refactor session).
 
-4.5. **If an entry reverses or narrows an earlier one:** (a) add to the old entry, as its first line, `**Reversed <date>, see "<title>".**`; (b) grep the old rule's tokens across `features/`, `docs/` and `.claude/worktrees/*/features/` (worktrees matter: a branch's spec can carry a claim main does not); (c) correct each hit that states the old rule as current, or file it with `/note`. Control: the sweep must find at least the old entry itself.
+4.5. **If an entry reverses or narrows an earlier one:** (a) add to the old entry, as its first line, `**Reversed <date>, see "<title>".**` or, when only part changed, `**Reversed in part <date>, see "<title>". Still in force: <what survives>.**`; (b) grep the old rule's tokens across open specs (`features/*.md`), `docs/` and `.claude/worktrees/*/features/*.md`, naming those paths explicitly, because worktrees are git-ignored and a recursive search that honours ignores skips them, and a branch's spec can carry a claim main does not. `features/done/` is history: leave it, apart from a pointer on the spec the old entry cites; (c) correct each main-checkout hit that states the old rule as current, and file each hit in another worktree with `/note` rather than editing a co-tenant's tree. Control: the sweep must report at least one file under `.claude/worktrees/` it read, or say no worktree holds specs.
 
 5. **Update done-features index:**
 
