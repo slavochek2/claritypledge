@@ -9,6 +9,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-03 [technical]: Self-hosted TEST admits 3 e2e runs; a limit copied to a new server is a guess until measured
+
+**Context:** P1541 limited hosted TEST to one run after two full runs took it down. P1557 copied that lock to the larger self-hosted server unmeasured. On 2026-11-03 one long run blocked P1604 for two hours while the server sat near idle.
+**Decision:** P1607. Slots under a short admission mutex, with the limit in one constant (`SELFHOSTED_SLOT_LIMIT`, 3, from a load test). Runs touching server-wide state are detected from code, with a `// e2e-exclusive:` annotation for what a scan cannot see, and run alone. Hosted stays at one. `scripts/e2e-load-test.mjs` re-measures it.
+**Alternatives rejected:** A gate shared with the old lock: two reviewers reproduced races that rechecking cannot close, so a new run only reads the old directory. Rank-based admission: Codex reproduced 3 runs at a limit of 2. One worker for a full suite: Playwright has per-project workers, so server-wide specs get their own project.
+**Consequences:** A worktree on the old script can overlap new runs until it updates, accepted because 5 runs at once were clean; the exposure is an old-script run during an exclusive run. The load measurements included another session's run. UNTESTED on the real lock directory. Falsifier: failures or auth 429s that track overlapping real runs.
+
+---
+
 ## 2026-11-03 [technical]: A hidden event is enforced by the database, and an event id is worth nothing for it
 
 **Context:** Hosts need events only visible with the link, and a friends test needs one. Every event was readable by anyone through the public key, and many tables and functions took an event id on trust. The rule in the 2026-06-23 entry "Unconfirmed experiments are NOT DB events" said there is no hidden state; hidden events now exist, and the rest of that entry stands.
