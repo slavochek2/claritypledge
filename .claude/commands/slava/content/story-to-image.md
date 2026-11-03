@@ -88,16 +88,17 @@ Read all Supabase keys directly from `.env.local` — do **NOT** use `supabase p
 |---|---|---|
 | `GEMINI_API_KEY` | `.env.local` | Nano Banana Pro image generation |
 | `gcloud` (slava@inguro.com) | gcloud auth | GCS upload |
-| `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `.env.local` | Test DB read (URL = `https://ayibkeoyukulbsjpxgaw.supabase.co`) |
-| `TEST_SUPABASE_SERVICE_ROLE_KEY` | `.env.local` | Test DB write |
+| `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` | `.env.test.local` | Test DB read (the active TEST server) |
+| `SUPABASE_SERVICE_ROLE_KEY` | `.env.test.local` | Test DB write |
 | `PROD_SUPABASE_ANON_KEY` | `.env.local` | Prod DB read (URL hardcoded: `https://besjtuodziykmjidubzw.supabase.co`) |
 | `PROD_SUPABASE_SERVICE_ROLE_KEY` | per-access lock (`scripts/keyring.sh`), never `.env.local` — P1316 | Prod DB write (Step 10 only; one dialog) |
 
 **Load pattern (all bash steps):**
 ```bash
 set -a && source .env.local && set +a
+set -a; source .env.test.local; set +a   # the active TEST server (P1606)
 PROD_URL="https://besjtuodziykmjidubzw.supabase.co"
-TEST_URL="$NEXT_PUBLIC_SUPABASE_URL"
+TEST_URL="$VITE_SUPABASE_URL"
 ```
 
 **GCS bucket:** `claritypledge-story-images`
@@ -130,10 +131,10 @@ curl -s -G "https://besjtuodziykmjidubzw.supabase.co/rest/v1/stories" \
 
 Also query **test** DB for the test-side UUID (may differ from prod if not restored from backup):
 ```bash
-curl -s -G "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/stories" \
+curl -s -G "$VITE_SUPABASE_URL/rest/v1/stories" \
   --data-urlencode "select=id" \
   --data-urlencode 'system_tags=cs.{"st2"}' \
-  -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY"
+  -H "apikey: $VITE_SUPABASE_ANON_KEY" -H "Authorization: Bearer $VITE_SUPABASE_ANON_KEY"
 ```
 
 Extract: `prod_story_id`, `test_story_id`, `content`.
@@ -321,8 +322,8 @@ STORY_ID="<prod story id from Step 1>"
 IMG_URL="$(cat /tmp/story-image-url.txt)"   # canonical URL from Step 9 — never re-type
 
 # Test DB (anon key for apikey header, service-role for Authorization)
-curl -s -X PATCH "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/stories?id=eq.${STORY_ID}" \
-  -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Authorization: Bearer $TEST_SUPABASE_SERVICE_ROLE_KEY" \
+curl -s -X PATCH "$VITE_SUPABASE_URL/rest/v1/stories?id=eq.${STORY_ID}" \
+  -H "apikey: $VITE_SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
   -H "Content-Type: application/json" -H "Prefer: return=representation" \
   -d "{\"image_url\": \"$IMG_URL\"}"
 
@@ -342,7 +343,7 @@ Both must succeed before reporting done. `Prefer: return=representation` echoes 
 **Read-back guard (run after both PATCHes):**
 ```bash
 # Re-fetch both rows and confirm they point at the SAME url, and that url returns 200.
-for q in "https://besjtuodziykmjidubzw.supabase.co|$PROD_SUPABASE_ANON_KEY" "$NEXT_PUBLIC_SUPABASE_URL|$NEXT_PUBLIC_SUPABASE_ANON_KEY"; do
+for q in "https://besjtuodziykmjidubzw.supabase.co|$PROD_SUPABASE_ANON_KEY" "$VITE_SUPABASE_URL|$VITE_SUPABASE_ANON_KEY"; do
   URL="${q%%|*}"; KEY="${q##*|}"
   GOT=$(curl -s -G "$URL/rest/v1/stories" --data-urlencode "select=image_url" --data-urlencode "id=eq.${STORY_ID}" \
         -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -c "import sys,json;print(json.load(sys.stdin)[0]['image_url'])")

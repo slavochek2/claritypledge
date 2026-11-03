@@ -388,12 +388,12 @@ Derive from the actual data whether each invariant condition is met. The trigger
 |-----------|------|----------|
 | Schema discovery | `Read` local files (`docs/technical/database.md`, migrations) | No |
 | Live row read (prod) | `scripts/supabase-readonly-sql.py --env prod` (scoped read-only token) | No |
-| Live row read (test) | `curl` GET or Supabase MCP (`mcp__supabase__*` → test only) | No |
-| Live row write (test) | Supabase MCP or `curl` PATCH | Yes (per `db-access.md`) |
+| Live row read (test) | `curl` GET with `.env.test.local` (the MCP reaches only paused hosted TEST) | No |
+| Live row write (test) | `curl` PATCH | Yes (per `db-access.md`) |
 | Live row write (prod) | Management API `curl` (runs as `postgres`), token via `keyring_require PROD_SUPABASE_ACCESS_TOKEN` | Yes — always, plus the keyring dialog |
 | Ad-hoc SQL on prod | Read-only helper for SELECTs; Management API + keyring for anything else | Yes — always |
 
-**Supabase MCP points at test** (project `ayibkeoyukulbsjpxgaw`). Never use MCP for prod. For prod: reads go through `scripts/supabase-readonly-sql.py`; writes use the Management API with the prod management token from the locked keyring — never a plaintext copy from `.env.local` or `.env.prod`, and never the account-wide `.env.local` token against the prod ref (P1214).
+**Supabase MCP points at hosted TEST, which is paused by default** (P1606): do not use it. Never use MCP for prod. For prod: reads go through `scripts/supabase-readonly-sql.py`; writes use the Management API with the prod management token from the locked keyring — never a plaintext copy from `.env.local` or `.env.prod`, and never the account-wide `.env.local` token against the prod ref (P1214).
 
 ## Explicit Non-Goals
 

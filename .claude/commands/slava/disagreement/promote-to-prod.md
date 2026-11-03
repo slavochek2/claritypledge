@@ -140,13 +140,13 @@ Every one is a STOP. Most are inherited from `/slava:disagreement:publish`; **re
 | **`#` and `](` neutralised across the WHOLE body** | quotes, statements, summaries — a `#` anywhere publishes that story into a tag nobody chose; a markdown link renders an anchor whose label is independent of its href |
 | **`PROD_SUPABASE_ACCESS_TOKEN` enrolled in the keyring** | `./scripts/keyring.sh status` shows `enrolled` (never prompts) — read through the per-access lock at Stage 5, never from `.env.prod` plaintext (P1239/P1214); no fallback path exists |
 | **`PROD_SUPABASE_SERVICE_ROLE_KEY` enrolled in the keyring** (P1373) | `./scripts/keyring.sh status` shows `enrolled` — `video-summary.mjs promote` reads it at Stage 5-pre, one more dialog |
-| **The target ref matches the target row** | prod ⟹ `.env.prod: VITE_SUPABASE_URL`; test ⟹ `.env.local`. Credentials from `.env.local` by variable name. Never merge the files |
+| **The target ref matches the target row** | prod ⟹ `.env.prod: VITE_SUPABASE_URL`; test ⟹ `.env.test.local`. Credentials by variable name, from that target's row. Never merge the files |
 
 **Environment table** — identical to `/slava:disagreement:publish`'s, restated because a table held by reference is a table that drifts:
 
 | Target | Ref from | Service key | Anon key |
 |---|---|---|---|
-| **test** | `.env.local: VITE_SUPABASE_URL` | `.env.local: TEST_SUPABASE_SERVICE_ROLE_KEY` | `.env.local: VITE_SUPABASE_ANON_KEY` |
+| **test** | `.env.test.local: VITE_SUPABASE_URL` (the active TEST server; P1606) | `.env.test.local: SUPABASE_SERVICE_ROLE_KEY` | `.env.test.local: VITE_SUPABASE_ANON_KEY` |
 | **prod** | `.env.prod: VITE_SUPABASE_URL` | row writes go through the Management API token on the per-access lock (P1239/P1316). The service key is read only at Stage 5a, for the avatar upload and the GoTrue mint, through the same lock. Never a plaintext copy | `.env.local: PROD_SUPABASE_ANON_KEY` |
 
 **The ledger's `env:` field is DERIVED from the ref actually used, never typed.**

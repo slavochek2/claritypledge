@@ -25,11 +25,11 @@ If local schema doesn't match prod, that's a migration bug — not a reason to q
 | Need | Tool | Approval? |
 |------|------|-----------|
 | Schema/columns | `Read` local files (see above) | No |
-| Table list | `mcp__supabase__list_tables` | No |
-| Migration status | `mcp__supabase__list_migrations` | No |
+| Table list | `python3 scripts/supabase-readonly-sql.py --env test "<SQL>"` | No |
+| Migration status | `./scripts/selfhosted/migrate.sh --env selfhosted --list` | No |
 | Live row counts/data | `curl` GET against REST API (state env explicitly) | No |
 | Data mutations | `curl` POST/PATCH against REST API (state env explicitly); find the credential via CLAUDE.md § Private vs Public Files | Yes — always ask user |
-| Ad-hoc SQL | `mcp__supabase__execute_sql` | Yes — **schema discovery: never; debugging/RLS: when curl can't** |
+| Ad-hoc SQL | `scripts/selfhosted/run-test-sql.sh` (SQL on stdin) | Yes — **schema discovery: never; debugging/RLS: when curl can't** |
 
 **Key rule:** Everything read-only should require zero approval prompts. If you're about to use a tool that needs user approval just to *look* at something, you're using the wrong tool.
 
@@ -50,7 +50,7 @@ TEST is two servers: hosted (Supabase) and self-hosted. One is **active** (`scri
 
 ## Supabase MCP = Test DB Only
 
-The MCP reaches the **hosted** TEST only. When self-hosted is active, MCP reads and writes the inactive server — use the active server's REST API or main's scripts instead.
+The MCP reaches only **hosted** TEST (PARITY), paused by default, so its calls fail. Use the active server's REST API or main's scripts. Never restore it yourself; the founder decides ([hosted-test-parity.md](../../docs/technical/hosted-test-parity.md)).
 
 The Supabase MCP in `.mcp.json` points at `ayibkeoyukulbsjpxgaw` (**test** project). Every `mcp__supabase__*` call hits test, not prod.
 
@@ -74,7 +74,7 @@ Common wasteful patterns to avoid:
 
 ## Bulk Mutations Use SQL, Not Per-Row PATCH
 
-For >2-3 row updates: write one SQL statement (`UPDATE … WHERE id = ANY('{…}')`) and run via Supabase CLI or `mcp__supabase__execute_sql` (test) / curl + service role (prod). Per-row REST PATCH for bulk work is slow, hard to verify, and approval-prompt-heavy. Always run a verification SELECT after bulk changes before downstream code depends on the result.
+For >2-3 row updates: write one SQL statement (`UPDATE … WHERE id = ANY('{…}')`) and run via `scripts/selfhosted/run-test-sql.sh` (test) / curl + service role (prod). Per-row REST PATCH for bulk work is slow, hard to verify, and approval-prompt-heavy. Always run a verification SELECT after bulk changes before downstream code depends on the result.
 
 ## Verify Schema Before Async Approach
 

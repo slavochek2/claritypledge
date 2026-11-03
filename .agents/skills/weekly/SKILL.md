@@ -887,7 +887,7 @@ else UPKEEP_RC=0; UPKEEP_OUT="$("$UPKEEP" 2>&1)" || UPKEEP_RC=$?; printf '%s\n' 
 - `os` / `reboot` → "· Approve a reboot (or security update) of cp-test-supabase — <packages>".
 - `images` → "· Hand change on cp-test-supabase: <detail> — restore the pin or record it in the recipe".
 - `templates` → "· Re-sync TEST auth e-mail templates with prod (recipe step 8)".
-- `hosted` → "· Restore hosted TEST in the Supabase dashboard — the next migrate's hosted leg fails until then".
+- `hosted` → "· Hosted TEST (PARITY) is switched on or not reading as paused: <detail>. If no founder-approved use is running, pause it in the dashboard". Never propose restoring it (P1606).
 
 An `unknown` line is "· Self-hosted upkeep check <name> did not run: <detail>", never omitted.
 

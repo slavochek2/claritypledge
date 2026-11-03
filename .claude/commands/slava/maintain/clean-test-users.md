@@ -37,7 +37,7 @@ Say "Running on **prod** DB" or "**test** DB." Source connection details:
 | Env | URL var | Reads (Phases 1, 2, 5) | Writes (Phase 4) |
 |---|---|---|---|
 | prod | `VITE_SUPABASE_URL` (`.env.prod`) | `python3 scripts/supabase-readonly-sql.py --env prod "<SQL>"` — scoped read-only token, holds no write authority | prod service key through the per-access lock, never `.env.local` (P1239/P1316) — see Phase 4 |
-| test | `NEXT_PUBLIC_SUPABASE_URL` (`.env.local`) | curl with `SK=$TEST_SUPABASE_SERVICE_ROLE_KEY` (`.env.local`) | same |
+| test | `VITE_SUPABASE_URL` (`.env.test.local`) | curl with `SK=$SUPABASE_SERVICE_ROLE_KEY` (`.env.test.local`) | same |
 
 Source order for prod: `source .env.local && source .env.prod` (so the prod URL wins). **Prod reads never touch the master key** — every Phase 1, 2 and 5 query on prod is SQL through the read-only helper. Before the first prod mutation, verify the locked key with a `select=id&limit=1` returning HTTP 200.
 
@@ -115,7 +115,7 @@ user delete — in a shell that has first run the preamble below. It is shown on
 but each agent Bash call is a fresh shell, so each write block needs it again: one authorization dialog
 per block, tell the founder **Allow**, never "Always Allow"; a declined dialog stops with nothing
 written. Batch A, B and the table writes into as few blocks as the order allows. On **test**,
-`SK=$TEST_SUPABASE_SERVICE_ROLE_KEY` as before.
+`SK=$SUPABASE_SERVICE_ROLE_KEY` from `.env.test.local`, as before.
 
 ```bash
 # prod only
