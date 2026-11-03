@@ -18,12 +18,14 @@ import { readJson } from './canvas-read.ts';
 import {
   BOX_TAGS, MAX_DECIDED, MAX_NOTE_CHARS, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, titleOf,
 } from './canvas-draft.ts';
-import { BOX_DEFINITIONS, emptyQuestionFor } from './canvas-box-definitions.ts';
+import { BOX_DEFINITIONS, PRICE_GAP_QUESTION, emptyQuestionFor } from './canvas-box-definitions.ts';
 import { effectiveScope, readExtras } from './canvas-extras.ts';
 import { shedToValid, type Elem } from './canvas-final-state.ts';
 import { clean, cutChars, normalizeForQuote, ownerHaystack, quoteIsOwnerSourced } from './canvas-source.ts';
 import { derivedNames, namesMatcher } from './canvas-names.ts';
 import { numbersIn, numbersSupported, sharesWords } from './canvas-support.ts';
+import { groundPriceTerms, priceLacksTerms } from './canvas-price.ts';
+import { withSectionsDecided } from './canvas-copy-sections.ts';
 import type {
   BasePoint, Decided, DraftCounts, DraftOutcome, DraftPoint, ParseContext, ResolvedAction,
 } from './canvas-types.ts';
@@ -54,6 +56,8 @@ interface Ctx {
   namesOther: (text: string) => boolean;
   /** Every number the owner's own words and canvas already hold. */
   numbers: ReadonlySet<string>;
+  /** The owner's own words and canvas, in the quote-comparison form: what a price's unit or cadence may rest on. */
+  ownerWords: string;
   /** Draft points an earlier run made from a base point (a reword or a move), by that base point's id. */
   derived: ReadonlyMap<string, DraftPoint>;
   /** The boxes this run may change. */
@@ -61,6 +65,8 @@ interface Ctx {
   /** Boxes rebuilt by this run: their current points are not kept. */
   rebuild: ReadonlySet<string>;
 }
+
+const REVENUE = 'canvas:revenue';
 
 const newAcc = (): Acc => ({
   actions: [], decided: [], counts: { kept: 0, reworded: 0, moved: 0, added: 0, dropped: 0 },
@@ -140,7 +146,8 @@ function rewordAsKeep(acc: Acc, ctx: Ctx, old: BasePoint | undefined, box: strin
 function intendWrite(acc: Acc, ctx: Ctx, act: 'reword' | 'new', a: Raw, old: BasePoint | undefined, idx: number): Elem | null {
   const box = a.box;
   if (!isBox(box) || typeof a.statement !== 'string') return null;
-  const statement = clean(a.statement, MAX_STATEMENT_CHARS);
+  const cleaned = clean(a.statement, MAX_STATEMENT_CHARS);
+  const statement = box === REVENUE ? groundPriceTerms(cleaned, ctx.ownerWords) : cleaned;
   if (!statement) return null;
   if (!ctx.scope.has(box) || (act === 'reword' && old && !ctx.scope.has(old.box))) { acc.droppedScope += 1; return null; }
   if (act === 'reword') {
@@ -269,16 +276,23 @@ function buildCtx(pc: ParseContext, scope: readonly string[]): Ctx {
     haystack,
     namesOther: namesMatcher(pc.otherNames, derivedNames(pc.material, pc.ownerName)),
     numbers: new Set([...numbersIn(haystack), ...numbersIn(ownCanvas)]),
+    ownerWords: `${haystack}\n${normalizeForQuote(ownCanvas)}`,
     derived: new Map((pc.draftPoints ?? []).filter((d) => d.from_point_id).map((d) => [d.from_point_id as string, d])),
     scope: new Set(scope),
     rebuild: new Set(pc.rebuild ?? []),
   };
 }
 
+/** The questions, with the missing part asked for when a point this run wrote holds a price with no unit or cadence (S2.3): the model's question about anything else gives way. */
+function withPriceGap(questions: Record<string, string>, acc: Acc, ctx: Ctx): Record<string, string> {
+  const lacks = acc.actions.some((a) => a.action !== 'keep' && a.box === REVENUE && priceLacksTerms(a.statement, ctx.ownerWords));
+  return lacks ? { ...questions, [REVENUE]: PRICE_GAP_QUESTION } : questions;
+}
+
 export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {
   const read = readJson(response);
   if (!read.ok) return read;
-  const body = (read.parsed ?? {}) as Raw;
+  const body = withSectionsDecided((read.parsed ?? {}) as Raw, pc.sections);
   if (!Array.isArray(body.actions)) return { ok: false, code: 'unparsable', costUsd: read.costUsd };
   const scope = effectiveScope(pc, body.scope);
   const ctx = buildCtx(pc, scope);
@@ -292,7 +306,7 @@ export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {
     ok: true, actions: acc.actions, decided: acc.decided, counts: acc.counts, total: acc.actions.length, emptyBoxes,
     droppedUnverified: acc.droppedUnverified, droppedNames: acc.droppedNames + extras.droppedNames, costUsd: read.costUsd,
     scope, changedBoxes: changedBoxesOf(acc, ctx, pc.basePoints), droppedScope: acc.droppedScope + extras.droppedScope, droppedCap: acc.droppedCap,
-    focus: extras.focus, focusReason: extras.focusReason, otherCanvases: extras.otherCanvases, questions: scope.length ? extras.questions : {}, note: extras.note,
+    focus: extras.focus, focusReason: extras.focusReason, otherCanvases: extras.otherCanvases, questions: scope.length ? withPriceGap(extras.questions, acc, ctx) : {}, note: extras.note,
   };
 }
 

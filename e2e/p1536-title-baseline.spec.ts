@@ -34,7 +34,10 @@ import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTestUser, deleteTestUser, setTestSession, TEST_PASSWORD } from './helpers/test-user';
 import { isTestProjectUrl } from '../scripts/sweep-e2e-test-users';
 
+import { pacLaunchOptions } from './helpers/pac-launch';
+
 if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? '')) throw new Error('p1536-title-baseline: VITE_SUPABASE_URL is not a TEST project. Nothing was run.');
+test.use({ launchOptions: pacLaunchOptions() }); // P1536_PAC: send the hosted TEST host through a proxy auto-config file; unset, the project's own options
 
 const BASE = process.env.P1536_BASE ?? 'http://localhost:5101';
 const COMPARE = process.env.P1536_COMPARE === '1';

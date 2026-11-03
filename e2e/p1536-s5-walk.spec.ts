@@ -15,7 +15,10 @@ import * as fs from 'fs';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { isTestProjectUrl } from '../scripts/sweep-e2e-test-users';
 
+import { pacLaunchOptions } from './helpers/pac-launch';
+
 if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? '')) throw new Error('p1536-s5-walk: VITE_SUPABASE_URL is not a TEST project. Nothing was run.');
+test.use({ launchOptions: pacLaunchOptions() }); // P1536_PAC: send the hosted TEST host through a proxy auto-config file; unset, the project's own options
 
 const BASE = process.env.P1536_BASE ?? 'http://localhost:5104';
 const DIR = process.env.P1536_S5_DIR ?? 'test-results/p1536-s5';
@@ -374,7 +377,7 @@ async function walk375(page: Page, vp: number, closedOnly = false) {
 
 test.describe.configure({ mode: 'serial' });
 let browser: Browser;
-test.beforeAll(async () => { browser = await chromium.launch(); });
+test.beforeAll(async () => { browser = await chromium.launch(pacLaunchOptions()); });
 test.afterAll(async () => { await browser.close(); });
 
 test('S5 walk at 1440', async () => { await walk(browser, 1440, 900); });

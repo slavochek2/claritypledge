@@ -6,7 +6,7 @@
 
 import { BOX_DEFINITIONS, emptyQuestionFor } from './canvas-box-definitions.ts';
 import { BOX_TAGS } from './canvas-draft.ts';
-import { cleanFreeText, cutAtWord, normalizeForQuote } from './canvas-source.ts';
+import { cleanFreeText, cutAtWord, normalizeForQuote, trimHangingWords } from './canvas-source.ts';
 import { FOCUS_REASONS, type FocusReason, type OtherCanvas, type ParseContext } from './canvas-types.ts';
 
 /** Caps on free model text: a group name or focus 80 characters, a reason 200, a question 300, the note 160 (what the database's own reply keeps). */
@@ -49,10 +49,12 @@ const cutOf = (full: string, max: number) => cutAtWord(full, max);
  */
 const MAX_LABEL_WORDS = 8;
 const LABEL_SHAPE = /^[\p{L}\p{N}][\p{L}\p{N} '’&/+,-]*$/u;
-function groupLabelOf(v: unknown, max: number, refuse: (t: string) => boolean): string {
+export function groupLabelOf(v: unknown, max: number, refuse: (t: string) => boolean): string {
   const full = fullOf(v, max);
   if (!full || !LABEL_SHAPE.test(full) || refuse(full)) return '';
-  return cutOf(full.split(/\s+/).slice(0, MAX_LABEL_WORDS).join(' '), max);
+  const words = full.split(/\s+/);
+  const held = words.slice(0, MAX_LABEL_WORDS).join(' ');
+  return cutOf(words.length > MAX_LABEL_WORDS ? trimHangingWords(held) : held, max);
 }
 
 /** Free text the names filter has passed: the filter reads the whole cleaned text, so a name past the cut is still a name. */

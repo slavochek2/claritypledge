@@ -33,11 +33,24 @@ ${SHARED_RULES}
 - Keep how sure the owner is. A target, plan, wish or guess stays one ("we want 20 sprints this year" becomes "I aim for 20 sprints this year"); never write it as something already done. Only what the owner says has happened is a result, and a figure belongs to the period and thing the owner gave it.
 - If the material says nothing about a box, leave the box empty: write no point for it. Never guess to fill it.
 - Customer Segments: use every one of industry, company size, demographics and psychographics that the owner's material states about those people, in the same point (an age, a headcount, a place, how they feel about the problem). If the material states fewer than two, write what it states, never guess the rest, and let the box's question ask for it.
+- Offers & Pricing: write a unit ("per shop") or a cadence ("per month", "one-off") only when the owner's words state it for that price; never work one out from who bought or what the price is for. When they state none, write the price alone with its state, and let the box's question ask for the missing part.
 - At most ${MAX_POINTS_PER_BOX} points per box. A point is one short sentence of at most ${MAX_STATEMENT_CHARS} characters, in the shape and voice the guide gives for its box. Write the point alone: no explanation or reasoning behind it.
 
 You return, in this order: "focus", "focus_reason", "other_canvases", "scope", "actions", "questions", "note". Current points (the canvas as it stands now, with ids) may be in the data. In a box you may change, a point you do not mention stays as it is.
 
-One canvas is one sale loop (one business, one customer group). The "focus" is the group this canvas is about; "other_canvases" lists other groups the material is about, each with a short "why" (at most 3). Name every group in at most 8 words: who they are (a role, and a place or a size), never a sentence. The current focus stays: only the instruction says when you may set it. Never write a point about another group into a customer-facing box. A group is people or firms the owner sells to now, or is choosing to sell to. These are never a group, so never in "other_canvases": a group the owner has stopped selling to or says did not renew (at most it is a point for "Hypotheses I've falsified", with what the owner says happened), and a referrer, partner, supplier, investor, funder or other helper who does not buy from the owner.
+One canvas is one sale loop: one kind of buyer, buying one way. The "focus" is the group this canvas is about; "other_canvases" lists the OTHER sale loops the material is about, each as a group with a short "why" (at most 3). Name every group in at most 8 words: who they are (a role, and a place or a size), never a sentence; a group of several roles or kinds of people is named by what they share. The current focus stays: only the instruction says when you may set it. Never write a point about another group into a customer-facing box.
+
+Most material holds one sale loop even when it names several kinds of people, so "other_canvases" is usually empty. Before you list anything there, ask: do the same people buy, the same way? These are ONE group, on one canvas, never in "other_canvases":
+- Roles in one sale: one pays, another uses, approves or pushes for it.
+- The sides of one loop: the sides of a marketplace, or a chain where the owner's buyer only buys because the next side buys from them. Write the one who pays the owner as the focus and the other side's needs in the same canvas.
+- One segment described twice: they already get the same offer at the same price for the same problem, however they differ by trade, age, city or how they find the owner. Name them by what they share.
+- Several offers or price levels sold to the same buyer.
+- A city, a country or a sales channel: these are where a group is reached, never a group, whether live or planned.
+These are separate sale loops, so one is the focus and the others go in "other_canvases":
+- Unrelated businesses: different people, offers and problems.
+- The same product or problem with a different buyer who decides or pays differently: one person buying alone and an organisation's budget process, end customers and resellers, a monthly price and a custom quote.
+- Groups the owner is still choosing between ("maybe this one, maybe that one") while nobody has bought: each is its own bet, even with the same offer.
+A group is people or firms the owner sells to now, or is choosing to sell to. These are never a group, so never in "other_canvases": a group the owner has stopped selling to or says did not renew (at most it is a point for "Hypotheses I've falsified", with what the owner says happened), and a referrer, partner, supplier, investor, funder or other helper who does not buy from the owner.
 
 What a run may change ("scope"):
 - The instruction says which boxes this run may change, or asks you to name them. Change only those boxes. A message that is about one box changes that box only; do not touch the others, whatever else the material says.
@@ -151,6 +164,9 @@ export function frameInstruction(f: RunFrame): string {
   if (f.taggedBoxes?.length) {
     const file = f.inputKind === 'file' ? FILE_TAGGED_LINE : '';
     return `The owner's message (marked this_run) is tagged with: ${titles(f.taggedBoxes)}. This run may change only those boxes. Return "scope" as exactly those boxes.${file} The focus stays; leave "focus" empty and leave out "focus_reason".${knownGroupsLine(f)}`;
+  }
+  if (f.firstDraft && f.copySections) {
+    return `This is the owner's first draft, from a file with one section per canvas, each opening with "This canvas is about". This draft is about the first section's group only: the "focus" of the data item "canvas_groups"; its "other_groups" are the further sections. It may change ${ALL_NINE}; every point is a "new" action. Return "scope" as all nine boxes. Use only the first section's text, for every box. Leave "focus" and "other_canvases" empty and leave out "focus_reason": the server records them.`;
   }
   if (f.firstDraft) {
     return `This is the owner's first draft. It may change ${ALL_NINE}; every point is a "new" action. Return "scope" as all nine boxes. Set "focus" to the one group the canvas is about: the owner's newest stated focus, else a group that has paid, else the group most boxes can be filled for, else the narrower group. If the material is about other groups too, draft only the focus and list the others in "other_canvases". Set "focus_reason" to why you chose it: "stated" if the owner's newest words name it as their focus, "paid" if it is a group that has already paid the owner, "most_boxes" if the material fills the most boxes for it, "narrower" if none of those decides and it is the narrower group.${knownGroupsLine(f, true)}`;

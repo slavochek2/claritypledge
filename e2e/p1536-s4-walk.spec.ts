@@ -17,7 +17,10 @@ import * as fs from 'fs';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { isTestProjectUrl } from '../scripts/sweep-e2e-test-users';
 
+import { pacLaunchOptions } from './helpers/pac-launch';
+
 if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? '')) throw new Error('p1536-s4-walk: VITE_SUPABASE_URL is not a TEST project. Nothing was run.');
+test.use({ launchOptions: pacLaunchOptions() }); // P1536_PAC: send the hosted TEST host through a proxy auto-config file; unset, the project's own options
 
 const BASE = process.env.P1536_BASE ?? 'http://localhost:5102';
 const DIR = process.env.P1536_S4_DIR ?? 'test-results/p1536-s4';
@@ -395,7 +398,7 @@ async function walk(browser: Browser, vp: number, height: number) {
 
 test.describe.configure({ mode: 'serial' });
 let browser: Browser;
-test.beforeAll(async () => { browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] }); });
+test.beforeAll(async () => { browser = await chromium.launch({ args: [...pacLaunchOptions().args, '--use-fake-device-for-media-stream'] }); });
 test.afterAll(async () => { await browser.close(); });
 
 test('S4 walk at 1440', async () => { await walk(browser, 1440, 900); });

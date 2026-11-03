@@ -42,6 +42,8 @@ export interface RunFrame {
   knownGroups?: readonly KnownGroup[];
   /** How the message arrived: an upload is read as what the owner is telling the agent, never as "no request". */
   inputKind?: 'text' | 'file' | 'voice';
+  /** The groups of a pasted Copy prompt, in order, when they decide this first draft: the first is `focus`, the rest `knownGroups` (canvas-copy-sections.ts). */
+  copySections?: readonly string[];
 }
 /** A group the canvas already has (its focus or an offer), so a run says it in the same words and never adds it twice. */
 export interface KnownGroup { group: string; state: string }
@@ -121,4 +123,6 @@ export interface ParseContext {
   listOffers?: boolean;
   /** True for an upload (J9, decided 2026-11-03): its offers are read, and sent to the write, even when the run's scope is empty. Typed and spoken input keep the rule. */
   offersOnEmptyScope?: boolean;
+  /** The groups of a pasted Copy prompt that decide this first draft: they replace the model's focus and offers (S2.5). */
+  sections?: readonly string[] | null;
 }

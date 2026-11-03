@@ -28,6 +28,7 @@ import { buildDraftReply, withCutNote } from './canvas-reply.ts';
 import { draftReplyOf, offersToAdd } from './canvas-run-reply.ts';
 import type { LinkResult } from './canvas-material.ts';
 import { frameOf, scopeOf } from './canvas-frame.ts';
+import { withCopySections } from './canvas-copy-sections.ts';
 import { gatherLinks, ownerItems, textOf, toCopies, triggerOf } from './canvas-thread.ts';
 import type { ModelCaller } from './canvas-model.ts';
 import type { BasePoint, Material, MaterialInput } from './canvas-types.ts';
@@ -205,7 +206,7 @@ async function runDraft(s: Step): Promise<RunSummary> {
   const { run } = s;
   const baseLabel = run.base_label ?? null;
   const basePoints = run.draft_points;
-  const frame = frameOf(run, s.kind);
+  const frame = withCopySections(frameOf(run, s.kind), s.material);
   const fit = await fitOrFail(s, (cap) => {
     const material = assembleMaterial(s.input, cap);
     return { material, request: buildDraftRequest({ material, basePoints, baseLabel, frame }) };
@@ -217,7 +218,7 @@ async function runDraft(s: Step): Promise<RunSummary> {
   const out = parseDraft(asked.response, {
     material: fit.material, basePoints, baseLabel, otherNames: run.other_names, ownerName: run.owner_name,
     scope: scopeOf(frame), rebuild: frame.rebuild, currentFocus: run.focus ?? null, acceptFocus: run.first_draft === true && s.kind === 'message',
-    knownGroups: (run.offers ?? []).map((o) => o.group_label), listOffers: s.kind !== 'focus', offersOnEmptyScope: s.kind === 'message' && run.input_kind === 'file',
+    knownGroups: (run.offers ?? []).map((o) => o.group_label), listOffers: s.kind !== 'focus', offersOnEmptyScope: s.kind === 'message' && run.input_kind === 'file', sections: frame.copySections ?? null,
   });
   const usd = out.costUsd !== null ? out.costUsd + s.extra : run.reserved_usd ?? null;
   return (await failureOf(s, out, usd, cut)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));

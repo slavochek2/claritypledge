@@ -16,7 +16,10 @@ import { createTestUser, deleteTestUser, setTestSession, TEST_PASSWORD, type Tes
 import { isTestProjectUrl } from '../scripts/sweep-e2e-test-users';
 
 // This spec makes users and writes with the service role: it refuses to load against anything but a TEST project.
+import { pacLaunchOptions } from './helpers/pac-launch';
+
 if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? '')) throw new Error('p1536-walkthrough: VITE_SUPABASE_URL is not a TEST project. Nothing was run.');
+test.use({ launchOptions: pacLaunchOptions() }); // P1536_PAC: send the hosted TEST host through a proxy auto-config file; unset, the project's own options
 
 const BASE = process.env.P1536_BASE ?? 'http://localhost:5101';
 const DIR = process.env.P1536_WALK_DIR ?? 'test-results/p1536-walk';

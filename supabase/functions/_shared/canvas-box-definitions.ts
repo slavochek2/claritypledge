@@ -152,6 +152,12 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
   },
 ];
 
+/**
+ * The gap question of an Offers & Pricing point that holds a price with no unit or cadence (S2.3: "the gap question asks for the missing part"). The engine raises it, not the model.
+ * [FOUNDER DECISION: wording, S2.6; a default written for the fixture, not from the spec's table.]
+ */
+export const PRICE_GAP_QUESTION = `What is that price per, and how often is it paid?`;
+
 /** The question shown to the owner under a box that is empty; null for a tag that is no box. */
 export function emptyQuestionFor(tag: string): string | null {
   const b = BOX_DEFINITIONS.find((d) => d.tag === tag);

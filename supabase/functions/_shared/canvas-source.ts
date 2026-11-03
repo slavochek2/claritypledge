@@ -26,13 +26,18 @@ export function cutAtWord(s: string, max: number): string {
     if (space <= 0) return head;
     base = head.slice(0, space);
   }
-  let out = base.trimEnd();
+  return trimHangingWords(base) || head;
+}
+
+/** `s` without a joining word or a separator left at its end. */
+export function trimHangingWords(s: string): string {
+  let out = s.trimEnd();
   for (let again = true; again;) {
     const next = out.replace(JOINERS, '').replace(/[\s,;:(-]+$/u, '');
     again = next !== out && next.length > 0;
     if (again) out = next;
   }
-  return out || head;
+  return out;
 }
 
 const DASHES = /\s*[–—]\s*/g;
