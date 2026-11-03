@@ -98,6 +98,8 @@ export interface DayOption {
 export interface DayIssue {
   /** check id + fault key, never prose (spec §4) */
   fp: string
+  /** P1605: a number the check measured, higher = worse; lets an "accepted" record break through when it worsens */
+  reading?: number
   /** small tag top-left: "Security", "Events" */
   topic: string
   /** no ages or counts in a title (spec §4) */
@@ -200,6 +202,37 @@ export interface DayLoop {
   escalated?: { why: 'idle' | 'gone'; days?: number }
   /** an open spec owns it: no card is raised; Monitoring shows the owner */
   suppressed?: boolean
+  /** P1605: an earlier record evaluated this fault's cause (set only when its check ran this pass) */
+  evaluated?: LoopEvaluated
+}
+
+export type EvaluatedVerdict = 'fixed' | 'false' | 'accepted'
+export const EVALUATED_VERDICTS: EvaluatedVerdict[] = ['fixed', 'false', 'accepted']
+export type EvaluatedWhy = 'expired' | 'worse' | 'unmeasurable' | 'fixed-returned' | 'owner-moved'
+
+export interface LoopEvaluated {
+  id: string
+  cause: string
+  verdict: EvaluatedVerdict
+  /** YYYY-MM-DD */
+  expires: string
+  at: string
+  /** true: left off the flow and counted; false: shown with the earlier verdict beside it */
+  hidden: boolean
+  why_shown?: EvaluatedWhy
+}
+
+/** P1605: one ledger line, written by day-evaluated.ts when a fix session ends. */
+export interface EvaluatedLine {
+  kind: 'evaluated'
+  id: string
+  fps: string[]
+  cause: string
+  verdict: EvaluatedVerdict
+  expires: string
+  threshold?: number
+  note?: string
+  at: string
 }
 
 export interface DayLoops {
@@ -660,6 +693,8 @@ export interface DayView {
   waiting: IssueView[]
   /** P1578: owned by an open spec, so no card is raised (Monitoring names the owner) */
   owned: IssueView[]
+  /** P1605: an earlier record evaluated the cause and it is within expiry and threshold: counted, not shown */
+  evaluated: IssueView[]
   checks: CheckView[]
   connections: ConnectionView[]
   counts: { total: number; worked: number; problem: number; unproven: number; skipped: number; to_issues: number }
@@ -690,7 +725,7 @@ export interface Collected {
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}/
 const ID = /^[A-Za-z0-9._:-]{1,80}$/
-const FP = /^[A-Za-z0-9._:-]{1,100}$/
+export const FP = /^[A-Za-z0-9._:-]{1,100}$/
 /** P1489: a cause key has a fault key's grammar */
 export const CAUSE = /^[a-z0-9][a-z0-9._:-]{0,59}$/
 const OPTION_ID = /^[A-Za-z0-9._-]{1,40}$/
@@ -802,6 +837,8 @@ function readIssue(x: unknown): DayIssue | null {
   if (typeof x.check === 'string' && ID.test(x.check)) it.check = x.check
   if (x.important === true) it.important = true
   if (x.needs_yes === true) it.needs_yes = true
+  const reading = num(x.reading)
+  if (reading !== undefined) it.reading = reading
   if (typeof x.cause === 'string' && CAUSE.test(x.cause)) it.cause = x.cause
   const deadline = isoDay(x.deadline)
   if (deadline) it.deadline = deadline
@@ -846,6 +883,23 @@ function readLoopSent(x: unknown): LoopSent | undefined {
   return s
 }
 
+const EXPIRES = /^\d{4}-\d{2}-\d{2}$/
+/** P1605: a real calendar day: 2026-11-31 round-trips to 2026-12-01 and is refused. */
+export const validDay = (s: unknown): s is string => {
+  if (typeof s !== 'string' || !EXPIRES.test(s)) return false
+  const t = Date.parse(s)
+  return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === s
+}
+export const MAX_EVALUATED_FPS = 50
+function readLoopEvaluated(x: unknown): LoopEvaluated | undefined {
+  if (!isObj(x) || typeof x.id !== 'string' || !ID.test(x.id) || !EVALUATED_VERDICTS.includes(x.verdict as EvaluatedVerdict)) return undefined
+  const cause = oneLine(x.cause, 200)
+  if (!cause || !validDay(x.expires) || !isoDay(x.at) || typeof x.hidden !== 'boolean') return undefined
+  const e: LoopEvaluated = { id: x.id, cause, verdict: x.verdict as EvaluatedVerdict, expires: x.expires, at: x.at as string, hidden: x.hidden }
+  if (['expired', 'worse', 'unmeasurable', 'fixed-returned', 'owner-moved'].includes(x.why_shown as string)) e.why_shown = x.why_shown as EvaluatedWhy
+  return e
+}
+
 function readLoops(x: unknown): DayLoops | undefined {
   if (!isObj(x)) return undefined
   const resolved: LoopResolved[] = []
@@ -872,6 +926,8 @@ function readLoops(x: unknown): DayLoops | undefined {
         if (d !== undefined && d >= 0) card.escalated.days = Math.floor(d)
       }
       if (c.suppressed === true && owner) card.suppressed = true
+      const ev = readLoopEvaluated(c.evaluated)
+      if (ev) card.evaluated = ev
       if (Object.keys(card).length) cards[fp] = card
     }
   }
@@ -1294,6 +1350,8 @@ export function parseDecisions(text: string): { lines: DayDecision[]; badLines: 
       if (o.kind === 'sent') continue
       // P1578: what the runner found out about a send (or that a card waits) is not a decision either.
       if (o.kind === 'outcome') continue
+      // P1605: a record that a cause was evaluated is not a decision either (parseEvaluated reads it).
+      if (o.kind === 'evaluated') continue
       if (o.kind === 'story_done' || o.kind === 'story_resend') {
         const m = readStoryMarker(o)
         if (m) markers.push(m)
@@ -1313,6 +1371,47 @@ export function parseDecisions(text: string): { lines: DayDecision[]; badLines: 
     }
   }
   return { lines, badLines, markers }
+}
+
+/**
+ * P1605: the evaluated records of decisions.jsonl, in file order. Strict: anything that is not
+ * exactly one is skipped, so a malformed line can only fail to hide a card, never hide one.
+ */
+export function parseEvaluated(text: string): EvaluatedLine[] {
+  const out: EvaluatedLine[] = []
+  for (const raw of text.split('\n')) {
+    if (!raw.includes('"evaluated"')) continue
+    try {
+      const o = JSON.parse(raw) as Obj
+      if (o.kind !== 'evaluated' || typeof o.id !== 'string' || !ID.test(o.id)) continue
+      if (!Array.isArray(o.fps) || !o.fps.length || o.fps.length > MAX_EVALUATED_FPS || !o.fps.every((f) => typeof f === 'string' && FP.test(f) && !f.startsWith('check:'))) continue
+      if (typeof o.cause !== 'string' || !o.cause.trim() || o.cause.length > 200) continue
+      if (!EVALUATED_VERDICTS.includes(o.verdict as EvaluatedVerdict)) continue
+      if (!validDay(o.expires)) continue
+      if (!isoDay(o.at)) continue
+      const l: EvaluatedLine = { kind: 'evaluated', id: o.id, fps: o.fps as string[], cause: o.cause, verdict: o.verdict as EvaluatedVerdict, expires: o.expires, at: o.at as string }
+      if (o.threshold !== undefined) {
+        if (typeof o.threshold !== 'number' || !Number.isFinite(o.threshold)) continue
+        l.threshold = o.threshold
+      }
+      if (typeof o.note === 'string' && o.note.length <= 500) l.note = o.note
+      out.push(l)
+    } catch {
+      // an unreadable line is counted by parseDecisions
+    }
+  }
+  return out
+}
+
+/** P1605: "3 already evaluated: 2 accepted, 1 false". The breakdown keeps "accepted" visible. */
+export function evaluatedSummary(items: { loop?: DayLoop }[]): string {
+  const by = new Map<string, number>()
+  for (const i of items) {
+    const v = i.loop?.evaluated?.verdict ?? 'unknown'
+    by.set(v, (by.get(v) ?? 0) + 1)
+  }
+  const parts = ['accepted', 'false', 'fixed'].filter((v) => by.has(v)).map((v) => `${by.get(v)} ${v}`)
+  return `${items.length} already evaluated: ${parts.join(', ')}`
 }
 
 /** P1578: the outcome lines of decisions.jsonl, in file order. Anything that is not exactly one is skipped. */
@@ -1762,6 +1861,7 @@ export function buildView(report: DayReport, lines: DayDecision[], history: RunT
   const parked: ParkedView[] = []
   const waiting: IssueView[] = []
   const owned: IssueView[] = []
+  const evaluated: IssueView[] = []
   for (const issue of allIssues(report)) {
     const now = thisRun.get(key('option', issue.fp))
     const before = earlier.get(key('option', issue.fp))
@@ -1783,6 +1883,8 @@ export function buildView(report: DayReport, lines: DayDecision[], history: RunT
       issues.push(issue)
     } else if (!now && prior?.option_id === PARK) {
       parked.push({ ...issue, parked: { at: prior.at, run_id: prior.run_id, text: prior.text } })
+    } else if (issue.loop?.evaluated?.hidden) {
+      evaluated.push(issue)
     } else if (issue.loop?.waiting) {
       waiting.push(issue)
     } else if (issue.loop?.suppressed) {
@@ -1795,6 +1897,7 @@ export function buildView(report: DayReport, lines: DayDecision[], history: RunT
   parked.sort(compareIssues)
   waiting.sort(compareIssues)
   owned.sort(compareIssues)
+  evaluated.sort(compareIssues)
   groupByCause(issues)
 
   const broken = new Map(report.connections.filter((c) => connectionBroken(c.state)).map((c) => [c.id, c]))
@@ -1821,6 +1924,7 @@ export function buildView(report: DayReport, lines: DayDecision[], history: RunT
     parked,
     waiting,
     owned,
+    evaluated,
     checks,
     connections,
     counts: {
@@ -2077,6 +2181,22 @@ const cont = (t: string) => t.replace(/\r\n?/g, '\n').split('\n').join('\n      
 /** Quoted data inside a «…» fence: a » in the text would end it early; extra lines are prefixed. */
 const fenced = (t: string) => `«${cont(t.replace(/«/g, '‹').replace(/»/g, '›'))}»`
 
+/** P1605: the exact --fp value of every handed-off fault, and every other fault of its grouped card. */
+function evaluatedFingerprints(issues: IssueView[]): string[] {
+  const seen = new Set<string>()
+  const lines: string[] = []
+  const add = (title: string, fp: string) => {
+    if (fp.startsWith('check:') || seen.has(fp)) return
+    seen.add(fp)
+    lines.push(`- ${cont(title)} → --fp ${fp}`)
+  }
+  for (const i of issues) {
+    add(original(i).title, i.fp)
+    for (const fp of i.same_cause ?? []) add(`${original(i).title} (same cause)`, fp)
+  }
+  return lines.length ? ['Fingerprints to record (the exact --fp value for each item above):', ...lines] : []
+}
+
 function issueBlock(i: IssueView, n: number): string[] {
   const o = original(i)
   const tags = [
@@ -2115,7 +2235,7 @@ export function buildPrompt(
   view: DayView,
   alreadySent: ReadonlySet<string> = new Set(),
   previousAt?: string,
-  stories?: { ledger: StoryEntry[]; cli: string },
+  stories?: { ledger: StoryEntry[]; cli: string; evaluatedCli?: string },
 ): string {
   const c = collect(view, alreadySent, stories?.ledger)
   const L: string[] = [
@@ -2203,6 +2323,12 @@ export function buildPrompt(
     'Ask me before any irreversible action a story requests.',
     'Finish with ONLY what I must decide, nothing above it: no recap of my stories, no list of what you did, no item-by-item table. One block per decision, in this order (the /slava:build:simplify contract): why it matters, in plain words with one real example; what it costs or buys me; the options with your recommendation. If nothing needs me, say so in one line.',
     'My stories are part of that list, not of the evidence: every story where my words ask a question, sound unsure, or ask for help deciding gets its own decision block. Answer my question in my words first, then the choice it leads to, with your recommendation and what you need from me to settle it. Before marking such a story, tell me in that block how you are marking it and why.',
+    ...(stories?.evaluatedCli
+      ? [
+          `End the session by recording one line per item you looked at, so it is not raised again without cause: ${stories.evaluatedCli} --fp <fingerprint> (repeat for several faults with one cause) --cause "<named cause>" --verdict fixed|false|accepted --expires YYYY-MM-DD [--threshold <number>] [--note "<one line>"]. Use accepted only with a named cause and an expiry no more than 90 days away. Write a KDD entry only for an item whose decision is worth keeping.`,
+          ...evaluatedFingerprints(c.issues.map((x) => x.issue)),
+        ]
+      : []),
     'After the decisions, one collapsed <details> block titled Evidence: a table of item, verdict (real / false / already fixed), what you did, what you did not verify, story marked; then a one-line answer to each story that needed nothing from me.',
   )
   return L.join('\n')

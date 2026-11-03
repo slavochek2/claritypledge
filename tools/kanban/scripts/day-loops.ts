@@ -30,6 +30,9 @@ import {
   type DayLoop,
   type DayLoops,
   type DayReport,
+  type EvaluatedLine,
+  type EvaluatedWhy,
+  type LoopEvaluated,
   type LaunchReceipt,
   type LoopOutcome,
   type LoopOwner,
@@ -264,6 +267,35 @@ export interface LoopInputs {
   earlier: DayReport[]
   git: GitFacts
   now: Date
+  /** P1605: the evaluated records already in decisions.jsonl; absent = the feature is off */
+  evaluated?: EvaluatedLine[]
+}
+
+/**
+ * P1605: has an earlier record evaluated this issue's cause? Null (no annotation at all, the card
+ * behaves exactly as before) when no record matches OR the issue's check did not run this pass:
+ * "did not look" never satisfies a record. Otherwise the annotation says whether the card hides.
+ */
+export function evaluate(report: DayReport, v: DayIssue, records: readonly EvaluatedLine[], now: Date): LoopEvaluated | null {
+  if (!records.length || v.fp.startsWith('check:')) return null
+  let rec: EvaluatedLine | undefined
+  for (const r of records) {
+    if (!r.fps.includes(v.fp) || !(Date.parse(r.at) < now.getTime())) continue
+    if (!rec || Date.parse(r.at) > Date.parse(rec.at) || (Date.parse(r.at) === Date.parse(rec.at) && r.id > rec.id)) rec = r
+  }
+  if (!rec) return null
+  const down = new Set(report.connections.filter((c) => connectionBroken(c.state)).map((c) => c.id))
+  const check = report.checks.find((c) => c.id === (v.check ?? v.fp.split(':')[0]))
+  const ran = !!check && (check.status === 'ok' || check.status === 'problem') && !(check.connection && down.has(check.connection))
+  if (!ran) return null
+  let why: EvaluatedWhy | undefined
+  if (rec.verdict === 'fixed') why = 'fixed-returned'
+  else if (new Date(report.started_at).toISOString().slice(0, 10) > rec.expires) why = 'expired'
+  else if (rec.threshold !== undefined) {
+    if (typeof v.reading !== 'number' || !Number.isFinite(v.reading)) why = 'unmeasurable'
+    else if (v.reading > rec.threshold) why = 'worse'
+  }
+  return { id: rec.id, cause: rec.cause, verdict: rec.verdict, expires: rec.expires, at: rec.at, hidden: !why, ...(why ? { why_shown: why } : {}) }
 }
 
 /**
@@ -287,6 +319,7 @@ export function applyLoops(report: DayReport, inp: LoopInputs): { lines: Outcome
   const waits: { fp: string; owner: string }[] = []
   for (const v of views) {
     const card: DayLoop = {}
+    let ev = inp.evaluated ? evaluate(report, v, inp.evaluated, inp.now) : null
     if (sent[v.fp]) card.sent = sent[v.fp]
     const hasWait = v.options.some((o) => o.id === 'wait')
     let owner = ownerFor(v, inp.git, inp.now)
@@ -299,7 +332,7 @@ export function applyLoops(report: DayReport, inp: LoopInputs): { lines: Outcome
       card.owner = owner
       if (hasWait && owner.state === 'live') {
         card.waiting = true
-        waits.push({ fp: v.fp, owner: owner.ref })
+        if (!ev) waits.push({ fp: v.fp, owner: owner.ref }) // with a record it is either hidden or a full card: it waits on nothing
       } else if (hasWait) {
         card.escalated = { why: owner.state === 'gone' ? 'gone' : 'idle', ...(owner.idle_days !== undefined ? { days: owner.idle_days } : {}) }
       }
@@ -311,6 +344,14 @@ export function applyLoops(report: DayReport, inp: LoopInputs): { lines: Outcome
       const last = prevCard(v.fp)
       if (last?.owner && !card.owner) card.owner = last.owner // yesterday's owner, so tomorrow can tell if it went
       if (hasWait && !card.escalated && last?.escalated && last.owner) card.escalated = last.escalated
+    }
+    // P1578 first: an owner that stopped moving breaks through a record, so the escalation is seen
+    if (ev?.hidden && card.escalated) ev = { ...ev, hidden: false, why_shown: 'owner-moved' }
+    if (ev) card.evaluated = ev
+    // A record that no longer holds shows the card (spec): a live owner must not fold it away again.
+    if (ev && !ev.hidden) {
+      delete card.waiting
+      delete card.suppressed
     }
     if (Object.keys(card).length) cards[v.fp] = card
   }

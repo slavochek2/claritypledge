@@ -6,7 +6,7 @@
 // from a card into the statements never moves the page.
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { loopNotices, waitingText } from './loops'
+import { evaluatedSummary, loopNotices, waitingText } from './loops'
 import { OWN, cardDetail, connectionBroken, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, StatusIcon } from './status'
 import { agentWord, checkStatus, connectionStatus, listSummary, needsYou, type AgentHeader } from './statusWords'
@@ -233,6 +233,7 @@ export function DailyReport(p: Props) {
             {p.statement ?? <IssueCard {...p} />}
             <AgentList agent={p.agent} sent={p.sent} />
             <Waiting view={view} />
+            <Evaluated view={view} />
             {p.statement && p.afterStatement}
             {/* every founder card parked: there is no card view to open, so Parked sits under the statement (Codex re-review).
                 Bring back from there asks for the card view, as the parked row does, so the returned card opens (review) */}
@@ -775,6 +776,31 @@ function Parked({ view, readOnly, onBringBack, open, setOpen, boxRef }: { view: 
                 Bring back
               </button>
             )}
+          </div>
+        ))}
+    </div>
+  )
+}
+
+/** P1605: faults an earlier record already evaluated. One line with the breakdown; the rows open from it. */
+function Evaluated({ view }: { view: DayView }) {
+  const [open, setOpen] = useState(false)
+  if (!view.evaluated.length) return null
+  return (
+    <div className="d-card d-waiting" data-evaluated-list>
+      <button type="button" className="d-fold" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="d-tri">▶</span>
+        {evaluatedSummary(view.evaluated)}
+      </button>
+      {open &&
+        view.evaluated.map((x) => (
+          <div className="d-row" key={x.fp} data-evaluated={x.fp}>
+            <span className="d-tx">
+              <span className="d-ptitle">{x.title}</span>
+              <span className="d-w">
+                {x.loop?.evaluated?.verdict}, {x.loop?.evaluated?.cause}, until {x.loop?.evaluated?.expires}
+              </span>
+            </span>
           </div>
         ))}
     </div>

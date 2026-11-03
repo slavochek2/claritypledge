@@ -338,11 +338,48 @@ fresh
 printf "import { createClient } from '@supabase/supabase-js'\nexport const probe = createClient\n" >"$WORK/k/src/lib/__probe.ts"
 if run_test "imports no product code"; then echo "MISSED          Rule 10: product import guard"; fails=$((fails + 1)); else echo "RED as expected Rule 10: product import guard"; fi
 
+# P1605: an evaluated record hides a card only within its expiry, only when its check ran, and only
+# while the reading stays within its threshold. Guarded by server/__tests__/day-evaluated.test.ts.
+E=server/__tests__/day-evaluated.test.ts
+L=scripts/day-loops.ts
+control "P1605: a record past its expiry stops hiding" "an expired record shows the card" \
+  $L "s/else if \(new Date\(report\.started_at\)\.toISOString\(\)\.slice\(0, 10\) > rec\.expires\) why = 'expired'/else if (false) why = 'expired'/" $E
+control "P1605: a check that did not run never satisfies a record" "that is not-run" \
+  $L 's/if \(!ran\) return null/if (false) return null/' $E
+control "P1605: a worse reading breaks through" "a worse reading shows the card" \
+  $L 's/else if \(v\.reading > rec\.threshold\) why = .worse./else if (false) why = "worse"/' $E
+control "P1605: a record dated after the run is ignored" "dated after the run" \
+  $L 's/ \|\| !\(Date\.parse\(r\.at\) < now\.getTime\(\)\)//' $E
+control "P1605: the CLI refuses an expiry more than 90 days ahead" "over 90 days ahead" \
+  scripts/day-evaluated.ts 's/> MAX_AHEAD_DAYS/> 99999/' $E
+
+control "P1605: the report reader keeps the evaluated annotation" "parse round trip" \
+  src/lib/day.ts 's/const ev = readLoopEvaluated\(c\.evaluated\)/const ev = undefined as LoopEvaluated | undefined/' $E
+control "P1605: buildView stops hiding an evaluated card" "an accepted record: no card" \
+  src/lib/day.ts 's/else if \(issue\.loop\?\.evaluated\?\.hidden\) \{/else if (false) {/' $E
+control "P1605: a check: fingerprint can be matched" "a synthetic check: card" \
+  $L "s/ \|\| v\.fp\.startsWith\('check:'\)//" $E
+control "P1605: a fixed record stops resurfacing" "marked fixed that is reported again" \
+  $L "s/if \(rec\.verdict === 'fixed'\) why = 'fixed-returned'/if (false) why = 'fixed-returned'/" $E
+control "P1605: an idle owner no longer breaks through a record" "owner stopped moving" \
+  $L 's/if \(ev\?\.hidden && card\.escalated\)/if (false)/' $E
+control "P1605: expiry compares the raw local date" "UTC day of a" \
+  $L 's/new Date\(report\.started_at\)\.toISOString\(\)\.slice\(0, 10\)/report.started_at.slice(0, 10)/' $E
+control "P1605: record recency compares strings" "compares instants" \
+  $L 's/Date\.parse\(r\.at\) > Date\.parse\(rec\.at\)/r.at > rec.at/' $E
+control "P1605: an impossible date passes" "impossible date" \
+  src/lib/day.ts 's/ && new Date\(t\)\.toISOString\(\)\.slice\(0, 10\) === s//' $E
+control "P1605: the CLI accepts more fingerprints than the reader keeps" "51 fingerprints" \
+  scripts/day-evaluated.ts 's/fps\.length > MAX_EVALUATED_FPS/false/; s/\.length !== 1\) return refuse/.length !== 1 \&\& false) return refuse/' $E
+control "P1605: the prompt omits the fingerprints" "exact fingerprint of every" \
+  src/lib/day.ts 's/\.\.\.evaluatedFingerprints\(c\.issues\.map\(\(x\) => x\.issue\)\),//' $E
+
+
 # The unbroken copy must be green.
 fresh
 if run_test ""; then echo "GREEN           unmodified copy: all day tests pass"; else echo "UNEXPECTED RED  unmodified copy"; tail -30 "$WORK/out.txt"; fails=$((fails + 1)); fi
 if run_test "" "$R"; then echo "GREEN           unmodified copy: all day-render tests pass"; else echo "UNEXPECTED RED  unmodified copy (day-render)"; tail -30 "$WORK/out.txt"; fails=$((fails + 1)); fi
-for f in server/__tests__/day-launch.test.ts server/__tests__/day-pipeline.test.ts server/__tests__/day-reflection-history.test.ts; do
+for f in server/__tests__/day-evaluated.test.ts server/__tests__/day-launch.test.ts server/__tests__/day-pipeline.test.ts server/__tests__/day-reflection-history.test.ts; do
   if run_test "" "$f"; then echo "GREEN           unmodified copy: $f passes"; else echo "UNEXPECTED RED  unmodified copy ($f)"; tail -30 "$WORK/out.txt"; fails=$((fails + 1)); fi
 done
 

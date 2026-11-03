@@ -54,6 +54,8 @@ import {
   parseDecisions,
   parseLaunches,
   parseOutcomes,
+  parseEvaluated,
+  evaluatedSummary,
   parseReport,
   type OutcomeLine,
   traceOf,
@@ -371,6 +373,8 @@ export interface Sidecar {
   review?: Review
   /** P1489: the root cause this fault shares with others (a fixed slug); read only when present */
   cause?: string
+  /** P1605: a number the check measured, higher = worse */
+  reading?: number
 }
 
 /** A sidecar we can use, or null (then the finding is read as a plain one). */
@@ -394,6 +398,7 @@ export function readSidecar(raw: string): Sidecar | null {
   if (o.evidence === 'verified' || o.evidence === 'unverified') s.evidence = o.evidence
   if (o.review === 'weekly' || o.review === 'monthly') s.review = o.review
   if (typeof o.cause === 'string' && CAUSE.test(o.cause)) s.cause = o.cause
+  if (typeof o.reading === 'number' && Number.isFinite(o.reading)) s.reading = o.reading
   if (Array.isArray(o.options)) {
     const seen = new Set<string>()
     const opts: DayOption[] = []
@@ -494,6 +499,7 @@ export function buildIssues(input: BuildIssuesInput): { issues: DayIssue[]; unus
       }
     }
     if (side?.cause) issue.cause = side.cause
+    if (side?.reading !== undefined) issue.reading = side.reading
     if (check) issue.check = checkId
     if (side?.important ?? row.severity === 'high') issue.important = true
     if (side?.deadline) issue.deadline = side.deadline
@@ -553,7 +559,7 @@ export function readPlain(v: unknown): PlainRow[] | null {
   return rows
 }
 
-const ISSUE_KEYS = ['fp', 'topic', 'check', 'title', 'deadline', 'review', 'point_a', 'obstacle', 'point_b', 'more_info', 'source', 'options', 'recommendation_confidence', 'risk', 'evidence', 'evidence_text', 'needs_yes', 'cause'] as const
+const ISSUE_KEYS = ['fp', 'topic', 'check', 'title', 'deadline', 'review', 'point_a', 'obstacle', 'point_b', 'more_info', 'source', 'options', 'recommendation_confidence', 'risk', 'evidence', 'evidence_text', 'needs_yes', 'cause', 'reading'] as const
 
 /**
  * Apply the overlay to the report's issues (in place). A card the board would make from a check
@@ -788,6 +794,7 @@ export function renderCard(report: DayReport, view: DayView, opts: CardOptions):
     checkOutcomes(view.counts),
     view.parked.length && `${view.parked.length} parked`,
     view.waiting.length && `${view.waiting.length} waiting on in-flight work`,
+    view.evaluated.length && evaluatedSummary(view.evaluated),
   ].filter(Boolean)
   const L = [header(report, opts.timeZone), counts.join(' · ')]
   const shown = view.issues.slice(0, CARD_ISSUES)
@@ -818,6 +825,8 @@ export function renderDetail(report: DayReport, view: DayView, opts: CardOptions
     const t = tags(i)
     L.push(`  ${n + 1}. ${t ? `${t} — ` : ''}${plain(i.title, 200)}`)
     L.push(`     Point A: ${plain(i.point_a, 400)}`, `     Obstacle: ${plain(i.obstacle, 400)}`, `     Point B: ${plain(i.point_b, 400)}`)
+    const ev = i.loop?.evaluated
+    if (ev && !ev.hidden) L.push(`     Earlier verdict: ${ev.verdict}, ${plain(ev.cause, 200)} (${ev.at.slice(0, 10)}), shown: ${ev.why_shown ?? 'record no longer holds'}`)
     L.push(`     Evidence: ${i.evidence === 'verified' ? 'verified' : 'not verified'}`)
     for (const line of (i.evidence_text ?? '').split('\n').filter((x) => x.trim())) L.push(`       ${plain(line, 200)}`)
   })
@@ -825,6 +834,7 @@ export function renderDetail(report: DayReport, view: DayView, opts: CardOptions
     L.push('', 'Parked')
     for (const p of view.parked) L.push(`  - ${plain(p.title, 200)} (parked ${p.parked.at.slice(0, 10)})`)
   }
+  if (view.evaluated.length) L.push('', evaluatedSummary(view.evaluated))
   L.push('', 'Checks')
   for (const c of view.checks) L.push(`  ${plain(c.label, 80)}: ${checkStatus(c.status).word}${c.detail ? ` — ${plain(c.detail, 200)}` : ''}`)
   L.push('', `Decide on the Day page: ${plain(opts.kanbanUrl, 200)} → Day`)
@@ -1107,6 +1117,7 @@ function loopInputs(args: Args, earlier: DayReport[]): LoopInputs {
   return {
     receipts: parseLaunches(text),
     outcomes: parseOutcomes(text),
+    evaluated: parseEvaluated(text),
     earlier,
     git: repo === 'none' || !repo ? { ok: repo === 'none', branches: [], specs: [] } : readGitFacts(repo),
     now: new Date(args.now),

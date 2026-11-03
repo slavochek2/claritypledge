@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: task
 rank: 89
 workstream: infrastructure
 created_date: '2026-11-03'
 tags: [day, findings, process]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -57,11 +57,20 @@ Where the record lives is the implementer's call, after reading the runner's `de
 
 ## Done-When
 
-- [ ] A fix session's accepted item does not appear as a card on the next run, and appears in the one-line count
-- [ ] A worse reading of that fault shows the card with the earlier verdict
-- [ ] An expired record shows the card
-- [ ] A check that did not run shows as not run, despite a record
-- [ ] A control with no record behaves exactly as today
+- [x] A fix session's accepted item does not appear as a card on the next run, and appears in the one-line count
+- [x] A worse reading of that fault shows the card with the earlier verdict
+- [x] An expired record shows the card
+- [x] A check that did not run shows as not run, despite a record
+- [x] A control with no record behaves exactly as today
+
+## Known limitations
+
+- No check files a numeric `reading` yet. "Worse" is proven on fixtures only; a record with a threshold always shows its card until a check files one (fails open).
+- A record without a threshold hides at any severity until its expiry (at most 90 days), since the Solution allows expiry or threshold.
+- A card whose record no longer holds can be folded under another card sharing its cause slug, and its earlier-verdict line is then not shown.
+- A hidden card's check row has no card link, as for waiting and owned cards.
+- The printed CLI path is not quoted, so a repo path with spaces breaks the command. The CLI ignores write flags when `--list` is given, and a repeated flag keeps its last value.
+- The board's new fold and earlier-verdict line were not checked in a browser in /dev.
 
 ## Open Questions
 

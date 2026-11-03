@@ -6,15 +6,20 @@ const day = (iso: string) => iso.slice(0, 10)
 const ago = (n: number | undefined) => (n === undefined ? '' : n === 0 ? 'today' : n === 1 ? '1 day ago' : `${n} days ago`)
 
 /** Lines for the top of a card, most important first. Empty when the runner found nothing out. */
-export function loopNotices(loop: DayLoop | undefined): { kind: 'escalated' | 'sent' | 'owner'; text: string }[] {
+export function loopNotices(loop: DayLoop | undefined): { kind: 'escalated' | 'sent' | 'owner' | 'evaluated'; text: string }[] {
   if (!loop) return []
-  const out: { kind: 'escalated' | 'sent' | 'owner'; text: string }[] = []
+  const out: { kind: 'escalated' | 'sent' | 'owner' | 'evaluated'; text: string }[] = []
   const o = loop.owner
   if (loop.escalated && o) {
     out.push({
       kind: 'escalated',
       text: loop.escalated.why === 'gone' ? `The in-flight work (${o.label}) is gone. What now?` : `This in-flight work (${o.label}) has not moved in ${loop.escalated.days ?? o.idle_days ?? 'several'} days. What now?`,
     })
+  }
+  const ev = loop.evaluated
+  if (ev && !ev.hidden) {
+    const why = { expired: 'the record has expired', worse: 'the reading is worse than the record allows', unmeasurable: 'the reading could not be measured', 'fixed-returned': 'it was marked fixed and is reported again', 'owner-moved': 'the in-flight work on it stopped moving' }[ev.why_shown ?? 'expired']
+    out.push({ kind: 'evaluated', text: `Earlier verdict: ${ev.verdict}, ${ev.cause} (${day(ev.at)}), shown because ${why}.` })
   }
   if (loop.sent) {
     const n = loop.sent.attempts && loop.sent.attempts > 1 ? `, ${loop.sent.attempts} times` : ''
@@ -32,3 +37,5 @@ export function waitingText(loop: DayLoop | undefined): string {
   const o = loop?.owner
   return o ? `Waiting on ${o.label}${o.last_commit_at ? `, last commit ${ago(o.idle_days)}` : ''}` : 'Waiting'
 }
+
+export { evaluatedSummary } from '../../lib/day'

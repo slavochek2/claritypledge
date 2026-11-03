@@ -58,6 +58,9 @@ const MAX_BATCH = 200
 // The command the hand-off session runs to mark a story: this install's own tsx and script, by
 // absolute path. A bare `npx tsx` in a launch dir without tsx would offer to download it (P1440 review).
 const STORY_CLI = `${fileURLToPath(new URL('../node_modules/.bin/tsx', import.meta.url))} ${fileURLToPath(new URL('../scripts/day-story-done.ts', import.meta.url))}`
+const EVALUATED_BASE = `${fileURLToPath(new URL('../node_modules/.bin/tsx', import.meta.url))} ${fileURLToPath(new URL('../scripts/day-evaluated.ts', import.meta.url))}`
+/** P1605: bound to this server's day dir (the launcher's env is near-empty), shell-quoted. */
+export const evaluatedCli = (dir: string) => `${EVALUATED_BASE} --dir '${dir.replace(/'/g, `'\\''`)}'`
 
 // Read at request time (not module load) so tests and embedders can flip it.
 export function dayDir(): string | null {
@@ -380,7 +383,7 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
           ? res.status(409).json({ error: 'This was already sent to a terminal', reason: 'already-sent' })
           : res.status(409).json({ error: 'Nothing to send', reason: 'nothing' })
       }
-      const prompt = buildPrompt(latest.report, view, sent.items, sent.lastAt, { ledger, cli: STORY_CLI })
+      const prompt = buildPrompt(latest.report, view, sent.items, sent.lastAt, { ledger, cli: STORY_CLI, evaluatedCli: evaluatedCli(dir) })
       const id = collectionHash(prompt + now.toISOString())
       const base = { kind: 'sent', id, run_id: latest.report.pass_id, target: collectionHash(prompt) }
       await appendLine(dir, { ...base, state: 'pending', items: collectedKeys(c), count: c.count })
@@ -432,7 +435,7 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       const ledger = ledgerFor(dir, latest.statements)
       res.json({
         run_id: latest.report.pass_id,
-        prompt: buildPrompt(latest.report, view, sent.items, sent.lastAt, { ledger, cli: STORY_CLI }),
+        prompt: buildPrompt(latest.report, view, sent.items, sent.lastAt, { ledger, cli: STORY_CLI, evaluatedCli: evaluatedCli(dir) }),
         count: collect(view, sent.items, ledger).count,
         lastSentAt: sent.lastAt ?? null,
       })
