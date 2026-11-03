@@ -1,16 +1,16 @@
 ---
-status: today
+status: all-done
 type: story
 rank: 87
 workstream: events
 created_date: '2026-11-03'
 tags: [events, privacy, rls]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
+completed_at: 2026-11-03
 ---
 
 # P1603: Hidden events, visible only with the link
@@ -87,7 +87,7 @@ Blast radius: high, it changes who may read the events table, which most event p
 
 ## Cost Budget
 
-Matches [metered-services.md](../docs/technical/metered-services.md): the design adds a request on a hidden page view, a function call per page, and test traffic. Registry rows used: Supabase (REST requests, egress); the active TEST server is self-hosted, so the free-plan limits bind only on the hosted fallback.
+Matches [metered-services.md](../../../docs/technical/metered-services.md): the design adds a request on a hidden page view, a function call per page, and test traffic. Registry rows used: Supabase (REST requests, egress); the active TEST server is self-hosted, so the free-plan limits bind only on the hosted fallback.
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
@@ -122,5 +122,5 @@ All accepted for this release; each is a design choice, not an oversight.
 ## Related
 
 - Supersedes the rule in decisions.md "An event row exists only when a real, dated, public session is confirmed. There is no draft/hidden status" for hidden events only; the rest stands.
-- [P1461](p1461_clarity_chat_channel_members_settings.md): invite-only channels, a separate surface.
-- [P1596](done/2026-06-10/p1596_event_transcripts_one_speaker_per_sentence.md): the friends test this unblocks.
+- [P1461](../../p1461_clarity_chat_channel_members_settings.md): invite-only channels, a separate surface.
+- [P1596](p1596_event_transcripts_one_speaker_per_sentence.md): the friends test this unblocks.
