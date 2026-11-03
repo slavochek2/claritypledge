@@ -8,7 +8,7 @@
       "create-and-open-letter": "a831f562ffed9edaf8c839c39f854c082b763ca632ac18ec40a84c6b98fb4d15",
       "create-and-sign": "4cbaaaf94b8e5f015e48e4068ed9c0a184ca5c9c2952864e7be939ecf05ab43f",
       "dispatch-event-emails": "3e5c43c1bc582badfd2af405d3d68b7e42989cabef4e2abe0ffa0fc9475b2498",
-      "enqueue-room-transcription": "5ce9464d0afa5cd5ebdb7ad2fc1cbb0d00d96bb56833dc772ef6c487c4be47b2",
+      "enqueue-room-transcription": "dcb1725b08ab1e88b73795361f30d19db72ef63d8a4911a348723d4ef0ccd4e4",
       "enqueue-transcription": "a65c318212638ea237f0fd7a6ee94a8056b8de1b964c6ec7328e545d230eb252",
       "event-email-link": "8c6a9677bfefc62f9db4789b59ba982bdcfa8eb36f03cf3180016bb79769163c",
       "explain-back-signed-url": "d32ba8c3c71c36d17f6dc2526e138376d7a83a1ac3dbc2c8bd91b713863829a5",
@@ -19,14 +19,14 @@
       "generate-story-image-url": "f73ca62d28eca3e61b7a04820cf69a70670f4b3292af0035ae3ed3e354dcb2fc",
       "mirror-portrait": "5b28d8de4546e81aab534bb1ba629753c3a96cab02749b49655148e391b6b54b",
       "mirror-reply": "f4471726733602f5930afc82864b73f5a7a140997957e0eee921ee4e406a1cd6",
-      "request-letter-response-signin": "231ec3b1d5f5e915f4952ba622f169f3a1428d4dae5014bde50642e60bdf82eb",
+      "request-letter-response-signin": "e772b711d9984f89d874f3d003fca1835f4afd161b1d006b4a97f96a6629bdbf",
       "send-agreement-emails": "77d97e2722c657c6275d636dd026a1b5f6be9ed49bb795591445953bfa9627c6",
       "send-event-emails": "663e0947142de2c2298ff5008a21871636807b6513e9ebb16b511aed943e2821",
       "send-letter-emails": "f97d80b680333f6cee643591bb04d12f1f77a832ebeb437feb02b53956a472d9",
       "transcribe-clip": "82bd8ba8c0213952f704f8a54671d1249f01b2487902cc98ae6bc7e4eaefda15",
-      "transcribe-slice": "311a4bd82efd154a3ea60009ef45831454e2e4e4f02ef29a629241ad95ffd374"
+      "transcribe-slice": "717e7d7d4f05a3ccaf67e81c20f8d6cd3707dc1ce1a092b361c0628eeb57d516"
     },
-    "functions_deployed_at": "2026-10-26T10:24:27Z",
+    "functions_deployed_at": "2026-11-03T03:38:35Z",
     "migrations": [
       "20250101",
       "20250117",
