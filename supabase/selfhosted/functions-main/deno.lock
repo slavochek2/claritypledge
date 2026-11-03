@@ -1,0 +1,11 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@panva/jose@6.2.13": "6.2.13"
+  },
+  "jsr": {
+    "@panva/jose@6.2.13": {
+      "integrity": "3d19cd6b32defa75da782d2e845473d65b835d2bbc08aa471e1f37cfa305ab94"
+    }
+  }
+}

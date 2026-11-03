@@ -18,7 +18,7 @@
 //
 // Not reproduced from the hosted gateway: ES256/RS256 tokens (this server runs legacy HS256 keys
 // only; JWT_KEYS/JWT_JWKS are empty).
-import * as jose from 'jsr:@panva/jose@6'
+import * as jose from 'jsr:@panva/jose@6.2.13'
 
 console.log('main function started')
 
