@@ -8,7 +8,8 @@ import { BOX_DEFINITIONS, PRICE_GAP_QUESTION } from '../../supabase/functions/_s
 import { groundPriceTerms, priceLacksTerms, singularWord } from '../../supabase/functions/_shared/canvas-price';
 import { CANVAS_OWN_AI_PROMPT } from '../app/pages/chat/canvas-thread-copy';
 import { copyPromptSections } from '../../supabase/functions/_shared/canvas-copy-sections';
-import { normalizeForQuote } from '../../supabase/functions/_shared/canvas-source';
+import { assembleMaterial, normalizeForQuote } from '../../supabase/functions/_shared/canvas-source';
+import { parseDraft } from '../../supabase/functions/_shared/canvas-parse';
 import { executeRun, type CanvasRun, type RpcResult, type RunDeps } from '../../supabase/functions/_shared/canvas-run';
 import type { GeminiRequest } from '../../supabase/functions/_shared/mirror-agent';
 import type { Material, MaterialItem } from '../../supabase/functions/_shared/canvas-types';
@@ -448,5 +449,55 @@ describe('the reason "since you call them your focus" is checked against the own
     ['I help owners of cafés and their shops. My main business, and the one I am focusing on this year, is bookkeeping for independent cafe owners.'], // the S5.1 pack's sentence
   ])('stands when the owner says so: %s', async (trigger) => {
     expect(await firstLine('café owners', trigger)).toBe(`${NEUTRAL('café owners').slice(0, -1)}, since you call them your focus.`);
+  });
+});
+
+describe('review round: a price answers only for its own offer, through parseDraft', () => {
+  const PARSE_TAGS = BOX_DEFINITIONS.map((b) => b.tag);
+  const REV = PARSE_TAGS[4]!;
+  const gem = (o: unknown) => ({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(o) }] } }], usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 } });
+  function parse(ownerText: string, statement: string, base: { id: string; box: string; statement: string }[] = []) {
+    const material = assembleMaterial({ trigger: { text: ownerText }, links: [], files: [] } as never);
+    const o = parseDraft(gem({ scope: PARSE_TAGS, actions: [{ action: 'new', box: REV, statement, quote: ownerText.replace(/\.$/, '') }] }), { material, basePoints: base, baseLabel: null, otherNames: [], scope: { mode: 'fixed', boxes: PARSE_TAGS } });
+    if (!o.ok) throw new Error(o.code);
+    return o;
+  }
+  const statements = (o: ReturnType<typeof parse>) => o.actions.map((a) => (a.action === 'keep' ? '' : a.statement));
+
+  it('C1: another offer\'s cadence is not borrowed across a comma', () => {
+    const o = parse('Monthly support is 20 euros, setup costs 1500 euros.', 'Setup: 1500 euros per month.');
+    expect(statements(o)).toEqual(['Setup: 1500 euros.']);
+    expect(o.questions[REV]).toBe(PRICE_GAP_QUESTION);
+  });
+  it('C2: "a <unit>" after a price is a term, and unstated it comes out', () => {
+    const o = parse('It costs 1500 euros for setup.', 'Setup: 1500 euros a firm paid upfront.');
+    expect(statements(o)).toEqual(['Setup: 1500 euros.']);
+    expect(o.questions[REV]).toBe(PRICE_GAP_QUESTION);
+  });
+  it('C3: two priced offers in one sentence each keep their own stated terms', () => {
+    const o = parse('Setup costs 1500 euros and support is 20 euros per month.', 'Setup at 1500 euros and support at 20 euros per month.');
+    expect(statements(o)).toEqual(['Setup at 1500 euros and support at 20 euros per month.']);
+  });
+  it('C3b: an unstated term on the first offer comes out and the second offer stays', () => {
+    const o = parse('Setup costs 1500 euros and support is 20 euros per month.', 'Setup at 1500 euros per firm and support at 20 euros per month.');
+    expect(statements(o)).toEqual(['Setup at 1500 euros and support at 20 euros per month.']);
+  });
+  it('G1: a price point dropped whole still raises the question when the box already holds a point', () => {
+    const o = parse('Support is 20 euros per month. Setup costs 1500 euros.', 'Per firm setup: 1500 euros', [{ id: 'r1', box: REV, statement: 'Support: 20 euros per month' }]);
+    expect(o.droppedUnverified).toBe(1);
+    expect(o.questions[REV]).toBe(PRICE_GAP_QUESTION);
+  });
+  it('a label that was only ungrounded terms is not published as ": 1500 euros"', () => {
+    const o = parse('Support is 20 euros per month. Setup costs 1500 euros.', 'Monthly per firm: 1500 euros per month', [{ id: 'r1', box: REV, statement: 'Support: 20 euros per month' }]);
+    expect(statements(o).every((t) => !/^\s*[:;,-]/.test(t))).toBe(true);
+    expect(o.droppedUnverified).toBe(1);
+    expect(o.questions[REV]).toBe(PRICE_GAP_QUESTION);
+  });
+  it('G2: the owner\'s "per bonus" and "per campus" ground a model\'s plural, and houses/licenses/courses still do', () => {
+    expect(groundPriceTerms('Parking: 10 euros per bonuses.', owner('Parking is 10 euros per bonus.'))).toBe('Parking: 10 euros per bonuses.');
+    expect(groundPriceTerms('Parking: 10 euros per campuses.', owner('Parking is 10 euros per campus.'))).toBe('Parking: 10 euros per campuses.');
+    expect(groundPriceTerms('Rent: 10 euros per buses.', owner('Rent is 10 euros per bus.'))).toBe('Rent: 10 euros per buses.');
+    for (const w of ['house', 'license', 'course']) expect(groundPriceTerms(`Fee: 10 euros per ${w}s.`, owner(`Fee is 10 euros per ${w}.`))).toBe(`Fee: 10 euros per ${w}s.`);
+    expect(groundPriceTerms('Fee: 10 euros per bonuses.', owner('Fee is 10 euros per month.'))).toBe('Fee: 10 euros.');
   });
 });

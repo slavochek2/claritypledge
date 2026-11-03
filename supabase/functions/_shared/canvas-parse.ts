@@ -41,6 +41,8 @@ interface Acc {
   addressed: Set<string>;
   dropped: number;
   droppedUnverified: number;
+  /** A revenue point was left out because none of its price terms could be kept: the box asks, whatever else it holds. */
+  priceDropped: boolean;
   droppedNames: number;
   droppedScope: number;
   /** Actions refused because their box would hold more than the cap, or would hold the same words twice. */
@@ -70,7 +72,7 @@ const REVENUE = 'canvas:revenue';
 
 const newAcc = (): Acc => ({
   actions: [], decided: [], counts: { kept: 0, reworded: 0, moved: 0, added: 0, dropped: 0 },
-  addressed: new Set(), dropped: 0, droppedUnverified: 0, droppedNames: 0,
+  addressed: new Set(), dropped: 0, droppedUnverified: 0, priceDropped: false, droppedNames: 0,
   droppedScope: 0, droppedCap: 0, changed: new Set(),
 });
 
@@ -148,7 +150,7 @@ function intendWrite(acc: Acc, ctx: Ctx, act: 'reword' | 'new', a: Raw, old: Bas
   if (!isBox(box) || typeof a.statement !== 'string') return null;
   const cleaned = clean(a.statement, MAX_STATEMENT_CHARS);
   const statement = box === REVENUE ? groundPriceTerms(cleaned, ctx.priceWords.owner, ctx.priceWords.answer) : cleaned;
-  if (!statement) { if (cleaned) acc.droppedUnverified += 1; return null; } // nothing certain left of a price point: counted, and the box asks
+  if (!statement) { if (cleaned) { acc.droppedUnverified += 1; if (box === REVENUE) acc.priceDropped = true; } return null; } // nothing certain left of a price point: counted, and the box asks
   if (!ctx.scope.has(box) || (act === 'reword' && old && !ctx.scope.has(old.box))) { acc.droppedScope += 1; return null; }
   if (act === 'reword') {
     const kept = rewordAsKeep(acc, ctx, old, box, statement, idx);
@@ -300,7 +302,7 @@ export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {
     ok: true, actions: acc.actions, decided: acc.decided, counts: acc.counts, total: acc.actions.length, emptyBoxes,
     droppedUnverified: acc.droppedUnverified, droppedNames: acc.droppedNames + extras.droppedNames, costUsd: read.costUsd,
     scope, changedBoxes: changedBoxesOf(acc, ctx, pc.basePoints), droppedScope: acc.droppedScope + extras.droppedScope, droppedCap: acc.droppedCap,
-    focus: extras.focus, focusReason: extras.focusReason, otherCanvases: extras.otherCanvases, questions: scope.length ? withPriceGap(extras.questions, acc.actions, REVENUE, ctx.priceWords.owner) : {}, note: extras.note,
+    focus: extras.focus, focusReason: extras.focusReason, otherCanvases: extras.otherCanvases, questions: scope.length ? withPriceGap(extras.questions, acc.actions, REVENUE, ctx.priceWords.owner, acc.priceDropped) : {}, note: extras.note,
   };
 }
 

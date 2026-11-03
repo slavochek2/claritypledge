@@ -58,6 +58,20 @@ const MAX_PLACES = 50;
 const MAX_ANSWER_CHARS = 2000;
 const AFTER_ENDS = new RegExp(`[;.!?](?:\\s|$)|,\\s*(?!${RATE_START})|\\b(?:and|but)\\b`, 'iu');
 const unsaid = (s: string) => s.replace(NEGATED, ' ');
+/** A money amount in the owner's words ("1500 euros", "€20"). Another price ends a number's clause: its terms belong to that offer, not this one. */
+const MONEY_SOURCE = `(?:${CURRENCY}\\s*\\d[\\d.]*|\\d[\\d.]*\\s*${CURRENCY}(?![\\p{L}]))`;
+const MONEY = new RegExp(MONEY_SOURCE, 'giu');
+/** The text before a number, from the end of the nearest other price. */
+function sinceLastPrice(before: string): string {
+  let cut = 0;
+  for (const m of before.matchAll(MONEY)) cut = m.index + m[0].length;
+  return before.slice(cut);
+}
+/** The text after a number, up to the start of the next price. */
+function untilNextPrice(after: string): string {
+  const m = new RegExp(MONEY_SOURCE, 'iu').exec(after);
+  return m ? after.slice(0, m.index) : after;
+}
 
 /** Each place the number stands: the clause before it and after it, and the next sentence when that sentence is about it ("It is per firm."). A negated term is taken out of all three. */
 function placesOf(n: string, text: string): Place[] {
@@ -65,8 +79,8 @@ function placesOf(n: string, text: string): Place[] {
   for (const m of text.matchAll(new RegExp(at(n), 'g'))) {
     if (out.length >= MAX_PLACES) break;
     const rest = text.slice(m.index + n.length, m.index + n.length + CLAUSE_CHARS);
-    const after = rest.split(AFTER_ENDS)[0] ?? '';
-    const before = text.slice(Math.max(0, m.index - CLAUSE_CHARS), m.index).split(/[;.!?](?:\s|$)|\b(?:and|but)\b/).pop() ?? '';
+    const after = untilNextPrice(rest).split(AFTER_ENDS)[0] ?? '';
+    const before = sinceLastPrice(text.slice(Math.max(0, m.index - CLAUSE_CHARS), m.index)).split(/[;.!?](?:\s|$)|\b(?:and|but)\b/).pop() ?? '';
     const next = /^[^.!?]*[.!?]\s+((?:it|that|this|which|the price)\b[^.!?\d]*)(?:[.!?]|$)/.exec(rest)?.[1] ?? '';
     out.push({ before: unsaid(before), after: unsaid(after), next: unsaid(next) });
   }
@@ -111,7 +125,9 @@ function termOf(raw: string): Term {
   const word = ABBREVIATED[t] ?? t;
   const period = Object.values(PERIODS).find((p) => p.includes(word));
   if (period) return { kind: 'period', noun: period[0] ?? word, adverbs: period.slice(1) };
-  return { kind: 'unit', form: wordForms(singularWord(word)) };
+  // "buses" is bus and "houses" is house: a word ending "ses" or "zes" is read both ways, so the owner's "per bus" or "per house" matches either.
+  const readings = /[sz]es$/.test(word) && !/sses$/.test(word) ? [word.slice(0, -1), word.slice(0, -2)] : [singularWord(word)];
+  return { kind: 'unit', form: `(?:${readings.map(wordForms).join('|')})` };
 }
 
 /** A sentence or an answer about the price: the loose forms only. */
@@ -164,7 +180,7 @@ function priceIn(clause: string, statement: string, owner: string): PricedClause
 
 const TOKEN = new RegExp(`,?\\s*(for\\s+each\\s+${WORD}|(?:per|every)\\s+(?!cent\\b)${WORD}|each(?:\\s+${WORD})?|/\\s*${WORD}|an?\\s+${WORD}|${PERIOD_ADVERBS}|${ONE_OFF}|once)(?![\\p{L}-])`, 'iuy');
 /** A term anywhere in a clause's tail. Not "a <word>": that is a term only straight after a price, where the chain reads it. */
-const TERM_IN_TAIL = new RegExp(`\\bper\\s+(?!cent\\b)${WORD}|\\bevery\\s+${WORD}|^\\s*/\\s*${WORD}|\\b(?:${ONE_OFF}|once)\\b|\\b(?:${PERIOD_ADVERBS})\\b|\\ban?\\s+(?:${PERIOD_NOUNS})\\b`, 'giu');
+const TERM_IN_TAIL = new RegExp(`^\\s*(?:${CURRENCY}\\s*)?an?\\s+${WORD}|\\bper\\s+(?!cent\\b)${WORD}|\\bevery\\s+${WORD}|^\\s*/\\s*${WORD}|\\b(?:${ONE_OFF}|once)\\b|\\b(?:${PERIOD_ADVERBS})\\b|\\ban?\\s+(?:${PERIOD_NOUNS})\\b`, 'giu');
 const TERM_IN_HEAD = new RegExp(`\\bper\\s+(?!cent\\b)${WORD}|\\b(?:${ONE_OFF})\\b|\\b(?:${PERIOD_ADVERBS})\\b`, 'giu');
 /** A clause with no price of its own: a cadence word there is an offer's name ("Yearly plan"), so only these answer for the price. */
 const TERM_NO_PRICE = new RegExp(`\\bper\\s+(?!cent\\b)${WORD}|\\b(?:${ONE_OFF}|once)\\b`, 'giu');
@@ -194,7 +210,7 @@ function cleanHead(head: string, states: (raw: string) => boolean): string | nul
     if (!removed.test(out)) return null;
     out = out.replace(removed, '');
   }
-  return out;
+  return out !== head && /^\s*[:;,-]/.test(out) ? null : out; // nothing but punctuation left ahead of the price: the label was the term, so the point cannot be published
 }
 
 /** A clause holding a price: what may stay of it. Null when nothing certain is left to publish. */
@@ -207,7 +223,8 @@ function cleanPriced(p: PricedClause, states: (raw: string) => boolean): string 
   return `${head}${p.price}${terms.every(states) ? p.tail : ''}`;
 }
 
-const CLAUSE_SEPARATOR = new RegExp(`(;\\s*|[.!?]\\s+|[.!?]$|,\\s+(?!${RATE_START}))`, 'iu');
+/** "Setup at 1500 euros and support at 20 euros per month": an "and" or "but" that opens another priced offer ends the clause, so each price answers for its own terms. */
+const CLAUSE_SEPARATOR = new RegExp(`(;\\s*|[.!?]\\s+|[.!?]$|,\\s+(?!${RATE_START})|\\s+(?:and|but|plus)\\s+(?=[^;.!?,]{0,120}?${MONEY_SOURCE}))`, 'iu');
 
 /** The clauses that stayed, each with the separator that stood before the next one that stayed, and the statement's own last mark. */
 function rejoin(kept: ReadonlyArray<string | null>, seps: readonly string[], statement: string): string {
@@ -272,7 +289,7 @@ export function priceWordsOf(owner: string, material: Material, laterRun: boolea
 }
 
 /** The questions, with the missing part asked for when a point this run wrote holds a price with no unit or cadence: the model's question about anything else gives way. */
-export function withPriceGap(questions: Record<string, string>, actions: readonly ResolvedAction[], box: string, owner: string): Record<string, string> {
-  const lacks = actions.some((a) => a.action !== 'keep' && a.box === box && priceLacksTerms(a.statement, owner));
+export function withPriceGap(questions: Record<string, string>, actions: readonly ResolvedAction[], box: string, owner: string, priceDropped = false): Record<string, string> {
+  const lacks = priceDropped || actions.some((a) => a.action !== 'keep' && a.box === box && priceLacksTerms(a.statement, owner));
   return lacks ? { ...questions, [box]: PRICE_GAP_QUESTION } : questions;
 }
