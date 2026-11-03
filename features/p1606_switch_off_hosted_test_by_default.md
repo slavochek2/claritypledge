@@ -72,12 +72,12 @@ Blast radius: every workflow that still reaches Test 2, including scheduled chec
 
 - [ ] Test 2 is paused, shown by a read of its status after the founder's click; the real paused response is pinned in the upkeep test fixture
 - [ ] With Test 2 paused, a day's scheduled checks raise no false alarm: the auth canary and `/day` run clean or say plainly what they no longer cover
-- [ ] A Playwright run, a dev server and `migrate.sh --env hosted-test` aimed at Test 2 each refuse with the message, exit non-zero and do not retry, with exit codes pasted (known-bad control)
-- [ ] The same three commands on the default self-hosted path pass unchanged (known-good control, epistemic gate 7c)
+- [x] A Playwright run, a dev server and `migrate.sh --env hosted-test` aimed at Test 2 each refuse with the message, exit non-zero and do not retry, with exit codes pasted (known-bad control)
+- [x] The same three commands on the default self-hosted path pass unchanged (known-good control, epistemic gate 7c)
 - [ ] The moved specs run on Test 3 and report passed, not skipped; a deliberately broken check makes at least one of them fail
 - [ ] An agent holding the service key gets no answer from Test 2 through any stored copy, proven by trying each copy against the paused project
 - [ ] The token permission check is recorded privately, and no remaining stored token can restore the project
-- [ ] The level-and-use recipe exists and names the two-line form; a first real run of it is not required
+- [x] The level-and-use recipe exists and names the two-line form; a first real run of it is not required
 - [ ] The founder decisions above are recorded in `docs/decisions.md`, including what changes in the `.env.local` ruling
 
 ## Alternatives Considered
@@ -94,3 +94,7 @@ Restore the project in the dashboard and revert the commits. The specs moved to 
 ## Related
 
 Promoted from the task inbox in part, 2026-11-03: the hosted TEST catch-up note stays open until this ships, because it is droppable only once Test 2 is retired. P1602 (warning, unlanded on its branch) · P1591 · P1557 · P1584 · P1538 · P1530 · P1132 · decisions.md 2026-10-29 "One default TEST server", 2026-10-21 "A Supabase project is rebuilt from a private schema dump"
+
+## Known limitations
+
+Review findings set aside, each read against the code: `CI` skips the guard, because no workflow targets Test 2 and silence there is by design. An unresolved active server lets a dev server or Playwright continue with a note, because the pause is the wall; writes through migrate and deploy refuse in that state. A Playwright flag that takes a separate value before the subcommand can misread which subcommand ran; on a hosted URL the worst case is a harmless refusal or one unguarded run against a paused project.
