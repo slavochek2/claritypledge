@@ -8,6 +8,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+
+## 2026-11-03 [process]: Why /day findings keep coming back after an answer
+
+**Context:** A /day fix session verified 9 items: 3 had already cleared, 1 was a false alarm on prod, and the test Gemini key appeared two days running.
+
+**Decision:** Record the cause. (1) The fingerprint is check + fault key or title, so one cause under a new label is a new issue: the test key was "past its alert budget" on 11-02 and "close to its spending cap" on 11-03, both from the same one-off P1596 benchmark. (2) By design only Park carries across runs; any other answer resurfaces. (3) Nothing records "cause known, accepted until X", and no /day step reads decisions.md before filing. (4) Status-only checks can file while the app they read is closed; a Beeper outage produced several cards. Mechanism change still to be decided by the founder.
+
+**Consequences:** Until then, a fix session must re-verify before acting. UNTESTED: falsifier is a month of runs with an accepted-until record where repeats do not fall.
+
 ## 2026-11-02 [technical]: Event room archive is 16 kHz WAV from the live PCM tap, not MediaRecorder
 
 **Context:** P1596's cleaned transcripts depend on every person's archive. In a founder test, a hidden Safari delayed MediaRecorder data, and its MP4 pieces were unreadable to the worker.

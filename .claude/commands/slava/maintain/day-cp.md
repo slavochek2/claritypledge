@@ -861,7 +861,7 @@ Usage page through the signed-in Chrome session. Load the Chrome tools with Tool
    page"), which returns each `href="/dashboard/org/<slug>"`. An organisation listed without a
    project count has no projects; skip it.
 2. For each organisation with projects, navigate to `https://supabase.com/dashboard/org/<slug>/usage`,
-   `get_page_text`, write the text to a temp file and run the parser (exit 0 ok, 1 problem, 2 not-run):
+   wait about 3 seconds (the rows load after the shell; an early read returns none and reads as `not-run`), then `get_page_text`, write the text to a temp file and run the parser (exit 0 ok, 1 problem, 2 not-run):
    `python3 "$(git rev-parse --show-toplevel)/scripts/supabase-usage-parse.py" "$TMP"`. Its `USAGE:` line
    is the detail; `ROW` lines name each metric; `BANNER:` and `PROJECTS:` are context.
    Keep every organisation's parser output for Monitoring (P1578): start the wave with `: > /tmp/day-supabase-usage.txt`,
