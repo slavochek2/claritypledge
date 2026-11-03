@@ -31,7 +31,7 @@ export async function createGcsSigner(key: GcsServiceAccountKey, bucket: string)
     .replace(/\s/g, '');
   const der = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
   const privateKey = await crypto.subtle.importKey(
-    'pkcs8', der.buffer, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'],
+    'pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'],
   );
   return { bucket, clientEmail: key.client_email, privateKey };
 }
