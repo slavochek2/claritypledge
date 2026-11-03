@@ -74,8 +74,10 @@ function untilNextPrice(after: string): string {
 }
 
 /** The sentence after a price counts only when it plainly refers back to it ("That is per shop", "It's monthly", "Per shop"), and its first words are the term: never "That includes monthly support". */
-const REFERS_BACK = new RegExp(`^\\s*(?:(?:it|that|this|which|the price)(?:'s)?(?:\\s+(?:is|are|was|will be|stays|remains|gets|comes|billed|charged|paid|priced))*\\s+)?(?:(?:billed|charged|paid|priced)\\s+)?(?:(?:for\\s+)?(?:per|each|every)\\s|(?:${PERIOD_ADVERBS}|${ONE_OFF}|once)\\b|an?\\s+(?:${PERIOD_NOUNS})\\b)`, 'iu');
-const referringSentence = (s: string) => (REFERS_BACK.test(s) ? s : '');
+const RATE_PHRASE = `(?:(?:for\\s+)?(?:per|each|every)\\s+${WORD}|(?:${PERIOD_ADVERBS}|${ONE_OFF}|once)\\b|an?\\s+(?:${PERIOD_NOUNS}|${ONE_OFF})\\b)`;
+const REFERS_BACK = new RegExp(`^\\s*(?:(?:it|that|this|which|the price)(?:'s)?(?:\\s+(?:is|are|was|will be|stays|remains|gets|comes|billed|charged|paid|priced))*\\s+)?(?:(?:billed|charged|paid|priced)\\s+)?${RATE_PHRASE}(?:,?\\s*(?:and\\s+)?${RATE_PHRASE})*`, 'iu');
+/** Only the span that refers back: what follows the rate phrase ("Per shop we also offer monthly support") is a different statement. */
+const referringSentence = (s: string) => REFERS_BACK.exec(s)?.[0] ?? '';
 
 /** Each place the number stands: the clause before it and after it, and the next sentence when that sentence is about it ("It is per firm."). A negated term is taken out of all three. */
 function placesOf(n: string, text: string): Place[] {
@@ -151,8 +153,9 @@ function termAtPlace(term: Term, p: Place): boolean {
 }
 
 /** The words that name an offer: its label ahead of the price, without the terms and the little words. */
-function labelWords(label: string): string[] {
-  return (label.toLowerCase().match(/\p{L}{3,}/gu) ?? []).filter((w) => !/^(?:per|each|every|once|the|and|for|with|monthly|yearly|weekly|daily|annual|annually|quarterly|hourly|one|off|time|fees?|prices?|pricing|costs?|charges?|rates?|plans?|packages?|services?|payments?)$/.test(w));
+function labelWords(label: string, termRaw: string): string[] {
+  const own = termRaw.toLowerCase().match(/\p{L}{3,}/gu) ?? []; // the term's own words are not the offer's name
+  return (label.toLowerCase().match(/\p{L}{3,}/gu) ?? []).filter((w) => !own.some((t) => w.startsWith(t) || t.startsWith(w))).filter((w) => !/^(?:per|each|every|once|the|and|for|with|monthly|yearly|weekly|daily|annual|annually|quarterly|hourly|one|off|time|fees?|prices?|pricing|costs?|charges?|rates?|plans?|packages?|services?|payments?)$/.test(w));
 }
 
 /**
@@ -166,7 +169,7 @@ function ownerStates(raw: string, price: string, owner: string, answer: string, 
   const holds = places.filter((p) => termAtPlace(term, p));
   if (!holds.length) return false;
   if (holds.length === places.length) return true;
-  const words = labelWords(label);
+  const words = labelWords(label, raw);
   return words.length > 0 && holds.some((p) => words.every((w) => new RegExp(`\\b${escapeWord(w)}`, 'iu').test(`${p.before} ${p.after}`)));
 }
 
@@ -275,7 +278,7 @@ export function groundPriceTerms(statement: string, owner: string, answer = ''):
     const p = prices[i];
     if (p) return cleanPriced(p, (raw) => ownerStates(raw, p.plain, o, answer, p.head));
     const terms = [...c.matchAll(TERM_NO_PRICE)].map((m) => m[0]);
-    return terms.every((raw) => ownerStates(raw, first, o, answer, c)) ? c : '';
+    return terms.every((raw) => ownerStates(raw, first, o, answer)) ? c : '';
   });
   return kept.includes(null) ? '' : rejoin(kept, seps, statement);
 }

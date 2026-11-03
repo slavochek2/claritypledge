@@ -506,6 +506,11 @@ describe('review round: a price answers only for its own offer, through parseDra
   it.each([
     ['a cadence in another comma clause is not the price\'s', 'Setup: 1500 euros per month.', 'we offer monthly support, setup costs 1500 euros.', 'Setup: 1500 euros.'],
     ['control: "each pays" after a comma keeps the unit, a cadence clause still does not cross', 'Retainer: 900 euros per agency; Setup: 1500 euros per month.', 'three agencies, each pays 900 euros. we offer monthly support, setup costs 1500 euros.', 'Retainer: 900 euros per agency; Setup: 1500 euros.'],
+    ['only the rate phrase of the next sentence counts, not what follows it', 'Setup: 1500 euros per month.', 'setup costs 1500 euros. per shop we also offer monthly support.', 'Setup: 1500 euros.'],
+    ['a term cannot be its own label', 'Setup: 500 euros. Per month.', 'setup costs 500 euros. support costs 500 euros per month.', 'Setup: 500 euros.'],
+    ['a term cannot be its own label, as a head', 'Per month: 500 euros', 'setup costs 500 euros. support costs 500 euros per month.', ''],
+    ['control: "That is per shop"', 'Fee: 180 euros per shop.', 'it costs 180 euros. that is per shop.', 'Fee: 180 euros per shop.'],
+    ['control: "Per shop."', 'Fee: 180 euros per shop.', 'it costs 180 euros. per shop.', 'Fee: 180 euros per shop.'],
     ['a generic word ("fee") does not make two offers one', 'Setup fee: 500 euros per month.', 'setup fee costs 500 euros. support fee costs 500 euros per month.', 'Setup fee: 500 euros.'],
     ['control: forward "per shop, per month" passes', 'Fee: 180 euros per shop per month.', 'it costs 180 euros per shop, per month.', 'Fee: 180 euros per shop per month.'],
     ['control: a term in the same comma-free clause', 'Fee: 20 euros monthly.', 'the monthly fee is 20 euros.', 'Fee: 20 euros monthly.'],
