@@ -172,6 +172,15 @@ Monthly books: 180 euros per shop per month; 6 shops pay this today.
 My next milestone
 I aim for 10 shops paying by 31 March 2027.
 
+Guiding values
+Not known yet.
+
+My current biggest challenge
+Not known yet.
+
+Hypotheses I've falsified
+Not known yet.
+
 This canvas is about marketing agencies with 10 to 40 staff.
 
 Customer Segments
@@ -190,7 +199,16 @@ Offers & Pricing
 Invoice chasing retainer: 900 euros per month; one quote sent, nobody has signed yet.
 
 My next milestone
-I aim for 3 agencies signed by 30 June 2027.`;
+I aim for 3 agencies signed by 30 June 2027.
+
+Guiding values
+Not known yet.
+
+My current biggest challenge
+Not known yet.
+
+Hypotheses I've falsified
+Not known yet.`;
 
 async function boxS25(repeat: number, out: (r: any) => void): Promise<void> {
   const t = { pairs: 0, focusIsSection1: 0, section2Offered: 0, sec1CustomerPointsAboutAgencies: 0, forkDone: 0, forkAgencies: 0, forkCafeInCustomerBoxes: 0, forkOffers: [] as string[][] };

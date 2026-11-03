@@ -29,6 +29,7 @@ import { draftReplyOf, offersToAdd } from './canvas-run-reply.ts';
 import type { LinkResult } from './canvas-material.ts';
 import { frameOf, scopeOf } from './canvas-frame.ts';
 import { withCopySections } from './canvas-copy-sections.ts';
+import { derivedNames, namesMatcher } from './canvas-names.ts';
 import { gatherLinks, ownerItems, textOf, toCopies, triggerOf } from './canvas-thread.ts';
 import type { ModelCaller } from './canvas-model.ts';
 import type { BasePoint, Material, MaterialInput } from './canvas-types.ts';
@@ -206,7 +207,7 @@ async function runDraft(s: Step): Promise<RunSummary> {
   const { run } = s;
   const baseLabel = run.base_label ?? null;
   const basePoints = run.draft_points;
-  const frame = withCopySections(frameOf(run, s.kind), s.material);
+  const frame = withCopySections(frameOf(run, s.kind), s.material, namesMatcher(run.other_names, derivedNames(s.material, run.owner_name)));
   const fit = await fitOrFail(s, (cap) => {
     const material = assembleMaterial(s.input, cap);
     return { material, request: buildDraftRequest({ material, basePoints, baseLabel, frame }) };
