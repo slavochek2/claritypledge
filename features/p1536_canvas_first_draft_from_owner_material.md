@@ -1471,7 +1471,7 @@ it."
   - Log ingestion on hosted TEST cannot be checked: the registry row gives no ingestion figure (P1530 reads it from the
     dashboard). So the live suite runs on the self-hosted server by default, and a hosted-TEST run stays opt-in until
     P1530 supplies the limit.
-- The real-model evals (S1.9, S2.2) run on hosted TEST with the canvas test key: 21 packs × 3 runs × 2 prompts + 10 packs ≈ 136 runs, inside the raised test cap (F3).
+- The real-model evals (S1.9, S2.2) ran on hosted TEST with the canvas test key: 21 packs × 3 runs × 2 prompts + 10 packs ≈ 136 runs, inside the raised test cap (F3).
 
 ## Solution
 
@@ -1879,9 +1879,7 @@ reviewers reproduced but that is exotic or costs more than it saves now.
 - **The question round is gone from the engine, not from the database (v3, 2026-10-28):** `_canvas_draft_run_begin`
   still accepts a tensions run and `_canvas_draft_tensions_complete` still exists. Both are service-role only and no
   code calls them; an old tab that asks for the slow speed gets a normal draft. Remove them in a later migration.
-- **Self-hosted TEST has canvas drafting off:** the founder's rule keeps paid AI keys off the self-hosted test server
-  (P1557), and its secrets push replaces the server's whole secrets file from a Mac copy that does not exist, so the
-  canvas secrets were not added there. Real-AI drafting and the integration suite run on hosted TEST.
+- **Self-hosted TEST had no canvas secrets until 2026-11-03:** they were never added. No rule prevented it: decisions.md 2026-10-29 allows TEST-only AI keys on that server. Add secrets to the server's function env file directly; `deploy-functions.sh --secrets` replaces the whole file from a Mac copy that does not exist. Testing for this feature moved to self-hosted on the founder's decision, 2026-11-03.
 
 ## Related
 
