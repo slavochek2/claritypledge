@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 90
 workstream: infrastructure
 created_date: '2026-11-03'
 tags: [testing, self-hosted, supabase, guard]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-03
 ---
 
 # P1606: Switch hosted TEST off by default; switching it on is an explicit founder decision
