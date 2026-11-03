@@ -163,3 +163,4 @@ scripts/.trusted-ship-gates.sh
 # P1519: per-slot hold written by `git-ops.sh hold` (never committed)
 .hold
 .hold.*
+test-results-loadtest-*/

@@ -10,20 +10,35 @@
  * taken at config load in the main runner only (workers, --list, --ui and CI skip it), and released
  * when that process exits, which is after global teardown and its user sweep.
  *
+ * P1607: hosted TEST keeps this one-run-at-a-time lock unchanged. The self-hosted server instead admits
+ * a fixed number of runs at once (scripts/lib/e2e-slot-lock.mjs); a run that touches server-wide state
+ * takes the whole server. guardTestDbRun picks between the two with lockPlan.
+ *
  * The lock is a directory (mkdir is atomic) in the git common dir, so every worktree of this repository
  * shares it. A separate clone of the repository has its own lock and is not held off (P1572: no such
  * clone exists here; moving the lock would let old and new checkouts run at once during the switch).
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { testRefForUrl, SELFHOSTED_TEST_REF } from './test-target.mjs';
+import {
+  processStart, readOwner, isStale, describeOwner, tryAcquire, reclaim, sleepSync,
+} from './e2e-lock-primitives.mjs';
+import { slotPaths, slotLimit, acquireSlot, otherRunsLive } from './e2e-slot-lock.mjs';
+import { detectForArgv } from './e2e-exclusive-specs.mjs';
+import { NOT_A_RUN } from './hosted-test-guard.mjs';
+
+// Older importers (tests, other worktrees' copies of callers) keep importing these from here.
+export { isStale, describeOwner, reclaim };
 
 export const LOCK_WAIT_EXIT_CODE = 75; // EX_TEMPFAIL: try again later, not an app failure
 const LOCK_NAME = 'e2e-test-db.lock';
 // P1557: one lock per database. Hosted TEST keeps the name every session already uses; the
 // self-hosted server is a different database, so its runs never queue behind hosted ones.
-const SELFHOSTED_LOCK_NAME = 'e2e-test-db-selfhosted.lock';
+// P1607: this name is now the "whole server" gate of the slot lock (see e2e-slot-lock.mjs), kept so
+// worktrees still running the older script keep waiting for newer runs.
 const DEFAULT_WAIT_MS = 10 * 60_000;
 const POLL_MS = 5_000;
 const REPORT_EVERY_MS = 30_000;
@@ -35,7 +50,10 @@ export function lockSkipReason({ argv = process.argv, env = process.env, isTestD
   if (env.CI) return 'CI runs on its own machine';
   if (!isTestDb) return 'not the TEST database';
   const args = argv.slice(2);
-  if (args[0] !== 'test') return 'not a test run'; // `test` is a subcommand, never the default (Playwright 1.64)
+  // `test` is a subcommand, never the default (Playwright 1.64). Global flags may stand before it
+  // (`playwright -c x test ...`): any doubt means it is a run, because a run that skips the lock overlaps unseen.
+  const sub = args.find(a => !a.startsWith('-'));
+  if (sub !== 'test' && !(args.includes('test') && !NOT_A_RUN.has(sub))) return 'not a test run';
   for (const flag of ['--list', '--ui', '--help', '-h', '--ui-host', '--ui-port']) {
     if (args.some(a => a === flag || a.startsWith(`${flag}=`))) return `${flag} never takes the lock`;
   }
@@ -57,91 +75,59 @@ export function parseWaitMs(value) {
 }
 
 export function lockDirFor(repoDir, url, env = process.env) {
-  const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: repoDir })
+  const plan = lockPlan(repoDir, url, env);
+  return plan.mode === 'slots' ? plan.paths.legacy : plan.dir;
+}
+
+/**
+ * E2E_SLOT_LOCK_BASE (with E2E_SLOT_LOCK_PROOF=<what is proved>) moves the self-hosted slot lock to another
+ * directory, for proving the lock between two checkouts without touching the real lock directory. Only a directory that already exists under the
+ * operating system's temp directory is accepted, and anything else throws, so it cannot be pointed at (or
+ * away from) the real lock. Hosted TEST never reads it. The override is announced on stderr.
+ */
+export function slotLockBase(common, env = process.env) {
+  const raw = env.E2E_SLOT_LOCK_BASE;
+  if (!raw) return common;
+  if (!env.E2E_SLOT_LOCK_PROOF || !env.E2E_SLOT_LOCK_PROOF.trim()) {
+    throw new Error('[P1607] E2E_SLOT_LOCK_BASE is for proving the lock between checkouts and needs E2E_SLOT_LOCK_PROOF=<what is being proved>');
+  }
+  let real;
+  try { real = fs.realpathSync(raw); } catch { throw new Error(`[P1607] E2E_SLOT_LOCK_BASE ${raw} does not exist`); }
+  const roots = [os.tmpdir(), '/tmp', '/private/tmp'].flatMap(r => { try { return [fs.realpathSync(r)]; } catch { return []; } });
+  if (!roots.some(r => real === r ? false : real.startsWith(r + path.sep))) {
+    throw new Error(`[P1607] E2E_SLOT_LOCK_BASE must be an existing directory under the temp directory, got ${real}`);
+  }
+  if (!fs.statSync(real).isDirectory()) throw new Error(`[P1607] E2E_SLOT_LOCK_BASE ${raw} is not a directory`);
+  process.stderr.write(`[P1607] slot lock base overridden for a test: ${real} (the real lock directory is not used)\n`);
+  return real;
+}
+
+/** Hosted TEST: one lock directory. Self-hosted: slot paths (P1607). Both live in the git common dir. */
+export function lockPlan(repoDir, url, env = process.env) {
+  const gitCommon = () => execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: repoDir, stdio: ['ignore', 'pipe', 'ignore'] })
     .toString().trim();
-  const name = testRefForUrl(url, env) === SELFHOSTED_TEST_REF ? SELFHOSTED_LOCK_NAME : LOCK_NAME;
-  return path.join(common, name);
-}
-
-function processStart(pid) {
-  try {
-    return execFileSync('ps', ['-p', String(pid), '-o', 'lstart='], { stdio: ['ignore', 'pipe', 'ignore'] })
-      .toString().trim() || null;
-  } catch {
-    return null;
+  if (testRefForUrl(url, env) === SELFHOSTED_TEST_REF) {
+    // A test checkout that is not a git repository needs no git directory when the base is overridden.
+    return { mode: 'slots', paths: slotPaths(env.E2E_SLOT_LOCK_BASE ? slotLockBase(null, env) : gitCommon()) };
   }
-}
-
-function readOwner(dir) {
-  try {
-    return JSON.parse(fs.readFileSync(path.join(dir, 'owner.json'), 'utf8'));
-  } catch {
-    return null;
-  }
-}
-
-const OWNERLESS_GRACE_MS = 10_000;
-
-/** Is the process alive? EPERM means it exists but we may not signal it: alive, never "gone". */
-function isAlive(pid) {
-  try { process.kill(pid, 0); return true; } catch (err) { return err.code === 'EPERM'; }
+  return { mode: 'single', dir: path.join(gitCommon(), LOCK_NAME) };
 }
 
 /**
- * A lock is stale only when its owner has ended: the process is gone, or its PID now belongs to a
- * different process (start time differs). There is no age limit: a live run is never evicted
- * (Codex review), so a hung run makes waiters give up and name it rather than overlap it. When the
- * start time cannot be read, the owner counts as alive: in doubt, wait.
- * A lock with no readable owner is stale only once it is older than a grace window: the owner
- * file is written inside the directory before it is published, so a missing one means a crash.
+ * Decision 6: who else is on the server right now, as a list of descriptions (empty = nobody). The
+ * older-leftovers sweep deletes users other runs may still be using, so it runs only when this is empty.
+ * Fails safe: when the lock state cannot be read, the answer is "someone", so the sweep is skipped.
  */
-export function isStale(owner, { alive = isAlive, startOf = processStart, dirAgeMs = Infinity } = {}) {
-  if (!owner || !owner.pid) return dirAgeMs > OWNERLESS_GRACE_MS;
-  if (!alive(owner.pid)) return true;
-  const start = startOf(owner.pid);
-  return !!start && !!owner.processStart && start !== owner.processStart;
-}
-
-export function describeOwner(owner, now = Date.now()) {
-  if (!owner) return 'an unknown run';
-  const mins = Math.max(0, Math.round((now - owner.acquiredAt) / 60_000));
-  return `${owner.worktree} (${owner.branch}, pid ${owner.pid}, running ${mins} min)`;
-}
-
-/**
- * Publish a fully written lock atomically: build it in a private sibling directory, then rename it
- * into place. rename(2) onto an existing non-empty directory fails, so exactly one run wins, and no
- * one ever sees the lock without its owner file.
- */
-function tryAcquire(dir, me) {
-  const staging = `${dir}.${process.pid}.${Date.now()}.tmp`;
-  fs.mkdirSync(staging);
-  fs.writeFileSync(path.join(staging, 'owner.json'), JSON.stringify(me));
+export function sweepBlockers({ repoDir, url, env = process.env, pid = process.pid, now = Date.now }) {
+  if (env.CI) return []; // CI runs on its own machine
+  if (env.E2E_LOADTEST) return ['a load-test run (other runs on this server are not tracked)'];
   try {
-    fs.renameSync(staging, dir);
-    return true;
+    const plan = lockPlan(repoDir, url, env);
+    if (plan.mode === 'single') return []; // hosted TEST: one run at a time, and it is this one
+    return otherRunsLive(plan.paths, { pid, now });
   } catch (err) {
-    fs.rmSync(staging, { recursive: true, force: true });
-    if (err.code === 'ENOTEMPTY' || err.code === 'EEXIST' || err.code === 'ENOTDIR') return false;
-    throw err;
+    return [`the lock state could not be read (${err.message})`];
   }
-}
-
-const sameOwner = (a, b) => !!a && !!b && a.pid === b.pid && a.acquiredAt === b.acquiredAt;
-
-/**
- * Take a stale lock out of the way without touching a lock someone else took meanwhile: move it
- * aside (atomic, only one mover wins), then check that what moved is the lock judged stale. If a
- * fresh lock was moved by mistake, put it back.
- */
-export function reclaim(dir, stale) {
-  const trash = `${dir}.${process.pid}.${Date.now()}.stale`;
-  try { fs.renameSync(dir, trash); } catch { return; } // someone else moved or released it first
-  const moved = readOwner(trash);
-  if (stale && !sameOwner(moved, stale)) {
-    try { fs.renameSync(trash, dir); return; } catch { /* a new lock is already in place; ours stays trashed */ }
-  }
-  fs.rmSync(trash, { recursive: true, force: true });
 }
 
 export function release(dir, pid = process.pid) {
@@ -150,10 +136,6 @@ export function release(dir, pid = process.pid) {
   fs.rmSync(dir, { recursive: true, force: true });
   return true;
 }
-
-// Synchronous on purpose: the guard runs at config load, and a top-level await breaks every tool
-// that loads playwright.config.ts as CommonJS (Vite's loader in p1480-worktree-ports.test.ts).
-const sleepSync = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
 /**
  * Wait for the lock, bounded. Returns true when held; false when the wait ran out.
@@ -211,41 +193,79 @@ export function probeTestDb(url, anonKey, { attempts = 3, timeoutMs = 8_000, gap
   return { ok: false, reason: last };
 }
 
-/** Called from playwright.config.ts. Exits the process (code 75) rather than run against a full DB. */
-export function guardTestDbRun({ repoDir, isTestDb, url, anonKey, env = process.env, argv = process.argv }) {
+/**
+ * Called from playwright.config.ts. Exits the process (code 75) rather than run against a full DB.
+ * `probe`, `exit`, `detect` and `register` are test seams; the config passes none of them.
+ */
+export function guardTestDbRun({
+  repoDir, isTestDb, url, anonKey, env = process.env, argv = process.argv, port,
+  probe = probeTestDb, exit = code => process.exit(code), detect = detectForArgv, register = true,
+}) {
   const skip = lockSkipReason({ argv, env, isTestDb });
   if (skip) return { skipped: skip };
-  const dir = lockDirFor(repoDir, url, env);
+  const plan = lockPlan(repoDir, url, env);
   const branch = (() => {
     try { return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: repoDir }).toString().trim(); } catch { return '?'; }
   })();
   const me = {
     pid: process.pid, processStart: processStart(process.pid), acquiredAt: Date.now(),
-    worktree: path.basename(repoDir), branch,
+    worktree: path.basename(repoDir), branch, port,
   };
   const waitMs = parseWaitMs(env.E2E_TEST_DB_LOCK_WAIT_MS);
-  const held = acquire(dir, me, { waitMs });
-  if (!held) {
-    console.error(`[P1541][infra] TEST database is in use by ${describeOwner(readOwner(dir))}; gave up after ${Math.round(waitMs / 1000)}s. ` +
-      'Not an app failure. Retry later, run the command in the background, or raise E2E_TEST_DB_LOCK_WAIT_MS.');
-    process.exit(LOCK_WAIT_EXIT_CODE);
+  let release_ = () => {};
+  let extra = {};
+  let heldDesc = '';
+  if (plan.mode === 'slots') {
+    const limit = slotLimit(env);
+    const det = detect({ repoDir, argv: argv.slice(2), env });
+    if (det.exclusive) {
+      const why = det.forced ? `${'E2E_SELFHOSTED_EXCLUSIVE'} is set`
+        : det.error ? `the run's specs could not be listed (${det.error}), so it is treated as server-wide`
+          : `it covers ${det.serverWideFiles.length} server-wide spec(s): ${det.serverWideFiles.slice(0, 4).map(f => path.relative(repoDir, f)).join(', ')}${det.serverWideFiles.length > 4 ? ', ...' : ''}`;
+      console.log(`[P1607] this run takes the whole self-hosted server and runs alone: ${why}`);
+    }
+    const handle = acquireSlot(plan.paths, me, { limit, exclusive: !!det.exclusive, waitMs });
+    if (!handle.held) {
+      console.error(`[P1607][infra] the self-hosted TEST server is in use by ${handle.blockers.join('; ') || 'another run'}; gave up after ${Math.round(waitMs / 1000)}s. ` +
+        'Not an app failure. Retry later, run the command in the background, or raise E2E_TEST_DB_LOCK_WAIT_MS.');
+      exit(LOCK_WAIT_EXIT_CODE);
+      return { gaveUp: true };
+    }
+    release_ = () => handle.release();
+    extra = { exclusive: !!det.exclusive, serverWideFiles: det.serverWideFiles ?? [], unknown: !!det.unknown, slot: handle.slot };
+    heldDesc = det.exclusive ? 'whole server' : `slot ${handle.slot} of ${limit}`;
+  } else {
+    const held = acquire(plan.dir, me, { waitMs });
+    // Hosted TEST is one run at a time already; the detection here only feeds the one-worker project for the
+    // server-wide specs inside this run (decision 2).
+    if (held) { const det = detect({ repoDir, argv: argv.slice(2), env }); extra = { serverWideFiles: det.serverWideFiles ?? [], unknown: !!det.unknown }; }
+    if (!held) {
+      console.error(`[P1541][infra] TEST database is in use by ${describeOwner(readOwner(plan.dir))}; gave up after ${Math.round(waitMs / 1000)}s. ` +
+        'Not an app failure. Retry later, run the command in the background, or raise E2E_TEST_DB_LOCK_WAIT_MS.');
+      exit(LOCK_WAIT_EXIT_CODE);
+      return { gaveUp: true };
+    }
+    release_ = () => release(plan.dir);
+    heldDesc = 'lock';
   }
   env.E2E_TEST_DB_LOCK_HELD = String(process.pid); // only while this process lives (see heldBy)
   // No signal handlers: Playwright handles Ctrl-C itself so teardown runs, then exits, which fires
   // this. A run killed outright leaves the lock behind, and isStale reclaims it (owner gone).
-  process.on('exit', () => release(dir));
+  if (register) process.on('exit', () => release_());
 
   // E2E_TEST_DB_PROBE_URL exists only to prove the overloaded path against a host that never answers.
-  const probe = probeTestDb(env.E2E_TEST_DB_PROBE_URL || url, anonKey);
-  if (!probe.ok && probe.config) {
-    console.error(`[P1541] TEST database refused the request (${probe.reason}): check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. ` +
+  const result = probe(env.E2E_TEST_DB_PROBE_URL || url, anonKey);
+  if (!result.ok && result.config) {
+    console.error(`[P1541] TEST database refused the request (${result.reason}): check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. ` +
       'A configuration error, not overload: fix it before running again.');
-    process.exit(1);
+    exit(1);
+    return { gaveUp: true };
   }
-  if (!probe.ok) {
-    console.error(`[P1541][infra] TEST database is overloaded (${probe.reason}); not running the suite. Not an app failure.`);
-    process.exit(LOCK_WAIT_EXIT_CODE);
+  if (!result.ok) {
+    console.error(`[P1541][infra] TEST database is overloaded (${result.reason}); not running the suite. Not an app failure.`);
+    exit(LOCK_WAIT_EXIT_CODE);
+    return { gaveUp: true };
   }
-  console.log(`[P1541] e2e lock held by ${me.worktree} (${branch}); TEST database answered in ${probe.ms}ms`);
-  return { held: true };
+  console.log(`[P1541] e2e ${heldDesc} held by ${me.worktree} (${branch}); TEST database answered in ${result.ms}ms`);
+  return { held: true, ...extra };
 }

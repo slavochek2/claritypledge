@@ -8,6 +8,9 @@ import { buildE2EStorageState } from './e2e/helpers/storage-state';
 import { RUN_ID_ENV } from './e2e/helpers/run-ledger';
 import { worktreePort } from './scripts/lib/worktree-port.mjs';
 import { guardTestDbRun } from './scripts/lib/e2e-test-db-lock.mjs';
+import { workersFor } from './scripts/lib/e2e-slot-lock.mjs';
+import { planServerWide, fileSetPattern } from './scripts/lib/e2e-serverwide-plan.mjs';
+import { loadTestIndex, loadTestRefusal, loadTestPort } from './scripts/lib/e2e-loadtest.mjs';
 import { isTestProjectUrl } from './scripts/sweep-e2e-test-users';
 import { testTargetConfigError } from './scripts/lib/test-target.mjs';
 import { refuseHostedTestRun } from './scripts/lib/hosted-test-guard.mjs';
@@ -40,10 +43,21 @@ function getWorktreePort(): number {
   return worktreePort(__dirname);
 }
 
-const PORT = getWorktreePort();
+// P1607: the load driver's switch (scripts/lib/e2e-loadtest.mjs). Off unless E2E_LOADTEST is set; refuses any
+// database but the self-hosted TEST server; skips the lock and never touches a lock directory.
+const LOAD_TEST = loadTestIndex(process.env);
+if (LOAD_TEST) {
+  // The main runner checks its own command line; a worker's argv is Playwright's, so only the parent chain is checked there.
+  const isWorker = process.env.TEST_WORKER_INDEX !== undefined || process.env.TEST_PARALLEL_INDEX !== undefined;
+  const refusal = loadTestRefusal({ url: process.env.VITE_SUPABASE_URL, argv: isWorker ? null : process.argv.slice(2) });
+  if (refusal) throw new Error(`[P1607] ${refusal}`);
+}
+const PORT = LOAD_TEST ? loadTestPort(getWorktreePort(), LOAD_TEST) : getWorktreePort();
 
-// P1541: TEST is the smallest Supabase size and every session on this machine shares it. One run at
+// P1541: TEST is the smallest Supabase size and every session on this machine shares it. Hosted TEST: one run at
 // a time across this repository's worktrees: a second run waits (bounded, exit 75 when the wait runs out) and says who holds the lock.
+// P1607: the self-hosted server admits SELFHOSTED_SLOT_LIMIT runs at once (scripts/lib/e2e-slot-lock.mjs, the one
+// setting); a run that covers a spec changing server-wide state takes the whole server and runs alone.
 // Taken here, in the main runner, because the config loads before the dev server starts; workers,
 // --list, --ui and CI skip it (a --ui run can therefore overlap a locked run). Released when this
 // process exits, after teardown. A TEST that refuses the request (bad key or URL) exits 1, not 75.
@@ -55,12 +69,28 @@ if (targetConfigError) throw new Error(`[P1557] ${targetConfigError}`);
 // P1606: hosted TEST is switched off by default; say so before anything waits on it.
 refuseHostedTestRun({ url: process.env.VITE_SUPABASE_URL, surface: 'playwright' });
 
-guardTestDbRun({
+const lockGuard = LOAD_TEST ? { skipped: 'load test run (E2E_LOADTEST)' } : guardTestDbRun({
   repoDir: __dirname,
+  port: PORT,
   isTestDb: isTestProjectUrl(process.env.VITE_SUPABASE_URL),
   url: process.env.VITE_SUPABASE_URL ?? '',
   anonKey: process.env.VITE_SUPABASE_ANON_KEY ?? '',
 });
+
+// P1607 decision 2: specs that change server-wide state never race each other inside a run. When the command
+// names no project they move to their own one-worker project (every other spec keeps the global workers);
+// otherwise the whole run uses one worker. Decided once in the main runner and handed to the workers by env.
+const serverWidePlan = planServerWide({ argv: process.argv, guard: lockGuard });
+if (serverWidePlan.error) throw new Error(`[P1607] ${serverWidePlan.error}`);
+// e2e/offline has its own config, so a server-wide spec there stays out of this one.
+const serverWideFiles = serverWidePlan.files.filter((f: string) => !f.includes('/e2e/offline/'));
+const serverWidePattern = serverWidePlan.split && serverWideFiles.length ? fileSetPattern(serverWideFiles) : null;
+const chromiumUse = {
+  ...devices['Desktop Chrome'],
+  launchOptions: {
+    args: ['--use-fake-ui-for-media-stream'],
+  },
+};
 
 /**
  * Load saved auth storageState for authenticated-page testing.
@@ -130,11 +160,20 @@ export default defineConfig({
 
   // Run tests in parallel; serial describe blocks (e.g. pledgers-page) are exempt
   fullyParallel: true,
-  workers: process.env.PLAYWRIGHT_WORKERS
-    ? parseInt(process.env.PLAYWRIGHT_WORKERS)
-    // P1541: 2 locally, measured on the TEST project 2026-10-22 (worst DB response 1.8s at 2 vs 13.5s
-    // at 3; 3 also tripped the auth rate limit in the P1538 parity run).
-    : 2,
+  // P1541: 2 locally, measured on the TEST project 2026-10-22 (worst DB response 1.8s at 2 vs 13.5s
+  // at 3; 3 also tripped the auth rate limit in the P1538 parity run).
+  // P1607: inside an exclusive run, two or more server-wide specs must not race each other: one worker.
+  workers: serverWidePlan.split
+    ? workersFor({ requested: process.env.PLAYWRIGHT_WORKERS, serverWideCount: 0, fallback: 2 })
+    : workersFor({
+      requested: process.env.PLAYWRIGHT_WORKERS,
+      serverWideCount: serverWideFiles.length,
+      unknown: serverWidePlan.unknown,
+      fallback: 2,
+    }),
+
+  // P1607: a load-test run keeps its output apart; Playwright clears outputDir at the start of a run.
+  ...(LOAD_TEST ? { outputDir: `test-results-loadtest-${LOAD_TEST}` } : {}),
 
   // Timeouts
   timeout: 30000, // 30s per test
@@ -180,19 +219,24 @@ export default defineConfig({
     {
       name: 'chromium',
       // P1369: e2e/offline/ needs a production build (service worker) and has its own config.
-      testIgnore: ['**/integration/**', '**/offline/**'],
-      use: {
-        ...devices['Desktop Chrome'],
-        launchOptions: {
-          args: ['--use-fake-ui-for-media-stream'],
-        },
-      },
+      testIgnore: ['**/integration/**', '**/offline/**', ...(serverWidePattern ? [serverWidePattern] : [])],
+      use: chromiumUse,
     },
     {
       // DB/migration tests — no browser needed, run with: npx playwright test --project=integration
       name: 'integration',
       testMatch: '**/integration/**/*.spec.ts',
+      ...(serverWidePattern ? { testIgnore: serverWidePattern } : {}),
     },
+    // P1607: only present in a run that covers server-wide specs and names no project.
+    ...(serverWidePattern ? [{
+      name: 'serverwide',
+      testMatch: serverWidePattern,
+      testIgnore: ['**/offline/**'],
+      fullyParallel: false,
+      workers: 1,
+      use: chromiumUse,
+    }] : []),
   ],
 
   // Web server configuration.

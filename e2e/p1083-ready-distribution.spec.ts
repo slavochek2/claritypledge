@@ -46,6 +46,7 @@
  *    cover its more common shape (a stray row that outlives this test, e.g. a
  *    real Continue write from e2e/p1077-ready.spec.ts).
  */
+// e2e-exclusive: counts the rows of ready_submissions, a table every run writes to; an overlapping run changes its dot counts
 import { test, expect, type Page } from '@playwright/test';
 import { seedReadySubmission, deleteReadySubmissions } from './helpers/test-ready';
 

@@ -9,10 +9,16 @@
  * 2. P1522: sweep a bounded batch of older leftovers (crashed runs, other worktrees): users older
  *    than 6h only, so a concurrent run never loses a live user.
  *
+ * P1607: step 2 runs only when no other run is live on the server (a live slot, an exclusive claim, a live
+ * holder of the old lock); step 1 always runs, because it only touches this run's own users.
+ *
  * Both share one 60 s budget. A failure here is logged, never fails the run.
  */
 import { currentRunId, readLedger, removeLedger } from './helpers/run-ledger';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { isTestProjectUrl, purgeUserIds, sweepE2eTestUsers } from '../scripts/sweep-e2e-test-users';
+import { sweepBlockers } from '../scripts/lib/e2e-test-db-lock.mjs';
 
 const BUDGET_MS = 60_000;
 
@@ -31,6 +37,15 @@ export default async function globalTeardown(): Promise<void> {
     }
   }
   if (process.env.P1522_SKIP_SWEEP) return;
+  // P1607 decision 6: another live run may still be using users older than the cutoff.
+  const blockers = sweepBlockers({
+    repoDir: path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'),
+    url: process.env.VITE_SUPABASE_URL ?? '',
+  });
+  if (blockers.length) {
+    console.log(`[P1607] older-leftovers sweep skipped: other runs are live on this server: ${blockers.join('; ')}`);
+    return;
+  }
   try {
     await sweepE2eTestUsers({
       apply: true,

@@ -17,7 +17,7 @@ import { isHostedTestUrl } from './test-target.mjs';
 
 export const REASON_ENV = 'CP_HOSTED_TEST_REASON';
 // Playwright subcommands that open no test database. Anything else, flags before `test` included, is guarded.
-const NOT_A_RUN = new Set(['show-report', 'show-trace', 'merge-reports', 'install', 'install-deps', 'uninstall', 'codegen', 'open', 'cr', 'ff', 'wk', 'screenshot', 'pdf', 'clear-cache']);
+export const NOT_A_RUN = new Set(['show-report', 'show-trace', 'merge-reports', 'install', 'install-deps', 'uninstall', 'codegen', 'open', 'cr', 'ff', 'wk', 'screenshot', 'pdf', 'clear-cache']);
 const RESOLVER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../selfhosted/flip-test-env.py');
 
 export const REFUSAL = [

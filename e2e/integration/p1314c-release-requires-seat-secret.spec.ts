@@ -27,6 +27,7 @@
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createClient } from '@supabase/supabase-js';
+import { randomInt } from 'node:crypto';
 
 const ANON_URL = process.env.VITE_SUPABASE_URL!;
 const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
@@ -34,8 +35,12 @@ const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
 /** A fresh anonymous client — the public key that ships in the browser bundle, nothing more. */
 const anonClient = () => createClient(ANON_URL, ANON_KEY);
 
-/** Six characters, the length claim_joiner_seat requires. */
-const fixtureCode = () => `Q${Date.now().toString().slice(-5)}`;
+/**
+ * Six characters, the length claim_joiner_seat requires. Random, not clock-derived (P1607): the last five
+ * digits of the millisecond clock repeat across runs that start together, and clarity_sessions.code is unique.
+ */
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const fixtureCode = () => `Q${Array.from({ length: 5 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('')}`;
 
 test.describe('P1314 C — release_joiner_seat requires the seat secret', () => {
   let sessionId: string;

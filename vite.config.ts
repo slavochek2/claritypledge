@@ -30,7 +30,9 @@ function getPort(): number {
 // Isolate Vite dep cache per worktree to prevent concurrent corruption
 function getCacheDir(): string {
   const slot = getWorktreeSlot()
-  return slot ? `node_modules/.vite-${slot}` : 'node_modules/.vite'
+  // P1607: the load driver runs several dev servers from one checkout; each needs its own dep cache.
+  const lt = /^[1-9]$/.test(process.env.E2E_LOADTEST ?? '') ? `-lt${process.env.E2E_LOADTEST}` : ''
+  return (slot ? `node_modules/.vite-${slot}` : 'node_modules/.vite') + lt
 }
 
 // P1369: records the shell's JS chunks at bundle time for the service worker's precache.

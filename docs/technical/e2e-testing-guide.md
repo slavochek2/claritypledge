@@ -69,6 +69,43 @@ E2E tests in this project use Playwright to test the full stack — from browser
 
 ---
 
+## How many e2e runs may share a TEST server (P1607)
+
+Every run takes a lock in the git common dir (shared by all worktrees). `--ui`, `--list` and CI skip it.
+
+| Server | Runs at once | Where the number lives |
+|---|---|---|
+| Hosted TEST | 1 (P1541's measured limit; unchanged) | `e2e-test-db.lock` |
+| Self-hosted TEST (the default) | 3 | `SELFHOSTED_SLOT_LIMIT` in `scripts/lib/e2e-slot-lock.mjs`: one constant; the load test that set it is in the P1607 spec |
+
+**Change the limit:** edit that one constant (set it to 1 to get the old behaviour). To try another value for a single run without editing, set `E2E_SELFHOSTED_SLOTS=<1-16>`. Slots are counted, not indexed, so a checkout with a lower limit still sees slots held under a higher one.
+
+**Re-measure the limit** (after a machine or Mac change): `node scripts/e2e-load-test.mjs --level <1-4>` starts that many identical runs of a fixed, metered-service-free workload from the current checkout, self-hosted TEST only (the `E2E_LOADTEST` switch it sets is refused for any other database and is meant for the driver alone), and prints failures, retries, auth 429s, database response, server and Mac load. Raise the level only after the one below is clean, and name the other sessions on the server: they count toward the level. The driver is for measuring; never use `E2E_LOADTEST` to skip the lock in ordinary runs.
+
+**Admission order.** New runs are admitted one at a time through a short mutex directory (`e2e-test-db-selfhosted.admission.lock`, held only for the scan-and-take of one attempt, so occupied never exceeds the limit through a race between two new runs). A holder that dies is reclaimed like any other owner.
+
+**What a waiting run sees:** `[P1607] self-hosted TEST server busy: waiting for a slot ...; held by <worktree> (<branch>, pid, minutes, port), ...` naming every holder. After `E2E_TEST_DB_LOCK_WAIT_MS` (default 10 min) it exits **75**: not an app failure, report it, never retry-loop it. A holder whose process died is reclaimed automatically; a live holder is never evicted.
+
+**A run that changes server-wide state runs alone.** The run's spec set is resolved by Playwright itself (`playwright test --list` with the run's own file, directory and project arguments), and any spec that writes a singleton table (the `transcribe_channel_posting` kill switch is the known one), calls a global tick or cron function, changes the cron schedule, or writes with no row filter makes the whole run take the whole server. The run prints `this run takes the whole self-hosted server and runs alone: <why>`. A full suite is therefore exclusive until those specs move out.
+
+**Inside a run, server-wide specs never race each other.** When the command names no project, they move to their own project, `serverwide` (one worker, not fully parallel; `workers` on a project is a Playwright setting, `TestProject.workers`), and every other spec keeps the run's workers, so a full suite still runs at two. When the command names a project (`--project=integration p1307-sweep-tick` must still run that spec in that project), the specs cannot move, so the whole run uses one worker, and a CLI `--workers`/`-j` above 1 is refused with the reason. The same holds when the run's specs could not be listed or exclusivity was forced (`E2E_SELFHOSTED_EXCLUSIVE=1`): every server-wide spec in the tree is treated as in the run. A run's argument forms (flags before `test`, value flags such as `-g x` or `--workers 3`) reach the listing verbatim; a command with no `test` subcommand in it is treated as server-wide.
+
+**The older-leftovers sweep (P1522) runs only when nobody else is on the server**: no other live slot, no other run's exclusive claim, no live holder of the old lock. Cleanup of the run's own users always runs. A load-test run and an unreadable lock state never sweep.
+
+- Which specs count is **derived**, not listed: singleton tables and tick/cron functions come from `supabase/migrations`, the rest from the spec text and the helpers it imports (`scripts/lib/e2e-exclusive-specs.mjs`). List them: `node -e "import('./scripts/lib/e2e-exclusive-specs.mjs').then(m => console.log([...m.allServerWideSpecs({ repoDir: process.cwd() }).keys()].join('\n')))"`.
+- The scan reads each spec and its local helpers with the TypeScript parser and judges the write's own call chain, so a filter in a later statement never excuses a write and a WHERE in another SQL statement never excuses an UPDATE. It fails closed to server-wide when a file cannot be read, a local import resolves to nothing, the migrations yield no names, or the run's listing fails.
+- **Stays unseen:** lower-case SQL; SQL or table names produced by a function call; a WHERE that exists only inside a sub-select of the same statement; code outside `e2e/` that a spec imports (scripts, `src/`) is not followed; a database write made through something other than a Supabase builder or a SQL string. If a new spec truly changes server-wide state and the scan misses it, run it with `E2E_SELFHOSTED_EXCLUSIVE=1`, and add a detection path with a known-member test.
+- **When the scan cannot see why a spec must run alone** (it reads a table every run writes to, counts rows, depends on a global counter, builds a name from the clock), put a line `// e2e-exclusive: <reason>` in the spec, or in a helper it imports (every spec importing that helper becomes exclusive). The reason is required (an annotation without one still counts and says so), and a reason starting with `<` is read as a placeholder, so docs can show the form. Example in the tree: `e2e/p1083-ready-distribution.spec.ts` (it counts the rows of a table every run writes to). Prefer fixing the collision when you can: unique names must come from randomness, never from `Date.now()` alone.
+- A spec you write that matches one of the patterns above, or carries the annotation, needs no registration; do not hard-code its name anywhere.
+
+**One dev-server port per run.** The port comes from the worktree, and a shared dev server dies with the run that started it (P1234), so a run whose port is already held waits. Two runs from one worktree therefore never overlap.
+
+**Proving the lock without touching the real one.** `E2E_SLOT_LOCK_BASE=<dir>` together with `E2E_SLOT_LOCK_PROOF=<what is being proved>` moves the self-hosted slot lock to a directory that already exists under the temp directory (anything else throws; hosted TEST ignores it; it is announced on stderr). Use it to run two real runs from two checkouts against each other, for example when an older-script run holds the real lock. It is for proving the lock, never for getting past it. Nothing stops a person or agent from setting both variables to run beside the real lock; the two names and the announcement on stderr are the whole guard.
+
+**Older checkouts (the switch period).** A new run only reads the old single directory `e2e-test-db-selfhosted.lock`, never writes it. A live holder of it counts as one occupied slot for a one-slot run and as the whole server for an exclusive run, so new runs wait for it; a stale one is ignored and left alone. A worktree still on the old script does not read the new slots, so it can start while new runs hold slots. That overlap is accepted for the switch (the load test carried 5 runs without a failure) and ends when every worktree runs this script. The one exposure that matters: an old-script run starting during an exclusive run, which then overlaps server-wide specs.
+
+---
+
 ## Test Helpers
 
 All test helpers live in `e2e/helpers/`. User creation uses the Admin API to create the auth user, then signs in with the user's own JWT to create the profile (satisfies `auth.uid() = id` RLS policy). Avoid service_role bypass for profile creation — PostgREST's `SET LOCAL ROLE` doesn't set the `current_setting('role')` GUC, making those policies unreliable.
