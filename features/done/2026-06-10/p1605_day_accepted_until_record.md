@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 89
 workstream: infrastructure
 created_date: '2026-11-03'
 tags: [day, findings, process]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-03
 ---
 
 # P1605: /day shows a fault again after its cause was already evaluated
