@@ -9,6 +9,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-03 [technical]: An evaluated /day cause is a ledger record with an expiry, read at render time (P1605)
+
+**Context:** The entry below left the mechanism open. Only Park carried across runs, so one cause came back under each new label.
+**Decision:** A fix session writes a `kind: "evaluated"` line to `decisions.jsonl` through `scripts/day-evaluated.ts`: fault keys, cause, verdict, expiry (at most 90 days), optional threshold. `applyLoops` annotates each card; `buildView` moves a hidden one into `view.evaluated`, counted by verdict in one line. Only `accepted` and `false` hide. A `fixed` fault reported again contradicts its verdict, so it shows. A record that no longer holds shows a full card with the earlier verdict, even with a live owner, and an escalated owner breaks through. A check that did not run ignores records. The hidden fault stays in the report, so P1578 never counts it as fixed.
+**Alternatives rejected:** Parsing decisions.md (spec non-goal). Hiding `fixed` verdicts: a claimed fix would silence its own recurrence.
+**Consequences:** No check files `reading` yet, so "worse" is proven on fixtures only: a record with a threshold always shows its card, and one without hides at any severity until expiry. The 90-day cap is an agent default the founder may change. The founder waived browser checks of the new fold; it is first seen on a real run. UNTESTED: falsifier is a month of runs where repeat cards do not fall. Other known limits are in the spec.
+**References:** [p1605](../features/done/2026-06-10/p1605_day_accepted_until_record.md)
+
 ## 2026-11-03 [process]: Why /day findings keep coming back after an answer
 
 **Context:** A /day fix session verified 9 items: 3 had already cleared, 1 was a false alarm on prod, and the test Gemini key appeared two days running.
