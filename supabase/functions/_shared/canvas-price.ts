@@ -73,6 +73,10 @@ function untilNextPrice(after: string): string {
   return m ? after.slice(0, m.index) : after;
 }
 
+/** The sentence after a price counts only when it plainly refers back to it ("That is per shop", "It's monthly", "Per shop"), and its first words are the term: never "That includes monthly support". */
+const REFERS_BACK = new RegExp(`^\\s*(?:(?:it|that|this|which|the price)(?:'s)?(?:\\s+(?:is|are|was|will be|stays|remains|gets|comes|billed|charged|paid|priced))*\\s+)?(?:(?:billed|charged|paid|priced)\\s+)?(?:(?:for\\s+)?(?:per|each|every)\\s|(?:${PERIOD_ADVERBS}|${ONE_OFF}|once)\\b|an?\\s+(?:${PERIOD_NOUNS})\\b)`, 'iu');
+const referringSentence = (s: string) => (REFERS_BACK.test(s) ? s : '');
+
 /** Each place the number stands: the clause before it and after it, and the next sentence when that sentence is about it ("It is per firm."). A negated term is taken out of all three. */
 function placesOf(n: string, text: string): Place[] {
   const out: Place[] = [];
@@ -81,7 +85,7 @@ function placesOf(n: string, text: string): Place[] {
     const rest = text.slice(m.index + n.length, m.index + n.length + CLAUSE_CHARS);
     const after = untilNextPrice(rest).split(AFTER_ENDS)[0] ?? '';
     const before = sinceLastPrice(text.slice(Math.max(0, m.index - CLAUSE_CHARS), m.index)).split(/[;.!?](?:\s|$)|\b(?:and|but)\b/).pop() ?? '';
-    const next = /^[^.!?]*[.!?]\s+((?:it|that|this|which|the price)\b[^.!?\d]*)(?:[.!?]|$)/.exec(rest)?.[1] ?? '';
+    const next = referringSentence(/^[^.!?]*[.!?]\s+((?:it|that|this|which|the price|per|each|every|for\s+(?:each|every))\b[^.!?\d]*)(?:[.!?]|$)/i.exec(rest)?.[1] ?? '');
     out.push({ before: unsaid(before), after: unsaid(after), next: unsaid(next) });
   }
   return out;
@@ -146,9 +150,24 @@ function termAtPlace(term: Term, p: Place): boolean {
   return unitAtPlace(term.noun, p) || matches(`\\b(?:${term.adverbs.join('|')})\\b`, `${p.before} ${p.after}`);
 }
 
-function ownerStates(raw: string, price: string, owner: string, answer: string): boolean {
+/** The words that name an offer: its label ahead of the price, without the terms and the little words. */
+function labelWords(label: string): string[] {
+  return (label.toLowerCase().match(/\p{L}{3,}/gu) ?? []).filter((w) => !/^(?:per|each|every|once|the|and|for|with|monthly|yearly|weekly|daily|annual|annually|quarterly|hourly|one|off|time)$/.test(w));
+}
+
+/**
+ * The owner states the term for this price. When the same amount stands in more than one place and the term holds at some but not all of them, the amounts may be different offers:
+ * the term then stands only at a place that holds the offer's own words. With no such words, it does not stand: a false price is worse than one more question.
+ */
+function ownerStates(raw: string, price: string, owner: string, answer: string, label = ''): boolean {
   const term = termOf(raw);
-  return termIn(term, answer) || placesOf(price, owner).some((p) => termAtPlace(term, p));
+  if (termIn(term, answer)) return true;
+  const places = placesOf(price, owner);
+  const holds = places.filter((p) => termAtPlace(term, p));
+  if (!holds.length) return false;
+  if (holds.length === places.length) return true;
+  const words = labelWords(label);
+  return holds.some((p) => words.some((w) => new RegExp(`\\b${escapeWord(w)}`, 'iu').test(`${p.before} ${p.after}`)));
 }
 
 // ── The statement, clause by clause ─────────────────────────────────────────
@@ -220,7 +239,8 @@ function cleanPriced(p: PricedClause, states: (raw: string) => boolean): string 
   const chain = chainOf(p.tail);
   if (chain) return chain.every(states) ? `${head}${p.price}${p.tail}` : `${head}${p.price}${chain.filter(states).map((t) => ` ${t}`).join('')}`;
   const terms = [...p.tail.matchAll(TERM_IN_TAIL)].map((m) => m[0]);
-  return `${head}${p.price}${terms.every(states) ? p.tail : ''}`;
+  if (terms.every(states)) return `${head}${p.price}${p.tail}`;
+  return new RegExp(MONEY_SOURCE, 'iu').test(p.tail) ? null : `${head}${p.price}`; // the tail holds another price: it is not cut away silently, the point is counted and the box asks
 }
 
 /** "Setup at 1500 euros and support at 20 euros per month": an "and" or "but" that opens another priced offer ends the clause, so each price answers for its own terms. */
@@ -253,9 +273,9 @@ export function groundPriceTerms(statement: string, owner: string, answer = ''):
   if (!first) return statement;
   const kept = clauses.map((c, i) => {
     const p = prices[i];
-    if (p) return cleanPriced(p, (raw) => ownerStates(raw, p.plain, o, answer));
+    if (p) return cleanPriced(p, (raw) => ownerStates(raw, p.plain, o, answer, p.head));
     const terms = [...c.matchAll(TERM_NO_PRICE)].map((m) => m[0]);
-    return terms.every((raw) => ownerStates(raw, first, o, answer)) ? c : '';
+    return terms.every((raw) => ownerStates(raw, first, o, answer, c)) ? c : '';
   });
   return kept.includes(null) ? '' : rejoin(kept, seps, statement);
 }

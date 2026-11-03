@@ -493,6 +493,23 @@ describe('review round: a price answers only for its own offer, through parseDra
     expect(o.droppedUnverified).toBe(1);
     expect(o.questions[REV]).toBe(PRICE_GAP_QUESTION);
   });
+  it.each([
+    ['same amount, two offers: the other offer\'s cadence is not borrowed', 'Setup: 500 euros per month.', 'setup costs 500 euros. support costs 500 euros per month.', 'Setup: 500 euros.'],
+    ['a sentence that only mentions a cadence is not the price\'s', 'Setup: 1500 euros per month.', 'setup costs 1500 euros. that includes monthly support.', 'Setup: 1500 euros.'],
+    ['control: "That is per shop" refers back', 'Fee: 180 euros per shop.', 'it costs 180 euros. that is per shop.', 'Fee: 180 euros per shop.'],
+    ['control: a bare "Per shop." refers back', 'Fee: 180 euros per shop.', 'it costs 180 euros. per shop.', 'Fee: 180 euros per shop.'],
+    ['control: "It\'s monthly."', 'Fee: 180 euros monthly.', "it costs 180 euros. it's monthly.", 'Fee: 180 euros monthly.'],
+    ['control: each offer keeps its own stated terms', 'Setup: 500 euros one-off; support: 500 euros per month.', 'setup costs 500 euros one-off. support costs 500 euros per month.', 'Setup: 500 euros one-off; support: 500 euros per month.'],
+  ])('fail closed: %s', (_l, statement, ownerText, expected) => {
+    expect(groundPriceTerms(statement, owner(ownerText))).toBe(expected);
+  });
+  it('a term that would take another price with it counts the point as dropped and asks, never cuts the price away', () => {
+    const t = 'Setup costs 1500 euros and support costs 20 euros per month.';
+    expect(groundPriceTerms('Setup: 1500 euros per firm with support at 20 euros per month.', owner(t))).toBe('');
+    const o = parse(t, 'Setup: 1500 euros per firm with support at 20 euros per month.', [{ id: 'r1', box: REV, statement: 'Support: 20 euros per month' }]);
+    expect(o.droppedUnverified).toBe(1);
+    expect(o.questions[REV]).toBe(PRICE_GAP_QUESTION);
+  });
   it('G2: the owner\'s "per bonus" and "per campus" ground a model\'s plural, and houses/licenses/courses still do', () => {
     expect(groundPriceTerms('Parking: 10 euros per bonuses.', owner('Parking is 10 euros per bonus.'))).toBe('Parking: 10 euros per bonuses.');
     expect(groundPriceTerms('Parking: 10 euros per campuses.', owner('Parking is 10 euros per campus.'))).toBe('Parking: 10 euros per campuses.');
