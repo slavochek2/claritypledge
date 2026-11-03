@@ -204,6 +204,7 @@ function runMigrate(
     env: {
       ...process.env,
       PATH: `${join(sandbox, 'bin')}:${process.env.PATH ?? ''}`,
+      CP_HOSTED_TEST_REASON: 'canary (P1606)',
       P887_SMOKE_MARKER: smokeMarker,
       P887_SMOKE_EXIT: String(opts.smokeExit ?? 0),
       P887_ALL_APPLIED: opts.allApplied ? '1' : '0',

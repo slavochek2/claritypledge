@@ -9,7 +9,8 @@
 #
 #   run-test-sql.sh [--read-only] < query.sql
 #
-# Exit: 0 rows on stdout · 3 the database refused the SQL (its message on stderr) · 1 could not run.
+# Exit: 0 rows on stdout · 3 the database refused the SQL, HTTP 400 (its message on stderr) · 1 could not run.
+# Any other status is "could not run": a degraded server must never read as a refusal.
 set -euo pipefail
 
 # Same constants as scripts/selfhosted/migrate.sh and scripts/supabase-readonly-sql.py; change all three.
@@ -45,7 +46,7 @@ sql = sys.stdin.read().strip()
 if not sql:
     sys.exit("run-test-sql: empty SQL")
 if os.environ["READ_ONLY"] == "true":
-    sql = "BEGIN READ ONLY;\n" + sql.rstrip().rstrip(";") + ";\nROLLBACK;"
+    sql = "BEGIN READ ONLY;\n" + sql.rstrip().rstrip(";") + "\n;\nROLLBACK;"  # newline first: a trailing -- comment cannot swallow the ;
 json.dump({"query": sql}, sys.stdout)
 ' > "$WORK/payload.json"
 
@@ -57,7 +58,7 @@ NODE_SCRIPT='let b="";process.stdin.on("data",d=>b+=d).on("end",async()=>{const 
 # A short fixed path: SSH refuses a control socket path over about 104 characters, and TMPDIR can be long.
 MUX_DIR="/tmp/cp-iap-$(id -u)"; mkdir -p "$MUX_DIR"; [ -O "$MUX_DIR" ] || die "$MUX_DIR is not owned by this user."; chmod 700 "$MUX_DIR"
 if ! gcloud compute ssh "$VM" --project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet \
-      --ssh-flag="-o ControlMaster=auto" --ssh-flag="-o ControlPath=$MUX_DIR/%C" --ssh-flag="-o ControlPersist=120" \
+      --ssh-flag="-o ControlMaster=auto" --ssh-flag="-o ControlPath=$MUX_DIR/%C" --ssh-flag="-o ControlPersist=120" --ssh-flag="-o ConnectTimeout=30" \
       --command "sudo docker exec -i $META_CONTAINER node -e '$NODE_SCRIPT'" \
       < "$WORK/payload.json" > "$WORK/out" 2> "$WORK/err"; then
   die "could not reach the self-hosted TEST database: $(tail -n 3 "$WORK/err" | tr '\n' ' ')"
@@ -70,4 +71,6 @@ awk -v m="$STATUS_MARKER" 'seen { print } index($0, m) == 1 { seen = 1 }' "$WORK
 [ -s "$WORK/body" ] || die "the database service answered with an empty body (status $status)."
 if [ "$status" = 200 ]; then cat "$WORK/body"; exit 0; fi
 cut -c1-800 "$WORK/body" >&2
-exit 3
+[ "$status" = 400 ] && exit 3
+echo "run-test-sql: the database service answered with status $status." >&2
+exit 1

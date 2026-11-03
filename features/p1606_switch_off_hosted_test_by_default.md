@@ -70,7 +70,7 @@ Blast radius: every workflow that still reaches Test 2, including scheduled chec
 
 ## Done-When
 
-- [ ] Test 2 is paused, shown by a read of its status after the founder's click
+- [ ] Test 2 is paused, shown by a read of its status after the founder's click; the real paused response is pinned in the upkeep test fixture
 - [ ] With Test 2 paused, a day's scheduled checks raise no false alarm: the auth canary and `/day` run clean or say plainly what they no longer cover
 - [ ] A Playwright run, a dev server and `migrate.sh --env hosted-test` aimed at Test 2 each refuse with the message, exit non-zero and do not retry, with exit codes pasted (known-bad control)
 - [ ] The same three commands on the default self-hosted path pass unchanged (known-good control, epistemic gate 7c)

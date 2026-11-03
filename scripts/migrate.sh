@@ -137,7 +137,7 @@ if [ "$ENV_NAME" = "local" ] || [ "$ENV_NAME" = "test" ]; then
   if [ "$ACTIVE_TARGET" = "selfhosted" ]; then
     if [ "$ONLY_MODE" = true ]; then
       echo "REFUSED: --only is not supported on self-hosted TEST (the active TEST server)." >&2
-      echo "  Plain ./scripts/migrate.sh applies every pending file there; or use --env hosted-test --only ... for the hosted project." >&2
+      echo "  Plain ./scripts/migrate.sh applies every pending file there." >&2
       exit 1
     fi
     ENV_NAME="selfhosted"
@@ -162,10 +162,11 @@ fi
 
 # --- P1606: an explicit --env hosted-test while self-hosted is active needs the founder's decision ---
 # Hosted TEST is switched off by default. The pause is the wall; this turns its timeout into a message.
-if [ "$ENV_NAME" = "hosted-test" ] && [ "$RESOLVED_TEST" = false ] && [ -z "${CP_HOSTED_TEST_REASON:-}" ]; then
+if [ "$ENV_NAME" = "hosted-test" ] && [ "$RESOLVED_TEST" = false ] && [ -z "$(printf '%s' "${CP_HOSTED_TEST_REASON:-}" | tr -d '[:space:]')" ]; then
   # shellcheck source=lib/active-test.sh
   source "$SCRIPT_DIR/lib/active-test.sh"
-  if [ "$(active_test_target 2>/dev/null || true)" = "selfhosted" ]; then
+  # A write: only a resolved "hosted" passes without a decision. Unknown state refuses too.
+  if [ "$(active_test_target 2>/dev/null || true)" != "hosted" ]; then
     echo "REFUSED: hosted TEST is switched off; the founder decides when it is switched on. Nothing was applied." >&2
     echo "  Plain ./scripts/migrate.sh applies to the active TEST server. See docs/technical/hosted-test-parity.md." >&2
     exit 1

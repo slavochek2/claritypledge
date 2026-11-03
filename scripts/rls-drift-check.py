@@ -216,8 +216,12 @@ class SelfHostedSqlRefused(Exception):
 def selfhosted_sql(sql, read_only=True, timeout=120):
     """Raw SQL on self-hosted TEST over the private route; the same result shape as the Management API."""
     script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "selfhosted", "run-test-sql.sh")
-    r = subprocess.run([script] + (["--read-only"] if read_only else []), input=sql,
-                       capture_output=True, text=True, timeout=timeout)
+    try:
+        r = subprocess.run([script] + (["--read-only"] if read_only else []), input=sql,
+                           capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        # A hung tunnel is "could not run", never a finding about the database.
+        raise RuntimeError(f"test: no answer from the self-hosted database within {timeout}s") from exc
     if r.returncode == 3:
         raise SelfHostedSqlRefused(r.stderr.strip()[:600])
     if r.returncode != 0:

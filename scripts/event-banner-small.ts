@@ -243,6 +243,7 @@ async function main() {
     die('usage: encode <in> <out> | backfill --env test|prod [--dry-run] [--force] | one --env test|prod <banner_url> [--force]');
   }
   const env = parseEnv(args);
+  if (env === 'test' && !process.env.CP_HOSTED_TEST_REASON?.trim()) die('[P1606] --env test targets hosted TEST, which is switched off. Generate banners on prod, or ask the founder: docs/technical/hosted-test-parity.md');
   const base = URLS[env];
   const dryRun = args.includes('--dry-run');
   const force = args.includes('--force');

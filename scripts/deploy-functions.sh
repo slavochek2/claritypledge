@@ -35,23 +35,33 @@ done
 # --- TEST follows the active server (P1606; migrate.sh has done this since P1591) ---
 # Fails closed when the active server is unknown. Hosted is reached only when it is active, or by an
 # explicit --env hosted-test with the founder's decision on record.
+EXPLICIT_HOSTED=false
 if [ "$ENV_NAME" = "hosted-test" ]; then
-  CP_DEPLOY_INNER_HOSTED=1
-  if [ -z "${CP_HOSTED_TEST_REASON:-}" ]; then
+  EXPLICIT_HOSTED=true
+  if [ -z "$(printf '%s' "${CP_HOSTED_TEST_REASON:-}" | tr -d '[:space:]')" ]; then
     # shellcheck source=lib/active-test.sh
     source "$SCRIPT_DIR/lib/active-test.sh"
-    if [ "$(active_test_target 2>/dev/null || true)" = "selfhosted" ]; then
+    # A write: only a resolved "hosted" passes without a decision. Unknown state refuses too.
+    if [ "$(active_test_target 2>/dev/null || true)" != "hosted" ]; then
       echo "REFUSED: hosted TEST is switched off; the founder decides when it is switched on. Nothing was deployed." >&2
       echo "  See docs/technical/hosted-test-parity.md." >&2
       exit 1
     fi
   fi
 fi
-if [ "$ENV_NAME" != "prod" ] && [ -z "${CP_DEPLOY_INNER_HOSTED:-}" ]; then
+if [ "$EXPLICIT_HOSTED" = true ]; then
+  # The code below keys its test behaviour, including the manifest stamp, off ENV_NAME=local.
+  ENV_NAME="local"
+elif [ "$ENV_NAME" != "prod" ]; then
   # shellcheck source=lib/active-test.sh
   source "$SCRIPT_DIR/lib/active-test.sh"
   ACTIVE_TARGET=$(active_test_target) || { echo "ERROR: cannot resolve the active TEST server (see above). Nothing was deployed." >&2; exit 1; }
   if [ "$ACTIVE_TARGET" = "selfhosted" ]; then
+    # The opt-in smoke lives in the hosted body below. Say so before deploying, never skip it silently.
+    if [ "${EDGE_SMOKE:-}" = "1" ]; then
+      echo "REFUSED: EDGE_SMOKE=1 is not available on self-hosted TEST, so it could not run. Nothing was deployed." >&2
+      exit 1
+    fi
     LOCK_DIR="$(git -C "$(pwd)" rev-parse --path-format=absolute --git-common-dir)/cp-test-deploy.lock"
     mkdir "$LOCK_DIR" 2>/dev/null || { echo "ERROR: another TEST deploy is running (lock: $LOCK_DIR). Wait for it, or remove the lock if no run is live." >&2; exit 1; }
     trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT

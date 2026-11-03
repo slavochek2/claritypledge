@@ -90,13 +90,17 @@ run hosted
 { has_hosted && ! has_child; } && ok "control: hosted active, plain run reaches the hosted tools, not the child" || bad "hosted plain (ran='$RAN')"
 CP_HOSTED_TEST_REASON="founder decision" run selfhosted --env hosted-test
 { has_hosted && ! has_child; } && ok "--env hosted-test with the founder's decision reaches the hosted path while self-hosted is active" || bad "hosted-test (ran='$RAN')"
+CP_HOSTED_TEST_REASON=' ' run selfhosted --env hosted-test
+{ [ "$RC" -ne 0 ] && [ -z "$RAN" ] && printf '%s' "$ERR" | grep -q 'REFUSED'; } && ok "a blank reason does not open --env hosted-test (P1606)" || bad "blank reason (rc=$RC ran='$RAN')"
+run none --env hosted-test
+{ [ "$RC" -ne 0 ] && [ -z "$RAN" ] && printf '%s' "$ERR" | grep -q 'REFUSED'; } && ok "--env hosted-test with an unknown active server: refused, nothing ran (P1606)" || bad "hosted-test unknown (rc=$RC ran='$RAN')"
 run selfhosted --env hosted-test
 { [ "$RC" -ne 0 ] && [ -z "$RAN" ] && printf '%s' "$ERR" | grep -q 'REFUSED'; } && ok "--env hosted-test without a decision: refused while self-hosted is active, nothing ran (P1606)" || bad "hosted-test refusal (rc=$RC ran='$RAN')"
 run selfhosted --env selfhosted --list
 { has_child && ! has_hosted; } && ok "explicit --env selfhosted unchanged" || bad "explicit selfhosted (ran='$RAN')"
 run selfhosted --only 20990101000000_pending.sql
-{ [ "$RC" -ne 0 ] && [ -z "$RAN" ] && printf '%s' "$ERR" | grep -q 'REFUSED' && printf '%s' "$ERR" | grep -q 'hosted-test'; } \
-  && ok "--only with self-hosted active: refused, names --env hosted-test, nothing ran" || bad "--only refusal (rc=$RC ran='$RAN' err='$ERR')"
+{ [ "$RC" -ne 0 ] && [ -z "$RAN" ] && printf '%s' "$ERR" | grep -q 'REFUSED' && ! printf '%s' "$ERR" | grep -q 'hosted-test'; } \
+  && ok "--only with self-hosted active: refused, does not route to hosted, nothing ran" || bad "--only refusal (rc=$RC ran='$RAN' err='$ERR')"
 for ST in unknown none quoted; do
   run "$ST"
   { [ "$RC" -ne 0 ] && [ -z "$RAN" ]; } && ok "state '$ST': exit non-zero, no tool and no child ran (fail closed)" || bad "state $ST (rc=$RC ran='$RAN')"

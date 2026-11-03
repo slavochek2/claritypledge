@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 import { isHostedTestUrl } from './test-target.mjs';
 
 export const REASON_ENV = 'CP_HOSTED_TEST_REASON';
+// Playwright subcommands that open no test database. Anything else, flags before `test` included, is guarded.
+const NOT_A_RUN = new Set(['show-report', 'show-trace', 'merge-reports', 'install', 'install-deps', 'uninstall', 'codegen', 'open', 'cr', 'ff', 'wk', 'screenshot', 'pdf', 'clear-cache']);
 const RESOLVER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../selfhosted/flip-test-env.py');
 
 export const REFUSAL = [
@@ -36,12 +38,16 @@ function resolveActive(env) {
 
 /**
  * Throws with REFUSAL when this run must not go ahead.
- * surface: 'dev-server' | 'playwright'. argv is Playwright's: only `test` runs are guarded here, so
- * `show-report` and friends stay untouched.
+ * surface: 'dev-server' | 'playwright'. argv is Playwright's: `show-report` and friends stay untouched,
+ * and every other form is guarded, including global flags before `test`.
  */
 export function refuseHostedTestRun({ url, surface, argv = process.argv, env = process.env, stream = process.stderr }) {
   if (env.CI || env.VITEST || env.TEST_WORKER_INDEX !== undefined || env.TEST_PARALLEL_INDEX !== undefined) return;
-  if (surface === 'playwright' && argv.slice(2)[0] !== 'test') return;
+  if (surface === 'playwright') {
+    const args = argv.slice(2);
+    if (args.some((a) => a === '--version' || a === '-V' || a === '--help' || a === '-h')) return;
+    if (NOT_A_RUN.has(args.find((a) => !a.startsWith('-')))) return; // the subcommand, never a later spec filter
+  }
   if (!isHostedTestUrl(url, env) || String(env[REASON_ENV] ?? '').trim()) return;
   const active = resolveActive(env);
   if (active === 'hosted') return;

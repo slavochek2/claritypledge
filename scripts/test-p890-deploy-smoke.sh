@@ -224,7 +224,7 @@ fi
 
 # --- 6. ACCEPT: test/local deploys are unchanged (no smoke unless opted in) --
 # P1606: routing by active server is proven in test-p1606-hosted-test-off.sh; this reaches the hosted body directly.
-CP_DEPLOY_INNER_HOSTED=1 FAIL_FN="" SMOKE_EXIT=1 EDGE_SMOKE_VAL="" run_deploy
+CP_HOSTED_TEST_REASON=canary FAIL_FN="" SMOKE_EXIT=1 EDGE_SMOKE_VAL="" run_deploy --env hosted-test
 if [ "$RC" -eq 0 ] && [ -z "$SMOKE_ARGS" ]; then
   ok "ACCEPT: a local deploy runs no smoke, so a red smoke cannot break it"
 else
@@ -232,7 +232,7 @@ else
 fi
 
 # --- 7. ACCEPT: EDGE_SMOKE=1 opts a non-prod deploy in ----------------------
-CP_DEPLOY_INNER_HOSTED=1 FAIL_FN="" SMOKE_EXIT=0 EDGE_SMOKE_VAL="1" run_deploy
+CP_HOSTED_TEST_REASON=canary FAIL_FN="" SMOKE_EXIT=0 EDGE_SMOKE_VAL="1" run_deploy --env hosted-test
 if [ "$RC" -eq 0 ] && [ -n "$SMOKE_ARGS" ]; then
   ok "ACCEPT: EDGE_SMOKE=1 opts a non-prod deploy into the smoke"
 else
@@ -277,7 +277,7 @@ else
 fi
 
 # --- 11. ...but a local deploy, which needs no smoke, is untouched by that ---
-CP_DEPLOY_INNER_HOSTED=1 FAIL_FN="" SMOKE_EXIT=0 EDGE_SMOKE_VAL="" NO_SMOKE=1 run_deploy
+CP_HOSTED_TEST_REASON=canary FAIL_FN="" SMOKE_EXIT=0 EDGE_SMOKE_VAL="" NO_SMOKE=1 run_deploy --env hosted-test
 if [ "$RC" -eq 0 ]; then
   ok "ACCEPT: a local deploy with no smoke script still exits 0"
 else

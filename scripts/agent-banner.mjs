@@ -149,6 +149,7 @@ async function generate(base, key, id, replace) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.env === 'test' && !process.env.CP_HOSTED_TEST_REASON?.trim()) die('[P1606] --env test targets hosted TEST, which is switched off. Generate banners on prod, or ask the founder: docs/technical/hosted-test-parity.md');
   const base = URLS[args.env];
   const anon = anonKey(args.env);
 

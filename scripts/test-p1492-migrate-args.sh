@@ -66,7 +66,7 @@ git -C "$P" commit -q -m init
 
 run() { # run <args...> — sets RC, OUT (stdout), ERR (stderr), RAN (tool calls), DIRTY
   : > "$CALLS"
-  (cd "$P" && PATH="$STUBS:$PATH" bash "$P/scripts/migrate.sh" "$@" > "$TMPROOT/out" 2> "$TMPROOT/err")
+  (cd "$P" && CP_HOSTED_TEST_REASON="canary (P1606)" PATH="$STUBS:$PATH" bash "$P/scripts/migrate.sh" "$@" > "$TMPROOT/out" 2> "$TMPROOT/err")
   RC=$?
   OUT="$(cat "$TMPROOT/out")"; ERR="$(cat "$TMPROOT/err")"; RAN="$(cat "$CALLS")"
   DIRTY="$(git -C "$P" status --porcelain --untracked-files=no)"

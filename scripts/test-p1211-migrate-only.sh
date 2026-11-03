@@ -116,7 +116,7 @@ build() {
 run() { # run <name> <args...>
   local P="$TMPROOT/$1"; shift
   (cd "$P" && FAKE_LEDGER="$P/ledger.json" APPLY_LOG="$P/applied.log" NPX_LOG="$P/npx.log" INSERT_LOG="$P/insert.log" \
-     PATH="$STUBS:$PATH" bash "$P/scripts/migrate.sh" "$@" > "$P/out.log" 2>&1)
+     CP_HOSTED_TEST_REASON="canary (P1606)" PATH="$STUBS:$PATH" bash "$P/scripts/migrate.sh" "$@" > "$P/out.log" 2>&1)
   RC=$?
   OUTF="$P/out.log"; APPLIED="$(cat "$P/applied.log" 2>/dev/null || true)"
 }

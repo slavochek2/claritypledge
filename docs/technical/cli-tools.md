@@ -33,11 +33,11 @@ Command-line tools installed alongside MCPs for scripting, CI/CD, and automation
 # Check status only
 npx supabase migration list -p "$DB_PASSWORD"
 
-# Generate TypeScript types (requires project link or --db-url)
-npx supabase gen types typescript --project-id ayibkeoyukulbsjpxgaw > src/app/types/supabase.ts
+# Generate TypeScript types from prod's schema (hosted TEST is paused by default, P1606)
+npx supabase gen types typescript --project-id besjtuodziykmjidubzw > src/app/types/supabase.ts
 ```
 
-**`scripts/migrate.sh` does (hosted path: `--env hosted-test`, or when hosted is the active TEST):**
+**`scripts/migrate.sh` does (hosted path: `--env hosted-test` with the founder's decision, [hosted-test-parity.md](hosted-test-parity.md), or when hosted is the active TEST):**
 1. Extracts DB password and project ref from env file (`.env.local` by default, `.env.prod` with `--env prod`)
 2. Resolves the Supabase PAT: prod — the locked keychain item only; test — `SUPABASE_TEST_WRITE_TOKEN` (test-project scoped) from `.env.local` (P1318)
 3. Runs `supabase migration list` (shows current state — non-fatal if pooler fails)

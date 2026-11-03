@@ -24,7 +24,7 @@ guard() {
     node --input-type=module -e "
       import { refuseHostedTestRun } from './scripts/lib/hosted-test-guard.mjs';
       try {
-        refuseHostedTestRun({ url: '$url', surface: '$surface', argv: ['node', 'x', '$sub'] });
+        refuseHostedTestRun({ url: '$url', surface: '$surface', argv: ['node', 'x', '$sub', ...(process.env.CP_EXTRA_ARGV ? [process.env.CP_EXTRA_ARGV] : [])] });
         console.log('ALLOWED');
       } catch (e) {
         console.log(e.message.includes('REFUSED') ? 'REFUSED' : 'ERROR ' + e.message);
@@ -40,6 +40,9 @@ want "known-good: dev server on self-hosted" ALLOWED "$(guard "$T/selfhosted" "$
 want "the founder's decision on record lets a hosted run go" ALLOWED "$(guard "$T/selfhosted" "$HOSTED_URL" playwright test CP_HOSTED_TEST_REASON=decision)"
 want "a blank reason counts as none" REFUSED "$(guard "$T/selfhosted" "$HOSTED_URL" playwright test CP_HOSTED_TEST_REASON=' ')"
 want "hosted is the active server (rollback): allowed" ALLOWED "$(guard "$T/hosted" "$HOSTED_URL" playwright test)"
+want "flags before the subcommand are still guarded" REFUSED "$(guard "$T/selfhosted" "$HOSTED_URL" playwright --quiet)"
+# A spec filter named like a subcommand: argv is node, x, test, pdf.
+want "a run filtered by a word like pdf is still guarded" REFUSED "$(CP_EXTRA_ARGV=pdf guard "$T/selfhosted" "$HOSTED_URL" playwright test)"
 want "Playwright show-report is untouched" ALLOWED "$(guard "$T/selfhosted" "$HOSTED_URL" playwright show-report)"
 want "CI is untouched" ALLOWED "$(guard "$T/selfhosted" "$HOSTED_URL" playwright test CI=1)"
 want "vitest is untouched" ALLOWED "$(guard "$T/selfhosted" "$HOSTED_URL" dev-server x VITEST=1)"
@@ -65,7 +68,7 @@ printf 'VITE_SUPABASE_URL=%s\nSUPABASE_TEST_FUNCTIONS_TOKEN=x\n' "$HOSTED_URL" >
 git -C "$R" init -q
 deploy() { # deploy <flip> <args...>
   local flip="$1"; shift; : > "$CALLS"
-  (cd "$R" && env -u CP_DEPLOY_INNER_HOSTED CP_ACTIVE_TEST_FILE="$flip" PATH="$STUBS:$PATH" bash scripts/deploy-functions.sh "$@") > "$T/out" 2>&1
+  (cd "$R" && CP_ACTIVE_TEST_FILE="$flip" PATH="$STUBS:$PATH" bash scripts/deploy-functions.sh "$@") > "$T/out" 2>&1
   RC=$?; RAN="$(cat "$CALLS")"
 }
 deploy "$T/selfhosted" my-fn
@@ -78,6 +81,14 @@ deploy "$T/selfhosted" --env hosted-test
 { [ "$RC" -ne 0 ] && [ -z "$RAN" ] && grep -q REFUSED "$T/out"; } && ok "known-bad: --env hosted-test without a decision is refused, nothing ran" || bad "hosted-test refusal (rc=$RC ran='$RAN')"
 deploy "$T/missing" my-fn
 { [ "$RC" -ne 0 ] && [ -z "$RAN" ]; } && ok "unknown active server: fails closed, nothing ran" || bad "unknown state (rc=$RC ran='$RAN')"
+CP_DEPLOY_INNER_HOSTED=1 deploy "$T/selfhosted" my-fn
+{ [ "$RAN" = "SELFHOSTED-DEPLOY my-fn" ]; } && ok "the retired inner-run variable opens no way to hosted" || bad "inner-run variable (ran='$RAN')"
+CP_HOSTED_TEST_REASON=' ' deploy "$T/selfhosted" --env hosted-test
+{ [ "$RC" -ne 0 ] && [ -z "$RAN" ] && grep -q REFUSED "$T/out"; } && ok "a blank reason does not open a hosted deploy" || bad "blank reason deploy (rc=$RC ran='$RAN')"
+EDGE_SMOKE=1 deploy "$T/selfhosted" my-fn
+{ [ "$RC" -ne 0 ] && [ -z "$RAN" ] && grep -q 'EDGE_SMOKE' "$T/out"; } && ok "a requested smoke is refused on self-hosted, not silently skipped" || bad "smoke (rc=$RC ran='$RAN')"
+deploy "$T/missing" --env hosted-test
+{ [ "$RC" -ne 0 ] && [ -z "$RAN" ] && grep -q REFUSED "$T/out"; } && ok "--env hosted-test with an unknown active server: refused, nothing ran" || bad "hosted-test unknown (rc=$RC ran='$RAN')"
 deploy "$T/hosted" my-fn
 if printf '%s' "$RAN" | grep -q SELFHOSTED-DEPLOY; then bad "hosted active must not deploy to self-hosted"; else ok "hosted active: takes the hosted path, not self-hosted"; fi
 
