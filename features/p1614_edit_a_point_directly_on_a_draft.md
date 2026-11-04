@@ -6,8 +6,8 @@ workstream: canvas
 created_date: '2026-11-04'
 tags: [canvas, drafts, editing]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
