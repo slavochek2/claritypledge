@@ -16,6 +16,7 @@ import { ARTIFACTS_CANVASES_MINE, newestPublishedHref, publishedViewHref, worksp
 import { throwDbError } from './db-error-logger';
 import { listMyCanvases } from './canvas-artifacts';
 export * from './canvas-draft-calls';
+export * from './canvas-draft-edit-call';
 export * from './canvas-draft-retry';
 
 export type CanvasDraftState = 'open' | 'published' | 'discarded';

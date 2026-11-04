@@ -78,6 +78,9 @@ export function canvasTitle(name: string): string {
 /** P1536 W8: the longest a canvas title can be (the database's own limit). */
 export const CANVAS_TITLE_MAX = 60;
 
+/** P1614: the longest a point's text can be on a draft (the same bound every engine path enforces). */
+export const CANVAS_POINT_MAX = 300;
+
 /**
  * P1536 W8: the title a canvas is SHOWN under, from the one place: the owner's rename (`canvases.title`) when there is one, else the name's
  * canvasTitle. The address tag and the version names never change; only this display does.

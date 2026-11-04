@@ -8,6 +8,10 @@ import { CANVAS_LAYERS, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import type { PointWithUserPosition } from '@/app/types';
 import { CanvasBoxPlaceholder } from '@/app/pages/canvas-page-placeholders';
 import { AddToChatButton } from './canvas-add-to-chat';
+import { BoxEdits, type PointEditConfig } from './canvas-point-edit';
+import { useHiddenCount } from './canvas-point-edit-store';
+
+export { BoxEdits };
 import { BoxIcon } from './canvas-box-icon';
 import { CANVAS_CHIP } from './canvas-pill-styles';
 import { BOX_TITLES } from './canvas-page-data';
@@ -24,7 +28,7 @@ const COLUMN_CLASS: Record<GridColumns, string> = { 1: 'grid-cols-1', 2: 'grid-c
  * 520 to 719px two, 720px and up three). Every box is shown, filled or not, so the grid keeps its
  * shape. A row is as tall as its tallest box.
  */
-export function CanvasGrid({ boxes, renderCard, onMore, questions, changed }: {
+export function CanvasGrid({ boxes, renderCard, onMore, questions, changed, edit }: {
   /** null while loading (skeletons) */
   boxes: Map<CanvasBoxTag, PointWithUserPosition[]> | null;
   renderCard: (point: PointWithUserPosition) => ReactNode;
@@ -33,6 +37,8 @@ export function CanvasGrid({ boxes, renderCard, onMore, questions, changed }: {
   questions?: Record<string, string>;
   /** D6, the owner's draft only: the box tags whose point set differs from the base version's. */
   changed?: readonly string[];
+  /** P1614, the owner's open draft only: each card gets an Edit control beside it (the pencil goes while a run is going; an open editor stays). */
+  edit?: PointEditConfig;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const columns = useContainerColumns(ref);
@@ -58,6 +64,7 @@ export function CanvasGrid({ boxes, renderCard, onMore, questions, changed }: {
               onMore={() => onMore(tag)}
               question={questions?.[tag]}
               changed={changed?.includes(tag) === true}
+              edit={edit}
             />
           ))}
         </section>
@@ -71,7 +78,7 @@ export function CanvasGrid({ boxes, renderCard, onMore, questions, changed }: {
  * which opens the whole box in the panel. An empty box reads "Empty" to everyone (owners change the
  * canvas through their agent, so there is nothing to offer here), except on the owner's draft, where it shows the question.
  */
-function CanvasBox({ tag, title, points, renderCard, onMore, question, changed }: {
+function CanvasBox({ tag, title, points, renderCard, onMore, question, changed, edit }: {
   tag: CanvasBoxTag;
   title: string;
   /** null while loading (skeleton) */
@@ -80,12 +87,13 @@ function CanvasBox({ tag, title, points, renderCard, onMore, question, changed }
   onMore: () => void;
   question?: string;
   changed: boolean;
+  edit?: PointEditConfig;
 }) {
   const headingId = `canvas-box-${tag.replace(':', '-')}`;
   const empty = points !== null && points.length === 0;
   // Founder, sixth round: "1 more" promised one card and opened all of them — the label now says
   // what opens.
-  const hidden = points ? Math.max(0, points.length - BOX_LIMIT) : 0;
+  const hidden = useHiddenCount(tag, points, edit, BOX_LIMIT);
   const titleColour = empty ? 'text-foreground/60' : 'text-foreground';
 
   return (
@@ -113,14 +121,18 @@ function CanvasBox({ tag, title, points, renderCard, onMore, question, changed }
       ) : empty ? (
         // P1536: the owner's draft says what it could not fill and asks; everyone else reads "Empty". Muted italic: a
         // question to answer must not read like an answer (visual QA).
-        question ? (
-          <p className="break-words rounded-md border border-dashed border-blue-300 bg-background p-2 text-sm italic text-foreground/70" data-testid="canvas-box-question">
-            {question}
-          </p>
-        ) : <CanvasBoxPlaceholder empty />
+        // P1614: an open editor whose last point was just removed stays on screen beside this state (its text is the owner's).
+        <>
+          <BoxEdits tag={tag} points={points} edit={edit} renderCard={renderCard} limit={BOX_LIMIT} />
+          {question ? (
+            <p className="break-words rounded-md border border-dashed border-blue-300 bg-background p-2 text-sm italic text-foreground/70" data-testid="canvas-box-question">
+              {question}
+            </p>
+          ) : <CanvasBoxPlaceholder empty />}
+        </>
       ) : (
         <div className="flex flex-col gap-2" data-testid="canvas-box-list">
-          {points.slice(0, BOX_LIMIT).map(point => renderCard(point))}
+          <BoxEdits tag={tag} points={points} edit={edit} renderCard={renderCard} limit={BOX_LIMIT} />
           {hidden > 0 && (
             <button
               type="button"

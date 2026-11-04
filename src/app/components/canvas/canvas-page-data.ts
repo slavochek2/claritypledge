@@ -107,6 +107,11 @@ export function isViewingDraft(ready: CanvasReady): boolean {
   return ready.isOwner && !!ready.draft && ready.draft.version === ready.version;
 }
 
+/** P1614: what the grid needs to offer Edit on each card: the owner on their own open draft. `runActive`: their agent is working on it (no new edit starts; an open editor stays, with Save blocked). */
+export function pointEditOf(ready: CanvasReady | null, runActive: boolean | undefined): { draftId: string; revision: number; runActive: boolean } | undefined {
+  return ready && isViewingDraft(ready) && ready.draft ? { draftId: ready.draft.id, revision: ready.draft.revision, runActive: !!runActive } : undefined;
+}
+
 /** Nothing to read: a READER of a canvas with nothing published (the grid is replaced by one line). The owner gets the grid (nine empty boxes say it: 3c X12). */
 export function hasNothingToShow(ready: CanvasReady): boolean {
   return ready.publishedNone && !ready.isOwner && !isViewingDraft(ready);

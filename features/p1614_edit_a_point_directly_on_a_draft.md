@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 92
 workstream: canvas
 created_date: '2026-11-04'
 tags: [canvas, drafts, editing]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -28,7 +28,7 @@ Blast radius: draft points, Publish's supersede links, undo, and the agent's nex
 
 ## Solution
 
-An owner viewing their open draft gets an Edit control on each point card. It opens the text in place with Save and Cancel. Save calls one new owner RPC under the v6 revision protocol (expected revision, lock order, refusals). No model is called and no run is used.
+An owner viewing their open draft gets an Edit control on every point, on the board and in See all, sitting on the card. It opens the text in place of the card with Save and Cancel. Save calls one new owner RPC under the v6 revision protocol (expected revision, lock order, refusals). No model is called and no run is used.
 
 **Save does exactly what an agent `reword` of that point does, for every kind of point.** `_canvas_draft_run_complete` already handles the three kinds, so the RPC shares that logic rather than adding a fourth path:
 
@@ -37,17 +37,19 @@ An owner viewing their open draft gets an Edit control on each point card. It op
 - A point this draft made passes its existing link on to the new point (the chain), and the new point goes in the `canvas_draft_points` ledger, so Discard cleans it. A private copy of a legacy public point (`copied_from`) follows the engine's existing branch.
 - The owner's story links carry over as they do for a reword.
 
-**Stance:** D20 says a point "the AI writes or rewords" starts with no stance. A hand edit is the owner's own words, so it keeps the stance they had on the old point. This is the one difference from a reword. `[FOUNDER DECISION: keep the stance on a hand edit, as proposed, or clear it as a reword does.]`
+**Stance:** D20 says a point "the AI writes or rewords" starts with no stance. A hand edit is the owner's own words, so it keeps the stance they had on the old point. This is the one difference from a reword. Founder accepted this default on 2026-11-04.
 
 **Undo:** undo restores a snapshot taken by the latest run, so undoing a run from before the edit would silently lose it. Saving an edit therefore closes undo for the runs before it, by removing the draft's undo steps, and the state read then offers no Undo. A later run takes a snapshot that includes the edit, so undoing that run keeps the edit. An edit has no undo of its own: the owner can edit again. No schema change.
 
-**Retries:** no `p_client_id`, since it lives on the runs table and no run is made. A retry after a lost answer is refused as `stale_view`; the client re-reads and, if the text already matches, treats it as saved.
+**Retries:** no `p_client_id`, since it lives on the runs table and no run is made. After a thrown call or a `stale_view` from this editor's own Save, the client re-reads. It counts the edit as saved only if the point it was opened on is gone AND a point new since the save started has the exact text. A `busy` refusal never counts.
 
-`[FOUNDER DECISION: the control's label. Proposed: a pencil icon named "Edit", matching the canvas name's pencil.]`
+**When the point goes away under an open editor:** the typed text stays visible and read-only, with a notice and Dismiss, and no Save. It never moves onto another point on a guess; two reviews reproduced that saving onto the wrong point. Unsaved text is discarded on leaving the page, as in any unsaved form.
+
+The control is a pencil icon named "Edit", matching the canvas name's pencil (founder accepted this default on 2026-11-04).
 
 **After a save:** the box shows Changed if it differs from the base (existing `changed_boxes`). The next agent run reads the edited text, since it reads the draft's points. An unchanged save writes nothing.
 
-**Refusals, returned as the protocol's `{status:'refused', code, revision}`:** a run or Publish is going (`busy`), or the view is old (`stale_view`). The open editor keeps the typed text and says why. The Edit control is absent while a run is going, as other draft actions are.
+**Refusals, returned as the protocol's `{status:'refused', code, revision}`:** a run or Publish is going (`busy`), or the view is old (`stale_view`). The open editor keeps the typed text and says why. While a run is going the Edit control is absent; an editor already open stays, with Save blocked and the reason shown.
 
 ## Invariants
 
@@ -75,17 +77,17 @@ An owner viewing their open draft gets an Edit control on each point card. It op
 
 ## Acceptance Criteria
 
-- [ ] On their open draft, the owner edits a point, saves, and sees the new text at once and after a reload, with no agent reply and no run used.
-- [ ] Editing a point reused from v2 leaves v2 reading the old text. After Publish, v3 shows the new text and the old point is superseded.
-- [ ] Editing a point the draft created and then discarding the draft leaves nothing behind.
-- [ ] After an edit, the agent's next message works from the edited wording.
-- [ ] While a run is going there is no Edit control. A save racing a run is refused, keeps the typed text and says why.
-- [ ] Empty text cannot be saved. Cancel changes nothing and writes nothing.
-- [ ] A reader, a signed-out visitor and the owner on a published version see no Edit. A direct RPC call by another signed-in person is refused (integration test).
-- [ ] After an edit, Undo of an earlier run is not offered and a direct call is refused as stale. Undoing a later run keeps the edit, its supersede link and its ledger row.
-- [ ] Editing the same point twice, or a point the agent reworded, leaves one pending link from the published point to the newest text, and Publish applies it.
-- [ ] A story and the owner's stance on the old point are on the new point after the edit; a legacy private copy edit publishes correctly.
-- [ ] Visual QA passed by a separate reviewer at 1440, 375 and 320, editor open and closed.
+- [x] On their open draft, the owner edits a point, saves, and sees the new text at once and after a reload, with no agent reply and no run used. *(Walk at 1440, 375, 320; integration: no run row, no allowance used.)*
+- [x] Editing a point reused from v2 leaves v2 reading the old text. After Publish, v3 shows the new text and the old point is superseded. *(Integration and walk; the walk uses v1.)*
+- [x] Editing a point the draft created and then discarding the draft leaves nothing behind. *(Integration and walk.)*
+- [x] After an edit, the agent's next message works from the edited wording. *(Integration: the draft's points hold the edited text, which is what a run reads. Runs are stubbed; no real model run followed an edit.)* `[post-deploy]` founder tries one real message after an edit.
+- [x] While a run is going there is no Edit control. A save racing a run is refused, keeps the typed text and says why. *(Component: pencil gone, open editor kept with Save blocked and the reason shown. Integration: `busy`, nothing written.)*
+- [x] Empty text cannot be saved. Cancel changes nothing and writes nothing. *(Component, walk; integration raises `22023`; an unchanged save writes nothing.)*
+- [x] A reader, a signed-out visitor and the owner on a published version see no Edit. A direct RPC call by another signed-in person is refused (integration test). *(Component, walk; integration: `42501`, signed-out refused.)*
+- [x] After an edit, Undo of an earlier run is not offered and a direct call is refused as stale. Undoing a later run keeps the edit, its supersede link and its ledger row. *(Integration, with a base version: the link, the edit and the ledger row survive.)*
+- [x] Editing the same point twice, or a point the agent reworded, leaves one pending link from the published point to the newest text, and Publish applies it. *(Integration.)*
+- [x] A story and the owner's stance on the old point are on the new point after the edit; a legacy private copy edit publishes correctly. *(Integration. The legacy copy state is built by hand, because self-hosted TEST cannot seed a public canvas point; its public visibility is not exercised.)*
+- [x] Visual QA passed by a separate reviewer at 1440, 375 and 320, editor open and closed. *(Separate screenshots-only reviewer, two rounds at 1440, 375, 320; its findings were fixed. The last small fixes were checked by the build agent's screenshots and the walk, not re-reviewed.)*
 
 ## Migration Plan
 

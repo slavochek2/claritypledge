@@ -72,7 +72,7 @@ export function CanvasWithThread() {
   const ownerBar = answered ? answered.isOwner : eligible;
   // S4: Add to chat (owner only: the tap exists only where Clone does) and the reply chips; the composer takes the tags from the bus.
   const add = useAddToChat(reported, held, params.get('v'), ownerBar, clone, panel, closedDraftId);
-  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...add.tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: clone.pending?.seq ?? null, cloning: !!clone.pending, ownerBar }), [active, reportReady, reloads, showThread, add.tap, clone.clone, resolved, clone.pending, ownerBar]);
+  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...add.tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: clone.pending?.seq ?? null, cloning: !!clone.pending, ownerBar, runActive: spotRunActive }), [active, reportReady, reloads, showThread, add.tap, clone.clone, resolved, clone.pending, ownerBar, spotRunActive]);
   // The bar shows the last read FOR this canvas (`held`), so name, version and state do not blink away while the page re-reads another version.
   const rename = useCanvasRename(held, projectTag);
   useWorkspaceMarker({ eligible: workspaceOk, resolved, params, setParams, state: navState, reported, closedDraftId });

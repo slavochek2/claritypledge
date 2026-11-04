@@ -64,11 +64,11 @@ import { useGoBack } from '@/app/hooks/use-go-back';
 import { LetterPositionStoryDialog, type PositionStoryDialogState } from '@/app/components/letters/letter-position-story-dialog';
 import { CanvasAddStoryDialog, type CanvasAddStoryState } from '@/app/components/canvas/canvas-add-story-dialog';
 import { CanvasHeader } from '@/app/components/canvas/canvas-header';
-import { CanvasGrid } from '@/app/components/canvas/canvas-grid';
+import { BoxEdits, CanvasGrid } from '@/app/components/canvas/canvas-grid';
 import { CanvasCard } from '@/app/components/canvas/canvas-card';
 import { PointPanel } from '@/app/components/canvas/canvas-point-panel';
 import {
-  BOX_TITLES, buildReady, canvasSeoTitle, changedBoxes, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, sortBoxesByContest, storyFlags,
+  BOX_TITLES, buildReady, canvasSeoTitle, changedBoxes, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, pointEditOf, sortBoxesByContest, storyFlags,
   type CanvasData, adoptionSkipsRead,
 } from '@/app/components/canvas/canvas-page-data';
 import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
@@ -394,7 +394,7 @@ export function CanvasPage() {
   const refresh = useCallback(() => setPanelCloses(n => n + 1), []);
   // P1536: the draft on screen changed (its thread finished a run) or closed (published or discarded, here or in the thread
   // beside the page): re-read in place, or leave the draft's address and read the newest published version.
-  useCanvasDraftSync(ready, setParams, refresh);
+  useCanvasDraftSync(ready, setParams, refresh, viewerId);
   useWorkspaceReload(refresh);
 
   // D5: the owner as their profile shows them on the open point. Agent or not decides the ear
@@ -506,7 +506,7 @@ export function CanvasPage() {
       {current?.status === 'error' ? (
         <CanvasLoadError onRetry={() => void read(key)} />
       ) : !(ready && hasNothingToShow(ready)) && (
-        <CanvasGrid boxes={boxes} renderCard={renderCard} onMore={openBoxPanel} questions={ready ? draftQuestions(ready) : undefined} changed={changedBoxes(ready)} />
+        <CanvasGrid boxes={boxes} renderCard={renderCard} onMore={openBoxPanel} questions={ready ? draftQuestions(ready) : undefined} changed={changedBoxes(ready)} edit={pointEditOf(ready, workspace.runActive)} />
       )}
 
       {/* One panel for both levels (R2), so stepping from a box's list into a point and back
@@ -530,7 +530,7 @@ export function CanvasPage() {
           {!openPoint && openBox ? (
             // R2: the whole box, as the same cards; one opens on top of this list.
             <div className="flex flex-col gap-2 pt-2" data-testid="canvas-panel-box-list">
-              {(boxes?.get(openBox) ?? []).map(point => renderCard(point))}
+              <BoxEdits tag={openBox} points={boxes?.get(openBox) ?? []} edit={pointEditOf(ready, workspace.runActive)} renderCard={renderCard} surface="panel" />
             </div>
           ) : openPoint && (<>
           {/* Keyed by the point only: a re-read after a vote must not remount the card under the

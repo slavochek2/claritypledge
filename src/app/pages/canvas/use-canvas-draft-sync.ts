@@ -8,16 +8,22 @@
 import { useEffect, useRef } from 'react';
 import { subscribeCanvasDraftEvents } from '@/app/data/canvas-draft-events';
 import { isViewingDraft, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
+import { resetPointEdits, useClearPointEditsOnAuthChange } from '@/app/components/canvas/canvas-point-edit-store';
 
 export function useCanvasDraftSync(
   /** what is on screen: the draft it shows is listened for (null, or any published version: nothing is) */
   ready: CanvasReady | null,
   setParams: (changes: Record<string, string | null>) => void,
   refresh: () => void,
+  /** the signed-in viewer: a sign-out while the page is open discards point text typed and not saved (P1614) */
+  viewerId?: string | null,
 ): void {
   const latest = useRef({ setParams, refresh });
   latest.current = { setParams, refresh };
   const draftId = ready && isViewingDraft(ready) ? ready.draft?.id : undefined;
+  // P1614: the page leaving discards any point text typed and not saved, as an unsaved form does.
+  useEffect(() => resetPointEdits, []);
+  useClearPointEditsOnAuthChange(viewerId);
   useEffect(() => {
     if (!draftId) return;
     return subscribeCanvasDraftEvents((e) => {

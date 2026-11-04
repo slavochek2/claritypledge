@@ -45,6 +45,8 @@ export interface CanvasWorkspaceValue {
    * the page draws its whole header.
    */
   ownerBar: boolean;
+  /** P1614: the owner's agent is working on the draft (or the page is catching up with the run that just ended): a point cannot be edited by hand meanwhile. Absent outside the workspace. */
+  runActive?: boolean;
 }
 
 const NONE: CanvasWorkspaceValue = { active: false, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: null, cloneSeq: null, ownerBar: false };
