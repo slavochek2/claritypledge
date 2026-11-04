@@ -101,7 +101,7 @@ import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
-import { PrepRoomBanner } from '../prep/PrepRoom';
+import { RoomPreparation } from '../prep/RoomPreparation';
 import { feedbackAlwaysOpen, defaultRoomStep, recipeForEvent } from '../series-recipes';
 import { usePrepState, type PrepState } from '../prep/use-prep-state';
 import { ClarityContentLoader, ClarityPageLoader } from '@/components/ui/clarity-loader';
@@ -587,7 +587,7 @@ export function EventRoomMeet() {
         {/* Founder 2026-10-23: where the bar has a Learn step (a hike), that step IS the link; nothing here. */}
         {!seated && !learnsInBar && (
           <div className={cn('mt-2 flex items-center gap-3', roomRecipe.prepare.offer ? 'justify-start' : 'justify-end')}>
-            <PrepRoomBanner event={event} />
+            <RoomPreparation event={event} />
           </div>
         )}
         {transcriptionFailed && (
