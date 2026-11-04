@@ -20,7 +20,7 @@
 set -u
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 
-SRC_ROOT="$(git rev-parse --show-toplevel)"
+SRC_ROOT="${P1612_SRC_ROOT:-$(git rev-parse --show-toplevel)}"
 PASS=0; FAIL=0
 ok()  { echo "  OK   $1"; PASS=$((PASS+1)); }
 bad() { echo "  FAIL $1"; FAIL=$((FAIL+1)); }
@@ -65,14 +65,16 @@ mk_world() { # name -> sets W (world dir), R (repo), SB (sandbox VM dir)
 SB="$SB"; ST="$W/stubstate"
 map() { sed -e "s|/opt/supabase/docker|\$SB/stack|g" -e "s|/tmp/|\$SB/tmp/|g"; }
 case "\$1 \$2" in
-  "auth print-access-token") echo tok; exit 0 ;;
+  "auth print-access-token") [ -n "\${STUB_AUTH_FAIL:-}" ] && { echo "ERROR: not logged in" >&2; exit 1; }; echo tok; exit 0 ;;
   "compute scp")
+    [ -n "\${STUB_HANG:-}" ] && { echo "Connecting to IAP tunnel..." >&2; exec sleep 60; }
     [ -n "\${STUB_SSH_FAIL:-}" ] && exit 255
     local_f=""; remote=""
     for a in "\$@"; do case "\$a" in --*) ;; compute|scp) ;; cp-test-supabase:*) remote="\${a#cp-test-supabase:}" ;; *) local_f="\$a" ;; esac; done
     echo "\$remote" >> "\$ST/scp.log"
     dest="\$(printf '%s' "\$remote" | map)"; cp "\$local_f" "\$dest"; exit \$? ;;
   "compute ssh")
+    [ -n "\${STUB_HANG:-}" ] && { echo "Connecting to IAP tunnel..." >&2; exec sleep 60; }
     [ -n "\${STUB_SSH_FAIL:-}" ] && exit 255
     cmd=""; while [ \$# -gt 0 ]; do [ "\$1" = "--command" ] && { cmd="\$2"; break; }; shift; done
     PATH="$W/bin/vmbin:\$PATH"
@@ -111,7 +113,7 @@ STUB
              supabase/selfhosted/functions-main
     cp "$SRC_ROOT/scripts/selfhosted/deploy-functions.sh" scripts/selfhosted/
     cp "$SRC_ROOT/scripts/selfhosted/deploy-drift.sh" scripts/selfhosted/
-    cp "$SRC_ROOT/scripts/selfhosted/lib/deploy-guard.sh" "$SRC_ROOT/scripts/selfhosted/lib/deploy-on-land.sh" scripts/selfhosted/lib/
+    cp "$SRC_ROOT/scripts/selfhosted/lib/deploy-guard.sh" "$SRC_ROOT/scripts/selfhosted/lib/deploy-on-land.sh" "$SRC_ROOT/scripts/selfhosted/lib/land-job.sh" scripts/selfhosted/lib/
     printf '#!/bin/bash\nexit 0\n' > scripts/check-edge-function-secrets.sh
     chmod +x scripts/check-edge-function-secrets.sh
     echo 'export const v = 1' > supabase/functions/_shared/x.ts
@@ -230,14 +232,15 @@ has "  refused as behind" "$W/out" "behind main on 1 deployed file"
 if [ -d "$R/.git/cp-test-deploy.lock" ]; then bad "  lock released after the refusal"; else ok "  lock released after the refusal"; fi
 
 mk_world s3b
-mkdir "$R/.git/cp-test-deploy.lock"; printf 'pid=%s\nepoch=%s\n' "$$" "$(( $(date +%s) - 30 ))" > "$R/.git/cp-test-deploy.lock/owner"
+mkdir "$R/.git/cp-test-deploy.lock"; printf 'pid=%s\nhost=%s\nepoch=%s\n' "$$" "$(hostname)" "$(( $(date +%s) - 30 ))" > "$R/.git/cp-test-deploy.lock/owner"
 run_deploy; check "a second deploy while the lock is held by a live run" 1 "$RC"
 has "  names the live holder" "$W/out" "another TEST deploy is running"
 check "  nothing uploaded" 0 "$(uploads)"
 dead=999999; while kill -0 "$dead" 2>/dev/null; do dead=$((dead+1)); done
-printf 'pid=%s\nepoch=%s\n' "$dead" "$(( $(date +%s) - 7200 ))" > "$R/.git/cp-test-deploy.lock/owner"
+printf 'pid=%s\nhost=%s\nepoch=%s\n' "$dead" "$(hostname)" "$(( $(date +%s) - 7200 ))" > "$R/.git/cp-test-deploy.lock/owner"
 run_deploy; check "stale lock from a dead run" 1 "$RC"
 has "  reported as stale with its age" "$W/out" "stale TEST deploy lock from a dead run (pid $dead, 72[0-9][0-9]s old)"
+has "  with the exact command to clear it" "$W/out" "rm -r '.*/cp-test-deploy.lock'"
 if [ -d "$R/.git/cp-test-deploy.lock" ]; then ok "  stale lock was not removed silently"; else bad "  stale lock was not removed silently"; fi
 rm -rf "$R/.git/cp-test-deploy.lock"
 run_deploy; check "  lock gone: deploy proceeds, and releases its lock" 0 "$RC"
@@ -370,8 +373,25 @@ echo 'landed v2' > "$R/supabase/functions/fn-a/index.ts"
 after="$(git -C "$R" rev-parse HEAD)"
 echo 'UNCOMMITTED' > "$R/supabase/functions/fn-a/dirty.ts"
 echo 'dirty edit' >> "$R/supabase/functions/fn-b/index.ts"
-land() { ( source "$R/scripts/selfhosted/lib/deploy-on-land.sh"; HOME="$W/home" PATH="${EXTRA_PATH:+$EXTRA_PATH:}$W/bin:$PATH" deploy_test_on_land "$R" "$1" "$2" ) > "$W/lout" 2>&1; LRC=$?; }
+# The landing deploy is detached: the hook returns at once and a background job writes the log.
+# land() runs the hook, then waits for that job to log its END line. LRC is the hook's own exit
+# status; $W/lout is the hook's stderr followed by what the job logged.
+wait_jobs() { # count log
+  local i; for i in $(seq 1 400); do
+    [ "$(grep -c LAND-JOB-END "$2" 2>/dev/null || true)" -ge "$1" ] && return 0; sleep 0.2
+  done; echo "(timed out waiting for the landing job)" >&2; return 1
+}
+hook() { ( source "$R/scripts/selfhosted/lib/deploy-on-land.sh"; HOME="$W/home" PATH="${EXTRA_PATH:+$EXTRA_PATH:}$W/bin:$PATH" deploy_test_on_land "$R" "$1" "$2" ) > "$W/hook" 2>&1; LRC=$?; }
+jobs_done() { grep -c LAND-JOB-END "$R/.git/cp-test-deploy-land.log" 2>/dev/null || true; }
+land() { # before after
+  local lf="$R/.git/cp-test-deploy-land.log" size0 n0
+  size0="$(wc -c < "$lf" 2>/dev/null || echo 0)"; size0="${size0// /}"; n0="$(jobs_done)"
+  hook "$1" "$2"
+  if grep -q "started in the background" "$W/hook"; then wait_jobs $((n0 + 1)) "$lf"; fi
+  { cat "$W/hook"; tail -c +$((size0 + 1)) "$lf" 2>/dev/null; } > "$W/lout"
+}
 land "$before" "$after"; check "landing a function change runs the real deploy from an extract" 0 "$LRC"
+has "  the hook said the deploy started in the background" "$W/lout" "started in the background"
 has "  deployed main's tip after the landing" "$W/lout" "deployed main's tip after landing ${after:0:9}"
 mf="$W/vm/stack/deploy-manifest.tsv"
 has "  manifest records the landed commit, branch main, clean" "$mf" "^D.fn-a.$after.main.[0-9TZ:-]*.0$"
@@ -406,7 +426,7 @@ land "$before" "$after"; check "failed deploy leaves the landing intact (returns
 has "  prints the failure loudly" "$W/lout" "DEPLOY FAILED"
 if [ "$(git -C "$R" rev-parse HEAD)" != "$after" ] && git -C "$R" merge-base --is-ancestor "$after" HEAD; then ok "  landing still on main"; else bad "  landing still on main"; fi
 rm -f "$W/stubstate/probe/fn-a"
-echo "6a. landing under contention"
+echo "6a. landing under contention (the landing itself never waits)"
 mk_world s6d
 mkdir -p "$R/scripts/lib"; echo 'active_test_target() { echo selfhosted; }' > "$R/scripts/lib/active-test.sh"
 ( cd "$R" && git add -A && git commit -qm stub ) >/dev/null 2>&1
@@ -414,48 +434,205 @@ run_deploy; check "setup: server on main" 0 "$RC"
 b0="$(git -C "$R" rev-parse HEAD)"
 commit_on main supabase/functions/fn-a/index.ts 'M2 content' "main: M2"
 m2="$(git -C "$R" rev-parse HEAD)"
-LOCK="$R/.git/cp-test-deploy.lock"
-sleep 120 & holder=$!
-mkdir "$LOCK"; printf 'pid=%s\nepoch=%s\n' "$holder" "$(date +%s)" > "$LOCK/owner"
-( sleep 3; kill "$holder" 2>/dev/null; rm -rf "$LOCK" ) &
+LOCK="$R/.git/cp-test-deploy.lock"; LOGF="$R/.git/cp-test-deploy-land.log"
+holder_lock() { sleep 120 & holder=$!; mkdir "$LOCK"; printf 'pid=%s\nhost=%s\nepoch=%s\n' "$holder" "$(hostname)" "$(date +%s)" > "$LOCK/owner"; }
+holder_stop() { kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null; rm -rf "$LOCK"; }
+holder_lock
+( sleep 4; kill "$holder" 2>/dev/null; rm -rf "$LOCK" ) &
 releaser=$!
-( source "$R/scripts/selfhosted/lib/deploy-on-land.sh"; HOME="$W/home" PATH="$W/bin:$PATH" CP_LAND_LOCK_WAIT=60 deploy_test_on_land "$R" "$b0" "$m2" ) > "$W/lout" 2>&1
-wait "$releaser" 2>/dev/null; wait "$holder" 2>/dev/null
-has "a landing waits for a running branch deploy and says so" "$W/lout" "Waiting for the running TEST deploy"
-has "  then deploys" "$W/lout" "deployed main's tip after landing"
+n0="$(jobs_done)"; t0=$SECONDS
+CP_LAND_LOCK_WAIT=60 hook "$b0" "$m2"; el=$((SECONDS - t0))
+check "the landing hook returns 0 while a deploy holds the lock" 0 "$LRC"
+if [ "$el" -lt 3 ]; then ok "  and at once (${el}s), not after the lock frees"; else bad "  and at once (took ${el}s)"; fi
+has "  prints one line: started in the background, with the log path" "$W/hook" "started in the background (log: .*cp-test-deploy-land.log)"
+wait_jobs $((n0 + 1)) "$LOGF"; wait "$releaser" 2>/dev/null
+has "  the job waited for the running deploy and said so" "$LOGF" "Waiting for the running TEST deploy"
+has "  then deployed" "$LOGF" "deployed main's tip after landing"
 has "  server holds main's content" "$W/vm/stack/volumes/functions/fn-a/index.ts" "M2 content"
 has "  manifest records main's tip" "$W/vm/stack/deploy-manifest.tsv" "^D.fn-a.$m2"
-# bounded wait: the lock stays held
-sleep 120 & holder=$!
-mkdir "$LOCK"; printf 'pid=%s\nepoch=%s\n' "$holder" "$(date +%s)" > "$LOCK/owner"
+# a lock that never frees: bounded wait, recorded failure
+holder_lock
 commit_on main supabase/functions/fn-a/index.ts 'M3 content' "main: M3"
 m3="$(git -C "$R" rev-parse HEAD)"
-( source "$R/scripts/selfhosted/lib/deploy-on-land.sh"; HOME="$W/home" PATH="$W/bin:$PATH" CP_LAND_LOCK_WAIT=2 deploy_test_on_land "$R" "$m2" "$m3" ) > "$W/lout" 2>&1; LRC=$?
-check "a lock that never frees: the wait is bounded and the landing hook still returns 0" 0 "$LRC"
-has "  prints the failure" "$W/lout" "DEPLOY FAILED"
+n0="$(jobs_done)"
+CP_LAND_LOCK_WAIT=2 hook "$m2" "$m3"; check "a lock that never frees: the hook still returns 0 at once" 0 "$LRC"
+wait_jobs $((n0 + 1)) "$LOGF"
+has "  the job logged DEPLOY FAILED" "$LOGF" "DEPLOY FAILED"
 has "  server unchanged" "$W/vm/stack/volumes/functions/fn-a/index.ts" "M2 content"
-kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null; rm -rf "$LOCK"
-# interactive deploys still refuse at once (no wait)
-sleep 120 & holder=$!
-mkdir "$LOCK"; printf 'pid=%s\nepoch=%s\n' "$holder" "$(date +%s)" > "$LOCK/owner"
-start=$SECONDS; run_deploy; el=$((SECONDS - start))
+if [ -s "$R/.git/cp-test-deploy-land.failed" ]; then ok "  failure record written"; else bad "  failure record written"; fi
+run_drift; check "  the drift check reports the failed landing (exit 1)" 1 "$DRC"
+has "  names it in the status line" "$W/dout" "WARNING: the latest landing deploy failed"
+holder_stop
+# interactive deploys still refuse at once
+holder_lock
+t0=$SECONDS; run_deploy; el=$((SECONDS - t0))
 check "an interactive deploy against a held lock refuses" 1 "$RC"
 if [ "$el" -lt 3 ]; then ok "  and at once (${el}s)"; else bad "  and at once (took ${el}s)"; fi
-kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null; rm -rf "$LOCK"
-# two quick landings: both hooks run, the server ends on the newer one
+holder_stop
+# the next landing succeeds, which clears the failure record
+land "$m2" "$m3"
+has "  a later successful landing deploys main's tip" "$W/lout" "deployed main's tip after landing"
+has "  server now holds M3" "$W/vm/stack/volumes/functions/fn-a/index.ts" "M3 content"
+if [ -e "$R/.git/cp-test-deploy-land.failed" ]; then bad "  failure record cleared by the later success"; else ok "  failure record cleared by the later success"; fi
+run_drift; check "  drift reads clean again" 0 "$DRC"
+# two quick landings: both hooks return at once, the server ends on the newer one
 commit_on main supabase/functions/fn-a/index.ts 'M4 content' "main: M4"
 m4="$(git -C "$R" rev-parse HEAD)"
-( source "$R/scripts/selfhosted/lib/deploy-on-land.sh"; HOME="$W/home" PATH="$W/bin:$PATH" deploy_test_on_land "$R" "$m2" "$m3" ) > "$W/l1" 2>&1 &
-p1=$!
-( source "$R/scripts/selfhosted/lib/deploy-on-land.sh"; HOME="$W/home" PATH="$W/bin:$PATH" deploy_test_on_land "$R" "$m3" "$m4" ) > "$W/l2" 2>&1 &
-p2=$!
-wait "$p1"; r1=$?; wait "$p2"; r2=$?
+n0="$(jobs_done)"; size0="$(wc -c < "$LOGF" | tr -d ' ')"
+hook "$m2" "$m3"; r1=$LRC; hook "$m3" "$m4"; r2=$LRC
 check "two quick landings: first hook" 0 "$r1"; check "  second hook" 0 "$r2"
-hasnt "  no DEPLOY FAILED from the first (it would have failed on stale ancestry)" "$W/l1" "DEPLOY FAILED"; [ -n "${P1612_DEBUG:-}" ] && { echo "--- l1"; cat "$W/l1"; echo "--- l2"; cat "$W/l2"; }
-hasnt "  no DEPLOY FAILED from the second" "$W/l2" "DEPLOY FAILED"
+wait_jobs $((n0 + 2)) "$LOGF"
+if [ "$(tail -c +$((size0 + 1)) "$LOGF" | grep -c 'DEPLOY FAILED' || true)" -eq 0 ]; then ok "  no DEPLOY FAILED from either job"; else bad "  no DEPLOY FAILED from either job"; tail -n 25 "$LOGF" | cut -c1-200 >&2; fi
 has "  server ends on the newer commit's content" "$W/vm/stack/volumes/functions/fn-a/index.ts" "M4 content"
 has "  manifest records the newer commit" "$W/vm/stack/deploy-manifest.tsv" "^D.fn-a.$m4"
 if [ -d "$LOCK" ]; then bad "  lock released"; else ok "  lock released"; fi
+
+echo "6b2. locks left behind"
+# a provably dead owner: a landing clears it and says so; an interactive deploy reports the exact command
+dead=999999; while kill -0 "$dead" 2>/dev/null; do dead=$((dead+1)); done
+mkdir "$LOCK"; printf 'pid=%s\nhost=%s\nepoch=%s\n' "$dead" "$(hostname)" "$(( $(date +%s) - 900 ))" > "$LOCK/owner"
+run_deploy; check "interactive deploy with a dead owner's lock refuses, removes nothing" 1 "$RC"
+has "  with the exact command" "$W/out" "rm -r '.*/cp-test-deploy.lock'"
+[ -d "$LOCK" ] && ok "  lock still there" || bad "  lock still there"
+run_drift; has "  drift reports the stuck lock" "$W/dout" "WARNING: stuck deploy lock (owner pid $dead is dead"
+commit_on main supabase/functions/fn-a/index.ts 'M5 content' "main: M5"
+m5="$(git -C "$R" rev-parse HEAD)"
+land "$m4" "$m5"
+has "a landing clears the provably dead lock and says so" "$W/lout" "Cleared a stale TEST deploy lock left by dead pid $dead"
+has "  and deploys" "$W/vm/stack/volumes/functions/fn-a/index.ts" "M5 content"
+# a lock from another host is never provably dead
+mkdir "$LOCK"; printf 'pid=%s\nhost=%s\nepoch=%s\n' "$dead" "some-other-machine" "$(( $(date +%s) - 900 ))" > "$LOCK/owner"
+commit_on main supabase/functions/fn-a/index.ts 'M6 content' "main: M6"
+m6="$(git -C "$R" rev-parse HEAD)"
+CP_LAND_LOCK_WAIT=3 land "$m5" "$m6"
+has "a lock owned by another host is not cleared" "$W/lout" "DEPLOY FAILED"
+[ -d "$LOCK" ] && ok "  and is still there" || bad "  and is still there"
+rm -rf "$LOCK"
+# an ownerless lock (an old branch's wrapper): the landing waits the full bound, then refuses
+mkdir "$LOCK"
+n0="$(jobs_done)"; size0="$(wc -c < "$LOGF" | tr -d ' ')"; t0=$SECONDS
+CP_LAND_LOCK_WAIT=14 hook "$m5" "$m6"
+wait_jobs $((n0 + 1)) "$LOGF"; el=$((SECONDS - t0))
+tail -c +$((size0 + 1)) "$LOGF" > "$W/jl"
+has "ownerless lock, never freed: refused only after the bound" "$W/jl" "no usable owner record"
+if [ "$el" -ge 13 ]; then ok "  after waiting the full bound (${el}s, not a short grace)"; else bad "  after waiting the full bound (only ${el}s)"; fi
+[ -d "$LOCK" ] && ok "  ownerless lock is never removed" || bad "  ownerless lock is never removed"
+# freed meanwhile, it proceeds
+n0="$(jobs_done)"
+( sleep 4; rm -rf "$LOCK" ) &
+rel2=$!
+CP_LAND_LOCK_WAIT=60 hook "$m5" "$m6"; wait_jobs $((n0 + 1)) "$LOGF"; wait "$rel2" 2>/dev/null
+has "ownerless lock freed meanwhile: the landing proceeds and deploys" "$W/vm/stack/volumes/functions/fn-a/index.ts" "M6 content"
+
+echo "6c. deadlines"
+commit_on main supabase/functions/fn-a/index.ts 'M7 content' "main: M7"
+m7="$(git -C "$R" rev-parse HEAD)"
+n0="$(jobs_done)"; t0=$SECONDS
+STUB_HANG=1 DG_GCLOUD_DEADLINE=3 hook "$m6" "$m7"; el=$((SECONDS - t0))
+check "a hung gcloud: the landing hook returns 0" 0 "$LRC"
+if [ "$el" -lt 3 ]; then ok "  at once (${el}s)"; else bad "  at once (took ${el}s)"; fi
+wait_jobs $((n0 + 1)) "$LOGF"
+tail -n 12 "$LOGF" > "$W/jl"
+has "  the job says the gcloud call timed out" "$W/jl" "gcloud call timed out after 3s"
+has "  gcloud's own stderr stays visible" "$W/jl" "Connecting to IAP tunnel"
+has "  and DEPLOY FAILED is logged" "$W/jl" "DEPLOY FAILED"
+[ -d "$LOCK" ] && bad "  lock released after the timeout" || ok "  lock released after the timeout"
+n0="$(jobs_done)"
+STUB_HANG=1 DG_GCLOUD_DEADLINE=100 CP_LAND_JOB_DEADLINE=3 hook "$m6" "$m7"
+wait_jobs $((n0 + 1)) "$LOGF"; tail -n 6 "$LOGF" > "$W/jl"
+has "the whole background job has a hard deadline too" "$W/jl" "timed out after 3s"
+[ -d "$LOCK" ] && bad "  lock released after the job deadline" || ok "  lock released after the job deadline"
+t0=$SECONDS; STUB_HANG=1 DG_GCLOUD_DEADLINE=2 run_drift; el=$((SECONDS - t0))
+check "drift against a hung server" 2 "$DRC"; has "  says unknown, deadline" "$W/dout" "unknown: the server did not answer within the deadline"
+if [ "$el" -lt 10 ]; then ok "  within the deadline (${el}s)"; else bad "  within the deadline (took ${el}s)"; fi
+STUB_AUTH_FAIL=1 run_drift; check "drift with gcloud logged out" 2 "$DRC"
+has "  says so, not 'no manifest'" "$W/dout" "unknown: gcloud not logged in"
+hasnt "  not blamed on the manifest" "$W/dout" "manifest"
+run_deploy; check "  control: a real deploy restores the server" 0 "$RC"
+
+echo "6d. the hook runs the script from main's tip, not the working tree"
+mk_world s6e
+mkdir -p "$R/scripts/lib"; echo 'active_test_target() { echo selfhosted; }' > "$R/scripts/lib/active-test.sh"
+( cd "$R" && git add -A && git commit -qm stub ) >/dev/null 2>&1
+b0="$(git -C "$R" rev-parse HEAD)"
+commit_on main supabase/functions/fn-a/index.ts 'tip content' "main: tip"
+tip="$(git -C "$R" rev-parse HEAD)"
+printf '#!/bin/bash\necho "CO-TENANT EDIT RAN"; exit 99\n' > "$R/scripts/selfhosted/deploy-functions.sh"
+land "$b0" "$tip"
+hasnt "a co-tenant's uncommitted edit to the deploy script does not run" "$W/lout" "CO-TENANT EDIT RAN"
+has "  main's tip is deployed" "$W/vm/stack/volumes/functions/fn-a/index.ts" "tip content"
+
+echo "6e. real git-ops, end to end"
+SRC_GOPS="$SRC_ROOT/scripts"
+add_gitops() { # active-test answer
+  ( cd "$R"
+    cp "$SRC_GOPS/git-ops.sh" "$SRC_GOPS/ship-gates.sh" scripts/
+    mkdir -p scripts/lib .claude/worktrees features/done/2026-04-22
+    for f in gate-override.sh admin-close.sh worktree-changes.sh decisions-merge.py lib-datetime.sh; do [ -f "$SRC_GOPS/lib/$f" ] && cp "$SRC_GOPS/lib/$f" scripts/lib/; done
+    cp "$SRC_GOPS/lib-datetime.sh" scripts/ 2>/dev/null
+    printf 'active_test_target() { echo %s; }\n' "$1" > scripts/lib/active-test.sh
+    : > features/done/2026-04-22/.gitkeep
+    printf '.claude/worktrees/\n' > .gitignore
+    git add .gitignore scripts features >/dev/null; git commit -qm "gitops tooling" ) >/dev/null 2>&1
+}
+gops() { ( cd "$R" && HOME="$W/home" PATH="$W/bin:$PATH" bash "$R/scripts/git-ops.sh" "$@" ); }
+ship_fixture() { # a feature branch p101 with a function change, a spec and a review receipt
+  ( cd "$R"; git checkout -q -b feature/p101-demo; printf 'landed via ship\n' > supabase/functions/fn-a/index.ts; git add supabase/functions/fn-a/index.ts; git commit -qm "p101: fn"; git checkout -q main
+    printf -- '---\nstatus: qa\ntype: task\nrank: 1\ntags: [demo]\ndelivery_stage: fix\npipeline_ran: [fix]\n---\n# p101: Demo\n\nProblem: demo.\n\n## Done-When\n\n- [x] fixture\n' > features/p101_demo.md
+    git add features/p101_demo.md; git commit -qm "chore: add p101 spec"
+    printf '{"type": "code", "pn": "p101", "branch": "feature/p101-demo", "sha": "%s", "timestamp": "%s", "issues_found": 0, "issues_fixed": 0}\n' "$(git rev-parse HEAD)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> .git/.finish-reviewed ) >/dev/null 2>&1
+}
+mk_world g1; add_gitops selfhosted
+printf 'landed via commit-to-main\n' > "$R/supabase/functions/fn-a/index.ts"
+LOGF="$R/.git/cp-test-deploy-land.log"
+t0=$SECONDS; STUB_HANG=1 DG_GCLOUD_DEADLINE=8 gops commit-to-main --message "e2e: fn change" --files supabase/functions/fn-a/index.ts > "$W/o" 2> "$W/e"; GRC=$?; el=$((SECONDS - t0))
+check "commit-to-main with a hung gcloud returns 0" 0 "$GRC"
+if [ "$el" -lt 6 ]; then ok "  without waiting for the deploy (${el}s)"; else bad "  without waiting for the deploy (took ${el}s)"; fi
+[ ! -s "$W/o" ] && ok "  stdout is empty, as before" || bad "  stdout is empty ($(head -c 80 "$W/o"))"
+has "  stderr has the one started-in-the-background line" "$W/e" "TEST functions: deploy of main's tip started in the background"
+[ "$(git -C "$R" log -1 --format=%s)" = "e2e: fn change" ] && ok "  the commit landed" || bad "  the commit landed"
+wait_jobs 1 "$LOGF"
+has "  the job later logged its failure" "$LOGF" "DEPLOY FAILED"
+run_drift; has "  and drift reports it" "$W/dout" "WARNING: the latest landing deploy failed"
+# healthy: the same commit-to-main lands and the server follows
+printf 'second change\n' > "$R/supabase/functions/fn-a/index.ts"
+gops commit-to-main --message "e2e: second" --files supabase/functions/fn-a/index.ts > "$W/o" 2> "$W/e"; GRC=$?
+check "commit-to-main, healthy" 0 "$GRC"; wait_jobs 2 "$LOGF"
+has "  the server follows" "$W/vm/stack/volumes/functions/fn-a/index.ts" "second change"
+run_drift; check "  and drift is clean again" 0 "$DRC"
+: > "$W/stubstate/scp.log"; echo x >> "$R/README.md"
+gops commit-to-main --message "e2e: docs" --files README.md > "$W/o" 2> "$W/e"; GRC=$?
+check "a docs-only commit-to-main" 0 "$GRC"; check "  does not deploy" 0 "$(uploads)"
+hasnt "  and prints nothing about TEST" "$W/e" "TEST functions"
+
+mk_world g2; add_gitops selfhosted; ship_fixture
+LOGF="$R/.git/cp-test-deploy-land.log"
+t0=$SECONDS; STUB_HANG=1 DG_GCLOUD_DEADLINE=8 gops ship p101 > "$W/o" 2> "$W/e"; GRC=$?; el=$((SECONDS - t0))
+check "ship with a hung gcloud returns 0" 0 "$GRC"
+if [ "$el" -lt 6 ]; then ok "  without waiting for the deploy (${el}s)"; else bad "  without waiting for the deploy (took ${el}s)"; fi
+[ "$(tail -n 1 "$W/o")" = "Ready to push." ] && ok "  stdout still ends with Ready to push." || bad "  stdout still ends with Ready to push. ($(tail -n 1 "$W/o"))"
+has "  stderr has the started-in-the-background line" "$W/e" "TEST functions: deploy of main's tip started in the background"
+wait_jobs 1 "$LOGF"
+has "  the detached job logged its failure" "$LOGF" "DEPLOY FAILED"
+mk_world g3; add_gitops selfhosted; ship_fixture
+LOGF="$R/.git/cp-test-deploy-land.log"
+gops ship p101 > "$W/o" 2> "$W/e"; GRC=$?
+check "ship, healthy" 0 "$GRC"; wait_jobs 1 "$LOGF"
+has "  the server follows the landed commit" "$W/vm/stack/volumes/functions/fn-a/index.ts" "landed via ship"
+run_drift; check "  and drift reads in sync" 0 "$DRC"
+
+echo "5d. top-level deno.json and deno.lock in the drift check"
+mk_world s5d
+run_deploy; check "setup: full deploy from main" 0 "$RC"
+run_drift; check "in sync before" 0 "$DRC"
+commit_on main supabase/functions/deno.json '{"imports":{"a":"b"}}' "main: deno.json changes"
+run_drift; check "main changed deno.json after the deploy" 1 "$DRC"
+has "  reads behind main, naming deno.json" "$W/dout" "behind main: deno.json"
+run_deploy; run_drift; check "  redeploy restores in sync" 0 "$DRC"
+echo 'tampered' > "$W/vm/stack/volumes/functions/deno.lock"
+run_drift; check "deno.lock edited on the server" 1 "$DRC"
+has "  reads branch-only, naming deno.lock" "$W/dout" "branch-only: deno.lock"
+run_deploy
 
 # --from-commit: the script extracts the commit itself and runs the same guard
 mk_world s6b

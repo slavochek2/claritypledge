@@ -291,10 +291,11 @@ echo "=== TEST SERVER EDGE FUNCTIONS (P1612) ==="
 # missing manifest must never turn the disk and WAL monitoring unknown.
 DRIFT_SH="${TESTDB_ROOT:+$TESTDB_ROOT/scripts/selfhosted/deploy-drift.sh}"
 if [ -z "$DRIFT_SH" ] || [ ! -x "$DRIFT_SH" ]; then echo "CHECK cp.testfns skipped the drift check is not on main yet" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ "$GCLOUD_OK" -eq 0 ]; then echo "CHECK cp.testfns not-run gcloud is not signed in" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 else
   DRIFT_RC=0; DRIFT_OUT="$("$DRIFT_SH" 2>&1)" || DRIFT_RC=$?
   echo "$DRIFT_OUT"
-  DRIFT_SUMMARY="$(printf '%s' "$DRIFT_OUT" | tr '\n' ' ' | tr -d '<>|' | cut -c1-70)"; DRIFT_SUMMARY="${DRIFT_SUMMARY:-no output}"
+  DRIFT_SUMMARY="$(printf '%s' "$DRIFT_OUT" | tr '\n' ' ' | tr -d '<>|' | cut -c1-150)"; DRIFT_SUMMARY="${DRIFT_SUMMARY:-no output}"
   case "$DRIFT_RC" in
     0) echo "CHECK cp.testfns ok $DRIFT_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
     1) echo "CHECK cp.testfns problem $DRIFT_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;

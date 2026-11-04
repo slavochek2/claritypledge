@@ -30,7 +30,7 @@ deploy_land_baseline() {
 }
 
 deploy_test_on_land() {
-  local repo="$1" before="$2" after="$3" changed rc=0 target wait="${CP_LAND_LOCK_WAIT:-300}"
+  local repo="$1" before="$2" after="$3" changed target wait="${CP_LAND_LOCK_WAIT:-300}"
   changed="$(git -C "$repo" diff --name-only "$before" "$after" -- "${DEPLOY_ON_LAND_PATHS[@]}" 2>/dev/null)" || {
     echo "TEST functions: could not diff ${before:0:9}..${after:0:9}; not deploying. Run scripts/deploy-functions.sh by hand if functions changed." >&2
     return 0
@@ -50,14 +50,39 @@ deploy_test_on_land() {
     echo "TEST functions: active TEST server is '${target:-unknown}', not self-hosted: not deploying. Deploy by hand when needed." >&2
     return 0
   fi
-  # The deploy script waits for the lock (a running deploy may be a branch test), then deploys
-  # main's tip as read under the lock, so a burst of landings ends on the newest one. The files come
-  # from `git archive`, never a working tree.
-  ( cd "$repo" && "$repo/scripts/selfhosted/deploy-functions.sh" --from-main-tip --lock-wait "$wait" ) >&2 || rc=$?
-  if [ "$rc" -ne 0 ]; then
-    echo "TEST functions: DEPLOY FAILED (exit $rc) after landing ${after:0:9}. The landing stands and is NOT undone. TEST may be serving older functions: re-run scripts/deploy-functions.sh from main; /day shows the drift." >&2
-  else
-    echo "TEST functions: deployed main's tip after landing ${after:0:9}." >&2
+  # Detach. A landing must never wait for a deploy (a hung tunnel, a long lock wait and a 24-function
+  # probe add up to many minutes): the deploy runs in its own session, outlives this command, writes
+  # to a log in the git common dir, and leaves a failure record the drift check reports.
+  # The script that runs is taken from `git archive` of main's tip, not from this working tree, so
+  # a co-tenant's uncommitted edit or a switched branch cannot change what runs.
+  local common log tip tmp
+  common="$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || common=""
+  tip="$(git -C "$repo" rev-parse --verify -q 'refs/heads/main^{commit}' 2>/dev/null)" || tip=""
+  if [ -z "$common" ] || [ -z "$tip" ]; then
+    echo "TEST functions: cannot read main or the git dir; not deploying. Run scripts/deploy-functions.sh by hand." >&2
+    return 0
   fi
+  log="$common/cp-test-deploy-land.log"
+  [ "$(wc -c < "$log" 2>/dev/null || echo 0)" -gt 200000 ] && : > "$log"
+  tmp="$(mktemp -d)" || { echo "TEST functions: cannot make a temp dir; not deploying. Run scripts/deploy-functions.sh by hand." >&2; return 0; }
+  if ! git -C "$repo" archive "$tip" -- scripts/selfhosted | tar -x -C "$tmp" 2>/dev/null || [ ! -x "$tmp/scripts/selfhosted/lib/land-job.sh" ]; then
+    echo "TEST functions: main's tip has no landing deploy job (scripts/selfhosted/lib/land-job.sh); not deploying. Run scripts/deploy-functions.sh by hand." >&2
+    rm -rf "$tmp"; return 0
+  fi
+  # perl: fork, the parent exits at once, the child starts a new session with stdin closed and
+  # stdout/stderr on the log, so the job survives this command and its terminal.
+  if ! perl -e '
+      use POSIX qw(setsid);
+      my ($log, @cmd) = @ARGV;
+      defined(my $pid = fork) or exit 1;
+      exit 0 if $pid;
+      setsid();
+      open(STDIN, "<", "/dev/null"); open(STDOUT, ">>", $log) or exit 1; open(STDERR, ">&", \*STDOUT);
+      exec @cmd; exit 127;
+    ' "$log" bash "$tmp/scripts/selfhosted/lib/land-job.sh" "$tmp" "$repo" "$after" "$wait" "${CP_LAND_JOB_DEADLINE:-1200}"; then
+    echo "TEST functions: could not start the background deploy; run scripts/deploy-functions.sh by hand." >&2
+    rm -rf "$tmp"; return 0
+  fi
+  echo "TEST functions: deploy of main's tip started in the background (log: $log). Check scripts/selfhosted/deploy-drift.sh afterwards." >&2
   return 0
 }

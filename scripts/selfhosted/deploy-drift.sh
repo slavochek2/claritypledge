@@ -31,25 +31,51 @@ REPO="${DRIFT_REPO:-$(git -C "$(pwd)" rev-parse --show-toplevel 2>/dev/null || t
 # shellcheck source=lib/deploy-guard.sh
 source "$SCRIPT_DIR/lib/deploy-guard.sh"
 
-unknown() { echo "unknown: $1"; exit 2; }
+# What the server comparison cannot see, read locally: the latest landing deploy that failed (until a
+# later deploy of main succeeds) and a stuck deploy lock. Appended to whatever the answer is.
+extras() {
+  local f line ep sha rc log lk
+  if [ -n "$REPO" ]; then
+    f="$(dg_land_failed_file "$REPO")"
+    if [ -n "$f" ] && [ -s "$f" ]; then
+      IFS=$'\t' read -r ep sha rc log < "$f"
+      echo "WARNING: the latest landing deploy failed $(dg_lock_age "$ep") ago (exit $rc, landed ${sha:0:9}), see ${log:-the landing log}"
+    fi
+    lk="$(dg_lock_stuck "$REPO")" && echo "WARNING: $lk"
+  fi
+  return 0
+}
+# say <exit-code> <answer>: one status line; any warning makes a clean answer a problem (exit 1).
+say() {
+  local rc="$1" text="$2" ex
+  ex="$(extras | tr '\n' ';' | sed 's/;$//; s/;/; /g')"
+  echo "$text${ex:+; $ex}"
+  if [ -n "$ex" ] && [ "$rc" -eq 0 ]; then rc=1; fi
+  exit "$rc"
+}
+unknown() { say 2 "unknown: $1"; }
 [ -n "$REPO" ] || unknown "not inside a checkout of this repository"
 git -C "$REPO" rev-parse --verify -q "$DG_MAIN_REF^{commit}" >/dev/null || unknown "local main not found"
 command -v gcloud >/dev/null 2>&1 || PATH="/opt/homebrew/share/google-cloud-sdk/bin:$PATH"
 command -v gcloud >/dev/null 2>&1 || unknown "gcloud not found"
+# Say so when the cause is the login, not a missing manifest.
+dg_deadline "${DG_GCLOUD_DEADLINE:-30}" gcloud auth print-access-token >/dev/null 2>&1 || unknown "gcloud not logged in (or not answering)"
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 # Provenance first: a missing manifest and an unreachable server are both unknown, with different words.
-gcloud compute ssh "$VM" --project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet \
-  --command "sudo test -f $MANIFEST_PATH && sudo cat $MANIFEST_PATH" > "$T/server.tsv" 2>/dev/null
+dg_deadline "${DG_GCLOUD_DEADLINE:-90}" gcloud compute ssh "$VM" --project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet \
+  --command "sudo test -f $MANIFEST_PATH && sudo cat $MANIFEST_PATH" > "$T/server.tsv" 2>"$T/ssh.err"
 rc=$?
 if [ "$rc" -eq 1 ]; then unknown "no deploy manifest on the server (not deployed since P1612 shipped)"; fi
-[ "$rc" -eq 0 ] || unknown "could not read the server (ssh exit $rc)"
+[ "$rc" -ne 124 ] || unknown "the server did not answer within the deadline"
+[ "$rc" -eq 0 ] || unknown "could not read the server (ssh exit $rc: $(grep -v -i -E 'numpy|^WARNING:|^$' "$T/ssh.err" | tail -1 | tr -d '<>|' | cut -c1-80))"
 grep -q '^F	' "$T/server.tsv" || unknown "deploy manifest on the server is empty or unreadable"
 
 # The truth: hash the files the functions container actually serves.
-gcloud compute ssh "$VM" --project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet \
+dg_deadline "${DG_GCLOUD_DEADLINE:-90}" gcloud compute ssh "$VM" --project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet \
   --command "sudo sh -c 'cd $FUNCTIONS_VOL && find . -type f -exec sha256sum {} +'" > "$T/server.sums" 2>/dev/null
 rc=$?
+[ "$rc" -ne 124 ] || unknown "the server did not answer within the deadline"
 [ "$rc" -eq 0 ] || unknown "could not hash the files on the server (ssh exit $rc)"
 [ -s "$T/server.sums" ] || unknown "no function files found on the server"
 # "<hash>  ./<path>" to "<path><TAB><hash>"
@@ -81,7 +107,7 @@ LC_ALL=C sort -o "$T/main.files" "$T/main.files"
 # Files that differ: in one side only, or with different hashes.
 LC_ALL=C join -t "$(printf '\t')" -a1 -a2 -e MISSING -o 0,1.2,2.2 "$T/server.files" "$T/main.files" |
   awk -F'\t' '$2 != $3 { print }' > "$T/diff.tsv"
-if [ ! -s "$T/diff.tsv" ]; then echo "in sync"; exit 0; fi
+if [ ! -s "$T/diff.tsv" ]; then say 0 "in sync"; fi
 
 # A server hash that main once had means the server is behind; anything else is branch-only.
 history_has() { # rel hash
@@ -118,5 +144,4 @@ done < "$T/diff.tsv"
 b2=""; u2=""
 for f in $behind; do case " $only $unclass " in *" $f "*) ;; *) b2="$b2 $f" ;; esac; done
 for f in $unclass; do case " $only " in *" $f "*) ;; *) u2="$u2 $f" ;; esac; done
-echo "differs:$all (behind main:${b2:- none}; branch-only:${only:- none}; unclassified:${u2:- none})"
-exit 1
+say 1 "differs:$all (behind main:${b2:- none}; branch-only:${only:- none}; unclassified:${u2:- none})"

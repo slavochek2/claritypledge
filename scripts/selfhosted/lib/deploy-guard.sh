@@ -96,25 +96,75 @@ dg_lock_age() { # seconds since epoch $1, or "unknown"
   [ -n "$1" ] && echo "$(( $(date +%s) - $1 ))s" || echo unknown
 }
 
-# dg_lock_acquire <repo> [wait-seconds]: with a wait, a lock held by a LIVE run is waited for
-# (bounded, say so on stderr); a stale or ownerless lock still refuses at once.
+# dg_deadline <seconds> <command...>: run a command with a hard deadline (macOS has no timeout(1);
+# perl's alarm is what health.sh uses). Exit 124 on timeout; otherwise the command's own status.
+# stdin passes through, so it can sit at the end of a pipe.
+dg_deadline() {
+  local secs="$1"; shift
+  perl -e '
+    my $secs = shift; my $pid = fork();
+    defined $pid or exit 125;
+    if (!$pid) { setpgrp(0, 0); exec @ARGV; exit 127 }
+    # The command runs in its own process group so a deadline (or a TERM sent to this wrapper)
+    # takes its children, such as the ssh tunnel, with it.
+    my $die = sub { kill "TERM", -$pid; select(undef, undef, undef, 1.5); kill "KILL", -$pid; waitpid($pid, 0) };
+    $SIG{ALRM} = sub { $die->(); exit 124 };
+    $SIG{TERM} = $SIG{INT} = $SIG{HUP} = sub { $die->(); exit 143 };
+    alarm $secs; waitpid($pid, 0); alarm 0;
+    my $st = $?; exit(($st & 127) ? 128 + ($st & 127) : $st >> 8);
+  ' "$secs" "$@"
+}
+
+# The lock lives in the git common dir, so every checkout shares it. Its owner file records pid,
+# host and start time.
+dg_lock_dir_of() { git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|$|/cp-test-deploy.lock|'; }
+dg_lock_field() { sed -n "s/^$2=//p" "$1/owner" 2>/dev/null | head -1; }
+# Provably dead: the owner file names a pid on THIS machine and neither kill -0 nor ps can find it.
+# A foreign host, no owner record, or any live process (even one we may not signal) is not provable.
+dg_lock_owner_dead() {
+  local dir="$1" pid host
+  pid="$(dg_lock_field "$dir" pid)"; host="$(dg_lock_field "$dir" host)"
+  [ -n "$pid" ] && [ -n "$host" ] && [ "$host" = "$(hostname)" ] || return 1
+  kill -0 "$pid" 2>/dev/null && return 1
+  ps -p "$pid" >/dev/null 2>&1 && return 1
+  return 0
+}
+
+# dg_lock_acquire <repo> [wait-seconds] [clear-dead]
+#   wait: a lock held by a LIVE run, or one with no readable owner record (old branches' wrappers
+#         create those), is waited for up to that many seconds, saying so on stderr.
+#   clear-dead (1): a lock whose owner is provably dead (dg_lock_owner_dead) is cleared and the
+#         acquire retried, printing that it did. Only the landing job asks for this; an
+#         interactive deploy reports the lock and the exact command instead.
+#   A live holder or an ownerless lock is never removed.
 dg_lock_acquire() {
-  local repo="$1" waited_max="${2:-0}" waited=0 common owner pid epoch
+  local repo="$1" waited_max="${2:-0}" clear_dead="${3:-0}" waited=0 common owner pid epoch dir moved
   common="$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir)" || return 1
   DG_LOCK_DIR=""
-  local dir="$common/cp-test-deploy.lock"
+  dir="$common/cp-test-deploy.lock"
   while :; do
     if mkdir "$dir" 2>/dev/null; then
-      printf 'pid=%s\nepoch=%s\n' "$$" "$(date +%s)" > "$dir/owner"
+      printf 'pid=%s\nhost=%s\nepoch=%s\n' "$$" "$(hostname)" "$(date +%s)" > "$dir/owner"
       DG_LOCK_DIR="$dir"
       return 0
     fi
-    owner="$dir/owner"
-    pid="$(sed -n 's/^pid=//p' "$owner" 2>/dev/null | head -1)"
-    # Wait for a live holder. An owner file that is not there yet is the holder's first
-    # microseconds (mkdir happens before the record is written), so give that a short grace too.
-    if [ "$waited_max" -gt 0 ] && [ "$waited" -lt "$waited_max" ] &&
-       { { [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; } || { [ -z "$pid" ] && [ "$waited" -lt 10 ]; }; }; then
+    if [ "$clear_dead" = 1 ] && dg_lock_owner_dead "$dir"; then
+      pid="$(dg_lock_field "$dir" pid)"
+      # Move it aside first (atomic, one winner), then check we moved the lock we examined.
+      moved="$dir.dead.$$"
+      if mv "$dir" "$moved" 2>/dev/null; then
+        if [ "$(dg_lock_field "$moved" pid)" = "$pid" ]; then
+          rm -rf "$moved"
+          echo "Cleared a stale TEST deploy lock left by dead pid $pid (this machine)." >&2
+        else
+          mv "$moved" "$dir" 2>/dev/null || true   # we moved someone else's fresh lock: put it back
+        fi
+      fi
+      continue
+    fi
+    pid="$(dg_lock_field "$dir" pid)"
+    if [ "$waited_max" -gt 0 ] && [ "$waited" -lt "$waited_max" ] && ! dg_lock_owner_dead "$dir" &&
+       { [ -z "$pid" ] || kill -0 "$pid" 2>/dev/null || [ "$(dg_lock_field "$dir" host)" != "$(hostname)" ]; }; then
       [ "$waited" -eq 0 ] && echo "Waiting for the running TEST deploy to finish, up to ${waited_max}s." >&2
       sleep "${DG_LOCK_POLL:-2}"; waited=$((waited + ${DG_LOCK_POLL:-2}))
       continue
@@ -122,20 +172,42 @@ dg_lock_acquire() {
     break
   done
   owner="$dir/owner"
-  pid="$(sed -n 's/^pid=//p' "$owner" 2>/dev/null | head -1)"
-  epoch="$(sed -n 's/^epoch=//p' "$owner" 2>/dev/null | head -1)"
+  pid="$(dg_lock_field "$dir" pid)"
+  epoch="$(dg_lock_field "$dir" epoch)"
   [ -n "$epoch" ] || epoch="$(stat -f %m "$dir" 2>/dev/null || stat -c %Y "$dir" 2>/dev/null || true)"
-  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-    echo "REFUSED: another TEST deploy is running (pid $pid, started $(dg_lock_age "$epoch") ago). Wait for it and re-run. Nothing was deployed." >&2
-  elif [ -n "$pid" ]; then
+  if dg_lock_owner_dead "$dir"; then
     echo "REFUSED: a stale TEST deploy lock from a dead run (pid $pid, $(dg_lock_age "$epoch") old) is in the way: $dir" >&2
-    echo "It is never removed automatically. If no deploy is running, remove it yourself (rm -r) and re-run. Nothing was deployed." >&2
+    echo "Its owner is provably dead. If no deploy is running, clear it with:  rm -r '$dir'  and re-run. Nothing was deployed." >&2
+  elif [ -n "$pid" ] && [ "$(dg_lock_field "$dir" host)" = "$(hostname)" ]; then
+    echo "REFUSED: another TEST deploy is running (pid $pid, started $(dg_lock_age "$epoch") ago). Wait for it and re-run. Nothing was deployed." >&2
   else
-    echo "REFUSED: a TEST deploy lock with no owner record is held ($(dg_lock_age "$epoch") old): $dir" >&2
-    echo "Cannot tell whether a deploy is running; it is never removed automatically. Nothing was deployed." >&2
+    echo "REFUSED: a TEST deploy lock with no usable owner record is held ($(dg_lock_age "$epoch") old): $dir" >&2
+    echo "Cannot tell whether a deploy is running, so it is not removed. If you are sure none is:  rm -r '$dir'. Nothing was deployed." >&2
   fi
   return 1
 }
+
+# dg_lock_stuck <repo>: prints one line and returns 0 when the lock looks stuck (provably dead
+# owner, or no owner record for over 10 minutes). A lock held by a live run is not stuck.
+dg_lock_stuck() {
+  local dir epoch age
+  dir="$(dg_lock_dir_of "$1")"
+  [ -n "$dir" ] && [ -d "$dir" ] || return 1
+  epoch="$(dg_lock_field "$dir" epoch)"
+  [ -n "$epoch" ] || epoch="$(stat -f %m "$dir" 2>/dev/null || stat -c %Y "$dir" 2>/dev/null || true)"
+  age="$(dg_lock_age "$epoch")"
+  if dg_lock_owner_dead "$dir"; then
+    echo "stuck deploy lock (owner pid $(dg_lock_field "$dir" pid) is dead, $age old): rm -r '$dir'"; return 0
+  fi
+  if [ -z "$(dg_lock_field "$dir" pid)" ] && [ -n "$epoch" ] && [ $(( $(date +%s) - epoch )) -gt 600 ]; then
+    echo "stuck deploy lock (no owner record, $age old): rm -r '$dir'"; return 0
+  fi
+  return 1
+}
+
+# Record of the latest landing deploy that failed, in the git common dir. One tab-separated line:
+# epoch, commit, exit status, log path. A later successful deploy of main clears it.
+dg_land_failed_file() { git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|$|/cp-test-deploy-land.failed|'; }
 
 dg_lock_release() {
   [ -n "$DG_LOCK_DIR" ] || return 0

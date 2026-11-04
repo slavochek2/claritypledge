@@ -127,6 +127,7 @@ Cherry-picking...
    (it applies any migrations this carries to prod first, then drives the staging hop;
     Vercel auto-deploys when main moves)
    ```
+   A landing that changes edge-function inputs starts the TEST functions deploy in the background (P1612); relay its "started in the background" line and, afterwards, run `scripts/selfhosted/deploy-drift.sh` to confirm TEST caught up.
    *(Corrected 2026-09-21, P1211 / Codex review #15: this used to print `git push origin main`. A direct push to `main` is refused by the required status checks — nothing runs them on a SHA pushed straight to `main` — and it skips the schema gate entirely.)*
 
 6. **Post-push prod-health watch (P866)** — when `e2e/prod-health-smoke.spec.ts` exists. After "Ready to push", the user runs `/push` (never auto-pushed by `/ship`). Once the user **confirms the push** (this skill never auto-detects it — it asks):

@@ -10,6 +10,7 @@
 #   scripts/selfhosted/deploy-functions.sh --from-commit <sha> [fn]   deploy exactly that commit (must be on main)
 #   scripts/selfhosted/deploy-functions.sh --from-main-tip [--lock-wait S]   what a landing runs: wait for the
 #                                       TEST deploy lock, then deploy main's tip read under it
+#                                       (--clear-dead-lock also clears a lock whose owner is provably dead; landings pass it)
 #   scripts/selfhosted/deploy-functions.sh --setup     one-time: functions.env + env_file stanza in the override
 #   scripts/selfhosted/deploy-functions.sh --secrets   push function secrets from the Mac secrets file
 #   scripts/selfhosted/deploy-functions.sh --check-secrets   report required secret names still missing (names only)
@@ -56,17 +57,18 @@ source "$SCRIPT_DIR/lib/deploy-guard.sh"
 
 MODE="deploy"
 FUNCTION_NAME=""
-FROM_COMMIT=""; FROM_MAIN_TIP=0; LOCK_WAIT=0
+FROM_COMMIT=""; FROM_MAIN_TIP=0; LOCK_WAIT=0; CLEAR_DEAD_LOCK=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --from-commit) [ $# -ge 2 ] || die "--from-commit needs a commit"; FROM_COMMIT="$2"; shift ;;
     --from-commit=*) FROM_COMMIT="${1#--from-commit=}" ;;
     --from-main-tip) FROM_MAIN_TIP=1 ;;
+    --clear-dead-lock) CLEAR_DEAD_LOCK=1 ;;
     --lock-wait) [ $# -ge 2 ] || die "--lock-wait needs seconds"; LOCK_WAIT="$2"; shift ;;
     --setup) MODE="setup" ;;
     --secrets) MODE="secrets" ;;
     --check-secrets) MODE="check-secrets" ;;
-    -h|--help) sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     --env|--env=*|--project-ref|--project-ref=*)
       die "$1 is a hosted-target flag. This script only deploys to $EXPECTED_URL; use scripts/deploy-functions.sh for hosted." ;;
     -*) die "unknown flag: $1" ;;
@@ -91,7 +93,7 @@ if [ -n "$FROM_COMMIT" ] || [ "$FROM_MAIN_TIP" = 1 ]; then
   if [ "$FROM_MAIN_TIP" = 1 ]; then
     # A landing deploys main as it is NOW, read under the lock, not the commit that triggered it:
     # by the time the lock is free that commit may be several landings old.
-    dg_lock_acquire "$SRC_REPO" "$LOCK_WAIT" || exit 1
+    dg_lock_acquire "$SRC_REPO" "$LOCK_WAIT" "$CLEAR_DEAD_LOCK" || exit 1
     FROM_COMMIT="$(git -C "$SRC_REPO" rev-parse --verify -q "$DG_MAIN_REF^{commit}")" || die "cannot read main. Nothing was deployed."
   else
     FROM_COMMIT="$(git -C "$SRC_REPO" rev-parse --verify -q "$FROM_COMMIT^{commit}")" || die "not a commit: $FROM_COMMIT"
@@ -113,7 +115,7 @@ mac_url="$(grep '^SUPABASE_URL=' "$MAC_ENV" | head -1 | cut -d= -f2- | tr -d '"'
 # Homebrew installs gcloud outside the default PATH of non-login shells.
 command -v gcloud >/dev/null 2>&1 || PATH="/opt/homebrew/share/google-cloud-sdk/bin:$PATH"
 command -v gcloud >/dev/null 2>&1 || die "gcloud not found"
-gcloud auth print-access-token >/dev/null 2>&1 || die "gcloud login expired: run 'gcloud auth login', then re-run. Nothing was deployed."
+dg_deadline "${DG_GCLOUD_DEADLINE:-30}" gcloud auth print-access-token >/dev/null 2>&1 || die "gcloud login expired: run 'gcloud auth login', then re-run. Nothing was deployed."
 [ -f "$ROUTER_SRC" ] || die "router source not found: $ROUTER_SRC"
 [ -f "$OPEN_LIST" ] || die "JWT policy list not found: $OPEN_LIST"
 [ -d "$FUNCTIONS_DIR" ] || die "functions dir not found: $FUNCTIONS_DIR"
@@ -128,22 +130,26 @@ fi
 GCLOUD_COMMON=(--project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet)
 # gcloud's stderr is noisy (numpy, TCP-window and WARNING lines). It is filtered through a temp file,
 # not process substitution, so the script also runs where /dev/fd is unavailable.
-gcloud_quiet_err() { # command...; exit status is the command's
-  local e rc=0
+# Every gcloud call has a hard deadline (dg_deadline, perl alarm): a hung tunnel must not hold a
+# landing, a lock, or /day forever. DG_GCLOUD_DEADLINE overrides all of them (tests).
+gcloud_quiet_err() { # deadline-seconds command...; exit status is the command's, 124 on timeout
+  local secs="${DG_GCLOUD_DEADLINE:-$1}" e rc=0; shift
   e="$(mktemp)"
-  "$@" 2>"$e" || rc=$?
+  dg_deadline "$secs" "$@" 2>"$e" || rc=$?
+  # stderr is shown whether it finished or was killed, so a hang still says what gcloud printed.
   grep -v -i -E 'numpy|increasing_the_tcp|^WARNING:|^$' "$e" >&2 || true
   rm -f "$e"
+  [ "$rc" -ne 124 ] || echo "ERROR: a gcloud call timed out after ${secs}s and was stopped." >&2
   return "$rc"
 }
-vm_ssh() { gcloud_quiet_err gcloud compute ssh "$VM" "${GCLOUD_COMMON[@]}" --command "$1"; }
-vm_scp() { gcloud_quiet_err gcloud compute scp "${GCLOUD_COMMON[@]}" "$1" "$VM:$2"; }
+vm_ssh() { gcloud_quiet_err 120 gcloud compute ssh "$VM" "${GCLOUD_COMMON[@]}" --command "$1"; }
+vm_scp() { gcloud_quiet_err 240 gcloud compute scp "${GCLOUD_COMMON[@]}" "$1" "$VM:$2"; }
 
 # Run a script read from stdin as root on the VM. Callers use QUOTED heredocs, so nothing in the
 # remote script is expanded locally; the two path constants are prepended instead.
 vm_run() {
   { printf 'STACK_DIR=%q\nFUNCTIONS_VOL=%q\nREMOTE_TGZ=%q\n' "$STACK_DIR" "$FUNCTIONS_VOL" "$REMOTE_TGZ"; cat; } |
-    gcloud_quiet_err gcloud compute ssh "$VM" "${GCLOUD_COMMON[@]}" --command 'sudo bash -s'
+    gcloud_quiet_err 420 gcloud compute ssh "$VM" "${GCLOUD_COMMON[@]}" --command 'sudo bash -s'
 }
 
 # Names the function code reads, minus the SUPABASE_* built-ins the compose file provides.
@@ -344,4 +350,9 @@ if [ "$probe_2xx" -eq 0 ]; then
   exit 1
 fi
 echo "probe: all $probe_n functions answered OPTIONS"
+# A deploy of main's own content (clean checkout at main's tip, or --from-*) supersedes a failed
+# landing deploy; a branch's deploy does not.
+if [ "$SRC_DIRTY" = 0 ] && [ "$SRC_COMMIT" = "$(git -C "$SRC_REPO" rev-parse "$DG_MAIN_REF^{commit}" 2>/dev/null)" ]; then
+  rm -f "$(dg_land_failed_file "$SRC_REPO")"
+fi
 echo "Deployed. Self-hosted only: no hosted project, Management API or deploy manifest was touched."
