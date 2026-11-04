@@ -114,6 +114,7 @@ Applies because the migration adds a per-request function and the tests create a
 - Typing the original words back drops a stance that was set only on the intermediate point.
 - A card with readers on both sides is sorted first on the board by contest. After an edit the new point has only the owner's stance, so it can sort behind another card and leave the board, reachable through See all. Nothing is lost.
 - After a restore, a later Discard leaves a moved private story on the base point, shown only to the owner.
+- If an agent run moves a point to another box while its Save's answer is lost, the editor reads as a changed point instead of saved. The text stays visible to copy.
 
 ## Migration Plan
 
