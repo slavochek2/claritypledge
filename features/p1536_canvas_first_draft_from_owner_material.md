@@ -1790,28 +1790,18 @@ The five letter reads (drafts, sent letters with their deliveries, received, act
 
 ## Pre-deploy Checklist
 
-### Secrets to provision
-- [ ] Dedicated spend-capped Gemini key issued via `/slava:util:ai-keys`, set as an edge-function
-      secret on test, then prod.
-- [ ] Availability flag set on test; on prod only after the privacy policy item below is live.
-- [ ] X9 voice notes, on EACH project (hosted TEST, self-hosted TEST, prod): edge secret `CANVAS_DRAFT_INTERNAL_SECRET` on `canvas-draft`, and
-      the same value in the database vault as `canvas_draft_internal_secret`. Vault row `canvas_draft_url` (the `canvas-draft` function URL).
-      `chat_voice_anon_key` is reused from the chat-voice sweep (already present wherever voice notes are). Names only, never values. Until
-      all three exist, the transcript trigger only warns and the run waits for the client's start or its lease.
-
-### Deploy commands
-- [ ] Privacy policy (`src/app/content/privacy.md`, processor table) names canvas material as sent
-      to the AI provider; amended text live before the prod flag is set.
-- [ ] New edge function deployed to prod after merge (`/push` handles function deploys).
-- [ ] X9: migrations `20261102100100_p1536_x9_voice_notes.sql` and then `20261102110100_p1536_x9_review_fixes.sql` applied BEFORE the functions
-      on every project (the new `chat-voice` calls `canvas_voice_send`, and the review fixes add the run's `ready_at` and its lease). Then deploy
-      both `chat-voice` and `canvas-draft` to that project.
-- [ ] The voice bucket's CORS lists the origin the app is served from (the test bucket lists the worktree ports, not every dev port).
+- [x] Spend-capped Gemini key `cp-canvas-prod` issued; monthly cap read back from Google's list, restricted to the Gemini API.
+- [x] Privacy policy names canvas material as sent to the AI provider; terms v1.7 notice written. Live with the push.
+- [x] Everything else needs the merge or the push, and is in After deploy below. Drafting stays off on prod until step 3 there. Founder ruling 2026-11-04.
 
 ## After deploy
 
 > Not part of the Pre-deploy Checklist: each item needs the production deploy to have happened, so ship-gates 3.5 does not read this section. Run after `/push` deploys.
 
+- **In this order, on prod. Until step 3, no owner can start a draft.**
+  1. `/push` applies the P1536 and terms migrations and deploys `chat-voice` and `canvas-draft` (migrations before functions).
+  2. Secrets on `canvas-draft`, names only, never values: `CANVAS_DRAFT_GEMINI_API_KEY` from `cp-canvas-prod`; `CANVAS_DRAFT_INTERNAL_SECRET`, with the same value in the vault as `canvas_draft_internal_secret`; vault row `canvas_draft_url`; `chat_voice_anon_key` is reused. Check the voice bucket's CORS lists the prod origin.
+  3. Confirm the amended privacy policy is live, then set `CANVAS_DRAFT_AI_ENABLED`.
 - X9 secret probe, on each project, because a wrong or missing secret is otherwise SILENT (the database never reads its call's answer):
       POST `canvas-draft` with header `x-canvas-draft-internal` set to a WRONG value expects 401; with the RIGHT value (the vault's
       `canvas_draft_internal_secret`) and a body of all-zero `run_id` and `owner_id` expects 409 `TERMS_NOT_ACCEPTED` (it reached the terms gate).
