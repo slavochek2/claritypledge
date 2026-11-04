@@ -41,6 +41,14 @@ const ALLOWLIST: Record<string, { kinds: Kind[]; why: string }> = {
     kinds: ['focus-header-onback'],
     why: "The canvas's open point (P1508 D7): below 1024px the sheet's back arrow closes the panel, which steps Back only off the entry the panel pushed — it never leaves a page.",
   },
+  'src/app/pages/my-sessions-page.tsx': {
+    kinds: ['focus-header-onback'],
+    why: "Session History's detail views (a session, a round, a transcript) are a view stack held in page state: Back steps to the previous view, it never leaves the page.",
+  },
+  'src/app/pages/room-transcript-view.tsx': {
+    kinds: ['focus-header-onback'],
+    why: "The transcript view is one step of Session History's view stack: Back returns to the list (the page's own step back).",
+  },
   'src/app/pages/letter-preview-page.tsx': {
     kinds: ['bare-history-pop'],
     why: '"Close preview" in a tab opened with _blank: window.close() or pop — out of P1364 scope.',

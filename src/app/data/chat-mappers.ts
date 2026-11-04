@@ -5,6 +5,7 @@
  * The service (chat-service.ts) is the only caller that touches the network.
  */
 
+import { displaySystemBody } from './session-thread-title';
 import { DELETED_USER_NAME, mapForwardSnapshot, type ChatKind, type ChatSystemKind, type ForwardSnapshot } from './chat-snapshot';
 
 export { DELETED_USER_NAME, mapForwardSnapshot };
@@ -268,7 +269,7 @@ export function mapMessageRow(row: ChatMessageRow): ChatMessage {
     id: row.id,
     conversationId: row.conversation_id,
     authorId: row.author_id,
-    body: row.body,
+    body: displaySystemBody(row.body, row.system_kind),
     createdAt: row.created_at,
     editedAt: row.edited_at,
     deletedAt: row.deleted_at,
@@ -316,7 +317,7 @@ export function mapSummaryRow(row: ChatSummaryRow): ChatSummary {
           id: row.last_message_id,
           authorId: row.last_author_id,
           authorName: row.last_author_name,
-          body: row.last_body,
+          body: displaySystemBody(row.last_body, row.last_system_kind),
           kind: row.last_message_kind ?? 'message',
           isDeleted: row.last_message_deleted === true,
           createdAt: row.last_message_at ?? '',

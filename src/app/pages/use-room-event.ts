@@ -6,6 +6,7 @@
  * Four answers, never a silent default to the narrower wording:
  *   'loading'  the lookup is in flight (the consent control stays disabled)
  *   'event'    the room belongs to an event
+ *   'chat'     the room belongs to a chat (P1604): the text is posted to that chat as a thread
  *   'room'     an ad-hoc room (no code in the URL, or the room has no event)
  *   'unknown'  the lookup failed or found no room. Callers show the BROADER (event) wording: the
  *              audience that can read the words is only ever wider in an event room, so
@@ -16,7 +17,7 @@
 import { useEffect, useState } from 'react';
 import { getRoomByCode } from '@/app/data/transcribe-service';
 
-export type RoomEventState = 'loading' | 'event' | 'room' | 'unknown';
+export type RoomEventState = 'loading' | 'event' | 'chat' | 'room' | 'unknown';
 
 const lookups = new Map<string, Promise<RoomEventState>>();
 
@@ -24,7 +25,7 @@ function lookup(code: string): Promise<RoomEventState> {
   let p = lookups.get(code);
   if (!p) {
     p = getRoomByCode(code).then(
-      (room): RoomEventState => (!room ? 'unknown' : room.eventId ? 'event' : 'room'),
+      (room): RoomEventState => (!room ? 'unknown' : room.eventId ? 'event' : room.inChat ? 'chat' : 'room'),
       (): RoomEventState => 'unknown',
     );
     lookups.set(code, p);

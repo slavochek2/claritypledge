@@ -236,6 +236,8 @@ test.describe('P1307: enter_transcribe_room — re-join clears capture_ended_at,
   const createdRoomIds: string[] = [];
   const createdSessionIds: string[] = [];
 
+  const otherUserIds: string[] = [];
+
   test.beforeAll(async () => {
     alice = await createTestUser({ name: 'P1307 Rejoin Alice' });
   });
@@ -244,12 +246,29 @@ test.describe('P1307: enter_transcribe_room — re-join clears capture_ended_at,
     if (createdRoomIds.length) await supabaseAdmin.from('transcribe_rooms').delete().in('id', createdRoomIds);
     if (createdSessionIds.length) await supabaseAdmin.from('clarity_sessions').delete().in('id', createdSessionIds);
     if (alice?.user?.id) await deleteTestUser(alice.user.id);
+    for (const id of otherUserIds) await deleteTestUser(id);
   });
 
-  test('re-entering a room after ending capture clears capture_ended_at and preserves the original joined_at', async () => {
+  // P1604: a plain start (no event, no chat) is a NEW room every time (Resolved Decision 3, reversing P1236(f)), and the last Stop
+  // closes a room at once (rule 3), so the room is pre-made with a second recording member to stay open and the re-join is done
+  // by id. enter_transcribe_room's own re-entry (same room for a chat or an event) is walked in
+  // 20261103090000_p1604_transcription_belongs_to_a_chat.spec.ts (rules 2-3).
+  test('re-joining a room after ending capture clears capture_ended_at and preserves the original joined_at', async () => {
     const code = roomCode();
     const { data: room } = await supabaseAdmin.from('transcribe_rooms').insert({ code }).select('id').single();
     createdRoomIds.push(room!.id);
+
+    const other = await createTestUser({ name: 'P1307 Rejoin Other' });
+    otherUserIds.push(other.user.id);
+    const { data: otherSession } = await supabaseAdmin
+      .from('clarity_sessions')
+      .insert({ code: `P1307RJ-O-${Date.now()}`, creator_name: 'other', creator_profile_id: other.user.id })
+      .select('id').single();
+    createdSessionIds.push(otherSession!.id);
+    await supabaseAdmin.from('transcribe_room_members').insert({
+      room_id: room!.id, profile_id: other.user.id, display_name: 'other', session_id: otherSession!.id,
+      consent_given_at: new Date().toISOString(), last_seen_at: new Date().toISOString(),
+    });
 
     const { data: signIn } = await supabaseAdmin.auth.signInWithPassword({ email: alice.email, password: TEST_PASSWORD });
     const client = makeUserClient(signIn!.session!.access_token);
@@ -262,17 +281,16 @@ test.describe('P1307: enter_transcribe_room — re-join clears capture_ended_at,
       .single();
     createdSessionIds.push(session1!.id);
 
-    const first = await client.rpc('enter_transcribe_room', {
-      p_display_name: 'P1307 Rejoin Alice', p_session_id: session1!.id, p_consent: true,
-      p_new_code: code, p_event_id: null,
+    const first = await client.rpc('join_transcribe_room', {
+      p_room_id: room!.id, p_display_name: 'P1307 Rejoin Alice', p_session_id: session1!.id, p_consent: true,
     });
     expect(first.error, `first entry must succeed: ${first.error?.message}`).toBeNull();
-    const firstRow = (first.data as Array<{ member_id: string; member_joined_at: string }>)[0]!;
+    const firstRow = (first.data as Array<{ id: string; joined_at: string }>)[0]!;
 
     // End capture (Decision 1's RPC), then re-join.
     await client.rpc('end_transcribe_room_capture', { p_room_id: room!.id });
     const midway = await supabaseAdmin
-      .from('transcribe_room_members').select('capture_ended_at').eq('id', firstRow.member_id).single();
+      .from('transcribe_room_members').select('capture_ended_at').eq('id', firstRow.id).single();
     expect(midway.data?.capture_ended_at, 'control: capture must actually be ended before re-join').not.toBeNull();
 
     const { data: session2 } = await supabaseAdmin
@@ -282,18 +300,17 @@ test.describe('P1307: enter_transcribe_room — re-join clears capture_ended_at,
       .single();
     createdSessionIds.push(session2!.id);
 
-    const second = await client.rpc('enter_transcribe_room', {
-      p_display_name: 'P1307 Rejoin Alice', p_session_id: session2!.id, p_consent: true,
-      p_new_code: roomCode(), p_event_id: null,
+    const second = await client.rpc('join_transcribe_room', {
+      p_room_id: room!.id, p_display_name: 'P1307 Rejoin Alice', p_session_id: session2!.id, p_consent: true,
     });
     expect(second.error, `re-join must succeed: ${second.error?.message}`).toBeNull();
-    const secondRow = (second.data as Array<{ member_id: string; member_joined_at: string }>)[0]!;
+    const secondRow = (second.data as Array<{ id: string; joined_at: string }>)[0]!;
 
-    expect(secondRow.member_id, 're-join must upsert the SAME member row, not a new one').toBe(firstRow.member_id);
-    expect(secondRow.member_joined_at, 'joined_at must NOT reset — the 3-hour cap is measured from the first Continue').toBe(firstRow.member_joined_at);
+    expect(secondRow.id, 're-join must upsert the SAME member row, not a new one').toBe(firstRow.id);
+    expect(secondRow.joined_at, 'joined_at must NOT reset — it is the first Continue').toBe(firstRow.joined_at);
 
     const after = await supabaseAdmin
-      .from('transcribe_room_members').select('capture_ended_at').eq('id', firstRow.member_id).single();
+      .from('transcribe_room_members').select('capture_ended_at').eq('id', firstRow.id).single();
     expect(after.data?.capture_ended_at, 're-joining a still-open room must clear capture_ended_at').toBeNull();
   });
 });

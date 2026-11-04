@@ -42,23 +42,27 @@ import {
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
-import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 import {
   createRoom,
   joinRoom,
   endMyCapture as endMyCaptureRpc,
-  getMyCaptureStatus,
   prewarmSlicePath,
-  reserveRoomChunkNumber,
   sendAudioSlice,
-  touchRoomCapture,
 } from '@/app/data/transcribe-service';
-import type { SliceDestination } from '@/app/data/transcribe-slice-destination';
-import { uploadRoomAudioChunk } from '@/app/data/api';
+import { SliceRefusedError, type MovedTo, type SliceDestination } from '@/app/data/transcribe-slice-destination';
+import { STOPPED_ELSEWHERE_NOTICE } from '@/app/components/session/capture-copy';
+import { useRefusalFollow, useRoomMove } from './room-capture-move';
+import { useReattach, useStopOnAuthChange } from './room-capture-attach';
+import { useInputSilence } from './room-capture-silence';
+import { watchTranscript } from '@/app/components/session/transcript-watch';
+import { openMicOnResume } from './room-capture-resume';
+import { usePauseResume } from './room-capture-pause';
+import { useCaptureStorageSync, useRoomCaptureTimers } from './room-capture-timers';
 import {
-  CAPTURE_STORAGE_KEY,
   clearStoredCapture,
   isHardStopError,
+  buildCaptureRecord,
   readStoredCapture,
   writeStoredCapture,
   type StoredCapture,
@@ -67,22 +71,23 @@ import { createSerialSender, createSliceRecorder, type SliceRecorder } from '@/l
 import { openCapturedRoom } from '@/app/data/event-chat-path';
 import { endGraceMs } from '@/lib/audio-upload-budget';
 import { startTapWithRetry, stillResuming } from './room-capture-tap';
+import { useSpeakingCue } from './room-capture-speaking';
 import { pumpUploadQueue, useExpiringFlag, type UploadJob } from './room-capture-uploads';
+import { makeUploadIo } from './room-capture-upload-io';
 import { isImmersiveLetterRoute } from '@/app/layouts/immersive-letter-route';
 import {
-  CAPTURE_CAP_MINUTES,
   INITIAL_CAPTURE_STATE,
   LIVE_PHASES,
-  PAUSED_HEARTBEAT_INTERVAL_MS,
+  isSameCaptureTarget,
   SILENCE_RMS_FLOOR,
-  SILENCE_WARN_AFTER_MS,
   acquireCaptureLock,
   captureReducer,
-  decidePauseTransition,
   hasActiveLiveSession,
   shouldPauseForLocation,
   type CaptureLock,
   type CapturePhase,
+  type CaptureRoomInfo,
+  viewOfCapture,
 } from './room-capture-core';
 
 /* eslint-disable react-refresh/only-export-components -- the pure core is re-exported so callers
@@ -105,22 +110,23 @@ export type { CaptureAction, CaptureLock, CapturePhase, CaptureState } from './r
 const UPLOAD_QUEUE_LIMIT = 10;
 /** Speaking cue: input level above this within the last SPEAKING_HOLD_MS reads as speaking. */
 const SPEAKING_RMS_THRESHOLD = 0.02;
-const SPEAKING_HOLD_MS = 1_500;
-/** A broadcast "speaking" state that is not refreshed expires, so a closed tab's "…" clears. */
-const SPEAKING_EXPIRY_MS = 4_000;
 /** How often an observing tab re-tries the lock, and a paused capture re-checks /live. */
 const OBSERVE_RETRY_MS = 15_000;
-const PAUSE_RECHECK_MS = 5_000;
 /** P1388: how long the bar says the microphone changed after an unplug. */
 const MIC_SWITCHED_NOTICE_MS = 8_000;
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
+/** The room a capture is in, as the callers of startCapture see it. */
+export type CaptureRoomView = CaptureRoomInfo;
+
 export interface StartCaptureOptions {
   eventId: string | null;
   displayName: string;
-  /** Join THIS room (a /transcribe/:code link) rather than the event's or the shared room. */
-  room?: { id: string; code: string; eventId: string | null };
+  /** P1604: start in THIS chat (its event room, or its own room). The server checks the caller may read it. */
+  conversationId?: string | null;
+  /** Join THIS room (a /transcribe/:code link) rather than the event's, the chat's or a new plain room. */
+  room?: CaptureRoomView;
 }
 
 /**
@@ -132,7 +138,7 @@ export interface StartCaptureOptions {
 export interface CaptureStartResult {
   started: boolean;
   /** Set when the person joined, whether or not capture started. */
-  room?: { id: string; code: string; eventId: string | null };
+  room?: CaptureRoomView;
   reason?: 'join' | 'microphone';
 }
 
@@ -141,6 +147,8 @@ export interface RoomCaptureContextValue {
   roomId: string | null;
   roomCode: string | null;
   eventId: string | null;
+  /** P1604: the chat the capture's room belongs to, if any. */
+  conversationId: string | null;
   memberId: string | null;
   /** P1592: where the server last said it posted this person's words. Null until a line is
    *  stored in this page session, and again after a restored capture. Never the client's own
@@ -192,6 +200,7 @@ const RoomCaptureContext = createContext<RoomCaptureContextValue>({
   roomId: null,
   roomCode: null,
   eventId: null,
+  conversationId: null,
   memberId: null,
   destination: null,
   barVisible: false,
@@ -255,7 +264,6 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(captureReducer, INITIAL_CAPTURE_STATE);
   const [explainBackHolds, setExplainBackHolds] = useState(0);
   const [liveSessionActive, setLiveSessionActive] = useState(hasActiveLiveSession);
-  const [speaking, setSpeaking] = useState<Map<string, number>>(new Map());
   const [barSlotCount, setBarSlotCount] = useState(0);
   const [manualPaused, setManualPaused] = useState(false);
   const [inputSilent, setInputSilent] = useState(false);
@@ -287,19 +295,21 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   const media = useRef<MediaHandles>(emptyHandles());
   const stateRef = useRef(state);
   stateRef.current = state;
+  const speaking = useSpeakingCue(state, stateRef, () => media.current.lastLoudAt);
   const storedRef = useRef<StoredCapture | null>(null);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // ── Media: archive + live slices ──────────────────────────────────────────
 
   const hardStopRef = useRef<(reason: string) => void>(noop);
+  const moveRef = useRef<(moved: MovedTo) => Promise<void>>(() => Promise.resolve());
 
-  const pumpUploads = useCallback(() => pumpUploadQueue(media.current, {
-    reserve: reserveRoomChunkNumber,
-    upload: uploadRoomAudioChunk,
-    onHardStop: () => hardStopRef.current('archive refused'),
+  const refuse = useRefusalFollow(user?.id, storedRef, moveRef, hardStopRef);
+
+  const pumpUploads = useCallback(() => pumpUploadQueue(media.current, makeUploadIo({
+    onHardStop: refuse,
     onDropped: markAudioLost,
-  }), [markAudioLost]);
+    currentRoomId: () => storedRef.current?.roomId ?? null,
+  })), [markAudioLost, refuse]);
 
   /** P1596: one self-contained 16 kHz mono WAV (about 960 KB per 30 s) cut from the live-slice tap. */
   const enqueueChunk = useCallback((wav: Uint8Array, isLast: boolean, record: StoredCapture | null = storedRef.current) => {
@@ -329,6 +339,11 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
           if (told && genRef.current === gen) setDestination(told);
         },
         onError: (err, sequence) => {
+          // P1604 rule 8: the roll ended this room and seated the person in the next one; carry on there.
+          if (err instanceof SliceRefusedError && err.movedTo) {
+            void moveRef.current(err.movedTo);
+            return;
+          }
           if (isHardStopError(err)) {
             hardStopRef.current('slice refused');
             return;
@@ -464,9 +479,13 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   const resumeMedia = useCallback(async (roomId: string) => {
     const h = media.current;
     pausedRef.current = false;
-    if (!h.stream) return;
+    if (!h.stream) {
+      // Re-attached paused after a reload: no microphone is open yet. Resume opens it.
+      await openMicOnResume(roomId, startMedia, h, pausedRef, () => setMicLost(true));
+      return;
+    }
     setTapDown(!(await startTapWithRetry(() => startSlices(roomId), stillResuming(genRef, pausedRef))));
-  }, [startSlices]);
+  }, [startSlices, startMedia]);
 
   /**
    * P1388 unplug recovery. Keeps the archive so far (the chunk up to the unplug is queued, not
@@ -548,6 +567,9 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'TEARDOWN_COMPLETE' });
   }, [stopMedia]);
 
+  moveRef.current = useRoomMove(media, storedRef, stateRef, pausedRef, genRef, dispatch,
+    (roomId, current) => startTapWithRetry(() => startSlices(roomId), current).then((ok) => setTapDown(!ok)), () => setTapDown(true));
+
   hardStopRef.current = (reason: string) => {
     if (stateRef.current.phase === 'idle' || stateRef.current.phase === 'ending') return;
     console.warn(`[room-capture] hard stop: ${reason}`);
@@ -557,138 +579,120 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
 
   // ── Join and end ─────────────────────────────────────────────────────────
 
-  const endingRef = useRef(false);
-  const endMyCapture = useCallback(async (roomId: string) => {
-    if (stateRef.current.phase === 'idle' || endingRef.current) return;
-    endingRef.current = true;
-    // P1388: the tap is answered at once. The mic stops on the next line; what takes up to
-    // the grace (endGraceMs: the queued bytes at 256 kbit/s) is saving the tail, which must finish before the End RPC.
+  // Rule 9: a start during a Stop waits for that Stop, so the old seat is closed before the new one opens.
+  const stopRef = useRef<Promise<void> | null>(null);
+  const endMyCapture = useCallback((roomId: string): Promise<void> => {
+    if (stateRef.current.phase === 'idle') return Promise.resolve();
+    if (stopRef.current) return stopRef.current;
+    // P1388: the tap is answered at once. The mic stops on the next line; what takes up to the grace (endGraceMs: the
+    // queued bytes at 256 kbit/s) is saving the tail. The bar stays until the server has recorded the End.
     setStopping(true);
-    // The microphone is released at once — End must never wait on the network to stop
-    // recording. The bar stays until the server has recorded the End, so what the person sees
-    // disappear is an end that exists, not one that is still in flight.
     const stopped = stopMedia({ flushTail: true });
     const grace = endGraceMs(media.current.uploadQueue.reduce((n, j) => n + j.blob.size, 0));
     clearStoredCapture();
     storedRef.current = null;
-    try {
-      // The microphone is already released. The server is told only after the final chunk (and
-      // any backlog) has uploaded, because once capture_ended_at is set gcs-signed-url refuses
-      // the upload. Bounded: a stuck upload never holds End open for more than the grace period.
-      await Promise.race([
-        stopped.then(uploadsDrained),
-        new Promise<void>((resolve) => setTimeout(resolve, grace)),
-      ]);
-      await endMyCaptureRpc(roomId);
-    } catch (err) {
-      // If the server did not hear the End, the sweep ends this seat after 10 minutes without
-      // a signal. Nothing is being captured either way.
+    watchTranscript(roomId, user?.id);   // the "Transcript ready" toast comes when the text is ready
+    // P1604 rule 4: the End goes to the server AT ONCE; the last Stop closes the room in that call. The final chunk still
+    // uploads, bounded by the grace: the server admits audio recorded before the Stop for 2 minutes after it.
+    const told = endMyCaptureRpc(roomId).catch((err) => {
+      // If the server did not hear the End, the sweep ends this seat after 10 minutes without a signal.
       console.error('[room-capture] end capture failed:', err);
-    } finally {
+    });
+    const saved = Promise.race([
+      stopped.then(uploadsDrained),
+      new Promise<void>((resolve) => setTimeout(resolve, grace)),
+    ]);
+    const run = Promise.all([told, saved]).then(() => undefined).finally(() => {
       dispatch({ type: 'END_REQUESTED' });
       dispatch({ type: 'TEARDOWN_COMPLETE' });
-      endingRef.current = false;
+      stopRef.current = null;
       setStopping(false);
-    }
-  }, [stopMedia, uploadsDrained]);
+    });
+    stopRef.current = run;
+    return run;
+  }, [stopMedia, uploadsDrained, user]);
 
-  const startCapture = useCallback(async ({ eventId, displayName, room: targetRoom }: StartCaptureOptions): Promise<CaptureStartResult> => {
+  /** After the server recorded consent: take the lock, remember the capture, open the microphone. */
+  const beginCapture = useCallback(async (
+    room: CaptureRoomView & { createdAt?: string },
+    member: { id: string; consentGivenAt?: string | null; joinedAt?: string | null; displayName?: string },
+    displayName: string,
+    userId: string,
+    gen: number,
+  ): Promise<CaptureStartResult> => {
+    const { record, roomInfo } = buildCaptureRecord(userId, room, member, displayName);
+    const lock = await acquireCaptureLock(room.id);
+    if (genRef.current !== gen) {
+      // A Stop or sign-out came while the lock was being taken: give it back, release the seat, never open the microphone.
+      lock.release();
+      void endMyCaptureRpc(room.id).catch(() => undefined);
+      return { started: false, reason: 'join' };
+    }
+    storedRef.current = record;
+    writeStoredCapture(record);
+    if (!lock.acquired) {
+      dispatch({ type: 'JOIN_SUCCEEDED', room: roomInfo, member, observeOnly: true });
+      return { started: true, room: roomInfo };
+    }
+    media.current.lock = lock;
+    dispatch({ type: 'JOIN_SUCCEEDED', room: roomInfo, member });
+    try {
+      // Only now — after a member row with consent_given_at — is the microphone requested.
+      await startMedia(room.id);
+    } catch (err) {
+      // Joined, but nothing can be captured. Record the end so the server does not wait for
+      // a device that will never send, and let the caller say so.
+      console.error('[room-capture] microphone could not start:', err);
+      await endMyCapture(room.id);
+      return { started: false, room: roomInfo, reason: 'microphone' };
+    }
+    return { started: true, room: roomInfo };
+  }, [startMedia, endMyCapture]);
+
+  const startCapture = useCallback(async (options: StartCaptureOptions): Promise<CaptureStartResult> => {
+    const { eventId, displayName, room: targetRoom, conversationId = null } = options;
     if (!user) return { started: false, reason: 'join' };
+    await stopRef.current;                                   // rule 9: wait for a Stop that is in flight
     const current = stateRef.current;
     if (current.phase !== 'idle') {
-      const sameRoom = targetRoom ? current.roomId === targetRoom.id : current.eventId === eventId;
-      if (sameRoom && LIVE_PHASES.has(current.phase) && current.roomId && current.roomCode) {
-        return { started: true, room: { id: current.roomId, code: current.roomCode, eventId: current.eventId ?? null } };
+      const same = isSameCaptureTarget(current, { room: targetRoom, conversationId, eventId });
+      if (same && LIVE_PHASES.has(current.phase) && current.roomId && current.roomCode) {
+        return { started: true, room: viewOfCapture(current) };
       }
-      // One voice, one recording: a different room ends the current capture first.
+      // One voice, one recording: a different place ends the current capture first, and says so (rule 7).
       if (current.roomId) await endMyCapture(current.roomId);
+      toast(STOPPED_ELSEWHERE_NOTICE);
     }
-    dispatch({ type: 'JOIN_REQUESTED', roomId: targetRoom?.id ?? null, eventId });
+    dispatch({ type: 'JOIN_REQUESTED', roomId: targetRoom?.id ?? null, eventId, conversationId });
+    const gen = genRef.current;   // every stop bumps it; the state ref is not yet updated this early
     try {
       // The consent is the tap on the switch (or the room page's agreement control); the server
       // records it in the same statement that creates the member row.
       const { room, member } = targetRoom
         ? { room: targetRoom, member: await joinRoom(targetRoom.id, user.id, displayName, true) }
-        : await createRoom(user.id, displayName, true, eventId ?? undefined);
+        : await createRoom(user.id, displayName, true, { eventId, conversationId });
+      if (genRef.current !== gen) {
+        // Rule 9: the phase changed while the join was in flight (Stop, sign-out): release the seat, never the mic.
+        void endMyCaptureRpc(room.id).catch(() => undefined);
+        return { started: false, reason: 'join' };
+      }
       if (!member.consentGivenAt) {
         dispatch({ type: 'JOIN_FAILED', message: 'consent was not recorded' });
         return { started: false, reason: 'join' };
       }
-      const record: StoredCapture = {
-        userId: user.id, roomId: room.id, roomCode: room.code, memberId: member.id,
-        eventId: room.eventId, joinedAt: member.joinedAt, displayName: member.displayName,
-      };
-      const lock = await acquireCaptureLock(room.id);
-      storedRef.current = record;
-      writeStoredCapture(record);
-      const roomInfo = { id: room.id, code: room.code, eventId: room.eventId };
-      if (!lock.acquired) {
-        dispatch({ type: 'JOIN_SUCCEEDED', room: roomInfo, member, observeOnly: true });
-        return { started: true, room: roomInfo };
-      }
-      media.current.lock = lock;
-      dispatch({ type: 'JOIN_SUCCEEDED', room: roomInfo, member });
-      try {
-        // Only now — after a member row with consent_given_at — is the microphone requested.
-        await startMedia(room.id);
-      } catch (err) {
-        // Joined, but nothing can be captured. Record the end so the server does not wait for
-        // a device that will never send, and let the caller say so.
-        console.error('[room-capture] microphone could not start:', err);
-        await endMyCapture(room.id);
-        return { started: false, room: roomInfo, reason: 'microphone' };
-      }
-      return { started: true, room: roomInfo };
+      return await beginCapture(room, member, displayName, user.id, gen);
     } catch (err) {
       console.error('[room-capture] join failed:', err);
       stopMedia();
       dispatch({ type: 'JOIN_FAILED', message: err instanceof Error ? err.message : 'join failed' });
       return { started: false, reason: 'join' };
     }
-  }, [user, endMyCapture, startMedia, stopMedia]);
+  }, [user, endMyCapture, beginCapture, stopMedia]);
 
   // ── Re-attach on load, observe from a second tab ─────────────────────────
 
-  const attach = useCallback(async () => {
-    if (!user || stateRef.current.phase !== 'idle') return;
-    const record = readStoredCapture();
-    if (!record) return;
-    if (record.userId !== user.id) {
-      // Consented by someone else on this browser — never inherited.
-      clearStoredCapture();
-      return;
-    }
-    const status = await getMyCaptureStatus(record.roomId, user.id).catch(() => null);
-    const capPassed = status
-      ? Date.now() - new Date(status.joinedAt).getTime() > CAPTURE_CAP_MINUTES * 60_000
-      : true;
-    if (!status || status.captureEndedAt || status.roomEndedAt || capPassed) {
-      clearStoredCapture();
-      return;
-    }
-    if (stateRef.current.phase !== 'idle') return;
-    const lock = await acquireCaptureLock(record.roomId);
-    storedRef.current = record;
-    const room = { id: record.roomId, code: record.roomCode, eventId: record.eventId };
-    // The member row exists and is not ended, and it can only have been created with consent.
-    const member = { id: record.memberId, consentGivenAt: status.joinedAt, joinedAt: status.joinedAt };
-    if (!lock.acquired) {
-      dispatch({ type: 'ATTACH', room, member, observeOnly: true });
-      return;
-    }
-    media.current.lock = lock;
-    dispatch({ type: 'ATTACH', room, member, observeOnly: false });
-    try {
-      await startMedia(record.roomId);
-    } catch (err) {
-      console.error('[room-capture] could not re-attach the microphone:', err);
-      teardownLocal(false);
-    }
-  }, [user, startMedia, teardownLocal]);
-
-  useEffect(() => {
-    if (sessionChecked && user) void attach();
-  }, [sessionChecked, user, attach]);
+  const holdPaused = useCallback(() => { pausedRef.current = true; setUserResumed(false); setManualPaused(true); }, []);
+  useReattach(user, sessionChecked, stateRef, storedRef, media, dispatch, startMedia, teardownLocal, holdPaused);
 
   // An observing tab takes over when the capturing tab closes (its lock is released).
   useEffect(() => {
@@ -714,49 +718,11 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(timer);
   }, [state.phase, state.roomId, startMedia, teardownLocal]);
 
-  // Another tab ended the capture, or /live state changed in another tab.
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === CAPTURE_STORAGE_KEY && !e.newValue && stateRef.current.phase !== 'idle') {
-        teardownLocal(false);
-      }
-      setLiveSessionActive(hasActiveLiveSession());
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, [teardownLocal]);
+  useCaptureStorageSync(stateRef, teardownLocal, () => setLiveSessionActive(hasActiveLiveSession()));
 
   // ── Auth change ends capture immediately ─────────────────────────────────
 
-  const lastUserIdRef = useRef<string | null | undefined>(undefined);
-  useEffect(() => {
-    if (!sessionChecked) return;
-    const currentId = user?.id ?? null;
-    const previousId = lastUserIdRef.current;
-    lastUserIdRef.current = currentId;
-    if (previousId === undefined || previousId === currentId) return;
-    if (stateRef.current.phase !== 'idle') {
-      stopMedia();
-      // Chunks still waiting would upload under the signed-out person's record.
-      media.current.uploadQueue.length = 0;
-      storedRef.current = null;
-      dispatch({ type: 'AUTH_CHANGED' });
-    }
-    const record = readStoredCapture();
-    if (record && record.userId !== currentId) clearStoredCapture();
-  }, [sessionChecked, user?.id, stopMedia]);
-
-  // Unmount (a crash into the error boundary, a full teardown): capture stops with it.
-  useEffect(() => () => { void stopMedia(); }, [stopMedia]);
-
-  // ── The per-person cap ───────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!LIVE_PHASES.has(state.phase) || state.phase === 'observing' || !state.joinedAt) return;
-    const remaining = new Date(state.joinedAt).getTime() + CAPTURE_CAP_MINUTES * 60_000 - Date.now();
-    const timer = setTimeout(() => hardStopRef.current('per-person cap reached'), Math.max(0, remaining));
-    return () => clearTimeout(timer);
-  }, [state.phase, state.joinedAt]);
+  useStopOnAuthChange(sessionChecked, user?.id, stateRef, media, storedRef, stopMedia, dispatch);
 
   // ── Pause / resume ───────────────────────────────────────────────────────
 
@@ -768,21 +734,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     shouldPauseForLocation(location.pathname) ||
     isImmersiveLetterRoute(location.pathname, location.search, !!user);
 
-  useEffect(() => {
-    const { phase, roomId } = state;
-    if (!roomId) return;
-    const transition = decidePauseTransition({ phase, pauseLocation, explainBackHolds, liveSessionActive, manualPaused, userResumed });
-    // A Resume answers the pause it was tapped on; a later automatic pause (/live, an
-    // explain-back) must not inherit it (adversarial review, HIGH).
-    if (userResumed && (pauseLocation || explainBackHolds > 0)) setUserResumed(false);
-    if (transition === 'pause') {
-      dispatch({ type: 'PAUSE_REQUESTED', reason: manualPaused ? 'manual' : pauseLocation ? 'location' : 'explain-back' });
-      pauseMedia();
-    } else if (transition === 'resume') {
-      dispatch({ type: 'RESUME_REQUESTED' });
-      void resumeMedia(roomId);
-    }
-  }, [state, pauseLocation, explainBackHolds, liveSessionActive, manualPaused, userResumed, pauseMedia, resumeMedia]);
+  usePauseResume(state, pauseLocation, explainBackHolds, liveSessionActive, manualPaused, userResumed, setUserResumed, pauseMedia, resumeMedia, dispatch);
 
   // A manual pause belongs to one capture: when it ends, the next one starts unpaused.
   useEffect(() => {
@@ -794,26 +746,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     }
   }, [state.phase]);
 
-  // P1388: every silent failure (iOS lock, a muted track, a dead input) writes zeros, never an
-  // error. Checked only while actually capturing — a pause is silent on purpose.
-  // Keyed on "running", not the phase: a capturing ⇄ stalled flap must not restart the clock,
-  // or a flap faster than the threshold would hide a dead input for good.
-  const running = state.phase === 'capturing' || state.phase === 'stalled';
-  useEffect(() => {
-    if (!running) {
-      setInputSilent(false);
-      return;
-    }
-    media.current.lastSignalAt = Date.now();
-    const timer = setInterval(() => {
-      const h = media.current;
-      // No tap running (starting up, or live text failed to start) means no level to judge —
-      // not silence. Saying "no sound" there would blame a mic that is recording fine.
-      if (!h.slices) h.lastSignalAt = Date.now();
-      setInputSilent(Date.now() - h.lastSignalAt > SILENCE_WARN_AFTER_MS);
-    }, 1_000);
-    return () => clearInterval(timer);
-  }, [running]);
+  useInputSilence(state.phase === 'capturing' || state.phase === 'stalled', media, setInputSilent);
 
   const pauseMine = useCallback(() => {
     if (stateRef.current.phase !== 'capturing' && stateRef.current.phase !== 'stalled') return;
@@ -829,19 +762,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     return () => { levelListeners.current.delete(listener); };
   }, []);
 
-  // While paused: the heartbeat, and a re-check of /live state that no navigation will trigger.
-  useEffect(() => {
-    if (state.phase !== 'paused' || !state.roomId) return;
-    const roomId = state.roomId;
-    const beat = () => void touchRoomCapture(roomId).catch((err) => console.warn('[room-capture] heartbeat failed:', err));
-    beat();
-    const heartbeat = setInterval(beat, PAUSED_HEARTBEAT_INTERVAL_MS);
-    const recheck = setInterval(() => setLiveSessionActive(hasActiveLiveSession()), PAUSE_RECHECK_MS);
-    return () => {
-      clearInterval(heartbeat);
-      clearInterval(recheck);
-    };
-  }, [state.phase, state.roomId]);
+  useRoomCaptureTimers(state, hardStopRef, moveRef, () => setLiveSessionActive(hasActiveLiveSession()), user?.id);
 
   const holdPause = useCallback((reason: string) => {
     void reason;
@@ -853,67 +774,6 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
       setExplainBackHolds((n) => Math.max(0, n - 1));
     };
   }, []);
-
-  // ── The "…" speaking cue: realtime broadcast, never a row ────────────────
-
-  const subscribedRoomId = state.phase === 'idle' ? null : state.roomId;
-  useEffect(() => {
-    if (!subscribedRoomId) return;
-    const channel = supabase
-      .channel(`transcribe_speaking:${subscribedRoomId}`)
-      .on('broadcast', { event: 'speaking' }, ({ payload }) => {
-        const { memberId, speaking: isSpeaking } = (payload ?? {}) as { memberId?: string; speaking?: boolean };
-        if (typeof memberId !== 'string') return;
-        setSpeaking((prev) => {
-          const next = new Map(prev);
-          if (isSpeaking) next.set(memberId, Date.now() + SPEAKING_EXPIRY_MS);
-          else next.delete(memberId);
-          return next;
-        });
-      })
-      .subscribe();
-    channelRef.current = channel;
-    return () => {
-      channelRef.current = null;
-      void supabase.removeChannel(channel);
-      setSpeaking(new Map());
-    };
-  }, [subscribedRoomId]);
-
-  useEffect(() => {
-    const memberId = state.memberId;
-    if (!memberId || !state.roomId) return;
-    let lastSent: boolean | null = null;
-    const timer = setInterval(() => {
-      const isSpeaking = stateRef.current.phase === 'capturing' && Date.now() - media.current.lastLoudAt < SPEAKING_HOLD_MS;
-      setSpeaking((prev) => {
-        // Expire stale broadcasts (a tab that closed mid-sentence never sends "stopped").
-        const now = Date.now();
-        let changed = false;
-        const next = new Map(prev);
-        for (const [id, expiresAt] of next) {
-          if (expiresAt < now) {
-            next.delete(id);
-            changed = true;
-          }
-        }
-        if (isSpeaking) {
-          next.set(memberId, now + SPEAKING_EXPIRY_MS);
-          changed = true;
-        } else if (next.has(memberId)) {
-          next.delete(memberId);
-          changed = true;
-        }
-        return changed ? next : prev;
-      });
-      // Re-sent while speaking so other tabs' expiry keeps being refreshed.
-      if (isSpeaking || lastSent !== isSpeaking) {
-        lastSent = isSpeaking;
-        void channelRef.current?.send({ type: 'broadcast', event: 'speaking', payload: { memberId, speaking: isSpeaking } });
-      }
-    }, 750);
-    return () => clearInterval(timer);
-  }, [state.memberId, state.roomId]);
 
   // ── Value ────────────────────────────────────────────────────────────────
 
@@ -940,6 +800,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     roomId: state.roomId,
     roomCode: state.roomCode ?? null,
     eventId: state.eventId ?? null,
+    conversationId: state.conversationId ?? null,
     memberId: state.memberId ?? null,
     destination,
     // P1388: a MANUAL pause keeps the bar up (its Resume lives there); an automatic pause on

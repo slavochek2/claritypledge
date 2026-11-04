@@ -35,6 +35,8 @@ const read = (p: string) => readFileSync(resolve(process.cwd(), p), 'utf8');
 
 const HANDLER = read('supabase/functions/transcribe-slice/handler.ts');
 const INDEX = read('supabase/functions/transcribe-slice/index.ts');
+// the countActiveRooms query itself lives in active-rooms.ts (so an integration test runs its exact shape; P1604)
+const ACTIVE_ROOMS = read('supabase/functions/transcribe-slice/active-rooms.ts');
 // P1307's replacement for the room-selection body — file name per the spec's own "Files to
 // Create" list (§Technical Architecture, Implementation Approach). If /dev names the
 // migration file differently, this read fails loudly rather than silently passing against
@@ -50,41 +52,48 @@ describe('P1307 — the room-duration bound is now per-MEMBER, and must not drif
     expect(Number(m![1])).toBe(180);
   });
 
-  it('the per-slice cap is computed from memberJoinedAt, not roomCreatedAt', () => {
-    // Decision 3 item 1: "ageMs is computed from memberJoinedAt, not roomCreatedAt."
+  // P1604 rule 8 REPLACES the per-person clock with the ROOM's: the sweep rolls a room into Part 2 at 176 minutes, so a
+  // latecomer never needs their own three hours. The four places that read the bound now agree on the room's created_at.
+  it('the per-slice cap is computed from roomCreatedAt, not memberJoinedAt (P1604 rule 8)', () => {
     const ageMsLine = HANDLER.split('\n').find((l) => l.includes('const ageMs'));
     expect(ageMsLine, 'handler.ts must compute ageMs somewhere — this line moved or was renamed').toBeDefined();
-    expect(ageMsLine).toContain('memberJoinedAt');
-    expect(
-      ageMsLine,
-      'ageMs must no longer read roomCreatedAt — that is the P1236-era per-ROOM cap this migration replaces',
-    ).not.toContain('roomCreatedAt');
+    expect(ageMsLine).toContain('roomCreatedAt');
+    expect(ageMsLine, 'ageMs must no longer read the per-person memberJoinedAt').not.toContain('memberJoinedAt');
   });
 
-  it('SliceMembership carries memberJoinedAt', () => {
+  it('SliceMembership carries both roomCreatedAt (the clock) and memberJoinedAt (diagnostics)', () => {
     const interfaceBlock = HANDLER.slice(
       HANDLER.indexOf('export interface SliceMembership'),
       HANDLER.indexOf('export interface HandlerDeps'),
     );
+    expect(interfaceBlock).toContain('roomCreatedAt');
     expect(interfaceBlock).toContain('memberJoinedAt');
   });
 
-  it('countActiveRooms filters on the MEMBER row\'s joined_at, not the room\'s created_at', () => {
-    // Decision 3 item 3: ".gt('transcribe_rooms.created_at', cutoff)" becomes
-    // ".gt('joined_at', cutoff)" on the transcribe_room_members row already being queried.
+  it('countActiveRooms filters on the ROOM\'s created_at, not the member\'s joined_at (P1604 rule 8)', () => {
     expect(INDEX).toContain('ROOM_MAX_DURATION_MINUTES');
     const cutoffLine = INDEX.split('\n').find((l) => l.includes('const cutoff'));
     expect(cutoffLine, 'countActiveRooms must still derive its cutoff from the imported constant').toBeDefined();
     expect(cutoffLine).toContain('ROOM_MAX_DURATION_MINUTES');
     expect(cutoffLine).not.toMatch(/\b180\b/);
 
-    const gtLine = INDEX.split('\n').find((l) => l.includes(".gt('") || l.includes('.gt("'));
+    const gtLine = ACTIVE_ROOMS.split('\n').find((l) => l.includes(".gt('") || l.includes('.gt("'));
     expect(gtLine, 'countActiveRooms must have a .gt(...) cutoff filter').toBeDefined();
-    expect(
-      gtLine,
-      'countActiveRooms must filter on the MEMBER\'s own joined_at, not the ROOM\'s created_at (P1307 Decision 3 item 3)',
-    ).toMatch(/\.gt\(\s*['"]joined_at['"]/);
-    expect(gtLine).not.toContain('transcribe_rooms.created_at');
+    expect(gtLine).toMatch(/\.gt\(\s*['"]transcribe_rooms\.created_at['"]/);
+    expect(gtLine).not.toMatch(/\.gt\(\s*['"]joined_at['"]/);
+  });
+
+  it('gcs-signed-url reads the same clock, and the sweep rolls just inside it', () => {
+    const gcs = read('supabase/functions/gcs-signed-url/handler.ts');
+    expect(gcs).toMatch(/MEMBER_CAPTURE_MAX_MINUTES = 180/);
+    expect(gcs).toMatch(/m\.roomCreatedAt/);
+    const sweep = read('supabase/migrations/20261103090100_p1604_transcription_belongs_to_a_chat_rooms.sql');
+    const roll = Number(sweep.match(/c_roll\s+CONSTANT interval := interval '(\d+) minutes'/)?.[1]);
+    expect(roll, 'the sweep rolls a room at 176 minutes').toBe(176);
+    expect(roll).toBeLessThan(Number(HANDLER.match(/export const ROOM_MAX_DURATION_MINUTES\s*=\s*(\d+)/)![1]));
+    const cleaner = read('services/transcribe-room-batch/round_clean.py');
+    expect(roll * 60 + 120, 'a rolled room plus a 2-minute sweep still fits the cleaner\'s 3-hour window').toBeLessThan(3 * 3600);
+    expect(cleaner).toMatch(/MAX_WINDOW_S = 3 \* 3600/);
   });
 
   it('the room-SELECTION query in enter_transcribe_room carries no room-age bound at all', () => {

@@ -340,6 +340,29 @@ describe('chat list', () => {
     expect(screen.getAllByTestId('row-title')[0]).toHaveTextContent('Ada Lovelace'); // newest activity first
   });
 
+  it('P1604: the mirror agent\'s row menu offers no Archive; an already archived mirror still offers Unarchive; other rows are unchanged', async () => {
+    renderChat('/chats', [mirror('c-mirror', { title: 'Mira' }), ...chats]);
+    await screen.findByText('Mira', { selector: '[data-testid="row-title"]' });
+    fireEvent.contextMenu(rowButton('Mira'));
+    await screen.findByRole('menuitem', { name: /mark as unread/i });
+    expect(screen.queryByRole('menuitem', { name: 'Archive' }), 'no Archive on the mirror').not.toBeInTheDocument();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+  });
+
+  it('P1604: control: an ordinary row still offers Archive', async () => {
+    renderChat('/chats', [mirror('c-mirror', { title: 'Mira' }), ...chats]);
+    await screen.findByText('Linus Torvalds', { selector: '[data-testid="row-title"]' });
+    fireEvent.contextMenu(rowButton('Linus Torvalds'));
+    expect(await screen.findByRole('menuitem', { name: 'Archive' })).toBeInTheDocument();
+  });
+
+  it('P1604: an archived mirror (older clients could archive it) is in the Archived section and its menu offers Unarchive', async () => {
+    renderChat('/chats', [mirror('c-mirror', { title: 'Mira', archived: true }), ...chats]);
+    fireEvent.click(await screen.findByRole('button', { name: /Archived \(1\)/ }));
+    fireEvent.contextMenu(rowButton('Mira'));
+    expect(await screen.findByRole('menuitem', { name: 'Unarchive' })).toBeInTheDocument();
+  });
+
   it('hides a past event channel with no messages', async () => {
     renderChat('/chats', [mirror(), eventChat('old', 'Old Night', -48), eventChat('new', 'Next Night', 20)]);
     await screen.findByText('Next Night', { selector: '[data-testid="row-title"]' });
@@ -2830,7 +2853,7 @@ describe('Back goes back', () => {
     expect(where()).toBe('/chats');
   });
 
-  it('a chat reached from a group page -> Clarify -> mirror -> archive leaves no chat behind', async () => {
+  it('a chat reached from a group page -> Clarify -> mirror: the mirror cannot be archived (P1604, founder), and Back returns to the group page chat', async () => {
     svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl21', kind: 'clarify' }));
     renderChat({ entries: ['/feed', '/groups/cm', '/chats/c/g1'], index: 2 }, [mirror(), channel], { g1: [msg('g1', 'p-grace', 'clarify from group')] });
     await screen.findByText('clarify from group');
@@ -2838,10 +2861,11 @@ describe('Back goes back', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
     await waitFor(() => expect(where()).toBe('/chats/c/c-mirror'));
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }));
-    await waitFor(() => expect(where()).toBe('/chats'));
+    await screen.findByRole('menuitem', { name: /mark as unread/i });
+    expect(screen.queryByRole('menuitem', { name: 'Archive' }), 'the mirror offers no Archive').not.toBeInTheDocument();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
     act(() => historyBack());
-    await waitFor(() => expect(where()).toBe('/groups/cm'));
+    await waitFor(() => expect(where()).toBe('/chats/c/g1'));
   });
 
   it('the composer focus Clarify asks for is spent once: going back and forward again does not take focus', async () => {
@@ -3043,16 +3067,15 @@ describe('message actions: toolbar and More', () => {
       expect(nav()).toBe('POP');
     });
 
-    it('leaving the mirror for good (archive) steps back over it and the chat it was clarified from, to the list', async () => {
+    it('the mirror offers no Archive (P1604, founder), so it is left with Back, which returns to the chat clarified from', async () => {
       renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify deep')] });
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       fireEvent.click(rowButton('Ada Lovelace'));
       await screen.findByText('clarify deep');
       await clarifyIt('clarify deep');
       await userEvent.click(screen.getByRole('button', { name: 'More' }));
-      await userEvent.click(await screen.findByRole('menuitem', { name: 'Archive' }));
-      expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats$/);
-      expect(nav()).toBe('POP');
+      await screen.findByRole('menuitem', { name: /mark as unread/i });
+      expect(screen.queryByRole('menuitem', { name: 'Archive' })).not.toBeInTheDocument();
     });
 
     it('a failed clarify shows an error toast, keeps the quote staged and puts the typed note back', async () => {

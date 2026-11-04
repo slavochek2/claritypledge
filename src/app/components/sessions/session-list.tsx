@@ -3,6 +3,7 @@ import { CheckCircle2, XCircle, ChevronRight, MicIcon } from 'lucide-react';
 import type { SessionSummary } from '@/app/data/sessions-service';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Link } from 'react-router-dom';
+import { TranscriptionSessionRow } from './transcription-session-row';
 
 // ─── Date grouping ────────────────────────────────────────────────────────────
 
@@ -160,7 +161,9 @@ export function SessionList({ sessions, isLoading, isError, onRetry, onSessionCl
           </p>
           <ul>
             {group.items.map((session) => (
-              <SessionRow key={session.id} session={session} onClick={onSessionClick} />
+              session.roomId
+                ? <TranscriptionSessionRow key={session.id} session={session} time={formatRowTime(session.date)} dateLabel={formatGroupDate(session.date)} onClick={onSessionClick} />
+                : <SessionRow key={session.id} session={session} onClick={onSessionClick} />
             ))}
           </ul>
         </div>

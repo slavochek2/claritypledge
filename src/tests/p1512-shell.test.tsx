@@ -219,10 +219,12 @@ describe('P1512 shell — one navigation per route', () => {
     expect(sidebar(container)).toBeNull();
   });
 
-  it('/transcribe keeps today\'s chrome', () => {
-    const { container } = renderLayout('/transcribe/abc');
-    expect(topNav(container)).not.toBeNull();
-    expect(sidebar(container)).toBeNull();
+  // P1604 (founder, 2026-11-04) REVERSES "/transcribe keeps today's chrome": it was never meant to be immersive. It took the /live
+  // gates only because both draw their own sticky header (P1149). Signed in, it gets the sidebar like every product page.
+  it.each(['/transcribe', '/transcribe/abc'])('%s: the sidebar, not the top nav (only /live stays immersive)', (route) => {
+    const { container } = renderLayout(route);
+    expect(sidebar(container)).not.toBeNull();
+    expect(topNav(container)).toBeNull();
   });
 
   it('compact routes (room pages) keep today\'s chrome', () => {

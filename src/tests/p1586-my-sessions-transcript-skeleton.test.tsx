@@ -31,8 +31,14 @@ const session = (roomId: string | null) => ({
   roomId,
 });
 
-async function openTranscript() {
+// P1604 (founder, 2026-11-04): a transcription session (a room seat) opens straight on its text, one click, from a row that says
+// "Transcript"; a real session still opens its detail page first and then the transcript.
+async function openTranscript(roomId: string | null) {
   render(<MemoryRouter><MySessionsPage /></MemoryRouter>);
+  if (roomId) {
+    fireEvent.click(await screen.findByRole('button', { name: /^Open transcript/ }));
+    return;
+  }
   fireEvent.click(await screen.findByText(/Pat Partner/));
   fireEvent.click(await screen.findByRole('button', { name: 'Open full transcript' }));
 }
@@ -45,7 +51,7 @@ describe('P1586 /sessions transcript views', () => {
     ['a transcribe-room transcript', 'room-id-1'],
   ])('%s: skeleton of the turns under the drawn header, no spinner', async (_label, roomId) => {
     svc.sessions = [session(roomId)];
-    await openTranscript();
+    await openTranscript(roomId);
 
     expect(screen.getByRole('heading', { name: 'Transcript' })).toBeInTheDocument();
     const skeleton = screen.getByTestId('transcript-skeleton');

@@ -15,6 +15,7 @@ import { createClaritySession } from './api';
 // Shared with slice-recorder.ts: the same defect appeared at three layers of this feature,
 // so the deadline lives in one place rather than three copies that drift.
 import { withDeadline, RequestTimeoutError } from '@/lib/with-deadline';
+import { ROOM_ENTRY_TIMEOUT_MS } from './transcribe-capture-status';
 import { parseSliceDestination, settleSliceResponse, type SliceDestination } from './transcribe-slice-destination';
 
 export interface TranscribeRoom {
@@ -23,6 +24,12 @@ export interface TranscribeRoom {
   eventId: string | null;
   createdAt: string;
   endedAt: string | null;
+  /** P1604: the chat this room belongs to, if any. */
+  conversationId: string | null;
+  /** P1604: the room belongs to a chat (true for anyone holding the code; conversationId is set only for chat readers). */
+  inChat: boolean;
+  /** P1604 rule 8: 1 for a session's first room; the roll continues it as part 2, 3... */
+  partNo: number;
 }
 
 export interface TranscribeRoomMember {
@@ -52,6 +59,9 @@ interface DbRoom {
   event_id: string | null;
   created_at: string;
   ended_at: string | null;
+  conversation_id?: string | null;
+  in_chat?: boolean | null;
+  part_no?: number | null;
 }
 
 interface DbMember {
@@ -77,6 +87,8 @@ interface DbCreatedRoom {
   member_session_id: string;
   member_joined_at: string;
   member_consent_given_at: string | null;
+  room_conversation_id?: string | null;
+  room_part_no?: number | null;
 }
 
 interface DbMessage {
@@ -89,7 +101,10 @@ interface DbMessage {
 }
 
 function mapRoom(row: DbRoom): TranscribeRoom {
-  return { id: row.id, code: row.code, eventId: row.event_id, createdAt: row.created_at, endedAt: row.ended_at };
+  return {
+    id: row.id, code: row.code, eventId: row.event_id, createdAt: row.created_at, endedAt: row.ended_at,
+    conversationId: row.conversation_id ?? null, inChat: row.in_chat ?? row.conversation_id != null, partNo: row.part_no ?? 1,
+  };
 }
 
 function mapMember(row: DbMember): TranscribeRoomMember {
@@ -154,7 +169,6 @@ function generateTranscribeRoomCode(): string {
  * it matches the slice deadline; there is no reason for the two to differ. Exceeding it
  * produces an honest "the server did not respond" instead of an indefinite spinner.
  */
-const ROOM_ENTRY_TIMEOUT_MS = 15_000;
 
 /** What a participant sees when a request got no answer at all. Deliberately names the
  *  connection: the cause is upstream of this app every time it has been observed (a VPN
@@ -185,10 +199,26 @@ function rethrowAsUnreachable(logLabel: string): (err: unknown) => never {
 }
 
 /**
- * Creates a new ad-hoc room (event_id null) and joins the caller as its first member.
- * The room field exists from day one, even for a single participant (spec §6).
+ * What a start asks for (P1604). A chat: its event room while the event may be transcribed, else the chat's own room (the
+ * server decides and checks the caller may read the chat). An event: the event room. Neither: a NEW plain room whose
+ * code others can join by; it belongs to no chat.
  */
-export async function createRoom(profileId: string, displayName: string, consentGiven: boolean, eventId?: string): Promise<{ room: TranscribeRoom; member: TranscribeRoomMember }> {
+export { touchRoomCapture, getMyCaptureStatus } from './transcribe-capture-status';
+export type { CaptureHeartbeat, MyCaptureStatus } from './transcribe-capture-status';
+
+export interface RoomTarget {
+  eventId?: string | null;
+  conversationId?: string | null;
+}
+
+/**
+ * Enters a room (starting it when none is open) and joins the caller as a member.
+ * The room field exists from day one, even for a single participant (spec §6).
+ * `target` is a RoomTarget; a bare string is an event id (the event room page, before P1604).
+ */
+export async function createRoom(profileId: string, displayName: string, consentGiven: boolean, target?: string | RoomTarget): Promise<{ room: TranscribeRoom; member: TranscribeRoomMember }> {
+  const eventId = typeof target === 'string' ? target : target?.eventId ?? undefined;
+  const conversationId = typeof target === 'string' ? undefined : target?.conversationId ?? undefined;
   // The seat's recording is minted first because the RPC verifies it belongs to the caller
   // before it will write anything — the check exists precisely so a caller cannot attach
   // someone else's recording to their own seat, and it needs a row to check against.
@@ -234,11 +264,9 @@ export async function createRoom(profileId: string, displayName: string, consent
 
   const maxAttempts = 5;
   for (let attempts = 0; attempts < maxAttempts; attempts++) {
-    // P1236 (f): ONE shared room. Everyone arriving at /transcribe without a code lands in
-    // the room that is already running, and only the first arrival creates one. Before this,
-    // every visitor created a private room and sat alone in it — not because joining was
-    // unimplemented, but because nothing ever showed a visitor a room code to share, so the
-    // two-participant case the feature exists for was unreachable.
+    // P1604: a chat or an event goes to its one open room (the first arrival creates it). With neither, every start is a
+    // NEW plain room (this reverses P1236 (f)'s one shared no-code room: cleaning compares every mic in a room, so
+    // unrelated people in one shared room would mask each other's audio). Others join a plain room by its code.
     //
     // The retry loop around this call is still the code-collision retry: `p_new_code` is only
     // consumed on the create branch, and a 23505 there is what a retry fixes. On the join
@@ -250,6 +278,7 @@ export async function createRoom(profileId: string, displayName: string, consent
         p_consent: consentGiven,
         p_new_code: generateTranscribeRoomCode(),
         p_event_id: eventId ?? null,
+        p_conversation_id: conversationId ?? null,
       }),
       ROOM_ENTRY_TIMEOUT_MS,
       'entering the room',
@@ -279,6 +308,8 @@ export async function createRoom(profileId: string, displayName: string, consent
           event_id: row.room_event_id,
           created_at: row.room_created_at,
           ended_at: row.room_ended_at,
+          conversation_id: row.room_conversation_id ?? null,
+          part_no: row.room_part_no ?? 1,
         }),
         // profile_id comes back from the RPC, which derived it from auth.uid(). The caller's
         // own `profileId` argument is NOT used here: the server's answer to "whose seat is
@@ -617,54 +648,6 @@ export async function reserveRoomChunkNumber(roomId: string): Promise<number> {
   if (error) throw new Error(error.message);
   if (typeof data !== 'number') throw new Error('reserve_room_chunk_number returned no number');
   return data;
-}
-
-/**
- * P1307 Decision 2 correction: the paused heartbeat. Carries no audio. Tells the room-end
- * sweep this person is deliberately not sending (a /live session, an explain-back recording)
- * rather than gone.
- */
-export async function touchRoomCapture(roomId: string): Promise<void> {
-  const { error } = await withDeadline(
-    Promise.resolve(supabase.rpc('touch_transcribe_room_capture', { p_room_id: roomId })),
-    ROOM_ENTRY_TIMEOUT_MS,
-    'room heartbeat',
-  );
-  if (error) throw new Error(error.message);
-}
-
-export interface MyCaptureStatus {
-  joinedAt: string;
-  captureEndedAt: string | null;
-  roomEndedAt: string | null;
-}
-
-/**
- * P1307: whether this person's capture in a room is still live on the server — read before a
- * reload or a second visit re-attaches to a stored capture, so a capture the server has
- * already ended (their own End in another tab, the cap, the sweep) is never restarted. Both
- * reads are member-scoped by RLS (P1207); a non-member gets null.
- */
-export async function getMyCaptureStatus(roomId: string, profileId: string): Promise<MyCaptureStatus | null> {
-  const [{ data: member, error: memberError }, { data: room, error: roomError }] = await withDeadline(
-    Promise.all([
-      supabase
-        .from('transcribe_room_members')
-        .select('joined_at, capture_ended_at')
-        .eq('room_id', roomId)
-        .eq('profile_id', profileId)
-        .maybeSingle(),
-      supabase.from('transcribe_rooms').select('ended_at').eq('id', roomId).maybeSingle(),
-    ]),
-    ROOM_ENTRY_TIMEOUT_MS,
-    'reading your capture status',
-  );
-  if (memberError || roomError || !member || !room) return null;
-  return {
-    joinedAt: member.joined_at as string,
-    captureEndedAt: (member.capture_ended_at as string | null) ?? null,
-    roomEndedAt: (room.ended_at as string | null) ?? null,
-  };
 }
 
 /**

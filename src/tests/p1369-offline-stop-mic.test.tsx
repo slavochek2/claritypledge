@@ -83,6 +83,8 @@ describe('P1369: Stop microphone works offline', () => {
     });
 
     expect(trackStop).toHaveBeenCalled();
-    expect(endRpc, 'the RPC is still waiting behind the (hung) tail upload — the mic did not wait for it').not.toHaveBeenCalled();
+    // P1604 rule 4 (reverses P1307): the End goes to the server AT ONCE, not behind the tail upload; the server admits
+    // audio recorded before the Stop for 2 minutes after it.
+    expect(endRpc, 'the End RPC does not wait behind the (hung) tail upload').toHaveBeenCalled();
   });
 });

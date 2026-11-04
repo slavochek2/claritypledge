@@ -15,16 +15,13 @@ import type { ArtistEntry } from './artist-pool.ts';
 
 export const MIRROR_MODEL = 'gemini-3.8-flash';
 
-/**
- * P1547: ONE budget for the whole request (fixed rules, metadata, escaping and data), in tokens. The
- * reservation is computed from it and the request is refused, never sent, past it.
- */
-export const BUDGET_TOKENS = 50_000;
-/** Kept as the reservation's input bound (P1520 name). */
-export const MAX_IN_TOKENS = BUDGET_TOKENS;
-export const MAX_OUT_TOKENS = 1_200; // thinking included (billed as output)
-/** A forwarded or Clarified thread is one item capped at 20% of the budget. */
-export const COPY_ITEM_TOKENS = Math.floor(BUDGET_TOKENS * 0.2);
+import { COPY_ITEM_TOKENS, PRICE_IN_PER_M, PRICE_OUT_PER_M, RESERVE_MARGIN, SESSION_COPY_ITEM_TOKENS, limitsFor } from './mirror-limits.ts';
+export {
+  BUDGET_TOKENS, COPY_ITEM_TOKENS, MAX_IN_TOKENS, MAX_OUT_TOKENS, PRICE_IN_PER_M, PRICE_OUT_PER_M, RESERVE_MARGIN, SESSION_BUDGET_TOKENS,
+  SESSION_COPY_ITEM_TOKENS, SESSION_MAX_OUT_TOKENS, limitsFor, reserveReplyUsd,
+} from './mirror-limits.ts';
+export type { Limits } from './mirror-limits.ts';
+
 export const MAX_REPLY_CHARS = 4_000;
 /** A message is cut (with CUT_MARK) to fill what is left only if at least this much is left. */
 const MIN_CUT_TOKENS = 50;
@@ -46,17 +43,6 @@ export function estimateTokens(text: string): number {
     else other += c > 0xffff ? 2 : 1;
   }
   return Math.ceil(alnum / 3) + other;
-}
-
-/** USD per 1M tokens: Gemini's paid-tier rates from 1 Jan 2027, the higher of its two schedules. */
-export const PRICE_IN_PER_M = 1.5;
-export const PRICE_OUT_PER_M = 7.5;
-/** The Mira assistant's margin on a reservation. */
-export const RESERVE_MARGIN = 1.25;
-
-export function reserveReplyUsd(): number {
-  const raw = ((MAX_IN_TOKENS * PRICE_IN_PER_M + MAX_OUT_TOKENS * PRICE_OUT_PER_M) / 1e6) * RESERVE_MARGIN;
-  return Math.round(raw * 1e6) / 1e6;
 }
 
 export interface GeminiUsage {
@@ -112,6 +98,8 @@ export interface ContextItem {
   replies?: number | null;
   quoted?: { name?: string | null; body?: string | null } | null;
   clarify?: {
+    /** P1604: a Clarified session thread (a whole transcript): its copy gets the larger cap. */
+    session_thread?: boolean | null;
     from?: string | null;
     in?: string | null;
     body?: string | null;
@@ -136,6 +124,8 @@ export interface BeginRun {
   /** P1547, thread questions only: how many messages the whole thread has. */
   thread_total?: number | null;
   reserved_usd: number;
+  /** P1604: a session copy is among the rows: the larger profile, reserved by the server at reply_session_max_usd. */
+  session?: boolean | null;
   /** Which attempt this is; completion and failure act only on their own attempt. */
   attempt: number;
 }
@@ -152,6 +142,8 @@ export function itemTokens(item: unknown): number {
 
 /** Copied threads' true reply counts, kept off the quoted item itself (never sent as a field). */
 const TOTALS = new WeakMap<object, number>();
+/** Copies of a session thread: their item cap is the session one. */
+const SESSION_COPIES = new WeakSet<object>();
 
 function clean(item: ContextItem): Record<string, unknown> {
   const out: Record<string, unknown> = { from: item.who === 'owner' ? 'owner' : item.who === 'mirror' ? 'you (the mirror)' : item.name ?? 'someone' };
@@ -164,6 +156,7 @@ function clean(item: ContextItem): Record<string, unknown> {
     const { copy, total, shown } = clarifyCopy(item.clarify);
     out.copied_for_clarify = copy;
     if (total > shown) TOTALS.set(copy, total);
+    if (item.clarify.session_thread === true) SESSION_COPIES.add(copy);
   }
   return out;
 }
@@ -214,30 +207,32 @@ export function cutItem(item: Record<string, unknown>, tokens: number): Record<s
  */
 export function capCopy(item: Record<string, unknown>): Record<string, unknown> | null {
   const copy = item.copied_for_clarify as Record<string, unknown> | undefined;
+  // P1604: a Clarified session thread is capped at its own, larger, size; any other copy or forward at the ordinary one
+  const cap = copy && SESSION_COPIES.has(copy) ? SESSION_COPY_ITEM_TOKENS : COPY_ITEM_TOKENS;
   if (!copy) {
-    if (!item.forwarded || itemTokens(item) <= COPY_ITEM_TOKENS) return item;
-    return cutItem(item, COPY_ITEM_TOKENS); // null (omitted) when even its metadata cannot fit: never the oversized original
+    if (!item.forwarded || itemTokens(item) <= cap) return item;
+    return cutItem(item, cap); // null (omitted) when even its metadata cannot fit: never the oversized original
   }
   const thread = (copy.thread as unknown[] | undefined) ?? [];
   const m = thread.length;
   const total = Math.max(TOTALS.get(copy) ?? m, m);
-  if (total === m && itemTokens(item) <= COPY_ITEM_TOKENS) return item;
+  if (total === m && itemTokens(item) <= cap) return item;
   const { thread: _all, ...rest } = copy;
   const withLast = (n: number) => ({ ...item, copied_for_clarify: { ...rest, ...(n > 0 ? { thread: thread.slice(m - n) } : {}), ...(n < total ? { thread_note: `showing the last ${n} of ${total} replies` } : {}) } });
-  if (itemTokens(withLast(m)) <= COPY_ITEM_TOKENS) return withLast(m);
+  if (itemTokens(withLast(m)) <= cap) return withLast(m);
   // Each reply is measured once (its line plus a separator), newest first; re-measuring the whole item per
   // dropped reply was quadratic and took seconds on long escaped threads (edge CPU limit).
   let used = itemTokens(withLast(0));
   let n = 0;
   while (n < m) {
     const cost = estimateTokens(quoteData(thread[m - 1 - n])) + 1;
-    if (used + cost > COPY_ITEM_TOKENS) break;
+    if (used + cost > cap) break;
     used += cost;
     n++;
   }
   let out = withLast(n);
-  while (n > 0 && itemTokens(out) > COPY_ITEM_TOKENS) out = withLast(--n); // estimate slack: at most a step or two
-  return cutItem(out, COPY_ITEM_TOKENS); // null (omitted), never the oversized item
+  while (n > 0 && itemTokens(out) > cap) out = withLast(--n); // estimate slack: at most a step or two
+  return cutItem(out, cap); // null (omitted), never the oversized item
 }
 
 /**
@@ -318,7 +313,7 @@ export function requestTokens(req: GeminiRequest): number {
 }
 
 /** The request body for one reply. The owner's request always comes last, after the quoted data. */
-export function buildMirrorRequest(run: BeginRun, budget = BUDGET_TOKENS): GeminiRequest {
+export function buildMirrorRequest(run: BeginRun, budget = limitsFor(run).budget): GeminiRequest {
   const owner = run.owner_first_name ? `Your owner's first name is ${quoteField(run.owner_first_name, 40)}.` : '';
   const name = run.mirror_name ? `Your owner named you ${quoteField(run.mirror_name)}.` : '';
   const fixed = (instruction: string) => estimateTokens(MIRROR_RULES) + estimateTokens(userTurnOf([], instruction));
@@ -348,7 +343,7 @@ export function buildMirrorRequest(run: BeginRun, budget = BUDGET_TOKENS): Gemin
     systemInstruction: { parts: [{ text: MIRROR_RULES }] },
     contents: [{ role: 'user', parts: [{ text: userTurnOf(data, instruction) }] }],
     generationConfig: {
-      maxOutputTokens: MAX_OUT_TOKENS,
+      maxOutputTokens: limitsFor(run).maxOut,
       temperature: 0.7,
       thinkingConfig: { thinkingLevel: 'low' },
     },
@@ -381,7 +376,8 @@ export const MAX_BYTE_SHRINKS = 6;
  * context rather than being refused. Refused only if even the minimum (rules and the question) cannot fit.
  */
 export async function fitMirrorRequest(run: BeginRun, count: TokenCounter): Promise<{ request: GeminiRequest; tokens: number; counted: boolean }> {
-  let budget = BUDGET_TOKENS;
+  const limit = limitsFor(run).budget;
+  let budget = limit;
   let counting = true;
   let counts = 0;
   let shrinks = 0;
@@ -391,17 +387,17 @@ export async function fitMirrorRequest(run: BeginRun, count: TokenCounter): Prom
       const n = await count(request);
       counts++;
       if (n !== null) {
-        if (n <= BUDGET_TOKENS) return { request, tokens: n, counted: true };
+        if (n <= limit) return { request, tokens: n, counted: true };
         if (counts > MAX_RECOUNTS) throw new MirrorRequestTooLarge();
-        budget = Math.min(budget - 1, Math.floor((budget * BUDGET_TOKENS * 0.95) / n)); // 5% headroom
+        budget = Math.min(budget - 1, Math.floor((budget * limit * 0.95) / n)); // 5% headroom
         continue;
       }
       counting = false;
     }
     const bytes = requestBytes(request);
-    if (bytes <= BUDGET_TOKENS) return { request, tokens: bytes, counted: false };
+    if (bytes <= limit) return { request, tokens: bytes, counted: false };
     if (shrinks++ >= MAX_BYTE_SHRINKS) throw new MirrorRequestTooLarge();
-    budget = Math.min(budget - 1, Math.floor((BUDGET_TOKENS * requestTokens(request) * 0.97) / bytes));
+    budget = Math.min(budget - 1, Math.floor((limit * requestTokens(request) * 0.97) / bytes));
   }
 }
 

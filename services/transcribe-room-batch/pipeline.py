@@ -25,6 +25,7 @@ import gemini_client
 import round_clean
 import storage
 import swap
+import incomplete
 from config import (
     CHUNK_SECONDS,
     DUPLICATE_MIN_SIMILARITY,
@@ -338,7 +339,25 @@ def process_round_job(job: dict, transcribe=None, now_ms: int | None = None) -> 
             for mid, chunks in result.texts.items():
                 items.extend({"member_id": mid, "chunk_ms": c.start_ms, "text": c.text} for c in chunks)
         items.sort(key=lambda i: (i["chunk_ms"], i["member_id"]))
-        posted = storage.post_clean_round(job_id, attempts, items, partial=partial) if items else 0
+        # P1604 decision 4: a speaker whose audio stops short of their own stop is named, so the thread and history say so.
+        missing_tail: list[str] = []
+        if incomplete.applies_to(segments, job.get("kind")):
+            last_audio: dict[str, int] = {}
+            for got in pieces_by_seg:
+                for mid, pcs in got.items():
+                    if pcs:
+                        last_audio[mid] = max(last_audio.get(mid, 0), max(end for end, _ in pcs))
+            stops = {m: (_ms(ended[m]) if ended.get(m) else None) for m in room_of}
+            # EVERY seated member is judged (a phone whose audio never arrived has no text at all)
+            seated_ids = sorted({m for sg in segments for m in sg["member_ids"]})
+            try:
+                joined = {m: _ms(iso) for m, iso in storage.load_joined(seated_ids).items() if iso}
+            except Exception:  # noqa: BLE001 — the mark is advisory: a failed lookup must never fail the job
+                joined = {}
+            missing_tail = incomplete.incomplete_member_ids(seated_ids, last_audio, stops, window_end, joined)
+        extra = {"incomplete_ids": missing_tail} if missing_tail else {}   # only when there is one: older fakes take no such argument
+        # with no text at all the job still records who is incomplete (history and the report read it)
+        posted = storage.post_clean_round(job_id, attempts, items, partial=partial, **extra) if (items or missing_tail) else 0
         if partial:
             _finish_round(job_id, attempts, error="partial_table", completed=True)
         else:

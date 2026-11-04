@@ -11,6 +11,7 @@
  * tab focus (see subscribeToChat's onSubscribed).
  */
 
+import { sessionThreadTitle } from './session-thread-title';
 import { supabase } from '@/lib/supabase';
 import {
   mapConversationRow,
@@ -220,7 +221,8 @@ export async function searchMessages(query: string): Promise<ChatSearchHit[]> {
     conversationId: r.conversation_id,
     authorId: r.author_id,
     authorName: r.author_name,
-    body: r.body,
+    // a system post (no author) that is a transcription session's root is shown as its title, like everywhere else
+    body: r.author_id === null ? (sessionThreadTitle(r.body) ?? r.body) : r.body,
     createdAt: r.created_at,
   }));
 }

@@ -65,7 +65,7 @@ Deno.serve((req: Request) =>
       if (memberError || !member) return null;
       const { data: room, error: roomError } = await serviceClient
         .from('transcribe_rooms')
-        .select('code, ended_at')
+        .select('code, ended_at, created_at')
         .eq('id', member.room_id)
         .maybeSingle();
       if (roomError || !room) return null;
@@ -78,6 +78,7 @@ Deno.serve((req: Request) =>
         roomEndedAt: room.ended_at ?? null,
         captureEndedAt: member.capture_ended_at ?? null,
         joinedAt: member.joined_at,
+        roomCreatedAt: room.created_at,
       };
     },
 

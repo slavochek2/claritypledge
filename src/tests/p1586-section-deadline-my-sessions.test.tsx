@@ -21,6 +21,18 @@ import { fetchRoomTranscript, fetchSessionTranscript } from '@/app/data/api';
 import { MySessionsPage } from '@/app/pages/my-sessions-page';
 
 const DEADLINE_MS = 10_000;
+// P1604 (founder, 2026-11-04): a transcription session (a room seat) opens straight on its text from a row that says "Transcript";
+// a real session still opens its detail page first.
+async function openTranscript(roomId: string | null) {
+  if (roomId) {
+    fireEvent.click(screen.getByRole('button', { name: /^Open transcript/ }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    return;
+  }
+  fireEvent.click(screen.getByText(/Pat Partner/));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  fireEvent.click(screen.getByRole('button', { name: 'Open full transcript' }));
+}
 const session = (roomId: string | null) => ({
   id: 'session-id-1', partnerName: 'Pat Partner', roundCount: 1, date: '2026-01-15T10:00:00Z',
   sessionHistory: [], isPrivate: false, transcriptStatus: 'completed', roomId,
@@ -37,9 +49,7 @@ describe('P1586 /sessions transcript deadline', () => {
     svc.sessions = [session(roomId)];
     render(<MemoryRouter><MySessionsPage /></MemoryRouter>);
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    fireEvent.click(screen.getByText(/Pat Partner/));
-    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    fireEvent.click(screen.getByRole('button', { name: 'Open full transcript' }));
+    await openTranscript(roomId);
     expect(screen.getByTestId('transcript-skeleton')).toBeTruthy();
     expect(read).toHaveBeenCalledTimes(1);
 
@@ -58,9 +68,7 @@ describe('P1586 /sessions transcript deadline', () => {
     vi.mocked(read).mockRejectedValueOnce(new Error('network down'));
     render(<MemoryRouter><MySessionsPage /></MemoryRouter>);
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    fireEvent.click(screen.getByText(/Pat Partner/));
-    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    fireEvent.click(screen.getByRole('button', { name: 'Open full transcript' }));
+    await openTranscript(roomId);
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
 
     // Well before the 10s deadline: the failure itself ends the skeleton.

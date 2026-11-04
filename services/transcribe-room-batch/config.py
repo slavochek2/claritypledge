@@ -52,6 +52,23 @@ SWAP_MIN_RATIO = 0.6
 CLEAN_MODEL = os.getenv("CLEAN_MODEL", "gemini-4-argon")
 
 
+# P1604 Resolved Decision 10: a clean job that takes longer than this is presumed dead and re-sent, which repeats the
+# Gemini spend; it must exceed the longest run. The sweep rolls a room at ROOM_ROLL_MINUTES (SQL c_roll), so the longest
+# window is that; a 10-person room is one 60 s call per minute per mic, CLEAN_PARALLEL_CALLS at once. Counted, not measured.
+ROOM_ROLL_MINUTES = 176
+CLEAN_PARALLEL_CALLS = 6          # MUST equal round_clean.MAX_PARALLEL_CALLS (a test reads both)
+ROUND_STALE_PROCESSING_MINUTES = 90
+
+
+def calls_for_session(members: int) -> int:
+    """Clean-pass calls for one window of ROOM_ROLL_MINUTES: one 60 s chunk per minute per mic."""
+    return members * ROOM_ROLL_MINUTES
+
+
+def longest_round_run_minutes(members: int, seconds_per_call: float) -> float:
+    return calls_for_session(members) * seconds_per_call / CLEAN_PARALLEL_CALLS / 60
+
+
 RETRY_BACKOFF_S = 60
 
 

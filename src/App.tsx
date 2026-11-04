@@ -965,11 +965,11 @@ export default function ClarityPledgeApp() {
           }
         />
         {/* P1179: /stake/:tag — the feed with search, tag cloud, sort and Share removed.
-            `compact` matches the room routes so the nav's right-hand group (and the
-            Links button in it) is present and in the same place on arrival. */}
+            It sits in the sidebar shell like every other signed-in page (`roomShell`); `compact` keeps the
+            nav's right-hand group (and the Links button in it) where it was on arrival. */}
         {/* P1349: one summary page per source video */}
         <Route path="/video/:videoId" element={<ClarityLandingLayout surface="product"><LazyRoute><VideoSummaryPage /></LazyRoute></ClarityLandingLayout>} />
-        <Route path="/stake/:tag" element={<ClarityLandingLayout surface="product" compact><LazyRoute><StakePage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/stake/:tag" element={<ClarityLandingLayout surface="product" compact roomShell><LazyRoute><StakePage /></LazyRoute></ClarityLandingLayout>} />
         {/* P1508: an owner's Clarity Canvas — owner + project tag, no canvas record. */}
         <Route path="/p/:handle/canvas/:projectTag" element={<ClarityLandingLayout surface="product"><LazyRoute><CanvasWithThread /></LazyRoute></ClarityLandingLayout>} />
         {/* P602: Clean feed URL shortcut — /feed/understanding → /feed?tag=understanding&sort=oldest&version=latest */}

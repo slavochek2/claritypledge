@@ -16,6 +16,8 @@ import { ArrowRight, Mic, Pause, Play, Square } from 'lucide-react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import type { SliceDestination } from '@/app/data/transcribe-slice-destination';
 import { EVENT_TRANSCRIBE_FIRST_SENTENCE } from './capture-copy';
+import { CaptureChatLink } from './capture-chat-link';
+import { TranscriptReadyWatcher } from './transcript-ready-watcher';
 import { SessionBar } from './session-bar';
 import { EVENT_TEXT_ARRIVES_SHORT } from './capture-copy';
 import { CaptureInfoButton, OpenRoomButton, PauseResumeButton, StopCaptureButton } from './capture-controls';
@@ -56,7 +58,7 @@ const ICON_BUTTON =
  * recorder scrolling the feed always sees that capture is running (P1307 D9).
  */
 function CompactCaptureBar({ roomId }: { roomId: string }) {
-  const { phase, open, endMyCapture, pauseMine, resumeMine, micLost, tapDown, stopping, reconnectMic, eventId, destination } = useRoomCapture();
+  const { phase, open, endMyCapture, pauseMine, resumeMine, micLost, tapDown, stopping, reconnectMic, eventId, destination, conversationId } = useRoomCapture();
   const needsReconnect = micLost || tapDown;   // nothing is being recorded: the one way back is this tap
   const status = useCaptureStatus();
   const paused = phase === 'paused';
@@ -66,7 +68,8 @@ function CompactCaptureBar({ roomId }: { roomId: string }) {
       className="relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-1 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200">
       <div className="max-w-4xl mx-auto flex items-center gap-2">
         <span data-warn={status.warn} className="text-sm font-medium text-blue-900 data-[warn=true]:text-red-800 shrink-0">{short}</span>
-        <CaptureDestination destination={eventId ? null : destination} className="min-w-0 flex-1 basis-0" />
+        <CaptureDestination destination={eventId || conversationId ? null : destination} className="min-w-0 flex-1 basis-0" />
+        {conversationId && !eventId && <CaptureChatLink roomId={roomId} conversationId={conversationId} className="min-w-0 flex-1 basis-0" />}
         {eventId && <span className="hidden min-w-0 flex-1 basis-0 truncate text-xs text-muted-foreground lg:block" title={EVENT_TEXT_ARRIVES_SHORT} data-testid="capture-event-hint">{EVENT_TEXT_ARRIVES_SHORT}</span>}
         {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
         <CaptureInfoButton forEvent={!!eventId} />
@@ -245,12 +248,13 @@ export function RoomCaptureBarClaimSilent() {
  */
 export function RoomCaptureBarFallback() {
   const { barSlotCount, barVisible } = useRoomCapture();
-  if (barSlotCount > 0 || !barVisible) return null;
-  return (
+  const bar = barSlotCount > 0 || !barVisible ? null : (
     <div className="sticky top-0 z-[45]">
       <RoomCaptureBar />
     </div>
   );
+  // Mounted once at the app level next to the bar: the "Transcript ready" toast (it needs the router, the provider and no slot).
+  return <><TranscriptReadyWatcher />{bar}</>;
 }
 
 /**

@@ -8,19 +8,25 @@ import { ConversationHeader, type HeaderActions } from './ConversationHeader';
 import type { ChatSummary } from '@/app/data/chat-service';
 import { useChatNavigate } from './chat-hooks';
 import { chatPath } from './chat-view-model';
+import { ChatTranscribe } from './ChatTranscribe';
 import { useMyRoundThreads } from './use-my-round-threads';
 
 export function ConversationTop({ summary, blocked, actions, cameFromElsewhere }: { summary: ChatSummary; blocked: boolean; actions: HeaderActions; cameFromElsewhere?: boolean }) {
   const threads = useMyRoundThreads(summary.conversationId, summary.kind === 'event');
   const go = useChatNavigate();
   return (
-    <ConversationHeader
-      chat={summary}
-      blocked={blocked}
-      actions={actions}
-      cameFromElsewhere={cameFromElsewhere}
-      rounds={summary.kind === 'event' ? threads : undefined}
-      onOpenRound={(rootId) => go(chatPath(summary.conversationId, { rootId }))}
-    />
+    <ChatTranscribe chat={summary}>
+      {(onTranscribe) => (
+        <ConversationHeader
+          chat={summary}
+          blocked={blocked}
+          actions={actions}
+          cameFromElsewhere={cameFromElsewhere}
+          rounds={summary.kind === 'event' ? threads : undefined}
+          onOpenRound={(rootId) => go(chatPath(summary.conversationId, { rootId }))}
+          onTranscribe={onTranscribe}
+        />
+      )}
+    </ChatTranscribe>
   );
 }

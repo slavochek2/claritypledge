@@ -400,7 +400,7 @@ Deno.test('410 on a room that has already ended', async () => {
 // counterpart are kept; only the clock they read, and the "room ended" side effect, change.
 Deno.test('a member past their own hard stop is refused with 410, and the room is NOT ended for everyone', async () => {
   const old = new Date(NOW.getTime() - (ROOM_MAX_DURATION_MINUTES + 1) * 60_000).toISOString();
-  const deps = makeDeps({}, { memberJoinedAt: old });
+  const deps = makeDeps({}, { roomCreatedAt: old });
   const r = await call(deps, 'alice', SLICE);
   assertEquals(r.status, 410);
   assertEquals(r.body.error, ERR.roomTooLong);
@@ -412,7 +412,7 @@ Deno.test('a member one minute INSIDE their own hard stop is not touched', async
   // gate 7c: the ceiling must not fire on legitimate use. 179 minutes is a long
   // conversation, not a forgotten page.
   const inside = new Date(NOW.getTime() - (ROOM_MAX_DURATION_MINUTES - 1) * 60_000).toISOString();
-  const deps = makeDeps({}, { memberJoinedAt: inside });
+  const deps = makeDeps({}, { roomCreatedAt: inside });
   assertEquals((await call(deps, 'alice', SLICE)).status, 200);
   assertEquals(deps.endedRooms.length, 0);
   assertEquals(deps.inserted.length, 1);
@@ -599,40 +599,54 @@ Deno.test('P1307: MAX_SLICES_PER_MEMBER is re-derived (~1,000) for the 13s caden
   assert(MAX_SLICES_PER_MEMBER >= 830, `MAX_SLICES_PER_MEMBER (${MAX_SLICES_PER_MEMBER}) must cover a full 180-minute room at 13s cadence`);
 });
 
-// ── P1307 Decision 3: the per-member cap is measured from THIS MEMBER'S joined_at ───
+// ── P1604 rule 8: the 3-hour cap is the ROOM'S clock (it replaced P1307 D11's per-person clock) ───
 //
-// SliceMembership gains `memberJoinedAt` (Decision 3, item 1). This is a TYPE CHANGE to
-// handler.ts, so these two tests will not even compile until that field exists — that is
-// the correct failing state, not a bug in the test.
+// The sweep rolls a room into Part 2 at 176 minutes and seats the people recording in the next room, so a latecomer's
+// own three hours are no longer a thing: nobody is in a room past its clock. The two P1307 tests that pinned the
+// per-person clock are replaced by their inverses.
 
-Deno.test('P1307: the per-slice cap is measured from the MEMBER\'s own joined_at, not the room\'s created_at', async () => {
-  // A member who joined 10 minutes ago in a room that itself is 4 hours old (Decision 3,
-  // AC "a member who joined 10 min ago in a 4-hour-old room is accepted") — under the OLD
-  // roomCreatedAt-based check this would already be refused; under the new memberJoinedAt
-  // check it must be accepted.
+Deno.test('P1604: the cap is measured from the ROOM\'s created_at, not the member\'s joined_at', async () => {
   const roomCreatedFourHoursAgo = new Date(NOW.getTime() - 4 * 60 * 60_000).toISOString();
   const memberJoinedTenMinutesAgo = new Date(NOW.getTime() - 10 * 60_000).toISOString();
   const deps = makeDeps({}, {
     roomCreatedAt: roomCreatedFourHoursAgo,
     memberJoinedAt: memberJoinedTenMinutesAgo,
   } as Partial<SliceMembership>);
-
   const r = await call(deps, 'alice', SLICE);
-  assertEquals(r.status, 200, 'a member 10 minutes into their own capture must be accepted even in a 4h-old room');
-  assertEquals(deps.endedRooms.length, 0, 'the room itself must not be ended — only this member is past nothing');
+  assertEquals(r.status, 410, 'a 4h-old room is over its clock for everyone in it, however recently they joined');
+  assertEquals(r.body.error, ERR.roomTooLong);
+  assertEquals(deps.transcribed.length, 0);
 });
 
-Deno.test('P1307: a member 3h01 past THEIR OWN joined_at is refused, even in a freshly-created room', async () => {
-  const roomCreatedJustNow = NOW.toISOString();
-  const memberJoinedOverCap = new Date(NOW.getTime() - (3 * 60 + 1) * 60_000).toISOString();
+Deno.test('P1604: a member who joined 3h01 ago in a room created just now is accepted (the clock is the room\'s)', async () => {
   const deps = makeDeps({}, {
-    roomCreatedAt: roomCreatedJustNow,
-    memberJoinedAt: memberJoinedOverCap,
+    roomCreatedAt: NOW.toISOString(),
+    memberJoinedAt: new Date(NOW.getTime() - (3 * 60 + 1) * 60_000).toISOString(),
   } as Partial<SliceMembership>);
-
   const r = await call(deps, 'alice', SLICE);
-  assertEquals(r.status, 410, 'a member over their own 3h cap must be refused even though the room itself is new');
-  assertEquals(deps.transcribed.length, 0);
+  assertEquals(r.status, 200);
+});
+
+// ── P1604 rule 8: a slice to a room the roll ended says where the caller moved ───
+Deno.test('P1604: 410 for an ended room carries movedTo when the roll seated the caller in the next room', async () => {
+  const deps = makeDeps({
+    getMovedTo: () => Promise.resolve({ roomId: 'room-2', roomCode: 'ABC234', memberId: 'member-2' }),
+  }, { roomEndedAt: '2026-09-08T11:00:00.000Z' });
+  const r = await call(deps, 'alice', SLICE);
+  assertEquals(r.status, 410);
+  assertEquals(r.body.error, ERR.roomEnded);
+  assertEquals(r.body.movedTo, { roomId: 'room-2', roomCode: 'ABC234', memberId: 'member-2' });
+});
+
+Deno.test('P1604: a room that simply ended carries no movedTo, and a failing lookup never changes the refusal', async () => {
+  const none = makeDeps({ getMovedTo: () => Promise.resolve(null) }, { roomEndedAt: '2026-09-08T11:00:00.000Z' });
+  const r1 = await call(none, 'alice', SLICE);
+  assertEquals(r1.status, 410);
+  assertEquals(r1.body.movedTo, null);
+  const broken = makeDeps({ getMovedTo: () => Promise.reject(new Error('db down')) }, { captureEndedAt: '2026-09-08T11:00:00.000Z' });
+  const r2 = await call(broken, 'alice', SLICE);
+  assertEquals(r2.status, 410);
+  assertEquals(r2.body.error, ERR.captureEnded);
 });
 
 // ── P1307 Decision 2 correction: last_seen_at is stamped on every accepted REAL slice ──

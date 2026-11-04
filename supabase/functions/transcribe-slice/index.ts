@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { activeRoomsQuery } from './active-rooms.ts';
 import { handleTranscribeSlice, ROOM_MAX_DURATION_MINUTES } from './handler.ts';
 
 // ── Entry point ──────────────────────────────────────────────────────────────
@@ -112,23 +113,26 @@ Deno.serve((req: Request) =>
       // sense except the column.
       //
       // P1307: the count asks whether THIS MEMBER can still legitimately stream into a room —
-      // the room not ended, their own capture not ended, and their own per-person cap not
-      // passed. Decision 3 item 3: the cutoff reads the member row's joined_at, the same
-      // source the handler's per-slice cap reads, so the two agree by construction. (The
-      // sweep now also ends abandoned rooms, so the join is defence in depth, not the fix.)
+      // the room not ended, their own capture not ended, and the room's 3 hours not passed.
+      // P1604 rule 8: the cutoff reads the ROOM's created_at, the same source the handler's
+      // per-slice cap reads, so the two agree by construction. (The sweep also ends abandoned
+      // rooms, so the join is defence in depth, not the fix.)
       const cutoff = new Date(Date.now() - ROOM_MAX_DURATION_MINUTES * 60_000).toISOString();
-      // !inner so the filter on the joined room actually restricts the member rows;
-      // a plain embed would return every membership with a null room and count them all.
-      const { count, error } = await serviceClient
-        .from('transcribe_room_members')
-        .select('id, transcribe_rooms!inner(ended_at)', { count: 'exact', head: true })
-        .eq('profile_id', userId)
-        .is('capture_ended_at', null)
-        .is('transcribe_rooms.ended_at', null)
-        .gt('joined_at', cutoff);
+      // The query lives in active-rooms.ts so an integration test runs this exact shape through the real PostgREST.
+      const { count, error } = await activeRoomsQuery(serviceClient, userId, cutoff);
       // Fail CLOSED on a counting error: an unreadable count is not evidence of zero.
       if (error) return Number.MAX_SAFE_INTEGER;
       return count ?? 0;
+    },
+
+    getMovedTo: async (roomId, userId) => {
+      const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const { data: next } = await serviceClient
+        .from('transcribe_rooms').select('id, code').eq('continues_room_id', roomId).maybeSingle();
+      if (!next) return null;
+      const { data: seat } = await serviceClient
+        .from('transcribe_room_members').select('id').eq('room_id', next.id).eq('profile_id', userId).maybeSingle();
+      return seat ? { roomId: next.id, roomCode: next.code, memberId: seat.id } : null;
     },
 
     touchLastSeen: async (memberId) => {
@@ -137,7 +141,8 @@ Deno.serve((req: Request) =>
       // call that RPC, and they are exactly the ones the sweep needs to see.
       const { error } = await serviceClient
         .from('transcribe_room_members')
-        .update({ last_seen_at: new Date().toISOString() })
+        // P1604 rule 5: a slice proves the device is not paused
+        .update({ last_seen_at: new Date().toISOString(), paused_since: null })
         .eq('id', memberId);
       if (error) throw new Error(error.message);
     },

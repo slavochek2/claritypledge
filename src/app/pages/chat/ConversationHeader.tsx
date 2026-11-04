@@ -6,16 +6,19 @@
  * (link to the live event page); the mirror always says whose mirror it is, also on a phone.
  */
 import { Link } from 'react-router-dom';
-import { Archive, ArchiveRestore, ArrowLeft, Ban, CircleDot, ExternalLink, MoreHorizontal, UserRound } from 'lucide-react';
+import { ArrowLeft, Ban, CircleDot, ExternalLink, MoreHorizontal, UserRound } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { ChatSummary } from '@/app/data/chat-service';
 import type { RoundThread } from '@/app/data/chat-round-threads';
 import { cn } from '@/lib/utils';
 import { ChannelMark, FOCUS_RING, HOVER, MirrorMark, MirrorTitle, PersonMark } from './chat-kit';
 import { mirrorLabel } from './chat-view-model';
+import { ArchiveMenuItem } from './ArchiveMenuItem';
 import { MyRoundsMenuSection } from './MyRoundsMenu';
 import { EventRoomLink } from './EventRoomLink';
 import { MirrorMenuItems } from './MirrorMenuItems';
+import { viewerTime } from '@/lib/viewer-time';
+import { TranscribeMenuItem } from './ChatTranscribe';
 
 export interface HeaderActions {
   onBack: () => void;
@@ -36,7 +39,7 @@ const TITLE_BOX = 'flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg';
 
 function eventWhen(iso: string): string {
   const d = new Date(iso);
-  return `${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+  return `${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · ${viewerTime(d)}`;
 }
 
 function Title({ chat, onMirrorInfo }: { chat: ChatSummary; onMirrorInfo?: () => void }) {
@@ -127,9 +130,11 @@ interface HeaderProps {
   /** P1592: an event channel's round threads the viewer was seated in, listed in the menu under "My rounds". */
   rounds?: RoundThread[];
   onOpenRound?: (rootMessageId: string) => void;
+  /** P1604: opens the transcribe action for this chat (the first-time explanation, or a start). Absent for the mirror. */
+  onTranscribe?: () => void;
 }
 
-export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere = false, rounds, onOpenRound }: HeaderProps) {
+export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere = false, rounds, onOpenRound, onTranscribe }: HeaderProps) {
   const other = chat.other;
   const canBlock = chat.kind === 'dm' && !!other?.id;
   return (
@@ -153,6 +158,7 @@ export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere =
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-60">
           <MyRoundsMenuSection threads={rounds} onOpen={onOpenRound} />
+          <TranscribeMenuItem chat={chat} onTranscribe={onTranscribe} />
           {chat.kind === 'dm' && other?.slug && (
             <DropdownMenuItem asChild className="min-h-10">
               <Link to={`/p/${other.slug}`}>
@@ -178,10 +184,7 @@ export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere =
             </DropdownMenuItem>
           )}
           {chat.kind === 'mirror' && <MirrorMenuItems chat={chat} actions={actions} />}
-          <DropdownMenuItem className="min-h-10" onSelect={actions.onArchive}>
-            {chat.archived ? <ArchiveRestore className="mr-2 h-4 w-4" aria-hidden="true" /> : <Archive className="mr-2 h-4 w-4" aria-hidden="true" />}
-            {chat.archived ? 'Unarchive' : 'Archive'}
-          </DropdownMenuItem>
+          <ArchiveMenuItem chat={chat} onSelect={actions.onArchive} />
           <DropdownMenuItem className="min-h-10" onSelect={actions.onMarkUnread}>
             <CircleDot className="mr-2 h-4 w-4" aria-hidden="true" />
             Mark as unread

@@ -29,8 +29,13 @@ export interface UploadQueueHandles {
 export interface UploadIo {
   reserve: (roomId: string) => Promise<number>;
   upload: (roomCode: string, displayName: string, memberId: string, blob: Blob, chunkNumber: number, isLast: boolean) => Promise<void>;
+  /** The CURRENT capture's room was refused (410/403). A refusal of an earlier room never reaches it. */
   onHardStop: () => void;
   onDropped: () => void;
+  /** P1604 rule 8: the room the live capture is in now, or null when none. */
+  currentRoomId: () => string | null;
+  /** The seat's last chunk is done (uploaded, or dropped for good): nothing more will come from it. Lets the server start the clean pass early. */
+  flushed?: (roomId: string) => void;
 }
 
 /** Drains the queue; a second call while one is running returns at once. */
@@ -46,8 +51,17 @@ export async function pumpUploadQueue(h: UploadQueueHandles, io: UploadIo): Prom
         if (job.chunkNumber === undefined) job.chunkNumber = await io.reserve(record.roomId);
         await io.upload(record.roomCode, record.displayName, record.memberId, job.blob, job.chunkNumber, job.isLast);
         h.uploadQueue.shift();
+        if (job.isLast) io.flushed?.(record.roomId);
       } catch (err) {
         if (isHardStopError(err)) {
+          if (record.roomId !== io.currentRoomId()) {
+            // A chunk of an EARLIER room (Part 1) refused after the capture moved on: that audio is lost and said so, but the
+            // live capture in the current room must not stop for it.
+            console.error('[room-capture] archive chunk of an earlier room was refused and dropped:', err);
+            io.onDropped();
+            h.uploadQueue.shift();
+            continue;
+          }
           h.uploadQueue.length = 0;
           io.onHardStop();
           return;
@@ -57,6 +71,7 @@ export async function pumpUploadQueue(h: UploadQueueHandles, io: UploadIo): Prom
           console.error('[room-capture] archive chunk dropped after retries:', err);
           io.onDropped();
           h.uploadQueue.shift();
+          if (job.isLast) io.flushed?.(record.roomId);
         } else {
           await new Promise((r) => setTimeout(r, 2_000 * job.attempts));
         }

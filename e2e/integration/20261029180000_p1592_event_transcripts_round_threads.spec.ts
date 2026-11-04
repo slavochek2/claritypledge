@@ -117,6 +117,13 @@ test.describe('P1592: event transcripts land in the event channel, one thread pe
     const { data } = await supabaseAdmin.from('chat_outside_round_threads').select('*').eq('conversation_id', channelId);
     return (data ?? []) as Anyrow[];
   }
+  // P1604 Resolved Decision 6: with no round yet, a room's words go to the room's OWN session thread (transcribe_session_threads),
+  // not to a shared "The conversation" row of chat_outside_round_threads. Its root body is "session|<start ISO>|<part_no>".
+  const SESSION_ROOT = /^session\|[^|]+\|1$/;
+  async function sessionThreads(): Promise<Anyrow[]> {
+    const { data } = await supabaseAdmin.from('transcribe_session_threads').select('*').eq('room_id', roomId);
+    return (data ?? []) as Anyrow[];
+  }
   async function eventConversations(): Promise<Anyrow[]> {
     const { data } = await supabaseAdmin.from('chat_conversations').select('*').eq('kind', 'event').eq('event_id', event.id);
     return (data ?? []) as Anyrow[];
@@ -227,8 +234,9 @@ test.describe('P1592: event transcripts land in the event channel, one thread pe
     const convs = await eventConversations();
     expect(convs.length).toBe(1);
     channelId = convs[0].id;
-    const outside = await outsideThreads();
+    const outside = await sessionThreads();
     expect(outside.length).toBe(1);
+    expect((await outsideThreads()).length, 'P1604 decision 6: no shared "The conversation" row any more').toBe(0);
     outsideRoot = outside[0].root_message_id;
     const { data: roots } = await supabaseAdmin.from('chat_messages').select('id').eq('conversation_id', channelId).eq('system_kind', 'outside_rounds');
     expect((roots ?? []).map((r) => r.id)).toEqual([outsideRoot]);
@@ -245,7 +253,7 @@ test.describe('P1592: event transcripts land in the event channel, one thread pe
     const root = await cmsg(outsideRoot);
     expect(root.system_kind).toBe('outside_rounds');
     expect(root.author_id).toBeNull();
-    expect(root.body).toBe('The conversation');
+    expect(root.body).toMatch(SESSION_ROOT);   // P1604 decision 6: was 'The conversation'
     expect(root.thread_root_id).toBeNull();
     expect(root.edited_at).toBeNull();
 
@@ -255,7 +263,7 @@ test.describe('P1592: event transcripts land in the event channel, one thread pe
     const rows = await ok<Anyrow[]>(aliceC.client.rpc('get_my_chats'), 'get_my_chats');
     const ch = rows.find((r) => r.conversation_id === channelId);
     expect(ch!.last_system_kind).toBe('outside_rounds');
-    expect(ch!.last_body).toBe('The conversation');
+    expect(ch!.last_body).toMatch(SESSION_ROOT);   // P1604 decision 6: was 'The conversation'; the client shows it as a title
     expect(ch!.last_author_id).toBeNull();
   });
 
@@ -263,7 +271,7 @@ test.describe('P1592: event transcripts land in the event channel, one thread pe
     const { msg } = await sayClean('dan', 'dan, before the rounds', 'room');
     const m = await cmsg(msg);
     expect(m.thread_root_id).toBe(outsideRoot);
-    expect((await outsideThreads()).length).toBe(1);
+    expect((await sessionThreads()).length).toBe(1);   // P1604 decision 6: the room's one session thread
     const { count } = await supabaseAdmin.from('chat_messages').select('id', { count: 'exact', head: true })
       .eq('conversation_id', channelId).eq('system_kind', 'outside_rounds');
     expect(count).toBe(1);
@@ -274,28 +282,28 @@ test.describe('P1592: event transcripts land in the event channel, one thread pe
     expect(r.error, 'chat_outside_round_threads must not be selectable').not.toBeNull();
   });
 
-  test('a Clarify of a line in the Outside rounds thread (or of its root) copies that message alone, never another speaker\'s line', async () => {
+  test('a Clarify of a line in the event channel\'s no-round thread (a session thread since P1604) carries the whole thread; of its root, every line', async () => {
+    // P1604 (founder, 2026-11-04): this thread is one transcription session, registered in transcribe_session_threads, and Clarify
+    // carries a session thread whole, from the root or from any line. It used to copy the one message (P1592). The before / conversation /
+    // after-round threads keep the single-message rule: p1604-clarify-session-thread.spec.ts holds that control.
     const { data: lines } = await supabaseAdmin.from('chat_messages').select('id, author_id, body')
       .eq('conversation_id', channelId).eq('thread_root_id', outsideRoot);
     const bobLine = (lines ?? []).find((l) => l.author_id === bob.user.id);
     expect(bobLine, 'bob has an unseated line in the thread').toBeTruthy();
-    // CONTROL: the thread really holds other speakers' lines, so an empty copy means the copy was restricted
     expect((lines ?? []).some((l) => l.author_id === alice.user.id), 'alice has a line in the thread').toBe(true);
     expect((lines ?? []).some((l) => l.author_id === dan.user.id), 'dan has a line in the thread').toBe(true);
 
-    const cl = await ok<Anyrow>(aliceC.client.rpc('clarify_chat_message', { p_source: bobLine!.id }), 'clarify an outside line');
+    const cl = await ok<Anyrow>(aliceC.client.rpc('clarify_chat_message', { p_source: bobLine!.id }), 'clarify a session line');
     expect(cl.forward_snapshot.body).toBe('bob, before the rounds');
-    expect(cl.forward_snapshot.thread).toEqual([]);
-    expect(cl.forward_snapshot.thread_total).toBe(0);
-    const text = JSON.stringify(cl.forward_snapshot);
-    expect(text).not.toContain('hello before the rounds');   // alice's line
-    expect(text).not.toContain('dan, before the rounds');     // dan's line
+    const text = JSON.stringify(cl.forward_snapshot.thread);
+    expect(text, 'the other speakers\' lines come with it').toContain('hello before the rounds');
+    expect(text).toContain('dan, before the rounds');
+    expect(cl.forward_snapshot.thread_total).toBe((lines ?? []).length);   // the root plus every other line
 
-    const clRoot = await ok<Anyrow>(aliceC.client.rpc('clarify_chat_message', { p_source: outsideRoot }), 'clarify the outside root');
-    expect(clRoot.forward_snapshot.body).toBe('The conversation');
+    const clRoot = await ok<Anyrow>(aliceC.client.rpc('clarify_chat_message', { p_source: outsideRoot }), 'clarify the session root');
+    expect(clRoot.forward_snapshot.body).toMatch(SESSION_ROOT);   // the client shows it as a title; the mirror agent gets one too
     expect(clRoot.forward_snapshot.system_kind).toBe('outside_rounds');
-    expect(clRoot.forward_snapshot.thread).toEqual([]);
-    expect(clRoot.forward_snapshot.thread_total).toBe(0);
+    expect(clRoot.forward_snapshot.thread_total).toBe((lines ?? []).length);
   });
 
   test('posting switched off: the live row is still stored, the clean post is refused and posts nothing; back on, posting resumes', async () => {
@@ -436,7 +444,7 @@ test.describe('P1592: event transcripts land in the event channel, one thread pe
     const afterRoot = await cmsg(afterRootId);
     expect(afterRoot.system_kind).toBe('outside_rounds');
     expect(afterRoot.body).toBe('After the last round');
-    expect((await outsideThreads()).length).toBe(3);   // The conversation, Before round 1, After the last round
+    expect((await outsideThreads()).length).toBe(2);   // Before round 1, After the last round (P1604 decision 6: the first test's session thread is not a shared row)
     await ok(hostC.client.rpc('host_set_round_presence', {
       p_event_id: event.id, p_room_member_id: room.alice, p_left: false, p_sits_out_round: null,
     }), 'clear left');

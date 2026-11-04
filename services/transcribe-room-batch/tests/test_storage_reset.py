@@ -30,4 +30,4 @@ def test_reset_is_a_single_rpc_with_the_worker_limits(monkeypatch):
     monkeypatch.setattr(storage_real, "_db", lambda: fake)
     assert storage_real.reset_stale_round_jobs() == 3
     assert fake.calls == [("reset_stale_round_jobs", {
-        "p_stale_minutes": storage_real.STALE_PROCESSING_MINUTES, "p_max_attempts": storage_real.MAX_ATTEMPTS})]
+        "p_stale_minutes": storage_real.ROUND_STALE_PROCESSING_MINUTES, "p_max_attempts": storage_real.MAX_ATTEMPTS})]

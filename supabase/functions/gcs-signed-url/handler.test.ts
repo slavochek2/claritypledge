@@ -36,7 +36,7 @@ function makeDeps(overrides: Partial<HandlerDeps> = {}): HandlerDeps & { forward
       Promise.resolve(memberId === MEMBER_ID
         ? {
           profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: CONSENTED_AT,
-          roomEndedAt: null, captureEndedAt: null, joinedAt: new Date(Date.now() - 60_000).toISOString(),
+          roomEndedAt: null, captureEndedAt: null, joinedAt: new Date(Date.now() - 60_000).toISOString(), roomCreatedAt: new Date(Date.now() - 60_000).toISOString(),
         }
         : null),
     forward: (body) => {
@@ -264,7 +264,7 @@ Deno.test('room prefix: a member who has not consented is refused, and nothing i
         ? {
           profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: null,
           // P1307 fields, set to "live" so consent is the ONLY thing that differs.
-          roomEndedAt: null, captureEndedAt: null, joinedAt: new Date(Date.now() - 60_000).toISOString(),
+          roomEndedAt: null, captureEndedAt: null, joinedAt: new Date(Date.now() - 60_000).toISOString(), roomCreatedAt: new Date(Date.now() - 60_000).toISOString(),
         }
         : null),
   });
@@ -285,7 +285,7 @@ Deno.test('room prefix: consent is checked AFTER membership — a non-member lea
         ? {
           profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: null,
           // P1307 fields, set to "live" so consent is the ONLY thing that differs.
-          roomEndedAt: null, captureEndedAt: null, joinedAt: new Date(Date.now() - 60_000).toISOString(),
+          roomEndedAt: null, captureEndedAt: null, joinedAt: new Date(Date.now() - 60_000).toISOString(), roomCreatedAt: new Date(Date.now() - 60_000).toISOString(),
         }
         : null),
   });
@@ -348,11 +348,13 @@ interface RoomMembershipFixture {
   roomEndedAt: string | null;
   captureEndedAt: string | null;
   joinedAt: string;
+  roomCreatedAt: string;
 }
 
 const LIVE_MEMBERSHIP: RoomMembershipFixture = {
   profileId: ALICE, roomCode: 'ROOM77', consentGivenAt: CONSENTED_AT,
   roomEndedAt: null, captureEndedAt: null, joinedAt: '2026-09-08T09:00:00.000Z',
+  roomCreatedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
 };
 
 function makeDepsWithRoomMembership(membership: Partial<RoomMembershipFixture>) {
@@ -379,13 +381,45 @@ Deno.test('P1307: refused once THIS member\'s capture has ended (capture_ended_a
   assertEquals(r.status, 410, `expected 410 once this member's capture has ended, got ${r.status}`);
 });
 
-Deno.test('P1307: refused once now() > joined_at + 3 hours — the SAME per-person source as transcribe-slice', async () => {
-  const overCapJoinedAt = new Date(Date.now() - (3 * 60 + 1) * 60_000).toISOString();
-  const deps = makeDepsWithRoomMembership({ joinedAt: overCapJoinedAt });
+Deno.test('P1604: refused once now() > the ROOM\'s created_at + 3 hours — the SAME clock as transcribe-slice', async () => {
+  const overCap = new Date(Date.now() - (3 * 60 + 1) * 60_000).toISOString();
+  const deps = makeDepsWithRoomMembership({ roomCreatedAt: overCap });
   const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
   const body = { sessionCode: roomPrefix, fileName: '_dev_chunk_003.webm', contentType: 'audio/mp4' };
   const r = await status(deps, 'alice', body);
-  assertEquals(r.status, 410, `expected 410 past the per-person 3h cap, got ${r.status}`);
+  assertEquals(r.status, 410, `expected 410 past the room's 3h cap, got ${r.status}`);
+});
+
+Deno.test('P1604: a member who joined long ago in a room created just now is not refused (the clock is the room\'s)', async () => {
+  const deps = makeDepsWithRoomMembership({
+    joinedAt: new Date(Date.now() - (3 * 60 + 1) * 60_000).toISOString(),
+    roomCreatedAt: new Date(Date.now() - 60_000).toISOString(),
+  });
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  const body = { sessionCode: roomPrefix, fileName: '_dev_chunk_003.webm', contentType: 'audio/mp4' };
+  assertEquals((await status(deps, 'alice', body)).status, 200);
+});
+
+// ── P1604 Resolved Decision 4: audio recorded before a Stop may upload for 2 minutes after it ───
+Deno.test('P1604: an upload 30 seconds after the member\'s Stop is admitted; one 3 minutes after is refused', async () => {
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  const body = { sessionCode: roomPrefix, fileName: '_dev_chunk_003.webm', contentType: 'audio/mp4' };
+  const soon = makeDepsWithRoomMembership({ captureEndedAt: new Date(Date.now() - 30_000).toISOString() });
+  assertEquals((await status(soon, 'alice', body)).status, 200, 'inside the 2-minute window after a Stop');
+  const late = makeDepsWithRoomMembership({ captureEndedAt: new Date(Date.now() - 3 * 60_000).toISOString() });
+  assertEquals((await status(late, 'alice', body)).status, 410, 'past the window the capture is closed for uploads');
+});
+
+Deno.test('P1604: the same 2-minute window applies after the ROOM ends (the last Stop closes it at once)', async () => {
+  const roomPrefix = `rooms/ROOM77/alice-${MEMBER_ID}`;
+  const body = { sessionCode: roomPrefix, fileName: '_dev_chunk_003.webm', contentType: 'audio/mp4' };
+  const soon = makeDepsWithRoomMembership({
+    roomEndedAt: new Date(Date.now() - 20_000).toISOString(),
+    captureEndedAt: new Date(Date.now() - 20_000).toISOString(),
+  });
+  assertEquals((await status(soon, 'alice', body)).status, 200);
+  const late = makeDepsWithRoomMembership({ roomEndedAt: new Date(Date.now() - 5 * 60_000).toISOString() });
+  assertEquals((await status(late, 'alice', body)).status, 410);
 });
 
 Deno.test('P1307: a live member well inside every bound is still forwarded — the new checks are not a regression', async () => {

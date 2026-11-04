@@ -21,17 +21,19 @@ function roomCode() {
 
 test.describe('P1307: join_transcribe_room — a re-join starts a new capture', () => {
   let alice: TestUser;
+  let other: TestUser;
   const createdRoomIds: string[] = [];
   const createdSessionIds: string[] = [];
 
   test.beforeAll(async () => {
     alice = await createTestUser({ name: 'P1307 Join Rejoin Alice' });
+    other = await createTestUser({ name: 'P1307 Join Rejoin Other' });
   });
 
   test.afterAll(async () => {
     if (createdRoomIds.length) await supabaseAdmin.from('transcribe_rooms').delete().in('id', createdRoomIds);
     if (createdSessionIds.length) await supabaseAdmin.from('clarity_sessions').delete().in('id', createdSessionIds);
-    if (alice?.user?.id) await deleteTestUser(alice.user.id);
+    for (const u of [alice, other]) if (u?.user?.id) await deleteTestUser(u.user.id);
   });
 
   async function newSession(tag: string) {
@@ -48,6 +50,15 @@ test.describe('P1307: join_transcribe_room — a re-join starts a new capture', 
   test('a first join stamps last_seen_at; ending then re-joining clears capture_ended_at and keeps joined_at', async () => {
     const { data: room } = await supabaseAdmin.from('transcribe_rooms').insert({ code: roomCode() }).select('id').single();
     createdRoomIds.push(room!.id);
+    // P1604 rule 3: the last Stop closes a room at once (no grace), so a second member keeps this room open while Alice's
+    // capture ends and she re-joins. Before P1604 nothing closed a room on a Stop, so a lone member could re-join.
+    const { data: otherSession } = await supabaseAdmin.from('clarity_sessions')
+      .insert({ code: `P1307JR-o-${Date.now()}`, creator_name: 'other', creator_profile_id: other.user.id }).select('id').single();
+    createdSessionIds.push(otherSession!.id);
+    await supabaseAdmin.from('transcribe_room_members').insert({
+      room_id: room!.id, profile_id: other.user.id, display_name: 'other', session_id: otherSession!.id,
+      consent_given_at: new Date().toISOString(), last_seen_at: new Date().toISOString(),
+    });
 
     const { data: signIn } = await supabaseAdmin.auth.signInWithPassword({ email: alice.email, password: TEST_PASSWORD });
     const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

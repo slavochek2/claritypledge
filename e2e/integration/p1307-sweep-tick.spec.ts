@@ -85,17 +85,31 @@ test.describe('P1307: transcribe_room_sweep_tick', () => {
     for (const u of [alice, bob]) if (u?.user?.id) await deleteTestUser(u.user.id);
   });
 
-  test('a member past joined_at + 3h is ended by the tick', async () => {
-    const overJoinedAt = new Date(Date.now() - (3 * 60 + 1) * 60_000).toISOString();
-    const { memberId } = await seedRoomAndMember({
+  // P1604 rule 8 REVERSES the P1307 per-person clock: the 3 hours are the ROOM's, and the sweep rolls a room into Part 2 at
+  // 176 minutes (the people recording are seated in the next room, so their seat in THIS one ends). A member who joined
+  // long ago in a young room is no longer ended for their own age.
+  test('a room past 176 minutes is rolled by the tick: its recording member is ended in it', async () => {
+    const overCreatedAt = new Date(Date.now() - (3 * 60 + 1) * 60_000).toISOString();
+    const { memberId, roomId } = await seedRoomAndMember({
       user: alice, tag: 'cap',
-      memberOverrides: { joined_at: overJoinedAt, last_seen_at: new Date().toISOString() },
+      roomOverrides: { created_at: overCreatedAt },
+      memberOverrides: { last_seen_at: new Date().toISOString() },
     });
 
     const { error } = await supabaseAdmin.rpc('transcribe_room_sweep_tick');
     expect(error, `sweep tick must succeed: ${error?.message}`).toBeNull();
 
-    expect(await memberState(memberId), 'a member over the 3h cap must be ended by the tick').not.toBeNull();
+    expect(await memberState(memberId), 'a member in a room over the 3h clock must be ended by the tick').not.toBeNull();
+    expect(await roomEndedAt(roomId), 'and the room itself ends (Part 2 carries on)').not.toBeNull();
+  });
+
+  test('a member who joined 3h01 ago in a young room is NOT ended for their own age (P1604 rule 8)', async () => {
+    const { memberId } = await seedRoomAndMember({
+      user: alice, tag: 'oldjoin',
+      memberOverrides: { joined_at: new Date(Date.now() - (3 * 60 + 1) * 60_000).toISOString(), last_seen_at: new Date().toISOString() },
+    });
+    await supabaseAdmin.rpc('transcribe_room_sweep_tick');
+    expect(await memberState(memberId)).toBeNull();
   });
 
   test('a member whose last_seen_at is 11 minutes stale is ended (N = 10 min)', async () => {

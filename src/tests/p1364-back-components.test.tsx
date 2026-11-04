@@ -114,7 +114,8 @@ const SECTION_3_PAGES = [
   // letter-overview-page.tsx left this list (P1545, founder 2026-10-25): the overview has ONE Back, at the top.
   'letter-results-page.tsx',
   'stake-page.tsx',
-  'transcribe-room-page.tsx',
+  // transcribe-room-page.tsx left this list (founder, 2026-11-04): the room page has ONE Back, in its header row; the bottom "Go back"
+  // is gone, and the phone's bottom menu shows there.
 ];
 
 function backActions(file: string, tag: 'FocusHeader' | 'BottomBackButton'): string[] {

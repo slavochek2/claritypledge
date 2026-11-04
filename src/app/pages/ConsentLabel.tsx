@@ -8,13 +8,14 @@
  * the page so its function does not grow.
  */
 import { Sparkles, ShieldOff } from 'lucide-react';
-import { consentAgreedLabel } from '@/app/components/session/capture-copy';
+import { CHAT_ROOM_AGREED_LABEL, CHAT_ROOM_INTRO, consentAgreedLabel } from '@/app/components/session/capture-copy';
 import { useRoomEventState } from './use-room-event';
 
 export function ConsentLabel({ agreed, code }: { agreed: boolean; code: string | undefined }) {
   const state = useRoomEventState(code);
   if (!agreed) return <>Not yet agreed — tap to agree</>;
   if (state === 'loading') return <>Checking this room…</>;
+  if (state === 'chat') return <>{CHAT_ROOM_AGREED_LABEL}</>;
   return <>{consentAgreedLabel(state !== 'room')}</>;
 }
 
@@ -31,7 +32,7 @@ export function ConsentSection({ agreed, code, onToggle }: { agreed: boolean; co
           'Checking this room…'
         ) : (
           <>
-            Your spoken words will be transcribed live and {forEvent ? "shown in this room, and a clean version is posted to this event's channel after each round; anything said outside a round is posted after the room ends" : 'shown to everyone in this room'},
+            Your spoken words will be transcribed live and {state === 'chat' ? CHAT_ROOM_INTRO : forEvent ? "shown in this room, and a clean version is posted to this event's channel after each round; anything said outside a round is posted after the room ends" : 'shown to everyone in this room'},
             attributed to you with a timestamp. The room&rsquo;s audio is recorded.
           </>
         )}

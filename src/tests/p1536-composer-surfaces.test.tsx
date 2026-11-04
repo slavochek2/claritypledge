@@ -29,6 +29,9 @@ const svc = vi.hoisted(() => ({
   getCanvasDraftViewPath: vi.fn(),
 }));
 
+vi.mock('@/auth', () => ({ useAuth: () => ({ user: { id: 'user-id-1', name: 'Ada', email: 'ada@example.com' }, sessionChecked: true }) }));   // P1604: the pane now holds ChatTranscribe, which reads the signed-in person
+vi.mock('@/app/data/chat-live-transcription', () => ({ getChatLiveTranscription: async () => null, hasTranscribedInChat: async () => false }));
+vi.mock('@/app/data/room-transcription-state', () => ({ getChatTranscriptionProcessing: async () => [], getMyRoomStates: async () => new Map() }));
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
 vi.mock('sonner', () => ({ toast: vi.fn() }));
 vi.mock('@/app/data/canvas-draft-service', async () => ({ ...(await vi.importActual<object>('@/app/data/canvas-draft-service')), ...svc }));

@@ -30,11 +30,11 @@ import { storeLine, type SliceDestination } from './store-line.ts';
 /**
  * Decision 6 ceiling 1. Founder-answered 2026-09-08: 180 minutes.
  *
- * P1307 D11: measured PER PERSON, from this member's own joined_at (their first Continue),
- * not from the room's creation. One room serves a whole event, so a latecomer gets their own
- * three hours and the event's transcript is never split in two. The same number, measured the
- * same way, is enforced by transcribe_room_sweep_tick() (SQL) and by gcs-signed-url — change
- * all three together.
+ * P1604 rule 8: measured from the ROOM's creation (it replaces P1307 D11's per-person clock).
+ * The sweep rolls a room into "Part 2" at 176 minutes, so a live room never legitimately reaches
+ * this; it is the backstop for a roll that did not happen. The same number, measured the same way,
+ * is enforced by gcs-signed-url, and the sweep's 176-minute roll sits just inside it — change them
+ * together.
  *
  * A constant, not a column, and the migration says why: a settable-looking column on a
  * cost ceiling invites an UPDATE policy, and the point of Decision 6 is that these bounds
@@ -61,11 +61,9 @@ export const MAX_CONCURRENT_ROOMS_PER_USER = 3;
 
 export interface SliceMembership {
   memberId: string;
-  /** Kept for diagnostics; no longer a clock. The cap is per person — see memberJoinedAt. */
+  /** P1604 rule 8: the room's clock. The 3-hour cap runs from here, for everyone in the room. */
   roomCreatedAt: string;
-  /** P1307 Decision 3: this member's own first Continue. The per-person cap runs from here.
-   *  enter_transcribe_room never rewrites it on a re-join, so switching off and on never
-   *  resets the three hours. */
+  /** This member's first Continue. Kept for diagnostics; no longer a clock. */
   memberJoinedAt: string;
   roomEndedAt: string | null;
   /** P1307: set once THIS member's capture has ended — their own End, or the sweep. */
@@ -73,6 +71,12 @@ export interface SliceMembership {
   /** NULL means REFUSE — see the migration's column comment. */
   consentGivenAt: string | null;
   sliceCount: number;
+}
+
+export interface MovedTo {
+  roomId: string;
+  roomCode: string;
+  memberId: string;
 }
 
 export interface HandlerDeps {
@@ -85,10 +89,16 @@ export interface HandlerDeps {
   /** Service-role read: how many un-ended rooms this user is currently capturing in. */
   countActiveRooms: (userId: string) => Promise<number>;
   /**
+   * P1604 rule 4/8: where the 3-hour roll moved this person, if it did: the room that continues this one and the
+   * caller's seat in it. Optional so older callers keep working; a throw or null never changes the refusal.
+   */
+  getMovedTo?: (roomId: string, userId: string) => Promise<MovedTo | null>;
+  /**
    * P1307 Decision 2: service-role write of this member's last_seen_at. Called for every
    * accepted REAL slice — silent ones included, warmups never — because the room-end sweep
    * reads it as "this device is still sending". A silent slice writes no message, so
    * transcribe_messages.spoken_at cannot answer that question.
+   * P1604 rule 5: the same write CLEARS paused_since — any slice means the device is not paused.
    */
   touchLastSeen: (memberId: string) => Promise<void>;
   /**
@@ -122,6 +132,34 @@ export const ERR = {
   transcriber: 'Transcription failed',
   persist: 'Failed to store the transcript',
 } as const;
+
+/** A failed lookup is "not moved": the refusal itself must never depend on it. */
+async function movedTo(deps: HandlerDeps, roomId: string, userId: string): Promise<MovedTo | null> {
+  if (!deps.getMovedTo) return null;
+  try {
+    return await deps.getMovedTo(roomId, userId);
+  } catch (err) {
+    console.error('[transcribe-slice] moved-to lookup failed:', err);
+    return null;
+  }
+}
+
+/**
+ * The 410s: the room ended, this member's capture ended, or the room's clock ran out.
+ * P1307: the same refusals gcs-signed-url makes. Without them, a member who pressed End (or whom the sweep ended) could keep
+ * having slices transcribed until the whole room ended, while their archive uploads were already refused.
+ * P1604 rule 8: the clock is the ROOM's. The 410 is the client's signal to hard stop (release the microphone, flush, clear
+ * the bar); the sweep's roll normally moves the room on before this. An ended room says where the roll moved the caller.
+ */
+async function endedRefusal(
+  deps: HandlerDeps, m: SliceMembership, roomId: string, userId: string,
+): Promise<{ error: string; movedTo?: MovedTo | null } | null> {
+  if (m.roomEndedAt || m.captureEndedAt) {
+    return { error: m.roomEndedAt ? ERR.roomEnded : ERR.captureEnded, movedTo: await movedTo(deps, roomId, userId) };
+  }
+  const ageMs = deps.now().getTime() - new Date(m.roomCreatedAt).getTime();
+  return ageMs > ROOM_MAX_DURATION_MINUTES * 60_000 ? { error: ERR.roomTooLong } : null;
+}
 
 export async function handleTranscribeSlice(req: Request, deps: HandlerDeps): Promise<Response> {
   const { corsHeaders } = deps;
@@ -158,19 +196,8 @@ export async function handleTranscribeSlice(req: Request, deps: HandlerDeps): Pr
   if (!m.consentGivenAt) return json(403, { error: ERR.noConsent });
 
   // ── Ceilings (Decision 6) ────────────────────────────────────────────────
-  if (m.roomEndedAt) return json(410, { error: ERR.roomEnded });
-  // P1307: the same refusal gcs-signed-url makes. Without it, a member who pressed End (or
-  // whom the sweep ended) could keep having slices transcribed until the whole room ended,
-  // while their archive uploads were already refused — the two paths must not disagree.
-  if (m.captureEndedAt) return json(410, { error: ERR.captureEnded });
-
-  // P1307 D11: per person, from this member's own joined_at. The room is NOT ended here —
-  // other members joined later and still have time. The 410 is the client's signal to hard
-  // stop (release the microphone, flush, clear the bar); the sweep stamps capture_ended_at.
-  const ageMs = deps.now().getTime() - new Date(m.memberJoinedAt).getTime();
-  if (ageMs > ROOM_MAX_DURATION_MINUTES * 60_000) {
-    return json(410, { error: ERR.roomTooLong });
-  }
+  const ended = await endedRefusal(deps, m, parsed.roomId, userId);
+  if (ended) return json(410, ended);
 
   if (m.sliceCount >= MAX_SLICES_PER_MEMBER) return json(429, { error: ERR.sliceCeiling });
 

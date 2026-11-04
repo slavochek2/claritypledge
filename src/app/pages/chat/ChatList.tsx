@@ -10,12 +10,13 @@ import { listPreview, searchHitHeading } from './chat-preview';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Archive, ArchiveRestore, ChevronRight, MoreHorizontal, Plus, Search, X, CircleDot, CheckCheck } from 'lucide-react';
+import { ChevronRight, MoreHorizontal, Plus, Search, X, CircleDot, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { isChatUnread, searchMessages, searchPeople, startDm, type ChatPerson, type ChatSearchHit, type ChatSummary } from '@/app/data/chat-service';
+import { ArchiveMenuItem } from './ArchiveMenuItem';
 import { ChannelMark, CountBadge, FOCUS_RING, HOVER, InlineError, ListSkeleton, MirrorMark, PersonMark } from './chat-kit';
 import { SECONDARY_PILL_COLOURS } from '@/app/components/canvas/canvas-pill-styles';
 import { useChatNavigate, useLeaveChat } from './chat-hooks';
@@ -123,16 +124,13 @@ function ChatRow({ chat, active, viewerId, onOpen }: { chat: ChatSummary; active
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuItem
-            className="min-h-10"
+          <ArchiveMenuItem
+            chat={chat}
             onSelect={() => {
               if (!chat.archived) leaveIfOpen();
               void setArchived(chat.conversationId, !chat.archived);
             }}
-          >
-            {chat.archived ? <ArchiveRestore className="mr-2 h-4 w-4" aria-hidden="true" /> : <Archive className="mr-2 h-4 w-4" aria-hidden="true" />}
-            {chat.archived ? 'Unarchive' : 'Archive'}
-          </DropdownMenuItem>
+          />
           {unread ? (
             <DropdownMenuItem className="min-h-10" onSelect={() => void markRead(chat.conversationId, chat.lastMessage?.id)}>
               <CheckCheck className="mr-2 h-4 w-4" aria-hidden="true" />

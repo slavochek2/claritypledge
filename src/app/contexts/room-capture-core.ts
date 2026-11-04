@@ -17,9 +17,10 @@ import { getActiveSessionFromStorage } from '@/app/contexts/live-session-context
 export const PAUSED_HEARTBEAT_INTERVAL_MS = 2 * 60_000;
 
 /**
- * D11: the per-person cap, from this member's own joined_at. MUST equal
- * ROOM_MAX_DURATION_MINUTES (transcribe-slice) and c_member_cap (the sweep). A dev build may
- * shorten it via VITE_P1307_CAPTURE_CAP_MINUTES so the cap AC can be exercised in minutes; a
+ * P1604 rule 8: the ROOM's cap, from the room's creation (it replaced D11's per-person clock).
+ * MUST equal ROOM_MAX_DURATION_MINUTES (transcribe-slice) and MEMBER_CAPTURE_MAX_MINUTES
+ * (gcs-signed-url); the sweep rolls a room into Part 2 at 176 minutes, just inside it. A dev build
+ * may shorten it via VITE_P1307_CAPTURE_CAP_MINUTES so the cap AC can be exercised in minutes; a
  * production build ignores the override.
  */
 export const CAPTURE_CAP_MINUTES = (() => {
@@ -41,6 +42,10 @@ export interface CaptureState {
   roomCode?: string | null;
   memberId?: string | null;
   eventId?: string | null;
+  /** P1604: the chat this room belongs to, if any. Identity for "is this the same place" (rule 9). */
+  conversationId?: string | null;
+  /** P1604 rule 8: the room's clock. */
+  roomCreatedAt?: string | null;
   joinedAt?: string | null;
 }
 
@@ -48,6 +53,8 @@ export interface CaptureRoomInfo {
   id: string;
   code: string;
   eventId: string | null;
+  conversationId?: string | null;
+  roomCreatedAt?: string | null;
 }
 
 export interface CaptureMemberInfo {
@@ -58,10 +65,12 @@ export interface CaptureMemberInfo {
 }
 
 export type CaptureAction =
-  | { type: 'JOIN_REQUESTED'; roomId?: string | null; eventId?: string | null }
+  | { type: 'JOIN_REQUESTED'; roomId?: string | null; eventId?: string | null; conversationId?: string | null }
+  /** P1604 rule 8: the 3-hour roll moved this person into the next room; the capture carries on. */
+  | { type: 'MOVED'; room: CaptureRoomInfo; member: CaptureMemberInfo }
   | { type: 'JOIN_SUCCEEDED'; member: CaptureMemberInfo; room?: CaptureRoomInfo; observeOnly?: boolean }
   | { type: 'JOIN_FAILED'; message: string }
-  | { type: 'ATTACH'; room: CaptureRoomInfo; member: CaptureMemberInfo; observeOnly: boolean }
+  | { type: 'ATTACH'; room: CaptureRoomInfo; member: CaptureMemberInfo; observeOnly: boolean; paused?: boolean }
   | { type: 'LOCK_ACQUIRED' }
   | { type: 'PAUSE_REQUESTED'; reason: string }
   | { type: 'RESUME_REQUESTED' }
@@ -79,6 +88,8 @@ export const INITIAL_CAPTURE_STATE: CaptureState = {
   roomCode: null,
   memberId: null,
   eventId: null,
+  conversationId: null,
+  roomCreatedAt: null,
   joinedAt: null,
 };
 
@@ -97,18 +108,37 @@ function running(
     roomId: room?.id ?? state.roomId,
     roomCode: room?.code ?? state.roomCode ?? null,
     eventId: room ? room.eventId : state.eventId ?? null,
+    conversationId: room ? room.conversationId ?? null : state.conversationId ?? null,
+    roomCreatedAt: room ? room.roomCreatedAt ?? null : state.roomCreatedAt ?? null,
     memberId: member.id,
     joinedAt: member.joinedAt ?? state.joinedAt ?? null,
     consecutiveFailures: 0,
   };
 }
 
+/** The state a join request starts from. */
+function startingState(action: Extract<CaptureAction, { type: 'JOIN_REQUESTED' }>): CaptureState {
+  return {
+    ...INITIAL_CAPTURE_STATE, phase: 'starting', roomId: action.roomId ?? null, eventId: action.eventId ?? null,
+    conversationId: action.conversationId ?? null,
+  };
+}
+
+/** P1604 rule 8: only a capture that exists moves, and it keeps its phase: a paused person stays paused in the next room. */
+function movedState(state: CaptureState, action: Extract<CaptureAction, { type: 'MOVED' }>): CaptureState {
+  return LIVE_PHASES.has(state.phase) ? running(state, action.room, action.member, state.phase) : state;
+}
+
+/** A reload re-attaches only to a consented seat. A seat the server holds as paused comes back paused (a reload does not un-pause it). */
+function attachedState(state: CaptureState, action: Extract<CaptureAction, { type: 'ATTACH' }>): CaptureState {
+  if (state.phase !== 'idle' || !action.member.consentGivenAt) return state;
+  return running(state, action.room, action.member, action.observeOnly ? 'observing' : action.paused ? 'paused' : 'capturing');
+}
+
 export function captureReducer(state: CaptureState, action: CaptureAction): CaptureState {
   switch (action.type) {
     case 'JOIN_REQUESTED':
-      return state.phase === 'idle'
-        ? { ...INITIAL_CAPTURE_STATE, phase: 'starting', roomId: action.roomId ?? null, eventId: action.eventId ?? null }
-        : state;
+      return state.phase === 'idle' ? startingState(action) : state;
 
     case 'JOIN_SUCCEEDED':
       if (state.phase !== 'starting') return state;
@@ -120,8 +150,10 @@ export function captureReducer(state: CaptureState, action: CaptureAction): Capt
       return state.phase === 'starting' ? { ...INITIAL_CAPTURE_STATE } : state;
 
     case 'ATTACH':
-      if (state.phase !== 'idle' || !action.member.consentGivenAt) return state;
-      return running(state, action.room, action.member, action.observeOnly ? 'observing' : 'capturing');
+      return attachedState(state, action);
+
+    case 'MOVED':
+      return movedState(state, action);
 
     case 'LOCK_ACQUIRED':
       return state.phase === 'observing' ? { ...state, phase: 'capturing', consecutiveFailures: 0 } : state;
@@ -244,3 +276,50 @@ export function decidePauseTransition(i: PauseInputs): 'pause' | 'resume' | null
  */
 export const SILENCE_RMS_FLOOR = 0.0001;
 export const SILENCE_WARN_AFTER_MS = 8_000;
+
+
+// ─── P1604: identity and the room's clock ────────────────────────────────────
+
+/** What a start asks for. A room (a code) outranks a chat, a chat outranks an event; neither is a plain start. */
+export interface CaptureTarget {
+  room?: { id: string } | null;
+  conversationId?: string | null;
+  eventId?: string | null;
+}
+
+/**
+ * Rule 9: is a start the capture that already exists? Compares room or conversation identity, never `eventId` alone:
+ * eventId is null for every plain chat, so comparing it made two different chats "the same". A plain start (no room, chat
+ * or event) is a new room every time, so it is never the same.
+ */
+export function isSameCaptureTarget(
+  current: Pick<CaptureState, 'roomId' | 'conversationId' | 'eventId'>,
+  target: CaptureTarget,
+): boolean {
+  if (target.room) return current.roomId === target.room.id;
+  if (target.conversationId) {
+    return current.conversationId === target.conversationId
+      || (!!target.eventId && current.eventId === target.eventId);
+  }
+  if (target.eventId) return current.eventId === target.eventId;
+  return false;
+}
+
+/** Rule 8: milliseconds left on the room's clock. Falls back to the member's joined_at for a capture stored before the
+ *  room's time was kept. Never negative. */
+export function captureCapRemainingMs(
+  clock: { roomCreatedAt?: string | null; joinedAt?: string | null },
+  now: number,
+): number {
+  const start = clock.roomCreatedAt ?? clock.joinedAt;
+  if (!start) return CAPTURE_CAP_MINUTES * 60_000;
+  return Math.max(0, new Date(start).getTime() + CAPTURE_CAP_MINUTES * 60_000 - now);
+}
+
+/** The room a live capture state describes, in the shape callers of startCapture get. */
+export function viewOfCapture(state: CaptureState): CaptureRoomInfo {
+  return {
+    id: state.roomId ?? '', code: state.roomCode ?? '', eventId: state.eventId ?? null,
+    conversationId: state.conversationId ?? null, roomCreatedAt: state.roomCreatedAt ?? null,
+  };
+}

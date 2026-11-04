@@ -5,6 +5,8 @@
  * Split out of room-capture-context.tsx (its size limit), unchanged.
  */
 
+import type { CaptureRoomInfo } from './room-capture-core';
+
 /** The running capture, per browser, so a reload re-attaches and a second tab observes. */
 export const CAPTURE_STORAGE_KEY = 'cp_room_capture';
 
@@ -14,8 +16,30 @@ export interface StoredCapture {
   roomCode: string;
   memberId: string;
   eventId: string | null;
+  /** P1604: the chat and the room's clock; absent on a capture stored by an older build. */
+  conversationId?: string | null;
+  roomCreatedAt?: string | null;
   joinedAt: string;
   displayName: string;
+}
+
+/** What a started capture remembers (P1604 adds the chat and the room's clock), and the room as callers see it. */
+export function buildCaptureRecord(
+  userId: string,
+  room: CaptureRoomInfo & { createdAt?: string },
+  member: { id: string; joinedAt?: string | null; displayName?: string },
+  displayName: string,
+): { record: StoredCapture; roomInfo: CaptureRoomInfo } {
+  const roomInfo = {
+    id: room.id, code: room.code, eventId: room.eventId,
+    conversationId: room.conversationId ?? null, roomCreatedAt: room.roomCreatedAt ?? room.createdAt ?? null,
+  };
+  const record: StoredCapture = {
+    userId, roomId: room.id, roomCode: room.code, memberId: member.id, eventId: room.eventId,
+    joinedAt: member.joinedAt ?? '', displayName: member.displayName ?? displayName,
+    conversationId: roomInfo.conversationId, roomCreatedAt: roomInfo.roomCreatedAt,
+  };
+  return { record, roomInfo };
 }
 
 export function readStoredCapture(): StoredCapture | null {

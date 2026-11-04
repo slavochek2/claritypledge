@@ -6,7 +6,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, CheckCircle2, XCircle, ChevronRight, Copy, Check, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, ChevronRight, Copy, Check, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { useAuth } from '@/auth';
 import { getUserSessions, type SessionSummary } from '@/app/data/sessions-service';
@@ -21,14 +21,13 @@ import { SectionWait } from '@/components/ui/section-wait';
 import { useTranscript } from '@/app/pages/use-transcript';
 import { TranscriptCopyControl } from '@/app/pages/transcript-copy-control';
 import { useEscapeBack } from '@/app/pages/use-escape-back';
+import { openFromList, previousView, viewTitle, type SessionView } from '@/app/pages/sessions-view';
+import { useStateOverlay } from '@/app/pages/use-room-transcription-state';
+import { RoomTranscriptView } from '@/app/pages/room-transcript-view';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 
 // ─── View state ───────────────────────────────────────────────────────────────
 
-type SessionView =
-  | { type: 'list' }
-  | { type: 'session'; session: SessionSummary }
-  | { type: 'round'; session: SessionSummary; roundIndex: number }
-  | { type: 'transcript'; session: SessionSummary };
 
 // ─── Round row ────────────────────────────────────────────────────────────────
 
@@ -214,62 +213,6 @@ function formatRoomTranscriptForCopy(transcript: RoomTranscript): string {
     .join('\n');
 }
 
-/**
- * P1307 Decision 4: a transcribe room session shows the ROOM's one transcript — the saved
- * whole-recording version once it exists, the live rows before — attributed by speaker, in
- * spoken order. A room with no speech gets the same empty state as any other session.
- */
-function RoomTranscriptView({ roomId, onBack }: { roomId: string; onBack: () => void }) {
-  const { transcript, loading, failed, retry } = useTranscript<RoomTranscript>(roomId, fetchRoomTranscript);
-  useEscapeBack(onBack);
-
-  if (loading) {
-    return <SectionWait failed={failed} onRetry={retry}><TranscriptSkeleton /></SectionWait>;
-  }
-
-  if (!transcript || transcript.segments.length === 0) {
-    return (
-      <div className="text-center py-12" data-testid="room-transcript-empty">
-        <p className="text-sm text-muted-foreground">No speech detected in this recording.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div data-testid="room-transcript" data-source={transcript.source}>
-      <TranscriptCopyControl
-        getText={() => formatRoomTranscriptForCopy(transcript)}
-        errorLabel="[P1307] Failed to copy room transcript"
-      />
-
-      <div className="space-y-4">
-        {transcript.segments.map((segment, i) => (
-          <article
-            key={i}
-            aria-label={`${segment.speakerLabel} at ${formatTimestamp(segment.startMs)}`}
-            className="text-sm"
-          >
-            <div className="flex items-baseline gap-2 mb-0.5">
-              <span className="font-semibold text-foreground">{segment.speakerLabel}</span>
-              <span className="text-xs text-muted-foreground">{formatTimestamp(segment.startMs)}</span>
-            </div>
-            <p className="text-foreground/90 leading-relaxed">{segment.text}</p>
-            {/* Decision 5's label: a sentence several phones heard is kept, never deleted. */}
-            {segment.alsoHeardBy.length > 0 && (
-              <p className="text-xs text-muted-foreground">also heard by {segment.alsoHeardBy.join(', ')}</p>
-            )}
-            {segment.fromIncompleteRecording && (
-              // [FOUNDER DECISION: copy — placeholder] Part 3: an incomplete archive is reported,
-              // never presented as whole.
-              <p className="text-xs text-muted-foreground">Recording incomplete</p>
-            )}
-          </article>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function TranscriptView({
   session,
   onBack,
@@ -277,7 +220,6 @@ function TranscriptView({
   session: SessionSummary;
   onBack: () => void;
 }) {
-  if (session.roomId) return <RoomTranscriptView roomId={session.roomId} onBack={onBack} />;
   return <SessionTranscriptView session={session} onBack={onBack} />;
 }
 
@@ -331,15 +273,6 @@ function SessionTranscriptView({
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -350,6 +283,7 @@ export function MySessionsPage() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [view, setView] = useState<SessionView>({ type: 'list' });
+  const listSessions = useStateOverlay(sessions, view.type === 'list');
 
   useEffect(() => {
     if (!sessionChecked || isLoading) return;
@@ -381,11 +315,7 @@ export function MySessionsPage() {
 
   if (!user) return null;
 
-  const goBack = () => {
-    if (view.type === 'round') setView({ type: 'session', session: view.session });
-    else if (view.type === 'transcript') setView({ type: 'session', session: view.session });
-    else if (view.type === 'session') setView({ type: 'list' });
-  };
+  const goBack = () => setView(previousView(view));
 
   // Copy transcript from session detail — the room's transcript for a room session (P1307)
   const handleCopyTranscript = async (session: SessionSummary) => {
@@ -417,39 +347,25 @@ export function MySessionsPage() {
     }
   };
 
-  const roundItem = view.type === 'round' ? view.session.sessionHistory[view.roundIndex] : null;
-  const headerTitle =
-    view.type === 'list' ? 'Session History'
-    : view.type === 'session' ? `${formatDate(view.session.date)} · ${view.session.partnerName}`
-    : view.type === 'transcript' ? 'Transcript'
-    : roundItem?.storyData ? `Round ${view.roundIndex + 1}` // story card shows the content — no duplicate
-    : roundItem?.title || `Round ${view.roundIndex + 1}`;
+  const isRoomTranscript = view.type === 'transcript' && !!view.session.roomId;
+  const headerTitle = viewTitle(view);
 
   return (
     <main aria-label="Session History">
     <PageFrame size="reading" className="pb-24">
       {/* P1512: the list is a menu destination (no Back above the title); the detail views step
           back inside the page, so their in-flow Back leads the title row. */}
-      <PageHeader
-        title={headerTitle}
-        leading={view.type === 'list' ? undefined : (
-          <button
-            onClick={goBack}
-            className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-md hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Back"
-          >
-            <ChevronLeft className="w-5 h-5 text-foreground" />
-          </button>
-        )}
-      />
+      {/* The detail views step back inside the page: the standard Back (the shell's), in-flow because the view stack is page state. */}
+      {view.type !== 'list' && !isRoomTranscript && <FocusHeader onBack={goBack} />}
+      {!isRoomTranscript && <PageHeader title={headerTitle} />}
 
       {view.type === 'list' && (
         <SessionList
-          sessions={sessions}
+          sessions={listSessions}
           isLoading={fetchState === 'loading'}
           isError={fetchState === 'error'}
           onRetry={fetchSessions}
-          onSessionClick={(s) => setView({ type: 'session', session: s })}
+          onSessionClick={(s) => setView(openFromList(s))}
         />
       )}
 
@@ -491,12 +407,11 @@ export function MySessionsPage() {
         </div>
       )}
 
-      {view.type === 'transcript' && (
-        <TranscriptView
-          session={view.session}
-          onBack={goBack}
-        />
-      )}
+      {view.type === 'transcript' && (isRoomTranscript && view.session.roomId ? (
+        <RoomTranscriptView roomId={view.session.roomId} title={headerTitle} initialState={view.session.transcriptionState} onBack={goBack} />
+      ) : (
+        <TranscriptView session={view.session} onBack={goBack} />
+      ))}
     </PageFrame>
     </main>
   );

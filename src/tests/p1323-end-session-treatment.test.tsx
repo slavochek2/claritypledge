@@ -70,7 +70,7 @@ describe('P1323 AC-12 — one End Session treatment across four controls', () =>
     // P1388: the header's stop moved into the shared StopCaptureButton (same control as the
     // capture bar). The page must render THAT component for this test id, and the component's
     // own className must stay neutral at rest — the rule is unchanged, only where it lives.
-    const page = read('src/app/pages/transcribe-room-page.tsx');
+    const page = read('src/app/pages/transcribe-capture-row.tsx');   // the header actions moved here with the one-row header
     expect(page, 'header stop must be the shared StopCaptureButton').toMatch(/<StopCaptureButton[^/]*?testId="transcribe-end-session-button"/);
     const src = read('src/app/components/session/capture-controls.tsx');
     const fn = src.slice(src.indexOf('export function SessionStopButton'));

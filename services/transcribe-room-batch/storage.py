@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from config import MAX_ATTEMPTS, retry_delay_s, STALE_PROCESSING_MINUTES, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL
+from config import MAX_ATTEMPTS, retry_delay_s, ROUND_STALE_PROCESSING_MINUTES, STALE_PROCESSING_MINUTES, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL
 
 logger = logging.getLogger(__name__)
 
@@ -178,10 +178,10 @@ def oldest_due_round_job_id(exclude: list[str] | None = None) -> Optional[str]:
 
 
 def reset_stale_round_jobs() -> int:
-    """ONE service-only SQL call (a single UPDATE): stale processing -> pending (dispatched_at cleared, so the tick
+    """ONE service-only SQL call (a single UPDATE; P1604: the limit is ROUND_STALE_PROCESSING_MINUTES, above the longest run): stale processing -> pending (dispatched_at cleared, so the tick
     sends it again), or failed once MAX_ATTEMPTS is used. Returns how many rows it changed."""
     data = _db().rpc("reset_stale_round_jobs", {
-        "p_stale_minutes": STALE_PROCESSING_MINUTES, "p_max_attempts": MAX_ATTEMPTS}).execute().data
+        "p_stale_minutes": ROUND_STALE_PROCESSING_MINUTES, "p_max_attempts": MAX_ATTEMPTS}).execute().data
     return int(data or 0)
 
 
@@ -198,6 +198,14 @@ def load_capture_ended(member_ids: list[str]) -> dict[str, Optional[str]]:
         return {}
     rows = _db().table("transcribe_room_members").select("id, capture_ended_at").in_("id", member_ids).execute().data or []
     return {r["id"]: r.get("capture_ended_at") for r in rows}
+
+
+def load_joined(member_ids: list[str]) -> dict[str, Optional[str]]:
+    """member id -> joined_at (the first Continue)."""
+    if not member_ids:
+        return {}
+    rows = _db().table("transcribe_room_members").select("id, joined_at").in_("id", member_ids).execute().data or []
+    return {r["id"]: r.get("joined_at") for r in rows}
 
 
 def finish_round_job(job_id: str, attempts: int, error: Optional[str] = None, retryable: bool = False,
@@ -224,6 +232,10 @@ def defer_round_job(job_id: str, attempts: int, not_before_iso: str) -> None:
     }).eq("id", job_id).eq("status", "processing").eq("attempts", attempts).execute()
 
 
-def post_clean_round(job_id: str, attempt: int, items: list[dict], partial: bool = False) -> int:
-    """ONE transaction for the whole job. Refused (raises) for a stale attempt; on any failure nothing is posted."""
-    return _db().rpc("post_clean_round", {"p_job_id": job_id, "p_attempt": attempt, "p_items": items, "p_partial": partial}).execute().data
+def post_clean_round(job_id: str, attempt: int, items: list[dict], partial: bool = False,
+                     incomplete_ids: list[str] | None = None) -> int:
+    """ONE transaction for the whole job. Refused (raises) for a stale attempt; on any failure nothing is posted.
+    P1604: incomplete_ids are the speakers whose audio stopped short of their own stop (decision 4)."""
+    return _db().rpc("post_clean_round", {
+        "p_job_id": job_id, "p_attempt": attempt, "p_items": items, "p_partial": partial,
+        "p_incomplete": incomplete_ids or []}).execute().data

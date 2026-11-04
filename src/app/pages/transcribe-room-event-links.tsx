@@ -3,9 +3,10 @@
  * @description P1596 (founder, solo test 2026-11-02): an event's transcription page falls back to the event room and
  * says when the clean text comes, with a way to the table's chat. Other rooms keep the plain Back.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
+import { CaptureChatLink } from '@/app/components/session/capture-chat-link';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { supabase } from '@/lib/supabase';
 import { EVENT_TEXT_ARRIVES, resolveEventChatPath } from '@/app/data/event-chat-path';
@@ -24,7 +25,7 @@ function TopBack({ eventId, fallback }: { eventId: string | null; fallback: stri
     void readEventSlug(eventId).then((s) => { if (live) setSlug(s); }, () => {});
     return () => { live = false; };
   }, [eventId]);
-  return <FocusHeader fallback={slug ? `/events/${slug}/room` : fallback} />;
+  return <FocusHeader inPlace arrowOnlyBelow360 fallback={slug ? `/events/${slug}/room` : fallback} />;
 }
 
 /** The chat's place is resolved on the tap: the table changes every round, and a failed read can be retried. */
@@ -66,17 +67,20 @@ export function EndedEventNote() {
   return lastEventCapture ? <p className="text-sm text-muted-foreground mb-6" data-testid="transcribe-ended-event-note">{EVENT_TEXT_ARRIVES}</p> : null;
 }
 
-/** The page's top: its Back, and for a running event capture when the clean text comes. */
-export function TranscribeRoomTop({ running, fallback }: { running: boolean; fallback: string }) {
-  const { eventId } = useRoomCapture();
+/** The page's top: ONE row with its Back on the left and the page's actions on the right, and for a running event capture when the clean text comes. */
+export function TranscribeRoomTop({ running, fallback, actions }: { running: boolean; fallback: string; actions?: ReactNode }) {
+  const { eventId, roomId, conversationId } = useRoomCapture();
   const event = running ? eventId : null;
   lastEventCapture = event; // this page's room views only; a read-only or other room clears it
   return (
     <>
-      {/* Tighter than FocusHeader's page default (mb-4): on a phone every row here is taken from the live transcript. */}
-      <div className="shrink-0 -mt-2 [&>button]:mb-0" data-testid="transcribe-top-back">
-        <TopBack eventId={event} fallback={fallback} />
+      <div className="mb-1 flex shrink-0 items-center gap-2" data-testid="transcribe-room-header">
+        <div className="min-w-0 shrink [&>button]:mb-0" data-testid="transcribe-top-back">
+          <TopBack eventId={event} fallback={fallback} />
+        </div>
+        {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
+      {running && <CaptureChatLink roomId={roomId} conversationId={conversationId} className="mb-2 shrink-0 text-sm" />}
       {event && <EventTextNote eventId={event} />}
     </>
   );

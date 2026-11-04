@@ -15,6 +15,9 @@ const go = vi.fn();
 const threadsMock = vi.fn<(conversationId: string, enabled: boolean) => RoundThread[]>();
 vi.mock('@/app/pages/chat/chat-hooks', () => ({ useChatNavigate: () => go }));
 vi.mock('@/app/pages/chat/use-my-round-threads', () => ({ useMyRoundThreads: (c: string, e: boolean) => threadsMock(c, e) }));
+// P1604: the header is now wrapped by the transcribe action, which reads the signed-in person and asks whether a session is live.
+vi.mock('@/auth', () => ({ useAuth: () => ({ user: { id: 'u1', name: 'Ann' } }) }));
+vi.mock('@/app/data/chat-live-transcription', () => ({ getChatLiveTranscription: () => Promise.resolve(null) }));
 
 import { ConversationTop } from '@/app/pages/chat/MyRounds';
 
@@ -74,7 +77,7 @@ describe('P1592 My rounds in the three-dot menu', () => {
     const menu = openMenu(eventChat);
     expect(within(menu).queryByTestId('my-rounds-heading')).not.toBeInTheDocument();
     expect(within(menu).queryByTestId('my-rounds-item')).not.toBeInTheDocument();
-    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Event page', 'Archive', 'Mark as unread']);
+    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Transcribe', 'Event page', 'Archive', 'Mark as unread']);   // P1604 adds Transcribe, first after My rounds
   });
 
   it('a chat that is not an event channel never shows it, and never asks for round threads', () => {

@@ -24,6 +24,7 @@ import { useActiveSession } from "@/hooks/use-active-session";
 import { LiveSessionProvider } from "@/app/contexts/live-session-context";
 import { useRoomCapture } from "@/app/contexts/room-capture-context";
 import { isImmersiveLetterRoute as matchImmersiveLetterRoute } from "@/app/layouts/immersive-letter-route";
+import { liveRouteKinds } from "@/app/layouts/live-routes";
 
 /**
  * P1323: is this page somewhere a person is USING the thing, or READING ABOUT it?
@@ -155,8 +156,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly, roomS
   // is a flex column, so the offline strip, the session banner and the room bar take their height
   // from it instead of pushing the composer below the fold.
   const isChatHome = location.pathname === "/chats" || location.pathname.startsWith("/chats/");
-  const isLivePage = location.pathname === "/live" || location.pathname.startsWith("/live/") ||
-    location.pathname === "/transcribe" || location.pathname.startsWith("/transcribe/");
+  const { live: isLiveRoute, transcribe: isTranscribeRoute, fixedHeight: isLivePage } = liveRouteKinds(location.pathname);
   // P852/P888: only the IMMERSIVE letter routes suppress chrome — reading
   // (/letter/:id, UUID or shortcode per P772) and compose (/letter/:docId/compose).
   // Results + overview keep the top nav by design (P699/P700); preview + confirm
@@ -203,11 +203,11 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly, roomS
   // P1512: the signed-in shell. A signed-in person on a normal product/public route gets the
   // sidebar (desktop) and bottom bar (phone) INSTEAD of the top nav, so each route shows exactly
   // one navigation. Everything that keeps its own chrome is excluded: the compact room pages, the
-  // logo-only intro, /live and /transcribe, immersive letters, and pages with their own navigation.
+  // logo-only intro, /live, immersive letters, and pages with their own navigation.
   // A completed letter (?done=1) leaves compact mode and so enters the shell, as it re-enters the menus.
   // P1542 (founder, 2026-10-23, fourth request): the event room (room, ready, arriving, meet) is no longer
   // excluded — `roomShell` puts it inside the shell like every other signed-in page. /host stays compact.
-  const shellEligible = !publicSiteView && !hasOwnNavigation && !isLivePage && !chromeImmersive
+  const shellEligible = !publicSiteView && !hasOwnNavigation && !isLiveRoute && !chromeImmersive
     && !keepsCompactChrome(compact, letterDone, roomShell) && !logoOnly;
   const signedInShell = showSignedInChrome && shellEligible;
   // P1539: the shell's box (padding, offset, loader) without its drawn chrome — see shellExpected.
@@ -223,7 +223,7 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly, roomS
     : needsTopPadding ? (offlineStripShown ? "pt-16 lg:pt-20" : "pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-[calc(5rem+env(safe-area-inset-top))]") : "";
   const bottomPadding = needsBottomPadding ? (todaysStripShown ? "pb-[7.5rem] lg:pb-0" : "pb-20 lg:pb-0") : "";
   // P1512: the top bar belongs to every shell page except Home, whose chat screens draw their own header.
-  const showShellTopBar = signedInShell && !isChatHome;
+  const showShellTopBar = signedInShell && !isChatHome && !isTranscribeRoute;   // /transcribe draws its own header
   // P1595: --shell-sidebar-w carries the same width to fixed descendants (the content loader centres on the column).
   const shellColumnPadding = shellFrame
     ? (sidebarCollapsed ? "lg:pl-16 lg:[--shell-sidebar-w:4rem]" : "lg:pl-[248px] lg:[--shell-sidebar-w:248px]")

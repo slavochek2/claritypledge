@@ -86,7 +86,7 @@ beforeEach(() => {
 });
 
 describe('P1307: the archive tail on stop', () => {
-  it('End uploads the recording since the last chunk, marked last, BEFORE telling the server capture ended', async () => {
+  it('End uploads the recording since the last chunk, marked last, and tells the server at once (P1604: the 2-minute upload window)', async () => {
     render(tree());
     await act(async () => {
       const result = await ctx.startCapture({ eventId: 'e1', displayName: 'A' });
@@ -99,7 +99,9 @@ describe('P1307: the archive tail on stop', () => {
     const [roomCode, , memberId, blob, , isLast] = upload.mock.calls[0] as unknown[];
     expect({ roomCode, memberId, isLast }).toEqual({ roomCode: 'ABC123', memberId: 'm1', isLast: true });
     expect((blob as Blob).size).toBeGreaterThan(0);
-    expect(calls.order, 'gcs-signed-url refuses uploads after capture_ended_at — upload must come first').toEqual(['upload', 'end']);
+    // P1604 rule 4 reverses the P1307 order: the End goes first, the tail still uploads (gcs-signed-url admits audio recorded
+    // before the Stop for 2 minutes after it).
+    expect(calls.order).toEqual(['end', 'upload']);
   });
 
   it('a retried upload keeps the chunk number it was first given — no gap in the sequence', async () => {

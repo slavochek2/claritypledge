@@ -8,6 +8,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import type { SessionHistoryItem, TranscriptionJobStatus } from '@/app/types';
+import { getMyRoomStates, type RoomStateInfo, type TranscriptionState } from './room-transcription-state';
 
 export interface SessionSummary {
   id: string;
@@ -23,6 +24,10 @@ export interface SessionSummary {
    * the per-session `session_transcripts` row, which a room session never has.
    */
   roomId: string | null;
+  /** P1604: for a room session, where its transcript is (processing | ready | failed | none); "none" for any other session. */
+  transcriptionState: TranscriptionState;
+  /** P1604: the chat the room belongs to, as the caller sees it; null for a plain room and any other session. */
+  chatName: string | null;
 }
 
 interface SessionRow {
@@ -43,6 +48,7 @@ function mapSessionFromDb(
   row: SessionRow,
   profileId: string,
   roomBySession: ReadonlyMap<string, string> = new Map(),
+  roomInfo: ReadonlyMap<string, RoomStateInfo> = new Map(),
 ): SessionSummary {
   const isCreator = row.creator_profile_id === profileId;
   const partnerName = isCreator
@@ -73,6 +79,8 @@ function mapSessionFromDb(
     // so the /live retry path must not be offered for it.
     transcriptStatus: roomId ? 'completed' : latestJobStatus,
     roomId,
+    transcriptionState: (roomId && roomInfo.get(roomId)?.state) || 'none',
+    chatName: (roomId && roomInfo.get(roomId)?.chatName) || null,
   };
 }
 
@@ -123,6 +131,7 @@ export async function getUserSessions(profileId: string): Promise<SessionSummary
   // Abandoned sessions (0 completed rounds AND no completed transcript) are
   // rendered de-emphasized in the UI rather than hidden, so the history reads
   // as a journal of what happened, not a curated highlight reel.
+  const roomInfo = await getMyRoomStates([...new Set(roomBySession.values())]);
   return (data as unknown as SessionRow[])
-    .map((row) => mapSessionFromDb(row, profileId, roomBySession));
+    .map((row) => mapSessionFromDb(row, profileId, roomBySession, roomInfo));
 }

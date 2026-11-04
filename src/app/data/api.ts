@@ -26,7 +26,6 @@ import { readRsvpGate, selectEventRowBySlugWith } from './event-slug-and-group-r
 import { rsvpToHiddenEvent } from './event-hidden-rsvp';
 import { getSeatSecret, setSeatSecret, clearSeatSecret, restoreSeatSecret } from './seat-secret';
 import type { AuthError } from '@supabase/supabase-js';
-import { mergeConsecutiveSpeakerRows } from '@/app/components/session/transcript-merge';
 import type {
   Profile,
   ProfileSummary,
@@ -4524,81 +4523,8 @@ export interface RoomTranscript {
   segments: RoomTranscriptSegment[];
 }
 
-/**
- * P1307 Decision 4: a transcribe room's ONE transcript, read by every member whose session
- * references the room. Never `session_transcripts` (one row per session, and a room session has
- * none). Both reads are member-scoped by RLS (P1207), so a non-member gets nothing, not even
- * whether a transcript exists.
- *
- * Before the whole-recording pass completes, the live rows are returned, merged by speaker the
- * same way the room view renders them.
- */
-export async function fetchRoomTranscript(roomId: string): Promise<RoomTranscript | null> {
-  const { data: saved, error: savedError } = await supabase
-    .from('transcribe_room_transcripts')
-    .select('segments, speaker_map, incomplete_member_ids')
-    .eq('room_id', roomId)
-    .maybeSingle();
-  if (savedError) {
-    console.error('[Transcription API] Error fetching room transcript:', savedError);
-  }
-
-  // P1339: an empty after-event transcript (a batch pass that found no audio) must not hide
-  // the live one — fall through to transcribe_messages instead.
-  if (saved && ((saved.segments ?? []) as unknown[]).length > 0) {
-    const speakerMap = (saved.speaker_map ?? {}) as Record<string, string>;
-    const incomplete = new Set((saved.incomplete_member_ids ?? []) as string[]);
-    const rows = (saved.segments ?? []) as Array<{ member_id: string; start_ms: number; text: string; also_heard_by?: string[] }>;
-    const origin = rows[0]?.start_ms ?? 0;
-    const label = (memberId: string) => speakerMap[memberId] ?? 'Someone';
-    return {
-      source: 'final',
-      segments: rows.map((row) => ({
-        speakerLabel: label(row.member_id),
-        startMs: Math.max(0, row.start_ms - origin),
-        text: row.text,
-        alsoHeardBy: (row.also_heard_by ?? []).map(label),
-        fromIncompleteRecording: incomplete.has(row.member_id),
-      })),
-    };
-  }
-
-  const [{ data: members, error: membersError }, { data: messages, error: messagesError }] = await Promise.all([
-    supabase.from('transcribe_room_members').select('id, display_name').eq('room_id', roomId),
-    supabase
-      .from('transcribe_messages')
-      .select('id, room_id, member_id, text, spoken_at, is_final')
-      .eq('room_id', roomId)
-      .order('spoken_at', { ascending: true }),
-  ]);
-  if (membersError || messagesError) {
-    console.error('[Transcription API] Error fetching live room rows:', membersError ?? messagesError);
-    return null;
-  }
-  const names = new Map((members ?? []).map((m) => [m.id as string, m.display_name as string]));
-  const merged = mergeConsecutiveSpeakerRows(
-    (messages ?? []).map((m) => ({
-      id: m.id as string,
-      roomId: m.room_id as string,
-      memberId: m.member_id as string,
-      text: m.text as string,
-      spokenAt: m.spoken_at as string,
-      isFinal: m.is_final as boolean,
-    })),
-  );
-  const first = merged[0];
-  const origin = first ? new Date(first.spokenAt).getTime() : 0;
-  return {
-    source: 'live',
-    segments: merged.map((row) => ({
-      speakerLabel: names.get(row.memberId) ?? 'Someone',
-      startMs: Math.max(0, new Date(row.spokenAt).getTime() - origin),
-      text: row.text,
-      alsoHeardBy: [],
-      fromIncompleteRecording: false,
-    })),
-  };
-}
+// P1307 Decision 4 / P1604 Decision 7: a room's transcript read lives in room-clean-transcript.ts (this file may not grow).
+export { fetchRoomTranscript } from './room-clean-transcript';
 
 /**
  * Retry a failed transcription by calling the retry_transcription RPC.

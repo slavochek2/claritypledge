@@ -22,18 +22,15 @@
  *   - P1236 Decision 7 still holds: there is no browser speech recognizer and no interim text
  *     anywhere here; live text arrives only as the server's rows.
  */
-import { CaptureInfoButton, PauseResumeButton, SessionStopButton, StopCaptureButton } from '@/app/components/session/capture-controls';
-import { useCaptureStatus } from '@/app/components/session/capture-status';
-import { CaptureLevelMeter } from '@/app/components/session/capture-level-meter';
+import { RoomHeaderActions, TranscribeCaptureRow } from './transcribe-capture-row';
 import { ConsentSection } from '@/app/pages/ConsentLabel';
 import { RoomPeople } from '@/app/components/session/room-people';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { EndedEventNote, TranscribeRoomTop } from './transcribe-room-event-links';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
-import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { Button } from '@/components/ui/button';
 import { Loader2, ArrowDown } from 'lucide-react';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
@@ -227,7 +224,8 @@ export function TranscribeRoomPage() {
       // isLivePage (clarity-landing-layout.tsx) covers all of /transcribe and removes <main>'s
       // top padding, so non-room screens clear the fixed nav themselves.
       <div
-        className="max-w-md mx-auto px-4 py-8 text-center h-full overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top)+2rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+2rem)]"
+        className="max-w-md mx-auto px-4 py-8 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 text-center h-full overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top)+2rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+2rem)]"
+        data-clears-nav="2"
         data-testid="transcribe-ended-screen"
       >
         <div className="text-left">
@@ -259,7 +257,6 @@ export function TranscribeRoomPage() {
         <p className="text-xs text-muted-foreground mt-2">
           It appears in Session History once the recording has been processed.
         </p>
-        <BottomBackButton fallback={BACK_FALLBACK} testId="transcribe-bottom-back" />
       </div>
     );
   }
@@ -267,7 +264,8 @@ export function TranscribeRoomPage() {
   if (!showRunningRoom && !showReadOnlyRoom) {
     return (
       <div
-        className="max-w-md mx-auto px-4 py-8 h-full overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top)+2rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+2rem)]"
+        className="max-w-md mx-auto px-4 py-8 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 h-full overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top)+2rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+2rem)]"
+        data-clears-nav="2"
         data-testid="transcribe-consent-screen"
       >
         <FocusHeader fallback={BACK_FALLBACK} />
@@ -292,7 +290,6 @@ export function TranscribeRoomPage() {
           and{' '}
           <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy Policy</a>.
         </p>
-        <BottomBackButton fallback={BACK_FALLBACK} testId="transcribe-bottom-back" />
       </div>
     );
   }
@@ -311,13 +308,17 @@ export function TranscribeRoomPage() {
       <RoomCaptureBarClaimSilent />
 
       {/* Clears the fixed site nav, which is now visible here (P1388). */}
-      <div className="max-w-2xl mx-auto px-4 pb-4 pt-[calc(4rem+env(safe-area-inset-top)+1rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+1rem)] flex flex-col flex-1 min-h-0 w-full">
+      <div data-clears-nav="1" className="max-w-2xl mx-auto px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-4 pt-[calc(4rem+env(safe-area-inset-top)+1rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+1rem)] flex flex-col flex-1 min-h-0 w-full">
         {/* Founder, 2026-09-14: the top Back sits in the content column and reads "Back", the
             same control as the join and ended screens and /stake — not an arrow in the header.
             Leaving does not end capture (P1307 D7); End Session does. */}
         {/* Tighter than FocusHeader's page default (mb-4): on a phone every row here is taken
             from the live transcript. The button itself stays 44 px tall. */}
-        <TranscribeRoomTop running={showRunningRoom} fallback={BACK_FALLBACK} />
+        <TranscribeRoomTop
+          running={showRunningRoom}
+          fallback={BACK_FALLBACK}
+          actions={<RoomHeaderActions readOnly={showReadOnlyRoom} onStop={() => void handleEndSession()} />}
+        />
 
         {showReadOnlyRoom ? (
           <>
@@ -325,7 +326,6 @@ export function TranscribeRoomPage() {
               the roster and a way to leave, which ends nothing — their capture never started. */}
           <div className="flex items-center gap-2 mb-2">
             <RoomPeople members={members} speakingIds={speaking} />
-            <span className="ml-auto"><SessionStopButton label="Leave" onClick={() => void handleEndSession()} testId="transcribe-end-session-button" /></span>
           </div>
           <p
             className="text-xs py-2 px-3 rounded-lg font-semibold bg-red-50 text-red-800 border-2 border-red-500 mb-3"
@@ -337,7 +337,7 @@ export function TranscribeRoomPage() {
           </p>
           </>
         ) : (
-          <TranscribeCaptureRow onStop={() => void handleEndSession()} people={<RoomPeople members={members} speakingIds={speaking} />} />
+          <TranscribeCaptureRow people={<RoomPeople members={members} speakingIds={speaking} />} />
         )}
 
         <div className="relative flex-1 min-h-0 mb-4">
@@ -347,11 +347,7 @@ export function TranscribeRoomPage() {
             className="h-full overflow-y-auto space-y-3"
             data-testid="transcribe-chat"
           >
-            {mergedRows.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8" data-testid="transcribe-empty-room">
-                You're first here. Words will appear as people speak.
-              </p>
-            ) : (
+            {mergedRows.length > 0 && (
               mergedRows.map((row) => {
                 const speaker = members.find((m) => m.id === row.memberId);
                 const stillSpeaking = row === lastRow && speaking.has(row.memberId);
@@ -386,45 +382,7 @@ export function TranscribeRoomPage() {
             </button>
           )}
         </div>
-        {/* The room is a chat that grows downward, so the bottom Back is a footer strip, not a
-            floating pill: the chat scrolls above it and never runs underneath. Same sticky-footer
-            treatment /live's rating panel uses (live-content-cards.tsx: bg + safe-area inset). */}
-        <div className="shrink-0 -mb-2 border-t border-border bg-background pt-2 pb-[env(safe-area-inset-bottom)]">
-          <BottomBackButton fallback={BACK_FALLBACK} testId="transcribe-bottom-back" className="mt-0" />
-        </div>
       </div>
-    </div>
-  );
-}
-
-/**
- * P1388: the recorder's status line on the room page — the same controls as the capture bar,
- * which this page claims and does not draw (P1323 R6). While all is well it keeps the page's
- * own "Listening" line; anything else (paused, stalled, no sound, mic gone) replaces it.
- */
-function TranscribeCaptureRow({ onStop, people }: { onStop: () => void; people: ReactNode }) {
-  const { phase, eventId } = useRoomCapture();
-  const status = useCaptureStatus();
-  const healthy = !status.warn && phase !== 'paused';
-  // P1388 (founder, phone test 2026-10-02): the controls on ONE line — meter at the start,
-  // ⓘ · Pause · Stop at the end — and the status text on its own line under them.
-  return (
-    <div className="mb-2" data-testid="transcribe-listening-indicator" role="status">
-      <div className="flex flex-wrap items-center gap-2">
-        {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
-        {people}
-        <div className="flex items-center gap-2 ml-auto">
-          <CaptureInfoButton forEvent={!!eventId} />
-          {(phase === 'capturing' || phase === 'stalled' || phase === 'paused') && <PauseResumeButton />}
-          <StopCaptureButton onClick={onStop} testId="transcribe-end-session-button" />
-        </div>
-      </div>
-      <p
-        className={`text-xs mt-1 ${status.warn ? 'font-semibold text-red-800' : 'text-muted-foreground'}`}
-        data-testid={phase === 'stalled' && status.warn ? 'transcribe-mic-error' : undefined}
-      >
-        {healthy ? 'Listening — your words appear here a few seconds after you say them' : status.text}
-      </p>
     </div>
   );
 }

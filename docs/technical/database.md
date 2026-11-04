@@ -456,6 +456,26 @@ attributed chat while their audio lands in the ML bucket.
 **`transcribe_rooms`** — `id`, `code` (UNIQUE), `event_id` (nullable — an ad-hoc room has no event),
 `created_at`, `ended_at`.
 
+**P1604: a room can belong to a chat.** `transcribe_rooms` gains `conversation_id` (the chat; NULL = a plain
+`/transcribe` room, history only), `part_no` (1, or 2, 3... after the 3-hour roll) and `continues_room_id` (the earlier
+part). A partial unique index allows ONE open room per conversation. An event's chat maps server-side to its event room
+while the event is inside its window and is not a hike (`series_slug = 'social-hike'`); otherwise the chat gets its own
+room with no event. `enter_transcribe_room(..., p_event_id, p_conversation_id)` joins the one open room or opens it; with
+neither id it opens a NEW plain room each time (others join by code). Enter, join and create require chat access for a
+chat's room (`assert_transcribe_chat_access`); the mirror never has one. Every path that fills or ends a room takes the
+room row lock first (enter, join, end, the sweep, the roll). The last `end_transcribe_room_capture` closes the room in
+the same transaction (no grace period); a start or join anywhere else ends the caller's other open captures (rule 7).
+The sweep also ends a room whose open members have all been paused 10 minutes (`transcribe_room_members.paused_since`,
+set by the heartbeat, cleared by a slice) and rolls a room at 176 minutes into Part 2 (`_transcribe_roll_room`: the people
+still recording are seated, `consent_given_at` copied and `consent_carried_from_room_id` set, each with a new session).
+`transcribe_round_clean_jobs.event_id` may be NULL; a room job's place gains `session` (a chat's or plain room), and
+`conversation_id` names the chat. `transcribe_clean_texts (job_id, member_id, chunk_ms, text)` keeps every job's cleaned
+text for history, separate from `transcribe_room_transcripts`; clients read it only through `get_my_clean_transcript(room)`,
+which returns the jobs the caller was a seat of. `transcribe_session_threads (room_id PK, conversation_id, root_message_id)`
+is the thread of one room's session; its root has `system_kind = 'outside_rounds'` and body
+`session|<start ISO UTC>|<part_no>`, which the client shows as a date and time in the reader's time zone.
+`get_chat_live_transcription(conversation)` powers the "{name} is transcribing, join" line.
+
 **`transcribe_room_members`** — one row per participant per room. `id`, `room_id`, `profile_id`,
 `display_name`, `session_id` (the participant's own `clarity_sessions` row), `joined_at`, plus P1236:
 
@@ -467,11 +487,11 @@ attributed chat while their audio lands in the ML bucket.
 | `last_seen_at TIMESTAMPTZ` | P1307: last presence signal — every accepted slice (service role) and the paused heartbeat `touch_transcribe_room_capture()`. The sweep measures staleness from this, never from `transcribe_messages.spoken_at` (silent slices write no message; paused members send no slices). |
 | `next_chunk_seq INTEGER NOT NULL DEFAULT 0` | P1307: the next archive chunk number, issued by `reserve_room_chunk_number()`. Never reset, so an archived chunk is never overwritten. |
 
-**`joined_at` is the per-person 3-hour cap's clock (P1307 D11).** `enter_transcribe_room`'s upsert never
-rewrites it, so switching transcription off and on never resets the three hours. The same 180 minutes,
-measured from this column, is enforced in three places that must move together: `transcribe-slice`
-(`ROOM_MAX_DURATION_MINUTES`), `gcs-signed-url` (`MEMBER_CAPTURE_MAX_MINUTES`) and the sweep
-(`c_member_cap`).
+**The 3-hour cap is the ROOM's clock (P1604 rule 8; it replaced P1307 D11's per-person `joined_at` clock).** The same
+180 minutes, measured from `transcribe_rooms.created_at`, is enforced in four places that must move together:
+`transcribe-slice` (`ROOM_MAX_DURATION_MINUTES`), `gcs-signed-url` (`MEMBER_CAPTURE_MAX_MINUTES`), the client timer
+(`CAPTURE_CAP_MINUTES`) and the sweep, which rolls a room at 176 minutes (`c_roll`) so it ends before the cleaner's
+3-hour window limit. `gcs-signed-url` also admits audio recorded before a Stop for 2 minutes after the Stop.
 
 **Rooms end on the server only (P1307).** No client UPDATE policy exists on `transcribe_rooms`; the
 "room members can end the room" policy was dropped. `transcribe_room_sweep_tick()` (pg_cron, every 2
