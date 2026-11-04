@@ -3,7 +3,7 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { renderEventDescription } from '@/lib/markdown';
-import { shouldShowRsvpRepeat, RSVP_REPEAT_LABEL, RSVP_REPEAT_LOADING_LABEL, type RsvpTrigger } from '../rsvp-repeat';
+import { shouldShowRsvpRepeat, type RsvpTrigger } from '../rsvp-repeat';
 import { shareOrCopy } from '@/lib/utils';
 import { toast } from 'sonner';
 import { takeHiddenRsvpRefusal } from '@/app/data/event-hidden-rsvp';
@@ -51,6 +51,9 @@ import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { GroupChatQuietLink } from '../prep/PrepPieces';
 import { recipeForEvent } from '../series-recipes';
+import { RsvpButton } from './RsvpButton';
+import { RegistrationQuestions } from './RegistrationQuestions';
+import { refusalMessage, useRegistrationStep } from './use-registration-step';
 import { classifyGroupChat } from '../group-chat-utils';
 import { openedChatLabel, useGroupChatOpened } from '../use-group-chat-opened';
 import { showsTopicVote } from '../topic-vote';
@@ -415,6 +418,20 @@ export function EventDetail() {
   const chatOpen = useGroupChatOpened(event?.id, smartChat ? groupChatUrl : null, user?.id);
 
   // P1586: nothing of the page is drawn yet, so the one page loader.
+  const showRefusal = (refusal: 'full' | 'cancelled') => {
+    setEvent(e => (e ? (refusal === 'full' ? { ...e, attendeeCount: e.maxAttendees ?? e.attendeeCount } : { ...e, status: 'cancelled' }) : e));
+    toast.error(refusalMessage(refusal));
+  };
+  // P1529 D16: this flow asks before the seat; `asksBeforeSeat` is false for Clarity Night and Social Hike.
+  const asksBeforeSeat = !!recipeForEvent(event).registrationQuestions;
+  const registration = useRegistrationStep({
+    event: event ? { id: event.id, slug: event.slug } : null,
+    userId: user?.id,
+    onRegistered: () => { setIsRsvpd(true); navigate(`/events/${slug}/confirm`, { state: { fromEvent: true } }); },
+    onRefused: showRefusal,
+    onSessionLost: () => { if (event) signInAgain(event.slug); },
+  });
+
   if (loading) return <ClarityPageLoader />;
 
   if (!event && offlineMiss) {
@@ -490,6 +507,7 @@ export function EventDetail() {
       return;
     }
     if (!canWrite()) return;
+    if (asksBeforeSeat) return registration.ask();
 
     setIsActionLoading(true);
     const sentAt = networkMark();
@@ -511,8 +529,7 @@ export function EventDetail() {
     } else if (refusal) {
       // P1603: the link door said why. Show the state the page already has a message for: the "Event Full" button,
       // or the cancelled banner, instead of the generic failure.
-      setEvent(e => (e ? (refusal === 'full' ? { ...e, attendeeCount: e.maxAttendees ?? e.attendeeCount } : { ...e, status: 'cancelled' }) : e));
-      toast.error(refusal === 'full' ? 'This event is full.' : 'This event has been cancelled.');
+      showRefusal(refusal);
     } else {
       // P1369: the service returns false for "full" AND for a request that never got through.
       toast.error(writeFailureMessage(null, 'Couldn\'t sign you up. The event may be full or no longer available.', sentAt));
@@ -642,50 +659,17 @@ export function EventDetail() {
   // P844: RSVP affordance hidden for host and cancelled events (sticky bar, mobile inline card, desktop card all gated)
   const rsvpAffordanceHidden = !!isHost || isCancelled;
 
-  // P844: Renders the RSVP action button — desktop above the description ('card') and the
-  // mobile sticky bar. P1365: 'card_bottom' is the desktop repeat after a long description;
-  // it only renders when shouldShowRsvpRepeat() holds (never past/full), and carries its own
-  // label and test id so no two buttons share an accessible name or a locator.
-  const renderRsvpButton = (trigger: RsvpTrigger) => {
-    if (trigger === 'card_bottom') {
-      return (
-        <Button
-          onClick={() => handleRsvp(trigger)}
-          className="w-full bg-blue-500 hover:bg-blue-700 text-white"
-          size="lg"
-          disabled={isActionLoading}
-          data-testid="rsvp-button-repeat"
-        >
-          {isActionLoading ? RSVP_REPEAT_LOADING_LABEL : RSVP_REPEAT_LABEL}
-        </Button>
-      );
-    }
-    if (isPast) {
-      return (
-        <Button disabled className="w-full" size="lg" data-testid="rsvp-button">
-          Event Ended
-        </Button>
-      );
-    }
-    if (isFull && !isRsvpd) {
-      return (
-        <Button disabled className="w-full" size="lg" data-testid="rsvp-button">
-          Event Full
-        </Button>
-      );
-    }
-    return (
-      <Button
-        onClick={() => handleRsvp(trigger)}
-        className="w-full bg-blue-500 hover:bg-blue-700 text-white"
-        size="lg"
-        disabled={isActionLoading}
-        data-testid="rsvp-button"
-      >
-        {isActionLoading ? 'Joining...' : 'Reserve a seat'}
-      </Button>
-    );
-  };
+  const renderRsvpButton = (trigger: RsvpTrigger) => (
+    <RsvpButton
+      trigger={trigger}
+      isPast={isPast}
+      isFull={isFull && !isRsvpd}
+      loading={isActionLoading}
+      onRsvp={handleRsvp}
+      asksBeforeSeat={asksBeforeSeat}
+      placesLeft={asksBeforeSeat ? eventsService.getSpotsRemaining(event) : null}
+    />
+  );
 
   // P844: RSVP'd confirmation card — used in both mobile inline and desktop right-column placements
   const renderRsvpGreenCard = () => (
@@ -1353,6 +1337,16 @@ export function EventDetail() {
       )}
 
       {/* Cancel RSVP Confirmation Dialog */}
+      {asksBeforeSeat && (
+        <RegistrationQuestions
+          open={registration.asking}
+          datetime={event.datetime}
+          timezone={event.timezone}
+          busy={registration.busy}
+          onCancel={registration.cancel}
+          onSubmit={registration.submit}
+        />
+      )}
       <ConfirmDialog
         open={showCancelRsvpDialog}
         onOpenChange={setShowCancelRsvpDialog}

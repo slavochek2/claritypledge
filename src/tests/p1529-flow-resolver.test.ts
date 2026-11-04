@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { CLARITY_NIGHT_RECIPE, SALES_MASTERMIND_RECIPE, SOCIAL_HIKE_RECIPE, eventFlow, recipeForEvent } from '@/app/prototypes/events/series-recipes';
+import { CLARITY_NIGHT_RECIPE, SALES_MASTERMIND_RECIPE, SOCIAL_HIKE_RECIPE, eventFlow, quoteConsentWords, recipeForEvent } from '@/app/prototypes/events/series-recipes';
 
 describe('P1529 one flow resolver', () => {
   it('the host flow wins, then the series, then Clarity Night', () => {
@@ -18,6 +18,13 @@ describe('P1529 one flow resolver', () => {
     expect(recipeForEvent({ seriesSlug: 'sales-mastermind' })).toBe(SALES_MASTERMIND_RECIPE);
     expect(CLARITY_NIGHT_RECIPE.registrationQuestions).toBeUndefined();
     expect(SOCIAL_HIKE_RECIPE.registrationQuestions).toBeUndefined();
+  });
+
+  it('quote consent follows the series, as the server rule does, whatever the flow', () => {
+    expect(quoteConsentWords({ seriesSlug: 'social-hike' }).consent).toBeUndefined();
+    expect(quoteConsentWords({ seriesSlug: 'social-hike' }).consentLine).toBeTruthy();
+    expect(quoteConsentWords({ seriesSlug: null }).consent).toBeTruthy();
+    expect(quoteConsentWords({ seriesSlug: 'sales-mastermind' }).consent).toBeTruthy();
   });
 
   it('no surface calls recipeFor( directly', () => {

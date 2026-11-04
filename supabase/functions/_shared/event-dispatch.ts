@@ -26,6 +26,7 @@ import {
   type ReminderPrep,
   type SupabaseClient,
 } from './email-helpers.ts';
+import { choseToObserve, withSeriesBlock } from './series-email-block.ts';
 import { mintEmailLink } from './event-links.ts';
 import { claimMessage, writeBackMessage } from './rsvp-message-ids.ts';
 
@@ -157,7 +158,8 @@ export async function dispatchReminder(
       if (prep !== 'complete') prepareUrl = await mintEmailLink(supabase, rsvp.id, 'prepare', event);
     }
   }
-  const reminder = buildReminder(event, profileData?.name, { prep, prepareUrl });
+  // P1529: the series block; an observer gets no laptop line. Other series: byte-identical.
+  const reminder = withSeriesBlock(buildReminder(event, profileData?.name, { prep, prepareUrl }), event, { observer: await choseToObserve(supabase, rsvp.event_id, profileId) });
   const messageId = await sendEmail({ to: email, ...reminder, deliverAt });
 
   // Write the real id over OUR claim only (PENDING + our token). If handleUpdate reset the row

@@ -84,7 +84,7 @@ async function runFeedbackBackfill(
       reminder_attempted_at, feedback_attempted_at,
       mailgun_message_ids,
       profiles(email, name),
-      events!inner(id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled)
+      events!inner(id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled, series_slug, flow)
     `)
     .eq('event_id', eventId)
     .neq('events.status', 'cancelled')
@@ -148,7 +148,7 @@ async function runDispatch(supabase: SupabaseClient): Promise<{ dispatched: numb
       reminder_attempted_at, feedback_attempted_at,
       mailgun_message_ids,
       profiles(email, name),
-      events!inner(id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled)
+      events!inner(id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled, series_slug, flow)
     `)
     .neq('events.status', 'cancelled')
     .or(

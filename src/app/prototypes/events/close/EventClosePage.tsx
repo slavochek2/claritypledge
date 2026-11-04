@@ -56,7 +56,7 @@ import {
 } from '@/app/data/event-close-service';
 import type { EventAttendee, EventWithHost, PointWithUserPosition } from '@/app/types';
 import { CMP7_TAG } from '../prep/prep-plan';
-import { feedbackAlwaysOpen, recipeForEvent, resolveCloseSteps, type ResolvedCloseStep, type SeriesRecipe } from '../series-recipes';
+import { feedbackAlwaysOpen, quoteConsentWords, recipeForEvent, resolveCloseSteps, type ResolvedCloseStep, type SeriesRecipe } from '../series-recipes';
 /** The three statements about opting in (P1055's triad), asked after the seven. */
 const CMP3_TAG = 'cmp3';
 import { EventBox, GroupChatOffer, JoinOffer, SocialProof } from '../prep/PrepPieces';
@@ -196,6 +196,7 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
   // The intro's Back: a POP when the event page (or the room) opened this, so the event's own Back does not land
   // here again; a cold arrival (the QR code: /close is the only entry) goes to the event, replaced.
   const recipe = recipeForEvent(event);
+  const appreciate = quoteConsentWords(event); // P1529: the server's consent rule follows the series
   // Founder 2026-10-26: a hike's feedback is open before the hike; opened before its start, the score step says so.
   const beforeHikeStart = feedbackAlwaysOpen(event) && Date.now() < new Date(event.datetime).getTime();
   // P1542 VQA round 4 (founder: the app menu on every page): a hike's feedback steps keep the app menu.
@@ -389,7 +390,7 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
     try { sessionStorage.setItem(stepKey, step); } catch { /* best effort */ }
   }, [step, stepKey]);
   // A series with the box (Clarity Night) runs it; one where writing is the consent (a hike) has no box to run.
-  const hasQuoteBox = !!recipe.appreciate.consent;
+  const hasQuoteBox = !!appreciate.consent;
   const consent = useQuoteConsent(event.id, initial.quoteOk, step, hasQuoteBox);
   // Visual review round 5: arrived from the learning the Join started, the terms are step 2 of joining.
   // Round 5c (C): only the learning's own finish marks this (route state), so the step count is shown only to someone
@@ -773,21 +774,21 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
 
         {step === 'appreciate' && (
           textAsk({
-              question: recipe.appreciate.question,
+              question: appreciate.question,
               text: liked,
               setText: setLiked,
-              placeholder: recipe.appreciate.placeholder,
-              helper: recipe.appreciate.helper,
+              placeholder: appreciate.placeholder,
+              helper: appreciate.helper,
               skipLabel: 'Continue without sharing',
               from: 'appreciate',
-              optional: recipe.appreciate.optional,
+              optional: appreciate.optional,
               extra: hasQuoteBox ? (
                 <label className="flex min-h-11 items-center gap-2 text-sm text-foreground" data-testid="quote-ok">
                   <input type="checkbox" checked={consent.quoteOk} onChange={(e) => consent.toggle(e.target.checked)} className="h-4 w-4 accent-blue-600" />
-                  {recipe.appreciate.consent}
+                  {appreciate.consent}
                 </label>
-              ) : recipe.appreciate.consentLine ? (
-                <p className="text-sm text-muted-foreground" data-testid="quote-consent-line">{recipe.appreciate.consentLine}</p>
+              ) : appreciate.consentLine ? (
+                <p className="text-sm text-muted-foreground" data-testid="quote-consent-line">{appreciate.consentLine}</p>
               ) : undefined,
             })
         )}

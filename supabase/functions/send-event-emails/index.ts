@@ -13,6 +13,7 @@ import {
   SENT_NO_ID,
   type SupabaseClient,
 } from '../_shared/email-helpers.ts';
+import { choseToObserve, withSeriesBlock } from '../_shared/series-email-block.ts';
 import { mintEmailLink } from '../_shared/event-links.ts';
 import {
   dispatchStartingSoon,
@@ -54,7 +55,7 @@ async function handleRsvpIfRegistered(supabase: SupabaseClient, eventId: string,
 async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: string) {
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled')
+    .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled, series_slug, flow')
     .eq('id', eventId)
     .single();
 
@@ -90,7 +91,8 @@ async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: str
       rsvpId = (rsvpRow?.id as string | undefined) ?? null;
       if (rsvpId) prepareUrl = await mintEmailLink(supabase, rsvpId, 'prepare', event);
     }
-    const confirmation = buildConfirmation(event, profileName, prepareUrl);
+    // P1529: the series block; an observer gets no laptop line. Other series: byte-identical.
+    const confirmation = withSeriesBlock(buildConfirmation(event, profileName, prepareUrl), event, { observer: await choseToObserve(supabase, eventId, userId) });
     const confirmationId = await sendEmail({ to: email, ...confirmation });
     await logEmailSend(supabase, {
       eventId,

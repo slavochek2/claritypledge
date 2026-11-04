@@ -253,6 +253,15 @@ export function recipeForEvent(event: FlowEvent): SeriesRecipe {
   return FLOW_RECIPES[eventFlow(event)];
 }
 
+/**
+ * P1529: quote consent follows the SERIES, not the host's flow, because the server's rule does
+ * (series_quotes_from_close(series_slug): on Social Hike the words are the permission). A hike switched to another flow
+ * still shows "by sharing, you agree", never a box the server would ignore; a series that hands no quotes shows the box.
+ */
+export function quoteConsentWords(event: { seriesSlug?: string | null }): SeriesRecipe['appreciate'] {
+  return event.seriesSlug === 'social-hike' ? SOCIAL_HIKE_RECIPE.appreciate : CLARITY_NIGHT_RECIPE.appreciate;
+}
+
 /** Series-key lookup, kept for the resolver's tests only. Surfaces read `recipeForEvent`. */
 export function recipeFor(seriesSlug: string | null | undefined): SeriesRecipe {
   return recipeForEvent({ seriesSlug });
