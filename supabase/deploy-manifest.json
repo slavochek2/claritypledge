@@ -21,12 +21,12 @@
       "mirror-reply": "f4471726733602f5930afc82864b73f5a7a140997957e0eee921ee4e406a1cd6",
       "request-letter-response-signin": "e772b711d9984f89d874f3d003fca1835f4afd161b1d006b4a97f96a6629bdbf",
       "send-agreement-emails": "77d97e2722c657c6275d636dd026a1b5f6be9ed49bb795591445953bfa9627c6",
-      "send-event-emails": "663e0947142de2c2298ff5008a21871636807b6513e9ebb16b511aed943e2821",
+      "send-event-emails": "f86e3972df99b619eb6a9ec37b4afe2671f1a0bb39eebf46f39024de894d379b",
       "send-letter-emails": "f97d80b680333f6cee643591bb04d12f1f77a832ebeb437feb02b53956a472d9",
       "transcribe-clip": "82bd8ba8c0213952f704f8a54671d1249f01b2487902cc98ae6bc7e4eaefda15",
       "transcribe-slice": "717e7d7d4f05a3ccaf67e81c20f8d6cd3707dc1ce1a092b361c0628eeb57d516"
     },
-    "functions_deployed_at": "2026-11-03T03:38:35Z",
+    "functions_deployed_at": "2026-11-03T15:05:22Z",
     "migrations": [
       "20250101",
       "20250117",
