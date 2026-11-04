@@ -62,7 +62,7 @@ import {
 import { EventBox, seriesLabel, SocialProof, socialProofLine } from './PrepPieces';
 import { type StatementsCount, ActionRow, Clip, StatementsActions, StepActions, Title, useMeasuredHeight } from './prep-ui';
 import { isAnswered, usePrepState, type PrepState } from './use-prep-state';
-import { defaultRoomStep, feedbackAlwaysOpen, offersPreparation, recipeFor } from '../series-recipes';
+import { defaultRoomStep, feedbackAlwaysOpen, offersPreparation, recipeForEvent } from '../series-recipes';
 import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
 import type { PrepRoomEmbed } from './prep-room-embed';
 import { getMyRoomStatus } from '@/app/data/event-room-service';
@@ -216,13 +216,13 @@ export function PrepFlow({
   const fromRoom = embedded || searchParams.get('from') === 'room';
   const { prep, plan } = state;
   // P1542 founder round 3: a hike's flow is learning about the named community, never "preparing".
-  const { words } = recipeFor(event.seriesSlug).prepare;
+  const { words } = recipeForEvent(event).prepare;
   // P1542 founder UAT round 5: learning opened from the room (its Learn step, or the feedback thank-you's Join) stays
   // INSIDE the room's frame: the app menu, and the room's step bar with Learn as the shown step. Its finish returns to
   // the room's Opt in step, or (then=join) to the group terms on the feedback thank-you.
   const inRoom = fromRoom && !!words;
   const thenJoin = inRoom && !embedded && searchParams.get('then') === 'join';
-  const roomRecipe = recipeFor(event.seriesSlug);
+  const roomRecipe = recipeForEvent(event);
   // Round 6 (G): the room is ONE history entry — moving between its steps (Learn, Opt in, Give feedback) replaces, so
   // Back never returns into the learning, and the event-page marker travels along for "Back to the event".
   const openedByEvent = (location.state as { fromEvent?: boolean } | null)?.fromEvent === true;
@@ -235,12 +235,12 @@ export function PrepFlow({
     else if (thenJoin) navigate(`/events/${event.slug}/close?join=1`, replaceIntoClose(location.state, { joinViaLearning: true }));
     else navigate(`/events/${event.slug}/room`, { replace: true, state: { roomStep, fromEvent: openedByEvent } });
   }, [onRoomStep, thenJoin, navigate, event.slug, openedByEvent, location.state]);
-  const { timeLine } = recipeFor(event.seriesSlug);
+  const { timeLine } = recipeForEvent(event);
   const community = useEventCommunityName(event, !!words);
   const tag = event.statementTag ?? null;
 
   // P1542 decision (A): a hike's finished steps open again from the list at any time, not only once all is finished.
-  const keepFinished = recipeFor(event.seriesSlug).prepare.keepFinished === true;
+  const keepFinished = recipeForEvent(event).prepare.keepFinished === true;
   const resumeScreen = (): Screen => {
     if (prep?.completedAt) return 'end';
     if (!prep?.startedAt) return 'plan';
@@ -410,7 +410,7 @@ export function PrepFlow({
     window.scrollTo(0, 0);
   }, [save, state.withPrincipleIntro, thenJoin, room?.thenJoin, finishInRoom]);
   // Founder UAT round: every step already finished elsewhere → record it and show the end, not an all-ticked list.
-  const autoFinishing = useAutoFinish(event.seriesSlug, prep, screen, plan, stepsDone, go, room);
+  const autoFinishing = useAutoFinish(event, prep, screen, plan, stepsDone, go, room);
 
   // Founder 2026-10-26 (round 8e): finished learning can be gone through again (a refresher, or to show someone).
   // Reopened in the room after finishing, it shows the plan with its ticked steps — the existing agenda — where any
@@ -732,7 +732,7 @@ export function PrepFlow({
           header={
             answer === null ? (
               <h1 className="pt-2 text-center text-2xl font-bold leading-tight text-foreground" data-testid="principle-decision-question">
-                {recipeFor(event.seriesSlug).room.principleQuestion.prepare}
+                {recipeForEvent(event).room.principleQuestion.prepare}
               </h1>
             ) : undefined
           }
@@ -749,7 +749,7 @@ export function PrepFlow({
           // to the principle above without a long name in it.
           aboveRating={<HostAsksLine event={event} />}
           // Round 6c (G): a hike's certificate says "this hike" and balances its lines (Clarity Night keeps its own).
-          certificateKicker={words ? recipeFor(event.seriesSlug).room.principleKicker : undefined}
+          certificateKicker={words ? recipeForEvent(event).room.principleKicker : undefined}
           balancedCertificate={!!words}
         />
       ) : (

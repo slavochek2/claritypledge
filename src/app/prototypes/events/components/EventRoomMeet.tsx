@@ -102,7 +102,7 @@ import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { PrepRoomBanner } from '../prep/PrepRoom';
-import { feedbackAlwaysOpen, defaultRoomStep, recipeFor } from '../series-recipes';
+import { feedbackAlwaysOpen, defaultRoomStep, recipeForEvent } from '../series-recipes';
 import { usePrepState, type PrepState } from '../prep/use-prep-state';
 import { ClarityContentLoader, ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { PrepFlow } from '../prep/EventPrepPage';
@@ -263,21 +263,21 @@ export function EventRoomMeet() {
   // P1562 §2: the room's Back table (to readiness or to the event, past every room entry) — see use-room-back.ts.
   const roomBack = useRoomBack(slug);
   // P1542 (founder 2026-10-23): a hike's bar starts with "Learn" (the learning flow), checked once it is complete.
-  const learnsInBar = !!recipeFor(event?.seriesSlug).room.steps?.learn;
+  const learnsInBar = !!recipeForEvent(event).room.steps?.learn;
   const learnState = usePrepState(learnsInBar && event ? event : null, user?.id);
   // P1542 round 6 (G): a hike's room has one header on every view — the shell's "← Back to the event" — and Back
   // ALWAYS lands on the event page: a pop when the event page opened the room (its Room tab marks the route state,
   // carried through /room and the learning), otherwise a replace with the event. Never "the previous step".
-  const shellBack = !!recipeFor(event?.seriesSlug).room.backToEvent;
+  const shellBack = !!recipeForEvent(event).room.backToEvent;
   // Round 6 (B): finished feedback ends the room's offer and ticks its step.
-  const feedbackRead = useFeedbackFinished(event?.id, granted && !!recipeFor(event?.seriesSlug).roomClose.finished);
+  const feedbackRead = useFeedbackFinished(event?.id, granted && !!recipeForEvent(event).roomClose.finished);
   // P1542 review G2: the feedback finished INSIDE the room counts at once (its thank-you was reached here).
   const [finishedHere, setFinishedHere] = useState(false);
   const feedbackFinished = finishedHere || feedbackRead;
   // Round 6b: the phone's "Today's event" strip would point here — it steps aside inside a hike's room.
   useHideTodaysStripForEvent(event?.slug, shellBack);
   // Round 6c (E): once the feedback is in, a definite non-member is invited to join right here (the thank-you's offer).
-  const offerJoin = shellBack && feedbackFinished === true && !!recipeFor(event?.seriesSlug).joinOffer.named;
+  const offerJoin = shellBack && feedbackFinished === true && !!recipeForEvent(event).joinOffer.named;
   const member = useEventMembership(event, offerJoin, user?.id);
   const community = useEventCommunityName(event, offerJoin);
   const [startFailed, setStartFailed] = useState(false);
@@ -434,7 +434,7 @@ export function EventRoomMeet() {
   // the rounds or the event closed; Table, then Compare, while seated in a round.
   // P1542: a series' room may have no readiness step and no rounds (a hike's), and may open Feedback at the
   // event's start instead of waiting for the host to end the evening.
-  const roomRecipe = recipeFor(event?.seriesSlug);
+  const roomRecipe = recipeForEvent(event);
   const hiddenSteps: RoomStep[] = [
     ...(roomRecipe.room.readiness ? [] : (['ready'] as RoomStep[])),
     ...(roomRecipe.room.rounds ? [] : (['table', 'compare'] as RoomStep[])),
@@ -472,7 +472,7 @@ export function EventRoomMeet() {
     setViewingBack(next === defaultView ? null : next);
   };
   // P1542: the card's words come from the series' recipe (Clarity Night's are the default).
-  const closeCopy = recipeFor(event?.seriesSlug).roomClose;
+  const closeCopy = recipeForEvent(event).roomClose;
   const showPrinciple = viewing === 'principle' && !learning;
   // Walkthrough 9 (founder): Table shows the table only — your answer, Change and who opted in
   // stay on Principle, one tap back.

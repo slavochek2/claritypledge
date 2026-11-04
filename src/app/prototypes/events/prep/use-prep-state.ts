@@ -36,7 +36,7 @@ import {
 import { syncLocalPrepParts } from './prep-local-parts';
 import { shareInFlight } from '@/lib/share-in-flight';
 import { whenVisible } from '../when-visible';
-import { offersPreparation, recipeFor } from '../series-recipes';
+import { offersPreparation, recipeForEvent } from '../series-recipes';
 
 /** StakePage's page size and fetch arguments, so "N points" equals the cards it shows. */
 const TAG_POINTS_LIMIT = 50;
@@ -180,7 +180,7 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
 
   const derived = useMemo(() => {
     const startedAt = prep?.startedAt ?? null;
-    const { steps, keepFinished } = recipeFor(event?.seriesSlug).prepare;
+    const { steps, keepFinished } = recipeForEvent(event).prepare;
     const plan = buildPlan({
       parts,
       startedAt,

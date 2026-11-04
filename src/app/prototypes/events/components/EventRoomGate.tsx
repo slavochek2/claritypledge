@@ -20,7 +20,7 @@ import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { PrepRoomGate, useRoomPrepGate } from '../prep/PrepRoom';
 import { ArrivalQuestion, useArrivalGate } from '../arrival/ArrivalGate';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
-import { recipeFor } from '../series-recipes';
+import { recipeForEvent } from '../series-recipes';
 
 const GATE_HEADING = 'This is for people coming to the event';
 const GATE_BODY =
@@ -108,7 +108,7 @@ export function EventRoomGate() {
   const alreadyTranscribed = !!event && isCapturingForEvent(event.id);
   const returning = self?.readinessValue != null;
   // P1542: a series without a readiness step (hikes) goes straight to the room.
-  const destination = alreadyTranscribed || returning || !recipeFor(event?.seriesSlug).room.readiness ? 'meet' : 'ready';
+  const destination = alreadyTranscribed || returning || !recipeForEvent(event).room.readiness ? 'meet' : 'ready';
   // P1586: the loader beside the redirect keeps the mark on screen through the hop (no blank frame).
   return (
     <>

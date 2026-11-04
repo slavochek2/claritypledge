@@ -14,7 +14,7 @@ import { AddToCalendarMenu } from './AddToCalendarMenu';
 import { PrepConfirm } from '../prep/PrepConfirm';
 import { EventShareRow } from './EventShareRow';
 import { isHikeLayout, parseHikeDetails } from '../hike/hike-utils';
-import { offersPreparation, recipeFor } from '../series-recipes';
+import { offersPreparation, recipeForEvent } from '../series-recipes';
 
 const AUTO_REDIRECT_DELAY_MS = 10000; // 10 seconds
 
@@ -130,7 +130,7 @@ export function RsvpConfirm() {
       <>
         {/* This screen hides the phone bottom bar: it keeps a Back (the shell top bar). */}
         {/* Round 5c (J): a hike's thank-you names where Back goes (it does go to the event). */}
-        {recipeFor(event.seriesSlug).prepare.offer
+        {recipeForEvent(event).prepare.offer
           ? <FocusHeader onBack={backToEvent} label="Back to the event" aria-label="Back to the event" />
           : <FocusHeader onBack={backToEvent} />}
         <PrepConfirm event={event} groupChatUrl={groupChatUrl} />

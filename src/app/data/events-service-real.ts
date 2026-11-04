@@ -12,6 +12,7 @@ import { orgIdOf, readEventOrganizer, readEventOrgFooterNote, readOrganizationBy
 import { hiddenSlugEnding } from './event-hidden-slug';
 import { rsvpToHiddenEvent } from './event-hidden-rsvp';
 import { eventUpdateColumns } from './event-write-columns';
+import { eventFlowFields, type EventFlowRow } from './event-flow-row';
 import { attachRsvpCounts, failListRead, fetchViewerRsvpEventIds, selectPastEventRows, type ListReadOptions } from './event-list-reads';
 
 // `status` is NOT auto-managed (no trigger, no cron — intentional).
@@ -71,7 +72,7 @@ const DEBUG = import.meta.env.DEV;
 const log = (...args: unknown[]) => DEBUG && console.log('[events-service-real]', ...args);
 
 // Database row type with joined host profile
-interface DbEventWithHost {
+interface DbEventWithHost extends EventFlowRow {
   id: string;
   org_id?: string | null; // P1527: `select *` carries it; used to regroup a multi-org read
   slug: string;
@@ -97,7 +98,6 @@ interface DbEventWithHost {
   statement_tag?: string | null;
   research_places?: number | null;
   /** P1403: read-only from the app's side — written by publish-run / service role. */
-  series_slug?: string | null;
   hike_details?: unknown;
   route_geojson?: unknown;
   host: {
@@ -200,7 +200,7 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     statementTag: row.statement_tag ?? undefined,
     researchPlaces: row.research_places ?? 6,
     // P1403: read-only, like bannerMobileUrl — deliberately absent from updateEvent's mapping.
-    seriesSlug: row.series_slug ?? undefined,
+    ...eventFlowFields(row),
     orgId: orgIdOf(row), // P1542 round 10b: the page's own event row carries its group (no extra read)
     hikeDetails: row.hike_details ?? undefined,
     routeGeojson: row.route_geojson ?? undefined,

@@ -14,7 +14,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import type { PrepPatch, PrepStepKey } from '@/app/data/event-prep-service';
-import { recipeFor } from '../series-recipes';
+import { recipeForEvent, type FlowEvent } from '../series-recipes';
 import { whenVisible } from '../when-visible';
 import { mergeDone, type PlanStep } from './prep-plan';
 
@@ -31,7 +31,7 @@ export function useStepsDone(plan: PlanStep[], fromState: PrepStepKey[] | undefi
 /** `screen`: the flow's current screen — it fires only on the step list ('plan', where the learning opens).
  *  `go`: the flow's own move; `go('end', …)` records completion, then shows the end. */
 export function useAutoFinish(
-  seriesSlug: string | null | undefined,
+  event: FlowEvent,
   prep: { completedAt?: string | null; startedAt?: string | null } | null | undefined,
   screen: string,
   plan: readonly string[],
@@ -41,7 +41,7 @@ export function useAutoFinish(
   room?: { active: boolean },
 ): boolean {
   const allDone = plan.length > 0 && plan.every((s) => stepsDone.includes(s as PrepStepKey));
-  const active = recipeFor(seriesSlug).prepare.keepFinished === true && !prep?.completedAt && screen === 'plan' && allDone && room?.active !== false;
+  const active = recipeForEvent(event).prepare.keepFinished === true && !prep?.completedAt && screen === 'plan' && allDone && room?.active !== false;
   const started = useRef(false);
   const [settled, setSettled] = useState(false);
   useEffect(() => {

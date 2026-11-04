@@ -56,7 +56,7 @@ import {
 } from '@/app/data/event-close-service';
 import type { EventAttendee, EventWithHost, PointWithUserPosition } from '@/app/types';
 import { CMP7_TAG } from '../prep/prep-plan';
-import { feedbackAlwaysOpen, recipeFor, resolveCloseSteps, type ResolvedCloseStep } from '../series-recipes';
+import { feedbackAlwaysOpen, recipeForEvent, resolveCloseSteps, type ResolvedCloseStep, type SeriesRecipe } from '../series-recipes';
 /** The three statements about opting in (P1055's triad), asked after the seven. */
 const CMP3_TAG = 'cmp3';
 import { EventBox, GroupChatOffer, JoinOffer, SocialProof } from '../prep/PrepPieces';
@@ -100,7 +100,7 @@ const ASK_NAME: Record<PersonalAsk, string> = {
 };
 const isAsk = (s: Step): s is PersonalAsk => s === 'community' || s === 'connect';
 /** A question step's name in the header (a recipe may rename the score and appreciate steps). */
-const headerTitle = (step: Step, recipe: ReturnType<typeof recipeFor>, split: boolean) =>
+const headerTitle = (step: Step, recipe: SeriesRecipe, split: boolean) =>
   step === 'appreciate' && recipe.appreciate.stepName ? recipe.appreciate.stepName
   : step === 'score' && recipe.scoreStepName ? recipe.scoreStepName
   : step === 'intro' || step === 'end' || step === 'join' || step === 'welcome' ? '' : stepName(step, split);
@@ -195,7 +195,7 @@ export type CloseRoom = {
 export function CloseFlow({ event, initial, viewerId, room }: { event: EventWithHost; initial: CloseState; viewerId: string; room?: CloseRoom }) {
   // The intro's Back: a POP when the event page (or the room) opened this, so the event's own Back does not land
   // here again; a cold arrival (the QR code: /close is the only entry) goes to the event, replaced.
-  const recipe = recipeFor(event.seriesSlug);
+  const recipe = recipeForEvent(event);
   // Founder 2026-10-26: a hike's feedback is open before the hike; opened before its start, the score step says so.
   const beforeHikeStart = feedbackAlwaysOpen(event) && Date.now() < new Date(event.datetime).getTime();
   // P1542 VQA round 4 (founder: the app menu on every page): a hike's feedback steps keep the app menu.

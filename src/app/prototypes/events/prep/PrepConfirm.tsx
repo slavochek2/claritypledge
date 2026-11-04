@@ -16,7 +16,7 @@ import { savePreparation } from '@/app/data/event-prep-service';
 import type { EventWithHost } from '@/app/types';
 import { EventBox, PrepBlock, PrepStatus, RegisteredBlock, seriesLabel, socialProofLine } from './PrepPieces';
 import { usePrepState } from './use-prep-state';
-import { recipeFor } from '../series-recipes';
+import { recipeForEvent } from '../series-recipes';
 import { LearnInvitation } from './PrepRoom';
 import { useDeclareAppMenu } from '@/app/components/layout/app-menu-override';
 import { useHideTodaysStripForEvent } from '@/app/components/layout/app-shell/shell-nav';
@@ -24,7 +24,7 @@ import { useHideTodaysStripForEvent } from '@/app/components/layout/app-shell/sh
 export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; groupChatUrl: string | null }) {
   const { user, session } = useAuth();
   const navigate = useNavigate();
-  const recipe = recipeFor(event.seriesSlug);
+  const recipe = recipeForEvent(event);
   // Round 10e: a hike's thank-you never shows the prep status (LearnInvitation reads its own), so it sends no prep reads.
   const state = usePrepState(event, recipe.prepare.offer ? undefined : user?.id);
   const [remindSaving, setRemindSaving] = useState(false);

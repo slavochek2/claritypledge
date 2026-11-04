@@ -12,10 +12,10 @@ import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { JoinOffer } from '../prep/PrepPieces';
 import type { PrepState } from '../prep/use-prep-state';
-import type { recipeFor } from '../series-recipes';
+import type { SeriesRecipe } from '../series-recipes';
 
 type Props = {
-  closeCopy: ReturnType<typeof recipeFor>['roomClose'];
+  closeCopy: SeriesRecipe['roomClose'];
   feedbackFinished: boolean | undefined;
   /** The Join is offered: a finished hike's feedback for a definite non-member whose community name is known. */
   join: { community: string } | null;

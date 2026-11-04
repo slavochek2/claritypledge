@@ -18,7 +18,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/auth';
 import { supabase } from '@/lib/supabase';
-import { recipeFor } from '@/app/prototypes/events/series-recipes';
+import { recipeForEvent } from '@/app/prototypes/events/series-recipes';
 
 export interface TonightsEvent {
   slug: string;
@@ -28,6 +28,7 @@ export interface TonightsEvent {
   preparationEnabled: boolean;
   /** The series key (`events.series_slug`); its recipe says whether the event runs a room flow. */
   seriesSlug?: string | null;
+  flow?: string | null;
   /** P1433: true when the person can enter the room (their own RSVP, or they host it); false for the public in-window pick. */
   registered?: boolean;
 }
@@ -41,6 +42,7 @@ interface CandidateEvent {
   duration_minutes?: number | null;
   preparation_enabled?: boolean | null;
   series_slug?: string | null;
+  flow?: string | null;
 }
 
 /** Calendar date (YYYY-MM-DD) of `instant` in `timeZone`; falls back to UTC on a bad zone. */
@@ -72,6 +74,7 @@ export function pickTonightsEvent(events: CandidateEvent[], now: Date): Tonights
         durationMinutes: e.duration_minutes ?? null,
         preparationEnabled: !!e.preparation_enabled,
         seriesSlug: e.series_slug ?? null,
+        flow: e.flow ?? null,
       }
     : null;
 }
@@ -113,7 +116,7 @@ export function tonightsEventHref(event: TonightsEvent, now: Date = new Date()):
   const page = `/events/${event.slug}`;
   // Founder, solo test 2026-11-02: a REGISTERED person goes to the room while the window is on, preparation or not
   // (the room gate never blocks on an optional preparation). The public pick stays prep-enabled only.
-  const hasRoom = event.preparationEnabled || (event.registered === true && recipeFor(event.seriesSlug).room.rounds);
+  const hasRoom = event.preparationEnabled || (event.registered === true && recipeForEvent(event).room.rounds);
   return hasRoom && todaysEventWindowOpen(event, now) ? `${page}/room` : page;
 }
 
@@ -149,6 +152,7 @@ export function pickWindowEvent(events: CandidateEvent[], now: Date): TonightsEv
         durationMinutes: e.duration_minutes ?? null,
         preparationEnabled: true,
         seriesSlug: e.series_slug ?? null,
+        flow: e.flow ?? null,
         registered: false,
       }
     : null;
@@ -164,7 +168,7 @@ export function __resetTonightsEventCacheForTest(): void {
   publicCache = null;
 }
 
-const EVENT_COLUMNS = 'slug, title, datetime, timezone, status, duration_minutes, preparation_enabled, series_slug';
+const EVENT_COLUMNS = 'slug, title, flow, datetime, timezone, status, duration_minutes, preparation_enabled, series_slug';
 
 /**
  * P1433: prep-enabled events that could be in their window around now. `events` is publicly

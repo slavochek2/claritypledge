@@ -38,7 +38,7 @@ import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { RoomSteps } from '../rounds/RoomSteps';
-import { recipeFor } from '../series-recipes';
+import { recipeForEvent } from '../series-recipes';
 import { useBackToEvent } from '../use-back-to-event';
 import { readRoomNav } from './use-room-back';
 import { RoomHeadCapture, RoomHeadRow, RoomStickyHead } from './RoomChrome';
@@ -120,7 +120,7 @@ export function EventRoomReady() {
     : false;
   // P1586: the redirect lands in an effect, so the loader holds the frame until it does.
   // P1542: a series without a readiness step (hikes) never shows this screen; the redirect carries `fromEvent`.
-  if (isFrozen || (event && !recipeFor(event.seriesSlug).room.readiness)) {
+  if (isFrozen || (event && !recipeForEvent(event).room.readiness)) {
     return (
       <>
         <Navigate to={`/events/${slug}/meet`} replace state={fromEvent ? { fromEvent } : undefined} />

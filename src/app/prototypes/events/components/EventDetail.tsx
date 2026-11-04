@@ -50,7 +50,7 @@ import { HikeOrganizerLine, HikeStatsStrip, PastHikePhotos, SeriesReviews, HikeR
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { GroupChatQuietLink } from '../prep/PrepPieces';
-import { recipeFor } from '../series-recipes';
+import { recipeForEvent } from '../series-recipes';
 import { classifyGroupChat } from '../group-chat-utils';
 import { openedChatLabel, useGroupChatOpened } from '../use-group-chat-opened';
 import { showsTopicVote } from '../topic-vote';
@@ -411,7 +411,7 @@ export function EventDetail() {
 
   // P1542 round 6 (decision 43): a hike's group chat stands down once this person opened it — the quiet "Open WhatsApp
   // group" link until the event has ended, then nothing. Clarity Night's block is unchanged (smartOffers false).
-  const smartChat = !!event && recipeFor(event.seriesSlug).smartOffers;
+  const smartChat = !!event && recipeForEvent(event).smartOffers;
   const chatOpen = useGroupChatOpened(event?.id, smartChat ? groupChatUrl : null, user?.id);
 
   // P1586: nothing of the page is drawn yet, so the one page loader.

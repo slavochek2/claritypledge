@@ -19,7 +19,7 @@ import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { EventRoomGateScreen } from '../components/EventRoomGate';
 import { useEventRoomAccess } from '../components/EventRoomAccess';
 import { mapsUrl, meetLine, onTimeLine, venueName } from './arrival-text';
-import { recipeFor } from '../series-recipes';
+import { recipeForEvent } from '../series-recipes';
 import { parseHikeDetails } from '../hike/hike-utils';
 import { isSessionMismatch } from '@/lib/session-guard';
 import { useSignInAgain } from '@/app/hooks/useSignInAgain';
@@ -97,7 +97,7 @@ export function EventArrivingPage() {
           </a>
         )}
       </div>
-      <p className="text-sm text-foreground" data-testid="arriving-on-time">{recipeFor(event.seriesSlug).timeLine === 'meet'
+      <p className="text-sm text-foreground" data-testid="arriving-on-time">{recipeForEvent(event).timeLine === 'meet'
         ? meetLine(event.datetime, parseHikeDetails(event.hikeDetails)?.meetName ?? venue)
         : onTimeLine(event.datetime)}</p>
       <div className="flex w-full flex-col items-center gap-1">

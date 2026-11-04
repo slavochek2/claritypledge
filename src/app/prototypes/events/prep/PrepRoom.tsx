@@ -18,7 +18,7 @@ import type { EventWithHost } from '@/app/types';
 import { PrepStatus } from './PrepPieces';
 import { PrepBannerSkeleton } from './PrepBannerSkeleton';
 import { usePrepState } from './use-prep-state';
-import { gatesRoomOnPreparation, offersPreparation, recipeFor } from '../series-recipes';
+import { gatesRoomOnPreparation, offersPreparation, recipeForEvent } from '../series-recipes';
 import { MEMBERSHIP_READ_TIMEOUT_MS, useEventCommunity, useEventCommunityName, useEventMembership } from '../use-event-community';
 import { whenVisible } from '../when-visible';
 import { cn } from '@/lib/utils';
@@ -124,7 +124,7 @@ export function PrepRoomBanner({ event, source = 'room', centered = false }: {
   // prepared (review 2026-10-01).
   const applies = !!(offersPreparation(event) && !isHost && viewerId && !offline);
   const state = usePrepState(applies ? event : null, viewerId ?? undefined);
-  const offer = event ? recipeFor(event.seriesSlug).prepare.offer : null;
+  const offer = event ? recipeForEvent(event).prepare.offer : null;
   // Founder round 3: the link names the community (the event's organising group).
   const community = useEventCommunityName(event, applies && !!offer);
   if (!applies || !event || state.error) return null;
@@ -237,7 +237,7 @@ export function LearnInvitation({ event, className }: { event: EventWithHost; cl
   const { offline } = useConnectivity();
   const navigate = useNavigate();
   const isHost = !!(viewerId && event.hostId === viewerId);
-  const offer = recipeFor(event.seriesSlug).prepare.offer;
+  const offer = recipeForEvent(event).prepare.offer;
   const applies = !!(offer && offersPreparation(event) && !isHost && viewerId && !offline);
   // Round 10b (2a): the session is still being restored — who this is is not known yet, so the card's place shows the
   // placeholder. A signed-out visitor (session checked, no viewer) gets nothing, never a placeholder that stays.

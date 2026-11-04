@@ -83,7 +83,13 @@ export interface SeriesRecipe {
   /** The start-time line: "We start at 18:30 sharp." or, for a hike, "We meet at 13:22 at <meeting point>." */
   timeLine: 'start-sharp' | 'meet';
   /** What the attendee's event room has. A hike room is the principle opt-in, the roster, the optional preparation and Feedback. */
+  /** P1529 D16: registering asks its questions before the seat. Absent = one tap, as today. */
+  registrationQuestions?: boolean;
+  /** P1529: tables are about one canvas; seating, round words and host screen follow the mastermind's rules. */
+  mastermind?: boolean;
   room: {
+    /** P1529: false = no Close step in the room (the exit card is on paper). Absent = the room has one. */
+    closeInApp?: boolean;
     /** The "how up for thinking are you" step before the room (and the Ready step in the bar). */
     readiness: boolean;
     /** The rounds: Table and Compare. */
@@ -208,12 +214,48 @@ export const SOCIAL_HIKE_RECIPE: SeriesRecipe = {
   },
 };
 
-const RECIPES: Record<string, SeriesRecipe> = {
-  'social-hike': SOCIAL_HIKE_RECIPE,
+/**
+ * P1529: the sales mastermind. Preparation is the learning, optional at the room's door so nobody without a
+ * canvas is turned away (D5, D20). The room is Principle · Table; no statement Compare, no Ready, no close in
+ * the app for session 1 (the exit card is on paper). Registration asks its questions before the seat (D16).
+ */
+export const SALES_MASTERMIND_RECIPE: SeriesRecipe = {
+  ...CLARITY_NIGHT_RECIPE,
+  prepare: { ...CLARITY_NIGHT_RECIPE.prepare, steps: ['story', 'principle', 'cmp7'], optional: true, keepFinished: true },
+  room: { ...CLARITY_NIGHT_RECIPE.room, readiness: false, closeInApp: false },
+  registrationQuestions: true,
+  mastermind: true,
 };
 
+export const EVENT_FLOWS = ['clarity-night', 'social-hike', 'sales-mastermind'] as const;
+export type EventFlow = (typeof EVENT_FLOWS)[number];
+
+const FLOW_RECIPES: Record<EventFlow, SeriesRecipe> = {
+  'clarity-night': CLARITY_NIGHT_RECIPE,
+  'social-hike': SOCIAL_HIKE_RECIPE,
+  'sales-mastermind': SALES_MASTERMIND_RECIPE,
+};
+
+/** The fields the one resolver reads. `flow` is the host's choice; the series decides otherwise. */
+export type FlowEvent = { flow?: string | null; seriesSlug?: string | null } | null | undefined;
+
+const isFlow = (v: unknown): v is EventFlow => (EVENT_FLOWS as readonly unknown[]).includes(v);
+
+/** P1529 D8: the event's effective flow. An event with no flow and no known series is Clarity Night. */
+export function eventFlow(event: FlowEvent): EventFlow {
+  if (isFlow(event?.flow)) return event.flow;
+  if (isFlow(event?.seriesSlug)) return event.seriesSlug;
+  return 'clarity-night';
+}
+
+/** The ONE way a surface gets its recipe (P1529 invariant; p1529-flow-resolver.test.ts fails on any other call). */
+export function recipeForEvent(event: FlowEvent): SeriesRecipe {
+  return FLOW_RECIPES[eventFlow(event)];
+}
+
+/** Series-key lookup, kept for the resolver's tests only. Surfaces read `recipeForEvent`. */
 export function recipeFor(seriesSlug: string | null | undefined): SeriesRecipe {
-  return (seriesSlug && RECIPES[seriesSlug]) || CLARITY_NIGHT_RECIPE;
+  return recipeForEvent({ seriesSlug });
 }
 
 export interface CloseConditions {
@@ -241,18 +283,18 @@ export function resolveCloseSteps(recipe: SeriesRecipe, c: CloseConditions): Res
 
 /** Is this event's Feedback open regardless of the clock (a hike's, founder 2026-10-26)? Other recipes keep the host's
  *  "End the evening". Submitting early is fine: the submit time is recorded. */
-export function feedbackAlwaysOpen(event: Pick<Event, 'seriesSlug'> | null | undefined): boolean {
-  return !!event && recipeFor(event.seriesSlug).room.feedbackAlwaysOpen;
+export function feedbackAlwaysOpen(event: Pick<Event, 'seriesSlug' | 'flow'> | null | undefined): boolean {
+  return !!event && recipeForEvent(event).room.feedbackAlwaysOpen;
 }
 
 /** The room offers the preparation: required by the event's flag, or optional by the series' recipe. */
-export function offersPreparation(event: Pick<Event, 'preparationEnabled' | 'seriesSlug'> | null | undefined): boolean {
-  return !!event && (!!event.preparationEnabled || recipeFor(event.seriesSlug).prepare.optional);
+export function offersPreparation(event: Pick<Event, 'preparationEnabled' | 'seriesSlug' | 'flow'> | null | undefined): boolean {
+  return !!event && (!!event.preparationEnabled || recipeForEvent(event).prepare.optional);
 }
 
 /** The room stops people at the preparation gate only when it is required, never when the recipe makes it optional. */
-export function gatesRoomOnPreparation(event: Pick<Event, 'preparationEnabled' | 'seriesSlug'> | null | undefined): boolean {
-  return !!event?.preparationEnabled && !recipeFor(event.seriesSlug).prepare.optional;
+export function gatesRoomOnPreparation(event: Pick<Event, 'preparationEnabled' | 'seriesSlug' | 'flow'> | null | undefined): boolean {
+  return !!event?.preparationEnabled && !recipeForEvent(event).prepare.optional;
 }
 
 /** How long before the planned end a hike room starts opening on "Give feedback" (founder 2026-10-23). */
