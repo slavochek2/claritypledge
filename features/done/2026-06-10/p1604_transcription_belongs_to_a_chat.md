@@ -1,16 +1,16 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 88
 workstream: transcription
 created_date: '2026-11-03'
 tags: [transcription, clarity-chat, events]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-11-04
 ---
 
 # P1604: Transcription belongs to a chat
@@ -136,4 +136,4 @@ Fill before /dev, from the P1596 budget. Expected direction: removing the older 
 
 ## Related
 
-- [P1596](done/2026-06-10/p1596_event_transcripts_one_speaker_per_sentence.md), [P1592](done/2026-06-10/p1592_event_transcripts_land_in_round_threads.md), [P1601](p1601_one_phone_several_speakers.md), [P1461](p1461_clarity_chat_channel_members_settings.md)
+- [P1596](p1596_event_transcripts_one_speaker_per_sentence.md), [P1592](p1592_event_transcripts_land_in_round_threads.md), [P1601](../../p1601_one_phone_several_speakers.md), [P1461](../../p1461_clarity_chat_channel_members_settings.md)
