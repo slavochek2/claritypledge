@@ -12,10 +12,9 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
-blocked_by: [p1536, p1592]
 ---
 
-# P1529: The sales mastermind's own event room and host flow
+# P1529: The sales mastermind's own registration, event room and host flow
 
 ## Problem
 
@@ -28,8 +27,8 @@ half time. A round has an observer phase (`observer_s`). Starting a round needs 
 the next one or ends the rounds (P1592, citing P1337). Prepare, room and close steps come from a
 per-series recipe (P1542, shipped), chosen by `recipeFor(seriesSlug)` at 28 call sites outside tests.
 
-**Complication:** The sales mastermind (`docs/goals.md` 3a; session 1 around 2026-11-10, session 2
-online two weeks later) runs a different loop on each attendee's Clarity Canvas
+**Complication:** The sales mastermind (`docs/goals.md` 3a; session 1 targeted 2026-11-14 at 18:30, after a week
+of promotion that starts once this ships; session 2 online two weeks later) runs a different loop on each attendee's Clarity Canvas
 (`docs/events/sales-mastermind.md`, rewritten 2026-10-30). Run on today's room, attendees do not know
 whose canvas a table is about, the half-time swap moves to the other canvas instead of to the
 challenge, people without a canvas have no place, and the Clarity Canvas owner has no in-event way to
@@ -89,6 +88,14 @@ the flow off returns an event to Clarity Night's flow.
 | D11 | **No hand-made fallback** for canvas drafting or new versions. |
 | D12 | **Words:** Clarity Canvas owner, their partner, observer. Never bare "owner" in attendee copy; never "reader". |
 | D13 | **Partners' and observers' words feed the Clarity Canvas owner's next draft.** This overrides P1536's invariant clause "A partner's reasons reach a canvas only through the partner-approved story request (P1574)" for the in-event update only. The canvas still never quotes or names another person. The terms and the recording consent gain, before session 1: "In a discussion round, what you say can be used by that round's Clarity Canvas owner's AI mirror to draft their next version." |
+| D15 | **(2026-11-04) One start time, optional help before it.** The advertised start is the event's start. Doors open 30 minutes earlier for anyone who wants help making their Clarity Canvas. Prepared people get 2.5 hours, and nobody waits for anyone else. Chosen over a 3-hour evening for everyone, two arrival times, and requiring a canvas with no help. |
+| D16 | **(2026-11-04) Registration asks its questions before the seat, for this flow only.** This does not change P1336's one-tap registration for Clarity Night or Social Hike. P1336 recorded no reason for rejecting a question step. Here, the recording condition must be accepted before a seat exists (the 2026-10-21 condition of attendance), and the answers are the host's count of canvases, door help and mics. |
+| D17 | **(2026-11-04) A first canvas can join at the start of any round.** Once it is shared, the host screen marks the person ready and the host adds them as an owner if the room's balance allows. Swapping a canvas already chosen still stops at round 1. This rule is not on the event page; the event room tells that person once they have published. |
+| D18 | **(2026-11-04) Limit by registrations: 24.** `max_attendees` counts registrations (20 USB-C and 5 Lightning mics exist). No waitlist build: when full, the page tells people to message the host, who raises the limit by hand. The registration step asks people to cancel if they can't come. The event page shows a small "N places left" at 5 or fewer, no bar. |
+| D19 | **(2026-11-04) The lower number decides.** Partner and owner each say a number; the lower one counts. Above 8, the partner may challenge. If it falls to 8 or below, they return to understanding. The pair and the observer keep this; the app does not. Amends D3. |
+| D20 | **(2026-11-04) Everyone does the learning.** The principle, the opt-in or opt-out and the value survey, as on the hike; observers do these and skip the canvas. Without them a person still takes part, as with late arrivals at Clarity Night: the host sees who has not done them. |
+| D21 | **(2026-11-04) Recording: refusing rules you out; missing hardware does not.** Accepting recording is required for a seat. Everyone wears a mic, observers too. Someone whose hardware fails or who has none stays at the table; that table may have no new version. |
+| D22 | **(2026-11-04) Nothing about helpers in registration.** The founder asks people he knows, depending on who comes. A person walking between tables cannot take part, so that role is a briefed co-facilitator, not a registration option. |
 | D14 | **The partner marks the boxes they'd bet against on the canvas itself**, with the canvas's existing position controls, during the silent reading; the canvas's existing Compare view then shows where they differ. The canvas page is theirs to use throughout the round; nothing new is built for marking. ("the Clarity Canvas has the compare feature already … if I look at the canvas I can click on anything and set my position.") |
 
 ## Invariants
@@ -96,14 +103,18 @@ the flow off returns an event to Clarity Night's flow.
 - **Clarity Night and Social Hike are unchanged.** An event whose flow is not Sales Mastermind
   renders, seats, titles its round threads and records exactly as today; their existing tests pass
   unchanged. An event with no series and no flow gets Clarity Night's flow.
+- **No seat without the answers (D16).** For a flow with registration questions, the server refuses a
+  registration without the required answers and the recording acceptance, on every path that creates
+  one: the page, sign-up with `action=rsvp`, the hidden-event link and any direct insert. Flows without
+  questions register exactly as today.
 - **One flow resolver.** Every surface that today calls `recipeFor(seriesSlug)` reads the event's
   effective flow through one function; a test fails if `recipeFor(` is called anywhere else. The flow
   selects the whole recipe: prepare, room and close.
 - **The event room never stands between two people talking.** During a round, the event room screen
   shows who they are with, their role, the rule reminder and a link to the canvas, and asks for nothing.
   The canvas page itself (positions, Compare) is the partner's and owner's to use at any time (D14).
-- **The flow and "your canvas for this event" are fixed once round 1 starts.** The server refuses a
-  change after that. "Round 1" means the first counted round everywhere, client and server (a host's
+- **The flow, and any canvas already chosen for this event, are fixed once round 1 starts.** The server
+  refuses a change after that. A person with no canvas yet may add a first one at any time (D17). "Round 1" means the first counted round everywhere, client and server (a host's
   Demo round is not counted, `round-numbering.ts`).
 - **One canvas per attendee per event.** Replacing it before round 1 is one server transaction
   (unshare the old, share the new, set the selection), serialised against round 1 starting.
@@ -122,6 +133,41 @@ the flow off returns an event to Clarity Night's flow.
 
 ## Solution
 
+### 0. Registering (D16, D18, D15)
+
+Tapping Register in this flow opens one step, then the seat is given. Series without questions stay one
+tap, and any series can later declare questions through its recipe. Someone who must sign up first
+returns to this step, and is not registered automatically. Register is always tappable and names what
+is missing (a disabled button is a dead control, P955).
+
+Draft wording, `[FOUNDER DECISION: final copy]`:
+
+1. **How do you want to take part?** (required; changeable later in preparation)
+   - Get my business challenged by peers. I'll make my Clarity Canvas before the event.
+   - Get my business challenged by peers. I'll come 30 minutes earlier, at {doors time}, and make it there.
+   - Observe: practise listening and give feedback. No Clarity Canvas needed.
+2. **Which phone will you bring? We use it to record your conversations.** (required) USB-C · iPhone
+   Lightning · Other. Other shows: "Please bring a headset or microphone that fits your phone."
+3. **Checkbox** (required): "I'm fine with my conversations being transcribed and used by AI at this event."
+4. **What do you hope to get from this event?** (optional, one line)
+5. A line above Register: "Places are limited. If you can't come, please cancel so someone else can have
+   your place."
+
+Business stage is not asked: the canvas shows it, and nothing at the event would use the answer.
+
+The phone answer feeds the host's existing mic marks (`PrepMarks`), and the prep's research-volunteer mic
+step does not appear in this flow. The answers are readable by the person and the host only, and are
+removed with the person's data. The hope line is read by hand after the event.
+
+**Confirmation and reminder emails.** They gain one per-series block, empty for every other series
+(`supabase/functions/_shared/email-helpers.ts` has none today). For the mastermind: `[FOUNDER DECISION:
+copy]` bring your phone; bring a laptop if making your Clarity Canvas at the event; doors at {doors time};
+places are limited, so cancel if you can't come. People who chose the observer option do not get the
+laptop line. Clarity Night and Social Hike emails stay byte-identical.
+
+**Full.** The existing "Event Full" state gains, in this flow, a line to message the host
+`[FOUNDER DECISION: which channel]`.
+
 ### 1. The flow belongs to the event, defaulted from its series (D8)
 
 - Each event has a flow: Clarity Night, Social Hike or Sales Mastermind. The default comes from
@@ -135,7 +181,8 @@ the flow off returns an event to Clarity Night's flow.
 - **Switching keeps data.** Per-attendee canvas selections and observer overrides stay stored when the
   host switches away, and apply again if the host switches back or undoes.
 - **The mastermind recipe:** preparation is optional for observers, so the preparation gate never
-  blocks someone without a canvas (`gatesRoomOnPreparation`, `series-recipes.ts:252`). The room's step
+  blocks someone without a canvas (`gatesRoomOnPreparation`, `series-recipes.ts:252`). Learning stays expected of everyone (D20), and
+  `preparation_enabled` is on for these events. The room's step
   bar is Principle · Table (no Ready, no statement Compare). No close in the app for session 1: the exit
   card is on paper (run-of-show).
 
@@ -145,7 +192,7 @@ the flow off returns an event to Clarity Night's flow.
 
 The mastermind's preparation (P1402 pages via the recipe):
 
-1. The evening's communication norm (existing step).
+1. The learning, for everyone: principle with opt-in or opt-out, then the value survey (the hike's steps, D20).
 2. **Your canvas**, each step its own tap:
    - **Pick one you already have**, if you have a published canvas, or **draft it with your mirror**
      (opens P1536's canvas workspace; Back returns to this step).
@@ -165,7 +212,10 @@ The mastermind's preparation (P1402 pages via the recipe):
 - **Host override:** an Observer switch per person on the host screen. Flipping someone to participant
   is allowed only if they have a published canvas shared with this event; otherwise the switch says
   what is missing. A person whose canvas arrives before round 1 starts becomes a participant on their
-  own.
+  own. After that, the host adds them from the host screen at the start of any round (D17); it is shown
+  as a ready mark, never automatic. Having chosen observer at registration does not bind anyone: the
+  preparation always offers a quiet way to make a canvas. Once they publish, the event room says:
+  `[FOUNDER DECISION: copy]` "You're ready. The host can add you to a coming round."
 - Canvas holders observe for one round when the numbers force it (§4). They get a real seat with role
   `observer` at a table, never "sitting out" (P1592 posts a sitting-out person's words to the event
   channel, not to the round thread).
@@ -190,8 +240,8 @@ The existing preview, Shuffle and "Tap two names to swap them" stay. Pairing by 
 in this spec. Clarity Night controls with no meaning here (topic per round, disagreement gap, recorders
 together) are hidden in this flow.
 
-`/dev` builds the seating as a pure, unit-tested function. Fixtures: 5 to 12 canvas holders, odd and
-even, 0 to 6 observers, someone leaving mid-session, session 2 against session 1's history; for every
+`/dev` builds the seating as a pure, unit-tested function. Fixtures: 5 to 16 canvas holders, odd and
+even, 0 to 6 observers, someone leaving mid-session, someone added as an owner at round 2, 3 or 4, session 2 against session 1's history; for every
 infeasible fixture, the expected output names the broken rule.
 
 ### 5. A round, as people see it (D1, D3, D14)
@@ -207,7 +257,9 @@ The event room screen shows each seated person, and asks nothing:
 On the canvas page, their partner marks the boxes they would bet against with the existing position
 controls during the silent reading, and the pair can use Compare to see where they differ (D14).
 
-The half-time speaker swap does not apply in this flow. The round's observer time is the observer's
+The half-time speaker swap does not apply in this flow: each pair moves between understanding and
+challenge by the lower number (D19). The host ends each round with the hands-up ritual, and the projector
+shows the round, the clock, who sits where and one fixed rule line; it never shows a pair's phase. The round's observer time is the observer's
 feedback (about two minutes). Reusing the `first`/`second`/`observer` roles is `/dev`'s call.
 
 `[FOUNDER DECISION: the three role lines and the rule reminders.]`
@@ -240,6 +292,12 @@ feedback (about two minutes). Reusing the `first`/`second`/`observer` roles is `
 
 - Before round 1: the flow row (§1) and the observer overrides (§3).
 - Per table during a round: owner, partner, observers.
+- **Is each person's recording really working?** Today's red dot means only that a recording session is
+  open (`get_event_transcribing_now`), so a dead mic can look fine; Clarity Night 2's in-app attempts
+  produced 0 words. Replace it, in this flow, with three states per person: off · on, no words yet · words
+  arriving. Each table with nobody's words stands out. The host walks over and fixes it. `/dev` measures how
+  soon words can show and records it here. No separate helper view for session 1.
+- A ready mark on anyone whose canvas is shared and who is not yet seated as an owner (D17).
 - **A canvas-update step**, started by the host after round 2, stored as its own state so talk during it
   is not mistaken for round 2. It shows each owner's update state (not tapped · drafting · ready ·
   failed · published). The host starts round 3 when ready, and may start it with some owners still on
@@ -280,6 +338,8 @@ A founder-only results script (same pattern as `scripts/event-close-results.sh`)
 
 **Non-Goals**
 - Do NOT add sliders, scores, an "allow challenge" control or any phase tracking to the round (D3).
+- Do NOT build a waitlist, a fullness bar, or helper recruitment in registration (D18, D22).
+- Do NOT ask about business stage at registration.
 - Do NOT build anything new for marking boxes; the canvas's position controls and Compare serve (D14).
 - Do NOT change Clarity Night's or Social Hike's room, host screen, seating, titles or close.
 - Do NOT pair by canvas content.
@@ -287,7 +347,7 @@ A founder-only results script (same pattern as `scripts/event-close-results.sh`)
 - Do NOT build the homework path outside the event (P1500), the drafting engine, Publish or stances on
   drafts (P1536), or round threads (P1592), beyond the title change in §8.
 - Do NOT publish, share or start a draft without the owner's tap.
-- Do NOT allow switching the flow, or the event's canvas, after round 1 starts.
+- Do NOT allow switching the flow, or swapping a chosen canvas, after round 1 starts.
 
 ## Cost Budget
 
@@ -310,6 +370,19 @@ The binding limit is P1536 D18's shared canvas bucket.
 
 Checked on TEST with a Sales Mastermind event, the host, six attendees with canvases and two without,
 then repeated with five with canvases.
+
+- [ ] Tapping Register in the mastermind flow opens the step; the seat exists only after the required
+      answers and the recording acceptance; a new user returning from sign-up sees the step; a direct
+      call without answers is refused. Clarity Night and Social Hike still register in one tap.
+- [ ] Choosing "Other" shows the bring-your-own line; the phone answer shows on the host's marks.
+- [ ] At 24 registrations the page shows Event Full with the message-the-host line; at 5 or fewer left it
+      shows "N places left"; cancelling frees a place.
+- [ ] Mastermind confirmation and reminder emails carry the block, without the laptop line for an observer;
+      Clarity Night and Social Hike email output is unchanged (test on the rendered text).
+- [ ] The host sees off · on, no words · words arriving per person, checked with a real mic and one
+      muted or dead mic; a table with no words stands out.
+- [ ] Someone publishing a first canvas after round 1 sees the ready line, the host sees the mark, adds them
+      at the next round, and they are seated as an owner; swapping an already-chosen canvas is still refused.
 
 - [ ] An event in the `sales-mastermind` series opens the mastermind flow; a Clarity Night event and a
       Social Hike event open exactly as before, including their round thread titles (screenshots and
@@ -342,6 +415,7 @@ then repeated with five with canvases.
 
 - [ ] All Acceptance Criteria ticked with evidence (screenshots at 375px, 320px and desktop, plus query
       output).
+- [ ] The event page on TEST carries the 2026-11-04 description, 18:30 start, 24 limit and series. `[post-deploy]` same on prod, then promotion starts.
 - [ ] The seating function's fixtures pass, including the expected output for infeasible ones.
 - [ ] The grep test fails if `recipeFor(` is called outside the resolver.
 - [ ] Drafting latency measured on TEST: a 24-minute round thread, 12 runs at once, tap to ready. Result
@@ -361,8 +435,7 @@ then repeated with five with canvases.
 1. **Session 2 is online.** How do pairs talk, and do they use the event room next to a video call?
    Changes whether the round screen needs a "join the call" link and whether lavalier transcription
    works at home. `[FOUNDER DECISION]` Not needed for session 1.
-2. **Do observers wear a lavalier?** Recommended yes: their feedback then reaches the owner's round
-   thread and the next version. `[FOUNDER DECISION]`
+2. ~~Do observers wear a lavalier?~~ Yes (founder, 2026-11-04, D21).
 3. **Which goal 3a signal to keep.** "Their canvas changed between the sessions" now moves almost by
    itself. Candidate replacements: owners mark their stance on most changed boxes; the first spoken
    number on v2 is higher than on v1 in the same evening. `[FOUNDER DECISION]` (goals.md unchanged
@@ -370,7 +443,7 @@ then repeated with five with canvases.
 
 ## Fallback
 
-- **Recording as a condition of a seat (founder, 2026-11-02, P1596 solo test).** Decide: joining a table means recording, so stopping is rare and warned; the host sees who stopped and is told. Also whether the chat shows "being transcribed" during a round, and how an attendee stays in the room while checking the live text.
+- **Recording as a condition of a seat: decided 2026-11-04 (D21, §0, §7).** Still open from the P1596 solo test: whether the chat shows "being transcribed" during a round, and how an attendee stays in the room while checking the live text.
 - **Standalone /transcribe rooms never reach an event chat (P1596 solo test, 2026-11-02).** Only a room entered from the event carries the event; a person who opens a plain /transcribe room during an event records audio that no thread receives. Decide whether event pages should steer them, or the plain room should warn.
 - **Transcript not ready after a round (2026-10-30, from P1596).** If a table's clean transcript is
    late or fails, nothing blocks: the owner does not get a new version that round and the next
@@ -380,6 +453,7 @@ then repeated with five with canvases.
 
 ## Related
 
+- Slides for the evening: separate spec, blocked by this one.
 - Run-of-show: `docs/events/sales-mastermind.md`. Goal: `docs/goals.md` 3a.
 - P1536 canvas drafting, versions, Publish, stances on drafts (D20), on branch
   `feature/p1536-canvas-draft-versions`.

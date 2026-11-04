@@ -15,7 +15,9 @@ talk to listen to.
 
 ## Conditions of attendance
 
-Stated at registration and on the event page, before anyone comes. Not opt-in at the door.
+Stated at registration and on the event page, before anyone comes. Not opt-in at the door. Registration
+asks for acceptance of recording before giving a seat (P1529, founder 2026-11-04). Someone willing whose
+hardware fails or who has none stays; someone unwilling is not invited.
 
 1. **Every conversation is recorded**: everyone wears a lavalier and switches transcription on in the
    event room. The words land in that round's thread in the event channel
@@ -25,11 +27,13 @@ Stated at registration and on the event page, before anyone comes. Not opt-in at
    Canvas owner's AI mirror to draft their next version." The canvas never quotes or names anyone else.
 2. **The meeting principle:** explain back what the other person means, to their score, before you
    disagree.
-3. **Arrive with a canvas shared with this event.** In the event room's preparation, the mirror
+3. **Come with a Clarity Canvas shared with this event, or make it there.** Doors open 30 minutes before
+   the start for anyone who wants help (founder, 2026-11-04). In the event room's preparation, the mirror
    drafts it from your own material (site, deck, posts)
    ([P1536](../../features/p1536_canvas_first_draft_from_owner_material.md)), you publish it, and you
-   share it with the event as its own visible step. You can change which canvas you bring until the
-   event starts; from round 1 it is fixed. No hand-drafted fallback (founder, 2026-10-30).
+   share it with the event as its own visible step. You can change which canvas you bring until
+   round 1 starts. Someone with no canvas yet can still make one, and the host may add them as an owner at
+   the start of any later round (not announced on the page). No hand-drafted fallback (founder, 2026-10-30).
    **Without a canvas you join as an observer** (founder, 2026-10-30), which also welcomes the
    curious and mentors.
 
@@ -65,8 +69,8 @@ cards from Clarity Night. Nothing in the app scores, unlocks or enforces them (f
 the `/live` sliders were hard to follow and people wanted to talk to each other, not to the app).
 
 - One speaker and one listener at a time, never two of either. The cards show who is which.
-- The partner may challenge only after the owner says the partner understands the canvas **above 8
-  out of 10**.
+- Both say a number; **the lower one counts** (founder, 2026-11-04). The partner may challenge only when
+  it is **above 8 out of 10**. If it falls, the pair goes back to understanding.
 - **Say your number out loud** ("I'm at a 7"). The transcript keeps every score, so the evening can be
   measured later from the round threads (P1390), not from the app.
 - The owner can take the speaker card back at any time ("I think you're missing something"). Then the
@@ -99,7 +103,8 @@ with no stance (P1536 D20).
 
 | | Min |
 |---|---|
-| Opener: the roles and rules, the lanyard cards, recording check, one 90-second explain-back demo with a volunteer | 12 |
+| Doors, optional: help making a Clarity Canvas; the learning on phones (before the advertised start) | (30) |
+| Opener: the roles and rules, the lanyard cards, the hands-up signal, recording check, a scripted 3-5 minute live demo with two people from the room, filmed for reuse, no questions | 12 |
 | Seating | 2 |
 | Discussion round 1: half the canvas holders own, half partner | 24 |
 | Seating (new partner) | 2 |
@@ -116,6 +121,9 @@ with no stance (P1536 D20).
 
 Round 1's owners' drafts are ready during round 2; round 2's owners tap as round 2 ends. Everyone
 updates at the same step, so every owner's second partner (rounds 3 and 4) reads the new version.
+
+Each round closes with hands up: the host raises a hand, everyone who sees it does too and stops talking;
+only when the room is quiet does the host confirm the next round, because that moment cuts the transcript.
 
 **Exit card**, three lines: my first impression of one person here · what changed it · will I come
 back. [FOUNDER DECISION: exact wording.]
