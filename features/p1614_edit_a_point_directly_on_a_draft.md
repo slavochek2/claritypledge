@@ -95,13 +95,13 @@ Applies because the migration adds a per-request function and the tests create a
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | 1 Save = 1 RPC + 1 canvas re-read = 2 requests, none on a hidden tab (the re-read waits for visibility; repeats for one draft coalesce into 1) | Saves per hour x 2; an owner editing by hand makes few | Browser walks: (3 + 3 + 1 + 2) = 9 users x (1 create + 1 delete) = 18 auth admin calls, plus ordinary page reads. Integration: 14 tests x 1 owner = 14 users x 2 = 28 calls |
-| Users created / deleted | 0 | 0 | 9 + 14 = 23 created, 23 deleted in `finally` or `afterAll` |
-| Egress | 1 existing canvas read per Save, no new payload | as above | test canvases only; no media |
+| Requests | Measured on TEST, typical canvas of 18 points and 3 stories, one run per width: 1 Save = `canvas_draft_edit_point` + `get_profile_by_slug` + `get_canvas_audience` + `get_canvas` = 4 requests, as a floor since CORS preflights and websocket frames are not counted. A failed or stale Save adds 1 `get_canvas`. None on a hidden tab: the re-read waits for visibility and repeats for one draft coalesce into 1 | Saves per hour x 4 | Browser walks: (3 + 3 + 1 + 2 + 2) = 11 users x (1 create + 1 delete) = 22 auth admin calls, plus ordinary page reads. Integration: 16 tests x 1 owner = 16 users x 2 = 32 calls |
+| Users created / deleted | 0 | 0 | 11 + 16 = 27 created, 27 deleted in `finally` or `afterAll` |
+| Egress | Measured: 1 Save = 100 + 605 + 67 + 14,510 = 15,282 bytes at 1440, with `get_canvas` about 0.8 KB per point; the test server does not compress | Saves per hour x 15,282 bytes | 15 KB x Saves in the walks, on test canvases; no media |
 | Log lines | a refusal is returned, not raised, so 0 from `busy` or `stale_view`; a validation error is 1 line | 0 expected | a few deliberate refusals in integration: up to 1 line each for 3 validation cases and 2 authorization cases = 5 |
 | Gemini | 0 | 0 | 0: runs are stubbed |
 
-1. **Fits the plan limit today?** Yes. Tests run on self-hosted TEST, a Compute Engine VM billed by the hour and not by request (registry, Compute Engine row). On prod, Supabase egress grows by (Saves per user x 1 canvas read) x active users, read against the registry's Supabase row; a hand edit is a rare owner action on a draft, far below the page's normal reads, so it fits.
+1. **Fits the plan limit today?** Yes. Tests run on self-hosted TEST, a Compute Engine VM billed by the hour and not by request (registry, Compute Engine row). On prod, monthly egress grows by Saves per user x 15,282 bytes x active users, read against the registry's Supabase row: 5 GB / 15,282 bytes = about 350,000 Saves a month to use the whole allowance. A hand edit is a rare owner action on a draft, so it fits.
 2. **Fits at 10x?** Yes, for the same reasons.
 3. **Rule 1 (bulk on the server):** cleanup deletes users one call each through the shared helper, as sibling specs do; Auth's admin API deletes one user per call. **Rule 3 (hidden tab):** the re-read waits for a visible tab. **Rule 6:** met by this table.
 
@@ -112,10 +112,12 @@ Applies because the migration adds a per-request function and the tests create a
 - Blank-only text sent by direct RPC, such as a newline, passes the server's trim, as it does for the engine. The app's own check blocks it.
 - A signed-out viewer sees no editor at once; their text is removed when the page unmounts.
 - Typing the original words back drops a stance that was set only on the intermediate point.
+- A card with readers on both sides is sorted first on the board by contest. After an edit the new point has only the owner's stance, so it can sort behind another card and leave the board, reachable through See all. Nothing is lost.
+- After a restore, a later Discard leaves a moved private story on the base point, shown only to the owner.
 
 ## Migration Plan
 
-Two migrations add and then correct the RPC and nothing else, applied to the active TEST server through main's `./scripts/migrate.sh`. Applied to prod by the normal push path.
+Three migrations add and then correct the RPC and nothing else, applied to the active TEST server through main's `./scripts/migrate.sh`. Applied to prod by the normal push path.
 
 ## Rollback Plan
 

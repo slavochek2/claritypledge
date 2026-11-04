@@ -461,4 +461,52 @@ describe('P1614 edit a point on a draft', () => {
     const back = await ws.okEdit(toB.point_id, nn('head words'));
     expect(back.point_id, 'not restored: a new point').not.toBe(orig.id);
   }, T);
+
+  /** A published A, an open draft from it, and an agent reword A -> B that carries a story (the story is the engine's, in the ledger). */
+  async function draftWithRewordedStory(label: string, aStory?: string) {
+    const o = await mkOwner(label); const ws = new WS(o);
+    await ws.cycle([newPt(SEG, 'story a', aStory)]);
+    const v1name = ws.vname;
+    const a = ws.byText(await ws.points(), nn('story a'));
+    await publish(ws);
+    const v1 = (await admin.from('canvas_versions').select('id').eq('canvas_id', ws.canvas).eq('name', v1name).single()).data as Row;
+    ws.draft = '';
+    const sent = await ok(o.c, 'canvas_workspace_send', {
+      p_canvas: ws.canvas, p_from_version: v1.id, p_expected_draft: null, p_expected_revision: null, p_replace: false,
+      p_body: nn('reword'), p_box_refs: [SEG], p_attachment: null, p_client_id: randomUUID(),
+    });
+    ws.draft = sent.draft_id; ws.vname = sent.version_name;
+    await eng('_canvas_draft_run_begin', { p_run: sent.run_id, p_owner: o.u.user.id, p_has_file: false, p_cap_reply: null });
+    await eng('_canvas_draft_run_complete', {
+      p_run: sent.run_id, p_owner: o.u.user.id,
+      p_actions: [{ action: 'reword', point_id: a.id, box: SEG, statement: nn('story b'), story: nn('story told with b') }],
+      p_questions: {}, p_scope: [], p_focus: null, p_other_canvases: [], p_note: null, p_reply: nn('r'), p_usd: 0.001 });
+    await ws.state();
+    const b = ws.byText(await ws.points(), nn('story b'));
+    return { o, ws, a, b };
+  }
+  const storiesOf = async (pointId: string): Promise<string[]> => {
+    const sp = (await admin.from('story_points').select('story_id').eq('point_id', pointId)).data ?? [];
+    if (!sp.length) return [];
+    return ((await admin.from('stories').select('content').in('id', sp.map((x: Row) => x.story_id))).data ?? []).map((x: Row) => x.content as string);
+  };
+
+  it('typing the original words back keeps the story that was told with the intermediate point, and cleanup does not delete it', async () => {
+    const { o, ws, a, b } = await draftWithRewordedStory('backstory');
+    expect(await storiesOf(b.id), 'the agent\'s story is on B').toEqual([nn('story told with b')]);
+    const back = await ws.okEdit(b.id, nn('story a'));
+    expect(back.point_id).toBe(a.id);
+    expect(await storiesOf(a.id), 'the story moved onto the restored point').toEqual([nn('story told with b')]);
+    // Discard runs the same ledger cleanup as Publish: the story is linked to a surviving point, so it must survive it
+    await ws.state();
+    expect((await ok(o.c, 'canvas_draft_discard', { p_draft: ws.draft, p_expected_revision: ws.rev })).status).toBe('ok');
+    expect(await storiesOf(a.id), 'still there after cleanup').toEqual([nn('story told with b')]);
+  }, T);
+
+  it('control: when the original point already has the owner\'s story, it keeps its own (one story per person per point)', async () => {
+    const { ws, a, b } = await draftWithRewordedStory('backstory2', 'own story of a');
+    const back = await ws.okEdit(b.id, nn('story a'));
+    expect(back.point_id).toBe(a.id);
+    expect(await storiesOf(a.id)).toEqual([nn('own story of a')]);
+  }, T);
 });

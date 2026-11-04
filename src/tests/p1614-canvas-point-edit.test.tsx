@@ -388,3 +388,10 @@ describe('P1614 a gone point keeps its description and focus', () => {
   });
 });
 
+describe('P1614 founder-approved wording', () => {
+  it('the two sentences that name the agent say "Your mirror agent"', () => {
+    expect(BUSY_POINT_TEXT).toBe('Your mirror agent is updating this canvas. Save again when it finishes.');
+    expect(RUN_GOING_TEXT).toBe('Your mirror agent is updating this canvas. Save is back when it finishes.');
+  });
+});
+

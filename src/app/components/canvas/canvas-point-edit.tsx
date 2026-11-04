@@ -22,10 +22,10 @@ export interface PointEditConfig { draftId: string; revision: number; runActive:
 
 // [FOUNDER DECISION: accepted as proposed: the control is a pencil icon named "Edit".]
 export const EDIT_POINT_LABEL = 'Edit';
-// [FOUNDER COPY: pending approval] every sentence below is shown to the owner.
+// [FOUNDER COPY: approved] every sentence below is shown to the owner; the founder agreed this wording in the P1614 review ("Your mirror agent").
 export const EMPTY_POINT_TEXT = 'A point needs some words.';
-export const BUSY_POINT_TEXT = 'Your assistant is updating this canvas. Save again when it finishes.';
-export const RUN_GOING_TEXT = 'Your assistant is updating this canvas. Save is back when it finishes.';
+export const BUSY_POINT_TEXT = 'Your mirror agent is updating this canvas. Save again when it finishes.';
+export const RUN_GOING_TEXT = 'Your mirror agent is updating this canvas. Save is back when it finishes.';
 export const STALE_POINT_TEXT = 'This draft changed while you were editing. Save again to apply your text.';
 export const FAILED_POINT_TEXT = 'Could not save this point. Try again.';
 export const GONE_POINT_TEXT = 'This point changed while you were typing. Your text is kept here to copy.';

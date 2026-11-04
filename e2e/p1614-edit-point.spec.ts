@@ -354,3 +354,82 @@ for (const vp of [1440, 375]) {
     }
   });
 }
+
+/**
+ * Cost Budget measurement (metered services): what ONE Save costs in requests and bytes against the TEST server, on a typical canvas: all nine boxes with two points each
+ * and a few stories. Counts every request to the Supabase host between the Save click and the page being quiet again, and, for comparison, an idle window of the same page.
+ * Written to P1614_DIR/traffic-<width>.json and printed; asserts only that the Save itself was made.
+ */
+const ALL_BOXES = ['canvas:segments', 'canvas:problem', 'canvas:solution', 'canvas:channels', 'canvas:revenue', 'canvas:metrics', 'canvas:love', 'canvas:good-at', 'canvas:world-needs'];
+for (const vp of [1440, 375]) {
+  test(`P1614 measure the traffic of one Save at ${vp}`, async ({ browser }) => {
+    const user = await createTestUser({ name: `P1614 traffic ${vp}` });
+    const ownerId = user.user.id;
+    const ctx = await browser.newContext({ viewport: { width: vp, height: vp > 500 ? 900 : 800 }, ...(vp < 500 ? { hasTouch: true, isMobile: true, deviceScaleFactor: 2 } : {}) });
+    try {
+      const c = await api(user.email);
+      const acts = ALL_BOXES.flatMap((box, i) => [
+        { action: 'new', box, statement: `Typical ${i} first point with a sentence of ordinary length about the business`, ...(i < 3 ? { story: `A story for box ${i}, a few sentences long, so the read carries story text as well.` } : {}) },
+        { action: 'new', box, statement: `Typical ${i} second point, also a sentence of ordinary length` },
+      ]);
+      const first = await cycle(c, ownerId, {}, acts, ALL_BOXES);
+      const page = await ctx.newPage();
+      const host = new URL(process.env.VITE_SUPABASE_URL!).host;
+      type Rec = { kind: string; status: number; decoded: number; wire: number | null };
+      const recs: Rec[] = [];
+      const pending: Promise<void>[] = [];
+      let recording = false;
+      const kindOf = (u: URL) => u.pathname.replace(/^\/(rest|functions|auth|storage|realtime)\/v1\//, '$1:').replace(/\?.*$/, '');
+      page.on('response', (res) => {
+        if (!recording) return;
+        const u = new URL(res.url());
+        if (u.host !== host) return;
+        pending.push((async () => {
+          let decoded = 0;
+          try { decoded = (await res.body()).length; } catch { /* body unavailable (redirect, aborted) */ }
+          const cl = res.headers()['content-length'];
+          recs.push({ kind: `${res.request().method()} ${kindOf(u)}`, status: res.status(), decoded, wire: cl ? Number(cl) : null });
+        })());
+      });
+      await setTestSession(page, user.email);
+      await page.goto(`/p/${user.slug}/canvas/${first.canvas_name}?v=${first.version_name}&ws=1`);
+      await showCanvas(page);
+      await expect(page.getByTestId('canvas-grid')).toHaveAttribute('aria-busy', 'false', { timeout: 30_000 });
+      await page.waitForLoadState('networkidle');
+      const firstEdit = page.locator('[data-testid^="canvas-edit-point-"]').first();
+      await expect(firstEdit).toBeVisible({ timeout: 20_000 });
+      await firstEdit.click();
+      await page.getByTestId('canvas-point-editor-text').fill('One edited sentence for the traffic measurement');
+      const tally = async (): Promise<Record<string, { n: number; decodedBytes: number; wireBytes: number | null }>> => {
+        await Promise.all(pending.splice(0));
+        const out: Record<string, { n: number; decodedBytes: number; wireBytes: number | null }> = {};
+        for (const r of recs.splice(0)) {
+          const o = (out[r.kind] ??= { n: 0, decodedBytes: 0, wireBytes: r.wire === null ? null : 0 });
+          o.n += 1; o.decodedBytes += r.decoded;
+          if (o.wireBytes !== null && r.wire !== null) o.wireBytes += r.wire; else o.wireBytes = null;
+        }
+        return out;
+      };
+      // idle window first, with the editor open and nothing happening
+      recording = true;
+      await page.waitForTimeout(4000);
+      const idle = await tally();
+      // the Save
+      await page.getByTestId('canvas-point-editor-save').click();
+      await expect(page.getByTestId('canvas-point-editor-text')).toHaveCount(0, { timeout: 20_000 });
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(3000);
+      const save = await tally();
+      recording = false;
+      const total = (t: typeof save) => Object.values(t).reduce((a, x) => ({ n: a.n + x.n, bytes: a.bytes + x.decodedBytes }), { n: 0, bytes: 0 });
+      const result = { vp, points: acts.length, idleWindowSeconds: 4, idle, idleTotal: total(idle), save, saveTotal: total(save) };
+      fs.writeFileSync(`${DIR}/traffic-${vp}.json`, JSON.stringify(result, null, 2));
+      console.log(`P1614 TRAFFIC ${JSON.stringify(result)}`);
+      expect(save['POST rest:rpc/canvas_draft_edit_point']?.n, 'the Save itself was made once').toBe(1);
+    } finally {
+      await ctx.close();
+      await deleteTestUser(ownerId);
+    }
+  });
+}
+
