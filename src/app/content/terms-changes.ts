@@ -33,6 +33,21 @@ export interface TermsChangeSummary {
 
 /** Newest first: termsPrompt reads this order to find what someone has not seen. */
 export const TERMS_CHANGES: Record<string, TermsChangeSummary> = {
+  'v1.7': {
+    // Notice, not re-acceptance (founder, P1536, 2026-11-04; overrides the quarterly batching of
+    // decisions.md 2026-09-14): drafting a canvas sends the owner's material to Gemini. Retention
+    // follows spec P1536 D16: text of uploads deleted at Publish, or kept at most 30 days while a
+    // further canvas is offered. Original files are not kept; privacy.md carries the full text.
+    requiresConsent: false,
+    kind: 'feature',
+    title: 'New feature: your mirror agent can draft or update your canvas',
+    headline: "Give your mirror agent files, links or text and it writes draft points for a canvas, using Google's Gemini. What you give it, and the canvas so far, goes to Google. The draft stays private to you until you publish it.",
+    highlights: [
+      'If your material names other people, their details go to Google too, so only share what you have the right to share.',
+      'We keep the text of your uploads, not the files. Publishing deletes it, or keeps it for at most 30 days while your agent offers another canvas from the same material. Discarding the draft, or deleting the canvas or your account, deletes it too.',
+      'Our policy now has one rule for every AI feature: we announce a new AI provider, a new kind of data or a new purpose before it starts.',
+    ],
+  },
   'v1.6': {
     // Notice, not re-acceptance (founder, P1592): transcription at an event now reaches the event's
     // channel. The person transcribing still switches it on themselves (D7).

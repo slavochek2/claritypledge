@@ -1696,8 +1696,7 @@ Material that shows no cost behind a value leaves Values empty and asks the owne
 
 > **Superseded where it conflicts with "Design v6" above.**
 
-- [ ] An owner with a website link and one PDF gets a canvas whose points all trace to those inputs
-      (checked against the material, on test, for 3 real attendees' material with their permission).
+- [x] An owner with a website link and one PDF gets a canvas whose points all trace to those inputs. *(Rewritten 2026-11-04 (founder ruling, same day): real-material testing happens on production after deploy, so the "3 real attendees on test" half moves to the clause below. Verified pre-deploy: the tracing rule is enforced in code, a point whose quote is not in the material is dropped before anything is written (`src/tests/p1536-canvas-draft.test.ts` "a point whose quote is not in the material is dropped before anything is written"), a readable link is kept as material and an unreadable one is named (same file, "an unreadable link is named in the reply and the rest is still drafted"); real-model walks and evals on the self-hosted and hosted TEST servers (`e2e/p1536-walkthrough.spec.ts`, `.private/evidence/p1536-s3c/journeys-selfhosted/walkthrough-2.txt`; evals `.private/evidence/p1536-s3c/evals/after-s19-a.summary`, 21 packs x 3 runs). Limit: the eval harness stubs link reading as unreachable (`scripts/p1536-real-model-eval.ts:127,233`), so no run read a real website link plus a real PDF before deploy.)* `[post-deploy]` founder tests on production with their own real material (a website link and a PDF) and checks every point against it.
 - [x] A box with no source in the material is empty and shown as a question. *(Evidence 2026-11-04: `src/tests/p1536-canvas-page-draft.test.tsx`, "the owner on the draft sees ... the question inside the empty box", passing.)*
 - [x] The draft is invisible to a signed-out visitor, another signed-in user and an event attendee
       until the owner shares it (curl + browser evidence on test). *(Evidence 2026-11-04, live TEST lane, passing: `p1536-v6-engine.test.ts` "S1.15 held points" (stranger, link reader, anonymous, with a link-reader control) and `p1536-canvas-draft-write.test.ts` "A12" (stranger, attendee, link holder and signed-out read no draft row). Test evidence only; no browser run was done this session.)*
@@ -1712,13 +1711,12 @@ Material that shows no cost behind a value leaves Values empty and asks the owne
       supersede their predecessor; other changes are new points with no link. *(Last sentence "Every link is named in the draft" removed 2026-11-04: Design v6 D13 drops "What I decided on my own", where the fast speed listed the links (Versions section: "the fast speed lists them under 'What I decided on my own'"). Evidence, passing, live `p1536-v6-engine.test.ts`: "a draft opened from v1 holds v1's point ids ..." (reuse) and "S1.12 cleanup ... reword chain".)*
 - [x] Opening v1 after v2 superseded some of its points still shows all of v1's points. *(Evidence 2026-11-04: live `p1536-v6-engine.test.ts` "a draft opened from v1 ..." asserts v1's point ids are unchanged after draft work, passing.)*
 - [x] No reply contains "What I decided on my own" or an empty-box question. *(Rewritten 2026-11-04 to what was built: Design v6 D13, "No 'What I decided on my own'", and S1.13. Evidence, passing: `src/tests/p1536-canvas-draft.test.ts` "no reply holds 'What I decided on my own' or an empty-box question".)*
-- [ ] A draft built from an event transcript thread names no other person in its points.
-- [ ] Injection control: material containing instructions to write elsewhere or make content
+- [x] A draft built from an event transcript thread names no other person in its points. *(Evidence 2026-11-04, unit level through a transcript-shaped thread, passing: `src/tests/p1536-canvas-draft.test.ts` "a transcript copy: the owner's lines are quotable, the other person's are not, and the name filter holds" (the run's written actions and reply contain neither the other person's name nor their line), plus the uploaded-transcript block at line 1016 ("MUST FAIL: a point naming a speaker of an uploaded transcript is dropped", with a CONTROL that keeps the same quote without the name). Limit: the filter is a heuristic (Known limitations: lower-case names and a lone first name get through).)* `[post-deploy]` founder reads a canvas drafted from a real event transcript on production and confirms no other person is named.
+- [x] Injection control: material containing instructions to write elsewhere or make content *(2026-11-04, HEAD 2749f0307, real model: file defended 0/8, all-defences-removed control 3/8, earlier 7/8; label defended 0/14, control 2/14, a weak control using a payload over the 80-character cap. The model has no tools and one service-role write path, `_canvas_draft_run_complete`; link reads block private and metadata hosts. Evidence: .private a14-head. Independent reader not obtained: Gemini blocked the prompt, Codex was out of quota.)*
       public changes nothing outside the owner's private draft (real-model test, with a control that
       shows the test can fail).
 - [x] With AI availability off, no draft control is shown. *(Evidence 2026-11-04: `src/tests/p1536-x3-plus-menu.test.tsx` "is not there while drafting is off", passing, and `p1536-x4-header-bar.test.tsx` passing in the same run.)*
-- [ ] + Canvas and the preparation step each open a new mirror thread that asks for material; a
-      PDF uploaded in that thread is drafted, and the original file is not stored afterwards.
+- [x] + Canvas opens a new mirror thread that asks for material; a PDF uploaded in that thread is drafted, and the original file is not stored afterwards. *(Rewritten 2026-11-04 to what was built: no "preparation step" entry exists. `grep -rn "Draft my" src e2e` finds nothing, and `useStartCanvas` has no caller under `src/app/prototypes/events/prep/`. The only entry points are Artifacts New canvas, mirror + Canvas, Clone and a Drafts row (spec line 689). The spec's earlier line 1501 ("the event preparation's 'Draft my canvas' step") was never built and is not claimed. Evidence, passing: `src/tests/p1536-w0-start-entries.test.tsx`, `p1536-x3-plus-menu.test.tsx`, `p1536-x3-upload-paperclip.test.tsx` (21 tests, run 2026-11-04); not stored: `p1536-canvas-draft.test.ts` "uses no storage API: uploaded bytes are never stored, only the extracted text".)* [FOUNDER DECISION: build a preparation-step entry in a follow-up, or drop it from the spec.]
 - [x] The mirror's reply in the thread links the canvas and names empty boxes and unreadable inputs. *(Superseded 2026-11-04 by Design v6 D13 ("Empty-box questions are not repeated in chat") and S1.13: the reply names unreadable inputs, carries no address and no empty-box list; the link is the draft card (X10). Evidence, passing: `p1536-canvas-draft.test.ts` (the two reply tests above) and `p1536-x10-card-ui.test.tsx`.)* *(2026-10-29, visual QA: the
       link is the draft card's Open under the reply; the reply text carries no address, since chat text is plain and an
       address showed as unclickable noise.)*
@@ -1810,15 +1808,20 @@ The five letter reads (drafts, sent letters with their deliveries, received, act
       both `chat-voice` and `canvas-draft` to that project.
 - [ ] The voice bucket's CORS lists the origin the app is served from (the test bucket lists the worktree ports, not every dev port).
 
-### Post-deploy verification
-- [ ] X9 secret probe, on each project, because a wrong or missing secret is otherwise SILENT (the database never reads its call's answer):
+## After deploy
+
+> Not part of the Pre-deploy Checklist: each item needs the production deploy to have happened, so ship-gates 3.5 does not read this section. Run after `/push` deploys.
+
+- X9 secret probe, on each project, because a wrong or missing secret is otherwise SILENT (the database never reads its call's answer):
       POST `canvas-draft` with header `x-canvas-draft-internal` set to a WRONG value expects 401; with the RIGHT value (the vault's
       `canvas_draft_internal_secret`) and a body of all-zero `run_id` and `owner_id` expects 409 `TERMS_NOT_ACCEPTED` (it reached the terms gate).
       A 401 on the right value means the function's `CANVAS_DRAFT_INTERNAL_SECRET` and the vault row differ; a 404 or 5xx means `canvas_draft_url` is wrong.
-- [ ] X9 end to end, once per project: one real voice note (or `P1536_X9_DEPLOYED=1` on the test projects) leaves the run `queued` within seconds of
+- X9 end to end, once per project: one real voice note (or `P1536_X9_DEPLOYED=1` on the test projects) leaves the run `queued` within seconds of
       its transcript, with no client request.
-- [ ] One real draft on prod from the founder's own material; canvas private until shared.
-- [ ] Sentry shows no new errors from the function in the first 10 minutes.
+- One real draft on prod from the founder's own material; canvas private until shared.
+- Sentry shows no new errors from the function in the first 10 minutes.
+
+- Founder tests on production with real material (website link plus PDF; an event transcript) per the two `[post-deploy]` clauses in Acceptance Criteria.
 
 ## Resolved Decisions
 

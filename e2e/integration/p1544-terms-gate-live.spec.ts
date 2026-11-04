@@ -70,7 +70,7 @@ test('mirror-reply refuses a caller on an old terms version', async () => {
 });
 
 test('control: mirror-reply does not refuse a caller on the current version', async () => {
-  expect(SERVER_CURRENT_TERMS_VERSION).toBe('v1.6');
+  expect(SERVER_CURRENT_TERMS_VERSION).toBe('v1.7');
   const r = await call(sCurrent, 'mirror-reply', { message_id: randomUUID() });
   expect(r.status).toBe(404); // past the gate, stopped before any model call
   expect(r.body?.code).toBe('NOT_AVAILABLE'); // the function's own 404, not a gateway's
