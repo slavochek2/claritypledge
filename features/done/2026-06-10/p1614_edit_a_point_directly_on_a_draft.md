@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 92
 workstream: canvas
 created_date: '2026-11-04'
 tags: [canvas, drafts, editing]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: heuristic
+completed_at: 2026-11-04
 ---
 
 # P1614: The owner can edit a point's text directly on a draft
