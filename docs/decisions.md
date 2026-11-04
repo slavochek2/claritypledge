@@ -9,6 +9,29 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-04 [technical]: Canvas drafting ships fail-closed on prices and with its prod switches after the push (P1536)
+
+**Context:** P1536 ran stage V, journeys and reviews to ship. Each review round on price grounding found another false price.
+**Decision:** (1) A price's unit or cadence stands only when the owner's own words support it for that offer; in doubt it is stripped and the box asks. A false price is worse than one extra question. (2) Limits: 60 runs or $6 per person a day, $45 a day for canvas, $50 a day for all AI, and a monthly Google cap on the new `cp-canvas-prod` key. (3) Items that need the push leave the Pre-deploy Checklist for an ordered After deploy list: migrations and functions, secrets, then the drafting flag once the privacy text is live. (4) Founder accepted the 36 critic findings as built after trying it, and tests real material on prod.
+**Alternatives rejected:** Keeping post-deploy items as boxes, which deadlocks gate 3.5 or invites a false tick. More per-case price patterns.
+**Consequences:** More questions on unlabelled prices. A tail holding a second price drops the whole point and asks. The price parser remains a heuristic. A room of 30 at once is untested (UNTESTED; falsifier: a run queue stall or cap trip at the first full event). A14: the label control fires weakly (2/14); no independent reader was obtained.
+**References:** [P1536](../features/done/2026-06-10/p1536_canvas_first_draft_from_owner_material.md)
+
+## 2026-11-04 [product]: Privacy policy has one general rule for AI features; terms v1.7 is a notice (P1536)
+
+**Context:** Founder asked for wording generous enough to cover current and future features, so minor changes need no edit.
+**Decision:** One rule covers AI features of the same kind that write, summarise or transcribe, plus a named list. A new provider, kind of data or purpose is announced before it starts. v1.7 is a notice, outside the quarterly batch by founder choice.
+**Alternatives rejected:** A fully open-ended future clause: a Gemini critique judged it unlawful under GDPR Art. 13. That is a model's reading, not legal advice, and its case citations were not verified.
+**Consequences:** Same-kind features need no policy edit. Unverified: which Gemini tier and data terms apply to prod keys, and unpublished draft text has no time limit.
+**References:** `src/app/content/privacy.md`, `src/app/content/terms-changes.ts`
+
+## 2026-11-03 [process]: A self-hosted secrets push wiped the server; a stale deploy looked like app failure (P1536, P1602)
+
+**Context:** On 2026-11-02 `deploy-functions.sh --secrets` replaced the server's secrets from a three-line Mac file. Voice, Mirror and storage broke for about 18 hours unnoticed; two values were unrecoverable. After a rebase, every journey failed because deployed `_shared` terms lagged source (409 for all fixtures).
+**Decision:** P1602 makes `--secrets` refuse to lose a name and back up first. After a rebase that touches `_shared`, redeploy before reading journey failures as defects. Testing moved to self-hosted, founder decision; the stale premise that sent it to hosted produced epistemic gate 3b and P1606.
+**Consequences:** Until P1602 lands on main, nobody runs `--secrets`. Its real remote path is untested.
+**References:** `feature/p1602-warn-non-active-test`, [epistemic.md](../.claude/rules/epistemic.md)
+
 ## 2026-11-03 [technical]: Self-hosted TEST admits 3 e2e runs; a limit copied to a new server is a guess until measured
 
 **Context:** P1541 limited hosted TEST to one run after two full runs took it down. P1557 copied that lock to the larger self-hosted server unmeasured. On 2026-11-03 one long run blocked P1604 for two hours while the server sat near idle.
