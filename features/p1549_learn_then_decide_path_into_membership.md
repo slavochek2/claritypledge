@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 61
 workstream: events
 created_date: '2026-10-22'
 tags: [events, membership, learning, prepare, community]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -33,7 +33,7 @@ Journey: register → optionally learn → the event → feedback → decide on 
 
 Two increments.
 
-- **Increment 1 (build now): the groups-page join gate.** Blast radius: small to medium. It touches `/groups/:slug/join`, the standalone `/prepare` in a join mode, the About tab's terms link and the sign-up callback. Reversibility: high, code only, no migration.
+- **Increment 1 (build now): the groups-page join gate.** Blast radius: small to medium. It touches `/groups/:slug/join`, the standalone `/prepare` in join and review modes, the About tab's links, the sign-up callback, and one line on the event learning's plan screen (the why text, decision 13) with an optional recipe field. Reversibility: high, code only, no migration.
 - **Increment 2 (later):** the rename sweep, room member counts, one-tap member re-confirm and the existing-member invite. It needs its own Done-When before `/dev` starts it.
 
 Decision density: decisions 1-12 are made (defaults applied where marked). New copy is marked `[FOUNDER DECISION: copy]`.
@@ -50,6 +50,21 @@ Decision density: decisions 1-12 are made (defaults applied where marked). New c
 6. Copy per series lives in the series recipe (P1542); events without a series use Clarity Night's.
 
 [FOUNDER DECISION: existing members who never did the learning. Recommendation: keep them as members (no countdown, no pending state) and invite them once to do the learning; the founder can remove anyone who does not follow the principles; no quiz or verification. Founder leaning matches. Default applied 2026-10-24 (told to the founder, who may overturn it). Building the invite is Increment 2.]
+
+## Founder decisions, round 7 (2026-11-04)
+
+13. **The why sits on the screen that lists the steps, on every way in.** No new step and no new screen. Join Part 1, the event learning's plan screen (hikes and Clarity Nights) and `/prepare` all show it above the steps. Text lives in one shared default; a series recipe may override it (Sales Mastermind later). Groups use the shared default. The hike's learn invitation card on the registration thank-you keeps its own subtitle.
+14. **Why text, community version** (three paragraphs, verbatim):
+    - "A few small habits and shared words can change the quality of all your relationships, personal and professional. Most people have never been introduced to them."
+    - "This community practises them together and shares them with others. What makes us a group is that everyone knows these terms and habits, and knows the others know them."
+    - "So everyone starts with this short introduction. Then you decide if it is for you."
+15. **Why text, `/prepare` version** (two paragraphs, verbatim): the first paragraph above, then "This short introduction shows you what they are and how to use them."
+16. **Video later.** The founder's stage clip is added afterwards as an optional play button beside the text. Not built here and no placeholder.
+17. **A learner sees a way back to the learning.** One line above the terms: "You've already done the learning. Review it". Reviewing returns to the terms.
+18. **Members get "Review how we talk"** on the group's About tab and on their read-only terms page.
+19. **Joining cannot skip.** In join mode there is no "Continue without video", on either video, only "Play the video". Skipping stays available on the event learning and the plain `/prepare`; what was skipped shows as not done on Part 1. Extended by the implementer on the same reasoning: the cmp7 "Skip" link is also absent in join mode, since a skip records nothing and would bounce the person back to Part 1 after finishing.
+20. **Part 1 label is "Short introduction"** on both sides.
+21. **Invite links stay gated.** They open the group page (`org-header.tsx`, `inviteUrl`), and the invited person taps Join like anyone else. A hand-typed sign-up address is accepted as is (see Invariants).
 
 ## Relation to P1542 (updated 2026-10-27)
 
@@ -108,9 +123,9 @@ The founder asked several times to *see* this. A person on `/groups/:slug` taps 
 
 Checked in this order. The first match wins.
 
-1. **Pending:** the group, auth, membership (signed in) or the learned read (non-members) is still loading. Show `ClarityPageLoader`, the standard page loader. No screen is chosen before every read has answered.
+1. **Pending:** the group, auth, membership (signed in), the learned read (non-members) or, for a non-member who has not learned, the cmp7 card read is still loading. Show `ClarityPageLoader`, the standard page loader. No screen is chosen before every read has answered.
 2. **Group not found:** today's not-found screen (unchanged).
-3. **A read failed** (membership or learned read, an error or a timeout): an error line and a "Try again" button that repeats the reads. A failed read is never treated as "not a member" or "no progress". [FOUNDER DECISION: copy, the error line and the retry label.]
+3. **A read failed** (membership, learned or cmp7 card read, an error or a timeout): an error line and a "Try again" button that repeats the reads. A failed read is never treated as "not a member" or "no progress". Copy: "We could not load this page." and "Try again" (founder left this to the agent, 2026-11-04).
 4. **Member:** the read-only terms they accepted, with "Back to <group>" (unchanged). A member with `?from=` is redirected to the group, as today.
 5. **`?view=terms`** (non-member, decision 12 A): the current terms read-only, with no Accept. The button reads "Join <group>" (short name, up to " · ") and goes to `/groups/:slug/join` without `view`. The About tab's "Clarity Group Terms" link (`org-page.tsx:506`) points here.
 6. **`hasLearned`:** the terms with "Accept and join".
@@ -133,12 +148,10 @@ This keeps "learned anywhere" true to the event side. Someone who finished any e
 ```
 ← Back                                                  shell top bar (see the navigation table)
 Joining Clarity Practice Community                      text-sm font-semibold
-Part 1 of 2 · Learn how we meet                         text-xs muted
+Part 1 of 2 · Short introduction                        text-xs muted
 
-Before you join: N minutes to learn how we meet         h1 text-2xl, N computed
-Members make one promise to each other: to say          text-base muted (3 lines max)
-honestly how well they understood. See what that
-means first, then decide if it is for you.
+Before you join: about N minutes                        h1 text-2xl, N computed
+<why text, community version, decision 14>              text-base muted, three paragraphs
 
  1  Learn the definition of cognitive understanding        N min
  2  Decide about your participation in a new social norm   N min
@@ -146,8 +159,6 @@ means first, then decide if it is for you.
 
             [ Start learning ]                          the one primary (blue), max-w-sm, centred
 ```
-
-[FOUNDER DECISION: copy. The Part 1 subtitle ("Learn how we meet"), title and reason line are proposed. The event-side Part 1 says "Short introduction". Pick one wording for both, or keep them different on purpose.]
 
 - **Minutes:** each row is `stepMinutes`, and the title's N is `minutesFor` over the steps not yet done (`prep-plan.ts`). The cmp7 row needs the cmp7 card count, so `loadTagPoints('cmp7', viewerId)` is part of the pending state. No literal number appears anywhere.
 
@@ -161,6 +172,7 @@ means first, then decide if it is for you.
 - Subtitle: the COA intro.
 - The certificate.
 - "Accept and join" (primary), with "Back" as the centred link under it.
+- A learner who did not come through Part 1 in this visit also sees, above the certificate, "You've already done the learning. Review it" (decision 17). "Review it" opens `/prepare?review=<this join URL>`.
 - The header line "Part 2 of 2 · Group terms" appears only with `joinViaLearning`. Otherwise the line reads "Group terms".
 
 **Member:** unchanged.
@@ -170,15 +182,18 @@ means first, then decide if it is for you.
 It is the standalone `PreparePage` (P1402), opened as `/prepare?then=join&group=<slug>`. `then=join` fixes the steps to story, principle, cmp7. `?from=` and `?return=` from the join page are carried through and back.
 
 - If `group` is missing or does not resolve to a group, the page is the plain `/prepare` (four steps, its own end).
-- **Header:** the join context, "Joining <group> · Part 1 of 2", with the back arrow inline (the P1542 round-5d pattern), not the standalone list header.
-- **No list screen.** It opens at the first undone step. There is no end screen: finishing goes to the terms.
+- **Header:** the join context, two lines as on Part 1: "Joining <group>" over "Part 1 of 2 · Short introduction", with the back arrow inline (the P1542 round-5d pattern), not the standalone list header.
+- **No list screen.** It opens at the first undone step, and moving forward goes to the next undone step, skipping ticked ones. There is no end screen: finishing goes to the terms.
+- **Already learned or a member on open:** the page replaces itself with `/groups/<slug>/join`, which chooses the screen. So a reload on the principle step, once the video and cmp7 are both done, lands on the terms. That follows the one rule (the principle is deliberately not required) and is accepted.
+- **Reads on open:** the group, the parts, the learned read and the cmp7 cards all wait under `ClarityPageLoader`. A failure on any of them shows the error and retry; only a missing `group` param or a definite "not found" falls back to the plain `/prepare`.
 - **What each tick means** (the same signals as the gate, so the tick and the gate always agree):
   - story: `cognitive_video` completed (the video was played);
   - principle: its decision was answered **in this visit**. The standalone page persists nothing for the principle except `principle_intro`, which is written right after the intro video (`PreparePage.tsx`, the principle `videoBar`). So `principle_intro` does not tick the step. A person who leaves and comes back starts the principle step again, at its intro;
   - cmp7: the `cmp7` part completed (P1542 round 6b).
-- **Finish** = leaving the last undone step forward. It goes to `/groups/<slug>/join` with `replace` and `joinViaLearning`. The join page then runs its normal screen choice. If a video was skipped, `hasLearned` is false, so the person lands on Part 1 with that step unticked and "Continue". That is the honest result of decision 1's rule, not a loop: the history does not grow.
-- [FOUNDER DECISION: in the join learning, does the story step keep "Continue without video"? Default: it stays, with the consequence above. The alternative is to offer only "Play the video" in join mode.]
+- **Finish** = leaving the last undone step forward. It goes to `/groups/<slug>/join` with `replace` and `joinViaLearning`. The join page then runs its normal screen choice. If `hasLearned` is still false (a part write failed, or the statement list changed), the person lands on Part 1 with that step unticked and "Continue". The history does not grow.
+- **No skipping in join mode** (decision 19): no "Continue without video" and no cmp7 "Skip". Back stays. If a video will not play, the person leaves with Back and returns later.
 - **Reads and writes:** while the parts read is pending, show `ClarityPageLoader`. A failed or timed-out read shows the same error and retry as the join page, never empty progress. (The plain `/prepare` keeps its own behaviour: steps without checks.) Part writes stay optimistic, with today's local fallback when the account write fails.
+- **Review mode** (decisions 17, 18): `/prepare?review=<in-app path>` opens the list with the three join steps, any row replayable, and no end screen. Header Back from the list and finishing the last step both return to that path. The path must pass the same in-app check as `?return=` on the join page; otherwise the page is the plain `/prepare`. Replaying never lowers a recorded part. Ticks show. Step Back from a step returns to the list; finishing a step moves to the next one in order; finishing the third returns to the path. Skips stay available, since this is a review and not a gate. The opener sets route state `fromCaller`, which survives a reload: with it, returning pops; without it (cold entry), returning replaces.
 - The general `/prepare` opened on its own keeps its four steps and its own end.
 
 #### Navigation
@@ -198,10 +213,13 @@ Provenance mark: the group page sets route state `fromGroup: true` when it opens
 | Terms | header Back, or the "Back" link | the group | return to the group |
 | Terms | "Accept and join", signed in | the group (or `?return=`) with the joined banner | replace (as today) |
 | Terms | "Accept and join", signed out | `/signup?redirect=…&action=join-org` | push (as today) |
+| Terms | "Review it" (learner) | `/prepare?review=<join URL>` | push |
+| Group About or member terms | "Review how we talk" (member) | `/prepare?review=<that page>` | push |
+| Review | list Back, or finishing | the `review` path | return (pop when opened from it, else replace) |
 | `?view=terms` | "Join <group>" | `/groups/:slug/join` without `view` | replace |
 | `?view=terms` | header Back | the group | return to the group |
 
-- **No loops.** Nothing goes from the terms back into the learning. The learning never pushes. The stack is at most `[group, join or prepare]`.
+- **No loops.** The only way from the terms into the learning is the explicit "Review it", and it returns to the terms. The join learning never pushes. Outside review the stack is at most `[group, join or prepare]`.
 - **Browser Forward** after leaving: Forward to `/join` re-runs the screen choice. Forward to `/prepare?then=join` (only possible after a browser Back from the learning) reopens it at the first undone step.
 - **Reload:** on `/join`, the screen choice runs again; route state survives a reload, so `joinViaLearning` stays on that entry. On the learning, it restarts at the first undone step (screens live in component state).
 - **Cold entry** (typed URL, new tab, a shared link): no route state, so header Back replaces with the group, and the terms read "Group terms".
@@ -234,16 +252,21 @@ Increment 1 only. Increment 2 writes its own before build.
 Every visual item is measured at 1440, 375 and 320, with the screen-review brief v2 snippet output pasted.
 
 - [ ] Signed in, not a member, no learning parts: "Join as member" on `/groups/cm` shows Part 1:
-  - "Joining Clarity Practice Community · Part 1 of 2 · <subtitle per the copy decision>";
+  - "Joining Clarity Practice Community" over "Part 1 of 2 · Short introduction";
   - the title with N equal to `minutesFor` over the three steps (the test computes the expected N from the same inputs);
-  - the reason line;
+  - the why text;
   - the three steps, each with its `stepMinutes`;
   - one primary, "Start learning".
   No terms and no "Accept" are on the screen.
 - [ ] Starting the learning shows the join context header and opens at step 1 with no list screen. Finishing step 3 lands on the terms with "Part 2 of 2 · Group terms" and "Accept and join". Accepting creates a `membership` row and returns to the group page with the joined banner. The e2e records every URL and `history.length`.
 - [ ] Leaving after step 1 and tapping "Join as member" again shows "Welcome back: about N minutes left", step 1 ticked, steps 2 and 3 not, and "Continue". Continuing opens step 2.
-- [ ] Leaving right after the principle intro video (before its decision) and returning shows step 2 unticked. "Continue" opens step 2 at its intro.
-- [ ] Skipping the story video and finishing lands on Part 1 with step 1 unticked and "Continue" (per the copy decision, if that changes the flow).
+- [ ] After completing step 1, leaving right after the principle intro video (before its decision) and returning shows step 2 unticked. "Continue" opens step 2 at its intro.
+- [ ] In join mode neither video offers "Continue without video" and cmp7 offers no "Skip". The event learning and the plain `/prepare` still offer them. Someone who skipped the story video on the plain `/prepare` sees step 1 unticked on Part 1 with "Continue".
+- [ ] The why text appears verbatim above the steps on join Part 1 and a hike's and a Clarity Night's plan screen (community version), and on the plain `/prepare` list (the `/prepare` version). A recipe override replaces it. No step was added: the step counts are unchanged.
+- [ ] A learner on the terms without `joinViaLearning` sees "You've already done the learning. Review it". Reviewing and leaving returns to the terms; it is absent with `joinViaLearning`, on `?view=terms` and for members.
+- [ ] A member sees "Review how we talk" on the About tab and on their terms page; a non-member sees it on neither. It opens the review list, and Back returns to where it was opened.
+- [ ] `?review=` with an outside URL (`//evil.example`, `https://evil.example`) behaves as the plain `/prepare`.
+- [ ] The event-side and groups-side Part 1 both read "Part 1 of 2 · Short introduction".
 - [ ] A person with `cognitive_video` and `cmp7` completed, and a person with any `event_preparations.completed_at`, each go straight to the terms, titled "Group terms" with no "Part 2 of 2".
 - [ ] A member sees the read-only terms (unchanged; the p1010 and p1076 org-join e2e green, with fixtures updated where they expect terms for a non-learner, see Risks).
 - [ ] About tab, non-member: "Clarity Group Terms" opens `?view=terms`, read-only, no Accept, with "Join <group>". "Join <group>" leads to Part 1 for a non-learner and to the terms with Accept for a learner. A member following the same link sees their own read-only terms.
@@ -263,13 +286,14 @@ Requiring the learning before membership yields members who come back. **Falsifi
 
 | Risk | Label | Note |
 |---|---|---|
+| A video that will not play blocks joining, since join mode has no skip | ACCEPT | Back stays available; they can return later. Revisit if reports appear |
 | The gate kills joins | ACCEPT | It is the bet; the falsifier above names when to loosen it |
 | The gate is client-side; a crafted sign-up link or a direct insert joins without learning | ACCEPT | No quiz or verification by design (Non-Goals). The founder can remove anyone. Server enforcement would be its own spec |
 | Existing e2e (p1010, p1076) expect the terms on `/join` for a fresh non-member | MITIGATE | The behaviour changes on purpose. Seed learned parts in those fixtures or use `?view=terms`; never weaken an assertion about what a member or learner sees |
 | Existing members feel demoted | MITIGATE | Founder decision default keeps them as members; the invite is Increment 2 |
 | No backfill: people who answered cmp7 before P1542 6b see that step once more | ACCEPT | One short step; a backfill would guess from positions |
 | Counts in the room expose who is not a member | ACCEPT | Increment 2. Aggregate numbers only, no names |
-| Increment 2 lands before P1548 and conflicts on room/feedback screens | MITIGATE | Increment 2 starts after P1548 ships. Increment 1 does not touch the room or feedback screens |
+| Increment 2 lands before P1548 and conflicts on room/feedback screens | MITIGATE | Increment 2 starts after P1548 ships. Increment 1 touches only the plan screen's why text and the header's label in the event learning, not the room or feedback screens |
 | Increment 1 lands before P1542 | MITIGATE | It needs `hasLearned` and the round 6b cmp7 record. Start after P1542 ships |
 
 **Non-Goals**
