@@ -286,6 +286,22 @@ else
   esac
 fi
 
+echo "=== TEST SERVER EDGE FUNCTIONS (P1612) ==="
+# By content, from the manifest every deploy leaves on the server. Its own script, not health.sh: a
+# missing manifest must never turn the disk and WAL monitoring unknown.
+DRIFT_SH="${TESTDB_ROOT:+$TESTDB_ROOT/scripts/selfhosted/deploy-drift.sh}"
+if [ -z "$DRIFT_SH" ] || [ ! -x "$DRIFT_SH" ]; then echo "CHECK cp.testfns skipped the drift check is not on main yet" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else
+  DRIFT_RC=0; DRIFT_OUT="$("$DRIFT_SH" 2>&1)" || DRIFT_RC=$?
+  echo "$DRIFT_OUT"
+  DRIFT_SUMMARY="$(printf '%s' "$DRIFT_OUT" | tr '\n' ' ' | tr -d '<>|' | cut -c1-70)"; DRIFT_SUMMARY="${DRIFT_SUMMARY:-no output}"
+  case "$DRIFT_RC" in
+    0) echo "CHECK cp.testfns ok $DRIFT_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+    1) echo "CHECK cp.testfns problem $DRIFT_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+    *) echo "CHECK cp.testfns unproven $DRIFT_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  esac
+fi
+
 echo "=== GEMINI PROD KEY (P1162) ==="
 # The DEPLOYED key, not an ambient one. `ai-keys --ping-prod` pings whatever $GEMINI_API_KEY is set
 # in the shell, which is no ClarityPledge secret — it has exited 2 since it shipped and its coverage

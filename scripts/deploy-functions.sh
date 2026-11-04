@@ -62,9 +62,8 @@ elif [ "$ENV_NAME" != "prod" ]; then
       echo "REFUSED: EDGE_SMOKE=1 is not available on self-hosted TEST, so it could not run. Nothing was deployed." >&2
       exit 1
     fi
-    LOCK_DIR="$(git -C "$(pwd)" rev-parse --path-format=absolute --git-common-dir)/cp-test-deploy.lock"
-    mkdir "$LOCK_DIR" 2>/dev/null || { echo "ERROR: another TEST deploy is running (lock: $LOCK_DIR). Wait for it, or remove the lock if no run is live." >&2; exit 1; }
-    trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+    # P1612: the TEST deploy lock is taken by the self-hosted script itself, so every entry point
+    # (this wrapper, a direct run, a landing) is serialized the same way.
     "$SCRIPT_DIR/selfhosted/deploy-functions.sh" ${FUNCTION_NAME:+"$FUNCTION_NAME"}
     exit $?
   fi
