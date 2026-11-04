@@ -7,9 +7,8 @@ import { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export function TranscriptCopyControl({ getText, errorLabel }: { getText: () => string; errorLabel: string }) {
+function useCopy(getText: () => string, errorLabel: string) {
   const [copied, setCopied] = useState(false);
-
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(getText());
@@ -19,6 +18,11 @@ export function TranscriptCopyControl({ getText, errorLabel }: { getText: () => 
       console.error(errorLabel);
     }
   };
+  return { copied, handleCopy };
+}
+
+export function TranscriptCopyControl({ getText, errorLabel }: { getText: () => string; errorLabel: string }) {
+  const { copied, handleCopy } = useCopy(getText, errorLabel);
 
   return (
     <>
@@ -39,20 +43,11 @@ export function TranscriptCopyControl({ getText, errorLabel }: { getText: () => 
 }
 
 /**
- * The Copy action for a transcript's TITLE ROW (top right, also on a phone). Secondary (the filled `secondary` variant, founder 2026-11-04), 44px: the title row, not a
+ * The Copy action for a transcript's TITLE ROW (top right, also on a phone). The outline button (design system: a secondary action), 44px: the title row, not a
  * body-level primary, carries it. Same copy behaviour and screen-reader confirmation as the control above.
  */
 export function CopyTranscriptButton({ getText, errorLabel }: { getText: () => string; errorLabel: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(getText());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      console.error(errorLabel);
-    }
-  };
+  const { copied, handleCopy } = useCopy(getText, errorLabel);
   return (
     <>
       <Button variant="outline" onClick={handleCopy} className="min-h-11 gap-2" aria-label="Copy transcript to clipboard">
