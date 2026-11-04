@@ -23,18 +23,15 @@ In an event round thread, one person's sentence also appeared under a tablemate,
 
 ## Root Cause
 
-**Cause (measured 2026-11-04, replay on the audio of the two P1608 runs, rooms LQVVB9 and ZEN5KK; 3 mics each, 7 chunks of 30.0 s per mic).** The browser-gain hypothesis was not needed. Chunks are contiguous audio, but consecutive upload gaps wander (27.9 to 31.3 s). Placing each chunk by its own upload time leaves chunks 1 to 2 s off against the other mics, and one per-mic offset (`refine_offsets`) cannot fix a displacement that differs chunk by chunk; the loudest-mic rule then hands some seconds to the wrong mic. The worker at HEAD already used a median anchor per stretch, but clamped every chunk to its own object time, which reintroduced the jitter for every chunk uploaded earlier than the median (the clamp is the remaining cause).
+**Confirmed on two runs' saved audio.** Each mic's 30 s chunks were placed from upload times, and clamping every chunk to its own upload let upload jitter (up to about 3 s) move it against the other mics. With true spacing the right mic is loudest in every phrase second, so browser gain is not the main cause; that first hypothesis is withdrawn.
 
-**Evidence** (replay of the real loudness masks against the corpus's human phrase timing, 24 phrases per room):
+**Fix:** a chunk ended no later than its own upload, nor any later upload minus the audio between. Chunks sit end to end on that bound; only a lasting rise above 2.5 s opens a gap.
 
-| Placement | Room LQVVB9 | Room ZEN5KK |
+| Placement, replay of both runs | Phrase seconds to the right mic | Phrases with a wrong second, of 24 |
 |---|---|---|
-| Raw upload time per chunk (what the worker did before P1596's median anchor) | 80.4% of phrase seconds on the right mic, 7 of 24 phrases with a wrong inner second | 88.2%, 4 of 24 |
-| Chunks end to end from a median anchor (orchestrator's simple replay) | 100%, 0 of 24 | 100%, 0 of 24 |
-| `audio.chunk_pieces` at HEAD (median anchor, clamped to own upload time) | 96.1%, 2 of 24 | 94.1%, 2 of 24 |
-| `audio.chunk_pieces` after this fix | 100%, 0 of 24 | 100%, 0 of 24 |
-
-**Fix.** In `audio.chunk_end_times`, a chunk whose duration was measured sits at `base + cumulative measured duration`, where `base` is the median of (object time minus cumulative duration) over its stretch. It is no longer clamped to its own upload time. A chunk of unknown duration is still held to its upload time. Stretch breaking (pause, missing number, restart, flush) is the existing logic, untouched, so a real gap starts a new stretch with its own anchor. `refine_offsets` is kept.
+| Raw upload time | 80.4%, 88.2% | 7, 4 |
+| Main before this fix | 96.1%, 94.1% | 2, 2 |
+| This rule | 100%, 100% | 0, 0 |
 
 ## Reproduction Steps
 
@@ -67,7 +64,7 @@ Run the disproof above first. P1596's benchmark measured 1.9% wrong or doubled a
 ## Acceptance Criteria
 
 - [x] The cause is recorded here, with the measurement that shows it. (Root Cause above; replay on both rooms' audio.)
-- [ ] Across repeated P1608 runs, no expected phrase appears under a second person, or the founder sets an accepted rate on the measured evidence.
+- [x] Across repeated P1608 runs, no expected phrase appears under a second person, or the founder sets an accepted rate on the measured evidence. 3 of 3 completed runs, 54 phrases; `[post-deploy]` real phones in the friends test.
 
 ## Not proven
 
@@ -84,3 +81,16 @@ Run the disproof above first. P1596's benchmark measured 1.9% wrong or doubled a
 The first fix (run median, no clamp) was rejected: Argon and Codex independently showed a pause under 5 s moved earlier chunks to after their own uploads. Replaced by a causal bound: a chunk ended no later than its own upload, nor any later upload minus the audio between. Chunks stay end to end on that bound; only a lasting rise above 2.5 s opens a gap (`UPLOAD_JITTER_MS`, from the about 2 s seen on a wired link, not measured on phones). A pause under 2.5 s is merged, so the audio after it can sit up to 2.5 s early. Replay of both rooms through the real `chunk_pieces`: 100% of phrase seconds, 0 of 24 wrong.
 
 Second review (Argon, Codex), each example run against old and new code: a lasting upload slowdown over 5 s and an outage flush at the end of a recording are placed the same as before, so they are older limits and stay open. A dropped partial chunk was made worse by this fix and is now corrected, with a test. **Accepted:** a 2.5 to 5 s pause before the very last chunk is merged (4 s early where the old code was 2 s early), because one slow final upload looks identical and nothing later can tell them apart.
+
+## Live result, 2026-11-05 (fix on the test worker, P1604 shipped)
+
+3 of 3 completed P1608 runs passed with no stray: 54 round 1 phrases, each only under its speaker. A fourth run stopped on a network error reaching the server (`EHOSTUNREACH`, VPN interface active), so it says nothing about the fix. Jobs were posted to the worker directly; normal dispatch is still not exercised. Three clean runs fall short of a rate: the earlier stray was 1 in 36.
+
+## Known limits of this rule (final reviews: Opus, Codex, Argon)
+
+- A 2.5 to 5 s lasting upload rise at the end of a stretch looks like a pause and opens a false gap of that size. Upload times alone cannot separate them. Opus simulation with assumed uniform delays: at 0 to 3.4 s, mean spread 0.07 s against main's 1.28 s; at 0 to 6 s, 0.84 s against 2.26 s, but 12% of runs worse than main.
+- Between missing chunks each run takes its own anchor, so a lossy phone falls back towards per-upload placement.
+- One overestimated chunk duration pulls earlier chunks back, because the bound is a minimum. Unmeasured on iOS chunks.
+- A pause under 2.5 s is merged, so later audio sits early by up to its length.
+
+The 2.5 s value and all of these need real phone upload traces, which is the friends test.

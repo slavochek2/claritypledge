@@ -311,14 +311,6 @@ def chunk_end_times(refs: list[ChunkRef], chunk_s: int = 30, tol_s: int = CHUNK_
         for a, b in zip(st, st[1:]):
             if b.created_ms - a.created_ms < (b.number - a.number) * length * CHUNK_BUNCH_FRACTION:
                 flush.update((a.number, b.number))
-        regular = [r for r in st if r.number not in flush]
-        if regular:
-            vals = sorted(r.created_ms - expected[r.number] for r in regular)
-            m = len(vals) // 2
-            base = vals[m] if len(vals) % 2 else (vals[m - 1] + vals[m]) // 2
-        else:
-            last = st[-1]
-            base = last.created_ms - expected[last.number]
         # P1611: a chunk's audio ended no later than its own upload, nor later than any later chunk's upload minus the
         # audio recorded in between, so the smallest such delay is a hard bound. Chunks stay end to end on that bound,
         # so upload jitter cannot move them; only a lasting rise above UPLOAD_JITTER_MS (a real short pause) opens a gap.
