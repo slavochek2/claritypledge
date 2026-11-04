@@ -213,3 +213,66 @@ def test_chunks_far_from_the_window_are_not_downloaded():
     chunk_pieces(refs, lo, hi, {0: True}, fetch, lambda b: b"\0\0" * 16000 * 30)
     # the run's header chunk, plus only chunks within 5 minutes of the window
     assert set(fetched) <= {0} | set(range(89, 122))
+
+
+# --- P1611: a run of consecutive chunks sits end to end, whatever each upload's own jitter ------------------
+
+JITTER = [0, 3, 1, 2.5, 0.5, 3, 1.5]       # upload delay of each chunk, seconds (real gaps wandered 27.9 to 31.3 s)
+
+
+def _full(n):
+    return {i: L * S for i in range(n)}
+
+
+def _ends_d(refs, durations=None):
+    return {n: v / S for n, v in audio.chunk_end_times(refs, L, durations_ms=durations).items()}
+
+
+def test_jittered_uploads_still_place_chunks_end_to_end():
+    refs = [ref(n, 1000 + (n + 1) * L + JITTER[n]) for n in range(7)]
+    e = _ends_d(refs, _full(7))
+    assert [round(e[n] - e[0], 6) for n in range(7)] == [n * L for n in range(7)]   # exactly one chunk apart
+    assert e[0] == 1000 + L + 1.5                                                  # the median delay, not its own
+
+
+def test_a_jittered_run_is_not_moved_by_one_early_or_late_upload():
+    late = [ref(n, 1000 + (n + 1) * L + (4 if n == 0 else JITTER[n])) for n in range(7)]
+    e = _ends_d(late, _full(7))
+    assert all(abs(e[n] - (1000 + (n + 1) * L + 1.5)) <= 1.5 for n in range(7))
+    assert [round(e[n] - e[0], 6) for n in range(7)] == [n * L for n in range(7)]
+
+
+def test_a_genuine_pause_stays_a_gap_among_jittered_uploads():
+    before = [ref(n, 1000 + (n + 1) * L + JITTER[n]) for n in range(4)]
+    after = [ref(n, 1000 + (n + 1) * L + 90 + JITTER[n - 4]) for n in range(4, 8)]
+    e = _ends_d(before + after, _full(8))
+    assert [round(e[n] - e[0], 6) for n in range(4)] == [n * L for n in range(4)]
+    assert [round(e[n] - e[4], 6) for n in range(4, 8)] == [(n - 4) * L for n in range(4, 8)]
+    assert abs(e[4] - e[3] - L - 90) <= 3                # the pause is not collapsed
+
+
+def test_a_missing_number_leaves_a_hole_not_a_squeeze():
+    refs = [ref(n, 1000 + (n + 1) * L + JITTER[n]) for n in (0, 1, 2, 4, 5, 6)]
+    e = _ends_d(refs, {n: L * S for n in (0, 1, 2, 4, 5, 6)})
+    assert round(e[4] - e[2], 6) == 2 * L and round(e[6] - e[0], 6) == 6 * L
+
+
+def test_one_chunk_is_placed_at_its_own_time():
+    assert _ends_d([ref(0, 1031)], {0: 30000}) == {0: 1031}
+
+
+def test_a_short_last_chunk_follows_end_to_end_by_its_real_duration():
+    refs = [ref(n, 1000 + (n + 1) * L + JITTER[n]) for n in range(6)]
+    refs[5] = ref(5, 1000 + 5 * L + 12 + JITTER[5])
+    d = _full(6)
+    d[5] = 12000
+    e = _ends_d(refs, d)
+    assert round(e[5] - e[4], 6) == 12 and round(e[4] - e[0], 6) == 4 * L
+
+
+def test_a_restart_after_a_reload_starts_a_new_run_with_its_own_anchor():
+    first = [ref(n, 1000 + (n + 1) * L + JITTER[n]) for n in range(3)]
+    second = [ref(n, 1000 + (n + 1) * L + 400 + JITTER[n]) for n in range(3, 6)]   # chunk numbers go on, time jumped
+    e = _ends_d(first + second, _full(6))
+    assert abs(e[3] - e[2] - L - 400) <= 3
+    assert [round(e[n] - e[3], 6) for n in range(3, 6)] == [0, L, 2 * L]

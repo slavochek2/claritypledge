@@ -253,7 +253,11 @@ CHUNK_MARGIN_S = 10          # extra audio kept around the window (the aligner c
 
 def chunk_end_times(refs: list[ChunkRef], chunk_s: int = 30, tol_s: int = CHUNK_JUMP_TOLERANCE_S,
                     durations_ms: dict[int, int] | None = None) -> dict[int, int]:
-    """chunk number -> estimated server-clock end (ms) of that chunk's audio. Never later than its object time.
+    """chunk number -> estimated server-clock end (ms) of that chunk's audio.
+
+    P1611: inside a stretch (consecutive numbers, no real time gap) chunks sit end to end from ONE anchor, the
+    median of (object time minus cumulative measured duration), so a chunk's own upload jitter never moves it.
+    A chunk whose duration is unknown is never placed later than its object time.
 
     A stretch breaks where created-minus-expected (the upload delay plus the unknown base) STEPS by more than
     tol_s and STAYS there for the next chunk too (a pause of any length: the recorder produced nothing, later
@@ -316,7 +320,11 @@ def chunk_end_times(refs: list[ChunkRef], chunk_s: int = 30, tol_s: int = CHUNK_
             last = st[-1]
             base = last.created_ms - expected[last.number]
         for r in st:
-            out[r.number] = min(base + expected[r.number], r.created_ms)
+            end = base + expected[r.number]
+            # P1611: a chunk whose duration was measured sits exactly where its neighbours put it (end to end);
+            # clamping each one to its own upload time would let the per-chunk upload jitter (a second or two)
+            # displace it. Only a chunk of unknown length is held back to its upload time.
+            out[r.number] = end if r.number in dur else min(end, r.created_ms)
     return out
 
 
