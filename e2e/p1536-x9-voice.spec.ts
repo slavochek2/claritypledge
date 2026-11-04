@@ -20,7 +20,7 @@ import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTestUser, deleteTestUser, setTestSession, TEST_PASSWORD, type TestUser } from './helpers/test-user';
 import { isTestProjectUrl } from '../scripts/sweep-e2e-test-users';
 
-if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? '')) throw new Error('p1536-x9-voice: VITE_SUPABASE_URL is not a TEST project. Nothing was run.');
+test.skip(!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? ''), 'p1536-x9-voice: VITE_SUPABASE_URL is not a TEST project. Nothing was run.');
 
 // The voice bucket's CORS lists the worktree ports (this one is 5100), not 5102: a recording is uploaded straight from the page to storage.
 const BASE = process.env.P1536_BASE ?? 'http://localhost:5100';

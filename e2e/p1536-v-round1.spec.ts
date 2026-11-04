@@ -27,13 +27,13 @@ import { isTestProjectUrl } from '../scripts/sweep-e2e-test-users';
 
 import { pacLaunchOptions } from './helpers/pac-launch';
 
-if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? '')) throw new Error('p1536-v-round1: VITE_SUPABASE_URL is not a TEST project. Nothing was run.');
+test.skip(!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? ''), 'p1536-v-round1: VITE_SUPABASE_URL is not a TEST project. Nothing was run.');
 test.use({ launchOptions: pacLaunchOptions() }); // P1536_PAC: send the hosted TEST host through a proxy auto-config file; unset, the project's own options
 
 const BASE = process.env.P1536_BASE ?? 'http://localhost:5102';
 // The one backend this run may talk to. Asserted from the browsers' own network traffic (every request to a Supabase path), never from env values alone.
 const SELFHOSTED_HOST = '136-85-1-126.sslip.io';
-if (new URL(process.env.VITE_SUPABASE_URL ?? 'http://none').host !== SELFHOSTED_HOST) throw new Error('p1536-v-round1: the test process (service-role client) is not pointed at the self-hosted TEST server. Nothing was run.');
+test.skip(new URL(process.env.VITE_SUPABASE_URL ?? 'http://none').host !== SELFHOSTED_HOST, 'p1536-v-round1: the test process (service-role client) is not pointed at the self-hosted TEST server. Nothing was run.');
 const DIR = process.env.P1536_V_DIR ?? 'test-results/p1536-v-round-1';
 fs.mkdirSync(`${DIR}/debug`, { recursive: true });
 const CELLS = `${DIR}/cells.jsonl`;
