@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 53
 workstream: clarity-canvas
 created_date: '2026-10-21'
 tags: [canvas, agent, sales-mastermind, onboarding]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev, dev.2, dev.3]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-11-04
 ---
 
 # P1536: Clarity Canvas, first draft from the owner's own material
@@ -144,7 +144,7 @@ Supersedes:
   3. the group most boxes can be filled for;
   4. the narrower group.
 - On an existing canvas the current focus stays.
-- Codex blind-labelled the 21 rows of [`features/research/one-canvas-cases-for-p1536.md`](research/one-canvas-cases-for-p1536.md): 21/21 agreement.
+- Codex blind-labelled the 21 rows of [`features/research/one-canvas-cases-for-p1536.md`](../../research/one-canvas-cases-for-p1536.md): 21/21 agreement.
 
 #### D10 — Mixed material
 - Draft one canvas, with no question round.
@@ -1068,7 +1068,7 @@ order, each with its definition and shape from the module above. Several busines
 the owner's stated focus. Pasted back, the first section drafts this canvas; every further section is recorded
 as an other canvas (J7 buttons) with its section text kept as that canvas's material.
 
-**Drafting prompt additions:** the D9 rule and focus order (text from [`features/research/one-canvas-cases-for-p1536.md`](research/one-canvas-cases-for-p1536.md) §4(i), with "Draft
+**Drafting prompt additions:** the D9 rule and focus order (text from [`features/research/one-canvas-cases-for-p1536.md`](../../research/one-canvas-cases-for-p1536.md) §4(i), with "Draft
 a canvas for" replaced by D10's two actions); the scope rule (section 2); "later messages about a box win over
 earlier ones"; schema order `focus, other_canvases, scope, actions, questions`.
 
@@ -1116,7 +1116,7 @@ earlier ones"; schema order `focus, other_canvases, scope, actions, questions`.
   - A stale `p_expected_run` or revision refuses with `stale_view` and changes nothing.
   - **Regression (Codex 4):** set the price to €500, Undo, then send "add a yearly plan" tagged Offers & Pricing → the stub's request contains neither the undone message nor its reply, and no point contains 500.
 - [ ] **S1.9 Focus eval** (a report, not a release gate).
-  - 21 packs from [`features/research/one-canvas-cases-for-p1536.md`](research/one-canvas-cases-for-p1536.md), 3 real-model runs each. The oracle is the Codex blind labels.
+  - 21 packs from [`features/research/one-canvas-cases-for-p1536.md`](../../research/one-canvas-cases-for-p1536.md), 3 real-model runs each. The oracle is the Codex blind labels.
   - The current `DRAFT_RULES` prompt is the known-bad control.
   - If the control scores within 2 of the new prompt, the eval is blind: change the packs.
   - The founder sees the numbers before release.
@@ -1873,13 +1873,13 @@ reviewers reproduced but that is exotic or costs more than it saves now.
 
 ## Related
 
-- [P1508](done/2026-06-10/p1508_clarity_canvas_owner_artifact.md) canvas page ·
+- [P1508](p1508_clarity_canvas_owner_artifact.md) canvas page ·
   P1535 nine boxes (branch `feature/p1535-canvas-nine-boxes`) ·
   [P1515](p1515_artifact_sharing_events_and_groups.md) sharing ·
-  [P1500](p1500_clarity_chat_canvas_from_event_threads.md) updates from event threads ·
-  [P1529](p1529_canvas_event_host_coordination.md) host and pairing ·
-  [P1457](p1457_clarity_chat_data_import.md) chat data import ·
-  [P1332](p1332_canvas_to_letter_skill.md) canvas to letter ·
+  [P1500](../../p1500_clarity_chat_canvas_from_event_threads.md) updates from event threads ·
+  [P1529](../../p1529_canvas_event_host_coordination.md) host and pairing ·
+  [P1457](../../p1457_clarity_chat_data_import.md) chat data import ·
+  [P1332](../../p1332_canvas_to_letter_skill.md) canvas to letter ·
   P1520 mirror (availability-gate pattern, spend-capped key) ·
   [P1544](p1544_mirror_launch_on_prod.md) mirror on prod (blocks go-live) ·
   [P1546](p1546_threads_in_every_chat.md) threads in the mirror (blocks the entry point) ·
