@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 88
 workstream: infrastructure
 created_date: '2026-11-04'
 tags: [day, keys]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-11-04
 ---
 
 # P1610: The Day page moves to the CP board, and every AI key says what it is for
