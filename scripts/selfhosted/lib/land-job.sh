@@ -17,15 +17,21 @@ log="${failed%.failed}.log"
 trap 'rm -rf "$tmp"' EXIT
 
 echo "LAND-JOB-START $(date -u +%Y-%m-%dT%H:%M:%SZ) landed=${landed:0:9}"
+start="$(date +%s)"
 rc=0
+# The deploy script writes (failure) or clears (success) the landing record itself while it still
+# holds the deploy lock, so results cannot race. If it was killed before it could (SIGKILL, the
+# deadline), this job writes the failure record as a fallback.
 ( cd "$repo" && dg_deadline "$deadline" "$tmp/scripts/selfhosted/deploy-functions.sh" \
-    --from-main-tip --lock-wait "$wait_s" --clear-dead-lock ) || rc=$?
+    --from-main-tip --lock-wait "$wait_s" --clear-dead-lock --record-landing "$landed" ) || rc=$?
 if [ "$rc" -eq 0 ]; then
-  rm -f "$failed"
   echo "TEST functions: deployed main's tip after landing ${landed:0:9}."
 else
   why="exit $rc"; [ "$rc" -ne 124 ] || why="timed out after ${deadline}s"
-  printf '%s\t%s\t%s\t%s\n' "$(date +%s)" "$landed" "$rc" "$log" > "$failed"
+  recorded="$(cut -f1 "$failed" 2>/dev/null || true)"
+  if [ -z "$recorded" ] || [ "$recorded" -lt "$start" ]; then
+    printf '%s\t%s\t%s\t%s\n' "$(date +%s)" "$landed" "$rc" "$log" > "$failed"
+  fi
   echo "TEST functions: DEPLOY FAILED ($why) after landing ${landed:0:9}. The landing stands and is NOT undone. TEST may be serving older functions: re-run scripts/deploy-functions.sh from main; scripts/selfhosted/deploy-drift.sh (and /day) report it until a deploy of main succeeds."
 fi
 echo "LAND-JOB-END exit=$rc"

@@ -524,6 +524,59 @@ rel2=$!
 CP_LAND_LOCK_WAIT=60 hook "$m5" "$m6"; wait_jobs $((n0 + 1)) "$LOGF"; wait "$rel2" 2>/dev/null
 has "ownerless lock freed meanwhile: the landing proceeds and deploys" "$W/vm/stack/volumes/functions/fn-a/index.ts" "M6 content"
 
+echo "6b3. clearing a dead lock is atomic"
+dead=999999; while kill -0 "$dead" 2>/dev/null; do dead=$((dead+1)); done
+LOCK2="$R/.git/cp-test-deploy.lock"; rm -rf "$LOCK2" "$LOCK2.clear"
+# B decided the lock was dead, then A cleared it and took a fresh one; B's clear must remove nothing
+mkdir "$LOCK2"; printf 'pid=%s\nhost=%s\nepoch=%s\n' "$dead" "$(hostname)" "$(date +%s)" > "$LOCK2/owner"
+sleep 60 & live=$!
+(
+  source "$R/scripts/selfhosted/lib/deploy-guard.sh"
+  dg_before_clear_hook() { rm -rf "$LOCK2"; mkdir "$LOCK2"; printf 'pid=%s\nhost=%s\nepoch=%s\n' "$live" "$(hostname)" "$(date +%s)" > "$LOCK2/owner"; }
+  dg_lock_acquire "$R" 0 1
+) > "$W/b.out" 2>&1; brc=$?
+check "B's clear after A re-acquired: B does not get the lock" 1 "$brc"
+if [ "$(sed -n 's/^pid=//p' "$LOCK2/owner" 2>/dev/null)" = "$live" ]; then ok "  A's live lock is untouched (owner pid $live)"; else bad "  A's live lock is untouched"; fi
+hasnt "  and nothing was reported as cleared" "$W/b.out" "Cleared a stale"
+[ -d "$LOCK2.clear" ] && bad "  clearing mutex released" || ok "  clearing mutex released"
+kill "$live" 2>/dev/null; wait "$live" 2>/dev/null; rm -rf "$LOCK2"
+# two real jobs against one dead lock never hold it together
+mkdir "$LOCK2"; printf 'pid=%s\nhost=%s\nepoch=%s\n' "$dead" "$(hostname)" "$(date +%s)" > "$LOCK2/owner"
+two() { # name
+  ( source "$R/scripts/selfhosted/lib/deploy-guard.sh"
+    dg_lock_acquire "$R" 30 1 >/dev/null 2>&1 || { echo "$1 NOLOCK" >> "$W/two.log"; exit 1; }
+    echo "$1 start $(perl -MTime::HiRes=time -e 'printf "%.2f", time')" >> "$W/two.log"
+    sleep 2
+    echo "$1 end $(perl -MTime::HiRes=time -e 'printf "%.2f", time')" >> "$W/two.log"
+    dg_lock_release ) &
+}
+: > "$W/two.log"; two A; two B; wait
+sa="$(awk '$1=="A"&&$2=="start"{print $3}' "$W/two.log")"; sb="$(awk '$1=="B"&&$2=="start"{print $3}' "$W/two.log")"
+if [ -n "$sa" ] && [ -n "$sb" ] && perl -e 'exit(abs($ARGV[0]-$ARGV[1]) >= 1.9 ? 0 : 1)' "$sa" "$sb"; then ok "two jobs on one dead lock: they ran one after the other ($sa, $sb)"; else bad "two jobs on one dead lock ran at once or failed: $(tr '\n' ' ' < "$W/two.log")"; fi
+# a lock whose pid exists but may not be signalled is not dead; a failing ps changes nothing
+mkdir -p "$W/fakeps"; printf '#!/bin/bash\nexit 1\n' > "$W/fakeps/ps"; chmod +x "$W/fakeps/ps"
+mkdir "$LOCK2"; printf 'pid=1\nhost=%s\nepoch=%s\n' "$(hostname)" "$(date +%s)" > "$LOCK2/owner"
+( source "$R/scripts/selfhosted/lib/deploy-guard.sh"; PATH="$W/fakeps:$PATH"; dg_lock_owner_dead "$LOCK2" ); r=$?
+check "a pid we may not signal (EPERM), ps blocked: not dead" 1 "$r"
+printf 'pid=%s\nhost=%s\nepoch=%s\n' "$dead" "$(hostname)" "$(date +%s)" > "$LOCK2/owner"
+( source "$R/scripts/selfhosted/lib/deploy-guard.sh"; PATH="$W/fakeps:$PATH"; dg_lock_owner_dead "$LOCK2" ); r=$?
+check "a dead pid, ps blocked: still provably dead (no ps involved)" 0 "$r"
+rm -rf "$LOCK2"
+
+echo "6b4. the failure record is written while the deploy lock is still held"
+git -C "$R" checkout -q main 2>/dev/null
+tipsha="$(git -C "$R" rev-parse HEAD)"
+rm -f "$R/.git/cp-test-deploy-land.failed"
+( for i in $(seq 1 400); do [ -d "$LOCK2" ] && break; sleep 0.02; done
+  while [ -d "$LOCK2" ]; do :; done
+  [ -s "$R/.git/cp-test-deploy-land.failed" ] && echo RECORD-BEFORE-RELEASE || echo RECORD-AFTER-RELEASE ) > "$W/obs" 2>&1 &
+obs=$!
+( cd "$R" && HOME="$W/home" PATH="$W/bin:$PATH" STUB_SSH_FAIL=1 "$R/scripts/selfhosted/deploy-functions.sh" --from-main-tip --lock-wait 5 --record-landing "$tipsha" ) > "$W/out" 2>&1; RC=$?
+wait "$obs"
+[ "$RC" -ne 0 ] && ok "a failing landing deploy exits non-zero (exit $RC)" || bad "a failing landing deploy exits non-zero"
+has "  the record names the landed commit and the exit status" "$R/.git/cp-test-deploy-land.failed" "$tipsha.$RC."
+has "  it was already there when the lock was released" "$W/obs" "RECORD-BEFORE-RELEASE"
+
 echo "6c. deadlines"
 commit_on main supabase/functions/fn-a/index.ts 'M7 content' "main: M7"
 m7="$(git -C "$R" rev-parse HEAD)"

@@ -29,6 +29,8 @@ readonly DG_MAIN_REF="refs/heads/main"
 DG_LOCK_DIR=""
 
 dg_after_precheck_hook() { :; }
+# Test seam: runs after a job decided a lock is dead and before it takes the clearing mutex.
+dg_before_clear_hook() { :; }
 
 dg_sha256() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | cut -d' ' -f1; else sha256sum "$1" | cut -d' ' -f1; fi; }
 
@@ -119,15 +121,15 @@ dg_deadline() {
 # host and start time.
 dg_lock_dir_of() { git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|$|/cp-test-deploy.lock|'; }
 dg_lock_field() { sed -n "s/^$2=//p" "$1/owner" 2>/dev/null | head -1; }
-# Provably dead: the owner file names a pid on THIS machine and neither kill -0 nor ps can find it.
-# A foreign host, no owner record, or any live process (even one we may not signal) is not provable.
+# Provably dead: the owner file names a pid on THIS machine and kill -0 answers "No such process".
+# A foreign host, no owner record, or any live process (even one we may not signal: EPERM) is not
+# provable. No ps: it is blocked in some sandboxes, and a blocked ps must never read as "dead".
 dg_lock_owner_dead() {
-  local dir="$1" pid host
+  local dir="$1" pid host err
   pid="$(dg_lock_field "$dir" pid)"; host="$(dg_lock_field "$dir" host)"
   [ -n "$pid" ] && [ -n "$host" ] && [ "$host" = "$(hostname)" ] || return 1
-  kill -0 "$pid" 2>/dev/null && return 1
-  ps -p "$pid" >/dev/null 2>&1 && return 1
-  return 0
+  err="$(kill -0 "$pid" 2>&1)" && return 1
+  case "$err" in *"No such process"*) return 0 ;; *) return 1 ;; esac
 }
 
 # dg_lock_acquire <repo> [wait-seconds] [clear-dead]
@@ -150,15 +152,21 @@ dg_lock_acquire() {
     fi
     if [ "$clear_dead" = 1 ] && dg_lock_owner_dead "$dir"; then
       pid="$(dg_lock_field "$dir" pid)"
-      # Move it aside first (atomic, one winner), then check we moved the lock we examined.
-      moved="$dir.dead.$$"
-      if mv "$dir" "$moved" 2>/dev/null; then
-        if [ "$(dg_lock_field "$moved" pid)" = "$pid" ]; then
-          rm -rf "$moved"
+      dg_before_clear_hook
+      # Clearing is serialized by its own mkdir mutex, and the owner is re-read INSIDE it: two jobs
+      # that saw the same dead owner cannot both act, and a job that cleared the lock and took a
+      # fresh one is never mistaken for the dead owner (its pid differs, so nothing is removed).
+      if mkdir "$dir.clear" 2>/dev/null; then
+        printf 'pid=%s\nhost=%s\n' "$$" "$(hostname)" > "$dir.clear/owner"
+        if [ -d "$dir" ] && [ "$(dg_lock_field "$dir" pid)" = "$pid" ] && dg_lock_owner_dead "$dir"; then
+          rm -rf "$dir"
           echo "Cleared a stale TEST deploy lock left by dead pid $pid (this machine)." >&2
-        else
-          mv "$moved" "$dir" 2>/dev/null || true   # we moved someone else's fresh lock: put it back
         fi
+        rm -rf "$dir.clear"
+      elif ! dg_lock_owner_dead "$dir.clear"; then
+        sleep 0.2   # another job is clearing right now
+      else
+        rm -rf "$dir.clear"   # the clearer itself died holding the mutex
       fi
       continue
     fi

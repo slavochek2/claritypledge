@@ -57,13 +57,14 @@ source "$SCRIPT_DIR/lib/deploy-guard.sh"
 
 MODE="deploy"
 FUNCTION_NAME=""
-FROM_COMMIT=""; FROM_MAIN_TIP=0; LOCK_WAIT=0; CLEAR_DEAD_LOCK=0
+FROM_COMMIT=""; FROM_MAIN_TIP=0; LOCK_WAIT=0; CLEAR_DEAD_LOCK=0; RECORD_LANDING=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --from-commit) [ $# -ge 2 ] || die "--from-commit needs a commit"; FROM_COMMIT="$2"; shift ;;
     --from-commit=*) FROM_COMMIT="${1#--from-commit=}" ;;
     --from-main-tip) FROM_MAIN_TIP=1 ;;
     --clear-dead-lock) CLEAR_DEAD_LOCK=1 ;;
+    --record-landing) [ $# -ge 2 ] || die "--record-landing needs the landed sha"; RECORD_LANDING="$2"; shift ;;
     --lock-wait) [ $# -ge 2 ] || die "--lock-wait needs seconds"; LOCK_WAIT="$2"; shift ;;
     --setup) MODE="setup" ;;
     --secrets) MODE="secrets" ;;
@@ -83,7 +84,14 @@ done
 EXTRACT_DIR=""
 STAGE=""
 SRC_REPO="$PROJECT_DIR"
-cleanup() { dg_lock_release; rm -rf ${STAGE:+"$STAGE"} ${EXTRACT_DIR:+"$EXTRACT_DIR"}; }
+cleanup() {
+  local rc=$?
+  # A landing's failure record is written HERE, before the lock is released, so the record and the
+  # lock hand-over cannot interleave with the next deploy's result.
+  if [ -n "${RECORD_LANDING:-}" ] && [ "$rc" -ne 0 ]; then
+    printf '%s\t%s\t%s\t%s\n' "$(date +%s)" "$RECORD_LANDING" "$rc" "$(dg_land_failed_file "$SRC_REPO" | sed 's/\.failed$/.log/')" > "$(dg_land_failed_file "$SRC_REPO")" 2>/dev/null || true
+  fi
+  dg_lock_release; rm -rf ${STAGE:+"$STAGE"} ${EXTRACT_DIR:+"$EXTRACT_DIR"}; }
 trap cleanup EXIT
 case "$LOCK_WAIT" in ''|*[!0-9]*) die "--lock-wait needs a whole number of seconds" ;; esac
 [ "$MODE" = deploy ] || { [ -z "$FROM_COMMIT" ] && [ "$FROM_MAIN_TIP" = 0 ]; } || die "--from-commit and --from-main-tip only apply to a deploy"
