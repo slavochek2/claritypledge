@@ -12,7 +12,7 @@ import { CheckRow, Phrases, StatusIcon } from './status'
 import { agentWord, checkStatus, connectionStatus, listSummary, type AgentHeader } from './statusWords'
 import { safeUrl } from './api'
 import { NewPeople } from './People'
-import { DEST_WORD, buildChecklist, summaryParts, type Checklist as ChecklistT, type ChecklistRow } from './checklist'
+import { type DestKind, DEST_WORD, buildChecklist, summaryParts, type Checklist as ChecklistT, type ChecklistRow } from './checklist'
 import { ListPane, type ListRow } from './ListPane'
 
 /**
@@ -331,10 +331,21 @@ function Checklist(p: {
   )
 }
 
+/** Destinations that live in a folded section on this page: the row scrolls there and opens it. */
+const SECTION_OF: Partial<Record<DestKind, string>> = { parked: '[data-parked-list]', waiting: '[data-waiting-list]', accepted: '[data-evaluated-list]' }
+
+function openSection(selector: string) {
+  const box = document.querySelector(selector)
+  box?.scrollIntoView({ block: 'nearest' })
+  const fold = box?.querySelector<HTMLButtonElement>('.d-fold[aria-expanded="false"]')
+  fold?.click()
+}
+
 function ProblemRow({ r, onJump }: { r: ChecklistRow; onJump: (fp: string) => void }) {
   const { check, dest } = r
   const word = DEST_WORD[dest.kind]
   const fp = dest.fp
+  const section = SECTION_OF[dest.kind]
   return (
     <div className="d-srow" data-check={check.id} data-dest={dest.kind} data-fail={`k:${check.id}`}>
       <StatusIcon status={check.status} hideWord />
@@ -350,6 +361,10 @@ function ProblemRow({ r, onJump }: { r: ChecklistRow; onJump: (fp: string) => vo
       <span className="d-destbox">
         {fp ? (
           <button type="button" className="d-link sm d-tap" data-dest-link onClick={() => onJump(fp)}>
+            {word} ›
+          </button>
+        ) : section ? (
+          <button type="button" className="d-link sm d-tap" data-dest-link onClick={() => openSection(section)}>
             {word} ›
           </button>
         ) : (
@@ -707,7 +722,7 @@ function AgentList({ agent, sent }: { agent: AgentWork; sent: Readonly<Record<st
 function Parked({ view, readOnly, onBringBack, open, setOpen, boxRef }: { view: DayView; readOnly: boolean; onBringBack: (fp: string) => void; open: boolean; setOpen: (o: boolean) => void; boxRef: RefObject<HTMLDivElement | null> }) {
   if (!view.parked.length) return null
   return (
-    <div className="d-card d-parked" ref={boxRef}>
+    <div className="d-card d-parked" ref={boxRef} data-parked-list>
       <button type="button" className="d-fold" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="d-tri">▶</span>Parked ({view.parked.length})
       </button>

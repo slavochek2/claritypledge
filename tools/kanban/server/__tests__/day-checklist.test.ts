@@ -156,3 +156,12 @@ describe('P1609 review: covered_by naming a healthy connection', () => {
     expect(summaryParts(cl.counts).map((p) => p.text)).toContain('1 with no card')
   })
 })
+
+describe('P1609 review: an issue owned by an open spec', () => {
+  it('says so, and never points at the Waiting section it is not in', () => {
+    const view = { checks: [{ id: 'k', label: 'k', status: 'problem' }], connections: [], issues: [], parked: [], waiting: [], owned: [{ fp: 'f', check: 'k' }], evaluated: [] } as unknown as Parameters<typeof buildChecklist>[0]
+    const cl = buildChecklist(view)
+    expect(cl.rows[0].dest.kind).toBe('owned')
+    expect(summaryParts(cl.counts).map((p) => p.text)).toContain('1 in an open spec')
+  })
+})

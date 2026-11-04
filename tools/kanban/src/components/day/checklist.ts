@@ -10,10 +10,10 @@ import { cardState, connectionBroken, isAgentWork, type CheckView, type Connecti
  */
 export const isAgentOnly = (i: IssueView) => isAgentWork(i) && (!i.decision || i.options.find((o) => o.id === i.decision?.option_id)?.agent === true)
 
-export type DestKind = 'ok' | 'skipped' | 'card' | 'none' | 'fix' | 'agent' | 'waiting' | 'parked' | 'accepted' | 'answered'
+export type DestKind = 'ok' | 'skipped' | 'card' | 'none' | 'fix' | 'agent' | 'waiting' | 'owned' | 'parked' | 'accepted' | 'answered'
 
 /** Which destination wins when a check has several cards: the one that most needs someone. */
-const RANK: DestKind[] = ['card', 'none', 'fix', 'agent', 'waiting', 'parked', 'accepted', 'answered']
+const RANK: DestKind[] = ['card', 'none', 'fix', 'agent', 'waiting', 'owned', 'parked', 'accepted', 'answered']
 
 export const DEST_WORD: Record<DestKind, string> = {
   ok: 'Worked',
@@ -23,6 +23,7 @@ export const DEST_WORD: Record<DestKind, string> = {
   fix: 'Reconnect first',
   agent: 'With the agent',
   waiting: 'Waiting',
+  owned: 'In an open spec',
   parked: 'Parked',
   accepted: 'Accepted',
   answered: 'You chose',
@@ -68,8 +69,9 @@ function homes(view: DayView, sent: Readonly<Record<string, string>>): Map<strin
     else add(i, 'card')
   }
   for (const i of view.parked) add(i, 'parked')
-  // owned by an open spec reads as waiting: no card, someone else has it
-  for (const i of [...view.waiting, ...view.owned]) add(i, 'waiting')
+  for (const i of view.waiting) add(i, 'waiting')
+  // owned by an open spec has no section on this page, so it says so instead of pointing at one
+  for (const i of view.owned) add(i, 'owned')
   for (const i of view.evaluated) add(i, 'accepted')
   return out
 }
@@ -93,7 +95,7 @@ export function buildChecklist(view: DayView, sent: Readonly<Record<string, stri
   })
   const order = (r: ChecklistRow) => (r.dest.kind === 'ok' ? 100 : r.dest.kind === 'skipped' ? 101 : RANK.indexOf(r.dest.kind))
   const sorted = rows.map((r, k) => ({ r, k })).sort((a, b) => order(a.r) - order(b.r) || a.k - b.k).map((x) => x.r)
-  const counts = { ok: 0, skipped: 0, card: 0, none: 0, fix: 0, agent: 0, waiting: 0, parked: 0, accepted: 0, answered: 0 } as Checklist['counts']
+  const counts = { ok: 0, skipped: 0, card: 0, none: 0, fix: 0, agent: 0, waiting: 0, owned: 0, parked: 0, accepted: 0, answered: 0 } as Checklist['counts']
   for (const r of rows) counts[r.dest.kind]++
   counts.total = rows.length
   const connections = view.connections.filter((c) => connectionBroken(c.state))
@@ -110,6 +112,7 @@ export function summaryParts(c: Checklist['counts']): { text: string; kind: Dest
   ]
   if (c.answered) out.push({ text: `${c.answered} answered`, kind: 'answered' })
   if (c.waiting) out.push({ text: `${c.waiting} waiting`, kind: 'waiting' })
+  if (c.owned) out.push({ text: `${c.owned} in an open spec`, kind: 'owned' })
   if (c.parked) out.push({ text: `${c.parked} parked`, kind: 'parked' })
   if (c.accepted) out.push({ text: `${c.accepted} accepted`, kind: 'accepted' })
   if (c.skipped) out.push({ text: `${c.skipped} skipped`, kind: 'skipped' })
