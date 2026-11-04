@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 90
 workstream: infrastructure
 created_date: '2026-11-04'
 tags: [edge-functions, deploy, self-hosted, testing]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-04
 ---
 
 # P1612: A stale checkout can silently put old edge functions on the shared TEST server
