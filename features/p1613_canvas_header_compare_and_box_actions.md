@@ -1,0 +1,75 @@
+---
+status: week
+type: story
+rank: 91
+workstream: canvas
+created_date: '2026-11-04'
+tags: [canvas, header, ux]
+disclosure: public
+delivery_stage: create-spec
+pipeline_ran: [create-spec]
+drafted_by: opus
+exec_model: sonnet
+exec_effort: medium
+driver: heuristic
+---
+
+# P1613: Canvas header and box actions read clearly in every state
+
+## Problem
+
+Founder walkthrough of Canvas after P1536, verbatim:
+
+> "compare positions is not in the top banner. Is it normal, not normal?"
+> "if it says new draft, why am I comparing positions if it's a draft?"
+> "the cancel button doesn't look like a button"
+> "add to chat is at the top and see all is on the right ... how do we make it like, should they be like buttons"
+
+Three things are wrong:
+
+1. Compare positions takes its own row below the bar, though it only changes how the canvas is viewed.
+2. Compare appears beside "New draft", where nothing has been written yet and the comparison looks meaningless.
+3. Cancel is plain grey text next to the grey status "Nothing to publish yet", so the two look alike. "Add to chat" repeated nine times squeezes box titles onto two lines in narrow boxes.
+
+## Appetite
+
+Blast radius: canvas page header and box header. Reversibility: git revert. Decision density: the founder approved these calls on 2026-11-04 ("do everything you said").
+
+## Solution
+
+- **Compare moves into the header row, beside the version picker**, on a published version only: the owner's bar, and the byline row beside the version for anyone without the bar. Absent on a draft and on a pending Clone (P955: absent, not disabled). Nobody to compare with still means absent. On a phone it joins the bar's second row. `headerRow` decides it, as the one source of truth for the row: a new output, covered by its table test, and using its existing definition of pending, because `isViewingDraft` alone misses a pending Clone. No other row of Compare remains; Share and Clone keep their current places on a page without the bar.
+- **A comparison never survives into a draft.** The page ignores `with` unless a published version is on screen, and the moves into a draft or pending Clone remove `with` in the same address update, not in a later effect, so Back keeps working and nothing compares with no control to end it.
+- **Cancel uses the shared secondary pill** (`CANVAS_SECONDARY_PILL`). The status text stays plain text. Update the one rule that names Cancel a ghost in `canvas-header-model.ts`, and its table test.
+- **Add to chat stays in the box header**, because the card is itself a button (P1536 D5). In a narrow box it collapses to the icon alone, with the existing label as tooltip and accessible name, and stays 44px by 44px (it needs a minimum width once the label goes). It is measured on the box as a container query, not the viewport, since the thread panel changes box width. The threshold is set so the longest box title, "Hypotheses I've falsified", fits on one line beside the icon where it can.
+- **See all stays under the list it expands.**
+
+## Invariants
+
+- The furthest-right filled control is the one main action (`headerRow`, P1536 X4); Compare is secondary and never filled.
+- At most one full-width primary button; no dead controls (P955).
+
+## Risks / Non-Goals
+
+| Risk | Label | Note |
+|---|---|---|
+| The bar overflows at 320px with Compare, the picker and a long name | MITIGATE | The name shrinks first, as today; Compare wraps to the second row; checked at 320, 375, 1280 and 1440 |
+| The picked person is lost on entering a draft | ACCEPT | Back restores it, and otherwise one tap does |
+
+**Non-Goals**
+- Do NOT change what Compare does once a person is picked.
+- Do NOT restyle See all or the card.
+- Do NOT rename any label.
+
+## Acceptance Criteria
+
+- [ ] On a published version with someone to compare with, Compare positions sits beside the version picker and has no row of its own, for owner and reader, at 1440, 1280, 375 and 320 with no overflow.
+- [ ] On a draft and on a "New draft" pending Clone, Compare positions does not appear, including after arriving from a published view with a comparison on: the boxes stop comparing and the address loses `with`, while Back still returns to the comparison.
+- [ ] Cancel looks like the other secondary pills, and Nothing to publish yet does not.
+- [ ] Share or Publish is still the furthest-right control in every row of the header table.
+- [ ] In a narrow box, Add to chat shows only its icon at 44px by 44px, with its name on hover and to screen readers, and the box title stays on one line where it fits. In a wide box the label shows.
+- [ ] Add to chat still works from the icon-only form, and readers still do not see it.
+- [ ] Visual QA checklist passed by a separate reviewer at 1440, 375 and 320, including both draft states.
+
+## Related
+
+P1536 (predecessor, X4, D5; it said "Compare stays where it is", reversed here by the founder) · P955 · P1614
