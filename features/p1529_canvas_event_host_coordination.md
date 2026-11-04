@@ -171,7 +171,7 @@ laptop line. Clarity Night and Social Hike emails stay byte-identical.
 ### 1. The flow belongs to the event, defaulted from its series (D8)
 
 - Each event has a flow: Clarity Night, Social Hike or Sales Mastermind. The default comes from
-  `events.series_slug` (set by the service role only, P1403). A `sales-mastermind` series key and the
+  `events.series_slug` (set by the service role only, P1403, enforced by `p1403_guard_series_columns`). A `sales-mastermind` series key and the
   mastermind recipe are added. **The test event `sales-mastermind-test` has no series today**
   (`series_slug` null, read on TEST 2026-10-30); setting it is part of this work.
 - **One resolver** replaces `recipeFor(seriesSlug)` at all 28 call sites (Invariants).
@@ -355,16 +355,19 @@ Drafting runs are Gemini calls through P1536's canvas key. Per run, this uses P1
 the public price list, ≈ $0.10 (UNVERIFIED; P1536's `/dev` owns the real reading, kept with P1536).
 The binding limit is P1536 D18's shared canvas bucket.
 
+Inputs: 16 people including 12 owners; 2.4 h evening; a 24-minute round at about 2 speakers x 4 lines a minute = 24 x 8 = 192 transcript lines (UNVERIFIED, `/dev` reads the real count from a TEST round).
+
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Drafting runs | 2 owned rounds x 1 run (no refining at the event, D6) = 2 per session, plus 1-3 for the first draft on the preparation day | 12 owners x 2 runs / 2.4 h = 10 runs | 0 (model stubbed in e2e) |
-| Gemini cost | 2 runs x $0.10 = $0.20 per session; first draft 3 x $0.10 = $0.30 | 10 x $0.10 = $1.00 | $0 |
-| Database writes | flow, observer flag, event canvas, ~8 version opens, ~4 update states ≈ 15 | 16 people x 15 / 2.4 h = 100 | ≈ 15 per seeded attendee |
+| Requests | registration 1 + emails 2 (confirmation, reminder) + canvas card 2 + 8 canvas opens + 2 next-version taps + update-state read every 10 s x 12 min = 72 → 87 per evening | host state every 15 s = 3600 / 15 = 240; owners during the update step 12 x 72 = 864 once per evening; opens and taps 16 x 10 / 2.4 h = 67 | seeded walk: 8 attendees x 87 = 696 |
+| Database rows written | 1 answers + 1 RSVP + 1 canvas + 8 opens + 2 runs + 2 trigger messages + copied lines 2 x 192 = 384 → 399 | 12 owners x 399 / 2.4 h = 1,995 | fixtures use short threads: 8 x (15 + 2 x 5) = 200 |
+| Egress (bytes) | card and answers about 2 KB x 87 requests = 174 KB | host state 16 people x 300 B = 4.8 KB x 240 = 1.2 MB | 8 x 174 KB = 1.4 MB |
+| Log lines | 0 on success; 1 warn per failed open record, at most 8 | 0 on success; at most 16 x 8 / 2.4 h = 53 if opens all fail | 0 expected |
+| Gemini (tokens x registry price) | 2 runs x $0.10 = $0.20 per session; first draft 3 x $0.10 = $0.30. The $0.10 is P1536 v6's estimate and does not yet reflect 192 copied lines of input: UNVERIFIED | 12 owners x 2 runs / 2.4 h = 10 runs x $0.10 = $1.00 | $0 (model stubbed in e2e) |
 
-1. **Fits the plan limit today?** Event day: 12 owners x ($0.20 + $0.30 if they draft that day) 
-   against the daily bucket. Fits. Supabase: about 100 writes an hour, no new Realtime traffic beyond the room's.
-2. **Fits at 10x?** 120 owners x $0.50 on one day: over the bucket. Does not fit without raising D18.
-3. **Failure cost:** a failed run is charged as P1536 rules; [Try again] is a new run.
+1. **Fits the plan limit today?** Gemini: 12 owners x ($0.20 + $0.30) = $6 per evening against P1536's daily canvas bucket: fits. Supabase, monthly: requests = (evenings per month) x 16 x 87 plus (evenings per month) x 2.4 h x 240; rows = (evenings per month) x 12 x 399. At the two evenings planned, this fits; the current values are read from the registry row.
+2. **Fits at 10x?** 120 owners x $0.50 on one day = $60: over the bucket. Does not fit without raising D18. Rows and requests scale linearly and fit.
+3. **Failure cost:** a failed run is charged as P1536 rules; Try again is a new run. A refused run writes no copied lines (one transaction).
 
 ## Acceptance Criteria
 
@@ -429,6 +432,12 @@ then repeated with five with canvases.
 - [ ] The results script prints, per owner, the versions opened and the stance count, on a seeded TEST
       session.
 - [ ] P1390 carries a note that the mastermind's spoken scores are its first real input (D4).
+
+## Known Limitations
+
+- A Demo round held after a counted round counts as a later owning round for the next-version window (2026-11-04 review). Demos run before round 1; recorded, not fixed.
+- A host who changes a round's seats after it ended changes who may make that round's next version. `host_set_round_seats` allows seat fixes for the latest round on purpose (P1596); the host is trusted here.
+- After a chosen canvas is deleted, its owner may choose a new one after round 1. D17 allows a first canvas at any round.
 
 ## Open Questions
 
