@@ -88,7 +88,8 @@ export function evaluate(out: RunOutput): Verdict {
       [2, out.round2, out.expected[person].round2],
     ] as const) {
       for (const ph of list) {
-        const foundUnder = names.filter((n) => phraseIn(ph.text, thread.textByPerson[n] ?? ''));
+        // Every author in the thread, not only the expected speakers: words credited to D or a stranger are strays too.
+        const foundUnder = Object.keys(thread.textByPerson).filter((n) => phraseIn(ph.text, thread.textByPerson[n] ?? ''));
         hits.push({ person, round, phrase: ph.text, first60: !!ph.first60, foundUnder });
         if (foundUnder.includes(person)) foundPerPerson[person][round === 1 ? 'round1' : 'round2']++;
       }
@@ -100,13 +101,13 @@ export function evaluate(out: RunOutput): Verdict {
     if (f.round1 < ROUND1_MIN_FOUND) failures.push(`round 1: ${person} has ${f.round1} of ${out.expected[person].round1.length} expected phrases under their name (need ${ROUND1_MIN_FOUND})`);
     if (f.round2 < ROUND2_MIN_FOUND) failures.push(`round 2: ${person} has ${f.round2} of ${out.expected[person].round2.length} expected phrases under their name (need ${ROUND2_MIN_FOUND})`);
   }
-  for (const h of hits.filter((x) => x.round === 1)) {
+  for (const h of hits) {
     const strays = h.foundUnder.filter((n) => n !== h.person);
-    if (strays.length) failures.push(`round 1: ${h.person}'s phrase "${h.phrase}" also appears under ${strays.join(', ')} (zero strays allowed)`);
+    if (strays.length) failures.push(`round ${h.round}: ${h.person}'s phrase "${h.phrase}" also appears under ${strays.join(', ')} (zero strays allowed)`);
   }
   if (normalize(out.round1.title).includes(normalize(MISSING_AUDIO_NOTE))) failures.push(`round 1's title carries the missing-audio note: "${out.round1.title}"`);
   if (!normalize(out.round2.title).includes(normalize(MISSING_AUDIO_NOTE))) failures.push(`round 2's title lacks "${MISSING_AUDIO_NOTE}": "${out.round2.title}"`);
-  if (!out.jobs.length) failures.push('no clean job was read back for this event');
+  for (const label of ['round 1', 'round 2']) if (!out.jobs.some((j) => j.label === label)) failures.push(`no clean job was read back for ${label}`);
   for (const j of out.jobs) {
     if (j.status !== 'completed') failures.push(`job ${j.label} ended ${j.status}, not completed`);
     if (j.attempts > MAX_ATTEMPTS) failures.push(`job ${j.label} took ${j.attempts} attempts (limit ${MAX_ATTEMPTS})`);

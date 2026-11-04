@@ -100,6 +100,22 @@ describe('P1608 verdict', () => {
   });
 });
 
+describe('P1608 strays outside the expected speakers', () => {
+  const phrase = (o: ReturnType<typeof passing>, round: 'round1' | 'round2') => o.expected.A[round][0].text;
+  it('fails when a round 1 phrase is also credited to someone with no recording', () => {
+    const o = passing(); o.round1.textByPerson['other:d'] = phrase(o, 'round1');
+    expect(evaluate(o).failures.join()).toMatch(/other:d/);
+  });
+  it('fails on a stray in round 2', () => {
+    const o = passing(); o.round2.textByPerson.B = `${o.round2.textByPerson.B} ${phrase(o, 'round2')}`;
+    expect(evaluate(o).failures.join()).toMatch(/round 2: A/);
+  });
+  it('fails when round 2 has no job', () => {
+    const o = passing(); o.jobs = o.jobs.filter((j) => j.label !== 'round 2');
+    expect(evaluate(o).failures.join()).toMatch(/for round 2/);
+  });
+});
+
 describe('P1608 assertion controls: each mutation of a passing run must fail', () => {
   it('swapping two speakers\' phrase lists fails', () => {
     const v = evaluate(controlSwapSpeakers(passing(), 'A', 'B'));
