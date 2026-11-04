@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 84
 workstream: clarity-canvas
 created_date: '2026-10-21'
 tags: [events, host, canvas, sales-mastermind]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec, create-spec.2]
+delivery_stage: dev
+pipeline_ran: [create-spec, create-spec.2, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
