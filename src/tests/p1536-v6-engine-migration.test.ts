@@ -181,8 +181,8 @@ describe('P1536 v6 migration: replaced bodies', () => {
     // _canvas_draft_run_complete is restated once more by the 3c wording file (one changed literal, pinned by p1536-s5-nothing-changed.test.ts).
     // The server review file (20261103010000) restates three of them once more, each with its edits pinned by p1536-sr-migration.test.ts: the run-id form of _canvas_draft_run_begin is
     // a NEW definition there (this file's 4-argument legacy overload is restated byte for byte after it), the 6-argument _canvas_draft_run_complete is restated byte for byte, and erase_chat_data_for gains one step.
-    // _mirror_limits is restated once more by P1604's 20261105000000 (this file's body plus one key, pinned byte for byte in p1604-mirror-session-budget.test.ts).
-    expect(newestDefinition(fn)).toBe(['erase_chat_data_for', '_canvas_draft_run_complete', '_canvas_draft_run_begin'].includes(fn) ? SERVER_REVIEW : fn === 'get_canvas' ? TITLE : fn === '_mirror_limits' ? '20261105000000_p1604_mirror_limits_with_canvas.sql' : M);
+    // _mirror_limits is restated by P1604 twice: 20261105000000 (this file's body plus one key) and 20261105100000 (that body with two person caps changed); both pinned byte for byte in p1604-mirror-session-budget.test.ts.
+    expect(newestDefinition(fn)).toBe(['erase_chat_data_for', '_canvas_draft_run_complete', '_canvas_draft_run_begin'].includes(fn) ? SERVER_REVIEW : fn === 'get_canvas' ? TITLE : fn === '_mirror_limits' ? '20261105100000_p1604_mirror_person_limits.sql' : M);
   });
   it('the earlier 4-argument _canvas_draft_run_fail is NOT redefined; the v6 five-argument form checks the owner, the state and settles the spend', () => {
     expect(stripComments(rawM)).not.toMatch(/FUNCTION public\._canvas_draft_run_fail\(p_run uuid, p_code text/);

@@ -163,13 +163,16 @@ describe('signed-in desktop chrome, every route in App.tsx', () => {
 });
 
 describe('/transcribe inside the shell: its screens do not keep padding for a nav that is gone', () => {
-  const page = readFileSync(resolve(__dirname, '../app/pages/transcribe-room-page.tsx'), 'utf8');
+  // The join, room and ended views share ONE frame (founder: Stop never navigates), so the padding lives there and only there.
+  const page = readFileSync(resolve(__dirname, '../app/pages/transcribe-room-frame.tsx'), 'utf8');
+  const pageSource = readFileSync(resolve(__dirname, '../app/pages/transcribe-room-page.tsx'), 'utf8');
   const css = readFileSync(resolve(__dirname, '../index.css'), 'utf8');
   it('every screen that pads itself below the fixed nav says so, so the shell can take that padding back', () => {
     const padded = (page.match(/pt-\[calc\(4rem\+env\(safe-area-inset-top\)\+[12]rem\)\]/g) ?? []).length;
     const marked = (page.match(/data-clears-nav="[12]"/g) ?? []).length;
     expect(padded).toBeGreaterThan(0);
     expect(marked, 'one marker per padded screen').toBe(padded);
+    expect(pageSource, 'and the page pads nothing of its own, so no screen escapes the frame').not.toMatch(/pt-\[calc\(4rem\+env\(safe-area-inset-top\)/);
   });
   it('and the stylesheet gives the shell that rule, for the gap each screen wanted', () => {
     expect(css).toMatch(/\[data-shell-top-nav="none"\] \[data-clears-nav="1"\][^}]*env\(safe-area-inset-top\) \+ 1rem/);

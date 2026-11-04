@@ -428,8 +428,8 @@ describe('P1536 migrations: replaced bodies', () => {
     const newest = fnBody(read(newestFile), name);
     for (const [, to] of REPLACED[name]!.edits) {
       let want = norm(to);
-      // P1604's 20261105000000 restates _mirror_limits once more: V6's body plus one key (pinned byte for byte in p1604-mirror-session-budget.test.ts)
-      if (newestFile === V6 || newestFile === TITLE || (name === '_mirror_limits' && newestFile === '20261105000000_p1604_mirror_limits_with_canvas.sql')) {
+      // P1604's 20261105000000 and 20261105100000 restate _mirror_limits once more: V6's body plus one key, then two person caps changed (pinned byte for byte in p1604-mirror-session-budget.test.ts)
+      if (newestFile === V6 || newestFile === TITLE || (name === '_mirror_limits' && newestFile === '20261105100000_p1604_mirror_person_limits.sql')) {
         for (const [from, sub] of V6_SUBST[name] ?? []) want = want.split(norm(from)).join(norm(sub));
         if (newestFile === TITLE) for (const [from, sub] of TITLE_SUBST[name] ?? []) want = want.split(norm(from)).join(norm(sub));
       } else {

@@ -3,7 +3,8 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { fireEvent } from '@testing-library/react';
 
 const cap = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 vi.mock('@/app/contexts/room-capture-context', () => ({ useRoomCapture: () => cap.value }));
@@ -18,9 +19,11 @@ const base = {
   pausedByLiveRecord: false, micLost: false, tapDown: false, stopping: false, inputSilent: false, micSwitched: false, audioLost: false,
   reconnectMic: vi.fn(), subscribeLevel: () => () => undefined, destination: null,
 };
+let where = '';
+function Where() { where = useLocation().pathname; return null; }
 const show = (over: Record<string, unknown>) => {
   cap.value = { ...base, ...over };
-  return render(<MemoryRouter><RoomCaptureBar short /></MemoryRouter>);
+  return render(<MemoryRouter initialEntries={['/feed']}><RoomCaptureBar short /><Where /></MemoryRouter>);
 };
 
 describe('the bar of a recording started from a chat', () => {
@@ -42,5 +45,14 @@ describe('the bar of a recording started from a chat', () => {
     cleanup();
     show({ conversationId: null, eventId: null });
     expect(screen.queryByTestId('capture-chat-hint')).toBeNull();
+  });
+});
+
+describe('Stop from the bar elsewhere never navigates (founder)', () => {
+  it('ends the capture and leaves the person on the page they are on', () => {
+    show({ conversationId: 'chat-1', eventId: null });
+    fireEvent.click(screen.getByTestId('room-capture-bar-end'));
+    expect(base.endMyCapture).toHaveBeenCalledWith('r1');
+    expect(where).toBe('/feed');
   });
 });

@@ -23,16 +23,15 @@
  *     anywhere here; live text arrives only as the server's rows.
  */
 import { RoomHeaderActions, TranscribeCaptureRow } from './transcribe-capture-row';
-import { ConsentSection } from '@/app/pages/ConsentLabel';
+import { EndedBanner, RoomFrame } from './transcribe-room-frame';
+import { TranscribeChatList } from './transcribe-chat-list';
+import { TranscribeJoinForm } from './transcribe-join-form';
 import { RoomPeople } from '@/app/components/session/room-people';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/auth';
-import { FocusHeader } from '@/app/components/layout/focus-header';
 import { EndedEventNote, TranscribeRoomTop } from './transcribe-room-event-links';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
-import { Button } from '@/components/ui/button';
-import { Loader2, ArrowDown } from 'lucide-react';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { analytics } from '@/lib/mixpanel';
 import {
@@ -52,9 +51,6 @@ type ViewState = 'loading' | 'consent' | 'joining' | 'room' | 'ended';
 /** A capture that exists for this person, whether this tab holds the microphone or not. */
 const RUNNING_PHASES: ReadonlySet<CapturePhase> = new Set(['capturing', 'stalled', 'paused', 'observing']);
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
 
 export function TranscribeRoomPage() {
   const navigate = useNavigate();
@@ -76,6 +72,9 @@ export function TranscribeRoomPage() {
   // Joined, but the microphone could not open: the room is still readable, as it always was
   // on this page. Nothing is captured, and the server has recorded this person's end.
   const [readOnlyRoomId, setReadOnlyRoomId] = useState<string | null>(null);
+  // The room as it was when the session ended: the text stays on screen and the banner can link to the chat.
+  const lastRoom = useRef<{ roomId: string; conversationId: string | null } | null>(null);
+  const [endedRoom, setEndedRoom] = useState<{ roomId: string; conversationId: string | null } | null>(null);
 
   const captureRunning = capture.roomId !== null && RUNNING_PHASES.has(capture.phase);
   // /transcribe with no code while capturing shows the running room and never enters a second
@@ -101,7 +100,10 @@ export function TranscribeRoomPage() {
   // hold End Session, which now sits beside Pause. So every view of this page is served by the
   // site nav (Tools, avatar) with no declaration, as the join and ended views always were.
   useLinksTriggerOverride(null);
-  const roomId = showRunningRoom ? capture.roomId : showReadOnlyRoom ? readOnlyRoomId : null;
+  const roomId = showRunningRoom ? capture.roomId : showReadOnlyRoom ? readOnlyRoomId : view === 'ended' ? endedRoom?.roomId ?? null : null;
+  useEffect(() => {
+    if (showRunningRoom && capture.roomId) lastRoom.current = { roomId: capture.roomId, conversationId: capture.conversationId ?? null };
+  }, [showRunningRoom, capture.roomId, capture.conversationId]);
 
   // P1294: the list follows new lines, and stops following the moment the reader scrolls up.
   // Keyed on a SCALAR, never on `messages` itself — the subscription replaces that array
@@ -136,6 +138,7 @@ export function TranscribeRoomPage() {
       wasInRoomRef.current = true;
     } else if (wasInRoomRef.current && !captureRunning && capture.phase === 'idle') {
       wasInRoomRef.current = false;
+      setEndedRoom(lastRoom.current);
       setView('ended');
     }
   }, [showRunningRoom, captureRunning, capture.phase]);
@@ -208,6 +211,7 @@ export function TranscribeRoomPage() {
     // A read-only room has no capture to end; the server already recorded the end.
     if (showRunningRoom && roomId) await capture.endMyCapture(roomId);
     wasInRoomRef.current = false;
+    setEndedRoom(lastRoom.current ?? (roomId ? { roomId, conversationId: null } : null));
     setReadOnlyRoomId(null);
     setView('ended');
   }, [showRunningRoom, roomId, capture]);
@@ -219,111 +223,50 @@ export function TranscribeRoomPage() {
 
   if (!user) return null;
 
+  const speaking = capture.speakingMemberIds;
+  const list = (
+    <TranscribeChatList rows={mergedRows} members={members} speaking={speaking} chatRef={chatRef} onScroll={onChatScroll} isAtBottom={isAtBottom} scrollToBottom={scrollToBottom} />
+  );
+
+  // Stop never navigates (founder): the ended view is the room in place, the controls become a banner, the text stays.
   if (view === 'ended') {
     return (
-      // isLivePage (clarity-landing-layout.tsx) covers all of /transcribe and removes <main>'s
-      // top padding, so non-room screens clear the fixed nav themselves.
-      <div
-        className="max-w-md mx-auto px-4 py-8 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 text-center h-full overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top)+2rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+2rem)]"
-        data-clears-nav="2"
-        data-testid="transcribe-ended-screen"
-      >
-        <div className="text-left">
-          <FocusHeader fallback={BACK_FALLBACK} />
-        </div>
-        <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Session ended</h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          {/* [FOUNDER DECISION: copy] */}
-          The room&rsquo;s audio has been saved.
-        </p>
+      <RoomFrame testId="transcribe-room-screen">
+        <TranscribeRoomTop running={false} fallback={BACK_FALLBACK} actions={<EndedBanner conversationId={endedRoom?.conversationId ?? null} />} />
         <EndedEventNote />
-        {members.length > 0 && (
-          <p className="text-xs text-muted-foreground mb-6" data-testid="transcribe-ended-roster">
-            Was in the room: {members.map((m) => m.displayName).join(', ')}
-          </p>
-        )}
-        {/* Founder, 2026-09-15: the next step after ending is the transcript, so it is the one
-            primary action, named for what the person gets. The app names the destination
-            "Session History" (nav menu; /live's "View transcript in Session History"), and the
-            saved transcript appears there only after the recording is processed — the sub-line
-            says both so nobody lands on a spinner expecting text. Back stays the quiet way out. */}
-        <Button
-          onClick={() => navigate('/sessions')}
-          className="w-full min-h-11"
-          data-testid="transcribe-see-transcript"
-        >
-          See your transcript
-        </Button>
-        <p className="text-xs text-muted-foreground mt-2">
-          It appears in Session History once the recording has been processed.
-        </p>
-      </div>
+        {list}
+      </RoomFrame>
     );
   }
 
   if (!showRunningRoom && !showReadOnlyRoom) {
     return (
-      <div
-        className="max-w-md mx-auto px-4 py-8 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-8 h-full overflow-y-auto pt-[calc(4rem+env(safe-area-inset-top)+2rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+2rem)]"
-        data-clears-nav="2"
-        data-testid="transcribe-consent-screen"
-      >
-        <FocusHeader fallback={BACK_FALLBACK} />
-        <h1 className="text-xl font-semibold mb-2 font-['Playfair_Display']">Join the transcription room</h1>
-        <ConsentSection agreed={consentGiven} code={urlCode} onToggle={() => setConsentGiven((prev) => !prev)} />
-
-        {joinError && <p className="text-sm text-red-600 mb-4" data-testid="transcribe-join-error">{joinError}</p>}
-
-        <Button
-          onClick={() => void handleJoin()}
-          disabled={!consentGiven || view === 'joining'}
-          className="w-full min-h-11"
-          data-testid="transcribe-join-button"
-        >
-          {view === 'joining' ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-          {view === 'joining' ? 'Joining...' : 'Join room'}
-        </Button>
-
-        <p className="text-xs text-muted-foreground text-center mt-4">
-          By joining, you agree to our{' '}
-          <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Terms</a>{' '}
-          and{' '}
-          <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy Policy</a>.
-        </p>
-      </div>
+      <RoomFrame testId="transcribe-consent-screen">
+        <TranscribeRoomTop running={false} fallback={BACK_FALLBACK} />
+        <TranscribeJoinForm
+          consentGiven={consentGiven}
+          onToggle={() => setConsentGiven((prev) => !prev)}
+          urlCode={urlCode}
+          joinError={joinError}
+          joining={view === 'joining'}
+          onJoin={() => void handleJoin()}
+        />
+      </RoomFrame>
     );
   }
 
   // The running room.
-  const speaking = capture.speakingMemberIds;
-  const lastRow = mergedRows[mergedRows.length - 1];
-
   return (
-    <div className="flex flex-col h-full min-h-0" data-testid="transcribe-room-screen">
-      {/* P1323 R6: the slot is CLAIMED and draws nothing — the page header above already
-          carries End Session, and the listening indicator plus the live transcript below are
-          a stronger D9 indicator than the bar was. Claiming rather than deleting is
-          load-bearing: an unclaimed slot drops barSlotCount to 0 and fires the app-wide
-          fallback, which re-draws the same bar as a sticky overlay. See the component. */}
-      <RoomCaptureBarClaimSilent />
+    <RoomFrame testId="transcribe-room-screen" claim={<RoomCaptureBarClaimSilent />}>
+      <TranscribeRoomTop
+        running={showRunningRoom}
+        fallback={BACK_FALLBACK}
+        actions={<RoomHeaderActions readOnly={showReadOnlyRoom} onStop={() => void handleEndSession()} />}
+      />
 
-      {/* Clears the fixed site nav, which is now visible here (P1388). */}
-      <div data-clears-nav="1" className="max-w-2xl mx-auto px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-4 pt-[calc(4rem+env(safe-area-inset-top)+1rem)] lg:pt-[calc(5rem+env(safe-area-inset-top)+1rem)] flex flex-col flex-1 min-h-0 w-full">
-        {/* Founder, 2026-09-14: the top Back sits in the content column and reads "Back", the
-            same control as the join and ended screens and /stake — not an arrow in the header.
-            Leaving does not end capture (P1307 D7); End Session does. */}
-        {/* Tighter than FocusHeader's page default (mb-4): on a phone every row here is taken
-            from the live transcript. The button itself stays 44 px tall. */}
-        <TranscribeRoomTop
-          running={showRunningRoom}
-          fallback={BACK_FALLBACK}
-          actions={<RoomHeaderActions readOnly={showReadOnlyRoom} onStop={() => void handleEndSession()} />}
-        />
-
-        {showReadOnlyRoom ? (
-          <>
-          {/* The page header that held End Session is gone (P1388): the read-only person keeps
-              the roster and a way to leave, which ends nothing — their capture never started. */}
+      {showReadOnlyRoom ? (
+        <>
+          {/* The read-only person keeps the roster and a way to leave, which ends nothing: their capture never started. */}
           <div className="flex items-center gap-2 mb-2">
             <RoomPeople members={members} speakingIds={speaking} />
           </div>
@@ -335,54 +278,12 @@ export function TranscribeRoomPage() {
             {/* [FOUNDER DECISION: copy] — the page's existing placeholder, unchanged. */}
             Could not access your microphone. You can still read the chat.
           </p>
-          </>
-        ) : (
-          <TranscribeCaptureRow people={<RoomPeople members={members} speakingIds={speaking} />} />
-        )}
+        </>
+      ) : (
+        <TranscribeCaptureRow people={<RoomPeople members={members} speakingIds={speaking} />} />
+      )}
 
-        <div className="relative flex-1 min-h-0 mb-4">
-          <div
-            ref={chatRef}
-            onScroll={onChatScroll}
-            className="h-full overflow-y-auto space-y-3"
-            data-testid="transcribe-chat"
-          >
-            {mergedRows.length > 0 && (
-              mergedRows.map((row) => {
-                const speaker = members.find((m) => m.id === row.memberId);
-                const stillSpeaking = row === lastRow && speaking.has(row.memberId);
-                return (
-                  <div key={row.key} className="text-sm" data-testid="transcribe-message">
-                    <span className="font-medium">{speaker?.displayName ?? 'Someone'}</span>{' '}
-                    <span className="text-xs text-muted-foreground">{formatTime(row.spokenAt)}</span>
-                    <p>
-                      {row.text}
-                      {stillSpeaking && (
-                        <span className="text-muted-foreground" aria-label="still speaking" data-testid="transcribe-speaking">
-                          {' '}…
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Only while detached; not a primary action and never full-width (P955). */}
-          {!isAtBottom && (
-            <button
-              type="button"
-              onClick={() => scrollToBottom()}
-              aria-label="Jump to newest"
-              data-testid="transcribe-jump-to-newest"
-              className="absolute bottom-2 right-2 w-11 h-11 rounded-full border bg-background shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground"
-            >
-              <ArrowDown className="w-5 h-5" aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+      {list}
+    </RoomFrame>
   );
 }

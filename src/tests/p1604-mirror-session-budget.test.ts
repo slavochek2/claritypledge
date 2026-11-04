@@ -44,7 +44,7 @@ describe('the numbers', () => {
     expect(((SESSION_BUDGET_TOKENS * PRICE_IN_PER_M + SESSION_MAX_OUT_TOKENS * PRICE_OUT_PER_M) / 1e6) * RESERVE_MARGIN).toBeCloseTo(0.225, 9);
   });
 
-  it('SQL and code never drift: _mirror_limits() carries both reservations, equal to the code\'s', () => {
+  it('SQL and code never drift (newest definition): _mirror_limits() carries both reservations, equal to the code\'s', () => {
     const sql = readFileSync(newestMigrationDefining('FUNCTION public._mirror_limits()'), 'utf8');
     expect(Number(/'reply_max_usd',\s*([0-9.]+)/.exec(sql)![1])).toBe(reserveReplyUsd());
     expect(Number(/'reply_session_max_usd',\s*([0-9.]+)/.exec(sql)![1])).toBe(reserveReplyUsd(true));
@@ -63,6 +63,20 @@ describe('rebase onto main: _mirror_limits() keeps main\'s canvas caps and adds 
     expect(strip(mine)).toBe(body('20261030080000_p1536_v6_engine.sql'));
     expect(mine).toContain("'reply_session_max_usd',     0.225");
     for (const key of ['canvas_max_usd', 'extract_max_usd', 'person_canvas_daily_usd', 'global_canvas_daily_usd']) expect(mine).toContain(`'${key}'`);
+  });
+  it('the person reply caps were raised by the founder, and ONLY those two lines changed against the restore above', () => {
+    const newest = body('20261105100000_p1604_mirror_person_limits.sql');
+    const restore = body('20261105000000_p1604_mirror_limits_with_canvas.sql');
+    const lines = (b: string) => b.split('\n').filter((l) => !/^\s*--/.test(l));
+    const was = lines(restore), now = lines(newest);
+    expect(now.length).toBe(was.length);
+    const changed = now.map((l, i) => [was[i]!, l] as const).filter(([a, b]) => a !== b);
+    expect(changed.map(([, b]) => b.match(/'(\w+)'/)![1]).sort()).toEqual(['person_reply_daily_count', 'person_reply_daily_usd']);
+    expect(Number(/'person_reply_daily_usd',\s*([0-9.]+)/.exec(newest)![1])).toBeGreaterThan(Number(/'person_reply_daily_usd',\s*([0-9.]+)/.exec(restore)![1]));
+    expect(Number(/'person_reply_daily_count',\s*([0-9]+)/.exec(newest)![1])).toBeGreaterThan(Number(/'person_reply_daily_count',\s*([0-9]+)/.exec(restore)![1]));
+    for (const key of ['global_reply_daily_usd', 'global_total_daily_usd', 'reply_session_max_usd', 'canvas_max_usd']) {
+      expect(newest.match(new RegExp(`'${key}',\\s*[0-9.]+`))?.[0], `${key} unchanged`).toBe(restore.match(new RegExp(`'${key}',\\s*[0-9.]+`))?.[0]);
+    }
   });
   it('control: the earlier P1604 body (written from the P1547 one) did NOT carry them, which is why the restore exists', () => {
     expect(body('20261104150000_p1604_mirror_session_transcript.sql')).not.toContain('canvas_max_usd');
