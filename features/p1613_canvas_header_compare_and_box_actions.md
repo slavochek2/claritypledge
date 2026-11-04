@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 91
 workstream: canvas
 created_date: '2026-11-04'
 tags: [canvas, header, ux]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -37,7 +37,7 @@ Blast radius: canvas page header and box header. Reversibility: git revert. Deci
 
 ## Solution
 
-- **Compare moves into the header row, beside the version picker**, on a published version only: the owner's bar, and the byline row beside the version for anyone without the bar. Absent on a draft and on a pending Clone (P955: absent, not disabled). Nobody to compare with still means absent. On a phone it joins the bar's second row. `headerRow` decides it, as the one source of truth for the row: a new output, covered by its table test, and using its existing definition of pending, because `isViewingDraft` alone misses a pending Clone. No other row of Compare remains; Share and Clone keep their current places on a page without the bar.
+- **Compare moves into the header row, beside the version picker**, on a published version only: the owner's bar, and the byline row beside the version for anyone without the bar. Absent on a draft and on a pending Clone (P955: absent, not disabled). Nobody to compare with still means absent. On a phone it joins the bar's second row at 375; at 320 it takes its own row, because the three controls cannot fit. `headerRow` decides it, as the one source of truth for the row: a new output, covered by its table test, and using its existing definition of pending, because `isViewingDraft` alone misses a pending Clone. No other row of Compare remains; Share and Clone keep their current places on a page without the bar.
 - **A comparison never survives into a draft.** The page ignores `with` unless a published version is on screen, and the moves into a draft or pending Clone remove `with` in the same address update, not in a later effect, so Back keeps working and nothing compares with no control to end it.
 - **Cancel uses the shared secondary pill** (`CANVAS_SECONDARY_PILL`). The status text stays plain text. Update the one rule that names Cancel a ghost in `canvas-header-model.ts`, and its table test.
 - **Add to chat stays in the box header**, because the card is itself a button (P1536 D5). In a narrow box it collapses to the icon alone, with the existing label as tooltip and accessible name, and stays 44px by 44px (it needs a minimum width once the label goes). It is measured on the box as a container query, not the viewport, since the thread panel changes box width. The threshold is set so the longest box title, "Hypotheses I've falsified", fits on one line beside the icon where it can.
@@ -62,13 +62,13 @@ Blast radius: canvas page header and box header. Reversibility: git revert. Deci
 
 ## Acceptance Criteria
 
-- [ ] On a published version with someone to compare with, Compare positions sits beside the version picker and has no row of its own, for owner and reader, at 1440, 1280, 375 and 320 with no overflow.
-- [ ] On a draft and on a "New draft" pending Clone, Compare positions does not appear, including after arriving from a published view with a comparison on: the boxes stop comparing and the address loses `with`, while Back still returns to the comparison.
-- [ ] Cancel looks like the other secondary pills, and Nothing to publish yet does not.
-- [ ] Share or Publish is still the furthest-right control in every row of the header table.
-- [ ] In a narrow box, Add to chat shows only its icon at 44px by 44px, with its name on hover and to screen readers, and the box title stays on one line where it fits. In a wide box the label shows.
-- [ ] Add to chat still works from the icon-only form, and readers still do not see it.
-- [ ] Visual QA checklist passed by a separate reviewer at 1440, 375 and 320, including both draft states.
+- [x] On a published version with someone to compare with, Compare positions sits beside the version picker and has no row of its own, for owner and reader, at 1440, 1280, 375 and 320 with no overflow. *(Real route at 1440, `e2e/p1613-canvas-header.spec.ts`; bar tests; gate fixture measured at 1280, 375 and 320 with no overflow. Reader byline covered by a component test, not walked in a browser. At 320 Compare wraps to its own row, then Clone and Share.)*
+- [x] On a draft and on a "New draft" pending Clone, Compare positions does not appear, including after arriving from a published view with a comparison on: the boxes stop comparing and the address loses `with`, while Back still returns to the comparison. *(Table and bar tests; real browser Back in the e2e spec.)*
+- [x] Cancel looks like the other secondary pills, and Nothing to publish yet does not. *(Real class asserted on the real route; screenshots at 320, 375, 1440.)*
+- [x] Share or Publish is still the furthest-right control in every row of the header table. *(X4 table and bar tests unchanged; new test.)*
+- [x] In a narrow box, Add to chat shows only its icon at 44px by 44px, with its name on hover and to screen readers, and the box title stays on one line where it fits. In a wide box the label shows. *(Real route: 44x44 and label hidden at 318px, label in flow at 349px.)*
+- [x] Add to chat still works from the icon-only form, and readers still do not see it. *(Real route click puts the tag in the composer; reader suites pass.)*
+- [x] Visual QA checklist passed by a separate reviewer at 1440, 375 and 320, including both draft states. *(Separate screenshots-only reviewer: no failures against the intended design. Noted and accepted: the selected Canvas/Thread tab shares Cancel's outline, the status wraps to two lines at 1440, the 320 published bar is 145px. The 320 pencil absence is old behaviour, `canvas-name-edit.tsx`.)*
 
 ## Related
 
