@@ -89,6 +89,14 @@ Blast radius: every session testing on TEST, not prod. Reversibility: git revert
 - [x] Landing a change to deployed inputs deploys that commit's contents, proven with an uncommitted edit in the checkout that does not reach the bundle (test harness). A landing that touches none does not deploy. A failed deploy leaves the landing intact and prints the failure. *(Harness calls `deploy_test_on_land` and the `--from-main-tip` path. No real ship has run it.)* `[post-deploy]` first real landing that touches functions.
 - [x] The recurrence is recorded in `docs/decisions.md`, replacing the prose remedy of 2026-11-03. *(`docs/decisions.md` 2026-11-04.)*
 
+## Known Limitations
+
+- A clearer that dies inside the dead-lock mutex, followed by two landings recovering it at the same moment, could let two deploys overlap. It needs three unlikely events in a few seconds, and the drift check would show the result.
+- A landing job killed by its deadline can record a failure just after a later deploy succeeded, leaving a stale warning until the next deploy clears it.
+- `deno.json` or `deno.lock` missing from the server reads `unclassified` in drift, not behind or branch-only. It still reads as drift.
+- The hook's log is truncated at 200 KB by the next landing, which can cut a running job's log. The failure record is separate.
+- Old branches run their own old script until they rebase; the global guard `~/.agents/guards/stale_test_deploy.py` covers them for Claude sessions. It is not registered for Codex or Gemini sessions.
+
 ## Alternatives Considered
 
 - **Prose rule to redeploy after rebasing:** already tried on 2026-11-03; it recurred the next day.
