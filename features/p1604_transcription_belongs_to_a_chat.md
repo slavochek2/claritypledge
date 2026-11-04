@@ -1,13 +1,13 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 88
 workstream: transcription
 created_date: '2026-11-03'
 tags: [transcription, clarity-chat, events]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -70,6 +70,10 @@ Gemini 4 Argon, Codex and Opus reviewed; 3 of 3 reported. Each item below was ch
 
 ## Known Limitations
 
+- The founder's live test on TEST passed for starting from a chat, live text, the thread and history. The last batch (Stop in place, one frame) passed tests only; it was not looked at in a browser. Round sessions and several people at once have tests and no live run.
+- TEST has no scheduled job for the clean worker, so clean text on TEST needs its sweep run by hand.
+- A stale flush report can count if a later capture of the same seat has also ended; it needs two tabs and only shortens the wait.
+
 - A mirror reply about a transcript is still cut at 4,000 characters, the limit on every chat message; longer answers wait for the mirror memory design.
 - A session of several mics near 3 hours has not been run through the worker; only the arithmetic is known.
 - Final Gemini review, open and left for the founder's test: reloading after a manual pause resumes recording; a second tab watching a capture can show "not recording" after Part 2; an event room with no chat row yet carries seats to Part 2 without an access recheck.
@@ -124,11 +128,11 @@ Fill before /dev, from the P1596 budget. Expected direction: removing the older 
 
 ## Acceptance Criteria
 
-- [ ] From a chat's three-dot menu, a person starts transcription, the banner follows them, Open goes to live text, and after Stop a thread appears in that chat.
-- [ ] Each session rule above has a test that walks its sequence.
-- [ ] Plain `/transcribe` still works with no chat, and its clean text is in session history with Copy.
-- [ ] A session started from an event room shows the same clean text in chat and in history.
-- [ ] The older per-person pass still runs as the fallback, and history shows clean text when it exists and the older text when it does not. Retiring it is a later step, after the friends test.
+- [x] From a chat's three-dot menu, a person starts transcription, the banner follows them, Open goes to live text, and after Stop a thread appears in that chat.
+- [x] Each session rule above has a test that walks its sequence.
+- [x] Plain `/transcribe` still works with no chat, and its clean text is in session history with Copy.
+- [x] A session started from an event room shows the same clean text in chat and in history.
+- [x] The older per-person pass still runs as the fallback, and history shows clean text when it exists and the older text when it does not. Retiring it is a later step, after the friends test.
 
 ## Related
 
