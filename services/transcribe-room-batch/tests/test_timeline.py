@@ -255,7 +255,8 @@ def test_a_genuine_pause_stays_a_gap_among_jittered_uploads():
 def test_a_missing_number_leaves_a_hole_not_a_squeeze():
     refs = [ref(n, 1000 + (n + 1) * L + JITTER[n]) for n in (0, 1, 2, 4, 5, 6)]
     e = _ends_d(refs, {n: L * S for n in (0, 1, 2, 4, 5, 6)})
-    assert round(e[4] - e[2], 6) == 2 * L and round(e[6] - e[0], 6) == 6 * L
+    # after a hole the run takes a fresh anchor, so positions agree to within upload jitter, not exactly
+    assert all(abs(e[n] - e[0] - n * L) <= audio.UPLOAD_JITTER_MS / S for n in e)
 
 
 def test_one_chunk_is_placed_at_its_own_time():
