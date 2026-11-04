@@ -23,7 +23,7 @@ import { test, chromium, expect, type Browser, type BrowserContext, type Page } 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync , appendFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,7 +32,7 @@ import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from '.
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { ok, purgeChatFor, signIn, type SignedIn } from '../helpers/test-chat';
 import { envelopeDb, readWav16, scorePreflight } from '../helpers/p1608-audio';
-import { evaluate, formatReport, type Expected, type JobInfo, type RunOutput } from '../helpers/p1608-matcher';
+import { evaluate, formatReport, phraseIn, type Expected, type JobInfo, type RunOutput } from '../helpers/p1608-matcher';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT_DIR = path.join(ROOT, 'test-results-p1608');
@@ -81,6 +81,14 @@ const persist = () => {
 async function cleanup(state: { eventId?: string; hostId?: string; userIds: string[]; sessionIds: string[] }): Promise<void> {
   const step = async (what: string, fn: () => unknown) => { try { await fn(); } catch (e) { log(`cleanup: ${what} failed: ${String(e).slice(0, 120)}`); } };
   if (state.eventId) {
+    // sessions the app created when people tapped Transcribe: the room's cascade does not reach them
+    await step('app sessions', async () => {
+      const { data: rooms } = await supabaseAdmin.from('transcribe_rooms').select('id').eq('event_id', state.eventId!);
+      const roomIds = (rooms ?? []).map((r) => r.id as string);
+      if (!roomIds.length) return;
+      const { data: members } = await supabaseAdmin.from('transcribe_room_members').select('session_id').in('room_id', roomIds);
+      for (const m of members ?? []) if (m.session_id && !state.sessionIds.includes(m.session_id as string)) state.sessionIds.push(m.session_id as string);
+    });
     // the room first: ends nothing new, and its clean jobs go with it (ON DELETE CASCADE), so no paid job can start after this
     await step('rooms', () => supabaseAdmin.from('transcribe_rooms').delete().eq('event_id', state.eventId!));
   }
@@ -237,10 +245,10 @@ test.describe('P1608 transcription end to end', () => {
       'transcribe_channel_posting must be enabled with enabled_at in the past. The test never writes it (a write takes the whole server, P1607). Switch it on, wait a minute, run again.').toBe(true);
 
     // 3. fixtures: hidden event (P1603), host, A, B, C and the seeded D
-    host = await createTestUser({ name: `P1608 Host ${RUN}` });
-    for (const k of [...PEOPLE, 'D'] as const) users[k] = await createTestUser({ name: `P1608 Person ${k} ${RUN}` });
-    event = await createTestEvent(host.user.id, new Date(), { title: `P1608 Event ${RUN}`, isHidden: true });
-    persist();
+    // persist after every creation, so a crash at any point leaves nothing the next run cannot clean up
+    host = await createTestUser({ name: `P1608 Host ${RUN}` }); persist();
+    for (const k of [...PEOPLE, 'D'] as const) { users[k] = await createTestUser({ name: `P1608 Person ${k} ${RUN}` }); persist(); }
+    event = await createTestEvent(host.user.id, new Date(), { title: `P1608 Event ${RUN}`, isHidden: true }); persist();
     for (const k of [...PEOPLE, 'D'] as const) await rsvpToEvent(event.id, users[k]!.user.id);
     const hostC: SignedIn = await signIn(host);
 
@@ -408,7 +416,22 @@ test.describe('P1608 transcription end to end', () => {
     console.log('\n' + report + '\n');
 
     if (process.env.P1608_RULE_OFF === '1') {
-      log('rule-off control requested: see scripts/p1608-rule-off-control.py (a separate, paid command; it reads the downloaded chunks of this run)');
+      // One more paid clean of round 1, loudest-mic rule off, nothing written. Runs here because cleanup deletes the job row.
+      const py = process.env.P1608_PY;
+      const job = [...jobInfo.values()].find((j) => j.label === 'round 1');
+      if (!py || !process.env.GEMINI_BATCH_API_KEY || !process.env.GCS_BUCKET) throw new Error('P1608_RULE_OFF needs P1608_PY, GEMINI_BATCH_API_KEY and GCS_BUCKET in the environment');
+      const res = spawnSync(py, ['scripts/p1608-rule-off-control.py', '--job', job!.id], {
+        encoding: 'utf8', timeout: 600_000,
+        env: { ...process.env, SUPABASE_URL: process.env.VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY },
+      });
+      if (res.status !== 0) throw new Error(`rule-off control failed: ${(res.stderr ?? '').slice(-400)}`);
+      const { data: tm } = await supabaseAdmin.from('transcribe_room_members').select('id, profile_id').in('id', Object.keys(JSON.parse(res.stdout)));
+      const whoIs = new Map((tm ?? []).map((m) => [m.id as string, personOf.get(m.profile_id as string) ?? 'other']));
+      const ruleOffText = Object.fromEntries(Object.entries(JSON.parse(res.stdout) as Record<string, string>).map(([id, text]) => [whoIs.get(id) ?? 'other', text]));
+      const doubled = PEOPLE.flatMap((w) => corpus.speakers[w].round1.filter((ph) => Object.entries(ruleOffText).some(([n, t]) => n !== w && phraseIn(ph.text, t))).map((ph) => `${w}: ${ph.text}`));
+      const line = `rule-off control: ${doubled.length} expected phrase(s) under a second person with the loudest-mic rule off${doubled.length ? `: ${doubled.join(' | ')}` : '. The zero-strays result therefore does NOT show the rule matters'}`;
+      appendFileSync(path.join(OUT_DIR, `report-${stamp}.txt`), line + '\n');
+      console.log(line);
     }
 
     expect(verdict.invalid, verdict.invalid ?? '').toBeNull();

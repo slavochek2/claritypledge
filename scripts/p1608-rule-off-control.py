@@ -89,6 +89,8 @@ def live(job_id: str) -> int:
     captured: list[dict] = []
     storage.post_clean_round = lambda jid, attempts, items, partial=False: captured.extend(items) or len(items)  # nothing is posted
     pipeline._finish_round = lambda *a, **k: None                                                           # nothing is written
+    for name in ("finish_round_job", "defer_round_job", "claim_round_job", "reset_stale_round_jobs"):
+        setattr(storage, name, lambda *a, **k: None)  # every write the job path can reach, including failure paths
     round_clean.loudest_masks = _all_ones
     # `now` far in the future: the job is long past its readiness deadline, never deferred
     pipeline.process_round_job(job, transcribe=gemini_client.transcribe_verbatim_argon, now_ms=10 ** 15)
