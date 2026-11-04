@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 91
 workstream: canvas
 created_date: '2026-11-04'
 tags: [canvas, header, ux]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-11-04
 ---
 
 # P1613: Canvas header and box actions read clearly in every state
