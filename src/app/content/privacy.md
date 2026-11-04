@@ -300,6 +300,9 @@ identifier.
 
 ### AI features
 
+When you use one of the AI features below, or one of the same kind that writes, summarises or transcribes for you, we send what you give it to Google's Gemini API to produce the result. Depending on the feature, that is text you type, chat messages, voice recordings, files you upload and the text of web pages you link to. If that material names other people, their details are sent too, so only give it what you have the right to share. A new AI provider, a new kind of data or a new purpose is announced before it starts, as described under Changes to This Policy.
+
+- **Drafting a canvas.** When you ask your mirror agent to draft or update a canvas, the files, links and text you give it, and the canvas so far, are sent to Gemini to write draft points. A draft stays private to you until you publish it. We keep the text of your uploads with the draft. When you publish, it is deleted, or kept for at most 30 days while your agent is offering you a further canvas from the same material. It is also deleted when you discard the draft or delete the canvas or your account. Links are read once, when you ask.
 - **AI story guide (`/create`, formerly `/chat`).** The text you type is sent to Google's Gemini
   API to generate a reply and is streamed back to you. We do not store the messages you exchange
   with this guide on our servers (Clarity Chat on Home is separate, above); we
@@ -462,7 +465,7 @@ by the person's name, never the bare name on its own.
 | Brevo | Delivers sign-in emails | Email address, sign-in link | European Union |
 | Google (Sign-In) | Optional sign-in | Google account email, name, picture | Google's global infrastructure |
 | Google Cloud (Storage, Cloud Run, Cloud Functions) | Audio, images, transcription service we run | Recordings, transcripts, voice profiles, images | United States |
-| Google Gemini API | AI story guide (`/create`) replies; generated banners; live and saved transcription in transcribe rooms; mirror agent answers and portraits | AI story-guide text; event/story titles and descriptions; recorded voice segments; chat messages and copies, with authors' names, sent to a mirror agent | Google's global infrastructure |
+| Google Gemini API | AI story guide (`/create`) replies; generated banners; live and saved transcription in transcribe rooms; mirror agent answers and portraits; canvas drafts | AI story-guide text; event/story titles and descriptions; recorded voice segments; chat messages and copies, with authors' names, sent to a mirror agent; files, web page text and messages given to draft a canvas | Google's global infrastructure |
 | Mailgun | Letters, agreement, event, newsletter and sign-in emails | Email address, sender name, links | European Union |
 | Ghost (self-hosted) | Blog and newsletter | Subscriber name and email | United States (Google Cloud) |
 | Mixpanel | Analytics and session recording | User ID, email, name, events, session replays | European Union |

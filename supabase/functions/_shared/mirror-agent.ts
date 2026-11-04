@@ -9,6 +9,7 @@
  * can pose as an instruction; the worst-case cost reserved before the call.
  */
 
+import type { RawGeminiResponse } from './raw-gemini-response.ts';
 import { VOICE_LABEL, clarifyCopy } from './mirror-context-fields.ts';
 import type { ArtistEntry } from './artist-pool.ts';
 
@@ -63,6 +64,7 @@ export interface GeminiUsage {
   candidatesTokenCount?: number;
   thoughtsTokenCount?: number;
 }
+
 
 /** Reported cost of one call, or null when the response carried no usage (charge the reservation). */
 export function costUsd(usage: GeminiUsage | undefined | null): number | null {
@@ -447,11 +449,7 @@ const URL_RE = /\b(?:https?:\/\/|www\.)\S+/gi;
 
 /** The reply text (thought parts dropped, links removed, length cut), or why there is none. */
 export function parseReply(response: unknown): ReplyOutcome {
-  const r = (response ?? {}) as {
-    promptFeedback?: { blockReason?: string };
-    candidates?: Array<{ finishReason?: string; content?: { parts?: Array<{ text?: unknown; thought?: unknown }> } }>;
-    usageMetadata?: GeminiUsage;
-  };
+  const r = (response ?? {}) as RawGeminiResponse;
   const cost = costUsd(r.usageMetadata);
   if (r.promptFeedback?.blockReason) return { ok: false, code: 'blocked', costUsd: cost };
   const cand = r.candidates?.[0];

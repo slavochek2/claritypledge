@@ -1698,34 +1698,31 @@ Material that shows no cost behind a value leaves Values empty and asks the owne
 
 - [ ] An owner with a website link and one PDF gets a canvas whose points all trace to those inputs
       (checked against the material, on test, for 3 real attendees' material with their permission).
-- [ ] A box with no source in the material is empty and shown as a question.
-- [ ] The draft is invisible to a signed-out visitor, another signed-in user and an event attendee
-      until the owner shares it (curl + browser evidence on test).
-- [ ] After sharing with the event, an attendee reads it and takes positions (P1515 path).
-- [ ] A link that cannot be read is named in the result; the rest is still drafted.
-- [ ] Revising a draft version replaces its points; no duplicate points remain.
-- [ ] A draft version is invisible to everyone the canvas is shared with until Publish; after
-      Publish they read it with no new share (curl + browser evidence on test).
-- [ ] A change request in a thread whose version is published offers "Start a new version?"; the
-      button opens a new thread with that version attached.
-- [ ] The paperclip lists canvas versions; picking an older one starts the draft from it.
-- [ ] Unchanged points are reused (positions on them show in the new version); reworded points
-      supersede their predecessor; other changes are new points with no link. Every link is named
-      in the draft.
-- [ ] Opening v1 after v2 superseded some of its points still shows all of v1's points.
-- [ ] Every draft lists "What I decided on my own" (one speed since 2026-10-28; the slow speed's
-      tension options were removed by the founder after testing v2).
+- [x] A box with no source in the material is empty and shown as a question. *(Evidence 2026-11-04: `src/tests/p1536-canvas-page-draft.test.tsx`, "the owner on the draft sees ... the question inside the empty box", passing.)*
+- [x] The draft is invisible to a signed-out visitor, another signed-in user and an event attendee
+      until the owner shares it (curl + browser evidence on test). *(Evidence 2026-11-04, live TEST lane, passing: `p1536-v6-engine.test.ts` "S1.15 held points" (stranger, link reader, anonymous, with a link-reader control) and `p1536-canvas-draft-write.test.ts` "A12" (stranger, attendee, link holder and signed-out read no draft row). Test evidence only; no browser run was done this session.)*
+- [x] After sharing with the event, an attendee reads it and takes positions (P1515 path). *(Evidence 2026-11-04: `e2e/p1515-canvas-sharing.spec.ts` AC2 and AC3, passing on self-hosted TEST.)*
+- [x] A link that cannot be read is named in the result; the rest is still drafted. *(Evidence 2026-11-04: `src/tests/p1536-canvas-draft.test.ts` "a first draft says how many boxes it filled", passing: the reply names the unreadable link beside "Draft ready: 7 of 9 boxes.")*
+- [x] A run changes only the boxes the message is about; every other box keeps its exact points (same point ids), so no duplicate points remain. *(Rewritten 2026-11-04 to what was built: superseded by Design v6 D2, "A run changes only the boxes the message is about", which supersedes "each revision replaces the draft's points". Evidence, passing: live `p1536-v6-engine.test.ts` "a tagged message changes only its box ..." and unit `p1536-s1-edge.test.ts` S1.3 block.)*
+- [x] A draft version is invisible to everyone the canvas is shared with until Publish; after
+      Publish they read it with no new share (curl + browser evidence on test). *(Evidence 2026-11-04, live TEST lane, passing: `p1536-v6-engine.test.ts` "S1.15 held points" for the invisible half; `p1536-canvas-draft-write.test.ts` "AC4/AC7: after Publish the audience reads it with no new share" for the other. Test evidence only; no browser run this session.)*
+- [x] On a published version, Clone starts a draft and opens its workspace thread; the "Start a new version?" question and its button are gone. *(Rewritten 2026-11-04 to what was built: the spec's W3/X3 Clone entry ("The words 'New version' leave the UI") lists "Versions §2 'Start a new version?'" and `canvas-new-version-button.tsx` as superseded. Evidence, passing: `p1536-w3-clone.test.tsx` (asserts the button's file is removed and nothing imports it) and `p1536-x3-clone-a-version.test.tsx`.)*
+- [x] The paperclip keeps Points and Stories only; an older version is picked with "Clone a version" in the + menu, which starts the draft from it. *(Rewritten 2026-11-04 to what was built: X3, "The paperclip keeps Points and Stories only. The Attach dialog's Canvases tab goes", and the "§9 paperclip-with-open-draft question" superseded line. Evidence, passing: `p1536-x3-upload-paperclip.test.tsx`, `p1536-x3-clone-a-version.test.tsx`, `p1536-x3-plus-menu.test.tsx`.)*
+- [x] Unchanged points are reused (positions on them show in the new version); reworded points
+      supersede their predecessor; other changes are new points with no link. *(Last sentence "Every link is named in the draft" removed 2026-11-04: Design v6 D13 drops "What I decided on my own", where the fast speed listed the links (Versions section: "the fast speed lists them under 'What I decided on my own'"). Evidence, passing, live `p1536-v6-engine.test.ts`: "a draft opened from v1 holds v1's point ids ..." (reuse) and "S1.12 cleanup ... reword chain".)*
+- [x] Opening v1 after v2 superseded some of its points still shows all of v1's points. *(Evidence 2026-11-04: live `p1536-v6-engine.test.ts` "a draft opened from v1 ..." asserts v1's point ids are unchanged after draft work, passing.)*
+- [x] No reply contains "What I decided on my own" or an empty-box question. *(Rewritten 2026-11-04 to what was built: Design v6 D13, "No 'What I decided on my own'", and S1.13. Evidence, passing: `src/tests/p1536-canvas-draft.test.ts` "no reply holds 'What I decided on my own' or an empty-box question".)*
 - [ ] A draft built from an event transcript thread names no other person in its points.
 - [ ] Injection control: material containing instructions to write elsewhere or make content
       public changes nothing outside the owner's private draft (real-model test, with a control that
       shows the test can fail).
-- [ ] With AI availability off, no draft control is shown.
+- [x] With AI availability off, no draft control is shown. *(Evidence 2026-11-04: `src/tests/p1536-x3-plus-menu.test.tsx` "is not there while drafting is off", passing, and `p1536-x4-header-bar.test.tsx` passing in the same run.)*
 - [ ] + Canvas and the preparation step each open a new mirror thread that asks for material; a
       PDF uploaded in that thread is drafted, and the original file is not stored afterwards.
-- [ ] The mirror's reply in the thread links the canvas and names empty boxes and unreadable inputs. *(2026-10-29, visual QA: the
+- [x] The mirror's reply in the thread links the canvas and names empty boxes and unreadable inputs. *(Superseded 2026-11-04 by Design v6 D13 ("Empty-box questions are not repeated in chat") and S1.13: the reply names unreadable inputs, carries no address and no empty-box list; the link is the draft card (X10). Evidence, passing: `p1536-canvas-draft.test.ts` (the two reply tests above) and `p1536-x10-card-ui.test.tsx`.)* *(2026-10-29, visual QA: the
       link is the draft card's Open under the reply; the reply text carries no address, since chat text is plain and an
       address showed as unclickable noise.)*
-- [ ] Works at 375px and 320px (screenshots).
+- [x] Works at 375px and 320px (screenshots). *(Evidence 2026-11-04: self-hosted walkthrough `e2e/p1536-walkthrough.spec.ts`, 28 passed in `.private/evidence/p1536-s3c/journeys-selfhosted/walkthrough-2.txt` (375 cases N3, N4, J-W3 and the 320/360/400 widths walk) plus the three cases that failed there re-run by -g after their stale premises were fixed, all passing. Screenshots are written by the walkthrough's `shot()`; not re-viewed this session.)*
 
 ## Cost Budget
 

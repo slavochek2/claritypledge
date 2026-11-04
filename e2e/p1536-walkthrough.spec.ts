@@ -1600,7 +1600,7 @@ async function databaseProofs(browser: Browser) {
       rec(vp, J, 'S3b.4 fixture: rows read before the tap', true, Object.entries(preCounts).map(([k, v]) => `${k}=${v.count}`).join(' '));
       await page.getByTestId('canvas-clone').click();
       await expect(page).toHaveURL(/ws=1/, { timeout: 15_000 });
-      await expect(page.getByTestId('canvas-clone-state')).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByTestId('canvas-thread-title')).toBeVisible({ timeout: 15_000 });
       const f1 = await shot(page, vp, J, 'clone-tapped');
       const tapped = await rows();
       rec(vp, J, 'S3b.4 Clone tapped: no row of the four tables created or changed', tapped === pre, tapped === pre ? 'identical' : `before=${pre.slice(0, 300)} after=${tapped.slice(0, 300)}`, f1);
@@ -1787,7 +1787,7 @@ async function renameWidths(browser: Browser) {
           rec(w, 'N1', `@${w}: the Publish spot is fully visible, not overlapped, and its box is unchanged`, m.atSpot === 'spot' && spotSame, `top element at the spot's centre=${m.atSpot} spot before=${JSON.stringify(sD.spotBox)} while editing=${JSON.stringify(m.spot)}`, fE);
           rec(w, 'N1', `@${w}: no horizontal overflow while editing`, m.scrollWidth <= m.innerWidth, `scrollWidth=${m.scrollWidth} innerWidth=${m.innerWidth}`, fE);
           if (w < 1280) {
-            rec(w, 'N1', `@${w}: the input lies over row 1 from after the back arrow to before the Publish spot`, m.position === 'absolute' && !!ib && !!m.back && !!m.spot && ib.left >= m.back.right - 1 && ib.right <= m.spot.left + 1, `position=${m.position} input ${ib ? Math.round(ib.left) + '..' + Math.round(ib.right) : ''}`, fE);
+            rec(w, 'N1', `@${w}: the input lies over row 1 from after the back arrow, clear of the Publish spot (beside it, or above it once the spot is on row 2: 3c X13 supersedes W8's rows)`, m.position === 'absolute' && !!ib && !!m.back && !!m.spot && ib.left >= m.back.right - 1 && (ib.right <= m.spot.left + 1 || ib.y + ib.h <= m.spot.y + 1), `position=${m.position} input ${ib ? Math.round(ib.left) + '..' + Math.round(ib.right) : ''}`, fE);
             rec(w, 'N1', `@${w}: the picker and the state tag do not show through (the input is opaque and on top of them)`, alphaOf(m.bg) >= 0.99 && (m.atPicker === 'input' || m.picker === null) && (m.atTag === 'input' || m.atTag === null), `bg=${m.bg} top element at the picker's centre=${m.atPicker}, at the tag's centre=${m.atTag}`, fE);
           } else {
             rec(w, 'N1', `@${w}: the input stays inline, nothing overlaid`, m.position !== 'absolute' && !overlap(ib, m.picker) && !overlap(ib, m.tag) && m.atPicker !== 'input', `position=${m.position} top element at the picker's centre=${m.atPicker}, at the tag's centre=${m.atTag}`, fE);
@@ -2038,32 +2038,14 @@ async function cardRename(browser: Browser) {
     try {
       await step(vp, 'N5', 'card-after-rename', async () => {
         await page.goto(`${fx.path}?v=${fx.clone!.version_name}&ws=1`);
-        const card = page.locator('[data-testid="thread-panel"] [data-testid="attachment-canvas_version"]').first();
-        await card.waitFor({ timeout: 40_000 });
-        await expect.poll(async () => (await card.innerText().catch(() => '')).includes('Acme Bakery Plan'), { timeout: 30_000, intervals: [300] }).toBe(true).catch(() => undefined);
-        const before = (await card.innerText()).replace(/\s+/g, ' ');
-        await page.evaluate(() => {
-          const w = window as unknown as { __card?: { rows: Array<[number, string, number]>; stop: () => void } };
-          w.__card?.stop();
-          const t0 = performance.now();
-          const rows: Array<[number, string, number]> = [];
-          const timer = setInterval(() => {
-            const c = document.querySelector('[data-testid="thread-panel"] [data-testid="attachment-canvas_version"]') as HTMLElement | null;
-            rows.push([Math.round(performance.now() - t0), c ? c.innerText.replace(/\s+/g, ' ') : '(no card)', document.querySelectorAll('[data-testid="thread-panel"] [class*="animate-pulse"], [data-testid="thread-panel"] [data-testid*="skeleton"]').length]);
-          }, 20);
-          w.__card = { rows, stop: () => clearInterval(timer) };
-        });
-        const tEnter = Date.now();
+        // 3c X8 (spec "Design v6" X8, S3c.5): a draft's thread panel holds NO root card; the mirror agent's line takes its place. The thread-panel card this
+        // step used to sample was removed with aef15969c, so the rename is checked on the cards that remain: the mirror chat's (below) and a fresh page's.
+        await page.getByTestId('canvas-thread-title').waitFor({ timeout: 40_000 });
+        rec(vp, 'N5', 'the draft thread panel holds no root card (X8: the agent line takes its place)', (await page.locator('[data-testid="thread-panel"] [data-testid="attachment-canvas_version"]').count()) === 0, 'count=0 expected');
         await page.getByTestId('canvas-rename').click();
         await page.getByTestId('canvas-title-input').fill('Renamed Card Name');
         await page.keyboard.press('Enter');
         await page.waitForTimeout(6000);
-        const rows = await page.evaluate(() => { const w = window as unknown as { __card?: { rows: Array<[number, string, number]>; stop: () => void } }; w.__card?.stop(); return w.__card?.rows ?? []; });
-        const firstNew = rows.find(r => r[1].includes('Renamed Card Name'));
-        const skeleton = rows.filter(r => r[2] > 0 || r[1] === '(no card)');
-        const fC = await shot(page, vp, 'N5', 'card-after-rename');
-        rec(vp, 'N5', 'the thread card shows the new name without a reload', !!firstNew, `before="${before}" first new text at ${firstNew?.[0]}ms after the sampler started (Enter pressed about ${Date.now() - tEnter - 6000}ms before the 6s wait began) "${firstNew?.[1]}"`, fC);
-        rec(vp, 'N5', 'no skeleton or missing card in the thread at any 20ms sample after Enter', skeleton.length === 0, `samples=${rows.length} skeleton/absent samples=${skeleton.length} ${skeleton.slice(0, 5).map(r => `${r[0]}ms:${r[1].slice(0, 20)}`).join(' | ')}`, fC);
         // the mirror chat card, reached by in-app navigation (no reload)
         const nav = page.getByRole('link', { name: 'Chats' }).first();
         await nav.click();
@@ -2073,13 +2055,6 @@ async function cardRename(browser: Browser) {
         const mirrorCards = (await page.getByTestId('attachment-canvas_version').allInnerTexts()).map(t => t.replace(/\s+/g, ' '));
         const fM = await shot(page, vp, 'N5', 'mirror-card-after-rename');
         rec(vp, 'N5', 'the mirror chat card shows the new name (in-app navigation, no reload)', mirrorCards.some(t => t.includes('Renamed Card Name')) && !mirrorCards.some(t => t.includes('Acme Bakery Plan')), JSON.stringify(mirrorCards), fM);
-        // a plain reload of the canvas
-        await page.goto(`${fx.path}?v=${fx.clone!.version_name}&ws=1`);
-        const card2 = page.locator('[data-testid="thread-panel"] [data-testid="attachment-canvas_version"]').first();
-        await card2.waitFor({ timeout: 40_000 });
-        await expect.poll(async () => (await card2.innerText().catch(() => '')).includes('Renamed Card Name'), { timeout: 30_000, intervals: [300] }).toBe(true).catch(() => undefined);
-        const fL = await shot(page, vp, 'N5', 'card-after-reload');
-        rec(vp, 'N5', 'a plain reload shows the same new name in the thread card', (await card2.innerText()).includes('Renamed Card Name'), (await card2.innerText()).replace(/\s+/g, ' '), fL);
         // fresh pages: published-version cards and a draft-version card, with no console or network error
         const t1 = Date.now();
         await page.goto(`/chats/c/${fx.d1.conversation_id}`);

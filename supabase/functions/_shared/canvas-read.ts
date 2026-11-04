@@ -2,18 +2,15 @@
  * P1536: the model's answer as JSON, or the reason it is not one (blocked, empty, unparsable). Pure: no Deno or esm.sh imports.
  */
 
-import { costUsd, type GeminiUsage } from './mirror-agent.ts';
+import { costUsd } from './mirror-agent.ts';
+import type { RawGeminiResponse } from './raw-gemini-response.ts';
 import type { Failure } from './canvas-types.ts';
 
 // ── The model's JSON ────────────────────────────────────────────────────────
 
 const BLOCKED_FINISH = ['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'RECITATION'];
 
-interface RawResponse {
-  promptFeedback?: { blockReason?: string };
-  candidates?: Array<{ finishReason?: string; content?: { parts?: Array<{ text?: unknown; thought?: unknown }> } }>;
-  usageMetadata?: GeminiUsage;
-}
+type RawResponse = RawGeminiResponse;
 
 function answerText(r: RawResponse): string {
   const parts = r.candidates?.[0]?.content?.parts ?? [];
