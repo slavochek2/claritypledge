@@ -32,6 +32,7 @@ import {
 } from '../../lib/day'
 import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, postStory, startRun, type DayIndex, type RunPayload } from './api'
 import { DailyReport } from './DailyReport'
+import { isAgentOnly } from './checklist'
 import { MonitoringTab } from './MonitoringTab'
 import { ReflectionTab, BOARD_NOTE, EarlierStoriesOf } from './ReflectionTab'
 import { cycle, DEFAULT_POS, sideOf } from './positions'
@@ -247,9 +248,8 @@ export function DayPage() {
    */
   // A card recommended for the agent that the founder answered otherwise (his own question, Park, a
   // different option) is his: it stays a card, never hidden in the list (Codex review).
-  const agentOnly = (i: IssueView) => isAgentWork(i) && (!i.decision || i.options.find((o) => o.id === i.decision?.option_id)?.agent === true)
-  const yours = useMemo(() => everyIssue.filter((i) => !agentOnly(i)), [everyIssue])
-  const agentCards = useMemo(() => everyIssue.filter(agentOnly), [everyIssue])
+  const yours = useMemo(() => everyIssue.filter((i) => !isAgentOnly(i)), [everyIssue])
+  const agentCards = useMemo(() => everyIssue.filter(isAgentOnly), [everyIssue])
   const issues = yours
   const issueIdx = idx.yours
   const setIssueIdx = useCallback((i: number) => setIdx({ yours: i }), [])

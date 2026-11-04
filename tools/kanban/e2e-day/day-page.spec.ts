@@ -205,33 +205,62 @@ test.describe('header', () => {
 })
 
 test.describe('status panel', () => {
-  test('P1463: Status is sorted by outcome — every check once, what didn’t work grouped under its cause, each with its action', async ({ page }) => {
+  test('P1609: the checklist lists every check once, problems first, each saying where its problem went', async ({ page }) => {
     await openDay(page, 'unknown')
     await openStatus(page)
     const panel = page.locator('.d-status')
-    await panel.getByRole('button', { name: /Worked \(\d+\)/ }).click()
-    // one home each: what worked/skipped in the fold, what didn't under "Didn't work"
     for (const c of [...CHECKS.map((c) => c.id), 'mystery']) await expect(panel.locator(`[data-check="${c}"]`)).toHaveCount(1)
-    await expect(panel.locator('[data-check="site"] [data-status-word]')).toHaveText('Worked')
+    await expect(panel.locator('[data-check="site"]')).toHaveAttribute('data-dest', 'ok')
     await expect(panel.locator('[data-check="video"] [data-status-word]')).toHaveText('Skipped')
     await expect(panel.locator('[data-check="video"] .d-w')).toHaveText('Skipped · not scheduled today')
     await expect(panel.locator('[data-check="mystery"] [data-status-word]')).toHaveText('Not proven')
-    // the count is the groups: each broken connection once, plus each failing check nothing explains
+    // the retired design: no "Didn't work" list, no Collapse link, no Worked fold
+    await expect(page.locator('[data-fails-head]')).toHaveCount(0)
+    await expect(page.getByText(/Didn’t work/)).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Collapse', exact: true })).toHaveCount(0)
+    await expect(panel.locator('.d-sfold')).toHaveCount(0)
+    // every non-passing check names a destination; none is a dead row
     const { view } = await runView(page)
     const broken = view.connections.filter((c: { state: string }) => c.state !== 'ok').map((c: { id: string }) => c.id)
-    const loose = view.checks.filter(
-      (c: { status: string; covered_by?: string; connection?: string }) => c.status !== 'ok' && c.status !== 'skipped' && !c.covered_by && !(c.connection && broken.includes(c.connection)),
-    )
     expect(broken.length).toBeGreaterThan(0) // known-bad control: the seed has a broken connection
-    await expect(panel.locator('[data-fails-head]')).toHaveText(`Didn’t work (${broken.length + loose.length})`)
+    const bad = view.checks.filter((c: { status: string }) => c.status !== 'ok' && c.status !== 'skipped')
+    for (const c of bad) {
+      const row = panel.locator(`[data-check="${c.id}"]`)
+      await expect(row).toHaveAttribute('data-dest', /^(card|agent|answered|waiting|parked|accepted|fix)$/)
+      await expect(row).not.toContainText('No card')
+    }
     // a broken connection carries what it breaks: Chat groups sits under Beeper, not on its own
     await expect(panel.locator('[data-fail="c:beeper"] [data-check="chats"]')).toHaveCount(1)
-    await expect(panel.locator('[data-fail="k:chats"]')).toHaveCount(0)
-    // known-bad control: the unknown check with no write-up is a failure, never "worked"
-    await expect(panel.locator('.d-plist [data-check="mystery"]')).toHaveCount(0)
-    // its card is agent work (P1445 E): "Open card" opens the agent list on it
-    await panel.locator('[data-check="mystery"] [data-open-card]').click()
+    await expect(panel.locator('[data-check="chats"]')).toHaveAttribute('data-dest', 'fix')
+    // its card is agent work (P1445 E): the destination link opens the agent list on it
+    await panel.locator('[data-check="mystery"] [data-dest-link]').click()
     await expect(agentList(page).locator('.d-focusrow')).toContainText('Mystery check')
+  })
+
+  test('P1609: the checklist sits after the cards and the agent work; its summary line is the one toggle and stays put', async ({ page }) => {
+    await openDay(page)
+    const line = page.locator('[data-status-line]')
+    const issues = page.locator('.d-issues')
+    const yOf = async (l: typeof line) => {
+      const box = await l.boundingBox()
+      if (!box) throw new Error('element has no box')
+      return box.y
+    }
+    expect(await yOf(issues)).toBeLessThan(await yOf(line))
+    await expect(page.locator('.d-status')).toHaveCount(0) // folded by default
+    const toggle = page.locator('[data-status-toggle]')
+    await expect(toggle).toHaveText(/\d+ for you.*\d+ with the agent.*\d+ clean/)
+    const topOf = () => toggle.evaluate((e) => e.getBoundingClientRect().top - (document.querySelector('.d-issues')?.getBoundingClientRect().top ?? 0)) // relative to the cards: a click may scroll the viewport
+    const before = await topOf()
+    await toggle.click()
+    await expect(page.locator('.d-status')).toBeVisible()
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const open = { y: await yOf(toggle) }
+    expect(Math.abs((await topOf()) - before)).toBeLessThanOrEqual(1) // opening never moves the toggle
+    // the list renders below the summary line
+    expect(await yOf(page.locator('.d-status'))).toBeGreaterThan(open.y)
+    await toggle.click()
+    await expect(page.locator('.d-status')).toHaveCount(0)
   })
 
   test('Fix records the decision, never shows ✓, and the panel collapses to a line that reopens', async ({ page, context }) => {
@@ -251,7 +280,8 @@ test.describe('status panel', () => {
     expect(lines()[0]).toMatchObject({ kind: 'connection', target: 'sentry' })
 
     await panel.locator('[data-connection="beeper"]').getByRole('button', { name: 'Fix' }).click()
-    await panel.getByRole('button', { name: 'Collapse' }).click()
+    await page.locator('[data-status-toggle]').click() // the summary line is the one toggle
+    await expect(page.locator('.d-status')).toHaveCount(0)
     const line = page.locator('.d-sline')
     await expect(line).toContainText('2 connection fixes in Start fixing')
     await expect(line.locator('.d-chip').filter({ hasText: 'connection fixes' })).not.toContainText('✓')
@@ -260,7 +290,8 @@ test.describe('status panel', () => {
 
     await page.locator('[data-status-toggle]').click()
     await expect(page.locator('.d-status')).toBeVisible()
-    await page.locator('.d-status').getByRole('button', { name: 'Collapse' }).click()
+    await page.locator('[data-status-toggle]').click()
+    await expect(page.locator('.d-status')).toHaveCount(0)
     await expect(page.locator('.d-sline')).toBeVisible()
   })
 })
@@ -299,13 +330,12 @@ test.describe('new people', () => {
     await openDay(page, 'connected')
     // P1463: one chip per fact, in this order, no separators
     const chips = page.locator('.d-sline > *')
-    await expect(chips.first()).toHaveText(/^▶✓ \d+ clean$/) // P1489: outcome words
-    await expect(page.locator('[data-status-fails]')).toHaveText(/^✕ \d+ found (a problem|problems)$/)
-    await expect(page.locator('[data-status-failed]')).toHaveText(/^\d+ failed to run$/)
+    await expect(chips.first()).toHaveText(/^▶\d+ for you · \d+ with the agent · \d+ clean/) // P1609: destinations, not failures
+    await expect(page.locator('[data-status-fails], [data-status-failed]')).toHaveCount(0)
     await expect(page.locator('.d-sline')).not.toContainText('worked')
     await expect(page.locator('[data-people-chip]')).toHaveText('3 new people')
     await expect(page.locator('.d-sline .d-chip').last()).toHaveText(/^\d+ unpushed commits$/)
-    expect(await page.locator('.d-sline').innerText()).not.toContain('·')
+    for (const t of await page.locator('.d-sline .d-chip').allInnerTexts()) expect(t).not.toContain('·')
   })
 
   test('P1463: no new people (or none collected) is no chip and no box — nothing to read', async ({ page }) => {
@@ -325,7 +355,7 @@ test.describe('new people', () => {
     await collapseSidebar(page)
     // P1463: the one-line status carries it as a chip
     await expect(page.locator('[data-people-chip]')).toHaveText('3 new people')
-    await expect(page.locator('[data-people-chip]')).toBeInViewport()
+    await expect(page.locator('[data-people-chip]')).toBeVisible() // P1609: the line sits under the cards, so it is not in the first screen
   })
 })
 
@@ -648,8 +678,7 @@ test.describe('monitoring, stats, reflection', () => {
     // every check still has its one home: Status in Daily report (known-good control for the removal)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Daily report' }).click()
     await openStatus(page)
-    await page.locator('.d-status').getByRole('button', { name: /Worked \(\d+\)/ }).click()
-    // P1463 round 3: one row each — under Didn't work, or in the Worked fold
+    // P1609: one row each in the checklist
     for (const c of CHECKS) await expect(page.locator(`.d-status [data-check="${c.id}"]`)).toHaveCount(1)
     await page.locator('.d-tabs').getByRole('tab', { name: 'Monitoring' }).click()
 
@@ -1355,7 +1384,8 @@ test.describe('review round 1', () => {
     await collapseSidebar(page)
     await page.locator('[data-status-toggle]').click()
     await expect(page.locator('.d-spanel')).toBeVisible()
-    await page.locator('.d-spanel').getByRole('button', { name: 'Collapse' }).click()
+    await page.locator('[data-status-toggle]').click() // the same toggle closes it: no Collapse link to scroll up to
+    await expect(page.locator('.d-spanel')).toHaveCount(0)
     await expect(page.locator('.d-sline')).toBeVisible()
   })
 })
@@ -1364,7 +1394,6 @@ test.describe('review round 2', () => {
   test('one status word: "Skipped" is never spelled out on the page; both Fix buttons look the same', async ({ page }) => {
     await openDay(page)
     await openStatus(page)
-    await page.locator('.d-status').getByRole('button', { name: /Worked \(\d+\)/ }).click() // P1463: skipped sits in the Worked fold
     expect(await page.locator('.day-root').innerText()).not.toContain('Skipped on purpose')
     await expect(page.locator('[data-check="video"]').first()).toHaveAttribute('title', 'Skipped on purpose')
     const weights = await page.locator('.d-status .d-btn.xs').evaluateAll((els) => els.map((e) => getComputedStyle(e).fontWeight + '/' + getComputedStyle(e).fontSize))
@@ -1384,7 +1413,7 @@ test.describe('review round 2', () => {
     }
     await openStatus(page)
     // P1463: the status toggle and the panel's fold (the phone strip is gone — the line is the strip)
-    for (const sel of ['.d-morebtn', '.d-sfold']) {
+    for (const sel of ['.d-morebtn', '[data-status-toggle]']) {
       const h = (await rectOf(page.locator(sel).first(), sel)).height
       expect(h, sel).toBeGreaterThanOrEqual(40)
     }
@@ -1482,7 +1511,7 @@ test.describe('review round 3', () => {
     await collapseSidebar(page)
     const chips = await page.locator('.d-sline .d-chip').count()
     expect(chips).toBeGreaterThanOrEqual(2)
-    expect(await page.locator('.d-sline').innerText()).not.toContain('·')
+    for (const t of await page.locator('.d-sline .d-chip').allInnerTexts()) expect(t).not.toContain('·')
   })
 })
 
@@ -2019,9 +2048,9 @@ test.describe('P1445 E: agent work is a list, not cards', () => {
     await openAgentList(page) // already open: stays open
     await agentList(page).locator('.d-fold').click()
     await expect(agentList(page).locator('[data-agent-item]')).toHaveCount(0)
-    // P1463 round 3: in Status the check it came from is one line under "Didn't work", whose action opens that card
+    // P1463 round 3: in Status the check it came from is one line of the checklist, whose destination link opens that card
     await openStatus(page)
-    await page.locator('.d-status [data-check="bk-c"] [data-open-card]').click()
+    await page.locator('.d-status [data-check="bk-c"] [data-dest-link]').click()
     await expect(agentList(page).locator('.d-focusrow')).toContainText('Backup · repo C')
     await expect(agentList(page).locator('.d-focusrow')).toBeInViewport() // P1468 review H4: the scroll the link used to do
   })
@@ -3073,12 +3102,13 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
    * F2: and the right pane — its left edge, the open item's left edge and width, the agent panel's.
    */
   const positions = async (page: Page) => {
-    const s = await rectOf(page.locator('[data-status-line]'), 'status line')
+    // P1609: the status line sits under the cards now, so it follows the open item's height by design; it is asserted present, not pinned
+    await rectOf(page.locator('[data-status-line]'), 'status line')
     const l = await rectOf(page.locator('[data-card-list]'), 'list')
     const pane = await rectOf(page.locator('.d-mdmain'), 'pane')
     const item = await rectOf(page.locator('[data-issue], [data-statement]'), 'open item')
     const agent = await rectOf(page.locator('[data-agent-list]'), 'agent panel')
-    return { statusY: s.y, listX: l.x, listY: l.y, listW: l.width, paneX: pane.x, itemX: item.x, itemW: item.width, agentX: agent.x, agentW: agent.width }
+    return { listX: l.x, listY: l.y, listW: l.width, paneX: pane.x, itemX: item.x, itemW: item.width, agentX: agent.x, agentW: agent.width }
   }
 
   test('AC1 + AC19: paging from the last card into the first statement moves neither the status line nor the list (1440px)', async ({ page }) => {
@@ -3480,7 +3510,7 @@ test.describe('P1468: one list, one top, for cards and stories', () => {
     await stmtRow(page, 'c1').click()
     await expect(page.locator('[data-statement="c1"]')).toBeVisible()
     await openStatus(page)
-    await page.locator('.d-status [data-check="bk-c"] [data-open-card]').click()
+    await page.locator('.d-status [data-check="bk-c"] [data-dest-link]').click()
     await expect(agentList(page).locator('.d-focusrow')).toContainText('Backup · repo C')
     await expect(agentList(page).locator('.d-focusrow')).toBeInViewport()
     // P1468 review F5: an agent row is not a card — the statement stays open under the panel

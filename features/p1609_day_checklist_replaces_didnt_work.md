@@ -7,7 +7,7 @@ created_date: '2026-11-04'
 tags: [day, ux, process]
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -62,10 +62,10 @@ One `/dev` cycle in `tools/kanban`. No change to how `/day` collects checks or w
 
 ## Done-When
 
-- [ ] No "Didn't work" heading or `Collapse` link exists on the page.
-- [ ] Rendering the real 2026-11-04 report: all 9 non-ok checks show a destination, and cp.ops shows a live destination whether its card is open, answered or sent.
-- [ ] Summary counts equal the rows they describe, for that report and for one with zero problems.
-- [ ] The checklist renders after the cards; one toggle opens and closes it, and it stays in place when opened.
-- [ ] A failing control: a fixture check with no card renders `No card: report this`.
-- [ ] Screenshots at desktop, 375px and 320px pass `.claude/rules/visual-qa.md`, judged by a separate reviewer.
+- [x] No "Didn't work" heading or `Collapse` link exists on the page.
+- [x] Rendering the real 2026-11-04 report: all 9 non-ok checks show a destination, and cp.ops shows a live destination whether its card is open, answered or sent.
+- [x] Summary counts equal the rows they describe, for that report and for one with zero problems.
+- [x] The checklist renders after the cards; one toggle opens and closes it, and it stays in place when opened.
+- [x] A failing control: a fixture check with no card renders `No card: report this`.
+- [x] Screenshots at desktop, 375px and 320px pass `.claude/rules/visual-qa.md`, judged by a separate reviewer.
 - [ ] `/kdd` entry supersedes the Status layout in the 2026-10-12 P1463 decision.

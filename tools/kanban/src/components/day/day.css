@@ -554,3 +554,16 @@ button.d-chip:hover { border-color: var(--amber); }
 
 /* P1578: when token usage was last collected — quiet, under the card's subtitle */
 .d-asof { opacity: 0.6; font-size: 0.85em; }
+
+/* P1609: the checklist sits under the cards; its summary line is the one toggle, so it may wrap */
+.d-checklist { display: grid; gap: 8px; min-width: 0; }
+.d-slt.wrap { min-height: 40px; white-space: normal; text-align: left; align-items: flex-start; min-width: 0; flex: 0 1 auto; }
+.d-slt.wrap .d-tri { margin-top: 2px; }
+.d-slt .need { color: var(--amber-800); font-weight: 600; }
+.d-destbox { margin-left: auto; text-align: right; font-size: 13px; color: var(--fg2); min-width: 0; flex: 0 1 auto; }
+.d-dest { color: var(--fg2); }
+.d-dest.need { color: var(--amber-800); font-weight: 600; }
+.d-more { color: var(--fg3); white-space: nowrap; }
+.d-under .d-dest { margin-left: auto; font-size: 13px; }
+.d-pass { padding: 4px 0; font-size: 13px; color: var(--fg2); }
+.d-checklist .d-spanel { margin-top: 0; }

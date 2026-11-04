@@ -7,11 +7,12 @@
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { evaluatedSummary, loopNotices, waitingText } from './loops'
-import { OWN, cardDetail, connectionBroken, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
-import { CheckRow, StatusIcon } from './status'
-import { agentWord, checkStatus, connectionStatus, listSummary, needsYou, type AgentHeader } from './statusWords'
+import { OWN, cardDetail, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
+import { CheckRow, Phrases, StatusIcon } from './status'
+import { agentWord, checkStatus, connectionStatus, listSummary, type AgentHeader } from './statusWords'
 import { safeUrl } from './api'
 import { NewPeople } from './People'
+import { DEST_WORD, buildChecklist, summaryParts, type Checklist as ChecklistT, type ChecklistRow } from './checklist'
 import { ListPane, type ListRow } from './ListPane'
 
 /**
@@ -152,34 +153,9 @@ function CardList(p: { issues: IssueView[]; index: number; cardOpen: boolean; se
   )
 }
 
-/**
- * P1463 round 3: Status is sorted by OUTCOME, not by kind. What didn't work is grouped by its
- * cause: a broken connection carries the checks it breaks (a check names its connection, or the
- * view says a connection covers it); every other failing check stands alone.
- */
-interface Failure {
-  key: string
-  conn?: ConnectionView
-  /** a failing check with no broken connection behind it */
-  check?: DayView['checks'][number]
-  /** the checks a broken connection explains */
-  under: DayView['checks']
-}
-
-function failures(view: DayView): Failure[] {
-  const broken = view.connections.filter((c) => connectionBroken(c.state))
-  const brokenIds = new Set(broken.map((c) => c.id))
-  const cause = (c: DayView['checks'][number]) => c.covered_by ?? (c.connection && brokenIds.has(c.connection) ? c.connection : undefined)
-  const bad = view.checks.filter((c) => needsYou(c.status))
-  return [
-    ...broken.map((c) => ({ key: `c:${c.id}`, conn: c, under: bad.filter((x) => cause(x) === c.id) })),
-    ...bad.filter((x) => !cause(x)).map((x) => ({ key: `k:${x.id}`, check: x, under: [] })),
-  ]
-}
-
 export function DailyReport(p: Props) {
   const { view, readOnly } = p
-  // P1463: Status is one line by default; the full panel is one click away.
+  // P1609: the checklist is one summary line under the cards, folded by default; that line is its only toggle.
   const [statusOpen, setStatusOpen] = useState(false)
   const [peopleOpen, setPeopleOpen] = useState(false)
   const [parkedOpen, setParkedOpen] = useState(false)
@@ -190,25 +166,12 @@ export function DailyReport(p: Props) {
   useEffect(() => {
     if (parkedAsk) parkedRef.current?.scrollIntoView({ block: 'nearest' })
   }, [parkedAsk])
-  const fails = failures(view)
   const cardList = listShown(p.issues.length, view.parked.length, p.statements.rows.length)
-  // "Open card" goes to the pager or the agent list; a parked card is opened by Bring back, not from here
-  const shown = new Set(view.issues.map((i) => i.fp))
-  const toCard = (fp?: string) => (fp && shown.has(fp) ? () => p.onJump(fp) : undefined)
+  const checklist = buildChecklist(view, p.sent)
 
   return (
-    // P1463: Status never takes a column — opened, it sits full-width above the cards, so they keep their width
+    // P1609: the checklist sits full-width below the cards and the agent work, so working a card never needs a scroll up
     <div className="d-rgrid collapsed">
-      {statusOpen ? (
-        <StatusPanel view={view} readOnly={readOnly} fails={fails} toCard={toCard} onCollapse={() => setStatusOpen(false)} onFix={p.onFix} onUndoFix={p.onUndoFix} />
-      ) : (
-        <StatusLine view={view} report={p.report} fails={fails} onOpen={() => setStatusOpen(true)} peopleOpen={peopleOpen} onPeople={() => setPeopleOpen((o) => !o)} />
-      )}
-      {peopleOpen && (
-        <div className="d-card d-peoplebox" data-people-box>
-          <NewPeople people={p.report.people} />
-        </div>
-      )}
       <section className="d-issues" aria-label="Issues">
         <div className={cardList ? 'd-md' : 'd-md d-single'}>
           {cardList && (
@@ -253,12 +216,29 @@ export function DailyReport(p: Props) {
           </div>
         </div>
       </section>
+      <Checklist
+        checklist={checklist}
+        report={p.report}
+        readOnly={readOnly}
+        open={statusOpen}
+        onToggle={() => setStatusOpen((o) => !o)}
+        peopleOpen={peopleOpen}
+        onPeople={() => setPeopleOpen((o) => !o)}
+        onJump={p.onJump}
+        onFix={p.onFix}
+        onUndoFix={p.onUndoFix}
+      />
+      {peopleOpen && (
+        <div className="d-card d-peoplebox" data-people-box>
+          <NewPeople people={p.report.people} />
+        </div>
+      )}
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------------------
-// Status
+// Checklist
 
 function unpushed(report: DayReport) {
   const n = report.unpushed_commits
@@ -266,150 +246,120 @@ function unpushed(report: DayReport) {
 }
 
 /**
- * P1463 round 3: the whole Status in one glance — what worked, what didn't (both open the panel,
- * where the details and every Fix live). New people and unpushed commits are not status: they are
- * chips beside it, and people open their own box.
+ * P1609: every check once, saying where its problem went. The summary line counts destinations and
+ * is the one toggle (left triangle, it never moves); the list opens beneath it: connections with
+ * their Fix, problems by destination, then passes. New people and unpushed commits are chips on the
+ * line, not status.
  */
-function StatusLine(p: { view: DayView; report: DayReport; fails: Failure[]; onOpen: () => void; peopleOpen: boolean; onPeople: () => void }) {
-  const { view, report } = p
-  // P1489 (founder, 2026-10-14): outcome words, the same as the terminal card. A check that ran and
-  // found a problem is not one that failed to run; a broken connection with no check under it still
-  // counts as failed to run, so nothing the panel lists is left out of the line.
-  const good = view.counts.worked
-  const found = view.counts.problem
-  const failed = view.counts.unproven + p.fails.filter((f) => f.conn && f.under.length === 0).length
-  const skipped = view.counts.skipped
-  const queued = view.connections.filter((c) => connectionBroken(c.state) && c.fix_queued).length
+function Checklist(p: {
+  checklist: ChecklistT
+  report: DayReport
+  readOnly: boolean
+  open: boolean
+  onToggle: () => void
+  peopleOpen: boolean
+  onPeople: () => void
+  onJump: (fp: string) => void
+  onFix: (c: ConnectionView) => void
+  onUndoFix: (c: ConnectionView) => void
+}) {
+  const { checklist: cl, report } = p
+  const parts = summaryParts(cl.counts)
+  const queued = cl.connections.filter((c) => c.fix_queued).length
   const newPeople = report.people?.length ?? 0
+  const underOf = (id: string) => cl.rows.filter((r) => r.connection === id)
+  const loose = cl.rows.filter((r) => r.dest.kind !== 'fix')
+  const problems = loose.filter((r) => r.dest.kind !== 'ok' && r.dest.kind !== 'skipped')
+  const passes = loose.filter((r) => r.dest.kind === 'ok')
+  const skipped = loose.filter((r) => r.dest.kind === 'skipped')
   return (
-    <div className="d-sline" data-status-line>
-      <button type="button" className="d-slt" aria-expanded="false" data-status-toggle onClick={p.onOpen}>
-        <span className="d-tri">▶</span>
-        <span className="ok">✓</span> <b>{good} clean</b>
-      </button>
-      {found > 0 && (
-        <button type="button" className="d-chip need" data-status-fails onClick={p.onOpen}>
-          ✕ {found} found {found === 1 ? 'a problem' : 'problems'}
+    <div className="d-checklist">
+      <div className="d-sline" data-status-line>
+        <button type="button" className="d-slt wrap" aria-expanded={p.open} data-status-toggle onClick={p.onToggle}>
+          <span className="d-tri">▶</span>
+          <span>
+            <Phrases
+              items={parts.map((x) => (
+                <span key={x.kind} className={x.kind === 'none' || x.kind === 'reconnect' || (x.kind === 'card' && cl.counts.card > 0) ? 'need' : undefined} data-sum={x.kind}>
+                  {x.text}
+                </span>
+              ))}
+            />
+          </span>
         </button>
+        {queued > 0 && <span className="d-chip">{plural(queued, 'connection fix', 'connection fixes')} in Start fixing</span>}
+        <span className="d-sgap" />
+        {newPeople > 0 && (
+          <button type="button" className="d-chip" aria-expanded={p.peopleOpen} data-people-chip onClick={p.onPeople}>
+            {`${newPeople} new ${newPeople === 1 ? 'person' : 'people'}`}
+          </button>
+        )}
+        {unpushed(report) && <span className="d-chip">{unpushed(report)}</span>}
+      </div>
+      {p.open && (
+        <aside className="d-status" aria-label="Checklist">
+          <div className="d-spanel open" data-checklist>
+            {cl.connections.map((c) => (
+              <div key={c.id} className="d-fgroup" data-fail={`c:${c.id}`}>
+                <ConnectionRow c={c} readOnly={p.readOnly} onFix={p.onFix} onUndo={p.onUndoFix} />
+                {underOf(c.id).map((r) => (
+                  <div key={r.check.id} className="d-srow d-under" data-check={r.check.id} data-dest="fix">
+                    <span className="d-tx">
+                      <span>{r.check.label}</span>
+                    </span>
+                    <span className="d-dest">{DEST_WORD.fix}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {problems.map((r) => (
+              <ProblemRow key={r.check.id} r={r} onJump={p.onJump} />
+            ))}
+            {passes.map((r) => (
+              <div key={r.check.id} className="d-srow d-pass" data-check={r.check.id} data-dest="ok">
+                <StatusIcon status="ok" />
+                <span className="d-tx">{r.check.label}</span>
+              </div>
+            ))}
+            {skipped.map((r) => (
+              <CheckRow key={r.check.id} c={r.check} />
+            ))}
+          </div>
+        </aside>
       )}
-      {failed > 0 && (
-        <button type="button" className="d-chip need" data-status-failed onClick={p.onOpen}>
-          {failed} failed to run
-        </button>
-      )}
-      {skipped > 0 && <span className="d-chip">{skipped} skipped</span>}
-      {queued > 0 && <span className="d-chip">{plural(queued, 'connection fix', 'connection fixes')} in Start fixing</span>}
-      <span className="d-sgap" />
-      {newPeople > 0 && (
-        <button type="button" className="d-chip" aria-expanded={p.peopleOpen} data-people-chip onClick={p.onPeople}>
-          {`${newPeople} new ${newPeople === 1 ? 'person' : 'people'}`}
-        </button>
-      )}
-      {unpushed(report) && <span className="d-chip">{unpushed(report)}</span>}
     </div>
   )
 }
 
-function StatusPanel({
-  view,
-  readOnly,
-  fails,
-  toCard,
-  onCollapse,
-  onFix,
-  onUndoFix,
-}: {
-  view: DayView
-  readOnly: boolean
-  fails: Failure[]
-  toCard: (fp?: string) => (() => void) | undefined
-  onCollapse: () => void
-  onFix: (c: ConnectionView) => void
-  onUndoFix: (c: ConnectionView) => void
-}) {
-  const [passOpen, setPassOpen] = useState(false)
-  const skipped = view.checks.filter((c) => c.status === 'skipped')
-  const good = view.checks.filter((c) => c.status === 'ok')
-  const openCard = (fp?: string) => {
-    const go = toCard(fp)
-    return go ? (
-      <button type="button" className="d-link sm d-tap" data-open-card onClick={go}>
-        Open card ›
-      </button>
-    ) : null
-  }
-
+function ProblemRow({ r, onJump }: { r: ChecklistRow; onJump: (fp: string) => void }) {
+  const { check, dest } = r
+  const word = DEST_WORD[dest.kind]
+  const fp = dest.fp
   return (
-    <aside className="d-status" aria-label="Status">
-      <div className="d-spanel open">
-        <div className="d-sh can">
-          <span className="d-shtitle">Status</span>
-          <button type="button" className="d-link d-tap" onClick={onCollapse}>
-            Collapse
+    <div className="d-srow" data-check={check.id} data-dest={dest.kind} data-fail={`k:${check.id}`}>
+      <StatusIcon status={check.status} hideWord />
+      <span className="d-tx">
+        <b>{check.label}</b>
+        <span className="d-w">
+          <span className="d-word need" data-status-word>
+            {checkStatus(check.status).word}
+          </span>
+          {check.detail ? ` · ${check.detail}` : ''}
+        </span>
+      </span>
+      <span className="d-destbox">
+        {fp ? (
+          <button type="button" className="d-link sm d-tap" data-dest-link onClick={() => onJump(fp)}>
+            {word} ›
           </button>
-        </div>
-
-        {fails.length > 0 ? (
-          <div className="d-sgl need" data-fails-head>
-            Didn’t work ({fails.length})
-          </div>
         ) : (
-          <div className="d-srow">
-            <span className="d-ic ok">✓</span>
-            <span className="d-tx">
-              <b>Everything worked</b>
-            </span>
-          </div>
+          <span className={`d-dest ${dest.kind === 'none' ? 'need' : ''}`} data-dest-word>
+            {word}
+          </span>
         )}
-        {fails.map((f) =>
-          f.conn ? (
-            <div key={f.key} className="d-fgroup" data-fail={f.key}>
-              <ConnectionRow c={f.conn} readOnly={readOnly} onFix={onFix} onUndo={onUndoFix} />
-              {f.under.map((c) => (
-                <div key={c.id} className="d-srow d-under" data-check={c.id}>
-                  <span className="d-tx">
-                    <span>{c.label}</span>
-                  </span>
-                  {openCard(c.issue_fp)}
-                </div>
-              ))}
-            </div>
-          ) : (
-            f.check && (
-              <div key={f.key} className="d-srow" data-check={f.check.id} data-fail={f.key}>
-                <StatusIcon status={f.check.status} hideWord />
-                <span className="d-tx">
-                  <b>{f.check.label}</b>
-                  <span className="d-w">
-                    <span className="d-word need" data-status-word>
-                      {checkStatus(f.check.status).word}
-                    </span>
-                    {f.check.detail ? ` · ${f.check.detail}` : ''}
-                  </span>
-                </span>
-                {openCard(f.check.issue_fp)}
-              </div>
-            )
-          ),
-        )}
-
-        <button type="button" className="d-sfold" aria-expanded={passOpen} onClick={() => setPassOpen((o) => !o)}>
-          <span className="d-tri">▶</span>Worked ({good.length}){skipped.length ? ` · skipped ${skipped.length}` : ''}
-        </button>
-        {passOpen && (
-          <div className="d-plist">
-            {good.map((c) => (
-              <div key={c.id} data-check={c.id}>
-                <StatusIcon status={c.status} /> {c.label}
-              </div>
-            ))}
-            {skipped.map((c) => (
-              <CheckRow key={c.id} c={c} />
-            ))}
-          </div>
-        )}
-      </div>
-    </aside>
+        {dest.more > 0 && <span className="d-more"> +{dest.more} more</span>}
+      </span>
+    </div>
   )
 }
 
