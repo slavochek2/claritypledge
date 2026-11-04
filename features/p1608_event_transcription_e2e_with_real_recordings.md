@@ -147,9 +147,19 @@ What this result does not show:
 
 - **Normal dispatch was not exercised.** The report's first wording claimed it was; that was wrong and is corrected. The vault still has no `enqueue_room_transcription_*` secret (count 0 after the run), while another session's curl loop was posting `/sweep` to the test worker about once a minute from 03:25 UTC. That loop almost certainly claimed these jobs. It also drained the 8 stale jobs at about 03:26 to 03:28 UTC, so they are no longer pending. That spend (at most about $1.28) was not this test's.
 - **The run tested P1604's unmerged state.** The worker image was `p1604-test-1`, deployed by another session at 09:41 local, and TEST holds P1604's migrations. Re-run after P1604 ships or is withdrawn.
-- **The rule-off control has not run against Gemini.** The free self-test and Whisper on captured audio show the bleed is present and the masks act on it. Whether Gemini would write the bled words with the rule off is unmeasured, so "zero strays" is not yet proven to depend on the loudest-mic rule. `--job` needs the job row, which cleanup deletes, plus the batch key in the environment.
+- **The rule-off control ran in the second run (below).**
 - **Review fix after the run:** Argon found the matcher ignored words credited to D or a stranger, ignored round 2 strays, and accepted a missing job. All three now fail, with tests; re-scoring the saved run under the stricter matcher is recorded in the handoff.
 - **Real cost:** not separately measurable while the same key served other sessions; the budget's counted figures stand.
+
+### Second live run, 2026-11-04 (paid): FAIL, one real misattribution
+
+Same conditions as the first run (P1604's worker and schema; dispatch not proven). A 6/6 and 2/2, B 6/6 and 1/2, C 6/6 and 2/2.
+
+- **Rule-off control: the rule matters.** With the loudest-mic rule off, 17 of 18 round 1 phrases appeared under a second person. With it on, 1 of 18 did.
+- **The failure:** C's "shapes for the for remote control that we then use" was posted under both C and B in round 1. Nearby words also crossed: B's "they're all pretty" and "power buttons are mostly" appear under C. So one stretch of a few seconds misattributed in both directions.
+- **Rate so far:** 1 stray across 2 runs and 36 round 1 phrases, near P1596's measured 1.9%. Two runs is too few to call it the same rate.
+- **Cause not established.** Hypothesis: the browser's automatic gain boosts a quiet mic (measured about 4.4 times on speech), narrowing the loudness gap in short turns. Cheapest disproof: compare per-second loudness of B's and C's captured chunks around that stretch. Not run; the event's audio remains in the bucket, its job row was deleted.
+- The test was not loosened and not re-run until green. The pass bar stays zero strays until the founder rules otherwise.
 
 ## Risks / Non-Goals
 

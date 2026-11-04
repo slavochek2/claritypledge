@@ -80,6 +80,11 @@ def live(job_id: str) -> int:
         if not os.environ.get(k):
             print(f"missing environment variable {k}", file=sys.stderr)
             return 2
+    if os.environ.get("P1608_GCS_TOKEN"):  # no application-default login needed: use a short-lived gcloud access token
+        import google.auth
+        from google.oauth2.credentials import Credentials
+        token = Credentials(os.environ["P1608_GCS_TOKEN"])
+        google.auth.default = lambda *a, **k: (token, os.environ.get("P1608_GCP_PROJECT"))
     import gemini_client
     import pipeline
     import round_clean
