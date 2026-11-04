@@ -12,7 +12,7 @@ import { REVISION_CAP_RUNS } from '@/app/pages/chat/canvas-thread-copy';
 /** The one label of the way back to the open draft: the header's item on a phone (X13) and the thread panel's line say it the same. */
 export const GO_TO_DRAFT_LABEL = 'Go to draft';
 
-/** The secondary items left of the spot: the one named secondary pill (clone, thread, go-to-draft), rule 3 ghost (cancel) or rule 5 red text (discard). */
+/** The secondary items left of the spot: the one named secondary pill (clone, thread, go-to-draft, cancel: P1613, it read as plain text beside the grey status) or rule 5 red text (discard). */
 export type HeaderItem = 'clone' | 'thread' | 'go-to-draft' | 'cancel' | 'discard';
 /** What sits in the spot: Share and Publish are the filled main action; a status says why there is none; none draws no spot at all. */
 export type HeaderSpotKind = 'share' | 'publish' | 'status' | 'none';
@@ -42,6 +42,8 @@ export interface HeaderInput {
   threadButton: boolean;
   /** A phone's second row adds Go to draft (X13). */
   goToDraft: boolean;
+  /** P1613: there is someone to compare with (the viewer has a column and the canvas has other people). Nobody to compare with means Compare is absent, not disabled (P955). */
+  comparable: boolean;
 }
 
 export interface HeaderRow {
@@ -52,13 +54,21 @@ export interface HeaderRow {
   spot: HeaderSpotKind;
   /** the one filled item, if any: always the spot */
   filled: 'share' | 'publish' | null;
+  /**
+   * P1613: "Compare positions" is in the header row beside the version picker. A published version on screen only, with someone to compare with: never on a
+   * draft or a pending Clone (nothing written yet to compare), whoever the viewer is. It is secondary and never the spot.
+   */
+  compare: boolean;
 }
 
+/** The rows of the table before Compare, which is decided once for all of them (`headerRow`). */
+type RowBase = Omit<HeaderRow, 'compare'>;
+
 /** A status row: nothing filled, the spot says why there is no main action. */
-const status = (tag: HeaderRow['tag'], picker: boolean, items: HeaderItem[]): HeaderRow => ({ tag, picker, items, spot: 'status', filled: null });
+const status = (tag: HeaderRow['tag'], picker: boolean, items: HeaderItem[]): RowBase => ({ tag, picker, items, spot: 'status', filled: null });
 
 /** A published version on screen. */
-function publishedRow(i: HeaderInput): HeaderRow {
+function publishedRow(i: HeaderInput): RowBase {
   // An owner with nothing published and no draft: no row of the table covers it with drafting on (a gap, flagged). The nearest rule is design-system rule 9: with nothing to act on
   // a status says so in the spot; with drafting off X4's rows show nothing. No picker or tag (no version), no Clone (nothing to clone) and no Share (nothing to share).
   if (!i.hasPublished && !i.draftOpen) return i.drafting ? status(null, false, []) : { tag: null, picker: false, items: [], spot: 'none', filled: null };
@@ -75,7 +85,7 @@ function publishedRow(i: HeaderInput): HeaderRow {
 }
 
 /** The draft, or a pending Clone, on screen (drafting is on). */
-function draftRowOf(i: HeaderInput): HeaderRow {
+function draftRowOf(i: HeaderInput): RowBase {
   const tag = i.onScreen === 'pending' ? 'new-draft' : 'draft';
   const thread: HeaderItem[] = i.threadButton ? ['thread'] : [];
   // A pending Clone has no number or picker until its first Send creates the draft; Cancel is what leaves it (not while that Send is in flight).
@@ -87,13 +97,28 @@ function draftRowOf(i: HeaderInput): HeaderRow {
   return status(tag, i.hasBase, i.atCap ? thread : [...thread, 'discard']);
 }
 
-export function headerRow(i: HeaderInput): HeaderRow {
+function rowOf(i: HeaderInput): RowBase {
   // A reader: published versions only (a picker once there is one), and nothing filled.
   if (!i.owner) return { tag: null, picker: i.hasPublished, items: [], spot: 'none', filled: null };
   if (i.onScreen === 'published') return publishedRow(i);
   // Drafting off: a draft is only named (and its version beside it), with nothing to do.
   if (!i.drafting) return { tag: 'draft', picker: i.hasBase, items: [], spot: 'none', filled: null };
   return draftRowOf(i);
+}
+
+export function headerRow(i: HeaderInput): HeaderRow {
+  // P1613: Compare changes only how a published version is viewed, so it follows what is on screen and nothing else (a pending Clone is `onScreen: 'pending'`, however it was entered).
+  return { ...rowOf(i), compare: i.comparable && i.hasPublished && i.onScreen === 'published' };
+}
+
+/** What is on screen, the ONE definition (a pending Clone included, see `headerInputOf`); the page reads it too, to ignore `?with=` anywhere but a published version. */
+export function screenOf(args: { ready: CanvasReady; drafting: boolean; workspace: boolean; pendingSeq: number | null; cloning?: boolean }): HeaderInput['onScreen'] {
+  const { ready } = args;
+  const viewingDraft = isViewingDraft(ready);
+  const hasPublished = ready.versions.some(v => !v.draft && v.seq !== null);
+  const implicitPending = args.drafting && args.workspace && !viewingDraft && !ready.draft && hasPublished;
+  const pending = !viewingDraft && (args.pendingSeq !== null || !!args.cloning || implicitPending);
+  return pending ? 'pending' : viewingDraft ? 'draft' : 'published';
 }
 
 /**
@@ -116,14 +141,13 @@ export function headerInputOf(args: {
   publishing: boolean;
   threadButton: boolean;
   goToDraft: boolean;
+  /** someone to compare with (default: nobody) */
+  comparable?: boolean;
 }): HeaderInput {
   const { ready } = args;
   const draft = ready.draft;
-  const viewingDraft = isViewingDraft(ready);
   const hasPublished = ready.versions.some(v => !v.draft && v.seq !== null);
-  const implicitPending = args.drafting && args.workspace && !viewingDraft && !draft && hasPublished;
-  const pending = !viewingDraft && (args.pendingSeq !== null || !!args.cloning || implicitPending);
-  const onScreen = pending ? 'pending' : viewingDraft ? 'draft' : 'published';
+  const onScreen = screenOf(args);
   return {
     owner: ready.isOwner,
     drafting: args.drafting,
@@ -137,5 +161,6 @@ export function headerInputOf(args: {
     atCap: onScreen === 'draft' && !!draft && draft.runCount >= REVISION_CAP_RUNS,
     threadButton: args.threadButton,
     goToDraft: args.goToDraft,
+    comparable: !!args.comparable,
   };
 }

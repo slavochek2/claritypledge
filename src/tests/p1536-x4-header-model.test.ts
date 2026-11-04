@@ -11,7 +11,7 @@ import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 /** A published, owner, drafting-on, nothing-else baseline; each row overrides what makes it that row. */
 const BASE: HeaderInput = {
   owner: true, drafting: true, onScreen: 'published', hasPublished: true, hasBase: false, workspace: false, draftOpen: false,
-  spot: 'nothing', busy: false, atCap: false, threadButton: false, goToDraft: false,
+  spot: 'nothing', busy: false, atCap: false, threadButton: false, goToDraft: false, comparable: true,
 };
 
 interface Row { name: string; input: Partial<HeaderInput>; tag: 'draft' | 'new-draft' | null; picker: boolean; items: string[]; spot: 'share' | 'publish' | 'status' | 'none' }
@@ -121,13 +121,13 @@ describe('review: ONE source for the pending Clone (the bar and the thread panel
 describe('review: an owner with nothing published and no draft (the table has no row; the nearest rule, 9: nothing to act on, a status says so)', () => {
   it('no picker, no tag, no Clone (there is no version to clone), no Share (nothing to share): the status "Nothing to publish yet" in the spot', () => {
     const input = inputOf(readyOf({ onScreen: 'published', hasPublished: false }), { workspace: false });
-    expect(headerRow(input)).toEqual({ tag: null, picker: false, items: [], spot: 'status', filled: null });
+    expect(headerRow(input)).toEqual({ tag: null, picker: false, items: [], spot: 'status', filled: null, compare: false });
   });
 });
 
 describe('review 5, item 5: drafting off follows X4 (nothing to show), also for a never-published canvas with no draft', () => {
   it('drafting off, nothing published, no draft: no items, no spot; with drafting on the same state is rule 9\'s status', () => {
-    expect(headerRow({ ...BASE, owner: true, drafting: false, hasPublished: false })).toEqual({ tag: null, picker: false, items: [], spot: 'none', filled: null });
+    expect(headerRow({ ...BASE, owner: true, drafting: false, hasPublished: false })).toEqual({ tag: null, picker: false, items: [], spot: 'none', filled: null, compare: false });
     expect(headerRow({ ...BASE, owner: true, drafting: true, hasPublished: false })).toMatchObject({ spot: 'status' });
   });
 });

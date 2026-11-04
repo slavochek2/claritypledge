@@ -1,11 +1,10 @@
 /**
  * @file canvas-header.tsx
  * @description The canvas page's own header (R10, P1515, P1545, P1536). For a READER (and any page mounted outside the owner's route): the canvas's
- * name as the title, then the byline (whose it is and which version: a menu with several), then, on a row of their own, Compare, and under them the one
- * line that says what the viewer is looking at: a reader's "Shared with you through ...", or a reader's "<owner> hasn't published this canvas yet.". The byline holds no buttons, so a
- * long name never competes with one (S3.6). There is no "Clarity Canvas" label (W8). A reader sees published versions only and no Draft state; the version sits beside the name with no word for "published" (X5).
+ * name as the title, then the byline (whose it is, which version: a menu with several, and Compare beside it, P1613), then the one
+ * line that says what the viewer is looking at: a reader's "Shared with you through ...", or a reader's "<owner> hasn't published this canvas yet.". The byline's only control is the version and Compare (a long name wraps between words, S3.6). There is no "Clarity Canvas" label (W8). A reader sees published versions only and no Draft state; the version sits beside the name with no word for "published" (X5).
  * For the OWNER, inside the route element (W8): the name, version, state, Share and Clone live in the owner's bar (canvas-owner-bar), drawn above
- * the page; this header then keeps only Compare and the status lines. A draft has no Compare (it has no positions); its Publish lives in the bar's spot.
+ * the page; this header then keeps only the status lines (Compare is in the bar, P1613). A draft has no Compare (it has no positions); its Publish lives in the bar's spot.
  */
 import { Link } from 'react-router-dom';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -41,12 +40,15 @@ export function CanvasHeader(props: CanvasHeaderProps) {
   const { ready, failed, handle, projectTag, ownerIsAgent, identityPending, compare, sharedLabel, onParams, onChanged } = props;
   const viewingDraft = !!ready && isViewingDraft(ready);
   const { ownerBar } = useCanvasWorkspace();
-  // Nobody to compare with and (for the owner's route) Share and Clone in the bar: the row would hold nothing, and an empty-but-present row
-  // keeps this header's bottom margin alive as a band above the first heading (the header hides itself only when it has no child at all).
-  const hasActions = !!compare.base && compare.others.length > 0 || (!ownerBar && !!ready?.isOwner && !ready.publishedNone);
-  const actions = ready && !viewingDraft && hasActions && (
-    <CanvasHeaderActions ready={ready} handle={handle} projectTag={projectTag} compare={compare} ownerBar={ownerBar} onCompare={id => onParams({ with: id })} onChanged={onChanged} />
+  // P1613: Compare is beside the version (the bar's, or the byline's here), so this row holds only Share and Clone for an owner without the bar. Without them the row would
+  // be empty, and an empty-but-present row keeps this header's bottom margin alive as a band above the first heading (the header hides itself only when it has no child at all).
+  const actions = ready && !viewingDraft && !ownerBar && ready.isOwner && !ready.publishedNone && (
+    <CanvasHeaderActions ready={ready} handle={handle} projectTag={projectTag} onChanged={onChanged} />
   );
+  const row = headerRow({
+    owner: false, drafting: false, onScreen: viewingDraft ? 'draft' : 'published', hasPublished: !!ready && ready.versions.some(v => !v.draft && v.seq !== null), hasBase: false, workspace: false,
+    draftOpen: false, spot: 'nothing', busy: false, atCap: false, threadButton: false, goToDraft: false, comparable: !!compare.base && compare.others.length > 0,
+  });
   return (
     <header className="mb-4 flex flex-col gap-2 empty:hidden" data-testid="canvas-header-row">
       {!ownerBar && (
@@ -60,13 +62,14 @@ export function CanvasHeader(props: CanvasHeaderProps) {
               !failed && <CanvasOwnerSkeleton />
             )}
             {/* X5/X6: the version sits beside the name; no word for "published" (a version with no Draft tag is published). A reader of this header sees published versions only. */}
-            {ready && <CanvasVersionSlot ready={ready} show={headerRow({ owner: false, drafting: false, onScreen: 'published', hasPublished: ready.versions.some(v => !v.draft && v.seq !== null), hasBase: false, workspace: false, draftOpen: false, spot: 'nothing', busy: false, atCap: false, threadButton: false, goToDraft: false }).picker} onPick={v => onParams({ v, point: null, box: null }, true, false)} />}
+            {ready && <CanvasVersionSlot ready={ready} show={row.picker} onPick={v => onParams({ v, point: null, box: null, ...(ready.versions.some(x => x.name === v && x.draft) && { with: null }) }, true, false)} />}
+            {/* P1613: Compare sits beside the version, on a published version only (the table's `compare`). */}
+            {row.compare && <ComparePicker base={compare.base} others={compare.others} withPerson={compare.withPerson} onCompare={id => onParams({ with: id })} />}
           </div>
-          {/* P1515: Share sits immediately right of Compare, in a row of its own under the byline. */}
+          {/* P1515: Share and Clone (the owner without the bar) in a row of their own under the byline. */}
           {actions}
         </div>
       )}
-      {ownerBar && actions}
       {ready && <CanvasStatusLines ready={ready} sharedLabel={sharedLabel} viewingDraft={viewingDraft} />}
     </header>
   );
@@ -103,23 +106,18 @@ function CanvasByline({ ready, handle, ownerIsAgent, identityPending }: { ready:
 }
 
 /**
- * The actions row of a published version: Compare, and (outside the owner's route only) Share and Clone for the owner; inside it Share and Clone
- * are in the owner's bar. A draft has none of them.
+ * The actions row of a published version, outside the owner's route only: Share and Clone for the owner (inside it they are in the owner's bar). A draft has none of
+ * them. Compare is not here (P1613): it sits beside the version.
  */
-function CanvasHeaderActions({ ready, handle, projectTag, compare, ownerBar, onCompare, onChanged }: {
+function CanvasHeaderActions({ ready, handle, projectTag, onChanged }: {
   ready: CanvasReady;
   handle: string | undefined;
   projectTag: string | null;
-  compare: CanvasHeaderProps['compare'];
-  ownerBar: boolean;
-  onCompare: (personId: string | null) => void;
   onChanged: () => void;
 }) {
-  const ownerCanShare = ready.isOwner && !ready.publishedNone && !ownerBar;
   return (
     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 empty:hidden" data-testid="canvas-actions">
-      <ComparePicker base={compare.base} others={compare.others} withPerson={compare.withPerson} onCompare={onCompare} />
-      {projectTag && ownerCanShare && (
+      {projectTag && (
         <CanvasShareControl
           name={projectTag}
           visibility={ready.visibility}
@@ -129,7 +127,7 @@ function CanvasHeaderActions({ ready, handle, projectTag, compare, ownerBar, onC
           onChanged={onChanged}
         />
       )}
-      {ownerCanShare && <CloneButton ready={ready} />}
+      <CloneButton ready={ready} />
     </div>
   );
 }

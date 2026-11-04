@@ -17,10 +17,10 @@ import { CanvasCard } from '@/app/components/canvas/canvas-card';
 import { CanvasGrid } from '@/app/components/canvas/canvas-grid';
 import { CanvasHeader } from '@/app/components/canvas/canvas-header';
 import { CanvasOwnerBar } from '@/app/components/canvas/canvas-owner-bar';
-import { CANVAS_CANCEL_TEXT } from '@/app/components/canvas/canvas-pill-styles';
+import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
 import { CanvasWorkspaceContext, type CanvasWorkspaceValue } from '@/app/components/canvas/canvas-workspace-context';
 import { CanvasThreadOpener } from '@/app/pages/chat/CanvasOpener';
-import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
+import type { CanvasPerson, CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import type { PublishSpotState } from '@/app/components/canvas/canvas-publish-spot-state';
 import { CanvasWorkspaceLayout, type WorkspaceView } from '@/app/components/canvas/canvas-workspace-layout';
 import { DiscardDraftButton } from '@/app/pages/canvas/discard-draft-button';
@@ -32,6 +32,9 @@ import { groupPointsByBox } from '@/lib/canvas-boxes';
 import type { PointWithUserPosition } from '@/app/types';
 
 const NOW = '2000-01-01T00:00:00.000Z';
+// P1613: someone to compare with (obviously fake). The bar's table shows Compare only on a published version, so the draft and pending phases prove it absent.
+const SAM: CanvasPerson = { id: 'gate-sam', name: 'Sam Example', hasPledged: false, count: 3 };
+
 const point = (id: string, box: string, statement: string) => ({
   id, statement, tags: [], systemTags: [box], visibility: 'private', userPosition: undefined, totalPositions: 0, createdAt: NOW, updatedAt: NOW,
   positionCounts: { agree: 0, strongly_agree: 0, somewhat_agree: 0, unsure: 0, disagree: 0, strongly_disagree: 0, somewhat_disagree: 0 },
@@ -101,6 +104,7 @@ export function GateFixture() {
   const config = PHASES[phase] ?? DRAFT;
   const draftKey = `gate-canvas-workspace-${phase}`;
   const [view, setView] = useState<WorkspaceView>(config.view);
+  const [withId, setWithId] = useState<string | null>(null);
   // Canvas drafting is ON in this fixture only (the page's availability question); forgotten on leaving.
   useState(() => {
     seedCanvasAvailability(true);
@@ -136,7 +140,8 @@ export function GateFixture() {
               onChanged={() => undefined} onBack={() => undefined} active={config.active} view={view} onView={setView} panelOpen={config.panelOpen}
               onOpenPanel={() => undefined} spotState={config.spot} onPublish={() => undefined} onGoToDraft={() => undefined}
               discard={<DiscardDraftButton ready={ready} ownerSlug="test-owner" canvasName="example_canvas" />}
-              cancel={<button type="button" className={CANVAS_CANCEL_TEXT} data-testid="canvas-cancel-clone">Cancel</button>}
+              compare={{ base: { name: 'You', hasPledged: false }, others: [SAM], withPerson: withId ? SAM : null, onCompare: setWithId }}
+              cancel={<button type="button" className={CANVAS_SECONDARY_PILL} data-testid="canvas-cancel-clone">Cancel</button>}
             />
           }
           canvas={

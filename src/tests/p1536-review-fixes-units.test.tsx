@@ -267,7 +267,7 @@ describe('13: a Clone intent does not outlive a draft that appeared in another t
   it('the same-base draft that showed up on a re-read is no longer "pending"', async () => {
     const { result, rerender } = renderHook((p: { ready: CanvasReady }) => useCloneCanvas({
       eligible: true, active: true, ready: p.ready, setParams: vi.fn(), state: null, openDraft: vi.fn(), reload: vi.fn(),
-    }), { initialProps: { ready: published(null) } });
+    }), { initialProps: { ready: published(null) }, wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter> }); // the hook reads `with` from the address (P1613)
     await waitFor(() => expect(result.current.pending).not.toBeNull());
     rerender({ ready: published(drafted) });
     await waitFor(() => expect(result.current.pending).toBeNull());

@@ -55,13 +55,12 @@ export function CanvasWithThread() {
   const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
   // W1: entering an edit (a draft shown, a Clone) brings the panel with it: it may have been closed on a draft before.
   const openPanel = useCallback(() => setPanelOpen(true), [setPanelOpen]);
-  const { openedDraft, openExistingDraft, pickVersion, goBack } = useWorkspaceNav({ setParams, state: navState, openPanel, setView, navigate });
+  const { openedDraft, openExistingDraft, pickVersion, goBack } = useWorkspaceNav({ setParams, state: navState, openPanel, setView, navigate, isDraft: v => !!held?.versions.some(x => x.name === v && x.draft) });
 
   // The page's read counts for Clone only when it was made for the `?v=` now in the address.
   const freshReady = reported.forVersion === params.get('v') ? reported.ready : null;
   const clone = useCloneCanvas({ eligible: workspaceOk, active, ready: freshReady, setParams, state: navState, openDraft: openExistingDraft, reload: () => setReloads(n => n + 1), onEnter: openPanel });
   useCloneIntent({ state: location.state, resolved, ready: freshReady, clone: clone.clone, setParams });
-  const pendingSeq = clone.pending ? clone.pending.seq : null;
   // 3c X13: a pending Clone (the Clone tap, a reload of its address, Start over from the J4 sheet, Add to chat) opens on Thread, because typing is next.
   useThreadOnPending(clone.pending?.version ?? null, setView);
   const { spotRunActive, threadUnknown, onDraftRead, onThreadAnswered } = useSpotRun(runActive, reported.ready, active);
@@ -73,7 +72,7 @@ export function CanvasWithThread() {
   const ownerBar = answered ? answered.isOwner : eligible;
   // S4: Add to chat (owner only: the tap exists only where Clone does) and the reply chips; the composer takes the tags from the bus.
   const add = useAddToChat(reported, held, params.get('v'), ownerBar, clone, panel, closedDraftId);
-  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...add.tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: pendingSeq, cloning: !!clone.pending, ownerBar }), [active, reportReady, reloads, showThread, add.tap, clone.clone, resolved, pendingSeq, clone.pending, ownerBar]);
+  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...add.tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: clone.pending?.seq ?? null, cloning: !!clone.pending, ownerBar }), [active, reportReady, reloads, showThread, add.tap, clone.clone, resolved, clone.pending, ownerBar]);
   // The bar shows the last read FOR this canvas (`held`), so name, version and state do not blink away while the page re-reads another version.
   const rename = useCanvasRename(held, projectTag);
   useWorkspaceMarker({ eligible: workspaceOk, resolved, params, setParams, state: navState, reported, closedDraftId });

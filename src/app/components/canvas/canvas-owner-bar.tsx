@@ -4,17 +4,18 @@
  * decided by `headerRow` (canvas-header-model, the spec's table): this component only draws what it says. From 1280px, one line:
  * ← · name ✎ · [vN ▾] · (Draft) · secondary items · the spot. The spot is the furthest-right control and the only filled one: Share on a published
  * version, Publish on a draft, otherwise a status ("Nothing to publish yet", "Updating…"), all in one fixed box so nothing beside it moves.
- * Below 1280px, row 1: ← · name ✎ (it shrinks first) · [vN ▾] · (Draft); row 2: the Canvas | Thread switcher (workspace only), then the items and the
- * spot, right-aligned and labelled down to 320. No "Published" word (X5: a version with no Draft tag is published), no "from vN", no Share on a draft.
+ * Below 1280px, row 1: ← · name ✎ (it shrinks first) · [vN ▾] · (Draft); row 2: Compare positions (a published version with someone to compare with, P1613: from 1280px it sits
+ * right after the version), the Canvas | Thread switcher (workspace only), then the items and the spot, right-aligned and labelled down to 320. No "Published" word (X5: a version with no Draft tag is published), no "from vN", no Share on a draft.
  * Sticky under the shell's top bar. Inside the workspace box it is the box's first child (the panes take the rest); on a published view
  * with nothing being edited it sits above the page. Anyone but the owner gets the reader header (canvas-header) instead; this bar is
  * not drawn for them. Pure layout over the page's read: the real canvas and chat are not its business, so the P955 gate fixture renders it too.
  */
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { useCanvasDraftsOff } from '@/app/pages/chat/use-canvas-availability';
 import { useMediaQuery } from '@/app/pages/chat/chat-hooks';
 import { cn } from '@/lib/utils';
 import { BarActions, BarRow1, ViewSwitch } from './canvas-bar-parts';
+import { ComparePicker } from './canvas-compare-picker';
 import { headerInputOf, headerRow } from './canvas-header-model';
 import type { CanvasReady } from './canvas-page-data';
 import type { PublishSpotState } from './canvas-publish-spot-state';
@@ -22,22 +23,22 @@ import { CANVAS_WORKSPACE_WIDE_QUERY, useCanvasWorkspace } from './canvas-worksp
 import { STICKY_TOP, type WorkspaceView } from './canvas-workspace-layout';
 
 /** The bar is two rows below 1280px (the second holds the switcher, the items and the spot) and one line from it. */
-const BAR = 'z-30 flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-b bg-background px-2 py-1 sm:px-3 xl:flex-nowrap';
+const BAR = 'z-30 flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 max-[399px]:gap-x-1 border-b bg-background px-2 py-1 sm:px-3 xl:flex-nowrap';
 
 /** The table's row for what the bar shows (null while the page is still reading), with the width and drafting facts it needs. */
-function useBarRow(args: { ready: CanvasReady | null; active: boolean; panelOpen: boolean; canOpenPanel: boolean; canGoToDraft: boolean; spotState: PublishSpotState; publishing: boolean }) {
-  const { ready, active, panelOpen, canOpenPanel, canGoToDraft, spotState, publishing } = args;
+function useBarRow(args: { ready: CanvasReady | null; active: boolean; panelOpen: boolean; canOpenPanel: boolean; canGoToDraft: boolean; spotState: PublishSpotState; publishing: boolean; comparable: boolean }) {
+  const { ready, active, panelOpen, canOpenPanel, canGoToDraft, spotState, publishing, comparable } = args;
   const { cloneSeq, cloning } = useCanvasWorkspace();
   const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
   const drafting = !useCanvasDraftsOff();
   if (!ready) return null;
   return headerRow(headerInputOf({
     ready, drafting, workspace: active, pendingSeq: cloneSeq, cloning, spot: spotState.kind, publishing,
-    threadButton: active && wide && !panelOpen && canOpenPanel, goToDraft: active && !wide && canGoToDraft,
+    threadButton: active && wide && !panelOpen && canOpenPanel, goToDraft: active && !wide && canGoToDraft, comparable,
   }));
 }
 
-export function CanvasOwnerBar({ ready, handle, projectTag, title, canRename, onRename, onPick, onChanged, onBack, active, view, onView, panelOpen = true, onOpenPanel, spotState, publishing = false, onPublish, discard, cancel, onGoToDraft }: {
+export function CanvasOwnerBar({ ready, handle, projectTag, title, canRename, onRename, onPick, onChanged, onBack, active, view, onView, panelOpen = true, onOpenPanel, spotState, publishing = false, onPublish, discard, cancel, onGoToDraft, compare }: {
   /** null while the page is reading */
   ready: CanvasReady | null;
   handle: string | undefined;
@@ -67,11 +68,14 @@ export function CanvasOwnerBar({ ready, handle, projectTag, title, canRename, on
   cancel?: ReactNode;
   /** A published version picked from a draft, on a phone: Go to draft before Share (X13). */
   onGoToDraft?: () => void;
+  /** P1613: who the viewer can compare with (the page's `compareSetup`, already ignoring `with` off a published version) and what picking does. The table decides whether Compare shows. */
+  compare?: ComponentProps<typeof ComparePicker>;
 }) {
-  const row = useBarRow({ ready, active, panelOpen, canOpenPanel: !!onOpenPanel, canGoToDraft: !!onGoToDraft, spotState, publishing });
+  const row = useBarRow({ ready, active, panelOpen, canOpenPanel: !!onOpenPanel, canGoToDraft: !!onGoToDraft, spotState, publishing, comparable: !!compare?.base && compare.others.length > 0 });
   // X13: an owner with drafting off (nothing but the spot to show: `← · name ✎ · [vN ▾] · Share`) is ONE row; any item, or the workspace's switcher, makes a second.
   // While the page is still reading nothing is known, so the second row's room is kept (most owners have one): the bar does not grow when the read lands.
-  const oneRow = !!row && row.items.length === 0 && !active;
+  // Compare makes a second row too (P1613): beside the version there is no room for it below 1280px.
+  const oneRow = !!row && row.items.length === 0 && !active && !row.compare;
   const actions = (
     <BarActions
       oneRow={oneRow} row={row} ready={ready} slots={{ onOpenPanel, onGoToDraft, cancel, discard }}
@@ -81,6 +85,11 @@ export function CanvasOwnerBar({ ready, handle, projectTag, title, canRename, on
   return (
     <div className={cn(BAR, !active && STICKY_TOP)} data-testid="workspace-bar" data-owner-bar="">
       <BarRow1 ready={ready} row={row} title={title} canRename={canRename} onRename={onRename} onPick={onPick} onBack={onBack}>{oneRow && actions}</BarRow1>
+      {row?.compare && compare && (
+        <div className="order-5 flex min-w-0 max-w-full items-center xl:order-2 xl:max-w-[18rem]" data-testid="canvas-bar-compare">
+          <ComparePicker {...compare} />
+        </div>
+      )}
       {!oneRow && (
         <>
           {active && <ViewSwitch view={view} onView={onView} />}

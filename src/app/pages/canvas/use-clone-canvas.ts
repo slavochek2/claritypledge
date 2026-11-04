@@ -13,7 +13,7 @@
  * unasked. A stale_view on that first Send (the draft moved on) puts the sheet back with fresh facts and keeps the text.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Location } from 'react-router-dom';
+import { useSearchParams, type Location } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getCanvasDraftByThread, getLatestCanvasRun } from '@/app/data/canvas-draft-service';
 import { getThreadStats } from '@/app/data/chat-service';
@@ -47,6 +47,8 @@ export function useCloneCanvas(args: {
   onEnter?: () => void;
 }) {
   const { eligible, active, ready, setParams, state, openDraft, reload, onEnter } = args;
+  // P1613: while the address holds a comparison (`with`), entering a pending Clone drops it in the same update, and as a new history entry, so Back returns to the comparison.
+  const comparing = useSearchParams()[0].has('with');
   const [intent, setIntent] = useState<{ version: string; replace: OtherDraft | null } | null>(null);
   const [sheet, setSheet] = useState<CloneSheetState | null>(null);
   const checking = useRef(false);
@@ -65,11 +67,13 @@ export function useCloneCanvas(args: {
     setParams(prev => {
       const next = new URLSearchParams(prev);
       next.delete('thread');
-      if (on) next.set(CANVAS_WORKSPACE_PARAM, '1');
-      else next.delete(CANVAS_WORKSPACE_PARAM);
+      if (on) {
+        next.set(CANVAS_WORKSPACE_PARAM, '1');
+        next.delete('with'); // P1613: nothing compares on a pending Clone; the page ignores `with` there, so the address must not keep it
+      } else next.delete(CANVAS_WORKSPACE_PARAM);
       return next;
-    }, { replace: true, state });
-  }, [setParams, state]);
+    }, { replace: !(on && comparing), state });
+  }, [setParams, state, comparing]);
 
   const enter = useCallback((version: string, replace: OtherDraft | null) => {
     setIntent({ version, replace });
@@ -128,6 +132,17 @@ export function useCloneCanvas(args: {
     setIntent(null);
     if (!isViewingDraft(ready) && active) setMarker(false);
   }, [intent, ready, readVersion, active, setMarker]);
+
+  // P1613: Back to an address that holds a comparison ends a pending Clone. Compare is hidden while one is pending, so `with` can only come back through history, and the page
+  // then shows the published version it names (the Clone moved on by pushing an entry without it).
+  // Only the change false to true counts: the Clone's own render still holds the address it left (with `with`) for a moment.
+  const wasComparing = useRef(comparing);
+  const hasIntent = !!intent;
+  useEffect(() => {
+    const returned = comparing && !wasComparing.current;
+    wasComparing.current = comparing;
+    if (returned && hasIntent) setIntent(null);
+  }, [comparing, hasIntent]);
 
   const addToDraft = useCallback(() => {
     const d = sheet?.draft;

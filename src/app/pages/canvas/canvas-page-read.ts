@@ -1,10 +1,25 @@
 /**
  * @file canvas-page-read.ts
  * @description P1545 helpers for CanvasPage (canvas-page.tsx): marking a shared canvas read on open, and the
- * owner line's phone width.
+ * owner line's phone width. P1613: the Compare setup, gated by what is on screen.
  */
 import { useEffect } from 'react';
+import { screenOf } from '@/app/components/canvas/canvas-header-model';
+import { compareSetup, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
+import { useCanvasWorkspace } from '@/app/components/canvas/canvas-workspace-context';
 import { canvasService } from '@/app/data/canvas-service';
+import { useCanvasDraftsOff } from '@/app/pages/chat/use-canvas-availability';
+
+/**
+ * P1613: who the viewer compares with (`?with=`). Only a published version compares: a draft has no positions, and a pending Clone is a published view with nothing written
+ * yet, so `with` is ignored for both. The owner's bar (which draws Compare beside the version) reads the same rule through `screenOf`, so no box compares with no control to end it.
+ */
+export function useCompareSetup(ready: CanvasReady | null, viewerId: string | undefined, handle: string | undefined, requestedWith: string | null) {
+  const { active, cloneSeq, cloning } = useCanvasWorkspace();
+  const drafting = !useCanvasDraftsOff();
+  const published = !ready || screenOf({ ready, drafting, workspace: active, pendingSeq: cloneSeq, cloning }) === 'published';
+  return compareSetup(ready, viewerId, handle, published ? requestedWith : null);
+}
 
 /**
  * P1545: opening a canvas someone shared with you marks it read (also what a chat share card leads to).

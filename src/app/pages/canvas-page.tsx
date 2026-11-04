@@ -68,14 +68,14 @@ import { CanvasGrid } from '@/app/components/canvas/canvas-grid';
 import { CanvasCard } from '@/app/components/canvas/canvas-card';
 import { PointPanel } from '@/app/components/canvas/canvas-point-panel';
 import {
-  BOX_TITLES, buildReady, canvasSeoTitle, changedBoxes, compareSetup, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, sortBoxesByContest, storyFlags,
+  BOX_TITLES, buildReady, canvasSeoTitle, changedBoxes, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, sortBoxesByContest, storyFlags,
   type CanvasData, adoptionSkipsRead,
 } from '@/app/components/canvas/canvas-page-data';
 import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
 import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasPath, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import type { PointWithUserPosition } from '@/app/types';
 import { CanvasPageBack } from '@/app/components/canvas/canvas-page-back';
-import { useMarkCanvasRead } from './canvas/canvas-page-read';
+import { useCompareSetup, useMarkCanvasRead } from './canvas/canvas-page-read';
 import { useCanvasDraftSync } from './canvas/use-canvas-draft-sync';
 import { useOwnerIdentity } from './canvas/use-owner-identity';
 import { canvasPageClass, useCanvasWorkspace, useReportCanvasReady, useWorkspaceReload } from '@/app/components/canvas/canvas-workspace-context';
@@ -237,8 +237,8 @@ export function CanvasPage() {
   const boxes = ready ? sortBoxesByContest(groupPointsByBox(ready.points), ready.positions) : null;
   const ordered = boxes ? ORDERED_BOXES.flatMap(b => boxes.get(b.tag) ?? []) : [];
 
-  // Compare lives in the address too (`?with=`), so a shared link opens the same view. A draft has none: no positions to compare.
-  const { baseId, others, withPerson, basePerson } = compareSetup(ready, viewerId, handle, searchParams.get('with'));
+  // Compare lives in the address too (`?with=`), so a shared link opens the same view. Only a published version compares (P1613: use-compare-setup).
+  const { baseId, others, withPerson, basePerson } = useCompareSetup(ready, viewerId, handle, searchParams.get('with'));
   const draftView = !!ready && isViewingDraft(ready);
   // Opening a point from a card PUSHES a history entry (marked in its state), so Back — the
   // browser's, or a phone's back swipe — closes the point instead of leaving the canvas. Every

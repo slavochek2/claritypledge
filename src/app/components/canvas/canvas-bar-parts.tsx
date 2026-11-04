@@ -123,7 +123,7 @@ export function BarActions({ oneRow, row, ready, slots, ...spot }: {
   const items = (row?.items ?? []).map(item => <span key={item} className="flex shrink-0 items-center">{itemNode(item, ready, slots)}</span>);
   if (row?.spot === 'none') return null;
   return (
-    <div className={cn('order-7 ml-auto flex min-w-0 items-center gap-1.5 xl:order-10', !oneRow && 'max-xl:min-h-11')} data-testid="canvas-bar-actions">
+    <div className={cn('order-7 ml-auto flex min-w-0 items-center gap-1.5 max-[399px]:gap-1 xl:order-10', !oneRow && 'max-xl:min-h-11')} data-testid="canvas-bar-actions">
       {items}
       <BarSpot ready={ready} row={row} {...spot} />
     </div>

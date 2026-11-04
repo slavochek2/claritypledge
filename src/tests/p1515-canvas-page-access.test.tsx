@@ -791,15 +791,19 @@ describe('P1515 phase 4: the header row', () => {
 
   const versions2 = { version: 'sales_v2', versions: [{ name: 'sales_v2', createdAt: '2026-10-22T10:00:00Z' }, { name: 'sales', createdAt: '2026-10-01T10:00:00Z' }] };
 
-  it('Share sits in the same row as Compare, immediately right of it; the version switcher is an outline button with the name and a chevron', async () => {
+  it('P1613: Compare sits in the byline row beside the version switcher (no row of its own); Share is in the actions row under it; the version switcher is an outline button with the name and a chevron', async () => {
     auth.viewerId = 'owner-1';
     getCanvas.mockResolvedValue(canvasView(true, { positions: withOtherPosition(), ...versions2 }));
     page();
     await grid();
     const compare = screen.getByTestId('canvas-compare-picker');
     const share = screen.getByTestId('share-control');
-    expect(compare.parentElement!.parentElement).toBe(share.parentElement); // one container: Compare, then Share
-    expect(compare.parentElement!.nextElementSibling).toBe(share);
+    // P1613 (premise change: Compare used to share the actions row, right before Share): it is the version's neighbour in the byline row now.
+    const byline = screen.getByTestId('canvas-byline');
+    expect(byline.contains(compare)).toBe(true);
+    expect(screen.getByTestId('canvas-version-picker').closest('[data-testid="canvas-project-slot"]')!.nextElementSibling).toBe(screen.getByTestId('canvas-controls'));
+    expect(screen.getByTestId('canvas-actions').contains(compare)).toBe(false);
+    expect(screen.getByTestId('canvas-actions').contains(share)).toBe(true);
     expect(screen.getByTestId('canvas-actions').closest('[data-testid="canvas-header-row"]')).not.toBeNull();
     expect(screen.getByTestId('canvas-byline').closest('[data-testid="canvas-header-row"]')).not.toBeNull();
     const picker = screen.getByTestId('canvas-version-picker');
@@ -839,9 +843,10 @@ describe('P1515 phase 4: the header row', () => {
     expect(lacksSecondaryPill(picker)).toEqual([]);
     expect(screen.getByTestId('canvas-project-slot').className).not.toMatch(/max-sm:w-full/); // N1: a chip after the name, not a full-width pill
     expect(picker.className).not.toMatch(/max-sm:w-full/);
-    // Compare lives in the actions row, a row of its own under the byline: it needs no order/basis classes to drop under the picker
+    // P1613 (premise change: Compare used to live in the actions row): it sits beside the version in the byline row, with no row of its own, and needs no order/basis classes.
     expect(screen.getByTestId('canvas-controls').className).not.toMatch(/max-sm:(?:order|basis)/);
-    expect(screen.getByTestId('canvas-actions').contains(screen.getByTestId('canvas-controls'))).toBe(true);
+    expect(screen.getByTestId('canvas-byline').contains(screen.getByTestId('canvas-controls'))).toBe(true);
+    expect(screen.getByTestId('canvas-actions').contains(screen.getByTestId('canvas-controls'))).toBe(false);
     // S3.6: the byline is its own row and keeps its own box (it is no longer flattened into the actions' row), and holds no buttons.
     expect(screen.getByTestId('canvas-byline').className).not.toMatch(/max-sm:contents/);
     expect(screen.getByTestId('canvas-actions').className).not.toMatch(/max-sm:contents/);

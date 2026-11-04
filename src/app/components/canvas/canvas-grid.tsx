@@ -96,8 +96,9 @@ function CanvasBox({ tag, title, points, renderCard, onMore, question, changed }
       // Founder (fifth round): white on white hid everything — a grey box holds white cards.
       className={`flex min-w-0 flex-col rounded-xl border border-border bg-muted/60 p-2 data-[highlight]:ring-2 data-[highlight]:ring-blue-500 sm:p-2.5`}
     >
-      {/* The header row wraps: when the title (at least 6.5rem, so no word of it breaks) and Add to chat do not fit side by side, the button takes its own line at the right. */}
-      <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-x-2">
+      {/* The header row wraps: when the title (at least 6.5rem, so no word of it breaks) and Add to chat do not fit side by side, the button takes its own line at the right.
+          P1613: it is also the container Add to chat measures (icon alone below 21rem, label from it up). */}
+      <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-x-2 [container-type:inline-size]">
         {/* The icon in a small tinted circle, like the pin on every point card. */}
         <BoxIcon tag={tag} className={empty ? 'opacity-60' : ''} />
         <h3 id={headingId} className={`min-w-[6.5rem] flex-1 break-words text-sm font-semibold ${titleColour}`}>{title}</h3>
