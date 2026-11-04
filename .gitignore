@@ -164,3 +164,6 @@ scripts/.trusted-ship-gates.sh
 .hold
 .hold.*
 test-results-loadtest-*/
+
+# P1608 live transcription test output (reports, saved runs)
+test-results-p1608/

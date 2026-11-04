@@ -1,0 +1,219 @@
+{
+  "attribution": "AMI Meeting Corpus, Carletta et al., University of Edinburgh and the AMI/AMIDA consortium, https://groups.inf.ed.ac.uk/ami/corpus/ , licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Modified: cut to a 4 minute window, resampled to 16 kHz mono, and mixed with a quiet copy of the other speakers' headsets.",
+  "licence": "CC BY 4.0, read on https://groups.inf.ed.ac.uk/ami/corpus/license.shtml on 2026-11-04",
+  "meeting": "TS3010c",
+  "clip_s": 240,
+  "bleed_db": -12,
+  "timeline": "synthetic: real isolated utterances placed in turn order (a contiguous meeting window cannot supply the phrases, measured)",
+  "cache_dir_env": "P1608_CACHE (default ~/.cache/cp-p1608-ami)",
+  "annotations": {
+    "url": "https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/ami_public_manual_1.6.2.zip",
+    "sha256": "b56e5babb2496b8795deeeda7e71178d7fbc9963f94276cf2a3f4b56ebbc9f9d"
+  },
+  "speakers": {
+    "A": {
+      "headset": 0,
+      "source_sha256": "4f1dcdff76c497d60d0fffa7486dd22a80b6750e63ea359cf147a991974ee3a3",
+      "clip": {
+        "file": "p1608-TS3010c-A.wav",
+        "sha256": "40ee1e3134b76b9f32979615b9145ad8b5981558d8566357fa0b253cb003099d"
+      },
+      "round1": [
+        {
+          "text": "menu what do we use for that",
+          "src_start": 246.15,
+          "src_end": 248.86,
+          "start": 30.2,
+          "end": 32.91
+        },
+        {
+          "text": "well we have to decide on the concept so we",
+          "src_start": 1000.61,
+          "src_end": 1004.48,
+          "start": 54.11,
+          "end": 57.98
+        },
+        {
+          "text": "then it depends on the cost",
+          "src_start": 1418.48,
+          "src_end": 1421.32,
+          "start": 64.61,
+          "end": 67.45
+        },
+        {
+          "text": "maybe if it's possible it's not too expensive i think",
+          "src_start": 1680.87,
+          "src_end": 1685.31,
+          "start": 73.85,
+          "end": 78.29
+        },
+        {
+          "text": "so after this meeting you have half an hour to",
+          "src_start": 1734.7,
+          "src_end": 1738.67,
+          "start": 97.32,
+          "end": 101.29
+        },
+        {
+          "text": "then this is the design and the buttons are on",
+          "src_start": 1970.76,
+          "src_end": 1974.51,
+          "start": 109.58,
+          "end": 113.33
+        }
+      ],
+      "round2": [
+        {
+          "text": "next meeting thirty minutes so hurry up",
+          "src_start": 1991.31,
+          "src_end": 1995.22,
+          "start": 150.2,
+          "end": 154.11
+        },
+        {
+          "text": "next meeting is called the detailed design so",
+          "src_start": 2024.87,
+          "src_end": 2029.84,
+          "start": 175.73,
+          "end": 180.7
+        }
+      ]
+    },
+    "B": {
+      "headset": 1,
+      "source_sha256": "396421ffcbbcf3bfbdddd1c8ad5c38c49316813f4f1143ee12c4e46305c4a116",
+      "clip": {
+        "file": "p1608-TS3010c-B.wav",
+        "sha256": "e0044542944128493a815adecf2f8104fa04a949abcbe7e33f5e1b4ddc8fdbe9"
+      },
+      "round1": [
+        {
+          "text": "discuss the buttons we just chose",
+          "src_start": 126.35,
+          "src_end": 129.02,
+          "start": 34.81,
+          "end": 37.48
+        },
+        {
+          "text": "discuss some colours and design maybe already and",
+          "src_start": 133.06,
+          "src_end": 135.75,
+          "start": 45.04,
+          "end": 47.73
+        },
+        {
+          "text": "well we chose the power button to switch the television",
+          "src_start": 139.4,
+          "src_end": 142.0,
+          "start": 69.35,
+          "end": 71.95
+        },
+        {
+          "text": "left and right up and down arrows to",
+          "src_start": 160.09,
+          "src_end": 162.31,
+          "start": 80.19,
+          "end": 82.41
+        },
+        {
+          "text": "that it's that they're all pretty",
+          "src_start": 181.75,
+          "src_end": 183.58,
+          "start": 89.24,
+          "end": 91.07
+        },
+        {
+          "text": "power buttons are mostly at the top",
+          "src_start": 192.78,
+          "src_end": 195.81,
+          "start": 115.23,
+          "end": 118.26
+        }
+      ],
+      "round2": [
+        {
+          "text": "colours and the logo i would",
+          "src_start": 314.25,
+          "src_end": 317.01,
+          "start": 156.01,
+          "end": 158.77
+        },
+        {
+          "text": "round edges the logo at the bottom and",
+          "src_start": 319.18,
+          "src_end": 322.94,
+          "start": 165.59,
+          "end": 169.35
+        }
+      ]
+    },
+    "C": {
+      "headset": 2,
+      "source_sha256": "53f5f238492103102501c66ff1bb8c040a786a6b6fbc1b2a3c93f06edbbd066a",
+      "clip": {
+        "file": "p1608-TS3010c-C.wav",
+        "sha256": "3446315a2649920eb8bf3f73590e2c790d9e2462123cfdad585ae140864044f3"
+      },
+      "round1": [
+        {
+          "text": "sell our remote controls to and then i'll discuss what",
+          "src_start": 397.35,
+          "src_end": 401.11,
+          "start": 39.38,
+          "end": 43.14
+        },
+        {
+          "text": "get a remote control not like all the other ones",
+          "src_start": 427.35,
+          "src_end": 429.93,
+          "start": 49.63,
+          "end": 52.21
+        },
+        {
+          "text": "the basic battery so everybody can buy it",
+          "src_start": 455.68,
+          "src_end": 458.51,
+          "start": 59.88,
+          "end": 62.71
+        },
+        {
+          "text": "for the channels when you want to go",
+          "src_start": 509.57,
+          "src_end": 512.6,
+          "start": 84.31,
+          "end": 87.34
+        },
+        {
+          "text": "remote control and i think there are a lot of",
+          "src_start": 560.92,
+          "src_end": 563.37,
+          "start": 92.97,
+          "end": 95.42
+        },
+        {
+          "text": "shapes for the for remote control that we then use",
+          "src_start": 596.19,
+          "src_end": 600.68,
+          "start": 103.19,
+          "end": 107.68
+        }
+      ],
+      "round2": [
+        {
+          "text": "what will be better if we have a better shape",
+          "src_start": 751.57,
+          "src_end": 754.59,
+          "start": 160.67,
+          "end": 163.69
+        },
+        {
+          "text": "the scrolling you can do it with your thumb",
+          "src_start": 1124.21,
+          "src_end": 1126.79,
+          "start": 171.25,
+          "end": 173.83
+        }
+      ]
+    }
+  }
+}

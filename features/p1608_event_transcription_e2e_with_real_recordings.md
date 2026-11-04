@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 89
 workstream: events
 created_date: '2026-11-04'
 tags: [transcription, events, e2e, testing]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -52,7 +52,11 @@ there as CC BY 4.0; re-read the licence page and record the finding here before 
 audio and annotations, cuts clips with ffmpeg and checks hashes. **Audio stays out of the repo**, in a local cache
 directory. The repo holds only the script, hashes, cut times, short expected phrases and attribution.
 
-**Clips.** Three speakers on one shared meeting timeline, 4 minutes, 16 kHz mono WAV, ending in silence. Time T counts
+**Clips (corrected in the build: the timeline is arranged, the speech is real).** A contiguous 4-minute window of a real
+meeting cannot supply the phrases: across 138 AMI scenario meetings, with 2 s of nobody else speaking around each phrase,
+no window held even 3 phrases per speaker in round 1 plus 1 in round 2 (6 + 2 was the plan). So each clip is built from real,
+isolated utterances (cut from each speaker's own headset, 0.2 s padding) placed in turn order on one shared 240 s timeline;
+the quiet bleed copies below are mixed from the other speakers' placed tracks. Three speakers, 4 minutes, 16 kHz mono WAV, ending in silence. Time T counts
 from the tap on Transcribe. Round 1 runs from about T=20 s to T=140 s and round 2 from T=140 s to T=240 s. Round 1 holds 6
 expected phrases per person between T=30 s and T=130 s, including one inside the round's first 60 s. Round 2 holds 2 per
 person between T=150 s and T=230 s. Each phrase has at least 6 words and no other speaker within 2 s (P1596 measured that
@@ -64,7 +68,7 @@ could pass with the loudest-mic rule off. The bleed is checked on the **captured
 `getUserMedia({ audio: true })` (`room-capture-context.tsx:432`) leaves browser audio processing on, which may remove the
 bleed or level the mics. Local Whisper must hear another speaker's phrase in the captured audio, or the run is invalid.
 
-**Browsers.** Each person with audio gets **their own launched Chromium, not a context as first proposed**: the file flag
+**Browsers (measured on a blank page in the build, see Build findings).** Each person with audio gets **their own launched Chromium, not a context as first proposed**: the file flag
 is a launch argument for the whole process (first build step proves this). Flags: `--use-fake-device-for-media-stream`,
 `--use-file-for-fake-audio-capture=<clip>%noloop`, `--use-fake-ui-for-media-stream`.
 **Preflight, before the app or any Gemini call:** a blank page records 5 s per browser and compares it with the clip, so a
@@ -79,7 +83,9 @@ Threads are read only from the host's browser: reloading a capturing browser re-
 3. A, B, C each tap Transcribe (one tap, it includes consent), all within 10 s; each tap time is recorded, and a spread
    over 3 s invalidates the run because the worker aligns only within 5 s (`MAX_SHIFT_S`). Capturing before the round
    starts matters: a seated person under 80% of the window marks the table partial (`pipeline.py:156`).
-4. The host seats A, B, C at one table and starts round 1 near T=20 s. A short "Before round 1" stretch is expected.
+4. The host seats A, B, C at one table and starts round 1 near T=20 s. Built through the host RPCs `host_start_round` and
+   `host_end_rounds` (as `e2e/p1592-event-transcripts.spec.ts` does), not the host screen: the founder's flow names Transcribe,
+   recording, upload, the job and the chat text, and the screen's selectors are unproven. A short "Before round 1" stretch is expected.
 5. Before round 2, seed person D (RSVP, room member, consented Transcribe row, no recording), as
    `e2e/p1592-event-transcripts.spec.ts` does; a real tap would start capture. Assert the seed did not log a seat move.
 6. Near T=140 s the host starts round 2 with A, B, C, D at one table. That cuts round 1. Nobody's seat changes during a
@@ -87,7 +93,9 @@ Threads are read only from the host's browser: reloading a capturing browser re-
 7. Near T=240 s the host closes round 2, then A, B, C tap End, which stops the live slices.
 8. Wait: round 1's job from 40 s after its cut. Round 2's job waits on D's missing audio until 180 s after the window end
    (`READY_DEADLINE_S`), deferring until then.
-9. Read the threads from the host's browser.
+9. Read the threads. The assertions read the round threads from the database (author, thread, title are exact there); the
+   host's browser opens the event channel and must show the "Round 1" title, which is reported and not asserted, because
+   whether the host is a member of the channel is unproven.
 
 **Job dispatch on TEST.** First build step: find why the 2026-11-02 jobs stayed pending, keeping that evidence before
 anything writes to them (epistemic gate 2b), and confirm `transcribe-room-batch-test` still exists. P1592's notes said it
@@ -99,13 +107,15 @@ stale rows is a TEST data change and is the founder's call. Until repaired, the 
 with an OIDC token, re-posting across the deferral above, and the report says plainly that dispatch was not exercised.
 
 **Assertions (matching: lowercase, no punctuation, at least 80% of the phrase's words in order, on each person's
-concatenated text per thread, since a chunk boundary can split a phrase; set before the first run):**
+concatenated text per thread, since a chunk boundary can split a phrase, inside one window of 1.5 x the phrase length + 2
+words, so common words spread over minutes cannot count; set before the first run):**
 
 - Round 1: for each of A, B, C, at least 5 of 6 expected phrases appear under that person, and the first-60-s phrase is
   listed separately.
 - Round 1: **zero** expected phrases appear under anyone else. Any stray fails the run and is reported; it is not re-run
   until green.
-- Round 2: each person's phrases appear, which proves recording continued across rounds.
+- Round 2: at least 1 of each person's 2 phrases appears under them, which proves recording continued across rounds
+  (the spec said "appear"; 1 of 2 is the build's reading, the same slack as 5 of 6). Round 2 strays are reported, not asserted.
 - Round 1's title has no missing-audio note. Round 2's has "(some of this table's audio is missing)".
 - The report names every phrase, where it landed, each job's status, duration and attempts, and the tap times. The
   worker's mic offsets are not stored anywhere, so they are not reported; exposing them is out of scope.
@@ -116,7 +126,7 @@ and round 2 without it, must fail. **Rule-off control:** the same downloaded chu
 loudest-mic masks disabled must show a phrase under two people. If it does not, the zero-stray result proves nothing, and
 the report says so. Expected phrases are re-verified against the audio with local Whisper, independent of Gemini.
 
-**Running.** An explicit command with its own Playwright config: retries 0, the same P1607 slot guard, an environment gate,
+**Running.** `npm run test:e2e:p1608` (sets `P1608_LIVE=1`; without it the config refuses). An explicit command with its own Playwright config (`playwright.p1608.config.ts`): retries 0, the same P1607 slot guard, an environment gate,
 and the spec ignored by the default config so a full suite can never run it. It exits non-zero on failure and cleans up
 its users and event, including on a crash, since an aborted run's room ends about 10 minutes later and can start paid jobs.
 
@@ -200,11 +210,80 @@ already in the worst case; the test reports any job above 1 attempt and fails.
 - [ ] Licence read and recorded; no audio in the repo (shown by `git ls-files`), attribution present.
 - [ ] Reviewed by Gemini 4 Argon, Codex and Opus, with load-bearing findings verified by command. Spec review 2026-11-04: Argon and Opus reported; Codex failed on its usage limit and reviews the build.
 
+## Build findings
+
+Written 2026-11-04 by the build. Everything below was measured or read this session; nothing on any server was changed.
+
+### Job dispatch on self-hosted TEST (answers Open Question 2)
+
+**Cause (read-only evidence).** The tick `transcribe_round_clean_tick` (every minute) sets `dispatched_at = now()` and only then
+calls `_transcribe_round_clean_dispatch`, which reads three vault secrets and returns early, with a warning and no HTTP call,
+when any is missing. On self-hosted TEST the vault holds 13 secrets and **none** named `enqueue_room_transcription_url`,
+`enqueue_room_transcription_secret` or `enqueue_room_transcription_anon_key` (control: the same query lists the other 13, so
+the query works). `net._http_response` holds 14 rows, all from other callers (12 x 200 from 2026-11-03 20:30 to 2026-11-04 02:00,
+2 x 202 at 02:15), none for these jobs. So: the dispatch never leaves the database, the job keeps `status: pending`,
+`attempts: 0`, and `dispatched_at` set, and because the tick only picks `dispatched_at IS NULL`, nothing ever tries again.
+`transcribe_room_job_dispatch` (room-end jobs) reads the same three secrets, so room jobs fail identically.
+Further links, checked but moot while the secrets are missing: Cloud Tasks queues `transcribe-room-jobs` and `transcribe-jobs`
+exist, RUNNING, and hold no tasks. Whether the `enqueue-room-transcription` edge function is deployed on the self-hosted server
+was **not** checked (no read-only way found); it does not matter until the secrets exist.
+
+**The worker exists.** Cloud Run `transcribe-room-batch-test`, us-east4, project `gen-lang-client-0869694595`; latest revision
+`transcribe-room-batch-test-00011-w56` created 2026-11-02 13:49 UTC; image `gcr.io/gen-lang-client-0869694595/transcribe-room-batch:p1596-test-11`;
+env names `GCS_BUCKET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (secret reference), `GEMINI_BATCH_API_KEY` (secret reference);
+its `SUPABASE_URL` equals the self-hosted TEST origin (compared, not printed); CPU throttling off, max 2 instances.
+**Unproven:** the last commit touching `round_clean.py` is dated 2026-11-02 15:03 UTC, after that revision was created, so the deployed
+image may predate the committed code. There is no digest-to-source map, so this stays a question for the first live run.
+There is no Cloud Scheduler job for the test worker: the one existing job `transcribe-room-sweep` (hourly) targets the **prod** worker.
+So nothing drains stale TEST jobs.
+
+**Stale jobs and what repair would release.** On 2026-11-04 TEST holds **8** `pending` clean jobs (7 round, 1 room), all with `attempts 0`
+and `dispatched_at` set (2026-11-02, 7 of them stamped in one tick at 13:42 by the abandoned-round close). Four more
+undispatched pending room jobs seen at 02:21 had vanished by 02:22 (another session's test cleanup). Repairing the vault
+alone releases **0** of the 8 through the tick (it takes only undispatched jobs). They are released only by a call to the test
+worker's `/sweep`, which no scheduler makes. Upper bound if someone did call `/sweep`: about 284 mic-minutes of windows
+(one 85-minute window alone is 171), about **$1.28** at $0.0045 per mic-minute, only where audio still exists in the bucket. The repair also
+makes new tick dispatches work for every future TEST job, including other sessions' runs. **Clearing the 8 rows is a TEST data change and
+stays the founder's call** (Open Question 3); the build did not touch them.
+
+**What the test does about it.** `P1608_DISPATCH=auto` (default): wait 90 s after a job's `not_before` for the normal chain; if the job is
+still pending, post its id to the worker's `/process` with an identity token and record "dispatch NOT exercised" in the report.
+`chain` never posts; `direct` posts at `not_before`. It never calls `/sweep` and only handles its own event's round jobs. The room-end job of
+its own event is left alone and deleted with the event.
+
+### Chromium facts (probe: `node scripts/p1608-chromium-probe.mjs`, blank local page, Playwright 1.64 Chromium, exit 0)
+
+| Fact | Measured |
+|---|---|
+| File flag belongs to the process | **Confirmed.** Two browsers launched with different files each heard their own (440 Hz, 880 Hz); two contexts of one browser both heard the first file. Spec's one-browser-per-person stands. |
+| `--use-fake-device-for-media-stream` required | **Yes.** With only the file flag the page heard silence, not the file. (This probe may open the real microphone for 2 s in memory; it printed silence.) The preflight catches a missing flag anyway: removed on purpose, it failed with correlation 0.16 to 0.29 against a pass of 0.98. |
+| `%noloop` | **Confirmed.** 3 s file: tone in the first second window, silence from 4 s on; without `%noloop` the tone returns (control). |
+| Second `getUserMedia` | **Depends on constraints.** With the app's `{ audio: true }` the second capture does NOT restart the file (it continued at the first stream's position); with echo cancellation, noise suppression and auto gain off it does restart. Stable over 2 runs. Mostly harmless here (the app opens one capture), but a reloaded capturing page would continue, not restart, so reading threads from the host's browser (never a capturing one) stays right. |
+| Default audio processing alters the file | **Yes.** On a steady tone pair, default processing cut the loud tone to 0.15 of its unprocessed level and the quiet one to 0.16 (noise suppression removes steady tones, which is why the probe's other checks run with processing off). On real speech (clip A, 5 to 35 s) default capture RMS was 4.4 x the unprocessed capture, whose peak was only 0.08 (the unprocessed fake capture is about 18 dB below the file). So the app hears an automatically levelled version; the bleed must be checked on the captured audio, below. |
+
+The 6 s excerpt correlation of the preflight is scored on loudness envelopes (level-independent), so the processing does not defeat it.
+
+### Corpus
+
+- **Licence:** read on https://groups.inf.ed.ac.uk/ami/corpus/license.shtml on 2026-11-04: "released under the Creative Commons Attribution 4.0 license (CC BY 4.0)". Attribution is in `e2e/p1608/corpus.json` and printed in every report. The clips are modified (cut, resampled, mixed); the attribution says so.
+- **Meeting `TS3010c`, speakers A, B, C** (headsets 0, 1, 2), chosen as the first of 86 meetings whose annotations supply 8 isolated phrases per speaker. Phrases come from the AMI human word annotations (`ami_public_manual_1.6.2`, sha256 in corpus.json). Phrases Whisper did not hear (3 of 24 on the first pass) are listed in `e2e/p1608/excluded-phrases.json` and replaced.
+- **A cut-short download once halved a headset (Headset-0 arrived as 51 of 68 MB) and made 5 of A's 8 phrases silent; Whisper caught it.** `fetch` now compares the byte count with Content-Length.
+- **Whisper re-verification (local, `~/.agents/bin/transcribe`, independent of Gemini), source clips:** own phrases heard A 8/8, B 8/8, C 8/8 (`scripts/p1608-verify-phrases.ts`, exit 0); another speaker's phrases heard in the same clip 6/8 to 8/8 (the -12 dB bleed is audible).
+- **Bleed on the captured audio (Chromium playing each clip through `getUserMedia({audio:true})`, 245 s each, saved outside the repo, then local Whisper):** own phrases 8/8 in all three; the other two speakers' phrases heard 8/8, 8/8, 8/8, 8/8, 8/8 and 7/8. So browser processing does not remove the quiet copy. This is a desktop-Chromium result; the spec's check on the real captured archive still runs in the first live run.
+- Audio is in `~/.cache/cp-p1608-ami` only. `git ls-files` shows 2 audio files, both older (a sting and a celebration sound); none from this build.
+
+### Assertion, guard and control evidence
+Recorded in the build report: 28 unit tests (matcher with all five assertion controls, refusal guard, preflight scoring), refusal on production, hosted and no-opt-in, preflight failure with the flag removed, `--list` default vs explicit, exclusive-spec classification (the new spec is not server-wide; control: the P1592 spec is), and a free dry run. The rule-off control's free self-test passes (rule off: every track carries 240 of 240 s, rule on: 86 to 103); its paid mode is unrun.
+
+### Product observations (not fixed, per scope)
+1. The tick stamps `dispatched_at` before dispatching, so a lost dispatch is never retried by the tick (the migration comment says the worker's `/sweep` retries it, but nothing calls `/sweep` on TEST). Worth a bug.
+2. Missing vault secrets are reported only as a database WARNING; no job error is recorded.
+
 ## Open Questions
 
 1. `[FOUNDER DECISION: pass bar]` Default set here: at least 5 of 6 phrases per person and zero under the wrong person.
    Strict on misattribution, loose on one Gemini slip. Say if you want 6 of 6.
-2. Why the 2026-11-02 jobs stayed pending, answered in the build.
+2. ~~Why the 2026-11-02 jobs stayed pending~~ Answered in Build findings: the vault has no `enqueue_room_transcription_*` secrets.
 3. `[FOUNDER DECISION: stale TEST jobs]` Whether to clear them before repairing dispatch, once their count and cost are known.
 
 ## Related

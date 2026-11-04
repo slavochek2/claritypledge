@@ -219,7 +219,8 @@ export default defineConfig({
     {
       name: 'chromium',
       // P1369: e2e/offline/ needs a production build (service worker) and has its own config.
-      testIgnore: ['**/integration/**', '**/offline/**', ...(serverWidePattern ? [serverWidePattern] : [])],
+      // P1608: e2e/live/ holds paid, explicit-command-only tests with their own config (playwright.p1608.config.ts).
+      testIgnore: ['**/integration/**', '**/offline/**', '**/e2e/live/**', ...(serverWidePattern ? [serverWidePattern] : [])],
       use: chromiumUse,
     },
     {

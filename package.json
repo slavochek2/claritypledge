@@ -13,6 +13,7 @@
     "test": "vitest",
     "test:integration": "vitest run --config src/tests/integration/vitest.config.ts",
     "test:e2e": "playwright test",
+    "test:e2e:p1608": "P1608_LIVE=1 playwright test -c playwright.p1608.config.ts",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:headed": "playwright test --headed",
