@@ -153,16 +153,23 @@ function PrepareCore({ join, review, initialRows, viewerRowsKnown }: { join?: Jo
   /** Never lowers anything: a part already completed keeps its own date. */
   // P1549: finishing the join learning waits for these, so the join page's read sees the part just recorded.
   const pendingWrites = useRef<Promise<unknown>[]>([]);
+  // Only what this visit is still saving: on a timeout, nothing else on the account may be copied to this browser.
+  const unsaved = useRef(new Map<PrepPart, string>());
   const complete = useCallback((part: PrepPart) => {
     if (isPartDone(rows, part)) return;
     const now = new Date().toISOString();
     const row: PrepPartRow = { part, contentVersion: PART_VERSIONS[part], completedAt: now, skippedAt: null };
     if (viewerId) {
       setAccountRows((prev) => [...(prev ?? []).filter((r) => r.part !== part), row]);
-      pendingWrites.current.push(markPrepPart(viewerId, part, PART_VERSIONS[part], 'completed', now).catch(() => {
-        // Not on the account: keep it in this browser, it syncs on the next read.
-        markLocalPart(part, now);
-      }));
+      unsaved.current.set(part, now);
+      pendingWrites.current.push(markPrepPart(viewerId, part, PART_VERSIONS[part], 'completed', now).then(
+        () => { unsaved.current.delete(part); },
+        () => {
+          // Not on the account: keep it in this browser, it syncs on the next read.
+          unsaved.current.delete(part);
+          markLocalPart(part, now);
+        },
+      ));
     } else {
       setLocalRows(localPartRows(markLocalPart(part, now)));
     }
@@ -192,7 +199,7 @@ function PrepareCore({ join, review, initialRows, viewerRowsKnown }: { join?: Jo
       join={join && { ...join, onFinish: () => {
         // Bounded: a write that never answers must not leave the last Continue dead. What it held stays in this browser.
         withDeadline(Promise.allSettled(pendingWrites.current), FINISH_DEADLINE_MS, 'saving learning parts')
-          .catch(() => { for (const r of rows) if (r.completedAt) markLocalPart(r.part, r.completedAt); })
+          .catch(() => { unsaved.current.forEach((at, part) => markLocalPart(part, at)); })
           .finally(join.onFinish);
       } }}
       review={review}
