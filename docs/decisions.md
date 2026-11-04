@@ -40127,3 +40127,11 @@ User journey: **Clarify → Share → Verify**
 - Run `/kdd` after finishing features with interesting trade-offs
 - Move feature docs to `features/archive/` manually after merge
 - This file grows indefinitely (append-only) - newest at top for easy reading
+
+## 2026-11-04 [product]: Day page: one checklist that says where each problem went (P1609)
+
+**Context:** The falsifier in the 2026-10-12 P1463 entry fired: the founder opened Status to learn what to do and could not. On the 2026-11-04 run all 9 non-ok checks already had a card, so "Didn't work" repeated the card list, and rows lost their link once a card left the queue.
+**Decision:** A check has one outcome and one home. The Status layout from P1463 is superseded by one checklist below the cards, where every non-passing row names its destination and the summary line counts destinations. The index of what failed, P1463's reason for the list, is kept in that checklist.
+**Alternatives rejected:** Removing failures from view entirely, rejected in P1463 round 1 because it hid the index.
+**Consequences:** A non-passing check with no destination renders as a visible defect. UNTESTED on real use; falsifier: the founder still cannot tell what to do from the summary line.
+**References:** [p1609](../features/p1609_day_checklist_replaces_didnt_work.md)

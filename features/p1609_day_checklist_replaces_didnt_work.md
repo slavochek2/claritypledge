@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-11-04'
 tags: [day, ux, process]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -68,4 +68,4 @@ One `/dev` cycle in `tools/kanban`. No change to how `/day` collects checks or w
 - [x] The checklist renders after the cards; one toggle opens and closes it, and it stays in place when opened.
 - [x] A failing control: a fixture check with no card renders `No card: report this`.
 - [x] Screenshots at desktop, 375px and 320px pass `.claude/rules/visual-qa.md`, judged by a separate reviewer.
-- [ ] `/kdd` entry supersedes the Status layout in the 2026-10-12 P1463 decision.
+- [x] `/kdd` entry supersedes the Status layout in the 2026-10-12 P1463 decision.
