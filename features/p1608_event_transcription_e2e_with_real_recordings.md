@@ -139,6 +139,17 @@ its users and event, including on a crash, since an aborted run's room ends abou
   phrases being present.
 - That transcripts read well. It checks known phrases, not whole-text quality.
 
+### First live run, 2026-11-04 (paid)
+
+**Result: PASS, exit 0, 8.9 minutes.** A 6/6 and 2/2, B 5/6 and 2/2, C 6/6 and 2/2; zero phrases under the wrong person; round 2's title carries the missing-audio note and round 1's does not; each job finished on 1 attempt in about 25 s.
+
+What this result does not show:
+
+- **Normal dispatch was not exercised.** The report's first wording claimed it was; that was wrong and is corrected. The vault still has no `enqueue_room_transcription_*` secret (count 0 after the run), while another session's curl loop was posting `/sweep` to the test worker about once a minute from 03:25 UTC. That loop almost certainly claimed these jobs. It also drained the 8 stale jobs at about 03:26 to 03:28 UTC, so they are no longer pending. That spend (at most about $1.28) was not this test's.
+- **The run tested P1604's unmerged state.** The worker image was `p1604-test-1`, deployed by another session at 09:41 local, and TEST holds P1604's migrations. Re-run after P1604 ships or is withdrawn.
+- **The rule-off control has not run against Gemini.** The free self-test and Whisper on captured audio show the bleed is present and the masks act on it. Whether Gemini would write the bled words with the rule off is unmeasured, so "zero strays" is not yet proven to depend on the loudest-mic rule. `--job` needs the job row, which cleanup deletes, plus the batch key in the environment.
+- **Real cost:** not separately measurable while the same key served other sessions; the budget's counted figures stand.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |

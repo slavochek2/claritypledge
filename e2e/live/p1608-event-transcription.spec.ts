@@ -397,7 +397,7 @@ test.describe('P1608 transcription end to end', () => {
     const direct = [...jobInfo.values()].filter((j) => j.direct).map((j) => j.label);
     const report = [
       formatReport(output, verdict),
-      `dispatch: ${direct.length ? `NOT exercised for ${direct.join(', ')}: this test posted the job ids to the worker's /process itself` : 'the normal chain (tick, enqueue, Cloud Tasks) delivered every job'}`,
+      `dispatch: ${direct.length ? `NOT exercised for ${direct.join(', ')}: this test posted the job ids to the worker's /process itself` : 'NOT proven: this test did not post the jobs, and something else did (the normal chain, or another session\'s /sweep timer). The worker logs show which; this test cannot tell'}`,
       uiNote,
       `mic-minutes sent to the clean pass: about ${(3 * 4).toFixed(0)} (3 mics x 4 min); live slices about 15 mic-minutes; the first run's real usage goes next to the cost budget in the spec`,
       `attribution: ${corpus.attribution}`,
