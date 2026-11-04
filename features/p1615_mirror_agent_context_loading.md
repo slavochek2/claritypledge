@@ -27,6 +27,55 @@ exec_effort: high
 
 "Not every chat" has two readings: not on every message, or not every chat room. The brief says "without sending it all on every message", so this spec takes the first and leaves the second open as Decision 1.
 
+## Founder rulings, 2026-11-04
+
+These replace anything below that disagrees.
+
+> "What do you mean you name a source? I mean it has to be user-friendly. When people just chat, we need to be flexible."
+
+Shown the plain version of the rest, the founder answered "ok".
+
+- **The problem is right:** the agent re-reads too much of what it was given, and cannot reach the rest.
+- **Nobody names a source.** Option B is dropped, as a trial and as a layer. People just chat.
+- **What you reply to, forward or Clarify is read in full.** While the talk stays on it, it stays in view. After that it folds to one line and the agent reopens it when it comes up (A1).
+- **The agent looks things up by itself,** across all the chats and transcripts the person can read, when a question needs it. Each answer says what it read. The policy announces this first.
+- **Live search first (H or C), tested on made-up chats.** Embeddings wait: they go in the test and are added only if live search misses too much on things said in different words. Google's File Search is out.
+- **Isolation is structural.** The model only requests a search. Server code takes the owner from the job and limits every read to that person's chats from their access date, re-checked on each read. A test that tries to read another person's chat must return nothing.
+
+**Still open:** the window (2), the P1604 interim limit (6), the daily cap (7). Decision 1 is settled by these rulings, and 3 (no stored memory for now) with them. Defaults stand unless the founder objects: 5 replies before folding, answers that read other chats stay out of later context, deleting one message does not blank answers, chats and transcripts first.
+
+The Recommendation and Founder decisions below are the state before these rulings.
+
+## Approved plan, founder 2026-11-04
+
+Approved: "ok approve". No further research round. Decisions: keep the 50,000-token window for now (2); ship P1604's interim limit only together with folding (6); keep the daily cap for now, and announce cross-chat reads in the policy before they ship (7).
+
+Order, each its own build spec:
+1. **Stop re-sending:** folding in SQL selection and reservation, dates, the omission note, the ledger reading cached tokens.
+2. **The test** on made-up chats, retrieval stage first; the tool loop stays an arm.
+3. **Search by the agent** with the approach that wins, including every item under the third review.
+
+## Third review: security and usability of the ruled design
+
+Gemini 4 Argon and Codex, 2 of 2 reports. Both keep automatic live search and deferred embeddings, and neither found a better whole design. Codex: revise before implementation. Code claims checked by read; live attacks, races and latency are unrun.
+
+**Required before any build:**
+1. **Follow-ups must work.** Keeping cross-chat answers out of context breaks "how should I reply to her?". Keep a short-lived server pointer to the sources and last answer (ids only), re-checked on each read, and resolve the follow-up against recent talk before searching. This replaces the default of folding after a fixed 5 replies, and the default on answers needs revisiting.
+2. **Search only when the question needs it.** "I'm tired today" must not pull an old argument into the reply. Prefer the current conversation before widening; show dates; never turn an old remark into a trait.
+3. **Access is re-checked before the answer is posted,** not only on read. Today only channel asks do this (`20261022160000:599`).
+4. **Provenance accumulates across every read in an attempt.** Today one assignment replaces it (`20261027120600:626`). Nothing is read before the job has registered its people.
+5. **Search excludes the agent's own answers.** `search_my_messages` has no such filter, so an excluded answer could return as evidence.
+6. **The "what I read" note comes from the server's record of reads,** never from the model, and says partial when partial. "Read in full" must be defined for a source larger than the window.
+7. **Strip bare domains, emails and phone numbers.** Chat renders plain text, so no automatic exfiltration was found, but an attacker can still persuade the owner, or plant a false accusation. Test on the whole pipeline.
+8. **Bound the work:** query size, result bytes, calls, total time, with a truthful "looking through your conversations" state.
+
+**Changes the options:**
+- C should not send a catalog: every person in it would join `derived_refs`, so anyone's erasure blanks unrelated answers, and titles can steer it. The router sees only the recent talk and question, returns whether to search plus names, terms and dates, and SQL matches them.
+- H alone will often miss: names live in `profiles`, not `body`, and natural questions share few words with the source. The test includes this class; expect C without a catalog to lead.
+- That router also reserves the worst case on every reply, or needs a stated two-stage reservation. To settle in the build spec.
+
+Rejected: nothing material; Gemini's "90% of interpersonal chat" figure for H's misses has no source and is not relied on.
+
 ## Appetite
 
 Blast radius: every mirror reply, plus erasure and the privacy promise if reach widens. Reversibility: high for folding and dates; medium for reach (people get used to it, and the policy changes); low for anything stored about other people. Decision density: seven founder calls, listed below.
@@ -325,7 +374,7 @@ Gemini 4 Argon and Codex (gpt-6.1-sol, high), each given the spec and code. Two 
 - [x] Proven approaches researched with sources, and options compared by cost, accuracy and privacy.
 - [x] Decision criteria written before the research ran.
 - [x] Gemini 4 Argon and Codex reviewed this spec, with each finding checked by command.
-- [ ] The founder's seven decisions recorded here.
+- [x] The founder's decisions recorded here.
 
 ## Sources
 
