@@ -23,6 +23,8 @@ import { CanvasWorkspaceContext, type CanvasWorkspaceValue } from '@/app/compone
 import { resetCanvasAvailability, seedCanvasAvailability } from '@/app/pages/chat/use-canvas-availability';
 import { useCloneCanvas } from '@/app/pages/canvas/use-clone-canvas';
 import { useWorkspaceNav } from '@/app/pages/canvas/use-workspace-nav';
+import { useCloneIntent } from '@/app/pages/canvas/use-clone-intent';
+import { CLONE_INTENT_KEY } from '@/lib/canvas-hrefs';
 import { CanvasHeader } from '@/app/components/canvas/canvas-header';
 import * as draftService from '@/app/data/canvas-draft-service';
 import * as chatService from '@/app/data/chat-service';
@@ -233,5 +235,22 @@ describe('P1613 review: the reader-style header\'s picker drops `with` for a dra
     expect(onParams).toHaveBeenLastCalledWith({ v: DRAFT_V.name, point: null, box: null, with: null }, true, false);
     fireEvent.change(screen.getByTestId('canvas-version-select'), { target: { value: V1.name } });
     expect(onParams.mock.calls.at(-1)![0]).not.toHaveProperty('with'); // CONTROL
+  });
+});
+
+describe('P1613 review: the Clone intent (the mirror chat\'s +) also leaves a comparison behind', () => {
+  it('an intent that arrives with `with` in the address runs clone(): `with` is dropped in that move, which pushes an entry', async () => {
+    const ready = readyOf('published', false);
+    const setParams = vi.fn();
+    function Probe() {
+      const clone = useCloneCanvas({ eligible: true, active: false, ready, setParams, state: null, openDraft: () => undefined, reload: () => undefined });
+      useCloneIntent({ state: { [CLONE_INTENT_KEY]: true }, resolved: true, ready, clone: clone.clone, setParams: setParams as never });
+      return null;
+    }
+    render(<MemoryRouter initialEntries={['/c?v=canvas_d111111&with=sam']}><Probe /></MemoryRouter>);
+    await act(async () => undefined);
+    const enter = setParams.mock.calls.find(([u, o]) => typeof u === 'function' && (u as (p: URLSearchParams) => URLSearchParams)(new URLSearchParams('v=a&with=sam')).get('ws') === '1' && o.replace === false);
+    expect(enter, 'the move into the pending Clone pushes an entry and drops `with`').toBeDefined();
+    expect((enter![0] as (p: URLSearchParams) => URLSearchParams)(new URLSearchParams('v=a&with=sam')).has('with')).toBe(false);
   });
 });

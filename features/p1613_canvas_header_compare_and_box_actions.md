@@ -70,6 +70,26 @@ Blast radius: canvas page header and box header. Reversibility: git revert. Deci
 - [x] Add to chat still works from the icon-only form, and readers still do not see it. *(Real route click puts the tag in the composer; reader suites pass.)*
 - [x] Visual QA checklist passed by a separate reviewer at 1440, 375 and 320, including both draft states. *(Separate screenshots-only reviewer: no failures against the intended design. Noted and accepted: the selected Canvas/Thread tab shares Cancel's outline, the status wraps to two lines at 1440, the 320 published bar is 145px. The 320 pencil absence is old behaviour, `canvas-name-edit.tsx`.)*
 
+## Cost Budget
+
+Applies only because the new e2e spec creates and deletes test users. The product change adds no request, timer, poll, retry or model call: Compare, Cancel and Add to chat change where existing controls sit.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | unchanged: 0 new | 0 | 2 users x (1 create + 1 delete) = 4 auth admin calls, plus the walk's ordinary page reads and 1 sign-in, as any single-spec walk does |
+| Users created / deleted | 0 | 0 | 2 created, 2 deleted in `finally` |
+| Egress | unchanged | 0 | one page session of a test canvas; no media |
+| Log lines | 0 new | 0 | 0 expected refusals |
+| Gemini | 0 | 0 | 0: the walk sends no message and starts no run |
+
+1. **Fits the plan limit today?** Yes. The walk runs on self-hosted TEST, on a Compute Engine VM billed by the hour and not by request (registry, Compute Engine row), so its cost is the formula 4 calls x runs per month against no per-request limit.
+2. **Fits at 10x?** Yes, for the same reason: request volume does not change the VM's bill.
+3. **Rule 1 (bulk on the server):** cleanup deletes 2 users one call each through the shared helper, matching sibling specs; Auth's admin API deletes one user per call. Rule 6 (tests count as traffic) is met by this table.
+
+## Known Limitations
+
+- With another base's draft open: Clone from a comparison, Back, then Forward shows the published version as if picked from the picker, with no "New draft" tag and no Cancel. Nothing is written or lost, and tapping Clone starts again. The forward address is identical to a legitimate picked version, so it cannot say which state it was; keeping the intent could bring a pending Clone back after the owner chose "No one" in Compare.
+
 ## Related
 
 P1536 (predecessor, X4, D5; it said "Compare stays where it is", reversed here by the founder) · P955 · P1614

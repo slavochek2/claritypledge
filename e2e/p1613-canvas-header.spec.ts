@@ -29,11 +29,14 @@ const POINTS: Array<[string, string]> = [
 const composer = (page: Page) => page.getByTestId('composer').getByRole('textbox').first();
 
 test('P1613 real route: Compare in the bar, Add to chat, Clone from a comparison, Back, Cancel', async ({ page }) => {
-  const owner = await createTestUser({ name: 'P1613 Owner' });
-  const other = await createTestUser({ name: 'P1613 Other' });
+  const created: string[] = []; // every account made so far: a failed second create must not leak the first
   const pointIds: string[] = [];
   let canvasId: string | null = null;
   try {
+    const owner = await createTestUser({ name: 'P1613 Owner' });
+    created.push(owner.user.id);
+    const other = await createTestUser({ name: 'P1613 Other' });
+    created.push(other.user.id);
     const api = createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: signed, error: signErr } = await api.auth.signInWithPassword({ email: owner.email, password: TEST_PASSWORD });
     if (signErr || !signed.session) throw new Error(`owner sign-in failed: ${signErr?.message}`);
@@ -145,7 +148,6 @@ test('P1613 real route: Compare in the bar, Add to chat, Clone from a comparison
   } finally {
     if (canvasId) await supabaseAdmin.from('canvas_audience').delete().eq('canvas_id', canvasId).then(() => undefined, () => undefined);
     if (pointIds.length) await supabaseAdmin.from('point_positions').delete().in('point_id', pointIds).then(() => undefined, () => undefined);
-    await deleteTestUser(other.user.id).catch(e => console.error('cleanup other failed', e));
-    await deleteTestUser(owner.user.id).catch(e => console.error('cleanup owner failed', e));
+    for (const id of created.reverse()) await deleteTestUser(id).catch(e => console.error(`cleanup of ${id} failed`, e));
   }
 });
