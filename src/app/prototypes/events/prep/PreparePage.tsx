@@ -20,7 +20,7 @@
  * read after sign-in; statement answers ride the existing anonymous-position path (P502). So a
  * part done here is skipped in any event's preparation later — one direction only.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { EVENTS_LIST_TO } from '@/app/components/layout/nav-links';
 import { FocusHeader } from '@/app/components/layout/focus-header';
@@ -41,6 +41,11 @@ import { CMP7_TAG, isPartDone, PART_VERSIONS, PRINCIPLE_LEVEL, SECONDS_PER_DECIS
 import { localPartRows, markLocalPart, readLocalParts, syncLocalPrepParts } from './prep-local-parts';
 import { ActionRow, Clip, StatementsActions, StepActions, Title, useMeasuredHeight, type StatementsCount } from './prep-ui';
 import { loadTagPoints } from './use-prep-state';
+import { PrepWhy } from './PrepWhy';
+import { WHY_PREPARE } from './prep-why';
+import { useJoinLearningGate, type JoinMode, type ReviewMode } from './use-prepare-modes';
+import { JoinReadError } from '@/app/pages/org-join-part1';
+import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 
 const PROGRESS_READ_TIMEOUT_MS = 6000;
 const MISUNDERSTANDING_TAG = 'misunderstanding';
@@ -48,6 +53,8 @@ const MISUNDERSTANDING_TAG = 'misunderstanding';
 /** The standalone steps, in order. */
 export const STANDALONE_STEPS = ['story', 'principle', 'cmp7', 'misunderstanding'] as const;
 export type StandaloneStep = (typeof STANDALONE_STEPS)[number];
+/** P1549: joining and reviewing use the same three steps as the event learning, not the diagnosis. */
+const JOIN_LEARNING_STEPS: readonly StandaloneStep[] = ['story', 'principle', 'cmp7'];
 type Screen = 'list' | StandaloneStep | 'end';
 type StatementsStep = 'cmp7' | 'misunderstanding';
 const STATEMENT_TAG: Record<StatementsStep, string> = { cmp7: CMP7_TAG, misunderstanding: MISUNDERSTANDING_TAG };
@@ -66,7 +73,6 @@ const answered = (p: PointWithUserPosition) => !!p.userPosition || !!getAnonPosi
 // [PROPOSAL — founder decision open] Copy drafted from the founder's UAT words, 2026-10-04.
 const COPY = {
   title: 'Learn about the Clarity process',
-  why: 'Most conversations go wrong because we assume we understand each other. These steps show how to check, so you can reveal a gap instead of hiding it.',
   start: 'Start here',
   startAgain: 'Start again',
   labels: {
@@ -87,19 +93,27 @@ const COPY = {
   endPrimary: 'Explore events',
 };
 
+/** P1549: three shapes of one page: plain, joining a group (?then=join&group=) and reviewing (?review=). */
 export function PreparePage() {
+  const gate = useJoinLearningGate();
+  if (gate.kind === 'pending') return <ClarityPageLoader />;
+  if (gate.kind === 'error') return <JoinReadError onRetry={gate.retry} fallback={gate.fallback} />;
+  return <PrepareCore key={gate.kind} join={gate.kind === 'join' ? gate.join : undefined} review={gate.kind === 'review' ? gate.review : undefined} initialRows={gate.kind === 'join' ? gate.rows : undefined} viewerRowsKnown={gate.kind === 'join'} />;
+}
+
+function PrepareCore({ join, review, initialRows, viewerRowsKnown }: { join?: JoinMode; review?: ReviewMode; initialRows?: PrepPartRow[]; viewerRowsKnown: boolean }) {
   const navigate = useNavigate();
   const { user, isLoading, sessionChecked } = useAuth();
   const authReady = !isLoading && sessionChecked;
   const viewerId = user?.id;
 
   // Signed in: the account's rows. Signed out: this browser's, in the same shape.
-  const [accountRows, setAccountRows] = useState<PrepPartRow[] | null>(null);
+  const [accountRows, setAccountRows] = useState<PrepPartRow[] | null>(initialRows ?? null);
   const [localRows, setLocalRows] = useState<PrepPartRow[]>(() => localPartRows(readLocalParts()));
   const [points, setPoints] = useState<Record<StatementsStep, PointWithUserPosition[] | null>>({ cmp7: null, misunderstanding: null });
 
   useEffect(() => {
-    if (!authReady || !viewerId) return;
+    if (!authReady || !viewerId || viewerRowsKnown) return;
     let cancelled = false;
     // Another account's checks must never show while this one's read is in flight.
     setAccountRows(null);
@@ -120,7 +134,7 @@ export function PreparePage() {
       }
     })();
     return () => { cancelled = true; clearTimeout(giveUp); };
-  }, [authReady, viewerId]);
+  }, [authReady, viewerId, viewerRowsKnown]);
 
   const reloadPoints = useCallback(() => {
     if (!authReady) return;
@@ -135,22 +149,26 @@ export function PreparePage() {
   const rows = viewerId ? (accountRows ?? []) : localRows;
 
   /** Never lowers anything: a part already completed keeps its own date. */
+  // P1549: finishing the join learning waits for these, so the join page's read sees the part just recorded.
+  const pendingWrites = useRef<Promise<unknown>[]>([]);
   const complete = useCallback((part: PrepPart) => {
     if (isPartDone(rows, part)) return;
     const now = new Date().toISOString();
     const row: PrepPartRow = { part, contentVersion: PART_VERSIONS[part], completedAt: now, skippedAt: null };
     if (viewerId) {
       setAccountRows((prev) => [...(prev ?? []).filter((r) => r.part !== part), row]);
-      markPrepPart(viewerId, part, PART_VERSIONS[part], 'completed', now).catch(() => {
+      pendingWrites.current.push(markPrepPart(viewerId, part, PART_VERSIONS[part], 'completed', now).catch(() => {
         // Not on the account: keep it in this browser, it syncs on the next read.
         markLocalPart(part, now);
-      });
+      }));
     } else {
       setLocalRows(localPartRows(markLocalPart(part, now)));
     }
   }, [rows, viewerId]);
 
   const isStepDone = (s: StandaloneStep): boolean => {
+    // P1549: joining, each tick is the gate's own signal. The principle's decision is not stored: PrepareFlow tracks it.
+    if (join) return (s === 'story' && isPartDone(rows, 'cognitive_video')) || (s === 'cmp7' && isPartDone(rows, 'cmp7'));
     const part = STEP_DONE_PART[s];
     if (part) return isPartDone(rows, part);
     const pts = points[s as StatementsStep];
@@ -168,7 +186,9 @@ export function PreparePage() {
       complete={complete}
       points={points}
       reloadPoints={reloadPoints}
-      onLeave={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/feed'))}
+      onLeave={review?.onReturn ?? (() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/feed')))}
+      join={join && { ...join, onFinish: () => { void Promise.allSettled(pendingWrites.current).then(join.onFinish); } }}
+      review={review}
     />
   );
 }
@@ -179,15 +199,23 @@ function PrepareFlow({
   points,
   reloadPoints,
   onLeave,
+  join,
+  review,
 }: {
   isStepDone: (s: StandaloneStep) => boolean;
   complete: (part: PrepPart) => void;
   points: Record<StatementsStep, PointWithUserPosition[] | null>;
   reloadPoints: () => void;
   onLeave: () => void;
+  join?: JoinMode;
+  review?: ReviewMode;
 }) {
   const navigate = useNavigate();
-  const [screen, setScreen] = useState<Screen>('list');
+  const steps: readonly StandaloneStep[] = join || review ? JOIN_LEARNING_STEPS : STANDALONE_STEPS;
+  const [principleAnswered, setPrincipleAnswered] = useState(false);
+  const [screen, setScreen] = useState<Screen>(() => (join ? steps.find((s) => !isStepDone(s)) ?? 'story' : 'list'));
+  // Joining has no list to go back to: step Back retraces the steps taken this visit.
+  const [trail, setTrail] = useState<StandaloneStep[]>([]);
   const [playRequest, setPlayRequest] = useState(0);
   const [played, setPlayed] = useState<Record<'story' | 'principle', boolean>>({ story: false, principle: false });
   // Principle: (a) intro + clip, (b) the decision, (c) the follow-up, (d) the 0-10 — the event
@@ -235,15 +263,30 @@ function PrepareFlow({
   };
 
   const go = (next: Screen) => {
+    if (next === 'end' && join) return join.onFinish();
+    if (next === 'end' && review) return review.onReturn();
+    if (join && screen !== 'list' && screen !== 'end' && steps.indexOf(next as StandaloneStep) > steps.indexOf(screen)) setTrail((t) => [...t, screen]);
     setScreen(next);
     setPlayRequest(0);
     resetPrinciple(false);
     if (next === 'list') reloadPoints();
     window.scrollTo(0, 0);
   };
-  const after = (s: StandaloneStep): Screen => STANDALONE_STEPS[STANDALONE_STEPS.indexOf(s) + 1] ?? 'end';
-  const firstOpen = STANDALONE_STEPS.find((s) => !isStepDone(s));
+  // Joining moves to the next UNDONE step; 'end' is the mode's own exit (see go).
+  const after = (s: StandaloneStep, answeredPrinciple = principleAnswered): Screen => {
+    const rest = steps.slice(steps.indexOf(s) + 1);
+    return (join ? rest.find((n) => !isStepDone(n) && !(n === 'principle' && answeredPrinciple)) : rest[0]) ?? 'end';
+  };
+  const firstOpen = steps.find((s) => !isStepDone(s));
+  const finishPrinciple = () => { setPrincipleAnswered(true); go(after('principle', true)); };
 
+  const leaveStep = () => {
+    if (!join) return go('list');
+    const previous = trail[trail.length - 1];
+    if (!previous) return join.onExit();
+    setTrail((t) => t.slice(0, -1));
+    go(previous);
+  };
   const back = () => {
     if (screen === 'list') return onLeave();
     if (screen === 'principle') {
@@ -251,11 +294,11 @@ function PrepareFlow({
       if (answer !== null && tryAsked) { setTryAsked(false); setRating(null); }
       else if (answer !== null) { setAnswer(null); setRating(null); }
       else if (principleIntroDone) setPrincipleIntroDone(false);
-      else return go('list');
+      else return leaveStep();
       window.scrollTo(0, 0);
       return;
     }
-    go('list');
+    leaveStep();
   };
 
   const stepIndex = screen === 'list' || screen === 'end' ? -1 : STANDALONE_STEPS.indexOf(screen);
@@ -269,7 +312,7 @@ function PrepareFlow({
       ) : (
         <>
           <LetterPrimaryCta label="Play the video" onClick={() => setPlayRequest((n) => n + 1)} />
-          <LetterPrimaryCta label="Continue without video" onClick={() => onContinue(false)} variant="secondary" />
+          {!join && <LetterPrimaryCta label="Continue without video" onClick={() => onContinue(false)} variant="secondary" />}
         </>
       )}
     </StepActions>
@@ -316,7 +359,12 @@ function PrepareFlow({
           >
             <ArrowLeft size={20} />
           </button>
-          {stepIndex >= 0 ? (
+          {join ? (
+            <div className="min-w-0 flex-1" data-testid="learn-join-context">
+              <p className="text-sm font-semibold text-foreground" data-testid="learn-join-title">Joining {join.groupName}</p>
+              <p className="text-xs text-muted-foreground" data-testid="learn-join-step">Part 1 of 2 · Short introduction</p>
+            </div>
+          ) : stepIndex >= 0 ? (
             // The event preparation's header: the step name over LetterProgressBar.
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-sm font-semibold leading-snug text-foreground" data-testid="step-name">
@@ -324,10 +372,10 @@ function PrepareFlow({
               </p>
               <LetterProgressBar
                 currentChapter={stepIndex}
-                totalChapters={STANDALONE_STEPS.length}
+                totalChapters={steps.length}
                 stepCount={screen === 'principle' ? 3 : 1}
                 committedSteps={screen === 'principle' ? (principleIntroDone ? 1 : 0) + (answer !== null ? 1 : 0) : 0}
-                label={`Step ${stepIndex + 1} of ${STANDALONE_STEPS.length}`}
+                label={`Step ${stepIndex + 1} of ${steps.length}`}
               />
             </div>
           ) : (
@@ -350,7 +398,7 @@ function PrepareFlow({
             window.scrollTo(0, 0);
           }}
           onRatingChange={setRating}
-          onRatingSubmit={() => { if (rating !== null) go(after('principle')); }}
+          onRatingSubmit={() => { if (rating !== null) finishPrinciple(); }}
           submitLabel="Confirm"
           question="How much do you think you understand my intended meaning behind this principle?"
           header={
@@ -376,12 +424,12 @@ function PrepareFlow({
             <section className="space-y-6 pt-4 lg:pt-10">
               <div className="space-y-2">
                 <Title>{COPY.title}</Title>
-                <p className="text-base leading-relaxed text-muted-foreground" data-testid="prepare-why">{COPY.why}</p>
+                <PrepWhy paragraphs={WHY_PREPARE} />
               </div>
               <ol data-testid="agenda">
-                {STANDALONE_STEPS.map((s, i) => {
+                {steps.map((s, i) => {
                   const done = isStepDone(s);
-                  const last = i === STANDALONE_STEPS.length - 1;
+                  const last = i === steps.length - 1;
                   const cards = { cmp7: points.cmp7?.length ?? 0, stake: 0 };
                   const minutes = s === 'misunderstanding'
                     ? Math.max(1, Math.round(((points.misunderstanding?.length ?? 0) * SECONDS_PER_DECISION) / 60))
@@ -416,7 +464,7 @@ function PrepareFlow({
               </ol>
               <StepActions ref={barRef}>
                 {/* P1412: once every step is done, "Start here" reads wrong — it starts again from step 1. */}
-                <LetterPrimaryCta label={firstOpen ? COPY.start : COPY.startAgain} onClick={() => go(firstOpen ?? STANDALONE_STEPS[0])} />
+                <LetterPrimaryCta label={firstOpen ? COPY.start : COPY.startAgain} onClick={() => go(firstOpen ?? steps[0])} />
               </StepActions>
             </section>
           )}
@@ -468,7 +516,7 @@ function PrepareFlow({
               <StepActions ref={barRef}>
                 <ActionRow
                   primary={<LetterPrimaryCta label={answer === 'in' ? 'Try it now' : 'Yes'} onClick={() => { setTryAsked(true); window.scrollTo(0, 0); }} />}
-                  secondary={answer === 'out' ? <LetterPrimaryCta label="No, continue" onClick={() => go(after('principle'))} variant="secondary" /> : undefined}
+                  secondary={answer === 'out' ? <LetterPrimaryCta label="No, continue" onClick={finishPrinciple} variant="secondary" /> : undefined}
                 />
               </StepActions>
             </section>
@@ -498,6 +546,7 @@ function PrepareFlow({
                 // Skipping records nothing, as there.
                 onContinue={() => { if (screen === 'cmp7') complete('cmp7'); go(after(screen)); }}
                 onSkip={() => go(after(screen))}
+                hideSkip={!!join}
                 onRecheck={reloadPoints}
               />
             </section>

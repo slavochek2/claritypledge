@@ -738,6 +738,7 @@ test.describe('P1542 series recipes', () => {
     await page.getByTestId('learn-card-cta').click({ timeout: 20_000 });
     await expect(page).toHaveURL(new RegExp(`/events/${futureHike.slug}/prepare`));
     await expect(page.getByTestId('agenda')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('prepare-why')).toContainText('This community practises them together'); // P1549
     await expect(page.getByTestId('agenda')).toContainText('Share your view on the expected benefits');
     await expect(page.getByText(/prepar/i)).toHaveCount(0);
 

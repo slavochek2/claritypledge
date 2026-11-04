@@ -275,7 +275,7 @@ describe('P1512 every rendered BRANCH of a hidden-bar page shows a Back', () => 
     orgSvc.getOrganizationBySlug.mockResolvedValue({ id: 'org-1', slug: 'cm', name: 'CM', blurb: null, description: null, visibility: 'public', hasEvents: false });
     orgSvc.getMyMembership.mockResolvedValue(null);
     render(
-      <MemoryRouter initialEntries={['/groups/cm/join']}>
+      <MemoryRouter initialEntries={['/groups/cm/join?view=terms']}>
         <Routes>
           <Route path="/groups/:slug/join" element={<OrgJoinPage />} />
         </Routes>

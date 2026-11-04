@@ -9,7 +9,7 @@
  * Same storage contract as /meet and anonymous positions (useAnonPosition.ts): any storage failure
  * is a no-op — the visitor can still watch everything, the progress just isn't remembered.
  */
-import { markPrepPart, type PrepPart, type PrepPartRow } from '@/app/data/event-prep-service';
+import { getMyPrepParts, markPrepPart, type PrepPart, type PrepPartRow } from '@/app/data/event-prep-service';
 import { isPartDone, PART_VERSIONS } from './prep-plan';
 
 const STORAGE_KEY = 'cp-prep-parts';
@@ -75,6 +75,15 @@ export function localPartRows(parts: LocalParts): PrepPartRow[] {
  * Returns the parts it wrote. A part the account already has completed (at the current version)
  * is not touched — its own date is kept. A failed write keeps that part local for the next try.
  */
+/** P1549: the sign-up callback moves this browser's parts before it joins. A failure keeps them local and never throws. */
+export async function moveLocalPrepPartsToAccount(profileId: string): Promise<void> {
+  try {
+    await syncLocalPrepParts(profileId, await getMyPrepParts(profileId));
+  } catch (err) {
+    console.error('Failed to move local prep parts to the account', err);
+  }
+}
+
 export async function syncLocalPrepParts(
   profileId: string,
   accountRows: PrepPartRow[],

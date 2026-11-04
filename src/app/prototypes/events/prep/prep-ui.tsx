@@ -196,10 +196,12 @@ export const StatementsActions = forwardRef<HTMLDivElement, {
   firstUnansweredId: string | null;
   onContinue: () => void;
   onSkip: () => void;
+  /** P1549: joining a group cannot skip. */
+  hideSkip?: boolean;
   /** A dimmed Continue tap re-reads the answers: the last position write may have landed after
    *  the list's own re-reads, so "not all answered" could be stale. */
   onRecheck?: () => void;
-}>(function StatementsActions({ count, loaded, firstUnansweredId, onContinue, onSkip, onRecheck }, ref) {
+}>(function StatementsActions({ count, loaded, firstUnansweredId, onContinue, onSkip, hideSkip, onRecheck }, ref) {
   const [answerHint, setAnswerHint] = useState(false);
   const allSet = loaded && count.answered >= count.total;
   return (
@@ -245,7 +247,7 @@ export const StatementsActions = forwardRef<HTMLDivElement, {
           {answerHintText(count.total)}
         </p>
       )}
-      {!allSet && <LetterPrimaryCta label="Skip and proceed" onClick={onSkip} variant="secondary" />}
+      {!allSet && !hideSkip && <LetterPrimaryCta label="Skip and proceed" onClick={onSkip} variant="secondary" />}
     </StepActions>
   );
 });

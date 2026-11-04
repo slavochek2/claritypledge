@@ -141,6 +141,7 @@ test.describe('P1336 registration preparation', () => {
     // Plan: 6 steps, rows sum to the promised minutes.
     await expect(page.getByRole('heading', { name: 'Your preparation' })).toBeVisible();
     await expect(page.getByTestId('plan-summary')).toContainText('6 steps');
+    await expect(page.getByTestId('prepare-why')).toContainText('This community practises them together'); // P1549
     const rows = await page.getByTestId('agenda').locator('li span.tabular-nums').allTextContents();
     expect(rows).toHaveLength(6);
     expect(rows.reduce((s, r) => s + Number(r.replace(' min', '')), 0)).toBe(minutes);

@@ -10,6 +10,8 @@
  * Q&A is the product Dialog. Progress lives in event_preparations (resumes on any device), the
  * once-per-person parts in person_prep_parts.
  */
+import { PrepWhy } from './PrepWhy';
+import { WHY_COMMUNITY } from './prep-why';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -764,6 +766,7 @@ export function PrepFlow({
                   {plan.length} {plan.length === 1 ? 'step' : 'steps'}
                   {state.minutes !== null && <> · about {state.minutes} min</>}
                 </p>
+                <PrepWhy paragraphs={recipeFor(event.seriesSlug).prepare.why ?? WHY_COMMUNITY} />
               </div>
               <ol data-testid="agenda">
                 {plan.map((s, i) => {

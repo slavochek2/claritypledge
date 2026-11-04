@@ -198,12 +198,12 @@ It is the standalone `PreparePage` (P1402), opened as `/prepare?then=join&group=
 
 #### Navigation
 
-Provenance mark: the group page sets route state `fromGroup: true` when it opens `/join`. Every `replace` below carries `fromGroup` and the query params (`from`, `return`) along. "Return to the group" means: pop when `fromGroup` is set and the entry below is the group page, else `replace` with `/groups/:slug` (or the `?return=` path). That is `useReturnToParent`.
+"Return to the group" is the page's existing Back (`useGoBack`, P1512): it pops to the entry below when there is one in this app, else replaces with `/groups/:slug` (or the `?return=` path). No provenance mark is needed, and a mark would break the P1512 rule that Join returns the way it came (`p1512-back-loops`). Every `replace` below carries the query params (`from`, `return`).
 
 | Where | Action | Goes to | History |
 |---|---|---|---|
-| Group page | "Join as member" (header) or "Join this group" (About) | `/groups/:slug/join` | push, sets `fromGroup` |
-| Group page, About | "Clarity Group Terms" | `/groups/:slug/join?view=terms` | push, sets `fromGroup` |
+| Group page | "Join as member" (header) or "Join this group" (About) | `/groups/:slug/join` | push |
+| Group page, About | "Clarity Group Terms" | `/groups/:slug/join?view=terms` | push |
 | Part 1 | header Back | the group | return to the group |
 | Part 1 | "Start learning" / "Continue" | `/prepare?then=join&group=<slug>` | replace |
 | Learning | step Back | the previous learning screen (or principle sub-screen) | in the page, no history entry |

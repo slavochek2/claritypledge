@@ -19,6 +19,7 @@
  * This logic is isolated here to prevent race conditions.
  * DO NOT move this logic to a global hook or context.
  */
+import { prepareOrgAutoJoin } from './org-auto-join';
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
@@ -33,7 +34,7 @@ import { CURRENT_PLEDGE_VERSION } from "@/app/content/pledge-text";
 import { CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import * as Sentry from "@sentry/react";
 import { analytics, isInternalAccount } from "@/lib/mixpanel";
-import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId, isValidUUID } from "@/lib/auth-gate-utils";
+import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId } from "@/lib/auth-gate-utils";
 import { pointsService } from "@/app/data/points-service";
 import { getAllAnonPositions, clearAllAnonPositions } from "@/app/hooks/useAnonPosition";
 import { organizationsService } from "@/app/data/organizations-service";
@@ -621,8 +622,7 @@ export function AuthCallbackPage() {
           try {
             const org = await organizationsService.getOrganizationBySlug(orgSlug);
             if (org) {
-              const rawFrom = new URLSearchParams(joinOrgQueryPart ?? '').get('from');
-              const invitedBy = rawFrom && isValidUUID(rawFrom) ? rawFrom : undefined;
+              const invitedBy = await prepareOrgAutoJoin(authUser.id, joinOrgQueryPart);
               const { joined, termsVersion } = await organizationsService.joinOrganization(org.id, invitedBy);
               if (joined) {
                 // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)

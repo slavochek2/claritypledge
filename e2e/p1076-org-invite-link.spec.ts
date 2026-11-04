@@ -12,6 +12,7 @@
 
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
+import { seedLearned, seedLearnedInBrowser } from './helpers/prep-learned';
 import {
   createTestUser,
   deleteTestUser,
@@ -96,11 +97,12 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
   });
 
   test('signed out: opening the join page with ?from= and tapping Accept carries it through signup', async ({ page }) => {
+    await seedLearnedInBrowser(page);
     await page.goto(`/groups/${org.slug}/join?from=${member.user.id}`);
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('Clarity Group Terms')).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole('button', { name: 'Accept terms & join' }).click();
+    await page.getByRole('button', { name: 'Accept and join' }).click();
     // Targets /signup, not /login (P1076 session revision): a cold invite recipient
     // almost never has an existing account.
     await expect(page).toHaveURL(/\/signup\?redirect=/, { timeout: 10000 });
@@ -146,7 +148,7 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
     // The certificate is rendered...
     await expect(page.getByRole('region', { name: 'Clarity Group Terms' })).toBeVisible();
     // ...and the way out is a way BACK, never a second accept.
-    await expect(page.getByRole('button', { name: 'Accept terms & join' })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Accept and join' })).not.toBeVisible();
     await expect(page.getByRole('button', { name: `Back to ${org.name}` })).toBeVisible();
   });
 
@@ -210,10 +212,11 @@ test.describe('P1076: Org invite link — post-join banner', () => {
   test('post-join banner appears on a real join and is dismissible', async ({ page }) => {
     const joiner = await createTestUser({ name: 'P1076 Banner Join User' });
     try {
+      await seedLearned(joiner.user.id);
       await setTestSession(page, joiner.email);
       await page.goto(`/groups/${org.slug}/join`);
       await page.waitForLoadState('networkidle');
-      await page.getByRole('button', { name: 'Accept terms & join' }).click();
+      await page.getByRole('button', { name: 'Accept and join' }).click();
       await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
 
       const banner = page.getByText('Welcome! Know someone who might want to join too?');

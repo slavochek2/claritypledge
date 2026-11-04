@@ -187,6 +187,19 @@ async function writePreparation(eventId: string, profileId: string, patch: PrepP
   return mapPrep(data as DbPrep);
 }
 
+/** P1549: the latest of the person's own completed preparations, any event. RLS: the owner reads their own rows. */
+export async function getMyLatestPrepCompletedAt(profileId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('event_preparations')
+    .select('completed_at')
+    .eq('profile_id', profileId)
+    .not('completed_at', 'is', null)
+    .order('completed_at', { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return (data?.[0]?.completed_at as string | undefined) ?? null;
+}
+
 export async function getMyPrepParts(profileId: string): Promise<PrepPartRow[]> {
   return shareInFlight(`prep-parts:${profileId}`, () => readMyPrepParts(profileId));
 }

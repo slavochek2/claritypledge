@@ -64,6 +64,8 @@ export interface SeriesRecipe {
     steps: PlanStep[];
     /** Offered from the event room, never required: no room gate, no `preparation_enabled` needed. */
     optional: boolean;
+    /** P1549: this series' own why above the steps. Absent = the shared community text (prep-why.ts). */
+    why?: readonly string[];
     /** P1542 founder decision (A): steps the person already finished elsewhere stay in the plan, shown finished, and
      *  can be opened again; the flow lands on the next unfinished step. Absent = Clarity Night's shortened plan (P1336). */
     keepFinished?: boolean;

@@ -27,6 +27,7 @@
 
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from './helpers/supabase-admin';
+import { seedLearned, seedLearnedInBrowser } from './helpers/prep-learned';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import {
   createTestOrganization,
@@ -114,13 +115,14 @@ test.describe('P1010: Clarity Groups — /groups/:slug', () => {
     await expect(page.getByText('This group runs on the')).toBeVisible({ timeout: 10000 });
     // About NAMES the terms and links to the join gate — but never renders their body.
     await expect(page.getByRole('link', { name: 'Clarity Group Terms' }))
-      .toHaveAttribute('href', `/groups/${noEventsOrg.slug}/join`);
+      .toHaveAttribute('href', `/groups/${noEventsOrg.slug}/join?view=terms`);
     await expect(
       page.getByText('Members accept these not legally binding terms as a shared intention.'),
     ).not.toBeVisible();
   });
 
   test('unauthenticated: Join opens the terms page; accepting redirects to /signup', async ({ page }) => {
+    await seedLearnedInBrowser(page);
     await page.goto(`/groups/${noEventsOrg.slug}`);
     await page.waitForLoadState('networkidle');
 
@@ -129,13 +131,14 @@ test.describe('P1010: Clarity Groups — /groups/:slug', () => {
     await expect(page).toHaveURL(new RegExp(`/groups/${noEventsOrg.slug}/join`));
     await expect(page.getByText('Clarity Group Terms')).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole('button', { name: 'Accept terms & join' }).click();
+    await page.getByRole('button', { name: 'Accept and join' }).click();
     // Targets /signup, not /login (P1076 session revision): a cold invite recipient
     // almost never has an existing account.
     await expect(page).toHaveURL(/\/signup/);
   });
 
   test('Join flow: COA shows verbatim intro + title, accepting inserts a membership row', async ({ page }) => {
+    await seedLearned(joiner.user.id);
     await setTestSession(page, joiner.email);
     await page.goto(`/groups/${noEventsOrg.slug}`);
     await page.waitForLoadState('networkidle');
@@ -152,7 +155,7 @@ test.describe('P1010: Clarity Groups — /groups/:slug', () => {
       page.getByText('Members accept these not legally binding terms as a shared intention.'),
     ).toBeVisible();
 
-    const acceptBtn = page.getByRole('button', { name: 'Accept terms & join' });
+    const acceptBtn = page.getByRole('button', { name: 'Accept and join' });
     await expect(acceptBtn).toBeVisible();
     await acceptBtn.click();
 
@@ -509,6 +512,7 @@ test.describe('P1010: Clarity Groups — /groups/:slug', () => {
   });
 
   test('signed out: reading the terms is open; only ACCEPT routes to signup, with a way back', async ({ page }) => {
+    await seedLearnedInBrowser(page);
     await page.goto(`/groups/${noEventsOrg.slug}/join`);
     await page.waitForLoadState('networkidle');
 
@@ -517,7 +521,7 @@ test.describe('P1010: Clarity Groups — /groups/:slug', () => {
     // to before being asked for an account.
     await expect(page.getByText('Clarity Group Terms')).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole('button', { name: 'Accept terms & join' }).click();
+    await page.getByRole('button', { name: 'Accept and join' }).click();
 
     // The `redirect` param IS the "way to return afterward" the UAT asks for; a bare
     // /signup would strand the visitor on the home page after signing in. Targets

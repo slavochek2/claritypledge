@@ -498,13 +498,25 @@ function AboutSection({
         <p className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-relaxed dark:border-blue-900 dark:bg-blue-950/40">
           This group runs on the{" "}
           <Link
-            to={`/groups/${org.slug}/join`}
+            to={isMember ? `/groups/${org.slug}/join` : `/groups/${org.slug}/join?view=terms`}
             className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700 dark:text-blue-400"
           >
             Clarity Group Terms
           </Link>
           . Every member accepts them on joining.
         </p>
+        {isMember && (
+          <p className="text-sm">
+            <Link
+              to={`/prepare?review=${encodeURIComponent(`/groups/${org.slug}`)}`}
+              state={{ fromCaller: true }}
+              className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700 dark:text-blue-400"
+              data-testid="review-how-we-talk"
+            >
+              Review how we talk
+            </Link>
+          </p>
+        )}
 
         {org.description ? (
           org.description.split(/\n{2,}/).map((paragraph) => (
