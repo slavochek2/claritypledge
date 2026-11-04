@@ -9,6 +9,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-04 [technical]: A stale checkout cannot put old edge functions on shared TEST (P1612)
+
+**Context:** A session 86 commits behind main deployed three functions twice in one day. A deploy replaces all of `_shared`, the router and the JWT list from the current checkout, so P1536's shipped code was reverted (`canvas-material.ts` gone, terms back to v1.6). `canvas-draft` could not boot and accepted users were told to accept the terms. The script reported healthy, because the container stays healthy while one worker cannot boot. The 2026-11-03 remedy was a prose instruction to redeploy after a rebase; this recurred the next day.
+**Decision:** Mechanism, not prose. (1) `scripts/selfhosted/deploy-functions.sh` refuses, with no override, a source whose ancestry lacks a change to a deployed input on main, re-reading main under the lock. A git failure refuses too. (2) It holds the TEST deploy lock through the probe. (3) Each deploy leaves a manifest on the server. (4) Each deploy sends OPTIONS to every function, because a `_shared` change breaks functions that were not the target; a 5xx, 404, timeout or transport failure fails it, while 401, 405 and 429 mean the worker answered. (5) `deploy-drift.sh`, shown by `/day` as `cp.testfns`, hashes the real server files against main. (6) A landing that changes deployed inputs waits for the lock and deploys main's tip from a `git archive` copy; a failed deploy never undoes the landing.
+**Alternatives rejected:** A warning, because the session ran its deploy with output sent to a log file. Only main may deploy, because that stops branches testing their own functions (P1312).
+**Consequences:** The guard lives in the script, so an old branch's own copy has none until it rebases. Two current branches can still overwrite each other's own function changes (P1312). Falsifier: another stale-ancestry overwrite reaches TEST from a rebased checkout, or the guard blocks a documented workflow (`scripts/test-p1612-deploy-guard.sh`).
+**References:** [P1612](../features/p1612_test_function_deploy_cannot_regress_main.md)
+
 ## 2026-11-04 [technical]: Canvas drafting ships fail-closed on prices and with its prod switches after the push (P1536)
 
 **Context:** P1536 ran stage V, journeys and reviews to ship. Each review round on price grounding found another false price.
