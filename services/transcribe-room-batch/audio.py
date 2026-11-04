@@ -245,6 +245,7 @@ def run_end_ms(run: list[tuple[ChunkRef, bytes]]) -> int:
 # one short final chunk cannot move. A pause, or an upload outage, shows as a jump in object times beyond the
 # chunk length plus a tolerance: it starts a new stretch with its own base. Chunks that landed together after an
 # outage (flush) all carry the same object time, so they are spread back from the last of them instead.
+UPLOAD_JITTER_MS = 2500       # P1611: largest upload wander treated as noise (measured up to about 2 s on a wired link)
 CHUNK_JUMP_TOLERANCE_S = 5
 CHUNK_BUNCH_FRACTION = 0.5   # a gap in object times under this fraction of the chunk length marks a flush
 FINAL_CHUNK_TOLERANCE_S = 20  # a last chunk (nothing after it to confirm a pause) is unconfirmed only beyond this
@@ -255,9 +256,8 @@ def chunk_end_times(refs: list[ChunkRef], chunk_s: int = 30, tol_s: int = CHUNK_
                     durations_ms: dict[int, int] | None = None) -> dict[int, int]:
     """chunk number -> estimated server-clock end (ms) of that chunk's audio.
 
-    P1611: inside a stretch (consecutive numbers, no real time gap) chunks sit end to end from ONE anchor, the
-    median of (object time minus cumulative measured duration), so a chunk's own upload jitter never moves it.
-    A chunk whose duration is unknown is never placed later than its object time.
+    Never later than its object time. P1611: inside a stretch each chunk takes the tightest bound from its own and
+    every later upload, so upload jitter does not displace it against the other mics.
 
     A stretch breaks where created-minus-expected (the upload delay plus the unknown base) STEPS by more than
     tol_s and STAYS there for the next chunk too (a pause of any length: the recorder produced nothing, later
@@ -319,11 +319,24 @@ def chunk_end_times(refs: list[ChunkRef], chunk_s: int = 30, tol_s: int = CHUNK_
         else:
             last = st[-1]
             base = last.created_ms - expected[last.number]
+        # P1611: a chunk's audio ended no later than its own upload, nor later than any later chunk's upload minus the
+        # audio recorded in between, so the smallest such delay is a hard bound. Chunks stay end to end on that bound,
+        # so upload jitter cannot move them; only a lasting rise above UPLOAD_JITTER_MS (a real short pause) opens a gap.
+        suffix_min: dict[int, int] = {}
+        low = None
+        for r in reversed(st):
+            d = r.created_ms - expected[r.number]
+            # A final chunk of unknown length may be short, so its delay is not evidence about the chunks before it.
+            if r.number in dur or len(flush) > 2 or r is not ordered[-1]:   # three or more bunched is an offline flush, not a short tail
+                low = d if low is None else min(low, d)
+            suffix_min[r.number] = d if low is None else low
+        anchor = None
         for r in st:
-            end = base + expected[r.number]
-            # P1611: a chunk whose duration was measured sits exactly where its neighbours put it (end to end);
-            # clamping each one to its own upload time would let the per-chunk upload jitter (a second or two)
-            # displace it. Only a chunk of unknown length is held back to its upload time.
+            # The last chunk has no later upload to confirm a rise, so one slow upload there needs the full tolerance.
+            limit = tol if r is st[-1] else UPLOAD_JITTER_MS
+            if anchor is None or suffix_min[r.number] - anchor > limit:
+                anchor = suffix_min[r.number]
+            end = expected[r.number] + anchor
             out[r.number] = end if r.number in dur else min(end, r.created_ms)
     return out
 

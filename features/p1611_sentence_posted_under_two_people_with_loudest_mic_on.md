@@ -78,3 +78,7 @@ Run the disproof above first. P1596's benchmark measured 1.9% wrong or doubled a
 ## Related
 
 - P1596 (the rule and benchmark), P1608 (the test and both runs' evidence)
+
+## Review correction, 2026-11-04
+
+The first fix (run median, no clamp) was rejected: Argon and Codex independently showed a pause under 5 s moved earlier chunks to after their own uploads. Replaced by a causal bound: a chunk ended no later than its own upload, nor any later upload minus the audio between. Chunks stay end to end on that bound; only a lasting rise above 2.5 s opens a gap (`UPLOAD_JITTER_MS`, from the about 2 s seen on a wired link, not measured on phones). A pause under 2.5 s is merged, so the audio after it can sit up to 2.5 s early. Replay of both rooms through the real `chunk_pieces`: 100% of phrase seconds, 0 of 24 wrong.

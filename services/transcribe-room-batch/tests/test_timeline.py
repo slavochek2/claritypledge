@@ -232,7 +232,8 @@ def test_jittered_uploads_still_place_chunks_end_to_end():
     refs = [ref(n, 1000 + (n + 1) * L + JITTER[n]) for n in range(7)]
     e = _ends_d(refs, _full(7))
     assert [round(e[n] - e[0], 6) for n in range(7)] == [n * L for n in range(7)]   # exactly one chunk apart
-    assert e[0] == 1000 + L + 1.5                                                  # the median delay, not its own
+    assert e[0] == 1000 + L + min(JITTER[:7])                                      # the lowest delay: never after an upload
+    assert all(e[n] <= refs[n].created_ms / S for n in range(7))
 
 
 def test_a_jittered_run_is_not_moved_by_one_early_or_late_upload():
@@ -276,3 +277,10 @@ def test_a_restart_after_a_reload_starts_a_new_run_with_its_own_anchor():
     e = _ends_d(first + second, _full(6))
     assert abs(e[3] - e[2] - L - 400) <= 3
     assert [round(e[n] - e[3], 6) for n in range(3, 6)] == [0, L, 2 * L]
+
+
+def test_p1611_a_short_pause_stays_a_gap_and_nothing_lands_after_its_upload():
+    # Reviewers' counterexample: uploads at 30, 64, 94 s, a 4 s pause after chunk 0, under the 5 s tolerance.
+    refs = [audio.ChunkRef(number=n, object_name=f"c{n}", created_ms=t) for n, t in enumerate((30_000, 64_000, 94_000))]
+    out = audio.chunk_end_times(refs, durations_ms={0: 30_000, 1: 30_000, 2: 30_000})
+    assert out == {0: 30_000, 1: 64_000, 2: 94_000}
