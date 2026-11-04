@@ -457,6 +457,8 @@ def policy_keys_in_migrations(migrations_dir):
             else:
                 schema = "public"
             table = m.group(5) if m.group(5) is not None else m.group(6)
+            # Postgres stores identifiers truncated to 63 bytes, so the live name is the truncated one.
+            name = name.encode("utf-8")[:63].decode("utf-8", errors="ignore")
             keys.add((schema, table, name))
     return keys, len(files)
 

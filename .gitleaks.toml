@@ -18,6 +18,7 @@ useDefault = true
     "b886540753ad0707f606f6bfa6fe787f44cf38ce",  # archived migrations — test DB pw (rotated)
     "0af0f11b927e5b850618eba0eda5ae77046a6311",  # scripts — Supabase anon key (public by design)
     "03ad9743ff23acbc3ffbdcd156e5fe67c7071e45",  # telegram-command-handler.py — bot token (rotated)
+    "8bb6af461a433c711b40a0eb70d0cd1514e727d9",  # prototype personas.ts — seeded test-project-only accounts, no real data (test fixture)
   ]
 
   # React state setter functions that match LinkedIn patterns

@@ -34,6 +34,9 @@ driver: founder
 | Needs the founder | a card in the queue | `Your card ›` |
 | Sent to an agent | agent list | `With the agent` |
 | Waiting, parked, accepted | their sections | `Waiting` / `Parked` / `Accepted` |
+| Answered today | the answered card | `You chose ›` |
+| Check crashed or timed out | its own card, as any failing check | `Your card ›` or `With the agent` |
+| No destination (a defect) | the summary line and the row | `No card: report this` |
 | Skipped by design | nowhere else | `Skipped`, with its reason |
 | Broken connection | a card or row with its Fix | `Fix ›` |
 
@@ -46,7 +49,7 @@ One `/dev` cycle in `tools/kanban`. No change to how `/day` collects checks or w
 1. **Remove the "Didn't work" list.** Keep P1463's reason for it (an index of what failed; hiding checks was rejected in round 1) by moving that index into one checklist: problems first, then passes.
 2. **Every non-passing row states its destination** from the table above, and is a link when that place is on screen. No row is ever without one.
 3. **A non-passing check with no destination is a defect shown as such:** the row reads `No card: report this`, and a test fails if the view builder can produce it for a report whose check has a card.
-4. **The summary line counts destinations, not failures:** `{n} for you · {m} with the agent · {k} clean`, plus `waiting`, `parked` or `skipped` when above zero. New people and unpushed chips stay.
+4. **The summary line counts destinations, not failures:** `{n} for you · {m} with the agent · {k} clean`, plus `waiting`, `parked`, `skipped` or `{n} with no card` when above zero, so a defect is visible with the list closed. New people and unpushed chips stay.
 5. **The checklist moves below the cards and the agent work,** collapsed by default. One toggle with one position: the summary line itself, left triangle, which stays at the head of the open list. The top-right `Collapse` link goes. Working a card never requires scrolling up to close anything.
 6. **Broken connections keep their Fix action** inside the checklist row, and the summary line gains `{n} to reconnect` so they are not hidden by the fold.
 
@@ -55,7 +58,7 @@ One `/dev` cycle in `tools/kanban`. No change to how `/day` collects checks or w
 - **Risk:** a problem with no card is hidden by the fold. Mitigated by item 3 and the summary line.
 - **Risk:** existing e2e-day tests pin the P1463 wording. They describe the superseded design, so updating those assertions is part of this spec, and only those.
 - **Non-goal:** card text, the card pager, the `/day` skill, the terminal card's wording (`day-render.ts`).
-- **Non-goal:** merging the several cards one check can produce. Each still maps to the check's first open card.
+- **Non-goal:** merging the several cards one check can produce. The row shows the destination that most needs someone, in this order: your open card, no destination, with the agent, waiting, parked, accepted, answered. It adds `+N more` when the check has further cards.
 
 ## Done-When
 
