@@ -38,15 +38,14 @@ describe('the transcript view header', () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  it('has Copy ON the title row, top right, as the filled secondary button, 44px', async () => {
+  it('has Copy ON the title row, top right, as the outline button, 44px', async () => {
     show();
     await screen.findByTestId('room-transcript');
     const header = document.querySelector('[data-page-header]') as HTMLElement;
     expect(within(header).getByRole('heading', { name: 'Transcript · Ben' })).toBeTruthy();
     const copy = within(header).getByRole('button', { name: /copy transcript/i });
     expect(copy.className).toMatch(/min-h-11/);
-    expect(copy.className).toMatch(/bg-secondary/);           // the filled secondary variant (founder), not a white outline
-    expect(copy.className).not.toMatch(/border-input|bg-background/);
+    expect(copy.className).toMatch(/border-input/);           // the outline variant (founder), not a white outline
     expect(copy.className).not.toMatch(/bg-primary|bg-blue/);
     // right of the title in the same flex row
     const title = within(header).getByRole('heading');

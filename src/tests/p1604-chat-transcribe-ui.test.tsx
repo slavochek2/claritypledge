@@ -391,13 +391,12 @@ describe('last review: the seen check', () => {
   });
 });
 
-describe('founder look: the live-session Join is the filled secondary variant, not a white outline', () => {
+describe('founder look: the live-session Join is the outline variant, not a white outline', () => {
   it('Join', async () => {
     live.mockResolvedValue({ roomId: 'r9', roomCode: 'ZZZ999', starterName: 'Bo', recordingCount: 1, iAmRecording: false });
     render(<Harness summary={chat('dm', 'chat-3')} />);
     const join = await screen.findByRole('button', { name: LIVE_SESSION_JOIN });
-    expect(join.className).toMatch(/bg-secondary/);
-    expect(join.className).not.toMatch(/border-input|bg-background/);
+    expect(join.className).toMatch(/border-input/);
     expect(join.className).toMatch(/min-h-11/);
   });
 });

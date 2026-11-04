@@ -55,7 +55,7 @@ export function CopyTranscriptButton({ getText, errorLabel }: { getText: () => s
   };
   return (
     <>
-      <Button variant="secondary" onClick={handleCopy} className="min-h-11 gap-2" aria-label="Copy transcript to clipboard">
+      <Button variant="outline" onClick={handleCopy} className="min-h-11 gap-2" aria-label="Copy transcript to clipboard">
         {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
         {copied ? 'Copied' : 'Copy'}
       </Button>

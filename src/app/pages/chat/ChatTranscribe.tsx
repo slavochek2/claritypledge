@@ -160,7 +160,7 @@ export function ChatTranscribe({ chat, children }: { chat: ChatSummary; children
       {showLine && (
         <div className="flex min-h-11 shrink-0 items-center gap-3 border-b bg-muted/40 px-3 text-sm" data-testid="chat-live-session">
           <span className="min-w-0 flex-1 truncate">{liveSessionLine(live.starterName)}</span>
-          <Button variant="secondary" className="min-h-11" onClick={() => void ask()}>
+          <Button variant="outline" className="min-h-11" onClick={() => void ask()}>
             {LIVE_SESSION_JOIN}
           </Button>
         </div>
