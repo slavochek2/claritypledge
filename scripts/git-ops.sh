@@ -1982,6 +1982,10 @@ PYJ
 # minutes — so `main` at step 3 is routinely not the SHA CI went green on at step 2.
 # 2026-09-04: a session followed this text literally as "the documented manual-recovery
 # step" and ran an unpinned, unlocked promote. See pp/docs/decisions.md 2026-08-28.
+# P1612: deploy landed edge-function changes to the shared TEST server.
+# shellcheck source=selfhosted/lib/deploy-on-land.sh
+[[ -f "$(dirname "${BASH_SOURCE[0]}")/selfhosted/lib/deploy-on-land.sh" ]] && source "$(dirname "${BASH_SOURCE[0]}")/selfhosted/lib/deploy-on-land.sh"
+
 print_staging_hop() {
   local sb="${STAGING_BRANCH_PREFIX:-staging/}${1}"
   # $2 is REQUIRED — no `${2:-$(git rev-parse HEAD)}` default. A default silently
@@ -2140,6 +2144,10 @@ cmd_commit_to_main() {
     trap - EXIT
     exit "$_csx_rc"
   fi
+  # P1612: the commit THIS call made, read while the lock is still held. HEAD read after the
+  # release can be a co-tenant's commit, which would make the TEST-functions hook skip this landing.
+  local _land_sha
+  _land_sha="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
 
   # Report what the commit ACTUALLY recorded, not how many paths were requested. The
   # 2026-09-01 incident printed a confident "committed 3 file(s)" over a commit holding
@@ -2175,6 +2183,11 @@ cmd_commit_to_main() {
   local _hop_snap
   _hop_snap="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
   print_staging_hop "doc-$( cd "$REPO_ROOT" && git rev-parse --short "$_hop_snap" )" "$_hop_snap"
+  # P1612: the parent of the commit this call made (captured under the lock) is the "before"; a
+  # failed deploy never changes this command's exit status.
+  if type deploy_test_on_land >/dev/null 2>&1 && git -C "$REPO_ROOT" rev-parse -q --verify "$_land_sha^" >/dev/null; then
+    deploy_test_on_land "$REPO_ROOT" "$(git -C "$REPO_ROOT" rev-parse "$_land_sha^")" "$_land_sha" || true
+  fi
 }
 
 # ----------------------------------------------------------------------------
@@ -4714,6 +4727,19 @@ The branch is authoritative for shipped migrations. Compare each file with
   SHIP_ABORT_BRANCH="$branch"
   trap 'ship_on_abort "${SHIP_ABORT_PN:-}" "${SHIP_ABORT_BRANCH:-}"' EXIT
 
+  # P1612: main before this ship's cherry-picks, for the TEST-functions deploy after landing.
+  # Installed AFTER the abort trap above, and unable to abort a ship: this is best-effort
+  # bookkeeping for a hook that never changes the ship's outcome, so every failure here becomes an
+  # empty baseline (the deploy hook then skips), never a non-zero exit under `set -e`.
+  # A resumed ship must not re-baseline at "now": picks that landed in an earlier run would then
+  # fall outside the diff and a function change would skip its deploy. The journal's start_head is
+  # main's tip from before any pick, so it survives --resume.
+  local _land_before=""
+  if type deploy_land_baseline >/dev/null 2>&1; then
+    _land_before="$( ship_journal_str "$pn" start_head 2>/dev/null || true )"
+    _land_before="$( deploy_land_baseline "$REPO_ROOT" "$_land_before" 2>/dev/null || true )"
+  fi
+
   # Post-acquire race guard: another session holding the same P-number may have
   # completed (deleting the branch) between our pre-check and lock acquire. If
   # the branch is gone but our journal still expects to pick its commits,
@@ -5450,6 +5476,9 @@ The branch is authoritative for shipped migrations. Compare each file with
   # the privacy-scan check on them before the human pushes main.
   print_staging_hop "$pn" "$_hop_sha"
   echo "Ready to push."
+  if [[ -n "${_land_before:-}" ]] && type deploy_test_on_land >/dev/null 2>&1; then
+    deploy_test_on_land "$REPO_ROOT" "$_land_before" "$_hop_sha" || true
+  fi
 }
 
 # ----------------------------------------------------------------------------
