@@ -26,6 +26,8 @@ LOG_FILE="/tmp/kanban.log"
 # Nothing is blocked. These are pressure, not gates -- the point is that an overflow
 # is visible, and that /slava:maintain:prioritize has a number to force a verdict against.
 export KANBAN_WIP_LIMITS="today=5,week=10,in-progress=3"
+# P1610: the Day page lives on this board. Its private data stays outside every repo.
+export KANBAN_DAY_DIR="$HOME/.claude-day"
 PID_FILE="/tmp/kanban.pid"
 
 # Parse flags

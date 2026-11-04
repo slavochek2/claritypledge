@@ -9,6 +9,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-04 [product]: The Day page lives on the CP board; private is about storage, not display (P1610)
+
+**Context:** The Day page sat on the personal board because its data is private (P1399), which split the founder's morning across two boards. AI key cards named a key without saying what it was for.
+**Decision:** The CP board shows Day and its data stays in `~/.claude-day`, outside every repo. Every key carries a required purpose saying what it is for and what stops if it dies; issuing without one is refused.
+**Alternatives rejected:** A separate key doc in pp, which would drift from the registry that monitoring already reads.
+**Consequences:** Supersedes P1399's "the cp board has none". UNTESTED in a real morning run; falsifier: a founder still has to ask what a key does.
+**References:** [p1610](../features/p1610_day_on_cp_board_and_key_purpose.md)
+
+## 2026-11-04 [process]: A cost alert on a test key is not a pace
+
+**Context:** The daily check projected EUR 340 for `cp-test` from a one-day EUR 18.54 benchmark on 1 Nov, and blamed the wrong work. The answer sat in chat history.
+**Decision:** Read spend by day before acting on a projected pace, and estimate a benchmark's cost before starting it. The cap stays at EUR 30.
+**Alternatives rejected:** Raising the cap to EUR 75 with no planned run that needs it.
+**Consequences:** UNTESTED; the projection itself is unchanged. Falsifier: a test key trips its cap during routine work with no benchmark.
+**References:** [p1610](../features/p1610_day_on_cp_board_and_key_purpose.md)
+
 ## 2026-11-04 [product]: Day page: one checklist that says where each problem went (P1609)
 
 **Context:** The falsifier in the 2026-10-12 P1463 entry fired: the founder opened Status to learn what to do and could not. On the 2026-11-04 run all 9 non-ok checks already had a card, so "Didn't work" repeated the card list, and rows lost their link once a card left the queue.

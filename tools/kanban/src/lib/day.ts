@@ -324,6 +324,8 @@ export const KEY_STATES: KeyState[] = ['spent', 'unused', 'no-spend', 'unmeasura
 export interface DayCloudKey {
   id: string
   label: string
+  /** P1610: what the key is for and what stops if it dies, from the registry */
+  purpose?: string
   collected: boolean
   spent_eur?: number
   /** the key's cap budget, € per month */

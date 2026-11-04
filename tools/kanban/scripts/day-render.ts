@@ -996,7 +996,7 @@ export function parseArgs(argv: string[]): Args | null {
     dayDir: join(homedir(), '.claude-day'),
     print: 'card',
     now: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-    kanbanUrl: 'http://localhost:9052',
+    kanbanUrl: 'http://localhost:9050',
     goals: defaultGoalsFile(),
   }
   for (let i = 0; i < argv.length; i += 2) {

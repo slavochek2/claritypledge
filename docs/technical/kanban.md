@@ -196,7 +196,7 @@ The kanban is a **visual interface to git-native task management**. Feature spec
 
 **What this kanban adds beyond raw files:**
 - Visual drag-and-drop prioritization (the thing agents can't do)
-- Views: Board (kanban columns), Focus (flat sorted table), Content (article pipeline), Pipeline (CRM), Day (personal board only)
+- Views: Board (kanban columns), Focus (flat sorted table), Content (article pipeline), Pipeline (CRM), Day (cp board, data in `~/.claude-day`; P1610)
 - Automatic file movement on status change (done → `features/done/{month}/`, rejected → `features/archive/`)
 - Git staging on moves (prevents revert on pull)
 - Card dialog with inline field editing (type, status, rank, size, tags, blocked_by, delivery_stage)

@@ -120,7 +120,7 @@ const reportPath = (w: World, pass = PASS) => join(w.dayDir, 'reports', `${fileI
 function render(w: World, phase: 'start' | 'end' | 'issues', extra: string[] = []) {
   let out = ''
   let err = ''
-  const code = run(['--ledger', w.ledger, '--day-dir', w.dayDir, '--phase', phase, '--now', NOW, '--kanban-url', 'http://localhost:9052', '--repo', 'none', ...extra], {
+  const code = run(['--ledger', w.ledger, '--day-dir', w.dayDir, '--phase', phase, '--now', NOW, '--kanban-url', 'http://localhost:9050', '--repo', 'none', ...extra], {
     out: (s) => (out += s),
     err: (s) => (err += s),
   })
@@ -524,7 +524,7 @@ describe('day-render: the card', () => {
     expect(out).not.toContain('Old parked thing')
     expect(out).toContain('Connections: Sentry not connected · Beeper didn’t work')
     expect(out).toContain('New people: 3 (1 not confirmed)')
-    expect(lines[lines.length - 1]).toBe('Decide on the Day page: http://localhost:9052 → Day')
+    expect(lines[lines.length - 1]).toBe('Decide on the Day page: http://localhost:9050 → Day')
     expect(out).not.toMatch(/ledger|fingerprint|\bstep|pass_id|cp\.w|disp\.|find:/i)
     expect(out).not.toContain(MARKER)
     // eslint-disable-next-line no-control-regex
@@ -794,7 +794,7 @@ describe('day-render: privacy', () => {
     )
     const report = JSON.parse(readFileSync(reportPath(w), 'utf-8')) as DayReport
     const view = buildView(report, decisionsOf(w), [traceOf(report)])
-    expect(stdout).toBe(renderCard(report, view, { kanbanUrl: 'http://localhost:9052' }) + '\n')
+    expect(stdout).toBe(renderCard(report, view, { kanbanUrl: 'http://localhost:9050' }) + '\n')
     expect(stdout).not.toContain(MARKER)
     expect(stderr).not.toContain(MARKER)
     for (const l of stderr.split('\n').filter(Boolean)) expect(l).toMatch(STDERR_VOCAB)

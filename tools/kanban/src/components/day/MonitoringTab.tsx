@@ -276,6 +276,9 @@ function Cloud({ cloud, per, view, readOnly, onRaise, onUndoRaise }: Props & { c
                       {!readOnly && <span className="d-go">Raise ›</span>}
                     </span>
                   </button>
+                  <p className="d-kmeta" data-key-purpose>
+                    {k.purpose?.trim() || 'Purpose not recorded in the key registry'}
+                  </p>
                   {cardsKnown && (
                     <div className="d-kmeta" id={metaId}>
                       {c.cap_rows.length === 0 ? (
