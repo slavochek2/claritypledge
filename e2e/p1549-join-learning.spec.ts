@@ -222,6 +222,17 @@ test.describe('P1549 join learning', () => {
     await expect(page.getByTestId('join-part-1')).toBeVisible({ timeout: 15000 });
   });
 
+  test('a failed statements read shows retry on Part 1 and in the learning, and cannot record cmp7', async ({ page }) => {
+    const u = await user('P1549 No Cards');
+    await setTestSession(page, u.email);
+    await page.route('**/rest/v1/**', (r) => (/\/points(\?|$)/.test(r.request().url()) ? r.fulfill({ status: 500, json: { message: 'nope' } }) : r.fallback()));
+    await page.goto(joinUrl());
+    await expect(page.getByTestId('join-read-error')).toBeVisible({ timeout: 15000 });
+    await page.goto(`/prepare?then=join&group=${org.slug}`);
+    await expect(page.getByTestId('join-read-error')).toBeVisible({ timeout: 15000 });
+    expect(await partsOf(u.user.id)).toEqual([]);
+  });
+
   test('sign-up callback moves this browser\'s parts to the account, then joins', async ({ page }) => {
     const u = await user('P1549 Transfer');
     await setTestSession(page, u.email);

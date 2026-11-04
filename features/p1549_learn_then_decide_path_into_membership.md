@@ -245,38 +245,42 @@ Not built in Increment 1. These are not checkboxes, so they do not block Increme
 - **Existing-member invite** (per the founder decision above): the surface, the suppression rule, and whether "once" is per account or per browser.
 - **Recipe copy:** a Social Hike event shows its recipe's copy; an event with no series shows Clarity Night's.
 
+## Cost Budget
+
+Metered service: the shared Supabase. Per person, per use, not per render: opening the join page costs 3 to 5 reads (group, membership, parts, latest preparation, statements). The sign-up transfer costs 1 read and at most 2 writes, once. Nothing polls and nothing runs on a timer. The new e2e spec makes about 20 tests x under 15 requests each per run, in the same range as the p1076 spec, on test only.
+
 ## Done-When
 
 Increment 1 only. Increment 2 writes its own before build.
 
 Every visual item is measured at 1440, 375 and 320, with the screen-review brief v2 snippet output pasted.
 
-- [ ] Signed in, not a member, no learning parts: "Join as member" on `/groups/cm` shows Part 1:
+- [x] Signed in, not a member, no learning parts: "Join as member" on `/groups/cm` shows Part 1:
   - "Joining Clarity Practice Community" over "Part 1 of 2 · Short introduction";
   - the title with N equal to `minutesFor` over the three steps (the test computes the expected N from the same inputs);
   - the why text;
   - the three steps, each with its `stepMinutes`;
   - one primary, "Start learning".
   No terms and no "Accept" are on the screen.
-- [ ] Starting the learning shows the join context header and opens at step 1 with no list screen. Finishing step 3 lands on the terms with "Part 2 of 2 · Group terms" and "Accept and join". Accepting creates a `membership` row and returns to the group page with the joined banner. The e2e records every URL and `history.length`.
-- [ ] Leaving after step 1 and tapping "Join as member" again shows "Welcome back: about N minutes left", step 1 ticked, steps 2 and 3 not, and "Continue". Continuing opens step 2.
-- [ ] After completing step 1, leaving right after the principle intro video (before its decision) and returning shows step 2 unticked. "Continue" opens step 2 at its intro.
-- [ ] In join mode neither video offers "Continue without video" and cmp7 offers no "Skip". The event learning and the plain `/prepare` still offer them. Someone who skipped the story video on the plain `/prepare` sees step 1 unticked on Part 1 with "Continue".
-- [ ] The why text appears verbatim above the steps on join Part 1 and a hike's and a Clarity Night's plan screen (community version), and on the plain `/prepare` list (the `/prepare` version). A recipe override replaces it. No step was added: the step counts are unchanged.
-- [ ] A learner on the terms without `joinViaLearning` sees "You've already done the learning. Review it". Reviewing and leaving returns to the terms; it is absent with `joinViaLearning`, on `?view=terms` and for members.
-- [ ] A member sees "Review how we talk" on the About tab and on their terms page; a non-member sees it on neither. It opens the review list, and Back returns to where it was opened.
-- [ ] `?review=` with an outside URL (`//evil.example`, `https://evil.example`) behaves as the plain `/prepare`.
-- [ ] The event-side and groups-side Part 1 both read "Part 1 of 2 · Short introduction".
-- [ ] A person with `cognitive_video` and `cmp7` completed, and a person with any `event_preparations.completed_at`, each go straight to the terms, titled "Group terms" with no "Part 2 of 2".
-- [ ] A member sees the read-only terms (unchanged; the p1010 and p1076 org-join e2e green, with fixtures updated where they expect terms for a non-learner, see Risks).
-- [ ] About tab, non-member: "Clarity Group Terms" opens `?view=terms`, read-only, no Accept, with "Join <group>". "Join <group>" leads to Part 1 for a non-learner and to the terms with Accept for a learner. A member following the same link sees their own read-only terms.
+- [x] Starting the learning shows the join context header and opens at step 1 with no list screen. Finishing step 3 lands on the terms with "Part 2 of 2 · Group terms" and "Accept and join". Accepting creates a `membership` row and returns to the group page with the joined banner. The e2e records every URL and `history.length`.
+- [x] Leaving after step 1 and tapping "Join as member" again shows "Welcome back: about N minutes left", step 1 ticked, steps 2 and 3 not, and "Continue". Continuing opens step 2.
+- [x] After completing step 1, leaving right after the principle intro video (before its decision) and returning shows step 2 unticked. "Continue" opens step 2 at its intro.
+- [x] In join mode neither video offers "Continue without video" and cmp7 offers no "Skip". The event learning and the plain `/prepare` still offer them. Someone who skipped the story video on the plain `/prepare` sees step 1 unticked on Part 1 with "Continue".
+- [x] The why text appears verbatim above the steps on join Part 1 and a hike's and a Clarity Night's plan screen (community version), and on the plain `/prepare` list (the `/prepare` version). A recipe override replaces it. No step was added: the step counts are unchanged.
+- [x] A learner on the terms without `joinViaLearning` sees "You've already done the learning. Review it". Reviewing and leaving returns to the terms; it is absent with `joinViaLearning`, on `?view=terms` and for members.
+- [x] A member sees "Review how we talk" on the About tab and on their terms page; a non-member sees it on neither. It opens the review list, and Back returns to where it was opened.
+- [x] `?review=` with an outside URL (`//evil.example`, `https://evil.example`) behaves as the plain `/prepare`.
+- [x] The event-side and groups-side Part 1 both read "Part 1 of 2 · Short introduction".
+- [x] A person with `cognitive_video` and `cmp7` completed, and a person with any `event_preparations.completed_at`, each go straight to the terms, titled "Group terms" with no "Part 2 of 2".
+- [x] A member sees the read-only terms (unchanged; the p1010 and p1076 org-join e2e green, with fixtures updated where they expect terms for a non-learner, see Risks).
+- [x] About tab, non-member: "Clarity Group Terms" opens `?view=terms`, read-only, no Accept, with "Join <group>". "Join <group>" leads to Part 1 for a non-learner and to the terms with Accept for a learner. A member following the same link sees their own read-only terms.
 - [ ] Navigation: each row of the table is exercised in the e2e. After each sequence, browser Back from the group page never shows `/join` or `/prepare`, and no sequence returns to the learning from the terms.
-- [ ] Reload on Part 1, on the terms (with and without `joinViaLearning`) and on a learning step each match the reload rules above.
-- [ ] Pending and failure: with the parts read delayed (a controlled route delay), only `ClarityPageLoader` shows until it answers; no Part 1 or terms frame appears first. With the parts read or the membership read failing, the error line and "Try again" show, not Part 1 and not the terms; "Try again" with the read restored shows the right screen.
-- [ ] Signed out: the same Part 1, then the learning, then the terms. "Accept and join" goes to sign-up with `action=join-org`. After sign-up in the same browser the person is a member, and `person_prep_parts` holds their `cognitive_video` and `cmp7` rows (query output pasted).
-- [ ] Signed out with the transfer write failing: the join still completes, and the parts are still in this browser's storage afterwards.
-- [ ] Centring: "Start learning", "Continue", "Accept and join", the "Back" link under it, "Join <group>" and "Try again" are each within 2px of their container's centre. The header Back is left-aligned by design and is not measured for centring.
-- [ ] The supported UI never shows "Accept and join" to a non-learner who is not on `?view=terms` (where it is absent). The test names this as an advisory check, not a security boundary.
+- [x] Reload on Part 1, on the terms (with and without `joinViaLearning`) and on a learning step each match the reload rules above.
+- [x] Pending and failure: with the parts read delayed (a controlled route delay), only `ClarityPageLoader` shows until it answers; no Part 1 or terms frame appears first. With the parts read or the membership read failing, the error line and "Try again" show, not Part 1 and not the terms; "Try again" with the read restored shows the right screen.
+- [x] Signed out: the same Part 1, then the learning, then the terms. "Accept and join" goes to sign-up with `action=join-org`. After sign-up in the same browser the person is a member, and `person_prep_parts` holds their `cognitive_video` and `cmp7` rows (query output pasted).
+- [x] Signed out with the transfer write failing: the join still completes, and the parts are still in this browser's storage afterwards.
+- [x] Centring: "Start learning", "Continue", "Accept and join", the "Back" link under it, "Join <group>" and "Try again" are each within 2px of their container's centre. The header Back is left-aligned by design and is not measured for centring.
+- [x] The supported UI never shows "Accept and join" to a non-learner who is not on `?view=terms` (where it is absent). The test names this as an advisory check, not a security boundary.
 
 ## Hypothesis (UNTESTED)
 

@@ -6,6 +6,8 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { getMyLatestPrepCompletedAt, getMyPrepParts, type PrepPartRow } from '@/app/data/event-prep-service';
+import { forgetInFlight } from '@/lib/share-in-flight';
+import { withDeadline } from '@/lib/with-deadline';
 import { localPartRows, readLocalParts, syncLocalPrepParts } from './prep-local-parts';
 
 const READ_TIMEOUT_MS = 6000;
@@ -29,23 +31,27 @@ async function readSignedIn(viewerId: string): Promise<{ parts: PrepPartRow[]; c
 /** `viewerId` undefined = signed out. `enabled` false = no read (still loading auth, or a member). */
 export function useLearnedRead(viewerId: string | undefined, enabled: boolean): LearnedRead {
   const [attempt, setAttempt] = useState(0);
-  const [result, setResult] = useState<Omit<Extract<LearnedRead, { status: 'ok' }>, 'retry'> | { status: 'pending' | 'error' }>({ status: 'pending' });
+  type Held = { key: string } & ({ status: 'pending' | 'error' } | { status: 'ok'; parts: PrepPartRow[]; completedAt: string | null });
+  const [held, setHeld] = useState<Held>({ key: '', status: 'pending' });
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  const key = `${viewerId ?? ''}:${attempt}`;
 
   useEffect(() => {
     if (!enabled) return;
-    setResult({ status: 'pending' });
     if (!viewerId) {
-      setResult({ status: 'ok', parts: localPartRows(readLocalParts()), completedAt: null });
+      setHeld({ key, status: 'ok', parts: localPartRows(readLocalParts()), completedAt: null });
       return;
     }
     let cancelled = false;
-    const giveUp = setTimeout(() => { cancelled = true; setResult({ status: 'error' }); }, READ_TIMEOUT_MS);
-    readSignedIn(viewerId)
-      .then((r) => { if (!cancelled) { clearTimeout(giveUp); setResult({ status: 'ok', ...r }); } })
-      .catch(() => { if (!cancelled) { clearTimeout(giveUp); setResult({ status: 'error' }); } });
-    return () => { cancelled = true; clearTimeout(giveUp); };
-  }, [enabled, viewerId, attempt]);
+    setHeld({ key, status: 'pending' });
+    // A retry must not rejoin a stalled shared read.
+    withDeadline(readSignedIn(viewerId), READ_TIMEOUT_MS, 'learned read')
+      .then((r) => { if (!cancelled) setHeld({ key, status: 'ok', ...r }); })
+      .catch(() => { forgetInFlight(`prep-parts:${viewerId}`); if (!cancelled) setHeld({ key, status: 'error' }); });
+    return () => { cancelled = true; };
+  }, [enabled, viewerId, key]);
 
-  return { ...result, retry } as LearnedRead;
+  // Another viewer's answer is never shown: until this viewer's read has answered, it is pending.
+  if (held.key !== key) return { status: 'pending', retry };
+  return { ...held, retry } as LearnedRead;
 }

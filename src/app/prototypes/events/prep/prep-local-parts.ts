@@ -10,7 +10,11 @@
  * is a no-op — the visitor can still watch everything, the progress just isn't remembered.
  */
 import { getMyPrepParts, markPrepPart, type PrepPart, type PrepPartRow } from '@/app/data/event-prep-service';
+import { forgetInFlight } from '@/lib/share-in-flight';
+import { withDeadline } from '@/lib/with-deadline';
 import { isPartDone, PART_VERSIONS } from './prep-plan';
+
+const MOVE_DEADLINE_MS = 5000;
 
 const STORAGE_KEY = 'cp-prep-parts';
 
@@ -23,6 +27,7 @@ export type LocalParts = Partial<Record<PrepPart, LocalPart>>;
 const isPart = (k: string): k is PrepPart => k in PART_VERSIONS;
 
 export function readLocalParts(): LocalParts {
+  if (memoryParts) return memoryParts;
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
     if (typeof parsed !== 'object' || parsed === null) return {};
@@ -44,12 +49,17 @@ export function readLocalParts(): LocalParts {
   }
 }
 
+/** P1549: with storage refused, a signed-out learner must still reach the terms in this tab. */
+let memoryParts: LocalParts | null = null;
+
 function writeLocalParts(parts: LocalParts): void {
+  memoryParts = null;
   try {
     if (Object.keys(parts).length === 0) localStorage.removeItem(STORAGE_KEY);
     else localStorage.setItem(STORAGE_KEY, JSON.stringify(parts));
   } catch {
     /* storage unavailable: progress lasts until reload */
+    memoryParts = parts;
   }
 }
 
@@ -78,8 +88,10 @@ export function localPartRows(parts: LocalParts): PrepPartRow[] {
 /** P1549: the sign-up callback moves this browser's parts before it joins. A failure keeps them local and never throws. */
 export async function moveLocalPrepPartsToAccount(profileId: string): Promise<void> {
   try {
-    await syncLocalPrepParts(profileId, await getMyPrepParts(profileId));
+    const move = (async () => syncLocalPrepParts(profileId, await getMyPrepParts(profileId)))();
+    await withDeadline(move, MOVE_DEADLINE_MS, 'moving prep parts');
   } catch (err) {
+    forgetInFlight(`prep-parts:${profileId}`);
     console.error('Failed to move local prep parts to the account', err);
   }
 }

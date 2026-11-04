@@ -26,6 +26,7 @@ import { EVENTS_LIST_TO } from '@/app/components/layout/nav-links';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { ArrowLeft, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { withDeadline } from '@/lib/with-deadline';
 import { useAuth } from '@/auth';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
@@ -49,6 +50,7 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 
 const PROGRESS_READ_TIMEOUT_MS = 6000;
 const MISUNDERSTANDING_TAG = 'misunderstanding';
+const FINISH_DEADLINE_MS = 6000;
 
 /** The standalone steps, in order. */
 export const STANDALONE_STEPS = ['story', 'principle', 'cmp7', 'misunderstanding'] as const;
@@ -187,7 +189,12 @@ function PrepareCore({ join, review, initialRows, viewerRowsKnown }: { join?: Jo
       points={points}
       reloadPoints={reloadPoints}
       onLeave={review?.onReturn ?? (() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/feed')))}
-      join={join && { ...join, onFinish: () => { void Promise.allSettled(pendingWrites.current).then(join.onFinish); } }}
+      join={join && { ...join, onFinish: () => {
+        // Bounded: a write that never answers must not leave the last Continue dead. What it held stays in this browser.
+        withDeadline(Promise.allSettled(pendingWrites.current), FINISH_DEADLINE_MS, 'saving learning parts')
+          .catch(() => { for (const r of rows) if (r.completedAt) markLocalPart(r.part, r.completedAt); })
+          .finally(join.onFinish);
+      } }}
       review={review}
     />
   );
@@ -464,7 +471,7 @@ function PrepareFlow({
               </ol>
               <StepActions ref={barRef}>
                 {/* P1412: once every step is done, "Start here" reads wrong — it starts again from step 1. */}
-                <LetterPrimaryCta label={firstOpen ? COPY.start : COPY.startAgain} onClick={() => go(firstOpen ?? steps[0])} />
+                <LetterPrimaryCta label={firstOpen ? COPY.start : COPY.startAgain} onClick={() => go(firstOpen ?? 'story')} />
               </StepActions>
             </section>
           )}

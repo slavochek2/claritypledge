@@ -10,7 +10,11 @@ import { useAuth } from '@/auth';
 import { useReturnToParent } from '@/app/hooks/use-go-back';
 import { organizationsService } from '@/app/data/organizations-service';
 import type { PrepPartRow } from '@/app/data/event-prep-service';
-import { hasLearned } from './prep-plan';
+import { forgetInFlight } from '@/lib/share-in-flight';
+import { inAppPath } from '@/lib/in-app-path';
+import { withDeadline } from '@/lib/with-deadline';
+import { CMP7_TAG, hasLearned } from './prep-plan';
+import { loadTagPoints } from './use-prep-state';
 import { useLearnedRead } from './use-learned-read';
 
 export type JoinMode = { groupName: string; onFinish: () => void; onExit: () => void };
@@ -22,7 +26,7 @@ type Gate =
   | { kind: 'join'; join: JoinMode; rows: PrepPartRow[] | undefined }
   | { kind: 'review'; review: ReviewMode };
 
-const IN_APP_PATH = /^\/[^/\\]/;
+const READ_DEADLINE_MS = 6000;
 
 export function useJoinLearningGate(): Gate {
   const [params] = useSearchParams();
@@ -32,7 +36,7 @@ export function useJoinLearningGate(): Gate {
   const routeState = location.state as { fromCaller?: boolean } | null;
 
   const rawReview = params.get('review');
-  const reviewPath = rawReview && IN_APP_PATH.test(rawReview) ? rawReview : null;
+  const reviewPath = inAppPath(rawReview);
   const onReturn = useReturnToParent(reviewPath ?? '/prepare', !!routeState?.fromCaller);
 
   const slug = params.get('then') === 'join' ? params.get('group') : null;
@@ -50,7 +54,7 @@ export function useJoinLearningGate(): Gate {
     let cancelled = false;
     setGroup(undefined);
     setGroupFailed(false);
-    organizationsService.getOrganizationBySlug(slug)
+    withDeadline(organizationsService.getOrganizationBySlug(slug), READ_DEADLINE_MS, 'group read')
       .then((o) => { if (!cancelled) setGroup(o ?? null); })
       .catch(() => { if (!cancelled) setGroupFailed(true); });
     return () => { cancelled = true; };
@@ -68,11 +72,25 @@ export function useJoinLearningGate(): Gate {
     let cancelled = false;
     setMember(undefined);
     setMemberFailed(false);
-    organizationsService.getMyMembership(orgId)
+    withDeadline(organizationsService.getMyMembership(orgId), READ_DEADLINE_MS, 'membership read')
       .then((m) => { if (!cancelled) setMember(!!m); })
       .catch(() => { if (!cancelled) setMemberFailed(true); });
     return () => { cancelled = true; };
   }, [slug, authReady, orgId, user?.id, attempt]);
+
+  // The statements step must have something to answer: a failed read arrives as an empty list.
+  const [cardsOk, setCardsOk] = useState(false);
+  const [cardsFailed, setCardsFailed] = useState(false);
+  useEffect(() => {
+    if (!slug || !authReady) return;
+    let cancelled = false;
+    setCardsOk(false);
+    setCardsFailed(false);
+    withDeadline(loadTagPoints(CMP7_TAG, user?.id), READ_DEADLINE_MS, 'statements read')
+      .then((pts) => { if (cancelled) return; if (pts.length > 0) setCardsOk(true); else setCardsFailed(true); })
+      .catch(() => { forgetInFlight('tag-points:'); if (!cancelled) setCardsFailed(true); });
+    return () => { cancelled = true; };
+  }, [slug, authReady, user?.id, attempt]);
 
   const alreadyThrough = !!slug && (member === true || (learned.status === 'ok' && hasLearned(learned.parts, learned.completedAt)));
   useEffect(() => {
@@ -82,7 +100,7 @@ export function useJoinLearningGate(): Gate {
   }, [alreadyThrough && group !== undefined && member !== undefined]);
 
   const [opened, setOpened] = useState(false);
-  const readsDone = !!group && member !== undefined && learned.status === 'ok';
+  const readsDone = !!group && member !== undefined && learned.status === 'ok' && cardsOk;
   useEffect(() => { if (readsDone && !alreadyThrough) setOpened(true); }, [readsDone, alreadyThrough]);
 
   const join: JoinMode = useMemo(() => ({
@@ -95,7 +113,7 @@ export function useJoinLearningGate(): Gate {
   if (!slug) return { kind: 'plain' };
   if (opened) return { kind: 'join', join, rows: learned.status === 'ok' ? learned.parts : undefined };
   if (group === null) return { kind: 'plain' };
-  const fail = groupFailed || memberFailed || learned.status === 'error';
+  const fail = groupFailed || memberFailed || cardsFailed || learned.status === 'error';
   if (fail) return { kind: 'error', fallback: joinPath, retry: () => { setAttempt((n) => n + 1); learned.retry(); } };
   return { kind: 'pending' };
 }

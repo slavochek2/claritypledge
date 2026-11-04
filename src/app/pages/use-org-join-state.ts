@@ -12,6 +12,7 @@ import { CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import { organizationsService } from "@/app/data/organizations-service";
 import type { Organization } from "@/app/data/organizations-service.interface";
 import { isValidUUID } from "@/lib/auth-gate-utils";
+import { inAppPath } from "@/lib/in-app-path";
 
 export function useOrgJoinState(slug: string | undefined) {
   const navigate = useNavigate();
@@ -50,7 +51,7 @@ export function useOrgJoinState(slug: string | undefined) {
   // P1389: ?return={in-app path} — a flow that sent the person here (the evening close) gets them
   // back after joining or on Back. In-app paths only; anything else falls back to the group page.
   const rawReturn = searchParams.get("return");
-  const returnPath = rawReturn && /^\/[^/\\]/.test(rawReturn) ? rawReturn : undefined;
+  const returnPath = inAppPath(rawReturn) ?? undefined;
   const afterPath = returnPath ?? orgPath;
   // Unauthenticated visitors can READ the terms; only the accept action requires
   // an account, so the login redirect happens on click, not on mount.
@@ -99,7 +100,7 @@ export function useOrgJoinState(slug: string | undefined) {
     setMyTerms(null);
     async function checkExistingMembership() {
       try {
-        const mine = await organizationsService.getMyMembership(orgId);
+        const mine = await organizationsService.getMyMembership(orgId as string);
         if (cancelled || !mine) return;
         // Two ways a member reaches this page, and they want opposite things.
         //   · WITH ?from= — they followed an invite, or the signup callback just

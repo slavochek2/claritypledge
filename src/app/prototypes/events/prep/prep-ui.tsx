@@ -203,7 +203,8 @@ export const StatementsActions = forwardRef<HTMLDivElement, {
   onRecheck?: () => void;
 }>(function StatementsActions({ count, loaded, firstUnansweredId, onContinue, onSkip, hideSkip, onRecheck }, ref) {
   const [answerHint, setAnswerHint] = useState(false);
-  const allSet = loaded && count.answered >= count.total;
+  // total > 0: a failed read arrives as an empty list, and 0 of 0 must never count as finished (P1549).
+  const allSet = loaded && count.total > 0 && count.answered >= count.total;
   return (
     <StepActions ref={ref}>
       {loaded && (

@@ -5,6 +5,9 @@
  */
 import { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
+import { forgetInFlight } from '@/lib/share-in-flight';
+import { withDeadline } from '@/lib/with-deadline';
+import { SEO } from '@/app/components/seo';
 import { cn } from '@/lib/utils';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
@@ -16,6 +19,7 @@ import { PrepWhy } from '@/app/prototypes/events/prep/PrepWhy';
 import { WHY_COMMUNITY } from '@/app/prototypes/events/prep/prep-why';
 import { loadTagPoints } from '@/app/prototypes/events/prep/use-prep-state';
 
+const READ_DEADLINE_MS = 6000;
 const JOIN_STEPS: PlanStep[] = ['story', 'principle', 'cmp7'];
 
 /** A failed read is never treated as "not a member" or "no progress". */
@@ -45,9 +49,10 @@ export function JoinPart1({ groupName, parts, viewerId, onStart, fallback }: {
     let cancelled = false;
     setFailed(false);
     setCards(null);
-    loadTagPoints(CMP7_TAG, viewerId)
-      .then((pts) => { if (!cancelled) setCards(pts.length); })
-      .catch(() => { if (!cancelled) setFailed(true); });
+    // A failed read arrives as an empty list, so no statements means the read failed.
+    withDeadline(loadTagPoints(CMP7_TAG, viewerId), READ_DEADLINE_MS, 'statements read')
+      .then((pts) => { if (cancelled) return; if (pts.length === 0) setFailed(true); else setCards(pts.length); })
+      .catch(() => { forgetInFlight('tag-points:'); if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
   }, [viewerId, attempt]);
 
@@ -62,6 +67,7 @@ export function JoinPart1({ groupName, parts, viewerId, onStart, fallback }: {
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-16" data-testid="join-part-1">
+      <SEO title={`Join ${groupName}`} description={`Learn how ${groupName} works, then decide if you want to join.`} />
       <div className="mx-auto max-w-2xl space-y-6">
         <FocusHeader fallback={fallback} />
         <div>

@@ -93,7 +93,7 @@ export function OrgJoinTerms({ org, myTerms, viewTerms, joinViaLearning, showAlr
               <Link
                 to={`/prepare?review=${encodeURIComponent(`${orgPath}/join${carriedQuery}`)}`}
                 state={{ fromCaller: true }}
-                className="font-medium text-blue-600 underline underline-offset-2 dark:text-blue-400"
+                className="inline-flex min-h-11 items-center font-medium text-blue-600 underline underline-offset-2 dark:text-blue-400"
               >
                 Review it
               </Link>
@@ -104,7 +104,7 @@ export function OrgJoinTerms({ org, myTerms, viewTerms, joinViaLearning, showAlr
               <Link
                 to={`/prepare?review=${encodeURIComponent(`${orgPath}/join`)}`}
                 state={{ fromCaller: true }}
-                className="font-medium text-blue-600 underline underline-offset-2 dark:text-blue-400"
+                className="inline-flex min-h-11 items-center font-medium text-blue-600 underline underline-offset-2 dark:text-blue-400"
                 data-testid="review-how-we-talk"
               >
                 Review how we talk
