@@ -9,6 +9,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+
+## 2026-11-04 [technical]: Transcription belongs to a chat; a chat's session is one room with one thread
+
+**Context:** Transcription reached a chat only from an event room, plain `/transcribe` got no cross-mic cleaning, and an event with no rounds merged sessions days apart into one thread.
+**Decision:** P1604. A room carries `conversation_id`, with one open room per chat, and an event's chat maps to its event room inside the event's window. The last Stop closes the room at once. All paused for 10 minutes ends it, and 176 minutes rolls it to Part 2 with consent marked as carried. Clean text lives per job, and a reader sees only their own span. Plain `/transcribe` gets its own room per start. The older per-person pass stays as fallback until the friends test. The explanation shows once per chat, because consent comes from the terms.
+**Alternatives rejected:** Sharing one no-code room (strangers' mics would mask each other). A fixed 2-minute wait after Stop (the job now starts when every seat has reported, with 2 minutes as the bound). A filled secondary button (the design system says it reads as disabled).
+**Consequences:** Clarify carries a transcript thread, with a wider mirror budget only for those; agent memory is P1615. Person reply limits rose; figures are in `_mirror_limits`. Forward still carries one message. A function deployed from a stale worktree replaces all of `_shared` on TEST, and doing so broke TEST for other sessions (guard: P1612). A new second foreign key made a PostgREST embed ambiguous, which mocks hid and a live test caught, so embed shapes now run through real PostgREST. UNTESTED with several people at a real table. Falsifier: a live session that splits a thread against the session rules, or misattributes speakers at real tables.
+
+---
 ## 2026-11-04 [product]: The Day page lives on the CP board; private is about storage, not display (P1610)
 
 **Context:** The Day page sat on the personal board because its data is private (P1399), which split the founder's morning across two boards. AI key cards named a key without saying what it was for.
