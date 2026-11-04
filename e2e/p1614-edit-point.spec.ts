@@ -239,12 +239,15 @@ for (const vp of [1440, 375, 320]) {
       await expect(list).toHaveCount(0);
 
       // a replaced point: type, an agent rewords the point underneath, Save is refused as stale; the text stays visible and selectable, with NO Save and no guess where it belongs
-      const firstId = idOf('Panel one');
+      // the point the grid shows first (an edit keeps its card in place, so which one that is depends on the draft's order)
       const editedId = (await supabaseAdmin.from('points').select('id').eq('first_validator_id', ownerId).eq('statement', 'Panel two edited').single()).data!.id as string;
+      const shownTestId = (await segBox.locator('[data-testid^="canvas-edit-point-"]').first().getAttribute('data-testid'))!;
+      const firstId = shownTestId.replace('canvas-edit-point-', '');
+      const otherId = firstId === editedId ? idOf('Panel one') : editedId;
       await page.getByTestId(`canvas-edit-point-${firstId}`).click();
       await page.getByTestId('canvas-point-editor-text').fill('Typed while the agent rewrites');
       const st = (await draftState(ownerId)).d as Row;
-      await cycle(c, ownerId, { canvas: first.canvas_id, draft: st.id, rev: st.revision }, [{ action: 'reword', point_id: firstId, box: SEG, statement: 'Agent rewrite' }, { action: 'keep', point_id: editedId }], [SEG]);
+      await cycle(c, ownerId, { canvas: first.canvas_id, draft: st.id, rev: st.revision }, [{ action: 'reword', point_id: firstId, box: SEG, statement: 'Agent rewrite' }, { action: 'keep', point_id: otherId }], [SEG]);
       await page.getByTestId('canvas-point-editor-save').click();
       await expect(page.getByTestId('canvas-point-editor-notice')).toContainText('changed while you were typing', { timeout: 30_000 });
       const kept = page.getByTestId('canvas-point-editor-text');
@@ -304,3 +307,50 @@ test('P1614 an emptied box keeps the typed text on screen at 375', async ({ brow
     await deleteTestUser(ownerId);
   }
 });
+
+/** An edit keeps the card where it was: with the grid showing one card per box, editing the first must leave the edited card first, and See all in the same order. */
+for (const vp of [1440, 375]) {
+  test(`P1614 an edit keeps the card in place on a two-card board at ${vp}`, async ({ browser }) => {
+    const user = await createTestUser({ name: `P1614 order ${vp}` });
+    const ownerId = user.user.id;
+    const ctx = await browser.newContext({ viewport: { width: vp, height: vp > 500 ? 900 : 800 }, ...(vp < 500 ? { hasTouch: true, isMobile: true, deviceScaleFactor: 2 } : {}) });
+    try {
+      const c = await api(user.email);
+      const first = await cycle(c, ownerId, {}, [pt(SEG, 'Order alpha'), pt(SEG, 'Order beta')], [SEG]);   // one run: both share a created_at
+      const page = await ctx.newPage();
+      await setTestSession(page, user.email);
+      await page.goto(`/p/${user.slug}/canvas/${first.canvas_name}?v=${first.version_name}&ws=1`);
+      await showCanvas(page);
+      const segBox = page.getByTestId(`canvas-box-${SEG}`);
+      await expect(segBox).toBeVisible({ timeout: 30_000 });
+      const shownText = () => segBox.locator('[data-testid^="canvas-point-card-"]').first().innerText();
+      const panelOrder = async () => {
+        await segBox.getByTestId('canvas-box-more').click();
+        const items = page.getByTestId('canvas-panel-box-list').locator('[data-testid^="canvas-point-card-"]');
+        await expect(items).toHaveCount(2);
+        const texts = (await items.allInnerTexts()).map(t => t.split('\n')[0]!.trim());
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('canvas-panel-box-list')).toHaveCount(0);
+        return texts;
+      };
+      const firstShown = (await shownText()).split('\n')[0]!.trim();
+      const order0 = await panelOrder();
+      expect(order0[0], 'the grid shows the first of the See all list').toBe(firstShown);
+      for (let round = 0; round < 3; round++) {
+        const current = (await shownText()).split('\n')[0]!.trim();
+        await segBox.locator('[data-testid^="canvas-edit-point-"]').first().click();
+        const edited = `Edited first card ${round}`;
+        await segBox.getByTestId('canvas-point-editor-text').fill(edited);
+        await segBox.getByTestId('canvas-point-editor-save').click();
+        await expect(page.getByTestId('canvas-point-editor-text')).toHaveCount(0, { timeout: 20_000 });
+        await expect.poll(async () => (await shownText()).split('\n')[0]!.trim(), { timeout: 20_000 }).toBe(edited);
+        const order = await panelOrder();
+        expect(order, `round ${round} (was "${current}"): See all keeps the order, edited card first`).toEqual([edited, order0[1]]);
+      }
+      await shot(page, vp, 'order-kept');
+    } finally {
+      await ctx.close();
+      await deleteTestUser(ownerId);
+    }
+  });
+}

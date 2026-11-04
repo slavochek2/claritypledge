@@ -368,3 +368,23 @@ describe('P1614 visual QA: error outline, read-only look, Dismiss', () => {
   });
 });
 
+describe('P1614 a gone point keeps its description and focus', () => {
+  it('the textarea stays described by the notice and focus lands in it instead of dropping to the page', () => {
+    const { rerender } = render(view([pt('A', 'Old words')]));
+    open('A'); type('my wording');
+    expect(document.activeElement).toBe(area());
+    rerender(view([pt('B', 'Other')]));
+    const notice = screen.getByTestId('canvas-point-editor-notice');
+    expect(area().getAttribute('aria-describedby'), 'described by the notice').toBe(notice.id);
+    expect(notice.id).not.toBe('');
+    expect(document.activeElement, 'focus is on the read-only text, not the body').toBe(area());
+  });
+  it('focus is not taken from something else the owner moved to', () => {
+    const { rerender } = render(<><input data-testid="elsewhere" />{view([pt('A', 'Old words')])}</>);
+    open('A'); type('my wording');
+    screen.getByTestId('elsewhere').focus();
+    rerender(<><input data-testid="elsewhere" />{view([pt('B', 'Other')])}</>);
+    expect(document.activeElement).toBe(screen.getByTestId('elsewhere'));
+  });
+});
+

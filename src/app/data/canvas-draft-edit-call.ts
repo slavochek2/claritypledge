@@ -6,7 +6,22 @@
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { emitCanvasDraftEvent } from './canvas-draft-events';
-import { failRpc, refusalOf, staleToEvent, type CanvasRefused, type Row } from './canvas-draft-calls';
+import { failRpc, refusalOf, type CanvasRefused, type Row } from './canvas-draft-calls';
+import { whenVisible } from '@/app/prototypes/events/when-visible';
+
+/**
+ * The page's follow-up re-read waits for a visible tab (metered-services rule 3, decisions.md 2026-10-30 [technical]; the helper is the one the event room uses), and
+ * several outcomes for one draft while the tab is hidden coalesce into one re-read when it returns.
+ */
+const pendingReReads = new Set<string>();
+function reReadWhenVisible(draftId: string): void {
+  if (pendingReReads.has(draftId)) return;
+  pendingReReads.add(draftId);
+  whenVisible(() => {
+    pendingReReads.delete(draftId);
+    emitCanvasDraftEvent({ kind: 'updated', draftId });
+  });
+}
 
 /**
  * P1614: the owner changes a point's text on their open draft, with no model call and no run. `changed: false` means the text matched and nothing was
@@ -22,13 +37,16 @@ export async function editCanvasDraftPoint(
     });
     if (error) failRpc('editCanvasDraftPoint', error, 'Could not save this point');
     const refused = refusalOf(data as Row | null);
-    if (refused) return staleToEvent(refused, draftId);
+    if (refused) {
+      if (refused.refused === 'stale_view') reReadWhenVisible(draftId);   // the screen holds an old revision: re-read, then ask again
+      return refused;
+    }
     const r = (data ?? {}) as Row;
-    emitCanvasDraftEvent({ kind: 'updated', draftId });
+    reReadWhenVisible(draftId);
     return { ok: true, changed: r.changed !== false, pointId: String(r.point_id ?? pointId), revision: typeof r.revision === 'number' ? r.revision : expectedRevision };
   } catch (e) {
     // The answer may have been lost after the write landed: ask the page to re-read, as stale_view does, so the editor can see the new point.
-    emitCanvasDraftEvent({ kind: 'updated', draftId });
+    reReadWhenVisible(draftId);
     throw e;
   } finally {
     clearListReturnCache();

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const rpc = vi.fn();
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc: (...a: unknown[]) => rpc(...a) } }));
@@ -41,3 +41,50 @@ describe('P1614 editCanvasDraftPoint re-reads the canvas after every outcome tha
     expect(events, 'busy changed nothing, so no re-read').toHaveLength(2);
   });
 });
+
+describe('P1614 metered rule 3: the follow-up re-read waits for a visible tab', () => {
+  const setVisibility = (v: 'hidden' | 'visible') => Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+  const becomeVisible = () => { setVisibility('visible'); document.dispatchEvent(new Event('visibilitychange')); };
+  afterEach(() => setVisibility('visible'));
+
+  it('a thrown call in a hidden tab asks for no re-read until the tab is visible, then asks once', async () => {
+    setVisibility('hidden');
+    rpc.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const off = listen();
+    await expect(editCanvasDraftPoint('d1', 'p1', 'text', 4)).rejects.toThrow();
+    expect(events, 'nothing while hidden').toEqual([]);
+    becomeVisible();
+    off();
+    expect(events).toEqual([{ kind: 'updated', draftId: 'd1' }]);
+  });
+  it('stale_view and success are deferred the same way', async () => {
+    setVisibility('hidden');
+    const off = listen();
+    rpc.mockResolvedValueOnce({ data: { status: 'refused', code: 'stale_view', revision: 5 }, error: null });
+    expect(await editCanvasDraftPoint('d2', 'p1', 't', 4)).toMatchObject({ ok: false, refused: 'stale_view' });
+    rpc.mockResolvedValueOnce({ data: { status: 'ok', changed: true, point_id: 'p2', revision: 6 }, error: null });
+    await editCanvasDraftPoint('d3', 'p1', 't', 5);
+    expect(events).toEqual([]);
+    becomeVisible();
+    off();
+    expect(events.map(e => e.draftId).sort()).toEqual(['d2', 'd3']);
+  });
+  it('several outcomes for one draft while hidden coalesce into ONE re-read', async () => {
+    setVisibility('hidden');
+    const off = listen();
+    rpc.mockRejectedValue(new TypeError('Failed to fetch'));
+    await expect(editCanvasDraftPoint('d4', 'p1', 'a', 4)).rejects.toThrow();
+    await expect(editCanvasDraftPoint('d4', 'p1', 'b', 4)).rejects.toThrow();
+    becomeVisible();
+    off();
+    expect(events).toEqual([{ kind: 'updated', draftId: 'd4' }]);
+  });
+  it('a visible tab asks at once (control)', async () => {
+    rpc.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const off = listen();
+    await expect(editCanvasDraftPoint('d5', 'p1', 'a', 4)).rejects.toThrow();
+    off();
+    expect(events).toEqual([{ kind: 'updated', draftId: 'd5' }]);
+  });
+});
+

@@ -106,6 +106,11 @@ function PointEditor({ entry, point, edit, boxIds }: { entry: PointEditEntry; po
   // After a refusal, a failure or an empty-text sentence the focus goes back into the text, so the outline is the one the open state shows (a click on Save leaves it on the button).
   const hasProblem = !!entry.problem;
   useEffect(() => { if (hasProblem && !entry.saving && !gone) areaRef.current?.focus(); }, [hasProblem, entry.problem, entry.saving, gone]);
+  // The editor of a gone point replaces one that had focus, so focus would drop to the page: it goes to the read-only text, unless the owner has already moved focus elsewhere.
+  useEffect(() => {
+    const at = document.activeElement;
+    if (gone && (!at || at === document.body)) areaRef.current?.focus();
+  }, [gone]);
   const shown = gone ? null : edit.runActive && !entry.saving ? RUN_GOING_TEXT : entry.problem;
 
   const save = async () => {
@@ -144,7 +149,7 @@ function PointEditor({ entry, point, edit, boxIds }: { entry: PointEditEntry; po
         // read-only while Save is in flight (nothing typed then can be lost) and when the point is gone (the text can be selected and copied, not saved)
         readOnly={entry.saving || gone}
         aria-label="Point text"
-        aria-describedby={shown ? noteId : undefined}
+        aria-describedby={gone || shown ? noteId : undefined}
         // Escape closes the editor, but not while a save is in flight: a save that commits after the editor closed would look like it did nothing.
         onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!entry.saving) closePointEdit(key); } }}
         className={`min-h-24 text-base ${gone ? 'resize-none bg-muted' : 'resize-y'}`}

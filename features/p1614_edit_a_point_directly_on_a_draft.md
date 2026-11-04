@@ -30,7 +30,7 @@ Blast radius: draft points, Publish's supersede links, undo, and the agent's nex
 
 An owner viewing their open draft gets an Edit control on every point, on the board and in See all, sitting on the card. It opens the text in place of the card with Save and Cancel. Save calls one new owner RPC under the v6 revision protocol (expected revision, lock order, refusals). No model is called and no run is used.
 
-**Save does exactly what an agent `reword` of that point does, for every kind of point.** `_canvas_draft_run_complete` already handles the three kinds, so the RPC shares that logic rather than adding a fourth path:
+**Save does what an agent `reword` of that point does, for every kind of point.** `_canvas_draft_run_complete` already handles the three kinds. The RPC follows that reword branch by hand rather than calling it (the engine's function is one routine tied to runs, scope and spend), so it is a fourth path that must be kept in step: a change to the engine's reword branch is checked against `canvas_draft_edit_point` (pointer in `docs/technical/database.md`). The behavior is:
 
 - It always writes a NEW point and takes the draft's tag off the old one. No point is ever changed in place, so a published version cannot be affected.
 - A reused published head point gets a pending supersede link (old to new), applied at Publish.
@@ -89,9 +89,33 @@ The control is a pencil icon named "Edit", matching the canvas name's pencil (fo
 - [x] A story and the owner's stance on the old point are on the new point after the edit; a legacy private copy edit publishes correctly. *(Integration. The legacy copy state is built by hand, because self-hosted TEST cannot seed a public canvas point; its public visibility is not exercised.)*
 - [x] Visual QA passed by a separate reviewer at 1440, 375 and 320, editor open and closed. *(Separate screenshots-only reviewer, two rounds at 1440, 375, 320; its findings were fixed. The last small fixes were checked by the build agent's screenshots and the walk, not re-reviewed.)*
 
+## Cost Budget
+
+Applies because the migration adds a per-request function and the tests create and delete users. No timer, poll, retry loop or model call: one owner tap is one write and one re-read.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | 1 Save = 1 RPC + 1 canvas re-read = 2 requests, none on a hidden tab (the re-read waits for visibility; repeats for one draft coalesce into 1) | Saves per hour x 2; an owner editing by hand makes few | Browser walks: (3 + 3 + 1 + 2) = 9 users x (1 create + 1 delete) = 18 auth admin calls, plus ordinary page reads. Integration: 14 tests x 1 owner = 14 users x 2 = 28 calls |
+| Users created / deleted | 0 | 0 | 9 + 14 = 23 created, 23 deleted in `finally` or `afterAll` |
+| Egress | 1 existing canvas read per Save, no new payload | as above | test canvases only; no media |
+| Log lines | a refusal is returned, not raised, so 0 from `busy` or `stale_view`; a validation error is 1 line | 0 expected | a few deliberate refusals in integration: up to 1 line each for 3 validation cases and 2 authorization cases = 5 |
+| Gemini | 0 | 0 | 0: runs are stubbed |
+
+1. **Fits the plan limit today?** Yes. Tests run on self-hosted TEST, a Compute Engine VM billed by the hour and not by request (registry, Compute Engine row). On prod, Supabase egress grows by (Saves per user x 1 canvas read) x active users, read against the registry's Supabase row; a hand edit is a rare owner action on a draft, far below the page's normal reads, so it fits.
+2. **Fits at 10x?** Yes, for the same reasons.
+3. **Rule 1 (bulk on the server):** cleanup deletes users one call each through the shared helper, as sibling specs do; Auth's admin API deletes one user per call. **Rule 3 (hidden tab):** the re-read waits for a visible tab. **Rule 6:** met by this table.
+
+## Known Limitations
+
+- Stepping from See all into a point's detail moves an open editor to the grid behind it. The text is kept.
+- The pencil's 40px hit area overlaps the bottom of the statement's text box by about 5px, so a tap there opens Edit instead of the card.
+- Blank-only text sent by direct RPC, such as a newline, passes the server's trim, as it does for the engine. The app's own check blocks it.
+- A signed-out viewer sees no editor at once; their text is removed when the page unmounts.
+- Typing the original words back drops a stance that was set only on the intermediate point.
+
 ## Migration Plan
 
-One new migration adds the RPC and nothing else, applied to the active TEST server through main's `./scripts/migrate.sh`. Applied to prod by the normal push path.
+Two migrations add and then correct the RPC and nothing else, applied to the active TEST server through main's `./scripts/migrate.sh`. Applied to prod by the normal push path.
 
 ## Rollback Plan
 

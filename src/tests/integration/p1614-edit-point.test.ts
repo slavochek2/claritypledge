@@ -382,4 +382,83 @@ describe('P1614 edit a point on a draft', () => {
     expect(Number(pub.skipped_links ?? 0)).toBe(0);
     expect((await admin.from('points').select('superseded_by').eq('id', a.id).single()).data!.superseded_by, 'Publish applies it').toBe(e.point_id);
   }, T);
+
+  /** The owner's read of the box, in the order the page draws it (get_canvas orders by created_at, then id). */
+  const boxOrder = async (o: Owner, ws: WS, box = SEG): Promise<string[]> => {
+    const r = await ok(o.c, 'get_canvas', { p_owner: o.u.user.id, p_name: ws.name, p_link_token: null, p_version: ws.vname });
+    return (r.points as Row[]).filter((p) => (p.system_tags as string[]).includes(box)).map((p) => p.statement as string);
+  };
+
+  it('a hand edit keeps the card where it was in its box, for points written in ONE run (same timestamp) too', async () => {
+    const o = await mkOwner('order'); const ws = new WS(o);
+    // five points in one run share one created_at, so their order is decided by id: the new point must not fall out of place
+    await ws.cycle([newPt(SEG, 'o1'), newPt(SEG, 'o2'), newPt(SEG, 'o3'), newPt(SEG, 'o4'), newPt(SEG, 'o5')]);
+    const before = await boxOrder(o, ws);
+    expect(before).toHaveLength(5);
+    for (let round = 0; round < 3; round++) {
+      for (const base of ['o1', 'o2', 'o3', 'o4', 'o5']) {
+        const cur = await boxOrder(o, ws);
+        const i = cur.findIndex((t) => t.startsWith(nn(base)));
+        const pts = await ws.points();
+        const target = ws.byText(pts, cur[i]!);
+        await ws.okEdit(target.id, nn(`${base} edit${round}`));
+        const after = await boxOrder(o, ws);
+        expect(after.findIndex((t) => t === nn(`${base} edit${round}`)), `${base} round ${round}: same place in the box`).toBe(i);
+        expect(after).toHaveLength(5);
+      }
+    }
+  }, 600_000);
+
+  it('typing the original words back returns to the original point: no new point, no link, and Publish says nothing changed', async () => {
+    const o = await mkOwner('back'); const ws = new WS(o);
+    await ws.cycle([newPt(SEG, 'orig words')]);
+    const v1name = ws.vname;
+    const orig = ws.byText(await ws.points(), nn('orig words'));
+    await publish(ws);
+    const v1 = (await admin.from('canvas_versions').select('id').eq('canvas_id', ws.canvas).eq('name', v1name).single()).data as Row;
+    ws.draft = '';
+    const sent = await ok(o.c, 'canvas_workspace_send', {
+      p_canvas: ws.canvas, p_from_version: v1.id, p_expected_draft: null, p_expected_revision: null, p_replace: false,
+      p_body: nn('open'), p_box_refs: [PROB], p_attachment: null, p_client_id: randomUUID(),
+    });
+    ws.draft = sent.draft_id; ws.vname = sent.version_name;
+    await eng('_canvas_draft_run_begin', { p_run: sent.run_id, p_owner: o.u.user.id, p_has_file: false, p_cap_reply: null });
+    await eng('_canvas_draft_run_complete', { p_run: sent.run_id, p_owner: o.u.user.id, p_actions: [{ action: 'keep', point_id: orig.id }], p_questions: {}, p_scope: [], p_focus: null, p_other_canvases: [], p_note: null, p_reply: nn('r'), p_usd: 0.001 });
+    await ws.state();
+    const toB = await ws.okEdit(orig.id, nn('middle words'));
+    expect(((await ws.draftRow()).pending_links as Row[])).toHaveLength(1);
+    const back = await ws.okEdit(toB.point_id, nn('orig words'));
+    expect(back.point_id, 'the original point is back, not a third point').toBe(orig.id);
+    expect(((await ws.draftRow()).pending_links as Row[]), 'no link: the words are the base\'s').toEqual([]);
+    expect((await ws.points()).map((p) => p.id), 'the draft holds exactly the original point').toEqual([orig.id]);
+    expect((await admin.from('points').select('superseded_by,statement').eq('id', orig.id).single()).data).toMatchObject({ superseded_by: null, statement: nn('orig words') });
+    const st = await ws.state();
+    expect(st.draft.differs_from_base, 'same as the base again').toBe(false);
+    const pub = await publish(ws);
+    expect(pub, JSON.stringify(pub)).toMatchObject({ status: 'refused', code: 'no_changes' });
+  }, T);
+
+  it('control: typing the original words back when that point is no longer a head makes a new point as before', async () => {
+    const o = await mkOwner('backhead'); const ws = new WS(o);
+    await ws.cycle([newPt(SEG, 'head words')]);
+    const v1name = ws.vname;
+    const orig = ws.byText(await ws.points(), nn('head words'));
+    await publish(ws);
+    const v1 = (await admin.from('canvas_versions').select('id').eq('canvas_id', ws.canvas).eq('name', v1name).single()).data as Row;
+    ws.draft = '';
+    const sent = await ok(o.c, 'canvas_workspace_send', {
+      p_canvas: ws.canvas, p_from_version: v1.id, p_expected_draft: null, p_expected_revision: null, p_replace: false,
+      p_body: nn('open'), p_box_refs: [PROB], p_attachment: null, p_client_id: randomUUID(),
+    });
+    ws.draft = sent.draft_id; ws.vname = sent.version_name;
+    await eng('_canvas_draft_run_begin', { p_run: sent.run_id, p_owner: o.u.user.id, p_has_file: false, p_cap_reply: null });
+    await eng('_canvas_draft_run_complete', { p_run: sent.run_id, p_owner: o.u.user.id, p_actions: [{ action: 'keep', point_id: orig.id }], p_questions: {}, p_scope: [], p_focus: null, p_other_canvases: [], p_note: null, p_reply: nn('r'), p_usd: 0.001 });
+    await ws.state();
+    const toB = await ws.okEdit(orig.id, nn('middle words'));
+    // the original is superseded elsewhere meanwhile: it is not a head any more
+    const sup = await admin.from('points').update({ superseded_by: toB.point_id }).eq('id', orig.id);
+    expect(sup.error).toBeNull();
+    const back = await ws.okEdit(toB.point_id, nn('head words'));
+    expect(back.point_id, 'not restored: a new point').not.toBe(orig.id);
+  }, T);
 });
