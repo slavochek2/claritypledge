@@ -324,14 +324,19 @@ def chunk_end_times(refs: list[ChunkRef], chunk_s: int = 30, tol_s: int = CHUNK_
         # so upload jitter cannot move them; only a lasting rise above UPLOAD_JITTER_MS (a real short pause) opens a gap.
         suffix_min: dict[int, int] = {}
         low = None
-        for r in reversed(st):
+        for i, r in reversed(list(enumerate(st))):
             d = r.created_ms - expected[r.number]
+            # A missing number's length is a guess, so a delay measured across the hole says nothing about earlier chunks.
+            if i + 1 < len(st) and st[i + 1].number != r.number + 1:
+                low = None
             # A final chunk of unknown length may be short, so its delay is not evidence about the chunks before it.
             if r.number in dur or len(flush) > 2 or r is not ordered[-1]:   # three or more bunched is an offline flush, not a short tail
                 low = d if low is None else min(low, d)
             suffix_min[r.number] = d if low is None else low
         anchor = None
-        for r in st:
+        for i, r in enumerate(st):
+            if i and st[i - 1].number != r.number - 1:
+                anchor = None
             # The last chunk has no later upload to confirm a rise, so one slow upload there needs the full tolerance.
             limit = tol if r is st[-1] else UPLOAD_JITTER_MS
             if anchor is None or suffix_min[r.number] - anchor > limit:

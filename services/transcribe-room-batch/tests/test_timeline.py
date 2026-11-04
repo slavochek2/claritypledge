@@ -284,3 +284,9 @@ def test_p1611_a_short_pause_stays_a_gap_and_nothing_lands_after_its_upload():
     refs = [audio.ChunkRef(number=n, object_name=f"c{n}", created_ms=t) for n, t in enumerate((30_000, 64_000, 94_000))]
     out = audio.chunk_end_times(refs, durations_ms={0: 30_000, 1: 30_000, 2: 30_000})
     assert out == {0: 30_000, 1: 64_000, 2: 94_000}
+
+
+def test_p1611_a_dropped_partial_chunk_does_not_move_audio_before_the_hole():
+    refs = [ChunkRef(number=0, object_name="c0", created_ms=30_000), ChunkRef(number=2, object_name="c2", created_ms=65_000)]
+    out = audio.chunk_end_times(refs, durations_ms={0: 30_000, 2: 30_000})
+    assert out == {0: 30_000, 2: 65_000}
