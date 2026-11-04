@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 88
 workstream: infrastructure
 created_date: '2026-11-04'
 tags: [day, ux, process]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: founder
+completed_at: 2026-11-04
 ---
 
 # P1609: The Day page has one to-do list; Status becomes a checklist that says where each problem went
