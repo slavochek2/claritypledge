@@ -1,16 +1,16 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 61
 workstream: events
 created_date: '2026-10-22'
 tags: [events, membership, learning, prepare, community]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-11-05
 ---
 
 # P1549: Learn about the community, then decide: the path into membership
