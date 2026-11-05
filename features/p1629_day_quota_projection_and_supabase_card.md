@@ -1,13 +1,20 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 100.0
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [day, kanban, monitoring]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: reproduce
+pipeline_ran: [create-spec, reproduce]
+reproduce_artifact:
+  test_file: tools/kanban/server/__tests__/day-p1629.test.ts
+  root_cause: "quotaHistory filters on started_at against resets_at - 7d, dropping a same-window reading; cp.quota can be recorded by hand (agent-reported) without the parser output, and nothing reconciles the check with monitoring.supabase"
+  confidence: high
+  surfaces_in_scope: [quotaHistory, day-render cp.quota, day.md usage file freshness, day-cp.md w2q]
+  surfaces_deferred: []
+  reproduced_at: 2026-11-05
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -22,6 +29,12 @@ exec_effort: high
 **Projection.** `quotaHistory` (`tools/kanban/src/lib/day.ts`) keeps a reading only if its time is within 7 days before the current reset. On the 2026-11-05 run both subscriptions had one reading, so the chart drew no projection. Claude's 2026-11-04 reading carried the same `resets_at` as today's but was taken 41 minutes before `resets_at - 7 days`, so it was dropped.
 
 **Supabase.** In the same report, `cp.quota` carries agent-reported figures while `monitoring.supabase.collected` is false with no organisations. `/tmp/day-supabase-usage.txt` was still dated 2026-11-04, so that run did not refresh it. Why it did not is unknown (hypothesis, not cause).
+
+## Root Cause
+
+**Projection (confirmed).** Reports: 2026-11-04T02:19:41Z Claude 100, 2026-11-05T06:12:06Z Claude 82, both `resets_at` 2026-11-11T03:00:00Z. The window opens at 2026-11-04T03:00:00Z, so the first is dropped. Codex really did reset between the runs, so its single point is the accepted case.
+
+**Supabase (confirmed from the report).** The 2026-11-05 `cp.quota` detail starts `agent-reported:`, written by `day-step.sh` for a check recorded by hand. The agent read the figures and skipped the parser append in `day-cp.md` Wave 2q, so `/tmp/day-supabase-usage.txt` stayed at 2026-11-04 09:23 and the 6-hour reader in `day.md` returned nothing. The check says it ran and the card says not read, and no code compares them. A second run within 6 hours would also read an earlier pass's file as its own.
 
 ## Appetite
 
