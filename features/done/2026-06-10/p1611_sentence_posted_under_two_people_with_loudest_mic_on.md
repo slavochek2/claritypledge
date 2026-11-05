@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 90
 severity: medium
@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [transcription, events, attribution]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
+completed_at: 2026-11-05
 ---
 
 # P1611: A sentence can post under two people with the loudest-mic rule on
