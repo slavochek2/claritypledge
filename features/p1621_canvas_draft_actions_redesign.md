@@ -1,17 +1,19 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 97
 workstream: canvas
 created_date: '2026-11-05'
 tags: [canvas, ux, design-system]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+spec_review_hash: 650628a6f4626b0da9d138d5a3ec14988bccd904ce2131d1b5b90170558926ba
+spec_review_vendors: [codex, gemini, openrouter]
 ---
 
 # P1621: Canvas draft shows content first, and actions when a box is selected
@@ -32,7 +34,7 @@ driver: anomaly
 
 ## Appetite
 
-Blast radius: the canvas page for owners, and one new write path. Reversibility: code by git revert; points created by hand stay as data. Decision density: low, the layout is approved; the copy marked below is open.
+Blast radius: the canvas page for owners, and one new write path. Reversibility: code by git revert; a saved hand point is an ordinary draft point: it survives reloads and Publish, and leaves like any other point if the agent drops it or the draft is discarded. Decision density: low, the layout is approved; the copy marked below is open.
 
 ## Invariants
 
@@ -63,6 +65,42 @@ Approved prototype: `/tree/canvas-actions?v=h`, branch `feature/p1621-canvas-act
 - **Composer:** the pill sits above the text field with a remove control. Several different boxes in one message stay possible. Text someone types in brackets behaves as today.
 - **Undo:** the secondary blue-outline style (founder request).
 - **Upload icon:** tooltip on hover and focus, plus an accessible name.
+- **Keyboard (founder requirement):** selecting a box and every action must work by keyboard. Each box's title row is a real button that says whether the box is selected; Enter or Space selects or deselects, and Tab then reaches that box's actions in visual order. Escape deselects and returns focus to the title. Selecting an empty box moves focus to the text field; Cancel returns it to the title. Clicking elsewhere in a box is a mouse and touch convenience on top of this, never the only way.
+
+**Opened point, checked against the real panel (`feed-point-card.tsx`, `canvas-page.tsx`, `canvas-page-data.ts`):**
+
+| Condition for Add a story | Today | After P1621 |
+|---|---|---|
+| Signed in (`viewerId`) | required | unchanged |
+| Stories loaded (`linkedStories`) | required | unchanged |
+| No story of the viewer's on this point | required | unchanged |
+| Has not already added one through the canvas (`ownStoryAdded`) | required | unchanged |
+| Not read-only (`readOnly`) | required | unchanged |
+| Not a draft point kept from a published version (`noAddStory`) | required | unchanged |
+| Viewer holds a position | required of everyone (line 163) | **canvas owner on their own point: not required.** Reader: still required |
+| Story visibility | the point's, with the audience note on a private story | unchanged |
+| Edit in the panel | absent | **owner on an open draft only**, gone while a run is going, as on the card |
+
+The dialog inherits the point's visibility. Points made by the current engine are private, so on most canvases the story is private; the public path is reachable on an older public point and is tested at the dialog level.
+
+**Who sees the layout changes:** section names and box order are the canvas's reading order, so they apply to every viewer.
+
+## Behaviour Rules (from spec review)
+
+- **Card click:** on the owner's open draft a card is not a button; clicking it selects the box, and Open opens the point. Readers and published versions keep the whole card opening. Closing the panel returns focus to that point's Open button when its box is selected, otherwise to the box title.
+- **Where it applies:** selection with Edit, Add card and in-place See all exists only on the owner's open draft. On the owner's published version or a pending Clone, selecting shows Mention in chat only, cards still open, and See all keeps its panel. A `?box=` address still opens the panel. With no open draft there is nothing to save to, so no Add card and no editor opens (default, see Founder Review).
+- **Open editors:** an Edit editor already open stays visible whatever is selected, and its Escape keeps P1614's behaviour. A new-card editor: Escape closes it and deselects, keeping the text; only Cancel discards; Escape does nothing during a save. A box holding unsaved new-card text shows a quiet "Unsaved text" label at rest. The buffer is separate from P1614's point entries, so it never reads as a gone point, and it clears on leaving the page as P1614's does.
+- **After saving a card:** the box stays selected and expands so the new card is visible; focus goes to Add card, or to the title when the box is now full. The stance stays empty. The new card appears on the next published version.
+- **Retry:** each save carries a client id stored with the point; a repeat returns the first result without writing, before the revision check.
+- **Refusals keep the text:** a run going (same notice as P1614), a stale revision (P1614's sentence), a box that filled while typing (the full-box message, no Save), the same words already in the box (refused with a sentence), a draft gone (text kept to copy). Add card and Edit are absent while a run goes. A box already over 3 from an older version refuses a new card; edits stay allowed.
+- **See all:** deselecting or selecting another box collapses it. A box with no question shows just the editor.
+- **Mention in chat:** the tag stays in the composer's stored text, gathered at the start of the value, so drafts, voice notes, failed-send restore and Send keep working; the field shows only the words, and pills render above it. The composer needs words or a voice note to send, as its Send button does today, so Enter on pills alone does nothing. "Mentioned" holds while the tag is in the composer or waiting for it, and resets if a wait is dropped. On a wide screen the thread opens if closed and focus stays on the button; clicks in the thread do not deselect. Below 1280 the thread is shown as today, and the pill there is the feedback. The label always shows on a selected box, wrapping if needed.
+- **Accessibility:** the title button sits inside the box's heading; each box stays a labelled section; the layer wrappers lose their names.
+- **Add a story:** the owner's no-position case uses the existing "+ Add a story" copy.
+
+## Founder Review
+
+Defaults built, each easy to change: (1) no open draft means no hand-written card until the first message; (2) one hand card on an empty draft means the next message is no longer treated as the first draft: scope comes from the model instead of all nine boxes and no focus is set; (3) the agent can still drop a hand card, and Undo of that run brings it back; (4) saving a card closes Undo with no message; (5) the agent cannot reword a hand card unless the message supplies the words; (6) a private story on a hand card the agent later removes stays stored with no link, as P1614's does. Wording to approve: "Mentioned", the full-box message, the duplicate sentence, "Unsaved text".
 
 [FOUNDER DECISION: exact wording of the full-box message and of the "Mentioned" confirmation.]
 
@@ -76,11 +114,12 @@ Approved prototype: `/tree/canvas-actions?v=h`, branch `feature/p1621-canvas-act
 | On a phone, tapping an empty box brings up the keyboard at once | ACCEPT | Founder asked for direct typing; Cancel backs out |
 | Selecting replaces "tap a card to open" for the owner | MITIGATE | Applies to the owner's draft only; readers keep the whole card opening |
 | A hand-added point during an agent run conflicts with the run | MITIGATE | Same busy handling as P1614's Edit, under the same lock as the limit check |
+| A hand card can be removed by the agent or lost with Undo closed | ACCEPT | Founder Review items 3 and 4 |
 | Save is a filled button alongside Publish | ACCEPT | P1614's editor already does this; it appears only while typing |
 
 **Non-Goals**
 - Do NOT change the quote check or the drop message; that is the separate short-point bug.
-- Do NOT change what readers see.
+- Do NOT change what actions readers have or how their cards behave.
 - Do NOT rename any box.
 - Do NOT change where Open appears (panel, sheet) or the reader's position-first story rule.
 - Do NOT change the mic button or box icons (reviewed, kept).
@@ -91,26 +130,30 @@ Approved prototype: `/tree/canvas-actions?v=h`, branch `feature/p1621-canvas-act
 - [ ] First visit opens the first box with a card; a later visit starts with none selected
 - [ ] Clicking any non-control area of a box selects it, including the row beside See all
 - [ ] Only one box is selected; clicking it again or outside deselects it
-- [ ] A selected filled box shows Mention in chat top right, Edit then Open on the card, Add card bottom left, See all N bottom right
+- [ ] On a draft, a selected filled box shows Mention in chat top right and Edit then Open on the card, with Add card bottom left when it holds under 3 and no run is going, and See all N bottom right when it holds more than 1
 - [ ] Selecting an empty box focuses a text field, with the question visible, Save and Cancel
 - [ ] Typed text survives clicking away and selecting another box
 - [ ] See all N shows every card in one click, keeps the selection, and Show less collapses it
 - [ ] An owner adds a card by hand, it stays after reload, and a published version is unchanged
 - [ ] At 3 cards a box says it is full, with no dead button; two simultaneous saves cannot make a 4th
+- [ ] A save whose answer was lost and is repeated with the same client id makes one card; a box that fills while typing keeps the text and says so
+- [ ] Saving a card expands the box to show it; a published draft includes the hand card
+- [ ] Editing from the opened point keeps the panel open on the new point
+- [ ] Pills survive a reload and a failed send, and a voice note carries them
 - [ ] Open still opens the panel on desktop and the sheet on phones
 - [ ] The owner sees Add a story on their own point with no position taken, except a point kept from a published version, and can save it as public and as private; a reader's rule is unchanged
 - [ ] The owner can Edit from the opened point on a draft
 - [ ] Layer names and numbers are gone; boxes read in the approved order, on the page and with Previous/Next
 - [ ] Mention in chat confirms on the button; a repeat click adds no second pill; two boxes give two removable pills and the message sends with both
-- [ ] On a phone, Mention in chat gives visible feedback when the chat is off-screen
+- [ ] On a phone, Mention in chat shows the thread with the pill in it, and the box reads Mentioned on returning to the canvas
 - [ ] Undo has the blue outline; the upload icon has a tooltip and accessible name
 - [ ] A reader sees none of the owner actions
+- [ ] By keyboard alone: a box can be selected and deselected, and Edit, Open, Add card, See all, Show less, Mention in chat, Save and Cancel all work, with visible focus and focus never lost to the page
 - [ ] Long text, 0 cards and 3 cards hold at 320px, 375px and desktop, with every control at least 40px tall
 
 ## Open Questions
 
-1. The owner's published canvas shows Add to chat today (a tap starts a Clone, P1536 J4). Does selection apply there too? Default: yes for Mention in chat only. UNVERIFIED against the real route.
-2. A hand-added point carries no quote and is not subject to the quote check.
+A hand-added point carries no quote and is not subject to the quote check.
 
 ## Alternatives Considered
 
