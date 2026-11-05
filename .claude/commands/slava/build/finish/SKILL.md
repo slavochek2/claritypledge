@@ -1,8 +1,8 @@
 ---
 name: finish
-description: "The end-of-build review standard (P1505): classifies what changed, runs criteria reviewers plus external reviewers by stakes (Gemini review model and GLM always, Codex, Opus), and writes the review receipt. Called by /dev and /fix; run standalone after any ad-hoc build, or when the Stop-hook review gate asks for it."
+description: "The end-of-build review standard (P1505): classifies what changed, runs criteria reviewers plus external reviewers by stakes (Gemini review model, GLM unless skipped, Codex, Opus), and writes the review receipt. Called by /dev and /fix; run standalone after any ad-hoc build, or when the Stop-hook review gate asks for it."
 when_to_use: "Automatically inside /dev (step 9.5) and /fix (QA gate). Standalone: at the end of any build done outside /dev or /fix, and whenever the Stop-hook review gate (verify-before-stop.py) names files to review."
-version: 1.2.0
+version: 1.3.0
 ---
 
 # /finish
@@ -165,7 +165,7 @@ records exactly what the reviewers saw, and nothing written later.
 | Reviewer | Runs when | How |
 |---|---|---|
 | Gemini (review model) | **every run** | write a prompt file (the `criteria/code.md` text plus the diffs), then run `~/.agents/bin/delegate-gemini --model "$(sed -n 's/^REVIEW_GEMINI_MODEL=//p' ~/.agents/model-defaults.env)" --file <prompt file>` |
-| Codex | more than one file changed, OR the diff is over 50 lines, OR a long run (more than one fix round, or the work spanned over 30 minutes) | `~/.agents/bin/codex-review --prompt-file <prompt file>` (same prompt; Codex also reads the repo) |
+| Codex | more than one file changed, OR the diff is over 50 lines, OR a long run (more than one fix round, or the work spanned over 30 minutes), OR GLM was skipped under the conditions below | `~/.agents/bin/codex-review --prompt-file <prompt file>` (same prompt; Codex also reads the repo) |
 | GLM (extra reviewer, advisory) | **every run, except the skip conditions below** | same prompt file as Gemini: `~/.agents/bin/ask-model openrouter --timeout 600 --prompt-file <prompt file>` |
 | Opus adversary | the change touches `supabase/migrations/`, `supabase/functions/`, an auth path (`**/auth*`, `**/*session*`, RLS), `.claude/hooks/`, `.claude/settings.json`, `scripts/git-ops.sh`, `scripts/ship-gates.sh`, `scripts/pre-commit-checks.sh` or another gate | an `Agent` with `model: "opus"` and a hostile prompt that writes its report to a file. For security, data or ship tooling, escalate to `/slava:think:adversarial-review` |
 
@@ -174,21 +174,28 @@ The model ids live only in `~/.agents/model-defaults.env` (`REVIEW_GEMINI_MODEL`
 
 **GLM skip conditions (P1630). GLM goes to a third-party host, so this check fails closed.** Skip GLM,
 and report why, when any of these holds:
-- On a `feature/pN-*` or `fix/pN-*` branch, that spec's `disclosure` on the branch is `embargo`, or the
-  spec is missing, or it has no `disclosure` value. Off such a branch there is no spec lookup; the
-  remaining conditions still apply.
-- Any changed path is under `.private/`.
-- The prompt file would carry anything from `.private/` or from an embargoed spec.
+- **Any checkout not on `main`, detached HEAD included:** take the P-number from the branch name or its
+  commits (Step 1), whatever the branch prefix or name shape, and read that spec's committed copy with
+  `git show HEAD:<spec path>`. Skip when its `disclosure` is `embargo`, when no P-number or no spec can be
+  found, or when it has no `disclosure` value.
+- **Any `features/p*.md` in `CHANGED_FILES`, or included in the prompt,** whose `disclosure` is not `public`.
+- **Any changed path under `.private/`, or outside this public repo** (`/finish <file>` can name a file in a
+  private repo, and git never lists `.private/`).
+- **The prompt file would carry anything else from `.private/` or from an embargoed spec.** Build the prompt only
+  from the criteria text and `CHANGED_FILES`, and check any other file you add against this list first.
 
-**A skip for embargo means Codex runs whatever the size**, so the highest-stakes work never gets the
-smallest roster. Report it as `GLM skipped (embargo)`, or name the other reason.
+**Any of these skips means Codex runs whatever the size**, since an unknown disclosure may be an embargo and the
+highest-stakes work must not get the smallest roster. Report it as `GLM skipped (embargo)`, or name the other reason.
+
+Known limit: on `main` there is no spec to read, so code already shipped from an embargoed branch and awaiting
+`archive-spec` carries no marker. Do not run `/finish` on such code from `main`.
 
 **GLM triage happens before the founder sees anything.** About half of its extra findings do not
 reproduce. Check each finding with what the claim calls for: a reproduction, a failing test, or a
 concrete counterexample in the source or schema (epistemic gate 9). A finding that fails the check is
 dropped and counted. One that matters but cannot be checked locally, such as a production-only race,
 reaches Step 5 labelled `unverified`, never silently dropped. A subagent may do a check, but none is
-required.
+required. In Step 5 an `unverified` finding is flagged for the founder's decision and is never part of `all HIGH`.
 
 **No single reviewer's "no defects" is clearance, from any reviewer.** A receipt records that an
 independent review of this content ran, not that the code is clean.
@@ -204,8 +211,11 @@ independent review of this content ran, not that the code is clean.
   mean **that review did not run**, whatever else the output says.
   - Re-run it once by a different route (for example without `--model`, falling back to the default
     `GEMINI_MODEL`, and say so).
-  - If `delegate-gemini` exits 2 (its credential-shape scan refused the payload), run `codex-review` as the
-    evidence reviewer instead. Never edit the payload to get past the scan.
+  - If `delegate-gemini` exits 2 (its credential-shape scan refused the payload), or Gemini still has no valid
+    output after that re-run, run `codex-review` as the evidence reviewer instead, whatever the size. Never edit the
+    payload to get past the scan.
+  - If neither Gemini nor Codex produced a valid run, `write` will refuse, even with a good GLM run. Stop and tell the
+    founder. Only the founder can decide to waive (`review_receipt.py waive`); never waive on your own.
   - GLM has no second route. A non-zero exit, a MISMATCH, a 404 from zero-retention routing, an empty file or
     a credential-scan exit 2 all mean it did not run: no re-run, report it missing. It never blocks and never
     counts as clean. Never edit the payload to get past the scan.
@@ -215,11 +225,13 @@ independent review of this content ran, not that the code is clean.
   with a reviewer missing must say so in the report.
 - **Report line:** always print this one line, with each reviewer's outcome and any skip reason, so nobody has to ask:
   `Reviewers: Gemini ok · GLM ok (5 findings, 2 verified, 0 unverified) · Codex skipped (one file) · Opus not triggered · 2 of 2 received`.
-  The GLM counts are `N findings, M verified, K unverified`.
+  The GLM counts are `N findings, M verified, K unverified`; anything else was dropped. A failed run reads `GLM missing (exit 3)`, a
+  skip `GLM skipped (embargo)`. Whoever ran Step 4b prints it: a `/finish code` subagent does not know the outcomes.
 - **Freshness:** a fix applied after the snapshot is unreviewed code, and `write` will refuse it.
   - Re-snapshot and re-review the changed files. Every new snapshot needs **at least one fresh Gemini or Codex
     run**, or no receipt can be written: `write` refuses a re-review by GLM alone. The reviewer that found the fixed
-    issue re-runs too if it is reachable; if not, report it missing, and nothing blocks.
+    issue re-runs too, one attempt per snapshot; if that fails, report it missing, and nothing blocks. GLM runs on a
+    new snapshot only as such a finder, and its skip conditions still apply.
   - Stopping rule (decisions.md 2026-10-14 [process], "Overnight autonomous batch — when to stop review rounds"):
     fix every finding a reviewer reproduces on a shape this repo actually produces, or one that falsely blocks
     a legitimate workflow. Record exotic shapes as "Known limitations" in the spec. "Zero findings" is not
@@ -313,7 +325,7 @@ After findings are fixed or set aside, and after any re-review of fixes:
 python3 scripts/review_receipt.py write --snapshot <path from Step 4b.0> --evidence <each ask-model output file from this round>
 ```
 
-Pass **every** `ask-model` output file from this round, GLM's and any failed one included. `write` filters
+Pass **every** `ask-model` output file from this review of these files, GLM's and any failed one included, and none from unrelated work: `write` checks the vendor, not what the run reviewed. `write` filters
 out failed and stale files itself and records the vendors of the valid ones in the receipt's `vendors` field.
 That field does not say who was attempted, skipped or failed, and never names Opus; the report line does that.
 
