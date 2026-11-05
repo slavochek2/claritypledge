@@ -1,6 +1,6 @@
 #!/bin/bash
 # scripts/audit-privacy.sh — privacy audit for any git range / staged changes / message file.
-# Exit 0 = clean, 1 = hits found, 2 = bad input.
+# Exit 0 = clean, 1 = hits found, 2 = bad input, 3 = the allowlist filter did not finish its input.
 # Modes:
 #   --staged                    # scan staged diff (for pre-commit)
 #   --msg <file>                # scan a commit-message file (for commit-msg hook)
@@ -101,12 +101,20 @@ fi
 # Security: a real `+++ b/<path>` header is ALWAYS preceded by a `--- ` line in unified diff.
 # We track the previous line type to reject content lines that start with `+++ b/`
 # (which would otherwise be parsed as a fake header, granting allowlist to lines below).
-if [ -f "$ALLOWLIST" ] && [ -s "$ALLOWLIST" ] && [ "$MODE" != "--msg" ]; then
-  FILTERED=""
+# P1617: kept lines go into an array by explicit index and are joined once. Appending to one string
+# recopied everything kept so far (9 minutes at 45k patch lines); `KEPT+=(...)` is also superlinear on
+# macOS bash 3.2. Runs in this shell, not a capture, so a kill ends the scan. The line count catches
+# input that ended early, which a read loop otherwise treats as a normal finish.
+filter_added_lines() {
+  local line allowed_path expected seen=0 kept_count=0
+  local KEPT
+  KEPT=()
   CURRENT_FILE=""
   SKIP=0
   PREV_KIND=""  # "dash" after seeing "--- " line; anything else resets
+  expected=$(printf '%s\n' "$DIFF" | wc -l | tr -d ' ')
   while IFS= read -r line; do
+    seen=$((seen+1))
     case "$line" in
       '--- '*)
         PREV_KIND="dash"
@@ -127,12 +135,12 @@ if [ -f "$ALLOWLIST" ] && [ -s "$ALLOWLIST" ] && [ "$MODE" != "--msg" ]; then
           PREV_KIND=""
         else
           # Content line that starts with `+++ b/` — treat as added content, not a header
-          [ "$SKIP" != "1" ] && FILTERED="${FILTERED}${line}"$'\n'
+          if [ "$SKIP" != "1" ]; then KEPT[kept_count]="$line"; kept_count=$((kept_count+1)); fi
           PREV_KIND=""
         fi
         ;;
       '+'*)
-        [ "$SKIP" != "1" ] && FILTERED="${FILTERED}${line}"$'\n'
+        if [ "$SKIP" != "1" ]; then KEPT[kept_count]="$line"; kept_count=$((kept_count+1)); fi
         PREV_KIND=""
         ;;
       *)
@@ -140,7 +148,19 @@ if [ -f "$ALLOWLIST" ] && [ -s "$ALLOWLIST" ] && [ "$MODE" != "--msg" ]; then
         ;;
     esac
   done < <(printf '%s\n' "$DIFF")
-  ADDED="$FILTERED"
+  if [ "$seen" != "$expected" ]; then
+    echo "audit-privacy: filter read $seen of ${expected:-unknown} input lines — refusing to report clean" >&2
+    exit 3
+  fi
+  ADDED=""
+  if [ "$kept_count" -gt 0 ]; then
+    local IFS
+    IFS=$'\n'
+    ADDED="${KEPT[*]}"$'\n'
+  fi
+}
+if [ -f "$ALLOWLIST" ] && [ -s "$ALLOWLIST" ] && [ "$MODE" != "--msg" ]; then
+  filter_added_lines
 fi
 
 # Scan helper: run all hard patterns against a string, collect hits

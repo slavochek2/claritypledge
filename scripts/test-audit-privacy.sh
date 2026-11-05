@@ -477,6 +477,129 @@ assert_allows "r2 phone: UUID-ish dashed hex is not NANP" "id 123e4567-e89b-12d3
 assert_range_allows "phone: diff line starting with digits is not read as +CC via the diff marker" \
   "add file" "docs/notes.md" "20261008 12345678 tally"
 
+# P1617: the allowlist filter must stay byte-identical to the filter at 7df461be2 while growing
+# linearly. Expected hashes below were generated ONCE from that frozen filter, so this cannot pass by
+# comparing the new code with itself. The region tested is cut from the shipped script, with no
+# test switch in the scanner. Regenerate only by running this file with P1617_PRINT_FROM=<old copy>.
+echo ""
+echo "=== P1617 filter byte equivalence ==="
+P1617_DIR="$(mktemp -d)"
+p1617_region() { sed -n '/^# For --msg mode/,/^# Scan helper/p' "$1"; }
+p1617_sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum | cut -d' ' -f1; else shasum -a 256 | cut -d' ' -f1; fi; }
+# $1 region file, $2 diff file, $3 allowlist path, $4 locale. Output: raw ADDED bytes, no shell capture.
+p1617_run() {
+  ALLOWLIST="$3" MODE=x P1617_DIFF_FILE="$2" LC_ALL="$4" bash -c '
+    DIFF=$(LC_ALL=C tr -d "\r" < "$P1617_DIFF_FILE")
+    . "$0"
+    printf "%s" "$ADDED"' "$1" 2>/dev/null
+}
+p1617_write() { # name, printf format for the diff
+  printf -- "$2" > "$P1617_DIR/$1.diff"
+}
+H='--- a/x\n+++ b/'
+p1617_write order        "${H}plain.md\n+one\n+two\n+three\n"
+p1617_write cr           "${H}plain.md\n+one\r\n+two\r\n"
+p1617_write exact        "${H}exact.md\n+dropped\n--- a/y\n+++ b/plain.md\n+kept\n"
+p1617_write prefix       "${H}docs/allowed/a.md\n+dropped\n--- a/y\n+++ b/docs/allowedx/a.md\n+kept\n"
+p1617_write bak          "${H}exact.md.bak\n+kept\n"
+p1617_write comment      "${H}#comment\n+kept\n--- a/y\n+++ b/\n+kept2\n"
+p1617_write noeol        "${H}last/entry\n+kept because an unterminated entry is ignored\n"
+p1617_write nonutf8      "${H}plain.md\n+caf\377 \303\251 end\n"
+p1617_write nul          "${H}plain.md\n+be\000fore\n+next\n"
+p1617_write numeric      "${H}1e3\n+dropped\n--- a/y\n+++ b/1000\n+kept\n"
+p1617_write space        "${H}has space.md\t\n+kept\n"
+p1617_write specials     "${H}plain.md\n+back\\\\slash \\\\n %%s %%d * ? [a]\n+trailing space \n+\n"
+p1617_write glob         "${H}doc*/a.md\n+kept\n--- a/y\n+++ b/gl[o]b.md\n+dropped\n"
+p1617_write deleted      "${H}exact.md\n+dropped\n--- a/z\n+++ /dev/null\n-gone\n"
+p1617_write allkept0     "${H}exact.md\n+dropped\n+dropped2\n"
+p1617_write contentline  "${H}plain.md\n+++ b/exact.md\n+kept\n"
+p1617_write empty        ""
+AL="$P1617_DIR/al"; printf 'exact.md\ndocs/allowed\n# comment\n\n1e3\ngl[o]b.md\n' > "$AL"
+ALN="$P1617_DIR/aln"; printf 'exact.md\nlast/entry' > "$ALN"
+ALE="$P1617_DIR/ale"; : > "$ALE"
+p1617_cases() {
+  for n in order cr exact prefix bak comment nonutf8 nul numeric space specials glob deleted allkept0 contentline empty; do echo "$n $AL C"; done
+  echo "nonutf8 $AL UTF8"; echo "specials $AL UTF8"
+  echo "noeol $ALN C"; echo "exact $ALE C"; echo "exact $P1617_DIR/absent C"
+}
+P1617_UTF8=C; for _l in en_US.UTF-8 C.UTF-8 C.utf8; do if locale -a 2>/dev/null | grep -qix "$_l"; then P1617_UTF8="$_l"; break; fi; done
+p1617_hashes() { # $1 script copy to cut the region from
+  p1617_region "$1" > "$P1617_DIR/region.sh"
+  p1617_cases | while read -r n a l; do
+    label="$l"; [ "$l" = UTF8 ] && l="$P1617_UTF8"
+    al="$(basename "$a")"
+    echo "$n/$al/$label $(p1617_run "$P1617_DIR/region.sh" "$P1617_DIR/$n.diff" "$a" "$l" | p1617_sha)"
+  done
+}
+if [ -n "${P1617_PRINT_FROM:-}" ]; then p1617_hashes "$P1617_PRINT_FROM"; exit 0; fi
+cat > "$P1617_DIR/expected" <<'EXPECTED'
+order/al/C e17f4e7d17dd32a99311fceecbe77e77b3c45c4f6bc7613f15d8168ab60d698a
+cr/al/C 0ab884c827aa02c092b780e8375a80a5e678002fb54b567db9f2f652beeab29b
+exact/al/C ed8a760afd05cfcea6dc673b8b523c21ea1cdd9bfe6c9a8fdc082e12681d2365
+prefix/al/C ed8a760afd05cfcea6dc673b8b523c21ea1cdd9bfe6c9a8fdc082e12681d2365
+bak/al/C ed8a760afd05cfcea6dc673b8b523c21ea1cdd9bfe6c9a8fdc082e12681d2365
+comment/al/C cb002da4fe704f996ed3dc7ef7ca46e4e37967a0c259d059b67cb7a32c5e95f7
+nonutf8/al/C 742ad18ff023576e92d428c565dda54b51c8020da4eac9a6fd62d5b3c5c4ce4d
+nul/al/C 77cc1f77125e52f4a92989de193d01ab552a0f1f5c23880b73ecd77bde989435
+numeric/al/C ed8a760afd05cfcea6dc673b8b523c21ea1cdd9bfe6c9a8fdc082e12681d2365
+space/al/C ed8a760afd05cfcea6dc673b8b523c21ea1cdd9bfe6c9a8fdc082e12681d2365
+specials/al/C df027a500cc706c05edcdf32b1e0af2106a6b50e4f44d6b14adcc3fc8a833cc6
+glob/al/C ed8a760afd05cfcea6dc673b8b523c21ea1cdd9bfe6c9a8fdc082e12681d2365
+deleted/al/C e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+allkept0/al/C e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+contentline/al/C 07915223852372082b83ffc99cbaa73bf1df81444c8096d4d5a26633be0095b7
+empty/al/C e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+nonutf8/al/UTF8 742ad18ff023576e92d428c565dda54b51c8020da4eac9a6fd62d5b3c5c4ce4d
+specials/al/UTF8 df027a500cc706c05edcdf32b1e0af2106a6b50e4f44d6b14adcc3fc8a833cc6
+noeol/aln/C 996e6ff3c9e12e57aee4c0d40348001a86f1f15b12826f13fe30b9ecdaa389a1
+exact/ale/C ae47e3eae624be1ad8d78791674b6a1f90f8f9caa6238c8aed3729782f00a24e
+exact/absent/C ae47e3eae624be1ad8d78791674b6a1f90f8f9caa6238c8aed3729782f00a24e
+EXPECTED
+p1617_hashes "$AUDIT" > "$P1617_DIR/actual"
+while read -r key want; do
+  got="$(grep -F "$key " "$P1617_DIR/actual" | head -1 | cut -d' ' -f2)"
+  if [ "$got" = "$want" ]; then PASS=$((PASS+1)); else echo "  ✗ p1617 bytes differ: $key"; FAIL=$((FAIL+1)); fi
+done < "$P1617_DIR/expected"
+echo "  $(wc -l < "$P1617_DIR/expected" | tr -d ' ') byte fixtures compared"
+
+# Exit codes are exact here: the helpers above accept any non-zero, so a scanner that always
+# failed would satisfy them.
+p1617_repo() {
+  P1617_R="$(mktemp -d)"; git -C "$P1617_R" init -q; git -C "$P1617_R" config user.email t@example.com; git -C "$P1617_R" config user.name t
+  printf 'seed\n' > "$P1617_R/seed"; git -C "$P1617_R" add seed; git -C "$P1617_R" commit -qm seed
+}
+p1617_commit() { git -C "$P1617_R" add "$1"; git -C "$P1617_R" commit -qm change; }
+p1617_scan() { ( cd "$P1617_R" && bash "$AUDIT" HEAD~1..HEAD >/dev/null 2>&1 ); }
+p1617_expect() { # label want got
+  if [ "$2" = "$3" ]; then echo "  ✓ $1 — exit $3"; PASS=$((PASS+1)); else echo "  ✗ $1 — want exit $2, got $3"; FAIL=$((FAIL+1)); fi
+}
+P1617_CANARY="CLARITYPLEDGE-CANARY-DO-NOT-MERGE"
+p1617_repo; printf 'x\n%s\n' "$P1617_CANARY" > "$P1617_R/f.md"; p1617_commit f.md
+rc=0; p1617_scan || rc=$?; p1617_expect "canary in an ordinary file" 1 "$rc"; rm -rf "$P1617_R"
+p1617_repo; printf 'scripts/exact.sh\n' > "$P1617_R/.privacy-allowlist"; printf '+++ b/scripts/exact.sh\n%s\n' "$P1617_CANARY" > "$P1617_R/poison.md"; p1617_commit poison.md
+rc=0; p1617_scan || rc=$?; p1617_expect "content line shaped like a header grants nothing" 1 "$rc"; rm -rf "$P1617_R"
+p1617_repo; printf 'scripts/exact.sh\n' > "$P1617_R/.privacy-allowlist"; printf 'x\r\n%s\r\n' "$P1617_CANARY" > "$P1617_R/crlf.md"; p1617_commit crlf.md
+rc=0; p1617_scan || rc=$?; p1617_expect "canary on a CRLF line" 1 "$rc"; rm -rf "$P1617_R"
+# A NUL before byte 8000 renders as a binary diff and would test nothing.
+p1617_repo; printf 'scripts/exact.sh\n' > "$P1617_R/.privacy-allowlist"; { i=0; while [ $i -lt 5000 ]; do printf 'x\n'; i=$((i+1)); done; printf 'be\000fore %s\n' "$P1617_CANARY"; } > "$P1617_R/nul.md"; p1617_commit nul.md
+rc=0; p1617_scan || rc=$?; p1617_expect "canary after a NUL in a text diff" 1 "$rc"; rm -rf "$P1617_R"
+p1617_repo; printf 'x\n' > "$P1617_R/clean.md"; printf 'scripts/exact.sh\n' > "$P1617_R/.privacy-allowlist"; p1617_commit clean.md
+rc=0; p1617_scan || rc=$?; p1617_expect "clean range" 0 "$rc"; rm -rf "$P1617_R"
+
+# Fail closed. Early end-of-input: the same region with its writer cut short must exit 3.
+p1617_region "$AUDIT" > "$P1617_DIR/region.sh"
+sed "s/< <(printf '%s\\\\n' \"\$DIFF\")\$/< <(printf '%s\\\\n' \"\$DIFF\" | head -n 2)/" "$P1617_DIR/region.sh" > "$P1617_DIR/region-cut.sh"
+if cmp -s "$P1617_DIR/region.sh" "$P1617_DIR/region-cut.sh"; then echo "  ✗ p1617 writer mutation did not apply"; FAIL=$((FAIL+1)); fi
+rc=0; p1617_run "$P1617_DIR/region-cut.sh" "$P1617_DIR/order.diff" "$AL" C >/dev/null || rc=$?
+p1617_expect "filter input ends early" 3 "$rc"
+# Mid-run death: the scan must not report clean. The canary sits after the kill point.
+p1617_repo; printf 'scripts/exact.sh\n' > "$P1617_R/.privacy-allowlist"; { i=0; while [ $i -lt 40000 ]; do printf 'line %s\n' "$i"; i=$((i+1)); done; printf '%s\n' "$P1617_CANARY"; } > "$P1617_R/big.md"; p1617_commit big.md
+( cd "$P1617_R" && exec bash "$AUDIT" HEAD~1..HEAD >/dev/null 2>&1 ) & P1617_PID=$!
+sleep 0.3; kill -TERM "$P1617_PID" 2>/dev/null || true
+rc=0; wait "$P1617_PID" || rc=$?
+if [ "$rc" != "0" ]; then echo "  ✓ scan killed mid-run — exit $rc"; PASS=$((PASS+1)); else echo "  ✗ scan killed mid-run reported clean"; FAIL=$((FAIL+1)); fi
+rm -rf "$P1617_R" "$P1617_DIR"
+
 echo ""
 echo "=== Summary ==="
 echo "Passed: $PASS"
