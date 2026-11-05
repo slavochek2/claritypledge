@@ -1,7 +1,7 @@
 /**
  * Field builders for one mirror context item (split out of mirror-agent.ts, which is over the size limit).
  */
-import type { ContextItem } from './mirror-agent.ts';
+import type { ContextItem } from './mirror-context-items.ts';
 
 /** P1576: how a voice note is named to the model. Its text is the server transcript, never audio. */
 export const VOICE_LABEL = {
@@ -25,6 +25,12 @@ export function readableSessionBody<T extends string | null | undefined>(body: T
   return `Transcript ${stamp}${Number(m[2]) > 1 ? `, Part ${m[2]}` : ''}${m[3] ? ', some audio missing' : ''}`;
 }
 
+/** A stored time as UTC to the minute (`2026-11-04T10:03Z`), or undefined when it is missing or unreadable: never guessed, never replaced. */
+export function fmtTime(value: string | null | undefined): string | undefined {
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) return undefined;
+  return `${new Date(value).toISOString().slice(0, 16)}Z`;
+}
+
 /** The root of a session thread is a system post: it has no speaker ("Deleted user" would be false). */
 const speaker = (name: string | null | undefined, body: string | null | undefined): string =>
   readableSessionBody(body) !== body ? 'the thread title' : name ?? 'someone';
@@ -34,8 +40,11 @@ export function clarifyCopy(c: NonNullable<ContextItem['clarify']>): { copy: Rec
   const copy: Record<string, unknown> = {
     from: speaker(c.from, c.body),
     in: c.in ?? null,
+    ...(fmtTime(c.sent_at) ? { original_at: fmtTime(c.sent_at) } : {}),
     text: readableSessionBody(c.body) ?? null,
-    ...(c.thread?.length ? { thread: c.thread.map((t) => ({ from: speaker(t.name, t.body), text: readableSessionBody(t.body) ?? null })) } : {}),
+    ...(c.thread?.length
+      ? { thread: c.thread.map((t) => ({ from: speaker(t.name, t.body), ...(fmtTime(t.at) ? { at: fmtTime(t.at) } : {}), text: readableSessionBody(t.body) ?? null })) }
+      : {}),
   };
   const shown = c.thread?.length ?? 0;
   return { copy, total: Math.max(c.thread_total ?? shown, shown), shown };

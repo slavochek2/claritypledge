@@ -89,7 +89,7 @@ Deno.serve((req: Request) => {
     },
     rpc: async (name, args) => await service.rpc(name, args),
     // P1547: the estimate selects; Gemini's free countTokens decides (UTF-8 bytes if it fails).
-    fit: async (run) => (await fitMirrorRequest(run, geminiTokenCounter(MIRROR_GEMINI_API_KEY))).request,
+    fit: async (run, now) => (await fitMirrorRequest(run, geminiTokenCounter(MIRROR_GEMINI_API_KEY), now)).request,
     callModel: callGemini,
   };
   return handleMirrorReply(req, deps);

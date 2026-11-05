@@ -35,6 +35,8 @@ export function limitsFor(run: { session?: boolean | null }): Limits {
 /** USD per 1M tokens: Gemini's paid-tier rates from 1 Jan 2027, the higher of its two schedules. */
 export const PRICE_IN_PER_M = 1.5;
 export const PRICE_OUT_PER_M = 7.5;
+/** USD per 1M cached input tokens (P1619): a tenth of the input rate. Charged to the ledger only; the reservation never assumes a hit. */
+export const PRICE_CACHED_PER_M = 0.15;
 /** The Mira assistant's margin on a reservation. */
 export const RESERVE_MARGIN = 1.25;
 

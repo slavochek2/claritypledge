@@ -10,14 +10,15 @@
  */
 
 import type { RawGeminiResponse } from './raw-gemini-response.ts';
-import { VOICE_LABEL, clarifyCopy } from './mirror-context-fields.ts';
+import { SESSION_COPIES, TOTALS, clean } from './mirror-context-items.ts';
+import type { ContextItem } from './mirror-context-items.ts';
 import type { ArtistEntry } from './artist-pool.ts';
 
 export const MIRROR_MODEL = 'gemini-3.8-flash';
 
-import { COPY_ITEM_TOKENS, PRICE_IN_PER_M, PRICE_OUT_PER_M, RESERVE_MARGIN, SESSION_COPY_ITEM_TOKENS, limitsFor } from './mirror-limits.ts';
+import { COPY_ITEM_TOKENS, PRICE_CACHED_PER_M, PRICE_IN_PER_M, PRICE_OUT_PER_M, RESERVE_MARGIN, SESSION_COPY_ITEM_TOKENS, limitsFor } from './mirror-limits.ts';
 export {
-  BUDGET_TOKENS, COPY_ITEM_TOKENS, MAX_IN_TOKENS, MAX_OUT_TOKENS, PRICE_IN_PER_M, PRICE_OUT_PER_M, RESERVE_MARGIN, SESSION_BUDGET_TOKENS,
+  BUDGET_TOKENS, COPY_ITEM_TOKENS, MAX_IN_TOKENS, MAX_OUT_TOKENS, PRICE_CACHED_PER_M, PRICE_IN_PER_M, PRICE_OUT_PER_M, RESERVE_MARGIN, SESSION_BUDGET_TOKENS,
   SESSION_COPY_ITEM_TOKENS, SESSION_MAX_OUT_TOKENS, limitsFor, reserveReplyUsd,
 } from './mirror-limits.ts';
 export type { Limits } from './mirror-limits.ts';
@@ -49,6 +50,8 @@ export interface GeminiUsage {
   promptTokenCount?: number;
   candidatesTokenCount?: number;
   thoughtsTokenCount?: number;
+  /** P1619: the part of the prompt served from the cache; charged at the cached rate. */
+  cachedContentTokenCount?: number;
 }
 
 
@@ -56,7 +59,10 @@ export interface GeminiUsage {
 export function costUsd(usage: GeminiUsage | undefined | null): number | null {
   if (!usage || typeof usage.promptTokenCount !== 'number') return null;
   const out = (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0);
-  return Math.round(((usage.promptTokenCount * PRICE_IN_PER_M + out * PRICE_OUT_PER_M) / 1e6) * 1e6) / 1e6;
+  const raw = usage.cachedContentTokenCount;
+  const cached = typeof raw === 'number' && Number.isFinite(raw) ? Math.min(Math.max(raw, 0), usage.promptTokenCount) : 0;
+  const input = (usage.promptTokenCount - cached) * PRICE_IN_PER_M + cached * PRICE_CACHED_PER_M;
+  return Math.round(((input + out * PRICE_OUT_PER_M) / 1e6) * 1e6) / 1e6;
 }
 
 // ── What the mirror is ───────────────────────────────────────────────────────
@@ -85,29 +91,7 @@ Rules for every reply (they override everything below):
 
 // ── What the mirror sees ─────────────────────────────────────────────────────
 
-/** One context item as _mirror_begin_job returns it. */
-export interface ContextItem {
-  who: 'owner' | 'mirror' | 'other';
-  name?: string | null;
-  body?: string | null;
-  at?: string | null;
-  attachment?: string | null;
-  /** P1576: a voice note; body is its transcript when 'transcript', absent when 'untranscribed'. */
-  voice?: 'transcript' | 'untranscribed' | null;
-  /** A main-chat thread root's reply count (P1547): shown as "N replies" when the thread is not quoted. */
-  replies?: number | null;
-  quoted?: { name?: string | null; body?: string | null } | null;
-  clarify?: {
-    /** P1604: a Clarified session thread (a whole transcript): its copy gets the larger cap. */
-    session_thread?: boolean | null;
-    from?: string | null;
-    in?: string | null;
-    body?: string | null;
-    thread?: Array<{ name?: string | null; body?: string | null }> | null;
-    /** P1547: how many replies the copied thread had (SQL may offer only its newest). */
-    thread_total?: number | null;
-  } | null;
-}
+export type { ContextItem } from './mirror-context-items.ts';
 
 export interface BeginRun {
   status: 'run';
@@ -126,6 +110,8 @@ export interface BeginRun {
   reserved_usd: number;
   /** P1604: a session copy is among the rows: the larger profile, reserved by the server at reply_session_max_usd. */
   session?: boolean | null;
+  /** P1619, main chat only: how many messages the chat has in scope up to this one (the omission note counts what was left out). */
+  chat_total?: number | null;
   /** Which attempt this is; completion and failure act only on their own attempt. */
   attempt: number;
 }
@@ -140,26 +126,6 @@ export function itemTokens(item: unknown): number {
   return estimateTokens(quoteData(item) + '\n');
 }
 
-/** Copied threads' true reply counts, kept off the quoted item itself (never sent as a field). */
-const TOTALS = new WeakMap<object, number>();
-/** Copies of a session thread: their item cap is the session one. */
-const SESSION_COPIES = new WeakSet<object>();
-
-function clean(item: ContextItem): Record<string, unknown> {
-  const out: Record<string, unknown> = { from: item.who === 'owner' ? 'owner' : item.who === 'mirror' ? 'you (the mirror)' : item.name ?? 'someone' };
-  if (item.body) out.text = item.body;
-  if (item.voice) out.voice = VOICE_LABEL[item.voice];
-  if (item.attachment) out.attached = item.attachment;
-  if (typeof item.replies === 'number' && item.replies > 0) out.thread = `${item.replies} ${item.replies === 1 ? 'reply' : 'replies'}`;
-  if (item.quoted?.body) out.forwarded = { from: item.quoted.name ?? 'someone', text: item.quoted.body };
-  if (item.clarify) {
-    const { copy, total, shown } = clarifyCopy(item.clarify);
-    out.copied_for_clarify = copy;
-    if (total > shown) TOTALS.set(copy, total);
-    if (item.clarify.session_thread === true) SESSION_COPIES.add(copy);
-  }
-  return out;
-}
 
 /**
  * Every MESSAGE TEXT (a `text` value, at any depth) cut to `max` code points (never splitting one), marked
@@ -312,32 +278,48 @@ export function requestTokens(req: GeminiRequest): number {
   return parts.reduce((n, p) => n + estimateTokens(p.text), 0);
 }
 
-/** The request body for one reply. The owner's request always comes last, after the quoted data. */
-export function buildMirrorRequest(run: BeginRun, budget = limitsFor(run).budget): GeminiRequest {
+/** P1619: said once in every instruction so a time in the data can be read: UTC, and which time is which. */
+const TIME_NOTE = "Times are UTC: an item's at is when it was written in this chat; original_at is when a copied message or reply was first written.";
+/** P1619: added only when a folded copy is in the data. */
+const SET_ASIDE_NOTE = 'An item with copy_set_aside is a copy whose text you were not shown: never claim to have read it; if your owner needs it, say it is set aside and ask who wrote it, in which chat or on which date.';
+const earlier = (n: number) => `${n} earlier ${n === 1 ? 'message' : 'messages'}`;
+
+/** The request body for one reply. The owner's request always comes last, after the quoted data. `now` is the clock the date line uses. */
+export function buildMirrorRequest(run: BeginRun, budget = limitsFor(run).budget, now: Date = new Date()): GeminiRequest {
   const owner = run.owner_first_name ? `Your owner's first name is ${quoteField(run.owner_first_name, 40)}.` : '';
   const name = run.mirror_name ? `Your owner named you ${quoteField(run.mirror_name)}.` : '';
+  const when = `Today is ${now.toISOString().slice(0, 10)} (UTC). ${TIME_NOTE}`;
   const fixed = (instruction: string) => estimateTokens(MIRROR_RULES) + estimateTokens(userTurnOf([], instruction));
+  const setAside = (data: Record<string, unknown>[]) => (data.some((d) => 'copy_set_aside' in d) ? ` ${SET_ASIDE_NOTE}` : '');
+  // the set-aside rule is reserved room only when a folded copy is offered, so a request without one fills the budget as before
+  const reserveAside = [...run.context, ...(run.outside ?? [])].some((i) => i.folded) ? ` ${SET_ASIDE_NOTE}` : '';
   let data: Record<string, unknown>[];
   let instruction: string;
   if (run.kind === 'ask') {
     const question = (run.question?.body ?? '').slice(0, 1_000);
-    instruction = `${owner} ${name} Your owner is in the channel ${quoteField(run.channel_title ?? 'a channel', 80)} and asked you privately, about the recent messages quoted above. Nobody else in the channel sees this. Their question: ${quoteData(question)}`;
+    instruction = `${owner} ${name} ${when} Your owner is in the channel ${quoteField(run.channel_title ?? 'a channel', 80)} and asked you privately, about the recent messages quoted above. Nobody else in the channel sees this. Their question: ${quoteData(question)}`;
     data = selectNewestFirst(run.context.map(clean), budget - fixed(instruction)).kept;
   } else if (run.outside) {
     // A question inside a mirror thread: the thread first, newest first; then the main chat.
     const total = Math.max(run.thread_total ?? run.context.length, run.context.length);
     const note = (n: number) => n < total ? ` Showing the last ${n} of ${total} messages of this thread.` : '';
-    const base = `${owner} ${name} Above is your private chat with your owner, oldest first: first their main chat (a thread there shows only its first message and its number of replies), then the thread they are asking in.`;
+    const base = `${owner} ${name} ${when} Above is your private chat with your owner, oldest first: first their main chat (a thread there shows only its first message and its number of replies), then the thread they are asking in.`;
     const tail = ' Reply to their last message, in that thread. If it is a message copied for clarify, help them understand the person who wrote it.';
-    // the longest note this thread can need is reserved before anything is chosen
-    const room = budget - fixed(base + note(total - 1) + tail);
+    // the longest note this thread can need (and the set-aside rule) is reserved before anything is chosen
+    const room = budget - fixed(base + note(total - 1) + tail + reserveAside);
     const thread = selectNewestFirst(run.context.map(clean), room, true);
     const outside = selectNewestFirst(run.outside.map(clean), room - thread.used);
     data = [...outside.kept, ...thread.kept];
-    instruction = base + note(thread.kept.length) + tail;
+    instruction = base + note(thread.kept.length) + tail + setAside(data);
   } else {
-    instruction = `${owner} ${name} Above is your private chat with your owner, oldest first. Reply to their last message. If it is a message copied for clarify, help them understand the person who wrote it.`;
-    data = selectNewestFirst(run.context.map(clean), budget - fixed(instruction), true).kept;
+    const base = `${owner} ${name} ${when} Above is your private chat with your owner, oldest first.`;
+    const tail = ' Reply to their last message. If it is a message copied for clarify, help them understand the person who wrote it.';
+    // P1619: how many earlier messages are not shown, counting both the offer made in SQL and this trim
+    const total = typeof run.chat_total === 'number' ? Math.max(run.chat_total, run.context.length) : null;
+    const note = (shown: number) => (total !== null && total > shown ? ` ${earlier(total - shown)} of this chat are not shown here.` : '');
+    const room = budget - fixed(base + note(0) + tail + reserveAside);
+    data = selectNewestFirst(run.context.map(clean), room, true).kept;
+    instruction = base + note(data.length) + tail + setAside(data);
   }
   const req: GeminiRequest = {
     systemInstruction: { parts: [{ text: MIRROR_RULES }] },
@@ -375,14 +357,14 @@ export const MAX_BYTE_SHRINKS = 6;
  * decides instead, and the data budget is scaled by estimate/bytes so the request degrades to a shorter
  * context rather than being refused. Refused only if even the minimum (rules and the question) cannot fit.
  */
-export async function fitMirrorRequest(run: BeginRun, count: TokenCounter): Promise<{ request: GeminiRequest; tokens: number; counted: boolean }> {
+export async function fitMirrorRequest(run: BeginRun, count: TokenCounter, now: Date = new Date()): Promise<{ request: GeminiRequest; tokens: number; counted: boolean }> {
   const limit = limitsFor(run).budget;
   let budget = limit;
   let counting = true;
   let counts = 0;
   let shrinks = 0;
   for (;;) {
-    const request = buildMirrorRequest(run, budget); // throws MirrorRequestTooLarge if the minimum cannot fit
+    const request = buildMirrorRequest(run, budget, now); // throws MirrorRequestTooLarge if the minimum cannot fit
     if (counting) {
       const n = await count(request);
       counts++;

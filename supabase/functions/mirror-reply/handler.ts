@@ -38,7 +38,9 @@ export interface MirrorDeps {
   loadJob(jobId: string): Promise<{ owner_id: string; kind: string } | null>;
   rpc(name: string, args: Record<string, unknown>): Promise<RpcResult>;
   /** Builds the request that fits the budget (counts tokens); throws MirrorRequestTooLarge. */
-  fit(run: BeginRun): Promise<GeminiRequest>;
+  fit(run: BeginRun, now: Date): Promise<GeminiRequest>;
+  /** The clock for the instruction's date line (P1619); the real clock when absent. */
+  now?: () => Date;
   /** One Gemini call: status 0 on a network error, `body` only when ok. */
   callModel(request: GeminiRequest): Promise<{ status: number; body: unknown | null }>;
 }
@@ -98,7 +100,7 @@ async function runJob(d: MirrorDeps, jobId: string): Promise<Response> {
 
   let request: GeminiRequest;
   try {
-    request = await d.fit(run);
+    request = await d.fit(run, (d.now ?? (() => new Date()))());
   } catch (e) {
     // Refused before any call: released, never charged (P1520 review).
     await d.rpc('_mirror_fail_job', { p_job: jobId, p_code: e instanceof MirrorRequestTooLarge ? 'too_large' : 'build', p_actual_usd: null, p_attempt: run.attempt });

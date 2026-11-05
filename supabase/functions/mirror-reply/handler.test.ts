@@ -134,3 +134,12 @@ Deno.test('safeEqual: equal strings true, differing or different-length false', 
   assertEquals(safeEqual('abc', 'abcd'), false);
   assertEquals(safeEqual('', ''), true);
 });
+
+Deno.test('the instruction clock: fit receives the handler clock (deps.now), and a real Date when none is given', async () => {
+  const seen: Date[] = [];
+  const fixed = new Date('2026-11-04T23:59:00Z');
+  await handleMirrorReply(internal(SECRET), deps({ now: () => fixed, fit: async (_run, now) => { seen.push(now); return { contents: [] } as never; } }));
+  await handleMirrorReply(internal(SECRET), deps({ fit: async (_run, now) => { seen.push(now); return { contents: [] } as never; } }));
+  assertEquals(seen[0], fixed);
+  assertEquals(seen[1] instanceof Date && !Number.isNaN(seen[1].getTime()), true);
+});
