@@ -89,14 +89,15 @@ No P1604 acceptance criterion is superseded.
 
 ## Requirements
 
-1. Applies to any thread root whose body parses as a session root (`parseSessionRoot`), including older ones.
+1. Applies to every session root, including older ones. `body` has already been turned into a formatted title by the time a message reaches the row (`chat-mappers.ts:272`, `chat-snapshot.ts:56,69`), so `parseSessionRoot` cannot detect it there. Carry structured session fields (start, part, incomplete) through mapping as a separate value. `body` stays the formatted title, so the thread panel, chat list and search keep working.
 2. The row opens the thread whether or not a reply count shows.
-3. Reply count and faces on this row come from replies that are not transcript text.
+3. Reply count and faces on this row both come from replies that are not transcript text. Replies from a mirror agent count (see Resolved Decisions).
 4. Everything the row offers by pointer stays reachable by keyboard.
+5. The row's existing message actions stay, including whole-session Clarify. "Whole row" means the row's content area is one open-thread target. The toolbar and the replies link stay separate targets beside it, never nested inside it, and both are matched by `INTERACTIVE` (`MessageRow.tsx:35`) so a tap on them does not also open the thread. On touch, tapping the content area opens the thread; long press still opens the actions.
 
 ## Invariants
 
-- **The count on every other thread does not change.** Round and table threads also hold `is_transcription` rows, and `RepliesLink` draws nothing at a count of 0. Filtering `reply_count` itself would remove the only way into those threads. Add a separate value, or otherwise leave `reply_count` as it is.
+- **The count on every other thread does not change.** Round and table threads also hold `is_transcription` rows, and `RepliesLink` draws nothing at a count of 0. Filtering `reply_count` itself would remove the only way into those threads. Leave `reply_count` and `recent_author_ids` exactly as they are, and return separate values for people's replies and their faces. Adding output columns means dropping and recreating `get_thread_stats` with its grants restored, since `CREATE OR REPLACE` cannot change the return type.
 - `canvas-root-store` treats a change in a root's count as a signal, so `reply_count` keeps its meaning for it.
 - The thread keeps counting and showing its transcript text exactly as it does now, inside the thread.
 
@@ -116,6 +117,7 @@ Session rules, posting, timing, thread contents, session history, the waiting li
 |---|---|---|
 | The icon reads as a sender named "Transcript" | MITIGATE | Muted date separate from the title; check in the visual review |
 | Live count drifts because realtime increments by any new row | MITIGATE | Count only non-transcript rows for the new value; cover with a test |
+| A stats read overlapping a realtime insert double-counts or loses a reply (`use-conversation.ts`; reported by a reviewer, not reproduced) | MITIGATE | Test the overlap for the new value. If the existing count has the same flaw, report it and do not widen this work |
 | The stuck-looking "Cleaning up the transcript…" banner seen on 2026-11-05 | DEFER | Separate possible bug, unverified; needs its own check of that room's job state |
 
 **Non-Goals**
@@ -123,14 +125,16 @@ Session rules, posting, timing, thread contents, session history, the waiting li
 - Do NOT build the card variant. It waits until the row holds a preview, duration or rounds.
 - Do NOT change round or table thread rows.
 
-## Open Questions
+## Resolved Decisions
 
-1. [FOUNDER DECISION: does a mirror agent's reply count as a reply on this row? Draft assumption: yes, only transcript text is excluded.]
+1. A mirror agent's reply counts as a reply on this row; only transcript text is excluded. Agent's default, 2026-11-05, open to founder veto. Its stored author may be empty, so the count must not depend on `author_id`, and a face shows only where there is an author.
+2. Spec review 2026-11-05: Gemini Argon and Codex (2 of 2 external reports), plus the drafting agent's own check. No independent Opus review of the spec. Findings on detection, row actions, faces and the function's return type are folded in above.
 
 ## Acceptance Criteria
 
 - [ ] A finished session shows the icon, "Transcript", the muted date and time, and "Open transcript", with no "1 reply" when only transcript text is in the thread.
-- [ ] Clicking or keyboard-activating anywhere on the row opens the thread.
+- [ ] Clicking or keyboard-activating the row's content area opens the thread, and Reply, Forward, Thread and Clarify are still available on it.
+- [ ] The thread panel, chat list preview and search still show the same transcript title as before.
 - [ ] After a person replies, the row shows that reply's count and face, and transcript text adds nothing to it, including live without a reload.
 - [ ] "Part 2" and incomplete sessions show their suffix, with no overflow at 320px.
 - [ ] Reviewed at 375px, 320px, desktop and dark mode, including hover and focus.
@@ -141,4 +145,4 @@ Session rules, posting, timing, thread contents, session history, the waiting li
 
 ## Next Steps
 
-Scope is clear, but `get_thread_stats` is shared: run the multi-model spec review, then `/dev`.
+Spec review done 2026-11-05. Run `/dev`.
