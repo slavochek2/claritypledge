@@ -30,6 +30,7 @@ import {
   isAllowlisted,
   redactUrl,
   pollUntilStable,
+  keepRecorderWithoutStoringReplays,
 } from './helpers/prod-health';
 
 const BASE_URL = (process.env.PROD_SMOKE_URL || 'https://claritypledge.com').replace(/\/$/, '');
@@ -39,6 +40,9 @@ test.describe('Prod health smoke', () => {
     test(`no console errors or HTTP>=400 on ${route}`, async ({ page }) => {
       // goto + the stabilization poll need headroom beyond Playwright's 30s default.
       test.setTimeout(45_000);
+
+      // P1628: automation is not recorded by default; opt back in so recorder-only breaks still fail.
+      await keepRecorderWithoutStoringReplays(page);
 
       // Console capture — ALL errors, not just CSP patterns. Allowlisted vendor
       // chatter is dropped; everything else is redacted and recorded.

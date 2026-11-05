@@ -54,7 +54,8 @@ describe('P1304: Mixpanel carries no room code', () => {
     // redacts room codes AND sign-in tokens. p1304IsCodeRoute must still feed the recording switch.
     expect(html).toMatch(/var p1325NoRecord = p1304IsCodeRoute \|\|/);
     expect(html).toMatch(/record_sessions_percent:\s*p1325NoRecord\s*\?\s*0\s*:\s*100/);
-    expect(html).toMatch(/hooks:\s*\{\s*before_send_events:\s*p1325Redact\s*\}/);
+    // P1628 composed the hook (tag automation, then p1325Redact); the redaction itself is proven in p1628-automation-tag.test.ts.
+    expect(html).toMatch(/hooks:\s*\{\s*before_send_events:\s*p1628BeforeSend\s*\}/);
     expect(html).toMatch(/return p1304Redact\(value\)\.replace\(p1325SignInParam/);
   });
 

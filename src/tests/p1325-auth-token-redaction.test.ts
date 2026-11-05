@@ -71,7 +71,8 @@ describe('P1325: Mixpanel carries no sign-in token', () => {
     expect(loadBlock('/live/QX7K2M').noRecord).toBe(true);
     expect(loadBlock('/events/abc').noRecord).toBe(false);
     expect(html).toMatch(/record_sessions_percent:\s*p1325NoRecord\s*\?\s*0\s*:\s*100/);
-    expect(html).toMatch(/hooks:\s*\{\s*before_send_events:\s*p1325Redact\s*\}/);
+    // P1628 composed the hook (tag automation, then p1325Redact); the redaction itself is proven in p1628-automation-tag.test.ts.
+    expect(html).toMatch(/hooks:\s*\{\s*before_send_events:\s*p1628BeforeSend\s*\}/);
   });
 
   it('uses the same pattern as the Sentry redaction', () => {

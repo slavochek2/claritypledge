@@ -1027,6 +1027,13 @@ These properties enable segmentation in Mixpanel:
 - **Pledgers vs Non-pledgers**: Filter by `has_pledged`
 - **Registration cohorts**: Group by `registration_source`
 - **Profile completeness**: Filter by `has_role`, `has_linkedin`
+- **Automation** (P1628): every event sent under `navigator.webdriver` carries the event property
+  `is_automation: true`, stamped in the `before_send_events` hook in `index.html`. The property is
+  absent on other traffic, so filter `is_automation != true`. Events sent before the tag shipped carry
+  nothing and stay contaminated. Automation is not session-recorded, except the health and CSP smokes,
+  which opt back in with `window.__p1628KeepRecorderForSmoke` so recorder-only CSP breaks still fail
+  them, and answer `/record` locally so no replay is stored. Third-party bots that hide webdriver are
+  not caught by this tag.
 - **Customer-only funnels**: Filter `is_internal != true` — without this, founder/test/service
   account activity can look like real signup-funnel activity (P1133). Three coverage gaps to know
   before trusting a query:

@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 99.0
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [analytics, mixpanel, day, insights]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -44,7 +44,7 @@ Each phase ships only after the one before it is verified.
 
 ### Phase 0: know who is real
 
-1. Under `navigator.webdriver`, keep initialising Mixpanel, stamp every event `is_automation=true` in the existing `before_send_events` hook, and set `record_sessions_percent` to 0. The repo already trusts this signal for our own automation (`src/lib/offline-pack.ts`).
+1. Under `navigator.webdriver`, keep initialising Mixpanel, stamp every event `is_automation=true` in the existing `before_send_events` hook, and set `record_sessions_percent` to 0. The repo already trusts this signal for our own automation (`src/lib/offline-pack.ts`). **The two smokes and the P881 recording guard opt back in** (`window.__p1628KeepRecorderForSmoke`), and the smokes answer `/record` locally so no replay is stored. Measured 2026-11-05 on the prod page: with recording simply off, a CSP that blocks only the recorder bundle or only `/record` passes both smokes, and the same breaks fail both today, because the recorder never loads. Route carve-outs still win over the opt-in.
 2. Prove the tag on both smoke workflows, then measure what is left.
 3. Define "real visitor" as a tested filter: not automation, not internal, and outside the crawler pattern found in step 2. It must pass a known-bad control (Des Moines traffic) and a known-good control (a tagged link the founder opens).
 4. Founder and agent Chrome sessions may not set webdriver, and anonymous events carry no `is_internal` (`docs/technical/analytics.md`). Handle both in the filter or state them as a known limit.

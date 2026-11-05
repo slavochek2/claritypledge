@@ -179,6 +179,19 @@
           return value;
         }
         /* P1325-END */
+        /* P1628-BEGIN — automation traffic is tagged and not recorded, so "real visitor" can be filtered.
+           The SDK stays initialised because the health and CSP smokes depend on it; those smokes opt back
+           in to the recorder (window.__p1628KeepRecorderForSmoke) so recorder-only CSP breaks stay
+           detectable. The opt-in is applied after every route carve-out above and can only add recording
+           back on routes that already allow it: it never un-sets p1325NoRecord. */
+        var p1628Automation = !!(window.navigator && window.navigator.webdriver);
+        p1325NoRecord = p1325NoRecord || (p1628Automation && window.__p1628KeepRecorderForSmoke !== true);
+        function p1628BeforeSend(item) {
+          var out = p1325Redact(item);
+          if (p1628Automation && out && out.properties) out.properties.is_automation = true;
+          return out;
+        }
+        /* P1628-END */
 
         mixpanel.init('e6e1f42a455536dd1a4c7df26b5a9e71', {
           autocapture: { pageview: true, formContents: false },
@@ -188,7 +201,7 @@
           // backend error detail. Sentry is the error surface. Canary:
           // src/tests/p1233-mixpanel-no-console-capture.test.ts
           record_console: false,
-          hooks: { before_send_events: p1325Redact },
+          hooks: { before_send_events: p1628BeforeSend },
           api_host: 'https://api-eu.mixpanel.com',
           // P881: default ~5s batch window strands events when the page dies
           // without pagehide (mobile app-switch/OS kill) and the user never

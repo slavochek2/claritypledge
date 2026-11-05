@@ -23,7 +23,7 @@
  * already know about; this gate discovers hosts we do not.
  */
 import { test, expect } from '@playwright/test';
-import { PROD_HEALTH_ROUTES, pollUntilStable } from './helpers/prod-health';
+import { PROD_HEALTH_ROUTES, pollUntilStable, keepRecorderWithoutStoringReplays } from './helpers/prod-health';
 
 const BASE_URL = (process.env.CSP_SMOKE_URL || 'https://claritypledge.com').replace(/\/$/, '');
 
@@ -42,6 +42,9 @@ test.describe('CSP deploy smoke', () => {
     test(`no CSP violations on ${route}`, async ({ page }) => {
       // goto + the stabilization poll need headroom beyond Playwright's 30s default.
       test.setTimeout(45_000);
+
+      // P1628: automation is not recorded by default; opt back in so recorder-only CSP breaks still fail.
+      await keepRecorderWithoutStoringReplays(page);
 
       // Structural capture: registered before any document script runs, this catches every
       // CSP block regardless of timing or Chromium console wording. The console parse below

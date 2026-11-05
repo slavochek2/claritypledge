@@ -180,6 +180,13 @@ test.describe('P881: critical Mixpanel events vs the batch flush window', () => 
     const recordHits: string[] = [];
     let recorderBundleLoaded = false;
 
+    // P1628: Playwright sets navigator.webdriver, and the init now records nothing under
+    // automation unless the page opts back in. This guard exists to prove the recorder works
+    // under the live config, so it opts in (assertions below unchanged).
+    await page.addInitScript(() => {
+      (window as never as { __p1628KeepRecorderForSmoke: boolean }).__p1628KeepRecorderForSmoke = true;
+    });
+
     // Diagnostic separation: distinguish "recorder bundle never loaded"
     // from "recorder loaded but never flushed" (real-CDN dependency).
     page.on('request', (req) => {

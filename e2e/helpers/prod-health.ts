@@ -85,6 +85,22 @@ export async function pollUntilStable(
   }
 }
 
+// ── Recorder opt-in (P1628) ─────────────────────────────────────────────────
+// index.html records no session under navigator.webdriver, so automation traffic can be filtered
+// out of Mixpanel. These smokes must still exercise the recorder (a CSP that blocks only the
+// recorder bundle or /record has to keep failing them), so they opt back in with the page flag.
+// /record is answered locally: the CSP is still enforced on a fulfilled request (a violation still
+// fires) and no replay is stored. /track is deliberately NOT intercepted: the tagged events must
+// reach Mixpanel. Call before page.goto.
+export async function keepRecorderWithoutStoringReplays(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    (window as unknown as { __p1628KeepRecorderForSmoke: boolean }).__p1628KeepRecorderForSmoke = true;
+  });
+  await page.route('https://api-eu.mixpanel.com/record**', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/plain', body: '1' }),
+  );
+}
+
 // ── Allowlist ───────────────────────────────────────────────────────────────
 // THE load-bearing choice. Existing gates filter WHAT they observe (CSP-only) to
 // stay green; this gate observes EVERYTHING and filters WHAT is known-benign, so a
