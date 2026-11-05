@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 99
 severity: medium
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: high
 tags: [canvas, mirror-agent, copy]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1625-reproduce.test.ts
@@ -19,6 +18,7 @@ reproduce_artifact:
   confidence: high
   surfaces_in_scope: [sharesWords, vetEvidence, canvas-reply]
   reproduced_at: 2026-11-05
+completed_at: 2026-11-05
 ---
 
 # P1625: Canvas drops short true points and does not say which or why
