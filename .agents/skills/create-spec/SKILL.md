@@ -304,7 +304,8 @@ If the conversation is empty (a cold `/create-spec "…"`), say so in one clause
 10. **Execution recommendation** — stamp `exec_model` / `exec_effort` (below).
 11. **Self-review** — quality gates.
 12. **Create file** — `features/p{N}_{slug}.md`.
-13. **Report** — path, type, next step, execution call.
+13. **Spec review** — run the "Spec Review" section below, now. It is part of filing, not an offer.
+14. **Report** — path, type, next step, execution call.
 
 ### Pipeline stamp (P659)
 
@@ -493,6 +494,8 @@ silent refresh, 24h, 7d unchanged.]
 ## Spec Review (P1634)
 
 Runs at the end of this skill with no typed request. `/dev` and `/fix` run this same section on entry when the stamp is missing or stale. The roster lives only here.
+
+**Do not stop to ask before running it.** Asking is the failure this section exists to end. The founder's global fan-out limit (3+ agents need an ok) does not apply: Gemini, GLM and Codex are wrapper runs, and the roster spawns at most one agent. A spec being small, fictional or throwaway is not a reason to skip; only the table below is. An embargoed spec still gets its reviewers, minus GLM.
 
 | Spec | Reviewers |
 |---|---|
