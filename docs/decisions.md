@@ -8,6 +8,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-05 [process]: Review-gate stop check should stand down while background reviewers run (Status: proposed)
+
+**Context:** During P1630 the stop check blocked about seven times while reviewers were running. By code reading, one earlier completion word latches until the founder's next message, because task notifications do not reset the scanned text, and this path has no retry budget or check for outstanding background work.
+**Decision:** Port the stand-down with an age cap from the /day guard to this path only. The block for edits with no review stays unsuppressed.
+**Consequences:** Needs a bug spec and /fix. Falsifier: the session transcript shows a different trigger.
+
+## 2026-11-05 [process]: A ship that times out on the main lock should not leave its journal (Status: proposed)
+
+**Context:** During P1630 `git-ops.sh ship` timed out on the main lock after writing its journal, so the retry stopped on "existing journal". By code reading this affects specs already on main; other refusals on that path already clean up.
+**Decision:** On lock timeout, remove the fresh journal when no commit was picked, and add a canary. The "delete the journal" hint should warn that deleting can replay commits once a pick has happened.
+**Consequences:** Needs a bug spec and /fix. Not reproduced yet.
+
 ## 2026-11-05 [process]: GLM joins /finish as advisory, and a review receipt now needs a Gemini or Codex run
 
 **Context:** P1630 added GLM through OpenRouter as a third external reviewer on every `/finish` run. Without a change, "one successful `ask-model` run" could have meant GLM alone, the receipt could not say who reviewed, and an embargoed diff could have reached an unknown host.
