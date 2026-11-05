@@ -50,13 +50,15 @@ Approved prototype: `/tree/canvas-actions?v=h`, branch `feature/p1621-canvas-act
 - **Selected card:** Edit then Open at its bottom right, with icons.
 - **Selected box:** below the card, Add card on the left and Add to chat on the right, both with icons and labels at every width. This replaces P1613's icon-only Add to chat.
 - **Add card:** opens an editor in the box, with the box's question visible above the text field, then Save and Cancel. No model and no run: these are the owner's own words.
-- **Section names:** the three layer names and numbers are removed; order and the gap between rows stay. Founder-approved.
+- **Section names:** the three layer names and numbers are removed, with a gap between rows. Founder-approved.
+- **Box order (founder-approved):** Customer Segments, Problem, Solution; Offers & Pricing, Go-to-market strategy, My next milestone; My current biggest challenge, Hypotheses I've falsified, Guiding values. Display order only; points keep their boxes.
+- **Button weight:** Add card is the selected box's one secondary button (blue outline). Edit, Open, Add to chat and See all stay quiet grey.
+- **See all:** expands in place, up to the box's limit, and Show less collapses it.
 - **Composer:** a box added to chat is a pill above the text field with a remove control. Several boxes in one message stay possible. Typed `[Solution]` keeps working.
 - **Undo:** the secondary blue-outline style (founder request).
 - **Upload icon:** tooltip and accessible name, understandable without hover.
 
-[FOUNDER DECISION: hint line wording. Prototype says "Tap a box to see what you can do."]
-[FOUNDER DECISION: whether the hint goes away after first use.]
+Hint line: "Tap a box to see what you can do." It goes away after first use (founder-approved).
 
 ## Risks / Non-Goals
 
@@ -84,7 +86,7 @@ Approved prototype: `/tree/canvas-actions?v=h`, branch `feature/p1621-canvas-act
 - [ ] An owner adds a second card by hand, it stays after reload, and a published version is unchanged
 - [ ] The box question stays visible while typing a new card
 - [ ] Add to chat from two boxes shows two removable pills, and the message sends with both boxes
-- [ ] Layer names and numbers are gone; box order is unchanged
+- [ ] Layer names and numbers are gone; boxes read in the approved order, on the page and with Previous/Next
 - [ ] Undo has the blue outline; the upload icon has a tooltip and accessible name
 - [ ] Add to chat on a phone gives visible feedback when the chat is off-screen
 - [ ] A reader sees none of the owner actions
@@ -93,8 +95,7 @@ Approved prototype: `/tree/canvas-actions?v=h`, branch `feature/p1621-canvas-act
 ## Open Questions
 
 1. The owner's published canvas shows Add to chat today (a tap starts a Clone, P1536 J4). Does selection apply there too? Default: yes for Add to chat only. UNVERIFIED against the real route.
-2. Does See all keep opening the side panel on the real page, as today, or expand in place as in the prototype? Default: keep the panel, since it already holds the full box.
-3. Adding a point needs a new write path. Not yet designed; P1614's edit RPC is the model. A hand-added point carries no quote and is not subject to the quote check.
+2. Adding a point needs a new write path. Not yet designed; P1614's edit RPC is the model. A hand-added point carries no quote and is not subject to the quote check.
 
 ## Alternatives Considered
 
