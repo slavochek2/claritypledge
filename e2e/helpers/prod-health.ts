@@ -136,8 +136,10 @@ export async function keepRecorderWithoutStoringReplays(page: Page): Promise<Rec
   });
 
   await page.route('https://api-eu.mixpanel.com/record**', async (route) => {
-    fulfilled += 1;
-    await route.fulfill({ status: 200, contentType: 'text/plain', body: '1' }).catch(() => undefined);
+    await route.fulfill({ status: 200, contentType: 'text/plain', body: '1' }).then(
+      () => { fulfilled += 1; },
+      () => undefined, // not counted: the watch then reports 'timeout' and the smoke fails
+    );
   });
 
   return {

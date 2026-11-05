@@ -108,6 +108,7 @@ async function load(page: Page, keepRecorder: boolean) {
   await page.goto(`${HARNESS_ORIGIN}/`);
   await page.waitForFunction(
     () => typeof (window as never as { mixpanel?: { get_distinct_id?: unknown } }).mixpanel?.get_distinct_id === 'function',
+    undefined,
     { timeout: 15000 },
   );
   await page.evaluate(() => {
@@ -141,6 +142,7 @@ test.describe('P1628: automation tag on the wire', () => {
     const identify = run.events.find((e) => e.event === '$identify');
     expect(identify, 'no $identify event decoded under default batching').toBeTruthy();
     expect(identify!.properties.is_automation).toBe(true);
+    expect(run.events.filter((e) => e.properties.is_automation !== true).map((e) => e.event), 'every decoded event is tagged').toEqual([]);
 
     expect(await page.evaluate(() => typeof (window as never as { mixpanel: { get_distinct_id: unknown } }).mixpanel.get_distinct_id)).toBe('function');
     expect(run.recorderBundleRequested(), 'recorder bundle was requested under automation').toBe(false);
@@ -160,6 +162,7 @@ test.describe('P1628: automation tag on the wire', () => {
     const identify = run.events.find((e) => e.event === '$identify');
     expect(identify, 'no $identify event decoded under default batching').toBeTruthy();
     expect(identify!.properties.is_automation).toBe(true);
+    expect(run.events.filter((e) => e.properties.is_automation !== true).map((e) => e.event), 'every decoded event is tagged').toEqual([]);
 
     expect(await page.evaluate(() => typeof (window as never as { mixpanel: { get_distinct_id: unknown } }).mixpanel.get_distinct_id)).toBe('function');
 
