@@ -115,19 +115,19 @@ Price source: OpenRouter's public endpoint listing for `z-ai/glm-5.3`, read 2026
 
 ## Done-When
 
-- [ ] `/finish` Step 4b lists the GLM row. A `/finish <file>` run on a changed file produces a GLM output file whose first line is `ASK-MODEL: vendor=openrouter ... verified=served ... exit=0`, and the report carries the fixed `Reviewers:` line.
-- [ ] With GLM unreachable (key unset or credits out), `/finish` reports GLM as missing and still writes the receipt from Gemini or Codex evidence.
+- [x] `/finish` Step 4b lists the GLM row. A `/finish <file>` run on a changed file produces a GLM output file whose first line is `ASK-MODEL: vendor=openrouter ... verified=served ... exit=0`, and the report carries the fixed `Reviewers:` line.
+- [x] With GLM unreachable (key unset or credits out), `/finish` reports GLM as missing and still writes the receipt from Gemini or Codex evidence.
 - [ ] On a branch whose spec is `disclosure: embargo`, the GLM row is skipped, the report says `GLM skipped (embargo)`, and the delegation log shows no `vendor=openrouter` line for that run. Same for a changed `.private/` path.
-- [ ] `python3 scripts/review_receipt.py write` with only an openrouter evidence file exits non-zero and says why; the same with only a local evidence file; with an old gemini file plus a fresh openrouter file it refuses; with openrouter plus gemini it succeeds and records both in `vendors`; with gemini only it succeeds as before. Canned-header tests added and run, exit codes pasted.
-- [ ] A GLM finding reaches the founder only after a check, or labelled `unverified`; the report shows `N findings, M verified, K unverified`.
-- [ ] The Freshness bullet and Step 6b say a fresh Gemini or Codex run is required on every new snapshot, a re-review with GLM alone is refused by `write`, and an unreachable finder is reported missing without blocking.
-- [ ] `grep -n zdr ~/.agents/bin/ask-model-openai` finds the field. A `curl` with the same `provider` body and `only` set to a provider outside the zero-retention list returns 404, and a real `ask-model openrouter` run still exits 0.
+- [x] `python3 scripts/review_receipt.py write` with only an openrouter evidence file exits non-zero and says why; the same with only a local evidence file; with an old gemini file plus a fresh openrouter file it refuses; with openrouter plus gemini it succeeds and records both in `vendors`; with gemini only it succeeds as before. Canned-header tests added and run, exit codes pasted.
+- [x] A GLM finding reaches the founder only after a check, or labelled `unverified`; the report shows `N findings, M verified, K unverified`.
+- [x] The Freshness bullet and Step 6b say a fresh Gemini or Codex run is required on every new snapshot, a re-review with GLM alone is refused by `write`, and an unreachable finder is reported missing without blocking.
+- [x] `grep -n zdr ~/.agents/bin/ask-model-openai` finds the field. A `curl` with the same `provider` body and `only` set to a provider outside the zero-retention list returns 404, and a real `ask-model openrouter` run still exits 0.
 - [ ] On an embargoed spec's branch with a one-file change, Codex runs. On a feature branch whose spec has no `disclosure` value, GLM is skipped with the reason stated.
-- [ ] A `/note` entry with `due: month` is filed: read ten `/finish` runs from the 30 days after merge. If GLM produced no verified defect the other reviewers missed, fall back to Alternative B, or remove GLM if it is no better there.
+- [x] A `/note` entry with `due: month` is filed: read ten `/finish` runs from the 30 days after merge. If GLM produced no verified defect the other reviewers missed, fall back to Alternative B, or remove GLM if it is no better there.
 - [ ] `grep -n -i glm .claude/commands/slava/build/finish/SKILL.md` finds the row and no model id; the row names `OPENROUTER_MODEL` in `~/.agents/model-defaults.env` as where the id lives.
-- [ ] `docs/technical/metered-services.md` has a dated, sourced OpenRouter row.
+- [x] `docs/technical/metered-services.md` has a dated, sourced OpenRouter row.
 - [ ] Every other reader of the receipt and of the evidence pattern was found by grep and still passes its tests; the list is in the PR notes. `[post-deploy]` re-check: one real `/finish` run after merge on a throwaway change.
-- [ ] A full `/finish` review of this change, including the Opus adversary, is clean, or each finding is fixed or listed.
+- [x] A full `/finish` review of this change, including the Opus adversary, is clean, or each finding is fixed or listed.
 
 ## Rollback Strategy
 
