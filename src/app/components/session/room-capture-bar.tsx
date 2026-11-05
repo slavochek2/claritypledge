@@ -15,11 +15,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowRight, Mic, Pause, Play, Square } from 'lucide-react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import type { SliceDestination } from '@/app/data/transcribe-slice-destination';
-import { EVENT_TRANSCRIBE_FIRST_SENTENCE } from './capture-copy';
+import { EVENT_TEXT_ARRIVES_SHORT, EVENT_TRANSCRIBE_FIRST_SENTENCE, ROUND_UPDATE_CONSENT } from './capture-copy';
 import { CaptureChatLink } from './capture-chat-link';
 import { TranscriptReadyWatcher } from './transcript-ready-watcher';
 import { SessionBar } from './session-bar';
-import { EVENT_TEXT_ARRIVES_SHORT } from './capture-copy';
 import { CaptureInfoButton, OpenRoomButton, PauseResumeButton, StopCaptureButton } from './capture-controls';
 import { SHORT, useCaptureStatus } from './capture-status';
 import { CaptureLevelMeter } from './capture-level-meter';
@@ -277,10 +276,13 @@ export function RoomTranscribeIdleBar({
   eventId,
   displayName,
   onFailed,
+  roundUpdates = false,
 }: {
   eventId: string;
   displayName: string;
   onFailed: () => void;
+  /** P1529 D13: this event's round words feed the owner's next version, so the tap says so. */
+  roundUpdates?: boolean;
 }) {
   const capture = useRoomCapture();
   const { offline } = useConnectivity();
@@ -301,7 +303,7 @@ export function RoomTranscribeIdleBar({
   if (offline || busyPhase || capturing || running) return null;
   const primary = {
     label: starting ? 'Starting…' : 'Transcribe',
-    description: IDLE_DETAIL,
+    description: roundUpdates ? `${EVENT_TRANSCRIBE_FIRST_SENTENCE} ${ROUND_UPDATE_CONSENT} Transcription follows our Terms and Privacy Policy.` : IDLE_DETAIL,
     disabled: starting,
     testId: 'room-transcribe-start',
     onClick: () => {

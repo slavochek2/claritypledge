@@ -39,7 +39,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { Link, useSearchParams } from 'react-router-dom';
 import { Bell, BellOff, Check, ChevronDown, MapPin, Mic, Minus, Monitor, Plus, Shuffle, Undo2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/auth';
@@ -83,9 +82,7 @@ import {
   liveRole,
   roundClock,
   roundTiming,
-  type RoundClock,
   type RoundPhase,
-  type RoundTiming,
 } from '@/lib/round-clock';
 import type { EventRoomMember } from '@/app/types';
 import { MIC_HINTS, PREPARED_HINT, prepMarksByProfile, type PrepMarkState } from '../prep/PrepMarks';
@@ -97,8 +94,16 @@ import { SCREEN_CARD_MAX_EM, SCREEN_GAP, SCREEN_HEADER, SCREEN_PAD, screenLayout
 import { FIXED_TOPIC_TAGS, getEventTopicTags } from '@/app/data/event-topic-tags';
 import { knownSetTags, setLabel } from '@/lib/set-labels';
 import { eventTopic } from '../prep/prep-plan';
-import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
+import { countedRounds, nextRoundLabel, roundLabel } from '@/lib/round-numbering';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
+import { ClockNumber, PhaseStrip, groupByTable, useBell, useClock, useRoundBell, useViewport, Avatar, tableSeats } from './host-screen-parts';
+import { EventFlowRow } from './EventFlowRow';
+import { MastermindHostPanel, RecordingMark } from './MastermindHostPanel';
+import { MastermindPreviewNotes } from './MastermindPreviewNotes';
+import { MastermindScreen } from './MastermindScreen';
+import { useHostFlow, useMastermindHost } from './use-mastermind-host';
+import { COLUMN_LABELS, MASTERMIND_FLOW, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, seatGuardRefusal, silentTables } from './mastermind-host-helpers';
+import type { RecordingState } from '@/app/data/event-mastermind-service';
 
 const START_LOCK_MS = 10_000;
 /** A save that has not answered by now is given up on (founder, 2026-10-05: "it just hangs on
@@ -123,30 +128,6 @@ const PREP_POLL_MS = 60_000;
 const TRANSCRIBING_POLL_MS = 15_000;
 const MIC_LETTER = { usbc: 'C', lightning: 'L', other: '?' } as const;
 
-/**
- * The parts of a round, drawn in proportion to the round's own minutes (1 · 6 · 6 · 3 by default),
- * the table-finding minute first (walkthrough 8 reverses the earlier "not on the strip").
- */
-function talkingParts(timing: RoundTiming): { phase: RoundPhase; label: string; ms: number }[] {
-  // Walkthrough 8: the table-finding minute is its own labelled part, so the clock always says
-  // what it counts (it read as a bare "25 seconds" on the projector).
-  const seating = { phase: 'seating' as const, label: 'Find your table', ms: timing.seatingMs };
-  // No swap at half time: the speakers' time is one part, "Talk" (secondMs is 0 and drops out).
-  if (!timing.split) {
-    return [
-      seating,
-      { phase: 'first', label: 'Talk', ms: timing.firstMs },
-      { phase: 'observer', label: 'Observer', ms: timing.observerMs },
-    ];
-  }
-  return [
-    seating,
-    { phase: 'first', label: 'Speaker 1', ms: timing.firstMs },
-    { phase: 'second', label: 'Speaker 2', ms: timing.secondMs },
-    { phase: 'observer', label: 'Observer', ms: timing.observerMs },
-  ];
-}
-
 /** The name of the part running now, beside the host's clock. */
 const PART_NAME: Record<Exclude<RoundPhase, 'over'>, string> = {
   seating: 'Finding tables',
@@ -165,6 +146,8 @@ interface Settings {
   minutes: RoundMinutes;
   /** "Swap at half time" — off: one talking part, the pair trade the badges themselves. */
   splitSpeakers: boolean;
+  /** The Sales Mastermind's minutes for the next round; its own, so switching flow never overwrites Clarity Night's. */
+  mastermindMinutes: RoundMinutes;
   /** "Match on #tag": the tag the next round is grouped on (empty = the event's statement tag). */
   matchTag: string;
 }
@@ -174,6 +157,7 @@ const DEFAULT_SETTINGS: Settings = {
   toggles: DEFAULT_TOGGLES,
   minutes: DEFAULT_ROUND_MINUTES,
   splitSpeakers: true,
+  mastermindMinutes: MASTERMIND_MINUTES,
   matchTag: '',
 };
 
@@ -227,226 +211,6 @@ function useSettings(eventId: string | undefined): [Settings, (s: Settings) => v
     [storageKey],
   );
   return [settings, update];
-}
-
-function useViewport() {
-  const [size, setSize] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
-  useEffect(() => {
-    const onResize = () => setSize({ w: window.innerWidth, h: window.innerHeight });
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-  return size;
-}
-
-interface Table {
-  no: number;
-  first?: Seat;
-  second?: Seat;
-  observers: Seat[];
-}
-
-function groupByTable(seats: Seat[]): Table[] {
-  const tables = new Map<number, Table>();
-  for (const s of seats) {
-    const t = tables.get(s.table) ?? { no: s.table, observers: [] };
-    if (s.role === 'first') t.first = s;
-    else if (s.role === 'second') t.second = s;
-    else t.observers.push(s);
-    tables.set(s.table, t);
-  }
-  return [...tables.values()].sort((a, b) => a.no - b.no);
-}
-
-function tableSeats(t: Table): Seat[] {
-  return [t.first, t.second, ...t.observers].filter((s): s is Seat => !!s);
-}
-
-function useClock(round: EventRound | null, seats: Seat[]) {
-  const now = useNow(!!round);
-  if (!round) return null;
-  return roundClock(round.startedAt, now, seats.some(s => s.role === 'observer'), roundTiming(round));
-}
-
-function Avatar({ member, className }: { member: EventRoomMember | undefined; className?: string }) {
-  return (
-    <GravatarAvatar
-      name={member?.displayName ?? '?'}
-      photoUrl={member?.profileAvatarUrl ?? undefined}
-      avatarColor={member?.profileAvatarColor ?? undefined}
-      isPledger={member?.profileHasPledged ?? false}
-      size="sm"
-      className={className}
-    />
-  );
-}
-
-/**
- * The time left in the current part of the round. Past the end it reads "Time's up" —
- * "Over by 2204:35" said nothing a host could act on.
- */
-function ClockNumber({ clock, large }: { clock: RoundClock; large?: boolean }) {
-  if (clock.phase === 'over') {
-    return (
-      <p
-        className={cn('font-semibold leading-none text-foreground', large ? 'whitespace-nowrap text-5xl sm:text-6xl' : 'flex min-h-12 items-end text-4xl')}
-        data-testid="round-clock"
-        data-phase="over"
-      >
-        Time&rsquo;s up
-        {clock.overByMs < 60 * 60_000 && (
-          <span className={cn('ml-3 font-normal tabular-nums text-muted-foreground', large ? 'text-3xl sm:text-4xl' : 'text-lg')}>
-            +{formatClock(clock.overByMs)}
-          </span>
-        )}
-      </p>
-    );
-  }
-  return (
-    <p className={cn('font-semibold tabular-nums leading-none', large ? 'text-6xl sm:text-7xl' : 'min-h-12 text-5xl')} data-testid="round-clock" data-phase={clock.phase}>
-      {formatClock(clock.phaseRemainingMs)}
-    </p>
-  );
-}
-
-/** The talking parts in proportion, the current one filling as it runs. Empty while people find tables. */
-function PhaseStrip({
-  clock,
-  timing,
-  hasObserver,
-  large,
-}: {
-  clock: RoundClock;
-  timing: RoundTiming;
-  hasObserver: boolean;
-  large?: boolean;
-}) {
-  const parts = talkingParts(timing).filter(p => (hasObserver || p.phase !== 'observer') && p.ms > 0);
-  const current = parts.findIndex(p => p.phase === clock.phase);
-  const over = clock.phase === 'over';
-  return (
-    <ol className={cn('flex', large ? 'gap-3' : 'gap-1.5')} aria-label="Round">
-      {parts.map((p, i) => {
-        const done = over || (current >= 0 && i < current);
-        const active = i === current;
-        const filled = done ? 100 : active ? Math.round(100 * (1 - clock.phaseRemainingMs / p.ms)) : 0;
-        return (
-          <li
-            key={p.phase}
-            className="min-w-0"
-            // On the projector every part keeps room for its label ("Find your table" is one minute).
-            style={{ flexGrow: p.ms / 60_000, flexBasis: 0, minWidth: large ? '11em' : undefined }}
-            aria-current={active ? 'step' : undefined}
-          >
-            <div className={cn('overflow-hidden rounded-full bg-gray-200', large ? 'h-5' : 'h-2')}>
-              <div className={cn('h-full rounded-full transition-[width] duration-1000 ease-linear', done ? 'bg-blue-300' : 'bg-blue-500')} style={{ width: `${filled}%` }} />
-            </div>
-            {/* Labelled on the projector only: on the host panel the part's name sits beside the
-                clock, and "Obser…" truncated at 320px (visual QA). */}
-            {large && (
-              <p className={cn('mt-1 truncate text-lg sm:text-xl', active ? 'font-semibold text-blue-700' : 'text-muted-foreground')}>
-                {p.label}
-                {/* The finding minute needs no "· 1 min": the clock beside the strip counts it. */}
-                {p.phase !== 'seating' && <span className="font-normal text-muted-foreground"> · {Math.round(p.ms / 60_000)} min</span>}
-              </p>
-            )}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-/**
- * The projector's bell (founder: "the screen should make a sound … between speaker one and two,
- * between speaker two and the observer, and three times when I press Next round"; then "more like
- * a proper bell"). Synthesised with WebAudio — no file to load. A struck bell is not a stack of
- * harmonics: its partials sit at inharmonic ratios (hum, prime, minor third, fifth, nominal…) and
- * the high ones die first, after a short metallic strike. Each partial is a pair of slightly
- * detuned oscillators, which gives the slow beating a real bell has. Browsers allow sound only
- * after a tap on the page, so the screen starts muted and the host taps the bell once.
- */
-const BELL_BASE_HZ = 587; // D5 — carries over a room's talk without being shrill
-/** [ratio to the prime, level, seconds to fade] — church/hand-bell partials. */
-const BELL_PARTIALS: [number, number, number][] = [
-  [0.5, 0.1, 4.5],
-  [1, 0.28, 3.6],
-  [1.183, 0.12, 2.6],
-  [1.506, 0.08, 2.2],
-  [2, 0.12, 1.9],
-  [2.514, 0.06, 1.3],
-  [3.011, 0.04, 0.9],
-  [4.166, 0.03, 0.6],
-];
-const BELL_STRIKE_GAP_S = 1.3;
-
-function useBell() {
-  const ctxRef = useRef<AudioContext | null>(null);
-  const [on, setOn] = useState(false);
-  const ring = useCallback((times: number) => {
-    const ctx = ctxRef.current;
-    if (!ctx) return;
-    const master = ctx.createGain();
-    master.gain.value = 0.7;
-    const limiter = ctx.createDynamicsCompressor();
-    master.connect(limiter).connect(ctx.destination);
-    for (let i = 0; i < times; i++) {
-      const at = ctx.currentTime + 0.02 + i * BELL_STRIKE_GAP_S;
-      for (const [ratio, level, fade] of BELL_PARTIALS) {
-        for (const detune of [-0.8, 0.8]) {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.frequency.value = BELL_BASE_HZ * ratio + detune;
-          gain.gain.setValueAtTime(0, at);
-          gain.gain.linearRampToValueAtTime(level / 2, at + 0.004);
-          gain.gain.exponentialRampToValueAtTime(0.0001, at + fade);
-          osc.connect(gain).connect(master);
-          osc.start(at);
-          osc.stop(at + fade + 0.05);
-        }
-      }
-      // The strike: a few milliseconds of filtered noise, the clapper hitting metal.
-      const noise = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.03), ctx.sampleRate);
-      const data = noise.getChannelData(0);
-      for (let j = 0; j < data.length; j++) data[j] = (Math.random() * 2 - 1) * (1 - j / data.length);
-      const src = ctx.createBufferSource();
-      src.buffer = noise;
-      const band = ctx.createBiquadFilter();
-      band.type = 'bandpass';
-      band.frequency.value = BELL_BASE_HZ * 4;
-      const hit = ctx.createGain();
-      hit.gain.value = 0.25;
-      src.connect(band).connect(hit).connect(master);
-      src.start(at);
-    }
-  }, []);
-  // Release the audio device when the projector closes (Codex review).
-  useEffect(() => () => void ctxRef.current?.close().catch(() => {}), []);
-  const toggle = useCallback(() => {
-    if (on) return setOn(false);
-    try {
-      ctxRef.current ??= new AudioContext();
-      void ctxRef.current.resume();
-      setOn(true);
-      ring(1);
-    } catch {
-      /* no audio on this device — stays muted */
-    }
-  }, [on, ring]);
-  return { on, toggle, ring };
-}
-
-/** Rings on the transitions the room must hear, never on opening the screen mid-round. */
-function useRoundBell(round: EventRound | null, phase: RoundPhase | undefined, bell: ReturnType<typeof useBell>) {
-  const last = useRef<{ roundId?: string; phase?: RoundPhase }>({});
-  useEffect(() => {
-    const prev = last.current;
-    last.current = { roundId: round?.id, phase };
-    if (!bell.on || !round || !phase) return;
-    if (prev.roundId && prev.roundId !== round.id) return bell.ring(3);
-    if (prev.roundId !== round.id) return;
-    if ((prev.phase === 'first' && phase === 'second') || (prev.phase === 'second' && phase === 'observer')) bell.ring(1);
-  }, [round, phase, bell]);
 }
 
 /* ── The projector ───────────────────────────────────────────────────────── */
@@ -582,6 +346,8 @@ function ScreenView({
 interface PersonMarks {
   prep?: PrepMarkState;
   transcribing: boolean;
+  /** The mastermind's three recording states; replaces the red dot in that flow. */
+  recording?: RecordingState;
 }
 
 /** Host-only, never on the screen: prepared · recording volunteer (+ the mic they need) · live transcription. */
@@ -601,6 +367,7 @@ function StatusMarks({ marks, lifted }: { marks?: PersonMarks; lifted: boolean }
           {prep.mic !== 'own' && <span className="text-[10px] font-semibold leading-none">{MIC_LETTER[prep.mic]}</span>}
         </span>
       )}
+      {marks?.recording && <RecordingMark state={marks.recording} lifted={lifted} />}
       {marks?.transcribing && (
         <span className={cn('h-2 w-2 rounded-full bg-red-500', lifted && 'ring-2 ring-white')} title="Transcribing now" aria-label="Transcribing now" data-testid="mark-transcribing" />
       )}
@@ -715,6 +482,8 @@ function TablesGrid({
   canSwap,
   actions,
   onTap,
+  labels,
+  silentTableNos,
 }: {
   seats: Seat[];
   byId: Map<string, EventRoomMember>;
@@ -727,6 +496,10 @@ function TablesGrid({
   canSwap?: (id: string) => boolean;
   actions?: ReactNode;
   onTap?: (id: string) => void;
+  /** The mastermind's column names (Clarity Canvas owner, Partner, Observer); no S / L card, no swap. */
+  labels?: Record<SeatRole, string>;
+  /** Tables with nobody's words: their number stands out. */
+  silentTableNos?: number[];
 }) {
   const tables = groupByTable(seats);
   const hasObserver = tables.some(t => t.observers.length > 0);
@@ -758,23 +531,24 @@ function TablesGrid({
         const role = liveRole(col, phase);
         const speaking = split && role === 'speaker' && phase !== 'seating' && phase !== 'over';
         // No swap at half time: no starter is assigned — both speaker columns are "the pair".
-        const pair = !split && col !== 'observer';
+        const pair = !split && col !== 'observer' && !labels;
         return (
           <p
             key={col}
             className={cn('flex min-w-0 items-center justify-center gap-1.5 text-xs', speaking ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}
             data-testid="round-grid-role"
           >
-            {pair ? <PairBadge className="h-5 w-5 text-[11px]" /> : <RoleBadge role={role} className="h-5 w-5 text-[11px]" />}
+            {labels ? null : pair ? <PairBadge className="h-5 w-5 text-[11px]" /> : <RoleBadge role={role} className="h-5 w-5 text-[11px]" />}
             {/* One line always: in the narrower preview card "Speaker 2" wrapped at 375px. */}
-            <span className="hidden min-w-0 truncate min-[375px]:inline">{pair ? 'Pair' : COLUMN_LABEL[col]}</span>
+            <span className={labels ? 'min-w-0 break-words text-center leading-tight' : 'hidden min-w-0 truncate min-[375px]:inline'}>{pair ? 'Pair' : (labels ?? COLUMN_LABEL)[col]}</span>
           </p>
         );
       })}
       {tables.map(table => (
         <div key={table.no} className="contents">
           <div
-            className="grid place-items-center rounded-lg bg-muted text-sm lg:text-base font-semibold text-muted-foreground"
+            className={cn('grid place-items-center rounded-lg bg-muted text-sm lg:text-base font-semibold text-muted-foreground', silentTableNos?.includes(table.no) && 'bg-red-100 text-red-700 ring-2 ring-red-500')}
+            data-silent={silentTableNos?.includes(table.no) ? 'true' : undefined}
             aria-label={`Table ${table.no}`}
           >
             {table.no}
@@ -863,6 +637,8 @@ function RoundPreview({
   onShuffle,
   onStart,
   onBack,
+  labels,
+  notes,
 }: {
   label: string;
   preview: Preview;
@@ -873,6 +649,9 @@ function RoundPreview({
   onShuffle: () => void;
   onStart: () => void;
   onBack: () => void;
+  /** The mastermind: its column names, and what the proposed tables break. */
+  labels?: Record<SeatRole, string>;
+  notes?: ReactNode;
 }) {
   const [lifted, setLifted] = useState<string | null>(null);
   useEffect(() => setLifted(null), [preview.seats]);
@@ -904,8 +683,10 @@ function RoundPreview({
           lifted={lifted}
           canSwap={id => !busy && !!lifted && lifted !== id}
           onTap={onTap}
+          labels={labels}
         />
       </div>
+      {notes}
       <Button
         type="button"
         className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
@@ -1009,6 +790,7 @@ function useMatchTagOptions(eventTag: string | null | undefined): string[] {
 export function EventHostPage() {
   const { slug, event, loading } = useEventRoomAccess();
   const { user, session, sessionChecked } = useAuth();
+  const { flow, choose: chooseFlow } = useHostFlow(event);
   const [params] = useSearchParams();
   // /presi4 slide 17: `view=compare` projects one table's comparison; it skips the host polling
   // like the screen view does.
@@ -1093,13 +875,14 @@ export function EventHostPage() {
   const names = useMemo(() => new Map(roster.map(m => [m.id, m.displayName])), [roster]);
   const byId = useMemo(() => new Map(roster.map(m => [m.id, m])), [roster]);
   const profileIds = useMemo(() => members.map(m => m.profileId).filter((p): p is string => !!p), [members]);
+  const mm = useMastermindHost({ eventId, active: flow === MASTERMIND_FLOW, screen: isScreen, rounds: state.rounds, seatsByRound: state.seatsByRound, members });
   // Showcase (founder walkthrough 6, option 7C), called the Demo since P1430: the host chooses who
   // sits; everyone else watches. null = every table plays.
   const [chosen, setChosen] = useState<Set<string> | null>(null);
   // "Match on #tag" (founder walkthrough 6): the next round is grouped on this tag; empty = the
   // event's. A Demo always uses the event's own set (P1430: "Match on" is hidden for it).
   const matchTag = (chosen ? '' : settings.matchTag.trim()) || event?.statementTag || null;
-  const positions = useTagPositions(isScreen ? null : matchTag, profileIds);
+  const positions = useTagPositions(isScreen || mm.active ? null : matchTag, profileIds);
   const [preview, setPreview] = useState<Preview | null>(null);
   // A start of our own is in flight: the poll that sees the new round must not read it as "another
   // device started it".
@@ -1118,9 +901,11 @@ export function EventHostPage() {
   const marksFor = useCallback(
     (memberId: string): PersonMarks => {
       const profileId = byId.get(memberId)?.profileId;
+      // The mastermind: the phone answer is the mic mark, and the three recording states replace the red dot.
+      if (profileId && mm.active) return { prep: { prepared: !!prepMarks.get(profileId)?.prepared, mic: mm.personOf(memberId)?.phone ?? null }, transcribing: false, recording: mm.recordingOf(memberId) };
       return profileId ? { prep: prepMarks.get(profileId), transcribing: transcribing.has(profileId) } : { transcribing: false };
     },
-    [byId, prepMarks, transcribing],
+    [byId, prepMarks, transcribing, mm],
   );
 
   const round = currentRound(state);
@@ -1153,8 +938,11 @@ export function EventHostPage() {
   );
 
   // The minutes the next round starts with: the Demo's while "One demo table" is on, else the saved ones.
-  const minutes = chosen ? demoMinutes : settings.minutes;
-  const setMinutes = (next: RoundMinutes) => (chosen ? setDemoMinutes(next) : setSettings({ ...settings, minutes: next }));
+  const minutes = chosen ? demoMinutes : mm.active ? settings.mastermindMinutes : settings.minutes;
+  // The mastermind never swaps at half time: its talk is one part.
+  const swapAtHalf = settings.splitSpeakers && !mm.active;
+  const setMinutes = (next: RoundMinutes) =>
+    chosen ? setDemoMinutes(next) : setSettings(mm.active ? { ...settings, mastermindMinutes: next } : { ...settings, minutes: next });
 
   // P1430: `sits_out_round` names a COUNTED round (what the host and the room read), so marking
   // someone out of "Round 1" never takes them out of the Demo before it. A Demo (displayNo null)
@@ -1181,6 +969,7 @@ export function EventHostPage() {
     (roundNo: number, only: Set<string> | null, shuffle: number) => {
       const demosBefore = state.rounds.filter(r => r.showcase && r.roundNo < roundNo).length;
       const displayNo = only ? null : roundNo - demosBefore;
+      if (mm.active && !only) return mm.plan(roundNo, poolFor(displayNo).map(p => p.id), shuffle).seats;
       const history = historyBefore(roundNo);
       return groupNextRound({
         people: poolFor(displayNo).filter(p => !only || only.has(p.id)),
@@ -1196,7 +985,7 @@ export function EventHostPage() {
         seed: shuffle ? `${eventId ?? ''}:shuffle:${shuffle}` : eventId ?? '',
       });
     },
-    [state.rounds, poolFor, historyBefore, gap, settings, eventId],
+    [state.rounds, poolFor, historyBefore, gap, settings, eventId, mm.active, mm.plan],
   );
 
   // Every save is bounded: no answer within SAVE_DEADLINE_MS and the request is dropped. A lost
@@ -1215,7 +1004,7 @@ export function EventHostPage() {
         await new Promise(resolve => setTimeout(resolve, 30));
         await withDeadline(write(save.signal), WRITE_DEADLINE_MS);
         saved = true;
-      } catch {
+      } catch (e) {
         if (landed) {
           const check = new AbortController();
           const left = Math.max(1_000, SAVE_DEADLINE_MS - (Date.now() - startedAt));
@@ -1224,7 +1013,7 @@ export function EventHostPage() {
             return false;
           });
         }
-        if (!saved) setError('That didn’t save. Try again.');
+        if (!saved) setError(seatGuardRefusal(e) ?? 'That didn’t save. Try again.');
       } finally {
         clearTimeout(timer);
         save.abort();
@@ -1290,7 +1079,7 @@ export function EventHostPage() {
     );
   }
 
-  const ended = evening === 'ended';
+  const ended = evening === 'ended' && !mm.stepOn;
 
   if (isCompare) {
     const shown = round ?? lastRound ?? null;
@@ -1306,6 +1095,7 @@ export function EventHostPage() {
     );
   }
   if (isScreen) {
+    if (mm.active) return <MastermindScreen round={round} rounds={state.rounds} seats={seats} byId={byId} room={members.filter(m => !presence.get(m.id)?.leftAt)} ended={ended} updateOn={mm.stepOn} />;
     return <ScreenView round={round} rounds={state.rounds} seats={seats} byId={byId} room={members.filter(m => !presence.get(m.id)?.leftAt)} ended={ended} />;
   }
 
@@ -1329,6 +1119,11 @@ export function EventHostPage() {
     const ids = poolIds(roundNo, chosen);
     if (ids.length < 2) {
       setError(chosen ? 'Choose at least two people to sit.' : 'Waiting for at least two people in the room.');
+      return;
+    }
+    const stop = chosen ? null : mm.guardOpen(roundNo, ids);
+    if (stop) {
+      setError(stop);
       return;
     }
     // One demo table means one table (Codex review): more people than a table seats would split it.
@@ -1377,7 +1172,7 @@ export function EventHostPage() {
     startingRef.current = true;
     void run(
       async signal => {
-        const id = await hostStartRound(event.id, roundNo, settings.groupSize, planned, minutes, settings.splitSpeakers, signal, {
+        const id = await hostStartRound(event.id, roundNo, mm.active && !demo ? MASTERMIND_GROUP_SIZE : settings.groupSize, planned, minutes, swapAtHalf, signal, {
           matchTag: roundTag,
           showcase: demo,
         });
@@ -1425,7 +1220,7 @@ export function EventHostPage() {
     setChosen(demo ? new Set() : null);
     setPairHint(null);
     if (demo) setDemoMinutes(DEMO_MINUTES);
-    else setSettings({ ...settings, minutes: STANDARD_MINUTES });
+    else setSettings(mm.active ? { ...settings, mastermindMinutes: MASTERMIND_MINUTES } : { ...settings, minutes: STANDARD_MINUTES });
   };
 
   const commitSeats = (next: Seat[] | (() => Seat[]), label: string) => {
@@ -1482,6 +1277,11 @@ export function EventHostPage() {
   const clock = round && timing ? roundClock(round.startedAt, now, hasObserver, timing) : null;
   // The whole round's time left, beside the part's (founder: "time left per sub-round vs total").
   const roundLeftMs = clock ? (clock.phase === 'seating' ? clock.phaseRemainingMs : 0) + clock.talkRemainingMs : 0;
+  const silentNos = mm.active && round && timing ? silentTables(seats, id => mm.recordingOf(id) === 'words', new Date(round.startedAt).getTime() + timing.seatingMs, now) : [];
+  // The canvas-update step is offered once round 2 is counted, while a round runs; starting it ends that round.
+  const updateRound = mm.active && !mm.stepOn && round && !round.showcase && countedRounds(state.rounds) >= 2
+    ? { label: roundLabel(state.rounds, round), leftMs: clock && clock.phase !== 'over' ? roundLeftMs : null }
+    : null;
 
   const extend = () => {
     if (!round || !clock || clock.phase === 'over') return;
@@ -1564,6 +1364,7 @@ export function EventHostPage() {
           )}
           data-testid="host-controls"
         >
+          {!preview && countedRounds(state.rounds) === 0 && <EventFlowRow eventId={event.id} flow={flow} onChanged={chooseFlow} />}
           <p className="text-sm font-medium text-muted-foreground">
             {(ended || round) && <span data-testid="host-round-title">{ended ? 'Evening ended' : round ? roundLabel(state.rounds, round) : ''}</span>}
             {(ended || round) && !ended && ' · '}
@@ -1625,6 +1426,8 @@ export function EventHostPage() {
               onShuffle={shufflePreview}
               onStart={startPreview}
               onBack={() => setPreview(null)}
+              labels={mm.active && !preview.demo ? COLUMN_LABELS : undefined}
+              notes={mm.active && !preview.demo ? <MastermindPreviewNotes roundNo={preview.roundNo} seats={preview.seats} ids={preview.ids} shuffle={preview.shuffle} host={mm} name={id => shortName(names.get(id) ?? 'Someone')} /> : undefined}
             />
           )}
           {!preview && (<>
@@ -1834,6 +1637,7 @@ export function EventHostPage() {
                 </SettingsGroup>
 
                 <SettingsGroup title="Format">
+                  {!mm.active && (
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm">Group size</span>
                     <div className="inline-flex rounded-lg bg-muted p-1">
@@ -1853,9 +1657,10 @@ export function EventHostPage() {
                       ))}
                     </div>
                   </div>
+                  )}
                   {/* Walkthrough 7: two named choices instead of a checkbox — the minutes below follow
                       it ("Speaker N min" each, or one "Talk N min"). */}
-                  <Segmented
+                  {!mm.active && <Segmented
                     label="How the pair talk"
                     testId="host-split-speakers"
                     value={settings.splitSpeakers ? 'split' : 'one'}
@@ -1870,12 +1675,12 @@ export function EventHostPage() {
                       // minutes, so store what it shows (Codex review).
                       if (split) setMinutes({ ...minutes, speakerS: Math.max(60, Math.round(minutes.speakerS / 60) * 60) });
                     }}
-                  />
+                  />}
                   <div className="space-y-1" data-testid="host-minutes">
-                    {MINUTE_FIELDS.filter(f => f.key !== 'observerS' || settings.groupSize > 2).map(f => {
+                    {MINUTE_FIELDS.filter(f => f.key !== 'observerS' || settings.groupSize > 2 || mm.active).map(f => {
                       // One talk: the speaker row is the whole talk — both halves, stored as two equal
                       // parts so the round clock and the server keep one shape (roundTiming adds them).
-                      const factor = f.key === 'speakerS' && !settings.splitSpeakers ? 2 : 1;
+                      const factor = f.key === 'speakerS' && !swapAtHalf ? 2 : 1;
                       const label = factor === 2 ? 'Talk' : f.label;
                       const value = minutes[f.key] * factor;
                       const set = (next: number) =>
@@ -1903,7 +1708,7 @@ export function EventHostPage() {
 
                 {/* Matching only means something when the whole room is grouped; a Demo seats the
                     chosen on the event's own set. */}
-                {!chosen && (
+                {!chosen && !mm.active && (
                   <SettingsGroup title="Matching">
                     {(
                       [
@@ -1947,6 +1752,11 @@ export function EventHostPage() {
           )}
 
         <div className="min-w-0 lg:order-1 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+          {mm.active && (
+            <div className="mt-5 lg:mb-5 lg:mt-0">
+              <MastermindHostPanel members={members} isOut={isOut} host={mm} locked={!!preview} updateRound={updateRound} silentTableNos={silentNos} busy={!!busy} onStartUpdate={() => void run(() => mm.startUpdate())} />
+            </div>
+          )}
           {!ended && (
             <section className="mt-5 space-y-4 lg:mt-0" data-testid="host-people">
               {round && clock && seats.length > 0 && (
@@ -1961,6 +1771,8 @@ export function EventHostPage() {
                   canSwap={canSwap}
                   actions={liftedActions}
                   onTap={onTap}
+                  labels={mm.active ? COLUMN_LABELS : undefined}
+                  silentTableNos={silentNos}
                 />
               )}
               <PeopleGroup
@@ -1972,7 +1784,7 @@ export function EventHostPage() {
                 actions={liftedActions}
                 onTap={onTap}
                 action={
-                  round && waiting.length > 0 ? (
+                  round && !mm.active && waiting.length > 0 ? (
                     <Button
                       type="button"
                       variant="outline"
@@ -2021,7 +1833,7 @@ export function EventHostPage() {
                       <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
                     </summary>
                     <div className="pb-2 pt-1">
-                      <TablesGrid seats={past} byId={byId} phase="seating" />
+                      <TablesGrid seats={past} byId={byId} phase="seating" labels={mm.active ? COLUMN_LABELS : undefined} />
                     </div>
                   </details>
                 );

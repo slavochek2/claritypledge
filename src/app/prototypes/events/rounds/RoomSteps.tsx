@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 
 export type RoomStep = 'ready' | 'principle' | 'table' | 'compare' | 'close';
 
+
 /** Round 7b: ONE tick for every done step (Learn included): the same blue and the same stroke everywhere. */
 const TICK_CLASS = 'h-3 w-3 shrink-0 text-blue-600';
 const TICK_STROKE = 3;

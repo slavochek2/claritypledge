@@ -129,6 +129,8 @@ audience.
 
 ## Related
 
+- **First real input: the sales mastermind's spoken scores (P1529 D4).** People say their number out loud (the lower one counts, above 8 the partner may challenge), and the transcript in each round thread keeps it. The app scores nothing; those threads are what this spec would read first.
+
 - [p1337](p1337_event_journey_on_screen_steps_rotation_and_ending.md) — supplies round, table, role and membership, which is the join key for everything here
 - [p1388](p1388_transcribe_consent_controls.md) — the capture quality this depends on
 - [p1061](p1061_point_position_movement_analytics.md) — position movement, measured rather than derived

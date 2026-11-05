@@ -109,8 +109,9 @@ import { PrepFlow } from '../prep/EventPrepPage';
 import { PracticeRooms } from './PracticeRooms';
 import { RosterWait } from './EventRoomRosterWait';
 import { SHOW_PRACTICE_ROOMS } from './practice-rooms-switch';
-import { RoundCard, type RoundMoment } from '../rounds/RoundCard';
+import { FlowRoundCard, type RoundMoment } from '../rounds/FlowRoundCard';
 import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
+import { hiddenRoomSteps } from '../rounds/hidden-room-steps';
 import { useFeedbackFinished } from '../use-feedback-finished';
 import { CloseInRoom } from '../close/CloseInRoom';
 import { RoomCloseView } from './RoomCloseView';
@@ -435,12 +436,9 @@ export function EventRoomMeet() {
   // P1542: a series' room may have no readiness step and no rounds (a hike's), and may open Feedback at the
   // event's start instead of waiting for the host to end the evening.
   const roomRecipe = recipeForEvent(event);
-  const hiddenSteps: RoomStep[] = [
-    ...(roomRecipe.room.readiness ? [] : (['ready'] as RoomStep[])),
-    ...(roomRecipe.room.rounds ? [] : (['table', 'compare'] as RoomStep[])),
-  ];
+  const hiddenSteps = hiddenRoomSteps(roomRecipe);
   const currentStep: RoomStep =
-    isFrozen || moment.eveningOver || feedbackAlwaysOpen(event)
+    ((isFrozen || moment.eveningOver) && !hiddenSteps.includes('close')) || feedbackAlwaysOpen(event)
       ? 'close'
       : moment.seated
         ? moment.atTable ? 'compare' : 'table'
@@ -535,6 +533,7 @@ export function EventRoomMeet() {
             eventId={event.id}
             displayName={user?.name || user?.email || 'Participant'}
             onFailed={() => setStartFailed(true)}
+            roundUpdates={roomRecipe.mastermind}
           />
         ) : undefined}
       />
@@ -610,10 +609,8 @@ export function EventRoomMeet() {
           {/* P1337: the round — your table, your role, what to talk about. Renders nothing
               until the host starts round 1, and nothing after the evening ends. */}
           {event && roomRecipe.room.rounds && (
-            <RoundCard
-              eventId={event.id}
-              statementTag={event.statementTag}
-              eventTitle={event.title}
+            <FlowRoundCard
+              event={event}
               self={self}
               roster={roster}
               ended={pastGrace}

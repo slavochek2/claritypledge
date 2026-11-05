@@ -8,13 +8,13 @@
  * the page so its function does not grow.
  */
 import { Sparkles, ShieldOff } from 'lucide-react';
-import { CHAT_ROOM_AGREED_LABEL, CHAT_ROOM_INTRO, consentAgreedLabel } from '@/app/components/session/capture-copy';
-import { useRoomEventState } from './use-room-event';
+import { CHAT_ROOM_AGREED_LABEL, CHAT_ROOM_INTRO, ROUND_UPDATE_CONSENT, consentAgreedLabel } from '@/app/components/session/capture-copy';
+import { useRoomEventState, useRoomIsMastermind } from './use-room-event';
 
-export function ConsentLabel({ agreed, code }: { agreed: boolean; code: string | undefined }) {
+export function ConsentLabel({ agreed, code, checking = false }: { agreed: boolean; code: string | undefined; checking?: boolean }) {
   const state = useRoomEventState(code);
   if (!agreed) return <>Not yet agreed — tap to agree</>;
-  if (state === 'loading') return <>Checking this room…</>;
+  if (state === 'loading' || checking) return <>Checking this room…</>;
   if (state === 'chat') return <>{CHAT_ROOM_AGREED_LABEL}</>;
   return <>{consentAgreedLabel(state !== 'room')}</>;
 }
@@ -22,6 +22,7 @@ export function ConsentLabel({ agreed, code }: { agreed: boolean; code: string |
 export function ConsentSection({ agreed, code, onToggle }: { agreed: boolean; code: string | undefined; onToggle: () => void }) {
   const state = useRoomEventState(code);
   const forEvent = state === 'event' || state === 'unknown';
+  const mastermind = useRoomIsMastermind(code);
   return (
     <>
       <p className="text-sm text-muted-foreground mb-6" data-testid="transcribe-consent-intro">
@@ -33,7 +34,7 @@ export function ConsentSection({ agreed, code, onToggle }: { agreed: boolean; co
         ) : (
           <>
             Your spoken words will be transcribed live and {state === 'chat' ? CHAT_ROOM_INTRO : forEvent ? "shown in this room, and a clean version is posted to this event's channel after each round; anything said outside a round is posted after the room ends" : 'shown to everyone in this room'},
-            attributed to you with a timestamp. The room&rsquo;s audio is recorded.
+            attributed to you with a timestamp. The room&rsquo;s audio is recorded.{mastermind ? ` ${ROUND_UPDATE_CONSENT}` : ''}
           </>
         )}
       </p>
@@ -41,7 +42,7 @@ export function ConsentSection({ agreed, code, onToggle }: { agreed: boolean; co
       <button
         type="button"
         onClick={onToggle}
-        disabled={state === 'loading'}
+        disabled={state === 'loading' || mastermind === null}
         aria-pressed={agreed}
         className={`w-full flex items-center gap-3 rounded-lg border px-4 py-3 mb-6 min-h-11 text-left transition-colors disabled:opacity-60 ${
           agreed
@@ -52,7 +53,7 @@ export function ConsentSection({ agreed, code, onToggle }: { agreed: boolean; co
       >
         {agreed ? <Sparkles className="w-5 h-5 text-blue-500 shrink-0" /> : <ShieldOff className="w-5 h-5 shrink-0" />}
         <span className="font-medium">
-          <ConsentLabel agreed={agreed} code={code} />
+          <ConsentLabel agreed={agreed} code={code} checking={mastermind === null} />
         </span>
       </button>
     </>

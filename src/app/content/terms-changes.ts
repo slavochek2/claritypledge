@@ -33,6 +33,18 @@ export interface TermsChangeSummary {
 
 /** Newest first: termsPrompt reads this order to find what someone has not seen. */
 export const TERMS_CHANGES: Record<string, TermsChangeSummary> = {
+  'v1.8': {
+    // [FOUNDER DECISION: wording, and notice versus re-acceptance.] P1529 D13 and D23. Proposed as a notice, as with v1.6: a person
+    // accepts this at registration for the event itself, and the sentence is in the consent there and in the room.
+    requiresConsent: false,
+    kind: 'feature',
+    title: 'New feature: your canvas can get better after each conversation at an event',
+    headline: "At events built around Clarity Canvases, what you say at a table can be used by the Clarity Canvas owner's AI mirror to draft their next version. The canvas never quotes or names you, and the owner decides whether to publish it.",
+    highlights: [
+      "When the owner asks for a next version, the words from that table that they can read are copied into their private mirror chat and sent to Google's Gemini to write the draft.",
+      "Deleting your account removes your words from those copies.",
+    ],
+  },
   'v1.7': {
     // Notice, not re-acceptance (founder, P1536, 2026-11-04; overrides the quarterly batching of
     // decisions.md 2026-09-14): drafting a canvas sends the owner's material to Gemini. Retention

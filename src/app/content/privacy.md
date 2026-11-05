@@ -132,6 +132,8 @@ Words said while someone louder was speaking may not appear. The people the even
 admits (the host, and attendees who registered in time) can read and forward this text, whether
 or not they were in the room. A nearby person's microphone can pick up your voice and post it under their name, even if you have not switched transcription on.
 
+In a discussion round, what you say can be used by that round's Clarity Canvas owner's AI mirror to draft their next version. This happens only at an event that runs these rounds, and only when that owner asks for a next version. The text of the round that the owner can read is then copied into their private mirror agent chat and sent to Google's Gemini API with their canvas. The draft never quotes or names you, and the owner decides whether to publish it. If you delete your account, your words are removed from those copies.
+
 Transcription keeps running while you move to other pages of the app, and a bar at the top of
 the page shows that it is running. It pauses while you are in a live session, record an
 explain-back or read a letter, and resumes afterwards. You can also pause it yourself from the

@@ -24,6 +24,9 @@ export function consentAgreedLabel(forEvent: boolean): string {
     : 'Recorded and visible to everyone in this room';
 }
 
+/** P1529 D13, the founder's wording: told wherever a person agrees to transcription in a Sales Mastermind. */
+export const ROUND_UPDATE_CONSENT = "In a discussion round, what you say can be used by that round's Clarity Canvas owner's AI mirror to draft their next version.";
+
 /** [FOUNDER DECISION: copy, proposed] When a person's clean text reaches the event's chat: the full sentence, on the live text page and behind the info icon. */
 export const EVENT_TEXT_ARRIVES = "If you're at a table, your text reaches its chat about 2 minutes after the round ends.";
 /** The one-line form, in the bar and after stopping (founder, solo test 2026-11-02). */

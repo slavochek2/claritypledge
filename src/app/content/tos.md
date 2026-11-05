@@ -72,7 +72,7 @@ three hours, or the room ends — moving to another page does not stop it. After
 a transcript made from each participant's full recording is added to the session history of
 everyone who took part. The room's own transcript can be read by the people who switched
 transcription on in that room; at an event, the transcript posted to the event's channel can also be
-read by the event's host and attendees. The same responsibilities as for live sessions apply.
+read by the event's host and attendees. In a discussion round, what you say can be used by that round's Clarity Canvas owner's AI mirror to draft their next version. That canvas never quotes or names you, and the owner decides whether to publish it. The same responsibilities as for live sessions apply.
 
 ## AI & Machine Learning
 

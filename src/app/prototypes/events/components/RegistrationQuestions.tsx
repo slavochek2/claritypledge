@@ -4,6 +4,7 @@
  * Register is always tappable and names what is missing (a disabled button is a dead control, P955).
  * Wording is DRAFT: [FOUNDER DECISION: final copy].
  */
+import { ROUND_UPDATE_CONSENT } from '@/app/components/session/capture-copy';
 import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -112,7 +113,7 @@ export function RegistrationQuestions({
           </fieldset>
           <label className="flex min-h-10 cursor-pointer items-start gap-3 text-sm">
             <Checkbox checked={accepted} onCheckedChange={v => setAccepted(v === true)} className="mt-0.5" data-testid="recording-accept" />
-            <span>I'm fine with my conversations being transcribed and used by AI at this event.</span>
+            <span>I'm fine with my conversations being transcribed and used by AI at this event. {ROUND_UPDATE_CONSENT}</span>
           </label>
           <div>
             <label htmlFor={`${id}-hope`} className="mb-2 block text-sm font-medium">What do you hope to get from this event? (optional)</label>

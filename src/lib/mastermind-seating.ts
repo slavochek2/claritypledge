@@ -54,8 +54,8 @@ const ROUNDS_IN_SESSION = 4;
 const MAX_OBSERVERS_PER_TABLE = 2;
 const ATTEMPTS = 400;
 
-const key = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
-const half = (roundNo: number) => (roundNo <= 2 ? 'first' : 'second');
+export const key = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+export const half = (roundNo: number) => (roundNo <= 2 ? 'first' : 'second');
 
 function rng(seed: string): () => number {
   let h = 2166136261;
@@ -72,18 +72,20 @@ function shuffled<T>(items: T[], rand: () => number): T[] {
   const out = [...items];
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
+    const a = out[i] as T;
+    out[i] = out[j] as T;
+    out[j] = a;
   }
   return out;
 }
 
-interface Tally {
+export interface Tally {
   met: Set<string>;
   ownedByPart: { first: Set<string>; second: Set<string> };
   sitOuts: Map<string, number>;
 }
 
-function tallyHistory(history: SeatingHistoryRound[]): Tally {
+export function tallyHistory(history: SeatingHistoryRound[]): Tally {
   const t: Tally = { met: new Set(), ownedByPart: { first: new Set(), second: new Set() }, sitOuts: new Map() };
   history.forEach((seats, i) => {
     const part = half(i + 1);
@@ -115,11 +117,12 @@ function matchPairs(owners: string[], partners: string[], t: Tally, previous: Se
       bestCost = cost;
       return;
     }
-    const options = [...free].sort((a, b) => pairCost(order[i], a, t, previous) - pairCost(order[i], b, t, previous));
+    const owner = order[i] as string;
+    const options = [...free].sort((a, b) => pairCost(owner, a, t, previous) - pairCost(owner, b, t, previous));
     for (const p of options) {
       free.delete(p);
-      pairs.push([order[i], p]);
-      go(i + 1, cost + pairCost(order[i], p, t, previous));
+      pairs.push([owner, p]);
+      go(i + 1, cost + pairCost(owner, p, t, previous));
       pairs.pop();
       free.add(p);
     }
@@ -244,13 +247,13 @@ function seatRound(round: PlannedRound, observers: string[], rand: () => number)
   for (const person of [...round.sitOut, ...shuffled(observers, rand)]) {
     let target = -1;
     atTable.forEach((n, i) => {
-      if (n < MAX_OBSERVERS_PER_TABLE && (target < 0 || n < atTable[target])) target = i;
+      if (n < MAX_OBSERVERS_PER_TABLE && (target < 0 || n < (atTable[target] as number))) target = i;
     });
     if (target < 0) {
       unseated.push(person);
       continue;
     }
-    atTable[target]++;
+    atTable[target] = (atTable[target] as number) + 1;
     seats.push({ id: person, table: target + 1, role: 'observer' });
   }
   return { seats, unseated };
@@ -259,7 +262,7 @@ function seatRound(round: PlannedRound, observers: string[], rand: () => number)
 /** What this round breaks, plus who the plan knows will not own in a part, so the host decides early. */
 function namedBreaks(start: Tally, plan: PlannedRound[], roundNo: number, holders: string[], previous: Set<string>): UnmetRule[] {
   const unmet: UnmetRule[] = [];
-  const round = plan[0];
+  const round = plan[0] as PlannedRound;
   for (const [o, p] of round.pairs) {
     if (start.met.has(key(o, p))) unmet.push({ rule: 'repeat-partner', people: [o, p] });
     if (previous.has(key(o, p))) unmet.push({ rule: 'previous-session-partner', people: [o, p] });
@@ -286,7 +289,7 @@ export function planMastermindRound(input: MastermindSeatingInput): MastermindSe
   }
   const tooFew: UnmetRule[] = holders.length < RECOMMENDED_MIN_CANVASES ? [{ rule: 'too-few-canvases', canvases: holders.length }] : [];
   const plan = bestPlan(holders, roundNo, start, previous, rand);
-  const { seats, unseated } = seatRound(plan[0], observers, rand);
+  const { seats, unseated } = seatRound(plan[0] as PlannedRound, observers, rand);
   const named: UnmetRule[] = unseated.map(person => ({ rule: 'unseated', person }));
   return { seats, unmet: [...tooFew, ...named, ...namedBreaks(start, plan, roundNo, holders, previous)] };
 }

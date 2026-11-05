@@ -6,7 +6,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 const state = vi.hoisted(() => ({ value: 'chat' as string }));
-vi.mock('@/app/pages/use-room-event', () => ({ useRoomEventState: () => state.value }));
+vi.mock('@/app/pages/use-room-event', () => ({ useRoomEventState: () => state.value, useRoomIsMastermind: () => false }));
 
 import { ConsentSection } from '@/app/pages/ConsentLabel';
 import { CHAT_ROOM_AGREED_LABEL, CHAT_ROOM_INTRO, consentAgreedLabel } from '@/app/components/session/capture-copy';

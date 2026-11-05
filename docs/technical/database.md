@@ -720,6 +720,23 @@ One emoji reaction per (message, person, emoji). Columns: `id uuid` PK (generate
 - **Trigger `chat_messages_clear_reactions`** (function `_chat_reactions_clear_on_delete`, no client EXECUTE): after `deleted_at` goes from NULL to set on a message, deletes its reactions. Covers every soft-delete path without redefining `delete_chat_message` or `erase_chat_data_for` (neither is touched).
 - Reactions never touch `chat_messages`, `chat_member_state` or `last_message_at`: no unread count, list order or notification changes. Covered by `e2e/integration/20261109120000_p1652_chat_reactions.spec.ts`.
 
+### The sales mastermind (P1529)
+
+An event's flow is `events.flow` (`clarity-night` | `social-hike` | `sales-mastermind`, NULL = its series decides), read by `_event_flow(event)` on the server and `recipeForEvent` in the client, and fixed once the first counted round starts. `events.previous_session_event_id` links a session 2 to its session 1, for seating only.
+
+| Table | Purpose |
+|-------|---------|
+| `event_registration_answers` | `(event_id, profile_id)`: participation (`canvas_before` \| `canvas_at_doors` \| `observer`), phone (`usbc` \| `lightning` \| `other`), optional hope, `recording_accepted_at`. Written only by `register_for_event`; read by the person and the host. A flow with questions has no seat without these. |
+| `event_canvases` | One canvas per attendee per event. Changing it is one transaction, refused after the first counted round; a first canvas may arrive at any round (D17). No client privilege. |
+| `event_observer_overrides` | The host's per-person override. Kept when the flow is switched away, so a switch back restores it. |
+| `event_canvas_opens` | Evidence: each open of an owner's canvas from the round screen (round, owner, reader, version, time). Kept outside the seat rows, which `host_set_round_seats` replaces. No client privilege; read by `scripts/event-mastermind-results.sh`. |
+| `event_canvas_update_steps` | The host's canvas-update step, one row per event, `after_round_id` names the round it follows. On while that round is the newest. |
+| `event_next_version_taps` | `(round_id, profile_id, draft_id)`: which draft a tap on "Make my next version" opened. `_canvas_run_is_round_update` reads it: the tap's run, and a retry with the same trigger message, run in the round-update mode (D23); the owner's later messages keep the strict rule. |
+
+**Client RPCs (authenticated):** `make_my_next_version(round)`, `get_my_next_version_offer(event)` and `get_my_update_state(event)` for the owner; `get_my_round_canvas(round)` for anyone seated at that table (the canvas name only while it is still shared with the event); `record_event_canvas_open(round, owner)`; `get_my_event_canvas`, `set_event_canvas`; host only: `host_set_event_flow`, `host_set_observer`, `host_start_canvas_update`, `get_mastermind_host_state`, `get_mastermind_update_states`, `get_previous_session_partners`.
+
+**Round material.** `make_my_next_version` copies the round thread's lines the owner can read into the draft's thread as owner-authored `forward` copies. `forward_author_id` keeps the original author, so account erasure reaches the copy. One copy per line: a 24-minute round is about 192 rows.
+
 ## Row Level Security (RLS)
 
 ### Start every RLS audit with the live drift check (P1048)

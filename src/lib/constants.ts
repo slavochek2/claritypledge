@@ -5,7 +5,7 @@
 
 // Current terms version - update when Terms or Privacy Policy changes
 // Bump this when you make material changes to legal documents
-export const CURRENT_TERMS_VERSION = 'v1.7';
+export const CURRENT_TERMS_VERSION = 'v1.8';
 
-export const ACCEPTED_TERMS_VERSIONS = ['v1.7'] as const;
+export const ACCEPTED_TERMS_VERSIONS = ['v1.8'] as const;
 export type AcceptedTermsVersion = (typeof ACCEPTED_TERMS_VERSIONS)[number];

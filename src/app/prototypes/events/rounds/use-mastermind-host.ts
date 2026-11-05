@@ -1,0 +1,247 @@
+/**
+ * @file use-mastermind-host.ts
+ * @description P1529 §1, §3, §4, §7: what the host screen and the projector read for the sales mastermind, apart from
+ * the Clarity Night page: the event's flow (a switch is followed without a reload), the per-person host state
+ * (canvas, observer, phone, recording), the seating plan and its check, the ready mark and the canvas-update step.
+ *
+ * Nothing here runs for another flow: every read starts only while the mastermind is the flow, so Clarity Night and
+ * Social Hike make no new calls.
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  getCanvasUpdateStep,
+  getMastermindHostState,
+  getMastermindUpdateStates,
+  getPreviousSessionPartners,
+  hostSetObserver,
+  hostStartCanvasUpdate,
+  isCanvasHolder,
+  recordingState,
+  type CanvasUpdateStep,
+  type MastermindPerson,
+  type RecordingState,
+  type UpdateState,
+} from '@/app/data/event-mastermind-service';
+import { ROUNDS_POLL_MS, seatKeys, type EventRound, type RoundSeat } from '@/app/data/event-rounds-service';
+import { planMastermindRound, type MastermindSeatingPlan } from '@/lib/mastermind-seating';
+import { checkMastermindSeats, type SeatingProblem } from '@/lib/mastermind-seating-check';
+import { countedRounds } from '@/lib/round-numbering';
+import type { Seat } from '@/lib/round-grouping';
+import type { EventRoomMember } from '@/app/types';
+import { eventFlow, type EventFlow, type FlowEvent } from '../series-recipes';
+import { describeProblem, PLAN_NOT_READY } from './mastermind-host-helpers';
+import { updateStepOn } from './mastermind-round-helpers';
+
+/** The same cadence as the page's "transcribing now" read: words can show this long after they are written, at most. */
+export const HOST_STATE_POLL_MS = 15_000;
+
+/** The event's effective flow. A switch the host just made applies at once; a reload reads the stored one. */
+export function useHostFlow(event: (FlowEvent & { id: string }) | null): { flow: EventFlow; choose: (flow: EventFlow) => void } {
+  const [picked, setPicked] = useState<{ eventId: string; flow: EventFlow } | null>(null);
+  const eventId = event?.id;
+  const flow = picked && picked.eventId === eventId ? picked.flow : eventFlow(event);
+  const choose = useCallback((next: EventFlow) => setPicked(eventId ? { eventId, flow: next } : null), [eventId]);
+  return { flow, choose };
+}
+
+export type ObserverResult = { ok: true } | { ok: false; code: string };
+
+export interface MastermindHost {
+  active: boolean;
+  /** The per-person state has been read at least once. */
+  ready: boolean;
+  /** A read failed and what is shown may be old; null when all is well. */
+  warning: string | null;
+  personOf: (memberId: string) => MastermindPerson | undefined;
+  recordingOf: (memberId: string) => RecordingState;
+  /** A canvas is shared and the person was never an owner or partner in a counted round (D17). Only after round 1 starts. */
+  isReady: (memberId: string) => boolean;
+  setObserver: (memberId: string, isObserver: boolean) => Promise<ObserverResult>;
+  plan: (roundNo: number, poolIds: string[], shuffle: number) => MastermindSeatingPlan;
+  check: (seats: Seat[], roundNo: number, poolIds: string[]) => SeatingProblem[];
+  /** Why a round cannot be proposed at all (nobody can own a table yet), or null. */
+  guardOpen: (roundNo: number, poolIds: string[]) => string | null;
+  step: CanvasUpdateStep | null;
+  stepOn: boolean;
+  updateStates: Map<string, UpdateState>;
+  startUpdate: () => Promise<void>;
+}
+
+interface Args {
+  eventId: string | undefined;
+  /** The event's flow is the mastermind. */
+  active: boolean;
+  /** The projector: it needs only the update step. */
+  screen: boolean;
+  rounds: EventRound[];
+  seatsByRound: Map<string, RoundSeat[]>;
+  /** The people who can be seated (the host is not one). */
+  members: EventRoomMember[];
+}
+
+export function useMastermindHost({ eventId, active, screen, rounds, seatsByRound, members }: Args): MastermindHost {
+  const [hostState, setHostState] = useState<Map<string, MastermindPerson> | null>(null);
+  const [readAt, setReadAt] = useState(0);
+  const [previous, setPrevious] = useState<[string, string][] | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [step, setStep] = useState<CanvasUpdateStep | null>(null);
+  const [updateStates, setUpdateStates] = useState<Map<string, UpdateState>>(new Map());
+  const host = active && !!eventId;
+
+  const refreshState = useCallback(async () => {
+    if (!eventId) return;
+    try {
+      setHostState(await getMastermindHostState(eventId));
+      setReadAt(Date.now());
+      setWarning(null);
+    } catch {
+      setWarning('Could not read the room just now. What is shown may be out of date.');
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    if (!host || screen) return;
+    void refreshState();
+    const id = setInterval(() => void refreshState(), HOST_STATE_POLL_MS);
+    return () => clearInterval(id);
+  }, [host, screen, refreshState]);
+
+  // The session this one continues: read once. A failed read plans without that rule and says so.
+  useEffect(() => {
+    if (!host || screen || !eventId) return;
+    let cancelled = false;
+    getPreviousSessionPartners(eventId)
+      .then(pairs => { if (!cancelled) setPrevious(pairs); })
+      .catch(() => { if (!cancelled) setPrevious([]); });
+    return () => { cancelled = true; };
+  }, [host, screen, eventId]);
+
+  const counted = countedRounds(rounds);
+  const lastRound = rounds[rounds.length - 1];
+  const readStep = useCallback(async () => {
+    if (!eventId) return;
+    try { setStep(await getCanvasUpdateStep(eventId)); } catch { /* keep what is shown */ }
+  }, [eventId]);
+  // The step exists only after round 2. The host reads it when the rounds change; the projector, which has no other
+  // trigger, reads it on the rounds' own cadence.
+  useEffect(() => {
+    if (!host || counted < 2) return;
+    void readStep();
+    if (!screen) return;
+    const id = setInterval(() => void readStep(), ROUNDS_POLL_MS);
+    return () => clearInterval(id);
+  }, [host, screen, counted, lastRound?.id, lastRound?.endedAt, readStep]);
+
+  const stepOn = updateStepOn(step, rounds);
+  // The owners' states are read only while the step is on.
+  useEffect(() => {
+    if (!host || screen || !stepOn || !eventId) return;
+    let cancelled = false;
+    const read = () => getMastermindUpdateStates(eventId)
+      .then(states => { if (!cancelled) setUpdateStates(states); })
+      .catch(() => { /* keep what is shown */ });
+    void read();
+    const id = setInterval(read, ROUNDS_POLL_MS);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [host, screen, stepOn, eventId]);
+
+  const byMember = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
+  const personOf = useCallback(
+    (memberId: string) => {
+      const profileId = byMember.get(memberId)?.profileId;
+      return profileId ? hostState?.get(profileId) : undefined;
+    },
+    [byMember, hostState],
+  );
+  const recordingOf = useCallback((memberId: string) => recordingState(personOf(memberId), readAt), [personOf, readAt]);
+
+  const everSeated = useMemo(() => {
+    const out = new Set<string>();
+    for (const r of rounds) if (!r.showcase) for (const s of seatsByRound.get(r.id) ?? []) if (s.role !== 'observer') out.add(s.id);
+    return out;
+  }, [rounds, seatsByRound]);
+  const isReady = useCallback(
+    (memberId: string) => {
+      const p = personOf(memberId);
+      return counted >= 1 && !!p?.canvasShared && p.observerOverride !== true && !everSeated.has(memberId);
+    },
+    [personOf, counted, everSeated],
+  );
+
+  /** What the planner is given: holders and observers from the pool, history from counted rounds only. */
+  const inputsFor = useCallback(
+    (roundNo: number, poolIds: string[]) => {
+      const holders = poolIds.filter(id => isCanvasHolder(personOf(id)));
+      const observers = poolIds.filter(id => !isCanvasHolder(personOf(id)));
+      const history = rounds.filter(r => !r.showcase && r.roundNo < roundNo).map(r => (seatsByRound.get(r.id) ?? []) as Seat[]);
+      const memberOf = new Map<string, string>();
+      for (const m of members) if (m.profileId) memberOf.set(m.profileId, m.id);
+      const previousPartners = (previous ?? []).flatMap(([a, b]): [string, string][] => {
+        const x = memberOf.get(a);
+        const y = memberOf.get(b);
+        return x && y ? [[x, y]] : [];
+      });
+      return { holders, observers, history, previousPartners };
+    },
+    [personOf, rounds, seatsByRound, members, previous],
+  );
+
+  const cache = useRef(new Map<string, MastermindSeatingPlan>());
+  const plan = useCallback(
+    (roundNo: number, poolIds: string[], shuffle: number) => {
+      const inputs = inputsFor(roundNo, poolIds);
+      const cacheKey = JSON.stringify([shuffle, inputs.holders, inputs.observers, inputs.history.map(s => seatKeys(s)), inputs.previousPartners]);
+      const hit = cache.current.get(cacheKey);
+      if (hit) return hit;
+      // The seed is the event and the shuffle count: the same room and Shuffle give the same tables back.
+      const made = planMastermindRound({ ...inputs, seed: `${eventId ?? ''}:mastermind:${shuffle}` });
+      if (cache.current.size > 40) cache.current.clear();
+      cache.current.set(cacheKey, made);
+      return made;
+    },
+    [inputsFor, eventId],
+  );
+  const check = useCallback(
+    (seats: Seat[], roundNo: number, poolIds: string[]) => {
+      const { holders, observers, history, previousPartners } = inputsFor(roundNo, poolIds);
+      return checkMastermindSeats(seats, { holders, observers, history, previousPartners });
+    },
+    [inputsFor],
+  );
+  const guardOpen = useCallback(
+    (roundNo: number, poolIds: string[]) => {
+      if (!active) return null;
+      if (!hostState || previous === null) return PLAN_NOT_READY;
+      const { seats, unmet } = plan(roundNo, poolIds, 0);
+      const few = unmet.find(u => u.rule === 'too-few-canvases');
+      return seats.length === 0 && few ? describeProblem(few, () => '') : null;
+    },
+    [active, hostState, previous, plan],
+  );
+
+  const setObserver = useCallback(
+    async (memberId: string, isObserver: boolean): Promise<ObserverResult> => {
+      const profileId = byMember.get(memberId)?.profileId;
+      if (!eventId || !profileId) return { ok: false, code: 'no_profile' };
+      try {
+        const res = await hostSetObserver(eventId, profileId, isObserver);
+        await refreshState();
+        return res.status === 'ok' ? { ok: true } : { ok: false, code: res.code ?? 'refused' };
+      } catch {
+        return { ok: false, code: 'error' };
+      }
+    },
+    [eventId, byMember, refreshState],
+  );
+
+  const startUpdate = useCallback(async () => {
+    if (!eventId) return;
+    await hostStartCanvasUpdate(eventId);
+    await readStep();
+  }, [eventId, readStep]);
+
+  return {
+    active, ready: !!hostState && previous !== null, warning, personOf, recordingOf, isReady, setObserver, plan, check, guardOpen,
+    step, stepOn, updateStates, startUpdate,
+  };
+}

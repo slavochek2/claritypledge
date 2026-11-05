@@ -766,7 +766,7 @@ export function PrepFlow({
                   {plan.length} {plan.length === 1 ? 'step' : 'steps'}
                   {state.minutes !== null && <> · about {state.minutes} min</>}
                 </p>
-                <PrepWhy paragraphs={recipeFor(event.seriesSlug).prepare.why ?? WHY_COMMUNITY} />
+                <PrepWhy paragraphs={recipeForEvent(event).prepare.why ?? WHY_COMMUNITY} />
               </div>
               <ol data-testid="agenda">
                 {plan.map((s, i) => {
