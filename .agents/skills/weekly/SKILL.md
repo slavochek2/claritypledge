@@ -481,15 +481,21 @@ This handles: Mixpanel session check → login if needed → Supabase user healt
 
 Fills the Analytics tab on the Day page. Query Mixpanel project `3968494` through `mcp__mixpanel__Run-Query`, and run the fixed list below for two absolute windows: the last 7 days and the 7 before. Filter every query with `is_automation` boolean `false` (absent counts as false; checked 2026-11-05: filtered + tagged = total). Anonymous events carry no `is_internal`, and third-party bots that hide webdriver are not caught, so these are not yet proven real visitors.
 
-| Section | Metrics |
+**If `tools/kanban/scripts/weekly-analytics.ts` is missing from this checkout, skip this step and report it.** Otherwise:
+
+Use exactly these row labels, every week. Insight keys and dismissals are built from them, so a reworded label brings a dismissed insight back.
+
+| Section | Row label: source |
 |---|---|
-| `who` | `$mp_web_page_view` unique, broken down by `$initial_referring_domain`, and by landing page |
-| `what` | `event_rsvp_initiated`, `event_rsvp_completed` unique; `path` breakdown |
-| `time` | Session length median and p75, labelled "open time, not attention" |
-| `returns` | Retention on `$mp_web_page_view` at 7 days, plus signed-in returners from the read-only prod helper (names go only in `~/.claude-analytics/`) |
-| `explore` | `$mp_web_page_view` total and sessions |
-| `stuck` | `$mp_dead_click`, `$mp_rage_click`, `not_found_page_viewed`, `auth_callback_failed`, `signup_magic_link_error`, `login_magic_link_error` totals. Each non-zero one also goes in `failures` |
-| `practice` | `live_meeting_page_view`, `live_session_created`, `live_session_joined`, `live_prove_started`, `live_rating_submitted` unique |
+| `who` | `Visitors`: `$mp_web_page_view` unique. `New visitors`, `Returning visitors`: split of it. `Landing: <path>`, `Referrer: <domain>`: top 3 of each |
+| `what` | `RSVP started`: `event_rsvp_initiated` unique. `RSVP completed`: `event_rsvp_completed` unique. `Next step after event page`: flows report, top step |
+| `time` | `Session length`: median, seconds. `Session length p75`: seconds. `Session length: <landing type>`: median by landing type |
+| `returns` | `Return within 7 days`: retention on `$mp_web_page_view`, for cohorts at least 7 days old. `Signed-in returners`: count from the read-only prod helper |
+| `explore` | `Page views`, `Sessions`, `Pages per session`, `One-page sessions` |
+| `stuck` | `Dead clicks`, `Rage clicks`, `Not-found views`, `Auth failures`, `Magic-link failures`: `$mp_dead_click`, `$mp_rage_click`, `not_found_page_viewed`, `auth_callback_failed`, `signup_magic_link_error` + `login_magic_link_error` totals, with a by-page breakdown in the row's note. Each non-zero one also goes in `failures`, keyed by its label, with the query's `report_url` as `link` |
+| `practice` | `Live page`, `Session created`, `Partner joined`, `Explain-back done`, `Rating`: `live_meeting_page_view`, `live_session_created`, `live_session_joined`, `live_prove_started`, `live_rating_submitted` unique |
+
+`firsts`: first real signup and first partner join from the read-only prod helper, plus up to 3 stuck sessions from `mcp__mixpanel__Get-User-Replays-Data` for people with a rage click. Key each one by its id. A stuck session's label is its event sequence, and its `link` is the replay link. `four_week`: the last four weekly counts for each row in `who`, `what`, `explore`, `stuck` and `practice`, keyed `<section>:<row label>`, once four clean weeks exist; leave it out until then.
 
 Rules:
 - A metric missing from the response is `null` with a note, never `0`. Mixpanel returns zeros or drops the row for an unknown name, so confirm the name with `Get-Events` (`active_only: false`) before writing a real zero.
@@ -497,10 +503,10 @@ Rules:
 - `reconciled` stays `false` on every section until the P1640 follow-up spec passes.
 - Links are opaque. Never open or describe a replay.
 
-Write the JSON to a temp file (shape: `RawRead` in `tools/kanban/src/lib/weeklyRead.ts`), then:
+Write the JSON to `~/.claude-analytics/raw-latest.json`, an absolute path outside the repo because it can hold names (shape: `RawRead` in `tools/kanban/src/lib/weeklyRead.ts`), then:
 
 ```bash
-(cd tools/kanban && npx tsx scripts/weekly-analytics.ts --input "$RAW")
+(cd tools/kanban && npx tsx scripts/weekly-analytics.ts --input "$HOME/.claude-analytics/raw-latest.json")
 ```
 
 **If the Mixpanel MCP is unavailable or a query errors,** there is no bash fallback for these reports. Write `{"date":"<today>","status":"not-collected","reason":"<what failed>"}` as the input and run the same command, which exits 3. Report it and continue /weekly. The next /day shows it through `cp.analytics`.
