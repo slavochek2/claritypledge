@@ -10,6 +10,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 
 
+## 2026-11-05 [technical]: A function's deploy record covers everything it bundles, and a deploy stamps only what it deployed (P1620)
+
+**Context:** The prod drift check hashed only each edge function's `index.ts`, so changes in `_shared` or sibling files never reported, and terms v1.7 reached accounts while `mirror-reply` still refused it. Reproduction found a second defect: every deploy re-hashed all functions, so deploying one marked the rest current.
+**Decision:** One helper, shared by the stamper and the check, hashes a function's traced inputs plus `deno.json` and `deno.lock`. A deploy stamps only the functions that deployed. A stamp with no names is refused unless `--assume-all-deployed` is given. A function that cannot be traced is reported, never clean. Tracing uses a strict lexer pass plus a raw-text scan of relative path literals, because a regex-only tracer missed four ordinary import forms in review.
+**Alternatives rejected:** Reading what the server serves, because it is unmeasured for hosted functions (P1312). Hashing all of `_shared` per function, which would flag functions that do not use the changed file. Ticking the post-deploy criteria or loosening the ship gate: the founder moved them to P1622.
+**Consequences:** A clean report still means "the last recorded deploy used this code", not that the server was read (2026-09-07 entry still holds), and migration stamps are unchanged. After landing, all 24 functions report stale until P1622 redeploys them, which fails the daily drift check and stops other ships at the drift step. `/ship` cannot express a criterion that only becomes checkable after its own merge. Known limit: unusual division or regex forms can hide a fail-closed error on the same line. Falsifier: a function changes on prod behaviour through a file the helper did not hash.
+**References:** [P1620](../features/done/2026-06-10/p1620_shared_only_change_leaves_prod_functions_stale_unseen.md) · [P1622](../features/p1622_redeploy_prod_functions_after_p1620.md) · `scripts/lib/function-input-hash.py` · `scripts/test-p1620-reproduce.sh`
+
 ## 2026-11-05 [technical]: The privacy scan filter keeps lines in an indexed array, pinned to a frozen oracle (P1617)
 
 **Context:** A 93-commit stack took about a day to land, partly because the scanner's allowlist filter recopied one growing string per line. The scan ran four times for that stack, at 55 to 90 minutes each. The filter took 540 s at 45k patch lines.
