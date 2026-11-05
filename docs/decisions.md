@@ -19,6 +19,13 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Falsifier (thresholds agent-proposed, `[FOUNDER DECISION: overwrite]`):** run by hand on 5 live pre-signature cases. Fewer than 3 surfacing a mismatch that both people call a misunderstanding, rather than a disagreement they already knew about, and that changes the signed text, kills the mechanic. So does no one paying or prepaying for a next case.
 **Consequences:** No strategy doc changes. Any move beyond this entry must first answer the two conflicts above. The main risk both models raised is that many mismatches are real conflict rather than misunderstanding, so a test has to separate the two.
 **Details private:** .private/docs/decisions.md 2026-11-05 "Outside-model ideation: ranking and raw outputs"
+## 2026-11-05 [technical]: A quota reading belongs to its window by reset time; a usage check needs saved figures (P1629)
+
+**Context:** The Day page lost the Claude projection because a reading taken 41 minutes before `resets_at - 7 days` was dropped, though it carried the same reset. Separately, an agent recorded `cp.quota` by hand with figures while the parser output was never saved, so the check reported figures and the card said not read.
+**Decision:** A reading whose `resets_at` is within 60 seconds of the current one counts whatever its time; the time window stays as the rule for the rest. `day-render.ts` marks `cp.quota` not run whenever monitoring exists without usable Supabase figures, keeping the agent's text in the detail. The `day.md` reader rejects a usage file older than the pass.
+**Alternatives rejected:** Exact equality on `resets_at`: real reports show Codex giving one window 07:36:11 and then 07:36:12, and no reviewer or test caught this; reading the report history did. Excluding every reading with a different `resets_at` (Gemini review): a reset happens after the older run, so the time rule already drops it, and 25 real reports show no counter-case. Leaving reports without a Supabase source unchanged (first build): Codex reproduced the check saying ok beside a card saying not read.
+**Consequences:** Written quota findings can sit beside a not-run check, marked urgent, until the next complete read. After a real reset one reading still has no projection (accepted). UNTESTED in a real /day run; falsifier: a normal run that saved its figures shows the check as not run.
+**References:** [p1629](../features/p1629_day_quota_projection_and_supabase_card.md) · `tools/kanban/src/lib/day.ts` `quotaHistory` · `tools/kanban/scripts/day-render.ts`
 
 ## 2026-11-05 [technical]: A function's deploy record covers everything it bundles, and a deploy stamps only what it deployed (P1620)
 

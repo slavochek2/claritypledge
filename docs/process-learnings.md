@@ -3530,3 +3530,6 @@ Read ten /finish runs from the 30 days after P1630 merged. If GLM produced no ve
 model-watch reads the OpenRouter catalog, but its bump plan checks google ids and nothing points it at the OPENROUTER_MODEL key (P1630 risk, deferred). Done when a newer GLM version is surfaced, or this is dropped because GLM left /finish.
 
 ---
+- 2026-11-05 due: week. Kanban shell overflows at 375px and 320px (page measures 446px wide, header select clipped), seen during P1629. Fix or file a bug.
+- 2026-11-05 due: week. `tools/kanban/scripts/day-mutation-controls.sh` exits 1 on main: 3 controls drifted, 1 missed, 2 unmodified-copy reds, and the P1468 live goals test fails because `docs/goals.md` has no `**Goal:**` line under Next Steps. Repair so the gate means something again.
+- 2026-11-05 due: month. Two flakes seen during P1629: `src/tests/p1607-e2e-slot-lock.test.ts` (serialized admission) and kanban `opportunities.test.ts` under a parallel run. Each passed on rerun.
