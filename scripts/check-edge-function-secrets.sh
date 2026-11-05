@@ -66,6 +66,17 @@ done
 # exclude them from the required-on-target check.
 SUPABASE_BUILTINS="SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_DB_URL"
 
+# Test-only secrets: read by function code, deliberately unset on prod, where empty means "off".
+# CANVAS_DRAFT_STUB_TOKEN (P1536): the stub is refused on prod even when set (_shared/canvas-model.ts).
+TEST_ONLY_SECRETS="CANVAS_DRAFT_STUB_TOKEN"
+
+is_test_only() {
+  case " $TEST_ONLY_SECRETS " in
+    *" $1 "*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 is_builtin() {
   local name="$1"
   case " $SUPABASE_BUILTINS " in
@@ -207,6 +218,10 @@ TS_EOF
     fail=1
   fi
 
+  if ! is_test_only CANVAS_DRAFT_STUB_TOKEN || is_test_only CANVAS_DRAFT_GEMINI_API_KEY; then
+    _safe_echo "FAIL: the test-only list must hold the stub token and not the real key"
+    fail=1
+  fi
   if echo "$parsed" | grep -q 'FAKE_TEST_ONLY_P1425'; then
     _safe_echo "FAIL: FAKE_TEST_ONLY_P1425 from a *.test.ts file was parsed (tests are never deployed)"
     fail=1
@@ -332,7 +347,7 @@ TO_VERIFY=$(echo "$PARSED" | awk -F: '$1=="required" || $1=="required-empty" {pr
 
 MISSING=""
 for var in $TO_VERIFY; do
-  if is_builtin "$var"; then
+  if is_builtin "$var" || is_test_only "$var"; then
     continue
   fi
   if ! echo "$SECRETS_PRESENT" | grep -qx "$var"; then
