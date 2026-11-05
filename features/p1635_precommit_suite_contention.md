@@ -87,12 +87,36 @@ Blast radius: high, every commit and every landing. Reversibility: high, git rev
 
 ## Done-When
 
-- [ ] Step 0's before and after figures recorded here, from the same workload, with peak concurrent test workers no higher than the machine's 11 cores and total time for the 3 commits lower than before
+- [x] Step 0's before and after figures recorded here, from the same workload, with peak concurrent test workers no higher than the machine's 11 cores and total time for the 3 commits lower than before
 - [ ] A staging push runs the full unit suite in CI, shown by a run link, and a deliberately broken test turns it red (exit code pasted)
-- [ ] Promotion with a red, optional unit job prints that result, and a test proves it
+- [x] Promotion with a red, optional unit job prints that result, and a test proves it
 - [ ] An unrelated-area broken test passes commit and turns the staging run red; a related broken test is refused at commit
-- [ ] A `vercel.json`-only commit runs the full suite, a zero-test selection prints that it ran zero, and changing `src/App.tsx` in a way that breaks the p1533 test is refused at commit
-- [ ] Documented workflows pass through the changed hook copy: docs-only commit, source commit, `commit-to-main`, a conflicted cherry-pick's `--continue`
+- [x] A `vercel.json`-only commit runs the full suite, a zero-test selection prints that it ran zero, and changing `src/App.tsx` in a way that breaks the p1533 test is refused at commit
+- [x] Documented workflows pass through the changed hook copy: docs-only commit, source commit, `commit-to-main`, a conflicted cherry-pick's `--continue`
+
+## Step 0 Results (2026-11-05)
+
+Three concurrent source commits in scratch clones (`scripts/bench-p1635-precommit-load.sh concurrent`), on a quiet machine. Other sessions could not be paused, so their CPU is recorded.
+
+| | Old hook | New hook |
+|---|---|---|
+| Load at start | 2.27 | 3.46 |
+| Total time, longest of 3 | 528 s | 379 s |
+| Peak test workers (11 cores) | 31 | 9 |
+| Peak load | 124 | 12.2 |
+| Hook CPU per commit | 1,541 s | 478, 742, 1,027 s |
+| Other sessions' CPU, mean / peak | 72% / 517% | 54% / 211% |
+
+The 517% spike may slightly inflate the old figure. Tests were about 94% of heavy-step CPU, so the stop condition did not fire. These commits were measured before the fail-closed classifier, which does not change what source-only commits select.
+
+## Known Limitations
+
+- A commit staging only files the outer `BUILD_AFFECTING_RE` misses (`scripts/*.sh`, `*.mjs`, `index.html`) skips the Tests step and says so, as before this spec. The staging run is the backstop.
+- Related runs still select 230 to 370 of about 973 test files, mostly the disk-reading group.
+- `import.meta.glob` in application code is not seeded.
+- The reclaim guard cannot see a previous attempt's still-running job, so a new attempt's same-SHA delete can remove its ref.
+- A failed `git diff` while classifying gives an empty related run rather than a full one. The hook's own earlier `git diff` must have succeeded to reach this step.
+- The disk group is derived from the working tree, like the test run itself.
 
 ## Alternatives Considered
 
