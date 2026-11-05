@@ -34,6 +34,6 @@ export function draftReplyOf(run: CanvasRun, kind: RunKind, out: Parsed, others:
     outcome: !out.changedBoxes.length ? 'unchanged' : run.first_draft === true || kind === 'fork_first' ? 'draft' : 'updated',
     total: out.total, filledBoxes: 9 - out.emptyBoxes.length, changedBoxes: out.changedBoxes, note: out.note,
     focus: out.focus ?? run.focus ?? null, focusReason: first ? out.focusReason : null, others: first ? others.map((o) => o.group) : [],
-    truncated: extra.truncated, unreadable: extra.unreadable, droppedUnverified: out.droppedUnverified, droppedNames: out.droppedNames,
+    truncated: extra.truncated, unreadable: extra.unreadable, guessed: out.guessed, droppedUnverified: out.droppedUnverified, droppedPoints: out.droppedPoints, droppedNames: out.droppedNames,
   });
 }

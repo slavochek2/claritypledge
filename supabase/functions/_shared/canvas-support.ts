@@ -32,13 +32,54 @@ export function contentWords(text: string): Set<string> {
   return out;
 }
 
-/** True when `statement` shares at least two content words with `quote`, however short the statement is. */
+/**
+ * Who a point is about, not what it says: these need not be in the quote. "today" is here because the Problem box's own
+ * shape (canvas-box-definitions.ts) tells the model to start "Today <customer> ...".
+ */
+const FRAMING = new Set(['customer', 'customers', 'user', 'users', 'client', 'clients', 'people', 'person', 'buyer', 'buyers', 'they', 'today']);
+/** Any of these in the owner's sentence and the agent does not guess: it may deny, hedge, ask, suppose or request. An open list. */
+const UNSURE = new Set((
+  'not no never nor none nobody nothing neither nowhere without cannot unable hardly barely rarely seldom lack lacks lacking refuse refuses fail fails false myth ' +
+  'if whether unless until might may maybe perhaps could would should probably possibly used doubt only except ' +
+  'few zero say said once before check verify confirm example sample translate write make build draft add create give generate please canvas stopped quit ' +
+  'think thought believe hope wish imagine suppose assume assuming pretend guess sure seems ' +
+  'do does did can will who what why how when where'
+).split(' '));
+/** A sentence opening with one of these asks. */
+const ASKS = new Set(['are', 'is', 'was', 'were', 'am', 'has', 'have', 'had']);
+
+const words = (text: string) => fold(text).split(/[^\p{L}\p{N}'’]+/u).filter(Boolean);
+const isUnsure = (w: string) => UNSURE.has(w) || /n['’]t$/.test(w) || /^(arent|isnt|dont|doesnt|didnt|wont|cant|wasnt|werent)$/.test(w);
+const holds = (ws: readonly string[], part: readonly string[]) => ` ${ws.join(' ')} `.includes(` ${part.join(' ')} `);
+
+/** True when `statement` shares at least two content words with the quote it cites. */
 export function sharesWords(statement: string, quote: string): boolean {
   const theirs = contentWords(quote);
   let shared = 0;
   for (const w of contentWords(statement)) if (theirs.has(w)) shared++;
   return shared >= 2;
 }
+
+/**
+ * P1625: the owner's plain statement, weakly matched: the agent may add it as its best guess, and must show the owner the words it came from.
+ * It shares one meaningful word with a quote the owner typed, and neither the statement nor the owner's sentence denies, hedges, asks, supposes or requests.
+ * The model chooses the quote, so the owner's whole sentence is what gets read.
+ */
+export function isPlainGuess(statement: string, quote: string, ownerTyped: string): boolean {
+  const theirs = contentWords(quote);
+  const mine = words(statement);
+  if (mine.length < 2 || statement.includes('?') || ASKS.has(mine[0] as string) || mine.some(isUnsure) || ![...contentWords(statement)].some((w) => theirs.has(w) && !FRAMING.has(w))) return false;
+  const q = words(quote);
+  const raw = ownerTyped.replace(/([^\n])\n(?!\n)/g, '$1 ').match(/[^.!?;\n]+[.!?;\n]*/g) ?? [];
+  const holding = raw.filter((r) => holds(words(r), q));
+  if (!holding.length || quote.includes('?')) return false;
+  return !q.some(isUnsure) && holding.every((r) => { const ws = words(r); return !r.includes('?') && !ws.some(isUnsure) && !ASKS.has(ws[0] as string); });
+}
+
+/** A generic subject, compared as written: a capital may be a name. A stopword does not qualify: "per" and "will" are names too. */
+export const isGenericWord = (word: string): boolean => FRAMING.has(word);
+/** A generic subject that may open a sentence with a capital. */
+export const isFramingWord = (word: string): boolean => FRAMING.has(word.toLowerCase());
 
 // ── Numbers ─────────────────────────────────────────────────────────────────
 

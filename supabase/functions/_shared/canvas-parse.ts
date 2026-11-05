@@ -21,11 +21,12 @@ import {
 import { BOX_DEFINITIONS, emptyQuestionFor } from './canvas-box-definitions.ts';
 import { effectiveScope, readExtras } from './canvas-extras.ts';
 import { shedToValid, type Elem } from './canvas-final-state.ts';
-import { clean, cutChars, normalizeForQuote, ownerHaystack, quoteIsOwnerSourced } from './canvas-source.ts';
+import { clean, cutChars, normalizeForQuote, ownerHaystack } from './canvas-source.ts';
 import { derivedNames, namesMatcher } from './canvas-names.ts';
-import { numbersIn, numbersSupported, sharesWords } from './canvas-support.ts';
+import { numbersIn } from './canvas-support.ts';
 import { groundPriceTerms, priceWordsOf, withPriceGap, type PriceWords } from './canvas-price.ts';
 import { withSectionsDecided } from './canvas-copy-sections.ts';
+import { droppedOf, guessedOf, vetEvidence, type Guess } from './canvas-guess.ts';
 import type {
   BasePoint, Decided, DraftCounts, DraftOutcome, DraftPoint, ParseContext, ResolvedAction,
 } from './canvas-types.ts';
@@ -41,6 +42,10 @@ interface Acc {
   addressed: Set<string>;
   dropped: number;
   droppedUnverified: number;
+  /** Points written as the agent's best guess: the reply must show them with the owner's words. */
+  guesses: Guess[];
+  /** The cleaned statements behind droppedUnverified that are safe to show back to the owner. */
+  droppedPoints: string[];
   /** A revenue point was left out because none of its price terms could be kept: the box asks, whatever else it holds. */
   priceDropped: boolean;
   droppedNames: number;
@@ -55,6 +60,8 @@ interface Ctx {
   base: Map<string, BasePoint>;
   from: string;
   haystack: string;
+  /** What the owner typed in this thread: never a file, a link or another person's words. */
+  ownerTyped: string;
   namesOther: (text: string) => boolean;
   /** Every number the owner's own words and canvas already hold. */
   numbers: ReadonlySet<string>;
@@ -72,7 +79,7 @@ const REVENUE = 'canvas:revenue';
 
 const newAcc = (): Acc => ({
   actions: [], decided: [], counts: { kept: 0, reworded: 0, moved: 0, added: 0, dropped: 0 },
-  addressed: new Set(), dropped: 0, droppedUnverified: 0, priceDropped: false, droppedNames: 0,
+  addressed: new Set(), dropped: 0, droppedUnverified: 0, guesses: [], droppedPoints: [], priceDropped: false, droppedNames: 0,
   droppedScope: 0, droppedCap: 0, changed: new Set(),
 });
 
@@ -106,17 +113,6 @@ function applyDrop(acc: Acc, ctx: Ctx, a: Raw, old: BasePoint | undefined): void
 function rewordGate(acc: Acc, old: BasePoint | undefined, box: string, statement: string): 'skip' | 'keep' | 'go' {
   if (!old || acc.addressed.has(old.id) || old.box !== box) return 'skip';
   return sameText(statement, old.statement) ? 'keep' : 'go';
-}
-
-/**
- * The owner-quote rule, the name filter and the support rule, in that order (a name is told as a name even when the
- * point is also unsupported). True when the point may be written; a refusal is counted.
- */
-function vetEvidence(acc: Acc, ctx: Ctx, a: Raw, statement: string, extraSource = ''): boolean {
-  if (!quoteIsOwnerSourced(a.quote, extraSource ? `${ctx.haystack}\n${normalizeForQuote(extraSource)}` : ctx.haystack)) { acc.droppedUnverified += 1; return false; }
-  if (ctx.namesOther(statement)) { acc.droppedNames += 1; return false; }
-  if (!(sharesWords(statement, String(a.quote)) && numbersSupported([statement], ctx.numbers))) { acc.droppedUnverified += 1; return false; }
-  return true;
 }
 
 /**
@@ -276,6 +272,7 @@ function buildCtx(pc: ParseContext, scope: readonly string[]): Ctx {
     base: new Map(pc.basePoints.map((p) => [p.id, p])),
     from: pc.baseLabel ?? 'the earlier version',
     haystack,
+    ownerTyped: pc.material.items.filter((i) => i.owner && i.kind === 'note').map((i) => i.text).join('\n\n'), // a blank line: separate messages are never one sentence
     namesOther: namesMatcher(pc.otherNames, derivedNames(pc.material, pc.ownerName)),
     numbers: new Set([...numbersIn(haystack), ...numbersIn(ownCanvas)]),
     priceWords: priceWordsOf(`${haystack}\n${normalizeForQuote(ownCanvas)}`, pc.material, pc.basePoints.length > 0),
@@ -300,7 +297,7 @@ export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {
   const extras = readExtras(body, pc, ctx.scope, scope.length ? emptyBoxes.filter((t) => ctx.scope.has(t)) : [], ctx.namesOther);
   return {
     ok: true, actions: acc.actions, decided: acc.decided, counts: acc.counts, total: acc.actions.length, emptyBoxes,
-    droppedUnverified: acc.droppedUnverified, droppedNames: acc.droppedNames + extras.droppedNames, costUsd: read.costUsd,
+    ...droppedOf(acc, ctx.base), guessed: guessedOf(acc), droppedNames: acc.droppedNames + extras.droppedNames, costUsd: read.costUsd,
     scope, changedBoxes: changedBoxesOf(acc, ctx, pc.basePoints), droppedScope: acc.droppedScope + extras.droppedScope, droppedCap: acc.droppedCap,
     focus: extras.focus, focusReason: extras.focusReason, otherCanvases: extras.otherCanvases, questions: scope.length ? withPriceGap(extras.questions, acc.actions, REVENUE, ctx.priceWords.owner, acc.priceDropped) : {}, note: extras.note,
   };

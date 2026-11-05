@@ -197,7 +197,7 @@ async function failureOf(s: Step, out: ReturnType<typeof parseDraft>, usd: numbe
   if (!out.ok) return await failRun(deps, run, p, out.code, cut('I could not draft your canvas from that. Nothing was changed. Try again, or add more about what you sell and to whom.'), usd);
   const drops = out.droppedUnverified + out.droppedNames;
   if (out.scope.length > 0 && out.total === 0 && (drops > 0 || s.kind !== 'message' || run.first_draft) && !keepsOffers(run, s.kind, out)) {
-    return await failRun(deps, run, p, 'nothing_supported', cut(buildDraftReply({ ...zeroFacts(s), outcome: 'failed', droppedUnverified: out.droppedUnverified, droppedNames: out.droppedNames })), usd);
+    return await failRun(deps, run, p, 'nothing_supported', cut(buildDraftReply({ ...zeroFacts(s), outcome: 'failed', droppedUnverified: out.droppedUnverified, droppedPoints: out.droppedPoints, droppedNames: out.droppedNames })), usd);
   }
   return null;
 }

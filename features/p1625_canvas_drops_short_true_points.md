@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [canvas, mirror-agent, copy]
 disclosure: public
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p1625-reproduce.test.ts
   root_cause: "The Problem box's shape makes the model write 'Today customers are angry.'; sharesWords needs two shared content words, and only 'angry' is shared. The reply carries a count, not the point."
@@ -73,9 +73,24 @@ The point is dropped and the reply does not name it, so the owner repeats it.
 
 **Medium** — real points are lost and the message misleads, but the owner can reword, and P1621 adds writing a card by hand.
 
+## Founder Decision: Best Guess, Then Correct
+
+Supersedes the "dropped" handling in the rule below. "Nothing invented" (P1536) becomes **nothing added without showing the owner the words it came from**. A point that fails the two-word check, but shares a meaningful word with a sentence the owner typed, is added, and the reply says so: `I added "Customers are angry" to Problem, from your words "they are angry". If you meant someone else, tell me who and I'll change it.` Corrections happen in chat. Picking among versions is not built; build it only if corrections prove common.
+
+Still refused: a sentence that denies, hedges, asks, supposes or requests; a number the owner never said; another person's name; a quote not in the owner's material.
+
+## Known Limitations
+
+- A wrong guess the owner does not correct stays on the draft and can be published.
+- A correction uses a run, and a draft has 5. The cap is unchanged.
+- The denial and request word list is open, and only the sentence holding the quote is read.
+- A run with dozens of guesses can exceed the stored reply's 4,000 characters, and the notes past that point are lost.
+- A word the owner typed can be shown back or capitalised on a point, including a surname.
+- The model sometimes writes a longer statement that fails these checks, so a true point can still be refused on one run and added on the next (1 of 2 in the last replay).
+
 ## Fix Approach
 
-Founder-approved rule: for a statement too short to share two words, generic person words (customers, users, clients, people, buyers) need not match, and every other meaningful word must be in the quote. Test both ways, using these as fixed cases:
+**Superseded by Founder Decision above; kept as history.** Founder-approved rule: for a statement too short to share two words, generic person words (customers, users, clients, people, buyers) need not match, and every other meaningful word must be in the quote. Test both ways, using these as fixed cases:
 
 | Statement | Quote | Result |
 |---|---|---|
@@ -94,9 +109,9 @@ The dropped text comes from the model, so it passes the same name and link clean
 
 - [ ] The four table cases behave as listed, against the real check
 - [ ] "They are angry" reaches the canvas on a real run on test
-- [ ] A dropped point is named with its reason and next step, and never shows another person's name or a link
+- [ ] An added best guess is told with the words it came from and how to correct it; a dropped point is named when its words are safe to show; neither shows another person's name (other than one the owner typed) or a link
 - [ ] A request with no facts, such as asking for Dropbox's canvas from memory, still writes nothing
-- [ ] Longer points behave as before: the existing canvas suites pass
+- [ ] Points with two shared words behave as before; the existing canvas suites pass, except P1536 cases the best-guess decision changes, each listed to the founder
 
 ## Related
 

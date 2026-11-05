@@ -10,7 +10,7 @@
 
 import { titleOf } from './canvas-draft.ts';
 import { BOX_DEFINITIONS } from './canvas-box-definitions.ts';
-import type { DraftCounts, FocusReason } from './canvas-types.ts';
+import type { DraftCounts, FocusReason, Guessed } from './canvas-types.ts';
 
 export interface ReplyFacts {
   /** What the run did. Absent: nothing drafted at all (a failure), the old reading of `total` 0. */
@@ -30,6 +30,10 @@ export interface ReplyFacts {
   truncated?: boolean;
   unreadable: string[];
   droppedUnverified: number;
+  /** Statements left out for lack of support, already cleaned and free of other people's names. */
+  droppedPoints?: string[];
+  /** Points added as a best guess: always told, with the words they came from. */
+  guessed?: Guessed[];
   droppedNames: number;
 }
 
@@ -79,10 +83,37 @@ function foundLine(f: ReplyFacts): string[] {
   return [`I found ${NUMBER_WORDS[all.length] ?? all.length} businesses: ${joinGroups(all)}. This canvas is about ${f.focus}${reason}.`];
 }
 
+/** [FOUNDER DECISION: wording, approved in chat] Tells the owner a point was the agent's best guess, and how to correct it. */
+export const guessedLine = (g: Guessed): string =>
+  `I added "${g.statement.replace(/\.$/, '')}" to ${titleOf(g.box)}, from your words "${g.quote}". If you meant someone else, tell me who and I'll change it.`;
+
+/** The most dropped points a reply names. */
+const MAX_NAMED = 3;
+
+/** [FOUNDER DECISION: wording] Names one point left out and what the owner can do about it. */
+export const droppedPointLine = (point: string): string =>
+  `I couldn't add "${point.replace(/\.$/, '')}" because it doesn't match what you said closely enough. Say it once more with a bit more detail, like who it is about and what happened.`;
+
+/** The named dropped points, and a count for the rest. The owner can fix exactly these. */
+function droppedPointLines(f: ReplyFacts): string[] {
+  if (f.outcome === 'failed') return []; // a run that wrote nothing has its own next step, and may hold only invented points
+  const all = f.droppedPoints ?? [];
+  const unique = [...new Map(all.map((p) => [p.toLowerCase().replace(/\.$/, ''), p])).values()];
+  const named = unique.slice(0, MAX_NAMED);
+  if (!named.length) return [];
+  const lines = named.map(droppedPointLine);
+  const more = f.droppedUnverified - all.length + unique.length - named.length; // a repeated point is not another point
+  if (more > 0) lines.push(`I also left out ${plural(more, 'more point', 'more points')} I could not tie to your words.`);
+  return lines;
+}
+
 function leftOutLines(f: ReplyFacts): string[] {
   const lines: string[] = [];
   if (f.truncated && f.outcome !== 'failed') lines.push(CUT_NOTE);
-  if (f.droppedUnverified > 0 && f.total > 0) lines.push(`I left out ${plural(f.droppedUnverified, 'point', 'points')} I could not tie to your words.`);
+  lines.push(...(f.guessed ?? []).map(guessedLine));
+  const named = droppedPointLines(f);
+  if (named.length) lines.push(...named);
+  else if (f.droppedUnverified > 0 && f.total > 0) lines.push(`I left out ${plural(f.droppedUnverified, 'point', 'points')} I could not tie to your words.`);
   if (f.droppedNames > 0 && f.total > 0) lines.push(`I left out ${plural(f.droppedNames, 'item', 'items')} that mentioned other people. A canvas never names anyone else.`);
   return lines;
 }

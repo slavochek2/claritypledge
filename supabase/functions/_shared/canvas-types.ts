@@ -22,6 +22,9 @@ export interface MaterialItem {
 }
 export interface Material { items: MaterialItem[]; tokens: number; truncated: boolean }
 
+/** A point added as the agent's best guess, and the owner's words it rests on. */
+export interface Guessed { box: string; statement: string; quote: string }
+
 export interface BasePoint { id: string; box: string; statement: string; story?: string | null; is_head?: boolean }
 /** A point the draft holds now (from `_canvas_draft_run_begin`). `reused` points are also current points. */
 export interface DraftPoint {
@@ -81,6 +84,9 @@ export type DraftOutcome =
   | {
     ok: true; actions: ResolvedAction[]; decided: Decided[]; counts: DraftCounts; total: number;
     emptyBoxes: string[]; droppedUnverified: number; droppedNames: number; costUsd: number | null;
+    /** Statements refused for lack of support (cleaned, no other person's name), so the reply can name them. At most what droppedUnverified counts. */
+    droppedPoints: string[];
+    guessed: Guessed[];
     /** The boxes this run may change (fixed by the run's kind or tags, else the model's own, validated). */
     scope: string[];
     /** Boxes at least one action wrote to or removed from: the "Updated:" chips. */
