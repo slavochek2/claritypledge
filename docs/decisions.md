@@ -10,6 +10,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 
 
+## 2026-11-05 [technical]: Audio chunk timing uses a causal bound; a paid live test with real recordings proves event transcription
+
+**Context:** P1608 built a live test: real meeting recordings through fake mics, on self-hosted TEST, through recording, upload, the cleaning job and the chat. It found one sentence under two people with the loudest-mic rule on. Turning the rule off doubled 17 of 18 phrases, so the rule works; its inputs were misaligned. Each 30 s chunk was clamped to its own upload time, and upload times wander by up to about 3 s. The first suspect, browser gain, was refuted: with true spacing the right mic was loudest in every phrase second.
+**Decision:** (1) A chunk ended no later than its own upload, nor any later upload minus the audio between. Chunks sit end to end on that bound; only a lasting rise above 2.5 s opens a gap. (2) The live test stays out of the default run, refuses any target but self-hosted TEST, and refuses retries. Expected text comes from the corpus's human transcript, never from Gemini. (3) Zero strays stays the bar.
+**Alternatives rejected:** Run median with no clamp: scored as well, but Argon and Codex independently showed a short pause moved audio to after its own upload. Per-mic offset only: cannot correct per-chunk jitter. Allowing one stray per run: hides real wrong names.
+**Consequences:** Replay of two runs: 96% and 94% of phrase seconds to the right mic became 100%; live, 3 of 3 completed runs had no stray across 54 phrases. Known limits are in the P1611 spec: a 2.5 to 5 s lasting upload rise near the end of a stretch opens a false gap, and the 2.5 s value has no phone data. The friends test owns that. The test does not prove normal dispatch: self-hosted TEST lacks those settings. Pre-commit does not run the worker's Python tests, so a commit went in with one failing. (Status: proposed) add them and set the dispatch settings on TEST.
+**References:** `features/done/2026-06-10/p1608_event_transcription_e2e_with_real_recordings.md`, `features/done/2026-06-10/p1611_sentence_posted_under_two_people_with_loudest_mic_on.md`, `services/transcribe-room-batch/audio.py`
+
 ## 2026-11-04 [technical]: Transcription belongs to a chat; a chat's session is one room with one thread
 
 **Context:** Transcription reached a chat only from an event room, plain `/transcribe` got no cross-mic cleaning, and an event with no rounds merged sessions days apart into one thread.

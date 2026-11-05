@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-11-03
+Last updated: 2026-11-05
 
 ---
 
@@ -443,6 +443,8 @@ Last updated: 2026-11-03
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1608** (Nov 26) Live event transcription test with real recordings — fake-audio flag is per browser process; prove assertions with a rule-off control.
+- **P1611** (Nov 26) Sentence under two people — chunk upload jitter misaligned mics; causal bound, not median, keeps audio before its upload.
 - **P1605** (Nov 26) /day evaluated records — a record that no longer holds must also beat live-owner folding, or it stays hidden.
 - **P1591** (Oct 26) Migrations and test SQL follow the active TEST server — worktrees run their own scripts/ copy, so the drift net must run from main at ship/push
 - **P1584** (Oct 29) Self-hosted TEST health hourly in CI without SSH: the VM writes guest attributes, a one-permission account reads them; blocking containers from metadata must spare DNS port 53
