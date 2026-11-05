@@ -8,6 +8,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+
+## 2026-11-05 [technical]: The mirror agent folds copies by a counted rule in SQL (P1619)
+
+**Context:** A Clarified transcript stayed among the offered rows, so unrelated replies re-sent it and reserved $0.225. Step 1 of the P1615 plan.
+**Decision:** Clarify and forward copies fold after the owner's next 5 messages; a message naming speakers, title or date reopens one for that reply and the next 5. The rule reads the last 6 eligible messages, once per attempt, and row cost, payload and profile follow that one decision. Refs do not change, so a folded copy still counts everyone it names. Time zone is UTC. No model call decides.
+**Alternatives rejected:** Folding only in the prompt: SQL would keep the reservation and the crowding. Narrowing refs for folded copies: under-clearing on erasure is the unsafe side.
+**Consequences:** Exact-word matching misses Russian case endings, dates match only English and numeric forms, and a copy past the offer window cannot be reopened by name until search. Functions must deploy before the migration. Word splitting depends on the database locale; prod's is unchecked. Falsifier: owners ask about a folded copy and the agent says it cannot see it.
+**References:** `features/done/2026-06-10/p1619_mirror_agent_stop_resending_copies.md`, `supabase/migrations/20261105233200_p1619_tokens_keep_every_script.sql`
+
 ## 2026-11-05 [process]: Review-gate stop check should stand down while background reviewers run (Status: proposed)
 
 **Context:** During P1630 the stop check blocked about seven times while reviewers were running. By code reading, one earlier completion word latches until the founder's next message, because task notifications do not reset the scanned text, and this path has no retry budget or check for outstanding background work.

@@ -3348,7 +3348,7 @@ From P1606's reviews. test-p1584's "a run older than 3 h is unknown" also fails 
 
 **ID:** INBOX-274
 **Date:** 2026-11-04
-**Status:** proposed
+**Status:** closed — limits kept in 20261105100000; privacy line live, checked on the prod bundle 2026-11-05 (P1619)
 **due:** week
 
 The P1604 draft migration for Clarified session threads, as read on 2026-11-04 before its rebase, redefines _mirror_limits() from the P1547 body: no canvas_max_usd, extract_max_usd or canvas caps, and global_total_daily_usd 10.00 where main has 50.00. Sorted after P1536 it would replace them, and canvas reads those keys. Its drift test checks only the two reply reservations. privacy.md also says a Clarify copy holds "up to 100 replies", and the draft stores 720 lines. Done when the shipped migration keeps every P1536 key and the policy matches. Drop if the rebase already fixed both. Related: P1615.
