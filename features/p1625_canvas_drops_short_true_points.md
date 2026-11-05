@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 99
 severity: medium
@@ -11,8 +11,14 @@ exec_model: opus
 exec_effort: high
 tags: [canvas, mirror-agent, copy]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p1625-reproduce.test.ts
+  root_cause: "The Problem box's shape makes the model write 'Today customers are angry.'; sharesWords needs two shared content words, and only 'angry' is shared. The reply carries a count, not the point."
+  confidence: high
+  surfaces_in_scope: [sharesWords, vetEvidence, canvas-reply]
+  reproduced_at: 2026-11-05
 ---
 
 # P1625: Canvas drops short true points and does not say which or why
@@ -25,7 +31,15 @@ A short point in the owner's own words, like "They are angry", can never pass th
 
 ## Root Cause
 
-`sharesWords` requires two shared content words between a statement and its quote, "however short the statement is". "They are angry" has one content word, so it fails even against a verbatim quote. Confirmed by running the real function: "They are angry" and "Customers are angry" are false against the founder's sentence; "They want juice" is true. **UNVERIFIED:** what the model wrote in the founder's runs. Another check could add to the same count, so `/reproduce` must capture it.
+`sharesWords` requires two shared content words between a statement and its quote, "however short the statement is". "They are angry" has one content word, so it fails even against a verbatim quote.
+
+**What the model wrote.** The founder's prod output no longer exists: a run stores counts, never the model's response, and that draft was discarded. The evidence is a replay of the founder's message through the real prompt, engine and model, with the database faked and a reconstructed base point: 5 of 5 runs wrote `Today customers are angry.`, citing `they are angry which is the or problem too`. No other check refused it. Numbers and names passed; the only shared content word is "angry".
+
+**"Today" comes from us.** The Problem box's shape is `"Today <customer> <A + cost>; ..."`, so the fix must allow it. The rule as first written would still drop this point, since "today" is a meaningful word absent from the quote.
+
+**The second founder message did not reproduce.** "I'm saying they're also angry..." was reworded and accepted in 5 of 5 replays, against prod's drop. The replay's base point is reconstructed, so the cause of that difference is unknown. The third drop, 05:47, came from a message with no stored text and was not replayed.
+
+**Negation.** "not" and "never" are not content words, so without a guard the short rule would accept "They are not angry" against "they're also angry". The existing P1536 tests also pin "Not profitable" and "Profitable" as refused.
 
 ## Invariants
 
