@@ -238,6 +238,38 @@ test.describe('P1549 join learning', () => {
     expect(await partsOf(u.user.id)).toEqual([]);
   });
 
+  test('navigation table: every remaining row, and Back from the group never reopens the flow', async ({ page }) => {
+    const u = await user('P1549 Table');
+    await setTestSession(page, u.email);
+    // About link -> read-only terms -> Back -> the group.
+    await page.goto(`/groups/${org.slug}`);
+    await page.getByRole('tab', { name: 'About' }).click();
+    await page.getByRole('link', { name: 'Clarity Group Terms' }).click();
+    await expect(page).toHaveURL(/view=terms/);
+    await page.getByRole('button', { name: /back/i }).first().click();
+    await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}`));
+    // Part 1 Back -> the group; browser Back from there does not show /join.
+    await openJoinFromGroup(page);
+    await page.getByRole('button', { name: /back/i }).first().click();
+    await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}`));
+    await expect(page).not.toHaveURL(/\/join|\/prepare/);
+    // A learner: list -> terms -> Back -> list -> terms; browser Forward re-runs the screen; never the learning.
+    await seedLearned(u.user.id);
+    await openJoinFromGroup(page);
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Accept and join' })).toBeVisible();
+    await page.getByRole('button', { name: /back/i }).first().click();
+    await expect(page.getByTestId('join-part-1')).toBeVisible();
+    await expect(page).not.toHaveURL(/\/prepare/);
+    await page.goForward();
+    await expect(page.getByRole('button', { name: 'Accept and join' })).toBeVisible();
+    // Accept replaces, and the flow is not reachable by one browser Back to a learning screen.
+    await page.getByRole('button', { name: 'Accept and join' }).click();
+    await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
+    await page.goBack();
+    await expect(page).not.toHaveURL(/\/prepare/);
+  });
+
   test('sign-up callback moves this browser\'s parts to the account, then joins', async ({ page }) => {
     const u = await user('P1549 Transfer');
     await setTestSession(page, u.email);

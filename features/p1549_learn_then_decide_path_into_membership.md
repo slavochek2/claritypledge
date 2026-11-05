@@ -6,8 +6,8 @@ workstream: events
 created_date: '2026-10-22'
 tags: [events, membership, learning, prepare, community]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -283,7 +283,7 @@ Every visual item is measured at 1440, 375 and 320, with the screen-review brief
 - [x] A person with `cognitive_video` and `cmp7` completed, and a person with any `event_preparations.completed_at`, each go straight to the terms, titled "Group terms" with no "Part 2 of 2".
 - [x] A member sees the read-only terms (unchanged; the p1010 and p1076 org-join e2e green, with fixtures updated where they expect terms for a non-learner, see Risks).
 - [x] About tab, non-member: "Clarity Group Terms" opens `?view=terms`, read-only, no Accept, with "Join <group>". "Join <group>" leads to Part 1 for a non-learner and to the terms with Accept for a learner. A member following the same link sees their own read-only terms.
-- [ ] Navigation: each row of the table is exercised in the e2e. After each sequence, browser Back from the group page never shows `/join` or `/prepare`, and no sequence returns to the learning from the terms.
+- [x] Navigation: each row of the table is exercised in the e2e. After each sequence, browser Back from the group page never shows `/join` or `/prepare`, and no sequence returns to the learning from the terms. (Since decision 25, Back from the terms returns to the ticked list, never to a learning step.)
 - [x] Reload on Part 1, on the terms (with and without `joinViaLearning`) and on a learning step each match the reload rules above.
 - [x] Pending and failure: with the parts read delayed (a controlled route delay), only `ClarityPageLoader` shows until it answers; no Part 1 or terms frame appears first. With the parts read or the membership read failing, the error line and "Try again" show, not Part 1 and not the terms; "Try again" with the read restored shows the right screen.
 - [x] Signed out: the same Part 1, then the learning, then the terms. "Accept and join" goes to sign-up with `action=join-org`. After sign-up in the same browser the person is a member, and `person_prep_parts` holds their `cognitive_video` and `cmp7` rows (query output pasted).
