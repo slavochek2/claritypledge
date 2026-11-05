@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [canvas, mirror-agent, copy]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1625-reproduce.test.ts
   root_cause: "The Problem box's shape makes the model write 'Today customers are angry.'; sharesWords needs two shared content words, and only 'angry' is shared. The reply carries a count, not the point."
