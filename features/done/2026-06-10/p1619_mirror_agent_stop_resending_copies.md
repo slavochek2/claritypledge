@@ -22,7 +22,7 @@ Step 1 of the plan the founder approved in [P1615](../../p1615_mirror_agent_cont
 
 **Situation:** P1604 is on prod. A Clarified transcript session lands in the main mirror chat and gets a larger profile: up to 100,000 tokens in, 4,000 out, reserved at $0.225.
 
-**Complication:** That profile applies to every later reply while the copy is among the offered rows, until it leaves the offered rows: the first pass offers 150,000 characters, and a session among them widens the offer to 300,000. An unrelated question can re-send the transcript, at $0.18 from 1 January. At $0.18 each, the $5.00 shared reply cap fits about 27 such replies a day, if nothing else spends from it. Separately, no message time reaches the model, the main chat prompt never says what it left out, the ledger ignores cached tokens, and the privacy policy says a copy holds "up to 100 replies" while a session copy holds 720 lines.
+**Complication:** That profile applies to every later reply while the copy is among the offered rows, until it leaves the offered rows: the first pass offers 150,000 characters, and a session among them widens the offer to 300,000. An unrelated question can re-send the transcript, at $0.18 from 1 January. At $0.18 each, only a few dozen such replies fit in the shared daily reply cap, if nothing else spends from it. Separately, no message time reaches the model, the main chat prompt never says what it left out, the ledger ignores cached tokens, and the privacy policy says a copy holds "up to 100 replies" while a session copy holds 720 lines.
 
 **Question:** How does a copy stay fully available while people talk about it, and stop re-sending it once they do not?
 
