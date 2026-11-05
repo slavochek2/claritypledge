@@ -168,6 +168,9 @@ fi
 # .privacy-allowlist, never an ad-hoc flag.
 for line in "${PUSH_REFS[@]}"; do
   read -r local_ref local_sha remote_ref remote_sha <<< "$line"
+  # A deletion publishes no commits, so there is nothing to scan (P1641). Scanning it would
+  # ask for a range ending in the zero SHA, which the scanner rightly refuses as unreadable.
+  [ "$local_sha" = "$ZERO_SHA" ] && continue
   if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
     if git rev-parse --verify origin/main >/dev/null 2>&1; then
       RANGE="origin/main..$local_sha"
@@ -204,7 +207,6 @@ for line in "${PUSH_REFS[@]}"; do
   # and commits reach main without the pre-commit hook (cherry-pick, merge, rebase,
   # a detached HEAD fast-forwarded). This is the pre-publication check. No flag
   # waives it; fails closed if the checker is missing.
-  [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
   if [ ! -x "./scripts/check-disclosure.sh" ] && [ ! -f "./scripts/check-disclosure.sh" ]; then
     echo "  ❌ PUSH BLOCKED: scripts/check-disclosure.sh missing — cannot prove no embargoed spec is in $RANGE"
     exit 1

@@ -3582,7 +3582,7 @@ Re-run the keyword count of founder-typed review and build-roster asks for the 3
 
 **ID:** INBOX-295
 **Date:** 2026-11-05
-**Status:** proposed
+**Status:** closed — fixed by P1641 with a canary; the leftover staging branches are deleted at the P1641 push
 **due:** week
 
 Layer 1 of scripts/pre-push-checks.sh handles an all-zero remote SHA but not an all-zero local SHA, so a branch delete scans an unreadable range, exits 3 and is refused. Seen 2026-11-05 at the push-docs cleanup step, which left staging/doc-4af0e39e4 on origin; the fail-closed input handling arrived in P1623. Done when a delete passes with a canary, and that branch is deleted. Drop if push-docs stops using staging branches.

@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 109
 severity: high
@@ -11,8 +11,15 @@ exec_model: opus
 exec_effort: high
 tags: [privacy-gate, pre-push, push-docs, staging]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
+reproduce_artifact:
+  test_file: scripts/test-p1641-prepush-delete.sh
+  root_cause: "Layer 1 builds a scan range for an all-zero local SHA; its delete skip runs only after the scan, so the scanner exits 3 and the hook refuses"
+  confidence: high
+  surfaces_in_scope: [pre-push-layer-1]
+  surfaces_deferred: []
+  reproduced_at: 2026-11-05
 ---
 
 # P1641: Privacy scan refuses branch deletes, so staging branches leak and push recovery dies
@@ -25,7 +32,7 @@ Layer 1 of `scripts/pre-push-checks.sh` scans a range ending in an all-zero loca
 
 The Layer 1 loop handles an all-zero remote SHA but not an all-zero local SHA, so a delete builds `<remote_sha>..0000000000000000000000000000000000000000` (`scripts/pre-push-checks.sh:169-179`). The scanner cannot read that range and returns 3, which P1623 turned into a refusal (`:183-188`). The skip for deletes exists at `:207`, after the scan. Layer 0 already allows deletes (comment at `:71`, skip at `:91`).
 
-Read from the code on 2026-11-05. The exit 3 was observed in the session that filed INBOX-295. The recovery failures below are read from the code and not yet exercised.
+Read from the code on 2026-11-05. The exit 3 was observed in the session that filed INBOX-295. Reproduced 2026-11-05 by `scripts/test-p1641-prepush-delete.sh`: D1 and D5 fail with that exit 3, and all five controls pass. Layer 2 already refuses a delete of main, and Layers 2 and 3 skip other refs, so only Layer 1 needs the change. The recovery failures below are read from the code and not yet exercised.
 
 ## Invariants
 
@@ -39,7 +46,7 @@ Read from the code on 2026-11-05. The exit 3 was observed in the session that fi
 2. Run `git push origin --delete staging/doc-<sha>`.
 3. Observe: "the privacy scan could not read its input for range <sha>..0000000000000000000000000000000000000000 (exit 3)" and the push is refused.
 
-**Reproduction rate:** 100% by code path; the canary must confirm it before the fix.
+**Reproduction rate:** 100% (canary, against the real hook and scanner).
 
 ## Expected Behavior
 
@@ -65,7 +72,7 @@ Every delete is refused. Effects:
 
 ## Fix Approach
 
-Move the existing all-zero local SHA skip to the top of the Layer 1 loop, before the range is built. Check that the later layers of the hook also pass a delete.
+Move the existing all-zero local SHA skip to the top of the Layer 1 loop, before the range is built.
 
 P1623's hook change is already on main (`fd429c2eb`, `ccf4d6ebd`), so start from main. Confirm w5's `feature/p1623-privacy-scanner-hardening` holds nothing further that touches this code.
 
