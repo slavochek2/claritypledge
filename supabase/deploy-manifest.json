@@ -2,14 +2,14 @@
   "prod": {
     "functions": {
       "_shared": "",
-      "canvas-draft": "2eb768d72cff1cc37cc9d52e668a7515dc88d36fae3df420f5611cb65fc610a6",
+      "canvas-draft": "2dea075be57ddcd23e67ebea23f2b27da83a3ea95951ee433ace6500be317fd6",
       "chat-voice": "48d02678d852e7897f667a2d189beab0a974646533a34a6877015ee804d147de",
       "check-login-email": "38eb622f100c45372a963b97265ac017a201c2dcdf21833bd3d979004c2233f0",
       "confirm-letter-response": "d119cb2408495c43bf818e9b99cb0e858333fe533782e21ff8197e455f8a91c1",
       "create-and-open-letter": "8cd38ca83448611203e4ca067652e0938a2ce99956f8cfb072c5dcefb75430cd",
       "create-and-sign": "92dff580cb442aa073e4a6edb9387b28ea53499835582f2804b64e8cccd92c63",
       "dispatch-event-emails": "3584879fe4344c2e4fdaf3cb3a38c224bc3641ed35fd1004e005fa000db8745b",
-      "enqueue-room-transcription": "e94b37c188f20cbb1661903120cfe99a8ccb114f932185f479ef071cc863707e",
+      "enqueue-room-transcription": "4bd68462ff5142c28b7efeb3a38a6137c42cd9e26aa540c939dc18882743fe5b",
       "enqueue-transcription": "76c5a197f2d2a6b231113ecc71ba29ccd30cef72f509f0c8134effda387f6b56",
       "event-email-link": "5b9a84513ea3845fb4ce08703720ecfaa7baab210219bef779251765ad57d069",
       "explain-back-signed-url": "70f05df01c056c590a0ed6d4f8a15710948ab737efbcbeec04fd7b81ab480969",
@@ -27,7 +27,7 @@
       "transcribe-clip": "d844cf98faaffa69b95c3d9b58b63ea2b8699de0625b341e852bae15bbcc9dda",
       "transcribe-slice": "0c77cf88720255029cdde24ceebaf22b48c8c6272a27eefe003ca7ff1d8c9660"
     },
-    "functions_deployed_at": "2026-11-05T13:39:29Z",
+    "functions_deployed_at": "2026-11-05T13:53:19Z",
     "migrations": [
       "20250101",
       "20250117",
