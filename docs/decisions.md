@@ -10,6 +10,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 
 
+## 2026-11-05 [technical]: A hand edit on a canvas draft is a new point, and typed text is never moved on a guess (P1614)
+
+**Context:** The founder asked for an Edit button on draft points. "Editable until published" is not true of every point: a draft reuses points from published versions.
+**Decision:** Saving writes a new point, as an agent reword does, carrying the old point's place, the owner's stance and stories, so a published version never changes. Typing the original words back returns to the original point. A save closes Undo for earlier runs, because Undo restores a snapshot and would lose the edit. If the point goes away under an open editor, the text stays visible to copy, with no Save.
+**Alternatives rejected:** Editing in place, which would change published wording. Moving typed text onto a likely replacement point, because two reviews reproduced it saving onto the wrong point.
+**Consequences:** The RPC follows the engine's reword branch by hand, so a change to that branch must be checked against it. Known limits are in the spec.
+**References:** [P1614](../features/done/2026-06-10/p1614_edit_a_point_directly_on_a_draft.md)
+
 ## 2026-11-05 [technical]: Audio chunk timing uses a causal bound; a paid live test with real recordings proves event transcription
 
 **Context:** P1608 built a live test: real meeting recordings through fake mics, on self-hosted TEST, through recording, upload, the cleaning job and the chat. It found one sentence under two people with the loudest-mic rule on. Turning the rule off doubled 17 of 18 phrases, so the rule works; its inputs were misaligned. Each 30 s chunk was clamped to its own upload time, and upload times wander by up to about 3 s. The first suspect, browser gain, was refuted: with true spacing the right mic was loudest in every phrase second.
