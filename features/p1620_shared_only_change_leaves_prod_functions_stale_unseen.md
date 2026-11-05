@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 96
 severity: high
@@ -102,3 +102,5 @@ Both defects fixed: `scripts/lib/function-input-hash.py`, shared by the stamper 
 **After landing:** old hashes do not match, so every function reports `FUNCTION_STALE` and the daily drift check stays red until all are redeployed.
 
 **Known limit:** a regex literal holding a quote directly after `)` can still desync the lexer. Existing relative imports stay covered by the raw-text pass; a fail-closed error in that file could be hidden.
+
+**Known limit, last review:** the lexer's keyword check can misread a division after an identifier named `of`, or after a long run of spaces, as a regex. That can hide a fail-closed error on the same line; relative imports stay covered by the raw-text pass. Accepted under the one-extra-round review cap.
