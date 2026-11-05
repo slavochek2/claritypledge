@@ -1,22 +1,22 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 95
 workstream: clarity-chat
 created_date: '2026-11-05'
 tags: [mirror-agent, context, cost, privacy]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-11-05
 ---
 
 # P1619: The mirror agent stops re-sending copies once the talk moves on
 
-Step 1 of the plan the founder approved in [P1615](p1615_mirror_agent_context_loading.md). It adds no new reach.
+Step 1 of the plan the founder approved in [P1615](../../p1615_mirror_agent_context_loading.md). It adds no new reach.
 
 ## Problem
 
@@ -153,4 +153,4 @@ Gemini 4 Argon and Codex (gpt-6.1-sol, low), 2 of 2 reports, 2026-11-05. Verdict
 
 **Rulings carried:** P1615 founder rulings and approved plan 2026-11-04 · decisions 2026-10-23 (P1547) · 2026-10-22 (P1544, P1546) · 2026-11-04 AI features rule.
 
-[P1615](p1615_mirror_agent_context_loading.md) · [P1604](done/2026-06-10/p1604_transcription_belongs_to_a_chat.md) · [P1547](done/2026-06-10/p1547_mirror_memory_token_budget.md)
+[P1615](../../p1615_mirror_agent_context_loading.md) · [P1604](p1604_transcription_belongs_to_a_chat.md) · [P1547](p1547_mirror_memory_token_budget.md)
