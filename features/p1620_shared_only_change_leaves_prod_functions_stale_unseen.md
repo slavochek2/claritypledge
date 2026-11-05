@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 96
 severity: high
@@ -11,8 +11,15 @@ exec_model: opus
 exec_effort: high
 tags: [deploy, edge-functions, manifest, terms]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: scripts/test-p1620-reproduce.sh
+  root_cause: "The manifest hashes only index.ts, and every deploy re-stamps all functions, so a _shared or sibling change never reports and a one-function deploy marks undeployed functions current"
+  confidence: high
+  surfaces_in_scope: [stamp-deploy-manifest, check-deploy-manifest, deploy-functions]
+  surfaces_deferred: []
+  reproduced_at: 2026-11-05
 ---
 
 # P1620: A change in `_shared` can leave prod edge functions out of date, and nothing reports it
@@ -24,6 +31,16 @@ The drift check hashes only each function's `index.ts`, so a change in `supabase
 ## Root Cause
 
 `scripts/stamp-deploy-manifest.sh` `build_functions_json()` records `shasum` of `$dir/index.ts` only. `scripts/check-deploy-manifest.sh` reports `FUNCTION_STALE` from those hashes. A function's bundle also includes `_shared` and its sibling files.
+
+**Second defect, found during reproduction:** `scripts/deploy-functions.sh:238` calls the stamper with no function names, and `build_functions_json()` re-hashes every function directory. Deploying one function therefore records every other function as current, so hashing more files would not be enough on its own.
+
+**Reproduced 2026-11-05, on a throwaway copy of the real tree with its own local origin (the check reads the manifest from `origin/main`):**
+- `_shared/terms-version.ts` changed only: check passes, exit 0. `mirror-reply` reaches that file through `_shared/terms-gate.ts`.
+- `mirror-reply/handler.ts` changed only: check passes, exit 0.
+- Control, `mirror-reply/index.ts` changed: `FUNCTION_STALE: mirror-reply`, exit 1.
+- `mirror-reply` and `mirror-portrait` both changed, then the stamper run as a deploy runs it: check passes, exit 0, though nothing reached the server.
+
+**Surface (regex tracer, not Deno's resolver):** 22 of 24 functions reach `_shared`; 10 of 24 have sibling files; no cross-function imports, dynamic imports or runtime file reads outside tests. Version pins in `supabase/functions/deno.json` and `deno.lock` also change a bundle. Only `check-deploy-manifest.sh` reads the function hashes, and only the stamper writes them.
 
 Observed 2026-11-05: `mirror-reply` keeps one manifest hash from 2026-10-26 to today, while `_shared/terms-version.ts` moved the mirror consent list through v1.6 and v1.7. The Supabase function list showed `mirror-reply` last deployed 2026-10-28 and `mirror-portrait` 2026-10-26.
 
@@ -41,7 +58,7 @@ Observed 2026-11-05: `mirror-reply` keeps one manifest hash from 2026-10-26 to t
 3. Run `./scripts/check-deploy-manifest.sh --env prod`.
 4. Observe: no `FUNCTION_STALE` for `mirror-reply`.
 
-**Reproduction rate:** 100% by reading the hash code; not yet run. `/reproduce` should run it.
+**Reproduction rate:** 100%, run by `scripts/test-p1620-reproduce.sh` (3 assertions fail, exit 1).
 
 ## Expected Behavior
 
@@ -72,5 +89,6 @@ Already done, out of scope: the two hotfix deploys below, and the secret check's
 - [ ] A `_shared`-only change reports `FUNCTION_STALE` for a function that imports it, shown failing first on the real tree
 - [ ] The same change does not report a function that does not import it, if hashing is per import
 - [ ] A freshly deployed, unchanged function reports clean
+- [ ] Deploying one function does not mark another changed function as current
 - [ ] Every function found stale on prod is listed, and redeployed with founder approval
 - [ ] A person on the current terms gets a mirror reply on prod with no terms message
