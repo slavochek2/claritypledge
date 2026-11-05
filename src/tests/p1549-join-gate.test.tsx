@@ -20,7 +20,7 @@ describe('P1549 Part 1', () => {
     load.mockResolvedValue(Array.from({ length: 8 }, (_, i) => ({ id: String(i) })));
     part1();
     const n = minutesFor(['story', 'principle', 'cmp7'], { cmp7: 8, stake: 0 }, true);
-    await waitFor(() => expect(screen.getByTestId('join-part-1-title')).toHaveTextContent(`Before you join: about ${n} minutes`));
+    await waitFor(() => expect(screen.getByTestId('join-minutes')).toHaveTextContent(`${n} min`));
   });
   it('an empty statements list is a failed read, never a 0 minute step', async () => {
     load.mockResolvedValue([]);
@@ -34,4 +34,24 @@ describe('inAppPath', () => {
   it.each(['//evil.example', '/\\evil.example', 'https://evil.example', '/\t/evil.example', '/\n/evil.example', '', null])(
     'refuses %j', (p) => expect(inAppPath(p)).toBeNull(),
   );
+});
+
+/** P1549 founder rule: nobody joins without learning, wherever they tap Join, now or later. A new caller of the join
+ *  write fails here until someone decides how it passes through the learning. Derived from the source tree. */
+describe('every way to join goes through the learning', () => {
+  const files = import.meta.glob('/src/**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+  const callers = Object.entries(files)
+    .filter(([path, text]) => !path.includes('/tests/') && !path.includes('organizations-service') && /\.joinOrganization\(/.test(text))
+    .map(([path]) => path).sort();
+  it('only the known join paths write a membership', () => {
+    expect(callers).toEqual([
+      '/src/app/pages/use-org-join-state.ts', // the terms screen, reached only by a learner
+      '/src/app/prototypes/events/close/EventClosePage.tsx', // the close's terms, reached only by a learner
+      '/src/auth/AuthCallbackPage.tsx', // after sign-up, from the terms screen
+    ]);
+  });
+  it('the close sends a non-learner to the learning', () => {
+    const close = files['/src/app/prototypes/events/close/EventClosePage.tsx'];
+    expect(close).toMatch(/learnFirst=\{askLearned\.status === 'ok' && hasLearned/);
+  });
 });

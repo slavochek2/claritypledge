@@ -66,6 +66,8 @@ Decision density: decisions 1-12 are made (defaults applied where marked). New c
 20. **Part 1 label is "Short introduction"** on both sides.
 21. **Invite links stay gated.** They open the group page (`org-header.tsx`, `inviteUrl`), and the invited person taps Join like anyone else. A hand-typed sign-up address is accepted as is (see Invariants).
 
+22. **Nobody joins without learning, wherever they tap Join, now or later** (founder, 2026-11-05). Clarity Night's "Join as member" in the feedback flow now sends a non-learner to the group's join page and returns afterwards. A test fails if a new place writes a membership. Sharing a browser can pass on unsaved progress; accepted, not fixed here.
+
 ## Relation to P1542 (updated 2026-10-27)
 
 P1542 (Social Hike prepare and close recipes) ships first, together with P1562. Increment 1 starts on its own branch from `main` after that ship. P1542 built the **event side** of this path. P1549 builds the **groups-page side** and reuses P1542's pieces rather than copying them.
@@ -281,6 +283,8 @@ Every visual item is measured at 1440, 375 and 320, with the screen-review brief
 - [x] Signed out with the transfer write failing: the join still completes, and the parts are still in this browser's storage afterwards.
 - [x] Centring: "Start learning", "Continue", "Accept and join", the "Back" link under it, "Join <group>" and "Try again" are each within 2px of their container's centre. The header Back is left-aligned by design and is not measured for centring.
 - [x] The supported UI never shows "Accept and join" to a non-learner who is not on `?view=terms` (where it is absent). The test names this as an advisory check, not a security boundary.
+
+- [x] A non-learner tapping Clarity Night's "Join as member" reaches Part 1, not the terms. A new caller of the join write fails a test.
 
 ## Hypothesis (UNTESTED)
 

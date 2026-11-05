@@ -70,14 +70,11 @@ export function JoinPart1({ groupName, parts, viewerId, onStart, fallback }: {
       <SEO title={`Join ${groupName}`} description={`Learn how ${groupName} works, then decide if you want to join.`} />
       <div className="mx-auto max-w-2xl space-y-6">
         <FocusHeader fallback={fallback} />
-        <div>
-          <p className="text-sm font-semibold text-foreground" data-testid="join-title">Joining {groupName}</p>
-          <p className="text-xs text-muted-foreground" data-testid="join-step">Part 1 of 2 · Short introduction</p>
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold" data-testid="join-part-1-title">
-            {started ? `Welcome back: about ${minutes} minutes left` : `Before you join: about ${minutes} minutes`}
-          </h1>
+        <div className="space-y-3">
+          <h1 className="text-2xl font-bold" data-testid="join-part-1-title">Join {groupName}</h1>
+          <span className="inline-flex rounded-full bg-muted px-3 py-1 text-sm font-medium text-foreground" data-testid="join-minutes">
+            {started ? `${minutes} min left` : `${minutes} min`}
+          </span>
           <PrepWhy paragraphs={WHY_COMMUNITY} />
         </div>
         <ol data-testid="join-steps">

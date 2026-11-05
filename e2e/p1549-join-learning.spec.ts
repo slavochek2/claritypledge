@@ -45,10 +45,10 @@ test.describe('P1549 join learning', () => {
     await setTestSession(page, u.email);
     await openJoinFromGroup(page);
     await expect(page.getByTestId('join-part-1')).toBeVisible();
-    await expect(page.getByTestId('join-step')).toHaveText('Part 1 of 2 · Short introduction');
+    await expect(page.getByTestId('join-part-1-title')).toHaveText(/^Join /);
     await expect(page.getByTestId('prepare-why')).toContainText(WHY);
     await expect(page.getByTestId('join-steps').locator('li')).toHaveCount(3);
-    await expect(page.getByTestId('join-part-1-title')).toHaveText(/^Before you join: about \d+ minutes$/);
+    await expect(page.getByTestId('join-minutes')).toHaveText(/^\d+ min$/);
     await expect(page.getByRole('button', { name: 'Accept and join' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Start learning' })).toBeVisible();
     // Back returns to the group and the browser's own Back never lands on /join afterwards.
@@ -67,7 +67,7 @@ test.describe('P1549 join learning', () => {
     await expect(page.getByRole('button', { name: 'Play the video' })).toBeVisible();
     await supabaseAdmin.from('person_prep_parts').upsert({ profile_id: u.user.id, part: 'cognitive_video', content_version: 1, completed_at: new Date().toISOString() }, { onConflict: 'profile_id,part' });
     await page.goto(joinUrl());
-    await expect(page.getByTestId('join-part-1-title')).toHaveText(/^Welcome back: about \d+ minutes left$/);
+    await expect(page.getByTestId('join-minutes')).toHaveText(/^\d+ min left$/);
     await expect(page.getByTestId('join-step-story')).toHaveAttribute('data-done', 'true');
     await expect(page.getByTestId('join-step-principle')).toHaveAttribute('data-done', 'false');
     await page.getByRole('button', { name: 'Continue', exact: true }).click();

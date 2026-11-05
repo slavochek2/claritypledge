@@ -9,6 +9,7 @@
  * three months, one ask per event), the left-early link, and no self-purchase offer anywhere.
  */
 import { test, expect } from '@playwright/test';
+import { seedLearned } from './helpers/prep-learned';
 import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
 import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from './helpers/test-event';
@@ -209,8 +210,21 @@ test.describe('P1389 evening close', () => {
     expect(out).toContain('quote:   may be used');
   });
 
+  test('P1549 community: a non-learner tapping Join as member goes to the learning, never to the terms', async ({ page }) => {
+    const u = await attendee('P1549 Night Joiner');
+    await supabaseAdmin.from('event_feedback').insert({ event_id: tonight.id, user_id: u.user.id, score: 9, liked: 'Good.' });
+    await setTestSession(page, u.email);
+    await page.goto(`/events/${tonight.slug}/close`);
+    await expect(page.getByTestId('ask-community')).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'Join as member' }).click();
+    await expect(page.getByTestId('join-part-1')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('community-terms')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/join\?return=/);
+  });
+
   test('community: Join as member shows the group terms inside the close; accepting joins and the close carries on', async ({ page }) => {
     const u = await attendee('P1389 Joiner');
+    await seedLearned(u.user.id); // P1549: a non-learner goes through the learning, tested below
     await supabaseAdmin.from('event_feedback').insert({ event_id: tonight.id, user_id: u.user.id, score: 9 , liked: 'Good.' });
     await setTestSession(page, u.email);
     await page.goto(`/events/${tonight.slug}/close`);

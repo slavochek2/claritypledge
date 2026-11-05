@@ -68,6 +68,8 @@ import type { Organization, OrgParticipation } from '@/app/data/organizations-se
 import { isAnswered, loadTagPoints, usePrepState } from '../prep/use-prep-state';
 import { shortCommunityName, useOrgMembership } from '../use-event-community';
 import { useJoinResume } from './use-join-resume';
+import { useLearnedRead } from '../prep/use-learned-read';
+import { hasLearned } from '../prep/prep-plan';
 import { JoinedWelcome } from './JoinedWelcome';
 import { ActionRow, PINNED_FADE_CLASS, PINNED_FADE_OFF_CLASS, PINNED_FLAT_DESKTOP_CLASS, StepActions, useMeasuredHeight, useScrolledToEnd } from '../prep/prep-ui';
 import { safeLinkHref } from '../location-utils';
@@ -249,7 +251,11 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
   // non-member to join. Someone who has learned (here or anywhere, hasLearned) goes straight to the group terms; anyone
   // else learns first (inside the room's frame), then lands on the terms. Nobody reaches the terms without learning.
   const learning = usePrepState(recipe.joinOffer.named ? event : null, viewerId);
-  const learnLoaded = !recipe.joinOffer.named || !learning.loading;
+  // P1549: Clarity Night's community ask too: nobody joins without learning, whichever button they tap. The event-free
+  // read, because this event may offer no preparation at all (usePrepState then answers "not learned" for everyone).
+  const askNeedsLearned = !recipe.joinOffer.named && initial.asks.includes('community');
+  const askLearned = useLearnedRead(viewerId, askNeedsLearned);
+  const learnLoaded = (!recipe.joinOffer.named || !learning.loading) && (!askNeedsLearned || askLearned.status !== 'pending');
   const learned = !learning.error && learning.learned;
   const asks = initial.asks.filter(
     (a) => !((a === 'community' && ((communityLoaded && !community) || recipe.joinOffer.named))
@@ -798,6 +804,8 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
             barHeight={barHeight}
             onAnswer={answer('community')}
             join={() => once(() => joinCommunityFromClose(event.id))}
+            // Not learned: the group's own join page teaches first, then returns here, where the ask no longer applies.
+            learnFirst={askLearned.status === 'ok' && hasLearned(askLearned.parts, askLearned.completedAt) ? undefined : () => navigate(`/groups/${community.org.slug}/join?return=${encodeURIComponent(`/events/${event.slug}/close`)}`)}
             onJoined={() => { setJoined(community.org.name); setAnswered((x) => [...x, 'community']); go(after('community')); }}
             backRef={askBack}
             onPart={setAskPart}
@@ -1032,10 +1040,13 @@ function CommunityAsk({
   onAnswer,
   join,
   onJoined,
+  learnFirst,
   backRef,
   onPart,
 }: {
   community: Community;
+  /** P1549: set when this person has not learned: "Join as member" goes there instead of to the terms. */
+  learnFirst?: () => void;
   /** P1542 (founder 2026-10-23, a hike): headed with the group's own name; "Review group terms", then "Accept and
    *  join" with "Not now" as the small link under it. Clarity Night keeps its words. */
   named?: boolean;
@@ -1163,7 +1174,7 @@ function CommunityAsk({
       <Drawer barRef={barRef}>
         {/* Equal choices get equal buttons (founder, P1336: "otherwise it feels rigged"). */}
         <div className="grid w-full grid-cols-2 gap-2" data-testid="ask-answers">
-          <Button size="lg" disabled={saving} onClick={() => setStage('terms')} className="h-12 min-w-0 rounded-full bg-blue-600 text-base font-bold text-white hover:bg-blue-700">
+          <Button size="lg" disabled={saving} onClick={() => (learnFirst ? learnFirst() : setStage('terms'))} className="h-12 min-w-0 rounded-full bg-blue-600 text-base font-bold text-white hover:bg-blue-700">
             Join as member
           </Button>
           <Button size="lg" variant="outline" disabled={saving} onClick={() => onAnswer('no')} className="h-12 min-w-0 rounded-full text-base">
