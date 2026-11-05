@@ -23,7 +23,7 @@ reproduce_artifact:
   surfaces_in_scope: [pre-push-layer-1]
   surfaces_deferred: []
   reproduced_at: 2026-11-05
-spec_review_hash: 2ebd23b0ffb926ef00b7d9f2191946a2d61682276f46a1c83ba93ecf746b6f14
+spec_review_hash: 6682020bc6c53d7882e05838cbabec7bb59002e0ea957378d64002dfa391624d
 spec_review_vendors: [gemini]
 ---
 
