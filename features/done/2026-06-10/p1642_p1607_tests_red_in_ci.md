@@ -1,13 +1,13 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 100
 tags: [ci, tests]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [fix, ship]
 workstream: infrastructure
 created_date: '2026-11-05'
+completed_at: 2026-11-05
 ---
 
 # P1642: Ten P1607 unit tests are red on every CI run of main
