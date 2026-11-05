@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 96
 severity: high
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: high
 tags: [deploy, edge-functions, manifest, terms]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p1620-reproduce.sh
@@ -20,6 +19,7 @@ reproduce_artifact:
   surfaces_in_scope: [stamp-deploy-manifest, check-deploy-manifest, deploy-functions]
   surfaces_deferred: []
   reproduced_at: 2026-11-05
+completed_at: 2026-11-05
 ---
 
 # P1620: A change in `_shared` can leave prod edge functions out of date, and nothing reports it
