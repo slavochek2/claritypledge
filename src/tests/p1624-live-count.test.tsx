@@ -44,6 +44,32 @@ beforeEach(() => {
 });
 
 describe('P1624 live people count', () => {
+  it('a hidden tab sends no read for a reply, and still shows the estimate', async () => {
+    hoisted.getThreadStats.mockResolvedValue(stat(1, 0));
+    const h = await mount();
+    const reads = hoisted.getThreadStats.mock.calls.length;
+    const vis = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    try {
+      insert(reply('p1', false));
+      expect(h.result.current.stats.get(ROOT)).toMatchObject({ peopleCount: 1 });
+      expect(hoisted.getThreadStats.mock.calls.length).toBe(reads);
+    } finally {
+      vis.mockRestore();
+    }
+  });
+  it('a read started before a delete cannot bring the deleted reply back', async () => {
+    let releaseOld: (v: Map<string, ThreadStats>) => void = () => undefined;
+    hoisted.getThreadStats.mockResolvedValueOnce(stat(2, 1));
+    const h = await mount();
+    hoisted.getThreadStats.mockImplementationOnce(() => new Promise((r) => { releaseOld = r; }));
+    await act(async () => { hoisted.listener?.({ type: 'resync' }); await Promise.resolve(); });
+    await waitFor(() => expect(hoisted.getThreadStats.mock.calls.length).toBe(2));
+    hoisted.getThreadStats.mockResolvedValue(stat(1, 0));
+    act(() => { hoisted.listener?.({ type: 'event', event: { type: 'UPDATE', message: { ...reply('p1', false), isDeleted: true } } }); });
+    await waitFor(() => expect(h.result.current.stats.get(ROOT)).toMatchObject({ peopleCount: 0 }));
+    await act(async () => { releaseOld(stat(2, 1)); await Promise.resolve(); });
+    expect(h.result.current.stats.get(ROOT)).toMatchObject({ peopleCount: 0 });
+  });
   it('transcript text moves the existing count only, with no extra read', async () => {
     hoisted.getThreadStats.mockResolvedValue(stat(1, 0));
     const h = await mount();

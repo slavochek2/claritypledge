@@ -125,6 +125,10 @@ Session rules, posting, timing, thread contents, session history, the waiting li
 - Do NOT build the card variant. It waits until the row holds a preview, duration or rounds.
 - Do NOT change round or table thread rows.
 
+## Cost Budget
+
+Runtime: no new write, table or background job. Each person's reply in a session thread adds one `get_thread_stats` read per viewer with the chat visible; hidden tabs add none, and transcript text adds none. A jump to an older page that holds a session root adds one read. At 10× the replies this is 10× a small indexed read per viewer, on the existing per-request database plan, with no per-call fee. Tests: one run of `e2e/p1624-transcript-row.spec.ts` creates and deletes 2 test users and 1 organisation, with about 5 page loads, on self-hosted TEST (fixed-price VM). No model call. Run by hand, not scheduled.
+
 ## Resolved Decisions
 
 1. A mirror agent's reply counts as a reply on this row; only transcript text is excluded. Agent's default, 2026-11-05, open to founder veto. Its stored author may be empty, so the count must not depend on `author_id`, and a face shows only where there is an author.

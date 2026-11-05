@@ -96,6 +96,39 @@ describe('P1624 the row', () => {
       vi.useRealTimers();
     }
   });
+  it('a press that dismisses the open menu does not open the thread, and a later tap does', () => {
+    vi.useFakeTimers();
+    try {
+      const actions = show(mapMessageRow(baseRow), undefined);
+      const open = screen.getByTestId('transcript-open');
+      fireEvent.contextMenu(open, { clientX: 5, clientY: 5 });
+      expect(screen.getByRole('menu')).toBeTruthy();
+      fireEvent.pointerDown(open);
+      fireEvent.mouseDown(open);
+      fireEvent.click(open);
+      expect(actions.onThread).not.toHaveBeenCalled();
+      act(() => { vi.advanceTimersByTime(1000); });
+      fireEvent.click(open);
+      expect(actions.onThread).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('a long press with no click after it does not swallow a later keyboard activation', () => {
+    vi.useFakeTimers();
+    try {
+      const actions = show(mapMessageRow(baseRow), undefined);
+      const open = screen.getByTestId('transcript-open');
+      fireEvent.touchStart(open, { touches: [{ clientX: 5, clientY: 5 }] });
+      act(() => { vi.advanceTimersByTime(LONG_PRESS_MS + 1); });
+      fireEvent.pointerUp(open, { pointerType: 'touch' });
+      act(() => { vi.advanceTimersByTime(1000); });
+      fireEvent.click(open); // what Enter on a focused button dispatches
+      expect(actions.onThread).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it('stays the plain title inside the thread panel', () => {
     show(mapMessageRow(baseRow), undefined, makeActions(), true);
     expect(screen.queryByTestId('transcript-open')).toBeNull();

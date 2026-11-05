@@ -34,6 +34,7 @@ import { MessageAttachment } from './MessageAttachment';
 export const LONG_PRESS_MS = 500;
 const LONG_PRESS_DRIFT_PX = 10;
 const INTERACTIVE = 'button,a,input,textarea,label,[role="menu"],[role="toolbar"]';
+const IGNORE_OPEN_MS = 700;
 const TRANSCRIPT_OPEN = '[data-testid="transcript-open"]';
 
 /** P1624: the session a row should show as a transcript row, if any. */
@@ -109,8 +110,8 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   const row = useRef<HTMLLIElement>(null);
   const press = useRef<{ x: number; y: number; timer: number } | null>(null);
   const pressed = useRef(false);
-  /** P1624: the long press that opened the menu also ends in a click on the transcript row; that click opens nothing. */
-  const pressOpenedMenu = useRef(false);
+  /** P1624: until this moment a click on the transcript row only ends a long press or dismisses the menu, so it opens nothing. A time, so it cannot stay set. */
+  const ignoreOpenUntil = useRef(0);
 
   const desktopHover = useMediaQuery(DESKTOP_HOVER_QUERY);
   const { chats } = useChat();
@@ -240,13 +241,11 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
                 const target = e.target as HTMLElement;
                 if (!t || (target.closest(INTERACTIVE) && !target.closest(TRANSCRIPT_OPEN))) return;
                 endPress();
-                pressOpenedMenu.current = false;
                 const at = { x: t.clientX, y: t.clientY };
                 press.current = {
                   ...at,
                   timer: window.setTimeout(() => {
                     pressed.current = true;
-                    pressOpenedMenu.current = true;
                     press.current = null;
                     setMenuAt(at);
                   }, LONG_PRESS_MS),
@@ -254,6 +253,10 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
               }
             : undefined
         }
+        onPointerDownCapture={() => {
+          // The menu has no backdrop: this press dismisses it and must not also open the thread.
+          if (menuAt) ignoreOpenUntil.current = Date.now() + IGNORE_OPEN_MS;
+        }}
         onTouchMove={(e) => {
           const t = e.touches[0];
           if (press.current && t && Math.hypot(t.clientX - press.current.x, t.clientY - press.current.y) > LONG_PRESS_DRIFT_PX) endPress();
@@ -263,6 +266,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
         onPointerUp={(e) => {
           if (pressed.current) {
             pressed.current = false;
+            ignoreOpenUntil.current = Date.now() + IGNORE_OPEN_MS;
             return;
           }
           // A tap selects and shows the toolbar in line, under the message (touch has no hover, and a
@@ -291,8 +295,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
               viewerId={viewerId}
               onThread={actions.onThread}
               onOpen={() => {
-                if (pressOpenedMenu.current) pressOpenedMenu.current = false;
-                else actions.onThread?.(server);
+                if (Date.now() >= ignoreOpenUntil.current) actions.onThread?.(server);
               }}
             />
           ) : <>

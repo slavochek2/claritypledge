@@ -47,7 +47,7 @@ export const isLocal = (m: Row): m is LocalMessage => 'localId' in m;
 function withLiveReply(cur: ThreadStats, m: ChatMessage): ThreadStats {
   if (m.isTranscription) return cur;
   const faces = cur.peopleAuthorIds ?? [];
-  return { ...cur, peopleCount: (cur.peopleCount ?? 0) + 1, peopleAuthorIds: m.authorId && !faces.includes(m.authorId) ? [m.authorId, ...faces].slice(0, 3) : faces };
+  return { ...cur, peopleCount: (cur.peopleCount ?? 0) + 1, peopleAuthorIds: m.authorId ? [m.authorId, ...faces.filter((id) => id !== m.authorId)].slice(0, 3) : faces };
 }
 
 interface Options {
@@ -92,6 +92,8 @@ export function useConversationMessages({ conversationId, threadRootId, withThre
   // P1624: a read that began before a person's reply reached a session root says nothing about that root any more.
   const statClock = useRef(0);
   const statTouched = useRef(new Map<string, number>());
+
+  const isSessionRoot = (id: string) => serverRef.current.some((r) => r.id === id && r.sessionRoot);
 
   const fetchStats = useCallback(
     async (rows: ChatMessage[], g: number) => {
@@ -273,11 +275,13 @@ export function useConversationMessages({ conversationId, threadRootId, withThre
               return next;
             });
             // A session root's people count must be exact: the server's answer replaces this estimate, and older reads are ignored.
-            if (!m.isTranscription && serverRef.current.some((r) => r.id === rootId && r.sessionRoot)) {
+            // A hidden tab sends no read: its estimate stands until the resync on coming back.
+            if (!m.isTranscription && isSessionRoot(rootId)) {
               statTouched.current.set(rootId, ++statClock.current);
-              void refreshStat(rootId);
+              if (document.visibilityState === 'visible') void refreshStat(rootId);
             }
           } else if (m.isDeleted) {
+            if (isSessionRoot(rootId)) statTouched.current.set(rootId, ++statClock.current);
             void refreshStat(rootId); // the count drops by one (deleted replies are not counted)
           }
           return;
@@ -334,6 +338,7 @@ export function useConversationMessages({ conversationId, threadRootId, withThre
         serverRef.current = rows.reduce<ChatMessage[]>((acc, m) => upsertMessage(acc, m), serverRef.current);
         setServer(serverRef.current);
         setHasMore(rows.length >= PAGE_SIZE);
+        void fetchStats(rows.filter((m) => m.sessionRoot), g); // P1624: a transcript row reached by a jump still shows its people's replies
       }
       return current(g) && serverRef.current.some((m) => m.id === messageId);
     },
