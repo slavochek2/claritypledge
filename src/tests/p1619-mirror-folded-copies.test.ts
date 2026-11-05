@@ -76,6 +76,36 @@ describe('a folded copy', () => {
   });
 });
 
+describe('a folded copy: the review fixes', () => {
+  const lineOf = (items: ContextItem[]) => {
+    const t = userText(buildMirrorRequest(run([...items, { who: 'owner', body: 'q', at: '2026-11-04T10:00:00Z' }]), undefined, NOW));
+    return JSON.parse(dataOf(t).split('\n').find((l) => l.includes('copy_set_aside'))!.replace(/\\u003c/g, '<').replace(/\\u003e/g, '>'));
+  };
+  it('a system root with no author says no author: no from, never "someone" or "Deleted user"', () => {
+    const { from: _from, ...noAuthor } = FOLDED;
+    const item = lineOf([{ who: 'owner', at: '2026-11-04T09:00:00Z', folded: { ...noAuthor, speakers: ['Bo'] } }]);
+    expect(item.copy_set_aside).not.toHaveProperty('from');
+    expect(JSON.stringify(item)).not.toMatch(/someone|Deleted user/);
+    expect(item.copy_set_aside.speakers).toEqual(['Bo']);
+  });
+  it('POSITIVE CONTROL: an author that is there is still named', () => {
+    expect(lineOf([{ who: 'owner', at: '2026-11-04T09:00:00Z', folded: FOLDED }]).copy_set_aside.from).toBe('Ada');
+  });
+  it('a folded copy that roots a mirror thread keeps its replies count, and singular reads singular', () => {
+    expect(lineOf([{ who: 'owner', at: '2026-11-04T09:00:00Z', replies: 3, folded: FOLDED }]).thread).toBe('3 replies');
+    expect(lineOf([{ who: 'owner', at: '2026-11-04T09:00:00Z', replies: 1, folded: FOLDED }]).thread).toBe('1 reply');
+    expect(lineOf([{ who: 'owner', at: '2026-11-04T09:00:00Z', folded: FOLDED }])).not.toHaveProperty('thread');
+  });
+});
+
+describe('a channel ask carries the quoted message\'s own time', () => {
+  it('a forwarded message in a channel ask shows when it was first written', () => {
+    const ctx: ContextItem[] = [{ who: 'other', name: 'Bo', body: 'see this', at: '2026-11-04T08:00:00Z', quoted: { name: 'Ada', body: 'old words', sent_at: '2026-10-01T12:00:00+00:00' } }];
+    const t = userText(buildMirrorRequest(run(ctx, { kind: 'ask', question: { body: 'what is that?' }, channel_title: 'Team' }), undefined, NOW));
+    expect(dataOf(t)).toContain('"original_at":"2026-10-01T12:00Z"');
+  });
+});
+
 describe('times: three separate fields', () => {
   const item: ContextItem = {
     who: 'owner', at: '2026-11-04T09:00:00Z',

@@ -5,15 +5,18 @@
  * restart by naming, what is not counted, the reservation/profile agreement, older rows reaching the offer after folding, and the
  * erasure schedules. Synthetic fixtures only. A begun job is released with _mirror_fail_job (actual 0), as the p1604 spec does.
  *
- * Not provable through PostgREST (each call is its own transaction): the erasure schedule "a copy row held by an erase is skipped by the
- * lock pass". It needs a held row lock; it is listed as a skipped test below with the reason, never faked.
+ * The erasure schedule "a copy row held by an erase is skipped by the lock pass" needs a held row lock, which PostgREST cannot build (each
+ * call is its own transaction): it runs through the psql harness (e2e/helpers/test-psql.ts, as p1592-erasure-interleaving) and skips with a
+ * reason unless P1592_INTERLEAVING=1. The review-fix tests (the system root, the replies count, the candidate cap, the bad date, the
+ * quoted time of a channel ask) are PostgREST-only and always run.
  */
 import { test, expect } from '@playwright/test';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestUser, deleteTestUser, type TestUser } from '../helpers/test-user';
 import { createTestOrganization, createTestMembership, deleteTestOrganization, type TestOrganization } from '../helpers/test-organization';
 import { RUN, signIn, ok, mirrorOf, myChatIds, adminConversation, purgeChatFor, sleep, type SignedIn } from '../helpers/test-chat';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { HELD_LOCK_ENABLED, HELD_LOCK_SKIP_REASON, dropHeld, psql } from '../helpers/test-psql';
 
 type Anyrow = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 test.describe.configure({ mode: 'serial', timeout: 240_000 });
@@ -23,8 +26,7 @@ const convs: string[] = [];
 const roomIds: string[] = [];
 const orgs: TestOrganization[] = [];
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-let codeN = 0;
-const newCode = () => { codeN += 1; return `${ALPHABET[(codeN * 7) % 32]}${ALPHABET[(codeN * 11 + 2) % 32]}${RUN.replace(/[^A-Z2-9]/gi, 'K').toUpperCase().padEnd(4, 'K').slice(0, 4)}`; };
+const newCode = () => Array.from(randomBytes(6), (b) => ALPHABET[b % 32]).join('');
 const voiceKey = (conv: string, uid: string) => { const id = randomUUID(); return { p_client_id: id, p_object_key: `${conv}/${uid}/${id}.wav` }; };
 const refOf = (uid: string) => createHash('sha256').update(`p1512:${uid}`).digest('hex');
 
@@ -103,6 +105,51 @@ test.describe('P1619: what names a copy', () => {
     expect(await match('wednesday', { src, ref: '2026-11-13T09:00:00Z' }), '9 days: outside').toBe(false);
     expect(await match('last Tuesday', { src: '2026-11-03T10:00:00Z', ref: '2026-11-10T09:00:00Z' }), '"last Tuesday" on a Tuesday').toBe(true);
     expect(await match('вчера', { src, ref: '2026-11-05T01:00:00Z' }), 'recorded limit: no other language').toBe(false);
+  });
+});
+
+test.describe('P1619 review fixes: the matcher', () => {
+  const tokens = (text: string) => ok<string[]>(supabaseAdmin.rpc('_mirror_tokens', { p_text: text }), `_mirror_tokens(${text})`);
+  test('words split on every non-alphanumeric: an emoji or symbol never stays glued to a name', async () => {
+    expect(await tokens('Bob🙂 said')).toEqual(['bob', 'said']);
+    expect(await tokens('x😀y👨‍👩‍👧z')).toEqual(['x', 'y', 'z']);
+    expect(await tokens('a_b-c')).toEqual(['a', 'b', 'c']);
+    expect(await match('what did Bob🙂 say', { names: ['Bob Lee'] }), 'the name with an emoji after it').toBe(true);
+    expect(await match('Bob🙂', { names: ['Bob Lee'] })).toBe(true);
+  });
+  test('scripts and combining marks are never broken: Cyrillic, a Devanagari name, a decomposed accent', async () => {
+    expect(await tokens('АЛИСА, привет')).toEqual(['алиса', 'привет']);
+    expect(await tokens('राहुल शर्मा (Rahul)'), 'the vowel signs stay inside the word').toEqual(['राहुल', 'शर्मा', 'rahul']);
+    expect(await match('राहुल ने क्या कहा?', { names: ['राहुल शर्मा'] }), 'a Devanagari name matches whole').toBe(true);
+    expect(await match('राहल', { names: ['राहुल शर्मा'] }), 'CONTROL: a different word does not match').toBe(false);
+    expect(await match('what did Zoe\u0308 say', { names: ['Zoë Ann'] }), 'e + combining diaeresis equals the precomposed name').toBe(true);
+  });
+  test('the array-taking helper decides exactly as the text one does', async () => {
+    const cases: Array<{ text: string; names: string[]; title: string | null; src: string | null }> = [
+      { text: 'what did Karolin say?', names: ['Karolin Vesna'], title: null, src: null },
+      { text: 'what about quartz harbor?', names: [], title: 'Quartz Harbor · General', src: null },
+      { text: 'and on 4 nov?', names: [], title: null, src: '2026-11-04T10:00:00Z' },
+      { text: 'nothing here', names: ['Karolin Vesna'], title: 'Quartz Harbor', src: '2026-11-04T10:00:00Z' },
+    ];
+    for (const c of cases) {
+      const viaText = await match(c.text, { names: c.names, title: c.title, src: c.src });
+      const toks = await ok<string[]>(supabaseAdmin.rpc('_mirror_tokens', { p_text: c.text }), 'tokens');
+      const ntok = (await Promise.all(c.names.map((n) => ok<string[]>(supabaseAdmin.rpc('_mirror_tokens', { p_text: n }), 'name tokens')))).flat().filter((t) => t.length >= 3);
+      const phrase = c.title ? (await tokens(c.title.replace(/\s*·\s*general\s*$/i, ''))).join(' ') : null;
+      const viaArr = await ok<boolean>(supabaseAdmin.rpc('_mirror_copy_matches_arr', {
+        p_toks: toks, p_norm: c.text.normalize('NFC').toLowerCase(), p_ntok: ntok, p_phrase: phrase && phrase.length >= 4 ? phrase : null,
+        p_src_at: c.src, p_ref: '2026-11-06T12:00:00Z',
+      }), 'matches_arr');
+      expect(viaArr, c.text).toBe(viaText);
+    }
+  });
+  test('a snapshot time that cannot be a date parses to null, one that can does not', async () => {
+    const parse = (t: string | null) => ok<string | null>(supabaseAdmin.rpc('_mirror_parse_ts', { p_text: t }), `_mirror_parse_ts(${t})`);
+    expect(await parse('2026-13-45T10:00:00Z')).toBeNull();
+    expect(await parse('2026-02-30')).toBeNull();
+    expect(await parse('garbage')).toBeNull();
+    expect(await parse(null)).toBeNull();
+    expect(await parse('2026-11-04T10:00:00Z'), 'CONTROL: a real time parses').not.toBeNull();
   });
 });
 
@@ -247,7 +294,7 @@ test.describe('P1619: the window', () => {
 
 // ── session copies: profile and reservation agree ───────────────────────────
 
-async function sessionScene(label: string, speakerName: string, lines = 6, padChars = 0): Promise<Scene & { ids: string[] }> {
+async function sessionScene(label: string, speakerName: string, lines = 6, padChars = 0): Promise<Scene & { ids: string[]; rootId: string }> {
   const owner = await mk(`P1619 Owner ${label} ${RUN}`);
   const speaker = await mk(speakerName);
   const [sA, sS] = [await signIn(owner), await signIn(speaker)];
@@ -266,7 +313,7 @@ async function sessionScene(label: string, speakerName: string, lines = 6, padCh
   }
   const mir = await mirrorOf(sA);
   const copy = await ok<Anyrow>(sA.client.rpc('clarify_chat_message', { p_source: ids[ids.length - 1] }), 'clarify session');
-  return { owner, sA, speaker, sS, conv, mir, copyId: copy.id, copyAt: copy.created_at, srcFact: `session line ${label} ${lines - 1}`, ids };
+  return { owner, sA, speaker, sS, conv, mir, copyId: copy.id, copyAt: copy.created_at, srcFact: `session line ${label} ${lines - 1}`, ids, rootId: root!.id as string };
 }
 const STANDARD = 0.105;
 const SESSION = 0.225;
@@ -348,6 +395,109 @@ test.describe('P1619: profile and reservation agree with the fold state', () => 
   });
 });
 
+// ── review fixes, through the real _mirror_begin_job ─────────────────────────
+
+test.describe('P1619 review fixes: what a folded line says and what it survives', () => {
+  test('a copy of a system root (a session title, no author) folds with no author and no "Deleted user" speaker', async () => {
+    const sc = await sessionScene('sysroot', `Ludovika Pane${RUN}`);
+    const copy = await ok<Anyrow>(sc.sA.client.rpc('clarify_chat_message', { p_source: sc.rootId }), 'clarify the session root');
+    await fill({ ...sc, copyAt: copy.created_at }, 6);
+    const b = await turn(sc, 'something unrelated');
+    const rootLine = b.context!.find((c) => c.folded && !('from' in c.folded));
+    expect(rootLine, 'the root copy is folded and names no author').toBeTruthy();
+    expect(JSON.stringify(rootLine)).not.toContain('Deleted user');
+    expect(rootLine!.folded.speakers, 'the real speakers still have their slots').toEqual(expect.arrayContaining([expect.stringContaining('Ludovika')]));
+    expect(rootLine!.folded.speakers).not.toContain('Deleted user');
+    expect(JSON.stringify(b.context), 'no folded line anywhere names a false author').not.toContain('Deleted user');
+    // CONTROL, on a scene that holds a copy of a real line: it keeps its author
+    const real = await scene('sysrootctl', `Ottilie Marsh${RUN}`);
+    await fill(real, 6);
+    const r = await turn(real, 'something unrelated');
+    expect(r.context!.some((c) => c.folded?.from?.includes('Ottilie')), 'a copy with an author still names it').toBe(true);
+  });
+
+  test('a folded copy that roots a mirror thread keeps its replies count', async () => {
+    const sc = await scene('replies', `Ignatia Roe${RUN}`);
+    await send(sc.sA, sc.mir, 'a reply inside the copy thread', { p_thread_root: sc.copyId });
+    await fill(sc, 6);
+    const b = await turn(sc, 'a neutral main chat question');
+    const line = b.context!.find((c) => c.folded);
+    expect(line, 'the copy is folded').toBeTruthy();
+    expect(line!.replies, 'its one reply is counted').toBe(1);
+  });
+
+  test('a copy whose snapshot date is impossible does not abort the start', async () => {
+    const sc = await scene('baddate', `Caspian Dole${RUN}`);
+    const bad = await supabaseAdmin.from('chat_messages').insert({
+      conversation_id: sc.mir, author_id: sc.owner.user.id, kind: 'clarify', created_at: iso(Date.parse(sc.copyAt) - 1),
+      forward_snapshot: { author_name: 'Nobody Special', conversation_title: 'Odd chat', body: 'odd', created_at: '2026-13-45T10:00:00Z', thread: [] },
+    });
+    expect(bad.error, bad.error?.message).toBeNull();
+    await fill(sc, 6);
+    const b = await turn(sc, 'something neutral');   // turn() asserts status 'run': an exception would have thrown in begin()
+    expect(b.context!.filter((c) => c.folded).length, 'both copies folded, the bad one without a time').toBe(2);
+  });
+
+  test('a copy past the 2000-row candidate cap: the thread root is still classified open, nothing unclassified is sent in full', async () => {
+    test.setTimeout(300_000);
+    // No lowered-cap hook exists, so this builds the real over-cap shape: 2001 cheap copies NEWER than one old session-flagged copy that
+    // roots a mirror thread. Cheap on purpose (small snapshots); the fixture is removed with the users' chat rows.
+    const owner = await mk(`P1619 Owner cap ${RUN}`);
+    const sA = await signIn(owner);
+    const mir = await mirrorOf(sA);
+    const rootAt = Date.now() - 3 * 86_400_000;
+    const secret = `OVERCAP-ROOT-${RUN}`;
+    const { data: root, error: rErr } = await supabaseAdmin.from('chat_messages').insert({
+      conversation_id: mir, author_id: owner.user.id, kind: 'clarify', created_at: iso(rootAt),
+      forward_snapshot: { author_name: 'Old Speaker', conversation_title: 'Old archive', body: secret, created_at: iso(rootAt - 3_600_000), thread: [], thread_total: 0, session_thread: true },
+    }).select('id').single();
+    expect(rErr, rErr?.message).toBeNull();
+    const fillers = Array.from({ length: 2001 }, (_, i) => ({
+      conversation_id: mir, author_id: owner.user.id, kind: 'clarify', created_at: iso(rootAt + 1_000 + i),
+      forward_snapshot: { author_name: 'Filler Person', conversation_title: 'Filler stack', body: 'filler', created_at: iso(rootAt), thread: [] },
+    }));
+    for (let i = 0; i < fillers.length; i += 500) {
+      const { error } = await supabaseAdmin.from('chat_messages').insert(fillers.slice(i, i + 500));
+      expect(error, error?.message).toBeNull();
+    }
+    await send(sA, mir, 'a neutral reply in the old thread', { p_thread_root: root!.id });
+    const sc = { owner, sA, mir } as unknown as Scene;
+    const b = await turn(sc, 'a neutral question in the thread', root!.id);
+    const rootItem = b.context!.find((c) => c.clarify);
+    expect(rootItem, 'the thread root is offered as an OPEN copy, though 2001 newer copies exist').toBeTruthy();
+    expect(JSON.stringify(rootItem)).toContain(secret);
+    expect([b.session, Number(b.reserved_usd)], 'the profile and the reservation agree with the open session copy').toEqual([true, SESSION]);
+    expect((b.outside ?? []).filter((c) => c.clarify), 'no main-chat copy the classifier did not open is sent in full').toEqual([]);
+  });
+});
+
+test.describe('P1619 review fixes: a channel ask carries the quoted message\'s own time', () => {
+  test('a forwarded message in the channel shows its original time to the model', async () => {
+    const org = await createTestOrganization({ name: `P1619 Ask Org ${RUN}` });
+    orgs.push(org);
+    const owner = await mk(`P1619 Owner ask ${RUN}`);
+    await createTestMembership(org.id, owner.user.id);
+    const sA = await signIn(owner);
+    await myChatIds(sA.client);
+    const gconv = await adminConversation('group', { org_id: org.id });
+    await mirrorOf(sA);
+    const sentAt = '2026-10-01T12:00:00+00:00';
+    const fwd = await supabaseAdmin.from('chat_messages').insert({
+      conversation_id: gconv, author_id: owner.user.id, kind: 'forward',
+      forward_snapshot: { author_name: 'Quoted Person', body: `QUOTED-${RUN}`, created_at: sentAt },
+    });
+    expect(fwd.error, fwd.error?.message).toBeNull();
+    const ask = await ok<Anyrow>(sA.client.rpc('mirror_ask', { p_channel: gconv, p_body: `what is that ${RUN}`, p_client_id: randomUUID() }), 'mirror_ask');
+    const job = await requestReply(sA, ask.id);
+    const b = await begin(job.job_id);
+    expect(b.status).toBe('run');
+    const quoted = b.context!.find((c) => c.quoted)?.quoted;
+    expect(quoted, 'the forwarded message is in the ask context').toBeTruthy();
+    expect(Date.parse(quoted.sent_at), 'with its original time').toBe(Date.parse(sentAt));
+    await release(job.job_id, b.attempt);
+  });
+});
+
 // ── erasure: a person named on a folded line ─────────────────────────────────
 
 async function foldedScene(label: string): Promise<Scene> {
@@ -414,8 +564,35 @@ test.describe('P1619: erasing a person named on a folded line', () => {
     expect(await body(answer.id as string)).toBeNull();
   });
 
-  test.skip('a copy row held by an erase is skipped by the lock pass (needs a held row lock: psql sessions, as p1592-erasure-interleaving)', async () => {
-    // PostgREST makes every RPC its own transaction, so this schedule cannot be pinned here. The lock pass, the SKIP LOCKED and the
-    // refs-from-locked-rows rule are unchanged from P1547, and the folded copy goes through the same pass.
+  test('a copy row held by an erase is skipped by the lock pass: not read, not sent, absent from the refs, and it does not hold the session reservation (held row lock over psql)', async () => {
+    test.skip(!HELD_LOCK_ENABLED, HELD_LOCK_SKIP_REASON);
+    const sc = await sessionScene('held', `Hesper Vane${RUN}`);
+    const app = `p1619_held_${RUN}`.slice(0, 60);
+    const msg = await send(sc.sA, sc.mir, 'about the session');
+    const job = await requestReply(sc.sA, msg.id);
+    // an erase (or an edit) holding the copy row: FOR UPDATE conflicts with the start's FOR SHARE SKIP LOCKED
+    const held = psql(`SET application_name = '${app}'; BEGIN; SELECT 1 FROM public.chat_messages WHERE id = '${sc.copyId}' FOR UPDATE; SELECT 'C_HELD'; SELECT pg_sleep(180);`);
+    try {
+      await held.seen('C_HELD');
+      const b = await begin(job.job_id);
+      expect(b.status).toBe('run');
+      expect(b.context!.some((c) => c.clarify || c.folded), 'the held copy is neither read nor sent, open or folded').toBe(false);
+      expect(JSON.stringify(b.context)).not.toContain(sc.srcFact);
+      expect([b.session, Number(b.reserved_usd)], 'a skipped session copy does not hold the session profile or 0.225').toEqual([false, STANDARD]);
+      expect((await adminJob(job.job_id)).derived_refs ?? [], 'the refs follow the rows that were locked and read').not.toContain(refOf(sc.speaker.user.id));
+      await release(job.job_id, b.attempt);
+    } finally {
+      try { held.proc.kill(); } catch { /* gone */ }
+      await dropHeld(app);
+    }
+    // CONTROL: the same copy, lock released, is an open session copy again and names its speaker
+    const msg2 = await send(sc.sA, sc.mir, 'about the session again');
+    const job2 = await requestReply(sc.sA, msg2.id);
+    const b2 = await begin(job2.job_id);
+    expect(b2.status).toBe('run');
+    expect(hasOpenCopy(b2), 'unheld: open').toBe(true);
+    expect([b2.session, Number(b2.reserved_usd)]).toEqual([true, SESSION]);
+    expect((await adminJob(job2.job_id)).derived_refs).toContain(refOf(sc.speaker.user.id));
+    await release(job2.job_id, b2.attempt);
   });
 });

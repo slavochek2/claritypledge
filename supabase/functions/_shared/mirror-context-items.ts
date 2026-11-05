@@ -71,7 +71,8 @@ function basics(item: ContextItem): Record<string, unknown> {
 function foldedLine(f: NonNullable<ContextItem['folded']>): Record<string, unknown> {
   return {
     kind: f.kind ?? 'copy',
-    from: f.from ?? 'someone',
+    // a system root has no author: SQL sends none, and none is invented here
+    ...(f.from ? { from: f.from } : {}),
     ...(f.in ? { in: f.in } : {}),
     ...withAtIfKnown(f.original_at, 'original_at'),
     ...(f.speakers?.length ? { speakers: f.speakers.slice(0, 8) } : {}),
