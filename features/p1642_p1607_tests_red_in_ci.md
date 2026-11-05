@@ -1,11 +1,11 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 100
 tags: [ci, tests]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [fix]
+delivery_stage: ship
+pipeline_ran: [fix, ship]
 workstream: infrastructure
 created_date: '2026-11-05'
 ---
