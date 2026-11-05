@@ -25,7 +25,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** A reading whose `resets_at` is within 60 seconds of the current one counts whatever its time; the time window stays as the rule for the rest. `day-render.ts` marks `cp.quota` not run whenever monitoring exists without usable Supabase figures, keeping the agent's text in the detail. The `day.md` reader rejects a usage file older than the pass.
 **Alternatives rejected:** Exact equality on `resets_at`: real reports show Codex giving one window 07:36:11 and then 07:36:12, and no reviewer or test caught this; reading the report history did. Excluding every reading with a different `resets_at` (Gemini review): a reset happens after the older run, so the time rule already drops it, and 25 real reports show no counter-case. Leaving reports without a Supabase source unchanged (first build): Codex reproduced the check saying ok beside a card saying not read.
 **Consequences:** Written quota findings can sit beside a not-run check, marked urgent, until the next complete read. After a real reset one reading still has no projection (accepted). UNTESTED in a real /day run; falsifier: a normal run that saved its figures shows the check as not run.
-**References:** [p1629](../features/p1629_day_quota_projection_and_supabase_card.md) · `tools/kanban/src/lib/day.ts` `quotaHistory` · `tools/kanban/scripts/day-render.ts`
+**References:** [p1629](../features/done/2026-06-10/p1629_day_quota_projection_and_supabase_card.md) · `tools/kanban/src/lib/day.ts` `quotaHistory` · `tools/kanban/scripts/day-render.ts`
 
 ## 2026-11-05 [technical]: A function's deploy record covers everything it bundles, and a deploy stamps only what it deployed (P1620)
 
