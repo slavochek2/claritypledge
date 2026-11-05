@@ -59,7 +59,7 @@ vi.mock('@/app/data/event-registration', () => ({
 }));
 vi.mock('@/app/data/event-waitlist', () => ({
   joinWaitlist: (...a: unknown[]) => mockJoin(...a),
-  isOnWaitlist: (...a: unknown[]) => mockOnList(...a),
+  getMyWaitlistEntry: (...a: unknown[]) => mockOnList(...a),
   leaveWaitlist: vi.fn(),
 }));
 
@@ -141,7 +141,7 @@ describe('P1529: returning from sign-up', () => {
     mockIsFull.mockReturnValue(false);
     mockRegister.mockResolvedValue('ok');
     mockJoin.mockResolvedValue('ok');
-    mockOnList.mockResolvedValue(false);
+    mockOnList.mockResolvedValue(null);
     localStorage.clear();
   });
 
@@ -193,7 +193,7 @@ describe('P1529 D24: saved answers on the way back from sign-up', () => {
     mockIsFull.mockReturnValue(false);
     mockRegister.mockResolvedValue('ok');
     mockJoin.mockResolvedValue('ok');
-    mockOnList.mockResolvedValue(false);
+    mockOnList.mockResolvedValue(null);
     localStorage.clear();
     mockGetEventBySlug.mockResolvedValue(makeEvent({ flow: 'sales-mastermind' }));
   });
@@ -278,7 +278,7 @@ describe('P1529 D24: the page for a flow that asks', () => {
     mockIsUserRsvpd.mockResolvedValue(false);
     mockIsFull.mockReturnValue(false);
     mockRegister.mockResolvedValue('ok');
-    mockOnList.mockResolvedValue(false);
+    mockOnList.mockResolvedValue(null);
     localStorage.clear();
     mockGetEventBySlug.mockResolvedValue(makeEvent({ flow: 'sales-mastermind' }));
   });
@@ -339,7 +339,7 @@ describe('P1529 D24: the page for a flow that asks', () => {
   it('someone already on the waiting list sees the line and a quiet Leave link, not the button', async () => {
     mockUseAuth.mockReturnValue({ user: { id: 'u1' }, session: { user: { id: 'u1' } } });
     mockIsFull.mockReturnValue(true);
-    mockOnList.mockResolvedValue(true);
+    mockOnList.mockResolvedValue(SAVED);
     renderAt('');
     expect((await screen.findAllByTestId('waitlist-joined'))[0]!.textContent).toContain("You're on the waiting list. The host will email you if a place opens.");
     expect(screen.getAllByTestId('waitlist-leave')[0]!.textContent).toBe('Leave the waiting list');
@@ -362,5 +362,64 @@ describe('P1529 D24: the page for a flow that asks', () => {
     expect(button.textContent).toBe('Event Full');
     expect(button.disabled).toBe(true);
     expect(screen.queryByTestId('waitlist-joined')).toBeNull();
+  });
+});
+
+describe('P1529 D24 review fixes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({ user: { id: 'u1' }, session: { user: { id: 'u1' } } });
+    mockIsUserRsvpd.mockResolvedValue(false);
+    mockIsFull.mockReturnValue(false);
+    mockRegister.mockResolvedValue('ok');
+    mockOnList.mockResolvedValue(null);
+    localStorage.clear();
+    mockGetEventBySlug.mockResolvedValue(makeEvent({ flow: 'sales-mastermind' }));
+  });
+
+  it('a failed registration with saved answers reopens the form with them, so there is a way to retry', async () => {
+    mockRegister.mockResolvedValueOnce('failed').mockResolvedValue('ok');
+    saveRegistrationDraft('test-event', 'register', SAVED);
+    renderAt('?action=rsvp');
+    expect((await screen.findByTestId('join-improve') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('USB-C') as HTMLInputElement).checked).toBe(true);
+    expect(toast.error).toHaveBeenCalledWith("Couldn't register you. Please try again.");
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    expect(await screen.findByText('confirm screen')).toBeTruthy();
+    expect(mockRegister).toHaveBeenCalledTimes(2);
+  });
+
+  it('after the limit is raised, a listed person sees Register with their answers filled in, plus Leave; registering sends them to confirm', async () => {
+    mockOnList.mockResolvedValue(SAVED);
+    renderAt('');
+    const button = (await screen.findAllByTestId('rsvp-button'))[0]!;
+    expect(button.textContent).toBe('Register');
+    expect((await screen.findAllByTestId('waitlist-leave'))[0]!.textContent).toBe('Leave the waiting list');
+    expect(screen.queryByTestId('waitlist-joined')).toBeNull();
+    fireEvent.click(button);
+    expect((await screen.findByTestId('join-improve') as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    expect(await screen.findByText('confirm screen')).toBeTruthy();
+    expect(mockRegister.mock.calls[0]?.[2]).toEqual(SAVED);
+  });
+
+  it('Clarity Night makes no waiting-list read at all', async () => {
+    mockGetEventBySlug.mockResolvedValue(makeEvent());
+    renderAt('');
+    await screen.findAllByTestId('rsvp-button');
+    expect(mockOnList).not.toHaveBeenCalled();
+  });
+
+  it('the Register, Continue and waiting-list buttons are the default Button, not a hand-typed blue; Leave is the quiet ghost', async () => {
+    mockUseAuth.mockReturnValue({ user: null, session: null });
+    renderAt('');
+    const register = (await screen.findAllByTestId('rsvp-button'))[0]!;
+    expect(register.className).toContain('bg-blue-600');
+    expect(register.className).not.toContain('bg-blue-500');
+    fireEvent.click(register);
+    const submit = await screen.findByTestId('registration-submit');
+    expect(submit.textContent).toBe('Continue');
+    expect(submit.className).toContain('bg-blue-600');
+    expect(submit.className).not.toContain('bg-blue-500');
   });
 });

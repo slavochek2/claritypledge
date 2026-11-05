@@ -33,7 +33,7 @@ export async function autoRsvpDestination(
       const registered = !draft && !!userId && await (async () => isUserRsvpd(event.id, userId))().catch(() => false);
       return registered ? `/events/${eventSlug}/confirm` : toPage;
     }
-    const result = await registerWith({ id: event.id, slug: eventSlug }, draft.answers);
+    const result = await registerWith(event, draft.answers); // the whole event, as the page's own registration passes it
     if (result !== 'ok' && result !== 'already') return toPage; // full, cancelled or failed: the answers stay, the page says why
     clearRegistrationDraft(eventSlug);
     void trackPostSignupRsvp(event.id, eventSlug, registrationSource); // never holds the redirect (P1640)

@@ -148,7 +148,7 @@ export function RegistrationQuestions({
             </div>
           )}
           {!signedIn && <p className="text-sm text-muted-foreground" data-testid="sign-in-line">{waitlist ? copy.WAITLIST_SIGN_IN_LINE : copy.SIGN_IN_LINE}</p>}
-          <Button className="w-full bg-blue-500 text-white hover:bg-blue-700" size="lg" onClick={submit} disabled={busy} data-testid="registration-submit">
+          <Button className="w-full" size="lg" onClick={submit} disabled={busy} data-testid="registration-submit">
             {buttonLabel}
           </Button>
         </div>

@@ -41,10 +41,12 @@ export function useRegistrationReturn(a: {
     const draft = readRegistrationDraft(event.slug);
     if (!draft) { registration.ask(); return; }
     registration.keepAnswers(draft.answers);
+    // The form is closed while the saved answers are sent, so a failed send reopens it with them: that is the retry.
+    const send = () => void registration.submit(draft.answers).then(sent => { if (!sent) registration.ask(draft.answers); });
     if (draft.intent === 'register') {
       if (full) registration.markFilled();
-      else void registration.submit(draft.answers);
-    } else if (full) void registration.submit(draft.answers);
+      else send();
+    } else if (full) send();
     else registration.ask(draft.answers);
     // `registration` is a fresh object each render and its members only set state.
     // eslint-disable-next-line react-hooks/exhaustive-deps

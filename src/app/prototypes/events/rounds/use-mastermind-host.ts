@@ -55,6 +55,8 @@ export interface MastermindHost {
   ready: boolean;
   /** A read failed and what is shown may be old; null when all is well. */
   warning: string | null;
+  /** Reads the per-person state again now (the waiting list's Retry). */
+  refresh: () => Promise<void>;
   /** The previous session's partners could not be read: the plan runs without that rule, and the read is retried. */
   previousFailed: boolean;
   personOf: (memberId: string) => MastermindPerson | undefined;
@@ -255,7 +257,7 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
   const people = useMemo(() => [...(hostState?.values() ?? [])], [hostState]);
 
   return {
-    active, ready: !!hostState && previous !== null, warning, previousFailed, personOf, people, recordingOf, isReady, setObserver, plan, check, guardOpen,
+    active, ready: !!hostState && previous !== null, warning, refresh: refreshState, previousFailed, personOf, people, recordingOf, isReady, setObserver, plan, check, guardOpen,
     step, stepOn, updateStates, startUpdate,
   };
 }

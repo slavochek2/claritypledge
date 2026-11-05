@@ -30,6 +30,8 @@ export function useRegistrationStep(opts: {
   onSessionLost: () => void;
   /** The event is full for this person: the same form joins the waiting list. */
   full?: boolean;
+  /** A flow that asks, for someone without a place: read whether they are on the waiting list. Absent in every other flow. */
+  readsWaitlist?: boolean;
   /** Signed out: the answers are kept and the person goes to the normal sign-up. */
   onSignIn?: () => void;
 }) {
@@ -37,17 +39,18 @@ export function useRegistrationStep(opts: {
   const [busy, setBusy] = useState(false);
   const [filled, setFilled] = useState(false);
   const [prefill, setPrefill] = useState<RegistrationAnswers | null>(null);
-  const waitlist = useWaitlistState(opts.event, opts.userId, !!opts.full);
+  const waitlist = useWaitlistState(opts.event, opts.userId, !!opts.readsWaitlist);
   const slug = opts.event?.slug;
 
-  const submit = async (answers: RegistrationAnswers) => {
-    if (!opts.event || !slug) return;
+  /** True when the answers went somewhere (a place, the list, sign-up) or the page now says why not; false when a retry is needed. */
+  const submit = async (answers: RegistrationAnswers): Promise<boolean> => {
+    if (!opts.event || !slug) return false;
     if (!opts.userId) {
       // Signed out. Kept only if the browser lets us; without it the form simply opens empty on the way back.
       saveRegistrationDraft(slug, opts.full ? 'waitlist' : 'register', answers);
       setAsking(false);
       opts.onSignIn?.();
-      return;
+      return true;
     }
     setBusy(true);
     try {
@@ -57,10 +60,10 @@ export function useRegistrationStep(opts: {
           waitlist.setOnList(true);
           clearRegistrationDraft(slug);
           setAsking(false);
-          return;
+          return true;
         }
-        if (listed === 'cancelled') { setAsking(false); opts.onRefused('cancelled'); return; }
-        if (listed !== 'not_full' && listed !== 'registered') { toast.error("Couldn't join the waiting list. Please try again."); return; }
+        if (listed === 'cancelled') { setAsking(false); opts.onRefused('cancelled'); return true; }
+        if (listed !== 'not_full' && listed !== 'registered') { toast.error("Couldn't join the waiting list. Please try again."); return false; }
         // 'not_full' or 'registered': a place is free after all, so register below
       }
       const result = await registerForEvent(opts.event, opts.userId, answers);
@@ -68,21 +71,25 @@ export function useRegistrationStep(opts: {
         clearRegistrationDraft(slug);
         setAsking(false);
         opts.onRegistered();
+        return true;
       } else if (result === 'full') {
         // The answers stay (the form keeps them; a saved draft stays too). The page offers the waiting list.
         setFilled(true);
         setAsking(false);
         opts.onRefused('full');
+        return true;
       } else if (result === 'cancelled') {
         setAsking(false);
         opts.onRefused('cancelled');
-      } else {
-        toast.error("Couldn't register you. Please try again.");
+        return true;
       }
+      toast.error("Couldn't register you. Please try again.");
+      return false;
     } catch (err) {
       // A lost session signs in again; anything else keeps the step open with the answers and says to try again.
-      if (isSessionMismatch(err)) opts.onSessionLost();
-      else toast.error("Couldn't register you. Please try again.");
+      if (isSessionMismatch(err)) { opts.onSessionLost(); return true; }
+      toast.error("Couldn't register you. Please try again.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -91,7 +98,7 @@ export function useRegistrationStep(opts: {
   return {
     asking, busy, submit,
     /** Answers saved before sign-up, filling the form. */
-    prefill,
+    prefill: prefill ?? waitlist.entry,
     /** "This event just filled up." is showing: a place went while the person was registering or signing in. */
     filled,
     markFilled: () => setFilled(true),
@@ -100,5 +107,6 @@ export function useRegistrationStep(opts: {
     cancel: () => setAsking(false),
     onWaitlist: waitlist.onList,
     leaveWaitlist: waitlist.leave,
+    leaving: waitlist.leaving,
   };
 }

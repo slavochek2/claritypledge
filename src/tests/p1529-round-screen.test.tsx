@@ -52,6 +52,7 @@ vi.mock('@/app/prototypes/events/rounds/RoundCard', () => ({
 
 import { MastermindRoundCard } from '@/app/prototypes/events/rounds/MastermindRoundCard';
 import { FlowRoundCard } from '@/app/prototypes/events/rounds/FlowRoundCard';
+import { resetTaskOpen } from '@/app/prototypes/events/rounds/task-open-store';
 
 const round = (over: Partial<EventRound> = {}): EventRound => ({
   id: 'r1', roundNo: 1, groupSize: 3, startedAt: new Date().toISOString(), endedAt: null,
@@ -91,6 +92,7 @@ function renderCard(selfMember: EventRoomMember, props: { view?: 'table' | 'comp
 }
 
 beforeEach(() => {
+  resetTaskOpen();
   vi.clearAllMocks();
   h.server = {
     canvas: { ownerProfileId: 'p-owner', ownerSlug: 'haru', canvasName: 'launch_plan', shared: true },

@@ -10,7 +10,7 @@ const h = vi.hoisted(() => ({ register: vi.fn(), join: vi.fn(), onList: vi.fn(),
 vi.mock('@/app/data/event-registration', () => ({ registerForEvent: (...a: unknown[]) => h.register(...a) }));
 vi.mock('@/app/data/event-waitlist', () => ({
   joinWaitlist: (...a: unknown[]) => h.join(...a),
-  isOnWaitlist: (...a: unknown[]) => h.onList(...a),
+  getMyWaitlistEntry: (...a: unknown[]) => h.onList(...a),
   leaveWaitlist: (...a: unknown[]) => h.leave(...a),
 }));
 vi.mock('sonner', () => ({ toast: { error: (m: string) => h.toastError(m) } }));
@@ -22,7 +22,7 @@ import type { RegistrationAnswers } from '@/app/data/registration-answer-model';
 
 const ANSWERS: RegistrationAnswers = { participation: 'observer', observerPrep: 'home', phone: 'other', hope: '', recordingAccepted: true };
 
-function mount(over: { userId?: string | undefined; full?: boolean; onSignIn?: () => void } = {}) {
+function mount(over: { userId?: string | undefined; full?: boolean; readsWaitlist?: boolean; onSignIn?: () => void } = {}) {
   const cb = { onRegistered: vi.fn(), onRefused: vi.fn(), onSessionLost: vi.fn() };
   const opts = { userId: 'u1' as string | undefined, ...over };
   const hook = renderHook(() => useRegistrationStep({ event: { id: 'e1', slug: 'night' }, ...opts, ...cb }));
@@ -32,7 +32,7 @@ function mount(over: { userId?: string | undefined; full?: boolean; onSignIn?: (
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
-  h.onList.mockResolvedValue(false);
+  h.onList.mockResolvedValue(null);
 });
 
 describe('useRegistrationStep.submit', () => {
@@ -40,7 +40,7 @@ describe('useRegistrationStep.submit', () => {
     h.register.mockRejectedValueOnce(new Error('boom'));
     const { result, cb } = mount();
     act(() => result.current.ask());
-    await act(async () => { await expect(result.current.submit(ANSWERS)).resolves.toBeUndefined(); });
+    await act(async () => { await expect(result.current.submit(ANSWERS)).resolves.toBe(false); }); // false: a retry is needed
     expect(h.toastError).toHaveBeenCalledWith("Couldn't register you. Please try again.");
     expect(result.current.asking).toBe(true);
     expect(result.current.busy).toBe(false);
@@ -144,16 +144,66 @@ describe('the waiting list (D24)', () => {
     expect(result.current.onWaitlist).toBe(false);
   });
 
-  it('reads whether this person is already on the list only while the event is full, and leaving takes them off', async () => {
-    h.onList.mockResolvedValue(true);
+  it('reads whether this person is already on the list only where the page asks for it, and leaving takes them off', async () => {
+    h.onList.mockResolvedValue(ANSWERS);
     h.leave.mockResolvedValue(undefined);
-    const full = mount({ full: true });
-    await waitFor(() => expect(full.result.current.onWaitlist).toBe(true));
-    await act(async () => { await full.result.current.leaveWaitlist(); });
+    const listed = mount({ full: true, readsWaitlist: true });
+    await waitFor(() => expect(listed.result.current.onWaitlist).toBe(true));
+    await act(async () => { await listed.result.current.leaveWaitlist(); });
     expect(h.leave).toHaveBeenCalledWith('night');
-    expect(full.result.current.onWaitlist).toBe(false);
+    expect(listed.result.current.onWaitlist).toBe(false);
     h.onList.mockClear();
-    mount({ full: false });
+    mount({ full: true }); // Clarity Night and Social Hike never read it
     expect(h.onList).not.toHaveBeenCalled();
+  });
+
+  it('a listed person is still listed after the limit is raised, and the form is filled with their stored answers', async () => {
+    h.onList.mockResolvedValue(ANSWERS);
+    const { result } = mount({ full: false, readsWaitlist: true });
+    await waitFor(() => expect(result.current.onWaitlist).toBe(true));
+    expect(result.current.prefill).toEqual(ANSWERS);
+  });
+
+  it('Leave is disabled while the request is out, and a failed leave keeps them listed with a toast', async () => {
+    h.onList.mockResolvedValue(ANSWERS);
+    let finish: (v?: unknown) => void = () => {};
+    h.leave.mockImplementationOnce(() => new Promise(r => { finish = r; }));
+    const { result } = mount({ full: true, readsWaitlist: true });
+    await waitFor(() => expect(result.current.onWaitlist).toBe(true));
+    let leaving: Promise<void> = Promise.resolve();
+    act(() => { leaving = result.current.leaveWaitlist(); });
+    expect(result.current.leaving).toBe(true);
+    await act(async () => { finish(); await leaving; });
+    expect(result.current.leaving).toBe(false);
+    expect(result.current.onWaitlist).toBe(false);
+  });
+
+  it('a failed leave keeps them listed, says so, and enables the link again', async () => {
+    h.onList.mockResolvedValue(ANSWERS);
+    h.leave.mockRejectedValueOnce(new Error('x'));
+    const { result } = mount({ full: true, readsWaitlist: true });
+    await waitFor(() => expect(result.current.onWaitlist).toBe(true));
+    await act(async () => { await result.current.leaveWaitlist(); });
+    expect(result.current.onWaitlist).toBe(true);
+    expect(result.current.leaving).toBe(false);
+    expect(h.toastError).toHaveBeenCalledWith("Couldn't take you off the waiting list. Please try again.");
+  });
+});
+
+describe('submit tells the caller whether a retry is needed (D24)', () => {
+  it('true for a seat, the list, sign-up, full and cancelled; false for a failure or an unknown error', async () => {
+    const { result } = mount();
+    h.register.mockResolvedValueOnce('ok');
+    await act(async () => { expect(await result.current.submit(ANSWERS)).toBe(true); });
+    h.register.mockResolvedValueOnce('full');
+    await act(async () => { expect(await result.current.submit(ANSWERS)).toBe(true); });
+    h.register.mockResolvedValueOnce('cancelled');
+    await act(async () => { expect(await result.current.submit(ANSWERS)).toBe(true); });
+    h.register.mockResolvedValueOnce('failed');
+    await act(async () => { expect(await result.current.submit(ANSWERS)).toBe(false); });
+    h.register.mockRejectedValueOnce(new Error('boom'));
+    await act(async () => { expect(await result.current.submit(ANSWERS)).toBe(false); });
+    h.register.mockRejectedValueOnce(new SessionMismatchError('u1'));
+    await act(async () => { expect(await result.current.submit(ANSWERS)).toBe(true); }); // it signs in again instead
   });
 });

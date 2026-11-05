@@ -22,6 +22,7 @@ import type { RoundMoment } from './RoundCard';
 import { roundsPolling, shortName, useEventRounds } from './use-event-rounds';
 import { useOwnerUpdate, useRoundCanvas, useUpdateStep } from './use-mastermind-round';
 import { MastermindUpdateTask } from './MastermindUpdateTask';
+import { useTaskOpen } from './task-open-store';
 import { RULE_LINE, mastermindTable, roleLine, taskFace, updateStepOn, withLine } from './mastermind-round-helpers';
 
 export function MastermindRoundCard({
@@ -72,7 +73,7 @@ export function MastermindRoundCard({
   const isOwner = mine?.role === 'first';
   const { canvas, loaded, failed: canvasFailed, retry: retryCanvas } = useRoundCanvas(seated && !isOwner ? round?.id ?? null : null);
   const [canvasOpen, setCanvasOpen] = useState(false);
-  const [taskOpen, setTaskOpen] = useState(false);
+  const [taskOpen, setTaskOpen] = useTaskOpen(`${eventId}:${owner.offer?.roundId ?? ''}`);
 
   if (!self) return null;
 

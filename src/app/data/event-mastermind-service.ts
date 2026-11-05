@@ -43,6 +43,9 @@ export interface MastermindPerson {
   observerPrep: 'home' | 'doors' | null;
   /** A registration exists. Nobody is seated without one in this flow (D24). */
   registered: boolean;
+  /** 1 = first on the waiting list; null when not on it (D24). The name comes with it, as the person may not be in the room. */
+  waitingPosition: number | null;
+  name: string | null;
   phone: 'usbc' | 'lightning' | 'other' | null;
   recordingOn: boolean;
   lastWordsAt: string | null;
@@ -60,6 +63,8 @@ export async function getMastermindHostState(eventId: string): Promise<Map<strin
     participation: (r.participation as string | null) ?? null,
     observerPrep: (r.observer_prep as MastermindPerson['observerPrep']) ?? null,
     registered: r.registered !== false,
+    waitingPosition: (r.waiting_position as number | null) ?? null,
+    name: (r.name as string | null) ?? null,
     phone: (r.phone as MastermindPerson['phone']) ?? null,
     recordingOn: !!r.recording_on,
     lastWordsAt: (r.last_words_at as string | null) ?? null,

@@ -1,7 +1,8 @@
 /**
  * @file event-waitlist.ts
  * @description P1529 D24: the small waiting list of a full sales-mastermind event. Joining is not a seat. The database writes
- * (join_event_waitlist, leave_event_waitlist); a person reads their own row and the host reads the ordered names.
+ * (join_event_waitlist, leave_event_waitlist); a person reads their own row. The host reads the list with the host state
+ * (get_mastermind_host_state, see event-mastermind-service.ts).
  */
 import { supabase } from '@/lib/supabase';
 import { guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
@@ -34,26 +35,20 @@ export async function leaveWaitlist(slug: string): Promise<void> {
   if (error) throwDbError('leaveWaitlist', error, 'Could not leave the waiting list');
 }
 
-/** Whether this person is on the event's waiting list (their own row; the table's policy shows them nobody else's). */
-export async function isOnWaitlist(eventId: string, profileId: string): Promise<boolean> {
-  const { data, error } = await supabase.from('event_waitlist').select('profile_id').eq('event_id', eventId).eq('profile_id', profileId).maybeSingle();
-  if (error) throwDbError('isOnWaitlist', error, 'Could not read the waiting list');
-  return !!data;
-}
-
-export interface WaitlistPerson {
-  profileId: string;
-  name: string;
-  joinedAt: string;
-}
-
-/** The host's list, in the order people joined. */
-export async function getEventWaitlist(eventId: string): Promise<WaitlistPerson[]> {
-  const { data, error } = await supabase.rpc('get_event_waitlist', { p_event: eventId });
-  if (error) throwDbError('getEventWaitlist', error, 'Could not read the waiting list');
-  return ((data ?? []) as Array<Record<string, unknown>>).map(r => ({
-    profileId: r.profile_id as string,
-    name: (r.name as string) ?? 'Someone',
-    joinedAt: r.joined_at as string,
-  }));
+/**
+ * This person's own waiting-list entry as the answers they gave, or null when they are not on it (the table's policy shows
+ * them nobody else's). The answers prefill the form when a place has opened and they register.
+ */
+export async function getMyWaitlistEntry(eventId: string, profileId: string): Promise<RegistrationAnswers | null> {
+  const { data, error } = await supabase.from('event_waitlist').select('participation, observer_prep, phone, hope')
+    .eq('event_id', eventId).eq('profile_id', profileId).maybeSingle();
+  if (error) throwDbError('getMyWaitlistEntry', error, 'Could not read the waiting list');
+  if (!data) return null;
+  return {
+    participation: data.participation as RegistrationAnswers['participation'],
+    observerPrep: (data.observer_prep as RegistrationAnswers['observerPrep']) ?? null,
+    phone: data.phone as RegistrationAnswers['phone'],
+    hope: (data.hope as string | null) ?? '',
+    recordingAccepted: true, // a row exists only after the acceptance
+  };
 }

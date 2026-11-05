@@ -408,14 +408,14 @@ export function EventDetail() {
   const smartChat = !!event && recipeForEvent(event).smartOffers;
   const chatOpen = useGroupChatOpened(event?.id, smartChat ? groupChatUrl : null, user?.id);
 
+  // P1529 D16: this flow asks before the seat; `asksBeforeSeat` is false for Clarity Night and Social Hike.
+  const asksBeforeSeat = !!recipeForEvent(event).registrationQuestions;
   // P1586: nothing of the page is drawn yet, so the one page loader.
   const showRefusal = (refusal: 'full' | 'cancelled') => {
     setEvent(e => (e ? (refusal === 'full' ? { ...e, attendeeCount: e.maxAttendees ?? e.attendeeCount } : { ...e, status: 'cancelled' }) : e));
     // D24: in a flow that asks, "full" is the page's own line with the waiting list under it, not a toast.
-    if (!(refusal === 'full' && recipeForEvent(event).registrationQuestions)) toast.error(refusalMessage(refusal));
+    if (!(refusal === 'full' && asksBeforeSeat)) toast.error(refusalMessage(refusal));
   };
-  // P1529 D16: this flow asks before the seat; `asksBeforeSeat` is false for Clarity Night and Social Hike.
-  const asksBeforeSeat = !!recipeForEvent(event).registrationQuestions;
   const registration = useRegistrationStep({
     event: event ? { id: event.id, slug: event.slug } : null,
     userId: user?.id,
@@ -424,6 +424,7 @@ export function EventDetail() {
     onSessionLost: () => { if (event) signInAgain(event.slug); },
     // D24: full means the same form joins the waiting list; signed out, the form ends in Continue and sign-up comes next.
     full: asksBeforeSeat && !!event && !isRsvpd && eventsService.isEventFull(event),
+    readsWaitlist: asksBeforeSeat && !isRsvpd,
     onSignIn: () => navigate('/signup?redirect=/events/' + slug + '&action=rsvp'),
   });
   // Just signed up and sent back here: saved answers register them, or the form opens (use-registration-return.ts).
@@ -666,7 +667,7 @@ export function EventDetail() {
       onRsvp={handleRsvp}
       asksBeforeSeat={asksBeforeSeat}
       placesLeft={asksBeforeSeat ? eventsService.getSpotsRemaining(event) : null}
-      waitlist={asksBeforeSeat ? { onList: registration.onWaitlist, filled: registration.filled, onLeave: registration.leaveWaitlist } : undefined}
+      waitlist={asksBeforeSeat ? { onList: registration.onWaitlist, filled: registration.filled, leaving: registration.leaving, onLeave: registration.leaveWaitlist } : undefined}
     />
   );
 

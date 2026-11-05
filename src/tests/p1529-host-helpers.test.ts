@@ -104,7 +104,7 @@ describe('checkMastermindSeats: what a given seating of one round breaks', () =>
 
 describe('the host marks', () => {
   const p = (over: Partial<MastermindPerson>): MastermindPerson => ({
-    profileId: 'p', canvasName: null, canvasShared: false, observerOverride: null, participation: null, observerPrep: null, registered: true, phone: null, recordingOn: false, lastWordsAt: null, ...over,
+    profileId: 'p', canvasName: null, canvasShared: false, observerOverride: null, participation: null, observerPrep: null, registered: true, waitingPosition: null, name: null, phone: null, recordingOn: false, lastWordsAt: null, ...over,
   });
   it('is an observer without a shared canvas or when the host says so', () => {
     expect(isObserver(undefined)).toBe(true);

@@ -265,10 +265,13 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
       setLoading(false);
       return;
     }
-    if (startedKeyRef.current !== event.id) setSelf(null); // another event's row must never show here
+    // P1529: a re-read of the SAME event (a new object, for example a slower read landing after the first) keeps the row on
+    // screen and re-reads quietly. `loading` makes the room page return its loader, which unmounts everything on it.
+    const sameEvent = startedKeyRef.current === event.id;
+    if (!sameEvent) setSelf(null); // another event's row must never show here
     startedKeyRef.current = event.id;
     let cancelled = false;
-    setLoading(true);
+    if (!sameEvent) setLoading(true);
     (async () => {
       await load();
       if (!cancelled) setLoading(false);

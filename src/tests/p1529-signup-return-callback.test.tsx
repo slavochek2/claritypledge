@@ -149,7 +149,7 @@ describe('P1529: the sign-up return for a flow that asks', () => {
       .mockResolvedValueOnce({ success: false, error: 'not_found' })
       .mockResolvedValue({ success: true, data: newProfile });
     mockGetProfile.mockResolvedValue(null);
-    mockGetEventBySlug.mockResolvedValue({ id: 'evt-1', slug: 'night-1' });
+    mockGetEventBySlug.mockResolvedValue({ id: 'evt-1', slug: 'night-1', title: 'Night', datetime: '2026-11-14T11:30:00+00:00' });
     mockRsvpToEvent.mockResolvedValue(true);
     mockAsksBeforeSeat.mockResolvedValue(false);
     mockRegisterFor.mockResolvedValue('ok');
@@ -187,7 +187,7 @@ describe('P1529: the sign-up return for a flow that asks', () => {
       renderCallback(RSVP_URL);
       await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/night-1/confirm', { replace: true }));
       expect(mockRegisterFor).toHaveBeenCalledTimes(1);
-      expect(mockRegisterFor).toHaveBeenCalledWith({ id: 'evt-1', slug: 'night-1' }, NEW_ID, SAVED);
+      expect(mockRegisterFor).toHaveBeenCalledWith(expect.objectContaining({ id: 'evt-1', slug: 'night-1', title: 'Night', datetime: '2026-11-14T11:30:00+00:00' }), NEW_ID, SAVED);
       expect(mockRsvpToEvent).not.toHaveBeenCalled();
       expect(readRegistrationDraft('night-1')).toBeNull();
       expect(mockTrack).toHaveBeenCalledWith('event_rsvp_auto', expect.objectContaining({ event_slug: 'night-1' }));

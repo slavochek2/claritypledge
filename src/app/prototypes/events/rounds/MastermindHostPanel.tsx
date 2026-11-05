@@ -119,7 +119,6 @@ function UpdateStep({ host, members, round, onStart, busy }: {
 }
 
 export function MastermindHostPanel({
-  eventId,
   members,
   isOut,
   host,
@@ -129,7 +128,6 @@ export function MastermindHostPanel({
   busy,
   onStartUpdate,
 }: {
-  eventId?: string;
   members: EventRoomMember[];
   isOut: (memberId: string) => boolean;
   host: MastermindHost;
@@ -162,7 +160,7 @@ export function MastermindHostPanel({
           {COPY.silentTables(silentTableNos)}
         </p>
       )}
-      <MastermindRegistrationNotes eventId={eventId} people={host.people ?? []} />
+      <MastermindRegistrationNotes people={host.people ?? []} failed={!!host.warning} onRetry={() => void host.refresh?.()} />
       <UpdateStep host={host} members={members} round={updateRound} onStart={onStartUpdate} busy={busy} />
       <section className="rounded-xl border border-border bg-card px-4 py-2" data-testid="mm-people">
         <h2 className="flex min-h-10 items-center text-xs font-medium uppercase tracking-wide text-muted-foreground">{COPY.people}</h2>

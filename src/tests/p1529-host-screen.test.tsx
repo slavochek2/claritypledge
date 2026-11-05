@@ -20,7 +20,6 @@ const h = vi.hoisted(() => ({
   updateStates: new Map<string, string>(),
   planOverride: null as null | ((input: MastermindSeatingInput) => MastermindSeatingPlan),
   getMastermindHostState: vi.fn(),
-  getEventWaitlist: vi.fn(),
   getPreviousSessionPartners: vi.fn(),
   hostSetObserver: vi.fn(),
   hostSetEventFlow: vi.fn(),
@@ -63,7 +62,6 @@ vi.mock('@/app/data/event-rounds-service', async importOriginal => ({
   hostStartRound: h.hostStartRound,
   hostSetRoundSeats: h.hostSetRoundSeats,
 }));
-vi.mock('@/app/data/event-waitlist', () => ({ getEventWaitlist: h.getEventWaitlist }));
 vi.mock('@/app/data/event-mastermind-service', async importOriginal => ({
   ...(await importOriginal<typeof import('@/app/data/event-mastermind-service')>()),
   getMastermindHostState: h.getMastermindHostState,
@@ -105,7 +103,7 @@ const ROSTER = [ANA, BEN, CAT, DAN, EVA];
 
 const person = (key: string, over: Partial<MastermindPerson> = {}): MastermindPerson => ({
   profileId: `p-${key}`, canvasName: `canvas_${key}`, canvasShared: true, observerOverride: null,
-  participation: 'canvas_before', observerPrep: null, registered: true, phone: 'usbc', recordingOn: false, lastWordsAt: null, ...over,
+  participation: 'canvas_before', observerPrep: null, registered: true, waitingPosition: null, name: null, phone: 'usbc', recordingOn: false, lastWordsAt: null, ...over,
 });
 const setHostState = (people: MastermindPerson[]) => { h.hostState = new Map(people.map(p => [p.profileId, p])); };
 /** Four canvas holders and one person without a canvas. */
@@ -133,7 +131,6 @@ beforeEach(() => {
   setRounds([]);
   defaultPeople();
   h.getMastermindHostState.mockImplementation(async () => h.hostState);
-  h.getEventWaitlist.mockResolvedValue([]);
   h.getPreviousSessionPartners.mockImplementation(async () => h.previous);
   h.getCanvasUpdateStep.mockImplementation(async () => h.step);
   h.getMastermindUpdateStates.mockImplementation(async () => h.updateStates);
@@ -659,22 +656,41 @@ describe('registration on the host screen (D24)', () => {
     expect((await screen.findByTestId('mm-doors-count')).textContent).toBe('3 people come at the doors time');
   });
 
-  it('shows the waiting list in the order given, names only, with nothing that promotes anyone', async () => {
-    h.getEventWaitlist.mockResolvedValue([
-      { profileId: 'w1', name: 'Zed Young', joinedAt: ago(3 * MIN) },
-      { profileId: 'w2', name: 'Amy Xu', joinedAt: ago(MIN) },
+  it('shows the waiting list from the host state, in position order, names only, with nothing that promotes anyone', async () => {
+    setHostState([
+      person('a'), person('b'),
+      person('w2', { registered: false, canvasName: null, canvasShared: false, participation: null, waitingPosition: 2, name: 'Amy Xu' }),
+      person('w1', { registered: false, canvasName: null, canvasShared: false, participation: null, waitingPosition: 1, name: 'Zed Young' }),
     ]);
     renderHost({ flow: MM });
     const list = await screen.findByTestId('mm-waitlist');
     expect(within(list).getAllByTestId('mm-waitlist-person').map(li => li.textContent)).toEqual(['Zed Y.', 'Amy X.']);
     expect(within(list).queryAllByRole('button')).toHaveLength(0);
-    expect(h.getEventWaitlist).toHaveBeenCalledWith('ev-1');
+    expect(screen.queryByTestId('mm-waitlist-error')).toBeNull();
+  });
+
+  it('adds no request of its own: the waiting list is read with the host state', async () => {
+    setHostState([person('a'), person('w1', { registered: false, waitingPosition: 1, name: 'Zed Young' })]);
+    renderHost({ flow: MM });
+    await screen.findByTestId('mm-waitlist');
+    expect(h.getMastermindHostState).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failed read says so with Retry, not an empty list, and Retry reads again', async () => {
+    h.getMastermindHostState.mockRejectedValueOnce(new Error('offline'));
+    setHostState([person('a'), person('w1', { registered: false, waitingPosition: 1, name: 'Zed Young' })]);
+    renderHost({ flow: MM });
+    expect((await screen.findByTestId('mm-waitlist-error')).textContent).toContain('Could not read the waiting list just now.');
+    expect(screen.queryByTestId('mm-waitlist')).toBeNull();
+    fireEvent.click(screen.getByTestId('mm-waitlist-retry'));
+    expect(await screen.findByTestId('mm-waitlist')).toBeTruthy();
+    expect(screen.queryByTestId('mm-waitlist-error')).toBeNull();
+    expect(h.getMastermindHostState).toHaveBeenCalledTimes(2);
   });
 
   it('Clarity Night makes no waiting-list read and shows neither line', async () => {
     renderHost();
     await screen.findByTestId('host-flow-row');
-    expect(h.getEventWaitlist).not.toHaveBeenCalled();
     expect(screen.queryByTestId('mm-registration-notes')).toBeNull();
   });
 });

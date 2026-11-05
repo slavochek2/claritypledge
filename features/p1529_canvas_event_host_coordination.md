@@ -404,6 +404,8 @@ Inputs: 16 people including 12 owners; 2.4 h evening; a 24-minute round at about
 | Log lines | 0 on success; 1 warn per failed open record, at most 8 | 0 on success; at most 16 x 8 / 2.4 h = 53 if opens all fail | 0 expected |
 | Gemini (tokens x registry price) | 2 runs x $0.10 = $0.20 per session; first draft 3 x $0.10 = $0.30. The $0.10 is P1536 v6's estimate and does not yet reflect 192 copied lines of input: UNVERIFIED | 12 owners x 2 runs / 2.4 h = 10 runs x $0.10 = $1.00 | $0 (model stubbed in e2e) |
 
+**Waiting list (D24).** No poll of its own. The host panel reads the list inside the host-state request it already makes every 15 s (the 240 an hour above is unchanged); the list adds one row per listed person with a name, about 100 B each, so six people add about 0.6 KB to each 4.8 KB read. Polling it separately was rejected: at 30 s it would have cost 3600 / 30 = 120 more requests an hour per visible host panel for a list that changes only when someone joins a full event. An attendee's page reads their own waiting-list row once per visit, only in this flow and only while they have no place: 1 request per visit, 0 for every other flow. Joining or leaving is 1 request each.
+
 1. **Fits the plan limit today?** Gemini: 12 owners x ($0.20 + $0.30) = $6 per evening against P1536's daily canvas bucket: fits. Supabase, monthly: requests = (evenings per month) x 16 x 87 plus (evenings per month) x 2.4 h x 240; rows = (evenings per month) x 12 x 399. At the two evenings planned, this fits; the current values are read from the registry row.
 2. **Fits at 10x?** 120 owners x $0.50 on one day = $60: over the bucket. Does not fit without raising D18. Rows and requests scale linearly and fit.
 3. **Failure cost:** a failed run is charged as P1536 rules; Try again is a new run. A refused run writes no copied lines (one transaction).
@@ -490,6 +492,7 @@ An invented 15-minute transcript (`scripts/fixtures/p1529-round-transcript.json`
 
 ## Known Limitations
 
+- The waiting list promises "The host will email you if a place opens", but the host cannot read attendees' emails in the app: profile emails are behind a column wall (P877) and no host function returns them. The host reaches people through their other channels. `[FOUNDER DECISION: show emails to the host (a new disclosure to the host), change the sentence, or add a host-only contact path.]`
 - Terms wording and notice versus re-acceptance were reviewed by Gemini 4 Argon, at the founder's request, in place of the founder's approval. It replaced "never quotes or names you", because the name filter is a heuristic.
 - `share_canvas` and `unshare_canvas` have no round check: after round 1 an owner can share another canvas directly. Their partner's link still follows the chosen canvas and reads as no longer shared.
 - The round-mode name check is a heuristic: a name written in lower case by the transcript, or an unknown acronym, can get through. The owner sees every draft.

@@ -3,7 +3,6 @@
  * @description P1529 D24: the words of the sales mastermind's registration form, as the founder gave them (2026-11-05). One
  * place, so the form, its tests and the waiting-list variants cannot drift. No dashes.
  */
-import { ROUND_UPDATE_CONSENT, ROUND_UPDATE_CONSENT_LINKS } from '@/app/components/session/capture-copy';
 import type { JoinChoice, PhoneKind, PrepChoice } from '@/app/data/registration-answer-model';
 
 export const FORM_TITLE = 'Register';
@@ -28,8 +27,7 @@ export function prepOptions(join: JoinChoice, start: string, doors: string): { v
   ];
 }
 
-/** The required checkbox: the sentences the room and /transcribe say, then the links line (rendered with real links). */
-export const RECORDING_LABEL = `${ROUND_UPDATE_CONSENT} ${ROUND_UPDATE_CONSENT_LINKS}`;
+/** The required checkbox's text is `ROUND_UPDATE_CONSENT` then its links line, drawn with real links by the form. */
 export const TERMS_PATH = '/terms-of-service';
 export const PRIVACY_PATH = '/privacy-policy';
 
