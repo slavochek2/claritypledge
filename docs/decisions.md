@@ -9,6 +9,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-05 [technical]: Automation is tagged in Mixpanel and not recorded, but the smokes keep the recorder and must prove it ran (P1628)
+
+**Context:** Bot and smoke traffic pollutes the Mixpanel visitor numbers. The spec said to stop recording under `navigator.webdriver`. Measured on the prod page, that would have hidden recorder-only outages: a CSP blocking only the recorder bundle or only `/record` failed both smokes before and passed both with recording off, because the recorder never loads.
+
+**Decision:** Events under webdriver carry `is_automation=true` from the `before_send_events` hook, and automation is not recorded by default. The health and CSP smokes opt back in with a page flag, answer `/record` locally so no replay is stored, wait for the first upload, and fail if it never comes. Without that wait a `/record`-only break was caught on 1 of 8 routes; with it, 8 of 8, and healthy routes stayed clean on 8 of 8. The spec was split, per 2026-09-08: P1628 is this step and P1640 holds the rest.
+
+**Alternatives rejected:** Recording off for all automation (blinds the smokes). Leaving recording on (stores junk replays, about 1,920 a month from the scheduled smokes). `mixpanel.register` for the tag (the spec placed it in the hook, and a wire test proves the hook path).
+
+**Consequences:** The tag is a strong filter, not a guarantee, and it is on events only. Other prod automation runs without the recorder, so recorder-only bugs reproduce only in a real browser or with the flag. Mixpanel now has a registry row in `docs/technical/metered-services.md`. Mixpanel lists Query API as unavailable on Free and the plan in use is unchecked, so P1640 must check that before Phase 2. Review note: the credential scan refused Gemini and GLM on a fake test token, so outside review on this change came from Codex alone. Rounds stopped when findings became inferred test-hardening; three plus a host-change finding were set aside and reported to the founder.
+
+**References:** [P1628](../features/done/2026-06-10/p1628_daily_product_insights_from_mixpanel.md) · [P1640](../features/p1640_weekly_product_insights_from_mixpanel.md) · [analytics.md](technical/analytics.md)
+
 ## 2026-11-05 [technical]: Commits run related tests; the full suite moves to the staging hop (P1635)
 
 **Context:** Every commit touching build-affecting files ran the full unit suite, with no limit on how many ran at once. Load reached 122 on 11 cores. Measured on three concurrent commits: 31 test workers at peak and 528 s, with tests about 94% of heavy-step CPU. CI did not run on `staging/**`, so a landing got no full run before reaching `main`.
