@@ -1988,6 +1988,25 @@ PYJ
 
 print_staging_hop() {
   local sb="${STAGING_BRANCH_PREFIX:-staging/}${1}"
+  # P1635: every staging-only workflow (schema-gate, quality-ratchet, and the unit suite in test.yml)
+  # triggers on 'staging/**'. A branch under any other prefix runs none of them, so the full suite
+  # would silently not run and the schema-ready required check would never appear. The in-tool pushes
+  # (cmd_ship_to_prod, cmd_push_docs) hardcode staging/, so this prefix only shapes the guidance
+  # printed here. Withhold the guidance for a prefix the workflows cannot cover. Loud, and return 0:
+  # all three callers invoke this as a bare statement under `set -e`, AFTER the ship or commit has
+  # landed, so a non-zero return would turn a completed landing into exit 1 and skip the steps that
+  # follow it (deploy_test_on_land). The first version returned 1 and did exactly that (reproduced
+  # under set -euo pipefail in review).
+  case "$sb" in
+    staging/?*) ;;
+    *)
+      echo "  ⚠️  print_staging_hop: STAGING_BRANCH_PREFIX='${STAGING_BRANCH_PREFIX:-}' gives branch '${sb}', outside staging/." >&2
+      echo "     The CI that judges a landing (unit suite, schema gate, quality ratchet) triggers only on staging/**," >&2
+      echo "     so a hop through that branch would run none of it. Hop guidance WITHHELD; unset the variable" >&2
+      echo "     or keep the staging/ prefix. The work above landed; this is not a failure of it." >&2
+      return 0
+      ;;
+  esac
   # $2 is REQUIRED — no `${2:-$(git rev-parse HEAD)}` default. A default silently
   # reintroduces exactly the defect this function was changed to remove: two of the
   # three callers sit immediately after release_main_lock, so the fallback would
@@ -2013,6 +2032,8 @@ Every command below pins the snapshot ${snap} on purpose; do not substitute 'mai
        git push origin ${snap}:refs/heads/${sb}
   2. Wait for EVERY required check to pass on those commits (Actions tab, or gh run
      watch). A check that has not appeared yet is not a pass — it is queued.
+     Also read the unit-test job ('test' in workflow CI): it is not required yet, so
+     nothing refuses a red run, and it is the only full-suite run a landing gets (P1635).
   3. Promote to main (the green check on that exact SHA satisfies the rule):
        git push origin ${snap}:refs/heads/main
   4. Delete the ephemeral staging branch:
@@ -5885,6 +5906,25 @@ cmd_ship_to_prod() {
   local staging_branch="staging/${pn}"
   local PUSH_EPOCH
   PUSH_EPOCH="$(date +%s)"
+  # P1635: a staging ref left on origin at THIS SHA (kept while the unit job ran, left for inspection
+  # after a red or timed-out poll, or a declined promote) makes the push below a no-op: nothing reaches
+  # GitHub, no workflow starts, every check on the SHA predates PUSH_EPOCH and reads `stale`, and the
+  # poll then holds main.lock for the whole 2400s budget (reproduced with stubs: an unchanged ref
+  # reaches the server zero times, the run from the first attempt is stale, the wait times out).
+  # cmd_push_docs deletes such a ref before pushing; do the same, for the same-SHA case only. A ref at
+  # a DIFFERENT sha is moved by the push below and starts fresh runs on its own. main.lock is held, so
+  # the SAFETY NOTE in cmd_push_docs about deleting a branch another session may own applies here too.
+  local existing_staging_sha
+  if ! existing_staging_sha="$(remote_branch_sha "$staging_branch")"; then
+    die "ship-to-prod: cannot reach origin to check for an existing ${staging_branch} -- refusing to push blind into a possible no-op."
+  fi
+  if [[ "$existing_staging_sha" == "$local_sha" ]]; then
+    echo "ship-to-prod [3/6]: ${staging_branch} is already on origin at ${local_sha:0:9} (kept or leaked by an earlier attempt)." >&2
+    echo "  Deleting it so the re-push starts a fresh CI run instead of reading the old run as stale." >&2
+    if ! git -C "$REPO_ROOT" push origin --delete "${staging_branch}" 2>&1; then
+      die "ship-to-prod: could not delete the stale ${staging_branch} -- delete it by hand, then re-run."
+    fi
+  fi
   echo "ship-to-prod [3/6]: pushing to staging branch ${staging_branch}..." >&2
 
   # Force-with-lease: if staging/pN already exists from a prior failed attempt,
@@ -5992,6 +6032,10 @@ cmd_ship_to_prod() {
 
   echo "  ✅ all required checks passed on ${local_sha}: [${ctx_list}]" >&2
 
+  # P1635: the unit-test job is not a required check yet, so the line above says nothing about
+  # it. Wait for it and PRINT its result (never refuse on it) before this ref can be deleted.
+  await_unit_check_report "$local_sha" "$PUSH_EPOCH" "ship-to-prod" "${required_contexts[@]}"
+
   # P1211: re-check at promote time. The CI verdict is attached to a SHA, but the
   # answer depends on origin/main and on prod's ledger, both of which can move during
   # the CI wait (Codex review 2026-09-21, #1 and #5).
@@ -6024,7 +6068,9 @@ cmd_ship_to_prod() {
     # by nothing before this -- cmd_gc's old candidate filter did not match them either.
     echo "  Cancelled." >&2
     echo "  Reclaiming the staging ref (it is not needed once the promote is declined)." >&2
-    if ! git -C "$REPO_ROOT" push origin --delete "${staging_branch}" >&2 2>&1; then
+    if unit_job_blocks_staging_delete; then
+      echo "  Staging branch ${staging_branch} KEPT: the unit job is still running on it (P1635); 'git-ops.sh gc' will report it." >&2
+    elif ! git -C "$REPO_ROOT" push origin --delete "${staging_branch}" >&2 2>&1; then
       echo "  WARNING: could not delete ${staging_branch} -- 'git-ops.sh gc' will report it." >&2
     fi
     release_main_lock
@@ -6043,7 +6089,9 @@ cmd_ship_to_prod() {
 
   # ── Step 6: Cleanup ───────────────────────────────────────────────────────
   echo "ship-to-prod [6/6]: cleaning up staging branch..." >&2
-  if git -C "$REPO_ROOT" push origin --delete "$staging_branch" 2>&1; then
+  if unit_job_blocks_staging_delete; then
+    echo "  Staging branch ${staging_branch} KEPT: the unit job is still running on it (P1635). Delete it once it concludes: git push origin --delete ${staging_branch}" >&2
+  elif git -C "$REPO_ROOT" push origin --delete "$staging_branch" 2>&1; then
     echo "  ✅ Deleted staging/${pn}." >&2
   else
     echo "  Warning: Could not delete ${staging_branch} -- delete manually: git push origin --delete ${staging_branch}" >&2
@@ -6105,7 +6153,10 @@ remote_branch_sha() {
 reclaim_staging_and_die() {
   local staging_branch="$1" msg="$2"
   echo "  Reclaiming ${staging_branch} (nothing to inspect on this path)." >&2
-  if ! git -C "$REPO_ROOT" push origin --delete "${staging_branch}" >&2 2>&1; then
+  # P1635: the unit job's run is attached to this ref; do not delete it from under a running job.
+  if unit_job_blocks_staging_delete; then
+    echo "  Staging branch ${staging_branch} KEPT: the unit job is still running on it; 'git-ops.sh gc' will report it." >&2
+  elif ! git -C "$REPO_ROOT" push origin --delete "${staging_branch}" >&2 2>&1; then
     echo "  WARNING: could not delete ${staging_branch} -- 'git-ops.sh gc' will report it." >&2
   fi
   die "$msg"
@@ -6636,6 +6687,10 @@ cmd_push_docs() {
 
   echo "  ✅ all required checks passed on ${local_sha}: [${ctx_list}]" >&2
 
+  # P1635: the unit-test job is not a required check yet, so the line above says nothing about
+  # it. Wait for it and PRINT its result (never refuse on it) before this ref can be deleted.
+  await_unit_check_report "$local_sha" "$PUSH_EPOCH" "push-docs" "${required_contexts[@]}"
+
   # P1211: re-check at promote time — see the identical block in cmd_ship_to_prod.
   local checked_base
   checked_base="$(schema_gate_pre "push-docs (promote-time re-check)" "$local_sha")" \
@@ -6674,7 +6729,9 @@ cmd_push_docs() {
       # delete safe; see the SAFETY NOTE above it before changing either.
       echo "  Cancelled." >&2
       echo "  Reclaiming the staging ref (it is not needed once the promote is declined)." >&2
-      if ! git -C "$REPO_ROOT" push origin --delete "${staging_branch}" >&2 2>&1; then
+      if unit_job_blocks_staging_delete; then
+        echo "  Staging branch ${staging_branch} KEPT: the unit job is still running on it (P1635); 'git-ops.sh gc' will report it." >&2
+      elif ! git -C "$REPO_ROOT" push origin --delete "${staging_branch}" >&2 2>&1; then
         echo "  WARNING: could not delete ${staging_branch} -- 'git-ops.sh gc' will report it." >&2
       fi
       release_main_lock  # C2: explicit release before exit; trap is backup
@@ -6702,7 +6759,9 @@ cmd_push_docs() {
 
   # ── Step 5: Cleanup ───────────────────────────────────────────────────────
   echo "push-docs [6/6]: cleaning up staging branch..." >&2
-  if git -C "$REPO_ROOT" push origin --delete "$staging_branch" 2>&1; then
+  if unit_job_blocks_staging_delete; then
+    echo "  Staging branch ${staging_branch} KEPT: the unit job is still running on it (P1635). Delete it once it concludes: git push origin --delete ${staging_branch}" >&2
+  elif git -C "$REPO_ROOT" push origin --delete "$staging_branch" 2>&1; then
     echo "  ✅ Deleted ${staging_branch}." >&2
   else
     echo "  Warning: could not delete ${staging_branch} -- delete manually: git push origin --delete ${staging_branch}" >&2

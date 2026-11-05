@@ -2,7 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # P1635: 'staging/**' is the hop every landing transits (docs/technical/git-workflow.md), so the
+    # full suite runs on the exact SHAs that get promoted. Job id `test` is the check name that
+    # scripts/lib-required-checks.sh (UNIT_CHECK_CONTEXT) waits for and prints at promotion.
+    branches: [main, 'staging/**']
   pull_request:
     branches: [main]
 

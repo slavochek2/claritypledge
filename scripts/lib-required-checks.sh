@@ -312,3 +312,104 @@ wait_for_required_checks() {
 
   return 1
 }
+
+# ── P1635: the unit-test job is OPTIONAL on main today, so promotion must still report it ──
+#
+# WHY: wait_for_required_checks judges only the contexts NAMED in main's ruleset. The unit job
+# (.github/workflows/test.yml, job id `test`) now runs on every staging/** push, but it is not a
+# required check (the founder flips that later, once the suite has shown it is reliable on the
+# staging hop). Without this, a red or unfinished unit run is invisible at promotion: the required
+# checks go green, the promote proceeds, and the first anyone hears of a broken suite is a red CI
+# on main after Vercel has deployed it.
+#
+# CONTRACT (the tests in scripts/test-p1290-required-checks-poll.sh Part 5 hold each clause):
+#   - NEVER refuses. Always returns 0; a red unit job is printed, not enforced.
+#   - Prints one verdict line the author cannot miss: passed, concluded RED, still running, or no
+#     run appeared at all. Silence is the one outcome this function exists to remove.
+#   - Sets UNIT_JOB_STILL_RUNNING=1 when the run has not concluded, so callers keep the staging
+#     branch: the spec forbids deleting it while the job runs.
+#   - If the unit context IS in the required list (after the founder's flip) it is already judged
+#     by wait_for_required_checks, and is not waited for twice.
+#
+# COST, stated because it is real: both callers hold main.lock across this wait. The unit job
+# starts with the other checks, and audit-privacy alone takes 13+ minutes (measured 2026-09-04),
+# so the remaining wait is normally seconds; GIT_OPS_UNIT_MAX_WAIT bounds the unlucky case.
+# The 900s default is a GUESS until a staging run measures how long the suite takes on a GitHub
+# runner (not measurable without a push). Worst case it ADDS to the required poll's 2400s budget, so
+# a promote can now hold main.lock for about 55 minutes, past the 45 a push-on grant was sized for.
+#
+# Not named `status`: zsh reserves it (see evaluate_check_context).
+UNIT_CHECK_CONTEXT="${UNIT_CHECK_CONTEXT:-test}"
+UNIT_JOB_STILL_RUNNING=0
+UNIT_JOB_VERDICT=""
+
+# await_unit_check_report <sha> <push_epoch> <label> [required context]...
+# Output uses no redirect characters (shell-safety rule, P783).
+await_unit_check_report() {
+  local sha="$1" push_epoch="$2" label="$3"
+  shift 3
+  local ctx
+  UNIT_JOB_STILL_RUNNING=0
+  UNIT_JOB_VERDICT=""
+
+  for ctx in "$@"; do
+    if [[ "$ctx" == "$UNIT_CHECK_CONTEXT" ]]; then
+      UNIT_JOB_VERDICT="required"
+      echo "  ${label}: unit job '${UNIT_CHECK_CONTEXT}' is a required check and was judged above." >&2
+      return 0
+    fi
+  done
+
+  local max_wait="${GIT_OPS_UNIT_MAX_WAIT:-900}"
+  local poll="${GIT_OPS_UNIT_POLL:-20}"
+  local grace="${GIT_OPS_UNIT_ABSENT_GRACE:-180}"
+  local sleep_cmd="${RC_SLEEP_CMD:-sleep}"
+  local waited=0 verdict=""
+
+  echo "  ${label}: unit job '${UNIT_CHECK_CONTEXT}' is not a required check. Waiting up to ${max_wait}s to report its result; promotion is not refused on it." >&2
+
+  while :; do
+    verdict="$(evaluate_check_context "$sha" "$UNIT_CHECK_CONTEXT" "$push_epoch")"
+    case "$verdict" in
+      pending)
+        (( waited >= max_wait )) && break
+        ;;
+      absent|stale|mismatch)
+        # No run for THIS sha yet: queue latency (23s measured) or the workflow is not on this
+        # commit's tree at all. Wait a short grace, not the full budget, for a run that never comes.
+        (( waited >= grace )) && break
+        ;;
+      *)
+        break
+        ;;
+    esac
+    "$sleep_cmd" "$poll"
+    waited=$((waited + poll))
+  done
+
+  UNIT_JOB_VERDICT="$verdict"
+  case "$verdict" in
+    success)
+      echo "  ✅ ${label}: unit job '${UNIT_CHECK_CONTEXT}' PASSED on ${sha:0:9} (the full suite ran on the landing tree)." >&2
+      ;;
+    pending)
+      UNIT_JOB_STILL_RUNNING=1
+      echo "  ⚠️  ${label}: unit job '${UNIT_CHECK_CONTEXT}' is STILL RUNNING after ${waited}s. Its result is NOT known. Promotion continues; the staging branch is kept while it runs." >&2
+      echo "     Check it: gh run list --commit ${sha} --workflow CI" >&2
+      ;;
+    absent|stale|mismatch)
+      echo "  ⚠️  ${label}: no unit job '${UNIT_CHECK_CONTEXT}' run appeared for ${sha:0:9} after ${waited}s (verdict: ${verdict})." >&2
+      echo "     The full suite was NOT run on this landing. Does test.yml on this commit trigger on staging/**?" >&2
+      ;;
+    *)
+      echo "  ❌ ${label}: unit job '${UNIT_CHECK_CONTEXT}' concluded ${verdict} on ${sha:0:9}. It is optional, so promotion continues, but the suite is RED on this tree." >&2
+      echo "     See it: gh run list --commit ${sha} --workflow CI" >&2
+      ;;
+  esac
+  return 0
+}
+
+# True while the unit job has not concluded: callers must not delete the staging branch then.
+unit_job_blocks_staging_delete() {
+  [[ "${UNIT_JOB_STILL_RUNNING:-0}" == "1" ]]
+}
