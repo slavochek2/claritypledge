@@ -2,7 +2,7 @@
   "prod": {
     "functions": {
       "_shared": "",
-      "chat-voice": "6e7a01cc9a6ea6b9e699e4860a5f59432e491bfa9088e2f02941e5d527c220d0",
+      "chat-voice": "d75a0e337bcf893d103dd2381cc9b8322af4caf5754512d8a304b6a54a21f114",
       "check-login-email": "d6658ffed10732ffd3b2fa5e96010616d9be4bff0cc4dbdb1282e9ab415f9065",
       "confirm-letter-response": "3a2bb796bcfa298846b01bd19def9ac605c3beaf1321210d229b90031c6bcf00",
       "create-and-open-letter": "a831f562ffed9edaf8c839c39f854c082b763ca632ac18ec40a84c6b98fb4d15",
@@ -24,9 +24,10 @@
       "send-event-emails": "f86e3972df99b619eb6a9ec37b4afe2671f1a0bb39eebf46f39024de894d379b",
       "send-letter-emails": "f97d80b680333f6cee643591bb04d12f1f77a832ebeb437feb02b53956a472d9",
       "transcribe-clip": "82bd8ba8c0213952f704f8a54671d1249f01b2487902cc98ae6bc7e4eaefda15",
-      "transcribe-slice": "717e7d7d4f05a3ccaf67e81c20f8d6cd3707dc1ce1a092b361c0628eeb57d516"
+      "transcribe-slice": "717e7d7d4f05a3ccaf67e81c20f8d6cd3707dc1ce1a092b361c0628eeb57d516",
+      "canvas-draft": "149faf72255e0289e57d7b4e1223749d151ffbe9004bbeebb9fe44e06125d0cd"
     },
-    "functions_deployed_at": "2026-11-03T15:05:22Z",
+    "functions_deployed_at": "2026-11-05T03:30:23Z",
     "migrations": [
       "20250101",
       "20250117",
