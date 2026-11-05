@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 107
 severity: medium
@@ -11,7 +11,6 @@ exec_model: sonnet
 exec_effort: medium
 tags: [git-ops, ship, journal]
 disclosure: public
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 date_resolved: '2026-11-05'
 root_cause: "cmd_ship wrote the journal before the main lock and the lock timeout exited without cleanup"
@@ -24,6 +23,7 @@ reproduce_artifact:
   surfaces_deferred: []
   reproduced_at: 2026-11-05
   fix_shape: decided
+completed_at: 2026-11-05
 ---
 
 # P1637: A ship that times out on the main lock leaves its journal, so the retry stops
