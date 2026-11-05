@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 95
 workstream: clarity-chat
 created_date: '2026-11-05'
 tags: [mirror-agent, context, cost, privacy]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -22,9 +22,9 @@ Step 1 of the plan the founder approved in [P1615](p1615_mirror_agent_context_lo
 
 **Situation:** P1604 is on prod. A Clarified transcript session lands in the main mirror chat and gets a larger profile: up to 100,000 tokens in, 4,000 out, reserved at $0.225.
 
-**Complication:** That profile applies to every later reply while the copy is among the offered rows, until 300,000 characters of newer messages push it out. An unrelated question can re-send the transcript, at $0.18 from 1 January. The shared reply cap then runs out after about 27 such replies a day. Separately, no message time reaches the model, the main chat prompt never says what it left out, the ledger ignores cached tokens, and the privacy policy says a copy holds "up to 100 replies" while a session copy holds 720 lines.
+**Complication:** That profile applies to every later reply while the copy is among the offered rows, until it leaves the offered rows: the first pass offers 150,000 characters, and a session among them widens the offer to 300,000. An unrelated question can re-send the transcript, at $0.18 from 1 January. At $0.18 each, the $5.00 shared reply cap fits about 27 such replies a day, if nothing else spends from it. Separately, no message time reaches the model, the main chat prompt never says what it left out, the ledger ignores cached tokens, and the privacy policy says a copy holds "up to 100 replies" while a session copy holds 720 lines.
 
-**Question:** How does a copy stay fully available while people talk about it, and stop costing anything once they do not?
+**Question:** How does a copy stay fully available while people talk about it, and stop re-sending it once they do not?
 
 > Founder, 2026-11-04: "For example, I forward something and clarify whatever I'm sending has to be read."
 >
@@ -45,12 +45,39 @@ The P1615 invariants apply. In particular:
 ## Solution
 
 1. **Folding, decided in SQL.** Offer selection and the reservation both use the fold state, so a folded copy neither crowds out older messages nor keeps the $0.225 reservation. A folded copy is one line: who, when, how long, "not shown".
-2. **When it is open.** Always when just sent, and in its own thread. In the main chat, while the talk stays on it, as the founder ruled, not after a fixed count alone. [FOUNDER DECISION: the fallback count. Recommend it stays open for the next 5 owner messages, and each message naming its speakers, title or date restarts that count. No model call decides this.]
+2. **When it is open.** Always when just sent, and in its own thread. In the main chat, while the talk stays on it, as the founder ruled, not after a fixed count alone. Founder decision 2026-11-05: it stays open for the next 5 owner messages, and each message naming its speakers, title or date restarts that count. No model call decides this.
 3. **Reopening.** A later message naming the speakers, title or date reopens it for that reply, with the full reservation, recorded in `derived_refs`. A pronoun with nothing to match does not reopen it; the agent says what it has set aside and asks. Full follow-up memory arrives with search in step 3.
-4. **Dates.** Every item carries its time; a copied thread carries its replies' original times, never the copy time as theirs. The instruction gives today's date with a stated time zone. [`/dev`: whose time zone, from what exists.]
+4. **Dates.** Every item carries its time; a copied thread carries its replies' original times, never the copy time as theirs. The instruction gives today's date with a stated time zone. The time zone is UTC: the server has no reader's zone (`readableSessionBody` already says this; `profiles` has no zone column).
 5. **The omission note.** The main chat prompt says how much it left out, as the thread scope already does.
 6. **The ledger** charges cached tokens at the cached rate. The reservation does not change.
-7. **Privacy line.** [FOUNDER DECISION: wording. Draft: "The copy holds the author's name, the text, the time, the name of the chat it came from, and the replies in its thread that you can read: up to 100, or up to 720 lines for a transcript session."] Whether this needs a terms notice is a founder call; the draft changes a number, not a kind of data.
+7. **Privacy line.** Founder decision 2026-11-05: "The copy holds the author's name, the text, the time, the name of the chat it came from, and the replies in its thread that you can read: up to 100, or up to 720 lines for a transcript session." No terms notice. Committed ahead of the build because the live page is false.
+
+### Build contract (from the spec review, 2026-11-05)
+
+**Which copies.** Every `kind` `clarify` or `forward` row with a snapshot, as P1615 ruled ("reply to, forward or Clarify").
+
+**One decision per attempt.** `_mirror_begin_job` computes `v_open` (ids of copies that stay open) once, before the offer passes, and uses it for row cost, payload, refs and profile. A retry recomputes it from the same trigger. Nothing reopens after the reservation. Lock order is unchanged.
+
+**The count.** Eligible messages: author is the owner, `kind = 'message'`, not deleted, `context_conversation_id IS NULL`, a voice note only with a done transcript, in the trigger's scope (main chat, or that thread), ordered by `(created_at, id)`, up to and including the trigger. Copies do not count. Take the last 6, ending with the trigger. A copy is open when any of them matches it, or, in the main chat, when it is newer than the sixth. So messages 1-5 after a copy keep it open and the sixth folds it, and a match keeps it open for that message and the next 5. The cost is bounded: six texts, whatever the history.
+
+**Other scopes.** A copy's own thread (the trigger's root is the copy): always open. A question in an unrelated thread: a main-chat copy is open only by a match in that thread's last 6. An open copy in `outside` counts toward the profile, as today.
+
+**The match.** Text is the owner's body or done transcript, never quoted payloads: `normalize` then `lower`, split on non-alphanumerics, so Cyrillic and other scripts work. Exact token matches:
+- **Speakers:** tokens of 3 or more characters from the copy's `author_name` and its thread's `author_name`s. Never `deleted`, `user`, `mirror`, `agent`.
+- **Title:** the source `conversation_title` as a whole phrase, without a trailing `· General`, at least 4 characters, never a generic title (`mirror`, `general`).
+- **Date,** of the source in UTC: `2026-11-04`, `4 nov`, `nov 4`, `4 november`, `november 4`, `04.11`, `4.11`, `4/11`. `today`, `yesterday` and an English weekday name match only within the last 7 days (with the weekday, 8 days, so "last Tuesday" works). Dates in other languages do not match in this step; recorded limit.
+
+**Refs.** Unchanged from today, so a folded copy keeps every thread author and the title ref. It names them, and over-clearing is the safe side. Accepted: erasing a speaker clears answers made while their folded copy was offered.
+
+**Profile.** `session` is true only if an open session copy is offered. Profile and reservation come from that one flag. A folded session does not widen to 300,000.
+
+**Folded item.** Structured, inside DATA through `quoteData`, never in the instruction: from, when, source chat, up to 8 speakers, line count, `not shown`. The owner's own note on a Clarify stays. A clipped copy keeps saying it is clipped.
+
+**Times.** `_mirror_context_item`, `_mirror_copy_thread` and `clean` carry three separate fields: the row's own `at`, the source's original time, and each reply's original time. A missing old time is left out, never replaced by the copy time. The instruction gives today's date, UTC, from the handler's clock.
+
+**Omission note.** The main chat says how many earlier messages it left out, counting both the SQL offer and the TypeScript trim.
+
+**Ledger.** `costUsd` subtracts `cachedContentTokenCount`, clamped to 0..prompt, and charges it at $0.15 per 1M; absent means 0. No reservation changes.
 
 ## Risks / Non-Goals
 
@@ -71,13 +98,16 @@ The P1615 invariants apply. In particular:
 ## Acceptance Criteria
 
 - [ ] After Clarifying a session and asking about it, the agent answers from the whole transcript.
-- [ ] A follow-up in the main chat a few messages later still answers from it.
+- [ ] Owner messages 1-5 after a copy keep it open, message 6 folds it, and a naming message opens it for that reply and the next 5: asserted on the request for each boundary, with voice notes, copies and channel asks not counted.
 - [ ] Once the talk has moved on, an unrelated question does not send the transcript and reserves the standard amount, shown on test by the request and the ledger.
-- [ ] Asking again by a speaker's name or the session's date reopens it and gets a correct answer.
+- [ ] Asking again by a speaker's name (including a Cyrillic one), the title or the date reopens it with the full reservation and a correct answer on a synthetic fact; "mirror", "general" or "user" do not reopen it; a pronoun alone does not, and the agent says what it set aside.
+- [ ] Profile and reservation always agree: tested for one open copy, a folded one, several, and an open copy in `outside`; an unrelated thread with an open main-chat copy reserves the standard amount.
+- [ ] A folded copy's request holds no transcript text, and an instruction-like title stays inside DATA, with a positive control.
+- [ ] `costUsd` charges cached tokens at the cached rate; absent or oversized counts are handled.
 - [ ] Older messages crowded out by the copy before folding now reach the model after it folds.
-- [ ] "What did she say last Tuesday?" answers with the right date, including for a reply inside a copied thread.
-- [ ] When history is cut, the agent can say it did not see all of it.
-- [ ] Erasing a person named on a folded line clears answers built on it, including during a starting job.
+- [ ] With a fixed clock, "What did she say last Tuesday?" answers with the right UTC date, including for a reply inside a copied thread, and a copy's replies never carry its copy time.
+- [ ] When history is cut, the main-chat prompt states how many earlier messages were left out.
+- [ ] Erasing a person named on a folded line clears answers built on it: erase before the lock pass, with a skipped copy row, after reservation, and on a restart with a changed fold state.
 - [ ] The extended red-team suite passes on the changed prompt, with its positive control.
 - [ ] The privacy page matches what is stored. `[post-deploy]` re-read it on prod.
 
@@ -97,6 +127,14 @@ Supabase requests per reply and log lines: unchanged. No new trigger or per-row 
 1. **Fits the plan limit today?** Yes; it only lowers spend.
 2. **Fits at 10×?** The caps refuse further replies first, and later than today.
 3. **If either answer is no:** nothing here raises cost, so no change.
+
+## Reviews
+
+Gemini 4 Argon and Codex (gpt-6.1-sol, low), 2 of 2 reports, 2026-11-05. Verdicts: both blocked the spec as written. Claims checked against the code this session; concurrency and live model behaviour are unrun.
+
+**Accepted, folded into the Build contract:** undefined count and match (both); fold state must be one decision per attempt (Codex); dropped times at `_mirror_copy_thread`, `quoted` and `clean` (both); unrelated-thread scope (Gemini); forwards omitted despite the P1615 ruling (Gemini); folded line through `quoteData` (Codex); vague ACs and the two-pass window in Problem (Codex); UTC (Codex).
+**Rejected:** Gemini's "nothing is implemented": this review ran before the build. Codex's "repo does not prove P1604 is on prod": `supabase/deploy-manifest.json` lists `20261104150000` under prod.
+**Decided, not rejected:** Gemini's over-clearing of refs on folded copies is accepted as the safe side.
 
 ## Related
 
