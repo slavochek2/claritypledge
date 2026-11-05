@@ -48,6 +48,9 @@ const UNSURE = new Set((
 /** A sentence opening with one of these asks. */
 const ASKS = new Set(['are', 'is', 'was', 'were', 'am', 'has', 'have', 'had']);
 
+/** An asking word before one of these asks, wherever it stands: "so are they angry". */
+const ASK_SUBJECT = new Set([...FRAMING, 'we', 'you', 'it', 'he', 'she', 'them']);
+
 const words = (text: string) => fold(text).split(/[^\p{L}\p{N}'’]+/u).filter(Boolean);
 const isUnsure = (w: string) => UNSURE.has(w) || /n['’]t$/.test(w) || /^(arent|isnt|dont|doesnt|didnt|wont|cant|wasnt|werent)$/.test(w);
 const holds = (ws: readonly string[], part: readonly string[]) => ` ${ws.join(' ')} `.includes(` ${part.join(' ')} `);
@@ -65,15 +68,21 @@ export function sharesWords(statement: string, quote: string): boolean {
  * It shares one meaningful word with a quote the owner typed, and neither the statement nor the owner's sentence denies, hedges, asks, supposes or requests.
  * The model chooses the quote, so the owner's whole sentence is what gets read.
  */
-export function isPlainGuess(statement: string, quote: string, ownerTyped: string): boolean {
+export function isPlainGuess(statement: string, quote: string, ownerTyped: string, ownCanvas = ''): boolean {
   const theirs = contentWords(quote);
   const mine = words(statement);
   if (mine.length < 2 || statement.includes('?') || ASKS.has(mine[0] as string) || mine.some(isUnsure) || ![...contentWords(statement)].some((w) => theirs.has(w) && !FRAMING.has(w))) return false;
+  // A name and generic words say nothing: "Stripe customers" from "analyze Stripe".
+  const own = statement.split(/[^\p{L}\p{N}]+/u).filter((w) => w && !FRAMING.has(w.toLowerCase()));
+  if (own.length === 1 && /\p{Lu}/u.test(own[0] as string)) return false;
   const q = words(quote);
   const raw = ownerTyped.replace(/([^\n])\n(?!\n)/g, '$1 ').match(/[^.!?;\n]+[.!?;\n]*/g) ?? [];
   const holding = raw.filter((r) => holds(words(r), q));
+  // Nothing of its own: every meaningful word of the statement is one the owner typed, or already on their canvas (vetted when it was written).
+  const typed = contentWords(`${ownerTyped}\n${ownCanvas}`);
+  if ([...contentWords(statement)].some((w) => !FRAMING.has(w) && !typed.has(w))) return false;
   if (!holding.length || quote.includes('?')) return false;
-  return !q.some(isUnsure) && holding.every((r) => { const ws = words(r); return !r.includes('?') && !ws.some(isUnsure) && !ASKS.has(ws[0] as string); });
+  return !q.some(isUnsure) && holding.every((r) => { const ws = words(r); return !r.includes('?') && !ws.some(isUnsure) && !ws.some((w, i) => ASKS.has(w) && ASK_SUBJECT.has(ws[i + 1] as string)) && !ASKS.has(ws[0] as string); });
 }
 
 /** A generic subject, compared as written: a capital may be a name. A stopword does not qualify: "per" and "will" are names too. */

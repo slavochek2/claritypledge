@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 99
 severity: medium
@@ -77,16 +77,23 @@ The point is dropped and the reply does not name it, so the owner repeats it.
 
 Supersedes the "dropped" handling in the rule below. "Nothing invented" (P1536) becomes **nothing added without showing the owner the words it came from**. A point that fails the two-word check, but shares a meaningful word with a sentence the owner typed, is added, and the reply says so: `I added "Customers are angry" to Problem, from your words "they are angry". If you meant someone else, tell me who and I'll change it.` Corrections happen in chat. Picking among versions is not built; build it only if corrections prove common.
 
-Still refused: a sentence that denies, hedges, asks, supposes or requests; a number the owner never said; another person's name; a quote not in the owner's material.
+Still refused: a statement with a meaningful word the owner neither typed nor has on the canvas; a rewrite of an existing point; a sentence that denies, hedges, asks, supposes or requests; a number the owner never said; another person's name; a quote not in the owner's material.
+
+## Verification
+
+`e2e/p1625-real-run.spec.ts` on self-hosted TEST with the real model: the point added and told on 4 of 5 fresh canvases; a Dropbox request from memory wrote nothing.
 
 ## Known Limitations
 
 - A wrong guess the owner does not correct stays on the draft and can be published.
+- A question with a noun subject and no question mark can become a point ("so is dropbox down"), and "my cofounder says they are angry" becomes "Customers are angry". The reply shows the owner's words.
+- A plain statement can be refused: "the problem is they are angry" reads as a question.
+- The two-word rule's own gaps are unchanged, including other languages ("los clientes no pagan" supports "Los clientes pagan").
 - A correction uses a run, and a draft has 5. The cap is unchanged.
 - The denial and request word list is open, and only the sentence holding the quote is read.
 - A run with dozens of guesses can exceed the stored reply's 4,000 characters, and the notes past that point are lost.
 - A word the owner typed can be shown back or capitalised on a point, including a surname.
-- The model sometimes writes a longer statement that fails these checks, so a true point can still be refused on one run and added on the next (1 of 2 in the last replay).
+- The model sometimes writes a longer statement that fails these checks, so a true point can still be refused on one run and added on the next (1 of 5 on TEST).
 
 ## Fix Approach
 
@@ -107,11 +114,11 @@ The dropped text comes from the model, so it passes the same name and link clean
 
 ## Acceptance Criteria
 
-- [ ] The four table cases behave as listed, against the real check
-- [ ] "They are angry" reaches the canvas on a real run on test
-- [ ] An added best guess is told with the words it came from and how to correct it; a dropped point is named when its words are safe to show; neither shows another person's name (other than one the owner typed) or a link
-- [ ] A request with no facts, such as asking for Dropbox's canvas from memory, still writes nothing
-- [ ] Points with two shared words behave as before; the existing canvas suites pass, except P1536 cases the best-guess decision changes, each listed to the founder
+- [x] The four table cases behave as listed, against the real check
+- [x] "They are angry" reaches the canvas on a real run on test
+- [x] An added best guess is told with the words it came from and how to correct it; a dropped point is named when its words are safe to show; neither shows another person's name (other than one the owner typed) or a link
+- [x] A request with no facts, such as asking for Dropbox's canvas from memory, still writes nothing
+- [x] Points with two shared words behave as before; the existing canvas suites pass, except P1536 cases the best-guess decision changes, each listed to the founder
 
 ## Related
 

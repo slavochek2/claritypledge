@@ -62,6 +62,8 @@ interface Ctx {
   haystack: string;
   /** What the owner typed in this thread: never a file, a link or another person's words. */
   ownerTyped: string;
+  /** The canvas's current points: words already vetted. */
+  ownCanvas: string;
   namesOther: (text: string) => boolean;
   /** Every number the owner's own words and canvas already hold. */
   numbers: ReadonlySet<string>;
@@ -272,6 +274,7 @@ function buildCtx(pc: ParseContext, scope: readonly string[]): Ctx {
     base: new Map(pc.basePoints.map((p) => [p.id, p])),
     from: pc.baseLabel ?? 'the earlier version',
     haystack,
+    ownCanvas,
     ownerTyped: pc.material.items.filter((i) => i.owner && i.kind === 'note').map((i) => i.text).join('\n\n'), // a blank line: separate messages are never one sentence
     namesOther: namesMatcher(pc.otherNames, derivedNames(pc.material, pc.ownerName)),
     numbers: new Set([...numbersIn(haystack), ...numbersIn(ownCanvas)]),

@@ -46,6 +46,15 @@ describe('P1625: best guess, shown with the words it came from', () => {
     ['Dropbox users store files', 'canvas for dropbox', 'give me the canvas for dropbox', false],
     ['They are angry', 'were they angry', 'were they angry', false],
     ['They are angry', 'they stopped being angry', 'they stopped being angry', false],
+    ['Customers are angry', 'are they angry', 'so are they angry', false],
+    ['Customers are angry', 'are they angry', 'just wondering are they angry', false],
+    ['Dropbox users lose files', 'model for Dropbox', 'lean model for Dropbox', false],
+    ['Dropbox users lose files', 'describe Dropbox', 'describe Dropbox', false],
+    ['Airbnb guests want cheap rooms', 'show me Airbnb', 'show me Airbnb', false],
+    ['Stripe users face high fees', 'about Stripe', 'tell me about Stripe', false],
+    ['Stripe customers', 'analyze Stripe', 'analyze Stripe', false],
+    ['Airbnb users', 'research Airbnb', 'research Airbnb', false],
+    ['Today Airbnb customers', 'show me Airbnb', 'show me Airbnb', false],
     // nothing meaningful shared, or not typed by the owner
     ['Customers', 'customers love us', 'customers love us', false],
     ['Customers are angry', 'customers love us', 'customers love us', false],
@@ -94,7 +103,7 @@ describe('P1625: a guess is told or not added', () => {
     expect(out.actions.filter((a) => a.action !== 'keep')).toEqual([]);
   });
   it('a word the owner typed may carry a capital', () => {
-    expect(scoped([add('They use Dropbox', 'dropbox is down')], 'dropbox is down').guessed).toHaveLength(1);
+    expect(scoped([add('They use Dropbox', 'dropbox is down')], 'they use it and dropbox is down').guessed).toHaveLength(1);
   });
   it('separate messages are not one sentence: the real thread adds the point', () => {
     const items = [
@@ -104,15 +113,26 @@ describe('P1625: a guess is told or not added', () => {
     const out = parseDraft(response([add('Today customers are angry.', QUOTE)]), { material: { items, tokens: 0, truncated: false }, basePoints: [], baseLabel: null, otherNames: [], scope: ['canvas:problem'] } as never) as unknown as { guessed: unknown[] };
     expect(out.guessed).toHaveLength(1);
   });
-  it('a statement too long to show whole is not a guess', () => {
-    const long = `Customers are angry ${'about the long delays '.repeat(4)}`.trim();
-    expect(scoped([add(long, 'they are angry')], 'they are angry').guessed).toEqual([]);
+  it('a long guess is shown whole, never cut', () => {
+    const long = 'Today office workers are angry; they want juice, but the machines are far away from their desks.';
+    const out = scoped([add(long, 'they are angry')], 'I sell juice to office workers. They want juice, the machines are far away from their desks.\n\nthey are angry') as unknown as { guessed: Array<{ statement: string }> };
+    expect(out.guessed[0]?.statement).toBe(long);
   });
   it('a refused point already on the canvas is not reported as dropped', () => {
     const base = [{ id: 'a1', box: 'canvas:problem', statement: 'Customers want refunds' }];
     const out = scoped([{ action: 'new', box: 'canvas:problem', statement: 'Customers want refunds', quote: 'a quote nobody wrote at all' }], 'they want refunds', base) as unknown as { droppedPoints: string[]; droppedUnverified: number };
     expect(out.droppedPoints).toEqual([]);
     expect(out.droppedUnverified).toBe(0);
+  });
+  it('a guess never rewrites an existing point: it would replace it silently', () => {
+    const base = [{ id: 'a1', box: 'canvas:problem', statement: 'Customers are thirsty all day' }];
+    const out = scoped([{ action: 'reword', point_id: 'a1', box: 'canvas:problem', statement: 'Customers are angry', quote: 'they are angry' }], 'they are angry', base);
+    expect(out.actions.some((a) => a.action === 'reword')).toBe(false);
+  });
+  it('words already on the canvas count as known; the real later run adds the point', () => {
+    const base = [{ id: 'a1', box: 'canvas:problem', statement: 'Today office workers are thirsty' }];
+    const out = scoped([add('Today office workers are angry.', 'they are angry')], 'they are angry', base);
+    expect(out.guessed).toHaveLength(1);
   });
   it('a repeat is told once', () => {
     expect(scoped([add('Customers are angry', 'they are angry'), add('Customers are angry', 'they are angry')], 'they are angry').guessed).toHaveLength(1);

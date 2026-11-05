@@ -3,6 +3,7 @@
  * Pure: no Deno or esm.sh imports.
  */
 
+import { MAX_STATEMENT_CHARS } from './canvas-draft.ts';
 import { cleanFreeText, normalizeForQuote, quoteIsOwnerSourced } from './canvas-source.ts';
 import { isFramingWord, isGenericWord, isPlainGuess, numbersSupported, sharesWords } from './canvas-support.ts';
 import type { BasePoint, Guessed, ResolvedAction } from './canvas-types.ts';
@@ -11,7 +12,7 @@ export type Guess = Guessed & { raw: string };
 export interface OwnerWords { namesOther: (text: string) => boolean; ownerTyped: string }
 interface Written { actions: ResolvedAction[] }
 interface VetAcc { droppedUnverified: number; droppedNames: number; droppedPoints: string[]; guesses: Guess[] }
-interface VetCtx extends OwnerWords { haystack: string; numbers: ReadonlySet<string> }
+interface VetCtx extends OwnerWords { ownCanvas: string; haystack: string; numbers: ReadonlySet<string> }
 
 const REVENUE = 'canvas:revenue';
 
@@ -38,7 +39,7 @@ export function guessIsShowable(statement: string, quote: string, ctx: OwnerWord
   const typed = new Set(ctx.ownerTyped.toLowerCase().split(/[^\p{L}\p{N}]+/u));
   const split = (t: string) => t.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   const shown = cleanFreeText(quote, 80);
-  if (statement.length > 80 || !shown || ctx.namesOther(shown) || LINK_SHAPE.test(statement) || LINK_SHAPE.test(shown)) return false;
+  if (!shown || ctx.namesOther(shown) || LINK_SHAPE.test(statement) || LINK_SHAPE.test(shown)) return false;
   return split(shown).every((w) => typed.has(w.toLowerCase()))
     && split(statement).every((w, i) => !/\p{Lu}|[^\p{Script=Latin}\p{N}]/u.test(w) || typed.has(w.toLowerCase()) || isFramingWord(w) || (i === 0 && /^(the|our|their|most)$/i.test(w)));
 }
@@ -77,7 +78,7 @@ export function vetEvidence(acc: VetAcc, ctx: VetCtx, a: Record<string, unknown>
   const quote = String(a.quote);
   if (!numbersSupported([statement], ctx.numbers)) { refuseUnverified(acc, ctx, statement); return false; }
   if (sharesWords(statement, quote)) return true;
-  if (a.box === REVENUE || !isPlainGuess(statement, quote, ctx.ownerTyped) || !guessIsShowable(statement, quote, ctx)) { refuseUnverified(acc, ctx, statement); return false; }
-  acc.guesses.push({ box: String(a.box), statement: cleanFreeText(statement, 80), quote: cleanFreeText(quote, 80), raw: statement });
+  if (a.box === REVENUE || a.action !== 'new' || !isPlainGuess(statement, quote, ctx.ownerTyped, ctx.ownCanvas) || !guessIsShowable(statement, quote, ctx)) { refuseUnverified(acc, ctx, statement); return false; }
+  acc.guesses.push({ box: String(a.box), statement: cleanFreeText(statement, MAX_STATEMENT_CHARS), quote: cleanFreeText(quote, 80), raw: statement });
   return true;
 }
