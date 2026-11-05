@@ -99,15 +99,28 @@ else
     echo "FATAL: scripts/lib/run-quiet.sh is missing — every check below runs through it." >&2
     exit 1
 fi
+# P1635: the Tests step (related tests vs the full suite). Same directory as run-quiet.sh, for the
+# same reason: the hook is a symlink to main's copy, so a worktree-root lookup would miss it.
+PRECOMMIT_TESTS_LIB="$(dirname "$RUN_QUIET_LIB")/precommit-tests.sh"
+if [ -f "$PRECOMMIT_TESTS_LIB" ]; then
+    # shellcheck source=scripts/lib/precommit-tests.sh
+    . "$PRECOMMIT_TESTS_LIB"
+else
+    echo "FATAL: scripts/lib/precommit-tests.sh is missing — the Tests step runs through it." >&2
+    exit 1
+fi
 
 # T10 (P786): Compute build-affecting staged files once.
 # Sections 1 (TypeScript), 3 (Build), and 4 (Tests) are gated behind this.
 # Docs-only commits (features/, docs/, .claude/) skip all three.
 # Whitelist: TS/JS source, package.json, *.config.*, lockfiles, public/ assets,
-# vercel.json (CSP/headers — a CSP-only edit still runs the unit suite, so the
-# P805/P863/P865 canaries catch a *known* allowlist host being dropped locally).
+# vercel.json (CSP/headers — a CSP-only edit still runs the FULL unit suite (P1635: a file with no
+# import edge to any test is never narrowed to related tests), so the P805/P863/P865 canaries catch
+# a *known* allowlist host being dropped locally).
+# One definition: the Tests step (scripts/lib/precommit-tests.sh) classifies staged files with it too.
+BUILD_AFFECTING_RE='\.(ts|tsx|js|jsx)$|^package\.json$|tsconfig.*\.json$|\.config\.(ts|js|mjs|cjs)$|\.lock$|^package-lock\.json$|^deno\.lock$|^public/|^vercel\.json$'
 BUILD_AFFECTING=$(git diff --cached --name-only | \
-  grep -E '\.(ts|tsx|js|jsx)$|^package\.json$|tsconfig.*\.json$|\.config\.(ts|js|mjs|cjs)$|\.lock$|^package-lock\.json$|^deno\.lock$|^public/|^vercel\.json$' \
+  grep -E "$BUILD_AFFECTING_RE" \
   || true)
 
 # 1. TypeScript Check (P861) — gate on the undeclared-identifier class (TS2304/
@@ -211,9 +224,14 @@ else
     echo -e ">>> Build... ${GREEN}skipped (no build-affecting files staged)${NC}"
 fi
 
-# 4. Tests
+# 4. Tests (P1635) — `vitest related` over the staged src files plus every test that reads files
+#    from disk, or the FULL suite when a staged file has no import edge to a test (vercel.json,
+#    lockfiles, config, scripts/, deletions, renames ...). Every run is worker-capped, and the
+#    count of test files that ran is printed OUTSIDE run_quiet. The full suite for the exact SHAs
+#    that land runs in CI on the staging hop (.github/workflows/test.yml, staging/**).
+#    Rules, reasons and guarantees: scripts/lib/precommit-tests.sh.
 if [ -n "$BUILD_AFFECTING" ]; then
-    if ! run_quiet "Tests" npm test; then
+    if ! pct_run_tests "$(git rev-parse --show-toplevel)" "$BUILD_AFFECTING_RE"; then
         ERRORS=$((ERRORS + 1))
     fi
 else
@@ -230,7 +248,8 @@ fi
 # BRANCH_PNUM is empty, which made every pN canary look like a "different
 # feature" edit and structurally blocked it. The guard still skips on non-feature
 # branches for that reason. (2026-09-08: /reproduce no longer commits VITEST
-# canaries to main — the Tests step above runs the whole suite on any staged
+# canaries to main — the Tests step above runs the whole suite (P1635: or, for a staged src/tests
+# canary, at minimum that canary itself, which `vitest related` always selects) on any staged
 # build-affecting file, so a deliberately-red src/tests canary can never land
 # there; it rides the fix branch instead, per decisions.md 2026-06-27. E2E specs
 # are excluded from that run and still commit to main. This guard is unaffected
@@ -550,6 +569,32 @@ if [ -n "$INDEX_GUARD_STAGED" ] && [ -f "scripts/test-index-integrity-guard.sh" 
     fi
 else
     echo ">>> Index-integrity guard canary skipped (guard not staged)"
+fi
+echo ""
+
+# 4.6b. Tests-step canary (P1635) — runs when the Tests step, its library, run_quiet or the canary
+# itself is staged. Proves the related-tests selection still falls back to the FULL suite for every
+# file with no import edge to a test, still lets an ordinary src edit through as related, caps every
+# run's workers, and prints the count of test files that ran outside run_quiet. Fast path only (stub
+# runner, no real vitest); the real-vitest proofs are `--real`, by hand. Raw listing, not
+# $STAGED_FILES, so a staged DELETION of the library or its canary is an error and not a skip (the
+# index-integrity block above spells out why).
+PCT_RAW=$(git diff --cached --name-only 2>/dev/null || true)
+PCT_STAGED=$(echo "$PCT_RAW" | grep -E '^scripts/(pre-commit-checks|test-p1635-precommit-tests|test-p1635-real)\.sh$|^scripts/lib/(precommit-tests|run-quiet)\.sh$' || true)
+PCT_DELETED=$(git diff --cached --name-only --diff-filter=D 2>/dev/null \
+    | grep -E '^scripts/(test-p1635-precommit-tests|lib/precommit-tests)\.sh$' || true)
+if [ -n "$PCT_DELETED" ]; then
+    echo -e "${RED}✗ Removing the Tests-step library or its canary is not a silent operation:${NC}"
+    echo "$PCT_DELETED" | sed 's/^/    /'
+    echo -e "${YELLOW}  If this is deliberate, say so in the commit and remove this block too.${NC}"
+    ERRORS=$((ERRORS + 1))
+fi
+if [ -n "$PCT_STAGED" ] && [ -f "scripts/test-p1635-precommit-tests.sh" ]; then
+    if ! run_quiet "Tests-step canary (P1635)" bash scripts/test-p1635-precommit-tests.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Tests-step canary skipped (Tests step not staged)"
 fi
 echo ""
 
