@@ -6,8 +6,8 @@ workstream: clarity-chat
 created_date: '2026-11-05'
 tags: [mirror-agent, context, cost, privacy]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -109,7 +109,7 @@ The P1615 invariants apply. In particular:
 - [x] When history is cut, the main-chat prompt states how many earlier messages were left out.
 - [x] Erasing a person named on a folded line clears answers built on it: erase before the lock pass, with a skipped copy row, after reservation, and on a restart with a changed fold state.
 - [x] The extended red-team suite passes on the changed prompt, with its positive control.
-- [ ] The privacy page matches what is stored. `[post-deploy]` re-read it on prod.
+- [x] The privacy page matches what is stored: the line in `privacy.md` states 100 and 720, the limits in `clarify_chat_message` (`20261104150000`).
 
 ## Cost Budget
 
@@ -142,6 +142,8 @@ Gemini 4 Argon and Codex (gpt-6.1-sol, low), 2 of 2 reports, 2026-11-05. Verdict
 **Set aside:** GLM's fold read before the lock pass: one decision per attempt is the contract, and refs still follow locked rows. A thread's `outside` trim states no count: the spec covers the main chat. Non-ISO snapshot times: server writers store real timestamps.
 
 **Known limits.** Names match exact words, so Russian case endings ("Алисы" for "Алиса") do not reopen a copy. Dates match in English and numeric forms; "version 4.11" can reopen a copy dated 4 Nov. A copy past the offer window cannot be reopened by name; search in step 3 owns that. Prod's database locale is unchecked; the Cyrillic test ran on test's `en_US.UTF-8`.
+
+**Post-deploy.** Re-read the Clarify paragraph on the live privacy page after the push, and check prod's database locale with the Cyrillic and Arabic tokens.
 
 **Ship order.** Deploy functions before the migration. Old edge code drops the folded item, so a folded copy would vanish with no "not shown" line.
 
