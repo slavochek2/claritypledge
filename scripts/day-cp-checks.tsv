@@ -46,6 +46,7 @@ cp.quota	cp.w2q	Supabase free-plan usage	Database	high	supabase
 cp.tokens	cp.w2q	Supabase access keys: expiry and full-access	Keys	high	supabase	
 cp.sentry	cp.w2s	Sentry errors	Product errors	high	sentry
 cp.mixpanel	cp.w2b	User analytics	Product errors	normal	mixpanel
+cp.analytics	cp.w2b	Weekly product read	Product errors	normal
 cp.baseline	cp.w3	Tests and lint	Code	normal
 cp.ops	cp.w3	Ops alerts (GitHub)	Servers & blog	normal		yes
 cp.rls	cp.w3	Database access rules	Database	high		yes

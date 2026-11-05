@@ -1079,6 +1079,17 @@ USER INTELLIGENCE (since last /day)
 "$DAY_STEP" attest cp.w2b --evidence "what the Mixpanel queries returned — counts, not that you ran them"
 ```
 
+**Weekly product read (P1640).** This only reads what `/weekly` step 2.9.0 wrote, so it makes no Mixpanel call:
+```bash
+if [ -f tools/kanban/scripts/weekly-analytics.ts ]; then
+  A=$(cd tools/kanban && npx tsx scripts/weekly-analytics.ts --check 2>&1); RC=$?
+  [ "$RC" -eq 0 ] && S=ok || S=problem
+  "$DAY_STEP" check cp.analytics "$S" --detail "$(printf '%s' "$A" | tr -d '<>|' | cut -c1-80)" --step cp.w2b
+else
+  "$DAY_STEP" check cp.analytics not-run --detail "weekly read script not on this checkout" --step cp.w2b
+fi
+```
+
 #### Wave 2c: Signup Intel (WebSearch — after Wave 2, only if new real-user signups exist)
 
 For each new real-user signup (non-founder, non-test, max 10), run one WebSearch:

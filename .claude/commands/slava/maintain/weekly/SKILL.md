@@ -477,6 +477,36 @@ This handles: Mixpanel session check → login if needed → Supabase user healt
 
 ---
 
+### 2.9.0 Weekly Product Read (P1640; runs every /weekly, however few users there were)
+
+Fills the Analytics tab on the Day page. Query Mixpanel project `3968494` through `mcp__mixpanel__Run-Query`, and run the fixed list below for two absolute windows: the last 7 days and the 7 before. Filter every query with `is_automation` boolean `false` (absent counts as false; checked 2026-11-05: filtered + tagged = total). Anonymous events carry no `is_internal`, and third-party bots that hide webdriver are not caught, so these are not yet proven real visitors.
+
+| Section | Metrics |
+|---|---|
+| `who` | `$mp_web_page_view` unique, broken down by `$initial_referring_domain`, and by landing page |
+| `what` | `event_rsvp_initiated`, `event_rsvp_completed` unique; `path` breakdown |
+| `time` | Session length median and p75, labelled "open time, not attention" |
+| `returns` | Retention on `$mp_web_page_view` at 7 days, plus signed-in returners from the read-only prod helper (names go only in `~/.claude-analytics/`) |
+| `explore` | `$mp_web_page_view` total and sessions |
+| `stuck` | `$mp_dead_click`, `$mp_rage_click`, `not_found_page_viewed`, `auth_callback_failed`, `signup_magic_link_error`, `login_magic_link_error` totals. Each non-zero one also goes in `failures` |
+| `practice` | `live_meeting_page_view`, `live_session_created`, `live_session_joined`, `live_prove_started`, `live_rating_submitted` unique |
+
+Rules:
+- A metric missing from the response is `null` with a note, never `0`. Mixpanel returns zeros or drops the row for an unknown name, so confirm the name with `Get-Events` (`active_only: false`) before writing a real zero.
+- `previous` is `null` when its window starts before `clean_data_since` (`2026-11-06`). Do not rebuild older data.
+- `reconciled` stays `false` on every section until the P1640 follow-up spec passes.
+- Links are opaque. Never open or describe a replay.
+
+Write the JSON to a temp file (shape: `RawRead` in `tools/kanban/src/lib/weeklyRead.ts`), then:
+
+```bash
+(cd tools/kanban && npx tsx scripts/weekly-analytics.ts --input "$RAW")
+```
+
+**If the Mixpanel MCP is unavailable or a query errors,** there is no bash fallback for these reports. Write `{"date":"<today>","status":"not-collected","reason":"<what failed>"}` as the input and run the same command, which exits 3. Report it and continue /weekly. The next /day shows it through `cp.analytics`.
+
+---
+
 ### 2.9.1 Mixpanel Event Audit (subagent, runs in background — parallel with 2.8)
 
 Spawn a subagent (`model: "sonnet"`) in background while you continue to step 3.
