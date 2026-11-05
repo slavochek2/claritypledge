@@ -78,6 +78,7 @@ Last updated: 2026-11-05
 - **P1546** (Oct 26) Threads in every chat — no RLS change needed (per-conversation read); any thread copy must drop mirror agent answers
 - **P1576** (Oct 26) Chat mic dictation and voice notes — server-side trigger races direct test calls; pin migration-order tests to a base, not the tail.
 - **P1590** (Oct 26) Chat mic icons — blue mic = voice note, grey wave+"Aa" = dictation; mock in the real composer box before judging, an outside-the-box sketch misled.
+- **P1624** (Nov 26) A transcript in chat looks like a transcript — add a people-only count; filtering `reply_count` removes the way into other threads.
 
 ## Clarity Docs
 

@@ -33,7 +33,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** `get_thread_stats` keeps `reply_count` and `recent_author_ids` unchanged and adds `people_reply_count` and `people_author_ids`. Only the session row reads the new values. A mirror agent's reply counts, and the count does not depend on `author_id`. Session fields travel on the message as `sessionRoot`, because `body` is already a formatted title once mapped. On a session root, a person's reply or a delete marks older in-flight stats reads as out of date, and a visible tab re-reads.
 **Alternatives rejected:** Filtering `reply_count` everywhere (breaks the way into other threads). Detecting a session from `body` at the row (it is formatted by then). A boolean to ignore the click that ends a long press (it could stay set and swallow a later keyboard press, so it is a time window now).
 **Consequences:** The stale-read guard covers session roots only. Other threads keep the older race on `reply_count`, and a hidden tab still re-reads on a delete. A new client against an old server shows no count on the row and still opens it.
-**References:** [p1624](../features/p1624_transcript_row_in_chat.md)
+**References:** [p1624](../features/done/2026-06-10/p1624_transcript_row_in_chat.md)
 
 ## 2026-11-05 [technical]: A function's deploy record covers everything it bundles, and a deploy stamps only what it deployed (P1620)
 
