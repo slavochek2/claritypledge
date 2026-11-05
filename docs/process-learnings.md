@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 294
+**Next ID:** 296
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3575,5 +3575,16 @@ A new scenario in scripts/test-git-ops-ship.sh that reuses a P-number a later sc
 **due:** month
 
 Re-run the keyword count of founder-typed review and build-roster asks for the 30 days after P1634 ships. Below 2 a day confirms it; otherwise read which asks remain and say why. Also record the result against P1505's falsifier, whose own 30-day window ends first. Done when the number and the reading are recorded here.
+
+---
+
+## Privacy scanner blocks deleting a staging branch after every push
+
+**ID:** INBOX-295
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+Layer 1 of scripts/pre-push-checks.sh handles an all-zero remote SHA but not an all-zero local SHA, so a branch delete scans an unreadable range, exits 3 and is refused. Seen 2026-11-05 at the push-docs cleanup step, which left staging/doc-4af0e39e4 on origin; the fail-closed input handling arrived in P1623. Done when a delete passes with a canary, and that branch is deleted. Drop if push-docs stops using staging branches.
 
 ---
