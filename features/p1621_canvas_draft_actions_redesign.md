@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 97
 workstream: canvas
@@ -147,30 +147,30 @@ Defaults built, each easy to change: (1) no open draft means no hand-written car
 
 ## Acceptance Criteria
 
-- [ ] At rest on an owner's draft, no box shows Edit, Open, Add card or Mention in chat
-- [ ] First visit opens the first box with a card; a later visit starts with none selected
-- [ ] Clicking any non-control area of a box selects it, including the row beside See all
-- [ ] Only one box is selected; clicking it again or outside deselects it
-- [ ] On a draft, a selected filled box shows Mention in chat top right and Edit then Open on the card, with Add card bottom left when it holds under 3 and no run is going, and See all N bottom right when it holds more than 1
-- [ ] Selecting an empty box focuses a text field, with the question visible, Save and Cancel
-- [ ] Typed text survives clicking away and selecting another box
-- [ ] See all N shows every card in one click, keeps the selection, and Show less collapses it
-- [ ] An owner adds a card by hand, it stays after reload, and a published version is unchanged
-- [ ] At 3 cards a box says it is full, with no dead button; two simultaneous saves cannot make a 4th
-- [ ] A save whose answer was lost and is repeated with the same client id makes one card; a box that fills while typing keeps the text and says so
-- [ ] Saving a card expands the box to show it; a published draft includes the hand card
-- [ ] Editing from the opened point keeps the panel open on the new point
-- [ ] Pills survive a reload and a failed send, and a voice note carries them
-- [ ] Open still opens the panel on desktop and the sheet on phones
-- [ ] The owner sees Add a story on their own point with no position taken, except a point kept from a published version, and can save it as public and as private; a reader's rule is unchanged
-- [ ] The owner can Edit from the opened point on a draft
-- [ ] Layer names and numbers are gone; boxes read in the approved order, on the page and with Previous/Next
-- [ ] Mention in chat confirms on the button; a repeat click adds no second pill; two boxes give two removable pills and the message sends with both
-- [ ] On a phone, Mention in chat shows the thread with the pill in it, and the box reads Mentioned on returning to the canvas
-- [ ] Undo has the blue outline; the upload icon has a tooltip and accessible name
-- [ ] A reader sees none of the owner actions
-- [ ] By keyboard alone: a box can be selected and deselected, and Edit, Open, Add card, See all, Show less, Mention in chat, Save and Cancel all work, with visible focus and focus never lost to the page
-- [ ] Long text, 0 cards and 3 cards hold at 320px, 375px and desktop, with every control at least 40px tall
+- [x] At rest on an owner's draft, no box shows Edit, Open, Add card or Mention in chat
+- [x] First visit opens the first box with a card; a later visit starts with none selected
+- [x] Clicking any non-control area of a box selects it, including the row beside See all
+- [x] Only one box is selected; clicking it again or outside deselects it
+- [x] On a draft, a selected filled box shows Mention in chat top right and Edit then Open on the card, with Add card bottom left when it holds under 3 and no run is going, and See all N bottom right when it holds more than 1
+- [x] Selecting an empty box focuses a text field, with the question visible, Save and Cancel
+- [x] Typed text survives clicking away and selecting another box
+- [x] See all N shows every card in one click, keeps the selection, and Show less collapses it
+- [x] An owner adds a card by hand, it stays after reload, and a published version is unchanged
+- [x] At 3 cards a box says it is full, with no dead button; two simultaneous saves cannot make a 4th
+- [x] A save whose answer was lost and is repeated with the same client id makes one card; a box that fills while typing keeps the text and says so
+- [x] Saving a card expands the box to show it; a published draft includes the hand card
+- [x] Editing from the opened point keeps the panel open on the new point
+- [x] Pills survive a reload and a failed send, and a voice note carries them
+- [x] Open still opens the panel on desktop and the sheet on phones
+- [x] The owner sees Add a story on their own point with no position taken, except a point kept from a published version, and can save it as public and as private; a reader's rule is unchanged
+- [x] The owner can Edit from the opened point on a draft
+- [x] Layer names and numbers are gone; boxes read in the approved order, on the page and with Previous/Next
+- [x] Mention in chat confirms on the button; a repeat click adds no second pill; two boxes give two removable pills and the message sends with both
+- [x] On a phone, Mention in chat shows the thread with the pill in it, and the box reads Mentioned on returning to the canvas
+- [x] Undo has the blue outline; the upload icon has a tooltip and accessible name
+- [x] A reader sees none of the owner actions
+- [x] By keyboard alone: a box can be selected and deselected, and Edit, Open, Add card, See all, Show less, Mention in chat, Save and Cancel all work, with visible focus and focus never lost to the page
+- [x] Long text, 0 cards and 3 cards hold at 320px, 375px and desktop, with every control at least 40px tall
 
 ## Open Questions
 
