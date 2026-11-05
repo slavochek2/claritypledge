@@ -45,61 +45,76 @@ Blast radius: the canvas page for owners, and one new write path. Reversibility:
 
 Approved prototype: `/tree/canvas-actions?v=h`, branch `feature/p1621-canvas-action-variants`.
 
-- **At rest:** each box shows its title and icon, its first card or its question, and See all N when it has more than one card. See all opens all the cards in one click. One hint line sits above the grid.
-- **Selecting:** any box, empty or filled, can be selected by clicking it. Only one is selected at a time. Clicking it again or clicking outside any box deselects.
-- **Selected card:** Edit then Open at its bottom right, with icons.
-- **Selected box:** below the card, Add card on the left and Add to chat on the right, both with icons and labels at every width. This replaces P1613's icon-only Add to chat.
-- **Add card:** opens an editor in the box, with the box's question visible above the text field, then Save and Cancel. No model and no run: these are the owner's own words.
+- **At rest:** each box shows its title and icon and its first card or its question. A box with more than one card also shows See all N at its bottom right. No hint line and no dots.
+- **First visit:** the first time this person opens a draft in this browser, the first box with a card opens selected, which teaches selecting without text. On an empty canvas, Customer Segments opens with its editor. Recorded per user in browser storage; if storage is unavailable, nothing opens. Later visits start with nothing selected.
+- **Selecting:** clicking anywhere in a box that is not a control selects it. Only one is selected at a time. Clicking it again or clicking outside any box deselects. Desktop hover shows a light blue border.
+- **Selected filled box:** Mention in chat at the top right. On the first card, Edit then Open at its bottom right, with icons. Below the card, Add card at the left and See all N at the right.
+- **Selected empty box:** the editor opens straight away with the question visible above it, then Save and Cancel, and Mention in chat at the top right. There is no Add card step. Cancel closes it and deselects.
+- **Typed text:** clicking away or selecting another box never loses typed text. P1614's store is keyed by an existing point, so new cards need one buffer per draft and box. Returning to the box restores it; Cancel discards it.
+- **Add card:** the same editor in a filled box. Save writes a point with no model and no run: these are the owner's own words. The write is owner-checked, draft-only, validated (box, trimmed non-empty text, the point length limit), safe to retry, and follows P1614's handling of privacy, the ledger and the revision check. Like an edit, a save closes Undo for earlier runs (decisions.md 2026-11-05).
+- **Card limit:** 3 per box, the limit the agent already has, for hand-added cards too, enforced atomically on the server so simultaneous saves cannot pass it. A full box says so; Add card is absent, not disabled.
+- **Open:** unchanged, a side panel on desktop and a full-screen sheet on phones, with Details leading to the full page.
+- **Opened point:** the signed-in canvas owner can Add a story on their own point without taking a position first. The other conditions stay: stories loaded, no story of theirs yet, not a draft point kept from a published version (P1536). Inherited visibility and the audience note stay. The owner on a draft also gets Edit there. Readers are unchanged.
 - **Section names:** the three layer names and numbers are removed, with a gap between rows. Founder-approved.
 - **Box order (founder-approved):** Customer Segments, Problem, Solution; Offers & Pricing, Go-to-market strategy, My next milestone; My current biggest challenge, Hypotheses I've falsified, Guiding values. Display order only; points keep their boxes.
-- **Button weight:** Add card is the selected box's one secondary button (blue outline). Edit, Open, Add to chat and See all stay quiet grey.
-- **See all:** expands in place, up to the box's limit, and Show less collapses it.
-- **Composer:** a box added to chat is a pill above the text field with a remove control. Several boxes in one message stay possible. Typed `[Solution]` keeps working.
+- **Button weight:** all box and card actions are quiet grey with a hover state; Save is the only filled button in a box.
+- **See all (owner's draft only):** expands in place and selects the box, so every visible card shows Edit and Open; Show less collapses it. Readers and published versions keep today's side panel.
+- **Mention in chat (founder-approved name):** puts a pill in the composer. The founder found that the button itself gives no sign anything happened, and repeated clicks look dead, so the button reads "Mentioned" while that box's pill is in the composer (removing or sending the pill resets it), and a repeat click adds no second pill.
+- **Composer:** the pill sits above the text field with a remove control. Several different boxes in one message stay possible. Text someone types in brackets behaves as today.
 - **Undo:** the secondary blue-outline style (founder request).
-- **Upload icon:** tooltip and accessible name, understandable without hover.
+- **Upload icon:** tooltip on hover and focus, plus an accessible name.
 
-Hint line: "Tap a box to see what you can do." It goes away after first use (founder-approved).
+[FOUNDER DECISION: exact wording of the full-box message and of the "Mentioned" confirmation.]
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Owners miss actions hidden until selection | MITIGATE | Hint line; watch the founder's first real session. The founder has missed hidden actions before |
+| Owners miss actions hidden until selection | MITIGATE | First-visit open box and hover border; watch the founder's first real session. The founder has missed hidden actions before |
 | A row grows when a box is selected, moving the rows below | ACCEPT | Measured about 71px in the prototype; founder saw it and approved H |
-| On a phone, Add to chat gives no feedback with the chat off-screen | MITIGATE | Verify on the real route, and show the thread or a confirmation |
+| On a phone, Mention in chat gives no feedback with the chat off-screen | MITIGATE | Verify on the real route, and show the thread or a confirmation |
+| On a phone, tapping an empty box brings up the keyboard at once | ACCEPT | Founder asked for direct typing; Cancel backs out |
 | Selecting replaces "tap a card to open" for the owner | MITIGATE | Applies to the owner's draft only; readers keep the whole card opening |
-| A hand-added point during an agent run conflicts with the run | MITIGATE | Same busy handling as P1614's Edit |
+| A hand-added point during an agent run conflicts with the run | MITIGATE | Same busy handling as P1614's Edit, under the same lock as the limit check |
+| Save is a filled button alongside Publish | ACCEPT | P1614's editor already does this; it appears only while typing |
 
 **Non-Goals**
 - Do NOT change the quote check or the drop message; that is separate work.
 - Do NOT change what readers see.
 - Do NOT rename any box.
+- Do NOT change where Open appears (panel, sheet) or the reader's position-first story rule.
 - Do NOT change the mic button or box icons (reviewed, kept).
 
 ## Acceptance Criteria
 
-- [ ] At rest on an owner's draft, no box shows Edit, Open, Add card or Add to chat
-- [ ] An empty box and a filled box can each be selected, and only one at a time
-- [ ] Clicking a selected box, or outside any box, deselects it
-- [ ] A selected card shows Edit then Open at its bottom right; Add card is left and Add to chat right below it
-- [ ] See all N shows every card in one click
-- [ ] An owner adds a second card by hand, it stays after reload, and a published version is unchanged
-- [ ] The box question stays visible while typing a new card
-- [ ] Add to chat from two boxes shows two removable pills, and the message sends with both boxes
+- [ ] At rest on an owner's draft, no box shows Edit, Open, Add card or Mention in chat
+- [ ] First visit opens the first box with a card; a later visit starts with none selected
+- [ ] Clicking any non-control area of a box selects it, including the row beside See all
+- [ ] Only one box is selected; clicking it again or outside deselects it
+- [ ] A selected filled box shows Mention in chat top right, Edit then Open on the card, Add card bottom left, See all N bottom right
+- [ ] Selecting an empty box focuses a text field, with the question visible, Save and Cancel
+- [ ] Typed text survives clicking away and selecting another box
+- [ ] See all N shows every card in one click, keeps the selection, and Show less collapses it
+- [ ] An owner adds a card by hand, it stays after reload, and a published version is unchanged
+- [ ] At 3 cards a box says it is full, with no dead button; two simultaneous saves cannot make a 4th
+- [ ] Open still opens the panel on desktop and the sheet on phones
+- [ ] The owner sees Add a story on their own point with no position taken, except a point kept from a published version, and can save it as public and as private; a reader's rule is unchanged
+- [ ] The owner can Edit from the opened point on a draft
 - [ ] Layer names and numbers are gone; boxes read in the approved order, on the page and with Previous/Next
+- [ ] Mention in chat confirms on the button; a repeat click adds no second pill; two boxes give two removable pills and the message sends with both
+- [ ] On a phone, Mention in chat gives visible feedback when the chat is off-screen
 - [ ] Undo has the blue outline; the upload icon has a tooltip and accessible name
-- [ ] Add to chat on a phone gives visible feedback when the chat is off-screen
 - [ ] A reader sees none of the owner actions
-- [ ] Long text, 0 cards and many cards hold at 320px, 375px and desktop, with every control at least 40px tall
+- [ ] Long text, 0 cards and 3 cards hold at 320px, 375px and desktop, with every control at least 40px tall
 
 ## Open Questions
 
-1. The owner's published canvas shows Add to chat today (a tap starts a Clone, P1536 J4). Does selection apply there too? Default: yes for Add to chat only. UNVERIFIED against the real route.
-2. Adding a point needs a new write path. Not yet designed; P1614's edit RPC is the model. A hand-added point carries no quote and is not subject to the quote check.
+1. The owner's published canvas shows Add to chat today (a tap starts a Clone, P1536 J4). Does selection apply there too? Default: yes for Mention in chat only. UNVERIFIED against the real route.
+2. A hand-added a new write path. Not yet designed; P1614's edit RPC is the model. A hand-added point carries no quote and is not subject to the quote check.
 
 ## Alternatives Considered
 
-Seven prototypes, reviewed by Gemini Argon and Opus for attention. E (all actions always visible, 25 controls at rest) was the first pick and rejected for clutter. F (no cue at all) risks actions nobody finds. G (Add to chat as a composer picker) was read as "create a box". A `...` menu was rejected because the founder has already missed hidden actions.
+Eight prototypes (a hint line, dots and hover-only were also tried), reviewed by Gemini Argon and Opus for attention. E (all actions always visible, 25 controls at rest) was the first pick and rejected for clutter. F (no cue at all) risks actions nobody finds. G (Add to chat as a composer picker) was read as "create a box". A `...` menu was rejected because the founder has already missed hidden actions.
 
 ## Related
 
