@@ -11,6 +11,10 @@
 #   D5 delete plus that commit in one push is refused
 #   D6 delete of main is still refused
 #   D7 clean commit on a staging branch passes (gate 7c: a legitimate publish)
+#   D8 personal identifier on a NEW branch is refused (all-zero remote SHA)
+#   D9 personal identifier pushed to main is refused
+#   D10 embargoed spec on a non-delete ref is refused
+#   D11 unreadable range listed BEFORE a delete is refused
 set -uo pipefail
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE
 W="$(cd "$(dirname "$0")/.." && pwd)"
@@ -25,8 +29,9 @@ git config user.email c@example.com; git config user.name c; git config commit.g
 git checkout -q -B main "$(git -C "$W" rev-parse HEAD)" >/dev/null 2>&1
 git update-ref refs/remotes/origin/main HEAD
 base="$(git rev-parse HEAD)"
-# The hook under test is the working copy, so a fix is exercised before it is committed.
-cp "$W/scripts/pre-push-checks.sh" scripts/pre-push-checks.sh
+# The gate under test is the working copy, so a change is exercised before it is committed.
+# To see the unfixed behaviour, run this against a checkout holding the older hook.
+cp "$W/scripts/pre-push-checks.sh" "$W/scripts/audit-privacy.sh" "$W/scripts/check-disclosure.sh" scripts/
 
 git checkout -q -b leak
 mkdir -p docs
@@ -37,6 +42,10 @@ git checkout -q main
 git checkout -q -b clean
 printf 'nothing private\n' > docs/p1641-clean.md
 git add docs/p1641-clean.md; git commit -qm clean; clean="$(git rev-parse HEAD)"
+git checkout -q main
+git checkout -q -b embargo
+printf -- '---\nstatus: backlog\ntype: bug\nrank: 1\ndisclosure: embargo\n---\n# P99999: x\n' > features/p99999_x.md
+git add features/p99999_x.md; git commit -qm embargo; embargo="$(git rev-parse HEAD)"
 git checkout -q main
 
 DEL="(delete) $ZERO refs/heads/staging/doc-x $base"
@@ -55,7 +64,11 @@ check "D2 unreadable range on a non-delete ref is refused" "refs/heads/x $BAD re
 check "D3 delete plus unreadable range is refused" "$DEL\nrefs/heads/x $BAD refs/heads/staging/doc-y $base\n" 1 "$SCAN"
 check "D4 personal identifier on a non-delete ref is refused" "refs/heads/leak $leak refs/heads/staging/doc-x $base\n" 1 "$PII"
 check "D5 delete plus personal identifier is refused" "$DEL\nrefs/heads/leak $leak refs/heads/staging/doc-y $base\n" 1 "$PII"
-check "D6 delete of main is still refused" "(delete) $ZERO refs/heads/main $base\n" 1 ""
+check "D6 delete of main is still refused" "(delete) $ZERO refs/heads/main $base\n" 1 "PRIVACY GATE: force-push detected"
 check "D7 clean commit on a staging branch passes" "refs/heads/clean $clean refs/heads/staging/doc-x $base\n" 0 ""
+check "D8 personal identifier on a new branch is refused" "refs/heads/leak $leak refs/heads/staging/doc-new $ZERO\n" 1 "$PII"
+check "D9 personal identifier pushed to main is refused" "refs/heads/leak $leak refs/heads/main $base\n" 1 "$PII"
+check "D10 embargoed spec on a non-delete ref is refused" "refs/heads/embargo $embargo refs/heads/staging/doc-x $base\n" 1 "sensitive spec content"
+check "D11 unreadable range before a delete is refused" "refs/heads/x $BAD refs/heads/staging/doc-y $base\n$DEL\n" 1 "$SCAN"
 
 (( FAIL == 0 )) && echo "RESULT: all passed" || { echo "RESULT: $FAIL failure(s)"; exit 1; }

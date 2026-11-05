@@ -22,7 +22,7 @@ reproduce_artifact:
   reproduced_at: 2026-11-05
 ---
 
-# P1641: Privacy scan refuses branch deletes, so staging branches leak and push recovery dies
+# P1641: Privacy scan refuses branch deletes, so staging branches pile up and push recovery dies
 
 ## Summary
 
