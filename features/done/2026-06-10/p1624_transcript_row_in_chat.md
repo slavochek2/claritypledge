@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -13,13 +13,13 @@ tags:
   - clarity-chat
 created_date: '2026-11-05'
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [change-request, dev, ship]
+completed_at: 2026-11-05
 ---
 
 # P1624: A transcript in chat looks like a transcript
 
-> **Redesign of:** [P1604: Transcription belongs to a chat](done/2026-06-10/p1604_transcription_belongs_to_a_chat.md)
+> **Redesign of:** [P1604: Transcription belongs to a chat](p1604_transcription_belongs_to_a_chat.md)
 > **What was wrong:** A session's thread root renders as a bold title with no author, and the only way in is "1 reply". That count is transcript text the system posted, attributed to the speaker, so it reads as a person replying to nobody and hides what the row actually is.
 
 ## Operating Mode
