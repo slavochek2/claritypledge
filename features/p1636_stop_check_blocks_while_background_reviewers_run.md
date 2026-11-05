@@ -15,7 +15,7 @@ delivery_stage: create-bug
 pipeline_ran: [create-bug]
 ---
 
-# 1636: The review-gate stop check keeps blocking while background reviewers are still running
+# P1636: The review-gate stop check keeps blocking while background reviewers are still running
 
 ## Summary
 

@@ -15,7 +15,7 @@ delivery_stage: create-bug
 pipeline_ran: [create-bug]
 ---
 
-# 1636: A ship that times out on the main lock leaves its journal, so the retry stops
+# P1637: A ship that times out on the main lock leaves its journal, so the retry stops
 
 ## Summary
 
