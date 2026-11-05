@@ -1606,10 +1606,12 @@ closed but not moved, an unfinished ship). P1468 dropped the `BRANCHES` block, w
 board's daily `branches` note. What is left here is the tidy pass and the stash check.
 
 **4b. Tidy pass:** removes only worktrees and branches `git-ops tidy` can prove finished, and logs each
-removal for recovery. It never touches a live, held or unproven item, and its ASK lines are report-only.
+removal for recovery. It never touches a live, held or unproven item. A non-zero exit is a failed step:
+report it. Copy each `ASK` line it prints into the report as a one-line question; ASK items are never
+removed here.
 ```bash
 "$DAY_STEP" run cp.tidy <<'STEP'
-./scripts/git-ops.sh tidy --apply 2>&1 | cut -c1-200 || true
+./scripts/git-ops.sh tidy --apply 2>&1
 STEP
 ```
 
