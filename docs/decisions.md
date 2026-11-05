@@ -9,6 +9,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-05 [technical]: Commits run related tests; the full suite moves to the staging hop (P1635)
+
+**Context:** Every commit touching build-affecting files ran the full unit suite, with no limit on how many ran at once. Load reached 122 on 11 cores. Measured on three concurrent commits: 31 test workers at peak and 528 s, with tests about 94% of heavy-step CPU. CI did not run on `staging/**`, so a landing got no full run before reaching `main`.
+**Decision:** The hook runs `vitest related` on staged files plus every test that reads files or runs commands (derived at run time), capped at 3 workers, and prints the count. Any staged path outside `src/` that is not docs runs the full suite. `test.yml` runs on `staging/**`, and promotion waits up to 15 minutes to print the unit job's result without refusing. Same workload after: 9 workers at peak and 379 s.
+**Alternatives rejected:** A queue that keeps the full suite per commit: the last of 6 commits would wait about 5 suite runs while holding `main.lock`. `vitest --changed`: it reads the working tree, so a co-tenant's file widens the selection. A worker cap alone: total processes still grow with sessions.
+**Consequences:** A break in another area is caught at the staging hop, not at the commit. A commit still runs 230 to 370 of about 973 test files. The unit job must not become a required check until the p1607 tests that fail on CI are fixed; they were red on `main` before this change. A commit of only `scripts/*.sh` or `.mjs` still skips the Tests step. The cherry-pick claim in the 2026-10-02 (P1347) and P1207 landing entries is disputed: on git 2.54 in scratch repos a clean cherry-pick did not fire the hook, while a conflicted one's `--continue` did. This was not re-measured on a real ship.
+**References:** [p1635](../features/done/2026-06-10/p1635_precommit_suite_contention.md)
+
 ## 2026-11-05 [product]: Joining a group has one decision, and nobody joins without learning (P1549)
 
 **Context:** "Join as member" went straight to the terms. Reusing the event learning unchanged put an opt-in to the Clarity Meeting Principle before a differently named Clarity Group Terms, so people decided twice and the first answer changed nothing.

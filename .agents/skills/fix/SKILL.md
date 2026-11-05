@@ -215,7 +215,7 @@ After worktree setup (so CWD resolves to the correct branch):
    - Read the `test_file` path — verify the canary test file exists on this branch.
    - **A missing `src/tests/pN-*.test.ts(x)` canary is the normal handoff, not a fault.**
      `/reproduce` leaves a vitest canary uncommitted in the main checkout's working tree, because
-     a deliberately-failing test cannot be committed to `main` (staging it runs the full suite —
+     a deliberately-failing test cannot be committed to `main` (staging it runs that test at pre-commit —
      see `/reproduce` Phase 0.0, and decisions.md 2026-06-27). Copy it from the main checkout into
      this worktree at the same path, then continue; it lands in your fix commit, red-before/
      green-after in one branch history. An `e2e/pN-*.spec.ts` canary IS committed to main and
