@@ -13,6 +13,8 @@ The flow binds the receipt to that exact content:
 `write` refuses (exit 1) when:
   - no evidence file is a successful ask-model run (first line `ASK-MODEL: ... verified=served|
     accepted-only ... exit=0`) written AFTER the snapshot — an old output on disk does not count;
+  - none of those valid runs comes from gemini or codex (P1630): openrouter and local runs count
+    only alongside one. The vendor is the FIRST field of the header line, nothing else;
   - any file changed since the snapshot. A fix applied after a review is unreviewed code:
     re-snapshot and re-review it (the 2026-10-14 stopping rule caps that at one extra round);
   - nothing would be recorded.
@@ -38,6 +40,9 @@ import time
 RECEIPTS_NAME = ".review-receipts"
 SNAPSHOT_DIR = ".review-snapshots"
 EVIDENCE_RE = re.compile(r"^ASK-MODEL: .*verified=(served|accepted-only)\b.*\bexit=0\s*$")
+VENDOR_RE = re.compile(r"^ASK-MODEL: vendor=(\S+)")
+# At least one valid evidence run must come from one of these (P1630). Other vendors are extra.
+FLOOR_VENDORS = {"gemini", "codex"}
 DELETED = "deleted"
 _GIT_ENV_DROP = ("GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE", "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR")
 
@@ -233,6 +238,18 @@ def _valid_evidence(path, not_before):
     return bool(EVIDENCE_RE.match(first.rstrip("\n")))
 
 
+def _vendor(path):
+    """Vendor of a valid evidence file, read from the FIRST field of the first line only
+    (a vendor= string later in the line, e.g. inside requested=, never counts)."""
+    try:
+        with open(path, errors="replace") as f:
+            first = f.readline()
+    except Exception:
+        return None
+    m = VENDOR_RE.match(first.rstrip("\n"))
+    return m.group(1) if m else None
+
+
 def cmd_write(argv):
     snap, evidence, i = None, [], 0
     while i < len(argv):
@@ -262,6 +279,12 @@ def cmd_write(argv):
               "the snapshot. Run the external reviewer on the snapshotted files, then pass its output.",
               file=sys.stderr)
         return 1
+    vendors = {v for v in (_vendor(e) for e in good) if v}
+    if not vendors & FLOOR_VENDORS:
+        print("review_receipt: REFUSED — at least one valid evidence run must come from gemini or codex "
+              "(valid vendors seen: " + (", ".join(sorted(vendors)) or "none") + "). "
+              "openrouter and local runs count only alongside one.", file=sys.stderr)
+        return 1
     changed, total = [], 0
     for _rf, m in body.get("groups", {}).items():
         for rel, (path, h) in m.items():
@@ -281,7 +304,8 @@ def cmd_write(argv):
             ev_hashes.append(hashlib.sha256(f.read()).hexdigest()[:16])
     for rf, m in body["groups"].items():
         _append(rf, {"ts": _now(), "files": {rel: v[1] for rel, v in m.items()},
-                     "snapshot": os.path.basename(snap), "evidence": ev_hashes})
+                     "snapshot": os.path.basename(snap), "evidence": ev_hashes,
+                     "vendors": sorted(vendors)})
     print(f"review_receipt: recorded {total} file(s); evidence: {len(good)} of {len(evidence)} valid")
     return 0
 

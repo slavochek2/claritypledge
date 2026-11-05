@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 100
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [finish, review, receipt, openrouter, reviewers]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high

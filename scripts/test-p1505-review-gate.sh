@@ -197,6 +197,49 @@ echo "export const b = 6" > "$REPO/src/b.ts"
 T34="$TMP/q5.jsonl"; transcript "$T34" "$(edit_of "$REPO/src/b.ts")" "$(say 'Done, want me to commit?')"
 check "'Done, want me to commit?' still counts as completion" 2 "$(rc run_hook "$T34")"
 
+echo "[P1630] vendor floor: at least one valid run must come from gemini or codex"
+# Dedicated file so these cases never disturb the latest-record state of a.ts / b.ts above.
+# One snapshot serves every case: refusals record nothing, and a success only appends a record
+# for the same hashes. Evidence that must count as "old" is written BEFORE the snapshot.
+RECEIPTS="$REPO/.git/.review-receipts"
+vev() { # <file> <vendor> [requested-field] ; a valid header for any vendor
+  printf 'ASK-MODEL: vendor=%s requested=%s served=x verified=served effort=unsupported exit=0\nfindings\n' "$2" "${3:-x}" > "$1"
+}
+last_vendors() { python3 -c 'import json,sys
+rec = json.loads(open(sys.argv[1]).read().splitlines()[-1])
+print(json.dumps(rec.get("vendors", "MISSING"), separators=(",", ":")))' "$RECEIPTS"; }
+err_of() { "$@" 2>&1 >/dev/null || true; }
+echo "export const v = 1" > "$REPO/src/vendor.ts"
+V_OLD_GEM="$TMP/v-old-gem.md"; vev "$V_OLD_GEM" gemini
+V_OLD_OR="$TMP/v-old-or.md"; vev "$V_OLD_OR" openrouter; sleep 1
+VSNAP="$(python3 "$RR" snapshot -- "$REPO/src/vendor.ts")"; sleep 1
+V_OR="$TMP/v-or.md"; vev "$V_OR" openrouter
+V_LOCAL="$TMP/v-local.md"; vev "$V_LOCAL" local
+V_GEM="$TMP/v-gem.md"; vev "$V_GEM" gemini
+V_CODEX="$TMP/v-codex.md"; printf 'ASK-MODEL: vendor=codex requested=x verified=accepted-only effort=high exit=0\nfindings\n' > "$V_CODEX"
+V_BAD_GEM="$TMP/v-bad-gem.md"; printf 'ASK-MODEL: vendor=gemini requested=x served=y verified=MISMATCH effort=unsupported exit=4\n' > "$V_BAD_GEM"
+V_BAD_OR="$TMP/v-bad-or.md"; printf 'ASK-MODEL: vendor=openrouter requested=x served=y verified=MISMATCH effort=unsupported exit=4\n' > "$V_BAD_OR"
+V_SPOOF="$TMP/v-spoof.md"; vev "$V_SPOOF" openrouter "vendor=gemini"
+: > "$RECEIPTS"
+check "only openrouter: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OR")"
+msg="$(err_of python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OR")"
+case "$msg" in *"gemini or codex"*) r=named ;; *) r="silent: $msg" ;; esac
+check "...and stderr names the rule" named "$r"
+check "only local: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_LOCAL")"
+check "openrouter + local, no gemini or codex: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OR" "$V_LOCAL")"
+check "old gemini (before the snapshot) + fresh openrouter: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OLD_GEM" "$V_OR")"
+check "failed gemini (exit=4) + fresh openrouter: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_BAD_GEM" "$V_OR")"
+check "spoofed header (vendor=gemini not the first field): refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_SPOOF")"
+check "no refusal wrote a receipt" 0 "$(wc -c < "$RECEIPTS" | tr -d ' ')"
+check "openrouter + gemini: accepted" 0 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OR" "$V_GEM")"
+check "...vendors lists both, sorted" '["gemini","openrouter"]' "$(last_vendors)"
+check "gemini only: accepted" 0 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_GEM")"
+check "...vendors is [gemini]" '["gemini"]' "$(last_vendors)"
+check "codex only: accepted" 0 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_CODEX")"
+check "...vendors is [codex]" '["codex"]' "$(last_vendors)"
+check "stale + failed openrouter beside a good gemini: accepted" 0 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OLD_OR" "$V_BAD_OR" "$V_GEM")"
+check "...only the valid gemini run is recorded as a vendor" '["gemini"]' "$(last_vendors)"
+
 echo "[snapshot] a path list passed as one argument is refused"
 check "snapshot refuses a non-existent path" 1 "$(rc python3 "$RR" snapshot -- "$REPO/src/a.ts $REPO/src/b.ts")"
 rm "$REPO/docs/x.md"
