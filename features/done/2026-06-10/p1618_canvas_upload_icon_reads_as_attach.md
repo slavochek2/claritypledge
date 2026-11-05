@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 94
 severity: medium
@@ -11,11 +11,11 @@ exec_model: opus
 exec_effort: high
 tags: [canvas, composer, upload, p1536]
 disclosure: public
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
 date_resolved: 2026-11-05
 root_cause: P1536 X3 gave canvas upload the paperclip, which already meant attach a point or story
 resolution: Upload icon in the button and its waiting status; the hint names the upload while the button is live
+completed_at: 2026-11-05
 ---
 
 # P1618: Canvas thread upload uses the paperclip, so the founder could not find upload
