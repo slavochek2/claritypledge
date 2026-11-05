@@ -13,8 +13,8 @@ tags:
   - clarity-chat
 created_date: '2026-11-05'
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [change-request, dev]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, ship]
 ---
 
 # P1624: A transcript in chat looks like a transcript
