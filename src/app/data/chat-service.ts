@@ -147,6 +147,9 @@ export interface ThreadStats {
   count: number;
   /** Up to 3 distinct most-recent repliers, newest first (erased accounts are left out). */
   authorIds: string[];
+  /** P1624: the same, without transcript text. Absent until the server answers with it, which reads as none. */
+  peopleCount?: number;
+  peopleAuthorIds?: string[];
 }
 
 const THREAD_STATS_PAGE = 100;
@@ -160,12 +163,12 @@ export async function getThreadStats(conversationId: string, rootIds: string[]):
   const out = new Map<string, ThreadStats>();
   const unique = [...new Set(rootIds)];
   for (let i = 0; i < unique.length; i += THREAD_STATS_PAGE) {
-    const rows = await rpc<Array<{ root_id: string; reply_count: number; recent_author_ids: string[] | null }> | null>(
+    const rows = await rpc<Array<{ root_id: string; reply_count: number; recent_author_ids: string[] | null; people_reply_count?: number; people_author_ids?: string[] | null }> | null>(
       'get_thread_stats',
       { p_conversation: conversationId, p_roots: unique.slice(i, i + THREAD_STATS_PAGE) },
     );
     for (const r of rows ?? []) {
-      out.set(r.root_id, { count: r.reply_count, authorIds: r.recent_author_ids ?? [] });
+      out.set(r.root_id, { count: r.reply_count, authorIds: r.recent_author_ids ?? [], peopleCount: r.people_reply_count, peopleAuthorIds: r.people_author_ids ?? undefined });
     }
   }
   return out;

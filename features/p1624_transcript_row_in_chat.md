@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -13,8 +13,8 @@ tags:
   - clarity-chat
 created_date: '2026-11-05'
 disclosure: public
-delivery_stage: change-request
-pipeline_ran: [change-request]
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 ---
 
 # P1624: A transcript in chat looks like a transcript

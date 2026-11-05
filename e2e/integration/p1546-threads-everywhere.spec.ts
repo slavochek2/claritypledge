@@ -38,7 +38,7 @@ const send = (s: SignedIn, conv: string, body: string, extra: Record<string, unk
 
 interface JobRef { job_id: string }
 interface Begin { status: string; context?: Array<{ body?: string }> }
-interface Stat { root_id: string; reply_count: number; recent_author_ids: string[] }
+interface Stat { root_id: string; reply_count: number; recent_author_ids: string[]; people_reply_count: number; people_author_ids: string[] }
 
 const requestReply = async (s: SignedIn, message: string) =>
   (await ok<JobRef[]>(s.client.rpc('mirror_request_reply', { p_message: message }), 'mirror_request_reply'))[0]!;
@@ -150,6 +150,25 @@ test('DM: a single reply counts 1 for the member who asks', async () => {
   const stats = await ok<Stat[]>(sA.client.rpc('get_thread_stats', { p_conversation: dm, p_roots: [root.id] }), 'stats after');
   expect(stats[0]!.reply_count).toBe(1);
   expect(stats[0]!.recent_author_ids).toEqual([B.user.id]);
+});
+
+test('P1624: people counts leave out transcript text, include an authorless reply, and the old counts do not move', async () => {
+  const root = await send(sA, dm, `dm-p1624-root-${RUN}`);
+  const insert = async (row: Record<string, unknown>) => {
+    const { error } = await supabaseAdmin.from('chat_messages').insert({ conversation_id: dm, thread_root_id: root.id, ...row });
+    if (error) throw new Error(error.message);
+  };
+  await insert({ author_id: A.user.id, body: 'transcript text', is_transcription: true });
+  const textOnly = await ok<Stat[]>(sA.client.rpc('get_thread_stats', { p_conversation: dm, p_roots: [root.id] }), 'text only');
+  expect(textOnly[0]).toMatchObject({ reply_count: 1, recent_author_ids: [A.user.id], people_reply_count: 0, people_author_ids: [] });
+
+  await send(sB, dm, `dm-p1624-reply-${RUN}`, { p_thread_root: root.id });
+  await insert({ author_id: null, body: 'a reply with no stored author', kind: 'agent' });
+  const mixed = await ok<Stat[]>(sA.client.rpc('get_thread_stats', { p_conversation: dm, p_roots: [root.id] }), 'mixed');
+  expect(mixed[0]!.reply_count, 'the existing count still holds every row').toBe(3);
+  expect(mixed[0]!.recent_author_ids.sort()).toEqual([A.user.id, B.user.id].sort());
+  expect(mixed[0]!.people_reply_count, 'the person and the authorless reply').toBe(2);
+  expect(mixed[0]!.people_author_ids, 'a face only where there is an author').toEqual([B.user.id]);
 });
 
 test('mirror: the owner threads in their own mirror; another user can neither read it nor write into it', async () => {

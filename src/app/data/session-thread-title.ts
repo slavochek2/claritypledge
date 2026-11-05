@@ -32,13 +32,17 @@ export interface TitleOptions {
   timeZone?: string;
 }
 
-export function sessionThreadTitle(body: string | null | undefined, opts: TitleOptions = {}): string | null {
-  const root = parseSessionRoot(body);
-  if (!root) return null;
+/** P1624: what follows the word in the title: the start, then the part and the incomplete mark when they apply. */
+export function sessionRootMeta(root: SessionRoot, opts: TitleOptions = {}): string {
   // the viewer's own locale and zone, the same formatter as the chat header's event time
   const date = viewerShortDate(root.startIso, opts);
   const time = viewerTime(root.startIso, opts);
-  return `${TITLE_PREFIX} ${date}, ${time}${root.partNo > 1 ? `, Part ${root.partNo}` : ''}${root.incomplete ? ` (${INCOMPLETE_TITLE_SUFFIX})` : ''}`;
+  return `${date}, ${time}${root.partNo > 1 ? `, Part ${root.partNo}` : ''}${root.incomplete ? ` (${INCOMPLETE_TITLE_SUFFIX})` : ''}`;
+}
+
+export function sessionThreadTitle(body: string | null | undefined, opts: TitleOptions = {}): string | null {
+  const root = parseSessionRoot(body);
+  return root ? `${TITLE_PREFIX} ${sessionRootMeta(root, opts)}` : null;
 }
 
 /** The body to SHOW: the title for a session root, every other body unchanged. */

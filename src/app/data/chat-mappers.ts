@@ -5,7 +5,7 @@
  * The service (chat-service.ts) is the only caller that touches the network.
  */
 
-import { displaySystemBody } from './session-thread-title';
+import { displaySystemBody, parseSessionRoot, type SessionRoot } from './session-thread-title';
 import { DELETED_USER_NAME, mapForwardSnapshot, type ChatKind, type ChatSystemKind, type ForwardSnapshot } from './chat-snapshot';
 
 export { DELETED_USER_NAME, mapForwardSnapshot };
@@ -52,6 +52,8 @@ export interface ChatMessage {
   isTranscription?: boolean;
   /** P1592: a system post (no author): rendered as its body, a title, alone. */
   systemKind?: ChatSystemKind | null;
+  /** P1624: the session this root stands for, kept apart from `body`, which is already the formatted title. */
+  sessionRoot?: SessionRoot | null;
   /** P1536 S4: the canvas boxes an owner tagged this message with ("Add to chat"); null on every other message. */
   boxRefs?: string[] | null;
 }
@@ -287,6 +289,7 @@ export function mapMessageRow(row: ChatMessageRow): ChatMessage {
     audio: mapAudio(row),
     isTranscription: row.is_transcription === true,
     systemKind: row.system_kind ?? null,
+    sessionRoot: row.system_kind === 'outside_rounds' ? parseSessionRoot(row.body) : null,
     boxRefs: row.box_refs?.length ? row.box_refs : null,
   };
 }

@@ -43,6 +43,13 @@ export type { LocalMessage, SendInput };
 export type Row = ChatMessage | LocalMessage;
 export const isLocal = (m: Row): m is LocalMessage => 'localId' in m;
 
+/** P1624: the people-only part of a thread's stats after one new reply. Transcript text leaves it as it was. */
+function withLiveReply(cur: ThreadStats, m: ChatMessage): ThreadStats {
+  if (m.isTranscription) return cur;
+  const faces = cur.peopleAuthorIds ?? [];
+  return { ...cur, peopleCount: (cur.peopleCount ?? 0) + 1, peopleAuthorIds: m.authorId && !faces.includes(m.authorId) ? [m.authorId, ...faces].slice(0, 3) : faces };
+}
+
 interface Options {
   conversationId: string;
   /** Set for a thread panel: the root first, then its replies. */
@@ -82,18 +89,26 @@ export function useConversationMessages({ conversationId, threadRootId, withThre
 
   const loadedReplies = () => serverRef.current.filter((m) => m.id !== threadRootId);
 
+  // P1624: a read that began before a person's reply reached a session root says nothing about that root any more.
+  const statClock = useRef(0);
+  const statTouched = useRef(new Map<string, number>());
+
   const fetchStats = useCallback(
     async (rows: ChatMessage[], g: number) => {
       if (!withThreads || threadRootId) return;
       const roots = rows.map((m) => m.id);
       if (roots.length === 0) return;
+      const began = ++statClock.current;
       try {
         const next = await getThreadStats(conversationId, roots);
         if (!current(g)) return;
         setStats((prev) => {
           const merged = new Map(prev);
-          roots.forEach((id) => merged.delete(id));
-          next.forEach((v, k) => merged.set(k, v));
+          roots.filter((id) => (statTouched.current.get(id) ?? 0) < began).forEach((id) => {
+            const v = next.get(id);
+            if (v) merged.set(id, v);
+            else merged.delete(id);
+          });
           return merged;
         });
       } catch {
@@ -107,9 +122,10 @@ export function useConversationMessages({ conversationId, threadRootId, withThre
   const refreshStat = useCallback(
     async (rootId: string) => {
       const g = generation.current;
+      const began = ++statClock.current;
       try {
         const next = await getThreadStats(conversationId, [rootId]);
-        if (!current(g)) return;
+        if (!current(g) || (statTouched.current.get(rootId) ?? 0) > began) return;
         setStats((prev) => {
           const merged = new Map(prev);
           const v = next.get(rootId);
@@ -250,11 +266,17 @@ export function useConversationMessages({ conversationId, threadRootId, withThre
               const next = new Map(prev);
               const cur = next.get(rootId) ?? { count: 0, authorIds: [] };
               next.set(rootId, {
+                ...withLiveReply(cur, m),
                 count: cur.count + 1,
                 authorIds: m.authorId && !cur.authorIds.includes(m.authorId) ? [...cur.authorIds, m.authorId] : cur.authorIds,
               });
               return next;
             });
+            // A session root's people count must be exact: the server's answer replaces this estimate, and older reads are ignored.
+            if (!m.isTranscription && serverRef.current.some((r) => r.id === rootId && r.sessionRoot)) {
+              statTouched.current.set(rootId, ++statClock.current);
+              void refreshStat(rootId);
+            }
           } else if (m.isDeleted) {
             void refreshStat(rootId); // the count drops by one (deleted replies are not counted)
           }
@@ -274,7 +296,7 @@ export function useConversationMessages({ conversationId, threadRootId, withThre
   useEffect(() => {
     const ids = new Set<string>();
     server.forEach((m) => m.authorId && ids.add(m.authorId));
-    stats.forEach((s) => s.authorIds.forEach((id) => ids.add(id)));
+    stats.forEach((s) => [...s.authorIds, ...(s.peopleAuthorIds ?? [])].forEach((id) => ids.add(id)));
     ensureAuthors([...ids]);
   }, [server, stats, ensureAuthors]);
 

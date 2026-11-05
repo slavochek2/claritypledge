@@ -9,23 +9,24 @@
  * unread is not here: it marks the whole chat, so it lives on the chat (list row, header menu).
  */
 import { UnlinkedAuthorMark } from './MessageRowPlaceholders';
-import { AuthorName, ForwardedBody, MessageNote, QuoteBlock, TranscriptionMark } from './MessageParts';
+import { ForwardedBody, MessageNote, QuoteBlock, TranscriptionMark } from './MessageParts';
 import { MessageToolbar } from './MessageToolbar';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Forward, Lock, MessageSquareText, MessagesSquare, Pencil, Reply, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Forward, MessageSquareText, MessagesSquare, Pencil, Reply, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, ThreadStats } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { EditBox } from './EditBox';
 import { RepliesLink } from './RepliesLink';
+import { TranscriptRootContent } from './TranscriptRootContent';
+import { MessageHeader, PrivateLine, SendFailedNote } from './MessageRowLines';
 import { VoiceBubble } from './VoiceBubble';
 import { FOCUS_RING, PersonMark, PopMenu, MirrorMark, type MenuItem } from './chat-kit';
 import { DESKTOP_HOVER_QUERY, useDismiss, useMediaQuery } from './chat-hooks';
 import { useChat } from './chat-state';
-import { isLocal, type Row } from './use-conversation';
-import { chatTitle, messageTime, mirrorName, mirrorRole } from './chat-view-model';
+import { isLocal, type LocalMessage, type Row } from './use-conversation';
+import { messageTime, mirrorName, mirrorRole } from './chat-view-model';
 import { MirrorReplyState } from './MirrorReplyState';
 import { MessageAttachment } from './MessageAttachment';
 
@@ -33,6 +34,18 @@ import { MessageAttachment } from './MessageAttachment';
 export const LONG_PRESS_MS = 500;
 const LONG_PRESS_DRIFT_PX = 10;
 const INTERACTIVE = 'button,a,input,textarea,label,[role="menu"],[role="toolbar"]';
+const TRANSCRIPT_OPEN = '[data-testid="transcript-open"]';
+
+/** P1624: the session a row should show as a transcript row, if any. */
+function transcriptRootOf(server: ChatMessage | null, inThread: boolean, draft: string | null, actions: MessageActions) {
+  if (inThread || draft !== null || !actions.onThread || !server || server.isDeleted) return null;
+  return server.sessionRoot ?? null;
+}
+
+const rowTime = (local: LocalMessage | null, createdAt: string): string => {
+  if (!local) return messageTime(createdAt);
+  return local.failed ? '' : 'Sending…';
+};
 
 export interface MessageActions {
   onReply: (m: ChatMessage) => void;
@@ -96,6 +109,8 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   const row = useRef<HTMLLIElement>(null);
   const press = useRef<{ x: number; y: number; timer: number } | null>(null);
   const pressed = useRef(false);
+  /** P1624: the long press that opened the menu also ends in a click on the transcript row; that click opens nothing. */
+  const pressOpenedMenu = useRef(false);
 
   const desktopHover = useMediaQuery(DESKTOP_HOVER_QUERY);
   const { chats } = useChat();
@@ -174,6 +189,8 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   // P1592: a thread's root (a round's, or the event's "Outside rounds") is a system post: its body is a title, shown alone (no avatar, no author line).
   const system = !!server?.systemKind;
   const showHeader = !compact && !system;
+  // P1624: in the message list a session root is a transcript row. In the thread panel it stays the panel's title.
+  const transcriptRoot = transcriptRootOf(server, inThread, draft, actions);
   const toolbar =
     server && live && draft === null && !privateHere ? (
       <MessageToolbar
@@ -192,7 +209,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   const authorId = msg.authorId;
   const { missingAuthors } = useChat();
   const authorPending = !!authorId && !author && !missingAuthors.has(authorId);
-  const time = local ? (local.failed ? '' : 'Sending…') : messageTime(msg.createdAt);
+  const time = rowTime(local, msg.createdAt);
 
   const noteEl = msg.body && <MessageNote body={msg.body} editedAt={server?.editedAt ?? null} system={system} boxRefs={msg.boxRefs} agent={agent} />;
   return (
@@ -220,13 +237,16 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
           items.length
             ? (e) => {
                 const t = e.touches[0];
-                if (!t || (e.target as HTMLElement).closest(INTERACTIVE)) return;
+                const target = e.target as HTMLElement;
+                if (!t || (target.closest(INTERACTIVE) && !target.closest(TRANSCRIPT_OPEN))) return;
                 endPress();
+                pressOpenedMenu.current = false;
                 const at = { x: t.clientX, y: t.clientY };
                 press.current = {
                   ...at,
                   timer: window.setTimeout(() => {
                     pressed.current = true;
+                    pressOpenedMenu.current = true;
                     press.current = null;
                     setMenuAt(at);
                   }, LONG_PRESS_MS),
@@ -262,26 +282,24 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
             ))}
         </div>}
         <div className="min-w-0 flex-1">
+          {transcriptRoot && server && actions.onThread ? (
+            <TranscriptRootContent
+              root={transcriptRoot}
+              server={server}
+              stat={stat}
+              authors={authors}
+              viewerId={viewerId}
+              onThread={actions.onThread}
+              onOpen={() => {
+                if (pressOpenedMenu.current) pressOpenedMenu.current = false;
+                else actions.onThread?.(server);
+              }}
+            />
+          ) : <>
           {showHeader && (
-            <div className="flex flex-wrap items-baseline gap-x-1.5 leading-6">
-              {agent ? (
-                <span className="flex min-w-0 max-w-full items-baseline text-[15px]" data-testid="mirror-author">
-                  <span className="min-w-0 truncate font-semibold text-foreground">{mirrorDisplay}</span>
-                  {mirrorChat?.title && <span className="shrink-0 whitespace-pre text-xs text-muted-foreground"> · {mirrorRole()}</span>}
-                </span>
-              ) : (
-                <AuthorName author={author} authorId={authorId} pending={authorPending} className="min-w-0 max-w-full truncate text-[15px] text-foreground" />
-              )}
-              {time && <span className="text-xs text-muted-foreground">{time}</span>}
-              <TranscriptionMark msg={server} continues={continuesTranscription} />
-            </div>
+            <MessageHeader agent={agent} mirrorDisplay={mirrorDisplay} mirrorSubtitle={mirrorChat?.title ? mirrorRole() : null} author={author} authorId={authorId} pending={authorPending} time={time} msg={server} continuesTranscription={continuesTranscription} />
           )}
-          {(privateHere || askedIn) && (
-            <p className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="mirror-private">
-              <Lock className="h-3 w-3 shrink-0" aria-hidden="true" />
-              {privateHere ? 'Private: only you see this' : `Asked privately in ${chatTitle(askedIn as NonNullable<typeof askedIn>)}`}
-            </p>
-          )}
+          <PrivateLine privateHere={privateHere} askedIn={askedIn} />
           {/* No header line in a grouped message: the pill then sits on a line of its own above the words. */}
           {!showHeader && <TranscriptionMark msg={server} continues={continuesTranscription} grouped />}
           {compact && local && !local.failed && <span className="sr-only">Sending</span>}
@@ -306,19 +324,10 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
           )}
           {server && mine && !server.isDeleted && <MirrorReplyState messageId={server.id} name={mirrorDisplay} />}
 
-          {local?.failed && (
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-red-700" data-testid="send-failed" role="alert">
-              <span>{local.error ?? 'Not sent.'}</span>
-              <Button variant="ghost" className="min-h-10 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={() => actions.onRetry(local.localId)}>
-                Retry
-              </Button>
-              <Button variant="ghost" className="min-h-10 text-muted-foreground" onClick={() => actions.onDiscard(local.localId)}>
-                Discard
-              </Button>
-            </div>
-          )}
+          {local?.failed && <SendFailedNote local={local} actions={actions} />}
 
           <RepliesLink inThread={inThread} server={server} stat={stat} authors={authors} onThread={actions.onThread} viewerId={viewerId} />
+          </>}
           {selected && toolbar}
         </div>
         {!selected && toolbar}
