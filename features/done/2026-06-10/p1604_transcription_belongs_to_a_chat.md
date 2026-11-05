@@ -11,6 +11,7 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 completed_at: 2026-11-04
+superseded_by: p1624
 ---
 
 # P1604: Transcription belongs to a chat
