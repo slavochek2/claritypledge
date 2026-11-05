@@ -16,6 +16,11 @@
 #   s4  a zero-test selection prints that it ran zero (real vitest, scratch project)
 #   s5  breaking src/App.tsx so the p1533 test fails is REFUSED, and graph selection alone would
 #       NOT have caught it (the disk-reading group is what does)
+#   s6  a src edit beside a scripts/lib/*.mjs that a test imports (p1357) runs the FULL suite and is
+#       REFUSED when the .mjs is broken. With P1635_OLD_LIB=<the first version of
+#       precommit-tests.sh> it also runs the same commit through that version, which narrowed it to
+#       related tests and let it pass (the defect this scenario exists for)
+#   s7  a src edit beside docs files stays RELATED (the docs-only allowlist must not cost a full run)
 #   w1  documented workflow: a docs-only commit through the hook copy
 #   w2  documented workflow: a source commit through the hook copy
 #   w3  documented workflow: commit-to-main through the hook copy
@@ -24,7 +29,7 @@
 # The scratch clones are throwaway repositories: commits made in them touch no real branch.
 
 SCR="${P1635_SCRATCH:-$HOME/.cache/p1635-scratch}"
-SCEN="${P1635_SCENARIOS:-s1 s2 s3 s4 s5 w1 w2 w3 w4}"
+SCEN="${P1635_SCENARIOS:-s1 s2 s3 s4 s5 s6 s7 w1 w2 w3 w4}"
 LOGS="$SCR/logs"
 mkdir -p "$SCR/worktrees" "$LOGS"
 
@@ -67,6 +72,16 @@ real_step() {
     ( cd "$1" && unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE \
         && RED='' YELLOW='' GREEN='' NC='' \
         && . scripts/lib/run-quiet.sh && . scripts/lib/precommit-tests.sh \
+        && BRE="$(grep -m1 "^BUILD_AFFECTING_RE='" scripts/pre-commit-checks.sh | sed "s/^BUILD_AFFECTING_RE='//; s/'\$//")" \
+        && DRE="$(grep -m1 "^DOCS_ONLY_RE='" scripts/pre-commit-checks.sh | sed "s/^DOCS_ONLY_RE='//; s/'\$//")" \
+        && pct_run_tests "$PWD" "$BRE" "$DRE" )
+}
+
+# real_step_old <dir> <lib file>: the Tests step from an OLDER copy of the library (two-argument form).
+real_step_old() {
+    ( cd "$1" && unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE \
+        && RED='' YELLOW='' GREEN='' NC='' \
+        && . scripts/lib/run-quiet.sh && . "$2" \
         && BRE="$(grep -m1 "^BUILD_AFFECTING_RE='" scripts/pre-commit-checks.sh | sed "s/^BUILD_AFFECTING_RE='//; s/'\$//")" \
         && pct_run_tests "$PWD" "$BRE" )
 }
@@ -127,16 +142,20 @@ fi
 
 if want s4; then
     echo "-- s4: a zero-test selection prints that it ran zero (real vitest)"
+    # The step always seeds its known disk-reading test (PCT_DISK_SENTINEL), so in this repo a selection
+    # is never empty. Here that test is excluded from the vitest config, which is the one way left to
+    # an empty selection: the seed is derived and checked, and vitest runs nothing.
     T="$SCR/tiny"; rm -rf "$T"; mkdir -p "$T/src"
     ( cd "$T" && git init -q . && ln -s "$(cd "$REPO_ROOT/node_modules" && pwd -P)" node_modules \
-      && printf 'export default { test: { globals: true } }\n' > vite.config.ts \
+      && printf 'export default { test: { globals: true, exclude: ["**/node_modules/**", "src/tests/p1533-auth-callback-no-public-nav.test.ts"] } }\n' > vite.config.ts \
+      && mkdir -p src/tests && printf 'import { readFileSync } from "node:fs"\nit("reads",()=>{ readFileSync(__filename) })\n' > src/tests/p1533-auth-callback-no-public-nav.test.ts \
       && printf 'export const a = 1\n' > src/a.ts && printf 'import {a} from "./a"\nit("a",()=>{expect(a).toBe(1)})\n' > src/a.test.ts \
       && printf 'export const o = 1\n' > src/orphan.ts \
       && git add -A && git -c user.email=t@x -c user.name=t commit -q -m base \
       && printf '// edit\n' >> src/orphan.ts && git add src/orphan.ts )
     ( cd "$T" && unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE && RED='' YELLOW='' GREEN='' NC='' \
         && . "$REPO_ROOT/scripts/lib/run-quiet.sh" && . "$REPO_ROOT/scripts/lib/precommit-tests.sh" \
-        && pct_run_tests "$PWD" "$BUILD_RE" ) > "$LOGS/s4.log" 2>&1; rc=$?
+        && pct_run_tests "$PWD" "$BUILD_RE" "$DOCS_RE" ) > "$LOGS/s4.log" 2>&1; rc=$?
     result "s4 zero-selection run" 0 "$rc"
     want_in "s4 says ZERO test files ran" "$LOGS/s4.log" "ZERO test files ran"
 fi
@@ -162,6 +181,37 @@ sys.exit(0 if not any("p1533-auth-callback-no-public-nav" in n for n in names) e
     real_step "$W" > "$LOGS/s5.log" 2>&1; rc=$?
     result "s5 hook Tests step with App.tsx broken for p1533" 1 "$rc"
     want_in "s5 the p1533 test is the one that failed" "$LOGS/s5.log" "p1533-auth-callback-no-public-nav"
+fi
+
+if want s6; then
+    echo "-- s6: a src edit beside a broken scripts/lib/*.mjs that a test imports"
+    real_work s6
+    mjs=scripts/lib/video-summary-core.mjs
+    grep -q "$mjs" "$W/src/tests/p1357-video-summary-core.test.ts" && ok "s6 premise: p1357 imports $mjs" || bad "s6 premise: p1357 does not import $mjs"
+    printf '\nthrow new Error("p1635 scratch: deliberately broken module");\n' >> "$W/$mjs"
+    touch_f src/lib/canvas-hrefs.ts
+    git -C "$W" add -- "$mjs"
+    if [ -n "${P1635_OLD_LIB:-}" ] && [ -f "$P1635_OLD_LIB" ]; then
+        real_step_old "$W" "$P1635_OLD_LIB" > "$LOGS/s6-old.log" 2>&1; rco=$?
+        result "s6 CONTROL: the first version of the step (fail-open) lets the broken .mjs through" 0 "$rco"
+    else
+        echo "  s6 control skipped: set P1635_OLD_LIB to the first version of scripts/lib/precommit-tests.sh to reproduce the defect"
+    fi
+    real_step "$W" > "$LOGS/s6.log" 2>&1; rc=$?
+    result "s6 hook Tests step with the .mjs broken" 1 "$rc"
+    want_in "s6 plan says FULL and names the .mjs" "$LOGS/s6.log" "FULL suite (staged file outside src/ and not on the docs-only list, so its test edges are unknown: $mjs)"
+    want_in "s6 the p1357 test is the one that failed" "$LOGS/s6.log" "src/tests/p1357-video-summary-core.test.ts"
+fi
+
+if want s7; then
+    echo "-- s7: a src edit beside docs files stays related"
+    real_work s7
+    touch_f src/lib/canvas-hrefs.ts
+    touch_f docs/decisions.md
+    touch_f README.md
+    real_step "$W" > "$LOGS/s7.log" 2>&1; rc=$?
+    result "s7 hook Tests step, src + docs + README" 0 "$rc"
+    want_in "s7 plan says RELATED" "$LOGS/s7.log" "Tests plan... RELATED"
 fi
 
 # ── documented workflows through the hook COPY, in a scratch clone with it installed ──

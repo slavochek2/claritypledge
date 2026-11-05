@@ -78,7 +78,7 @@ sampler() {
             { pid=$1; pp[pid]=$2; cpu[pid]=$3; $1=$2=$3=""; cmd[pid]=$0 }
             END { n=split(roots,r," "); for(i=1;i<=n;i++) mine[r[i]]=1
                   ch=1; while(ch){ch=0; for(p in pp) if(!(p in mine) && (pp[p] in mine)){mine[p]=1; ch=1}}
-                  for(p in mine){ mc+=cpu[p]; if(cmd[p] ~ /workers\/forks|workers\/threads/) w++; else if(cmd[p] ~ /vitest\.mjs|vitest\/vitest/) rn++ }
+                  for(p in mine){ mc+=cpu[p]; if(cmd[p] ~ /workers\/forks|workers\/threads/) w++; else if(cmd[p] ~ /bin\/vitest|vitest\.mjs/) rn++ }
                   for(p in pp) if(!(p in mine)) oc+=cpu[p]
                   printf "%s %d %d %.0f %.0f %s\n", now, w, rn, mc, oc, ld }' >> "$OUT/samples.txt"
         sleep 2

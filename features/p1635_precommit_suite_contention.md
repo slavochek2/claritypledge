@@ -105,6 +105,13 @@ Blast radius: high, every commit and every landing. Reversibility: high, git rev
 
 Revert the hook and workflow commits, and clear the required-check setting if one was added.
 
+**The hook part is not one `git revert`, and `--no-verify` stays banned.** The revert deletes `scripts/lib/precommit-tests.sh` and `scripts/test-p1635-precommit-tests.sh`. Worktrees run main's hook, which sources that library on its first lines and refuses a staged deletion of either file. Observed in a scratch clone with the new hook: `git rm` of both exits 1 with `FATAL: scripts/lib/precommit-tests.sh is missing`; `git rm --cached` of both exits 1 with "Removing the Tests-step library or its canary is not a silent operation". Reverting only the wiring fails the canary's wiring check instead. So the hook that runs must already be the old one:
+
+1. On the main checkout, restore the old `scripts/pre-commit-checks.sh` (the plain `run_quiet "Tests" npm test` step, without the library sourcing, `DOCS_ONLY_RE` and the 4.6b block) and commit it with `./scripts/git-ops.sh commit-to-main --files scripts/pre-commit-checks.sh`. That commit runs the working-tree hook, which is already the old one, so neither the block nor the canary is in play.
+2. Once step 1 is on main, delete the library, the canary, `scripts/test-p1635-real.sh` and the bench in an ordinary commit. The hook that runs then has no block.
+
+The two refusals above were observed; steps 1 and 2 were reasoned from the code and not run end to end. The `test.yml`, `git-ops.sh` and `lib-required-checks.sh` parts revert without this ordering, provided `scripts/test-p1290-required-checks-poll.sh` is reverted in the same commit (its Part 5 asserts the new code, and the hook runs it whenever `git-ops.sh` is staged).
+
 ## Related
 
 - P1394, P1570, P1573: load-only test failures. P1279: hook window race. P1607: e2e slot lock.

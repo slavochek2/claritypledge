@@ -120,7 +120,7 @@ This works because GitHub binds a required check to the **commit SHA**, not the 
 
 ### The Problem
 
-Pre-commit hooks run tests on the ENTIRE codebase, not just staged files. If you have unrelated in-progress work that breaks tests, your clean commit will fail.
+The pre-commit hook runs the unit tests that are related to your staged `src/` files, plus every test that reads files from disk (a quarter to a third of the suite, derived at run time). It runs the whole suite instead when a staged file has no import edge a graph can follow: any path outside `src/` that is not docs (`vercel.json`, lockfiles, config, `scripts/`, `supabase/`, ...), a deletion or a rename. Each run is capped at 3 workers, and the hook prints the plan and the count of test files that ran. The full suite for the SHAs that actually land runs in CI on the staging hop (`staging/**`), where `git-ops.sh` prints the unit job's result at promotion. So unrelated in-progress work that breaks a test can still fail your clean commit when that test is selected (it reads the disk, or imports something you staged), and is otherwise caught at the staging hop, not at the commit. Details: `scripts/lib/precommit-tests.sh`.
 
 ### The Solution
 

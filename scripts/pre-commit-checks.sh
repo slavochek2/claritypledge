@@ -112,12 +112,17 @@ fi
 
 # T10 (P786): Compute build-affecting staged files once.
 # Sections 1 (TypeScript), 3 (Build), and 4 (Tests) are gated behind this.
-# Docs-only commits (features/, docs/, .claude/) skip all three.
+# Docs-only commits (features/, docs/, .claude/, .agents/, content/, top-level *.md) skip all three.
 # Whitelist: TS/JS source, package.json, *.config.*, lockfiles, public/ assets,
 # vercel.json (CSP/headers — a CSP-only edit still runs the FULL unit suite (P1635: a file with no
 # import edge to any test is never narrowed to related tests), so the P805/P863/P865 canaries catch
 # a *known* allowlist host being dropped locally).
 # One definition: the Tests step (scripts/lib/precommit-tests.sh) classifies staged files with it too.
+# DOCS_ONLY_RE is the other half (P1635): the only paths outside src/ that a commit may stage beside a
+# src edit and still get related tests instead of the full suite. Their only test edge is a disk read,
+# which the Tests step's seed group already covers. Any other path outside src/ runs everything: the
+# step cannot tell whether a test imports it. Keep this in step with the docs-only comment above.
+DOCS_ONLY_RE='^(features|docs|\.claude|\.agents|content)/|^[^/]+\.md$'
 BUILD_AFFECTING_RE='\.(ts|tsx|js|jsx)$|^package\.json$|tsconfig.*\.json$|\.config\.(ts|js|mjs|cjs)$|\.lock$|^package-lock\.json$|^deno\.lock$|^public/|^vercel\.json$'
 BUILD_AFFECTING=$(git diff --cached --name-only | \
   grep -E "$BUILD_AFFECTING_RE" \
@@ -231,7 +236,7 @@ fi
 #    that land runs in CI on the staging hop (.github/workflows/test.yml, staging/**).
 #    Rules, reasons and guarantees: scripts/lib/precommit-tests.sh.
 if [ -n "$BUILD_AFFECTING" ]; then
-    if ! pct_run_tests "$(git rev-parse --show-toplevel)" "$BUILD_AFFECTING_RE"; then
+    if ! pct_run_tests "$(git rev-parse --show-toplevel)" "$BUILD_AFFECTING_RE" "$DOCS_ONLY_RE"; then
         ERRORS=$((ERRORS + 1))
     fi
 else

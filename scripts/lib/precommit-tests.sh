@@ -19,22 +19,30 @@
 # too (a file under src/tests/ that does the reading) selects every test that imports one, which
 # is how a test reaches the disk without containing the word `fs`.
 #
-# WHEN THE WHOLE SUITE RUNS INSTEAD (any one is enough, and the reason is printed):
+# WHEN THE WHOLE SUITE RUNS INSTEAD (any one is enough, and the reason is printed). The rule FAILS
+# CLOSED: only files this step can place are narrowed, everything else runs the full suite.
 #   - a staged deletion or rename: the file is gone, so no graph can name its importers;
-#   - a staged build-affecting file that is not an imported src file: vercel.json, lockfiles,
-#     package.json, tsconfig*, *.config.*, public/, scripts/, e2e/, api/, tools/ ... It has no
-#     module-graph edge to a unit test, and pre-commit-checks.sh relied on it running the suite
-#     (a vercel.json-only edit, so the CSP canaries catch it);
+#   - ANY staged path outside src/ that is not on the docs-only allowlist (DOCS_ONLY_RE in
+#     pre-commit-checks.sh): vercel.json, lockfiles, package.json, tsconfig*, *.config.*, public/,
+#     scripts/ (.mjs, .sh, .js), e2e/, api/, supabase/, index.html, .env.*, deno.json ... A first
+#     version listed the shapes it knew (the build-affecting regex) and ignored every other file, so
+#     `src/x.ts` + `scripts/lib/video-summary-core.mjs` ran related tests only while two tests
+#     import that .mjs (reproduced on 1cc9facd9: full_reason empty, seeds = the .ts alone);
 #   - a vitest setup file (setupFiles / globalSetup in vite.config.*): imported by vitest, not by
 #     any test, so the graph never reaches it;
-#   - anything under a __mocks__ directory: loaded by name convention, not by import.
+#   - anything under a __mocks__ directory: loaded by name convention, not by import;
+#   - the disk-reading seed group cannot be derived, or is missing its known member: narrowing on a
+#     group nobody can vouch for is the silent failure this step exists to avoid.
+# A docs-only commit never reaches this step (the hook's BUILD_AFFECTING gate skips it), and a
+# docs file beside a src edit stays related: its only possible test edge is a disk read, which the
+# seed group already covers.
 #
 # GUARANTEES (the canary holds each of them):
 #   - every run is capped at PRECOMMIT_TEST_WORKERS workers (default 3), full runs included;
 #   - the count of test files that ACTUALLY ran is printed OUTSIDE run_quiet, which hides output
 #     on success, and a run that ran zero says so in words;
 #   - nothing here adds a way to skip tests. PRECOMMIT_TEST_WORKERS only tunes the cap, and a
-#     non-numeric or zero value falls back to the default.
+#     non-numeric or zero value (0, 000, 0000 ...) falls back to the default.
 #
 # bash 3.2 compatible (macOS /bin/bash): no mapfile, no associative arrays, no ${x,,}.
 # pipefail and SIGPIPE (epistemic gate 7): no `producer | grep -q`; readers use process
@@ -56,8 +64,15 @@ PCT_DISK_PATTERN_TEST='\?raw|import\.meta\.glob'
 pct_workers() {
     local w="${PRECOMMIT_TEST_WORKERS:-$PCT_WORKERS_DEFAULT}"
     case "$w" in
-        ''|*[!0-9]*|0) w="$PCT_WORKERS_DEFAULT" ;;
+        ''|*[!0-9]*) w="$PCT_WORKERS_DEFAULT" ;;
     esac
+    # 10# so "0000" and "007" are read as decimal numbers: a zero spelled with extra digits is still zero
+    # and falls back; vitest is only ever given a clean positive integer.
+    if [ "$((10#$w))" -eq 0 ]; then
+        w="$PCT_WORKERS_DEFAULT"
+    else
+        w="$((10#$w))"
+    fi
     printf '%s' "$w"
 }
 
@@ -77,23 +92,57 @@ pct_setup_files() {
 # config is related to it. (Checked, not assumed: in a scratch project on vitest 4.0.14 a related
 # seed of vite.config.ts alone selected zero files, so vitest's forceRerunTriggers do not turn a
 # config seed into a whole-suite run. A STAGED config file runs the full suite in pct_classify.)
+#
+# Returns 0 with the list on stdout, or 2 when git grep itself failed (an error is not "no match":
+# git grep exits 1 for no match and 128 for a bad pattern or a broken repo). The caller turns a
+# non-zero return, an empty list, or a list without the known member into a FULL run.
 pct_disk_sources() {
-    local root="$1"
-    {
-        git -C "$root" grep -lE "$PCT_DISK_PATTERN" -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.mts' '*.cts' 2>/dev/null || true
-        git -C "$root" grep -lE "$PCT_DISK_PATTERN_TEST" -- '*.test.*' '*.spec.*' 2>/dev/null || true
-    } | sort -u
+    local root="$1" out1 out2 rc1 rc2
+    rc1=0; rc2=0
+    out1="$(git -C "$root" grep -lE "$PCT_DISK_PATTERN" -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.mts' '*.cts' 2>/dev/null)" || rc1=$?
+    out2="$(git -C "$root" grep -lE "$PCT_DISK_PATTERN_TEST" -- '*.test.*' '*.spec.*' 2>/dev/null)" || rc2=$?
+    if [ "$rc1" -gt 1 ] || [ "$rc2" -gt 1 ]; then
+        return 2
+    fi
+    printf '%s\n%s\n' "$out1" "$out2" | sed '/^$/d' | sort -u
 }
 
-# Sets PCT_FULL_REASON (empty means related mode is safe) and PCT_SRC (staged, non-deleted paths
-# under src/). Reads the INDEX, with rename detection off so a rename arrives as delete + add.
-# $1 = repo root, $2 = the build-affecting regex shared with pre-commit-checks.sh.
+# One test that is known to read the disk with no import edge to what it reads (it reads src/App.tsx
+# with readFileSync). The derivation above is by grep; this is the divergence check that gate 7e asks
+# for beside any derived set: if a derivation that should contain it does not, the derivation is
+# broken, and the step runs the full suite. A hand-kept name, so it can rot: if the file is renamed
+# the step fails closed (full suite, with this message) until the name here is changed.
+PCT_DISK_SENTINEL='src/tests/p1533-auth-callback-no-public-nav.test.ts'
+
+# pct_disk_check <root> <list>: prints a reason and returns 1 when the derived list cannot be trusted.
+pct_disk_check() {
+    local root="$1" list="$2"
+    if [ -z "$list" ]; then
+        echo "the disk-reading seed group is empty or could not be derived"
+        return 1
+    fi
+    if ! git -C "$root" ls-files --error-unmatch -- "$PCT_DISK_SENTINEL" >/dev/null 2>&1; then
+        echo "the known disk-reading test $PCT_DISK_SENTINEL is not tracked (renamed? update PCT_DISK_SENTINEL)"
+        return 1
+    fi
+    if ! grep -qxF -- "$PCT_DISK_SENTINEL" <<< "$list"; then
+        echo "the disk-reading seed group lacks its known member $PCT_DISK_SENTINEL"
+        return 1
+    fi
+    return 0
+}
+
+# Sets PCT_FULL_REASON (empty means related mode is safe) and PCT_SRC (the seeds: staged non-deleted
+# paths under src/, plus the modules that import a staged non-code file with ?raw). Reads the INDEX,
+# with rename detection off so a rename arrives as delete + add.
+# $1 = repo root, $2 = the build-affecting regex, $3 = the docs-only regex (both from
+# pre-commit-checks.sh, which defines each once). Either missing fails closed.
 pct_classify() {
-    local root="$1" build_re="$2" st path imp setup=""
+    local root="$1" build_re="$2" docs_re="${3:-}" st path imp setup=""
     PCT_FULL_REASON=""
     PCT_SRC=()
-    if [ -z "$build_re" ]; then
-        PCT_FULL_REASON="the build-affecting pattern was not provided (fail closed)"
+    if [ -z "$build_re" ] || [ -z "$docs_re" ]; then
+        PCT_FULL_REASON="the build-affecting or docs-only pattern was not provided (fail closed)"
         return 0
     fi
     setup="$(pct_setup_files "$root")"
@@ -114,26 +163,37 @@ pct_classify() {
             [ -n "$PCT_FULL_REASON" ] || PCT_FULL_REASON="vitest setup file, outside every test's import graph: $path"
             continue
         fi
-        if grep -qE "$build_re" <<< "$path"; then
-            # build-affecting: only a plain src/ code file has an import edge a graph can follow.
-            if grep -qE '^src/.*\.(ts|tsx|js|jsx)$' <<< "$path" && ! grep -qE '\.config\.|tsconfig' <<< "$path"; then
-                PCT_SRC+=("$path")
-            else
-                [ -n "$PCT_FULL_REASON" ] || PCT_FULL_REASON="build-affecting file with no import edge to a unit test: $path"
-            fi
-            continue
-        fi
-        # not build-affecting: still a seed when it lives in src/ (css, json, svg a module imports)
         case "$path" in
             src/*)
+                # Config-shaped files under src/ have no edge a graph follows; plain code does.
+                if grep -qE "$build_re" <<< "$path" \
+                    && ! { grep -qE '^src/.*\.(ts|tsx|js|jsx)$' <<< "$path" && ! grep -qE '\.config\.|tsconfig' <<< "$path"; }; then
+                    [ -n "$PCT_FULL_REASON" ] || PCT_FULL_REASON="build-affecting file with no import edge to a unit test: $path"
+                    continue
+                fi
                 PCT_SRC+=("$path")
-                # A module that imports it with ?raw has no graph edge to it (vitest drops the
-                # query, then the path does not exist), so seed the IMPORTING modules too.
-                while IFS= read -r imp; do
-                    [ -n "$imp" ] && PCT_SRC+=("$imp")
-                done < <(git -C "$root" grep -lF -e "${path##*/}?raw" -- src 2>/dev/null || true)
+                ;;
+            *)
+                # Outside src/: narrowing is allowed ONLY for the docs-only allowlist. Anything else
+                # may have an import edge (scripts/lib/*.mjs) or none at all (vercel.json); this step
+                # cannot tell, so it runs everything.
+                if ! grep -qE "$docs_re" <<< "$path"; then
+                    if grep -qE "$build_re" <<< "$path"; then
+                        [ -n "$PCT_FULL_REASON" ] || PCT_FULL_REASON="build-affecting file with no import edge to a unit test: $path"
+                    else
+                        [ -n "$PCT_FULL_REASON" ] || PCT_FULL_REASON="staged file outside src/ and not on the docs-only list, so its test edges are unknown: $path"
+                    fi
+                    continue
+                fi
                 ;;
         esac
+        # A module that imports this non-code file with ?raw has no graph edge to it (vitest drops the
+        # query, then the path does not exist), so seed the IMPORTING modules too.
+        if ! grep -qE '\.(ts|tsx|js|jsx)$' <<< "$path"; then
+            while IFS= read -r imp; do
+                [ -n "$imp" ] && PCT_SRC+=("$imp")
+            done < <(git -C "$root" grep -lF -e "${path##*/}?raw" -- src 2>/dev/null || true)
+        fi
     done < <(git -C "$root" diff --cached --name-status --no-renames -z 2>/dev/null)
     return 0
 }
@@ -165,11 +225,23 @@ except Exception:
 # The step. Needs run_quiet (scripts/lib/run-quiet.sh) already sourced.
 # $1 = repo root, $2 = build-affecting regex. Returns 0 on pass, 1 on failure of any kind.
 pct_run_tests() {
-    local root="$1" build_re="$2" workers json rc ran failed f n_seed n_disk
+    local root="$1" build_re="$2" docs_re="${3:-}" workers json rc ran failed f n_seed n_disk disk_out disk_why
     local -a cmd=() seeds=() disk=()
     workers="$(pct_workers)"
     json="$(mktemp)"
-    pct_classify "$root" "$build_re"
+    pct_classify "$root" "$build_re" "$docs_re"
+
+    # Derive the disk-reading group BEFORE choosing a mode: a group that cannot be trusted turns a
+    # related run into a full one (and costs nothing when the mode is full anyway).
+    if [ -z "$PCT_FULL_REASON" ]; then
+        if disk_out="$(pct_disk_sources "$root")"; then
+            if ! disk_why="$(pct_disk_check "$root" "$disk_out")"; then
+                PCT_FULL_REASON="$disk_why"
+            fi
+        else
+            PCT_FULL_REASON="git grep failed while deriving the disk-reading seed group"
+        fi
+    fi
 
     if [ -n "$PCT_FULL_REASON" ]; then
         echo -e ">>> Tests plan... ${YELLOW:-}FULL suite${NC:-} (${PCT_FULL_REASON}); capped at ${workers} workers"
@@ -177,7 +249,7 @@ pct_run_tests() {
     else
         while IFS= read -r f; do
             [ -n "$f" ] && disk+=("$root/$f")
-        done < <(pct_disk_sources "$root")
+        done <<< "$disk_out"
         for f in ${PCT_SRC[@]+"${PCT_SRC[@]}"}; do
             seeds+=("$root/$f")
         done

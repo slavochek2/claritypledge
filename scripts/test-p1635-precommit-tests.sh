@@ -54,6 +54,8 @@ RED='' YELLOW='' GREEN='' NC=''
 # The build-affecting pattern is DERIVED from the hook, never copied (gate 7e).
 BUILD_RE="$(grep -m1 "^BUILD_AFFECTING_RE='" "$HOOK" | sed "s/^BUILD_AFFECTING_RE='//; s/'\$//")"
 [ -n "$BUILD_RE" ] && ok "derived BUILD_AFFECTING_RE from the hook" || bad "could not derive BUILD_AFFECTING_RE from the hook"
+DOCS_RE="$(grep -m1 "^DOCS_ONLY_RE='" "$HOOK" | sed "s/^DOCS_ONLY_RE='//; s/'\$//")"
+[ -n "$DOCS_RE" ] && ok "derived DOCS_ONLY_RE from the hook" || bad "could not derive DOCS_ONLY_RE from the hook"
 
 # ── scratch repo ──────────────────────────────────────────────────────────────
 mk_repo() {
@@ -73,6 +75,14 @@ mk_repo() {
     printf 'x\n' > "$R/scripts/a.js"; printf 'x\n' > "$R/e2e/a.ts"; printf 'x\n' > "$R/api/x.ts"
     printf 'x\n' > "$R/src/lib/x.config.ts"; printf 'x\n' > "$R/src/__mocks__/m.ts"
     printf 'doc\n' > "$R/docs/d.md"; printf 'doc2\n' > "$R/docs/e.md"
+    mkdir -p "$R/scripts/lib" "$R/supabase/functions" "$R/features" "$R/.claude" "$R/.agents" "$R/content"
+    printf 'export const m = 1\n' > "$R/scripts/lib/x.mjs"; printf 'echo x\n' > "$R/scripts/x.sh"
+    printf 'A=1\n' > "$R/.env.test"; printf '<html></html>\n' > "$R/index.html"
+    printf 'export default {}\n' > "$R/vite.config.mts"; printf '{}\n' > "$R/supabase/functions/deno.json"
+    printf 'f\n' > "$R/features/f.md"; printf 'c\n' > "$R/.claude/c.md"; printf 'a\n' > "$R/.agents/a.md"
+    printf 'c\n' > "$R/content/c.md"; printf '# r\n' > "$R/README.md"
+    # the known disk reader the Tests step derives and checks for (PCT_DISK_SENTINEL)
+    printf 'import { readFileSync } from "node:fs"\n' > "$R/src/tests/p1533-auth-callback-no-public-nav.test.ts"
     git -C "$R" add -A >/dev/null 2>&1
     git -C "$R" commit -q -m base
 }
@@ -83,7 +93,7 @@ classify() {
     local label="$1" expect="$2"; shift 2
     mk_repo c
     "$@"
-    pct_classify "$R" "$BUILD_RE"
+    pct_classify "$R" "$BUILD_RE" "$DOCS_RE"
     local got=related
     [ -n "$PCT_FULL_REASON" ] && got=full
     check "$label → $expect" "$expect" "$got"
@@ -116,6 +126,43 @@ classify "a staged deletion"                            full st_delete
 classify "a staged rename (rename detection is OFF, so it is a delete)" full st_rename
 classify "a docs deletion beside a src edit (conservative: any deletion)" full st_doc_delete_with_src
 
+# FAIL CLOSED: a src edit with ANY non-docs path outside src/ beside it runs the full suite. The first
+# version only knew the regex shapes and let these through silently (scripts/lib/*.mjs has real test
+# edges: p1357 and p1542 import one each).
+for f in scripts/lib/x.mjs scripts/x.sh .env.test index.html vite.config.mts supabase/functions/deno.json scripts/a.js e2e/a.ts vercel.json; do
+    st_mixed() { touch_file src/lib/a.ts; touch_file "$f"; }
+    classify "a src edit beside $f" full st_mixed
+done
+# GREEN twins (gate 7c): the docs-only allowlist beside a src edit must stay related.
+for f in docs/d.md features/f.md .claude/c.md .agents/a.md content/c.md README.md; do
+    st_mixed_doc() { touch_file src/lib/a.ts; touch_file "$f"; }
+    classify "a src edit beside docs-only $f" related st_mixed_doc
+done
+st_all_docs() { touch_file src/lib/a.ts; touch_file docs/d.md; touch_file features/f.md; touch_file .claude/c.md; touch_file README.md; }
+classify "a src edit beside docs, features, .claude and README together" related st_all_docs
+mk_repo c; st_mixed() { touch_file src/lib/a.ts; touch_file scripts/lib/x.mjs; }; st_mixed
+pct_classify "$R" "$BUILD_RE" "$DOCS_RE"
+case "$PCT_FULL_REASON" in *"scripts/lib/x.mjs"*) ok "  and the reason NAMES the file that forced the full run" ;; *) bad "  reason does not name the file: $PCT_FULL_REASON" ;; esac
+pct_classify "$R" "$BUILD_RE" ""
+[ -n "$PCT_FULL_REASON" ] && ok "a missing docs-only pattern fails closed to the full suite" || bad "empty docs pattern did not fail closed"
+
+# The same shape against the REAL tree, with a TEMPORARY index (mode-only edits: no object is written,
+# nothing real is staged): src/lib/return-state.ts + scripts/lib/video-summary-core.mjs, whose test
+# (p1357) imports the .mjs.
+REAL_TREE="${P1635_TREE:-$REPO_ROOT}"
+grep -q "scripts/lib/video-summary-core.mjs" "$REAL_TREE/src/tests/p1357-video-summary-core.test.ts" 2>/dev/null \
+    && ok "real tree: p1357 imports scripts/lib/video-summary-core.mjs (a real test edge)" || bad "real tree: p1357 no longer imports video-summary-core.mjs, pick another edge"
+TIDX="$TMP/real-index"
+if GIT_INDEX_FILE="$TIDX" git -C "$REAL_TREE" read-tree HEAD 2>/dev/null \
+   && GIT_INDEX_FILE="$TIDX" git -C "$REAL_TREE" update-index --chmod=+x src/lib/return-state.ts scripts/lib/video-summary-core.mjs 2>/dev/null; then
+    ( export GIT_INDEX_FILE="$TIDX"; pct_classify "$REAL_TREE" "$BUILD_RE" "$DOCS_RE"; echo "$PCT_FULL_REASON" ) > "$TMP/real-reason" 2>/dev/null
+    case "$(cat "$TMP/real-reason")" in *"video-summary-core.mjs"*) ok "real tree: src edit + video-summary-core.mjs → FULL (was: related, mjs ignored)" ;; *) bad "real tree: mixed src + .mjs not sent to the full suite: $(cat "$TMP/real-reason")" ;; esac
+    ( export GIT_INDEX_FILE="$TIDX"; git -C "$REAL_TREE" update-index --chmod=-x scripts/lib/video-summary-core.mjs; pct_classify "$REAL_TREE" "$BUILD_RE" "$DOCS_RE"; echo "[${PCT_SRC[*]:-}]${PCT_FULL_REASON}" ) > "$TMP/real-reason2" 2>/dev/null
+    [ "$(cat "$TMP/real-reason2")" = "[src/lib/return-state.ts]" ] && ok "real tree control: the src edit alone stays RELATED" || bad "real tree control: src alone is not related: $(cat "$TMP/real-reason2")"
+else
+    bad "real tree: could not build the temporary index"
+fi
+
 mk_repo c
 mkdir -p "$R/src/app/pages" "$R/src/app/content"
 printf 'import c from "../content/terms.md?raw"\nexport const T = c\n' > "$R/src/app/pages/terms-page.tsx"
@@ -123,15 +170,15 @@ printf '# terms\n' > "$R/src/app/content/terms.md"
 git -C "$R" add -A >/dev/null 2>&1; git -C "$R" commit -q -m raw
 printf 'more\n' >> "$R/src/app/content/terms.md"; git -C "$R" add -- src/app/content/terms.md
 printf 'export const x = 1\n' >> "$R/src/lib/a.ts"; git -C "$R" add -- src/lib/a.ts
-pct_classify "$R" "$BUILD_RE"
+pct_classify "$R" "$BUILD_RE" "$DOCS_RE"
 case " ${PCT_SRC[*]:-} " in *" src/app/pages/terms-page.tsx "*) ok "staged markdown imported with ?raw seeds its IMPORTING page (no graph edge otherwise)" ;; *) bad "?raw importer not seeded: ${PCT_SRC[*]:-}" ;; esac
 mk_repo c; st_src
-pct_classify "$R" "$BUILD_RE"
+pct_classify "$R" "$BUILD_RE" "$DOCS_RE"
 check "  the src edit is the seed, spelled exactly" "src/lib/a.ts" "${PCT_SRC[*]:-}"
 mk_repo c; st_space
-pct_classify "$R" "$BUILD_RE"
+pct_classify "$R" "$BUILD_RE" "$DOCS_RE"
 check "  a spaced name stays ONE seed" "1" "${#PCT_SRC[@]}"
-pct_classify "$R" ""
+pct_classify "$R" "" "$DOCS_RE"
 [ -n "$PCT_FULL_REASON" ] && ok "a missing build-affecting pattern fails closed to the full suite" || bad "empty pattern did not fail closed"
 
 echo
@@ -187,7 +234,7 @@ export STUB_ARGV="$TMP/argv"
 
 run_step() { # run_step <stage-fn> ; output in STEP_OUT, rc in STEP_RC (hook cwd = the repo root)
     mk_repo s; "$1"
-    STEP_OUT="$( cd "$R" && PATH="$TMP/bin:$PATH" pct_run_tests "$R" "$BUILD_RE" 2>&1 )"; STEP_RC=$?
+    STEP_OUT="$( cd "$R" && PATH="$TMP/bin:$PATH" pct_run_tests "$R" "$BUILD_RE" "$DOCS_RE" 2>&1 )"; STEP_RC=$?
 }
 STUB_COUNT=7; STUB_RC=0; unset STUB_NO_REPORT; export STUB_COUNT STUB_RC
 
@@ -208,10 +255,27 @@ grep -qx -- '--maxWorkers=3' "$STUB_ARGV" && ok "  the worker cap is on the FULL
 
 PRECOMMIT_TEST_WORKERS=2 run_step st_vercel
 grep -qx -- '--maxWorkers=2' "$STUB_ARGV" && ok "PRECOMMIT_TEST_WORKERS=2 tunes the cap" || bad "cap override ignored"
-for v in 0 abc -1 ""; do
+for v in 0 00 0000 abc -1 "" 3.5 " 2"; do
     PRECOMMIT_TEST_WORKERS="$v" run_step st_vercel
     grep -qx -- '--maxWorkers=3' "$STUB_ARGV" && ok "PRECOMMIT_TEST_WORKERS='$v' falls back to the default cap, never to uncapped" || bad "bad cap value '$v' escaped the cap"
 done
+
+# FAIL CLOSED on the disk-reading seed group: an error, an empty group, or a group without its known
+# member must run the FULL suite, never narrow on a group nobody can vouch for.
+PCT_DISK_PATTERN='(' run_step st_src
+case "$STEP_OUT" in *"FULL suite (git grep failed"*) ok "a git grep ERROR while deriving the seed group → FULL suite" ;; *) bad "git grep error did not fall back: $STEP_OUT" ;; esac
+grep -qx -- 'run' "$STUB_ARGV" && ok "  and the runner is invoked as a full run" || bad "  runner shape after a grep error: $(tr '\n' ' ' < "$STUB_ARGV")"
+st_no_readers()   { git -C "$R" rm -q -f -- src/tests/p1533-auth-callback-no-public-nav.test.ts; git -C "$R" commit -q -m noreaders; touch_file src/lib/a.ts; }
+st_no_sentinel()  { git -C "$R" mv src/tests/p1533-auth-callback-no-public-nav.test.ts src/tests/renamed.test.ts; git -C "$R" commit -q -m rename; touch_file src/lib/a.ts; }
+st_blind()        { printf 'it("x",()=>{})\n' > "$R/src/tests/p1533-auth-callback-no-public-nav.test.ts"; printf 'import fs from "fs"\n' > "$R/src/tests/other-reader.test.ts"; git -C "$R" add -A >/dev/null 2>&1; git -C "$R" commit -q -m blind; touch_file src/lib/a.ts; }
+run_step st_no_readers
+case "$STEP_OUT" in *"FULL suite (the disk-reading seed group is empty"*) ok "an EMPTY seed group → FULL suite, reason printed" ;; *) bad "empty group did not fall back: $STEP_OUT" ;; esac
+run_step st_no_sentinel
+case "$STEP_OUT" in *"FULL suite"*"is not tracked"*) ok "the known member renamed away → FULL suite, and the message says how to repair" ;; *) bad "missing sentinel did not fall back: $STEP_OUT" ;; esac
+run_step st_blind
+case "$STEP_OUT" in *"FULL suite"*"lacks its known member"*) ok "a group that LACKS the known member (derivation blind) → FULL suite" ;; *) bad "blind derivation did not fall back: $STEP_OUT" ;; esac
+run_step st_src
+case "$STEP_OUT" in *"Tests plan... RELATED"*) ok "GREEN twin: a healthy group (known member present) still runs RELATED" ;; *) bad "healthy group no longer related: $STEP_OUT" ;; esac
 
 STUB_COUNT=0 run_step st_docs_only_src_new
 check "a zero-file run still passes (nothing failed)" "0" "$STEP_RC"
