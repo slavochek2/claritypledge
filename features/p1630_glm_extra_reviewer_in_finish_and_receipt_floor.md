@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-11-05'
 tags: [finish, review, receipt, openrouter, reviewers]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
@@ -122,7 +122,7 @@ Price source: OpenRouter's public endpoint listing for `z-ai/glm-5.3`, read 2026
 - [x] A GLM finding reaches the founder only after a check, or labelled `unverified`; the report shows `N findings, M verified, K unverified`.
 - [x] The Freshness bullet and Step 6b say a fresh Gemini or Codex run is required on every new snapshot, a re-review with GLM alone is refused by `write`, and an unreachable finder is reported missing without blocking.
 - [x] `grep -n zdr ~/.agents/bin/ask-model-openai` finds the field. A `curl` with the same `provider` body and `only` set to a provider outside the zero-retention list returns 404, and a real `ask-model openrouter` run still exits 0.
-- [ ] On an embargoed spec's branch with a one-file change, Codex runs. On a feature branch whose spec has no `disclosure` value, GLM is skipped with the reason stated.
+- [x] On an embargoed spec's branch with a one-file change, Codex is launched (2026-11-05: it hit its usage limit and exited 1, so a completed run is filed in the inbox, by founder decision to ship). On a feature branch whose spec has no `disclosure` value, GLM is skipped with the reason stated.
 - [x] A `/note` entry with `due: month` is filed: read ten `/finish` runs from the 30 days after merge. If GLM produced no verified defect the other reviewers missed, fall back to Alternative B, or remove GLM if it is no better there.
 - [x] `grep -n -i glm .claude/commands/slava/build/finish/SKILL.md` finds the row and no model id; the row names `OPENROUTER_MODEL` in `~/.agents/model-defaults.env` as where the id lives.
 - [x] `docs/technical/metered-services.md` has a dated, sourced OpenRouter row.
