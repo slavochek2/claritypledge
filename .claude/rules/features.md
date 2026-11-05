@@ -206,6 +206,8 @@ exec_effort: medium             # recommended reasoning effort
 
   **The routing logic is NOT here.** `~/.claude/commands/recommend-model-effort.md` is the single source of truth for lanes, thresholds and delegation; `.claude/rules/model-effort.md` is the cp trigger. Do not restate their tables in this file or in any spec — a stale routing table is invisible until it has been wrong for weeks.
 
+- **`spec_review_hash:` / `spec_review_vendors:`** (P1634) — written only by `scripts/spec_review_stamp.py write` at the end of a spec review: a hash of the body, frontmatter and checkbox state excluded, and the vendors whose runs were valid. Read by the `/dev` and `/fix` entry checks, which review once when it is missing or stale. **No merge, close or deploy may gate on these fields.**
+
 **Status transitions (skill-managed):**
 
 | Event | Sets `status` to |

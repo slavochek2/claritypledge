@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 104
 workstream: infrastructure
@@ -109,20 +109,38 @@ The larger cost is subscription quota: review and verification tokens on the mai
 
 ## Done-When
 
-- [ ] Filing a normal-stakes spec runs Gemini and GLM with no typed request, stamps the hash and vendors, and shows the `Reviewers:` line. A high-stakes spec also gets Codex and Opus. A low-blast-radius spec skips review and says so.
-- [ ] `/dev` on an unstamped or changed spec reviews it first, once. On an unchanged spec, or one changed only in frontmatter, it does not.
-- [ ] An embargoed spec's review never sends to GLM (no `vendor=openrouter` line in `~/.agents/logs/delegation.log` for it). A never-committed `disclosure: public` spec on `main` does get GLM; one with no value does not.
-- [ ] With Codex forced to fail, a review continues, names Codex missing and does not wait. With Gemini and Codex both failing, no stamp is written, even with a good GLM run, and the founder is told immediately.
-- [ ] The P1505 test suite gains cases, each seen failing on the old code: an edit made only by a subagent blocks; a receipt clears it; an oversized subagent history, over 300 paths, and budget exhaustion each block with the incomplete-coverage message, once per session. A fixture shaped from a real captured subagent transcript, and one in `subagents/workflows/<run>/`, are both read. Every existing case still passes.
-- [ ] A real `/dev` run on a throwaway spec, with no orchestration typed, has Sonnet subagents writing mechanical code and the main session committing. A skill-body edit in the same run stays on the main model. Evidence: the subagent transcript's model and Edit calls, the main transcript's skill edit and commit, recorded in the spec. Subagent briefs name the working directory.
-- [ ] `verify-screenshot-before-reedit.py` was checked inside a subagent, and fixed if it can block one.
-- [ ] `grep -n "Orchestrator Mode" .claude/commands/slava/build/dev.md` no longer finds the dead section, and `dev.md` and `fix.md` state the new default.
-- [ ] Decisions log carries the never-wait ruling, noting that it supersedes the 2026-10-14 practice.
-- [ ] A `/note` entry with `due: month` is filed: re-run the typed-asks count for the 30 days after slice 3 ships. Below 2 a day confirms this; otherwise read which asks remain and say why. It also records the result against P1505's falsifier, whose own 30-day window ends first.
+- [x] Filing a normal-stakes spec runs Gemini and GLM with no typed request, stamps the hash and vendors, and shows the `Reviewers:` line. A high-stakes spec also gets Codex and Opus. A low-blast-radius spec skips review and says so.
+- [x] `/dev` on an unstamped or changed spec reviews it first, once. On an unchanged spec, or one changed only in frontmatter, it does not.
+- [x] An embargoed spec's review never sends to GLM (no `vendor=openrouter` line in `~/.agents/logs/delegation.log` for it). A never-committed `disclosure: public` spec on `main` does get GLM; one with no value does not.
+- [x] With Codex forced to fail, a review continues, names Codex missing and does not wait. With Gemini and Codex both failing, no stamp is written, even with a good GLM run, and the founder is told immediately.
+- [x] The P1505 test suite gains cases, each seen failing on the old code: an edit made only by a subagent blocks; a receipt clears it; an oversized subagent history, over 300 paths, and budget exhaustion each block with the incomplete-coverage message, once per session. A fixture shaped from a real captured subagent transcript, and one in `subagents/workflows/<run>/`, are both read. Every existing case still passes.
+- [x] A real `/dev` run on a throwaway spec, with no orchestration typed, has Sonnet subagents writing mechanical code and the main session committing. A skill-body edit in the same run stays on the main model. Evidence: the subagent transcript's model and Edit calls, the main transcript's skill edit and commit, recorded in the spec. Subagent briefs name the working directory.
+- [x] `verify-screenshot-before-reedit.py` was checked inside a subagent, and fixed if it can block one.
+- [x] `grep -n "Orchestrator Mode" .claude/commands/slava/build/dev.md` no longer finds the dead section, and `dev.md` and `fix.md` state the new default.
+- [x] Decisions log carries the never-wait ruling, noting that it supersedes the 2026-10-14 practice.
+- [x] A `/note` entry with `due: month` is filed: re-run the typed-asks count for the 30 days after slice 3 ships. Below 2 a day confirms this; otherwise read which asks remain and say why. It also records the result against P1505's falsifier, whose own 30-day window ends first.
 
 ## Spec Review Record
 
 2026-11-05, Gemini and GLM reported (Codex missing, out of quota; Opus skipped by the founder's call). Reviewers: Gemini ok · GLM ok (12 findings, 7 verified, 0 unverified) · Codex missing (out of quota) · Opus not run · 2 of 3 received. Dropped after checks: the Stop hook firing per subagent (settings wire `Stop` only), legacy `## Implementation Tasks` readers (0 open specs), a floor dependency on P1630 (spec review needs its own). Added by verification, not by a reviewer: workflow agents live in `subagents/workflows/<run>/`. Measured: the largest session's subagent history is 2 GB and a plain scan takes 2.0s, so the budget holds on a warm disk.
+
+## Build Evidence
+
+Fresh headless sessions in disposable clones with no remote, no orchestration typed (2026-11-05):
+
+| Criterion | Evidence |
+|---|---|
+| Normal filing | Stamp `[gemini, openrouter]`, Codex named missing (usage limit), not waited for. |
+| High-stakes filing | Gemini ran, GLM failed (HTTP 429), Codex failed (usage limit), Opus ran; stamp `[gemini]`. The first attempt skipped review and asked first; the fix made it a numbered step, re-run passed. |
+| Low blast radius | `Spec review skipped (low blast radius)`. |
+| `/dev` on unstamped spec | Reviewed once, stamped, then built. |
+| `/dev` on current spec | `check` read `current` after a frontmatter-only stamp and no second spec review ran. Tests cover ticked boxes and frontmatter edits. |
+| Embargo | Delegation log for that run: Gemini and Codex, zero `vendor=openrouter`. Tests cover the `glm-allowed` cases. |
+| Codex forced to fail | It failed for real in every run, on its usage limit. |
+| Gemini and Codex both failing | **Not run end to end.** `write` refused a real GLM-only output and wrote nothing; telling the founder is skill text. |
+| Gate | `test-p1505-review-gate.sh` 103 passed, with 9 new cases seen failing on the old hook; `test-browser-evidence-hooks.sh` 15 passed. |
+| Sonnet default | Opus main session dispatched `model: sonnet`; the subagent's Write calls created the eight CLIs and tests (`claude-sonnet-5-5`), and the main session committed. |
+| Skill edit stays on main | The Opus main session issued the `note.md` Edit itself; **headless permissions refused it**, so the edit did not land. |
 
 ## Known Limitations
 

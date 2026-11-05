@@ -3566,3 +3566,14 @@ At ship, Codex was launched on the embargoed one-file case but hit its usage lim
 A new scenario in scripts/test-git-ops-ship.sh that reuses a P-number a later scenario owns kills the whole suite with exit 1 and no FAIL line, after the last PASS. Add a check that fails loudly on a duplicate scenario P-number or fixture branch. Seen once, in P1637 on 2026-11-05, where a new fixture collided with scenario S. Drop it if the suite is split or stops using P-number fixtures.
 
 ---
+
+## P1634: re-run the typed-asks count after slice 3 ships
+
+**ID:** INBOX-294
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** month
+
+Re-run the keyword count of founder-typed review and build-roster asks for the 30 days after P1634 ships. Below 2 a day confirms it; otherwise read which asks remain and say why. Also record the result against P1505's falsifier, whose own 30-day window ends first. Done when the number and the reading are recorded here.
+
+---
