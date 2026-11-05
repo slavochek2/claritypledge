@@ -39,7 +39,7 @@ export function contentWords(text: string): Set<string> {
 const FRAMING = new Set(['customer', 'customers', 'user', 'users', 'client', 'clients', 'people', 'person', 'buyer', 'buyers', 'they', 'today']);
 /** Any of these in the owner's sentence and the agent does not guess: it may deny, hedge, ask, suppose or request. An open list. */
 const UNSURE = new Set((
-  'not no never nor none nobody nothing neither nowhere without cannot unable hardly barely rarely seldom lack lacks lacking refuse refuses fail fails false myth ' +
+  'refuse refuses fail fails false myth ' +
   'if whether unless until might may maybe perhaps could would should probably possibly used doubt only except ' +
   'few zero say said once before check verify confirm example sample translate write make build draft add create give generate please canvas stopped quit ' +
   'think thought believe hope wish imagine suppose assume assuming pretend guess sure seems ' +
@@ -52,7 +52,23 @@ const ASKS = new Set(['are', 'is', 'was', 'were', 'am', 'has', 'have', 'had']);
 const ASK_SUBJECT = new Set([...FRAMING, 'we', 'you', 'it', 'he', 'she', 'them']);
 
 const words = (text: string) => fold(text).split(/[^\p{L}\p{N}'’]+/u).filter(Boolean);
-const isUnsure = (w: string) => UNSURE.has(w) || /n['’]t$/.test(w) || /^(arent|isnt|dont|doesnt|didnt|wont|cant|wasnt|werent)$/.test(w);
+/** P1639: a negative the owner stated is fine; only a mismatch between the point and their sentence reverses them. */
+const NEGATORS = new Set('not no never nor none nobody nothing neither nowhere unable without cannot hardly barely rarely seldom lack lacks lacking'.split(' '));
+const isNegative = (ws: readonly string[]) => ws.some((w) => NEGATORS.has(w) || /n['’]t$/.test(w) || /^(arent|isnt|dont|doesnt|didnt|wont|cant|wasnt|werent)$/.test(w));
+/** "do not" is a negative, not a question: the helper word before "not" says nothing else. */
+const withoutHelpers = (ws: readonly string[]) => ws.filter((w, i) => !(ws[i + 1] === 'not' && /^(do|does|did|can|will)$/.test(w)));
+const isUnsure = (w: string) => UNSURE.has(w);
+
+/** One edit apart, a swap counting as one. */
+function oneEdit(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  const [x, y] = [a.slice(i), b.slice(i)];
+  return x.slice(1) === y.slice(1) || x === y.slice(1) || x.slice(1) === y || (x[0] === y[1] && x[1] === y[0] && x.slice(2) === y.slice(2));
+}
+/** The owner's word, or their typo of it: five letters or more, the same first letter, one edit away. "hate" never matches "have". */
+const knownWord = (w: string, known: ReadonlySet<string>) => known.has(w) || (w.length >= 5 && [...known].some((k) => k.length >= 5 && k[0] === w[0] && oneEdit(k, w)));
 const holds = (ws: readonly string[], part: readonly string[]) => ` ${ws.join(' ')} `.includes(` ${part.join(' ')} `);
 
 /** True when `statement` shares at least two content words with the quote it cites. */
@@ -71,7 +87,9 @@ export function sharesWords(statement: string, quote: string): boolean {
 export function isPlainGuess(statement: string, quote: string, ownerTyped: string, ownCanvas = ''): boolean {
   const theirs = contentWords(quote);
   const mine = words(statement);
-  if (mine.length < 2 || statement.includes('?') || ASKS.has(mine[0] as string) || mine.some(isUnsure) || ![...contentWords(statement)].some((w) => theirs.has(w) && !FRAMING.has(w))) return false;
+  // A contraction is a negative, not a word: "don't" must not read as the owner's "don".
+  const meaningful = [...contentWords(statement.replace(/\p{L}+n['’]t\b|\b(arent|isnt|dont|doesnt|didnt|wont|cant|wasnt|werent)\b/giu, ' '))];
+  if (mine.length < 2 || statement.includes('?') || ASKS.has(mine[0] as string) || withoutHelpers(mine).some(isUnsure) || mine.some((w, i) => w === 'not' && mine[i + 1] === 'all') || !meaningful.some((w) => !FRAMING.has(w) && !NEGATORS.has(w) && knownWord(w, theirs))) return false;
   // A name and generic words say nothing: "Stripe customers" from "analyze Stripe".
   const own = statement.split(/[^\p{L}\p{N}]+/u).filter((w) => w && !FRAMING.has(w.toLowerCase()));
   if (own.length === 1 && /\p{Lu}/u.test(own[0] as string)) return false;
@@ -80,9 +98,9 @@ export function isPlainGuess(statement: string, quote: string, ownerTyped: strin
   const holding = raw.filter((r) => holds(words(r), q));
   // Nothing of its own: every meaningful word of the statement is one the owner typed, or already on their canvas (vetted when it was written).
   const typed = contentWords(`${ownerTyped}\n${ownCanvas}`);
-  if ([...contentWords(statement)].some((w) => !FRAMING.has(w) && !typed.has(w))) return false;
+  if (meaningful.some((w) => !FRAMING.has(w) && !NEGATORS.has(w) && !knownWord(w, typed))) return false;
   if (!holding.length || quote.includes('?')) return false;
-  return !q.some(isUnsure) && holding.every((r) => { const ws = words(r); return !r.includes('?') && !ws.some(isUnsure) && !ws.some((w, i) => ASKS.has(w) && ASK_SUBJECT.has(ws[i + 1] as string)) && !ASKS.has(ws[0] as string); });
+  return !withoutHelpers(q).some(isUnsure) && holding.every((r) => { const ws = words(r); return !r.includes('?') && !withoutHelpers(ws).some(isUnsure) && isNegative(ws) === isNegative(mine) && !ws.some((w, i) => w === 'not' && ws[i + 1] === 'all') && !/^(do|does|did|can|will)$/.test(ws[0] as string) && !ws.some((w, i) => ASKS.has(w) && ASK_SUBJECT.has(ws[i + 1] as string)) && !ASKS.has(ws[0] as string); });
 }
 
 /** A generic subject, compared as written: a capital may be a name. A stopword does not qualify: "per" and "will" are names too. */

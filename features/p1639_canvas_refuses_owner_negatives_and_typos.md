@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 108
 severity: medium
@@ -11,8 +11,14 @@ exec_model: opus
 exec_effort: high
 tags: [canvas, mirror-agent]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
+reproduce_artifact:
+  test_file: src/tests/p1639-reproduce.test.ts
+  root_cause: "isPlainGuess refuses any negator and needs exact word matches, so an owner's own negative with a typo cannot pass"
+  confidence: high
+  surfaces_in_scope: [isPlainGuess]
+  reproduced_at: 2026-11-05
 ---
 
 # P1639: Canvas refuses the owner's own negative statements and typos
@@ -63,10 +69,20 @@ A negative passes when the statement and the owner's sentence agree; other doubt
 
 ## Acceptance Criteria
 
-- [ ] "the probme is peopel dont like jouice" reaches the canvas on a real run on TEST, with the note
-- [ ] The P1625 refusals still hold: its test file passes unchanged, apart from cases this decision changes, each listed to the founder
-- [ ] "They hate juice" from "they have juice" is refused
-- [ ] The existing canvas suites pass
+- [x] "the probme is peopel dont like jouice" reaches the canvas on a real run on TEST, with the note
+- [x] The P1625 refusals still hold: its test file passes unchanged, apart from cases this decision changes, each listed to the founder
+- [x] "They hate juice" from "they have juice" is refused
+- [x] The existing canvas suites pass
+
+## Verification
+
+`e2e/p1639-real-run.spec.ts` on TEST with the real model: added and told on 5 of 5 empty canvases. `e2e/p1625-real-run.spec.ts` on the same code: 4 of 5, and the Dropbox request wrote nothing. No P1625 test needed changing.
+
+## Known Limitations
+
+- A typo match can join two real words one edit apart, such as "price" and "prize"; the note shows the owner's words.
+- A negative with a hedge ("they should not pay") stays refused.
+- Negation is compared per sentence, so a negative elsewhere in the sentence can refuse a true point, or let one through.
 
 ## Related
 

@@ -17,6 +17,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** A break in another area is caught at the staging hop, not at the commit. A commit still runs 230 to 370 of about 973 test files. The unit job must not become a required check until the p1607 tests that fail on CI are fixed; they were red on `main` before this change. A commit of only `scripts/*.sh` or `.mjs` still skips the Tests step. The cherry-pick claim in the 2026-10-02 (P1347) and P1207 landing entries is disputed: on git 2.54 in scratch repos a clean cherry-pick did not fire the hook, while a conflicted one's `--continue` did. This was not re-measured on a real ship.
 **References:** [p1635](../features/done/2026-06-10/p1635_precommit_suite_contention.md)
 
+## 2026-11-05 [technical]: A best guess accepts the owner's own negatives and typos; a /test deploy of a branch removes other branches' shared files (P1639)
+
+**Context:** After P1625 shipped, the founder's "the probme is peopel dont like jouice" was refused: the model wrote the right point, but any negator counted as a denial and "jouice" did not match "juice". Empty-canvas replies to messages with no box named looked like a second bug; the founder pointed out that "one more card here they are angry" on an empty canvas gives too little to go on, and a clear statement on an empty canvas already works.
+**Decision:** A negative passes when the statement and the owner's sentence agree. A word of five letters or more, one edit from an owner's word with the same first letter, counts as theirs. The model's instructions do not change.
+**Alternatives rejected:** Telling the model to guess on any empty-canvas message: it invented "presented with one more card" when it did guess, and it touches every first draft.
+**Consequences:** Deploying one function from a branch replaces all of `_shared` on TEST, even at zero commits behind main, so a function another branch deployed can stop booting. It happened here to a co-tenant's `send-event-emails`; the deploy reported it and a full deploy repaired boot, but that branch must redeploy. The stale-deploy hook only sees branches behind main, not functions ahead of it. **Falsifier:** typo matches join real but different words on owners' canvases.
+**References:** [P1639](../features/p1639_canvas_refuses_owner_negatives_and_typos.md) · P1625
+
 ## 2026-11-05 [product]: Joining a group has one decision, and nobody joins without learning (P1549)
 
 **Context:** "Join as member" went straight to the terms. Reusing the event learning unchanged put an opt-in to the Clarity Meeting Principle before a differently named Clarity Group Terms, so people decided twice and the first answer changed nothing.
