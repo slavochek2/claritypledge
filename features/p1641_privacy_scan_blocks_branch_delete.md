@@ -11,11 +11,11 @@ exec_model: opus
 exec_effort: high
 tags: [privacy-gate, pre-push, push-docs, staging]
 disclosure: public
-delivery_stage: fix
+delivery_stage: ship
 date_resolved: 2026-11-05
 root_cause: Layer 1 scanned a delete before its skip ran
 resolution: moved the skip ahead of the scan; a canary covers deletes and everything that publishes
-pipeline_ran: [create-bug, reproduce, fix]
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p1641-prepush-delete.sh
   root_cause: "Layer 1 builds a scan range for an all-zero local SHA; its delete skip runs only after the scan, so the scanner exits 3 and the hook refuses"
