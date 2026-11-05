@@ -108,9 +108,19 @@ export function useBoxEditor(tag: CanvasBoxTag, points: PointWithUserPosition[] 
     const selection = window.getSelection?.();
     if (selection && !selection.isCollapsed) return;
     onToggle();
-    // A click on bare box area focuses nothing by itself: without this, Escape and Tab would not start from this box.
-    titleRef.current?.focus({ preventScroll: true });
   };
+  // A click on bare box area focuses nothing, and moving focus there would draw a focus ring on a mouse click. So while nothing holds focus, Escape on the page still leaves this box.
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || document.activeElement !== document.body) return;
+      e.preventDefault();
+      onDeselect();
+      titleRef.current?.focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [selected, onDeselect, titleRef]);
   const onSectionKey = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key !== 'Escape' || !selected || e.defaultPrevented) return;
     e.preventDefault();
