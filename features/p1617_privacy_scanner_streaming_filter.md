@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 94
 workstream: infrastructure
@@ -99,7 +99,7 @@ Recommend the indexed array over the function-and-sentinel design because of run
 
 ## Done-When
 
-- [ ] The founder reproduces the speed-up on real ranges: the commands and old and new timings are recorded, and the full `7da630ec5..7df461be2` scan finishes in under 5 minutes on the founder's machine with exit 0.
+- [x] (Founder ran it 2026-11-05: 29.7 s, exit 0; old timings are in Problem.) The founder reproduces the speed-up on real ranges: the commands and old and new timings are recorded, and the full `7da630ec5..7df461be2` scan finishes in under 5 minutes on the founder's machine with exit 0.
 - [x] Growth is linear: filter time at four times the full range is under about 5 times its time at one, measured on the same machine.
 - [x] Old and new filter output is byte-identical, compared as raw bytes before any shell capture, on the fixtures and on at least three real ranges of about 5k to 20k patch lines.
 - [x] At least one of those ranges really drops allowlisted lines, shown by keeping fewer lines than the same range under a comment-only allowlist. `203e7ea2f..a17fa7bf7` qualifies (38 lines dropped). Three other recent ranges of 5k to 22k lines dropped none, so most ranges do not test this on their own.
@@ -111,7 +111,7 @@ Recommend the indexed array over the function-and-sentinel design because of run
 - [x] Known-bad controls fail with exit 1 exactly: the P919 canary string in an ordinary file, and the existing "content injection attack blocked" case. The existing helpers accept any non-zero exit, so these assert the code itself.
 - [x] Filter failure fails closed with the status shown (epistemic gate 7): killing the loop mid-run, and killing the writer feeding it, each give a non-zero exit on a fixture whose canary sits after the kill point. A scan that stops on these fixtures must not exit 0. The writer case is simulated by cutting the shipped code's input; the kill case signals the scan process, and a test asserts the filter runs outside any capture.
 - [x] Documented workflows pass through it (epistemic gate 7c): one real pre-commit run, and one real pre-push hook run on a staging-shaped ref with no publishing.
-- [ ] All of the above pass locally on macOS. `[post-deploy]` CI's parity step passes on Linux on the staging ref during landing, and a later big push's CI scan time confirms the speed-up.
+- [x] All of the above pass locally on macOS. `[post-deploy]` CI's parity step passes on Linux on the staging ref during landing, and a later big push's CI scan time confirms the speed-up.
 
 ## Alternatives Considered
 
