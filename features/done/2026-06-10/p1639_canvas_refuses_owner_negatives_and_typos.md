@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 108
 severity: medium
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: high
 tags: [canvas, mirror-agent]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1639-reproduce.test.ts
@@ -19,6 +18,7 @@ reproduce_artifact:
   confidence: high
   surfaces_in_scope: [isPlainGuess]
   reproduced_at: 2026-11-05
+completed_at: 2026-11-05
 ---
 
 # P1639: Canvas refuses the owner's own negative statements and typos
