@@ -166,7 +166,7 @@ records exactly what the reviewers saw, and nothing written later.
 |---|---|---|
 | Gemini (review model) | **every run** | write a prompt file (the `criteria/code.md` text plus the diffs), then run `~/.agents/bin/delegate-gemini --model "$(sed -n 's/^REVIEW_GEMINI_MODEL=//p' ~/.agents/model-defaults.env)" --file <prompt file>` |
 | Codex | more than one file changed, OR the diff is over 50 lines, OR a long run (more than one fix round, or the work spanned over 30 minutes), OR GLM was skipped for embargo or unknown disclosure (below) | `~/.agents/bin/codex-review --prompt-file <prompt file>` (same prompt; Codex also reads the repo) |
-| GLM (extra reviewer, advisory) | **every run, except the skip conditions below** | same prompt file as Gemini: `~/.agents/bin/ask-model openrouter --timeout 600 --prompt-file <prompt file>` |
+| GLM (extra reviewer, advisory) | **every run, except the skip conditions below** | same prompt file as Gemini: `~/.agents/bin/ask-model openrouter --timeout 600 --prompt-file <prompt file>` (model id: `OPENROUTER_MODEL` in `~/.agents/model-defaults.env`) |
 | Opus adversary | the change touches `supabase/migrations/`, `supabase/functions/`, an auth path (`**/auth*`, `**/*session*`, RLS), `.claude/hooks/`, `.claude/settings.json`, `scripts/git-ops.sh`, `scripts/ship-gates.sh`, `scripts/pre-commit-checks.sh` or another gate | an `Agent` with `model: "opus"` and a hostile prompt that writes its report to a file. For security, data or ship tooling, escalate to `/slava:think:adversarial-review` |
 
 The model ids live only in `~/.agents/model-defaults.env` (`REVIEW_GEMINI_MODEL`, watched by
@@ -178,9 +178,10 @@ and report why, when any of these holds:
   worktree, not the session's. Collect **every** P-number in the branch name, in `git log main..HEAD`, and in any
   `features/p*.md` in `git diff main...HEAD`, whatever the branch prefix or name shape. Skip unless each of those
   specs says `disclosure: public` in both its committed copy (`git show HEAD:<spec path>`) and its working copy.
-  Also skip when no P-number or no spec can be found.
-- **Any `features/p*.md` in `CHANGED_FILES`, or included in the prompt,** whose `disclosure` is not `public` in
-  either copy.
+  Look for each spec under `features/`, including `features/done/` and `features/archive/`. Also skip when no
+  P-number or no spec can be found.
+- **Any `features/p*.md` in `CHANGED_FILES`, or included in the prompt,** unless it says `disclosure: public` in both its
+  committed copy and its working copy.
 - **Any changed path under `.private/`, or outside this public repo** (`/finish <file>` can name a file in a
   private repo, and git never lists `.private/`).
 - **The prompt file would carry anything else from `.private/` or from an embargoed spec.** Build the prompt only
@@ -229,7 +230,7 @@ independent review of this content ran, not that the code is clean.
   with a reviewer missing must say so in the report.
 - **Report line:** always print this one line, with each reviewer's outcome and any skip reason, so nobody has to ask:
   `Reviewers: Gemini ok · GLM ok (5 findings, 2 verified, 0 unverified) · Codex skipped (one file) · Opus not triggered · 2 of 2 received`.
-  The GLM counts are `N findings, M verified, K unverified`; anything else was dropped. A failed run reads `GLM missing (exit 3)`, a
+  The GLM counts are `N findings, M verified, K unverified`; anything else was dropped. A failed run reads `GLM missing (exit 3)` or `Codex missing (out of quota)`, a
   skip `GLM skipped (embargo)`. Whoever ran Step 4b prints it: a `/finish code` subagent does not know the outcomes.
 - **Freshness:** a fix applied after the snapshot is unreviewed code, and `write` will refuse it.
   - Re-snapshot and re-review the changed files. Every new snapshot needs **at least one fresh Gemini or Codex
