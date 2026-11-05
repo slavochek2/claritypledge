@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 86
 workstream: infrastructure
 created_date: '2026-11-03'
 tags: [testing, self-hosted, guard]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-05
 ---
 
 # P1602: Warn when a run targets the non-active TEST server
