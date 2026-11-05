@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 292
+**Next ID:** 293
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3542,5 +3542,16 @@ model-watch reads the OpenRouter catalog, but its bump plan checks google ids an
 **due:** week
 
 Moved out of P1630's Done-When by the founder so the spec can close at ship. After /ship p1630, run one real /finish on a throwaway change and confirm the report line, the receipt's vendors field and a refused GLM-only write. Done when that output is recorded here.
+
+---
+
+## P1630: confirm Codex completes on an embargoed one-file change
+
+**ID:** INBOX-292
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+At ship, Codex was launched on the embargoed one-file case but hit its usage limit, so only the routing was proven. Re-run that case once with the limit reset, on throwaway code. Done when a Codex run with exit 0 is recorded here.
 
 ---
