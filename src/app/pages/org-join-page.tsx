@@ -99,7 +99,6 @@ export function OrgJoinPage() {
       groupName={groupName}
       orgPath={orgPath}
       afterPath={afterPath}
-      carriedQuery={carriedQuery}
       accepting={accepting}
       onAccept={handleAccept}
       goBack={goBack}

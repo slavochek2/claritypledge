@@ -379,7 +379,7 @@ function PrepareFlow({
           {join ? (
             <div className="min-w-0 flex-1" data-testid="learn-join-context">
               <p className="text-sm font-semibold text-foreground" data-testid="learn-join-title">Joining {join.groupName}</p>
-              <p className="text-xs text-muted-foreground" data-testid="learn-join-step">Step {stepIndex + 1} of 4</p>
+              <LetterProgressBar currentChapter={stepIndex} totalChapters={4} stepCount={1} committedSteps={0} label={`Step ${stepIndex + 1} of 4`} />
             </div>
           ) : stepIndex >= 0 ? (
             // The event preparation's header: the step name over LetterProgressBar.
@@ -512,23 +512,21 @@ function PrepareFlow({
                 </p>
               </div>
               <Clip clip="principle" onPlay={markPlayed('principle')} playRequest={playRequest} />
+              {/* P1549: joining shows the video and the text it talks about together, with no question after. */}
+              {join && (
+                <div data-testid="join-principle-text">
+                  <CertificateFrame ariaLabel={PRINCIPLE_TITLE} title={PRINCIPLE_TITLE} kicker="A promise for one meeting" epigraph="We all crave being understood. Let's commit to listen.">
+                    <CertificateOathBody sections={sectionsForLevel(PRINCIPLE_LEVEL)} />
+                  </CertificateFrame>
+                </div>
+              )}
               {videoBar('principle', (watched) => {
                 if (watched) complete('principle_intro');
+                if (join) return finishPrinciple();
                 setPrincipleIntroDone(true);
                 setPlayRequest(0);
                 window.scrollTo(0, 0);
               })}
-            </section>
-          )}
-
-          {join && screen === 'principle' && principleIntroDone && (
-            <section className="space-y-5" data-testid="join-principle-text">
-              <CertificateFrame ariaLabel={PRINCIPLE_TITLE} title={PRINCIPLE_TITLE} kicker="A promise for one meeting" epigraph="We all crave being understood. Let's commit to listen.">
-                <CertificateOathBody sections={sectionsForLevel(PRINCIPLE_LEVEL)} />
-              </CertificateFrame>
-              <StepActions ref={barRef}>
-                <LetterPrimaryCta label="Continue" onClick={finishPrinciple} />
-              </StepActions>
             </section>
           )}
 

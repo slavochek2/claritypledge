@@ -62,7 +62,7 @@ test.describe('P1549 join learning', () => {
     await page.goto(joinUrl());
     await page.getByRole('button', { name: 'Start learning' }).click();
     await expect(page).toHaveURL(/\/prepare\?.*then=join/);
-    await expect(page.getByTestId('learn-join-step')).toHaveText('Step 1 of 4');
+    await expect(page.getByText('Step 1 of 4')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Continue without video' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Play the video' })).toBeVisible();
     await supabaseAdmin.from('person_prep_parts').upsert({ profile_id: u.user.id, part: 'cognitive_video', content_version: 1, completed_at: new Date().toISOString() }, { onConflict: 'profile_id,part' });
@@ -75,18 +75,12 @@ test.describe('P1549 join learning', () => {
     await expect(page.getByRole('button', { name: 'Continue without video' })).toHaveCount(0);
   });
 
-  test('learned elsewhere: straight to the terms, with Review it returning to the terms', async ({ page }) => {
+  test('learned elsewhere: straight to the terms, no extra lines', async ({ page }) => {
     const u = await user('P1549 Learned');
     await seedLearned(u.user.id);
     await setTestSession(page, u.email);
     await openJoinFromGroup(page);
     await expect(page.getByTestId('join-terms-step')).toHaveText('Group terms');
-    await expect(page.getByTestId('already-learned')).toContainText("You've already done the learning.");
-    await page.getByRole('link', { name: 'Review it' }).click();
-    await expect(page).toHaveURL(/\/prepare\?review=/);
-    await expect(page.getByTestId('agenda').locator('li')).toHaveCount(3);
-    await page.getByTestId('header-back').click();
-    await expect(page).toHaveURL(new RegExp(`${joinUrl()}$`));
     await page.getByRole('button', { name: 'Accept and join' }).click();
     await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
     const { data } = await supabaseAdmin.from('membership').select('user_id').eq('org_id', org.id).eq('user_id', u.user.id);
@@ -94,7 +88,6 @@ test.describe('P1549 join learning', () => {
     // Now a member: the review link on the About tab and on their terms.
     await page.goto(joinUrl());
     await expect(page.getByTestId('review-how-we-talk')).toBeVisible();
-    await expect(page.getByTestId('already-learned')).toHaveCount(0);
     await page.getByTestId('review-how-we-talk').click();
     await page.getByTestId('header-back').click();
     await expect(page).toHaveURL(new RegExp(`${joinUrl()}$`));
@@ -111,7 +104,7 @@ test.describe('P1549 join learning', () => {
 
   test('read-only terms for a non-member, then Join leads to Part 1', async ({ page }) => {
     await page.goto(`${joinUrl()}?view=terms`);
-    await expect(page.getByText('Clarity Group Terms')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Clarity Group Terms' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Accept and join' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Join P1549 Practice' }).click();
     await expect(page.getByTestId('join-part-1')).toBeVisible();
@@ -160,23 +153,21 @@ test.describe('P1549 join learning', () => {
     await openJoinFromGroup(page);
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     // The video element reports a play; headless media cannot be relied on to start by itself.
+    // The video and the principle on one screen, no opt-in: the one decision is the terms.
+    await expect(page.getByTestId('join-principle-text')).toContainText('Clarity Meeting Principle');
     await page.getByRole('button', { name: 'Play the video' }).click();
     await page.locator('video').first().evaluate((v) => v.dispatchEvent(new Event('play')));
-    await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    // No opt-in when joining: the principle is shown, the one decision is the terms.
-    await expect(page.getByTestId('join-principle-text')).toContainText('Clarity Meeting Principle');
     await expect(page.getByRole('button', { name: 'Opt in' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByTestId('answered-count')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Skip and proceed' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await expect(page.getByTestId('join-terms-step')).toHaveText('Step 4 of 4 · Group terms');
-    await expect(page.getByTestId('terms-connection')).toContainText('that same promise');
-    await expect(page.getByTestId('already-learned')).toHaveCount(0);
+    await expect(page.getByText('Step 4 of 4')).toBeVisible();
+    await expect(page.getByTestId('terms-subtitle')).toContainText('promised to every member');
     await expect(page).toHaveURL(new RegExp(`${joinUrl()}$`));
     // Reload keeps the entry's Part 2 label.
     await page.reload();
-    await expect(page.getByTestId('join-terms-step')).toHaveText('Step 4 of 4 · Group terms');
+    await expect(page.getByText('Step 4 of 4')).toBeVisible();
     await page.getByRole('button', { name: 'Accept and join' }).click();
     await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
     await expect.poll(async () => (await supabaseAdmin.from('person_prep_parts').select('part').eq('profile_id', u.user.id).eq('part', 'cmp7')).data?.length).toBe(1);

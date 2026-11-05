@@ -4,6 +4,7 @@
  * (read-only), a non-member reading them (read-only, P1549 decision 12) and a learner accepting them.
  */
 import { Link } from "react-router-dom";
+import { LetterProgressBar } from "@/app/components/letters/letter-progress-bar";
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { FocusHeader } from "@/app/components/layout/focus-header";
@@ -37,7 +38,7 @@ function MemberTermsCaption({ org, myTerms, coaVersion }: { org: Organization; m
   );
 }
 
-export function OrgJoinTerms({ org, myTerms, viewTerms, joinViaLearning, showAlreadyLearned, groupName, orgPath, afterPath, carriedQuery, accepting, onAccept, goBack, onJoinFromView }: {
+export function OrgJoinTerms({ org, myTerms, viewTerms, joinViaLearning, showAlreadyLearned, groupName, orgPath, afterPath, accepting, onAccept, goBack, onJoinFromView }: {
   org: Organization;
   myTerms: { version: number; acceptedAt: string } | null;
   viewTerms: boolean;
@@ -46,7 +47,6 @@ export function OrgJoinTerms({ org, myTerms, viewTerms, joinViaLearning, showAlr
   groupName: string;
   orgPath: string;
   afterPath: string;
-  carriedQuery: string;
   accepting: boolean;
   onAccept: () => void;
   goBack: () => void;
@@ -74,9 +74,11 @@ export function OrgJoinTerms({ org, myTerms, viewTerms, joinViaLearning, showAlr
         <FocusHeader fallback={afterPath} />
         <div>
           {!myTerms && (
-            <p className="mb-2 text-center text-xs text-muted-foreground" data-testid="join-terms-step">
-              {joinViaLearning ? "Step 4 of 4 · Group terms" : "Group terms"}
-            </p>
+            <div className="mb-3" data-testid="join-terms-step">
+              {joinViaLearning
+                ? <LetterProgressBar currentChapter={3} totalChapters={4} stepCount={1} committedSteps={0} label="Step 4 of 4" />
+                : <p className="text-center text-xs text-muted-foreground">Group terms</p>}
+            </div>
           )}
           <h1 className="text-center text-2xl font-bold md:text-3xl">
             {myTerms ? `${org.name} — terms` : `Join ${groupName}`}
@@ -86,24 +88,9 @@ export function OrgJoinTerms({ org, myTerms, viewTerms, joinViaLearning, showAlr
               argue about its own force; above it, it frames what the reader is
               about to read. Still sourced from the versioned registry so it stays
               pinned to the terms_version a member accepted. */}
-          <p className="mt-2 text-center text-muted-foreground">{coa.intro}</p>
-          {showAlreadyLearned && (
-            <p className="mt-2 text-center text-muted-foreground" data-testid="terms-connection">
-              You have seen the Clarity Meeting Principle, which is a promise for one meeting. The Clarity Group Terms are that same promise, made to every member of this group, for as long as you are a member.
-            </p>
-          )}
-          {showAlreadyLearned && !joinViaLearning && (
-            <p className="mt-2 text-center text-sm text-muted-foreground" data-testid="already-learned">
-              You&apos;ve already done the learning.{" "}
-              <Link
-                to={`/prepare?review=${encodeURIComponent(`${orgPath}/join${carriedQuery}`)}`}
-                state={{ fromCaller: true }}
-                className="inline-flex min-h-11 items-center font-medium text-blue-600 underline underline-offset-2 dark:text-blue-400"
-              >
-                Review it
-              </Link>
-            </p>
-          )}
+          <p className="mt-2 text-center text-muted-foreground" data-testid="terms-subtitle">
+            {showAlreadyLearned ? "The Clarity Group Terms are the Clarity Meeting Principle, promised to every member. Not legally binding." : coa.intro}
+          </p>
           {myTerms && (
             <p className="mt-2 text-center text-sm">
               <Link
@@ -174,14 +161,6 @@ export function OrgJoinTerms({ org, myTerms, viewTerms, joinViaLearning, showAlr
             >
               {accepting ? "Joining…" : "Accept and join"}
             </Button>
-            <p className="text-center text-[10px] text-[#1A1A1A]/60 md:text-xs">
-              Accept the terms to join {org.name}.
-            </p>
-            <div className="text-center">
-              <button type="button" onClick={goBack} className="min-h-11 text-sm font-medium text-[#1A1A1A]/70 underline underline-offset-2" data-testid="terms-back">
-                Back
-              </button>
-            </div>
             </>
             )}
           </div>

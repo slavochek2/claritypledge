@@ -70,6 +70,8 @@ Decision density: decisions 1-12 are made (defaults applied where marked). New c
 
 23. **One decision when joining** (founder, 2026-11-05). Four steps: the definition; the Clarity Meeting Principle shown with no opt-in; the current seven statements unchanged; the group terms with Accept and join. The terms page says how the two connect. This replaces "Part 1 of 2 / Part 2 of 2" on the groups side and the "No opt-in" exception applies only when joining; events and `/prepare` keep theirs. Later, not now: the founder's recording replaces the step 2 video and may prompt group-specific statements. The hike's join flow is unchanged in this round.
 
+24. **The terms page carries one sentence** (founder, 2026-11-05): "The Clarity Group Terms are the Clarity Meeting Principle, promised to every member. Not legally binding." This overturns decision 17: no "already done the learning" line and no "Review it". No caption under Accept and no second Back: the top Back is the only one. Members keep "Review how we talk".
+
 ## Relation to P1542 (updated 2026-10-27)
 
 P1542 (Social Hike prepare and close recipes) ships first, together with P1562. Increment 1 starts on its own branch from `main` after that ship. P1542 built the **event side** of this path. P1549 builds the **groups-page side** and reuses P1542's pieces rather than copying them.
@@ -271,7 +273,6 @@ Every visual item is measured at 1440, 375 and 320, with the screen-review brief
 - [x] After completing step 1, leaving right after the principle intro video (before its decision) and returning shows step 2 unticked. "Continue" opens step 2 at its intro.
 - [x] In join mode neither video offers "Continue without video" and cmp7 offers no "Skip". The event learning and the plain `/prepare` still offer them. Someone who skipped the story video on the plain `/prepare` sees step 1 unticked on Part 1 with "Continue".
 - [x] The why text appears verbatim above the steps on join Part 1 and a hike's and a Clarity Night's plan screen (community version), and on the plain `/prepare` list (the `/prepare` version). A recipe override replaces it. No step was added: the step counts are unchanged.
-- [x] A learner on the terms without `joinViaLearning` sees "You've already done the learning. Review it". Reviewing and leaving returns to the terms; it is absent with `joinViaLearning`, on `?view=terms` and for members.
 - [x] A member sees "Review how we talk" on the About tab and on their terms page; a non-member sees it on neither. It opens the review list, and Back returns to where it was opened.
 - [x] `?review=` with an outside URL (`//evil.example`, `https://evil.example`) behaves as the plain `/prepare`.
 - [x] The event-side and groups-side Part 1 both read "Part 1 of 2 · Short introduction".
