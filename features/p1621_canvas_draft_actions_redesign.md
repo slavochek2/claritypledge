@@ -79,7 +79,7 @@ Approved prototype: `/tree/canvas-actions?v=h`, branch `feature/p1621-canvas-act
 | Save is a filled button alongside Publish | ACCEPT | P1614's editor already does this; it appears only while typing |
 
 **Non-Goals**
-- Do NOT change the quote check or the drop message; that is separate work.
+- Do NOT change the quote check or the drop message; that is the separate short-point bug.
 - Do NOT change what readers see.
 - Do NOT rename any box.
 - Do NOT change where Open appears (panel, sheet) or the reader's position-first story rule.
@@ -110,7 +110,7 @@ Approved prototype: `/tree/canvas-actions?v=h`, branch `feature/p1621-canvas-act
 ## Open Questions
 
 1. The owner's published canvas shows Add to chat today (a tap starts a Clone, P1536 J4). Does selection apply there too? Default: yes for Mention in chat only. UNVERIFIED against the real route.
-2. A hand-added a new write path. Not yet designed; P1614's edit RPC is the model. A hand-added point carries no quote and is not subject to the quote check.
+2. A hand-added point carries no quote and is not subject to the quote check.
 
 ## Alternatives Considered
 
