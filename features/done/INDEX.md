@@ -87,6 +87,7 @@ Last updated: 2026-11-05
 
 ## Points & Stories
 - **P1625** (Nov 26) Canvas drops short true points — the model's real output differed from the spec; check real-model runs, not only tests.
+- **P1639** (Nov 26) Canvas refuses owner negatives and typos — compare negation between point and sentence; a branch TEST deploy can remove others' shared files.
 - **P1535** (Oct 26) Clarity Canvas: nine boxes, core bet first, one screen — box renames are titles only; tags (and the SQL tag list pinned by a drift test) stay.
 - **P1415** (Oct 26) Cards open only via Details; home rail events-first, CA group only — whole-card tap caused accidental phone navigation
 - **P1424** (Oct 26) Nested quoted points/stories open only via their own Details on list cards — prototype A/B/C at 375px decided it; new-tab hosts need useOpenPath, not navigate
