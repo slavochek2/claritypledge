@@ -492,6 +492,9 @@ An invented 15-minute transcript (`scripts/fixtures/p1529-round-transcript.json`
 
 ## Known Limitations
 
+- The expanded update task sometimes folds back on the first tap (seen intermittently in the walk, cause not found); a second tap holds.
+- A person who joins the waiting list and sees a place open in the same session gets an empty form until they reload; two alerts can show together on the host panel when one read fails. Small, recorded from the final review.
+- Latency was last measured before the final review fixes, which did not touch drafting.
 - The waiting list promises "The host will email you if a place opens", but the host cannot read attendees' emails in the app: profile emails are behind a column wall (P877) and no host function returns them. The host reaches people through their other channels. `[FOUNDER DECISION: show emails to the host (a new disclosure to the host), change the sentence, or add a host-only contact path.]`
 - Terms wording and notice versus re-acceptance were reviewed by Gemini 4 Argon, at the founder's request, in place of the founder's approval. It replaced "never quotes or names you", because the name filter is a heuristic.
 - `share_canvas` and `unshare_canvas` have no round check: after round 1 an owner can share another canvas directly. Their partner's link still follows the chosen canvas and reads as no longer shared.

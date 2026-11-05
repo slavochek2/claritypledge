@@ -285,14 +285,19 @@ test('waiting list: only when full; not a seat; once; the host reads it in order
   expect((await Z.client.rpc('join_event_waitlist', { p_slug: W.slug, ...args })).data).toBe('ok');
   expect((await Y.client.rpc('join_event_waitlist', { p_slug: W.slug, ...args })).data, 'a registered person').toBe('registered');
   expect((await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', W.id)).count, 'joining is not a seat').toBe(1);
-  const list = await host.client.rpc('get_event_waitlist', { p_event: W.id });
-  expect((list.data as Array<{ name: string }>).map((r) => r.name)).toEqual([X.user.name, Z.user.name]);
-  expect((await X.client.rpc('get_event_waitlist', { p_event: W.id })).error?.code, 'only the host reads the list').toBe('42501');
+  const waitingOf = async (client: Person['client']) => {
+    const st = await client.rpc('get_mastermind_host_state', { p_event: W.id });
+    expect(st.error, `host state: ${st.error?.message}`).toBeNull();
+    return (st.data as Array<{ name: string | null; waiting_position: number | null }>)
+      .filter((r) => r.waiting_position !== null).sort((a, b) => a.waiting_position! - b.waiting_position!).map((r) => r.name);
+  };
+  expect(await waitingOf(host.client), 'the host reads the list, in the order people joined, with the host state').toEqual([X.user.name, Z.user.name]);
+  expect((await X.client.rpc('get_mastermind_host_state', { p_event: W.id })).error?.code, 'only the host reads it').toBe('42501');
+  expect((await host.client.rpc('get_event_waitlist', { p_event: W.id })).error?.code, 'the separate list read is gone').toBe('PGRST202');
   const own = await X.client.from('event_waitlist').select('profile_id').eq('event_id', W.id);
   expect(own.data!.map((r) => r.profile_id), 'a person reads only their own row').toEqual([X.user.user.id]);
   expect((await X.client.rpc('leave_event_waitlist', { p_slug: W.slug })).error).toBeNull();
-  const after = await host.client.rpc('get_event_waitlist', { p_event: W.id });
-  expect((after.data as Array<{ name: string }>).map((r) => r.name)).toEqual([Z.user.name]);
+  expect(await waitingOf(host.client)).toEqual([Z.user.name]);
   // a place opens and the person on the list registers: they leave the list by registering
   await supabaseAdmin.from('events').update({ max_attendees: 2 }).eq('id', W.id);
   expect(await register(Z, W.slug)).toBe('ok');

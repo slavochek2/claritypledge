@@ -226,7 +226,7 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     return 'Join the waiting list shown, no message-the-host line; direct call returned "full" (limit set to 4 for this test: the page logic is by count, 24 is the prod value)';
   });
 
-  await ac('2c', 'waiting list: Join the waiting list opens the form; joining is not a seat; the host sees names in order; leaving works', async () => {
+  await ac('2c', 'waiting list: Join the waiting list opens the form; joining is not a seat; the host sees names in order', async () => {
     const ctx = await browser.newContext();
     const p4 = await ctx.newPage();
     await asUser(p4, A[3], `/events/${slug}`);
@@ -262,16 +262,8 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     const order = (await hp.getByTestId('mm-waitlist-person').allInnerTexts()).map((t) => t.trim());
     expect(order).toEqual([`${first(A[3])} Q.`, `${first(A[4])} Q.`]);
     await shots(hp, 'host', 'waiting-list');
-    // leaving works: the page's own Leave, then the host's list loses that name
-    await p4.getByTestId('waitlist-leave').first().click();
-    await expect(p4.getByTestId('rsvp-button').first()).toHaveText('Join the waiting list', { timeout: 30_000 });
-    await expect.poll(async () => (await supabaseAdmin.from('event_waitlist').select('profile_id').eq('event_id', REG.id)).data?.length ?? -1, { timeout: 30_000 }).toBe(1);
-    await hp.reload();
-    await expect(hp.getByTestId('mm-waitlist-person')).toHaveCount(1, { timeout: 60_000 });
-    const after = (await hp.getByTestId('mm-waitlist-person').allInnerTexts()).map((t) => t.trim());
-    expect(after).toEqual([`${first(A[4])} Q.`]);
     await ctx.close(); await hostCtx.close();
-    return `joined (row ${JSON.stringify(row)}), registered stayed 4, host order ${JSON.stringify(order)}, after Leave ${JSON.stringify(after)}`;
+    return `joined (row ${JSON.stringify(row)}), registered stayed 4, host order ${JSON.stringify(order)}`;
   });
 
   await ac('2b', 'cancelling frees a place: the page shows "1 place left" again', async () => {
@@ -289,6 +281,38 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     await ctx.close();
     return 'rsvps 4 -> 3; page shows "1 place left"';
   }, page);
+
+  await ac('2d', 'a place opened: the listed person sees Register with their answers filled in, and Leave still works', async () => {
+    const ctx = await browser.newContext();
+    const p4 = await ctx.newPage();
+    await asUser(p4, A[3], `/events/${slug}`);
+    await expect(p4.getByTestId('rsvp-button').first()).toHaveText('Register', { timeout: 60_000 });
+    await expect(p4.getByTestId('waitlist-leave').first()).toBeVisible();
+    await shots(p4, 'waitlist', 'place-opened-register');
+    await p4.getByTestId('rsvp-button').first().click();
+    const dlg = p4.getByTestId('registration-questions');
+    await expect(dlg).toBeVisible();
+    await expect(dlg.getByTestId('join-improve')).toBeChecked();
+    await expect(dlg.getByTestId('prep-home')).toBeChecked();
+    await expect(dlg.getByTestId('recording-accept')).toBeChecked();
+    await expect(dlg.getByRole('radio', { name: 'USB-C' })).toBeChecked();
+    await shots(p4, 'waitlist', 'register-prefilled');
+    // close without registering (the answers stay), then Leave the list
+    await p4.keyboard.press('Escape');
+    await expect(dlg).toHaveCount(0);
+    await p4.getByTestId('waitlist-leave').first().click();
+    await expect.poll(async () => (await supabaseAdmin.from('event_waitlist').select('profile_id').eq('event_id', REG.id)).data?.length ?? -1, { timeout: 30_000 }).toBe(1);
+    const hostCtx = await browser.newContext();
+    const hp = await hostCtx.newPage();
+    await asUser(hp, host, `/events/${slug}/host`);
+    await expect(hp.getByTestId('mm-waitlist-person')).toHaveCount(1, { timeout: 90_000 });
+    const after = (await hp.getByTestId('mm-waitlist-person').allInnerTexts()).map((t) => t.trim());
+    expect(after).toEqual([`${first(A[4])} Q.`]);
+    const regs = await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', REG.id).eq('profile_id', A[3].user.user.id);
+    expect(regs.count, 'seeing Register did not seat them').toBe(0);
+    await ctx.close(); await hostCtx.close();
+    return `button "Register", Leave visible, form filled (improve, at home, accepted, USB-C); after Leave the host list is ${JSON.stringify(after)}`;
+  });
 
   await ac('1d', 'Clarity Night registers in one tap (no step)', async () => {
     const ctx = await browser.newContext();
@@ -968,6 +992,23 @@ test('WALK2: after round 1 (flow and canvas fixed), round 2, round 1 transcripts
       if (!timeline.includes('FOLDED')) return;
     }
   };
+
+  await ac('8x', 'the one-line update task stays open on its FIRST click, over six fresh page loads', async () => {
+    const results: string[] = [];
+    for (const [i, who] of [walk.ownerA!, walk.ownerB!, walk.ownerA!, walk.ownerB!, walk.ownerA!, walk.ownerB!].entries()) {
+      const { ctx, pg } = await roomPage(who);
+      const line = pg.getByTestId('mastermind-task-line');
+      await expect(line.first()).toBeVisible({ timeout: 120_000 });
+      await line.first().click();
+      const seen: string[] = [];
+      for (let k = 0; k < 6; k++) { await pg.waitForTimeout(500); seen.push((await pg.getByTestId('mastermind-task').count()) ? 'open' : 'FOLDED'); }
+      results.push(`${i + 1}:${first(who)}:${seen.includes('FOLDED') ? 'FOLDED' : 'open'}`);
+      await ctx.close();
+    }
+    note(`FIRST-CLICK TRIES ${results.join(' ')}`);
+    expect(results.filter((r) => r.endsWith('FOLDED')), `first clicks that folded back: ${results.join(' ')}`).toEqual([]);
+    return results.join(' ');
+  });
 
   await ac('8b', 'table without a recording: "No recording from this round" and no button', async () => {
     const { ctx, pg } = await roomPage(walk.ownerC!);
