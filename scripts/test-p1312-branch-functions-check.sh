@@ -90,7 +90,7 @@ STUB
   cat > "$W/bin/join" <<STUB
 #!/bin/bash
 [ -n "\${STUB_JOIN_FAIL:-}" ] && exit 1
-[ -n "\${STUB_JOIN_EMPTY:-}" ] && { cat >/dev/null; exit 0; }
+[ -n "\${STUB_JOIN_EMPTY:-}" ] && exit 0
 for j in /usr/bin/join /bin/join; do [ -x "\$j" ] && exec "\$j" "\$@"; done
 exit 127
 STUB

@@ -212,6 +212,7 @@ regularly wait on redeploys, or redeploys keep interrupting other sessions.
 | A transient tunnel failure turns a finished evidence run red | MITIGATE | Teardown retries `unknown` once |
 | Editing a function during a run reports `differs` | ACCEPT | True; the message names the deployer, so the editor may misread it |
 | A deploy straddling the hash read | ACCEPT | Every deploy recreates the container, so one restored before teardown is caught by the changed container start |
+| Committing during an evidence run fails it, even with unchanged files | ACCEPT | Fails in the safe direction; commit before or after the run |
 | A function needing a new secret passes the check | ACCEPT | Secrets are outside this check |
 | Client-only branch on another branch's functions | ACCEPT | No check; stated in plain terms and covered by Step 6 |
 

@@ -78,6 +78,7 @@ describe('P1312 functionsVerdict: the table', () => {
     }
   });
   it('M4: a HEAD that moved is untrusted, even for none to none', () => {
+    expect(functionsVerdict({ start: 'match', end: 'match', requireFlag: true, startStarted: '1', endStarted: '1', startHead: '', endHead: '' })).toMatchObject({ verdict: 'changed-during-run', action: 'fail' });
     const moved = { startHead: 'aaa', endHead: 'bbb' };
     expect(functionsVerdict({ start: 'match', end: 'match', requireFlag: true, startStarted: '1', endStarted: '1', ...moved })).toMatchObject({ verdict: 'changed-during-run', action: 'fail' });
     expect(functionsVerdict({ start: 'none', end: 'none', requireFlag: true, ...moved })).toMatchObject({ verdict: 'changed-during-run', action: 'fail' });

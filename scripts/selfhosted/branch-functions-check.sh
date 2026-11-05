@@ -255,7 +255,8 @@ while IFS= read -r fn; do
   # A tracked file removed from the working tree is still listed: only a file that exists counts.
   alive=0
   while IFS= read -r pp; do [ -n "$pp" ] && [ -f "$REPO/$pp" ] && alive=1; done <<< "$present"
-  if [ "$alive" = 1 ]; then kept="$kept $fn"
+  # A changed function already matching the server needs no redeploy.
+  if [ "$alive" = 1 ]; then grep -qxF -- "$fn" "$T/tops" && kept="$kept $fn"
   # A function this branch deleted needs the pruning full deploy only when it is among the
   # differences, that is, when the server still holds a copy of it.
   elif grep -qxF -- "$fn" "$T/tops"; then deleted="$deleted $fn"; fi

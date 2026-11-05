@@ -82,6 +82,10 @@ export function functionsVerdict({ start, end, requireFlag, startStarted, endSta
     return flagged('changed-during-run',
       'the checked-out commit changed during the run, so the tests did not all run on one tree: results untrusted.');
   }
+  if (start !== 'none' && (startHead === '' || endHead === '')) {
+    return flagged('changed-during-run',
+      'the checked-out commit could not be read at both ends of the run: results untrusted.');
+  }
   if (start === 'none') {
     return { verdict: 'not-applicable', action: 'pass', message: 'this branch changed no deployed edge function, so there was nothing to check (client-only branches are not covered by this check).' };
   }
