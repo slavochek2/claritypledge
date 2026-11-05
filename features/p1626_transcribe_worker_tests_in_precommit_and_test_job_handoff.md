@@ -6,8 +6,8 @@ workstream: events
 created_date: '2026-11-05'
 tags: [transcription, pre-commit, self-hosted-test, cloud-tasks]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
