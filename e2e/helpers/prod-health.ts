@@ -92,13 +92,90 @@ export async function pollUntilStable(
 // /record is answered locally: the CSP is still enforced on a fulfilled request (a violation still
 // fires) and no replay is stored. /track is deliberately NOT intercepted: the tagged events must
 // reach Mixpanel. Call before page.goto.
-export async function keepRecorderWithoutStoringReplays(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    (window as unknown as { __p1628KeepRecorderForSmoke: boolean }).__p1628KeepRecorderForSmoke = true;
+//
+// An opt-in that silently stops working (a typo in the flag, a deleted call) would leave the smokes
+// green with the recorder off, so the helper returns a watch: the first /record flush is awaited
+// (the recorder flushes every ~10s, later than pollUntilStable alone waits) and assertExercised
+// fails the test unless the recorder really reached /record. Works against an init that records
+// regardless of the flag as well.
+export type RecorderFlushState = 'flushed' | 'blocked' | 'timeout';
+
+export interface RecorderWatch {
+  /** 'flushed' on the first fulfilled /record, 'blocked' on a recorder CSP violation, else 'timeout'. Never throws. */
+  waitForFirstFlush(timeoutMs?: number): Promise<RecorderFlushState>;
+  /** Throws unless `state` is 'flushed'. */
+  assertExercised(state: RecorderFlushState): void;
+  fulfilledRecordCount(): number;
+  recorderBundleRequested(): boolean;
+  /** Recorder CSP violations seen so far (as of the last poll). */
+  recorderViolations(): string[];
+}
+
+export async function keepRecorderWithoutStoringReplays(page: Page): Promise<RecorderWatch> {
+  let fulfilled = 0;
+  let bundleRequested = false;
+  let violations: string[] = [];
+
+  page.on('request', (req) => {
+    if (req.url().includes('mixpanel-recorder')) bundleRequested = true;
   });
-  await page.route('https://api-eu.mixpanel.com/record**', (route) =>
-    route.fulfill({ status: 200, contentType: 'text/plain', body: '1' }),
-  );
+
+  await page.addInitScript(() => {
+    const w = window as unknown as {
+      __p1628KeepRecorderForSmoke: boolean;
+      __p1628RecorderViolations: string[];
+    };
+    w.__p1628KeepRecorderForSmoke = true;
+    w.__p1628RecorderViolations = [];
+    document.addEventListener('securitypolicyviolation', (e) => {
+      const blocked = e.blockedURI || '';
+      if (blocked.includes('mixpanel-recorder') || blocked.includes('/record')) {
+        w.__p1628RecorderViolations.push(`${e.violatedDirective} blocked ${blocked}`);
+      }
+    });
+  });
+
+  await page.route('https://api-eu.mixpanel.com/record**', async (route) => {
+    fulfilled += 1;
+    await route.fulfill({ status: 200, contentType: 'text/plain', body: '1' }).catch(() => undefined);
+  });
+
+  return {
+    async waitForFirstFlush(timeoutMs = 20_000) {
+      const deadline = Date.now() + timeoutMs;
+      for (;;) {
+        if (fulfilled > 0) return 'flushed';
+        try {
+          const seen = await page.evaluate(
+            () => (window as unknown as { __p1628RecorderViolations?: string[] }).__p1628RecorderViolations ?? [],
+          );
+          if (seen.length > 0) {
+            violations = seen;
+            return 'blocked';
+          }
+        } catch {
+          /* page navigating or closed: keep polling until the deadline */
+        }
+        if (Date.now() >= deadline) return 'timeout';
+        try {
+          await page.waitForTimeout(250);
+        } catch {
+          return fulfilled > 0 ? 'flushed' : 'timeout';
+        }
+      }
+    },
+    assertExercised(state) {
+      if (state === 'flushed') return;
+      throw new Error(
+        `recorder never reached /record on this route: the smoke opt-in or the recorder is broken ` +
+          `(state=${state}, recorder bundle requested=${bundleRequested}, ` +
+          `recorder CSP violations=${violations.length ? violations.join('; ') : 'none'})`,
+      );
+    },
+    fulfilledRecordCount: () => fulfilled,
+    recorderBundleRequested: () => bundleRequested,
+    recorderViolations: () => violations,
+  };
 }
 
 // ── Allowlist ───────────────────────────────────────────────────────────────

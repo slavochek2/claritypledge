@@ -39,10 +39,10 @@ test.describe('Prod health smoke', () => {
   for (const route of PROD_HEALTH_ROUTES) {
     test(`no console errors or HTTP>=400 on ${route}`, async ({ page }) => {
       // goto + the stabilization poll need headroom beyond Playwright's 30s default.
-      test.setTimeout(45_000);
+      test.setTimeout(60_000);
 
       // P1628: automation is not recorded by default; opt back in so recorder-only breaks still fail.
-      await keepRecorderWithoutStoringReplays(page);
+      const recorder = await keepRecorderWithoutStoringReplays(page);
 
       // Console capture — ALL errors, not just CSP patterns. Allowlisted vendor
       // chatter is dropped; everything else is redacted and recorded.
@@ -69,6 +69,11 @@ test.describe('Prod health smoke', () => {
 
       await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle' });
 
+      // The recorder flushes (and so first hits /record) only every ~10s, later than the poll below
+      // would wait on most routes. Wait for it first so a recorder-only failure lands in the capture
+      // arrays and is reported by the assertion below with its usual message.
+      const recorderState = await recorder.waitForFirstFlush();
+
       // Wait out late-init SDKs: poll the captured-error count until it settles.
       await pollUntilStable(page, () => consoleErrors.length + httpErrors.length);
 
@@ -79,6 +84,9 @@ test.describe('Prod health smoke', () => {
           `If this is benign vendor noise, add the pattern to PROD_HEALTH_ALLOWLIST in ` +
           `e2e/helpers/prod-health.ts (with a comment on why). Captured (redacted):\n${all.join('\n')}`,
       ).toHaveLength(0);
+
+      // Last: nothing was captured, but did the recorder actually run?
+      recorder.assertExercised(recorderState);
     });
   }
 });

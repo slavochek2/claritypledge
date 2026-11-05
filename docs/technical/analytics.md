@@ -1028,12 +1028,18 @@ These properties enable segmentation in Mixpanel:
 - **Registration cohorts**: Group by `registration_source`
 - **Profile completeness**: Filter by `has_role`, `has_linkedin`
 - **Automation** (P1628): every event sent under `navigator.webdriver` carries the event property
-  `is_automation: true`, stamped in the `before_send_events` hook in `index.html`. The property is
-  absent on other traffic, so filter `is_automation != true`. Events sent before the tag shipped carry
-  nothing and stay contaminated. Automation is not session-recorded, except the health and CSP smokes,
-  which opt back in with `window.__p1628KeepRecorderForSmoke` so recorder-only CSP breaks still fail
-  them, and answer `/record` locally so no replay is stored. Third-party bots that hide webdriver are
-  not caught by this tag.
+  `is_automation: true`. The property is absent on other traffic, so filter `is_automation != true`.
+  It is on events only, not on `/engage` or `/groups` profile updates, so a profile-level filter gets
+  no signal from it. It is a strong filter, not a guarantee: a small number of automation events can
+  arrive untagged (for example, one left queued when a page dies). Events sent before the tag shipped
+  carry nothing and stay contaminated. Third-party bots that hide webdriver are not caught.
+  Automation is not session-recorded. The opt-ins, which set `window.__p1628KeepRecorderForSmoke` and
+  answer `/record` locally so no replay is stored, are the health and CSP smokes (which also fail
+  unless the recorder really reached `/record`, so recorder-only CSP breaks stay detectable), the P881
+  recording guard and P1628's own e2e spec. Cost: other Playwright or DevTools sessions against prod
+  now run without the recorder, so bugs that only appear with the recorder on (decisions.md
+  2026-10-04 and 2026-08-10) will not reproduce there. Reproduce those in a real browser, or set the
+  flag.
 - **Customer-only funnels**: Filter `is_internal != true` — without this, founder/test/service
   account activity can look like real signup-funnel activity (P1133). Three coverage gaps to know
   before trusting a query:

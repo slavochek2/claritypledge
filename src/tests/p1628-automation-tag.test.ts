@@ -66,6 +66,17 @@ describe('P1628: automation is tagged and not recorded', () => {
     expect(hook(item()).properties.is_automation).toBe(true);
   });
 
+  it('automation with the flag explicitly false or any non-true value: not recorded', () => {
+    expect(loadBlock('/', { webdriver: true, flag: false }).noRecord).toBe(true);
+    for (const flag of [0, 'true', 1, null]) {
+      const w = makeWindow('/', { webdriver: true });
+      w.__p1628KeepRecorderForSmoke = flag;
+      const p = [/\/\* P1304-BEGIN[\s\S]*?\/\* P1304-END \*\//, /\/\* P1325-BEGIN[\s\S]*?\/\* P1325-END \*\//, /\/\* P1628-BEGIN[\s\S]*?\/\* P1628-END \*\//].map((r) => html.match(r)![0]);
+      const out = new Function('window', `${p.join('; ')}; return p1325NoRecord;`)(w);
+      expect(out, `flag ${String(flag)} must not opt in`).toBe(true);
+    }
+  });
+
   it.each(['/live/QX7K2M', '/transcribe/QX7K2M', '/auth/verify', '/auth/callback', '/admin', '/admin/users', '/chats', '/chats/abc', '/home'])(
     'CONTROL: the smoke flag never turns recording on for %s',
     (pathname) => {

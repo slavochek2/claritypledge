@@ -16,6 +16,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { keepRecorderWithoutStoringReplays } from './helpers/prod-health';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HARNESS_ORIGIN = 'https://p1628-harness.claritypledge.test';
@@ -110,12 +111,15 @@ async function load(page: Page, keepRecorder: boolean) {
     { timeout: 15000 },
   );
   await page.evaluate(() => {
-    (window as never as { mixpanel: { track: (e: string, p: object) => void } }).mixpanel.track('p1628_manual_event', { a: 1 });
+    const mp = (window as never as { mixpanel: { track: (e: string, p: object) => void; identify: (id: string) => void } }).mixpanel;
+    mp.track('p1628_manual_event', { a: 1 });
+    // Default batching: identify() queues a $identify event like any other.
+    mp.identify('p1628-identified-user');
   });
 
   const deadline = Date.now() + 10000;
   const seen = (name: string) => events.some((e) => e.event === name);
-  while (Date.now() < deadline && !(seen('$mp_web_page_view') && seen('p1628_manual_event'))) {
+  while (Date.now() < deadline && !(seen('$mp_web_page_view') && seen('p1628_manual_event') && seen('$identify'))) {
     await page.waitForTimeout(250);
   }
   return { events, undecodedTracks, recordHits, recorderBundleRequested: () => recorderBundleRequested };
@@ -134,6 +138,9 @@ test.describe('P1628: automation tag on the wire', () => {
     expect(manual, 'no manual track() decoded').toBeTruthy();
     expect(pageview!.properties.is_automation).toBe(true);
     expect(manual!.properties.is_automation).toBe(true);
+    const identify = run.events.find((e) => e.event === '$identify');
+    expect(identify, 'no $identify event decoded under default batching').toBeTruthy();
+    expect(identify!.properties.is_automation).toBe(true);
 
     expect(await page.evaluate(() => typeof (window as never as { mixpanel: { get_distinct_id: unknown } }).mixpanel.get_distinct_id)).toBe('function');
     expect(run.recorderBundleRequested(), 'recorder bundle was requested under automation').toBe(false);
@@ -150,6 +157,9 @@ test.describe('P1628: automation tag on the wire', () => {
     expect(manual, 'no manual track() decoded').toBeTruthy();
     expect(pageview!.properties.is_automation).toBe(true);
     expect(manual!.properties.is_automation).toBe(true);
+    const identify = run.events.find((e) => e.event === '$identify');
+    expect(identify, 'no $identify event decoded under default batching').toBeTruthy();
+    expect(identify!.properties.is_automation).toBe(true);
 
     expect(await page.evaluate(() => typeof (window as never as { mixpanel: { get_distinct_id: unknown } }).mixpanel.get_distinct_id)).toBe('function');
 
@@ -163,5 +173,94 @@ test.describe('P1628: automation tag on the wire', () => {
 
     expect(run.recorderBundleRequested(), 'recorder bundle not requested with the smoke flag set').toBe(true);
     expect(run.recordHits.length, 'no /record payload with the smoke flag set').toBeGreaterThan(0);
+  });
+});
+
+// ── The recorder watch (P1628): the smokes must prove the recorder really ran ────────────────
+// keepRecorderWithoutStoringReplays() returns a watch. These tests run the same harness with a CSP
+// served on the harness document, the way prod serves one, and pin each outcome of the watch.
+
+async function loadWatched(
+  page: Page,
+  opts: { csp?: string; mutateInit?: (init: string) => string } = {},
+) {
+  const reachedNetwork: string[] = [];
+  // Registered FIRST, so it runs only for what the helper's own route does not take: a /record
+  // request landing here would have gone on to the real network.
+  await page.route('https://api-eu.mixpanel.com/**', async (route) => {
+    if (route.request().url().includes('/record')) reachedNetwork.push(route.request().url());
+    await route.fulfill({ status: 200, contentType: 'text/plain', body: '1' });
+  });
+  const watch = await keepRecorderWithoutStoringReplays(page);
+
+  let init = extractMixpanelInit();
+  if (opts.mutateInit) {
+    const mutated = opts.mutateInit(init);
+    expect(mutated, 'the init mutation did not change the init script').not.toBe(init);
+    init = mutated;
+  }
+  const html = harnessHtml(init);
+  await page.route(`${HARNESS_ORIGIN}/**`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      headers: opts.csp ? { 'content-security-policy': opts.csp } : {},
+      body: html,
+    }),
+  );
+  await page.goto(`${HARNESS_ORIGIN}/`);
+  return { watch, reachedNetwork };
+}
+
+test.describe('P1628: the recorder watch proves the recorder ran', () => {
+  test('(a) healthy: first flush is seen and assertExercised passes', async ({ page }) => {
+    test.setTimeout(60000);
+    const { watch } = await loadWatched(page);
+    const state = await watch.waitForFirstFlush();
+    expect(state).toBe('flushed');
+    expect(() => watch.assertExercised(state)).not.toThrow();
+    expect(watch.recorderBundleRequested()).toBe(true);
+    expect(watch.recorderViolations()).toHaveLength(0);
+  });
+
+  test('(b) CSP that allows only /track on the ingest host: blocked, and the violation is recorded', async ({ page }) => {
+    test.setTimeout(60000);
+    const { watch } = await loadWatched(page, { csp: "connect-src https://api-eu.mixpanel.com/track/" });
+    const state = await watch.waitForFirstFlush();
+    expect(state).toBe('blocked');
+    expect(watch.recorderViolations().join('\n')).toContain('/record');
+    expect(watch.fulfilledRecordCount()).toBe(0);
+    expect(() => watch.assertExercised(state)).toThrow(/recorder never reached \/record/);
+  });
+
+  test('(c) CSP that allows only the SDK file on the CDN: the recorder bundle is blocked', async ({ page }) => {
+    test.setTimeout(60000);
+    const { watch } = await loadWatched(page, {
+      csp: "script-src 'unsafe-inline' https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js",
+    });
+    const state = await watch.waitForFirstFlush();
+    expect(state).toBe('blocked');
+    expect(watch.recorderViolations().join('\n')).toContain('mixpanel-recorder');
+    expect(() => watch.assertExercised(state)).toThrow(/recorder never reached \/record/);
+  });
+
+  test('(d) CONTROL: the opt-in silently stops working (flag name drifts): timeout, and assertExercised throws', async ({ page }) => {
+    test.setTimeout(60000);
+    const { watch } = await loadWatched(page, {
+      mutateInit: (init) => init.replace(/__p1628KeepRecorderForSmoke/g, '__p1628KeepRecorderTypo'),
+    });
+    const state = await watch.waitForFirstFlush(4000);
+    expect(state).toBe('timeout');
+    expect(watch.recorderBundleRequested()).toBe(false);
+    expect(() => watch.assertExercised(state)).toThrow(/recorder never reached \/record/);
+  });
+
+  test('(e) the helper answers /record locally: no /record request reaches the network', async ({ page }) => {
+    test.setTimeout(60000);
+    const { watch, reachedNetwork } = await loadWatched(page);
+    const state = await watch.waitForFirstFlush();
+    expect(state).toBe('flushed');
+    expect(watch.fulfilledRecordCount()).toBeGreaterThan(0);
+    expect(reachedNetwork, 'a /record request got past the helper route').toHaveLength(0);
   });
 });

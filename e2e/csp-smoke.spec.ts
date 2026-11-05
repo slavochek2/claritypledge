@@ -41,10 +41,10 @@ test.describe('CSP deploy smoke', () => {
   for (const route of PROD_HEALTH_ROUTES) {
     test(`no CSP violations on ${route}`, async ({ page }) => {
       // goto + the stabilization poll need headroom beyond Playwright's 30s default.
-      test.setTimeout(45_000);
+      test.setTimeout(60_000);
 
       // P1628: automation is not recorded by default; opt back in so recorder-only CSP breaks still fail.
-      await keepRecorderWithoutStoringReplays(page);
+      const recorder = await keepRecorderWithoutStoringReplays(page);
 
       // Structural capture: registered before any document script runs, this catches every
       // CSP block regardless of timing or Chromium console wording. The console parse below
@@ -64,6 +64,11 @@ test.describe('CSP deploy smoke', () => {
 
       await page.goto(`${BASE_URL}${route}`, { waitUntil: 'networkidle' });
 
+      // The recorder flushes (and so first hits /record) only every ~10s, later than the poll below
+      // would wait on most routes. Wait for it first so a recorder-only CSP break lands in the
+      // capture arrays and is reported by the assertion below with its usual message.
+      const recorderState = await recorder.waitForFirstFlush();
+
       // Wait out late-init SDKs: poll the violation count until it settles. Shared
       // stabilization helper — same MIN/MAX/STABLE tuning as the prod-health gate.
       await pollUntilStable(page, () =>
@@ -81,6 +86,9 @@ test.describe('CSP deploy smoke', () => {
         all,
         `CSP blocked ${all.length} resource(s) on ${BASE_URL}${route}. A host is missing from the vercel.json allowlist (or a vendor rotated to a new host). Blocked:\n${all.join('\n')}`,
       ).toHaveLength(0);
+
+      // Last: no violation was reported, but did the recorder actually run?
+      recorder.assertExercised(recorderState);
     });
   }
 });
