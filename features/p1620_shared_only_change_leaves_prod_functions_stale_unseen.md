@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [deploy, edge-functions, manifest, terms]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: scripts/test-p1620-reproduce.sh
   root_cause: "The manifest hashes only index.ts, and every deploy re-stamps all functions, so a _shared or sibling change never reports and a one-function deploy marks undeployed functions current"
@@ -90,8 +90,8 @@ Already done, out of scope: the two hotfix deploys below, and the secret check's
 - [x] The same change does not report a function that does not import it, if hashing is per import
 - [x] A freshly deployed, unchanged function reports clean
 - [x] Deploying one function does not mark another changed function as current
-- [ ] [post-deploy] Every function found stale on prod is listed, and redeployed with founder approval
-- [ ] [post-deploy] A person on the current terms gets a mirror reply on prod with no terms message
+
+**Moved to P1622 by founder decision, 2026-11-05:** the prod redeploy and the prod mirror-reply check, because neither can happen before this merges. This spec's prod outcome is not proven until P1622 closes.
 
 ## Resolution
 
