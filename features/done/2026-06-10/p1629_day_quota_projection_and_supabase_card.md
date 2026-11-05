@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 100.0
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [day, kanban, monitoring]
 disclosure: public
-delivery_stage: fix
 pipeline_ran: [create-spec, reproduce, fix]
 reproduce_artifact:
   test_file: tools/kanban/server/__tests__/day-p1629.test.ts
@@ -18,6 +17,7 @@ reproduce_artifact:
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
+completed_at: 2026-11-05
 ---
 
 # P1629: Day page loses the subscription projection, and the Supabase card can be empty after a passing read
