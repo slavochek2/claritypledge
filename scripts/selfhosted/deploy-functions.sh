@@ -13,6 +13,7 @@
 #                                       (--clear-dead-lock also clears a lock whose owner is provably dead; landings pass it)
 #   scripts/selfhosted/deploy-functions.sh --setup     one-time: functions.env + env_file stanza in the override
 #   scripts/selfhosted/deploy-functions.sh --secrets   push function secrets from the Mac secrets file
+#                                                      (refuses when the server holds names the Mac file lacks, P1602)
 #   scripts/selfhosted/deploy-functions.sh --check-secrets   report required secret names still missing (names only)
 #
 # What a deploy does: stages supabase/functions/* (tests excluded), the router
@@ -167,6 +168,46 @@ secret_names() {
     awk -F: '{ if ($2 !~ /^SUPABASE_/) print }' | sort -u
 }
 
+# Names the Mac secrets file really populates (P1602). Rule: accept only plain, unambiguous forms and
+# refuse everything else, instead of imitating Compose's env parser. Per line (CR stripped):
+#   blank / "# ..." line        skipped
+#   KEY=                        empty (not populated); so are KEY=<spaces>, KEY="" and KEY=''
+#   KEY=word                    populated; no spaces, quotes, $ or backslash (a '#' right after '=' is data)
+#   KEY="text"                  populated when text is not blank and holds no quote, $ or backslash
+#   KEY='text'                  populated when text is not blank and holds no single quote (JSON, $, " and \ are fine)
+#   anything else (trailing # comment, spaces, $, backslash, export, ...)   BAD
+# A key that appears twice is BAD (the last one wins in Compose, so a later blank would erase an earlier value).
+# Output: N:KEY for populated names, and BAD once if any line was refused.
+mac_populated_names() {
+  local line="" key="" val="" bad=0 seen="|"
+  local inner="" q="'"
+  local plain='^[^[:space:]"'"$q"'$\\]+$' dq='^"[^"$\\]*"$'
+  local sq="^${q}[^${q}]*${q}\$"   # single quotes: nothing expands, so $, " and backslashes are plain data
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
+    if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+      key="${BASH_REMATCH[1]}"; val="${BASH_REMATCH[2]}"
+      case "$seen" in *"|$key|"*) bad=1; continue ;; esac
+      seen="$seen$key|"
+      if [[ "$val" =~ ^[[:space:]]*$ ]] || [ "$val" = '""' ] || [ "$val" = "''" ]; then
+        :
+      elif [[ "$val" =~ $plain ]]; then
+        printf 'N:%s\n' "$key"
+      elif [[ "$val" =~ $dq ]] || [[ "$val" =~ $sq ]]; then
+        inner="${val:1:${#val}-2}"
+        [[ "$inner" =~ ^[[:space:]]*$ ]] || printf 'N:%s\n' "$key"
+      else
+        bad=1
+      fi
+    else
+      bad=1
+    fi
+  done < "$1"
+  [ "$bad" -eq 0 ] || echo "BAD"
+  return 0
+}
+
 # --- setup: functions.env + env_file stanza (idempotent) ---
 if [ "$MODE" = "setup" ]; then
   vm_run <<'REMOTE'
@@ -196,10 +237,14 @@ if [ "$MODE" = "check-secrets" ] || [ "$MODE" = "secrets" ]; then
   have=""
   if [ -f "$MAC_FN_ENV" ]; then
     [ "$(stat -f '%Lp' "$MAC_FN_ENV" 2>/dev/null || stat -c '%a' "$MAC_FN_ENV")" = "600" ] || die "$MAC_FN_ENV must be mode 600"
-    if grep -q -E '^SUPABASE_' "$MAC_FN_ENV"; then
+    if grep -q -i -E '^SUPABASE_' "$MAC_FN_ENV"; then
       die "$MAC_FN_ENV defines SUPABASE_* names; those come from the compose file and must not be overridden."
     fi
-    have="$(grep -E '^[A-Z_][A-Z0-9_]*=.+' "$MAC_FN_ENV" | cut -d= -f1 | sort -u)"
+    mac_parsed="$(mac_populated_names "$MAC_FN_ENV")"
+    have="$(printf '%s\n' "$mac_parsed" | sed -n 's/^N://p' | sort -u)"
+    if [ "$MODE" = "secrets" ] && printf '%s\n' "$mac_parsed" | grep -qx 'BAD'; then
+      die "$MAC_FN_ENV has a line that is not plain KEY=value (an 'export', spaces around '=', or stray text). Fix it, then re-run. Nothing was changed."
+    fi
   fi
   missing_required=""; missing_optional=""
   while IFS=: read -r cls name; do
@@ -216,6 +261,70 @@ if [ "$MODE" = "check-secrets" ] || [ "$MODE" = "secrets" ]; then
     [ -z "$missing_required" ]; exit $?
   fi
   [ -f "$MAC_FN_ENV" ] || die "$MAC_FN_ENV not found: nothing to push."
+  # P1602: --secrets REPLACES the server's whole functions.env. Refuse when the server holds names the
+  # Mac file lacks (2026-11-02: a 3-line Mac copy wiped the voice, Mirror and storage secrets). Names
+  # only, never values. No bypass flag: to drop a secret on purpose, remove it on the server first.
+  # The remote script is read into a variable first: bash 3.2 (the Mac) mis-parses a heredoc that
+  # contains ')' inside $( ).
+  IFS= read -r -d '' LIST_SCRIPT <<'REMOTE' || true
+set -euo pipefail
+f="$STACK_DIR/functions.env"
+if [ ! -e "$f" ] && [ ! -L "$f" ]; then echo "P1602:NONE"; exit 0; fi
+[ -f "$f" ] && [ -r "$f" ] || { echo "functions.env exists but is not a readable file" >&2; exit 1; }
+line=""
+content="$(cat "$f")"   # a read failure aborts here (set -e); it is never turned into an empty listing
+echo "P1602:BEGIN"
+while IFS= read -r line || [ -n "$line" ]; do
+  line="${line%$'\r'}"
+  if [[ "$line" =~ ^[[:space:]]*$ ]] || [[ "$line" =~ ^[[:space:]]*# ]]; then continue; fi
+  if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]]; then
+    echo "P1602:NAME:${BASH_REMATCH[1]}"
+  else
+    echo "P1602:UNPARSEABLE"   # a line we cannot attribute to a name: the caller refuses
+  fi
+done <<< "$content"
+echo "P1602:END"
+REMOTE
+  server_out="$(printf '%s\n' "$LIST_SCRIPT" | vm_run)" || die "could not read the secret NAMES on the server; refusing to replace its functions.env. Nothing was changed."
+  # Only exact protocol lines count (noise such as a login banner is ignored). Names cannot contain ':',
+  # so a secret can never be mistaken for a marker.
+  tagged="$(printf '%s\n' "$server_out" | tr -d '\r' | sed -n '/^P1602:/p')"
+  server_names=""
+  if [ "$tagged" = "P1602:NONE" ]; then
+    :
+  elif [ "$(printf '%s\n' "$tagged" | sed -n '1p')" = "P1602:BEGIN" ] && [ "$(printf '%s\n' "$tagged" | sed -n '$p')" = "P1602:END" ] \
+    && [ "$(printf '%s\n' "$tagged" | grep -c -x -e 'P1602:BEGIN' -e 'P1602:END')" = 2 ] \
+    && ! printf '%s\n' "$tagged" | sed '1d;$d' | grep -q -v -E '^P1602:(NAME:[A-Za-z_][A-Za-z0-9_]*|UNPARSEABLE)$'; then
+    if printf '%s\n' "$tagged" | grep -qx 'P1602:UNPARSEABLE'; then
+      die "the server's functions.env has a line this script cannot read as KEY=value (an 'export', leading space, spaces around '=' or stray text), so it cannot tell which secrets would be lost; refusing. Normalise that file on the server, then re-run. Nothing was changed."
+    fi
+    server_names="$(printf '%s\n' "$tagged" | sed -n 's/^P1602:NAME://p' | sort -u)"
+  else
+    die "unexpected answer while listing the server's secret names; refusing to replace its functions.env. Nothing was changed."
+  fi
+  would_lose=""
+  while IFS= read -r n; do
+    [ -n "$n" ] || continue
+    grep -qxF "$n" < <(printf '%s\n' "$have") || would_lose="$would_lose $n"
+  done <<< "$server_names"
+  if [ -n "$would_lose" ]; then
+    echo "REFUSED: the server's functions.env holds secret names that $MAC_FN_ENV does not (names only):${would_lose}" >&2
+    die "--secrets replaces the whole server file and would delete these. Add them to the Mac file, or remove them on the server on purpose, then re-run. Nothing was changed."
+  fi
+  # P1602: keep a dated copy beside the live file (same mode) before anything is replaced; print its NAME only.
+  vm_run <<'REMOTE' || die "could not back up the server's functions.env; nothing was replaced."
+set -euo pipefail
+f="$STACK_DIR/functions.env"
+if [ -f "$f" ]; then
+  b="functions.env.bak-$(date +%Y%m%d-%H%M%S)"
+  # Exclusive create: a backup with this name (same second, earlier run) is never overwritten, we fail instead.
+  if [ -e "$STACK_DIR/$b" ] || [ -L "$STACK_DIR/$b" ]; then echo "backup $b already exists; not overwriting" >&2; exit 1; fi
+  (umask 177; set -C; cat "$f" > "$STACK_DIR/$b")
+  chmod 600 "$STACK_DIR/$b"
+  cmp -s "$f" "$STACK_DIR/$b" || { echo "backup $b does not match the live file" >&2; exit 1; }
+  echo "P1602_BACKUP $b"
+fi
+REMOTE
   vm_scp "$MAC_FN_ENV" "/tmp/functions.env.incoming"
   vm_run <<'REMOTE'
 set -euo pipefail

@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: task
 rank: 86
 workstream: infrastructure
 created_date: '2026-11-03'
 tags: [testing, self-hosted, guard]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -15,6 +15,8 @@ driver: anomaly
 ---
 
 # P1602: Warn when a run targets the non-active TEST server
+
+> **Rescoped 2026-11-05:** the warning is dropped. P1606 refuses hosted runs and supersedes "warn, never refuse" (decisions.md 2026-11-03). What ships is the `--secrets` safeguard only: refuse to lose a name, back up first. Below is the original text; the warning parts no longer apply.
 
 ## Problem
 
@@ -65,11 +67,11 @@ One shared check, called where Playwright config already guards test database ru
 
 ## Done-When
 
-- [ ] A hosted run while self-hosted is active prints the warning and exits 0, shown by a canary beside `scripts/test-p1591-active-test.sh`
-- [ ] The same canary with a self-hosted URL prints nothing (the control)
-- [ ] With the reason set, the reason is printed instead, and appears in Playwright's startup line
-- [ ] Every row of the matrix is proven: the helper by the canary, and one real default dev server, one real default Playwright run and one real hosted Playwright run by hand
-- [ ] A missing flip file prints one note, and the dev server still starts
+- [x] ~~A hosted run while self-hosted is active prints the warning and exits 0, shown by a canary beside `scripts/test-p1591-active-test.sh`
+- [x] ~~The same canary with a self-hosted URL prints nothing (the control)
+- [x] ~~With the reason set, the reason is printed instead, and appears in Playwright's startup line
+- [x] ~~Every row of the matrix is proven: the helper by the canary, and one real default dev server, one real default Playwright run and one real hosted Playwright run by hand
+- [x] ~~A missing flip file prints one note, and the dev server still starts
 
 ## Alternatives Considered
 
@@ -83,3 +85,9 @@ Revert the commit; nothing persists.
 ## Related
 
 P1591 · P1557 · P1536 · decisions.md 2026-10-29 "One default TEST server"
+
+## Added Acceptance Criteria (rescope)
+
+- [x] Before `--secrets` writes, the server keeps a dated copy of its function env file beside it (mode 600), and only the copy's name is printed; a failed backup stops the write
+- [x] `--secrets` refuses (names only, nothing sent) when the server holds names the Mac file lacks, and still pushes when the Mac file is a superset, the name sets are equal, or the server has no file
+- [x] Evidence: `scripts/test-p1602-secrets-safeguard.sh` passes 49 of 49; with the refusal removed it exits 1 with 11 failures. The real remote is not exercised.
