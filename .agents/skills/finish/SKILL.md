@@ -1,6 +1,6 @@
 ---
 name: finish
-description: "The end-of-build review standard (P1505): classifies what changed, runs criteria reviewers plus external reviewers by stakes (Gemini review model always, Codex, Opus), and writes the review receipt. Called by /dev and /fix; run standalone after any ad-hoc build, or when the Stop-hook review gate asks for it."
+description: "The end-of-build review standard (P1505): classifies what changed, runs criteria reviewers plus external reviewers by stakes (Gemini review model and GLM always, Codex, Opus), and writes the review receipt. Called by /dev and /fix; run standalone after any ad-hoc build, or when the Stop-hook review gate asks for it."
 when_to_use: "Automatically inside /dev (step 9.5) and /fix (QA gate). Standalone: at the end of any build done outside /dev or /fix, and whenever the Stop-hook review gate (verify-before-stop.py) names files to review."
 version: 1.2.0
 ---
@@ -166,10 +166,32 @@ records exactly what the reviewers saw, and nothing written later.
 |---|---|---|
 | Gemini (review model) | **every run** | write a prompt file (the `criteria/code.md` text plus the diffs), then run `~/.agents/bin/delegate-gemini --model "$(sed -n 's/^REVIEW_GEMINI_MODEL=//p' ~/.agents/model-defaults.env)" --file <prompt file>` |
 | Codex | more than one file changed, OR the diff is over 50 lines, OR a long run (more than one fix round, or the work spanned over 30 minutes) | `~/.agents/bin/codex-review --prompt-file <prompt file>` (same prompt; Codex also reads the repo) |
+| GLM (extra reviewer, advisory) | **every run, except the skip conditions below** | same prompt file as Gemini: `~/.agents/bin/ask-model openrouter --timeout 600 --prompt-file <prompt file>` |
 | Opus adversary | the change touches `supabase/migrations/`, `supabase/functions/`, an auth path (`**/auth*`, `**/*session*`, RLS), `.claude/hooks/`, `.claude/settings.json`, `scripts/git-ops.sh`, `scripts/ship-gates.sh`, `scripts/pre-commit-checks.sh` or another gate | an `Agent` with `model: "opus"` and a hostile prompt that writes its report to a file. For security, data or ship tooling, escalate to `/slava:think:adversarial-review` |
 
-The model id lives only in `~/.agents/model-defaults.env` (`REVIEW_GEMINI_MODEL`, watched by
-`model-watch`). Never write it into this file.
+The model ids live only in `~/.agents/model-defaults.env` (`REVIEW_GEMINI_MODEL`, watched by
+`model-watch`; `OPENROUTER_MODEL` for GLM). Never write one into this file.
+
+**GLM skip conditions (P1630). GLM goes to a third-party host, so this check fails closed.** Skip GLM,
+and report why, when any of these holds:
+- On a `feature/pN-*` or `fix/pN-*` branch, that spec's `disclosure` on the branch is `embargo`, or the
+  spec is missing, or it has no `disclosure` value. Off such a branch there is no spec lookup; the
+  remaining conditions still apply.
+- Any changed path is under `.private/`.
+- The prompt file would carry anything from `.private/` or from an embargoed spec.
+
+**A skip for embargo means Codex runs whatever the size**, so the highest-stakes work never gets the
+smallest roster. Report it as `GLM skipped (embargo)`, or name the other reason.
+
+**GLM triage happens before the founder sees anything.** About half of its extra findings do not
+reproduce. Check each finding with what the claim calls for: a reproduction, a failing test, or a
+concrete counterexample in the source or schema (epistemic gate 9). A finding that fails the check is
+dropped and counted. One that matters but cannot be checked locally, such as a production-only race,
+reaches Step 5 labelled `unverified`, never silently dropped. A subagent may do a check, but none is
+required.
+
+**No single reviewer's "no defects" is clearance, from any reviewer.** A receipt records that an
+independent review of this content ran, not that the code is clean.
 
 - **Prompt:** every snapshotted file must be in the review input. Use the diff for tracked files, and the **full
   content** for new or untracked ones, since `git diff` shows nothing for them. The UI lenses go in only when UI files changed (`src/app/**/*.tsx`, `*.css`).
@@ -184,13 +206,20 @@ The model id lives only in `~/.agents/model-defaults.env` (`REVIEW_GEMINI_MODEL`
     `GEMINI_MODEL`, and say so).
   - If `delegate-gemini` exits 2 (its credential-shape scan refused the payload), run `codex-review` as the
     evidence reviewer instead. Never edit the payload to get past the scan.
+  - GLM has no second route. A non-zero exit, a MISMATCH, a 404 from zero-retention routing, an empty file or
+    a credential-scan exit 2 all mean it did not run: no re-run, report it missing. It never blocks and never
+    counts as clean. Never edit the payload to get past the scan.
   - Otherwise report it as missing. Never count it as clean.
 - **Count:** state `<received> of <spawned>`, naming any reviewer that is missing. Opus counts here but is not receipt
-  evidence, because the receipt needs at least one `ask-model` output. A receipt written with a reviewer
-  missing must say so in the report.
+  evidence, because the receipt needs a Gemini or Codex `ask-model` output (GLM alone is refused). A receipt written
+  with a reviewer missing must say so in the report.
+- **Report line:** always print this one line, with each reviewer's outcome and any skip reason, so nobody has to ask:
+  `Reviewers: Gemini ok · GLM ok (5 findings, 2 verified, 0 unverified) · Codex skipped (one file) · Opus not triggered · 2 of 2 received`.
+  The GLM counts are `N findings, M verified, K unverified`.
 - **Freshness:** a fix applied after the snapshot is unreviewed code, and `write` will refuse it.
-  - Re-snapshot and re-review the changed files. Every new snapshot needs **at least one external
-    (`ask-model`) reviewer**, alongside whichever reviewer found the fixed issues, or no receipt can be written.
+  - Re-snapshot and re-review the changed files. Every new snapshot needs **at least one fresh Gemini or Codex
+    run**, or no receipt can be written: `write` refuses a re-review by GLM alone. The reviewer that found the fixed
+    issue re-runs too if it is reachable; if not, report it missing, and nothing blocks.
   - Stopping rule (decisions.md 2026-10-14 [process], "Overnight autonomous batch — when to stop review rounds"):
     fix every finding a reviewer reproduces on a shape this repo actually produces, or one that falsely blocks
     a legitimate workflow. Record exotic shapes as "Known limitations" in the spec. "Zero findings" is not
@@ -281,11 +310,16 @@ JSON-lines format — one line per review type, each carrying the `pn` it review
 After findings are fixed or set aside, and after any re-review of fixes:
 
 ```bash
-python3 scripts/review_receipt.py write --snapshot <path from Step 4b.0> --evidence <each ask-model output file>
+python3 scripts/review_receipt.py write --snapshot <path from Step 4b.0> --evidence <each ask-model output file from this round>
 ```
+
+Pass **every** `ask-model` output file from this round, GLM's and any failed one included. `write` filters
+out failed and stale files itself and records the vendors of the valid ones in the receipt's `vendors` field.
+That field does not say who was attempted, skipped or failed, and never names Opus; the report line does that.
 
 `write` refuses in these cases. Each one means the review did not cover the code as it is now:
 - no evidence file is a successful `ask-model` run written after the snapshot
+- no valid evidence file comes from `gemini` or `codex` (`openrouter` and `local` count only alongside one)
 - a file changed after the snapshot
 
 Fix the review, never the evidence. The receipt is what clears the Stop-hook gate.

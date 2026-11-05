@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 289
+**Next ID:** 291
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3506,5 +3506,27 @@ P1608 (w4) and P1611 (w8) closed with founder holds still present, both have no 
 **due:** month
 
 Tool stamp, tracked before the ignore rule. Untrack with git rm --cached through the locked commit path.
+
+---
+
+## P1630: read ten /finish runs and decide whether GLM stays
+
+**ID:** INBOX-289
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** month
+
+Read ten /finish runs from the 30 days after P1630 merged. If GLM produced no verified defect the other reviewers missed, fall back to Alternative B in the spec (GLM only when Codex does not run), or remove GLM if it is no better there. Done when that call is recorded.
+
+---
+
+## Point model-watch at OPENROUTER_MODEL so a newer GLM is noticed
+
+**ID:** INBOX-290
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** month
+
+model-watch reads the OpenRouter catalog, but its bump plan checks google ids and nothing points it at the OPENROUTER_MODEL key (P1630 risk, deferred). Done when a newer GLM version is surfaced, or this is dropped because GLM left /finish.
 
 ---
