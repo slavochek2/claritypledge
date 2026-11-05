@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 99
 workstream: events
@@ -44,7 +44,7 @@ Blast radius: part 1 blocks commits touching one service; part 2 changes TEST on
 | Link | State on TEST |
 |---|---|
 | Vault | None of the 3 `enqueue_room_transcription_*` secrets |
-| Edge function | Code deployed by the all-functions path was not proven: a made-up function name also returns 401, so a 401 proves nothing. Required secrets `CRON_SECRET`, `GCP_ENQUEUER_SA_KEY`, `TRANSCRIBE_ROOM_BATCH_URL` are absent from the server |
+| Edge function | Three of the four function secrets it needs were absent from the server: `GCP_ENQUEUER_SA_KEY`, `TRANSCRIBE_ROOM_BATCH_URL`, and the new queue name. `CRON_SECRET` was already there. The first draft called it absent because `--check-secrets` reads the Mac file, not the server; corrected by listing the server names |
 | Queue | Only `transcribe-room-jobs`, shared with prod |
 | Worker IAM | `transcribe-room-batch-test` allows only the founder's user. `tx-task-invoker` is not allowed, so every task would get 403 |
 
@@ -131,30 +131,40 @@ TEST only; prod needs nothing.
 
 ### Secrets to provision
 
-- [ ] `CRON_SECRET`, `GCP_ENQUEUER_SA_KEY`, `TRANSCRIBE_ROOM_BATCH_URL`, `TRANSCRIBE_ROOM_QUEUE`, `TRANSCRIBE_ROOM_INVOKER_SA` in the TEST functions file, pushed with `--secrets`
-- [ ] The 3 vault rows on TEST
+- [x] `CRON_SECRET`, `GCP_ENQUEUER_SA_KEY`, `TRANSCRIBE_ROOM_BATCH_URL`, `TRANSCRIBE_ROOM_QUEUE`, `TRANSCRIBE_ROOM_INVOKER_SA` in the TEST functions file, pushed with `--secrets`
+- [x] The 3 vault rows on TEST
 
 ### Post-deploy verification
 
-- [ ] `--check-secrets` no longer lists the chain's names
+- [x] `--check-secrets` no longer lists the chain's names
 
 ## Done-When
 
-- [ ] A known-failing worker test blocks a commit that touches the service; exit code pasted.
-- [ ] A commit with no change to that service runs no Python; shown by its output.
-- [ ] Missing and stale venvs each block with the banner; exit codes pasted.
-- [ ] A collection error blocks too; exit code pasted.
-- [ ] Other services' gap reported in the handoff.
-- [ ] Immediately before enabling: release count restated. It is 0, or the founder was told first.
-- [ ] One `P1608_DISPATCH=chain` run finished; worker logs show every one of its jobs delivered by Cloud Tasks from the test queue. Run result reported whatever it was.
-- [ ] After the run, no instance stays billed and no scheduler targets the test worker, shown by command.
-- [ ] Prod unchanged: its worker revision, IAM and queue compared before and after.
-- [ ] Reviewed by Gemini 4 Argon and Codex; load-bearing findings verified by command.
+- [x] A known-failing worker test blocks a commit that touches the service: the branch's `pre-commit-checks.sh`, run on that staged test, exit 1. `[post-deploy]` repeat with a real `git commit` once on main: worktrees run main's hook, and a hook-path override is refused by the push guard.
+- [x] A commit with no change to that service runs no Python; shown by its output.
+- [x] Missing and stale venvs each block with the banner; exit codes pasted.
+- [x] A collection error blocks too; exit code pasted.
+- [x] Other services' gap reported in the handoff.
+- [x] Immediately before enabling: release count restated. It is 0, or the founder was told first.
+- [x] One `P1608_DISPATCH=chain` run finished; worker logs show every one of its jobs delivered by Cloud Tasks from the test queue. Run result reported whatever it was.
+- [x] After the run, no instance stays billed and no scheduler targets the test worker, shown by command.
+- [x] Prod unchanged: its worker revision, IAM and queue compared before and after.
+- [x] Reviewed by Gemini 4 Argon and Codex; load-bearing findings verified by command.
 
-## Open Questions
+## Build record, 2026-11-05
 
-1. `[FOUNDER DECISION: install]` Build the venv (Python 3.12 and the service's locked packages) outside the repo?
-2. `[FOUNDER DECISION: stale TEST jobs]` Leave the 7 stuck jobs or clear them. Default: leave them.
+Founder decisions: install approved; the 7 stuck jobs stay.
+
+**Paid run:** `P1608_DISPATCH=chain`, once, PASS, 9.5 minutes. Round 1 had 18 phrases listed under the right person, no strays. Jobs `d0131b7e`, `277caa4b` and `e3c2c0b7` each have test-queue task names and worker claims with user agent `Google-Cloud-Tasks`; the test posted none. No `/sweep` request appeared. The stuck round jobs still count 5.
+
+**Prod:** worker revision, worker IAM hash and queue hash match the baseline. Its only log lines in the window are an idle instance shutting down at 09:15 UTC.
+
+**Limits**
+- `e3c2c0b7` was delivered three times, a minute apart (a deferring job, as P1608 describes), and each said claimed attempt 1. Normal for deferral, not separately investigated.
+- TEST runs this branch's edge function. Any landing before this ships redeploys main's copy, which uses the prod invoker; the TEST key cannot act as it, so dispatch fails and jobs stay pending. Ship this first.
+- The Mac secrets file is older than the server's, so `--secrets` refuses. Existing state, not changed here.
+- The venv is moved after building, so its console scripts have stale paths. The hook uses `python -m pytest`, which is unaffected.
+- Reviews: Argon and Codex; Argon alone on the last small fix. The Opus adversary that `/finish` suggests for gate changes was not run, since the founder named these two.
 
 ## Related
 
