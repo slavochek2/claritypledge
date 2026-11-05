@@ -963,6 +963,16 @@ describe('P1536 A8: a point must be supported by its quote, and its numbers by t
   const ctx = { material: MAT, basePoints: [], baseLabel: null, otherNames: [] };
   const QUOTE = 'We sell monthly bookkeeping to cafe owners';
   const go = (a: Record<string, unknown>) => ok(parseDraft(response([{ action: 'new', box: 'canvas:revenue', story: '', quote: QUOTE, ...a }]), ctx));
+  // P1529 D23: a next version from a live round needs no owner quote; names and numbers stay checked.
+  const round = (a: Record<string, unknown>) => ok(parseDraft(response([{ action: 'new', box: 'canvas:revenue', story: '', quote: '', ...a }]), { ...ctx, roundUpdate: true, otherNames: ['Bob'] }));
+  it('P1529: a round update keeps a reasoned point with no owner quote; the same point is dropped without the mode', () => {
+    expect(round({ statement: 'Freelancers may be the real buyers' }).actions).toHaveLength(1);
+    expect(go({ statement: 'Freelancers may be the real buyers', quote: '' }).actions).toHaveLength(0);
+  });
+  it('P1529: a round update still drops a new number and a named person', () => {
+    expect(round({ statement: 'Revenue could reach 10M' }).actions).toHaveLength(0);
+    expect(round({ statement: 'Bob thinks freelancers are the buyers' }).actions).toHaveLength(0);
+  });
   it('CONTROL (must pass): a statement built from its quote and the owner\'s own numbers is kept', () => {
     const r = go({ statement: 'Cafe owners will pay for monthly bookkeeping', story: 'They have one to three shops.' });
     expect(r.actions).toHaveLength(1);

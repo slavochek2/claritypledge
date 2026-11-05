@@ -32,6 +32,7 @@ import { choiceRun, closedRun, draftOffer, type RunTools } from './canvas-choice
 import { draftReplyOf, offersToAdd } from './canvas-run-reply.ts';
 import type { LinkResult } from './canvas-material.ts';
 import { frameOf, scopeOf } from './canvas-frame.ts';
+import { isRoundUpdate } from './canvas-round-update.ts';
 import { withCopySections } from './canvas-copy-sections.ts';
 import { derivedNames, namesMatcher } from './canvas-names.ts';
 import { gatherLinks, ownerItems, textOf, toCopies, triggerOf } from './canvas-thread.ts';
@@ -192,7 +193,8 @@ async function runDraft(s: Step): Promise<RunSummary> {
   const { run } = s;
   const baseLabel = run.base_label ?? null;
   const basePoints = run.draft_points;
-  const frame = withCopySections(frameOf(run, s.kind), s.material, namesMatcher(run.other_names, derivedNames(s.material, run.owner_name)));
+  const roundUpdate = await isRoundUpdate(s.deps, s.run, s.kind);
+  const frame = withCopySections({ ...frameOf(run, s.kind), roundUpdate }, s.material, namesMatcher(run.other_names, derivedNames(s.material, run.owner_name)));
   const fit = await fitOrFail(s, (cap) => {
     const material = assembleMaterial(s.input, cap);
     return { material, request: buildDraftRequest({ material, basePoints, baseLabel, frame }) };
@@ -202,7 +204,7 @@ async function runDraft(s: Step): Promise<RunSummary> {
   const asked = await askModel(s, fit, cut);
   if ('state' in asked) return asked;
   const out = parseDraft(asked.response, {
-    material: fit.material, basePoints, baseLabel, otherNames: run.other_names, ownerName: run.owner_name,
+    roundUpdate, material: fit.material, basePoints, baseLabel, otherNames: run.other_names, ownerName: run.owner_name,
     scope: scopeOf(frame), rebuild: frame.rebuild, currentFocus: run.focus ?? null, acceptFocus: run.first_draft === true && s.kind === 'message',
     knownGroups: (run.offers ?? []).map((o) => o.group_label), listOffers: s.kind !== 'focus', offersOnEmptyScope: s.kind === 'message' && run.input_kind === 'file', sections: frame.copySections ?? null,
     allowChoice: choiceAllowed(frame, fit.material), // the same predicate and inputs the request's schema was built from

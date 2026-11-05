@@ -12,7 +12,7 @@ export type Guess = Guessed & { raw: string };
 export interface OwnerWords { namesOther: (text: string) => boolean; ownerTyped: string }
 interface Written { actions: ResolvedAction[] }
 interface VetAcc { droppedUnverified: number; droppedNames: number; droppedPoints: string[]; guesses: Guess[] }
-interface VetCtx extends OwnerWords { ownCanvas: string; haystack: string; numbers: ReadonlySet<string> }
+interface VetCtx extends OwnerWords { ownCanvas: string; haystack: string; numbers: ReadonlySet<string>; roundUpdate?: boolean }
 
 const REVENUE = 'canvas:revenue';
 
@@ -73,6 +73,12 @@ function refuseUnverified(acc: VetAcc, ctx: VetCtx, statement: string): void {
  * point is also unsupported). True when the point may be written; a refusal is counted.
  */
 export function vetEvidence(acc: VetAcc, ctx: VetCtx, a: Record<string, unknown>, statement: string, extraSource = ''): boolean {
+  // P1529 D23: a next version from a live round needs no owner quote and is never a guess; names and numbers stay checked.
+  if (ctx.roundUpdate) {
+    if (ctx.namesOther(statement)) { acc.droppedNames += 1; return false; }
+    if (!numbersSupported([statement], ctx.numbers)) { acc.droppedUnverified += 1; return false; }
+    return true;
+  }
   if (!quoteIsOwnerSourced(a.quote, extraSource ? `${ctx.haystack}\n${normalizeForQuote(extraSource)}` : ctx.haystack)) { refuseUnverified(acc, ctx, statement); return false; }
   if (ctx.namesOther(statement)) { acc.droppedNames += 1; return false; }
   const quote = String(a.quote);

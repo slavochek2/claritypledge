@@ -225,6 +225,9 @@ export function frameInstruction(f: RunFrame): string {
   if (f.reoffer) {
     return `The owner is answering a choice that is no longer open. Their earlier request is the owner message quoted in the data item of kind "earlier_request". Check it against the canvas as it is now and return a "choice" when it still conflicts with a current point, quoting the earlier request; return no actions. ${f.taggedBoxes?.length ? `It may change only ${titles(f.taggedBoxes)}: return "scope" as exactly that.` : 'Return in "scope" only the boxes it is about.'} The focus stays: leave "focus" empty and leave out "focus_reason".`;
   }
+  if (f.roundUpdate) {
+    return `This run follows a live conversation about this canvas (the copied transcript). Write a better version: reason from the whole conversation, whoever said what and however it was said; the owner need not have agreed out loud. This replaces the rule that a point needs the owner's quote: "quote" may be empty. Use your judgement on what makes the canvas clearer and more honest, and keep what still holds. All nine boxes may change. Never name or quote anyone, never state a fact about another person or their business, and never add a number or price the owner did not state. The focus stays; leave "focus" empty.${knownGroupsLine(f)}`;
+  }
   if (f.taggedBoxes?.length) {
     const file = f.inputKind === 'file' ? FILE_TAGGED_LINE : '';
     return `The owner's message (marked this_run) is tagged with: ${titles(f.taggedBoxes)}. This run may change only those boxes. Return "scope" as exactly those boxes.${file} The focus stays; leave "focus" empty and leave out "focus_reason".${knownGroupsLine(f)}`;

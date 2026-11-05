@@ -18,12 +18,14 @@ import { readJson } from './canvas-read.ts';
 import {
   BOX_TAGS, MAX_DECIDED, MAX_NOTE_CHARS, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, titleOf,
 } from './canvas-draft.ts';
-import { BOX_DEFINITIONS, emptyQuestionFor } from './canvas-box-definitions.ts';
 import { effectiveScope, readExtras } from './canvas-extras.ts';
 import { shedToValid, type Elem } from './canvas-final-state.ts';
 import { clean, cutChars, normalizeForQuote, ownerHaystack } from './canvas-source.ts';
 import { derivedNames, namesMatcher } from './canvas-names.ts';
 import { numbersIn } from './canvas-support.ts';
+import { questionsFor } from './canvas-questions.ts';
+export { questionsFor };
+import { BOX_DEFINITIONS } from './canvas-box-definitions.ts';
 import { groundPriceTerms, priceWordsOf, withPriceGap, type PriceWords } from './canvas-price.ts';
 import { withSectionsDecided } from './canvas-copy-sections.ts';
 import { droppedOf, guessedOf, vetEvidence, type Guess } from './canvas-guess.ts';
@@ -58,6 +60,7 @@ interface Acc {
 }
 
 interface Ctx {
+  roundUpdate: boolean;
   base: Map<string, BasePoint>;
   from: string;
   haystack: string;
@@ -283,6 +286,7 @@ function buildCtx(pc: ParseContext, scope: readonly string[]): Ctx {
     derived: new Map((pc.draftPoints ?? []).filter((d) => d.from_point_id).map((d) => [d.from_point_id as string, d])),
     scope: new Set(scope),
     rebuild: new Set(pc.rebuild ?? []),
+    roundUpdate: pc.roundUpdate === true,
   };
 }
 
@@ -307,14 +311,4 @@ export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {
     focus: extras.focus, focusReason: extras.focusReason, otherCanvases: extras.otherCanvases, questions: scope.length ? withPriceGap(extras.questions, acc.actions, REVENUE, ctx.priceWords.owner, acc.priceDropped) : {}, note: extras.note,
     ...(choice ? { choice } : {}),
   };
-}
-
-/** What the owner is asked when a box stays empty: { box tag: question }, shown to the owner only. */
-export function questionsFor(emptyBoxes: readonly string[]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const tag of emptyBoxes) {
-    const q = emptyQuestionFor(tag);
-    if (q) out[tag] = q;
-  }
-  return out;
 }

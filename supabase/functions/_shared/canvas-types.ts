@@ -39,6 +39,8 @@ export interface DraftPoint {
 }
 /** What one run is: its kind, the boxes the owner tagged, the focus now, a focus run's target, and the boxes it rebuilds. */
 export interface RunFrame {
+  /** P1529 D23: a next version from a live round: the agent's reasoned better version, no owner quote needed. */
+  roundUpdate?: boolean;
   kind: 'message' | 'focus' | 'fork_first';
   firstDraft: boolean;
   taggedBoxes: readonly string[] | null;
@@ -115,6 +117,8 @@ export type DraftOutcome =
   | Failure;
 
 export interface ParseContext {
+  /** P1529 D23: names and numbers stay checked; the owner-quote and shared-words checks do not apply. */
+  roundUpdate?: boolean;
   material: Material;
   basePoints: BasePoint[];
   baseLabel: string | null;
