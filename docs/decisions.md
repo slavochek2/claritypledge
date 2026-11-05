@@ -27,6 +27,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** Written quota findings can sit beside a not-run check, marked urgent, until the next complete read. After a real reset one reading still has no projection (accepted). UNTESTED in a real /day run; falsifier: a normal run that saved its figures shows the check as not run.
 **References:** [p1629](../features/done/2026-06-10/p1629_day_quota_projection_and_supabase_card.md) · `tools/kanban/src/lib/day.ts` `quotaHistory` · `tools/kanban/scripts/day-render.ts`
 
+## 2026-11-05 [technical]: Thread stats keep two counts: all rows, and replies that are not transcript text (P1624)
+
+**Context:** A transcript's row showed "1 reply" when the only row in its thread was posted transcript text. Round and table threads hold the same rows, and their replies link draws nothing at a count of 0, so filtering `reply_count` would remove the only way into them. `canvas-root-store` also reads that count as a signal.
+**Decision:** `get_thread_stats` keeps `reply_count` and `recent_author_ids` unchanged and adds `people_reply_count` and `people_author_ids`. Only the session row reads the new values. A mirror agent's reply counts, and the count does not depend on `author_id`. Session fields travel on the message as `sessionRoot`, because `body` is already a formatted title once mapped. On a session root, a person's reply or a delete marks older in-flight stats reads as out of date, and a visible tab re-reads.
+**Alternatives rejected:** Filtering `reply_count` everywhere (breaks the way into other threads). Detecting a session from `body` at the row (it is formatted by then). A boolean to ignore the click that ends a long press (it could stay set and swallow a later keyboard press, so it is a time window now).
+**Consequences:** The stale-read guard covers session roots only. Other threads keep the older race on `reply_count`, and a hidden tab still re-reads on a delete. A new client against an old server shows no count on the row and still opens it.
+**References:** [p1624](../features/p1624_transcript_row_in_chat.md)
+
 ## 2026-11-05 [technical]: A function's deploy record covers everything it bundles, and a deploy stamps only what it deployed (P1620)
 
 **Context:** The prod drift check hashed only each edge function's `index.ts`, so changes in `_shared` or sibling files never reported, and terms v1.7 reached accounts while `mirror-reply` still refused it. Reproduction found a second defect: every deploy re-hashed all functions, so deploying one marked the rest current.
