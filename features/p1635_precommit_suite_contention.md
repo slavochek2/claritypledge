@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 105
 workstream: infrastructure
@@ -88,9 +88,9 @@ Blast radius: high, every commit and every landing. Reversibility: high, git rev
 ## Done-When
 
 - [x] Step 0's before and after figures recorded here, from the same workload, with peak concurrent test workers no higher than the machine's 11 cores and total time for the 3 commits lower than before
-- [ ] A staging push runs the full unit suite in CI, shown by a run link, and a deliberately broken test turns it red (exit code pasted)
+- [x] A staging push runs the full unit suite in CI, shown by a run link, and a deliberately broken test turns it red (exit code pasted)
 - [x] Promotion with a red, optional unit job prints that result, and a test proves it
-- [ ] An unrelated-area broken test passes commit and turns the staging run red; a related broken test is refused at commit
+- [x] An unrelated-area broken test passes commit and turns the staging run red; a related broken test is refused at commit
 - [x] A `vercel.json`-only commit runs the full suite, a zero-test selection prints that it ran zero, and changing `src/App.tsx` in a way that breaks the p1533 test is refused at commit
 - [x] Documented workflows pass through the changed hook copy: docs-only commit, source commit, `commit-to-main`, a conflicted cherry-pick's `--continue`
 
@@ -108,6 +108,13 @@ Three concurrent source commits in scratch clones (`scripts/bench-p1635-precommi
 | Other sessions' CPU, mean / peak | 72% / 517% | 54% / 211% |
 
 The 517% spike may slightly inflate the old figure. Tests were about 94% of heavy-step CPU, so the stop condition did not fire. These commits were measured before the fail-closed classifier, which does not change what source-only commits select.
+
+## Staging Proof (2026-11-05)
+
+- Control: https://github.com/slavochek2/claritypledge/actions/runs/42041232635 ran the full suite on a staging push: 10 tests failed in 3 files, conclusion failure. All 10 are in `p1607-e2e-*` tests.
+- Deliberately broken test: https://github.com/slavochek2/claritypledge/actions/runs/42041333610, 11 failed in 4 files, adding `p988-reproduce.test.ts > p1635 deliberate red`. `gh run watch --exit-status` exit 1.
+- **The control is not green, so the red proof shows the broken test being caught and named, not a green-to-red flip.** The p1607 tests also fail on the CI runs on `main` today; they are outside this spec.
+- Measured: the unit step took 13m 22s, and the job finished 16m 16s after the push.
 
 ## Known Limitations
 
