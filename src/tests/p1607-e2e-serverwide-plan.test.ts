@@ -11,6 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { cliWorkers, namesAProject, planServerWide, PLAN_ENV } from '../../scripts/lib/e2e-serverwide-plan.mjs';
 import { workersFor } from '../../scripts/lib/e2e-slot-lock.mjs';
 import { allServerWideSpecs, listingEnv } from '../../scripts/lib/e2e-exclusive-specs.mjs';
+import { withHermeticE2eEnv } from './helpers/hermetic-e2e-env';
 
 const repo = path.resolve('.');
 const cli = path.join(repo, 'node_modules/@playwright/test/cli.js');
@@ -150,7 +151,9 @@ export default defineConfig({
 describe('the REAL config, listed with a plan', () => {
   const swFiles = () => [...allServerWideSpecs({ repoDir: repo }).keys()].filter(f => !f.includes('/e2e/offline/'));
   const list = (plan: object | null) => {
-    const env: Record<string, string | undefined> = { ...process.env };
+    // P1642: the listing imports every spec, so the child needs a database setting that does not come from a
+    // gitignored .env.test.local (CI has none).
+    const env: Record<string, string | undefined> = withHermeticE2eEnv();
     for (const k of ['CI', 'VITEST', PLAN_ENV]) Reflect.deleteProperty(env, k);
     // The child is shaped like a worker of this process (the only reader that trusts an inherited plan).
     if (plan) { env[PLAN_ENV] = JSON.stringify({ ...plan, owner: process.pid }); env.TEST_WORKER_INDEX = '0'; }

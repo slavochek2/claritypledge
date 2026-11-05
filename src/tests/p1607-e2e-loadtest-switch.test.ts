@@ -13,6 +13,7 @@ import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { TEST_PROJECT_REF } from '../../scripts/lib/test-target.mjs';
 import { loadTestIndex, loadTestRefusal, loadTestPort, isAncestor, selectedSpecs } from '../../scripts/lib/e2e-loadtest.mjs';
 import { WORKLOAD } from '../../scripts/lib/e2e-load-workload.mjs';
+import { withHermeticE2eEnv } from './helpers/hermetic-e2e-env';
 
 const HOSTED_URL = `https://${TEST_PROJECT_REF}.supabase.co`;
 const SELF = { SELFHOSTED_TEST_ORIGIN: 'https://test-db.example.org' };
@@ -94,11 +95,12 @@ describe('through the real playwright.config.ts, from a driver process', () => {
   const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: repo }).toString().trim();
   const locks = () => fs.readdirSync(common).filter(f => f.includes('e2e-test-db')).sort()
     .map(f => `${f}:${fs.existsSync(path.join(common, f, 'owner.json')) ? fs.readFileSync(path.join(common, f, 'owner.json'), 'utf8') : ''}`);
-  // The child must read the database from .env.test.local like a real run, not from vitest's own environment.
+  // The child must not see vitest's own environment (a localhost URL) and must not depend on the developer's
+  // gitignored .env.test.local either (CI has none, P1642): it gets the hermetic self-hosted-shaped settings.
   const childEnv = (env: Record<string, string>) => {
     const base: Record<string, string | undefined> = { ...process.env };
     for (const k of ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY', 'SELFHOSTED_TEST_ORIGIN', 'VITEST', 'CI']) Reflect.deleteProperty(base, k);
-    return { ...base, ...env };
+    return { ...withHermeticE2eEnv(base), ...env };
   };
   const cli = path.join(repo, 'node_modules/@playwright/test/cli.js');
   /** A process called `<name>` that starts Playwright (--list) with the switch set, the way the driver does. */

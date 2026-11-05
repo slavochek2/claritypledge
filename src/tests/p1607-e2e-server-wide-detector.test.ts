@@ -12,6 +12,7 @@ import path from 'node:path';
 import {
   deriveServerWideNames, classifyFiles, listRunSpecs, detectServerWide, detectForArgv, allServerWideSpecs,
 } from '../../scripts/lib/e2e-exclusive-specs.mjs';
+import { withHermeticE2eEnv } from './helpers/hermetic-e2e-env';
 
 const dirs: string[] = [];
 afterEach(() => { for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true }); });
@@ -276,11 +277,14 @@ describe('argv forms (review): flags before `test`, value flags, and no subcomma
 });
 
 describe('which specs a run covers is resolved by Playwright itself', () => {
+  // P1642: the listing imports every spec, so the child needs a database setting that does not come from a
+  // gitignored .env.test.local (CI has none).
+  const hermetic = withHermeticE2eEnv();
   it('a directory, a file and a project argument resolve through the config project rules', () => {
-    const one = listRunSpecs({ repoDir: path.resolve('.'), args: ['e2e/logo-navigation.spec.ts'] });
+    const one = listRunSpecs({ repoDir: path.resolve('.'), args: ['e2e/logo-navigation.spec.ts'], env: hermetic });
     expect(one.error).toBeNull();
     expect(one.files.map((f: string) => path.relative(path.resolve('.'), f))).toEqual(['e2e/logo-navigation.spec.ts']);
-    const proj = listRunSpecs({ repoDir: path.resolve('.'), args: ['--project=integration', 'p1307-sweep'] });
+    const proj = listRunSpecs({ repoDir: path.resolve('.'), args: ['--project=integration', 'p1307-sweep'], env: hermetic });
     expect(proj.files.every((f: string) => f.includes('/e2e/integration/'))).toBe(true);
     expect(proj.files.length).toBeGreaterThan(0);
   }, 60_000);
@@ -289,7 +293,7 @@ describe('which specs a run covers is resolved by Playwright itself', () => {
     const sentinel = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'p1607j-')), 'report.json');
     dirs.push(path.dirname(sentinel));
     fs.writeFileSync(sentinel, 'SENTINEL');
-    const env = { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: sentinel, PLAYWRIGHT_JSON_OUTPUT_DIR: path.dirname(sentinel) };
+    const env = { ...hermetic, PLAYWRIGHT_JSON_OUTPUT_NAME: sentinel, PLAYWRIGHT_JSON_OUTPUT_DIR: path.dirname(sentinel) };
     const r = listRunSpecs({ repoDir: path.resolve('.'), args: ['--reporter=json', 'e2e/logo-navigation.spec.ts'], env });
     expect(r.error).toBeNull();
     expect(r.files.length).toBe(1);
@@ -298,20 +302,20 @@ describe('which specs a run covers is resolved by Playwright itself', () => {
   }, 60_000);
 
   it('a run whose listing fails is treated as exclusive (fail closed), not as safe', () => {
-    const bad = listRunSpecs({ repoDir: path.resolve('.'), args: ['--project=does-not-exist'] });
+    const bad = listRunSpecs({ repoDir: path.resolve('.'), args: ['--project=does-not-exist'], env: hermetic });
     expect(bad.error).toBeTruthy();
-    expect(detectServerWide({ repoDir: path.resolve('.'), args: ['--project=does-not-exist'] }).exclusive).toBe(true);
+    expect(detectServerWide({ repoDir: path.resolve('.'), args: ['--project=does-not-exist'], env: hermetic }).exclusive).toBe(true);
   }, 60_000);
 
   it('end to end: a kill-switch spec makes the run exclusive, an ordinary one does not, a full suite is exclusive', () => {
     const repoDir = path.resolve('.');
-    const sw = detectServerWide({ repoDir, args: ['e2e/p1592-event-transcripts.spec.ts'] });
+    const sw = detectServerWide({ repoDir, args: ['e2e/p1592-event-transcripts.spec.ts'], env: hermetic });
     expect(sw.exclusive).toBe(true);
     expect(sw.serverWideFiles.map((f: string) => path.relative(repoDir, f))).toEqual(['e2e/p1592-event-transcripts.spec.ts']);
-    const plain = detectServerWide({ repoDir, args: ['e2e/logo-navigation.spec.ts'] });
+    const plain = detectServerWide({ repoDir, args: ['e2e/logo-navigation.spec.ts'], env: hermetic });
     expect(plain.exclusive).toBe(false);
     expect(plain.serverWideFiles).toEqual([]);
-    expect(detectServerWide({ repoDir, args: [] }).exclusive).toBe(true);
+    expect(detectServerWide({ repoDir, args: [], env: hermetic }).exclusive).toBe(true);
   }, 90_000);
 
   it('E2E_SELFHOSTED_EXCLUSIVE=1 forces a run to be exclusive', () => {
