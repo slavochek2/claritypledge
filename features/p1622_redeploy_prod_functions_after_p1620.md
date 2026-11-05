@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 96
 severity: high
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [deploy, edge-functions, manifest]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1622: Prod functions need one redeploy after P1620 lands
@@ -55,5 +55,11 @@ Founder approves the deploy, then run `./scripts/deploy-functions.sh --env prod`
 
 ## Acceptance Criteria
 
-- [ ] Every function found stale on prod is listed, and redeployed with founder approval
-- [ ] A person on the current terms gets a mirror reply on prod with no terms message
+- [x] Every function found stale on prod is listed, and redeployed with founder approval
+- [x] A person on the current terms gets a mirror reply on prod with no terms message
+
+## Resolution
+
+All 24 functions were redeployed to prod at 2026-11-05T06:47Z and stamped in `a8527dfa6`, after the founder asked for anything undeployed to be deployed. **Stale list:** all 24 reported stale, because P1620 changed the hash format, so the old hashes cannot show which were truly behind.
+
+**Evidence:** on prod, in the founder's own mirror chat, a message at 1:54 PM local time (06:54Z) got a mirror reply with no terms message, read in the browser. The check is one account, and the deploy time comes from the manifest; the platform's deploy list was not read, since it needs a locked credential.
