@@ -180,11 +180,11 @@ beforeEach(() => {
 });
 
 describe('AC15: the upload control', () => {
-  it('shows in a canvas thread while drafting is on: the paperclip icon named "Upload" (3c X3 premise change: it was a blue "+ Upload" pill), before the field', async () => {
+  it('shows in a canvas thread while drafting is on: the Upload icon named "Upload" (3c X3, amended by P1618), before the field', async () => {
     await renderThread();
     const upload = await screen.findByTestId('canvas-upload');
     expect(upload).toHaveAccessibleName('Upload');
-    expect(upload.querySelector('svg.lucide-paperclip')).not.toBeNull();
+    expect(upload.querySelector('svg.lucide-upload')).not.toBeNull();
     expect(upload.querySelector('svg.lucide-plus')).toBeNull();
     expect(upload.className).not.toContain('bg-blue-600');
     // it sits in the composer row, before the field

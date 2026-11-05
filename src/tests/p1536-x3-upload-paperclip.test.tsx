@@ -1,7 +1,7 @@
 /**
  * @file p1536-x3-upload-paperclip.test.tsx
- * @description P1536 3c X3 (S3c.3): in a canvas thread "+ Upload" becomes the paperclip icon, opening the file picker (attaching something to the message,
- * the same meaning as in the mirror chat). No plus anywhere in that spot, and D15's status (the update is running) stays in the same spot.
+ * @description P1536 3c X3 (S3c.3): in a canvas thread "+ Upload" becomes an icon button opening the file picker (P1618 amends X3: the Upload icon, not the paperclip;
+ * p1618-canvas-upload-icon.test.tsx). No plus anywhere in that spot, and D15's status (the update is running) stays in the same spot.
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -9,12 +9,12 @@ import { UploadSpot } from '@/app/pages/chat/CanvasUploadButton';
 
 afterEach(cleanup);
 
-describe('S3c.3 (X3): a canvas thread\'s upload is the paperclip', () => {
-  it('is a paperclip icon button named Upload: no "+", no visible word, not the blue pill', () => {
+describe('S3c.3 (X3): a canvas thread\'s upload is one icon', () => {
+  it('is an Upload icon button named Upload: no "+", no visible word, not the blue pill', () => {
     render(<UploadSpot waiting={false} busy={false} onPick={vi.fn()} />);
     const button = screen.getByTestId('canvas-upload');
     expect(button).toHaveAccessibleName('Upload');
-    expect(button.querySelector('svg.lucide-paperclip')).not.toBeNull();
+    expect(button.querySelector('svg.lucide-upload')).not.toBeNull();
     expect(button.querySelector('svg.lucide-plus')).toBeNull();
     expect(button.textContent).toBe('');
     expect(button.className).not.toMatch(/border-blue-600/);
@@ -38,6 +38,6 @@ describe('S3c.3 (X3): a canvas thread\'s upload is the paperclip', () => {
     expect(status).toHaveAttribute('role', 'status');
     expect(screen.queryByTestId('canvas-upload')).toBeNull();
     expect(status.querySelector('svg.lucide-plus')).toBeNull();
-    expect(status.querySelector('svg.lucide-paperclip')).not.toBeNull();
+    expect(status.querySelector('svg.lucide-upload')).not.toBeNull();
   });
 });

@@ -17,6 +17,7 @@ import { useOpenOfferRows, withOfferRows } from './use-canvas-open-offers';
 import { canvasListParts } from './canvas-list-parts';
 import { CanvasThreadTitle } from './CanvasThreadHeader';
 import { UploadSpot } from './CanvasUploadButton';
+import { CANVAS_REPLY_HINT } from './canvas-thread-copy';
 import { findPublishReply } from './canvas-publish-reply';
 import { PublishReplyOpen } from './PublishReplyOpen';
 import { CanvasClosedLine } from './CanvasClosedLine';
@@ -38,6 +39,8 @@ export interface CanvasParts {
   /** The first read's state (loading, failed) under the list; nothing otherwise. */
   readState: ReactNode;
   leading: ReactNode;
+  /** P1618: the composer's hint while the Upload button is live; undefined: the thread's ordinary hint. */
+  replyHint: string | undefined;
   /** A failed newest run's Try again, under the owner message it belongs to (null otherwise). */
   trailing: { afterId: string; node: ReactNode } | null;
   /** D7: Undo (or its waiting status) under the newest applied run's reply, and "Undone" under the owner messages it undid, by message id. */
@@ -74,6 +77,7 @@ export function useCanvasParts(args: CanvasPartsArgs): CanvasParts {
     readState: canvasOn !== false ? <CanvasThreadReadState status={pane.read.status} onRetry={pane.read.retry} /> : null,
     /** The composer's Upload button, while the draft takes files. */
     leading: live?.draft.state === 'open' ? <UploadSpot waiting={!!slot.waiting} busy={uploader.busy} onPick={(f) => void uploader.upload(f)} /> : undefined,
+    replyHint: live?.draft.state === 'open' && !slot.waiting ? CANVAS_REPLY_HINT : undefined,
     trailing: canvasRetryTrailing(live, args) ?? publishReplyOpen(args),
     after: withOfferRows(canvasUndoAfter(undo, undo.failed ? newestMirrorMessageId(args.messages, args.userId, args.rootId) : null), offerRows),
     closedLine: closedThreadLine(live, args),

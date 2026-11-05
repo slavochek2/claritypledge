@@ -18,6 +18,13 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** The RPC follows the engine's reword branch by hand, so a change to that branch must be checked against it. Known limits are in the spec.
 **References:** [P1614](../features/done/2026-06-10/p1614_edit_a_point_directly_on_a_draft.md)
 
+## 2026-11-05 [product]: A canvas thread's upload gets its own icon; the paperclip means attach only (P1618, amends P1536 X3)
+
+**Context:** P1536 3c X3 reasoned "+ creates, the paperclip attaches" and gave canvas upload the paperclip. In use the founder could not find upload: everywhere else that icon means "Attach a point or story".
+**Decision:** Founder chose option A. The upload button and its waiting status use the Upload icon, still named "Upload" as aria-label and hover title. The hint reads "Reply, or upload a file" on canvas threads while the button is live, and "Reply in thread" while Upload waits. Other composers are unchanged. This supersedes X3's "the paperclip means attach" line and its S3c.3 clause in the closed P1536 spec, which are left as written.
+**Consequences:** At 320 wide the hint stays on one line but ends in an ellipsis, because the composer keeps that width for the mic button. Falsifier: an owner still cannot find upload in a canvas thread.
+**References:** `features/p1618_canvas_upload_icon_reads_as_attach.md` · P1536 X3
+
 ## 2026-11-05 [technical]: Audio chunk timing uses a causal bound; a paid live test with real recordings proves event transcription
 
 **Context:** P1608 built a live test: real meeting recordings through fake mics, on self-hosted TEST, through recording, upload, the cleaning job and the chat. It found one sentence under two people with the loudest-mic rule on. Turning the rule off doubled 17 of 18 phrases, so the rule works; its inputs were misaligned. Each 30 s chunk was clamped to its own upload time, and upload times wander by up to about 3 s. The first suspect, browser gain, was refuted: with true spacing the right mic was loudest in every phrase second.

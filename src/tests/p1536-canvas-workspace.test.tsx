@@ -575,6 +575,15 @@ describe('review G2: a published canvas with no open draft (J3), now the one pen
     expect(await screen.findByTestId('thread-panel')).toBeInTheDocument();
   });
 
+  it('P1618: before the first Send the hint names the upload, because the Upload button is there', async () => {
+    mount(published);
+    await screen.findByTestId('canvas-grid');
+    chooseView('chat');
+    const box = await screen.findByTestId('composer');
+    expect(within(box).getByTestId('canvas-upload')).toBeInTheDocument();
+    expect(within(box).getByTestId('composer-hint')).toHaveTextContent('Reply, or upload a file');
+  });
+
   it('a refused Send keeps the text, says so once, and opens nothing', async () => {
     rpc.mockImplementation(async (name: string) => (name === 'canvas_workspace_send' ? { data: { status: 'refused', code: 'busy_elsewhere', revision: null }, error: null } : { data: null, error: null }));
     mount(published);

@@ -1,11 +1,11 @@
 /**
  * @file CanvasUploadButton.tsx
- * @description P1536: the upload control of a canvas thread, in the composer's first spot: the paperclip icon (3c X3: + creates, the paperclip
- * attaches, the same meaning as in the mirror chat), named "Upload". One file at a time; the server reads it to text and keeps only the text.
+ * @description P1536: the upload control of a canvas thread, in the composer's first spot: the Upload icon, named "Upload" (P1618 amends 3c X3: the
+ * paperclip means "Attach a point or story" and nothing else). One file at a time; the server reads it to text and keeps only the text.
  * Shown only in a canvas thread while drafting is on. The upload itself (and its row in the checklist) lives in use-canvas-uploads.
  */
 import { useRef } from 'react';
-import { Paperclip } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FOCUS_RING, HOVER, ROUND } from './chat-kit';
 import { UPLOAD_ACCEPT, UPLOAD_LABEL, UPLOAD_WAITS_LABEL } from './canvas-thread-copy';
@@ -37,7 +37,7 @@ export function CanvasUploadButton({ busy, onPick }: { busy: boolean; onPick: (f
         className={cn(ROUND, 'text-muted-foreground', HOVER, FOCUS_RING)}
       >
         {/* static while a file reads: the checklist row is what spins */}
-        <Paperclip className="h-5 w-5" aria-hidden="true" />
+        <Upload className="h-5 w-5" aria-hidden="true" />
       </button>
     </>
   );
@@ -47,7 +47,7 @@ export function CanvasUploadButton({ busy, onPick }: { busy: boolean; onPick: (f
 export function CanvasUploadWaits() {
   return (
     <span role="status" aria-label={UPLOAD_WAITS_LABEL} title={UPLOAD_WAITS_LABEL} data-testid="canvas-upload-waits" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60">
-      <Paperclip aria-hidden="true" className="h-4 w-4" />
+      <Upload aria-hidden="true" className="h-4 w-4" />
     </span>
   );
 }

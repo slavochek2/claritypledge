@@ -30,7 +30,7 @@ import { ThreadHeader } from '@/app/pages/chat/ThreadHeader';
 import { ThreadPanel } from '@/app/pages/chat/ThreadPanel';
 import { DiscardDraftButton } from './discard-draft-button';
 import type { ClonePending } from './use-clone-canvas';
-import { DRAFT_ERROR_TEXT, SEND_SLOT_UPDATING } from '@/app/pages/chat/canvas-thread-copy';
+import { CANVAS_REPLY_HINT, DRAFT_ERROR_TEXT, SEND_SLOT_UPDATING } from '@/app/pages/chat/canvas-thread-copy';
 import { resetCanvasAvailability, useCanvasDraftAvailability } from '@/app/pages/chat/use-canvas-availability';
 import { uploadRefusalText } from '@/app/pages/chat/use-canvas-uploads';
 import { useCloneVoice } from './use-clone-voice';
@@ -147,7 +147,7 @@ function EmptyChatBody({ mirror, conversationId, ready, projectTag, focusable, o
       </div>
       <Composer
         draftKey={`${user.id}:workspace:${projectTag}`}
-        placeholder="Reply in thread"
+        placeholder={working ? 'Reply in thread' : CANVAS_REPLY_HINT}
         // 3c X13: below 1280px the composer does NOT take focus on landing: the phone keyboard would push the mirror agent's line (the pending thread's first sight) out of view.
         autoFocus={focusable && wide}
         waiting={working ? SEND_SLOT_UPDATING : undefined}

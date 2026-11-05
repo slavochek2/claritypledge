@@ -91,7 +91,7 @@ export function GateFixture() {
       </div>
       <Composer
         draftKey="gate-canvas-thread"
-        placeholder="Reply in thread"
+        placeholder="Reply, or upload a file"
         onSend={() => undefined}
         onAttach={() => undefined}
         leading={<CanvasUploadButton busy={false} onPick={() => undefined} />}

@@ -4,7 +4,7 @@
  *
  *  X3 (no model call): a published v1 is made with RPCs; at 1440, 375 and 320 the mirror chat's composer has the + beside the paperclip with no horizontal overflow, its menu
  *  reads New canvas / Clone a version, the paperclip dialog has no Canvases tab, the "..." menu has no New canvas, Clone a version -> pick v1 -> the pending Clone ("New draft"),
- *  Cancel writes NOTHING (row counts and max revision of the owner's drafts, versions, messages and runs before and after), a canvas thread's upload is the paperclip icon.
+ *  Cancel writes NOTHING (row counts and max revision of the owner's drafts, versions, messages and runs before and after), a canvas thread's upload is the Upload icon (P1618).
  *
  *  Undo (real model, two updates): New canvas from the + menu, send material, send a second update, Undo twice, and read the boxes, Changed, the Publish spot, the replies and the
  *  marks after each tap; the second Undo leaves no Undo.
@@ -166,7 +166,7 @@ test('X3: the + on the mirror chat (1440, 375, 320), Clone a version, Cancel wri
 
         // the canvas thread's upload is the paperclip
         const up = page.getByTestId('canvas-upload');
-        const upInfo = await up.evaluate(el => ({ icon: !!el.querySelector('svg.lucide-paperclip'), plus: !!el.querySelector('svg.lucide-plus'), text: (el.textContent ?? '').trim(), name: el.getAttribute('aria-label') })).catch(() => null);
+        const upInfo = await up.evaluate(el => ({ icon: !!el.querySelector('svg.lucide-upload'), plus: !!el.querySelector('svg.lucide-plus'), text: (el.textContent ?? '').trim(), name: el.getAttribute('aria-label') })).catch(() => null);
         rec(vp, 'a canvas thread\'s upload is the paperclip icon named Upload (no plus, no word)', !!upInfo && upInfo.icon && !upInfo.plus && upInfo.text === '' && upInfo.name === 'Upload', JSON.stringify(upInfo), await shot(page, vp, 'canvas-thread-upload-paperclip'));
         const noPlusInThread = await page.getByTestId('composer-plus').count();
         rec(vp, 'the canvas thread\'s composer has no +', noPlusInThread === 0, `count=${noPlusInThread}`);

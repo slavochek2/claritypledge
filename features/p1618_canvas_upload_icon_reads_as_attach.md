@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 94
 severity: medium
@@ -11,8 +11,11 @@ exec_model: opus
 exec_effort: high
 tags: [canvas, composer, upload, p1536]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
+date_resolved: 2026-11-05
+root_cause: P1536 X3 gave canvas upload the paperclip, which already meant attach a point or story
+resolution: Upload icon in the button and its waiting status; the hint names the upload while the button is live
 ---
 
 # P1618: Canvas thread upload uses the paperclip, so the founder could not find upload
@@ -56,7 +59,9 @@ Swap the icon, add one copy constant, pass the hint only while the Upload spot i
 
 ## Acceptance Criteria
 
-- [ ] A canvas thread's upload shows the Upload icon, named "Upload" (aria-label and title), with no paperclip; the waiting status has no paperclip either
-- [ ] The hint reads "Reply, or upload a file" on a canvas thread while uploads are available, and "Reply in thread" while the Upload spot waits or the draft is closed
-- [ ] A non-canvas thread and the main composer are unchanged, and the paperclip there still attaches points and stories
-- [ ] The hint stays on one line at 1440, 375 and 320
+- [x] A canvas thread's upload shows the Upload icon, named "Upload" (aria-label and title), with no paperclip; the waiting status has no paperclip either
+- [x] The hint reads "Reply, or upload a file" on a canvas thread while uploads are available, and "Reply in thread" while the Upload spot waits or the draft is closed
+- [x] A non-canvas thread and the main composer are unchanged, and the paperclip there still attaches points and stories
+- [x] The hint stays on one line at 1440, 375 and 320 (at 320 it ends in an ellipsis: "Reply, or upload a …", about 5px short; the composer keeps that width for the mic button)
+
+Evidence: `src/tests/p1618-canvas-upload-icon.test.tsx`, `src/tests/p1536-canvas-workspace.test.tsx` (the first-Send hint), `e2e/p1618-canvas-upload-shots.spec.ts` on self-hosted TEST.

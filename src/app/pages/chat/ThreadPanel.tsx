@@ -130,7 +130,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
         <Composer
           waiting={canvas.waiting}
           draftKey={`${chat.userId}:${conversationId}:${rootId}`}
-          placeholder="Reply in thread"
+          placeholder={canvas.replyHint ?? 'Reply in thread'}
           focusToken={focusToken}
           autoFocus={focusable}
           onSend={(body) => (canvas.send && body ? canvas.send(body) : sendPlain(body))}

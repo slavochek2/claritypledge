@@ -23,6 +23,8 @@ export const COPY_PROMPT_LABEL = 'Copy prompt';
 /** What the Copy prompt button says for about two seconds after the prompt reached the clipboard. */
 export const COPIED_LABEL = 'Copied';
 export const UPLOAD_LABEL = 'Upload';
+/** P1618: the composer's hint on a canvas thread while its Upload button is live. */
+export const CANVAS_REPLY_HINT = 'Reply, or upload a file';
 
 // founder may edit (reviewed by Gemini and Codex, 2026-10-28; box text and rules from the shared definitions, Design v6 S2)
 /**
