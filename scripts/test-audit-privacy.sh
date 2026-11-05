@@ -523,12 +523,15 @@ p1617_cases() {
   echo "noeol $ALN C"; echo "exact $ALE C"; echo "exact $P1617_DIR/absent C"
 }
 P1617_UTF8=C; for _l in en_US.UTF-8 C.UTF-8 C.utf8; do if locale -a 2>/dev/null | grep -qix "$_l"; then P1617_UTF8="$_l"; break; fi; done
+[ "$P1617_UTF8" = C ] && echo "  note: no UTF-8 locale here, so the UTF8 fixtures ran under C"
 p1617_hashes() { # $1 script copy to cut the region from
   p1617_region "$1" > "$P1617_DIR/region.sh"
   p1617_cases | while read -r n a l; do
     label="$l"; [ "$l" = UTF8 ] && l="$P1617_UTF8"
     al="$(basename "$a")"
-    echo "$n/$al/$label $(p1617_run "$P1617_DIR/region.sh" "$P1617_DIR/$n.diff" "$a" "$l" | p1617_sha)"
+    # A crash prints nothing, which would match the fixtures whose expected output is empty.
+    rc=0; p1617_run "$P1617_DIR/region.sh" "$P1617_DIR/$n.diff" "$a" "$l" > "$P1617_DIR/out" || rc=$?
+    if [ "$rc" != 0 ]; then echo "$n/$al/$label exit-$rc"; else echo "$n/$al/$label $(p1617_sha < "$P1617_DIR/out")"; fi
   done
 }
 if [ -n "${P1617_PRINT_FROM:-}" ]; then p1617_hashes "$P1617_PRINT_FROM"; exit 0; fi
@@ -593,11 +596,14 @@ if cmp -s "$P1617_DIR/region.sh" "$P1617_DIR/region-cut.sh"; then echo "  ✗ p1
 rc=0; p1617_run "$P1617_DIR/region-cut.sh" "$P1617_DIR/order.diff" "$AL" C >/dev/null || rc=$?
 p1617_expect "filter input ends early" 3 "$rc"
 # Mid-run death: the scan must not report clean. The canary sits after the kill point.
-p1617_repo; printf 'scripts/exact.sh\n' > "$P1617_R/.privacy-allowlist"; { i=0; while [ $i -lt 40000 ]; do printf 'line %s\n' "$i"; i=$((i+1)); done; printf '%s\n' "$P1617_CANARY"; } > "$P1617_R/big.md"; p1617_commit big.md
+p1617_repo; printf 'scripts/exact.sh\n' > "$P1617_R/.privacy-allowlist"; { seq 1 200000; printf '%s\n' "$P1617_CANARY"; } > "$P1617_R/big.md"; p1617_commit big.md
 ( cd "$P1617_R" && exec bash "$AUDIT" HEAD~1..HEAD >/dev/null 2>&1 ) & P1617_PID=$!
-sleep 0.3; kill -TERM "$P1617_PID" 2>/dev/null || true
+sleep 0.5; kill -TERM "$P1617_PID" 2>/dev/null || true
 rc=0; wait "$P1617_PID" || rc=$?
-if [ "$rc" != "0" ]; then echo "  ✓ scan killed mid-run — exit $rc"; PASS=$((PASS+1)); else echo "  ✗ scan killed mid-run reported clean"; FAIL=$((FAIL+1)); fi
+# Exactly 143: the canary alone gives 1 on an unkilled run, so "non-zero" would prove nothing.
+p1617_expect "scan killed mid-run" 143 "$rc"
+# The filter must run in the scan's own shell. Inside a capture, its death would not end the scan.
+if grep -qx '  filter_added_lines' "$P1617_DIR/region.sh" && ! grep -q '[$(][^)]*filter_added_lines' "$P1617_DIR/region.sh"; then echo "  ✓ filter runs outside any capture"; PASS=$((PASS+1)); else echo "  ✗ filter call is not a plain call"; FAIL=$((FAIL+1)); fi
 rm -rf "$P1617_R" "$P1617_DIR"
 
 echo ""

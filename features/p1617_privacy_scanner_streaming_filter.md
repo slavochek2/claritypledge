@@ -72,6 +72,8 @@ Recommend the indexed array over the function-and-sentinel design because of run
 
 **Measured whole-scan result:** a single-pass filter on the full 93-commit range finished the whole scan in 36.5 s with exit 0 (load about 10), down from 65 to 90 min. A reviewer measured 38 s with an array prototype.
 
+**Agent measurement on the built code:** full `7da630ec5..7df461be2` scan 37 s, exit 0, at load about 9; filter 5.8 s at one times the range and 23.5 s at four.
+
 **Exit-code consumers:** the pre-push hook and CI treat every non-zero exit as a block, so 3 blocks the same way. Their messages may call it a privacy hit, which is accepted below.
 
 ## Risks / Non-Goals
@@ -98,17 +100,17 @@ Recommend the indexed array over the function-and-sentinel design because of run
 ## Done-When
 
 - [ ] The founder reproduces the speed-up on real ranges: the commands and old and new timings are recorded, and the full `7da630ec5..7df461be2` scan finishes in under 5 minutes on the founder's machine with exit 0.
-- [ ] Growth is linear: filter time at four times the full range is under about 5 times its time at one, measured on the same machine.
-- [ ] Old and new filter output is byte-identical, compared as raw bytes before any shell capture, on the fixtures and on at least three real ranges of about 5k to 20k patch lines.
-- [ ] At least one of those ranges really drops allowlisted lines, shown by keeping fewer lines than the same range under a comment-only allowlist. `203e7ea2f..a17fa7bf7` qualifies (38 lines dropped). Three other recent ranges of 5k to 22k lines dropped none, so most ranges do not test this on their own.
-- [ ] Old and new whole-scanner stdout, stderr and exit code match on those ranges, plus on a copy with a planted hit in a non-allowlisted file, so the comparison includes a blocking verdict. Stdout is capped at 20 lines, so this complements the byte comparison and does not replace it.
-- [ ] Fixtures cover: CR removal, line order, exact-path and directory-prefix matching, `.sh.bak` not matching, `#` comments and blank lines in the allowlist, an allowlist with no final newline, an absent and an empty allowlist, non-UTF-8 bytes under both C and UTF-8 locales, a NUL past the first 8,000 bytes of a new file (an earlier NUL renders as a binary diff and tests nothing), numeric-looking and space-bearing paths, backslashes, percent signs and glob characters in lines and paths, deleted files, every line allowlisted, and an empty range.
-- [ ] Expected bytes come from the filter at `7df461be2`, are committed, and are checked by `scripts/test-audit-privacy.sh` against the filter code in the shipped script.
-- [ ] `--staged` gives the same results as before. `--msg` skips the filter, so it is regression-tested only.
-- [ ] `scripts/test-audit-privacy.sh` and `scripts/test-p1526-privacy-push-gates.sh` pass.
-- [ ] Known-bad controls fail with exit 1 exactly: the P919 canary string in an ordinary file, and the existing "content injection attack blocked" case. The existing helpers accept any non-zero exit, so these assert the code itself.
-- [ ] Filter failure fails closed with the status shown (epistemic gate 7): killing the loop mid-run, and killing the writer feeding it, each give a non-zero exit on a fixture whose canary sits after the kill point. A scan that stops on these fixtures must not exit 0.
-- [ ] Documented workflows pass through it (epistemic gate 7c): one real pre-commit run, and one real pre-push hook run on a staging-shaped ref with no publishing.
+- [x] Growth is linear: filter time at four times the full range is under about 5 times its time at one, measured on the same machine.
+- [x] Old and new filter output is byte-identical, compared as raw bytes before any shell capture, on the fixtures and on at least three real ranges of about 5k to 20k patch lines.
+- [x] At least one of those ranges really drops allowlisted lines, shown by keeping fewer lines than the same range under a comment-only allowlist. `203e7ea2f..a17fa7bf7` qualifies (38 lines dropped). Three other recent ranges of 5k to 22k lines dropped none, so most ranges do not test this on their own.
+- [x] Old and new whole-scanner stdout, stderr and exit code match on those ranges, plus on a copy with a planted hit in a non-allowlisted file, so the comparison includes a blocking verdict. Stdout is capped at 20 lines, so this complements the byte comparison and does not replace it.
+- [x] Fixtures cover: CR removal, line order, exact-path and directory-prefix matching, `.sh.bak` not matching, `#` comments and blank lines in the allowlist, an allowlist with no final newline, an absent and an empty allowlist, non-UTF-8 bytes under both C and UTF-8 locales, a NUL past the first 8,000 bytes of a new file (an earlier NUL renders as a binary diff and tests nothing), numeric-looking and space-bearing paths, backslashes, percent signs and glob characters in lines and paths, deleted files, every line allowlisted, and an empty range.
+- [x] Expected bytes come from the filter at `7df461be2`, are committed, and are checked by `scripts/test-audit-privacy.sh` against the filter code in the shipped script.
+- [x] `--staged` gives the same results as before. `--msg` skips the filter, so it is regression-tested only.
+- [x] `scripts/test-audit-privacy.sh` and `scripts/test-p1526-privacy-push-gates.sh` pass.
+- [x] Known-bad controls fail with exit 1 exactly: the P919 canary string in an ordinary file, and the existing "content injection attack blocked" case. The existing helpers accept any non-zero exit, so these assert the code itself.
+- [x] Filter failure fails closed with the status shown (epistemic gate 7): killing the loop mid-run, and killing the writer feeding it, each give a non-zero exit on a fixture whose canary sits after the kill point. A scan that stops on these fixtures must not exit 0. The writer case is simulated by cutting the shipped code's input; the kill case signals the scan process, and a test asserts the filter runs outside any capture.
+- [x] Documented workflows pass through it (epistemic gate 7c): one real pre-commit run, and one real pre-push hook run on a staging-shaped ref with no publishing.
 - [ ] All of the above pass locally on macOS. `[post-deploy]` CI's parity step passes on Linux on the staging ref during landing, and a later big push's CI scan time confirms the speed-up.
 
 ## Alternatives Considered
