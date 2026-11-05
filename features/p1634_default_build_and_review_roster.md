@@ -12,6 +12,8 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+spec_review_hash: 808e09818ba78dd0baa16f98561811d734c9428d768b726cd2fdb421c2b3cb84
+spec_review_vendors: [gemini, openrouter]
 ---
 
 # P1634: Spec review, Sonnet building and quota handling run by default, and the review gate sees subagent edits
