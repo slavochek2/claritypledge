@@ -619,6 +619,7 @@ describe('review C2/D15: Publish waits while a file is being added', () => {
     await waitFor(() => expect(spotState()).toBe('updating'));
     expect(screen.queryByTestId('canvas-draft-publish')).toBeNull();
     expect(screen.getByTestId('publish-spot-spinner')).toBeInTheDocument();
+    expect(screen.getByTestId('composer-hint')).toHaveTextContent('Reply in thread'); // P1618: Upload waits, so the hint does not offer it
     await act(async () => finish({ data: { status: 'refused', code: 'busy', revision: 0 }, error: null }));
     await waitFor(() => expect(spotState()).toBe('publish'));
   });

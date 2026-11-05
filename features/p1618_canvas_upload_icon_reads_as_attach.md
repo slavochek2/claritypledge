@@ -65,3 +65,7 @@ Swap the icon, add one copy constant, pass the hint only while the Upload spot i
 - [x] The hint stays on one line at 1440, 375 and 320 (at 320 it ends in an ellipsis: "Reply, or upload a …", about 5px short; the composer keeps that width for the mic button)
 
 Evidence: `src/tests/p1618-canvas-upload-icon.test.tsx`, `src/tests/p1536-canvas-workspace.test.tsx` (the first-Send hint), `e2e/p1618-canvas-upload-shots.spec.ts` on self-hosted TEST.
+
+## Cost Budget
+
+One run of `e2e/p1618-canvas-upload-shots.spec.ts`: 1 test user created and deleted, 1 draft opened, 3 browser sessions, about 6 page loads, on self-hosted TEST (a fixed-price VM, no per-request billing). No model call. Run by hand before a ship, not scheduled. At 10× runs the cost is still the VM's fixed price. The app change adds no request, write or subscription.

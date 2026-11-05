@@ -15,6 +15,7 @@ import { CanvasUploadButton } from '@/app/pages/chat/CanvasUploadButton';
 import { CanvasVersionCard } from '@/app/pages/chat/CanvasVersionCard';
 import { MirrorMark } from '@/app/pages/chat/chat-kit';
 import { Composer } from '@/app/pages/chat/Composer';
+import { CANVAS_REPLY_HINT } from '@/app/pages/chat/canvas-thread-copy';
 import { ThreadHeader } from '@/app/pages/chat/ThreadHeader';
 
 const draft = { baseVersionId: null, canvasName: null } as const;
@@ -91,7 +92,7 @@ export function GateFixture() {
       </div>
       <Composer
         draftKey="gate-canvas-thread"
-        placeholder="Reply, or upload a file"
+        placeholder={CANVAS_REPLY_HINT}
         onSend={() => undefined}
         onAttach={() => undefined}
         leading={<CanvasUploadButton busy={false} onPick={() => undefined} />}

@@ -164,10 +164,10 @@ test('X3: the + on the mirror chat (1440, 375, 320), Clone a version, Cancel wri
         const stateKeys = await page.evaluate(() => JSON.stringify(history.state?.usr ?? null));
         rec(vp, 'the Clone intent was consumed (not left in the history state)', !/cloneThisVersion/.test(stateKeys), stateKeys);
 
-        // the canvas thread's upload is the paperclip
+        // the canvas thread's upload is the Upload icon (P1618)
         const up = page.getByTestId('canvas-upload');
         const upInfo = await up.evaluate(el => ({ icon: !!el.querySelector('svg.lucide-upload'), plus: !!el.querySelector('svg.lucide-plus'), text: (el.textContent ?? '').trim(), name: el.getAttribute('aria-label') })).catch(() => null);
-        rec(vp, 'a canvas thread\'s upload is the paperclip icon named Upload (no plus, no word)', !!upInfo && upInfo.icon && !upInfo.plus && upInfo.text === '' && upInfo.name === 'Upload', JSON.stringify(upInfo), await shot(page, vp, 'canvas-thread-upload-paperclip'));
+        rec(vp, 'a canvas thread\'s upload is the Upload icon named Upload (no plus, no word)', !!upInfo && upInfo.icon && !upInfo.plus && upInfo.text === '' && upInfo.name === 'Upload', JSON.stringify(upInfo), await shot(page, vp, 'canvas-thread-upload-icon'));
         const noPlusInThread = await page.getByTestId('composer-plus').count();
         rec(vp, 'the canvas thread\'s composer has no +', noPlusInThread === 0, `count=${noPlusInThread}`);
         const pov = await overflow(page);
