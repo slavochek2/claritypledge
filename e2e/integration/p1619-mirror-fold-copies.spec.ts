@@ -122,6 +122,9 @@ test.describe('P1619 review fixes: the matcher', () => {
     expect(await tokens('राहुल शर्मा (Rahul)'), 'the vowel signs stay inside the word').toEqual(['राहुल', 'शर्मा', 'rahul']);
     expect(await match('राहुल ने क्या कहा?', { names: ['राहुल शर्मा'] }), 'a Devanagari name matches whole').toBe(true);
     expect(await match('राहल', { names: ['राहुल शर्मा'] }), 'CONTROL: a different word does not match').toBe(false);
+    for (const [text, name] of [['سارة؟', 'سارة'], ['سارة، x', 'سارة'], ['राहुल।', 'राहुल'], ['田中太？', '田中太'], ['田中太： x', '田中太'], ['דודי־ x', 'דודי'], ['佐々木?', '佐々木']]) {
+      expect(await match(text, { names: [name] }), `${name} followed by its own script's punctuation still matches`).toBe(true);
+    }
     expect(await match('what did Zoe\u0308 say', { names: ['Zoë Ann'] }), 'e + combining diaeresis equals the precomposed name').toBe(true);
   });
   test('the array-taking helper decides exactly as the text one does', async () => {

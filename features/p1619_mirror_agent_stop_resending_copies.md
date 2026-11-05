@@ -137,6 +137,8 @@ Gemini 4 Argon and Codex (gpt-6.1-sol, low), 2 of 2 reports, 2026-11-05. Verdict
 **Decided, not rejected:** Gemini's over-clearing of refs on folded copies is accepted as the safe side.
 
 **End of build.** Gemini, GLM, Codex, Opus adversary, 4 of 4. Fixed: copies past the 2,000 cap sent in full; a skipped session copy holding the larger reservation; a false "Deleted user" author; lost reply count; repeated tokenising under the statement timeout; ask-path forwards without a time; emoji glued to names; an impossible date aborting a job; model-level and held-lock tests.
+**Opus on the fixes (replacing a Codex re-review the usage limit blocked).** Found that the explicit split list glued non-Latin punctuation to names and broke CJK letters; fixed in `20261105233200`. Word splitting depends on the database locale; check prod's. Watch item, not measured end to end: many copies of very long threads cost about 8.6 ms per copy to read names.
+
 **Set aside:** GLM's fold read before the lock pass: one decision per attempt is the contract, and refs still follow locked rows. A thread's `outside` trim states no count: the spec covers the main chat. Non-ISO snapshot times: server writers store real timestamps.
 
 **Known limits.** Names match exact words, so Russian case endings ("Алисы" for "Алиса") do not reopen a copy. Dates match in English and numeric forms; "version 4.11" can reopen a copy dated 4 Nov. A copy past the offer window cannot be reopened by name; search in step 3 owns that. Prod's database locale is unchecked; the Cyrillic test ran on test's `en_US.UTF-8`.
