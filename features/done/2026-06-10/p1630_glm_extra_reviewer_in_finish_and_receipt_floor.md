@@ -1,16 +1,16 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 100
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [finish, review, receipt, openrouter, reviewers]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
+completed_at: 2026-11-05
 ---
 
 # P1630: `/finish` runs GLM-5.3 as an always-on extra reviewer, and the review receipt requires a Gemini or Codex run and records which vendors back it
