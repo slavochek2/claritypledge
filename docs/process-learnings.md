@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 291
+**Next ID:** 292
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3533,3 +3533,14 @@ model-watch reads the OpenRouter catalog, but its bump plan checks google ids an
 - 2026-11-05 due: week. Kanban shell overflows at 375px and 320px (page measures 446px wide, header select clipped), seen during P1629. Fix or file a bug.
 - 2026-11-05 due: week. `tools/kanban/scripts/day-mutation-controls.sh` exits 1 on main: 3 controls drifted, 1 missed, 2 unmodified-copy reds, and the P1468 live goals test fails because `docs/goals.md` has no `**Goal:**` line under Next Steps. Repair so the gate means something again.
 - 2026-11-05 due: month. Two flakes seen during P1629: `src/tests/p1607-e2e-slot-lock.test.ts` (serialized admission) and kanban `opportunities.test.ts` under a parallel run. Each passed on rerun.
+
+## P1630: one real /finish on a throwaway change after merge
+
+**ID:** INBOX-291
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+Moved out of P1630's Done-When by the founder so the spec can close at ship. After /ship p1630, run one real /finish on a throwaway change and confirm the report line, the receipt's vendors field and a refused GLM-only write. Done when that output is recorded here.
+
+---
