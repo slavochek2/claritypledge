@@ -445,6 +445,7 @@ Last updated: 2026-11-05
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1630** (Nov 26) `/finish` adds GLM as advisory reviewer; receipt needs Gemini or Codex — embargo checks must test any branch shape, not `pN` names.
 - **P1620** (Nov 26) Shared-file change left prod functions stale unseen — hash all bundled inputs; a deploy must stamp only what it deployed.
 - **P1617** (Nov 26) Privacy scan filter grows linearly — most real ranges never exercise the allowlist; prove drops before trusting byte equality.
 - **P1602** (Nov 26) `--secrets` safeguard — refuses to lose a name and backs up first; warning half superseded by P1606.

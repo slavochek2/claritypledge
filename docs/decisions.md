@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-05 [process]: GLM joins /finish as advisory, and a review receipt now needs a Gemini or Codex run
+
+**Context:** P1630 added GLM through OpenRouter as a third external reviewer on every `/finish` run. Without a change, "one successful `ask-model` run" could have meant GLM alone, the receipt could not say who reviewed, and an embargoed diff could have reached an unknown host.
+**Decision:** `review_receipt.py write` refuses unless a valid evidence file comes from `gemini` or `codex`, and records `vendors`. GLM is advisory: a failed run is reported missing, never blocks and never counts as clean. Its requests use zero-retention endpoints only. GLM runs only when every spec the branch carries says `disclosure: public` in both its committed and working copies; an embargoed or unknown value also forces Codex, while a skip only for a `.private/` or private-repo path does not, since that would send private content to one more vendor.
+**Alternatives rejected:** GLM as sufficient evidence; replacing Gemini; requiring two vendors on every receipt (deferred until `vendors` shows how often single-vendor receipts still happen).
+**Consequences:** The embargo rule is skill text, with no check inside `ask-model`, and on `main` code shipped from an embargoed branch has no marker. Reviewers broke the first wording twice, including a lookup that fell open on any unusual branch name, so treat "fails closed" prose as a claim to test. Open follow-ups: INBOX-289 (does GLM stay, read after 30 days), INBOX-290 (`model-watch`), INBOX-291 (real `/finish` after merge), INBOX-292 (Codex completing on the embargoed case; it hit a usage limit at ship). Founder chose to ship with the last two open.
+**References:** [P1630](../features/done/) spec; benchmark data in the private log, same date.
+
 
 
 ## 2026-11-05 [technical]: TEST's job hand-off uses its own queue and accounts; pre-commit tests what is staged (P1626)
