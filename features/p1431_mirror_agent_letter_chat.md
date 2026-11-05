@@ -192,3 +192,96 @@ stored) is for `/architect`.
 
 Kept open as the production letter-writing work. In v11, letters only appear as links to existing letters (📎);
 writing a letter with the agent in chat is this spec.
+
+## Scope clarification 2026-11-03: one production path, two delivery steps
+
+Founder framing:
+
+> "they experience it and so they buy what they experience."
+>
+> "this is preparing drafts and approving drafts of stories"
+>
+> "And only then when everything can be done and linked then we can assemble it into letter."
+
+This remains the production owner for agent-assisted letter creation. P1437, P1484 and P1503
+contain exploration and prototype decisions, not evidence that production drafting has shipped.
+Do not file duplicate point, story and letter engines before assessing this existing scope.
+
+### Delivery steps (proposed decomposition, not a requirement to release each separately)
+
+1. **Transcript to reviewed points and linked stories.** The owner supplies a transcript or selects
+   readable conversation material. The agent proposes points; the owner edits or rejects them and
+   chooses their own positions. The agent can draft the owner's reasons as stories linked to those
+   points. The owner can stop with points, request a position-taking view over several approved
+   points, or continue to a letter. Exact integration with the existing stake page remains to be
+   designed; do not assume it already supports a private, arbitrary collection of draft points.
+2. **Reviewed material to a sent letter and answer.** Assemble selected points and linked stories
+   into a private letter draft, allow correction and preview, and send only on explicit approval.
+   The recipient answers through the existing letter page, not through an agent conversation
+   (P1484). Reuse existing approved material rather than extracting it again for assembly.
+
+These are capability dependencies, not compulsory screens. A person asking for a letter may be
+guided through one continuous drafting experience. There is no requirement to publish the points
+or stories separately before sending the letter.
+
+### Entry and reuse
+
+- The P1536 branch now has a composer + menu for creating a canvas or cloning a version
+  (`CanvasPlusMenu.tsx`). It is a relevant entry pattern, not yet a general artifact creator.
+- Extend the shared creation entry to reach this flow after checking its other callers. Reuse
+  applicable upload and review interactions; assess canvas-specific storage and drafting behavior
+  separately. No generic configurable canvas or new box system is required for letters.
+- [FOUNDER DECISION: creation menu labels and letter workspace layout]. The canvas-left,
+  conversation-right workspace is a candidate for letter drafting, not an approved letter design.
+- Imported meeting text and existing event threads are inputs. Automatic Zoom/Meet integrations,
+  chat-based recording (P1604), and the round-number research readout (P1390) are separate work.
+
+### Inherited constraints
+
+- Drafts stay private until their owner explicitly sends or publishes (P1503 D17).
+- An owner's first-person story uses their own words; another speaker's words do not become the
+  owner's testimony (P1484 D13, P1503). A story attributed to another person requires their approval;
+  this flow must not silently author it for them.
+- Points check agreement; letters check understanding of reasons (decisions.md 2026-11-02).
+- Recipients answer on the letter page (P1484); account entry and preparation must be verified for
+  the selected recipient mode rather than assumed to be absent or already integrated.
+- No automatic sending, invented reasons, or inferred human positions saved as confirmed answers.
+
+### Business dependency and priority (recommendation awaiting founder decision)
+
+The proposed change-lead event demonstrates the repeatable meeting-to-letter experience that a
+team would trial. Do not describe that experience as available until transcript input, drafting,
+approval, delivery and answering have been demonstrated together. Preparing an offer or finding
+interested leads is distinct from booking a product demonstration or promising a working trial.
+
+The 2026-11-02 order waited for sales mastermind session 2 before team-letter drafting. The founder
+has now questioned that dependency because the canvas is sales-specific and the intended buyers
+are change leads. **No priority reversal is recorded as approved here.**
+
+[FOUNDER DECISION: retain the two-session mastermind checkpoint, or prioritize the demonstrable
+team-letter path after P1536]. Existing event commitments must be checked before changing them.
+
+### Acceptance criteria for the clarified production scope
+
+- [ ] An owner provides a transcript and reviews, corrects or rejects its proposed points.
+- [ ] The owner reviews a sourced story, sees its linked point, and can correct the link or wording.
+- [ ] Approved points can be used without creating a letter; private material remains private.
+- [ ] The owner assembles a letter from selected reviewed material without re-entering it, previews
+      it, and explicitly approves sending; nothing sends during drafting.
+- [ ] A recipient opens the delivered letter, answers and sees the reveal; the sender can find the
+      response. Demonstrate the complete path with the recipient mode intended for the team trial.
+
+### Cost Budget
+
+Implementation budget remains UNVERIFIED: measure transcript input tokens, generated output tokens,
+drafting calls per correction and delivery calls before implementation approval. Calculate per-owner
+cost as `(extraction calls × measured tokens) + (correction calls × measured tokens)`, multiplied by
+the selected provider's verified unit prices. A complete test run includes both delivery steps and
+the recipient answer. Do not infer letter costs from the canvas budget or choose a provider here.
+
+### Related scope
+
+- P1536: canvas drafting interaction and composer creation entry, currently on its feature branch.
+- P1484: focused preparation thread and letter-page answering.
+- P1503: draft approval, point/story linking and existing-letter attachment boundaries.
+- P1604: recording into a chat; not the uploaded-transcript prerequisite.

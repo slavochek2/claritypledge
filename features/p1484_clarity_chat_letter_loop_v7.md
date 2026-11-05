@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: backlog
 type: story
 rank: 27
 workstream: clarity-chat

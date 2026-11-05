@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: backlog
 type: task
 rank: 2
 workstream: events

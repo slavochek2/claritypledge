@@ -37,6 +37,7 @@ cp.vsum	cmd	hard	Video summaries — auto-heal: draft + check every prod story v
 cp.health	attest	hard	Every check reported a status, every problem has a finding (P1399)
 cp.reflect	attest	hard	Reflection since last /day
 cp.goals	attest	hard	Goals and milestone — goals.md still reads for the board's Goals, which are read at render time (P1468)
+cp.tidy	cmd	hard	Tidy pass — remove worktrees and branches git-ops tidy proves finished
 cp.branch	cmd	hard	Branch status — stash check (branch and stranded-spec rows come from cp.w1)
 cp.due	attest	hard	Due Board — act on the dispatcher's verdict
 cp.notes	cmd	hard	Notes for the day report — weekly / monthly review measurements (P1399, P1468)

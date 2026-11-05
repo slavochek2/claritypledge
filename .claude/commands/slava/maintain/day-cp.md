@@ -1603,7 +1603,15 @@ BODY
 
 The branch and stranded-spec rows are Wave 1's findings (the table under Wave 1: a spec in `qa`, one
 closed but not moved, an unfinished ship). P1468 dropped the `BRANCHES` block, which only fed the
-board's daily `branches` note. What is left here is the stash check.
+board's daily `branches` note. What is left here is the tidy pass and the stash check.
+
+**4b. Tidy pass:** removes only worktrees and branches `git-ops tidy` can prove finished, and logs each
+removal for recovery. It never touches a live, held or unproven item, and its ASK lines are report-only.
+```bash
+"$DAY_STEP" run cp.tidy <<'STEP'
+./scripts/git-ops.sh tidy --apply 2>&1 | cut -c1-200 || true
+STEP
+```
 
 **4c. Stash check:**
 ```bash

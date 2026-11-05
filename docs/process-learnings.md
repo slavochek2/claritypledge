@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 246
+**Next ID:** 289
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -1809,6 +1809,8 @@ Before building: write the success signal up front (e.g. N visitors reach the le
 
 The P1399 goals review found the Next Steps are one-off checkboxes with no pace, so they cannot be plotted, and the champion falsifier has no weekly rate. It proposes five weekly goals: champion talks, pilots held, follow-ups per pilot, events per week, and zero broken sessions; every target is a founder decision. Review text: .private/p1399-day-design/p1399-goals-review.md. Route the edit through /slava:maintain:docs-strategy-update. The Day page Stats tab reads these goals.
 
+Reviewed 2026-11-04 (weekly): keep, not checked against its artifact this run, still open
+
 ---
 
 ## /prepare statements step can load with 0 points and a dimmed Continue
@@ -1828,6 +1830,8 @@ Seen once in 4 runs of e2e/p1402-standalone-prepare.spec.ts smoke (2026-10-04, P
 - [ ] **Stale e2e tests found during the P1538 parity run** (due: month). 2026-10-21. Fail on old TEST too, or against main's own code: `03-login-flow` (signup link, email-field focus); `edge-fn-authz-regression` 409 test still sends terms `v1.3` but `create-and-sign` accepts only the current version since P1487; that spec's wrong-Authorization and wrong-webhook-secret tests.
 - [ ] **setup-verify-listener/partner check only the first page of listUsers** (due: month). 2026-10-21, P1538. With more than 50 users they miss the existing account and fail with "already registered". Look the account up by email instead.
 - [ ] **Drop the old TEST ref from P1532's cleanup guard once old TEST is paused** (due: month). 2026-10-21. `_e2e_purge_allowed` accepts both refs during the move.
+Reviewed 2026-11-04 (weekly): keep, not checked against its artifact this run, still open
+
 
 
 <!-- Resolved 2026-10-14: shipped as P1198 (ship refuses on drift) — see decisions.md 2026-10-14 -->
@@ -1841,6 +1845,8 @@ Seen once in 4 runs of e2e/p1402-standalone-prepare.spec.ts smoke (2026-10-04, P
 
 (1) Server-enforced position write ordering, a client sequence plus conditional upsert/delete, closes the P1420 accepted limits. (2) /feed overflows horizontally at 320px (header and Stories/Points+Sort row; pre-existing, noted in P1415). (3) e2e p1364 "tab or sort change then Back" targets a removed sort button, and search-then-Back sees offline-stake prefetch reads while typing. (4) next-p-number.sh gave the same number to parallel agents whose specs were still only in worktrees (P1420 and P1421 collided); reserve numbers in a ledger. (5) P1417 skill text edits for re-create-event abort and publish-run 8b (drafts in the P1417 spec) and P1419 hike banners on GCS still full size. Drop any item already covered by a spec.
 
+Reviewed 2026-11-04 (weekly): keep, not checked against its artifact this run, still open
+
 ---
 
 ## Point page embed: 'Expand linked stories' renders no story
@@ -1851,6 +1857,8 @@ Seen once in 4 runs of e2e/p1402-standalone-prepare.spec.ts smoke (2026-10-04, P
 **due:** week
 
 Found 2026-10-06 while writing P1424's e2e guard. On /point/:id?embed=true (no ?from=), clicking 'Expand linked stories' (label '1 story') renders no QuotedStory, even though the point has a linked public story. Reproduced on main at the P1424 base commit (e2e/p1424-nested-details-only.spec.ts, the test.fixme guard). Suspect: PointCardWithLinks's expansion condition (!isDetailView && storiesExpanded && (liveSessionMode || profileOwner || isEmbed)): check whether isEmbed reaches the card. Once fixed, turn the fixme back into a test.
+
+Reviewed 2026-11-04 (weekly): keep, not checked against its artifact this run, still open
 
 ---
 
@@ -1863,6 +1871,8 @@ Found 2026-10-06 while writing P1424's e2e guard. On /point/:id?embed=true (no ?
 
 A profile whose owner has points stayed on its loading skeleton ("Stories (0)") on the test DB, so every getByText of a seeded point timed out. Control run on unchanged main (f856dc899): e2e/p154-position-persistence-profile.spec.ts failed 6/6 at the first getByText; the same pattern hit p151-profile-position-loading, p151-regression, point-position-persistence and manual-points. Found during P1423 under heavy machine load, so first rerun p154 on an idle machine: drop this if it passes there, otherwise check console/network on /p/<slug> for an owner with one public point.
 
+Reviewed 2026-11-04 (weekly): keep, not checked against its artifact this run, still open
+
 ---
 
 ## Horizontal scroll at 320px on the story page footer and the letters header
@@ -1873,6 +1883,8 @@ A profile whose owner has points stayed on its loading skeleton ("Stories (0)") 
 **due:** week
 
 At 320px the story page card footer (points count, Add a point, edit, delete, share, open icons) runs past the card and the page scrolls sideways: measured scrollWidth 349 on main, 346 after P1423. The letters page header (three tabs plus New Draft) overflows the same way, and draft metadata wraps mid-phrase. Found by the P1423 visual review; both predate it. Done when /story/<id> and /letters?tab=drafts have scrollWidth equal to 320 at 320px; drop if 320px support is retired.
+
+Reviewed 2026-11-04 (weekly): keep, not checked against its artifact this run, still open
 
 ---
 
@@ -1885,6 +1897,8 @@ At 320px the story page card footer (points count, Add a point, edit, delete, sh
 
 src/tests/p1270-profile-story-media.test.tsx failed 2 tests under full-suite load on 2026-10-06 (findByRole 'Your story' timed out) but passed 3/3 in isolation; one pre-commit retry went green. Reviewers also saw load flakes at HEAD in p1296-card-footer, p1366-card-footer and p1364-list-return-cache. Done when these pass 5 consecutive full-suite runs; droppable if none recur in the next 10 hook runs.
 
+Reviewed 2026-11-04 (weekly): keep, a different suite test (p1607 loadtest switch) flaked under full-suite load today, so flakes still recur
+
 ---
 
 ## Browser-verify the PositionButtons menu clamp at 320/375px
@@ -1895,6 +1909,8 @@ src/tests/p1270-profile-story-media.test.tsx failed 2 tests under full-suite loa
 **due:** week
 
 The dropdown clamp in src/app/components/shared/menu-clamp.ts (branch overnight/2026-10-06) is unit-tested and mutation-checked but not browser-verified, because opening the menu needs a logged-in test user who already holds a position (a first click casts a vote). Open the Agree menu at 320 and 375px and confirm its right edge stays at least 8px inside the viewport. Droppable if the overnight branch is not merged.
+
+Reviewed 2026-11-04 (weekly): keep, not checked against its artifact this run, still open
 
 ---
 
@@ -1919,6 +1935,8 @@ Found by /day on 2026-10-06 (check: cp.w1, severity: medium).
 features/p1181_community_scoped_visibility.md status qa, filed 2026-08-28 (39 days).
 
 Still open on 2026-10-07 (/day cp.w1).
+
+Reviewed 2026-11-04 (weekly): the spec is now in features/archive/2026-10, no longer in qa; the day board owns this card, nothing to close here
 
 ---
 
@@ -1945,6 +1963,8 @@ Worktrees lack tools/kanban/node_modules, so kanban tests, scripts/inbox.sh and 
 **due:** week
 
 Founder-approved: on the event page, the host's grouped participant rows pass showEarBadge false so names stop truncating to three letters at 375px; keep "understood N/10". One-line change in EventDetail plus an assertion in the P1429 A2 e2e (no ear badge inside the host groups, name not cut off). Not landed because the browser test could not run. Droppable if P1430 is built and covers it.
+
+Reviewed 2026-11-04 (weekly): keep, not checked against its artifact this run, still open
 
 ---
 
@@ -2028,6 +2048,8 @@ Follow-ups from P1435. (1) On a run's first load the Day page shows card 1 for a
 
 After P1441 deploys, confirm a failed auto-RSVP appears in Sentry as "DB error in rsvpToEvent" (the post-signup path previously logged to the console only; locally only the unit test proves it). Droppable if no failure occurs within 30 days.
 
+Reviewed 2026-11-04 (weekly): keep, P1441 is in features/done; droppable after 2026-11-07 if no failure appears in Sentry
+
 ---
 
 
@@ -2040,6 +2062,8 @@ After P1441 deploys, confirm a failed auto-RSVP appears in Sentry as "DB error i
 
 Found during P1321 regressions: get_inbox_items(p_user_id) callers in p690, p695 and two 20260412 specs (20260412150407_fix_invitation_token_uuid_cast also fails at its clarity_docs fixture insert); p778 inserts clarity_letters without source_doc_id (23502); p707-db-schema inserts clarity_letters.title, which no longer exists (PGRST204); p511 calls update_last_activity as service role; security-backlog-rls inserts stories.title (PGRST204); p1010 asserts terms_version 4 or 5 but the server writes 6. Done when each either passes or is deleted as superseded; droppable per spec if a newer spec already covers its subject.
 
+Reviewed 2026-11-04 (weekly): keep, not checked against its artifact this run, still open
+
 ---
 
 ## Stop integration specs signing in on the shared supabaseAdmin client
@@ -2050,6 +2074,8 @@ Found during P1321 regressions: get_inbox_items(p_user_id) callers in p690, p695
 **due:** week
 
 p707-db-schema and p778-db-schema call supabaseAdmin.auth.signInWithPassword, which replaces the client's service-role session, so every later admin read and teardown runs as the signed-in user and test fixtures leak. Sign in on a throwaway client instead (pattern in e2e/integration/p1321-letter-delivery-guard.spec.ts) and grep e2e/ for other instances. Droppable if both specs are deleted under the fixture-repair note.
+
+Reviewed 2026-11-04 (weekly): keep, e2e/integration/p707-db-schema.spec.ts and p778-db-schema.spec.ts still exist
 
 ---
 
@@ -2062,6 +2088,8 @@ p707-db-schema and p778-db-schema call supabaseAdmin.auth.signInWithPassword, wh
 
 On 2026-10-09 the report-sections step of /day failed because the agent running it (Sonnet 5.5) sent the literal token PYEOF_PLACEHOLDER instead of the step's python body; the retry was refused as already recorded, and the sections were recorded later via the data command. Fix: the step runner refuses a body containing an obvious placeholder token, so the failure names itself. Droppable if /day is only ever run on Opus and this does not recur within two weeks.
 
+Reviewed 2026-11-04 (weekly): keep, ~/.claude/scripts/day-step.sh contains no placeholder-token check
+
 ---
 
 ## Day board overflows below about 340px: header, date bar and Daily-report cards
@@ -2072,6 +2100,8 @@ On 2026-10-09 the report-sections step of /day failed because the agent running 
 **due:** week
 
 Measured 2026-10-09: at a 320px viewport the Day page lays out at 337-339px (live board and preview alike); the sidebar does not collapse and the tabs overlap at 375px. Pre-existing, not P1449. Fix the board chrome for phone widths, or record that the board is desktop-only. Droppable if the founder never opens the board on a phone.
+
+Reviewed 2026-11-04 (weekly): keep, not re-measured this run
 
 ---
 
@@ -2987,7 +3017,7 @@ Found during P1557. ./scripts/check-edge-function-secrets.sh --env test exits 1 
 **Status:** proposed
 **due:** week
 
-After Mailgun was restored on 2026-10-28, 20 integration tests still fail on the self-hosted TEST server; none is a server defect (evidence: .private/archive/p1557/rerun-mailgun.json). (a) 9 need the storage or AI key kept off the test server by founder rule: the edge-fn-authz-regression banner, upload and playback 403 cases, the p1223 participant forward step, and the p1544 mirror-reply case; those functions check config before auth, so decide whether such tests skip when the key is absent or the functions authorize first. (b) 6 in p1275-create-transcribe-room-rpc call create_transcribe_room without p_consent, a signature migration 20260909100000 dropped; they pass on hosted only through a stale overload there (hosted schema drift). (c) the p1178-reproduce canary expects create-and-sign to seal and send the accepted email, which it no longer does. (d) p630-system-tags-migration scans every point and trips on rows other tests left. (e) 2 edge-fn-authz cases get the right 401 with the self-hosted router's body rather than the hosted gateway's, and enqueue-transcription sent with only the anon header (no Authorization) is refused by the router where hosted lets it through; decide whether supabase/selfhosted/functions-main/index.ts should mirror hosted's fallback to that header. Droppable once each group is fixed or deliberately skipped, or if TEST goes back to hosted.
+After Mailgun was restored on 2026-10-28, 20 integration tests still fail on the self-hosted TEST server; none is a server defect (evidence: .private/archive/p1557/rerun-mailgun.json). (a) 9 needed the storage or AI key then kept off the test server (reversed: decisions.md 2026-10-29, "Self-hosted TEST now holds AI and storage credentials"; those keys are on it now, so re-run these): the edge-fn-authz-regression banner, upload and playback 403 cases, the p1223 participant forward step, and the p1544 mirror-reply case; those functions check config before auth, so decide whether such tests skip when the key is absent or the functions authorize first. (b) 6 in p1275-create-transcribe-room-rpc call create_transcribe_room without p_consent, a signature migration 20260909100000 dropped; they pass on hosted only through a stale overload there (hosted schema drift). (c) the p1178-reproduce canary expects create-and-sign to seal and send the accepted email, which it no longer does. (d) p630-system-tags-migration scans every point and trips on rows other tests left. (e) 2 edge-fn-authz cases get the right 401 with the self-hosted router's body rather than the hosted gateway's, and enqueue-transcription sent with only the anon header (no Authorization) is refused by the router where hosted lets it through; decide whether supabase/selfhosted/functions-main/index.ts should mirror hosted's fallback to that header. Droppable once each group is fixed or deliberately skipped, or if TEST goes back to hosted.
 
 ---
 
@@ -3001,5 +3031,480 @@ After Mailgun was restored on 2026-10-28, 20 integration tests still fail on the
 After the next social hike with more than 15 people, review whether WhatsApp-only transport (a transport lead per hike plus the private driver list) worked. If people still got stuck, reconsider an in-app ride question next to the recording question on the prepare page (it would overturn P1542 decision 1).
 
 Parked hike ideas from the same 2026-10-28 conversation, unchanged: buddy matching, fun roles growing into Clarity champions, mirroring WhatsApp into Clarity Chat, multi-day hikes and exporting the format to other cities, an agent running hike coordination. Context: P1571.
+
+---
+
+## Migration-applied pre-commit gate never checks the self-hosted TEST server
+
+**ID:** INBOX-246
+**Date:** 2026-10-28
+**Status:** proposed
+**due:** week
+
+The pre-commit check that blocks a migration not yet on TEST reads only the hosted section of deploy-manifest.json, while e2e now runs against the self-hosted server (P1557): a migration applied only to hosted passes while self-hosted lags. The stamp script also builds its list from main's migration files, so a migration still on its feature branch cannot be stamped without a hand edit (P1583 needed one). Done when the gate checks the self-hosted ledger, or drop if the hosted server is retired.
+
+---
+
+## stamp-deploy-manifest.sh --help runs a real stamp
+
+**ID:** INBOX-247
+**Date:** 2026-10-28
+**Status:** proposed
+**due:** week
+
+Passing --help to scripts/stamp-deploy-manifest.sh rewrote main's deploy-manifest.json (test function hashes and timestamp) instead of printing usage (2026-10-28). It should print help and touch nothing. Done when --help exits 0 with usage and leaves the manifest untouched.
+
+---
+
+## P1584: run the self-hosted health failure drill after the push
+
+**ID:** INBOX-248
+**Date:** 2026-10-28
+**Status:** proposed
+**due:** week
+
+After P1584 is pushed, run the "Self-hosted TEST health" workflow by hand with the host input set to an unreachable name, confirm a "(drill)" issue opens, close it by hand, and confirm the next scheduled run is green. Done when both are seen; droppable if the workflow has since opened and closed a real alert on its own.
+
+---
+
+## Pre-commit on an older worktree fails: main's hook calls scripts the branch lacks
+
+**ID:** INBOX-249
+**Date:** 2026-10-28
+**Status:** proposed
+**due:** week
+
+2026-10-28, seen committing in w9 (feature/p1559-ledger-prototype, branched before P1566). The pre-commit run is main's pre-commit-checks.sh, but it resolves scripts/quality-ratchet.cjs and scripts/check-nested-guides.cjs against the worktree root, where the older branch has neither. Result: MODULE_NOT_FOUND, two "errors", commit blocked, for a one-file prototype change. Every worktree branched before P1566 hits this until rebased. Fix idea: skip a check whose script is absent in the worktree with a visible warning, or have the hook run the worktree's own pre-commit-checks.sh. Workaround today: rebase the branch onto main (needs a clean tree, so commit first, which is what is blocked).
+
+
+2026-10-29, /kdd review: the same stale base (w9 was 319 commits behind main, merge-base 2026-10-24) also explains the three earlier load-sensitive test failures in that worktree: their fixes (P1573 325a3e226, P1570 e41ab95b1) are on main, not on the branch. Prefer the second fix idea (run the worktree's own pre-commit-checks.sh): skipping an absent blocking check with a warning fails open. A "base far behind main" warning was considered and deferred; revisit on a second incident.
+---
+
+## Pre-commit: explain a missing helper as 'branch predates check — merge main'
+
+**ID:** INBOX-250
+**Date:** 2026-10-29
+**Status:** proposed
+**due:** month
+
+When pre-commit-checks.sh invokes a helper missing from the committing worktree (branch cut before that check landed on main), it fails with a bare "No such file"; print "this branch predates check NAME (SCRIPT); run git merge main" instead, still failing loud (never skip). Seen 2026-10-29 with P1591's check-hosted-test-readers.sh during P1593, where the opaque failure tempted a banned hook bypass. Loading helpers from main's checkout was rejected the same day: helpers such as check-hosted-test-readers.sh derive their scan root from their own location, so they would check main's tree. Drop if new checks stop landing while branches are open.
+
+---
+
+## Chat list at 320px clips the Channels tab and crowds the time
+
+**ID:** INBOX-251
+**Date:** 2026-10-29
+**Status:** proposed
+**due:** month
+
+At 320px the "Channels" tab is clipped to "Channel" at the right edge (the tab row neither wraps nor scrolls), and a long event title leaves about 6px before the "Now" time. Seen by visual QA during P1592 (chat-list-preview-320); it was already on main, since P1592 only changed the preview text. Done when the tab row fits or scrolls with a visible cue at 320px and the time keeps its gap; drop if the chat list tabs are redesigned first.
+
+---
+
+## p1512 chat UI grouping test fails between 00:00 and 01:00 local time
+
+**ID:** INBOX-252
+**Date:** 2026-10-29
+**Status:** proposed
+**due:** week
+
+src/tests/p1512-chat-ui.test.tsx "renders messages with author, grouping..." dates its fixture messages about 60 minutes before Date.now(), so a run that starts just after midnight puts them across a day boundary, a date divider splits Ada's two messages, and the grouping assertion sees 3 name headers instead of 2 (seen in a full run that started at 00:58; passes alone at other hours). Fix: pin NOW to a fixed midday time (or use fake timers) so the fixtures never cross midnight. Droppable if the grouping test is rewritten without wall-clock dates.
+
+---
+
+## p1114 room e2e 'a rating save that fails offers the one way off the card' fails on main against the self-hosted TEST
+
+**ID:** INBOX-253
+**Date:** 2026-10-30
+**Status:** proposed
+**due:** week
+
+Fails identically on main 2e946349a and on the P1542 quote-consent branch: after a forced set_room_rating 500 the re-read succeeds but reports the person as not opted in, so the "That didn't save. Try again." message never shows. Passed earlier the same day. Suspect a change to the self-hosted TEST room functions or data; confirm by capturing the get_my_room_status response. Droppable if it passes again on a fresh TEST run.
+
+---
+
+## Boot splash should start where the in-shell loader sits (desktop sidebar)
+
+**ID:** INBOX-254
+**Date:** 2026-10-30
+**Status:** proposed
+**due:** month
+
+P1595 centred the in-shell loader on the content column, so on a signed-in desktop cold load the mark slides sideways once from the viewport-centred boot splash (about 124px with the sidebar open, 32px collapsed; phones unaffected). Make the index.html splash read the remembered sidebar state so it starts in the same place. Droppable if nobody notices the slide.
+
+---
+
+## Make /day stories aware of in-flight worktree work before proposing
+
+**ID:** INBOX-255
+**Date:** 2026-10-30
+**Status:** proposed
+**due:** week
+
+/day story generation ignores what neighbouring worktree sessions are building or have planned, so it proposes things the founder already decided against or already has in progress (2026-10-30 story r3, "run the event room with two outside people this week"; founder: "you are not taking into account what current neighbouring sessions work on... I don't want to re-explain"). Fix: feed the story generator the live worktree branches with their spec titles, status and open Done-When, and have each story name the in-flight spec it does not contradict. Done when a /day run's stories cite in-flight specs and none of them repeats an already-decided direction.
+
+---
+
+## Spec: mirror agent reachable from any page (Intercom-style launcher)
+
+**ID:** INBOX-256
+**Date:** 2026-11-01
+**Status:** proposed
+**due:** month
+
+Founder idea 2026-11-01 (P1536 walkthrough, W2): a launcher that opens the mirror agent from any page, built on the P1536 W1 thread panel. Needs /create-spec once W1 ships, covering mobile placement and which pages carry it. Droppable if the W1 panel plus the mirror chat prove enough in event use.
+
+---
+
+## Spec: event gallery serves small previews, full size only on tap
+
+**ID:** INBOX-257
+**Date:** 2026-11-01
+**Status:** proposed
+**due:** month
+
+The hike gallery loads full photos into 224 px tiles. On 2026-11-01 the six largest were shrunk by hand (6.0 MB to 2.9 MB), which does not cover future uploads or the rest. Build small copies at upload, as event banners already do (P1417). A cold first load on a phone has still not been timed: measure before and after. Needs /create-spec.
+
+---
+
+## Spec: regenerating a profile banner can destroy a custom one with no undo
+
+**ID:** INBOX-258
+**Date:** 2026-11-01
+**Status:** proposed
+**due:** week
+
+On 2026-11-01 three regenerations in about 80 seconds replaced the founder's hand-set Communication Activism banner; it was restored by hand from public/banners. Who or what triggered them is unknown. Older generated files from 14, 16 and 21 October exist, so it may have happened before. Add confirmation or undo, and find the trigger. Needs /reproduce or /create-spec.
+
+---
+
+## Fix three gaps in the canvas eval checker before the real-model S2 eval runs
+
+**ID:** INBOX-259
+**Date:** 2026-11-01
+**Status:** proposed
+**due:** week
+
+P1536 review found three LOW gaps in the canvas eval rules: the banned-opening check does not strip the sale-role label (Pays:, Uses:, Approves:); the demographics pattern is case-sensitive, so a sentence starting with Women, Seniors or Aged is missed; the number check does not normalise thousands separators (1000 vs 1,000). Done when each has a labelled fixture and passes. Droppable if the real-model eval is retired.
+
+---
+
+## Run the P1536 Q1 real-model eval for Customer Segments once
+
+**ID:** INBOX-260
+**Date:** 2026-11-01
+**Status:** proposed
+**due:** week
+
+The Q1 rule (a role plus two other dimensions) is proven only on labelled fixtures; the keyword checker has never judged real model output, and it can miss forms. Run the eval once on hosted TEST and read a sample by hand. Done when the result is recorded in the spec. Droppable if Q1 is rewritten.
+
+---
+
+## Remove the unreachable carry path from useStartCanvas
+
+**ID:** INBOX-261
+**Date:** 2026-11-01
+**Status:** proposed
+**due:** month
+
+carryIntoThread in use-start-canvas.tsx and its toast copy have no caller that passes carry since New version became Clone. Grep the callers, then delete it. Droppable if a caller appears.
+
+---
+
+## Generalise the walk-before-UAT step in the /dev UAT gate
+
+**ID:** INBOX-262
+**Date:** 2026-11-01
+**Status:** proposed
+**due:** month
+
+On P1536, walking the journeys in a real browser with a separate visual-QA subagent caught defects that every reviewer and unit test had missed, including a page stuck on skeletons until a reload and a regression that refused ordinary chat replies. Propose making the walk a default step for user-facing journeys, through the claude-md gate. Droppable if the founder prefers it per spec.
+
+---
+
+## Check get_canvas cost before P1536 reaches prod
+
+**ID:** INBOX-263
+**Date:** 2026-11-01
+**Status:** proposed
+**due:** week
+
+During the final P1536 walk the page's canvas read hit database statement timeouts (57014) on hosted TEST under load, showing "Could not load this canvas" until a re-run. TEST is the smallest size and was busy, and the P1536 migration restates get_canvas, so it is unknown whether the read got slower. Compare the read's plan or timing before and after the migration on a canvas with several versions. Droppable if the plan is unchanged.
+
+---
+
+## Schedule the event group checks and prove the email audience script
+
+**ID:** INBOX-264
+**Date:** 2026-11-02
+**Status:** proposed
+**due:** month
+
+Run scripts/events/group-check.py on the Mac (it needs local Beeper, so not GitHub Actions): recheck a few hours after each group send and preflight before a timed send, alerting only on failure. Run scripts/events/email-audience.sh live on the next hike, because its prod path is untested. Droppable if event group sends stop or a later run shows manual checks cost nothing.
+
+---
+
+## Reviewer lists founder asks that have no acceptance criterion
+
+**ID:** INBOX-265
+**Date:** 2026-11-02
+**Status:** proposed
+**due:** week
+
+After each spec amendment, as a /finish specs step, one reviewer reads the founder's messages since the last spec commit and lists asks with no acceptance criterion. Advisory: the builder answers one line per ask (criterion added, declined, or escalated). Prove it first: the 2026-10-29 voice agreement against P1536's spec before S3c must be flagged, with a known-good control through the same probe. Awaiting the founder's yes from the 2026-11-02 KDD; droppable if declined there.
+
+---
+
+## Fixture standing in for a product path must show that path is unreachable
+
+**ID:** INBOX-266
+**Date:** 2026-11-02
+**Status:** proposed
+**due:** month
+
+UNTESTED, one instance. A P1536 walkthrough fixture labelled a draft opener legacy and tagged points with the service role, while users could still reach that opener through the paperclip, so a real bug stayed hidden. Idea: a /finish reviewer asks that a FALLBACK or service-role note cite the grep showing the path is unreachable. Falsifier: a second fixture-masked reachable path, then promote to a rule; droppable if none appears by the next monthly.
+
+---
+
+## Ship gate 2.5 reads main's spec copy for a fix/pN branch
+
+**ID:** INBOX-267
+**Date:** 2026-11-02
+**Status:** proposed
+**due:** month
+
+`scripts/ship-gates.sh` sets `feature_branch` from `feature/pN-*` only, while gate 3.8 and `git-ops.sh ship` also accept `fix/pN-*`. A `fix/` branch with a fully ticked spec is refused from the main checkout, yet passes when the gates run inside its worktree. P1599 got past this by renaming its branch. Fix: resolve the spec branch with the same patterns as `resolve_ship_branch`. Rare, since only 1 of 11 local spec branches was `fix/`.
+
+---
+
+## Renumber P1592's colliding migration and bring hosted TEST level
+
+**ID:** INBOX-268
+**Date:** 2026-11-02
+**Status:** proposed
+**due:** week
+
+Main's 20261029180000_p1592_event_transcripts_round_threads.sql shares its version with p1542_quote_ok_click_order in hosted TEST's ledger, so P1592 never applied there and migrate.sh aborts for every session. P1536 needed P1592's three empty tables and _erase_lock_canvas_owners on hosted, added by hand; 20261030090000 is unapplied there. Done when the file is renumbered, hosted matches self-hosted, and migrate.sh runs clean. Droppable if hosted TEST is retired.
+
+---
+
+## p1434's tonight test fails two hours a day on main until P1536 ships
+
+**ID:** INBOX-269
+**Date:** 2026-11-02
+**Status:** proposed
+**due:** week
+
+p1434-tonights-event-account-switch places an event two hours ahead, which crosses into tomorrow late in the event's zone, so it fails then and blocks commits. Its clock is pinned on the P1536 branch (1cc49ac30). If P1536 ships within the week this closes itself; otherwise pin it on main as well.
+
+---
+
+## Hosted TEST ran out of I/O under one night of walks and integration runs
+
+**ID:** INBOX-270
+**Date:** 2026-11-02
+**Status:** proposed
+**due:** week
+
+On 2026-11-03 trivial cron jobs took a minute and REST returned 503 PGRST002 for hours after long parallel walks and integration suites. Decide between a larger compute and a load budget for overnight builds (one walk at a time, a pause between groups). Droppable if self-hosted becomes the only walk target.
+
+---
+
+## Subagents waiting on background runs stall silently
+
+**ID:** INBOX-271
+**Date:** 2026-11-02
+**Status:** proposed
+**due:** week
+
+Agents that wait on run_in_background runs or a Monitor were not always woken, and a stale idle message read as progress: on P1536 the main session reported work running for an hour while nothing ran. Decide whether /dev and the shared brief should say foreground only, and whether an orchestrator checks liveness before reporting progress. Droppable if the harness starts waking them reliably.
+
+---
+
+## Three moved integration tests fail for reasons shared with hosted TEST
+
+**ID:** INBOX-272
+**Date:** 2026-11-03
+**Status:** proposed
+**due:** week
+
+P1606 moved the raw-SQL specs onto self-hosted, which surfaced failures the skip had hidden. p506 "existing non-empty tags are not overwritten" conflicts with the hashtag trigger from 2026-03-27, which rewrites tags on insert. p1515 AC1 and AC2 expect a superseded point hidden, while P1536's deliberate rule shows a version's own points; P1536 should update them when it ships, and most of p1515 cannot run until then. p520's census is filed separately. Done when these specs pass. Droppable when each is rewritten or removed.
+
+---
+
+## Small leftovers from switching hosted TEST off
+
+**ID:** INBOX-273
+**Date:** 2026-11-03
+**Status:** proposed
+**due:** month
+
+From P1606's reviews. test-p1584's "a run older than 3 h is unknown" also fails on main. overnight-e2e.sh labels a self-hosted fallback as the throttled hosted project and excuses failures with it. Self-hosted function deploys never stamp the manifest, so a plain check-deploy-manifest.sh compares test against stale data. agent-banner and event-banner-small refuse --env test instead of following the active server. Type generation now names prod's project. Done when each is fixed or dropped with a reason.
+
+---
+
+## Before P1604 ships: rebuild its _mirror_limits() on the P1536 body, and fix the policy's 100-reply line
+
+**ID:** INBOX-274
+**Date:** 2026-11-04
+**Status:** proposed
+**due:** week
+
+The P1604 draft migration for Clarified session threads, as read on 2026-11-04 before its rebase, redefines _mirror_limits() from the P1547 body: no canvas_max_usd, extract_max_usd or canvas caps, and global_total_daily_usd 10.00 where main has 50.00. Sorted after P1536 it would replace them, and canvas reads those keys. Its drift test checks only the two reply reservations. privacy.md also says a Clarify copy holds "up to 100 replies", and the draft stores 720 lines. Done when the shipped migration keeps every P1536 key and the policy matches. Drop if the rebase already fixed both. Related: P1615.
+
+---
+
+## Add a promote-only path to push-docs for an already-green staging branch
+
+**ID:** INBOX-275
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+Plain and resume runs both delete staging and rescan, so a green result is never reused. Reuse an exact successful privacy-scan run only when it proves the same SHA, event=push, before=zeros and full-range coverage, and keep the lock, the schema checks and the compare-and-swap. Re-measure after the scanner rewrite: droppable if a full rescan is cheap enough not to matter.
+
+---
+
+## Stop repeating the local privacy scan on promote when CI already scanned that SHA
+
+**ID:** INBOX-276
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+A big push scans four times, not three: local hook on staging, CI on staging, local hook on main, and CI again on the main push (seen 2026-11-05, privacy-scan on main in progress for the same SHA). Keep the scan before first publication to staging, since CI runs too late to prevent disclosure. Tie any skip to range, scanner and allowlist versions. Re-measure after the scanner rewrite: droppable if the repeat costs little.
+
+---
+
+## Warn when an unpushed stack grows too large, at authoring time
+
+**ID:** INBOX-277
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** month
+
+A 93-commit stack took about a day to land, and slicing failed because quality-ratchet fails on intermediate prefixes (cuts at 11, 26, 49, 66 failed; about 88 to 90 passed). Warn on patch volume and age, and run the ratchet at intended publish points rather than forcing arbitrary prefixes through it. Droppable if pushes stay cheap after the scanner rewrite and no stack passes 30 commits for a quarter.
+
+---
+
+## Make a push report and offer what it did not deploy (functions, secrets, flags)
+
+**ID:** INBOX-278
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+A push lands the site and migrations, but prod edge functions, secrets and flags stay separate, and the push output does not list them. On 2026-11-05 the drift check showed stale prod functions while the founder's working assumption was that a push brings everything up to date. After promote, /push should run the prod drift check, deploy changed functions behind the normal key dialog, and end with one line saying what is live and what is not. Droppable if a different release flow replaces /push.
+
+---
+
+## Event room Back should return where you came from
+
+**ID:** INBOX-279
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+From a chat, Back in the event room goes to the event, so people cannot return to the chat. Recommended: Back returns to the origin, and the event name at the top opens the event page. Founder agreed it is worth fixing.
+
+---
+
+## Forward of a transcript sends one line only
+
+**ID:** INBOX-280
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+Forward carries one message by design; Clarify now carries the thread. Forwarding a whole transcript raises a privacy question, since speakers agreed to their chat reading it. Founder decision.
+
+---
+
+## Older transcripts keep a deleted person's text and name
+
+**ID:** INBOX-281
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+transcribe_room_transcripts from the older per-person pass is not touched by account erasure (found in P1604). Predates P1604. Fix or retire with the older pass after the friends test.
+
+---
+
+## p1275 create-transcribe-room spec is stale
+
+**ID:** INBOX-282
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+It calls create_transcribe_room without p_consent, so 6 tests fail. Update the spec.
+
+---
+
+## Clean text on TEST needs a scheduled worker sweep
+
+**ID:** INBOX-283
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+Self-hosted TEST has no schedule for the clean worker and no dispatch config, so clean jobs wait unless someone runs its sweep. Founder decision on adding a job.
+
+---
+
+## Diagnose four script tests that fail the same way on clean main
+
+**ID:** INBOX-284
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+Found during P1620, unrelated to it, not diagnosed: test-p1042-version-collision.sh (8 failures), test-p1168-noop-stamp.sh (test-env-fallback-noop-also-clean), test-p1173-manifest-stamp-concurrency.sh (primary-path-guarded), test-p1174-pending-set-integrity.sh (test-env-unaffected). A shared cause in the TEST fallback path is possible but unverified. Done when each passes or is retired; droppable if they already pass on current main.
+
+---
+
+## Clean job hand-off is not retried after a failure
+
+**ID:** INBOX-285
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+transcribe_round_clean_tick dispatches a job once (dispatched_at IS NULL). If the hand-off fails, the job waits for the hourly sweep and the chat shows Cleaning up meanwhile. Retry after a minute or two. Found in P1604.
+
+---
+
+## git-ops tidy reads a maintenance-refreshed reflog time as recent branch activity
+
+**ID:** INBOX-286
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+On 2026-11-05 tidy marked every slot-less branch KEEP as moved in the last 12 hours, including branches untouched for weeks. Every reflog carried the same mtime, 03:24:57. Hypothesis, unproven: git maintenance rewrites reflogs. Disproof: compare reflog mtimes after a known gc run. Fix would read the newest reflog entry's own timestamp, not the file mtime. Same concern for a worktree's logs/HEAD idle test.
+
+---
+
+## A hold on a closed spec outlives it and cannot be cleared once the slot lock is gone
+
+**ID:** INBOX-287
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+P1608 (w4) and P1611 (w8) closed with founder holds still present, both have no .lock, and hold --clear needs the lock's nonce. Tidy will not REMOVE a held slot. Follow-up: drop the hold at close, or let tidy offer it as ASK. Once tidy can see them idle, run tidy --apply --confirm w4 --confirm w8 if they appear as ASK. The founder approved removing both on 2026-11-05. Also owed from P1608: the rule-off control was never confirmed run.
+
+---
+
+## supabase/.temp/cli-latest is tracked though ignored, so it keeps showing as modified
+
+**ID:** INBOX-288
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** month
+
+Tool stamp, tracked before the ignore rule. Untrack with git rm --cached through the locked commit path.
 
 ---
