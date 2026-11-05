@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 15
 workstream: infrastructure
@@ -228,25 +228,25 @@ regularly wait on redeploys, or redeploys keep interrupting other sessions.
 Each scenario runs in hermetic canary `scripts/test-p1312-branch-functions-check.sh` on the P1612 canary's
 pattern (stub gcloud, real scripts), unless marked otherwise.
 
-- [ ] A branch that changed a function not on the server: exit 1, names it and who deployed it, and the printed command works when run in the canary.
-- [ ] Documented sequences (gate 7c): deploy then check gives exit 0 using the real deploy script; deploy, edit, check gives exit 1.
-- [ ] A `_shared`-only change: differs when absent, matches when present, and its printed command works.
-- [ ] Two changed functions print two commands; a branch behind main prints rebase first; a deleted function prints the full deploy with its warning.
-- [ ] A rename: old path still on server and new path absent both differ.
-- [ ] Unchanged `_shared` file: another branch's copy differs (B deploys over A, A's check names B); main's tip copy passes.
-- [ ] A branch changing no deployed file: exit 0 and gcloud is never called.
-- [ ] Each gives exit 2, never a pass: server unreachable, gcloud logged out, deadline hit by a hanging stub, hosted active, URL mismatch, truncated output with no sentinel, lock held, failed landing recorded, container unhealthy, container older than the files.
-- [ ] A missing manifest with matching hashes: exit 0 with "deployer unknown".
-- [ ] Verdict module tests cover every row of the verdict table and malformed script output.
-- [ ] One real Playwright run per hook path, using an empty spec and a stub check script: warn and continue; refuse under the flag without a second check; a run whose end differs fails under the flag and cleanup still ran.
-- [ ] Each skip condition runs no check.
-- [ ] A checked run appends a receipt line and prints a `FUNCTIONS:` line.
-- [ ] Deploy prints `replacing _shared deployed by <branch>` for another branch's code and for uncommitted content, prints nothing for clean main or its own, and is not blocked by an unreadable manifest.
-- [ ] The P1612 canary still passes (`scripts/test-p1612-deploy-guard.sh`).
-- [ ] Live, read-only against the real TEST server: the check run from this branch, watched failing with a local-only function edit that is never deployed, and passing without it (gate 7). Pasted output.
-- [ ] `./scripts/keyring.sh requests` shows no new request across the live run.
-- [ ] `/dev` and `/fix` carry the evidence-step instruction, committed to main.
-- [ ] The response-status rule is in `e2e-testing-guide.md`.
+- [x] A branch that changed a function not on the server: exit 1, names it and who deployed it, and the printed command works when run in the canary.
+- [x] Documented sequences (gate 7c): deploy then check gives exit 0 using the real deploy script; deploy, edit, check gives exit 1.
+- [x] A `_shared`-only change: differs when absent, matches when present, and its printed command works.
+- [x] Two changed functions print two commands; a branch behind main prints rebase first; a deleted function prints the full deploy with its warning.
+- [x] A rename: old path still on server and new path absent both differ.
+- [x] Unchanged `_shared` file: another branch's copy differs (B deploys over A, A's check names B); main's tip copy passes.
+- [x] A branch changing no deployed file: exit 0 and gcloud is never called.
+- [x] Each gives exit 2, never a pass: server unreachable, gcloud logged out, deadline hit by a hanging stub, hosted active, URL mismatch, truncated output with no sentinel, lock held, failed landing recorded, container unhealthy, container older than the files.
+- [x] A missing manifest with matching hashes: exit 0 with "deployer unknown".
+- [x] Verdict module tests cover every row of the verdict table and malformed script output.
+- [x] One real Playwright run per hook path, using an empty spec and a stub check script: warn and continue; refuse under the flag without a second check; a run whose end differs fails under the flag and cleanup still ran.
+- [x] Each skip condition runs no check.
+- [x] A checked run appends a receipt line and prints a `FUNCTIONS:` line.
+- [x] Deploy prints `replacing _shared deployed by <branch>` for another branch's code and for uncommitted content, prints nothing for clean main or its own, and is not blocked by an unreadable manifest.
+- [x] The P1612 canary still passes (`scripts/test-p1612-deploy-guard.sh`).
+- [x] Live, read-only against the real TEST server: the check run from this branch, watched failing with a local-only function edit that is never deployed, and passing without it (gate 7). Pasted output.
+- [x] `./scripts/keyring.sh requests` shows no new request across the live run.
+- [x] `/dev` and `/fix` carry the evidence-step instruction, committed to main.
+- [x] The response-status rule is in `e2e-testing-guide.md`.
 
 ## Related
 
@@ -255,6 +255,12 @@ pattern (stub gcloud, real scripts), unless marked otherwise.
 - P1211: the same failure shape for migrations.
 - decisions.md 2026-09-07 [technical]: a manifest is not evidence of deployed state.
 - decisions.md 2026-11-04 [technical]: P1612.
+
+## Evidence limits
+
+The live run on real TEST proved `differs` (a local-only edit, naming the other branch's `_shared`) and `no changed functions`, with no new keychain request. `match` on the real server was not exercised, because that needs a deploy that recreates the shared container, and TEST was serving another branch's `_shared`. `match` is proven only in the canary. The first real function-changing branch to run under the flag is its live proof. If `match` then never appears on correctly deployed code, suspect the container-start comparison first.
+
+Final results: canary 221/0, P1612 canary 236/0, unit 70/70. The fix that stops suggesting a redeploy of an already matching function has no dedicated canary row.
 
 ## Review log
 
