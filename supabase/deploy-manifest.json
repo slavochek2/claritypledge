@@ -18,8 +18,8 @@
       "generate-banner": "9c83048f1c74b9d97c5ebd19e09dcc31642bf87cdffda2a38863e1359ce01607",
       "generate-event-banner": "7e3cd845051863c005b8f974766dccb3bb95e1723601ef5734268897667a73c0",
       "generate-story-image-url": "77c4d2c275e51c65eab3a7e50b509ad17e8f40fd089525887d34ebfbcc982db4",
-      "mirror-portrait": "2d858c59742d95d9cc72d9a61828d8584fdb24287d980243565eca33d1b6a625",
-      "mirror-reply": "e434d03315701fd3609c171d11796728dc2a22d71d8656832a0f298f7e2e6a78",
+      "mirror-portrait": "5b48fd60b6588ba93867b8fb1a670cdb61d4f46dadaabdd476183399eaa4a3e9",
+      "mirror-reply": "9e6560c61dad97175c439df80598201f3ad03069075f72cf60c3e2d700ccb5bc",
       "request-letter-response-signin": "816e9c1565843b9266636988e3bd5f66a109b6a90aeef8d001814cd9ffe120cf",
       "send-agreement-emails": "500779d1901e97214956e6c19bdc93dc5b31e80468a95c4549bafc5a50f01543",
       "send-event-emails": "fc61be3177cdfa683fe37655f4e4c7b33a96fedc05565a3931c6c2b202b29e21",
@@ -27,7 +27,7 @@
       "transcribe-clip": "d844cf98faaffa69b95c3d9b58b63ea2b8699de0625b341e852bae15bbcc9dda",
       "transcribe-slice": "0c77cf88720255029cdde24ceebaf22b48c8c6272a27eefe003ca7ff1d8c9660"
     },
-    "functions_deployed_at": "2026-11-05T06:47:31Z",
+    "functions_deployed_at": "2026-11-05T13:39:29Z",
     "migrations": [
       "20250101",
       "20250117",
