@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 105
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [pre-commit, tests, concurrency, git-ops]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-05
 ---
 
 # P1635: Concurrent commits overload the machine, and a clean ship runs no full suite
