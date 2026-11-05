@@ -124,7 +124,11 @@ const MAGNITUDE: Record<string, string> = { thousand: 'k', k: 'k', million: 'm',
 function wordsToDigits(lower: string): string {
   return lower
     .replace(COMPOUND_RE, (_m, t: string, u: string) => String((TENS[t] ?? 0) + (UNITS[u] ?? 0)))
-    .replace(WORD_RE, (w) => String(UNITS[w] ?? TENS[w] ?? w));
+    .replace(WORD_RE, (w) => String(UNITS[w] ?? TENS[w] ?? w))
+    .replace(/\bhalf an? (thousand|million|billion)\b/g, '0.5 $1')
+    .replace(/\ban? (hundred|thousand|million|billion|dozen)\b/g, '1 $1')
+    .replace(/\b(\d+)[ -]hundred\b/g, (_m, n: string) => String(Number(n) * 100))
+    .replace(/\b(\d+)[ -]dozen\b/g, (_m, n: string) => String(Number(n) * 12));
 }
 
 /** "2,500" and "2500" are one number; "2,5" is a decimal comma. */

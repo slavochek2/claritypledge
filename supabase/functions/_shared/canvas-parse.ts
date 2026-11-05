@@ -23,8 +23,8 @@ import { shedToValid, type Elem } from './canvas-final-state.ts';
 import { clean, cutChars, normalizeForQuote, ownerHaystack } from './canvas-source.ts';
 import { derivedNames, namesMatcher } from './canvas-names.ts';
 import { numbersIn } from './canvas-support.ts';
-import { questionsFor } from './canvas-questions.ts';
-export { questionsFor };
+export { questionsFor } from './canvas-questions.ts';
+import { withRoundNames } from './canvas-round-update.ts';
 import { BOX_DEFINITIONS } from './canvas-box-definitions.ts';
 import { groundPriceTerms, priceWordsOf, withPriceGap, type PriceWords } from './canvas-price.ts';
 import { withSectionsDecided } from './canvas-copy-sections.ts';
@@ -280,7 +280,7 @@ function buildCtx(pc: ParseContext, scope: readonly string[]): Ctx {
     haystack,
     ownCanvas,
     ownerTyped: pc.material.items.filter((i) => i.owner && i.kind === 'note').map((i) => i.text).join('\n\n'), // a blank line: separate messages are never one sentence
-    namesOther: namesMatcher(pc.otherNames, derivedNames(pc.material, pc.ownerName)),
+    namesOther: ((n) => (pc.roundUpdate ? withRoundNames(n, pc.material, pc.basePoints) : n))(namesMatcher(pc.otherNames, derivedNames(pc.material, pc.ownerName))),
     numbers: new Set([...numbersIn(haystack), ...numbersIn(ownCanvas)]),
     priceWords: priceWordsOf(`${haystack}\n${normalizeForQuote(ownCanvas)}`, pc.material, pc.basePoints.length > 0),
     derived: new Map((pc.draftPoints ?? []).filter((d) => d.from_point_id).map((d) => [d.from_point_id as string, d])),

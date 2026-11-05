@@ -1,0 +1,516 @@
+{
+"lines": [
+{
+"who": "owner",
+"text": "Testing, testing, is this little green light supposed to blink or stay solid, Tomas do you know how this recorder thing works because I pressed record twice."
+},
+{
+"who": "partner",
+"text": "Yeah no if it's solid red at the top it's recording, don't touch it again or we'll lose the whole fifteen minutes and Ines will kill us."
+},
+{
+"who": "owner",
+"text": "Okay hands off, I'm not touching anything, I just spilled half my oat latte on the table outside so my brain is already like jittery."
+},
+{
+"who": "partner",
+"text": "At least it wasn't on the laptop, give me ten seconds I'm just finishing reading your sheet here, your handwriting on the sticky note is tiny."
+},
+{
+"who": "owner",
+"text": "Sorry, I wrote that on the tram this morning, wait does that say SaaS or sauce, my S's look like little worms when the tram is shaking."
+},
+{
+"who": "partner",
+"text": "I read it as B2B sauce companies which honestly sounded delicious, like wholesale ketchup, okay I think I've looked at the whole canvas now."
+},
+{
+"who": "owner",
+"text": "Wholesale ketchup would probably be easier to sell than what I'm doing right now, honestly, okay are we starting the timer, Ines nodded so we're live."
+},
+{
+"who": "partner",
+"text": "Cool, timer is running, so Mara, walk me through what you've got on the canvas here and what's actually going on in the business right now."
+},
+{
+"who": "owner",
+"text": "Right, so um basically what I do is I run a solo studio making short onboarding videos for B2B SaaS companies, because users sign up and then they don't understand the product."
+},
+{
+"who": "partner",
+"text": "Mm-hmm, and I see on the sheet here you've got the package listed as two thousand four hundred euros for five videos, and you're using LinkedIn."
+},
+{
+"who": "owner",
+"text": "Yeah, twenty-four hundred euros for a pack of five short videos, and my goal, my next milestone on there is getting four new clients by March twenty twenty-seven."
+},
+{
+"who": "partner",
+"text": "And you wrote at the bottom that the biggest challenge right now is just not enough leads coming in through the door, right."
+},
+{
+"who": "owner",
+"text": "Exactly, I post on LinkedIn like three times a week, tips about user activation and video scripts, and people like it, I get comments, nothing happens."
+},
+{
+"who": "partner",
+"text": "Okay, let me try to repeat that back so we see where our numbers land, so you make five-video onboarding packs for B2B software founders for twenty-four hundred euros because their users get confused."
+},
+{
+"who": "owner",
+"text": "Um, well, mostly yes, go on with the rest of the canvas first before I score it."
+},
+{
+"who": "partner",
+"text": "Right, and you're trying to get four new clients by March twenty twenty-seven through LinkedIn posts, and the bottleneck is you don't have enough leads, I feel like I'm at an eight."
+},
+{
+"who": "owner",
+"text": "Okay, for me that's a five, you missed the part about who actually buys it, which is my fault because it's not written clearly on the canvas."
+},
+{
+"who": "partner",
+"text": "Oh, a five, brutal, okay wait so the lower one counts so we're at five, why isn't it founders, you wrote B2B SaaS companies."
+},
+{
+"who": "owner",
+"text": "Yeah I wrote B2B SaaS companies on the sheet, which is super vague, I know, when I actually think about who signs the thing, it's never the founder."
+},
+{
+"who": "partner",
+"text": "Who is it then, like a marketing manager or product person or who are you actually talking to on the calls."
+},
+{
+"who": "owner",
+"text": "It's almost always the head of customer success, or like a senior CS lead, at companies that have between twenty and eighty staff, when they're just drowning in repeated support tickets."
+},
+{
+"who": "partner",
+"text": "Wait, twenty to eighty people, so they already have a customer success person who is answering the same stupid questions on Intercom all day long."
+},
+{
+"who": "owner",
+"text": "Yes, exactly, users ask how do I export the CSV, how do I invite a teammate, forty times a week, and the CS lead is losing their mind."
+},
+{
+"who": "partner",
+"text": "Got it, and what about the LinkedIn part, when you said a five was it just the buyer or did I miss something about how you get them too."
+},
+{
+"who": "owner",
+"text": "Well, now that you ask, I put LinkedIn posts as my channel on the canvas because that's what I'm trying to do, but I've had seven clients in total so far."
+},
+{
+"who": "partner",
+"text": "Okay, seven clients total since you started, and how many of those seven came from your LinkedIn posts."
+},
+{
+"who": "owner",
+"text": "Zero, literally none of them, three of my last four clients actually came from referrals by one former colleague of mine who works as a fractional product consultant."
+},
+{
+"who": "partner",
+"text": "Wait what, zero from LinkedIn and three of the last four came from one single former colleague referring you, Mara why is LinkedIn on the sheet then."
+},
+{
+"who": "owner",
+"text": "Because my colleague can't just feed me clients forever, right, so I thought LinkedIn is the scalable channel, anyway try explaining my business back to me again now."
+},
+{
+"who": "partner",
+"text": "Okay, let me reset, so you have seven clients total, you sell a five-video pack for twenty-four hundred euros to customer success leads at twenty to eighty person SaaS companies."
+},
+{
+"who": "owner",
+"text": "Mm-hmm, keep going, why do they buy it and how have they been finding me."
+},
+{
+"who": "partner",
+"text": "They buy it because users don't get the software and keep sending the same support tickets, you want four new clients by March twenty twenty-seven, and they come from your ex-colleague, I'd say seven."
+},
+{
+"who": "owner",
+"text": "I'm at a six actually, so six counts, because you still kind of glossed over the difference between what's on my canvas and what's actually happening with my leads."
+},
+{
+"who": "partner",
+"text": "Right, fair, tell me the missing piece between the six and a nine then, what am I not getting about the lead situation."
+},
+{
+"who": "owner",
+"text": "So on the canvas I said my biggest challenge is not enough leads because LinkedIn isn't converting, and I said the problem is users don't understand the product."
+},
+{
+"who": "partner",
+"text": "Yeah, and in reality the CS lead isn't lying awake thinking oh no users don't philosophically understand our product, they're thinking my team is buried in tickets."
+},
+{
+"who": "owner",
+"text": "Exactly, they have a backlog of two hundred tickets after every product update, and my ex-colleague spots that when he's consulting inside the company and says call Mara."
+},
+{
+"who": "partner",
+"text": "And what happened with the fourth client out of those last four, if three were from the colleague, where did the other one come from."
+},
+{
+"who": "owner",
+"text": "Oh, that one was a CS manager who used to work at one of my earlier clients, she moved to a new company of like fifty people and hired me again."
+},
+{
+"who": "partner",
+"text": "Hold on, so every single recent client is basically word of mouth or somebody moving jobs, and meanwhile you're spending hours writing LinkedIn posts for founders."
+},
+{
+"who": "owner",
+"text": "When you say it like that it sounds really dumb, um, yeah, I write posts about like why good onboarding improves retention, which founders read, not CS leads."
+},
+{
+"who": "partner",
+"text": "Okay, let me try the full summary again, let's get this number above an eight so we can actually dig into the challenge part."
+},
+{
+"who": "owner",
+"text": "Go for it, give me the whole picture from top to bottom."
+},
+{
+"who": "partner",
+"text": "You're Mara, one-person business, you've had seven clients total, your offer is five short onboarding videos for twenty-four hundred euros, and you want four more clients by March twenty twenty-seven."
+},
+{
+"who": "owner",
+"text": "Yep, that part is all solid, and who is the real customer versus what I wrote down."
+},
+{
+"who": "partner",
+"text": "You wrote B2B SaaS companies and users not understanding the product, but the actual buyer is a customer success lead at a twenty to eighty staff company who is drowning in repeated support tickets."
+},
+{
+"who": "owner",
+"text": "Yes, and the channel and challenge part, how does that fit together."
+},
+{
+"who": "partner",
+"text": "You wrote LinkedIn posts as the channel and not enough leads as the challenge, but zero clients came from LinkedIn, three of the last four came from one former colleague, one from a past buyer moving jobs."
+},
+{
+"who": "owner",
+"text": "And why do I think I have a lead problem then."
+},
+{
+"who": "partner",
+"text": "Because you're posting general onboarding stuff on LinkedIn hoping strangers reach out, instead of having a repeatable way to get in front of overwhelmed CS leads, for me that's a nine."
+},
+{
+"who": "owner",
+"text": "Yeah, I'd say nine too, you nailed it, so nine is our number, we're definitely above eight now."
+},
+{
+"who": "partner",
+"text": "Awesome, okay so now moving into the challenge stage, I want to bet against your stated challenge on the canvas where you wrote not enough leads."
+},
+{
+"who": "owner",
+"text": "Wait, you don't think leads is my problem, I literally have an empty calendar for next month once I finish this current batch of edits."
+},
+{
+"who": "partner",
+"text": "Hear me out, I don't think the core problem is not enough leads, I think the real challenge is that onboarding videos sounds like a total nice-to-have Vitamin."
+},
+{
+"who": "owner",
+"text": "A nice-to-have, what do you mean, every SaaS product needs onboarding or people churn in the first week."
+},
+{
+"who": "partner",
+"text": "Sure, in theory, look I run an accounting practice for restaurants, right, twelve staff, we buy software all the time for payroll, inventory, receipt scanning, all that stuff."
+},
+{
+"who": "owner",
+"text": "Okay, yeah, I forgot your clients are all restaurants, do they actually use software or is it still shoeboxes full of greasy paper receipts."
+},
+{
+"who": "partner",
+"text": "Oh it's definitely greasy receipts half the time, my guys had a client last week bring in invoices stuck together with literal b\u00e9chamel sauce, it was disgusting."
+},
+{
+"who": "owner",
+"text": "Ew, okay, I will never complain about messy Figma files again, at least software companies don't leak b\u00e9chamel on my keyboard."
+},
+{
+"who": "partner",
+"text": "Right, count your blessings, anyway two years ago we built our own little client portal software for restaurant owners to upload stuff, and nobody knew how to use it."
+},
+{
+"who": "owner",
+"text": "Aha, so you were basically a tiny software company for a second there, what did you do when the restaurant managers couldn't figure it out."
+},
+{
+"who": "partner",
+"text": "My admin person was on the phone four hours a day explaining where the upload button was, so I hired an agency called Brightlane to fix it for us."
+},
+{
+"who": "owner",
+"text": "Brightlane, I don't think I know them, are they a video production agency or like an onboarding consultancy."
+},
+{
+"who": "partner",
+"text": "They basically made us six short walkthrough videos and a little help page, and I paid them six thousand euros for it without even blinking."
+},
+{
+"who": "owner",
+"text": "Wait, six thousand euros, for six screen-recorded walkthrough videos, are you serious right now Tomas."
+},
+{
+"who": "partner",
+"text": "Dead serious, six grand, and if they had pitched me hey Tomas do you want nice onboarding videos for twenty-four hundred euros, I would have said no, we don't need pretty videos."
+},
+{
+"who": "owner",
+"text": "Why did you pay six thousand then, if you wouldn't have paid twenty-four hundred for the exact same thing, that makes no sense to me."
+},
+{
+"who": "partner",
+"text": "Because Brightlane didn't sell me onboarding videos, they told me we will cut your admin team's repetitive support calls in half within thirty days, and I was desperate."
+},
+{
+"who": "owner",
+"text": "Okay, I see what you're saying, they sold the outcome of fewer support calls, not the deliverable of five or six MP4 files."
+},
+{
+"who": "partner",
+"text": "Exactly, when you go on LinkedIn or talk to prospects and say I make short onboarding videos for twenty-four hundred euros, it sounds like a cosmetic upgrade, like nicer fonts."
+},
+{
+"who": "owner",
+"text": "I mean, my videos are really clear and well scripted, I don't just do ugly Loom recordings, I do proper motion callouts and voiceover."
+},
+{
+"who": "partner",
+"text": "And I'm sure they're great, Mara, but a CS lead at a fifty-person company doesn't have a budget line for cute videos, they have a budget problem called we need to hire another support rep for fifty grand."
+},
+{
+"who": "owner",
+"text": "Right, if they can avoid hiring another junior support agent by deflecting the top five repetitive tickets, then my stuff saves them a ton of time."
+},
+{
+"who": "partner",
+"text": "And if you save them from hiring a fifty-thousand-euro support person, charging twenty-four hundred euros actually makes you look suspiciously cheap, you should be charging five thousand."
+},
+{
+"who": "owner",
+"text": "Five thousand, Tomas, the CS leads I talk to don't even have signing authority for five thousand euros, at twenty-four hundred they can usually just put it on a company card."
+},
+{
+"who": "partner",
+"text": "Okay wait, let's check our understanding of my challenge here before we argue about corporate credit cards, explain back to me what I think your real challenge is and why."
+},
+{
+"who": "owner",
+"text": "Alright, so you're saying my biggest challenge isn't a lack of leads, it's that calling my offer short onboarding videos makes it sound like a nice-to-have."
+},
+{
+"who": "partner",
+"text": "Mm-hmm, and what should you be selling instead, and what's the price point part of my argument."
+},
+{
+"who": "owner",
+"text": "You think I should sell fewer support tickets to those overwhelmed CS leads, and charge five thousand euros like that agency Brightlane who charged you six grand, how's that, I'm at a seven."
+},
+{
+"who": "partner",
+"text": "I'd give that a six, so six counts, because you left out why the price and the positioning are connected to your lead problem."
+},
+{
+"who": "owner",
+"text": "Wait, how are they connected to the lead problem, I thought you were just telling me my positioning is weak and I'm undercharging."
+},
+{
+"who": "partner",
+"text": "Think about it, right now nobody bites on your LinkedIn posts because you're talking about onboarding videos, which sounds like a low-priority project nobody has time to manage."
+},
+{
+"who": "owner",
+"text": "Oh, like even for the CS lead, making videos sounds like extra homework for them, reviewing scripts, recording screens, getting marketing to approve the branding."
+},
+{
+"who": "partner",
+"text": "Yes, whereas if your message is I look at your Intercom tag report, find the five tickets eating forty percent of your week, and make them disappear, people reply to that."
+},
+{
+"who": "owner",
+"text": "And where does the five thousand euros come into the lead problem then, wouldn't a higher price make it harder to get leads."
+},
+{
+"who": "partner",
+"text": "At five thousand euros, it's a serious operational fix that the CS lead brings to the COO or founder as hey, instead of hiring another support person, let's do this."
+},
+{
+"who": "owner",
+"text": "And also if I charge more I don't need four new clients every couple of months just to pay my rent, I only need like two."
+},
+{
+"who": "partner",
+"text": "Bingo, and when I paid Brightlane six thousand euros, I took it seriously because it was priced like a real business solution, not a freelancer doing a couple of edits."
+},
+{
+"who": "owner",
+"text": "Okay let me repeat your whole argument back again so we can get the number up, you're saying my real bottleneck isn't lead volume, it's positioning around videos instead of ticket reduction."
+},
+{
+"who": "partner",
+"text": "Keep going, why does onboarding videos fail and why five thousand."
+},
+{
+"who": "owner",
+"text": "Because onboarding videos sounds like a nice-to-have homework project, whereas eliminating the top five repetitive support tickets solves an urgent hair-on-fire problem for a CS lead at a fifty-person company."
+},
+{
+"who": "partner",
+"text": "And the pricing piece with Brightlane and my accounting firm."
+},
+{
+"who": "owner",
+"text": "You paid Brightlane six thousand euros because you wanted your admin off the phone for four hours a day, so if I sell ticket deflection I should charge five thousand so it's treated as replacing a hire, I'm at an eight."
+},
+{
+"who": "partner",
+"text": "I'm at a nine on your explanation, so eight counts, that's solid, you totally got what I'm saying, now tell me why you're still making a skeptical face."
+},
+{
+"who": "owner",
+"text": "Because in theory it sounds amazing, Tomas, like yes charge more and sell the outcome, every business podcast says that, but in practice I don't control their whole ticket volume."
+},
+{
+"who": "partner",
+"text": "Wait, why don't you, if the videos answer the five questions users always ask, why wouldn't the tickets go down."
+},
+{
+"who": "owner",
+"text": "Because sometimes I deliver the five videos, and the CS lead is so busy that they just dump them in a hidden Help Center folder that no user ever clicks on."
+},
+{
+"who": "partner",
+"text": "Oh, so they don't actually put the video inside the product where the user gets stuck, like next to the CSV export button."
+},
+{
+"who": "owner",
+"text": "Exactly, to put it inside the app they have to ask a developer or set up an in-app tooltip tool, and if I promise fewer support tickets and their devs don't embed it, I look like a liar."
+},
+{
+"who": "partner",
+"text": "Couldn't you just help the CS lead set up the tooltip in whatever tool they already use, like Intercom or Appcues or whatever, without needing a developer."
+},
+{
+"who": "owner",
+"text": "I mean, I did that once for my fifth client because they used Intercom and I knew how to paste the video link into an automated message, it took me like forty minutes."
+},
+{
+"who": "partner",
+"text": "There you go, forty minutes of extra work and suddenly it's not a folder of MP4 files, it's an installed ticket-deflection system."
+},
+{
+"who": "owner",
+"text": "Yeah, maybe for the ticket angle, I can see how talking about repetitive support tickets on LinkedIn instead of generic onboarding tips would actually get CS leads to pay attention."
+},
+{
+"who": "partner",
+"text": "Right, imagine posting a screenshot of a fake Intercom queue with fifty messages all asking how do I reset permissions, every CS manager scrolling by will feel chest pains."
+},
+{
+"who": "owner",
+"text": "That is true, when my ex-colleague introduces me over email, he never says Mara makes nice videos, he literally writes Mara can kill those repetitive setup questions your team hates."
+},
+{
+"who": "partner",
+"text": "Look at that, your own referral source is already selling it the way I'm describing, he's selling ticket relief, not video production."
+},
+{
+"who": "owner",
+"text": "Wait, I never even noticed that, he actually does introduce me as the person who cleans up the post-signup support mess, and then I show up with a PDF that says video package."
+},
+{
+"who": "partner",
+"text": "You're undoing his good sales pitch with your own brochure, Mara, and then you charge twenty-four hundred so they mentally put you in the freelance video editor box."
+},
+{
+"who": "owner",
+"text": "Look, the messaging shift about support tickets makes a lot of sense to me, I'm probably at a seven or eight on agreeing with you about changing the angle from onboarding videos to fewer tickets."
+},
+{
+"who": "partner",
+"text": "What about the price though, moving the offer up to five thousand euros if you include helping them plug the videos into Intercom."
+},
+{
+"who": "owner",
+"text": "I'm like at a four on the price part, honestly, because right now when I say twenty-four hundred, the CS lead doesn't have to beg the CEO for budget approval, it just happens fast."
+},
+{
+"who": "partner",
+"text": "Sure, it happens fast when your colleague hands you a warm lead on a silver platter, what happens when the colleague goes on vacation for two months."
+},
+{
+"who": "owner",
+"text": "Then I have no leads, which is why I wrote not enough leads on the canvas in the first place, we're going in a circle."
+},
+{
+"who": "partner",
+"text": "So do you agree that the real challenge on your canvas should be changing the offer from onboarding videos to reducing support tickets at a real price, or are you sticking with leads."
+},
+{
+"who": "owner",
+"text": "Um, maybe, I don't know, I need to think about that, especially the pricing jump because doubling my price when I'm already scared about having an empty pipeline feels terrifying."
+},
+{
+"who": "partner",
+"text": "Fair enough, we got about a minute and a half left on the clock, so we don't have to force a fake yes, Ines is unmuting or leaning in anyway."
+},
+{
+"who": "observer",
+"text": "Hey both, yeah time is up on the partner blocks, really interesting conversation to watch from the side, I took a bunch of notes while you two were going back and forth."
+},
+{
+"who": "owner",
+"text": "Oh god, I feel like I talked in circles for the first five minutes because my canvas was basically a lie compared to what I actually do."
+},
+{
+"who": "observer",
+"text": "That happens all the time in these sessions, Mara, what we write down alone at home is rarely what comes out when someone pokes at it, let me give some quick observer feedback."
+},
+{
+"who": "partner",
+"text": "Hit me with it Ines, how did I do on the process and the numbers."
+},
+{
+"who": "observer",
+"text": "Overall you used the scoring really well to slow things down in the understanding phase, Tomas, getting a five and a six early on forced out the real facts about the referrals and the seven clients."
+},
+{
+"who": "partner",
+"text": "Yeah, I was honestly shocked when she said zero from LinkedIn after writing LinkedIn right there in the middle of the sheet."
+},
+{
+"who": "observer",
+"text": "One thing on your listening behavior though, Tomas, you interrupted her a couple of times right when she was starting to explain why she was hesitant in the second half."
+},
+{
+"who": "partner",
+"text": "Ah, did I, yeah when I got excited about the Brightlane story and my restaurant portal I think I started steamrolling a little bit."
+},
+{
+"who": "observer",
+"text": "Yeah, right when the listener interrupted, you jumped into solving the Intercom implementation for her instead of letting her sit with why she felt stuck at a four on your challenge."
+},
+{
+"who": "owner",
+"text": "It's okay, I kind of needed the push on how the positioning sounds from a buyer's side, even if the Brightlane price freaked me out."
+},
+{
+"who": "observer",
+"text": "And just one thing about content for you, Mara, when you started at the very beginning, I still couldn't tell who buys this from your first sentence, because B2B SaaS is massive."
+},
+{
+"who": "owner",
+"text": "Yeah, saying customer success leads at twenty to eighty person companies drowning in tickets is way clearer, I'm definitely rewriting the top of my canvas before the next round."
+}
+]
+}

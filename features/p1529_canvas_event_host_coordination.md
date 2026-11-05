@@ -434,6 +434,18 @@ then repeated with five with canvases.
       session.
 - [ ] P1390 carries a note that the mastermind's spoken scores are its first real input (D4).
 
+## Measured: the round-update mode, real model (2026-11-05)
+
+An invented 15-minute transcript (`scripts/fixtures/p1529-round-transcript.json`: 128 lines, about 3,400 words) ran through the real engine and model, shaped as the tap sends it (`scripts/p1529-round-update-eval.ts`; database faked). Four runs in the round mode, one strict control.
+
+- **All four runs:** done, 7 to 10 s, about $0.025 each (against the $0.10 estimate above, which is still unverified for a 24-minute round). Six or seven boxes changed.
+- **Held in all four:** no person or firm named, the owner's own price kept, neither of the partner's prices (5,000 and 6,000) written.
+- **The partner's challenge reached the canvas in the round mode, in 4 of 4 runs:** the biggest challenge became the positioning (the offer sounds like a nice-to-have, or is pitched as video rather than ticket reduction), although the owner ended with "maybe, I need to think about that". The strict control left that out: its challenge box stayed on leads and channels.
+- **Fixed from this:** Try again now keeps the round mode. A retry keeps the failed run's trigger message, so the mode follows that message (`20261105231000`). An owner's later message on the draft keeps the strict rule.
+- **Fixed from the commit's security review, proven by controls first:** with no owner quote in front of them, "five hundred", "a dozen" and "half a million" passed on an unrelated "5", and a single name or firm from someone else's lines passed the name filter. Number words now carry their magnitude, and the round mode drops a Titlecase word someone else said in mid-sentence unless it is on the canvas, also when the owner repeated it. Two more real runs: same quality, no name, no partner price. Still a heuristic: a name the transcript wrote in lower case gets through. The owner sees every draft.
+- **One open weakness:** "paid by 7 clients" is the model's reading of "seven clients in total". Accepted under D23, since the owner always sees the draft.
+- **For the founder:** the trigger message says "in my own words", which D23 no longer means. Its wording is a `[FOUNDER DECISION]`.
+
 ## Known Limitations
 
 - A Demo round held after a counted round counts as a later owning round for the next-version window (2026-11-04 review). Demos run before round 1; recorded, not fixed.

@@ -973,6 +973,25 @@ describe('P1536 A8: a point must be supported by its quote, and its numbers by t
     expect(round({ statement: 'Revenue could reach 10M' }).actions).toHaveLength(0);
     expect(round({ statement: 'Bob thinks freelancers are the buyers' }).actions).toHaveLength(0);
   });
+  it('P1529: a round update drops a magnitude the owner never said, and keeps one they did', () => {
+    for (const statement of ['Charge five hundred euros', 'A dozen cafes buy this', 'Half a million euros is the goal', 'Charge 5 thousand euros']) {
+      expect(round({ statement }).actions, statement).toHaveLength(0);
+    }
+    const said = { items: [{ kind: 'note', source: 'x', owner: true, text: 'We earn twenty-four hundred a month from two dozen shops' }], tokens: 0, truncated: false };
+    const r = ok(parseDraft(response([{ action: 'new', box: 'canvas:revenue', story: '', quote: '', statement: 'Revenue is 2,400 a month from 24 shops' }]), { ...ctx, material: said as never, roundUpdate: true }));
+    expect(r.actions).toHaveLength(1);
+  });
+  it('P1529: a round update drops one name from someone else\'s lines, even repeated by the owner; the same word on the canvas is kept', () => {
+    const material = { items: [
+      { kind: 'other_person', source: 'x', owner: false, text: 'I paid an agency called Brightlane and my friend Aleksandra runs it, she sells to freelancers' },
+      { kind: 'note', source: 'y', owner: true, text: 'Brightlane, I do not know them' },
+    ], tokens: 0, truncated: false };
+    const go2 = (statement: string, basePoints: unknown[] = []) => ok(parseDraft(response([{ action: 'new', box: 'canvas:revenue', story: '', quote: '', statement }]), { ...ctx, material: material as never, basePoints: basePoints as never, roundUpdate: true }));
+    expect(go2('Agencies like Brightlane charge more').actions).toHaveLength(0);
+    expect(go2('Aleksandra runs a rival agency').actions).toHaveLength(0);
+    expect(go2('Freelancers may be the real buyers').actions).toHaveLength(1);
+    expect(go2('Brightlane customers stay on', [{ id: 'b', box: 'canvas:segments', statement: 'Brightlane customers' }]).actions.some((a: { action: string }) => a.action === 'new')).toBe(true);
+  });
   it('CONTROL (must pass): a statement built from its quote and the owner\'s own numbers is kept', () => {
     const r = go({ statement: 'Cafe owners will pay for monthly bookkeeping', story: 'They have one to three shops.' });
     expect(r.actions).toHaveLength(1);
