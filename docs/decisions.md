@@ -18,6 +18,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** The RPC follows the engine's reword branch by hand, so a change to that branch must be checked against it. Known limits are in the spec.
 **References:** [P1614](../features/done/2026-06-10/p1614_edit_a_point_directly_on_a_draft.md)
 
+## 2026-11-05 [technical]: `--secrets` lands without the warning; test-only secrets are not required on prod (P1602)
+
+**Context:** P1602 held a warning and a `--secrets` safeguard, unmerged while P1606 shipped a refusal for hosted runs. The prod deploy check also demanded `CANVAS_DRAFT_STUB_TOKEN`, a test-only secret that must stay unset there.
+**Decision:** (1) Keep only the safeguard: `--secrets` refuses to lose a secret name and backs up first; the warning is dropped. (2) The check keeps a short named list of test-only secrets it never requires. (3) A self-hosted key is replaced by merging one line into the server's env file, with a dated backup, not with `--secrets`.
+**Alternatives rejected:** Keeping the warning beside P1606's refusal: two messages for one case. Treating `?? ''` reads as optional everywhere: real secrets use that form, and the check must keep demanding them.
+**Consequences:** `--secrets` is usable once this is on main, and refuses while the Mac file lacks server names. Its real remote path remains untested. Nothing fails if the stub token is set on prod; the stub itself is refused there. Google refuses to delete a key used in the last 7 days, so a replaced key can stay live for a week, bounded by its cap. Falsifier: `--secrets` loses a name.
+**References:** `scripts/test-p1602-secrets-safeguard.sh` · `scripts/check-edge-function-secrets.sh` · 2026-11-03 "Hosted TEST is switched off by default"
+
 ## 2026-11-05 [product]: A canvas thread's upload gets its own icon; the paperclip means attach only (P1618, amends P1536 X3)
 
 **Context:** P1536 3c X3 reasoned "+ creates, the paperclip attaches" and gave canvas upload the paperclip. In use the founder could not find upload: everywhere else that icon means "Attach a point or story".
@@ -93,7 +101,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Context:** On 2026-11-02 `deploy-functions.sh --secrets` replaced the server's secrets from a three-line Mac file. Voice, Mirror and storage broke for about 18 hours unnoticed; two values were unrecoverable. After a rebase, every journey failed because deployed `_shared` terms lagged source (409 for all fixtures).
 **Decision:** P1602 makes `--secrets` refuse to lose a name and back up first. After a rebase that touches `_shared`, redeploy before reading journey failures as defects. Testing moved to self-hosted, founder decision; the stale premise that sent it to hosted produced epistemic gate 3b and P1606.
-**Consequences:** Until P1602 lands on main, nobody runs `--secrets`. Its real remote path is untested.
+**Consequences:** Until P1602 lands on main (landed 2026-11-05), nobody runs `--secrets`. Its real remote path is untested.
 **References:** `feature/p1602-warn-non-active-test`, [epistemic.md](../.claude/rules/epistemic.md)
 
 ## 2026-11-03 [technical]: Self-hosted TEST admits 3 e2e runs; a limit copied to a new server is a guess until measured

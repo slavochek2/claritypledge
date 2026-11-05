@@ -266,6 +266,7 @@ Last updated: 2026-11-05
 - **P602** (Mar 29) Feed Multi-Tag + Version Filter — fetch all then filter client-side (not server) when dataset is small; `isInternalTag()` must cover both `st\d+` and `v\d+`; tag cloud from ALL content not filtered subset (otherwise multi-select breaks); `searchParams.getAll()` for repeated URL params alongside comma-separated
 
 ## UI / Design System
+- **P1618** (Nov 26) Canvas upload icon reads as attach — one icon, one meaning; users missed upload behind the attach paperclip.
 - **P1600** (Nov 26) Hike page reviews show in full — arrows follow pointer type, not width; jsdom needs mocked dimensions to reach them.
 - **P1593** (Oct 26) Install as app in avatar menu + return-visit nudge — gate on "not installed", never on beforeinstallprompt: dev has no SW, so it never fires
 - **P1586** (Oct 29) One way of loading, on every page — four states, every wait has a deadline; a bare <Navigate> paints a blank frame
@@ -443,6 +444,7 @@ Last updated: 2026-11-05
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1602** (Nov 26) `--secrets` safeguard — refuses to lose a name and backs up first; warning half superseded by P1606.
 - **P1608** (Nov 26) Live event transcription test with real recordings — fake-audio flag is per browser process; prove assertions with a rule-off control.
 - **P1611** (Nov 26) Sentence under two people — chunk upload jitter misaligned mics; causal bound, not median, keeps audio before its upload.
 - **P1605** (Nov 26) /day evaluated records — a record that no longer holds must also beat live-owner folding, or it stays hidden.
