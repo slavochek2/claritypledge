@@ -51,7 +51,7 @@ export function EventFlowRow({ eventId, flow, onChanged }: { eventId: string; fl
         <p role="status" className="mt-2 flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground" data-testid="host-flow-notice">
           {flowChangedLine(notice.to)}
           {notice.undoTo && (
-            <Button type="button" variant="ghost" size="sm" className="min-h-10 px-2 text-blue-700" onClick={() => void apply(notice.undoTo as EventFlow, null)} data-testid="host-flow-undo">
+            <Button type="button" variant="ghost" size="sm" className="min-h-11 min-w-11 px-3 text-blue-700" onClick={() => void apply(notice.undoTo as EventFlow, null)} data-testid="host-flow-undo">
               {FLOW_UNDO}
             </Button>
           )}

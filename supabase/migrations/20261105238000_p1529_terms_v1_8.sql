@@ -5,7 +5,7 @@
 -- A pending intent minted by an old server for v1.7 is refused (returns NULL, consumed): the
 -- sign-in link then records nothing and the notice banner asks for v1.8 on the next screen.
 --
--- Proposed as a NOTICE version (terms-changes.ts requiresConsent: false). [FOUNDER DECISION: notice or re-acceptance.]
+-- A NOTICE version (terms-changes.ts requiresConsent: false), reviewed by Gemini 4 Argon at the founder's request.
 --
 -- Mirrors SERVER_CURRENT_TERMS_VERSION (supabase/functions/_shared/terms-version.ts) and
 -- CURRENT_TERMS_VERSION (src/lib/constants.ts); src/tests/p1487-terms-version-single-source.test.ts

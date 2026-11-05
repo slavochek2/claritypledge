@@ -50,7 +50,9 @@ export const SILENT_TABLE_GRACE_MS = 5 * 60_000;
 export const flowChangedLine = (flow: EventFlow): string => `Event flow is now ${FLOW_NAMES[flow]}.`;
 export const FLOW_UNDO = 'Undo';
 /** The server's own words are shown; this only says what failed. */
-export const flowRefusedLine = (message: string): string => `The event flow was not changed: ${message}`;
+export const flowRefusedLine = (message: string): string => `The event flow was not changed: ${singular(message)}`;
+/** The server's count line says "1 registered people have"; one person is "1 registered person has". */
+const singular = (message: string): string => message.replace(/^1 registered people have /, '1 registered person has ');
 
 // ── Observers (§3) ──────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -104,7 +106,7 @@ export function describeProblem(p: SeatingProblem, name: (id: string) => string)
     case 'repeat-partner': return `${name(p.people[0])} and ${name(p.people[1])} have already been partners tonight.`;
     case 'previous-session-partner': return `${name(p.people[0])} and ${name(p.people[1])} were partners in the previous session.`;
     case 'owns-once':
-      return `${name(p.person)} is not on track to be the Clarity Canvas owner in rounds ${p.part === 'first' ? '1 and 2' : '3 and 4'}.`;
+      return `${name(p.person)} won't get a turn as Clarity Canvas owner in rounds ${p.part === 'first' ? '1-2' : '3-4'}.`;
     case 'observes-twice': return `${name(p.person)} would observe a second time.`;
     case 'unseated': return `${name(p.person)} has no seat in this round.`;
     case 'owner-without-canvas':
@@ -115,6 +117,10 @@ export function describeProblem(p: SeatingProblem, name: (id: string) => string)
         : `Only ${p.canvases} Clarity Canvases are shared. The format works from 5, so some partners will repeat.`;
   }
 }
+
+/** [FOUNDER DECISION: copy] Which grid is which while the next round is previewed beside the one running. */
+export const tablesNowTitle = (round: string): string => `${round}: tables now`;
+export const tablesProposedTitle = (round: string): string => `${round}: proposed tables`;
 
 /** [FOUNDER DECISION: copy] After a manual swap only this round is re-checked. */
 export const SWAP_RECHECK_NOTE = 'Checked again after your swap. Later rounds are not re-checked.';
@@ -134,7 +140,7 @@ export function seatGuardRefusal(error: unknown): string | null {
 
 /** [FOUNDER DECISION: copy] */
 export const UPDATE_STATE_WORDS: Record<string, string> = {
-  not_tapped: 'Not tapped',
+  not_tapped: "Hasn't started",
   drafting: 'Drafting',
   ready: 'Ready',
   failed: 'Failed',

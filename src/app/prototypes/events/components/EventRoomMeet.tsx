@@ -102,6 +102,7 @@ import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { RoomPreparation } from '../prep/RoomPreparation';
+import { EventCanvasCard } from '../prep/EventCanvasCard';
 import { feedbackAlwaysOpen, defaultRoomStep, recipeForEvent } from '../series-recipes';
 import { usePrepState, type PrepState } from '../prep/use-prep-state';
 import { ClarityContentLoader, ClarityPageLoader } from '@/components/ui/clarity-loader';
@@ -298,6 +299,7 @@ export function EventRoomMeet() {
   // table the page is your table (walkthrough 6); the step bar names the moment (walkthrough 7).
   const [moment, setMoment] = useState<RoundMoment>({ seated: false, atTable: false, eveningOver: false, live: false, waiting: false });
   const seated = moment.seated;
+  const [roundsStarted, setRoundsStarted] = useState(false);
   // A step behind the current one the person tapped back to; null = follow the evening.
   // P1542 round 5: the learning (shown inside the room's frame) returns here on a named step (its finish: Opt in).
   const [viewingBack, setViewingBack] = useState<RoomStep | null>(() => (location.state as { roomStep?: RoomStep } | null)?.roomStep ?? null);
@@ -586,7 +588,7 @@ export function EventRoomMeet() {
         {/* Founder 2026-10-23: where the bar has a Learn step (a hike), that step IS the link; nothing here. */}
         {!seated && !learnsInBar && (
           <div className={cn('mt-2 flex items-center gap-3', roomRecipe.prepare.offer ? 'justify-start' : 'justify-end')}>
-            <RoomPreparation event={event} />
+            <RoomPreparation event={event} roundsStarted={roundsStarted} />
           </div>
         )}
         {transcriptionFailed && (
@@ -606,6 +608,8 @@ export function EventRoomMeet() {
         <div aria-hidden="true" className="hidden min-[1600px]:block" />
 
         <div className="space-y-4">
+          {/* P1529: the mastermind's canvas for this event, in the round card's own column (same width, no row beside it). */}
+          {!seated && !learnsInBar && event && roomRecipe.mastermind && <EventCanvasCard eventId={event.id} />}
           {/* P1337: the round — your table, your role, what to talk about. Renders nothing
               until the host starts round 1, and nothing after the evening ends. */}
           {event && roomRecipe.room.rounds && (
@@ -616,6 +620,7 @@ export function EventRoomMeet() {
               ended={pastGrace}
               view={viewing === 'table' || viewing === 'compare' ? viewing : 'hidden'}
               onMoment={setMoment}
+              onRoundsStarted={setRoundsStarted}
             />
           )}
           {viewing === 'close' && (

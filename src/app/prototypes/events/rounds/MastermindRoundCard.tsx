@@ -30,6 +30,7 @@ export function MastermindRoundCard({
   ended = false,
   view,
   onMoment,
+  onRoundsStarted,
 }: {
   eventId: string;
   self: EventRoomSelf | null;
@@ -38,6 +39,8 @@ export function MastermindRoundCard({
   ended?: boolean;
   view: 'table' | 'compare' | 'hidden';
   onMoment?: (moment: RoundMoment) => void;
+  /** Whether any round has started: the room's optional preparation line steps aside once one has. */
+  onRoundsStarted?: (started: boolean) => void;
 }) {
   // The same poll as RoundCard: a round the host still runs outlives the clock's close.
   const [liveSeen, setLiveSeen] = useState(false);
@@ -61,10 +64,14 @@ export function MastermindRoundCard({
     onMoment?.({ seated, atTable: false, eveningOver, live, waiting });
   }, [onMoment, seated, eveningOver, live, waiting]);
 
+  const started = state.rounds.length > 0;
+  useEffect(() => { onRoundsStarted?.(started); }, [onRoundsStarted, started]);
+
   const owner = useOwnerUpdate(eventId, !!self, roundsKey);
   const isOwner = mine?.role === 'first';
   const { canvas, loaded } = useRoundCanvas(seated && !isOwner ? round?.id ?? null : null);
   const [canvasOpen, setCanvasOpen] = useState(false);
+  const [taskOpen, setTaskOpen] = useState(false);
 
   if (!self) return null;
 
@@ -81,6 +88,8 @@ export function MastermindRoundCard({
       collapsed={seated}
       roundName={offerRound ? roundLabel(state.rounds, offerRound) : null}
       tweakHref={tweakHref}
+      open={taskOpen}
+      setOpen={setTaskOpen}
     />
   );
 

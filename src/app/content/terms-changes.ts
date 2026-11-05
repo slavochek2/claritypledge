@@ -34,15 +34,14 @@ export interface TermsChangeSummary {
 /** Newest first: termsPrompt reads this order to find what someone has not seen. */
 export const TERMS_CHANGES: Record<string, TermsChangeSummary> = {
   'v1.8': {
-    // [FOUNDER DECISION: wording, and notice versus re-acceptance.] P1529 D13 and D23. Proposed as a notice, as with v1.6: a person
-    // accepts this at registration for the event itself, and the sentence is in the consent there and in the room.
+    // P1529 D13, D23. Wording and notice (not re-acceptance) reviewed by Gemini 4 Argon at the founder's request: consent is also taken at registration and in the room.
     requiresConsent: false,
     kind: 'feature',
     title: 'New feature: your canvas can get better after each conversation at an event',
-    headline: "At events built around Clarity Canvases, what you say at a table can be used by the Clarity Canvas owner's AI mirror to draft their next version. The canvas never quotes or names you, and the owner decides whether to publish it.",
+    headline: "At events built around Clarity Canvases, what you say at a table can be used by the Clarity Canvas owner's AI mirror to draft their next version. An automated filter works to remove your names and numbers, and the owner reviews the draft before deciding whether to publish it to their canvas's audience.",
     highlights: [
-      "When the owner asks for a next version, the words from that table that they can read are copied into their private mirror chat and sent to Google's Gemini to write the draft.",
-      "Deleting your account removes your words from those copies.",
+      "When the owner asks for a next version, the transcript lines from that table that they can read are copied into their private mirror chat and sent to Google's Gemini to write the draft.",
+      "Deleting your account removes your words from those chat copies, though not from canvases already published.",
     ],
   },
   'v1.7': {

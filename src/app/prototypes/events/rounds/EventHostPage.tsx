@@ -102,7 +102,7 @@ import { MastermindHostPanel, RecordingMark } from './MastermindHostPanel';
 import { MastermindPreviewNotes } from './MastermindPreviewNotes';
 import { MastermindScreen } from './MastermindScreen';
 import { useHostFlow, useMastermindHost } from './use-mastermind-host';
-import { COLUMN_LABELS, MASTERMIND_FLOW, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, seatGuardRefusal, silentTables } from './mastermind-host-helpers';
+import { COLUMN_LABELS, MASTERMIND_FLOW, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, seatGuardRefusal, silentTables, tablesNowTitle, tablesProposedTitle } from './mastermind-host-helpers';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
 
 const START_LOCK_MS = 10_000;
@@ -484,6 +484,7 @@ function TablesGrid({
   onTap,
   labels,
   silentTableNos,
+  title,
 }: {
   seats: Seat[];
   byId: Map<string, EventRoomMember>;
@@ -500,6 +501,8 @@ function TablesGrid({
   labels?: Record<SeatRole, string>;
   /** Tables with nobody's words: their number stands out. */
   silentTableNos?: number[];
+  /** A line above the grid saying which tables these are (the mastermind labels the current and the proposed ones). */
+  title?: string;
 }) {
   const tables = groupByTable(seats);
   const hasObserver = tables.some(t => t.observers.length > 0);
@@ -526,6 +529,7 @@ function TablesGrid({
   };
   return (
     <div className={cn('grid gap-1 min-[375px]:gap-1.5 lg:gap-2', cols)} data-testid="round-grid">
+      {title && <p className="col-span-full text-xs font-medium uppercase tracking-wide text-muted-foreground" data-testid="round-grid-title">{title}</p>}
       <span aria-hidden="true" />
       {columns.map(col => {
         const role = liveRole(col, phase);
@@ -639,6 +643,7 @@ function RoundPreview({
   onBack,
   labels,
   notes,
+  gridTitle,
 }: {
   label: string;
   preview: Preview;
@@ -652,6 +657,7 @@ function RoundPreview({
   /** The mastermind: its column names, and what the proposed tables break. */
   labels?: Record<SeatRole, string>;
   notes?: ReactNode;
+  gridTitle?: string;
 }) {
   const [lifted, setLifted] = useState<string | null>(null);
   useEffect(() => setLifted(null), [preview.seats]);
@@ -684,6 +690,7 @@ function RoundPreview({
           canSwap={id => !busy && !!lifted && lifted !== id}
           onTap={onTap}
           labels={labels}
+          title={gridTitle}
         />
       </div>
       {notes}
@@ -1353,7 +1360,7 @@ export function EventHostPage() {
 
       {/* Desktop: the room on the left, the controls on the right (founder, 2026-10-04). On a
           phone the controls come first — the button is what the host reaches for. */}
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-8">
+      <div className={cn('lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-8', mm.active && 'lg:grid-rows-[auto_1fr]')}>
         {/* On a phone the whole page scrolls as one (founder walkthrough 9: a pinned clock card
             took most of the screen and only parts moved). Settings live in their own card below. */}
         <section
@@ -1375,8 +1382,8 @@ export function EventHostPage() {
               {/* Clock and −1/+1 share one row that never wraps; the part line sits below at full
                   width. When they shared a wrapping row, the ticking text's width moved the buttons
                   up and down every second (founder walkthrough 9). */}
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
+              <div className={cn('flex items-center justify-between gap-3', mm.active && 'max-[374px]:flex-col max-[374px]:items-start')}>
+                <div className={mm.active ? 'shrink-0' : 'min-w-0'}>
                   <ClockNumber clock={clock} />
                 </div>
                 {clock.phase !== 'over' && (
@@ -1385,7 +1392,7 @@ export function EventHostPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="min-h-10"
+                      className={mm.active ? 'min-h-11' : 'min-h-10'}
                       onClick={shorten}
                       disabled={!!busy}
                       data-testid="host-shorten"
@@ -1396,7 +1403,7 @@ export function EventHostPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="min-h-10"
+                      className={mm.active ? 'min-h-11' : 'min-h-10'}
                       onClick={extend}
                       disabled={!!busy}
                       data-testid="host-extend"
@@ -1427,6 +1434,7 @@ export function EventHostPage() {
               onStart={startPreview}
               onBack={() => setPreview(null)}
               labels={mm.active && !preview.demo ? COLUMN_LABELS : undefined}
+              gridTitle={mm.active && !preview.demo ? tablesProposedTitle(nextRoundLabel(state.rounds, false)) : undefined}
               notes={mm.active && !preview.demo ? <MastermindPreviewNotes roundNo={preview.roundNo} seats={preview.seats} ids={preview.ids} shuffle={preview.shuffle} host={mm} name={id => shortName(names.get(id) ?? 'Someone')} /> : undefined}
             />
           )}
@@ -1773,6 +1781,7 @@ export function EventHostPage() {
                   onTap={onTap}
                   labels={mm.active ? COLUMN_LABELS : undefined}
                   silentTableNos={silentNos}
+                  title={mm.active ? tablesNowTitle(roundLabel(state.rounds, round)) : undefined}
                 />
               )}
               <PeopleGroup
@@ -1803,7 +1812,7 @@ export function EventHostPage() {
 
               {!lifted && round && undoStack.length > 0 && (
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Button type="button" variant="outline" size="sm" className="min-h-10" onClick={undo} disabled={!!busy} data-testid="host-undo">
+                  <Button type="button" variant="outline" size="sm" className={mm.active ? 'min-h-11' : 'min-h-10'} onClick={undo} disabled={!!busy} data-testid="host-undo">
                     <Undo2 className="h-3.5 w-3.5" /> Undo {undoStack[undoStack.length - 1]?.label}
                   </Button>
                 </div>

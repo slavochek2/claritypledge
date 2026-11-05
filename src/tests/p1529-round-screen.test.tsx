@@ -232,6 +232,24 @@ describe('P1529 round screen: the moment the room page reads', () => {
   });
 });
 
+describe('P1529 round screen: whether any round has started (the optional preparation line steps aside)', () => {
+  const card = (onRoundsStarted: (started: boolean) => void) =>
+    render(<MemoryRouter><MastermindRoundCard eventId="e1" self={OWNER} roster={ROSTER} view="table" onRoundsStarted={onRoundsStarted} /></MemoryRouter>);
+
+  it('is false before round 1, and true during the canvas-update step, when no round is on and the evening is not over', async () => {
+    h.state = { rounds: [], seatsByRound: new Map(), topics: new Map() } satisfies EventRoundsState;
+    const before = vi.fn();
+    const { unmount } = card(before);
+    await waitFor(() => expect(before).toHaveBeenLastCalledWith(false));
+    unmount();
+    betweenRounds();
+    h.server.step = { afterRoundId: 'r1', startedAt: new Date().toISOString() };
+    const during = vi.fn();
+    card(during);
+    await waitFor(() => expect(during).toHaveBeenLastCalledWith(true));
+  });
+});
+
 describe('P1529 §6: "Make my next version"', () => {
   beforeEach(() => { betweenRounds(); });
 

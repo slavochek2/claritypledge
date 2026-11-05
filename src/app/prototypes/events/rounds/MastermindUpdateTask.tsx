@@ -5,7 +5,6 @@
  * round it shrinks to one quiet line (the event room never stands between two people talking). Wording is a draft:
  * [FOUNDER DECISION: copy].
  */
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,6 +24,8 @@ export function MastermindUpdateTask({
   collapsed,
   roundName,
   tweakHref,
+  open,
+  setOpen,
 }: {
   face: TaskFace;
   owner: OwnerUpdate;
@@ -36,8 +37,10 @@ export function MastermindUpdateTask({
   roundName: string | null;
   /** The owner's draft workspace, or null while it is not known. */
   tweakHref: string | null;
+  /** Held by the card: the task moves in the card's tree when the room's view changes, which would reset state held here. */
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const { busy, note } = owner;
 
   if (collapsed && !open) {
@@ -96,7 +99,7 @@ export function MastermindUpdateTask({
 
       {face === 'failed' && (
         <>
-          <p className="mt-2 text-sm" data-testid="mastermind-task-failed">The draft did not work.</p>
+          <p className="mt-2 text-sm" data-testid="mastermind-task-failed">The draft did not work. Tap Try again to have your mirror draft it once more.</p>
           <Button type="button" className={PRIMARY} onClick={() => void owner.retry()} disabled={busy} data-testid="mastermind-retry">
             {busy ? 'Trying again…' : 'Try again'}
           </Button>

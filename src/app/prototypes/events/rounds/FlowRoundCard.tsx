@@ -18,6 +18,7 @@ export function FlowRoundCard({
   ended,
   view,
   onMoment,
+  onRoundsStarted,
 }: {
   event: EventWithHost;
   self: EventRoomSelf | null;
@@ -25,9 +26,11 @@ export function FlowRoundCard({
   ended?: boolean;
   view: 'table' | 'compare' | 'hidden';
   onMoment?: (moment: RoundMoment) => void;
+  /** Mastermind only: whether any round has started. */
+  onRoundsStarted?: (started: boolean) => void;
 }) {
   return recipeForEvent(event).mastermind ? (
-    <MastermindRoundCard eventId={event.id} self={self} roster={roster} ended={ended} view={view} onMoment={onMoment} />
+    <MastermindRoundCard eventId={event.id} self={self} roster={roster} ended={ended} view={view} onMoment={onMoment} onRoundsStarted={onRoundsStarted} />
   ) : (
     <RoundCard
       eventId={event.id}

@@ -187,6 +187,15 @@ describe('the flow row (§1)', () => {
     expect((screen.getByTestId('host-flow-select') as HTMLSelectElement).value).toBe('clarity-night');
   });
 
+  it('says "1 registered person has" when the server counts one', async () => {
+    h.hostSetEventFlow.mockRejectedValueOnce(new Error("1 registered people have not answered this flow's questions or accepted recording"));
+    renderHost();
+    fireEvent.change(await screen.findByTestId('host-flow-select'), { target: { value: MM } });
+    const text = (await screen.findByTestId('host-flow-refused')).textContent ?? '';
+    expect(text).toContain("1 registered person has not answered this flow's questions or accepted recording");
+    expect(text).not.toContain('1 registered people');
+  });
+
   it("shows the server's own refusal, including the unanswered-registrations message, and does not switch", async () => {
     const message = '3 registered people have not answered this flow\'s questions or accepted recording';
     h.hostSetEventFlow.mockRejectedValueOnce(new Error(message));
@@ -284,7 +293,7 @@ describe('seating through the mastermind plan (§4)', () => {
     expect(items.map(i => i.getAttribute('data-rule'))).toEqual(['repeat-partner', 'owns-once', 'observes-twice', 'previous-session-partner', 'unseated', 'too-few-canvases']);
     const text = items.map(i => i.textContent).join(' | ');
     expect(text).toContain('Ana B. and Ben C. have already been partners');
-    expect(text).toContain('Cat D. is not on track to be the Clarity Canvas owner in rounds 1 and 2');
+    expect(text).toContain("Cat D. won't get a turn as Clarity Canvas owner in rounds 1-2");
     expect(text).toContain('Dan E. would observe a second time');
     expect(text).toContain('Ana B. and Eva F. were partners in the previous session');
     expect(text).toContain('Eva F. has no seat in this round');
@@ -341,6 +350,42 @@ describe('seating through the mastermind plan (§4)', () => {
     expect(args[2]).toBe(4);
     expect(args[4]).toEqual({ seatingS: 120, speakerS: 660, observerS: 120 });
     expect(args[5]).toBe(false);
+  });
+});
+
+describe('labels and touch targets while a round runs and the next is previewed (§7)', () => {
+  it('names the running round\'s grid and the proposed one, so two grids are never unlabelled', async () => {
+    setRounds([round({ startedAt: ago(10 * MIN) })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    h.planOverride = () => plan([['m-c', 1, 'first'], ['m-d', 1, 'second']]);
+    renderHost({ flow: MM });
+    await screen.findByText('Clarity Canvas shared: canvas_a');
+    fireEvent.click(await screen.findByTestId('host-primary'));
+    fireEvent.click(await screen.findByTestId('host-next-yes'));
+    await screen.findByTestId('host-preview');
+    // The preview sits in the controls column, which comes first in the page.
+    expect(screen.getAllByTestId('round-grid-title').map(e => e.textContent)).toEqual(['Round 2: proposed tables', 'Round 1: tables now']);
+  });
+
+  it('titles no grid on Clarity Night, and keeps its minute buttons at 40px', async () => {
+    setRounds([round({ splitSpeakers: true })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    const { unmount } = renderHost();
+    await screen.findByTestId('round-grid');
+    expect(screen.queryAllByTestId('round-grid-title')).toHaveLength(0);
+    expect(screen.getByTestId('host-extend').className).toContain('min-h-10');
+    unmount();
+    renderHost({ flow: MM });
+    await screen.findByTestId('round-grid');
+    expect(screen.getByTestId('host-extend').className).toContain('min-h-11');
+    expect(screen.getByTestId('host-shorten').className).toContain('min-h-11');
+  });
+
+  it('words the owners\' first state "Hasn\'t started"', async () => {
+    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, endedAt: ago(MIN) })]);
+    h.step = { afterRoundId: 'r2', startedAt: ago(MIN) };
+    h.updateStates = new Map([['p-a', 'not_tapped']]);
+    renderHost({ flow: MM });
+    await waitFor(() => expect(screen.getAllByTestId('mm-update-owner')).toHaveLength(1));
+    expect(screen.getByTestId('mm-update-owner').textContent).toContain("Hasn't started");
   });
 });
 

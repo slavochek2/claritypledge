@@ -7,6 +7,7 @@ import {
   MASTERMIND_MINUTES,
   canvasLine,
   describeProblem,
+  flowRefusedLine,
   isObserver,
   observerRefusal,
   seatGuardRefusal,
@@ -42,8 +43,8 @@ describe('describeProblem names every rule with the people involved', () => {
     else expect(text).toMatch(/Clarity Canvas/);
   });
   it('says which half of the evening an owner is missing from', () => {
-    expect(describeProblem({ rule: 'owns-once', person: 'x', part: 'first' }, name)).toContain('rounds 1 and 2');
-    expect(describeProblem({ rule: 'owns-once', person: 'x', part: 'second' }, name)).toContain('rounds 3 and 4');
+    expect(describeProblem({ rule: 'owns-once', person: 'x', part: 'first' }, name)).toContain('rounds 1-2');
+    expect(describeProblem({ rule: 'owns-once', person: 'x', part: 'second' }, name)).toContain('rounds 3-4');
   });
   it('never uses a bare "owner" or "reader"', () => {
     const text = all.map(p => describeProblem(p, name)).join(' ');
@@ -150,5 +151,13 @@ describe('the mastermind round\'s minutes', () => {
     const start = new Date(0).toISOString();
     const phaseAt = (min: number) => roundClock(start, min * 60_000, true, roundTiming(row)).phase;
     expect([1, 3, 20, 25, 27].map(phaseAt)).toEqual(['seating', 'first', 'first', 'observer', 'over']);
+  });
+});
+
+describe('flowRefusedLine', () => {
+  it('keeps the server\'s message and only fixes the singular', () => {
+    expect(flowRefusedLine('1 registered people have not answered')).toBe('The event flow was not changed: 1 registered person has not answered');
+    expect(flowRefusedLine('3 registered people have not answered')).toBe('The event flow was not changed: 3 registered people have not answered');
+    expect(flowRefusedLine('only the host can change the event flow')).toBe('The event flow was not changed: only the host can change the event flow');
   });
 });

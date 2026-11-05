@@ -20,6 +20,8 @@ import { COLUMN_LABELS, SCREEN_PART_CAPTION, SCREEN_RULE_LINE, SCREEN_UPDATE_LIN
 
 /** Room the fixed rule line takes at the bottom of a wide screen. */
 const RULE_HEIGHT = 80;
+/** screenLayout counts 2.1 type-heights per seat; a role name above the face makes it about 3. */
+const SEAT_HEIGHT_WITH_ROLE = 3 / 2.1;
 
 export function MastermindScreen({ round, rounds, seats, byId, room, ended, updateOn }: {
   round: EventRound | null;
@@ -38,8 +40,11 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended, upda
   const tables = groupByTable(seats);
   const maxSeats = Math.max(2, ...tables.map(t => tableSeats(t).length));
   const wide = w >= 768;
-  // Each seat carries its role's name above the face, about one more seat of height per table.
-  const layout = wide ? screenLayout(tables.length, maxSeats + 1, w, h - RULE_HEIGHT) : { cols: 1, rows: tables.length, fontPx: 20 };
+  // Each seat carries its role's name above the face (about 0.9 of a type-height more per seat), and the rule line sits
+  // below the cards with a gap.
+  const layout = wide
+    ? screenLayout(tables.length, maxSeats * SEAT_HEIGHT_WITH_ROLE, w, h - RULE_HEIGHT - SCREEN_GAP)
+    : { cols: 1, rows: tables.length, fontPx: 20 };
   const crowded = layout.fontPx < 26;
   const gridStyle: CSSProperties = wide
     ? {
@@ -52,7 +57,7 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended, upda
       }
     : {};
   const rule = (
-    <p className={cn('shrink-0 text-center font-semibold text-foreground', wide ? 'text-3xl' : 'mt-6 text-2xl')} style={wide ? { height: RULE_HEIGHT } : undefined} data-testid="screen-rule-line">
+    <p className={cn('shrink-0 text-center font-semibold text-foreground', wide ? 'text-3xl' : 'mt-6 text-2xl')} style={wide ? { height: RULE_HEIGHT, marginTop: SCREEN_GAP } : undefined} data-testid="screen-rule-line">
       {SCREEN_RULE_LINE}
     </p>
   );
@@ -109,7 +114,7 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended, upda
                     const m = byId.get(s.id);
                     return (
                       <li key={s.id} data-testid="screen-seat" data-role={s.role}>
-                        <p className="text-[0.55em] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">{COLUMN_LABELS[s.role]}</p>
+                        <p className="text-[0.75em] font-semibold uppercase leading-tight tracking-wide text-gray-700">{COLUMN_LABELS[s.role]}</p>
                         <div className="flex items-center gap-[0.5em]">
                           <span className="shrink-0 [&>div]:!block [&>div]:!h-full [&>div]:!w-full" style={{ width: '2.67em', height: '2.67em', fontSize: '0.6em' }}>
                             <Avatar member={m} className="!h-full !w-full !text-[1em] !ring-offset-1" />
