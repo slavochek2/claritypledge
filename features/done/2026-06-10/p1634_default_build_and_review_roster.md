@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 104
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [review, finish, create-spec, orchestration]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 34703d3e1ababba783a937c4d40de3fffe9ca8efebb42735fc1c3092ebd5f4f8
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-05
 ---
 
 # P1634: Spec review, Sonnet building and quota handling run by default, and the review gate sees subagent edits
