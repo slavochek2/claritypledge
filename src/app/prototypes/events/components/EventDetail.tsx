@@ -383,16 +383,6 @@ export function EventDetail() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Show toast if user just signed up and was redirected here to RSVP
-  useEffect(() => {
-    if (searchParams.get('action') === 'rsvp' && isLoggedIn) {
-      toast.success('Account created! Click "Reserve a seat" to confirm your spot.');
-      // Clear the action param from URL
-      searchParams.delete('action');
-      setSearchParams(searchParams, { replace: true });
-    }
-  }, [searchParams, setSearchParams, isLoggedIn]);
-
   // P1352: parse the description once per change, not on every unrelated re-render.
   const descriptionHtml = useMemo(
     () => (event ? renderEventDescription(event.description) : ''),
@@ -431,6 +421,20 @@ export function EventDetail() {
     onRefused: showRefusal,
     onSessionLost: () => { if (event) signInAgain(event.slug); },
   });
+
+  // Just signed up and sent back here to RSVP. A flow that asks its questions opens the step at once (the sign-up path
+  // cannot seat anyone for it); every other flow keeps its toast and its one-tap button. It waits for the event, so the
+  // flow is known, and for the registration read, so someone already registered is not asked again.
+  useEffect(() => {
+    if (searchParams.get('action') !== 'rsvp' || !isLoggedIn || !event || loading) return;
+    searchParams.delete('action');
+    setSearchParams(searchParams, { replace: true });
+    const open = asksBeforeSeat && !isRsvpd && !isHostOfEvent && event.status !== 'cancelled' && Date.now() < new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000 && !eventsService.isEventFull(event);
+    if (open) registration.ask();
+    else toast.success('Account created! Click "Reserve a seat" to confirm your spot.');
+    // `registration.ask` is a fresh function each render and only sets state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, setSearchParams, isLoggedIn, event, loading, asksBeforeSeat, isRsvpd, isHostOfEvent]);
 
   if (loading) return <ClarityPageLoader />;
 

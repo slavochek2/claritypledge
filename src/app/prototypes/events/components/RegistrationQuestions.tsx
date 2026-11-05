@@ -5,7 +5,7 @@
  * Wording is DRAFT: [FOUNDER DECISION: final copy].
  */
 import { ROUND_UPDATE_CONSENT } from '@/app/components/session/capture-copy';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -81,6 +81,8 @@ export function RegistrationQuestions({
   const [hope, setHope] = useState('');
   const [tried, setTried] = useState(false);
   const missing = missingLine(participation, phone, accepted);
+  // Reopened after a cancel: the answers given stay, the "you have not answered" line from the earlier try does not.
+  useEffect(() => { if (open) setTried(false); }, [open]);
 
   const submit = () => {
     setTried(true);

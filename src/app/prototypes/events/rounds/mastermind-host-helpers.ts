@@ -107,6 +107,8 @@ export function describeProblem(p: SeatingProblem, name: (id: string) => string)
     case 'previous-session-partner': return `${name(p.people[0])} and ${name(p.people[1])} were partners in the previous session.`;
     case 'owns-once':
       return `${name(p.person)} won't get a turn as Clarity Canvas owner in rounds ${p.part === 'first' ? '1-2' : '3-4'}.`;
+    case 'owns-twice':
+      return `${name(p.person)} would be the Clarity Canvas owner a second time in rounds ${p.part === 'first' ? '1-2' : '3-4'}.`;
     case 'observes-twice': return `${name(p.person)} would observe a second time.`;
     case 'unseated': return `${name(p.person)} has no seat in this round.`;
     case 'owner-without-canvas':
@@ -125,6 +127,8 @@ export const tablesProposedTitle = (round: string): string => `${round}: propose
 /** [FOUNDER DECISION: copy] After a manual swap only this round is re-checked. */
 export const SWAP_RECHECK_NOTE = 'Checked again after your swap. Later rounds are not re-checked.';
 export const PLAN_OK_LINE = 'This seating breaks no rule.';
+/** [FOUNDER DECISION: copy] Shown when the previous session's partners could not be read, so "no rule broken" is never read as "checked". */
+export const PREVIOUS_UNREAD = "Could not read the previous session's partners, so repeats from it are not checked. Trying again.";
 export const PLAN_NOT_READY = 'Still reading who has a Clarity Canvas. Try again in a moment.';
 
 /** The server's refusal of an owner without a canvas, with the person's name that it puts in DETAIL. Null: not that refusal. */

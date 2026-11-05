@@ -117,15 +117,16 @@ const UNITS: Record<string, number> = {
 const TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
 const COMPOUND_RE = new RegExp(`\\b(${Object.keys(TENS).join('|')})[ -](${Object.keys(UNITS).slice(1, 10).join('|')})\\b`, 'g');
 const WORD_RE = new RegExp(`\\b(${[...Object.keys(UNITS), ...Object.keys(TENS)].join('|')})\\b`, 'g');
-const NUM_RE = /(\d+(?:[.,]\d+)*)\s?(thousand|million|billion|percent|mm|bn|k|m|b|%)?(?![\p{L}])/giu;
-const MAGNITUDE: Record<string, string> = { thousand: 'k', k: 'k', million: 'm', mm: 'm', m: 'm', billion: 'b', bn: 'b', b: 'b', percent: '%', '%': '%' };
+const NUM_RE = /(\d+(?:[.,]\d+)*)\s?(thousand|grand|million|billion|percent|mm|bn|k|m|b|%)?(?![\p{L}])/giu;
+const MAGNITUDE: Record<string, string> = { thousand: 'k', grand: 'k', k: 'k', million: 'm', mm: 'm', m: 'm', billion: 'b', bn: 'b', b: 'b', percent: '%', '%': '%' };
 
 /** Number words become digits ("twenty-five" 25, "three" 3). */
 function wordsToDigits(lower: string): string {
   return lower
     .replace(COMPOUND_RE, (_m, t: string, u: string) => String((TENS[t] ?? 0) + (UNITS[u] ?? 0)))
     .replace(WORD_RE, (w) => String(UNITS[w] ?? TENS[w] ?? w))
-    .replace(/\bhalf an? (thousand|million|billion)\b/g, '0.5 $1')
+    .replace(/\bhalf an? (thousand|million|billion|grand)\b/g, '0.5 $1')
+    .replace(/\b(\d+) and a half (thousand|million|billion|grand)\b/g, '$1.5 $2')
     .replace(/\ban? (hundred|thousand|million|billion|dozen)\b/g, '1 $1')
     .replace(/\b(\d+)[ -]hundred\b/g, (_m, n: string) => String(Number(n) * 100))
     .replace(/\b(\d+)[ -]dozen\b/g, (_m, n: string) => String(Number(n) * 12));

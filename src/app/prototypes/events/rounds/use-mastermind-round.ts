@@ -41,19 +41,24 @@ function usePoll(read: () => Promise<void>, active: boolean, ms: number) {
   }, [read, active, ms]);
 }
 
-/** The Clarity Canvas owner of this table's canvas, read once per round the person is seated in. */
-export function useRoundCanvas(roundId: string | null): { canvas: RoundCanvas | null; loaded: boolean } {
-  const [read, setRead] = useState<{ roundId: string; canvas: RoundCanvas | null } | null>(null);
+/**
+ * The Clarity Canvas owner of this table's canvas, read once per round the person is seated in. A failed read is not "no
+ * canvas": `failed` says so, and `retry` reads again.
+ */
+export function useRoundCanvas(roundId: string | null): { canvas: RoundCanvas | null; loaded: boolean; failed: boolean; retry: () => void } {
+  const [read, setRead] = useState<{ roundId: string; canvas: RoundCanvas | null; failed: boolean } | null>(null);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!roundId) return;
     let live = true;
     getMyRoundCanvas(roundId)
-      .then(canvas => { if (live) setRead({ roundId, canvas }); })
-      .catch(() => { if (live) setRead({ roundId, canvas: null }); });
+      .then(canvas => { if (live) setRead({ roundId, canvas, failed: false }); })
+      .catch(() => { if (live) setRead({ roundId, canvas: null, failed: true }); });
     return () => { live = false; };
-  }, [roundId]);
+  }, [roundId, attempt]);
+  const retry = useCallback(() => { setRead(null); setAttempt(n => n + 1); }, []);
   const mine = read && read.roundId === roundId ? read : null;
-  return { canvas: mine?.canvas ?? null, loaded: !!mine };
+  return { canvas: mine?.canvas ?? null, loaded: !!mine, failed: !!mine?.failed, retry };
 }
 
 /** The update step the host started: re-read when the rounds change (starting it ends the round; the next round ends it). */

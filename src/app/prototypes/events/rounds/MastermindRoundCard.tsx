@@ -10,6 +10,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { EventCanvasCard } from '../prep/EventCanvasCard';
 import { currentRound, EMPTY_ROUNDS_STATE, type EventRoundsState } from '@/app/data/event-rounds-service';
 import { recordCanvasOpen } from '@/app/data/event-mastermind-service';
@@ -69,7 +70,7 @@ export function MastermindRoundCard({
 
   const owner = useOwnerUpdate(eventId, !!self, roundsKey);
   const isOwner = mine?.role === 'first';
-  const { canvas, loaded } = useRoundCanvas(seated && !isOwner ? round?.id ?? null : null);
+  const { canvas, loaded, failed: canvasFailed, retry: retryCanvas } = useRoundCanvas(seated && !isOwner ? round?.id ?? null : null);
   const [canvasOpen, setCanvasOpen] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false);
 
@@ -146,6 +147,13 @@ export function MastermindRoundCard({
           ) : (
             <p className="mt-3 text-sm text-muted-foreground" data-testid="round-canvas-unshared">This Clarity Canvas is no longer shared</p>
           )
+        )}
+
+        {table.role !== 'owner' && canvasFailed && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground" role="alert" data-testid="round-canvas-error">
+            <span>Could not load this Clarity Canvas.</span>
+            <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={retryCanvas} data-testid="round-canvas-retry">Retry</Button>
+          </div>
         )}
 
         {table.role !== 'owner' && (

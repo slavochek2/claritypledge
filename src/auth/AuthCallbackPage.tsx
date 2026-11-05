@@ -27,15 +27,15 @@ import { resolveAvatarFields } from "./resolve-avatar-fields";
 import { useAuth } from "./useAuth";
 import { AlertCircleIcon } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
-import { slugifyName, getProfile, getEventBySlug, rsvpToEvent, markSelfVerified, setMyPledge, replayLetterPositions, consumePendingTermsAcceptance } from "@/app/data/api";
+import { slugifyName, getProfile, rsvpToEvent, markSelfVerified, setMyPledge, replayLetterPositions, consumePendingTermsAcceptance } from "@/app/data/api";
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import { isSafeRedirectPath } from "./redirect-allowlist";
 import { CURRENT_PLEDGE_VERSION } from "@/app/content/pledge-text";
 import { CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import * as Sentry from "@sentry/react";
 import { analytics, isInternalAccount } from "@/lib/mixpanel";
-import { trackPostSignupRsvp } from "@/app/prototypes/events/rsvp-analytics";
 import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId } from "@/lib/auth-gate-utils";
+import { autoRsvpDestination } from "./auto-rsvp-destination";
 import { pointsService } from "@/app/data/points-service";
 import { getAllAnonPositions, clearAllAnonPositions } from "@/app/hooks/useAnonPosition";
 import { organizationsService } from "@/app/data/organizations-service";
@@ -559,25 +559,10 @@ export function AuthCallbackPage() {
           setStatus("Confirming your RSVP...");
 
           try {
-            const event = await getEventBySlug(eventSlug);
-            if (event) {
-              const rsvpSuccess = await rsvpToEvent(event.id, authUser.id, eventSlug); // P1603: the link, for a hidden event
-              if (rsvpSuccess) {
-                // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-                if (import.meta.env.DEV) console.log('✅ Auto-RSVP successful for event:', eventSlug);
-                void trackPostSignupRsvp(event.id, eventSlug, registrationSource); // never holds the redirect
-                navigate(`/events/${eventSlug}/confirm`, { replace: true });
-                return;
-              } else {
-                // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-                if (import.meta.env.DEV) console.log('⚠️ Auto-RSVP failed (event may be full), redirecting to event page');
-                // Redirect to event page with action param so UI can show toast
-                navigate(`/events/${eventSlug}?action=rsvp`, { replace: true });
-                return;
-              }
-            } else {
-              // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-              if (import.meta.env.DEV) console.log('⚠️ Event not found for auto-RSVP:', eventSlug);
+            const destination = await autoRsvpDestination(eventSlug, registrationSource, (event) => rsvpToEvent(event.id, authUser.id, eventSlug)); // P1603: the link, for a hidden event
+            if (destination) {
+              navigate(destination, { replace: true });
+              return;
             }
           } catch (error) {
             // P1441: the client could not act as this person, so no RSVP was sent. Ask them to

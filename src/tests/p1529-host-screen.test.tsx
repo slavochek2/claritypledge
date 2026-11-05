@@ -308,6 +308,15 @@ describe('seating through the mastermind plan (§4)', () => {
     expect(screen.queryAllByTestId('mm-unmet')).toHaveLength(0);
   });
 
+  it('discloses a failed read of the previous session instead of reading as "breaks nothing"', async () => {
+    h.getPreviousSessionPartners.mockRejectedValue(new Error('offline'));
+    h.planOverride = () => plan([['m-a', 1, 'first'], ['m-b', 1, 'second']]);
+    renderHost({ flow: MM });
+    await openPreview();
+    expect(screen.getByTestId('mm-previous-unread').textContent).toMatch(/previous session/);
+    expect(screen.queryByTestId('mm-preview-ok')).toBeNull();
+  });
+
   it('re-checks after a manual swap: an owner without a canvas, and a repeat partner, are named', async () => {
     // Round 1 paired Ana and Cat. The plan seats Ana/Ben and Cat/Dan, with Eva (no canvas) observing at table 1.
     setRounds([round({ endedAt: ago(5 * MIN) })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-c', 'second', 1)] });

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { canvasService, type MyCanvasRow } from '@/app/data/canvas-service';
 import { getMyEventCanvas, setEventCanvas, type MyEventCanvas } from '@/app/data/event-mastermind-service';
 import { useStartCanvas } from '@/app/pages/chat/use-start-canvas';
+import { isNetworkBlip, NetworkBlipError } from '@/lib/network-blip';
 
 const canvasLabel = (c: MyCanvasRow) => c.title || c.name;
 
@@ -34,19 +35,26 @@ export function EventCanvasCard({ eventId }: { eventId: string }) {
   const [mine, setMine] = useState<MyEventCanvas | null>(null);
   const [canvases, setCanvases] = useState<MyCanvasRow[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [readFailed, setReadFailed] = useState(false);
   const [changing, setChanging] = useState(false);
   const [busy, setBusy] = useState(false);
   const { start, dialog } = useStartCanvas();
 
+  // A failed read is an error with Retry: it must never look like "no canvas yet", which would tell the person they join as an observer.
   const read = useCallback(async () => {
-    const [current, list] = await Promise.all([getMyEventCanvas(eventId), canvasService.listMyCanvases()]);
-    setMine(current);
-    setCanvases(list);
+    try {
+      const [current, list] = await Promise.all([getMyEventCanvas(eventId), canvasService.listMyCanvases()]);
+      setMine(current);
+      setCanvases(list);
+      setReadFailed(false);
+    } catch {
+      setReadFailed(true);
+    }
     setLoaded(true);
   }, [eventId]);
 
   useEffect(() => {
-    read().catch(() => setLoaded(true));
+    void read();
   }, [read]);
 
   const pick = async (name: string) => {
@@ -56,14 +64,23 @@ export function EventCanvasCard({ eventId }: { eventId: string }) {
       if (result.status === 'refused') toast.error('Your Clarity Canvas is fixed now that round 1 has started.');
       setChanging(false);
       await read();
-    } catch {
-      toast.error('Only a published Clarity Canvas of yours can be shared with this event.');
+    } catch (e) {
+      // The server's refusal (nothing published to share) and a request that never got through are different things to do.
+      toast.error(e instanceof NetworkBlipError || isNetworkBlip(e as Error) ? 'Could not reach the server. Check your connection and try again.' : 'Only a published Clarity Canvas of yours can be shared with this event.');
     } finally {
       setBusy(false);
     }
   };
 
   if (!loaded) return null;
+  if (readFailed) {
+    return (
+      <section className="w-full rounded-lg border border-border p-4 text-left" data-testid="event-canvas-error" role="alert">
+        <p className="text-sm text-muted-foreground">Could not load your Clarity Canvas for this event.</p>
+        <Button variant="outline" size="sm" className="mt-2 min-h-11" onClick={() => void read()} data-testid="event-canvas-retry">Retry</Button>
+      </section>
+    );
+  }
   const chosen = mine?.shared ? mine : null;
   // The canvas's own title when it has one; the raw name (canvas_2) otherwise.
   const chosenLabel = chosen ? canvases.find(c => c.name === chosen.name)?.title || chosen.name : '';

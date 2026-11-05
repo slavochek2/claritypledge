@@ -375,44 +375,44 @@ Inputs: 16 people including 12 owners; 2.4 h evening; a 24-minute round at about
 Checked on TEST with a Sales Mastermind event, the host, six attendees with canvases and two without,
 then repeated with five with canvases.
 
-- [ ] Tapping Register in the mastermind flow opens the step; the seat exists only after the required
+- [x] Tapping Register in the mastermind flow opens the step; the seat exists only after the required
       answers and the recording acceptance; a new user returning from sign-up sees the step; a direct
       call without answers is refused. Clarity Night and Social Hike still register in one tap.
-- [ ] Choosing "Other" shows the bring-your-own line; the phone answer shows on the host's marks.
-- [ ] At 24 registrations the page shows Event Full with the message-the-host line; at 5 or fewer left it
+- [x] Choosing "Other" shows the bring-your-own line; the phone answer shows on the host's marks.
+- [x] At 24 registrations the page shows Event Full with the message-the-host line; at 5 or fewer left it
       shows "N places left"; cancelling frees a place.
-- [ ] Mastermind confirmation and reminder emails carry the block, without the laptop line for an observer;
+- [x] Mastermind confirmation and reminder emails carry the block, without the laptop line for an observer;
       Clarity Night and Social Hike email output is unchanged (test on the rendered text).
 - [ ] The host sees off · on, no words · words arriving per person, checked with a real mic and one
       muted or dead mic; a table with no words stands out.
-- [ ] Someone publishing a first canvas after round 1 sees the ready line, the host sees the mark, adds them
+- [x] Someone publishing a first canvas after round 1 sees the ready line, the host sees the mark, adds them
       at the next round, and they are seated as an owner; swapping an already-chosen canvas is still refused.
 
-- [ ] An event in the `sales-mastermind` series opens the mastermind flow; a Clarity Night event and a
+- [x] An event in the `sales-mastermind` series opens the mastermind flow; a Clarity Night event and a
       Social Hike event open exactly as before, including their round thread titles (screenshots and
       existing tests).
-- [ ] The host switches an event's flow before round 1 with Undo; prepare, room and close all follow;
+- [x] The host switches an event's flow before round 1 with Undo; prepare, room and close all follow;
       switching back restores selections and overrides; after round 1 starts, the row is gone and a
       direct call is refused.
-- [ ] An attendee picks an existing canvas or drafts one, publishes it, and shares it with the event,
+- [x] An attendee picks an existing canvas or drafts one, publishes it, and shares it with the event,
       each as its own tap; the step then reads "Your canvas for this event: {name} · Change".
-- [ ] Change before round 1 replaces the shared canvas in one step; after round 1, Change is gone.
-- [ ] An attendee without a canvas is told they will observe and is not blocked by preparation; the host
+- [x] Change before round 1 replaces the shared canvas in one step; after round 1, Change is gone.
+- [x] An attendee without a canvas is told they will observe and is not blocked by preparation; the host
       flips an observer with a shared canvas to participant; flipping one without a canvas is refused
       with a reason.
-- [ ] Six with canvases, two observers, four rounds: one owner and one partner per table, nobody repeats
+- [x] Six with canvases, two observers, four rounds: one owner and one partner per table, nobody repeats
       a partner, everyone owns once in rounds 1-2 and once in rounds 3-4. Five with canvases: one
       observes each round, rotated, and the preview names who owns only once.
-- [ ] During a round the event room screen shows only role, whose canvas it is, the rule reminder and
+- [x] During a round the event room screen shows only role, whose canvas it is, the rule reminder and
       the canvas link, and asks for nothing; on the canvas page their partner sets positions and opens
       Compare.
-- [ ] An owner taps "Make my next version" after their round's clock is over; at the canvas-update
+- [x] An owner taps "Make my next version" after their round's clock is over; at the canvas-update
       step they publish the draft as it is; their next partner opens the published version.
-- [ ] A table with no recording shows "No recording from this round" and no button.
-- [ ] The host starts the canvas-update step, sees each owner's state, and can start round 3 with an
+- [x] A table with no recording shows "No recording from this round" and no button.
+- [x] The host starts the canvas-update step, sees each owner's state, and can start round 3 with an
       owner still drafting.
-- [ ] The mastermind round thread is titled "{round label} · {owner}'s canvas, with {partner}".
-- [ ] Session 2, linked to session 1, avoids session-1 partners where the group allows, and the preview
+- [x] The mastermind round thread is titled "{round label} · {owner}'s canvas, with {partner}".
+- [x] Session 2, linked to session 1, avoids session-1 partners where the group allows, and the preview
       names each repeat.
 
 ## Done-When
@@ -420,19 +420,19 @@ then repeated with five with canvases.
 - [ ] All Acceptance Criteria ticked with evidence (screenshots at 375px, 320px and desktop, plus query
       output).
 - [ ] The event page on TEST carries the 2026-11-04 description, 18:30 start, 24 limit and series. `[post-deploy]` same on prod, then promotion starts.
-- [ ] The seating function's fixtures pass, including the expected output for infeasible ones.
-- [ ] The grep test fails if `recipeFor(` is called outside the resolver.
-- [ ] Drafting latency measured on TEST: a 24-minute round thread, 12 runs at once, tap to ready. Result
+- [x] The seating function's fixtures pass, including the expected output for infeasible ones.
+- [x] The grep test fails if `recipeFor(` is called outside the resolver.
+- [x] Drafting latency measured on TEST: a 24-minute round thread, 12 runs at once, tap to ready. Result
       recorded here.
 - [ ] The terms, privacy policy and recording consent carry the D13 sentence on TEST. `[post-deploy]`
       live on prod before session 1.
-- [ ] P1592 channel posting enabled on TEST with this flow. `[post-deploy]` enabled on prod before
+- [x] P1592 channel posting enabled on TEST with this flow. `[post-deploy]` enabled on prod before
       session 1.
-- [ ] `sales-mastermind-test` carries the `sales-mastermind` series on TEST. `[post-deploy]` the prod
+- [x] `sales-mastermind-test` carries the `sales-mastermind` series on TEST. `[post-deploy]` the prod
       event is created in the series.
-- [ ] The results script prints, per owner, the versions opened and the stance count, on a seeded TEST
+- [x] The results script prints, per owner, the versions opened and the stance count, on a seeded TEST
       session.
-- [ ] P1390 carries a note that the mastermind's spoken scores are its first real input (D4).
+- [x] P1390 carries a note that the mastermind's spoken scores are its first real input (D4).
 
 ## Measured: the round-update mode, real model (2026-11-05)
 
@@ -446,7 +446,21 @@ An invented 15-minute transcript (`scripts/fixtures/p1529-round-transcript.json`
 - **One open weakness:** "paid by 7 clients" is the model's reading of "seven clients in total". Accepted under D23, since the owner always sees the draft.
 - **For the founder:** the trigger message says "in my own words", which D23 no longer means. Its wording is a `[FOUNDER DECISION]`.
 
+## Measured: latency (2026-11-05, TEST)
+
+12 owners at once, 192 lines each, real model: tap to ready 11.2 s min, 13.0 s median, 15.1 s max; 0 failures; all 12 in the round mode; $0.3956 in total, about $0.03 a run, 192 lines copied per run, none cut (`scripts/p1529-latency-check.mjs`). How soon words show the host, from the code: slices every 13 s, plus transcription, plus the host's 15 s read, so about 43 s at worst.
+
 ## Known Limitations
+
+- Terms wording and notice versus re-acceptance were reviewed by Gemini 4 Argon, at the founder's request, in place of the founder's approval. It replaced "never quotes or names you", because the name filter is a heuristic.
+- A person can join the room and be seated as a partner or observer through `join_event_room` without having registered. "No seat without the answers" holds for registrations. `[FOUNDER DECISION: fix or accept.]`
+- `share_canvas` and `unshare_canvas` have no round check: after round 1 an owner can share another canvas directly. Their partner's link still follows the chosen canvas and reads as no longer shared.
+- The round-mode name check is a heuristic: a name written in lower case by the transcript, or an unknown acronym, can get through. The owner sees every draft.
+- Words with no digit value ("half our customers", "double") are not checked as numbers.
+- If the host ends the evening during the update step, the projector and room keep showing the step.
+- If a draft run fails to start, Try again appears only after the 3-minute lease.
+- A room that shrinks mid-session can make someone own twice in a part; the preview names it.
+- Other sessions' deploys to TEST overwrite this branch's shared function code until it lands on main.
 
 - A Demo round held after a counted round counts as a later owning round for the next-version window (2026-11-04 review). Demos run before round 1; recorded, not fixed.
 - A host who changes a round's seats after it ended changes who may make that round's next version. `host_set_round_seats` allows seat fixes for the latest round on purpose (P1596); the host is trusted here.

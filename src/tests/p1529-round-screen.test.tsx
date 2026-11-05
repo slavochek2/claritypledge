@@ -194,6 +194,17 @@ describe('P1529 round screen: the canvas link', () => {
     expect(screen.queryByTestId('round-canvas-link')).toBeNull();
   });
 
+  it('a failed read of the canvas says so with a Retry, and Retry brings the link back', async () => {
+    h.getMyRoundCanvas.mockRejectedValueOnce(new Error('offline'));
+    renderCard(PARTNER);
+    expect((await screen.findByTestId('round-canvas-error')).textContent).toMatch(/Could not load this Clarity Canvas/);
+    expect(screen.queryByTestId('round-canvas-link')).toBeNull();
+    expect(screen.queryByTestId('round-canvas-unshared')).toBeNull();
+    fireEvent.click(screen.getByTestId('round-canvas-retry'));
+    expect(((await screen.findByTestId('round-canvas-link')) as HTMLAnchorElement).getAttribute('href')).toBe('/p/haru/canvas/launch_plan');
+    expect(screen.queryByTestId('round-canvas-error')).toBeNull();
+  });
+
   it('an observer reaches their own canvas card from the room, collapsed until asked', async () => {
     renderCard(OBSERVER);
     const toggle = await screen.findByTestId('round-canvas-card-toggle');

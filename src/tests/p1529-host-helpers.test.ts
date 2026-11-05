@@ -29,6 +29,7 @@ describe('describeProblem names every rule with the people involved', () => {
     { rule: 'repeat-partner', people: ['x', 'y'] },
     { rule: 'owns-once', person: 'x', part: 'first' },
     { rule: 'owns-once', person: 'x', part: 'second' },
+    { rule: 'owns-twice', person: 'x', part: 'first' },
     { rule: 'observes-twice', person: 'x' },
     { rule: 'previous-session-partner', people: ['x', 'y'] },
     { rule: 'unseated', person: 'x' },
@@ -81,6 +82,14 @@ describe('checkMastermindSeats: what a given seating of one round breaks', () =>
   });
   it('names anyone with no seat', () => {
     expect(checkMastermindSeats(good.slice(0, 4), base)).toContainEqual({ rule: 'unseated', person: 'o1' });
+  });
+  it('names an owner who owns again in the same part, and only in rounds 1-4', () => {
+    const history = [[seat('h1', 1, 'first'), seat('h2', 1, 'second'), seat('h3', 2, 'first'), seat('h4', 2, 'second')]];
+    const round2 = [seat('h1', 1, 'first'), seat('h2', 1, 'second'), seat('h4', 2, 'first'), seat('h3', 2, 'second')];
+    expect(checkMastermindSeats(round2, { ...base, history })).toContainEqual({ rule: 'owns-twice', person: 'h1', part: 'first' });
+    expect(checkMastermindSeats(round2, { ...base, history: [] }).some(p => p.rule === 'owns-twice')).toBe(false);
+    const six = Array.from({ length: 6 }, () => history[0] as Seat[]);
+    expect(checkMastermindSeats(round2, { ...base, history: six }).some(p => p.rule === 'owns-twice')).toBe(false);
   });
   it('names who cannot own once in a part when its last round (2 or 4) is seated without them', () => {
     const history = [[seat('h1', 1, 'first'), seat('h2', 1, 'second'), seat('h3', 2, 'first'), seat('h4', 2, 'second')]];

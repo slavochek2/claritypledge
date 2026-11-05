@@ -48,3 +48,17 @@ export async function registerForEvent(
   if (data === 'ok') invokeEventEmails('rsvp', event.id, profileId);
   return data as RegisterResult;
 }
+
+/**
+ * Whether the event of this link asks its questions before the seat, by the one flow resolver. The post-sign-up return uses it
+ * to send a new person to the registration step instead of trying a seat the server would refuse. The two imports are lazy:
+ * the sign-in page must not load the events' recipes until an event link is actually being returned to.
+ */
+export async function eventAsksBeforeSeat(slug: string): Promise<boolean> {
+  const [{ eventsService }, { recipeForEvent }] = await Promise.all([
+    import('./events-service'),
+    import('@/app/prototypes/events/series-recipes'),
+  ]);
+  const event = await eventsService.getEventBySlug(slug, { attendees: false });
+  return !!event && !!recipeForEvent(event).registrationQuestions;
+}

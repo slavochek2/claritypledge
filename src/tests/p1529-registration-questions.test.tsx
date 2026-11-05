@@ -34,6 +34,18 @@ describe('P1529 registration step', () => {
     expect(onSubmit).toHaveBeenCalledWith({ participation: 'observer', phone: 'other', hope: '', recordingAccepted: true });
   });
 
+  it('reopened after a cancel, the missing line is gone but the answers given are kept', () => {
+    const props = { datetime: '2026-11-14T11:30:00+00:00', timezone: 'Asia/Bangkok', busy: false, onCancel: vi.fn(), onSubmit: vi.fn() };
+    const { rerender } = render(<RegistrationQuestions open {...props} />);
+    fireEvent.click(screen.getByLabelText(/Observe/));
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    expect(screen.getByTestId('registration-missing').textContent).toMatch(/phone/);
+    rerender(<RegistrationQuestions open={false} {...props} />);
+    rerender(<RegistrationQuestions open {...props} />);
+    expect(screen.queryByTestId('registration-missing')).toBeNull();
+    expect((screen.getByLabelText(/Observe/) as HTMLInputElement).checked).toBe(true);
+  });
+
   it('shows places left only at 5 or fewer', () => {
     const { rerender, container } = render(<PlacesLeftLine left={6} />);
     expect(container.textContent).toBe('');

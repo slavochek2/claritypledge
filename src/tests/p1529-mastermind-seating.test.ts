@@ -129,6 +129,32 @@ describe('P1529 mastermind seating', () => {
     }
   });
 
+  it('two partners leaving after round 1 can make an owner own twice in rounds 1-2: the plan names that rule', () => {
+    const holders = people(6);
+    let named = 0;
+    for (let seed = 0; seed < 12; seed++) {
+      const r1 = planMastermindRound({ holders, observers: [], history: [], seed: `own-twice-${seed}` }).seats;
+      const owners1 = r1.filter(s => s.role === 'first').map(s => s.id);
+      const partner = r1.find(s => s.role === 'second')!.id;
+      // Only three owners and one partner are left: two tables, but only one person has not owned yet.
+      const plan = planMastermindRound({ holders: [...owners1, partner], observers: [], history: [r1], seed: `own-twice-${seed}` });
+      const again = plan.seats.filter(s => s.role === 'first' && owners1.includes(s.id)).map(s => s.id);
+      expect(again.length).toBeGreaterThan(0); // unavoidable with two tables
+      expect(plan.unmet.filter(u => u.rule === 'owns-twice').map(u => (u as { person: string }).person).sort()).toEqual([...again].sort());
+      named++;
+    }
+    expect(named).toBe(12);
+  });
+
+  it('owning twice is never reported in round 1, 3 or beyond the fourth round, where the promise does not apply', () => {
+    const plan = planMastermindRound({ holders: people(6), observers: [], history: [], seed: 'x' });
+    expect(plan.unmet.some(u => u.rule === 'owns-twice')).toBe(false);
+    const history: Seat[][] = [];
+    for (let r = 1; r <= 6; r++) history.push(planMastermindRound({ holders: people(6), observers: [], history, seed: 'six' }).seats);
+    const fifth = planMastermindRound({ holders: people(6), observers: [], history, seed: 'six' });
+    expect(fifth.unmet.some(u => u.rule === 'owns-twice')).toBe(false);
+  });
+
   it('someone leaving mid-session: later rounds simply seat those remaining', () => {
     const holders = people(8);
     const history: Seat[][] = [planMastermindRound({ holders, observers: [], history: [], seed: 'l' }).seats];

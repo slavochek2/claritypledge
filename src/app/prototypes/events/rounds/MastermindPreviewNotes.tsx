@@ -7,7 +7,7 @@
 import { seatKeys } from '@/app/data/event-rounds-service';
 import type { Seat } from '@/lib/round-grouping';
 import type { MastermindHost } from './use-mastermind-host';
-import { PLAN_OK_LINE, SWAP_RECHECK_NOTE, describeProblem } from './mastermind-host-helpers';
+import { PLAN_OK_LINE, PREVIOUS_UNREAD, SWAP_RECHECK_NOTE, describeProblem } from './mastermind-host-helpers';
 
 export function MastermindPreviewNotes({ roundNo, seats, ids, shuffle, host, name }: {
   roundNo: number;
@@ -23,9 +23,10 @@ export function MastermindPreviewNotes({ roundNo, seats, ids, shuffle, host, nam
   const problems = swapped ? host.check(seats, roundNo, ids) : plan.unmet;
   return (
     <div className="mt-3 text-sm" data-testid="mm-preview-notes" data-swapped={swapped ? 'true' : undefined}>
-      {problems.length === 0 ? (
+      {host.previousFailed && <p role="status" className="mb-2 text-muted-foreground" data-testid="mm-previous-unread">{PREVIOUS_UNREAD}</p>}
+      {problems.length === 0 && !host.previousFailed ? (
         <p className="text-green-700" data-testid="mm-preview-ok">{PLAN_OK_LINE}</p>
-      ) : (
+      ) : problems.length === 0 ? null : (
         <ul className="space-y-1" aria-label="Rules this seating breaks">
           {problems.map((p, i) => (
             <li key={i} className="flex gap-2" data-testid="mm-unmet" data-rule={p.rule}>

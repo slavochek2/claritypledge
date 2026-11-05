@@ -39,8 +39,9 @@ export function useRegistrationStep(opts: {
         toast.error("Couldn't register you. Please try again.");
       }
     } catch (err) {
+      // A lost session signs in again; anything else keeps the step open with the answers and says to try again.
       if (isSessionMismatch(err)) opts.onSessionLost();
-      else throw err;
+      else toast.error("Couldn't register you. Please try again.");
     } finally {
       setBusy(false);
     }

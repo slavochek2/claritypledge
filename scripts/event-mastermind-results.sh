@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # P1529: the sales mastermind's results for one event. Per Clarity Canvas owner: each version opened by each partner, per
-# round, and how many boxes their next versions changed that carry the owner's own stance (optional, so this counts who chose
-# to stand behind the mirror's changes, not a completion rate). The spoken numbers are not here: they stay in the round threads (P1390).
+# round, and how many POINTS their next versions created or reworded that carry the owner's own stance (optional, so this counts
+# who chose to stand behind the mirror's changes, not a completion rate). A point carried over unchanged from the earlier version
+# (a private copy of a legacy base point, `copied_from` set, made by no run) is not a change and is never counted. The spoken numbers are not here: they stay in the round threads (P1390).
 # Founder-only by construction: it reads through supabase-readonly-sql.py (read-only, no write authority).
 #
 # Usage:
@@ -38,19 +39,19 @@ opens AS (
    GROUP BY o.owner_id
 ),
 changed AS (
-  SELECT t.profile_id AS owner_id, count(DISTINCT cp.point_id) AS boxes,
+  SELECT t.profile_id AS owner_id, count(DISTINCT cp.point_id) AS points,
          count(DISTINCT cp.point_id) FILTER (WHERE pp.point_id IS NOT NULL) AS with_stance,
          count(DISTINCT t.draft_id) AS taps,
          count(DISTINCT t.draft_id) FILTER (WHERE d.state = 'published') AS published
     FROM public.event_next_version_taps t
     JOIN rounds rd ON rd.id = t.round_id
     JOIN public.canvas_drafts d ON d.id = t.draft_id
-    LEFT JOIN public.canvas_draft_points cp ON cp.draft_id = t.draft_id
+    LEFT JOIN public.canvas_draft_points cp ON cp.draft_id = t.draft_id AND cp.copied_from IS NULL
     LEFT JOIN public.point_positions pp ON pp.point_id = cp.point_id AND pp.user_id = t.profile_id
    GROUP BY t.profile_id
 )
 SELECT COALESCE(p.name, 'Deleted user') AS owner, COALESCE(c.taps, 0) AS taps, COALESCE(c.published, 0) AS published,
-       COALESCE(c.boxes, 0) AS boxes, COALESCE(c.with_stance, 0) AS with_stance, COALESCE(o.rows, '[]'::jsonb) AS opens
+       COALESCE(c.points, 0) AS points, COALESCE(c.with_stance, 0) AS with_stance, COALESCE(o.rows, '[]'::jsonb) AS opens
   FROM (SELECT ec.profile_id FROM public.event_canvases ec JOIN e ON e.id = ec.event_id) ow
   LEFT JOIN public.profiles p ON p.id = ow.profile_id
   LEFT JOIN changed c ON c.owner_id = ow.profile_id
@@ -66,7 +67,7 @@ if not isinstance(rows, list):
 print("%d Clarity Canvas owners" % len(rows))
 for r in rows:
     print()
-    print("%s: %s next versions asked, %s published; changed boxes with their own stance: %s of %s" % (clean(r["owner"]), r["taps"], r["published"], r["with_stance"], r["boxes"]))
+    print("%s: %s next versions asked, %s published; new or reworded points with their own stance: %s of %s" % (clean(r["owner"]), r["taps"], r["published"], r["with_stance"], r["points"]))
     if not r["opens"]:
         print("  no recorded opens")
     for o in r["opens"]:

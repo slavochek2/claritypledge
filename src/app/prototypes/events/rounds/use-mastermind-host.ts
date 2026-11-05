@@ -26,6 +26,7 @@ import { ROUNDS_POLL_MS, seatKeys, type EventRound, type RoundSeat } from '@/app
 import { planMastermindRound, type MastermindSeatingPlan } from '@/lib/mastermind-seating';
 import { checkMastermindSeats, type SeatingProblem } from '@/lib/mastermind-seating-check';
 import { countedRounds } from '@/lib/round-numbering';
+import { startVisiblePoll } from '@/lib/visible-poll';
 import type { Seat } from '@/lib/round-grouping';
 import type { EventRoomMember } from '@/app/types';
 import { eventFlow, type EventFlow, type FlowEvent } from '../series-recipes';
@@ -34,6 +35,8 @@ import { updateStepOn } from './mastermind-round-helpers';
 
 /** The same cadence as the page's "transcribing now" read: words can show this long after they are written, at most. */
 export const HOST_STATE_POLL_MS = 15_000;
+
+const visibleNow = () => document.visibilityState !== 'hidden';
 
 /** The event's effective flow. A switch the host just made applies at once; a reload reads the stored one. */
 export function useHostFlow(event: (FlowEvent & { id: string }) | null): { flow: EventFlow; choose: (flow: EventFlow) => void } {
@@ -52,6 +55,8 @@ export interface MastermindHost {
   ready: boolean;
   /** A read failed and what is shown may be old; null when all is well. */
   warning: string | null;
+  /** The previous session's partners could not be read: the plan runs without that rule, and the read is retried. */
+  previousFailed: boolean;
   personOf: (memberId: string) => MastermindPerson | undefined;
   recordingOf: (memberId: string) => RecordingState;
   /** A canvas is shared and the person was never an owner or partner in a counted round (D17). Only after round 1 starts. */
@@ -83,6 +88,7 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
   const [hostState, setHostState] = useState<Map<string, MastermindPerson> | null>(null);
   const [readAt, setReadAt] = useState(0);
   const [previous, setPrevious] = useState<[string, string][] | null>(null);
+  const [previousFailed, setPreviousFailed] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
   const [step, setStep] = useState<CanvasUpdateStep | null>(null);
   const [updateStates, setUpdateStates] = useState<Map<string, UpdateState>>(new Map());
@@ -101,19 +107,22 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
 
   useEffect(() => {
     if (!host || screen) return;
-    void refreshState();
-    const id = setInterval(() => void refreshState(), HOST_STATE_POLL_MS);
-    return () => clearInterval(id);
+    // Metered services rule 3: a hidden tab makes no request, and reads once when it is shown again.
+    if (visibleNow()) void refreshState();
+    return startVisiblePoll(() => void refreshState(), HOST_STATE_POLL_MS);
   }, [host, screen, refreshState]);
 
-  // The session this one continues: read once. A failed read plans without that rule and says so.
+  // The session this one continues: read until it answers. A failed read plans without that rule, says so, and tries again.
   useEffect(() => {
     if (!host || screen || !eventId) return;
     let cancelled = false;
-    getPreviousSessionPartners(eventId)
-      .then(pairs => { if (!cancelled) setPrevious(pairs); })
-      .catch(() => { if (!cancelled) setPrevious([]); });
-    return () => { cancelled = true; };
+    let stop = () => {};
+    const read = () => getPreviousSessionPartners(eventId)
+      .then(pairs => { if (cancelled) return; setPrevious(pairs); setPreviousFailed(false); stop(); })
+      .catch(() => { if (!cancelled) { setPrevious(p => p ?? []); setPreviousFailed(true); } });
+    if (visibleNow()) void read();
+    stop = startVisiblePoll(() => void read(), HOST_STATE_POLL_MS);
+    return () => { cancelled = true; stop(); };
   }, [host, screen, eventId]);
 
   const counted = countedRounds(rounds);
@@ -126,10 +135,9 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
   // trigger, reads it on the rounds' own cadence.
   useEffect(() => {
     if (!host || counted < 2) return;
-    void readStep();
+    if (visibleNow()) void readStep();
     if (!screen) return;
-    const id = setInterval(() => void readStep(), ROUNDS_POLL_MS);
-    return () => clearInterval(id);
+    return startVisiblePoll(() => void readStep(), ROUNDS_POLL_MS);
   }, [host, screen, counted, lastRound?.id, lastRound?.endedAt, readStep]);
 
   const stepOn = updateStepOn(step, rounds);
@@ -140,9 +148,9 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
     const read = () => getMastermindUpdateStates(eventId)
       .then(states => { if (!cancelled) setUpdateStates(states); })
       .catch(() => { /* keep what is shown */ });
-    void read();
-    const id = setInterval(read, ROUNDS_POLL_MS);
-    return () => { cancelled = true; clearInterval(id); };
+    if (visibleNow()) void read();
+    const stop = startVisiblePoll(() => void read(), ROUNDS_POLL_MS);
+    return () => { cancelled = true; stop(); };
   }, [host, screen, stepOn, eventId]);
 
   const byMember = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
@@ -241,7 +249,7 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
   }, [eventId, readStep]);
 
   return {
-    active, ready: !!hostState && previous !== null, warning, personOf, recordingOf, isReady, setObserver, plan, check, guardOpen,
+    active, ready: !!hostState && previous !== null, warning, previousFailed, personOf, recordingOf, isReady, setObserver, plan, check, guardOpen,
     step, stepOn, updateStates, startUpdate,
   };
 }

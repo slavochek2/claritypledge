@@ -5,8 +5,8 @@
  *
  * This looks at THIS round only: repeat partners, partners from the session this one continues, a Clarity Canvas owner
  * with no canvas (the server refuses that one at Start), a canvas holder observing twice, people with no seat, too few
- * canvases, and the one forward-looking rule that is certain by now: nobody can still own in a part once its last round
- * (2 or 4) is seated. What the LATER rounds will break is only known to the planner, so it is not recomputed here.
+ * canvases, an owner who owns again in a part, and the one forward-looking rule that is certain by now: nobody can still
+ * own in a part once its last round (2 or 4) is seated. What the LATER rounds will break is only known to the planner, so it is not recomputed here.
  */
 import {
   RECOMMENDED_MIN_CANVASES,
@@ -50,6 +50,14 @@ function ownsOnceProblems(seats: Seat[], input: SeatingCheckInput, ownedByPart: 
   return input.holders.filter(h => !ownedByPart[part].has(h) && !owningNow.has(h)).map(person => ({ rule: 'owns-once' as const, person, part }));
 }
 
+/** Owning again in a part already owned in (rounds 1-4 only: past the fourth round there is no owning promise). */
+function ownsTwiceProblems(seats: Seat[], input: SeatingCheckInput, ownedByPart: ReturnType<typeof tallyHistory>['ownedByPart']): SeatingProblem[] {
+  const roundNo = input.history.length + 1;
+  if (roundNo > 4) return [];
+  const part = half(roundNo);
+  return seats.filter(s => s.role === 'first' && ownedByPart[part].has(s.id)).map(s => ({ rule: 'owns-twice' as const, person: s.id, part }));
+}
+
 export function checkMastermindSeats(seats: Seat[], input: SeatingCheckInput): SeatingProblem[] {
   const tally = tallyHistory(input.history);
   const previous = new Set((input.previousPartners ?? []).map(([a, b]) => key(a, b)));
@@ -63,5 +71,6 @@ export function checkMastermindSeats(seats: Seat[], input: SeatingCheckInput): S
     ...[...tables.values()].flatMap(t => tableProblems(t, holders, tally.met, previous)),
     ...seats.filter(s => s.role === 'observer' && holders.has(s.id) && (tally.sitOuts.get(s.id) ?? 0) > 0).map(s => ({ rule: 'observes-twice' as const, person: s.id })),
     ...ownsOnceProblems(seats, input, tally.ownedByPart),
+    ...ownsTwiceProblems(seats, input, tally.ownedByPart),
   ];
 }

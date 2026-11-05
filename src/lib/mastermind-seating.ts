@@ -36,6 +36,8 @@ export interface MastermindSeatingInput {
 export type UnmetRule =
   | { rule: 'repeat-partner'; people: [string, string] }
   | { rule: 'owns-once'; person: string; part: 'first' | 'second' }
+  /** Owns again in the same part (rounds 1-2 or 3-4): the room shrank, and fewer unowned people are left than tables to run. */
+  | { rule: 'owns-twice'; person: string; part: 'first' | 'second' }
   | { rule: 'observes-twice'; person: string }
   | { rule: 'previous-session-partner'; people: [string, string] }
   | { rule: 'unseated'; person: string }
@@ -266,6 +268,7 @@ function namedBreaks(start: Tally, plan: PlannedRound[], roundNo: number, holder
   for (const [o, p] of round.pairs) {
     if (start.met.has(key(o, p))) unmet.push({ rule: 'repeat-partner', people: [o, p] });
     if (previous.has(key(o, p))) unmet.push({ rule: 'previous-session-partner', people: [o, p] });
+    if (roundNo <= ROUNDS_IN_SESSION && start.ownedByPart[half(roundNo)].has(o)) unmet.push({ rule: 'owns-twice', person: o, part: half(roundNo) });
   }
   for (const s of round.sitOut) if ((start.sitOuts.get(s) ?? 0) > 0) unmet.push({ rule: 'observes-twice', person: s });
   let t = start;
