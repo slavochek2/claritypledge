@@ -886,7 +886,9 @@ Usage page through the signed-in Chrome session. Load the Chrome tools with Tool
    into the Supabase source of the Monitoring tab; an organisation that gave no rows shows there as "not read today", never as fine.
 3. Record the check, worst organisation winning: `problem` over `not-run` over `ok`. **Every organisation
    with projects must be read**: if any one gave no rows, the check is `not-run` (unless another is
-   `problem`) and the detail names it, because a quiet organisation must never hide an unreadable one:
+   `problem`) and the detail names it, because a quiet organisation must never hide an unreadable one.
+   Record the check only after the usage file is written for every organisation: a check recorded
+   without it is shown as not run, whatever figures it carries:
 ```bash
 "$DAY_STEP" check cp.quota <ok|problem|not-run> --detail "<the USAGE: detail>" --step cp.w2q
 ```

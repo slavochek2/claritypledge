@@ -5,6 +5,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
 import { buildView, daysOpen, parseDecisions, parseReport, traceOf, type DayReport } from '../../src/lib/day'
+import { supabaseGauges } from '../../src/components/day/freePlan'
 import { cleanStepLabel, fileIdOf, firstSeen, readSidecar, renderCard, run } from '../../scripts/day-render'
 
 /**
@@ -1210,5 +1211,59 @@ describe('P1468: Goals — docs/goals.md `## Next Steps`, parsed at render time 
     const g = parseReport({ ...base, goal: long, goals: [] })
     const goal = g.kind === 'ok' ? g.report.goal ?? '' : ''
     expect(goal).toBe(text)
+  })
+})
+
+describe('day-render: P1629 the quota check and the Supabase card agree', () => {
+  const sbOf = (collected: boolean) => ({ supabase: collected ? { collected: true, orgs: [{ id: 'o', metrics: [{ label: 'Egress', used: '1', limit: '5', pct: 20, over: false }] }] } : { collected: false, orgs: [] } })
+  const withQuota = (status: string, detail: string, monitoring?: unknown) => {
+    const body = [...cleanBody(w), check('cp.quota', status, 'cp.w3', detail, 'agent')]
+    if (monitoring !== undefined) {
+      writeData(w, 'monitoring', monitoring)
+      body.push(data('monitoring'))
+    }
+    writeLedger(w, body)
+    return render(w, 'end')
+  }
+
+  it('an ok check with usage not saved is not run, and the gauges say not read', () => {
+    const { report, out } = withQuota('ok', '3 organisations under 80%', sbOf(false))
+    expect(byId(report, 'cp.quota')?.status).toBe('not-run')
+    expect(byId(report, 'cp.quota')?.detail).toMatch(/not saved for this run/)
+    expect(byId(report, 'cp.quota')?.detail).toMatch(/3 organisations under 80%/)
+    expect(supabaseGauges(report!.monitoring?.supabase, []).read).toBe(false)
+    expect(out).toMatch(/1 failed to run/)
+  })
+
+  it('a problem check with agent-reported figures and usage not saved is not run, figures kept', () => {
+    const { report } = withQuota('problem', 'Egress 120%', sbOf(false))
+    expect(byId(report, 'cp.quota')?.status).toBe('not-run')
+    expect(byId(report, 'cp.quota')?.detail).toMatch(/Egress 120%/)
+  })
+
+  it('collected usage leaves the check and the card as they were', () => {
+    const { report } = withQuota('ok', 'Egress 20%', sbOf(true))
+    expect(byId(report, 'cp.quota')).toMatchObject({ status: 'ok', detail: 'agent-reported: Egress 20%' })
+    expect(supabaseGauges(report!.monitoring?.supabase, []).read).toBe(true)
+    expect(supabaseGauges(report!.monitoring?.supabase, []).rows[0]).toMatchObject({ label: 'Egress', pct: 20 })
+  })
+
+  it('written quota findings plus a not-run check: the finding stays, marked urgent, with no second card for the check', () => {
+    const hex = hexOf('cp.quota', 'quota:o:egress')
+    const body = [...cleanBody(w), check('cp.quota', 'problem', 'cp.w3', 'Egress 120%', 'agent'), find('cp.quota', 'high', hex, 'Egress over limit')]
+    writeData(w, 'monitoring', sbOf(false))
+    writeLedger(w, [...body, data('monitoring')])
+    writeFinding(w, hex, 'Egress 120%')
+    const { report } = render(w, 'end')
+    expect(byId(report, 'cp.quota')?.status).toBe('not-run')
+    const issues = buildView(report!, [], []).issues.filter((i) => i.check === 'cp.quota' || i.fp === 'check:cp.quota' || i.fp.includes('cp.quota'))
+    expect(issues).toHaveLength(1)
+    expect(issues[0].urgent).toBe(true)
+  })
+
+  it('monitoring without a Supabase source, or collected with no figures, is not run; no monitoring at all is unchanged', () => {
+    expect(byId(withQuota('ok', 'Egress 20%', { quotas: [] }).report, 'cp.quota')?.status).toBe('not-run')
+    expect(byId(withQuota('ok', 'Egress 20%', { supabase: { collected: true, orgs: [] } }).report, 'cp.quota')?.status).toBe('not-run')
+    expect(byId(withQuota('ok', 'Egress 20%').report, 'cp.quota')).toMatchObject({ status: 'ok', detail: 'agent-reported: Egress 20%' })
   })
 })

@@ -242,9 +242,13 @@ control "Phase D: a reading's note link must be ID-shaped" "a reading keeps its 
   src/lib/day.ts 's/typeof note === .string. && ID\.test\(note\)/typeof note === "string"/'
 # 5. subscriptions history
 control "Phase D: quota history has a lower bound (the previous window is out)" "window — " \
-  src/lib/day.ts 's/t < resets - WEEK \|\| t > end/t > end/'
+  src/lib/day.ts 's/t < resets - WEEK && !sameWindow/false/'
 control "Phase D: quota history has an upper bound (a later run is out)" "window — " \
-  src/lib/day.ts 's/t < resets - WEEK \|\| t > end/t < resets - WEEK/'
+  src/lib/day.ts 's/if \(t > end\) continue/if (false) continue/'
+control "P1629: a same-resets reading counts whatever its time" "draws a projection" \
+  src/lib/day.ts 's/ && !sameWindow//' server/__tests__/day-p1629.test.ts
+control "P1629: a quota check with usage not saved is not run" "P1629 the quota check" \
+  $D "s/c\.id === 'cp\.quota' && //" $R
 control "Phase D: an uncollected quota has no history" "uncollected quotas and readings are skipped" \
   src/lib/day.ts 's/!q\.collected \|\| //'
 control "Phase D: the run route carries the quota history" "SUBSCRIPTIONS" \

@@ -1,13 +1,13 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 100.0
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [day, kanban, monitoring]
 disclosure: public
-delivery_stage: reproduce
-pipeline_ran: [create-spec, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-spec, reproduce, fix]
 reproduce_artifact:
   test_file: tools/kanban/server/__tests__/day-p1629.test.ts
   root_cause: "quotaHistory filters on started_at against resets_at - 7d, dropping a same-window reading; cp.quota can be recorded by hand (agent-reported) without the parser output, and nothing reconciles the check with monitoring.supabase"
@@ -56,11 +56,15 @@ Blast radius: one page and one `/day` step. Reversibility: git revert. Decision 
 
 ## Acceptance Criteria
 
-- [ ] A fixture of the 2026-11-04 and 2026-11-05 readings draws a Claude projection, and the test fails with the fix reverted
-- [ ] A reading from the previous reset window is still excluded
-- [ ] A run that does not refresh the usage file shows the Supabase check as not run, and the card says not collected
-- [ ] A normal run shows matching figures in the check and the card
-- [ ] Verified in a browser on the Day page at desktop, 375px and 320px
+- [x] A fixture of the 2026-11-04 and 2026-11-05 readings draws a Claude projection, and the test fails with the fix reverted
+- [x] A reading from the previous reset window is still excluded
+- [x] A run that does not refresh the usage file shows the Supabase check as not run, and the card says not collected
+- [x] A normal run shows matching figures in the check and the card
+- [x] Verified in a browser on the Day page at desktop, 375px and 320px
+
+## Resolution
+
+A reading with the same `resets_at`, within 60 seconds because Codex reports one window a second apart, counts whatever its time. `day-render.ts` marks `cp.quota` not run when monitoring has no usable Supabase figures. `day.md` rejects a usage file older than this pass. Evidence: 9 P1629 tests, two mutation controls went red, and the real 2026-11-05 report shows Claude's projection and "not read today" at desktop, 375px and 320px. Codex's single reading after its reset stays the accepted no-projection case.
 
 ## Related
 

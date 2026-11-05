@@ -2340,11 +2340,14 @@ export function buildPrompt(
 // Subscriptions history.
 
 const WEEK = 7 * 24 * HOUR
+/** Codex reports one window's reset up to a second apart (07:36:11, then 07:36:12). */
+const RESET_JITTER_MS = 60_000
 
 /**
  * For each quota of `run` that was collected and has a reset time: the readings of that quota from
- * every report whose start falls in [resets_at − 7 days, this run's start], oldest first, this run
- * included once. A quota or a reading that was not collected is skipped, never drawn as 0.
+ * every report whose start falls in [resets_at − 7 days, this run's start], or whose reading carries
+ * this same resets_at (within a minute) whatever its start (P1629: a run just before the window opens is still the
+ * same window), oldest first, this run included once. Readings after this run's start stay out. A quota or a reading that was not collected is skipped, never drawn as 0.
  * `reports` may or may not contain `run` itself.
  */
 export function quotaHistory(run: DayReport, reports: DayReport[]): Record<string, { at: string; remaining_pct: number }[]> {
@@ -2359,8 +2362,10 @@ export function quotaHistory(run: DayReport, reports: DayReport[]): Record<strin
     if (!q.collected || !Number.isFinite(resets)) continue
     const points: { at: string; remaining_pct: number }[] = []
     for (const { r, t } of all) {
-      if (t < resets - WEEK || t > end) continue
+      if (t > end) continue
       const reading = r.monitoring?.quotas?.find((x) => x.id === q.id)
+      const sameWindow = !!reading?.resets_at && Math.abs(Date.parse(reading.resets_at) - resets) <= RESET_JITTER_MS
+      if (t < resets - WEEK && !sameWindow) continue
       if (reading?.collected === true && typeof reading.remaining_pct === 'number' && Number.isFinite(reading.remaining_pct)) {
         points.push({ at: r.started_at, remaining_pct: reading.remaining_pct })
       }

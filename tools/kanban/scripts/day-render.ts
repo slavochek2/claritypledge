@@ -682,6 +682,22 @@ export function buildReportDetailed(inp: RenderInputs): { report: DayReport; pla
     else extra.push({ id: `day.data.${section}`, ...runProblem(`Daily data: ${section}`, 'could not be read') })
   }
 
+  // P1629: a quota check that reports figures while the usage file was not saved for this run
+  // contradicts the Supabase card, which says not read. The check counts as not run; the agent's
+  // figures stay in its detail.
+  // Usable means what the card can show: an organisation with figures. Monitoring not written at all = an
+  // earlier phase of the run: unchanged.
+  const mon = data.monitoring as DayReport['monitoring'] | undefined
+  const usable = mon?.supabase?.collected === true && (mon.supabase.orgs ?? []).some((o) => (o.metrics ?? []).length > 0)
+  if (mon && !usable) {
+    for (const c of checks) {
+      if (c.id === 'cp.quota' && (c.status === 'ok' || c.status === 'problem')) {
+        c.status = 'not-run'
+        c.detail = `the usage figures were not saved for this run, so this check counts as not run${c.detail ? `. ${c.detail}` : ''}`
+      }
+    }
+  }
+
   const startedAt = ledger.header.started_at ?? ''
   const steps = registries.lists.flatMap((l) => l.steps)
   const needsYes = new Set(registries.lists.flatMap((l) => l.checks.filter((rc) => rc.needs_yes).map((rc) => rc.id)))
