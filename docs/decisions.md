@@ -65,6 +65,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 
 
+## 2026-11-05 [process]: Never wait for a reviewer's quota reset; spec review and Sonnet building run by default (P1634)
+
+**Context:** The founder kept typing the review roster and the build mode into sessions. Spec review had no owner, subagent building fired only on a section nothing writes, the review gate could not see subagent edits, and work waited on Codex resets.
+**Decision:** A reviewer out of quota is named missing and the work continues, unless the founder says to wait for specific work. This supersedes the practice recorded 2026-10-14. If neither Gemini nor Codex can run, nothing is stamped and the founder is told at once. `/create-spec` owns the spec review roster and stamps a body hash; `/dev` and `/fix` review once if it is missing or stale. `/dev` and `/fix` build through Sonnet subagents for mechanical work and keep judgment-bearing work on the main model. The Stop gate reads subagent transcripts, and a scan that cannot finish blocks once per session.
+**Alternatives rejected:** a roster table alone (cannot say whether this version was reviewed); reviewers chosen by live quota (deadlocks, and reads another harness's quota); a per-reviewer findings ledger (rewards noisy reviewers).
+**Consequences:** Dispatching a builder no longer counts as visual evidence in the re-edit hook, which it silently did. Shell edits stay invisible to the gate, so builder briefs require Edit and Write; this session's own builder had used a heredoc. Known limits are listed in the spec.
+**References:** [P1634](../features/p1634_default_build_and_review_roster.md)
+
 ## 2026-11-05 [technical]: TEST's job hand-off uses its own queue and accounts; pre-commit tests what is staged (P1626)
 
 **Context:** Self-hosted TEST jobs never reached the worker, and nothing ran the worker's Python tests before a commit. This resolves the proposal in the "Audio chunk timing" entry below.

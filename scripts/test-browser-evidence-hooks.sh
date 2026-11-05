@@ -66,6 +66,16 @@ write_transcript "$T" \
 actual=0; run_reedit_hook "$T" || actual=$?
 check "reedit: block with no evidence tool" 2 "$actual"
 
+B="$TMP/reedit-builder.jsonl"; write_transcript "$B" '{"type":"user","message":{"content":"I still don'"'"'t see it"}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Agent","input":{"description":"Build the wiring","prompt":"Edit the files"}}]}}'
+actual=0; run_reedit_hook "$B" || actual=$?; check "reedit: dispatching a builder is not evidence" 2 "$actual"
+Q="$TMP/reedit-qa.jsonl"; write_transcript "$Q" '{"type":"user","message":{"content":"I still don'"'"'t see it"}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Agent","input":{"description":"Visual QA of screenshots","prompt":"Check them"}}]}}'
+actual=0; run_reedit_hook "$Q" || actual=$?; check "reedit: a visual QA subagent is evidence" 0 "$actual"
+echo "[reedit] same complaint, called inside a subagent -> PASS (P1634)"
+actual=0; echo "{\"agent_id\":\"a1\",\"tool_input\":{\"file_path\":\"src/app/pages/feed-page.tsx\"},\"transcript_path\":\"$T\"}" | python3 "$REEDIT_HOOK" >/dev/null 2>&1 || actual=$?
+check "reedit: a subagent is not blocked by the parent's transcript" 0 "$actual"
+actual=0; echo "{\"agent_id\":\"\",\"tool_input\":{\"file_path\":\"src/app/pages/feed-page.tsx\"},\"transcript_path\":\"$T\"}" | python3 "$REEDIT_HOOK" >/dev/null 2>&1 || actual=$?
+check "reedit: an empty agent_id is the main session" 2 "$actual"
+
 for prefix in "mcp__claude-in-chrome__navigate" "mcp__chrome-devtools__take_screenshot" "mcp__playwright__browser_navigate"; do
   echo "[reedit] complaint, then $prefix -> PASS"
   T="$TMP/reedit-pass-$prefix.jsonl"

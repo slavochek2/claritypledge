@@ -10,8 +10,8 @@ confidently tell.
 visual-qa.md's own process spawns a SEPARATE SUBAGENT for visual QA (so the
 implementer doesn't grade its own screenshot) — that subagent's tool calls
 live in a different transcript this hook can't see. So a direct screenshot
-tool call OR an Agent/Task delegation (the visible signal of that subagent
-being spawned) both count as evidence.
+tool call OR an Agent/Task delegation whose brief names visual QA or a screenshot
+both count as evidence.
 """
 import json
 import os
@@ -36,6 +36,7 @@ NOT_SEEING_RE = re.compile(
 UI_PATH_RE = re.compile(r"\.(tsx|jsx|css)$")
 EVIDENCE_TOOL_PREFIXES = BROWSER_TOOL_PREFIXES
 EVIDENCE_TOOL_NAMES = ("Agent", "Task")
+VISUAL_QA_RE = re.compile(r"visual[ -]?qa|screenshot|visual review", re.IGNORECASE)
 
 
 def load_input():
@@ -45,14 +46,22 @@ def load_input():
         return {}
 
 
-def is_evidence_tool(name):
+def is_evidence_tool(tu):
+    """A browser tool, or a subagent dispatched for visual QA. /dev dispatches builders by default
+    (P1634), so a bare Agent call no longer proves anyone looked at the page."""
+    name = tu.get("name", "")
     if name in EVIDENCE_TOOL_NAMES:
-        return True
+        inp = tu.get("input") or {}
+        return bool(VISUAL_QA_RE.search(f"{inp.get('description', '')} {inp.get('prompt', '')}"))
     return any(name == p or name.startswith(p) for p in EVIDENCE_TOOL_PREFIXES)
 
 
 def main():
     data = load_input()
+    # Inside a subagent the transcript is the parent's, so the founder's words and the evidence
+    # both sit where the subagent cannot act on them (decisions.md 2026-10-16; P1634).
+    if data.get("agent_id"):
+        sys.exit(0)
     tool_input = data.get("tool_input") or {}
     file_path = tool_input.get("file_path") or tool_input.get("path") or ""
     if not UI_PATH_RE.search(file_path):
@@ -78,7 +87,7 @@ def main():
                 evidence_after_flag = False
         elif etype == "assistant" and flagged:
             for tu in extract_tool_uses(content):
-                if is_evidence_tool(tu.get("name", "")):
+                if is_evidence_tool(tu):
                     evidence_after_flag = True
 
     if not flagged or evidence_after_flag:
