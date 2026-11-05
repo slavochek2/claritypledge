@@ -114,6 +114,8 @@ export function useBoxEditor(tag: CanvasBoxTag, points: PointWithUserPosition[] 
     if (!selected) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented || document.activeElement !== document.body) return;
+      // The point panel makes the page inert, and a dialog sits above it: this Escape is theirs.
+      if (titleRef.current?.closest('[inert]') || document.querySelector('[role="dialog"]')) return;
       e.preventDefault();
       onDeselect();
       titleRef.current?.focus();
