@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 94
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [privacy, push, performance, scanner]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-05
 ---
 
 # P1617: Privacy scan cost grows faster than the patch, so a big push takes hours
@@ -44,7 +44,7 @@ Blast radius: high. This is the privacy boundary for every commit and push, and 
 - **Same verdict, same bytes.** For any input the filter accepts, its output must be byte-identical to the current filter's, including where a reader might think the current behaviour is wrong. Changing what the scanner catches is separate work.
 - **The filter fails closed on both sides.** If it does not read all of its input, or does not finish, the scanner exits non-zero with its own code (3). An empty result must never read as "nothing to scan". The script runs without `set -e` (line 9), so this will not happen by default. This covers the filter only: failures earlier in the script are tracked separately.
 - **Exit codes stay distinct.** 0 clean, 1 hits, 2 bad input, 3 filter failure. The script header documents all four.
-- **The scan stays ahead of the push waiver.** Push-enable cannot bypass privacy ([decisions.md](../docs/decisions.md) 2026-04-18).
+- **The scan stays ahead of the push waiver.** Push-enable cannot bypass privacy ([decisions.md](../../../docs/decisions.md) 2026-04-18).
 - **CI keeps running `origin/main`'s scanner, never the pushed copy** (`.github/workflows/privacy-scan.yml`, design notes and line 76; P919).
 
 ## Solution
@@ -133,4 +133,4 @@ Recommend the indexed array over the function-and-sentinel design because of run
 
 ## Related
 
-Scanner history: P919 (server-side check and canary), P936 (third-party email), P1260 (publish-then-scan, ref class), P1438 (known names), P1526 (push gates). Promoted from the 2026-11-04 big-push review. Detection coverage was measured separately and stays out of scope here ([decisions.md](../docs/decisions.md) 2026-09-07).
+Scanner history: P919 (server-side check and canary), P936 (third-party email), P1260 (publish-then-scan, ref class), P1438 (known names), P1526 (push gates). Promoted from the 2026-11-04 big-push review. Detection coverage was measured separately and stays out of scope here ([decisions.md](../../../docs/decisions.md) 2026-09-07).
