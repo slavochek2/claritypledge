@@ -400,6 +400,8 @@ Test proves bug exists. Ready to fix.
 
 **Goal:** Fix the bug without breaking other functionality
 
+**Who writes it (P1634):** follow "Who Builds" in `.claude/commands/slava/build/dev.md`. Sonnet subagents write mechanical changes, the main model writes judgment-bearing ones, and the main session verifies and commits. An edit small enough that briefing costs more stays inline, which covers most one-cause fixes.
+
 **Migration pre-flight (P270 rule):** Before writing any fix code, check if this bug requires a new migration:
 ```bash
 ls supabase/migrations/ | tail -5   # does a new .sql file need to be created?

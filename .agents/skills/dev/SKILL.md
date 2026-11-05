@@ -11,22 +11,25 @@ Execute a development task with TDD discipline and production thinking.
 
 > **Principle:** Write code you'd be proud to debug at 3am. Today's shortcut is tomorrow's incident.
 
-## Orchestrator Mode (when task manifest exists)
+## Who Builds (P1634)
 
-If the spec contains `## Implementation Tasks`, /dev operates as an orchestrator (legacy: `## Implementation Tasks` is written only by the archived `/decompose`, so only older specs carry it):
+The main session plans, dispatches, verifies and commits. It does not write mechanical code itself. An explicit founder instruction in the session wins over this default. Where this file says the agent implements, fills in tests or iterates on failures, read that as this section's split: the main session hands failures back to the subagent or fixes them inline under the same rule.
 
-1. Read ONLY the `## Implementation Tasks` section (not the full spec)
-2. Find all unchecked tasks: `- [ ] Complete`
-3. For each unchecked task in dependency order:
-   a. Spawn a subagent (`model: "sonnet"`) with: task title + files list + spec refs (read only those lines from the spec, not the full file)
-   b. Subagent implements the task and runs its verification step
-   c. On success: mark `- [x] Complete` in the spec
-   d. Commit the task's changes before moving to next task
-4. After all tasks complete, run the full test suite (`npm test && npm run test:e2e`)
+- **Sonnet subagents** (`model: "sonnet"`) write mechanical code: wiring, renames, tests from a settled design, multi-file edits where models converge.
+- **The main model** writes judgment-bearing work: skill bodies, prompts, gates. Decide by the trap in `~/.claude/commands/recommend-model-effort.md`, read at dispatch time, never by whether a spec exists. If that file cannot be read, the work stays on the main model.
+- **Inline:** an edit small enough that briefing a subagent costs more than making it.
 
-**Parallelization:** Tasks listed under "Can parallelize" in the manifest summary can be dispatched simultaneously as concurrent subagents.
+Every brief must state:
+- the absolute working directory, since a subagent does not inherit a worktree
+- the files in scope, the spec lines that govern them, and the check to run
+- copy enumerated values from the spec verbatim, and fix code rather than tests
+- **use the Edit and Write tools for file changes, never a shell heredoc or `sed`.** The review gate reads tool calls and cannot see shell edits
+- never commit (`.claude/rules/git.md`). The main session runs `git add` on the named files itself before committing, since a subagent's staging may not reach its index
+- write the report to a file and return its path (`.claude/rules/skills.md`, Subagent I/O)
 
-If no `## Implementation Tasks` section exists, use standard /dev behavior (instructions below).
+After each subagent: state `<reports received> of <spawned>`, re-run its check yourself and read its diff (epistemic gates 9 and 9b). A silent agent means do the work inline, not spawn more.
+
+After the founder reports not seeing a UI change, the main session takes the screenshot before any builder is dispatched on that file. Dispatching does not count as checking.
 
 ---
 
