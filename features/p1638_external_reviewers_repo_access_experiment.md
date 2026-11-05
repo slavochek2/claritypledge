@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: comment
 rank: 107
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [reviewers, finish, harness, experiment]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -45,7 +45,7 @@ Blast radius: a test script, a test-only sandbox and a scratch directory; no liv
 
 ### Benchmark
 
-Twelve cases, fixed in a committed manifest before any scored run:
+Twelve cases, fixed in a committed manifest ([docs/audits/p1638-benchmark-manifest.json](../docs/audits/p1638-benchmark-manifest.json)) before any scored run:
 
 - **6 cross-file defects:** the defect cannot be established from the diff alone. Record for each whether the evidence is inside a changed file or only in an unchanged one. At least 3 must be the first kind, so C has a fair chance, and at least 2 the second. Report C on each subset.
 - **3 diff-visible defects:** so a loss of diff-only strength shows up.
