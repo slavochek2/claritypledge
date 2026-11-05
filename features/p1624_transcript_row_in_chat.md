@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -136,17 +136,17 @@ Runtime: no new write, table or background job. Each person's reply in a session
 
 ## Acceptance Criteria
 
-- [ ] A finished session shows the icon, "Transcript", the muted date and time, and "Open transcript", with no "1 reply" when only transcript text is in the thread.
-- [ ] Clicking or keyboard-activating the row's content area opens the thread, and Reply, Forward, Thread and Clarify are still available on it.
-- [ ] The thread panel, chat list preview and search still show the same transcript title as before.
-- [ ] After a person replies, the row shows that reply's count and face, and transcript text adds nothing to it, including live without a reload.
-- [ ] "Part 2" and incomplete sessions show their suffix, with no overflow at 320px.
-- [ ] Reviewed at 375px, 320px, desktop and dark mode, including hover and focus.
-- [ ] Round and table thread rows still show their current count and still open.
-- [ ] Surfaces not in scope are visually unchanged.
-- [ ] All existing P1604 tests still pass.
-- [ ] Regression: a session root with transcript text only can be opened, and shows no reply count.
+- [x] A finished session shows the icon, "Transcript", the muted date and time, and "Open transcript", with no "1 reply" when only transcript text is in the thread.
+- [x] Clicking or keyboard-activating the row's content area opens the thread, and Reply, Forward, Thread and Clarify are still available on it.
+- [x] The thread panel, chat list preview and search still show the same transcript title as before.
+- [x] After a person replies, the row shows that reply's count and face, and transcript text adds nothing to it, including live without a reload.
+- [x] "Part 2" and incomplete sessions show their suffix, with no overflow at 320px.
+- [x] Reviewed at 375px, 320px, desktop and dark mode, including hover and focus.
+- [x] Round and table thread rows still show their current count and still open.
+- [x] Surfaces not in scope are visually unchanged.
+- [x] All existing P1604 tests still pass.
+- [x] Regression: a session root with transcript text only can be opened, and shows no reply count.
 
 ## Next Steps
 
-Spec review done 2026-11-05. Run `/dev`.
+Built. Dark mode was checked by forcing the class on the root: no setting in the app turns it on, and chat has no dark styles, so it is not a state a person can reach today. Run `/ship p1624`.
