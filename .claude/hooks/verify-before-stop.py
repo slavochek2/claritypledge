@@ -105,6 +105,9 @@ WAIVE_NEGATED_RE = re.compile(r"(\bdo not\b|\bdon'?t\b|\bnever\b|\bnot\b|\bif\b|
 QUOTED_RE = re.compile(r"\"[^\"]*\"|“[^”]*”|‘[^’]*’|`[^`]*`|(?<![A-Za-z])'[^'\n]+'(?![A-Za-z])")
 REVIEW_TIME_BUDGET_S = 6.0   # hook timeout is 20s; leave room for gates 1-2 and their output
 REVIEW_MAX_FILES = 300
+# Largest real session measured 2026-11-05: 1.9 GB, 2.0s to scan warm. The time budget is the real
+# limit; this refuses a history no warm scan could finish before starting one (P1634).
+REVIEW_MAX_SUBAGENT_BYTES = 4_000_000_000
 
 
 # --- KDD output-shape gate -------------------------------------------------
@@ -246,6 +249,25 @@ def announces_completion(turn_text):
     return False
 
 
+def incomplete_block_due(session_id):
+    """True the first time per session. Deliberately not _retry_count: that fails toward "stop
+    blocking", right for a format gate and wrong here. With no session id or an unwritable marker
+    this answers True, so the worst case is one block per turn, never a silent pass (P1634)."""
+    safe = re.sub(r"[^A-Za-z0-9_-]", "", str(session_id or ""))[:64]
+    if not safe:
+        return True
+    marker = os.path.join(RETRY_DIR, safe + "-review-incomplete")
+    if os.path.exists(marker):
+        return False
+    try:
+        os.makedirs(RETRY_DIR, mode=0o700, exist_ok=True)
+        with open(marker, "w") as f:
+            f.write("1")
+    except Exception:
+        pass
+    return True
+
+
 def is_founder_message(entry):
     """A message the founder typed. Skill bodies (isMeta), task notifications, system
     reminders and tool results are user-TYPE entries too, and must never count as the
@@ -275,60 +297,129 @@ def founder_waived(text):
     return False
 
 
-def session_edits(transcript_path):
-    """Paths successfully edited this session, read from the WHOLE transcript.
-    A tool call whose result is an error is not an edit."""
-    requested, failed = [], set()
-    try:
-        with open(transcript_path, errors="replace") as f:
-            for line in f:
-                if '"tool_use"' not in line and '"tool_result"' not in line:
+class ScanIncomplete(Exception):
+    """The edit scan could not read everything, so its result is partial (P1634)."""
+
+
+def _scan_transcript(path, requested, failed, deadline):
+    """Collect edit requests and failed tool ids from one transcript. Raises ScanIncomplete at
+    the deadline. Tool ids are unique per API call, so one shared `failed` set is safe."""
+    with open(path, errors="replace") as f:
+        for n, line in enumerate(f):
+            if n % 512 == 0 and time.monotonic() > deadline:
+                raise ScanIncomplete("the time budget ran out")
+            if '"tool_use"' not in line and '"tool_result"' not in line:
+                continue
+            if time.monotonic() > deadline:  # a parsed line can be many MB
+                raise ScanIncomplete("the time budget ran out")
+            try:
+                entry = json.loads(line)
+            except Exception:
+                continue
+            content = get_message_content(entry)
+            if not isinstance(content, list):
+                continue
+            for b in content:
+                if not isinstance(b, dict):
                     continue
+                if b.get("type") == "tool_use" and b.get("name") in REVIEW_EDIT_TOOLS:
+                    inp = b.get("input") or {}
+                    p = inp.get("file_path") or inp.get("notebook_path")
+                    if p:
+                        requested.append((b.get("id"), p))
+                elif b.get("type") == "tool_result" and b.get("is_error"):
+                    failed.add(b.get("tool_use_id"))
+
+
+def subagent_transcripts(transcript_path, deadline):
+    """Every subagent transcript of this session: <transcript minus .jsonl>/subagents/, recursively,
+    since workflow agents sit in subagents/workflows/<run>/. Returns (paths, total bytes, errors).
+    os.walk hides an unreadable directory unless asked. An absent root is simply no subagents."""
+    root = os.path.join(os.path.splitext(transcript_path)[0], "subagents")
+    out, total, errors = [], 0, []
+
+    def on_walk_error(e):
+        if not isinstance(e, (FileNotFoundError, NotADirectoryError)):
+            errors.append(e)
+
+    for d, _, names in os.walk(root, onerror=on_walk_error):
+        if time.monotonic() > deadline:
+            raise ScanIncomplete("the time budget ran out")
+        for name in names:
+            if name.endswith(".jsonl"):
+                p = os.path.join(d, name)
                 try:
-                    entry = json.loads(line)
-                except Exception:
-                    continue
-                content = get_message_content(entry)
-                if not isinstance(content, list):
-                    continue
-                for b in content:
-                    if not isinstance(b, dict):
-                        continue
-                    if b.get("type") == "tool_use" and b.get("name") in REVIEW_EDIT_TOOLS:
-                        inp = b.get("input") or {}
-                        p = inp.get("file_path") or inp.get("notebook_path")
-                        if p:
-                            requested.append((b.get("id"), p))
-                    elif b.get("type") == "tool_result" and b.get("is_error"):
-                        failed.add(b.get("tool_use_id"))
+                    total += os.path.getsize(p)
+                    out.append(p)
+                except OSError as e:
+                    errors.append(e)
+    return sorted(out), total, errors
+
+
+def session_edits(transcript_path, deadline=None):
+    """Paths successfully edited this session, main transcript and subagents (P1634), each read
+    whole. A tool call whose result is an error is not an edit. Returns (paths, incomplete_reason);
+    a reason means the paths are partial. A missing or unreadable MAIN transcript is not reported:
+    no session to judge, and every other gate fails open on it too."""
+    if deadline is None:
+        deadline = time.monotonic() + REVIEW_TIME_BUDGET_S
+    requested, failed = [], set()
+    reason = None
+    try:
+        _scan_transcript(transcript_path, requested, failed, deadline)
+    except ScanIncomplete as e:
+        reason = str(e)
     except Exception:
-        return []
+        return [], None
+    if not reason:
+        try:
+            subs, total, errors = subagent_transcripts(transcript_path, deadline)
+            if total > REVIEW_MAX_SUBAGENT_BYTES:
+                reason = f"the subagent history is {total // 1000000} MB"
+            else:
+                for p in subs:  # one unreadable file must not hide the edits in the others
+                    try:
+                        _scan_transcript(p, requested, failed, deadline)
+                    except ScanIncomplete:
+                        raise
+                    except Exception as e:
+                        errors.append(e)
+                if errors:
+                    reason = f"a subagent transcript could not be read ({type(errors[0]).__name__})"
+        except ScanIncomplete as e:
+            reason = str(e)
+        except Exception as e:
+            reason = f"a subagent transcript could not be read ({type(e).__name__})"
     seen, out = set(), []
     for tid, p in requested:
         if tid in failed or p in seen:
             continue
         seen.add(p)
         out.append(p)
-    return out
+    return out, reason
 
 
 def unreviewed_edits(transcript_path, entries, turn_text):
-    """Reviewable files this session edited whose current content has no review receipt.
-    Fails open (returns []) on any error or when over its time budget."""
+    """Reviewable files this session edited whose current content has no review receipt, plus why
+    coverage was incomplete, if it was: (missing, incomplete_reason). An error outside the scan
+    still fails open, so a hook bug cannot wedge every session; a scan that could not finish
+    reports its reason and never reads as a pass (P1634)."""
     start = time.monotonic()
+    incomplete = None
     try:
         if not announces_completion(turn_text):
-            return []
-        paths = session_edits(transcript_path)[:REVIEW_MAX_FILES]
-        if not paths:
-            return []
+            return [], None
+        paths, incomplete = session_edits(transcript_path, start + REVIEW_TIME_BUDGET_S)
+        if len(paths) > REVIEW_MAX_FILES:
+            incomplete = incomplete or f"{len(paths)} files were edited, over the limit of {REVIEW_MAX_FILES}"
+            paths = paths[:REVIEW_MAX_FILES]
         rr = _load_receipts()
         if rr is None:
-            return []
+            return [], incomplete
         reviewable = []
         for p in paths:
             if time.monotonic() - start > REVIEW_TIME_BUDGET_S:
-                return []
+                return [], incomplete or "the time budget ran out"
             loc = rr.locate(p)
             if not loc:
                 continue
@@ -336,21 +427,22 @@ def unreviewed_edits(transcript_path, entries, turn_text):
             if rel.startswith(NOT_REVIEWABLE_PREFIXES) or (rel.endswith(".md") and not rel.startswith(".claude/")):
                 continue
             reviewable.append(p)
-        missing = rr.unreviewed(reviewable)
-        if not missing:
-            return []
+        missing = rr.unreviewed(reviewable) if reviewable else []
+        if not missing and not incomplete:
+            return [], None
         # The founder can waive it: their latest typed message explicitly says skip review.
         # The waiver is recorded, so a later docs-only turn does not re-raise these files.
         for entry in reversed(entries):
             if is_founder_message(entry):
                 text = extract_text(get_message_content(entry))
                 if founder_waived(text):
-                    rr.waive(missing, "founder: " + text.strip()[:120])
-                    return []
+                    if missing:
+                        rr.waive(missing, "founder: " + text.strip()[:120])
+                    return [], None
                 break
-        return missing
+        return missing, incomplete
     except Exception:
-        return []
+        return [], incomplete  # never drop a reason already known
 
 
 # --- Slot-closure gate (P1519) ----------------------------------------------
@@ -752,13 +844,17 @@ def main():
             if text.strip():
                 review_chunks.append(text)
     review_turn_text = "\n".join(reversed(review_chunks))
-    unreviewed = unreviewed_edits(transcript_path, entries, review_turn_text)
+    unreviewed, incomplete = unreviewed_edits(transcript_path, entries, review_turn_text)
+    # Once per session: no receipt can clear an oversized history, so repeating would block
+    # every later completion in this session for nothing (P1634).
+    if incomplete and not incomplete_block_due(session_id):
+        incomplete = None
 
     # --- Gate 4 (SLOT CLOSURE, P1519): a slot this session owns is still open. Computed
     #     after, and independent of, gates 1-3; never on the stop_hook_active path above.
     slot_briefs = open_slot_briefs(transcript_path, review_turn_text, session_id)
 
-    if not problems and not claim_problem and not unreviewed and not slot_briefs:
+    if not problems and not claim_problem and not unreviewed and not incomplete and not slot_briefs:
         sys.exit(0)
 
     messages = []
@@ -786,6 +882,13 @@ def main():
             "(snapshot, reviewers by stakes, then the receipt via scripts/review_receipt.py). "
             "Report '<received> of <spawned>' and every finding as FIXED or for the founder. "
             "If the founder said to skip review, say so plainly instead."
+        )
+    if incomplete:
+        messages.append(
+            "BLOCKED (P1634 review gate): you announced completion, but this gate's coverage was "
+            "incomplete: " + incomplete + ". It could not check every file edited this session, "
+            "including by subagents, so this is not a pass. Run /slava:build:finish on the files "
+            "this session changed, or tell the founder coverage is unknown. Once told, this does not repeat in this session when the session can be identified."
         )
     if slot_briefs:
         messages.append(

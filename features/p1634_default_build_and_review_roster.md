@@ -124,6 +124,15 @@ The larger cost is subscription quota: review and verification tokens on the mai
 
 2026-11-05, Gemini and GLM reported (Codex missing, out of quota; Opus skipped by the founder's call). Reviewers: Gemini ok · GLM ok (12 findings, 7 verified, 0 unverified) · Codex missing (out of quota) · Opus not run · 2 of 3 received. Dropped after checks: the Stop hook firing per subagent (settings wire `Stop` only), legacy `## Implementation Tasks` readers (0 open specs), a floor dependency on P1630 (spec review needs its own). Added by verification, not by a reviewer: workflow agents live in `subagents/workflows/<run>/`. Measured: the largest session's subagent history is 2 GB and a plain scan takes 2.0s, so the budget holds on a warm disk.
 
+## Known Limitations
+
+- Over 300 edited paths are cut before filtering, so after the one incomplete-coverage block a path past the cut goes unseen in that session.
+- `rr.unreviewed` has no deadline of its own; the hook's 20s timeout is the bound.
+- A founder waiver over an incomplete scan does not spend the once-per-session block, so one block can follow on a later turn.
+- The once-per-session marker is written just before the block is delivered. A hook killed in that window spends the block silently.
+- A transient timeout spends the block too. The largest real session scanned in 4.2s against a 6s budget; a cold disk was not measured.
+- Shell edits stay invisible, including a subagent's heredoc. Slice 3 briefs require Edit and Write for this reason.
+
 ## Rollback Strategy
 
 Revert per slice: the `/create-spec` and entry-check text, the hook change, or the `/dev` and `/fix` text. A leftover stamp in spec frontmatter is ignored by everything once the check is gone. No data to migrate.

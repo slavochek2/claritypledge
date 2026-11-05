@@ -260,5 +260,93 @@ check "300 edited files: still blocks (not timed out into a pass)" 2 "$a"
 fast=$(python3 -c "print('under-10s' if $e-$s < 10 else 'SLOW %.1fs' % ($e-$s))")
 check "300 edited files: finishes well inside the 20s hook timeout" under-10s "$fast"
 
+echo "[gate] P1634: subagent edits count"
+# Entry shape copied from a real subagent transcript (extra keys included, tool_use has `caller`).
+sub_edit_of() { printf '{"type":"assistant","isSidechain":true,"agentId":"a1","parentUuid":"p","requestedModel":"sonnet","message":{"id":"m","role":"assistant","model":"claude-sonnet-5-5","type":"message","stop_reason":"tool_use","content":[{"type":"tool_use","id":"%s","name":"%s","caller":{"type":"direct"},"input":{"file_path":"%s","content":"x"}}]}}\n' "s$RANDOM$RANDOM" "${2:-Edit}" "$1"; }
+sub_session() { # <name> -> prints the main transcript path; its subagent dir is <name>/subagents
+  local t="$TMP/$1.jsonl"; transcript "$t" "$(user 'go')" "$(say 'Done.')"; mkdir -p "$TMP/$1/subagents"; echo "$t"; }
+echo "export const s1 = 1" > "$REPO/src/s1.ts"; echo "export const s2 = 1" > "$REPO/src/s2.ts"; echo "export const s3 = 1" > "$REPO/src/s3.ts"
+TS="$(sub_session p1634a)"; sub_edit_of "$REPO/src/s1.ts" > "$TMP/p1634a/subagents/agent-a1.jsonl"
+check "edit made only by a subagent blocks" 2 "$(rc run_hook "$TS")"
+SNAP="$(python3 "$RR" snapshot -- "$REPO/src/s1.ts")"; sleep 1; evidence "$EV"; python3 "$RR" write --snapshot "$SNAP" --evidence "$EV" >/dev/null 2>&1
+check "a receipt clears the subagent edit" 0 "$(rc run_hook "$TS")"
+TW="$(sub_session p1634w)"; mkdir -p "$TMP/p1634w/subagents/workflows/wf_1"; sub_edit_of "$REPO/src/s2.ts" Write > "$TMP/p1634w/subagents/workflows/wf_1/agent-b.jsonl"
+check "workflow agent edit in subagents/workflows/<run>/ blocks" 2 "$(rc run_hook "$TW")"
+TF="$(sub_session p1634f)"; printf '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"bad9","name":"Edit","input":{"file_path":"%s"}}]}}\n{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"bad9","is_error":true,"content":"no"}]}}\n' "$REPO/src/s3.ts" > "$TMP/p1634f/subagents/agent-c.jsonl"
+check "a failed subagent Edit is not an edit" 0 "$(rc run_hook "$TF")"
+TM="$(sub_session p1634m)"; printf '{"type":"attachment","attachment":"\\"name\\":\\"Edit\\" \\"tool_use\\""}\nnot json "tool_use"\n' > "$TMP/p1634m/subagents/agent-d.jsonl"
+check "metadata and junk lines in a subagent file pass" 0 "$(rc run_hook "$TM")"
+
+echo "[gate] P1634: a scan that cannot finish does not read as a pass"
+inc() { CLAUDE_CONFIG_DIR="$TMP/cfg" python3 - "$STOP_HOOK" "$1" "$2" "$3" <<'PY' 2>&1
+import importlib.util, json, subprocess, sys, io, runpy
+hook, transcript, const, sid = sys.argv[1:5]
+spec = importlib.util.spec_from_file_location("hook", hook); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+k, v = const.split("=")
+setattr(m, k, float(v) if "." in v else int(v))
+sys.stdin = io.StringIO(json.dumps({"transcript_path": transcript, "stop_hook_active": False, "session_id": sid}))
+try:
+    m.main(); print("exit=0")
+except SystemExit as e:
+    print("exit=%s" % e.code)
+PY
+}
+TO="$(sub_session p1634o)"; sub_edit_of "$REPO/src/s1.ts" > "$TMP/p1634o/subagents/agent-e.jsonl"
+out="$(inc "$TO" REVIEW_MAX_SUBAGENT_BYTES=1 oversize-1)"
+check "oversized subagent history blocks" "exit=2" "$(echo "$out" | tail -1)"
+check "...with the incomplete-coverage message" 1 "$(echo "$out" | grep -c 'coverage was incomplete')"
+check "...once per session" "exit=0" "$(inc "$TO" REVIEW_MAX_SUBAGENT_BYTES=1 oversize-1 | tail -1)"
+check "...a new session blocks again" "exit=2" "$(inc "$TO" REVIEW_MAX_SUBAGENT_BYTES=1 oversize-2 | tail -1)"
+out="$(inc "$TO" REVIEW_TIME_BUDGET_S=0.0 budget-1)"
+check "budget exhaustion blocks" "exit=2" "$(echo "$out" | tail -1)"
+check "...with the incomplete-coverage message" 1 "$(echo "$out" | grep -c 'coverage was incomplete')"
+T301="$TMP/t301.jsonl"; : > "$T301"; for i in $(seq 1 301); do edit_of "$REPO/src/f$i.ts" >> "$T301"; echo >> "$T301"; done; echo "x" > "$REPO/src/f301.ts"; say 'Done.' >> "$T301"; echo >> "$T301"
+SNAP="$(cd "$REPO"; python3 "$RR" snapshot -- $(for i in $(seq 1 301); do echo "$REPO/src/f$i.ts"; done))"; sleep 1; evidence "$EV"; python3 "$RR" write --snapshot "$SNAP" --evidence "$EV" >/dev/null 2>&1
+out="$(echo "{\"transcript_path\":\"$T301\",\"stop_hook_active\":false,\"session_id\":\"over300-1\"}" | CLAUDE_CONFIG_DIR="$TMP/cfg" python3 "$STOP_HOOK" 2>&1; echo "exit=$?")"
+check "over 300 paths blocks, even with every file reviewed" "exit=2" "$(echo "$out" | tail -1)"
+check "...with the incomplete-coverage message" 1 "$(echo "$out" | grep -c 'coverage was incomplete')"
+check "no completion claim, no incomplete block" 0 "$(T=$TMP/quiet.jsonl; transcript $T "$(user go)" "$(say 'Still working on it.')"; mkdir -p "$TMP/quiet/subagents"; rc run_hook $T)"
+
+echo "[gate] P1634: review round fixes"
+TL="$(sub_session p1634l)"; python3 -c "
+for i in range(400000): print('junk \"tool_use\" line')" > "$TMP/p1634l/subagents/agent-long.jsonl"
+out="$(inc "$TL" REVIEW_TIME_BUDGET_S=0.02 midscan-1)"
+check "budget exhausted mid-subagent-scan blocks" "exit=2" "$(echo "$out" | tail -1)"
+TU="$(sub_session p1634u)"; mkdir -p "$TMP/p1634u/subagents/workflows"; chmod 000 "$TMP/p1634u/subagents/workflows"
+check "unreadable subagent directory blocks" 2 "$(rc run_hook "$TU" false unreadable-1)"
+chmod 700 "$TMP/p1634u/subagents/workflows"
+check "absent subagents directory passes" 0 "$(T=$TMP/nosub.jsonl; transcript $T "$(user go)" "$(say 'Done.')"; rc run_hook $T false absent-1)"
+TB="$(sub_session p1634b)"; mkdir -p "$TMP/p1634b/subagents/agent-dir.jsonl"; sub_edit_of "$REPO/src/s2.ts" > "$TMP/p1634b/subagents/zz.jsonl"
+out="$(echo "{\"transcript_path\":\"$TB\",\"stop_hook_active\":false,\"session_id\":\"badfile-1\"}" | CLAUDE_CONFIG_DIR="$TMP/cfg" python3 "$STOP_HOOK" 2>&1; echo "exit=$?")"
+check "one unreadable file does not hide edits in the others" 1 "$(echo "$out" | grep -c 'src/s2.ts')"
+check "no session id still blocks an incomplete scan" "exit=2" "$(inc "$TO" REVIEW_MAX_SUBAGENT_BYTES=1 '' | tail -1)"
+check "...and again, never silenced by another session" "exit=2" "$(inc "$TO" REVIEW_MAX_SUBAGENT_BYTES=1 '' | tail -1)"
+TN="$TMP/waive.jsonl"; transcript "$TN" "$(user 'skip review')" "$(say 'Done.')"; mkdir -p "$TMP/waive/subagents"; echo x > "$TMP/waive/subagents/a.jsonl"
+check "founder waiver clears an incomplete scan with no paths" "exit=0" "$(inc "$TN" REVIEW_MAX_SUBAGENT_BYTES=1 waive-1 | tail -1)"
+
+patched() { CLAUDE_CONFIG_DIR="$TMP/cfg" python3 - "$STOP_HOOK" "$1" "$2" "$3" <<'PY' 2>&1
+import importlib.util, io, json, sys
+hook, transcript, mode, sid = sys.argv[1:5]
+spec = importlib.util.spec_from_file_location("hook", hook); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+m.REVIEW_MAX_SUBAGENT_BYTES = 1
+if mode == "no-receipts":
+    m._load_receipts = lambda: None
+else:
+    real = m._load_receipts()
+    def boom(_): raise RuntimeError("boom")
+    real.unreviewed = boom
+    m._load_receipts = lambda: real
+sys.stdin = io.StringIO(json.dumps({"transcript_path": transcript, "stop_hook_active": False, "session_id": sid}))
+try:
+    m.main(); print("exit=0")
+except SystemExit as e:
+    print("exit=%s" % e.code)
+PY
+}
+check "receipts helper missing keeps the incomplete reason" "exit=2" "$(patched "$TO" no-receipts nr-1 | tail -1)"
+check "receipt check raising keeps the incomplete reason" "exit=2" "$(patched "$TO" raises rx-1 | tail -1)"
+TP="$TMP/plain.jsonl"; transcript "$TP" "$(user go)" "$(say 'Done.')"; mkdir -p "$TMP/plain"; : > "$TMP/plain/subagents"
+check "subagents as a plain file is no subagents" 0 "$(rc run_hook "$TP" false plain-1)"
+
 echo; echo "=== Results: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ]
