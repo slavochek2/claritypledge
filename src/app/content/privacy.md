@@ -236,8 +236,8 @@ mirror agent when they ask it about the chat or copy your message into it. Your 
 agent works the same way on what you can read. Nothing it reads is posted anywhere.
 
 **Clarify.** When you use Clarify on a message, we put a copy of it in your mirror agent chat. The copy holds
-the author's name, the text, the time, the name of the chat it came from, and up to 100 replies in
-its thread that you can read. Any note you add is saved with it. Nothing is posted in the original
+the author's name, the text, the time, the name of the chat it came from, and the replies in its
+thread that you can read: up to 100, or up to 720 lines for a transcript session. Any note you add is saved with it. Nothing is posted in the original
 chat, and the other people in it are not told. Your mirror agent then answers the copy.
 
 **Forwarding.** When someone forwards a message, the new chat gets a copy of its text, the
