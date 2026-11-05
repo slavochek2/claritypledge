@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 296
+**Next ID:** 298
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3586,5 +3586,27 @@ Re-run the keyword count of founder-typed review and build-roster asks for the 3
 **due:** week
 
 Layer 1 of scripts/pre-push-checks.sh handles an all-zero remote SHA but not an all-zero local SHA, so a branch delete scans an unreadable range, exits 3 and is refused. Seen 2026-11-05 at the push-docs cleanup step, which left staging/doc-4af0e39e4 on origin; the fail-closed input handling arrived in P1623. Done when a delete passes with a canary, and that branch is deleted. Drop if push-docs stops using staging branches.
+
+---
+
+## Spec quick WhatsApp-style groups created with a QR code
+
+**ID:** INBOX-296
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** month
+
+Future placeholder: create a new multi-person chat on the spot, show a QR code, everyone scans and is in, then transcribe together. Today a group chat exists only as the channel of a Clarity Group (joining needs learning and terms), a 1:1 holds exactly two people, and adding people inside a chat is only placeholder P1461. Agreed 2026-11-05 as a future spec, separate from the /transcribe QR invite. Drop it if table tests show people do not scan and sign up, or if P1461 covers it.
+
+---
+
+## Re-check TEST edge-function drift after P1529 ships
+
+**ID:** INBOX-297
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+On 2026-11-05 deploy-drift.sh reported the shared TEST server differs from main for _shared, dispatch-event-emails and send-event-emails (branch-only). Likely a P1529 branch deploy from w13 (its commit 25a0864b0 adds a series block to its emails), but no content comparison was run, so this is unverified. Do not redeploy main over it while P1529 is in flight. Done when main's functions are redeployed to TEST after P1529 ships and deploy-drift.sh prints in sync. Drop if the P1529 owner says the deploy was unintended and it is already cleared.
 
 ---
