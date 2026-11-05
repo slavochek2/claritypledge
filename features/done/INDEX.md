@@ -635,6 +635,8 @@ Last updated: 2026-11-05
 
 - **P1566** (Oct 26) Code quality ratchet — before is HEAD or the range base, never a stored baseline; built on tsc, no new deps; staging-hop CI.
 - **P1575** (Oct 27) Ship resolves decisions-log prepend conflicts — only the pure two-prepend shape; trust the index, not the resolver's exit code.
+- **P1634** (Nov 26) Default spec review, Sonnet building, gate sees subagent edits — only fresh-session runs revealed the default was not firing; tests had passed.
+
 ## Product & Docs
 
 - **P855** (Jun 26) Pledge v4 (number-first) — single-source necessary but NOT sufficient (prose paraphrases drift past exact-string discovery); /upgrade-oath = discovery + 3 gates; dispatched(stored)-vs-default(current) classification prevents grandfather false-flags

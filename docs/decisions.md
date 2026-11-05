@@ -71,7 +71,8 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** A reviewer out of quota is named missing and the work continues, unless the founder says to wait for specific work. This supersedes the practice recorded 2026-10-14. If neither Gemini nor Codex can run, nothing is stamped and the founder is told at once. `/create-spec` owns the spec review roster and stamps a body hash; `/dev` and `/fix` review once if it is missing or stale. `/dev` and `/fix` build through Sonnet subagents for mechanical work and keep judgment-bearing work on the main model. The Stop gate reads subagent transcripts, and a scan that cannot finish blocks once per session.
 **Alternatives rejected:** a roster table alone (cannot say whether this version was reviewed); reviewers chosen by live quota (deadlocks, and reads another harness's quota); a per-reviewer findings ledger (rewards noisy reviewers).
 **Consequences:** Dispatching a builder no longer counts as visual evidence in the re-edit hook, which it silently did. Shell edits stay invisible to the gate, so builder briefs require Edit and Write; this session's own builder had used a heredoc. Known limits are listed in the spec.
-**References:** [P1634](../features/p1634_default_build_and_review_roster.md)
+**Later the same day:** three fresh-session proof runs showed the default not firing, because the skill's numbered steps had no review step and the agent stopped to ask under the 3+ agents limit; both fixed. When Codex's quota returned it found what the others missed: a builder brief mentioning screenshots still counted as visual evidence, and the Gemini term had no priced budget. Word search over a brief kept failing, so evidence is now structural: the description names visual QA, or the brief opens in that role. Lesson: unit tests proved the helper; only a fresh session proved the default.
+**References:** [P1634](../features/done/2026-06-10/p1634_default_build_and_review_roster.md)
 
 ## 2026-11-05 [technical]: TEST's job hand-off uses its own queue and accounts; pre-commit tests what is staged (P1626)
 
@@ -1472,6 +1473,8 @@ automatically. Status: proposed.
 ---
 
 ## 2026-10-14 [process]: Overnight autonomous batch — when to stop review rounds, and what broke the orchestration
+
+**Reversed in part 2026-11-05, see "Never wait for a reviewer's quota reset; spec review and Sonnet building run by default (P1634)". Still in force: when to stop review rounds. Waiting for a Codex reset is not.**
 
 **Context:** One session ran an unattended batch: triage of open specs + the task inbox, 11 inbox notes
 promoted to specs (P1472–P1482), then 13 items implemented in worktrees by subagents, each reviewed by
