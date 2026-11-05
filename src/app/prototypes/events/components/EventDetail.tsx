@@ -54,6 +54,7 @@ import { recipeForEvent } from '../series-recipes';
 import { RsvpButton } from './RsvpButton';
 import { RegistrationQuestions } from './RegistrationQuestions';
 import { refusalMessage, useRegistrationStep } from './use-registration-step';
+import { useRegistrationReturn } from './use-registration-return';
 import { classifyGroupChat } from '../group-chat-utils';
 import { openedChatLabel, useGroupChatOpened } from '../use-group-chat-opened';
 import { showsTopicVote } from '../topic-vote';
@@ -410,7 +411,8 @@ export function EventDetail() {
   // P1586: nothing of the page is drawn yet, so the one page loader.
   const showRefusal = (refusal: 'full' | 'cancelled') => {
     setEvent(e => (e ? (refusal === 'full' ? { ...e, attendeeCount: e.maxAttendees ?? e.attendeeCount } : { ...e, status: 'cancelled' }) : e));
-    toast.error(refusalMessage(refusal));
+    // D24: in a flow that asks, "full" is the page's own line with the waiting list under it, not a toast.
+    if (!(refusal === 'full' && recipeForEvent(event).registrationQuestions)) toast.error(refusalMessage(refusal));
   };
   // P1529 D16: this flow asks before the seat; `asksBeforeSeat` is false for Clarity Night and Social Hike.
   const asksBeforeSeat = !!recipeForEvent(event).registrationQuestions;
@@ -420,21 +422,12 @@ export function EventDetail() {
     onRegistered: () => { setIsRsvpd(true); navigate(`/events/${slug}/confirm`, { state: { fromEvent: true } }); },
     onRefused: showRefusal,
     onSessionLost: () => { if (event) signInAgain(event.slug); },
+    // D24: full means the same form joins the waiting list; signed out, the form ends in Continue and sign-up comes next.
+    full: asksBeforeSeat && !!event && !isRsvpd && eventsService.isEventFull(event),
+    onSignIn: () => navigate('/signup?redirect=/events/' + slug + '&action=rsvp'),
   });
-
-  // Just signed up and sent back here to RSVP. A flow that asks its questions opens the step at once (the sign-up path
-  // cannot seat anyone for it); every other flow keeps its toast and its one-tap button. It waits for the event, so the
-  // flow is known, and for the registration read, so someone already registered is not asked again.
-  useEffect(() => {
-    if (searchParams.get('action') !== 'rsvp' || !isLoggedIn || !event || loading) return;
-    searchParams.delete('action');
-    setSearchParams(searchParams, { replace: true });
-    const open = asksBeforeSeat && !isRsvpd && !isHostOfEvent && event.status !== 'cancelled' && Date.now() < new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000 && !eventsService.isEventFull(event);
-    if (open) registration.ask();
-    else toast.success('Account created! Click "Reserve a seat" to confirm your spot.');
-    // `registration.ask` is a fresh function each render and only sets state.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, setSearchParams, isLoggedIn, event, loading, asksBeforeSeat, isRsvpd, isHostOfEvent]);
+  // Just signed up and sent back here: saved answers register them, or the form opens (use-registration-return.ts).
+  useRegistrationReturn({ searchParams, setSearchParams, isLoggedIn, event, loading, asksBeforeSeat, isRsvpd, isHostOfEvent, registration });
 
   if (loading) return <ClarityPageLoader />;
 
@@ -503,10 +496,11 @@ export function EventDetail() {
   const isFull = eventsService.isEventFull(event);
 
   const handleRsvp = async (trigger: RsvpTrigger) => {
-    if (!event || isPast || (isFull && !isRsvpd)) return;
+    if (!event || isPast || (isFull && !isRsvpd && !asksBeforeSeat)) return;
     analytics.track('event_rsvp_initiated', { event_id: event.id, event_type: eventTypeOf(event), trigger });
 
     if (!isLoggedIn || !user) {
+      if (asksBeforeSeat) return registration.ask(); // D24: the form first, sign-up after it
       navigate('/signup?redirect=/events/' + slug + '&action=rsvp');
       return;
     }
@@ -672,6 +666,7 @@ export function EventDetail() {
       onRsvp={handleRsvp}
       asksBeforeSeat={asksBeforeSeat}
       placesLeft={asksBeforeSeat ? eventsService.getSpotsRemaining(event) : null}
+      waitlist={asksBeforeSeat ? { onList: registration.onWaitlist, filled: registration.filled, onLeave: registration.leaveWaitlist } : undefined}
     />
   );
 
@@ -1347,6 +1342,9 @@ export function EventDetail() {
           datetime={event.datetime}
           timezone={event.timezone}
           busy={registration.busy}
+          mode={isFull && !isRsvpd ? 'waitlist' : 'register'}
+          signedIn={isLoggedIn}
+          initial={registration.prefill}
           onCancel={registration.cancel}
           onSubmit={registration.submit}
         />

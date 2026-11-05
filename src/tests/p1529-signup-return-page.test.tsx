@@ -2,6 +2,8 @@
  * P1529 (spec: a new user returning from sign-up sees the registration step): a person who signed up from the event page
  * (`?action=rsvp`) lands back on it signed in. In a flow that asks its questions before the seat, the step opens at once;
  * Clarity Night and Social Hike keep the one-tap page and the toast. Harness copied from p1365-rsvp-repeat-render.test.tsx.
+ * D24: answers saved before sign-up register the person without asking again (this event only), a place that went meanwhile is
+ * "This event just filled up." with the answers kept and the waiting list offered, and a logged-out Register opens the form.
  */
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -21,11 +23,16 @@ vi.mock('@/hooks/use-nav-auth-state', () => ({
 // ── Events service ────────────────────────────────────────────────────────────
 const mockGetEventBySlug = vi.fn();
 const mockIsUserRsvpd = vi.fn();
+const mockIsFull = vi.fn();
+const mockRegister = vi.fn();
+const mockJoin = vi.fn();
+const mockOnList = vi.fn();
 vi.mock('@/app/data/events-service', () => ({
   eventsService: {
+    getSeriesContent: vi.fn().mockResolvedValue({ reviews: [], photos: [] }),
     getEventBySlug: (...args: unknown[]) => mockGetEventBySlug(...args),
     isUserRsvpd: (...args: unknown[]) => mockIsUserRsvpd(...args),
-    isEventFull: () => false,
+    isEventFull: (...args: unknown[]) => mockIsFull(...args),
     // P1194: EventDetail asks for the group chat link once the viewer is host or
     // RSVP'd. These fixtures carry no group chat — null is the honest answer.
     getEventGroupChatUrl: vi.fn().mockResolvedValue(null),
@@ -40,6 +47,20 @@ vi.mock('@/app/data/events-service', () => ({
     uncancelEvent: vi.fn(),
     updateEvent: vi.fn(),
   },
+}));
+
+// ── Online: the guard is not what these tests are about ───────────────────────────
+vi.mock('@/app/hooks/use-online-write-guard', () => ({ useOnlineWriteGuard: () => () => true }));
+
+// ── Registration calls (the page's own seams) ───────────────────────────────────
+vi.mock('@/app/data/event-registration', () => ({
+  registerForEvent: (...a: unknown[]) => mockRegister(...a),
+  eventAsksBeforeSeat: async () => true,
+}));
+vi.mock('@/app/data/event-waitlist', () => ({
+  joinWaitlist: (...a: unknown[]) => mockJoin(...a),
+  isOnWaitlist: (...a: unknown[]) => mockOnList(...a),
+  leaveWaitlist: vi.fn(),
 }));
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
@@ -87,6 +108,9 @@ vi.mock('@/app/prototypes/events/utils', () => ({
 
 
 import { toast } from 'sonner';
+import { fireEvent } from '@testing-library/react';
+import { readRegistrationDraft, saveRegistrationDraft } from '@/app/data/registration-draft';
+import type { RegistrationAnswers } from '@/app/data/registration-answer-model';
 import { EventDetail } from '@/app/prototypes/events/components/EventDetail';
 
 const FUTURE = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -102,6 +126,8 @@ function renderAt(search: string) {
     <MemoryRouter initialEntries={[`/events/test-event${search}`]}>
       <Routes>
         <Route path="/events/:slug" element={<EventDetail />} />
+        <Route path="/events/:slug/confirm" element={<p>confirm screen</p>} />
+        <Route path="/signup" element={<p>sign-up screen</p>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -112,6 +138,11 @@ describe('P1529: returning from sign-up', () => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({ user: { id: 'new-user' }, session: { user: { id: 'new-user' } } });
     mockIsUserRsvpd.mockResolvedValue(false);
+    mockIsFull.mockReturnValue(false);
+    mockRegister.mockResolvedValue('ok');
+    mockJoin.mockResolvedValue('ok');
+    mockOnList.mockResolvedValue(false);
+    localStorage.clear();
   });
 
   it('opens the registration step at once in a flow that asks, and does not tell the person to find a button', async () => {
@@ -138,7 +169,9 @@ describe('P1529: returning from sign-up', () => {
     mockGetEventBySlug.mockResolvedValue(makeEvent({ flow: 'sales-mastermind' }));
     mockIsUserRsvpd.mockResolvedValue(true);
     renderAt('?action=rsvp');
-    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    await waitFor(() => expect(mockIsUserRsvpd).toHaveBeenCalled());
+    await new Promise(r => setTimeout(r, 50));
+    expect(toast.success).not.toHaveBeenCalled(); // never "click to confirm" to someone already registered
     expect(screen.queryByTestId('registration-submit')).toBeNull();
   });
 
@@ -147,5 +180,187 @@ describe('P1529: returning from sign-up', () => {
     renderAt('');
     await waitFor(() => expect(screen.getByText('Test Event')).toBeInTheDocument());
     expect(screen.queryByTestId('registration-submit')).toBeNull();
+  });
+});
+
+const SAVED: RegistrationAnswers = { participation: 'canvas_before', observerPrep: null, phone: 'usbc', hope: 'grow', recordingAccepted: true };
+
+describe('P1529 D24: saved answers on the way back from sign-up', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({ user: { id: 'new-user' }, session: { user: { id: 'new-user' } } });
+    mockIsUserRsvpd.mockResolvedValue(false);
+    mockIsFull.mockReturnValue(false);
+    mockRegister.mockResolvedValue('ok');
+    mockJoin.mockResolvedValue('ok');
+    mockOnList.mockResolvedValue(false);
+    localStorage.clear();
+    mockGetEventBySlug.mockResolvedValue(makeEvent({ flow: 'sales-mastermind' }));
+  });
+
+  it('registers with the saved answers, clears them, and lands on the confirm screen', async () => {
+    saveRegistrationDraft('test-event', 'register', SAVED);
+    renderAt('?action=rsvp');
+    expect(await screen.findByText('confirm screen')).toBeTruthy();
+    expect(mockRegister).toHaveBeenCalledTimes(1);
+    expect((mockRegister.mock.calls[0] ?? []).slice(1)).toEqual(['new-user', SAVED]);
+    expect(readRegistrationDraft('test-event')).toBeNull();
+    expect(screen.queryByTestId('registration-submit')).toBeNull();
+  });
+
+  it('never applies answers saved for a different event', async () => {
+    saveRegistrationDraft('some-other-event', 'register', SAVED);
+    renderAt('?action=rsvp');
+    expect(await screen.findByTestId('registration-submit')).toBeTruthy(); // the form opens as today
+    expect(mockRegister).not.toHaveBeenCalled();
+    expect(readRegistrationDraft('some-other-event')).not.toBeNull();
+  });
+
+  it('with no saved answers (another device) the form opens as today', async () => {
+    renderAt('?action=rsvp');
+    expect(await screen.findByTestId('registration-submit')).toBeTruthy();
+    expect(mockRegister).not.toHaveBeenCalled();
+  });
+
+  it('answers saved are not used without the sign-up marker', async () => {
+    saveRegistrationDraft('test-event', 'register', SAVED);
+    renderAt('');
+    await waitFor(() => expect(screen.getByText('Test Event')).toBeInTheDocument());
+    expect(mockRegister).not.toHaveBeenCalled();
+  });
+
+  it('the event filled while signing in: "This event just filled up.", the waiting list is offered, the answers stay, nobody is registered', async () => {
+    mockIsFull.mockReturnValue(true);
+    saveRegistrationDraft('test-event', 'register', SAVED);
+    renderAt('?action=rsvp');
+    expect((await screen.findAllByTestId('just-filled'))[0]!.textContent).toBe('This event just filled up.');
+    expect(screen.getAllByTestId('rsvp-button')[0]!.textContent).toBe('Join the waiting list');
+    expect(mockRegister).not.toHaveBeenCalled();
+    expect(readRegistrationDraft('test-event')).not.toBeNull();
+    // the form the button opens already holds the answers
+    fireEvent.click(screen.getAllByTestId('rsvp-button')[0]!);
+    expect((await screen.findByTestId('join-improve') as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('a place that went between the page load and the registration says the same, and keeps the answers', async () => {
+    // the real page marks the event full from the refusal; the mocked service must follow it
+    mockRegister.mockImplementation(async () => { mockIsFull.mockReturnValue(true); return 'full'; });
+    saveRegistrationDraft('test-event', 'register', SAVED);
+    renderAt('?action=rsvp');
+    expect((await screen.findAllByTestId('just-filled'))[0]!).toBeTruthy();
+    expect(screen.getAllByTestId('rsvp-button')[0]!.textContent).toBe('Join the waiting list');
+    expect(readRegistrationDraft('test-event')).not.toBeNull();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('a saved waiting-list request on a full event joins the list and shows the line', async () => {
+    mockIsFull.mockReturnValue(true);
+    saveRegistrationDraft('test-event', 'waitlist', SAVED);
+    renderAt('?action=rsvp');
+    expect((await screen.findAllByTestId('waitlist-joined'))[0]!.textContent).toContain("You're on the waiting list. The host will email you if a place opens.");
+    expect(mockJoin).toHaveBeenCalledTimes(1);
+    expect(mockRegister).not.toHaveBeenCalled();
+    expect(readRegistrationDraft('test-event')).toBeNull();
+  });
+
+  it('a saved waiting-list request when a place has opened registers nobody: the form opens, filled in', async () => {
+    saveRegistrationDraft('test-event', 'waitlist', SAVED);
+    renderAt('?action=rsvp');
+    expect((await screen.findByTestId('join-improve') as HTMLInputElement).checked).toBe(true);
+    expect(mockRegister).not.toHaveBeenCalled();
+    expect(mockJoin).not.toHaveBeenCalled();
+  });
+});
+
+describe('P1529 D24: the page for a flow that asks', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockIsUserRsvpd.mockResolvedValue(false);
+    mockIsFull.mockReturnValue(false);
+    mockRegister.mockResolvedValue('ok');
+    mockOnList.mockResolvedValue(false);
+    localStorage.clear();
+    mockGetEventBySlug.mockResolvedValue(makeEvent({ flow: 'sales-mastermind' }));
+  });
+  const fill = () => {
+    fireEvent.click(screen.getByTestId('join-improve'));
+    fireEvent.click(screen.getByTestId('prep-home'));
+    fireEvent.click(screen.getByLabelText('USB-C'));
+    fireEvent.click(screen.getByTestId('recording-accept'));
+  };
+
+  it('the button says Register, and logged out it opens the form, which ends in Continue', async () => {
+    mockUseAuth.mockReturnValue({ user: null, session: null });
+    renderAt('');
+    const button = (await screen.findAllByTestId('rsvp-button'))[0]!;
+    expect(button.textContent).toBe('Register');
+    fireEvent.click(button);
+    expect((await screen.findByTestId('registration-submit')).textContent).toBe('Continue');
+    expect(screen.getByTestId('sign-in-line').textContent).toBe("Next, sign in to confirm your place. It isn't confirmed until then.");
+  });
+
+  it('Continue keeps the answers in this browser (this event only), registers nothing, and goes to the normal sign-up', async () => {
+    mockUseAuth.mockReturnValue({ user: null, session: null });
+    renderAt('');
+    fireEvent.click((await screen.findAllByTestId('rsvp-button'))[0]!);
+    await screen.findByTestId('registration-submit');
+    fill();
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    expect(await screen.findByText('sign-up screen')).toBeTruthy();
+    expect(mockRegister).not.toHaveBeenCalled();
+    expect(readRegistrationDraft('test-event')?.answers).toMatchObject({ participation: 'canvas_before', phone: 'usbc', recordingAccepted: true });
+    expect(readRegistrationDraft('another-event')).toBeNull();
+  });
+
+  it('logged out and full, the button is Join the waiting list and the form is the same one', async () => {
+    mockUseAuth.mockReturnValue({ user: null, session: null });
+    mockIsFull.mockReturnValue(true);
+    renderAt('');
+    const button = (await screen.findAllByTestId('rsvp-button'))[0]!;
+    expect(button.textContent).toBe('Join the waiting list');
+    expect(screen.queryByText(/Message the host/)).toBeNull();
+    fireEvent.click(button);
+    expect((await screen.findByTestId('registration-submit')).textContent).toBe('Continue');
+    expect(screen.getByRole('heading', { name: 'Join the waiting list' })).toBeTruthy();
+  });
+
+  it('logged in, the form registers and lands on the confirm screen', async () => {
+    mockUseAuth.mockReturnValue({ user: { id: 'u1' }, session: { user: { id: 'u1' } } });
+    renderAt('');
+    fireEvent.click((await screen.findAllByTestId('rsvp-button'))[0]!);
+    await screen.findByTestId('registration-submit');
+    expect(screen.getByTestId('registration-submit').textContent).toBe('Register');
+    fill();
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    expect(await screen.findByText('confirm screen')).toBeTruthy();
+    expect(mockRegister).toHaveBeenCalledTimes(1);
+  });
+
+  it('someone already on the waiting list sees the line and a quiet Leave link, not the button', async () => {
+    mockUseAuth.mockReturnValue({ user: { id: 'u1' }, session: { user: { id: 'u1' } } });
+    mockIsFull.mockReturnValue(true);
+    mockOnList.mockResolvedValue(true);
+    renderAt('');
+    expect((await screen.findAllByTestId('waitlist-joined'))[0]!.textContent).toContain("You're on the waiting list. The host will email you if a place opens.");
+    expect(screen.getAllByTestId('waitlist-leave')[0]!.textContent).toBe('Leave the waiting list');
+    expect(screen.queryByTestId('rsvp-button')).toBeNull();
+  });
+
+  it('Clarity Night and Social Hike keep Reserve a seat, and a full one stays disabled with no waiting list', async () => {
+    mockUseAuth.mockReturnValue({ user: { id: 'u1' }, session: { user: { id: 'u1' } } });
+    mockGetEventBySlug.mockResolvedValue(makeEvent());
+    renderAt('');
+    expect((await screen.findAllByTestId('rsvp-button'))[0]!.textContent).toBe('Reserve a seat');
+  });
+
+  it('a full Clarity Night is still the disabled Event Full button', async () => {
+    mockUseAuth.mockReturnValue({ user: { id: 'u1' }, session: { user: { id: 'u1' } } });
+    mockIsFull.mockReturnValue(true);
+    mockGetEventBySlug.mockResolvedValue(makeEvent());
+    renderAt('');
+    const button = (await screen.findAllByTestId('rsvp-button'))[0] as HTMLButtonElement;
+    expect(button.textContent).toBe('Event Full');
+    expect(button.disabled).toBe(true);
+    expect(screen.queryByTestId('waitlist-joined')).toBeNull();
   });
 });

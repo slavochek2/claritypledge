@@ -24,8 +24,14 @@ export function consentAgreedLabel(forEvent: boolean): string {
     : 'Recorded and visible to everyone in this room';
 }
 
-/** P1529 D13, wording as reviewed by Gemini 4 Argon at the founder's request: told wherever a person agrees to transcription in a Sales Mastermind. */
-export const ROUND_UPDATE_CONSENT = "In a discussion round, what you say can be copied to that round's Clarity Canvas owner's private AI mirror (via Google Gemini) to draft their next canvas version, which they may publish to their canvas's audience.";
+/**
+ * P1529 D13, D24: the recording consent of a Sales Mastermind, reviewed wording (2026-11-05). The registration checkbox says it
+ * followed by `ROUND_UPDATE_CONSENT_LINKS` with the two links; the room's Transcribe text and the /transcribe consent say the
+ * same sentences without that line, because they already point to the Terms and Privacy Policy in their own words.
+ */
+export const ROUND_UPDATE_CONSENT = "To help every business improve fast, we record your conversations here and Google Gemini turns them into text. The text is posted in the event chat for the host and attendees. After a discussion round, the peer whose business you discussed can use it to improve their Clarity Canvas with AI, and publish it.";
+/** The checkbox's last line; its "Terms" and "Privacy Policy" are links that open in a new tab. */
+export const ROUND_UPDATE_CONSENT_LINKS = 'See our Terms and Privacy Policy.';
 
 /** [FOUNDER DECISION: copy, proposed] When a person's clean text reaches the event's chat: the full sentence, on the live text page and behind the info icon. */
 export const EVENT_TEXT_ARRIVES = "If you're at a table, your text reaches its chat about 2 minutes after the round ends.";

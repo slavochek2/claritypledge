@@ -153,6 +153,9 @@ export function PrepRoomBanner({ event, source = 'room', centered = false }: {
   }
 
   if (source === 'room') {
+    // P1529 D24: the mastermind's room carries no "Preparation not started / Start your preparation" line; its own card
+    // ("Your Clarity Canvas for this event") and the learning step are the way in. The event page's banner is unchanged.
+    if (recipeForEvent(event).mastermind) return null;
     // UAT 2026-10-01: in the room this sits on the Back line, not as a box under it. Prepared →
     // nothing here: the roster's check mark beside the person's own row carries it.
     if (progress.complete) return null;

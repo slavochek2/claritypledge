@@ -148,6 +148,7 @@ export async function publishCanvas(ledger: Ledger, p: Person, title: string): P
 export async function register(p: Person, slug: string, participation = 'canvas_before', phone = 'usbc'): Promise<string> {
   const { data, error } = await p.client.rpc('register_for_event', {
     p_slug: slug, p_participation: participation, p_phone: phone, p_hope: null, p_recording_accepted: true,
+    p_observer_prep: participation === 'observer' ? 'home' : null, // D24: an observer's second answer is required
   });
   if (error) throw new Error(`register_for_event: ${error.message}`);
   return data as string;

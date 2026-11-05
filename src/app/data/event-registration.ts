@@ -9,15 +9,8 @@ import { invokeEventEmails } from '@/lib/event-emails';
 import { guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
 import { logDbError } from './db-error-logger';
 
-export type Participation = 'canvas_before' | 'canvas_at_doors' | 'observer';
-export type PhoneKind = 'usbc' | 'lightning' | 'other';
-
-export interface RegistrationAnswers {
-  participation: Participation;
-  phone: PhoneKind;
-  hope: string;
-  recordingAccepted: true;
-}
+export type { Participation, ObserverPrep, PhoneKind, RegistrationAnswers } from './registration-answer-model';
+import type { RegistrationAnswers } from './registration-answer-model';
 
 export type RegisterResult = 'ok' | 'already' | 'full' | 'cancelled' | 'not_found' | 'failed';
 
@@ -32,6 +25,7 @@ export async function registerForEvent(
     result = await supabase.rpc('register_for_event', {
       p_slug: event.slug,
       p_participation: answers.participation,
+      p_observer_prep: answers.observerPrep,
       p_phone: answers.phone,
       p_hope: answers.hope,
       p_recording_accepted: answers.recordingAccepted,

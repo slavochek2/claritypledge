@@ -9,11 +9,16 @@ import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 
 const room = vi.hoisted(() => ({ eventId: 'e1' as string | null, row: { flow: null as string | null, series_slug: null as string | null } as object | null, fail: false }));
 vi.mock('@/app/data/transcribe-service', () => ({ getRoomByCode: async () => ({ eventId: room.eventId }) }));
+vi.mock('@/app/contexts/room-capture-context', () => ({
+  useRoomCapture: () => ({ phase: 'idle', isCapturingForEvent: () => false, startCapture: vi.fn(), subscribeLevel: () => () => {} }),
+}));
+vi.mock('@/app/contexts/offline-status-context', () => ({ useConnectivity: () => ({ offline: false }), useOfflineStripShown: () => false }));
 vi.mock('@/lib/supabase', () => ({
   supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => (room.fail ? { data: null, error: { message: 'no' } } : { data: room.row, error: null }) }) }) }) },
 }));
 
 import { ConsentSection } from '@/app/pages/ConsentLabel';
+import { RoomTranscribeIdleBar } from '@/app/components/session/room-capture-bar';
 
 const SENTENCE = ROUND_UPDATE_CONSENT;
 const show = (code: string) => render(<ConsentSection agreed={false} code={code} onToggle={() => {}} />);
@@ -25,6 +30,11 @@ describe('P1529 D13: the sentence', () => {
   });
   it('the current terms notice says so without internal words', () => {
     expect(TERMS_CHANGES[CURRENT_TERMS_VERSION]?.headline).toContain("Clarity Canvas owner's AI mirror to draft their next version");
+  });
+  it('is the reviewed text without its links line, and the room\'s Transcribe text says it too', () => {
+    expect(SENTENCE).toBe('To help every business improve fast, we record your conversations here and Google Gemini turns them into text. The text is posted in the event chat for the host and attendees. After a discussion round, the peer whose business you discussed can use it to improve their Clarity Canvas with AI, and publish it.');
+    render(<RoomTranscribeIdleBar eventId="ev-1" displayName="Ana" roundUpdates onFailed={() => {}} />);
+    expect(screen.getByTestId('room-transcribe-start')).toHaveAccessibleDescription(expect.stringContaining(SENTENCE));
   });
   it('shows in a mastermind room\'s consent, after the toggle is settled', async () => {
     room.row = { flow: null, series_slug: 'sales-mastermind' };

@@ -17,7 +17,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import { supabaseAdmin } from './helpers/supabase-admin';
-import { setTestSession } from './helpers/test-user';
+import { setTestSession, generateTestEmail } from './helpers/test-user';
 import {
   assertSelfHostedTest, newLedger, makeUser, makeEvent, publishCanvas, register, shareForEvent, joinRoom, makeTranscribeRoom,
   postRoundLines, completeJobEmpty, keepRoomOpen, withModelTerms, fixtureLines, savedSeats, roundIdByNo, backdateRound, cleanup, leftovers, SELFHOSTED_TEST_URL,
@@ -136,7 +136,13 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     expect(count, 'no seat exists after four refused calls').toBe(0);
     const { count: ans } = await supabaseAdmin.from('event_registration_answers').select('*', { count: 'exact', head: true }).eq('event_id', REG.id);
     expect(ans, 'no answers saved by refused calls').toBe(0);
-    return `4 refused (${ins.error!.message} | ${rsvp.error!.message} | ${noAccept.error!.message} | ${bad.error!.message}); 0 rsvps, 0 answers`;
+    const noPrep = await REGU.client.rpc('register_for_event', { p_slug: slug, p_participation: 'observer', p_phone: 'usbc', p_hope: null, p_recording_accepted: true });
+    expect(noPrep.error?.message ?? 'NO ERROR', 'an observer without the second answer is refused').toMatch(/choose where you will prepare/);
+    const early = await REGU.client.rpc('join_event_waitlist', { p_slug: slug, p_participation: 'canvas_before', p_phone: 'usbc', p_hope: null, p_recording_accepted: true });
+    expect(early.data, 'the waiting list is for a full event only').toBe('not_full');
+    const { count: wl } = await supabaseAdmin.from('event_waitlist').select('*', { count: 'exact', head: true }).eq('event_id', REG.id);
+    expect(wl, 'nothing was written to the waiting list').toBe(0);
+    return `5 refused (${ins.error!.message} | ${rsvp.error!.message} | ${noAccept.error!.message} | ${bad.error!.message} | ${noPrep.error!.message}); join_event_waitlist while not full -> "not_full"; 0 rsvps, 0 answers, 0 waiting`;
   });
 
   // three people register through the real RPC, so the cap of 4 leaves one place
@@ -151,18 +157,43 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     await expect(dlg).toBeVisible();
     await expect(page.getByTestId('bring-own-mic')).toHaveCount(0);
     await dlg.getByTestId('registration-submit').click();
-    await expect(dlg.getByTestId('registration-missing')).toHaveText('Choose how you want to take part.');
+    await expect(dlg.getByTestId('registration-missing')).toContainText('Choose how you want to join.');
     const none = await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', REG.id).eq('profile_id', REGU.user.user.id);
     expect(none.count, 'tapping Register with nothing seats nobody').toBe(0);
-    await dlg.getByText('Observe: practise listening', { exact: false }).click();
+    // the second question depends on the first answer: both branches, and a changed first answer clears the second
+    await dlg.getByTestId('join-improve').click();
+    await expect(dlg.getByTestId('prep-question')).toContainText('Where will you prepare and create your Clarity Canvas? It takes about 30 minutes.');
+    await dlg.getByTestId('prep-event').click();
+    await shots(page, 'registration', 'improve-branch');
+    await dlg.getByTestId('join-help').click();
+    await expect(dlg.getByTestId('prep-question')).toContainText('Where will you prepare? It takes about 15 minutes to learn how we communicate.');
+    await expect(dlg.getByTestId('prep-home')).not.toBeChecked();
+    await expect(dlg.getByTestId('prep-event')).not.toBeChecked();
+    await shots(page, 'registration', 'help-branch');
     await dlg.getByTestId('registration-submit').click();
-    await expect(dlg.getByTestId('registration-missing')).toHaveText('Choose which phone you will bring.');
+    await expect(dlg.getByTestId('registration-missing')).toContainText('Choose where you will prepare.');
+    await dlg.getByTestId('prep-home').click();
     await dlg.getByText('Other', { exact: true }).click();
     await expect(dlg.getByTestId('bring-own-mic')).toHaveText('Please bring a headset or microphone that fits your phone.');
     await dlg.getByTestId('registration-submit').click();
-    await expect(dlg.getByTestId('registration-missing')).toHaveText('This event needs you to accept transcription.');
+    await expect(dlg.getByTestId('registration-missing')).toHaveText('Accept the recording to register.');
     await shots(page, 'registration', 'other-selected');
     return 'step opened; three missing-lines in order; bring-own-mic shown for Other';
+  }, page);
+
+  await ac('1f', 'closing the form with answers says "You\'re not registered yet." and keeps the answers', async () => {
+    const dlg = page.getByTestId('registration-questions');
+    await page.keyboard.press('Escape');
+    await expect(dlg).toHaveCount(0);
+    await expect(page.getByText("You're not registered yet.")).toBeVisible({ timeout: 10_000 });
+    await shots(page, 'registration', 'closed-not-registered');
+    const none = await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', REG.id).eq('profile_id', REGU.user.user.id);
+    expect(none.count, 'closing seats nobody').toBe(0);
+    await page.getByTestId('rsvp-button').first().click();
+    await expect(dlg).toBeVisible();
+    await expect(dlg.getByTestId('join-help')).toBeChecked();
+    await expect(dlg.getByTestId('prep-home')).toBeChecked();
+    return 'toast "You\'re not registered yet." shown on close, no seat, reopening shows the answers kept (help, at home)';
   }, page);
 
   await ac('1c', 'accepting and registering gives the seat; the answers are stored; the phone answer is "other"', async () => {
@@ -173,26 +204,74 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     await expect(dlg).toHaveCount(0, { timeout: 60_000 });
     const { data: r } = await supabaseAdmin.from('event_rsvps').select('profile_id').eq('event_id', REG.id).eq('profile_id', REGU.user.user.id);
     expect(r).toHaveLength(1);
-    const { data: a } = await supabaseAdmin.from('event_registration_answers').select('participation, phone, hope, recording_accepted_at').eq('event_id', REG.id).eq('profile_id', REGU.user.user.id).single();
-    expect(a).toMatchObject({ participation: 'observer', phone: 'other', hope: 'QA hope line' });
+    const { data: a } = await supabaseAdmin.from('event_registration_answers').select('participation, observer_prep, phone, hope, recording_accepted_at').eq('event_id', REG.id).eq('profile_id', REGU.user.user.id).single();
+    expect(a).toMatchObject({ participation: 'observer', observer_prep: 'home', phone: 'other', hope: 'QA hope line' });
     expect(a!.recording_accepted_at).not.toBeNull();
     return JSON.stringify(a);
   }, page);
 
-  await ac('2a', 'at the limit the page says Event Full with the message-the-host line', async () => {
+  await ac('2a', 'at the limit the page offers the waiting list, not a message-the-host line', async () => {
     const ctx = await browser.newContext();
     const p2 = await ctx.newPage();
     await setTestSession(p2, A[3].user.email);
     await p2.goto(`/events/${slug}`);
-    await expect(p2.getByTestId('rsvp-button').first()).toHaveText('Event Full', { timeout: 60_000 });
-    await expect(p2.getByTestId('full-message-host').first()).toBeVisible();
+    await expect(p2.getByTestId('rsvp-button').first()).toHaveText('Join the waiting list', { timeout: 60_000 });
+    await expect(p2.getByTestId('full-message-host')).toHaveCount(0);
     await expect(p2.getByTestId('places-left')).toHaveCount(0);
     await shots(p2, 'registration', 'event-full');
     // the registered people are 4 (3 + REGU); the server refuses a fifth even by a direct call
-    const fifth = await A[3].client.rpc('register_for_event', { p_slug: slug, p_participation: 'observer', p_phone: 'usbc', p_hope: null, p_recording_accepted: true });
+    const fifth = await A[3].client.rpc('register_for_event', { p_slug: slug, p_participation: 'observer', p_observer_prep: 'home', p_phone: 'usbc', p_hope: null, p_recording_accepted: true });
     expect(fifth.data, `register_for_event at the limit returned ${JSON.stringify(fifth)}`).toBe('full');
     await ctx.close();
-    return 'Event Full + full-message-host shown; direct call returned "full" (limit set to 4 for this test: the page logic is by count, 24 is the prod value)';
+    return 'Join the waiting list shown, no message-the-host line; direct call returned "full" (limit set to 4 for this test: the page logic is by count, 24 is the prod value)';
+  });
+
+  await ac('2c', 'waiting list: Join the waiting list opens the form; joining is not a seat; the host sees names in order; leaving works', async () => {
+    const ctx = await browser.newContext();
+    const p4 = await ctx.newPage();
+    await asUser(p4, A[3], `/events/${slug}`);
+    await expect(p4.getByTestId('rsvp-button').first()).toHaveText('Join the waiting list', { timeout: 60_000 });
+    await p4.getByTestId('rsvp-button').first().click();
+    const dlg = p4.getByTestId('registration-questions');
+    await expect(dlg).toBeVisible();
+    await expect(dlg.getByRole('heading', { name: 'Join the waiting list' })).toBeVisible();
+    await expect(dlg.getByTestId('registration-submit')).toHaveText('Join the waiting list');
+    await dlg.getByTestId('join-improve').click();
+    await dlg.getByTestId('prep-home').click();
+    await dlg.getByTestId('recording-accept').click();
+    await dlg.getByText('USB-C', { exact: true }).click();
+    await shots(p4, 'waitlist', 'form');
+    await dlg.getByTestId('registration-submit').click();
+    await expect(p4.getByTestId('waitlist-joined').first()).toContainText("You're on the waiting list", { timeout: 60_000 });
+    await shots(p4, 'waitlist', 'joined');
+    const row = (await supabaseAdmin.from('event_waitlist').select('participation, phone').eq('event_id', REG.id).eq('profile_id', A[3].user.user.id)).data;
+    expect(row).toEqual([{ participation: 'canvas_before', phone: 'usbc' }]);
+    const seat = await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', REG.id);
+    expect(seat.count, 'joining the list is not a seat: still 4 registered').toBe(4);
+    const mine = await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', REG.id).eq('profile_id', A[3].user.user.id);
+    expect(mine.count).toBe(0);
+    const ans = await supabaseAdmin.from('event_registration_answers').select('*', { count: 'exact', head: true }).eq('event_id', REG.id).eq('profile_id', A[3].user.user.id);
+    expect(ans.count, 'no registration answers for someone on the list').toBe(0);
+    // a second person joins after (the real RPC); the host reads both in the order they joined
+    const second = await A[4].client.rpc('join_event_waitlist', { p_slug: slug, p_participation: 'canvas_before', p_phone: 'usbc', p_hope: null, p_recording_accepted: true });
+    expect(second.data).toBe('ok');
+    const hostCtx = await browser.newContext();
+    const hp = await hostCtx.newPage();
+    await asUser(hp, host, `/events/${slug}/host`);
+    await expect(hp.getByTestId('mm-waitlist')).toBeVisible({ timeout: 90_000 });
+    const order = (await hp.getByTestId('mm-waitlist-person').allInnerTexts()).map((t) => t.trim());
+    expect(order).toEqual([`${first(A[3])} Q.`, `${first(A[4])} Q.`]);
+    await shots(hp, 'host', 'waiting-list');
+    // leaving works: the page's own Leave, then the host's list loses that name
+    await p4.getByTestId('waitlist-leave').first().click();
+    await expect(p4.getByTestId('rsvp-button').first()).toHaveText('Join the waiting list', { timeout: 30_000 });
+    await expect.poll(async () => (await supabaseAdmin.from('event_waitlist').select('profile_id').eq('event_id', REG.id)).data?.length ?? -1, { timeout: 30_000 }).toBe(1);
+    await hp.reload();
+    await expect(hp.getByTestId('mm-waitlist-person')).toHaveCount(1, { timeout: 60_000 });
+    const after = (await hp.getByTestId('mm-waitlist-person').allInnerTexts()).map((t) => t.trim());
+    expect(after).toEqual([`${first(A[4])} Q.`]);
+    await ctx.close(); await hostCtx.close();
+    return `joined (row ${JSON.stringify(row)}), registered stayed 4, host order ${JSON.stringify(order)}, after Leave ${JSON.stringify(after)}`;
   });
 
   await ac('2b', 'cancelling frees a place: the page shows "1 place left" again', async () => {
@@ -226,6 +305,121 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
   });
 });
 
+
+
+test('AC1 (answers before sign-up): a logged-out person answers, signs in, and is registered from the saved answers on the confirm screen', async ({ browser, baseURL }) => {
+  const SU = await makeEvent(ledger, host.user, `P1529 QA signup return ${RUN_TAG()}`, { startsInMs: 2 * 86_400_000 });
+  const ctx = await browser.newContext(); // logged out: no session
+  const page = await ctx.newPage();
+  let signupEvidence: { navs: string[]; confirmSeenAt: number; writes: string[] } = { navs: [], confirmSeenAt: 0, writes: [] };
+  const signupT0 = Date.now();
+  await page.goto(`/events/${SU.slug}`);
+  await ac('1g', 'logged out: the form ends in Continue with the sign-in line; Continue keeps the answers in this browser and goes to sign-in', async () => {
+    await expect(page.getByTestId('rsvp-button').first()).toBeVisible({ timeout: 90_000 });
+    await page.getByTestId('rsvp-button').first().click();
+    const dlg = page.getByTestId('registration-questions');
+    await expect(dlg).toBeVisible();
+    await expect(dlg.getByTestId('registration-submit')).toHaveText('Continue');
+    await expect(dlg.getByTestId('sign-in-line')).toHaveText("Next, sign in to confirm your place. It isn't confirmed until then.");
+    await dlg.getByTestId('join-help').click();
+    await dlg.getByTestId('prep-event').click();
+    await dlg.getByTestId('recording-accept').click();
+    await dlg.getByText('iPhone Lightning', { exact: true }).click();
+    await dlg.getByRole('textbox').fill('QA signup hope');
+    await shots(page, 'registration', 'signed-out-continue');
+    await dlg.getByTestId('registration-submit').click();
+    await expect(page).toHaveURL(/\/(signup|login|sign-in)/, { timeout: 60_000 });
+    const raw = await page.evaluate((k) => localStorage.getItem(k), `cp:registration-draft:${SU.slug}`);
+    expect(raw, 'the answers are kept in this browser').not.toBeNull();
+    const draft = JSON.parse(raw!);
+    expect(draft).toMatchObject({ intent: 'register', answers: { participation: 'observer', observerPrep: 'doors', phone: 'lightning', hope: 'QA signup hope' } });
+    const none = await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', SU.id);
+    expect(none.count, 'nothing is registered before sign-in').toBe(0);
+    return `URL ${new URL(page.url()).pathname}; draft ${JSON.stringify(draft.answers)}; 0 registrations`;
+  }, page);
+
+  await ac('1h', 'signing up (the real confirmation link) registers them from the saved answers and lands on the confirm screen', async () => {
+    const email = generateTestEmail();
+    const callback = `${baseURL}/auth/callback?source=signup&redirect=${encodeURIComponent(`/events/${SU.slug}`)}&action=rsvp`;
+    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'signup', email, password: `P1529-${Date.now()}-x!`, options: { redirectTo: callback, data: { name: 'Sue Qasignup' } },
+    });
+    expect(error, `generateLink: ${error?.message}`).toBeNull();
+    ledger.users.push({ user: data!.user!, email, slug: 'sue-qasignup', name: 'Sue Qasignup' }); // deleted by the cleanup
+    const writes: string[] = [];
+    const navs: string[] = [];
+    const t0 = Date.now();
+    page.on('response', (r) => { if (r.request().method() === 'POST' && /rest\/v1\/rpc\/register_for_event|rest\/v1\/event_rsvps/.test(r.url())) writes.push(`${r.status()} ${r.url().split('/').pop()}`); });
+    page.on('framenavigated', (f) => { if (f === page.mainFrame()) { const u = new URL(f.url()); navs.push(`${Math.round((Date.now() - t0) / 1000)}s ${u.pathname}${u.search.slice(0, 30)}`); } });
+    // any toast that says "Account created" at any moment on the way (the page's toasts last a few seconds)
+    await page.addInitScript(() => {
+      new MutationObserver(() => { if (document.body?.innerText.includes('Account created!')) sessionStorage.setItem('__sawAccountCreated', '1'); }).observe(document, { subtree: true, childList: true, characterData: true });
+    });
+    await page.goto(`/auth/verify?token_hash=${data!.properties!.hashed_token}&type=email&redirect_to=${encodeURIComponent(callback)}`);
+    // where the callback sends them: the confirm screen, first, with the screen rendered
+    await page.waitForURL(new RegExp(`/events/${SU.slug}/confirm`), { timeout: 90_000 });
+    const confirmSeenAt = Math.round((Date.now() - t0) / 1000);
+    await page.screenshot({ path: `${SHOTS}/registration-confirm-after-signup-1280.png`, fullPage: true });
+    appendFileSync(`${OUT}/shots.jsonl`, JSON.stringify({ file: `${SHOTS}/registration-confirm-after-signup-1280.png`, width: 1280, innerWidth: await page.evaluate(() => window.innerWidth) }) + '\n');
+    // and the fact that matters: registered, from the saved answers
+    await expect.poll(async () => (await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', SU.id).eq('profile_id', data!.user!.id)).count, { timeout: 90_000 }).toBe(1);
+    const { data: a } = await supabaseAdmin.from('event_registration_answers').select('participation, observer_prep, phone, hope').eq('event_id', SU.id).eq('profile_id', data!.user!.id).single();
+    expect(a).toEqual({ participation: 'observer', observer_prep: 'doors', phone: 'lightning', hope: 'QA signup hope' });
+    expect(writes, 'one registration write, as the person').toEqual(['200 register_for_event']);
+    const left0 = await page.evaluate((k) => localStorage.getItem(k), `cp:registration-draft:${SU.slug}`);
+    expect(left0, 'the saved copy is cleared once used').toBeNull();
+    const firstEvent = navs.find((n) => /\/events\//.test(n)) ?? '';
+    expect(firstEvent, `the first event page after the callback is the confirm screen; navigations ${JSON.stringify(navs)}`).toMatch(/\/confirm$/);
+    signupEvidence = { navs, confirmSeenAt, writes };
+    return `registered from the saved answers ${JSON.stringify(a)}; one write ${JSON.stringify(writes)}; the callback's first destination is /confirm; saved draft cleared`;
+  }, page);
+
+  await ac('1i', 'they stay on the confirm screen: no second navigation, and no "Account created! Click Reserve a seat" toast for someone already registered', async () => {
+    await page.waitForTimeout(6000);
+    const sawToast = await page.evaluate(() => sessionStorage.getItem('__sawAccountCreated') === '1');
+    const path = new URL(page.url()).pathname;
+    note(`SIGNUP RETURN after ${Math.round((Date.now() - signupT0) / 1000)}s: navigations ${JSON.stringify(signupEvidence.navs)}; final ${path}; "Account created" toast seen: ${sawToast}`);
+    expect(path, `still on the confirm screen after 6 s (navigations ${JSON.stringify(signupEvidence.navs)})`).toMatch(/\/confirm$/);
+    expect(sawToast, `an already-registered person was told "Account created! Click Reserve a seat to confirm your spot" (navigations ${JSON.stringify(signupEvidence.navs)})`).toBe(false);
+    await ctx.close();
+    return 'stayed on /confirm, no misleading toast';
+  }, page);
+});
+
+test('AC-SG (seat guard): an unregistered room member is not seated; the host sees why; the server refuses it by name', async ({ page }) => {
+  // everyone who is meant to be seated registers properly (the real RPC); Flo is in the room and is NOT registered
+  const { ev: SG } = await eventWithPeople('P1529 QA seat guard', [A[0], A[1]], [O1]);
+  const flo = A[5];
+  await seedMember(SG.id, flo);
+  await asUser(page, host, `/events/${SG.slug}/host`);
+  await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 90_000 });
+  await ac('sg1', 'the host sees "Not registered for this event. They cannot be seated." on that person', async () => {
+    const row = page.getByTestId('mm-person').filter({ hasText: new RegExp(`${first(flo)} Q\\.`) });
+    await expect(row.getByTestId('mm-not-registered')).toHaveText('Not registered for this event. They cannot be seated.', { timeout: 60_000 });
+    await expect(page.getByTestId('mm-person').filter({ hasText: /Ada Q\./ }).getByTestId('mm-not-registered')).toHaveCount(0);
+    await shots(page, 'host', 'not-registered');
+    return 'mm-not-registered on Flo only';
+  }, page);
+  await ac('sg2', 'the server refuses to seat them (by name) on a direct call, and the preview proposes tables without them', async () => {
+    const seat = (p: Person, t: number, r: string) => ({ m: p.room.get(SG.id), t, r });
+    const refused = await host.client.rpc('host_start_round', {
+      p_event_id: SG.id, p_round_no: 1, p_group_size: 3, p_seats: [seat(A[0], 1, 'first'), seat(flo, 1, 'second')],
+    });
+    expect(refused.error, 'seating an unregistered person must be refused').not.toBeNull();
+    expect(refused.error!.message).toMatch(/not registered for this event/i);
+    expect(`${refused.error!.details ?? ''}${refused.error!.message}`).toContain(flo.user.name);
+    const { count } = await supabaseAdmin.from('event_rounds').select('*', { count: 'exact', head: true }).eq('event_id', SG.id);
+    expect(count, 'a refused start leaves no round').toBe(0);
+    await openHostPreview(page);
+    const names = (await page.getByTestId('host-preview').getByTestId('round-grid-name').allInnerTexts()).join(' ');
+    expect(names).not.toContain('Flo');
+    await page.getByTestId('host-preview-start').click();
+    await expect(page.getByTestId('host-preview')).toHaveCount(0, { timeout: 60_000 });
+    const seats = await savedSeats(SG.id);
+    expect(seats.find((x) => x.profile_id === flo.user.user.id), 'Flo is not seated').toBeUndefined();
+    return `host_start_round -> "${refused.error!.message}" detail "${refused.error!.details}"; no round written; the preview and round 1 seat ${seats.length} people, not Flo`;
+  }, page);
+});
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // E1: the main session (six with canvases, two without)
@@ -805,6 +999,8 @@ test('WALK2: after round 1 (flow and canvas fixed), round 2, round 1 transcripts
     const draft = (await supabaseAdmin.from('canvas_drafts').select('conversation_id, thread_root_id').eq('id', tap.draft_id).single()).data!;
     const { count: inDraft } = await supabaseAdmin.from('chat_messages').select('*', { count: 'exact', head: true }).eq('conversation_id', draft.conversation_id).eq('thread_root_id', draft.thread_root_id).eq('kind', 'forward');
     note(`MATERIAL: table a round thread has ${posted[tNos[0]]} posted lines; the draft thread holds ${inDraft} forward copies (copied lines)`);
+    const trig = (await supabaseAdmin.from('chat_messages').select('body').eq('conversation_id', draft.conversation_id).eq('thread_root_id', draft.thread_root_id).eq('author_id', walk.ownerA!.user.user.id).eq('kind', 'message')).data ?? [];
+    expect(trig.map((m) => m.body), 'the trigger message the tap sends').toContain('Update my canvas from what was said in Round 1.');
     expect(await runIsRoundUpdate(runTap), 'the tap\'s run is a round update').toBe(true);
     // keep the page open and held: the screen reads "drafting"; the run starts below
     (walk as Record<string, unknown>).holdCtx = ctx;

@@ -3,14 +3,16 @@
  * @description P844: the RSVP action button, desktop above the description ('card') and the mobile sticky bar. P1365:
  * 'card_bottom' is the desktop repeat after a long description; it only renders when shouldShowRsvpRepeat() holds
  * (never past/full), and carries its own label and test id so no two buttons share an accessible name or a locator.
- * P1529 D18: a flow that asks before the seat adds "N places left" and, when full, the line to message the host.
+ * P1529 D18, D24: a flow that asks before the seat says "Register" and adds "N places left"; when full its button is "Join the waiting list"
+ * (or, once joined, the quiet line and "Leave the waiting list"). Joining the list is not a seat.
  */
 import { Button } from '@/components/ui/button';
 import { RSVP_REPEAT_LABEL, RSVP_REPEAT_LOADING_LABEL, type RsvpTrigger } from '../rsvp-repeat';
-import { FullMessageHostLine, PlacesLeftLine } from './RegistrationQuestions';
+import { PlacesLeftLine } from './RegistrationQuestions';
+import { JUST_FILLED, WAITLIST_BUTTON, WAITLIST_JOINED, WAITLIST_LEAVE } from './registration-copy';
 
 export function RsvpButton({
-  trigger, isPast, isFull, loading, onRsvp, asksBeforeSeat, placesLeft,
+  trigger, isPast, isFull, loading, onRsvp, asksBeforeSeat, placesLeft, waitlist,
 }: {
   trigger: RsvpTrigger;
   isPast: boolean;
@@ -19,6 +21,8 @@ export function RsvpButton({
   onRsvp: (trigger: RsvpTrigger) => void;
   asksBeforeSeat: boolean;
   placesLeft: number | null;
+  /** Only in a flow that asks: the waiting list's state. */
+  waitlist?: { onList: boolean; filled: boolean; onLeave: () => void };
 }) {
   if (trigger === 'card_bottom') {
     return (
@@ -36,13 +40,26 @@ export function RsvpButton({
   if (isPast) {
     return <Button disabled className="w-full" size="lg" data-testid="rsvp-button">Event Ended</Button>;
   }
-  if (isFull) {
+  if (isFull && asksBeforeSeat) {
+    if (waitlist?.onList) {
+      return (
+        <div className="text-center text-sm" data-testid="waitlist-joined">
+          <p>{WAITLIST_JOINED}</p>
+          <button type="button" onClick={waitlist.onLeave} className="mt-2 min-h-10 text-muted-foreground underline" data-testid="waitlist-leave">{WAITLIST_LEAVE}</button>
+        </div>
+      );
+    }
     return (
       <>
-        <Button disabled className="w-full" size="lg" data-testid="rsvp-button">Event Full</Button>
-        {asksBeforeSeat && <FullMessageHostLine />}
+        {waitlist?.filled && <p className="mb-2 text-center text-sm" role="status" data-testid="just-filled">{JUST_FILLED}</p>}
+        <Button onClick={() => onRsvp(trigger)} className="w-full bg-blue-500 hover:bg-blue-700 text-white" size="lg" disabled={loading} data-testid="rsvp-button">
+          {WAITLIST_BUTTON}
+        </Button>
       </>
     );
+  }
+  if (isFull) {
+    return <Button disabled className="w-full" size="lg" data-testid="rsvp-button">Event Full</Button>;
   }
   return (
     <>
@@ -53,7 +70,7 @@ export function RsvpButton({
         disabled={loading}
         data-testid="rsvp-button"
       >
-        {loading ? 'Joining...' : 'Reserve a seat'}
+        {loading ? 'Joining...' : asksBeforeSeat ? 'Register' : 'Reserve a seat'}
       </Button>
       {asksBeforeSeat && <PlacesLeftLine left={placesLeft} />}
     </>

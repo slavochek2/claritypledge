@@ -30,7 +30,7 @@ import { startVisiblePoll } from '@/lib/visible-poll';
 import type { Seat } from '@/lib/round-grouping';
 import type { EventRoomMember } from '@/app/types';
 import { eventFlow, type EventFlow, type FlowEvent } from '../series-recipes';
-import { describeProblem, PLAN_NOT_READY } from './mastermind-host-helpers';
+import { describeProblem, isUnregistered, PLAN_NOT_READY } from './mastermind-host-helpers';
 import { updateStepOn } from './mastermind-round-helpers';
 
 /** The same cadence as the page's "transcribing now" read: words can show this long after they are written, at most. */
@@ -58,6 +58,8 @@ export interface MastermindHost {
   /** The previous session's partners could not be read: the plan runs without that rule, and the read is retried. */
   previousFailed: boolean;
   personOf: (memberId: string) => MastermindPerson | undefined;
+  /** Everyone the host state names (registered or in the room), for counts that include people not in the room yet. */
+  people: MastermindPerson[];
   recordingOf: (memberId: string) => RecordingState;
   /** A canvas is shared and the person was never an owner or partner in a counted round (D17). Only after round 1 starts. */
   isReady: (memberId: string) => boolean;
@@ -179,8 +181,10 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
   /** What the planner is given: holders and observers from the pool, history from counted rounds only. */
   const inputsFor = useCallback(
     (roundNo: number, poolIds: string[]) => {
-      const holders = poolIds.filter(id => isCanvasHolder(personOf(id)));
-      const observers = poolIds.filter(id => !isCanvasHolder(personOf(id)));
+      // D24: the server seats nobody without a registration, so the plan never proposes them (the people list says why).
+      const seatable = poolIds.filter(id => !isUnregistered(personOf(id)));
+      const holders = seatable.filter(id => isCanvasHolder(personOf(id)));
+      const observers = seatable.filter(id => !isCanvasHolder(personOf(id)));
       const history = rounds.filter(r => !r.showcase && r.roundNo < roundNo).map(r => (seatsByRound.get(r.id) ?? []) as Seat[]);
       const memberOf = new Map<string, string>();
       for (const m of members) if (m.profileId) memberOf.set(m.profileId, m.id);
@@ -248,8 +252,10 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
     await readStep();
   }, [eventId, readStep]);
 
+  const people = useMemo(() => [...(hostState?.values() ?? [])], [hostState]);
+
   return {
-    active, ready: !!hostState && previous !== null, warning, previousFailed, personOf, recordingOf, isReady, setObserver, plan, check, guardOpen,
+    active, ready: !!hostState && previous !== null, warning, previousFailed, personOf, people, recordingOf, isReady, setObserver, plan, check, guardOpen,
     step, stepOn, updateStates, startUpdate,
   };
 }

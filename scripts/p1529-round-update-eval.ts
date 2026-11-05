@@ -21,7 +21,7 @@ const BASE: Array<[string, string]> = [
   ['canvas:good-at', 'Not enough leads'],
 ];
 const ALL_BOXES = ['canvas:segments', 'canvas:problem', 'canvas:solution', 'canvas:channels', 'canvas:revenue', 'canvas:metrics', 'canvas:love', 'canvas:good-at', 'canvas:world-needs'];
-const TRIGGER = 'Update my canvas from what was said in Round 1, in my own words.';
+const TRIGGER = 'Update my canvas from what was said in Round 1.';
 
 const arg = (n: string, d?: string) => { const i = process.argv.indexOf(`--${n}`); return i > -1 ? process.argv[i + 1] : d; };
 function prodValues(): string[] | null {

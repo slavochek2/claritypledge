@@ -91,12 +91,13 @@ the flow off returns an event to Clarity Night's flow.
 | D15 | **(2026-11-04) One start time, optional help before it.** The advertised start is the event's start. Doors open 30 minutes earlier for anyone who wants help making their Clarity Canvas. Prepared people get 2.5 hours, and nobody waits for anyone else. Chosen over a 3-hour evening for everyone, two arrival times, and requiring a canvas with no help. |
 | D16 | **(2026-11-04) Registration asks its questions before the seat, for this flow only.** This does not change P1336's one-tap registration for Clarity Night or Social Hike. P1336 recorded no reason for rejecting a question step. Here, the recording condition must be accepted before a seat exists (the 2026-10-21 condition of attendance), and the answers are the host's count of canvases, door help and mics. |
 | D17 | **(2026-11-04) A first canvas can join at the start of any round.** Once it is shared, the host screen marks the person ready and the host adds them as an owner if the room's balance allows. Swapping a canvas already chosen still stops at round 1. This rule is not on the event page; the event room tells that person once they have published. |
-| D18 | **(2026-11-04) Limit by registrations: 24.** `max_attendees` counts registrations (20 USB-C and 5 Lightning mics exist). No waitlist build: when full, the page tells people to message the host, who raises the limit by hand. The registration step asks people to cancel if they can't come. The event page shows a small "N places left" at 5 or fewer, no bar. |
+| D18 | **(2026-11-04) Limit by registrations: 24.** `max_attendees` counts registrations (20 USB-C and 5 Lightning mics exist). ~~No waitlist build: when full, the page tells people to message the host~~ (reversed by D24: a small waiting list; the host still raises the limit by hand). The registration step asks people to cancel if they can't come. The event page shows a small "N places left" at 5 or fewer, no bar. |
 | D19 | **(2026-11-04) The lower number decides.** Partner and owner each say a number; the lower one counts. Above 8, the partner may challenge. If it falls to 8 or below, they return to understanding. The pair and the observer keep this; the app does not. Amends D3. |
 | D20 | **(2026-11-04) Everyone does the learning.** The principle, the opt-in or opt-out and the value survey, as on the hike; observers do these and skip the canvas. Without them a person still takes part, as with late arrivals at Clarity Night: the host sees who has not done them. |
 | D21 | **(2026-11-04) Recording: refusing rules you out; missing hardware does not.** Accepting recording is required for a seat. Everyone wears a mic, observers too. Someone whose hardware fails or who has none stays at the table; that table may have no new version. |
 | D22 | **(2026-11-04) Nothing about helpers in registration.** The founder asks people he knows, depending on who comes. A person walking between tables cannot take part, so that role is a briefed co-facilitator, not a registration option. |
 | D23 | **(2026-11-05) The next version is the agent's reasoned better version, not an accurate record.** It reasons from the whole round, whoever said what and however it was said; no acknowledgement from the owner is needed. Accuracy between sessions is P1500's job. The owner always sees the draft and can publish right away (the host encourages this) or look and tweak first. Amends D6 and D13. Kept: the canvas never quotes or names anyone, and numbers and prices still need the owner's own words (2026-11-04 ruling). Requires a round-update mode in P1536's owner-quote check; verified with one real transcript. |
+| D24 | **(2026-11-05, founder) Answers before sign-up, a small waiting list, a two-step join question, the trigger wording.** (a) Register opens the form for a logged-out person too; its button is "Continue", the answers are kept in this browser for that event only, and the normal sign-up screen follows. Coming back signed in in the same browser registers them with the saved answers, clears them, and lands on the confirm screen. Another device, or nothing saved: the form opens as before. (b) A small waiting list **replaces D18's "no waitlist build"**: when the event is full the button is "Join the waiting list" (same form, same sign-in path); joining is not a seat, the host sees the names in order in the mastermind panel, raises the limit by hand, and nothing is emailed or promoted automatically. "Full? Message the host" is gone. (c) The join question has two steps: how the person wants to join (improve a business, or help others as an observer or mentor), then, depending on it, where they will prepare. An observer's second answer is stored (`observer_prep`) so the host can count who comes at the doors time. (d) The trigger message of "Make my next version" reads "Update my canvas from what was said in {round label}." (e) In this flow nobody is seated without a registration, as owner, partner or observer; the host is exempt. |
 | D14 | **The partner marks the boxes they'd bet against on the canvas itself**, with the canvas's existing position controls, during the silent reading; the canvas's existing Compare view then shows where they differ. The canvas page is theirs to use throughout the round; nothing new is built for marking. ("the Clarity Canvas has the compare feature already … if I look at the canvas I can click on anything and set my position.") |
 
 ## Invariants
@@ -137,22 +138,62 @@ the flow off returns an event to Clarity Night's flow.
 ### 0. Registering (D16, D18, D15)
 
 Tapping Register in this flow opens one step, then the seat is given. Series without questions stay one
-tap, and any series can later declare questions through its recipe. Someone who must sign up first
-returns to this step, and is not registered automatically. Register is always tappable and names what
-is missing (a disabled button is a dead control, P955).
+tap, and any series can later declare questions through its recipe. Register is always tappable and names
+what is missing (a disabled button is a dead control, P955). Copy is the founder's, 2026-11-05 (D24).
 
-Draft wording, `[FOUNDER DECISION: final copy]`:
+**The form**, in this order. Title: **Register**. Line under it: "Places are limited. If your plans change,
+please cancel so someone else can come."
 
-1. **How do you want to take part?** (required; changeable later in preparation)
-   - Get my business challenged by peers. I'll make my Clarity Canvas before the event.
-   - Get my business challenged by peers. I'll come 30 minutes earlier, at {doors time}, and make it there.
-   - Observe: practise listening and give feedback. No Clarity Canvas needed.
-2. **Which phone will you bring? We use it to record your conversations.** (required) USB-C · iPhone
-   Lightning · Other. Other shows: "Please bring a headset or microphone that fits your phone."
-3. **Checkbox** (required): "I'm fine with my conversations being transcribed and used by AI at this event."
-4. **What do you hope to get from this event?** (optional, one line)
-5. A line above Register: "Places are limited. If you can't come, please cancel so someone else can have
-   your place."
+1. **How do you want to join?** (required)
+   - I want to improve my business with honest challenges from peers
+   - I want to help others succeed, as an observer or mentor
+2. Only after that answer, one question that depends on it (required). Changing the first answer clears it.
+   - Improving a business: **Where will you prepare and create your Clarity Canvas? It takes about 30
+     minutes.** "At home, before the event. I'll come on time at {start}." / "At the event, with help. I'll
+     come on time at {doors}."
+   - Observer or mentor: **Where will you prepare? It takes about 15 minutes to learn how we communicate.**
+     "At home, before the event. I'll come on time at {start}." / "At the event. I'll come on time at {doors}."
+   - {start} and {doors} are formatted from the event (18:30 and 18:00 for the test event).
+3. **Checkbox** (required), reviewed wording: "To help every business improve fast, we record your
+   conversations here and Google Gemini turns them into text. The text is posted in the event chat for the
+   host and attendees. After a discussion round, the peer whose business you discussed can use it to improve
+   their Clarity Canvas with AI, and publish it. See our Terms and Privacy Policy." "Terms" and "Privacy
+   Policy" link to the existing pages and open in a new tab, so the form keeps its answers. The room's
+   Transcribe text and the /transcribe consent say the same sentences without the links line. The terms and
+   privacy text are not changed by this.
+4. **What phone input do you have?** (required) USB-C · iPhone Lightning · Other. Other shows: "Please bring a
+   headset or microphone that fits your phone."
+5. **What do you hope to get from this event? (optional)**
+
+What is missing on Register: "Choose how you want to join." / "Choose where you will prepare." / "Accept the
+recording to register." / "Choose what phone input you have." Closing with the X: if anything was answered,
+the toast "You're not registered yet." and the answers stay on reopen; nothing answered, it just closes.
+
+**Stored.** `participation` keeps its three values (improving at home: `canvas_before`; improving at the
+event: `canvas_at_doors`; observer or mentor: `observer`), which the emails and the host's marks already read.
+An observer's second answer is the one value `participation` cannot carry, so it is stored apart
+(`observer_prep`: `home` or `doors`); `register_for_event` refuses an observer without it. The host's panel
+shows how many people come at the doors time (improving at the event, or an observer who prepares at the event).
+
+**Before sign-up (D24).** Logged out, Register opens the same form; its button is "Continue", with the line
+above it "Next, sign in to confirm your place. It isn't confirmed until then." Continue keeps the answers,
+recording acceptance included, in this browser under one key per event (nothing is stored for any other flow),
+and goes to the normal sign-up. Coming back signed in (Google or email link, same browser) registers the person
+with the saved answers, clears them, and lands on the confirm screen. If the event filled meanwhile: "This
+event just filled up." and the waiting list, with the answers kept. Saved answers are never sent for another
+event, and expire (3 hours). They are not bound to a person, because nobody is signed in when they are written.
+
+**Waiting list (D24).** When the event is full in this flow, the button is "Join the waiting list" and opens
+the same form (logged out: the same sign-in path). After joining: "You're on the waiting list. The host will
+email you if a place opens." with a quiet "Leave the waiting list" link. Joining is not a seat: a table
+`event_waitlist` (own row and host read; only the RPCs write; cascade on delete; answers stored like a
+registration; ordered by time). The host sees the names in order in the mastermind panel and raises the
+limit by hand. No automatic emails, no automatic promotion. A registration removes the person's entry.
+
+**No seat without a registration (D24).** In this flow `event_round_seats` refuses a person who has no
+registration, as owner, partner or observer, on every path that writes a seat. The host is exempt. The refusal
+names the person and the reason; the host's people list says "Not registered for this event. They cannot be
+seated.", and the planner never proposes them.
 
 Business stage is not asked: the canvas shows it, and nothing at the event would use the answer.
 
@@ -165,9 +206,6 @@ removed with the person's data. The hope line is read by hand after the event.
 copy]` bring your phone; bring a laptop if making your Clarity Canvas at the event; doors at {doors time};
 places are limited, so cancel if you can't come. People who chose the observer option do not get the
 laptop line. Clarity Night and Social Hike emails stay byte-identical.
-
-**Full.** The existing "Event Full" state gains, in this flow, a line to message the host
-`[FOUNDER DECISION: which channel]`.
 
 ### 1. The flow belongs to the event, defaulted from its series (D8)
 
@@ -339,7 +377,7 @@ A founder-only results script (same pattern as `scripts/event-close-results.sh`)
 
 **Non-Goals**
 - Do NOT add sliders, scores, an "allow challenge" control or any phase tracking to the round (D3).
-- Do NOT build a waitlist, a fullness bar, or helper recruitment in registration (D18, D22).
+- Do NOT build a fullness bar or helper recruitment in registration (D18, D22). The waiting list is small and manual (D24): no automatic emails or promotion.
 - Do NOT ask about business stage at registration.
 - Do NOT build anything new for marking boxes; the canvas's position controls and Compare serve (D14).
 - Do NOT change Clarity Night's or Social Hike's room, host screen, seating, titles or close.
@@ -444,7 +482,7 @@ An invented 15-minute transcript (`scripts/fixtures/p1529-round-transcript.json`
 - **Fixed from this:** Try again now keeps the round mode. A retry keeps the failed run's trigger message, so the mode follows that message (`20261105231000`). An owner's later message on the draft keeps the strict rule.
 - **Fixed from the commit's security review, proven by controls first:** with no owner quote in front of them, "five hundred", "a dozen" and "half a million" passed on an unrelated "5", and a single name or firm from someone else's lines passed the name filter. Number words now carry their magnitude, and the round mode drops a Titlecase word someone else said in mid-sentence unless it is on the canvas, also when the owner repeated it. Two more real runs: same quality, no name, no partner price. Still a heuristic: a name the transcript wrote in lower case gets through. The owner sees every draft.
 - **One open weakness:** "paid by 7 clients" is the model's reading of "seven clients in total". Accepted under D23, since the owner always sees the draft.
-- **For the founder:** the trigger message says "in my own words", which D23 no longer means. Its wording is a `[FOUNDER DECISION]`.
+- **Trigger wording:** the founder set it on 2026-11-05 (D24): "Update my canvas from what was said in {round label}." The measured runs above used the earlier text, "... in my own words"; the wording is not re-measured.
 
 ## Measured: latency (2026-11-05, TEST)
 
@@ -453,7 +491,6 @@ An invented 15-minute transcript (`scripts/fixtures/p1529-round-transcript.json`
 ## Known Limitations
 
 - Terms wording and notice versus re-acceptance were reviewed by Gemini 4 Argon, at the founder's request, in place of the founder's approval. It replaced "never quotes or names you", because the name filter is a heuristic.
-- A person can join the room and be seated as a partner or observer through `join_event_room` without having registered. "No seat without the answers" holds for registrations. `[FOUNDER DECISION: fix or accept.]`
 - `share_canvas` and `unshare_canvas` have no round check: after round 1 an owner can share another canvas directly. Their partner's link still follows the chosen canvas and reads as no longer shared.
 - The round-mode name check is a heuristic: a name written in lower case by the transcript, or an unknown acronym, can get through. The owner sees every draft.
 - Words with no digit value ("half our customers", "double") are not checked as numbers.

@@ -8,6 +8,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { AuthCallbackPage, AuthProvider } from '@/auth';
 import { MemoryRouter } from 'react-router-dom';
+import { readRegistrationDraft, saveRegistrationDraft } from '@/app/data/registration-draft';
+import type { RegistrationAnswers } from '@/app/data/registration-answer-model';
 
 // -----------------------------------------------------------------------------
 // MOCKS (mirrors critical-auth-flow.test.tsx harness)
@@ -91,7 +93,11 @@ vi.mock('@/app/data/api', () => ({
 }));
 
 const mockAsksBeforeSeat = vi.fn();
-vi.mock('@/app/data/event-registration', () => ({ eventAsksBeforeSeat: (slug: string) => mockAsksBeforeSeat(slug) }));
+const mockRegisterFor = vi.fn();
+vi.mock('@/app/data/event-registration', () => ({
+  eventAsksBeforeSeat: (slug: string) => mockAsksBeforeSeat(slug),
+  registerForEvent: (event: unknown, profileId: string, answers: unknown) => mockRegisterFor(event, profileId, answers),
+}));
 
 const mockToastError = vi.fn();
 vi.mock('sonner', () => ({ toast: { error: (m: string) => mockToastError(m), success: vi.fn() } }));
@@ -146,7 +152,9 @@ describe('P1529: the sign-up return for a flow that asks', () => {
     mockGetEventBySlug.mockResolvedValue({ id: 'evt-1', slug: 'night-1' });
     mockRsvpToEvent.mockResolvedValue(true);
     mockAsksBeforeSeat.mockResolvedValue(false);
+    mockRegisterFor.mockResolvedValue('ok');
     sessionStorage.clear();
+    localStorage.clear();
   });
 
   it('does not try to seat the person: it goes back to the event page, where the step opens', async () => {
@@ -168,5 +176,65 @@ describe('P1529: the sign-up return for a flow that asks', () => {
     mockAsksBeforeSeat.mockRejectedValue(new Error('offline'));
     renderCallback(RSVP_URL);
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/night-1/confirm', { replace: true }));
+  });
+
+  describe('D24: answers saved before sign-up', () => {
+    const SAVED: RegistrationAnswers = { participation: 'observer', observerPrep: 'home', phone: 'lightning', hope: '', recordingAccepted: true };
+
+    it('registers with them, clears them, and lands on the confirm screen, without the one-tap seat', async () => {
+      mockAsksBeforeSeat.mockResolvedValue(true);
+      saveRegistrationDraft('night-1', 'register', SAVED);
+      renderCallback(RSVP_URL);
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/night-1/confirm', { replace: true }));
+      expect(mockRegisterFor).toHaveBeenCalledTimes(1);
+      expect(mockRegisterFor).toHaveBeenCalledWith({ id: 'evt-1', slug: 'night-1' }, NEW_ID, SAVED);
+      expect(mockRsvpToEvent).not.toHaveBeenCalled();
+      expect(readRegistrationDraft('night-1')).toBeNull();
+      expect(mockTrack).toHaveBeenCalledWith('event_rsvp_auto', expect.objectContaining({ event_slug: 'night-1' }));
+    });
+
+    it('never sends answers saved for a different event', async () => {
+      mockAsksBeforeSeat.mockResolvedValue(true);
+      saveRegistrationDraft('night-2', 'register', SAVED);
+      renderCallback(RSVP_URL);
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/night-1?action=rsvp', { replace: true }));
+      expect(mockRegisterFor).not.toHaveBeenCalled();
+      expect(readRegistrationDraft('night-2')).not.toBeNull();
+    });
+
+    it('the event filled meanwhile: the person goes to the page, the answers stay, nothing is confirmed', async () => {
+      mockAsksBeforeSeat.mockResolvedValue(true);
+      mockRegisterFor.mockResolvedValue('full');
+      saveRegistrationDraft('night-1', 'register', SAVED);
+      renderCallback(RSVP_URL);
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/night-1?action=rsvp', { replace: true }));
+      expect(readRegistrationDraft('night-1')).not.toBeNull();
+      expect(mockNavigate).not.toHaveBeenCalledWith('/events/night-1/confirm', expect.anything());
+    });
+
+    it('a saved waiting-list request is for the page to act on: the callback registers nobody', async () => {
+      mockAsksBeforeSeat.mockResolvedValue(true);
+      saveRegistrationDraft('night-1', 'waitlist', SAVED);
+      renderCallback(RSVP_URL);
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/night-1?action=rsvp', { replace: true }));
+      expect(mockRegisterFor).not.toHaveBeenCalled();
+      expect(readRegistrationDraft('night-1')).not.toBeNull();
+    });
+
+    it('a flow that does not ask ignores any saved answers and keeps its one tap', async () => {
+      saveRegistrationDraft('night-1', 'register', SAVED);
+      renderCallback(RSVP_URL);
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/events/night-1/confirm', { replace: true }));
+      expect(mockRegisterFor).not.toHaveBeenCalled();
+      expect(mockRsvpToEvent).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+describe('P1529 D24: the callback running a second time for one sign-in', () => {
+  it('sends someone already registered to confirm, not back to the form', async () => {
+    const src = (await import('node:fs')).readFileSync('src/auth/auto-rsvp-destination.ts', 'utf8');
+    expect(src).toMatch(/isUserRsvpd\(event\.id, userId\)/);
+    expect(src).toMatch(/registered \? `\/events\/\$\{eventSlug\}\/confirm` : toPage/);
   });
 });

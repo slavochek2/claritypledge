@@ -726,7 +726,8 @@ An event's flow is `events.flow` (`clarity-night` | `social-hike` | `sales-maste
 
 | Table | Purpose |
 |-------|---------|
-| `event_registration_answers` | `(event_id, profile_id)`: participation (`canvas_before` \| `canvas_at_doors` \| `observer`), phone (`usbc` \| `lightning` \| `other`), optional hope, `recording_accepted_at`. Written only by `register_for_event`; read by the person and the host. A flow with questions has no seat without these. |
+| `event_registration_answers` | `(event_id, profile_id)`: participation (`canvas_before` \| `canvas_at_doors` \| `observer`), phone (`usbc` \| `lightning` \| `other`), optional hope, `recording_accepted_at`, and `observer_prep` (`home` \| `doors`, an observer's second answer; NULL for everyone else). Written only by `register_for_event`, which refuses an observer without `observer_prep`; read by the person and the host. A flow with questions has no seat without these. |
+| `event_waitlist` | `(event_id, profile_id)`: the small waiting list of a full sales-mastermind event (D24), answers stored like a registration, ordered by `joined_at`. Own row and host read; only `join_event_waitlist` / `leave_event_waitlist` write; cascades on delete. Not a seat: nothing promotes anyone. A registration removes the person's entry. |
 | `event_canvases` | One canvas per attendee per event. Changing it is one transaction, refused after the first counted round; a first canvas may arrive at any round (D17). No client privilege. |
 | `event_observer_overrides` | The host's per-person override. Kept when the flow is switched away, so a switch back restores it. |
 | `event_canvas_opens` | Evidence: each open of an owner's canvas from the round screen (round, owner, reader, version, time). Kept outside the seat rows, which `host_set_round_seats` replaces. No client privilege; read by `scripts/event-mastermind-results.sh`. |

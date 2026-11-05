@@ -1,26 +1,39 @@
 /**
- * P1529 D16: what the registration step does with every outcome. An error that is not a lost session must show the retry toast
- * and keep the step open with the answers, never leave an unhandled rejection.
+ * P1529 D16, D24: what the registration step does with every outcome. An error that is not a lost session must show the retry
+ * toast and keep the step open with the answers, never leave an unhandled rejection. Signed out, nothing is sent: the answers
+ * are kept in this browser for this event only and the person goes to sign-up. A full event joins the waiting list, which is not a seat.
  */
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const h = vi.hoisted(() => ({ register: vi.fn(), toastError: vi.fn() }));
+const h = vi.hoisted(() => ({ register: vi.fn(), join: vi.fn(), onList: vi.fn(), leave: vi.fn(), toastError: vi.fn() }));
 vi.mock('@/app/data/event-registration', () => ({ registerForEvent: (...a: unknown[]) => h.register(...a) }));
+vi.mock('@/app/data/event-waitlist', () => ({
+  joinWaitlist: (...a: unknown[]) => h.join(...a),
+  isOnWaitlist: (...a: unknown[]) => h.onList(...a),
+  leaveWaitlist: (...a: unknown[]) => h.leave(...a),
+}));
 vi.mock('sonner', () => ({ toast: { error: (m: string) => h.toastError(m) } }));
 
 import { useRegistrationStep } from '@/app/prototypes/events/components/use-registration-step';
+import { readRegistrationDraft } from '@/app/data/registration-draft';
 import { SessionMismatchError } from '@/lib/session-guard';
+import type { RegistrationAnswers } from '@/app/data/registration-answer-model';
 
-const ANSWERS = { participation: 'observer', phone: 'other', hope: '', recordingAccepted: true } as const;
+const ANSWERS: RegistrationAnswers = { participation: 'observer', observerPrep: 'home', phone: 'other', hope: '', recordingAccepted: true };
 
-function mount() {
+function mount(over: { userId?: string | undefined; full?: boolean; onSignIn?: () => void } = {}) {
   const cb = { onRegistered: vi.fn(), onRefused: vi.fn(), onSessionLost: vi.fn() };
-  const hook = renderHook(() => useRegistrationStep({ event: { id: 'e1', slug: 'night' }, userId: 'u1', ...cb }));
+  const opts = { userId: 'u1' as string | undefined, ...over };
+  const hook = renderHook(() => useRegistrationStep({ event: { id: 'e1', slug: 'night' }, ...opts, ...cb }));
   return { ...hook, cb };
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  localStorage.clear();
+  h.onList.mockResolvedValue(false);
+});
 
 describe('useRegistrationStep.submit', () => {
   it('an unknown error shows the retry toast, keeps the step open, and rejects nothing', async () => {
@@ -51,8 +64,96 @@ describe('useRegistrationStep.submit', () => {
     h.register.mockResolvedValueOnce('full');
     await act(async () => { await result.current.submit(ANSWERS); });
     expect(cb.onRefused).toHaveBeenCalledWith('full');
+    expect(result.current.filled).toBe(true);
     h.register.mockResolvedValueOnce('failed');
     await act(async () => { await result.current.submit(ANSWERS); });
     expect(h.toastError).toHaveBeenCalledTimes(1);
+  });
+
+  it('the answers are sent with the second answer', async () => {
+    h.register.mockResolvedValueOnce('ok');
+    const { result } = mount();
+    await act(async () => { await result.current.submit(ANSWERS); });
+    expect(h.register).toHaveBeenCalledWith({ id: 'e1', slug: 'night' }, 'u1', ANSWERS);
+  });
+});
+
+describe('signed out (D24)', () => {
+  it('keeps the answers for this event only, sends nothing, and goes to sign-up', async () => {
+    const onSignIn = vi.fn();
+    const { result } = mount({ userId: undefined, onSignIn });
+    act(() => result.current.ask());
+    await act(async () => { await result.current.submit(ANSWERS); });
+    expect(h.register).not.toHaveBeenCalled();
+    expect(h.join).not.toHaveBeenCalled();
+    expect(onSignIn).toHaveBeenCalledTimes(1);
+    expect(result.current.asking).toBe(false);
+    expect(readRegistrationDraft('night')).toEqual({ intent: 'register', answers: ANSWERS });
+    expect(readRegistrationDraft('other-event')).toBeNull();
+    expect(localStorage.length).toBe(1);
+    expect(localStorage.key(0)).toBe('cp:registration-draft:night');
+  });
+
+  it('a full event keeps a waiting-list request', async () => {
+    const { result } = mount({ userId: undefined, full: true, onSignIn: vi.fn() });
+    await act(async () => { await result.current.submit(ANSWERS); });
+    expect(readRegistrationDraft('night')?.intent).toBe('waitlist');
+  });
+
+  it('a browser without storage still goes to sign-up', async () => {
+    const onSignIn = vi.fn();
+    const boom = () => { throw new Error('denied'); };
+    const original = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    Object.defineProperty(window, 'localStorage', { value: { getItem: boom, setItem: boom, removeItem: boom, clear: boom, length: 0, key: boom }, configurable: true });
+    const { result } = mount({ userId: undefined, onSignIn });
+    await act(async () => { await result.current.submit(ANSWERS); });
+    expect(onSignIn).toHaveBeenCalledTimes(1);
+    if (original) Object.defineProperty(window, 'localStorage', original);
+  });
+});
+
+describe('the waiting list (D24)', () => {
+  it('a full event joins the list instead of registering, and the draft is cleared', async () => {
+    h.join.mockResolvedValueOnce('ok');
+    const { result, cb } = mount({ full: true });
+    act(() => result.current.ask());
+    await act(async () => { await result.current.submit(ANSWERS); });
+    expect(h.join).toHaveBeenCalledWith('night', 'u1', ANSWERS);
+    expect(h.register).not.toHaveBeenCalled();
+    expect(result.current.onWaitlist).toBe(true);
+    expect(result.current.asking).toBe(false);
+    expect(cb.onRegistered).not.toHaveBeenCalled();
+  });
+
+  it('a place that opened meanwhile registers the person instead', async () => {
+    h.join.mockResolvedValueOnce('not_full');
+    h.register.mockResolvedValueOnce('ok');
+    const { result, cb } = mount({ full: true });
+    await act(async () => { await result.current.submit(ANSWERS); });
+    expect(h.register).toHaveBeenCalledTimes(1);
+    expect(cb.onRegistered).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failed join keeps the step open with the retry toast', async () => {
+    h.join.mockResolvedValueOnce('failed');
+    const { result } = mount({ full: true });
+    act(() => result.current.ask());
+    await act(async () => { await result.current.submit(ANSWERS); });
+    expect(h.toastError).toHaveBeenCalledWith("Couldn't join the waiting list. Please try again.");
+    expect(result.current.asking).toBe(true);
+    expect(result.current.onWaitlist).toBe(false);
+  });
+
+  it('reads whether this person is already on the list only while the event is full, and leaving takes them off', async () => {
+    h.onList.mockResolvedValue(true);
+    h.leave.mockResolvedValue(undefined);
+    const full = mount({ full: true });
+    await waitFor(() => expect(full.result.current.onWaitlist).toBe(true));
+    await act(async () => { await full.result.current.leaveWaitlist(); });
+    expect(h.leave).toHaveBeenCalledWith('night');
+    expect(full.result.current.onWaitlist).toBe(false);
+    h.onList.mockClear();
+    mount({ full: false });
+    expect(h.onList).not.toHaveBeenCalled();
   });
 });

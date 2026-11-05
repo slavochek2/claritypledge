@@ -1,17 +1,20 @@
 /**
  * @file RegistrationQuestions.tsx
- * @description P1529 §0: the one step between tapping Register and having a seat, for a flow that asks (D16).
- * Register is always tappable and names what is missing (a disabled button is a dead control, P955).
- * Wording is DRAFT: [FOUNDER DECISION: final copy].
+ * @description P1529 §0, D24: the one step between tapping Register and having a seat, for a flow that asks (D16). Same form
+ * for registering and for the waiting list; signed out it ends in Continue and sign-in comes next. Register is always
+ * tappable and names what is missing (a disabled button is a dead control, P955). Closing it keeps the answers, and says so
+ * if any were given. Wording: registration-copy.ts (founder, 2026-11-05).
  */
-import { ROUND_UPDATE_CONSENT } from '@/app/components/session/capture-copy';
 import { useEffect, useId, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { formatDoorsTime } from '../event-doors';
-import type { Participation, PhoneKind, RegistrationAnswers } from '@/app/data/event-registration';
+import { formatDoorsTime, formatStartTime } from '../event-doors';
+import { choicesOf, participationOf, type JoinChoice, type PhoneKind, type PrepChoice, type RegistrationAnswers } from '@/app/data/registration-answer-model';
+import { ROUND_UPDATE_CONSENT } from '@/app/components/session/capture-copy';
+import * as copy from './registration-copy';
 
 /** The event page's "N places left" appears at this many or fewer (D18). No bar. */
 export const PLACES_LEFT_FROM = 5;
@@ -25,47 +28,26 @@ export function PlacesLeftLine({ left }: { left: number | null }) {
   );
 }
 
-/** [FOUNDER DECISION: which channel.] Shown under "Event Full" in a flow that asks questions (D18). */
-export function FullMessageHostLine() {
-  return (
-    <p className="mt-2 text-center text-sm text-muted-foreground" data-testid="full-message-host">
-      Full? Message the host. A place may open up.
-    </p>
-  );
-}
-
-const PHONES: { value: PhoneKind; label: string }[] = [
-  { value: 'usbc', label: 'USB-C' },
-  { value: 'lightning', label: 'iPhone Lightning' },
-  { value: 'other', label: 'Other' },
-];
-
-function participationOptions(doors: string): { value: Participation; label: string }[] {
-  return [
-    { value: 'canvas_before', label: "Get my business challenged by peers. I'll make my Clarity Canvas before the event." },
-    { value: 'canvas_at_doors', label: `Get my business challenged by peers. I'll come 30 minutes earlier, at ${doors}, and make it there.` },
-    { value: 'observer', label: 'Observe: practise listening and give feedback. No Clarity Canvas needed.' },
-  ];
-}
-
-function ChoiceRow({ name, checked, label, onSelect }: { name: string; checked: boolean; label: string; onSelect: () => void }) {
+function ChoiceRow({ name, checked, label, onSelect, testId }: { name: string; checked: boolean; label: string; onSelect: () => void; testId?: string }) {
   return (
     <label className="flex min-h-10 cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm has-[:checked]:border-foreground">
-      <input type="radio" name={name} checked={checked} onChange={onSelect} className="mt-0.5" />
+      <input type="radio" name={name} checked={checked} onChange={onSelect} className="mt-0.5" data-testid={testId} />
       <span>{label}</span>
     </label>
   );
 }
 
-function missingLine(p: Participation | null, phone: PhoneKind | null, accepted: boolean): string | null {
-  if (!p) return 'Choose how you want to take part.';
-  if (!phone) return 'Choose which phone you will bring.';
-  if (!accepted) return 'This event needs you to accept transcription.';
-  return null;
+export function missingLines(join: JoinChoice | null, prep: PrepChoice | null, phone: PhoneKind | null, accepted: boolean): string[] {
+  const out: string[] = [];
+  if (!join) out.push(copy.MISSING.join);
+  else if (!prep) out.push(copy.MISSING.prep);
+  if (!accepted) out.push(copy.MISSING.recording);
+  if (!phone) out.push(copy.MISSING.phone);
+  return out;
 }
 
 export function RegistrationQuestions({
-  open, datetime, timezone, busy, onCancel, onSubmit,
+  open, datetime, timezone, busy, onCancel, onSubmit, mode = 'register', signedIn = true, initial = null,
 }: {
   open: boolean;
   datetime: string;
@@ -73,58 +55,101 @@ export function RegistrationQuestions({
   busy: boolean;
   onCancel: () => void;
   onSubmit: (answers: RegistrationAnswers) => void;
+  /** The waiting list uses the same form; only its title, button and closing line change. */
+  mode?: 'register' | 'waitlist';
+  /** Signed out: the form ends in Continue and the sign-in line, and nothing is sent. */
+  signedIn?: boolean;
+  /** Answers saved before sign-up: they fill the form. */
+  initial?: RegistrationAnswers | null;
 }) {
   const id = useId();
-  const [participation, setParticipation] = useState<Participation | null>(null);
+  const [join, setJoin] = useState<JoinChoice | null>(null);
+  const [prep, setPrep] = useState<PrepChoice | null>(null);
   const [phone, setPhone] = useState<PhoneKind | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [hope, setHope] = useState('');
   const [tried, setTried] = useState(false);
-  const missing = missingLine(participation, phone, accepted);
-  // Reopened after a cancel: the answers given stay, the "you have not answered" line from the earlier try does not.
+  const missing = missingLines(join, prep, phone, accepted);
+  const waitlist = mode === 'waitlist';
+  // Reopened after a close: the answers given stay, the "you have not answered" lines from the earlier try do not.
   useEffect(() => { if (open) setTried(false); }, [open]);
+  useEffect(() => {
+    const c = initial ? choicesOf(initial) : null;
+    if (!initial || !c) return;
+    setJoin(c.join); setPrep(c.prep); setPhone(initial.phone); setAccepted(true); setHope(initial.hope);
+  }, [initial]);
 
+  const chooseJoin = (next: JoinChoice) => {
+    if (next === join) return;
+    setJoin(next);
+    setPrep(null); // the second question depends on the first answer
+  };
+  const answered = !!(join || prep || phone || accepted || hope.trim());
+  const close = () => {
+    if (answered) toast(waitlist ? copy.WAITLIST_CLOSED_UNFINISHED : copy.CLOSED_UNFINISHED);
+    onCancel();
+  };
   const submit = () => {
     setTried(true);
-    if (missing || !participation || !phone || !accepted) return;
-    onSubmit({ participation, phone, hope, recordingAccepted: true });
+    if (missing.length > 0 || !join || !prep || !phone || !accepted) return;
+    onSubmit({ ...participationOf(join, prep), phone, hope, recordingAccepted: true });
   };
 
+  const start = formatStartTime(datetime, timezone);
+  const doors = formatDoorsTime(datetime, timezone);
+  const buttonLabel = !signedIn ? copy.CONTINUE_LABEL : busy ? (waitlist ? 'Joining...' : 'Registering...') : waitlist ? copy.WAITLIST_BUTTON : copy.FORM_TITLE;
+
   return (
-    <Dialog open={open} onOpenChange={next => { if (!next) onCancel(); }}>
+    <Dialog open={open} onOpenChange={next => { if (!next) close(); }}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto" data-testid="registration-questions">
         <DialogHeader>
-          <DialogTitle>One step before your seat</DialogTitle>
-          <DialogDescription>A few answers so the evening works for you.</DialogDescription>
+          <DialogTitle>{waitlist ? copy.WAITLIST_TITLE : copy.FORM_TITLE}</DialogTitle>
+          <DialogDescription>{copy.FORM_LINE}</DialogDescription>
         </DialogHeader>
         <div className="space-y-5">
           <fieldset className="space-y-2">
-            <legend className="mb-2 text-sm font-medium">How do you want to take part?</legend>
-            {participationOptions(formatDoorsTime(datetime, timezone)).map(o => (
-              <ChoiceRow key={o.value} name={`${id}-p`} checked={participation === o.value} label={o.label} onSelect={() => setParticipation(o.value)} />
+            <legend className="mb-2 text-sm font-medium">{copy.JOIN_QUESTION}</legend>
+            {copy.JOIN_OPTIONS.map(o => (
+              <ChoiceRow key={o.value} name={`${id}-j`} checked={join === o.value} label={o.label} onSelect={() => chooseJoin(o.value)} testId={`join-${o.value}`} />
             ))}
           </fieldset>
+          {join && (
+            <fieldset className="space-y-2" data-testid="prep-question">
+              <legend className="mb-2 text-sm font-medium">{copy.prepQuestion(join)}</legend>
+              {copy.prepOptions(join, start, doors).map(o => (
+                <ChoiceRow key={o.value} name={`${id}-p-${join}`} checked={prep === o.value} label={o.label} onSelect={() => setPrep(o.value)} testId={`prep-${o.value}`} />
+              ))}
+            </fieldset>
+          )}
+          <label className="flex min-h-10 cursor-pointer items-start gap-3 text-sm">
+            <Checkbox checked={accepted} onCheckedChange={v => setAccepted(v === true)} className="mt-0.5" data-testid="recording-accept" />
+            <span data-testid="recording-label">
+              {ROUND_UPDATE_CONSENT} See our{' '}
+              <a href={copy.TERMS_PATH} target="_blank" rel="noopener noreferrer" className="underline" data-testid="recording-terms">Terms</a> and{' '}
+              <a href={copy.PRIVACY_PATH} target="_blank" rel="noopener noreferrer" className="underline" data-testid="recording-privacy">Privacy Policy</a>.
+            </span>
+          </label>
           <fieldset className="space-y-2">
-            <legend className="mb-2 text-sm font-medium">Which phone will you bring? We use it to record your conversations.</legend>
-            {PHONES.map(o => (
+            <legend className="mb-2 text-sm font-medium">{copy.PHONE_QUESTION}</legend>
+            {copy.PHONES.map(o => (
               <ChoiceRow key={o.value} name={`${id}-m`} checked={phone === o.value} label={o.label} onSelect={() => setPhone(o.value)} />
             ))}
             {phone === 'other' && (
-              <p className="text-sm text-muted-foreground" data-testid="bring-own-mic">Please bring a headset or microphone that fits your phone.</p>
+              <p className="text-sm text-muted-foreground" data-testid="bring-own-mic">{copy.BRING_OWN_MIC}</p>
             )}
           </fieldset>
-          <label className="flex min-h-10 cursor-pointer items-start gap-3 text-sm">
-            <Checkbox checked={accepted} onCheckedChange={v => setAccepted(v === true)} className="mt-0.5" data-testid="recording-accept" />
-            <span>I'm fine with my conversations being transcribed and used by AI at this event. {ROUND_UPDATE_CONSENT}</span>
-          </label>
           <div>
-            <label htmlFor={`${id}-hope`} className="mb-2 block text-sm font-medium">What do you hope to get from this event? (optional)</label>
+            <label htmlFor={`${id}-hope`} className="mb-2 block text-sm font-medium">{copy.HOPE_QUESTION}</label>
             <Input id={`${id}-hope`} value={hope} maxLength={500} onChange={e => setHope(e.target.value)} />
           </div>
-          <p className="text-sm text-muted-foreground">Places are limited. If you can't come, please cancel so someone else can have your place.</p>
-          {tried && missing && <p className="text-sm text-destructive" role="alert" data-testid="registration-missing">{missing}</p>}
-          <Button className="w-full" size="lg" onClick={submit} disabled={busy} data-testid="registration-submit">
-            {busy ? 'Registering...' : 'Register'}
+          {tried && missing.length > 0 && (
+            <div className="space-y-1 text-sm text-destructive" role="alert" data-testid="registration-missing">
+              {missing.map(line => <p key={line}>{line}</p>)}
+            </div>
+          )}
+          {!signedIn && <p className="text-sm text-muted-foreground" data-testid="sign-in-line">{waitlist ? copy.WAITLIST_SIGN_IN_LINE : copy.SIGN_IN_LINE}</p>}
+          <Button className="w-full bg-blue-500 text-white hover:bg-blue-700" size="lg" onClick={submit} disabled={busy} data-testid="registration-submit">
+            {buttonLabel}
           </Button>
         </div>
       </DialogContent>

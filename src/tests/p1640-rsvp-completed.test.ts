@@ -67,8 +67,10 @@ describe('P1640 callers fire only on success', () => {
     const s = read('src/app/prototypes/events/components/EventDetail.tsx');
     expect(s).toMatch(/if \(success\) \{\s*trackRsvpCompleted\(event, 'signed_in'\);/);
   });
-  it('AuthCallbackPage: inside `if (rsvpSuccess)`', () => {
-    expect(read('src/auth/AuthCallbackPage.tsx')).toMatch(/if \(rsvpSuccess\) \{[^}]*trackPostSignupRsvp\(/s);
+  it('AuthCallbackPage (auto-rsvp-destination since P1529): only after the seat or the registration succeeded', () => {
+    const s = read('src/auth/auto-rsvp-destination.ts');
+    expect(s).toMatch(/if \(!seated\) return toPage;[^}]*trackPostSignupRsvp\(/s);
+    expect(s).toMatch(/if \(result !== 'ok' && result !== 'already'\) return toPage;[^}]*trackPostSignupRsvp\(/s);
   });
   it('EventClosePage: after the `!ok` return', () => {
     expect(read('src/app/prototypes/events/close/EventClosePage.tsx')).toMatch(

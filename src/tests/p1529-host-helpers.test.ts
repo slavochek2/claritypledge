@@ -104,7 +104,7 @@ describe('checkMastermindSeats: what a given seating of one round breaks', () =>
 
 describe('the host marks', () => {
   const p = (over: Partial<MastermindPerson>): MastermindPerson => ({
-    profileId: 'p', canvasName: null, canvasShared: false, observerOverride: null, participation: null, phone: null, recordingOn: false, lastWordsAt: null, ...over,
+    profileId: 'p', canvasName: null, canvasShared: false, observerOverride: null, participation: null, observerPrep: null, registered: true, phone: null, recordingOn: false, lastWordsAt: null, ...over,
   });
   it('is an observer without a shared canvas or when the host says so', () => {
     expect(isObserver(undefined)).toBe(true);
@@ -136,6 +136,11 @@ describe('the server\'s seat refusal', () => {
   it('shows the server\'s message with the person it names in DETAIL', () => {
     const e = { message: 'a Clarity Canvas owner needs a canvas shared with this event', details: 'Eva F.' };
     expect(seatGuardRefusal(e)).toContain('a Clarity Canvas owner needs a canvas shared with this event');
+    expect(seatGuardRefusal(e)).toContain('Eva F.');
+  });
+  it('shows the refusal of a person who is not registered (D24) with their name', () => {
+    const e = { message: 'A person who is not registered for this event cannot be seated', details: 'Eva F.' };
+    expect(seatGuardRefusal(e)).toContain('not registered for this event');
     expect(seatGuardRefusal(e)).toContain('Eva F.');
   });
   it('is silent for every other refusal, so Clarity Night keeps its own message', () => {

@@ -36,6 +36,7 @@ import * as Sentry from "@sentry/react";
 import { analytics, isInternalAccount } from "@/lib/mixpanel";
 import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId } from "@/lib/auth-gate-utils";
 import { autoRsvpDestination } from "./auto-rsvp-destination";
+import { registerForEvent } from "@/app/data/event-registration";
 import { pointsService } from "@/app/data/points-service";
 import { getAllAnonPositions, clearAllAnonPositions } from "@/app/hooks/useAnonPosition";
 import { organizationsService } from "@/app/data/organizations-service";
@@ -554,12 +555,15 @@ export function AuthCallbackPage() {
         // Extract event slug from redirect path
         const eventSlug = redirectPath.split('/')[2];
         if (eventSlug) {
-          // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
-          if (import.meta.env.DEV) console.log('📅 Auto-RSVP flow detected for event:', eventSlug);
           setStatus("Confirming your RSVP...");
 
           try {
-            const destination = await autoRsvpDestination(eventSlug, registrationSource, (event) => rsvpToEvent(event.id, authUser.id, eventSlug)); // P1603: the link, for a hidden event
+            const destination = await autoRsvpDestination(
+              eventSlug, registrationSource,
+              (event) => rsvpToEvent(event.id, authUser.id, eventSlug), // P1603: the link, for a hidden event
+              (event, answers) => registerForEvent(event, authUser.id, answers), // P1529 D24: the answers saved before sign-up
+              authUser.id,
+            );
             if (destination) {
               navigate(destination, { replace: true });
               return;

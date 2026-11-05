@@ -69,6 +69,11 @@ export function observerRefusal(person: MastermindPerson | undefined, name: stri
   return `${name} has no Clarity Canvas shared with this event yet. They can make and share one in the event room, then you can switch them.`;
 }
 
+/** D24: the reason shown under a person the server will not seat, in the people list. */
+export const NOT_REGISTERED_LINE = 'Not registered for this event. They cannot be seated.';
+/** A person is unregistered only when the server said so; a person with no state yet is not judged. */
+export const isUnregistered = (person: MastermindPerson | undefined): boolean => person?.registered === false;
+
 /** [FOUNDER DECISION: copy] One short line per person under the name. */
 export function canvasLine(person: MastermindPerson | undefined): string {
   if (person?.canvasShared) return person.canvasName ? `Clarity Canvas shared: ${person.canvasName}` : 'Clarity Canvas shared';
@@ -131,11 +136,14 @@ export const PLAN_OK_LINE = 'This seating breaks no rule.';
 export const PREVIOUS_UNREAD = "Could not read the previous session's partners, so repeats from it are not checked. Trying again.";
 export const PLAN_NOT_READY = 'Still reading who has a Clarity Canvas. Try again in a moment.';
 
-/** The server's refusal of an owner without a canvas, with the person's name that it puts in DETAIL. Null: not that refusal. */
+/**
+ * The server's refusal of an owner without a canvas, or of a person who is not registered (D24), with the person's name that it
+ * puts in DETAIL. Null: not one of those refusals.
+ */
 export function seatGuardRefusal(error: unknown): string | null {
   const e = error as { message?: unknown; details?: unknown } | null;
   const message = typeof e?.message === 'string' ? e.message : '';
-  if (!/Clarity Canvas owner needs a canvas/i.test(message)) return null;
+  if (!/Clarity Canvas owner needs a canvas|not registered for this event/i.test(message)) return null;
   const who = typeof e?.details === 'string' && e.details ? ` (${e.details})` : '';
   return `Not saved: ${message}${who}. Swap them out and try again.`;
 }

@@ -19,7 +19,8 @@ import { Avatar } from './host-screen-parts';
 import { shortName } from './use-event-rounds';
 import type { MastermindHost } from './use-mastermind-host';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
-import { RECORDING_WORDS, UPDATE_STATE_WORDS, canvasLine, isObserver, observerRefusal } from './mastermind-host-helpers';
+import { NOT_REGISTERED_LINE, RECORDING_WORDS, UPDATE_STATE_WORDS, canvasLine, isObserver, isUnregistered, observerRefusal } from './mastermind-host-helpers';
+import { MastermindRegistrationNotes } from './MastermindRegistrationNotes';
 
 /** [FOUNDER DECISION: copy] */
 const COPY = {
@@ -118,6 +119,7 @@ function UpdateStep({ host, members, round, onStart, busy }: {
 }
 
 export function MastermindHostPanel({
+  eventId,
   members,
   isOut,
   host,
@@ -127,6 +129,7 @@ export function MastermindHostPanel({
   busy,
   onStartUpdate,
 }: {
+  eventId?: string;
   members: EventRoomMember[];
   isOut: (memberId: string) => boolean;
   host: MastermindHost;
@@ -159,6 +162,7 @@ export function MastermindHostPanel({
           {COPY.silentTables(silentTableNos)}
         </p>
       )}
+      <MastermindRegistrationNotes eventId={eventId} people={host.people ?? []} />
       <UpdateStep host={host} members={members} round={updateRound} onStart={onStartUpdate} busy={busy} />
       <section className="rounded-xl border border-border bg-card px-4 py-2" data-testid="mm-people">
         <h2 className="flex min-h-10 items-center text-xs font-medium uppercase tracking-wide text-muted-foreground">{COPY.people}</h2>
@@ -181,6 +185,7 @@ export function MastermindHostPanel({
                       <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700" title={COPY.readyHint} data-testid="mm-ready">{COPY.ready}</span>
                     )}
                   </p>
+                  {isUnregistered(person) && <p role="status" className="text-xs font-medium text-red-600" data-testid="mm-not-registered">{NOT_REGISTERED_LINE}</p>}
                   <p className="text-xs text-muted-foreground">{canvasLine(person)}</p>
                   <p className={cn('text-xs', RECORDING_TONE[recording])} data-testid="mm-recording" data-state={recording}>{RECORDING_WORDS[recording]}</p>
                 </div>

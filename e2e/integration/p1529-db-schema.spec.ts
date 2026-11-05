@@ -72,7 +72,7 @@ test('migration objects exist and are not client-callable where they must not be
     ['make_my_next_version', { p_round: nobody }],
     ['get_my_next_version_offer', { p_event: nobody }],
     ['get_my_round_canvas', { p_round: nobody }],
-    ['register_for_event', { p_slug: 'p1529-no-such-event', p_participation: 'observer', p_phone: 'usbc', p_hope: null, p_recording_accepted: true }],
+    ['register_for_event', { p_slug: 'p1529-no-such-event', p_participation: 'observer', p_observer_prep: 'home', p_phone: 'usbc', p_hope: null, p_recording_accepted: true }],
     ['host_set_event_flow', { p_event: nobody, p_flow: 'clarity-night' }],
     ['host_set_observer', { p_event: nobody, p_profile: nobody, p_is_observer: true }],
     ['get_mastermind_host_state', { p_event: nobody }],
@@ -163,6 +163,9 @@ test('round 2 ends round 1: the offer follows the clean job (transcript_pending,
   expect(copies!.length).toBe(n);
   expect(new Set(copies!.map((c) => c.author_id))).toEqual(new Set([X.user.user.id]));
   expect(new Set(copies!.map((c) => c.forward_author_id))).toEqual(new Set([X.user.user.id, Y.user.user.id]));
+  // the one message the tap sends in the owner's name
+  const { data: ownerMsgs } = await supabaseAdmin.from('chat_messages').select('body').eq('conversation_id', d.conversation_id).eq('thread_root_id', d.thread_root_id).eq('author_id', X.user.user.id).eq('kind', 'message');
+  expect(ownerMsgs!.map((m) => m.body)).toEqual(['Update my canvas from what was said in Round 1.']);
   // a repeat tap while that draft is open is that run, nothing new
   const again = await tap(X, round1);
   expect(again.data).toMatchObject({ status: 'started', repeat: true, draft_id: draftId });
@@ -245,6 +248,55 @@ test('round 3: when the owner owns again the earlier round is closed; a showcase
   expect(cnOffer.data).toMatchObject({ state: 'none' });
   const seats = await savedSeats(E.id);
   expect(seats.filter((s) => s.role === 'first').map((s) => s.round_no).sort()).toEqual([1, 2, 3]);
+});
+
+test('seat guard: an unregistered room member cannot be seated in a mastermind event, and the refusal names them; Clarity Night is unchanged', async () => {
+  const SG = await makeEvent(ledger, host.user, `P1529 QA db seat guard ${randomUUID().slice(0, 4)}`, { startsInMs: 0 });
+  const sgRoom = await makeTranscribeRoom(ledger, SG);
+  stoppers.push(await keepRoomOpen(ledger, host.user, sgRoom));
+  await register(X, SG.slug); await register(Y, SG.slug);   // registered properly
+  for (const p of [X, Y, Z]) await joinRoom(ledger, p, SG, { transcribeRoom: sgRoom });   // Z is in the room, not registered
+  expect((await shareForEvent(X, SG.id)).status).toBe('ok');
+  const seat = (p: Person, t: number, r: string) => ({ m: p.room.get(SG.id), t, r });
+  const refused = await host.client.rpc('host_start_round', { p_event_id: SG.id, p_round_no: 1, p_group_size: 3, p_seats: [seat(X, 1, 'first'), seat(Z, 1, 'second')] });
+  expect(refused.error?.code).toBe('22023');
+  expect(refused.error?.message).toMatch(/not registered for this event/);
+  expect(refused.error?.details, 'the refusal names the person').toContain(Z.user.name);
+  expect((await supabaseAdmin.from('event_rounds').select('*', { count: 'exact', head: true }).eq('event_id', SG.id)).count, 'nothing written').toBe(0);
+  // control: the same seating with the registered person works
+  const ok = await host.client.rpc('host_start_round', { p_event_id: SG.id, p_round_no: 1, p_group_size: 3, p_seats: [seat(X, 1, 'first'), seat(Y, 1, 'second')] });
+  expect(ok.error, `registered seating: ${ok.error?.message}`).toBeNull();
+  // the host's own room seat is exempt (the host is never registered as an attendee)
+  // and once Z registers, Z can be seated in the next round
+  await register(Z, SG.slug);
+  const r2 = await host.client.rpc('host_start_round', { p_event_id: SG.id, p_round_no: 2, p_group_size: 3, p_seats: [seat(X, 1, 'first'), seat(Z, 1, 'second')] });
+  expect(r2.error, `after registering: ${r2.error?.message}`).toBeNull();
+});
+
+test('waiting list: only when full; not a seat; once; the host reads it in order; others cannot; leaving', async () => {
+  const W = await makeEvent(ledger, host.user, `P1529 QA db waitlist ${randomUUID().slice(0, 4)}`, { startsInMs: 86_400_000, maxAttendees: 1 });
+  const args = { p_participation: 'canvas_before', p_phone: 'usbc', p_hope: null, p_recording_accepted: true };
+  expect((await X.client.rpc('join_event_waitlist', { p_slug: W.slug, ...args })).data, 'not full yet').toBe('not_full');
+  await register(Y, W.slug);
+  expect((await X.client.rpc('join_event_waitlist', { p_slug: W.slug, ...args, p_recording_accepted: false })).error?.message).toMatch(/accepting transcription/);
+  expect((await X.client.rpc('join_event_waitlist', { p_slug: W.slug, p_participation: 'observer', p_phone: 'usbc', p_hope: null, p_recording_accepted: true })).error?.message, 'an observer needs the second answer').toMatch(/choose where you will prepare/);
+  expect((await X.client.rpc('join_event_waitlist', { p_slug: W.slug, ...args })).data).toBe('ok');
+  expect((await X.client.rpc('join_event_waitlist', { p_slug: W.slug, ...args })).data, 'a second tap').toBe('already');
+  expect((await Z.client.rpc('join_event_waitlist', { p_slug: W.slug, ...args })).data).toBe('ok');
+  expect((await Y.client.rpc('join_event_waitlist', { p_slug: W.slug, ...args })).data, 'a registered person').toBe('registered');
+  expect((await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', W.id)).count, 'joining is not a seat').toBe(1);
+  const list = await host.client.rpc('get_event_waitlist', { p_event: W.id });
+  expect((list.data as Array<{ name: string }>).map((r) => r.name)).toEqual([X.user.name, Z.user.name]);
+  expect((await X.client.rpc('get_event_waitlist', { p_event: W.id })).error?.code, 'only the host reads the list').toBe('42501');
+  const own = await X.client.from('event_waitlist').select('profile_id').eq('event_id', W.id);
+  expect(own.data!.map((r) => r.profile_id), 'a person reads only their own row').toEqual([X.user.user.id]);
+  expect((await X.client.rpc('leave_event_waitlist', { p_slug: W.slug })).error).toBeNull();
+  const after = await host.client.rpc('get_event_waitlist', { p_event: W.id });
+  expect((after.data as Array<{ name: string }>).map((r) => r.name)).toEqual([Z.user.name]);
+  // a place opens and the person on the list registers: they leave the list by registering
+  await supabaseAdmin.from('events').update({ max_attendees: 2 }).eq('id', W.id);
+  expect(await register(Z, W.slug)).toBe('ok');
+  expect((await supabaseAdmin.from('event_waitlist').select('*', { count: 'exact', head: true }).eq('event_id', W.id)).count, 'registering takes them off the list').toBe(0);
 });
 
 test('terms pin: consume_pending_terms_acceptance records v1.8 only (a v1.7 intent is refused and consumed)', async () => {

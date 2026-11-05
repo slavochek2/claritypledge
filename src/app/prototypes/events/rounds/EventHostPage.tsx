@@ -1762,7 +1762,7 @@ export function EventHostPage() {
         <div className="min-w-0 lg:order-1 lg:col-start-1 lg:row-span-2 lg:row-start-1">
           {mm.active && (
             <div className="mt-5 lg:mb-5 lg:mt-0">
-              <MastermindHostPanel members={members} isOut={isOut} host={mm} locked={!!preview} updateRound={updateRound} silentTableNos={silentNos} busy={!!busy} onStartUpdate={() => void run(() => mm.startUpdate())} />
+              <MastermindHostPanel eventId={eventId} members={members} isOut={isOut} host={mm} locked={!!preview} updateRound={updateRound} silentTableNos={silentNos} busy={!!busy} onStartUpdate={() => void run(() => mm.startUpdate())} />
             </div>
           )}
           {!ended && (

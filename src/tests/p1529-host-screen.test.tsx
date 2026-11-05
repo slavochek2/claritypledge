@@ -20,6 +20,7 @@ const h = vi.hoisted(() => ({
   updateStates: new Map<string, string>(),
   planOverride: null as null | ((input: MastermindSeatingInput) => MastermindSeatingPlan),
   getMastermindHostState: vi.fn(),
+  getEventWaitlist: vi.fn(),
   getPreviousSessionPartners: vi.fn(),
   hostSetObserver: vi.fn(),
   hostSetEventFlow: vi.fn(),
@@ -62,6 +63,7 @@ vi.mock('@/app/data/event-rounds-service', async importOriginal => ({
   hostStartRound: h.hostStartRound,
   hostSetRoundSeats: h.hostSetRoundSeats,
 }));
+vi.mock('@/app/data/event-waitlist', () => ({ getEventWaitlist: h.getEventWaitlist }));
 vi.mock('@/app/data/event-mastermind-service', async importOriginal => ({
   ...(await importOriginal<typeof import('@/app/data/event-mastermind-service')>()),
   getMastermindHostState: h.getMastermindHostState,
@@ -103,7 +105,7 @@ const ROSTER = [ANA, BEN, CAT, DAN, EVA];
 
 const person = (key: string, over: Partial<MastermindPerson> = {}): MastermindPerson => ({
   profileId: `p-${key}`, canvasName: `canvas_${key}`, canvasShared: true, observerOverride: null,
-  participation: 'canvas_before', phone: 'usbc', recordingOn: false, lastWordsAt: null, ...over,
+  participation: 'canvas_before', observerPrep: null, registered: true, phone: 'usbc', recordingOn: false, lastWordsAt: null, ...over,
 });
 const setHostState = (people: MastermindPerson[]) => { h.hostState = new Map(people.map(p => [p.profileId, p])); };
 /** Four canvas holders and one person without a canvas. */
@@ -131,6 +133,7 @@ beforeEach(() => {
   setRounds([]);
   defaultPeople();
   h.getMastermindHostState.mockImplementation(async () => h.hostState);
+  h.getEventWaitlist.mockResolvedValue([]);
   h.getPreviousSessionPartners.mockImplementation(async () => h.previous);
   h.getCanvasUpdateStep.mockImplementation(async () => h.step);
   h.getMastermindUpdateStates.mockImplementation(async () => h.updateStates);
@@ -607,5 +610,71 @@ describe('the projector (§5)', () => {
     expect(screen.getByText(/Speaker 1/)).toBeTruthy();
     expect(screen.getByText(/Speaker 2/)).toBeTruthy();
     expect(h.getCanvasUpdateStep).not.toHaveBeenCalled();
+  });
+});
+
+describe('registration on the host screen (D24)', () => {
+  it('names a person who is not registered, with the reason, and never proposes them for a table', async () => {
+    setHostState([person('a'), person('b'), person('c'), person('d'), person('e', { registered: false })]);
+    let seen: MastermindSeatingInput | null = null;
+    h.planOverride = input => { seen = input; return plan([['m-a', 1, 'first'], ['m-b', 1, 'second']]); };
+    renderHost({ flow: MM });
+    await openPreview();
+    const not = screen.getAllByTestId('mm-not-registered');
+    expect(not).toHaveLength(1);
+    const first = not[0] as HTMLElement;
+    expect(first.textContent).toBe('Not registered for this event. They cannot be seated.');
+    expect(within(first.closest('[data-testid="mm-person"]') as HTMLElement).getByText('Eva F.')).toBeTruthy();
+    const input = seen as MastermindSeatingInput | null;
+    expect([...(input?.holders ?? []), ...(input?.observers ?? [])]).not.toContain('m-e');
+    expect(input?.holders).toEqual(expect.arrayContaining(['m-a', 'm-b', 'm-c', 'm-d']));
+  });
+
+  it('a person the server has not described is not judged unregistered', async () => {
+    renderHost({ flow: MM });
+    await screen.findByText('Clarity Canvas shared: canvas_a');
+    expect(screen.queryAllByTestId('mm-not-registered')).toHaveLength(0);
+  });
+
+  it('shows the server\'s refusal to seat someone unregistered, with their name', async () => {
+    h.planOverride = () => plan([['m-a', 1, 'first'], ['m-b', 1, 'second']]);
+    h.hostStartRound.mockRejectedValueOnce({ message: 'A person who is not registered for this event cannot be seated', details: 'Eva F.' });
+    renderHost({ flow: MM });
+    await openPreview();
+    fireEvent.click(screen.getByTestId('host-preview-start'));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('not registered for this event');
+    expect(alert.textContent).toContain('Eva F.');
+  });
+
+  it('counts who comes at the doors time: improving at the event, or an observer who prepares at the event', async () => {
+    setHostState([
+      person('a', { participation: 'canvas_at_doors' }),
+      person('b', { participation: 'canvas_at_doors' }),
+      person('c', { participation: 'observer', observerPrep: 'doors' }),
+      person('d', { participation: 'observer', observerPrep: 'home' }),
+      person('e', { participation: 'canvas_before' }),
+    ]);
+    renderHost({ flow: MM });
+    expect((await screen.findByTestId('mm-doors-count')).textContent).toBe('3 people come at the doors time');
+  });
+
+  it('shows the waiting list in the order given, names only, with nothing that promotes anyone', async () => {
+    h.getEventWaitlist.mockResolvedValue([
+      { profileId: 'w1', name: 'Zed Young', joinedAt: ago(3 * MIN) },
+      { profileId: 'w2', name: 'Amy Xu', joinedAt: ago(MIN) },
+    ]);
+    renderHost({ flow: MM });
+    const list = await screen.findByTestId('mm-waitlist');
+    expect(within(list).getAllByTestId('mm-waitlist-person').map(li => li.textContent)).toEqual(['Zed Y.', 'Amy X.']);
+    expect(within(list).queryAllByRole('button')).toHaveLength(0);
+    expect(h.getEventWaitlist).toHaveBeenCalledWith('ev-1');
+  });
+
+  it('Clarity Night makes no waiting-list read and shows neither line', async () => {
+    renderHost();
+    await screen.findByTestId('host-flow-row');
+    expect(h.getEventWaitlist).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('mm-registration-notes')).toBeNull();
   });
 });

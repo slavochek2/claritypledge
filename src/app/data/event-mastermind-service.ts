@@ -39,6 +39,10 @@ export interface MastermindPerson {
   canvasShared: boolean;
   observerOverride: boolean | null;
   participation: string | null;
+  /** An observer's second answer (D24); null for everyone else. */
+  observerPrep: 'home' | 'doors' | null;
+  /** A registration exists. Nobody is seated without one in this flow (D24). */
+  registered: boolean;
   phone: 'usbc' | 'lightning' | 'other' | null;
   recordingOn: boolean;
   lastWordsAt: string | null;
@@ -54,6 +58,8 @@ export async function getMastermindHostState(eventId: string): Promise<Map<strin
     canvasShared: !!r.canvas_shared,
     observerOverride: (r.observer_override as boolean | null) ?? null,
     participation: (r.participation as string | null) ?? null,
+    observerPrep: (r.observer_prep as MastermindPerson['observerPrep']) ?? null,
+    registered: r.registered !== false,
     phone: (r.phone as MastermindPerson['phone']) ?? null,
     recordingOn: !!r.recording_on,
     lastWordsAt: (r.last_words_at as string | null) ?? null,
