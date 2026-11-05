@@ -136,8 +136,9 @@ Playwright. Anything other than exit 0/1/2 with the expected prefix is `unknown`
 
 | Start | End | Verdict | With `E2E_REQUIRE_FUNCTIONS=1` |
 |---|---|---|---|
-| match / none | match / none | trusted | pass |
-| match | differs or unknown | changed or unconfirmed during the run: results untrusted | fail |
+| none | none | not-applicable: nothing was compared | pass |
+| match | match, same HEAD, same container start | trusted | pass |
+| match or none | any other end, a different HEAD, or a different container start | changed or unconfirmed during the run: results untrusted | fail |
 | differs or unknown | any | started on other code: results untrusted | refused at setup |
 
 - `e2e/global-setup.ts` runs the check when a local webServer is in use and not in CI, and records the
@@ -210,7 +211,7 @@ regularly wait on redeploys, or redeploys keep interrupting other sessions.
 | One SSH call added at each end of a run on function-changing branches | ACCEPT | About 4 s by measurement, 45 s deadline |
 | A transient tunnel failure turns a finished evidence run red | MITIGATE | Teardown retries `unknown` once |
 | Editing a function during a run reports `differs` | ACCEPT | True; the message names the deployer, so the editor may misread it |
-| Deploy during a test, restored before teardown, or straddling the hash read | ACCEPT | Point-in-time reads do not see it |
+| A deploy straddling the hash read | ACCEPT | Every deploy recreates the container, so one restored before teardown is caught by the changed container start |
 | A function needing a new secret passes the check | ACCEPT | Secrets are outside this check |
 | Client-only branch on another branch's functions | ACCEPT | No check; stated in plain terms and covered by Step 6 |
 

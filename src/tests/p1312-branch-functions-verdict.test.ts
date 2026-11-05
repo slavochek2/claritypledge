@@ -9,14 +9,35 @@ import {
   functionsVerdict,
   functionsSkipReason,
   functionsLine,
+  requireFlagOn,
 } from '../../scripts/lib/branch-functions-verdict.mjs';
 
 const r = (status: number | null, stdout: string) => parseCheckResult({ status, stdout });
 
+describe('P1312 parseCheckResult: the container start line and the detail', () => {
+  it('reads the container start from the second line of a match', () => {
+    expect(r(0, 'match: 14 file(s)\nSTARTED: 1788000000123456789\n')).toMatchObject({ state: 'match', started: '1788000000123456789' });
+  });
+  it('a match without a container start is unknown (cannot be compared at the end)', () => {
+    expect(r(0, 'match: 14 file(s)\n').state).toBe('unknown');
+    expect(r(0, 'match: 14 file(s)\nSTARTED: soon\n').state).toBe('unknown');
+    expect(r(0, 'match: 14 file(s)\nsomething\nSTARTED: 5\n').state).toBe('unknown');
+  });
+  it('keeps the rest of the output, without the bookkeeping line', () => {
+    const o = r(1, 'differs: fn-a (x)\nSTARTED: 5\nFix: deploy:\n  scripts/selfhosted/deploy-functions.sh fn-a\n');
+    expect(o.state).toBe('differs');
+    expect(o.detail).toBe('Fix: deploy:\n  scripts/selfhosted/deploy-functions.sh fn-a');
+    expect(o.detail).not.toMatch(/STARTED/);
+  });
+  it('keeps what an unknown says clears it', () => {
+    expect(r(2, 'unknown: stuck deploy lock\nrm -r x\n').detail).toBe('rm -r x');
+  });
+});
+
 describe('P1312 parseCheckResult', () => {
   it('reads each of the four statuses with its exit code', () => {
     expect(r(0, 'no changed functions\n').state).toBe('none');
-    expect(r(0, 'match: 14 file(s)\n').state).toBe('match');
+    expect(r(0, 'match: 14 file(s)\nSTARTED: 1\n').state).toBe('match');
     expect(r(1, 'differs: fn-a (server has main from 2026-11-05T10:00:00Z)\nFix: x\n').state).toBe('differs');
     expect(r(2, 'unknown: server did not answer\n').state).toBe('unknown');
   });
@@ -41,12 +62,43 @@ describe('P1312 parseCheckResult', () => {
 describe('P1312 functionsVerdict: the table', () => {
   const ok = ['match', 'none'];
   const bad = ['differs', 'unknown'];
-  for (const s of ok) for (const e of ok) {
-    it(`start ${s}, end ${e}: trusted, passes with or without the flag`, () => {
-      expect(functionsVerdict({ start: s, end: e, requireFlag: false })).toMatchObject({ verdict: 'trusted', action: 'pass' });
-      expect(functionsVerdict({ start: s, end: e, requireFlag: true })).toMatchObject({ verdict: 'trusted', action: 'pass' });
-    });
-  }
+  const same = { startStarted: '1000', endStarted: '1000', startHead: 'aaa', endHead: 'aaa' };
+  it('match to match on one container and one commit: trusted, passes with or without the flag', () => {
+    expect(functionsVerdict({ start: 'match', end: 'match', requireFlag: false, ...same })).toMatchObject({ verdict: 'trusted', action: 'pass' });
+    expect(functionsVerdict({ start: 'match', end: 'match', requireFlag: true, ...same })).toMatchObject({ verdict: 'trusted', action: 'pass' });
+  });
+  it('none to none is not-applicable, passes under the flag, and is never called trusted', () => {
+    expect(functionsVerdict({ start: 'none', end: 'none', requireFlag: true, startHead: 'aaa', endHead: 'aaa' })).toMatchObject({ verdict: 'not-applicable', action: 'pass' });
+    expect(functionsVerdict({ start: 'none', end: 'none', requireFlag: false })).toMatchObject({ verdict: 'not-applicable', action: 'pass' });
+  });
+  it('M4: any change of state between the start and the end is untrusted', () => {
+    for (const [s, e] of [['match', 'none'], ['none', 'match']]) {
+      expect(functionsVerdict({ start: s, end: e, requireFlag: false, ...same })).toMatchObject({ verdict: 'changed-during-run', action: 'warn' });
+      expect(functionsVerdict({ start: s, end: e, requireFlag: true, ...same })).toMatchObject({ verdict: 'changed-during-run', action: 'fail' });
+    }
+  });
+  it('M4: a HEAD that moved is untrusted, even for none to none', () => {
+    const moved = { startHead: 'aaa', endHead: 'bbb' };
+    expect(functionsVerdict({ start: 'match', end: 'match', requireFlag: true, startStarted: '1', endStarted: '1', ...moved })).toMatchObject({ verdict: 'changed-during-run', action: 'fail' });
+    expect(functionsVerdict({ start: 'none', end: 'none', requireFlag: true, ...moved })).toMatchObject({ verdict: 'changed-during-run', action: 'fail' });
+  });
+  it('H1: a container that restarted between the start and the end is untrusted although the files match', () => {
+    const v = functionsVerdict({ start: 'match', end: 'match', requireFlag: true, startStarted: '1000', endStarted: '2000', startHead: 'a', endHead: 'a' });
+    expect(v).toMatchObject({ verdict: 'changed-during-run', action: 'fail' });
+    expect(v.message).toMatch(/restarted/);
+  });
+  it('H1: a container start that is missing at either end is not trusted', () => {
+    expect(functionsVerdict({ start: 'match', end: 'match', requireFlag: true, startStarted: '', endStarted: '1', startHead: 'a', endHead: 'a' }).action).toBe('fail');
+    expect(functionsVerdict({ start: 'match', end: 'match', requireFlag: true, startStarted: '1', startHead: 'a', endHead: 'a' }).action).toBe('fail');
+  });
+  it('the flag: 1 and true are on, anything else is off', () => {
+    expect(requireFlagOn('1')).toBe(true);
+    expect(requireFlagOn('true')).toBe(true);
+    expect(requireFlagOn('TRUE')).toBe(true);
+    expect(requireFlagOn('0')).toBe(false);
+    expect(requireFlagOn('')).toBe(false);
+    expect(requireFlagOn(undefined)).toBe(false);
+  });
   for (const e of bad) {
     it(`start match, end ${e}: untrusted; warns, and fails under the flag`, () => {
       expect(functionsVerdict({ start: 'match', end: e, requireFlag: false })).toMatchObject({ verdict: 'changed-during-run', action: 'warn' });
@@ -60,8 +112,8 @@ describe('P1312 functionsVerdict: the table', () => {
     });
   }
   it('a start the check never produced is not trusted', () => {
-    expect(functionsVerdict({ start: undefined as unknown as string, end: 'match', requireFlag: true }).action).toBe('fail');
-    expect(functionsVerdict({ start: 'garbage', end: 'match', requireFlag: true }).action).toBe('fail');
+    expect(functionsVerdict({ start: undefined as unknown as string, end: 'match', requireFlag: true, ...same }).action).toBe('fail');
+    expect(functionsVerdict({ start: 'garbage', end: 'match', requireFlag: true, ...same }).action).toBe('fail');
   });
   it('a missing end after a good start is unconfirmed, not trusted', () => {
     expect(functionsVerdict({ start: 'match', end: null, requireFlag: true })).toMatchObject({ verdict: 'changed-during-run', action: 'fail' });

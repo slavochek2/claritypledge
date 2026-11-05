@@ -17,12 +17,12 @@
  * 0. P1312: the end-of-run check that TEST still serves this branch's edge functions
  *    (e2e/helpers/branch-functions.ts). It runs first, outside the 60 s budget and before the test-project
  *    return, retries an unknown once, and with E2E_REQUIRE_FUNCTIONS=1 fails the run, but only in a
- *    `finally` after steps 1 and 2, so a failing check never leaks test users. Its last output is
+ *    throw after steps 1 and 2, so a failing check never leaks test users. Its last output is
  *    one `FUNCTIONS:` line.
  */
 import type { FullConfig } from '@playwright/test';
 import { currentRunId, readLedger, removeLedger } from './helpers/run-ledger';
-import { functionsAtTeardown } from './helpers/branch-functions';
+import { functionsAtTeardown, functionsRequired } from './helpers/branch-functions';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { isTestProjectUrl, purgeUserIds, sweepE2eTestUsers } from '../scripts/sweep-e2e-test-users';
@@ -38,7 +38,12 @@ export default async function globalTeardown(config?: FullConfig): Promise<void>
     try {
       ({ failure, line } = functionsAtTeardown(config));
     } catch (err) {
-      console.warn('[P1312] end-of-run function check skipped:', (err as Error).message);
+      // Under the flag a check that could not run is not a pass.
+      if (functionsRequired()) {
+        failure = new Error(`[P1312] the end-of-run function check could not run: ${(err as Error).message}\n[P1312] Failing the run: E2E_REQUIRE_FUNCTIONS is set.`);
+      } else {
+        console.warn('[P1312] end-of-run function check skipped:', (err as Error).message);
+      }
     }
   }
   let cleanupError: unknown = null;
@@ -48,11 +53,16 @@ export default async function globalTeardown(config?: FullConfig): Promise<void>
     cleanupError = err;
   }
   if (line) console.log(line);
-  if (failure) throw failure;
+  if (failure) {
+    if (cleanupError) console.warn('[P1312] cleanup also failed:', cleanupError instanceof Error ? cleanupError.message : String(cleanupError));
+    throw failure;
+  }
   if (cleanupError) throw cleanupError;
 }
 
 async function cleanup(): Promise<void> {
+  // Test seam (the canary's real-Playwright section): proves cleanup ran, and before the FUNCTIONS line.
+  if (process.env.CP_TEARDOWN_CLEANUP_SEAM) console.log('[P1312 canary] cleanup ran');
   if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL)) return;
   const started = Date.now();
   const runId = currentRunId();

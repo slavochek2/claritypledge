@@ -17,6 +17,8 @@
 #   7 manifest    a missing manifest with matching hashes
 #   8 deploy      the deploy says what it replaces
 #   9 playwright  the hooks under a real Playwright run (empty spec, stub check script, no TEST)
+#  10 review      the container start line, subsecond precision, failed joins, non-ASCII paths, the
+#                 printed fixes on a dirty tree and for a deleted function, dead locks and landings
 set -u
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 
@@ -79,11 +81,20 @@ STUB
 #!/bin/bash
 ST="$W/stubstate"
 case "\$*" in
-  *StartedAt*) cat "\$ST/started" 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%S.000000000Z ;;
+  *StartedAt*) cat "\$ST/started" 2>/dev/null || python3 -c "import datetime;print(datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ'))" ;;
   *Health*) cat "\$ST/health" 2>/dev/null || echo healthy ;;
 esac
 exit 0
 STUB
+  # join: the real one unless a scenario makes it fail or answer nothing (P1312 review: Codex 1, L4).
+  cat > "$W/bin/join" <<STUB
+#!/bin/bash
+[ -n "\${STUB_JOIN_FAIL:-}" ] && exit 1
+[ -n "\${STUB_JOIN_EMPTY:-}" ] && { cat >/dev/null; exit 0; }
+for j in /usr/bin/join /bin/join; do [ -x "\$j" ] && exec "\$j" "\$@"; done
+exit 127
+STUB
+  chmod +x "$W/bin/join"
   printf '#!/bin/bash\nexit 0\n' > "$W/bin/vmbin/chown"
   printf '#!/bin/bash\nexec shasum -a 256 "$@"\n' > "$W/bin/vmbin/sha256sum"
   cat > "$W/bin/curl" <<STUB
@@ -387,6 +398,116 @@ awk 'BEGIN{OFS="\t"} {print}' "$SB/stack/deploy-manifest.tsv" | sed 's/\tmain\t/
 run_deploy; check "a full deploy that prunes fn-b" 0 "$RC"
 has "  names the pruned directory's deployer" "$W/out" "^replacing fn-b deployed by other/branch"
 
+# ---------------------------------------------------------------- 10 review fixes
+echo "10a. the container start time is reported on a stable second line (H1)"
+mk_world s10a
+run_deploy; branch feature/h
+commit_on feature/h supabase/functions/fn-a/index.ts 'h work' "h"
+run_deploy fn-a
+echo "2030-01-01T00:00:00.500000000Z" > "$W/stubstate/started"
+run_check; check "matching state with a fixed container start" 0 "$CRC"
+second_a="$(sed -n 2p "$W/cout")"
+if printf '%s' "$second_a" | grep -q '^STARTED: [0-9][0-9]*$'; then ok "  line 2 is STARTED: digits ($second_a)"; else bad "  line 2 is STARTED: digits (got: $second_a)"; fi
+run_check; second_b="$(sed -n 2p "$W/cout")"
+if [ -n "$second_a" ] && [ "$second_a" = "$second_b" ]; then ok "  the same container gives the same line"; else bad "  the same container gives the same line ($second_a vs $second_b)"; fi
+echo "2030-01-01T00:00:09.500000000Z" > "$W/stubstate/started"
+run_check; second_c="$(sed -n 2p "$W/cout")"
+if [ -n "$second_c" ] && [ "$second_a" != "$second_c" ]; then ok "  a recreated container gives a different line"; else bad "  a recreated container gives a different line ($second_a vs $second_c)"; fi
+echo 'drift' >> "$R/supabase/functions/fn-a/index.ts"
+run_check; check "differs also reports it" 1 "$CRC"
+if [ "$(sed -n 2p "$W/cout" | cut -c1-9)" = "STARTED: " ]; then ok "  line 2 of a differs is STARTED too"; else bad "  line 2 of a differs is STARTED too ($(sed -n 2p "$W/cout"))"; fi
+
+echo "10b. subsecond precision: a file written after the container started within the same second (Codex 3)"
+mk_world s10b
+run_deploy; branch feature/t
+commit_on feature/t supabase/functions/fn-a/index.ts 't work' "t"
+run_deploy fn-a
+python3 -c 'import os,sys; os.utime(sys.argv[1], ns=(1900000000900000000, 1900000000900000000))' "$SB/stack/volumes/functions/fn-a/index.ts"
+D="$(date -u -r 1900000000 +%Y-%m-%dT%H:%M:%S)"
+echo "$D.100000000Z" > "$W/stubstate/started"
+run_check; check "container started at .1, newest file written at .9 of the same second" 2 "$CRC"
+has "  says the container started before the files" "$W/cout" "started before the newest function file"
+echo "$D.950000000Z" > "$W/stubstate/started"
+run_check; check "  control: container started at .95 passes" 0 "$CRC"
+
+echo "10c. a failed or empty comparison is never a match (Codex 1, L4)"
+mk_world s10c
+run_deploy; branch feature/j
+commit_on feature/j supabase/functions/fn-a/index.ts 'j work' "j"
+run_deploy fn-a
+run_check; check "control: matches" 0 "$CRC"
+STUB_JOIN_FAIL=1 run_check; unk "join fails"
+STUB_JOIN_EMPTY=1 run_check; unk "join answers nothing (fewer lines than files)"
+has "  says the comparison is incomplete" "$W/cout" "comparison"
+run_check; check "  control: the real join passes again" 0 "$CRC"
+
+echo "10d. non-ASCII paths are seen (Codex 2, L1)"
+mk_world s10d
+run_deploy; branch feature/u8
+# Characters with no decomposed form (macOS tar would rewrite e-acute into e plus a combining mark and
+# make a Mac-built fixture differ from a Linux server for a reason that has nothing to do with the check).
+printf 'x\n' > "$R/supabase/functions/fn-a/$(printf '\346\227\245').ts"
+run_check; check "an untracked file with a non-ASCII name" 1 "$CRC"
+first_line_is "  names fn-a" "$W/cout" "differs: fn-a"
+run_fixes; run_check; check "  after its printed deploy it matches" 0 "$CRC"
+( cd "$R" && git add -- "supabase/functions/fn-a/$(printf '\346\227\245').ts" && git commit -qm "u8" ) >/dev/null 2>&1
+run_check; check "  committed, still matching" 0 "$CRC"
+printf 'y\n' > "$R/supabase/functions/fn-b/$(printf '\303\237').ts"
+( cd "$R" && git add -- "supabase/functions/fn-b/$(printf '\303\237').ts" && git commit -qm "u8b" ) >/dev/null 2>&1
+run_check; check "a committed non-ASCII file in fn-b, not on the server" 1 "$CRC"
+has "  names fn-b" "$W/cout" "^differs: fn-b "
+
+echo "10e. behind main with uncommitted work: commit first, never stash (M1)"
+mk_world s10e
+run_deploy; branch feature/old
+commit_on main supabase/functions/_shared/x.ts 'export const v = 2' "main: shared v2"
+commit_on feature/old supabase/functions/fn-a/index.ts 'old branch work' "branch change"
+echo 'uncommitted' >> "$R/supabase/functions/fn-a/index.ts"
+run_check; check "behind main, fn-a edited, tree dirty" 1 "$CRC"
+has "  tells you to commit first" "$W/cout" "[Cc]ommit your changes first"
+hasnt "  never suggests stash" "$W/cout" "stash"
+cm="$(grep -n -i 'commit your changes first' "$W/cout" | head -1 | cut -d: -f1)"; rb="$(grep -n 'git rebase main' "$W/cout" | head -1 | cut -d: -f1)"
+if [ -n "$cm" ] && [ -n "$rb" ] && [ "$cm" -lt "$rb" ]; then ok "  the commit instruction comes before the rebase"; else bad "  the commit instruction comes before the rebase ($(tr '\n' ' ' < "$W/cout"))"; fi
+( cd "$R" && git commit -qam "wip" ) >/dev/null 2>&1
+run_check; check "  after committing, still differs" 1 "$CRC"
+hasnt "  clean tree: no commit instruction" "$W/cout" "[Cc]ommit your changes first"
+run_fixes; check "  the printed rebase and deploy work" 0 "$FRC"
+run_check; check "  then matches" 0 "$CRC"
+
+echo "10f. a deleted function that is already off the server needs no full deploy (M2)"
+mk_world s10f
+run_deploy; branch feature/del2
+( cd "$R" && git rm -q -r supabase/functions/fn-b && git commit -qm "delete fn-b" ) >/dev/null 2>&1
+commit_on feature/del2 supabase/functions/fn-a/index.ts 'del2 work' "a"
+rm -rf "$SB/stack/volumes/functions/fn-b"
+run_check; check "fn-b deleted locally and gone from the server, fn-a differs" 1 "$CRC"
+first_line_is "  names only fn-a" "$W/cout" "differs: fn-a "
+hasnt "  no prune warning" "$W/cout" "WARNING"
+hasnt "  no full deploy" "$W/cout" "^  scripts/selfhosted/deploy-functions.sh$"
+has "  the named deploy" "$W/cout" "^  scripts/selfhosted/deploy-functions.sh fn-a$"
+run_fixes; run_check; check "  matches after it" 0 "$CRC"
+
+echo "10g. a lock or a failed landing says what clears it (M3)"
+mk_world s10g
+run_deploy; branch feature/l
+commit_on feature/l supabase/functions/fn-a/index.ts 'l work' "l"
+run_deploy fn-a
+sh -c 'exit 0' & DEADPID=$!; wait "$DEADPID" 2>/dev/null
+mkdir "$R/.git/cp-test-deploy.lock"; printf 'pid=%s\nhost=%s\nepoch=%s\n' "$DEADPID" "$(hostname)" "$(date +%s)" > "$R/.git/cp-test-deploy.lock/owner"
+run_check; check "a lock whose owner is dead" 2 "$CRC"
+has "  says stuck, not under way" "$W/cout" "stuck deploy lock"
+hasnt "  does not claim a deploy is under way" "$W/cout" "under way"
+has "  prints the command that clears it" "$W/cout" "rm -r "
+rm -rf "$R/.git/cp-test-deploy.lock"
+mkdir "$R/.git/cp-test-deploy.lock"; printf 'pid=%s\nhost=%s\nepoch=%s\n' "$$" "$(hostname)" "$(date +%s)" > "$R/.git/cp-test-deploy.lock/owner"
+run_check; check "a lock held by a live run" 2 "$CRC"
+has "  says a deploy is under way" "$W/cout" "under way"
+rm -rf "$R/.git/cp-test-deploy.lock"
+printf '%s\t%s\t%s\t%s\n' "$(date +%s)" abcdef1234567 1 "/x/land.log" > "$R/.git/cp-test-deploy-land.failed"
+run_check; check "a failed landing recorded" 2 "$CRC"
+has "  says what clears it" "$W/cout" "clean checkout of main"
+rm -f "$R/.git/cp-test-deploy-land.failed"
+
 # ---------------------------------------------------------------- 9 playwright
 echo "9. the hooks under a real Playwright run (empty spec, stub check script, no TEST)"
 PW="$SRC_ROOT/node_modules/.bin/playwright"
@@ -409,31 +530,43 @@ export default defineConfig({
   webServer: { command: "node -e \"require('http').createServer((q,r)=>r.end('ok')).listen($PORT)\"", url: 'http://localhost:$PORT', reuseExistingServer: false, timeout: 30000 },
 });
 CFG
-  # Stub check script: answers from a queue ("exit|first line"), counts its runs.
-  cat > "$PWD_DIR/check-stub.sh" <<STUB
+  # Stub check script: answers from a queue ("exit|first line", ";;" starts a new output line), counts its runs.
+  cat > "$PWD_DIR/check-stub.sh" <<'STUB'
 #!/bin/bash
-echo x >> "$PWD_DIR/count"
-q="$PWD_DIR/queue"; line="\$(head -1 "\$q")"; tail -n +2 "\$q" > "\$q.n"; mv "\$q.n" "\$q"
-echo "\${line#*|}"; exit "\${line%%|*}"
+d="$(cd "$(dirname "$0")" && pwd)"
+echo x >> "$d/count"
+q="$d/queue"; line="$(head -1 "$q")"; tail -n +2 "$q" > "$q.n"; mv "$q.n" "$q"
+nl=$'\n'; rest="${line#*|}"; printf '%s\n' "${rest//;;/$nl}"; exit "${line%%|*}"
 STUB
   chmod +x "$PWD_DIR/check-stub.sh"
-  MATCHL='0|match: 3 file(s)'; DIFFL='1|differs: fn-a (server has other from 2026-11-05T10:00:00Z)'
+  # Playwright through a shim that records its arguments (the queue must never reach it as filters).
+  cat > "$PWD_DIR/pw-shim.sh" <<SHIM
+#!/bin/bash
+echo "\$*" >> "$PWD_DIR/argv.log"
+exec "$PW" "\$@"
+SHIM
+  chmod +x "$PWD_DIR/pw-shim.sh"
+  MATCHL='0|match: 3 file(s);;STARTED: 1000'; DIFFL='1|differs: fn-a (server has other from 2026-11-05T10:00:00Z);;STARTED: 1000;;Fix: deploy this branch'"'"'s functions to TEST:;;  scripts/selfhosted/deploy-functions.sh fn-a'
   pw_run() { # queue lines... ; env from caller. output $PWD_DIR/out, rc PRC
-    printf '%s\n' "$@" > "$PWD_DIR/queue"; : > "$PWD_DIR/count"; rm -f "$PWD_DIR/receipt.jsonl"
+    printf '%s\n' "$@" > "$PWD_DIR/queue"; : > "$PWD_DIR/count"; rm -f "$PWD_DIR/receipt.jsonl" "$PWD_DIR/argv.log"
     ( cd "$PWD_DIR" && env -u CI -u VERIFY_PROD -u E2E_LOADTEST -u TEST_WORKER_INDEX -u TEST_PARALLEL_INDEX \
-        VITE_SUPABASE_URL="https://example.invalid" \
+        VITE_SUPABASE_URL="https://example.invalid" CP_TEARDOWN_CLEANUP_SEAM=1 CP_BRANCH_FUNCTIONS_RETRY_WAIT_MS=0 \
         CP_BRANCH_FUNCTIONS_CHECK="$PWD_DIR/check-stub.sh" CP_FUNCTION_CHECK_RECEIPT="$PWD_DIR/receipt.jsonl" \
-        "$PW" test -c "$PWD_DIR/pw.config.ts" "$@" ) > "$PWD_DIR/out" 2>&1
+        "$PWD_DIR/pw-shim.sh" test -c "$PWD_DIR/pw.config.ts" ) > "$PWD_DIR/out" 2>&1
     PRC=$?
   }
   pw_count() { wc -l < "$PWD_DIR/count" | tr -d ' '; }
 
   pw_run "$MATCHL" "$MATCHL"; check "trusted run (match, match)" 0 "$PRC"
+  hasnt "  the queue is not passed to Playwright as test filters" "$PWD_DIR/argv.log" "match:"
   has "  prints the FUNCTIONS line" "$PWD_DIR/out" "^FUNCTIONS: trusted (start match, end match)"
   check "  receipt has one line" 1 "$(wc -l < "$PWD_DIR/receipt.jsonl" | tr -d ' ')"
   has "  receipt says trusted" "$PWD_DIR/receipt.jsonl" '"verdict":"trusted"'
-  # Playwright prints its own pass/fail summary after teardown returns; the hook's last line is FUNCTIONS.
-  if [ "$(grep -n '^FUNCTIONS:' "$PWD_DIR/out" | head -1 | cut -d: -f1)" -gt "$(grep -n 'P1532\|\[P1312\]' "$PWD_DIR/out" | tail -1 | cut -d: -f1)" ] 2>/dev/null; then ok "  FUNCTIONS comes after every other hook line"; else bad "  FUNCTIONS comes after every other hook line"; fi
+  # The cleanup seam prints a line when cleanup() runs; FUNCTIONS must come after it, and removing
+  # the cleanup call must fail this section.
+  has "  cleanup ran" "$PWD_DIR/out" "cleanup ran"
+  cl="$(grep -n 'cleanup ran' "$PWD_DIR/out" | head -1 | cut -d: -f1)"; fl="$(grep -n '^FUNCTIONS:' "$PWD_DIR/out" | head -1 | cut -d: -f1)"
+  if [ -n "$cl" ] && [ -n "$fl" ] && [ "$fl" -gt "$cl" ]; then ok "  FUNCTIONS comes after the cleanup"; else bad "  FUNCTIONS comes after the cleanup (cleanup line ${cl:-none}, FUNCTIONS line ${fl:-none})"; fi
 
   pw_run "$DIFFL" "$MATCHL"; check "warn and continue: the start differs, no flag" 0 "$PRC"
   has "  warns loudly" "$PWD_DIR/out" "differs: fn-a"
@@ -442,6 +575,8 @@ STUB
 
   E2E_REQUIRE_FUNCTIONS=1 pw_run "$DIFFL" "$MATCHL"; check "refused under the flag when the start differs" 1 "$PRC"
   has "  says refused" "$PWD_DIR/out" "Refused"
+  has "  shows the printed fix command, not only the first line" "$PWD_DIR/out" "deploy-functions.sh fn-a"
+  has "  cleanup still ran after the refusal" "$PWD_DIR/out" "cleanup ran"
   check "  no second check ran" 1 "$(pw_count)"
   has "  teardown still printed its FUNCTIONS line" "$PWD_DIR/out" "^FUNCTIONS: started-on-other-code (start differs, end not checked)"
   has "  receipt records the refusal" "$PWD_DIR/receipt.jsonl" '"verdict":"started-on-other-code"'
@@ -450,9 +585,19 @@ STUB
   has "  says the results are untrusted" "$PWD_DIR/out" "untrusted"
   has "  FUNCTIONS line" "$PWD_DIR/out" "^FUNCTIONS: changed-during-run (start match, end differs)"
   has "  the test itself passed (it is the check that failed the run)" "$PWD_DIR/out" "1 passed"
+  has "  cleanup still ran, and the failing run says so" "$PWD_DIR/out" "cleanup ran"
+  has "  the failure shows the fix lines too" "$PWD_DIR/out" "deploy-functions.sh fn-a"
   pw_run "$MATCHL" "$DIFFL"; check "the same differing end without the flag only warns" 0 "$PRC"
   E2E_REQUIRE_FUNCTIONS=1 pw_run "$MATCHL" '2|unknown: tunnel' "$MATCHL"; check "an unknown end is retried once and recovers" 0 "$PRC"
   check "  three checks ran" 3 "$(pw_count)"
+  E2E_REQUIRE_FUNCTIONS=true pw_run "$MATCHL" "$DIFFL"; check "the flag spelled true also fails the run" 1 "$PRC"
+  E2E_REQUIRE_FUNCTIONS=1 pw_run "$MATCHL" '0|match: 3 file(s);;STARTED: 2000'; check "same files at the end but the container restarted (a deploy happened)" 1 "$PRC"
+  has "  FUNCTIONS line" "$PWD_DIR/out" "^FUNCTIONS: changed-during-run (start match, end match)"
+  has "  says a deploy happened" "$PWD_DIR/out" "restarted"
+  pw_run "$MATCHL" '0|match: 3 file(s);;STARTED: 2000'; check "  the restart only warns without the flag" 0 "$PRC"
+  E2E_REQUIRE_FUNCTIONS=1 pw_run '0|no changed functions' '0|no changed functions'; check "a branch with no function changes passes under the flag" 0 "$PRC"
+  has "  and is not called trusted" "$PWD_DIR/out" "^FUNCTIONS: not-applicable (start none, end none)"
+  E2E_REQUIRE_FUNCTIONS=1 pw_run '0|no changed functions' "$MATCHL"; check "none at the start, match at the end fails under the flag" 1 "$PRC"
 
   echo "9b. each skip condition runs no check"
   skip_run() { # name, VAR=value
@@ -467,20 +612,10 @@ STUB
   }
   skip_run "VERIFY_PROD" VERIFY_PROD=1
   skip_run "E2E_LOADTEST" E2E_LOADTEST=1
-  # CI makes Playwright itself behave differently (retries), so it is run with a count only
-  printf '%s\n' "$MATCHL" "$MATCHL" > "$PWD_DIR/queue"; : > "$PWD_DIR/count"
-  ( cd "$PWD_DIR" && env -u VERIFY_PROD -u E2E_LOADTEST CI=1 VITE_SUPABASE_URL="https://example.invalid" CP_BRANCH_FUNCTIONS_CHECK="$PWD_DIR/check-stub.sh" \
-      CP_FUNCTION_CHECK_RECEIPT="$PWD_DIR/receipt.jsonl" "$PW" test -c "$PWD_DIR/pw.config.ts" ) > "$PWD_DIR/out" 2>&1
-  check "CI: run passes" 0 "$?"; check "  CI: no check ran" 0 "$(pw_count)"
-  # --list never runs setup or teardown at all, so no check either
-  printf '%s\n' "$MATCHL" > "$PWD_DIR/queue"; : > "$PWD_DIR/count"
-  ( cd "$PWD_DIR" && env -u CI CP_BRANCH_FUNCTIONS_CHECK="$PWD_DIR/check-stub.sh" "$PW" test -c "$PWD_DIR/pw.config.ts" --list ) > "$PWD_DIR/out" 2>&1
-  check "--list: exits 0" 0 "$?"; check "  --list: no check ran" 0 "$(pw_count)"
-  # No webServer: a config of its own with none
-  sed 's|^  webServer:.*$||' "$PWD_DIR/pw.config.ts" > "$PWD_DIR/pw-noserver.config.ts"
-  printf '%s\n' "$MATCHL" "$MATCHL" > "$PWD_DIR/queue"; : > "$PWD_DIR/count"
-  ( cd "$PWD_DIR" && env -u CI -u VERIFY_PROD -u E2E_LOADTEST CP_BRANCH_FUNCTIONS_CHECK="$PWD_DIR/check-stub.sh" "$PW" test -c "$PWD_DIR/pw-noserver.config.ts" ) > "$PWD_DIR/out" 2>&1
-  check "no webServer: run passes" 0 "$?"; check "  no webServer: no check ran" 0 "$(pw_count)"
+  # CI, --list and no-webServer have no rows here: global-setup.ts returns before the hook for CI and
+  # for no webServer, and --list never runs setup, so "no check ran" held whatever the skip logic did
+  # (a mutation removing those skips left this section green). The skip logic itself is unit-tested
+  # in src/tests/p1312-branch-functions-verdict.test.ts.
 fi
 
 echo
