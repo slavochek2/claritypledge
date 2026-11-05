@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 99
 workstream: events
 created_date: '2026-11-05'
 tags: [transcription, pre-commit, self-hosted-test, cloud-tasks]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-05
 ---
 
 # P1626: Worker tests in pre-commit, and the normal job hand-off on self-hosted TEST
@@ -107,7 +107,7 @@ Revert the hook and `INVOKER_SA` commits. On TEST: delete the 3 vault rows, the 
 
 ## Cost Budget
 
-Per [metered-services.md](../docs/technical/metered-services.md). Worker: 2 vCPU, 2 GiB, no CPU throttling, about $0.19 per awake hour (2 x $0.000024 + 2 x $0.0000025 per second), awake about 15 minutes after each request.
+Per [metered-services.md](../../../docs/technical/metered-services.md). Worker: 2 vCPU, 2 GiB, no CPU throttling, about $0.19 per awake hour (2 x $0.000024 + 2 x $0.0000025 per second), awake about 15 minutes after each request.
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
