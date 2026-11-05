@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 303
+**Next ID:** 300
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3608,5 +3608,13 @@ Left out of P1556 v1: handles are profile addresses already printed in letters, 
 **due:** week
 
 On 2026-11-06 the pre-commit full suite failed src/tests/p1607-e2e-slot-lock.test.ts ("admission is serialized ... failing control", expected '' to be 'HELD') while committing unrelated P1556 work; the same file passed alone (40 of 40). It looks timing-sensitive under 3-worker load. Done when the control waits on a condition instead of a fixed time, or drop it if it does not recur in a week of commits.
+## P1641 checks that need the fix live
+
+**ID:** INBOX-299
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+Confirm a real /push runs staging push, promote and cleanup on the fixed hook, leaving no staging branch. Delete the leftovers on origin in one push: staging/doc-20f511708, staging/doc-4af0e39e4, staging/doc-f37654208, staging/doc-9c7514044, after re-listing them and checking their commits are on origin/main. Check --resume at its next real use, since only its delete step was tested. Done when the first two are done and --resume is confirmed or has failed visibly.
 
 ---

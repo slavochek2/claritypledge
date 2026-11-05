@@ -90,7 +90,9 @@ P1623's hook change is already on main (`fd429c2eb`, `ccf4d6ebd`), so start from
 - [x] Canary: a non-delete push carrying a known personal identifier is still blocked.
 - [x] A mixed push (one delete and one bad ref) is still refused.
 - [x] Gate 7c, push shapes: real `git push` through the installed hook on a throwaway remote, for staging push, delete, re-push and promote. The unfixed hook fails the deletes, the fixed hook passes all. The promote ran under an active push-on window, so the Layer 3 prompt was not exercised.
-- [ ] [post-deploy] Gate 7c, real flows: `/push` runs `push-docs` staging push, promote and cleanup on the fixed hook. `--resume` has only its delete step tested, so check it at its next real use.
 - [x] INBOX-295 closed in the same change.
 - [x] `/finish` review completed, including Codex and Opus.
-- [ ] [post-deploy] After the fix is live, the three staging branches above are deleted in one push (needs `push-on`).
+
+## After Landing
+
+These can only happen once the fix is live, so they are tracked in INBOX-299, not above: confirm the real `/push` flows on the fixed hook, and delete the leftover staging branches.
