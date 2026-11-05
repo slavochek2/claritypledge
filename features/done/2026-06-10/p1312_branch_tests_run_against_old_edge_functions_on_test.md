@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 15
 workstream: infrastructure
@@ -10,7 +10,6 @@ tags:
   - deploy
   - testing
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
@@ -18,6 +17,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 188a40d2b3640f91187dc884089e4182e9bb00dae83fee5b97abada00fa48fd6
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-05
 ---
 
 # P1312: A branch's tests call the edge functions already deployed on shared TEST, so a run can prove nothing about the branch's own functions
