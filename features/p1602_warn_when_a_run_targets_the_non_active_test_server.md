@@ -67,11 +67,11 @@ One shared check, called where Playwright config already guards test database ru
 
 ## Done-When
 
-- [x] ~~A hosted run while self-hosted is active prints the warning and exits 0, shown by a canary beside `scripts/test-p1591-active-test.sh`
-- [x] ~~The same canary with a self-hosted URL prints nothing (the control)
-- [x] ~~With the reason set, the reason is printed instead, and appears in Playwright's startup line
-- [x] ~~Every row of the matrix is proven: the helper by the canary, and one real default dev server, one real default Playwright run and one real hosted Playwright run by hand
-- [x] ~~A missing flip file prints one note, and the dev server still starts
+- [x] ~~A hosted run while self-hosted is active prints the warning and exits 0, shown by a canary beside `scripts/test-p1591-active-test.sh`~~ *(dropped: P1606)*
+- [x] ~~The same canary with a self-hosted URL prints nothing (the control)~~ *(dropped: P1606)*
+- [x] ~~With the reason set, the reason is printed instead, and appears in Playwright's startup line~~ *(dropped: P1606)*
+- [x] ~~Every row of the matrix is proven: the helper by the canary, and one real default dev server, one real default Playwright run and one real hosted Playwright run by hand~~ *(dropped: P1606)*
+- [x] ~~A missing flip file prints one note, and the dev server still starts~~ *(dropped: P1606)*
 
 ## Alternatives Considered
 
