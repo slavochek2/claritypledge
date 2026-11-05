@@ -164,7 +164,7 @@ describe('P1365: desktop RSVP repeat wiring', () => {
     stubDescriptionHeight(window.innerHeight + 1);
     renderAt();
     fireEvent.click(await screen.findByTestId('rsvp-button-repeat'));
-    expect(analytics.track).toHaveBeenCalledWith('event_rsvp_initiated', { event_id: 'event-1', trigger: 'card_bottom' });
+    expect(analytics.track).toHaveBeenCalledWith('event_rsvp_initiated', { event_id: 'event-1', event_type: 'standalone', trigger: 'card_bottom' });
     expect(await screen.findByText('signup page')).toBeInTheDocument();
   });
 });

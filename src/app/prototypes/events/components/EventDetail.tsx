@@ -61,6 +61,7 @@ import { PersonAvatar } from '@/components/ui/person-avatar';
 import { earTooltip } from '@/components/ui/ear-tooltip';
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { analytics } from '@/lib/mixpanel';
+import { eventTypeOf, trackRsvpCompleted } from '../rsvp-analytics';
 import { readThrough } from '@/lib/offline-read-cache';
 import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
@@ -479,7 +480,7 @@ export function EventDetail() {
 
   const handleRsvp = async (trigger: RsvpTrigger) => {
     if (!event || isPast || (isFull && !isRsvpd)) return;
-    analytics.track('event_rsvp_initiated', { event_id: event.id, trigger });
+    analytics.track('event_rsvp_initiated', { event_id: event.id, event_type: eventTypeOf(event), trigger });
 
     if (!isLoggedIn || !user) {
       navigate('/signup?redirect=/events/' + slug + '&action=rsvp');
@@ -501,6 +502,7 @@ export function EventDetail() {
     setIsActionLoading(false);
     const refusal = success ? null : takeHiddenRsvpRefusal();
     if (success) {
+      trackRsvpCompleted(event, 'signed_in');
       setIsRsvpd(true);
       navigate(`/events/${slug}/confirm`, { state: { fromEvent: true } });
     } else if (refusal) {

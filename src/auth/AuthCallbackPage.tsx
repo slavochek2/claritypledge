@@ -34,6 +34,7 @@ import { CURRENT_PLEDGE_VERSION } from "@/app/content/pledge-text";
 import { CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import * as Sentry from "@sentry/react";
 import { analytics, isInternalAccount } from "@/lib/mixpanel";
+import { trackPostSignupRsvp } from "@/app/prototypes/events/rsvp-analytics";
 import { parseAuthGateIntent, fromAuthGatePosition, isValidPointId } from "@/lib/auth-gate-utils";
 import { pointsService } from "@/app/data/points-service";
 import { getAllAnonPositions, clearAllAnonPositions } from "@/app/hooks/useAnonPosition";
@@ -564,11 +565,7 @@ export function AuthCallbackPage() {
               if (rsvpSuccess) {
                 // eslint-disable-next-line no-console -- gated by import.meta.env.DEV; dev-only diagnostic (P1200)
                 if (import.meta.env.DEV) console.log('✅ Auto-RSVP successful for event:', eventSlug);
-                analytics.track('event_rsvp_auto', {
-                  event_slug: eventSlug,
-                  event_id: event.id,
-                  registration_source: registrationSource,
-                });
+                void trackPostSignupRsvp(event.id, eventSlug, registrationSource); // never holds the redirect
                 navigate(`/events/${eventSlug}/confirm`, { replace: true });
                 return;
               } else {

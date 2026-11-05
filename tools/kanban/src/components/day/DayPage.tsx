@@ -37,9 +37,10 @@ import { MonitoringTab } from './MonitoringTab'
 import { ReflectionTab, BOARD_NOTE, EarlierStoriesOf } from './ReflectionTab'
 import { cycle, DEFAULT_POS, sideOf } from './positions'
 import { StatsTab } from './StatsTab'
+import { WeeklyReadTab } from './WeeklyReadTab'
 import './day.css'
 
-type Tab = 'report' | 'stats' | 'monitoring'
+type Tab = 'report' | 'stats' | 'analytics' | 'monitoring'
 // P1463 round 3: Reflection is not a tab — its statements follow the cards in the Daily report's
 // one queue. Tabs are for looking only.
 // P1468 review F1: which half of the queue is open (cards or statements) is its own state, not a tab
@@ -48,11 +49,12 @@ type Half = 'cards' | 'statements'
 const TABS: [Tab, string][] = [
   ['report', 'Daily report'],
   ['stats', 'Stats'],
+  ['analytics', 'Analytics'],
   ['monitoring', 'Monitoring'],
 ]
 
 /** Below ~420px of page width the tabs keep one row with these. */
-const SHORT_TAB: Record<Tab, string> = { report: 'Report', stats: 'Stats', monitoring: 'Monitor' }
+const SHORT_TAB: Record<Tab, string> = { report: 'Report', stats: 'Stats', analytics: 'Data', monitoring: 'Monitor' }
 
 /** "08:12" in the founder's local time. */
 const clock = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
@@ -921,6 +923,7 @@ export function DayPage() {
                 />
               )}
               {tab === 'stats' && <StatsTab stats={ok.report.stats} notes={ok.report.notes} goals={ok.report.goals} goal={ok.report.goal} />}
+              {tab === 'analytics' && <WeeklyReadTab />}
               {tab === 'monitoring' && (
                 <MonitoringTab report={ok.report} view={view} readOnly={readOnly} quotaHistory={ok.quotaHistory} onRaise={raise} onUndoRaise={undoRaise} />
               )}

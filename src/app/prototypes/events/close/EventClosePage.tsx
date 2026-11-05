@@ -74,6 +74,7 @@ import { JoinedWelcome } from './JoinedWelcome';
 import { ActionRow, PINNED_FADE_CLASS, PINNED_FADE_OFF_CLASS, PINNED_FLAT_DESKTOP_CLASS, StepActions, useMeasuredHeight, useScrolledToEnd } from '../prep/prep-ui';
 import { safeLinkHref } from '../location-utils';
 import { analytics } from '@/lib/mixpanel';
+import { trackRsvpCompleted } from '../rsvp-analytics';
 import { CertificateFrame, CertificateOathBody } from '@/app/components/agreements/certificate-frame';
 import { COA_VERSIONS, CURRENT_COA_VERSION } from '@/app/content/coa-versions';
 
@@ -937,6 +938,7 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
                       }
                       if (ok === undefined) return;
                       if (!ok) return toast.error('Could not register. Please try again.');
+                      trackRsvpCompleted(nextEvent, 'close_page');
                       setReserved(true);
                       setNextRegistered(true);
                     }}

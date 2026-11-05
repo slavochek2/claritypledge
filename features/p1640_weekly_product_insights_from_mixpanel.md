@@ -1,17 +1,19 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 99.0
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [analytics, mixpanel, day, insights]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+spec_review_hash: 65b42172f777e0b1e1642bbc6a764dc08ef078b45677552a5220992a893101f4
+spec_review_vendors: [gemini, openrouter]
 ---
 
 # P1640: Weekly product insights from Mixpanel, delivered through /day
@@ -83,10 +85,25 @@ Split from P1628 on 2026-11-05 (a multi-phase spec cannot ship one phase, decisi
 
 **Founder decision, 2026-11-05: weekly.** The founder first asked for daily, then chose weekly ("weeekly is fine") after Gemini and Codex warned that daily comparison at this volume invites false patterns. Production errors stay on the existing daily checks.
 
-## Open before building
+## Build Notes (spec review, 2026-11-06)
 
-- **Query access is unverified.** Mixpanel's pricing page (read 2026-11-05) lists "Query API access" as not available on Free, and the plan this project is on has not been checked. Phase 2 depends on it. The MCP did answer a query on 2026-11-05.
-- **This spec needs a `## Cost Budget`** before Phase 2 (`docs/technical/metered-services.md`), because the weekly run adds queries.
+- **Scope split (decisions.md 2026-09-08).** Gate 2.5 counts every Done-When box, and code cannot produce prod data before it ships. Checks that need post-deploy data or a founder click (filter controls on a clean window, smoke-tag proof by workflow, RSVP reconciliation, first real RSVP) move to a follow-up spec. All four phases are built here. Until the follow-up passes, the tab labels the real-visitor filter and both funnels "not yet reconciled".
+- **Query access.** All reads go through the Mixpanel MCP, which answered on 2026-11-05 and 2026-11-06. If it stops, the read records "not collected". The plan in use is still unchecked; the follow-up records it.
+- **RSVP paths.** Three callers exist: `EventDetail.tsx` (signed-in), `AuthCallbackPage.tsx` (post-signup), `EventClosePage.tsx` (next event from the close page). Each success fires `event_rsvp_completed` with `event_id`, `event_type` and `path`. `event_type` is `series_slug`, or `standalone` when there is none.
+- **Weekly read vs daily check.** The read runs inside `/weekly`. `cp.analytics` runs on every `/day`: `ok` if the latest read is under 8 days old and collected, `problem` otherwise. A problem fails the check and the pass continues.
+- **Storage.** Reads and the insight ledger live in `~/.claude-analytics/`, outside the repo, because they may name people. Dismiss and confirm go through a local kanban route.
+- **Replay links.** Links are opaque to agents: never opened, never described.
+- **Poisson range.** A shift counts when the previous 7-day base is at least 30 and `|current - previous| > 1.96 * sqrt(current + previous)`.
+- **Tab opens** are not instrumented. Decision criterion 2 is answered by the founder at the four-read review.
+
+## Cost Budget
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | 0, no per-user calls | 0, runs weekly only | `about 12 Mixpanel queries + 2 Supabase reads = about 14 per weekly read`; `14 x 52 = 728 per year`. Tests use fixtures: 0 |
+| Egress (bytes) | 0 | 0 | Aggregate JSON, `14 x under 50 KB = under 700 KB per read`. Fixtures: 0 |
+| Log lines | 0 | 0 | 0 new server lines on success; `1 per failed read` |
+| Service unit x registry price | New events: `1 event_rsvp_completed per RSVP`, against the 1M events per month in the registry row, at $0 on Free | 0 | $0: queries are not billed per call in the registry row, and no Query API billing unit is stated. At 10x users, still 14 queries a week |
 
 ## Risks / Non-Goals
 
@@ -114,12 +131,10 @@ Reviewed after four weekly reads:
 
 ## Done-When
 
-- [ ] Both smoke workflows' events carry `is_automation=true` in Mixpanel, and their SDK and CSP checks still fail when Mixpanel is deliberately blocked
-- [ ] The real-visitor filter separates the known-bad and known-good controls, with the query output pasted
-- [ ] RSVP counts reconcile with Supabase for at least three events, with any gap explained
-- [ ] A signed-in RSVP produces `event_rsvp_completed` with event type, verified on prod data `[post-deploy]` after the first real RSVP
-- [ ] A weekly run in a week with few users still fills the Analytics tab, and a simulated Mixpanel failure shows "not collected" and fails its check
-- [ ] The tab answers all seven questions at 375px, 320px and desktop
+- [ ] Each of the three RSVP paths fires `event_rsvp_completed` with `event_type` and `path` on success and not on failure, proven by unit tests
+- [ ] A weekly run in a week with few users still fills the Analytics tab, and a simulated Mixpanel failure shows "not collected" and makes `cp.analytics` report `problem`
+- [ ] Each of the seven questions renders its fixture numbers at 375px, 320px and desktop, and a real-visitor or funnel number shows "not yet reconciled"
+- [ ] The follow-up spec holding the post-deploy checks is filed
 - [ ] A fixture with an in-range change shows "No change worth your attention", and a fixture with a new failure class raises one insight with all required fields
 - [ ] A dismissed insight does not reappear on the next weekly read
 - [ ] `docs/technical/analytics.md` matches what ships

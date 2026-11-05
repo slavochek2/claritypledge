@@ -6,10 +6,9 @@ This document catalogs all Mixpanel events tracked in the Clarity Pledge app.
 
 ## Analytics Strategy
 
-**Purpose:** Answer three weekly questions:
-1. Are people creating stories? (story funnel)
-2. Are stories triggering /live sessions? (activation)
-3. Are users coming back? (retention)
+**Purpose:** Show the founder each week how real people behave, without inventing patterns from small numbers (P1640). `/weekly` step 2.9.0 runs a fixed list of queries through the Mixpanel MCP. The result is stored in `~/.claude-analytics/`, outside the repo, and shown in the Analytics tab on the Day page. `/day` only reads it, through the `cp.analytics` check, which reports `problem` when the latest read is not collected or is 8 or more days old.
+
+The tab answers seven questions: who is here, what they do, how much time, who returns, do they explore, do they get stuck, is the practice working. Clean data starts 2026-11-06. No percentage shows on a base under 30. The default line is "No change worth your attention." An insight appears only for a new failure class, a real-user first or stuck session, or a shift beyond `1.96 * sqrt(current + previous)` on a base of at least 30. There are at most 3, and a dismissed one does not return. Sections read "not yet reconciled" until the Supabase reconciliation in P1640's follow-up spec passes.
 
 **Sources:**
 - Mixpanel: behavioral events (sessions, stories, gaps)
@@ -887,7 +886,19 @@ User clicked the "Reserve a seat" RSVP button on an event detail page (P844). Fi
 | Property | Type | Description |
 |----------|------|-------------|
 | `event_id` | string | Event UUID |
+| `event_type` | string | The event's series slug, or `standalone` (P1640) |
 | `trigger` | string | `sticky_bar` (mobile bottom bar) or `card` (desktop / mobile inline card) |
+
+---
+
+### `event_rsvp_completed`
+An RSVP was saved, on any of the three paths (P1640). Never fires on a failed RSVP.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `event_id` | string | Event UUID |
+| `event_type` | string | The event's series slug, or `standalone` |
+| `path` | string | `signed_in`, `post_signup` or `close_page` |
 
 ---
 

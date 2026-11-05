@@ -24,6 +24,7 @@ import { KANBAN_CONFIG } from '../config'
 import { ackWaitMs, collectionHash, dayClock, dayLauncher, launchWorkdir, sweepLaunchDirs, waitForAck, writePromptFile } from './dayLaunch'
 import { appendDecisionLines, parseLines, readDecisionsText, Refusal } from './dayStore'
 import { ledgerOf, markLine, resendLine } from './dayStories'
+import { analyticsDir, appendLedger, latestRead, readLedger } from './analyticsStore'
 import {
   buildPrompt,
   buildView,
@@ -341,6 +342,49 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
     } catch {
       console.error('[kanban] POST /api/day/decisions failed')
       res.status(500).json({ error: 'Failed to record decisions' })
+    }
+  })
+
+  // P1640: the weekly product read. The reads and the ledger live in the private analytics folder
+  // (analyticsStore.ts), not the day dir. Nothing read from them is logged.
+  app.get('/api/day/analytics', (_req, res) => {
+    if (!dayEnabled()) return res.status(404).json({ error: 'Day page is not enabled' })
+    try {
+      const dir = analyticsDir()
+      const read = latestRead(dir)
+      if (!read) return res.json({ status: 'none' })
+      const ledger = readLedger(dir)
+      res.json({
+        status: read.status,
+        read,
+        dismissed: ledger.filter((e) => e.decision === 'dismiss').map((e) => e.key),
+        // Only a confirm of THIS read hides its card; a later repeat must still show, as a pattern.
+        confirmed: ledger.filter((e) => e.decision === 'confirm' && (e.at ?? '') >= read.date).map((e) => e.key),
+      })
+    } catch {
+      console.error('[kanban] GET /api/day/analytics failed')
+      res.status(500).json({ error: 'Failed to read the weekly read' })
+    }
+  })
+
+  // The page's own origin only (the same guard as Start fixing), JSON only. The key must be one
+  // the latest read raised: the body never names a path.
+  app.post('/api/day/analytics/decision', (req, res) => {
+    if (!dayEnabled()) return res.status(404).json({ error: 'Day page is not enabled' })
+    if (!fromBoard(req)) return res.status(403).json({ error: 'Only the Day page can record this' })
+    if (!isJson(req)) return res.status(415).json({ error: 'JSON only' })
+    const body = req.body as { key?: unknown; decision?: unknown } | undefined
+    if (typeof body?.key !== 'string' || body.key.length > 300 || (body.decision !== 'confirm' && body.decision !== 'dismiss')) {
+      return res.status(400).json({ error: 'Invalid decision' })
+    }
+    try {
+      const dir = analyticsDir()
+      if (!latestRead(dir)?.insights.some((i) => i.key === body.key)) return res.status(409).json({ error: 'Not an insight in the latest read' })
+      appendLedger(dir, body.key, body.decision, now())
+      res.json({ success: true })
+    } catch {
+      console.error('[kanban] POST /api/day/analytics/decision failed')
+      res.status(500).json({ error: 'Failed to record the decision' })
     }
   })
 

@@ -2,6 +2,7 @@
 // receives is logged or put in browser storage (spec Invariants).
 
 import type { DayReport, DayView, DecisionInput, Review, RunState, StoryEntry, StoryRequest } from '../../lib/day'
+import type { StoredRead } from '../../lib/weeklyRead'
 
 export interface RunSummary {
   id: string
@@ -135,3 +136,17 @@ export function safeUrl(url: string | undefined): string | null {
     return null
   }
 }
+
+/** P1640: the latest weekly product read, with the founder's confirm / dismiss keys. */
+export type WeeklyReadPayload =
+  | { status: 'none' }
+  | { status: 'collected' | 'not-collected'; read: StoredRead; dismissed: string[]; confirmed: string[] }
+
+export const getWeeklyRead = () => fetch('/api/day/analytics').then((r) => json<WeeklyReadPayload>(r))
+
+export const postWeeklyDecision = (key: string, decision: 'confirm' | 'dismiss') =>
+  fetch('/api/day/analytics/decision', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key, decision }),
+  }).then((r) => json<{ success: true }>(r))
