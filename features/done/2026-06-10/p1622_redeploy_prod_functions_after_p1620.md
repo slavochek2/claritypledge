@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 96
 severity: high
@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [deploy, edge-functions, manifest]
 disclosure: public
-delivery_stage: fix
 pipeline_ran: [create-bug, fix]
+completed_at: 2026-11-05
 ---
 
 # P1622: Prod functions need one redeploy after P1620 lands
