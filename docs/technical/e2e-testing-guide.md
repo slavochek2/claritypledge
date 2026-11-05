@@ -104,6 +104,14 @@ Every run takes a lock in the git common dir (shared by all worktrees). `--ui`, 
 
 **Older checkouts (the switch period).** A new run only reads the old single directory `e2e-test-db-selfhosted.lock`, never writes it. A live holder of it counts as one occupied slot for a one-slot run and as the whole server for an exclusive run, so new runs wait for it; a stale one is ignored and left alone. A worktree still on the old script does not read the new slots, so it can start while new runs hold slots. That overlap is accepted for the switch (the load test carried 5 runs without a failure) and ends when every worktree runs this script. The one exposure that matters: an old-script run starting during an exclusive run, which then overlaps server-wide specs.
 
+## Is TEST serving this branch's functions? (P1312)
+
+TEST has one copy of each edge function, and any session's deploy can replace it. A deploy of one function also replaces all of `_shared`, `deno.*`, the router and the JWT list. So on a branch that changes a deployed function file, every local run checks the server at start and end with `scripts/selfhosted/branch-functions-check.sh` and prints a `FUNCTIONS:` line. Each checked run also adds a line to `cp-function-checks.jsonl` in the git common dir.
+
+- **Evidence runs:** set `E2E_REQUIRE_FUNCTIONS=1`. A mismatch or an unknown state refuses at start and fails the run at the end. Without it the run warns and continues. Quote the `FUNCTIONS:` line with the counts.
+- **Anything that is not Playwright** (a latency run, a curl measurement): run the script yourself before and after, and discard the numbers if the two answers are not both exit 0.
+- **It proves the code is there, not that it works, and it does nothing for a branch that changes no function.** So a client change that depends on new function behaviour must also assert that function's response status for a real payload, not only the UI. Reference: "a live slice sent while transcribing is accepted by transcribe-slice" in `e2e/p1307-event-transcription.spec.ts`.
+
 ---
 
 ## Test Helpers

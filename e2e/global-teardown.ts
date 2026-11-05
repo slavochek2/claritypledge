@@ -12,9 +12,17 @@
  * P1607: step 2 runs only when no other run is live on the server (a live slot, an exclusive claim, a live
  * holder of the old lock); step 1 always runs, because it only touches this run's own users.
  *
- * Both share one 60 s budget. A failure here is logged, never fails the run.
+ * Both share one 60 s budget. A failure here is logged, never fails the run, with ONE exception:
+ *
+ * 0. P1312: the end-of-run check that TEST still serves this branch's edge functions
+ *    (e2e/helpers/branch-functions.ts). It runs first, outside the 60 s budget and before the test-project
+ *    return, retries an unknown once, and with E2E_REQUIRE_FUNCTIONS=1 fails the run, but only in a
+ *    `finally` after steps 1 and 2, so a failing check never leaks test users. Its last output is
+ *    one `FUNCTIONS:` line.
  */
+import type { FullConfig } from '@playwright/test';
 import { currentRunId, readLedger, removeLedger } from './helpers/run-ledger';
+import { functionsAtTeardown } from './helpers/branch-functions';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { isTestProjectUrl, purgeUserIds, sweepE2eTestUsers } from '../scripts/sweep-e2e-test-users';
@@ -22,7 +30,29 @@ import { sweepBlockers } from '../scripts/lib/e2e-test-db-lock.mjs';
 
 const BUDGET_MS = 60_000;
 
-export default async function globalTeardown(): Promise<void> {
+export default async function globalTeardown(config?: FullConfig): Promise<void> {
+  // The check comes before anything that can return early, and its failure is thrown last.
+  let failure: Error | null = null;
+  let line: string | null = null;
+  if (config) {
+    try {
+      ({ failure, line } = functionsAtTeardown(config));
+    } catch (err) {
+      console.warn('[P1312] end-of-run function check skipped:', (err as Error).message);
+    }
+  }
+  let cleanupError: unknown = null;
+  try {
+    await cleanup();
+  } catch (err) {
+    cleanupError = err;
+  }
+  if (line) console.log(line);
+  if (failure) throw failure;
+  if (cleanupError) throw cleanupError;
+}
+
+async function cleanup(): Promise<void> {
   if (!isTestProjectUrl(process.env.VITE_SUPABASE_URL)) return;
   const started = Date.now();
   const runId = currentRunId();

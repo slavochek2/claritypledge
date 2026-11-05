@@ -62,6 +62,27 @@ dg_filter_deployed_repo_paths() {
   return 0
 }
 
+# The path mapping between the server (paths relative to the functions volume) and the repo, in
+# both directions (P1312; the drift check and the branch check share it). The router and the JWT
+# list live under main/ on the server.
+#   dg_repo_path_of_rel <server-relative path>  -> repo path
+#   dg_rel_of_repo_path <repo path>             -> server-relative path (nothing for a non-deployed path)
+dg_repo_path_of_rel() {
+  case "$1" in
+    main/index.ts) echo supabase/selfhosted/functions-main/index.ts ;;
+    main/no-verify-jwt-functions.txt) echo supabase/no-verify-jwt-functions.txt ;;
+    *) echo "supabase/functions/$1" ;;
+  esac
+}
+dg_rel_of_repo_path() {
+  case "$1" in
+    supabase/selfhosted/functions-main/index.ts) echo main/index.ts ;;
+    supabase/no-verify-jwt-functions.txt) echo main/no-verify-jwt-functions.txt ;;
+    supabase/functions/*) echo "${1#supabase/functions/}" ;;
+  esac
+  return 0
+}
+
 # Files under the deployed inputs that main changed since this source diverged from it.
 # A git failure is NOT "no changes": it returns 2 and the caller refuses. Only the filter, which
 # cannot fail, is allowed to produce an empty list.

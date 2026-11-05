@@ -392,6 +392,21 @@ W=$(mktemp -d)
 tar -xzf "$REMOTE_TGZ" -C "$W"
 rm -f "$REMOTE_TGZ"
 mkdir -p "$FUNCTIONS_VOL"
+# P1312: say whose code a directory is about to replace. Read from the manifest as it stands, before
+# the merge below. Notable: another branch's code, or any deploy with uncommitted content; clean main
+# is the normal case and stays quiet. Informational only: nothing here can fail the deploy.
+M="$STACK_DIR/deploy-manifest.tsv"
+new_branch="$(awk -F'\t' '$1 == "D" { print $4; exit }' "$W/.manifest-fragment" 2>/dev/null || true)"
+announce() {
+  local line br at dirty
+  line="$(awk -F'\t' -v n="$1" '$1 == "D" && $2 == n { l = $0 } END { print l }' "$M" 2>/dev/null || true)"
+  [ -n "$line" ] || return 0
+  br="$(printf '%s' "$line" | cut -f4 | tr -d '<>|')"; at="$(printf '%s' "$line" | cut -f5)"; dirty="$(printf '%s' "$line" | cut -f6)"
+  if [ "$dirty" = 1 ] || { [ "$br" != main ] && [ "$br" != "$(printf '%s' "$new_branch" | tr -d '<>|')" ]; }; then
+    echo "replacing $1 deployed by $br at $at$([ "$dirty" = 1 ] && echo ', uncommitted')"
+  fi
+  return 0
+}
 FULL=0
 if [ -f "$W/.full-deploy" ]; then
   FULL=1
@@ -399,12 +414,13 @@ if [ -f "$W/.full-deploy" ]; then
   for d in "$FUNCTIONS_VOL"/*/; do
     [ -d "$d" ] || continue
     n=$(basename "$d")
-    [ -d "$W/$n" ] || { echo "pruned: $n"; rm -rf "${FUNCTIONS_VOL:?}/$n"; }
+    [ -d "$W/$n" ] || { announce "$n"; echo "pruned: $n"; rm -rf "${FUNCTIONS_VOL:?}/$n"; }
   done
 fi
 for d in "$W"/*/; do
   [ -d "$d" ] || continue
   n=$(basename "$d")
+  announce "$n"
   rm -rf "${FUNCTIONS_VOL:?}/$n"
   cp -R "$d" "$FUNCTIONS_VOL/$n"
 done

@@ -83,13 +83,7 @@ sed -n 's|^\([0-9a-f]\{64\}\)  \./\(.*\)$|\2	\1|p' "$T/server.sums" | LC_ALL=C s
 [ -s "$T/server.files" ] || unknown "could not read the server's file hashes"
 
 # Main side: same shape. supabase/functions/X maps to X; the router and JWT list live under main/.
-main_path() { # echo the repo path for a manifest-relative path
-  case "$1" in
-    main/index.ts) echo supabase/selfhosted/functions-main/index.ts ;;
-    main/no-verify-jwt-functions.txt) echo supabase/no-verify-jwt-functions.txt ;;
-    *) echo "supabase/functions/$1" ;;
-  esac
-}
+main_path() { dg_repo_path_of_rel "$1"; } # the repo path for a manifest-relative path (mapping lives in deploy-guard.sh)
 : > "$T/main.files"
 {
   # The same file-set rule the deploy uses (dg_is_deployed_path): a tracked README beside the
