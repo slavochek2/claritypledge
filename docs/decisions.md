@@ -9,6 +9,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-05 [product]: Joining a group has one decision, and nobody joins without learning (P1549)
+
+**Context:** "Join as member" went straight to the terms. Reusing the event learning unchanged put an opt-in to the Clarity Meeting Principle before a differently named Clarity Group Terms, so people decided twice and the first answer changed nothing.
+**Decision:** Every join goes through the learning, from any button, now or later. Four steps: the definition; the principle's video and text on one screen with no opt-in; the seven benefit statements unchanged; the group terms with Accept and join. The terms page carries one sentence: "The Clarity Group Terms are the Clarity Meeting Principle, promised to every member. Not legally binding." Learners see their ticked steps, and Back from the terms returns to them. A why text sits above the steps on every entry, with no new step. Learning screens show only the position buttons on statement cards. The gate is advisory: invite links pass through it, a hand-typed sign-up address does not, and shared-browser progress can carry over. Both are accepted.
+**Alternatives rejected:** A new required why step (makes people tap through a reason before starting). Video and terms on one screen (the certificate needs its own page). A separate five-step flow with a short accept screen, and duplicating the statements for the terms now (solve a problem nobody has shown yet). Server enforcement (ordinary people never hit the gap, and the founder can remove anyone).
+**Consequences:** Events and `/prepare` keep their opt-in; the hike's join flow still has the old steps and "Part 1 of 2", to align separately. Later, after the founder records at Sales Mastermind: the group video replaces step 2's and the why gets an optional clip, then decide on statements about the terms, rewording the one about work. Falsifier (UNTESTED): if joins fall near zero over about 2 months and learned members do not return to a second event more than non-members, loosen the requirement.
+**References:** [P1549](../features/done/) · `src/tests/p1549-join-gate.test.tsx` fails if a new place writes a membership.
+
+## 2026-11-05 [technical]: An empty statements list is a failed read, and waits in the join flow are bounded (P1549)
+
+**Context:** `getPublicPointsFeed` answers `[]` on a query error, so "all answered" was true for 0 of 0, and Continue could record the part as finished. Supabase requests have no default timeout, so a stalled read left a loader forever, and a shared in-flight read made a retry rejoin the stalled request.
+**Decision:** Continue requires at least one statement, and the join flow treats an empty list as an error with retry. Join reads and the sign-up move of local parts use the existing `withDeadline`, and a give-up calls `forgetInFlight`. A stalled save copies only unsaved parts to the browser. Return paths go through `inAppPath`, which refuses control characters.
+**Alternatives rejected:** Changing `getPublicPointsFeed` to throw (other callers depend on `[]`).
+**Consequences:** Other callers of that feed still cannot tell empty from failed. `npx tsc --noEmit -p .` checks nothing here because the root config only references others; use `-p tsconfig.app.json`.
+**References:** `src/lib/in-app-path.ts`, `src/app/prototypes/events/prep/use-learned-read.ts`
+
 ## 2026-11-05 [technical]: The mirror agent folds copies by a counted rule in SQL (P1619)
 
 **Context:** A Clarified transcript stayed among the offered rows, so unrelated replies re-sent it and reserved $0.225. Step 1 of the P1615 plan.

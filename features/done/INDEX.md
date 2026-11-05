@@ -232,6 +232,7 @@ Last updated: 2026-11-05
 - **P968** (Jun 28) Prepare-letter prediction walk reuses reading components (finishes P665) — Radix `DialogOverlay` is null under `modal={false}` so a dimmed scrim needs `modal` (reverses P688 for the recipient dialog, which now overlays the draft page via compose's `location.state` contract instead of a blank `/compose` page); one primary action per view → Seal in `FixedBottomBar`, Preview demoted to outline; renaming a CTA label ("Next Story"→"Continue") breaks `getByRole` selectors — sweep E2E specs
 
 ## Navigation & Routing
+- **P1549** (Nov 26) Learn, then decide: the path into membership — One decision when joining; reused event content carried an opt-in that changed nothing.
 - **P1421** (Oct 26) Header stable while profile loads — same-shape placeholders, gated on a per-device verified marker cleared on sign-out
 - **P1392** (Oct 26) Feed-first homepage, discovery-call CTA, Events in menu — "/" redirect orphaned the "/"-keyed footer, hero offset and ?referrer invites; grep pathname === "/" before moving a homepage
 - **P1364** (Sep 29) Consistent back navigation — one `useGoBack` declared by `fallback`; Back to feed/stake/profile restores tab, card and open state — a one-shot scroll restore clamps to ~0 while the list is a spinner; own writes must clear the POP cache (drift guard derives writers from migrations).
