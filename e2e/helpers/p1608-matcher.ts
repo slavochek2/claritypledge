@@ -101,6 +101,13 @@ export function evaluate(out: RunOutput): Verdict {
     if (f.round1 < ROUND1_MIN_FOUND) failures.push(`round 1: ${person} has ${f.round1} of ${out.expected[person].round1.length} expected phrases under their name (need ${ROUND1_MIN_FOUND})`);
     if (f.round2 < ROUND2_MIN_FOUND) failures.push(`round 2: ${person} has ${f.round2} of ${out.expected[person].round2.length} expected phrases under their name (need ${ROUND2_MIN_FOUND})`);
   }
+  // A phrase copied into the other round under someone else is a stray too.
+  for (const person of names) for (const [ph, other] of [
+    ...out.expected[person].round1.map((x) => [x, out.round2] as const),
+    ...out.expected[person].round2.map((x) => [x, out.round1] as const),
+  ]) for (const [n, t] of Object.entries(other.textByPerson)) {
+    if (n !== person && phraseIn(ph.text, t)) failures.push(`${person}'s phrase "${ph.text}" appears in the other round under ${n}`);
+  }
   for (const h of hits) {
     const strays = h.foundUnder.filter((n) => n !== h.person);
     if (strays.length) failures.push(`round ${h.round}: ${h.person}'s phrase "${h.phrase}" also appears under ${strays.join(', ')} (zero strays allowed)`);

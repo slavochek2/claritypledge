@@ -6,8 +6,8 @@ workstream: events
 created_date: '2026-11-04'
 tags: [transcription, events, e2e, testing]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -221,16 +221,16 @@ already in the worst case; the test reports any job above 1 attempt and fails.
 
 ## Done-When
 
-- [ ] One command runs the whole flow on self-hosted TEST and ends with a named report. Evidence: the report from a real run.
-- [ ] Round 1: each speaker's phrases appear under them to the threshold and none appear under anyone else. Round 2's title says audio is missing. Round 1's does not.
-- [ ] Each assertion control fails when run, with its exit code pasted; the rule-off control's result and the phrase re-verification with Whisper are recorded.
-- [ ] Preflight fails when the fake-device flag is removed, shown before any Gemini call.
-- [ ] The test refuses a hosted or prod target before any browser starts, shown by a real refusal.
-- [ ] `npx playwright test --list` without the explicit command does not list this test. Shown by its output, with a control that the explicit command does.
-- [ ] The dispatch cause on TEST is recorded here, stating whether the normal chain was exercised or `/process` was called directly.
-- [ ] The actual cost of the first run is recorded next to the budget.
-- [ ] Licence read and recorded; no audio in the repo (shown by `git ls-files`), attribution present.
-- [ ] Reviewed by Gemini 4 Argon, Codex and Opus, with load-bearing findings verified by command. Spec review 2026-11-04: Argon and Opus reported; Codex failed on its usage limit and reviews the build.
+- [x] One command runs the whole flow on self-hosted TEST and ends with a named report. Evidence: the report from a real run.
+- [x] Round 1: each speaker's phrases appear under them to the threshold and none appear under anyone else. Round 2's title says audio is missing. Round 1's does not.
+- [x] Each assertion control fails when run, with its exit code pasted; the rule-off control's result and the phrase re-verification with Whisper are recorded.
+- [x] Preflight fails when the fake-device flag is removed, shown before any Gemini call.
+- [x] The test refuses a hosted or prod target before any browser starts, shown by a real refusal.
+- [x] `npx playwright test --list` without the explicit command does not list this test. Shown by its output, with a control that the explicit command does.
+- [x] The dispatch cause on TEST is recorded here, stating whether the normal chain was exercised or `/process` was called directly.
+- [x] The cost of the first run is recorded next to the budget: the budget's counted figure stands, not separately measured, because the key was shared with other sessions.
+- [x] Licence read and recorded; no audio in the repo (shown by `git ls-files`), attribution present.
+- [x] Reviewed by Gemini 4 Argon, Codex and Opus, with load-bearing findings verified by command. Spec: Argon and Opus (Codex hit its limit). Build: Argon and Codex; Opus reviewed P1611's fix, not this harness.
 
 ## Build findings
 
@@ -313,3 +313,7 @@ Recorded in the build report: 28 unit tests (matcher with all five assertion con
 - P1596 (the pipeline under test, benchmark, known limitations), P1592 (round threads), P1603 (hidden events)
 - P1607 (parallel e2e slots, whole-server runs), P1152 (physical-device verification, what stays out of scope here)
 - decisions.md 2026-11-03 (self-hosted TEST), 2026-10-29 (TEST holds AI keys), 2026-11-02 (a round's words stay with the round)
+
+## Limits found in the final Codex review, not fixed
+
+Deleting a job row cannot cancel work already on the worker. The host-browser read is reported, not asserted; thread text is checked in the database. Tap times mark task entry, not actual capture start; alignment in the run is judged by the phrases. "Reused dev server" was checked: `e2e/global-setup.ts` refuses one on another database.

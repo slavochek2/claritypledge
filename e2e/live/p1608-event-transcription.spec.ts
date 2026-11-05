@@ -36,8 +36,9 @@ import { evaluate, formatReport, phraseIn, type Expected, type JobInfo, type Run
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT_DIR = path.join(ROOT, 'test-results-p1608');
-const STATE_FILE = path.join(OUT_DIR, 'live-state.json');
 const CACHE = process.env.P1608_CACHE ?? path.join(homedir(), '.cache', 'cp-p1608-ami');
+// Kept in the clip cache: Playwright clears its output directory before a run, which would erase a crashed run's notes.
+const STATE_FILE = path.join(CACHE, 'live-state.json');
 const GCP_PROJECT = 'gen-lang-client-0869694595';
 const WORKER = 'transcribe-room-batch-test';
 const WORKER_REGION = 'us-east4';
@@ -71,15 +72,21 @@ const users: Partial<Record<Who | 'D', TestUser>> = {};
 let event: TestEvent | undefined;
 const sessionIds: string[] = [];
 const persist = () => {
-  mkdirSync(OUT_DIR, { recursive: true });
+  mkdirSync(CACHE, { recursive: true });
   writeFileSync(STATE_FILE, JSON.stringify({
     pid: process.pid, eventId: event?.id, hostId: host?.user.id,
     userIds: Object.values(users).filter(Boolean).map((u) => u!.user.id), sessionIds,
   }));
 };
 
-async function cleanup(state: { eventId?: string; hostId?: string; userIds: string[]; sessionIds: string[] }): Promise<void> {
-  const step = async (what: string, fn: () => unknown) => { try { await fn(); } catch (e) { log(`cleanup: ${what} failed: ${String(e).slice(0, 120)}`); } };
+async function cleanup(state: { eventId?: string; hostId?: string; userIds: string[]; sessionIds: string[] }): Promise<boolean> {
+  let clean = true;
+  const step = async (what: string, fn: () => unknown) => {
+    try {
+      const r = (await fn()) as { error?: { message?: string } | null } | undefined;
+      if (r?.error) { clean = false; log(`cleanup: ${what} failed: ${String(r.error.message).slice(0, 120)}`); }
+    } catch (e) { clean = false; log(`cleanup: ${what} failed: ${String(e).slice(0, 120)}`); }
+  };
   if (state.eventId) {
     // sessions the app created when people tapped Transcribe: the room's cascade does not reach them
     await step('app sessions', async () => {
@@ -97,6 +104,7 @@ async function cleanup(state: { eventId?: string; hostId?: string; userIds: stri
   await step('chat', () => purgeChatFor(ids));
   if (state.eventId) await step('event', () => deleteTestEvent(state.eventId!));
   for (const id of ids) await step('user', () => deleteTestUser(id));
+  return clean;
 }
 
 // ---- helpers ----
@@ -216,11 +224,11 @@ test.describe('P1608 transcription end to end', () => {
     // browsers first: a closed tab stops capturing, then the room (and its jobs) is deleted
     for (const c of contexts) await c.close().catch(() => undefined);
     for (const b of browsers) await b.close().catch(() => undefined);
-    await cleanup({
+    const clean = await cleanup({
       eventId: event?.id, hostId: host?.user.id,
       userIds: Object.values(users).filter(Boolean).map((u) => u!.user.id), sessionIds,
     });
-    rmSync(STATE_FILE, { force: true });
+    if (clean) rmSync(STATE_FILE, { force: true }); // otherwise the next run retries it
   });
 
   test('3 attendees speak through their own fake microphones; the threads hold the right words under the right people', async ({ browserName: _browserName }, testInfo) => {

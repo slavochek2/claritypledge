@@ -29,6 +29,7 @@ export const isListing = (argv) => argv.slice(2).some((a) => a === '--list');
 
 export function p1608Refusal({ url, env = process.env, argv = process.argv, resolveActive = resolveActiveTest }) {
   if (isListing(argv)) return null; // a listing opens no browser and calls no network
+  if (argv.some((x) => /^--(retries|repeat-each)\b/.test(x))) return 'this test is paid: --retries and --repeat-each are refused. Nothing was started.';
   if (env[LIVE_ENV] !== '1') {
     return `this test spends real money (paid Gemini) and runs only on purpose: set ${LIVE_ENV}=1 on the command (npm run test:e2e:p1608).`;
   }
