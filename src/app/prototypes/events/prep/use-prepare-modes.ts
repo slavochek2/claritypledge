@@ -105,7 +105,8 @@ export function useJoinLearningGate(): Gate {
 
   const join: JoinMode = useMemo(() => ({
     groupName: group?.name ?? '',
-    onFinish: () => navigate(joinPath, { replace: true, state: { joinViaLearning: true } }),
+    // The list stays underneath the terms, so Back from the terms shows the finished steps.
+    onFinish: () => { navigate(joinPath, { replace: true }); navigate(joinPath, { state: { joinViaLearning: true } }); },
     onExit: () => navigate(joinPath, { replace: true }),
   }), [group?.name, navigate, joinPath]);
 

@@ -129,6 +129,7 @@ test.describe('P1010: Clarity Groups — /groups/:slug', () => {
     // Anyone may READ the terms — the account gate is on the accept action only.
     await page.getByRole('button', { name: 'Join as member' }).click();
     await expect(page).toHaveURL(new RegExp(`/groups/${noEventsOrg.slug}/join`));
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Clarity Group Terms' })).toBeVisible({ timeout: 10000 });
 
     await page.getByRole('button', { name: 'Accept and join' }).click();
@@ -146,6 +147,7 @@ test.describe('P1010: Clarity Groups — /groups/:slug', () => {
     await page.getByRole('button', { name: 'Join as member' }).click();
     await expect(page).toHaveURL(new RegExp(`/groups/${noEventsOrg.slug}/join`));
 
+    await page.getByRole('button', { name: 'Continue', exact: true }).click(); // P1549: the ticked list comes first
     // Decision 4 said "Clarity Organization Terms"; P1193 renamed the live version to
     // "Clarity Group Terms" (COA v6). v4/v5 keep the old title — see coa-versions.ts.
     await expect(page.getByRole('heading', { name: 'Clarity Group Terms' })).toBeVisible({ timeout: 10000 });
@@ -519,6 +521,7 @@ test.describe('P1010: Clarity Groups — /groups/:slug', () => {
     // Reading the terms must NOT be gated — the auth redirect fires on the accept
     // action, not on mount, so an anonymous visitor can read what they'd be agreeing
     // to before being asked for an account.
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Clarity Group Terms' })).toBeVisible({ timeout: 10000 });
 
     await page.getByRole('button', { name: 'Accept and join' }).click();

@@ -72,6 +72,10 @@ Decision density: decisions 1-12 are made (defaults applied where marked). New c
 
 24. **The terms page carries one sentence** (founder, 2026-11-05): "The Clarity Group Terms are the Clarity Meeting Principle, promised to every member. Not legally binding." This overturns decision 17: no "already done the learning" line and no "Review it". No caption under Accept and no second Back: the top Back is the only one. Members keep "Review how we talk".
 
+25. **The steps stay visible** (founder, 2026-11-05). This overturns decision 9: a learner sees the list with every step ticked and taps Continue to reach the terms. Back from the terms returns to that list, so nobody loses sight of what they did.
+
+26. **Learning screens show only the position buttons** (founder, 2026-11-05): no Details, no story row and no three-dot menu on statement cards in the join flow, `/prepare`, the event learning and the feedback flow. The feed, a point's page and `/stake` are unchanged.
+
 ## Relation to P1542 (updated 2026-10-27)
 
 P1542 (Social Hike prepare and close recipes) ships first, together with P1562. Increment 1 starts on its own branch from `main` after that ship. P1542 built the **event side** of this path. P1549 builds the **groups-page side** and reuses P1542's pieces rather than copying them.

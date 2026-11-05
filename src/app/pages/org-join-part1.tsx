@@ -38,9 +38,11 @@ export function JoinReadError({ onRetry, fallback }: { onRetry: () => void; fall
   );
 }
 
-export function JoinPart1({ groupName, parts, viewerId, onStart, fallback }: {
+export function JoinPart1({ groupName, parts, allLearned, viewerId, onStart, fallback }: {
   groupName: string;
   parts: PrepPartRow[];
+  /** Learned here or anywhere: every step shows done, including the principle, and Continue opens the terms. */
+  allLearned: boolean;
   viewerId: string | undefined;
   onStart: () => void;
   fallback: string;
@@ -64,7 +66,7 @@ export function JoinPart1({ groupName, parts, viewerId, onStart, fallback }: {
 
   const counts = { cmp7: cards, stake: 0 };
   // The principle's decision is not stored, so it never shows as done here (spec: the tick and the gate agree).
-  const isDone = (s: PlanStep) => (s === 'story' && isPartDone(parts, 'cognitive_video')) || (s === 'cmp7' && isPartDone(parts, 'cmp7'));
+  const isDone = (s: PlanStep) => allLearned || (s === 'story' && isPartDone(parts, 'cognitive_video')) || (s === 'cmp7' && isPartDone(parts, 'cmp7'));
   const started = JOIN_STEPS.some(isDone);
   const minutes = minutesFor(JOIN_STEPS.filter((s) => !isDone(s)), counts, true) + TERMS_MINUTES;
 

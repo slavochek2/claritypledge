@@ -80,7 +80,13 @@ test.describe('P1549 join learning', () => {
     await seedLearned(u.user.id);
     await setTestSession(page, u.email);
     await openJoinFromGroup(page);
-    await expect(page.getByTestId('join-terms-step')).toHaveText('Group terms');
+    // Learned elsewhere: the list with every step ticked, then the terms; Back returns to the ticks.
+    await expect(page.getByTestId('join-step-principle')).toHaveAttribute('data-done', 'true');
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(page.getByText('Step 4 of 4')).toBeVisible();
+    await page.getByRole('button', { name: /back/i }).first().click();
+    await expect(page.getByTestId('join-step-cmp7')).toHaveAttribute('data-done', 'true');
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('button', { name: 'Accept and join' }).click();
     await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
     const { data } = await supabaseAdmin.from('membership').select('user_id').eq('org_id', org.id).eq('user_id', u.user.id);
@@ -99,6 +105,7 @@ test.describe('P1549 join learning', () => {
     await setTestSession(page, u.email);
     await page.route('**/rest/v1/event_preparations*', (r) => r.fulfill({ json: [{ completed_at: new Date().toISOString() }] }));
     await page.goto(joinUrl());
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Accept and join' })).toBeVisible();
   });
 
@@ -127,6 +134,7 @@ test.describe('P1549 join learning', () => {
   test('signed out: a learner goes to sign-up with action=join-org', async ({ page }) => {
     await seedLearnedInBrowser(page);
     await page.goto(joinUrl());
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('button', { name: 'Accept and join' }).click();
     await expect(page).toHaveURL(/\/signup\?redirect=.*action=join-org/);
   });
@@ -161,18 +169,23 @@ test.describe('P1549 join learning', () => {
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByTestId('answered-count')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Skip and proceed' })).toHaveCount(0);
+    // A learning screen: setting a position is the one job on each card.
+    await expect(page.getByTestId('point-card-footer')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /details/i })).toHaveCount(0);
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByText('Step 4 of 4')).toBeVisible();
     await expect(page.getByTestId('terms-subtitle')).toContainText('promised to every member');
     await expect(page).toHaveURL(new RegExp(`${joinUrl()}$`));
+    // Back from the terms shows the finished steps, not the group page.
+    await page.getByRole('button', { name: /back/i }).first().click();
+    await expect(page.getByTestId('join-step-story')).toHaveAttribute('data-done', 'true');
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
     // Reload keeps the entry's Part 2 label.
     await page.reload();
     await expect(page.getByText('Step 4 of 4')).toBeVisible();
     await page.getByRole('button', { name: 'Accept and join' }).click();
     await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
     await expect.poll(async () => (await supabaseAdmin.from('person_prep_parts').select('part').eq('profile_id', u.user.id).eq('part', 'cmp7')).data?.length).toBe(1);
-    await page.goBack();
-    await expect(page).not.toHaveURL(/\/prepare|\/join/);
   });
 
   test('navigation: step Back to Part 1, browser Back to the group, reload on a step restarts at the first undone', async ({ page }) => {
@@ -286,6 +299,7 @@ test.describe('P1549 join learning', () => {
       await check('view-terms', 'Join P1549 Practice');
       await seedLearnedInBrowser(page);
       await page.goto(joinUrl());
+      await page.getByRole('button', { name: 'Continue', exact: true }).click();
       await check('terms', 'Accept and join');
       await page.goto('/prepare');
       await check('prepare', 'Start here');

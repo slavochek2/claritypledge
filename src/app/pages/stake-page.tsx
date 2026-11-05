@@ -523,6 +523,7 @@ export function StakePage({ tag: tagProp, embedded = false, pointsOnly = false, 
                     onPointRemoved={handlePointRemoved}
                     linkedStories={linksFor(pointStoriesState, pointLinkKey, point.id)}
                     surface="stake"
+                    decideOnly={pointsOnly}
                     hideAnonSignupCta={embedded}
                   />
                 ))

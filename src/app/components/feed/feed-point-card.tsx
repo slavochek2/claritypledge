@@ -129,6 +129,8 @@ interface FeedPointCardProps {
   onAddStory?: () => void;
   /** A preview: the statement clamped to two lines and its tags, with no votes, footer or menu. For pickers and drafts. */
   compact?: boolean;
+  /** P1549: a learning screen, where the one job is setting a position: no Details, no story row, no `⋯`. */
+  decideOnly?: boolean;
   /** P1515: set only by the canvas page — see FeedPointCardCanvas. Unset everywhere else. */
   canvas?: FeedPointCardCanvas;
 }
@@ -156,7 +158,12 @@ export function FeedPointCard(props: FeedPointCardProps) {
   return props.compact ? <CompactPointCard point={props.point} /> : <FullFeedPointCard {...props} />;
 }
 
-function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', hideAnonSignupCta = false, onPositionSaved, owner, spread, collapseStoriesOnEscape = false, onAddStory, canvas }: FeedPointCardProps) {
+/** The story invitation's wording, once every condition holds and the viewer has a position. */
+function addStoryCopyFor(conditions: boolean[], position: Parameters<typeof getPositionGroup>[0] | null | undefined) {
+  return conditions.every(Boolean) && position ? getPositionCTACopy(getPositionGroup(position)) : null;
+}
+
+function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', decideOnly = false, hideAnonSignupCta = false, onPositionSaved, owner, spread, collapseStoriesOnEscape = false, onAddStory, canvas }: FeedPointCardProps) {
   // P1336: in-app paths open in a new tab when the host flow says so (onboarding's embedded stake).
   const openPath = useOpenPath();
   const { session } = useAuth();
@@ -288,9 +295,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
   const viewerStory = viewerId && linkedStories
     ? linkedStories.find((linked) => linked.authorId === viewerId)
     : undefined;
-  const addStoryCopy = viewerId && authedEffective && linkedStories !== undefined && !viewerStory && canvasTakesStory(canvas)
-    ? getPositionCTACopy(getPositionGroup(authedEffective))
-    : null;
+  const addStoryCopy = addStoryCopyFor([!!viewerId, linkedStories !== undefined, !viewerStory, canvasTakesStory(canvas)], authedEffective);
 
   /* P1508 D5 — with an owner, the profile's rules (point-card-with-links.tsx): the stories are the
      owner's only (a person has at most one story per point), the expander says whose; the viewer's
@@ -300,7 +305,6 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
   const storyLabel = owner
     ? (isOwnView ? 'Your story' : 'Their story')
     : `${shownStories?.length ?? 0} ${shownStories?.length === 1 ? 'story' : 'stories'}`;
-  const showViewerStory = !!viewerStory && !isOwnView;
 
   const menu = canvas?.reader ? null : (
     <CardMenu
@@ -468,8 +472,8 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
               </p>
         </>
       }
-      corner={owner ? undefined : menu}
-      footer={
+      corner={owner || decideOnly ? undefined : menu}
+      footer={decideOnly ? undefined : (
         <>
       {/* P1296 item 1, laid out by P1366 — the footer every story and point card carries, on
           /feed, /stake and the profile: the solid story expander and the viewer's slot left,
@@ -503,7 +507,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
           )}
           {/* The viewer's slot: their story on this point, or the invitation to write one. It
               opens the story to READ — the old `?edit=true` link dropped readers into an editor. */}
-          {showViewerStory && viewerStory && (
+          {viewerStory && !isOwnView && (
             <CardSlotLink kind="your-story" onClick={() => openPath(`/story/${viewerStory.id}`)} />
           )}
           {addStoryCopy && (
@@ -581,7 +585,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
         )}
       </div>
         </>
-      }
+      )}
     >
             {statementOverflows && !statementExpanded && (
               <button

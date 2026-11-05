@@ -13,7 +13,7 @@ import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { FocusHeader } from "@/app/components/layout/focus-header";
 import { useGoBack } from "@/app/hooks/use-go-back";
 import { hasLearned } from "@/app/prototypes/events/prep/prep-plan";
-import { useLearnedRead } from "@/app/prototypes/events/prep/use-learned-read";
+import { useLearnedRead, type LearnedRead } from "@/app/prototypes/events/prep/use-learned-read";
 import { shortCommunityName } from "@/app/prototypes/events/use-event-community";
 import { JoinPart1, JoinReadError } from "./org-join-part1";
 import { OrgJoinTerms } from "./org-join-terms";
@@ -25,6 +25,21 @@ function carriedParams(from: string | null, returnPath: string | undefined) {
   if (from) carried.set("from", from);
   if (returnPath) carried.set("return", returnPath);
   return carried;
+}
+
+function readSaysLearned(read: LearnedRead) {
+  return read.status === "ok" && hasLearned(read.parts, read.completedAt);
+}
+
+/** Part 1's button: a learner goes on to the terms above this list; anyone else into the learning, in its place. */
+function startTarget(allLearned: boolean, orgPath: string, carried: URLSearchParams, slug: string) {
+  if (allLearned) {
+    return { to: `${orgPath}/join${carried.size ? `?${carried}` : ""}`, options: { state: { joinViaLearning: true } } };
+  }
+  const q = new URLSearchParams(carried);
+  q.set("then", "join");
+  q.set("group", slug);
+  return { to: `/prepare?${q}`, options: { replace: true } };
 }
 
 export function OrgJoinPage() {
@@ -65,7 +80,9 @@ export function OrgJoinPage() {
   const groupName = shortCommunityName(org.name);
   const carried = carriedParams(rawFrom, returnPath);
   const carriedQuery = carried.size ? `?${carried}` : "";
-  const showTermsToAccept = needsLearned && learned.status === "ok" && hasLearned(learned.parts, learned.completedAt);
+  const allLearned = needsLearned && readSaysLearned(learned);
+  // P1549: the terms are step 4, reached from the list, so Back and a return visit always show the ticked steps.
+  const showTermsToAccept = allLearned && joinViaLearning;
 
   if (needsLearned) {
     if (learned.status === "pending") return <ClarityPageLoader />;
@@ -75,14 +92,13 @@ export function OrgJoinPage() {
         <JoinPart1
           groupName={org.name}
           parts={learned.parts}
+          allLearned={allLearned}
           viewerId={userId ?? undefined}
          
           fallback={afterPath}
           onStart={() => {
-            const q = new URLSearchParams(carried);
-            q.set("then", "join");
-            q.set("group", org.slug);
-            navigate(`/prepare?${q}`, { replace: true });
+            const next = startTarget(allLearned, orgPath, carried, org.slug);
+            navigate(next.to, next.options);
           }}
         />
       );

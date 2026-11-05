@@ -100,8 +100,7 @@ test.describe('P1076: Org invite link — /org/:slug', () => {
     await seedLearnedInBrowser(page);
     await page.goto(`/groups/${org.slug}/join?from=${member.user.id}`);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('Clarity Group Terms')).toBeVisible({ timeout: 10000 });
-
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await page.getByRole('button', { name: 'Accept and join' }).click();
     // Targets /signup, not /login (P1076 session revision): a cold invite recipient
     // almost never has an existing account.
@@ -216,6 +215,7 @@ test.describe('P1076: Org invite link — post-join banner', () => {
       await setTestSession(page, joiner.email);
       await page.goto(`/groups/${org.slug}/join`);
       await page.waitForLoadState('networkidle');
+      await page.getByRole('button', { name: 'Continue', exact: true }).click();
       await page.getByRole('button', { name: 'Accept and join' }).click();
       await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
 

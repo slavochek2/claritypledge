@@ -14,7 +14,7 @@ import { sectionsForLevel } from '@/app/content/meeting-terms';
 import { COA_VERSIONS, CURRENT_COA_VERSION } from '@/app/content/coa-versions';
 
 const part1 = () => render(
-  <MemoryRouter><JoinPart1 groupName="G" parts={[]} viewerId={undefined} onStart={() => {}} fallback="/groups/g" /></MemoryRouter>,
+  <MemoryRouter><JoinPart1 groupName="G" parts={[]} allLearned={false} viewerId={undefined} onStart={() => {}} fallback="/groups/g" /></MemoryRouter>,
 );
 
 describe('P1549 Part 1', () => {
