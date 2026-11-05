@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 107
 severity: medium
@@ -11,8 +11,16 @@ exec_model: sonnet
 exec_effort: medium
 tags: [git-ops, ship, journal]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: scripts/test-git-ops-ship.sh
+  root_cause: "cmd_ship writes the journal (ship_init_journal, git-ops.sh ~L4483) for a spec on main before the pre-pick lock acquire (~L4713); acquire_main_lock timeout does a bare exit 1 with no journal cleanup"
+  confidence: high
+  surfaces_in_scope: [ship-main-spec-route]
+  surfaces_deferred: []
+  reproduced_at: 2026-11-05
+  fix_shape: decided
 ---
 
 # P1637: A ship that times out on the main lock leaves its journal, so the retry stops
@@ -23,7 +31,9 @@ During the P1630 ship, `git-ops.sh ship` timed out on `main.lock` against a live
 
 ## Root Cause
 
-From reading the code, not yet reproduced: for a spec on main the journal is written before the lock is taken, and the lock timeout exits with no cleanup. Other refusals on that path do remove a fresh journal. Branch-born specs defer the journal and are unaffected.
+Confirmed by reproduction (2026-11-05). For a spec on main, `cmd_ship` calls `ship_init_journal` (`scripts/git-ops.sh` ~L4483) before the pre-pick `acquire_main_lock` (~L4713). When the lock times out, `acquire_main_lock` returns 1 and the caller does a bare `exit 1`, so the fresh journal is never removed. Other refusals on that path (e.g. L4600-4670) remove a fresh journal with `(( journal_exists == 0 )) && rm -f`. Branch-born specs defer the journal until after the lock and are unaffected.
+
+**Evidence:** scenario P of `scripts/test-git-ops-ship.sh` (live `main.lock`, `GIT_OPS_MAIN_LOCK_TIMEOUT=2`) already produces the timeout; extended with a journal-absent assertion it fails: `FAIL: P2: lock timeout left journal .../.ship-journal/p105.json behind (nothing was picked)`. The canary is NOT committed: a red scenario in that file would fail the pre-commit gate that runs the whole suite, so it rides the fix commit.
 
 ## Invariants
 
