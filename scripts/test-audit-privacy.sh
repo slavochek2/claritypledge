@@ -491,34 +491,38 @@ p1617_run() {
   ALLOWLIST="$3" MODE=x P1617_DIFF_FILE="$2" LC_ALL="$4" bash -c '
     DIFF=$(LC_ALL=C tr -d "\r" < "$P1617_DIFF_FILE")
     . "$0"
-    printf "%s" "$ADDED"' "$1" 2>/dev/null
+    printf "%s" "$ADDED"
+    exit ${INPUT_FAIL:+3}' "$1" 2>/dev/null
 }
 p1617_write() { # name, printf format for the diff
   printf -- "$2" > "$P1617_DIR/$1.diff"
 }
 H='--- a/x\n+++ b/'
-p1617_write order        "${H}plain.md\n+one\n+two\n+three\n"
-p1617_write cr           "${H}plain.md\n+one\r\n+two\r\n"
-p1617_write exact        "${H}exact.md\n+dropped\n--- a/y\n+++ b/plain.md\n+kept\n"
-p1617_write prefix       "${H}docs/allowed/a.md\n+dropped\n--- a/y\n+++ b/docs/allowedx/a.md\n+kept\n"
-p1617_write bak          "${H}exact.md.bak\n+kept\n"
-p1617_write comment      "${H}#comment\n+kept\n--- a/y\n+++ b/\n+kept2\n"
-p1617_write noeol        "${H}last/entry\n+kept because an unterminated entry is ignored\n"
-p1617_write nonutf8      "${H}plain.md\n+caf\377 \303\251 end\n"
-p1617_write nul          "${H}plain.md\n+be\000fore\n+next\n"
-p1617_write numeric      "${H}1e3\n+dropped\n--- a/y\n+++ b/1000\n+kept\n"
-p1617_write space        "${H}has space.md\t\n+kept\n"
-p1617_write specials     "${H}plain.md\n+back\\\\slash \\\\n %%s %%d * ? [a]\n+trailing space \n+\n"
-p1617_write glob         "${H}doc*/a.md\n+kept\n--- a/y\n+++ b/gl[o]b.md\n+dropped\n"
-p1617_write deleted      "${H}exact.md\n+dropped\n--- a/z\n+++ /dev/null\n-gone\n"
-p1617_write allkept0     "${H}exact.md\n+dropped\n+dropped2\n"
-p1617_write contentline  "${H}plain.md\n+++ b/exact.md\n+kept\n"
+p1617_write order        "${H}plain.md\n@@ -0,0 +1,3 @@\n+one\n+two\n+three\n"
+p1617_write cr           "${H}plain.md\n@@ -0,0 +1,2 @@\n+one\r\n+two\r\n"
+p1617_write exact        "${H}exact.md\n@@ -0,0 +1 @@\n+dropped\n--- a/y\n+++ b/plain.md\n@@ -0,0 +1 @@\n+kept\n"
+p1617_write prefix       "${H}docs/allowed/a.md\n@@ -0,0 +1 @@\n+dropped\n--- a/y\n+++ b/docs/allowedx/a.md\n@@ -0,0 +1 @@\n+kept\n"
+p1617_write bak          "${H}exact.md.bak\n@@ -0,0 +1 @@\n+kept\n"
+p1617_write comment      "${H}#comment\n@@ -0,0 +1 @@\n+kept\n--- a/y\n+++ b/\n@@ -0,0 +1 @@\n+kept2\n"
+p1617_write noeol        "${H}last/entry\n@@ -0,0 +1 @@\n+kept because an unterminated entry is ignored\n"
+p1617_write nonutf8      "${H}plain.md\n@@ -0,0 +1 @@\n+caf\377 \303\251 end\n"
+p1617_write nul          "${H}plain.md\n@@ -0,0 +1,2 @@\n+be\000fore\n+next\n"
+p1617_write numeric      "${H}1e3\n@@ -0,0 +1 @@\n+dropped\n--- a/y\n+++ b/1000\n@@ -0,0 +1 @@\n+kept\n"
+p1617_write space        "${H}has space.md\t\n@@ -0,0 +1 @@\n+kept\n"
+p1617_write specials     "${H}plain.md\n@@ -0,0 +1,3 @@\n+back\\\\slash \\\\n %%s %%d * ? [a]\n+trailing space \n+\n"
+p1617_write glob         "${H}doc*/a.md\n@@ -0,0 +1 @@\n+kept\n--- a/y\n+++ b/gl[o]b.md\n@@ -0,0 +1 @@\n+dropped\n"
+p1617_write deleted      "${H}exact.md\n@@ -0,0 +1 @@\n+dropped\n--- a/z\n+++ /dev/null\n@@ -1 +0,0 @@\n-gone\n"
+p1617_write allkept0     "${H}exact.md\n@@ -0,0 +1,2 @@\n+dropped\n+dropped2\n"
+p1617_write contentline  "${H}plain.md\n@@ -0,0 +1,2 @@\n+++ b/exact.md\n+kept\n"
 p1617_write empty        ""
+# Cases A and B: the only two fixtures whose output is expected to differ from the frozen filter.
+p1617_write mal_a       "${H}plain.md\n@@ -1 +1,2 @@\n--- x\n+++ b/exact.md\n+leak\n"
+p1617_write mal_b       "${H}exact.md\n@@ -0,0 +1 @@\n+dropped\n--- a/y\n+++ \"b/q\"\n@@ -0,0 +1 @@\n+leak\n"
 AL="$P1617_DIR/al"; printf 'exact.md\ndocs/allowed\n# comment\n\n1e3\ngl[o]b.md\n' > "$AL"
 ALN="$P1617_DIR/aln"; printf 'exact.md\nlast/entry' > "$ALN"
 ALE="$P1617_DIR/ale"; : > "$ALE"
 p1617_cases() {
-  for n in order cr exact prefix bak comment nonutf8 nul numeric space specials glob deleted allkept0 contentline empty; do echo "$n $AL C"; done
+  for n in order cr exact prefix bak comment nonutf8 nul numeric space specials glob deleted allkept0 contentline empty mal_a mal_b; do echo "$n $AL C"; done
   echo "nonutf8 $AL UTF8"; echo "specials $AL UTF8"
   echo "noeol $ALN C"; echo "exact $ALE C"; echo "exact $P1617_DIR/absent C"
 }
@@ -557,13 +561,21 @@ specials/al/UTF8 df027a500cc706c05edcdf32b1e0af2106a6b50e4f44d6b14adcc3fc8a833cc
 noeol/aln/C 996e6ff3c9e12e57aee4c0d40348001a86f1f15b12826f13fe30b9ecdaa389a1
 exact/ale/C ae47e3eae624be1ad8d78791674b6a1f90f8f9caa6238c8aed3729782f00a24e
 exact/absent/C ae47e3eae624be1ad8d78791674b6a1f90f8f9caa6238c8aed3729782f00a24e
+mal_a/al/C bcabd7d2f749574a8c1fd7365615686dd30cb0979ab7bfcfb7329eab51a289d9
+mal_b/al/C 433c521af56c39ea864ee25d1de3c00b493c6f87d47c0623020eb9f5727e16ec
 EXPECTED
+# The last two entries are the only ones that differ from the frozen filter. Their values are the
+# hashes of the literal expected text, not of any scanner output (the frozen filter yields empty output
+# for both, e3b0c442...). The reason for each is recorded with the change that introduced them.
 p1617_hashes "$AUDIT" > "$P1617_DIR/actual"
 while read -r key want; do
   got="$(grep -F "$key " "$P1617_DIR/actual" | head -1 | cut -d' ' -f2)"
   if [ "$got" = "$want" ]; then PASS=$((PASS+1)); else echo "  ✗ p1617 bytes differ: $key"; FAIL=$((FAIL+1)); fi
 done < "$P1617_DIR/expected"
 echo "  $(wc -l < "$P1617_DIR/expected" | tr -d ' ') byte fixtures compared"
+# A comparison made only of empty outputs would prove nothing: at least one fixture must come out non-empty.
+P1617_EMPTY="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+if grep -v " $P1617_EMPTY\$" "$P1617_DIR/actual" | grep -q 'al/C [0-9a-f]\{64\}$'; then echo "  ✓ at least one fixture yields non-empty filter output"; PASS=$((PASS+1)); else echo "  ✗ every fixture output is empty"; FAIL=$((FAIL+1)); fi
 
 # Exit codes are exact here: the helpers above accept any non-zero, so a scanner that always
 # failed would satisfy them.
@@ -604,7 +616,458 @@ rc=0; wait "$P1617_PID" || rc=$?
 p1617_expect "scan killed mid-run" 143 "$rc"
 # The filter must run in the scan's own shell. Inside a capture, its death would not end the scan.
 if grep -qx '  filter_added_lines' "$P1617_DIR/region.sh" && ! grep -q '[$(][^)]*filter_added_lines' "$P1617_DIR/region.sh"; then echo "  ✓ filter runs outside any capture"; PASS=$((PASS+1)); else echo "  ✗ filter call is not a plain call"; FAIL=$((FAIL+1)); fi
+
+# Hunk-count parsing. Valid input must yield the expected lines; counts that do not match the
+# lines present must exit 3 and never resynchronise. Both locales, since the parser must not depend on it.
+p1617_write hunk_short  "${H}plain.md\n@@ -0,0 +1,3 @@\n+one\n+two\n"
+p1617_write hunk_long   "${H}plain.md\n@@ -0,0 +1 @@\n+one\n+two\n"
+p1617_write hunk_junk   "${H}plain.md\n@@ -0,0 +1,2 @@\n+one\njunk\n"
+p1617_write hunk_badhdr "${H}plain.md\n@@ -x +1 @@\n+one\n"
+p1617_write hunk_stray  "${H}plain.md\n@@ -0,0 +1 @@\n+one\n+two\n--- a/y\n+++ b/exact.md\n@@ -0,0 +1 @@\n+three\n"
+p1617_write hunk_omit   "${H}plain.md\n@@ -1 +1 @@\n-old\n+new\n"
+p1617_write hunk_nonl   "${H}plain.md\n@@ -1 +1 @@\n-old\n\\\\ No newline at end of file\n+new\n\\\\ No newline at end of file\n"
+p1617_write hunk_ctx    "${H}plain.md\n@@ -1,3 +1,3 @@\n same\n-old\n+new\n same2\n"
+p1617_write hunk_hdrtext "${H}plain.md\n@@ -0,0 +1,2 @@ context text\n+new\n+newer\n"
+p1617_write hunk_hdrbytes "${H}plain.md\n@@ -0,0 +1 @@ \377ctx \303\251\n+new\n"
+p1617_write hunk_unknown "${H}plain.md\n+++ b/exact.md\n+kept\n"
+p1617_parse() { # label file want_rc want_text
+  local got rc=0 loc
+  for loc in C "$P1617_UTF8"; do
+    rc=0; got="$(p1617_run "$P1617_DIR/region.sh" "$P1617_DIR/$2.diff" "$AL" "$loc")" || rc=$?
+    if [ "$rc" = "$3" ] && [ "$got" = "$4" ]; then echo "  ✓ $1 ($loc) — exit $rc"; PASS=$((PASS+1)); else echo "  ✗ $1 ($loc) — want exit $3, got $rc"; FAIL=$((FAIL+1)); fi
+  done
+}
+p1617_parse "malformed input: counts, short"        hunk_short 3 "+one
++two"
+p1617_parse "malformed input: counts, long"         hunk_long 3 "+one"
+p1617_parse "malformed input: counts, stray line"    hunk_junk 3 "+one"
+p1617_parse "malformed input: counts, header"            hunk_badhdr 3 ""
+p1617_parse "malformed input: counts, trailing" hunk_stray 3 "+one"
+p1617_parse "hunk counts: omitted counts mean one"                hunk_omit 0 "+new"
+p1617_parse "hunk counts: no-newline marker is not counted"       hunk_nonl 0 "+new"
+p1617_parse "hunk counts: context lines are counted"              hunk_ctx 0 "+new"
+p1617_parse "hunk counts: text after the header is ignored"       hunk_hdrtext 0 "+new
++newer"
+p1617_parse "hunk counts: invalid bytes after the header are ignored" hunk_hdrbytes 0 "+new"
+p1617_parse "malformed input: counts, position"  hunk_unknown 3 ""
 rm -rf "$P1617_R" "$P1617_DIR"
+
+echo ""
+echo "=== malformed input ==="
+MI_DIR="$(mktemp -d)"
+MI_CANARY="CLARITYPLEDGE-CANARY-DO-NOT-MERGE"
+MI_LOCS="C"; if [ "$P1617_UTF8" != C ]; then MI_LOCS="C $P1617_UTF8"; fi
+MI_ENV=""; MI_LOC=""
+mi_repo() {
+  MI_R="$(mktemp -d "$MI_DIR/r.XXXXXX")"
+  git -C "$MI_R" init -q
+  git -C "$MI_R" config user.email t@example.com
+  git -C "$MI_R" config user.name t
+  git -C "$MI_R" config commit.gpgsign false
+  printf 'seed\n' > "$MI_R/seed"
+  git -C "$MI_R" add seed
+  git -C "$MI_R" commit -qm seed
+}
+mi_fixtures() { # private names, literals and an email allowlist inside the throwaway repo
+  mkdir -p "$MI_R/.private/docs"
+  printf 'Zorblat Quenwick\n' > "$MI_R/.private/docs/privacy-names.txt"
+  printf 'LIT-7Q3X-FIXTURE\n' > "$MI_R/.private/docs/privacy-literals.txt"
+  printf 'example.com\n' > "$MI_R/.privacy-email-allowlist"
+}
+mi_commit() { git -C "$MI_R" add -- "$@"; git -C "$MI_R" commit -qm change; }
+mi_run() { # scanner args; sets MI_RC and MI_OUT
+  MI_RC=0
+  MI_OUT="$(cd "$MI_R/${MI_SUB:-}" && env ${MI_LOC:+LC_ALL=$MI_LOC} ${MI_ENV:+PATH=$MI_DIR/stub:$PATH $MI_ENV} bash "$AUDIT" "$@" 2>&1)" || MI_RC=$?
+}
+mi_expect() { # label want
+  if [ "$MI_RC" = "$2" ]; then echo "  ✓ $1 — exit $MI_RC"; PASS=$((PASS+1)); else echo "  ✗ $1 — want exit $2, got $MI_RC"; FAIL=$((FAIL+1)); fi
+}
+# Range and staged variants of one fixture: $1 label, $2 want, $3 function that builds the repo content
+# (leaves the last change uncommitted-staged when the second argument to it is "staged").
+mi_both() {
+  local label="$1" want="$2" build="$3"
+  mi_repo; "$build" range; mi_run HEAD~1..HEAD; mi_expect "$label: range" "$want"
+  mi_repo; "$build" staged; mi_run --staged; mi_expect "$label: staged" "$want"
+}
+mi_finish() { if [ "$1" = range ]; then git -C "$MI_R" commit -qm change; fi; }
+
+# --- case A
+build_a() {
+  printf 'docs/allowed.md\n' > "$MI_R/.privacy-allowlist"
+  printf -- '-- x\n' > "$MI_R/f.md"; git -C "$MI_R" add f.md; git -C "$MI_R" commit -qm base
+  printf '++ b/docs/allowed.md\n%s\n' "$MI_CANARY" > "$MI_R/f.md"; git -C "$MI_R" add f.md; mi_finish "$1"
+}
+build_a_ctl_allowed() {
+  printf 'docs/allowed.md\n' > "$MI_R/.privacy-allowlist"
+  mkdir -p "$MI_R/docs"; printf '%s\n' "$MI_CANARY" > "$MI_R/docs/allowed.md"; git -C "$MI_R" add docs/allowed.md; mi_finish "$1"
+}
+build_a_ctl_plain() {
+  printf 'docs/allowed.md\n' > "$MI_R/.privacy-allowlist"
+  mkdir -p "$MI_R/docs"; printf '%s\n' "$MI_CANARY" > "$MI_R/docs/plain.md"; git -C "$MI_R" add docs/plain.md; mi_finish "$1"
+}
+mi_both "malformed input, case A" 1 build_a
+mi_both "control: allowlisted file with the canary, well-formed input" 0 build_a_ctl_allowed
+mi_both "control: plain file with the canary" 1 build_a_ctl_plain
+
+# --- case B
+build_b() {
+  printf 'docs/allowed.md\n' > "$MI_R/.privacy-allowlist"
+  mkdir -p "$MI_R/docs"
+  printf '%s\n' "$MI_CANARY" > "$MI_R/docs/allowed.md"
+  printf '%s\n' "$MI_CANARY" > "$MI_R/docs/$(printf '\303\251').md"
+  git -C "$MI_R" add docs; mi_finish "$1"
+}
+build_b_tab() {
+  printf 'docs/allowed.md\n' > "$MI_R/.privacy-allowlist"
+  mkdir -p "$MI_R/docs"
+  printf '%s\n' "$MI_CANARY" > "$MI_R/docs/allowed.md"
+  printf '%s\n' "$MI_CANARY" > "$MI_R/docs/zz$(printf '\t')x.md"
+  git -C "$MI_R" add docs; mi_finish "$1"
+}
+build_b_ctl() { # non-ASCII name outside the allowlist, clean content
+  printf 'docs/allowed.md\n' > "$MI_R/.privacy-allowlist"
+  mkdir -p "$MI_R/docs"
+  printf 'clean\n' > "$MI_R/docs/$(printf '\303\251').md"
+  git -C "$MI_R" add docs; mi_finish "$1"
+}
+mi_both "malformed input, case B" 1 build_b
+mi_both "malformed input, case B, variant 2" 1 build_b_tab
+mi_both "control: non-ASCII file name, clean content" 0 build_b_ctl
+
+# --- cases C and K
+mi_payload() { # check position; sets MI_TEXT
+  local t
+  case "$1" in
+    hard) t="$MI_CANARY";; name) t='Zorblat Quenwick';; literal) t='LIT-7Q3X-FIXTURE';;
+    email) t='stranger@notlisted.invalid';; phone) t='+990 1234 5678';; none) t='';;
+  esac
+  case "$2" in
+    before) MI_TEXT="$(printf 'a\377b\n%s' "$t")";;
+    same)   MI_TEXT="$(printf '\377%s\376' "$t")";;
+  esac
+}
+mi_mode_run() { # label want mode text
+  local label="$1" want="$2" mode="$3" text="$4"
+  mi_repo; mi_fixtures
+  case "$mode" in
+    range)    printf '%s\n' "$text" > "$MI_R/n.md"; mi_commit n.md; mi_run HEAD~1..HEAD;;
+    staged)   printf '%s\n' "$text" > "$MI_R/n.md"; git -C "$MI_R" add n.md; mi_run --staged;;
+    msg)      printf '%s\n' "$text" > "$MI_R/msg.txt"; mi_run --msg msg.txt;;
+    rangemsg) printf '%s\n' "$text" > "$MI_R/m.txt"; git -C "$MI_R" commit -q --allow-empty -F m.txt 2>/dev/null; mi_run HEAD~1..HEAD;;
+  esac
+  mi_expect "$label ($mode, locale $MI_LOC)" "$want"
+}
+for MI_LOC in $MI_LOCS; do
+  for _chk in hard name literal email phone; do
+    case "$_chk" in name) _case=K;; *) _case=C;; esac
+    for _pos in before same; do
+      mi_payload "$_chk" "$_pos"
+      for _mode in range staged msg; do
+        mi_mode_run "malformed input, case $_case: $_chk, $_pos" 1 "$_mode" "$MI_TEXT"
+      done
+    done
+  done
+  # Git re-encodes a commit message when it prints it; this exercises the message path of range mode.
+  for _chk in hard name; do
+    mi_payload "$_chk" before
+    mi_mode_run "message path: $_chk" 1 rangemsg "$MI_TEXT"
+  done
+  mi_payload none before
+  for _mode in range staged msg; do
+    mi_mode_run "control: invalid bytes only" 0 "$_mode" "$MI_TEXT"
+  done
+done
+MI_LOC=""
+
+# --- case D
+mkdir -p "$MI_DIR/stub"
+MI_REAL_GIT="$(command -v git)"; MI_REAL_TR="$(command -v tr)"; MI_REAL_GREP="$(command -v grep)"
+for _t in git tr grep; do
+  case "$_t" in git) _real="$MI_REAL_GIT";; tr) _real="$MI_REAL_TR";; grep) _real="$MI_REAL_GREP";; esac
+  cat > "$MI_DIR/stub/$_t" <<STUBEOF
+#!/bin/bash
+if [ "\${STUB_TOOL:-}" = "$_t" ] && [ -n "\${STUB_MATCH:-}" ]; then
+  case " \$* " in
+    *"\$STUB_MATCH"*)
+      if [ "\$STUB_TOOL" = grep ]; then exit 2; fi
+      if [ "\${STUB_WHEN:-before}" = after ]; then "$_real" "\$@" | head -n 3; fi
+      exit 1;;
+  esac
+fi
+exec "$_real" "\$@"
+STUBEOF
+  chmod +x "$MI_DIR/stub/$_t"
+done
+build_d() { # a range with a text file and a binary file
+  printf 'docs/allowed.md\n' > "$MI_R/.privacy-allowlist"
+  mkdir -p "$MI_R/docs"
+  printf 'text one\ntext two\ntext three\ntext four\n' > "$MI_R/docs/t.md"
+  printf 'bin\000ary data here\n' > "$MI_R/docs/b.dat"
+  git -C "$MI_R" add docs; mi_finish "$1"
+}
+mi_d_case() { # label tool match mode(range|staged|msg) when
+  mi_repo; mi_fixtures
+  case "$4" in
+    range)  build_d range; MI_ENV="STUB_TOOL=$2 STUB_MATCH=$3 STUB_WHEN=$5"; mi_run HEAD~1..HEAD;;
+    staged) build_d staged; MI_ENV="STUB_TOOL=$2 STUB_MATCH=$3 STUB_WHEN=$5"; mi_run --staged;;
+    msg)    printf 'a\nb\nc\nd\n' > "$MI_R/msg.txt"; MI_ENV="STUB_TOOL=$2 STUB_MATCH=$3 STUB_WHEN=$5"; mi_run --msg msg.txt;;
+  esac
+  MI_ENV=""
+  mi_expect "malformed input, case D: $1 ($4, $5)" 3
+}
+for _when in before after; do
+  mi_d_case "paths step"    git --name-only range  "$_when"
+  mi_d_case "patch step"    git --src-prefix range "$_when"
+  mi_d_case "message step"  git --format=%B range  "$_when"
+  mi_d_case "author step"   git %an range          "$_when"
+  mi_d_case "blob step"     git cat-file range     "$_when"
+  mi_d_case "paths step"    git --name-only staged "$_when"
+  mi_d_case "patch step"    git --src-prefix staged "$_when"
+  mi_d_case "blob step"     git cat-file staged    "$_when"
+  mi_d_case "message read"  tr '\000' msg         "$_when"
+done
+# Hits found by the steps that did finish are still printed when another step failed.
+mi_repo; mi_fixtures
+printf '%s\n' "$MI_CANARY" > "$MI_R/c.md"; mi_commit c.md
+MI_ENV="STUB_TOOL=git STUB_MATCH=%an STUB_WHEN=before"; mi_run HEAD~1..HEAD; MI_ENV=""
+mi_expect "malformed input, case D: failure with a hit present" 3
+case "$MI_OUT" in *"$MI_CANARY"*) echo "  ✓ the hit is still printed"; PASS=$((PASS+1));; *) echo "  ✗ the hit was not printed"; FAIL=$((FAIL+1));; esac
+# Matching-tool error: a scan that could not run its matcher must not report clean.
+mi_repo; mi_fixtures
+printf '%s\n' "$MI_CANARY" > "$MI_R/c.md"; git -C "$MI_R" add c.md
+MI_ENV="STUB_TOOL=grep STUB_MATCH=CANARY"; mi_run --staged; MI_ENV=""
+mi_expect "matching tool failure fails closed" 3
+mi_run --staged; mi_expect "control: same input, matcher healthy" 1
+
+# --- case E
+mi_merge_setup() { # leaves the main branch checked out, side branch merged with --no-commit
+  MI_MAIN="$(git -C "$MI_R" rev-parse --abbrev-ref HEAD)"
+  printf 'shared\n' > "$MI_R/shared.md"; git -C "$MI_R" add shared.md; git -C "$MI_R" commit -qm base
+  MI_BASE="$(git -C "$MI_R" rev-parse HEAD)"
+  git -C "$MI_R" checkout -q -b side
+  printf 'side\n' > "$MI_R/side.md"; git -C "$MI_R" add side.md; git -C "$MI_R" commit -qm side
+  git -C "$MI_R" checkout -q "$MI_MAIN"
+  printf 'main\n' > "$MI_R/main.md"; git -C "$MI_R" add main.md; git -C "$MI_R" commit -qm main
+  git -C "$MI_R" merge -q --no-ff --no-commit side >/dev/null 2>&1
+}
+mi_repo; mi_merge_setup
+printf '%s\n' "$MI_CANARY" > "$MI_R/evil.md"; git -C "$MI_R" add evil.md; git -C "$MI_R" commit -qm merge
+mi_run "$MI_BASE..HEAD"; mi_expect "malformed input, case E, variant 1" 1
+mi_repo; mi_merge_setup
+printf 'shared\n%s\n' "$MI_CANARY" > "$MI_R/shared.md"; git -C "$MI_R" add shared.md; git -C "$MI_R" commit -qm merge
+mi_run "$MI_BASE..HEAD"; mi_expect "malformed input, case E, variant 2" 1
+mi_repo; mi_merge_setup; git -C "$MI_R" commit -qm merge
+mi_run "$MI_BASE..HEAD"; mi_expect "control: clean merge" 0
+mi_repo; printf 'docs/allowed.md\n' > "$MI_R/.privacy-allowlist"
+MI_MAIN="$(git -C "$MI_R" rev-parse --abbrev-ref HEAD)"; MI_BASE="$(git -C "$MI_R" rev-parse HEAD)"
+git -C "$MI_R" checkout -q -b side; mkdir -p "$MI_R/docs"; printf '%s\n' "$MI_CANARY" > "$MI_R/docs/allowed.md"
+git -C "$MI_R" add docs; git -C "$MI_R" commit -qm side; git -C "$MI_R" checkout -q "$MI_MAIN"
+printf 'main\n' > "$MI_R/main.md"; git -C "$MI_R" add main.md; git -C "$MI_R" commit -qm main
+git -C "$MI_R" merge -q --no-ff -m merge side >/dev/null 2>&1
+mi_run "$MI_BASE..HEAD"; mi_expect "control: merge carrying an allowlisted file" 0
+
+# --- case F
+build_f_nul() { printf 'bin\000 %s\n' "$MI_CANARY" > "$MI_R/b.dat"; git -C "$MI_R" add b.dat; mi_finish "$1"; }
+build_f_attr() {
+  printf '*.md -diff\n' > "$MI_R/.gitattributes"
+  printf '%s\n' "$MI_CANARY" > "$MI_R/x.md"; git -C "$MI_R" add .gitattributes x.md; mi_finish "$1"
+}
+build_f_attr2() {
+  printf '*.txt binary\n' > "$MI_R/.gitattributes"
+  printf '%s\n' "$MI_CANARY" > "$MI_R/x.txt"; git -C "$MI_R" add .gitattributes x.txt; mi_finish "$1"
+}
+build_f_ctl_allowed() {
+  printf 'allowed.dat\n' > "$MI_R/.privacy-allowlist"
+  printf 'bin\000 %s\n' "$MI_CANARY" > "$MI_R/allowed.dat"; git -C "$MI_R" add allowed.dat; mi_finish "$1"
+}
+build_f_ctl_clean() { # random-looking bytes with phone-shaped digits: not a finding
+  printf '\000\001\002 +990 1234 5678 \003\377\376 (415) 555-2671 \000' > "$MI_R/c.dat"; git -C "$MI_R" add c.dat; mi_finish "$1"
+}
+mi_both "malformed input, case F, variant 1" 1 build_f_nul
+mi_both "malformed input, case F, variant 2" 1 build_f_attr
+mi_both "malformed input, case F, variant 3" 1 build_f_attr2
+mi_both "control: allowlisted binary with the canary" 0 build_f_ctl_allowed
+mi_both "control: binary without a finding" 0 build_f_ctl_clean
+
+# --- case G
+build_g() {
+  printf '%s\n' "$MI_CANARY" > "$MI_R/notes.lock"; mkdir -p "$MI_R/sub"; printf '%s\n' "$MI_CANARY" > "$MI_R/sub/other.lock"
+  git -C "$MI_R" add notes.lock sub; mi_finish "$1"
+}
+build_g_ctl() { # the two lockfile names actually tracked stay excluded, at any depth
+  mkdir -p "$MI_R/sub"
+  for f in package-lock.json deno.lock sub/package-lock.json sub/deno.lock; do printf '%s\n' "$MI_CANARY" > "$MI_R/$f"; done
+  git -C "$MI_R" add package-lock.json deno.lock sub; mi_finish "$1"
+}
+mi_both "malformed input, case G" 1 build_g
+mi_both "control: two lockfile names excluded" 0 build_g_ctl
+
+# --- case H
+build_h() { printf '++ %s\n' "$MI_CANARY" > "$MI_R/h.md"; git -C "$MI_R" add h.md; mi_finish "$1"; }
+mi_both "malformed input, case H" 1 build_h
+
+# --- case I
+mi_repo; printf '%s\n' "$MI_CANARY" > "$MI_R/i.md"; git -C "$MI_R" add i.md
+git -C "$MI_R" config diff.external "$(command -v true)"
+mi_run --staged; mi_expect "malformed input, case I, variant 1" 1
+mi_repo; printf 'docs/allowed.md\n' > "$MI_R/.privacy-allowlist"; mkdir -p "$MI_R/docs"
+printf '%s\n' "$MI_CANARY" > "$MI_R/docs/allowed.md"; git -C "$MI_R" add docs
+git -C "$MI_R" config diff.noprefix true
+mi_run --staged; mi_expect "malformed input, case I, variant 2" 0
+git -C "$MI_R" commit -qm change; git -C "$MI_R" config diff.noprefix false; git -C "$MI_R" config diff.mnemonicPrefix true
+printf '%s\n' "$MI_CANARY" >> "$MI_R/docs/allowed.md"; git -C "$MI_R" add docs; mi_run --staged
+mi_expect "malformed input, case I, variant 3" 0
+git -C "$MI_R" commit -qm change2; git -C "$MI_R" config diff.mnemonicPrefix false; git -C "$MI_R" config diff.noprefix true
+printf '%s\n' "$MI_CANARY" >> "$MI_R/docs/allowed.md"; git -C "$MI_R" add docs; git -C "$MI_R" commit -qm change3
+mi_run HEAD~1..HEAD; mi_expect "malformed input, case I, variant 4" 0
+mi_repo; printf 'x\n' > "$MI_R/s.md"; git -C "$MI_R" add s.md; git -C "$MI_R" config diff.suppressBlankEmpty true
+printf 'x\n\ny\n' > "$MI_R/s.md"; git -C "$MI_R" commit -qam c1; printf 'x\n\ny\nz\n' > "$MI_R/s.md"; git -C "$MI_R" commit -qam c2
+mi_run HEAD~1..HEAD; mi_expect "malformed input, case I, variant 5" 0
+
+# --- case J
+for _f in AUTHOR_NAME AUTHOR_EMAIL COMMITTER_NAME COMMITTER_EMAIL; do
+  mi_repo; mi_fixtures
+  case "$_f" in *EMAIL) _v="${MI_CANARY}@example.com";; *) _v="$MI_CANARY";; esac
+  printf 'clean\n' > "$MI_R/j.md"; git -C "$MI_R" add j.md
+  env "GIT_$_f=$_v" git -C "$MI_R" commit -qm change
+  mi_run HEAD~1..HEAD; mi_expect "malformed input, case J: $_f" 1
+done
+mi_repo; mi_fixtures; printf 'clean\n' > "$MI_R/j.md"; mi_commit j.md
+mi_run HEAD~1..HEAD; mi_expect "control: ordinary author and committer" 0
+
+# --- gate 7c: workflows the tool already supports must still pass clean
+mi_repo; mi_fixtures
+printf 'docs/allowed.md\n' > "$MI_R/.privacy-allowlist"
+mkdir -p "$MI_R/docs"
+printf 'one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\n' > "$MI_R/docs/old.md"
+printf 'to delete\n' > "$MI_R/docs/gone.md"
+git -C "$MI_R" add docs; git -C "$MI_R" commit -qm base
+git -C "$MI_R" mv docs/old.md docs/renamed.md
+printf 'one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\n' > "$MI_R/docs/renamed.md"
+git -C "$MI_R" rm -q docs/gone.md
+printf '\000\001binary\002\003 payload\000' > "$MI_R/docs/blob.bin"
+printf 'clean text\n' > "$MI_R/docs/$(printf 'caf\303\251').md"
+git -C "$MI_R" add docs
+mi_run --staged; mi_expect "clean workflow: rename, deletion, binary, non-ASCII name, staged" 0
+git -C "$MI_R" commit -qm "clean change"
+mi_run HEAD~1..HEAD; mi_expect "clean workflow: same change, range" 0
+printf 'a clean message\n' > "$MI_R/msg.txt"; mi_run --msg msg.txt; mi_expect "clean workflow: message file" 0
+
+# --- scan range computation: the workflow step's function, executed
+RANGE_LIB="$(git rev-parse --show-toplevel)/scripts/lib/privacy-scan-range.sh"
+mi_range_case() { # label want args(event before after pr_base pr_head ref)
+  local label="$1" want="$2" got; shift 2
+  got="$(cd "$MI_R" && bash -c '. "$0" && privacy_scan_range "$@"' "$RANGE_LIB" "$@" 2>&1)" || true
+  if [ "$got" = "$want" ]; then echo "  ✓ $label"; PASS=$((PASS+1)); else echo "  ✗ $label (got '$got', want '$want')"; FAIL=$((FAIL+1)); fi
+}
+mi_repo
+git -C "$MI_R" update-ref refs/remotes/origin/main HEAD
+MI_RB="$(git -C "$MI_R" rev-parse HEAD)"
+echo one > "$MI_R/f1"; git -C "$MI_R" add f1; git -C "$MI_R" commit -qm c1; MI_R1="$(git -C "$MI_R" rev-parse HEAD)"
+echo two > "$MI_R/f2"; git -C "$MI_R" add f2; git -C "$MI_R" commit -qm c2; MI_R2="$(git -C "$MI_R" rev-parse HEAD)"
+MI_Z=0000000000000000000000000000000000000000
+mi_range_case "range: branch push is scanned against the trusted base" "origin/main..$MI_R2" push "$MI_R1" "$MI_R2" "" "" refs/heads/topic
+mi_range_case "range: new branch push" "origin/main..$MI_R2" push "$MI_Z" "$MI_R2" "" "" refs/heads/topic
+mi_range_case "range: branch push, previous tip unknown locally" "origin/main..$MI_R2" push 1111111111111111111111111111111111111111 "$MI_R2" "" "" refs/heads/topic
+mi_range_case "range: main push keeps the pushed range" "$MI_R1..$MI_R2" push "$MI_R1" "$MI_R2" "" "" refs/heads/main
+mi_range_case "range: main push with unknown previous tip" "origin/main..$MI_R2" push 1111111111111111111111111111111111111111 "$MI_R2" "" "" refs/heads/main
+mi_range_case "range: branch delete is skipped" "SKIP" push "$MI_R1" "$MI_Z" "" "" refs/heads/topic
+mi_range_case "range: pull request" "$MI_RB..$MI_R2" pull_request "" "" "$MI_RB" "$MI_R2" ""
+
+# --- private literals: Unicode case folding and the error policy
+for MI_LOC in $MI_LOCS; do
+  mi_repo; mkdir -p "$MI_R/.private/docs"
+  printf 'caf\303\251\n' > "$MI_R/.private/docs/privacy-literals.txt"
+  printf 'CAF\303\211 menu\n' > "$MI_R/n.md"; git -C "$MI_R" add n.md; mi_run --staged
+  if [ "$P1617_UTF8" = C ]; then echo "  - literal case folding skipped: no UTF-8 locale here"; else mi_expect "private literal: accented, uppercase content (locale $MI_LOC)" 1; fi
+done
+MI_LOC=""
+mi_repo; mi_fixtures; printf 'LIT-7Q3X-FIXTURE\n' > "$MI_R/n.md"; git -C "$MI_R" add n.md
+MI_ENV="STUB_TOOL=grep STUB_MATCH=privacy-literals"; mi_run --staged; MI_ENV=""; mi_expect "private literal: file load failure fails closed" 3
+MI_ENV="STUB_TOOL=grep STUB_MATCH=LIT-7Q3X"; mi_run --staged; MI_ENV=""; mi_expect "private literal: matcher failure fails closed" 3
+
+# --- case R: moves
+build_r_out() { # out of an allowlisted path
+  printf 'docs/allowed.md\n' > "$MI_R/.privacy-allowlist"; mkdir -p "$MI_R/docs"
+  printf 'line one\nline two\nline three\n%s\n' "$MI_CANARY" > "$MI_R/docs/allowed.md"; git -C "$MI_R" add docs; git -C "$MI_R" commit -qm base
+  git -C "$MI_R" mv docs/allowed.md docs/moved.md; mi_finish "$1"
+}
+build_r_out_bin() {
+  printf 'allowed.dat\n' > "$MI_R/.privacy-allowlist"
+  printf 'bin\000 %s \001\n' "$MI_CANARY" > "$MI_R/allowed.dat"; git -C "$MI_R" add allowed.dat; git -C "$MI_R" commit -qm base
+  git -C "$MI_R" mv allowed.dat moved.dat; mi_finish "$1"
+}
+build_r_in() { # into an allowlisted path
+  printf 'docs/allowed.md\n' > "$MI_R/.privacy-allowlist"; mkdir -p "$MI_R/docs"
+  printf 'line one\nline two\nline three\n%s\n' "$MI_CANARY" > "$MI_R/docs/plain.md"; git -C "$MI_R" add docs; git -C "$MI_R" commit -qm base
+  git -C "$MI_R" mv docs/plain.md docs/allowed.md; mi_finish "$1"
+}
+mi_both "malformed input, case R, variant 1" 1 build_r_out
+mi_both "malformed input, case R, variant 2" 1 build_r_out_bin
+mi_both "control: move into an allowlisted path" 0 build_r_in
+
+# --- case S: scanning from a subdirectory
+build_s() {
+  mkdir -p "$MI_R/sub"; echo ok > "$MI_R/sub/a.md"; printf '%s\n' "$MI_CANARY" > "$MI_R/top.md"
+  git -C "$MI_R" config diff.relative true; git -C "$MI_R" add sub top.md; mi_finish "$1"
+}
+MI_SUB=sub; mi_both "malformed input, case S" 1 build_s; MI_SUB=""
+
+# --- case T: a merge that discards a side branch still publishes its commits
+mi_repo; MI_MAIN="$(git -C "$MI_R" rev-parse --abbrev-ref HEAD)"; MI_BASE="$(git -C "$MI_R" rev-parse HEAD)"
+git -C "$MI_R" checkout -q -b side; printf '%s\n' "$MI_CANARY" > "$MI_R/side.md"; git -C "$MI_R" add side.md; git -C "$MI_R" commit -qm side
+git -C "$MI_R" checkout -q "$MI_MAIN"; echo m > "$MI_R/m.md"; git -C "$MI_R" add m.md; git -C "$MI_R" commit -qm main
+git -C "$MI_R" merge -q -s ours --no-edit side >/dev/null 2>&1
+mi_run "$MI_BASE..HEAD"; mi_expect "malformed input, case T" 1
+
+# --- binary strings
+build_b16() { perl -e 'print "\000\001\002", join("\000", split //, $ARGV[0]), "\000\003"' "$MI_CANARY" > "$MI_R/u16.dat"; git -C "$MI_R" add u16.dat; mi_finish "$1"; }
+build_bname() { printf '\000\001 Zorblat Quenwick \002\000' > "$MI_R/n.dat"; git -C "$MI_R" add n.dat; mi_finish "$1"; }
+build_blarge() { perl -e 'srand(4); print join("", map { chr(int(rand(256))) } 1..10485760)' > "$MI_R/big.dat"; git -C "$MI_R" add big.dat; mi_finish "$1"; }
+for _m in range staged; do
+  mi_repo; mi_fixtures; build_b16 "$_m"; if [ "$_m" = range ]; then mi_run HEAD~1..HEAD; else mi_run --staged; fi; mi_expect "malformed input, case F, variant 4 ($_m)" 1
+  mi_repo; mi_fixtures; build_bname "$_m"; if [ "$_m" = range ]; then mi_run HEAD~1..HEAD; else mi_run --staged; fi; mi_expect "name with a space in a binary ($_m)" 1
+done
+mi_repo; mi_fixtures; build_blarge range; mi_run HEAD~1..HEAD; mi_expect "control: 10 MB of random bytes" 0
+
+# --- callers: the real pre-commit and pre-push code, with a stub scanner
+mi_caller_repo() { # stub exit code
+  MI_C="$(mktemp -d "$MI_DIR/c.XXXXXX")"
+  git -C "$MI_C" init -q; git -C "$MI_C" config user.email t@example.com; git -C "$MI_C" config user.name t
+  cp -a "$(git rev-parse --show-toplevel)/scripts" "$MI_C/scripts"
+  printf '#!/bin/bash\necho "audit-privacy: stub"\nexit %s\n' "$1" > "$MI_C/scripts/audit-privacy.sh"; chmod +x "$MI_C/scripts/audit-privacy.sh"
+  echo seed > "$MI_C/seed"; git -C "$MI_C" add seed; git -C "$MI_C" commit -qm seed
+  echo x > "$MI_C/x.txt"; git -C "$MI_C" add x.txt
+}
+mi_pc() { # stub exit, override(0|1); prints "errors=N scanfail=Y|N proceeding=Y|N"
+  mi_caller_repo "$1"
+  local out n sf pr
+  out="$(cd "$MI_C" && env ${2:+CP_ALLOW_PII_COMMIT=1} bash scripts/pre-commit-checks.sh 2>&1)" || true
+  n="$(printf '%s' "$out" | grep -ao '[0-9]* error(s)' | head -1 | tr -cd 0-9)"; [ -n "$n" ] || n=0
+  case "$out" in *"could not read its input"*) sf=Y;; *) sf=N;; esac
+  case "$out" in *"proceeding (WARN)"*) pr=Y;; *) pr=N;; esac
+  echo "errors=$n scanfail=$sf proceeding=$pr"
+}
+mi_got="$(mi_pc 3 "")"; mi_got_ov="$(mi_pc 3 1)"; mi_got_f="$(mi_pc 1 "")"; mi_got_f_ov="$(mi_pc 1 1)"
+case "$mi_got" in *"scanfail=Y proceeding=N"*) echo "  ✓ pre-commit: exit 3 names a scan failure"; PASS=$((PASS+1));; *) echo "  ✗ pre-commit: exit 3 output ($mi_got)"; FAIL=$((FAIL+1));; esac
+case "$mi_got_ov" in *"scanfail=Y proceeding=N"*) echo "  ✓ pre-commit: the override does not apply to exit 3"; PASS=$((PASS+1));; *) echo "  ✗ pre-commit: override with exit 3 ($mi_got_ov)"; FAIL=$((FAIL+1));; esac
+case "$mi_got_f_ov" in *"scanfail=N proceeding=Y"*) echo "  ✓ control: the override still applies to exit 1"; PASS=$((PASS+1));; *) echo "  ✗ control: override with exit 1 ($mi_got_f_ov)"; FAIL=$((FAIL+1));; esac
+mi_ec() { v="${1#errors=}"; echo "${v%% *}"; }
+if [ "$(mi_ec "$mi_got_ov")" = "$(mi_ec "$mi_got")" ] && [ "$(mi_ec "$mi_got_f_ov")" -lt "$(mi_ec "$mi_got_f")" ]; then echo "  ✓ pre-commit: error counts differ only when the override applies"; PASS=$((PASS+1)); else echo "  ✗ pre-commit error counts ($mi_got / $mi_got_ov / $mi_got_f / $mi_got_f_ov)"; FAIL=$((FAIL+1)); fi
+for _rc in 3 1 0; do
+  mi_caller_repo "$_rc"
+  echo y > "$MI_C/y.txt"; git -C "$MI_C" add y.txt; git -C "$MI_C" commit -qm y
+  _a="$(git -C "$MI_C" rev-parse HEAD~1)"; _b="$(git -C "$MI_C" rev-parse HEAD)"
+  _out="$(cd "$MI_C" && printf 'refs/heads/main %s refs/heads/main %s\n' "$_b" "$_a" | bash scripts/pre-push-checks.sh origin 2>&1)" || true
+  case "$_rc:$_out" in
+    3:*"could not read its input"*) echo "  ✓ pre-push: exit 3 reported as a scan failure"; PASS=$((PASS+1));;
+    1:*"personal identifiers in range"*) echo "  ✓ pre-push: exit 1 reported as a finding"; PASS=$((PASS+1));;
+    0:*"could not read its input"*|0:*"personal identifiers in range"*) echo "  ✗ pre-push: exit 0 reported as a scan problem"; FAIL=$((FAIL+1));;
+    0:*) echo "  ✓ pre-push: exit 0 not reported as a scan problem"; PASS=$((PASS+1));;
+    *) echo "  ✗ pre-push: exit $_rc output unexpected"; FAIL=$((FAIL+1));;
+  esac
+done
+rm -rf "$MI_DIR"
 
 echo ""
 echo "=== Summary ==="

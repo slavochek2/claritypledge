@@ -51,23 +51,22 @@ jobs:
           AFTER_SHA: ${{ github.event.after }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REF_NAME: ${{ github.ref }}
         run: |
           set -euo pipefail
-          ZERO=0000000000000000000000000000000000000000
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            RANGE="${PR_BASE_SHA}..${PR_HEAD_SHA}"
-          elif [ "$BEFORE_SHA" = "$ZERO" ] || ! git rev-parse --verify --quiet "${BEFORE_SHA}^{commit}" >/dev/null 2>&1; then
-            # First push to a new branch (BEFORE=0000…) or BEFORE not present locally:
-            # scan the FULL range vs main — mirrors scripts/pre-push-checks.sh, NOT
-            # secret-scan.yml's single-tip `-1` (which leaves a coverage hole).
-            RANGE="origin/main..${AFTER_SHA}"
+          . scripts/lib/privacy-scan-range.sh
+          RANGE="$(privacy_scan_range "$EVENT_NAME" "$BEFORE_SHA" "$AFTER_SHA" "$PR_BASE_SHA" "$PR_HEAD_SHA" "$REF_NAME")"
+          if [ "$RANGE" = "SKIP" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Branch deleted: nothing to scan."
           else
-            RANGE="${BEFORE_SHA}..${AFTER_SHA}"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "range=$RANGE" >> "$GITHUB_OUTPUT"
+            echo "Computed scan range: $RANGE"
           fi
-          echo "range=$RANGE" >> "$GITHUB_OUTPUT"
-          echo "Computed scan range: $RANGE"
 
       - name: Privacy scan (trusted-base scanner, HEAD allowlist)
+        if: steps.range.outputs.skip != 'true'
         env:
           RANGE: ${{ steps.range.outputs.range }}
         run: |
@@ -78,9 +77,20 @@ jobs:
           # pipefail is mandatory: `script | tee` under bash -e otherwise returns tee's 0,
           # silently un-gating the scan (decisions.md 2026-06-06 [process]).
           set -o pipefail
+          set +e
           bash /tmp/trusted-audit.sh "$RANGE" | tee scan-output.txt
+          st=("${PIPESTATUS[@]}")
+          rc=${st[0]}
+          if [ "$rc" -eq 0 ] && [ "${st[1]}" -ne 0 ]; then rc=1; fi
+          set -e
+          # Exit 3 means the scanner could not read its input: a failure to scan, not a finding.
+          if [ "$rc" -eq 3 ]; then
+            echo "::error::Privacy scan could not read its input (exit 3). Nothing was verified."
+          fi
+          exit "$rc"
 
       - name: Allowlist co-commit guard (re-scan with base-SHA allowlists)
+        if: steps.range.outputs.skip != 'true'
         env:
           RANGE: ${{ steps.range.outputs.range }}
         run: |
@@ -125,12 +135,17 @@ jobs:
           for f in $ALLOWLISTS; do
             [ -f "$BAK/$f.bak" ] && cp "$BAK/$f.bak" "$f" || true
           done
+          if [ "$rc" -eq 3 ]; then
+            echo "::error::Privacy scan could not read its input (exit 3) in the base-SHA re-scan. Nothing was verified."
+            exit 3
+          fi
           if [ "$rc" -ne 0 ]; then
             echo "❌ Privacy scan FAILED with the base-SHA allowlist(s) — an allowlist entry was added and matching PII committed in the same push."
             exit 1
           fi
 
       - name: Parity test (scanner unit tests, pushed copy)
+        if: steps.range.outputs.skip != 'true'
         run: bash scripts/test-audit-privacy.sh
 
       - name: Dump scan output on failure

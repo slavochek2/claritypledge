@@ -178,7 +178,15 @@ for line in "${PUSH_REFS[@]}"; do
     RANGE="$remote_sha..$local_sha"
   fi
 
-  if ! "$AUDIT_SCRIPT" "$RANGE" > /tmp/cp-pii-push.log 2>&1; then
+  AUDIT_RC=0
+  "$AUDIT_SCRIPT" "$RANGE" > /tmp/cp-pii-push.log 2>&1 || AUDIT_RC=$?
+  if [ "$AUDIT_RC" = "3" ]; then
+    echo ""
+    echo "  ❌ PUSH BLOCKED: the privacy scan could not read its input for range $RANGE (exit 3), so nothing was verified"
+    head -15 /tmp/cp-pii-push.log
+    exit 1
+  fi
+  if [ "$AUDIT_RC" != "0" ]; then
     echo ""
     echo "  ❌ PUSH BLOCKED: personal identifiers in range $RANGE"
     head -15 /tmp/cp-pii-push.log

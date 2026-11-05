@@ -2128,10 +2128,18 @@ echo ""
 echo ">>> Privacy check (personal identifiers)..."
 STAGED_FILES_ALL=$(git diff --cached --name-only 2>/dev/null || echo "")
 AUDIT_SCRIPT="$(git rev-parse --show-toplevel)/scripts/audit-privacy.sh"
+PII_RC=0
+if [ -x "$AUDIT_SCRIPT" ]; then "$AUDIT_SCRIPT" --staged > /tmp/cp-pii-commit.log 2>&1 || PII_RC=$?; fi
 if [ ! -x "$AUDIT_SCRIPT" ]; then
     echo -e "${RED}✗ scripts/audit-privacy.sh missing or not executable — blocking commit${NC}"
     ERRORS=$((ERRORS + 1))
-elif ! "$AUDIT_SCRIPT" --staged > /tmp/cp-pii-commit.log 2>&1; then
+elif [ "$PII_RC" = "3" ]; then
+    # Exit 3 is a failure to scan, not a finding: the local override does not apply to it.
+    echo -e "${RED}✗ Privacy scan could not read its input (exit 3) — nothing was verified:${NC}"
+    head -15 /tmp/cp-pii-commit.log
+    echo -e "${RED}  → Fix the cause above and commit again; CP_ALLOW_PII_COMMIT does not apply to a scan failure${NC}"
+    ERRORS=$((ERRORS + 1))
+elif [ "$PII_RC" != "0" ]; then
     echo -e "${RED}✗ Personal identifiers found in staged changes:${NC}"
     head -15 /tmp/cp-pii-commit.log
     echo -e "${RED}  → Move personal data to .private/docs/ (gitignored)${NC}"

@@ -1,6 +1,7 @@
 #!/bin/bash
 # scripts/audit-privacy.sh — privacy audit for any git range / staged changes / message file.
-# Exit 0 = clean, 1 = hits found, 2 = bad input, 3 = the allowlist filter did not finish its input.
+# Exit 0 = clean, 1 = hits found, 2 = bad input, 3 = an input step or the matcher did not finish
+# (hits found before that are still printed). Callers report 3 as a failure to scan, not as a finding.
 # Modes:
 #   --staged                    # scan staged diff (for pre-commit)
 #   --msg <file>                # scan a commit-message file (for commit-msg hook)
@@ -9,6 +10,15 @@
 # No `set -euo pipefail` — we catch errors explicitly. `|| true` on grep is intentional.
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "Not a git repo"; exit 2; }
+# Bytewise processing: no step below depends on the caller's locale. The known-names check switches to
+# a UTF-8 locale on its own, for non-ASCII case folding.
+export LC_ALL=C
+# A matcher that exits above 1 (1 is "no match") records itself in this flag file; a run with the flag set exits 3.
+ERR_FLAG="$(mktemp "${TMPDIR:-/tmp}/audit-privacy.XXXXXX")" || { echo "audit-privacy: cannot create a work file" >&2; exit 3; }
+trap 'rm -f "$ERR_FLAG"' EXIT
+g() { grep "$@"; local rc=$?; if [ "$rc" -gt 1 ]; then echo 1 >> "$ERR_FLAG"; fi; return "$rc"; }
+INPUT_FAIL=0
+input_failed() { INPUT_FAIL=1; echo "audit-privacy: input step failed: $1; refusing to report clean" >&2; }
 ALLOWLIST="$REPO_ROOT/.privacy-allowlist"
 # Address-level allowlist for the general third-party-email check (P936). Distinct from
 # ALLOWLIST above (which is path-based). Fail-OPEN: if absent/empty the email check is skipped
@@ -44,17 +54,26 @@ INGURO_EXTRA='[a-zA-Z0-9._-]+@inguro\.com'
 INGURO_ALLOW='slava@inguro\.com'
 
 MODE="${1:-}"
-MSGS=""  # commit messages for range mode (scanned separately, no allowlist)
+MSGS=""  # commit messages and author fields for range mode (scanned separately, no allowlist)
+AUTHORS=""
+# Fixed git output format and repository root for every git call.
+GIT_CFG=(-C "$REPO_ROOT" -c core.quotePath=false -c diff.noprefix=false -c diff.mnemonicPrefix=false -c diff.suppressBlankEmpty=false -c diff.renames=false -c diff.relative=false -c log.showRoot=true -c diff.submodule=short -c color.ui=never -c color.diff=never)
+PATCH_FLAGS=(--no-color --no-ext-diff --no-textconv --no-renames --src-prefix=a/ --dst-prefix=b/ --full-index --submodule=short)
+# Lockfiles by basename, at any depth: only the names that are actually tracked.
+PATHSPEC=(-- . ':(exclude,glob)**/package-lock.json' ':(exclude,glob)**/deno.lock')
 case "$MODE" in
   --staged)
-    DIFF=$(git diff --cached -- . ':(exclude)package-lock.json' ':(exclude)*.lock' 2>/dev/null)
-    PATHS_ADDED=$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACR 2>/dev/null)
+    DIFF=$( set -o pipefail; git "${GIT_CFG[@]}" diff --cached "${PATCH_FLAGS[@]}" "${PATHSPEC[@]}" 2>/dev/null | tr -d '\000\r' )
+    [ $? -eq 0 ] || input_failed "staged patch"
+    PATHS_ADDED=$(git "${GIT_CFG[@]}" diff --cached --name-only --no-renames --diff-filter=ACR 2>/dev/null)
+    [ $? -eq 0 ] || input_failed "staged paths"
     ;;
   --msg)
     shift
     MSG_FILE="${1:-}"
     [ -f "$MSG_FILE" ] || { echo "audit-privacy: message file not found: $MSG_FILE" >&2; exit 2; }
-    DIFF=$(cat "$MSG_FILE")
+    DIFF=$(tr -d '\000\r' < "$MSG_FILE")
+    [ $? -eq 0 ] || input_failed "message read"
     ;;
   '' | --help | -h)
     echo "Usage: $0 <range> | --staged | --msg <file>"
@@ -62,13 +81,13 @@ case "$MODE" in
     ;;
   *)
     # Validate the range
-    git rev-parse --verify "$MODE" >/dev/null 2>&1 || {
+    git -C "$REPO_ROOT" rev-parse --verify "$MODE" >/dev/null 2>&1 || {
       # It could be a range like A..B — extract endpoints and verify each
       BASE="${MODE%..*}"
       TIP="${MODE#*..}"
       [ -n "$BASE" ] && [ -n "$TIP" ] && \
-        git rev-parse --verify "$BASE" >/dev/null 2>&1 && \
-        git rev-parse --verify "$TIP" >/dev/null 2>&1 || {
+        git -C "$REPO_ROOT" rev-parse --verify "$BASE" >/dev/null 2>&1 && \
+        git -C "$REPO_ROOT" rev-parse --verify "$TIP" >/dev/null 2>&1 || {
           echo "audit-privacy: invalid range '$MODE'" >&2
           exit 2
         }
@@ -80,21 +99,22 @@ case "$MODE" in
       *..*)  GENERIC_REF="${MODE%%..*}" ;;
       *)     GENERIC_REF="${MODE}^" ;;
     esac
-    PATHS_ADDED=$(git -c core.quotePath=false log --format= --name-only --diff-filter=ACR "$MODE" 2>/dev/null | sort -u)
-    DIFF=$(git log -p "$MODE" -- . ':(exclude)package-lock.json' ':(exclude)*.lock' 2>/dev/null)
+    PATHS_ADDED=$( set -o pipefail; git "${GIT_CFG[@]}" log --format= --name-only --no-renames --diff-filter=ACR --diff-merges=first-parent --no-show-signature "$MODE" -- 2>/dev/null | sort -u )
+    [ $? -eq 0 ] || input_failed "range paths"
+    DIFF=$( set -o pipefail; git "${GIT_CFG[@]}" log -p --format='commit %H' --no-show-signature --diff-merges=first-parent "${PATCH_FLAGS[@]}" "$MODE" "${PATHSPEC[@]}" 2>/dev/null | tr -d '\000\r' )
+    [ $? -eq 0 ] || input_failed "range patch"
     # Commit messages are not prefixed with + in git log -p output — scan them separately
-    MSGS=$(git log --format='%B' "$MODE" 2>/dev/null | tr -d '\r')
+    MSGS=$( set -o pipefail; git "${GIT_CFG[@]}" log --format='%B' --no-show-signature "$MODE" -- 2>/dev/null | tr -d '\000\r' )
+    [ $? -eq 0 ] || input_failed "range messages"
+    AUTHORS=$( set -o pipefail; git "${GIT_CFG[@]}" log --format='%an%n%ae%n%cn%n%ce' --no-show-signature "$MODE" -- 2>/dev/null | tr -d '\000\r' )
+    [ $? -eq 0 ] || input_failed "range authors"
+    MSGS="${MSGS}"$'\n'"${AUTHORS}"
     ;;
 esac
 
-# Strip CR (defends against CRLF files bypassing ^[+] match)
-DIFF=$(printf '%s' "$DIFF" | tr -d '\r')
-
-# For --msg mode: the whole file is the target, no ^[+] filter
+# For --msg mode: the whole file is the target, nothing to parse
 if [ "$MODE" = "--msg" ]; then
   ADDED="$DIFF"
-else
-  ADDED=$(printf '%s\n' "$DIFF" | grep -E '^[+]' | grep -v '^+++' || true)
 fi
 
 # Apply allowlist: drop lines whose source file matches any allowlisted path.
@@ -105,52 +125,123 @@ fi
 # recopied everything kept so far (9 minutes at 45k patch lines); `KEPT+=(...)` is also superlinear on
 # macOS bash 3.2. Runs in this shell, not a capture, so a kill ends the scan. The line count catches
 # input that ended early, which a read loop otherwise treats as a normal finish.
+# The patch is read by its hunk counts; input that does not fit them sets INPUT_FAIL (exit 3 at the end).
+allowlist_skip() {
+  local allowed_path
+  SKIP=0
+  while IFS= read -r allowed_path; do
+    [ -z "$allowed_path" ] && continue
+    case "$allowed_path" in '#'*) continue ;; esac
+    # Exact file match OR directory prefix (not substring — prevents .sh.bak bypass)
+    case "$CURRENT_FILE" in
+      "$allowed_path"|"$allowed_path"/*) SKIP=1; break ;;
+    esac
+  done < "$ALLOWLIST"
+}
 filter_added_lines() {
-  local line allowed_path expected seen=0 kept_count=0
+  local line expected seen=0 kept_count=0 bin_count=0 in_hunk=0 old_left=0 new_left=0
+  local have_allow=0 err="" prev rest hlen path_part idx hdr ocount ncount
+  local hdr_re='^-[0-9]+(,[0-9]+)? \+[0-9]+(,[0-9]+)?$'
+  local LC_ALL=C
   local KEPT
   KEPT=()
+  BIN_ENTRIES=()
   CURRENT_FILE=""
   SKIP=0
   PREV_KIND=""  # "dash" after seeing "--- " line; anything else resets
+  INDEX_NEW=""
+  if [ -f "$ALLOWLIST" ] && [ -s "$ALLOWLIST" ]; then have_allow=1; fi
   expected=$(printf '%s\n' "$DIFF" | wc -l | tr -d ' ')
   while IFS= read -r line; do
     seen=$((seen+1))
+    if [ "$in_hunk" = 1 ]; then
+      case "$line" in
+        '+'*) new_left=$((new_left-1)); if [ "$SKIP" != "1" ]; then KEPT[kept_count]="$line"; kept_count=$((kept_count+1)); fi ;;
+        '-'*) old_left=$((old_left-1)) ;;
+        ' '*) old_left=$((old_left-1)); new_left=$((new_left-1)) ;;
+        '\'*) ;;
+        *) err="a line inside a hunk is not a hunk line"; break ;;
+      esac
+      if [ "$old_left" -lt 0 ] || [ "$new_left" -lt 0 ]; then err="a hunk has more lines than its counts"; break; fi
+      if [ "$old_left" -eq 0 ] && [ "$new_left" -eq 0 ]; then in_hunk=0; fi
+      continue
+    fi
+    prev="$PREV_KIND"
+    PREV_KIND=""
     case "$line" in
-      '--- '*)
-        PREV_KIND="dash"
-        ;;
-      '+++ b/'*)
-        if [ "$PREV_KIND" = "dash" ]; then
-          # Real file header — update current file and allowlist check
-          CURRENT_FILE="${line#+++ b/}"
-          SKIP=0
-          while IFS= read -r allowed_path; do
-            [ -z "$allowed_path" ] && continue
-            case "$allowed_path" in '#'*) continue ;; esac
-            # Exact file match OR directory prefix (not substring — prevents .sh.bak bypass)
-            case "$CURRENT_FILE" in
-              "$allowed_path"|"$allowed_path"/*) SKIP=1; break ;;
-            esac
-          done < "$ALLOWLIST"
-          PREV_KIND=""
-        else
-          # Content line that starts with `+++ b/` — treat as added content, not a header
-          if [ "$SKIP" != "1" ]; then KEPT[kept_count]="$line"; kept_count=$((kept_count+1)); fi
-          PREV_KIND=""
+      'diff --git '*)
+        CURRENT_FILE=""; SKIP=0; INDEX_NEW=""
+        if [ "$have_allow" = 1 ]; then
+          rest="${line#diff --git a/}"
+          hlen=${#rest}
+          if [ "$rest" != "$line" ] && [ "$hlen" -gt 3 ] && [ $(( (hlen-3) % 2 )) -eq 0 ]; then
+            hlen=$(( (hlen-3) / 2 ))
+            path_part="${rest:0:hlen}"
+            if [ "${rest:hlen:3}" = " b/" ] && [ "${rest:hlen+3}" = "$path_part" ]; then
+              CURRENT_FILE="$path_part"
+              allowlist_skip
+            fi
+          fi
         fi
         ;;
-      '+'*)
-        if [ "$SKIP" != "1" ]; then KEPT[kept_count]="$line"; kept_count=$((kept_count+1)); fi
-        PREV_KIND=""
+      '--- '*)
+        PREV_KIND="dash"
+        CURRENT_FILE=""; SKIP=0
+        ;;
+      '+++ '*)
+        if [ "$prev" = "dash" ]; then
+          case "$line" in
+            '+++ b/'*)
+              # Real file header — update current file and allowlist check
+              CURRENT_FILE="${line#+++ b/}"
+              if [ "$have_allow" = 1 ]; then allowlist_skip; else SKIP=0; fi
+              ;;
+            *)
+              CURRENT_FILE=""; SKIP=0
+              ;;
+          esac
+        else
+          err="a header line outside its position"; break
+        fi
+        ;;
+      '@@ '*)
+        hdr="${line#@@ }"
+        hdr="${hdr%% @@*}"
+        if [[ "$hdr" =~ $hdr_re ]]; then
+          ocount="${hdr%% *}"; ocount="${ocount#-}"
+          ncount="${hdr#* }"; ncount="${ncount#+}"
+          case "$ocount" in *,*) ocount="${ocount#*,}" ;; *) ocount=1 ;; esac
+          case "$ncount" in *,*) ncount="${ncount#*,}" ;; *) ncount=1 ;; esac
+          if [ "${#ocount}" -gt 9 ] || [ "${#ncount}" -gt 9 ]; then err="a hunk count is out of range"; break; fi
+          old_left=$((10#$ocount)); new_left=$((10#$ncount))
+          if [ "$old_left" -gt 0 ] || [ "$new_left" -gt 0 ]; then in_hunk=1; fi
+        else
+          err="unreadable hunk header"; break
+        fi
+        ;;
+      'index '*)
+        idx="${line#index }"; idx="${idx%% *}"; INDEX_NEW="${idx#*..}"
+        ;;
+      'Binary files '*' differ')
+        if [ "$SKIP" != "1" ]; then
+          case "$INDEX_NEW" in
+            '') err="a binary entry has no blob id"; break ;;
+            *[!0]*) BIN_ENTRIES[bin_count]="$INDEX_NEW"; bin_count=$((bin_count+1)) ;;
+          esac
+        fi
+        ;;
+      '+'*|'-'*|' '*)
+        err="a line outside a hunk"; break
         ;;
       *)
-        PREV_KIND=""
         ;;
     esac
   done < <(printf '%s\n' "$DIFF")
-  if [ "$seen" != "$expected" ]; then
-    echo "audit-privacy: filter read $seen of ${expected:-unknown} input lines — refusing to report clean" >&2
-    exit 3
+  if [ -z "$err" ] && [ "$in_hunk" = 1 ]; then err="input ended inside a hunk"; fi
+  if [ -z "$err" ] && [ "$seen" != "$expected" ]; then err="filter read $seen of ${expected:-unknown} input lines"; fi
+  if [ -n "$err" ]; then
+    INPUT_FAIL=1
+    echo "audit-privacy: $err; refusing to report clean" >&2
   fi
   ADDED=""
   if [ "$kept_count" -gt 0 ]; then
@@ -158,8 +249,10 @@ filter_added_lines() {
     IFS=$'\n'
     ADDED="${KEPT[*]}"$'\n'
   fi
+  # No allowlist: no final newline.
+  if [ "$have_allow" != 1 ]; then ADDED="${ADDED%$'\n'}"; fi
 }
-if [ -f "$ALLOWLIST" ] && [ -s "$ALLOWLIST" ] && [ "$MODE" != "--msg" ]; then
+if [ "$MODE" != "--msg" ]; then
   filter_added_lines
 fi
 
@@ -169,13 +262,13 @@ scan_content() {
   local local_hits=""
   while IFS= read -r pat; do
     [ -z "$pat" ] && continue
-    MATCH=$(printf '%s\n' "$content" | grep -iE "$pat" || true)
+    MATCH=$(printf '%s\n' "$content" | g -iE "$pat" || true)
     [ -n "$MATCH" ] && local_hits="${local_hits}${MATCH}"$'\n'
   done <<< "$HARD_PATTERNS"
-  KAKA=$(printf '%s\n' "$content" | grep -iF 'Kaka Mukaka' || true)
+  KAKA=$(printf '%s\n' "$content" | g -iF 'Kaka Mukaka' || true)
   [ -n "$KAKA" ] && local_hits="${local_hits}${KAKA}"$'\n'
-  INGURO_ALL=$(printf '%s\n' "$content" | grep -iE "$INGURO_EXTRA" || true)
-  INGURO_HITS=$(printf '%s\n' "$INGURO_ALL" | grep -ivE "$INGURO_ALLOW" || true)
+  INGURO_ALL=$(printf '%s\n' "$content" | g -iE "$INGURO_EXTRA" || true)
+  INGURO_HITS=$(printf '%s\n' "$INGURO_ALL" | g -ivE "$INGURO_ALLOW" || true)
   [ -n "$INGURO_HITS" ] && local_hits="${local_hits}${INGURO_HITS}"$'\n'
   printf '%s' "$local_hits"
 }
@@ -193,7 +286,7 @@ scan_unknown_emails() {
   # Strip the leading diff '+' marker per line so it is not slurped into the local part,
   # then extract + lowercase + dedupe the email tokens.
   local tokens
-  tokens=$(printf '%s\n' "$content" | sed 's/^+//' | grep -ioE "$EMAIL_RE" | tr 'A-Z' 'a-z' | sort -u || true)
+  tokens=$(printf '%s\n' "$content" | sed 's/^+//' | g -ioE "$EMAIL_RE" | tr 'A-Z' 'a-z' | sort -u || true)
   [ -z "$tokens" ] && return 0
   local hits="" tok lpart dpart entry suf elocal safe
   while IFS= read -r tok; do
@@ -228,13 +321,13 @@ scan_unknown_emails() {
 # which is fine: it goes to the local terminal only.
 resolve_private_dir() {
   local common
-  common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
+  common="$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
   [ -d "$(dirname "$common")/.private" ] && printf '%s' "$(dirname "$common")/.private"
 }
 known_names() {
   local priv="$1" f base
   if [ -f "$priv/docs/privacy-names.txt" ]; then
-    grep -vE '^[[:space:]]*(#|$)' "$priv/docs/privacy-names.txt" \
+    g -vE '^[[:space:]]*(#|$)' "$priv/docs/privacy-names.txt" \
       | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true
   fi
   for f in "$priv"/crm/opportunities/*.md; do
@@ -343,7 +436,7 @@ registry_names() {
       # Counted at GENERIC_REF — the range BASE in range mode, HEAD otherwise — never at the tip
       # being scanned, so content added by the scanned commits cannot make its own term "generic".
       # A git grep failure counts 0, i.e. the term is KEPT (fails toward blocking).
-      n=$(git grep -I -i -w -F -l -e "$name" "${GENERIC_REF:-HEAD}" -- . 2>/dev/null | grep -c . || true)
+      n=$(git -C "$REPO_ROOT" grep -I -i -w -F -l -e "$name" "${GENERIC_REF:-HEAD}" -- . 2>/dev/null | grep -c . || true)
       if [ "${n:-0}" -ge 3 ]; then
         echo "audit-privacy: derived company term skipped as generic (in $n public files at ${GENERIC_REF:-HEAD} — if it is not a common phrase, that is an existing leak): $name" >&2
         continue
@@ -359,6 +452,10 @@ for _b in 90 91 92 93 94 95; do NAME_SEP="${NAME_SEP}|"$'\xe2\x80'"$(printf "\\x
 NAME_SEP="${NAME_SEP}){1,6}"  # 1-6: "First    Last" (padded columns) must not escape
 # Computed ONCE per run: derivation runs a git grep per company candidate, and the scan below is
 # called from command substitutions, which cannot write a cache back.
+UTF8_LOC=""
+for _l in en_US.UTF-8 C.UTF-8 en_US.utf8 C.utf8; do
+  if locale -a 2>/dev/null | grep -qx "$_l"; then UTF8_LOC="$_l"; break; fi
+done
 KNOWN_NAMES=""
 _priv="$(resolve_private_dir)" || _priv=""
 if [ -z "$_priv" ]; then
@@ -374,19 +471,30 @@ fi
 # merely contains the value ("3514.75" for "514.75") must not. Values with letters match anywhere.
 KNOWN_LITERALS=""
 if [ -n "$_priv" ] && [ -f "$_priv/docs/privacy-literals.txt" ]; then
-  KNOWN_LITERALS="$( { grep -vE '^[[:space:]]*(#|$)' "$_priv/docs/privacy-literals.txt" || true; } | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | sort -u)"
+  KNOWN_LITERALS="$( { g -vE '^[[:space:]]*(#|$)' "$_priv/docs/privacy-literals.txt" || true; } | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | sort -u)"
 fi
+# stdin to stdout: every byte that is not part of a valid UTF-8 sequence becomes a space.
+clean_utf8() {
+  LC_ALL=C perl -pe 's/([\x00-\x7F]+|[\xC2-\xDF][\x80-\xBF]|\xE0[\xA0-\xBF][\x80-\xBF]|[\xE1-\xEC\xEE\xEF][\x80-\xBF]{2}|\xED[\x80-\x9F][\x80-\xBF]|\xF0[\x90-\xBF][\x80-\xBF]{2}|[\xF1-\xF3][\x80-\xBF]{3}|\xF4[\x80-\x8F][\x80-\xBF]{2})|(.)/defined $1 ? $1 : " "/gse'
+}
 scan_private_literals() {
-  local content="$1" lit pat rc hits=""
+  local content="$1" lit pat rc hits="" cleaned
   [ -z "$KNOWN_LITERALS" ] && return 0
+  cleaned=$(printf '%s\n' "$content" | clean_utf8) || { echo 1 >> "$ERR_FLAG"; cleaned="$content"; }
+  local LC_ALL=C
+  if [ -n "$UTF8_LOC" ]; then LC_ALL="$UTF8_LOC"; export LC_ALL; fi
   while IFS= read -r lit; do
     [ -z "$lit" ] && continue
     pat=$(printf '%s' "$lit" | sed -E 's/[][\.*^$+?(){}|/]/\\&/g')
     # An id with letters is long and specific: match it anywhere. A pure number keeps digit bounds.
     case "$lit" in
-      *[A-Za-z]*) grep -qiE "(${pat})" < <(printf '%s\n' "$content"); rc=$? ;;
-      *) grep -qiE "(^|[^0-9])(${pat})([^0-9]|$)" < <(printf '%s\n' "$content"); rc=$? ;;
+      *[A-Za-z]*) pat="(${pat})" ;;
+      *) pat="(^|[^0-9])(${pat})([^0-9]|\$)" ;;
     esac
+    g -qiE "$pat" < <(printf '%s\n' "$content"); rc=$?
+    if [ "$rc" = 1 ] && [ "$cleaned" != "$content" ]; then
+      g -qiE "$pat" < <(printf '%s\n' "$cleaned"); rc=$?
+    fi
     if [ "$rc" = 0 ]; then
       hits="${hits}private value from .private/docs/privacy-literals.txt (value not printed)"$'\n'
     elif [ "$rc" -gt 1 ]; then
@@ -396,16 +504,14 @@ scan_private_literals() {
   printf '%s' "$hits"
 }
 scan_known_names() {
-  local content="$1" name pat rc hits=""
+  local content="$1" name pat rc hits="" cleaned
   local names="$KNOWN_NAMES"
   [ -z "$names" ] && return 0
+  cleaned=$(printf '%s\n' "$content" | clean_utf8) || { echo 1 >> "$ERR_FLAG"; cleaned="$content"; }
   # Case-folding and word boundaries for non-ASCII names need a UTF-8 locale; a hook launched
   # under LC_ALL=C would otherwise pass "ÖSTEN MÜLLER" silently. Pick one that exists.
-  local LC_ALL loc
-  for loc in en_US.UTF-8 C.UTF-8 en_US.utf8 C.utf8; do
-    if locale -a 2>/dev/null | grep -qx "$loc"; then LC_ALL="$loc"; break; fi
-  done
-  [ -n "$LC_ALL" ] && export LC_ALL || echo "audit-privacy: no UTF-8 locale — known-names matching of non-ASCII names may miss case variants" >&2
+  local LC_ALL=C
+  if [ -n "$UTF8_LOC" ]; then LC_ALL="$UTF8_LOC"; export LC_ALL; else echo "audit-privacy: no UTF-8 locale — known-names matching of non-ASCII names may miss case variants" >&2; fi
   while IFS= read -r name; do
     [ -z "$name" ] && continue
     # Between tokens: any run of 1-6 whitespace/punctuation chars (space, tab, hyphen, comma,
@@ -418,7 +524,11 @@ scan_known_names() {
       *' '*) pat="${pat}|${pat#* } ${pat%% *}" ;;
     esac
     pat="${pat// /$NAME_SEP}"
-    grep -qiE "(^|[^[:alnum:]_])(${pat})([^[:alnum:]_]|$)" < <(printf '%s\n' "$content"); rc=$?
+    g -qiE "(^|[^[:alnum:]_])(${pat})([^[:alnum:]_]|$)" < <(printf '%s\n' "$content"); rc=$?
+    # The same match over the cleaned copy.
+    if [ "$rc" = 1 ] && [ "$cleaned" != "$content" ]; then
+      g -qiE "(^|[^[:alnum:]_])(${pat})([^[:alnum:]_]|$)" < <(printf '%s\n' "$cleaned"); rc=$?
+    fi
     if [ "$rc" = 0 ]; then
       hits="${hits}known name from .private: ${name}"$'\n'
     elif [ "$rc" -gt 1 ]; then
@@ -470,12 +580,12 @@ scan_phones() {
   [ "$kind" = "diff" ] && content=$(printf '%s\n' "$content" | sed 's/^+//')
   cands=$(
     {
-      printf '%s\n' "$content" | grep -oE '(^|[^[:alnum:]+/=_.-])\+[1-9][0-9 ()/.-]{6,40}[0-9]' | sed 's/^/I /' || true
-      printf '%s\n' "$content" | grep -oiE 'tel:[+0-9][0-9 ()/.-]{6,40}[0-9]' | sed 's/^/T /' || true
+      printf '%s\n' "$content" | g -oE '(^|[^[:alnum:]+/=_.-])\+[1-9][0-9 ()/.-]{6,40}[0-9]' | sed 's/^/I /' || true
+      printf '%s\n' "$content" | g -oiE 'tel:[+0-9][0-9 ()/.-]{6,40}[0-9]' | sed 's/^/T /' || true
       # (d) North American shape, unmistakable without a keyword: "(415) 555-2671", "212-555-2671".
       #     Exactly 3-3-4 with a dash before the last 4; not part of a longer digit/dash run.
-      printf '%s\n' "$content" | grep -oE '(^|[^[:alnum:]-])(\([2-9][0-9]{2}\) ?|[2-9][0-9]{2}[-. ])[2-9][0-9]{2}-[0-9]{4}([^[:alnum:]-]|$)' | sed 's/^/U /' || true
-      printf '%s\n' "$content" | grep -oiE "(^|[^[:alnum:]])${PHONE_KW}[\"'[:space:]]*[:=#.]?[\"'[:space:]]*(number|no\.?|nr\.?)?[\"'[:space:]]*[:=#]?[\"'[:space:]]*[+(]?[0-9][0-9 ()/.-]{6,40}[0-9]" | sed 's/^/K /' || true
+      printf '%s\n' "$content" | g -oE '(^|[^[:alnum:]-])(\([2-9][0-9]{2}\) ?|[2-9][0-9]{2}[-. ])[2-9][0-9]{2}-[0-9]{4}([^[:alnum:]-]|$)' | sed 's/^/U /' || true
+      printf '%s\n' "$content" | g -oiE "(^|[^[:alnum:]])${PHONE_KW}[\"'[:space:]]*[:=#.]?[\"'[:space:]]*(number|no\.?|nr\.?)?[\"'[:space:]]*[:=#]?[\"'[:space:]]*[+(]?[0-9][0-9 ()/.-]{6,40}[0-9]" | sed 's/^/K /' || true
     }
   )
   [ -z "$cands" ] && return 0
@@ -518,6 +628,30 @@ scan_phones() {
   printf '%s' "$hits"
 }
 
+# Printable strings of every added or changed binary file, plus the same strings with NUL bytes removed.
+# Phones are not checked here. Emails are checked only for blobs up to 1 MB.
+collect_binary_strings() {
+  local sha out out_nul size seen=" "
+  BINSTR=""
+  BINSTR_EMAIL=""
+  for sha in "${BIN_ENTRIES[@]}"; do
+    case "$seen" in *" $sha "*) continue ;; esac
+    seen="${seen}${sha} "
+    size=$(git -C "$REPO_ROOT" cat-file -s "$sha" 2>/dev/null)
+    if [ $? -ne 0 ]; then input_failed "binary file size"; continue; fi
+    out=$( set -o pipefail; git -C "$REPO_ROOT" cat-file blob "$sha" 2>/dev/null | tr -c '[:print:]\t\200-\377' '\n' | awk 'length($0) >= 4' )
+    if [ $? -ne 0 ]; then input_failed "binary file read"; continue; fi
+    out_nul=$( set -o pipefail; git -C "$REPO_ROOT" cat-file blob "$sha" 2>/dev/null | tr -d '\000' | tr -c '[:print:]\t\200-\377' '\n' | awk 'length($0) >= 4' )
+    if [ $? -ne 0 ]; then input_failed "binary file read"; continue; fi
+    BINSTR="${BINSTR}${out}"$'\n'
+    [ "$out_nul" != "$out" ] && BINSTR="${BINSTR}${out_nul}"$'\n'
+    if [ "${size:-0}" -le 1048576 ]; then
+      BINSTR_EMAIL="${BINSTR_EMAIL}${out}"$'\n'
+      [ "$out_nul" != "$out" ] && BINSTR_EMAIL="${BINSTR_EMAIL}${out_nul}"$'\n'
+    fi
+  done
+}
+
 HITS=$(scan_content "$ADDED")
 [ -n "$HITS" ] && HITS="${HITS}"$'\n'
 NAME_HITS=$( { scan_known_names "$ADDED"; scan_private_literals "$ADDED"; } )
@@ -529,6 +663,11 @@ NAME_HITS=$( { scan_known_names "$ADDED"; scan_private_literals "$ADDED"; } )
 if [ -n "${PATHS_ADDED:-}" ]; then
   PATH_HITS=$( { scan_content "$PATHS_ADDED"; echo; scan_known_names "$PATHS_ADDED"; echo; scan_private_literals "$PATHS_ADDED"; echo; scan_unknown_emails "$PATHS_ADDED"; echo; scan_phones "$PATHS_ADDED" msg; } | grep . | sed 's/^/(in a file path) /')
   [ -n "$PATH_HITS" ] && HITS="${HITS}${PATH_HITS}"$'\n'
+fi
+if [ "${#BIN_ENTRIES[@]}" -gt 0 ]; then
+  collect_binary_strings
+  BIN_HITS=$( { scan_content "$BINSTR"; echo; scan_known_names "$BINSTR"; echo; scan_private_literals "$BINSTR"; echo; scan_unknown_emails "$BINSTR_EMAIL"; } | grep . | tr -c '[:print:]\n' '?' | cut -c1-200 | sed 's/^/(in a binary file) /')
+  [ -n "$BIN_HITS" ] && HITS="${HITS}${BIN_HITS}"$'\n'
 fi
 if [ "$MODE" = "--msg" ]; then
   PHONE_HITS=$(scan_phones "$ADDED" msg)
@@ -544,7 +683,7 @@ fi
 EMAIL_HITS=$(scan_unknown_emails "$ADDED")
 [ -n "$EMAIL_HITS" ] && HITS="${HITS}${EMAIL_HITS}"$'\n'
 
-# Also scan commit messages for range mode (no path allowlist — messages have no file path)
+# Also scan commit messages and author fields for range mode (no path allowlist — messages have no file path)
 if [ -n "$MSGS" ]; then
   MSG_HITS=$(scan_content "$MSGS")
   [ -n "$MSG_HITS" ] && HITS="${HITS}${MSG_HITS}"$'\n'
@@ -556,12 +695,16 @@ if [ -n "$MSGS" ]; then
   [ -n "$MSG_EMAIL_HITS" ] && HITS="${HITS}${MSG_EMAIL_HITS}"$'\n'
 fi
 
+# A matcher that failed has not shown the input clean.
+if [ -s "$ERR_FLAG" ]; then input_failed "a matching tool failed"; fi
+
 if [ -n "$HITS" ]; then
   # Shell-safety (.claude/rules/shell-safety.md): hit lines quote scanned content and seed names,
   # which may contain redirect/pipe tokens; those are neutralised. This does NOT make the output
   # eval-safe (backticks, $(), ; can remain) — callers must treat it strictly as data.
   printf '%s\n' "$HITS" | tr '<>|' '???' | head -20
-  exit 1
 fi
-
+# Hits are printed first; a failed input step then decides the exit code.
+[ "$INPUT_FAIL" = 1 ] && exit 3
+[ -n "$HITS" ] && exit 1
 exit 0
