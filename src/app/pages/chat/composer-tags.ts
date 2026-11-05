@@ -1,8 +1,8 @@
 /**
  * @file composer-tags.ts
- * @description P1536 D5 / S4.2: a box tag inside the composer's text, as pure functions. A field cannot draw a chip, so a tag is ONE atomic token: the box's
- * title in brackets between two invisible marks (U+2063). The marks are what make it a tag: the same words typed by hand are plain text. Backspace right
- * after a token removes all of it, and a caret that lands inside one is moved to its edge, so a token is never half edited.
+ * @description P1536 D5 / S4.2, P1621: a box tag in the composer's stored text, as pure functions. The stored value keeps each tag as ONE token (the box's title in brackets
+ * between two invisible marks, U+2063; the same words typed by hand are plain text), gathered at the START of the value. The field shows only the words; the tokens are
+ * drawn as pills above it (`splitTagged` / `joinTagged` translate), so drafts, voice notes and a failed send's restore keep working on one canonical string.
  *
  * What Send carries (`decodeTagged`): the words with each token written out as plain "[Offers & Pricing]" (the stored message shows it as a chip, the model
  * reads it), and the distinct boxes, which the server checks against its own list. A damaged token (a mark or a letter of the label gone) is plain text and
@@ -20,36 +20,53 @@ const TOKEN = new RegExp(`${TAG_MARK}\\[([^\\]${TAG_MARK}]*)\\]${TAG_MARK}`, 'g'
 
 export const tagToken = (tag: string): string => `${TAG_MARK}[${TITLES.get(tag) ?? tag}]${TAG_MARK}`;
 
-export interface Edit { value: string; caret: number }
-
-/** The token with the caret in it, or null: [start, end) of every token in `value`. */
+/** [start, end) of every token in `value`. */
 function tokens(value: string): Array<[number, number]> {
   return [...value.matchAll(TOKEN)].map(m => [m.index ?? 0, (m.index ?? 0) + m[0].length]);
 }
 
-/** Inserts a tag token at `caret`, a space before it when it follows a word and a space after it, and returns where the caret goes (after that space). Null: past the cap. */
-export function insertTagAt(value: string, caret: number, tag: string): Edit | null {
-  const at = Math.max(0, Math.min(caret, value.length));
-  const before = value.slice(0, at);
-  const lead = before !== '' && !/\s$/.test(before) && !before.endsWith(TAG_MARK) ? ' ' : '';
-  const insert = `${lead}${tagToken(tag)} `;
-  const next = before + insert + value.slice(at);
-  return next.length > COMPOSER_MAX ? null : { value: next, caret: at + insert.length };
-}
+const tagOfToken = (value: string, [start, end]: [number, number]): string | undefined => TAG_BY_TITLE.get(value.slice(start + 2, end - 2));
+
+/** The box title a tag is shown with (the pill's label). */
+export const tagTitle = (tag: string): string => TITLES.get(tag) ?? tag;
 
 /**
- * Backspace with the caret directly after a token, or after the one space a tap puts behind it: the value without the token (and that space), so the press right
- * after a tap removes what the tap added. Null: not after a token (an ordinary Backspace).
+ * The stored value as pills and words: the distinct boxes its tokens name (first appearance first) and the rest of the text, tokens taken out wherever they sit (an older
+ * value with a token mid-text is hoisted), the space that followed a token gone with it.
  */
-export function removeTagBefore(value: string, caret: number): Edit | null {
-  const t = tokens(value).find(([, end]) => end === caret || (end === caret - 1 && value[end] === ' '));
-  return t ? { value: value.slice(0, t[0]) + value.slice(caret), caret: t[0] } : null;
+export function splitTagged(value: string): { tags: string[]; words: string } {
+  const tags: string[] = [];
+  const counts: Record<string, number> = {};
+  for (const t of tokens(value)) {
+    const tag = tagOfToken(value, t);
+    if (!tag) continue;
+    if (!tags.includes(tag)) tags.push(tag);
+    counts[tag] = (counts[tag] ?? 0) + 1;
+  }
+  return { tags, words: removeTagTokens(value, counts) };
 }
 
-/** Where a caret that is inside a token should go (its start when it moved left into it, its end otherwise); null: it is not inside one. */
-export function snapOutOfTag(value: string, caret: number, previous: number): number | null {
-  const t = tokens(value).find(([start, end]) => caret > start && caret < end);
-  return t ? (caret < previous ? t[0] : t[1]) : null;
+/** The stored value for pills and words: the tokens gathered at the start, one space between them and the words. */
+export function joinTagged(tags: string[], words: string): string {
+  const head = tags.map(tagToken).join(' ');
+  return head && words ? `${head} ${words}` : head + words;
+}
+
+/** How much of the 4000-character cap the pills take in the stored value (the tokens and the space before the words): what the words' own limit gives up. */
+export const pillsReserve = (tags: string[]): number => (tags.length ? joinTagged(tags, '').length + 1 : 0);
+
+/** The value with `tag` added as a pill; the same value when it is already there. Null: past the cap. */
+export function addTag(value: string, tag: string): string | null {
+  const { tags, words } = splitTagged(value);
+  if (tags.includes(tag)) return value;
+  const next = joinTagged([...tags, tag], words);
+  return next.length > COMPOSER_MAX ? null : next;
+}
+
+/** The value without the pill for `tag`. */
+export function removeTag(value: string, tag: string): string {
+  const { tags, words } = splitTagged(value);
+  return joinTagged(tags.filter(t => t !== tag), words);
 }
 
 /** The value without any token or stray mark. */
@@ -73,7 +90,7 @@ export function decodeTagged(value: string): { text: string; refs: string[] } {
 export function tagCounts(value: string): Record<string, number> {
   const out: Record<string, number> = {};
   for (const [start, end] of tokens(value)) {
-    const tag = TAG_BY_TITLE.get(value.slice(start + 2, end - 2));
+    const tag = tagOfToken(value, [start, end]);
     if (tag) out[tag] = (out[tag] ?? 0) + 1;
   }
   return out;
@@ -88,7 +105,7 @@ export function removeTagTokens(value: string, counts: Record<string, number>): 
   let out = '';
   let at = 0;
   for (const [start, end] of tokens(value)) {
-    const tag = TAG_BY_TITLE.get(value.slice(start + 2, end - 2));
+    const tag = tagOfToken(value, [start, end]);
     if (!tag || !left[tag]) continue;
     left[tag] -= 1;
     const after = value[end] === ' ';

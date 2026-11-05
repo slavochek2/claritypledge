@@ -40,6 +40,8 @@ export function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Cl
   // What is on screen when the panel closes (Previous / Next change it), for returning focus.
   const viewKeyRef = useRef(viewKey);
   viewKeyRef.current = viewKey;
+  const boxTagRef = useRef(step.boxTag);
+  boxTagRef.current = step.boxTag;
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     // The box cards remount when the panel closes (a re-read), so the opener is found again by
@@ -90,11 +92,16 @@ export function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Cl
       document.removeEventListener('keydown', onKey);
       root?.removeAttribute('inert');
       document.body.style.overflow = previousOverflow;
-      // The card of the point on screen at close (a box's list: none); else whatever opened the
-      // panel, such as "N more" (never <body>, which is what a panel opened from the address starts with).
-      const card = document.querySelector<HTMLElement>(`[data-testid="canvas-point-card-${viewKeyRef.current}"]`);
+      // P1621, on the owner's draft: that point's Open button while its box is selected, otherwise the box's title. Otherwise the card of the point on
+      // screen at close (a box's list: none); else whatever opened the panel, such as "N more" (never <body>, which is what a panel opened from the address starts with).
+      const viewKey = viewKeyRef.current;
+      const byTestId = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
+      const card = byTestId(`canvas-point-card-${viewKey}`);
+      // On the owner's draft the card is not focusable (a div): its Open button, else its box's title.
+      const ownerTarget = byTestId(`canvas-card-open-${viewKey}`)
+        ?? (card?.tagName !== 'BUTTON' && boxTagRef.current ? byTestId(`canvas-box-title-${boxTagRef.current}`) : null);
       const reopened = openerSelector ? document.querySelector<HTMLElement>(openerSelector) : null;
-      const target = card ?? (opener?.isConnected && opener !== document.body ? opener : reopened);
+      const target = ownerTarget ?? (card?.tagName === 'BUTTON' ? card : null) ?? (opener?.isConnected && opener !== document.body ? opener : reopened);
       target?.focus?.();
     };
     // Opened once per panel; stepping to another point keeps it open (and keeps the opener).

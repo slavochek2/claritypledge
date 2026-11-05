@@ -1,7 +1,7 @@
 /**
  * @file p1613-canvas-header.test.tsx
  * @description P1613: Compare positions in the header row (the table's `compare`, drawn by the owner's bar), absent on a draft and a pending Clone; Cancel in the shared secondary
- * pill; the address moves into a draft or pending Clone dropping `with` in the same update (and pushing, so Back returns to the comparison); Add to chat's icon-only form.
+ * pill; the address moves into a draft or pending Clone dropping `with` in the same update (and pushing, so Back returns to the comparison); Mention in chat (P1621, replacing the icon-only Add to chat).
  * Expectations are typed from the spec, not read back from the code. jsdom has no layout: the container-query width, the 44px size and the rows are checked in a browser.
  */
 import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
@@ -18,7 +18,7 @@ vi.mock('@/app/data/canvas-draft-service', async orig => ({ ...(await orig<objec
 vi.mock('@/app/data/chat-service', async orig => ({ ...(await orig<object>()), getThreadStats: vi.fn() }));
 
 import { CanvasOwnerBar } from '@/app/components/canvas/canvas-owner-bar';
-import { AddToChatButton } from '@/app/components/canvas/canvas-add-to-chat';
+import { MentionInChatButton } from '@/app/components/canvas/canvas-mention-in-chat';
 import { CanvasWorkspaceContext, type CanvasWorkspaceValue } from '@/app/components/canvas/canvas-workspace-context';
 import { resetCanvasAvailability, seedCanvasAvailability } from '@/app/pages/chat/use-canvas-availability';
 import { useCloneCanvas } from '@/app/pages/canvas/use-clone-canvas';
@@ -175,25 +175,22 @@ describe('P1613: a comparison never goes into a draft or a pending Clone (the ad
   });
 });
 
-describe('P1613: Add to chat collapses to its icon in a narrow box', () => {
+// P1621 (deliberate): P1613's icon-only Add to chat is replaced by "Mention in chat", which shows only on a selected box and always shows its label (wrapping if the box is narrow),
+// so the container-query collapse and its 44px icon form are gone. What stays: the owner taps through, and a reader sees nothing.
+describe('P1621: Mention in chat replaces P1613 Add to chat', () => {
   const ctx = (addToChat: ((t: string) => void) | null): CanvasWorkspaceValue => ({ active: true, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: null, cloneSeq: null, ownerBar: true, addToChat });
-  it('keeps the label as the tooltip and the accessible name, is at least 44px wide and tall, and taps through', () => {
+  it('always shows its label, is at least 40px tall, wraps instead of collapsing, and taps through', () => {
     const tap = vi.fn();
-    render(<CanvasWorkspaceContext.Provider value={ctx(tap)}><AddToChatButton tag="canvas:problem" title="Problem" /></CanvasWorkspaceContext.Provider>);
-    const b = screen.getByRole('button', { name: 'Add to chat, Problem' });
-    expect(b).toHaveAttribute('title', 'Add to chat');
-    expect(b.className).toContain('min-w-11');
-    expect(b.className).toContain('min-h-11');
-    const label = screen.getByText('Add to chat');
-    expect(label.className).toContain('sr-only'); // hidden visually below the container width, read by screen readers
-    expect(label.className).toContain('[@container(min-width:21rem)]:not-sr-only'); // shown from 21rem of the box header up
-    expect(label.className).toContain('[@container(min-width:21rem)]:!whitespace-nowrap'); // not-sr-only sets white-space: normal, so the label would wrap
-    expect(b.className).toMatch(/(^|\s)relative(\s|$)/); // the sr-only span is absolute: it needs this button as its containing block
+    render(<CanvasWorkspaceContext.Provider value={ctx(tap)}><MentionInChatButton tag="canvas:problem" title="Problem" /></CanvasWorkspaceContext.Provider>);
+    const b = screen.getByRole('button', { name: 'Mention in chat, Problem' });
+    expect(b.className).toContain('min-h-10');
+    expect(b.className).toContain('whitespace-normal');
+    expect(screen.getByText('Mention in chat').className).not.toContain('sr-only');
     fireEvent.click(b);
     expect(tap).toHaveBeenCalledWith('canvas:problem');
   });
   it('readers see nothing', () => {
-    render(<CanvasWorkspaceContext.Provider value={ctx(null)}><AddToChatButton tag="canvas:problem" title="Problem" /></CanvasWorkspaceContext.Provider>);
+    render(<CanvasWorkspaceContext.Provider value={ctx(null)}><MentionInChatButton tag="canvas:problem" title="Problem" /></CanvasWorkspaceContext.Provider>);
     expect(screen.queryByRole('button')).toBeNull();
   });
 });

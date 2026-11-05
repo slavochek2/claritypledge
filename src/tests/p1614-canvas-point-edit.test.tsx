@@ -8,35 +8,56 @@ const edit = vi.fn();
 vi.mock('@/app/data/canvas-draft-service', () => ({ editCanvasDraftPoint: (...a: unknown[]) => edit(...a) }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
-import { resetPointEdits, openPointEdit, closePointEdit, getPointEdits, pointEditKey, useClearPointEditsOnAuthChange } from '@/app/components/canvas/canvas-point-edit-store';
+import { cardEditTestId, resetPointEdits, openPointEdit, closePointEdit, getPointEdits, pointEditKey, useClearPointEditsOnAuthChange } from '@/app/components/canvas/canvas-point-edit-store';
 import {
   BoxEdits, EMPTY_POINT_TEXT, BUSY_POINT_TEXT, STALE_POINT_TEXT, RUN_GOING_TEXT, GONE_POINT_TEXT,
   type PointEditConfig,
 } from '@/app/components/canvas/canvas-point-edit';
 import { useCanvasDraftSync } from '@/app/pages/canvas/use-canvas-draft-sync';
 import { CanvasGrid } from '@/app/components/canvas/canvas-grid';
+import { CanvasCard } from '@/app/components/canvas/canvas-card';
+import { BoxCardContext } from '@/app/components/canvas/canvas-box-card-context';
+import { dropFocusRequest } from '@/app/components/canvas/canvas-focus-request';
 import type { CanvasBoxTag } from '@/lib/canvas-boxes';
 
 const TAG = 'canvas:segments';
 const pt = (id: string, statement: string) => ({ id, statement, systemTags: [TAG] } as unknown as PointWithUserPosition);
 const cfg = (o: Partial<PointEditConfig> = {}): PointEditConfig => ({ draftId: 'd1', revision: 4, runActive: false, ...o });
-const card = (p: PointWithUserPosition): ReactNode => <button key={p.id} type="button">{`card ${p.id}`}</button>;
-const view = (points: PointWithUserPosition[], edit: PointEditConfig | null = cfg(), limit?: number) =>
-  <BoxEdits tag={TAG} points={points} edit={edit ?? undefined} renderCard={card} limit={limit} />;
-const pencil = (id: string) => screen.queryByTestId(`canvas-edit-point-${id}`);
-const open = (id: string) => fireEvent.click(screen.getByTestId(`canvas-edit-point-${id}`));
+// P1621 (deliberate): the pencil that sat beside the card is now the card's Edit action, drawn by the card while its box is selected (covered against the real card in p1621-canvas-actions).
+// This stand-in card carries an Edit control with the card's real test id, hidden while a run goes as the real card hides it, so the editor mechanics below (limit, panel claim,
+// orphans, buffers) are still exercised through BoxEdits and CanvasGrid.
+let shownEdit: PointEditConfig | null = null;
+const card = (p: PointWithUserPosition): ReactNode => (
+  <div key={p.id}>
+    <button type="button">{`card ${p.id}`}</button>
+    {shownEdit && !shownEdit.runActive && <button type="button" data-testid={cardEditTestId(p.id)} onClick={() => openPointEdit({ draftId: shownEdit!.draftId, box: TAG, originId: p.id, text: p.statement })}>Edit</button>}
+  </div>
+);
+const view = (points: PointWithUserPosition[], edit: PointEditConfig | null = cfg(), limit?: number) => {
+  shownEdit = edit;
+  return <BoxEdits tag={TAG} points={points} edit={edit ?? undefined} renderCard={card} limit={limit} />;
+};
+const pencil = (id: string) => screen.queryByTestId(cardEditTestId(id));
+const open = (id: string) => fireEvent.click(screen.getByTestId(cardEditTestId(id)));
 const area = () => screen.getByLabelText('Point text') as HTMLTextAreaElement;
 const type = (v: string) => fireEvent.change(area(), { target: { value: v } });
 const save = () => fireEvent.click(screen.getByTestId('canvas-point-editor-save'));
 const problem = () => screen.getByTestId('canvas-point-editor-problem').textContent;
 
-beforeEach(() => { edit.mockReset(); resetPointEdits(); });
+beforeEach(() => { edit.mockReset(); resetPointEdits(); dropFocusRequest(); shownEdit = cfg(); });
 afterEach(cleanup);
 
 describe('P1614 the editor', () => {
-  it('Edit is a sibling of the card, not inside it', () => {
-    render(view([pt('p1', 'Old words')]));
-    expect(screen.getByText('card p1').contains(pencil('p1'))).toBe(false);
+  it('P1621: on the owner\'s draft the card is not a button, so its Edit and Open actions are never nested inside one', () => {
+    const point = { ...pt('p1', 'Old words'), tags: [], userPosition: null } as unknown as PointWithUserPosition;
+    render(
+      <BoxCardContext.Provider value={{ selected: true, runActive: false, onEdit: () => undefined }}>
+        <CanvasCard point={point} positions={null} compare={null} selected={false} sharedLabel={null} onOpen={() => undefined} />
+      </BoxCardContext.Provider>,
+    );
+    const editBtn = screen.getByTestId(cardEditTestId('p1'));
+    expect(editBtn.closest('[data-testid="canvas-point-card-p1"]')?.tagName).toBe('DIV');
+    expect(editBtn.parentElement?.closest('button')).toBeNull();
   });
   it('Save sends the trimmed text with the revision and closes on success', async () => {
     edit.mockResolvedValue({ ok: true, changed: true, pointId: 'p2', revision: 5 });
@@ -91,7 +112,7 @@ describe('P1614 fix 1: a run starting keeps an open editor and its text', () => 
   it('through the grid: a run starting does not swap the editor for the card', () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} });
     const boxes = new Map<CanvasBoxTag, PointWithUserPosition[]>([[TAG as CanvasBoxTag, [pt('p1', 'One')]]]);
-    const grid = (e: PointEditConfig) => <CanvasGrid boxes={boxes} renderCard={card} onMore={() => undefined} edit={e} />;
+    const grid = (e: PointEditConfig) => { shownEdit = e; return <CanvasGrid boxes={boxes} renderCard={card} onMore={() => undefined} edit={e} />; };
     const { rerender } = render(grid(cfg()));
     open('p1'); type('typed in the grid');
     rerender(grid(cfg({ runActive: true })));
@@ -238,7 +259,7 @@ describe('P1614 round 3, rule 4 and 5: nothing typed is lost during Save, and on
   it('with the panel open the grid behind it shows no editor for that box: exactly one textarea, inside the panel', () => {
     const points = [pt('p1', 'One'), pt('p2', 'Two')];
     render(<><div data-testid="grid"><BoxEdits tag={TAG} points={points} edit={cfg()} renderCard={card} limit={1} /></div><div data-testid="panel"><BoxEdits tag={TAG} points={points} edit={cfg()} renderCard={card} surface="panel" /></div></>);
-    fireEvent.click(within(screen.getByTestId('panel')).getByTestId('canvas-edit-point-p2'));
+    fireEvent.click(within(screen.getByTestId('panel')).getByTestId('canvas-card-edit-p2'));
     expect(screen.getAllByLabelText('Point text')).toHaveLength(1);
     expect(within(screen.getByTestId('panel')).getByLabelText('Point text')).toBeTruthy();
     expect(within(screen.getByTestId('grid')).queryByLabelText('Point text')).toBeNull();
@@ -248,7 +269,7 @@ describe('P1614 round 3, rule 4 and 5: nothing typed is lost during Save, and on
     const points = [pt('p1', 'One')];
     const grid = <BoxEdits tag={TAG} points={points} edit={cfg()} renderCard={card} limit={1} />;
     const { rerender } = render(<>{grid}<BoxEdits tag={TAG} points={points} edit={cfg()} renderCard={card} surface="panel" /></>);
-    fireEvent.click(screen.getAllByTestId('canvas-edit-point-p1')[1]!);
+    fireEvent.click(screen.getAllByTestId('canvas-card-edit-p1')[1]!);
     type('typed in the panel');
     rerender(<>{grid}</>);
     expect(area().value).toBe('typed in the panel');

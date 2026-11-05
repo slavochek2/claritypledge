@@ -64,8 +64,13 @@ describe('box tags', () => {
       'Go-to-market strategy', 'Offers & Pricing', 'My next milestone',
       'Guiding values', 'My current biggest challenge', "Hypotheses I've falsified",
     ]);
-    expect(CANVAS_LAYERS.map(l => l.title)).toEqual(['Core assumptions', 'Profitability assumptions', 'Founder-fit assumptions']);
-    expect(CANVAS_LAYERS.flatMap(l => l.boxes)).toEqual(CANVAS_BOX_TAGS);
+    // P1621 (deliberate): the three rows lose their names and the display order is the founder-approved one, pinned explicitly (display only: CANVAS_BOX_TAGS above is unchanged).
+    expect(CANVAS_LAYERS.map(l => [...l.boxes])).toEqual([
+      ['canvas:segments', 'canvas:problem', 'canvas:solution'],
+      ['canvas:revenue', 'canvas:channels', 'canvas:metrics'],
+      ['canvas:good-at', 'canvas:world-needs', 'canvas:love'],
+    ]);
+    expect(CANVAS_LAYERS.flatMap(l => l.boxes).slice().sort()).toEqual([...CANVAS_BOX_TAGS].sort());
   });
 
   it('P1535: dropped boxes leave the list but stay hidden system tags', () => {

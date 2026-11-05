@@ -4,51 +4,39 @@
  * marks); Send turns the tokens into plain "[Offers & Pricing]" text plus the box list the server validates; Backspace after a token removes the whole token.
  */
 import { describe, expect, it } from 'vitest';
-import { decodeTagged, hasWords, insertTagAt, removeTagBefore, removeTagTokens, snapOutOfTag, stripTags, tagCounts, TAG_MARK, tagToken } from '@/app/pages/chat/composer-tags';
+import { decodeTagged, hasWords, addTag, joinTagged, removeTag, removeTagTokens, splitTagged, stripTags, tagCounts, TAG_MARK, tagToken } from '@/app/pages/chat/composer-tags';
 
 const REVENUE = 'canvas:revenue';
 const METRICS = 'canvas:metrics';
 
 describe('P1536 S4.2 tag tokens in the composer text', () => {
-  it('a tap inserts the token at the caret with a space after it, and the caret lands after that space', () => {
-    const r = insertTagAt('', 0, REVENUE);
-    expect(r?.value).toBe(`${tagToken(REVENUE)} `);
-    expect(r?.caret).toBe(r?.value.length);
-  });
-
-  it('inserts in the middle of the text and keeps words apart from the token', () => {
-    const r = insertTagAt('price is high', 6, REVENUE);
-    expect(r?.value).toBe(`price ${tagToken(REVENUE)} is high`);
-    expect(r?.value.slice(0, r?.caret)).toBe(`price ${tagToken(REVENUE)} `);
-  });
-
-  it('two taps give two tokens', () => {
-    const one = insertTagAt('', 0, REVENUE);
-    const two = insertTagAt(`${one?.value}€200 per pilot`, (one?.value.length ?? 0) + '€200 per pilot'.length, METRICS);
-    expect(decodeTagged(two?.value ?? '').refs).toEqual([METRICS, REVENUE].sort());
+  it('addTag gathers the token at the start of the value; a repeat leaves it as it is (P1621)', () => {
+    const one = addTag('', REVENUE);
+    expect(one).toBe(tagToken(REVENUE));
+    const two = addTag(`${one} price is high`, METRICS);
+    expect(two).toBe(`${tagToken(REVENUE)} ${tagToken(METRICS)} price is high`);
+    expect(addTag(two ?? '', REVENUE)).toBe(two);
   });
 
   it('refuses a tag that would take the field past its 4000-character cap', () => {
-    expect(insertTagAt('x'.repeat(3995), 3995, REVENUE)).toBeNull();
+    expect(addTag('x'.repeat(3995), REVENUE)).toBeNull();
   });
 
-  it('Backspace right after a token removes the whole token, and only then', () => {
-    const v = `${tagToken(REVENUE)} words`;
-    const afterToken = tagToken(REVENUE).length; // caret directly after the closing mark
-    const gone = removeTagBefore(v, afterToken);
-    expect(gone?.value).toBe(' words');
-    expect(gone?.caret).toBe(0);
-    expect(removeTagBefore(v + 'x', v.length + 1)).toBeNull(); // after a letter: an ordinary Backspace
-    expect(removeTagBefore('plain', 5)).toBeNull();
+  it('splitTagged / joinTagged round-trip, and hoist a token found mid-text', () => {
+    const v = `${tagToken(REVENUE)} ${tagToken(METRICS)} words here`;
+    expect(splitTagged(v)).toEqual({ tags: [REVENUE, METRICS], words: 'words here' });
+    expect(joinTagged([REVENUE, METRICS], 'words here')).toBe(v);
+    expect(joinTagged([REVENUE], '')).toBe(tagToken(REVENUE));
+    expect(splitTagged(`price ${tagToken(REVENUE)} is high`)).toEqual({ tags: [REVENUE], words: 'price is high' });
+    expect(joinTagged(...(Object.values(splitTagged(`price ${tagToken(REVENUE)} is high`)) as [string[], string]))).toBe(`${tagToken(REVENUE)} price is high`);
+    expect(splitTagged(`${tagToken(REVENUE)} a ${tagToken(REVENUE)}`).tags).toEqual([REVENUE]); // a duplicate collapses
+    expect(splitTagged('plain [Offers & Pricing] text')).toEqual({ tags: [], words: 'plain [Offers & Pricing] text' }); // typed brackets stay words
   });
 
-  it('Backspace just after a tap (the caret is after the space the tap added) removes the token and that space in one press', () => {
-    const tapped = insertTagAt('', 0, REVENUE);
-    const gone = removeTagBefore(tapped?.value ?? '', tapped?.caret ?? 0);
-    expect(gone).toEqual({ value: '', caret: 0 });
-    const mid = insertTagAt('price high', 6, REVENUE); // "price <token> high": caret after the space that follows the token
-    const goneMid = removeTagBefore(mid?.value ?? '', mid?.caret ?? 0);
-    expect(goneMid?.value).toBe('price high');
+  it('removeTag takes one pill and keeps the rest and the words', () => {
+    const v = `${tagToken(REVENUE)} ${tagToken(METRICS)} words`;
+    expect(removeTag(v, REVENUE)).toBe(`${tagToken(METRICS)} words`);
+    expect(removeTag(`${tagToken(REVENUE)}`, REVENUE)).toBe('');
   });
 
   it('counts the tokens of each box, and removes only that many, first ones first', () => {
@@ -62,14 +50,6 @@ describe('P1536 S4.2 tag tokens in the composer text', () => {
     expect(removeTagTokens(`words ${tagToken(REVENUE)}`, { [REVENUE]: 1 })).toBe('words');
     expect(removeTagTokens(`${tagToken(REVENUE)} `, { [REVENUE]: 1 })).toBe('');
     expect(removeTagTokens(`a ${tagToken(REVENUE)} ${tagToken(METRICS)} b`, { [REVENUE]: 1, [METRICS]: 1 })).toBe('a b');
-  });
-
-  it('a caret inside a token snaps to the near edge by the direction it moved', () => {
-    const v = `${tagToken(REVENUE)} words`;
-    const end = tagToken(REVENUE).length;
-    expect(snapOutOfTag(v, 4, end)).toBe(0); // moving left into it: to its start
-    expect(snapOutOfTag(v, 4, 0)).toBe(end); // moving right into it: to its end
-    expect(snapOutOfTag(v, end + 2, 0)).toBeNull(); // outside any token: left alone
   });
 });
 

@@ -1,12 +1,13 @@
 /**
  * @file use-add-to-chat.ts
  * @description P1536 D5 / J2 / J3 / J4: the workspace's two taps from the canvas into the thread.
- *  - `addToChat(tag)`: the owner's tap on a box. On a draft, or a pending Clone, the thread is brought into view and the tag goes in the composer inside the tap. On a
+ *  - `addToChat(tag)`: the owner's tap on a box (P1621: "Mention in chat"). On a draft, or a pending Clone, the thread is brought into view and the tag goes in the composer inside the tap. On a
  *    PUBLISHED version with nothing being edited it writes nothing: it runs the same `clone()` decision as the Clone button (none: pending; same base: opens
  *    that draft; another base with a message: the J4 sheet; untouched: pending), and the tag waits on the bus until the thread it was meant for is on screen
  *    (a pending Clone's or the open draft's, never the other base's draft while the sheet is up). Dismissing the sheet drops it (the caller clears the bus).
  *  - `showBox(tag)`: a reply chip. Below 1280 it switches to Canvas; the box scrolls to the middle and rings for two seconds.
- * Both flip the switcher below 1280 and open a closed panel from 1280, with focus inside the call (use-workspace-panel's `showThread`).
+ * Both flip the switcher below 1280 and open a closed panel from 1280. Below 1280 a mention focuses the composer inside the call (use-workspace-panel's `showThread`); from 1280 the
+ * thread opens without moving focus (P1621: focus stays on the box's button, and the pill is the feedback).
  * A read that still shows the draft just published as open decides nothing (`closedDraftId`): the tap waits for the read after it, or it would go to a thread that is no longer there.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -14,13 +15,17 @@ import { flushSync } from 'react-dom';
 import { toast } from 'sonner';
 import { highlightBox } from '@/app/components/canvas/canvas-box-highlight';
 import { isViewingDraft, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
+import { CANVAS_WORKSPACE_WIDE_QUERY } from '@/app/components/canvas/canvas-workspace-context';
 import type { WorkspaceView } from '@/app/components/canvas/canvas-workspace-layout';
 import { createComposerTagBus } from '@/app/pages/chat/composer-tag-bus';
 import type { ReportedCanvas } from './use-reported-canvas';
 import type { ClonePending } from './use-clone-canvas';
 
-// [FOUNDER DECISION: said when a tapped box could not be added to the chat because the page never finished reading.]
-export const TAG_DROPPED_TEXT = 'Could not add that box to the chat. Tap Add to chat again.';
+// [FOUNDER DECISION: pending P1621 review] said when a tapped box could not be mentioned in the chat because the page never finished reading (the button was renamed from Add to chat).
+export const TAG_DROPPED_TEXT = 'Could not mention that box in the chat. Tap Mention in chat again.';
+
+/** P1621: from 1280px the thread sits beside the canvas, so a mention opens it without moving focus off the box's button. Below that the thread is shown and takes focus, as before. */
+const isWide = (): boolean => typeof window !== 'undefined' && !!window.matchMedia?.(CANVAS_WORKSPACE_WIDE_QUERY).matches;
 
 /**
  * What the tap knows about the version on screen: the page's fresh read for the address, else the last read of THAT SAME version (a re-read in flight, or a failed
@@ -37,7 +42,7 @@ export function useAddToChat(
   held: CanvasReady | null,
   /** The `?v=` in the address. */
   version: string | null,
-  /** The viewer is the canvas's owner with the owner's header: only then are Add to chat and the chips offered. */
+  /** The viewer is the canvas's owner with the owner's header: only then are Mention in chat and the chips offered. */
   owner: boolean,
   /** The Clone state: its decision (null: the viewer cannot clone here, so cannot add to chat either), whether one is pending, the J4 sheet, and closing it with no answer. */
   cloneState: { clone: (() => void) | null; pending: ClonePending | null; sheet: unknown; dismissSheet: () => void },
@@ -83,7 +88,7 @@ export function useAddToChat(
       return true;
     }
     // a draft or a pending Clone: bring the thread into view, then the tag goes in (inside this same tap when there is one)
-    if (sync) showThread();
+    if (sync && !isWide()) showThread();
     else {
       now.current.setView('chat');
       now.current.setPanelOpen(true);
@@ -94,7 +99,7 @@ export function useAddToChat(
   // A tap that has to wait for the read (the boxes draw while the page loads or re-reads) is decided when it arrives, unless its tag was dropped meanwhile.
   const [early, setEarly] = useState(false);
   const addToChat = useCallback((tag: string) => {
-    bus.hold(tag);
+    bus.hold(tag, { focus: !isWide() });
     if (!decide(true)) setEarly(true);
   }, [bus, decide]);
   const actionable = !!known && (isViewingDraft(known) || pending || known.publishedNone || !!fresh);

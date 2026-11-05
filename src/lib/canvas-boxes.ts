@@ -31,12 +31,13 @@ export type CanvasBoxTag = (typeof CANVAS_BOXES)[number]['tag'];
 
 export const CANVAS_BOX_TAGS: readonly CanvasBoxTag[] = CANVAS_BOXES.map(b => b.tag);
 
-/** The three layers, top to bottom (P1535, founder): the core bet first, the founder's own
- *  values and limits last. Reading order is layer by layer, box by box; Previous / Next walk it. */
-export const CANVAS_LAYERS: readonly { title: string; boxes: readonly CanvasBoxTag[] }[] = [
-  { title: 'Core assumptions', boxes: ['canvas:segments', 'canvas:problem', 'canvas:solution'] },
-  { title: 'Profitability assumptions', boxes: ['canvas:channels', 'canvas:revenue', 'canvas:metrics'] },
-  { title: 'Founder-fit assumptions', boxes: ['canvas:love', 'canvas:good-at', 'canvas:world-needs'] },
+/** The three rows, top to bottom (P1535, P1621 founder-approved order): the core bet first, the founder's own
+ *  values and limits last. The rows carry no names or numbers on screen (P1621). Reading order is row by row, box by box;
+ *  Previous / Next walk it. Display order only: points keep their boxes. */
+export const CANVAS_LAYERS: readonly { boxes: readonly CanvasBoxTag[] }[] = [
+  { boxes: ['canvas:segments', 'canvas:problem', 'canvas:solution'] },
+  { boxes: ['canvas:revenue', 'canvas:channels', 'canvas:metrics'] },
+  { boxes: ['canvas:good-at', 'canvas:world-needs', 'canvas:love'] },
 ];
 
 const BOX_TAG_SET: ReadonlySet<string> = new Set(CANVAS_BOX_TAGS);
@@ -80,6 +81,9 @@ export const CANVAS_TITLE_MAX = 60;
 
 /** P1614: the longest a point's text can be on a draft (the same bound every engine path enforces). */
 export const CANVAS_POINT_MAX = 300;
+
+/** P1621: the most cards a box holds, the limit the drafting agent already has; hand-added cards count too (the server enforces it atomically). */
+export const CANVAS_BOX_CARD_LIMIT = 3;
 
 /**
  * P1536 W8: the title a canvas is SHOWN under, from the one place: the owner's rename (`canvases.title`) when there is one, else the name's

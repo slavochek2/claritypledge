@@ -9,6 +9,8 @@ import { useEffect, useRef } from 'react';
 import { subscribeCanvasDraftEvents } from '@/app/data/canvas-draft-events';
 import { isViewingDraft, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { resetPointEdits, useClearPointEditsOnAuthChange } from '@/app/components/canvas/canvas-point-edit-store';
+import { resetNewCards } from '@/app/components/canvas/canvas-new-card-store';
+import { dropFocusRequest } from '@/app/components/canvas/canvas-focus-request';
 
 export function useCanvasDraftSync(
   /** what is on screen: the draft it shows is listened for (null, or any published version: nothing is) */
@@ -22,7 +24,8 @@ export function useCanvasDraftSync(
   latest.current = { setParams, refresh };
   const draftId = ready && isViewingDraft(ready) ? ready.draft?.id : undefined;
   // P1614: the page leaving discards any point text typed and not saved, as an unsaved form does.
-  useEffect(() => resetPointEdits, []);
+  // Leaving the page discards what was typed and never saved, new cards (P1621) as P1614's edits.
+  useEffect(() => () => { resetPointEdits(); resetNewCards(); dropFocusRequest(); }, []);
   useClearPointEditsOnAuthChange(viewerId);
   useEffect(() => {
     if (!draftId) return;

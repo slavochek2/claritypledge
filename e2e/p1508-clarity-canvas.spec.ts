@@ -919,10 +919,13 @@ test.describe('P1508: Clarity Canvas', () => {
     // focus returns to the same point's card in its box
     expect(await page.evaluate(() => document.activeElement?.getAttribute('data-testid'))).toBe(`canvas-point-card-${fx.solutionPointId}`);
   });
-  test('layers are numbered and spaced, with no rules; cards show an open chevron; Previous / Next carry a blue edge', async ({ page }) => {
+  test('layers carry no names or numbers and are spaced by a gap, with no rules; cards show an open chevron; Previous / Next carry a blue edge', async ({ page }) => {
     await page.goto(fx.url);
     await waitForCanvas(page);
-    await expect(page.getByTestId('canvas-layer-number')).toHaveText(['01', '02', '03']);
+    // P1621 (deliberate, founder-approved): the three layer names and numbers are gone; a gap separates the rows
+    await expect(page.getByTestId('canvas-layer-number')).toHaveCount(0);
+    await expect(page.getByTestId('canvas-layer-title')).toHaveCount(0);
+    await expect(page.getByTestId('canvas-layer-gap')).toHaveCount(2);
     // Compare reads as an action until someone is picked; the list holds only people.
     await expect(page.getByTestId('canvas-compare-picker')).toContainText('Compare positions');
     await expect(page.getByLabel('Compare positions with').locator('option:not([hidden])').first()).not.toHaveText('Compare positions');
@@ -930,8 +933,7 @@ test.describe('P1508: Clarity Canvas', () => {
     const pill = await page.getByTestId('canvas-compare-picker').boundingBox();
     const menu = await page.getByLabel('Compare positions with').boundingBox();
     expect(Math.abs(pill!.x - menu!.x) <= 1 && Math.abs(pill!.width - menu!.width) <= 2).toBe(true);
-    const titles = page.getByTestId('canvas-layer-title');
-    for (const i of [0, 1, 2]) expect(await titles.nth(i).evaluate(el => getComputedStyle(el).borderTopWidth)).toBe('0px');
+    for (const i of [0, 1]) expect(await page.getByTestId('canvas-layer-gap').nth(i).evaluate(el => getComputedStyle(el).borderTopWidth), 'no rule between rows').toBe('0px');
     await expect(page.locator('[data-testid^="canvas-point-card-"]').first().getByTestId('canvas-card-open')).toBeVisible();
     const box = page.getByTestId('canvas-box-canvas:problem');
     await box.getByTestId('canvas-box-more').click();

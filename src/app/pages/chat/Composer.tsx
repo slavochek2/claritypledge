@@ -23,7 +23,8 @@ import { PrivateModeBar } from './PrivateModeBar';
 import { useComposerDictation } from './use-composer-dictation';
 import { useFieldFit } from './use-field-fit';
 import { useComposerTags } from './use-composer-tags';
-import { hasWords } from './composer-tags';
+import { hasWords, pillsReserve } from './composer-tags';
+import { ComposerTagPills } from './ComposerTagPills';
 
 export type { MentionEntry };
 
@@ -75,16 +76,19 @@ interface Props {
 export function Composer({ draftKey, placeholder, onSend, onAttach, staged = null, onUnstage, quote, quoteSendable = false, sendDisabled = false, waiting, focusToken = 0, autoFocus = false, mentions, privateTo = null, onPrivateChange, onVoiceNote, leading, onSendableChange }: Props) {
   const [value, setValue] = useDraft(draftKey);
   const field = useRef<HTMLTextAreaElement>(null);
-  const latest = useLatest(value);
   const keyNow = useLatest(draftKey);
   const [caret, setCaret] = useState(0);
-  // P1576: dictation. The mic, the recorder bar that takes the field's place, and where the words go.
+  // P1621: the stored value keeps the tag tokens at its start; the field, dictation and the @ picker work on the words alone, the tags are pills above the field.
   const tags = useComposerTags(field, draftKey, value, setValue, onVoiceNote);
+  const text = tags.words;
+  const latest = useLatest(text);
+  const valueNow = useLatest(value);
+  // P1576: dictation. The mic, the recorder bar that takes the field's place, and where the words go.
   const voice = useVoiceNote(draftKey, tags.voice);
-  const dict = useComposerDictation(draftKey, field, latest, keyNow, setValue, setCaret, value);
+  const dict = useComposerDictation(draftKey, field, latest, keyNow, tags.setWords, setCaret, text, pillsReserve(tags.tags));
   const [active, setActive] = useState(0);
   const [pickerClosed, setPickerClosed] = useState(false);
-  const query = mentions?.length && !privateTo ? mentionQuery(value, caret) : null;
+  const query = mentions?.length && !privateTo ? mentionQuery(text, caret) : null;
   const options = query === null ? [] : matchMentions(mentions ?? [], query);
   const pickerOpen = options.length > 0 && !pickerClosed;
   useEffect(() => {
@@ -95,15 +99,15 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
 
   const pick = (entry: MentionEntry) => {
     const el = field.current;
-    const at = el?.selectionStart ?? value.length;
-    const before = value.slice(0, at).replace(/@[^\s@]{0,30}$/, '');
-    setValue((before + value.slice(at)).replace(/^\s+$/, ''));
+    const at = el?.selectionStart ?? text.length;
+    const before = text.slice(0, at).replace(/@[^\s@]{0,30}$/, '');
+    tags.setWords((before + text.slice(at)).replace(/^\s+$/, ''));
     onPrivateChange?.(entry);
     requestAnimationFrame(() => field.current?.focus());
   };
 
   // Grow with the text up to ~5 lines, then scroll inside the field (and again when its width changes).
-  useFieldFit(field, value);
+  useFieldFit(field, text);
 
   useEffect(() => {
     if (focusToken > 0 || (autoFocus && hasFinePointer())) field.current?.focus();
@@ -113,8 +117,9 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
   useEffect(() => onSendableChange?.(sendable), [sendable, onSendableChange]);
   useEffect(() => () => onSendableChange?.(false), [onSendableChange]);
   const send = () => {
-    const text = value.trim();
-    if ((!text && !staged && !quoteSendable) || sendDisabled || waiting) return;
+    // Pills alone are not a message: words (or an attachment or a quote) decide, as the Send button does.
+    if ((!hasWords(value) && !staged && !quoteSendable) || sendDisabled || waiting) return;
+    const body = value.trim();
     const before = value;
     const sentFrom = draftKey;
     // A failed send's text goes back to the slot it was written in. If the composer has since switched slot (left
@@ -122,10 +127,10 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
     // reappear in a channel's composer (P1520 review). In the slot it was written in, the text comes back ahead of anything typed since.
     const restore = (text: string) => {
       if (keyNow.current !== sentFrom) stashDraft(sentFrom, text);
-      else setValue(latest.current ? `${text}\n${latest.current}` : text); // what was typed since is kept after it
+      else setValue(valueNow.current ? `${text}\n${valueNow.current}` : text); // what was typed since is kept after it (a pill added since moves to the front on the next read)
     };
     setValue('');
-    const result = onSend(text || null, staged);
+    const result = onSend(body || null, staged);
     // A refusal that comes back at once (nothing was sent) gives the draft back before anything else.
     if (result === false) {
       setValue(before);
@@ -158,6 +163,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
       >
         {privateTo && <PrivateModeBar entry={privateTo} onLeave={() => onPrivateChange?.(null)} />}
         {quote}
+        <ComposerTagPills tags={tags.tags} onRemove={tags.removePill} />
         {staged && (
           <div className="relative px-2 pt-1" data-testid="staged-attachment">
             <div className="max-h-24 overflow-hidden rounded-xl pr-10">
@@ -178,16 +184,16 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
           {/* The hint is drawn by hand, not as a placeholder: a placeholder wraps (and grows the composer) at a narrow
               width, this one is a single line that ends in an ellipsis. */}
           <div className="relative min-w-0 flex-1" hidden={!slots.field}>
-            {value === '' && (
+            {text === '' && (
               <span aria-hidden="true" data-testid="composer-hint" className="pointer-events-none absolute inset-x-0 top-0 block truncate py-2 pl-2 pr-10 text-base leading-6 text-gray-500 md:text-[15px]">
                 {hint}
               </span>
             )}
             <textarea
               ref={field}
-              value={value}
+              value={text}
               onChange={(e) => {
-                setValue(e.target.value);
+                tags.setWords(e.target.value);
                 dict.trackCaret(e.target.selectionStart ?? e.target.value.length);
               }}
               onSelect={(e) => dict.trackCaret(e.currentTarget.selectionStart ?? 0)}
@@ -196,7 +202,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
               aria-autocomplete={mentions?.length ? 'list' : undefined}
               aria-controls={pickerOpen ? listId : undefined}
               aria-activedescendant={pickerOpen && options[active] ? `${listId}-${options[active].id}` : undefined}
-              maxLength={4000}
+              maxLength={4000 - pillsReserve(tags.tags)}
               onKeyDown={(e) => {
                 if (tags.onKeyDown(e)) return;
                 if (pickerOpen) {

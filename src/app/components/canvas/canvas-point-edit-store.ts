@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import type { PointWithUserPosition } from '@/app/types';
+import { resetNewCards } from './canvas-new-card-store';
 
 export interface PointEditEntry {
   draftId: string;
@@ -22,6 +23,10 @@ export interface PointEditEntry {
 }
 
 export const pointEditKey = (draftId: string, pointId: string): string => `${draftId}:${pointId}`;
+
+/** The test id of a card's Edit action (P1621), where focus returns when its editor closes; and of the same action on the opened point in the panel. */
+export const cardEditTestId = (pointId: string): string => `canvas-card-edit-${pointId}`;
+export const panelEditTestId = (pointId: string): string => `canvas-panel-edit-${pointId}`;
 
 let entries: ReadonlyMap<string, PointEditEntry> = new Map();
 let panelBoxes: ReadonlySet<string> = new Set();
@@ -83,7 +88,7 @@ export function useClearPointEditsOnAuthChange(viewerId: string | null | undefin
   const lastSignedIn = useRef<string | null | undefined>(viewerId);
   useEffect(() => {
     if (!viewerId) return;
-    if (lastSignedIn.current && lastSignedIn.current !== viewerId) resetPointEdits();
+    if (lastSignedIn.current && lastSignedIn.current !== viewerId) { resetPointEdits(); resetNewCards(); }
     lastSignedIn.current = viewerId;
   }, [viewerId]);
 }

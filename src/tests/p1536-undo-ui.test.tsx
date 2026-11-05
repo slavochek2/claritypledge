@@ -10,6 +10,7 @@
  *  - D15: while a run is going the Undo spot is a status, never a disabled button
  *  - reads: one per change of the draft, none while the tab is hidden
  */
+import { lacksSecondaryPill } from './p1536-pill-assert';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -242,15 +243,15 @@ async function threadReady() {
 const under = (testId: string) => screen.getByTestId(testId).closest('li')!.previousElementSibling?.getAttribute('data-msg');
 
 describe('D7/J6: where Undo is', () => {
-  it('a ghost "Undo" under the mirror\'s reply of the run the server names (the newest applied), and under no other message', async () => {
+  it('a blue-outline "Undo" (P1621: the secondary pill, no longer a ghost) under the mirror\'s reply of the run the server names (the newest applied), and under no other message', async () => {
     mount(DRAFT_AT);
     await threadReady();
     const undo = await screen.findByTestId('canvas-undo');
     expect(undo).toHaveTextContent('Undo');
     expect(screen.getAllByTestId('canvas-undo')).toHaveLength(1);
     expect(under('canvas-undo')).toBe('a-r2');
-    expect(undo.className).not.toContain('bg-blue-600'); // ghost: rule 3, never a filled or boxed button
-    expect(undo.className).not.toContain('border');
+    expect(undo.className).not.toContain('bg-blue-600'); // never the filled primary: Publish or Share is the one main action
+    expect(lacksSecondaryPill(undo), 'P1621 (founder): the secondary blue-outline style, the same constant Compare and Clone wear').toEqual([]);
     expect(stateReads()).toHaveLength(1);
     expect(stateReads()[0]![1]).toEqual({ p_canvas: 'cv-1' });
   });

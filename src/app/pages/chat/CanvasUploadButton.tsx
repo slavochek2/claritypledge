@@ -7,6 +7,7 @@
 import { useRef } from 'react';
 import { Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { FOCUS_RING, HOVER, ROUND } from './chat-kit';
 import { UPLOAD_ACCEPT, UPLOAD_LABEL, UPLOAD_WAITS_LABEL } from './canvas-thread-copy';
 
@@ -27,18 +28,25 @@ export function CanvasUploadButton({ busy, onPick }: { busy: boolean; onPick: (f
           onPick(file);
         }}
       />
-      <button
-        type="button"
-        aria-label={UPLOAD_LABEL}
-        title={UPLOAD_LABEL}
-        aria-busy={busy}
-        data-testid="canvas-upload"
-        onClick={() => !busy && input.current?.click()}
-        className={cn(ROUND, 'text-muted-foreground', HOVER, FOCUS_RING)}
-      >
-        {/* static while a file reads: the checklist row is what spins */}
-        <Upload className="h-5 w-5" aria-hidden="true" />
-      </button>
+      {/* The tooltip opens on hover and on keyboard focus (Radix); the accessible name stays the aria-label. */}
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={UPLOAD_LABEL}
+              aria-busy={busy}
+              data-testid="canvas-upload"
+              onClick={() => !busy && input.current?.click()}
+              className={cn(ROUND, 'text-muted-foreground', HOVER, FOCUS_RING)}
+            >
+              {/* static while a file reads: the checklist row is what spins */}
+              <Upload className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">{UPLOAD_LABEL}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </>
   );
 }

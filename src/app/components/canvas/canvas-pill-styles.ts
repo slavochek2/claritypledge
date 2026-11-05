@@ -38,6 +38,10 @@ export const CANVAS_DISCARD_TEXT =
 export const CANVAS_CANCEL_TEXT =
   'inline-flex h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
 
+/** P1621: every box and card action is a quiet grey ghost button with a hover state, at least 40px tall; Save is the only filled one. */
+export const CANVAS_QUIET_ACTION =
+  'min-h-10 gap-1.5 px-2 text-sm font-medium text-foreground/70 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-blue-500';
+
 /**
  * A small outlined label on the canvas: the "Changed" marker on a box, and a box named in a message (the owner's tag, the agent's "Updated:" reply). One look, so a chip in the
  * thread is recognisably the marker on the box it names. Shape and colour only: the caller sets spacing and, for a tappable one, the 40px height.

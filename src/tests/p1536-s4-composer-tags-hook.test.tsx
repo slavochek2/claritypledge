@@ -34,7 +34,9 @@ function Harness({ voice, late = false, initial = '' }: { voice?: VoiceSender; l
   const tags = useComposerTags(field, key, value, setValue, voice);
   return (
     <div>
-      {shown ? <textarea ref={field} aria-label="field" value={value} onChange={e => setValue(e.target.value)} onKeyDown={e => { tags.onKeyDown(e); }} /> : <button type="button" onClick={() => setShown(true)}>mount</button>}
+      {shown ? <textarea ref={field} aria-label="field" value={tags.words} onChange={e => tags.setWords(e.target.value)} onKeyDown={e => { tags.onKeyDown(e); }} /> : <button type="button" onClick={() => setShown(true)}>mount</button>}
+      <output data-testid="stored">{value}</output>
+      <output data-testid="pills">{tags.tags.join(',')}</output>
       <button type="button" onClick={() => void tags.voice?.(new Blob(['x']))}>voice</button>
       <output data-testid="key">{key}</output>
     </div>
@@ -42,6 +44,8 @@ function Harness({ voice, late = false, initial = '' }: { voice?: VoiceSender; l
 }
 const mount = (props: Parameters<typeof Harness>[0] = {}) => render(<ComposerTagContext.Provider value={bus}><Harness {...props} /></ComposerTagContext.Provider>);
 const field = () => screen.getByLabelText('field') as HTMLTextAreaElement;
+/** P1621: the composer's canonical stored value (tokens first); the field shows only the words. */
+const stored = () => screen.getByTestId('stored').textContent ?? '';
 
 beforeEach(() => { clearDraftsExcept(null); bus.clear(); });
 afterEach(cleanup);
@@ -50,14 +54,14 @@ describe('several tags queued at once', () => {
   it('all of them land, in order, in one tap', () => {
     mount();
     act(() => { bus.hold(PROBLEM); bus.hold(SOLUTION); bus.hold(REVENUE); bus.flush(true); });
-    expect(tagCounts(field().value)).toEqual({ [PROBLEM]: 1, [SOLUTION]: 1, [REVENUE]: 1 });
-    expect(field().value.indexOf(tagToken(PROBLEM))).toBeLessThan(field().value.indexOf(tagToken(SOLUTION)));
-    expect(field().value.indexOf(tagToken(SOLUTION))).toBeLessThan(field().value.indexOf(tagToken(REVENUE)));
+    expect(tagCounts(stored())).toEqual({ [PROBLEM]: 1, [SOLUTION]: 1, [REVENUE]: 1 });
+    expect(stored().indexOf(tagToken(PROBLEM))).toBeLessThan(stored().indexOf(tagToken(SOLUTION)));
+    expect(stored().indexOf(tagToken(SOLUTION))).toBeLessThan(stored().indexOf(tagToken(REVENUE)));
   });
   it('and when the composer takes them late (not inside a tap)', async () => {
     mount();
     act(() => { bus.hold(PROBLEM); bus.hold(SOLUTION); bus.flush(false); });
-    expect(tagCounts(field().value)).toEqual({ [PROBLEM]: 1, [SOLUTION]: 1 });
+    expect(tagCounts(stored())).toEqual({ [PROBLEM]: 1, [SOLUTION]: 1 });
   });
 });
 
@@ -70,16 +74,16 @@ describe('a voice note\'s completion removes only what it carried, where it was 
     expect(sender.mock.calls[0]![1]).toEqual({ boxRefs: [REVENUE] });
     act(() => { bus.hold(PROBLEM); bus.flush(true); }); // added while the note is on its way
     await act(async () => { done(); });
-    expect(tagCounts(field().value)).toEqual({ [PROBLEM]: 1 });
+    expect(tagCounts(stored())).toEqual({ [PROBLEM]: 1 });
   });
-  it('a second token of the same box added after submission survives (only the submitted count goes)', async () => {
+  it('a repeat tag of the same box added after submission adds no second pill (P1621), so the note takes the box away entirely', async () => {
     let done: () => void = () => undefined;
     const sender = vi.fn((_w: Blob, _o?: unknown) => new Promise<void>(r => { done = r; }));
     mount({ voice: sender, initial: `${tagToken(REVENUE)} ` });
     fireEvent.click(screen.getByText('voice'));
     act(() => { bus.hold(REVENUE); bus.flush(true); });
     await act(async () => { done(); });
-    expect(tagCounts(field().value)).toEqual({ [REVENUE]: 1 });
+    expect(tagCounts(stored())).toEqual({});
   });
   it('when the composer has moved to another slot meanwhile, the new slot is untouched and the slot it was sent from loses the tags', async () => {
     let done: () => void = () => undefined;
@@ -89,7 +93,7 @@ describe('a voice note\'s completion removes only what it carried, where it was 
     fireEvent.click(screen.getByText('voice'));
     act(() => { setKeyFromOutside('u:slot-b'); setFromOutside(`${tagToken(PROBLEM)} other chat`); });
     await act(async () => { done(); });
-    expect(field().value).toBe(`${tagToken(PROBLEM)} other chat`);
+    expect(stored()).toBe(`${tagToken(PROBLEM)} other chat`);
     expect(tagCounts(peekDraft('u:slot-a'))).toEqual({});
   });
 });
@@ -99,7 +103,7 @@ function StoreHarness({ voice, draftKey }: { voice: VoiceSender; draftKey: strin
   const field = useRef<HTMLTextAreaElement>(null);
   const [value, setValue] = useDraft(draftKey);
   const tags = useComposerTags(field, draftKey, value, setValue, voice);
-  return <div><textarea ref={field} aria-label="field" value={value} onChange={e => setValue(e.target.value)} /><button type="button" onClick={() => void tags.voice?.(new Blob(['x']))}>voice</button></div>;
+  return <div><textarea ref={field} aria-label="field" value={tags.words} onChange={e => tags.setWords(e.target.value)} /><output data-testid="stored">{value}</output><button type="button" onClick={() => void tags.voice?.(new Blob(['x']))}>voice</button></div>;
 }
 
 describe('a voice note that completes after the composer was left and come back to', () => {
@@ -114,20 +118,39 @@ describe('a voice note that completes after the composer was left and come back 
     await act(async () => { done(); });
     expect(peekDraft('u:slot-a')).toBe('typed since');
     render(<ComposerTagContext.Provider value={bus}><StoreHarness voice={sender} draftKey="u:slot-a" /></ComposerTagContext.Provider>);
-    expect(field().value).toBe('typed since');
+    expect(stored()).toBe('typed since');
   });
 });
 
-describe('the caret listener', () => {
-  it('attaches when the textarea mounts after the hook: a caret put inside a token goes to its edge', () => {
-    const v = `${tagToken(REVENUE)} words`;
-    mount({ late: true, initial: v });
-    fireEvent.click(screen.getByText('mount'));
-    const el = field();
-    el.setSelectionRange(v.length, v.length);
-    fireEvent.select(el); // the previous caret: at the end
-    el.setSelectionRange(4, 4); // moved left, into the token
-    fireEvent.select(el);
-    expect(el.selectionStart).toBe(0);
+describe('P1621 pills in the hook', () => {
+  it('a value with a token mid-text shows the token as a pill and only the words in the field', () => {
+    mount({ initial: `price ${tagToken(REVENUE)} is high` });
+    expect(screen.getByTestId('pills').textContent).toBe(REVENUE);
+    expect(field().value).toBe('price is high');
+  });
+  it('a repeat tag adds no second pill, and a tag with focus:false does not move focus', () => {
+    mount();
+    act(() => { bus.hold(REVENUE, { focus: false }); bus.flush(true); });
+    expect(document.activeElement).not.toBe(field());
+    act(() => { bus.hold(REVENUE); bus.flush(true); });
+    expect(screen.getByTestId('pills').textContent).toBe(REVENUE);
+    expect(document.activeElement).toBe(field());
+  });
+  it('the bus reports mentioned boxes: held ones, then the ones in the value, then none once removed or unmounted', () => {
+    const view = mount();
+    bus.hold(PROBLEM);
+    expect([...bus.mentioned()]).toEqual([PROBLEM]);
+    act(() => bus.flush(true));
+    expect([...bus.mentioned()]).toEqual([PROBLEM]);
+    act(() => { bus.clear(); });
+    expect([...bus.mentioned()]).toEqual([PROBLEM]); // still in the composer
+    view.unmount();
+    expect([...bus.mentioned()]).toEqual([]);
+  });
+  it('a dropped wait removes the held tag', () => {
+    bus.hold(SOLUTION);
+    expect(bus.mentioned().has(SOLUTION)).toBe(true);
+    bus.clear();
+    expect(bus.mentioned().has(SOLUTION)).toBe(false);
   });
 });

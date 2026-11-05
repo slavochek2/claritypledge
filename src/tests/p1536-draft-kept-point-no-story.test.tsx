@@ -74,7 +74,10 @@ function page(at: string) {
   );
 }
 const openPoint = async (id: string) => {
-  fireEvent.click(await screen.findByTestId(`canvas-point-card-${id}`));
+  const card = await screen.findByTestId(`canvas-point-card-${id}`);
+  // P1621 (deliberate): on the owner's draft a card is not a button (clicking it selects its box) and Open opens the point; on a published version the whole card still opens it.
+  if (card.tagName !== 'BUTTON' && !screen.queryByTestId(`canvas-card-open-${id}`)) fireEvent.click(card);
+  fireEvent.click(screen.queryByTestId(`canvas-card-open-${id}`) ?? card);
   return screen.findByTestId('open-card');
 };
 

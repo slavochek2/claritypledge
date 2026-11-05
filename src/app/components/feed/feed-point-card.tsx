@@ -26,6 +26,7 @@ import {
   CardMenu,
   CardSlotLink,
 } from '@/app/components/shared/card-footer-controls';
+import { ADD_STORY_COPY } from '@/app/components/shared/presentational/card-footer';
 import type { PointWithUserPosition, PositionType, StoryWithAuthor } from '@/app/types';
 import { useAuth } from '@/auth';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
@@ -158,10 +159,19 @@ export function FeedPointCard(props: FeedPointCardProps) {
   return props.compact ? <CompactPointCard point={props.point} /> : <FullFeedPointCard {...props} />;
 }
 
-/** The story invitation's wording, once every condition holds and the viewer has a position. */
-function addStoryCopyFor(conditions: boolean[], position: Parameters<typeof getPositionGroup>[0] | null | undefined) {
-  return conditions.every(Boolean) && position ? getPositionCTACopy(getPositionGroup(position)) : null;
+/**
+ * The story invitation's wording, once every condition holds and the viewer has a position. P1621: the canvas owner on their own point needs no position
+ * (`ownerBypass`): the plain "+ Add a story" wording then. Every other condition still applies, and a reader's rule is unchanged.
+ */
+function addStoryCopyFor(conditions: boolean[], position: Parameters<typeof getPositionGroup>[0] | null | undefined, ownerBypass = false) {
+  if (!conditions.every(Boolean)) return null;
+  if (position) return getPositionCTACopy(getPositionGroup(position));
+  return ownerBypass ? ADD_STORY_COPY : null;
 }
+
+/** P1621: the viewer is the canvas's owner looking at their own point (not a reader of someone else's canvas). */
+const isCanvasOwnerOnOwnPoint = (viewerId: string | undefined, owner: FeedPointCardOwner | undefined, canvas: FeedPointCardCanvas | undefined): boolean =>
+  !!viewerId && !!owner && viewerId === owner.id && !!canvas && !canvas.reader;
 
 function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', decideOnly = false, hideAnonSignupCta = false, onPositionSaved, owner, spread, collapseStoriesOnEscape = false, onAddStory, canvas }: FeedPointCardProps) {
   // P1336: in-app paths open in a new tab when the host flow says so (onboarding's embedded stake).
@@ -295,7 +305,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
   const viewerStory = viewerId && linkedStories
     ? linkedStories.find((linked) => linked.authorId === viewerId)
     : undefined;
-  const addStoryCopy = addStoryCopyFor([!!viewerId, linkedStories !== undefined, !viewerStory, canvasTakesStory(canvas)], authedEffective);
+  const addStoryCopy = addStoryCopyFor([!!viewerId, linkedStories !== undefined, !viewerStory, canvasTakesStory(canvas)], authedEffective, isCanvasOwnerOnOwnPoint(viewerId, owner, canvas));
 
   /* P1508 D5 — with an owner, the profile's rules (point-card-with-links.tsx): the stories are the
      owner's only (a person has at most one story per point), the expander says whose; the viewer's

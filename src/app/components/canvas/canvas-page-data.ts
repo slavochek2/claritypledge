@@ -108,13 +108,19 @@ export function isViewingDraft(ready: CanvasReady): boolean {
 }
 
 /** P1614: what the grid needs to offer Edit on each card: the owner on their own open draft. `runActive`: their agent is working on it (no new edit starts; an open editor stays, with Save blocked). */
-export function pointEditOf(ready: CanvasReady | null, runActive: boolean | undefined): { draftId: string; revision: number; runActive: boolean } | undefined {
-  return ready && isViewingDraft(ready) && ready.draft ? { draftId: ready.draft.id, revision: ready.draft.revision, runActive: !!runActive } : undefined;
+export function pointEditOf(ready: CanvasReady | null, runActive: boolean | undefined): { draftId: string; revision: number; runActive: boolean; userId: string } | undefined {
+  // The draft is the owner's alone, so the owner is the signed-in person (P1621: whose first visit opens a box).
+  return ready && isViewingDraft(ready) && ready.draft ? { draftId: ready.draft.id, revision: ready.draft.revision, runActive: !!runActive, userId: ready.ownerId } : undefined;
 }
 
 /** Nothing to read: a READER of a canvas with nothing published (the grid is replaced by one line). The owner gets the grid (nine empty boxes say it: 3c X12). */
 export function hasNothingToShow(ready: CanvasReady): boolean {
   return ready.publishedNone && !ready.isOwner && !isViewingDraft(ready);
+}
+
+/** The owner's open draft, whichever version is on screen (null: none, or not the owner): what typed new-card text is kept against (P1621). */
+export function openDraftIdOf(ready: CanvasReady | null): string | null {
+  return ready?.draft?.id ?? null;
 }
 
 /** The owner's questions for the empty boxes, keyed by box tag: only on the draft, only for the owner. */

@@ -99,7 +99,8 @@ describe('P1618: the upload icon', () => {
     expect(button.querySelector('svg.lucide-upload')).not.toBeNull();
     expect(button.querySelector('svg.lucide-paperclip')).toBeNull();
     expect(button).toHaveAttribute('aria-label', 'Upload');
-    expect(button).toHaveAttribute('title', 'Upload');
+    // P1621: the hover name is a real tooltip, shown on focus too (p1621-composer-pills.test.tsx), so no native title doubles it.
+    expect(button).not.toHaveAttribute('title');
   });
 
   it('the waiting status in the same spot carries no paperclip either', () => {

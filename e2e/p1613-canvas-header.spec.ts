@@ -1,12 +1,12 @@
 /**
  * @file p1613-canvas-header.spec.ts
  * @description P1613 on the REAL route (the owner's canvas page, the workspace, the mirror chat), in Chromium on the self-hosted TEST server, with test accounts only:
- * Compare in the bar beside the version picker (no row of its own), the real Add to chat (label in a wide box, icon alone at 44x44 in a narrow one, a tap puts the tag in the
- * composer), Clone from a comparison (Compare and `with` gone, a real browser Back brings the comparison back) and Cancel's real class. Refuses to run against anything but a TEST project.
+ * Compare in the bar beside the version picker (no row of its own), the real Mention in chat (P1621 replaced P1613's Add to chat: on the selected box only, the label always shown, wrapping
+ * in a narrow one; a tap puts the box's pill in the composer and the button reads Mentioned), Clone from a comparison (Compare and `with` gone, a real browser Back brings the comparison back) and Cancel's real class. Refuses to run against anything but a TEST project.
  *
  *   P1613_DIR=<abs dir for screenshots> npx playwright test e2e/p1613-canvas-header.spec.ts --project=chromium
  */
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from './helpers/supabase-admin';
@@ -26,9 +26,8 @@ const POINTS: Array<[string, string]> = [
   ['canvas:problem', 'Offices order catering late and get cold food (SEEDED)'],
   ['canvas:world-needs', 'Nobody wants a weekly order (SEEDED)'],
 ];
-const composer = (page: Page) => page.getByTestId('composer').getByRole('textbox').first();
 
-test('P1613 real route: Compare in the bar, Add to chat, Clone from a comparison, Back, Cancel', async ({ page }) => {
+test('P1613 real route: Compare in the bar, Mention in chat, Clone from a comparison, Back, Cancel', async ({ page }) => {
   const created: string[] = []; // every account made so far: a failed second create must not leak the first
   const pointIds: string[] = [];
   let canvasId: string | null = null;
@@ -87,13 +86,16 @@ test('P1613 real route: Compare in the bar, Add to chat, Clone from a comparison
     expect((await page.evaluate(() => document.documentElement.scrollWidth)) <= 1440).toBe(true);
     await page.screenshot({ path: `${DIR}/1-published-1440.png` });
 
-    // 2. a wide box shows the label (the thread panel is closed on a published view)
-    const addProblem = page.getByTestId('canvas-add-to-chat-canvas:problem');
+    // 2. P1621: Mention in chat shows on the SELECTED box only; select Problem by its title. In a wide box the label is in the flow, never visually hidden
+    await expect(page.getByTestId('canvas-mention-in-chat-canvas:problem'), 'nothing is mentioned at rest').toHaveCount(0);
+    await page.getByTestId('canvas-box-title-canvas:problem').click();
+    const addProblem = page.getByTestId('canvas-mention-in-chat-canvas:problem');
     await expect(addProblem).toBeVisible({ timeout: 40_000 });
-    const wide = await addProblem.evaluate(b => ({ w: b.getBoundingClientRect().width, h: b.getBoundingClientRect().height, label: getComputedStyle(b.querySelector('span')!).position, ws: getComputedStyle(b.querySelector('span')!).whiteSpace, box: b.parentElement!.getBoundingClientRect().width }));
+    const wide = await addProblem.evaluate(b => ({ w: b.getBoundingClientRect().width, h: b.getBoundingClientRect().height, label: getComputedStyle(b.querySelector('span')!).position, text: b.textContent }));
     console.log('wide box', JSON.stringify(wide));
     expect(wide.label, 'the label is in flow in a wide box').toBe('static');
-    expect(wide.ws).toBe('nowrap');
+    expect(wide.text).toBe('Mention in chat');
+    expect(wide.h).toBeGreaterThanOrEqual(39.5);
     expect(wide.w).toBeGreaterThan(60);
 
     // 3. pick someone: the address carries `with`
@@ -116,27 +118,30 @@ test('P1613 real route: Compare in the bar, Add to chat, Clone from a comparison
     const statusBorder = await page.getByTestId('publish-spot').evaluate(el => [el, ...el.querySelectorAll('*')].some(e => getComputedStyle(e).borderTopWidth !== '0px'));
     expect(statusBorder, 'the status text beside Cancel has no outline').toBe(false);
 
-    // 6. the real Add to chat in a narrow box (the panel is open): the icon alone at 44x44, the name on hover and to screen readers
-    const narrow = page.getByTestId('canvas-add-to-chat-canvas:world-needs');
-    await narrow.scrollIntoViewIfNeeded();
+    // 6. the real Mention in chat in a narrow box (the panel is open): P1621 removed the icon-only form; the label always shows and wraps, the button stays inside its box
+    await page.getByTestId('canvas-box-title-canvas:world-needs').scrollIntoViewIfNeeded();
+    await page.getByTestId('canvas-box-title-canvas:world-needs').click();
+    const narrow = page.getByTestId('canvas-mention-in-chat-canvas:world-needs');
+    await expect(narrow).toBeVisible();
     const n = await narrow.evaluate(b => {
-      const r = b.getBoundingClientRect(); const h3 = b.parentElement!.querySelector('h3')!.getBoundingClientRect(); const s = b.querySelector('span')!;
-      return { w: r.width, h: r.height, box: b.parentElement!.getBoundingClientRect().width, titleH: h3.height, pos: getComputedStyle(s).position, title: b.getAttribute('title'), name: b.getAttribute('aria-label') };
+      const r = b.getBoundingClientRect(); const box = b.closest('[data-canvas-box]')!.getBoundingClientRect(); const s = b.querySelector('span')!;
+      return { w: r.width, h: r.height, insideBox: r.left >= box.left - 1 && r.right <= box.right + 1, box: box.width, pos: getComputedStyle(s).position, text: b.textContent, name: b.getAttribute('aria-label') };
     });
     console.log('narrow box', JSON.stringify(n));
-    expect(n.box, 'the box is narrower than 21rem with the panel open').toBeLessThan(336);
-    expect(n.w).toBeGreaterThanOrEqual(44);
-    expect(n.w).toBeLessThanOrEqual(45);
-    expect(n.h).toBeGreaterThanOrEqual(44);
-    expect(n.pos).toBe('absolute'); // the label is visually hidden
-    expect(n.title).toBe('Add to chat');
-    expect(n.name).toContain('Add to chat');
-    expect(n.titleH, 'the longest box title stays on one line').toBeLessThan(26);
-    await page.screenshot({ path: `${DIR}/3-add-to-chat-icon-only-1440.png` });
+    expect(n.h).toBeGreaterThanOrEqual(39.5);
+    expect(n.insideBox, 'the button stays inside its box').toBe(true);
+    expect(n.pos, 'the label is not visually hidden').toBe('static');
+    expect(n.text).toBe('Mention in chat');
+    expect(n.name).toContain('Mention in chat');
+    await page.screenshot({ path: `${DIR}/3-mention-in-chat-narrow-1440.png` });
 
-    // 7. a tap on the icon puts the box's tag in the composer
+    // 7. a tap puts the box's pill in the composer; the button reads Mentioned; a repeat tap adds no second pill
     await narrow.click();
-    await expect.poll(async () => composer(page).inputValue(), { timeout: 15_000 }).toContain('[Hypotheses');
+    await expect(page.getByTestId('composer-tag-pill')).toHaveCount(1, { timeout: 15_000 });
+    await expect(page.getByTestId('composer-tag-pill').first()).toContainText('Hypotheses');
+    await expect(narrow).toHaveText('Mentioned');
+    await narrow.click();
+    await expect(page.getByTestId('composer-tag-pill')).toHaveCount(1);
 
     // 8. a real browser Back from the Clone brings the comparison back (the move pushed an entry)
     await page.goBack();

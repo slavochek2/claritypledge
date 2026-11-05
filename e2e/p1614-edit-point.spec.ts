@@ -58,6 +58,20 @@ async function shot(page: Page, vp: number, name: string, draft = true) {
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${DIR}/${vp}-${name}.png`, fullPage: false });
 }
+/**
+ * P1621 (deliberate): the pencil beside the card is now the card's Edit action, which the card shows while its box is SELECTED. Select the box by its title (the first visit may
+ * already have selected one: the title says so).
+ */
+/** The first-visit opening (P1621) selects a box by itself once per person; these walks test Edit, not that, so it is marked as already done (the key is use-box-selection's `firstVisitKey`). */
+async function noFirstVisit(page: Page, userId: string) {
+  await page.addInitScript(k => window.localStorage.setItem(k, '1'), `p1621:first-draft-visit:${userId}`);
+}
+async function selectBox(page: Page, tag: string) {
+  const t = page.getByTestId(`canvas-box-title-${tag}`);
+  await expect(t).toBeVisible({ timeout: 30_000 });
+  if ((await t.getAttribute('aria-pressed')) !== 'true') await t.click();
+  await expect(t).toHaveAttribute('aria-pressed', 'true');
+}
 const overflow = (page: Page) => page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth }));
 async function showCanvas(page: Page) {
   const tab = page.getByTestId('workspace-view-canvas');
@@ -87,6 +101,7 @@ for (const vp of [1440, 375, 320]) {
       const base = `/p/${user.slug}/canvas/${canvasName}`;
 
       const page = await ctx.newPage();
+      await noFirstVisit(page, ownerId);
       await setTestSession(page, user.email);
       await page.goto(`${base}?v=${second.version_name}&ws=1`);
       await showCanvas(page);
@@ -95,13 +110,15 @@ for (const vp of [1440, 375, 320]) {
       const before = await draftState(ownerId);
       const target = before.d && (await supabaseAdmin.from('points').select('id,statement').eq('first_validator_id', ownerId).eq('statement', 'Founders who cannot get a straight answer').contains('system_tags', [`canvas_${second.version_name}`]).single()).data as Row;
 
-      // 1. Edit is offered, editor closed
-      const editBtn = page.getByTestId(`canvas-edit-point-${target.id}`);
+      // 1. Edit is offered on the selected box's card, editor closed; at rest it is not there
+      await expect(page.getByTestId(`canvas-card-edit-${target.id}`), 'no Edit at rest').toHaveCount(0);
+      await selectBox(page, SEG);
+      const editBtn = page.getByTestId(`canvas-card-edit-${target.id}`);
       await expect(editBtn).toBeVisible({ timeout: 20_000 });
       const bb = (await editBtn.boundingBox())!;
       expect(bb.width, 'hit area at least 40px wide').toBeGreaterThanOrEqual(40);
       expect(bb.height, 'hit area at least 40px tall').toBeGreaterThanOrEqual(40);
-      // it sits on the card (inside its box), never nested in the card button, and its icon clears the statement text
+      // it sits in the card's action row (inside its box), the card is not a button, and its icon clears the statement text
       const cardBox = (await page.getByTestId(`canvas-point-card-${target.id}`).boundingBox())!;
       const textBox = (await page.getByTestId(`canvas-point-card-${target.id}`).locator('p').first().boundingBox())!;
       const icon = (await editBtn.locator('svg').boundingBox())!;
@@ -111,7 +128,8 @@ for (const vp of [1440, 375, 320]) {
       fs.writeFileSync(`${DIR}/${vp}-pencil.json`, JSON.stringify(measure));
       expect(measure.iconOverlapsStatementPx2, 'the icon never covers the statement').toBe(0);
       expect(measure.insideCardX, 'the hit area stays inside the card horizontally').toBe(true);
-      expect(await editBtn.evaluate(el => !!el.closest('[data-testid^="canvas-point-card-"]')), 'a sibling of the card button, not nested').toBe(false);
+      expect(await page.getByTestId(`canvas-point-card-${target.id}`).evaluate(el => el.tagName), 'P1621: the owner\'s card is not a button').toBe('DIV');
+      expect(await editBtn.evaluate(el => !!el.parentElement!.closest('button')), 'Edit is never nested inside a button').toBe(false);
       let ov = await overflow(page); expect(ov.sw, 'no horizontal overflow, editor closed').toBeLessThanOrEqual(ov.iw);
       await shot(page, vp, 'closed');
 
@@ -150,7 +168,8 @@ for (const vp of [1440, 375, 320]) {
       // reloading keeps the workspace: the draft's controls are all there at every width, not only the text
       await expect(page.getByTestId('canvas-discard'), 'Discard after reload').toBeVisible();
       await expect(page.getByTestId('canvas-draft-publish'), 'Publish after reload').toBeVisible();
-      await expect(page.getByTestId(`canvas-add-to-chat-${SEG}`), 'Add to chat after reload').toBeVisible();
+      await selectBox(page, SEG);
+      await expect(page.getByTestId(`canvas-mention-in-chat-${SEG}`), 'Mention in chat after reload (on the selected box)').toBeVisible();
       if (vp < 1280) await expect(page.getByTestId('workspace-view-canvas'), 'the Canvas/Thread toggle after reload').toBeVisible();
       expect(page.url(), 'ws=1 survives the reload').toContain('ws=1');
       await shot(page, vp, 'saved-after-reload');
@@ -163,7 +182,7 @@ for (const vp of [1440, 375, 320]) {
       expect(old.superseded_by, 'the old point is superseded').toBeTruthy();
       await page.goto(`${base}?v=${v1name}`);
       await expect(page.getByText('Founders who cannot get a straight answer')).toBeVisible({ timeout: 30_000 });
-      await expect(page.getByTestId('canvas-edit-point-' + target.id)).toHaveCount(0);   // a published version offers no Edit
+      await expect(page.getByTestId('canvas-card-edit-' + target.id)).toHaveCount(0);   // a published version offers no Edit
       await shot(page, vp, 'v1-published-no-edit', false);
 
       // 6. Discard of an edited draft leaves nothing
@@ -172,7 +191,8 @@ for (const vp of [1440, 375, 320]) {
       await page.goto(`${base}?v=${third.version_name}&ws=1`);
       await showCanvas(page);
       const t3 = (await supabaseAdmin.from('points').select('id').eq('first_validator_id', ownerId).contains('system_tags', [`canvas_${third.version_name}`]).eq('statement', 'Founders whose co-founder never says what they mean').single()).data as Row;
-      await page.getByTestId(`canvas-edit-point-${t3.id}`).click();
+      await selectBox(page, SEG);
+      await page.getByTestId(`canvas-card-edit-${t3.id}`).click();
       await page.getByTestId('canvas-point-editor-text').fill(`This edit will be discarded ${vp}`);
       await page.getByTestId('canvas-point-editor-save').click();
       await expect(page.getByTestId('canvas-point-editor-text')).toHaveCount(0, { timeout: 20_000 });   // the save finished
@@ -196,7 +216,7 @@ async function draftStateRevision(draftId: string): Promise<number> {
 }
 
 /**
- * Review fixes: a point beyond the box's first card is edited from the See all panel (Escape closes the editor, not the panel), and the typed text survives
+ * Review fixes: a point beyond the box's first card is edited from See all (P1621: expanded in place on the owner's draft, no longer a panel; Escape closes the editor, not the box), and the typed text survives
  * an agent rewording the point underneath it (stale_view, then the re-read replaces the point): the editor moves onto the current point with a notice and Save lands there.
  */
 for (const vp of [1440, 375, 320]) {
@@ -210,25 +230,28 @@ for (const vp of [1440, 375, 320]) {
       const pts = (await supabaseAdmin.from('points').select('id,statement').eq('first_validator_id', ownerId).contains('system_tags', [`canvas_${first.version_name}`])).data as Row[];
       const idOf = (t: string) => pts.find(p => p.statement === t)!.id as string;
       const page = await ctx.newPage();
+      await noFirstVisit(page, ownerId);
       await setTestSession(page, user.email);
       await page.goto(`/p/${user.slug}/canvas/${first.canvas_name}?v=${first.version_name}&ws=1`);
       await showCanvas(page);
       const segBox = page.getByTestId(`canvas-box-${SEG}`);
       await expect(segBox).toBeVisible({ timeout: 30_000 });
 
-      // the panel: both points have Edit; Escape in the editor closes the editor, not the panel
+      // See all (P1621: in place): both points have Edit; Escape in the editor closes the editor only, the box stays expanded and selected; Escape on the box then deselects it
+      await selectBox(page, SEG);
       await segBox.getByTestId('canvas-box-more').click();
-      const list = page.getByTestId('canvas-panel-box-list');
-      await expect(list).toBeVisible();
-      await expect(list.locator('[data-testid^="canvas-edit-point-"]')).toHaveCount(2);
+      const list = segBox;
+      await expect(list.getByTestId('canvas-box-less')).toBeVisible();
+      await expect(list.locator('[data-testid^="canvas-card-edit-"]')).toHaveCount(2);
       await shot(page, vp, 'panel-closed');
-      const second = list.getByTestId(`canvas-edit-point-${idOf('Panel two')}`);
+      const second = list.getByTestId(`canvas-card-edit-${idOf('Panel two')}`);
       await second.click();
       await list.getByTestId('canvas-point-editor-text').fill('Panel two typed');
       await shot(page, vp, 'panel-open');
       await page.keyboard.press('Escape');
       await expect(page.getByTestId('canvas-point-editor-text')).toHaveCount(0);
-      await expect(list, 'Escape closed the editor only, the panel stays').toBeVisible();
+      await expect(list.getByTestId('canvas-box-less'), 'Escape closed the editor only, the box stays expanded').toBeVisible();
+      await expect(page.getByTestId(`canvas-box-title-${SEG}`)).toHaveAttribute('aria-pressed', 'true');
       await second.click();
       await list.getByTestId('canvas-point-editor-text').fill('Panel two edited');
       await list.getByTestId('canvas-point-editor-save').click();
@@ -236,15 +259,17 @@ for (const vp of [1440, 375, 320]) {
       await expect(list.getByText('Panel two edited')).toBeVisible({ timeout: 20_000 });
       expect((await draftState(ownerId)).statements).toContain('Panel two edited');
       await page.keyboard.press('Escape');
-      await expect(list).toHaveCount(0);
+      await expect(list.getByTestId('canvas-box-less'), 'Escape on the box deselects and collapses it').toHaveCount(0);
+      await expect(page.getByTestId(`canvas-box-title-${SEG}`)).toHaveAttribute('aria-pressed', 'false');
 
       // a replaced point: type, an agent rewords the point underneath, Save is refused as stale; the text stays visible and selectable, with NO Save and no guess where it belongs
       // the point the grid shows first (an edit keeps its card in place, so which one that is depends on the draft's order)
       const editedId = (await supabaseAdmin.from('points').select('id').eq('first_validator_id', ownerId).eq('statement', 'Panel two edited').single()).data!.id as string;
-      const shownTestId = (await segBox.locator('[data-testid^="canvas-edit-point-"]').first().getAttribute('data-testid'))!;
-      const firstId = shownTestId.replace('canvas-edit-point-', '');
+      await selectBox(page, SEG);
+      const shownTestId = (await segBox.locator('[data-testid^="canvas-card-edit-"]').first().getAttribute('data-testid'))!;
+      const firstId = shownTestId.replace('canvas-card-edit-', '');
       const otherId = firstId === editedId ? idOf('Panel one') : editedId;
-      await page.getByTestId(`canvas-edit-point-${firstId}`).click();
+      await page.getByTestId(`canvas-card-edit-${firstId}`).click();
       await page.getByTestId('canvas-point-editor-text').fill('Typed while the agent rewrites');
       const st = (await draftState(ownerId)).d as Row;
       await cycle(c, ownerId, { canvas: first.canvas_id, draft: st.id, rev: st.revision }, [{ action: 'reword', point_id: firstId, box: SEG, statement: 'Agent rewrite' }, { action: 'keep', point_id: otherId }], [SEG]);
@@ -261,8 +286,8 @@ for (const vp of [1440, 375, 320]) {
       await expect(page.getByTestId('canvas-point-editor-text')).toHaveCount(0);
       const agentId = (await supabaseAdmin.from('points').select('id').eq('first_validator_id', ownerId).eq('statement', 'Agent rewrite').single()).data!.id as string;
       await segBox.getByTestId('canvas-box-more').click();
-      const list2 = page.getByTestId('canvas-panel-box-list');
-      await list2.getByTestId(`canvas-edit-point-${agentId}`).click();
+      const list2 = segBox;
+      await list2.getByTestId(`canvas-card-edit-${agentId}`).click();
       await list2.getByTestId('canvas-point-editor-text').fill('Typed while the agent rewrites');
       await list2.getByTestId('canvas-point-editor-save').click();
       await expect(page.getByTestId('canvas-point-editor-text')).toHaveCount(0, { timeout: 20_000 });
@@ -287,10 +312,12 @@ test('P1614 an emptied box keeps the typed text on screen at 375', async ({ brow
     const first = await cycle(c, ownerId, {}, [pt(SEG, 'Only point')], [SEG]);
     const onlyId = ((await supabaseAdmin.from('points').select('id').eq('first_validator_id', ownerId).eq('statement', 'Only point').single()).data as Row).id as string;
     const page = await ctx.newPage();
-    await setTestSession(page, user.email);
+    await noFirstVisit(page, ownerId);
+      await setTestSession(page, user.email);
     await page.goto(`/p/${user.slug}/canvas/${first.canvas_name}?v=${first.version_name}&ws=1`);
     await showCanvas(page);
-    await page.getByTestId(`canvas-edit-point-${onlyId}`).click();
+    await selectBox(page, SEG);
+    await page.getByTestId(`canvas-card-edit-${onlyId}`).click();
     await page.getByTestId('canvas-point-editor-text').fill('Typed as the box emptied');
     const st = (await draftState(ownerId)).d as Row;
     await cycle(c, ownerId, { canvas: first.canvas_id, draft: st.id, rev: st.revision }, [], [SEG]);   // the run removes the last point
@@ -298,7 +325,8 @@ test('P1614 an emptied box keeps the typed text on screen at 375', async ({ brow
     const box = page.getByTestId(`canvas-box-${SEG}`);
     await expect(box.getByTestId('canvas-point-editor-notice')).toContainText('changed while you were typing', { timeout: 30_000 });
     await expect(box.getByTestId('canvas-point-editor-text')).toHaveValue('Typed as the box emptied');
-    await expect(box.getByText('Empty', { exact: true })).toBeVisible();
+    // P1621 (deliberate): the box is selected, so an empty box shows its editor, not the word Empty (the box still reads as empty)
+    await expect(box).toHaveAttribute('data-empty', 'true');
     await expect(box.getByTestId('canvas-point-editor-save')).toHaveCount(0);
     const ov = await overflow(page); expect(ov.sw).toBeLessThanOrEqual(ov.iw);
     await shot(page, vp, 'emptied-box-orphan', false);   // nothing left to publish, so no Publish button to wait for
@@ -318,19 +346,22 @@ for (const vp of [1440, 375]) {
       const c = await api(user.email);
       const first = await cycle(c, ownerId, {}, [pt(SEG, 'Order alpha'), pt(SEG, 'Order beta')], [SEG]);   // one run: both share a created_at
       const page = await ctx.newPage();
+      await noFirstVisit(page, ownerId);
       await setTestSession(page, user.email);
       await page.goto(`/p/${user.slug}/canvas/${first.canvas_name}?v=${first.version_name}&ws=1`);
       await showCanvas(page);
       const segBox = page.getByTestId(`canvas-box-${SEG}`);
       await expect(segBox).toBeVisible({ timeout: 30_000 });
       const shownText = () => segBox.locator('[data-testid^="canvas-point-card-"]').first().innerText();
+      // P1621: See all expands in place on the owner's draft (the box is selected), and Show less collapses it again
       const panelOrder = async () => {
+        await selectBox(page, SEG);
         await segBox.getByTestId('canvas-box-more').click();
-        const items = page.getByTestId('canvas-panel-box-list').locator('[data-testid^="canvas-point-card-"]');
+        const items = segBox.locator('[data-testid^="canvas-point-card-"]');
         await expect(items).toHaveCount(2);
         const texts = (await items.allInnerTexts()).map(t => t.split('\n')[0]!.trim());
-        await page.keyboard.press('Escape');
-        await expect(page.getByTestId('canvas-panel-box-list')).toHaveCount(0);
+        await segBox.getByTestId('canvas-box-less').click();
+        await expect(items).toHaveCount(1);
         return texts;
       };
       const firstShown = (await shownText()).split('\n')[0]!.trim();
@@ -338,7 +369,8 @@ for (const vp of [1440, 375]) {
       expect(order0[0], 'the grid shows the first of the See all list').toBe(firstShown);
       for (let round = 0; round < 3; round++) {
         const current = (await shownText()).split('\n')[0]!.trim();
-        await segBox.locator('[data-testid^="canvas-edit-point-"]').first().click();
+        await selectBox(page, SEG);
+        await segBox.locator('[data-testid^="canvas-card-edit-"]').first().click();
         const edited = `Edited first card ${round}`;
         await segBox.getByTestId('canvas-point-editor-text').fill(edited);
         await segBox.getByTestId('canvas-point-editor-save').click();
@@ -391,12 +423,14 @@ for (const vp of [1440, 375]) {
           recs.push({ kind: `${res.request().method()} ${kindOf(u)}`, status: res.status(), decoded, wire: cl ? Number(cl) : null });
         })());
       });
+      await noFirstVisit(page, ownerId);
       await setTestSession(page, user.email);
       await page.goto(`/p/${user.slug}/canvas/${first.canvas_name}?v=${first.version_name}&ws=1`);
       await showCanvas(page);
       await expect(page.getByTestId('canvas-grid')).toHaveAttribute('aria-busy', 'false', { timeout: 30_000 });
       await page.waitForLoadState('networkidle');
-      const firstEdit = page.locator('[data-testid^="canvas-edit-point-"]').first();
+      await selectBox(page, 'canvas:segments');   // P1621: the card shows Edit while its box is selected
+      const firstEdit = page.locator('[data-testid^="canvas-card-edit-"]').first();
       await expect(firstEdit).toBeVisible({ timeout: 20_000 });
       await firstEdit.click();
       await page.getByTestId('canvas-point-editor-text').fill('One edited sentence for the traffic measurement');

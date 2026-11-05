@@ -188,14 +188,16 @@ import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-style
 import { hasBox, isFilledBlue, lacksDiscardText, lacksMainAction, lacksSecondaryPill } from './p1536-pill-assert';
 
 /** What a person can press that is filled blue: not inside an inert or aria-hidden pane, and not the composer's Send. */
+// P1621 (deliberate, spec Risks: ACCEPT): Save in a box's open editor is a filled button that exists only while someone is typing a card (a brand-new canvas opens
+// Customer Segments with its editor on the first visit). This table counts the BAR's primaries, so a box's own Save is not one of them.
 const primaries = (): string[] =>
   [...document.querySelectorAll('button, a')]
-    .filter(el => isFilledBlue(el) && !el.closest('[inert], [aria-hidden="true"]') && el.getAttribute('aria-label') !== 'Send')
+    .filter(el => isFilledBlue(el) && !el.closest('[inert], [aria-hidden="true"], [data-canvas-box]') && el.getAttribute('aria-label') !== 'Send')
     .map(el => (el.textContent ?? '').trim() || el.getAttribute('aria-label') || '(unlabelled)');
 
 /** The same count by class alone, the way the P955 gate reads a DOM (it knows nothing of inert panes): a hidden pane must not carry a primary either. */
 const primariesByClass = (): string[] =>
-  [...document.querySelectorAll('button, a')].filter(el => isFilledBlue(el) && el.getAttribute('aria-label') !== 'Send').map(el => (el.textContent ?? '').trim());
+  [...document.querySelectorAll('button, a')].filter(el => isFilledBlue(el) && !el.closest('[data-canvas-box]') && el.getAttribute('aria-label') !== 'Send').map(el => (el.textContent ?? '').trim());
 
 /** A brand-new canvas: a draft with no points, nothing published. */
 const newCanvas = () => {

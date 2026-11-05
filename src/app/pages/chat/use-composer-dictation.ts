@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
 import { isDictationSupported, useDictation, type Dictation, type DictationOrigin } from '@/hooks/use-dictation';
 import { insertIntoDraft } from './chat-hooks';
-import { mergeDictation, type MergedDictation } from './dictation-text';
+import { DICTATION_BODY_MAX, mergeDictation, type MergedDictation } from './dictation-text';
 import { clearPending, getPending, holdPending, usePending, type PendingDictation } from './pending-dictation';
 
 export interface ComposerDictation {
@@ -49,7 +49,10 @@ export function useComposerDictation(
   setValue: (value: string) => void,
   onCaret: (caret: number) => void,
   value: string,
+  /** P1621: how much of the message cap the box pills take (the field holds only the words). */
+  reserve = 0,
 ): ComposerDictation {
+  const max = DICTATION_BODY_MAX - reserve;
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -89,21 +92,21 @@ export function useComposerDictation(
       if (!insertIntoDraft(origin.draftKey, text, origin.caret)) holdPending(origin.draftKey, text, origin.caret);
       return;
     }
-    const merged = mergeDictation(latest.current ?? '', text, origin.caret);
+    const merged = mergeDictation(latest.current ?? '', text, origin.caret, max);
     if (merged.fits) land(merged);
     else holdPending(origin.draftKey, text, origin.caret);
-  }, [keyNow, latest, land]);
+  }, [keyNow, latest, land, max]);
 
   const overflow = usePending(draftKey);
-  const overflowFits = overflow ? mergeDictation(value, overflow.text, overflow.caret).fits : false;
+  const overflowFits = overflow ? mergeDictation(value, overflow.text, overflow.caret, max).fits : false;
   const retryOverflow = useCallback(() => {
     const held = getPending(keyNow.current ?? '');
     if (!held) return;
-    const merged = mergeDictation(latest.current ?? '', held.text, held.caret);
+    const merged = mergeDictation(latest.current ?? '', held.text, held.caret, max);
     if (!merged.fits) return;
     clearPending(keyNow.current ?? '');
     land(merged);
-  }, [keyNow, latest, land]);
+  }, [keyNow, latest, land, max]);
   const discardOverflow = useCallback(() => clearPending(keyNow.current ?? ''), [keyNow]);
 
   const dictation = useDictation({ draftKey, onText });

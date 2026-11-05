@@ -401,11 +401,14 @@ describe('Add to chat after Publish, before the page has read again', () => {
     await waitFor(() => expect(screen.getByTestId('where')).not.toHaveTextContent('ws=1'));
     await settle();
     // the panel is gone, the re-read is out, and the boxes are still the draft's: the tap lands here
-    fireEvent.click(screen.getByTestId('canvas-add-to-chat-canvas:problem'));
+    // P1621: Mention in chat is on the selected box: select it by its title first (unless the first-visit opening already did)
+    if (!screen.queryByTestId('canvas-mention-in-chat-canvas:problem')) fireEvent.click(screen.getByTestId('canvas-box-title-canvas:problem'));
+    fireEvent.click(screen.getByTestId('canvas-mention-in-chat-canvas:problem'));
     await settle();
     await act(async () => { after.resolve(publishedAfter()); });
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('ws=1'));
     await screen.findByTestId('workspace-chat-empty');
-    await waitFor(() => expect(screen.getByTestId('composer').querySelector('textarea')?.value ?? '').toContain('[Problem]'));
+    // P1621: the tag is a pill above the field (the composer builder's change), not text in it
+    await waitFor(() => expect(screen.getAllByTestId('composer-tag-pill').map(p => p.textContent)).toEqual(['Problem']));
   });
 });

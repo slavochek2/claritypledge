@@ -98,6 +98,27 @@ The dialog inherits the point's visibility. Points made by the current engine ar
 - **Accessibility:** the title button sits inside the box's heading; each box stays a labelled section; the layer wrappers lose their names.
 - **Add a story:** the owner's no-position case uses the existing "+ Add a story" copy.
 
+## Cost Budget
+
+Applies because the migration adds a per-request function and the tests create and delete users. No timer, poll, retry loop or model call: one Save is one write and one re-read, the shape P1614 measured.
+
+| Measure | Per user | Per test run |
+|---|---|---|
+| Requests | 1 Save = `canvas_draft_add_point` plus the page's re-read = 4 requests, taken from P1614's measurement of the same re-read, not re-measured. A box_full or stale refusal adds one re-read (3 requests) | e2e: 3 Saves x 4 requests x 3 widths = 36, plus 3 direct RPC calls x 3 widths = 9, so 45. Integration: 9 cases, about 3 calls each = 27. Total about 72, plus page loads and seeding as in P1614's walks |
+| Users created / deleted | 0 | 3 e2e + 9 integration at most = 12 created and 12 deleted |
+| Egress | 15 KB per Save (P1614's figure for an 18-point canvas) | 3 Saves x 3 widths x 15 KB = 135 KB, plus page loads |
+| Log lines | 0 from refusals, which are returned; 1 per validation error | At most 1 per deliberate error case in integration: 3 |
+| Gemini | 0 | 0, runs are stubbed |
+
+**Fits today:** assuming 10 active owners x 20 Saves a month = 200 Saves x 15 KB = 3 MB a month, plus 10 test runs x 135 KB = 1.4 MB, about 4.4 MB against the 5 GB egress in the registry. **Fits at 10x:** 100 owners = 30 MB plus the same test traffic, about 31 MB, still under 1% of it. The owner and run counts are assumptions, not measurements.
+
+Falsifier: a Save that triggers more than one re-read on TEST.
+
+## Known Limitations
+
+- If another edit moves the draft while the re-read after a box_full refusal is still out, Save can reappear briefly; pressing it is refused again with the text kept.
+- The server's `btrim` strips spaces only, so a direct call could store a whitespace-only point. The editor trims all whitespace first, as P1614's does.
+
 ## Founder Review
 
 Defaults built, each easy to change: (1) no open draft means no hand-written card until the first message; (2) one hand card on an empty draft means the next message is no longer treated as the first draft: scope comes from the model instead of all nine boxes and no focus is set; (3) the agent can still drop a hand card, and Undo of that run brings it back; (4) saving a card closes Undo with no message; (5) the agent cannot reword a hand card unless the message supplies the words; (6) a private story on a hand card the agent later removes stays stored with no link, as P1614's does. Wording to approve: "Mentioned", the full-box message, the duplicate sentence, "Unsaved text".

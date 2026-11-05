@@ -1,27 +1,29 @@
 /**
  * @file canvas-point-edit.tsx
- * @description P1614: the owner edits a point's text by hand on their open draft. Edit is a sibling of the card (the card is itself a button), a pencil
- * named "Edit". It opens the text in place with Save and Cancel; Save is one call, no model and no run. The typed text lives in canvas-point-edit-store, so
- * a run starting, a re-read that replaces the point, or the panel opening never loses it. A refusal keeps the text and says why. Empty text is stopped
- * here with a sentence, not a dead button.
+ * @description P1614: the owner edits a point's text by hand on their open draft. P1621: the entry control is the card's Edit action (canvas-card-actions: the card shows it
+ * while its box is selected; the opened point shows it in the panel); this file draws the editor that opens in place with Save and Cancel; Save is one call, no model and no run.
+ * The typed text lives in canvas-point-edit-store, so a run starting, a re-read that replaces the point, or the panel opening never loses it. A refusal keeps the
+ * text and says why. Empty text is stopped here with a sentence, not a dead button.
  */
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { Info, Pencil } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { CANVAS_POINT_MAX } from '@/lib/canvas-boxes';
 import { editCanvasDraftPoint } from '@/app/data/canvas-draft-service';
 import type { PointWithUserPosition } from '@/app/types';
+import { boxTitleTestId } from './canvas-box-ids';
+import { requestFocus } from './canvas-focus-request';
 import {
-  claimPanelBox, closePointEdit, getPointEdits, openPointEdit, patchPointEdit, pointEditKey, shownPoints, usePanelBoxes, usePointEdits, type PointEditEntry,
+  cardEditTestId, claimPanelBox, closePointEdit, getPointEdits, patchPointEdit, pointEditKey, shownPoints, usePanelBoxes, usePointEdits, type PointEditEntry,
 } from './canvas-point-edit-store';
 
-/** The draft the page shows, the revision it last read (a save passes it back; stale_view when the draft moved on), and whether the agent is working on it. */
-export interface PointEditConfig { draftId: string; revision: number; runActive: boolean }
-
-// [FOUNDER DECISION: accepted as proposed: the control is a pencil icon named "Edit".]
-export const EDIT_POINT_LABEL = 'Edit';
+/**
+ * The draft the page shows, the revision it last read (a save passes it back; stale_view when the draft moved on), and whether the agent is working on it.
+ * `userId` (P1621): the signed-in owner, whose first visit opens the first box (absent: nothing opens by itself).
+ */
+export interface PointEditConfig { draftId: string; revision: number; runActive: boolean; userId?: string }
 // [FOUNDER COPY: approved] every sentence below is shown to the owner; the founder agreed this wording in the P1614 review ("Your mirror agent").
 export const EMPTY_POINT_TEXT = 'A point needs some words.';
 export const BUSY_POINT_TEXT = 'Your mirror agent is updating this canvas. Save again when it finishes.';
@@ -69,36 +71,26 @@ export function BoxEdits({ tag, points, edit, renderCard, limit, surface }: {
   return (
     <>
       {orphans.map(o => <PointEditor key={`orphan-${o.originId}`} entry={o} point={undefined} edit={edit} boxIds={ids} />)}
-      {shown.map(p => <EditablePoint key={p.id} point={p} tag={tag} edit={edit} boxIds={ids} card={renderCard(p)} here={here} />)}
+      {shown.map(p => <EditablePoint key={p.id} point={p} edit={edit} boxIds={ids} card={renderCard(p)} here={here} />)}
     </>
   );
 }
 
-function EditablePoint({ point, tag, edit, boxIds, card, here }: { point: PointWithUserPosition; tag: string; edit: PointEditConfig; boxIds: string[]; card: ReactNode; here: boolean }) {
+/** The card, or its editor while one is open (P1621: the card carries its own Edit action while its box is selected; an editor already open stays whatever is selected). */
+function EditablePoint({ point, edit, boxIds, card, here }: { point: PointWithUserPosition; edit: PointEditConfig; boxIds: string[]; card: ReactNode; here: boolean }) {
   const entry = usePointEdits().get(pointEditKey(edit.draftId, point.id));
   if (entry && here) return <PointEditor entry={entry} point={point} edit={edit} boxIds={boxIds} />;
-  return (
-    // The pencil sits ON the card, in its bottom row just left of the chevron, as a SIBLING of the card button (never inside it). The 40px hit area is centred on the chevron's row.
-    <div className="relative" data-testid={`canvas-point-wrap-${point.id}`}>
-      {card}
-      {/* Only the entry pencil goes while the agent works; an editor already open stays (its text is the owner's). */}
-      {!edit.runActive && (
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => openPointEdit({ draftId: edit.draftId, box: tag, originId: point.id, text: point.statement })}
-          aria-label={`${EDIT_POINT_LABEL} this point`}
-          data-testid={`canvas-edit-point-${point.id}`}
-          className="absolute -bottom-0.5 right-[30px] h-10 w-10 p-0 text-foreground/70 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-blue-500"
-        >
-          <Pencil className="h-4 w-4" aria-hidden />
-        </Button>
-      )}
-    </div>
-  );
+  return <>{card}</>;
 }
 
-function PointEditor({ entry, point, edit, boxIds }: { entry: PointEditEntry; point: PointWithUserPosition | undefined; edit: PointEditConfig; boxIds: string[] }) {
+/**
+ * The editor of one point. `onSaved` (the opened point in the panel) is told the id the saved point now has, so the panel can follow it; `returnFocusTo` names the control that
+ * takes focus when the editor closes (default: that card's Edit action), since focus must never fall to the page.
+ */
+export function PointEditor({ entry, point, edit, boxIds, onSaved, returnFocusTo = cardEditTestId }: {
+  entry: PointEditEntry; point: PointWithUserPosition | undefined; edit: PointEditConfig; boxIds: string[];
+  onSaved?: (newPointId: string) => void; returnFocusTo?: (pointId: string) => string;
+}) {
   const noteId = useId();
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const key = pointEditKey(entry.draftId, entry.originId);
@@ -112,16 +104,25 @@ function PointEditor({ entry, point, edit, boxIds }: { entry: PointEditEntry; po
     if (gone && (!at || at === document.body)) areaRef.current?.focus();
   }, [gone]);
   const shown = gone ? null : edit.runActive && !entry.saving ? RUN_GOING_TEXT : entry.problem;
+  /** Closes the editor and asks for focus on the control that follows it (that card's Edit, or the saved point's): never the page. */
+  const close = (focusPointId?: string) => {
+    closePointEdit(key);
+    if (!focusPointId) return;
+    // The card's Edit exists only while its box is selected (or in the panel): in an unselected box focus goes to the box title instead, never to the page.
+    const title = boxTitleTestId(entry.box);
+    const selected = document.querySelector(`[data-testid="${title}"]`)?.getAttribute('aria-pressed') === 'true';
+    requestFocus(selected ? [returnFocusTo(focusPointId)] : onSaved ? [returnFocusTo(focusPointId), title] : [title]);
+  };
 
   const save = async () => {
     if (!point || entry.saving || edit.runActive) return;
     const next = entry.text.trim();
     if (next === '') { patchPointEdit(key, { problem: EMPTY_POINT_TEXT }); return; }
-    if (next === point.statement.trim()) { closePointEdit(key); return; }   // nothing changed: nothing is written
+    if (next === point.statement.trim()) { close(point.id); return; }   // nothing changed: nothing is written
     patchPointEdit(key, { saving: true, problem: null, watchIds: null });
     try {
       const r = await editCanvasDraftPoint(edit.draftId, point.id, next, edit.revision);
-      if (r.ok) closePointEdit(key);
+      if (r.ok) { close(r.pointId || point.id); onSaved?.(r.pointId || point.id); }
       else if (r.refused === 'busy' || r.refused === 'busy_elsewhere') patchPointEdit(key, { saving: false, problem: BUSY_POINT_TEXT });
       else patchPointEdit(key, { saving: false, problem: STALE_POINT_TEXT, watchIds: boxIds });
     } catch {
@@ -132,7 +133,7 @@ function PointEditor({ entry, point, edit, boxIds }: { entry: PointEditEntry; po
 
   return (
     // No container outline of its own: the textarea's own border and the app's normal focus ring are the single outline, the same in every state.
-    <div className="flex flex-col gap-2" data-testid={`canvas-point-editor-${entry.originId}`}>
+    <div className="flex flex-col gap-2" data-box-control data-testid={`canvas-point-editor-${entry.originId}`}>
       {gone && (
         <>
           <Notice id={noteId} testId="canvas-point-editor-notice" text={GONE_POINT_TEXT} />
@@ -151,7 +152,7 @@ function PointEditor({ entry, point, edit, boxIds }: { entry: PointEditEntry; po
         aria-label="Point text"
         aria-describedby={gone || shown ? noteId : undefined}
         // Escape closes the editor, but not while a save is in flight: a save that commits after the editor closed would look like it did nothing.
-        onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!entry.saving) closePointEdit(key); } }}
+        onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!entry.saving) close(point?.id); } }}
         className={`min-h-24 text-base ${gone ? 'resize-none bg-muted' : 'resize-y'}`}
         data-testid="canvas-point-editor-text"
       />
@@ -160,7 +161,7 @@ function PointEditor({ entry, point, edit, boxIds }: { entry: PointEditEntry; po
         : <Notice id={noteId} testId="canvas-point-editor-problem" text={shown} />)}
       {point && (
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button type="button" variant="ghost" className="min-h-10" disabled={entry.saving} onClick={() => closePointEdit(key)} data-testid="canvas-point-editor-cancel">Cancel</Button>
+          <Button type="button" variant="ghost" className="min-h-10" disabled={entry.saving} onClick={() => close(point.id)} data-testid="canvas-point-editor-cancel">Cancel</Button>
           <Button type="button" className="min-h-10" disabled={entry.saving || edit.runActive} onClick={() => void save()} aria-busy={entry.saving || undefined} data-testid="canvas-point-editor-save">{entry.saving ? 'Saving' : 'Save'}</Button>
         </div>
       )}
@@ -169,7 +170,7 @@ function PointEditor({ entry, point, edit, boxIds }: { entry: PointEditEntry; po
 }
 
 /** A notice in the app's muted treatment (as the box question's): an icon and quiet text on a muted ground, never red or amber. */
-function Notice({ id, testId, text }: { id: string; testId: string; text: string }) {
+export function Notice({ id, testId, text }: { id: string; testId: string; text: string }) {
   return (
     <p id={id} role="status" className="flex items-start gap-2 break-words rounded-md bg-muted px-2.5 py-2 text-sm text-foreground" data-testid={testId}>
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-foreground/60" aria-hidden />

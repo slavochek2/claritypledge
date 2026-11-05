@@ -46,9 +46,11 @@ export type RunStart = { ok: true; runId: string; kind: 'tensions' | 'draft' | '
  *   not_retryable / not_offered / expired  retry, focus switch, fork
  */
 export type CanvasRefusalCode =
-  | 'busy' | 'busy_elsewhere' | 'cap_reached' | 'stale_view' | 'not_retryable' | 'not_offered' | 'expired' | 'draft_empty' | 'no_changes';
+  | 'busy' | 'busy_elsewhere' | 'cap_reached' | 'stale_view' | 'not_retryable' | 'not_offered' | 'expired' | 'draft_empty' | 'no_changes'
+  | 'box_full' | 'duplicate';   // P1621 hand-add: 3 cards already in the box / the same words already in the box
 const REFUSAL_CODES: ReadonlySet<string> = new Set([
   'busy', 'busy_elsewhere', 'cap_reached', 'stale_view', 'not_retryable', 'not_offered', 'expired', 'draft_empty', 'no_changes',
+  'box_full', 'duplicate',
 ]);
 /** The refusal as a typed result; `revision` is the draft's current one, to re-read against. */
 export interface CanvasRefused { ok: false; refused: CanvasRefusalCode; revision: number | null }

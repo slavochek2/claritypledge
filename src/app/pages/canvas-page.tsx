@@ -67,8 +67,9 @@ import { CanvasHeader } from '@/app/components/canvas/canvas-header';
 import { BoxEdits, CanvasGrid } from '@/app/components/canvas/canvas-grid';
 import { CanvasCard } from '@/app/components/canvas/canvas-card';
 import { PointPanel } from '@/app/components/canvas/canvas-point-panel';
+import { PanelPointEdit } from '@/app/components/canvas/canvas-panel-point-edit';
 import {
-  BOX_TITLES, buildReady, canvasSeoTitle, changedBoxes, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, pointEditOf, sortBoxesByContest, storyFlags,
+  BOX_TITLES, buildReady, canvasSeoTitle, changedBoxes, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, openDraftIdOf, pointEditOf, sortBoxesByContest, storyFlags,
   type CanvasData, adoptionSkipsRead,
 } from '@/app/components/canvas/canvas-page-data';
 import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
@@ -77,7 +78,8 @@ import type { PointWithUserPosition } from '@/app/types';
 import { CanvasPageBack } from '@/app/components/canvas/canvas-page-back';
 import { useCompareSetup, useMarkCanvasRead } from './canvas/canvas-page-read';
 import { useCanvasDraftSync } from './canvas/use-canvas-draft-sync';
-import { useOwnerIdentity } from './canvas/use-owner-identity';
+import { cardOwnerOf, useOwnerIdentity } from './canvas/use-owner-identity';
+import { useEditedPointFollow } from './canvas/use-edited-point-follow';
 import { canvasPageClass, useCanvasWorkspace, useReportCanvasReady, useWorkspaceReload } from '@/app/components/canvas/canvas-workspace-context';
 
 /** Reading order: layer by layer, box by box (sixth round R1). The same order at every width (a
@@ -101,7 +103,7 @@ export function CanvasPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { hash: urlHash } = useLocation();
-  const requestedPointId = searchParams.get('point');
+  const rawPointId = searchParams.get('point');
   // `?v=<version>` picks a version; with none, the newest opens.
   const requestedVersion = searchParams.get('v') || undefined;
   // "Anyone with the link" is an unguessable token that arrives in the address (`#k=`, the fragment Copy link
@@ -240,6 +242,7 @@ export function CanvasPage() {
   // Compare lives in the address too (`?with=`), so a shared link opens the same view. Only a published version compares (P1613: use-compare-setup).
   const { baseId, others, withPerson, basePerson } = useCompareSetup(ready, viewerId, handle, searchParams.get('with'));
   const draftView = !!ready && isViewingDraft(ready);
+  const pointEdit = pointEditOf(ready, workspace.runActive);
   // Opening a point from a card PUSHES a history entry (marked in its state), so Back — the
   // browser's, or a phone's back swipe — closes the point instead of leaving the canvas. Every
   // other change replaces the entry it is on and keeps that mark.
@@ -263,6 +266,8 @@ export function CanvasPage() {
     setLoaded({ key: pending.to, data: loaded.data });
     setParams({ v: pending.version });
   }, [loaded, setParams]);
+  // P1621: an edit made on the opened point gives it a new id; the panel follows it and stays open.
+  const { requestedId: requestedPointId, follow: followEditedPoint } = useEditedPointFollow(rawPointId, ordered.map(p => p.id), useCallback((id: string) => setParams({ point: id }), [setParams]));
   const openIndex = requestedPointId ? ordered.findIndex(p => p.id === requestedPointId) : -1;
   const openPoint = openIndex >= 0 ? ordered[openIndex] : null;
   // R2: a box's "N more" opens the whole box in the panel (`?box=`); a point opened from that list
@@ -399,7 +404,8 @@ export function CanvasPage() {
 
   // D5: the owner as their profile shows them on the open point. Agent or not decides the ear
   // count (an agent holds no reputation, P1104), read once per canvas.
-  const { ownerIsAgent, identityPending, ownerEar } = useOwnerIdentity(ready?.ownerId ?? null);
+  const ownerIdentity = useOwnerIdentity(ready?.ownerId ?? null);
+  const { ownerIsAgent, identityPending } = ownerIdentity;
 
   // D6: the open point's "Filter by position" state lives here, never in the address: the filter
   // resets when the point changes, and an expanded story is remembered per point.
@@ -424,19 +430,7 @@ export function CanvasPage() {
   const openPositions = openPoint && ready ? ready.positions.get(openPoint.id) ?? [] : [];
   const previousPoint = openIndex > 0 ? ordered[openIndex - 1] : undefined;
   const nextPoint = openIndex >= 0 ? ordered[openIndex + 1] : undefined;
-  const cardOwner: FeedPointCardOwner | undefined = openPoint && ready
-    ? {
-      id: ready.ownerId,
-      name: ready.ownerName,
-      avatarUrl: ready.owner.photoUrl,
-      avatarColor: ready.owner.avatarColor,
-      hasPledged: ready.owner.hasPledged,
-      ear: !ownerIsAgent && ownerEar?.ownerId === ready.ownerId ? ownerEar.ear : undefined,
-      position: openPositions.find(p => p.userId === ready.ownerId)?.position ?? null,
-      isAgent: ownerIsAgent,
-      identityPending,
-    }
-    : undefined;
+  const cardOwner: FeedPointCardOwner | undefined = openPoint && ready ? cardOwnerOf(ready, openPositions, ownerIdentity) : undefined;
 
   const compare = basePerson && withPerson
     ? { base: basePerson, baseId, baseIsViewer: !!viewerId, other: withPerson }
@@ -486,7 +480,7 @@ export function CanvasPage() {
   const openBoxTitle = openBox ? BOX_TITLES.get(openBox) : undefined;
 
   return (
-    <div className={canvasPageClass(workspace.active)}>
+    <div className={canvasPageClass(workspace.active)} data-canvas-page>
       {/* P1545: a canvas is an artifact; Back returns to where the reader came from, a cold arrival to the canvases list. */}
       <CanvasPageBack />
       {ready && <SEO title={canvasSeoTitle(ready, projectTag)} noIndex />}
@@ -506,7 +500,7 @@ export function CanvasPage() {
       {current?.status === 'error' ? (
         <CanvasLoadError onRetry={() => void read(key)} />
       ) : !(ready && hasNothingToShow(ready)) && (
-        <CanvasGrid boxes={boxes} renderCard={renderCard} onMore={openBoxPanel} questions={ready ? draftQuestions(ready) : undefined} changed={changedBoxes(ready)} edit={pointEditOf(ready, workspace.runActive)} />
+        <CanvasGrid boxes={boxes} renderCard={renderCard} onMore={openBoxPanel} questions={ready ? draftQuestions(ready) : undefined} changed={changedBoxes(ready)} edit={pointEdit} openDraftId={openDraftIdOf(ready)} />
       )}
 
       {/* One panel for both levels (R2), so stepping from a box's list into a point and back
@@ -530,12 +524,13 @@ export function CanvasPage() {
           {!openPoint && openBox ? (
             // R2: the whole box, as the same cards; one opens on top of this list.
             <div className="flex flex-col gap-2 pt-2" data-testid="canvas-panel-box-list">
-              <BoxEdits tag={openBox} points={boxes?.get(openBox) ?? []} edit={pointEditOf(ready, workspace.runActive)} renderCard={renderCard} surface="panel" />
+              <BoxEdits tag={openBox} points={boxes?.get(openBox) ?? []} edit={pointEdit} renderCard={renderCard} surface="panel" />
             </div>
           ) : openPoint && (<>
           {/* Keyed by the point only: a re-read after a vote must not remount the card under the
               viewer's hand (a second tap adjusts the level of the position just taken). Stories
               start folded, as in the feed; the card shows the owner's story only (D5). */}
+          <PanelPointEdit point={openPoint} boxes={boxes} edit={pointEdit} onSaved={followEditedPoint}>
           <FeedPointCard
             key={openPoint.id}
             point={openPoint}
@@ -568,6 +563,7 @@ export function CanvasPage() {
               });
             }}
           />
+          </PanelPointEdit>
           {/* D6: the point page's "Filter by position" block, counting from the canvas's one
               positions read; every author's linked stories come from the canvas's batch read. */}
           {!draftView && <div className="mt-4">

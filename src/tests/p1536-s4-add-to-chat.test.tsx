@@ -2,7 +2,7 @@
  * @file p1536-s4-add-to-chat.test.tsx
  * @description P1536 S4 (D5, J2, J3, J4, W1): Add to chat, inline tags and reply chips. The REAL route element, canvas page, thread panel and composer (only the
  * database and the chat's message transport are faked):
- *  - S4.1 the owner sees Add to chat (44px) on nine boxes, on a draft and on a published version; a reader and a signed-out visitor see none
+ *  - S4.1 (P1621) the owner sees Mention in chat on the selected box only, on a draft and on a published version; a reader and a signed-out visitor see none
  *  - S4.2 a tap puts a tag token at the saved caret and focuses the composer inside the tap; two taps, two tags; Backspace removes a whole tag
  *  - S4.3 a Send carries `p_box_refs` and "[Title]" words; a sent message draws its tags as chips
  *  - S4.4 on a published canvas a tap and a leave write nothing; the first Send makes the draft, and carries the tags
@@ -89,7 +89,6 @@ import { resetCanvasThreads } from '@/app/pages/chat/canvas-thread-registry';
 import { resetUnresolvedFirstSends } from '@/app/pages/canvas/workspace-next-draft';
 import { clearLinkTokens } from '@/lib/canvas-link-token';
 import { clearListReturnCache } from '@/lib/list-return-cache';
-import { tagToken } from '@/app/pages/chat/composer-tags';
 import { CANVAS_CHIP } from '@/app/components/canvas/canvas-pill-styles';
 
 const summary: ChatSummary = {
@@ -196,17 +195,20 @@ afterEach(() => {
 });
 
 const grid = () => screen.findByTestId('canvas-grid');
-const BOXES = ['canvas:segments', 'canvas:problem', 'canvas:solution', 'canvas:channels', 'canvas:revenue', 'canvas:metrics', 'canvas:love', 'canvas:good-at', 'canvas:world-needs'];
-const tapAdd = (tag: string) => fireEvent.click(screen.getByTestId(`canvas-add-to-chat-${tag}`));
+/** P1621 (deliberate): Mention in chat shows only on the SELECTED box, so a tap first selects the box by its title (unless the first-visit opening already did). */
+const tapAdd = (tag: string) => {
+  if (!screen.queryByTestId(`canvas-mention-in-chat-${tag}`)) fireEvent.click(screen.getByTestId(`canvas-box-title-${tag}`));
+  fireEvent.click(screen.getByTestId(`canvas-mention-in-chat-${tag}`));
+};
 const field = () => within(screen.getByTestId('composer')).getByRole('textbox', { hidden: true }) as HTMLTextAreaElement;
+/** P1621: a tag is a pill above the field (its box title), not text in it. */
+const pills = () => screen.queryAllByTestId('composer-tag-pill').map(p => p.textContent);
 /** Typing: the value changes and the caret goes to its end, as the browser reports it. */
 const typeInto = (value: string) => {
   fireEvent.change(field(), { target: { value } });
   field().setSelectionRange(value.length, value.length);
   fireEvent.select(field());
 };
-const REVENUE_TOKEN = tagToken('canvas:revenue');
-const SEGMENTS_TOKEN = tagToken('canvas:segments');
 const DRAFT_AT = `/p/ana/canvas/canvas?v=${DRAFT_NAME}&ws=1`;
 const openDraftState = () => { st.openDraft = draftBlock({ baseSeq: 1 }); st.draftRow = draftRow(); };
 async function draftReady() {
@@ -215,23 +217,28 @@ async function draftReady() {
   await waitFor(() => expect(screen.queryByTestId('canvas-loading')).toBeNull());
 }
 
-describe('S4.1 who sees Add to chat', () => {
-  it('the owner sees it on all nine boxes, 44px tall, on a draft', async () => {
+describe('S4.1 who sees Mention in chat (P1621: only on the selected box)', () => {
+  it('the owner sees it on the selected box of a draft, at least 40px tall, and on no other box', async () => {
     openDraftState();
     mount(DRAFT_AT);
     await draftReady();
-    for (const tag of BOXES) {
-      const b = screen.getByTestId(`canvas-add-to-chat-${tag}`);
-      expect(b).toHaveTextContent('Add to chat');
-      expect(b.className).toContain('min-h-11');
-    }
-    expect(screen.getAllByText('Add to chat')).toHaveLength(9);
+    // at rest nothing is selected unless the first visit opened a box: select the Problem box by its title
+    const title = screen.getByTestId('canvas-box-title-canvas:problem');
+    if (title.getAttribute('aria-pressed') !== 'true') fireEvent.click(title);
+    const b = screen.getByTestId('canvas-mention-in-chat-canvas:problem');
+    expect(b).toHaveTextContent('Mention in chat');
+    expect(b.className).toContain('min-h-10');
+    expect(screen.getAllByText('Mention in chat')).toHaveLength(1);
+    expect(screen.queryByText('Add to chat')).toBeNull();
   });
 
-  it('the owner sees it on all nine boxes of a published version, with nothing being edited', async () => {
+  it('the owner of a published version with nothing being edited sees it on a selected box too (and no Edit or Add card)', async () => {
     mount('/p/ana/canvas/canvas');
     await grid();
-    await waitFor(() => expect(screen.getAllByText('Add to chat')).toHaveLength(9));
+    const title = await screen.findByTestId('canvas-box-title-canvas:problem');
+    if (title.getAttribute('aria-pressed') !== 'true') fireEvent.click(title);
+    await waitFor(() => expect(screen.getAllByText('Mention in chat')).toHaveLength(1));
+    expect(screen.queryByTestId('canvas-box-add-canvas:problem')).toBeNull();
   });
 
   it('a signed-in non-owner and a signed-out visitor see none', async () => {
@@ -240,13 +247,14 @@ describe('S4.1 who sees Add to chat', () => {
     mount('/p/ana/canvas/canvas');
     await grid();
     await act(async () => {});
-    expect(screen.queryByText('Add to chat')).toBeNull();
+    expect(screen.queryByText('Mention in chat')).toBeNull();
+    expect(screen.queryByTestId('canvas-box-title-canvas:problem')).toBeNull(); // no title button either: a reader has nothing to select
     cleanup();
     st.signedIn = false;
     mount('/p/ana/canvas/canvas');
     await grid();
     await act(async () => {});
-    expect(screen.queryByText('Add to chat')).toBeNull();
+    expect(screen.queryByText('Mention in chat')).toBeNull();
   });
 });
 
@@ -269,25 +277,38 @@ describe('S4.2 tags in the composer', () => {
     field().setSelectionRange(5, 5);
     fireEvent.select(field());
     tapAdd('canvas:revenue');
-    expect(field().value).toBe(`hello ${REVENUE_TOKEN}  world`);
-    expect(document.activeElement).toBe(field());
-    expect(field().selectionStart).toBe(`hello ${REVENUE_TOKEN} `.length);
+    expect(field().value).toBe('hello world'); // the words stay as typed; the tag is a pill
+    expect(pills()).toEqual(['Offers & Pricing']);
+    // P1621 (deliberate): on a wide screen the thread is beside the canvas and a mention leaves focus where it was (below 1280 the composer still takes it: tested at 375 below).
+    expect(document.activeElement).not.toBe(field());
     tapAdd('canvas:segments');
-    expect(field().value).toContain(REVENUE_TOKEN);
-    expect(field().value).toContain(SEGMENTS_TOKEN);
+    expect(pills()).toEqual(['Offers & Pricing', 'Customer Segments']);
+    tapAdd('canvas:revenue'); // a repeat adds no second pill
+    expect(pills()).toEqual(['Offers & Pricing', 'Customer Segments']);
   });
 
-  it('Backspace right after a tag removes the whole tag', async () => {
+  it('Backspace in an empty field removes the last pill; with words in the field it does not', async () => {
     openDraftState();
     mount(DRAFT_AT);
     await draftReady();
-    tapAdd('canvas:revenue'); // the caret is after the space the tap added behind the token
-    fireEvent.keyDown(field(), { key: 'Backspace' }); // ONE press right after the tap removes the whole tag (and that space)
-    expect(field().value).toBe('');
-    typeInto(`${REVENUE_TOKEN} words`);
-    field().setSelectionRange(REVENUE_TOKEN.length, REVENUE_TOKEN.length); // directly after a token with no space: still the whole token
-    fireEvent.keyDown(field(), { key: 'Backspace' });
-    expect(field().value).toBe(' words'); // the whole token went, not one letter of it
+    tapAdd('canvas:revenue');
+    tapAdd('canvas:segments');
+    fireEvent.keyDown(field(), { key: 'Backspace' }); // the field is empty and the caret at 0: the last pill goes
+    expect(pills()).toEqual(['Offers & Pricing']);
+    typeInto('words');
+    field().setSelectionRange(0, 0);
+    fireEvent.keyDown(field(), { key: 'Backspace' }); // words in the field: an ordinary Backspace
+    expect(pills()).toEqual(['Offers & Pricing']);
+  });
+
+  it('the remove button takes a pill away and keeps focus in the field', async () => {
+    openDraftState();
+    mount(DRAFT_AT);
+    await draftReady();
+    tapAdd('canvas:revenue');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Offers & Pricing' }));
+    expect(pills()).toEqual([]);
+    expect(document.activeElement).toBe(field());
   });
 
   it('a tags-only field shows the voice button, not Send; words bring Send', async () => {
@@ -296,7 +317,7 @@ describe('S4.2 tags in the composer', () => {
     await draftReady();
     tapAdd('canvas:revenue');
     expect(screen.queryByRole('button', { name: /^send$/i })).toBeNull();
-    typeInto(`${REVENUE_TOKEN} €200`);
+    typeInto('€200');
     expect(await screen.findByRole('button', { name: /^send$/i })).toBeInTheDocument();
   });
 });
@@ -308,12 +329,12 @@ describe('S4.3 what Send carries, and the chips of a sent message', () => {
     mount(DRAFT_AT);
     await draftReady();
     tapAdd('canvas:revenue');
-    typeInto(`${REVENUE_TOKEN} €200 per pilot `);
+    typeInto('€200 per pilot');
     tapAdd('canvas:metrics');
     fireEvent.click(await screen.findByRole('button', { name: /^send$/i }));
     await waitFor(() => expect(sends()).toHaveLength(1));
     const a = sends()[0]![1] as Record<string, unknown>;
-    expect(a.p_body).toBe('[Offers & Pricing] €200 per pilot [My next milestone]');
+    expect(a.p_body).toBe('[Offers & Pricing] [My next milestone] €200 per pilot'); // pills first, then the words
     expect(a.p_box_refs).toEqual(['canvas:metrics', 'canvas:revenue']);
     expect(a.p_expected_draft).toBe('draft-1');
   });
@@ -338,10 +359,10 @@ describe('S4.4 a published canvas', () => {
   it('a tap enters the pending Clone (ws=1), writes nothing, and the tag is in the composer; leaving writes nothing either', async () => {
     mount('/p/ana/canvas/canvas');
     await grid();
-    await waitFor(() => expect(screen.getAllByText('Add to chat')).toHaveLength(9));
+    await waitFor(() => expect(screen.getAllByTestId(/^canvas-box-title-/)).toHaveLength(9));
     tapAdd('canvas:segments');
     await screen.findByTestId('workspace-chat-empty');
-    await waitFor(() => expect(field().value).toContain(SEGMENTS_TOKEN));
+    await waitFor(() => expect(pills()).toContain('Customer Segments'));
     expect(screen.getByTestId('ws')).toHaveTextContent('1');
     expect(writeRpcs()).toEqual([]);
     expect(edgeWrites()).toEqual([]);
@@ -354,10 +375,10 @@ describe('S4.4 a published canvas', () => {
     rpc.mockImplementation(async (name: string) => (name === 'canvas_workspace_send' ? { data: sentRow, error: null } : { data: null, error: null }));
     mount('/p/ana/canvas/canvas');
     await grid();
-    await waitFor(() => expect(screen.getAllByText('Add to chat')).toHaveLength(9));
+    await waitFor(() => expect(screen.getAllByTestId(/^canvas-box-title-/)).toHaveLength(9));
     tapAdd('canvas:segments');
-    await waitFor(() => expect(field().value).toContain(SEGMENTS_TOKEN));
-    typeInto(`${SEGMENTS_TOKEN} Not HR leads`);
+    await waitFor(() => expect(pills()).toContain('Customer Segments'));
+    typeInto('Not HR leads');
     fireEvent.click(await screen.findByRole('button', { name: /^send$/i }));
     await waitFor(() => expect(sends()).toHaveLength(1));
     const a = sends()[0]![1] as Record<string, unknown>;
@@ -373,11 +394,11 @@ describe('S4.2 focus after a tap on a published canvas', () => {
   it('the composer is mounted, holds the tag and has the focus once the pending Clone has rendered', async () => {
     mount('/p/ana/canvas/canvas');
     await grid();
-    await waitFor(() => expect(screen.getAllByText('Add to chat')).toHaveLength(9));
+    await waitFor(() => expect(screen.getAllByTestId(/^canvas-box-title-/)).toHaveLength(9));
     await act(async () => {}); // the page's read and the chat list have answered
     tapAdd('canvas:segments'); // synchronous: fireEvent.click returns when the handler has
     expect(screen.getByTestId('workspace-chat-empty')).toBeInTheDocument();
-    expect(field().value).toContain(SEGMENTS_TOKEN);
+    expect(pills()).toContain('Customer Segments');
     expect(document.activeElement).toBe(field());
   });
 });
@@ -388,12 +409,12 @@ describe('S4.4 a tap before the page has read the canvas', () => {
     const gate = new Promise<void>(r => { release = r; });
     getCanvas.mockImplementation(async (_o: string, _t: string, _v: unknown, _k: unknown, version?: string) => { await gate; return readFor(version); });
     mount('/p/ana/canvas/canvas');
-    await waitFor(() => expect(screen.getAllByText('Add to chat').length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByTestId(/^canvas-box-title-/).length).toBeGreaterThan(0));
     tapAdd('canvas:segments');
     expect(screen.getByTestId('ws')).toHaveTextContent('none'); // nothing yet: the version is not known
     await act(async () => { release(); });
     await screen.findByTestId('workspace-chat-empty');
-    await waitFor(() => expect(field().value).toContain(SEGMENTS_TOKEN));
+    await waitFor(() => expect(pills()).toContain('Customer Segments'));
     expect(writeRpcs()).toEqual([]);
   });
 });
@@ -404,11 +425,11 @@ describe('S4.4 a bare ?ws=1 on a canvas with a draft open (it moves to the draft
     st.draftRow = draftRow();
     mount('/p/ana/canvas/canvas?ws=1');
     await grid();
-    await waitFor(() => expect(screen.getAllByText('Add to chat').length).toBe(9));
+    await waitFor(() => expect(screen.getAllByTestId(/^canvas-box-title-/).length).toBe(9));
     tapAdd('canvas:problem');
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(`v=${DRAFT_NAME}`));
     await screen.findByTestId('thread-panel');
-    await waitFor(() => expect(field().value).toContain(tagToken('canvas:problem')));
+    await waitFor(() => expect(pills()).toContain('Problem'));
   });
 });
 
@@ -419,7 +440,7 @@ describe('S4.5 J4: another base is open', () => {
     otherBase();
     mount('/p/ana/canvas/canvas?v=canvas_d222222');
     await grid();
-    await waitFor(() => expect(screen.getAllByText('Add to chat')).toHaveLength(9));
+    await waitFor(() => expect(screen.getAllByTestId(/^canvas-box-title-/)).toHaveLength(9));
     tapAdd('canvas:segments');
     expect(await screen.findByTestId('clone-draft-sheet')).toBeInTheDocument();
     expect(writeRpcs()).toEqual([]);
@@ -433,23 +454,23 @@ describe('S4.5 J4: another base is open', () => {
     mount('/p/ana/canvas/canvas?v=canvas_d111111&ws=1');
     await grid();
     await screen.findByTestId('thread-panel');
-    await waitFor(() => expect(screen.getAllByText('Add to chat')).toHaveLength(9));
+    await waitFor(() => expect(screen.getAllByTestId(/^canvas-box-title-/)).toHaveLength(9));
     tapAdd('canvas:segments');
     expect(await screen.findByTestId('clone-draft-sheet')).toBeInTheDocument();
-    expect(field().value).toBe(''); // the tag is held: this draft is not where "Start over" would send it
+    expect(pills()).toEqual([]); // the tag is held: this draft is not where "Start over" would send it
     fireEvent.click(within(screen.getByTestId('clone-draft-sheet')).getByRole('button', { name: 'Add to my draft' }));
-    await waitFor(() => expect(field().value).toContain(SEGMENTS_TOKEN));
+    await waitFor(() => expect(pills()).toContain('Customer Segments'));
   });
 
   it('"Add to my draft": the tag lands in THAT draft\'s composer', async () => {
     otherBase();
     mount('/p/ana/canvas/canvas?v=canvas_d222222');
     await grid();
-    await waitFor(() => expect(screen.getAllByText('Add to chat')).toHaveLength(9));
+    await waitFor(() => expect(screen.getAllByTestId(/^canvas-box-title-/)).toHaveLength(9));
     tapAdd('canvas:segments');
     fireEvent.click(within(await screen.findByTestId('clone-draft-sheet')).getByRole('button', { name: 'Add to my draft' }));
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(`v=${DRAFT_NAME}`));
-    await waitFor(() => expect(field().value).toContain(SEGMENTS_TOKEN));
+    await waitFor(() => expect(pills()).toContain('Customer Segments'));
     expect(writeRpcs()).toEqual([]);
   });
 
@@ -458,12 +479,12 @@ describe('S4.5 J4: another base is open', () => {
     rpc.mockImplementation(async (name: string) => (name === 'canvas_workspace_send' ? { data: sentRow, error: null } : { data: null, error: null }));
     mount('/p/ana/canvas/canvas?v=canvas_d222222');
     await grid();
-    await waitFor(() => expect(screen.getAllByText('Add to chat')).toHaveLength(9));
+    await waitFor(() => expect(screen.getAllByTestId(/^canvas-box-title-/)).toHaveLength(9));
     tapAdd('canvas:segments');
     fireEvent.click(within(await screen.findByTestId('clone-draft-sheet')).getByRole('button', { name: 'Start over from v2' }));
     await screen.findByTestId('workspace-chat-empty');
-    await waitFor(() => expect(field().value).toContain(SEGMENTS_TOKEN));
-    typeInto(`${SEGMENTS_TOKEN} Not HR leads`);
+    await waitFor(() => expect(pills()).toContain('Customer Segments'));
+    typeInto('Not HR leads');
     fireEvent.click(await screen.findByRole('button', { name: /^send$/i }));
     await waitFor(() => expect(sends()).toHaveLength(1));
     const a = sends()[0]![1] as Record<string, unknown>;
@@ -475,7 +496,7 @@ describe('S4.5 J4: another base is open', () => {
     otherBase();
     mount('/p/ana/canvas/canvas?v=canvas_d222222');
     await grid();
-    await waitFor(() => expect(screen.getAllByText('Add to chat')).toHaveLength(9));
+    await waitFor(() => expect(screen.getAllByTestId(/^canvas-box-title-/)).toHaveLength(9));
     tapAdd('canvas:segments');
     fireEvent.keyDown(await screen.findByTestId('clone-draft-sheet'), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByTestId('clone-draft-sheet')).toBeNull());
@@ -495,7 +516,7 @@ describe('W1 / J2: the thread comes into view from a tap', () => {
     expect(screen.getByTestId('workspace-view-canvas')).toHaveAttribute('aria-selected', 'true');
     tapAdd('canvas:revenue');
     expect(screen.getByTestId('workspace-view-chat')).toHaveAttribute('aria-selected', 'true');
-    expect(field().value).toContain(REVENUE_TOKEN);
+    expect(pills()).toContain('Offers & Pricing');
     expect(document.activeElement).toBe(field());
   });
 
@@ -507,7 +528,7 @@ describe('W1 / J2: the thread comes into view from a tap', () => {
     expect(screen.getByTestId('workspace-chat-pane')).toHaveAttribute('inert');
     tapAdd('canvas:revenue');
     expect(screen.getByTestId('workspace-chat-pane')).not.toHaveAttribute('inert');
-    expect(field().value).toContain(REVENUE_TOKEN);
+    expect(pills()).toContain('Offers & Pricing');
     expect(document.activeElement).toBe(field());
   });
 });

@@ -5,7 +5,8 @@ import type { ChatMessage } from '@/app/data/chat-service';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { backPlan, chatNav, HOME, leavePlan, routeLevel, type NavIntent, type NavPlan } from './chat-view-model';
-import { mergeDictation } from './dictation-text';
+import { DICTATION_BODY_MAX, mergeDictation } from './dictation-text';
+import { joinTagged, pillsReserve, splitTagged } from './composer-tags';
 import { clearPendingExcept } from './pending-dictation';
 
 /**
@@ -86,9 +87,13 @@ export function peekDraft(key: string): string {
  * caller then holds them for that chat (`pending-dictation`), so they are neither cut nor lost.
  */
 export function insertIntoDraft(key: string, text: string, caret: number): boolean {
-  const merged = mergeDictation(drafts.get(key) ?? '', text, caret);
+  // P1621: the stored draft starts with box tokens the field never shows, and the caret is a position in the words: merge into the words, then put the tokens back.
+  const stored = drafts.get(key) ?? '';
+  const { tags, words } = splitTagged(stored);
+  const merged = mergeDictation(words, text, caret, DICTATION_BODY_MAX - pillsReserve(tags));
   if (!merged.fits) return false;
-  if (merged.value) drafts.set(key, merged.value);
+  const value = joinTagged(tags, merged.value);
+  if (value) drafts.set(key, value);
   return true;
 }
 
