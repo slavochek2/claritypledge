@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 109
 severity: high
@@ -12,6 +12,9 @@ exec_effort: high
 tags: [privacy-gate, pre-push, push-docs, staging]
 disclosure: public
 delivery_stage: fix
+date_resolved: 2026-11-05
+root_cause: Layer 1 scanned a delete before its skip ran
+resolution: moved the skip ahead of the scan; a canary covers deletes and everything that publishes
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: scripts/test-p1641-prepush-delete.sh
@@ -20,6 +23,8 @@ reproduce_artifact:
   surfaces_in_scope: [pre-push-layer-1]
   surfaces_deferred: []
   reproduced_at: 2026-11-05
+spec_review_hash: 2ebd23b0ffb926ef00b7d9f2191946a2d61682276f46a1c83ba93ecf746b6f14
+spec_review_vendors: [gemini]
 ---
 
 # P1641: Privacy scan refuses branch deletes, so staging branches pile up and push recovery dies
@@ -80,11 +85,12 @@ P1623's hook change is already on main (`fd429c2eb`, `ccf4d6ebd`), so start from
 
 ## Acceptance Criteria
 
-- [ ] Canary: a delete passes the hook. It fails before the fix and passes after.
-- [ ] Canary: a bad or unreadable range on a non-delete ref is still refused, with exit 3 handling intact.
-- [ ] Canary: a non-delete push carrying a known personal identifier is still blocked.
-- [ ] A mixed push (one delete and one bad ref) is still refused.
-- [ ] Gate 7c: `push-docs` staging push, promote to main and `--resume` all run through the changed hook and pass.
-- [ ] INBOX-295 closed in the same change.
-- [ ] `/finish` review completed, including Codex and Opus.
-- [ ] After the fix is live, the three staging branches above are deleted in one push (needs `push-on`).
+- [x] Canary: a delete passes the hook. It fails before the fix and passes after.
+- [x] Canary: a bad or unreadable range on a non-delete ref is still refused, with exit 3 handling intact.
+- [x] Canary: a non-delete push carrying a known personal identifier is still blocked.
+- [x] A mixed push (one delete and one bad ref) is still refused.
+- [x] Gate 7c, push shapes: real `git push` through the installed hook on a throwaway remote, for staging push, delete, re-push and promote. The unfixed hook fails the deletes, the fixed hook passes all. The promote ran under an active push-on window, so the Layer 3 prompt was not exercised.
+- [ ] [post-deploy] Gate 7c, real flows: `/push` runs `push-docs` staging push, promote and cleanup on the fixed hook. `--resume` has only its delete step tested, so check it at its next real use.
+- [x] INBOX-295 closed in the same change.
+- [x] `/finish` review completed, including Codex and Opus.
+- [ ] [post-deploy] After the fix is live, the three staging branches above are deleted in one push (needs `push-on`).

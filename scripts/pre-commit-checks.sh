@@ -405,7 +405,7 @@ echo ""
 # fix/* (gate 7), and that the repo's own documented ref shapes -- main, staging/doc-*,
 # staging/pN, deletions -- still pass it untouched (gate 7c). A refusal whose fixture holds
 # only inputs it should reject has an unmeasured false-positive rate.
-PREPUSH_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(pre-push-checks|test-pre-push-refclass|test-p1641-prepush-delete)\.sh$' || true)
+PREPUSH_STAGED=$(echo "$STAGED_FILES" | grep -E '^scripts/(pre-push-checks|audit-privacy|check-disclosure|test-pre-push-refclass|test-p1641-prepush-delete)\.sh$' || true)
 if [ -n "$PREPUSH_STAGED" ]; then
     if [ -f "scripts/test-pre-push-refclass.sh" ]; then
         if ! run_quiet "pre-push ref-class refusal canary (P1260)" bash scripts/test-pre-push-refclass.sh; then

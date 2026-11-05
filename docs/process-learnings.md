@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 298
+**Next ID:** 300
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -86,8 +86,6 @@ Reviewed 2026-10-16 (monthly): keep — no migration adds a per-round/exchange k
 
 ---
 
-
-
 ## Confirm the P1260 branch-and-remote-refs step on the first post-merge `/weekly`
 
 **ID:** INBOX-5
@@ -104,12 +102,9 @@ never in one tree, so the step could not produce its report — a `/weekly` on 2
 line and per-ref verdicts. If it does, delete this entry and add a one-line `[process]` note to
 `docs/decisions.md`. If it does not, the step's command path is wrong and needs a fix.
 
-
-
 Reviewed 2026-10-16 (weekly): keep — unverified. P1260 shipped and weekly SKILL.md:252 defines the REFS: line, but no /weekly output since the merge was available to confirm it printed; gc is not read-only so not re-run here.
 
 ---
-
 
 ## /ship's direct-to-main path needs a stamp that only /dev and /fix write (due: month)
 
@@ -487,14 +482,11 @@ permanently disabled control is a plausible real defect, and the p617 suite's ot
 
 ---
 
----
-
 <!-- Resolved 2026-08-27: "Propagate the disproven R₀≈0 figure through the strategy docs" — applied
      directly (a factual correction is a bug fix, not a strategy change). Propagated to hypotheses,
      progress, lean-canvas, theory-of-change, research-programme, goals, the LessWrong blog draft,
      p1028, p948, p1084. See decisions.md 2026-08-27 [product]. -->
 Reviewed 2026-10-16 (monthly): keep — unverified; needs a browser reproduction (the entry forbids touching the test first). Test still present at e2e/p617-mode-switcher-lifecycle.spec.ts.
-
 
 <!-- Resolved 2026-09-15: "Reap zombie vite/playwright processes between e2e runs" — see decisions.md 2026-09-15 [process] -->
 
@@ -678,8 +670,6 @@ Plan: `~/.claude/plans/btw-maybe-view-or-gentle-fern.md` · decisions.md 2026-08
 **due:** month
 Promote recommended by /prioritize 2026-09-15: its trigger is met — 7 goalify feedback.md files exist and no goalify-update spec does.
 Reviewed 2026-10-16 (monthly): keep — trigger met (per /prioritize 2026-09-15) and no goalify-update spec exists in features/; recommend inbox-promote.
-
-
 
 ## Activate the goal-gate boundary — push, prove it red, then mark it required
 
@@ -1027,7 +1017,6 @@ below the 75.0% naive rate, and 0 of 10 on the minority speaker. Alignment is ne
 sufficient — so a "yes, they read them" answer argues for attacking attribution, not only alignment.
 Reviewed 2026-10-21 (monthly): keep — needs a Mixpanel query not run here
 
-
 ## 2026-09-08 — `ship.md` still tells the agent to run a gate that now runs itself (P1246)
 
 **ID:** INBOX-49
@@ -1057,7 +1046,6 @@ agent relays its output; keep the manual invocation only as a pre-flight
 convenience; document `--override` as founder-only (it prompts on `/dev/tty`,
 which an agent session does not have). Land it on `main` as its own commit.
 Reviewed 2026-10-19 (weekly): keep — ship.md line 51 still tells the agent to run ship-gates.sh by hand
-
 
 ## 2026-09-08 — the skill-eval merge check is authored but inert (P1246 retired criterion)
 
@@ -1095,7 +1083,6 @@ steps earning their place?" to evals rather than to opinion, after one benchmark
 skill showed no measurable advantage and another was void. That question is still
 open and nothing else answers it.
 Reviewed 2026-10-21 (monthly): keep — premise changed: claude plugin eval now runs and fails on evals/*/case.yaml missing schema_version, no longer early-access refusal
-
 
 ## 2026-09-08 — turn the closure backstop into a required check (P1246), once it has a REAL green
 
@@ -1191,9 +1178,6 @@ is the actual deliverable, since without it any fix is unverifiable by the same 
 the defect.
 Promote recommended by /prioritize 2026-09-15: it proposes a bug spec, and the loading-state fixture arm is still missing from src/tests.
 Reviewed 2026-10-19 (weekly): keep — useAgentAccountIds still in src/app/contexts/agent-accounts-context.tsx; fix not checked
-
-
-
 
 ## Re-run the P1275 integration spec after P1236 ships, and finish P1303's prod join check
 
@@ -1495,7 +1479,6 @@ Reviewed 2026-10-27 (weekly): keep (unverified) — P1324 closed; no recorded fu
 
 ---
 
-
 <!-- Resolved 2026-09-22: fixed and shipped as P1344 (features/done). -->
 
 ## Every event needs a post-event debrief written into the repo
@@ -1545,7 +1528,6 @@ Not faked on 2026-09-21, because doing so means fabricating a prod migration.
 
 ---
 
-
 ## e2e/p1149-consent-gate.spec.ts "declining leaves the room" times out on a click
 
 **ID:** INBOX-86
@@ -1556,7 +1538,6 @@ Not faked on 2026-09-21, because doing so means fabricating a prod migration.
 `e2e/p1149-consent-gate.spec.ts:52` fails with `locator.click: Test timeout of 30000ms exceeded`. Reproduced identically with and without P1345's helper change on 2026-09-22, so it is pre-existing. Done when the test passes or is rewritten against the current consent UI.
 
 ---
-
 
 <!-- Resolved 2026-10-16: "Observe P1346 on the first worktree commit that stages git-ops.sh after it ships" — see decisions.md 2026-10-16 [process] -->
 
@@ -1600,7 +1581,6 @@ P1358 shipped with two of three reviewers delivered: Opus and Gemini both report
 Reviewed 2026-10-27 (weekly): keep (unverified) — P1358 spec says Codex NOT DELIVERED; later codex runs not searched
 
 ---
-
 
 ## Confirm the Clarity Night page corrections log fills during the next draft (P1367)
 
@@ -1769,7 +1749,6 @@ Reviewed 2026-10-27 (weekly): keep (unverified) — Offline strip implemented; p
 
 ---
 
-
 ## transcribe-room-batch: unbounded background concurrency and stale-claim reclaim of running jobs
 
 **ID:** INBOX-110
@@ -1796,9 +1775,7 @@ Before building: write the success signal up front (e.g. N visitors reach the le
 
 ---
 
-
 <!-- Resolved 2026-10-16: ST1 video switched to the founder clip and verified playing on /feed (1280x720, 84.4 s, currentTime advancing, no media error) -->
-
 
 ## Rework goals.md into weekly measurable goals (P1399 goals review)
 
@@ -1831,8 +1808,6 @@ Seen once in 4 runs of e2e/p1402-standalone-prepare.spec.ts smoke (2026-10-04, P
 - [ ] **setup-verify-listener/partner check only the first page of listUsers** (due: month). 2026-10-21, P1538. With more than 50 users they miss the existing account and fail with "already registered". Look the account up by email instead.
 - [ ] **Drop the old TEST ref from P1532's cleanup guard once old TEST is paused** (due: month). 2026-10-21. `_e2e_purge_allowed` accepts both refs during the move.
 Reviewed 2026-11-04 (weekly): keep, not checked against its artifact this run, still open
-
-
 
 <!-- Resolved 2026-10-14: shipped as P1198 (ship refuses on drift) — see decisions.md 2026-10-14 -->
 
@@ -1913,7 +1888,6 @@ The dropdown clamp in src/app/components/shared/menu-clamp.ts (branch overnight/
 Reviewed 2026-11-04 (weekly): keep, not checked against its artifact this run, still open
 
 ---
-
 
 <!-- cleared by /day 2026-10-15: "A new browser error: invalid regular expression on an event prepare page [day:0e1b7e7c]", check cp.sentry ran and reported ok -->
 
@@ -2037,8 +2011,6 @@ Follow-ups from P1435. (1) On a run's first load the Day page shows card 1 for a
 
 <!-- cleared by /day 2026-10-15: "An event RSVP was refused by a database security rule [day:641f9da8]", check cp.sentry ran and reported ok -->
 
-
-
 ## After P1441 deploys, confirm a failed auto-RSVP reaches Sentry
 
 **ID:** INBOX-148
@@ -2051,7 +2023,6 @@ After P1441 deploys, confirm a failed auto-RSVP appears in Sentry as "DB error i
 Reviewed 2026-11-04 (weekly): keep, P1441 is in features/done; droppable after 2026-11-07 if no failure appears in Sentry
 
 ---
-
 
 ## Repair integration specs that fail at their fixtures before reaching their subject
 
@@ -2126,8 +2097,6 @@ Found 2026-10-09 redoing a run's reflection: the card showed the founder's story
 2026-10-09 (P1448): git-ops publish-spec staged the published spec into done/ but did not remove features/pN_security-review-pending.md, so pre-commit refused the commit; also it could not find migrations named after the spec when the files carry the parent spec's name. Fix: publish-spec removes the stub in the same commit and accepts --migrations naming the files. Droppable if no embargo spec is filed again.
 
 ---
-
-
 
 ## Screenshot re-edit hook treats tool output as founder text
 
@@ -2638,7 +2607,6 @@ From the third P1512 review round: switching chats while a Clarify is still send
 
 ---
 
-
 ## Finish and verify the P1522 test-user purge
 
 **ID:** INBOX-204
@@ -2660,7 +2628,6 @@ P1522 shipped before its test-user purge finished (founder call, so the egress f
 supabase/functions/_shared/cors.ts DEV_ORIGIN_RE accepts 5001, 5100-5799 and 5800-5899, but scripts/lib/worktree-port.mjs gives w9 port 5900 and w10 port 6050, so every edge function call from those worktrees' dev servers fails its CORS preflight (found by P1520's e2e from w9: the mirror reads as off locally). Fix: accept every port the worktree scheme can produce, with a test that derives the ports from worktree-port.mjs (gate 7e). Droppable if worktrees stop going past w8.
 
 ---
-
 
 <!-- cleared by /day 2026-10-24: "Sentry: Error invoking postMessage, Java object is gone, on the Social Hike event page [day:d0e2fed3]", check cp.sentry ran and reported ok -->
 
@@ -2753,7 +2720,6 @@ Today (P1542) any event without a series recipe gets the Clarity Night recipe, a
 The branch holds 12 commits of letter-chat and letter-review prototypes. They were committed under the P1390 label, but P1390's spec is about room audio filling /live, so the two are unrelated. The branch has no worktree and is kept. Revisit it when the mirror agent (P1437) is extended to support letters; related to the P1431 letter chat. Droppable if P1437 settles on a different letter surface.
 
 ---
-
 
 ## Test project API times out reloading its schema after every migration
 
@@ -2886,8 +2852,6 @@ src/app/pages/landing-v4.tsx imports @/app/prototypes/shared/types and @/app/pro
 **due:** week
 
 A whole-file Gemini 4 Argon read of src/app/pages/chat/mirror-provider.tsx on 2026-10-26 (an older copy, before P1564) claimed 1 HIGH and 3 MEDIUM. HIGH: switching accounts without a reload can carry the previous user's mirror state and in-flight loads across. MEDIUM: status loads requested before the availability check are dropped; loadStatuses resets the staleness clock of running jobs; New portrait releases its lock while a job is still running. None was verified against current main. Done when each is confirmed with a failing test and filed, or disproved; droppable if the provider is rewritten.
-
----
 
 ---
 
@@ -3075,7 +3039,6 @@ After P1584 is pushed, run the "Self-hosted TEST health" workflow by hand with t
 **due:** week
 
 2026-10-28, seen committing in w9 (feature/p1559-ledger-prototype, branched before P1566). The pre-commit run is main's pre-commit-checks.sh, but it resolves scripts/quality-ratchet.cjs and scripts/check-nested-guides.cjs against the worktree root, where the older branch has neither. Result: MODULE_NOT_FOUND, two "errors", commit blocked, for a one-file prototype change. Every worktree branched before P1566 hits this until rebased. Fix idea: skip a check whose script is absent in the worktree with a visible warning, or have the hook run the worktree's own pre-commit-checks.sh. Workaround today: rebase the branch onto main (needs a clean tree, so commit first, which is what is blocked).
-
 
 2026-10-29, /kdd review: the same stale base (w9 was 319 commits behind main, merge-base 2026-10-24) also explains the three earlier load-sensitive test failures in that worktree: their fixes (P1573 325a3e226, P1570 e41ab95b1) are on main, not on the branch. Prefer the second fix idea (run the worktree's own pre-commit-checks.sh): skipping an absent blocking check with a warning fails open. A "base far behind main" warning was considered and deferred; revisit on a second incident.
 ---
@@ -3603,10 +3566,14 @@ Future placeholder: create a new multi-person chat on the spot, show a QR code, 
 ## Re-check TEST edge-function drift after P1529 ships
 
 **ID:** INBOX-297
+## test-hook-sha-gate.sh fails 4 of 10 cases
+
+**ID:** INBOX-298
 **Date:** 2026-11-05
 **Status:** proposed
 **due:** week
 
 On 2026-11-05 deploy-drift.sh reported the shared TEST server differs from main for _shared, dispatch-event-emails and send-event-emails (branch-only). Likely a P1529 branch deploy from w13 (its commit 25a0864b0 adds a series block to its emails), but no content comparison was run, so this is unverified. Do not redeploy main over it while P1529 is in flight. Done when main's functions are redeployed to TEST after P1529 ships and deploy-drift.sh prints in sync. Drop if the P1529 owner says the deploy was unintended and it is already cleared.
+scripts/test-hook-sha-gate.sh reports 6 passed, 4 failed (AC2, AC5, AC6-nonwatched, AC6 stamp update: expected exit 0, got 1). The result is the same with and without P1641's hook change, so it predates it. Done when the cause is known and the suite is green or retired.
 
 ---
