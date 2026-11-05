@@ -1058,7 +1058,8 @@ for _rc in 3 1 0; do
   mi_caller_repo "$_rc"
   echo y > "$MI_C/y.txt"; git -C "$MI_C" add y.txt; git -C "$MI_C" commit -qm y
   _a="$(git -C "$MI_C" rev-parse HEAD~1)"; _b="$(git -C "$MI_C" rev-parse HEAD)"
-  _out="$(cd "$MI_C" && printf 'refs/heads/main %s refs/heads/main %s\n' "$_b" "$_a" | bash scripts/pre-push-checks.sh origin 2>&1)" || true
+  _out="$(cd "$MI_C" && printf 'refs/heads/main %s refs/heads/main %s\n' "$_b" "$_a" | bash scripts/pre-push-checks.sh origin 2>&1)" && _prc=0 || _prc=$?
+  case "$_rc:$_prc" in 0:*|1:1|3:1) echo "  ✓ pre-push: scanner exit $_rc gives hook exit $_prc"; PASS=$((PASS+1));; *) echo "  ✗ pre-push: scanner exit $_rc gives hook exit $_prc"; FAIL=$((FAIL+1));; esac
   case "$_rc:$_out" in
     3:*"could not read its input"*) echo "  ✓ pre-push: exit 3 reported as a scan failure"; PASS=$((PASS+1));;
     1:*"personal identifiers in range"*) echo "  ✓ pre-push: exit 1 reported as a finding"; PASS=$((PASS+1));;
