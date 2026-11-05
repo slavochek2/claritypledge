@@ -5,11 +5,24 @@
 # Can also be run standalone to snapshot current state.
 #
 # Usage:
-#   ./scripts/stamp-deploy-manifest.sh                          # stamp both (test)
-#   ./scripts/stamp-deploy-manifest.sh --env prod               # stamp both (prod)
-#   ./scripts/stamp-deploy-manifest.sh --env prod --functions-only
+#   ./scripts/stamp-deploy-manifest.sh --env prod --function NAME [--function NAME ...]
+#       stamp ONLY the named functions (what deploy-functions.sh does: exactly the ones that
+#       uploaded). Other entries keep their old hash and stay reported if stale; entries are
+#       merged, never dropped (P1620). Implies function-only: migrations are never touched.
 #   ./scripts/stamp-deploy-manifest.sh --env prod --migrations-only
-#   ./scripts/stamp-deploy-manifest.sh --allow-dirty            # stamp on top of
+#   ./scripts/stamp-deploy-manifest.sh --env prod --assume-all-deployed [--functions-only]
+#       stamp EVERY function as current. Only for a moment when you know every function on the
+#       target runs this checkout (e.g. right after a full deploy-all). A bare stamp with none
+#       of --function / --migrations-only / --assume-all-deployed is REFUSED, because "stamp
+#       everything" is what once hid undeployed functions behind a clean drift report (P1620).
+#   ./scripts/stamp-deploy-manifest.sh --env prod --forget-function NAME
+#       drop the manifest entry of a function whose source dir is gone (after you ran
+#       `supabase functions delete NAME`); refused while the local source directory exists.
+#
+# Function hashes come from scripts/lib/function-input-hash.py (index.ts plus everything it
+# imports, plus deno.json / deno.lock), the same helper check-deploy-manifest.sh uses. A function
+# whose inputs cannot be traced makes the stamp fail rather than record a hash.
+#   ./scripts/stamp-deploy-manifest.sh --env prod --function NAME --allow-dirty   # stamp on top of
 #       an uncommitted manifest on purpose (P1173). Without it the script refuses
 #       a working tree that differs from HEAD, because it cannot tell your edit
 #       from a co-tenant session's on the shared main checkout.
@@ -37,12 +50,25 @@ ENV_NAME="local"
 FUNCTIONS_ONLY=false
 MIGRATIONS_ONLY=false
 ALLOW_DIRTY=false
+ASSUME_ALL=false
+FN_NAMES=()
+FORGET_NAMES=()
 prev_arg=""
 for arg in "$@"; do
-  if [ "$arg" = "--env" ]; then
+  if [ "$arg" = "--env" ] || [ "$arg" = "--function" ] || [ "$arg" = "--forget-function" ]; then
     :
   elif [ "$prev_arg" = "--env" ]; then
     ENV_NAME="$arg"
+  elif [ "$prev_arg" = "--function" ]; then
+    FN_NAMES+=("$arg")
+  elif [ "$prev_arg" = "--forget-function" ]; then
+    FORGET_NAMES+=("$arg")
+  elif [[ "$arg" == --function=* ]]; then
+    FN_NAMES+=("${arg#--function=}")
+  elif [[ "$arg" == --forget-function=* ]]; then
+    FORGET_NAMES+=("${arg#--forget-function=}")
+  elif [ "$arg" = "--assume-all-deployed" ]; then
+    ASSUME_ALL=true
   elif [[ "$arg" == --env=* ]]; then
     ENV_NAME="${arg#--env=}"
   elif [ "$arg" = "--functions-only" ]; then
@@ -57,6 +83,34 @@ done
 
 ENV_KEY="$ENV_NAME"
 [ "$ENV_KEY" = "local" ] && ENV_KEY="test"
+
+# --- P1620: --function / --forget-function are function-only operations ---------------------
+# They never touch the migrations section (a bare "both sections" run would stamp every migration
+# FILE in this checkout as applied). Combined with --migrations-only they contradict each other,
+# so refuse rather than silently do nothing.
+if [ ${#FN_NAMES[@]} -gt 0 ] || [ ${#FORGET_NAMES[@]} -gt 0 ]; then
+  if [ "$MIGRATIONS_ONLY" = true ]; then
+    echo "ERROR: --migrations-only contradicts --function / --forget-function; nothing was stamped." >&2
+    exit 1
+  fi
+  FUNCTIONS_ONLY=true
+fi
+
+# --- P1620: never mark functions current without saying which ---------------------------------
+# Deploying one function used to stamp all of them, so every undeployed change read as clean.
+if [ "$MIGRATIONS_ONLY" != true ] && [ "$ASSUME_ALL" != true ] \
+   && [ ${#FN_NAMES[@]} -eq 0 ] && [ ${#FORGET_NAMES[@]} -eq 0 ]; then
+  echo "ERROR: refusing to stamp functions without saying which ones (P1620)." >&2
+  echo "  A bare stamp would mark EVERY function as deployed, hiding the ones that were not." >&2
+  echo "    stamp the ones you deployed:   --function NAME [--function NAME ...]" >&2
+  echo "    stamp migrations only:         --migrations-only" >&2
+  echo "    you really deployed them all:  --assume-all-deployed" >&2
+  exit 1
+fi
+if [ "$ASSUME_ALL" = true ] && [ ${#FN_NAMES[@]} -gt 0 ]; then
+  echo "ERROR: --assume-all-deployed and --function are mutually exclusive." >&2
+  exit 1
+fi
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # --- P1173: serialize writers -----------------------------------------------
@@ -210,25 +264,28 @@ else
   EXISTING='{}'
 fi
 
-# --- Build functions section ---
+# --- Build functions section (P1620: shared helper, fail closed) ---
+# Prints {"hashes": {...}, "errors": {...}}. Any error, or a helper crash, aborts the stamp: a
+# hash recorded for inputs that could not be traced would be a guess presented as a fact.
+HASH_HELPER="$SCRIPT_DIR/lib/function-input-hash.py"
 build_functions_json() {
-  local result="{"
-  local first=true
-  for dir in "$FUNCTIONS_DIR"/*/; do
-    [ -d "$dir" ] || continue
-    local fn_name
-    fn_name=$(basename "$dir")
-    local main_file="$dir/index.ts"
-    local hash=""
-    if [ -f "$main_file" ]; then
-      hash=$(shasum -a 256 "$main_file" | cut -d' ' -f1)
-    fi
-    if [ "$first" = true ]; then first=false; else result+=","; fi
-    result+="\"$fn_name\":\"$hash\""
-  done
-  result+="}"
-  echo "$result"
+  local out args=()
+  if [ "$MIGRATIONS_ONLY" = true ]; then echo '{"hashes":{},"errors":{}}'; return 0; fi
+  if [ ${#FN_NAMES[@]} -gt 0 ]; then
+    local n
+    for n in "${FN_NAMES[@]}"; do args+=(--only "$n"); done
+    # _shared is not a function; its empty-hash entry is ensured by the merge below.
+  fi
+  if [ "$ASSUME_ALL" != true ] && [ ${#FN_NAMES[@]} -eq 0 ]; then
+    echo '{"hashes":{},"errors":{}}'; return 0   # --forget-function only
+  fi
+  if ! out=$(python3 "$HASH_HELPER" "$FUNCTIONS_DIR" ${args[@]+"${args[@]}"}); then
+    echo "ERROR: function-input-hash.py crashed; nothing was stamped." >&2
+    return 1
+  fi
+  printf '%s\n' "$out"
 }
+FUNCTIONS_RESULT="$(build_functions_json)" || exit 1
 
 # --- Build migrations section ---
 build_migrations_json() {
@@ -259,13 +316,44 @@ env_key = sys.argv[2]
 now = sys.argv[3]
 functions_only = sys.argv[4] == 'true'
 migrations_only = sys.argv[5] == 'true'
-functions_json = sys.argv[6]
+functions_result = json.loads(sys.argv[6])
 migrations_json = sys.argv[7]
+assume_all = sys.argv[8] == 'true'
+forget = [n for n in sys.argv[9].split('\n') if n]
+functions_dir = sys.argv[10]
 
 env = existing.get(env_key, {})
 
+if functions_result['errors']:
+    for name, msg in sorted(functions_result['errors'].items()):
+        print('stamp-deploy-manifest: cannot hash %s: %s' % (name, msg), file=sys.stderr)
+    print('stamp-deploy-manifest: nothing was stamped (fail closed, P1620).', file=sys.stderr)
+    sys.exit(1)
+
+import os
+for name in forget:
+    if os.path.isdir(os.path.join(functions_dir, name)):
+        print('stamp-deploy-manifest: refusing to forget %s: its source directory still exists' % name,
+              file=sys.stderr)
+        sys.exit(1)
+    if name not in env.get('functions', {}):
+        print('stamp-deploy-manifest: %s is not in the manifest for %s' % (name, env_key), file=sys.stderr)
+        sys.exit(1)
+
 if not migrations_only:
-    env['functions'] = json.loads(functions_json)
+    new_hashes = functions_result['hashes']
+    if assume_all:
+        env['functions'] = new_hashes
+    elif new_hashes or forget:
+        # MERGE, never drop: undeployed functions keep their old hash (stay reported when stale)
+        # and FUNCTION_ORPHANED entries survive until --forget-function removes them.
+        merged = dict(env.get('functions') or {})
+        merged.update(new_hashes)
+        if os.path.isdir(os.path.join(functions_dir, '_shared')):
+            merged.setdefault('_shared', '')
+        for name in forget:
+            merged.pop(name, None)
+        env['functions'] = merged
     env['functions_deployed_at'] = now
 
 if not functions_only:
@@ -327,7 +415,8 @@ existing[env_key] = env
 
 print(json.dumps(existing, indent=2))
 " "$EXISTING" "$ENV_KEY" "$NOW" "$FUNCTIONS_ONLY" "$MIGRATIONS_ONLY" \
-  "$(build_functions_json)" "$(build_migrations_json)" > "$TMP_OUT"
+  "$FUNCTIONS_RESULT" "$(build_migrations_json)" "$ASSUME_ALL" \
+  "$(printf '%s\n' ${FORGET_NAMES[@]+"${FORGET_NAMES[@]}"})" "$FUNCTIONS_DIR" > "$TMP_OUT"
 
 # P1173: rename, never redirect. `python3 ... > "$MANIFEST"` truncated the file
 # to zero bytes BEFORE python ran, so any merge failure (malformed JSON on disk,

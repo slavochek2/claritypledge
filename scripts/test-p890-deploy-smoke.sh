@@ -110,6 +110,7 @@ STUB
   cat > "$root/scripts/stamp-deploy-manifest.sh" <<'STUB'
 #!/bin/bash
 echo "stamp" >> "$STUB_RECORD_ORDER"
+echo "$*" >> "$STUB_RECORD_ORDER.args"
 if [ "${STUB_STAMP_EXIT:-0}" != "0" ]; then
   echo "ERROR: stamp-deploy-manifest.sh must run from the main repo root, not from a worktree."
   exit "$STUB_STAMP_EXIT"
@@ -138,7 +139,7 @@ run_deploy() {
   if [ -n "${NO_SMOKE:-}" ]; then rm -f "$root/scripts/edge-function-smoke.mjs"; fi
   RECORD_DEPLOYS="$TMPROOT/deploys.txt"; : > "$RECORD_DEPLOYS"
   RECORD_SMOKE="$TMPROOT/smoke.txt";     : > "$RECORD_SMOKE"
-  RECORD_ORDER="$TMPROOT/order.txt";     : > "$RECORD_ORDER"
+  RECORD_ORDER="$TMPROOT/order.txt";     : > "$RECORD_ORDER"; : > "$RECORD_ORDER.args"
 
   OUT=$(cd "$root" && env PATH="$STUBS:$PATH" \
     STUB_RECORD_DEPLOYS="$RECORD_DEPLOYS" \
@@ -216,10 +217,15 @@ if [ "$RC" -ne 0 ] && echo "$OUT" | grep -q 'failed to deploy: alpha-fn'; then
 else
   bad "REJECT: a failed upload exits non-zero and names the function" "exit $RC — output: $OUT"
 fi
-if [ -z "$ORDER" ]; then
-  ok "a failed upload stamps nothing and smokes nothing"
+# P1620: a partial failure stamps exactly the functions that DID upload (they are live), never the
+# failed one, and still smokes nothing. (Was: "stamps nothing" — deliberately changed by P1620.)
+STAMPED_ARGS=$(cat "$RECORD_ORDER.args" 2>/dev/null)
+# Word-split compare on whole tokens, no \b (BSD grep may not honour it).
+stamped_fn() { local w prev=""; for w in $STAMPED_ARGS; do [ "$prev" = "--function" ] && [ "$w" = "$1" ] && return 0; prev="$w"; done; return 1; }
+if [ "$ORDER" = "stamp " ] && ! stamped_fn alpha-fn && stamped_fn create-and-sign; then
+  ok "a failed upload stamps only the functions that uploaded and smokes nothing"
 else
-  bad "a failed upload stamps nothing and smokes nothing" "order was: '$ORDER'"
+  bad "a failed upload stamps only the functions that uploaded and smokes nothing" "order was: '$ORDER' stamp args: '$STAMPED_ARGS'"
 fi
 
 # --- 6. ACCEPT: test/local deploys are unchanged (no smoke unless opted in) --

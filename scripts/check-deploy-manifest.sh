@@ -92,14 +92,30 @@ else
 fi
 
 # --- Compare (write to temp file to avoid set -e issues) ---
-python3 << 'PYEOF' - "$MANIFEST_PATH" "$ENV_KEY" "$FUNCTIONS_DIR" "$MIGRATIONS_DIR" "$LOCAL_MANIFEST_PATH" > "$TMPFILE"
-import json, sys, hashlib, os, glob
+HASH_HELPER="$SCRIPT_DIR/lib/function-input-hash.py"
+python3 << 'PYEOF' - "$MANIFEST_PATH" "$ENV_KEY" "$FUNCTIONS_DIR" "$MIGRATIONS_DIR" "$LOCAL_MANIFEST_PATH" "$HASH_HELPER" > "$TMPFILE"
+import json, sys, os, glob, subprocess
 
 manifest_path = sys.argv[1]
 env_key = sys.argv[2]
 functions_dir = sys.argv[3]
 migrations_dir = sys.argv[4]
 local_manifest_path = sys.argv[5] if len(sys.argv) > 5 else ''
+hash_helper = sys.argv[6]
+
+# P1620: a function's hash covers everything its bundle contains (index.ts + transitive relative
+# imports + deno.json/deno.lock), from the SAME helper the stamper uses. A helper that crashes or
+# prints garbage must never read as "no drift": exit 3, which the caller turns into a hard error.
+try:
+    _res = subprocess.run([sys.executable, hash_helper, functions_dir],
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if _res.returncode != 0:
+        raise RuntimeError(_res.stderr.decode('utf-8', 'replace').strip() or 'exit %d' % _res.returncode)
+    _parsed = json.loads(_res.stdout.decode('utf-8'))
+    helper_hashes, helper_errors = _parsed['hashes'], _parsed['errors']
+except Exception as exc:
+    print('HASH_HELPER_FAILED: %s' % exc, file=sys.stderr)
+    sys.exit(3)
 
 with open(manifest_path) as f:
     manifest = json.load(f)
@@ -128,12 +144,15 @@ issues = []
 # Check edge functions
 for fn_dir in sorted(glob.glob(os.path.join(functions_dir, '*/'))):
     fn_name = os.path.basename(fn_dir.rstrip('/'))
-    main_file = os.path.join(fn_dir, 'index.ts')
 
-    local_hash = None
-    if os.path.isfile(main_file):
-        with open(main_file, 'rb') as mf:
-            local_hash = hashlib.sha256(mf.read()).hexdigest()
+    if fn_name in helper_errors:
+        # Fail closed: inputs that cannot be traced are reported, never passed.
+        issues.append(
+            f'FUNCTION_UNTRACEABLE: {fn_name} (cannot establish its inputs: '
+            f'{helper_errors[fn_name]})'
+        )
+        continue
+    local_hash = helper_hashes.get(fn_name) or None   # "" (no index.ts) means nothing to compare
 
     # The working-tree manifest agrees with the code on disk, so this function
     # WAS deployed and stamped here; only the stamp is missing from origin/main.
@@ -210,6 +229,14 @@ else:
 PYEOF
 PY_EXIT=$?
 
+# 0 = clean, 1 = drift listed in $TMPFILE. Anything else is the checker itself failing (a crashed
+# hash helper, a Python error): never print a pass or an empty drift list for that.
+if [ $PY_EXIT -ne 0 ] && [ $PY_EXIT -ne 1 ]; then
+  echo "ERROR: deploy manifest check could not run (internal exit $PY_EXIT); this is NOT a clean result." >&2
+  rm -f "$TMPFILE" "$MANIFEST_TMPFILE"
+  exit 2
+fi
+
 if [ $PY_EXIT -eq 0 ]; then
   echo "Deploy manifest check passed — all infra matches $ENV_KEY."
   rm -f "$TMPFILE" "$MANIFEST_TMPFILE"
@@ -227,7 +254,10 @@ while IFS= read -r line; do
     echo "  ./scripts/deploy-functions.sh $fn --env $ENV_NAME"
   elif [[ "$line" == FUNCTION_ORPHANED:* ]]; then
     fn=$(echo "$line" | sed 's/^[^:]*: //' | cut -d' ' -f1)
-    echo "  supabase functions delete $fn --project-ref <$ENV_KEY ref>   # then ./scripts/stamp-deploy-manifest.sh --env $ENV_NAME"
+    echo "  supabase functions delete $fn --project-ref <$ENV_KEY ref>   # then ./scripts/stamp-deploy-manifest.sh --env $ENV_NAME --forget-function $fn"
+  elif [[ "$line" == FUNCTION_UNTRACEABLE:* ]]; then
+    fn=$(echo "$line" | sed 's/^[^:]*: //' | cut -d' ' -f1)
+    echo "  fix the import in supabase/functions/$fn named above; the drift check cannot vouch for it until it resolves"
   elif [[ "$line" == MIGRATION_MISSING:* ]]; then
     echo "  ./scripts/migrate.sh --env $ENV_NAME"
   elif [[ "$line" == MIGRATION_UNPUSHED_STAMP:* ]] || [[ "$line" == FUNCTION_UNPUSHED_STAMP:* ]]; then

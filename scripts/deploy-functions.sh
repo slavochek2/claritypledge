@@ -215,9 +215,24 @@ for fn in "${FUNCTIONS[@]}"; do
   rm -f "$DEPLOY_LOG"
 done
 
+# P1620: stamp exactly the functions that uploaded, never "everything". A partial failure stamps
+# its successes (they ARE live) and leaves the failures with their old hash, so they stay reported.
+stamp_deployed() {
+  local args=() fn
+  for fn in ${DEPLOYED[@]+"${DEPLOYED[@]}"}; do args+=(--function "$fn"); done
+  "$SCRIPT_DIR/stamp-deploy-manifest.sh" --env "$ENV_NAME" --functions-only ${args[@]+"${args[@]}"}
+}
+
 if [ ${#FAILED[@]} -gt 0 ]; then
   echo ""
   echo "ERROR: ${#FAILED[@]} function(s) failed to deploy: ${FAILED[*]}"
+  if [ ${#DEPLOYED[@]} -gt 0 ]; then
+    if stamp_deployed; then
+      echo "Manifest stamped for the ${#DEPLOYED[@]} that deployed: ${DEPLOYED[*]}. The failed ones stay reported as drift."
+    else
+      echo "ERROR: manifest stamp for the successful deploys also failed; re-stamp from the main repo root: ./scripts/stamp-deploy-manifest.sh --env $ENV_NAME --functions-only$(printf ' --function %s' "${DEPLOYED[@]}")"
+    fi
+  fi
   exit 1
 fi
 
@@ -235,11 +250,12 @@ fi
 # one thing this feature exists to prevent. Record the failure, run the smoke anyway,
 # and exit non-zero at the end.
 STAMP_OK=1
-if ! "$SCRIPT_DIR/stamp-deploy-manifest.sh" --env "$ENV_NAME" --functions-only; then
+if ! stamp_deployed; then
   STAMP_OK=0
   echo "ERROR: manifest stamp failed — the functions ARE deployed but the manifest does"
   echo "       not record it, so drift checks will misreport. Re-stamp from the main"
-  echo "       repo root: ./scripts/stamp-deploy-manifest.sh --env $ENV_NAME --functions-only"
+  echo "       repo root, naming exactly what deployed (a bare stamp is refused, P1620):"
+  echo "       ./scripts/stamp-deploy-manifest.sh --env $ENV_NAME --functions-only$(printf ' --function %s' "${DEPLOYED[@]}")"
 fi
 echo ""
 if [ "$STAMP_OK" -eq 1 ]; then

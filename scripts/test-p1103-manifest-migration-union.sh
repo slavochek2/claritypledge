@@ -51,6 +51,7 @@ build_project() {
   mkdir -p "$pdir/scripts" "$pdir/supabase/migrations" "$pdir/supabase/functions"
   cp "$REAL_STAMP" "$pdir/scripts/stamp-deploy-manifest.sh"
   chmod +x "$pdir/scripts/stamp-deploy-manifest.sh"
+  mkdir -p "$pdir/scripts/lib"; cp "$REPO_ROOT/scripts/lib/function-input-hash.py" "$pdir/scripts/lib/function-input-hash.py"
   printf '%s' "$manifest" > "$pdir/supabase/deploy-manifest.json"
   local v
   for v in "$@"; do
@@ -195,7 +196,7 @@ fi
 # --- 7. --functions-only must not touch the migrations array -----------------
 echo "7. --functions-only leaves the migrations array alone"
 PDIR5="$(build_project functions_only "$MANIFEST_WITH_WORKTREE_ENTRY" 20260101000000)"
-stamp "7: functions-only" "$PDIR5" --env test --functions-only
+stamp "7: functions-only" "$PDIR5" --env test --functions-only --assume-all-deployed
 GOT5="$(migrations_of "$PDIR5" test)"
 if [ "$GOT5" = "20260101000000 20260818090000" ]; then
   ok "migrations array untouched by a functions-only stamp"

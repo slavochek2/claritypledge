@@ -33,7 +33,11 @@ sha_of_string() {
 NOTHING='{"prod":{"functions":{},"migrations":[]},"test":{"functions":{},"migrations":[]}}'
 
 FN_BODY='export default () => new Response("fixture");'
-FN_HASH="$(sha_of_string "$FN_BODY")"
+# P1620: a function's hash is the full-input hash from the shared helper, not sha256(index.ts).
+# The fixture function imports nothing and there is no deno.json/deno.lock, so ask the helper.
+_hfx="$(mktemp -d)"; mkdir -p "$_hfx/fixture-fn"; printf '%s' "$FN_BODY" > "$_hfx/fixture-fn/index.ts"
+FN_HASH="$(python3 "$REPO/scripts/lib/function-input-hash.py" "$_hfx" | python3 -c 'import json,sys;print(json.load(sys.stdin)["hashes"]["fixture-fn"])')"
+rm -rf "$_hfx"
 
 # build_fixture <root> — a repo whose origin/main manifest lists NOTHING, with
 # a local working-tree manifest supplied by the caller.
@@ -42,6 +46,8 @@ build_fixture() {
   mkdir -p "$root/repo/scripts" "$root/repo/supabase/functions/fixture-fn" "$root/repo/supabase/migrations"
   cp "$REPO/scripts/check-deploy-manifest.sh" "$root/repo/scripts/check-deploy-manifest.sh"
   chmod +x "$root/repo/scripts/check-deploy-manifest.sh"
+  mkdir -p "$root/repo/scripts/lib"
+  cp "$REPO/scripts/lib/function-input-hash.py" "$root/repo/scripts/lib/function-input-hash.py"
   printf '%s' "$FN_BODY" > "$root/repo/supabase/functions/fixture-fn/index.ts"
   printf 'select 1;\n' > "$root/repo/supabase/migrations/20260101000000_fixture.sql"
   # origin/main's manifest — by default prod has nothing at all

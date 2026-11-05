@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [deploy, edge-functions, manifest, terms]
 disclosure: public
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: scripts/test-p1620-reproduce.sh
   root_cause: "The manifest hashes only index.ts, and every deploy re-stamps all functions, so a _shared or sibling change never reports and a one-function deploy marks undeployed functions current"
@@ -86,9 +86,19 @@ Already done, out of scope: the two hotfix deploys below, and the secret check's
 
 ## Acceptance Criteria
 
-- [ ] A `_shared`-only change reports `FUNCTION_STALE` for a function that imports it, shown failing first on the real tree
-- [ ] The same change does not report a function that does not import it, if hashing is per import
-- [ ] A freshly deployed, unchanged function reports clean
-- [ ] Deploying one function does not mark another changed function as current
-- [ ] Every function found stale on prod is listed, and redeployed with founder approval
-- [ ] A person on the current terms gets a mirror reply on prod with no terms message
+- [x] A `_shared`-only change reports `FUNCTION_STALE` for a function that imports it, shown failing first on the real tree
+- [x] The same change does not report a function that does not import it, if hashing is per import
+- [x] A freshly deployed, unchanged function reports clean
+- [x] Deploying one function does not mark another changed function as current
+- [ ] [post-deploy] Every function found stale on prod is listed, and redeployed with founder approval
+- [ ] [post-deploy] A person on the current terms gets a mirror reply on prod with no terms message
+
+## Resolution
+
+Both defects fixed: `scripts/lib/function-input-hash.py`, shared by the stamper and the check, hashes each function's traced inputs plus `deno.json` and `deno.lock`. A deploy stamps only what deployed, and a stamp with no names is refused without `--assume-all-deployed`. The trace matched `deno info` on local files for all 24 functions, before the final regex-keyword lexer change.
+
+**Chosen over reading what the server serves:** that path is unmeasured for hosted functions (P1312). So a clean report still means "the last recorded deploy used this code", not "the server was read". The manifest can still be falsified by `--assume-all-deployed`, which is explicit.
+
+**After landing:** old hashes do not match, so every function reports `FUNCTION_STALE` and the daily drift check stays red until all are redeployed.
+
+**Known limit:** a regex literal holding a quote directly after `)` can still desync the lexer. Existing relative imports stay covered by the raw-text pass; a fail-closed error in that file could be hidden.
