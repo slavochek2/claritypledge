@@ -9,7 +9,8 @@
  */
 import { Sparkles, ShieldOff } from 'lucide-react';
 import { CHAT_ROOM_AGREED_LABEL, CHAT_ROOM_INTRO, ROUND_UPDATE_CONSENT, consentAgreedLabel } from '@/app/components/session/capture-copy';
-import { useRoomEventState, useRoomIsMastermind } from './use-room-event';
+import { useRoomEventState } from './use-room-event';
+import { useRoomIsMastermind } from './use-room-is-mastermind';
 
 export function ConsentLabel({ agreed, code, checking = false }: { agreed: boolean; code: string | undefined; checking?: boolean }) {
   const state = useRoomEventState(code);
@@ -22,7 +23,7 @@ export function ConsentLabel({ agreed, code, checking = false }: { agreed: boole
 export function ConsentSection({ agreed, code, onToggle }: { agreed: boolean; code: string | undefined; onToggle: () => void }) {
   const state = useRoomEventState(code);
   const forEvent = state === 'event' || state === 'unknown';
-  const mastermind = useRoomIsMastermind(code);
+  const mastermind = useRoomIsMastermind(code, forEvent);
   return (
     <>
       <p className="text-sm text-muted-foreground mb-6" data-testid="transcribe-consent-intro">
