@@ -284,13 +284,18 @@ echo ""
 
 # 4.5a. transcribe-room-batch worker tests (P1626) — a commit landed with one of these failing because
 # nothing ran them. Runs only when a path under services/transcribe-room-batch/ is staged (deletions
-# included); any other commit spawns no Python. ONLY pytest exit 0 passes: a missing or stale venv,
-# a collection error and "no tests collected" all block, naming ./scripts/setup-transcribe-room-batch-venv.sh.
-# Tests the WORKING TREE as on disk, not the index (a partly staged file is tested whole). Logic and
-# canary: scripts/lib/transcribe-room-batch-tests.sh, scripts/test-p1626-worker-tests-hook.sh.
+# included); any other commit spawns no Python. ONLY pytest exit 0 passes: a missing venv, a collection
+# error and "no tests collected" all block, naming ./scripts/setup-transcribe-room-batch-venv.sh.
+# Tests a snapshot of the INDEX (what the commit will contain), in the venv keyed by the indexed lockfile.
+# The helper is resolved beside THIS script like run-quiet.sh (a worktree runs main's hook); the repo it
+# tests is the committing repo's top level. Canary: scripts/test-p1626-worker-tests-hook.sh.
 TRB_STAGED=$(git diff --cached --name-only --no-renames 2>/dev/null || true)
+TRB_LIB="$(cd "$(dirname "$_pcc_self")" && pwd -P)/lib/transcribe-room-batch-tests.sh"
 if [ -n "$(printf '%s\n' "$TRB_STAGED" | grep '^services/transcribe-room-batch/' || true)" ]; then
-    if ! CP_TRB_STAGED="$TRB_STAGED" run_quiet "Transcribe-room-batch worker tests (P1626)" bash scripts/lib/transcribe-room-batch-tests.sh; then
+    if [ ! -f "$TRB_LIB" ]; then
+        echo -e ">>> Transcribe-room-batch worker tests... ${RED}✗ helper missing: $TRB_LIB. Blocking commit.${NC}"
+        ERRORS=$((ERRORS + 1))
+    elif ! CP_TRB_STAGED="$TRB_STAGED" run_quiet "Transcribe-room-batch worker tests (P1626)" bash "$TRB_LIB"; then
         ERRORS=$((ERRORS + 1))
     fi
 else

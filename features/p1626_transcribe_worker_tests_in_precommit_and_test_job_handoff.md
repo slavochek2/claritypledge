@@ -76,7 +76,7 @@ Isolate TEST on GCP rather than share prod's parts:
 
 Order: secrets and IAM first, one hand-posted job id of no value (expect `claimed: false`) as a chain probe, then the paid run.
 
-Then, after checking no other session is on the worker, run once: `P1608_DISPATCH=chain npm run test:e2e:p1608`. Proof is in the logs: each of the run's job ids has a `/process` request whose user agent is Cloud Tasks and whose `X-CloudTasks-*` task name is on the test queue. The test's report cannot show this.
+Then, after checking no other session is on the worker, run once: `P1608_DISPATCH=chain npm run test:e2e:p1608`. Proof is in the logs: the test queue logs every dispatch (sampling 1.0), and its task names carry the job id, so each of the run's job ids has a dispatch on the test queue, plus a worker `claimed` line and `/process` request with the Cloud Tasks user agent. The worker does not log `X-CloudTasks-*` headers. The test's report cannot show this.
 
 ## Risks / Non-Goals
 
@@ -116,6 +116,8 @@ Per [metered-services.md](../docs/technical/metered-services.md). Worker: 2 vCPU
 | Cloud Tasks | none | none | Free tier covers this volume |
 | Supabase | none | none | Self-hosted, no plan limit |
 | New scheduler | none | none | None added |
+
+Traffic for the paid run, with J jobs (P1608 had 2 round jobs plus a room job, so J is about 3): at most 3J = 9 Cloud Tasks deliveries, 3 attempts per task, one probe delivery, one queue log line per attempt and dispatch (about 20 lines), and each failed delivery writes one worker log line. Monthly: 10 runs cost 10 times the per-run line above. Later rooms at the busiest measured pace every day are an upper bound that the key's cap stops first.
 
 1. **Fits the plan limit today?** Yes, the batch key is budget-capped and no vendor cap applies.
 2. **Fits at 10x?** About $39 a day on a busy day would trip that cap, which is the intended stop. Verdict: fits, with a visible stop.
