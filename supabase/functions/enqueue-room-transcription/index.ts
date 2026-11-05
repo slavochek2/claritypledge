@@ -23,7 +23,9 @@ import { taskName, validAttempt } from './task-name.ts';
 const GCP_PROJECT = 'gen-lang-client-0869694595';
 const LOCATION = 'us-east4';
 const QUEUE = Deno.env.get('TRANSCRIBE_ROOM_QUEUE') ?? 'transcribe-room-jobs';
-const INVOKER_SA = `tx-task-invoker@${GCP_PROJECT}.iam.gserviceaccount.com`;
+// P1626: TEST uses its own least-privilege invoker; unset means today's prod account.
+const INVOKER_SA = Deno.env.get('TRANSCRIBE_ROOM_INVOKER_SA') ??
+  `tx-task-invoker@${GCP_PROJECT}.iam.gserviceaccount.com`;
 const SERVICE_URL = Deno.env.get('TRANSCRIBE_ROOM_BATCH_URL') ?? '';
 const CRON_SECRET = Deno.env.get('CRON_SECRET') ?? '';
 

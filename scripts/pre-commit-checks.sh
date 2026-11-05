@@ -282,6 +282,22 @@ else
 fi
 echo ""
 
+# 4.5a. transcribe-room-batch worker tests (P1626) — a commit landed with one of these failing because
+# nothing ran them. Runs only when a path under services/transcribe-room-batch/ is staged (deletions
+# included); any other commit spawns no Python. ONLY pytest exit 0 passes: a missing or stale venv,
+# a collection error and "no tests collected" all block, naming ./scripts/setup-transcribe-room-batch-venv.sh.
+# Tests the WORKING TREE as on disk, not the index (a partly staged file is tested whole). Logic and
+# canary: scripts/lib/transcribe-room-batch-tests.sh, scripts/test-p1626-worker-tests-hook.sh.
+TRB_STAGED=$(git diff --cached --name-only --no-renames 2>/dev/null || true)
+if [ -n "$(printf '%s\n' "$TRB_STAGED" | grep '^services/transcribe-room-batch/' || true)" ]; then
+    if ! CP_TRB_STAGED="$TRB_STAGED" run_quiet "Transcribe-room-batch worker tests (P1626)" bash scripts/lib/transcribe-room-batch-tests.sh; then
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Transcribe-room-batch worker tests skipped (service not staged)"
+fi
+echo ""
+
 # 4.5b. Kanban typecheck (P1474) — nothing typechecked tools/kanban: section 1 compiles
 # tsconfig.app.json only and CI never references the board, so its `tsc` reached 16 errors
 # on main unnoticed. Runs only when kanban TypeScript or its tsconfig is staged (deletions

@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 99
 workstream: events
 created_date: '2026-11-05'
 tags: [transcription, pre-commit, self-hosted-test, cloud-tasks]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
