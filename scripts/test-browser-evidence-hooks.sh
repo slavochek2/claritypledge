@@ -68,6 +68,11 @@ check "reedit: block with no evidence tool" 2 "$actual"
 
 B="$TMP/reedit-builder.jsonl"; write_transcript "$B" '{"type":"user","message":{"content":"I still don'"'"'t see it"}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Agent","input":{"description":"Build the wiring","prompt":"Edit the files"}}]}}'
 actual=0; run_reedit_hook "$B" || actual=$?; check "reedit: dispatching a builder is not evidence" 2 "$actual"
+for brief in "Fix the header padding; the main session will run visual QA afterwards." "Implement the layout. Leave visual QA to the caller." "You are a frontend builder. Fix the CSS to match the screenshot supplied by the user." "Implement the CSS fix. Do not take screenshots; the main session handles those." "Implement the CSS fix. A long brief follows, and it only reaches the subject of pictures well after its opening purpose has been stated clearly here. Take a screenshot afterwards."; do
+N2="$TMP/reedit-neg.jsonl"; write_transcript "$N2" '{"type":"user","message":{"content":"I still don'"'"'t see it"}}' "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"name\":\"Agent\",\"input\":{\"description\":\"Build it\",\"prompt\":\"$brief\"}}]}}"
+actual=0; run_reedit_hook "$N2" || actual=$?; check "reedit: builder brief mentioning screenshots is not evidence" 2 "$actual"; done
+R="$TMP/reedit-role.jsonl"; write_transcript "$R" '{"type":"user","message":{"content":"I still don'"'"'t see it"}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Agent","input":{"description":"Check the page","prompt":"You are a visual QA reviewer. Do not edit files; take screenshots and report defects."}}]}}'
+actual=0; run_reedit_hook "$R" || actual=$?; check "reedit: a brief opening in the visual QA role is evidence" 0 "$actual"
 Q="$TMP/reedit-qa.jsonl"; write_transcript "$Q" '{"type":"user","message":{"content":"I still don'"'"'t see it"}}' '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Agent","input":{"description":"Visual QA of screenshots","prompt":"Check them"}}]}}'
 actual=0; run_reedit_hook "$Q" || actual=$?; check "reedit: a visual QA subagent is evidence" 0 "$actual"
 echo "[reedit] same complaint, called inside a subagent -> PASS (P1634)"

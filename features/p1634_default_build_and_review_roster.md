@@ -12,8 +12,8 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
-spec_review_hash: 808e09818ba78dd0baa16f98561811d734c9428d768b726cd2fdb421c2b3cb84
-spec_review_vendors: [gemini, openrouter]
+spec_review_hash: 34703d3e1ababba783a937c4d40de3fffe9ca8efebb42735fc1c3092ebd5f4f8
+spec_review_vendors: [codex, gemini, openrouter]
 ---
 
 # P1634: Spec review, Sonnet building and quota handling run by default, and the review gate sees subagent edits
@@ -64,18 +64,18 @@ Slice 3 comes after slice 2 because ad-hoc orchestrated sessions copy this habit
 
 ## Cost Budget
 
-Price source and read date: P1630's Cost Budget (OpenRouter listing, 2026-11-05); that spec adds the registry row. Gemini runs on credits; Codex and Opus are subscriptions. Volume is the count of specs added to `features/` over 30 days, with one re-review assumed. Its value and the totals are kept in `.private/docs/usage/p1634-cost-budget.md`.
+Price source and read date: P1630's Cost Budget (OpenRouter listing, 2026-11-05); that spec adds the registry row. Gemini runs on credits at the registry's `gemini-4-argon` row; Codex and Opus are subscriptions. Volume is the count of specs added to `features/` over 30 days, with one re-review assumed. Its value and the totals are kept in `.private/docs/usage/p1634-cost-budget.md`.
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
 | Requests | n/a, no end users | n/a | 2 GLM calls per spec (review + one re-review) |
 | Egress (bytes) | n/a | n/a | `2 x about 20 KB spec` |
 | Log lines | n/a | n/a | 0 added (existing delegation log) |
-| Service unit x registry price | n/a | n/a | `10,000 input x $0.08/1M + 1,000 output x $3.60/1M`, twice per spec |
+| Service unit x registry price | n/a | n/a | GLM: `10,000 input + 1,000 output` at the registry's OpenRouter prices. Gemini, measured on this spec's review prompt (65 KB in, 12 KB out): `16,000 input + 3,000 output` at the registry's `gemini-4-argon` prices, doubling after 2026-11-30. Each twice per spec |
 
-1. **Fits today?** Yes on the typical case, at `2 x specs per month x cost per call`.
-2. **Fits at 10x?** Yes on the typical case. The prepaid balance is the ceiling.
-3. **If either answer were no:** drop GLM from spec review; it is advisory here too.
+1. **Fits today?** Yes on the typical case, at `2 x specs per month x cost per call`, against the per-run Argon cost the founder accepted (pp decisions 2026-11-04). Monthly volume spend is shown to the founder at ship; figures stay private.
+2. **Fits at 10x?** GLM yes. Gemini is the larger term and would need the founder's call; the budget-capped key is the ceiling.
+3. **If either answer were no:** drop GLM from spec review, since it is advisory here too, then use the 3.8 Flash model for spec review.
 
 The larger cost is subscription quota: review and verification tokens on the main session, offset by Sonnet doing the building. It is unmeasured; the 30-day check below reads the outcome.
 
@@ -140,7 +140,7 @@ Fresh headless sessions in disposable clones with no remote, no orchestration ty
 | Embargo | Delegation log for that run: Gemini and Codex, zero `vendor=openrouter`. Tests cover the `glm-allowed` cases. |
 | Codex forced to fail | It failed for real in every run, on its usage limit. |
 | Gemini and Codex both failing | **Not run end to end.** `write` refused a real GLM-only output and wrote nothing; telling the founder is skill text. |
-| Gate | `test-p1505-review-gate.sh` 103 passed, with 9 new cases seen failing on the old hook; `test-browser-evidence-hooks.sh` 15 passed. |
+| Gate | `test-p1505-review-gate.sh` 103 passed, with 9 new cases seen failing on the old hook; `test-browser-evidence-hooks.sh` 17 passed. |
 | Sonnet default | Opus main session dispatched `model: sonnet`; the subagent's Write calls created the eight CLIs and tests (`claude-sonnet-5-5`), and the main session committed. |
 | Skill edit stays on main | The Opus main session issued the `note.md` Edit itself; **headless permissions refused it**, so the edit did not land. |
 
@@ -151,6 +151,7 @@ Fresh headless sessions in disposable clones with no remote, no orchestration ty
 - A founder waiver over an incomplete scan does not spend the once-per-session block, so one block can follow on a later turn.
 - The once-per-session marker is written just before the block is delivered. A hook killed in that window spends the block silently.
 - A transient timeout spends the block too. The largest real session scanned in 4.2s against a 6s budget; a cold disk was not measured.
+- `spec_review_stamp.py write` cannot bind evidence to the spec reviewed, because findings are folded after the review. Passing another spec's output would stamp it wrongly; this guards mistakes by skill text only.
 - Shell edits stay invisible, including a subagent's heredoc. Slice 3 briefs require Edit and Write for this reason.
 
 ## Rollback Strategy

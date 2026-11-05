@@ -10,7 +10,7 @@ confidently tell.
 visual-qa.md's own process spawns a SEPARATE SUBAGENT for visual QA (so the
 implementer doesn't grade its own screenshot) — that subagent's tool calls
 live in a different transcript this hook can't see. So a direct screenshot
-tool call OR an Agent/Task delegation whose brief names visual QA or a screenshot
+tool call OR an Agent/Task delegation whose purpose names visual QA
 both count as evidence.
 """
 import json
@@ -36,7 +36,8 @@ NOT_SEEING_RE = re.compile(
 UI_PATH_RE = re.compile(r"\.(tsx|jsx|css)$")
 EVIDENCE_TOOL_PREFIXES = BROWSER_TOOL_PREFIXES
 EVIDENCE_TOOL_NAMES = ("Agent", "Task")
-VISUAL_QA_RE = re.compile(r"visual[ -]?qa|screenshot|visual review", re.IGNORECASE)
+VISUAL_QA_RE = re.compile(r"visual[ -]?qa|visual review", re.IGNORECASE)
+QA_ROLE_RE = re.compile(r"\s*you are a visual[ -]?qa", re.IGNORECASE)
 
 
 def load_input():
@@ -52,7 +53,9 @@ def is_evidence_tool(tu):
     name = tu.get("name", "")
     if name in EVIDENCE_TOOL_NAMES:
         inp = tu.get("input") or {}
-        return bool(VISUAL_QA_RE.search(f"{inp.get('description', '')} {inp.get('prompt', '')}"))
+        # Structure, not word search: its description names visual QA, or its brief opens in that
+        # role. A builder's brief can mention QA or screenshots anywhere, even to forbid them.
+        return bool(VISUAL_QA_RE.search(str(inp.get("description", ""))) or QA_ROLE_RE.match(str(inp.get("prompt", ""))))
     return any(name == p or name.startswith(p) for p in EVIDENCE_TOOL_PREFIXES)
 
 
