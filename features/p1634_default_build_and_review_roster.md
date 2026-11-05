@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 104
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [review, finish, create-spec, orchestration]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -37,10 +37,10 @@ Blast radius: high, every spec, every `/dev` and `/fix` run and the Stop hook in
 
 ## Invariants
 
-- **Never wait for a reviewer's quota reset, unless the founder says so for specific work.** Founder decision 2026-11-05, superseding the practice recorded 2026-10-14. A reviewer out of quota is named as missing in the `Reviewers:` line and the work continues. If no Gemini or Codex run can succeed, the P1630 floor refuses the receipt and the founder is told at once; that is a question to the founder, not a silent wait.
+- **Never wait for a reviewer's quota reset, unless the founder says so for specific work.** Founder decision 2026-11-05, superseding the practice recorded 2026-10-14. A reviewer out of quota is named as missing in the `Reviewers:` line and the work continues. If no Gemini or Codex run can succeed, no stamp or receipt is written and the founder is told at once; that is a question to the founder, not a silent wait. Spec review enforces this itself: its stamp is not a `/finish` receipt, so P1630's `review_receipt.py` floor does not reach it, and GLM alone never earns a stamp.
 - **Quota is discovered by failure, not by reading it.** `~/.agents/model-routing.md` says never to read another harness's quota, and threshold swapping was shown to deadlock (Alternatives, B).
 - **Spec reviewers follow the 2026-10-16 ruling:** different vendors, every load-bearing claim verified by command before it is folded in, and a re-review after a round of founder answers.
-- **Embargoed specs never go to GLM,** with P1630's fail-closed rule. Same content, same rule.
+- **Embargoed specs never go to GLM,** with P1630's fail-closed rule. Same content, same rule, with one defined case: a new spec never committed on `main` has no committed copy, so its working copy alone decides. Embargoed specs are branch-born, so a branch never takes this case.
 - **A scan the gate could not finish must not read as a pass.** Today, going over budget returns "nothing unreviewed" (`verify-before-stop.py`, `unreviewed_edits`). Adding subagent transcripts makes that likelier, so this changes in the same slice.
 - **The waiver rules of P1505 are unchanged.** Only the founder's explicit words skip a review.
 - **Subagents stage, the main session commits** (`.claude/rules/git.md`), and a subagent's report is verified before it is relied on (epistemic gate 9). Background agents write their result to a file (`.claude/rules/skills.md`).
@@ -51,10 +51,11 @@ Three slices, in this order. Each can ship and be reverted alone.
 
 1. **Spec review runs by default.**
    - `/create-spec` runs it at its end, and the roster lives in that one place: Gemini and GLM on every spec except a low-blast-radius one; Codex and Opus added when Appetite says blast radius is high, or the spec reverses a ruling, carries privacy seals, or touches migrations, auth or a gate.
-   - The result is stamped on the spec as a hash of its body (frontmatter excluded, since pipeline stamps change it) plus the vendors that reported, written after findings are folded in.
+   - The result is stamped on the spec as a hash of its body (frontmatter excluded, since pipeline stamps change it; checkbox state normalized, since `/dev` ticks boxes in the body) plus the vendors that reported, written after findings are folded in. If the review raises founder questions, no stamp is written until the answers are folded in and the one re-review has run.
+   - Appetite's blast radius cannot skip review for a spec that names a hook, migration, auth path or gate; the Step 4b path list decides that, not the author's prose.
    - `/dev` and `/fix` compare the hash on entry. No stamp or a changed body runs the review once before building. This is what makes "already reviewed" true for the content being built.
    - The report shows the same `Reviewers:` line P1630 adds to `/finish`.
-2. **The gate sees subagent edits.** Edits from `<session>/subagents/*.jsonl` count, with a bounded scan. A scan that cannot finish blocks once and says coverage was incomplete. The implementer may use another detection method if it passes the same Done-When; on the shared main checkout a plain `git status` also sees co-tenants' files, so it cannot be the whole answer.
+2. **The gate sees subagent edits.** Edits from every `*.jsonl` under `<transcript without .jsonl>/subagents/` count, recursively, because workflow agents sit in `subagents/workflows/<run>/`. The time budget is checked inside the scan, and over 300 paths is detected before the list is cut. A scan that cannot finish blocks once per session (its own `_retry_count` key, since nothing can clear a permanently oversized history) and says coverage was incomplete; a later turn in that session gets the partial result, a recorded known limit. The implementer may use another detection method if it passes the same Done-When; on the shared main checkout a plain `git status` also sees co-tenants' files, so it cannot be the whole answer.
 3. **Sonnet building is the default in `/dev` and `/fix`.** The main session plans, dispatches, verifies and commits. Sonnet subagents write mechanical code. Judgment-bearing work (skill bodies, prompts, gates) stays on the main model, per `/recommend-model-effort`'s trap, which is read rather than restated. Edits small enough that spawning costs more stay inline. The dead Orchestrator Mode section is removed. An explicit founder instruction in the session wins.
 
 Slice 3 comes after slice 2 because ad-hoc orchestrated sessions copy this habit, and those are the ones only the gate protects.
@@ -104,19 +105,24 @@ The larger cost is subscription quota: review and verification tokens on the mai
 - Do NOT add a findings ledger or runtime model scoring.
 - Do NOT change the `/finish` Step 4b roster; P1630 owns it.
 - Do NOT try to detect shell edits; they stay a known limitation.
-- Do NOT start slice 1 before P1630 ships: it reuses the GLM row, the `Reviewers:` line and the embargo rule.
+- Do NOT start slice 1 before P1630 ships: it reuses the GLM row, the `Reviewers:` line and the embargo rule. Shipped 2026-11-05. Spec review still carries its own floor (Invariants), since `review_receipt.py` guards receipts, not stamps.
 
 ## Done-When
 
 - [ ] Filing a normal-stakes spec runs Gemini and GLM with no typed request, stamps the hash and vendors, and shows the `Reviewers:` line. A high-stakes spec also gets Codex and Opus. A low-blast-radius spec skips review and says so.
 - [ ] `/dev` on an unstamped or changed spec reviews it first, once. On an unchanged spec, or one changed only in frontmatter, it does not.
-- [ ] An embargoed spec's review never sends to GLM (no `vendor=openrouter` line in the delegation log for it).
-- [ ] With Codex forced to fail, a review continues, names Codex missing and does not wait. With Gemini and Codex both failing, the founder is told immediately.
-- [ ] The P1505 test suite gains cases, each seen failing on the old code: an edit made only by a subagent blocks; a receipt clears it; an oversized subagent history, over 300 paths, and budget exhaustion each block with the incomplete-coverage message. Every existing case still passes.
-- [ ] A real `/dev` run on a throwaway spec, with no orchestration typed, has Sonnet subagents writing mechanical code and the main session committing. A skill-body edit in the same run stays on the main model.
+- [ ] An embargoed spec's review never sends to GLM (no `vendor=openrouter` line in `~/.agents/logs/delegation.log` for it). A never-committed `disclosure: public` spec on `main` does get GLM; one with no value does not.
+- [ ] With Codex forced to fail, a review continues, names Codex missing and does not wait. With Gemini and Codex both failing, no stamp is written, even with a good GLM run, and the founder is told immediately.
+- [ ] The P1505 test suite gains cases, each seen failing on the old code: an edit made only by a subagent blocks; a receipt clears it; an oversized subagent history, over 300 paths, and budget exhaustion each block with the incomplete-coverage message, once per session. A fixture shaped from a real captured subagent transcript, and one in `subagents/workflows/<run>/`, are both read. Every existing case still passes.
+- [ ] A real `/dev` run on a throwaway spec, with no orchestration typed, has Sonnet subagents writing mechanical code and the main session committing. A skill-body edit in the same run stays on the main model. Evidence: the subagent transcript's model and Edit calls, the main transcript's skill edit and commit, recorded in the spec. Subagent briefs name the working directory.
+- [ ] `verify-screenshot-before-reedit.py` was checked inside a subagent, and fixed if it can block one.
 - [ ] `grep -n "Orchestrator Mode" .claude/commands/slava/build/dev.md` no longer finds the dead section, and `dev.md` and `fix.md` state the new default.
 - [ ] Decisions log carries the never-wait ruling, noting that it supersedes the 2026-10-14 practice.
-- [ ] A `/note` entry with `due: month` is filed: re-run the typed-asks count for the 30 days after slice 3 ships. Below 2 a day confirms this; otherwise read which asks remain and say why. It also closes P1505's falsifier with its result.
+- [ ] A `/note` entry with `due: month` is filed: re-run the typed-asks count for the 30 days after slice 3 ships. Below 2 a day confirms this; otherwise read which asks remain and say why. It also records the result against P1505's falsifier, whose own 30-day window ends first.
+
+## Spec Review Record
+
+2026-11-05, Gemini and GLM reported (Codex missing, out of quota; Opus skipped by the founder's call). Reviewers: Gemini ok · GLM ok (12 findings, 7 verified, 0 unverified) · Codex missing (out of quota) · Opus not run · 2 of 3 received. Dropped after checks: the Stop hook firing per subagent (settings wire `Stop` only), legacy `## Implementation Tasks` readers (0 open specs), a floor dependency on P1630 (spec review needs its own). Added by verification, not by a reviewer: workflow agents live in `subagents/workflows/<run>/`. Measured: the largest session's subagent history is 2 GB and a plain scan takes 2.0s, so the budget holds on a warm disk.
 
 ## Rollback Strategy
 
