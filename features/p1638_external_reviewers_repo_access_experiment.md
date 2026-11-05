@@ -142,15 +142,17 @@ The set is selected to include context-dependent defects, so a win justifies a f
 
 ## Done-When
 
-- [ ] Manifest committed before the first scored run, with every field above; each case verified as an ancestor of `origin/main`
-- [ ] Containment controls run from inside the sandbox with exit codes shown: decoys under `$HOME` and the temp directory fail to read, DSH's real credentials and sessions paths fail to read, the manifest fails to read, a write outside the work area fails, a signal to a process started for the test fails, a request to a host fails, and grounding and OpenRouter requests through the test gateway are refused. Each target is first shown to exist and be reachable outside the sandbox. A file inside the export reads successfully, and the gateway reaches Argon
-- [ ] A pilot on 2 cases outside the benchmark proves D's limits, wrap-up and usage metering, and gives real token counts; Cost Budget is updated before the scored run, or the Fallback is taken and recorded
-- [ ] The served model is recorded for every run in every setup
-- [ ] Every planned run is accounted for as completed, limit-hit or missing, and the report states whether the budget stop fired
-- [ ] Results table per setup: defects found by type, false claims per review, real-but-unexpected findings, A's spread, tool calls, tokens and cost per review
-- [ ] Verdict for C and D (or B) written against Decision Criteria and recorded in `docs/decisions.md`, even if the answer is "no change"
-- [ ] Test profile, gateway copy and DSH home removed. Checksums of everyday DSH's configuration files and the gateway's LaunchAgent match those taken before the experiment, and it is still disabled
+- [x] Manifest committed before the first scored run, with every field above; each case verified as an ancestor of `origin/main`
+- [x] Containment controls run from inside the sandbox with exit codes shown: decoys under `$HOME` and the temp directory fail to read, DSH's real credentials and sessions paths fail to read, the manifest fails to read, a write outside the work area fails, a signal to a process started for the test fails, a request to a host fails, and grounding and OpenRouter requests through the test gateway are refused. Each target is first shown to exist and be reachable outside the sandbox. A file inside the export reads successfully, and the gateway reaches Argon. Exception: OpenRouter and grounding were not probed from outside, since this experiment makes no OpenRouter call and gives reviewers no web access; both refusals were tested
+- [x] A pilot on 2 cases outside the benchmark proves D's limits, wrap-up and usage metering, and gives real token counts; Cost Budget is updated before the scored run, or the Fallback is taken and recorded
+- [x] The served model is recorded for every run in every setup
+- [x] Every planned run is accounted for as completed, limit-hit or missing, and the report states whether the budget stop fired
+- [x] Results table per setup: defects found by type, false claims per review, real-but-unexpected findings, A's spread, tool calls, tokens and cost per review
+- [x] Verdict for C and D (or B) written against Decision Criteria and recorded in `docs/decisions.md`, even if the answer is "no change"
+- [x] Test profile, gateway copy and DSH home removed. Checksums of everyday DSH's configuration files and the gateway's LaunchAgent match those taken before the experiment, and it is still disabled
 - [ ] Founder decision recorded in this spec: no change, or a follow-up spec is filed
+
+Results and verdict: [docs/audits/p1638-results.md](../docs/audits/p1638-results.md).
 
 ## Cost Budget
 
@@ -173,6 +175,36 @@ Worst case at D's limit: 300k x $2/M + 8k x $10/M = $0.68 per run; x 36 = $24.48
 Pilot: 2 cases x 3 setups x up to $0.68 = up to $4.08.
 
 **Hard stop: $40 total, including the pilot, retries and any fallback.** Before each case, the runner reserves that case's maximum cost from metered spend so far, and it does not start a case that could exceed the stop. Stopping leaves no verdict under Decision Criteria 7. Scoring runs on the subscription lane. No recurring cost.
+
+### Pilot result, measured before the scored run (2026-11-05)
+
+Real token counts on the 2 pilot cases, one run each, input / output including thinking. Spend counts all input at the full input rate, though the API reported much of D's input as cached, so true cost is lower than these figures.
+
+| Setup | PILOT-1 | PILOT-2 | Cost per run |
+|---|---|---|---|
+| A | 17,824 / 1,252 | 4,945 / 960 | $0.02 to $0.05 |
+| C | 86,477 / 1,332 | 13,796 / 959 | $0.04 to $0.19 |
+| D, final setup | 179,067 / 3,068 | 149,605 / 5,609 | $0.36 to $0.39 |
+
+**The pilot went over its $4.08 estimate** (figure in `.private/`), because it took four rounds to find a D setup that stops on its own. As first specified, D hit the input limit on every run. With ceilings raised to 700k it read until wrap-up on all 3 runs, at 622k to 680k input, so no affordable limit would have stopped it, and Decision Criteria 8 would have left D with no verdict.
+
+**Changes to D, fixed before any scored run,** so a D result describes this setup rather than plain DSH:
+- A budget note in D's environment section of the prompt.
+- A live budget meter the test gateway appends to each request after the first, telling D how much is used and how many requests it can afford.
+- Tighter tool-output settings: `spill-policy.maxInlineTokens` 2,500 and `tool-result-pruner` 4,096 / 2,000 / 500.
+
+With all three, both pilot runs finished on their own with no wrap-up.
+
+**Limits, lowered so the worst case stays under the stop:** D 270k input and 8k output, 900 s, was 300k and 8k. A and C 6k output per run. Wrap-up, output limit, wall-clock wrap-up, the kill path and the hard stop after wrap-up were each forced in the pilot and worked. A killed run with no output counts as misses.
+
+| Measure | Projected scored run |
+|---|---|
+| A, 36 runs | $1.10 expected, $2.79 at the limit |
+| C, 36 runs | $4.28 expected, $5.97 at the limit |
+| D, 36 runs | $13.68 expected at $0.38 per run, $22.32 at the limit |
+| With the pilot's spend | **Under the $40 stop even at every limit** (figures in `.private/`) |
+
+Thinking tokens were reported on some D requests and none on the pilot A and C runs. D's requests asked for no thinking override, so its default is the same as A's and C's.
 
 ## Rollback Strategy
 
