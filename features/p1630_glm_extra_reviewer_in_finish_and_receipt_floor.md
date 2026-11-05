@@ -126,7 +126,7 @@ Price source: OpenRouter's public endpoint listing for `z-ai/glm-5.3`, read 2026
 - [x] A `/note` entry with `due: month` is filed: read ten `/finish` runs from the 30 days after merge. If GLM produced no verified defect the other reviewers missed, fall back to Alternative B, or remove GLM if it is no better there.
 - [x] `grep -n -i glm .claude/commands/slava/build/finish/SKILL.md` finds the row and no model id; the row names `OPENROUTER_MODEL` in `~/.agents/model-defaults.env` as where the id lives.
 - [x] `docs/technical/metered-services.md` has a dated, sourced OpenRouter row.
-- [ ] Every other reader of the receipt and of the evidence pattern was found by grep and still passes its tests; the list is in the PR notes. `[post-deploy]` re-check: one real `/finish` run after merge on a throwaway change.
+- [x] Every other reader of the receipt and of the evidence pattern was found by grep and still passes its tests: `.claude/hooks/verify-before-stop.py`, `scripts/test-p1505-review-gate.sh`, `scripts/pre-commit-checks.sh`, `dev.md`, `fix.md`. The post-merge re-check moved to the inbox by founder decision, 2026-11-05.
 - [x] A full `/finish` review of this change, including the Opus adversary, is clean, or each finding is fixed or listed.
 
 ## Rollback Strategy
