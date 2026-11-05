@@ -600,6 +600,93 @@ fi
   fail "P: ship force-released main.lock — spec forbids this"
 pass "P: concurrent ship serializes via main.lock (contention detected, no interleave)"
 
+# P2 (P1637): the timeout above happened with nothing picked, so this run's journal
+# must be gone, and a plain retry (no --resume) must ship once the lock is free.
+P2_JOURNAL="$SCRATCH/main/.claude/worktrees/.ship-journal/p105.json"
+if [[ -f "$P2_JOURNAL" ]]; then
+  fail "P2: lock timeout left a journal behind although nothing was picked"
+fi
+echo "$P_OUT" | grep -q 'journal was removed' || fail "P2: timeout output does not say the journal was removed"
+
+# P3 (P1637): a journal that already exists (--resume) is never removed on a timeout,
+# and the operator is told the lock is busy rather than to --resume again.
+P3_SRC="$( cd "$SCRATCH/main" && git rev-parse feature/p105-demo )"
+P3_MAIN="$( cd "$SCRATCH/main" && git rev-parse main )"
+mkdir -p "$(dirname "$P2_JOURNAL")"
+python3 - "$P2_JOURNAL" "$P3_SRC" "$P3_MAIN" <<'PY'
+import json, sys
+path, src, head = sys.argv[1:]
+json.dump({"p_number": "p105", "started_at": "2026-04-22T00:00:00Z", "session_id": "canary-p3",
+           "source_branch": "feature/p105-demo", "spec_file": "features/p105_demo.md",
+           "start_head": head,
+           "commits": [{"source_sha": src, "landed_sha": None, "landed_at": None, "pre_pick_head": head}],
+           "spec_closed": False, "branch_deleted": False}, open(path, "w"))
+PY
+set +e
+P3_OUT=$( cd "$SCRATCH/main" && GIT_OPS_MAIN_LOCK_TIMEOUT=2 capture_r bash "$GIT_OPS" ship p105 --resume )
+set -e
+echo "$P3_OUT" | grep -qiE 'held by|main.lock' || fail "P3: the resume never reached the lock timeout, so the keep path was not exercised"
+echo "$P3_OUT" | grep -q 'journal kept' || fail "P3: timeout output does not say the journal was kept"
+echo "$P3_OUT" | grep -q 'lock busy' || fail "P3: a timed-out --resume should say the lock is busy, not tell the operator to --resume again"
+[[ -f "$P2_JOURNAL" ]] || fail "P3: a journal with a recorded pick was removed on lock timeout"
+[[ -f "$SCRATCH/main/.claude/worktrees/main.lock" ]] || fail "P3: main.lock was released by a ship that never held it"
+rm -f "$P2_JOURNAL"
+
+# P4 (P1637): a FRESH run whose main moved while it waited cannot prove nothing was
+# picked (start_head no longer matches), so its journal is kept, and the advertised
+# --resume recovery must then ship it.
+scratch_feature p4106 2
+P4_JOURNAL="$SCRATCH/main/.claude/worktrees/.ship-journal/p4106.json"
+( cd "$SCRATCH/main" && GIT_OPS_MAIN_LOCK_TIMEOUT=20 capture_r bash "$GIT_OPS" ship p4106 > "$SCRATCH/p4.out" 2>&1 ) &
+P4_PID=$!
+for _ in $(seq 1 100); do [[ -f "$P4_JOURNAL" ]] && break; sleep 0.2; done
+[[ -f "$P4_JOURNAL" ]] || fail "P4: the fresh run never wrote its journal"
+( cd "$SCRATCH/main" && echo "moved" > p4-moved.txt && git add p4-moved.txt && git commit -qm "p4: main moves while the ship waits" ) >/dev/null
+set +e; wait "$P4_PID"; P4_EXIT=$?; set -e
+[[ $P4_EXIT -ne 0 ]] || { cat "$SCRATCH/p4.out" >&2; fail "P4: ship succeeded despite held main.lock"; }
+grep -q 'held by another session after 20s timeout' "$SCRATCH/p4.out" || { cat "$SCRATCH/p4.out" >&2; fail "P4: run did not end on the lock timeout"; }
+[[ -f "$P4_JOURNAL" ]] || fail "P4: journal removed although main moved and nothing proves no pick"
+grep -q 'journal kept' "$SCRATCH/p4.out" || fail "P4: timeout output does not say the journal was kept"
+
+# P5 (P1637): a fresh run must never remove a journal it did not write. Main does NOT
+# move here, so ship_journal_never_picked would say "never picked"; only the ownership
+# check (this run's pid in session_id) keeps the journal.
+scratch_feature p4107 2
+P5_JOURNAL="$SCRATCH/main/.claude/worktrees/.ship-journal/p4107.json"
+( cd "$SCRATCH/main" && GIT_OPS_MAIN_LOCK_TIMEOUT=20 capture_r bash "$GIT_OPS" ship p4107 > "$SCRATCH/p5.out" 2>&1 ) &
+P5_PID=$!
+for _ in $(seq 1 100); do [[ -f "$P5_JOURNAL" ]] && break; sleep 0.2; done
+[[ -f "$P5_JOURNAL" ]] || fail "P5: the fresh run never wrote its journal"
+sed -i.bak 's/"session_id": "[^"]*"/"session_id": "otherhost-1-1"/' "$P5_JOURNAL" && rm -f "$P5_JOURNAL.bak"
+grep -q 'otherhost-1-1' "$P5_JOURNAL" || fail "P5: fixture could not rewrite the journal owner"
+set +e; wait "$P5_PID"; P5_EXIT=$?; set -e
+[[ $P5_EXIT -ne 0 ]] || { cat "$SCRATCH/p5.out" >&2; fail "P5: ship succeeded despite held main.lock"; }
+grep -q 'held by another session after 20s timeout' "$SCRATCH/p5.out" || { cat "$SCRATCH/p5.out" >&2; fail "P5: run did not end on the lock timeout"; }
+grep -q 'journal kept' "$SCRATCH/p5.out" || fail "P5: timeout output does not say the journal was kept"
+[[ -f "$P5_JOURNAL" ]] || fail "P5: a journal owned by another run was removed on lock timeout"
+rm -f "$P5_JOURNAL"
+scratch_reset p4107
+
+rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
+cleanup_sleeper
+set +e
+P4_RESUME=$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p4106 --resume )
+P4_RESUME_EXIT=$?
+set -e
+if [[ $P4_RESUME_EXIT -ne 0 ]]; then
+  echo "$P4_RESUME" >&2
+  fail "P4: --resume of the kept journal did not ship (exit $P4_RESUME_EXIT)"
+fi
+set +e
+P2_RETRY=$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship p105 )
+P2_RETRY_EXIT=$?
+set -e
+if [[ $P2_RETRY_EXIT -ne 0 ]]; then
+  echo "$P2_RETRY" >&2
+  fail "P2: plain retry after a lock timeout did not ship (exit $P2_RETRY_EXIT)"
+fi
+pass "P2-P5: lock timeout removes only its own unpicked journal, keeps a picked, unprovable or foreign one, and the retry paths ship"
+
 rm -f "$SCRATCH/main/.claude/worktrees/main.lock"
 cleanup_sleeper
 trap 'rm -rf "$SCRATCH"' EXIT

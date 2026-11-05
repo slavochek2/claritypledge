@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 293
+**Next ID:** 294
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3553,5 +3553,16 @@ Moved out of P1630's Done-When by the founder so the spec can close at ship. Aft
 **due:** week
 
 At ship, Codex was launched on the embargoed one-file case but hit its usage limit, so only the routing was proven. Re-run that case once with the limit reset, on throwaway code. Done when a Codex run with exit 0 is recorded here.
+
+---
+
+## Guard the ship canary suite against a duplicate scenario P-number
+
+**ID:** INBOX-293
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** month
+
+A new scenario in scripts/test-git-ops-ship.sh that reuses a P-number a later scenario owns kills the whole suite with exit 1 and no FAIL line, after the last PASS. Add a check that fails loudly on a duplicate scenario P-number or fixture branch. Seen once, in P1637 on 2026-11-05, where a new fixture collided with scenario S. Drop it if the suite is split or stops using P-number fixtures.
 
 ---

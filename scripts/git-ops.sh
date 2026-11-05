@@ -4154,7 +4154,8 @@ cmd_ship() {
   if (( journal_exists == 1 && resume == 0 )); then
     {
       echo "ship: existing journal at $journal"
-      echo "Resume with 'git-ops ship $pn --resume' or delete the journal to restart."
+      echo "Resume with 'git-ops ship $pn --resume'. Do NOT delete the journal if any commit was picked:"
+      echo "deleting it can replay commits already on main. Delete only after confirming nothing landed."
     } >&2
     exit 1
   fi
@@ -4711,6 +4712,26 @@ The branch is authoritative for shipped migrations. Compare each file with
 
   local timeout="${GIT_OPS_MAIN_LOCK_TIMEOUT:-120}"
   if ! acquire_main_lock "$timeout"; then
+    # P1637: a spec on main wrote its journal before this lock, so a timeout would
+    # strand it and the plain retry would stop at "existing journal". Remove it only
+    # when (a) the journal's session_id carries this run's own pid (two plain runs of
+    # one P-number can both see no journal; the pid check proves who wrote it LAST,
+    # not who is using it, so a window remains if a same-P run holds the lock 120s
+    # without picking: that run then fails on a missing journal and is re-run, no
+    # replay), and (b) the journal proves nothing was ever picked. A journal with a
+    # pick recorded is never removed here (deleting can replay commits).
+    if (( journal_exists == 0 )) && [[ -f "$journal" ]] \
+       && [[ "$(ship_journal_str "$pn" session_id 2>/dev/null || true)" == "$(hostname -s)-$$-"* ]] \
+       && ship_journal_never_picked "$journal"; then
+      rm -f "$journal"
+      echo "ship: lock timeout; this run's journal was removed (nothing was picked). Re-run: git-ops ship $pn" >&2
+    elif [[ -f "$journal" ]]; then
+      if (( resume == 1 )); then
+        echo "ship: lock busy; journal kept at $journal. Retry with --resume once the holder finishes, or raise GIT_OPS_MAIN_LOCK_TIMEOUT." >&2
+      else
+        echo "ship: lock timeout; journal kept at $journal (main moved since it was planned, a pick may have been attempted, or another run owns it). Re-run with --resume." >&2
+      fi
+    fi
     exit 1
   fi
   # Releases the lock AND, on a non-zero exit, reports the stranded branch and

@@ -14,11 +14,13 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** Port the stand-down with an age cap from the /day guard to this path only. The block for edits with no review stays unsuppressed.
 **Consequences:** Needs a bug spec and /fix. Falsifier: the session transcript shows a different trigger.
 
-## 2026-11-05 [process]: A ship that times out on the main lock should not leave its journal (Status: proposed)
+## 2026-11-05 [process]: A ship that times out on the main lock removes only its own unpicked journal (P1637)
 
-**Context:** During P1630 `git-ops.sh ship` timed out on the main lock after writing its journal, so the retry stopped on "existing journal". By code reading this affects specs already on main; other refusals on that path already clean up.
-**Decision:** On lock timeout, remove the fresh journal when no commit was picked, and add a canary. The "delete the journal" hint should warn that deleting can replay commits once a pick has happened.
-**Consequences:** Needs a bug spec and /fix. Not reproduced yet.
+**Context:** During P1630 `git-ops.sh ship` timed out on the main lock after writing its journal, so the retry stopped on "existing journal". Reproduced: for a spec already on main the journal is written before the lock is taken, and the timeout exited with no cleanup. Other refusals on that path already removed a fresh journal.
+**Decision:** On lock timeout, remove the journal only when (a) this run wrote it, proven by its own pid in the journal's `session_id`, and (b) `ship_journal_never_picked` holds (main still at the journal's start head, no pick recorded). Otherwise keep it and say so: a timed-out `--resume` is told the lock is busy, a fresh run is told to `--resume`. The "existing journal" hint now warns that deleting can replay commits once a pick has happened. Canary scenarios P2 to P5 in `scripts/test-git-ops-ship.sh`.
+**Alternatives rejected:** Removing the journal on any timeout of a fresh run: a same-P-number run racing it could lose its journal, and nothing proves no pick happened if main moved. A `--forget` flag that verifies and deletes: new surface, and skills take no flags. Shipping the fix on a branch: the ship tool refuses a branch that edits `git-ops.sh`, so it lands through `commit-to-main`.
+**Consequences:** When the lock holder is itself a ship or commit, main usually moved while this run waited, so the journal is kept and `--resume` recovers it (pinned by canary P4). The plain retry works only when the holder was idle. A narrow race remains: the pid proves who wrote the journal last, not who is using it, so a same-P run holding the lock 120s without a pick could lose its journal and be re-run, with no replay. Falsifier: a stranded journal after a timeout with nothing picked and main unmoved. Review: Gemini (3 rounds), GLM (2 rounds), an Opus adversary; Codex hit its usage limit and did not run.
+**References:** [scripts/git-ops.sh](../scripts/git-ops.sh) (`cmd_ship` lock timeout), [scripts/test-git-ops-ship.sh](../scripts/test-git-ops-ship.sh) (P2 to P5), P1637 spec
 
 ## 2026-11-05 [process]: GLM joins /finish as advisory, and a review receipt now needs a Gemini or Codex run
 

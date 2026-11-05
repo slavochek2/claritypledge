@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 107
 severity: medium
@@ -11,8 +11,11 @@ exec_model: sonnet
 exec_effort: medium
 tags: [git-ops, ship, journal]
 disclosure: public
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
+date_resolved: '2026-11-05'
+root_cause: "cmd_ship wrote the journal before the main lock and the lock timeout exited without cleanup"
+resolution: "remove the fresh journal on timeout only when this run wrote it and nothing was picked; warn in the existing-journal hint"
 reproduce_artifact:
   test_file: scripts/test-git-ops-ship.sh
   root_cause: "cmd_ship writes the journal (ship_init_journal, git-ops.sh ~L4483) for a spec on main before the pre-pick lock acquire (~L4713); acquire_main_lock timeout does a bare exit 1 with no journal cleanup"
@@ -71,7 +74,13 @@ On lock timeout, remove the fresh journal if `ship_journal_never_picked` holds; 
 
 ## Acceptance Criteria
 
-- [ ] After a lock timeout with nothing picked, no journal remains and a plain retry ships
-- [ ] A journal with a picked commit survives a timeout
-- [ ] The "existing journal" message warns that deleting can replay commits
-- [ ] The new canary in `scripts/test-git-ops-ship.sh` fails without the fix
+- [x] After a lock timeout with nothing picked, no journal remains and a plain retry ships (canary P2; holds when main did not move, otherwise the journal is kept and `--resume` ships it, canary P4)
+- [x] A journal with a picked commit survives a timeout (canary P3 for an existing journal, P4 and P5 for a fresh run that cannot prove it never picked)
+- [x] The "existing journal" message warns that deleting can replay commits
+- [x] The new canary in `scripts/test-git-ops-ship.sh` fails without the fix (P2 fails against the unfixed script: `lock timeout left a journal behind`)
+
+## Resolution
+
+**Fixed:** 2026-11-05. `cmd_ship` lock-timeout branch removes this run's own unpicked journal, keeps any other with an accurate message, and the "existing journal" hint warns about replay. Canary scenarios P2 to P5 in `scripts/test-git-ops-ship.sh`; full ship suite 82 pass, 0 fail.
+
+**Known limitations (from review):** the pid ownership check proves the last writer, not the user, so a same-P run holding the lock 120s without a pick could lose its journal and need a re-run, with no replay. When the lock holder advances main, a fresh run's journal is kept and `--resume` recovers it, so the plain retry works only when the holder was idle.
