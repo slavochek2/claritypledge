@@ -13,7 +13,7 @@ Most dev processes are checklists you run in your head. Ours is a short route of
 | Phase | Key Skill | What It Prevents |
 |-------|-----------|-----------------|
 | **Define** | [`/create-spec`](../.claude/commands/slava/build/create-spec.md) | Building the wrong thing — forces "why does this matter?" before code |
-| **Review the spec** | Multi-model spec review: the Gemini review model, Opus and Codex | Untested assumptions, missing edge cases, and schema or API decisions you'll regret in 6 months. Each model catches blockers the others miss, and every load-bearing claim is checked by command before it is folded in ([decisions.md](decisions.md) 2026-10-16 [process]) |
+| **Review the spec** | Multi-model spec review, run by default at the end of [`/create-spec`](../.claude/commands/slava/build/create-spec.md), which owns the roster, and by `/dev` and `/fix` when the spec has no current stamp (P1634) | Untested assumptions, missing edge cases, and schema or API decisions you'll regret in 6 months. Each model catches blockers the others miss, and every load-bearing claim is checked by command before it is folded in ([decisions.md](decisions.md) 2026-10-16 [process]) |
 | **Build** | [`/dev`](../.claude/commands/slava/build/dev.md) | The actual implementation — iterates until tests pass, stops at UAT |
 | **Review the build** | [`/finish`](../.claude/commands/slava/build/finish/SKILL.md) | Correctness bugs, code-quality and design-system misses. Runs at the end of every `/dev` and `/fix`, and the Stop hook asks for it after any ad-hoc build (P1505) |
 | **Verify** | [`/verify`](../.claude/commands/slava/build/verify/SKILL.md) | "Tests pass" is not the same as "works in a browser" |
@@ -21,7 +21,7 @@ Most dev processes are checklists you run in your head. Ours is a short route of
 
 Bugs take a shorter route: [`/reproduce`](../.claude/commands/slava/build/reproduce/SKILL.md) → [`/fix`](../.claude/commands/slava/build/fix.md) → `/ship`.
 
-Not every task runs every step. A typo fix goes straight to `/dev`; the spec review is for specs that carry real stakes (reversed rulings, privacy, auth, data). The agent chooses the steps itself; there is no separate routing skill.
+Not every task runs every step. A typo fix goes straight to `/dev`; a low-blast-radius spec skips the spec review and says so. The agent chooses the steps itself; there is no separate routing skill.
 
 **Design and test work happens inside the spec and `/dev`:** user flows, component choices and the test plan live in the `/create-spec` Solution and Done-When, and `/dev` writes tests first. Optional helpers that remain: [`/ascii-flows`](../.claude/commands/slava/build/ascii-flows.md) (layout exploration for multi-flow features) and [`/critique-ux`](../.claude/commands/slava/build/critique-ux.md) (UX critique of a built surface).
 

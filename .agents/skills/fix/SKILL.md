@@ -296,6 +296,8 @@ If a P-number spec was provided (file path or short form like `p99`):
 
 Skip silently if no feature file exists (inline description mode, e.g. `/fix "Login button broken"`).
 
+**Spec review check (P1634):** run `python3 scripts/spec_review_stamp.py check <spec file path>`. On `current`, go on. On exit 2, tell the founder. On `missing` or `changed`, run `/create-spec`'s "Spec Review" section once on this spec (its roster, including its low-blast-radius skip), then continue. Never wait for a reviewer's quota.
+
 ---
 
 ### Phase 1: Reproduce the Issue (FALLBACK — skip if `reproduce_artifact` exists)

@@ -490,13 +490,43 @@ silent refresh, 24h, 7d unchanged.]
 
 ---
 
+## Spec Review (P1634)
+
+Runs at the end of this skill with no typed request. `/dev` and `/fix` run this same section on entry when the stamp is missing or stale. The roster lives only here.
+
+| Spec | Reviewers |
+|---|---|
+| Low blast radius in Appetite, and names no hook, migration, auth path or gate (the path list in `/finish` Step 4b) | None. Report `Spec review skipped (low blast radius)` |
+| Normal | Gemini review model and GLM |
+| Appetite says high blast radius, or the spec reverses a ruling, carries privacy seals, or touches migrations, auth or a gate | Gemini, GLM, Codex and an Opus agent |
+
+An explicit founder instruction in the session overrides this table.
+
+1. **Prompt:** write one prompt file holding the spec, the code it makes claims about, and a hostile-reviewer brief (false claims, untestable Done-When, contradictions). `<spec>` here and below is the resolved file path, never a bare `pN`.
+2. **GLM gate:** run `python3 scripts/spec_review_stamp.py glm-allowed <spec>`. Anything but `allowed` (a `skip: ...` line, or exit 2) means GLM does not run, Codex joins the roster, and the report says `GLM skipped (embargo)`. The `/finish` Step 4b skip conditions also apply to every other file in the prompt: if one is under `.private/`, outside this repo, or from an embargoed spec, leave it out of GLM's copy.
+3. **Run** each as its own background Bash call, output to a scratchpad file:
+   - Gemini: `~/.agents/bin/delegate-gemini --model "$(sed -n 's/^REVIEW_GEMINI_MODEL=//p' ~/.agents/model-defaults.env)" --file <prompt>`
+   - GLM: `~/.agents/bin/ask-model openrouter --timeout 600 --prompt-file <prompt>`
+   - Codex: `~/.agents/bin/codex-review --prompt-file <prompt>`
+   - Opus: an `Agent` with `model: "opus"` that writes its report to a file and returns the path.
+4. **Never wait for a quota reset,** unless the founder says so for specific work. A failed reviewer is named missing and the work continues. Never read a reviewer's quota to choose the roster.
+5. **Verify before folding (epistemic gate 9):** check every load-bearing claim by command, then fold in what holds. Count what was dropped.
+6. **Founder questions:** if the review raises any, ask and write no stamp. Fold in the answers, run one re-review, then continue. Fold what that re-review verifies. A further founder question stops the work until answered, with no third round.
+7. **Stamp, last:** `python3 scripts/spec_review_stamp.py write <spec> --evidence <gemini output> --evidence <glm output>`, one `--evidence` per `ask-model` output file. An Opus report is not evidence, so name it only in the report line. `write` records the body hash and the vendors, and refuses without a valid Gemini or Codex run. On that refusal, write no stamp, tell the founder at once and do not build. Only the founder can decide to go ahead.
+8. **Report** in the `/finish` Step 4b form: `Reviewers: Gemini ok · GLM ok (5 findings, 2 verified, 0 unverified) · Codex not triggered · Opus not triggered · 2 of 2 received`.
+
+The stamp covers the body, with checkbox state ignored, so pipeline fields and ticked boxes do not trigger a re-review. Any other body change does, once. A low-blast-radius skip writes no stamp, so `/dev` and `/fix` re-read the table on entry and skip again, which also catches a spec that has since grown. `check` exiting 2 means an unreadable spec: tell the founder rather than treating it as `missing`.
+
+---
+
 ## After File Creation
 
 ```
 Created: features/p{N}_{slug}.md
 Type: {work type}
 Execution: {exec_model}, {exec_effort} — {one clause of why}
-Next step: /dev — first a multi-model spec review when the stakes call for one
+Spec review: {the Reviewers: line, or why it was skipped}
+Next step: /dev
 ```
 
 The execution line belongs in the report, not only in the frontmatter — it is the answer to the question that otherwise gets asked by hand on the next turn. Then: "Hit the Refresh button in the kanban to see the new card (http://localhost:9050 → Refresh)."
@@ -506,6 +536,6 @@ The execution line belongs in the report, not only in the frontmatter — it is 
 ## Related Skills
 
 - `/slava:think:problemify` — reframe a Problem that named a fix. **Offered, never called** (above).
-- Multi-model spec review — Gemini review model, Opus and Codex, each load-bearing claim verified by command before it is folded in (decisions.md 2026-10-16 [process]); replaces the archived `/challenge-prd` and `/spec-review` (P1514)
+- Multi-model spec review — the Spec Review section above (decisions.md 2026-10-16 [process]); replaces the archived `/challenge-prd` and `/spec-review` (P1514)
 - `/create-bug` — symptom-first bug spec · `/change-request` — predecessor-linked redesign spec
 - `/dev` — implementation, ending in the `/finish` review (P1505); there is no separate design, test-generation or decomposition pipeline (`/ux`, `/ui`, `/generate-tests`, `/decompose` archived 2026-10-20, P1514)

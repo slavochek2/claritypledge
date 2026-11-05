@@ -1,7 +1,7 @@
 ---
 name: dev
 description: Execute a development task with TDD discipline and production thinking
-when_to_use: "After a spec exists (/create-spec, plus a multi-model spec review when the stakes call for one). Triggered by /dev."
+when_to_use: "After a spec exists (/create-spec, which runs the spec review by default). Triggered by /dev."
 version: 2.0.0
 ---
 
@@ -169,6 +169,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
    3. Append `dev` to `pipeline_ran` inline list. Edit pattern: match `pipeline_ran: [existing, items]`, replace with `pipeline_ran: [existing, items, dev]`. If `pipeline_ran` doesn't exist, add `pipeline_ran: [dev]`. Always inline format.
    4. **Predecessor check:** If `pipeline_plan` exists, find the skill before `dev` in the plan. If that skill is NOT in `pipeline_ran` (exact match) → stop: "Run `/{predecessor}` first." Skip check if: (a) `pipeline_plan` absent, (b) this skill is first in plan, (c) `pipeline_ran` absent/empty and this is first planned skill.
    5. If this skill is NOT in `pipeline_plan` → warn: "This skill wasn't in the planned flow. Proceed anyway?"
+0.5. **Spec review check (P1634)** — If a P-number spec was provided, run `python3 scripts/spec_review_stamp.py check <spec file path>`. On `current`, go on. On exit 2, tell the founder. On `missing` or `changed`, run `/create-spec`'s "Spec Review" section once on this spec (its roster, including its low-blast-radius skip), then continue. Never wait for a reviewer's quota.
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
 1.5. **Read Component Strategy** — If spec has `## Component Strategy`, read the Component Map table. Every Reuse/Extend/Extract/New classification is a constraint — follow it. Do not create new components when the map says Reuse or Extend. If the Extraction Plan lists a prerequisite refactor, do it first. (legacy: `## Component Strategy` is written only by the archived `/ui`.)
 1.6. **Read view_locked** — If spec frontmatter has `view_locked: [path1, path2, ...]`, treat each path as read-only for the remainder of this run. Paths are literal strings resolved relative to the repo root — do NOT interpret them as globs or regex. Reject any entry containing `..`, starting with `/`, or otherwise escaping the repo root (mistyped entries must fail loudly, not silently disable the guard). Before any Write or Edit call, normalize the target file path (repo-root-relative) and check literal equality against every view_locked entry. If a write to a locked path is attempted, STOP and report: "Attempted to edit locked view file {path}. /view owns this file. Options: (A) re-run /view to update the view, (B) remove path from view_locked if ownership has changed, (C) edit a different file." Continue only after founder confirms. If view_locked is absent, proceed with current behavior (backward-compatible). (Legacy: `view_locked` is written only by the archived `/view`; the guard stays for older specs that carry it, and the options above mean re-running it only if it is restored from `archive/`.)
