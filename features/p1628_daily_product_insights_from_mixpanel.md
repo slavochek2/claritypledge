@@ -14,7 +14,7 @@ exec_effort: high
 driver: anomaly
 ---
 
-# P1628: Daily product insights from Mixpanel in /day
+# P1628: Weekly product insights from Mixpanel, delivered through /day
 
 ## Problem
 
@@ -22,7 +22,7 @@ driver: anomaly
 
 **Complication:** The headline numbers are also misleading. Of 2,837 "visitors" in the last 30 days, about 69% come from data-centre cities. The eight pages our health smoke visits (`PROD_HEALTH_ROUTES`) each show about 240 visitors, which matches two 6-hourly workflows over 30 days, each run with a fresh anonymous id. That match is arithmetic plus one city breakdown, and no event property proves it yet.
 
-**Question:** What should the founder see every day to learn how real people behave, without the page inventing patterns from small numbers?
+**Question:** What should the founder see each week to learn how real people behave, without the page inventing patterns from small numbers?
 
 > Founder, verbatim: "make sure that when I run slash date, it's always daily updated and I get my insights delivered so I can see patterns and I can learn from them." "who spends how much time? who is returning, who is not returning, what they do, do they explore things, do they get stuck, are there problems"
 
@@ -56,9 +56,9 @@ Each phase ships only after the one before it is verified.
 7. Reconcile against Supabase: RSVP rows for at least three recent events, and several known practice journeys. A funnel is not published until it matches or the gap is explained.
 8. Keep two separate outcomes with their own denominators: completed event registration, and completed paired practice. Do not call an event visitor who RSVPs and leaves a failure of retention.
 
-### Phase 2: the daily delivery
+### Phase 2: the weekly delivery
 
-9. Extend Wave 2b in `day-cp` so a fixed list of aggregate queries runs every day, including quiet days. Give it its own required check, because Mixpanel calls have been dropped from some passes and the quiet-day path records `not-used`.
+9. Add a fixed list of aggregate queries to the weekly run that `/day` already triggers when it is overdue (`/weekly`), so a week with few users still gets a read. Give it its own required check, because Mixpanel calls have been dropped from some passes. `/day` shows the latest read and its date. Wave 2b's per-user drills stay as they are.
 10. Write the result to the report, and show it in an Analytics tab on the Day page, answering:
 
 | Founder's question | Measure |
@@ -66,28 +66,28 @@ Each phase ships only after the one before it is verified.
 | Who is here | Real visitors, new vs returning, landing pages, referrers |
 | What they do | Event page to RSVP started to completed; next step after an event page |
 | How much time | Session length, median and p75, by landing type, labelled "open time, not attention" |
-| Who returns | Rolling return within 7 days for people with a mature cohort. Signed-in people named from Supabase |
+| Who returns | Return within 7 days for people with a mature cohort. Signed-in people named from Supabase |
 | Do they explore | Pages per session, share of one-page sessions |
 | Do they get stuck | Dead and rage clicks by page, not-found views, auth and magic-link failures, each with a replay link |
 | Is the practice working | Live page to session created to partner joined to explain-back done to rating |
 
-11. Use rolling 7 days compared with the previous 7. Never compare single days. Show counts, and no percentage on a base under 30.
+11. Compare the last 7 days with the previous 7, in the context of the last four weeks. Never compare single days. Show counts, and no percentage on a base under 30.
 
 ### Phase 3: insights with a noise gate
 
 12. The default line is "No change worth your attention." An insight appears only for: a new class of failure; a named real-user first (first signup, first partner join) or a stuck session; or a 7-day shift outside the Poisson range on a base of at least 30.
-13. Each insight carries the observation, numbers and base, comparison, a replay or report link, a confidence label and one suggested next step. At most 3 a day.
+13. Each insight carries the observation, numbers and base, comparison, a replay or report link, a confidence label and one suggested next step. At most 3 a week.
 14. Keep a small ledger so a repeat becomes a pattern. The founder can confirm or dismiss, and a dismissal suppresses repeats.
-15. Weekly, add a longer read over four weeks, with the event-sequence summary of stuck sessions and links for the founder to watch.
+15. Include the event-sequence summary of stuck sessions, with links for the founder to watch.
 16. Update the strategy section of `docs/technical/analytics.md`, which still says "weekly questions".
 
-[FOUNDER DECISION: daily vs weekly. Gemini and Codex both recommend weekly review only, because volume is low and daily comparison invites false patterns. The founder asked for daily. This spec keeps daily delivery with the gate in item 12, and a weekly long read. Reverse it by dropping Phase 3's daily line if the gate proves noisy.]
+**Founder decision, 2026-11-05: weekly.** The founder first asked for daily, then chose weekly ("weeekly is fine") after Gemini and Codex warned that daily comparison at this volume invites false patterns. Production errors stay on the existing daily checks.
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Daily view manufactures patterns at low volume | MITIGATE | Gate, rolling windows, base-size rule, default "no change". Review after 30 days using the decision criteria below |
+| Weekly view still manufactures patterns at low volume | MITIGATE | Gate, rolling windows, base-size rule, default "no change". Review after 30 days using the decision criteria below |
 | The clean series is still mostly third-party bots | MITIGATE | Step 3 controls run before any chart is trusted |
 | Session duration read as attention | MITIGATE | Label it; no rankings by duration |
 | Mixpanel MCP unavailable during `/day` | MITIGATE | Required check reports not collected, and the run continues |
@@ -103,9 +103,9 @@ Each phase ships only after the one before it is verified.
 
 ## Decision Criteria
 
-Reviewed 30 days after Phase 3 ships:
-1. **Keep the daily gate?** Keep if at least half of raised insights were confirmed or led to an action. Otherwise move insights to the weekly read only.
-2. **Keep the tab?** Keep if the founder opened it on most `/day` runs. Otherwise reduce it to a single line and a link.
+Reviewed after four weekly reads:
+1. **Keep the insights?** Keep if at least half of raised insights were confirmed or led to an action. Otherwise keep the numbers and drop the insight step.
+2. **Keep the tab?** Keep if the founder opened it for most weekly reads. Otherwise reduce it to a single line and a link.
 
 ## Done-When
 
@@ -113,10 +113,10 @@ Reviewed 30 days after Phase 3 ships:
 - [ ] The real-visitor filter separates the known-bad and known-good controls, with the query output pasted
 - [ ] RSVP counts reconcile with Supabase for at least three events, with any gap explained
 - [ ] A signed-in RSVP produces `event_rsvp_completed` with event type, verified on prod data `[post-deploy]` after the first real RSVP
-- [ ] A `/day` run on a quiet day still fills the Analytics tab, and a simulated Mixpanel failure shows "not collected" and fails its check
+- [ ] A weekly run in a week with few users still fills the Analytics tab, and a simulated Mixpanel failure shows "not collected" and fails its check
 - [ ] The tab answers all seven questions at 375px, 320px and desktop
 - [ ] A fixture with an in-range change shows "No change worth your attention", and a fixture with a new failure class raises one insight with all required fields
-- [ ] A dismissed insight does not reappear on the next run
+- [ ] A dismissed insight does not reappear on the next weekly read
 - [ ] `docs/technical/analytics.md` matches what ships
 
 ## Related
