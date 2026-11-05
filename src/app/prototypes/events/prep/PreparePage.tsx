@@ -31,7 +31,9 @@ import { useAuth } from '@/auth';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
-import { MeetingPrincipleView, type PrincipleAnswer } from '@/app/components/agreements/meeting-principle-view';
+import { MeetingPrincipleView, PRINCIPLE_TITLE, type PrincipleAnswer } from '@/app/components/agreements/meeting-principle-view';
+import { CertificateFrame, CertificateOathBody } from '@/app/components/agreements/certificate-frame';
+import { sectionsForLevel } from '@/app/content/meeting-terms';
 import { StakePage } from '@/app/pages/stake-page';
 import { getAnonPosition } from '@/app/hooks/useAnonPosition';
 import { getProfileBySlug } from '@/app/data/api';
@@ -354,7 +356,8 @@ function PrepareFlow({
     return (shownIds[s] ?? []).find((id) => { const p = byId.get(id); return !p || !answered(p); }) ?? null;
   };
 
-  const showPrincipleView = screen === 'principle' && principleIntroDone && !(answer !== null && !tryAsked);
+  // P1549: joining shows the principle without asking: the one decision is the group terms at the end.
+  const showPrincipleView = !join && screen === 'principle' && principleIntroDone && !(answer !== null && !tryAsked);
 
   return (
     <div className="min-h-[100dvh] bg-background" data-testid="p1402-prepare">
@@ -376,7 +379,7 @@ function PrepareFlow({
           {join ? (
             <div className="min-w-0 flex-1" data-testid="learn-join-context">
               <p className="text-sm font-semibold text-foreground" data-testid="learn-join-title">Joining {join.groupName}</p>
-              <p className="text-xs text-muted-foreground" data-testid="learn-join-step">Part 1 of 2 · Short introduction</p>
+              <p className="text-xs text-muted-foreground" data-testid="learn-join-step">Step {stepIndex + 1} of 4</p>
             </div>
           ) : stepIndex >= 0 ? (
             // The event preparation's header: the step name over LetterProgressBar.
@@ -505,7 +508,7 @@ function PrepareFlow({
               <div className="space-y-2">
                 <Title>Introducing the Clarity Meeting Principle</Title>
                 <p className="text-base leading-relaxed text-muted-foreground" data-testid="principle-intro">
-                  One question anyone may ask you, and your promise to answer it. Watch the video, then decide.
+                  {join ? 'One question anyone may ask you, and your promise to answer it.' : 'One question anyone may ask you, and your promise to answer it. Watch the video, then decide.'}
                 </p>
               </div>
               <Clip clip="principle" onPlay={markPlayed('principle')} playRequest={playRequest} />
@@ -518,7 +521,18 @@ function PrepareFlow({
             </section>
           )}
 
-          {screen === 'principle' && principleIntroDone && answer !== null && !tryAsked && (
+          {join && screen === 'principle' && principleIntroDone && (
+            <section className="space-y-5" data-testid="join-principle-text">
+              <CertificateFrame ariaLabel={PRINCIPLE_TITLE} title={PRINCIPLE_TITLE} kicker="A promise for one meeting" epigraph="We all crave being understood. Let's commit to listen.">
+                <CertificateOathBody sections={sectionsForLevel(PRINCIPLE_LEVEL)} />
+              </CertificateFrame>
+              <StepActions ref={barRef}>
+                <LetterPrimaryCta label="Continue" onClick={finishPrinciple} />
+              </StepActions>
+            </section>
+          )}
+
+          {!join && screen === 'principle' && principleIntroDone && answer !== null && !tryAsked && (
             <section className="flex flex-col items-center space-y-4 pt-8 text-center" data-testid={answer === 'in' ? 'try-it-now' : 'opt-out-ask'}>
               <div className="flex flex-col items-center gap-1">
                 {askerAvatar('xl')}

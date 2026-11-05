@@ -20,6 +20,9 @@ import { WHY_COMMUNITY } from '@/app/prototypes/events/prep/prep-why';
 import { loadTagPoints } from '@/app/prototypes/events/prep/use-prep-state';
 
 const READ_DEADLINE_MS = 6000;
+const TERMS_MINUTES = 1;
+/** Joining asks no opt-in, so the step reads differently from the event learning's. */
+const JOIN_LABELS: Partial<Record<PlanStep, string>> = { principle: 'See the Clarity Meeting Principle' };
 const JOIN_STEPS: PlanStep[] = ['story', 'principle', 'cmp7'];
 
 /** A failed read is never treated as "not a member" or "no progress". */
@@ -63,7 +66,7 @@ export function JoinPart1({ groupName, parts, viewerId, onStart, fallback }: {
   // The principle's decision is not stored, so it never shows as done here (spec: the tick and the gate agree).
   const isDone = (s: PlanStep) => (s === 'story' && isPartDone(parts, 'cognitive_video')) || (s === 'cmp7' && isPartDone(parts, 'cmp7'));
   const started = JOIN_STEPS.some(isDone);
-  const minutes = minutesFor(JOIN_STEPS.filter((s) => !isDone(s)), counts, true);
+  const minutes = minutesFor(JOIN_STEPS.filter((s) => !isDone(s)), counts, true) + TERMS_MINUTES;
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-16" data-testid="join-part-1">
@@ -80,22 +83,28 @@ export function JoinPart1({ groupName, parts, viewerId, onStart, fallback }: {
         <ol data-testid="join-steps">
           {JOIN_STEPS.map((s, i) => {
             const done = isDone(s);
-            const last = i === JOIN_STEPS.length - 1;
-            return (
+                        return (
               <li key={s} className="flex gap-3" data-testid={`join-step-${s}`} data-done={done ? 'true' : 'false'}>
                 <div className="flex flex-col items-center">
                   <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold', done ? 'bg-blue-500 text-white' : 'bg-muted text-foreground/70')}>
                     {done ? <Check className="h-4 w-4" aria-label="Done" /> : i + 1}
                   </span>
-                  {!last && <span className="my-1 w-px flex-1 bg-border" aria-hidden="true" />}
+                  <span className="my-1 w-px flex-1 bg-border" aria-hidden="true" />
                 </div>
-                <div className={cn('flex min-w-0 flex-1 items-start justify-between gap-3 pt-1', !last && 'pb-6')}>
-                  <p className={cn('min-w-0 text-base font-medium leading-snug text-foreground', done && 'text-muted-foreground')}>{STEP_LABELS[s]}</p>
+                <div className={'flex min-w-0 flex-1 items-start justify-between gap-3 pb-6 pt-1'}>
+                  <p className={cn('min-w-0 text-base font-medium leading-snug text-foreground', done && 'text-muted-foreground')}>{JOIN_LABELS[s] ?? STEP_LABELS[s]}</p>
                   <span className="shrink-0 pt-0.5 text-sm tabular-nums text-muted-foreground">{stepMinutes(s, counts, true)} min</span>
                 </div>
               </li>
             );
           })}
+          <li className="flex gap-3" data-testid="join-step-terms">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold text-foreground/70">4</span>
+            <div className="flex min-w-0 flex-1 items-start justify-between gap-3 pt-1">
+              <p className="min-w-0 text-base font-medium leading-snug text-foreground">Read the group terms and decide</p>
+              <span className="shrink-0 pt-0.5 text-sm tabular-nums text-muted-foreground">{TERMS_MINUTES} min</span>
+            </div>
+          </li>
         </ol>
         <div className="mx-auto w-full max-w-sm">
           <LetterPrimaryCta label={started ? 'Continue' : 'Start learning'} onClick={onStart} />

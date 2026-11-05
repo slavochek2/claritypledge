@@ -75,7 +75,7 @@ export function OrgJoinTerms({ org, myTerms, viewTerms, joinViaLearning, showAlr
         <div>
           {!myTerms && (
             <p className="mb-2 text-center text-xs text-muted-foreground" data-testid="join-terms-step">
-              {joinViaLearning ? "Part 2 of 2 · Group terms" : "Group terms"}
+              {joinViaLearning ? "Step 4 of 4 · Group terms" : "Group terms"}
             </p>
           )}
           <h1 className="text-center text-2xl font-bold md:text-3xl">
@@ -87,6 +87,11 @@ export function OrgJoinTerms({ org, myTerms, viewTerms, joinViaLearning, showAlr
               about to read. Still sourced from the versioned registry so it stays
               pinned to the terms_version a member accepted. */}
           <p className="mt-2 text-center text-muted-foreground">{coa.intro}</p>
+          {showAlreadyLearned && (
+            <p className="mt-2 text-center text-muted-foreground" data-testid="terms-connection">
+              You have seen the Clarity Meeting Principle, which is a promise for one meeting. The Clarity Group Terms are that same promise, made to every member of this group, for as long as you are a member.
+            </p>
+          )}
           {showAlreadyLearned && !joinViaLearning && (
             <p className="mt-2 text-center text-sm text-muted-foreground" data-testid="already-learned">
               You&apos;ve already done the learning.{" "}

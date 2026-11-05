@@ -10,6 +10,8 @@ vi.mock('@/lib/supabase', () => ({ supabase: {} }));
 import { JoinPart1 } from '@/app/pages/org-join-part1';
 import { minutesFor } from '@/app/prototypes/events/prep/prep-plan';
 import { inAppPath } from '@/lib/in-app-path';
+import { sectionsForLevel } from '@/app/content/meeting-terms';
+import { COA_VERSIONS, CURRENT_COA_VERSION } from '@/app/content/coa-versions';
 
 const part1 = () => render(
   <MemoryRouter><JoinPart1 groupName="G" parts={[]} viewerId={undefined} onStart={() => {}} fallback="/groups/g" /></MemoryRouter>,
@@ -19,13 +21,21 @@ describe('P1549 Part 1', () => {
   it('N in the title is minutesFor over the three steps', async () => {
     load.mockResolvedValue(Array.from({ length: 8 }, (_, i) => ({ id: String(i) })));
     part1();
-    const n = minutesFor(['story', 'principle', 'cmp7'], { cmp7: 8, stake: 0 }, true);
+    const n = minutesFor(['story', 'principle', 'cmp7'], { cmp7: 8, stake: 0 }, true) + 1; // + the terms
     await waitFor(() => expect(screen.getByTestId('join-minutes')).toHaveTextContent(`${n} min`));
   });
   it('an empty statements list is a failed read, never a 0 minute step', async () => {
     load.mockResolvedValue([]);
     part1();
     await waitFor(() => expect(screen.getByTestId('join-read-error')).toBeInTheDocument());
+  });
+});
+
+describe('the terms-connection sentence claims one promise', () => {
+  it('the principle and the group terms have the same text', () => {
+    const principle = sectionsForLevel(3).map((x) => x.text);
+    const coa = COA_VERSIONS[CURRENT_COA_VERSION];
+    expect([coa.yourRight.text, coa.myPromise.text, coa.exception.text]).toEqual(principle);
   });
 });
 

@@ -68,6 +68,8 @@ Decision density: decisions 1-12 are made (defaults applied where marked). New c
 
 22. **Nobody joins without learning, wherever they tap Join, now or later** (founder, 2026-11-05). Clarity Night's "Join as member" in the feedback flow now sends a non-learner to the group's join page and returns afterwards. A test fails if a new place writes a membership. Sharing a browser can pass on unsaved progress; accepted, not fixed here.
 
+23. **One decision when joining** (founder, 2026-11-05). Four steps: the definition; the Clarity Meeting Principle shown with no opt-in; the current seven statements unchanged; the group terms with Accept and join. The terms page says how the two connect. This replaces "Part 1 of 2 / Part 2 of 2" on the groups side and the "No opt-in" exception applies only when joining; events and `/prepare` keep theirs. Later, not now: the founder's recording replaces the step 2 video and may prompt group-specific statements. The hike's join flow is unchanged in this round.
+
 ## Relation to P1542 (updated 2026-10-27)
 
 P1542 (Social Hike prepare and close recipes) ships first, together with P1562. Increment 1 starts on its own branch from `main` after that ship. P1542 built the **event side** of this path. P1549 builds the **groups-page side** and reuses P1542's pieces rather than copying them.

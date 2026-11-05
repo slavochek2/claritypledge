@@ -47,7 +47,7 @@ test.describe('P1549 join learning', () => {
     await expect(page.getByTestId('join-part-1')).toBeVisible();
     await expect(page.getByTestId('join-part-1-title')).toHaveText(/^Join /);
     await expect(page.getByTestId('prepare-why')).toContainText(WHY);
-    await expect(page.getByTestId('join-steps').locator('li')).toHaveCount(3);
+    await expect(page.getByTestId('join-steps').locator('li')).toHaveCount(4);
     await expect(page.getByTestId('join-minutes')).toHaveText(/^\d+ min$/);
     await expect(page.getByRole('button', { name: 'Accept and join' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Start learning' })).toBeVisible();
@@ -62,7 +62,7 @@ test.describe('P1549 join learning', () => {
     await page.goto(joinUrl());
     await page.getByRole('button', { name: 'Start learning' }).click();
     await expect(page).toHaveURL(/\/prepare\?.*then=join/);
-    await expect(page.getByTestId('learn-join-step')).toHaveText('Part 1 of 2 · Short introduction');
+    await expect(page.getByTestId('learn-join-step')).toHaveText('Step 1 of 4');
     await expect(page.getByRole('button', { name: 'Continue without video' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Play the video' })).toBeVisible();
     await supabaseAdmin.from('person_prep_parts').upsert({ profile_id: u.user.id, part: 'cognitive_video', content_version: 1, completed_at: new Date().toISOString() }, { onConflict: 'profile_id,part' });
@@ -163,19 +163,20 @@ test.describe('P1549 join learning', () => {
     await page.getByRole('button', { name: 'Play the video' }).click();
     await page.locator('video').first().evaluate((v) => v.dispatchEvent(new Event('play')));
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await page.getByRole('button', { name: 'Opt in' }).click();
-    await page.getByRole('button', { name: 'Try it now' }).click();
-    await page.getByRole('button', { name: 'Rate 8' }).click();
-    await page.getByRole('button', { name: 'Confirm' }).click();
+    // No opt-in when joining: the principle is shown, the one decision is the terms.
+    await expect(page.getByTestId('join-principle-text')).toContainText('Clarity Meeting Principle');
+    await expect(page.getByRole('button', { name: 'Opt in' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByTestId('answered-count')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Skip and proceed' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
-    await expect(page.getByTestId('join-terms-step')).toHaveText('Part 2 of 2 · Group terms');
+    await expect(page.getByTestId('join-terms-step')).toHaveText('Step 4 of 4 · Group terms');
+    await expect(page.getByTestId('terms-connection')).toContainText('that same promise');
     await expect(page.getByTestId('already-learned')).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(`${joinUrl()}$`));
     // Reload keeps the entry's Part 2 label.
     await page.reload();
-    await expect(page.getByTestId('join-terms-step')).toHaveText('Part 2 of 2 · Group terms');
+    await expect(page.getByTestId('join-terms-step')).toHaveText('Step 4 of 4 · Group terms');
     await page.getByRole('button', { name: 'Accept and join' }).click();
     await expect(page).toHaveURL(new RegExp(`/groups/${org.slug}$`), { timeout: 10000 });
     await expect.poll(async () => (await supabaseAdmin.from('person_prep_parts').select('part').eq('profile_id', u.user.id).eq('part', 'cmp7')).data?.length).toBe(1);
