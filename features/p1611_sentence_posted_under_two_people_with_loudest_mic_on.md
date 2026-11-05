@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [transcription, events, attribution]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 ---
 
 # P1611: A sentence can post under two people with the loudest-mic rule on

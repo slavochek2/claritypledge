@@ -241,8 +241,8 @@ def run_end_ms(run: list[tuple[ChunkRef, bytes]]) -> int:
 #
 # Inside a stretch (chunks the recorder produced back to back) chunk n ENDS at base + (n+1) * L, whatever the
 # upload delays were; only `base` is unknown. A chunk's object time is its end plus its upload delay (>= 0), so
-# the delay of the typical chunk is the median of (created - (n+1) * L), which one slow upload cannot move and
-# one short final chunk cannot move. A pause, or an upload outage, shows as a jump in object times beyond the
+# the smallest delay from a chunk onward bounds `base` (P1611, in chunk_end_times), which a slow upload cannot move.
+# A pause, or an upload outage, shows as a jump in object times beyond the
 # chunk length plus a tolerance: it starts a new stretch with its own base. Chunks that landed together after an
 # outage (flush) all carry the same object time, so they are spread back from the last of them instead.
 UPLOAD_JITTER_MS = 2500       # P1611: largest upload wander treated as noise (measured up to about 2 s on a wired link)
