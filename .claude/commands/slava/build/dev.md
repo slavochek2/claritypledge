@@ -179,7 +179,7 @@ Skip if no spec exists (inline description mode like `/dev refactor the auth mod
 2. **Verify context** — Confirm Step -1 context is loaded (re-read spec if post-compaction or if >10 tool calls since Step -1). Key check: can you state (a) the top constraint from Decisions, (b) what "done" looks like from Acceptance Criteria, and (c) the next unchecked task? If not, re-read now. Every decision is a constraint, not a suggestion — if you can't name what the spec rules out, you haven't internalized it.
 3. **Implement** — Feature code + fill in test stubs. **For UI features (.tsx changes):** get tests passing before applying visual refinement (spacing, shadows, animation). Don't polish a broken feature.
 3.5. **Adjacent bug rule** — If you discover a bug OUTSIDE this feature's acceptance criteria (e.g., a pre-existing bug in a shared function), do NOT fix it inline. Call `/fix "description"` — it will auto-file a `/create-bug` spec and proceed with TDD (canary test → fix → verify). Bugs INSIDE this feature's acceptance criteria are covered by this feature's own tests.
-4. **Run tests** — Execute test suite, check results
+4. **Run tests** — Execute test suite, check results. E2E evidence runs on a branch that changes edge functions use `E2E_REQUIRE_FUNCTIONS=1`, and the result quoted includes the run's `FUNCTIONS:` line (`grep FUNCTIONS:` alongside the counts). A non-Playwright measurement calls `scripts/selfhosted/branch-functions-check.sh` before and after, and discards its numbers unless both exit 0 (P1312).
 5. **Iterate** — Fix code until ALL tests pass (max 5 attempts)
 6. **Skeptic check** — What could break? What did I assume?
 7. **Mark** — Change `[ ]` to `[x]` after task passes

@@ -477,6 +477,7 @@ Fix: Use form data reference instead of event target
 - [ ] Regression test passes (proves bug is fixed)
 - [ ] Smoke tests pass (fast regression check)
 - [ ] Full test suite passes (no new bugs introduced)
+- [ ] On a branch that changes edge functions, the E2E evidence run used `E2E_REQUIRE_FUNCTIONS=1` and its `FUNCTIONS:` line is quoted with the counts; a non-Playwright measurement calls `scripts/selfhosted/branch-functions-check.sh` before and after, and discards its numbers unless both exit 0 (P1312)
 - [ ] **UI verification — HARD GATE for any `*.tsx` diff.** The deterministic **p955-gate** DOM checks run at pre-commit and BLOCK the commit (Chrome-independent vitest+jsdom) — there is no `N/A` escape hatch for `.tsx` diffs. On top of that, provide a screenshot (e.g. `~/Screenshots/p123-fix.png`) for the *perceptual* layer via Chrome DevTools MCP (headless) or Claude in Chrome (authenticated). "Tests pass" alone is not sufficient. If Chrome is unavailable, the deterministic p955-gate still BLOCKS; defer only the perceptual screenshot and log `chrome-unavailable: deferred`.
 - [ ] Bug spec updated with resolution details
 
