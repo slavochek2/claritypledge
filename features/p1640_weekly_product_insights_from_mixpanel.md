@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 99.0
 workstream: infrastructure
@@ -131,13 +131,13 @@ Reviewed after four weekly reads:
 
 ## Done-When
 
-- [ ] Each of the three RSVP paths fires `event_rsvp_completed` with `event_type` and `path` on success and not on failure, proven by unit tests
-- [ ] A weekly run in a week with few users still fills the Analytics tab, and a simulated Mixpanel failure shows "not collected" and makes `cp.analytics` report `problem`
-- [ ] Each of the seven questions renders its fixture numbers at 375px, 320px and desktop, and a real-visitor or funnel number shows "not yet reconciled"
-- [ ] The follow-up spec holding the post-deploy checks is filed
-- [ ] A fixture with an in-range change shows "No change worth your attention", and a fixture with a new failure class raises one insight with all required fields
-- [ ] A dismissed insight does not reappear on the next weekly read
-- [ ] `docs/technical/analytics.md` matches what ships
+- [x] Each of the three RSVP paths fires `event_rsvp_completed` with `event_type` and `path` on success and not on failure, proven by unit tests
+- [x] A weekly run in a week with few users still fills the Analytics tab, and a simulated Mixpanel failure shows "not collected" and makes `cp.analytics` report `problem`
+- [x] Each of the seven questions renders its fixture numbers at 375px, 320px and desktop, and a real-visitor or funnel number shows "not yet reconciled"
+- [x] The follow-up spec holding the post-deploy checks is filed
+- [x] A fixture with an in-range change shows "No change worth your attention", and a fixture with a new failure class raises one insight with all required fields
+- [x] A dismissed insight does not reappear on the next weekly read
+- [x] `docs/technical/analytics.md` matches what ships
 
 ## Related
 
