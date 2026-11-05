@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 99.0
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [analytics, mixpanel, day, insights]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-05
 ---
 
 # P1628: Tag automation traffic in Mixpanel without blinding the smokes
