@@ -444,6 +444,7 @@ Last updated: 2026-11-05
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+- **P1617** (Nov 26) Privacy scan filter grows linearly — most real ranges never exercise the allowlist; prove drops before trusting byte equality.
 - **P1602** (Nov 26) `--secrets` safeguard — refuses to lose a name and backs up first; warning half superseded by P1606.
 - **P1608** (Nov 26) Live event transcription test with real recordings — fake-audio flag is per browser process; prove assertions with a rule-off control.
 - **P1611** (Nov 26) Sentence under two people — chunk upload jitter misaligned mics; causal bound, not median, keeps audio before its upload.

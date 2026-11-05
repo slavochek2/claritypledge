@@ -10,6 +10,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 
 
+## 2026-11-05 [technical]: The privacy scan filter keeps lines in an indexed array, pinned to a frozen oracle (P1617)
+
+**Context:** A 93-commit stack took about a day to land, partly because the scanner's allowlist filter recopied one growing string per line. The scan ran four times for that stack, at 55 to 90 minutes each. The filter took 540 s at 45k patch lines.
+
+**Decision:** Keep the state machine unchanged and store kept lines by explicit index in a bash array, joined once. The filter also compares lines read with input lines and exits 3 on a mismatch. Expected bytes are generated once from the filter at `7df461be2` and committed. The full 120,525-line range now scans in about 30 s.
+
+**Alternatives rejected:** An awk rewrite ignores differently on an allowlist with no final newline and truncates at a NUL. A function with a sentinel adds a subshell and a failure state at equal speed. `KEPT+=(...)` stays superlinear on macOS bash 3.2 (146 s against 26 s at 482k lines).
+
+**Consequences:** Exit 3 is a new scanner result, and callers treat it as a block. Most real ranges never drop an allowlisted line, so a byte comparison on them says nothing about the allowlist: compare against a comment-only allowlist first. A control's own canary can make a kill test pass without a kill, so such tests assert the exact signal exit. CI on the staging ref still uses the old scanner until this lands.
+
+**References:** [p1617](../features/done/2026-06-10/p1617_privacy_scanner_streaming_filter.md) · `scripts/audit-privacy.sh` · `scripts/test-audit-privacy.sh`
+
 ## 2026-11-05 [technical]: A hand edit on a canvas draft is a new point, and typed text is never moved on a guess (P1614)
 
 **Context:** The founder asked for an Edit button on draft points. "Editable until published" is not true of every point: a draft reuses points from published versions.
