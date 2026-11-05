@@ -165,7 +165,7 @@ records exactly what the reviewers saw, and nothing written later.
 | Reviewer | Runs when | How |
 |---|---|---|
 | Gemini (review model) | **every run** | write a prompt file (the `criteria/code.md` text plus the diffs), then run `~/.agents/bin/delegate-gemini --model "$(sed -n 's/^REVIEW_GEMINI_MODEL=//p' ~/.agents/model-defaults.env)" --file <prompt file>` |
-| Codex | more than one file changed, OR the diff is over 50 lines, OR a long run (more than one fix round, or the work spanned over 30 minutes), OR GLM was skipped under the conditions below | `~/.agents/bin/codex-review --prompt-file <prompt file>` (same prompt; Codex also reads the repo) |
+| Codex | more than one file changed, OR the diff is over 50 lines, OR a long run (more than one fix round, or the work spanned over 30 minutes), OR GLM was skipped for embargo or unknown disclosure (below) | `~/.agents/bin/codex-review --prompt-file <prompt file>` (same prompt; Codex also reads the repo) |
 | GLM (extra reviewer, advisory) | **every run, except the skip conditions below** | same prompt file as Gemini: `~/.agents/bin/ask-model openrouter --timeout 600 --prompt-file <prompt file>` |
 | Opus adversary | the change touches `supabase/migrations/`, `supabase/functions/`, an auth path (`**/auth*`, `**/*session*`, RLS), `.claude/hooks/`, `.claude/settings.json`, `scripts/git-ops.sh`, `scripts/ship-gates.sh`, `scripts/pre-commit-checks.sh` or another gate | an `Agent` with `model: "opus"` and a hostile prompt that writes its report to a file. For security, data or ship tooling, escalate to `/slava:think:adversarial-review` |
 
@@ -174,18 +174,22 @@ The model ids live only in `~/.agents/model-defaults.env` (`REVIEW_GEMINI_MODEL`
 
 **GLM skip conditions (P1630). GLM goes to a third-party host, so this check fails closed.** Skip GLM,
 and report why, when any of these holds:
-- **Any checkout not on `main`, detached HEAD included:** take the P-number from the branch name or its
-  commits (Step 1), whatever the branch prefix or name shape, and read that spec's committed copy with
-  `git show HEAD:<spec path>`. Skip when its `disclosure` is `embargo`, when no P-number or no spec can be
-  found, or when it has no `disclosure` value.
-- **Any `features/p*.md` in `CHANGED_FILES`, or included in the prompt,** whose `disclosure` is not `public`.
+- **Any file on a checkout other than `main`, detached HEAD included.** Resolve the branch from each file's own
+  worktree, not the session's. Collect **every** P-number in the branch name, in `git log main..HEAD`, and in any
+  `features/p*.md` in `git diff main...HEAD`, whatever the branch prefix or name shape. Skip unless each of those
+  specs says `disclosure: public` in both its committed copy (`git show HEAD:<spec path>`) and its working copy.
+  Also skip when no P-number or no spec can be found.
+- **Any `features/p*.md` in `CHANGED_FILES`, or included in the prompt,** whose `disclosure` is not `public` in
+  either copy.
 - **Any changed path under `.private/`, or outside this public repo** (`/finish <file>` can name a file in a
   private repo, and git never lists `.private/`).
 - **The prompt file would carry anything else from `.private/` or from an embargoed spec.** Build the prompt only
   from the criteria text and `CHANGED_FILES`, and check any other file you add against this list first.
 
-**Any of these skips means Codex runs whatever the size**, since an unknown disclosure may be an embargo and the
-highest-stakes work must not get the smallest roster. Report it as `GLM skipped (embargo)`, or name the other reason.
+**A skip for embargo or unknown disclosure means Codex runs whatever the size**, since an unknown value may be an
+embargo and the highest-stakes work must not get the smallest roster. A skip only for a `.private/` or private-repo
+path does not force Codex: that would send private content to one more vendor. Report it as `GLM skipped (embargo)`,
+or name the other reason.
 
 Known limit: on `main` there is no spec to read, so code already shipped from an embargoed branch and awaiting
 `archive-spec` carries no marker. Do not run `/finish` on such code from `main`.
