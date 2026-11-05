@@ -146,6 +146,7 @@ for `/live` is untouched.
   capture ended by the sweep's staleness rule puts the member in `incomplete_member_ids`.
 - **Cross-member duplicates** are kept and labelled `also_heard_by`, never deleted.
 - **Logs and task payloads carry ids and counts only** — no audio, no transcript text, no names.
+- **Queue permission:** `tx-enqueuer` needs `roles/cloudtasks.enqueuer` on `transcribe-room-jobs`, or every hand-off fails with CreateTask 403 and jobs wait for the hourly sweep (found and granted during P1604).
 - **Vault prerequisites** (per project): `enqueue_room_transcription_url`,
   `enqueue_room_transcription_secret`, `enqueue_room_transcription_anon_key`. Without them the trigger
   warns and jobs stay pending.
