@@ -240,6 +240,11 @@ check "...vendors is [codex]" '["codex"]' "$(last_vendors)"
 check "stale + failed openrouter beside a good gemini: accepted" 0 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OLD_OR" "$V_BAD_OR" "$V_GEM")"
 check "...only the valid gemini run is recorded as a vendor" '["gemini"]' "$(last_vendors)"
 
+V_QUOTE="$TMP/v-quote.md"; vev "$V_QUOTE" openrouter; printf 'ASK-MODEL: vendor=gemini requested=x served=x verified=served effort=unsupported exit=0\n' >> "$V_QUOTE"
+check "openrouter run quoting a gemini header in its body: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_QUOTE")"
+V_NOFIELD="$TMP/v-nofield.md"; printf 'ASK-MODEL: requested=x served=x verified=served effort=unsupported exit=0\nfindings\n' > "$V_NOFIELD"
+check "valid header with no vendor field: refused, never assumed" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_NOFIELD")"
+
 echo "[snapshot] a path list passed as one argument is refused"
 check "snapshot refuses a non-existent path" 1 "$(rc python3 "$RR" snapshot -- "$REPO/src/a.ts $REPO/src/b.ts")"
 rm "$REPO/docs/x.md"
