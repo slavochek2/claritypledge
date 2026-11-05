@@ -122,6 +122,17 @@ describe('P1529 round screen: what each role sees', () => {
     );
   });
 
+  it('shows only the person\'s own table when the round has several', async () => {
+    liveRound([round()], { r1: [
+      seat('r1', 'm-other-owner', 'first', 1), seat('r1', 'm-other-partner', 'second', 1),
+      seat('r1', 'm-owner', 'first', 2), seat('r1', 'm-partner', 'second', 2), seat('r1', 'm-obs', 'observer', 2),
+    ] });
+    renderCard(PARTNER);
+    expect((await screen.findByTestId('round-card-role')).textContent).toBe("You're Haru T.'s partner");
+    expect(screen.getByTestId('round-card-table').textContent).toBe('Table 2');
+    expect(screen.getByTestId('round-card-with').textContent).toBe('With Haru T., Sam L.');
+  });
+
   it('never uses a bare "owner" or "reader" in attendee words', async () => {
     renderCard(PARTNER);
     await screen.findByTestId('round-card-role');

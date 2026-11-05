@@ -109,7 +109,7 @@ export function MastermindRoundCard({
   }
   if (view === 'hidden') return <>{task}</>;
 
-  const table = mastermindTable(state.seatsByRound.get(round.id) ?? [], mine);
+  const table = mastermindTable((state.seatsByRound.get(round.id) ?? []).filter(s => s.table === mine.table), mine);
   const ownerName = name(table.owner?.id);
   const link = canvas?.shared && canvas.canvasName ? canvasPageHref(canvas.ownerSlug, canvas.canvasName) : null;
 
