@@ -254,8 +254,8 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
             : undefined
         }
         onPointerDownCapture={() => {
-          // The menu has no backdrop: this press dismisses it and must not also open the thread.
-          if (menuAt) ignoreOpenUntil.current = Date.now() + IGNORE_OPEN_MS;
+          // The menu has no backdrop: a press that dismisses it ends like a long press, however long it is held, and opens nothing.
+          pressed.current = !!menuAt;
         }}
         onTouchMove={(e) => {
           const t = e.touches[0];

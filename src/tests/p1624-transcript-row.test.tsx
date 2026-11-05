@@ -105,6 +105,8 @@ describe('P1624 the row', () => {
       expect(screen.getByRole('menu')).toBeTruthy();
       fireEvent.pointerDown(open);
       fireEvent.mouseDown(open);
+      act(() => { vi.advanceTimersByTime(1000); }); // held past the guard's length
+      fireEvent.pointerUp(open);
       fireEvent.click(open);
       expect(actions.onThread).not.toHaveBeenCalled();
       act(() => { vi.advanceTimersByTime(1000); });
