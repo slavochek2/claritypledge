@@ -9,6 +9,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-05 [product]: A letter's live invite stays on Artifacts; chat delivery is shelved and email is rejected (P1644)
+
+**Context:** The invite from "Start Clarity Live now" reaches the recipient as a row at the top of Artifacts, a nav badge, and an overlay on the letter's reading page. No email or push is sent. The question was whether it should arrive in chat, and whether it should be built now.
+**Decision:** Change nothing now. P1644 is filed in the backlog with chat delivery only. Reopen when someone actually wants live verification after a letter, or when a session is missed because the invite went unseen.
+**Alternatives rejected:** Email: the founder sends these invites when with the person, so it is spam. Building chat delivery now: it polishes a rarely used flow, and live verification after a letter is expensive and has not yet shown value. A notification centre or push: neither exists, and this flow does not justify building one.
+**Consequences:** Today the founder tells the person where to tap. The app still has no shared notification channel; each feature handles its own. Falsifier for shelving: a real missed session, or a real request for this flow.
+**References:** [p1644_live_invite_arrives_in_chat.md](../features/p1644_live_invite_arrives_in_chat.md)
+
 ## 2026-11-05 [technical]: Automation is tagged in Mixpanel and not recorded, but the smokes keep the recorder and must prove it ran (P1628)
 
 **Context:** Bot and smoke traffic pollutes the Mixpanel visitor numbers. The spec said to stop recording under `navigator.webdriver`. Measured on the prod page, that would have hidden recorder-only outages: a CSP blocking only the recorder bundle or only `/record` failed both smokes before and passed both with recording off, because the recorder never loads.
