@@ -10,6 +10,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 
 
+## 2026-11-05 [product]: Outside-model ideas recorded, roadmap unchanged: private answers before a signature. UNTESTED
+
+**Context:** Gemini 4 Argon and Opus were each asked, with creative freedom, which problems and people this project should work on: once from the mission alone and once with the canvas and research programme. They proposed 19 ideas, merged into 12 directions and scored by both models. The top directions share one mechanic: before a signature that is hard to undo, two people privately answer concrete scenarios drawn from their draft, and only the mismatches are discussed. The models worked separately, but shared training may explain the convergence, so it counts as no evidence. Neither model was given this log, so neither saw the 2026-11-02 rulings below.
+**Decision:** Record the mechanic as an untested candidate and change nothing else. The Clarity Chat roadmap stays as it is, and no spec is created. Nobody has defined the product flow: how a conversation enters the app, who is asked what, and who sees the mismatches. Look again after the sales mastermind, whose goal is to decide whether the current features are ready to sell.
+**Conflict with existing rulings (both stand; this entry reverses neither):** 2026-11-02 "Entry is false DISagreement" rejected a false-agreement audit because it cannot promise to find one, and because nobody feels false agreement. This mechanic is a form of that audit. The open question is whether a signing date makes the risk felt enough to act on, even without a promised finding. 2026-11-02 "Organisers-first withdrawn" keeps all outreach parked, and testing this would need outreach. The same ruling on founder-run sessions also applies: running this by hand can only be discovery. A product version has to have software doing the work.
+**Alternatives rejected:** Starting a test now, because it takes attention from the mastermind and needs outreach that is parked. Dropping the ideas unrecorded, because uncertainty is not a reason to withhold a record.
+**Falsifier (thresholds agent-proposed, `[FOUNDER DECISION: overwrite]`):** run by hand on 5 live pre-signature cases. Fewer than 3 surfacing a mismatch that both people call a misunderstanding, rather than a disagreement they already knew about, and that changes the signed text, kills the mechanic. So does no one paying or prepaying for a next case.
+**Consequences:** No strategy doc changes. Any move beyond this entry must first answer the two conflicts above. The main risk both models raised is that many mismatches are real conflict rather than misunderstanding, so a test has to separate the two.
+**Details private:** .private/docs/decisions.md 2026-11-05 "Outside-model ideation: ranking and raw outputs"
+
 ## 2026-11-05 [technical]: A function's deploy record covers everything it bundles, and a deploy stamps only what it deployed (P1620)
 
 **Context:** The prod drift check hashed only each edge function's `index.ts`, so changes in `_shared` or sibling files never reported, and terms v1.7 reached accounts while `mirror-reply` still refused it. Reproduction found a second defect: every deploy re-hashed all functions, so deploying one marked the rest current.
