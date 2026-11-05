@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 89
 workstream: events
 created_date: '2026-11-04'
 tags: [transcription, events, e2e, testing]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 driver: heuristic
+completed_at: 2026-11-05
 ---
 
 # P1608: Automated end-to-end test of event transcription, with real recordings as fake mics
@@ -193,7 +193,7 @@ Same conditions as the first run (P1604's worker and schema; dispatch not proven
 
 ## Cost Budget
 
-Per [metered-services.md](../docs/technical/metered-services.md). Mic-minutes: 3 mics x 4 min = 12, plus 1 min of margin
+Per [metered-services.md](../../../docs/technical/metered-services.md). Mic-minutes: 3 mics x 4 min = 12, plus 1 min of margin
 each before End = 15 for the live path. Argon rate from P1596: $0.27 / (4 mics x 15 min) = $0.0045 per mic-minute, about
 $0.50 / 60 = $0.0083 from 2026-11-30. Transcribe from the registry: $0.003 + $0.002 = $0.005 per minute.
 
