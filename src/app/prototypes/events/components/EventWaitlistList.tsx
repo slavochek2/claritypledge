@@ -10,6 +10,7 @@ import { Loader2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { getWaitlistPublic, hostAddFromWaitlist, type WaitlistEntry } from '@/app/data/event-waitlist';
+import { whenVisible } from '../when-visible';
 
 export interface EventWaitlistListProps {
   eventId: string;
@@ -23,7 +24,6 @@ export interface EventWaitlistListProps {
 }
 
 export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId, refreshKey }: EventWaitlistListProps) {
-  const [entries, setEntries] = useState<WaitlistEntry[]>([]);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,19 +33,24 @@ export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId, 
   // Only the latest read's result is applied: an older response arriving late never overwrites a newer list.
   const generation = useRef(0);
 
+  // The exclude filter is applied at render, so reads depend only on eventId and refreshKey.
+  const [allEntries, setAllEntries] = useState<WaitlistEntry[]>([]);
+  const entries = excludeProfileId ? allEntries.filter((p) => p.profileId !== excludeProfileId) : allEntries;
+  const setEntries = setAllEntries;
+
   const load = useCallback(async () => {
     const mine = ++generation.current;
     try {
       const all = await getWaitlistPublic(eventId);
       if (mine !== generation.current) return;
-      setEntries(excludeProfileId ? all.filter((p) => p.profileId !== excludeProfileId) : all);
+      setEntries(all);
       setReadFailed(false);
     } catch {
       if (mine !== generation.current) return;
       // The last list stays on screen, and the failure is said: an unreadable list is not an empty one.
       setReadFailed(true);
     }
-  }, [eventId, excludeProfileId]);
+  }, [eventId, setEntries]);
 
   const retry = async () => {
     setRetrying(true);
@@ -53,7 +58,8 @@ export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId, 
     setRetrying(false);
   };
 
-  useEffect(() => { void load(); }, [load, refreshKey]);
+  // Metered rule 3: no request from a hidden tab; the read waits until the tab is seen.
+  useEffect(() => whenVisible(() => { void load(); }), [load, refreshKey]);
 
   const add = async (entry: WaitlistEntry) => {
     setPending(entry.profileId);
@@ -79,7 +85,7 @@ export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId, 
       <div className="bg-card rounded-xl border border-border shadow-sm p-6 flex items-center justify-between gap-3" data-testid="event-waitlist-read-error">
         {/* [FOUNDER DECISION: copy] */}
         <p className="text-sm text-destructive" role="alert">Could not read the waiting list just now.</p>
-        <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={retrying} onClick={() => void retry()} data-testid="event-waitlist-retry">{retrying ? 'Retrying…' : 'Retry'}</Button>
+        <Button type="button" size="sm" className="h-11 min-h-11" disabled={retrying} onClick={() => void retry()} data-testid="event-waitlist-retry">{retrying ? 'Retrying…' : 'Retry'}</Button>
       </div>
     );
   }
@@ -108,7 +114,7 @@ export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId, 
                   size="sm"
                   className="-mr-2 h-11 w-11 shrink-0 p-0 sm:mr-0 sm:h-10 sm:w-auto sm:px-3"
                   data-testid="event-waitlist-add"
-                  aria-label={`Add ${entry.name} to the participants`}
+                  aria-label={`Add ${entry.name}`}
                   title={`Add ${entry.name} to the participants`}
                   disabled={pending !== null}
                   onClick={() => void add(entry)}
@@ -127,7 +133,7 @@ export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId, 
       </div>
       {readFailed && (
         <p className="mt-3 text-sm text-destructive" role="alert" data-testid="event-waitlist-stale">
-          Could not refresh the waiting list. <Button type="button" variant="link" size="sm" className="min-h-10 px-1 align-baseline" disabled={retrying} onClick={() => void retry()} data-testid="event-waitlist-stale-retry">{retrying ? 'Retrying…' : 'Retry'}</Button>
+          Could not refresh the waiting list. <Button type="button" size="sm" className="ml-1 h-10 min-h-10 align-middle" disabled={retrying} onClick={() => void retry()} data-testid="event-waitlist-stale-retry">{retrying ? 'Retrying…' : 'Retry'}</Button>
         </p>
       )}
       {error && <p className="mt-3 text-sm text-destructive" role="alert" data-testid="event-waitlist-error">{error}</p>}

@@ -33,10 +33,10 @@ export function EventFlowRow({ eventId, flow, onChanged }: { eventId: string; fl
 
   return (
     <div className="mb-3 border-b border-border pb-3" data-testid="host-flow-row">
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex flex-col items-stretch gap-1 text-sm sm:flex-row sm:items-center sm:gap-2">
         <span className="shrink-0 font-medium">{FLOW_ROW_LABEL}:</span>
         <select
-          className="min-h-11 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-base md:text-sm"
+          className="min-h-11 w-full min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-base md:text-sm"
           value={flow}
           disabled={busy}
           onChange={e => void apply(e.target.value as EventFlow, flow)}

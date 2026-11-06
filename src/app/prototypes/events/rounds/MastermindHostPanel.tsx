@@ -237,7 +237,7 @@ export function MastermindPeople({ title, members, host, onMarkOut, locked = fal
                           variant={observer === toObserver ? 'outline' : 'ghost'}
                           aria-pressed={observer === toObserver}
                           onClick={() => { if (observer !== toObserver) void flip(m, toObserver); }}
-                          className={cn('min-h-10 px-2.5', observer === toObserver ? 'font-semibold' : 'font-normal text-muted-foreground')}
+                          className={cn('h-10 min-h-10 px-2.5', observer === toObserver ? 'font-semibold' : 'font-normal text-muted-foreground')}
                           data-testid={id}
                         >
                           {text}
@@ -250,7 +250,7 @@ export function MastermindPeople({ title, members, host, onMarkOut, locked = fal
                       variant="ghost"
                       size="sm"
                       onClick={() => onMarkOut(m.id)}
-                      className="min-h-10 px-2 font-medium text-red-600 hover:text-red-600"
+                      className="h-10 min-h-10 px-2 font-medium text-red-600 hover:text-red-600"
                       data-testid="mm-mark-out"
                     >
                       {COPY.markOut}

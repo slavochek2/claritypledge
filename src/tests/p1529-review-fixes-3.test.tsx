@@ -118,7 +118,7 @@ describe('stored mastermind minutes: old save, load, change, save, load keeps it
       const saved = dropStaleMastermindMinutes(JSON.parse(store.k ?? '{}') as { mastermindMinutes?: unknown; mastermindMinutesV?: number });
       return { ...defaults, ...saved };
     };
-    store.k = JSON.stringify({ mastermindMinutes: { seatingS: 1, speakerS: 2, observerS: 3 } }); // an old save
+    store.k = JSON.stringify({ mastermindMinutesV: 1, mastermindMinutes: { seatingS: 1, speakerS: 2, observerS: 3 } }); // an old save
     const loaded = load();
     expect('mastermindMinutes' in loaded).toBe(false);
     expect(loaded.mastermindMinutesV).toBe(MASTERMIND_MINUTES_VERSION);
