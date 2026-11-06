@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 109
 workstream: clarity-chat
 created_date: '2026-10-23'
 tags: [chat, profile, discovery]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec, create-spec.2]
+delivery_stage: dev
+pipeline_ran: [create-spec, create-spec.2, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -42,7 +42,7 @@ Blast radius: medium. It touches profile, chat start and who may reach whom, inc
    - A **My code** button on your own profile, opening the same sheet. The code is not shown inline on the profile.
    - A **My code** row at the top of the New message dialog, with **Invite a Clarity Partner** moved up beneath it as an ordinary row; it is no longer pinned to the bottom.
    - The + stays an icon; on desktop it already has a "New message" tooltip.
-4. **Scanning without an account** goes to the existing sign-up and login page with a return to the new chat, plus one line saying who they are connecting with. Signed-in people go straight to the chat. No separate landing screen is built.
+4. **Scanning without an account** opens the code's page, which shows who they are connecting with (name and photo) and hands off to the existing Google sign-in, sign-up and log-in, each returning to the code to finish. Signed-in people go straight to the chat. No new sign-up or log-in form is built.
 5. **Handle.** Shown on every profile under the name, and tapping it copies it. Exact-handle search in New message finds anyone's profile. **Message** shows on a profile and in search results only where messaging is allowed (a shared connection, or a 1:1 that already exists); otherwise the result points to their code.
 6. **No scan notice.** The person showing the code gets no "X scanned your code" alert; the new chat appearing in their list is the signal.
 
@@ -78,6 +78,16 @@ Blast radius: medium. It touches profile, chat start and who may reach whom, inc
 - Do NOT add partial or name search beyond today's connection-scoped search. Exact handle only.
 - Do NOT expose email addresses for discovery.
 - Do NOT build an in-app camera scanner; the phone camera opens the link.
+
+## Cost Budget
+
+Every call is one Supabase RPC on the shared project; none runs on a timer, a retry loop or per row.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | opening My code: 1 (`get_my_contact_code`) · Reset: 1 · opening a code: 1 lookup signed out + 1 redeem = 2 · viewing someone's profile: 1 (`can_message_profile`) · New message: 1 exact-handle lookup per debounced query (250 ms), so a 5-letter name typed at normal speed ≈ 1-2 | bounded by the above; no background calls | integration spec: 5 test users created + 5 deleted, ≈ 40 RPCs (8 tests × ≈ 5 calls); unit tests: 0 (Supabase mocked) |
+| Egress (bytes) | a lookup row ≈ 200 B; a token 32 B; a handle match ≈ 300 B | negligible | ≈ 40 × 300 B ≈ 12 KB |
+| Rows written | 1 code row per person (lazily, on first open); 1 redemption row per new chat started from a code | at most 20 redemption rows per owner per 24 h (the owner-side limit) | ≈ 5 code rows, ≈ 25 redemption rows (20 seeded for the limit test), all deleted in `afterAll` |
 
 ## Invariants
 

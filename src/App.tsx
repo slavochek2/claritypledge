@@ -11,6 +11,7 @@ import { AgentAccountsProvider } from "@/app/contexts/agent-accounts-context";
 import { RoomCaptureProvider } from "@/app/contexts/room-capture-context";
 import { ChatProvider } from "@/app/pages/chat/chat-provider";
 import { treeRoutes } from "@/app/tree/tree-routes";
+import { codeRoutes } from "@/app/routes/code-routes";
 import { RoomCaptureBarFallback } from "@/app/components/session/room-capture-bar";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { useClearListReturnCacheOnAuthChange } from "@/lib/list-return-cache";
@@ -48,6 +49,7 @@ const MachinesPage = lazy(() => import("@/app/pages/machines-page").then(m => ({
 const AboutPage = lazy(() => import("@/app/pages/about-page").then(m => ({ default: m.AboutPage })));
 const IntroPage = lazy(() => import("@/app/pages/intro-page").then(m => ({ default: m.IntroPage })));
 const ChiangMaiPage = lazy(() => import("@/app/pages/chiang-mai-page").then(m => ({ default: m.ChiangMaiPage })));
+const TranscribeRoomPage = lazy(() => import("@/app/pages/transcribe-room-page").then(m => ({ default: m.TranscribeRoomPage })));
 const OrgPage = lazy(() => import("@/app/pages/org-page").then(m => ({ default: m.OrgPage })));
 const OrgDirectoryPage = lazy(() => import("@/app/pages/org-directory-page").then(m => ({ default: m.OrgDirectoryPage })));
 const OrgJoinPage = lazy(() => import("@/app/pages/org-join-page").then(m => ({ default: m.OrgJoinPage })));
@@ -65,7 +67,6 @@ const FeedPage = lazy(() => import("@/app/pages/feed-page").then(m => ({ default
 const StakePage = lazy(() => import("@/app/pages/stake-page").then(m => ({ default: m.StakePage })));
 const CanvasWithThread = lazy(() => import("@/app/pages/canvas/canvas-with-thread").then(m => ({ default: m.CanvasWithThread })));
 const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
-const TranscribeRoomPage = lazy(() => import("@/app/pages/transcribe-room-page").then(m => ({ default: m.TranscribeRoomPage })));
 const MySessionsPage = lazy(() => import("@/app/pages/my-sessions-page").then(m => ({ default: m.MySessionsPage })));
 const CollaboratePage = lazy(() => import("@/app/pages/collaborate-page").then(m => ({ default: m.CollaboratePage })));
 const CreateStoryPage = lazy(() => import("@/app/pages/create-story-page").then(m => ({ default: m.CreateStoryPage })));
@@ -999,26 +1000,9 @@ export default function ClarityPledgeApp() {
         />
 
         {/* P1149: /transcribe — the live room transcription chat */}
-        <Route
-          path="/transcribe"
-          element={
-            <ClarityLandingLayout surface="product">
-              <LazyRoute>
-                <TranscribeRoomPage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-        <Route
-          path="/transcribe/:code"
-          element={
-            <ClarityLandingLayout surface="product">
-              <LazyRoute>
-                <TranscribeRoomPage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
+        <Route path="/transcribe" element={<ClarityLandingLayout surface="product"><LazyRoute><TranscribeRoomPage /></LazyRoute></ClarityLandingLayout>} />
+        <Route path="/transcribe/:code" element={<ClarityLandingLayout surface="product"><LazyRoute><TranscribeRoomPage /></LazyRoute></ClarityLandingLayout>} />
+        {codeRoutes(LazyRoute)}
 
         {/* P1545 WP3: Artifacts — letters and canvases, tabs Yours / Shared with you. */}
         <Route

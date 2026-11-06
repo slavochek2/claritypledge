@@ -294,6 +294,26 @@ partial registry — a short read here renders agents as people.
 `20260819160000_p1104_reserve_agent_name_at_the_table.sql`,
 `20260819170000_p1104_agents_cannot_self_promote.sql`
 
+### contact_codes / contact_code_redemptions (P1556 — personal codes that start a 1:1)
+
+Migrations: `20261106100000_p1556_contact_codes.sql`, `20261106100100_p1556_review_fixes.sql`.
+
+- **`contact_codes`** — one row per person: `profile_id` (PK, cascades), `token` (32 hex characters, 128 bits from
+  `gen_random_bytes`, unique), `created_at`, `reset_at`. RLS on with **no policies** and every grant revoked: a token is
+  read only through `get_my_contact_code()` by its owner. Agent accounts (`agent_accounts`) get no row.
+- **`contact_code_redemptions`** — one row per 1:1 a code started (`owner_id`, `redeemer_id`, `conversation_id`,
+  `created_at`). Counts the owner-side limit (20 new chats a day from one person's code, across resets); `start_dm`'s
+  own limit counts only the person starting. Same lockdown: no policies, no grants.
+- **Functions** (all SECURITY DEFINER, `search_path = ''`): `get_my_contact_code()` and `reset_my_contact_code()`
+  (authenticated, own row; reset replaces the token under the row lock redemption also takes);
+  `lookup_contact_code(token)` (anon and authenticated: name and photo only; nothing for an invalid token, an agent, or a
+  signed-in caller blocked either way); `redeem_contact_code(token)` (authenticated: the only path past
+  `_chat_shared_reason`; checks own code, block either way, both daily limits, and returns an existing 1:1 first);
+  `can_message_profile(id)` and `find_profile_by_handle(handle)` (exact, case-insensitive slug match; never yourself or
+  someone blocked either way).
+- The token rides in `/connect/<token>`: redacted like a room code (`url-token-redaction.ts`, `index.html`), and session
+  recording is off on that route and while the code sheet is open.
+
 ### video_summaries (P1349 — one summary per source video)
 
 One row per source video (`provider` + `video_id`, unique) — the per-video identity that

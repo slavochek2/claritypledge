@@ -10,8 +10,9 @@
  * P1304: the /live and /transcribe room code is a bearer capability — knowing it joins the room. It rides in page
  * URLs (`/live/<code>`), navigation breadcrumbs, transaction names and encoded login redirects
  * (`%2Ftranscribe%2F<code>`). This REDACTS a known token shape; it never drops an event.
+ * P1556 adds `/connect/<token>`: a personal contact code, which starts a chat with its owner.
  */
-export const ROOM_CODE_IN_URL =/((?:\/|%2F)(?:live|transcribe)(?:\/|%2F))[A-Za-z0-9_-]+/gi;
+export const ROOM_CODE_IN_URL =/((?:\/|%2F)(?:live|transcribe|connect)(?:\/|%2F))[A-Za-z0-9_-]+/gi;
 
 export function redactRoomCodes(text: string): string {
   return text.replace(ROOM_CODE_IN_URL, "$1[code]");

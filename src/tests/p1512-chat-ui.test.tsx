@@ -453,16 +453,17 @@ describe('chat list', () => {
       expect(await screen.findByRole('tooltip')).toHaveTextContent('New message');
     });
 
-    it('replaces the invite link: the old "+" link is gone, the picker has the title, a search field and the invite as its last row', async () => {
+    it('replaces the invite link: the old "+" link is gone, the picker has the title, a search field and the invite above the people', async () => {
       svc.searchPeople.mockResolvedValue([ada, grace]);
       const { dialog } = await open();
       expect(screen.queryByRole('link', { name: 'Invite a Clarity Partner' })?.closest('[role="dialog"]')).toBe(dialog);
       expect(within(dialog).getByRole('searchbox', { name: 'Search people' })).toHaveFocus();
       const invite = within(dialog).getByRole('link', { name: 'Invite a Clarity Partner' });
       expect(invite).toHaveAttribute('href', '/agreements/new/create');
-      // the last row, after the people
+      // P1556 (founder, 2026-11-06): an ordinary row under My code, above the people — no longer pinned last
       const people = await within(dialog).findByRole('list', { name: 'People' });
-      expect(people.compareDocumentPosition(invite) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(people.compareDocumentPosition(invite) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+      expect(within(dialog).getByRole('button', { name: /My code/ }).compareDocumentPosition(invite) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
     it('lists the people the server returns for an empty search, each with the reason they are connected', async () => {

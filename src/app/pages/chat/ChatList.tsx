@@ -10,7 +10,7 @@ import { listPreview, searchHitHeading } from './chat-preview';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ChevronRight, MoreHorizontal, Plus, Search, X, CircleDot, CheckCheck } from 'lucide-react';
+import { ChevronRight, MoreHorizontal, Plus, QrCode, Search, X, CircleDot, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -21,6 +21,7 @@ import { ChannelMark, CountBadge, FOCUS_RING, HOVER, InlineError, ListSkeleton, 
 import { SECONDARY_PILL_COLOURS } from '@/app/components/canvas/canvas-pill-styles';
 import { useChatNavigate, useLeaveChat } from './chat-hooks';
 import { NewMessageDialog } from './NewMessageDialog';
+import { ContactCodeSheet } from '@/app/components/chat/contact-code-sheet';
 import { useChat } from './chat-state';
 import {
   CHAT_TABS,
@@ -326,6 +327,7 @@ export function ChatList({ activeId }: { activeId: string | null }) {
   const [query, setQuery] = useState('');
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [composing, setComposing] = useState(false);
+  const [codeOpen, setCodeOpen] = useState(false);
   const newMessageButton = useRef<HTMLButtonElement>(null);
 
   const { chats } = chat;
@@ -363,6 +365,19 @@ export function ChatList({ activeId }: { activeId: string | null }) {
             )}
           </label>
           <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="My code"
+                  onClick={() => setCodeOpen(true)}
+                  className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full border', SECONDARY_PILL_COLOURS, FOCUS_RING)}
+                >
+                  <QrCode className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>My code</TooltipContent>
+            </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -449,6 +464,7 @@ export function ChatList({ activeId }: { activeId: string | null }) {
           </>
         )}
       </div>
+      <ContactCodeSheet open={codeOpen} onOpenChange={setCodeOpen} />
       {composing && <NewMessageDialog returnFocus={newMessageButton} onClose={() => setComposing(false)} />}
     </section>
   );

@@ -8,16 +8,18 @@
  * A dialog from sm up and a full-height sheet on a phone. Escape or Close gives focus back to the "+".
  */
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Search, UserPlus, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
+import { ContactCodeSheet } from '@/app/components/chat/contact-code-sheet';
+import { HandleHitRow, NewMessageTopRows } from './new-message-rows';
+import { findProfileByHandle, normalizeHandleQuery, type HandleMatch } from '@/app/data/contact-code-service';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { searchPeople, startDm, type ChatPerson } from '@/app/data/chat-service';
 import { FOCUS_RING, HOVER, InlineError, PersonMark } from './chat-kit';
 import { focusOpenComposer, requestComposerFocus, useChatNavigate } from './chat-hooks';
 import { useChat } from './chat-state';
-import { chatErrorText, chatPath, INVITE_PARTNER_PATH } from './chat-view-model';
+import { chatErrorText, chatPath } from './chat-view-model';
 
 const DEBOUNCE_MS = 250;
 /** A read that has not answered by now is a failure (with Retry), never an endless "Loading…". */
@@ -51,6 +53,8 @@ export function NewMessageDialog({
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<State>({ status: 'loading' });
   const [starting, setStarting] = useState<string | null>(null);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [handleHit, setHandleHit] = useState<HandleMatch | null>(null);
   const q = query.trim();
   // Alive while the dialog is mounted: a pick that outlives it must not navigate afterwards. `picked`: a pick
   // navigated, so the new chat already holds focus and closing must not pull it back to the "+".
@@ -98,6 +102,26 @@ export function NewMessageDialog({
     };
   }, [q, attempt]);
 
+  // P1556: an exact @handle (or a pasted profile link) is looked up on its own; an answer for an older query is dropped.
+  useEffect(() => {
+    // Cleared at once: a hit for the previous query must not stay clickable while the new one is looked up.
+    setHandleHit(null);
+    if (!normalizeHandleQuery(q)) return;
+    let live = true;
+    const timer = setTimeout(() => {
+      findProfileByHandle(q).then(
+        (hit) => live && setHandleHit(hit),
+        () => live && setHandleHit(null),
+      );
+    }, DEBOUNCE_MS);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [q]);
+
+  const showHandleHit = handleHit && !(state.status === 'ready' && state.people.some((p) => p.id === handleHit.id));
+
   // People who share a display name get their handle on the row (only those: a unique name needs no help).
   const nameCount = new Map<string, number>();
   if (state.status === 'ready') {
@@ -133,6 +157,17 @@ export function NewMessageDialog({
       toast.error(chatErrorText(e, 'Could not start this chat.'));
       setStarting(null);
     }
+  };
+
+  // P1556: a messageable exact-handle match opens like any person row; otherwise their profile (ask for their code).
+  const openHandleHit = (hit: HandleMatch) => {
+    if (hit.canMessage) {
+      void pick({ id: hit.id, name: hit.name, slug: hit.slug, avatarUrl: hit.avatarUrl, avatarColor: hit.avatarColor, shared: '', dmConversationId: null });
+      return;
+    }
+    picked.current = true;
+    onClose();
+    go(`/p/${hit.slug}`);
   };
 
   return (
@@ -179,8 +214,10 @@ export function NewMessageDialog({
             />
           </label>
         </div>
+        <NewMessageTopRows onMyCode={() => setCodeOpen(true)} onInvite={onClose} />
         <div className="relative min-h-0 flex-1 overflow-y-auto py-2" data-testid="new-message-people" aria-busy={busy || undefined}>
           {busy && <div role="status" aria-label="Searching" className="absolute inset-x-0 top-0 h-0.5 animate-pulse bg-blue-500" />}
+          {showHandleHit && handleHit && <HandleHitRow hit={handleHit} disabled={starting !== null} onOpen={() => openHandleHit(handleHit)} />}
           {state.status === 'loading' && (
             <p role="status" className="px-4 py-6 text-center text-sm text-muted-foreground">
               Loading…
@@ -226,18 +263,7 @@ export function NewMessageDialog({
             </p>
           )}
         </div>
-        <div className="shrink-0 border-t">
-          <Link
-            to={INVITE_PARTNER_PATH}
-            onClick={onClose}
-            className={cn('flex min-h-14 w-full items-center gap-3 px-4 text-[15px] font-medium text-foreground', HOVER, FOCUS_RING)}
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
-              <UserPlus className="h-4 w-4" aria-hidden="true" />
-            </span>
-            Invite a Clarity Partner
-          </Link>
-        </div>
+        <ContactCodeSheet open={codeOpen} onOpenChange={setCodeOpen} />
       </DialogContent>
     </Dialog>
   );

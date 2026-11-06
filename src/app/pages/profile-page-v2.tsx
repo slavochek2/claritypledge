@@ -48,15 +48,12 @@ import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
 import { useTextOverflow } from '@/app/hooks/use-text-overflow';
 import { QuotedPointCard } from '@/app/components/shared/quoted-point-card';
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
+import { ProfileContactRow } from "@/app/components/profile/profile-contact-row";
+import { ProfileRoleLine } from "@/app/components/profile/profile-role-line";
 import { useAgentAccountIds } from "@/app/contexts/agent-accounts-context";
 import { ImageLightbox } from "@/app/components/shared/image-lightbox";
 import { UnderstoodBadge } from "@/components/ui/understood-badge";
 
-const LinkedInBrandIcon = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-  </svg>
-);
 import { toast } from "sonner";
 import {
   Tooltip,
@@ -1099,31 +1096,8 @@ export function ProfilePageV2() {
                         {`Operated by ${operatorName}`}
                       </p>
                     )}
-                    {(profile.role || profile.linkedinUrl) && (
-                      <div className="flex items-center gap-1.5">
-                        {profile.role && (
-                          <p className="text-sm text-muted-foreground break-words">{profile.role}</p>
-                        )}
-                        {profile.linkedinUrl && (
-                          <TooltipProvider delayDuration={300}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <a
-                                  href={profile.linkedinUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  aria-label={`${profile.name}'s LinkedIn profile`}
-                                  className="flex-shrink-0 text-[#0A66C2] opacity-60 hover:opacity-100 transition-opacity"
-                                >
-                                  <LinkedInBrandIcon size={14} />
-                                </a>
-                              </TooltipTrigger>
-                              <TooltipContent>Open LinkedIn profile</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </div>
-                    )}
+                    <ProfileRoleLine name={profile.name} role={profile.role} linkedinUrl={profile.linkedinUrl} />
+                    <ProfileContactRow profileId={profile.id} slug={profile.slug} isOwner={isOwner} />
                   </div>
                 </div>
 
