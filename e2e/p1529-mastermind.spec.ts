@@ -159,10 +159,14 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     await expect(page.getByTestId('bring-own-mic')).toHaveCount(0);
     await dlg.getByTestId('registration-submit').click();
     await expect(dlg.getByTestId('missing-join')).toHaveText('Choose how you want to join.');
+    await shots(page, 'registration', 'missing-all');
     const none = await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', REG.id).eq('profile_id', REGU.user.user.id);
     expect(none.count, 'tapping Register with nothing seats nobody').toBe(0);
     // the second question depends on the first answer: both branches, and a changed first answer clears the second
     await dlg.getByTestId('join-improve').click();
+    await dlg.getByTestId('registration-submit').click();
+    await expect(dlg.getByTestId('missing-prep')).toBeVisible();
+    await shots(page, 'registration', 'missing-after-first');
     await expect(dlg.getByTestId('prep-question')).toContainText('When will you invest 15 minutes to create your Clarity Canvas?');
     await dlg.getByTestId('prep-event').click();
     await shots(page, 'registration', 'improve-branch');
@@ -577,6 +581,7 @@ test('AC4 + AC5 (before round 1): pick, share as its own tap, Change replaces; o
     await expect(page.getByTestId('event-canvas-primary')).toContainText('with this event');
     await expect(page.getByText('Continue without a canvas')).toHaveCount(0);
     await shots(page, 'room', 'canvas-card-pick');
+    await shots(page, 'prep', 'canvas-pick');
     const before = (await supabaseAdmin.from('canvas_audience').select('canvas_id').eq('event_id', E1.id).eq('kind', 'event')).data!.length;
     await page.getByTestId('event-canvas-primary').getByRole('button').click();
     await expect(card).toHaveAttribute('data-state', 'E', { timeout: 60_000 });
@@ -586,6 +591,7 @@ test('AC4 + AC5 (before round 1): pick, share as its own tap, Change replaces; o
     const after = (await supabaseAdmin.from('canvas_audience').select('canvas_id').eq('event_id', E1.id).eq('kind', 'event')).data!.length;
     expect(after, 'one more canvas is shared with the event after the tap').toBe(before + 1);
     await shots(page, 'room', 'canvas-card-chosen');
+    await shots(page, 'prep', 'canvas-shared');
     return `"${chosen}" + Change button; canvas_audience event rows ${before} -> ${after}`;
   }, page);
 
@@ -595,11 +601,12 @@ test('AC4 + AC5 (before round 1): pick, share as its own tap, Change replaces; o
     const first = await mine();
     expect(await sharedIds()).toEqual([first]);
     await page.getByTestId('event-canvas-secondary').getByRole('button').click();
-    await expect(card.getByTestId('event-canvas-option')).toHaveCount(2, { timeout: 30_000 });
-    // pick the one that is not the current choice
-    const labels = await card.locator('label').allInnerTexts();
-    note(`change list: ${labels.join(' | ')}`);
-    await card.locator('label', { hasText: 'Flo canvas' }).filter({ hasNotText: 'two' }).getByTestId('event-canvas-option').check();
+    // UAT round 2 review: Change offers only the OTHER published canvases (never the one already shared), so with two
+    // published canvases it opens state C on the other one, with a quiet "Keep …" to back out, and no picker list.
+    await expect(card).toHaveAttribute('data-state', 'C', { timeout: 30_000 });
+    await expect(card.getByTestId('event-canvas-option')).toHaveCount(0);
+    await expect(page.getByTestId('event-canvas-quiet')).toContainText('Keep');
+    await shots(page, 'prep', 'canvas-change-to-other');
     await page.getByTestId('event-canvas-primary').getByRole('button').click();
     await expect(card).toHaveAttribute('data-state', 'E', { timeout: 60_000 });
     const second = await mine();
