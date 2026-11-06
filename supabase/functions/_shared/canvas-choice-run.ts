@@ -22,7 +22,7 @@ import { frameOf, scopeOf } from './canvas-frame.ts';
 import { BOX_TAGS } from './canvas-draft.ts';
 import {
   APPLY_STALE_REPLY, CHOICE_WRITE_REPLY, CLOSED_LEAD, KEPT_REPLY, MAX_REQUEST_CHARS, NO_CHOICE_REPLY, SETTLED_KEEP_REPLY, STALE_LEAD,
-  appliedReply, choiceReply, keepLetterOf, letterOf, meansKeep, readPick, refusedPickReply, reofferNoneReply, screened,
+  appliedReply, choiceReply, keepLetterOf, letterOf, meansKeep, quoteInRequest, readPick, refusedPickReply, reofferNoneReply, requestHaystack, screened,
   type Choice, type ChoiceOption, type ChoicePick, type StoredChoice,
 } from './canvas-choice.ts';
 import { derivedNames, namesMatcher } from './canvas-names.ts';
@@ -192,22 +192,28 @@ export async function runPick(s: Step, t: RunTools, pick: ChoicePick): Promise<R
   const c = latest.status === 'ok' ? storedOf(latest.choice) : null;
   // a choice lives only as long as the owner's message it came from: a request this run's thread no longer holds is never read again
   if (!c || !requestHeld(s, c)) return await hold(s, t, NO_CHOICE_REPLY, s.extra);
-  // an answered choice is never offered back for "leave it" or "the recommended one": only a letter asks about the earlier request again
-  if (c.state !== 'open') return await (pick.kind === 'letter' ? reoffer(s, t, c, CLOSED_LEAD) : hold(s, t, SETTLED_KEEP_REPLY, s.extra));
+  // an answered choice is never offered back for a keep (by words or by the keep letter): only a pick naming a change option asks again
+  if (c.state !== 'open') return await (meansKeep(pick, c) ? hold(s, t, SETTLED_KEEP_REPLY, s.extra) : reoffer(s, t, c, CLOSED_LEAD));
   // a stale choice: keeping the canvas needs no new look at the request (nothing changes either way); an option is checked again
   if (latest.stale === true) return await (meansKeep(pick, c) ? hold(s, t, SETTLED_KEEP_REPLY, s.extra) : reoffer(s, t, c, STALE_LEAD));
   const letter = letterOf(pick, c);
   if (letter === keepLetterOf(c)) return await apply(s, t, c.id, letter, KEPT_REPLY);
+  return await pickOption(s, t, c, letter);
+}
+
+/** A letter on an open, current choice: the option it names applied, or the choice posted again, or the pick refused. */
+async function pickOption(s: Step, t: RunTools, c: StoredChoice, letter: string): Promise<RunSummary> {
   const o = c.options.find((x) => x.letter === letter);
   const base = baseOf(s);
   // everything shown again passes THIS run's names filter (the owner's newer material may have named someone)
-  const namesOther = namesMatcher(run.other_names, derivedNames(withEarlier(s.material, c.request), run.owner_name));
-  const again = () => hold(s, t, choiceReply(screened(c, namesOther), base), s.extra);
+  const namesOther = namesMatcher(s.run.other_names, derivedNames(withEarlier(s.material, c.request), s.run.owner_name));
+  const shown = screened(c, namesOther);
+  const again = () => hold(s, t, shown ? choiceReply(shown, base, keepLetterOf(c)) : NO_CHOICE_REPLY, s.extra);
   if (!o) return await again(); // a letter the choice does not have: the choice again
   // a tagged pick may change only its tags: an option in another box is not applied, and the choice is posted again
   const tags = s.input.trigger?.tagged ?? []; // the trigger row's own box_refs: what the SQL wrapper reads, and run.box_refs is the same column
   if (tags.length && !tags.includes(o.box)) return await again();
-  if (namesOther(o.quote) || !stillVetted(s, o, c.request)) {
+  if (namesOther(o.quote) || !quoteInRequest(o.quote, requestHaystack(c.request)) || !stillVetted(s, o, c.request)) {
     console.log('canvas-draft: pick refused', { letter });
     return await hold(s, t, refusedPickReply(letter), s.extra);
   }

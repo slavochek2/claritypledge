@@ -75,10 +75,13 @@ class WS {
   }
   async complete(run: string, choiceIn: Row, reply = nn('choice reply'), extra: Row = {}) {
     let choice = choiceIn;
-    if (choice.mode === 'offer' && !('request_message_id' in choice)) {
-      // the request message is the run's own trigger message unless a test sets it (or sets null on purpose)
+    if (choice.mode === 'offer' && (!('request_message_id' in choice) || !('request' in choice))) {
+      // the request message is the run's own trigger message and the request is its current text, unless a test sets them
+      // (or sets null on purpose); the server requires the two to match
       const t = (await admin.from('canvas_draft_runs').select('trigger_message_id').eq('id', run).single()).data as Row;
-      choice = { ...choice, request_message_id: t.trigger_message_id };
+      const msgId = 'request_message_id' in choice ? choice.request_message_id : t.trigger_message_id;
+      const m = (await admin.from('chat_messages').select('body').eq('id', t.trigger_message_id).single()).data as Row;
+      choice = { ...choice, request_message_id: msgId, ...('request' in choice ? {} : { request: String(m.body).trim() }) };
     }
     const out = await rpc(A, '_canvas_draft_run_complete_choice', {
       p_run: run, p_owner: this.o.u.user.id, p_questions: {}, p_note: null, p_reply: reply, p_usd: 0.001, p_choice: choice, ...extra,
@@ -101,7 +104,7 @@ const opt = (letter: string, kind: 'replace' | 'add', box: string, statement: st
   letter, kind, box, statement: nn(statement), quote: nn('owner words'), means: 'It changes the segment.', also_revisit: [PROB], replaces,
 });
 const offerChoice = (conflicts: string[], options: Row[], extra: Row = {}): Row => ({
-  mode: 'offer', request: nn('the owner request'), conflicts_with: conflicts, options, recommended: 'A', reason: 'it matches what you said', ...extra,
+  mode: 'offer', conflicts_with: conflicts, options, recommended: 'A', reason: 'it matches what you said', ...extra,
 });
 
 /** Canvas with one segment point and one problem point, then a run that offers a choice about the segment point. */
@@ -416,6 +419,43 @@ describe('P1646 canvas choices', () => {
     const e2 = await rpc(ws.o.c, 'edit_chat_message', { p_message: trig, p_body: nn('changed my mind') });
     expect(e2.error, JSON.stringify(e2.error)).toBeNull();
     expect(await ws.choices(), 'editing the request message removes it').toEqual([]);
+  }, T);
+
+  it('a request message edited after the run began (before the offer completes) fails the offer with 22023 and stores nothing', async () => {
+    const o = await mkOwner('race'); const ws = new WS(o);
+    await ws.cycle([newPt(SEG, 'seg one')]);
+    const s1 = ws.byText(await ws.points(), nn('seg one'));
+    const run = await ws.send(nn('original request'));
+    const trig = ((await admin.from('canvas_draft_runs').select('trigger_message_id').eq('id', run).single()).data as Row).trigger_message_id;
+    // the offer's request is built from the text the engine read; the owner edits the message before the offer commits
+    const stale = nn('original request');
+    const e = await rpc(o.c, 'edit_chat_message', { p_message: trig, p_body: nn('edited meanwhile') });
+    expect(e.error, JSON.stringify(e.error)).toBeNull();
+    const r = await ws.complete(run, offerChoice([s1.id], [opt('A', 'replace', SEG, 'x', [s1.id])], { request: stale, request_message_id: trig }));
+    expect(r.error?.code).toBe('22023');
+    expect(await ws.choices()).toEqual([]);
+    // a deleted message is refused the same way
+    const d = await rpc(o.c, 'delete_chat_message', { p_message: trig });
+    expect(d.error, JSON.stringify(d.error)).toBeNull();
+    const r2 = await ws.complete(run, offerChoice([s1.id], [opt('A', 'replace', SEG, 'x', [s1.id])], { request: stale, request_message_id: trig }));
+    expect(r2.error?.code).toBe('22023');
+    expect(await ws.choices()).toEqual([]);
+    expect((await ws.complete(run, { mode: 'hold' })).data.status).toBe('ok');
+  }, T);
+
+  it('deleting the newest choice\'s message does not bring back an older superseded choice', async () => {
+    const { ws, seg } = await offered('superseded-back');
+    const first = (await ws.choices())[0]!;
+    const run2 = await ws.send();
+    const re = await ws.complete(run2, offerChoice([seg.id], [opt('A', 'add', SEG, 'second')]));
+    expect(re.data.status, JSON.stringify(re)).toBe('ok');
+    expect((await ws.choices()).map((c) => c.state)).toEqual(['superseded', 'open']);
+    const trig2 = ((await admin.from('canvas_draft_runs').select('trigger_message_id').eq('id', run2).single()).data as Row).trigger_message_id;
+    const d = await rpc(ws.o.c, 'delete_chat_message', { p_message: trig2 });
+    expect(d.error, JSON.stringify(d.error)).toBeNull();
+    const rows = await ws.choices();
+    expect(rows.map((c) => c.id), 'only the superseded row is left in the table').toEqual([first.id]);
+    expect(await eng('_canvas_draft_choice_latest', { p_run: run2, p_owner: ws.o.u.user.id })).toEqual({ status: 'none' });
   }, T);
 
   it('the choice function refuses a run that is not a message run and changes nothing', async () => {

@@ -2,6 +2,8 @@
  * P1646: the canvas agent offers the owner options when their message contradicts the canvas, instead of refusing.
  * Pure parts (readPick, vetChoice through parseDraft, the D2 reply) and the run flow with the database and the model faked.
  */
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { BOX_DEFINITIONS } from '../../supabase/functions/_shared/canvas-box-definitions';
 import {
@@ -494,13 +496,19 @@ describe('P1646 a run that offers, and the pick that answers it', () => {
     expect(await go(h)).toEqual({ state: 'failed', code: 'choice_stale' });
     expect(h.by('_canvas_draft_run_fail')[0]!.args).toMatchObject({ p_code: 'choice_stale', p_reply: APPLY_STALE_REPLY, p_actual_usd: 0 });
   });
-  it('after an answered choice, "leave it" and "the recommended one" change nothing and never bring the old choice back', async () => {
-    for (const [text, state] of [['leave it', 'picked'], ['no change', 'kept'], ['the recommended one', 'picked'], ['keep', 'kept']] as const) {
-      const h = harness(text, { latest: LATEST_OPEN({ state }) });
+  it('R1: after an answered choice, any pick that means keep changes nothing and never brings the old choice back; one naming an option asks again', async () => {
+    for (const [text, over] of [['leave it', { state: 'picked' }], ['no change', { state: 'kept' }], ['keep', { state: 'kept' }], ['C', { state: 'picked' }], ['c keep', { state: 'kept' }], ['the recommended one', { state: 'picked', recommended: 'keep' }]] as const) {
+      const h = harness(text, { latest: LATEST_OPEN(over) });
       await go(h);
       expect(h.requests, text).toHaveLength(0);
       expect(choiceCall(h).p_choice, text).toEqual({ mode: 'hold' });
       expect(choiceCall(h).p_reply, text).toBe(SETTLED_KEEP_REPLY);
+    }
+    // a pick naming a change option (a letter, or "the recommended one" when it is an option) checks the earlier request again
+    for (const text of ['A', 'B', 'the recommended one']) {
+      const h = harness(text, { latest: LATEST_OPEN({ state: 'picked' }) });
+      await go(h);
+      expect(h.requests, text).toHaveLength(1);
     }
   });
   it('O-L2: on a STALE open choice, a keep (by words, by the keep letter, or the recommended keep) holds with no model call; a letter re-offers', async () => {
@@ -630,15 +638,18 @@ describe('P1646 Opus adversary fixes', () => {
   const otherAdd = { ...addOpt, statement: 'Today organisations waste money on other tools for files.' };
 
   it('O3: the recommendation follows the option the model meant, not its letter', () => {
-    // recommends its 1st, the 1st is refused: the survivor is marked, and the reason (about the refused one) is not shown
+    // R4: recommends its 1st, the 1st is refused: keep is recommended (never an option the model did not recommend), no reason
     const first = parse({ ...CHOICE, options: [invented, otherAdd], recommended: 'A', reason: 'replacing is cleaner' });
     expect(first.choice!.options.map((o) => o.kind)).toEqual(['add']);
-    expect([first.choice!.recommended, first.choice!.reason]).toEqual(['A', '']);
-    expect(choiceReply(first.choice!, baseMap).split('\n')[0]).toMatch(/I'd recommend adding it beside the current point\.$/);
-    // recommends its 2nd, the 2nd is refused: the first surviving one is marked, no reason
+    expect([first.choice!.recommended, first.choice!.reason]).toEqual(['keep', '']);
+    expect(choiceReply(first.choice!, baseMap).split('\n')[0]).toMatch(/I'd recommend keeping the canvas as it is\.$/);
+    expect(choiceReply(first.choice!, baseMap)).toContain('\nB (recommended). Keep the canvas as it is.');
+    // R4: recommends its 2nd, the 2nd is refused: keep, no reason
     const second = parse({ ...CHOICE, options: [replaceOpt, { ...otherAdd, statement: 'Today organisations waste 70% of money on other tools.' }], recommended: 'B', reason: 'adding keeps both' });
     expect(second.choice!.options.map((o) => o.kind)).toEqual(['replace']);
-    expect([second.choice!.recommended, second.choice!.reason]).toEqual(['A', '']);
+    expect([second.choice!.recommended, second.choice!.reason]).toEqual(['keep', '']);
+    // no recommendation given at all: the first option, no reason
+    expect(parse({ ...CHOICE, recommended: undefined, reason: 'whatever' }).choice).toMatchObject({ recommended: 'A', reason: '' });
     // recommends its 2nd, the 1st is refused: the 2nd is now A, still the recommended one, and its reason stays
     const renamed = parse({ ...CHOICE, options: [invented, otherAdd], recommended: 'B', reason: 'adding keeps both' });
     expect([renamed.choice!.options[0]!.kind, renamed.choice!.recommended, renamed.choice!.reason]).toEqual(['add', 'A', 'adding keeps both']);
@@ -701,6 +712,69 @@ describe('P1646 Opus adversary fixes', () => {
     const ok = harness('A', { latest, earlier: [request] });
     await go(ok);
     expect(choiceCall(ok).p_choice).toEqual({ mode: 'apply', choice_id: 'c1', letter: 'A' });
+  });
+});
+
+describe('P1646 re-review fixes', () => {
+  const OLDER = 'teams forget passwords on every device';
+  const olderOpt = { ...replaceOpt, quote: OLDER, statement: 'Today teams forget passwords on every device.' };
+
+  it('R2: every migration the canvas-choice.ts header cites exists', () => {
+    const header = readFileSync(resolve(process.cwd(), 'supabase/functions/_shared/canvas-choice.ts'), 'utf8').split('*/')[0]!;
+    const cited = [...header.matchAll(/\b(2026\d{10})\b/g)].map((m) => m[1]!);
+    expect(cited).toEqual(expect.arrayContaining(['20261106125500', '20261106151500', '20261106141500']));
+    const files = readdirSync(resolve(process.cwd(), 'supabase/migrations'));
+    for (const ts of cited) expect(files.some((f) => f.startsWith(`${ts}_`)), ts).toBe(true);
+  });
+
+  it('R3: an option whose quote comes from an older owner message, not the request, is dropped and counted', () => {
+    const out = parseDraft(gemini({ scope: [PROBLEM], actions: [], choice: { ...CHOICE, options: [olderOpt] } }), {
+      material: material(ASK, [OLDER]), basePoints: BASE, baseLabel: 'v1', otherNames: [], scope: { mode: 'model' }, allowChoice: true,
+    });
+    if (!out.ok) throw new Error(out.code);
+    expect(out.choice).toBeUndefined();
+    expect(out.droppedUnverified).toBe(1);
+    // CONTROL: the same quote in the request itself is accepted
+    expect(parse({ ...CHOICE, options: [olderOpt] }, {}, `${ASK}. ${OLDER}`).choice!.options[0]!.quote).toBe(OLDER);
+    // the request's own words match whatever their case or spacing (the quote check's normalisation)
+    expect(parse({ ...CHOICE, options: [{ ...replaceOpt, quote: 'The  Problem is ORGANISATIONS waste money' }] }).choice).toBeDefined();
+  });
+  it('R3: a re-offer quoting an older message instead of the earlier request offers nothing; a stored quote not in the request refuses the pick', async () => {
+    const reoffer = harness('A', { latest: { ...LATEST_OPEN(), stale: true }, earlier: [ASK, OLDER], model: async () => ({ response: gemini({ scope: [PROBLEM], actions: [], choice: { ...CHOICE, options: [olderOpt] } }), status: 200 }) });
+    await go(reoffer);
+    expect(choiceCall(reoffer).p_choice).toEqual({ mode: 'hold' });
+    expect(choiceCall(reoffer).p_reply).toBe(reofferNoneReply(STALE_LEAD));
+    const stored = { ...vetted().options[0]!, quote: OLDER, statement: 'Today teams forget passwords on every device.' };
+    const pick = harness('A', { latest: LATEST_OPEN({ options: [stored, vetted().options[1]] }), earlier: [ASK, OLDER] });
+    await go(pick);
+    expect(choiceCall(pick).p_choice).toEqual({ mode: 'hold' });
+    expect(choiceCall(pick).p_reply).toBe(refusedPickReply('A'));
+  });
+
+  it('R5: a re-posted choice drops an option whose statement now names someone, keeps the stored letters, and moves a lost recommendation to keep', async () => {
+    const named = { ...vetted().options[0]!, statement: 'Today Zorblat Quenk wastes money on other tools.' };
+    const h = harness('D', { latest: LATEST_OPEN({ options: [named, vetted().options[1]] }), other_names: ['Zorblat Quenk'] });
+    await go(h);
+    const reply = choiceCall(h).p_reply as string;
+    expect(reply).not.toMatch(/Zorblat|\nA\b/);
+    expect(reply.split('\n')).toEqual([
+      'I\'m not sure about this. It contradicts your current Problem, "Teams lose files across devices". I\'d recommend keeping the canvas as it is.',
+      'B. Add "Today organisations waste money on other tools for files" beside it. Both problems stay on the canvas.',
+      'C (recommended). Keep the canvas as it is.',
+      'Reply B or C.',
+    ]);
+    // no option left to show: nothing to pick from
+    const both = harness('D', { latest: LATEST_OPEN({ options: [named, { ...vetted().options[1]!, statement: 'Zorblat Quenk adds money worries.' }] }), other_names: ['Zorblat Quenk'] });
+    await go(both);
+    expect(choiceCall(both).p_reply).toBe(NO_CHOICE_REPLY);
+    // the tag-outside re-post goes through the same screen
+    const tagged = harness('B', { latest: LATEST_OPEN({ options: [named, vetted().options[1]] }), other_names: ['Zorblat Quenk'], box_refs: [SOLUTION] });
+    await go(tagged);
+    expect(choiceCall(tagged).p_reply).not.toMatch(/Zorblat/);
+    // CONTROL: without the name this run, both options are posted again under their letters
+    const plain = harness('D', { latest: LATEST_OPEN({ options: [named, vetted().options[1]] }) });
+    await go(plain);
+    expect(choiceCall(plain).p_reply).toMatch(/\nA \(recommended\)\. Replace it with "Today Zorblat Quenk[\s\S]*\nB\. Add[\s\S]*Reply A, B or C\.$/);
   });
 });
 

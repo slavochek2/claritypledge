@@ -37,10 +37,12 @@ const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
  * Sends one message and waits for the agent's reply: the thread grows by two messages (the owner's and the agent's) and the run has finished.
  * Throws when no reply arrives, so a silent run is a loud failure and never a quiet pass.
  */
-async function say(p: Page, text: string) {
+async function say(p: Page, text: string, via: 'enter' | 'button' = 'enter') {
   const before = await messages(p).count();
   await composer(p).fill(text);
-  await composer(p).press('Enter');
+  if (via === 'button') await p.getByTestId('composer').getByRole('button', { name: 'Send' }).click();
+  else await composer(p).press('Enter');
+  console.log(`P1646 sent "${text.slice(0, 40)}" by ${via === 'button' ? 'the Send button' : 'Enter'}`);
   await expect.poll(() => messages(p).count(), { timeout: 180_000, intervals: [500], message: `no reply to "${text.slice(0, 40)}"` }).toBeGreaterThanOrEqual(before + 2);
   await expect.poll(() => spot(p), { timeout: 180_000, intervals: [500] }).not.toBe('updating');
   await p.waitForTimeout(1000); // the boxes arrive by Realtime just after the reply
@@ -55,15 +57,30 @@ async function open(p: Page) {
 
 /** The points of one box (its card list; an empty box reads as ""). */
 async function boxText(p: Page, tag: string): Promise<string> {
-  const list = p.getByTestId(`canvas-box-${tag}`).getByTestId('canvas-box-list');
+  const section = p.getByTestId(`canvas-box-${tag}`);
+  const list = section.getByTestId('canvas-box-list');
   if ((await list.count()) === 0) return '';
-  return norm((await list.innerText()).replace(/See all \d+/g, ''));
+  const cards = '[data-testid^="canvas-point-card-"]';
+  // The box shows ONE card and a "See all N" button (BOX_LIMIT = 1): the rest of the points are read from the panel that button opens.
+  if ((await section.getByTestId('canvas-box-more').count()) > 0) {
+    await section.getByTestId('canvas-box-more').click();
+    const full = p.getByTestId('canvas-panel-box-list');
+    await expect(full).toBeVisible({ timeout: 20_000 });
+    const n = await full.locator(cards).count();
+    const text = norm(await full.innerText());
+    await p.getByTestId('canvas-panel-close').click();
+    await expect(p.getByTestId('canvas-point-panel')).toHaveCount(0, { timeout: 20_000 });
+    return `[${n}] ${text}`;
+  }
+  const n = await list.locator(cards).count();
+  return `[${n}] ${norm((await list.innerText()).replace(/See all \d+/g, ''))}`;
 }
-/** The points of every box on the canvas, one string. */
+/** The points of every box on the canvas, one string (empty boxes add nothing). */
 async function allBoxText(p: Page): Promise<string> {
-  const lists = p.locator('[data-testid^="canvas-box-canvas:"] [data-testid="canvas-box-list"]');
-  const texts = await lists.evaluateAll((els) => els.map((e) => (e as HTMLElement).innerText));
-  return norm(texts.join(' ').replace(/See all \d+/g, ''));
+  const tags = await p.locator('[data-testid^="canvas-box-canvas:"]').evaluateAll((els) => els.map((e) => (e.getAttribute('data-testid') ?? '').replace('canvas-box-', '')));
+  const parts: string[] = [];
+  for (const tag of tags) parts.push(await boxText(p, tag));
+  return norm(parts.join(' '));
 }
 /** The thread as the owner reads it, line breaks kept. */
 const thread = (p: Page) => panel(p).innerText();
@@ -90,7 +107,8 @@ const keepLetter = (r: string) => /Reply (?:A|A, B) or ([BC])\./.exec(norm(r))?.
 /** The option lines of an offer (A. to D.), as one string. */
 const optionLines = (r: string) => norm(r).split(/(?=(?:^|\s)[A-D](?: \(recommended\))?\. )/).filter((l) => /^\s*[A-D](?: \(recommended\))?\. /.test(l)).join(' ');
 /** Numbers in a text other than 12, the one the owner said. */
-const strangers = (s: string) => (s.match(/\d+(?:[.,]\d+)?/g) ?? []).filter((n) => Number(n.replace(',', '.')) !== 12);
+// The box count prefix and a message's own timestamp ("7:22 PM") are not numbers the agent wrote.
+const strangers = (s: string) => (s.replace(/\[\d+\] /g, '').replace(/\b\d{1,2}:\d{2}\s?(?:AM|PM)\b/gi, '').match(/\d+(?:[.,]\d+)?/g) ?? []).filter((n) => Number(n.replace(',', '.')) !== 12);
 
 /** skip: the try could not exercise the case (logged apart, neither a pass nor counted against the bar's tries). */
 type Verdict = { ok: boolean; note: string; skip?: boolean };
@@ -277,7 +295,8 @@ test('case 3c: a letter after the owner edited the point by hand writes nothing 
       await expect.poll(() => boxText(page, 'canvas:problem'), { timeout: 20_000 }).toContain(HAND_EDIT);
       const afterEdit = await boxText(page, 'canvas:problem');
 
-      await say(page, 'A');
+      // After the pencil and Save, Enter in the composer is not acted on (a suspected edit-flow bug, filed outside P1646): click Send.
+      await say(page, 'A', 'button');
       const r2 = await reply(page);
       const afterPick = await boxText(page, 'canvas:problem');
       const stale = norm(r2).startsWith(STALE_LEAD);
@@ -328,14 +347,16 @@ test('case 6: no number the owner never said is shown, or written when an option
       const boxes1 = await allBoxText(page);
       const shown = strangers(boxes1).concat(strangers(optionLines(r1)));
       if (!optionA(r1)) return { ok: false, skip: true, note: `no offer with an A option, so no pick could be applied (numbers shown meanwhile: [${shown}]) | tail: ${clip(r1, 600)}` };
+      const problemBefore = await boxText(page, 'canvas:problem');
       await say(page, 'A');
       const r2 = await reply(page);
       const boxes2 = await allBoxText(page);
+      const applied = (await boxText(page, 'canvas:problem')) !== problemBefore && r2.includes(UPDATED_PROBLEM);
       const written = strangers(boxes2).concat(strangers(r2));
-      return {
-        ok: shown.length === 0 && written.length === 0,
-        note: `otherNumbersWhenOffered=[${shown}] otherNumbersAfterPick=[${written}] | offer: ${clip(r1, 600)} | pick reply: ${clip(r2, 400)} | boxes: ${boxes2.slice(0, 400)}`,
-      };
+      const detail = `otherNumbersWhenOffered=[${shown}] otherNumbersAfterPick=[${written}] | offer: ${clip(r1, 600)} | pick reply: ${clip(r2, 400)} | boxes: ${boxes2.slice(0, 400)}`;
+      // A pick that was refused or changed nothing proves nothing about a written number: logged as NOT APPLIED, never a pass.
+      if (!applied) return { ok: false, note: `NOT APPLIED (the Problem box did not change or the reply has no "${UPDATED_PROBLEM}") | ${detail}` };
+      return { ok: shown.length === 0 && written.length === 0, note: detail };
     });
     expect(passed).toBeGreaterThanOrEqual(BAR);
   });
