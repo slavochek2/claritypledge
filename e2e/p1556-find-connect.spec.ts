@@ -74,8 +74,12 @@ test('New message: My code first, the partner invite beneath it, and exact-handl
   const invite = dialog.getByRole('link', { name: 'Invite a Clarity Partner' });
   await expect(myCodeRow).toBeVisible();
   await expect(invite).toBeVisible();
-  const [codeBox, inviteBox] = [await myCodeRow.boundingBox(), await invite.boundingBox()];
-  expect(codeBox!.y).toBeLessThan(inviteBox!.y);
+  // Order in the document, not on-screen position: the dialog animates open, so a box read mid-animation is unreliable.
+  const myCodeFirst = await myCodeRow.evaluate(
+    (code, inv) => !!(code.compareDocumentPosition(inv as Node) & Node.DOCUMENT_POSITION_FOLLOWING),
+    await invite.elementHandle(),
+  );
+  expect(myCodeFirst).toBe(true);
   await dialog.getByRole('searchbox').fill(`@${B.slug.toUpperCase()}`);
   const hit = dialog.getByTestId('new-message-handle-result');
   await expect(hit).toContainText('Codescanner P1556');
@@ -103,6 +107,10 @@ test('signed in, opening the code lands in the chat; the owner sees it; Message 
   const ctxB = await browser.newContext();
   const pageB = await ctxB.newPage();
   await setTestSession(pageB, B.email);
+  // Before the code: a stranger's profile shows the handle but no Message.
+  await pageB.goto(`/p/${A.slug}`);
+  await expect(pageB.getByTestId('profile-handle')).toBeVisible();
+  await expect(pageB.getByTestId('profile-message')).toHaveCount(0);
   await pageB.goto(`/connect/${token}`);
   await expect(pageB).toHaveURL(/\/chats\/c\/[0-9a-f-]+/, { timeout: 20_000 });
   await expect(pageB.getByRole('textbox').first()).toBeVisible({ timeout: 20_000 });

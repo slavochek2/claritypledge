@@ -85,9 +85,9 @@ Every call is one Supabase RPC on the shared project; none runs on a timer, a re
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | opening My code: 1 (`get_my_contact_code`) · Reset: 1 · opening a code: 1 lookup signed out + 1 redeem = 2 · viewing someone's profile: 1 (`can_message_profile`) · New message: 1 exact-handle lookup per debounced query (250 ms), so a 5-letter name typed at normal speed ≈ 1-2 | bounded by the above; no background calls | integration spec: 6 test users created + 6 deleted (each with one sign-in), 45 RPCs (1 setup + 1+9+5+1+5+8+2+6+7 across the 9 tests), 13 of them expected refusals; unit tests: 0 (Supabase mocked) |
+| Requests | opening My code: 1 (`get_my_contact_code`) · Reset: 1 · opening a code: 1 lookup signed out + 1 redeem = 2 · viewing someone's profile: 1 (`can_message_profile`) · New message: 1 exact-handle lookup per debounced query (250 ms), so a 5-letter name typed at normal speed ≈ 1-2 | bounded by the above; no background calls | integration spec: 6 test users created + 6 deleted (each with one sign-in), 45 RPCs (1 setup + 1+9+5+1+5+8+2+6+7 across the 9 tests), 13 of them expected refusals; browser spec: 2 test users created + 2 deleted, 9 browser sign-ins (one per page visit), ≈ 15 app RPCs across 5 tests plus the pages' ordinary reads; unit tests: 0 (Supabase mocked) |
 | Egress (bytes) | a lookup row ≈ 200 B; a token 32 B; a handle match ≈ 300 B | negligible | 45 × 300 B ≈ 13.5 KB |
-| Rows written | 1 code row per person (lazily, on first open); 1 redemption row per new chat started from a code | at most 20 redemption rows per owner per 24 h (the owner-side limit) | 2 code rows (A and F; A's reset updates its row), 21 redemption rows (B, C, D on A's code + 17 seeded to reach the limit + C on F's code), 1 agent row; all deleted in `afterAll` (the agent row by cascade, since agent rows cannot be deleted directly) |
+| Rows written | 1 code row per person (lazily, on first open); 1 redemption row per new chat started from a code | at most 20 redemption rows per owner per 24 h (the owner-side limit) | integration: 2 code rows (A and F; A's reset updates its row), 21 redemption rows (B, C, D on A's code + 17 seeded to reach the limit + C on F's code), 1 agent row; browser: 1 code row, 1 redemption row, 1 chat; all deleted in `afterAll` (the agent row by cascade, since agent rows cannot be deleted directly) |
 
 ## Invariants
 
@@ -99,7 +99,7 @@ Every call is one Supabase RPC on the shared project; none runs on a timer, a re
 ## Acceptance Criteria
 
 - [x] Two accounts with no shared group, event or agreement connect by one scanning the other's code, and both see the 1:1. — `e2e/p1556-find-connect.spec.ts` (the scanner lands in the chat, the owner's list shows it) + `e2e/integration/p1556-contact-code.spec.ts`. `[post-deploy]` the camera half: see Post-deploy verification.
-- [x] A person with no account scans a code, signs up, and lands in the chat with the code's owner. — `e2e/p1556-find-connect.spec.ts`: signed out, the page names the owner and its sign-up and log-in links return to the code; signed in, the code opens the chat. `[post-deploy]` a real new sign-up end to end: see Post-deploy verification.
+- [x] A person with no account who opens a code sees whose code it is, with sign-up and log-in that return to the code; once signed in, the code opens the chat. — `e2e/p1556-find-connect.spec.ts` (signed-out page and its return links; a signed-in visit lands in the chat). A real new sign-up end to end is under Post-deploy verification.
 - [x] A sent code link does the same as scanning it. — `e2e/p1556-find-connect.spec.ts` opens the link directly, which is what a scan does.
 - [x] After Reset code, the old link shows "This code no longer works" and starts no chat, the new one works, and an existing chat stays open. — `e2e/integration/p1556-contact-code.spec.ts` (server) + `src/tests/p1556-contact-code-sheet.test.tsx` (the sheet uses the new code) + `src/tests/p1556-connect-page.test.tsx` (the refusal screen).
 - [x] After 20 new chats in a day from one code, the next scan says the code is paused. — `e2e/integration/p1556-contact-code.spec.ts` (limit reached by seeded redemptions) + page test (paused screen).
@@ -114,7 +114,7 @@ Every call is one Supabase RPC on the shared project; none runs on a timer, a re
 ## Post-deploy verification
 
 Not a completion box: these can only be observed on the live site with real phones (founder, after release).
-- The scan → sign-up → chat handoff, with Google and with email, on an iPhone (Camera → Safari) and an Android phone (Camera → Chrome).
+- A real new account: scan → sign up (Google, then email) → land in the chat with the code's owner, on an iPhone (Camera → Safari) and an Android phone (Camera → Chrome). The pre-deploy tests cover the page and its return links, not the sign-up itself.
 - One real `/connect/<token>` visit, then confirm the token appears in neither Sentry nor Mixpanel.
 
 ## Related
