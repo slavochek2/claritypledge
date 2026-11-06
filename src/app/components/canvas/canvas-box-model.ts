@@ -49,6 +49,13 @@ export function boxToggle(f: BoxFlags, o: { expanded: boolean; hidden: number; o
   return more ? { label, expanded: o.expanded, inPlace: true, onClick: o.expanded ? o.collapse : o.expand } : null;
 }
 
+/**
+ * Whether the box draws its own Mention in chat. Where the cards carry their own (the draft, a pending Clone: `edit`), the box keeps its button only while it is EMPTY; a box still
+ * loading counts as non-empty, so the button does not flicker in and out as the read lands.
+ */
+export const boxHasOwnMention = (selected: boolean, edit: unknown, points: PointWithUserPosition[] | null): boolean =>
+  selected && !(edit && (points === null || points.length > 0));
+
 /** The box's border: blue and ringed when selected, light blue on hover where it can be selected. */
 export function boxOutline(selected: boolean, selectable: boolean): string {
   if (selected) return 'border-blue-500 ring-1 ring-blue-500';

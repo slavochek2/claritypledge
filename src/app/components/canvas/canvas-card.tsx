@@ -76,7 +76,7 @@ export function CanvasCard({ point, viewerId, positions, compare, selected, shar
     return (
       <div data-testid={`canvas-point-card-${point.id}`} data-selected={selected || undefined} className={cardClass}>
         <div className="p-2.5">{text}{compareBlock}</div>
-        {box.selected && <CanvasCardActions point={point} canEdit={!box.runActive} onEdit={() => box.onEdit(point)} onOpen={onOpen} />}
+        {box.selected && <CanvasCardActions point={point} canEdit={!box.runActive} tag={box.tag} onEdit={() => box.onEdit(point)} onOpen={onOpen} onRemove={() => box.onRemove(point)} />}
       </div>
     );
   }

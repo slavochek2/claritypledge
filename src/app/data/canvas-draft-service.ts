@@ -18,6 +18,8 @@ import { listMyCanvases } from './canvas-artifacts';
 export * from './canvas-draft-calls';
 export * from './canvas-draft-edit-call';
 export * from './canvas-draft-add-call';
+export * from './canvas-draft-remove-call';
+export * from './canvas-draft-open-replacing-call';
 export * from './canvas-draft-retry';
 
 export type CanvasDraftState = 'open' | 'published' | 'discarded';

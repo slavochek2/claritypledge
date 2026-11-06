@@ -8,7 +8,7 @@ import { useRef } from 'react';
 import { Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { FOCUS_RING, HOVER, ROUND } from './chat-kit';
+import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
 import { UPLOAD_ACCEPT, UPLOAD_LABEL, UPLOAD_WAITS_LABEL } from './canvas-thread-copy';
 
 export function CanvasUploadButton({ busy, onPick }: { busy: boolean; onPick: (file: File | undefined) => void }) {
@@ -38,7 +38,8 @@ export function CanvasUploadButton({ busy, onPick }: { busy: boolean; onPick: (f
               aria-busy={busy}
               data-testid="canvas-upload"
               onClick={() => !busy && input.current?.click()}
-              className={cn(ROUND, 'text-muted-foreground', HOVER, FOCUS_RING)}
+              // P1621 round 2 (founder): the secondary blue outline, as Undo (the same constant), squared to an icon-only 40px button.
+              className={cn(CANVAS_SECONDARY_PILL, 'w-10 px-0')}
             >
               {/* static while a file reads: the checklist row is what spins */}
               <Upload className="h-5 w-5" aria-hidden="true" />

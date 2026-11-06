@@ -47,10 +47,10 @@ export type RunStart = { ok: true; runId: string; kind: 'tensions' | 'draft' | '
  */
 export type CanvasRefusalCode =
   | 'busy' | 'busy_elsewhere' | 'cap_reached' | 'stale_view' | 'not_retryable' | 'not_offered' | 'expired' | 'draft_empty' | 'no_changes'
-  | 'box_full' | 'duplicate';   // P1621 hand-add: 3 cards already in the box / the same words already in the box
+  | 'box_full' | 'duplicate' | 'not_found';   // P1621 hand-add: box full / same words in the box; remove: the point is not on this draft
 const REFUSAL_CODES: ReadonlySet<string> = new Set([
   'busy', 'busy_elsewhere', 'cap_reached', 'stale_view', 'not_retryable', 'not_offered', 'expired', 'draft_empty', 'no_changes',
-  'box_full', 'duplicate',
+  'box_full', 'duplicate', 'not_found',
 ]);
 /** The refusal as a typed result; `revision` is the draft's current one, to re-read against. */
 export interface CanvasRefused { ok: false; refused: CanvasRefusalCode; revision: number | null }
@@ -297,7 +297,7 @@ export async function openCanvasDraft(fromVersionId: string | null = null): Prom
 }
 
 /** The draft's revision as it is now (owner column grant). A failed read is an error, never a made-up 0 (which would make the next action stale_view). */
-async function readOpenedDraft(draftId: string): Promise<{ revision: number; canvasId: string; versionName: string | null }> {
+export async function readOpenedDraft(draftId: string): Promise<{ revision: number; canvasId: string; versionName: string | null }> {
   const { data, error } = await supabase.from('canvas_drafts').select('revision, canvas_id, version_name').eq('id', draftId).maybeSingle();
   if (error) throwDbError('readOpenedDraft', error, 'Could not read this draft');
   const row = data as { revision?: unknown; canvas_id?: unknown; version_name?: unknown } | null;

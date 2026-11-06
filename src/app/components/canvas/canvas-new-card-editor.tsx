@@ -15,8 +15,9 @@ import { DUPLICATE_POINT_TEXT, FULL_BOX_TEXT } from './canvas-new-card-copy';
 import {
   BUSY_POINT_TEXT, EMPTY_POINT_TEXT, FAILED_POINT_TEXT, Notice, STALE_POINT_TEXT, type PointEditConfig,
 } from './canvas-point-edit';
+import { draftArriving, expectDraft, resolveTarget } from './canvas-hand-draft';
 import { newCardView } from './canvas-new-card-model';
-import { clientIdFor, closeNewCard, ensureNewCard, newCardKey, patchNewCard, useNewCards } from './canvas-new-card-store';
+import { clientIdFor, closeNewCard, ensureNewCard, getNewCards, newCardKey, patchNewCard, useNewCards } from './canvas-new-card-store';
 
 /** The refusal's sentence: the editor's own for a full box and the same words, P1614's for the rest. */
 function refusalText(refused: string): string {
@@ -40,15 +41,20 @@ export function CanvasNewCardEditor({ tag, edit, count, autoFocus, onSaved, onCa
   /** Escape: the editor closes, the text stays */
   onEscape: () => void;
 }) {
-  const key = newCardKey(edit.draftId, tag);
+  const key = newCardKey(edit.canvasId, tag);
   const entry = useNewCards().get(key);
   const noteId = useId();
   const areaRef = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => { ensureNewCard(edit.draftId, tag); }, [edit.draftId, tag]);
+  useEffect(() => { ensureNewCard(edit.canvasId, tag); }, [edit.canvasId, tag]);
   // A box_full sentence is true only until the draft moves past the revision it was said at with room in the box: then it goes and Save comes back (text kept).
-  const view = entry ? newCardView(entry, count, edit.runActive, edit.revision) : null;
+  const view = entry ? newCardView(entry, count, edit.runActive, edit.revision, edit.draftId, draftArriving(entry.fullAtDraftId)) : null;
   const staleFull = !!view?.staleFull;
-  useEffect(() => { if (staleFull) patchNewCard(key, { problem: null, fullAtRevision: null }); }, [staleFull, key]);
+  useEffect(() => {
+    if (!staleFull) return;
+    // Both full fields go, and the sentence only if it is still the full-box one (a save may have put another there since this render).
+    const cur = getNewCards().get(key);
+    patchNewCard(key, { fullAtRevision: null, fullAtDraftId: null, ...(cur?.problem === FULL_BOX_TEXT ? { problem: null } : {}) });
+  }, [staleFull, key]);
   const hasProblem = !!entry?.problem && !staleFull;
   // After a refusal or an empty-text sentence the focus goes back into the text (a click on Save leaves it on the button).
   useEffect(() => { if (hasProblem && !entry?.saving) areaRef.current?.focus(); }, [hasProblem, entry?.problem, entry?.saving]);
@@ -61,12 +67,27 @@ export function CanvasNewCardEditor({ tag, edit, count, autoFocus, onSaved, onCa
     if (next === '') { patchNewCard(key, { problem: EMPTY_POINT_TEXT }); return; }
     patchNewCard(key, { saving: true, problem: null });
     const clientId = clientIdFor(key, next);
+    let created: Extract<Awaited<ReturnType<typeof resolveTarget>>, { ok: true }>['created'] = null;
+    // The buffer is keyed by the canvas, so it can be cleared and typed into again while this save is out. Only the buffer that SENT (same client id and text) is touched by the answer.
+    const mine = () => { const c = getNewCards().get(key); return !!c && c.clientId === clientId && c.sentText === next; };
+    const keep = (problem: string, full: { revision: number; draftId: string } | null = null, staleId = false) => {
+      if (mine()) patchNewCard(key, { saving: false, problem, fullAtRevision: full?.revision ?? null, fullAtDraftId: full?.draftId ?? null, ...(staleId ? { clientId: null, sentText: null } : {}) });
+      created?.moveTo();
+    };
     try {
-      const r = await addCanvasDraftPoint(edit.draftId, tag, next, edit.revision, clientId);
-      if (r.ok) { closeNewCard(key); onSaved(r.revision); }
-      else patchNewCard(key, { saving: false, problem: refusalText(r.refused), fullAtRevision: r.refused === 'box_full' ? (r.revision ?? edit.revision) : null });
+      const target = await resolveTarget(edit);   // a pending page makes its draft here, as the first message does
+      if (!target.ok) { if (mine()) patchNewCard(key, { saving: false, problem: target.text }); return; }
+      created = target.created;
+      if (created) expectDraft(created.draftId);   // a refusal this draft says is not stale while the page moves onto it
+      const r = await addCanvasDraftPoint(target.draftId, tag, next, target.revision, clientId);
+      if (r.ok) { if (mine()) closeNewCard(key); onSaved(r.revision); created?.moveTo(); }
+      else {
+        // not_found: this client id replayed a card that has since been removed. The id is stale: the next Save gets a fresh one, and the text stays.
+        // box_full is said by THIS draft at this revision (a fresh draft's revision starts over)
+        keep(refusalText(r.refused), r.refused === 'box_full' ? { revision: r.revision ?? target.revision, draftId: target.draftId } : null, r.refused === 'not_found');
+      }
     } catch {
-      patchNewCard(key, { saving: false, problem: FAILED_POINT_TEXT });
+      keep(FAILED_POINT_TEXT);
       toast.error(FAILED_POINT_TEXT);
     }
   };

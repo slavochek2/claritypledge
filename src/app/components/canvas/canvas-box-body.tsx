@@ -10,7 +10,7 @@ import { BoxEdits, type PointEditConfig } from './canvas-point-edit';
 import { CanvasGoneNewCards } from './canvas-new-card-gone';
 import { BOX_LIMIT } from './use-box-editor';
 
-export function CanvasBoxBody({ tag, points, edit, renderCard, expanded, question, editorVisible, editor, showGone, openDraftId }: {
+export function CanvasBoxBody({ tag, points, edit, renderCard, expanded, question, editorVisible, editor, showGone, openDraftId, canvasId }: {
   tag: string;
   /** null while loading (skeleton) */
   points: PointWithUserPosition[] | null;
@@ -25,6 +25,8 @@ export function CanvasBoxBody({ tag, points, edit, renderCard, expanded, questio
   showGone: boolean;
   /** the owner's open draft, whichever version is on screen */
   openDraftId?: string | null;
+  /** the canvas on screen: only its buffers are ever shown as gone */
+  canvasId?: string;
 }) {
   if (points === null) return <CanvasBoxPlaceholder empty={false} />;
   if (points.length > 0) {
@@ -32,7 +34,7 @@ export function CanvasBoxBody({ tag, points, edit, renderCard, expanded, questio
       <div className="flex flex-col gap-2" data-testid="canvas-box-list">
         <BoxEdits tag={tag} points={points} edit={edit} renderCard={renderCard} limit={expanded ? undefined : BOX_LIMIT} />
         {editor}
-        {showGone && <CanvasGoneNewCards tag={tag} currentDraftId={edit?.draftId} openDraftId={openDraftId} />}
+        {showGone && <CanvasGoneNewCards tag={tag} canvasId={canvasId} editing={!!edit} openDraftId={openDraftId} />}
       </div>
     );
   }
@@ -46,7 +48,7 @@ export function CanvasBoxBody({ tag, points, edit, renderCard, expanded, questio
         ? <p className="break-words rounded-md border border-dashed border-blue-300 bg-background p-2 text-sm italic text-foreground/70" data-testid="canvas-box-question">{question}</p>
         : !editorVisible && <CanvasBoxPlaceholder empty />}
       {editor}
-      {showGone && <CanvasGoneNewCards tag={tag} currentDraftId={edit?.draftId} openDraftId={openDraftId} />}
+      {showGone && <CanvasGoneNewCards tag={tag} canvasId={canvasId} editing={!!edit} openDraftId={openDraftId} />}
     </div>
   );
 }

@@ -15,7 +15,11 @@ import { CANVAS_QUIET_ACTION } from './canvas-pill-styles';
 export const MENTION_IN_CHAT_LABEL = 'Mention in chat';
 export const MENTIONED_LABEL = 'Mentioned';
 
-export function MentionInChatButton({ tag, title }: { tag: string; title: string }) {
+/**
+ * `tag` is the mention key: a box tag (the box-level button, at the top right of a selected box, kept for an empty box), or a point's key (`pointKey`, P1621 round 2: the button on a
+ * card, beside Edit and Open, where "Mentioned" is per point). `card` drops the box button's right-aligned look.
+ */
+export function MentionInChatButton({ tag, title, card = false, testId }: { tag: string; title: string; card?: boolean; testId?: string }) {
   const { addToChat } = useCanvasWorkspace();
   const mentioned = useMentionedBoxes().has(tag);
   if (!addToChat) return null;
@@ -27,9 +31,9 @@ export function MentionInChatButton({ tag, title }: { tag: string; title: string
       onClick={() => addToChat(tag)}
       aria-pressed={mentioned}
       aria-label={`${mentioned ? MENTIONED_LABEL : MENTION_IN_CHAT_LABEL}, ${title}`}
-      data-testid={`canvas-mention-in-chat-${tag}`}
+      data-testid={testId ?? `canvas-mention-in-chat-${tag}`}
       data-mentioned={mentioned || undefined}
-      className={`${CANVAS_QUIET_ACTION} ml-auto h-auto shrink-0 whitespace-normal text-left`}
+      className={`${CANVAS_QUIET_ACTION} ${card ? '' : 'ml-auto '}h-auto shrink-0 whitespace-normal text-left`}
     >
       {mentioned ? <Check aria-hidden="true" /> : <MessageSquare aria-hidden="true" />}
       <span>{mentioned ? MENTIONED_LABEL : MENTION_IN_CHAT_LABEL}</span>

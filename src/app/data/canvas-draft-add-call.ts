@@ -35,7 +35,7 @@ export async function addCanvasDraftPoint(
     if (error) failRpc('addCanvasDraftPoint', error, 'Could not save this point');
     const refused = refusalOf(data as Row | null);
     if (refused) {
-      if (refused.refused === 'stale_view' || refused.refused === 'box_full') reReadWhenVisible(draftId);   // the screen holds an old revision: re-read
+      if (refused.refused === 'stale_view' || refused.refused === 'box_full' || refused.refused === 'not_found') reReadWhenVisible(draftId);   // the screen holds an old revision: re-read
       return refused;
     }
     const r = (data ?? {}) as Row;

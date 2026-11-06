@@ -6,7 +6,7 @@
  * done. A first read only records (p1536-canvas-thread-updated-event.test.tsx), so no event came and the page was never asked again: the thread said "Updated", the spot "Nothing to publish yet", until a reload.
  * The same family: a tap on Add to chat after Publish, before the page's re-read has answered, was decided on the read that still showed the draft open.
  */
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-mappers';
@@ -402,13 +402,16 @@ describe('Add to chat after Publish, before the page has read again', () => {
     await settle();
     // the panel is gone, the re-read is out, and the boxes are still the draft's: the tap lands here
     // P1621: Mention in chat is on the selected box: select it by its title first (unless the first-visit opening already did)
-    if (!screen.queryByTestId('canvas-mention-in-chat-canvas:problem')) fireEvent.click(screen.getByTestId('canvas-box-title-canvas:problem'));
-    fireEvent.click(screen.getByTestId('canvas-mention-in-chat-canvas:problem'));
+    // Round 2: a box holding cards mentions per card (the box's own button stays for an empty box).
+    const mentionBtn = () => within(screen.getByTestId('canvas-box-canvas:problem')).queryAllByTestId(/^canvas-card-mention-|^canvas-mention-in-chat-/)[0];
+    if (!mentionBtn()) fireEvent.click(screen.getByTestId('canvas-box-title-canvas:problem'));
+    fireEvent.click(mentionBtn());
     await settle();
     await act(async () => { after.resolve(publishedAfter()); });
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('ws=1'));
     await screen.findByTestId('workspace-chat-empty');
     // P1621: the tag is a pill above the field (the composer builder's change), not text in it
-    await waitFor(() => expect(screen.getAllByTestId('composer-tag-pill').map(p => p.textContent)).toEqual(['Problem']));
+    // Round 2: the mention is of the card, so the pill reads the box, a dot, then the card's words
+    await waitFor(() => expect(screen.getAllByTestId('composer-tag-pill').map(p => p.textContent?.startsWith('Problem · '))).toEqual([true]));
   });
 });

@@ -11,19 +11,27 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { CANVAS_POINT_MAX } from '@/lib/canvas-boxes';
-import { editCanvasDraftPoint } from '@/app/data/canvas-draft-service';
 import type { PointWithUserPosition } from '@/app/types';
 import { boxTitleTestId } from './canvas-box-ids';
+import type { EnsureDraft } from './canvas-hand-draft';
+import { writeEdit } from './canvas-point-edit-save';
 import { requestFocus } from './canvas-focus-request';
 import {
-  cardEditTestId, claimPanelBox, closePointEdit, getPointEdits, patchPointEdit, pointEditKey, shownPoints, usePanelBoxes, usePointEdits, type PointEditEntry,
+  cardEditTestId, claimPanelBox, closePointEdit, getPointEdits, patchPointEdit, pointEditKey, rekeyPointEdit, shownPoints, usePanelBoxes, usePointEdits, type PointEditEntry,
 } from './canvas-point-edit-store';
 
 /**
  * The draft the page shows, the revision it last read (a save passes it back; stale_view when the draft moved on), and whether the agent is working on it.
  * `userId` (P1621): the signed-in owner, whose first visit opens the first box (absent: nothing opens by itself).
  */
-export interface PointEditConfig { draftId: string; revision: number; runActive: boolean; userId?: string }
+export interface PointEditConfig {
+  /** the canvas: what the unsaved text is keyed by (a Clone and the draft it becomes are one canvas) */
+  canvasId: string;
+  /** the open draft's id (empty on a pending Clone, which has none until `ensure` makes it) */
+  draftId: string; revision: number; runActive: boolean; userId?: string;
+  /** Round 2: a pending page (a Clone, no draft yet) has no draft: its first write makes it through this (canvas-hand-draft). */
+  ensure?: EnsureDraft;
+}
 // [FOUNDER COPY: approved] every sentence below is shown to the owner; the founder agreed this wording in the P1614 review ("Your mirror agent").
 export const EMPTY_POINT_TEXT = 'A point needs some words.';
 export const BUSY_POINT_TEXT = 'Your mirror agent is updating this canvas. Save again when it finishes.';
@@ -48,26 +56,26 @@ export function BoxEdits({ tag, points, edit, renderCard, limit, surface }: {
 }) {
   const entries = usePointEdits();
   const panelHas = usePanelBoxes().has(tag);
-  const draftId = edit?.draftId;
+  const canvasId = edit?.canvasId;
   useEffect(() => (surface === 'panel' ? claimPanelBox(tag) : undefined), [surface, tag]);
   // A save that may have landed (stale_view or a thrown call) is treated as saved ONLY when its origin point is gone AND a point that was not in the box when the save
   // started has exactly the typed text. Anything else, a sibling saying the same included, leaves the editor open. A busy refusal never sets watchIds.
   useEffect(() => {
-    if (!draftId) return;
+    if (!canvasId) return;
     for (const [key, entry] of getPointEdits()) {
       const watch = entry.watchIds;
-      if (entry.draftId !== draftId || entry.box !== tag || entry.saving || !watch) continue;
+      if (entry.canvasId !== canvasId || entry.box !== tag || entry.saving || !watch) continue;
       const originGone = !points.some(p => p.id === entry.originId);
       if (originGone && points.some(p => !watch.includes(p.id) && p.statement.trim() === entry.text.trim())) closePointEdit(key);
     }
-  }, [draftId, tag, points, entries]);
+  }, [canvasId, tag, points, entries]);
 
   const cards = (limit ? points.slice(0, limit) : points);
   if (!edit) return <>{cards.map(p => renderCard(p))}</>;
   const ids = points.map(p => p.id);
   const here = surface === 'panel' || !panelHas;   // the grid hands its editors to the panel while the panel is open
-  const orphans = here ? [...entries.values()].filter(e => e.draftId === edit.draftId && e.box === tag && !ids.includes(e.originId)) : [];
-  const shown = shownPoints(points, limit, edit.draftId, entries, here);
+  const orphans = here ? [...entries.values()].filter(e => e.canvasId === edit.canvasId && e.box === tag && !ids.includes(e.originId)) : [];
+  const shown = shownPoints(points, limit, edit.canvasId, entries, here);
   return (
     <>
       {orphans.map(o => <PointEditor key={`orphan-${o.originId}`} entry={o} point={undefined} edit={edit} boxIds={ids} />)}
@@ -78,7 +86,7 @@ export function BoxEdits({ tag, points, edit, renderCard, limit, surface }: {
 
 /** The card, or its editor while one is open (P1621: the card carries its own Edit action while its box is selected; an editor already open stays whatever is selected). */
 function EditablePoint({ point, edit, boxIds, card, here }: { point: PointWithUserPosition; edit: PointEditConfig; boxIds: string[]; card: ReactNode; here: boolean }) {
-  const entry = usePointEdits().get(pointEditKey(edit.draftId, point.id));
+  const entry = usePointEdits().get(pointEditKey(edit.canvasId, point.id));
   if (entry && here) return <PointEditor entry={entry} point={point} edit={edit} boxIds={boxIds} />;
   return <>{card}</>;
 }
@@ -93,7 +101,7 @@ export function PointEditor({ entry, point, edit, boxIds, onSaved, returnFocusTo
 }) {
   const noteId = useId();
   const areaRef = useRef<HTMLTextAreaElement>(null);
-  const key = pointEditKey(entry.draftId, entry.originId);
+  const key = pointEditKey(entry.canvasId, entry.originId);
   const gone = !point;
   // After a refusal, a failure or an empty-text sentence the focus goes back into the text, so the outline is the one the open state shows (a click on Save leaves it on the button).
   const hasProblem = !!entry.problem;
@@ -119,16 +127,20 @@ export function PointEditor({ entry, point, edit, boxIds, onSaved, returnFocusTo
     const next = entry.text.trim();
     if (next === '') { patchPointEdit(key, { problem: EMPTY_POINT_TEXT }); return; }
     if (next === point.statement.trim()) { close(point.id); return; }   // nothing changed: nothing is written
-    patchPointEdit(key, { saving: true, problem: null, watchIds: null });
-    try {
-      const r = await editCanvasDraftPoint(edit.draftId, point.id, next, edit.revision);
-      if (r.ok) { close(r.pointId || point.id); onSaved?.(r.pointId || point.id); }
-      else if (r.refused === 'busy' || r.refused === 'busy_elsewhere') patchPointEdit(key, { saving: false, problem: BUSY_POINT_TEXT });
-      else patchPointEdit(key, { saving: false, problem: STALE_POINT_TEXT, watchIds: boxIds });
-    } catch {
-      patchPointEdit(key, { saving: false, problem: FAILED_POINT_TEXT, watchIds: boxIds });
-      toast.error(FAILED_POINT_TEXT);
+    const saveId = crypto.randomUUID();
+    patchPointEdit(key, { saving: true, problem: null, watchIds: null, saveId });
+    // The buffer is keyed by the canvas, so it can be cleared and reopened while this save is out: only the buffer that SENT is touched by the answer.
+    const mine = () => getPointEdits().get(key)?.saveId === saveId;
+    const o = await writeEdit(edit, entry.box, point, next, { busy: BUSY_POINT_TEXT, stale: STALE_POINT_TEXT, failed: FAILED_POINT_TEXT });
+    if (o.kind === 'saved') { if (mine()) close(o.pointId); onSaved?.(o.pointId); o.created?.moveTo(); return; }
+    if (mine()) {
+      const refused = { saving: false, saveId: null, problem: o.text, ...(o.stale ? { watchIds: boxIds } : {}) };
+      // The write mapped this point exactly onto the draft's own copy (a legacy public point): the buffer follows it, so the page that moves to the draft shows an editor that can Save again.
+      if (o.pointId !== point.id) rekeyPointEdit(entry.canvasId, point.id, o.pointId, refused);
+      else patchPointEdit(key, refused);
     }
+    o.created?.moveTo();
+    if (o.kind === 'failed') toast.error(FAILED_POINT_TEXT);
   };
 
   return (

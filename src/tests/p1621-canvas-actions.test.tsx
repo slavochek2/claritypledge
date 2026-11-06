@@ -4,6 +4,7 @@
  * @description P1621: the canvas draft shows content first and its actions when a box is selected. Expectations are typed from the spec's acceptance criteria, not read back
  * from the code. jsdom has no layout, so the 40px targets, the 320/375px widths and the row growing are checked in a browser (e2e/p1621-canvas-actions.spec.ts), not here.
  */
+import { pointKey } from '@/app/pages/chat/composer-tags';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -49,7 +50,7 @@ const pt = (id: string, statement: string, box: CanvasBoxTag) =>
   ({ id, statement, tags: [], systemTags: [box], visibility: 'private', userPosition: null } as unknown as PointWithUserPosition);
 type Boxes = Map<CanvasBoxTag, PointWithUserPosition[]>;
 const boxesOf = (o: Partial<Record<CanvasBoxTag, PointWithUserPosition[]>>): Boxes => new Map(CANVAS_LAYERS.flatMap(l => l.boxes).map(t => [t, o[t] ?? []]));
-const cfg = (o: Partial<PointEditConfig> = {}): PointEditConfig => ({ draftId: 'd1', revision: 4, runActive: false, ...o });
+const cfg = (o: Partial<PointEditConfig> = {}): PointEditConfig => ({ canvasId: 'c1', draftId: 'd1', revision: 4, runActive: false, ...o });
 
 const addToChat = vi.fn();
 const onOpen = vi.fn();
@@ -69,6 +70,7 @@ function Canvas({ boxes, edit, tap = addToChat, questions, openDraftId }: { boxe
             questions={questions}
             edit={edit}
             openDraftId={openDraftId}
+            canvasId="c1"
           />
           <button type="button" data-testid="outside-control">elsewhere on the page</button>
           <p data-testid="outside-text">plain text on the page</p>
@@ -85,6 +87,9 @@ const title = (tag: string) => screen.getByTestId(`canvas-box-title-${tag}`);
 const selectedTags = () => [...document.querySelectorAll('[data-canvas-box][data-selected]')].map(e => e.getAttribute('data-testid'));
 const q = (tag: string, id: string) => within(box(tag)).queryByTestId(id);
 const mention = (tag: string) => q(tag, `canvas-mention-in-chat-${tag}`);
+// Round 2: Mention in chat is per card (the box keeps its own button only while empty); Remove sits after it.
+const cardMention = (id: string) => screen.queryByTestId(`canvas-card-mention-${id}`);
+const removeBtn = (id: string) => screen.queryByTestId(`canvas-card-remove-${id}`);
 const addBtn = (tag: string) => q(tag, `canvas-box-add-${tag}`);
 const editBtn = (id: string) => screen.queryByTestId(`canvas-card-edit-${id}`);
 const openBtn = (id: string) => screen.queryByTestId(`canvas-card-open-${id}`);
@@ -172,10 +177,11 @@ describe('at rest and selecting (AC 1, 3, 4)', () => {
     expect(selectedTags()).toEqual([]);
   });
 
-  it('a selected filled box shows Mention in chat, then Edit and Open on its card, then Add card and See all N, in that order', () => {
+  it('a selected filled box shows Edit, Open, Mention in chat and Remove on its card, then Add card and See all N, in that order (the box keeps no Mention of its own)', () => {
     render(view({ boxes: TWO, edit: cfg() }));
     select(PROB);
-    const order = [mention(PROB), editBtn('p1'), openBtn('p1'), addBtn(PROB), q(PROB, 'canvas-box-more')];
+    expect(mention(PROB), 'the cards carry the mention').toBeNull();
+    const order = [editBtn('p1'), openBtn('p1'), cardMention('p1'), removeBtn('p1'), addBtn(PROB), q(PROB, 'canvas-box-more')];
     for (const el of order) expect(el, 'every control is there').not.toBeNull();
     for (let i = 1; i < order.length; i++) {
       expect(order[i - 1]!.compareDocumentPosition(order[i]!) & Node.DOCUMENT_POSITION_FOLLOWING, `visual order, step ${i}`).toBeTruthy();
@@ -201,8 +207,9 @@ describe('at rest and selecting (AC 1, 3, 4)', () => {
     select(PROB);
     expect(editBtn('p1')).toBeNull();
     expect(addBtn(PROB)).toBeNull();
+    expect(removeBtn('p1'), 'Remove is hidden while a run is active, like Edit').toBeNull();
     expect(openBtn('p1')).not.toBeNull();
-    expect(mention(PROB)).not.toBeNull();
+    expect(cardMention('p1')).not.toBeNull();
   });
 
   it('Open calls the opener with the point; Edit opens P1614\'s editor in place of the card', () => {
@@ -212,7 +219,7 @@ describe('at rest and selecting (AC 1, 3, 4)', () => {
     expect(onOpen).toHaveBeenCalledWith('p1');
     fireEvent.click(editBtn('p1')!);
     expect(screen.getByLabelText('Point text')).toBeTruthy();
-    expect(getPointEdits().has(pointEditKey('d1', 'p1'))).toBe(true);
+    expect(getPointEdits().has(pointEditKey('c1', 'p1'))).toBe(true);
     expect(screen.queryByTestId('canvas-point-card-p1')).toBeNull();
   });
 });
@@ -287,7 +294,7 @@ describe('an empty box (AC 6)', () => {
     expect(selectedTags()).toEqual([]);
     expect(screen.queryByLabelText('New card')).toBeNull();
     expect(document.activeElement).toBe(title(SEG));
-    expect(getNewCards().has(newCardKey('d1', SEG))).toBe(false);
+    expect(getNewCards().has(newCardKey('c1', SEG))).toBe(false);
     select(SEG);
     expect(newText().value, 'discarded for good').toBe('');
   });
@@ -344,17 +351,22 @@ describe('typed text survives (AC 7)', () => {
     expect(getPointEdits().size, 'P1614\'s store is untouched').toBe(0);
   });
 
-  it('is keyed by draft and box: another draft never gets the text as its own, it is kept read-only to copy (see the gone-draft tests)', () => {
+  it('is keyed by canvas and box: another canvas never gets the text; the next draft of the same canvas shows it where it was typed', () => {
     const first = render(view({ boxes: ONE, edit: cfg() }));
     select(PROB);
     fireEvent.click(addBtn(PROB)!);
     typeNew('draft one words');
     first.unmount();
-    render(view({ boxes: ONE, edit: cfg({ draftId: 'd2' }) }));
+    render(view({ boxes: ONE, edit: cfg({ canvasId: 'c2', draftId: 'd2' }) }));
     expect(screen.queryByText(UNSAVED_TEXT_LABEL)).toBeNull();
     select(PROB);
     fireEvent.click(addBtn(PROB)!);
-    expect(newText().value, 'the new draft\'s editor is empty').toBe('');
+    expect(newText().value, 'another canvas: its editor is empty').toBe('');
+    cleanup();
+    render(view({ boxes: ONE, edit: cfg({ draftId: 'd2' }) }));   // the same canvas, its next draft
+    expect(screen.getByText(UNSAVED_TEXT_LABEL)).toBeTruthy();
+    select(PROB);
+    expect(newText().value).toBe('draft one words');
   });
 
   it('a run starting keeps an open editor and its text, takes Save away, and says why', () => {
@@ -396,12 +408,18 @@ describe('the draft goes away while new-card text is typed: the text stays on sc
     expect(document.activeElement, 'focus is not left on the page').toBe(title(PROB));
   });
 
-  it('it stays whatever is selected, in the box it was typed in, and a different draft replacing it shows the same', () => {
-    typedThenGone({ boxes: ONE, edit: cfg({ draftId: 'd2' }) });
+  it('it stays whatever is selected, in the box it was typed in', () => {
+    typedThenGone({ boxes: ONE });
     expect(within(box(PROB)).getByTestId('canvas-new-card-gone-text')).toBeTruthy();
     fireEvent.click(screen.getByTestId('outside-text'));
     expect(within(box(PROB)).getByTestId('canvas-new-card-gone-text')).toBeTruthy();
     expect(within(box(SEG)).queryByTestId('canvas-new-card-gone-text')).toBeNull();
+  });
+
+  it('a different draft of the same canvas replacing it is not "gone": the text shows in the new draft, in the box it was typed in', () => {
+    typedThenGone({ boxes: ONE, edit: cfg({ draftId: 'd2' }) });
+    expect(screen.queryByTestId('canvas-new-card-gone-text')).toBeNull();
+    expect(newText().value, 'still in its editor, nothing moved').toBe('words I must not lose');
   });
 
   it('a reader or a signed-out visitor never sees it (it would show a former owner\'s words), and leaving the page discards it', () => {
@@ -484,7 +502,7 @@ describe('Add card saves the owner\'s words (AC 9, 10, 11, 12)', () => {
     expect(String(clientId)).toMatch(/^[0-9a-f-]{36}$/);
     expect(selectedTags()).toEqual(['canvas-box-canvas:problem']);
     await waitFor(() => expect(document.activeElement).toBe(addBtn(PROB)));
-    expect(getNewCards().has(newCardKey('d1', PROB))).toBe(false);
+    expect(getNewCards().has(newCardKey('c1', PROB))).toBe(false);
   });
 
   it('after a save that fills the box, focus goes to the title (Add card is gone)', async () => {
@@ -505,7 +523,7 @@ describe('Add card saves the owner\'s words (AC 9, 10, 11, 12)', () => {
     typeNew('my first card');
     saveNew();
     await waitFor(() => expect(svc.add).toHaveBeenCalled());
-    await waitFor(() => expect(getNewCards().has(newCardKey('d1', SEG))).toBe(false));
+    await waitFor(() => expect(getNewCards().has(newCardKey('c1', SEG))).toBe(false));
     expect(screen.queryByLabelText('New card')).toBeNull();
     rerender(view({ boxes: boxesOf({ [SEG]: [pt('n1', 'my first card', SEG)] }), edit: cfg({ revision: 5 }) }));
     await waitFor(() => expect(document.activeElement).toBe(addBtn(SEG)));
@@ -620,17 +638,17 @@ describe('keyboard alone (AC 21)', () => {
     title(PROB).focus();
     await user.keyboard('{Enter}');
     const seen: Element[] = [];
-    for (let i = 0; i < 5; i++) { await user.tab(); seen.push(document.activeElement!); }
-    expect(seen).toEqual([mention(PROB), editBtn('p1'), openBtn('p1'), addBtn(PROB), q(PROB, 'canvas-box-more')]);
+    for (let i = 0; i < 6; i++) { await user.tab(); seen.push(document.activeElement!); }
+    expect(seen).toEqual([editBtn('p1'), openBtn('p1'), cardMention('p1'), removeBtn('p1'), addBtn(PROB), q(PROB, 'canvas-box-more')]);
     // See all (focused) by keyboard, then Show less
     await user.keyboard('{Enter}');
     expect(screen.getByTestId('canvas-box-less')).toBe(document.activeElement);
     await user.keyboard('{Enter}');
     expect(screen.getByTestId('canvas-box-more')).toBe(document.activeElement);
     // Mention in chat
-    mention(PROB)!.focus();
+    cardMention('p1')!.focus();
     await user.keyboard('{Enter}');
-    expect(addToChat).toHaveBeenCalledWith(PROB);
+    expect(addToChat).toHaveBeenCalledWith(pointKey(PROB, 'They are thirsty'));
     // Open
     openBtn('p1')!.focus();
     await user.keyboard('{Enter}');
@@ -690,7 +708,7 @@ describe('keyboard alone (AC 21)', () => {
     await user.keyboard('{Escape}');
     expect(selectedTags()).toEqual([]);
     expect(document.activeElement).toBe(title(SEG));
-    expect(getNewCards().get(newCardKey('d1', SEG))?.text).toBe('half');
+    expect(getNewCards().get(newCardKey('c1', SEG))?.text).toBe('half');
     expect(within(box(SEG)).getByText(UNSAVED_TEXT_LABEL)).toBeTruthy();
     await user.keyboard('{Enter}');
     expect(newText().value).toBe('half');
@@ -718,32 +736,32 @@ describe('keyboard alone (AC 21)', () => {
 });
 
 describe('Mention in chat (AC 14)', () => {
-  it('taps through with the box tag; reads Mentioned and is pressed while the pill is in the composer; a tap then still shows the thread (the composer adds no second pill)', () => {
-    const { rerender } = render(view({ boxes: ONE, edit: cfg() }));
+  it('taps through with the point key; reads Mentioned and is pressed per point while its pill is in the composer; a tap then still shows the thread', () => {
+    const key = pointKey(PROB, 'They are thirsty');
+    const { rerender } = render(view({ boxes: TWO, edit: cfg() }));
     select(PROB);
-    expect(mention(PROB)!.getAttribute('aria-pressed')).toBe('false');
-    fireEvent.click(mention(PROB)!);
+    expect(cardMention('p1')!.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(cardMention('p1')!);
     expect(addToChat).toHaveBeenCalledTimes(1);
-    expect(addToChat).toHaveBeenCalledWith(PROB);
-    mentioned.set = new Set([PROB]);
-    rerender(view({ boxes: ONE, edit: cfg() }));
-    expect(mention(PROB)!.textContent).toBe('Mentioned');
-    expect(mention(PROB)!.getAttribute('aria-pressed')).toBe('true');
-    fireEvent.click(mention(PROB)!);
+    expect(addToChat).toHaveBeenCalledWith(key);
+    mentioned.set = new Set([key]);
+    rerender(view({ boxes: TWO, edit: cfg() }));
+    expect(cardMention('p1')!.textContent).toBe('Mentioned');
+    expect(cardMention('p1')!.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(cardMention('p1')!);
     expect(addToChat, 'with the thread hidden the tap must still bring it into view').toHaveBeenCalledTimes(2);
     mentioned.set = new Set();
-    rerender(view({ boxes: ONE, edit: cfg() }));
-    expect(mention(PROB)!.textContent).toBe('Mention in chat');
-    expect(mention(PROB)!.getAttribute('aria-pressed')).toBe('false');
+    rerender(view({ boxes: TWO, edit: cfg() }));
+    expect(cardMention('p1')!.textContent).toBe('Mention in chat');
   });
 
-  it('two boxes make two taps, each its own tag; each box shows its own state', () => {
+  it('a card and an empty box make two taps, each its own key; the empty box keeps the box-level button', () => {
     render(view({ boxes: ONE, edit: cfg() }));
     select(PROB);
-    fireEvent.click(mention(PROB)!);
+    fireEvent.click(cardMention('p1')!);
     select(SEG);
     fireEvent.click(mention(SEG)!);
-    expect(addToChat.mock.calls.map(c => c[0])).toEqual([PROB, SEG]);
+    expect(addToChat.mock.calls.map(c => c[0])).toEqual([pointKey(PROB, 'They are thirsty'), SEG]);
   });
 
   it('on a published version selecting shows Mention in chat only, and the card still opens as a whole', () => {
@@ -954,9 +972,9 @@ describe('review fixes (round 3)', () => {
     first.unmount();
     render(view({ boxes: ONE, openDraftId: 'd1' }));
     expect(screen.queryByTestId('canvas-new-card-gone-text')).toBeNull();
-    expect(getNewCards().get(newCardKey('d1', PROB))?.text).toBe('words for the open draft');
+    expect(getNewCards().get(newCardKey('c1', PROB))?.text).toBe('words for the open draft');
     cleanup();
-    render(view({ boxes: ONE, openDraftId: 'd2' }));   // the open draft is another one: d1 is really gone
+    render(view({ boxes: ONE }));   // no open draft any more: the text is really gone
     expect(screen.getByTestId('canvas-new-card-gone-text')).toBeTruthy();
     fireEvent.click(screen.getByTestId('canvas-new-card-gone-dismiss'));
     expect(getNewCards().size).toBe(0);

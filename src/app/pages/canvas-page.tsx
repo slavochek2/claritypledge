@@ -69,7 +69,7 @@ import { CanvasCard } from '@/app/components/canvas/canvas-card';
 import { PointPanel } from '@/app/components/canvas/canvas-point-panel';
 import { PanelPointEdit } from '@/app/components/canvas/canvas-panel-point-edit';
 import {
-  BOX_TITLES, buildReady, canvasSeoTitle, changedBoxes, draftQuestions, hasNothingToShow, isCanvasNotFound, isViewingDraft, openDraftIdOf, pointEditOf, sortBoxesByContest, storyFlags,
+  BOX_TITLES, buildReady, canvasSeoTitle, changedBoxes, draftQuestions, editConfigOf, hasNothingToShow, isCanvasNotFound, isViewingDraft, openDraftIdOf, sortBoxesByContest, storyFlags,
   type CanvasData, adoptionSkipsRead,
 } from '@/app/components/canvas/canvas-page-data';
 import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
@@ -242,7 +242,7 @@ export function CanvasPage() {
   // Compare lives in the address too (`?with=`), so a shared link opens the same view. Only a published version compares (P1613: use-compare-setup).
   const { baseId, others, withPerson, basePerson } = useCompareSetup(ready, viewerId, handle, searchParams.get('with'));
   const draftView = !!ready && isViewingDraft(ready);
-  const pointEdit = pointEditOf(ready, workspace.runActive);
+  const { pointEdit, viewedCanvasId } = editConfigOf(ready, workspace);
   // Opening a point from a card PUSHES a history entry (marked in its state), so Back — the
   // browser's, or a phone's back swipe — closes the point instead of leaving the canvas. Every
   // other change replaces the entry it is on and keeps that mark.
@@ -500,7 +500,7 @@ export function CanvasPage() {
       {current?.status === 'error' ? (
         <CanvasLoadError onRetry={() => void read(key)} />
       ) : !(ready && hasNothingToShow(ready)) && (
-        <CanvasGrid boxes={boxes} renderCard={renderCard} onMore={openBoxPanel} questions={ready ? draftQuestions(ready) : undefined} changed={changedBoxes(ready)} edit={pointEdit} openDraftId={openDraftIdOf(ready)} />
+        <CanvasGrid boxes={boxes} renderCard={renderCard} onMore={openBoxPanel} questions={ready ? draftQuestions(ready) : undefined} changed={changedBoxes(ready)} edit={pointEdit} openDraftId={openDraftIdOf(ready)} canvasId={viewedCanvasId} />
       )}
 
       {/* One panel for both levels (R2), so stepping from a box's list into a point and back

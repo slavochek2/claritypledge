@@ -1,6 +1,6 @@
 /**
  * @file canvas-new-card-store.ts
- * @description P1621: the owner's unsaved NEW-card text, one buffer per draft and box, held outside the components that draw it so clicking away, selecting
+ * @description P1621: the owner's unsaved NEW-card text, one buffer per CANVAS and box (a canvas has at most one open draft, so a pending Clone and the draft it becomes share a buffer and nothing ever moves), held outside the components that draw it so clicking away, selecting
  * another box, a run starting or a re-read never loses it. Separate from P1614's store (canvas-point-edit-store), which is keyed by an existing point: a new card has
  * none, and keeping the two apart means a buffer never reads as a gone point. Cleared when the canvas page unmounts and when a different person signs in, as
  * P1614's is (leaving without saving discards it, as an unsaved form does). Same tab only.
@@ -8,7 +8,7 @@
 import { useSyncExternalStore } from 'react';
 
 export interface NewCardEntry {
-  draftId: string;
+  canvasId: string;
   box: string;
   text: string;
   /** the last save's refusal or failure, shown under the text */
@@ -20,9 +20,11 @@ export interface NewCardEntry {
   sentText: string | null;
   /** the draft revision the server answered box_full at: the sentence stays until the draft moves past it with room in the box (null: no such refusal) */
   fullAtRevision: number | null;
+  /** the draft that said box_full: the sentence belongs to it (a fresh draft's revision starts over, so a revision alone cannot tell) */
+  fullAtDraftId: string | null;
 }
 
-export const newCardKey = (draftId: string, box: string): string => `${draftId}:${box}`;
+export const newCardKey = (canvasId: string, box: string): string => `${canvasId}:${box}`;
 
 let entries: ReadonlyMap<string, NewCardEntry> = new Map();
 const listeners = new Set<() => void>();
@@ -33,10 +35,10 @@ export const getNewCards = (): ReadonlyMap<string, NewCardEntry> => entries;
 export const useNewCards = (): ReadonlyMap<string, NewCardEntry> => useSyncExternalStore(subscribe, getNewCards, getNewCards);
 
 /** The buffer for a draft's box, created empty when there is none. */
-export function ensureNewCard(draftId: string, box: string): void {
-  const key = newCardKey(draftId, box);
+export function ensureNewCard(canvasId: string, box: string): void {
+  const key = newCardKey(canvasId, box);
   if (entries.has(key)) return;
-  entries = new Map(entries).set(key, { draftId, box, text: '', problem: null, saving: false, clientId: null, sentText: null, fullAtRevision: null });
+  entries = new Map(entries).set(key, { canvasId, box, text: '', problem: null, saving: false, clientId: null, sentText: null, fullAtRevision: null, fullAtDraftId: null });
   emit();
 }
 export function patchNewCard(key: string, patch: Partial<NewCardEntry>): void {
@@ -84,10 +86,12 @@ export function clientIdFor(key: string, text: string): string {
 }
 
 /**
- * The buffers of this box that hold typed words for a draft that is really closed (published, discarded or replaced while the owner typed). A draft that is still OPEN but not the
- * one on screen (the owner is looking at a published version) is not gone: its buffer is kept silently.
+ * The buffers of this box, for the canvas on screen, that hold typed words and have nowhere to be shown: the page has no editor for the canvas (no open draft or pending Clone on screen: the draft was published or
+ * discarded while the owner typed, or a Clone was cancelled). A canvas whose draft is still OPEN but not on screen (the owner is looking at a published version) is not gone: its buffer is kept
+ * silently. Text typed for one draft that is still unsaved when the next draft of the same canvas opens simply shows there: it is the owner's own text.
  */
-export function useGoneNewCards(box: string, currentDraftId: string | undefined, openDraftId: string | null | undefined): NewCardEntry[] {
+export function useGoneNewCards(box: string, viewedCanvasId: string | undefined, editing: boolean, openDraftId: string | null | undefined): NewCardEntry[] {
   const all = useNewCards();
-  return [...all.values()].filter(e => e.box === box && e.draftId !== currentDraftId && e.draftId !== openDraftId && hasNewCardText(e));
+  // Only the canvas on screen: the page can stay mounted across a navigation to another canvas, and its text is not this canvas's to show.
+  return [...all.values()].filter(e => e.box === box && !!viewedCanvasId && e.canvasId === viewedCanvasId && !editing && !openDraftId && hasNewCardText(e));
 }

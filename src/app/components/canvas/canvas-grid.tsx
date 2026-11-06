@@ -22,7 +22,7 @@ const COLUMN_CLASS: Record<GridColumns, string> = { 1: 'grid-cols-1', 2: 'grid-c
  * P1535: three rows of three boxes in one grid — columns follow the container (S3.7: under 520px one, 520 to 719px two, 720px and up three). Every box is shown, filled or not, so the grid
  * keeps its shape. A row is as tall as its tallest box.
  */
-export function CanvasGrid({ boxes, renderCard, onMore, questions, changed, edit, openDraftId }: {
+export function CanvasGrid({ boxes, renderCard, onMore, questions, changed, edit, openDraftId, canvasId }: {
   /** null while loading (skeletons) */
   boxes: Map<CanvasBoxTag, PointWithUserPosition[]> | null;
   renderCard: (point: PointWithUserPosition) => ReactNode;
@@ -35,13 +35,15 @@ export function CanvasGrid({ boxes, renderCard, onMore, questions, changed, edit
   edit?: PointEditConfig;
   /** the owner's open draft even when a published version is on screen: typed new-card text for it is kept, not shown as gone (P1621) */
   openDraftId?: string | null;
+  /** the canvas on screen: typed text for another canvas is never shown here */
+  canvasId?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const columns = useContainerColumns(ref);
   // P1621: only the canvas's owner can select a box: the workspace carries Mention in chat for the owner alone, and `edit` exists only on the owner's open draft.
   const { addToChat } = useCanvasWorkspace();
   const selectable = !!edit || !!addToChat;
-  const selection = useBoxSelection({ enabled: selectable, userId: edit?.userId, boxes, pageRef: ref });
+  const selection = useBoxSelection({ enabled: selectable, editable: !!edit, userId: edit?.userId, boxes, pageRef: ref });
   return (
     <div ref={ref} className={`grid gap-2 ${COLUMN_CLASS[columns]}`} data-testid="canvas-grid" data-columns={columns} aria-busy={boxes === null}>
       {CANVAS_LAYERS.map((layer, i) => (
@@ -60,6 +62,7 @@ export function CanvasGrid({ boxes, renderCard, onMore, questions, changed, edit
               changed={changed?.includes(tag) === true}
               edit={edit}
               openDraftId={openDraftId}
+              canvasId={canvasId}
               selection={{
                 selectable,
                 selected: selection.selected === tag,

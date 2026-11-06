@@ -11,6 +11,9 @@ import type {
   AudienceEntry, CanvasGeneralAccess, CanvasOwnerDraft, CanvasVersion, CanvasView, CanvasVia, CanvasVisibility,
 } from '@/app/data/canvas-service';
 import { canvasVersionLabel } from '@/app/data/canvas-draft-service';
+import type { EnsureDraft } from './canvas-hand-draft';
+import type { PointEditConfig } from './canvas-point-edit';
+import type { CanvasWorkspaceValue } from './canvas-workspace-context';
 import { draftLabel } from '@/app/pages/chat/canvas-thread-copy';
 import { contestScore, levelCounts } from '@/lib/position-spread';
 import { CANVAS_BOXES, type CanvasBoxTag } from '@/lib/canvas-boxes';
@@ -108,9 +111,35 @@ export function isViewingDraft(ready: CanvasReady): boolean {
 }
 
 /** P1614: what the grid needs to offer Edit on each card: the owner on their own open draft. `runActive`: their agent is working on it (no new edit starts; an open editor stays, with Save blocked). */
-export function pointEditOf(ready: CanvasReady | null, runActive: boolean | undefined): { draftId: string; revision: number; runActive: boolean; userId: string } | undefined {
+/**
+ * What unsaved text is keyed by: the canvas (a pending Clone and the draft it becomes are one canvas, so nothing moves between them). An owner's page always has the canvas id; the version name stands in only for
+ * a fixture without one (never the draft's id, which changes when a Clone becomes a draft).
+ */
+export const bufferCanvasId = (ready: CanvasReady): string => ready.canvasId ?? `version:${ready.version}`;
+
+export function pointEditOf(ready: CanvasReady | null, runActive: boolean | undefined): PointEditConfig | undefined {
   // The draft is the owner's alone, so the owner is the signed-in person (P1621: whose first visit opens a box).
-  return ready && isViewingDraft(ready) && ready.draft ? { draftId: ready.draft.id, revision: ready.draft.revision, runActive: !!runActive, userId: ready.ownerId } : undefined;
+  return ready && isViewingDraft(ready) && ready.draft ? { canvasId: bufferCanvasId(ready), draftId: ready.draft.id, revision: ready.draft.revision, runActive: !!runActive, userId: ready.ownerId } : undefined;
+}
+
+/**
+ * Round 2: a PENDING page (the owner's Clone: ws=1 on a published version, no draft yet) offers the same hand actions. `ensure` makes the draft at the first write (use-hand-draft); the
+ * buffers are keyed by the canvas, as a draft's are. Absent unless the workspace says a Clone is pending here (it hands `ensureDraft` only then).
+ */
+export function pendingEditOf(ready: CanvasReady | null, ensure: EnsureDraft | null | undefined): PointEditConfig | undefined {
+  if (!ready || !ensure || !ready.isOwner || isViewingDraft(ready) || !ready.version) return undefined;
+  return { canvasId: bufferCanvasId(ready), draftId: '', revision: 0, runActive: false, userId: ready.ownerId, ensure };
+}
+
+/**
+ * What the page hands its grid and panel for hand edits: the edit config (the owner's open draft, or a pending Clone whose first write makes the draft) and the canvas on screen (what unsaved
+ * text is keyed by, and what "gone" text is measured for). Here so the page's own branches stay out of it.
+ */
+export function editConfigOf(ready: CanvasReady | null, workspace: Pick<CanvasWorkspaceValue, 'runActive' | 'ensureDraft'>): { pointEdit: PointEditConfig | undefined; viewedCanvasId: string | undefined } {
+  return {
+    pointEdit: pointEditOf(ready, workspace.runActive) ?? pendingEditOf(ready, workspace.ensureDraft),
+    viewedCanvasId: ready?.isOwner ? bufferCanvasId(ready) : undefined,
+  };
 }
 
 /** Nothing to read: a READER of a canvas with nothing published (the grid is replaced by one line). The owner gets the grid (nine empty boxes say it: 3c X12). */

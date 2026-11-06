@@ -37,9 +37,11 @@ export interface BoxSelection {
   deselect: () => void;
 }
 
-export function useBoxSelection({ enabled, userId, boxes, pageRef }: {
+export function useBoxSelection({ enabled, editable, userId, boxes, pageRef }: {
   /** the viewer is the canvas's owner (selecting shows something) */
   enabled: boolean;
+  /** the boxes can take hand edits now (an open draft, or a pending Clone). A box chosen while they cannot (a published view) never pulls focus into an editor that appears later: a Mention in chat tap there moves focus to the composer. */
+  editable: boolean;
   /** set only on the owner's open draft: the first-visit opening applies there and nowhere else */
   userId: string | undefined;
   /** null while loading */
@@ -50,8 +52,8 @@ export function useBoxSelection({ enabled, userId, boxes, pageRef }: {
   const [state, setState] = useState<{ tag: CanvasBoxTag | null; focus: boolean }>({ tag: null, focus: false });
   const selected = enabled ? state.tag : null;
 
-  const select = useCallback((tag: CanvasBoxTag) => setState({ tag, focus: true }), []);
-  const toggle = useCallback((tag: CanvasBoxTag) => setState(s => (s.tag === tag ? { tag: null, focus: false } : { tag, focus: true })), []);
+  const select = useCallback((tag: CanvasBoxTag) => setState({ tag, focus: editable }), [editable]);
+  const toggle = useCallback((tag: CanvasBoxTag) => setState(s => (s.tag === tag ? { tag: null, focus: false } : { tag, focus: editable })), [editable]);
   const deselect = useCallback(() => setState({ tag: null, focus: false }), []);
 
   // The first-visit opening, decided once per person per mount.

@@ -1,7 +1,7 @@
 /**
  * @file canvas-point-edit-store.ts
  * @description P1614: the owner's open point editors, held OUTSIDE the components that draw them, so typed text survives a run starting, the grid and the
- * See all panel taking turns, and a re-read. A buffer belongs to ONE draft and ONE point (`pointEditKey`), is never moved onto another point, and is
+ * See all panel taking turns, and a re-read. A buffer belongs to ONE canvas and ONE point (`pointEditKey`; a canvas has at most one open draft, so a Clone and the draft it becomes share it), is never moved onto another point, and is
  * cleared when the canvas page unmounts and on sign-out: leaving without saving discards it, as an unsaved form does. Same tab only.
  */
 import { useEffect, useRef, useSyncExternalStore } from 'react';
@@ -9,7 +9,7 @@ import type { PointWithUserPosition } from '@/app/types';
 import { resetNewCards } from './canvas-new-card-store';
 
 export interface PointEditEntry {
-  draftId: string;
+  canvasId: string;
   /** the box tag it was opened in */
   box: string;
   /** the point it was opened on, for good: if that point is gone the editor can no longer save */
@@ -18,14 +18,19 @@ export interface PointEditEntry {
   /** the last save's refusal or failure, shown under the text */
   problem: string | null;
   saving: boolean;
+  /** this buffer's own identity: a late answer for a buffer that was cleared and reopened must not touch the new one (Remove) */
+  uid: string;
+  /** the save in flight: only its answer may close the buffer or put a sentence on it (null: none) */
+  saveId: string | null;
   /** The ids of the box's points when a save that ended in stale_view or a thrown error started: that save may have landed. Null otherwise (a busy refusal never sets it). Cleared when the text changes. */
   watchIds: string[] | null;
 }
 
-export const pointEditKey = (draftId: string, pointId: string): string => `${draftId}:${pointId}`;
+export const pointEditKey = (canvasId: string, pointId: string): string => `${canvasId}:${pointId}`;
 
 /** The test id of a card's Edit action (P1621), where focus returns when its editor closes; and of the same action on the opened point in the panel. */
 export const cardEditTestId = (pointId: string): string => `canvas-card-edit-${pointId}`;
+export const cardRemoveTestId = (pointId: string): string => `canvas-card-remove-${pointId}`;
 export const panelEditTestId = (pointId: string): string => `canvas-panel-edit-${pointId}`;
 
 let entries: ReadonlyMap<string, PointEditEntry> = new Map();
@@ -38,16 +43,31 @@ export const getPointEdits = (): ReadonlyMap<string, PointEditEntry> => entries;
 export const usePointEdits = (): ReadonlyMap<string, PointEditEntry> => useSyncExternalStore(subscribe, getPointEdits, getPointEdits);
 
 /** Opens an editor on a point. One already open on that point of that draft keeps its text. */
-export function openPointEdit(e: Pick<PointEditEntry, 'draftId' | 'box' | 'originId' | 'text'>): void {
-  const key = pointEditKey(e.draftId, e.originId);
+export function openPointEdit(e: Pick<PointEditEntry, 'canvasId' | 'box' | 'originId' | 'text'>): void {
+  const key = pointEditKey(e.canvasId, e.originId);
   if (entries.has(key)) return;
-  entries = new Map(entries).set(key, { ...e, problem: null, saving: false, watchIds: null });
+  entries = new Map(entries).set(key, { ...e, uid: crypto.randomUUID(), saveId: null, problem: null, saving: false, watchIds: null });
   emit();
 }
 export function patchPointEdit(key: string, patch: Partial<PointEditEntry>): void {
   const cur = entries.get(key);
   if (!cur) return;
   entries = new Map(entries).set(key, { ...cur, ...patch });
+  emit();
+}
+/**
+ * Moves a buffer onto another point id of the same canvas (the draft's own copy of a point a Clone showed under its published id), keeping its text and identity. A buffer already open
+ * on the target id is left alone and the source stays: nothing is overwritten.
+ */
+export function rekeyPointEdit(canvasId: string, fromId: string, toId: string, patch: Partial<PointEditEntry> = {}): void {
+  const from = pointEditKey(canvasId, fromId);
+  const to = pointEditKey(canvasId, toId);
+  const cur = entries.get(from);
+  if (!cur || from === to || entries.has(to)) return;
+  const next = new Map(entries);
+  next.delete(from);
+  next.set(to, { ...cur, originId: toId, ...patch });
+  entries = next;
   emit();
 }
 export function closePointEdit(key: string): void {
@@ -94,15 +114,15 @@ export function useClearPointEditsOnAuthChange(viewerId: string | null | undefin
 }
 
 /** The box's first `limit` cards, plus any point whose editor is open on this surface: the owner's typed text is never hidden by the limit. */
-export function shownPoints(points: PointWithUserPosition[], limit: number | undefined, draftId: string, entries: ReadonlyMap<string, PointEditEntry>, here: boolean): PointWithUserPosition[] {
-  return points.filter((p, i) => !limit || i < limit || (here && entries.has(pointEditKey(draftId, p.id))));
+export function shownPoints(points: PointWithUserPosition[], limit: number | undefined, canvasId: string, entries: ReadonlyMap<string, PointEditEntry>, here: boolean): PointWithUserPosition[] {
+  return points.filter((p, i) => !limit || i < limit || (here && entries.has(pointEditKey(canvasId, p.id))));
 }
 
 /** How many of the box's points the grid is NOT drawing (what "See all" is for): an open editor on a point past the limit shows it, so it is not hidden. */
-export function useHiddenCount(tag: string, points: PointWithUserPosition[] | null, edit: { draftId: string } | undefined, limit: number): number {
+export function useHiddenCount(tag: string, points: PointWithUserPosition[] | null, edit: { canvasId: string } | undefined, limit: number): number {
   const entries = usePointEdits();
   const panelHas = usePanelBoxes().has(tag);
   if (!points) return 0;
   if (!edit) return Math.max(0, points.length - limit);
-  return points.length - shownPoints(points, limit, edit.draftId, entries, !panelHas).length;
+  return points.length - shownPoints(points, limit, edit.canvasId, entries, !panelHas).length;
 }

@@ -11,12 +11,12 @@ import { requestFocus } from './canvas-focus-request';
 import { closeNewCard, newCardKey, useGoneNewCards } from './canvas-new-card-store';
 import { GONE_POINT_TEXT, Notice } from './canvas-point-edit';
 
-export function CanvasGoneNewCards({ tag, currentDraftId, openDraftId }: { tag: string; currentDraftId: string | undefined; openDraftId?: string | null }) {
-  const gone = useGoneNewCards(tag, currentDraftId, openDraftId);
-  return <>{gone.map(e => <GoneNewCard key={newCardKey(e.draftId, e.box)} draftId={e.draftId} tag={tag} text={e.text} />)}</>;
+export function CanvasGoneNewCards({ tag, canvasId, editing, openDraftId }: { tag: string; canvasId: string | undefined; editing: boolean; openDraftId?: string | null }) {
+  const gone = useGoneNewCards(tag, canvasId, editing, openDraftId);
+  return <>{gone.map(e => <GoneNewCard key={newCardKey(e.canvasId, e.box)} canvasId={e.canvasId} tag={tag} text={e.text} />)}</>;
 }
 
-function GoneNewCard({ draftId, tag, text }: { draftId: string; tag: string; text: string }) {
+function GoneNewCard({ canvasId, tag, text }: { canvasId: string; tag: string; text: string }) {
   const noteId = useId();
   return (
     <div className="flex flex-col gap-2" data-box-control data-testid={`canvas-new-card-gone-${tag}`}>
@@ -25,7 +25,7 @@ function GoneNewCard({ draftId, tag, text }: { draftId: string; tag: string; tex
         type="button"
         variant="outline"
         className="min-h-10 self-end"
-        onClick={() => { closeNewCard(newCardKey(draftId, tag)); requestFocus(boxTitleTestId(tag)); }}
+        onClick={() => { closeNewCard(newCardKey(canvasId, tag)); requestFocus(boxTitleTestId(tag)); }}
         data-testid="canvas-new-card-gone-dismiss"
       >
         Dismiss

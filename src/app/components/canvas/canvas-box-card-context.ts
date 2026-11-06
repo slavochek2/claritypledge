@@ -13,6 +13,10 @@ export interface BoxCardValue {
   /** the agent is working on the draft: Edit is absent */
   runActive: boolean;
   onEdit: (point: PointWithUserPosition) => void;
+  /** the box's tag: what a mention of one of its points names */
+  tag: string;
+  /** Remove: takes the point off the draft (a pending page makes the draft first) */
+  onRemove: (point: PointWithUserPosition) => void;
 }
 
 export const BoxCardContext = createContext<BoxCardValue | null>(null);

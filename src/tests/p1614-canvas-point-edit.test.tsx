@@ -22,7 +22,7 @@ import type { CanvasBoxTag } from '@/lib/canvas-boxes';
 
 const TAG = 'canvas:segments';
 const pt = (id: string, statement: string) => ({ id, statement, systemTags: [TAG] } as unknown as PointWithUserPosition);
-const cfg = (o: Partial<PointEditConfig> = {}): PointEditConfig => ({ draftId: 'd1', revision: 4, runActive: false, ...o });
+const cfg = (o: Partial<PointEditConfig> = {}): PointEditConfig => ({ canvasId: 'c1', draftId: 'd1', revision: 4, runActive: false, ...o });
 // P1621 (deliberate): the pencil that sat beside the card is now the card's Edit action, drawn by the card while its box is selected (covered against the real card in p1621-canvas-actions).
 // This stand-in card carries an Edit control with the card's real test id, hidden while a run goes as the real card hides it, so the editor mechanics below (limit, panel claim,
 // orphans, buffers) are still exercised through BoxEdits and CanvasGrid.
@@ -30,7 +30,7 @@ let shownEdit: PointEditConfig | null = null;
 const card = (p: PointWithUserPosition): ReactNode => (
   <div key={p.id}>
     <button type="button">{`card ${p.id}`}</button>
-    {shownEdit && !shownEdit.runActive && <button type="button" data-testid={cardEditTestId(p.id)} onClick={() => openPointEdit({ draftId: shownEdit!.draftId, box: TAG, originId: p.id, text: p.statement })}>Edit</button>}
+    {shownEdit && !shownEdit.runActive && <button type="button" data-testid={cardEditTestId(p.id)} onClick={() => openPointEdit({ canvasId: shownEdit!.canvasId, box: TAG, originId: p.id, text: p.statement })}>Edit</button>}
   </div>
 );
 const view = (points: PointWithUserPosition[], edit: PointEditConfig | null = cfg(), limit?: number) => {
@@ -195,27 +195,32 @@ describe('P1614 round 3, rule 2: saved only when the origin is gone AND a new po
   });
 });
 
-describe('P1614 round 3, rule 3: buffers belong to a draft and a point, and are cleared on leaving', () => {
-  it('keyed by draft id plus point id: another draft with the same point id shows no editor and the first buffer is kept', () => {
-    openPointEdit({ draftId: 'd1', box: TAG, originId: 'p1', text: 'for draft one' });
-    render(view([pt('p1', 'Old words')], cfg({ draftId: 'd2' })));
+describe('P1614 round 3, rule 3: buffers belong to a canvas and a point (round 2: not a draft), and are cleared on leaving', () => {
+  it('keyed by canvas id plus point id: another canvas with the same point id shows no editor and the first buffer is kept', () => {
+    openPointEdit({ canvasId: 'c1', box: TAG, originId: 'p1', text: 'for canvas one' });
+    render(view([pt('p1', 'Old words')], cfg({ canvasId: 'c2', draftId: 'd2' })));
     expect(screen.queryByLabelText('Point text')).toBeNull();
     expect(pencil('p1')).not.toBeNull();
-    expect(getPointEdits().get(pointEditKey('d1', 'p1'))?.text).toBe('for draft one');
+    expect(getPointEdits().get(pointEditKey('c1', 'p1'))?.text).toBe('for canvas one');
     open('p1');
     expect(getPointEdits().size, 'a second buffer, not an overwrite').toBe(2);
-    expect(getPointEdits().get(pointEditKey('d1', 'p1'))?.text).toBe('for draft one');
+    expect(getPointEdits().get(pointEditKey('c1', 'p1'))?.text).toBe('for canvas one');
+  });
+  it('the next draft of the SAME canvas shows the same buffer in place: nothing moves, nothing is lost', () => {
+    openPointEdit({ canvasId: 'c1', box: TAG, originId: 'p1', text: 'typed on the Clone' });
+    render(view([pt('p1', 'Old words')], cfg({ canvasId: 'c1', draftId: 'the-next-draft' })));
+    expect((screen.getByLabelText('Point text') as HTMLTextAreaElement).value).toBe('typed on the Clone');
   });
   it('the canvas page unmounting clears every buffer', () => {
     const hook = renderHook(() => useCanvasDraftSync(null, vi.fn(), vi.fn()));
-    openPointEdit({ draftId: 'd1', box: TAG, originId: 'p1', text: 'abandoned' });
+    openPointEdit({ canvasId: 'c1', box: TAG, originId: 'p1', text: 'abandoned' });
     expect(getPointEdits().size).toBe(1);
     hook.unmount();
     expect(getPointEdits().size).toBe(0);
   });
   it('only a change to a DIFFERENT signed-in person clears; a session-refresh flicker through undefined does not', () => {
     const hook = renderHook(({ id }: { id: string | null | undefined }) => useClearPointEditsOnAuthChange(id), { initialProps: { id: undefined as string | null | undefined } });
-    openPointEdit({ draftId: 'd1', box: TAG, originId: 'p1', text: 'mine' });
+    openPointEdit({ canvasId: 'c1', box: TAG, originId: 'p1', text: 'mine' });
     hook.rerender({ id: 'u1' });
     expect(getPointEdits().size, 'first sign-in resolving is not a sign-out').toBe(1);
     hook.rerender({ id: 'u1' });
@@ -229,7 +234,7 @@ describe('P1614 round 3, rule 3: buffers belong to a draft and a point, and are 
   });
   it('a real sign-out on the page: the buffer is not drawn (the viewer no longer owns the draft), and the unmount then removes the text', () => {
     const hook = renderHook(({ id }: { id: string | null }) => useCanvasDraftSync(null, vi.fn(), vi.fn(), id), { initialProps: { id: 'u1' as string | null } });
-    openPointEdit({ draftId: 'd1', box: TAG, originId: 'p1', text: 'mine' });
+    openPointEdit({ canvasId: 'c1', box: TAG, originId: 'p1', text: 'mine' });
     hook.rerender({ id: null });
     // signed out: the read comes back without the owner's draft, so the page hands the box no edit config and no editor is drawn
     render(view([pt('p1', 'Old words')], null));
@@ -340,11 +345,11 @@ describe('P1614 final round', () => {
     const boxes = new Map<CanvasBoxTag, PointWithUserPosition[]>([[TAG as CanvasBoxTag, [pt('a', 'A'), pt('b', 'B')]]]);
     render(<CanvasGrid boxes={boxes} renderCard={card} onMore={() => undefined} edit={cfg()} />);
     expect(screen.getByTestId('canvas-box-more').textContent).toBe('See all 2');
-    act(() => openPointEdit({ draftId: 'd1', box: TAG, originId: 'b', text: 'B typed in the panel' }));
+    act(() => openPointEdit({ canvasId: 'c1', box: TAG, originId: 'b', text: 'B typed in the panel' }));
     expect(screen.getByText('card a')).toBeTruthy();
     expect((screen.getByLabelText('Point text') as HTMLTextAreaElement).value, 'b is shown by its open editor').toBe('B typed in the panel');
     expect(screen.queryByTestId('canvas-box-more'), 'nothing is hidden now').toBeNull();
-    act(() => closePointEdit(pointEditKey('d1', 'b')));
+    act(() => closePointEdit(pointEditKey('c1', 'b')));
     expect(screen.getByTestId('canvas-box-more').textContent).toBe('See all 2');
     vi.unstubAllGlobals();
   });

@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import type { VoiceSender } from '@/hooks/use-voice-note';
 import { ComposerTagContext } from './composer-tag-bus';
 import { editStoredDraft } from './chat-hooks';
-import { addTag, joinTagged, removeTag, removeTagTokens, splitTagged, tagCounts } from './composer-tags';
+import { addTag, joinTagged, keyBox, removeTag, removeTagTokens, splitTagged, tagCounts } from './composer-tags';
 
 // [FOUNDER DECISION: said when a tag would take the message past its cap.]
 export const TAG_TOO_LONG_TEXT = 'That message is too long to add another box.';
@@ -78,8 +78,9 @@ export function useComposerTags(field: RefObject<HTMLTextAreaElement | null>, dr
   }, [bus, place, field]);
 
   // The bus learns which tags the value holds as it changes, and that there are none once this composer is gone (a hidden pane stays mounted: it keeps its tags).
-  const tagKey = tags.join('|');
-  useEffect(() => bus?.report(tagKey ? tagKey.split('|') : []), [bus, tagKey]);
+  // JSON, not a delimiter: a point's own words can hold any character, "|" included.
+  const tagKey = JSON.stringify(tags);
+  useEffect(() => bus?.report(JSON.parse(tagKey) as string[]), [bus, tagKey]);
   useEffect(() => () => bus?.report([]), [bus]);
 
   const onKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>): boolean => {
@@ -98,7 +99,7 @@ export function useComposerTags(field: RefObject<HTMLTextAreaElement | null>, dr
     return async (wav, opts) => {
       const counts = tagCounts(now.current.value);
       const key = now.current.key;
-      const sent = await onVoiceNote(wav, { ...opts, boxRefs: Object.keys(counts).sort() });
+      const sent = await onVoiceNote(wav, { ...opts, boxRefs: [...new Set(Object.keys(counts).map(keyBox))].sort() });
       const without = (v: string) => { const r = removeTagTokens(v, counts); return r.trim() === '' ? '' : r; };
       // On screen, in the slot it was sent from: the visible text. Anywhere else (another chat, or this composer left): the slot's CURRENT stored draft, which may hold text typed since.
       if (alive.current && now.current.key === key) now.current.setValue(without(now.current.value));

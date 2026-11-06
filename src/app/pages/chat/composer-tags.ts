@@ -11,24 +11,41 @@
 import { CANVAS_BOXES } from '@/lib/canvas-boxes';
 
 export const TAG_MARK = '⁣';
+/** P1621 round 2: a mention of one POINT is the box token followed by the point's exact words between two of these marks (U+2064, invisible). A "key" is the box tag, or `tag + POINT_MARK + words`. */
+export const POINT_MARK = '⁤';
 /** The composer's own cap (Composer's maxLength): a tag that would pass it is refused. */
 export const COMPOSER_MAX = 4000;
 
 const TITLES = new Map<string, string>(CANVAS_BOXES.map(b => [b.tag, b.title]));
 const TAG_BY_TITLE = new Map<string, string>(CANVAS_BOXES.map(b => [b.title, b.tag]));
-const TOKEN = new RegExp(`${TAG_MARK}\\[([^\\]${TAG_MARK}]*)\\]${TAG_MARK}`, 'g');
+const TOKEN = new RegExp(`${TAG_MARK}\\[([^\\]${TAG_MARK}]*)\\]${TAG_MARK}(?:${POINT_MARK}([^${POINT_MARK}${TAG_MARK}]*)${POINT_MARK})?`, 'g');
 
-export const tagToken = (tag: string): string => `${TAG_MARK}[${TITLES.get(tag) ?? tag}]${TAG_MARK}`;
+/** The point words as stored inside a token: the two delimiter marks and `%` are escaped (`%25`, `%E2`, `%E3`), everything else, whitespace and quotes included, is the owner's text untouched. */
+const encodeWords = (words: string): string => words.replace(/%/g, '%25').split(TAG_MARK).join('%E2').split(POINT_MARK).join('%E3');
+const decodeWords = (stored: string): string => stored.replace(/%(25|E2|E3)/g, (_m, c: string) => (c === '25' ? '%' : c === 'E2' ? TAG_MARK : POINT_MARK));
 
-/** [start, end) of every token in `value`. */
-function tokens(value: string): Array<[number, number]> {
-  return [...value.matchAll(TOKEN)].map(m => [m.index ?? 0, (m.index ?? 0) + m[0].length]);
+/** The box a key names, and the point's exact words (empty for a whole-box mention). */
+export const keyBox = (key: string): string => key.split(POINT_MARK)[0];
+export const keyText = (key: string): string => decodeWords(key.split(POINT_MARK).slice(1).join(POINT_MARK));
+/** The key for one point: the box and the owner's exact words, escaped so they cannot end the token. */
+export const pointKey = (tag: string, words: string): string => `${tag}${POINT_MARK}${encodeWords(words)}`;
+
+export const tagToken = (key: string): string => {
+  const stored = key.split(POINT_MARK).slice(1).join(POINT_MARK);   // already escaped
+  return `${TAG_MARK}[${TITLES.get(keyBox(key)) ?? keyBox(key)}]${TAG_MARK}${stored ? `${POINT_MARK}${stored}${POINT_MARK}` : ''}`;
+};
+
+interface Tok { start: number; end: number; key: string | undefined }
+/** Every token in `value`, with the key it names (undefined: a damaged one). */
+function tokens(value: string): Tok[] {
+  return [...value.matchAll(TOKEN)].map(m => {
+    const tag = TAG_BY_TITLE.get(m[1]);
+    return { start: m.index ?? 0, end: (m.index ?? 0) + m[0].length, key: tag ? (m[2] ? `${tag}${POINT_MARK}${m[2]}` : tag) : undefined };
+  });
 }
 
-const tagOfToken = (value: string, [start, end]: [number, number]): string | undefined => TAG_BY_TITLE.get(value.slice(start + 2, end - 2));
-
-/** The box title a tag is shown with (the pill's label). */
-export const tagTitle = (tag: string): string => TITLES.get(tag) ?? tag;
+/** The box title a key is shown with (the pill's label). */
+export const tagTitle = (key: string): string => TITLES.get(keyBox(key)) ?? keyBox(key);
 
 /**
  * The stored value as pills and words: the distinct boxes its tokens name (first appearance first) and the rest of the text, tokens taken out wherever they sit (an older
@@ -38,7 +55,7 @@ export function splitTagged(value: string): { tags: string[]; words: string } {
   const tags: string[] = [];
   const counts: Record<string, number> = {};
   for (const t of tokens(value)) {
-    const tag = tagOfToken(value, t);
+    const tag = t.key;
     if (!tag) continue;
     if (!tags.includes(tag)) tags.push(tag);
     counts[tag] = (counts[tag] ?? 0) + 1;
@@ -70,7 +87,7 @@ export function removeTag(value: string, tag: string): string {
 }
 
 /** The value without any token or stray mark. */
-export const stripTags = (value: string): string => value.replace(TOKEN, '').split(TAG_MARK).join('');
+export const stripTags = (value: string): string => value.replace(TOKEN, '').split(TAG_MARK).join('').split(POINT_MARK).join('');
 
 /** There is something to say besides tags (what makes Send appear; a tags-only field shows the voice button). */
 export const hasWords = (value: string): boolean => stripTags(value).trim() !== '';
@@ -78,20 +95,26 @@ export const hasWords = (value: string): boolean => stripTags(value).trim() !== 
 /** What Send carries: the words with tokens written out as "[Title]", and the distinct boxes the tokens name, sorted. */
 export function decodeTagged(value: string): { text: string; refs: string[] } {
   const refs = new Set<string>();
-  const text = value.replace(TOKEN, (_all, label: string) => {
+  // A point mention reads `[Box] "exact words"`; the run's scope stays the box. Stray marks are dropped from the words around the tokens, never from a point's own words.
+  const clean = (t: string) => t.split(TAG_MARK).join('').split(POINT_MARK).join('');
+  let text = '';
+  let at = 0;
+  for (const m of value.matchAll(TOKEN)) {
+    const start = m.index ?? 0;
+    const label = m[1];
     const tag = TAG_BY_TITLE.get(label);
     if (tag) refs.add(tag);
-    return `[${label}]`;
-  });
-  return { text: text.split(TAG_MARK).join(''), refs: [...refs].sort() };
+    text += clean(value.slice(at, start)) + (m[2] ? `[${label}] "${decodeWords(m[2])}"` : `[${label}]`);
+    at = start + m[0].length;
+  }
+  return { text: text + clean(value.slice(at)), refs: [...refs].sort() };
 }
 
 /** How many tokens of each box the value holds. */
 export function tagCounts(value: string): Record<string, number> {
   const out: Record<string, number> = {};
-  for (const [start, end] of tokens(value)) {
-    const tag = tagOfToken(value, [start, end]);
-    if (tag) out[tag] = (out[tag] ?? 0) + 1;
+  for (const t of tokens(value)) {
+    if (t.key) out[t.key] = (out[t.key] ?? 0) + 1;
   }
   return out;
 }
@@ -104,8 +127,7 @@ export function removeTagTokens(value: string, counts: Record<string, number>): 
   const left = { ...counts };
   let out = '';
   let at = 0;
-  for (const [start, end] of tokens(value)) {
-    const tag = tagOfToken(value, [start, end]);
+  for (const { start, end, key: tag } of tokens(value)) {
     if (!tag || !left[tag]) continue;
     left[tag] -= 1;
     const after = value[end] === ' ';

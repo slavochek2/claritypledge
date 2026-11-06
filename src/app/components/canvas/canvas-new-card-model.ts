@@ -20,9 +20,9 @@ export interface NewCardView {
   isError: boolean;
 }
 
-export function newCardView(entry: NewCardEntry, count: number, runActive: boolean, revision: number): NewCardView {
+export function newCardView(entry: NewCardEntry, count: number, runActive: boolean, revision: number, draftId: string, arriving = false): NewCardView {
   const refusedFull = entry.problem === FULL_BOX_TEXT;
-  const staleFull = refusedFull && count < CANVAS_BOX_CARD_LIMIT && entry.fullAtRevision !== null && revision > entry.fullAtRevision;
+  const staleFull = refusedFull && count < CANVAS_BOX_CARD_LIMIT && entry.fullAtRevision !== null && ((entry.fullAtDraftId !== draftId && !arriving) || revision > entry.fullAtRevision);   // said by another draft (a pending page's '' included) it never applies; `arriving`: the draft that said it is the one the page is moving onto
   const full = count >= CANVAS_BOX_CARD_LIMIT || (refusedFull && !staleFull);
   const running = runActive && !entry.saving;
   const problem = staleFull ? null : entry.problem;

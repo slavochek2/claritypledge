@@ -25,7 +25,7 @@ export function PanelPointEdit({ point, boxes, edit, onSaved, children }: {
 }) {
   const tag = canvasBoxOf(point.systemTags ?? []) ?? '';
   const boxPoints = boxes?.get(tag) ?? [];
-  const entry = usePointEdits().get(pointEditKey(edit?.draftId ?? '', point.id));
+  const entry = usePointEdits().get(pointEditKey(edit?.canvasId ?? '', point.id));
   const editing = !!entry;
   // While the editor is open here, the grid behind the panel draws none for this box: one editor per point.
   useEffect(() => (editing ? claimPanelBox(tag) : undefined), [editing, tag]);
@@ -51,7 +51,7 @@ export function PanelPointEdit({ point, boxes, edit, onSaved, children }: {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => openPointEdit({ draftId: edit.draftId, box: tag, originId: point.id, text: point.statement })}
+            onClick={() => openPointEdit({ canvasId: edit.canvasId, box: tag, originId: point.id, text: point.statement })}
             data-testid={panelEditTestId(point.id)}
             className={CANVAS_QUIET_ACTION}
           >

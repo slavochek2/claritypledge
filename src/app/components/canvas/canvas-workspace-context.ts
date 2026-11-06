@@ -5,6 +5,7 @@
  */
 import { createContext, useContext, useEffect, useRef } from 'react';
 import type { CanvasReady } from './canvas-page-data';
+import type { EnsureDraft } from './canvas-hand-draft';
 
 /** The widths that hold canvas and chat side by side. At 1024px the shell's sidebar (248px) and the chat (440px) would leave the canvas about 330px. */
 export const CANVAS_WORKSPACE_WIDE_QUERY = '(min-width: 1280px)';
@@ -47,6 +48,8 @@ export interface CanvasWorkspaceValue {
   ownerBar: boolean;
   /** P1614: the owner's agent is working on the draft (or the page is catching up with the run that just ended): a point cannot be edited by hand meanwhile. Absent outside the workspace. */
   runActive?: boolean;
+  /** Round 2: a Clone is pending on this page (no draft yet): makes the draft at the first hand write, as the first message does. Null when nothing is pending. */
+  ensureDraft?: EnsureDraft | null;
 }
 
 const NONE: CanvasWorkspaceValue = { active: false, reportReady: () => undefined, reloads: 0, showThread: () => undefined, clone: null, cloneSeq: null, ownerBar: false };

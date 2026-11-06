@@ -10,14 +10,14 @@ import { UploadSpot } from '@/app/pages/chat/CanvasUploadButton';
 afterEach(cleanup);
 
 describe('S3c.3 (X3): a canvas thread\'s upload is one icon', () => {
-  it('is an Upload icon button named Upload: no "+", no visible word, not the blue pill', () => {
+  it('is an Upload icon button named Upload: no "+", no visible word, in the secondary blue outline (P1621 round 2, founder: as Undo)', () => {
     render(<UploadSpot waiting={false} busy={false} onPick={vi.fn()} />);
     const button = screen.getByTestId('canvas-upload');
     expect(button).toHaveAccessibleName('Upload');
     expect(button.querySelector('svg.lucide-upload')).not.toBeNull();
     expect(button.querySelector('svg.lucide-plus')).toBeNull();
     expect(button.textContent).toBe('');
-    expect(button.className).not.toMatch(/border-blue-600/);
+    expect(button.className).toMatch(/border-blue-600/);
   });
 
   it('opens the file picker, and the picked file is handed over', () => {

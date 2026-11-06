@@ -123,14 +123,24 @@ Applies because the migration adds a per-request function and the tests create a
 
 Falsifier: a Save that triggers more than one re-read on TEST.
 
+**Round 2 additions** (arithmetic, not measured): one Remove = `canvas_draft_remove_point` plus the same re-read = 4 requests. The first hand write on a pending clone adds the opener the first message already uses: 1 version-list read + 1 `canvas_draft_open` + 1 revision read, and for Edit or Remove 1 point-mapping read, so at most 4 extra requests once per clone. Integration adds the remove-point file: about 9 cases x 3 calls = 27 requests and up to 9 owners created and deleted (plus a second signed-in user for the refusal case). The open-replacing integration file (Start over in one transaction) has 7 cases with 9 owners created and deleted (five single-owner cases, two cases with two owners), about 9 fixtures x 8 requests = 72 requests plus about 14 calls, sign-ins and cleanups = about 86. Totals per test run become about 185 requests and 31 users created and deleted (counted from the test files, not measured). Start over itself is one call where the first message's path already makes one, so per-user traffic is unchanged. At 20 Removes a month per owner the egress budget above roughly doubles at worst, still under 1% of the 5 GB.
+
 ## Known Limitations
 
 - If another edit moves the draft while the re-read after a box_full refusal is still out, Save can reappear briefly; pressing it is refused again with the text kept.
 - The server's `btrim` strips spaces only, so a direct call could store a whitespace-only point. The editor trims all whitespace first, as P1614's does.
+- A point mention is keyed by the point's words. If the owner edits or removes a card whose mention sits unsent in the composer, the pill keeps the old words and the card shows "Mention in chat" again; removing the pill still works.
+- Remove on a pending clone creates the draft first (the clone's first hand write), the same as Add and Edit there.
+- Start over carries the revision of the draft being replaced as it was when Start over was chosen, as the first message's path does. If that draft changes meanwhile (a run finishes), the hand write is refused as stale until the page is reloaded; the old draft is intact.
+- Two Start over calls within milliseconds of each other can leave the owner one extra open draft (the open-draft cap and one-open-draft-per-canvas still hold). An old draft that expired rather than being discarded makes a Start over hand write refuse as stale until the page re-reads.
+- On a clone, an unsaved Edit of a legacy public point (one the draft copies under a new id) shows read-only with its text kept if a different write (Add card, another Edit, or the first message) creates the draft first. Its text can be copied into the card's new Edit. An Edit whose own save created the draft follows the point.
+- A voice note sent with a point mention scopes the run to that box but does not carry the point's words; only typed messages send `[Box] "point text"`.
+- A hand save that is already running finishes when the tab is hidden, as a typed message does. Hidden-tab silence applies to reads and polls; aborting an action the owner started would lose their intent.
+- A new canvas with nothing published gets its draft when the canvas is made, so it has no pending state; only a clone's pending page uses the hand-write opener.
 
 ## Founder Review
 
-Defaults built, each easy to change: (1) no open draft means no hand-written card until the first message; (2) one hand card on an empty draft means the next message is no longer treated as the first draft: scope comes from the model instead of all nine boxes and no focus is set; (3) the agent can still drop a hand card, and Undo of that run brings it back; (4) saving a card closes Undo with no message; (5) the agent cannot reword a hand card unless the message supplies the words; (6) a private story on a hand card the agent later removes stays stored with no link, as P1614's does. Wording to approve: "Mentioned", the full-box message, the duplicate sentence, "Unsaved text".
+Defaults built, each easy to change (items 1 and 3 are replaced by Founder Decisions round 2): (1) no open draft means no hand-written card until the first message; (2) one hand card on an empty draft means the next message is no longer treated as the first draft: scope comes from the model instead of all nine boxes and no focus is set; (3) the agent can still drop a hand card, and Undo of that run brings it back; (4) saving a card closes Undo with no message; (5) the agent cannot reword a hand card unless the message supplies the words; (6) a private story on a hand card the agent later removes stays stored with no link, as P1614's does. Wording to approve: "Mentioned", the full-box message, the duplicate sentence, "Unsaved text", and the round-2 sentence for a draft open elsewhere: "This canvas already has a draft open somewhere else. Open it, then add your text there."
 
 [FOUNDER DECISION: exact wording of the full-box message and of the "Mentioned" confirmation.]
 
