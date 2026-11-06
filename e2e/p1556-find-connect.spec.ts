@@ -108,7 +108,9 @@ test('signed in, opening the code lands in the chat; the owner sees it; Message 
   const pageB = await ctxB.newPage();
   await setTestSession(pageB, B.email);
   // Before the code: a stranger's profile shows the handle but no Message.
+  const allowed = pageB.waitForResponse((r) => r.url().includes('/rpc/can_message_profile'));
   await pageB.goto(`/p/${A.slug}`);
+  expect(await (await allowed).json()).toBe(false); // the answer arrived, so absence below is real
   await expect(pageB.getByTestId('profile-handle')).toBeVisible();
   await expect(pageB.getByTestId('profile-message')).toHaveCount(0);
   await pageB.goto(`/connect/${token}`);
