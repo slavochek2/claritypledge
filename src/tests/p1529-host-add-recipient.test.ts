@@ -7,15 +7,15 @@ import { HOST_ADD_EMAIL_WINDOW_MS, hostAddRecipient } from '../../supabase/funct
 const NOW = Date.parse('2026-11-06T12:00:00Z');
 
 /** A fake client: each table answers with what the scenario gives it. */
-function db(o: { host?: string; rsvpedAt?: string | null; sent?: number }) {
+function db(o: { host?: string; rsvpedAt?: string | null; sent?: number | null; failing?: string }) {
   const answers: Record<string, { data: unknown; count?: number; error: null }> = {
     events: { data: o.host === undefined ? null : { host_id: o.host }, error: null },
     event_rsvps: { data: o.rsvpedAt ? { rsvped_at: o.rsvpedAt } : null, error: null },
-    email_send_log: { data: null, count: o.sent ?? 0, error: null },
+    email_send_log: { data: null, count: o.sent === undefined ? 0 : (o.sent as number), error: null },
   };
   return {
     from(table: string) {
-      const answer = answers[table];
+      const answer = o.failing === table ? { data: null, count: null, error: { message: 'timeout' } } : answers[table];
       const chain: Record<string, unknown> = {
         select: () => chain, eq: () => chain, gte: () => chain,
         single: () => Promise.resolve(answer), maybeSingle: () => Promise.resolve(answer),
@@ -43,6 +43,16 @@ describe('hostAddRecipient', () => {
   });
   it('refuses a person with no registration', async () => {
     expect(await hostAddRecipient(db({ host: 'h', rsvpedAt: null }), 'e', 'h', 'p', NOW)).toBeNull();
+  });
+  it('fails closed: any failed lookup sends nothing', async () => {
+    for (const failing of ['events', 'event_rsvps', 'email_send_log']) {
+      expect(await hostAddRecipient(db({ host: 'h', rsvpedAt: fresh, failing }), 'e', 'h', 'p', NOW), failing).toBeNull();
+    }
+  });
+  it('refuses an unreadable or far-future registration time, and allows a small clock difference', async () => {
+    expect(await hostAddRecipient(db({ host: 'h', rsvpedAt: 'not a date' }), 'e', 'h', 'p', NOW)).toBeNull();
+    expect(await hostAddRecipient(db({ host: 'h', rsvpedAt: new Date(NOW + 5 * 60_000).toISOString() }), 'e', 'h', 'p', NOW)).toBeNull();
+    expect(await hostAddRecipient(db({ host: 'h', rsvpedAt: new Date(NOW + 5_000).toISOString() }), 'e', 'h', 'p', NOW)).toBe('p');
   });
   it('sends one confirmation per add: none when one is already logged since the registration', async () => {
     expect(await hostAddRecipient(db({ host: 'h', rsvpedAt: fresh, sent: 1 }), 'e', 'h', 'p', NOW)).toBeNull();
