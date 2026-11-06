@@ -11,8 +11,8 @@ exec_model: opus
 exec_effort: high
 tags: [smoke, csp-smoke, prod-health, mixpanel, recorder, flake]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 date_resolved: '2026-11-06'
 root_cause: /live stops the recorder on mount (P1304), so a /record post there is a race with the recorder bundle; the smoke required one
 resolution: on routes that stop the recorder on mount, 'timeout' passes only when the recorder bundle finished loading with an ok response and no recorder CSP violation was seen; drift guarded by an AST check of the mount effect
