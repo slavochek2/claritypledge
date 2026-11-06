@@ -12,6 +12,8 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+spec_review_hash: 5af58fafd2e2f699ef486c98ddb597d37f378d13858a4ec0b2c8b161ab9c0aa8
+spec_review_vendors: [codex, gemini, openrouter]
 ---
 
 # P1646: Canvas agent thinks with the owner instead of refusing
@@ -44,10 +46,18 @@ High blast radius: it changes every canvas chat reply that meets a conflict, and
 3. **The offered choice is stored, then the owner's pick is acted on.** The run that offers options stores them with the draft (the option, its actions on current point ids, and the owner's quote). The server, not the model, refuses any write while a choice is open. A reply naming an option ("A", "go with B") applies it, with the usual note of what changed and from which words. "Keep" changes nothing and says so. A choice goes stale when the canvas changes before the pick; a stale or unknown pick is answered by offering the choice again.
 4. **No facts still writes nothing, but always gives a next step.** "Make it a Dropbox canvas from memory" writes nothing, and the reply says what the owner could tell it instead. Never a bare refusal.
 
-[FOUNDER DECISION: exact reply wording, including the lead-in (founder's draft: "I'm not sure this is good, it contradicts..."), the option labels and how the recommendation is marked.]
-[FOUNDER DECISION: which options are offered, and whether the agent may offer more than three.]
-[FOUNDER DECISION: may an option change other boxes ("replace it, so Solution and Revenue follow"), or only suggest what else to revisit? Today one message changes only the box it names.]
-[FOUNDER DECISION: this reverses P1625's "picking among versions is not built"; the founder asked for it on 2026-11-06.]
+**Founder decisions, 2026-11-06:**
+- **D1. An option changes only the box it names.** It may suggest other boxes to revisit ("Solution and Revenue may need updating, want me to?"), and acts on them only after the owner says so.
+- **D2. Reply shape and wording**, approved from this draft (the agent fills the brackets):
+
+  > I'm not sure about this. It contradicts your current [box], "[current point]". I'd recommend [X], because [reason].
+  > A (recommended). [option and what it means for the canvas]
+  > B. [option and what it means]
+  > C. Keep the canvas as it is.
+  > Reply A, B or C.
+
+- **D3. At most three options.**
+- **D4. Reverses P1625's "picking among versions is not built"**, at the founder's request.
 
 ## Invariants
 
