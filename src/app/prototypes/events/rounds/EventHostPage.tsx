@@ -352,6 +352,8 @@ interface PersonMarks {
   transcribing: boolean;
   /** The mastermind's three recording states; replaces the red dot in that flow. */
   recording?: RecordingState;
+  /** D17: a canvas is shared and the person has not owned a table yet. The seated people have no row in the mastermind's list, so the tile carries it. */
+  ready?: boolean;
 }
 
 /** Host-only, never on the screen: prepared · recording volunteer (+ the mic they need) · live transcription. */
@@ -370,6 +372,9 @@ function StatusMarks({ marks, lifted }: { marks?: PersonMarks; lifted: boolean }
           <Mic className="h-3.5 w-3.5" />
           {prep.mic !== 'own' && <span className="text-[10px] font-semibold leading-none">{MIC_LETTER[prep.mic]}</span>}
         </span>
+      )}
+      {marks?.ready && (
+        <span className={cn('rounded-full px-1.5 text-[10px] font-semibold leading-4', lifted ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-700')} title="Their Clarity Canvas is shared and they have not owned a table yet. Setting up the next round seats them." data-testid="mm-ready">Ready</span>
       )}
       {marks?.recording && <RecordingMark state={marks.recording} lifted={lifted} />}
       {marks?.transcribing && (
@@ -918,7 +923,7 @@ export function EventHostPage() {
     (memberId: string): PersonMarks => {
       const profileId = byId.get(memberId)?.profileId;
       // The mastermind: the phone answer is the mic mark, and the three recording states replace the red dot.
-      if (profileId && mm.active) return { prep: { prepared: !!prepMarks.get(profileId)?.prepared, mic: mm.personOf(memberId)?.phone ?? null }, transcribing: false, recording: mm.recordingOf(memberId) };
+      if (profileId && mm.active) return { prep: { prepared: !!prepMarks.get(profileId)?.prepared, mic: mm.personOf(memberId)?.phone ?? null }, transcribing: false, recording: mm.recordingOf(memberId), ready: mm.isReady(memberId) };
       return profileId ? { prep: prepMarks.get(profileId), transcribing: transcribing.has(profileId) } : { transcribing: false };
     },
     [byId, prepMarks, transcribing, mm],

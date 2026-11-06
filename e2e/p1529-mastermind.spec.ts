@@ -151,7 +151,8 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
   await asUser(page, REGU, `/events/${slug}`);
   await ac('1b', 'Register opens the step; Register with nothing names what is missing; Other shows the bring-your-own line', async () => {
     await expect(page.getByTestId('rsvp-button').first()).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByTestId('places-left').first()).toHaveText('1 place left');
+    // founder, UAT round 1: "x of y seats left" shows only once 8 or more are registered; this walk's limit is 4 with 3 registered
+    await expect(page.getByTestId('places-left')).toHaveCount(0);
     await page.getByTestId('rsvp-button').first().click();
     const dlg = page.getByTestId('registration-questions');
     await expect(dlg).toBeVisible();
@@ -162,16 +163,16 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     expect(none.count, 'tapping Register with nothing seats nobody').toBe(0);
     // the second question depends on the first answer: both branches, and a changed first answer clears the second
     await dlg.getByTestId('join-improve').click();
-    await expect(dlg.getByTestId('prep-question')).toContainText('Where will you prepare and create your Clarity Canvas? It takes about 30 minutes.');
+    await expect(dlg.getByTestId('prep-question')).toContainText('When will you invest 15 minutes to create your Clarity Canvas?');
     await dlg.getByTestId('prep-event').click();
     await shots(page, 'registration', 'improve-branch');
     await dlg.getByTestId('join-help').click();
-    await expect(dlg.getByTestId('prep-question')).toContainText('Where will you prepare? It takes about 15 minutes to learn how we communicate.');
+    await expect(dlg.getByTestId('prep-question')).toContainText('When will you invest 7 minutes to prepare?');
     await expect(dlg.getByTestId('prep-home')).not.toBeChecked();
     await expect(dlg.getByTestId('prep-event')).not.toBeChecked();
     await shots(page, 'registration', 'help-branch');
     await dlg.getByTestId('registration-submit').click();
-    await expect(dlg.getByTestId('registration-missing')).toContainText('Choose where you will prepare.');
+    await expect(dlg.getByTestId('registration-missing')).toContainText('Choose when you will prepare.');
     await dlg.getByTestId('prep-home').click();
     await dlg.getByText('Other', { exact: true }).click();
     await expect(dlg.getByTestId('bring-own-mic')).toHaveText('Please bring a headset or microphone that fits your phone.');
@@ -258,9 +259,9 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     const hostCtx = await browser.newContext();
     const hp = await hostCtx.newPage();
     await asUser(hp, host, `/events/${slug}/host`);
-    await expect(hp.getByTestId('mm-waitlist')).toBeVisible({ timeout: 90_000 });
-    const order = (await hp.getByTestId('mm-waitlist-person').allInnerTexts()).map((t) => t.trim());
-    expect(order).toEqual([`${first(A[3])} Q.`, `${first(A[4])} Q.`]);
+    await expect(hp.getByTestId('event-waitlist')).toBeVisible({ timeout: 90_000 });
+    const order = await hp.getByTestId('event-waitlist-add').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+    expect(order).toEqual([`Add ${A[3].user.name}`, `Add ${A[4].user.name}`]);
     await shots(hp, 'host', 'waiting-list');
     await ctx.close(); await hostCtx.close();
     return `joined (row ${JSON.stringify(row)}), registered stayed 4, host order ${JSON.stringify(order)}`;
@@ -276,10 +277,11 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     const p2 = await ctx.newPage();
     await setTestSession(p2, A[3].user.email);
     await p2.goto(`/events/${slug}`);
-    await expect(p2.getByTestId('places-left').first()).toHaveText('1 place left', { timeout: 60_000 });
+    await expect(p2.getByTestId('rsvp-button').first()).toHaveText('Register', { timeout: 60_000 });
+    await expect(p2.getByTestId('places-left')).toHaveCount(0); // 3 registered: below the 8 where the seats line starts
     await shots(p2, 'registration', 'places-left');
     await ctx.close();
-    return 'rsvps 4 -> 3; page shows "1 place left"';
+    return 'rsvps 4 -> 3; the page offers Register again (no seats-left line below 8 registered)';
   }, page);
 
   await ac('2d', 'a place opened: the listed person sees Register with their answers filled in, and Leave still works', async () => {
@@ -305,9 +307,9 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     const hostCtx = await browser.newContext();
     const hp = await hostCtx.newPage();
     await asUser(hp, host, `/events/${slug}/host`);
-    await expect(hp.getByTestId('mm-waitlist-person')).toHaveCount(1, { timeout: 90_000 });
-    const after = (await hp.getByTestId('mm-waitlist-person').allInnerTexts()).map((t) => t.trim());
-    expect(after).toEqual([`${first(A[4])} Q.`]);
+    await expect(hp.getByTestId('event-waitlist-add')).toHaveCount(1, { timeout: 90_000 });
+    const after = await hp.getByTestId('event-waitlist-add').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+    expect(after).toEqual([`Add ${A[4].user.name}`]);
     const regs = await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', REG.id).eq('profile_id', A[3].user.user.id);
     expect(regs.count, 'seeing Register did not seat them').toBe(0);
     await ctx.close(); await hostCtx.close();
@@ -344,11 +346,11 @@ test('AC1 (answers before sign-up): a logged-out person answers, signs in, and i
     const dlg = page.getByTestId('registration-questions');
     await expect(dlg).toBeVisible();
     await expect(dlg.getByTestId('registration-submit')).toHaveText('Continue');
-    await expect(dlg.getByTestId('sign-in-line')).toHaveText("Next, sign in to confirm your place. It isn't confirmed until then.");
+    await expect(dlg.getByTestId('sign-in-line')).toHaveText('Next, sign in to confirm your place');
     await dlg.getByTestId('join-help').click();
     await dlg.getByTestId('prep-event').click();
     await dlg.getByTestId('recording-accept').click();
-    await dlg.getByText('iPhone Lightning', { exact: true }).click();
+    await dlg.getByText('iPhone', { exact: true }).click();
     await dlg.getByRole('textbox').fill('QA signup hope');
     await shots(page, 'registration', 'signed-out-continue');
     await dlg.getByTestId('registration-submit').click();
@@ -416,7 +418,7 @@ test('AC-SG (seat guard): an unregistered room member is not seated; the host se
   const flo = A[5];
   await seedMember(SG.id, flo);
   await asUser(page, host, `/events/${SG.slug}/host`);
-  await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByTestId('mm-people')).toBeVisible({ timeout: 90_000 });
   await ac('sg1', 'the host sees "Not registered for this event. They cannot be seated." on that person', async () => {
     const row = page.getByTestId('mm-person').filter({ hasText: new RegExp(`${first(flo)} Q\\.`) });
     await expect(row.getByTestId('mm-not-registered')).toHaveText('Not registered for this event. They cannot be seated.', { timeout: 60_000 });
@@ -498,13 +500,14 @@ test('AC3 (before round 1): the flow row, Undo, switching back restores selectio
     await expect(page.getByTestId('host-flow-select')).toBeVisible({ timeout: 60_000 });
     await page.getByTestId('host-flow-select').selectOption('sales-mastermind');
     await expect(page.getByTestId('host-flow-notice')).toContainText('Event flow is now Sales Mastermind.', { timeout: 30_000 });
-    await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 30_000 });
+    // nobody is in the room yet, so the before-round list (mm-people) is not drawn; the flow select shows the switch
+    await expect(page.getByTestId('host-flow-select')).toHaveValue('sales-mastermind');
     const afterSwitch = (await supabaseAdmin.from('events').select('flow').eq('id', F.id).single()).data!.flow;
     expect(afterSwitch).toBe('sales-mastermind');
     await shots(page, 'host', 'flow-switched-undo');
     await page.getByTestId('host-flow-undo').click();
     await expect(page.getByTestId('host-flow-select')).toHaveValue('clarity-night', { timeout: 30_000 });
-    await expect(page.getByTestId('mm-panel')).toHaveCount(0);
+    await expect(page.getByTestId('mm-people')).toHaveCount(0);
     const afterUndo = (await supabaseAdmin.from('events').select('flow').eq('id', F.id).single()).data!.flow;
     expect(afterUndo).toBe('clarity-night');
     return `flow: null -> ${afterSwitch} -> ${afterUndo}; mastermind panel appeared and disappeared with it`;
@@ -561,10 +564,17 @@ async function seedMember(eventId: string, p: Person) {
 
 test('AC4 + AC5 (before round 1): pick, share as its own tap, Change replaces; observer line; host flips', async ({ page, browser }) => {
   // A6 has two published canvases and has shared neither: its card offers both
-  await asUser(page, A[5], `/events/${E1.slug}/meet`);
-  const card = page.getByTestId('event-canvas-card');
+  // founder, UAT round 1: the canvas is step 4 of an OWNER's preparation. The three learning steps are marked done so the
+  // preparation resumes on the canvas step (current_step cannot hold 'canvas', so resume falls to the first unfinished step).
+  const prepSeed = await supabaseAdmin.from('event_preparations').insert({ event_id: E1.id, profile_id: A[5].user.user.id, started_at: new Date().toISOString(), steps_done: ['story', 'principle', 'cmp7'] });
+  expect(prepSeed.error, 'seeding the three learning steps as done').toBeNull();
+  await asUser(page, A[5], `/events/${E1.slug}/prepare`);
+  const card = page.getByTestId('prep-canvas-step').getByTestId('event-canvas-card');
   await ac('4a', 'a canvas is picked and shared as its own tap; the step then reads "Your canvas for this event: {name} · Change"', async () => {
     await expect(card).toBeVisible({ timeout: 90_000 });
+    // an owner with no canvas yet is told what happens without one, and can make one
+    await expect(card.getByTestId('event-canvas-observer-line')).toContainText('Without one you join as an observer');
+    await expect(card.getByTestId('event-canvas-make')).toBeVisible();
     await expect(card.getByTestId('event-canvas-share')).toHaveCount(2);
     await shots(page, 'room', 'canvas-card-pick');
     const before = (await supabaseAdmin.from('canvas_audience').select('canvas_id').eq('event_id', E1.id).eq('kind', 'event')).data!.length;
@@ -601,18 +611,18 @@ test('AC4 + AC5 (before round 1): pick, share as its own tap, Change replaces; o
 
   const ctxO = await browser.newContext();
   const po = await ctxO.newPage();
-  await ac('5a', 'without a canvas: told they will observe, not blocked by preparation (room opens)', async () => {
+  await ac('5a', 'an observer has no canvas step and is not blocked by preparation (room opens)', async () => {
+    // the observer line itself is asserted on the owner's canvas step in 4a; observers never see that step (founder, UAT round 1)
     await asUser(po, O1, `/events/${E1.slug}/meet`);
-    await expect(po.getByTestId('event-canvas-observer-line')).toContainText('Without one you join as an observer', { timeout: 90_000 });
-    await expect(po.getByTestId('room-steps')).toBeVisible();
-    await expect(po.getByTestId('event-canvas-make')).toBeVisible();
+    await expect(po.getByTestId('room-steps')).toBeVisible({ timeout: 90_000 });
+    await expect(po.getByTestId('event-canvas-card')).toHaveCount(0);
     await shots(po, 'room', 'observer-without-canvas');
-    return 'observer line shown; the room and its step bar render; "Make one with your mirror" offered';
+    return 'the room and its step bar render for an observer; no canvas card in the room';
   }, po);
   await ctxO.close();
 
   await hostEvent(page, E1);
-  await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByTestId('mm-people')).toBeVisible({ timeout: 90_000 });
   await ac('5b', 'the host flips an observer with a shared canvas to participant; flipping one without is refused with a reason', async () => {
     const row = (p: Person) => page.getByTestId('mm-person').filter({ hasText: new RegExp(`${first(p)} Q\\.`) });
     // A5 (index 4) has a shared canvas: make observer, then back
@@ -677,7 +687,7 @@ const tableLine = (rows: Awaited<ReturnType<typeof savedSeats>>, n: number) =>
 
 test('WALK1 (round 1): host before round 1, the real preview, round 1 starts; the room, the canvas link, the projector', async ({ page, browser }) => {
   await hostEvent(page, E1);
-  await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByTestId('mm-people')).toBeVisible({ timeout: 90_000 });
 
   await ac('1e', 'the phone answers show on the host\'s marks (USB-C x5, Lightning x2, other x1)', async () => {
     const people = page.getByTestId('host-people');
@@ -837,9 +847,10 @@ test('WALK1 (round 1): host before round 1, the real preview, round 1 starts; th
     const roomRow = (await supabaseAdmin.from('transcribe_rooms').select('id, ended_at').eq('id', E1room).single()).data;
     note(`transcribe room: ${JSON.stringify(roomRow)}`);
     await hostEvent(page, E1);
-    await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 90_000 });
-    await expect.poll(async () => await page.getByTestId('mm-recording').evaluateAll((els) => els.map((e) => e.getAttribute('data-state')).sort().join(',')), { timeout: 60_000 }).toMatch(/off.*silent.*words|silent.*words/);
-    const states = await page.getByTestId('mm-recording').evaluateAll((els) => els.map((e) => e.getAttribute('data-state')));
+    // founder, UAT round 1: one representation per phase. During a round the tiles carry the recording mark (mm-people is the before-round list).
+    await expect(page.getByTestId('host-panel')).toBeVisible({ timeout: 90_000 });
+    await expect.poll(async () => await page.getByTestId('mark-recording').evaluateAll((els) => els.map((e) => e.getAttribute('data-state')).sort().join(',')), { timeout: 60_000 }).toMatch(/off.*silent.*words|silent.*words/);
+    const states = await page.getByTestId('mark-recording').evaluateAll((els) => els.map((e) => e.getAttribute('data-state')));
     expect(states).toContain('words'); expect(states).toContain('silent'); expect(states).toContain('off');
     await expect(page.getByTestId('mm-silent-tables')).toContainText(`table ${lastNo}`, { timeout: 60_000 });
     expect(await page.getByTestId('mark-recording').count(), 'tile marks present').toBeGreaterThan(0);
@@ -889,7 +900,7 @@ test('WALK2: after round 1 (flow and canvas fixed), round 2, round 1 transcripts
   const tNos = [...r1Tables.keys()].sort((a, b) => a - b);
 
   await hostEvent(page, E1);
-  await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByTestId('host-panel')).toBeVisible({ timeout: 90_000 }); // round 1 is on: the before-round list (mm-people) is not drawn
   await ac('3d', 'after round 1 starts the flow row is gone and a direct call is refused by the server', async () => {
     await expect(page.getByTestId('host-flow-row')).toHaveCount(0);
     const direct = await host.client.rpc('host_set_event_flow', { p_event: E1.id, p_flow: 'clarity-night' });
@@ -1137,7 +1148,7 @@ test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partne
   const ownerP = byProfile(r2Tables.get(r2Nos[0])!.owner!), ownerR = byProfile(r2Tables.get(r2Nos[2])!.owner!);
 
   await hostEvent(page, E1);
-  await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByTestId('host-panel')).toBeVisible({ timeout: 90_000 }); // rounds are on: the before-round list (mm-people) is not drawn
 
   await ac('9a', 'the host starts the canvas-update step (asks once while time is on the clock); it shows each owner\'s state', async () => {
     await expect(page.getByTestId('mm-update-start')).toBeVisible({ timeout: 60_000 });
@@ -1351,7 +1362,7 @@ test('AC6 (five with canvases): one observes each round, rotated; the preview na
   });
 
   await asUser(page, host, `/events/${E5.slug}/host`);
-  await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByTestId('mm-people')).toBeVisible({ timeout: 90_000 });
   let preview1 = '';
   await ac('6c', 'the round 1 preview with five canvases names who owns only once', async () => {
     await openHostPreview(page);
@@ -1401,7 +1412,7 @@ test('AC6 (five with canvases): one observes each round, rotated; the preview na
 test('AC11 (a first canvas after round 1): the ready line, the host\'s ready mark, seated as owner at the next round; a chosen canvas cannot be swapped', async ({ page, browser }) => {
   const { ev: E11 } = await eventWithPeople('P1529 QA late canvas', [A[0], A[1]], [O1, O2]);
   await asUser(page, host, `/events/${E11.slug}/host`);
-  await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByTestId('mm-people')).toBeVisible({ timeout: 90_000 });
   await pressHostPrimary(page);
   await expect(page.getByTestId('host-round-title')).toHaveText('Round 1', { timeout: 60_000 });
   const seats1 = await savedSeats(E11.id);
@@ -1427,11 +1438,14 @@ test('AC11 (a first canvas after round 1): the ready line, the host\'s ready mar
 
   await ac('11b', 'the host sees the ready mark on that person', async () => {
     await page.reload();
-    await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 90_000 });
-    const row = page.getByTestId('mm-person').filter({ hasText: /Gus Q\./ });
-    await expect(row.getByTestId('mm-ready')).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId('host-panel')).toBeVisible({ timeout: 90_000 }); // round 1 is on: the person is listed under "Not at a table"
+    // Gus sits at table 1 as an observer, so the mark is on his tile (the mastermind's list rows exist only before round 1 and for people not at a table)
+    await expect(page.getByTestId('mm-ready')).toHaveCount(1, { timeout: 60_000 });
+    const owner = await page.getByTestId('mm-ready').evaluate((el) => { let n: HTMLElement | null = el as HTMLElement; while (n && !/\b(AQ|BQ|GQ|IQ|Gus)\b/.test(n.innerText)) n = n.parentElement; return n?.innerText ?? ''; });
+    expect(owner).toContain('Gus');
+    expect(owner).not.toContain('Ada');
     await shots(page, 'host', 'ready-mark');
-    return 'mm-ready mark on Gus Q.\'s row';
+    return 'mm-ready mark on Gus\'s tile';
   }, page);
 
   await ac('11c', 'the host adds them at the next round: seated as a Clarity Canvas owner', async () => {
@@ -1472,9 +1486,9 @@ test('AC12 (session 2): linked to session 1, the preview avoids session-1 partne
   const linked = (await supabaseAdmin.from('events').select('previous_session_event_id').eq('id', S2.id).single()).data!;
   expect(linked.previous_session_event_id).toBe(E1.id);
   await asUser(page, host, `/events/${S2.slug}/host`);
-  await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByTestId('mm-people')).toBeVisible({ timeout: 90_000 });
   await ac('12a', 'the round 1 preview of session 2 avoids session-1 partners where it can, and names every repeat it keeps', async () => {
-    await expect(page.getByTestId('mm-panel')).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId('mm-people')).toBeVisible({ timeout: 60_000 });
     await openHostPreview(page);
     const notes = (await page.getByTestId('mm-preview-notes').innerText()).replace(/\s+/g, ' ');
     await shots(page, 'host', 'preview-session-2');
@@ -1500,7 +1514,7 @@ test('AC13: a Clarity Night event opens as before (room, host screen with half-t
   await ac('13a', 'host screen: Clarity Night flow, no mastermind panel, "Swap at half time" present', async () => {
     await expect(page.getByTestId('host-panel')).toBeVisible({ timeout: 90_000 });
     await expect(page.getByTestId('host-flow-select')).toHaveValue('clarity-night');
-    await expect(page.getByTestId('mm-panel')).toHaveCount(0);
+    await expect(page.getByTestId('mm-people')).toHaveCount(0);
     await page.getByTestId('host-settings').locator('summary').click();
     await expect(page.getByTestId('host-split-on')).toHaveText('Swap at half time');
     await expect(page.getByTestId('host-split-off')).toHaveText('One talk');
