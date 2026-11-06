@@ -10,6 +10,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 
 
+## 2026-11-06 [technical]: The weekly read's noise gate tests counts only, and only a dismissal hides a failure (P1640)
+
+**Context:** Review across Gemini, GLM and Opus found the first noise gate wrong in four ways: the Poisson shift test also ran on durations, retention rates and pages per session; a failure trimmed by the 3-insight cap was never raised again; a dismissed rise also hid a later fall; and a confirmed failure that kept happening could never show as a pattern.
+**Decision:** The Poisson test (`|current - previous| > 1.96 * sqrt(current + previous)`, previous base at least 30) runs only on counts. The `time` and `returns` sections and any row marked `rate` skip it. Shift keys carry their direction. Only a dismissal hides a failure; one that repeats, confirmed or not, is raised again with its count, which makes it a pattern. A missing metric is `null`, never `0`. A corrupt newest read shows "not collected", never last week's read.
+**Alternatives rejected:** suppressing any failure raised once (it starves repeats and contradicts spec step 14); one flag on every row instead of skipping the `time` and `returns` sections (more for `/weekly` to get wrong).
+**Consequences:** `/weekly` step 2.9.0 must keep its row labels fixed, since insight keys are built from them. Falsifier: after four weekly reads, under half of raised insights were confirmed or acted on, and P1640's Decision Criteria drop the insight step.
+**References:** [P1640](../features/done/2026-06-10/p1640_weekly_product_insights_from_mixpanel.md), [P1645](../features/p1645_p1640_post_deploy_checks.md)
+
 ## 2026-11-06 [process]: /day re-runs a check before relaying a stored alert, and counters pass a reading (P1647)
 
 **Context:** Of 14 items one /day run raised on 2026-11-06, four were already false when raised: two open GitHub alert issues whose cause had been fixed days earlier, a cycle-to-date usage total for a paused project, and an informational note filed as a fault. Two of them had already been answered by the founder on earlier days.
