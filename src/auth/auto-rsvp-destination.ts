@@ -36,11 +36,12 @@ export async function autoRsvpDestination(
     const result = await registerWith(event, draft.answers); // the whole event, as the page's own registration passes it
     if (result !== 'ok' && result !== 'already') return toPage; // full, cancelled or failed: the answers stay, the page says why
     clearRegistrationDraft(eventSlug);
-    void trackPostSignupRsvp(event.id, eventSlug, registrationSource); // never holds the redirect (P1640)
+    // 'already' means registered before this sign-in: not a completed post-signup RSVP, so it is not counted.
+    if (result === 'ok') void trackPostSignupRsvp(event.id, eventSlug, registrationSource).catch(() => {}); // never holds the redirect (P1640)
     return `/events/${eventSlug}/confirm`;
   }
   const seated = await seat(event);
   if (!seated) return toPage; // the page shows why (the event may be full)
-  void trackPostSignupRsvp(event.id, eventSlug, registrationSource); // never holds the redirect (P1640)
+  void trackPostSignupRsvp(event.id, eventSlug, registrationSource).catch(() => {}); // never holds the redirect (P1640)
   return `/events/${eventSlug}/confirm`;
 }

@@ -67,12 +67,11 @@ describe('P1640 callers fire only on success', () => {
     const s = read('src/app/prototypes/events/components/EventDetail.tsx');
     expect(s).toMatch(/if \(success\) \{\s*trackRsvpCompleted\(event, 'signed_in'\);/);
   });
-  // P1529 moved the post-signup seat into autoRsvpDestination; both of its seat paths track only after success.
-  it('autoRsvpDestination: after the failed-seat returns', () => {
-    const s = read('src/auth/auto-rsvp-destination.ts');
-    expect(s).toMatch(/if \(!seated\) return toPage;[^\n]*\n\s*void trackPostSignupRsvp\(/);
-    expect(s).toMatch(/if \(result !== 'ok' && result !== 'already'\) return toPage;[^\n]*\n\s*clearRegistrationDraft\(eventSlug\);\n\s*void trackPostSignupRsvp\(/);
-    expect(s.match(/trackPostSignupRsvp\(/g)).toHaveLength(2);
+  // P1529 moved the post-signup seat into autoRsvpDestination; its behaviour is pinned in p1529-auto-rsvp-destination.test.ts.
+  it('AuthCallbackPage delegates tracking to autoRsvpDestination', () => {
+    const s = read('src/auth/AuthCallbackPage.tsx');
+    expect(s).not.toMatch(/trackPostSignupRsvp\s*\(/);
+    expect(s).toMatch(/await autoRsvpDestination\(\s*eventSlug,\s*registrationSource/);
   });
   it('EventClosePage: after the `!ok` return', () => {
     expect(read('src/app/prototypes/events/close/EventClosePage.tsx')).toMatch(
