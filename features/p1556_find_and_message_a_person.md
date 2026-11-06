@@ -6,8 +6,8 @@ workstream: clarity-chat
 created_date: '2026-10-23'
 tags: [chat, profile, discovery]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, create-spec.2, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, create-spec.2, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
