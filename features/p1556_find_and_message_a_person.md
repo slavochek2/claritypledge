@@ -11,8 +11,8 @@ pipeline_ran: [create-spec, create-spec.2, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
-spec_review_hash: 4ae5c16cf71afa4b90c3fb48195d7c240559113ef90160b166f45b0bcdadf572
-spec_review_vendors: [codex, gemini, openrouter]
+spec_review_hash: c216ba0f9acb392a9d570fd667c0db05ea71ed7b54196b2336e5a95a866560e9
+spec_review_vendors: [codex]
 ---
 
 # P1556: Find and message a person — handle, personal code and link
@@ -98,13 +98,13 @@ Every call is one Supabase RPC on the shared project; none runs on a timer, a re
 
 ## Acceptance Criteria
 
-- [ ] Two accounts with no shared group, event or agreement connect by one scanning the other's code, and both see the 1:1.
+- [x] Two accounts with no shared group, event or agreement connect by one scanning the other's code, and both see the 1:1. — server verified on TEST (`e2e/integration/p1556-contact-code.spec.ts`, both accounts list the chat); the camera-scan half is the real-device box below.
 - [ ] A person with no account scans a code, signs up, and lands in the chat with the code's owner.
 - [ ] A sent code link does the same as scanning it.
-- [ ] After Reset code, the old link shows "This code no longer works" and starts no chat, the new one works, and an existing chat stays open.
-- [ ] After 20 new chats in a day from one code, the next scan says the code is paused.
-- [ ] Opening your own code opens your profile, not a chat.
-- [ ] When either person has blocked the other, opening the code shows the same "This code no longer works" message and starts no chat.
+- [x] After Reset code, the old link shows "This code no longer works" and starts no chat, the new one works, and an existing chat stays open. — integration spec (server) + page test (the message).
+- [x] After 20 new chats in a day from one code, the next scan says the code is paused. — integration spec (server) + `src/tests/p1556-connect-page.test.tsx` (message).
+- [x] Opening your own code opens your profile, not a chat. — integration spec (refusal) + page test (goes to `/me`).
+- [x] When either person has blocked the other, opening the code shows the same "This code no longer works" message and starts no chat. — integration spec: both directions return the identical message, and a blocked signed-in lookup returns nothing.
 - [ ] The code sheet has Copy link, Share and Reset code; New message shows My code first and Invite a Clarity Partner beneath it.
 - [ ] Every profile shows the handle; tapping it copies it.
 - [ ] Exact-handle search finds a profile; Message shows only where a 1:1 is allowed.
