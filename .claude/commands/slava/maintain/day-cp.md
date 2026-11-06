@@ -1206,19 +1206,26 @@ TESTS_PASSED="$(printf '%s\n' "$TEST_OUT" | sed -n 's/^ *Tests  *\([0-9][0-9]*\)
 if [ "$LINT_RC" -eq 0 ] && [ "$TEST_RC" -eq 0 ]; then echo "CHECK cp.baseline ok ${TESTS_PASSED:-all} tests pass, lint clean" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 else echo "CHECK cp.baseline problem lint exit $LINT_RC with $LINT_N error lines, tests exit $TEST_RC" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 echo "=== OPS ISSUES ==="
-OPS_OUT="$(gh issue list --state open --limit 50 2>&1)"; OPS_RC=$?
-printf '%s\n' "$OPS_OUT"
+if [ -x scripts/day-ops-reverify.sh ]; then
+  # P1647: one GitHub call per run. The script echoes each issue as an ISSUE line.
+  OPS_OUT="$(gh issue list --state open --limit 50 --json number,title,labels,createdAt 2>&1)"; OPS_RC=$?
+else
+  OPS_OUT="$(gh issue list --state open --limit 50 2>&1)"; OPS_RC=$?
+  printf '%s\n' "$OPS_OUT"
+fi
 if [ "$OPS_RC" -ne 0 ]; then echo "OPS-ISSUES-CHECK-FAILED (exit $OPS_RC)"; echo "CHECK cp.ops not-run the GitHub issue list could not be read (exit $OPS_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
 elif [ -x scripts/day-ops-reverify.sh ]; then
   # P1647: an open alert issue is a stored artifact. Re-run the gate's own check where one exists
   # (supply-chain on a clean export of main, prod deploy manifest); a clean re-check files no card.
   # An error, a timeout, a dirty result or an unknown title files as before (never hidden).
-  REV_OUT="$(gh issue list --state open --limit 50 --json number,title,labels,createdAt 2>&1 | scripts/day-ops-reverify.sh 2>&1)"; REV_RC=$?
+  REV_OUT="$(printf '%s\n' "$OPS_OUT" | scripts/day-ops-reverify.sh 2>&1)"; REV_RC=$?
   printf '%s\n' "$REV_OUT"
   REV_CLEAN="$(printf '%s\n' "$REV_OUT" | grep -c '^CLEAN ')"; REV_FILE="$(printf '%s\n' "$REV_OUT" | grep -c '^FILE ')"
-  if [ "$REV_RC" -ne 0 ]; then echo "CHECK cp.ops unproven the alert re-check failed (exit $REV_RC); file every open issue as before" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
-  elif printf '%s\n' "$REV_OUT" | grep -qx 'OPS-STATUS ok'; then echo "CHECK cp.ops ok $REV_CLEAN open alert issues re-checked clean now, closing them is the gate's job" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
-  else echo "CHECK cp.ops problem $REV_FILE open alert issues to file, $REV_CLEAN re-checked clean" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
+  REV_TRUNC=""; printf '%s\n' "$REV_OUT" | grep -q '^TRUNCATION-POSSIBLE' && REV_TRUNC=", list may be truncated at 50"
+  if [ "$REV_RC" -ne 0 ]; then printf '%s\n' "$OPS_OUT"; echo "CHECK cp.ops unproven the alert re-check failed (exit $REV_RC), every open issue above is filed as before" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+  elif [ "$REV_CLEAN" -eq 0 ] && [ "$REV_FILE" -eq 0 ]; then echo "CHECK cp.ops ok no open alert issues on GitHub$REV_TRUNC" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+  elif printf '%s\n' "$REV_OUT" | grep -qx 'OPS-STATUS ok'; then echo "CHECK cp.ops ok $REV_CLEAN open alert issues re-checked clean now, closing them is the gate's job$REV_TRUNC" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+  else echo "CHECK cp.ops problem $REV_FILE open alert issues to file, $REV_CLEAN re-checked clean$REV_TRUNC" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 else
   # Fallback until P1647's script is on this checkout: every open issue is a scheduled gate's alert (P866).
   OPS_N="$(printf '%s\n' "$OPS_OUT" | grep -c .)"
@@ -1313,7 +1320,7 @@ Since P1399 the reading rules below decide **findings**, not printed lines — w
 | fault | `--check` | `--fault-key` |
 |---|---|---|
 | lint errors / failing tests | cp.baseline | `baseline:lint-errors`, `baseline:tests-failing` — "fix before starting new work" is its Point B |
-| an open ops alert issue | cp.ops | Only the issues `day-ops-reverify.sh` printed as `FILE` (P1647; a `CLEAN` issue gets no card, a `PASSTHROUGH` one follows the `p1155*` row). Without the script, every open issue. `ops:issue-<number>` — the issue's title, the `FILE` reason, and its fix command; `--first-seen` = the issue's creation date — a question: its fixes (a prod migrate or deploy, a restore) are ALWAYS-ASK |
+| an open ops alert issue | cp.ops | Only the issues `day-ops-reverify.sh` printed as `FILE` (P1647; a `CLEAN` issue gets no card, a `PASSTHROUGH` one follows the `p1155*` row). When `cp.ops` reads `unproven` (the re-check failed), or the script is absent, every open issue, as before. `ops:issue-<number>` — the issue's title, the `FILE` reason, and its fix command; `--first-seen` = the issue's creation date — a question: its fixes (a prod migrate or deploy, a restore) are ALWAYS-ASK |
 | an open ops alert issue labelled `p1155*` (stranded sign-ups) | cp.signups | NOT its own card: it is the same person as the unconfirmed-sign-ups count. Record it as `--check cp.signups --fault-key signups:unconfirmed` (same key as the row above) and put the issue number in the body, so one person is one card. When the count is 0 the issue is stale: say so in the body of a `cp.ops` note, do not file a card |
 | NEW RLS drift | cp.rls | `rls:new-policies` (severity high; the named table and policy in the body) — a question (prod change) |
 | table or column grant drift | cp.tablegrants | `tablegrants:<the table, lowercased with dashes>` (severity high; what prod, test and the migrations each grant in the body) — a question (prod change) |
@@ -1529,7 +1536,9 @@ Scan git log since `$SINCE` for commits touching:
 prints `CAPTURED <pN>` for every infra commit whose P-number has a decision entry (both logs), and
 `UNCAPTURED <pN or sha> <subject>` for the rest, including commits naming no P-number. File only on
 `KDD-STATUS uncaptured <n>`, and name the uncaptured items in the body. Exit 2 means it could not
-decide: fall back to the judgment below. Without the script, use the judgment below.
+decide: file `kdd:uncaptured` anyway, listing the infra commits since `$SINCE`, with "capture could
+not be checked (exit 2)" in the body. Never fall back to the judgment below once the script exists.
+Without the script, use the judgment below.
 
 If infra-touching commits exist AND no KDD capture since last run → include KDD REMINDER in output,
 and record it as a finding so it reaches the board as agent work: `--check cp.reflect --fault-key
