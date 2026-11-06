@@ -896,7 +896,7 @@ Usage page through the signed-in Chrome session. Load the Chrome tools with Tool
    `QUOTA_WARN_PCT`, default 70; never re-decide from the truncated percentage):
 ```bash
 "$DAY_STEP" finding --check cp.quota --severity <high|low> --store private \
-  --fault-key quota:<org-slug>:<metric-slug> --title "<org>: <metric> is near or over its free-plan limit" \
+  --fault-key quota:<org-slug>:<metric-slug> --reading <the ROW line's used amount> --title "<org>: <metric> is near or over its free-plan limit" \
   --point-a "<metric> is at N% of the free plan" --obstacle "<grace period, or the limit it is nearing>" \
   --point-b "usage back under the limit, or the plan upgraded" <<'BODY'
 <the ROW line, the BANNER line when present>
@@ -906,10 +906,14 @@ BODY
    The metric slug is the `ROW` label lowercased with `_` turned into `-` (`Cached_Egress` gives
    `quota:<org-slug>:cached-egress`), so the same metric keeps the same key every day. A grace-period banner
    with no metric over the threshold files `quota:<org-slug>:grace-period` (`high`) instead.
-5. Organisation note: if the test project's name (`claritypledge - test`) appears under an organisation
-   other than the one holding the prod project (`Clarity Movement - Prod`), file `quota:test-project-in-own-org`
-   (`low`, a note: its usage no longer counts against prod's plan). Both in one organisation is the
-   normal case today and files nothing.
+   `--reading` (P1647) is the used amount from the `ROW` line, a plain number. Several metrics are
+   cycle-to-date totals that cannot fall until the cycle resets, so a fix session may accept one with
+   `--threshold <that reading>` (`day-evaluated.ts`): the card then stays hidden until the total grows.
+   Pass `--reading` on every over-limit metric; without it a threshold record cannot hide anything.
+5. Organisation note (P1647: a note, never a finding): separate organisations for the test and prod
+   projects is the normal case since P1538. Put "test project in its own organisation" in the
+   `cp.quota` check detail. Both in one organisation would be a regression: then, and only then, file
+   `quota:test-project-in-prod-org` (`low`: test usage counts against prod's plan again).
 6. **Access keys (INBOX-P174 follow-up).** In the same tab, navigate to
    `https://supabase.com/dashboard/account/tokens`, wait about 3 seconds (the list loads after the
    shell, and an early read returns no rows), `get_page_text`, write it to a `600` temp file and run
@@ -1205,8 +1209,18 @@ echo "=== OPS ISSUES ==="
 OPS_OUT="$(gh issue list --state open --limit 50 2>&1)"; OPS_RC=$?
 printf '%s\n' "$OPS_OUT"
 if [ "$OPS_RC" -ne 0 ]; then echo "OPS-ISSUES-CHECK-FAILED (exit $OPS_RC)"; echo "CHECK cp.ops not-run the GitHub issue list could not be read (exit $OPS_RC)" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+elif [ -x scripts/day-ops-reverify.sh ]; then
+  # P1647: an open alert issue is a stored artifact. Re-run the gate's own check where one exists
+  # (supply-chain on a clean export of main, prod deploy manifest); a clean re-check files no card.
+  # An error, a timeout, a dirty result or an unknown title files as before (never hidden).
+  REV_OUT="$(gh issue list --state open --limit 50 --json number,title,labels,createdAt 2>&1 | scripts/day-ops-reverify.sh 2>&1)"; REV_RC=$?
+  printf '%s\n' "$REV_OUT"
+  REV_CLEAN="$(printf '%s\n' "$REV_OUT" | grep -c '^CLEAN ')"; REV_FILE="$(printf '%s\n' "$REV_OUT" | grep -c '^FILE ')"
+  if [ "$REV_RC" -ne 0 ]; then echo "CHECK cp.ops unproven the alert re-check failed (exit $REV_RC); file every open issue as before" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+  elif printf '%s\n' "$REV_OUT" | grep -qx 'OPS-STATUS ok'; then echo "CHECK cp.ops ok $REV_CLEAN open alert issues re-checked clean now, closing them is the gate's job" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+  else echo "CHECK cp.ops problem $REV_FILE open alert issues to file, $REV_CLEAN re-checked clean" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
 else
-  # Every open issue in this repo is a scheduled gate's alert (P866 find-or-append pattern).
+  # Fallback until P1647's script is on this checkout: every open issue is a scheduled gate's alert (P866).
   OPS_N="$(printf '%s\n' "$OPS_OUT" | grep -c .)"
   if [ "$OPS_N" -eq 0 ]; then echo "CHECK cp.ops ok no open alert issues on GitHub" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
   else echo "CHECK cp.ops problem $OPS_N open alert issues on GitHub" | tee -a "${DAY_CHECK_FILE:-/dev/null}"; fi
@@ -1299,7 +1313,7 @@ Since P1399 the reading rules below decide **findings**, not printed lines — w
 | fault | `--check` | `--fault-key` |
 |---|---|---|
 | lint errors / failing tests | cp.baseline | `baseline:lint-errors`, `baseline:tests-failing` — "fix before starting new work" is its Point B |
-| an open ops alert issue | cp.ops | `ops:issue-<number>` — the issue's title and its fix command; `--first-seen` = the issue's creation date — a question: its fixes (a prod migrate or deploy, a restore) are ALWAYS-ASK |
+| an open ops alert issue | cp.ops | Only the issues `day-ops-reverify.sh` printed as `FILE` (P1647; a `CLEAN` issue gets no card, a `PASSTHROUGH` one follows the `p1155*` row). Without the script, every open issue. `ops:issue-<number>` — the issue's title, the `FILE` reason, and its fix command; `--first-seen` = the issue's creation date — a question: its fixes (a prod migrate or deploy, a restore) are ALWAYS-ASK |
 | an open ops alert issue labelled `p1155*` (stranded sign-ups) | cp.signups | NOT its own card: it is the same person as the unconfirmed-sign-ups count. Record it as `--check cp.signups --fault-key signups:unconfirmed` (same key as the row above) and put the issue number in the body, so one person is one card. When the count is 0 the issue is stale: say so in the body of a `cp.ops` note, do not file a card |
 | NEW RLS drift | cp.rls | `rls:new-policies` (severity high; the named table and policy in the body) — a question (prod change) |
 | table or column grant drift | cp.tablegrants | `tablegrants:<the table, lowercased with dashes>` (severity high; what prod, test and the migrations each grant in the body) — a question (prod change) |
@@ -1510,6 +1524,12 @@ Scan git log since `$SINCE` for commits touching:
 - `.claude/rules/`, `CLAUDE.md`
 - `scripts/` (new or significant rewrites)
 - `docs/technical/`
+
+**P1647: decide capture by script when it is on this checkout.** `scripts/day-kdd-capture.sh --since "$SINCE"`
+prints `CAPTURED <pN>` for every infra commit whose P-number has a decision entry (both logs), and
+`UNCAPTURED <pN or sha> <subject>` for the rest, including commits naming no P-number. File only on
+`KDD-STATUS uncaptured <n>`, and name the uncaptured items in the body. Exit 2 means it could not
+decide: fall back to the judgment below. Without the script, use the judgment below.
 
 If infra-touching commits exist AND no KDD capture since last run → include KDD REMINDER in output,
 and record it as a finding so it reaches the board as agent work: `--check cp.reflect --fault-key
