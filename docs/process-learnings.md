@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 302
+**Next ID:** 303
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3597,5 +3597,16 @@ Parked 2026-11-05, not built. A QR adds little in chats: people in a chat alread
 **due:** month
 
 Left out of P1556 v1: handles are profile addresses already printed in letters, badges and shared links, so changing one breaks them. Build it with a redirect from the old handle. Drop it if nobody asks to change a handle once handles are shown on profiles.
+
+---
+
+## p1607 slot-lock test fails under the full pre-commit suite and passes alone
+
+**ID:** INBOX-302
+**Date:** 2026-11-06
+**Status:** proposed
+**due:** week
+
+On 2026-11-06 the pre-commit full suite failed src/tests/p1607-e2e-slot-lock.test.ts ("admission is serialized ... failing control", expected '' to be 'HELD') while committing unrelated P1556 work; the same file passed alone (40 of 40). It looks timing-sensitive under 3-worker load. Done when the control waits on a condition instead of a fixed time, or drop it if it does not recur in a week of commits.
 
 ---
