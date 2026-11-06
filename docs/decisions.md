@@ -9,6 +9,17 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+
+## 2026-11-06 [process]: /day re-runs a check before relaying a stored alert, and counters pass a reading (P1647)
+
+**Context:** Of 14 items one /day run raised on 2026-11-06, four were already false when raised: two open GitHub alert issues whose cause had been fixed days earlier, a cycle-to-date usage total for a paused project, and an informational note filed as a fault. Two of them had already been answered by the founder on earlier days.
+**Decision:** A finding relayed from a stored artifact carries the result of a check that re-ran it. `cp.ops` re-runs the supply-chain audit (on a fetched `origin/main` export) and the prod deploy-manifest check before raising those two alerts; a clean re-check files no card, and an error, a timeout, a failed fetch or an unknown title files as before. A cumulative counter passes `--reading`, so P1605's threshold record hides it until it grows. A note is a check detail, never a finding. KDD capture is decided per P-number against both decision logs. The rule lives in `~/.claude/commands/day.md` section 9b.
+**Alternatives rejected:** A private store of last readings (rebuilds P1605 and hides an over-limit reading the founder never saw). Re-checking smoke gates from an earlier CI run (a stored artifact again). /day closing stale issues (outward-facing; the gate owns its issue).
+**Consequences:** Smoke-gate alerts still file as before; they have no local check yet. A gate the script does not know is named as unmatched, so the list can grow. `check-deploy-manifest.sh` ignores its own fetch failure (P820 fallback); the wrapper fetches first, but other callers of that checker still read a possibly stale manifest. UNTESTED in a real /day run: falsifier is a run that raises an alert whose gate check passes, or hides one whose check fails.
+**References:** [P1647](../features/done/2026-06-10/p1647_day_findings_reverified_before_shown.md) · P1605 · P1640
+
+---
+
 ## 2026-11-06 [product]: The code sheet shows Share only where a share sheet exists; the connect page has one action (P1556)
 
 **Context:** Founder UAT of the P1556 build on desktop: Copy link and Share did the same thing there, because Share fell back to copying when the browser has no share sheet. The founder also asked whether the connect page should link the owner's name to their profile, show the pledge ring, and keep the footer.
