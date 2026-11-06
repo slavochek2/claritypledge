@@ -229,3 +229,18 @@ export function splitAfterRouteSection(html: string): { before: string; after: s
   }
   return { before: html, after: '', matched: false };
 }
+
+/**
+ * Drum circle (2026-11-06): on a non-hike series page the reviews describe the first part of the
+ * day, so they close the description's first <h2> section, before its first sub-heading if it has
+ * one (e.g. "Where we meet"). Splits the rendered HTML just before the next <h2> or <h3> after the
+ * first <h2>. No first <h2> or nothing after it: matched false, reviews follow the description.
+ */
+export function splitAfterFirstSection(html: string): { before: string; after: string; matched: boolean } {
+  const first = html.search(/<h2[\s>]/);
+  if (first < 0) return { before: html, after: '', matched: false };
+  const rest = html.slice(first + 3).search(/<h[23][\s>]/);
+  if (rest < 0) return { before: html, after: '', matched: false };
+  const cut = first + 3 + rest;
+  return { before: html.slice(0, cut), after: html.slice(cut), matched: true };
+}

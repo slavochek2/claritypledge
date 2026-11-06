@@ -25,8 +25,10 @@ const SERIES: Record<string, string> = {
 // Night whose topic is not chosen yet — the placeholder that carries the topic vote. Same rule as
 // showsTopicVote(): the series key, and no statement_tag. With no placeholder it falls back to
 // /night's match, so the link always lands on the next night.
-const FIELD_SERIES: Record<string, { filter: string; fallback: string }> = {
+const FIELD_SERIES: Record<string, { filter: string; fallback?: string }> = {
   next: { filter: 'series_slug=eq.clarity-night&statement_tag=is.null', fallback: 'night' },
+  // /drum (2026-11-06): the nearest upcoming drum circle, by its stored series key, never a title.
+  drum: { filter: 'series_slug=eq.drum-circle' },
 };
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -44,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     let slug = field ? await nearest(field.filter) : null;
-    const titlePattern = field ? SERIES[field.fallback] : pattern;
+    const titlePattern = field ? (field.fallback ? SERIES[field.fallback] : undefined) : pattern;
     if (!slug && titlePattern) slug = await nearest(`title=ilike.${encodeURIComponent(titlePattern)}`);
     res.redirect(307, slug ? `/events/${slug}` : '/events');
   } catch {

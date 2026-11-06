@@ -180,7 +180,7 @@ export function PastHikePhotos({ photos, mapUrl, onOpenImage }: { photos: Series
 // Reviews — a swipeable row like the photos (founder 2026-10-04), never a growing list
 // ---------------------------------------------------------------------------
 
-export function SeriesReviews({ reviews }: { reviews: SeriesReview[] }) {
+export function SeriesReviews({ reviews, heading = HIKE_LABELS.reviews }: { reviews: SeriesReview[]; heading?: string }) {
   // Founder P1600: every review reads to its last word, with no tap. Mouse users get arrows, since they cannot swipe.
   const rowRef = useRef<HTMLUListElement>(null);
   const [canScroll, setCanScroll] = useState({ back: false, forward: false });
@@ -205,9 +205,9 @@ export function SeriesReviews({ reviews }: { reviews: SeriesReview[] }) {
   if (reviews.length === 0) return null;
   const single = reviews.length === 1;
   return (
-    <section data-testid="hike-reviews" aria-label={HIKE_LABELS.reviews} className="not-prose w-0 min-w-full mb-6">
+    <section data-testid="hike-reviews" aria-label={heading} className="not-prose w-0 min-w-full mb-6">
       <div className="mt-8 mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-foreground">{HIKE_LABELS.reviews} <span className="font-normal text-muted-foreground">({reviews.length})</span></h2>
+        <h2 className="text-xl font-bold text-foreground">{heading} <span className="font-normal text-muted-foreground">({reviews.length})</span></h2>
         {(canScroll.back || canScroll.forward) && (
           <div className="hidden items-center gap-2 [@media(hover:hover)_and_(pointer:fine)]:flex">
             <Button type="button" variant="outline" size="icon" aria-label={HIKE_LABELS.reviewsPrevious} aria-disabled={!canScroll.back} onClick={() => canScroll.back && scrollByCard(-1)} className={`h-10 w-10 rounded-full ${canScroll.back ? '' : 'opacity-40 hover:bg-transparent'}`}><ChevronLeft className="h-5 w-5" /></Button>

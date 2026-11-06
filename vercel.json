@@ -159,6 +159,16 @@
       "permanent": false
     },
     {
+      "source": "/drum",
+      "destination": "/api/series-redirect?series=drum",
+      "permanent": false
+    },
+    {
+      "source": "/events/drum",
+      "destination": "/api/series-redirect?series=drum",
+      "permanent": false
+    },
+    {
       "source": "/aisafety",
       "destination": "/api/series-redirect?series=aisafety",
       "permanent": false

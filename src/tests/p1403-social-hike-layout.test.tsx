@@ -67,14 +67,18 @@ describe('P1403: layout selection by series key', () => {
     expect(DETAIL).not.toMatch(/title[^\n]*(Social Hike|startsWith)/);
   });
 
-  it('every hike section in EventDetail is gated on hikeSeriesSlug, and the series fetch is too', () => {
-    for (const comp of ['<HikeStatsStrip', '<PastHikePhotos', '<HikeRouteMap', '<SeriesReviews']) {
+  it('hike-only sections are gated on hikeSeriesSlug; the photo strip and series fetch on any series', () => {
+    for (const comp of ['<HikeStatsStrip', '<HikeRouteMap']) {
       const line = DETAIL.split('\n').find(l => l.includes(comp));
       expect(line, comp).toBeDefined();
       expect(line, comp).toMatch(/hikeSeriesSlug &&/);
     }
+    // Any series (e.g. drum-circle) gets the photo strip; the route-map tile only on hikes.
+    const photos = DETAIL.split('\n').find(l => l.includes('<PastHikePhotos'));
+    expect(photos).toMatch(/seriesSlug && seriesContent/);
+    expect(photos).toMatch(/mapUrl=\{hikeSeriesSlug \?/);
     const effect = DETAIL.slice(DETAIL.indexOf('const hikeSeriesSlug'), DETAIL.indexOf('// Local action states'));
-    expect(effect).toMatch(/if \(!hikeSeriesSlug\)[\s\S]*return;[\s\S]*getSeriesContent\(hikeSeriesSlug\)/);
+    expect(effect).toMatch(/if \(!seriesSlug\)[\s\S]*return;[\s\S]*getSeriesContent\(seriesSlug\)/);
   });
 
   it('does not change how the group chat link is fetched (P1194 invariant)', () => {

@@ -45,7 +45,7 @@ import { extractBannerKeywords } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 import { formatLocalDate, formatLocalTime } from '@/app/utils/format-time';
 import type { EventWithHost, PersonRef, SeriesContent } from '@/app/types';
-import { isHikeLayout, parseHikeDetails, splitAfterRouteSection } from '../hike/hike-utils';
+import { isHikeLayout, parseHikeDetails, splitAfterRouteSection, splitAfterFirstSection } from '../hike/hike-utils';
 import { HikeOrganizerLine, HikeStatsStrip, PastHikePhotos, SeriesReviews, HikeRouteMap } from '../hike/HikeSections';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import { PrepRoomBanner } from '../prep/PrepRoom';
@@ -272,21 +272,23 @@ export function EventDetail() {
   // P1403: the hike layout is selected by the stored series key, never the title.
   // Non-hike events make no request and render no hike section.
   const hikeSeriesSlug = isHikeLayout(event) ? event?.seriesSlug : undefined;
+  // Any series (e.g. drum-circle) shows its photo strip; stats, route map and the hike layout stay hike-only.
+  const seriesSlug = event?.seriesSlug ?? undefined;
   useEffect(() => {
-    if (!hikeSeriesSlug) {
+    if (!seriesSlug) {
       setSeriesContent(null);
       return;
     }
     let cancelled = false;
     setSeriesContent(null);
-    eventsService.getSeriesContent(hikeSeriesSlug)
+    eventsService.getSeriesContent(seriesSlug)
       .then(content => { if (!cancelled) setSeriesContent(content); })
       .catch(error => {
         console.error('[EventDetail] Failed to fetch series content:', error);
         if (!cancelled) setSeriesContent(null);
       });
     return () => { cancelled = true; };
-  }, [hikeSeriesSlug]);
+  }, [seriesSlug]);
   useEffect(() => {
     // P1553: every event with a community shows its organizer line, not only hikes.
     if (!eventId) {
@@ -401,8 +403,9 @@ export function EventDetail() {
       img.setAttribute('role', 'button');
       img.setAttribute('aria-label', `View image full size${img.alt ? `: ${img.alt}` : ''}`);
     });
-  }, [descriptionEl, descriptionHtml]);
+  }, [descriptionEl, descriptionHtml, seriesContent]);
   const hikeDescriptionParts = useMemo(() => splitAfterRouteSection(descriptionHtml), [descriptionHtml]);
+  const seriesDescriptionParts = useMemo(() => splitAfterFirstSection(descriptionHtml), [descriptionHtml]);
   // P1403 (founder 2026-10-04): "View on Maps" did not say it is where we meet.
   const hikeMeetName = hikeSeriesSlug ? parseHikeDetails(event?.hikeDetails)?.meetName : undefined;
 
@@ -865,7 +868,7 @@ export function EventDetail() {
               {organizer && (
                 <HikeOrganizerLine organizer={organizer} />
               )}
-              {hikeSeriesSlug && seriesContent && <PastHikePhotos photos={seriesContent.photos} mapUrl={parseHikeDetails(event.hikeDetails)?.routeMapUrl} onOpenImage={openImage} />}
+              {seriesSlug && seriesContent && <PastHikePhotos photos={seriesContent.photos} mapUrl={hikeSeriesSlug ? parseHikeDetails(event.hikeDetails)?.routeMapUrl : undefined} onOpenImage={openImage} />}
               {hikeSeriesSlug && <HikeStatsStrip details={event.hikeDetails} />}
 
               {/* Cancellation Notice - inside card for better UX */}
@@ -1135,8 +1138,20 @@ export function EventDetail() {
                 >
                   <div data-description-html dangerouslySetInnerHTML={{ __html: hikeDescriptionParts.before }} />
                   {hikeSeriesSlug && <HikeRouteMap geojson={event.routeGeojson} details={event.hikeDetails} showHeading={!hikeDescriptionParts.matched} onOpenImage={openImage} />}
-                  {hikeSeriesSlug && seriesContent && <SeriesReviews reviews={seriesContent.reviews} />}
+                  {seriesContent && <SeriesReviews reviews={seriesContent.reviews} />}
                   {hikeDescriptionParts.after && <div data-description-html dangerouslySetInnerHTML={{ __html: hikeDescriptionParts.after }} />}
+                </div>
+              ) : seriesContent ? (
+                // Non-hike series (e.g. drum-circle): the reviews close the description's first section.
+                <div
+                  ref={setDescriptionEl}
+                  onClick={onDescriptionClick}
+                  onKeyDown={onDescriptionKeyDown}
+                  className="event-description prose prose-sm max-w-none text-foreground/80 mb-6 pt-4 border-t border-border"
+                >
+                  <div data-description-html dangerouslySetInnerHTML={{ __html: seriesDescriptionParts.before }} />
+                  <SeriesReviews reviews={seriesContent.reviews} heading="What people say" />
+                  {seriesDescriptionParts.after && <div data-description-html dangerouslySetInnerHTML={{ __html: seriesDescriptionParts.after }} />}
                 </div>
               ) : (
                 <div
