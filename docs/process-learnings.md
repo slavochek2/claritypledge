@@ -3588,16 +3588,6 @@ Parked 2026-11-05, not built. A QR adds little in chats: people in a chat alread
 
 ---
 
-## Let people change their handle, with old profile links redirecting
-
-**ID:** INBOX-301
-**Date:** 2026-11-06
-**Status:** proposed
-**due:** month
-
-Left out of P1556 v1: handles are profile addresses already printed in letters, badges and shared links, so changing one breaks them. Build it with a redirect from the old handle. Drop it if nobody asks to change a handle once handles are shown on profiles.
-
----
 
 ## p1607 slot-lock test fails under the full pre-commit suite and passes alone
 
