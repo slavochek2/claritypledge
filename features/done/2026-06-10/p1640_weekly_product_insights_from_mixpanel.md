@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 99.0
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [analytics, mixpanel, day, insights]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 65b42172f777e0b1e1642bbc6a764dc08ef078b45677552a5220992a893101f4
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-06
 ---
 
 # P1640: Weekly product insights from Mixpanel, delivered through /day
