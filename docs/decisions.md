@@ -8,6 +8,33 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-07 [technical]: A series short link reaches a hidden event; the public key may ask only "where does alias X point" (P1649)
+
+**Context:** Every series short link (`/hike`, `/night`, `/next`, `/ai-run`, `/aisafety`, `/spiritual-revolution`, plus the new `/drum` and `/sales`) used to read `events` with the public key and `is_hidden=eq.false`, so none of them could land on a hidden event (P1603). Two hidden events already exist on prod, a sales mastermind test and a drum circle. The founder's call (2026-11-06): for a series alias, "hidden" means not listed, not secret from anyone who knows the series word.
+
+**Decision:** This **deliberately relaxes** 2026-11-03 [technical] ("A hidden event is enforced by the database"), for the words on the alias list only. Its falsifier was *a stranger reaching a hidden event's title, link or attendees without the link*. A stranger who knows an alias word now reaches the slug of that series' next hidden event, and through the slug the page.
+- The rule behind each alias is a row in `series_aliases`: a title pattern or a stored series key, an optional "no topic yet" flag, and at most one fallback. The table is closed to anon and authenticated (RLS on, no policy, every grant revoked).
+- `resolve_series_alias(p_key)` (SECURITY DEFINER) takes the key and nothing else and returns one slug. The cutoff and status are applied inside it. The caller cannot pass a pattern, series value or cutoff. A function that accepted a pattern would let `%` walk every hidden event.
+- Precedence is public before hidden across the whole chain, then the key's own rule before its fallback, then time, then id. This is an agent default: the founder's flow has only one match at a time, so nothing was ruled. Reversing it is a one-line `ORDER BY` change.
+- The migration fails its own apply if a grant is wrong. Each assertion was watched to fail on test.
+
+**Alternatives rejected:**
+- *A function taking a pattern or series value.* A wildcard turns it into a search.
+- *Let anon read hidden rows.* That is the P1603 boundary itself.
+- *Service key in the redirect.* The all-access key would run on every alias hit.
+- *A hard-coded list inside the function.* Equivalent for security, but adding an alias becomes a function rewrite instead of a reviewed row.
+
+**Falsifier:** the public key, through any function or table, gets anything but one slug for a listed key: a title, an id, a second row, or any result for an unlisted key or a wildcard. `scripts/test-p1649-series-alias.sql` and `e2e/integration/20261106164500_p1649_series_alias.spec.ts` assert each of these.
+
+**Consequences:**
+- `%Hike%` and `%AI Safety%` are substring rules, kept unchanged from the redirect. They now also reach a hidden event whose title only contains the word, which is broader than series membership (review finding). Tighten a row to a stored `series_slug` if that ever matters.
+- Adding an alias is a prod row insert plus a `vercel.json` pair, deliberately.
+- The redirect logs a failed call instead of silently going to `/events`. The migration must reach prod before the redirect ships.
+
+**References:** P1649, `supabase/migrations/20261106164500_p1649_series_alias_resolution.sql`, `api/series-redirect.ts`
+
+---
+
 ## 2026-11-07 [technical]: A new event series reuses the hike page parts by series key; hike-only parts stay gated (drum circle)
 
 **Context:** The founder started a recurring Full Moon Drum Circle under Clarity Practice Community and wanted it to look like the social hikes: a photo strip from past sessions and attendee thank-you notes. On the event page, the photo strip, the reviews and the series fetch were all gated on the hike layout, so a second series could not use them.

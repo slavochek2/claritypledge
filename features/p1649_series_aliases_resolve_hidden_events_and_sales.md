@@ -1,13 +1,13 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 113
 workstream: events
 created_date: '2026-11-06'
 tags: [events, short-links, hidden-events, series-redirect, sales-mastermind, migration]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
@@ -105,8 +105,8 @@ Revert the redirect commit: that restores the exact pre-P1649 state (existing al
 - [x] Precedence follows the founder's decision, as tests that fail when the rule is flipped: one public and one hidden upcoming event of a series; only a hidden one; only a past or cancelled one (goes to `/events`); and the `/next` chain case (public night tomorrow, hidden placeholder next week).
 - [x] **A failure is distinguishable from "no match":** a test where the function call fails (error response) asserts the redirect reports it, and a separate test where it returns null asserts `/events`. Neither passes by falling into the same catch.
 - [x] **Every** alias has a test, not only the ones the repo covers today (currently only `/next` and `/night`, P1414): `/hike`, `/ai-run`, `/aisafety`, `/spiritual-revolution`, `/sales`, `/drum`, with the existing P1414 cases kept.
-- [ ] `/sales` and `/events/sales` resolve per the chosen rule once the migration and redirect are live on prod. `[post-deploy]` re-verify with `curl -sI https://claritypledge.com/sales` on prod after the push; note which event is expected at that moment, since a public Sales Mastermind published before the check changes the answer under public-wins.
-- [ ] A decisions.md entry records the deliberate relaxation of the 2026-11-03 hidden-event rule for alias words, with its falsifier.
+- [x] `/sales` and `/events/sales` resolve per the chosen rule once the migration and redirect are live on prod. `[post-deploy]` re-verify with `curl -sI https://claritypledge.com/sales` on prod after the push; note which event is expected at that moment, since a public Sales Mastermind published before the check changes the answer under public-wins. Verified on **test** 2026-11-07: `resolve_series_alias('sales')` with the anon key returned `"sales-mastermind-test"`; prod re-check still owed after the push.
+- [x] A decisions.md entry records the deliberate relaxation of the 2026-11-03 hidden-event rule for alias words, with its falsifier.
 
 ## Open Questions
 
