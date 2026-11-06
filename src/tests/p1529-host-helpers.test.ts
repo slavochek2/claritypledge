@@ -104,7 +104,7 @@ describe('checkMastermindSeats: what a given seating of one round breaks', () =>
 
 describe('the host marks', () => {
   const p = (over: Partial<MastermindPerson>): MastermindPerson => ({
-    profileId: 'p', canvasName: null, canvasShared: false, observerOverride: null, participation: null, observerPrep: null, registered: true, waitingPosition: null, name: null, phone: null, recordingOn: false, lastWordsAt: null, ...over,
+    profileId: 'p', canvasName: null, canvasTitle: null, canvasShared: false, observerOverride: null, participation: null, observerPrep: null, registered: true, waitingPosition: null, name: null, phone: null, recordingOn: false, lastWordsAt: null, ...over,
   });
   it('is an observer without a shared canvas or when the host says so', () => {
     expect(isObserver(undefined)).toBe(true);
@@ -116,6 +116,8 @@ describe('the host marks', () => {
     expect(observerRefusal(p({}), 'Eva F.')).toMatch(/Eva F\. has no Clarity Canvas shared/);
     expect(observerRefusal(p({ canvasName: 'plan' }), 'Eva F.')).toMatch(/chose a Clarity Canvas but has not published and shared it/);
     expect(canvasLine(p({ canvasShared: true, canvasName: 'plan' }))).toBe('Clarity Canvas shared: plan');
+    // The title the owner gave wins over the URL key, which is often just "canvas" (founder UAT round 1, seeded room).
+    expect(canvasLine(p({ canvasShared: true, canvasName: 'canvas', canvasTitle: "Alma's business" }))).toBe("Clarity Canvas shared: Alma's business");
   });
 });
 

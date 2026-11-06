@@ -75,7 +75,8 @@ export const isUnregistered = (person: MastermindPerson | undefined): boolean =>
 
 /** [FOUNDER DECISION: copy] One short line per person under the name. */
 export function canvasLine(person: MastermindPerson | undefined): string {
-  if (person?.canvasShared) return person.canvasName ? `Clarity Canvas shared: ${person.canvasName}` : 'Clarity Canvas shared';
+  const shown = person?.canvasTitle || person?.canvasName;
+  if (person?.canvasShared) return shown ? `Clarity Canvas shared: ${shown}` : 'Clarity Canvas shared';
   if (person?.canvasName) return 'Clarity Canvas chosen, not shared yet';
   return 'No Clarity Canvas yet';
 }

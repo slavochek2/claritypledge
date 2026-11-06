@@ -112,7 +112,7 @@ const EVA = member('e', 'Eva Fox');
 const ROSTER = [ANA, BEN, CAT, DAN, EVA];
 
 const person = (key: string, over: Partial<MastermindPerson> = {}): MastermindPerson => ({
-  profileId: `p-${key}`, canvasName: `canvas_${key}`, canvasShared: true, observerOverride: null,
+  profileId: `p-${key}`, canvasName: `canvas_${key}`, canvasTitle: null, canvasShared: true, observerOverride: null,
   participation: 'canvas_before', observerPrep: null, registered: true, waitingPosition: null, name: null, phone: 'usbc', recordingOn: false, lastWordsAt: null, ...over,
 });
 const setHostState = (people: MastermindPerson[]) => { h.hostState = new Map(people.map(p => [p.profileId, p])); };

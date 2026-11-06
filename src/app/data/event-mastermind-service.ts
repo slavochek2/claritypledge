@@ -36,6 +36,8 @@ export async function setEventCanvas(eventId: string, name: string): Promise<Set
 export interface MastermindPerson {
   profileId: string;
   canvasName: string | null;
+  /** The title the owner gave the canvas (the name is its URL key, often just "canvas"); null when untitled. */
+  canvasTitle: string | null;
   canvasShared: boolean;
   observerOverride: boolean | null;
   participation: string | null;
@@ -58,6 +60,7 @@ export async function getMastermindHostState(eventId: string): Promise<Map<strin
   return new Map(rows.map(r => [r.profile_id as string, {
     profileId: r.profile_id as string,
     canvasName: (r.canvas_name as string | null) ?? null,
+    canvasTitle: (r.canvas_title as string | null) ?? null,
     canvasShared: !!r.canvas_shared,
     observerOverride: (r.observer_override as boolean | null) ?? null,
     participation: (r.participation as string | null) ?? null,
