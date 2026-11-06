@@ -46,7 +46,7 @@ Control, same 120 ms delay on `/` (no stop call): `/record=1` at 10.6s in 4 of 4
 
 So on `/live` the only `/record` on the fast path is the flush caused by the stop itself. When the stop lands while the recorder is starting but before it has buffered anything, nothing is flushed and recording is then dead, so no `/record` ever follows. All observed failure signatures match: `bundle requested=true`, no CSP violation, state `timeout`. On a fast local machine the bundle wins the race (10 of 10 pass, `/record` at ~0.8s), so the flake is CI-timing dependent. UNVERIFIED: the exact CI timing (the failing run artifacts had expired, `gh run download` returned "no valid artifacts"); the window was reproduced by injected delay, not observed on a runner.
 
-The other three pages that call stop on mount (`admin-users-page.tsx:63`, `admin-topics-page.tsx:54`, `chat/ChatHomePage.tsx:45`, `transcribe-room-page.tsx:64`) are not in `PROD_HEALTH_ROUTES`, so only `/live` is exposed.
+The other four pages that call stop on mount (`admin-users-page.tsx:63`, `admin-topics-page.tsx:54`, `chat/ChatHomePage.tsx:45`, `transcribe-room-page.tsx:64`) are not in `PROD_HEALTH_ROUTES`, so only `/live` is exposed.
 
 ## Invariants
 
@@ -135,7 +135,7 @@ Founder-supplied round-1 findings, each with a test that fails without its fix:
 | Finding | Fix | Fails without it |
 |---|---|---|
 | 1. Exemption accepted "bundle requested" | ok response + bundle ran (constructor in `__mp_recorder`) | Unit: stalled and 404 fail when switched back to `bundleRequested`; "200 but never executed" fails without the `ran` check; `null`/`{}`/string in the slot fail. Browser: aborted and empty-200 controls |
-| 2. Drift guard matched comments | AST check, scoped to the page component (`ClarityLivePage`): a top-level `useEffect(..., [])` before the component's first `return`, whose body reaches `analytics.stopSessionRecording()` before any `return` | Old regex returns `true` on the real page with the call commented out. The new check rejects 8 mutations of the real page: line/block comment, conditional, deps added, string, early return in the effect, effect moved to an unrendered component, wrong component name. Codex's round-3 probe showed the earlier AST check accepting the early-return and unrendered cases |
+| 2. Drift guard matched comments | AST check, scoped to the page component (`ClarityLivePage`): a top-level `useEffect(..., [])` before the component's first `return`, whose body reaches `analytics.stopSessionRecording()` before any `return` | Old regex returns `true` on the real page with the call commented out. The new check rejects 11 mutations of the real page: line/block comment, conditional, deps added, string, an early return in the effect (direct, inside an `if`, inside a block), the effect moved to an unrendered component, the component no longer exported, and a wrong component name. It also requires `src/App.tsx` to render that component at the route, and rejects 2 mutations of the real `App.tsx`. Codex's round-3 probe showed the earlier AST check accepting the early-return and unrendered cases |
 | 3. No browser-level test | `e2e/p1648-live-recorder-exemption.spec.ts`, 8 tests, runs only with `P1648_SMOKE_URL` (which also skips the local webServer) | Deterministic /live exemption test fails without the exemption; worker-block control fails without the worker filter |
 
 **Final code, against prod, retries off:**
@@ -147,7 +147,7 @@ Founder-supplied round-1 findings, each with a test that fails without its fix:
   - Aborted bundle fails. Empty-200 bundle fails.
 - **10× with an injected 80–250 ms bundle delay: 10 of 10 passed.** 8 hit the race (`timeout`, loaded, ran, 0 `/record`) and passed through the exemption; 2 flushed normally (219, 85 ms). Earlier 10× runs on the round-1 and round-2 code also passed 10 of 10.
 - `csp-smoke` 8 of 8, `prod-health-smoke` 8 of 8.
-- Locally: `tsc --noEmit` clean, eslint clean, unit tests 22 of 22.
+- Locally: `tsc --noEmit` clean, eslint clean, unit tests 28 of 28.
 
 One earlier `prod-health-smoke` run failed on `/cm`. Google Calendar's iframe logged a report-only `frame-ancestors` error, which is unrelated to this change; filed as INBOX-304.
 

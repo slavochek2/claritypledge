@@ -28,9 +28,17 @@ function isStopCallStatement(node: ts.Node): boolean {
   );
 }
 
-/** Index of the first statement that is a `return`, or the list length when there is none. */
+/** Can `node` return from the enclosing function? Any `return` inside it counts, nested blocks and ifs
+ *  included; one inside a nested function or class does not, since it returns from that instead. */
+function canReturn(node: ts.Node): boolean {
+  if (ts.isReturnStatement(node)) return true;
+  if (ts.isFunctionLike(node) || ts.isClassLike(node)) return false;
+  return ts.forEachChild(node, canReturn) ?? false;
+}
+
+/** Index of the first statement that can return, or the list length when there is none. */
 function firstReturn(statements: ts.NodeArray<ts.Statement>): number {
-  const i = statements.findIndex(ts.isReturnStatement);
+  const i = statements.findIndex(canReturn);
   return i === -1 ? statements.length : i;
 }
 
@@ -58,9 +66,44 @@ export function stopsRecorderOnMount(source: string, component: string): boolean
   const fn = sf.statements.find(
     (st): st is ts.FunctionDeclaration => ts.isFunctionDeclaration(st) && st.name?.text === component && !!st.body,
   );
-  if (!fn?.body) return false;
+  if (!fn?.body || !fn.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) return false;
   const stmts = fn.body.statements;
   return stmts.slice(0, firstReturn(stmts)).some(isMountStopEffect);
+}
+
+/**
+ * True when App.tsx's `<Route path={route}>` renders `component`, and `component` is the lazy import of
+ * `export function component` from `file` (review round 4: a named function proves nothing unless the
+ * route renders it).
+ */
+export function routeRendersComponent(appSource: string, route: string, component: string, file: string): boolean {
+  const modulePath = '@/' + file.replace(/^src\//, '').replace(/\.tsx$/, '');
+  const lazyOk = new RegExp(
+    `const ${component} = lazy\\(\\(\\) => import\\("${modulePath.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}"\\)\\.then\\(m => \\(\\{ default: m\\.${component} \\}\\)\\)\\);`,
+  ).test(appSource);
+  if (!lazyOk) return false;
+  const sf = ts.createSourceFile('App.tsx', appSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let found = false;
+  const tagName = (n: ts.Node) =>
+    ts.isJsxSelfClosingElement(n) ? n.tagName.getText(sf) : ts.isJsxElement(n) ? n.openingElement.tagName.getText(sf) : undefined;
+  const attrs = (n: ts.Node) =>
+    ts.isJsxSelfClosingElement(n) ? n.attributes : ts.isJsxElement(n) ? n.openingElement.attributes : undefined;
+  const rendersTag = (n: ts.Node): boolean => tagName(n) === component || (ts.forEachChild(n, rendersTag) ?? false);
+  const visit = (n: ts.Node): void => {
+    if (found) return;
+    if (tagName(n) === 'Route') {
+      const props = attrs(n)!.properties.filter(ts.isJsxAttribute);
+      const path = props.find((a) => a.name.getText(sf) === 'path')?.initializer;
+      const element = props.find((a) => a.name.getText(sf) === 'element')?.initializer;
+      if (path && ts.isStringLiteral(path) && path.text === route && element && rendersTag(element)) {
+        found = true;
+        return;
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return found;
 }
 
 const REAL_CALL = 'analytics.stopSessionRecording();';
@@ -74,6 +117,10 @@ describe('P1648: recorder-stopped routes', () => {
       expect(
         stopsRecorderOnMount(readFileSync(page.file, 'utf8'), page.component),
         `${page.component} in ${page.file} no longer stops the recorder on mount`,
+      ).toBe(true);
+      expect(
+        routeRendersComponent(readFileSync('src/App.tsx', 'utf8'), route, page.component, page.file),
+        `src/App.tsx no longer renders ${page.component} from ${page.file} at ${route}`,
       ).toBe(true);
     }
   });
@@ -122,8 +169,37 @@ describe('P1648: recorder-stopped routes', () => {
       expect(check(moved)).toBe(false);
     });
 
+    it('nested early return before the call (if / block)', () => {
+      expect(check(real.replace(REAL_CALL, `if (true) return;\n    ${REAL_CALL}`))).toBe(false);
+      expect(check(real.replace(REAL_CALL, `{ return; }\n    ${REAL_CALL}`))).toBe(false);
+    });
+
+    it('a return inside a nested function before the call does not block it', () => {
+      expect(check(real.replace(REAL_CALL, `const noop = () => { return; };\n    noop();\n    ${REAL_CALL}`))).toBe(true);
+    });
+
+    it('component no longer exported', () => {
+      expect(check(real.replace(`export function ${component}(`, `function ${component}(`))).toBe(false);
+    });
+
     it('wrong component name (mapping drift)', () => {
       expect(stopsRecorderOnMount(real, 'SomeOtherPage')).toBe(false);
+    });
+
+    describe('routing: mutations of the real src/App.tsx', () => {
+      const app = readFileSync('src/App.tsx', 'utf8');
+      const ok = (src: string) => routeRendersComponent(src, '/live', component, file);
+      it('the unmutated App.tsx passes', () => { expect(ok(app)).toBe(true); });
+      it('/live route renders a different page', () => {
+        const mutated = app.replace(/(path="\/live"\s*element=\{[\s\S]*?)<ClarityLivePage \/>/, '$1<SomeOtherPage />');
+        expect(mutated).not.toBe(app);
+        expect(ok(mutated)).toBe(false);
+      });
+      it('lazy import points at another module', () => {
+        const mutated = app.replace('import("@/app/pages/clarity-live-page")', 'import("@/app/pages/clarity-live-page-v2")');
+        expect(mutated).not.toBe(app);
+        expect(ok(mutated)).toBe(false);
+      });
     });
 
     it('call moved into a string', () => {
