@@ -22,9 +22,11 @@ import { frameOf, scopeOf } from './canvas-frame.ts';
 import { BOX_TAGS } from './canvas-draft.ts';
 import {
   APPLY_STALE_REPLY, CHOICE_WRITE_REPLY, CLOSED_LEAD, KEPT_REPLY, MAX_REQUEST_CHARS, NO_CHOICE_REPLY, SETTLED_KEEP_REPLY, STALE_LEAD,
-  appliedReply, choiceReply, keepLetterOf, letterOf, readPick, refusedPickReply, reofferNoneReply,
+  appliedReply, choiceReply, keepLetterOf, letterOf, meansKeep, readPick, refusedPickReply, reofferNoneReply, screened,
   type Choice, type ChoiceOption, type ChoicePick, type StoredChoice,
 } from './canvas-choice.ts';
+import { derivedNames, namesMatcher } from './canvas-names.ts';
+import { ownerItems, textOf } from './canvas-thread.ts';
 import type { askModel, failRun, fitOrFail, RunSummary, Step } from './canvas-run.ts';
 import type { BasePoint, DraftOutcome, Material, RunFrame } from './canvas-types.ts';
 
@@ -32,7 +34,7 @@ import type { BasePoint, DraftOutcome, Material, RunFrame } from './canvas-types
 export interface RunTools { failRun: typeof failRun; askModel: typeof askModel; fitOrFail: typeof fitOrFail }
 
 type ChoicePayload =
-  | { mode: 'offer'; request: string } & Choice
+  | { mode: 'offer'; request: string; request_message_id: string | null } & Choice
   | { mode: 'apply'; choice_id: string; letter: string }
   | { mode: 'hold' };
 
@@ -52,13 +54,28 @@ async function complete(s: Step, t: RunTools, choice: ChoicePayload, reply: stri
   if (answered.status === 'gone') return { state: 'failed', code: 'gone' };
   if (answered.status === 'failed') return { state: 'failed', code: answered.code ?? 'failed' };
   if (answered.status === 'stale') return await t.failRun(deps, run, p, 'choice_stale', APPLY_STALE_REPLY, usd);
+  if (answered.status !== 'ok') {
+    // an answer this engine does not know is never read as done: the run fails and says nothing changed
+    console.error('canvas-draft: choice write answered unknown status', { mode: choice.mode });
+    return await t.failRun(deps, run, p, 'choice_write', CHOICE_WRITE_REPLY, usd);
+  }
   console.log('canvas-draft: choice done', { mode: choice.mode });
   return { state: 'done' };
 }
 
+/** A choice wins over whatever else the model sent (its actions are never sent, its note and questions never shown): counted, never its text. */
+function logDropped(out: Extract<DraftOutcome, { ok: true }>): void {
+  const actions = out.actions.filter((a) => a.action !== 'keep').length;
+  const questions = Object.keys(out.questions).length;
+  if (actions || out.note || questions) console.log('canvas-draft: choice dropped model actions', { actions, note: !!out.note, questions });
+}
+
 /** The run offers the choice: stored by the server, nothing written to the canvas. */
-export async function offerChoice(s: Step, t: RunTools, c: Choice, request: string, reply: string, usd: number | null): Promise<RunSummary> {
-  const payload = { mode: 'offer' as const, request: cutChars(request.trim(), MAX_REQUEST_CHARS), conflicts_with: c.conflicts_with, options: c.options, recommended: c.recommended, reason: c.reason };
+export async function offerChoice(s: Step, t: RunTools, c: Choice, request: { text: string; messageId: string | null }, reply: string, usd: number | null): Promise<RunSummary> {
+  const payload = {
+    mode: 'offer' as const, request: cutChars(request.text.trim(), MAX_REQUEST_CHARS), request_message_id: request.messageId,
+    conflicts_with: c.conflicts_with, options: c.options, recommended: c.recommended, reason: c.reason,
+  };
   console.log('canvas-draft: choice offered', { conflicts: c.conflicts_with.length, options: c.options.length });
   return await complete(s, t, payload, reply, usd);
 }
@@ -90,7 +107,17 @@ function storedOf(raw: unknown): StoredChoice | null {
   const state = r.state === 'open' || r.state === 'picked' || r.state === 'kept' || r.state === 'superseded' ? r.state : null;
   const recommended = r.recommended === 'A' || r.recommended === 'B' || r.recommended === 'keep' ? r.recommended : 'A';
   if (!str(r.id) || !state || !options.length) return null;
-  return { id: str(r.id), state, request: str(r.request), conflicts_with: strs(r.conflicts_with), options, recommended, reason: str(r.reason) };
+  return { id: str(r.id), state, request: str(r.request), request_message_id: str(r.request_message_id) || null, conflicts_with: strs(r.conflicts_with), options, recommended, reason: str(r.reason) };
+}
+
+/**
+ * The owner's message the choice came from is still in this run's thread, with the words the choice stored. Only then is the request read
+ * again (as owner material for a pick or a re-offer): a deleted or edited message takes its choice with it.
+ */
+function requestHeld(s: Step, c: StoredChoice): boolean {
+  if (!c.request_message_id) return false;
+  const want = c.request.trim();
+  return ownerItems(s.run.thread).some((m) => m.message_id === c.request_message_id && cutChars(textOf(m), MAX_REQUEST_CHARS).trim() === want);
 }
 
 /**
@@ -116,7 +143,8 @@ async function reoffer(s: Step, t: RunTools, c: StoredChoice, lead: string): Pro
   const { run, p, deps } = s;
   const basePoints = run.draft_points;
   const baseLabel = run.base_label ?? null;
-  const frame: RunFrame = { ...frameOf(run, s.kind), reoffer: true };
+  // the earlier request may change only the box its choice was about (one box per choice), whatever this pick message is tagged with
+  const frame: RunFrame = { ...frameOf(run, s.kind), taggedBoxes: [...new Set(c.options.map((o) => o.box))], reoffer: true };
   const fit = await t.fitOrFail(s, (cap) => {
     const material = withEarlier(assembleMaterial(s.input, cap), c.request);
     return { material, request: buildDraftRequest({ material, basePoints, baseLabel, frame }) };
@@ -132,14 +160,16 @@ async function reoffer(s: Step, t: RunTools, c: StoredChoice, lead: string): Pro
   const usd = out.costUsd !== null ? out.costUsd + s.extra : run.reserved_usd ?? null;
   // [FOUNDER DECISION: wording] the model's answer could not be read
   if (!out.ok) return await t.failRun(deps, run, p, out.code, cut('I could not check that just now. Nothing was changed. Please try again.'), usd);
-  if (out.choice) return await offerChoice(s, t, out.choice, c.request, cut(`${lead}\n${choiceReply(out.choice, baseOf(s))}`), usd);
-  return await hold(s, t, cut(reofferNoneReply(lead)), usd);
+  if (!out.choice) return await hold(s, t, cut(reofferNoneReply(lead)), usd);
+  logDropped(out);
+  return await offerChoice(s, t, out.choice, { text: c.request, messageId: c.request_message_id }, cut(`${lead}\n${choiceReply(out.choice, baseOf(s))}`), usd);
 }
 
 /** The offer of a draft run whose answer is a choice (its actions are never sent), or null: the run goes on as before. */
 export function draftOffer(s: Step, t: RunTools, out: DraftOutcome, cut: (reply: string) => string, usd: number | null): Promise<RunSummary> | null {
   if (!out.ok || !out.choice) return null;
-  return offerChoice(s, t, out.choice, s.input.trigger?.text ?? '', cut(choiceReply(out.choice, baseOf(s))), usd);
+  logDropped(out);
+  return offerChoice(s, t, out.choice, { text: s.input.trigger?.text ?? '', messageId: s.run.trigger_message_id ?? null }, cut(choiceReply(out.choice, baseOf(s))), usd);
 }
 
 /** A short reply (tagged or not) on a message run that already has a draft picks from the latest choice; anything else is null, a message. */
@@ -160,19 +190,24 @@ export async function runPick(s: Step, t: RunTools, pick: ChoicePick): Promise<R
   const latest = data as { status?: string; stale?: boolean; choice?: unknown };
   if (latest.status === 'gone') return { state: 'failed', code: 'gone' };
   const c = latest.status === 'ok' ? storedOf(latest.choice) : null;
-  if (!c) return await hold(s, t, NO_CHOICE_REPLY, s.extra);
+  // a choice lives only as long as the owner's message it came from: a request this run's thread no longer holds is never read again
+  if (!c || !requestHeld(s, c)) return await hold(s, t, NO_CHOICE_REPLY, s.extra);
   // an answered choice is never offered back for "leave it" or "the recommended one": only a letter asks about the earlier request again
-  if (c.state !== 'open' && pick.kind !== 'letter') return await hold(s, t, SETTLED_KEEP_REPLY, s.extra);
-  if (latest.stale === true || c.state !== 'open') return await reoffer(s, t, c, c.state === 'open' ? STALE_LEAD : CLOSED_LEAD);
+  if (c.state !== 'open') return await (pick.kind === 'letter' ? reoffer(s, t, c, CLOSED_LEAD) : hold(s, t, SETTLED_KEEP_REPLY, s.extra));
+  // a stale choice: keeping the canvas needs no new look at the request (nothing changes either way); an option is checked again
+  if (latest.stale === true) return await (meansKeep(pick, c) ? hold(s, t, SETTLED_KEEP_REPLY, s.extra) : reoffer(s, t, c, STALE_LEAD));
   const letter = letterOf(pick, c);
   if (letter === keepLetterOf(c)) return await apply(s, t, c.id, letter, KEPT_REPLY);
   const o = c.options.find((x) => x.letter === letter);
   const base = baseOf(s);
-  if (!o) return await hold(s, t, choiceReply(c, base), s.extra); // a letter the choice does not have: the choice again
+  // everything shown again passes THIS run's names filter (the owner's newer material may have named someone)
+  const namesOther = namesMatcher(run.other_names, derivedNames(withEarlier(s.material, c.request), run.owner_name));
+  const again = () => hold(s, t, choiceReply(screened(c, namesOther), base), s.extra);
+  if (!o) return await again(); // a letter the choice does not have: the choice again
   // a tagged pick may change only its tags: an option in another box is not applied, and the choice is posted again
   const tags = s.input.trigger?.tagged ?? []; // the trigger row's own box_refs: what the SQL wrapper reads, and run.box_refs is the same column
-  if (tags.length && !tags.includes(o.box)) return await hold(s, t, choiceReply(c, base), s.extra);
-  if (!stillVetted(s, o, c.request)) {
+  if (tags.length && !tags.includes(o.box)) return await again();
+  if (namesOther(o.quote) || !stillVetted(s, o, c.request)) {
     console.log('canvas-draft: pick refused', { letter });
     return await hold(s, t, refusedPickReply(letter), s.extra);
   }

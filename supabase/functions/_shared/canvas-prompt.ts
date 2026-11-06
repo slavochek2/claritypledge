@@ -222,7 +222,7 @@ export function frameInstruction(f: RunFrame): string {
     return `This is the first draft of a new canvas about the "focus" of the data item "canvas_groups". It may change ${ALL_NINE}; every point is a "new" action. Use only the material about this group. Return "scope" as all nine boxes; "focus" is already set. Leave out "focus_reason".`;
   }
   if (f.reoffer) {
-    return `The owner is answering a choice that is no longer open. Their earlier request is the owner message quoted in the data item of kind "earlier_request". Check it against the canvas as it is now and return a "choice" when it still conflicts with a current point, quoting the earlier request; return no actions. Return in "scope" only the boxes it is about. The focus stays: leave "focus" empty and leave out "focus_reason".`;
+    return `The owner is answering a choice that is no longer open. Their earlier request is the owner message quoted in the data item of kind "earlier_request". Check it against the canvas as it is now and return a "choice" when it still conflicts with a current point, quoting the earlier request; return no actions. ${f.taggedBoxes?.length ? `It may change only ${titles(f.taggedBoxes)}: return "scope" as exactly that.` : 'Return in "scope" only the boxes it is about.'} The focus stays: leave "focus" empty and leave out "focus_reason".`;
   }
   if (f.taggedBoxes?.length) {
     const file = f.inputKind === 'file' ? FILE_TAGGED_LINE : '';

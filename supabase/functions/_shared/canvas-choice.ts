@@ -9,7 +9,8 @@
  *   the replies  built from fixed words (D2, approved 2026-11-06); model text appears only inside the brackets D2 names.
  *
  * The server stores the choice and, on a pick, builds the actions from the STORED option, never from the caller
- * (`_canvas_draft_run_complete_choice`, migration 20261106120000). Pure: no Deno or esm.sh imports.
+ * (`_canvas_draft_run_complete_choice`). The table and the functions are created in migration 20261106125500; the live bodies are
+ * in 20261106134500 (the wrapper) and 20261106141500 (the erase trigger). Pure: no Deno or esm.sh imports.
  */
 
 import { BOX_TAGS, MAX_POINTS_PER_BOX, MAX_QUOTE_CHARS, MAX_STATEMENT_CHARS, titleOf } from './canvas-draft.ts';
@@ -53,9 +54,13 @@ export interface StoredChoice extends Choice {
   id: string;
   state: 'open' | 'picked' | 'kept' | 'superseded';
   request: string;
+  /** The owner's message the choice came from: the choice lives only as long as that message does (privacy). */
+  request_message_id: string | null;
 }
 
-export type ChoicePick = { kind: 'letter'; letter: 'A' | 'B' | 'C' | 'D' } | { kind: 'keep' } | { kind: 'recommended' };
+type Letter = 'A' | 'B' | 'C' | 'D';
+/** `keepLetter`: a letter said together with "keep" ("c keep"): it counts only when it is the choice's keep letter. */
+export type ChoicePick = { kind: 'letter'; letter: Letter } | { kind: 'keepLetter'; letter: Letter } | { kind: 'keep' } | { kind: 'recommended' };
 
 /** The most points one choice may name as contradicted, the options the model may give, and the length of a shown sentence. */
 const MAX_CONFLICTS = 3;
@@ -72,16 +77,26 @@ const LEAD_FILLER = new RegExp(`^${FILLER}(?![\\p{L}])[\\s,]*`, 'u');
 const TRAIL_FILLER = new RegExp(`[\\s,]*(?<![\\p{L}])${FILLER}$`, 'u');
 const EMOJI = /\p{Extended_Pictographic}|\u{FE0F}|\u{200D}|[\u{1F3FB}-\u{1F3FF}]/gu;
 /** The words that may come before a letter or "the recommended one". */
-const LEAD = "(?:option |go with |let's go with |lets go with |i pick |pick |i choose |choose |i'll take |ill take |take |confirm |reply )?";
-const LETTER_RE = new RegExp(`^${LEAD}(?:option )?([a-d])(?: \\(recommended\\))?$`);
-const KEEP_RE = /^(?:keep|keep it|keep it as it is|keep the canvas|keep the canvas as it is|keep as is|leave it|no change)$/;
+const LEAD = "(?:option |go with |let's go with |lets go with |i'll go with |ill go with |go for |let's do |lets do |i pick |pick |i choose |choose |i'll take |ill take |take |confirm |reply )?";
+const LETTER_RE = new RegExp(`^${LEAD}(?:option )?([a-d])(?: \\(recommended\\)| it is)?$`);
+const KEEP_LETTER_RE = /^([a-d])[ ,]+keep$/;
+const KEEP_RE = /^(?:keep|keep it|keep it as it is|keep as it is|keep the canvas|keep the canvas as it is|keep as is|leave it|no change)$/;
 const RECOMMENDED_RE = new RegExp(`^${LEAD}(?:the recommended one|recommended|your recommendation)$`);
 
-/** The owner's reply in the form a pick is read from: lower case, one space, no closing marks, emoji or polite words around it. */
+/** Marks a letter may come wrapped in: "**A**", "(A)", "[A]", "`A`"; a leading arrow or bullet ("-> A", "- A"); a closing bracket ("A)"). */
+const WRAPPERS: ReadonlyArray<[RegExp, string]> = [
+  // pairs before a leading bullet, so "**A**" is unwrapped whole and not read as the bullet "*" before "*A**"
+  [/^\*\*(.*)\*\*$/u, '$1'], [/^__(.*)__$/u, '$1'], [/^`(.*)`$/u, '$1'], [/^\*(.*)\*$/u, '$1'], [/^\((.*)\)$/u, '$1'], [/^\[(.*)\]$/u, '$1'],
+  [/^"(.*)"$/u, '$1'], [/^“(.*)”$/u, '$1'], [/^'(.*)'$/u, '$1'],
+  [/^(?:->|=>|→|[-*•>])\s*/u, ''], [/^([a-d])\)$/u, '$1'],
+];
+const unwrap = (t: string) => WRAPPERS.reduce((acc, [re, to]) => acc.replace(re, to).trim(), t);
+
+/** The owner's reply in the form a pick is read from: lower case, one space, no closing marks, wrappers, emoji or polite words around it. */
 function normalisePick(text: string): string {
   let t = text.normalize('NFKC').toLowerCase().replace(/[‘’]/g, "'").replace(EMOJI, ' ').replace(/\s+/g, ' ').trim();
   for (let again = true; again;) {
-    const next = t.replace(/[\s.!]+$/u, '').replace(/^[\s,]+|[\s,]+$/gu, '').replace(LEAD_FILLER, '').replace(TRAIL_FILLER, '').trim();
+    const next = unwrap(t.replace(/[\s.!]+$/u, '').replace(/^[\s,]+|[\s,]+$/gu, '').replace(LEAD_FILLER, '').replace(TRAIL_FILLER, '').trim());
     again = next !== t;
     t = next;
   }
@@ -94,7 +109,9 @@ export function readPick(text: string): ChoicePick | null {
   const t = normalisePick(text);
   if (!t || Array.from(t).length > 40) return null;
   const letter = LETTER_RE.exec(t)?.[1];
-  if (letter) return { kind: 'letter', letter: letter.toUpperCase() as 'A' | 'B' | 'C' | 'D' };
+  if (letter) return { kind: 'letter', letter: letter.toUpperCase() as Letter };
+  const keepLetter = KEEP_LETTER_RE.exec(t)?.[1];
+  if (keepLetter) return { kind: 'keepLetter', letter: keepLetter.toUpperCase() as Letter };
   if (KEEP_RE.test(t)) return { kind: 'keep' };
   if (RECOMMENDED_RE.test(t)) return { kind: 'recommended' };
   return null;
@@ -107,8 +124,12 @@ export const keepLetterOf = (c: Pick<Choice, 'options'>): string => String.fromC
 export function letterOf(pick: ChoicePick, c: Pick<Choice, 'options' | 'recommended'>): string {
   if (pick.kind === 'keep') return keepLetterOf(c);
   if (pick.kind === 'recommended') return c.recommended === 'keep' ? keepLetterOf(c) : c.recommended;
+  if (pick.kind === 'keepLetter') return pick.letter === keepLetterOf(c) ? pick.letter : '?'; // "a keep" when A is an option: unclear, so asked again
   return pick.letter;
 }
+
+/** A pick that means "keep the canvas as it is" in this choice: by its words, or by naming the keep letter. */
+export const meansKeep = (pick: ChoicePick, c: Pick<Choice, 'options' | 'recommended'>): boolean => letterOf(pick, c) === keepLetterOf(c);
 
 // ── Vetting the model's choice ──────────────────────────────────────────────
 
@@ -169,8 +190,6 @@ function vetOption(o: Raw, conflicts: readonly BasePoint[], ctx: ChoiceCtx, acc:
   return { kind, box, statement, quote, means: shownText(o.means, ctx, acc), also_revisit: revisitOf(o.also_revisit, box), replaces: kind === 'replace' ? replaces : [] };
 }
 
-/** The model's recommendation if the choice has that letter, else A. */
-const recommendedOf = (asked: unknown, n: number): Recommended => (asked === 'keep' || (asked === 'B' && n > 1) ? asked : 'A');
 
 /**
  * The model's "choice", checked: the contradicted points are current points in a box the run may change, at most three; at most two
@@ -181,12 +200,25 @@ export function vetChoice(raw: unknown, ctx: ChoiceCtx, acc: VetAcc): Choice | n
   const r = raw as Raw;
   const conflicts = conflictsOf(r.conflicts_with, ctx);
   if (!conflicts.length) return null;
-  const options = optionsOf(r.options, conflicts, ctx, acc);
+  const { options, origins } = optionsOf(r.options, conflicts, ctx, acc);
   const first = options[0];
   if (!first) return null;
   // contradicted points in other boxes are not named; their boxes are told as boxes to revisit, which the option never changes (D1)
-  for (const p of conflicts) if (p.box !== first.box && !first.also_revisit.includes(p.box)) first.also_revisit.push(p.box);
-  return { conflicts_with: conflicts.filter((p) => p.box === first.box).map((p) => p.id), options, recommended: recommendedOf(r.recommended, options.length), reason: shownText(r.reason, ctx, acc) };
+  // they go first, so the cap never drops a box the owner's words really contradict
+  first.also_revisit = [...new Set([...conflicts.filter((p) => p.box !== first.box).map((p) => p.box), ...first.also_revisit])].slice(0, MAX_REVISIT);
+  const rec = recommendationOf(r.recommended, origins);
+  return { conflicts_with: conflicts.filter((p) => p.box === first.box).map((p) => p.id), options, recommended: rec.recommended, reason: rec.keepReason ? shownText(r.reason, ctx, acc) : '' };
+}
+
+/**
+ * The model recommends an option by its place in ITS list ("A" its first, "B" its second). Options are lettered again after vetting, so
+ * the recommendation follows the option, not the letter. When the recommended option was refused, the first surviving one is marked and
+ * the model's reason is not shown: it was about another option.
+ */
+function recommendationOf(asked: unknown, origins: readonly number[]): { recommended: Recommended; keepReason: boolean } {
+  if (asked === 'keep') return { recommended: 'keep', keepReason: true };
+  const at = origins.indexOf(asked === 'A' ? 0 : asked === 'B' ? 1 : -1);
+  return at >= 0 ? { recommended: at === 0 ? 'A' : 'B', keepReason: true } : { recommended: 'A', keepReason: false };
 }
 
 /** The contradicted points: current points in a box this run may change, once each, at most three. */
@@ -200,14 +232,18 @@ function conflictsOf(raw: unknown, ctx: ChoiceCtx): BasePoint[] {
 }
 
 /** One box per choice (D2 names one box): the box of the first option that survives. A later option in another box is not read. */
-function optionsOf(raw: unknown, conflicts: readonly BasePoint[], ctx: ChoiceCtx, acc: VetAcc): ChoiceOption[] {
+function optionsOf(raw: unknown, conflicts: readonly BasePoint[], ctx: ChoiceCtx, acc: VetAcc): { options: ChoiceOption[]; origins: number[] } {
   const options: ChoiceOption[] = [];
-  for (const o of (Array.isArray(raw) ? raw : []).slice(0, MAX_OPTIONS)) {
-    if (!o || typeof o !== 'object' || (options[0] && (o as Raw).box !== options[0].box)) continue;
+  /** origins[i]: where options[i] stood in the model's own list. */
+  const origins: number[] = [];
+  (Array.isArray(raw) ? raw : []).slice(0, MAX_OPTIONS).forEach((o, at) => {
+    if (!o || typeof o !== 'object' || (options[0] && (o as Raw).box !== options[0].box)) return;
     const v = vetOption(o as Raw, conflicts, ctx, acc);
-    if (v && !options.some((x) => sameText(x.statement, v.statement) && x.kind === v.kind)) options.push({ letter: options.length === 0 ? 'A' : 'B', ...v });
-  }
-  return options;
+    if (!v || options.some((x) => sameText(x.statement, v.statement) && x.kind === v.kind)) return;
+    options.push({ letter: options.length === 0 ? 'A' : 'B', ...v });
+    origins.push(at);
+  });
+  return { options, origins };
 }
 
 /** What parseDraft hands over: the same checks a written point passes, and the run's scope. */
@@ -227,7 +263,11 @@ export function readChoice(body: Raw, pc: Pick<ParseContext, 'allowChoice' | 'sc
 // ── The replies ─────────────────────────────────────────────────────────────
 
 const bare = (s: string) => s.trim().replace(/[.!]+$/u, '');
-const quoted = (s: string) => `"${bare(s)}"`;
+/** Shown inside double quotes: a double quote of its own becomes a single one, so the reply never reads ambiguously. */
+const singleQuotes = (s: string) => s.replace(/["“”„]/g, "'");
+const quoted = (s: string) => `"${singleQuotes(bare(s))}"`;
+/** Canvas text shown in a reply: its own double quotes kept as single ones (cleanFreeText would drop them), then cleaned. */
+const shownCanvas = (s: string, max: number) => cleanFreeText(singleQuotes(s), max) || s;
 const joinWith = (word: string) => (xs: readonly string[]) => (xs.length < 2 ? xs[0] ?? '' : `${xs.slice(0, -1).join(', ')} ${word} ${xs[xs.length - 1]}`);
 const joinAnd = joinWith('and');
 const joinOr = joinWith('or');
@@ -239,7 +279,7 @@ const clause = (s: string) => {
   return /^[A-Z][a-z]/.test(t) && !/^I\b/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t;
 };
 
-const shownPoint = (p: BasePoint) => quoted(cleanFreeText(p.statement, 300) || p.statement);
+const shownPoint = (p: BasePoint) => quoted(shownCanvas(p.statement, 300));
 
 /** "your current Problem, "x"": a choice is about one box (vetChoice), so D2 names one. Two points in it read "x" and "y". */
 function conflictText(c: Choice, base: ReadonlyMap<string, BasePoint>): string {
@@ -260,6 +300,18 @@ const optionLine = (o: ChoiceOption) => {
   const head = o.kind === 'replace' ? `Replace it with ${quoted(o.statement)}.` : `Add ${quoted(o.statement)} beside it.`;
   return o.means ? `${head} ${sentence(o.means)}` : head;
 };
+
+/**
+ * A stored choice about to be shown again, read through THIS run's names filter: a reason or a "means" that now names another person
+ * (one the owner's newer material introduced) is not shown.
+ */
+export function screened(c: Choice, namesOther: (t: string) => boolean): Choice {
+  return {
+    ...c,
+    reason: c.reason && namesOther(c.reason) ? '' : c.reason,
+    options: c.options.map((o) => (o.means && namesOther(o.means) ? { ...o, means: '' } : o)),
+  };
+}
 
 /**
  * D2, approved 2026-11-06, verbatim: the engine's fixed words, the model's text only in the brackets ({reason}, each option's
@@ -287,7 +339,7 @@ export function choiceReply(c: Choice, base: ReadonlyMap<string, BasePoint>): st
  */
 export function appliedReply(o: ChoiceOption, base: ReadonlyMap<string, BasePoint>): string {
   const box = titleOf(o.box);
-  const shownNew = quoted(cleanFreeText(o.statement, MAX_STATEMENT_CHARS) || o.statement);
+  const shownNew = quoted(shownCanvas(o.statement, MAX_STATEMENT_CHARS));
   const words = quoted(cleanFreeText(o.quote, 80));
   const old = o.replaces.map((id) => base.get(id)).filter((p): p is BasePoint => !!p).map(shownPoint);
   const line = o.kind === 'replace' && old.length

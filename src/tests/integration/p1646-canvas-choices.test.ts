@@ -73,7 +73,13 @@ class WS {
     expect(d.status, JSON.stringify(d)).toBe('ok');
     await this.state();
   }
-  async complete(run: string, choice: Row, reply = nn('choice reply'), extra: Row = {}) {
+  async complete(run: string, choiceIn: Row, reply = nn('choice reply'), extra: Row = {}) {
+    let choice = choiceIn;
+    if (choice.mode === 'offer' && !('request_message_id' in choice)) {
+      // the request message is the run's own trigger message unless a test sets it (or sets null on purpose)
+      const t = (await admin.from('canvas_draft_runs').select('trigger_message_id').eq('id', run).single()).data as Row;
+      choice = { ...choice, request_message_id: t.trigger_message_id };
+    }
     const out = await rpc(A, '_canvas_draft_run_complete_choice', {
       p_run: run, p_owner: this.o.u.user.id, p_questions: {}, p_note: null, p_reply: reply, p_usd: 0.001, p_choice: choice, ...extra,
     });
@@ -350,6 +356,83 @@ describe('P1646 canvas choices', () => {
     expect(now.map((p) => p.statement).sort()).toEqual([nn('a problem'), nn('tagged new')].sort());
     expect(now.some((p) => p.id === seg.id)).toBe(false);
     expect(now.some((p) => p.id === prob.id)).toBe(true);
+  }, T);
+
+  it('an OFFER on a tagged trigger message stores the choice, writes nothing, and leaves every point of the tagged boxes in place', async () => {
+    const o = await mkOwner('tagged-offer'); const ws = new WS(o);
+    await ws.cycle([newPt(SEG, 'seg one'), newPt(SEG, 'seg two'), newPt(PROB, 'a problem')]);
+    const pts = await ws.points();
+    const s1 = ws.byText(pts, nn('seg one'));
+    const before = await ws.stmts();
+    const ids = pts.map((p) => p.id).sort();
+    const run = await ws.send(nn('tagged contradiction'), [SEG]);
+    const r = await ws.complete(run, offerChoice([s1.id], [opt('A', 'replace', SEG, 'tagged offer', [s1.id])]));
+    expect(r.error, JSON.stringify(r.error)).toBeNull();
+    expect(r.data.status, JSON.stringify(r.data)).toBe('ok');
+    expect(await ws.stmts(), 'nothing written').toEqual(before);
+    expect((await ws.points()).map((p) => p.id).sort(), 'every point, tagged box or not, is the same point').toEqual(ids);
+    const rows = await ws.choices();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ state: 'open', offer_run_id: run, conflicts_with: [s1.id] });
+    expect(rows[0]!.fingerprint).toEqual(ids);
+  }, T);
+
+  it('an offer requires a live request message of the draft conversation (22023 otherwise)', async () => {
+    const o = await mkOwner('reqmsg'); const ws = new WS(o);
+    await ws.cycle([newPt(SEG, 'seg one')]);
+    const s1 = ws.byText(await ws.points(), nn('seg one'));
+    const run = await ws.send();
+    const good = [opt('A', 'replace', SEG, 'x', [s1.id])];
+    for (const [label, id] of [['missing', null], ['not a uuid', 'nope'], ['unknown message', randomUUID()]] as Array<[string, any]>) {
+      const r = await ws.complete(run, offerChoice([s1.id], good, { request_message_id: id }));
+      expect(r.error?.code, label).toBe('22023');
+    }
+    expect(await ws.choices()).toEqual([]);
+    expect((await ws.complete(run, offerChoice([s1.id], good))).data.status).toBe('ok');
+    const latest = await eng('_canvas_draft_choice_latest', { p_run: run, p_owner: o.u.user.id });
+    const trig = ((await admin.from('canvas_draft_runs').select('trigger_message_id').eq('id', run).single()).data as Row).trigger_message_id;
+    expect(latest.choice.request_message_id).toBe(trig);
+  }, T);
+
+  it('deleting the request message removes the choice; latest is none', async () => {
+    const { ws, run } = await offered('del-msg');
+    const trig = ((await admin.from('canvas_draft_runs').select('trigger_message_id').eq('id', run).single()).data as Row).trigger_message_id;
+    expect(await ws.choices()).toHaveLength(1);
+    const d = await rpc(ws.o.c, 'delete_chat_message', { p_message: trig });
+    expect(d.error, JSON.stringify(d.error)).toBeNull();
+    expect(await ws.choices()).toEqual([]);
+    expect(await eng('_canvas_draft_choice_latest', { p_run: run, p_owner: ws.o.u.user.id })).toEqual({ status: 'none' });
+  }, T);
+
+  it('editing the request message removes the choice; editing an unrelated message leaves it', async () => {
+    const { ws, run } = await offered('edit-msg');
+    const runs = ((await admin.from('canvas_draft_runs').select('id, trigger_message_id, created_at').eq('draft_id', ws.draft).order('created_at')).data ?? []) as Row[];
+    const trig = runs.find((r) => r.id === run)!.trigger_message_id as string;
+    const other = runs.find((r) => r.id !== run && r.trigger_message_id)!.trigger_message_id as string;
+    expect(other).not.toBe(trig);
+    const e1 = await rpc(ws.o.c, 'edit_chat_message', { p_message: other, p_body: nn('unrelated edit') });
+    expect(e1.error, JSON.stringify(e1.error)).toBeNull();
+    expect(await ws.choices(), 'an unrelated message edit leaves the choice').toHaveLength(1);
+    const e2 = await rpc(ws.o.c, 'edit_chat_message', { p_message: trig, p_body: nn('changed my mind') });
+    expect(e2.error, JSON.stringify(e2.error)).toBeNull();
+    expect(await ws.choices(), 'editing the request message removes it').toEqual([]);
+  }, T);
+
+  it('the choice function refuses a run that is not a message run and changes nothing', async () => {
+    const o = await mkOwner('focus'); const ws = new WS(o);
+    await ws.cycle([newPt(SEG, 'seg one'), newPt(PROB, 'a problem')]);
+    const before = await ws.stmts();
+    const run = await ws.send();
+    const up = await admin.from('canvas_draft_runs').update({ kind: 'focus' }).eq('id', run);
+    expect(up.error, JSON.stringify(up.error)).toBeNull();
+    for (const mode of ['hold', 'offer', 'apply']) {
+      const r = await ws.complete(run, { mode }, nn('x'));
+      expect(r.error?.code, mode).toBe('22023');
+    }
+    expect(await ws.stmts(), 'nothing dropped').toEqual(before);
+    expect((await admin.from('canvas_draft_runs').select('state').eq('id', run).single()).data!.state).toBe('running');
+    await admin.from('canvas_draft_runs').update({ kind: 'message' }).eq('id', run);
+    expect((await ws.complete(run, { mode: 'hold' })).data.status).toBe('ok');
   }, T);
 
   it('a replace option must replace exactly the conflicting points of its box (a subset is refused at offer)', async () => {

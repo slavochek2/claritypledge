@@ -2,10 +2,10 @@
  * P1646: the canvas agent offers the owner options when their message contradicts the canvas, instead of refusing.
  * Pure parts (readPick, vetChoice through parseDraft, the D2 reply) and the run flow with the database and the model faked.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BOX_DEFINITIONS } from '../../supabase/functions/_shared/canvas-box-definitions';
 import {
-  APPLY_STALE_REPLY, CLOSED_LEAD, KEPT_REPLY, NO_CHOICE_REPLY, SETTLED_KEEP_REPLY, STALE_LEAD,
+  APPLY_STALE_REPLY, CHOICE_WRITE_REPLY, CLOSED_LEAD, KEPT_REPLY, NO_CHOICE_REPLY, SETTLED_KEEP_REPLY, STALE_LEAD,
   appliedReply, choiceReply, readPick, refusedPickReply, reofferNoneReply, type Choice,
 } from '../../supabase/functions/_shared/canvas-choice';
 import { parseDraft } from '../../supabase/functions/_shared/canvas-parse';
@@ -328,16 +328,18 @@ describe('P1646 the prompt asks for a choice only where one can be offered', () 
 interface Call { name: string; args: Record<string, unknown> }
 const LATEST_OPEN = (over: Record<string, unknown> = {}) => ({
   status: 'ok', stale: false,
-  choice: { id: 'c1', state: 'open', request: ASK, conflicts_with: ['p1'], options: vetted().options, recommended: 'A', reason: 'it is what you say the problem is now', ...over },
+  choice: { id: 'c1', state: 'open', request: ASK, request_message_id: 'm-req', conflicts_with: ['p1'], options: vetted().options, recommended: 'A', reason: 'it is what you say the problem is now', ...over },
 });
 
-function harness(trigger: string, opts: { latest?: unknown; model?: RunDeps['model']; applyAnswer?: unknown; box_refs?: string[]; earlier?: string[] } = {}) {
+/** The thread's earlier owner messages: the first is the request a stored choice came from ('m-req'). */
+function harness(trigger: string, opts: { latest?: unknown; model?: RunDeps['model']; applyAnswer?: unknown; box_refs?: string[]; earlier?: string[]; other_names?: string[] } = {}) {
   const calls: Call[] = [];
   const requests: GeminiRequest[] = [];
-  const thread = [...(opts.earlier ?? [ASK]).map((t) => ({ kind: 'owner_message' as const, text: t })), { kind: 'owner_message' as const, text: trigger, is_trigger: true, box_refs: opts.box_refs ?? null }];
+  const earlier = (opts.earlier ?? [ASK]).map((t, i) => ({ kind: 'owner_message' as const, text: t, message_id: i === 0 ? 'm-req' : `m-e${i}` }));
+  const thread = [...earlier, { kind: 'owner_message' as const, text: trigger, message_id: 'm-trig', is_trigger: true, box_refs: opts.box_refs ?? null }];
   const run: CanvasRun = {
-    status: 'run', run_id: 'run-2', kind: 'message', first_draft: false, reserved_usd: 0.27, base_label: 'v1',
-    draft_points: BASE, material: [], thread, other_names: [], box_refs: opts.box_refs ?? null,
+    status: 'run', run_id: 'run-2', kind: 'message', first_draft: false, reserved_usd: 0.27, base_label: 'v1', trigger_message_id: 'm-trig',
+    draft_points: BASE, material: [], thread, other_names: opts.other_names ?? [], box_refs: opts.box_refs ?? null,
   };
   const model: RunDeps['model'] = opts.model ?? (async () => ({ response: gemini({ scope: [PROBLEM], actions: [], choice: CHOICE }), status: 200 }));
   const deps: RunDeps = {
@@ -361,7 +363,7 @@ describe('P1646 a run that offers, and the pick that answers it', () => {
     expect(await go(h)).toEqual({ state: 'done' });
     expect(h.by('_canvas_draft_run_complete')).toHaveLength(0);
     const a = choiceCall(h);
-    expect(a.p_choice).toEqual({ mode: 'offer', request: ASK, ...vetted() });
+    expect(a.p_choice).toEqual({ mode: 'offer', request: ASK, request_message_id: 'm-trig', ...vetted() }); // O2: the choice follows its message
     expect(a.p_reply).toBe(choiceReply(vetted(), baseMap));
     expect(a.p_usd).toBeCloseTo(0.00525, 5);
     expect(Object.keys(a).sort()).toEqual(['p_choice', 'p_note', 'p_owner', 'p_questions', 'p_reply', 'p_run', 'p_usd']);
@@ -445,20 +447,39 @@ describe('P1646 a run that offers, and the pick that answers it', () => {
     await go(ok);
     expect(choiceCall(ok).p_choice).toMatchObject({ mode: 'apply' });
   });
-  it('the request is owner material for the pick even when the thread no longer holds it', async () => {
-    const h = harness('A', { latest: LATEST_OPEN(), earlier: [] });
+  it('O2: a choice whose request message is no longer in the thread, or was edited, is gone: no pick, no model call, nothing applied', async () => {
+    // (replaces the earlier test "the request is owner material for the pick even when the thread no longer holds it": the opposite now holds)
+    for (const [label, h] of [
+      ['message gone', harness('A', { latest: LATEST_OPEN(), earlier: [] })],
+      ['message edited', harness('A', { latest: LATEST_OPEN(), earlier: ['the problem is that teams forget passwords'] })],
+      ['no message id stored', harness('A', { latest: LATEST_OPEN({ request_message_id: null }) })],
+      ['stale and gone', harness('B', { latest: { ...LATEST_OPEN(), stale: true }, earlier: [] })],
+      ['settled and gone', harness('B', { latest: LATEST_OPEN({ state: 'picked' }), earlier: [] })],
+    ] as const) {
+      await go(h);
+      expect(h.requests, label).toHaveLength(0);
+      expect(choiceCall(h).p_choice, label).toEqual({ mode: 'hold' });
+      expect(choiceCall(h).p_reply, label).toBe(NO_CHOICE_REPLY);
+    }
+    // CONTROL: the same pick with the request message still in the thread is applied
+    const held = harness('A', { latest: LATEST_OPEN() });
+    await go(held);
+    expect(choiceCall(held).p_choice).toMatchObject({ mode: 'apply', letter: 'A' });
+  });
+  it('O2: a re-offer carries the stored request_message_id, never the pick message\'s', async () => {
+    const h = harness('A', { latest: { ...LATEST_OPEN(), stale: true } });
     await go(h);
-    expect(choiceCall(h).p_choice).toMatchObject({ mode: 'apply', letter: 'A' });
+    expect(choiceCall(h).p_choice).toMatchObject({ mode: 'offer', request: ASK, request_message_id: 'm-req' });
   });
   it('stale: one model call in the re-offer frame with the earlier request, then a new offer led by the stale line', async () => {
-    const h = harness('A', { latest: { ...LATEST_OPEN(), stale: true }, earlier: [] });
+    const h = harness('A', { latest: { ...LATEST_OPEN(), stale: true } });
     await go(h);
     expect(h.requests).toHaveLength(1);
     const t = textOf(h.requests[0]!);
     expect(t.split('<<INSTRUCTION>>')[1]).toContain('no longer open');
     expect(t).toContain(`"kind":"earlier_request","whose":"owner","source":"owner message (earlier request)","text":"${ASK}"`);
     const a = choiceCall(h);
-    expect(a.p_choice).toEqual({ mode: 'offer', request: ASK, ...vetted() }); // the stored request, never "A"
+    expect(a.p_choice).toEqual({ mode: 'offer', request: ASK, request_message_id: 'm-req', ...vetted() }); // the stored request, never "A"
     expect(a.p_reply).toBe(`${STALE_LEAD}\n${choiceReply(vetted(), baseMap)}`);
   });
   it('a settled choice re-offers with its own lead; no conflict left: mode "hold" with the none reply', async () => {
@@ -481,10 +502,21 @@ describe('P1646 a run that offers, and the pick that answers it', () => {
       expect(choiceCall(h).p_choice, text).toEqual({ mode: 'hold' });
       expect(choiceCall(h).p_reply, text).toBe(SETTLED_KEEP_REPLY);
     }
-    // CONTROL: on a stale but OPEN choice the same "leave it" still checks the earlier request again (one model call)
-    const open = harness('leave it', { latest: { ...LATEST_OPEN(), stale: true } });
-    await go(open);
-    expect(open.requests).toHaveLength(1);
+  });
+  it('O-L2: on a STALE open choice, a keep (by words, by the keep letter, or the recommended keep) holds with no model call; a letter re-offers', async () => {
+    for (const [text, over] of [['leave it', {}], ['keep as it is', {}], ['C', {}], ['c keep', {}], ['the recommended one', { recommended: 'keep' }]] as const) {
+      const h = harness(text, { latest: { ...LATEST_OPEN(over), stale: true } });
+      await go(h);
+      expect(h.requests, text).toHaveLength(0);
+      expect(choiceCall(h).p_choice, text).toEqual({ mode: 'hold' });
+      expect(choiceCall(h).p_reply, text).toBe(SETTLED_KEEP_REPLY);
+    }
+    // CONTROL: a letter for an option, and "the recommended one" when it is an option, check the earlier request again (one model call)
+    for (const text of ['A', 'the recommended one']) {
+      const h = harness(text, { latest: { ...LATEST_OPEN(), stale: true } });
+      await go(h);
+      expect(h.requests, text).toHaveLength(1);
+    }
   });
   it('a tagged pick is read too: an option in a tagged box is applied, one outside the tags re-posts the choice, keep is fine tagged', async () => {
     const inTag = harness('A', { latest: LATEST_OPEN(), box_refs: [PROBLEM] });
@@ -504,6 +536,171 @@ describe('P1646 a run that offers, and the pick that answers it', () => {
     h.run.first_draft = true;
     await go(h);
     expect(h.by('_canvas_draft_choice_latest')).toHaveLength(0);
+  });
+});
+
+describe('P1646 final review fixes', () => {
+  const solChoice = { conflicts_with: ['s1'], options: [{ kind: 'replace', box: SOLUTION, quote: ASK, statement: 'Organisations waste less money on other tools with one folder.' }], recommended: 'A', reason: '' };
+
+  it('E1: a re-offer may change only the box of the stored choice, whatever the pick message is tagged with', async () => {
+    // tagged with Solution, the stored choice is about Problem: the re-check still covers Problem (before: Solution only, so "no longer conflicts")
+    const tagged = harness('A', { latest: { ...LATEST_OPEN(), stale: true }, box_refs: [SOLUTION] });
+    await go(tagged);
+    expect(textOf(tagged.requests[0]!).split('<<INSTRUCTION>>')[1]).toContain('It may change only Problem: return "scope" as exactly that.');
+    expect(choiceCall(tagged).p_choice).toMatchObject({ mode: 'offer', conflicts_with: ['p1'] });
+    // untagged: a choice the model offers in another box than the stored one is refused (the earlier request was about Problem)
+    const other = harness('A', { latest: { ...LATEST_OPEN(), stale: true }, model: async () => ({ response: gemini({ scope: [SOLUTION], actions: [], choice: solChoice }), status: 200 }) });
+    await go(other);
+    expect(choiceCall(other).p_choice).toEqual({ mode: 'hold' });
+    expect(choiceCall(other).p_reply).toBe(reofferNoneReply(STALE_LEAD));
+    // CONTROL: the same model answer on an ordinary untagged message is offered (the Solution conflict is real)
+    const plain = harness(ASK, { earlier: [], model: async () => ({ response: gemini({ scope: [SOLUTION], actions: [], choice: solChoice }), status: 200 }) });
+    await go(plain);
+    expect(choiceCall(plain).p_choice).toMatchObject({ mode: 'offer', conflicts_with: ['s1'] });
+  });
+
+  it.each([
+    [{ status: 'gone' }, { state: 'failed', code: 'gone' }, null],
+    [{ status: 'failed', code: 'draft_closed' }, { state: 'failed', code: 'draft_closed' }, null],
+    [{ status: 'stale' }, { state: 'failed', code: 'choice_stale' }, APPLY_STALE_REPLY],
+    [{ status: 'busy' }, { state: 'failed', code: 'choice_write' }, CHOICE_WRITE_REPLY],
+    [{ status: 'surprise' }, { state: 'failed', code: 'choice_write' }, CHOICE_WRITE_REPLY],
+    [{ choice_id: 'c9' }, { state: 'failed', code: 'choice_write' }, CHOICE_WRITE_REPLY],
+    [{ status: 'ok' }, { state: 'done' }, null],
+  ])('E3: the wrapper answers %j: the run ends %j', async (answer, summary, failReply) => {
+    const h = harness('A');
+    const rpc = h.deps.rpc;
+    h.deps.rpc = async (name, args) => (name === '_canvas_draft_run_complete_choice' ? (await rpc(name, args), { data: answer, error: null }) : rpc(name, args));
+    expect(await go(h)).toEqual(summary);
+    const fail = h.by('_canvas_draft_run_fail');
+    if (failReply) expect(fail[0]!.args).toMatchObject({ p_code: summary.code, p_reply: failReply });
+    else expect(fail).toHaveLength(0);
+  });
+
+  it('E4: boxes to revisit are capped at three after the contradicted boxes are added, and the contradicted ones are kept', () => {
+    const third: BasePoint = { id: 'g1', box: 'canvas:love', statement: 'Files belong to their makers.' };
+    const out = parse({ ...CHOICE, conflicts_with: ['p1', 's1', 'g1'], options: [{ ...replaceOpt, also_revisit: [REVENUE, 'canvas:channels', 'canvas:metrics'] }] }, { basePoints: [...BASE, third] });
+    const revisit = out.choice!.options[0]!.also_revisit;
+    expect(revisit).toHaveLength(3);
+    expect(revisit.slice(0, 2)).toEqual([SOLUTION, 'canvas:love']);
+  });
+
+  it.each(['**A**', '(A)', 'A)', '[A]', '-> A', 'A.', '`a`', '- a', '**option A**', '(a).'])('E5: %s reads as A', (text) => {
+    expect(readPick(text)).toEqual({ kind: 'letter', letter: 'A' });
+  });
+  it('E5: wrappers do not make longer text a pick, and "A (recommended)" still reads', () => {
+    expect(readPick('A (recommended)')).toEqual({ kind: 'letter', letter: 'A' });
+    expect(readPick('**the problem is organisations waste money**')).toBeNull();
+    expect(readPick(`(${'a'.repeat(45)})`)).toBeNull();
+    expect(readPick('(A) but change the price')).toBeNull();
+  });
+
+  it('E6: when a choice wins, the model\'s other actions, note and questions are dropped and counted, never their text', async () => {
+    const logs: unknown[][] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...a) => { logs.push(a); });
+    try {
+      const extra = { action: 'new', box: 'canvas:segments', quote: ASK, statement: 'Organisations that waste money on other tools' };
+      const h = harness(ASK, { earlier: [], model: async () => ({ response: gemini({ scope: [PROBLEM, 'canvas:segments'], actions: [extra], choice: CHOICE, note: 'a secret note', questions: [{ box: 'canvas:segments', question: 'Who?' }] }), status: 200 }) });
+      await go(h);
+      expect(choiceCall(h).p_choice).toMatchObject({ mode: 'offer' });
+      const dropped = logs.find((l) => l[0] === 'canvas-draft: choice dropped model actions');
+      expect(dropped?.[1]).toEqual({ actions: 1, note: true, questions: 1 });
+      expect(JSON.stringify(logs)).not.toMatch(/secret note|Who\?|waste money/);
+      // CONTROL: a choice with nothing else logs no drop
+      logs.length = 0;
+      await go(harness(ASK, { earlier: [] }));
+      expect(logs.some((l) => l[0] === 'canvas-draft: choice dropped model actions')).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('E7: a point or statement holding double quotes renders with single quotes inside the reply\'s own quotes', () => {
+    const base = new Map([['p1', { id: 'p1', box: PROBLEM, statement: 'Teams say "lost" files.' }]]);
+    const c: Choice = { ...vetted(), options: [{ ...vetted().options[0]!, statement: 'Today organisations call it “waste”.' }] };
+    const r = choiceReply(c, base);
+    expect(r).toContain('your current Problem, "Teams say \'lost\' files".');
+    expect(r).toContain('Replace it with "Today organisations call it \'waste\'".');
+    expect(appliedReply(c.options[0]!, base)).toContain('I replaced "Teams say \'lost\' files" with "Today organisations call it \'waste\'"');
+  });
+});
+
+describe('P1646 Opus adversary fixes', () => {
+  const invented = { ...replaceOpt, statement: 'Today organisations waste 40% of their money on other tools.' };
+  const otherAdd = { ...addOpt, statement: 'Today organisations waste money on other tools for files.' };
+
+  it('O3: the recommendation follows the option the model meant, not its letter', () => {
+    // recommends its 1st, the 1st is refused: the survivor is marked, and the reason (about the refused one) is not shown
+    const first = parse({ ...CHOICE, options: [invented, otherAdd], recommended: 'A', reason: 'replacing is cleaner' });
+    expect(first.choice!.options.map((o) => o.kind)).toEqual(['add']);
+    expect([first.choice!.recommended, first.choice!.reason]).toEqual(['A', '']);
+    expect(choiceReply(first.choice!, baseMap).split('\n')[0]).toMatch(/I'd recommend adding it beside the current point\.$/);
+    // recommends its 2nd, the 2nd is refused: the first surviving one is marked, no reason
+    const second = parse({ ...CHOICE, options: [replaceOpt, { ...otherAdd, statement: 'Today organisations waste 70% of money on other tools.' }], recommended: 'B', reason: 'adding keeps both' });
+    expect(second.choice!.options.map((o) => o.kind)).toEqual(['replace']);
+    expect([second.choice!.recommended, second.choice!.reason]).toEqual(['A', '']);
+    // recommends its 2nd, the 1st is refused: the 2nd is now A, still the recommended one, and its reason stays
+    const renamed = parse({ ...CHOICE, options: [invented, otherAdd], recommended: 'B', reason: 'adding keeps both' });
+    expect([renamed.choice!.options[0]!.kind, renamed.choice!.recommended, renamed.choice!.reason]).toEqual(['add', 'A', 'adding keeps both']);
+    // both survive: B stays B with its reason; keep stays keep with its reason, whatever was refused
+    expect(parse({ ...CHOICE, recommended: 'B', reason: 'adding keeps both' }).choice).toMatchObject({ recommended: 'B', reason: 'adding keeps both' });
+    expect(parse({ ...CHOICE, options: [invented, otherAdd], recommended: 'keep', reason: 'the canvas is right' }).choice).toMatchObject({ recommended: 'keep', reason: 'the canvas is right' });
+  });
+
+  it.each([
+    ["i'll go with a", { kind: 'letter', letter: 'A' }],
+    ['ill go with b', { kind: 'letter', letter: 'B' }],
+    ['go for a', { kind: 'letter', letter: 'A' }],
+    ["let's do b", { kind: 'letter', letter: 'B' }],
+    ['lets do a', { kind: 'letter', letter: 'A' }],
+    ['A it is', { kind: 'letter', letter: 'A' }],
+    ['"a"', { kind: 'letter', letter: 'A' }],
+    ['“B”', { kind: 'letter', letter: 'B' }],
+    ['keep as it is', { kind: 'keep' }],
+    ['keep as it is please', { kind: 'keep' }],
+    ['c keep', { kind: 'keepLetter', letter: 'C' }],
+    ['C, keep', { kind: 'keepLetter', letter: 'C' }],
+  ])('O-L1: %s', (text, expected) => {
+    expect(readPick(text)).toEqual(expected);
+  });
+  it.each(['yes', 'sure', 'yes yes', 'go for it', "let's do it", 'it is'])('O-L1: %s is still not a pick', (text) => {
+    expect(readPick(text)).toBeNull();
+  });
+  it('O-L1: "c keep" keeps when C is the keep letter; "a keep" when A is an option is unclear, so the choice is asked again', async () => {
+    const keep = harness('c keep', { latest: LATEST_OPEN() });
+    await go(keep);
+    expect(choiceCall(keep).p_choice).toEqual({ mode: 'apply', choice_id: 'c1', letter: 'C' });
+    const unclear = harness('a keep', { latest: LATEST_OPEN() });
+    await go(unclear);
+    expect(choiceCall(unclear).p_choice).toEqual({ mode: 'hold' });
+    expect(choiceCall(unclear).p_reply).toBe(choiceReply(vetted(), baseMap));
+  });
+
+  it('O-L3: a re-posted choice is read through this run\'s names filter: a reason or "means" naming another person is blanked', async () => {
+    const named = LATEST_OPEN({ reason: 'Zorblat Quenk said so', options: [{ ...vetted().options[0]!, means: 'Zorblat Quenk agrees.' }, vetted().options[1]] });
+    const h = harness('D', { latest: named, other_names: ['Zorblat Quenk'] });
+    await go(h);
+    const reply = choiceCall(h).p_reply as string;
+    expect(reply).not.toMatch(/Zorblat/);
+    expect(reply.split('\n')[0]).toMatch(/I'd recommend replacing it\.$/);
+    expect(reply).toContain('A (recommended). Replace it with "Today organisations waste money on other tools".\n');
+    // CONTROL: without the name in this run, the same stored texts are shown
+    const plain = harness('D', { latest: named });
+    await go(plain);
+    expect(choiceCall(plain).p_reply).toMatch(/because zorblat Quenk said so[\s\S]*Zorblat Quenk agrees/i); // clause() lowercases the reason's first letter
+  });
+  it('O-L3: a stored quote that names another person refuses the pick (the applied reply would show it)', async () => {
+    const request = 'Zorblat Quenk says the problem is organisations waste money on other tools';
+    const option = { ...vetted().options[0]!, quote: request };
+    const latest = LATEST_OPEN({ request, options: [option, vetted().options[1]] });
+    const h = harness('A', { latest, earlier: [request], other_names: ['Zorblat Quenk'] });
+    await go(h);
+    expect(choiceCall(h).p_choice).toEqual({ mode: 'hold' });
+    expect(choiceCall(h).p_reply).toBe(refusedPickReply('A'));
+    // CONTROL: the same stored option with no such name in this run is applied
+    const ok = harness('A', { latest, earlier: [request] });
+    await go(ok);
+    expect(choiceCall(ok).p_choice).toEqual({ mode: 'apply', choice_id: 'c1', letter: 'A' });
   });
 });
 

@@ -1,8 +1,12 @@
 -- client-safe: no deployed client calls _canvas_draft_run_complete_choice (service role only, the canvas-draft edge function is the
 -- only caller); same name and arguments as before.
 -- diffed against: 20261106131500_p1646_choices_round1.sql
--- Round 1 guard fix. TEST had already recorded 20261106131500 before its replace guard was restored to the text first seen in
--- 20261106125500, so the same function body (identical to the final 20261106131500 file) is re-applied here as a new version.
+-- Round 1 guard fix. TEST had already recorded 20261106131500 before its replace guard was split in two, so the function body is
+-- re-applied here as a new version. Against what 20261106131500 first applied it changes only the replace check: the guard text first
+-- seen in 20261106125500 ("must replace conflicting points of its own box": own box, subset of the conflicts, non-empty) is restored
+-- and the equality check ("must replace exactly ...") follows it as a second guard. The tagged-pick rule (a tagged pick whose tags
+-- include the option's box applies, otherwise stale; keep accepted on tags) and the other round 1 changes were already in
+-- 20261106131500 and are carried unchanged. The body now equals the final text of the 20261106131500 file on disk.
 -- Idempotent: CREATE OR REPLACE only.
 
 CREATE OR REPLACE FUNCTION public._canvas_draft_run_complete_choice(
