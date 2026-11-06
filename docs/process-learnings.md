@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 300
+**Next ID:** 302
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3575,5 +3575,27 @@ Future placeholder: create a new multi-person chat on the spot, show a QR code, 
 
 On 2026-11-05 deploy-drift.sh reported the shared TEST server differs from main for _shared, dispatch-event-emails and send-event-emails (branch-only). Likely a P1529 branch deploy from w13 (its commit 25a0864b0 adds a series block to its emails), but no content comparison was run, so this is unverified. Do not redeploy main over it while P1529 is in flight. Done when main's functions are redeployed to TEST after P1529 ships and deploy-drift.sh prints in sync. Drop if the P1529 owner says the deploy was unintended and it is already cleared.
 scripts/test-hook-sha-gate.sh reports 6 passed, 4 failed (AC2, AC5, AC6-nonwatched, AC6 stamp update: expected exit 0, got 1). The result is the same with and without P1641's hook change, so it predates it. Done when the cause is known and the suite is green or retired.
+
+---
+
+## Revisit a QR invite for plain /transcribe only if a real table needs it
+
+**ID:** INBOX-300
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** month
+
+Parked 2026-11-05, not built. A QR adds little in chats: people in a chat already have Join, a 1:1 holds two people, a group needs learning and terms, an event needs an RSVP. Its one real use is a plain /transcribe session, where a second person has no way to get the room code today. Build it if a real session has people with their own phones and no shared chat. Drop it if P1601 (one phone, several speakers) covers those sessions.
+
+---
+
+## Let people change their handle, with old profile links redirecting
+
+**ID:** INBOX-301
+**Date:** 2026-11-06
+**Status:** proposed
+**due:** month
+
+Left out of P1556 v1: handles are profile addresses already printed in letters, badges and shared links, so changing one breaks them. Build it with a redirect from the old handle. Drop it if nobody asks to change a handle once handles are shown on profiles.
 
 ---

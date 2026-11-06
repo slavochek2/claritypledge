@@ -9,6 +9,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-06 [product]: People connect by a personal code, not a transcription invite; a handle finds a profile but does not open a chat (P1556)
+
+**Context:** The founder asked for a QR to bring people into `/transcribe` quickly. Checked against the code, it helped almost nowhere. People in a chat already have Join, a 1:1 holds two people, a group needs learning and terms, an event needs an RSVP, and a plain room's code is never shown. The real barrier was elsewhere: two people who share no group, event or partnership cannot start a 1:1 at all, and nobody can see a handle.
+**Decision:** The transcription QR is parked (INBOX-300). P1556 instead gives each member a permanent personal code, a random-token link with Reset, shown one tap from the chat list, behind My code on the profile and at the top of New message. Opening a code, by scan or sent link, starts a 1:1, because being shown or sent it is the owner's consent. A handle is shown and copyable, and exact-handle search finds a profile, but Message appears only where today's shared-connection rule already allows a 1:1. A new owner-side limit of 20 code chats a day protects a posted code, since the existing limit counts only the person starting. Handles cannot be changed in v1 (INBOX-301), and quick WhatsApp-style groups are a later spec (INBOX-296).
+**Alternatives rejected:** Anyone may message by handle: handles derive from names, so they are guessable, and there are no message requests or report button yet. A short-lived code: the founder preferred permanent with reset, and once a handle cannot open a chat, the token carries the consent. A "someone scanned your code" notice: Telegram and WhatsApp skip it, and the new chat in the list is the signal. A QR inside chat channels: joining a group or an event already has its own gate.
+**Consequences:** One server function redeems tokens; `start_dm` and the P1545 share path keep their rule. Tokens are treated as URL secrets like room codes. Spec review: Gemini, GLM, Codex and Opus, 4 of 4 reported. UNTESTED with real people. Falsifier: at a real meeting, people do not scan, or drop off at sign-up after scanning.
+**References:** [p1556](../features/p1556_find_and_message_a_person.md) · prototype `/tree/find-connect` on `feature/p1643-find-and-connect`
+
 ## 2026-11-05 [product]: A letter's live invite stays on Artifacts; chat delivery is shelved and email is rejected (P1644)
 
 **Context:** The invite from "Start Clarity Live now" reaches the recipient as a row at the top of Artifacts, a nav badge, and an overlay on the letter's reading page. No email or push is sent. The question was whether it should arrive in chat, and whether it should be built now.

@@ -1,63 +1,107 @@
 ---
-status: backlog
+status: week
 type: story
-rank: 322
+rank: 109
 workstream: clarity-chat
 created_date: '2026-10-23'
 tags: [chat, profile, discovery]
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, create-spec.2]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+spec_review_hash: 4ae5c16cf71afa4b90c3fb48195d7c240559113ef90160b166f45b0bcdadf572
+spec_review_vendors: [codex, gemini, openrouter]
 ---
 
-# P1556: Find and message a person — nickname, personal link and QR
+# P1556: Find and message a person — handle, personal code and link
 
 ## Problem
 
-In Clarity Chat you can message people you already share a group, event or chat with. Someone you met elsewhere is hard to reach, and the profile page shows no nickname.
+Two people meet in person, or know each other from outside Clarity Pledge, and want to talk in Clarity Chat. Today they can't. A 1:1 can only start between people who share a Clarity Group, an event or an active Clarity Partner agreement: the server's `start_dm` refuses everyone else (`cannot start a conversation with this person`, `20261019203000_p1512_clarity_chat.sql`), and New message search only lists people with such a connection. A person's handle is their profile address (`/p/<handle>`); it is not shown on the profile, appears in New message only to tell apart two people with the same name, and search matches names, not handles. So nobody knows their own handle or where to type someone else's.
 
-> "how in chat am I supposed to find a person and message this person? For example, if I know a specific person ... who didn't attend an event, who is not in the group ... Is there like a QR code that they can generate and exchange? Can they find each other by nickname? Is there like a page like slash me in Telegram?"
+> Founder, 2026-10-23: "how in chat am I supposed to find a person and message this person? ... Is there like a QR code that they can generate and exchange? Can they find each other by nickname? Is there like a page like slash me in Telegram?"
 
-Today profiles have an internal profile address (`/p/:id`). UNVERIFIED: whether the chat's "new chat" flow can start a direct chat with someone outside shared groups. `/dev` checks this first.
+> Founder, 2026-11-05: "two users meet each other. They are not connected on Clarity Pledge. They don't have a chat. How do they find each other? ... on WhatsApp they just say here is my QR code scan you scan you connect if you don't have WhatsApp you scan and register"
+
+It is also the fast path to transcribing together: once two people have a 1:1, one taps Transcribe and the other taps Join, which already exists (P1604). This replaces a parked idea of a QR invite into a transcription session (decisions.md, 2026-11-05).
 
 ## Appetite
 
-Blast radius: medium. It touches profile, chat start and who-can-reach-whom. Reversibility: medium, since nicknames become public identifiers once handed out. Decision density: a few (below).
+Blast radius: medium. It touches profile, chat start and who may reach whom, including the server rule on starting a 1:1. Reversibility: medium; a code once printed or shared keeps working until reset. Decision density: settled with the founder on 2026-11-05/06, except the copy and link format below.
 
-## Solution (direction)
+## Solution
 
-1. **Nickname:** every member has a unique nickname, shown on their profile and in chat. It is assigned automatically at signup from their name, and they can change it in their profile.
-2. **Personal link:** a short `/me`-style link (Telegram-like) opens that person's profile with a "Message" button.
-3. **QR code** of that same link, shown on the member's own profile, for meeting in person.
-4. **Search by nickname** in "New chat".
+**Prototype:** `/tree/find-connect`, version C, on branch `feature/p1643-find-and-connect` (DEV-only, render-only). It was built and reviewed before this spec was found and merged into it. The prototype predates the decisions below: where they differ (a notice to the code-shower, a separate landing screen, the code inline on the profile), this spec wins.
 
-[FOUNDER DECISION: can anyone message anyone by nickname, or must the recipient accept a first message (message request) to prevent spam?]
-[FOUNDER DECISION: link format, e.g. `claritypledge.com/@nickname` or `/me/nickname`.]
-[FOUNDER DECISION: nickname rules — length, allowed characters, how often it can change, whether an old nickname redirects.]
+1. **Personal code.** Each member has a permanent personal code: a link containing a random token, not their handle, shown as a QR with Copy link and Share. A **Reset code** action replaces the token, so every old copy, printed or sent, stops working. The token is random because handles derive from names (`generateSlug`, `api.ts:687`), so a handle-based link would let anyone guess their way into messaging.
+2. **Opening a code means consent.** Opening a valid code link, by scanning or from a sent link, starts or opens a 1:1 with its owner, even with no shared group, event or agreement. Being shown or sent the code is the owner's consent. Block and the daily new-1:1 limit (P1512 D2) still apply.
+3. **Where the code lives.**
+   - A code icon beside the + at the top of the chat list, one tap away.
+   - A **My code** button on your own profile, opening the same sheet. The code is not shown inline on the profile.
+   - A **My code** row at the top of the New message dialog, with **Invite a Clarity Partner** moved up beneath it as an ordinary row; it is no longer pinned to the bottom.
+   - The + stays an icon; on desktop it already has a "New message" tooltip.
+4. **Scanning without an account** goes to the existing sign-up and login page with a return to the new chat, plus one line saying who they are connecting with. Signed-in people go straight to the chat. No separate landing screen is built.
+5. **Handle.** Shown on every profile under the name, and tapping it copies it. Exact-handle search in New message finds anyone's profile. **Message** shows on a profile and in search results only where messaging is allowed (a shared connection, or a 1:1 that already exists); otherwise the result points to their code.
+6. **No scan notice.** The person showing the code gets no "X scanned your code" alert; the new chat appearing in their list is the signal.
+
+### Server contract (from the spec review, 2026-11-06)
+
+- **The token reaches the server.** A new function redeems a token: it resolves the owner, applies the checks below and creates or returns the 1:1, in one transaction. The client never turns a token into a profile id and calls `start_dm` with it. `start_dm` and `_chat_dm_for_share` (P1545) keep the shared-connection rule unchanged; the token is the only new way past it.
+- **Token:** at least 128 bits from a cryptographic generator, unique, stored where only its owner can read it (reading your own code and resetting it are owner-only calls). A deleted account's token goes with it.
+- **Reset** replaces the token under a row lock that redemption also takes, so a redemption either finishes before the reset or sees the new token and fails. Reset stops **new** chats only: a 1:1 that already exists stays usable, as every 1:1 does today ("An existing conversation stays usable after the shared connection ends").
+- **Checks on redemption, in order:** signed in; token valid; not your own code (opens your own profile instead); not blocked in either direction (`_chat_blocked_either`); the scanner's daily limit (D2); and a new **owner-side limit**: at most 20 new chats per day may start from one person's code. Past it, the code says it is paused until tomorrow. Agent and mirror profiles get no code.
+- **Before sign-up,** a public lookup returns only the owner's name and photo for a valid token, so the sign-up page can say who they are connecting with. An invalid, reset or deleted code shows "This code no longer works" before sign-up, never after. All failures show the same message, so a probe cannot tell blocked from invalid.
+- **Return after sign-up:** the code path is added to the post-login allowlist (`src/auth/redirect-allowlist.ts`), so the redemption runs after Google sign-in and after email confirmation.
+- **The token is a secret in the URL.** Treat it like a room code (P1304): redact it in Sentry and Mixpanel, stop session recording on the code page, and send no referrer from it.
+- **Exact-handle search** is a new server function, separate from `search_chat_people`: it trims spaces, drops a leading `@` or a pasted profile URL, ignores case, and returns at most one profile on an exact match, shown above the connection results. Blocked people are not returned.
+- **Profile Message button** shows when a 1:1 exists or a shared connection does, and neither side has blocked the other; that check is a server call.
+
+[FOUNDER DECISION: link format, e.g. `claritypledge.com/c/<token>`.]
+[FOUNDER DECISION: all new wording: the sign-up context line, the sheet's caption, the Reset confirmation, the "not reachable, ask for their code" line.]
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Strangers spam people they found by nickname | MITIGATE | Founder decision on message requests above; block exists |
-| A changed nickname breaks printed QR codes | MITIGATE | QR encodes a stable id-based link, or old nicknames redirect |
-| Nickname squatting or impersonation | ACCEPT | Small community; reserve names of agents and staff |
+| A posted code lets strangers message the owner | MITIGATE | Reset code; block; the owner-side limit of 20 new chats a day (the existing limit caps only the scanner) |
+| The token leaks through a URL | MITIGATE | Redaction and no referrer, as for room codes |
+| Guessing tokens | MITIGATE | 128-bit tokens; identical failure messages |
+| The camera → browser or installed app → sign-up → chat handoff loses the destination on some phones | MITIGATE | Tested on a real iPhone and a real Android before done |
+| Guessing handles to find profiles | ACCEPT | Profiles are already public at `/p/<handle>`; exact match only, no browsing |
+| No message requests or report button | DEFER | Open handle messaging waits for them |
 
 **Non-Goals**
+- Do NOT let a handle alone start a 1:1. Only a code, or the existing shared-connection rule, does.
+- Do NOT add handle editing in v1. Profile links are already shared in letters and badges, and a change would break them; filed separately.
+- Do NOT add partial or name search beyond today's connection-scoped search. Exact handle only.
 - Do NOT expose email addresses for discovery.
-- Do NOT add a public member directory or search beyond exact nickname lookup.
+- Do NOT build an in-app camera scanner; the phone camera opens the link.
+
+## Invariants
+
+- Starting a 1:1 is decided on the server. A client-side check alone never grants it.
+- A reset code stops working at once, and the server checks that for every new 1:1 it starts.
+- Block wins over a code, in both directions.
+- A token is never readable by anyone but its owner.
 
 ## Acceptance Criteria
 
-- [ ] A member's profile shows their nickname, and they can change it.
-- [ ] Opening a member's personal link shows their profile with a working "Message" button.
-- [ ] A member can show a QR code of their link, and scanning it opens that link.
-- [ ] Typing an exact nickname in "New chat" finds that member.
-- [ ] The founder decisions above are recorded in this spec.
+- [ ] Two accounts with no shared group, event or agreement connect by one scanning the other's code, and both see the 1:1.
+- [ ] A person with no account scans a code, signs up, and lands in the chat with the code's owner.
+- [ ] A sent code link does the same as scanning it.
+- [ ] After Reset code, the old link shows "This code no longer works" and starts no chat, the new one works, and an existing chat stays open.
+- [ ] After 20 new chats in a day from one code, the next scan says the code is paused.
+- [ ] Opening your own code opens your profile, not a chat.
+- [ ] When either person has blocked the other, opening the code shows the same "This code no longer works" message and starts no chat.
+- [ ] The code sheet has Copy link, Share and Reset code; New message shows My code first and Invite a Clarity Partner beneath it.
+- [ ] Every profile shows the handle; tapping it copies it.
+- [ ] Exact-handle search finds a profile; Message shows only where a 1:1 is allowed.
+- [ ] My code opens from the chat list icon, from your profile, and from the New message dialog.
+- [ ] The scan → sign-up → chat handoff, with both Google and email sign-up, is verified on an iPhone (Camera → Safari) and an Android phone (Camera → Chrome).
+- [ ] The code token does not appear in Sentry events or Mixpanel URLs; checked with a test event.
 
 ## Related
 
-[P1509](p1509_clarity_chat_v1_chats_home.md) (chats home) · P1512 (Clarity Chat, direct messages)
+[P1512](done/2026-06-10/p1512_clarity_chat_v1_real_release.md) (Clarity Chat: D1 shared-connection rule, D2 block and daily limit) · [P1509](done/2026-06-10/p1509_clarity_chat_v1_chats_home.md) (chats home) · [P1461](p1461_clarity_chat_channel_members_settings.md) (adding people to channels) · P1604 (transcription in a chat)
