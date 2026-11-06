@@ -25,6 +25,7 @@ import { CloneDraftSheet } from './clone-draft-sheet';
 import { useCloneCanvas } from './use-clone-canvas';
 import { useCloneIntent } from './use-clone-intent';
 import { withoutCloneIntent } from '@/lib/canvas-hrefs';
+import { PreparationBanner } from './PreparationBanner';
 import { useCloseThread, useWorkspacePanel } from './use-workspace-panel';
 import { useCanvasRename } from './use-canvas-rename';
 import { useWorkspacePublish } from './use-workspace-publish';
@@ -36,8 +37,12 @@ import { WorkspaceOwnerBar } from './workspace-owner-bar';
 import { useWorkspaceNav } from './use-workspace-nav';
 import { useReportedCanvas, useThreadOnPending } from './use-reported-canvas';
 import { useAddToChat } from './use-add-to-chat';
-import { useHandDraft } from '@/app/pages/chat/use-hand-draft';
 import { WorkspaceProviders } from './workspace-providers';
+
+/** W8: once the canvas read has answered, it decides; before that, the signed-in owner of a canvas with a mirror chat gets the bar. */
+function showsOwnerBar(answered: { isOwner: boolean } | null | undefined, eligible: boolean): boolean {
+  return answered ? answered.isOwner : eligible;
+}
 
 export function CanvasWithThread() {
   const [params, setParams] = useSearchParams();
@@ -65,16 +70,15 @@ export function CanvasWithThread() {
   // 3c X13: a pending Clone (the Clone tap, a reload of its address, Start over from the J4 sheet, Add to chat) opens on Thread, because typing is next.
   useThreadOnPending(clone.pending?.version ?? null, setView);
   const { spotRunActive, threadUnknown, onDraftRead, onThreadAnswered } = useSpotRun(runActive, reported.ready, active);
-  const { closedDraftId, spot, publishing, publish } = useWorkspacePublish({ ready: threadUnknown ? null : reported.ready, runActive: spotRunActive, pendingClone: !!clone.pending, setParams, state: navState });
+  // P1529: `returnTo` is the event preparation this canvas was started from; the banner says so and Publish returns there.
+  const { closedDraftId, spot, publishing, publish, returnTo: backTo } = useWorkspacePublish({ ready: threadUnknown ? null : reported.ready, runActive: spotRunActive, pendingClone: !!clone.pending, setParams, state: navState });
   // W8: the owner's header is the bar above the page: for the signed-in owner of a canvas with a mirror chat from the first render (so nothing shifts when
   // the read lands), and for any owner once the page has read the canvas. Once the read HAS answered, it decides: a page that is not the viewer's own
   // never shows owner controls. Everyone else keeps the reader header in the page.
-  const ownerBar = (reported.ready ?? held)?.isOwner ?? eligible;
+  const ownerBar = showsOwnerBar(reported.ready ?? held, eligible);
   // S4: Add to chat (owner only: the tap exists only where Clone does) and the reply chips; the composer takes the tags from the bus.
   const add = useAddToChat(reported, held, params.get('v'), ownerBar, clone, panel, closedDraftId);
-  // Round 2: a pending Clone's first hand write makes the draft through the same opener, and the page moves to it as after the first message.
-  const ensureDraft = useHandDraft(clone.pending, projectTag, openedDraft);
-  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...add.tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: clone.pending?.seq ?? null, cloning: !!clone.pending, ownerBar, runActive: spotRunActive, ensureDraft }), [ensureDraft, active, reportReady, reloads, showThread, add.tap, clone.clone, resolved, clone.pending, ownerBar, spotRunActive]);
+  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...add.tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: clone.pending?.seq ?? null, cloning: !!clone.pending, ownerBar, runActive: spotRunActive }), [active, reportReady, reloads, showThread, add.tap, clone.clone, resolved, clone.pending, ownerBar, spotRunActive]);
   // The bar shows the last read FOR this canvas (`held`), so name, version and state do not blink away while the page re-reads another version.
   const rename = useCanvasRename(held, projectTag);
   useWorkspaceMarker({ eligible: workspaceOk, resolved, params, setParams, state: navState, reported, closedDraftId });
@@ -89,6 +93,7 @@ export function CanvasWithThread() {
     <WorkspaceProviders value={workspace} bus={add.bus}>
       <CanvasWorkspaceLayout
         active={active}
+        banner={backTo ? <PreparationBanner to={backTo} /> : null}
         view={view}
         panelOpen={panelOpen}
         bar={ownerBar ? (

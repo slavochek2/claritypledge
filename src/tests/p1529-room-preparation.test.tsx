@@ -21,6 +21,10 @@ vi.mock('@/app/data/event-mastermind-service', () => ({
   setEventCanvas: (...a: unknown[]) => h.setCanvas(...a),
 }));
 vi.mock('@/app/data/canvas-service', () => ({ canvasService: { listMyCanvases: async () => h.canvases } }));
+vi.mock('@/app/data/canvas-draft-service', () => ({
+  listMyCanvasVersions: async () => (h.canvases as { name: string; title: string | null }[]).map((c, i) => ({ id: `v${i}`, canvasId: `c${i}`, canvasName: c.name, canvasTitle: c.title, name: 'v', seq: 1, publishedAt: '2026-11-01T00:00:00Z', hasOpenDraft: false })),
+}));
+vi.mock('@/app/pages/chat/chat-hooks', () => ({ useMediaQuery: () => true }));
 vi.mock('@/app/pages/chat/use-start-canvas', () => ({ useStartCanvas: () => ({ start: vi.fn(), dialog: null }) }));
 vi.mock('sonner', () => ({ toast: { error: (m: string) => h.toastError(m) } }));
 
@@ -71,8 +75,9 @@ describe('EventCanvasCard', () => {
     render(<EventCanvasCard eventId="ev-1" />);
     const share = await screen.findByTestId('event-canvas-share');
     expect(share.className).toContain('min-h-11');
-    expect(screen.getByText('A very long canvas title that must not be cut off at 320px').className).not.toContain('truncate');
-    expect(screen.getByTestId('event-canvas-make').className).toContain('min-h-11');
+    expect(screen.getByTestId('event-canvas-body').textContent).toContain('A very long canvas title that must not be cut off at 320px');
+    expect(screen.getByTestId('event-canvas-body').className).not.toContain('truncate');
+    expect(screen.getByTestId('event-canvas-secondary').className).toContain('min-h-11');
   });
 });
 

@@ -43,15 +43,17 @@ function panesOf(wide: boolean, view: WorkspaceView, panelOpen: boolean) {
 }
 
 /**
+ * `banner` (P1529: the preparation banner) is the box's first row, above the bar; the box keeps its height, so the panes give up its height.
  * `bar` is drawn whether or not the workspace is on (W8: the owner's header is the same bar on a published view): inside the box it is the box's first
  * child, outside it sits above the page and sticks under the shell's top bar. Null for anyone but the owner (they get the reader header in the page).
  */
-export function CanvasWorkspaceLayout({ active, bar, canvas, chat, view, panelOpen = true }: { active: boolean; bar: ReactNode | null; canvas: ReactNode; chat: ReactNode; view: WorkspaceView; panelOpen?: boolean }) {
+export function CanvasWorkspaceLayout({ active, bar, banner = null, canvas, chat, view, panelOpen = true }: { active: boolean; bar: ReactNode | null; banner?: ReactNode | null; canvas: ReactNode; chat: ReactNode; view: WorkspaceView; panelOpen?: boolean }) {
   const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
   const panes = panesOf(wide, view, panelOpen);
   // The same elements in the same places whether or not the workspace is on, so the canvas page is never remounted by it.
   return (
     <div className={active ? WORKSPACE_BOX : undefined} data-testid={active ? 'canvas-workspace' : undefined}>
+      {banner}
       {bar}
       <div className={active ? 'relative min-h-0 flex-1 xl:flex' : undefined}>
         <div

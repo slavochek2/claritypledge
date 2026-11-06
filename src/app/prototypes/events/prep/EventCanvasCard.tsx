@@ -1,115 +1,75 @@
 /**
  * @file EventCanvasCard.tsx
- * @description P1529 §2 (D9, D17): "Your Clarity Canvas for this event". Pick a published canvas, or make one with
- * your mirror; sharing it with this event is its own visible tap. Change is gone once round 1 starts; a first canvas
- * can still arrive later, and the host may add that person at a coming round. Nothing is shared in the background.
+ * @description P1529 §2 (D9, D17): the canvas for this event, in the live room (no bottom bar there, so the primary stays inline).
+ * The state and copy come from `useEventCanvasStep`, which preparation's step 4 (EventCanvasStep) draws with its primary in the bottom bar.
+ * Change is gone once round 1 starts; a first canvas can still arrive later. Nothing is shared in the background.
  * Wording is DRAFT: [FOUNDER DECISION: copy].
  */
-import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { canvasService, type MyCanvasRow } from '@/app/data/canvas-service';
-import { getMyEventCanvas, setEventCanvas, type MyEventCanvas } from '@/app/data/event-mastermind-service';
-import { useStartCanvas } from '@/app/pages/chat/use-start-canvas';
-import { isNetworkBlip, NetworkBlipError } from '@/lib/network-blip';
+import { useEventCanvasStep, type PublishedCanvas } from './use-event-canvas-step';
 
-const canvasLabel = (c: MyCanvasRow) => c.title || c.name;
-
-function PickList({ canvases, busy, onPick }: { canvases: MyCanvasRow[]; busy: boolean; onPick: (name: string) => void }) {
+/** One line of body copy, and for several published canvases a radio list (newest first, newest preselected). */
+export function CanvasStepBody({ body, published, selected, onSelect, showList }: {
+  body: React.ReactNode; published: PublishedCanvas[]; selected: string | null; onSelect: (name: string) => void; showList: boolean;
+}) {
   return (
-    <ul className="space-y-2">
-      {canvases.map(c => (
-        // The name wraps rather than truncates, and the button drops under it when the row is narrow (320px).
-        <li key={c.name} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-sm">
-          <span className="min-w-[8rem] flex-1 break-words">{canvasLabel(c)}</span>
-          <Button variant="outline" size="sm" className="min-h-11" disabled={busy} onClick={() => onPick(c.name)} data-testid="event-canvas-share">
-            Share with this event
-          </Button>
-        </li>
-      ))}
-    </ul>
+    <>
+      <p className="text-sm text-muted-foreground" data-testid="event-canvas-body">{body}</p>
+      {showList && (
+        <fieldset className="space-y-1" data-testid="event-canvas-picker">
+          <legend className="sr-only">Clarity Canvas to share</legend>
+          {published.map(c => (
+            <label key={c.name} className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+              <input type="radio" name="event-canvas" className="h-4 w-4" checked={selected === c.name} onChange={() => onSelect(c.name)} data-testid="event-canvas-option" />
+              <span className="min-w-0 flex-1 break-words">{c.label}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+    </>
   );
 }
 
-export function EventCanvasCard({ eventId, returnToPreparation = false, onChosen }: {
-  eventId: string;
-  /** Preparation's step 4: after Publish the workspace brings the person back here (P1529 UAT round 1). */
-  returnToPreparation?: boolean;
-  /** Told whenever the read lands: whether a canvas is shared with this event. */
-  onChosen?: (shared: boolean) => void;
-}) {
-  const [mine, setMine] = useState<MyEventCanvas | null>(null);
-  const [canvases, setCanvases] = useState<MyCanvasRow[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [readFailed, setReadFailed] = useState(false);
-  const [changing, setChanging] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const { start, dialog } = useStartCanvas(returnToPreparation ? { returnAfterPublish: true } : undefined);
+/** Read failure: an error with Retry, never "no canvas yet" and never a dead primary. */
+export function CanvasStepError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div role="alert" data-testid="event-canvas-error">
+      <p className="text-sm text-muted-foreground">Could not load your Clarity Canvas for this event.</p>
+      <Button variant="outline" size="sm" className="mt-2 min-h-11" onClick={onRetry} data-testid="event-canvas-retry">Retry</Button>
+    </div>
+  );
+}
 
-  // A failed read is an error with Retry: it must never look like "no canvas yet", which would tell the person they join as an observer.
-  const read = useCallback(async () => {
-    try {
-      const [current, list] = await Promise.all([getMyEventCanvas(eventId), canvasService.listMyCanvases()]);
-      setMine(current);
-      setCanvases(list);
-      setReadFailed(false);
-      onChosen?.(!!current?.shared);
-    } catch {
-      setReadFailed(true);
-    }
-    setLoaded(true);
-  }, [eventId, onChosen]);
-
-  useEffect(() => {
-    void read();
-  }, [read]);
-
-  const pick = async (name: string) => {
-    setBusy(true);
-    try {
-      const result = await setEventCanvas(eventId, name);
-      if (result.status === 'refused') toast.error('Your Clarity Canvas is fixed now that round 1 has started.');
-      setChanging(false);
-      await read();
-    } catch (e) {
-      // The server's refusal (nothing published to share) and a request that never got through are different things to do.
-      toast.error(e instanceof NetworkBlipError || isNetworkBlip(e as Error) ? 'Could not reach the server. Check your connection and try again.' : 'Only a published Clarity Canvas of yours can be shared with this event.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (!loaded) return null;
-  if (readFailed) {
-    return (
-      <section className="w-full rounded-lg border border-border p-4 text-left" data-testid="event-canvas-error" role="alert">
-        <p className="text-sm text-muted-foreground">Could not load your Clarity Canvas for this event.</p>
-        <Button variant="outline" size="sm" className="mt-2 min-h-11" onClick={() => void read()} data-testid="event-canvas-retry">Retry</Button>
-      </section>
-    );
+export function EventCanvasCard({ eventId }: { eventId: string }) {
+  const step = useEventCanvasStep(eventId, {});
+  const { view, dialog } = step;
+  if (!step.loaded) return null;
+  if (step.readFailed || !view) {
+    return <section className="w-full rounded-lg border border-border p-4 text-left"><CanvasStepError onRetry={() => void step.retry()} /></section>;
   }
-  const chosen = mine?.shared ? mine : null;
-  // The canvas's own title when it has one; the raw name (canvas_2) otherwise.
-  const chosenLabel = chosen ? canvases.find(c => c.name === chosen.name)?.title || chosen.name : '';
-
+  const shared = view.state === 'E' || view.state === 'F';
   return (
     <section className="w-full rounded-lg border border-border p-4 text-left" data-testid="event-canvas-card">
-      {chosen && !changing ? (
+      {shared ? (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span data-testid="event-canvas-chosen">Your Clarity Canvas for this event: <strong>{chosenLabel}</strong></span>
-          {!chosen.fixed && (
-            <Button variant="outline" size="sm" className="min-h-11" onClick={() => setChanging(true)} data-testid="event-canvas-change">Change</Button>
+          <span data-testid="event-canvas-chosen">Your Clarity Canvas for this event: <strong>{step.sharedLabel}</strong></span>
+          {view.secondary && (
+            <Button variant="outline" size="sm" className="min-h-11" onClick={view.secondary.run} data-testid="event-canvas-change">{view.secondary.label}</Button>
           )}
-          {chosen.fixed && <p className="w-full text-muted-foreground" data-testid="event-canvas-ready">You&apos;re ready. The host can add you to a coming round.</p>}
+          {view.state === 'F' && <p className="w-full text-muted-foreground" data-testid="event-canvas-ready">{view.body}</p>}
         </div>
       ) : (
         <div className="space-y-3">
-          <h2 className="text-sm font-medium">Your Clarity Canvas for this event</h2>
-          {canvases.length > 0 && <PickList canvases={canvases} busy={busy} onPick={pick} />}
-          <Button variant="outline" size="sm" className="min-h-11" onClick={() => void start()} data-testid="event-canvas-make">Make one with your mirror</Button>
-          <p className="text-sm text-muted-foreground" data-testid="event-canvas-observer-line">
-            Without one you join as an observer: you help the pair keep to the rules and give feedback at the end of the round.
-          </p>
+          <h2 className="text-sm font-medium">{view.title}</h2>
+          <CanvasStepBody body={view.body} published={step.published} selected={step.selected} onSelect={step.setPicked} showList={view.state === 'D'} />
+          {view.primary && (
+            <Button variant="outline" size="sm" className="min-h-11" disabled={view.primary.busy} onClick={view.primary.run} data-testid={view.state === 'C' || view.state === 'D' ? 'event-canvas-share' : 'event-canvas-make'}>
+              {view.primary.label}
+            </Button>
+          )}
+          {view.secondary && (
+            <button type="button" className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline" onClick={view.secondary.run} data-testid="event-canvas-secondary">{view.secondary.label}</button>
+          )}
         </div>
       )}
       {dialog}

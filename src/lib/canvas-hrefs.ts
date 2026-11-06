@@ -41,3 +41,9 @@ export function withoutCloneIntent<T>(state: T): T {
   const { [CLONE_INTENT_KEY]: _consumed, ...rest } = state as Record<string, unknown>;
   return rest as T;
 }
+
+/** P1529: the navigation state's `afterPublish` when it is a same-origin app path ("/x", never "//host" or "/\host"); otherwise null. */
+export function afterPublishPath(state: unknown): string | null {
+  const v = (state as { afterPublish?: unknown } | null)?.afterPublish;
+  return typeof v === 'string' && v.startsWith('/') && !v.startsWith('//') && !v.startsWith('/\\') ? v : null;
+}

@@ -158,7 +158,7 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     await expect(dlg).toBeVisible();
     await expect(page.getByTestId('bring-own-mic')).toHaveCount(0);
     await dlg.getByTestId('registration-submit').click();
-    await expect(dlg.getByTestId('registration-missing')).toContainText('Choose how you want to join.');
+    await expect(dlg.getByTestId('missing-join')).toHaveText('Choose how you want to join.');
     const none = await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', REG.id).eq('profile_id', REGU.user.user.id);
     expect(none.count, 'tapping Register with nothing seats nobody').toBe(0);
     // the second question depends on the first answer: both branches, and a changed first answer clears the second
@@ -172,12 +172,12 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     await expect(dlg.getByTestId('prep-event')).not.toBeChecked();
     await shots(page, 'registration', 'help-branch');
     await dlg.getByTestId('registration-submit').click();
-    await expect(dlg.getByTestId('registration-missing')).toContainText('Choose when you will prepare.');
+    await expect(dlg.getByTestId('missing-prep')).toHaveText('Choose when you will prepare.');
     await dlg.getByTestId('prep-home').click();
     await dlg.getByText('Other', { exact: true }).click();
     await expect(dlg.getByTestId('bring-own-mic')).toHaveText('Please bring a headset or microphone that fits your phone.');
     await dlg.getByTestId('registration-submit').click();
-    await expect(dlg.getByTestId('registration-missing')).toHaveText('Accept the recording to register.');
+    await expect(dlg.getByTestId('missing-recording')).toHaveText('Tick the box about table conversations to register.');
     await shots(page, 'registration', 'other-selected');
     return 'step opened; three missing-lines in order; bring-own-mic shown for Other';
   }, page);
@@ -572,17 +572,17 @@ test('AC4 + AC5 (before round 1): pick, share as its own tap, Change replaces; o
   const card = page.getByTestId('prep-canvas-step').getByTestId('event-canvas-card');
   await ac('4a', 'a canvas is picked and shared as its own tap; the step then reads "Your canvas for this event: {name} · Change"', async () => {
     await expect(card).toBeVisible({ timeout: 90_000 });
-    // an owner with no canvas yet is told what happens without one, and can make one
-    await expect(card.getByTestId('event-canvas-observer-line')).toContainText('Without one you join as an observer');
-    await expect(card.getByTestId('event-canvas-make')).toBeVisible();
-    await expect(card.getByTestId('event-canvas-share')).toHaveCount(2);
+    // round 2: several published canvases and none shared is state D: a picker, the newest preselected, one primary in the bar
+    await expect(card.getByTestId('event-canvas-option')).toHaveCount(2);
+    await expect(page.getByTestId('event-canvas-primary')).toContainText('with this event');
+    await expect(page.getByText('Continue without a canvas')).toHaveCount(0);
     await shots(page, 'room', 'canvas-card-pick');
     const before = (await supabaseAdmin.from('canvas_audience').select('canvas_id').eq('event_id', E1.id).eq('kind', 'event')).data!.length;
-    await card.getByTestId('event-canvas-share').first().click();
-    await expect(card.getByTestId('event-canvas-chosen')).toBeVisible({ timeout: 60_000 });
-    await expect(card.getByTestId('event-canvas-change')).toBeVisible();
-    const chosen = (await card.getByTestId('event-canvas-chosen').innerText()).replace(/\s+/g, ' ');
-    expect(chosen).toMatch(/^Your Clarity Canvas for this event: \S+/);
+    await page.getByTestId('event-canvas-primary').getByRole('button').click();
+    await expect(card).toHaveAttribute('data-state', 'E', { timeout: 60_000 });
+    await expect(page.getByTestId('event-canvas-secondary')).toHaveText('Change');
+    const chosen = (await card.getByTestId('event-canvas-body').innerText()).replace(/\s+/g, ' ');
+    expect(chosen).toMatch(/^“.+” is shared with this event\.$/);
     const after = (await supabaseAdmin.from('canvas_audience').select('canvas_id').eq('event_id', E1.id).eq('kind', 'event')).data!.length;
     expect(after, 'one more canvas is shared with the event after the tap').toBe(before + 1);
     await shots(page, 'room', 'canvas-card-chosen');
@@ -594,13 +594,14 @@ test('AC4 + AC5 (before round 1): pick, share as its own tap, Change replaces; o
     const sharedIds = async () => ((await supabaseAdmin.from('canvas_audience').select('canvas_id').eq('event_id', E1.id).eq('kind', 'event').in('canvas_id', [A6firstCanvasId, A6second.canvasId])).data ?? []).map((r) => r.canvas_id as string);
     const first = await mine();
     expect(await sharedIds()).toEqual([first]);
-    await card.getByTestId('event-canvas-change').click();
-    await expect(card.getByTestId('event-canvas-share')).toHaveCount(2, { timeout: 30_000 });
+    await page.getByTestId('event-canvas-secondary').getByRole('button').click();
+    await expect(card.getByTestId('event-canvas-option')).toHaveCount(2, { timeout: 30_000 });
     // pick the one that is not the current choice
-    const labels = await card.locator('li').allInnerTexts();
+    const labels = await card.locator('label').allInnerTexts();
     note(`change list: ${labels.join(' | ')}`);
-    await card.locator('li', { hasText: 'Flo canvas' }).filter({ hasNotText: 'two' }).getByTestId('event-canvas-share').click();
-    await expect(card.getByTestId('event-canvas-chosen')).toBeVisible({ timeout: 60_000 });
+    await card.locator('label', { hasText: 'Flo canvas' }).filter({ hasNotText: 'two' }).getByTestId('event-canvas-option').check();
+    await page.getByTestId('event-canvas-primary').getByRole('button').click();
+    await expect(card).toHaveAttribute('data-state', 'E', { timeout: 60_000 });
     const second = await mine();
     expect(second).not.toBe(first);
     const shared = await sharedIds();
@@ -1428,7 +1429,7 @@ test('AC11 (a first canvas after round 1): the ready line, the host\'s ready mar
     const card = pg.getByTestId('event-canvas-card');
     await expect(card).toBeVisible();
     await expect(card.getByTestId('event-canvas-share')).toHaveCount(1);
-    await card.getByTestId('event-canvas-share').click();
+    await card.getByTestId('event-canvas-share').click(); // the room's card keeps its inline button
     await expect(card.getByTestId('event-canvas-chosen')).toBeVisible({ timeout: 60_000 });
     await expect(card.getByTestId('event-canvas-ready')).toHaveText("You're ready. The host can add you to a coming round.");
     await shots(pg, 'room', 'ready-line-after-round-1');

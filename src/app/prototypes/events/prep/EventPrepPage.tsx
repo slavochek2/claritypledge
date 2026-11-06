@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { isOnlineLocation, onTimeLine } from '../arrival/arrival-text';
 import { ownTimeLine } from '../event-doors';
-import { EventCanvasCard } from './EventCanvasCard';
+import { EventCanvasStep } from './EventCanvasStep';
 import { useAutoFinish, useStepsDone } from './use-auto-finish';
 import { useEventCommunityName } from '../use-event-community';
 import { useDeclareAppMenu } from '@/app/components/layout/app-menu-override';
@@ -299,7 +299,6 @@ export function PrepFlow({
   const [micSaving, setMicSaving] = useState(false);
   const [researchSaving, setResearchSaving] = useState(false);
   const [placesLeft, setPlacesLeft] = useState<number | null>(null);
-  const [canvasShared, setCanvasShared] = useState(false);
   const [experts, setExperts] = useState<string[] | null>(null);
   const [cmp7Count, setCmp7Count] = useState<Count>({ answered: 0, total: 0 });
   const [stakeCount, setStakeCount] = useState<Count>({ answered: 0, total: 0 });
@@ -1089,18 +1088,8 @@ export function PrepFlow({
           )}
 
           {screen === 'canvas' && (
-            // P1529 UAT round 1: step 4 of an owner's preparation. Make, publish and share the canvas; Publish returns here.
-            <section className="space-y-5" data-testid="prep-canvas-step">
-              <Title>Your Clarity Canvas for this event</Title>
-              <EventCanvasCard eventId={event.id} returnToPreparation onChosen={setCanvasShared} />
-              <StepActions ref={barRef}>
-                {canvasShared ? (
-                  <LetterPrimaryCta label="Continue" onClick={() => next('completed')} />
-                ) : (
-                  <LetterPrimaryCta label="Continue without a canvas" onClick={() => next('skipped')} variant="secondary" />
-                )}
-              </StepActions>
-            </section>
+            // P1529 UAT round 2: step 4 of an owner's preparation; its one primary is in the bottom bar (EventCanvasStep).
+            <EventCanvasStep eventId={event.id} barRef={barRef} onContinue={() => next('completed')} onSkip={() => next('skipped')} />
           )}
 
           {screen === 'end' && roomRow && words && (

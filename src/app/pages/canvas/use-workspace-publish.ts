@@ -12,6 +12,7 @@ import { useCanvasPublish, type PublishedInfo } from '@/app/components/canvas/us
 import { getMessage } from '@/app/data/chat-service';
 import { chatPath } from '@/app/pages/chat/chat-view-model';
 import { CANVAS_WORKSPACE_PARAM } from '@/app/components/layout/bottom-nav-routes';
+import { usePreparationReturn } from './use-preparation-return';
 
 // [FOUNDER DECISION: wording, built as written in the spec's X15.]
 export const SEE_OFFER_LABEL = 'See offer';
@@ -39,8 +40,12 @@ export function useWorkspacePublish(args: {
   pendingClone: boolean;
   setParams: (next: (prev: URLSearchParams) => URLSearchParams, options: { replace: boolean; state: Location['state'] }) => void;
   state: Location['state'];
+  /** Where Publish returns to; by default the preparation's `afterPublish`, remembered once seen (use-preparation-return, same-origin only). null leaves Publish where it is. */
+  returnTo?: string | null;
 }) {
   const { ready, runActive, pendingClone, setParams, state } = args;
+  const remembered = usePreparationReturn(state);
+  const returnTo = args.returnTo === undefined ? remembered : args.returnTo;
   const navigate = useNavigate();
   const [closedDraftId, setClosedDraftId] = useState<string | null>(null);
   const published = useCallback(({ seq, versionName, replyMessageId, openOffers }: PublishedInfo) => {
@@ -57,9 +62,8 @@ export function useWorkspacePublish(args: {
     const seeOffer = openOffers > 0 && draft ? { label: SEE_OFFER_LABEL, onClick: () => navigate(chatPath(draft.conversationId, { rootId: draft.threadRootId })) } : undefined;
     void replyFirstLine(replyMessageId, seq).then(text => (seeOffer ? toast.success(text, { action: seeOffer, duration: SEE_OFFER_TOAST_MS }) : toast.success(text)));
     // P1529 UAT round 1: a canvas made in the event's preparation returns there after Publish, where it is shared with the event.
-    const back = (state as { afterPublish?: unknown } | null)?.afterPublish;
-    if (typeof back === 'string' && back.startsWith('/')) navigate(back, { replace: true });
-  }, [ready, setParams, state, navigate]);
+    if (returnTo) navigate(returnTo, { replace: true });
+  }, [ready, setParams, state, navigate, returnTo]);
   const { state: spot, publishing, publish } = useCanvasPublish(ready, runActive, published, pendingClone);
-  return { closedDraftId, spot, publishing, publish };
+  return { closedDraftId, spot, publishing, publish, returnTo };
 }
