@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 304
+**Next ID:** 305
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3626,5 +3626,16 @@ Confirm a real /push runs staging push, promote and cleanup on the fixed hook, l
 **due:** week
 
 In the zsh agent shell, a failed step inside a multi-line Bash call did not stop the rest: in P1641 this caused five no-op push probes (an unbraced $S:refs applied a zsh modifier), two partial commits after failed python assertions, and an inbox Next ID reset below IDs in use. The zsh modifier trap is already recorded in docs/decisions.md and still recurred, so the fix is a mechanical guard (a PreToolUse check for unbraced $var: and for multi-line blocks with no stop-on-failure, or a standard preamble), not another note. Rules and hooks need the founder's claude-md gate. Drop if two weeks of sessions show no recurrence.
+
+---
+
+## Decide on /cm prod-health false alarm from Google Calendar report-only CSP
+
+**ID:** INBOX-304
+**Date:** 2026-11-06
+**Status:** proposed
+**due:** week
+
+prod-health-smoke on /cm intermittently fails on a console error from the embedded Google Calendar iframe: Framing calendar.google.com violates a report-only frame-ancestors 'self' directive (Google's own report-only policy, not ours). Seen during P1648 verification; the same route passed 8 of 8 earlier that day. Decide whether to add a narrow PROD_HEALTH_ALLOWLIST.consolePatterns entry (exact substring including "report-only" and calendar.google.com, reviewed per that file's rule) or leave it. Droppable if no /cm prod-health failure of this shape recurs within two weeks.
 
 ---
