@@ -103,7 +103,7 @@ import { EventWaitlistList } from '../components/EventWaitlistList';
 import { MastermindPreviewNotes } from './MastermindPreviewNotes';
 import { MastermindScreen } from './MastermindScreen';
 import { useHostFlow, useMastermindHost } from './use-mastermind-host';
-import { COLUMN_LABELS, MASTERMIND_FLOW, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, MASTERMIND_MINUTES_VERSION, dropStaleMastermindMinutes, seatGuardRefusal, silentTables, tablesNowTitle, tablesProposedTitle, waitingSetKey } from './mastermind-host-helpers';
+import { COLUMN_LABELS, MASTERMIND_FLOW, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, MASTERMIND_MINUTES_VERSION, dropStaleMastermindMinutes, seatGuardRefusal, silentTables, tablesNowTitle, tablesProposedTitle, waitingSetKey, READY_HINT, READY_LABEL } from './mastermind-host-helpers';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
 
 const START_LOCK_MS = 10_000;
@@ -374,7 +374,7 @@ function StatusMarks({ marks, lifted }: { marks?: PersonMarks; lifted: boolean }
         </span>
       )}
       {marks?.ready && (
-        <span className={cn('rounded-full px-1.5 text-[10px] font-semibold leading-4', lifted ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-700')} title="Their Clarity Canvas is shared and they have not owned a table yet. Setting up the next round seats them." data-testid="mm-ready">Ready</span>
+        <span className={cn('rounded-full px-1.5 text-[10px] font-semibold leading-4', lifted ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-700')} title={READY_HINT} data-testid="mm-ready">{READY_LABEL}</span>
       )}
       {marks?.recording && <RecordingMark state={marks.recording} lifted={lifted} />}
       {marks?.transcribing && (

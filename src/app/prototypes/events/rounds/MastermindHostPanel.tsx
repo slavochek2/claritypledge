@@ -22,14 +22,14 @@ import { Avatar } from './host-screen-parts';
 import { shortName } from './use-event-rounds';
 import type { MastermindHost } from './use-mastermind-host';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
-import { NOT_REGISTERED_LINE, PREVIEW_LOCK_LINE, RECORDING_WORDS, UPDATE_STATE_WORDS, canvasLine, isObserver, isUnregistered, observerRefusal } from './mastermind-host-helpers';
+import { NOT_REGISTERED_LINE, PREVIEW_LOCK_LINE, RECORDING_WORDS, UPDATE_STATE_WORDS, canvasLine, isObserver, isUnregistered, observerRefusal, READY_LABEL, READY_HINT } from './mastermind-host-helpers';
 
 /** [FOUNDER DECISION: copy] */
 const COPY = {
   participant: 'Participant',
   observer: 'Observer',
-  ready: 'Ready',
-  readyHint: 'Their Clarity Canvas is shared and they have not owned a table yet. Setting up the next round seats them.',
+  ready: READY_LABEL,
+  readyHint: READY_HINT,
   doors: 'Doors',
   doorsHint: 'Comes at the doors time to make their Clarity Canvas (or to prepare as an observer).',
   markOut: 'Mark out',

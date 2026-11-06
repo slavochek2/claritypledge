@@ -183,3 +183,8 @@ export const UPDATE_STATE_WORDS: Record<string, string> = {
   failed: 'Failed',
   published: 'Published',
 };
+
+/** [FOUNDER DECISION: copy] D17: the mark on a person whose canvas is shared and who has not owned a table yet, and its hint. One
+ * source for the people list and the table tile. */
+export const READY_LABEL = 'Ready';
+export const READY_HINT = 'Their Clarity Canvas is shared and they have not owned a table yet. Setting up the next round seats them.';
