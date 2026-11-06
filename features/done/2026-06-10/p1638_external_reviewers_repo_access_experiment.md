@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: comment
 rank: 107
 workstream: infrastructure
 created_date: '2026-11-05'
 tags: [reviewers, finish, harness, experiment]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: heuristic
 spec_review_hash: 5094a981835d7499094cb1fa717f1cdcc46567e8a70bcef5ca08e05cfe328921
 spec_review_vendors: [gemini]
+completed_at: 2026-11-06
 ---
 
 # P1638: Does a harness or more context make the Argon reviewer better?
@@ -45,7 +45,7 @@ Blast radius: a test script, a test-only sandbox and a scratch directory; no liv
 
 ### Benchmark
 
-Twelve cases, fixed in a committed manifest ([docs/audits/p1638-benchmark-manifest.json](../docs/audits/p1638-benchmark-manifest.json)) before any scored run:
+Twelve cases, fixed in a committed manifest ([docs/audits/p1638-benchmark-manifest.json](../../../docs/audits/p1638-benchmark-manifest.json)) before any scored run:
 
 - **6 cross-file defects:** the defect cannot be established from the diff alone. Record for each whether the evidence is inside a changed file or only in an unchanged one. At least 3 must be the first kind, so C has a fair chance, and at least 2 the second. Report C on each subset.
 - **3 diff-visible defects:** so a loss of diff-only strength shows up.
@@ -154,7 +154,7 @@ The set is selected to include context-dependent defects, so a win justifies a f
 
 **Founder decision (2026-11-06): no change.** Today's reviewer stays, as the pre-registered criteria require, and no follow-up spec is filed.
 
-Results and verdict: [docs/audits/p1638-results.md](../docs/audits/p1638-results.md).
+Results and verdict: [docs/audits/p1638-results.md](../../../docs/audits/p1638-results.md).
 
 ## Cost Budget
 
@@ -214,7 +214,7 @@ Delete exports and outputs, remove the test profile and DSH home, and return the
 
 ## Related
 
-- [P1630](features/done/) GLM reviewer and its embargo rule
-- [P1634](features/done/2026-06-10/p1634_default_build_and_review_roster.md) default review roster
+- [P1630](p1630_glm_extra_reviewer_in_finish_and_receipt_floor.md) GLM reviewer and its embargo rule
+- [P1634](p1634_default_build_and_review_roster.md) default review roster
 - `docs/decisions.md` 2026-11-05 entries for both; 2026-09-04 "The delegation gate hangs on exactly the payloads it exists to scan"
 - Private infra notes on DSH containment (p78)
