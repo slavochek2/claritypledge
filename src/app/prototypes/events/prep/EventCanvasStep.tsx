@@ -28,10 +28,11 @@ export function EventCanvasStep({ eventId, barRef, onContinue, onSkip }: {
       <StepActions ref={barRef}>
         {view?.primary && (
           <ActionRow
-            primary={<div className="w-full" data-testid="event-canvas-primary"><LetterPrimaryCta label={view.primary.label} onClick={view.primary.run} disabled={view.primary.busy} /></div>}
-            secondary={view.secondary ? (
-              <div className="w-full" data-testid="event-canvas-secondary"><LetterPrimaryCta label={view.secondary.label} onClick={view.secondary.run} variant="secondary" /></div>
-            ) : undefined}
+            primary={<div className="w-full" data-testid="event-canvas-primary"><LetterPrimaryCta label={view.primary.label} onClick={view.primary.run} disabled={view.primary.disabled} /></div>}
+            secondary={<>
+              {view.secondary && <div className="w-full" data-testid="event-canvas-secondary"><LetterPrimaryCta label={view.secondary.label} onClick={view.secondary.run} disabled={view.secondary.disabled} variant="outline" /></div>}
+              {view.quiet && <div className="w-full" data-testid="event-canvas-quiet"><LetterPrimaryCta label={view.quiet.label} onClick={view.quiet.run} disabled={view.quiet.disabled} variant="secondary" /></div>}
+            </>}
           />
         )}
       </StepActions>

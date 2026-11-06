@@ -5,7 +5,7 @@
  * again, the read on screen still shows it open and must not bring the marker back.
  */
 import { useCallback, useState } from 'react';
-import { useNavigate, type Location } from 'react-router-dom';
+import { useNavigate, useParams, type Location } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { useCanvasPublish, type PublishedInfo } from '@/app/components/canvas/use-canvas-publish';
@@ -42,10 +42,13 @@ export function useWorkspacePublish(args: {
   state: Location['state'];
   /** Where Publish returns to; by default the preparation's `afterPublish`, remembered once seen (use-preparation-return, same-origin only). null leaves Publish where it is. */
   returnTo?: string | null;
+  /** Only the canvas's owner is preparing it: anyone else gets neither the banner nor the jump. Default true. */
+  owner?: boolean;
 }) {
   const { ready, runActive, pendingClone, setParams, state } = args;
-  const remembered = usePreparationReturn(state);
-  const returnTo = args.returnTo === undefined ? remembered : args.returnTo;
+  const { handle, projectTag } = useParams(); // the canvas on screen: the remembered return belongs to it alone
+  const remembered = usePreparationReturn(state, `${handle}/${projectTag}`);
+  const returnTo = args.owner === false ? null : args.returnTo === undefined ? remembered : args.returnTo;
   const navigate = useNavigate();
   const [closedDraftId, setClosedDraftId] = useState<string | null>(null);
   const published = useCallback(({ seq, versionName, replyMessageId, openOffers }: PublishedInfo) => {

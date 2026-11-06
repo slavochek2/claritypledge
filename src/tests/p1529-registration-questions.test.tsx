@@ -127,12 +127,14 @@ describe('P1529 D24 registration form: submitting', () => {
     const groups = Array.from(document.querySelectorAll('[data-question]'));
     expect(groups.map(g => g.getAttribute('data-question'))).toEqual(['join', 'recording', 'phone']);
     const invalidOf = (el: Element | null) => el?.getAttribute('aria-invalid');
-    expect(invalidOf(groups[0])).toBe('true');
-    expect(invalidOf(groups[2])).toBe('true');
+    expect(invalidOf(groups[0])).toBeNull();
+    expect(invalidOf(screen.getByTestId('join-help'))).toBe('true');
+    expect(screen.getByTestId('join-help').getAttribute('aria-describedby')).toBe(screen.getByTestId('missing-join').id);
+    expect(invalidOf(screen.getByLabelText('USB-C'))).toBe('true');
+    expect(screen.getByLabelText('USB-C').getAttribute('aria-describedby')).toBe(screen.getByTestId('missing-phone').id);
     expect(invalidOf(screen.getByTestId('recording-accept'))).toBe('true');
-    expect(groups[0].getAttribute('aria-describedby')).toBe(screen.getByTestId('missing-join').id);
+    expect(groups[0].hasAttribute('aria-describedby')).toBe(false);
     expect(screen.getByTestId('recording-accept').getAttribute('aria-describedby')).toBe(screen.getByTestId('missing-recording').id);
-    expect(groups[2].getAttribute('aria-describedby')).toBe(screen.getByTestId('missing-phone').id);
     expect(groups[0].className).toContain('outline-destructive');
     expect(document.activeElement).toBe(screen.getByTestId('join-improve'));
   });
@@ -142,7 +144,7 @@ describe('P1529 D24 registration form: submitting', () => {
     fireEvent.click(screen.getByTestId('registration-submit'));
     fireEvent.click(screen.getByLabelText('USB-C'));
     expect(screen.queryByTestId('missing-phone')).toBeNull();
-    expect(document.querySelector('[data-question="phone"]')?.hasAttribute('aria-invalid')).toBe(false);
+    expect(screen.getByLabelText('USB-C').hasAttribute('aria-invalid')).toBe(false);
     expect(screen.getByTestId('missing-join')).toBeTruthy();
     expect(screen.getByTestId('missing-recording')).toBeTruthy();
     fireEvent.click(screen.getByTestId('recording-accept'));
@@ -156,6 +158,39 @@ describe('P1529 D24 registration form: submitting', () => {
     fireEvent.click(screen.getByTestId('prep-home'));
     fireEvent.click(screen.getByTestId('registration-submit'));
     expect(document.activeElement).toBe(screen.getByTestId('recording-accept'));
+  });
+
+  it('a question revealed after the try stays neutral until the next Register', () => {
+    open();
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    fireEvent.click(screen.getByTestId('join-help'));
+    expect(screen.getByTestId('prep-question')).toBeTruthy();
+    expect(screen.queryByTestId('missing-prep')).toBeNull();
+    expect(screen.getByTestId('prep-home').hasAttribute('aria-invalid')).toBe(false);
+    expect(screen.getByTestId('prep-question').className).not.toContain('outline-destructive');
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    expect(screen.getByTestId('missing-prep')).toBeTruthy();
+  });
+
+  it('focus lands after the error line is in the DOM and linked, without a jump, then scrolls the group to centre', () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+    open();
+    const seen: Array<string | null> = [];
+    focus.mockImplementation(function (this: HTMLElement) {
+      seen.push(document.getElementById(this.getAttribute('aria-describedby') ?? '')?.textContent ?? null);
+    });
+    focus.mockClear();
+    seen.length = 0;
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    expect(seen).toEqual(['Choose how you want to join.']);
+    const at = focus.mock.contexts.lastIndexOf(screen.getByTestId('join-improve'));
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(focus.mock.calls[at]).toEqual([{ preventScroll: true }]);
+    expect(scroll).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' });
+    expect(scroll.mock.contexts[0]).toBe(document.querySelector('[data-question="join"]'));
+    focus.mockRestore();
   });
 
   it('the four missing lines are the four given', () => {

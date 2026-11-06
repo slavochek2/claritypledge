@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import type { CanvasReady } from '@/app/components/canvas/canvas-page-data';
 
@@ -33,6 +33,14 @@ const setup = (initial: unknown) => renderHook(({ state }: { state: unknown }) =
   const returnTo = usePreparationReturn(state);
   return useWorkspacePublish({ ready, runActive: false, pendingClone: false, setParams: vi.fn(), state, returnTo });
 }, { wrapper, initialProps: { state: initial } });
+/** The page's real wiring: the hook remembers the return itself, keyed by the canvas in the route (handle + projectTag). */
+const routed = ({ children }: { children: ReactNode }) => (
+  <MemoryRouter initialEntries={['/p/ana/canvas/canvas_1']}><Routes><Route path="/p/:handle/canvas/:projectTag" element={<Probe>{children}</Probe>} /></Routes></MemoryRouter>
+);
+const pageSetup = (initial: unknown, owner = true) => renderHook(({ state }: { state: unknown }) => {
+  const nav = useNavigate();
+  return { nav, ...useWorkspacePublish({ ready, runActive: false, pendingClone: false, setParams: vi.fn(), state, owner }) };
+}, { wrapper: routed, initialProps: { state: initial } });
 const press = async (h: ReturnType<typeof setup>) => { await act(async () => { h.result.current.publish(); }); };
 
 beforeEach(() => { Where.current = ''; getMessage.mockResolvedValue(null); });
@@ -53,5 +61,31 @@ describe('P1529: Publish returns to the preparation', () => {
     const h = setup({ afterPublish: '//evil.example/x' });
     await press(h);
     expect(Where.current).toBe('/p/ana/canvas/canvas');
+  });
+  it('another canvas forgets the return: no banner path and Publish stays', async () => {
+    const h = pageSetup({ afterPublish: '/events/x/prep' });
+    expect(h.result.current.returnTo).toBe('/events/x/prep');
+    h.rerender({ state: null }); // the navigation to the other canvas carries no afterPublish
+    expect(h.result.current.returnTo).toBe('/events/x/prep'); // still the same canvas: remembered
+    act(() => h.result.current.nav('/p/ana/canvas/canvas_2'));
+    expect(h.result.current.returnTo).toBeNull();
+    await act(async () => { h.result.current.publish(); });
+    expect(Where.current).toBe('/p/ana/canvas/canvas_2');
+  });
+  it('a panel entry on the SAME canvas keeps it', () => {
+    const h = pageSetup({ afterPublish: '/events/x/prep' });
+    h.rerender({ state: { canvasPanel: true } });
+    expect(h.result.current.returnTo).toBe('/events/x/prep');
+  });
+  it('is known on the first render (no extra render)', () => {
+    let renders = 0;
+    renderHook(() => { renders += 1; return usePreparationReturn({ afterPublish: '/events/x/prep' }, 'k'); }, { wrapper });
+    expect(renders).toBe(1);
+  });
+  it('a viewer who does not own the canvas gets no return (no banner, no jump)', async () => {
+    const h = pageSetup({ afterPublish: '/events/x/prep' }, false);
+    expect(h.result.current.returnTo).toBeNull();
+    await act(async () => { h.result.current.publish(); });
+    expect(Where.current).toBe('/p/ana/canvas/canvas_1');
   });
 });

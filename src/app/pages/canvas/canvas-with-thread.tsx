@@ -70,12 +70,13 @@ export function CanvasWithThread() {
   // 3c X13: a pending Clone (the Clone tap, a reload of its address, Start over from the J4 sheet, Add to chat) opens on Thread, because typing is next.
   useThreadOnPending(clone.pending?.version ?? null, setView);
   const { spotRunActive, threadUnknown, onDraftRead, onThreadAnswered } = useSpotRun(runActive, reported.ready, active);
-  // P1529: `returnTo` is the event preparation this canvas was started from; the banner says so and Publish returns there.
-  const { closedDraftId, spot, publishing, publish, returnTo: backTo } = useWorkspacePublish({ ready: threadUnknown ? null : reported.ready, runActive: spotRunActive, pendingClone: !!clone.pending, setParams, state: navState });
+  // P1529: only the owner is preparing this canvas, so the banner and the jump after Publish need ownerBar too (hence it is read before them).
   // W8: the owner's header is the bar above the page: for the signed-in owner of a canvas with a mirror chat from the first render (so nothing shifts when
   // the read lands), and for any owner once the page has read the canvas. Once the read HAS answered, it decides: a page that is not the viewer's own
   // never shows owner controls. Everyone else keeps the reader header in the page.
   const ownerBar = showsOwnerBar(reported.ready ?? held, eligible);
+  // `returnTo` is the event preparation this canvas was started from; the banner says so and Publish returns there.
+  const { closedDraftId, spot, publishing, publish, returnTo: backTo } = useWorkspacePublish({ ready: threadUnknown ? null : reported.ready, runActive: spotRunActive, pendingClone: !!clone.pending, setParams, state: navState, owner: ownerBar });
   // S4: Add to chat (owner only: the tap exists only where Clone does) and the reply chips; the composer takes the tags from the bus.
   const add = useAddToChat(reported, held, params.get('v'), ownerBar, clone, panel, closedDraftId);
   const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...add.tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: clone.pending?.seq ?? null, cloning: !!clone.pending, ownerBar, runActive: spotRunActive }), [active, reportReady, reloads, showThread, add.tap, clone.clone, resolved, clone.pending, ownerBar, spotRunActive]);

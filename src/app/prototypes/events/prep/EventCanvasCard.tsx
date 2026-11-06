@@ -6,6 +6,7 @@
  * Wording is DRAFT: [FOUNDER DECISION: copy].
  */
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useEventCanvasStep, type PublishedCanvas } from './use-event-canvas-step';
 
 /** One line of body copy, and for several published canvases a radio list (newest first, newest preselected). */
@@ -40,10 +41,12 @@ export function CanvasStepError({ onRetry }: { onRetry: () => void }) {
   );
 }
 
+const SHARE_STATES = ['C', 'D', 'G'];
+
 export function EventCanvasCard({ eventId }: { eventId: string }) {
   const step = useEventCanvasStep(eventId, {});
   const { view, dialog } = step;
-  if (!step.loaded) return null;
+  if (!step.loaded) return <section className="w-full space-y-3 rounded-lg border border-border p-4" data-testid="event-canvas-loading" aria-busy="true"><Skeleton className="h-5 w-3/4" /><Skeleton className="h-4 w-full" /></section>;
   if (step.readFailed || !view) {
     return <section className="w-full rounded-lg border border-border p-4 text-left"><CanvasStepError onRetry={() => void step.retry()} /></section>;
   }
@@ -54,7 +57,7 @@ export function EventCanvasCard({ eventId }: { eventId: string }) {
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span data-testid="event-canvas-chosen">Your Clarity Canvas for this event: <strong>{step.sharedLabel}</strong></span>
           {view.secondary && (
-            <Button variant="outline" size="sm" className="min-h-11" onClick={view.secondary.run} data-testid="event-canvas-change">{view.secondary.label}</Button>
+            <Button variant="outline" size="sm" className="min-h-11" disabled={view.secondary.disabled} onClick={view.secondary.run} data-testid="event-canvas-change">{view.secondary.label}</Button>
           )}
           {view.state === 'F' && <p className="w-full text-muted-foreground" data-testid="event-canvas-ready">{view.body}</p>}
         </div>
@@ -62,13 +65,18 @@ export function EventCanvasCard({ eventId }: { eventId: string }) {
         <div className="space-y-3">
           <h2 className="text-sm font-medium">{view.title}</h2>
           <CanvasStepBody body={view.body} published={step.published} selected={step.selected} onSelect={step.setPicked} showList={view.state === 'D'} />
-          {view.primary && (
-            <Button variant="outline" size="sm" className="min-h-11" disabled={view.primary.busy} onClick={view.primary.run} data-testid={view.state === 'C' || view.state === 'D' ? 'event-canvas-share' : 'event-canvas-make'}>
-              {view.primary.label}
-            </Button>
-          )}
-          {view.secondary && (
-            <button type="button" className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline" onClick={view.secondary.run} data-testid="event-canvas-secondary">{view.secondary.label}</button>
+          <div className="flex flex-wrap items-center gap-3">
+            {view.primary && (
+              <Button variant="outline" size="sm" className="min-h-11" disabled={view.primary.disabled} onClick={view.primary.run} data-testid={SHARE_STATES.includes(view.state) ? 'event-canvas-share' : 'event-canvas-make'}>
+                {view.primary.label}
+              </Button>
+            )}
+            {view.secondary && (
+              <Button variant="outline" size="sm" className="min-h-11" disabled={view.secondary.disabled} onClick={view.secondary.run} data-testid="event-canvas-secondary">{view.secondary.label}</Button>
+            )}
+          </div>
+          {view.quiet && (
+            <button type="button" className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline disabled:opacity-50" disabled={view.quiet.disabled} onClick={view.quiet.run} data-testid="event-canvas-quiet">{view.quiet.label}</button>
           )}
         </div>
       )}

@@ -1,42 +1,57 @@
 /**
  * @file use-event-canvas-step.ts
  * @description P1529 UAT round 2: the state of preparation's canvas step, lifted out of the card so the page draws the ONE primary in its
- * bottom bar while the live room's card keeps an inline button. Six states (A..F); sharing stays its own tap (D9: nothing is shared in
- * the background; Publish returning to the step does NOT share). All strings are DRAFT copy.
- * Published canvases come from `listMyCanvasVersions` (list_my_canvas_versions only returns versions with `published_at IS NOT NULL`);
- * `listMyCanvases` also returns draft-only canvases (an open draft), which is what tells B (an open draft) from A.
+ * bottom bar while the live room's card keeps an inline button. Seven states (A..G, see canvas-step-view); sharing stays its own tap (D9:
+ * nothing is shared in the background; Publish returning to the step does NOT share). All strings are DRAFT copy.
+ * Published canvases come from `listMyCanvasVersions` (only versions with `published_at IS NOT NULL`); an OPEN draft comes from the owner's own
+ * `canvas_drafts` rows (`listMyCanvasDraftState`, state 'open'): that is what tells B from A, and it is the draft "Continue your draft" reopens.
+ * One action in flight at a time: it shows its busy label and no other action is tappable.
  */
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { canvasService } from '@/app/data/canvas-service';
 import { listMyCanvasVersions } from '@/app/data/canvas-draft-service';
+import { listMyCanvasDraftState, type OpenCanvasDraft } from '@/app/data/canvas-open-drafts';
 import { getMyEventCanvas, setEventCanvas, type MyEventCanvas } from '@/app/data/event-mastermind-service';
 import { CANVAS_WORKSPACE_WIDE_QUERY } from '@/app/components/canvas/canvas-workspace-context';
+import { canvasStartErrorText } from '@/app/pages/chat/canvas-start';
+import { workspaceHref } from '@/app/pages/chat/canvas-links';
+import { useChat } from '@/app/pages/chat/chat-state';
 import { useMediaQuery } from '@/app/pages/chat/chat-hooks';
 import { useStartCanvas } from '@/app/pages/chat/use-start-canvas';
 import { isNetworkBlip, NetworkBlipError } from '@/lib/network-blip';
+import { buildStepView, type MakeAction, type PublishedCanvas } from './canvas-step-view';
 
-export type CanvasStepState = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
-export interface PublishedCanvas { name: string; label: string }
-export interface StepAction { label: string; run: () => void; busy?: boolean }
+export type { CanvasStepState, PublishedCanvas, StepAction } from './canvas-step-view';
+
+const NETWORK_TEXT = 'Could not reach the server. Check your connection and try again.';
+const SHARE_FAILED_TEXT = "Couldn't share your Clarity Canvas. Try again."; // [FOUNDER DECISION: copy, proposed]
+
+const failed = (e: unknown) => toast.error(e instanceof NetworkBlipError || isNetworkBlip(e as Error) ? NETWORK_TEXT : SHARE_FAILED_TEXT);
 
 export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?: boolean; onContinue?: () => void; onSkip?: () => void }) {
   const { returnToPreparation = false, onContinue, onSkip } = opts;
   const [mine, setMine] = useState<MyEventCanvas | null>(null);
   const [published, setPublished] = useState<PublishedCanvas[]>([]);
-  const [hasDraft, setHasDraft] = useState(false);
+  const [openDraft, setOpenDraft] = useState<OpenCanvasDraft | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [readFailed, setReadFailed] = useState(false);
   const [changing, setChanging] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
   const { start, dialog } = useStartCanvas(returnToPreparation ? { returnAfterPublish: true } : undefined);
+  const chat = useChat();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const here = `${location.pathname}${location.search}`;
+  const slug = chat.authors[chat.userId]?.slug ?? null;
 
   // A failed read is an error with Retry: it must never look like "no canvas yet".
   const read = useCallback(async () => {
     try {
-      const [current, versions, all] = await Promise.all([getMyEventCanvas(eventId), listMyCanvasVersions(), canvasService.listMyCanvases()]);
+      const [current, versions, state] = await Promise.all([getMyEventCanvas(eventId), listMyCanvasVersions(), listMyCanvasDraftState()]);
       const seen = new Set<string>();
       const list: PublishedCanvas[] = [];
       for (const v of versions) { // newest published version first
@@ -46,7 +61,7 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
       }
       setMine(current);
       setPublished(list);
-      setHasDraft(all.some(c => !seen.has(c.name)));
+      setOpenDraft(state.drafts[0] ?? null);
       setReadFailed(false);
     } catch {
       setReadFailed(true);
@@ -55,71 +70,50 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
   }, [eventId]);
   useEffect(() => { void read(); }, [read]);
 
+  /** Reopens the person's existing open draft (never `start()`, which would make a new canvas): the workspace on it, as use-start-canvas opens one. */
+  const continueDraft = useCallback(() => {
+    if (!openDraft) return;
+    if (!slug) { toast.error(canvasStartErrorText(null)); return; }
+    navigate(workspaceHref(slug, openDraft.canvasName, openDraft.versionName), { state: { from: here, ...(returnToPreparation ? { afterPublish: here } : {}) } });
+  }, [openDraft, slug, navigate, here, returnToPreparation]);
+
   const share = useCallback(async (name: string) => {
-    setBusy(true);
     try {
       const result = await setEventCanvas(eventId, name);
       if (result.status === 'refused') toast.error('Your Clarity Canvas is fixed now that round 1 has started.');
       setChanging(false);
       await read();
-    } catch (e) {
-      toast.error(e instanceof NetworkBlipError || isNetworkBlip(e as Error) ? 'Could not reach the server. Check your connection and try again.' : 'Only a published Clarity Canvas of yours can be shared with this event.');
-    } finally {
-      setBusy(false);
-    }
+    } catch (e) { failed(e); }
+  }, [eventId, read]);
+  /** Round 1 has started: the same canvas goes back to the event through share_canvas (set_event_canvas refuses once rounds count). */
+  const shareAgain = useCallback(async (name: string) => {
+    try {
+      await canvasService.shareCanvas(name, 'event', eventId);
+      await read();
+    } catch (e) { failed(e); }
   }, [eventId, read]);
 
-  const chosen = mine?.shared ? mine : null;
-  const selected = published.find(p => p.name === picked)?.name ?? published[0]?.name ?? null; // newest preselected
-  const selectedLabel = published.find(p => p.name === selected)?.label ?? '';
-  const sharedLabel = chosen ? published.find(p => p.name === chosen.name)?.label || chosen.name : '';
+  const mk: MakeAction = (id, label, busyLabel, run, quiet) => ({
+    label: pending === id && busyLabel ? busyLabel : label,
+    run: () => {
+      if (pending) return;
+      if (busyLabel === null) { void run(); return; } // instant: a navigation or a local toggle has no in-flight state
+      setPending(id);
+      void Promise.resolve(run()).finally(() => setPending(null));
+    },
+    disabled: pending !== null,
+    quiet,
+  });
 
-  const view = useMemo(() => {
-    if (!loaded || readFailed) return null;
-    const make: StepAction = { label: 'Make a different one', run: () => void start() };
-    let state: CanvasStepState;
-    let title: string;
-    let body: ReactNode;
-    let primary: StepAction | null = null;
-    let secondary: StepAction | null = null;
-    if (chosen && !changing) {
-      state = chosen.fixed ? 'F' : 'E';
-      // [FOUNDER DECISION: copy, proposed]
-      title = 'Your Clarity Canvas is shared';
-      // [FOUNDER DECISION: copy, proposed] (F: existing copy)
-      body = chosen.fixed ? "You're ready. The host can add you to a coming round." : `“${sharedLabel}” is shared with this event.`;
-      if (onContinue) primary = { label: 'Continue', run: onContinue };
-      if (!chosen.fixed) secondary = { label: 'Change', run: () => setChanging(true) };
-    } else if (published.length === 0) {
-      if (hasDraft) {
-        state = 'B';
-        title = 'Finish your Clarity Canvas'; // [FOUNDER DECISION: copy, proposed]
-        body = "Your draft isn't published yet. Publish it to finish this step."; // [FOUNDER DECISION: copy, proposed]
-        primary = { label: 'Continue your draft', run: () => void start() }; // [FOUNDER DECISION: copy, proposed]
-      } else {
-        state = 'A';
-        title = 'Create your Clarity Canvas now'; // founder's title
-        // [FOUNDER DECISION: copy, proposed]
-        body = `About 15 minutes with your mirror.${wide ? '' : " It's easier on a desktop."}`;
-        primary = { label: 'Create your canvas', run: () => void start() }; // [FOUNDER DECISION: copy, proposed]
-        if (onSkip) secondary = { label: 'Skip for now', run: onSkip }; // [FOUNDER DECISION: copy, proposed]
-      }
-    } else if (published.length === 1 && published[0]) {
-      const only = published[0];
-      state = 'C';
-      title = 'Share your Clarity Canvas'; // [FOUNDER DECISION: copy, proposed]
-      body = `“${only.label}” is ready. Share it with this event's attendees.`; // [FOUNDER DECISION: copy, proposed]
-      primary = { label: 'Share with this event', run: () => void share(only.name), busy }; // [FOUNDER DECISION: copy, proposed]
-      secondary = make; // [FOUNDER DECISION: copy, proposed]
-    } else {
-      state = 'D';
-      title = 'Share a Clarity Canvas'; // [FOUNDER DECISION: copy, proposed]
-      body = 'Pick the one to share with this event.'; // [FOUNDER DECISION: copy, proposed]
-      primary = { label: `Share “${selectedLabel}” with this event`, run: () => selected && void share(selected), busy }; // [FOUNDER DECISION: copy, proposed]
-      secondary = { label: 'Make a new one', run: () => void start() }; // [FOUNDER DECISION: copy, proposed]
-    }
-    return { state, title, body, primary, secondary };
-  }, [loaded, readFailed, chosen, changing, published, hasDraft, wide, onContinue, onSkip, start, share, busy, selected, selectedLabel, sharedLabel]);
+  const chosenName = mine?.shared ? mine.name : null;
+  const candidates = chosenName && changing ? published.filter(p => p.name !== chosenName) : published;
+  const selected = candidates.find(p => p.name === picked)?.name ?? candidates[0]?.name ?? null; // newest preselected
+  const selectedLabel = candidates.find(p => p.name === selected)?.label ?? '';
+  const sharedLabel = mine?.shared ? published.find(p => p.name === mine.name)?.label || mine.name : '';
+  const view = !loaded || readFailed ? null : buildStepView({
+    mine, candidates, published, hasOpenDraft: !!openDraft, changing, wide, selected, selectedLabel, onContinue, onSkip, mk,
+    go: { start, continueDraft, share, shareAgain, change: () => setChanging(true), keep: () => setChanging(false) },
+  });
 
-  return { loaded, readFailed, retry: read, view, published, selected, setPicked, sharedLabel, chosen, dialog };
+  return { loaded, readFailed, retry: read, view, published: candidates, selected, setPicked, sharedLabel, chosen: mine?.shared ? mine : null, dialog };
 }
