@@ -31,21 +31,23 @@ The owner is the source, yet the agent treats their statement as a claim to chec
 
 ## Appetite
 
-High blast radius: it changes every canvas chat reply that meets a conflict, and the model's instructions for all drafts. Reversible: code and prompt only, no migration expected (UNVERIFIED: pending options may need storing between turns). A few founder decisions: the reply wording and which options exist.
+High blast radius: it changes every canvas chat reply that meets a conflict, and the model's instructions for all drafts. Reversible, but not prompt-only: the agent never sees its own earlier replies (`canvas-thread.ts` reads owner messages only, a P1536 rule), so an offered choice must be stored between turns, which needs a migration, and the model's response format needs an options field (today a one-sentence `note`, cut at 160 characters). A few founder decisions: the reply wording and which options exist.
 
 ## Solution
 
-1. **The owner's statement about their own canvas is evidence.** A statement in the owner's thread may replace or add a point even when older material says otherwise. Nothing is added without showing the owner's words (decision 2026-11-05, P1625).
+1. **The owner's statement about their own canvas is evidence.** A statement in the owner's thread may replace or add a point even when older material says otherwise. This is new: the prompt today tells the model to keep supported points. Nothing is added without showing the owner's words (decision 2026-11-05, P1625).
 2. **A conflict gets options, not a refusal.** When the owner's message conflicts with points on the canvas, the agent replies in this order, and changes nothing until the owner picks:
    - what it conflicts with, naming the current points;
    - its recommendation, and why;
    - each option and what choosing it would mean for the canvas (for example: replace it, so Solution and Revenue should follow; add it beside the current point; keep the canvas as it is);
    - "Confirm A, B or C", with the recommended one marked.
-3. **The owner's pick is acted on.** A reply naming an option ("A", "go with B") applies it, with the usual note of what changed and from which words.
+3. **The offered choice is stored, then the owner's pick is acted on.** The run that offers options stores them with the draft (the option, its actions on current point ids, and the owner's quote). The server, not the model, refuses any write while a choice is open. A reply naming an option ("A", "go with B") applies it, with the usual note of what changed and from which words. "Keep" changes nothing and says so. A choice goes stale when the canvas changes before the pick; a stale or unknown pick is answered by offering the choice again.
 4. **No facts still writes nothing, but always gives a next step.** "Make it a Dropbox canvas from memory" writes nothing, and the reply says what the owner could tell it instead. Never a bare refusal.
 
 [FOUNDER DECISION: exact reply wording, including the lead-in (founder's draft: "I'm not sure this is good, it contradicts..."), the option labels and how the recommendation is marked.]
 [FOUNDER DECISION: which options are offered, and whether the agent may offer more than three.]
+[FOUNDER DECISION: may an option change other boxes ("replace it, so Solution and Revenue follow"), or only suggest what else to revisit? Today one message changes only the box it names.]
+[FOUNDER DECISION: this reverses P1625's "picking among versions is not built"; the founder asked for it on 2026-11-06.]
 
 ## Invariants
 
@@ -59,8 +61,9 @@ High blast radius: it changes every canvas chat reply that meets a conflict, and
 |---|---|---|
 | The agent offers options for things that are not conflicts, so every reply becomes a question | MITIGATE | Options only on a named conflict with a current point; a plain new point is just added |
 | A pick ("A") is read against the wrong pending choice | MITIGATE | The pick applies only to the latest open choice in that thread |
-| A correction or pick uses up one of the draft's 5 runs | ACCEPT | Unchanged cap; raise only if owners hit it (decision 2026-11-05) |
+| A conflict now costs two runs (offer, then pick) against the draft's 30-run cap | ACCEPT | Unchanged cap; raise only if owners hit it |
 | A wrong option is published unread | ACCEPT | Same as best guess: the owner sees the change and its words |
+| Unsupported is mistaken for conflicting, or the reverse | MITIGATE | Conflict = the message contradicts a current point; a statement with no current point to contradict is added as a best guess (P1625) |
 
 **Non-Goals**
 - Do NOT add buttons or chips for the options in this spec; options are text the owner answers in chat.
@@ -69,13 +72,15 @@ High blast radius: it changes every canvas chat reply that meets a conflict, and
 
 ## Acceptance Criteria
 
-- [ ] On a canvas whose Problem says one thing, the owner stating a conflicting problem gets a reply naming the current point, a recommendation, options with their consequences and "confirm A, B or C"; the canvas is unchanged
-- [ ] Replying with an option applies it, and the reply says what changed and from which words
-- [ ] "Make it more about organizations that waste money on other tools" on the founder's test canvas replaces or adds the point (after the owner's pick) instead of "Nothing changed"
-- [ ] "Make it a Dropbox canvas from memory" writes nothing and the reply gives a next step
-- [ ] Measured with the real model on TEST, recorded in the spec
+- [ ] A fixture canvas whose Problem is "Teams lose files across devices": the owner sending "the problem is organisations waste money on other tools" gets a reply naming that point, a recommendation, at least two options each with one line of what it means for the canvas, and a request to confirm one; the canvas is unchanged and the choice is stored
+- [ ] Replying with the letter of a replace or add option applies exactly that option, and the reply says what changed and from which words; "keep" changes nothing and says so
+- [ ] A pick with no open choice, or after the canvas changed, is answered by offering the choice again; nothing is written
+- [ ] A plain new point with nothing to contradict is added as before, with no question
+- [ ] "Make it a Dropbox canvas from memory" writes nothing, and the reply asks for a fact the owner can give
+- [ ] A number the owner never said stays refused when an option is applied
+- [ ] Real model on TEST, 5 runs per case above, each case passing at least 4 of 5, recorded in the spec
 - [ ] Existing canvas suites pass
 
 ## Related
 
-P1625 · P1639 · P1536 (conflict notes and tensions already exist in the draft engine: UNVERIFIED how they map to this) · P1621 (cards by hand)
+P1625 · P1639 · P1536 (its `conflicts` and tensions plumbing is not used for this: tensions are no longer written, and nothing asks the model for `conflicts`) · P1621 (cards by hand)
