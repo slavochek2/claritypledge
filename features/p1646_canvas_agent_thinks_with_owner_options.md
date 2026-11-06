@@ -96,12 +96,12 @@ High blast radius: it changes every canvas chat reply that meets a conflict, and
 | Case | Criterion | Passed |
 |---|---|---|
 | 1. The conflict message gets the choice in the D2 shape; Problem unchanged | 1 | 5 of 5 |
-| 2. "A" applies the replace option; reply names old point, new point and the owner's words | 2 | 5 of 5 |
+| 2. "A" applies the replace option (asserted: Problem changed as the option says, reply has "Updated: Problem" and "from your words"; read in all 5 logged replies: it names the old point, the new point and the owner's words) | 2 | 5 of 5 |
 | 2b. "B" applies the add option; the old point stays beside the new one | 2 | 5 of 5 |
 | 2 keep. "keep" changes nothing and says so | 2 | 5 of 5 |
 | 3a. A letter on a canvas that never had a choice: "There is no open choice to pick from", nothing written | 3 | 5 of 5 |
 | 3b. A letter on a settled (kept) choice: offered again, nothing written | 3 | 5 of 5 |
-| 3c. A letter after another message changed the canvas: "The canvas changed since I asked" and offered again, nothing written | 3 | 5 of 5 (re-run alone after a check fix, below) |
+| 3c. A letter after another message changed the canvas (asserted: reply has "The canvas changed since I asked", Problem unchanged by the pick; read in all 5 logged replies: the full choice is offered again, "Reply A, B or C") | 3 | 5 of 5 (re-run alone after a check fix, below) |
 | 4. "Our customers find us through design forums." is added to Channels with no question | 4 | 5 of 5 |
 | 5. "Make it a Dropbox canvas from memory" writes nothing; every reply asks who buys, what problem or what it costs (all five read by hand) | 5 | 5 of 5 |
 | 6. An offer on a message with no figure, then "A": no number other than 12 shown or written | 6 | 5 of 5 |
