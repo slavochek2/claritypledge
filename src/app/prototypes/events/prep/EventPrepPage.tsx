@@ -118,6 +118,15 @@ export function EventPrepPage() {
       </main>
     );
   }
+  if (state.arrivalError) {
+    // [FOUNDER DECISION: copy] The registration read failed: say so and offer Retry, never a plan built without the answers.
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <p role="alert" className="text-base text-muted-foreground" data-testid="prep-arrival-error">Could not read your registration just now.</p>
+        <Button type="button" className="mt-4 min-h-11" onClick={state.retryArrival} data-testid="prep-arrival-retry">Retry</Button>
+      </main>
+    );
+  }
   return <PrepFlow event={event} groupChatUrl={groupChatUrl} state={state} viewerId={user!.id} />;
 }
 
@@ -1128,7 +1137,7 @@ export function PrepFlow({
                       line is not repeated (Clarity Night keeps its "We start at … sharp"). */}
                   {timeLine === 'meet' ? null : !isOnlineLocation(event.location) && (
                     <p className="text-sm text-foreground" data-testid="end-on-time">
-                      {state.arrival ? ownTimeLine(event.datetime, state.arrival.atDoors) : onTimeLine(event.datetime)}
+                      {state.arrival ? ownTimeLine(event.datetime, state.arrival.atDoors, event.timezone) : onTimeLine(event.datetime)}
                     </p>
                   )}
                   {(micSetup === 'usbc' || micSetup === 'own' || micSetup === 'lightning' || micSetup === 'other') && (

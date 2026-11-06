@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { UserPlus } from 'lucide-react';
+import { Loader2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { getWaitlistPublic, hostAddFromWaitlist, type WaitlistEntry } from '@/app/data/event-waitlist';
@@ -18,23 +18,29 @@ export interface EventWaitlistListProps {
   onAdded?: () => void;
   /** Never listed: the host's own profile (the host runs the room and is not a participant). */
   excludeProfileId?: string;
+  /** When this value changes the list is read again (the host screen passes a value that moves with its poll). */
+  refreshKey?: unknown;
 }
 
-export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId }: EventWaitlistListProps) {
+export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId, refreshKey }: EventWaitlistListProps) {
   const [entries, setEntries] = useState<WaitlistEntry[]>([]);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [readFailed, setReadFailed] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const all = await getWaitlistPublic(eventId);
       setEntries(excludeProfileId ? all.filter((p) => p.profileId !== excludeProfileId) : all);
+      setReadFailed(false);
     } catch {
-      // A failed read leaves the last list on screen; the page's own reads report their own failures.
+      // The last list stays on screen, and the failure is said: an unreadable list is not an empty one.
+      setReadFailed(true);
     }
   }, [eventId, excludeProfileId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, refreshKey]);
 
   const add = async (entry: WaitlistEntry) => {
     setPending(entry.profileId);
@@ -55,6 +61,15 @@ export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId }
     void load();
   };
 
+  if (readFailed && entries.length === 0) {
+    return (
+      <div className="bg-card rounded-xl border border-border shadow-sm p-6 flex items-center justify-between gap-3" data-testid="event-waitlist-read-error">
+        {/* [FOUNDER DECISION: copy] */}
+        <p className="text-sm text-destructive" role="alert">Could not read the waiting list just now.</p>
+        <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => void load()} data-testid="event-waitlist-retry">Retry</Button>
+      </div>
+    );
+  }
   if (entries.length === 0) return null;
 
   return (
@@ -76,16 +91,18 @@ export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId }
               isHost ? (
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="-mr-2 h-11 w-11 shrink-0 p-0 text-slate-600 hover:text-blue-600 sm:mr-0 sm:h-10 sm:w-auto sm:px-3"
+                  className="-mr-2 h-11 w-11 shrink-0 p-0 sm:mr-0 sm:h-10 sm:w-auto sm:px-3"
                   data-testid="event-waitlist-add"
                   aria-label={`Add ${entry.name} to the participants`}
                   title={`Add ${entry.name} to the participants`}
                   disabled={pending !== null}
                   onClick={() => void add(entry)}
                 >
-                  <UserPlus className="h-4 w-4 sm:hidden" aria-hidden="true" />
+                  {pending === entry.profileId
+                    ? <Loader2 className="h-4 w-4 animate-spin sm:hidden" aria-hidden="true" data-testid="event-waitlist-adding" />
+                    : <UserPlus className="h-4 w-4 sm:hidden" aria-hidden="true" />}
                   <span className="hidden sm:inline">{pending === entry.profileId ? 'Adding…' : 'Add'}</span>
                 </Button>
               ) : (
@@ -95,6 +112,11 @@ export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId }
           />
         ))}
       </div>
+      {readFailed && (
+        <p className="mt-3 text-sm text-destructive" role="alert" data-testid="event-waitlist-stale">
+          Could not refresh the waiting list. <button type="button" className="underline" onClick={() => void load()}>Retry</button>
+        </p>
+      )}
       {error && <p className="mt-3 text-sm text-destructive" role="alert" data-testid="event-waitlist-error">{error}</p>}
     </div>
   );

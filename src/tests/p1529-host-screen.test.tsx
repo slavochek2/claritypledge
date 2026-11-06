@@ -95,7 +95,7 @@ const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
 
 const round = (over: Partial<EventRound> = {}): EventRound => ({
   id: 'r1', roundNo: 1, groupSize: 4, startedAt: ago(10 * MIN), endedAt: null,
-  seatingS: 120, firstS: 390, secondS: 390, observerS: 180, splitSpeakers: false, matchTag: null, showcase: false, ...over,
+  seatingS: 120, firstS: 450, secondS: 450, observerS: 180, splitSpeakers: false, matchTag: null, showcase: false, ...over,
 });
 const seat = (roundId: string, id: string, role: RoundSeat['role'], table: number): RoundSeat => ({ roundId, id, table, role, confirmedAt: null });
 const setRounds = (rounds: EventRound[], seats: Record<string, RoundSeat[]> = {}) => {
@@ -393,7 +393,7 @@ describe('seating through the mastermind plan (§4)', () => {
     expect(alert.textContent).toContain('Eva F.');
     const args = h.hostStartRound.mock.calls[0] as unknown[];
     expect(args[2]).toBe(4);
-    expect(args[4]).toEqual({ seatingS: 120, speakerS: 390, observerS: 180 });
+    expect(args[4]).toEqual({ seatingS: 120, speakerS: 450, observerS: 180 });
     expect(args[5]).toBe(false);
   });
 });
@@ -436,6 +436,34 @@ describe('labels and touch targets while a round runs and the next is previewed 
     renderHost({ flow: MM });
     await waitFor(() => expect(screen.getAllByTestId('mm-update-owner')).toHaveLength(1));
     expect(screen.getByTestId('mm-update-owner').textContent).toContain("Hasn't started");
+  });
+});
+
+describe('review fixes batch 2: preview lock and the owners list', () => {
+  it('while a seating preview is open, the unseated list shows one line instead of the observer switch and Mark out', async () => {
+    setRounds([round({ startedAt: ago(10 * MIN) })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    h.planOverride = () => plan([['m-c', 1, 'first'], ['m-d', 1, 'second']]);
+    renderHost({ flow: MM });
+    await screen.findByTestId('round-grid');
+    await roomRead();
+    expect(screen.getAllByTestId('mm-mark-out').length).toBeGreaterThan(0);
+    fireEvent.click(await screen.findByTestId('host-primary'));
+    fireEvent.click(await screen.findByTestId('host-next-yes'));
+    await screen.findByTestId('host-preview');
+    const people = screen.getByTestId('mm-people');
+    expect(within(people).queryByTestId('mm-set-observer')).toBeNull();
+    expect(within(people).queryByTestId('mm-mark-out')).toBeNull();
+    expect(within(people).getAllByTestId('mm-locked')[0]?.textContent).toBe('Close the seating preview to change who observes.');
+  });
+
+  it('the update step does not list an owner who is marked out', async () => {
+    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, endedAt: ago(MIN) })]);
+    h.step = { afterRoundId: 'r2', startedAt: ago(MIN) };
+    h.updateStates = new Map([['p-a', 'not_tapped'], ['p-b', 'drafting'], ['p-c', 'ready'], ['p-d', 'failed'], ['p-e', 'published']]);
+    h.presence = new Map([['m-e', { memberId: 'm-e', leftAt: new Date().toISOString(), sitsOutRound: null }]]);
+    renderHost({ flow: MM });
+    await waitFor(() => expect(screen.getAllByTestId('mm-update-owner')).toHaveLength(4));
+    expect(screen.getAllByTestId('mm-update-owner').map(li => li.textContent).join(' ')).not.toContain('Eva');
   });
 });
 
@@ -560,7 +588,7 @@ describe('the canvas-update step (§7)', () => {
     const start = await screen.findByTestId('mm-update-start');
     expect(start.textContent).toBe('Start canvas update');
     expect(screen.getByTestId('host-primary').textContent).toBe('Skip the update, preview round 3 tables');
-    expect(screen.getByTestId('host-primary').className).not.toContain('bg-blue-500');
+    expect(screen.getByTestId('host-primary').className).not.toContain('bg-blue-600');
     fireEvent.click(start);
     expect((await screen.findByTestId('mm-update-confirm')).textContent).toMatch(/Round 2 has .* left\. Starting the canvas update ends it now/);
     // The confirm names what the tap ends.
@@ -585,7 +613,7 @@ describe('the canvas-update step (§7)', () => {
       await screen.findByTestId('host-controls');
       await roomRead();
       expect(screen.queryByTestId('mm-update-start')).toBeNull();
-      expect(screen.getByTestId('host-primary').className).toContain('bg-blue-500');
+      expect(screen.getByTestId('host-primary').className).toContain('bg-blue-600');
       view.unmount();
     }
   });
@@ -612,8 +640,8 @@ describe('Clarity Night controls with no meaning here (§4, §7)', () => {
     // The first part is named as the clock names it.
     expect(screen.getByText('Finding tables')).toBeTruthy();
     expect(screen.queryByText('Tables')).toBeNull();
-    // One talk of 13 minutes (stored as 2 x 6.5), 2 to find the table and 3 of observer feedback.
-    expect(screen.getByTestId('host-minutes-speakerS').textContent).toBe('13 min');
+    // One talk of 15 minutes (stored as 2 x 7.5), 2 to find the table and 3 of observer feedback.
+    expect(screen.getByTestId('host-minutes-speakerS').textContent).toBe('15 min');
     expect(screen.getByTestId('host-minutes-seatingS').textContent).toBe('2 min');
     expect(screen.getByTestId('host-minutes-observerS').textContent).toBe('3 min');
     expect(screen.getByText('Talk')).toBeTruthy();
@@ -761,7 +789,7 @@ describe('the waiting list on the host screen (D24, spec "Waiting list")', () =>
   });
 
   it('one tap on Add registers the person (host_add_from_waitlist) and the host state is read again', async () => {
-    h.getWaitlistPublic.mockResolvedValueOnce(WAITING).mockResolvedValue([WAITING[1]]);
+    h.getWaitlistPublic.mockImplementation(async () => (h.hostAddFromWaitlist.mock.calls.length === 0 ? WAITING : [WAITING[1]])); // the list is re-read with every poll
     renderHost({ flow: MM });
     await screen.findByTestId('event-waitlist');
     await roomRead();

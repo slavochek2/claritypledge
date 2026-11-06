@@ -57,11 +57,22 @@ async function handleRsvpIfRegistered(supabase: SupabaseClient, eventId: string,
  * Only the event's host may name someone else: anyone else naming another person gets no email sent (logged, nothing leaks),
  * and handleRsvpIfRegistered still requires the recipient's RSVP.
  */
+/** How long after a host's add the confirmation may still be sent for that person. */
+const HOST_ADD_EMAIL_WINDOW_MS = 10 * 60 * 1000;
+
 async function handleRsvpFor(supabase: SupabaseClient, eventId: string, caller: string, target?: string) {
   if (!target || target === caller) return handleRsvpIfRegistered(supabase, eventId, caller);
   const { data } = await supabase.from('events').select('host_id').eq('id', eventId).single();
   if (!data || data.host_id !== caller) {
     console.warn('[send-event-emails] rsvp for another person refused: caller is not the host');
+    return;
+  }
+  // Only right after the add: a registration older than this is not one the host just made, so a host cannot re-send the
+  // confirmation to their attendees at will (Opus review).
+  const { data: rsvp } = await supabase.from('event_rsvps').select('rsvped_at')
+    .eq('event_id', eventId).eq('profile_id', target).maybeSingle();
+  if (!rsvp?.rsvped_at || Date.now() - new Date(rsvp.rsvped_at).getTime() > HOST_ADD_EMAIL_WINDOW_MS) {
+    console.warn('[send-event-emails] rsvp for another person refused: not a fresh registration');
     return;
   }
   return handleRsvpIfRegistered(supabase, eventId, target);

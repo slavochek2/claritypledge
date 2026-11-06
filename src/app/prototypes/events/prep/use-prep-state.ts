@@ -37,7 +37,7 @@ import { syncLocalPrepParts } from './prep-local-parts';
 import { shareInFlight } from '@/lib/share-in-flight';
 import { whenVisible } from '../when-visible';
 import { offersPreparation, recipeForEvent } from '../series-recipes';
-import { useMyRegistrationArrival, type MyArrival } from '../use-my-arrival';
+import { useMyRegistrationArrivalRead, type MyArrival } from '../use-my-arrival';
 import { OBSERVER_PREP_MINUTES, OWNER_PREP_MINUTES } from '../components/registration-copy';
 
 /** StakePage's page size and fetch arguments, so "N points" equals the cards it shows. */
@@ -71,6 +71,9 @@ export interface PrepState {
   minutes: number | null;
   /** P1529: the person's role and arrival in a flow that asks; null elsewhere and until it is read. */
   arrival: MyArrival | null;
+  /** The registration read failed twice: the plan is empty (never derived from it) and the page offers Retry. */
+  arrivalError: boolean;
+  retryArrival: () => void;
   /** P1542 round 5: the person has done the learning here or anywhere else (hasLearned). */
   learned: boolean;
   reload: () => Promise<void>;
@@ -183,12 +186,13 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
   const setPrep = useCallback((value: EventPreparation) => setPrepS({ key: inputKey, value }), [inputKey]);
   const setParts = useCallback((value: PrepPartRow[]) => setPartsS({ key: inputKey, value }), [inputKey]);
 
-  const arrival = useMyRegistrationArrival(event, viewerId, !idle);
+  const { arrival, failed: arrivalError, retry: retryArrival } = useMyRegistrationArrivalRead(event, viewerId, !idle);
   const derived = useMemo(() => {
     const startedAt = prep?.startedAt ?? null;
     const { steps, keepFinished } = recipeForEvent(event).prepare;
     const mastermind = !!recipeForEvent(event).mastermind;
-    const plan = buildPlan({
+    // A failed arrival read leaves the owner's canvas step unknown: no plan is derived from it (the page shows Retry).
+    const plan = arrivalError ? [] : buildPlan({
       parts,
       startedAt,
       hasStatementTag: !!tag,
@@ -211,7 +215,7 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
     const untouched = !startedAt && stepsDone.length === 0;
     const minutes = mastermind && untouched ? (arrival ? (arrival.owner ? OWNER_PREP_MINUTES : OBSERVER_PREP_MINUTES) : null) : computed;
     return { plan, stepsDone, progress, withPrincipleIntro, cards, minutes, learned: hasLearned(parts, prep?.completedAt) };
-  }, [parts, prep, tag, eventPoints, cmp7Points, event?.seriesSlug, arrival]);
+  }, [parts, prep, tag, eventPoints, cmp7Points, event?.seriesSlug, arrival, arrivalError]);
 
   return {
     // Disabled inputs (no event, no viewer, preparation off) answer "idle" on the same render — never one extra
@@ -224,6 +228,8 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
     eventPoints,
     proof,
     arrival: arrival ?? null,
+    arrivalError,
+    retryArrival,
     ...derived,
     reload,
     setPrep,

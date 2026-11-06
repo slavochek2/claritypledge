@@ -103,7 +103,7 @@ import { EventWaitlistList } from '../components/EventWaitlistList';
 import { MastermindPreviewNotes } from './MastermindPreviewNotes';
 import { MastermindScreen } from './MastermindScreen';
 import { useHostFlow, useMastermindHost } from './use-mastermind-host';
-import { COLUMN_LABELS, MASTERMIND_FLOW, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, seatGuardRefusal, silentTables, tablesNowTitle, tablesProposedTitle } from './mastermind-host-helpers';
+import { COLUMN_LABELS, MASTERMIND_FLOW, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, MASTERMIND_MINUTES_VERSION, dropStaleMastermindMinutes, seatGuardRefusal, silentTables, tablesNowTitle, tablesProposedTitle, waitingSetKey } from './mastermind-host-helpers';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
 
 const START_LOCK_MS = 10_000;
@@ -149,6 +149,8 @@ interface Settings {
   splitSpeakers: boolean;
   /** The Sales Mastermind's minutes for the next round; its own, so switching flow never overwrites Clarity Night's. */
   mastermindMinutes: RoundMinutes;
+  /** Which defaults those minutes were saved under; older ones are ignored on load. */
+  mastermindMinutesV?: number;
   /** "Match on #tag": the tag the next round is grouped on (empty = the event's statement tag). */
   matchTag: string;
 }
@@ -159,6 +161,7 @@ const DEFAULT_SETTINGS: Settings = {
   minutes: DEFAULT_ROUND_MINUTES,
   splitSpeakers: true,
   mastermindMinutes: MASTERMIND_MINUTES,
+  mastermindMinutesV: MASTERMIND_MINUTES_VERSION,
   matchTag: '',
 };
 
@@ -193,7 +196,7 @@ function useSettings(eventId: string | undefined): [Settings, (s: Settings) => v
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
-        const saved = JSON.parse(raw) as Partial<Settings>;
+        const saved = dropStaleMastermindMinutes(JSON.parse(raw) as Partial<Settings>);
         setSettings({ ...DEFAULT_SETTINGS, ...saved, minutes: { ...DEFAULT_ROUND_MINUTES, ...saved.minutes } });
       }
     } catch {
@@ -885,6 +888,8 @@ export function EventHostPage() {
   const byId = useMemo(() => new Map(roster.map(m => [m.id, m])), [roster]);
   const profileIds = useMemo(() => members.map(m => m.profileId).filter((p): p is string => !!p), [members]);
   const mm = useMastermindHost({ eventId, active: flow === MASTERMIND_FLOW, screen: isScreen, rounds: state.rounds, seatsByRound: state.seatsByRound, members });
+  // The waiting list re-reads only when its set changes, not on every host-state poll (spec Cost Budget).
+  const waitingKey = useMemo(() => waitingSetKey(mm.people), [mm.people]);
   // Showcase (founder walkthrough 6, option 7C), called the Demo since P1430: the host chooses who
   // sits; everyone else watches. null = every table plays.
   const [chosen, setChosen] = useState<Set<string> | null>(null);
@@ -1244,7 +1249,7 @@ export function EventHostPage() {
   };
 
   const seatOf = new Map(seats.map(s => [s.id, s]));
-  const isOut = (id: string) => !!presence.get(id)?.leftAt;
+  const isOut =(id: string) => !!presence.get(id)?.leftAt;
   const waiting = members.filter(m => !seatOf.has(m.id) && !isOut(m.id));
   const outside = members.filter(m => !seatOf.has(m.id) && isOut(m.id));
   const here = members.filter(m => !isOut(m.id));
@@ -1519,7 +1524,7 @@ export function EventHostPage() {
                 'w-full',
                 primaryIsSkip
                   ? 'mt-1 min-h-11 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground'
-                  : 'mt-4 min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white',
+                  : 'mt-4 min-h-12 text-base',
               )}
               onClick={round && clock && clock.phase !== 'over' ? () => setConfirmNext(true) : primary.action}
               disabled={!!busy || !loaded || pendingNo !== null}
@@ -1807,7 +1812,7 @@ export function EventHostPage() {
                   waiting list); in a round the tables, then only people with no table; at the update step the
                   owners' update, then whoever is not an owner. */}
               {mm.active && <MastermindWarning host={mm} />}
-              {mm.active && mm.stepOn && <CanvasUpdateOwners host={mm} members={members} />}
+              {mm.active && mm.stepOn && <CanvasUpdateOwners host={mm} members={members.filter(m => !isOut(m.id))} />}
               {mm.active && round && <SilentTablesBanner nos={silentNos} />}
               {round && clock && shownSeats.length > 0 && (
                 <TablesGrid
@@ -1829,14 +1834,14 @@ export function EventHostPage() {
               {mm.active && mmBefore && !preview && (
                 <>
                   <MastermindPeople title="People" members={waiting} host={mm} onMarkOut={id => setOut(id, true)} />
-                  <EventWaitlistList eventId={event.id} isHost excludeProfileId={event.hostId} onAdded={() => void mm.refresh()} />
+                  <EventWaitlistList eventId={event.id} isHost excludeProfileId={event.hostId} refreshKey={waitingKey} onAdded={() => void mm.refresh()} />
                 </>
               )}
               {mm.active && round && waiting.length > 0 && (
-                <MastermindPeople title="Not at a table" members={waiting} host={mm} onMarkOut={id => setOut(id, true)} />
+                <MastermindPeople title="Not at a table" members={waiting} host={mm} locked={!!preview} onMarkOut={id => setOut(id, true)} />
               )}
               {mm.active && mm.stepOn && (
-                <MastermindPeople title="Observers" members={waiting.filter(m => !m.profileId || !mm.updateStates.has(m.profileId))} host={mm} onMarkOut={id => setOut(id, true)} />
+                <MastermindPeople title="Observers" members={waiting.filter(m => !m.profileId || !mm.updateStates.has(m.profileId))} host={mm} locked={!!preview} onMarkOut={id => setOut(id, true)} />
               )}
               {!mm.active && <PeopleGroup
                 title={round ? 'Next round' : 'Here'}

@@ -12,6 +12,9 @@ import { RSVP_REPEAT_LABEL, RSVP_REPEAT_LOADING_LABEL, type RsvpTrigger } from '
 import { PlacesLeftLine } from './RegistrationQuestions';
 import { FORM_TITLE as REGISTER_LABEL, JUST_FILLED,WAITLIST_BUTTON, WAITLIST_JOINED, WAITLIST_LEAVE } from './registration-copy';
 
+/** In-flight label of a Register button in the asking flow, top and repeat alike. */
+const REGISTERING_LABEL = 'Registering...';
+
 /** The quiet way off the list: a ghost Button, disabled while the request is out. */
 function LeaveLink({ leaving, onLeave }: { leaving: boolean; onLeave: () => void }) {
   return (
@@ -36,21 +39,38 @@ export function RsvpButton({
   /** Only in a flow that asks: the waiting list's state. */
   waitlist?: { onList: boolean; filled: boolean; leaving: boolean; onLeave: () => void };
 }) {
-  if (trigger === 'card_bottom') {
-    // A flow that asks says "Register" here too (founder UAT round 1) and shows the seats line under it.
+  if (trigger === 'card_bottom' && asksBeforeSeat) {
+    // The repeat behaves and looks like the top button (same variant from the Button, same loading text, same full handling),
+    // only its test id differs. Once the person is on the list the top line already says so.
+    if (isFull) {
+      if (waitlist?.onList) return null;
+      return (
+        <Button onClick={() => onRsvp(trigger)} className="w-full" size="lg" disabled={loading} data-testid="rsvp-button-repeat">
+          {loading ? REGISTERING_LABEL : WAITLIST_BUTTON}
+        </Button>
+      );
+    }
     return (
       <>
-        <Button
-          onClick={() => onRsvp(trigger)}
-          className={asksBeforeSeat ? 'w-full' : 'w-full bg-blue-500 hover:bg-blue-700 text-white'}
-          size="lg"
-          disabled={loading}
-          data-testid="rsvp-button-repeat"
-        >
-          {loading ? (asksBeforeSeat ? 'Registering...' : RSVP_REPEAT_LOADING_LABEL) : asksBeforeSeat ? REGISTER_LABEL : RSVP_REPEAT_LABEL}
+        <Button onClick={() => onRsvp(trigger)} className="w-full" size="lg" disabled={loading} data-testid="rsvp-button-repeat">
+          {loading ? REGISTERING_LABEL : REGISTER_LABEL}
         </Button>
-        {asksBeforeSeat && <PlacesLeftLine left={placesLeft} limit={placesLimit} />}
+        <PlacesLeftLine left={placesLeft} limit={placesLimit} />
       </>
+    );
+  }
+  if (trigger === 'card_bottom') {
+    // Clarity Night and Social Hike: unchanged.
+    return (
+      <Button
+        onClick={() => onRsvp(trigger)}
+        className="w-full bg-blue-500 hover:bg-blue-700 text-white"
+        size="lg"
+        disabled={loading}
+        data-testid="rsvp-button-repeat"
+      >
+        {loading ? RSVP_REPEAT_LOADING_LABEL : RSVP_REPEAT_LABEL}
+      </Button>
     );
   }
   if (isPast) {
@@ -86,7 +106,7 @@ export function RsvpButton({
         disabled={loading}
         data-testid="rsvp-button"
       >
-        {loading ? 'Joining...' : asksBeforeSeat ? REGISTER_LABEL : 'Reserve a seat'}
+        {loading ? (asksBeforeSeat ? REGISTERING_LABEL : 'Joining...') : asksBeforeSeat ? REGISTER_LABEL : 'Reserve a seat'}
       </Button>
       {asksBeforeSeat && <PlacesLeftLine left={placesLeft} limit={placesLimit} />}
       {asksBeforeSeat && waitlist?.onList && <div className="text-center"><LeaveLink leaving={waitlist.leaving} onLeave={waitlist.onLeave} /></div>}

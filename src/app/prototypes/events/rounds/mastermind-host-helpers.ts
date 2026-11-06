@@ -21,12 +21,21 @@ export const FLOW_NAMES: Record<EventFlow, string> = {
 };
 
 /**
- * One round is 15 minutes at the table plus 3 of observer feedback (founder, 2026-11-06): 2 to find the new partner and
- * table, then one talk part of 13 that holds the 4 minutes of silent reading and the conversation, then 3 of observer
- * feedback. The talk is stored as `speakerS` x 2 (host_start_round writes the same seconds into first_s and second_s; a
- * no-split round adds them), so 390 s is a 13-minute talk. No swap at half time, so no "second" part ever runs.
+ * One round is 15 minutes at the table plus 3 of observer feedback (founder, 2026-11-06), with finding the table (2) apart,
+ * as the run-of-show lists Seating separately: 2 to find the new partner and table, then one talk part of 15 that holds the
+ * 4 minutes of silent reading and the conversation, then 3 of observer feedback (20 minutes in the app). The talk is stored
+ * as `speakerS` x 2 (host_start_round writes the same seconds into first_s and second_s; a no-split round adds them), so
+ * 450 s is a 15-minute talk. No swap at half time, so no "second" part ever runs.
  */
-export const MASTERMIND_MINUTES: RoundMinutes = { seatingS: 120, speakerS: 390, observerS: 180 };
+export const MASTERMIND_MINUTES: RoundMinutes = { seatingS: 120, speakerS: 450, observerS: 180 };
+/** Version of the stored mastermind minutes: bump when the defaults change, so minutes a host saved earlier are not kept. */
+export const MASTERMIND_MINUTES_VERSION = 2;
+/** Pure: saved host settings without mastermind minutes that were stored under an older version (Clarity Night's are untouched). */
+export function dropStaleMastermindMinutes<T extends { mastermindMinutes?: unknown; mastermindMinutesV?: number }>(saved: T): T {
+  if (saved.mastermindMinutesV === MASTERMIND_MINUTES_VERSION) return saved;
+  const { mastermindMinutes: _stale, ...rest } = saved;
+  return rest as T;
+}
 export const MASTERMIND_GROUP_SIZE = 4;
 
 /** [FOUNDER DECISION: copy] The host grid's columns in this flow (the Clarity Night grid says Speaker 1 and 2). */
@@ -52,6 +61,21 @@ export const FLOW_UNDO = 'Undo';
 export const flowRefusedLine = (message: string): string => `The event flow was not changed: ${singular(message)}`;
 /** The server's count line says "1 registered people have"; one person is "1 registered person has". */
 const singular = (message: string): string => message.replace(/^1 registered people have /, '1 registered person has ');
+
+/**
+ * The waiting list re-reads when this changes: the profile ids on the list, in list order. A host-state poll with the same people
+ * waiting gives the same key, so it costs no extra request (spec Cost Budget: no separate waiting-list poll).
+ */
+export function waitingSetKey(people: MastermindPerson[]): string {
+  return people
+    .filter(p => p.waitingPosition !== null)
+    .sort((a, b) => (a.waitingPosition as number) - (b.waitingPosition as number))
+    .map(p => p.profileId)
+    .join(',');
+}
+
+/** One line in place of the observer switch and Mark out while a seating preview is open (the preview would go stale under them). */
+export const PREVIEW_LOCK_LINE = 'Close the seating preview to change who observes.';
 
 // ── Observers (§3) ──────────────────────────────────────────────────────────────────────────────────────────────────
 

@@ -22,7 +22,7 @@ import { Avatar } from './host-screen-parts';
 import { shortName } from './use-event-rounds';
 import type { MastermindHost } from './use-mastermind-host';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
-import { NOT_REGISTERED_LINE, RECORDING_WORDS, UPDATE_STATE_WORDS, canvasLine, isObserver, isUnregistered, observerRefusal } from './mastermind-host-helpers';
+import { NOT_REGISTERED_LINE, PREVIEW_LOCK_LINE, RECORDING_WORDS, UPDATE_STATE_WORDS, canvasLine, isObserver, isUnregistered, observerRefusal } from './mastermind-host-helpers';
 
 /** [FOUNDER DECISION: copy] */
 const COPY = {
@@ -97,7 +97,7 @@ export function CanvasUpdateStart({ round, onStart, busy }: {
       <div className="mt-4 rounded-lg border border-border p-3 text-sm" data-testid="mm-update-confirm">
         <p>{COPY.updateConfirm(round.label, formatClock(round.leftMs as number))}</p>
         <div className="mt-2 flex flex-wrap gap-2">
-          <Button type="button" className="min-h-11 bg-blue-500 text-white hover:bg-blue-600" disabled={busy} onClick={() => { setConfirm(false); onStart(); }} data-testid="mm-update-yes">
+          <Button type="button" className="min-h-11" disabled={busy} onClick={() => { setConfirm(false); onStart(); }} data-testid="mm-update-yes">
             {COPY.updateEnd(round.label)}
           </Button>
           <Button type="button" variant="ghost" className="min-h-11" onClick={() => setConfirm(false)}>{COPY.updateKeep}</Button>
@@ -108,7 +108,7 @@ export function CanvasUpdateStart({ round, onStart, busy }: {
   return (
     <Button
       type="button"
-      className="mt-4 min-h-12 w-full bg-blue-500 text-base text-white hover:bg-blue-600"
+      className="mt-4 min-h-12 w-full text-base"
       disabled={busy}
       onClick={ask ? () => setConfirm(true) : onStart}
       data-testid="mm-update-start"
@@ -162,11 +162,13 @@ export function CanvasUpdateOwners({ host, members }: { host: MastermindHost; me
  * One list of people, one row each: avatar and name with the Doors, Ready and not-registered marks, a line with the canvas, the mic and
  * the recording state, then the participant or observer switch and Mark out. `title` says which people these are in this phase.
  */
-export function MastermindPeople({ title, members, host, onMarkOut }: {
+export function MastermindPeople({ title, members, host, onMarkOut, locked = false }: {
   title: string;
   members: EventRoomMember[];
   host: MastermindHost;
   onMarkOut: (memberId: string) => void;
+  /** A seating preview is open: the switch and Mark out give way to one line (no dead disabled buttons). */
+  locked?: boolean;
 }) {
   const [refusal, setRefusal] = useState<{ id: string; text: string } | null>(null);
 
@@ -222,28 +224,39 @@ export function MastermindPeople({ title, members, host, onMarkOut }: {
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <div className="inline-flex rounded-lg bg-muted p-1" role="group" aria-label={`${name}: participant or observer`}>
-                  {([[false, COPY.participant, 'mm-set-participant'], [true, COPY.observer, 'mm-set-observer']] as const).map(([toObserver, text, id]) => (
-                    <button
-                      key={id}
+                {locked ? (
+                  <p className="text-xs text-muted-foreground" data-testid="mm-locked">{PREVIEW_LOCK_LINE}</p>
+                ) : (
+                  <>
+                    <div className="inline-flex rounded-lg bg-muted p-1" role="group" aria-label={`${name}: participant or observer`}>
+                      {([[false, COPY.participant, 'mm-set-participant'], [true, COPY.observer, 'mm-set-observer']] as const).map(([toObserver, text, id]) => (
+                        <Button
+                          key={id}
+                          type="button"
+                          size="sm"
+                          variant={observer === toObserver ? 'outline' : 'ghost'}
+                          aria-pressed={observer === toObserver}
+                          onClick={() => { if (observer !== toObserver) void flip(m, toObserver); }}
+                          className={cn('min-h-10 px-2.5', observer === toObserver ? 'font-semibold' : 'font-normal text-muted-foreground')}
+                          data-testid={id}
+                        >
+                          {text}
+                        </Button>
+                      ))}
+                    </div>
+                    {/* Design system rule 5: losing something is ghost with red text. */}
+                    <Button
                       type="button"
-                      aria-pressed={observer === toObserver}
-                      onClick={() => { if (observer !== toObserver) void flip(m, toObserver); }}
-                      className={cn('min-h-10 rounded-md px-2.5 text-sm', observer === toObserver ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground')}
-                      data-testid={id}
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onMarkOut(m.id)}
+                      className="min-h-10 px-2 font-medium text-red-600 hover:text-red-600"
+                      data-testid="mm-mark-out"
                     >
-                      {text}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onMarkOut(m.id)}
-                  className="min-h-10 rounded-md px-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                  data-testid="mm-mark-out"
-                >
-                  {COPY.markOut}
-                </button>
+                      {COPY.markOut}
+                    </Button>
+                  </>
+                )}
               </div>
               {refusal?.id === m.id && <p role="alert" className="basis-full text-sm text-red-600" data-testid="mm-observer-refusal">{refusal.text}</p>}
             </li>

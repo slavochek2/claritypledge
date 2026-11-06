@@ -5,6 +5,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   MASTERMIND_MINUTES,
+  MASTERMIND_MINUTES_VERSION,
+  dropStaleMastermindMinutes,
   canvasLine,
   describeProblem,
   flowRefusedLine,
@@ -14,6 +16,7 @@ import {
   silentTables,
   SILENT_TABLE_GRACE_MS,
 } from '@/app/prototypes/events/rounds/mastermind-host-helpers';
+import { waitingSetKey } from '@/app/prototypes/events/rounds/mastermind-host-helpers';
 import { checkMastermindSeats } from '@/lib/mastermind-seating-check';
 import { roundClock, roundTiming } from '@/lib/round-clock';
 import type { Seat } from '@/lib/round-grouping';
@@ -152,21 +155,33 @@ describe('the server\'s seat refusal', () => {
   });
 });
 
+describe('stored mastermind minutes are versioned', () => {
+  it('ignores minutes saved before the current version, keeps Clarity Night\'s and current-version minutes', () => {
+    const night = { seatingS: 30, speakerS: 300, observerS: 60 };
+    const old = { minutes: night, mastermindMinutes: { seatingS: 120, speakerS: 660, observerS: 120 } };
+    const out = dropStaleMastermindMinutes(old);
+    expect('mastermindMinutes' in out).toBe(false);
+    expect(out.minutes).toEqual(night);
+    const fresh = { mastermindMinutes: { seatingS: 60, speakerS: 300, observerS: 60 }, mastermindMinutesV: MASTERMIND_MINUTES_VERSION };
+    expect(dropStaleMastermindMinutes(fresh)).toBe(fresh);
+  });
+});
+
 describe('the mastermind round\'s minutes', () => {
   // host_start_round stores speakerS in BOTH first_s and second_s; a round with no swap adds the two into one talk.
   const row = { seatingS: MASTERMIND_MINUTES.seatingS, firstS: MASTERMIND_MINUTES.speakerS, secondS: MASTERMIND_MINUTES.speakerS, observerS: MASTERMIND_MINUTES.observerS, splitSpeakers: false };
-  it('sum to one 13-minute talk and a 16-minute round after the two minutes to find the table', () => {
+  it('sum to one 15-minute talk and 18 minutes at the table with feedback, after the two minutes to find the table', () => {
     const t = roundTiming(row);
     expect(t.split).toBe(false);
     expect(t.secondMs).toBe(0);
-    expect(t.firstMs).toBe(13 * 60_000);
-    expect(t.firstMs + t.secondMs + t.observerMs).toBe(16 * 60_000);
+    expect(t.firstMs).toBe(15 * 60_000);
+    expect(t.firstMs + t.secondMs + t.observerMs).toBe(18 * 60_000);
     expect(t.seatingMs).toBe(2 * 60_000);
   });
   it('run seating, talk, observer feedback, and never a second part', () => {
     const start = new Date(0).toISOString();
     const phaseAt = (min: number) => roundClock(start, min * 60_000, true, roundTiming(row)).phase;
-    expect([1, 3, 14, 16, 19].map(phaseAt)).toEqual(['seating', 'first', 'first', 'observer', 'over']);
+    expect([1, 3, 16, 18, 21].map(phaseAt)).toEqual(['seating', 'first', 'first', 'observer', 'over']);
   });
 });
 
@@ -175,5 +190,19 @@ describe('flowRefusedLine', () => {
     expect(flowRefusedLine('1 registered people have not answered')).toBe('The event flow was not changed: 1 registered person has not answered');
     expect(flowRefusedLine('3 registered people have not answered')).toBe('The event flow was not changed: 3 registered people have not answered');
     expect(flowRefusedLine('only the host can change the event flow')).toBe('The event flow was not changed: only the host can change the event flow');
+  });
+});
+
+describe('waitingSetKey (the waiting list re-reads only when the set changes)', () => {
+  const p = (profileId: string, waitingPosition: number | null) => ({ profileId, waitingPosition }) as never;
+  it('lists the waiting profile ids in position order and ignores everyone else', () => {
+    expect(waitingSetKey([p('b', 2), p('x', null), p('a', 1)])).toBe('a,b');
+    expect(waitingSetKey([p('x', null)])).toBe('');
+  });
+  it('is the same string for a poll that changes nothing about who waits, and differs when someone joins or leaves', () => {
+    const before = waitingSetKey([p('a', 1), p('b', 2), p('x', null)]);
+    expect(waitingSetKey([p('x', null), p('b', 2), p('a', 1)])).toBe(before);
+    expect(waitingSetKey([p('a', 1), p('b', 2), p('c', 3)])).not.toBe(before);
+    expect(waitingSetKey([p('b', 1)])).not.toBe(before);
   });
 });

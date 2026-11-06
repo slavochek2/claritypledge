@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Calendar, Clock, MapPin,
   MessagesSquare, FileText, Globe, Users } from 'lucide-react';
-import { parseLimit } from '../event-limit';
+import { limitError, parseLimit } from '../event-limit';
 import { LocationHint } from './LocationHint';
 import { validateGroupChatUrl } from '../group-chat-utils';
 import { Button } from '@/components/ui/button';
@@ -122,6 +122,8 @@ export function CreateEvent() {
     if (!title.trim() || title.length < 5) {
       newErrors.title = 'Title must be at least 5 characters';
     }
+    const limitProblem = limitError(maxAttendees);
+    if (limitProblem) newErrors.maxAttendees = limitProblem;
     if (!date) {
       newErrors.date = 'Please select a date';
     } else {
@@ -334,13 +336,18 @@ export function CreateEvent() {
             </Label>
             <Input
               id="maxAttendees"
-              type="number"
-              min={1}
+              type="text"
               inputMode="numeric"
               value={maxAttendees}
               onChange={e => setMaxAttendees(e.target.value)}
               placeholder="No limit"
+              className={errors.maxAttendees ? 'border-red-500' : ''}
+              aria-invalid={!!errors.maxAttendees}
+              aria-describedby={errors.maxAttendees ? 'maxAttendees-error' : undefined}
             />
+            {errors.maxAttendees && (
+              <p id="maxAttendees-error" role="alert" className="text-sm text-red-500 mt-1" data-testid="limit-error">{errors.maxAttendees}</p>
+            )}
           </div>
 
           {/* Group chat — P1194: private to registered attendees */}
