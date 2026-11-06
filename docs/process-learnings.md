@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 303
+**Next ID:** 304
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3566,6 +3566,14 @@ Future placeholder: create a new multi-person chat on the spot, show a QR code, 
 ## Re-check TEST edge-function drift after P1529 ships
 
 **ID:** INBOX-297
+**Date:** 2026-11-05
+**Status:** proposed
+**due:** week
+
+On 2026-11-05 deploy-drift.sh reported the shared TEST server differs from main for _shared, dispatch-event-emails and send-event-emails (branch-only). Likely a P1529 branch deploy from w13 (its commit 25a0864b0 adds a series block to its emails), but no content comparison was run, so this is unverified. Do not redeploy main over it while P1529 is in flight. Done when main's functions are redeployed to TEST after P1529 ships and deploy-drift.sh prints in sync. Drop if the P1529 owner says the deploy was unintended and it is already cleared.
+
+---
+
 ## test-hook-sha-gate.sh fails 4 of 10 cases
 
 **ID:** INBOX-298
@@ -3616,5 +3624,16 @@ On 2026-11-06 the pre-commit full suite failed src/tests/p1607-e2e-slot-lock.tes
 **due:** week
 
 Confirm a real /push runs staging push, promote and cleanup on the fixed hook, leaving no staging branch. Delete the leftovers on origin in one push: staging/doc-20f511708, staging/doc-4af0e39e4, staging/doc-f37654208, staging/doc-9c7514044, after re-listing them and checking their commits are on origin/main. Check --resume at its next real use, since only its delete step was tested. Done when the first two are done and --resume is confirmed or has failed visibly.
+
+---
+
+## Stop agent multi-step shell commands at the first failed step
+
+**ID:** INBOX-303
+**Date:** 2026-11-06
+**Status:** proposed
+**due:** week
+
+In the zsh agent shell, a failed step inside a multi-line Bash call did not stop the rest: in P1641 this caused five no-op push probes (an unbraced $S:refs applied a zsh modifier), two partial commits after failed python assertions, and an inbox Next ID reset below IDs in use. The zsh modifier trap is already recorded in docs/decisions.md and still recurred, so the fix is a mechanical guard (a PreToolUse check for unbraced $var: and for multi-line blocks with no stop-on-failure, or a standard preamble), not another note. Rules and hooks need the founder's claude-md gate. Drop if two weeks of sessions show no recurrence.
 
 ---
