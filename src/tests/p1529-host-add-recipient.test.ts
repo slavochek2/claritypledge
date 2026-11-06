@@ -7,7 +7,9 @@ import { HOST_ADD_EMAIL_WINDOW_MS, hostAddRecipient } from '../../supabase/funct
 const NOW = Date.parse('2026-11-06T12:00:00Z');
 
 /** A fake client: each table answers with what the scenario gives it. */
-function db(o: { host?: string; rsvpedAt?: string | null; sent?: number | null; failing?: string }) {
+/** `sent` counts confirmations that were sent; `failedSends` counts ones logged as failed. The log's count depends on the
+ * filters applied, so a lookup that forgets status = 'sent' also counts the failed ones (count-query mock fidelity). */
+function db(o: { host?: string; rsvpedAt?: string | null; sent?: number | null; failedSends?: number; failing?: string }) {
   const answers: Record<string, { data: unknown; count?: number; error: null }> = {
     events: { data: o.host === undefined ? null : { host_id: o.host }, error: null },
     event_rsvps: { data: o.rsvpedAt ? { rsvped_at: o.rsvpedAt } : null, error: null },
@@ -15,11 +17,19 @@ function db(o: { host?: string; rsvpedAt?: string | null; sent?: number | null; 
   };
   return {
     from(table: string) {
-      const answer = o.failing === table ? { data: null, count: null, error: { message: 'timeout' } } : answers[table];
+      const filters: Record<string, string> = {};
+      const result = () => {
+        if (o.failing === table) return { data: null, count: null, error: { message: 'timeout' } };
+        if (table !== 'email_send_log') return answers[table];
+        const sent = o.sent === undefined ? 0 : (o.sent as number);
+        const count = filters.status === 'sent' ? sent : sent + (o.failedSends ?? 0);
+        return { data: null, count, error: null };
+      };
       const chain: Record<string, unknown> = {
-        select: () => chain, eq: () => chain, gte: () => chain,
-        single: () => Promise.resolve(answer), maybeSingle: () => Promise.resolve(answer),
-        then: (ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) => Promise.resolve(answer).then(ok, bad),
+        select: () => chain, gte: () => chain,
+        eq: (column: string, value: string) => { filters[column] = value; return chain; },
+        single: () => Promise.resolve(result()), maybeSingle: () => Promise.resolve(result()),
+        then: (ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) => Promise.resolve(result()).then(ok, bad),
       };
       return chain;
     },
@@ -53,6 +63,9 @@ describe('hostAddRecipient', () => {
     expect(await hostAddRecipient(db({ host: 'h', rsvpedAt: 'not a date' }), 'e', 'h', 'p', NOW)).toBeNull();
     expect(await hostAddRecipient(db({ host: 'h', rsvpedAt: new Date(NOW + 5 * 60_000).toISOString() }), 'e', 'h', 'p', NOW)).toBeNull();
     expect(await hostAddRecipient(db({ host: 'h', rsvpedAt: new Date(NOW + 5_000).toISOString() }), 'e', 'h', 'p', NOW)).toBe('p');
+  });
+  it('a failed send does not block the retry (only sent confirmations count)', async () => {
+    expect(await hostAddRecipient(db({ host: 'h', rsvpedAt: fresh, sent: 0, failedSends: 1 }), 'e', 'h', 'p', NOW)).toBe('p');
   });
   it('sends one confirmation per add: none when one is already logged since the registration', async () => {
     expect(await hostAddRecipient(db({ host: 'h', rsvpedAt: fresh, sent: 1 }), 'e', 'h', 'p', NOW)).toBeNull();
