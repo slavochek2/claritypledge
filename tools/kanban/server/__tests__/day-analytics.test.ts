@@ -68,12 +68,19 @@ describe('P1640 gate', () => {
     expect(g.headline).not.toBe(NO_CHANGE)
   })
 
-  it('an undecided failure repeats; a confirmed one does not', () => {
+  it('a repeating failure stays up, confirmed or not; only a dismissal hides it', () => {
     const r = calm()
     r.failures = [{ key: 'magic-link', label: 'Magic link failed', count: 4 }]
     const prior = { ...stored({ ...calm('2026-10-26'), failures: r.failures }), insights: gate(r, [], []).insights }
     expect(gate(r, [prior], []).insights[0].seen_count).toBe(1)
-    expect(gate(r, [prior], [{ key: 'failure:magic-link', decision: 'confirm' }]).insights).toEqual([])
+    expect(gate(r, [prior], [{ key: 'failure:magic-link', decision: 'confirm' }]).insights).toHaveLength(1)
+    expect(gate(r, [prior], [{ key: 'failure:magic-link', decision: 'dismiss' }]).insights).toEqual([])
+  })
+
+  it('a rate row never raises a shift', () => {
+    const r = calm()
+    r.sections.explore.rows = [{ label: 'Pages per session', current: 300, previous: 100, rate: true }]
+    expect(gate(r, [], []).insights).toEqual([])
   })
 
   it('a first the ledger has not seen is raised; one the ledger holds is not', () => {
@@ -245,6 +252,14 @@ describe('P1640 routes', () => {
     expect(body.status).toBe('collected')
     expect(body.read.date).toBe('2026-11-05')
     expect(body.dismissed).toEqual(['failure:magic-link'])
+  })
+
+  it('GET reports a corrupt newest read as not collected, not last week as current', async () => {
+    await withFailure('2026-10-29')
+    await writeFile(join(dir, 'reads', '2026-11-05.json'), '{broken')
+    const body = await (await fetch(`${API}/api/day/analytics`)).json()
+    expect(body.status).toBe('not-collected')
+    expect(body.read.date).toBe('2026-11-05')
   })
 
   it('a dismissed insight does not reappear on the next weekly read', async () => {

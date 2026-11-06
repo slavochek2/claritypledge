@@ -18,6 +18,8 @@ export const NO_CHANGE = 'No change worth your attention.'
 export const NOT_COLLECTED = 'Not collected'
 
 export interface Row {
+  /** a ratio or share, not a count: never put through the Poisson shift test */
+  rate?: boolean
   label: string
   current: number | null
   previous: number | null
@@ -128,8 +130,8 @@ export function validateRawRead(x: unknown): { ok: true; read: RawRead } | { ok:
     const rows: Row[] = []
     for (const row of s.rows) {
       const o = row as Record<string, unknown>
-      if (!o || !isStr(o.label) || !isNum(o.current) || !isNum(o.previous) || !optStr(o.note) || !optStr(o.link)) return bad(`a row in ${k} is malformed`)
-      rows.push({ label: o.label, current: o.current, previous: o.previous, ...(o.note ? { note: o.note as string } : {}), ...(o.link ? { link: o.link as string } : {}) })
+      if (!o || !isStr(o.label) || !isNum(o.current) || !isNum(o.previous) || !optStr(o.note) || !optStr(o.link) || (o.rate !== undefined && typeof o.rate !== 'boolean')) return bad(`a row in ${k} is malformed`)
+      rows.push({ label: o.label, current: o.current, previous: o.previous, ...(o.rate ? { rate: true } : {}), ...(o.note ? { note: o.note as string } : {}), ...(o.link ? { link: o.link as string } : {}) })
     }
     sections[k] = { rows, reconciled: s.reconciled }
   }
@@ -182,7 +184,8 @@ export function gate(read: RawRead, priorReads: StoredRead[], ledger: LedgerEntr
   // raised come first, so the cap cannot starve one forever.
   const unseenFirst = [...read.failures].sort((a, b) => seenIn(`failure:${a.key}`, priorReads) - seenIn(`failure:${b.key}`, priorReads))
   for (const f of unseenFirst) {
-    if (f.count <= 0 || inLedger.has(`failure:${f.key}`)) continue
+    // Only a dismissal suppresses a failure (spec step 14); a confirmed one that repeats is a pattern.
+    if (f.count <= 0) continue
     const repeats = seenIn(`failure:${f.key}`, priorReads)
     add({
       key: `failure:${f.key}`,
@@ -212,7 +215,7 @@ export function gate(read: RawRead, priorReads: StoredRead[], ledger: LedgerEntr
     // The Poisson test only means something on counts: `time` holds durations, `returns` holds rates.
     if (k === 'time' || k === 'returns') continue
     for (const row of read.sections[k].rows) {
-      if (!isShift(row.current, row.previous)) continue
+      if (row.rate || !isShift(row.current, row.previous)) continue
       const four = read.four_week?.[`${k}:${row.label}`]
       const direction = (row.current as number) > (row.previous as number) ? 'up' : 'down'
       add({

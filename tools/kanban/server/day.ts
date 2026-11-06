@@ -24,7 +24,7 @@ import { KANBAN_CONFIG } from '../config'
 import { ackWaitMs, collectionHash, dayClock, dayLauncher, launchWorkdir, sweepLaunchDirs, waitForAck, writePromptFile } from './dayLaunch'
 import { appendDecisionLines, parseLines, readDecisionsText, Refusal } from './dayStore'
 import { ledgerOf, markLine, resendLine } from './dayStories'
-import { analyticsDir, appendLedger, latestRead, readLedger } from './analyticsStore'
+import { analyticsDir, appendLedger, latestRead, latestReadFileDate, readLedger } from './analyticsStore'
 import {
   buildPrompt,
   buildView,
@@ -351,8 +351,14 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
     if (!dayEnabled()) return res.status(404).json({ error: 'Day page is not enabled' })
     try {
       const dir = analyticsDir()
-      const read = latestRead(dir)
-      if (!read) return res.json({ status: 'none' })
+      const good = latestRead(dir)
+      // A newest file that does not parse must not let last week's read pass as current.
+      const newest = latestReadFileDate(dir)
+      if (!newest) return res.json({ status: 'none' })
+      const read =
+        !good || newest !== good.date
+          ? { date: newest, status: 'not-collected' as const, reason: `the read file for ${newest} could not be read`, headline: 'Not collected', insights: [] }
+          : good
       const ledger = readLedger(dir)
       res.json({
         status: read.status,
