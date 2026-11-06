@@ -496,12 +496,12 @@ Founder decisions still open are marked `[FOUNDER DECISION]`; everything else is
 
 **Event page**
 - Delete "Limited to 24 registrations. Can't make it? Please cancel..." from the middle of the page.
-- Show "x of y seats left" just below both Register buttons (top and bottom). `[FOUNDER DECISION: always, or only from 8 registrations, or only at 5 or fewer (D18)]`. A limit is set when creating an event: check the create/edit UI and add the field if missing.
-- Top and bottom buttons use the same label as the dialog: decide one word (Register or Reserve a seat) and use it everywhere, including the dialog title.
+- Show "x of y seats left" just below both Register buttons (top and bottom), once 8 or more people are registered (founder, 2026-11-06; replaces D18's "5 or fewer"). A limit is set when creating an event: check the create/edit UI and add the field if missing.
+- Top and bottom buttons and the dialog title all say "Register" (founder, 2026-11-06). "Reserve a seat" promises a place before sign-in confirms it.
 
 **Registration dialog**
 - Question 1: "In which role would you like to participate?" Options: "I want to stress-test my riskiest business assumptions with peers" / "I want to help others succeed, as an observer or mentor".
-- Question 2 asks WHEN, not where: "When will you invest 15 minutes to create your Clarity Canvas?" (owners) and the observer version with 7 minutes `[FOUNDER DECISION: confirm 15 and 7]`. Options: "At home, before the event" / "I'll come earlier, at 18:00, and prepare there".
+- Question 2 asks WHEN, not where: "When will you invest 15 minutes to create your Clarity Canvas?" (owners) and the observer version with 7 minutes (founder confirmed 15 and 7). Options: "At home, before the event" / "I'll come earlier, at 18:00, and prepare there".
 - Checkbox, shorter, value first, no "record", no "publish": "To help every participant gain the most value, we transcribe your conversations with Google Gemini. The text is shared in the event chat with all attendees. After a discussion round, your peer can use the transcript to improve their Clarity Canvas." Reassure that nothing said is quoted: the canvas is inspired, not copied. Run the final text past Gemini 4 Argon (the founder delegated legal wording to it).
 - "See our Terms and Privacy Policy" moves below the Continue button.
 - Phone input: options iPhone / USB-C / Other; consider a small info icon showing the two plugs.
@@ -527,7 +527,7 @@ Founder decisions still open are marked `[FOUNDER DECISION]`; everything else is
 - Seed a localhost room with enough registered fake people for the founder to try the host screen.
 
 **Waiting list**
-- The host can't see emails, so "the host will email you" is not true today. `[FOUNDER DECISION: show waiting-list emails to the host, with a terms line (recommended), or change the copy to "check back here"]`.
+- Founder, 2026-11-06: the waiting list is shown just below the participant list, the same way and to the same people (attendees and the host). The host moves a person from the waiting list into the participants with one tap, like removing a participant today. That registers them with their stored answers and sends the normal confirmation email, so the host never needs their email address. Replace the copy "The host will email you if a place opens" with: "You're on the waiting list. If a place opens and the host adds you, you'll get an email." Moving someone in may take the event past its limit: the host decides.
 
 ## Known Limitations
 
