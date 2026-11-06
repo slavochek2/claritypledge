@@ -451,6 +451,7 @@ Last updated: 2026-11-06
 
 - **P1641** (Nov 26) Privacy scan refused branch deletes after P1623 made it fail closed — skip only an all-zero LOCAL SHA, before the range is built; a new fail-closed gate must run the pipeline's own cleanup step (gate 7c)
 - **P1628** (Nov 26) Tag automation traffic in Mixpanel — switching recording off blinds smokes to recorder outages; smokes must opt in and prove upload.
+- **P1640** (Nov 26) Weekly product read from Mixpanel, delivered through /day — weekly not daily: daily comparisons at low volume invent patterns.
 - **P1637** (Nov 26) Ship lock timeout stranded its own journal — remove only a journal this run wrote and proves unpicked; a new scenario reusing a later one's P-number kills the whole suite silently.
 - **P1630** (Nov 26) `/finish` adds GLM as advisory reviewer; receipt needs Gemini or Codex — embargo checks must test any branch shape, not `pN` names.
 - **P1620** (Nov 26) Shared-file change left prod functions stale unseen — hash all bundled inputs; a deploy must stamp only what it deployed.

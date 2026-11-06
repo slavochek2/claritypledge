@@ -9,6 +9,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-06 [product]: The product read is weekly, and its /day check reads only what /weekly wrote (P1640)
+
+**Context:** The founder asked for daily insights from Mixpanel ("who spends how much time? who is returning"). At current visitor volume, two external reviewers warned that a daily comparison invites patterns that are noise.
+**Decision:** Founder decision, 2026-11-05: weekly ("weeekly is fine"). `/weekly` runs the Mixpanel queries and writes the read; `/day`'s `cp.analytics` check only reads that artifact and makes no Mixpanel call. Checks that need post-deploy data or a founder click are filed separately (P1645), so the spec could close on what code can prove.
+**Alternatives rejected:** Daily reads (false patterns at this volume). Having `/day` query Mixpanel itself (cost and duplicate logic, and the morning run would own a weekly question).
+**Consequences:** The `/day` step landed on main before the script it calls, so on 2026-11-06 `/day` reported "weekly product read: didn't run". The check said so truthfully (not-run, not ok), but it reached the founder as a fault for a day. Wiring a `/day` step ahead of its ship produces a false item until the ship lands; P1647 covers stale `/day` items in general. UNTESTED: falsifier is four weekly reads in which the founder never opens the Analytics tab (decision criterion 2).
+**References:** [P1640](../features/done/2026-06-10/p1640_weekly_product_insights_from_mixpanel.md) · [P1645](../features/p1645_p1640_post_deploy_checks.md) · [P1647](../features/p1647_day_findings_reverified_before_shown.md)
+---
+
+
 ## 2026-11-06 [technical]: A ref delete is the one push line the privacy scan skips, and only on the local all-zero SHA (P1641)
 
 **Context:** P1623 made Layer 1 of `scripts/pre-push-checks.sh` fail closed when the scanner cannot read its input. A ref delete sends an all-zero local SHA, Layer 1 built a range ending in it, and every delete was refused. That stranded `staging/doc-*` refs on origin after each `/push`, and the `push-docs --resume` and re-push recovery paths could not delete their staging ref. The delete skip existed, but after the scan.
