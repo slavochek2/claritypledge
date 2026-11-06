@@ -491,7 +491,7 @@ Use exactly these row labels, every week. Insight keys and dismissals are built 
 | `what` | `RSVP started`: `event_rsvp_initiated` unique. `RSVP completed`: `event_rsvp_completed` unique. `Next step after event page`: flows report, top step |
 | `time` | `Session length`: median, seconds. `Session length p75`: seconds. `Session length: <landing type>`: median by landing type |
 | `returns` | `Return within 7 days`: retention on `$mp_web_page_view`, for cohorts at least 7 days old. `Signed-in returners`: count from the read-only prod helper |
-| `explore` | `Page views`, `Sessions`, `Pages per session`, `One-page sessions` |
+| `explore` | `Page views`, `Sessions`, `Pages per session` and `One-page sessions` (both with `"rate": true`, so they never run the shift test) |
 | `stuck` | `Dead clicks`, `Rage clicks`, `Not-found views`, `Auth failures`, `Magic-link failures`: `$mp_dead_click`, `$mp_rage_click`, `not_found_page_viewed`, `auth_callback_failed`, `signup_magic_link_error` + `login_magic_link_error` totals, with a by-page breakdown in the row's note. Each non-zero one also goes in `failures`, keyed by its label, with the query's `report_url` as `link` |
 | `practice` | `Live page`, `Session created`, `Partner joined`, `Explain-back done`, `Rating`: `live_meeting_page_view`, `live_session_created`, `live_session_joined`, `live_prove_started`, `live_rating_submitted` unique |
 
