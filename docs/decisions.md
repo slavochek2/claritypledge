@@ -81,6 +81,16 @@ Every other route still requires `/record`, so a recorder that loads but never r
 
 
 
+## 2026-11-06 [technical]: A canvas conflict is offered as a stored choice, and the server builds the pick from the stored row (P1646)
+
+**Context:** The canvas agent refused owner statements that clashed with older material ("lacks evidence"). The founder wanted it to think with the owner: name the conflict, recommend, offer A/B/keep (D1-D4).
+**Decision:** A message that contradicts a current point stores a choice (`canvas_draft_choices`) and writes nothing; options pass the unchanged evidence checks. A short reply ("A", "keep", "confirm B") is read without a model call; the SQL wrapper builds the write from the stored option, never from the caller, and refuses a stale one (point-id fingerprint). A choice is deleted when any owner message of its thread is edited or deleted (agent rows ignored, so Undo keeps it), on close, and on erasure.
+**Alternatives rejected:** Quotes only from the request message (round 3): it brought the refusal back for uploads and "what I said above". Blocking every other write while a choice is open: it traps the owner; held for the founder.
+**Consequences:** Seven migrations; picks cost no model call, a re-offer one. Real model on TEST: every case 5 of 5. Known limits are in the spec. Three harness defects (chip rendering, "See all N" hiding points, a header before the reply text) each scored correct behaviour as a failure: read a failing real-run try's logged text before believing the count. DeepSeek V4 Pro through `ask-model` gave no value as a reviewer here (4 of 5 runs exhausted the output budget; the one success had 0 real findings of 9). **Falsifier:** owners answer offers with free text the pick reader misses, leaving choices open.
+**References:** [P1646](../features/p1646_canvas_agent_thinks_with_owner_options.md) · P1625 · P1639 · INBOX-305 · INBOX-306 · INBOX-307
+
+---
+
 ## 2026-11-06 [product]: Outreach shelved again until sales mastermind session 1; the change-lead plan is kept ready. Founder decision
 
 **Context:** The 2026-11-02 entry started the slow parts of outreach to warm change leads. Working out the first message showed that nothing should go out before the mastermind: a "research call" is a pretext with nothing in it for the lead, and the honest ask (an invitation to a real online discussion) needs a date, set after session 1.

@@ -298,7 +298,7 @@ function conflictText(c: Choice, base: ReadonlyMap<string, BasePoint>): string {
   const box = c.options[0]?.box;
   const points = c.conflicts_with.map((id) => base.get(id)).filter((p): p is BasePoint => !!p && p.box === box);
   if (!box || !points.length) return 'your current canvas';
-  return `your current ${titleOf(box)}, ${joinAnd(points.map(shownPoint))}`;
+  return `your current ${titleOf(box)}: ${joinAnd(points.map(shownPoint))}`;
 }
 
 /** D2's {X}: fixed words for what the recommendation does. */
@@ -310,7 +310,7 @@ const RECOMMEND_TEXT: Record<'replace' | 'add' | 'keep', string> = {
 
 const optionLine = (o: ChoiceOption) => {
   const head = o.kind === 'replace' ? `Replace it with ${quoted(o.statement)}.` : `Add ${quoted(o.statement)} beside it.`;
-  return o.means ? `${head} ${sentence(o.means)}` : head;
+  return o.means ? `${head}\n${sentence(o.means)}` : head; // what it means on the next line, in the same block
 };
 
 /**
@@ -337,11 +337,12 @@ export function choiceReply(c: Choice, base: ReadonlyMap<string, BasePoint>, kee
   const mark = (l: string) => (l === recommendedLetter ? `${l} (recommended).` : `${l}.`);
   const letters = [...c.options.map((o) => o.letter), keep];
   return [
-    `I'm not sure about this. It contradicts ${conflictText(c, base)}. I'd recommend ${RECOMMEND_TEXT[rec]}${why}`,
+    `I'm not sure about this. It contradicts ${conflictText(c, base)}.`,
+    `I'd recommend ${RECOMMEND_TEXT[rec]}${why}`,
     ...c.options.map((o) => `${mark(o.letter)} ${optionLine(o)}`),
     `${mark(keep)} Keep the canvas as it is.`,
     `Reply ${joinOr(letters)}.`,
-  ].join('\n');
+  ].join('\n\n'); // founder-approved layout: one block per part, a blank line between blocks
 }
 
 /**
@@ -358,7 +359,7 @@ export function appliedReply(o: ChoiceOption, base: ReadonlyMap<string, BasePoin
     ? `I replaced ${joinAnd(old)} with ${shownNew} in ${box}, from your words ${words}.`
     : `I added ${shownNew} to ${box}, from your words ${words}.`;
   const revisit = o.also_revisit.length ? [`${joinAnd(o.also_revisit.map(titleOf))} may need updating too. Tell me what should change there.`] : [];
-  return [`Updated: ${box}.`, line, ...revisit].join('\n');
+  return [`Updated: ${box}.\n${line}`, ...revisit].join('\n\n'); // the D1 revisit line is its own block
 }
 
 /** [FOUNDER DECISION: wording] The owner chose to keep the canvas. */

@@ -38,6 +38,8 @@ const replaceOpt = { kind: 'replace', box: PROBLEM, quote: ASK, statement: 'Toda
 const addOpt = { kind: 'add', box: PROBLEM, quote: ASK, statement: 'Today organisations waste money on other tools for files.', means: 'Both problems stay on the canvas.' };
 const CHOICE = { conflicts_with: ['p1'], options: [replaceOpt, addOpt], recommended: 'A', reason: 'It is what you say the problem is now' };
 
+/** A reply's blocks: the founder-approved layout separates them with a blank line. */
+const blocks = (reply: string) => reply.split('\n\n');
 const material = (text: string, earlier: string[] = []) => assembleMaterial({ trigger: { text }, messages: earlier, links: [], files: [] });
 function parse(choice: unknown, over: Partial<ParseContext> = {}, text = ASK) {
   const out = parseDraft(gemini({ scope: [PROBLEM], actions: [], choice }), {
@@ -172,7 +174,7 @@ describe('P1646 vetChoice: the model\'s choice, checked like a written point', (
     expect(out.choice!.conflicts_with).toEqual(['p1']);
     expect(out.choice!.options.map((o) => o.box)).toEqual([PROBLEM]);
     expect(out.choice!.options[0]!.also_revisit).toEqual([SOLUTION]);
-    expect(choiceReply(out.choice!, baseMap).split('\n')[0]).toContain('It contradicts your current Problem, "Teams lose files across devices". I\'d');
+    expect(blocks(choiceReply(out.choice!, baseMap))[0]).toBe('I\'m not sure about this. It contradicts your current Problem: "Teams lose files across devices".');
     // a box the model already named to revisit is not added twice
     const named = parse({ ...CHOICE, conflicts_with: ['p1', 's1'], options: [replaceOpt] });
     expect(named.choice!.options[0]!.also_revisit).toEqual([SOLUTION, REVENUE]);
@@ -224,38 +226,41 @@ const vetted = (): Choice => parse(CHOICE).choice as Choice;
 
 describe('P1646 choiceReply: D2, verbatim', () => {
   it('two options, A recommended', () => {
+    // founder-approved layout: blocks separated by a blank line; an option's "means" on the line after it, in the same block
     expect(choiceReply(vetted(), baseMap)).toBe([
-      'I\'m not sure about this. It contradicts your current Problem, "Teams lose files across devices". I\'d recommend replacing it, because it is what you say the problem is now.',
-      'A (recommended). Replace it with "Today organisations waste money on other tools". Solution and Revenue Streams may no longer fit.',
-      'B. Add "Today organisations waste money on other tools for files" beside it. Both problems stay on the canvas.',
+      'I\'m not sure about this. It contradicts your current Problem: "Teams lose files across devices".',
+      'I\'d recommend replacing it, because it is what you say the problem is now.',
+      'A (recommended). Replace it with "Today organisations waste money on other tools".\nSolution and Revenue Streams may no longer fit.',
+      'B. Add "Today organisations waste money on other tools for files" beside it.\nBoth problems stay on the canvas.',
       'C. Keep the canvas as it is.',
       'Reply A, B or C.',
-    ].join('\n'));
+    ].join('\n\n'));
   });
   it('one option: A, then B keeps, "Reply A or B."; no reason, no "because"', () => {
     const c = { ...vetted(), options: [vetted().options[1]!].map((o) => ({ ...o, letter: 'A' as const })), reason: '' };
     expect(choiceReply(c, baseMap)).toBe([
-      'I\'m not sure about this. It contradicts your current Problem, "Teams lose files across devices". I\'d recommend adding it beside the current point.',
-      'A (recommended). Add "Today organisations waste money on other tools for files" beside it. Both problems stay on the canvas.',
+      'I\'m not sure about this. It contradicts your current Problem: "Teams lose files across devices".',
+      'I\'d recommend adding it beside the current point.',
+      'A (recommended). Add "Today organisations waste money on other tools for files" beside it.\nBoth problems stay on the canvas.',
       'B. Keep the canvas as it is.',
       'Reply A or B.',
-    ].join('\n'));
+    ].join('\n\n'));
   });
   it('a reason that opens with "because" is not said twice', () => {
-    expect(choiceReply({ ...vetted(), reason: 'Because you say so.' }, baseMap).split('\n')[0]).toMatch(/I'd recommend replacing it, because you say so\.$/);
-    expect(choiceReply({ ...vetted(), reason: 'because it is newer' }, baseMap).split('\n')[0]).toMatch(/, because it is newer\.$/);
+    expect(blocks(choiceReply({ ...vetted(), reason: 'Because you say so.' }, baseMap))[1]).toBe('I\'d recommend replacing it, because you say so.');
+    expect(blocks(choiceReply({ ...vetted(), reason: 'because it is newer' }, baseMap))[1]).toMatch(/, because it is newer\.$/);
   });
   it('keep recommended: the mark goes on the keep letter', () => {
     const r = choiceReply({ ...vetted(), recommended: 'keep', reason: 'your files point says the same' }, baseMap);
-    expect(r.split('\n')[0]).toBe('I\'m not sure about this. It contradicts your current Problem, "Teams lose files across devices". I\'d recommend keeping the canvas as it is, because your files point says the same.');
-    expect(r).toContain('\nA. Replace it with');
-    expect(r).toContain('\nB. Add');
-    expect(r).toContain('\nC (recommended). Keep the canvas as it is.');
+    expect(blocks(r)[1]).toBe('I\'d recommend keeping the canvas as it is, because your files point says the same.');
+    expect(r).toContain('\n\nA. Replace it with');
+    expect(r).toContain('\n\nB. Add');
+    expect(r).toContain('\n\nC (recommended). Keep the canvas as it is.');
   });
   it('two contradicted points in one box read "x" and "y"; plain text, no dashes, no markdown', () => {
     const two = new Map([...baseMap, ['p2', { id: 'p2', box: PROBLEM, statement: 'Folders break on phones.' }]]);
     const r = choiceReply({ ...vetted(), conflicts_with: ['p1', 'p2'] }, two);
-    expect(r).toContain('your current Problem, "Teams lose files across devices" and "Folders break on phones".');
+    expect(r).toContain('your current Problem: "Teams lose files across devices" and "Folders break on phones".');
     expect(r).not.toMatch(/[–—*#`[\]]/);
   });
 });
@@ -263,10 +268,9 @@ describe('P1646 choiceReply: D2, verbatim', () => {
 describe('P1646 the other replies [FOUNDER DECISION: wording]', () => {
   it('replace: what changed and from which words, and the boxes to revisit (D1)', () => {
     expect(appliedReply(vetted().options[0]!, baseMap)).toBe([
-      'Updated: Problem.',
-      'I replaced "Teams lose files across devices" with "Today organisations waste money on other tools" in Problem, from your words "the problem is organisations waste money on other tools".',
+      'Updated: Problem.\nI replaced "Teams lose files across devices" with "Today organisations waste money on other tools" in Problem, from your words "the problem is organisations waste money on other tools".',
       'Solution and Offers & Pricing may need updating too. Tell me what should change there.',
-    ].join('\n'));
+    ].join('\n\n')); // the D1 revisit line is its own block
   });
   it('add: no revisit line when there is none', () => {
     expect(appliedReply(vetted().options[1]!, baseMap)).toBe('Updated: Problem.\nI added "Today organisations waste money on other tools for files" to Problem, from your words "the problem is organisations waste money on other tools".');
@@ -627,7 +631,7 @@ describe('P1646 final review fixes', () => {
     const base = new Map([['p1', { id: 'p1', box: PROBLEM, statement: 'Teams say "lost" files.' }]]);
     const c: Choice = { ...vetted(), options: [{ ...vetted().options[0]!, statement: 'Today organisations call it “waste”.' }] };
     const r = choiceReply(c, base);
-    expect(r).toContain('your current Problem, "Teams say \'lost\' files".');
+    expect(r).toContain('your current Problem: "Teams say \'lost\' files".');
     expect(r).toContain('Replace it with "Today organisations call it \'waste\'".');
     expect(appliedReply(c.options[0]!, base)).toContain('I replaced "Teams say \'lost\' files" with "Today organisations call it \'waste\'"');
   });
@@ -642,8 +646,8 @@ describe('P1646 Opus adversary fixes', () => {
     const first = parse({ ...CHOICE, options: [invented, otherAdd], recommended: 'A', reason: 'replacing is cleaner' });
     expect(first.choice!.options.map((o) => o.kind)).toEqual(['add']);
     expect([first.choice!.recommended, first.choice!.reason]).toEqual(['keep', '']);
-    expect(choiceReply(first.choice!, baseMap).split('\n')[0]).toMatch(/I'd recommend keeping the canvas as it is\.$/);
-    expect(choiceReply(first.choice!, baseMap)).toContain('\nB (recommended). Keep the canvas as it is.');
+    expect(blocks(choiceReply(first.choice!, baseMap))[1]).toBe('I\'d recommend keeping the canvas as it is.');
+    expect(choiceReply(first.choice!, baseMap)).toContain('\n\nB (recommended). Keep the canvas as it is.');
     // R4: recommends its 2nd, the 2nd is refused: keep, no reason
     const second = parse({ ...CHOICE, options: [replaceOpt, { ...otherAdd, statement: 'Today organisations waste 70% of money on other tools.' }], recommended: 'B', reason: 'adding keeps both' });
     expect(second.choice!.options.map((o) => o.kind)).toEqual(['replace']);
@@ -694,7 +698,7 @@ describe('P1646 Opus adversary fixes', () => {
     await go(h);
     const reply = choiceCall(h).p_reply as string;
     expect(reply).not.toMatch(/Zorblat/);
-    expect(reply.split('\n')[0]).toMatch(/I'd recommend replacing it\.$/);
+    expect(blocks(reply)[1]).toBe('I\'d recommend replacing it.');
     expect(reply).toContain('A (recommended). Replace it with "Today organisations waste money on other tools".\n');
     // CONTROL: without the name in this run, the same stored texts are shown
     const plain = harness('D', { latest: named });
@@ -789,9 +793,10 @@ describe('P1646 re-review fixes', () => {
     await go(h);
     const reply = choiceCall(h).p_reply as string;
     expect(reply).not.toMatch(/Zorblat|\nA\b/);
-    expect(reply.split('\n')).toEqual([
-      'I\'m not sure about this. It contradicts your current Problem, "Teams lose files across devices". I\'d recommend keeping the canvas as it is.',
-      'B. Add "Today organisations waste money on other tools for files" beside it. Both problems stay on the canvas.',
+    expect(blocks(reply)).toEqual([
+      'I\'m not sure about this. It contradicts your current Problem: "Teams lose files across devices".',
+      'I\'d recommend keeping the canvas as it is.',
+      'B. Add "Today organisations waste money on other tools for files" beside it.\nBoth problems stay on the canvas.',
       'C (recommended). Keep the canvas as it is.',
       'Reply B or C.',
     ]);

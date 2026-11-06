@@ -16,7 +16,7 @@ const SEED = 'We sell a file sync app to small design teams for 12 dollars per u
 const CONFLICT = 'the problem is organisations waste money on other tools';
 
 // The engine's exact words (supabase/functions/_shared/canvas-choice.ts), copied verbatim.
-const OFFER_LEAD = /I['’]m not sure about this\. It contradicts your current Problem,/;
+const OFFER_LEAD = /I['’]m not sure about this\. It contradicts your current Problem:/;
 const OFFER_COUNT = /I['’]m not sure about this\./g;
 const KEPT = 'You chose to keep it as it is.';
 const NO_CHOICE = 'There is no open choice to pick from';
