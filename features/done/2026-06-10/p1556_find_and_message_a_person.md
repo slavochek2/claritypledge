@@ -1,18 +1,18 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 109
 workstream: clarity-chat
 created_date: '2026-10-23'
 tags: [chat, profile, discovery]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, create-spec.2, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 spec_review_hash: c216ba0f9acb392a9d570fd667c0db05ea71ed7b54196b2336e5a95a866560e9
 spec_review_vendors: [codex]
+completed_at: 2026-11-06
 ---
 
 # P1556: Find and message a person — handle, personal code and link
@@ -119,4 +119,4 @@ Not a completion box: these can only be observed on the live site with real phon
 
 ## Related
 
-[P1512](done/2026-06-10/p1512_clarity_chat_v1_real_release.md) (Clarity Chat: D1 shared-connection rule, D2 block and daily limit) · [P1509](done/2026-06-10/p1509_clarity_chat_v1_chats_home.md) (chats home) · [P1461](p1461_clarity_chat_channel_members_settings.md) (adding people to channels) · P1604 (transcription in a chat)
+[P1512](p1512_clarity_chat_v1_real_release.md) (Clarity Chat: D1 shared-connection rule, D2 block and daily limit) · [P1509](p1509_clarity_chat_v1_chats_home.md) (chats home) · [P1461](../../p1461_clarity_chat_channel_members_settings.md) (adding people to channels) · P1604 (transcription in a chat)
