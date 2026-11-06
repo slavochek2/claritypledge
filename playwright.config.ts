@@ -244,7 +244,7 @@ export default defineConfig({
   // Skipped when targeting a deployed URL (the prod CSP smoke via CSP_SMOKE_URL,
   // or the prod-health smoke via PROD_SMOKE_URL) — booting a local dev server is
   // irrelevant there and only adds startup time + a CI failure point.
-  webServer: process.env.CSP_SMOKE_URL || process.env.PROD_SMOKE_URL ? undefined : {
+  webServer: process.env.CSP_SMOKE_URL || process.env.PROD_SMOKE_URL || process.env.P1648_SMOKE_URL ? undefined : {
     command: `npm run dev -- --port ${PORT}`,
     url: `http://localhost:${PORT}`,
     // P1234 — KNOWN, UNFIXED: this is Root Cause path 2. Run B adopts run A's server

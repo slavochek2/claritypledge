@@ -103,7 +103,9 @@ export async function pollUntilStable(
 // while the recorder is still starting nothing is flushed and recording is dead — a timing race that
 // failed /live in CI. On these routes 'timeout' passes only if the recorder bundle finished loading with an
 // ok response (without the opt-in it is never requested; a stalled, aborted or 4xx/5xx download never
-// finishes ok) and no CSP violation was seen; 'blocked' and a bundle that never loaded still fail.
+// finishes ok) AND the bundle executed (it sets window.__mp_recorder; an empty or broken 200 does not), and
+// no recorder CSP violation was seen up to the deadline. 'blocked', or a bundle that never loaded or never
+// ran, still fails. That is the most /live can prove: the page stops the recorder, so no /record is owed.
 // Guarded by src/tests/p1648-recorder-stopped-routes.test.ts.
 export const RECORDER_STOPPED_ON_MOUNT_ROUTES = ['/live'];
 
@@ -112,12 +114,14 @@ export type RecorderFlushState = 'flushed' | 'blocked' | 'timeout';
 export interface RecorderWatch {
   /** 'flushed' on the first fulfilled /record, 'blocked' on a recorder CSP violation, else 'timeout'. Never throws. */
   waitForFirstFlush(timeoutMs?: number): Promise<RecorderFlushState>;
-  /** Throws unless `state` is 'flushed' (on a RECORDER_STOPPED_ON_MOUNT_ROUTES route: or 'timeout' with the bundle loaded ok). */
+  /** Throws unless `state` is 'flushed' (on a RECORDER_STOPPED_ON_MOUNT_ROUTES route: or 'timeout' with the bundle loaded ok and executed). */
   assertExercised(state: RecorderFlushState, route?: string): void;
   fulfilledRecordCount(): number;
   recorderBundleRequested(): boolean;
   /** The recorder bundle's download finished with a 2xx response (not just requested). */
   recorderBundleLoaded(): boolean;
+  /** The recorder bundle executed (window.__mp_recorder present), as of the end of waitForFirstFlush. */
+  recorderInitialised(): boolean;
   /** Recorder CSP violations seen so far (as of the last poll). */
   recorderViolations(): string[];
 }
@@ -128,6 +132,7 @@ export async function keepRecorderWithoutStoringReplays(page: Page): Promise<Rec
   let violations: string[] = [];
 
   let bundleLoaded = false;
+  let initialised = false;
   page.on('request', (req) => {
     if (req.url().includes('mixpanel-recorder')) bundleRequested = true;
   });
@@ -179,7 +184,24 @@ export async function keepRecorderWithoutStoringReplays(page: Page): Promise<Rec
         } catch {
           /* page navigating or closed: keep polling until the deadline */
         }
-        if (Date.now() >= deadline) return 'timeout';
+        if (Date.now() >= deadline) {
+          // Final read at the deadline, so a violation that landed after the last poll is not missed, and
+          // record whether the recorder bundle actually ran (P1648: the /live exemption needs it).
+          try {
+            const last = await page.evaluate(() => {
+              const w = window as unknown as { __p1628RecorderViolations?: string[]; __mp_recorder?: unknown };
+              return { seen: w.__p1628RecorderViolations ?? [], ran: w.__mp_recorder !== undefined };
+            });
+            initialised = last.ran;
+            if (last.seen.length > 0) {
+              violations = last.seen;
+              return 'blocked';
+            }
+          } catch {
+            /* page gone: initialised stays false, so the exemption cannot apply */
+          }
+          return fulfilled > 0 ? 'flushed' : 'timeout';
+        }
         try {
           await page.waitForTimeout(250);
         } catch {
@@ -189,16 +211,17 @@ export async function keepRecorderWithoutStoringReplays(page: Page): Promise<Rec
     },
     assertExercised(state, route) {
       if (state === 'flushed') return;
-      if (state === 'timeout' && bundleLoaded && route !== undefined && RECORDER_STOPPED_ON_MOUNT_ROUTES.includes(route)) return;
+      if (state === 'timeout' && bundleLoaded && initialised && route !== undefined && RECORDER_STOPPED_ON_MOUNT_ROUTES.includes(route)) return;
       throw new Error(
         `recorder never reached /record on this route: the smoke opt-in or the recorder is broken ` +
-          `(state=${state}, recorder bundle requested=${bundleRequested}, loaded ok=${bundleLoaded}, ` +
+          `(state=${state}, recorder bundle requested=${bundleRequested}, loaded ok=${bundleLoaded}, ran=${initialised}, ` +
           `recorder CSP violations=${violations.length ? violations.join('; ') : 'none'})`,
       );
     },
     fulfilledRecordCount: () => fulfilled,
     recorderBundleRequested: () => bundleRequested,
     recorderBundleLoaded: () => bundleLoaded,
+    recorderInitialised: () => initialised,
     recorderViolations: () => violations,
   };
 }
