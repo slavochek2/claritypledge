@@ -406,10 +406,12 @@ one (the `next` row in `series_aliases`, P1649; hidden placeholders count too, a
 Alias rules live in the prod table `series_aliases` (P1649), not in `api/series-redirect.ts`. Read it
 first (service role); if the topic has a key, stop here. Otherwise mirror `aisafety`: a row keyed on
 the **topic** with a title `ILIKE` pattern on the topic, not on "Clarity Night" (not every night
-shares a topic), and add `/<topic>` to `vercel.json`. The row insert is a prod data change: show it
-and get the founder's yes. Then call `resolve_series_alias('<topic>')` with the anon key and confirm
-it returns exactly this event, plus a `hike` control. **The function also returns hidden events**
-(public first), so check that no hidden event matches the pattern by accident. Commit the
+shares a topic), and add `/<topic>` to `vercel.json`. **Before the insert**, test the pattern
+against prod `events` with the service role (which sees hidden rows), `status=eq.upcoming` and the
+5-hour grace cutoff, and confirm it matches only this event: the function returns one slug, so it
+cannot show a second match masked behind the first. The row insert is a prod data change: show it
+and get the founder's yes. **After the insert**, call `resolve_series_alias('<topic>')` with the anon
+key as the smoke test (expect this event's slug), plus a `hike` control. Commit the
 `vercel.json` pair with `./scripts/git-ops.sh commit-to-main`. **Live only after the founder pushes.**
 
 ### Step 8 — Venue confirmation message, if the room is not confirmed
