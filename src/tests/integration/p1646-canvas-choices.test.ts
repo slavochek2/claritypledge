@@ -407,18 +407,62 @@ describe('P1646 canvas choices', () => {
     expect(await eng('_canvas_draft_choice_latest', { p_run: run, p_owner: ws.o.u.user.id })).toEqual({ status: 'none' });
   }, T);
 
-  it('editing the request message removes the choice; editing an unrelated message leaves it', async () => {
-    const { ws, run } = await offered('edit-msg');
+  const triggers = async (ws: WS, run: string) => {
     const runs = ((await admin.from('canvas_draft_runs').select('id, trigger_message_id, created_at').eq('draft_id', ws.draft).order('created_at')).data ?? []) as Row[];
-    const trig = runs.find((r) => r.id === run)!.trigger_message_id as string;
-    const other = runs.find((r) => r.id !== run && r.trigger_message_id)!.trigger_message_id as string;
-    expect(other).not.toBe(trig);
-    const e1 = await rpc(ws.o.c, 'edit_chat_message', { p_message: other, p_body: nn('unrelated edit') });
-    expect(e1.error, JSON.stringify(e1.error)).toBeNull();
-    expect(await ws.choices(), 'an unrelated message edit leaves the choice').toHaveLength(1);
+    return {
+      trig: runs.find((r) => r.id === run)!.trigger_message_id as string,
+      other: runs.find((r) => r.id !== run && r.trigger_message_id)!.trigger_message_id as string,
+    };
+  };
+
+  it('editing the request message removes the choice', async () => {
+    const { ws, run } = await offered('edit-msg');
+    const { trig } = await triggers(ws, run);
     const e2 = await rpc(ws.o.c, 'edit_chat_message', { p_message: trig, p_body: nn('changed my mind') });
     expect(e2.error, JSON.stringify(e2.error)).toBeNull();
     expect(await ws.choices(), 'editing the request message removes it').toEqual([]);
+  }, T);
+
+  it('DELIBERATE: editing ANY other message of the same canvas thread removes the choice; an edit in another conversation leaves it', async () => {
+    const { ws, run } = await offered('edit-thread');
+    const elsewhere = await offered('edit-elsewhere');
+    const { trig, other } = await triggers(ws, run);
+    expect(other).not.toBe(trig);
+    // another owner's draft is a different conversation and thread: editing its message leaves this choice
+    const elsewhereTrig = (await triggers(elsewhere.ws, elsewhere.run)).trig;
+    const x = await rpc(elsewhere.ws.o.c, 'edit_chat_message', { p_message: elsewhereTrig, p_body: nn('edited in another conversation') });
+    expect(x.error, JSON.stringify(x.error)).toBeNull();
+    expect(await ws.choices(), 'a message of another conversation leaves the choice').toHaveLength(1);
+    expect(await elsewhere.ws.choices(), 'its own thread lost its choice').toEqual([]);
+    // an earlier message of the same thread (not the request)
+    const e1 = await rpc(ws.o.c, 'edit_chat_message', { p_message: other, p_body: nn('earlier message edited') });
+    expect(e1.error, JSON.stringify(e1.error)).toBeNull();
+    expect(await ws.choices(), 'any message of the thread removes the choice').toEqual([]);
+  }, T);
+
+  it('deleting an earlier owner message (not the request) removes the choice', async () => {
+    const { ws, run } = await offered('del-earlier');
+    const { trig, other } = await triggers(ws, run);
+    expect(other).not.toBe(trig);
+    expect(await ws.choices()).toHaveLength(1);
+    const d = await rpc(ws.o.c, 'delete_chat_message', { p_message: other });
+    expect(d.error, JSON.stringify(d.error)).toBeNull();
+    expect(await ws.choices()).toEqual([]);
+  }, T);
+
+  it('G1: a 2100-character request whose 2000th character is a space is offered successfully', async () => {
+    const o = await mkOwner('g1'); const ws = new WS(o);
+    await ws.cycle([newPt(SEG, 'seg one')]);
+    const s1 = ws.byText(await ws.points(), nn('seg one'));
+    const body = 'a'.repeat(1999) + ' ' + 'b'.repeat(100);
+    expect(body).toHaveLength(2100);
+    const run = await ws.send(body);
+    const r = await ws.complete(run, offerChoice([s1.id], [opt('A', 'replace', SEG, 'x', [s1.id])]));
+    expect(r.error, JSON.stringify(r.error)).toBeNull();
+    expect(r.data.status, JSON.stringify(r.data)).toBe('ok');
+    const rows = await ws.choices();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.request).toBe('a'.repeat(1999));
   }, T);
 
   it('a request message edited after the run began (before the offer completes) fails the offer with 22023 and stores nothing', async () => {
@@ -443,19 +487,22 @@ describe('P1646 canvas choices', () => {
     expect((await ws.complete(run, { mode: 'hold' })).data.status).toBe('ok');
   }, T);
 
-  it('deleting the newest choice\'s message does not bring back an older superseded choice', async () => {
+  it('latest never returns a superseded choice, and deleting a thread message removes every choice of the draft (superseded ones too)', async () => {
     const { ws, seg } = await offered('superseded-back');
-    const first = (await ws.choices())[0]!;
     const run2 = await ws.send();
     const re = await ws.complete(run2, offerChoice([seg.id], [opt('A', 'add', SEG, 'second')]));
     expect(re.data.status, JSON.stringify(re)).toBe('ok');
     expect((await ws.choices()).map((c) => c.state)).toEqual(['superseded', 'open']);
+    // the open one leaves the picture without its message: latest must not fall back to the superseded one
+    await admin.from('canvas_draft_choices').update({ state: 'kept', closed_at: new Date().toISOString() }).eq('id', re.data.choice_id);
+    expect((await eng('_canvas_draft_choice_latest', { p_run: run2, p_owner: ws.o.u.user.id })).choice).toMatchObject({ id: re.data.choice_id, state: 'kept' });
+    await admin.from('canvas_draft_choices').update({ state: 'superseded' }).eq('id', re.data.choice_id);
+    expect(await eng('_canvas_draft_choice_latest', { p_run: run2, p_owner: ws.o.u.user.id }), 'only superseded rows: none').toEqual({ status: 'none' });
+    // a message deleted in the thread removes every row of the draft, the superseded one included
     const trig2 = ((await admin.from('canvas_draft_runs').select('trigger_message_id').eq('id', run2).single()).data as Row).trigger_message_id;
     const d = await rpc(ws.o.c, 'delete_chat_message', { p_message: trig2 });
     expect(d.error, JSON.stringify(d.error)).toBeNull();
-    const rows = await ws.choices();
-    expect(rows.map((c) => c.id), 'only the superseded row is left in the table').toEqual([first.id]);
-    expect(await eng('_canvas_draft_choice_latest', { p_run: run2, p_owner: ws.o.u.user.id })).toEqual({ status: 'none' });
+    expect(await ws.choices()).toEqual([]);
   }, T);
 
   it('the choice function refuses a run that is not a message run and changes nothing', async () => {

@@ -204,9 +204,9 @@ describe('P1646 vetChoice: the model\'s choice, checked like a written point', (
     expect(Array.from(ok.choice!.options[0]!.quote).length).toBeLessThanOrEqual(MAX_QUOTE_CHARS);
     expect(ok.choice!.options[0]!.quote).toBe(head.slice(0, MAX_QUOTE_CHARS).trim());
   });
-  it('recommended keep is kept; an unknown value falls back to A', () => {
+  it('recommended keep is kept; G3: an unknown value recommends keep, with no reason (never an invented A)', () => {
     expect(parse({ ...CHOICE, recommended: 'keep' }).choice!.recommended).toBe('keep');
-    expect(parse({ ...CHOICE, recommended: 'C' }).choice!.recommended).toBe('A');
+    expect(parse({ ...CHOICE, recommended: 'C' }).choice).toMatchObject({ recommended: 'keep', reason: '' });
   });
   it('the two-word rule and the best guess are unchanged: an option sharing one word with a hedged sentence is refused', () => {
     const opt = { ...replaceOpt, quote: 'they are angry', statement: 'Today customers are angry.' };
@@ -648,8 +648,9 @@ describe('P1646 Opus adversary fixes', () => {
     const second = parse({ ...CHOICE, options: [replaceOpt, { ...otherAdd, statement: 'Today organisations waste 70% of money on other tools.' }], recommended: 'B', reason: 'adding keeps both' });
     expect(second.choice!.options.map((o) => o.kind)).toEqual(['replace']);
     expect([second.choice!.recommended, second.choice!.reason]).toEqual(['keep', '']);
-    // no recommendation given at all: the first option, no reason
-    expect(parse({ ...CHOICE, recommended: undefined, reason: 'whatever' }).choice).toMatchObject({ recommended: 'A', reason: '' });
+    // G3: no recommendation given at all: keep, no reason
+    expect(parse({ ...CHOICE, recommended: undefined, reason: 'whatever' }).choice).toMatchObject({ recommended: 'keep', reason: '' });
+    expect(parse({ ...CHOICE, recommended: '' }).choice).toMatchObject({ recommended: 'keep', reason: '' });
     // recommends its 2nd, the 1st is refused: the 2nd is now A, still the recommended one, and its reason stays
     const renamed = parse({ ...CHOICE, options: [invented, otherAdd], recommended: 'B', reason: 'adding keeps both' });
     expect([renamed.choice!.options[0]!.kind, renamed.choice!.recommended, renamed.choice!.reason]).toEqual(['add', 'A', 'adding keeps both']);
@@ -722,33 +723,64 @@ describe('P1646 re-review fixes', () => {
   it('R2: every migration the canvas-choice.ts header cites exists', () => {
     const header = readFileSync(resolve(process.cwd(), 'supabase/functions/_shared/canvas-choice.ts'), 'utf8').split('*/')[0]!;
     const cited = [...header.matchAll(/\b(2026\d{10})\b/g)].map((m) => m[1]!);
-    expect(cited).toEqual(expect.arrayContaining(['20261106125500', '20261106151500', '20261106141500']));
+    expect(cited).toEqual(expect.arrayContaining(['20261106125500', '20261106163500', '20261106173500', '20261106141500']));
     const files = readdirSync(resolve(process.cwd(), 'supabase/migrations'));
     for (const ts of cited) expect(files.some((f) => f.startsWith(`${ts}_`)), ts).toBe(true);
   });
 
-  it('R3: an option whose quote comes from an older owner message, not the request, is dropped and counted', () => {
-    const out = parseDraft(gemini({ scope: [PROBLEM], actions: [], choice: { ...CHOICE, options: [olderOpt] } }), {
-      material: material(ASK, [OLDER]), basePoints: BASE, baseLabel: 'v1', otherNames: [], scope: { mode: 'model' }, allowChoice: true,
-    });
-    if (!out.ok) throw new Error(out.code);
-    expect(out.choice).toBeUndefined();
-    expect(out.droppedUnverified).toBe(1);
-    // CONTROL: the same quote in the request itself is accepted
-    expect(parse({ ...CHOICE, options: [olderOpt] }, {}, `${ASK}. ${OLDER}`).choice!.options[0]!.quote).toBe(OLDER);
-    // the request's own words match whatever their case or spacing (the quote check's normalisation)
-    expect(parse({ ...CHOICE, options: [{ ...replaceOpt, quote: 'The  Problem is ORGANISATIONS waste money' }] }).choice).toBeDefined();
+  it('G2 (R3 reverted): an option may quote any owner words: an earlier message and an uploaded file are offered', async () => {
+    // an earlier owner message ("change it to what I said above")
+    const fromEarlier = harness(ASK, { earlier: [OLDER], model: async () => ({ response: gemini({ scope: [PROBLEM], actions: [], choice: { ...CHOICE, options: [olderOpt] } }), status: 200 }) });
+    await go(fromEarlier);
+    expect(choiceCall(fromEarlier).p_choice).toMatchObject({ mode: 'offer', options: [expect.objectContaining({ quote: OLDER })] });
+    // an uploaded file
+    const FILE = 'Our survey shows teams forget passwords on every device they use.';
+    const fromFile = harness(ASK, { earlier: [], model: async () => ({ response: gemini({ scope: [PROBLEM], actions: [], choice: { ...CHOICE, options: [olderOpt] } }), status: 200 }) });
+    fromFile.run.material = [{ kind: 'file', label: 'survey.pdf', text: FILE }];
+    await go(fromFile);
+    expect(choiceCall(fromFile).p_choice).toMatchObject({ mode: 'offer', options: [expect.objectContaining({ quote: OLDER })] });
+    // CONTROL: words nobody wrote are still refused (the owner-quote rule is unchanged)
+    const nowhere = harness(ASK, { earlier: [], model: async () => ({ response: gemini({ scope: [PROBLEM], actions: [], choice: { ...CHOICE, options: [olderOpt] } }), status: 200 }) });
+    await go(nowhere);
+    expect(nowhere.by('_canvas_draft_run_complete_choice')).toHaveLength(0);
+    expect(nowhere.by('_canvas_draft_run_complete')).toHaveLength(1);
   });
-  it('R3: a re-offer quoting an older message instead of the earlier request offers nothing; a stored quote not in the request refuses the pick', async () => {
-    const reoffer = harness('A', { latest: { ...LATEST_OPEN(), stale: true }, earlier: [ASK, OLDER], model: async () => ({ response: gemini({ scope: [PROBLEM], actions: [], choice: { ...CHOICE, options: [olderOpt] } }), status: 200 }) });
-    await go(reoffer);
-    expect(choiceCall(reoffer).p_choice).toEqual({ mode: 'hold' });
-    expect(choiceCall(reoffer).p_reply).toBe(reofferNoneReply(STALE_LEAD));
+  it('G2: a pick whose stored quote is no longer in the owner material this run has is refused; still there, it is applied', async () => {
     const stored = { ...vetted().options[0]!, quote: OLDER, statement: 'Today teams forget passwords on every device.' };
-    const pick = harness('A', { latest: LATEST_OPEN({ options: [stored, vetted().options[1]] }), earlier: [ASK, OLDER] });
+    const gone = harness('A', { latest: LATEST_OPEN({ options: [stored, vetted().options[1]] }), earlier: [ASK] });
+    await go(gone);
+    expect(choiceCall(gone).p_choice).toEqual({ mode: 'hold' });
+    expect(choiceCall(gone).p_reply).toBe(refusedPickReply('A'));
+    const there = harness('A', { latest: LATEST_OPEN({ options: [stored, vetted().options[1]] }), earlier: [ASK, OLDER] });
+    await go(there);
+    expect(choiceCall(there).p_choice).toEqual({ mode: 'apply', choice_id: 'c1', letter: 'A' });
+  });
+
+  it('G1: the request is held in exactly the form SQL stores: a 2100-character message whose 2000th character is a space', async () => {
+    const head = `${ASK} ${'a'.repeat(1999 - ASK.length - 1)}`; // 1999 characters
+    const long = `${head} ${'b'.repeat(100)}`;
+    expect([head.length, long.length, long[1999]]).toEqual([1999, 2100, ' ']);
+    // the offer sends cutChars(text.trim(), 2000), as before (the trailing space included; SQL trims it)
+    const offer = harness(long, { earlier: [] });
+    await go(offer);
+    expect((choiceCall(offer).p_choice as { request: string }).request).toBe(`${head} `);
+    // SQL stored btrim(left(btrim(x), 2000)): the thread's message still holds it, so a keep is applied (not "no open choice")
+    const pick = harness('keep', { latest: LATEST_OPEN({ request: head }), earlier: [long] });
     await go(pick);
-    expect(choiceCall(pick).p_choice).toEqual({ mode: 'hold' });
-    expect(choiceCall(pick).p_reply).toBe(refusedPickReply('A'));
+    expect(choiceCall(pick).p_choice).toEqual({ mode: 'apply', choice_id: 'c1', letter: 'C' });
+  });
+
+  it('G4: "the recommended one" means the recommendation the owner was last shown: a screened choice whose recommendation moved to keep picks keep', async () => {
+    const named = { ...vetted().options[0]!, statement: 'Today Zorblat Quenk wastes money on other tools.' };
+    const latest = LATEST_OPEN({ options: [named, vetted().options[1]], recommended: 'A' });
+    const h = harness('the recommended one', { latest, other_names: ['Zorblat Quenk'] });
+    await go(h);
+    expect(choiceCall(h).p_choice).toEqual({ mode: 'apply', choice_id: 'c1', letter: 'C' });
+    expect(choiceCall(h).p_reply).toBe(KEPT_REPLY);
+    // CONTROL: without the name, the recommended option is A, which is applied
+    const plain = harness('the recommended one', { latest: LATEST_OPEN({ recommended: 'A' }) });
+    await go(plain);
+    expect(choiceCall(plain).p_choice).toEqual({ mode: 'apply', choice_id: 'c1', letter: 'A' });
   });
 
   it('R5: a re-posted choice drops an option whose statement now names someone, keeps the stored letters, and moves a lost recommendation to keep', async () => {

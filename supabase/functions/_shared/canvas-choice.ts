@@ -9,9 +9,10 @@
  *   the replies  built from fixed words (D2, approved 2026-11-06); model text appears only inside the brackets D2 names.
  *
  * The server stores the choice and, on a pick, builds the actions from the STORED option, never from the caller
- * (`_canvas_draft_run_complete_choice`). The table and the functions are created in migration 20261106125500. The live bodies of
- * `_canvas_draft_run_complete_choice` and `_canvas_draft_choice_latest` (and the trigger that deletes a choice with its request
- * message) are in 20261106151500; the erase trigger is in 20261106141500. Pure: no Deno or esm.sh imports.
+ * (`_canvas_draft_run_complete_choice`). The table and the functions are created in migration 20261106125500. The live body of
+ * `_canvas_draft_choice_latest` is in 20261106163500; the live body of `_canvas_draft_run_complete_choice` and of the trigger that
+ * deletes a draft's choices when an owner message of its thread is deleted or edited are in 20261106173500; the erase trigger is in
+ * 20261106141500. Pure: no Deno or esm.sh imports.
  */
 
 import { BOX_TAGS, MAX_POINTS_PER_BOX, MAX_QUOTE_CHARS, MAX_STATEMENT_CHARS, titleOf } from './canvas-draft.ts';
@@ -146,19 +147,15 @@ export interface ChoiceCtx {
   vet: VetCtx;
   /** A revenue statement with only the price terms the owner stated (canvas-price.ts), as for a written point. */
   ground: (box: string, statement: string) => string;
-  /** The request the choice is about (normalizeForQuote form, cut as it is stored): every option's quote must come from it. */
-  request: string;
 }
 
 const sameText = (a: string, b: string) => normalizeForQuote(a) === normalizeForQuote(b);
 
-/** The request a choice stores: the owner's message, cut as the database keeps it, in the quote check's comparison form. */
-export const requestHaystack = (text: string): string => normalizeForQuote(cutChars(text.trim(), MAX_REQUEST_CHARS));
-/** True when the quote is in the request (the same normalisation as the owner-quote check). */
-export const quoteInRequest = (quote: string, haystack: string): boolean => {
-  const q = normalizeForQuote(quote);
-  return q.length > 0 && haystack.includes(q);
-};
+/**
+ * The request in exactly the form the database stores and compares it: trimmed, cut to 2000 characters, trimmed again
+ * (SQL: btrim(left(btrim(x), 2000))). The engine sends `cutChars(text.trim(), 2000)`; both sides of the held check use this form.
+ */
+export const storedRequestForm = (text: string): string => cutChars(text.trim(), MAX_REQUEST_CHARS).trim();
 
 /** Free model text shown to the owner: cleaned, no other person, no number the owner never said, cut at a word; else empty. */
 function shownText(v: unknown, ctx: ChoiceCtx, acc: VetAcc): string {
@@ -193,8 +190,8 @@ function vetOption(o: Raw, conflicts: readonly BasePoint[], ctx: ChoiceCtx, acc:
   if (kind === 'add' && inBox.length >= MAX_POINTS_PER_BOX) { acc.droppedCap += 1; return null; }
   // the quote is cut to what is stored FIRST, and exactly that string is vetted: the pick vets it again, and must find what the offer found
   const quote = cutChars(o.quote.trim(), MAX_QUOTE_CHARS).trim();
-  // the choice lives only as long as its request message: a quote from any other owner words would outlive their deletion
-  if (!quoteInRequest(quote, ctx.request)) { acc.droppedUnverified += 1; return null; }
+  // any owner words may carry an option (this message, an earlier one, a file): the database deletes a draft's choices when any
+  // owner message of its thread is deleted or edited, and the pick vets the quote again against the material it has then
   const guesses = acc.guesses.length;
   const ok = vetEvidence(acc, ctx.vet, { action: 'new', box, quote }, statement);
   acc.guesses.length = guesses; // an option is not written here: a best guess is told when it is applied, with its words
@@ -225,12 +222,12 @@ export function vetChoice(raw: unknown, ctx: ChoiceCtx, acc: VetAcc): Choice | n
 
 /**
  * The model recommends an option by its place in ITS list ("A" its first, "B" its second). Options are lettered again after vetting, so
- * the recommendation follows the option, not the letter. When the recommended option was refused, the first surviving one is marked and
- * the model's reason is not shown: it was about another option.
+ * the recommendation follows the option, not the letter. When the recommended option was refused, or the model recommended nothing
+ * valid, keep is recommended and no reason is shown: the agent never recommends an option the model did not.
  */
 function recommendationOf(asked: unknown, origins: readonly number[]): { recommended: Recommended; keepReason: boolean } {
   if (asked === 'keep') return { recommended: 'keep', keepReason: true };
-  if (asked !== 'A' && asked !== 'B') return { recommended: 'A', keepReason: false }; // no recommendation given: the first option, no reason
+  if (asked !== 'A' && asked !== 'B') return { recommended: 'keep', keepReason: false }; // no valid recommendation: keep, never an invented A
   const at = origins.indexOf(asked === 'A' ? 0 : 1);
   // the option the model recommended was refused: keep, never an option it did not recommend
   return at >= 0 ? { recommended: at === 0 ? 'A' : 'B', keepReason: true } : { recommended: 'keep', keepReason: false };
@@ -262,20 +259,17 @@ function optionsOf(raw: unknown, conflicts: readonly BasePoint[], ctx: ChoiceCtx
 }
 
 /** What parseDraft hands over: the same checks a written point passes, and the run's scope. */
-type ParseCtxLike = Omit<ChoiceCtx, 'boxes' | 'vet' | 'ground' | 'request'> & VetCtx & { scope: ReadonlySet<string>; priceWords: PriceWords };
+type ParseCtxLike = Omit<ChoiceCtx, 'boxes' | 'vet' | 'ground'> & VetCtx & { scope: ReadonlySet<string>; priceWords: PriceWords };
 
 /**
  * P1646, called by parseDraft: the model's "choice", on a run that may offer one. An untagged message's scope is the model's own, so a box
  * it names in the choice is a box it names for this run; a tagged message keeps its tags. A revenue option keeps only the price terms the
  * owner stated, as a written point does.
  */
-export function readChoice(body: Raw, pc: Pick<ParseContext, 'allowChoice' | 'scope' | 'material'>, ctx: ParseCtxLike, acc: VetAcc): Choice | null {
+export function readChoice(body: Raw, pc: Pick<ParseContext, 'allowChoice' | 'scope'>, ctx: ParseCtxLike, acc: VetAcc): Choice | null {
   if (pc.allowChoice !== true || !body.choice) return null;
   const ground = (box: string, s: string) => (box === REVENUE ? groundPriceTerms(s, ctx.priceWords.owner, ctx.priceWords.answer) : s);
-  // the request: a re-offer's earlier request, else this run's own message (the one the offer stores)
-  const items = pc.material.items;
-  const request = requestHaystack((items.find((i) => i.earlier) ?? items.find((i) => i.trigger))?.text ?? '');
-  return vetChoice(body.choice, { base: ctx.base, boxes: pc.scope?.mode === 'model' ? BOX_TAGS : ctx.scope, vet: ctx, ground, request }, acc);
+  return vetChoice(body.choice, { base: ctx.base, boxes: pc.scope?.mode === 'model' ? BOX_TAGS : ctx.scope, vet: ctx, ground }, acc);
 }
 
 // ── The replies ─────────────────────────────────────────────────────────────
