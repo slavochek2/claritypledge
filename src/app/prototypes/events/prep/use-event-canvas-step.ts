@@ -4,7 +4,7 @@
  * bottom bar while the live room's card keeps an inline button. Seven states (A..G, see canvas-step-view); sharing stays its own tap (D9:
  * nothing is shared in the background; Publish returning to the step does NOT share). All strings are DRAFT copy.
  * Published canvases come from `listMyCanvasVersions` (only versions with `published_at IS NOT NULL`); an OPEN draft comes from the owner's own
- * `canvas_drafts` rows (`listMyCanvasDraftState`, state 'open'): that is what tells B from A, and it is the draft "Continue your draft" reopens.
+ * `canvas_drafts` rows (`listMyOpenCanvasDrafts`, state 'open', the most worked first): that is what tells B from A, and it is the draft "Continue your draft" reopens.
  * One action in flight at a time: it shows its busy label and no other action is tappable.
  */
 import { useCallback, useEffect, useState } from 'react';
@@ -12,7 +12,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { canvasService } from '@/app/data/canvas-service';
 import { listMyCanvasVersions } from '@/app/data/canvas-draft-service';
-import { listMyCanvasDraftState, type OpenCanvasDraft } from '@/app/data/canvas-open-drafts';
+import { listMyOpenCanvasDrafts, type OpenCanvasDraft } from '@/app/data/canvas-open-drafts';
 import { getMyEventCanvas, setEventCanvas, type MyEventCanvas } from '@/app/data/event-mastermind-service';
 import { CANVAS_WORKSPACE_WIDE_QUERY } from '@/app/components/canvas/canvas-workspace-context';
 import { canvasStartErrorText } from '@/app/pages/chat/canvas-start';
@@ -51,7 +51,7 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
   // A failed read is an error with Retry: it must never look like "no canvas yet".
   const read = useCallback(async () => {
     try {
-      const [current, versions, state] = await Promise.all([getMyEventCanvas(eventId), listMyCanvasVersions(), listMyCanvasDraftState()]);
+      const [current, versions, drafts] = await Promise.all([getMyEventCanvas(eventId), listMyCanvasVersions(), listMyOpenCanvasDrafts()]);
       const seen = new Set<string>();
       const list: PublishedCanvas[] = [];
       for (const v of versions) { // newest published version first
@@ -61,7 +61,7 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
       }
       setMine(current);
       setPublished(list);
-      setOpenDraft(state.drafts[0] ?? null);
+      setOpenDraft(drafts[0] ?? null);
       setReadFailed(false);
     } catch {
       setReadFailed(true);
@@ -69,13 +69,16 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
     setLoaded(true);
   }, [eventId]);
   useEffect(() => { void read(); }, [read]);
+  /** Retry shows the skeleton again while the re-read runs (no second tap), and a second failure shows the error again. */
+  const retry = useCallback(() => { if (pending) return Promise.resolve(); setLoaded(false); return read(); }, [read, pending]);
 
   /** Reopens the person's existing open draft (never `start()`, which would make a new canvas): the workspace on it, as use-start-canvas opens one. */
-  const continueDraft = useCallback(() => {
+  const continueDraft = useCallback(async () => {
     if (!openDraft) return;
+    await chat.refresh().catch(() => null); // the workspace's chat needs the mirror in the list, as use-start-canvas does
     if (!slug) { toast.error(canvasStartErrorText(null)); return; }
     navigate(workspaceHref(slug, openDraft.canvasName, openDraft.versionName), { state: { from: here, ...(returnToPreparation ? { afterPublish: here } : {}) } });
-  }, [openDraft, slug, navigate, here, returnToPreparation]);
+  }, [openDraft, slug, chat, navigate, here, returnToPreparation]);
 
   const share = useCallback(async (name: string) => {
     try {
@@ -89,11 +92,12 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
   const shareAgain = useCallback(async (name: string) => {
     try {
       await canvasService.shareCanvas(name, 'event', eventId);
-      await read();
-    } catch (e) { failed(e); }
+    } catch (e) { failed(e); } // shareCanvas throws on a refusal: say so, then show what the server now holds
+    await read();
   }, [eventId, read]);
 
   const mk: MakeAction = (id, label, busyLabel, run, quiet) => ({
+    id,
     label: pending === id && busyLabel ? busyLabel : label,
     run: () => {
       if (pending) return;
@@ -115,5 +119,5 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
     go: { start, continueDraft, share, shareAgain, change: () => setChanging(true), keep: () => setChanging(false) },
   });
 
-  return { loaded, readFailed, retry: read, view, published: candidates, selected, setPicked, sharedLabel, chosen: mine?.shared ? mine : null, dialog };
+  return { loaded, readFailed, retry, busy: pending !== null, view, published: candidates, selected, setPicked, sharedLabel, chosen: mine?.shared ? mine : null, dialog };
 }

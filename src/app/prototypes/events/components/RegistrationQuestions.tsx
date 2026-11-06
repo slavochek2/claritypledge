@@ -89,10 +89,12 @@ export function RegistrationQuestions({
   const [hope, setHope] = useState('');
   // The questions that were visible and missing at the last Register; null before any try. One at a time is neutral until the next try.
   const [attempt, setAttempt] = useState<{ keys: QuestionKey[] } | null>(null);
+  // Changing the join answer resets prep: the NEW prep question is neutral until the next Register (the attempt's keys stay put, so focus does not move).
+  const [prepFresh, setPrepFresh] = useState(false);
   const missingKeyList = missingKeys(join, prep, phone, accepted);
   const form = useRef<HTMLDivElement>(null);
   // A question shows its error if it was missing at the last try and still is: answering clears it, a question revealed later stays neutral.
-  const bad = (k: QuestionKey) => !!attempt?.keys.includes(k) && missingKeyList.includes(k);
+  const bad = (k: QuestionKey) => !(k === 'prep' && prepFresh) && !!attempt?.keys.includes(k) && missingKeyList.includes(k);
   const errorId = (k: QuestionKey) => `${id}-err-${k}`;
   const invalidProps = (k: QuestionKey) => (bad(k) ? { 'aria-invalid': true as const, 'aria-describedby': errorId(k) } : {});
   const rowError = (k: QuestionKey) => (bad(k) ? errorId(k) : undefined);
@@ -101,7 +103,7 @@ export function RegistrationQuestions({
     bad(k) ? <p id={errorId(k)} className="mt-2 text-sm text-destructive" role="alert" data-testid={`missing-${k}`}>{text}</p> : null;
   const waitlist = mode === 'waitlist';
   // Reopened after a close: the answers given stay, the "you have not answered" lines from the earlier try do not.
-  useEffect(() => { if (open) setAttempt(null); }, [open]);
+  useEffect(() => { if (open) { setAttempt(null); setPrepFresh(false); } }, [open]);
   useFocusFirstMissing(form, attempt);
   useEffect(() => {
     const c = initial ? choicesOf(initial) : null;
@@ -113,6 +115,7 @@ export function RegistrationQuestions({
     if (next === join) return;
     setJoin(next);
     setPrep(null); // the second question depends on the first answer
+    setPrepFresh(true);
   };
   const answered = !!(join || prep || phone || accepted || hope.trim());
   const close = () => {
@@ -120,7 +123,7 @@ export function RegistrationQuestions({
     onCancel();
   };
   const submit = () => {
-    setAttempt({ keys: missingKeyList });
+    setAttempt({ keys: missingKeyList }); setPrepFresh(false);
     if (!join || !prep || !phone || !accepted) return;
     onSubmit({ ...participationOf(join, prep), phone, hope, recordingAccepted: true });
   };

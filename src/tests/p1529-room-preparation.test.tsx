@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   getMine: vi.fn(),
   setCanvas: vi.fn(),
   toastError: vi.fn(),
+  refresh: vi.fn(async () => null),
 }));
 
 vi.mock('@/app/prototypes/events/prep/PrepRoom', () => ({ PrepRoomBanner: () => <div data-testid="prep-room-banner" /> }));
@@ -22,8 +23,8 @@ vi.mock('@/app/data/event-mastermind-service', () => ({
   setEventCanvas: (...a: unknown[]) => h.setCanvas(...a),
 }));
 vi.mock('@/app/data/canvas-service', () => ({ canvasService: { shareCanvas: vi.fn() } }));
-vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyCanvasDraftState: async () => ({ drafts: h.drafts, newestSeqs: null }) }));
-vi.mock('@/app/pages/chat/chat-state', () => ({ useChat: () => ({ userId: 'u1', authors: { u1: { slug: 'ana' } } }) }));
+vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyOpenCanvasDrafts: async () => h.drafts }));
+vi.mock('@/app/pages/chat/chat-state', () => ({ useChat: () => ({ userId: 'u1', authors: { u1: { slug: 'ana' } }, refresh: () => h.refresh() }) }));
 vi.mock('@/app/data/canvas-draft-service', () => ({
   listMyCanvasVersions: async () => (h.canvases as { name: string; title: string | null }[]).map((c, i) => ({ id: `v${i}`, canvasId: `c${i}`, canvasName: c.name, canvasTitle: c.title, name: 'v', seq: 1, publishedAt: '2026-11-01T00:00:00Z', hasOpenDraft: false })),
 }));
@@ -62,10 +63,10 @@ describe('EventCanvasCard', () => {
     h.getMine.mockImplementation(async () => h.mine);
     h.setCanvas.mockResolvedValue({ status: 'ok', name: 'canvas_1' });
   });
-  it('names the chosen canvas by its title, with a Change button at least 44px tall', async () => {
+  it('names the chosen canvas by its title, with an alternative button at least 44px tall (one published: make a different one)', async () => {
     render(<MemoryRouter initialEntries={['/events/x']}><EventCanvasCard eventId="ev-1" /></MemoryRouter>);
     expect((await screen.findByTestId('event-canvas-chosen')).textContent).toBe('Your Clarity Canvas for this event: Launch plan');
-    expect(screen.getByTestId('event-canvas-change').className).toContain('min-h-11');
+    expect(screen.getByTestId('event-canvas-make').className).toContain('min-h-11');
   });
   it('falls back to the raw name when the canvas has no title', async () => {
     h.canvases = [{ canvasId: 'c2', name: 'canvas_2', title: null }];
@@ -80,7 +81,7 @@ describe('EventCanvasCard', () => {
     expect(share.className).toContain('min-h-11');
     expect(screen.getByTestId('event-canvas-body').textContent).toContain('A very long canvas title that must not be cut off at 320px');
     expect(screen.getByTestId('event-canvas-body').className).not.toContain('truncate');
-    expect(screen.getByTestId('event-canvas-secondary').className).toContain('min-h-11');
+    expect(screen.getByTestId('event-canvas-make').className).toContain('min-h-11');
   });
 });
 
@@ -150,7 +151,7 @@ describe('EventCanvasCard states', () => {
   it('B: an inline Continue-your-draft button', async () => {
     h.drafts = [{ canvasName: 'canvas_1', versionName: 'canvas_d1' }];
     card();
-    expect((await screen.findByTestId('event-canvas-make')).textContent).toBe('Continue your draft');
+    expect((await screen.findByTestId('event-canvas-continue-draft')).textContent).toBe('Continue your draft');
   });
   it('E: names the canvas and offers Change, no Continue', async () => {
     h.mine = { name: 'canvas_2', shared: true, fixed: false };
@@ -172,13 +173,59 @@ describe('EventCanvasCard states', () => {
     card();
     const share = await screen.findByTestId('event-canvas-share');
     expect(share.parentElement!.className).toMatch(/flex flex-wrap items-center gap-3/);
-    expect(screen.getByTestId('event-canvas-secondary').tagName).toBe('BUTTON');
-    expect(screen.getByTestId('event-canvas-secondary').className).toContain('border');
+    expect(screen.getByTestId('event-canvas-make').tagName).toBe('BUTTON');
+    expect(screen.getByTestId('event-canvas-make').className).toContain('border');
   });
   it('G: Share again is inline', async () => {
     h.mine = { name: 'canvas_1', shared: false, fixed: true };
     h.canvases = [{ name: 'canvas_1', title: 'Launch plan' }];
     card();
-    expect((await screen.findByTestId('event-canvas-share')).textContent).toBe('Share again');
+    expect((await screen.findByTestId('event-canvas-share-again')).textContent).toBe('Share again');
+    expect(screen.queryByTestId('event-canvas-share')).toBeNull();
+  });
+});
+
+describe('EventCanvasCard test ids and button variants', () => {
+  const card = () => render(<MemoryRouter initialEntries={['/events/x']}><EventCanvasCard eventId="ev-1" /></MemoryRouter>);
+  beforeEach(() => {
+    vi.clearAllMocks();
+    h.mine = null; h.drafts = []; h.canvases = [];
+    h.getMine.mockImplementation(async () => h.mine);
+  });
+  it('the primary is the default filled button at auto width; the alternative is outline; Skip-style back-outs are text links', async () => {
+    h.canvases = [{ name: 'canvas_1', title: 'Launch plan' }];
+    card();
+    const primary = await screen.findByTestId('event-canvas-share');
+    expect(primary.className).toContain('bg-blue-600');
+    expect(primary.className).toContain('h-8'); // size sm
+    expect(primary.className).not.toContain('w-full');
+    expect(screen.getByTestId('event-canvas-make').className).toContain('border-input'); // outline
+  });
+  it('an open draft with a published canvas: the alternative is Continue your draft under its own test id', async () => {
+    h.canvases = [{ name: 'canvas_1', title: 'Launch plan' }];
+    h.drafts = [{ canvasName: 'canvas_9', versionName: 'canvas_d9' }];
+    card();
+    expect((await screen.findByTestId('event-canvas-continue-draft')).textContent).toBe('Continue your draft');
+    expect(screen.queryByTestId('event-canvas-make')).toBeNull();
+  });
+  it('the room card locks its picker while a Share is pending', async () => {
+    h.canvases = [{ name: 'canvas_1', title: 'A' }, { name: 'canvas_2', title: 'B' }];
+    h.setCanvas.mockImplementation(() => new Promise(() => {}));
+    card();
+    const radios = await screen.findAllByTestId('event-canvas-option') as HTMLInputElement[];
+    expect(radios.every(r => !r.disabled)).toBe(true);
+    fireEvent.click(await screen.findByTestId('event-canvas-share'));
+    await waitFor(() => expect((screen.getAllByTestId('event-canvas-option') as HTMLInputElement[]).every(r => r.disabled)).toBe(true));
+  });
+  it('event-canvas-change is only Change', async () => {
+    h.mine = { name: 'canvas_2', shared: true, fixed: false };
+    h.canvases = [{ name: 'canvas_2', title: 'A' }, { name: 'canvas_3', title: 'B' }];
+    card();
+    expect((await screen.findByTestId('event-canvas-change')).textContent).toBe('Change');
+  });
+  it('A: Create keeps the make id and is filled; the quiet link has no pill', async () => {
+    card();
+    const make = await screen.findByTestId('event-canvas-make');
+    expect(make.className).toContain('bg-blue-600');
   });
 });

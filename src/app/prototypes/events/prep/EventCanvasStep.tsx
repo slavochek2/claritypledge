@@ -22,17 +22,17 @@ export function EventCanvasStep({ eventId, barRef, onContinue, onSkip }: {
       {view && (
         <div className="space-y-3" data-testid="event-canvas-card" data-state={view.state}>
           <Title>{view.title}</Title>
-          <CanvasStepBody body={view.body} published={step.published} selected={step.selected} onSelect={step.setPicked} showList={view.state === 'D'} />
+          <CanvasStepBody body={view.body} published={step.published} selected={step.selected} onSelect={step.setPicked} showList={view.state === 'D'} locked={step.busy} />
         </div>
       )}
       <StepActions ref={barRef}>
         {view?.primary && (
           <ActionRow
             primary={<div className="w-full" data-testid="event-canvas-primary"><LetterPrimaryCta label={view.primary.label} onClick={view.primary.run} disabled={view.primary.disabled} /></div>}
-            secondary={<>
+            secondary={view.secondary || view.quiet ? <>
               {view.secondary && <div className="w-full" data-testid="event-canvas-secondary"><LetterPrimaryCta label={view.secondary.label} onClick={view.secondary.run} disabled={view.secondary.disabled} variant="outline" /></div>}
               {view.quiet && <div className="w-full" data-testid="event-canvas-quiet"><LetterPrimaryCta label={view.quiet.label} onClick={view.quiet.run} disabled={view.quiet.disabled} variant="secondary" /></div>}
-            </>}
+            </> : undefined}
           />
         )}
       </StepActions>

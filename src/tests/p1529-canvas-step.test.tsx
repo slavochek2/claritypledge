@@ -1,10 +1,11 @@
 /**
  * P1529 UAT round 2: preparation's canvas step (A..F), its one primary in the bottom bar, and the preparation banner in the canvas workspace.
  */
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { renderHook, act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRef } from 'react';
+import type React from 'react';
 
 const h = vi.hoisted(() => ({
   mine: null as unknown,
@@ -15,20 +16,28 @@ const h = vi.hoisted(() => ({
   setCanvas: vi.fn(),
   shareCanvas: vi.fn(),
   toastError: vi.fn(),
+  refresh: vi.fn(async () => null),
+  rows: [] as { secondary?: unknown }[],
+  getMine: vi.fn(),
 }));
 
-vi.mock('@/app/data/event-mastermind-service', () => ({ getMyEventCanvas: async () => h.mine, setEventCanvas: (...a: unknown[]) => h.setCanvas(...a) }));
+vi.mock('@/app/data/event-mastermind-service', () => ({ getMyEventCanvas: (...a: unknown[]) => h.getMine(...a), setEventCanvas: (...a: unknown[]) => h.setCanvas(...a) }));
 vi.mock('@/app/data/canvas-service', () => ({ canvasService: { shareCanvas: (...a: unknown[]) => h.shareCanvas(...a) } }));
-vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyCanvasDraftState: async () => ({ drafts: h.drafts, newestSeqs: null }) }));
-vi.mock('@/app/pages/chat/chat-state', () => ({ useChat: () => ({ userId: 'u1', authors: { u1: { slug: 'ana' } } }) }));
+vi.mock('@/app/data/canvas-open-drafts', () => ({ listMyOpenCanvasDrafts: async () => h.drafts }));
+vi.mock('@/app/pages/chat/chat-state', () => ({ useChat: () => ({ userId: 'u1', authors: { u1: { slug: 'ana' } }, refresh: () => h.refresh() }) }));
 vi.mock('@/app/data/canvas-draft-service', () => ({
   listMyCanvasVersions: async () => h.versions.map((v, i) => ({ id: `v${i}`, canvasId: `c${i}`, name: 'v', seq: 1, hasOpenDraft: false, ...v })),
 }));
 vi.mock('@/app/pages/chat/chat-hooks', () => ({ useMediaQuery: () => h.wide }));
 vi.mock('@/app/pages/chat/use-start-canvas', () => ({ useStartCanvas: () => ({ start: h.start, dialog: null }) }));
+vi.mock('@/app/prototypes/events/prep/prep-ui', async (orig) => {
+  const actual = await orig<typeof import('@/app/prototypes/events/prep/prep-ui')>();
+  return { ...actual, ActionRow: (p: { secondary?: unknown }) => { h.rows.push(p); return <actual.ActionRow {...(p as object as React.ComponentProps<typeof actual.ActionRow>)} />; } };
+});
 vi.mock('sonner', () => ({ toast: { error: (m: string) => h.toastError(m) } }));
 
 import { EventCanvasStep } from '@/app/prototypes/events/prep/EventCanvasStep';
+import { useEventCanvasStep } from '@/app/prototypes/events/prep/use-event-canvas-step';
 import { PreparationBanner } from '@/app/pages/canvas/PreparationBanner';
 import { CanvasWorkspaceLayout } from '@/app/components/canvas/canvas-workspace-layout';
 import { usePreparationReturn } from '@/app/pages/canvas/use-preparation-return';
@@ -44,7 +53,9 @@ const primaryButtons = () => within(screen.getByTestId('event-canvas-primary')).
 
 beforeEach(() => {
   vi.clearAllMocks();
-  h.mine = null; h.versions = []; h.drafts = []; h.wide = true;
+  h.mine = null; h.versions = []; h.drafts = []; h.wide = true; h.rows = [];
+  h.getMine.mockImplementation(async () => h.mine);
+  h.refresh.mockResolvedValue(null);
   h.setCanvas.mockResolvedValue({ status: 'ok', name: 'x' });
   h.shareCanvas.mockResolvedValue(undefined);
 });
@@ -80,6 +91,7 @@ describe('canvas step states', () => {
     expect(screen.queryByText(/Share/)).toBeNull();
     fireEvent.click(primaryButtons()[0]!);
     expect(h.start).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toContain('/p/ana/canvas/'));
     const where = screen.getByTestId('where');
     expect(where.textContent).toBe('/p/ana/canvas/canvas_1?v=canvas_d111&ws=1');
     expect(JSON.parse(where.getAttribute('data-state')!)).toEqual({ from: '/events/x/prepare?step=4', afterPublish: '/events/x/prepare?step=4' });
@@ -118,7 +130,7 @@ describe('canvas step states', () => {
     expect(primaryButtons().map(b => b.textContent)).toEqual(['Share “Newest” with this event']);
     fireEvent.click(options[1]!);
     expect(primaryButtons()[0]!.textContent).toBe('Share “Older” with this event');
-    expect(within(screen.getByTestId('event-canvas-secondary')).getByRole('button').textContent).toBe('Make a new one');
+    expect(within(screen.getByTestId('event-canvas-secondary')).getByRole('button').textContent).toBe('Continue your draft'); // canvas_9 is an open draft
     fireEvent.click(primaryButtons()[0]!);
     await waitFor(() => expect(h.setCanvas).toHaveBeenCalledWith('ev-1', 'canvas_2'));
   });
@@ -267,5 +279,82 @@ describe('the banner shows only for a valid afterPublish', () => {
     const box = screen.getByTestId('canvas-workspace');
     expect(box.firstElementChild?.getAttribute('data-testid')).toBe('b');
     expect(box.children[1]!.getAttribute('data-testid')).toBe('bar');
+  });
+});
+
+const draft = { canvasName: 'canvas_9', versionName: 'canvas_d9' };
+
+describe('P1529 review round fixes', () => {
+  it('3: with an open draft, C and D and E offer Continue your draft, never a new canvas', async () => {
+    h.drafts = [draft];
+    h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01')];
+    const c = renderStep();
+    fireEvent.click(within(await screen.findByTestId('event-canvas-secondary')).getByRole('button', { name: 'Continue your draft' }));
+    expect(h.start).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/p/ana/canvas/canvas_9?v=canvas_d9&ws=1'));
+    c.unmount();
+    h.mine = { name: 'canvas_1', shared: true, fixed: false }; // E, one published
+    renderStep();
+    expect(within(await screen.findByTestId('event-canvas-secondary')).getByRole('button').textContent).toBe('Continue your draft');
+  });
+  it('4: Continue your draft refreshes the chat first and shows its busy label meanwhile', async () => {
+    let release: (v: null) => void = () => {};
+    h.refresh.mockImplementation(() => new Promise<null>(r => { release = r; }));
+    h.drafts = [draft];
+    renderStep();
+    fireEvent.click(await screen.findByRole('button', { name: 'Continue your draft' }));
+    expect(h.refresh).toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Opening…' })).toBeTruthy());
+    expect(screen.getByTestId('where').textContent).toBe('/events/x/prepare?step=4');
+    release(null);
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toContain('/p/ana/canvas/canvas_9'));
+  });
+  it('5: the canvas picker is locked while an action is pending', async () => {
+    h.start.mockImplementation(() => new Promise<void>(() => {}));
+    h.versions = [pub('canvas_3', 'Newest', '2026-11-03'), pub('canvas_2', 'Older', '2026-11-02')];
+    renderStep();
+    const radios = await screen.findAllByTestId('event-canvas-option') as HTMLInputElement[];
+    expect(radios.every(r => !r.disabled)).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Make a new one' }));
+    await waitFor(() => expect((screen.getAllByTestId('event-canvas-option') as HTMLInputElement[]).every(r => r.disabled)).toBe(true));
+  });
+  it('6: Retry shows the loading state while it re-reads, and a second failure shows the error again', async () => {
+    let release: (v: unknown) => void = () => {};
+    h.getMine.mockRejectedValueOnce(new Error('x')).mockImplementationOnce(() => new Promise((_, rej) => { release = rej; }));
+    renderStep();
+    fireEvent.click(await screen.findByTestId('event-canvas-retry'));
+    expect(screen.getByTestId('event-canvas-loading')).toBeTruthy();
+    expect(screen.queryByTestId('event-canvas-error')).toBeNull();
+    release(new Error('again'));
+    expect(await screen.findByTestId('event-canvas-error')).toBeTruthy();
+  });
+  it('6b: retry does nothing while an action is in flight', async () => {
+    h.start.mockImplementation(() => new Promise<void>(() => {}));
+    const { result } = renderHook(() => useEventCanvasStep('ev-1', {}), { wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter> });
+    await waitFor(() => expect(result.current.view).not.toBeNull());
+    act(() => { result.current.view!.primary!.run(); });
+    await waitFor(() => expect(result.current.busy).toBe(true));
+    const reads = h.getMine.mock.calls.length;
+    await act(async () => { await result.current.retry(); });
+    expect(h.getMine.mock.calls.length).toBe(reads);
+    expect(result.current.loaded).toBe(true);
+  });
+  it('7: a failed Share again says so and re-reads', async () => {
+    h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01')];
+    h.mine = { name: 'canvas_1', shared: false, fixed: true };
+    h.shareCanvas.mockRejectedValueOnce(new Error('refused'));
+    renderStep();
+    await screen.findByRole('button', { name: 'Share again' });
+    const reads = h.getMine.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Share again' }));
+    await waitFor(() => expect(h.toastError).toHaveBeenCalledWith("Couldn't share your Clarity Canvas. Try again."));
+    await waitFor(() => expect(h.getMine.mock.calls.length).toBe(reads + 1));
+  });
+  it('9: the bar passes no secondary when there is neither a secondary nor a quiet action', async () => {
+    h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01')];
+    h.mine = { name: 'canvas_1', shared: true, fixed: true }; // F: Continue only
+    renderStep();
+    await screen.findByTestId('event-canvas-primary');
+    expect(h.rows.at(-1)!.secondary).toBeUndefined();
   });
 });

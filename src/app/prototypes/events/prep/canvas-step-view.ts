@@ -10,7 +10,7 @@ import type { MyEventCanvas } from '@/app/data/event-mastermind-service';
 export type CanvasStepState = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
 export interface PublishedCanvas { name: string; label: string }
 /** One tappable action. A busy action shows its busy label; `disabled`: some action is in flight, so none is tappable. */
-export interface StepAction { label: string; run: () => void; disabled?: boolean; quiet?: boolean }
+export interface StepAction { id: string; label: string; run: () => void; disabled?: boolean; quiet?: boolean }
 export interface StepView { state: CanvasStepState; title: string; body: ReactNode; primary: StepAction | null; secondary: StepAction | null; quiet: StepAction | null }
 
 /** Builds an action; `busyLabel` null: the action is instant (a navigation or a local toggle). */
@@ -41,10 +41,13 @@ function sharedView(i: StepInput, mine: MyEventCanvas): StepView {
   const cont = onContinue ? mk('continue', 'Continue', null, onContinue) : null;
   if (mine.fixed) return done('F', 'Your Clarity Canvas is shared', "You're ready. The host can add you to a coming round.", cont, null);
   // One published canvas (the shared one): there is no other to choose, so Change is replaced by what it would lead to.
-  const alternative = i.candidates.some(c => c.name !== mine.name)
-    ? mk('change', 'Change', null, go.change)
-    : mk('make', 'Make a different one', 'Opening…', go.start);
+  const alternative = i.candidates.some(c => c.name !== mine.name) ? mk('change', 'Change', null, go.change) : makeAnother(i, 'Make a different one');
   return done('E', 'Your Clarity Canvas is shared', `“${labelOf(published, mine.name)}” is shared with this event.`, cont, alternative);
+}
+
+/** The way to a canvas other than the published ones: an open draft is reopened (a new one would pile up unfinished canvases); otherwise a new canvas is made. */
+function makeAnother(i: StepInput, label: string): StepAction {
+  return i.hasOpenDraft ? i.mk('continue-draft', 'Continue your draft', 'Opening…', i.go.continueDraft) : i.mk('make', label, 'Opening…', i.go.start);
 }
 
 /** Round 1 has started and the chosen canvas lost its grant: set_event_canvas refuses it now, so the same canvas is shared again through share_canvas. */
@@ -72,10 +75,10 @@ function shareView(i: StepInput): StepView {
   const only = candidates.length === 1 ? candidates[0] : undefined;
   if (only) {
     return done('C', 'Share your Clarity Canvas', `“${only.label}” is ready. Share it with this event's attendees.`,
-      mk('share', 'Share with this event', 'Sharing…', () => go.share(only.name)), mk('make', 'Make a different one', 'Opening…', go.start), keep);
+      mk('share', 'Share with this event', 'Sharing…', () => go.share(only.name)), makeAnother(i, 'Make a different one'), keep);
   }
   return done('D', 'Share a Clarity Canvas', 'Pick the one to share with this event.',
-    mk('share', `Share “${selectedLabel}” with this event`, 'Sharing…', () => selected && go.share(selected)), mk('make', 'Make a new one', 'Opening…', go.start), keep);
+    mk('share', `Share “${selectedLabel}” with this event`, 'Sharing…', () => selected && go.share(selected)), makeAnother(i, 'Make a new one'), keep);
 }
 
 export function buildStepView(i: StepInput): StepView {

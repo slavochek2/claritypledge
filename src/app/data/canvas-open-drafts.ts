@@ -34,6 +34,33 @@ export interface CanvasDraftState {
   newestSeqs: Record<string, number> | null;
 }
 
+interface DraftRow { id: string; canvas_id: string; canvas_name: string; version_name: string; conversation_id: string; thread_root_id: string; revision?: number; run_count?: number; base_version_id?: string | null }
+
+/** The owner's open `canvas_drafts` rows, in the database's order. A failed read throws. */
+async function readOpenDraftRows(caller: string): Promise<DraftRow[]> {
+  const { data, error } = await supabase
+    .from('canvas_drafts')
+    .select('id, canvas_id, canvas_name, version_name, conversation_id, thread_root_id, revision, run_count, base_version_id')
+    .eq('state', 'open');
+  if (error) throwDbError(caller, error, 'Could not read your canvas drafts');
+  return (data ?? []) as DraftRow[];
+}
+
+const toDraft = (r: DraftRow, nextSeq: number | null): OpenCanvasDraft => ({
+  draftId: r.id, canvasName: r.canvas_name, versionName: r.version_name, conversationId: r.conversation_id, threadRootId: r.thread_root_id,
+  revision: Number(r.revision ?? 0), nextSeq,
+});
+
+/**
+ * P1529: the owner's open drafts and nothing else (no versions read), the most worked first: highest `run_count`, then highest `revision`, then highest draft id (deterministic); only drafts of a NEW canvas (`base_version_id` null)
+ * (the select has no ORDER BY, so "the first row" was arbitrary). Both columns are in the owner's column grant.
+ */
+export async function listMyOpenCanvasDrafts(): Promise<OpenCanvasDraft[]> {
+  const rows = (await readOpenDraftRows('listMyOpenCanvasDrafts')).filter((r) => r.base_version_id == null); // an edit draft of a published canvas is not "an open draft" for the step
+  const worked = [...rows].sort((a, b) => Number(b.run_count ?? 0) - Number(a.run_count ?? 0) || Number(b.revision ?? 0) - Number(a.revision ?? 0) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
+  return worked.map((r) => toDraft(r, null));
+}
+
 /**
  * Everything the Artifacts page needs about the owner's drafts and version numbers, from ONE `list_my_canvas_versions` read per refresh (3c X14:
  * the draft numbers and the Mine numbers used to be two reads, two per 15-second poll, that could disagree during a publish). The draft rows are read
@@ -42,27 +69,14 @@ export interface CanvasDraftState {
  */
 export async function listMyCanvasDraftState(): Promise<CanvasDraftState> {
   const versionsRead = listMyCanvasVersions().catch(() => null);
-  const { data, error } = await supabase
-    .from('canvas_drafts')
-    .select('id, canvas_id, canvas_name, version_name, conversation_id, thread_root_id, revision')
-    .eq('state', 'open');
+  const rows = await readOpenDraftRows('listMyCanvasDraftState');
   const versions = await versionsRead;
-  if (error) throwDbError('listMyCanvasDraftState', error, 'Could not read your canvas drafts');
-  const rows = (data ?? []) as { id: string; canvas_id: string; canvas_name: string; version_name: string; conversation_id: string; thread_root_id: string; revision?: number }[];
   let newestSeqs: Record<string, number> | null = null;
   if (versions) {
     const top: Record<string, number> = {};
     for (const v of versions) top[v.canvasName] = Math.max(top[v.canvasName] ?? 0, v.seq);
     newestSeqs = top;
   }
-  const drafts = rows.map((r) => ({
-    draftId: r.id,
-    canvasName: r.canvas_name,
-    versionName: r.version_name,
-    conversationId: r.conversation_id,
-    threadRootId: r.thread_root_id,
-    revision: Number(r.revision ?? 0),
-    nextSeq: versions ? versions.filter((v) => v.canvasId === r.canvas_id).reduce((top, v) => Math.max(top, v.seq), 0) + 1 : null,
-  }));
+  const drafts = rows.map((r) => toDraft(r, versions ? versions.filter((v) => v.canvasId === r.canvas_id).reduce((top, v) => Math.max(top, v.seq), 0) + 1 : null));
   return { drafts, newestSeqs };
 }

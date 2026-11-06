@@ -154,19 +154,20 @@ please cancel so someone else can come."
    - Observer or mentor: **Where will you prepare? It takes about 15 minutes to learn how we communicate.**
      "At home, before the event. I'll come on time at {start}." / "At the event. I'll come on time at {doors}."
    - {start} and {doors} are formatted from the event (18:30 and 18:00 for the test event).
-3. **Checkbox** (required), reviewed wording: "To help every business improve fast, we record your
-   conversations here and Google Gemini turns them into text. The text is posted in the event chat for the
-   host and attendees. After a discussion round, the peer whose business you discussed can use it to improve
-   their Clarity Canvas with AI, and publish it. See our Terms and Privacy Policy." "Terms" and "Privacy
-   Policy" link to the existing pages and open in a new tab, so the form keeps its answers. The room's
-   Transcribe text and the /transcribe consent say the same sentences without the links line. The terms and
-   privacy text are not changed by this.
+3. **Checkbox** (required), wording reviewed by Gemini 4 Argon (UAT round 2, founder-delegated): "We capture table
+   conversations with a mic, and Google Gemini turns them into text in the event chat for the host and registered
+   attendees. The peer whose Clarity Canvas you discuss can use AI to draft an update from that text, without
+   quoting you." No Terms line on the form: terms are accepted at sign-up (founder, round 2; Argon: acceptable as a
+   just-in-time notice, the policy stays in the footer). The room's Transcribe text and the /transcribe consent say
+   the same sentences. The terms and privacy text are not changed by this.
 4. **What phone input do you have?** (required) USB-C · iPhone Lightning · Other. Other shows: "Please bring a
    headset or microphone that fits your phone."
 5. **What do you hope to get from this event? (optional)**
 
-What is missing on Register: "Choose how you want to join." / "Choose where you will prepare." / "Accept the
-recording to register." / "Choose what phone input you have." Closing with the X: if anything was answered,
+What is missing on Register: "Choose how you want to join." / "Choose where you will prepare." / "Tick the box
+about table conversations to register." / "Choose what phone input you have." Each line sits under its own
+question, which is outlined and marked invalid; the first missing question takes focus. A question revealed after
+the attempt stays neutral until the next Register. Closing with the X: if anything was answered,
 the toast "You're not registered yet." and the answers stay on reopen; nothing answered, it just closes.
 
 **Stored.** `participation` keeps its three values (improving at home: `canvas_before`; improving at the
@@ -436,9 +437,13 @@ then repeated with five with canvases.
 - [x] The host switches an event's flow before round 1 with Undo; prepare, room and close all follow;
       switching back restores selections and overrides; after round 1 starts, the row is gone and a
       direct call is refused.
-- [x] An attendee picks an existing canvas or drafts one, publishes it, and shares it with the event,
-      each as its own tap; the step then reads "Your canvas for this event: {name} · Change".
-- [x] Change before round 1 replaces the shared canvas in one step; after round 1, Change is gone.
+- [ ] An attendee picks an existing canvas or drafts one, publishes it, and shares it with the event,
+      each as its own tap; the step then reads "Your Clarity Canvas is shared" with "“{name}” is shared with this
+      event." (UAT round 2 wording). With an open draft of a new canvas, the step offers "Continue your draft",
+      which reopens that draft.
+- [ ] Change before round 1 replaces the shared canvas in one step and is offered only when another published
+      canvas exists (otherwise "Make a different one", or "Continue your draft" with an open draft); after round 1,
+      Change is gone, and a chosen canvas no longer shared offers "Share again".
 - [x] An attendee without a canvas is told they will observe and is not blocked by preparation; the host
       flips an observer with a shared canvas to participant; flipping one without a canvas is refused
       with a reason.
@@ -554,8 +559,32 @@ From the founder trying the round-1 build on localhost (seeded room). Founder's 
 - Round 2 preview in the seeded room listed "Fewer than two Clarity Canvases are shared with this event, so there is no table to seat" and "X has no seat in this round" for all 13 people, although 7 seeded owners had shared canvases (screenshot 21:58). Investigate: a real bug in what counts as shared after round 1, or a seed/state problem; and the "has no seat" list wording is noise either way.
 - End the evening and the other controls: redesign with the rest of the flow.
 
+## Round 2 build: what was found and decided (2026-11-07)
+
+- **The drafting 409 on TEST.** canvas-draft's terms gate (`_shared/terms-gate.ts`, the mirror-consent list) refused
+  v1.8 accounts because TEST served another branch's functions, whose list stops at v1.7. This branch's list is
+  v1.5 to v1.8, a superset. Decision: rebase onto main (the TEST deploy guard needs a descendant of main), then deploy
+  this branch's functions to TEST right before the founder's test. Cost while it stands: the other session's canvas
+  changes stop being served until it redeploys, and v1.7 clients cannot create or sign letters on TEST (that check
+  is single-version). Drafting and the mirror keep working for v1.7.
+- **The empty round 2 preview** was a stale seeded room, not a bug: 13 room members, 1 with a profile, 0 canvases
+  (an earlier seed's users were cleaned up and the room was left). The next seed's room had 12 registrations and 7
+  canvases and read correctly.
+- **Preparation step 4** is one action at the bottom by state: no canvas (Create), an open draft only (Continue your
+  draft, which reopens that draft), one or several published (Share, with a picker), shared (Continue, Change until
+  round 1), and after round 1 an unshared choice (Share again). Share never shows without a published canvas.
+  Inside the canvas workspace a banner says the person is preparing and that Publish finishes the step; Publish
+  returns to the preparation, also with a panel open, only for the canvas owner and only for that canvas.
+- Reviews (Gemini 4 Argon, GLM, Codex, Opus) ran on the whole round and on each fix round; every verified finding
+  was fixed or is listed below.
+
 ## Known Limitations
 
+- The one-tap post-signup RSVP (Clarity Night, Social Hike) counts an RSVP that already existed as a new completion: `rsvpToEvent` returns true for an existing one (P1640, main's code, not changed here). `[FOUNDER DECISION: fix in P1640's area, or leave.]`
+- The preparation banner is lost on a reload while a point or box panel is open, and still says "Publish" when the person picks an already published version.
+- After "Make a different one" and Publish, the step shows the earlier canvas as shared; sharing the new one is Change, then Share.
+- Share again cannot succeed for someone no longer admitted to the event (registered after the grace window, removed, or cancelled event); they see the error each time.
+- Argon on the consent checkbox: because it is required to register, it is a transparency notice, not GDPR consent; the Privacy Policy should rest this processing on contract (Art. 6(1)(b)) or legitimate interest (6(1)(f)). `[FOUNDER DECISION: check the Privacy Policy's stated basis.]`
 - The expanded update task sometimes folds back on the first tap (seen intermittently in the walk, cause not found); a second tap holds.
 - A person who joins the waiting list and sees a place open in the same session gets an empty form until they reload; two alerts can show together on the host panel when one read fails. Small, recorded from the final review.
 - Latency was last measured before the final review fixes, which did not touch drafting.
@@ -564,7 +593,6 @@ From the founder trying the round-1 build on localhost (seeded room). Founder's 
 - The preparation's canvas step (step 4, owners only) is stored in `steps_done` only: `event_preparations.current_step` has a CHECK without `canvas`, so resuming lands on the first unfinished step. Someone who finished the three learning steps before this change sees the thank-you and reaches step 4 from the step list.
 - "Limited to 24 registrations..." is not in the code: it is the event description text on the event itself, so the host removes it by editing the event.
 - The phone question lists "iPhone" first, as the founder asked. iPhone 15 and later use USB-C, so their owners may pick "iPhone", which stores Lightning and marks a Lightning mic for them (Gemini review, /finish). `[FOUNDER DECISION: say "iPhone with Lightning (iPhone 14 or older)", add the plug info icon, or leave as is.]`
-- The missing-answer line still says "Accept the recording to register." while the checkbox avoids "record". `[FOUNDER DECISION: copy.]`
 - Confirmation and reminder emails still put the event's start in their calendar link; only the in-app calendar buttons use the person's own arrival (doors) time (Codex review, /finish). Changing the emails means passing each recipient's arrival into the shared email builders.
 - After Publish the owner lands back on the preparation, and sharing with the event stays its own tap (D9: nothing is shared in the background).
 - Deploy order: `send-event-emails` must reach prod with or before the client. An older function ignores the person's id and confirms to the caller, so a host's Add from the waiting list would email the host (Opus review, /finish). It sends the confirmation only within 10 minutes of the registration, so a host cannot re-send confirmations at will. One confirmation per registration on this path (a sent one is logged); the check is not atomic, so a host firing many parallel calls for someone added in the last 10 minutes can still send that person several (Codex and Opus re-reviews; accepted: needs a deliberate burst by the event's own host, bounded to one person per add).

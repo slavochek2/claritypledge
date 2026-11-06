@@ -172,6 +172,28 @@ describe('P1529 D24 registration form: submitting', () => {
     expect(screen.getByTestId('missing-prep')).toBeTruthy();
   });
 
+  it('after a Register try, switching the join answer leaves the new prep question neutral until the next Register', () => {
+    open();
+    fireEvent.click(screen.getByTestId('join-help'));
+    fireEvent.click(screen.getByTestId('prep-home'));
+    fireEvent.click(screen.getByTestId('registration-submit')); // join and prep answered; recording and phone missing
+    fireEvent.click(screen.getByTestId('join-improve')); // resets prep
+    expect(screen.queryByTestId('missing-prep')).toBeNull();
+    expect(screen.getByTestId('prep-question').className).not.toContain('outline-destructive');
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    expect(screen.getByTestId('missing-prep')).toBeTruthy();
+  });
+
+  it('a prep question that was missing at the try is neutral once the join answer changes', () => {
+    open();
+    fireEvent.click(screen.getByTestId('join-help'));
+    fireEvent.click(screen.getByTestId('registration-submit')); // prep missing, marked
+    expect(screen.getByTestId('missing-prep')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('join-improve'));
+    expect(screen.queryByTestId('missing-prep')).toBeNull();
+    expect(screen.getByTestId('prep-home').hasAttribute('aria-invalid')).toBe(false);
+  });
+
   it('focus lands after the error line is in the DOM and linked, without a jump, then scrolls the group to centre', () => {
     const scroll = vi.fn();
     Element.prototype.scrollIntoView = scroll;
