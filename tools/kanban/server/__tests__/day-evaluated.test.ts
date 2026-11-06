@@ -85,6 +85,17 @@ describe('P1605 matching and hiding', () => {
     expect(hiddenIn(atLimit.view, A)).toBeDefined() // control: at the threshold is still within it
   })
 
+  it('P1647: decimal readings as day-step.sh --reading writes them: 2.4 hides under threshold 2.5, 2.6 shows as worse', () => {
+    const withReading = (n: number) => (r: DayReport) => {
+      issue(r, A).reading = n
+    }
+    const within = render([rec({ threshold: 2.5 })], withReading(2.4))
+    expect(shown(within.view, A)).toBeUndefined()
+    expect(hiddenIn(within.view, A)?.loop?.evaluated).toMatchObject({ hidden: true, verdict: 'accepted' })
+    const worse = render([rec({ threshold: 2.5 })], withReading(2.6))
+    expect(shown(worse.view, A)?.loop?.evaluated).toMatchObject({ hidden: false, why_shown: 'worse', verdict: 'accepted' })
+  })
+
   it('a threshold with no reading fails open', () => {
     const { view } = render([rec({ threshold: 10 })])
     expect(shown(view, A)?.loop?.evaluated).toMatchObject({ hidden: false, why_shown: 'unmeasurable' })

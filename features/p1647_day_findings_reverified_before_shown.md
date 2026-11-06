@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 111
 workstream: infrastructure
 created_date: '2026-11-06'
 tags: [day, findings, false-positives, checks]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -95,13 +95,22 @@ Four check changes plus one shared rule.
 
 ## Done-When
 
-- [ ] The `cp.ops` script, fed a fixture shaped like 2026-11-06 (one supply-chain, one deploy-drift and two smoke-gate issues) with both equivalents stubbed clean, files findings only for the two smoke-gate issues and names them unmatched; a dirty deploy-drift stub also files that issue; an erroring stub files its issue unchanged; a `p1155`-labelled issue passes through untouched; a 50-row fixture names a possible truncation. Test output with exit codes recorded in the spec.
-- [ ] The script, run live on `main` at implementation time, re-checks whichever supply-chain and deploy-drift issues are open; if none are open, both equivalents are run directly and their exit codes recorded.
-- [ ] `day-step.sh finding --reading 2.4` writes a numeric `reading`; a non-number is refused. Through `day-loops.ts`, an `accepted` record with `--threshold 2.5` hides the card at reading 2.4 and shows it as `worse` at 2.6, shown by a test. `day-step.test.sh` and the kanban tests pass.
-- [ ] `cp.quota` passes `--reading` on its over-limit finding call in `day-cp.md`. No usage figure appears in any public file (pre-commit "account figures and token shapes" check clean).
-- [ ] `quota:test-project-in-own-org` is no longer filed as a finding; `day-cp.md` records it as a check detail.
-- [ ] The KDD capture script, run on fixture commits, files nothing when every infra commit's P-number has a decision entry, and names the rest otherwise; a commit naming no P-number is listed as uncaptured; on 2026-11-06's commits it counts P1634 as captured.
-- [ ] `~/.claude/commands/day.md` §9b carries the shared rule.
+- [x] The `cp.ops` script, fed a fixture shaped like 2026-11-06 (one supply-chain, one deploy-drift and two smoke-gate issues) with both equivalents stubbed clean, files findings only for the two smoke-gate issues and names them unmatched; a dirty deploy-drift stub also files that issue; an erroring stub files its issue unchanged; a `p1155`-labelled issue passes through untouched; a 50-row fixture names a possible truncation. Test output with exit codes recorded in the spec.
+- [x] The script, run live on `main` at implementation time, re-checks whichever supply-chain and deploy-drift issues are open; if none are open, both equivalents are run directly and their exit codes recorded.
+- [x] `day-step.sh finding --reading 2.4` writes a numeric `reading`; a non-number is refused. Through `day-loops.ts`, an `accepted` record with `--threshold 2.5` hides the card at reading 2.4 and shows it as `worse` at 2.6, shown by a test. `day-step.test.sh` and the kanban tests pass.
+- [x] `cp.quota` passes `--reading` on its over-limit finding call in `day-cp.md`. No usage figure appears in any public file (pre-commit "account figures and token shapes" check clean).
+- [x] `quota:test-project-in-own-org` is no longer filed as a finding; `day-cp.md` records it as a check detail.
+- [x] The KDD capture script, run on fixture commits, files nothing when every infra commit's P-number has a decision entry, and names the rest otherwise; a commit naming no P-number is listed as uncaptured; on 2026-11-06's commits it counts P1634 as captured.
+- [x] `~/.claude/commands/day.md` §9b carries the shared rule.
+
+## Evidence (2026-11-06)
+
+- `scripts/test-p1647-day-ops-reverify.sh`: 26 passed, 0 failed, exit 0. Covers the 2026-11-06-shaped fixture (only the two smoke-gate issues file, as `unmatched`), dirty, error and timeout stubs, `p1155` pass-through, all-clean `OPS-STATUS ok`, a 50-row truncation notice and malformed input (exit 2). Failability: mapping error exits to clean made the suite exit 1 with 2 failures.
+- Live, `gh issue list ... | scripts/day-ops-reverify.sh` (exit 0): issues 30 and 33 `CLEAN` (dep-audit on a `git archive main` export, prod manifest check, both exit 0); 34 and 35 `FILE ... unmatched`; `OPS-STATUS problem`.
+- `scripts/test-p1647-day-kdd-capture.sh`: 18 passed, 0 failed, exit 0. Failability: removing the decisions-command error check made it exit 1 with 2 failures. Live since 2026-11-05: `CAPTURED p1634` among 18 captured; two commits naming no P-number listed `UNCAPTURED` by SHA.
+- `~/.claude/scripts/day-step.test.sh`: 136 passed, 0 failed (11 new `--reading` cases). Kanban `server/__tests__/day-evaluated.test.ts`: 54 passed, including threshold 2.5 hiding reading 2.4 and showing 2.6 as `worse`.
+- `day-cp.md` (committed on main): `cp.ops` runs the re-check script when present and falls back to the old count otherwise; `cp.quota` passes `--reading`; the organisation note is a check detail, and only the regression (both projects in one organisation) files; `cp.reflect` uses the KDD script when present. Shared rule added to `~/.claude/commands/day.md` §9b.
+- Known limits: the KDD script counts any decision-log line naming the P-number as a capture, including a passing mention. Stubbed tests skip the `git archive` path; only the live run exercises it.
 
 ## Related
 
