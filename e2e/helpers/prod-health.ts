@@ -101,8 +101,9 @@ export async function pollUntilStable(
 // P1648: routes whose page calls stop_session_recording() on mount (P1304: the room code in the URL is a
 // join capability). There the only /record is the flush the stop itself triggers, and when the stop lands
 // while the recorder is still starting nothing is flushed and recording is dead — a timing race that
-// failed /live in CI. On these routes 'timeout' passes only if the recorder bundle was requested (without
-// the opt-in it never is) and no CSP violation was seen; 'blocked' and a missing bundle still fail.
+// failed /live in CI. On these routes 'timeout' passes only if the recorder bundle finished loading with an
+// ok response (without the opt-in it is never requested; a stalled, aborted or 4xx/5xx download never
+// finishes ok) and no CSP violation was seen; 'blocked' and a bundle that never loaded still fail.
 // Guarded by src/tests/p1648-recorder-stopped-routes.test.ts.
 export const RECORDER_STOPPED_ON_MOUNT_ROUTES = ['/live'];
 
@@ -111,10 +112,12 @@ export type RecorderFlushState = 'flushed' | 'blocked' | 'timeout';
 export interface RecorderWatch {
   /** 'flushed' on the first fulfilled /record, 'blocked' on a recorder CSP violation, else 'timeout'. Never throws. */
   waitForFirstFlush(timeoutMs?: number): Promise<RecorderFlushState>;
-  /** Throws unless `state` is 'flushed' (on a RECORDER_STOPPED_ON_MOUNT_ROUTES route: or 'timeout' with the bundle requested). */
+  /** Throws unless `state` is 'flushed' (on a RECORDER_STOPPED_ON_MOUNT_ROUTES route: or 'timeout' with the bundle loaded ok). */
   assertExercised(state: RecorderFlushState, route?: string): void;
   fulfilledRecordCount(): number;
   recorderBundleRequested(): boolean;
+  /** The recorder bundle's download finished with a 2xx response (not just requested). */
+  recorderBundleLoaded(): boolean;
   /** Recorder CSP violations seen so far (as of the last poll). */
   recorderViolations(): string[];
 }
@@ -124,8 +127,18 @@ export async function keepRecorderWithoutStoringReplays(page: Page): Promise<Rec
   let bundleRequested = false;
   let violations: string[] = [];
 
+  let bundleLoaded = false;
   page.on('request', (req) => {
     if (req.url().includes('mixpanel-recorder')) bundleRequested = true;
+  });
+  // P1648: 'requestfinished' fires only once the body is fully downloaded, so a stalled or aborted
+  // download (which fires 'requestfailed' or nothing) never sets this; the status check rejects a 4xx/5xx.
+  page.on('requestfinished', (req) => {
+    if (!req.url().includes('mixpanel-recorder')) return;
+    void req.response().then(
+      (res) => { if (res?.ok()) bundleLoaded = true; },
+      () => undefined,
+    );
   });
 
   await page.addInitScript(() => {
@@ -176,15 +189,16 @@ export async function keepRecorderWithoutStoringReplays(page: Page): Promise<Rec
     },
     assertExercised(state, route) {
       if (state === 'flushed') return;
-      if (state === 'timeout' && bundleRequested && route !== undefined && RECORDER_STOPPED_ON_MOUNT_ROUTES.includes(route)) return;
+      if (state === 'timeout' && bundleLoaded && route !== undefined && RECORDER_STOPPED_ON_MOUNT_ROUTES.includes(route)) return;
       throw new Error(
         `recorder never reached /record on this route: the smoke opt-in or the recorder is broken ` +
-          `(state=${state}, recorder bundle requested=${bundleRequested}, ` +
+          `(state=${state}, recorder bundle requested=${bundleRequested}, loaded ok=${bundleLoaded}, ` +
           `recorder CSP violations=${violations.length ? violations.join('; ') : 'none'})`,
       );
     },
     fulfilledRecordCount: () => fulfilled,
     recorderBundleRequested: () => bundleRequested,
+    recorderBundleLoaded: () => bundleLoaded,
     recorderViolations: () => violations,
   };
 }
