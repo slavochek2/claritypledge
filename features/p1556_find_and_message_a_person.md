@@ -85,9 +85,9 @@ Every call is one Supabase RPC on the shared project; none runs on a timer, a re
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | opening My code: 1 (`get_my_contact_code`) · Reset: 1 · opening a code: 1 lookup signed out + 1 redeem = 2 · viewing someone's profile: 1 (`can_message_profile`) · New message: 1 exact-handle lookup per debounced query (250 ms), so a 5-letter name typed at normal speed ≈ 1-2 | bounded by the above; no background calls | integration spec: 5 test users created + 5 deleted, ≈ 40 RPCs (8 tests × ≈ 5 calls); unit tests: 0 (Supabase mocked) |
-| Egress (bytes) | a lookup row ≈ 200 B; a token 32 B; a handle match ≈ 300 B | negligible | ≈ 40 × 300 B ≈ 12 KB |
-| Rows written | 1 code row per person (lazily, on first open); 1 redemption row per new chat started from a code | at most 20 redemption rows per owner per 24 h (the owner-side limit) | ≈ 5 code rows, ≈ 25 redemption rows (20 seeded for the limit test), all deleted in `afterAll` |
+| Requests | opening My code: 1 (`get_my_contact_code`) · Reset: 1 · opening a code: 1 lookup signed out + 1 redeem = 2 · viewing someone's profile: 1 (`can_message_profile`) · New message: 1 exact-handle lookup per debounced query (250 ms), so a 5-letter name typed at normal speed ≈ 1-2 | bounded by the above; no background calls | integration spec: 6 test users created + 6 deleted (each with one sign-in), ≈ 50 RPCs (9 tests × ≈ 5-7 calls, about a fifth of them expected refusals that log one error line each); unit tests: 0 (Supabase mocked) |
+| Egress (bytes) | a lookup row ≈ 200 B; a token 32 B; a handle match ≈ 300 B | negligible | ≈ 50 × 300 B ≈ 15 KB |
+| Rows written | 1 code row per person (lazily, on first open); 1 redemption row per new chat started from a code | at most 20 redemption rows per owner per 24 h (the owner-side limit) | ≈ 6 code rows, ≈ 26 redemption rows (20 seeded for the limit test), 1 agent row; all deleted in `afterAll` (the agent row by cascade, since agent rows cannot be deleted directly) |
 
 ## Invariants
 
