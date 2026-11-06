@@ -531,6 +531,29 @@ Founder decisions still open are marked `[FOUNDER DECISION]`; everything else is
 **Waiting list**
 - Founder, 2026-11-06: the waiting list is shown just below the participant list, the same way and to the same people (attendees and the host). The host moves a person from the waiting list into the participants with one tap, like removing a participant today. That registers them with their stored answers and sends the normal confirmation email, so the host never needs their email address. Replace the copy "The host will email you if a place opens" with: "You're on the waiting list. If a place opens and the host adds you, you'll get an email." Moving someone in may take the event past its limit: the host decides.
 
+## Founder UAT round 2 (2026-11-06, evening): to build next
+
+From the founder trying the round-1 build on localhost (seeded room). Founder's words are quoted where they decide something.
+
+**Registration form**
+- Delete the "See our Terms and Privacy Policy" line: people accept the terms when they sign up ("why overload every screen with terms?").
+- Consent checkbox, founder's draft to make shorter: "I understand that to get the most value from the event, we capture audio conversations with a mic and use Google Gemini to turn it into text. This way the attendees are empowered to use AI to accelerate getting to a better version of their Clarity Canvas." Shorten it, keep what Argon required (mic capture, Google Gemini, text visible to the host and registered attendees in the event chat, the peer's AI drafting a canvas that does not quote them), and run the final text past Gemini 4 Argon (legal wording is delegated to it).
+- When Register / Join is tapped with an answer missing, the missing question itself is highlighted (today only a line names it).
+
+**Preparation step 4 (the canvas)** — founder: "ugly as hell", "I'm completely lost".
+- Title says what to do: "Create your Clarity Canvas now" (not "Your Clarity Canvas for this event"). Share only appears once a canvas exists; with none, the share control makes no sense.
+- The primary action sits at the bottom like the other steps, not mid-card. Drop the "Without one you join as an observer…" line from the main view.
+- Creating the canvas must feel like part of preparation: the founder could not tell, inside the canvas workspace, that he was still in his preparation, nor that Publish is required. Consider embedding the creation in the step, and saying it is easier on a desktop.
+- Many canvases, "Share with this event" vs "Publish": the words and order are unclear; and after sharing, "Continue without a canvas" still shows ("weird").
+- The drafting failure he hit ("Updating…" forever, then failed): canvas-draft on TEST answered 409 to a brand-new account. Cause (lead's hypothesis, from the console 409s): the function was deployed with the server terms version held at v1.7 so other sessions' v1.7 users keep working, and a new account accepts v1.8, which the held function refuses. Decide the TEST deploy for founder UAT (branch terms v1.8 while the founder tests) and say it in the room.
+
+**Host screen and its flow** — founder: "the whole flow of previewing, setting up, changing params and managing it, end evening, can be much better designed"; "reflect on my flow", Gemini 4 Argon allowed.
+- Observers per table: the host cannot set how many (today fixed: up to 2 per table, group of 4). Founder expected to choose.
+- The small marks are not understood: "C" / "L" / "?" (phone mic type), the hollow/blue/green dot (recording state), "Ready". Make them self-explaining or labelled.
+- The seating preview in the right-hand corner is "weird". Where the round settings ("pre-settings") live is not clear.
+- Round 2 preview in the seeded room listed "Fewer than two Clarity Canvases are shared with this event, so there is no table to seat" and "X has no seat in this round" for all 13 people, although 7 seeded owners had shared canvases (screenshot 21:58). Investigate: a real bug in what counts as shared after round 1, or a seed/state problem; and the "has no seat" list wording is noise either way.
+- End the evening and the other controls: redesign with the rest of the flow.
+
 ## Known Limitations
 
 - The expanded update task sometimes folds back on the first tap (seen intermittently in the walk, cause not found); a second tap holds.
