@@ -449,6 +449,7 @@ Last updated: 2026-11-06
 
 ## Infrastructure / Process
 
+- **P1648** (Nov 26) /live prod smoke false alarm — a page that stops the recorder on mount can prove only "bundle loaded and ran", never "/record posted"; "requested", "downloaded ok" and regex drift guards each passed a broken recorder in review — see decisions.md 2026-11-06 [technical]
 - **P1641** (Nov 26) Privacy scan refused branch deletes after P1623 made it fail closed — skip only an all-zero LOCAL SHA, before the range is built; a new fail-closed gate must run the pipeline's own cleanup step (gate 7c)
 - **P1628** (Nov 26) Tag automation traffic in Mixpanel — switching recording off blinds smokes to recorder outages; smokes must opt in and prove upload.
 - **P1640** (Nov 26) Weekly product read from Mixpanel, delivered through /day — weekly not daily: daily comparisons at low volume invent patterns.

@@ -8,6 +8,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-06 [technical]: A route that stops the recorder on mount proves the recorder ran, not that it recorded (P1648)
+
+**Context:** P1628 made both prod smokes require a real `/record` on every route. `/live` deliberately calls `stop_session_recording()` on mount (P1304: the room code in its URL is a join capability). Whether a `/record` is ever posted there is therefore a race with the recorder bundle's arrival, and in CI the alert-only smokes failed on `/live` and opened issues 34 and 35. An injected 80–250 ms bundle delay reproduces it reliably.
+
+**Decision:** Routes listed in `RECORDER_STOPPED_ON_MOUNT_ROUTES` (only `/live`) accept a `timeout` as long as all of the following hold:
+- the recorder bundle finished downloading with a 2xx;
+- it ran to its end (its last statement assigns the recorder constructor to `window.__mp_recorder`, read at the deadline);
+- no recorder CSP violation was seen up to the deadline, counting `worker-src` blocks on `blob:`/`data:`, because the recorder's worker reports only that.
+
+Every other route still requires `/record`, so a recorder that loads but never records fails there. The list is guarded by an AST check: the exported page component must stop the recorder in a mount-only effect with no exit before the stop, and `src/App.tsx` must render that component at the route. Every control in the check mutates the real files.
+
+**Alternatives rejected:**
+- *Accept "bundle requested".* Too weak: a stalled, aborted or empty download passes, so a broken recorder ships green.
+- *Accept "downloaded ok" without "ran".* An empty 200 passes; Codex reproduced it.
+- *A regex drift guard.* It matches comments; it passed with the real call commented out.
+- *Stop `/live` from stopping the recorder.* That breaks P1304's privacy fix.
+- *Lengthen the wait.* After the stop no flush ever follows, so a longer wait doesn't help.
+
+**Consequences:** A recorder on `/live` that loads and runs but never starts a session is no longer caught on that route, by design; the other routes catch it. The browser-level controls (`e2e/p1648-live-recorder-exemption.spec.ts`) run only with `P1648_SMOKE_URL` set, so they guard on demand, not in CI. Adding a stop-on-mount call to another smoked route needs that route added to the list, or it will flake in the same way.
+
+**References:** [P1648](../features/done/2026-06-10/p1648_smoke_live_recorder_race_with_stop.md), `e2e/helpers/prod-health.ts`, `src/tests/p1648-recorder-stopped-routes.test.ts`
+
+---
+
 
 
 ## 2026-11-06 [product]: Outreach shelved again until sales mastermind session 1; the change-lead plan is kept ready. Founder decision
@@ -83,6 +107,8 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **References:** [p1644_live_invite_arrives_in_chat.md](../features/p1644_live_invite_arrives_in_chat.md)
 
 ## 2026-11-05 [technical]: Automation is tagged in Mixpanel and not recorded, but the smokes keep the recorder and must prove it ran (P1628)
+
+**Reversed in part 2026-11-06, see "A route that stops the recorder on mount proves the recorder ran, not that it recorded (P1648)".** Still in force: every other smoke route must reach a real `/record`.
 
 **Context:** Bot and smoke traffic pollutes the Mixpanel visitor numbers. The spec said to stop recording under `navigator.webdriver`. Measured on the prod page, that would have hidden recorder-only outages: a CSP blocking only the recorder bundle or only `/record` failed both smokes before and passed both with recording off, because the recorder never loads.
 
