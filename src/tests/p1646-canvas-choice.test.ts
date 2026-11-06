@@ -699,7 +699,7 @@ describe('P1646 Opus adversary fixes', () => {
     const reply = choiceCall(h).p_reply as string;
     expect(reply).not.toMatch(/Zorblat/);
     expect(blocks(reply)[1]).toBe('I\'d recommend replacing it.');
-    expect(reply).toContain('A (recommended). Replace it with "Today organisations waste money on other tools".\n');
+    expect(reply).toContain('A (recommended). Replace it with "Today organisations waste money on other tools".\n\nB');
     // CONTROL: without the name in this run, the same stored texts are shown
     const plain = harness('D', { latest: named });
     await go(plain);
