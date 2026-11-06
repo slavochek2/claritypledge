@@ -78,11 +78,13 @@ export async function lookupContactCode(
 }
 
 /** Maps the server's refusal to an outcome. Exported for the test; the text is the function's contract. */
-export function redeemFailureFrom(message: string): RedeemFailure {
+export function redeemFailureFrom(message: string): RedeemFailure | null {
   if (message.includes("contact code: own code")) return "own-code";
   if (message.includes("contact code: paused")) return "paused";
   if (message.includes("too many new conversations today")) return "too-many";
-  return "unavailable";
+  if (message.includes("contact code: not available")) return "unavailable";
+  // Anything else (a timeout, a deadlock, a PostgREST fault) is not a refusal: the caller offers Try again.
+  return null;
 }
 
 /** Starts or reopens the 1:1 with the code's owner. A network failure throws; a refusal is a result. */
@@ -91,10 +93,11 @@ export async function redeemContactCode(token: string): Promise<RedeemResult> {
     p_token: token,
   });
   if (error) {
-    // PostgREST raises carry the RAISE text in `message`; anything without a code is the network.
-    if (!error.code)
-      throw new Error(`contact code redeem failed: ${error.message}`);
-    return { ok: false, reason: redeemFailureFrom(error.message) };
+    // A documented refusal is a result; anything else (network, timeout, server fault) throws, so the page offers
+    // Try again instead of claiming the code no longer works.
+    const reason = redeemFailureFrom(error.message);
+    if (!reason) throw new Error(`contact code redeem failed: ${error.message}`);
+    return { ok: false, reason };
   }
   if (typeof data !== "string") return { ok: false, reason: "unavailable" };
   return { ok: true, conversationId: data };

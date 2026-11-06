@@ -2,7 +2,8 @@
  * @file profile-role-line.tsx
  * @description The role and LinkedIn link under a profile's name. Moved verbatim out of profile-page-v2.tsx (P1556),
  * which is over its size limit and may not grow; the one change is the link passing through safeLinkHref, as every
- * new user-controlled href must (.claude/rules/src.md).
+ * new user-controlled href must (.claude/rules/src.md). A stored URL with no scheme ("linkedin.com/in/x") gets https://
+ * first, so it keeps working as it did before the move.
  */
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { safeLinkHref } from '@/app/prototypes/events/location-utils';
@@ -23,7 +24,7 @@ export function ProfileRoleLine({ name, role, linkedinUrl }: { name: string; rol
           <Tooltip>
             <TooltipTrigger asChild>
               <a
-                href={safeLinkHref(linkedinUrl)}
+                href={safeLinkHref(/^[a-z][a-z0-9+.-]*:/i.test(linkedinUrl) ? linkedinUrl : `https://${linkedinUrl}`)}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`${name}'s LinkedIn profile`}

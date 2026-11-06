@@ -129,6 +129,25 @@ test('the owner-side limit pauses a code after 20 new chats in a day', async () 
   await ok<string>(redeem(sB, token), 'B reopens past the limit');
 });
 
+test('an agent account has no code and cannot be reached by one', async () => {
+  const F = await mk('F');
+  const sF = await signIn(F);
+  const fToken = await myCode(sF); // made while F is still a person
+  await supabaseAdmin.from('agent_accounts').insert({ profile_id: F.user.id, subject_key: `p1556-${RUN}`, operator_name: 'P1556 test' });
+  try {
+    const err = await refused(sF.client.rpc('get_my_contact_code'), 'agent reads a code');
+    expect(err.message).toContain('contact code: not available');
+    await refused(sF.client.rpc('reset_my_contact_code'), 'agent resets a code');
+    expect(await ok<unknown[]>(anonClient().rpc('lookup_contact_code', { p_token: fToken }), 'anon looks up the agent code')).toHaveLength(0);
+    const r = await refused(redeem(sE, fToken), 'E redeems the agent code');
+    expect(r.message).toContain('contact code: not available');
+  } finally {
+    await supabaseAdmin.from('agent_accounts').delete().eq('profile_id', F.user.id);
+  }
+  // Control: the same code works once F is a person again.
+  await ok<string>(redeem(sE, fToken), 'E redeems F code after F is a person');
+});
+
 test('exact handle finds a profile; Message only where a 1:1 is allowed; blocked people are not found', async () => {
   const found = await ok<Array<{ id: string; can_message: boolean }>>(sB.client.rpc('find_profile_by_handle', { p_handle: A.slug.toUpperCase() }), 'B finds A by handle');
   expect(found[0]?.id).toBe(A.user.id);

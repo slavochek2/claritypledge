@@ -42,12 +42,13 @@ describe('isContactToken / contactCodeUrl', () => {
 });
 
 describe('redeemFailureFrom', () => {
-  it('names each server refusal, and folds everything else into one', () => {
+  it('names each documented server refusal, and nothing else', () => {
     expect(redeemFailureFrom('contact code: own code')).toBe('own-code');
     expect(redeemFailureFrom('contact code: paused')).toBe('paused');
     expect(redeemFailureFrom('chat: too many new conversations today')).toBe('too-many');
     expect(redeemFailureFrom('contact code: not available')).toBe('unavailable');
-    expect(redeemFailureFrom('anything else')).toBe('unavailable');
+    // Not a refusal: a server fault must surface as a failure the page can retry, never as "no longer works".
+    expect(redeemFailureFrom('canceling statement due to statement timeout')).toBeNull();
   });
 });
 

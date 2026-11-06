@@ -70,15 +70,22 @@ export function ConnectPage() {
   const [view, setView] = useState<View>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   const started = useRef<string | null>(null);
+  // False once the page is gone: a redemption that answers after the person navigated away must not pull them back.
+  const mounted = useRef(true);
 
   useNoReferrer();
   useEffect(() => {
     analytics.stopSessionRecording();
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
   }, []);
 
   useEffect(() => {
     if (!sessionChecked || authLoading) return;
     if (!isContactToken(token)) {
+      started.current = `bad:${token}`; // a pending answer for an earlier code must not overwrite this
       setView({ kind: "refused", reason: "unavailable" });
       return;
     }
@@ -88,7 +95,8 @@ export function ConnectPage() {
     const key = `${token}:${user?.id ?? "anon"}:${attempt}`;
     if (started.current === key) return;
     started.current = key;
-    const isLatest = () => started.current === key;
+    setView({ kind: "loading" }); // never show the previous code's owner while this one is looked up
+    const isLatest = () => mounted.current && started.current === key;
 
     if (user) {
       redeemContactCode(token).then(
