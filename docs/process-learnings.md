@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 308
+**Next ID:** 309
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3660,5 +3660,16 @@ Founder ask (2026-11-06, P1646 test): agent replies in canvas and chat threads r
 **due:** week
 
 Seen in the founder's P1646 test (2026-11-06): a message describing a different offer was treated as a Customer Segments conflict, while the agent's own reason said it "belongs on a separate canvas". The engine already has other_canvases offers; the choice prompt should route a different business there instead of offering a replace. Start with /create-spec. Droppable if offers already cover it after a prompt tweak in a later spec.
+
+---
+
+## P1649 post-push: confirm series short links on prod
+
+**ID:** INBOX-308
+**Date:** 2026-11-06
+**Status:** proposed
+**due:** week
+
+After /push applies 20261106164500_p1649_series_alias_resolution.sql to prod (it must land before the redirect deploys), curl -sI claritypledge.com/sales, /drum, /next and /hike and record which event each one 307s to. Under public-wins, /sales should reach the hidden sales mastermind test while no public session exists, and /drum the hidden 24 Nov drum circle. Also re-run scripts/function-grant-drift-check.py so resolve_series_alias no longer reads as test-only. Droppable once all four resolve as expected on prod.
 
 ---
