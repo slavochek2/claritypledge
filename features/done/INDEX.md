@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-11-05
+Last updated: 2026-11-06
 
 ---
 
@@ -448,6 +448,8 @@ Last updated: 2026-11-05
 - **P160** (Feb 5) Private Session Mode — new session mode; DB columns + RLS policy isolation
 
 ## Infrastructure / Process
+
+- **P1641** (Nov 26) Privacy scan refused branch deletes after P1623 made it fail closed — skip only an all-zero LOCAL SHA, before the range is built; a new fail-closed gate must run the pipeline's own cleanup step (gate 7c)
 - **P1628** (Nov 26) Tag automation traffic in Mixpanel — switching recording off blinds smokes to recorder outages; smokes must opt in and prove upload.
 - **P1637** (Nov 26) Ship lock timeout stranded its own journal — remove only a journal this run wrote and proves unpicked; a new scenario reusing a later one's P-number kills the whole suite silently.
 - **P1630** (Nov 26) `/finish` adds GLM as advisory reviewer; receipt needs Gemini or Codex — embargo checks must test any branch shape, not `pN` names.

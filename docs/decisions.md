@@ -9,6 +9,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-06 [technical]: A ref delete is the one push line the privacy scan skips, and only on the local all-zero SHA (P1641)
+
+**Context:** P1623 made Layer 1 of `scripts/pre-push-checks.sh` fail closed when the scanner cannot read its input. A ref delete sends an all-zero local SHA, Layer 1 built a range ending in it, and every delete was refused. That stranded `staging/doc-*` refs on origin after each `/push`, and the `push-docs --resume` and re-push recovery paths could not delete their staging ref. The delete skip existed, but after the scan.
+
+**Decision:** Skip a line in Layer 1 only when its local SHA is all-zero, checked before the range is built. Every line with a non-zero local SHA is still scanned, including new refs with an all-zero remote SHA. The scanner's unreadable-input refusal is unchanged. A delete of `main` is still refused by Layer 2.
+
+**Alternatives rejected:** Treating scanner exit 3 as a pass for deletes (it would also pass a real unreadable range). Skipping on an all-zero remote SHA too (the canary's D8 fails on exactly that widening).
+
+**Consequences:** `scripts/test-p1641-prepush-delete.sh` (11 cases: deletes pass; bad ranges, personal identifiers, embargoed specs and mixed pushes stay refused) runs at pre-commit whenever the hook, scanner or disclosure checker is staged. The lesson for the next fail-closed change is epistemic gate 7c: P1623's tests covered only inputs to reject, and the first workflow it broke was the pipeline's own cleanup step. Open: for a new ref the scan baseline is `origin/main` whatever the target remote (logged privately, low impact because those commits are already public), and `test-hook-sha-gate.sh` fails 4 of 10 independently (INBOX-298).
+
+**References:** [P1641](../features/done/2026-06-10/p1641_privacy_scan_blocks_branch_delete.md) · `scripts/pre-push-checks.sh` · P1623 · INBOX-299
+
 ## 2026-11-06 [product]: People connect by a personal code, not a transcription invite; a handle finds a profile but does not open a chat (P1556)
 
 **Context:** The founder asked for a QR to bring people into `/transcribe` quickly. Checked against the code, it helped almost nowhere. People in a chat already have Join, a 1:1 holds two people, a group needs learning and terms, an event needs an RSVP, and a plain room's code is never shown. The real barrier was elsewhere: two people who share no group, event or partnership cannot start a 1:1 at all, and nobody can see a handle.
