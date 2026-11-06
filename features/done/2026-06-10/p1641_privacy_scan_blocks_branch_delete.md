@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 109
 severity: high
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: high
 tags: [privacy-gate, pre-push, push-docs, staging]
 disclosure: public
-delivery_stage: ship
 date_resolved: 2026-11-05
 root_cause: Layer 1 scanned a delete before its skip ran
 resolution: moved the skip ahead of the scan; a canary covers deletes and everything that publishes
@@ -25,6 +24,7 @@ reproduce_artifact:
   reproduced_at: 2026-11-05
 spec_review_hash: 6682020bc6c53d7882e05838cbabec7bb59002e0ea957378d64002dfa391624d
 spec_review_vendors: [gemini]
+completed_at: 2026-11-06
 ---
 
 # P1641: Privacy scan refuses branch deletes, so staging branches pile up and push recovery dies
