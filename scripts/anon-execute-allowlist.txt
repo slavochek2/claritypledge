@@ -148,3 +148,8 @@ get_canvas(uuid,text,text,text)               # a signed-out visitor opens a can
 # back to it when the table shows no row, and the share preview (api/og.ts) reads every event through it. The
 # registration function rsvp_to_event_by_slug is signed-in only and is not listed here.
 get_event_by_slug(text)                       # a signed-out visitor opens a hidden event from its link, and the share preview reads it (P1603) — src/app/data/event-slug-and-group-reads.ts:19
+
+# --- 2026-11-06, P1649: a series short link reaches the next event of its series, hidden or not ---
+# Alias KEY in, one slug out. The rule behind each key lives in public.series_aliases, which anon cannot read or
+# write; the caller supplies no pattern, series value or cutoff, so it cannot become a search over hidden events.
+resolve_series_alias(text)                    # a signed-out visitor follows /hike, /night, /next, /sales, /drum etc. (P1649) — api/series-redirect.ts:39

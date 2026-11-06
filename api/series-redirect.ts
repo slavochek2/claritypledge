@@ -1,69 +1,53 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Maps /events/<key> → Supabase title ILIKE pattern (nearest upcoming event wins).
-// Query must filter by BOTH status=upcoming AND datetime > (now - EVENT_GRACE_HOURS=5h) —
-// status alone misses same-day events whose status hasn't been flipped yet. See getPastEvents().
-const SERIES: Record<string, string> = {
-  'ai-run': 'AI Running Club%',
-  // '%Hike%', not 'Clarity Hike%': the series was renamed to "Social Hike"
-  // on 2026-08-24 and the old prefix silently stopped matching, so
-  // /events/hike fell through to the generic /events list with no error.
-  // Match the word wherever it appears so a rename cannot orphan the link.
-  'hike': '%Hike%',
-  // AI-safety Clarity Nights. Matches the topic, not the series prefix, because
-  // not every Clarity Night is about AI safety.
-  'aisafety': '%AI Safety%',
-  // Every Clarity Night, whatever its topic: /night resolves to the nearest
-  // upcoming one. Matches the series prefix because the title convention is
-  // "Clarity Night #N: <topic>" — see docs/events/clarity-practice-event.md.
-  'night': 'Clarity Night%',
-  // Philip Keay's self-inquiry workshops (guest host, Clarity Practice Community CM; was Communication Activism before P1543).
-  'spiritual-revolution': 'A Spiritual Revolution%',
-};
-
-// Keys matched on stored fields rather than a title. /next (P1414): the nearest upcoming Clarity
-// Night whose topic is not chosen yet — the placeholder that carries the topic vote. Same rule as
-// showsTopicVote(): the series key, and no statement_tag. With no placeholder it falls back to
-// /night's match, so the link always lands on the next night.
-const FIELD_SERIES: Record<string, { filter: string; fallback?: string }> = {
-  next: { filter: 'series_slug=eq.clarity-night&statement_tag=is.null', fallback: 'night' },
-  // /drum (2026-11-06): the nearest upcoming drum circle, by its stored series key, never a title.
-  drum: { filter: 'series_slug=eq.drum-circle' },
-};
+// /<alias> and /events/<alias> → the nearest upcoming event of that series (P1649).
+//
+// The rule behind each alias (title pattern, stored series key, /next's "no topic yet" + fallback to /night)
+// lives in the database table public.series_aliases, which the public key cannot read or write. This
+// function passes ONLY the alias key to public.resolve_series_alias, which returns one slug or null.
+// That is what lets an alias reach a hidden event (P1603) without giving the public key a search:
+// a caller cannot supply a pattern, a series value or a cutoff. Precedence (public before hidden, across
+// /next's whole chain), the 5-hour grace cutoff and status=upcoming are all applied inside the function.
+// Adding an alias = a row in series_aliases (prod data change) + a vercel.json pair.
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const series = req.query.series as string;
-  const field = FIELD_SERIES[series];
-  const pattern = SERIES[series];
+// Same shape the table's CHECK enforces; anything else cannot be an alias, so skip the round trip.
+const ALIAS_KEY = /^[a-z0-9-]{1,40}$/;
 
-  if (!field && !pattern) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const series = req.query.series;
+  if (typeof series !== 'string' || !ALIAS_KEY.test(series)) {
     res.redirect(307, '/events');
     return;
   }
 
   try {
-    let slug = field ? await nearest(field.filter) : null;
-    const titlePattern = field ? (field.fallback ? SERIES[field.fallback] : undefined) : pattern;
-    if (!slug && titlePattern) slug = await nearest(`title=ilike.${encodeURIComponent(titlePattern)}`);
-    res.redirect(307, slug ? `/events/${slug}` : '/events');
-  } catch {
+    const slug = await resolve(series);
+    res.redirect(307, slug ? `/events/${encodeURIComponent(slug)}` : '/events');
+  } catch (err) {
+    // A failed call is NOT "no match": report it so a missing migration or a broken grant is visible,
+    // then still send the visitor somewhere useful.
+    console.error('[series-redirect] resolve_series_alias failed', { series, error: String(err) });
     res.redirect(307, '/events');
   }
 }
 
-/** The nearest upcoming event matching a PostgREST filter, or null. */
-async function nearest(filter: string): Promise<string | null> {
-  const graceCutoff = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
-  const url = `${SUPABASE_URL}/rest/v1/events?${filter}&status=eq.upcoming&is_hidden=eq.false&datetime=gt.${encodeURIComponent(graceCutoff)}&order=datetime.asc&limit=1&select=slug`;
-  const resp = await fetch(url, {
+/** The slug the alias points at, or null when nothing is upcoming. Throws on any failed call. */
+async function resolve(key: string): Promise<string | null> {
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/resolve_series_alias`, {
+    method: 'POST',
     headers: {
       apikey: SUPABASE_ANON_KEY ?? '',
       Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({ p_key: key }),
   });
-  const rows = await resp.json();
-  return Array.isArray(rows) && rows.length > 0 ? rows[0].slug : null;
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const body: unknown = await resp.json();
+  if (body === null || body === '') return null;
+  if (typeof body === 'string') return body;
+  throw new Error(`unexpected response shape: ${JSON.stringify(body).slice(0, 100)}`);
 }

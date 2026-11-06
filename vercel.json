@@ -169,6 +169,16 @@
       "permanent": false
     },
     {
+      "source": "/sales",
+      "destination": "/api/series-redirect?series=sales",
+      "permanent": false
+    },
+    {
+      "source": "/events/sales",
+      "destination": "/api/series-redirect?series=sales",
+      "permanent": false
+    },
+    {
       "source": "/aisafety",
       "destination": "/api/series-redirect?series=aisafety",
       "permanent": false

@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 113
 workstream: events
 created_date: '2026-11-06'
 tags: [events, short-links, hidden-events, series-redirect, sales-mastermind, migration]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
@@ -96,15 +96,15 @@ Revert the redirect commit: that restores the exact pre-P1649 state (existing al
 
 ## Done-When
 
-- [ ] On test, with the public key: calling the function with a known alias key returns the slug of a hidden upcoming event and **only** that slug (scalar text, null when none), and the redirect's parsing is written against exactly that shape.
-- [ ] On test, with the public key, **control pair:** the known key returns a slug; an unknown key, an empty key and a bare wildcard each return null. The function has no cutoff, pattern or series parameter.
-- [ ] On test, with the public key: a direct select of that hidden event from `events` still returns nothing (the P1603 boundary is unchanged).
-- [ ] On test, with the public key: select, insert, update and delete on the alias table are all refused, and the migration's own assertion block fails when the table's or the function's grants are wrong (exercised by breaking each once).
-- [ ] **Real wire format, not only mocks:** the redirect's parsing is checked against the actual response of the function on test (scalar text: a JSON string for a match, `null` for none), and the redirect's unit tests mock that same shape. The drum branch's existing test mocks the old row-array shape and must be rewritten.
-- [ ] Boundary cases, each a test: an event inside the 5-hour grace window resolves and one just outside does not; two events at the same time resolve to the same one every run (tie broken by public first, then id); a bad fallback row (pointing at itself) is refused by the table and cannot loop.
-- [ ] Precedence follows the founder's decision, as tests that fail when the rule is flipped: one public and one hidden upcoming event of a series; only a hidden one; only a past or cancelled one (goes to `/events`); and the `/next` chain case (public night tomorrow, hidden placeholder next week).
-- [ ] **A failure is distinguishable from "no match":** a test where the function call fails (error response) asserts the redirect reports it, and a separate test where it returns null asserts `/events`. Neither passes by falling into the same catch.
-- [ ] **Every** alias has a test, not only the ones the repo covers today (currently only `/next` and `/night`, P1414): `/hike`, `/ai-run`, `/aisafety`, `/spiritual-revolution`, `/sales`, `/drum`, with the existing P1414 cases kept.
+- [x] On test, with the public key: calling the function with a known alias key returns the slug of a hidden upcoming event and **only** that slug (scalar text, null when none), and the redirect's parsing is written against exactly that shape.
+- [x] On test, with the public key, **control pair:** the known key returns a slug; an unknown key, an empty key and a bare wildcard each return null. The function has no cutoff, pattern or series parameter.
+- [x] On test, with the public key: a direct select of that hidden event from `events` still returns nothing (the P1603 boundary is unchanged).
+- [x] On test, with the public key: select, insert, update and delete on the alias table are all refused, and the migration's own assertion block fails when the table's or the function's grants are wrong (exercised by breaking each once).
+- [x] **Real wire format, not only mocks:** the redirect's parsing is checked against the actual response of the function on test (scalar text: a JSON string for a match, `null` for none), and the redirect's unit tests mock that same shape. The drum branch's existing test mocks the old row-array shape and must be rewritten.
+- [x] Boundary cases, each a test: an event inside the 5-hour grace window resolves and one just outside does not; two events at the same time resolve to the same one every run (tie broken by public first, then id); a bad fallback row (pointing at itself) is refused by the table and cannot loop.
+- [x] Precedence follows the founder's decision, as tests that fail when the rule is flipped: one public and one hidden upcoming event of a series; only a hidden one; only a past or cancelled one (goes to `/events`); and the `/next` chain case (public night tomorrow, hidden placeholder next week).
+- [x] **A failure is distinguishable from "no match":** a test where the function call fails (error response) asserts the redirect reports it, and a separate test where it returns null asserts `/events`. Neither passes by falling into the same catch.
+- [x] **Every** alias has a test, not only the ones the repo covers today (currently only `/next` and `/night`, P1414): `/hike`, `/ai-run`, `/aisafety`, `/spiritual-revolution`, `/sales`, `/drum`, with the existing P1414 cases kept.
 - [ ] `/sales` and `/events/sales` resolve per the chosen rule once the migration and redirect are live on prod. `[post-deploy]` re-verify with `curl -sI https://claritypledge.com/sales` on prod after the push; note which event is expected at that moment, since a public Sales Mastermind published before the check changes the answer under public-wins.
 - [ ] A decisions.md entry records the deliberate relaxation of the 2026-11-03 hidden-event rule for alias words, with its falsifier.
 
