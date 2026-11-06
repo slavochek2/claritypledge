@@ -98,6 +98,15 @@ The dialog inherits the point's visibility. Points made by the current engine ar
 - **Accessibility:** the title button sits inside the box's heading; each box stays a labelled section; the layer wrappers lose their names.
 - **Add a story:** the owner's no-position case uses the existing "+ Add a story" copy.
 
+## Founder Decisions (round 2)
+
+Founder, after trying the build:
+1. **Actions with no draft yet:** Edit, Open, Add card and Remove show on a clone and on a new canvas too. The first hand save (add or edit) creates the draft, as the first message does. Replaces Founder Review item 1.
+2. **Mention per point:** each card has Mention in chat beside Edit and Open, and "Mentioned" is per point. An empty box keeps a box-level Mention in chat. The pill reads the box name, a dot, then the point text cut with an ellipsis (full text on hover), with the box icon. Sent, it becomes `[Box] "point text"`, so the box chip shows followed by the owner's exact words, and the run's scope stays the box. Several mentions per message are allowed (at most one per box or point).
+3. **Remove:** each card on a draft has Remove, with no confirmation. It takes the point off this draft, as the agent's drop does: a point that exists only in this draft is gone at Publish or Discard; a point from a published version stays there. No other person's position or story can be lost, since drafts are private. The agent keeps its own power to drop. Replaces Founder Review item 3.
+4. **Upload button:** the secondary blue outline, as Undo.
+Still pending: the wording in Founder Review.
+
 ## Cost Budget
 
 Applies because the migration adds a per-request function and the tests create and delete users. No timer, poll, retry loop or model call: one Save is one write and one re-read, the shape P1614 measured.
