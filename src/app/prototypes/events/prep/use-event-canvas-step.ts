@@ -112,10 +112,9 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
   const chosenName = mine?.shared ? mine.name : null;
   const candidates = chosenName && changing ? published.filter(p => p.name !== chosenName) : published;
   const selected = candidates.find(p => p.name === picked)?.name ?? candidates[0]?.name ?? null; // newest preselected
-  const selectedLabel = candidates.find(p => p.name === selected)?.label ?? '';
   const sharedLabel = mine?.shared ? published.find(p => p.name === mine.name)?.label || mine.name : '';
   const view = !loaded || readFailed ? null : buildStepView({
-    mine, candidates, published, hasOpenDraft: !!openDraft, changing, wide, selected, selectedLabel, onContinue, onSkip, mk,
+    mine, candidates, published, hasOpenDraft: !!openDraft, changing, wide, selected, onContinue, onSkip, mk,
     go: { start, continueDraft, share, shareAgain, change: () => setChanging(true), keep: () => setChanging(false) },
   });
 

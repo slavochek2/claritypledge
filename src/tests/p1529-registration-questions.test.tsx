@@ -135,8 +135,31 @@ describe('P1529 D24 registration form: submitting', () => {
     expect(invalidOf(screen.getByTestId('recording-accept'))).toBe('true');
     expect(groups[0].hasAttribute('aria-describedby')).toBe(false);
     expect(screen.getByTestId('recording-accept').getAttribute('aria-describedby')).toBe(screen.getByTestId('missing-recording').id);
-    expect(groups[0].className).toContain('outline-destructive');
+    expect(groups[0].className).toContain('border-destructive');
+    expect(groups[1].contains(screen.getByTestId('missing-recording'))).toBe(true); // the consent's error line sits inside its outline
+    expect(groups[1].className).toContain('p-3');
     expect(document.activeElement).toBe(screen.getByTestId('join-improve'));
+  });
+
+  it('each of the four required questions shows the invalid border after an empty Register and the transparent one once answered', () => {
+    open();
+    const group = (k: string) => document.querySelector(`[data-question="${k}"]`)!;
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    for (const k of ['join', 'recording', 'phone']) expect(group(k).className).toContain('border-destructive');
+    fireEvent.click(screen.getByTestId('join-help')); // reveals the prep question
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    expect(group('prep').className).toContain('border-destructive');
+    const answer: Record<string, () => void> = {
+      join: () => undefined, // answered above
+      prep: () => fireEvent.click(screen.getByTestId('prep-home')),
+      recording: () => fireEvent.click(screen.getByTestId('recording-accept')),
+      phone: () => fireEvent.click(screen.getByLabelText('USB-C')),
+    };
+    for (const k of ['join', 'prep', 'recording', 'phone']) {
+      answer[k]!();
+      expect(group(k).className, k).toContain('border-transparent');
+      expect(group(k).className, k).not.toContain('border-destructive');
+    }
   });
 
   it('answering a question clears only its own error', () => {
@@ -167,7 +190,7 @@ describe('P1529 D24 registration form: submitting', () => {
     expect(screen.getByTestId('prep-question')).toBeTruthy();
     expect(screen.queryByTestId('missing-prep')).toBeNull();
     expect(screen.getByTestId('prep-home').hasAttribute('aria-invalid')).toBe(false);
-    expect(screen.getByTestId('prep-question').className).not.toContain('outline-destructive');
+    expect(screen.getByTestId('prep-question').className).not.toContain('border-destructive');
     fireEvent.click(screen.getByTestId('registration-submit'));
     expect(screen.getByTestId('missing-prep')).toBeTruthy();
   });
@@ -179,7 +202,7 @@ describe('P1529 D24 registration form: submitting', () => {
     fireEvent.click(screen.getByTestId('registration-submit')); // join and prep answered; recording and phone missing
     fireEvent.click(screen.getByTestId('join-improve')); // resets prep
     expect(screen.queryByTestId('missing-prep')).toBeNull();
-    expect(screen.getByTestId('prep-question').className).not.toContain('outline-destructive');
+    expect(screen.getByTestId('prep-question').className).not.toContain('border-destructive');
     fireEvent.click(screen.getByTestId('registration-submit'));
     expect(screen.getByTestId('missing-prep')).toBeTruthy();
   });

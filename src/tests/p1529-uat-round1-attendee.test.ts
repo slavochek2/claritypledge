@@ -65,7 +65,7 @@ describe('preparation: the canvas is step 4, for owners only', () => {
     expect(buildPlan(base)).toEqual(['story', 'principle', 'cmp7']);
   });
   it('the step is named and has minutes; Clarity Night and the hike never get it', () => {
-    expect(STEP_LABELS.canvas).toBe('Your Clarity Canvas for this event');
+    expect(STEP_LABELS.canvas).toBe('Your Clarity Canvas');
     expect(stepMinutes('canvas', { cmp7: 0, stake: 0 }, false)).toBeGreaterThan(1);
     expect(ALL_STEPS).not.toContain('canvas');
     expect(CLARITY_NIGHT_RECIPE.prepare.steps).not.toContain('canvas');

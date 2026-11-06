@@ -167,7 +167,7 @@ export function MastermindRoundCard({
               onClick={() => setCanvasOpen(o => !o)}
               data-testid="round-canvas-card-toggle"
             >
-              Your Clarity Canvas for this event
+              Your Clarity Canvas{/* [FOUNDER DECISION: copy, proposed] */}
             </button>
             {canvasOpen && <div className="mt-2"><EventCanvasCard eventId={eventId} /></div>}
           </div>

@@ -26,7 +26,6 @@ export interface StepInput {
   changing: boolean;
   wide: boolean;
   selected: string | null;
-  selectedLabel: string;
   onContinue?: () => void;
   onSkip?: () => void;
   mk: MakeAction;
@@ -62,7 +61,8 @@ function startView(i: StepInput): StepView {
   const { mk, go, onSkip, wide, hasOpenDraft } = i;
   const skip = onSkip ? mk('skip', 'Skip for now', null, onSkip, true) : null;
   if (hasOpenDraft) {
-    return done('B', 'Finish your Clarity Canvas', "Your draft isn't published yet. Publish it to finish this step.",
+    // [FOUNDER DECISION: copy, proposed]
+    return done('B', 'Finish your Clarity Canvas', "Your draft isn't published yet. Open it and publish it to finish this step.",
       mk('continue-draft', 'Continue your draft', 'Opening…', go.continueDraft), null, skip);
   }
   return done('A', 'Create your Clarity Canvas now', `About 15 minutes with your mirror.${wide ? '' : " It's easier on a desktop."}`,
@@ -70,15 +70,23 @@ function startView(i: StepInput): StepView {
 }
 
 function shareView(i: StepInput): StepView {
-  const { mk, go, candidates, changing, selected, selectedLabel } = i;
+  const { mk, go, candidates, changing, selected } = i;
   const keep = changing ? mk('keep', `Keep “${labelOf(i.published, i.mine?.name ?? '')}”`, null, go.keep, true) : null;
   const only = candidates.length === 1 ? candidates[0] : undefined;
   if (only) {
-    return done('C', 'Share your Clarity Canvas', `“${only.label}” is ready. Share it with this event's attendees.`,
+    // [FOUNDER DECISION: copy, proposed] changing from a shared canvas: the title and body say what replaces what.
+    const [title, body] = changing && i.mine
+      ? ['Share a different canvas', `“${only.label}” will replace “${labelOf(i.published, i.mine.name)}” for this event.`]
+      : ['Share your Clarity Canvas', `“${only.label}” is ready. Share it with this event's attendees.`];
+    return done('C', title, body,
       mk('share', 'Share with this event', 'Sharing…', () => go.share(only.name)), makeAnother(i, 'Make a different one'), keep);
   }
-  return done('D', 'Share a Clarity Canvas', 'Pick the one to share with this event.',
-    mk('share', `Share “${selectedLabel}” with this event`, 'Sharing…', () => selected && go.share(selected)), makeAnother(i, 'Make a new one'), keep);
+  // [FOUNDER DECISION: copy, proposed] changing from a shared canvas: the same replacement framing as one alternative.
+  const [dTitle, dBody] = changing && i.mine
+    ? ['Share a different canvas', `Pick the one to replace “${labelOf(i.published, i.mine.name)}” for this event.`]
+    : ['Share a Clarity Canvas', 'Pick the one to share with this event.'];
+  return done('D', dTitle, dBody,
+    mk('share', 'Share with this event', 'Sharing…', () => selected && go.share(selected)), makeAnother(i, 'Make a new one'), keep);
 }
 
 export function buildStepView(i: StepInput): StepView {

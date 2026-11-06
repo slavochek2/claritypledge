@@ -44,7 +44,7 @@ export const STEP_LABELS: Record<PlanStep, string> = {
   cmp7: 'Share your view on the expected benefits',
   stake: 'Set your positions on the points we discuss',
   research: "Decide if you'd like to volunteer in R&D",
-  canvas: 'Your Clarity Canvas for this event',
+  canvas: 'Your Clarity Canvas', // [FOUNDER DECISION: copy, proposed]
 };
 
 /** Step 5 names the event's point count and topic. */

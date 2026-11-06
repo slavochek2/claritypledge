@@ -86,7 +86,7 @@ describe('canvas step states', () => {
     h.drafts = [{ canvasName: 'canvas_1', versionName: 'canvas_d111' }];
     renderStep();
     expect((await screen.findByRole('heading')).textContent).toBe('Finish your Clarity Canvas');
-    expect(screen.getByTestId('event-canvas-body').textContent).toBe("Your draft isn't published yet. Publish it to finish this step.");
+    expect(screen.getByTestId('event-canvas-body').textContent).toBe("Your draft isn't published yet. Open it and publish it to finish this step.");
     expect(primaryButtons().map(b => b.textContent)).toEqual(['Continue your draft']);
     expect(screen.queryByText(/Share/)).toBeNull();
     fireEvent.click(primaryButtons()[0]!);
@@ -127,12 +127,21 @@ describe('canvas step states', () => {
     const options = screen.getAllByTestId('event-canvas-option') as HTMLInputElement[];
     expect(options).toHaveLength(2);
     expect(options.map(o => o.checked)).toEqual([true, false]);
-    expect(primaryButtons().map(b => b.textContent)).toEqual(['Share “Newest” with this event']);
+    expect(primaryButtons().map(b => b.textContent)).toEqual(['Share with this event']);
     fireEvent.click(options[1]!);
-    expect(primaryButtons()[0]!.textContent).toBe('Share “Older” with this event');
+    expect(primaryButtons()[0]!.textContent).toBe('Share with this event');
     expect(within(screen.getByTestId('event-canvas-secondary')).getByRole('button').textContent).toBe('Continue your draft'); // canvas_9 is an open draft
     fireEvent.click(primaryButtons()[0]!);
     await waitFor(() => expect(h.setCanvas).toHaveBeenCalledWith('ev-1', 'canvas_2'));
+  });
+  it('D in change mode: two or more other canvases use the replacement framing', async () => {
+    h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01'), pub('canvas_2', 'Other', '2026-10-01'), pub('canvas_3', 'Third', '2026-09-01')];
+    h.mine = { name: 'canvas_1', shared: true, fixed: false };
+    renderStep();
+    fireEvent.click(within(await screen.findByTestId('event-canvas-secondary')).getByRole('button', { name: 'Change' }));
+    expect((await screen.findByRole('heading')).textContent).toBe('Share a different canvas');
+    expect(screen.getByTestId('event-canvas-body').textContent).toBe('Pick the one to replace “Launch plan” for this event.');
+    expect(screen.getAllByTestId('event-canvas-option')).toHaveLength(2);
   });
   it('E: shared before round 1 has Continue and Change; Change reopens the choice', async () => {
     h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01'), pub('canvas_2', 'Other', '2026-10-01')];
@@ -145,8 +154,8 @@ describe('canvas step states', () => {
     expect(cont).toHaveBeenCalled();
     fireEvent.click(within(screen.getByTestId('event-canvas-secondary')).getByRole('button', { name: 'Change' }));
     // the shared canvas is never offered again as if new: only the OTHER one is, with a quiet way back
-    expect((await screen.findByRole('heading')).textContent).toBe('Share your Clarity Canvas');
-    expect(screen.getByTestId('event-canvas-body').textContent).toContain('“Other” is ready');
+    expect((await screen.findByRole('heading')).textContent).toBe('Share a different canvas');
+    expect(screen.getByTestId('event-canvas-body').textContent).toBe('“Other” will replace “Launch plan” for this event.');
     fireEvent.click(within(screen.getByTestId('event-canvas-quiet')).getByRole('button', { name: 'Keep “Launch plan”' }));
     expect((await screen.findByRole('heading')).textContent).toBe('Your Clarity Canvas is shared');
   });
@@ -259,7 +268,7 @@ describe('afterPublishPath and PreparationBanner', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(screen.getByTestId('preparation-banner').textContent).toContain("You're preparing for the event. Publish your canvas to finish this step.");
+    expect(screen.getByTestId('preparation-banner').textContent).toContain("You're preparing for the event. Draft your canvas with your mirror, then publish it to finish this step.");
     fireEvent.click(screen.getByTestId('preparation-banner-back'));
     expect(screen.getByTestId('where').textContent).toBe('/events/x/prepare');
   });
