@@ -23,6 +23,7 @@ import {
 } from '../_shared/starting-soon.ts';
 import { clearMessageIds } from '../_shared/rsvp-message-ids.ts';
 import { callerHasRsvp } from '../_shared/rsvp-guard.ts';
+import { hostAddRecipient } from '../_shared/host-add-recipient.ts';
 
 /**
  * P1256: is this stored value an id Mailgun can actually be asked to cancel?
@@ -52,30 +53,10 @@ async function handleRsvpIfRegistered(supabase: SupabaseClient, eventId: string,
   if (await callerHasRsvp(supabase, eventId, userId)) await handleRsvp(supabase, eventId, userId);
 }
 
-/**
- * P1529 D24: the rsvp confirmation goes to the caller, or, when the host adds a person from the waiting list, to that person.
- * Only the event's host may name someone else: anyone else naming another person gets no email sent (logged, nothing leaks),
- * and handleRsvpIfRegistered still requires the recipient's RSVP.
- */
-/** How long after a host's add the confirmation may still be sent for that person. */
-const HOST_ADD_EMAIL_WINDOW_MS = 10 * 60 * 1000;
-
+/** P1529 D24: the confirmation goes to the caller, or to the person the event's host just added from the waiting list. */
 async function handleRsvpFor(supabase: SupabaseClient, eventId: string, caller: string, target?: string) {
-  if (!target || target === caller) return handleRsvpIfRegistered(supabase, eventId, caller);
-  const { data } = await supabase.from('events').select('host_id').eq('id', eventId).single();
-  if (!data || data.host_id !== caller) {
-    console.warn('[send-event-emails] rsvp for another person refused: caller is not the host');
-    return;
-  }
-  // Only right after the add: a registration older than this is not one the host just made, so a host cannot re-send the
-  // confirmation to their attendees at will (Opus review).
-  const { data: rsvp } = await supabase.from('event_rsvps').select('rsvped_at')
-    .eq('event_id', eventId).eq('profile_id', target).maybeSingle();
-  if (!rsvp?.rsvped_at || Date.now() - new Date(rsvp.rsvped_at).getTime() > HOST_ADD_EMAIL_WINDOW_MS) {
-    console.warn('[send-event-emails] rsvp for another person refused: not a fresh registration');
-    return;
-  }
-  return handleRsvpIfRegistered(supabase, eventId, target);
+  const recipient = target && target !== caller ? await hostAddRecipient(supabase, eventId, caller, target) : caller;
+  if (recipient) await handleRsvpIfRegistered(supabase, eventId, recipient);
 }
 
 async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: string) {

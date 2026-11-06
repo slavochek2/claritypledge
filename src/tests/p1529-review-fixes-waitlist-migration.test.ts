@@ -39,6 +39,15 @@ describe('waiting-list review fixes (20261106150000)', () => {
   it('returns a canvas title only while the canvas is shared with the event', () => {
     expect(fn(sql, 'get_mastermind_host_state')).toMatch(/'canvas_title', CASE WHEN public\._event_canvas_shared\(p_event, p\.profile_id\) THEN/);
   });
+  it('a removal clears the waiting-list row, and the host state leaves removed people out (20261106160000)', () => {
+    const later = read('20261106160000_p1529_removal_clears_waitlist.sql');
+    expect(later).toMatch(/CREATE TRIGGER event_removal_clears_waitlist AFTER INSERT ON public\.event_removals/);
+    expect(fn(later, '_event_removal_clears_waitlist')).toContain('DELETE FROM public.event_waitlist w WHERE w.event_id = NEW.event_id AND w.profile_id = NEW.user_id');
+    const host = fn(later, 'get_mastermind_host_state');
+    expect(host.match(/NOT EXISTS \(SELECT 1 FROM public\.event_removals x WHERE x\.event_id = p_event AND x\.user_id = w\.profile_id\)/g)?.length).toBe(2);
+    // the title stays gated on sharing in the newest definition
+    expect(host).toMatch(/'canvas_title', CASE WHEN public\._event_canvas_shared\(p_event, p\.profile_id\) THEN/);
+  });
   it('keeps every function SECURITY DEFINER with an empty search_path', () => {
     for (const name of ['join_event_waitlist', 'host_add_from_waitlist', 'get_event_waitlist_public', 'get_mastermind_host_state']) {
       const body = fn(sql, name);

@@ -4,7 +4,7 @@
  * attendees. The host adds a person with one tap (host_add_from_waitlist registers them with their stored answers and the normal
  * confirmation email goes out). Renders nothing when the list is empty or unreadable. Same card and PersonRow as Participants.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,16 +29,29 @@ export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId, 
 
   const [readFailed, setReadFailed] = useState(false);
 
+  const [retrying, setRetrying] = useState(false);
+  // Only the latest read's result is applied: an older response arriving late never overwrites a newer list.
+  const generation = useRef(0);
+
   const load = useCallback(async () => {
+    const mine = ++generation.current;
     try {
       const all = await getWaitlistPublic(eventId);
+      if (mine !== generation.current) return;
       setEntries(excludeProfileId ? all.filter((p) => p.profileId !== excludeProfileId) : all);
       setReadFailed(false);
     } catch {
+      if (mine !== generation.current) return;
       // The last list stays on screen, and the failure is said: an unreadable list is not an empty one.
       setReadFailed(true);
     }
   }, [eventId, excludeProfileId]);
+
+  const retry = async () => {
+    setRetrying(true);
+    await load();
+    setRetrying(false);
+  };
 
   useEffect(() => { void load(); }, [load, refreshKey]);
 
@@ -66,7 +79,7 @@ export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId, 
       <div className="bg-card rounded-xl border border-border shadow-sm p-6 flex items-center justify-between gap-3" data-testid="event-waitlist-read-error">
         {/* [FOUNDER DECISION: copy] */}
         <p className="text-sm text-destructive" role="alert">Could not read the waiting list just now.</p>
-        <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => void load()} data-testid="event-waitlist-retry">Retry</Button>
+        <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={retrying} onClick={() => void retry()} data-testid="event-waitlist-retry">{retrying ? 'Retrying…' : 'Retry'}</Button>
       </div>
     );
   }
@@ -114,7 +127,7 @@ export function EventWaitlistList({ eventId, isHost, onAdded, excludeProfileId, 
       </div>
       {readFailed && (
         <p className="mt-3 text-sm text-destructive" role="alert" data-testid="event-waitlist-stale">
-          Could not refresh the waiting list. <button type="button" className="underline" onClick={() => void load()}>Retry</button>
+          Could not refresh the waiting list. <Button type="button" variant="link" size="sm" className="min-h-10 px-1 align-baseline" disabled={retrying} onClick={() => void retry()} data-testid="event-waitlist-stale-retry">{retrying ? 'Retrying…' : 'Retry'}</Button>
         </p>
       )}
       {error && <p className="mt-3 text-sm text-destructive" role="alert" data-testid="event-waitlist-error">{error}</p>}

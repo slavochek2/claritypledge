@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getMyRegistrationRole } from '@/app/data/my-registration-answers';
 import { comesAtDoors } from '@/app/data/registration-answer-model';
 import { recipeForEvent } from './series-recipes';
+import { whenVisible } from './when-visible';
 
 export interface MyArrival {
   owner: boolean;
@@ -45,14 +46,20 @@ export function useMyRegistrationArrivalRead(
     if (!key || !eventId || !viewerId) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelWait: () => void = () => undefined;
     const ok = (role: Awaited<ReturnType<typeof getMyRegistrationRole>>) => { if (!cancelled) setRead({ key, arrival: arrivalOf(role), failed: false }); };
     const fail = () => { if (!cancelled) setRead({ key, arrival: null, failed: true }); };
     setRead(prev => (prev?.key === key && prev.failed ? null : prev)); // a Retry shows "reading" again
-    getMyRegistrationRole(eventId, viewerId).then(ok).catch(() => {
-      if (cancelled) return;
-      timer = setTimeout(() => { getMyRegistrationRole(eventId, viewerId).then(ok).catch(fail); }, ARRIVAL_RETRY_MS);
+    // Metered rules 3 and 4: no request from a hidden tab (the first read and the retry wait until the tab is seen), and the retry is jittered.
+    cancelWait = whenVisible(() => {
+      getMyRegistrationRole(eventId, viewerId).then(ok).catch(() => {
+        if (cancelled) return;
+        timer = setTimeout(() => {
+          cancelWait = whenVisible(() => { getMyRegistrationRole(eventId, viewerId).then(ok).catch(fail); });
+        }, ARRIVAL_RETRY_MS * (0.75 + Math.random() * 0.5));
+      });
     });
-    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+    return () => { cancelled = true; cancelWait(); if (timer) clearTimeout(timer); };
   }, [key, eventId, viewerId, attempt]);
   const retry = useCallback(() => setAttempt(n => n + 1), []);
   // undefined = still reading; null = nothing to read (another flow, signed out) or no answers.

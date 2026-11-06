@@ -39,6 +39,7 @@ export function RsvpButton({
   /** Only in a flow that asks: the waiting list's state. */
   waitlist?: { onList: boolean; filled: boolean; leaving: boolean; onLeave: () => void };
 }) {
+  if (trigger === 'card_bottom' && asksBeforeSeat && isPast) return null;
   if (trigger === 'card_bottom' && asksBeforeSeat) {
     // The repeat behaves and looks like the top button (same variant from the Button, same loading text, same full handling),
     // only its test id differs. Once the person is on the list the top line already says so.
@@ -46,7 +47,7 @@ export function RsvpButton({
       if (waitlist?.onList) return null;
       return (
         <Button onClick={() => onRsvp(trigger)} className="w-full" size="lg" disabled={loading} data-testid="rsvp-button-repeat">
-          {loading ? REGISTERING_LABEL : WAITLIST_BUTTON}
+          {WAITLIST_BUTTON}
         </Button>
       );
     }

@@ -30,7 +30,7 @@ describe('useMyRegistrationArrivalRead', () => {
     const { result } = renderHook(() => useMyRegistrationArrivalRead(EVENT, 'u1'));
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(result.current.arrival).toBeUndefined();
-    await act(async () => { await vi.advanceTimersByTimeAsync(ARRIVAL_RETRY_MS); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(ARRIVAL_RETRY_MS * 1.25 + 10); }); // the retry delay is jittered up to 1.25x
     expect(h.role).toHaveBeenCalledTimes(2);
     expect(result.current.failed).toBe(false);
     expect(result.current.arrival?.owner).toBe(true);
@@ -39,7 +39,7 @@ describe('useMyRegistrationArrivalRead', () => {
   it('after two failures exposes an error, not "no answers", and Retry reads again', async () => {
     h.role.mockRejectedValue(new Error('net'));
     const { result } = renderHook(() => useMyRegistrationArrivalRead(EVENT, 'u1'));
-    await act(async () => { await vi.advanceTimersByTimeAsync(ARRIVAL_RETRY_MS + 10); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(ARRIVAL_RETRY_MS * 1.25 + 10); }); // the retry delay is jittered up to 1.25x
     expect(result.current.failed).toBe(true);
     expect(result.current.arrival).toBeNull();
     h.role.mockReset();

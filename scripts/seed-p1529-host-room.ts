@@ -1,6 +1,6 @@
 /**
  * P1529: seeds a Sales Mastermind room on the self-hosted TEST server for the founder to look at on localhost. TEST only: the helper
- * refuses any other server before a request goes out. Obviously fake people ("Test Alma", ...).
+ * refuses any other server before a request goes out. Obviously fake people ("Alma Test", ...; first names first, so the host screen tiles read differently).
  *
  * Usage:  SEED_HOST_EMAIL=<an existing account's email> npx tsx scripts/seed-p1529-host-room.ts
  *         npx tsx scripts/seed-p1529-host-room.ts --cleanup <ledger.json>
@@ -28,23 +28,23 @@ function loadEnv(): void {
 }
 
 const PLAN: Array<{ name: string; kind: 'owner' | 'owner-unshared' | 'observer'; participation: string; phone: string; prep?: string }> = [
-  { name: 'Test Alma', kind: 'owner', participation: 'canvas_before', phone: 'usbc' },
-  { name: 'Test Boris', kind: 'owner', participation: 'canvas_before', phone: 'lightning' },
-  { name: 'Test Chiara', kind: 'owner', participation: 'canvas_at_doors', phone: 'usbc' },
-  { name: 'Test Dmitri', kind: 'owner', participation: 'canvas_before', phone: 'other' },
-  { name: 'Test Elena', kind: 'owner', participation: 'canvas_at_doors', phone: 'lightning' },
-  { name: 'Test Farid', kind: 'owner', participation: 'canvas_before', phone: 'usbc' },
-  { name: 'Test Greta', kind: 'owner', participation: 'canvas_at_doors', phone: 'other' },
-  { name: 'Test Hugo', kind: 'owner-unshared', participation: 'canvas_before', phone: 'usbc' },
-  { name: 'Test Ines', kind: 'observer', participation: 'observer', phone: 'usbc', prep: 'home' },
-  { name: 'Test Jonas', kind: 'observer', participation: 'observer', phone: 'lightning', prep: 'doors' },
-  { name: 'Test Kira', kind: 'observer', participation: 'observer', phone: 'other', prep: 'home' },
-  { name: 'Test Leo', kind: 'observer', participation: 'observer', phone: 'usbc', prep: 'doors' },
+  { name: 'Alma Test', kind: 'owner', participation: 'canvas_before', phone: 'usbc' },
+  { name: 'Boris Test', kind: 'owner', participation: 'canvas_before', phone: 'lightning' },
+  { name: 'Chiara Test', kind: 'owner', participation: 'canvas_at_doors', phone: 'usbc' },
+  { name: 'Dmitri Test', kind: 'owner', participation: 'canvas_before', phone: 'other' },
+  { name: 'Elena Test', kind: 'owner', participation: 'canvas_at_doors', phone: 'lightning' },
+  { name: 'Farid Test', kind: 'owner', participation: 'canvas_before', phone: 'usbc' },
+  { name: 'Greta Test', kind: 'owner', participation: 'canvas_at_doors', phone: 'other' },
+  { name: 'Hugo Test', kind: 'owner-unshared', participation: 'canvas_before', phone: 'usbc' },
+  { name: 'Ines Test', kind: 'observer', participation: 'observer', phone: 'usbc', prep: 'home' },
+  { name: 'Jonas Test', kind: 'observer', participation: 'observer', phone: 'lightning', prep: 'doors' },
+  { name: 'Kira Test', kind: 'observer', participation: 'observer', phone: 'other', prep: 'home' },
+  { name: 'Leo Test', kind: 'observer', participation: 'observer', phone: 'usbc', prep: 'doors' },
 ];
 const WAITING = [
-  { name: 'Test Mira', participation: 'canvas_before', phone: 'usbc', prep: null },
-  { name: 'Test Nils', participation: 'observer', phone: 'lightning', prep: 'home' },
-  { name: 'Test Olga', participation: 'canvas_at_doors', phone: 'other', prep: null },
+  { name: 'Mira Test', participation: 'canvas_before', phone: 'usbc', prep: null },
+  { name: 'Nils Test', participation: 'observer', phone: 'lightning', prep: 'home' },
+  { name: 'Olga Test', participation: 'canvas_at_doors', phone: 'other', prep: null },
 ];
 
 type Helpers = typeof import('../e2e/helpers/p1529-mastermind.ts');
@@ -111,7 +111,7 @@ async function main() {
       const person = await H.makeUser(ledger, p.name);
       save();
       if (p.kind !== 'observer') {
-        await H.publishCanvas(ledger, person, `${p.name.replace('Test ', '')}'s business`);
+        await H.publishCanvas(ledger, person, `${p.name.replace(' Test', '')}'s business`);
         save();
       }
       const { data, error } = await person.client.rpc('register_for_event', {

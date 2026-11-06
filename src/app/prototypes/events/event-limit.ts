@@ -3,9 +3,13 @@
  * @description P1529 UAT round 1: the host's "limit on registrations" field, text in the form and a number (or none) in the
  * event. Empty or not a whole number of at least 1 means no limit.
  */
+/** The largest value the database column (Postgres integer) holds. */
+const MAX_LIMIT = 2147483647;
 export function parseLimit(text: string): number | undefined {
-  const n = Number(text.trim());
-  return text.trim() !== '' && Number.isInteger(n) && n >= 1 ? n : undefined;
+  const t = text.trim();
+  if (!/^[1-9]\d*$/.test(t)) return undefined;
+  const n = Number(t);
+  return n <= MAX_LIMIT ? n : undefined;
 }
 
 /** [FOUNDER DECISION: copy] Shown under the field and blocking submit. Only an empty field means no limit. */

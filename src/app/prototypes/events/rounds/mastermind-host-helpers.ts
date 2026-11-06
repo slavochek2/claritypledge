@@ -34,7 +34,8 @@ export const MASTERMIND_MINUTES_VERSION = 2;
 export function dropStaleMastermindMinutes<T extends { mastermindMinutes?: unknown; mastermindMinutesV?: number }>(saved: T): T {
   if (saved.mastermindMinutesV === MASTERMIND_MINUTES_VERSION) return saved;
   const { mastermindMinutes: _stale, ...rest } = saved;
-  return rest as T;
+  // Stamped current, so a later save and reload keep the minutes saved after this drop.
+  return { ...rest, mastermindMinutesV: MASTERMIND_MINUTES_VERSION } as T;
 }
 export const MASTERMIND_GROUP_SIZE = 4;
 
