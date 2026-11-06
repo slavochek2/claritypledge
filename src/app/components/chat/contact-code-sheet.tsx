@@ -100,8 +100,8 @@ export function ContactCodeSheet({
     }
   }, [url]);
 
+  const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
   const share = async () => {
-    if (typeof navigator.share !== "function") return copy();
     try {
       await navigator.share({ title: COPY.title, text: COPY.shareText, url });
     } catch (e) {
@@ -193,14 +193,17 @@ export function ContactCodeSheet({
                   <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
                   {copied ? COPY.copied : COPY.copyLink}
                 </Button>
-                <Button
-                  variant="outline"
-                  className="min-h-11 flex-1"
-                  onClick={() => void share()}
-                >
-                  <Share2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {COPY.share}
-                </Button>
+                {/* Share only where the device has a share sheet (phones, Safari); elsewhere it would just repeat Copy. */}
+                {canShare && (
+                  <Button
+                    variant="outline"
+                    className="min-h-11 flex-1"
+                    onClick={() => void share()}
+                  >
+                    <Share2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {COPY.share}
+                  </Button>
+                )}
               </div>
               <ResetControl
                 confirming={confirming}
