@@ -207,7 +207,7 @@ export const mockEventsService: EventsService = {
     if (data.durationMinutes) event.durationMinutes = data.durationMinutes;
     if (data.timezone) event.timezone = data.timezone;
     if (data.location) event.location = data.location;
-    if (data.maxAttendees !== undefined) event.maxAttendees = data.maxAttendees;
+    if (data.maxAttendees !== undefined) event.maxAttendees = data.maxAttendees ?? undefined;
     if (data.groupChatUrl !== undefined) setMockGroupChatUrl(eventId, data.groupChatUrl);
 
     return true;

@@ -25,13 +25,15 @@ export function consentAgreedLabel(forEvent: boolean): string {
 }
 
 /**
- * P1529 D13, D24: the recording consent of a Sales Mastermind, reviewed wording (2026-11-05). The registration checkbox says it
- * followed by `ROUND_UPDATE_CONSENT_LINKS` with the two links; the room's Transcribe text and the /transcribe consent say the
+ * P1529 D13, D24: the recording consent of a Sales Mastermind: the founder's shorter draft, made accurate by the Gemini 4 Argon
+ * legal-wording review the founder delegated (says "capture ... with a mic", names the host and registered attendees, keeps the AI and
+ * the sharing, and promises no quoting rather than no naming, because the name filter is a heuristic). The registration checkbox says it
+ * (the links line sits below its Continue button, `ROUND_UPDATE_CONSENT_LINKS`); the room's Transcribe text and the /transcribe consent say the
  * same sentences without that line, because they already point to the Terms and Privacy Policy in their own words.
  */
-export const ROUND_UPDATE_CONSENT = "To help every business improve fast, we record your conversations here and Google Gemini turns them into text. The text is posted in the event chat for the host and attendees. After a discussion round, the peer whose business you discussed can use it to improve their Clarity Canvas with AI, and publish it.";
-/** The checkbox's last line; its "Terms" and "Privacy Policy" are links that open in a new tab. */
-export const ROUND_UPDATE_CONSENT_LINKS = 'See our Terms and Privacy Policy.';
+export const ROUND_UPDATE_CONSENT = "To help everyone get the most value, we capture your table conversations with a mic and use Google Gemini to turn them into text for the host and registered attendees in the event chat. After each round, the peer whose business you discussed can use their AI to draft an updated Clarity Canvas inspired by the talk, without quoting you, and share it.";
+/** The line under the registration's Continue button; its "Terms" and "Privacy Policy" are links that open in a new tab. */
+export const ROUND_UPDATE_CONSENT_LINKS = 'See our Terms and Privacy Policy';
 
 /** [FOUNDER DECISION: copy, proposed] When a person's clean text reaches the event's chat: the full sentence, on the live text page and behind the info icon. */
 export const EVENT_TEXT_ARRIVES = "If you're at a table, your text reaches its chat about 2 minutes after the round ends.";

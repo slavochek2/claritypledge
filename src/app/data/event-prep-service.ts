@@ -12,7 +12,8 @@ import { supabase } from '@/lib/supabase';
 import type { EventAttendee } from '@/app/types';
 import { forgetInFlight, shareInFlight } from '@/lib/share-in-flight';
 
-export type PrepStepKey = 'plan' | 'welcome' | 'story' | 'principle' | 'cmp7' | 'stake' | 'research';
+// 'canvas' (P1529 UAT round 1) is recorded in `stepsDone` only: the table's current_step check does not list it, so it is never saved as the current step.
+export type PrepStepKey = 'plan' | 'welcome' | 'story' | 'principle' | 'cmp7' | 'stake' | 'research' | 'canvas';
 export type PrepPart = 'intro_video' | 'cognitive_video' | 'principle_intro' | 'cmp7';
 export type ResearchState = 'eligible' | 'confirmed' | 'declined';
 /** own = brings a mic; usbc / lightning / other = needs one, by what the phone plugs into; none = the retired "no mic" answer (old rows only). */

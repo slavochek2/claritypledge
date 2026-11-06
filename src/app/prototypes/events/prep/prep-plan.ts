@@ -44,6 +44,7 @@ export const STEP_LABELS: Record<PlanStep, string> = {
   cmp7: 'Share your view on the expected benefits',
   stake: 'Set your positions on the points we discuss',
   research: "Decide if you'd like to volunteer in R&D",
+  canvas: 'Your Clarity Canvas for this event',
 };
 
 /** Step 5 names the event's point count and topic. */
@@ -83,10 +84,13 @@ export interface PlanInput {
   steps?: PlanStep[];
   /** P1542 founder decision (A): keep the steps whose part was finished elsewhere (see `finishedSteps`). */
   keepFinished?: boolean;
+  /** P1529 UAT round 1: the person makes a canvas for this event (an owner), so the plan's last step is theirs. Absent = no canvas step. */
+  canvas?: boolean;
 }
 
-export function buildPlan({ parts, startedAt, hasStatementTag, eventPointCount, steps = ALL_STEPS, keepFinished = false }: PlanInput): PlanStep[] {
+export function buildPlan({ parts, startedAt, hasStatementTag, eventPointCount, steps = ALL_STEPS, keepFinished = false, canvas = false }: PlanInput): PlanStep[] {
   return steps.filter((s) => {
+    if (s === 'canvas') return canvas;
     const part = STEP_PART[s];
     if (part) return keepFinished || partInPlan(parts, part, startedAt);
     if (s === 'stake') return hasStatementTag && eventPointCount !== 0;
@@ -134,6 +138,8 @@ export const watchSeconds = (clip: ClipKey) => Math.round(CLIP_SECONDS[clip] / P
 // ─── minutes ───────────────────────────────────────────────────────────────────────────
 
 export const SECONDS_PER_DECISION = 20;
+/** Creating, publishing and sharing a canvas: the owner's 15 minutes are the learning (about 6 to 7) and this (founder, 2026-11-06). */
+export const CANVAS_STEP_SECONDS = 8 * 60;
 const READING_WORDS_PER_MINUTE = 200;
 
 export const PRINCIPLE_WORDS = sectionsForLevel(PRINCIPLE_LEVEL)
@@ -165,6 +171,8 @@ export function stepSeconds(step: PlanStep, cards: CardCounts, withPrincipleIntr
       return cards.stake * SECONDS_PER_DECISION;
     case 'research':
       return watchSeconds('research') + SECONDS_PER_DECISION;
+    case 'canvas':
+      return CANVAS_STEP_SECONDS;
   }
 }
 

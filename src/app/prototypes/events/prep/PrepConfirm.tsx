@@ -18,7 +18,6 @@ import { EventBox, PrepBlock, PrepStatus, RegisteredBlock, seriesLabel, socialPr
 import { usePrepState } from './use-prep-state';
 import { recipeForEvent } from '../series-recipes';
 import { LearnInvitation } from './PrepRoom';
-import { EventCanvasCard } from './EventCanvasCard';
 import { useDeclareAppMenu } from '@/app/components/layout/app-menu-override';
 import { useHideTodaysStripForEvent } from '@/app/components/layout/app-shell/shell-nav';
 
@@ -68,7 +67,6 @@ export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; gro
   return (
     // pb-48 on phones while the pinned Prepare now bar shows (P1387).
     <main className={`mx-auto max-w-2xl space-y-6 px-4 pt-4 ${state.progress.complete ? 'pb-20' : 'pb-48 lg:pb-20'}`} data-testid="p1336-confirm">
-      {recipe.mastermind && <EventCanvasCard eventId={event.id} />}
       {!state.loading && !state.error && (
         <PrepBlock
           progress={state.progress}
@@ -82,6 +80,7 @@ export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; gro
       <EventBox
         event={event}
         groupChatUrl={groupChatUrl}
+        viewerId={session?.user?.id ?? user?.id ?? null}
         testId="registered-card"
         title={
           <div className="flex flex-col items-center gap-2">

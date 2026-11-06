@@ -31,14 +31,20 @@ function PickList({ canvases, busy, onPick }: { canvases: MyCanvasRow[]; busy: b
   );
 }
 
-export function EventCanvasCard({ eventId }: { eventId: string }) {
+export function EventCanvasCard({ eventId, returnToPreparation = false, onChosen }: {
+  eventId: string;
+  /** Preparation's step 4: after Publish the workspace brings the person back here (P1529 UAT round 1). */
+  returnToPreparation?: boolean;
+  /** Told whenever the read lands: whether a canvas is shared with this event. */
+  onChosen?: (shared: boolean) => void;
+}) {
   const [mine, setMine] = useState<MyEventCanvas | null>(null);
   const [canvases, setCanvases] = useState<MyCanvasRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [readFailed, setReadFailed] = useState(false);
   const [changing, setChanging] = useState(false);
   const [busy, setBusy] = useState(false);
-  const { start, dialog } = useStartCanvas();
+  const { start, dialog } = useStartCanvas(returnToPreparation ? { returnAfterPublish: true } : undefined);
 
   // A failed read is an error with Retry: it must never look like "no canvas yet", which would tell the person they join as an observer.
   const read = useCallback(async () => {
@@ -47,11 +53,12 @@ export function EventCanvasCard({ eventId }: { eventId: string }) {
       setMine(current);
       setCanvases(list);
       setReadFailed(false);
+      onChosen?.(!!current?.shared);
     } catch {
       setReadFailed(true);
     }
     setLoaded(true);
-  }, [eventId]);
+  }, [eventId, onChosen]);
 
   useEffect(() => {
     void read();

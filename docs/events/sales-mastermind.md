@@ -77,14 +77,14 @@ the `/live` sliders were hard to follow and people wanted to talk to each other,
   pair is back in understanding until the owner says above 8 again.
 - In a challenge, the owner explains back the partner's reason until the **partner** says above 8.
 
-### The loop — one canvas (owner A, partner B), about 24 minutes
+### The loop — one canvas (owner A, partner B), 15 minutes plus 3 of feedback (founder, 2026-11-06)
 
 | Step | What happens | Min |
 |---|---|---|
 | 1 | B reads A's canvas silently and marks **every box B would bet against** (one or more), with the canvas's own position controls; Compare then shows where they differ (founder, 2026-10-30). The pair picks which disagreement to discuss: B can propose, A has the final say (*founder, 2026-10-30*). A, meanwhile, reads their own new version if this is their second round as owner. | 4 |
 | 2 | **Understand.** A speaks, B listens and explains back. A corrects and says a number each time. | until A says above 8 |
 | 3 | **Challenge.** B speaks: why B bets against the chosen box. A explains back B's reason until **B** says above 8. A can take the speaker card back at any time. | the rest of the talk |
-| 4 | **Observer feedback**: where the rules slipped, and one thing on content or communication. | 2 |
+| 4 | **Observer feedback**: where the rules slipped, and one thing on content or communication. | 3 |
 
 Reading comes first on purpose: the first number shows whether the **written** canvas works without
 its owner, and every gap is a place to fix in the next version.
@@ -99,25 +99,25 @@ changed; A's next partner opens that version. Marking is optional and never bloc
 refine with the mirror; refining comes after the event (homework, below). New and reworded boxes start
 with no stance (P1536 D20).
 
-## Run-of-show — session 1, about 2h25
+## Run-of-show — session 1, about 2h
 
 | | Min |
 |---|---|
 | Doors, optional: help making a Clarity Canvas; the learning on phones (before the advertised start) | (30) |
 | Opener: the roles and rules, the lanyard cards, the hands-up signal, recording check, a scripted 3-5 minute live demo with two people from the room, filmed for reuse, no questions | 12 |
 | Seating | 2 |
-| Discussion round 1: half the canvas holders own, half partner | 24 |
+| Discussion round 1: half the canvas holders own, half partner | 18 |
 | Seating (new partner) | 2 |
-| Discussion round 2: the other half own | 24 |
+| Discussion round 2: the other half own | 18 |
 | Canvas update: publish the new version as it is, then optionally mark your stance on changed boxes | 12 |
 | Seating (new partner) | 2 |
-| Discussion round 3: half the canvas holders own, on their new version (the halves may reshuffle) | 24 |
+| Discussion round 3: half the canvas holders own, on their new version (the halves may reshuffle) | 18 |
 | Seating (new partner) | 2 |
-| Discussion round 4: the rest own, on their new version | 24 |
+| Discussion round 4: the rest own, on their new version | 18 |
 | Close: **everyone**, 30-40 seconds: one canvas change and one real-customer test before session 2 | 10 |
 | Exit card (private, paper) | 5 |
 | Next session date, said while everyone is in the room | 2 |
-| **Total** | **145** |
+| **Total** | **121** |
 
 Round 1's owners' drafts are ready during round 2; round 2's owners tap as round 2 ends. Everyone
 updates at the same step, so every owner's second partner (rounds 3 and 4) reads the new version.

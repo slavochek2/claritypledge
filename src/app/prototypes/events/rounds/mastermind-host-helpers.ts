@@ -21,13 +21,12 @@ export const FLOW_NAMES: Record<EventFlow, string> = {
 };
 
 /**
- * One round is about 24 minutes (run-of-show): 2 to find the new partner and table, then one talk part of 22 that holds
- * the 4 minutes of silent reading and the conversation, then 2 of observer feedback. The talk is stored as
- * `speakerS` x 2 (host_start_round writes the same seconds into first_s and second_s; a no-split round adds them), so
- * 660 s is a 22-minute talk. No swap at half time, so no "second" part ever runs.
+ * One round is 15 minutes at the table plus 3 of observer feedback (founder, 2026-11-06): 2 to find the new partner and
+ * table, then one talk part of 13 that holds the 4 minutes of silent reading and the conversation, then 3 of observer
+ * feedback. The talk is stored as `speakerS` x 2 (host_start_round writes the same seconds into first_s and second_s; a
+ * no-split round adds them), so 390 s is a 13-minute talk. No swap at half time, so no "second" part ever runs.
  */
-export const MASTERMIND_MINUTES: RoundMinutes = { seatingS: 120, speakerS: 660, observerS: 120 };
-/** A table holds the owner, their partner and at most two observers. host_start_round stores group_size 2..4. */
+export const MASTERMIND_MINUTES: RoundMinutes = { seatingS: 120, speakerS: 390, observerS: 180 };
 export const MASTERMIND_GROUP_SIZE = 4;
 
 /** [FOUNDER DECISION: copy] The host grid's columns in this flow (the Clarity Night grid says Speaker 1 and 2). */

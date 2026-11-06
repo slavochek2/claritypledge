@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Calendar, Clock, MapPin,
-  MessagesSquare, FileText, Globe } from 'lucide-react';
+  MessagesSquare, FileText, Globe, Users } from 'lucide-react';
+import { limitForUpdate } from '../event-limit';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { LocationHint } from './LocationHint';
 import { validateGroupChatUrl } from '../group-chat-utils';
@@ -36,6 +37,7 @@ export function EditEvent() {
   const [durationMinutes, setDurationMinutes] = useState(120);
   const [location, setLocation] = useState('');
   const [groupChatUrl, setGroupChatUrl] = useState('');
+  const [maxAttendees, setMaxAttendees] = useState(''); // P1529 UAT round 1: empty = no limit
   // P1336: the event's own setting (the series default applies on create only).
   const [preparationEnabled, setPreparationEnabled] = useState(false);
   const [statementTag, setStatementTag] = useState('');
@@ -66,6 +68,7 @@ export function EditEvent() {
         setTimezone(eventData.timezone);
         setDurationMinutes(eventData.durationMinutes);
         setLocation(eventData.location);
+        setMaxAttendees(eventData.maxAttendees ? String(eventData.maxAttendees) : '');
         setDescription(eventData.description);
         setPreparationEnabled(eventData.preparationEnabled ?? false);
         setStatementTag(eventData.statementTag ?? '');
@@ -194,6 +197,7 @@ export function EditEvent() {
       durationMinutes,
       timezone,
       location,
+      maxAttendees: limitForUpdate(maxAttendees),
       // Omitted, not empty, when the read failed — an undefined field is left alone
       // by updateEvent; an empty string would delete the stored link.
       ...(groupChatLoadFailed && !groupChatUrl.trim() ? {} : { groupChatUrl: groupChatUrl.trim() }),
@@ -330,6 +334,23 @@ export function EditEvent() {
               ? <p className="text-sm text-red-500 mt-1">{errors.location}</p>
               : <LocationHint value={location} />
             }
+          </div>
+
+          {/* Limit on registrations (P1529): the event page shows "x of y seats left" from it */}
+          <div>
+            <Label htmlFor="maxAttendees" className="flex items-center gap-2 mb-2">
+              <Users className="w-4 h-4" />
+              Limit on registrations
+            </Label>
+            <Input
+              id="maxAttendees"
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={maxAttendees}
+              onChange={e => setMaxAttendees(e.target.value)}
+              placeholder="No limit"
+            />
           </div>
 
           {/* Group chat — P1194: private to registered attendees */}

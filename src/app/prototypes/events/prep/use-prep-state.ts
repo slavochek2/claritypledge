@@ -37,6 +37,8 @@ import { syncLocalPrepParts } from './prep-local-parts';
 import { shareInFlight } from '@/lib/share-in-flight';
 import { whenVisible } from '../when-visible';
 import { offersPreparation, recipeForEvent } from '../series-recipes';
+import { useMyRegistrationArrival, type MyArrival } from '../use-my-arrival';
+import { OBSERVER_PREP_MINUTES, OWNER_PREP_MINUTES } from '../components/registration-copy';
 
 /** StakePage's page size and fetch arguments, so "N points" equals the cards it shows. */
 const TAG_POINTS_LIMIT = 50;
@@ -64,8 +66,11 @@ export interface PrepState {
   withPrincipleIntro: boolean;
   /** Cards still to answer, per step (all cards for a new person: the promise never shrinks). */
   cards: CardCounts;
-  /** "Do you have N minutes": the rows still to do; null until the points have loaded. */
+  /** "Do you have N minutes": the rows still to do; null until the points have loaded. In the mastermind, before anything is done,
+   *  the role's own time (15 for an owner, 7 for an observer) and null until the role is known. */
   minutes: number | null;
+  /** P1529: the person's role and arrival in a flow that asks; null elsewhere and until it is read. */
+  arrival: MyArrival | null;
   /** P1542 round 5: the person has done the learning here or anywhere else (hasLearned). */
   learned: boolean;
   reload: () => Promise<void>;
@@ -178,9 +183,11 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
   const setPrep = useCallback((value: EventPreparation) => setPrepS({ key: inputKey, value }), [inputKey]);
   const setParts = useCallback((value: PrepPartRow[]) => setPartsS({ key: inputKey, value }), [inputKey]);
 
+  const arrival = useMyRegistrationArrival(event, viewerId, !idle);
   const derived = useMemo(() => {
     const startedAt = prep?.startedAt ?? null;
     const { steps, keepFinished } = recipeForEvent(event).prepare;
+    const mastermind = !!recipeForEvent(event).mastermind;
     const plan = buildPlan({
       parts,
       startedAt,
@@ -188,6 +195,7 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
       eventPointCount: eventPoints ? eventPoints.length : null,
       steps,
       keepFinished: !!keepFinished,
+      canvas: !!arrival?.owner, // owners only: an observer's preparation has no canvas step
     });
     const stepsDone = keepFinished ? finishedSteps(plan, prep?.stepsDone ?? [], parts) : prep?.stepsDone ?? [];
     const progress = progressOf(plan, stepsDone, prep?.completedAt ?? null);
@@ -196,22 +204,26 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
     const count = (pts: PointWithUserPosition[] | null) => (pts ?? []).filter((p) => full || !isAnswered(p)).length;
     const cards: CardCounts = { cmp7: count(cmp7Points), stake: count(eventPoints) };
     const pointsReady = cmp7Points !== null && eventPoints !== null;
-    const minutes = pointsReady
+    const computed = pointsReady
       ? minutesFor(remainingSteps(plan, stepsDone), cards, withPrincipleIntro)
       : null;
+    // The mastermind says the real time by role before anything is done (founder, 2026-11-06); the role is unknown until read.
+    const untouched = !startedAt && stepsDone.length === 0;
+    const minutes = mastermind && untouched ? (arrival ? (arrival.owner ? OWNER_PREP_MINUTES : OBSERVER_PREP_MINUTES) : null) : computed;
     return { plan, stepsDone, progress, withPrincipleIntro, cards, minutes, learned: hasLearned(parts, prep?.completedAt) };
-  }, [parts, prep, tag, eventPoints, cmp7Points, event?.seriesSlug]);
+  }, [parts, prep, tag, eventPoints, cmp7Points, event?.seriesSlug, arrival]);
 
   return {
     // Disabled inputs (no event, no viewer, preparation off) answer "idle" on the same render — never one extra
     // "loading" render; otherwise loading until the read for exactly these inputs has finished.
-    loading: idle ? false : loading || answeredKey !== inputKey,
+    loading: idle ? false : loading || answeredKey !== inputKey || arrival === undefined,
     error,
     prep,
     parts,
     cmp7Points,
     eventPoints,
     proof,
+    arrival: arrival ?? null,
     ...derived,
     reload,
     setPrep,

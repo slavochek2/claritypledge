@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Calendar, Clock, MapPin,
-  MessagesSquare, FileText, Globe } from 'lucide-react';
+  MessagesSquare, FileText, Globe, Users } from 'lucide-react';
+import { parseLimit } from '../event-limit';
 import { LocationHint } from './LocationHint';
 import { validateGroupChatUrl } from '../group-chat-utils';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ export function CreateEvent() {
   const [durationMinutes, setDurationMinutes] = useState(120); // 2 hours default
   const [location, setLocation] = useState('');
   const [groupChatUrl, setGroupChatUrl] = useState('');
+  const [maxAttendees, setMaxAttendees] = useState(''); // P1529 UAT round 1: empty = no limit
   // P1336: defaulted from the series (Clarity Night on, hikes off) until the host touches it.
   const [preparationEnabled, setPreparationEnabled] = useState(false);
   const [preparationTouched, setPreparationTouched] = useState(false);
@@ -165,6 +167,7 @@ export function CreateEvent() {
       durationMinutes,
       timezone,
       location,
+      maxAttendees: parseLimit(maxAttendees),
       // null unless the caller is a verified organizer of a real org (see above).
       orgId: hostingOrg?.id ?? null,
       groupChatUrl: groupChatUrl.trim(),
@@ -321,6 +324,23 @@ export function CreateEvent() {
               ? <p className="text-sm text-red-500 mt-1">{errors.location}</p>
               : <LocationHint value={location} />
             }
+          </div>
+
+          {/* Limit on registrations (P1529): the event page shows "x of y seats left" from it */}
+          <div>
+            <Label htmlFor="maxAttendees" className="flex items-center gap-2 mb-2">
+              <Users className="w-4 h-4" />
+              Limit on registrations
+            </Label>
+            <Input
+              id="maxAttendees"
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={maxAttendees}
+              onChange={e => setMaxAttendees(e.target.value)}
+              placeholder="No limit"
+            />
           </div>
 
           {/* Group chat — P1194: private to registered attendees */}

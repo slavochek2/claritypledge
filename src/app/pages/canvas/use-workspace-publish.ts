@@ -56,6 +56,9 @@ export function useWorkspacePublish(args: {
     // With an open offer the toast carries "See offer": the thread opens in the chat's own panel on that root (X11); the offer rows inside it are the mixed-material step's.
     const seeOffer = openOffers > 0 && draft ? { label: SEE_OFFER_LABEL, onClick: () => navigate(chatPath(draft.conversationId, { rootId: draft.threadRootId })) } : undefined;
     void replyFirstLine(replyMessageId, seq).then(text => (seeOffer ? toast.success(text, { action: seeOffer, duration: SEE_OFFER_TOAST_MS }) : toast.success(text)));
+    // P1529 UAT round 1: a canvas made in the event's preparation returns there after Publish, where it is shared with the event.
+    const back = (state as { afterPublish?: unknown } | null)?.afterPublish;
+    if (typeof back === 'string' && back.startsWith('/')) navigate(back, { replace: true });
   }, [ready, setParams, state, navigate]);
   const { state: spot, publishing, publish } = useCanvasPublish(ready, runActive, published, pendingClone);
   return { closedDraftId, spot, publishing, publish };

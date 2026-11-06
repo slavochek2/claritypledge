@@ -98,7 +98,8 @@ import { countedRounds, nextRoundLabel, roundLabel } from '@/lib/round-numbering
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { ClockNumber, PhaseStrip, groupByTable, useBell, useClock, useRoundBell, useViewport, Avatar, tableSeats } from './host-screen-parts';
 import { EventFlowRow } from './EventFlowRow';
-import { MastermindHostPanel, RecordingMark } from './MastermindHostPanel';
+import { CanvasUpdateOwners, CanvasUpdateStart, MastermindPeople, MastermindWarning, RecordingMark, SilentTablesBanner } from './MastermindHostPanel';
+import { EventWaitlistList } from '../components/EventWaitlistList';
 import { MastermindPreviewNotes } from './MastermindPreviewNotes';
 import { MastermindScreen } from './MastermindScreen';
 import { useHostFlow, useMastermindHost } from './use-mastermind-host';
@@ -519,7 +520,8 @@ function TablesGrid({
         marks={marksFor?.(s.id)}
         lifted={lifted === s.id}
         out={out}
-        tappedIn={!!(s as RoundSeat).confirmedAt}
+        // The mastermind has no "we're seated" tap (labels are set only there), so nothing is ever "at their table".
+        tappedIn={!labels && !!(s as RoundSeat).confirmedAt}
         swapHint={canSwap?.(s.id)}
         actions={actions}
         onTap={onTap ? () => onTap(s.id) : undefined}
@@ -886,6 +888,8 @@ export function EventHostPage() {
   // Showcase (founder walkthrough 6, option 7C), called the Demo since P1430: the host chooses who
   // sits; everyone else watches. null = every table plays.
   const [chosen, setChosen] = useState<Set<string> | null>(null);
+  // The mastermind has no Demo table: a choice made on another flow before a switch does not carry over.
+  useEffect(() => { if (mm.active) setChosen(null); }, [mm.active]);
   // "Match on #tag" (founder walkthrough 6): the next round is grouped on this tag; empty = the
   // event's. A Demo always uses the event's own set (P1430: "Match on" is hidden for it).
   const matchTag = (chosen ? '' : settings.matchTag.trim()) || event?.statementTag || null;
@@ -1284,11 +1288,20 @@ export function EventHostPage() {
   const clock = round && timing ? roundClock(round.startedAt, now, hasObserver, timing) : null;
   // The whole round's time left, beside the part's (founder: "time left per sub-round vs total").
   const roundLeftMs = clock ? (clock.phase === 'seating' ? clock.phaseRemainingMs : 0) + clock.talkRemainingMs : 0;
-  const silentNos = mm.active && round && timing ? silentTables(seats, id => mm.recordingOf(id) === 'words', new Date(round.startedAt).getTime() + timing.seatingMs, now) : [];
-  // The canvas-update step is offered once round 2 is counted, while a round runs; starting it ends that round.
-  const updateRound = mm.active && !mm.stepOn && round && !round.showcase && countedRounds(state.rounds) >= 2
+  // The mastermind never shows the host at a table: the pool is built from `members` (which leaves the host out), and this
+  // keeps a seat of the host's own, if one ever existed, off every grid and out of the silent-table count.
+  const hostSeatIds = new Set(roster.filter(m => m.profileId === event.hostId).map(m => m.id));
+  const withoutHost = <T extends { id: string }>(list: T[]): T[] => (mm.active && hostSeatIds.size > 0 ? list.filter(s => !hostSeatIds.has(s.id)) : list);
+  const shownSeats = withoutHost(seats);
+  const silentNos = mm.active && round && timing ? silentTables(shownSeats, id => mm.recordingOf(id) === 'words', new Date(round.startedAt).getTime() + timing.seatingMs, now) : [];
+  // The canvas-update step is offered only in the counted round 2 (spec §7: after round 2), while it runs; starting it ends that round.
+  const updateRound = mm.active && !mm.stepOn && round && !round.showcase && countedRounds(state.rounds) === 2
     ? { label: roundLabel(state.rounds, round), leftMs: clock && clock.phase !== 'over' ? roundLeftMs : null }
     : null;
+  // The canvas-update step's owners (the people who hold a canvas in it) and how many have published.
+  const updateOwners = mm.stepOn ? members.filter(m => m.profileId && mm.updateStates.has(m.profileId)) : [];
+  const updatePublished = updateOwners.filter(m => mm.updateStates.get(m.profileId as string) === 'published').length;
+  const mmBefore = mm.active && !round && !mm.stepOn && !ended;
 
   const extend = () => {
     if (!round || !clock || clock.phase === 'over') return;
@@ -1318,7 +1331,7 @@ export function EventHostPage() {
         )}
         data-testid="host-mark-left"
       >
-        {isOut(lifted) ? 'Back in' : 'Out'}
+        {isOut(lifted) ? 'Back in' : mm.active ? 'Mark out' : 'Out'}
       </button>
       {/* Cancel sits in the tile's corner, away from Out — side by side, ✕ read as a second
           "remove" (visual QA). Tapping the face cancels too. */}
@@ -1339,7 +1352,11 @@ export function EventHostPage() {
   // P1430: the next round's name — "Demo" when the host chose who sits, else the next counted round.
   const nextLabel = nextRoundLabel(state.rounds, !!chosen);
   const startLabel = chosen ? 'Start the Demo' : `Start ${nextLabel.toLowerCase()}`;
-  const primary = hasNext ? { label: round ? 'Next round' : startLabel, action: openPreview } : null;
+  // The mastermind's button says what it does: it opens a proposal, and the running round keeps running until "Start now".
+  const primaryLabel = mm.active ? (round ? 'Preview next round' : `Preview ${nextLabel.toLowerCase()} tables`) : round ? 'Next round' : startLabel;
+  const primary = hasNext ? { label: primaryLabel, action: openPreview } : null;
+  // While round 2 runs, the canvas update is the way on; previewing round 3 without it is the quiet way round.
+  const primaryIsSkip = !!updateRound;
   const pastRounds = state.rounds.filter(r => r.id !== round?.id);
   // The table's 9 rounds count every Demo and every Reopen (spec Non-Goal: the cap stays).
   const atCap = nextNo > MAX_ROUNDS;
@@ -1372,11 +1389,19 @@ export function EventHostPage() {
           data-testid="host-controls"
         >
           {!preview && countedRounds(state.rounds) === 0 && <EventFlowRow eventId={event.id} flow={flow} onChanged={chooseFlow} />}
+          {mm.active && mm.stepOn ? (
+            // At the update step no round runs: the title says so, instead of a count that reads as "before round 1".
+            <p className="text-sm font-medium text-muted-foreground" data-testid="host-update-title">
+              <span data-testid="host-round-title">Canvas update</span>
+              {updateOwners.length > 0 && <span> · {updatePublished} of {updateOwners.length} published</span>}
+            </p>
+          ) : (
           <p className="text-sm font-medium text-muted-foreground">
             {(ended || round) && <span data-testid="host-round-title">{ended ? 'Evening ended' : round ? roundLabel(state.rounds, round) : ''}</span>}
             {(ended || round) && !ended && ' · '}
             {!ended && <span data-testid="host-room-count">{here.length} in the room</span>}
           </p>
+          )}
           {clock && timing && (
             <div className="mt-1 space-y-3">
               {/* Clock and −1/+1 share one row that never wraps; the part line sits below at full
@@ -1462,7 +1487,11 @@ export function EventHostPage() {
           {primary && round && confirmNext && !justStarted && clock && clock.phase !== 'over' && (
             // Walkthrough 9 (reviews): time is still on the clock — one more tap, never a dialog.
             <div className="mt-4 rounded-lg border border-border p-3 text-sm" data-testid="host-next-confirm">
-              <p>{formatClock(roundLeftMs)} left in this round. Set up the next one now?</p>
+              <p>
+                {mm.active
+                  ? `${formatClock(roundLeftMs)} left in this round. Preview the next round's tables now? This round keeps running until you tap Start now.`
+                  : `${formatClock(roundLeftMs)} left in this round. Set up the next one now?`}
+              </p>
               <div className="mt-2 flex gap-2">
                 <Button
                   type="button"
@@ -1471,7 +1500,7 @@ export function EventHostPage() {
                   onClick={() => { setConfirmNext(false); primary.action(); }}
                   data-testid="host-next-yes"
                 >
-                  Yes, next round
+                  {mm.active ? 'Preview next round' : 'Yes, next round'}
                 </Button>
                 <Button type="button" variant="ghost" className="min-h-11" onClick={() => setConfirmNext(false)}>
                   Keep going
@@ -1479,15 +1508,24 @@ export function EventHostPage() {
               </div>
             </div>
           )}
+          {updateRound && !justStarted && (
+            <CanvasUpdateStart round={updateRound} busy={!!busy} onStart={() => void run(() => mm.startUpdate())} />
+          )}
           {primary && (!justStarted || busy) && !(round && confirmNext && clock && clock.phase !== 'over') && (
             <Button
               type="button"
-              className="mt-4 w-full min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white"
+              variant={primaryIsSkip ? 'ghost' : undefined}
+              className={cn(
+                'w-full',
+                primaryIsSkip
+                  ? 'mt-1 min-h-11 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground'
+                  : 'mt-4 min-h-12 text-base bg-blue-500 hover:bg-blue-600 text-white',
+              )}
               onClick={round && clock && clock.phase !== 'over' ? () => setConfirmNext(true) : primary.action}
               disabled={!!busy || !loaded || pendingNo !== null}
               data-testid="host-primary"
             >
-              {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : primary.label}
+              {busy === 'grouping' ? 'Grouping…' : busy === 'saving' ? 'Saving…' : primaryIsSkip ? `Skip the update, preview ${nextLabel.toLowerCase()} tables` : primary.label}
             </Button>
           )}
           </>)}
@@ -1555,6 +1593,7 @@ export function EventHostPage() {
               </summary>
               {/* P1430 (founder walkthrough 9): three groups — who plays, the format, the matching. */}
               <div className="mt-2 space-y-5 border-t border-border pb-3 pt-3">
+                {!mm.active && (
                 <SettingsGroup title="Who plays">
                   <Segmented
                     label="Who plays"
@@ -1643,6 +1682,7 @@ export function EventHostPage() {
                     </div>
                   )}
                 </SettingsGroup>
+                )}
 
                 <SettingsGroup title="Format">
                   {!mm.active && (
@@ -1689,7 +1729,8 @@ export function EventHostPage() {
                       // One talk: the speaker row is the whole talk — both halves, stored as two equal
                       // parts so the round clock and the server keep one shape (roundTiming adds them).
                       const factor = f.key === 'speakerS' && !swapAtHalf ? 2 : 1;
-                      const label = factor === 2 ? 'Talk' : f.label;
+                      // The mastermind's clock and phase strip call this part "Finding tables".
+                      const label = factor === 2 ? 'Talk' : mm.active && f.key === 'seatingS' ? 'Finding tables' : f.label;
                       const value = minutes[f.key] * factor;
                       const set = (next: number) =>
                         setMinutes({ ...minutes, [f.key]: Math.min(f.max * factor, Math.max(f.min * factor, next)) / factor });
@@ -1760,16 +1801,17 @@ export function EventHostPage() {
           )}
 
         <div className="min-w-0 lg:order-1 lg:col-start-1 lg:row-span-2 lg:row-start-1">
-          {mm.active && (
-            <div className="mt-5 lg:mb-5 lg:mt-0">
-              <MastermindHostPanel members={members} isOut={isOut} host={mm} locked={!!preview} updateRound={updateRound} silentTableNos={silentNos} busy={!!busy} onStartUpdate={() => void run(() => mm.startUpdate())} />
-            </div>
-          )}
           {!ended && (
             <section className="mt-5 space-y-4 lg:mt-0" data-testid="host-people">
-              {round && clock && seats.length > 0 && (
+              {/* The mastermind shows each person once per phase: before round 1 one list of people (then the
+                  waiting list); in a round the tables, then only people with no table; at the update step the
+                  owners' update, then whoever is not an owner. */}
+              {mm.active && <MastermindWarning host={mm} />}
+              {mm.active && mm.stepOn && <CanvasUpdateOwners host={mm} members={members} />}
+              {mm.active && round && <SilentTablesBanner nos={silentNos} />}
+              {round && clock && shownSeats.length > 0 && (
                 <TablesGrid
-                  seats={seats}
+                  seats={shownSeats}
                   byId={byId}
                   phase={clock.phase}
                   split={timing?.split ?? true}
@@ -1784,7 +1826,19 @@ export function EventHostPage() {
                   title={mm.active ? tablesNowTitle(roundLabel(state.rounds, round)) : undefined}
                 />
               )}
-              <PeopleGroup
+              {mm.active && mmBefore && !preview && (
+                <>
+                  <MastermindPeople title="People" members={waiting} host={mm} onMarkOut={id => setOut(id, true)} />
+                  <EventWaitlistList eventId={event.id} isHost excludeProfileId={event.hostId} onAdded={() => void mm.refresh()} />
+                </>
+              )}
+              {mm.active && round && waiting.length > 0 && (
+                <MastermindPeople title="Not at a table" members={waiting} host={mm} onMarkOut={id => setOut(id, true)} />
+              )}
+              {mm.active && mm.stepOn && (
+                <MastermindPeople title="Observers" members={waiting.filter(m => !m.profileId || !mm.updateStates.has(m.profileId))} host={mm} onMarkOut={id => setOut(id, true)} />
+              )}
+              {!mm.active && <PeopleGroup
                 title={round ? 'Next round' : 'Here'}
                 people={waiting}
                 lifted={lifted}
@@ -1807,7 +1861,7 @@ export function EventHostPage() {
                     </Button>
                   ) : null
                 }
-              />
+              />}
               <PeopleGroup title="Out" people={outside} lifted={lifted} marksFor={marksFor} out actions={liftedActions} onTap={onTap} />
 
               {!lifted && round && undoStack.length > 0 && (
@@ -1830,15 +1884,18 @@ export function EventHostPage() {
               </summary>
               <div className="space-y-2 pb-2 pt-1">
               {[...pastRounds].reverse().map(r => {
-                const past = state.seatsByRound.get(r.id) ?? [];
+                const past = withoutHost(state.seatsByRound.get(r.id) ?? []);
                 const tapped = past.filter(s => s.confirmedAt).length;
                 return (
                   <details key={r.id} className="group rounded-xl border border-border bg-card px-4 py-2">
                     <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-sm [&::-webkit-details-marker]:hidden">
                       <span className="font-medium">{roundLabel(state.rounds, r)}</span>
-                      <span className="text-muted-foreground tabular-nums">
-                        {tapped} of {past.length} tapped in
-                      </span>
+                      {/* The mastermind has no "we're seated" tap, so it would always read "0 of N tapped in". */}
+                      {!mm.active && (
+                        <span className="text-muted-foreground tabular-nums">
+                          {tapped} of {past.length} tapped in
+                        </span>
+                      )}
                       <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
                     </summary>
                     <div className="pb-2 pt-1">

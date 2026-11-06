@@ -40,6 +40,8 @@ import { canvasService } from '@/app/data/canvas-service';
 import { REMOVE_ATTENDEE_COPY } from '../remove-attendee-copy';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { useAuth } from '@/auth';
+import { calendarWindow } from '../event-doors';
+import { useMyRegistrationArrival } from '../use-my-arrival';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { extractBannerKeywords } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
@@ -52,6 +54,7 @@ import { PrepRoomBanner } from '../prep/PrepRoom';
 import { GroupChatQuietLink } from '../prep/PrepPieces';
 import { recipeForEvent } from '../series-recipes';
 import { RsvpButton } from './RsvpButton';
+import { EventWaitlistList } from './EventWaitlistList';
 import { RegistrationQuestions } from './RegistrationQuestions';
 import { refusalMessage, useRegistrationStep } from './use-registration-step';
 import { useRegistrationReturn } from './use-registration-return';
@@ -410,6 +413,7 @@ export function EventDetail() {
 
   // P1529 D16: this flow asks before the seat; `asksBeforeSeat` is false for Clarity Night and Social Hike.
   const asksBeforeSeat = !!recipeForEvent(event).registrationQuestions;
+  const myArrival = useMyRegistrationArrival(event, user?.id);
   // P1586: nothing of the page is drawn yet, so the one page loader.
   const showRefusal = (refusal: 'full' | 'cancelled') => {
     setEvent(e => (e ? (refusal === 'full' ? { ...e, attendeeCount: e.maxAttendees ?? e.attendeeCount } : { ...e, status: 'cancelled' }) : e));
@@ -667,6 +671,7 @@ export function EventDetail() {
       onRsvp={handleRsvp}
       asksBeforeSeat={asksBeforeSeat}
       placesLeft={asksBeforeSeat ? eventsService.getSpotsRemaining(event) : null}
+      placesLimit={asksBeforeSeat ? (event.maxAttendees ?? null) : null}
       waitlist={asksBeforeSeat ? { onList: registration.onWaitlist, filled: registration.filled, leaving: registration.leaving, onLeave: registration.leaveWaitlist } : undefined}
     />
   );
@@ -716,8 +721,8 @@ export function EventDetail() {
     description: event.description,
     location: event.location,
     slug: event.slug,
-    startDate: eventDate,
-    endDate: endDate,
+    // A person who prepares at the event gets the invite from the doors time (P1529).
+    ...(myArrival?.atDoors ? calendarWindow(event.datetime, event.durationMinutes, true) : { startDate: eventDate, endDate }),
   };
 
   const locationInfo = classifyLocation(event.location);
@@ -1311,6 +1316,19 @@ export function EventDetail() {
                 );
               })()}
             </div>
+            {/* P1529 (founder, UAT round 1): the waiting list just below the participants, to the same people; the host adds with one tap. */}
+            {asksBeforeSeat && (isHost || isRsvpd) && (
+              <EventWaitlistList
+                eventId={event.id}
+                isHost={!!isHost}
+                onAdded={async () => {
+                  try {
+                    const fresh = await eventsService.getEventBySlug(event.slug);
+                    if (fresh) setEvent(fresh);
+                  } catch { /* the list above stays as it was */ }
+                }}
+              />
+            )}
           </div>
         </div>
 

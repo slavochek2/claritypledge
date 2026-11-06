@@ -10,7 +10,7 @@
 import { Button } from '@/components/ui/button';
 import { RSVP_REPEAT_LABEL, RSVP_REPEAT_LOADING_LABEL, type RsvpTrigger } from '../rsvp-repeat';
 import { PlacesLeftLine } from './RegistrationQuestions';
-import { JUST_FILLED, WAITLIST_BUTTON, WAITLIST_JOINED, WAITLIST_LEAVE } from './registration-copy';
+import { FORM_TITLE as REGISTER_LABEL, JUST_FILLED,WAITLIST_BUTTON, WAITLIST_JOINED, WAITLIST_LEAVE } from './registration-copy';
 
 /** The quiet way off the list: a ghost Button, disabled while the request is out. */
 function LeaveLink({ leaving, onLeave }: { leaving: boolean; onLeave: () => void }) {
@@ -22,7 +22,7 @@ function LeaveLink({ leaving, onLeave }: { leaving: boolean; onLeave: () => void
 }
 
 export function RsvpButton({
-  trigger, isPast, isFull, loading, onRsvp, asksBeforeSeat, placesLeft, waitlist,
+  trigger, isPast, isFull, loading, onRsvp, asksBeforeSeat, placesLeft, placesLimit = null, waitlist,
 }: {
   trigger: RsvpTrigger;
   isPast: boolean;
@@ -31,20 +31,26 @@ export function RsvpButton({
   onRsvp: (trigger: RsvpTrigger) => void;
   asksBeforeSeat: boolean;
   placesLeft: number | null;
+  /** The event's limit (y of "x of y seats left"); null when none is set. */
+  placesLimit?: number | null;
   /** Only in a flow that asks: the waiting list's state. */
   waitlist?: { onList: boolean; filled: boolean; leaving: boolean; onLeave: () => void };
 }) {
   if (trigger === 'card_bottom') {
+    // A flow that asks says "Register" here too (founder UAT round 1) and shows the seats line under it.
     return (
-      <Button
-        onClick={() => onRsvp(trigger)}
-        className="w-full bg-blue-500 hover:bg-blue-700 text-white"
-        size="lg"
-        disabled={loading}
-        data-testid="rsvp-button-repeat"
-      >
-        {loading ? RSVP_REPEAT_LOADING_LABEL : RSVP_REPEAT_LABEL}
-      </Button>
+      <>
+        <Button
+          onClick={() => onRsvp(trigger)}
+          className={asksBeforeSeat ? 'w-full' : 'w-full bg-blue-500 hover:bg-blue-700 text-white'}
+          size="lg"
+          disabled={loading}
+          data-testid="rsvp-button-repeat"
+        >
+          {loading ? (asksBeforeSeat ? 'Registering...' : RSVP_REPEAT_LOADING_LABEL) : asksBeforeSeat ? REGISTER_LABEL : RSVP_REPEAT_LABEL}
+        </Button>
+        {asksBeforeSeat && <PlacesLeftLine left={placesLeft} limit={placesLimit} />}
+      </>
     );
   }
   if (isPast) {
@@ -80,9 +86,9 @@ export function RsvpButton({
         disabled={loading}
         data-testid="rsvp-button"
       >
-        {loading ? 'Joining...' : asksBeforeSeat ? 'Register' : 'Reserve a seat'}
+        {loading ? 'Joining...' : asksBeforeSeat ? REGISTER_LABEL : 'Reserve a seat'}
       </Button>
-      {asksBeforeSeat && <PlacesLeftLine left={placesLeft} />}
+      {asksBeforeSeat && <PlacesLeftLine left={placesLeft} limit={placesLimit} />}
       {asksBeforeSeat && waitlist?.onList && <div className="text-center"><LeaveLink leaving={waitlist.leaving} onLeave={waitlist.onLeave} /></div>}
     </>
   );

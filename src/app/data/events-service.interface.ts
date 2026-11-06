@@ -122,6 +122,8 @@ export interface CreateEventInput {
   isHidden?: boolean;
 }
 
-export interface UpdateEventInput extends Partial<CreateEventInput> {
+export interface UpdateEventInput extends Partial<Omit<CreateEventInput, 'maxAttendees'>> {
+  /** P1529 UAT round 1: the limit on registrations; null removes it. */
+  maxAttendees?: number | null;
   bannerUrl?: string | null;
 }

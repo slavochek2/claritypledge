@@ -1,42 +1,47 @@
 /**
  * @file MastermindHostPanel.tsx
- * @description P1529 §3, §7: the sales mastermind's part of the host screen, beside Clarity Night's grid of people.
- *   - who is a participant and who an observer, one switch per person (host_set_observer), with what is missing in plain
- *     words when the server refuses;
- *   - each person's canvas, recording state (off · on, no words yet · words arriving) and the ready mark (D17);
- *   - the tables with nobody's words, which stand out;
- *   - the canvas-update step: start it, and each owner's state while it is on.
+ * @description P1529 §3, §7: the pieces of the sales mastermind's host screen. The page places them; every person is shown ONCE per
+ * phase of the evening (one list, never a list beside a grid):
+ *   - before round 1: `MastermindPeople`, one row per person (canvas, mic, recording, Doors badge, participant or observer, mark out);
+ *   - during a round: the tables (the page's grid), and `MastermindPeople` only for people with no table yet;
+ *   - at the canvas-update step: `CanvasUpdateOwners` (the primary content), and `MastermindPeople` for the people who are not owners;
+ *   - after the evening: nothing.
+ * Also the one read-failure line, the silent-tables banner and the update step's start button.
  * Every sentence is a draft: [FOUNDER DECISION: copy]. The page owns the round and the seating; this only shows and asks.
  * No sliders, scores or phases (D3).
  */
 import { useState } from 'react';
-import { AudioLines } from 'lucide-react';
+import { AudioLines, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { EventRoomMember } from '@/app/types';
 import { formatClock } from '@/lib/round-clock';
+import { comesAtDoors } from '@/app/data/registration-answer-model';
+import { MIC_HINTS } from '../prep/PrepMarks';
 import { Avatar } from './host-screen-parts';
 import { shortName } from './use-event-rounds';
 import type { MastermindHost } from './use-mastermind-host';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
 import { NOT_REGISTERED_LINE, RECORDING_WORDS, UPDATE_STATE_WORDS, canvasLine, isObserver, isUnregistered, observerRefusal } from './mastermind-host-helpers';
-import { MastermindRegistrationNotes } from './MastermindRegistrationNotes';
 
 /** [FOUNDER DECISION: copy] */
 const COPY = {
-  people: 'People',
   participant: 'Participant',
   observer: 'Observer',
   ready: 'Ready',
   readyHint: 'Their Clarity Canvas is shared and they have not owned a table yet. Setting up the next round seats them.',
-  out: 'Out',
+  doors: 'Doors',
+  doorsHint: 'Comes at the doors time to make their Clarity Canvas (or to prepare as an observer).',
+  markOut: 'Mark out',
   silentTables: (nos: number[]) => `No words yet at table ${nos.join(', ')}`,
-  updateOn: 'Canvas update is on',
+  updateTitle: 'Canvas update',
+  updatePublished: (done: number, all: number) => `${done} of ${all} published`,
   updateStart: 'Start canvas update',
   updateConfirm: (label: string, left: string) => `${label} has ${left} left. Starting the canvas update ends it now.`,
+  updateEnd: (label: string) => `End ${label} & start update`,
   updateKeep: 'Keep going',
   updateNoOwners: 'No Clarity Canvases are shared with this event.',
-  lockedHint: 'Close the seating preview to change who observes.',
+  retry: 'Retry',
 };
 
 const RECORDING_TONE = { off: 'text-muted-foreground', silent: 'text-blue-700', words: 'text-green-700' } as const;
@@ -53,6 +58,66 @@ export function RecordingMark({ state, lifted }: { state: RecordingState; lifted
     : <span className={cn('h-2.5 w-2.5 rounded-full border border-muted-foreground', lifted && 'border-white')} {...props} />;
 }
 
+const PHONE_LETTER = { usbc: 'C', lightning: 'L', other: '?' } as const;
+
+/** The one line when a read of the room failed (what is shown may be old), with Retry. Never two alerts for one failure. */
+export function MastermindWarning({ host }: { host: MastermindHost }) {
+  if (!host.warning) return null;
+  return (
+    <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-card px-3 py-2 text-sm" data-testid="mm-warning">
+      <span>{host.warning}</span>
+      <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={() => void host.refresh()} data-testid="mm-warning-retry">{COPY.retry}</Button>
+    </div>
+  );
+}
+
+/** One compact line above the tables; the table's own number is red as well. */
+export function SilentTablesBanner({ nos }: { nos: number[] }) {
+  if (nos.length === 0) return null;
+  return (
+    <p role="status" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" data-testid="mm-silent-tables">
+      {COPY.silentTables(nos)}
+    </p>
+  );
+}
+
+/**
+ * The canvas-update step's start (the primary action while round 2 runs). The server ends the running round when the step starts
+ * (its transcript is cut there): a round with time on the clock asks once, inline, and the button says what it ends.
+ */
+export function CanvasUpdateStart({ round, onStart, busy }: {
+  round: { label: string; leftMs: number | null };
+  onStart: () => void;
+  busy: boolean;
+}) {
+  const [confirm, setConfirm] = useState(false);
+  const ask = round.leftMs !== null && round.leftMs > 0;
+  if (confirm && ask) {
+    return (
+      <div className="mt-4 rounded-lg border border-border p-3 text-sm" data-testid="mm-update-confirm">
+        <p>{COPY.updateConfirm(round.label, formatClock(round.leftMs as number))}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button type="button" className="min-h-11 bg-blue-500 text-white hover:bg-blue-600" disabled={busy} onClick={() => { setConfirm(false); onStart(); }} data-testid="mm-update-yes">
+            {COPY.updateEnd(round.label)}
+          </Button>
+          <Button type="button" variant="ghost" className="min-h-11" onClick={() => setConfirm(false)}>{COPY.updateKeep}</Button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <Button
+      type="button"
+      className="mt-4 min-h-12 w-full bg-blue-500 text-base text-white hover:bg-blue-600"
+      disabled={busy}
+      onClick={ask ? () => setConfirm(true) : onStart}
+      data-testid="mm-update-start"
+    >
+      {COPY.updateStart}
+    </Button>
+  );
+}
+
 const UPDATE_TONE: Record<string, string> = {
   failed: 'font-semibold text-red-600',
   published: 'text-green-700',
@@ -60,84 +125,48 @@ const UPDATE_TONE: Record<string, string> = {
   drafting: 'text-blue-700',
   not_tapped: 'text-muted-foreground',
 };
+/** Who needs the host first: a failed run, then someone who has not started, drafting, ready, and published last. */
+const UPDATE_ORDER: Record<string, number> = { failed: 0, not_tapped: 1, drafting: 2, ready: 3, published: 4 };
 
-function UpdateStep({ host, members, round, onStart, busy }: {
-  host: MastermindHost;
-  members: EventRoomMember[];
-  round: { label: string; leftMs: number | null } | null;
-  onStart: () => void;
-  busy: boolean;
-}) {
-  const [confirm, setConfirm] = useState(false);
-  if (host.stepOn) {
-    const owners = members.filter(m => m.profileId && host.updateStates.has(m.profileId));
-    return (
-      <section className="rounded-xl border border-border bg-card p-4" data-testid="mm-update-step">
-        <h2 className="text-sm font-semibold">{COPY.updateOn}</h2>
-        {owners.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">{COPY.updateNoOwners}</p>
-        ) : (
-          <ul className="mt-2 divide-y divide-border" data-testid="mm-update-states">
-            {owners.map(m => {
-              const state = host.updateStates.get(m.profileId as string) ?? 'not_tapped';
-              return (
-                <li key={m.id} className="flex min-h-10 items-center justify-between gap-3 text-sm" data-testid="mm-update-owner" data-state={state}>
-                  <span className="min-w-0 truncate">{shortName(m.displayName)}</span>
-                  <span className={cn('shrink-0', UPDATE_TONE[state])}>{UPDATE_STATE_WORDS[state]}</span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-    );
-  }
-  if (!round) return null;
-  // The server ends the running round when the step starts (its transcript is cut there): a round with time on the
-  // clock asks once, inline, like "End the evening".
-  const ask = round.leftMs !== null && round.leftMs > 0;
-  if (confirm && ask) {
-    return (
-      <section className="rounded-xl border border-border bg-card p-4 text-sm" data-testid="mm-update-confirm">
-        <p>{COPY.updateConfirm(round.label, formatClock(round.leftMs as number))}</p>
-        <div className="mt-2 flex gap-2">
-          <Button type="button" variant="outline" className="min-h-11" disabled={busy} onClick={() => { setConfirm(false); onStart(); }} data-testid="mm-update-yes">
-            {COPY.updateStart}
-          </Button>
-          <Button type="button" variant="ghost" className="min-h-11" onClick={() => setConfirm(false)}>{COPY.updateKeep}</Button>
-        </div>
-      </section>
-    );
-  }
+/** The owners of a Clarity Canvas and where each one is in the update: the whole content of the screen at the step. */
+export function CanvasUpdateOwners({ host, members }: { host: MastermindHost; members: EventRoomMember[] }) {
+  const owners = members
+    .filter(m => m.profileId && host.updateStates.has(m.profileId))
+    .map((m, i) => ({ m, i, state: host.updateStates.get(m.profileId as string) ?? 'not_tapped' }))
+    .sort((a, b) => (UPDATE_ORDER[a.state] ?? 1) - (UPDATE_ORDER[b.state] ?? 1) || a.i - b.i);
   return (
-    <section className="rounded-xl border border-border bg-card p-4">
-      <Button type="button" variant="outline" className="min-h-11 w-full" disabled={busy} onClick={ask ? () => setConfirm(true) : onStart} data-testid="mm-update-start">
-        {COPY.updateStart}
-      </Button>
+    <section className="rounded-xl border border-border bg-card p-4" data-testid="mm-update-step">
+      <h2 className="text-sm font-semibold">
+        {COPY.updateTitle}
+        {owners.length > 0 && (
+          <span className="font-normal text-muted-foreground" data-testid="mm-update-count"> · {COPY.updatePublished(owners.filter(o => o.state === 'published').length, owners.length)}</span>
+        )}
+      </h2>
+      {owners.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">{COPY.updateNoOwners}</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-border" data-testid="mm-update-states">
+          {owners.map(({ m, state }) => (
+            <li key={m.id} className="flex min-h-10 items-center justify-between gap-3 text-sm" data-testid="mm-update-owner" data-state={state}>
+              <span className="min-w-0 truncate">{shortName(m.displayName)}</span>
+              <span className={cn('shrink-0', UPDATE_TONE[state])}>{UPDATE_STATE_WORDS[state]}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
 
-export function MastermindHostPanel({
-  members,
-  isOut,
-  host,
-  locked,
-  updateRound,
-  silentTableNos,
-  busy,
-  onStartUpdate,
-}: {
+/**
+ * One list of people, one row each: avatar and name with the Doors, Ready and not-registered marks, a line with the canvas, the mic and
+ * the recording state, then the participant or observer switch and Mark out. `title` says which people these are in this phase.
+ */
+export function MastermindPeople({ title, members, host, onMarkOut }: {
+  title: string;
   members: EventRoomMember[];
-  isOut: (memberId: string) => boolean;
   host: MastermindHost;
-  /** The seating preview is open: who observes is read-only meanwhile, so the preview is never stale. */
-  locked: boolean;
-  /** Offered after round 2 while a round is running; null otherwise. `leftMs` null = its clock is over. */
-  updateRound: { label: string; leftMs: number | null } | null;
-  silentTableNos: number[];
-  busy: boolean;
-  onStartUpdate: () => void;
+  onMarkOut: (memberId: string) => void;
 }) {
   const [refusal, setRefusal] = useState<{ id: string; text: string } | null>(null);
 
@@ -152,65 +181,75 @@ export function MastermindHostPanel({
     }
   };
 
+  if (members.length === 0) return null;
   return (
-    <div className="space-y-3" data-testid="mm-panel">
-      {host.warning && <p role="status" className="text-sm text-muted-foreground" data-testid="mm-warning">{host.warning}</p>}
-      {silentTableNos.length > 0 && (
-        <p role="status" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" data-testid="mm-silent-tables">
-          {COPY.silentTables(silentTableNos)}
-        </p>
-      )}
-      <MastermindRegistrationNotes people={host.people ?? []} failed={!!host.warning} onRetry={() => void host.refresh?.()} />
-      <UpdateStep host={host} members={members} round={updateRound} onStart={onStartUpdate} busy={busy} />
-      <section className="rounded-xl border border-border bg-card px-4 py-2" data-testid="mm-people">
-        <h2 className="flex min-h-10 items-center text-xs font-medium uppercase tracking-wide text-muted-foreground">{COPY.people}</h2>
-        {locked && <p className="pb-1 text-xs text-muted-foreground">{COPY.lockedHint}</p>}
-        <ul className="divide-y divide-border">
-          {members.map(m => {
-            const person = host.personOf(m.id);
-            const observer = isObserver(person);
-            const recording = host.recordingOf(m.id);
-            const out = isOut(m.id);
-            const name = shortName(m.displayName);
-            return (
-              <li key={m.id} className={cn('flex flex-wrap items-center gap-x-3 gap-y-1 py-2', out && 'opacity-60')} data-testid="mm-person" data-observer={observer ? 'true' : 'false'}>
-                <Avatar member={m} />
-                <div className="min-w-[8rem] flex-1">
-                  <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium">
-                    <span className="truncate">{name}</span>
-                    {out && <span className="text-xs font-normal text-muted-foreground">{COPY.out}</span>}
-                    {host.isReady(m.id) && !out && (
-                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700" title={COPY.readyHint} data-testid="mm-ready">{COPY.ready}</span>
-                    )}
-                  </p>
-                  {isUnregistered(person) && <p role="status" className="text-xs font-medium text-red-600" data-testid="mm-not-registered">{NOT_REGISTERED_LINE}</p>}
-                  <p className="text-xs text-muted-foreground">{canvasLine(person)}</p>
-                  <p className={cn('text-xs', RECORDING_TONE[recording])} data-testid="mm-recording" data-state={recording}>{RECORDING_WORDS[recording]}</p>
+    <section className="rounded-xl border border-border bg-card px-4 py-2" data-testid="mm-people">
+      <h2 className="flex min-h-10 items-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {title} <span className="ml-1.5 tabular-nums">{members.length}</span>
+      </h2>
+      <ul className="divide-y divide-border">
+        {members.map(m => {
+          const person = host.personOf(m.id);
+          const observer = isObserver(person);
+          const recording = host.recordingOf(m.id);
+          const name = shortName(m.displayName);
+          const phone = person?.phone ?? null;
+          return (
+            <li key={m.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2" data-testid="mm-person" data-observer={observer ? 'true' : 'false'}>
+              <Avatar member={m} />
+              <div className="min-w-[8rem] flex-1">
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-medium">
+                  <span className="truncate">{name}</span>
+                  {person?.registered && comesAtDoors(person) && (
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700" title={COPY.doorsHint} data-testid="mm-doors">{COPY.doors}</span>
+                  )}
+                  {host.isReady(m.id) && (
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700" title={COPY.readyHint} data-testid="mm-ready">{COPY.ready}</span>
+                  )}
+                </p>
+                {isUnregistered(person) && <p role="status" className="text-xs font-medium text-red-600" data-testid="mm-not-registered">{NOT_REGISTERED_LINE}</p>}
+                <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                  <span>{canvasLine(person)}</span>
+                  {phone && (
+                    <span className="inline-flex items-center" title={MIC_HINTS[phone]} aria-label={MIC_HINTS[phone]} data-testid="mm-mic">
+                      <Mic className="h-3.5 w-3.5" />
+                      <span className="text-[10px] font-semibold leading-none">{PHONE_LETTER[phone]}</span>
+                    </span>
+                  )}
+                  <span className={cn('inline-flex items-center', RECORDING_TONE[recording])} data-testid="mm-recording" data-state={recording}>
+                    <RecordingMark state={recording} lifted={false} />
+                  </span>
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <div className="inline-flex rounded-lg bg-muted p-1" role="group" aria-label={`${name}: participant or observer`}>
+                  {([[false, COPY.participant, 'mm-set-participant'], [true, COPY.observer, 'mm-set-observer']] as const).map(([toObserver, text, id]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-pressed={observer === toObserver}
+                      onClick={() => { if (observer !== toObserver) void flip(m, toObserver); }}
+                      className={cn('min-h-10 rounded-md px-2.5 text-sm', observer === toObserver ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground')}
+                      data-testid={id}
+                    >
+                      {text}
+                    </button>
+                  ))}
                 </div>
-                {locked ? (
-                  <span className="text-xs text-muted-foreground">{observer ? 'Observer' : 'Participant'}</span>
-                ) : (
-                  <div className="inline-flex shrink-0 rounded-lg bg-muted p-1" role="group" aria-label={`${name}: participant or observer`}>
-                    {([[false, COPY.participant, 'mm-set-participant'], [true, COPY.observer, 'mm-set-observer']] as const).map(([toObserver, text, id]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        aria-pressed={observer === toObserver}
-                        onClick={() => { if (observer !== toObserver) void flip(m, toObserver); }}
-                        className={cn('min-h-10 rounded-md px-2.5 text-sm', observer === toObserver ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground')}
-                        data-testid={id}
-                      >
-                        {text}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {refusal?.id === m.id && <p role="alert" className="basis-full text-sm text-red-600" data-testid="mm-observer-refusal">{refusal.text}</p>}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-    </div>
+                <button
+                  type="button"
+                  onClick={() => onMarkOut(m.id)}
+                  className="min-h-10 rounded-md px-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                  data-testid="mm-mark-out"
+                >
+                  {COPY.markOut}
+                </button>
+              </div>
+              {refusal?.id === m.id && <p role="alert" className="basis-full text-sm text-red-600" data-testid="mm-observer-refusal">{refusal.text}</p>}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

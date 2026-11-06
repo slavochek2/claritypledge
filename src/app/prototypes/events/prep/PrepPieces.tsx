@@ -22,6 +22,8 @@ import { classifyGroupChat } from '../group-chat-utils';
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { formatDate, formatTime } from '../utils';
 import { EventShareRow } from '../components/EventShareRow';
+import { calendarWindow } from '../event-doors';
+import { useMyRegistrationArrival } from '../use-my-arrival';
 import type { Progress } from './prep-plan';
 import { isHikeLayout, parseHikeDetails } from '../hike/hike-utils';
 import { readEventChatOpenedHint, useGroupChatOpened, type GroupChatSurface } from '../use-group-chat-opened';
@@ -204,6 +206,7 @@ export function RegisteredBlock({ event, groupChatUrl, viewerId, surface = 'regi
 }) {
   const [shareOpen, setShareOpen] = useState(false);
   const { opened, markOpened } = useGroupChatOpened(event.id, groupChatUrl, viewerId);
+  const arrival = useMyRegistrationArrival(event, viewerId);
   const start = new Date(event.datetime);
   const beforeStart = Date.now() < start.getTime();
   const date = start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -213,8 +216,8 @@ export function RegisteredBlock({ event, groupChatUrl, viewerId, surface = 'regi
     description: event.description,
     location: event.location,
     slug: event.slug,
-    startDate: start,
-    endDate: new Date(start.getTime() + event.durationMinutes * 60 * 1000),
+    // The invite starts at this person's own arrival (the doors time for someone preparing at the event).
+    ...calendarWindow(event.datetime, event.durationMinutes, !!arrival?.atDoors),
   };
   // On a phone, Share opens the share sheet (every app is there); elsewhere it opens the share row in place.
   const share = async () => {
@@ -344,9 +347,12 @@ export function EventBox({
   testId,
   note,
   plainChatLine = false,
+  viewerId = null,
 }: {
   event: EventWithHost;
   groupChatUrl: string | null;
+  /** The person whose own arrival time the calendar invite uses (P1529). */
+  viewerId?: string | null;
   title: ReactNode;
   testId: string;
   note?: ReactNode;
@@ -355,15 +361,14 @@ export function EventBox({
   plainChatLine?: boolean;
 }) {
   const pageUrl = eventPageUrl(event.slug);
-  const start = new Date(event.datetime);
+  const arrival = useMyRegistrationArrival(event, viewerId);
   const calendarEvent = {
     id: event.id,
     title: event.title,
     description: event.description,
     location: event.location,
     slug: event.slug,
-    startDate: start,
-    endDate: new Date(start.getTime() + event.durationMinutes * 60 * 1000),
+    ...calendarWindow(event.datetime, event.durationMinutes, !!arrival?.atDoors),
   };
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-4 text-center shadow-sm" data-testid={testId}>

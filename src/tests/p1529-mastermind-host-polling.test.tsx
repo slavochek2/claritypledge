@@ -28,7 +28,7 @@ const tick = async (ms: number) => { await act(async () => { await vi.advanceTim
 
 const round = (id: string, no: number, ended: boolean): EventRound => ({
   id, roundNo: no, groupSize: 4, startedAt: new Date(0).toISOString(), endedAt: ended ? new Date(1).toISOString() : null,
-  seatingS: 120, firstS: 660, secondS: 660, observerS: 120, splitSpeakers: false, matchTag: null, showcase: false,
+  seatingS: 120, firstS: 390, secondS: 390, observerS: 180, splitSpeakers: false, matchTag: null, showcase: false,
 });
 // Round 2 has ended and the host's canvas-update step is on: every repeating read is live.
 const ROUNDS = [round('r1', 1, true), round('r2', 2, true)];

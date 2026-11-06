@@ -31,8 +31,8 @@ describe('P1529 D24 registration form: copy', () => {
     open();
     expect(screen.getByRole('heading', { name: 'Register' })).toBeTruthy();
     expect(screen.getByText('Places are limited. If your plans change, please cancel so someone else can come.')).toBeTruthy();
-    expect(screen.getByText('How do you want to join?')).toBeTruthy();
-    expect(screen.getByLabelText('I want to improve my business with honest challenges from peers')).toBeTruthy();
+    expect(screen.getByText('In which role would you like to participate?')).toBeTruthy();
+    expect(screen.getByLabelText('I want to stress-test my riskiest business assumptions with peers')).toBeTruthy();
     expect(screen.getByLabelText('I want to help others succeed, as an observer or mentor')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Register' })).toBeTruthy();
   });
@@ -42,21 +42,26 @@ describe('P1529 D24 registration form: copy', () => {
     expect(screen.queryByTestId('prep-question')).toBeNull();
   });
 
-  it('branch 1, improving a business: its own question and options with {start} and {doors}', () => {
+  it('branch 1, owners: the second question asks WHEN (15 minutes); the doors time is formatted from the event', () => {
     open();
     fireEvent.click(screen.getByTestId('join-improve'));
-    expect(screen.getByText('Where will you prepare and create your Clarity Canvas? It takes about 30 minutes.')).toBeTruthy();
-    expect(screen.getByLabelText("At home, before the event. I'll come on time at 18:30.")).toBeTruthy();
-    expect(screen.getByLabelText("At the event, with help. I'll come on time at 18:00.")).toBeTruthy();
+    expect(screen.getByText('When will you invest 15 minutes to create your Clarity Canvas?')).toBeTruthy();
+    expect(screen.getByLabelText('At home, before the event')).toBeTruthy();
+    expect(screen.getByLabelText("I'll come earlier, at 18:00, and prepare there")).toBeTruthy();
   });
 
-  it('branch 2, observer or mentor: its own question and options', () => {
+  it('the doors time follows the event, never a typed 18:00', () => {
+    open({ datetime: '2026-11-14T12:00:00+00:00' }); // 19:00 in Bangkok, doors 18:30
+    fireEvent.click(screen.getByTestId('join-improve'));
+    expect(screen.getByLabelText("I'll come earlier, at 18:30, and prepare there")).toBeTruthy();
+  });
+
+  it('branch 2, observers: the same question with 7 minutes and the same two options', () => {
     open();
     fireEvent.click(screen.getByTestId('join-help'));
-    expect(screen.getByText('Where will you prepare? It takes about 15 minutes to learn how we communicate.')).toBeTruthy();
-    expect(screen.getByLabelText("At home, before the event. I'll come on time at 18:30.")).toBeTruthy();
-    expect(screen.getByLabelText("At the event. I'll come on time at 18:00.")).toBeTruthy();
-    expect(screen.queryByLabelText(/with help/)).toBeNull();
+    expect(screen.getByText('When will you invest 7 minutes to prepare?')).toBeTruthy();
+    expect(screen.getByLabelText('At home, before the event')).toBeTruthy();
+    expect(screen.getByLabelText("I'll come earlier, at 18:00, and prepare there")).toBeTruthy();
   });
 
   it('changing the first answer clears the second', () => {
@@ -69,12 +74,15 @@ describe('P1529 D24 registration form: copy', () => {
     expect((screen.getByTestId('prep-home') as HTMLInputElement).checked).toBe(false);
   });
 
-  it('the checkbox says the reviewed text, with Terms and Privacy Policy linked in a new tab; the room and /transcribe say the same sentences', () => {
+  it('the checkbox says the founder-given sentence; Terms and Privacy Policy sit below Continue, linked in a new tab', () => {
     open();
     expect(screen.getByTestId('recording-label').textContent).toBe(
-      'To help every business improve fast, we record your conversations here and Google Gemini turns them into text. The text is posted in the event chat for the host and attendees. After a discussion round, the peer whose business you discussed can use it to improve their Clarity Canvas with AI, and publish it. See our Terms and Privacy Policy.',
+      'To help everyone get the most value, we capture your table conversations with a mic and use Google Gemini to turn them into text for the host and registered attendees in the event chat. After each round, the peer whose business you discussed can use their AI to draft an updated Clarity Canvas inspired by the talk, without quoting you, and share it.',
     );
-    expect(screen.getByTestId('recording-label').textContent).toBe(`${ROUND_UPDATE_CONSENT} ${ROUND_UPDATE_CONSENT_LINKS}`);
+    expect(screen.getByTestId('recording-label').textContent).toBe(ROUND_UPDATE_CONSENT);
+    expect(screen.getByTestId('recording-links').textContent).toBe(ROUND_UPDATE_CONSENT_LINKS);
+    const submit = screen.getByTestId('registration-submit');
+    expect(submit.compareDocumentPosition(screen.getByTestId('recording-links')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const terms = screen.getByRole('link', { name: 'Terms' });
     const privacy = screen.getByRole('link', { name: 'Privacy Policy' });
     expect(terms.getAttribute('href')).toBe('/terms-of-service');
@@ -97,10 +105,10 @@ describe('P1529 D24 registration form: copy', () => {
     open();
     expect(screen.getByText('What phone input do you have?')).toBeTruthy();
     expect(screen.getByLabelText('USB-C')).toBeTruthy();
-    expect(screen.getByLabelText('iPhone Lightning')).toBeTruthy();
+    expect(screen.getByLabelText('iPhone')).toBeTruthy();
     fireEvent.click(screen.getByLabelText('Other'));
     expect(screen.getByTestId('bring-own-mic').textContent).toBe('Please bring a headset or microphone that fits your phone.');
-    expect(screen.getByText('What do you hope to get from this event? (optional)')).toBeTruthy();
+    expect(screen.getByText('How do you expect to gain the most value from the event? (optional)')).toBeTruthy();
   });
 
   it('no dashes in the form', () => {
@@ -120,13 +128,13 @@ describe('P1529 D24 registration form: submitting', () => {
     expect(screen.getByTestId('registration-missing').textContent).toBe('Choose how you want to join.Accept the recording to register.Choose what phone input you have.');
     fireEvent.click(screen.getByTestId('join-help'));
     fireEvent.click(register);
-    expect(screen.getByTestId('registration-missing').textContent).toContain('Choose where you will prepare.');
+    expect(screen.getByTestId('registration-missing').textContent).toContain('Choose when you will prepare.');
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it('the four missing lines are the four given', () => {
     expect(missingLines(null, null, null, false)).toEqual(['Choose how you want to join.', 'Accept the recording to register.', 'Choose what phone input you have.']);
-    expect(missingLines('improve', null, 'usbc', true)).toEqual(['Choose where you will prepare.']);
+    expect(missingLines('improve', null, 'usbc', true)).toEqual(['Choose when you will prepare.']);
   });
 
   it('improving at home sends canvas_before; improving at the event sends canvas_at_doors; neither stores an observer value', () => {
@@ -184,19 +192,20 @@ describe('P1529 D24 registration form: closing', () => {
 
   it('a typed hope alone counts as answered', () => {
     open();
-    fireEvent.change(screen.getByLabelText('What do you hope to get from this event? (optional)'), { target: { value: 'x' } });
+    fireEvent.change(screen.getByLabelText('How do you expect to gain the most value from the event? (optional)'), { target: { value: 'x' } });
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(toastFn).toHaveBeenCalledWith("You're not registered yet.");
   });
 });
 
 describe('P1529 D24 registration form: signed out and the waiting list', () => {
-  it('signed out the button is Continue, the line above it says sign-in comes next, and the answers are handed over', () => {
+  it('signed out the button is Continue, the shortest line below it says sign-in comes next, and the answers are handed over', () => {
     const onSubmit = vi.fn();
     open({ signedIn: false, onSubmit });
     expect(screen.getByRole('button', { name: 'Continue' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Register' })).toBeNull();
-    expect(screen.getByTestId('sign-in-line').textContent).toBe("Next, sign in to confirm your place. It isn't confirmed until then.");
+    expect(screen.getByTestId('sign-in-line').textContent).toBe('Next, sign in to confirm your place');
+    expect(screen.getByTestId('registration-submit').compareDocumentPosition(screen.getByTestId('sign-in-line')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(screen.getByTestId('join-improve'));
     fireEvent.click(screen.getByTestId('prep-home'));
     fireEvent.click(screen.getByLabelText('USB-C'));
@@ -214,27 +223,29 @@ describe('P1529 D24 registration form: signed out and the waiting list', () => {
     open({ mode: 'waitlist' });
     expect(screen.getByRole('heading', { name: 'Join the waiting list' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Join the waiting list' })).toBeTruthy();
-    expect(screen.getByText('How do you want to join?')).toBeTruthy();
+    expect(screen.getByText('In which role would you like to participate?')).toBeTruthy();
   });
 
   it('answers saved before sign-up fill the form', () => {
     open({ initial: { participation: 'observer', observerPrep: 'doors', phone: 'lightning', hope: 'to learn', recordingAccepted: true } });
     expect((screen.getByTestId('join-help') as HTMLInputElement).checked).toBe(true);
     expect((screen.getByTestId('prep-event') as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByLabelText('iPhone Lightning') as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByLabelText('What do you hope to get from this event? (optional)') as HTMLInputElement).value).toBe('to learn');
+    expect((screen.getByLabelText('iPhone') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('How do you expect to gain the most value from the event? (optional)') as HTMLInputElement).value).toBe('to learn');
   });
 });
 
-describe('P1529 places left', () => {
-  it('shows places left only at 5 or fewer', () => {
-    const { rerender, container } = render(<PlacesLeftLine left={6} />);
+describe('P1529 seats left', () => {
+  it('shows "x of y seats left" once 8 or more are registered, and only with a limit', () => {
+    const { rerender, container } = render(<PlacesLeftLine left={17} limit={24} />); // 7 registered
     expect(container.textContent).toBe('');
-    rerender(<PlacesLeftLine left={5} />);
-    expect(container.textContent).toBe('5 places left');
-    rerender(<PlacesLeftLine left={1} />);
-    expect(container.textContent).toBe('1 place left');
-    rerender(<PlacesLeftLine left={0} />);
+    rerender(<PlacesLeftLine left={16} limit={24} />); // 8 registered
+    expect(container.textContent).toBe('16 of 24 seats left');
+    rerender(<PlacesLeftLine left={1} limit={24} />);
+    expect(container.textContent).toBe('1 of 24 seats left');
+    rerender(<PlacesLeftLine left={0} limit={24} />);
+    expect(container.textContent).toBe('');
+    rerender(<PlacesLeftLine left={null} limit={null} />);
     expect(container.textContent).toBe('');
   });
 });

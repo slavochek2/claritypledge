@@ -102,7 +102,6 @@ import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { RoomPreparation } from '../prep/RoomPreparation';
-import { EventCanvasCard } from '../prep/EventCanvasCard';
 import { feedbackAlwaysOpen, defaultRoomStep, recipeForEvent } from '../series-recipes';
 import { usePrepState, type PrepState } from '../prep/use-prep-state';
 import { ClarityContentLoader, ClarityPageLoader } from '@/components/ui/clarity-loader';
@@ -608,8 +607,6 @@ export function EventRoomMeet() {
         <div aria-hidden="true" className="hidden min-[1600px]:block" />
 
         <div className="space-y-4">
-          {/* P1529: the mastermind's canvas for this event, in the round card's own column (same width, no row beside it). */}
-          {!seated && !learnsInBar && event && roomRecipe.mastermind && <EventCanvasCard eventId={event.id} />}
           {/* P1337: the round — your table, your role, what to talk about. Renders nothing
               until the host starts round 1, and nothing after the evening ends. */}
           {event && roomRecipe.room.rounds && (

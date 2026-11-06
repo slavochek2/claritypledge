@@ -24,6 +24,8 @@ import { ClarityContentLoader, ClarityPageLoader } from '@/components/ui/clarity
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { isOnlineLocation, onTimeLine } from '../arrival/arrival-text';
+import { ownTimeLine } from '../event-doors';
+import { EventCanvasCard } from './EventCanvasCard';
 import { useAutoFinish, useStepsDone } from './use-auto-finish';
 import { useEventCommunityName } from '../use-event-community';
 import { useDeclareAppMenu } from '@/app/components/layout/app-menu-override';
@@ -288,6 +290,7 @@ export function PrepFlow({
   const [micSaving, setMicSaving] = useState(false);
   const [researchSaving, setResearchSaving] = useState(false);
   const [placesLeft, setPlacesLeft] = useState<number | null>(null);
+  const [canvasShared, setCanvasShared] = useState(false);
   const [experts, setExperts] = useState<string[] | null>(null);
   const [cmp7Count, setCmp7Count] = useState<Count>({ answered: 0, total: 0 });
   const [stakeCount, setStakeCount] = useState<Count>({ answered: 0, total: 0 });
@@ -405,7 +408,8 @@ export function PrepFlow({
     setPrincipleRating(null);
     setPrincipleIntroDone(next === 'principle' ? !state.withPrincipleIntro : true);
     if (next !== 'end' && next !== 'plan') {
-      void save({ ...extra, stepsDone: done, currentStep: next });
+      // 'canvas' is not a value the table's current_step accepts: resuming falls to the first unfinished plan step.
+      void save({ ...extra, stepsDone: done, currentStep: next === 'canvas' ? null : next });
     }
     window.scrollTo(0, 0);
   }, [save, state.withPrincipleIntro, thenJoin, room?.thenJoin, finishInRoom]);
@@ -1075,6 +1079,21 @@ export function PrepFlow({
             </section>
           )}
 
+          {screen === 'canvas' && (
+            // P1529 UAT round 1: step 4 of an owner's preparation. Make, publish and share the canvas; Publish returns here.
+            <section className="space-y-5" data-testid="prep-canvas-step">
+              <Title>Your Clarity Canvas for this event</Title>
+              <EventCanvasCard eventId={event.id} returnToPreparation onChosen={setCanvasShared} />
+              <StepActions ref={barRef}>
+                {canvasShared ? (
+                  <LetterPrimaryCta label="Continue" onClick={() => next('completed')} />
+                ) : (
+                  <LetterPrimaryCta label="Continue without a canvas" onClick={() => next('skipped')} variant="secondary" />
+                )}
+              </StepActions>
+            </section>
+          )}
+
           {screen === 'end' && roomRow && words && (
             // Round 6 (F, decision 44): learning finished inside the room keeps the room's frame and bar (Learn ticked),
             // says what was learned and names the room's next step, with ONE way on. No event box, calendar, group chat or
@@ -1108,7 +1127,9 @@ export function PrepFlow({
                   {/* P1542 VQA round 5: a hike's card below already carries the time and meeting point, so the
                       line is not repeated (Clarity Night keeps its "We start at … sharp"). */}
                   {timeLine === 'meet' ? null : !isOnlineLocation(event.location) && (
-                    <p className="text-sm text-foreground" data-testid="end-on-time">{onTimeLine(event.datetime)}</p>
+                    <p className="text-sm text-foreground" data-testid="end-on-time">
+                      {state.arrival ? ownTimeLine(event.datetime, state.arrival.atDoors) : onTimeLine(event.datetime)}
+                    </p>
                   )}
                   {(micSetup === 'usbc' || micSetup === 'own' || micSetup === 'lightning' || micSetup === 'other') && (
                     <p className="text-sm text-muted-foreground" data-testid="volunteer-note">
@@ -1158,7 +1179,7 @@ export function PrepFlow({
                   </StepActions>
                   )}
                 </div>
-                <EventBox event={event} groupChatUrl={groupChatUrl} testId="end-card" title={null} plainChatLine={!!words} />
+                <EventBox event={event} groupChatUrl={groupChatUrl} testId="end-card" title={null} plainChatLine={!!words} viewerId={viewerId} />
               </section>
             );
           })()}

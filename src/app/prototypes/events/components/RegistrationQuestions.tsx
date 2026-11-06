@@ -11,19 +11,19 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { formatDoorsTime, formatStartTime } from '../event-doors';
+import { formatDoorsTime } from '../event-doors';
 import { choicesOf, participationOf, type JoinChoice, type PhoneKind, type PrepChoice, type RegistrationAnswers } from '@/app/data/registration-answer-model';
 import { ROUND_UPDATE_CONSENT } from '@/app/components/session/capture-copy';
 import * as copy from './registration-copy';
 
-/** The event page's "N places left" appears at this many or fewer (D18). No bar. */
-export const PLACES_LEFT_FROM = 5;
+/** The event page's "x of y seats left" appears once this many people are registered (founder, UAT round 1). No bar. */
+export const SEATS_LEFT_FROM_REGISTERED = 8;
 
-export function PlacesLeftLine({ left }: { left: number | null }) {
-  if (left === null || left <= 0 || left > PLACES_LEFT_FROM) return null;
+export function PlacesLeftLine({ left, limit }: { left: number | null; limit: number | null }) {
+  if (left === null || limit === null || left <= 0 || limit - left < SEATS_LEFT_FROM_REGISTERED) return null;
   return (
     <p className="mt-2 text-center text-sm text-muted-foreground" data-testid="places-left">
-      {left === 1 ? '1 place left' : `${left} places left`}
+      {left} of {limit} seats left
     </p>
   );
 }
@@ -95,7 +95,6 @@ export function RegistrationQuestions({
     onSubmit({ ...participationOf(join, prep), phone, hope, recordingAccepted: true });
   };
 
-  const start = formatStartTime(datetime, timezone);
   const doors = formatDoorsTime(datetime, timezone);
   const buttonLabel = !signedIn ? copy.CONTINUE_LABEL : busy ? (waitlist ? 'Joining...' : 'Registering...') : waitlist ? copy.WAITLIST_BUTTON : copy.FORM_TITLE;
 
@@ -116,18 +115,14 @@ export function RegistrationQuestions({
           {join && (
             <fieldset className="space-y-2" data-testid="prep-question">
               <legend className="mb-2 text-sm font-medium">{copy.prepQuestion(join)}</legend>
-              {copy.prepOptions(join, start, doors).map(o => (
+              {copy.prepOptions(join, doors).map(o => (
                 <ChoiceRow key={o.value} name={`${id}-p-${join}`} checked={prep === o.value} label={o.label} onSelect={() => setPrep(o.value)} testId={`prep-${o.value}`} />
               ))}
             </fieldset>
           )}
           <label className="flex min-h-10 cursor-pointer items-start gap-3 text-sm">
             <Checkbox checked={accepted} onCheckedChange={v => setAccepted(v === true)} className="mt-0.5" data-testid="recording-accept" />
-            <span data-testid="recording-label">
-              {ROUND_UPDATE_CONSENT} See our{' '}
-              <a href={copy.TERMS_PATH} target="_blank" rel="noopener noreferrer" className="underline" data-testid="recording-terms">Terms</a> and{' '}
-              <a href={copy.PRIVACY_PATH} target="_blank" rel="noopener noreferrer" className="underline" data-testid="recording-privacy">Privacy Policy</a>.
-            </span>
+            <span data-testid="recording-label">{ROUND_UPDATE_CONSENT}</span>
           </label>
           <fieldset className="space-y-2">
             <legend className="mb-2 text-sm font-medium">{copy.PHONE_QUESTION}</legend>
@@ -147,10 +142,15 @@ export function RegistrationQuestions({
               {missing.map(line => <p key={line}>{line}</p>)}
             </div>
           )}
-          {!signedIn && <p className="text-sm text-muted-foreground" data-testid="sign-in-line">{waitlist ? copy.WAITLIST_SIGN_IN_LINE : copy.SIGN_IN_LINE}</p>}
           <Button className="w-full" size="lg" onClick={submit} disabled={busy} data-testid="registration-submit">
             {buttonLabel}
           </Button>
+          {!signedIn && <p className="-mt-2 text-center text-sm text-muted-foreground" data-testid="sign-in-line">{waitlist ? copy.WAITLIST_SIGN_IN_LINE : copy.SIGN_IN_LINE}</p>}
+          <p className="-mt-2 text-center text-xs text-muted-foreground" data-testid="recording-links">
+            See our{' '}
+            <a href={copy.TERMS_PATH} target="_blank" rel="noopener noreferrer" className="underline" data-testid="recording-terms">Terms</a> and{' '}
+            <a href={copy.PRIVACY_PATH} target="_blank" rel="noopener noreferrer" className="underline" data-testid="recording-privacy">Privacy Policy</a>
+          </p>
         </div>
       </DialogContent>
     </Dialog>

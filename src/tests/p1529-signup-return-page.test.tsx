@@ -257,7 +257,7 @@ describe('P1529 D24: saved answers on the way back from sign-up', () => {
     mockIsFull.mockReturnValue(true);
     saveRegistrationDraft('test-event', 'waitlist', SAVED);
     renderAt('?action=rsvp');
-    expect((await screen.findAllByTestId('waitlist-joined'))[0]!.textContent).toContain("You're on the waiting list. The host will email you if a place opens.");
+    expect((await screen.findAllByTestId('waitlist-joined'))[0]!.textContent).toContain("You're on the waiting list. If a place opens and the host adds you, you'll get an email.");
     expect(mockJoin).toHaveBeenCalledTimes(1);
     expect(mockRegister).not.toHaveBeenCalled();
     expect(readRegistrationDraft('test-event')).toBeNull();
@@ -296,7 +296,7 @@ describe('P1529 D24: the page for a flow that asks', () => {
     expect(button.textContent).toBe('Register');
     fireEvent.click(button);
     expect((await screen.findByTestId('registration-submit')).textContent).toBe('Continue');
-    expect(screen.getByTestId('sign-in-line').textContent).toBe("Next, sign in to confirm your place. It isn't confirmed until then.");
+    expect(screen.getByTestId('sign-in-line').textContent).toBe('Next, sign in to confirm your place');
   });
 
   it('Continue keeps the answers in this browser (this event only), registers nothing, and goes to the normal sign-up', async () => {
@@ -341,7 +341,7 @@ describe('P1529 D24: the page for a flow that asks', () => {
     mockIsFull.mockReturnValue(true);
     mockOnList.mockResolvedValue(SAVED);
     renderAt('');
-    expect((await screen.findAllByTestId('waitlist-joined'))[0]!.textContent).toContain("You're on the waiting list. The host will email you if a place opens.");
+    expect((await screen.findAllByTestId('waitlist-joined'))[0]!.textContent).toContain("You're on the waiting list. If a place opens and the host adds you, you'll get an email.");
     expect(screen.getAllByTestId('waitlist-leave')[0]!.textContent).toBe('Leave the waiting list');
     expect(screen.queryByTestId('rsvp-button')).toBeNull();
   });

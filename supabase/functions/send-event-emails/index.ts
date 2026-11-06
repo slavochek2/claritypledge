@@ -52,6 +52,21 @@ async function handleRsvpIfRegistered(supabase: SupabaseClient, eventId: string,
   if (await callerHasRsvp(supabase, eventId, userId)) await handleRsvp(supabase, eventId, userId);
 }
 
+/**
+ * P1529 D24: the rsvp confirmation goes to the caller, or, when the host adds a person from the waiting list, to that person.
+ * Only the event's host may name someone else: anyone else naming another person gets no email sent (logged, nothing leaks),
+ * and handleRsvpIfRegistered still requires the recipient's RSVP.
+ */
+async function handleRsvpFor(supabase: SupabaseClient, eventId: string, caller: string, target?: string) {
+  if (!target || target === caller) return handleRsvpIfRegistered(supabase, eventId, caller);
+  const { data } = await supabase.from('events').select('host_id').eq('id', eventId).single();
+  if (!data || data.host_id !== caller) {
+    console.warn('[send-event-emails] rsvp for another person refused: caller is not the host');
+    return;
+  }
+  return handleRsvpIfRegistered(supabase, eventId, target);
+}
+
 async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: string) {
   const { data: event } = await supabase
     .from('events')
@@ -362,6 +377,9 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
+/** The request body. `userId` names the rsvp recipient when the host adds someone from the waiting list (P1529 D24). */
+type EmailRequest = { action: 'rsvp' | 'cancel' | 'uncancel' | 'update'; eventId: string; userId?: string };
+
 serve(async (req: Request) => {
   const corsHeaders = buildCorsHeaders(req);
 
@@ -409,10 +427,7 @@ serve(async (req: Request) => {
     const authenticatedUserId = user.id;
     const supabaseClient = createClient(SUPABASE_URL, serviceRoleKey);
 
-    const { action, eventId } = await req.json() as {
-      action: 'rsvp' | 'cancel' | 'uncancel' | 'update';
-      eventId: string;
-    };
+    const { action, eventId, userId: targetUserId } = await req.json() as EmailRequest;
 
     if (!action || !eventId) {
       return new Response(
@@ -437,7 +452,7 @@ serve(async (req: Request) => {
 
     switch (action) {
       case 'rsvp':
-        await handleRsvpIfRegistered(supabaseClient, eventId, authenticatedUserId);
+        await handleRsvpFor(supabaseClient, eventId, authenticatedUserId, targetUserId);
         break;
       case 'cancel':
         await handleCancel(supabaseClient, eventId);

@@ -28,6 +28,10 @@ const h = vi.hoisted(() => ({
   getMastermindUpdateStates: vi.fn(),
   hostStartRound: vi.fn(),
   hostSetRoundSeats: vi.fn(),
+  getWaitlistPublic: vi.fn(),
+  hostAddFromWaitlist: vi.fn(),
+  presence: new Map<string, unknown>(),
+  hostSetRoundPresence: vi.fn(),
 }));
 
 vi.mock('@/auth', () => ({ useAuth: () => ({ user: { id: 'host-1' }, session: { user: { id: 'host-1' } }, sessionChecked: true }) }));
@@ -56,7 +60,8 @@ vi.mock('@/app/prototypes/events/rounds/use-event-rounds', async importOriginal 
 }));
 vi.mock('@/app/data/event-rounds-service', async importOriginal => ({
   ...(await importOriginal<typeof import('@/app/data/event-rounds-service')>()),
-  getRoundPresence: vi.fn().mockResolvedValue(new Map()),
+  getRoundPresence: vi.fn(async () => h.presence),
+  hostSetRoundPresence: h.hostSetRoundPresence,
   getTranscribingNow: vi.fn().mockResolvedValue(new Set()),
   getRoundSeatKeys: vi.fn().mockResolvedValue(null),
   hostStartRound: h.hostStartRound,
@@ -72,6 +77,11 @@ vi.mock('@/app/data/event-mastermind-service', async importOriginal => ({
   getCanvasUpdateStep: h.getCanvasUpdateStep,
   getMastermindUpdateStates: h.getMastermindUpdateStates,
 }));
+vi.mock('@/app/data/event-waitlist', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/data/event-waitlist')>()),
+  getWaitlistPublic: h.getWaitlistPublic,
+  hostAddFromWaitlist: h.hostAddFromWaitlist,
+}));
 vi.mock('@/lib/mastermind-seating', async importOriginal => {
   const real = await importOriginal<typeof import('@/lib/mastermind-seating')>();
   return { ...real, planMastermindRound: (input: MastermindSeatingInput) => (h.planOverride ? h.planOverride(input) : real.planMastermindRound(input)) };
@@ -85,7 +95,7 @@ const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
 
 const round = (over: Partial<EventRound> = {}): EventRound => ({
   id: 'r1', roundNo: 1, groupSize: 4, startedAt: ago(10 * MIN), endedAt: null,
-  seatingS: 120, firstS: 660, secondS: 660, observerS: 120, splitSpeakers: false, matchTag: null, showcase: false, ...over,
+  seatingS: 120, firstS: 390, secondS: 390, observerS: 180, splitSpeakers: false, matchTag: null, showcase: false, ...over,
 });
 const seat = (roundId: string, id: string, role: RoundSeat['role'], table: number): RoundSeat => ({ roundId, id, table, role, confirmedAt: null });
 const setRounds = (rounds: EventRound[], seats: Record<string, RoundSeat[]> = {}) => {
@@ -139,14 +149,31 @@ beforeEach(() => {
   h.hostStartCanvasUpdate.mockResolvedValue(undefined);
   h.hostStartRound.mockResolvedValue('r-new');
   h.hostSetRoundSeats.mockResolvedValue(undefined);
+  h.getWaitlistPublic.mockResolvedValue([]);
+  h.hostAddFromWaitlist.mockResolvedValue('ok');
+  h.presence = new Map();
+  h.hostSetRoundPresence.mockImplementation(async (_event: string, memberId: string, left: boolean) => {
+    h.presence = new Map(left ? [[memberId, { memberId, leftAt: new Date().toISOString(), sitsOutRound: null }]] : []);
+  });
 });
 afterEach(() => { vi.useRealTimers(); });
 
+/** The room's per-person state has been read (the host state answered). */
+async function roomRead() {
+  await waitFor(() => expect(h.getMastermindHostState).toHaveBeenCalled());
+  await settle();
+}
+
 /** Open the seating preview on the mastermind page, once the room has been read. */
 async function openPreview() {
-  await screen.findByText('Clarity Canvas shared: canvas_a');
-  // Between rounds the page offers "Reopen" instead of "Start": the same proposal behind either.
-  fireEvent.click(await waitFor(() => (screen.queryByTestId('host-primary') ?? screen.getByTestId('host-reopen'))));
+  await roomRead();
+  // Between rounds the page offers "Reopen" instead of "Start": the same proposal behind either. A click before the room is read
+  // is refused with a line; the next try opens it.
+  await waitFor(() => {
+    if (screen.queryByTestId('host-preview')) return;
+    fireEvent.click(screen.queryByTestId('host-primary') ?? screen.getByTestId('host-reopen'));
+    expect(screen.getByTestId('host-preview')).toBeTruthy();
+  }, { timeout: 3000 });
   return screen.findByTestId('host-preview');
 }
 const plan = (seats: Array<[string, number, 'first' | 'second' | 'observer']>, unmet: MastermindSeatingPlan['unmet'] = []): MastermindSeatingPlan => ({
@@ -158,7 +185,7 @@ describe('the flow row (§1)', () => {
     renderHost();
     expect(await screen.findByTestId('host-flow-row')).toBeTruthy();
     expect((screen.getByTestId('host-flow-select') as HTMLSelectElement).value).toBe('clarity-night');
-    expect(screen.queryByTestId('mm-panel')).toBeNull();
+    expect(screen.queryByTestId('mm-people')).toBeNull();
     expect(h.getMastermindHostState).not.toHaveBeenCalled();
     expect(h.getPreviousSessionPartners).not.toHaveBeenCalled();
   });
@@ -179,11 +206,11 @@ describe('the flow row (§1)', () => {
     fireEvent.change(await screen.findByTestId('host-flow-select'), { target: { value: MM } });
     await waitFor(() => expect(h.hostSetEventFlow).toHaveBeenCalledWith('ev-1', MM));
     expect(screen.queryByRole('button', { name: /apply/i })).toBeNull();
-    expect(await screen.findByTestId('mm-panel')).toBeTruthy();
+    expect(await screen.findByTestId('mm-people')).toBeTruthy();
     expect(screen.getByTestId('host-flow-notice').textContent).toMatch(/Sales Mastermind/);
     fireEvent.click(screen.getByTestId('host-flow-undo'));
     await waitFor(() => expect(h.hostSetEventFlow).toHaveBeenLastCalledWith('ev-1', 'clarity-night'));
-    await waitFor(() => expect(screen.queryByTestId('mm-panel')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('mm-people')).toBeNull());
     expect((screen.getByTestId('host-flow-select') as HTMLSelectElement).value).toBe('clarity-night');
   });
 
@@ -202,7 +229,7 @@ describe('the flow row (§1)', () => {
     renderHost();
     fireEvent.change(await screen.findByTestId('host-flow-select'), { target: { value: MM } });
     expect((await screen.findByTestId('host-flow-refused')).textContent).toContain(message);
-    expect(screen.queryByTestId('mm-panel')).toBeNull();
+    expect(screen.queryByTestId('mm-people')).toBeNull();
     expect((screen.getByTestId('host-flow-select') as HTMLSelectElement).value).toBe('clarity-night');
   });
 });
@@ -243,12 +270,21 @@ describe('observers (§3)', () => {
     expect((await screen.findByTestId('mm-observer-refusal')).textContent).toMatch(/has not published and shared it/);
   });
 
-  it('stays usable after round 1, because the server only refuses a missing canvas', async () => {
+  it('stays usable while round 1 runs, for the people with no table, because the server only refuses a missing canvas', async () => {
+    setRounds([round()], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    renderHost({ flow: MM });
+    await screen.findByText('Clarity Canvas shared: canvas_c');
+    fireEvent.click(within(row('Cat D.')).getByTestId('mm-set-observer'));
+    await waitFor(() => expect(h.hostSetObserver).toHaveBeenCalledWith('ev-1', 'p-c', true));
+  });
+
+  it('has no switches once the evening has ended', async () => {
     setRounds([round({ endedAt: ago(MIN) })]);
     renderHost({ flow: MM });
-    await screen.findByText('Clarity Canvas shared: canvas_a');
-    fireEvent.click(within(row('Ben C.')).getByTestId('mm-set-observer'));
-    await waitFor(() => expect(h.hostSetObserver).toHaveBeenCalledWith('ev-1', 'p-b', true));
+    await screen.findByText('Evening ended');
+    await roomRead();
+    expect(screen.queryAllByTestId('mm-person')).toHaveLength(0);
+    expect(screen.queryByTestId('mm-set-observer')).toBeNull();
   });
 });
 
@@ -357,7 +393,7 @@ describe('seating through the mastermind plan (§4)', () => {
     expect(alert.textContent).toContain('Eva F.');
     const args = h.hostStartRound.mock.calls[0] as unknown[];
     expect(args[2]).toBe(4);
-    expect(args[4]).toEqual({ seatingS: 120, speakerS: 660, observerS: 120 });
+    expect(args[4]).toEqual({ seatingS: 120, speakerS: 390, observerS: 180 });
     expect(args[5]).toBe(false);
   });
 });
@@ -367,9 +403,14 @@ describe('labels and touch targets while a round runs and the next is previewed 
     setRounds([round({ startedAt: ago(10 * MIN) })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
     h.planOverride = () => plan([['m-c', 1, 'first'], ['m-d', 1, 'second']]);
     renderHost({ flow: MM });
-    await screen.findByText('Clarity Canvas shared: canvas_a');
-    fireEvent.click(await screen.findByTestId('host-primary'));
-    fireEvent.click(await screen.findByTestId('host-next-yes'));
+    await screen.findByTestId('round-grid');
+    await roomRead();
+    expect((await screen.findByTestId('host-primary')).textContent).toBe('Preview next round');
+    fireEvent.click(screen.getByTestId('host-primary'));
+    const confirm = await screen.findByTestId('host-next-confirm');
+    expect(confirm.textContent).toMatch(/Preview the next round's tables now\? This round keeps running until you tap Start now\./);
+    expect(screen.getByTestId('host-next-yes').textContent).toBe('Preview next round');
+    fireEvent.click(screen.getByTestId('host-next-yes'));
     await screen.findByTestId('host-preview');
     // The preview sits in the controls column, which comes first in the page.
     expect(screen.getAllByTestId('round-grid-title').map(e => e.textContent)).toEqual(['Round 2: proposed tables', 'Round 1: tables now']);
@@ -400,9 +441,9 @@ describe('labels and touch targets while a round runs and the next is previewed 
 
 describe('ready mark (D17)', () => {
   it('marks a shared canvas that was never an owner or partner, after round 1 only', async () => {
-    setRounds([round({ endedAt: ago(MIN) })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    setRounds([round()], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
     renderHost({ flow: MM });
-    await screen.findByText('Clarity Canvas shared: canvas_a');
+    await screen.findByText('Clarity Canvas shared: canvas_c');
     const marked = screen.getAllByTestId('mm-person').filter(li => within(li).queryByTestId('mm-ready'));
     // Cat and Dan have a canvas and no table yet; Ana and Ben already sat; Eva has no canvas.
     expect(marked.map(li => li.textContent?.match(/(Cat|Dan) [A-Z]\./)?.[0])).toEqual(['Cat D.', 'Dan E.']);
@@ -432,10 +473,12 @@ describe('recording states (§7)', () => {
   it('shows off, on with no words yet, and words arriving per person, and not the red dot', async () => {
     running();
     renderHost({ flow: MM });
-    await waitFor(() => expect(screen.getAllByTestId('mm-recording').map(e => e.getAttribute('data-state'))).toContain('words'));
-    const states = Object.fromEntries(screen.getAllByTestId('mm-person').map(li => [li.textContent?.match(/(Ana|Ben|Cat|Dan|Eva) [A-Z]\./)?.[0], within(li).getByTestId('mm-recording').getAttribute('data-state')]));
-    expect(states).toEqual({ 'Ana B.': 'words', 'Ben C.': 'silent', 'Cat D.': 'silent', 'Dan E.': 'off', 'Eva F.': 'off' });
-    expect(screen.getAllByTestId('mark-recording').length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.getAllByTestId('mark-recording').map(e => e.getAttribute('data-state'))).toContain('words'));
+    // Four people sit (their state is on their tile); Eva has no table (her state is on her row). Nobody is shown twice.
+    const states = Object.fromEntries(screen.getAllByTestId('round-grid-name').map(t => [t.textContent?.match(/(Ana|Ben|Cat|Dan)/)?.[0], within(t).getByTestId('mark-recording').getAttribute('data-state')]));
+    expect(states).toEqual({ Ana: 'words', Ben: 'silent', Cat: 'silent', Dan: 'off' });
+    expect(screen.getAllByTestId('mm-person')).toHaveLength(1);
+    expect(within(screen.getByTestId('mm-person')).getByTestId('mm-recording').getAttribute('data-state')).toBe('off');
     expect(screen.queryByTestId('mark-transcribing')).toBeNull();
   });
 
@@ -463,7 +506,7 @@ describe('recording states (§7)', () => {
     renderHost();
     await screen.findByTestId('round-grid');
     expect(screen.queryAllByTestId('mark-recording')).toHaveLength(0);
-    expect(screen.queryByTestId('mm-panel')).toBeNull();
+    expect(screen.queryByTestId('mm-people')).toBeNull();
   });
 });
 
@@ -478,18 +521,25 @@ describe('the canvas-update step (§7)', () => {
     h.updateStates = new Map([['p-a', 'not_tapped'], ['p-b', 'drafting'], ['p-c', 'ready'], ['p-d', 'failed'], ['p-e', 'published']]);
     renderHost({ flow: MM });
     await waitFor(() => expect(screen.getAllByTestId('mm-update-owner')).toHaveLength(5));
+    // Whoever needs the host first is on top: failed, hasn't started, drafting, ready, published.
     const byState = screen.getAllByTestId('mm-update-owner').map(li => li.getAttribute('data-state'));
-    expect(byState).toEqual(['not_tapped', 'drafting', 'ready', 'failed', 'published']);
+    expect(byState).toEqual(['failed', 'not_tapped', 'drafting', 'ready', 'published']);
+    // The owners' update is the screen: titled, counted, and the one button previews round 3.
+    expect(screen.getByTestId('host-round-title').textContent).toBe('Canvas update');
+    expect(screen.getByTestId('host-update-title').textContent).toBe('Canvas update · 1 of 5 published');
     const start = screen.getByTestId('host-primary') as HTMLButtonElement;
-    expect(start.textContent).toBe('Start round 3');
+    expect(start.textContent).toBe('Preview round 3 tables');
     expect(start.disabled).toBe(false);
     expect(screen.queryByText('Evening ended')).toBeNull();
+    // Nobody is listed a second time as "Here".
+    expect(screen.queryAllByTestId('host-member')).toHaveLength(0);
+    expect(screen.queryByTestId('host-waiting')).toBeNull();
   });
 
   it('reads the owners only while the step is on, and the step only after round 2', async () => {
     setRounds([round({ endedAt: ago(MIN) })]);
     const { unmount } = renderHost({ flow: MM });
-    await screen.findByText('Clarity Canvas shared: canvas_a');
+    await roomRead();
     await settle();
     expect(h.getCanvasUpdateStep).not.toHaveBeenCalled();
     expect(h.getMastermindUpdateStates).not.toHaveBeenCalled();
@@ -497,7 +547,7 @@ describe('the canvas-update step (§7)', () => {
     setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, endedAt: ago(MIN) })]);
     h.step = null;
     renderHost({ flow: MM });
-    await screen.findByText('Clarity Canvas shared: canvas_a');
+    await roomRead();
     await settle();
     expect(h.getCanvasUpdateStep).toHaveBeenCalled();
     expect(h.getMastermindUpdateStates).not.toHaveBeenCalled();
@@ -506,25 +556,45 @@ describe('the canvas-update step (§7)', () => {
   it('is offered while round 2 runs, asks once because it ends the round, then starts through host_start_canvas_update', async () => {
     setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, startedAt: ago(5 * MIN) })]);
     renderHost({ flow: MM });
-    fireEvent.click(await screen.findByTestId('mm-update-start'));
+    // The update is the one blue button; previewing round 3 without it is a quiet link below.
+    const start = await screen.findByTestId('mm-update-start');
+    expect(start.textContent).toBe('Start canvas update');
+    expect(screen.getByTestId('host-primary').textContent).toBe('Skip the update, preview round 3 tables');
+    expect(screen.getByTestId('host-primary').className).not.toContain('bg-blue-500');
+    fireEvent.click(start);
     expect((await screen.findByTestId('mm-update-confirm')).textContent).toMatch(/Round 2 has .* left\. Starting the canvas update ends it now/);
+    // The confirm names what the tap ends.
+    expect(screen.getByTestId('mm-update-yes').textContent).toBe('End Round 2 & start update');
     expect(h.hostStartCanvasUpdate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('mm-update-yes'));
     await waitFor(() => expect(h.hostStartCanvasUpdate).toHaveBeenCalledWith('ev-1'));
   });
 
-  it('is not offered before round 2 is counted', async () => {
+  it('is offered in round 2 only: not before it is counted, and not in round 3 or 4', async () => {
     setRounds([round({ startedAt: ago(5 * MIN) })]);
-    renderHost({ flow: MM });
-    await screen.findByTestId('mm-panel');
+    const { unmount } = renderHost({ flow: MM });
+    await screen.findByTestId('host-controls');
+    await roomRead();
     expect(screen.queryByTestId('mm-update-start')).toBeNull();
+    expect(screen.getByTestId('host-primary').textContent).toBe('Preview next round');
+    unmount();
+    for (const no of [3, 4]) {
+      const earlier = Array.from({ length: no - 1 }, (_, i) => round({ id: `r${i + 1}`, roundNo: i + 1, endedAt: ago((no - i) * 20 * MIN) }));
+      setRounds([...earlier, round({ id: `r${no}`, roundNo: no, startedAt: ago(5 * MIN) })]);
+      const view = renderHost({ flow: MM });
+      await screen.findByTestId('host-controls');
+      await roomRead();
+      expect(screen.queryByTestId('mm-update-start')).toBeNull();
+      expect(screen.getByTestId('host-primary').className).toContain('bg-blue-500');
+      view.unmount();
+    }
   });
 });
 
 describe('Clarity Night controls with no meaning here (§4, §7)', () => {
   const open = async () => { await screen.findByTestId('host-settings'); };
 
-  it('hides group size, the half-time swap, topic and matching in this flow, and keeps who plays and minutes', async () => {
+  it('hides group size, the half-time swap, topic, matching and the demo table in this flow, and keeps the minutes', async () => {
     renderHost({ flow: MM });
     await open();
     expect(screen.queryByText('Group size')).toBeNull();
@@ -534,11 +604,18 @@ describe('Clarity Night controls with no meaning here (§4, §7)', () => {
     expect(screen.queryByText('Disagreement gap')).toBeNull();
     expect(screen.queryByText('Haven’t met yet')).toBeNull();
     expect(screen.queryByTestId('host-seat-now')).toBeNull();
-    expect(screen.getByTestId('host-who-plays')).toBeTruthy();
-    // One talk of 22 minutes (stored as 2 x 11), 2 to find the table and 2 of observer feedback.
-    expect(screen.getByTestId('host-minutes-speakerS').textContent).toBe('22 min');
+    // "Who plays / One demo table / Volunteers / Suggest pair" are Clarity Night's, and mean nothing here.
+    expect(screen.queryByTestId('host-who-plays')).toBeNull();
+    expect(screen.queryByText('One demo table')).toBeNull();
+    expect(screen.queryByTestId('host-choose-recorders')).toBeNull();
+    expect(screen.queryByTestId('host-suggest-pair')).toBeNull();
+    // The first part is named as the clock names it.
+    expect(screen.getByText('Finding tables')).toBeTruthy();
+    expect(screen.queryByText('Tables')).toBeNull();
+    // One talk of 13 minutes (stored as 2 x 6.5), 2 to find the table and 3 of observer feedback.
+    expect(screen.getByTestId('host-minutes-speakerS').textContent).toBe('13 min');
     expect(screen.getByTestId('host-minutes-seatingS').textContent).toBe('2 min');
-    expect(screen.getByTestId('host-minutes-observerS').textContent).toBe('2 min');
+    expect(screen.getByTestId('host-minutes-observerS').textContent).toBe('3 min');
     expect(screen.getByText('Talk')).toBeTruthy();
   });
 
@@ -546,6 +623,8 @@ describe('Clarity Night controls with no meaning here (§4, §7)', () => {
     renderHost();
     await open();
     expect(screen.getByText('Group size')).toBeTruthy();
+    expect(screen.getByTestId('host-who-plays')).toBeTruthy();
+    expect(screen.getByText('Tables')).toBeTruthy();
     expect(screen.getByTestId('host-split-speakers')).toBeTruthy();
     expect(screen.getByTestId('host-match-tag')).toBeTruthy();
     expect(screen.getByText('Recorders together')).toBeTruthy();
@@ -616,12 +695,12 @@ describe('registration on the host screen (D24)', () => {
     let seen: MastermindSeatingInput | null = null;
     h.planOverride = input => { seen = input; return plan([['m-a', 1, 'first'], ['m-b', 1, 'second']]); };
     renderHost({ flow: MM });
-    await openPreview();
-    const not = screen.getAllByTestId('mm-not-registered');
+    const not = await screen.findAllByTestId('mm-not-registered');
     expect(not).toHaveLength(1);
     const first = not[0] as HTMLElement;
     expect(first.textContent).toBe('Not registered for this event. They cannot be seated.');
     expect(within(first.closest('[data-testid="mm-person"]') as HTMLElement).getByText('Eva F.')).toBeTruthy();
+    await openPreview();
     const input = seen as MastermindSeatingInput | null;
     expect([...(input?.holders ?? []), ...(input?.observers ?? [])]).not.toContain('m-e');
     expect(input?.holders).toEqual(expect.arrayContaining(['m-a', 'm-b', 'm-c', 'm-d']));
@@ -653,44 +732,185 @@ describe('registration on the host screen (D24)', () => {
       person('e', { participation: 'canvas_before' }),
     ]);
     renderHost({ flow: MM });
-    expect((await screen.findByTestId('mm-doors-count')).textContent).toBe('3 people come at the doors time');
+    await screen.findAllByTestId('mm-person');
+    // The mark is on the person's own row (not an anonymous count): improving at the event, or an observer who prepares there.
+    const doors = screen.getAllByTestId('mm-person').filter(li => within(li).queryByTestId('mm-doors')).map(li => li.textContent?.match(/(Ana|Ben|Cat|Dan|Eva) [A-Z]\./)?.[0]);
+    expect(doors).toEqual(['Ana B.', 'Ben C.', 'Cat D.']);
+    expect(screen.queryByText(/come at the doors time/)).toBeNull();
+    expect(screen.queryByTestId('mm-doors-count')).toBeNull();
   });
+});
 
-  it('shows the waiting list from the host state, in position order, names only, with nothing that promotes anyone', async () => {
-    setHostState([
-      person('a'), person('b'),
-      person('w2', { registered: false, canvasName: null, canvasShared: false, participation: null, waitingPosition: 2, name: 'Amy Xu' }),
-      person('w1', { registered: false, canvasName: null, canvasShared: false, participation: null, waitingPosition: 1, name: 'Zed Young' }),
-    ]);
-    renderHost({ flow: MM });
-    const list = await screen.findByTestId('mm-waitlist');
-    expect(within(list).getAllByTestId('mm-waitlist-person').map(li => li.textContent)).toEqual(['Zed Y.', 'Amy X.']);
-    expect(within(list).queryAllByRole('button')).toHaveLength(0);
-    expect(screen.queryByTestId('mm-waitlist-error')).toBeNull();
-  });
+describe('the waiting list on the host screen (D24, spec "Waiting list")', () => {
+  const WAITING = [
+    { profileId: 'p-w1', name: 'Zed Young', slug: 'zed', avatarColor: '#123456', avatarUrl: null, hasPledged: false, position: 1 },
+    { profileId: 'p-w2', name: 'Amy Xu', slug: 'amy', avatarColor: '#654321', avatarUrl: null, hasPledged: false, position: 2 },
+  ];
 
-  it('adds no request of its own: the waiting list is read with the host state', async () => {
-    setHostState([person('a'), person('w1', { registered: false, waitingPosition: 1, name: 'Zed Young' })]);
+  it('sits directly below the people list, in position order, with one Add per person', async () => {
+    h.getWaitlistPublic.mockResolvedValue(WAITING);
     renderHost({ flow: MM });
-    await screen.findByTestId('mm-waitlist');
-    expect(h.getMastermindHostState).toHaveBeenCalledTimes(1);
-  });
-
-  it('a failed read says so with Retry, not an empty list, and Retry reads again', async () => {
-    h.getMastermindHostState.mockRejectedValueOnce(new Error('offline'));
-    setHostState([person('a'), person('w1', { registered: false, waitingPosition: 1, name: 'Zed Young' })]);
-    renderHost({ flow: MM });
-    expect((await screen.findByTestId('mm-waitlist-error')).textContent).toContain('Could not read the waiting list just now.');
+    const list = await screen.findByTestId('event-waitlist');
+    expect(within(list).getAllByText(/^(Zed|Amy) /).map(n => n.textContent)).toEqual(['Zed Young', 'Amy Xu']);
+    expect(within(list).getAllByTestId('event-waitlist-add')).toHaveLength(2);
+    // Same section, people first, waiting list right after, nothing in between.
+    const people = screen.getByTestId('mm-people');
+    expect(people.nextElementSibling).toBe(list);
+    // The old read-only list is gone.
     expect(screen.queryByTestId('mm-waitlist')).toBeNull();
-    fireEvent.click(screen.getByTestId('mm-waitlist-retry'));
-    expect(await screen.findByTestId('mm-waitlist')).toBeTruthy();
-    expect(screen.queryByTestId('mm-waitlist-error')).toBeNull();
-    expect(h.getMastermindHostState).toHaveBeenCalledTimes(2);
   });
 
-  it('Clarity Night makes no waiting-list read and shows neither line', async () => {
+  it('one tap on Add registers the person (host_add_from_waitlist) and the host state is read again', async () => {
+    h.getWaitlistPublic.mockResolvedValueOnce(WAITING).mockResolvedValue([WAITING[1]]);
+    renderHost({ flow: MM });
+    await screen.findByTestId('event-waitlist');
+    await roomRead();
+    const reads = h.getMastermindHostState.mock.calls.length;
+    fireEvent.click(within(screen.getByTestId('event-waitlist')).getAllByTestId('event-waitlist-add')[0] as HTMLElement);
+    await waitFor(() => expect(h.hostAddFromWaitlist).toHaveBeenCalledWith('ev-1', 'p-w1'));
+    await waitFor(() => expect(h.getMastermindHostState.mock.calls.length).toBeGreaterThan(reads));
+    await waitFor(() => expect(within(screen.getByTestId('event-waitlist')).getAllByTestId('event-waitlist-add')).toHaveLength(1));
+  });
+
+  it('never lists the host, and is not shown while the seating preview is open, after round 1 starts, or on Clarity Night', async () => {
+    h.getWaitlistPublic.mockResolvedValue([{ ...WAITING[0], profileId: 'host-1', name: 'Host Person' }, WAITING[1]]);
+    const { unmount } = renderHost({ flow: MM });
+    const list = await screen.findByTestId('event-waitlist');
+    expect(within(list).queryByText('Host Person')).toBeNull();
+    expect(within(list).getAllByTestId('event-waitlist-add')).toHaveLength(1);
+    unmount();
+    setRounds([round()], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    const running = renderHost({ flow: MM });
+    await screen.findByTestId('round-grid');
+    await roomRead();
+    expect(screen.queryByTestId('event-waitlist')).toBeNull();
+    running.unmount();
+    setRounds([]);
+    h.getWaitlistPublic.mockClear();
     renderHost();
     await screen.findByTestId('host-flow-row');
-    expect(screen.queryByTestId('mm-registration-notes')).toBeNull();
+    expect(screen.queryByTestId('event-waitlist')).toBeNull();
+    expect(h.getWaitlistPublic).not.toHaveBeenCalled();
+  });
+
+  it('a failed read of the room says so once, with Retry, and Retry reads again', async () => {
+    h.getMastermindHostState.mockRejectedValueOnce(new Error('offline'));
+    renderHost({ flow: MM });
+    const warning = await screen.findByTestId('mm-warning');
+    expect(warning.textContent).toContain('Could not read the room just now.');
+    // One alert for one failure: the waiting list does not add a second.
+    expect(within(screen.getByTestId('host-people')).getAllByRole('alert')).toHaveLength(1);
+    expect(screen.queryByTestId('mm-waitlist-error')).toBeNull();
+    fireEvent.click(screen.getByTestId('mm-warning-retry'));
+    await waitFor(() => expect(screen.queryByTestId('mm-warning')).toBeNull());
+    expect(h.getMastermindHostState).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('one representation of every person, per phase', () => {
+  // The event's host (renderHost's hostId) is also in the room's roster.
+  const HOST = { ...member('host', 'Hugo Host'), profileId: 'host-1' } as EventRoomMember;
+  /** The first names that stand for a person anywhere on the page's people area. */
+  const shown = () => {
+    const out: string[] = [];
+    for (const el of screen.getAllByTestId('host-people').flatMap(s => [...s.querySelectorAll('[data-testid="mm-person"], [data-testid="round-grid-name"], [data-testid="host-member"], [data-testid="mm-update-owner"]')])) {
+      const name = el.textContent?.match(/(Ana|Ben|Cat|Dan|Eva|Hugo)/)?.[0];
+      if (name) out.push(name);
+    }
+    return out;
+  };
+  const unique = (names: string[]) => expect([...names].sort()).toEqual([...new Set(names)].sort());
+
+  it('before round 1: one row each in one list, no second grid of "Here"', async () => {
+    h.roster = [...ROSTER, HOST];
+    renderHost({ flow: MM });
+    await screen.findAllByTestId('mm-person');
+    expect(screen.getAllByTestId('mm-person')).toHaveLength(5);
+    expect(screen.queryAllByTestId('host-member')).toHaveLength(0);
+    expect(screen.queryByTestId('host-waiting')).toBeNull();
+    expect(shown().sort()).toEqual(['Ana', 'Ben', 'Cat', 'Dan', 'Eva']);
+    // The host runs the room: not a person in it.
+    expect(document.body.textContent).not.toContain('Hugo');
+  });
+
+  it('a person marked out is in Out only, and Back in returns them to the list', async () => {
+    renderHost({ flow: MM });
+    const row = (await screen.findAllByTestId('mm-person')).find(li => li.textContent?.includes('Eva F.')) as HTMLElement;
+    fireEvent.click(within(row).getByTestId('mm-mark-out'));
+    await waitFor(() => expect(screen.getByTestId('host-out')).toBeTruthy());
+    expect(screen.getAllByTestId('mm-person')).toHaveLength(4);
+    expect(shown().filter(n => n === 'Eva')).toHaveLength(1);
+  });
+
+  it('in a round: the tables, then only people with no table; nobody twice, and no host', async () => {
+    h.roster = [...ROSTER, HOST];
+    setRounds([round()], {
+      r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1), seat('r1', 'm-c', 'first', 2), seat('r1', 'm-d', 'second', 2), seat('r1', 'm-host', 'observer', 2)],
+    });
+    renderHost({ flow: MM });
+    await screen.findByTestId('mm-people');
+    const names = shown();
+    unique(names);
+    expect(names.sort()).toEqual(['Ana', 'Ben', 'Cat', 'Dan', 'Eva']);
+    expect(document.body.textContent).not.toContain('Hugo');
+    // The tables come first in the page, the unseated list after them.
+    const grid = screen.getByTestId('round-grid');
+    const rest = screen.getByTestId('mm-people');
+    expect(grid.compareDocumentPosition(rest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryAllByTestId('host-member')).toHaveLength(0);
+  });
+
+  it('at the update step: the owners\' update first, then only the people who are not owners; nobody twice', async () => {
+    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, endedAt: ago(MIN) })]);
+    h.step = { afterRoundId: 'r2', startedAt: ago(MIN) };
+    h.updateStates = new Map([['p-a', 'drafting'], ['p-b', 'published'], ['p-c', 'ready'], ['p-d', 'failed']]);
+    renderHost({ flow: MM });
+    await waitFor(() => expect(screen.getAllByTestId('mm-update-owner')).toHaveLength(4));
+    const names = shown();
+    unique(names);
+    expect(names.sort()).toEqual(['Ana', 'Ben', 'Cat', 'Dan', 'Eva']);
+    // Eva has no canvas: she is the one person under "Observers", with her switch.
+    expect(screen.getAllByTestId('mm-person')).toHaveLength(1);
+    expect(screen.getByTestId('mm-people').textContent).toContain('Eva F.');
+    expect(screen.getByTestId('mm-update-step').compareDocumentPosition(screen.getByTestId('mm-people')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('after the evening: no list, no live switches, no "Here"', async () => {
+    setRounds([round({ endedAt: ago(MIN) })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    renderHost({ flow: MM });
+    await screen.findByText('Evening ended');
+    await roomRead();
+    expect(screen.queryByTestId('host-people')).toBeNull();
+    expect(screen.queryAllByTestId('mm-person')).toHaveLength(0);
+    expect(screen.queryAllByTestId('host-member')).toHaveLength(0);
+  });
+});
+
+describe('Clarity Night marks that mean nothing in the mastermind', () => {
+  const sit = (confirmed: boolean) => ({ r1: [{ ...seat('r1', 'm-a', 'first', 1), confirmedAt: confirmed ? ago(MIN) : null }, seat('r1', 'm-b', 'second', 1)] });
+
+  it('shows "at their table" and "N of M tapped in" on Clarity Night only', async () => {
+    setRounds([round({ id: 'r0', roundNo: 1, endedAt: ago(30 * MIN) }), round({ id: 'r1', roundNo: 2 })], { r0: sit(true).r1.map(s => ({ ...s, roundId: 'r0' })), r1: sit(true).r1 });
+    const { unmount } = renderHost();
+    await screen.findAllByTestId('round-grid');
+    expect(screen.getAllByLabelText('at their table').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('host-past-rounds').textContent).toMatch(/tapped in/);
+    unmount();
+    renderHost({ flow: MM });
+    await screen.findAllByTestId('round-grid');
+    expect(screen.queryByLabelText('at their table')).toBeNull();
+    expect(screen.getByTestId('host-past-rounds').textContent).not.toMatch(/tapped in/);
+  });
+
+  it('lifts a person with "Mark out" in the mastermind, and "Out" on Clarity Night', async () => {
+    setRounds([round()], sit(false));
+    const { unmount } = renderHost({ flow: MM });
+    fireEvent.click((await screen.findAllByTestId('round-grid-name'))[0] as HTMLElement);
+    expect(screen.getByTestId('host-mark-left').textContent).toBe('Mark out');
+    unmount();
+    setRounds([round({ splitSpeakers: true })], sit(false));
+    renderHost();
+    fireEvent.click((await screen.findAllByTestId('round-grid-name'))[0] as HTMLElement);
+    expect(screen.getByTestId('host-mark-left').textContent).toBe('Out');
   });
 });

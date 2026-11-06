@@ -221,8 +221,9 @@ export const SOCIAL_HIKE_RECIPE: SeriesRecipe = {
  */
 export const SALES_MASTERMIND_RECIPE: SeriesRecipe = {
   ...CLARITY_NIGHT_RECIPE,
-  prepare: { ...CLARITY_NIGHT_RECIPE.prepare, steps: ['story', 'principle', 'cmp7'], optional: true, keepFinished: true },
-  room: { ...CLARITY_NIGHT_RECIPE.room, readiness: false, closeInApp: false },
+  prepare: { ...CLARITY_NIGHT_RECIPE.prepare, steps: ['story', 'principle', 'cmp7', 'canvas'], optional: true, keepFinished: true },
+  // Founder UAT round 1: "Learn and prepare" stays in the room's step bar for everyone, done or not, as on the hikes (their pattern).
+  room: { ...CLARITY_NIGHT_RECIPE.room, readiness: false, closeInApp: false, steps: { learn: 'Learn and prepare', principle: 'Principle', close: 'Feedback' } },
   registrationQuestions: true,
   mastermind: true,
 };

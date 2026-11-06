@@ -304,6 +304,26 @@ test('waiting list: only when full; not a seat; once; the host reads it in order
   expect((await supabaseAdmin.from('event_waitlist').select('*', { count: 'exact', head: true }).eq('event_id', W.id)).count, 'registering takes them off the list').toBe(0);
 });
 
+test('waiting list promote: host only; registers with the stored answers past the limit; attendees read the list, outsiders do not', async () => {
+  const W = await makeEvent(ledger, host.user, `P1529 QA db promote ${randomUUID().slice(0, 4)}`, { startsInMs: 86_400_000, maxAttendees: 1 });
+  const args = { p_participation: 'observer', p_observer_prep: 'doors', p_phone: 'other', p_hope: 'learn', p_recording_accepted: true };
+  await register(Y, W.slug);
+  expect((await X.client.rpc('join_event_waitlist', { p_slug: W.slug, ...args })).data).toBe('ok');
+  const pub = async (c: Person['client']) => (await c.rpc('get_event_waitlist_public', { p_event: W.id })).data as Array<Record<string, unknown>>;
+  expect((await pub(host.client)).map((r) => r.name), 'the host reads the list').toEqual([X.user.name]);
+  expect((await pub(Y.client)).map((r) => r.position), 'a registered attendee reads it, with the position').toEqual([1]);
+  expect(Object.keys((await pub(Y.client))[0]!).sort(), 'no email, no answers').toEqual(['avatar_color', 'avatar_url', 'has_pledged', 'name', 'position', 'profile_id', 'slug']);
+  expect(await pub(Z.client), 'an outsider gets nothing').toEqual([]);
+  expect((await Y.client.rpc('host_add_from_waitlist', { p_event: W.id, p_user: X.user.user.id })).error?.code, 'host only').toBe('42501');
+  expect((await host.client.rpc('host_add_from_waitlist', { p_event: W.id, p_user: Z.user.user.id })).error?.message, 'not on the list').toMatch(/not on the waiting list/);
+  expect((await host.client.rpc('host_add_from_waitlist', { p_event: W.id, p_user: X.user.user.id })).data).toBe('ok');
+  const a = await supabaseAdmin.from('event_registration_answers').select('participation, observer_prep, phone, hope').eq('event_id', W.id).eq('profile_id', X.user.user.id).single();
+  expect(a.data, 'the stored answers').toEqual({ participation: 'observer', observer_prep: 'doors', phone: 'other', hope: 'learn' });
+  expect((await supabaseAdmin.from('event_rsvps').select('*', { count: 'exact', head: true }).eq('event_id', W.id)).count, 'past the limit of 1').toBe(2);
+  expect(await pub(host.client), 'off the list').toEqual([]);
+  expect((await host.client.rpc('host_add_from_waitlist', { p_event: W.id, p_user: X.user.user.id })).data, 'again').toBe('already');
+});
+
 test('terms pin: consume_pending_terms_acceptance records v1.8 only (a v1.7 intent is refused and consumed)', async () => {
   const uid = X.user.user.id;
   const setPending = async (version: string, nonce: string) => {
