@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-11-06
+Last updated: 2026-11-07
 
 ---
 
@@ -202,6 +202,7 @@ Last updated: 2026-11-06
 - **P1335** (Sep 26) schema-ready made a required check on main — GH013 refusal names it alone; live test-DB deadlock proof impossible by construction, first real migration push is INBOX-84
 - **P1447** (Oct 26) "Suggest a source" on /cm — anon write-only RPC: lock the cap, check it before de-dup (no existence oracle)
 - **P1448** (Oct 26) Four P1321 guard fixes shipped alone — prod migrations go through /push; embargo spec branch-born, stub on main
+- **P1649** (Nov 26) Series short links reach hidden events — anon gets a key-only definer function over a closed rule table; a function taking a pattern would be a search over hidden rows
 
 ## Letters
 - **P1368** (Sep 28) Letter story video plays in place, sharp poster — sealed snapshots freeze video at seal time; a later video needs a manual snapshot backfill
