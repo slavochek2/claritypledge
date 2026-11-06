@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 111
 workstream: infrastructure
 created_date: '2026-11-06'
 tags: [day, findings, false-positives, checks]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 424325d1dadbd3d73ec4327f2cf2ac65a4dd3e06d5814329741af58fc2837a98
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-06
 ---
 
 # P1647: /day shows stale or informational items as live faults
@@ -114,6 +114,6 @@ Four check changes plus one shared rule.
 
 ## Related
 
-- [P1605](done/2026-06-10/p1605_day_accepted_until_record.md): verdict ledger, after-the-fact suppression; this spec is the before-the-fact half.
-- [P1530](p1530_supabase_log_ingestion_and_egress_before_restriction.md), [P1606](done/2026-06-10/p1606_switch_off_hosted_test_by_default.md): the quota history behind item 2.
-- [P1538](done/2026-06-10/p1538_rebuild_test_project_in_own_org.md): why the test project is in its own organisation.
+- [P1605](p1605_day_accepted_until_record.md): verdict ledger, after-the-fact suppression; this spec is the before-the-fact half.
+- [P1530](../../p1530_supabase_log_ingestion_and_egress_before_restriction.md), [P1606](p1606_switch_off_hosted_test_by_default.md): the quota history behind item 2.
+- [P1538](p1538_rebuild_test_project_in_own_org.md): why the test project is in its own organisation.
