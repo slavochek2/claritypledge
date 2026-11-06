@@ -6,7 +6,7 @@ cadence: on-demand
 timezone: Asia/Bangkok
 default_location: "Zuzalu Library, 4Seas Nimman, Chiang Mai"
 sola_group: 4seas
-# Series short link: /night resolves to the nearest upcoming Clarity Night (api/series-redirect.ts).
+# Series short link: /night resolves to the nearest upcoming Clarity Night, hidden ones after public (series_aliases row via api/series-redirect.ts, P1649).
 # Always posted with the ?d=<YYMMDD> cache-buster (promote-all.md § "Short-link cache-buster").
 # Per-topic links (e.g. /aisafety) are optional extras, never required.
 short_link: night

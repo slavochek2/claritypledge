@@ -387,7 +387,7 @@ Paste the evidence; do not ask to move to PROD until all pass.
 
 A **placeholder** is an upcoming Clarity Night with `series_slug='clarity-night'` and no
 `statement_tag`: its page carries the topic vote, and `claritypledge.com/next` points at the nearest
-one (`api/series-redirect.ts`, `FIELD_SERIES.next`). Query prod for them first.
+one (the `next` row in `series_aliases`, P1649; hidden placeholders count too, after public ones). Query prod for them first.
 
 - **Before creating:** if a placeholder exists on **this night's date**, do not create a second
   event. Ask the founder to publish into it instead: it keeps the RSVPs and the link already shared.
@@ -403,13 +403,14 @@ one (`api/series-redirect.ts`, `FIELD_SERIES.next`). Query prod for them first.
 
 ### Step 7 — Short link, once per topic
 
-Read `SERIES` in `api/series-redirect.ts` first; if the topic has a key, stop here. Otherwise mirror
-`/hike`: add the topic as a title `ILIKE` pattern keyed on the **topic**, not on "Clarity Night"
-(not every night shares a topic), and add `/<topic>` to `vercel.json`. Before committing, run the
-function's own query against prod, **including `status=eq.upcoming` and the 5-hour grace cutoff**,
-and confirm it returns exactly this event and no unrelated upcoming event, plus a `/hike` control.
-Edit and commit in one step with `./scripts/git-ops.sh commit-to-main` so nothing sits uncommitted on
-the shared checkout. **Live only after the founder pushes.**
+Alias rules live in the prod table `series_aliases` (P1649), not in `api/series-redirect.ts`. Read it
+first (service role); if the topic has a key, stop here. Otherwise mirror `aisafety`: a row keyed on
+the **topic** with a title `ILIKE` pattern on the topic, not on "Clarity Night" (not every night
+shares a topic), and add `/<topic>` to `vercel.json`. The row insert is a prod data change: show it
+and get the founder's yes. Then call `resolve_series_alias('<topic>')` with the anon key and confirm
+it returns exactly this event, plus a `hike` control. **The function also returns hidden events**
+(public first), so check that no hidden event matches the pattern by accident. Commit the
+`vercel.json` pair with `./scripts/git-ops.sh commit-to-main`. **Live only after the founder pushes.**
 
 ### Step 8 — Venue confirmation message, if the room is not confirmed
 

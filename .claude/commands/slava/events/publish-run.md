@@ -61,7 +61,7 @@ by title prefix, and all three fail SILENTLY when it drifts:
 2. `.private/event-channels.json` maps a title prefix to the WhatsApp/Telegram
    groups `/promote-groups` posts to — a prefix miss posts to **nothing**, with
    no error, and looks like a successful run.
-3. `api/series-redirect.ts` holds the same mapping for the short links.
+3. The `hike` row in the prod table `series_aliases` (P1649) holds the same mapping for the short links.
 
 Renaming the series from "Clarity Hike" to "Social Hike" on 2026-08-24 broke all
 three at once and none of them reported it. If you change a prefix, update those

@@ -206,7 +206,7 @@ This is what makes every platform's description consistent — no per-platform d
 
 **Short link first — the long slug is the last resort** (founder, 2026-10-02: *"put in the link
 the claritypledge.com short link, not the long link"*). Before writing the blurb, look for a
-series key whose `ILIKE` pattern in `SERIES` (`api/series-redirect.ts`) matches this title, and
+series key whose row in the prod table `series_aliases` (P1649; title pattern or stored `series_slug`) matches this event, and
 confirm it is live: `curl -sI https://claritypledge.com/<key>` must 307 to **this** slug.
 
 - **Matches and live** → `<link>` = `claritypledge.com/<key>?d=<YYMMDD>` (bare form if `vercel.json`
