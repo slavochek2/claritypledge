@@ -415,6 +415,10 @@ If yes — write the integration test for that migration NOW, before the migrati
 4. Run smoke tests → should still PASS
 5. Run full test suite → should still PASS (no regressions)
 
+**Failure-case list first (P1648):** If the fix carries a rule of the form "must still fail when X is broken" (a gate, a smoke, a guard, an exemption), write down every way X can be broken *before* the first review. Then give each one a test that must fail. For a check that something loaded, the list runs: never requested, requested but never finished, finished with an error status, finished but never ran, ran but blocked further in. Reviewers otherwise find these one round at a time. P1425, P1536, P1576 and P1648 each needed 4–5 rounds for this. A case you choose not to cover goes in the spec with its reason.
+
+**Cost pre-flight (P1648):** If the fix adds a test, script or check that runs against a deployed URL or calls a paid or quota-limited service, read "When this applies" in `docs/technical/metered-services.md` now. If it applies, write the spec's `## Cost Budget` before the first review: per-visit numbers measured, arithmetic shown, and a verdict on whether current usage plus this fits the limits. In P1648, reviewers raised this as a blocking finding in two separate rounds.
+
 **Fix strategy:**
 - Prefer minimal changes (smallest diff that fixes bug)
 - Don't refactor while fixing (fix first, refactor separately)
