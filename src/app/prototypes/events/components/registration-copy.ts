@@ -35,10 +35,6 @@ export function prepOptions(_join: JoinChoice, doors: string): { value: PrepChoi
   ];
 }
 
-/** The required checkbox's text is `ROUND_UPDATE_CONSENT` then its links line, drawn with real links by the form. */
-export const TERMS_PATH = '/terms-of-service';
-export const PRIVACY_PATH = '/privacy-policy';
-
 export const PHONE_QUESTION = 'What phone input do you have?';
 export const PHONES: { value: PhoneKind; label: string }[] = [
   { value: 'lightning', label: 'iPhone' },
@@ -53,7 +49,7 @@ export const HOPE_QUESTION = 'How do you expect to gain the most value from the 
 export const MISSING = {
   join: 'Choose how you want to join.',
   prep: 'Choose when you will prepare.',
-  recording: 'Accept the recording to register.',
+  recording: 'Tick the box about table conversations to register.',
   phone: 'Choose what phone input you have.',
 } as const;
 

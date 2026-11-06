@@ -10,10 +10,11 @@ import { fireEvent, render, screen } from '@testing-library/react';
 const toastFn = vi.hoisted(() => vi.fn());
 vi.mock('sonner', () => ({ toast: toastFn }));
 
-import { RegistrationQuestions, PlacesLeftLine, missingLines } from '@/app/prototypes/events/components/RegistrationQuestions';
-import { ROUND_UPDATE_CONSENT, ROUND_UPDATE_CONSENT_LINKS } from '@/app/components/session/capture-copy';
+import { RegistrationQuestions, PlacesLeftLine, missingLines, missingKeys } from '@/app/prototypes/events/components/RegistrationQuestions';
+import { ROUND_UPDATE_CONSENT } from '@/app/components/session/capture-copy';
 import { formatDoorsTime, formatStartTime } from '@/app/prototypes/events/event-doors';
 
+const NEW = 'We capture table conversations with a mic, and Google Gemini turns them into text in the event chat for the host and registered attendees. The peer whose Clarity Canvas you discuss can use AI to draft an update from that text, without quoting you.';
 const DATETIME = '2026-11-14T11:30:00+00:00'; // 18:30 in Bangkok, doors 18:00
 const base = { datetime: DATETIME, timezone: 'Asia/Bangkok', busy: false, onCancel: vi.fn() };
 const open = (over: Partial<Parameters<typeof RegistrationQuestions>[0]> = {}) =>
@@ -74,31 +75,14 @@ describe('P1529 D24 registration form: copy', () => {
     expect((screen.getByTestId('prep-home') as HTMLInputElement).checked).toBe(false);
   });
 
-  it('the checkbox says the founder-given sentence; Terms and Privacy Policy sit below Continue, linked in a new tab', () => {
+  it('the checkbox says the Argon-reviewed sentence; the Terms and Privacy line is gone', () => {
     open();
-    expect(screen.getByTestId('recording-label').textContent).toBe(
-      'To help everyone get the most value, we capture your table conversations with a mic and use Google Gemini to turn them into text for the host and registered attendees in the event chat. After each round, the peer whose business you discussed can use their AI to draft an updated Clarity Canvas inspired by the talk, without quoting you, and share it.',
-    );
+    expect(screen.getByTestId('recording-label').textContent).toBe(NEW);
     expect(screen.getByTestId('recording-label').textContent).toBe(ROUND_UPDATE_CONSENT);
-    expect(screen.getByTestId('recording-links').textContent).toBe(ROUND_UPDATE_CONSENT_LINKS);
-    const submit = screen.getByTestId('registration-submit');
-    expect(submit.compareDocumentPosition(screen.getByTestId('recording-links')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const terms = screen.getByRole('link', { name: 'Terms' });
-    const privacy = screen.getByRole('link', { name: 'Privacy Policy' });
-    expect(terms.getAttribute('href')).toBe('/terms-of-service');
-    expect(privacy.getAttribute('href')).toBe('/privacy-policy');
-    for (const a of [terms, privacy]) {
-      expect(a.getAttribute('target')).toBe('_blank');
-      expect(a.getAttribute('rel')).toContain('noopener');
-    }
-  });
-
-  it('opening a link does not touch the answers or the checkbox', () => {
-    open();
-    fireEvent.click(screen.getByTestId('join-improve'));
-    fireEvent.click(screen.getByRole('link', { name: 'Terms' }));
-    expect((screen.getByTestId('join-improve') as HTMLInputElement).checked).toBe(true);
-    expect(screen.getByTestId('recording-accept').getAttribute('data-state')).toBe('unchecked');
+    expect(screen.queryByTestId('recording-links')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Terms' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Privacy Policy' })).toBeNull();
+    expect(screen.getByTestId('registration-questions').textContent).not.toContain('See our');
   });
 
   it('the phone question and Other\'s line', () => {
@@ -119,22 +103,66 @@ describe('P1529 D24 registration form: copy', () => {
 });
 
 describe('P1529 D24 registration form: submitting', () => {
-  it('Register is always tappable and names each missing line, in the form\'s order', () => {
+  it('Register is always tappable; every missing question shows its own line, in the form\'s order', () => {
     const onSubmit = vi.fn();
     open({ onSubmit });
     const register = screen.getByTestId('registration-submit') as HTMLButtonElement;
     expect(register.disabled).toBe(false);
+    expect(screen.queryByTestId('missing-join')).toBeNull();
     fireEvent.click(register);
-    expect(screen.getByTestId('registration-missing').textContent).toBe('Choose how you want to join.Accept the recording to register.Choose what phone input you have.');
+    expect(screen.queryByTestId('registration-missing')).toBeNull();
+    expect(screen.getByTestId('missing-join').textContent).toBe('Choose how you want to join.');
+    expect(screen.getByTestId('missing-recording').textContent).toBe('Tick the box about table conversations to register.');
+    expect(screen.getByTestId('missing-phone').textContent).toBe('Choose what phone input you have.');
+    expect(screen.queryByTestId('missing-prep')).toBeNull();
     fireEvent.click(screen.getByTestId('join-help'));
     fireEvent.click(register);
-    expect(screen.getByTestId('registration-missing').textContent).toContain('Choose when you will prepare.');
+    expect(screen.getByTestId('missing-prep').textContent).toBe('Choose when you will prepare.');
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('tapping Register with nothing answered marks every required question invalid and focuses the first', () => {
+    open();
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    const groups = Array.from(document.querySelectorAll('[data-question]'));
+    expect(groups.map(g => g.getAttribute('data-question'))).toEqual(['join', 'recording', 'phone']);
+    const invalidOf = (el: Element | null) => el?.getAttribute('aria-invalid');
+    expect(invalidOf(groups[0])).toBe('true');
+    expect(invalidOf(groups[2])).toBe('true');
+    expect(invalidOf(screen.getByTestId('recording-accept'))).toBe('true');
+    expect(groups[0].getAttribute('aria-describedby')).toBe(screen.getByTestId('missing-join').id);
+    expect(screen.getByTestId('recording-accept').getAttribute('aria-describedby')).toBe(screen.getByTestId('missing-recording').id);
+    expect(groups[2].getAttribute('aria-describedby')).toBe(screen.getByTestId('missing-phone').id);
+    expect(groups[0].className).toContain('outline-destructive');
+    expect(document.activeElement).toBe(screen.getByTestId('join-improve'));
+  });
+
+  it('answering a question clears only its own error', () => {
+    open();
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    fireEvent.click(screen.getByLabelText('USB-C'));
+    expect(screen.queryByTestId('missing-phone')).toBeNull();
+    expect(document.querySelector('[data-question="phone"]')?.hasAttribute('aria-invalid')).toBe(false);
+    expect(screen.getByTestId('missing-join')).toBeTruthy();
+    expect(screen.getByTestId('missing-recording')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('recording-accept'));
+    expect(screen.queryByTestId('missing-recording')).toBeNull();
+    expect(screen.getByTestId('missing-join')).toBeTruthy();
+  });
+
+  it('the first missing question is the one focused when the earlier ones are answered', () => {
+    open();
+    fireEvent.click(screen.getByTestId('join-help'));
+    fireEvent.click(screen.getByTestId('prep-home'));
+    fireEvent.click(screen.getByTestId('registration-submit'));
+    expect(document.activeElement).toBe(screen.getByTestId('recording-accept'));
+  });
+
   it('the four missing lines are the four given', () => {
-    expect(missingLines(null, null, null, false)).toEqual(['Choose how you want to join.', 'Accept the recording to register.', 'Choose what phone input you have.']);
+    expect(missingLines(null, null, null, false)).toEqual(['Choose how you want to join.', 'Tick the box about table conversations to register.', 'Choose what phone input you have.']);
     expect(missingLines('improve', null, 'usbc', true)).toEqual(['Choose when you will prepare.']);
+    expect(missingKeys(null, null, null, false)).toEqual(['join', 'recording', 'phone']);
+    expect(missingKeys('improve', null, 'usbc', true)).toEqual(['prep']);
   });
 
   it('improving at home sends canvas_before; improving at the event sends canvas_at_doors; neither stores an observer value', () => {
@@ -181,12 +209,12 @@ describe('P1529 D24 registration form: closing', () => {
     const { rerender } = render(<RegistrationQuestions open {...props} />);
     fireEvent.click(screen.getByTestId('join-help'));
     fireEvent.click(screen.getByTestId('registration-submit'));
-    expect(screen.getByTestId('registration-missing')).toBeTruthy();
+    expect(screen.getByTestId('missing-prep')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(toastFn).toHaveBeenCalledWith("You're not registered yet.");
     rerender(<RegistrationQuestions open={false} {...props} />);
     rerender(<RegistrationQuestions open {...props} />);
-    expect(screen.queryByTestId('registration-missing')).toBeNull();
+    expect(screen.queryByTestId('missing-prep')).toBeNull();
     expect((screen.getByTestId('join-help') as HTMLInputElement).checked).toBe(true);
   });
 
