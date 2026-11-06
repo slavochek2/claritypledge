@@ -10,6 +10,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 
 
+## 2026-11-06 [product]: Outreach shelved again until sales mastermind session 1; the change-lead plan is kept ready. Founder decision
+
+**Context:** The 2026-11-02 entry started the slow parts of outreach to warm change leads. Working out the first message showed that nothing should go out before the mastermind: a "research call" is a pretext with nothing in it for the lead, and the honest ask (an invitation to a real online discussion) needs a date, set after session 1.
+**Decision:** Run sales mastermind session 1, then decide. Kept ready, not sent: the scored warm change-lead list (private), the grouping by owned problem (transformation, enablement, AI adoption, change and culture; title is only the evidence), and an invitation to a 90-minute online discussion for change leads. Its shape: preparation, one question, real disagreements worked in speaker/listener pairs, then a hand-made letter, then one-on-ones offering a paid, bounded trial with terms agreed first. KPIs are asked in conversation, not guessed in the message. **Open, not decided:** impact hackathons in Asia vs company pilots, and finding a selling partner so the founder stays the builder; a partner becomes realistic once one paid team runs the loop without the founder.
+**Falsifier:** unchanged from 2026-11-02 once invitations go out (of the first 10 invited, fewer than 3 join).
+**Consequences:** lean-canvas §Channels and goals.md 3c still say outreach starts now; they need the shelving noted through /docs-strategy-update (not done here).
+**References:** 2026-11-02 [product] "Active channel moves to warm-network change leads" · goals.md 3a
+
 ## 2026-11-06 [technical]: The weekly read's noise gate tests counts only, and only a dismissal hides a failure (P1640)
 
 **Context:** Review across Gemini, GLM and Opus found the first noise gate wrong in four ways: the Poisson shift test also ran on durations, retention rates and pages per session; a failure trimmed by the 3-insight cap was never raised again; a dismissed rise also hid a later fall; and a confirmed failure that kept happening could never show as a pattern.
