@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 305
+**Next ID:** 306
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3637,5 +3637,16 @@ In the zsh agent shell, a failed step inside a multi-line Bash call did not stop
 **due:** week
 
 prod-health-smoke on /cm intermittently fails on a console error from the embedded Google Calendar iframe: Framing calendar.google.com violates a report-only frame-ancestors 'self' directive (Google's own report-only policy, not ours). Seen during P1648 verification; the same route passed 8 of 8 earlier that day. Decide whether to add a narrow PROD_HEALTH_ALLOWLIST.consolePatterns entry (exact substring including "report-only" and calendar.google.com, reviewed per that file's rule) or leave it. Droppable if no /cm prod-health failure of this shape recurs within two weeks.
+
+---
+
+## Check whether Enter stops sending in the canvas thread after a hand edit
+
+**ID:** INBOX-305
+**Date:** 2026-11-06
+**Status:** proposed
+**due:** week
+
+Found by the P1646 real-model e2e on TEST (2026-11-06, case 3c, run 2): on the owner's canvas draft, after editing a point with the pencil and Save, pressing Enter in the thread composer did not send the typed "A" (text stayed in the active textbox, Send enabled, no toast, no reply in 180 s). Evidence: e2e failure screenshot and error-context for case 3c in the P1646 worktree's test-results. Not reproduced by hand. Cheapest disproof: same flow, press Enter vs click Send; drop this if Enter sends.
 
 ---
