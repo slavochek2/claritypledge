@@ -324,7 +324,8 @@ test('case 3c: a letter after the canvas changed writes nothing and checks again
       await say(page, 'A');
       const r2 = await reply(page);
       const afterPick = await boxText(page, 'canvas:problem');
-      const stale = norm(r2).startsWith(STALE_LEAD);
+      // The reply element's text starts with its header ("Your mirror agent 8:12 PM"), so startsWith could never match (run 4).
+      const stale = norm(r2).includes(STALE_LEAD);
       const unchanged = afterPick === problemBefore;
       return { ok: stale && unchanged, note: `staleLeadFirst=${stale} problemUnchangedByPick=${unchanged} channelsGained=${changed} | tail: ${clip(r2, 500)} | problem: ${afterPick}` };
     });

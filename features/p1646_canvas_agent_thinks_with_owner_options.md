@@ -82,14 +82,38 @@ High blast radius: it changes every canvas chat reply that meets a conflict, and
 
 ## Acceptance Criteria
 
-- [ ] A fixture canvas whose Problem is "Teams lose files across devices": the owner sending "the problem is organisations waste money on other tools" gets a reply naming that point, a recommendation, at least two options each with one line of what it means for the canvas, and a request to confirm one; the canvas is unchanged and the choice is stored
-- [ ] Replying with the letter of a replace or add option applies exactly that option, and the reply says what changed and from which words; "keep" changes nothing and says so
-- [ ] A pick with no open choice, or after the canvas changed, is answered by offering the choice again; nothing is written
-- [ ] A plain new point with nothing to contradict is added as before, with no question
-- [ ] "Make it a Dropbox canvas from memory" writes nothing, and the reply asks for a fact the owner can give
-- [ ] A number the owner never said stays refused when an option is applied
-- [ ] Real model on TEST, 5 runs per case above, each case passing at least 4 of 5, recorded in the spec
-- [ ] Existing canvas suites pass
+- [x] A fixture canvas whose Problem is "Teams lose files across devices": the owner sending "the problem is organisations waste money on other tools" gets a reply naming that point, a recommendation, at least two options each with one line of what it means for the canvas, and a request to confirm one; the canvas is unchanged and the choice is stored
+- [x] Replying with the letter of a replace or add option applies exactly that option, and the reply says what changed and from which words; "keep" changes nothing and says so
+- [x] A pick with no open choice, or after the canvas changed, is answered by offering the choice again; nothing is written
+- [x] A plain new point with nothing to contradict is added as before, with no question
+- [x] "Make it a Dropbox canvas from memory" writes nothing, and the reply asks for a fact the owner can give
+- [x] A number the owner never said stays refused when an option is applied
+- [x] Real model on TEST, 5 runs per case above, each case passing at least 4 of 5, recorded in the spec
+- [x] Existing canvas suites pass
+
+**Real-model results (TEST, 2026-11-06, `e2e/p1646-real-run.spec.ts`, `--retries=0`, `FUNCTIONS: trusted (start match, end match)`).** Run 4 on the final engine code (commit 5e4dd2d78; the later migration only changes which thread rows the cleanup trigger watches, a path no case exercises). Every case is 5 fresh canvases seeded with "We sell a file sync app to small design teams for 12 dollars per user per month. Today teams lose files across devices."
+
+| Case | Criterion | Passed |
+|---|---|---|
+| 1. The conflict message gets the choice in the D2 shape; Problem unchanged | 1 | 5 of 5 |
+| 2. "A" applies the replace option; reply names old point, new point and the owner's words | 2 | 5 of 5 |
+| 2b. "B" applies the add option; the old point stays beside the new one | 2 | 5 of 5 |
+| 2 keep. "keep" changes nothing and says so | 2 | 5 of 5 |
+| 3a. A letter on a canvas that never had a choice: "There is no open choice to pick from", nothing written | 3 | 5 of 5 |
+| 3b. A letter on a settled (kept) choice: offered again, nothing written | 3 | 5 of 5 |
+| 3c. A letter after another message changed the canvas: "The canvas changed since I asked" and offered again, nothing written | 3 | 5 of 5 (re-run alone after a check fix, below) |
+| 4. "Our customers find us through design forums." is added to Channels with no question | 4 | 5 of 5 |
+| 5. "Make it a Dropbox canvas from memory" writes nothing; every reply asks who buys, what problem or what it costs (all five read by hand) | 5 | 5 of 5 |
+| 6. An offer on a message with no figure, then "A": no number other than 12 shown or written | 6 | 5 of 5 |
+
+How the numbers were reached, so they can be checked: runs 1 to 3 surfaced harness defects that each scored a correct behaviour as a failure, all fixed in the spec file, never by retrying a case until green: the thread renders "Updated: Problem." as a chip with no full stop; a box shows one card plus "See all N", so a second point was invisible to the test; the reply's own timestamp was read as an invented number; replies were read before they loaded. In run 4, case 3c checked that the reply *started* with the stale lead, but a reply element's text starts with its header, so the check could never pass; it was changed to "contains" and case 3c alone re-run (5 of 5). AC6 at apply time is also bound by a unit test whose mutation (switching off the pick-time re-check) fails it. Case 3a reads "no open choice" as a canvas that never had one: there is nothing to offer again, and the reply says so; 3b and 3c cover "offering the choice again". A hand edit is not used to change the canvas in 3c because after a pencil edit the composer does not send at all (Enter or the Send button); that is a client issue outside this branch, filed as INBOX-305; the hand-edit staleness itself is covered by the integration test.
+
+**Known limitations (set aside under the review stopping rule, each listed to the founder):**
+- A message that is still being answered when the owner edits or deletes an *earlier* message of the thread can store an offer quoting the removed words; the pick refuses to apply them (they are no longer the owner's material) and the next thread edit or the draft's close removes the row.
+- A request message older than the run's thread window (newest 500 rows or 150k characters) reads as "no open choice".
+- The SQL does not itself enforce one box per choice; the engine does.
+- The registry has no log-ingestion limit, so the Cost Budget's log row cannot be compared.
+- Any edit of an owner message in the thread drops an open choice (deliberate: an option may quote any owner message).
 
 ## Cost Budget
 

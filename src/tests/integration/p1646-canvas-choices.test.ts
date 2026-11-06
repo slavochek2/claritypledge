@@ -184,6 +184,26 @@ describe('P1646 canvas choices', () => {
     expect((await ws.choices())[0]).toMatchObject({ state: 'picked', picked_letter: 'B' });
   }, T);
 
+  it('Undo of an applied pick rewrites the agent reply but leaves the choice row (picked); an owner message edit in the thread still removes it', async () => {
+    const { ws } = await offered('undo');
+    const id = (await ws.choices())[0]!.id;
+    const { run, res } = await apply(ws, id, 'A');
+    expect(res.status, JSON.stringify(res)).toBe('ok');
+    const reply = (await admin.from('chat_messages').select('id, body').eq('canvas_run_id', run).eq('kind', 'agent').single()).data as Row;
+    const undone = await ok(ws.o.c, 'canvas_draft_undo', { p_draft: ws.draft, p_expected_run: run, p_expected_revision: ws.rev });
+    expect(undone.status, JSON.stringify(undone)).toBe('ok');
+    expect((await admin.from('chat_messages').select('body').eq('id', reply.id).single()).data!.body, 'the agent reply was rewritten').toBe('Undone.');
+    const rows = await ws.choices();
+    expect(rows, 'the agent-row edit did not wipe the choice').toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id, state: 'picked' });
+    await ws.state();
+    // an owner message of the same thread still removes it
+    const trig = ((await admin.from('canvas_draft_runs').select('trigger_message_id').eq('id', run).single()).data as Row).trigger_message_id;
+    const e = await rpc(ws.o.c, 'edit_chat_message', { p_message: trig, p_body: nn('owner edit after undo') });
+    expect(e.error, JSON.stringify(e.error)).toBeNull();
+    expect(await ws.choices()).toEqual([]);
+  }, T);
+
   it('keep changes nothing and closes the choice', async () => {
     const { ws, before } = await offered('keep');
     const id = (await ws.choices())[0]!.id;
