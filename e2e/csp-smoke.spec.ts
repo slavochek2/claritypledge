@@ -88,7 +88,7 @@ test.describe('CSP deploy smoke', () => {
       ).toHaveLength(0);
 
       // Last: no violation was reported, but did the recorder actually run?
-      recorder.assertExercised(recorderState);
+      recorder.assertExercised(recorderState, route);
     });
   }
 });

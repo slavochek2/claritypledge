@@ -86,7 +86,7 @@ test.describe('Prod health smoke', () => {
       ).toHaveLength(0);
 
       // Last: nothing was captured, but did the recorder actually run?
-      recorder.assertExercised(recorderState);
+      recorder.assertExercised(recorderState, route);
     });
   }
 });

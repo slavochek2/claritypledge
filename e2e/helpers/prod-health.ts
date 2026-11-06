@@ -98,13 +98,21 @@ export async function pollUntilStable(
 // (the recorder flushes every ~10s, later than pollUntilStable alone waits) and assertExercised
 // fails the test unless the recorder really reached /record. Works against an init that records
 // regardless of the flag as well.
+// P1648: routes whose page calls stop_session_recording() on mount (P1304: the room code in the URL is a
+// join capability). There the only /record is the flush the stop itself triggers, and when the stop lands
+// while the recorder is still starting nothing is flushed and recording is dead — a timing race that
+// failed /live in CI. On these routes 'timeout' passes only if the recorder bundle was requested (without
+// the opt-in it never is) and no CSP violation was seen; 'blocked' and a missing bundle still fail.
+// Guarded by src/tests/p1648-recorder-stopped-routes.test.ts.
+export const RECORDER_STOPPED_ON_MOUNT_ROUTES = ['/live'];
+
 export type RecorderFlushState = 'flushed' | 'blocked' | 'timeout';
 
 export interface RecorderWatch {
   /** 'flushed' on the first fulfilled /record, 'blocked' on a recorder CSP violation, else 'timeout'. Never throws. */
   waitForFirstFlush(timeoutMs?: number): Promise<RecorderFlushState>;
-  /** Throws unless `state` is 'flushed'. */
-  assertExercised(state: RecorderFlushState): void;
+  /** Throws unless `state` is 'flushed' (on a RECORDER_STOPPED_ON_MOUNT_ROUTES route: or 'timeout' with the bundle requested). */
+  assertExercised(state: RecorderFlushState, route?: string): void;
   fulfilledRecordCount(): number;
   recorderBundleRequested(): boolean;
   /** Recorder CSP violations seen so far (as of the last poll). */
@@ -166,8 +174,9 @@ export async function keepRecorderWithoutStoringReplays(page: Page): Promise<Rec
         }
       }
     },
-    assertExercised(state) {
+    assertExercised(state, route) {
       if (state === 'flushed') return;
+      if (state === 'timeout' && bundleRequested && route !== undefined && RECORDER_STOPPED_ON_MOUNT_ROUTES.includes(route)) return;
       throw new Error(
         `recorder never reached /record on this route: the smoke opt-in or the recorder is broken ` +
           `(state=${state}, recorder bundle requested=${bundleRequested}, ` +
