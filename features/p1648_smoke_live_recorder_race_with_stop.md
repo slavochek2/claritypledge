@@ -11,8 +11,11 @@ exec_model: opus
 exec_effort: high
 tags: [smoke, csp-smoke, prod-health, mixpanel, recorder, flake]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, fix]
+date_resolved: '2026-11-06'
+root_cause: /live stops the recorder on mount (P1304), so a /record post there is a race with the recorder bundle; the smoke required one
+resolution: on routes that stop the recorder on mount, 'timeout' passes only when the recorder bundle finished loading with an ok response and no recorder CSP violation was seen; drift guarded by an AST check of the mount effect
 ---
 
 # P1648: Prod smokes flake on /live because the page stops the recorder on mount
@@ -82,8 +85,29 @@ Name the routes whose page stops the recorder on mount. On those routes, `timeou
 
 ## Acceptance Criteria
 
-- [ ] `/live` smoke passes 10 of 10 against prod, and under an injected 80-250 ms recorder-bundle delay
-- [ ] Known-bad: with the opt-in flag misspelled, `/live` fails (bundle never requested)
-- [ ] Known-bad: a recorder CSP violation on `/live` still fails
-- [ ] Other routes still fail when `/record` is never posted
-- [ ] A test fails if a route in the exempt list stops being one that stops the recorder
+- [x] `/live` smoke passes 10 of 10 against prod, and under an injected 80-250 ms recorder-bundle delay
+- [x] Known-bad: with the opt-in flag misspelled, `/live` fails (bundle never requested)
+- [x] Known-bad: a recorder CSP violation on `/live` still fails
+- [x] Other routes still fail when `/record` is never posted
+- [x] A test fails if a route in the exempt list stops being one that stops the recorder
+- [x] Known-bad: a recorder bundle that was requested but never loaded (aborted, stalled or 4xx/5xx) on `/live` still fails
+
+## Resolution evidence (2026-11-06)
+
+Reproduce gate: no separate `/reproduce` run. The injected-delay probe in Root Cause is the reproduction, and the browser-level delayed test below is the canary. With the exemption removed (`RECORDER_STOPPED_ON_MOUNT_ROUTES = []`) it fails against prod (1 of 1 unexpected), and with it the test passes.
+
+Review round 1 (Gemini Argon, GLM, Codex) left three findings. Each now has a test that fails without its fix:
+
+| Finding | Fix | Fails without it |
+|---|---|---|
+| 1. Exemption accepted "bundle requested" | `requestfinished` + `response().ok()` sets `bundleLoaded`; exemption keys on it | `p1628-recorder-watch.test.ts`: the stalled and 404 cases fail (2 failed) when the check is switched back to `bundleRequested` |
+| 2. Drift guard matched comments | AST check: `analytics.stopSessionRecording()` must be a top-level statement of a `useEffect(..., [])` | Old regex returns `true` on the real page with the call commented out; new check rejects 5 mutations of the real page (line/block comment, conditional, deps added, string) |
+| 3. No browser-level test | `e2e/p1648-live-recorder-exemption.spec.ts` (runs only with `P1648_SMOKE_URL`) | Delayed case fails without the exemption (above) |
+
+Browser controls against prod (`P1648_SMOKE_URL=https://claritypledge.com`): 4 of 4 as expected. Delayed start passes (188 ms delay: `timeout`, bundle loaded, 0 `/record`). Misspelled opt-in fails (bundle never requested). CSP block fails (`blocked`; reporting directives stripped so nothing reached prod's CSP report endpoint). Aborted bundle fails (requested, not loaded).
+
+**10× against prod with an injected 80–250 ms bundle delay: 10 of 10 passed** (delays 236, 145, 224, 196, 147, 210, 192, 197, 134, 185 ms). In every run the state was `timeout` with the bundle loaded and 0 `/record`, so the race reproduced each time and the exemption carried it.
+
+Regular smokes against prod, unchanged routes: `csp-smoke` 8 of 8, `prod-health-smoke` 8 of 8. `tsc --noEmit` clean, eslint clean, unit tests 15 of 15.
+
+Not covered: the new browser spec does not run in the default e2e suite or in CI (opt-in env var), so it guards on demand, not on every change.
