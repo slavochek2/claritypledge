@@ -86,7 +86,7 @@ describe('canvas step states', () => {
     h.drafts = [{ canvasName: 'canvas_1', versionName: 'canvas_d111' }];
     renderStep();
     expect((await screen.findByRole('heading')).textContent).toBe('Finish your Clarity Canvas');
-    expect(screen.getByTestId('event-canvas-body').textContent).toBe("Your draft isn't published yet. Open it and publish it to finish this step.");
+    expect(screen.getByTestId('event-canvas-body').textContent).toBe("Your draft isn't published yet. Open it and publish it, then share it here.");
     expect(primaryButtons().map(b => b.textContent)).toEqual(['Continue your draft']);
     expect(screen.queryByText(/Share/)).toBeNull();
     fireEvent.click(primaryButtons()[0]!);
@@ -268,7 +268,7 @@ describe('afterPublishPath and PreparationBanner', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(screen.getByTestId('preparation-banner').textContent).toContain("You're preparing for the event. Draft your canvas with your mirror, then publish it to finish this step.");
+    expect(screen.getByTestId('preparation-banner').textContent).toContain("You're preparing for the event. Draft your canvas with your mirror and publish it, then share it with the event back in your preparation.");
     fireEvent.click(screen.getByTestId('preparation-banner-back'));
     expect(screen.getByTestId('where').textContent).toBe('/events/x/prepare');
   });

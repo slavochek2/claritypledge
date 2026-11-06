@@ -142,21 +142,23 @@ export function RegistrationQuestions({
         <div className="space-y-5" ref={form}>
           <fieldset className={`${ring('join')}`} data-question="join">
             <legend className="float-left mb-3 w-full p-0 text-sm font-medium">{copy.JOIN_QUESTION}</legend>
-<div className="clear-both space-y-2">
-            {copy.JOIN_OPTIONS.map(o => (
-              <ChoiceRow key={o.value} name={`${id}-j`} checked={join === o.value} label={o.label} onSelect={() => chooseJoin(o.value)} testId={`join-${o.value}`} errorId={rowError('join')} />
-            ))}
-            {errorLine('join', copy.MISSING.join)}
-          </div></fieldset>
+            <div className="clear-both space-y-2">
+              {copy.JOIN_OPTIONS.map(o => (
+                <ChoiceRow key={o.value} name={`${id}-j`} checked={join === o.value} label={o.label} onSelect={() => chooseJoin(o.value)} testId={`join-${o.value}`} errorId={rowError('join')} />
+              ))}
+              {errorLine('join', copy.MISSING.join)}
+            </div>
+          </fieldset>
           {join && (
             <fieldset className={`${ring('prep')}`} data-testid="prep-question" data-question="prep">
               <legend className="float-left mb-3 w-full p-0 text-sm font-medium">{copy.prepQuestion(join)}</legend>
-<div className="clear-both space-y-2">
-              {copy.prepOptions(join, doors).map(o => (
-                <ChoiceRow key={o.value} name={`${id}-p-${join}`} checked={prep === o.value} label={o.label} onSelect={() => setPrep(o.value)} testId={`prep-${o.value}`} errorId={rowError('prep')} />
-              ))}
-              {errorLine('prep', copy.MISSING.prep)}
-            </div></fieldset>
+              <div className="clear-both space-y-2">
+                {copy.prepOptions(join, doors).map(o => (
+                  <ChoiceRow key={o.value} name={`${id}-p-${join}`} checked={prep === o.value} label={o.label} onSelect={() => setPrep(o.value)} testId={`prep-${o.value}`} errorId={rowError('prep')} />
+                ))}
+                {errorLine('prep', copy.MISSING.prep)}
+              </div>
+            </fieldset>
           )}
           <div data-question="recording" className={ring('recording')}>
             <label className="flex min-h-10 cursor-pointer items-start gap-3 text-sm">
@@ -167,15 +169,16 @@ export function RegistrationQuestions({
           </div>
           <fieldset className={`${ring('phone')}`} data-question="phone">
             <legend className="float-left mb-3 w-full p-0 text-sm font-medium">{copy.PHONE_QUESTION}</legend>
-<div className="clear-both space-y-2">
-            {copy.PHONES.map(o => (
-              <ChoiceRow key={o.value} name={`${id}-m`} checked={phone === o.value} label={o.label} onSelect={() => setPhone(o.value)} errorId={rowError('phone')} />
-            ))}
-            {phone === 'other' && (
-              <p className="text-sm text-muted-foreground" data-testid="bring-own-mic">{copy.BRING_OWN_MIC}</p>
-            )}
-            {errorLine('phone', copy.MISSING.phone)}
-          </div></fieldset>
+            <div className="clear-both space-y-2">
+              {copy.PHONES.map(o => (
+                <ChoiceRow key={o.value} name={`${id}-m`} checked={phone === o.value} label={o.label} onSelect={() => setPhone(o.value)} errorId={rowError('phone')} />
+              ))}
+              {phone === 'other' && (
+                <p className="text-sm text-muted-foreground" data-testid="bring-own-mic">{copy.BRING_OWN_MIC}</p>
+              )}
+              {errorLine('phone', copy.MISSING.phone)}
+            </div>
+          </fieldset>
           <div>
             <label htmlFor={`${id}-hope`} className="mb-2 block text-sm font-medium">{copy.HOPE_QUESTION}</label>
             <Input id={`${id}-hope`} value={hope} maxLength={500} onChange={e => setHope(e.target.value)} />

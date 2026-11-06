@@ -437,13 +437,19 @@ then repeated with five with canvases.
 - [x] The host switches an event's flow before round 1 with Undo; prepare, room and close all follow;
       switching back restores selections and overrides; after round 1 starts, the row is gone and a
       direct call is refused.
-- [ ] An attendee picks an existing canvas or drafts one, publishes it, and shares it with the event,
-      each as its own tap; the step then reads "Your Clarity Canvas is shared" with "“{name}” is shared with this
-      event." (UAT round 2 wording). With an open draft of a new canvas, the step offers "Continue your draft",
-      which reopens that draft.
-- [ ] Change before round 1 replaces the shared canvas in one step and is offered only when another published
+- [x] An attendee with published canvases picks one and shares it with the event as its own tap; before round 1
+      the step then reads "Your Clarity Canvas is shared" with "“{name}” is shared with this event." (UAT round 2
+      wording; after round 1 it reads "You're ready. The host can add you to a coming round."). Evidence 2026-11-07:
+      e2e walk steps 4a/4b on TEST (61/61), unit tests per state, screenshots at 320/375/1280 (independent QA).
+- [ ] An attendee with no canvas creates one from step 4, drafts it with the mirror, publishes it, lands back in the
+      preparation and shares it as its own tap; with an open draft of a new canvas the step offers "Continue your
+      draft", which reopens that draft. Verified so far: Create opens the workspace with the preparation banner and
+      Back returns to state B (TEST capture, 2026-11-07); Publish returning to the preparation is unit-tested. The full
+      journey with the real model is not yet run: founder UAT on TEST.
+- [x] Change before round 1 replaces the shared canvas in one step and is offered only when another published
       canvas exists (otherwise "Make a different one", or "Continue your draft" with an open draft); after round 1,
-      Change is gone, and a chosen canvas no longer shared offers "Share again".
+      Change is gone, and a chosen canvas no longer shared offers "Share again". Evidence 2026-11-07: e2e walk step 4b
+      on TEST, unit tests per state A-G, screenshots at 320/375/1280 reviewed by an independent QA pass.
 - [x] An attendee without a canvas is told they will observe and is not blocked by preparation; the host
       flips an observer with a shared canvas to participant; flipping one without a canvas is refused
       with a reason.
@@ -585,6 +591,9 @@ From the founder trying the round-1 build on localhost (seeded room). Founder's 
 - After "Make a different one" and Publish, the step shows the earlier canvas as shared; sharing the new one is Change, then Share.
 - Share again cannot succeed for someone no longer admitted to the event (registered after the grace window, removed, or cancelled event); they see the error each time.
 - Argon on the consent checkbox: because it is required to register, it is a transparency notice, not GDPR consent; the Privacy Policy should rest this processing on contract (Art. 6(1)(b)) or legitimate interest (6(1)(f)). `[FOUNDER DECISION: check the Privacy Policy's stated basis.]`
+- The registration questions' labels float inside their outline (`float-left` legend); checked in Chromium screenshots at 320, 375 and 1280 only, not in Safari or Firefox.
+- Not covered by tests yet (reviewers' notes, behaviour is correct today): Artifacts' draft list keeping edit drafts in database order after the shared draft reader; a failed draft read showing Retry; the room card's Change path; border width staying constant across validation.
+- The live room's canvas card still reads "Your Clarity Canvas for this event: {name}" as its status line.
 - The expanded update task sometimes folds back on the first tap (seen intermittently in the walk, cause not found); a second tap holds.
 - A person who joins the waiting list and sees a place open in the same session gets an empty form until they reload; two alerts can show together on the host panel when one read fails. Small, recorded from the final review.
 - Latency was last measured before the final review fixes, which did not touch drafting.

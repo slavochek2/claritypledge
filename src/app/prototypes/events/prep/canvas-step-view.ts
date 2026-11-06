@@ -62,7 +62,7 @@ function startView(i: StepInput): StepView {
   const skip = onSkip ? mk('skip', 'Skip for now', null, onSkip, true) : null;
   if (hasOpenDraft) {
     // [FOUNDER DECISION: copy, proposed]
-    return done('B', 'Finish your Clarity Canvas', "Your draft isn't published yet. Open it and publish it to finish this step.",
+    return done('B', 'Finish your Clarity Canvas', "Your draft isn't published yet. Open it and publish it, then share it here.",
       mk('continue-draft', 'Continue your draft', 'Opening…', go.continueDraft), null, skip);
   }
   return done('A', 'Create your Clarity Canvas now', `About 15 minutes with your mirror.${wide ? '' : " It's easier on a desktop."}`,
