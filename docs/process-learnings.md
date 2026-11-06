@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 306
+**Next ID:** 308
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3648,5 +3648,27 @@ prod-health-smoke on /cm intermittently fails on a console error from the embedd
 **due:** week
 
 Found by the P1646 real-model e2e on TEST (2026-11-06, case 3c, run 2): on the owner's canvas draft, after editing a point with the pencil and Save, pressing Enter in the thread composer did not send the typed "A" (text stayed in the active textbox, Send enabled, no toast, no reply in 180 s). Evidence: e2e failure screenshot and error-context for case 3c in the P1646 worktree's test-results. Not reproduced by hand. Cheapest disproof: same flow, press Enter vs click Send; drop this if Enter sends.
+
+---
+
+## Plan how agent replies are laid out in chat (paragraphs, lists, emphasis), like Claude and ChatGPT
+
+**ID:** INBOX-306
+**Date:** 2026-11-06
+**Status:** proposed
+**due:** week
+
+Founder ask (2026-11-06, P1646 test): agent replies in canvas and chat threads render as plain text, so longer answers like the P1646 choice read as one block. Decide a formatting contract for every agent reply: blank-line paragraphs, lists, bold, maybe safe markdown rendering in the thread, and motion where it helps. Start with /create-spec. Droppable if the founder decides plain text with blank lines is enough.
+
+---
+
+## Canvas agent: a message about a different business should offer a separate canvas, not a conflict choice
+
+**ID:** INBOX-307
+**Date:** 2026-11-06
+**Status:** proposed
+**due:** week
+
+Seen in the founder's P1646 test (2026-11-06): a message describing a different offer was treated as a Customer Segments conflict, while the agent's own reason said it "belongs on a separate canvas". The engine already has other_canvases offers; the choice prompt should route a different business there instead of offering a replace. Start with /create-spec. Droppable if offers already cover it after a prompt tweak in a later spec.
 
 ---
