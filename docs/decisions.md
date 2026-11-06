@@ -8,6 +8,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-07 [technical]: A new event series reuses the hike page parts by series key; hike-only parts stay gated (drum circle)
+
+**Context:** The founder started a recurring Full Moon Drum Circle under Clarity Practice Community and wanted it to look like the social hikes: a photo strip from past sessions and attendee thank-you notes. On the event page, the photo strip, the reviews and the series fetch were all gated on the hike layout, so a second series could not use them.
+**Decision:** The series content (`series_photos`, `series_reviews`) loads and renders for any event with a `series_slug`. The hike stats row and route map stay gated on the hike layout. On a non-hike series page the reviews sit at the end of the description's first section, before its first sub-heading or the next `##` section, because the reviews describe that first part of the day; with fewer sections they follow the description. `/drum` and `/events/drum` resolve to the nearest public upcoming event with `series_slug=drum-circle`, matched on the stored key rather than a title pattern, so a renamed title cannot orphan the link (the `/hike` title-pattern failure of 2026-08-24).
+**Alternatives rejected:** A separate drum page component. It would duplicate the hike page and drift from it. Putting reviews into the description text loses the card format and the ranking in `series_reviews`.
+**Consequences:** UNTESTED. Falsifier: a third series needs code changes to the event page to get photos or reviews. The split rule depends on description structure; a non-hike series description with no `##` headings shows reviews after the whole description.
+**References:** commit 9fcdeb6f8; `api/series-redirect.ts` (`FIELD_SERIES.drum`); `splitAfterFirstSection` in `src/app/prototypes/events/hike/hike-utils.ts`; tests `src/tests/drum-series-reviews-placement.test.tsx`, `src/tests/drum-redirect.test.ts`.
+
+---
+
+## 2026-11-07 [process]: /fix lists the failure cases and states the cost budget before the first review (P1648)
+
+**Context:** P1648 took five review rounds. Each round a reviewer found the next way the "must still fail when the recorder is broken" rule could be beaten, because only the named case had been fixed. The same loop is recorded under P1425, P1536 and P1576. Two of the rounds also raised the missing Cost Budget for new tests that hit prod.
+**Decision:** `/fix` Phase 3 now asks for (1) a written list of every way the guarded thing can be broken, each with a failing test, before the first review, and (2) a Cost Budget whenever the fix adds traffic to a deployed or metered service. Founder approved the text 2026-11-07.
+**Alternatives rejected:** Leave it to review. That works but costs 4–5 rounds of reviewer quota and the founder's waiting time each time.
+**Consequences:** UNTESTED. Falsifier: the next /fix with a "must still fail" rule still needs 3 or more rounds to close it.
+**References:** `.claude/commands/slava/build/fix.md` Phase 3; decisions.md 2026-11-06 "A route that stops the recorder on mount proves the recorder ran, not that it recorded (P1648)"
+
+---
+
 ## 2026-11-06 [technical]: A route that stops the recorder on mount proves the recorder ran, not that it recorded (P1648)
 
 **Context:** P1628 made both prod smokes require a real `/record` on every route. `/live` deliberately calls `stop_session_recording()` on mount (P1304: the room code in its URL is a join capability). Whether a `/record` is ever posted there is therefore a race with the recorder bundle's arrival, and in CI the alert-only smokes failed on `/live` and opened issues 34 and 35. An injected 80–250 ms bundle delay reproduces it reliably.
