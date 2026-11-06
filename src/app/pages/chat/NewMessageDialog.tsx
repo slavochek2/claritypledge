@@ -255,7 +255,7 @@ export function NewMessageDialog({
               {state.people.length >= PAGE && <p className="px-4 pt-2 text-xs text-muted-foreground">Search to find someone else.</p>}
             </>
           )}
-          {state.status === 'ready' && state.people.length === 0 && (
+          {state.status === 'ready' && state.people.length === 0 && !showHandleHit && (
             <p className="px-6 py-8 text-center text-sm text-muted-foreground" data-testid="new-message-empty">
               {q
                 ? 'No one matches. You can message people you share a group, an event or a partnership with.'

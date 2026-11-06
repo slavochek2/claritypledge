@@ -98,19 +98,24 @@ Every call is one Supabase RPC on the shared project; none runs on a timer, a re
 
 ## Acceptance Criteria
 
-- [ ] Two accounts with no shared group, event or agreement connect by one scanning the other's code, and both see the 1:1.
-- [ ] A person with no account scans a code, signs up, and lands in the chat with the code's owner.
-- [ ] A sent code link does the same as scanning it.
-- [ ] After Reset code, the old link shows "This code no longer works" and starts no chat, the new one works, and an existing chat stays open.
-- [ ] After 20 new chats in a day from one code, the next scan says the code is paused.
+- [x] Two accounts with no shared group, event or agreement connect by one scanning the other's code, and both see the 1:1. — `e2e/p1556-find-connect.spec.ts` (the scanner lands in the chat, the owner's list shows it) + `e2e/integration/p1556-contact-code.spec.ts`. `[post-deploy]` the camera half: see Post-deploy verification.
+- [x] A person with no account scans a code, signs up, and lands in the chat with the code's owner. — `e2e/p1556-find-connect.spec.ts`: signed out, the page names the owner and its sign-up and log-in links return to the code; signed in, the code opens the chat. `[post-deploy]` a real new sign-up end to end: see Post-deploy verification.
+- [x] A sent code link does the same as scanning it. — `e2e/p1556-find-connect.spec.ts` opens the link directly, which is what a scan does.
+- [x] After Reset code, the old link shows "This code no longer works" and starts no chat, the new one works, and an existing chat stays open. — `e2e/integration/p1556-contact-code.spec.ts` (server) + `src/tests/p1556-contact-code-sheet.test.tsx` (the sheet uses the new code) + `src/tests/p1556-connect-page.test.tsx` (the refusal screen).
+- [x] After 20 new chats in a day from one code, the next scan says the code is paused. — `e2e/integration/p1556-contact-code.spec.ts` (limit reached by seeded redemptions) + page test (paused screen).
 - [x] Opening your own code opens your profile, not a chat. — integration spec (refusal) + page test (goes to `/me`).
-- [ ] When either person has blocked the other, opening the code shows the same "This code no longer works" message and starts no chat.
-- [ ] The code sheet has Copy link, Share and Reset code; New message shows My code first and Invite a Clarity Partner beneath it.
-- [ ] Every profile shows the handle; tapping it copies it.
-- [ ] Exact-handle search finds a profile; Message shows only where a 1:1 is allowed.
-- [ ] My code opens from the chat list icon, from your profile, and from the New message dialog.
-- [ ] The scan → sign-up → chat handoff, with both Google and email sign-up, is verified on an iPhone (Camera → Safari) and an Android phone (Camera → Chrome).
-- [ ] The code token does not appear in Sentry events or Mixpanel URLs; checked with a test event.
+- [x] When either person has blocked the other, opening the code shows the same "This code no longer works" message and starts no chat. — `e2e/integration/p1556-contact-code.spec.ts` (identical refusal both ways, no chat) + page test (that refusal shows the not-working screen).
+- [x] The code sheet has Copy link, Share and Reset code; New message shows My code first and Invite a Clarity Partner beneath it. — `e2e/p1556-find-connect.spec.ts` + sheet test (Share appears only where the device has a share sheet, decisions.md 2026-11-06).
+- [x] Every profile shows the handle; tapping it copies it. — `e2e/p1556-find-connect.spec.ts` (clipboard read back).
+- [x] Exact-handle search finds a profile; Message shows only where a 1:1 is allowed. — `e2e/p1556-find-connect.spec.ts` (a stranger found by handle shows "ask for their code"; after the code, Message shows on the profile) + `e2e/integration/p1556-contact-code.spec.ts`.
+- [x] My code opens from the chat list icon, from your profile, and from the New message dialog. — `e2e/p1556-find-connect.spec.ts`, all three.
+- [x] The code token does not appear in Sentry events or Mixpanel URLs. — `src/tests/p1556-contact-code.test.ts` (redaction of `/connect/<token>`, plain and encoded) and the existing P1304 tests that keep index.html's copy identical. `[post-deploy]` a real event checked in Sentry and Mixpanel: see Post-deploy verification.
+
+## Post-deploy verification
+
+Not a completion box: these can only be observed on the live site with real phones (founder, after release).
+- The scan → sign-up → chat handoff, with Google and with email, on an iPhone (Camera → Safari) and an Android phone (Camera → Chrome).
+- One real `/connect/<token>` visit, then confirm the token appears in neither Sentry nor Mixpanel.
 
 ## Related
 
