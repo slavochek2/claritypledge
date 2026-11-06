@@ -22,9 +22,10 @@ import { assembleMaterial } from './canvas-source.ts';
 import { RequestTooLarge, fitRequest } from './canvas-fit.ts';
 import { DeadlineExceeded } from './canvas-deadline.ts';
 import { costUsd, type GeminiRequest, type GeminiUsage, type TokenCounter } from './mirror-agent.ts';
-import { buildDraftRequest } from './canvas-prompt.ts';
+import { buildDraftRequest, choiceAllowed } from './canvas-prompt.ts';
 import { parseDraft } from './canvas-parse.ts';
 import { buildDraftReply, withCutNote } from './canvas-reply.ts';
+import { choiceRun, draftOffer, type RunTools } from './canvas-choice-run.ts';
 import { draftReplyOf, offersToAdd } from './canvas-run-reply.ts';
 import type { LinkResult } from './canvas-material.ts';
 import { frameOf, scopeOf } from './canvas-frame.ts';
@@ -115,7 +116,7 @@ function failureUsd(status: number, run: CanvasRun, extra: number): number | nul
 const failCode = (status: number) => (status === 429 || status === 403 ? 'capped' : status ? `http_${status}` : 'network');
 
 /** Everything one run's steps share. */
-interface Step {
+export interface Step {
   deps: RunDeps; run: CanvasRun; p: RunParams; input: MaterialInput; material: Material; unreadable: string[];
   stub: Record<string, unknown>; kind: RunKind; extra: number;
   /** What the run has spent so far, to settle if it ends here: an upload's extraction, then (once a model call is out) the reservation or the reported cost. */
@@ -126,7 +127,7 @@ const TIMEOUT_REPLY = 'That took too long, so nothing was changed. Please try ag
 const TOO_LARGE_REPLY = 'That is more than I can read in one go. Nothing was changed. Try a shorter file, or fewer files.';
 
 /** The request, with the material cut until the model's own count fits the reserved input; or the run's failure. */
-async function fitOrFail<T extends { request: GeminiRequest }>(s: Step, build: (cap: number) => T): Promise<(T & { tokens: number; counted: boolean }) | RunSummary> {
+export async function fitOrFail<T extends { request: GeminiRequest }>(s: Step, build: (cap: number) => T): Promise<(T & { tokens: number; counted: boolean }) | RunSummary> {
   try {
     return await fitRequest(build, s.deps.count, s.deps.signal);
   } catch (e) {
@@ -169,7 +170,7 @@ const zeroFacts = (s: Step) => ({ total: 0, unreadable: s.unreadable, droppedUnv
 type Fitted = { material: Material; request: GeminiRequest };
 
 /** The model call under the invocation's deadline, with the ledger kept true; the answer, or the run's failure. */
-async function askModel(s: Step, fit: Fitted, cut: (reply: string) => string): Promise<{ response: unknown } | RunSummary> {
+export async function askModel(s: Step, fit: Fitted, cut: (reply: string) => string): Promise<{ response: unknown } | RunSummary> {
   const { run, p, deps } = s;
   if (deps.signal?.aborted) return await failRun(deps, run, p, 'timeout', TIMEOUT_REPLY, s.ledger.usd);
   s.ledger.usd = run.reserved_usd ?? null; // the call is about to be out: if the run ends before its cost is known, the reservation is what it may have cost
@@ -202,6 +203,9 @@ async function failureOf(s: Step, out: ReturnType<typeof parseDraft>, usd: numbe
   return null;
 }
 
+/** The helpers canvas-choice-run.ts calls (passed, so neither module imports the other at run time). */
+const TOOLS: RunTools = { failRun, askModel, fitOrFail };
+
 /** The draft: one model call, the checks, one write. */
 async function runDraft(s: Step): Promise<RunSummary> {
   const { run } = s;
@@ -220,9 +224,11 @@ async function runDraft(s: Step): Promise<RunSummary> {
     material: fit.material, basePoints, baseLabel, otherNames: run.other_names, ownerName: run.owner_name,
     scope: scopeOf(frame), rebuild: frame.rebuild, currentFocus: run.focus ?? null, acceptFocus: run.first_draft === true && s.kind === 'message',
     knownGroups: (run.offers ?? []).map((o) => o.group_label), listOffers: s.kind !== 'focus', offersOnEmptyScope: s.kind === 'message' && run.input_kind === 'file', sections: frame.copySections ?? null,
+    allowChoice: choiceAllowed(frame, fit.material), // the same predicate and inputs the request's schema was built from
   });
   const usd = out.costUsd !== null ? out.costUsd + s.extra : run.reserved_usd ?? null;
-  return (await failureOf(s, out, usd, cut)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));
+  // P1646: a message that contradicts current points offers options and writes nothing until the owner picks
+  return (await draftOffer(s, TOOLS, out, cut, usd)) ?? (await failureOf(s, out, usd, cut)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));
 }
 
 type Parsed = Extract<ReturnType<typeof parseDraft>, { ok: true }>;
@@ -274,7 +280,7 @@ export async function executeRun(deps: RunDeps, p: RunParams, run: CanvasRun): P
     if (!material.items.some((i) => i.owner)) {
       return await failRun(deps, run, p, 'no_readable_material', buildDraftReply({ ...zeroFacts(step), outcome: 'failed' }), step.extra);
     }
-    return await runDraft(step);
+    return await (choiceRun(step, TOOLS) ?? runDraft(step)); // P1646: a short reply that picks from the latest choice, else a draft
   } catch (e) {
     console.error('canvas-draft: run crashed', { error: (e as Error).name });
     return await failRun(deps, run, p, 'internal', 'Something went wrong and nothing was changed. Please try again.', ledger.usd);

@@ -27,6 +27,7 @@ import { numbersIn } from './canvas-support.ts';
 import { groundPriceTerms, priceWordsOf, withPriceGap, type PriceWords } from './canvas-price.ts';
 import { withSectionsDecided } from './canvas-copy-sections.ts';
 import { droppedOf, guessedOf, vetEvidence, type Guess } from './canvas-guess.ts';
+import { readChoice } from './canvas-choice.ts';
 import type {
   BasePoint, Decided, DraftCounts, DraftOutcome, DraftPoint, ParseContext, ResolvedAction,
 } from './canvas-types.ts';
@@ -294,6 +295,7 @@ export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {
   const ctx = buildCtx(pc, scope);
   const acc = newAcc();
   applyAll(acc, ctx, pc, body.actions, scope.length > 0);
+  const choice = readChoice(body, pc, ctx, acc); // P1646: a message that contradicts current points, vetted as written points are
   collectConflicts(acc, body.conflicts, ctx.namesOther);
   const filled = boxesHolding(pc, acc, ctx);
   const emptyBoxes = BOX_DEFINITIONS.map((b) => b.tag).filter((t) => !filled.has(t));
@@ -303,6 +305,7 @@ export function parseDraft(response: unknown, pc: ParseContext): DraftOutcome {
     ...droppedOf(acc, ctx.base), guessed: guessedOf(acc), droppedNames: acc.droppedNames + extras.droppedNames, costUsd: read.costUsd,
     scope, changedBoxes: changedBoxesOf(acc, ctx, pc.basePoints), droppedScope: acc.droppedScope + extras.droppedScope, droppedCap: acc.droppedCap,
     focus: extras.focus, focusReason: extras.focusReason, otherCanvases: extras.otherCanvases, questions: scope.length ? withPriceGap(extras.questions, acc.actions, REVENUE, ctx.priceWords.owner, acc.priceDropped) : {}, note: extras.note,
+    ...(choice ? { choice } : {}),
   };
 }
 

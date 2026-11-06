@@ -1,5 +1,7 @@
 /** P1536: types shared by the canvas draft engine's modules. */
 
+import type { Choice } from './canvas-choice.ts';
+
 export interface CopyInput { label: string; lines: Array<{ by: 'owner' | 'other'; text: string }> }
 /** The message that started this run: always carried whole, outside the material cap (a message is never cut away to fit older material). */
 export interface TriggerInput { text: string; tagged?: string[] | null }
@@ -19,6 +21,8 @@ export interface MaterialItem {
   /** The trigger message: the boxes the owner tagged it with (null when untagged). */
   trigger?: boolean;
   tagged?: string[] | null;
+  /** P1646: the owner's message an earlier choice was about, read again when that choice is no longer open (shown as kind "earlier_request"). */
+  earlier?: boolean;
 }
 export interface Material { items: MaterialItem[]; tokens: number; truncated: boolean }
 
@@ -47,6 +51,8 @@ export interface RunFrame {
   inputKind?: 'text' | 'file' | 'voice';
   /** The groups of a pasted Copy prompt, in order, when they decide this first draft: the first is `focus`, the rest `knownGroups` (canvas-copy-sections.ts). */
   copySections?: readonly string[];
+  /** P1646: the owner is answering a choice that is no longer open: the earlier request is checked against the canvas as it is now. */
+  reoffer?: boolean;
 }
 /** A group the canvas already has (its focus or an offer), so a run says it in the same words and never adds it twice. */
 export interface KnownGroup { group: string; state: string }
@@ -103,6 +109,8 @@ export type DraftOutcome =
     /** { box tag: question } for scoped boxes only. */
     questions: Record<string, string>;
     note: string;
+    /** P1646: the message contradicts current points and the run offers options instead of writing (its actions are never sent). */
+    choice?: Choice | null;
   }
   | Failure;
 
@@ -131,4 +139,6 @@ export interface ParseContext {
   offersOnEmptyScope?: boolean;
   /** The groups of a pasted Copy prompt that decide this first draft: they replace the model's focus and offers (S2.5). */
   sections?: readonly string[] | null;
+  /** P1646: the model's "choice" is read (a message run on a canvas that already has a draft). Default false: every other run ignores it. */
+  allowChoice?: boolean;
 }

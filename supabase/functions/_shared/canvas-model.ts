@@ -109,7 +109,7 @@ const geminiShaped = (obj: unknown) => ({
   usageMetadata: { promptTokenCount: 1000, candidatesTokenCount: 500 },
 });
 
-const STUB_MARKER = /STUB-(REWORD|MOVE|DROP|UNVERIFIED|LEAK)/;
+const STUB_MARKER = /STUB-(REWORD|MOVE|DROP|UNVERIFIED|LEAK|CONFLICT)/;
 const TAGS = BOX_DEFINITIONS.map((b) => b.tag);
 
 /** Sentences of 12 to 300 characters from the owner's own words. */
@@ -152,7 +152,8 @@ function stubNewActions(stub: StubInput | undefined, sentences: string[]): Array
  *   - a sentence containing STUB-REWORD rewords the first base point (same box), STUB-MOVE moves it to the
  *     next box, STUB-DROP drops it;
  *   - STUB-LEAK adds a point naming the first other person (the name filter must drop it);
- *   - STUB-UNVERIFIED adds a point whose quote is not in the material (the quote check must drop it).
+ *   - STUB-UNVERIFIED adds a point whose quote is not in the material (the quote check must drop it);
+ *   - STUB-CONFLICT (P1646), with a current point: no actions, and a choice that replaces the first base point with that sentence.
  * It also returns `scope`: the boxes it wrote to (only an untagged message uses it).
  * Extract: a fixed transcription.
  */
@@ -163,6 +164,12 @@ export function stubCaller(): ModelCaller {
     }
     const sentences = ownerSentences(stub?.material);
     const base = stub?.basePoints ?? [];
+    const conflict = sentences.find((s) => s.includes('STUB-CONFLICT'));
+    const first = base[0];
+    if (conflict && first) {
+      const choice = { conflicts_with: [first.id], options: [{ kind: 'replace', box: first.box, quote: conflict, statement: Array.from(conflict).slice(0, 200).join(''), means: '' }], recommended: 'A', reason: '' };
+      return { response: geminiShaped({ focus: '', other_canvases: [], scope: [first.box], choice, actions: [], questions: [], note: '' }), status: 200 };
+    }
     const actions = [...stubBaseActions(base, sentences), ...stubNewActions(stub, sentences)];
     // an untagged message's scope is the boxes the stub wrote to (a tagged one ignores it; the server fixes that scope)
     const boxesOf = (a: Record<string, unknown>) => [a.box, base.find((p) => p.id === a.point_id)?.box];
