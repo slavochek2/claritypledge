@@ -94,19 +94,35 @@ Name the routes whose page stops the recorder on mount. On those routes, `timeou
 
 ## Cost Budget
 
-Verdict: on-demand test traffic only, about 0.1% of the Mixpanel Free limit in the registry (1M events/month) at an assumed 20 runs a month, and about 1% at 10x. The scheduled smokes are unchanged (P1628 budget). Stores no replays: every `/record` is answered locally or aborted.
+Verdict: fits. This is on-demand test traffic only; the scheduled smokes are unchanged (P1628 budget). Totals including current usage fit the registry's Free limits on both vendors today and at 10x. It stores no replays: every `/record` is answered locally or aborted.
 
-Measured per visit on 2026-11-06 (one page load with the opt-in, 22 s wait): `/live` = 1 `/track` request, 3 events, 2,853 bytes uploaded, 4 Supabase requests. `/` = 1 event, 16 Supabase requests.
+Measured per visit on 2026-11-06 (one page load with the opt-in, 22 s wait):
+- `/live`: 1 `/track` request, 3 events, 2,853 bytes uploaded; 4 Supabase requests, 31,550 response bytes.
+- `/`: 1 event, 1,084 bytes uploaded; 16 Supabase requests, 268,176 response bytes.
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
 | Mixpanel events | 0 added | 0 (not scheduled) | full spec: `7 /live visits x 3 + 1 / visit x 1 = 22`; 10x delayed run: `10 x 3 = 30` |
 | Supabase requests (prod, anon reads) | 0 added | 0 | full spec: `7 x 4 + 1 x 16 = 44`; 10x run: `10 x 4 = 40` |
-| Egress (bytes) | 0 added | 0 | Mixpanel upload: `7 x 2,853 + 1,084 = 21 KB`. Supabase response bytes not measured (same requests a smoke visit makes) |
+| Supabase egress (bytes) | 0 added | 0 | full spec: `7 x 31,550 + 268,176 = 489 KB`; 10x run: `10 x 31,550 = 316 KB` |
+| Supabase API log lines | 0 added | 0 | one edge log row per request: `44` and `40`. Bytes bounded at 2 KB/row (assumption, not measured): `88 KB` and `80 KB` |
+| Mixpanel upload (bytes) | 0 added | 0 | `7 x 2,853 + 1,084 = 21 KB` |
 | Replays stored | 0 | 0 | 0 (`/record` fulfilled locally or aborted) |
-| Log lines | 0 | 0 | 0 prod CSP reports: the two CSP controls strip `report-uri`/`report-to` before serving the page |
+| CSP report lines | 0 | 0 | 0: the CSP controls strip `report-uri`/`report-to` before serving the page |
 
-Monthly, assuming 20 full-spec runs and 20 10x runs: `20 x 22 + 20 x 30 = 1,040 events` against 1M (0.1%); at 10x, `10,400` (1%). Rule 6, tests as traffic: no test users are created or deleted, and the TEST project is not touched. The Mixpanel plan in use is still unchecked, as the registry notes; these figures fit Free, the lowest.
+Monthly, assuming 20 full-spec runs and 20 10x runs:
+- Mixpanel: `20 x 22 + 20 x 30 = 1,040 events`; at 10x `10,400`.
+- Supabase requests: `20 x 44 + 20 x 40 = 1,680`.
+- Egress: `20 x 489 KB + 20 x 316 KB = 16.1 MB`, which is 0.3% of the 5 GB Free egress.
+- Log volume: `1,680 x 2 KB = 3.4 MB`.
+- At 10x: `16,800` requests, `161 MB` egress (3.2%), `34 MB` logs.
+
+**Total fit against current usage** (private readings in `.private/docs/usage/`):
+- Mixpanel: the 30-day event count read 2026-11-05, plus 1,040 (or 10,400), stays far below 1M.
+- Prod Supabase organisation: on the 2026-10-21 reading, the prod daily rates for egress, cached egress and log ingestion project well below their Free limits for the cycle, and the added 16 MB egress and 3.4 MB logs (161 MB / 34 MB at 10x) do not change that.
+- The 2026-10 organisation overrun in the registry came from the TEST project's share, before P1538 gave TEST its own organisation.
+
+Rule 6 (tests as traffic): no test users are created or deleted, and the TEST project is not touched. The Mixpanel plan in use is still unchecked, as the registry notes; these figures fit Free, the lowest.
 
 ## Resolution evidence (2026-11-06)
 
@@ -119,7 +135,7 @@ Founder-supplied round-1 findings, each with a test that fails without its fix:
 | Finding | Fix | Fails without it |
 |---|---|---|
 | 1. Exemption accepted "bundle requested" | ok response + bundle ran (constructor in `__mp_recorder`) | Unit: stalled and 404 fail when switched back to `bundleRequested`; "200 but never executed" fails without the `ran` check; `null`/`{}`/string in the slot fail. Browser: aborted and empty-200 controls |
-| 2. Drift guard matched comments | AST check: `analytics.stopSessionRecording()` must be a top-level statement of a `useEffect(..., [])` | Old regex returns `true` on the real page with the call commented out; the new check rejects 5 mutations of the real page |
+| 2. Drift guard matched comments | AST check, scoped to the page component (`ClarityLivePage`): a top-level `useEffect(..., [])` before the component's first `return`, whose body reaches `analytics.stopSessionRecording()` before any `return` | Old regex returns `true` on the real page with the call commented out. The new check rejects 8 mutations of the real page: line/block comment, conditional, deps added, string, early return in the effect, effect moved to an unrendered component, wrong component name. Codex's round-3 probe showed the earlier AST check accepting the early-return and unrendered cases |
 | 3. No browser-level test | `e2e/p1648-live-recorder-exemption.spec.ts`, 8 tests, runs only with `P1648_SMOKE_URL` (which also skips the local webServer) | Deterministic /live exemption test fails without the exemption; worker-block control fails without the worker filter |
 
 **Final code, against prod, retries off:**
@@ -131,7 +147,7 @@ Founder-supplied round-1 findings, each with a test that fails without its fix:
   - Aborted bundle fails. Empty-200 bundle fails.
 - **10× with an injected 80–250 ms bundle delay: 10 of 10 passed.** 8 hit the race (`timeout`, loaded, ran, 0 `/record`) and passed through the exemption; 2 flushed normally (219, 85 ms). Earlier 10× runs on the round-1 and round-2 code also passed 10 of 10.
 - `csp-smoke` 8 of 8, `prod-health-smoke` 8 of 8.
-- Locally: `tsc --noEmit` clean, eslint clean, unit tests 18 of 18.
+- Locally: `tsc --noEmit` clean, eslint clean, unit tests 22 of 22.
 
 One earlier `prod-health-smoke` run failed on `/cm`. Google Calendar's iframe logged a report-only `frame-ancestors` error, which is unrelated to this change; filed as INBOX-304.
 
