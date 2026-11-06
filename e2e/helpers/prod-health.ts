@@ -103,9 +103,11 @@ export async function pollUntilStable(
 // while the recorder is still starting nothing is flushed and recording is dead — a timing race that
 // failed /live in CI. On these routes 'timeout' passes only if the recorder bundle finished loading with an
 // ok response (without the opt-in it is never requested; a stalled, aborted or 4xx/5xx download never
-// finishes ok) AND the bundle executed (it sets window.__mp_recorder; an empty or broken 200 does not), and
-// no recorder CSP violation was seen up to the deadline. 'blocked', or a bundle that never loaded or never
-// ran, still fails. That is the most /live can prove: the page stops the recorder, so no /record is owed.
+// finishes ok) AND the bundle ran to its end (its last statement sets window.__mp_recorder to the recorder
+// constructor; an empty or broken 200 does not), and no recorder CSP violation (worker blocks included) was
+// seen up to the deadline. 'blocked', or a bundle that never loaded or never ran, still fails. Whether a
+// recording session then STARTED is not provable on /live, since the page stops it; the other smoke routes
+// still require a real /record, so a recorder that loads but never records fails there.
 // Guarded by src/tests/p1648-recorder-stopped-routes.test.ts.
 export const RECORDER_STOPPED_ON_MOUNT_ROUTES = ['/live'];
 
@@ -155,7 +157,11 @@ export async function keepRecorderWithoutStoringReplays(page: Page): Promise<Rec
     w.__p1628RecorderViolations = [];
     document.addEventListener('securitypolicyviolation', (e) => {
       const blocked = e.blockedURI || '';
-      if (blocked.includes('mixpanel-recorder') || blocked.includes('/record')) {
+      // P1648: the recorder starts its compression worker from a blob: URL (data: as fallback), and a
+      // worker-src block reports only 'blob'/'data', never the recorder's name. Counted here so a blocked
+      // worker cannot pass the /live exemption; an app worker blocked this way fails the smokes anyway.
+      const workerBlock = e.violatedDirective.startsWith('worker-src') && /^(blob|data)(:|$)/.test(blocked);
+      if (blocked.includes('mixpanel-recorder') || blocked.includes('/record') || workerBlock) {
         w.__p1628RecorderViolations.push(`${e.violatedDirective} blocked ${blocked}`);
       }
     });
@@ -190,7 +196,9 @@ export async function keepRecorderWithoutStoringReplays(page: Page): Promise<Rec
           try {
             const last = await page.evaluate(() => {
               const w = window as unknown as { __p1628RecorderViolations?: string[]; __mp_recorder?: unknown };
-              return { seen: w.__p1628RecorderViolations ?? [], ran: w.__mp_recorder !== undefined };
+              // The bundle's last statement assigns its recorder constructor here, so a bundle that threw
+              // part-way, or anything else in this slot, does not count as having run.
+              return { seen: w.__p1628RecorderViolations ?? [], ran: typeof w.__mp_recorder === 'function' };
             });
             initialised = last.ran;
             if (last.seen.length > 0) {

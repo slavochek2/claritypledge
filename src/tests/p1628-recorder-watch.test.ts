@@ -41,7 +41,7 @@ function stubPage() {
 type W = { __p1628RecorderViolations?: string[]; __mp_recorder?: unknown };
 const win = () => window as unknown as W;
 /** What the recorder bundle does when it executes (it assigns window.__mp_recorder). */
-const recorderRan = () => { win().__mp_recorder = {}; };
+const recorderRan = () => { win().__mp_recorder = function Recorder() {}; };
 
 describe('P1628: recorder watch', () => {
   beforeEach(() => { delete win().__mp_recorder; delete win().__p1628RecorderViolations; });
@@ -85,13 +85,25 @@ describe('P1628: recorder watch', () => {
       expect(() => watch.assertExercised(state, '/live')).toThrow(/ran=false/);
     });
 
+    // Review round 3 (Codex HIGH): a bundle that put something else in the slot, or threw before its last line.
+    it('/live CONTROL: a non-constructor in window.__mp_recorder does not count as run', async () => {
+      for (const value of [null, {}, 'x']) {
+        const { page, finish } = stubPage();
+        const watch = await keepRecorderWithoutStoringReplays(page);
+        await finish(BUNDLE, 200);
+        win().__mp_recorder = value;
+        const state = await watch.waitForFirstFlush(50);
+        expect(() => watch.assertExercised(state, '/live'), String(value)).toThrow(/ran=false/);
+      }
+    });
+
     // Review round 2: a violation that lands after the last poll is still caught by the deadline read.
     it('/live CONTROL: a recorder CSP violation at the deadline fails', async () => {
       const { page, finish } = stubPage();
       let polls = 0;
       (page as unknown as { evaluate: (fn: () => unknown) => Promise<unknown> }).evaluate = async (fn) => {
         polls += 1;
-        if (polls > 1) win().__p1628RecorderViolations = ['worker-src blocked blob:mixpanel-recorder'];
+        if (polls > 1) win().__p1628RecorderViolations = ['script-src blocked https://cdn.mxpnl.com/libs/mixpanel-recorder.min.js'];
         return fn();
       };
       const watch = await keepRecorderWithoutStoringReplays(page);

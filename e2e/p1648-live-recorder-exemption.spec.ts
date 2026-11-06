@@ -8,7 +8,7 @@
  *   - delayed recorder start (80-250 ms, the window that reproduced the CI flake) -> must PASS
  *   - recorder ran but no /record (forced) -> PASS on /live, FAIL on / (CONTROL)
  *   - misspelled opt-in flag (bundle never requested)                            -> must FAIL
- *   - recorder CSP-blocked                                                       -> must FAIL
+ *   - recorder CSP-blocked (bundle, or its blob:/data: worker)                   -> must FAIL
  *   - recorder bundle download aborted (requested, never loaded)                  -> must FAIL
  *   - recorder bundle answered 200 but empty (loaded, never ran)                  -> must FAIL
  *
@@ -110,6 +110,29 @@ test.describe('P1648: /live recorder exemption (browser-level)', () => {
     await page.goto(BASE_URL + ROUTE);
     const state = await watch.waitForFirstFlush();
     expect(state).toBe('blocked');
+    expect(() => watch.assertExercised(state, ROUTE)).toThrow(/recorder never reached/);
+  });
+
+  test('CONTROL: recorder worker CSP-blocked fails', async ({ page }) => {
+    const watch = await keepRecorderWithoutStoringReplays(page);
+    // The recorder starts its worker from blob: (data: as fallback). Drop both from worker-src; the bundle
+    // itself still loads and runs. Reporting directives dropped as in the control above.
+    await editDocument(page, (_body, headers): undefined => {
+      const csp = headers['content-security-policy'];
+      expect(csp, 'deployed /live has no CSP header to tighten').toBeTruthy();
+      const tightened = csp
+        .split(';')
+        .map((d) => d.trim())
+        .filter((d) => !/^report-(uri|to)\b/.test(d))
+        .map((d) => (d.startsWith('worker-src ') ? d.split(/\s+/).filter((t) => t !== 'blob:' && t !== 'data:').join(' ') : d))
+        .join('; ');
+      expect(tightened, 'worker-src rewrite did nothing: the prod CSP shape changed').not.toMatch(/worker-src[^;]*\b(blob|data):/);
+      headers['content-security-policy'] = tightened;
+    });
+    await page.goto(BASE_URL + ROUTE);
+    const state = await watch.waitForFirstFlush();
+    const summary = `state=${state} loaded=${watch.recorderBundleLoaded()} ran=${watch.recorderInitialised()} violations=${watch.recorderViolations().join(' | ')}`;
+    expect(state, summary).toBe('blocked');
     expect(() => watch.assertExercised(state, ROUTE)).toThrow(/recorder never reached/);
   });
 
