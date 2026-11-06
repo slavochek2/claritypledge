@@ -1,18 +1,18 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 113
 workstream: events
 created_date: '2026-11-06'
 tags: [events, short-links, hidden-events, series-redirect, sales-mastermind, migration]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: sonnet
 exec_model: opus
 exec_effort: high
 spec_review_hash: b75b737ac2e9244d5a440b0147a8ec994456af3ca9a98c88089a5ea3526921ed
 spec_review_vendors: [gemini]
+completed_at: 2026-11-06
 ---
 
 # P1649: Series short links resolve hidden events too, and `/sales` joins them
