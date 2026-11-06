@@ -133,19 +133,19 @@ test('an agent account has no code and cannot be reached by one', async () => {
   const F = await mk('F');
   const sF = await signIn(F);
   const fToken = await myCode(sF); // made while F is still a person
-  await supabaseAdmin.from('agent_accounts').insert({ profile_id: F.user.id, subject_key: `p1556-${RUN}`, operator_name: 'P1556 test' });
-  try {
+  // Control first: while F is a person, F's code works (C has no chat with F yet).
+  await ok<string>(redeem(sC, fToken), 'C redeems F code while F is a person');
+  // An agent row cannot be deleted directly (trg_guard_agent_account_delete, P1104); deleting F in afterAll cascades it.
+  const { error: insErr } = await supabaseAdmin.from('agent_accounts').insert({ profile_id: F.user.id, subject_key: `p1556-${RUN}`, operator_name: 'P1556 test' });
+  expect(insErr).toBeNull();
+  {
     const err = await refused(sF.client.rpc('get_my_contact_code'), 'agent reads a code');
     expect(err.message).toContain('contact code: not available');
     await refused(sF.client.rpc('reset_my_contact_code'), 'agent resets a code');
     expect(await ok<unknown[]>(anonClient().rpc('lookup_contact_code', { p_token: fToken }), 'anon looks up the agent code')).toHaveLength(0);
     const r = await refused(redeem(sE, fToken), 'E redeems the agent code');
     expect(r.message).toContain('contact code: not available');
-  } finally {
-    await supabaseAdmin.from('agent_accounts').delete().eq('profile_id', F.user.id);
   }
-  // Control: the same code works once F is a person again.
-  await ok<string>(redeem(sE, fToken), 'E redeems F code after F is a person');
 });
 
 test('exact handle finds a profile; Message only where a 1:1 is allowed; blocked people are not found', async () => {
