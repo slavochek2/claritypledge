@@ -490,6 +490,45 @@ An invented 15-minute transcript (`scripts/fixtures/p1529-round-transcript.json`
 
 12 owners at once, 192 lines each, real model: tap to ready 11.2 s min, 13.0 s median, 15.1 s max; 0 failures; all 12 in the round mode; $0.3956 in total, about $0.03 a run, 192 lines copied per run, none cut (`scripts/p1529-latency-check.mjs`). How soon words show the host, from the code: slices every 13 s, plus transcription, plus the host's 15 s read, so about 43 s at worst.
 
+## Founder UAT round 1 (2026-11-06): to build next
+
+Founder decisions still open are marked `[FOUNDER DECISION]`; everything else is the founder's request with its answer.
+
+**Event page**
+- Delete "Limited to 24 registrations. Can't make it? Please cancel..." from the middle of the page.
+- Show "x of y seats left" just below both Register buttons (top and bottom). `[FOUNDER DECISION: always, or only from 8 registrations, or only at 5 or fewer (D18)]`. A limit is set when creating an event: check the create/edit UI and add the field if missing.
+- Top and bottom buttons use the same label as the dialog: decide one word (Register or Reserve a seat) and use it everywhere, including the dialog title.
+
+**Registration dialog**
+- Question 1: "In which role would you like to participate?" Options: "I want to stress-test my riskiest business assumptions with peers" / "I want to help others succeed, as an observer or mentor".
+- Question 2 asks WHEN, not where: "When will you invest 15 minutes to create your Clarity Canvas?" (owners) and the observer version with 7 minutes `[FOUNDER DECISION: confirm 15 and 7]`. Options: "At home, before the event" / "I'll come earlier, at 18:00, and prepare there".
+- Checkbox, shorter, value first, no "record", no "publish": "To help every participant gain the most value, we transcribe your conversations with Google Gemini. The text is shared in the event chat with all attendees. After a discussion round, your peer can use the transcript to improve their Clarity Canvas." Reassure that nothing said is quoted: the canvas is inspired, not copied. Run the final text past Gemini 4 Argon (the founder delegated legal wording to it).
+- "See our Terms and Privacy Policy" moves below the Continue button.
+- Phone input: options iPhone / USB-C / Other; consider a small info icon showing the two plugs.
+- Last question: "How do you expect to gain the most value from the event?" (optional).
+- "Next, sign in to confirm your place" becomes the shortest possible line, below Continue.
+- Present the questions as one continuous flow (the second appears after the first).
+
+**Preparation**
+- The "do you have 6 minutes" line must say the real time by role (about 7 for observers, 15 for owners).
+- "Your Clarity Canvas for this event" moves INSIDE preparation as step 4, for owners only; observers don't see it. Steps: learning, principle, survey, then create, publish and share the canvas, returning to preparation after Publish.
+- "Thank you for preparing" says the person's own time: 18:00 or 18:30.
+- The calendar invite uses the person's own arrival time (18:00 for those coming early).
+
+**Event room**
+- Sharing the canvas leaves the Principle step; it lives in preparation.
+- "Learn and prepare" stays in the room menu for everyone, done or not, as on the hikes; reuse the hike's sub-menu pattern.
+
+**Host screen**
+- Get a Gemini 4 Argon critique for redundancy and usability first, then redesign. Known: the host appears twice (People and the table list); "comes at the doors time" belongs in the person's row; check what each control does.
+- Recording: three states per person, not a waveform (decided; revisit after the real-mic test).
+- Timings: confirm round length (about 15 to 20 minutes) and observer time (about 3 minutes) `[FOUNDER DECISION]`.
+- Flow switch stays possible only until round 1 (D8).
+- Seed a localhost room with enough registered fake people for the founder to try the host screen.
+
+**Waiting list**
+- The host can't see emails, so "the host will email you" is not true today. `[FOUNDER DECISION: show waiting-list emails to the host, with a terms line (recommended), or change the copy to "check back here"]`.
+
 ## Known Limitations
 
 - The expanded update task sometimes folds back on the first tap (seen intermittently in the walk, cause not found); a second tap holds.
