@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: comment
 rank: 107
 workstream: infrastructure
@@ -150,7 +150,9 @@ The set is selected to include context-dependent defects, so a win justifies a f
 - [x] Results table per setup: defects found by type, false claims per review, real-but-unexpected findings, A's spread, tool calls, tokens and cost per review
 - [x] Verdict for C and D (or B) written against Decision Criteria and recorded in `docs/decisions.md`, even if the answer is "no change"
 - [x] Test profile, gateway copy and DSH home removed. Checksums of everyday DSH's configuration files and the gateway's LaunchAgent match those taken before the experiment, and it is still disabled
-- [ ] Founder decision recorded in this spec: no change, or a follow-up spec is filed
+- [x] Founder decision recorded in this spec: no change, or a follow-up spec is filed
+
+**Founder decision (2026-11-06): no change.** Today's reviewer stays, as the pre-registered criteria require, and no follow-up spec is filed.
 
 Results and verdict: [docs/audits/p1638-results.md](../docs/audits/p1638-results.md).
 
