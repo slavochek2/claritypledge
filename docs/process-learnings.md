@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 300
+**Next ID:** 303
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
