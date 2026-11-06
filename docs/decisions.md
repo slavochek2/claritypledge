@@ -9,6 +9,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 
+## 2026-11-06 [product]: The code sheet shows Share only where a share sheet exists; the connect page has one action (P1556)
+
+**Context:** Founder UAT of the P1556 build on desktop: Copy link and Share did the same thing there, because Share fell back to copying when the browser has no share sheet. The founder also asked whether the connect page should link the owner's name to their profile, show the pledge ring, and keep the footer.
+**Decision:** Share appears only where the browser offers a share sheet (phones, Safari); elsewhere the sheet shows Copy link alone, so two buttons never do one thing. Both stay outline buttons with Reset as a quiet text link, since none is the screen's single main action. The connect page does not link the owner to their profile: its one job is getting the scanner into the chat, and a profile link is a way out of that. The pledge ring is not shown there yet (the public lookup returns name and photo only). The footer with Privacy and Terms stays, as on every product page.
+**Alternatives rejected:** Share always visible and copying on desktop (two identical buttons). A primary blue Copy or Share (neither is the one action the sheet exists for; the QR is). Linking the name to the profile.
+**Consequences:** Adding the pledge ring means returning `has_pledged` from the lookup, which is a later small change. UNTESTED on real phones; falsifier: people at a real meeting look for Share on a desktop, or tap the owner's name expecting a profile.
+**References:** [p1556](../features/p1556_find_and_message_a_person.md)
+
 ## 2026-11-06 [product]: The product read is weekly, and its /day check reads only what /weekly wrote (P1640)
 
 **Context:** The founder asked for daily insights from Mixpanel ("who spends how much time? who is returning"). At current visitor volume, two external reviewers warned that a daily comparison invites patterns that are noise.
