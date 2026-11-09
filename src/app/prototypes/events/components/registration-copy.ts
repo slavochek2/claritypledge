@@ -14,17 +14,17 @@ export const JOIN_OPTIONS: { value: JoinChoice; label: string }[] = [
   { value: 'help', label: 'I want to help others succeed, as an observer or mentor' },
 ];
 
-/** Minutes of preparation by role (founder confirmed 15 and 7, 2026-11-06). Preparation's time line reads these too. */
-export const OWNER_PREP_MINUTES = 15;
-export const OBSERVER_PREP_MINUTES = 7;
+/** Minutes of preparation by role (founder confirmed 25 and 10, 2026-11-09). Preparation's time line reads these too. */
+export const OWNER_PREP_MINUTES = 25;
+export const OBSERVER_PREP_MINUTES = 10;
 
 /**
- * The second question asks WHEN. [FOUNDER DECISION: the observer wording is the owner's with 7 minutes and "to prepare",
+ * The second question asks WHEN. [FOUNDER DECISION: the observer wording is the owner's with 10 minutes and "to prepare",
  * adapted by the builder; the spec gives only the owner's.]
  */
 export function prepQuestion(join: JoinChoice): string {
   return join === 'improve'
-    ? `When will you invest ${OWNER_PREP_MINUTES} minutes to create your Clarity Canvas?`
+    ? `When will you invest ${OWNER_PREP_MINUTES} minutes to prepare and create your Clarity Canvas?`
     : `When will you invest ${OBSERVER_PREP_MINUTES} minutes to prepare?`;
 }
 /** `doors` is formatted from the event (18:00 for the test event), never typed. Stored values stay home / event. */

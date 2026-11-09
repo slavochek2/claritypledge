@@ -167,11 +167,11 @@ test('AC1+2: registration asks before the seat; the limit; Clarity Night stays o
     await dlg.getByTestId('registration-submit').click();
     await expect(dlg.getByTestId('missing-prep')).toBeVisible();
     await shots(page, 'registration', 'missing-after-first');
-    await expect(dlg.getByTestId('prep-question')).toContainText('When will you invest 15 minutes to create your Clarity Canvas?');
+    await expect(dlg.getByTestId('prep-question')).toContainText('When will you invest 25 minutes to prepare and create your Clarity Canvas?');
     await dlg.getByTestId('prep-event').click();
     await shots(page, 'registration', 'improve-branch');
     await dlg.getByTestId('join-help').click();
-    await expect(dlg.getByTestId('prep-question')).toContainText('When will you invest 7 minutes to prepare?');
+    await expect(dlg.getByTestId('prep-question')).toContainText('When will you invest 10 minutes to prepare?');
     await expect(dlg.getByTestId('prep-home')).not.toBeChecked();
     await expect(dlg.getByTestId('prep-event')).not.toBeChecked();
     await shots(page, 'registration', 'help-branch');

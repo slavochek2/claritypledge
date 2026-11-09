@@ -1,7 +1,7 @@
 /**
  * @file use-my-arrival.ts
- * @description P1529 UAT round 1: the person's own role and arrival time in a flow that asks. An owner makes a canvas (15 minutes of
- * preparation), an observer prepares (7); someone who chose to prepare at the event comes at the doors time, everyone else at the
+ * @description P1529 UAT round 1: the person's own role and arrival time in a flow that asks. An owner makes a canvas (25 minutes of
+ * preparation), an observer prepares (10); someone who chose to prepare at the event comes at the doors time, everyone else at the
  * start. `undefined` while the read is out; `null` for any event or person without answers.
  */
 import { useCallback, useEffect, useState } from 'react';

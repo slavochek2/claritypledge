@@ -64,7 +64,7 @@ describe('canvas step states', () => {
   it('A: no canvas, no draft', async () => {
     renderStep();
     expect((await screen.findByRole('heading')).textContent).toBe('Create your Clarity Canvas now');
-    expect(screen.getByTestId('event-canvas-body').textContent).toBe('About 15 minutes with your mirror.');
+    expect(screen.getByTestId('event-canvas-body').textContent).toBe('About 12 minutes with your mirror.');
     expect(primaryButtons()).toHaveLength(1);
     expect(primaryButtons()[0]!.textContent).toBe('Create your canvas');
     expect(within(bar()).getByTestId('event-canvas-primary')).toBeTruthy(); // the primary is in the bottom bar
@@ -80,7 +80,7 @@ describe('canvas step states', () => {
   it('A on a narrow viewport adds the desktop hint', async () => {
     h.wide = false;
     renderStep();
-    expect((await screen.findByTestId('event-canvas-body')).textContent).toBe("About 15 minutes with your mirror. It's easier on a desktop.");
+    expect((await screen.findByTestId('event-canvas-body')).textContent).toBe("About 12 minutes with your mirror. It's easier on a desktop.");
   });
   it('B: an open draft, nothing published; Continue reopens THAT draft, never start()', async () => {
     h.drafts = [{ canvasName: 'canvas_1', versionName: 'canvas_d111' }];

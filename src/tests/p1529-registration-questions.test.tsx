@@ -14,7 +14,7 @@ import { RegistrationQuestions, PlacesLeftLine, missingLines, missingKeys } from
 import { ROUND_UPDATE_CONSENT } from '@/app/components/session/capture-copy';
 import { formatDoorsTime, formatStartTime } from '@/app/prototypes/events/event-doors';
 
-const NEW = 'We capture table conversations with a mic, and Google Gemini turns them into text in the event chat for the host and registered attendees. The peer whose Clarity Canvas you discuss can use AI to draft an update from your conversation transcript.';
+const NEW = 'You\'re OK with table conversations being captured with a microphone. Google Gemini turns the audio into text in the event chat, which the host and registered attendees can read. The peer whose Clarity Canvas you discuss can use AI to draft an update from these transcripts.';
 const DATETIME = '2026-11-14T11:30:00+00:00'; // 18:30 in Bangkok, doors 18:00
 const base = { datetime: DATETIME, timezone: 'Asia/Bangkok', busy: false, onCancel: vi.fn() };
 const open = (over: Partial<Parameters<typeof RegistrationQuestions>[0]> = {}) =>
@@ -43,10 +43,10 @@ describe('P1529 D24 registration form: copy', () => {
     expect(screen.queryByTestId('prep-question')).toBeNull();
   });
 
-  it('branch 1, owners: the second question asks WHEN (15 minutes); the doors time is formatted from the event', () => {
+  it('branch 1, owners: the second question asks WHEN (25 minutes); the doors time is formatted from the event', () => {
     open();
     fireEvent.click(screen.getByTestId('join-improve'));
-    expect(screen.getByText('When will you invest 15 minutes to create your Clarity Canvas?')).toBeTruthy();
+    expect(screen.getByText('When will you invest 25 minutes to prepare and create your Clarity Canvas?')).toBeTruthy();
     expect(screen.getByLabelText('At home, before the event')).toBeTruthy();
     expect(screen.getByLabelText("I'll come earlier, at 18:00, and prepare there")).toBeTruthy();
   });
@@ -57,10 +57,10 @@ describe('P1529 D24 registration form: copy', () => {
     expect(screen.getByLabelText("I'll come earlier, at 18:30, and prepare there")).toBeTruthy();
   });
 
-  it('branch 2, observers: the same question with 7 minutes and the same two options', () => {
+  it('branch 2, observers: the same question with 10 minutes and the same two options', () => {
     open();
     fireEvent.click(screen.getByTestId('join-help'));
-    expect(screen.getByText('When will you invest 7 minutes to prepare?')).toBeTruthy();
+    expect(screen.getByText('When will you invest 10 minutes to prepare?')).toBeTruthy();
     expect(screen.getByLabelText('At home, before the event')).toBeTruthy();
     expect(screen.getByLabelText("I'll come earlier, at 18:00, and prepare there")).toBeTruthy();
   });

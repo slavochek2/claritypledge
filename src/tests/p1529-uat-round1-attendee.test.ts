@@ -71,9 +71,9 @@ describe('preparation: the canvas is step 4, for owners only', () => {
     expect(CLARITY_NIGHT_RECIPE.prepare.steps).not.toContain('canvas');
     expect(SOCIAL_HIKE_RECIPE.prepare.steps).not.toContain('canvas');
   });
-  it('the time by role is 15 for owners and 7 for observers', () => {
-    expect(OWNER_PREP_MINUTES).toBe(15);
-    expect(OBSERVER_PREP_MINUTES).toBe(7);
+  it('the time by role is 25 for owners and 10 for observers', () => {
+    expect(OWNER_PREP_MINUTES).toBe(25);
+    expect(OBSERVER_PREP_MINUTES).toBe(10);
   });
 });
 

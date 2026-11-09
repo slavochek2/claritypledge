@@ -138,8 +138,8 @@ export const watchSeconds = (clip: ClipKey) => Math.round(CLIP_SECONDS[clip] / P
 // ─── minutes ───────────────────────────────────────────────────────────────────────────
 
 export const SECONDS_PER_DECISION = 20;
-/** Creating, publishing and sharing a canvas: the owner's 15 minutes are the learning (about 6 to 7) and this (founder, 2026-11-06). */
-export const CANVAS_STEP_SECONDS = 8 * 60;
+/** Creating, publishing and sharing a canvas: 12 minutes (founder, 2026-11-09). */
+export const CANVAS_STEP_SECONDS = 12 * 60;
 const READING_WORDS_PER_MINUTE = 200;
 
 export const PRINCIPLE_WORDS = sectionsForLevel(PRINCIPLE_LEVEL)

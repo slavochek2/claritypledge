@@ -4,6 +4,7 @@
  * `primary` is the step forward, `secondary` a real alternative (outline), `quiet` a way out (Skip for now, Keep ...).
  * All strings are DRAFT copy: [FOUNDER DECISION: copy, proposed] unless marked as the founder's.
  */
+import { CANVAS_STEP_SECONDS } from './prep-plan';
 import type { ReactNode } from 'react';
 import type { MyEventCanvas } from '@/app/data/event-mastermind-service';
 
@@ -65,7 +66,7 @@ function startView(i: StepInput): StepView {
     return done('B', 'Finish your Clarity Canvas', "Your draft isn't published yet. Open it and publish it, then share it here.",
       mk('continue-draft', 'Continue your draft', 'Opening…', go.continueDraft), null, skip);
   }
-  return done('A', 'Create your Clarity Canvas now', `About 15 minutes with your mirror.${wide ? '' : " It's easier on a desktop."}`,
+  return done('A', 'Create your Clarity Canvas now', `About ${CANVAS_STEP_SECONDS / 60} minutes with your mirror.${wide ? '' : " It's easier on a desktop."}`,
     mk('create', 'Create your canvas', 'Opening…', go.start), null, skip);
 }
 
