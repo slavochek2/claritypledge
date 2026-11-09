@@ -8,6 +8,21 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-09 [product]: The role card says "I am speaker" on top and "Your job" below, printed full-page and oversized for the shop's shrink
+
+**Context:** On the 2026-09-28 card the title described the wearer while the sentence addressed the reader, so a host could not say whose card it was. Small role word, giant S/L, unreadable footnote. Three outside reviewers (GLM, Codex, Gemini Argon, 3 of 3 reported) proposed the same two-zone layout, which the founder had suggested. Cards printed at one shop came out about 5% small and sat loose in the holder.
+**Decision:**
+1. **Wording.** Orange: "I AM SPEAKER / YOUR JOB: Explain back what I mean. Ask me open questions." Blue: "I AM LISTENER / YOUR JOB: Ask me, 'How well do you think you understand me, from 0 to 10?'" The quote removes the I/you swap. The number stays the listener's self-estimate.
+2. **Removed:** the giant S/L and the footnote. "We may never agree" is now spoken at the intro. Orange and blue stay; white was rejected by the founder.
+3. **Print sheet:** colour fills the page on both sides, cards are 57 x 90 mm in the file so about 5% shrink gives the holder's 54 x 85 mm insert. Text is 6 mm from the cut.
+4. **Cutting:** soft lines all the way through plus bright corner crosses. Corner marks alone were too hard to cut (2026-11-03).
+5. **Pause band:** parked at the top of the holder in play and pushed down over the instructions in pause. The bottom lets it slip off, the rope makes it flop. Text starts 14 mm down to leave it room. No curtain pouch for now.
+**Alternatives rejected:** a card addressed only to the reader (the talker wears "Listener"); a white border around the colour (costs size, and only stopped uneven shrink when one side was full-page); curtain pouch (more preparation and fabric on the chest).
+**Consequences:** All of this is UNTESTED on paper. The 5% is a rough ruler reading and equal shrink on both full-colour sides is inferred. At true 100% the cards are 57 x 90 mm and need trimming. An 18 mm band will not hide all the instructions. Falsifiers: a test sheet's card does not fit the holder or its sides do not align; a stranger cannot say what to do from the card alone; the band slides on its own or needs two hands. Roles are still taught from these cards in preparation (2026-11-02).
+**References:** [docs/events/badges/](events/badges/) (filenames kept, content replaced)
+
+---
+
 ## 2026-11-09 [product]: A canvas block gives a way forward with fixed buttons, and a tap never counts as the owner's words (P1653)
 
 **Context:** After P1646 reached prod, three first messages on TEST ("airbnb.com - make canvas", the full link, "its a car selling buisness") got one identical refusal. The founder: "it still feels like a wall."
@@ -3491,6 +3506,8 @@ No "don't show again" checkbox: it hands the stop decision to the reader and kee
 ---
 
 ## 2026-09-28 [product]: The speaker/listener role badge is a printed two-sided card whose text instructs the partner, not the wearer
+
+**Reversed in part 2026-11-09, see "The role card says \"I am speaker\" on top". Still in force: two-sided lanyard card, orange and blue, instructions addressed to the partner, no logo.**
 
 **Context:** At the first Clarity Night, strangers drifted into small talk because nothing made them assign speaker and listener roles (2026-09-21 event reflection). A cheap physical token was chosen over a digital one. It is a clear lanyard holder (54×85 mm insert) with tuck-into-shirt as the closed state.
 **Decision:** It is a double-sided printed card. The front is orange #C2410C "S · SPEAKER": *Explain back what I mean. Ask me open questions.* The back is blue #1864AB "L · LISTENER": *Ask me: how well do I think I understand what you mean, from 0 to 10?* Both sides carry a small reminder: *We may never agree or feel the same. But we can always explain back each other's intended meaning.* No logo or brand name.
