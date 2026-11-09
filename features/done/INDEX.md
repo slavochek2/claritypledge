@@ -81,6 +81,8 @@ Last updated: 2026-11-07
 - **P1590** (Oct 26) Chat mic icons — blue mic = voice note, grey wave+"Aa" = dictation; mock in the real composer box before judging, an outside-the-box sketch misled.
 - **P1624** (Nov 26) A transcript in chat looks like a transcript — add a people-only count; filtering `reply_count` removes the way into other threads.
 
+- **P1652** (Nov 26) Chat links, own-app cards, copy text, reactions — realtime DELETE ignores RLS and sends the primary key; use a surrogate id.
+
 ## Clarity Docs
 
 - **P551** (Mar 26) Clarity Docs — Curated Story Collections — `renderPointRow` callback incompatible with `useSortable` hooks (use arrow buttons); `--primary` CSS var is near-black not blue (check theme before mapping Button variants); doc visibility must be immutable (mutable dropdown that never fires is worse than no dropdown); point hide/show is owner-only edit + non-owner display filter

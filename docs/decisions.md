@@ -8,6 +8,32 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-09 [technical]: Chat reactions use a generated row id and a server-side emoji list; chat links are decided by one shared scanner (P1652)
+
+**Context:** The founder reported that chat links were not clickable and asked for the standard messenger basics in one go. Links arrive from strangers, and reactions are the first chat row that every client hears about in realtime.
+
+**Decision:**
+- **Reactions have a generated primary key**, with message, person and emoji as a separate unique constraint. Realtime does not apply row security to a DELETE and sends the removed row's primary key to every subscriber, so a natural key would tell outsiders who reacted to what. An outsider sees only an opaque id, and the DB test pins that.
+- **The emoji set is enforced in the database as well as the client,** so a modified client cannot post free text as a reaction. Changing the set therefore needs a migration and the client constant.
+- **Writes go only through two idempotent functions** that take the person from the session. Adding is never a toggle, so repeated taps and retries cannot flip the state.
+- **A soft delete clears reactions through a trigger on the message row.** This covers every path that sets `deleted_at` without redefining any of them.
+- **Own-app cards are limited to letter overview, story and point links.** A Live link stays clickable with no card, and a disguised link in the form `[label](url)` stays plain text. Lookalike hosts, bidirectional characters and accented domains never become a card or a trusted link.
+
+**Alternatives rejected:**
+- *Natural primary key on the reactions table.* It leaks the reaction through DELETE events.
+- *Client-only emoji list.* It leaves free text open to a modified client.
+- *A toggle function.* Two delivered tap events would cancel each other.
+- *Adding the delete to each existing message-deleting function.* That means redefining large functions whose tests pin their statements.
+
+**Falsifier:** a non-member's DELETE event carries anything but the id; or a reaction survives a message's soft delete; or a word outside the set is stored.
+
+**Consequences:**
+- A removal right after subscribing can be missed until the next re-read (2 of 6 test runs). This is accepted, and the count corrects itself when the chat is reopened.
+- All online clients receive removal events as opaque ids. This is accepted.
+- The emoji set is an agent default awaiting a founder decision. Read receipts and typing indicators are permanently out; alerts and mute are deferred.
+
+**References:** [p1652 spec](../features/p1652_chat_links_and_basics.md) · `supabase/migrations/20261109120000_p1652_chat_reactions.sql` · `src/app/utils/link-scan.ts`
+
 ## 2026-11-09 [product]: The role card says "I am speaker" on top and "Your job" below, printed full-page and oversized for the shop's shrink
 
 **Context:** On the 2026-09-28 card the title described the wearer while the sentence addressed the reader, so a host could not say whose card it was. Small role word, giant S/L, unreadable footnote. Three outside reviewers (GLM, Codex, Gemini Argon, 3 of 3 reported) proposed the same two-zone layout, which the founder had suggested. Cards printed at one shop came out about 5% small and sat loose in the holder.
