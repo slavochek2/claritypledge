@@ -24,10 +24,44 @@ interface Props {
   onRemove?: () => void;
   removeLabel?: string;
   className?: string;
+  /**
+   * P1652: forwarded and clarified copies hold links in their words, and a link cannot sit inside a button. With this the jump is a
+   * separate "Go to original" control beside the label (40px tall) and the words are not pressable. Reply quotes stay one button.
+   */
+  splitJump?: boolean;
 }
 
-export function Quote({ testId, label, summary, body, children, onJump, onRemove, removeLabel = 'Remove', className }: Props) {
+/** The "Go to original" control of a split quote. */
+function GoToOriginal({ summary, onJump }: { summary?: string; onJump: () => void }) {
+  return (
+    <button
+      type="button"
+      data-testid="go-to-original"
+      aria-label={summary ? `Go to original message: ${summary}` : 'Go to original message'}
+      onClick={onJump}
+      className={cn('-my-1 flex min-h-10 shrink-0 items-center rounded-lg px-2 text-xs font-medium text-blue-700', HOVER, FOCUS_RING)}
+    >
+      Go to original
+    </button>
+  );
+}
+
+export function Quote({ testId, label, summary, body, children, onJump, onRemove, removeLabel = 'Remove', className, splitJump = false }: Props) {
   const shell = 'block w-full rounded-xl border bg-muted/40 p-3 text-left';
+  if (onJump && splitJump) {
+    return (
+      <div className={cn('relative mt-1 w-full max-w-md', className)}>
+        <div data-testid={testId} className={shell}>
+          <span className="flex items-center justify-between gap-2">
+            <span className="block min-w-0 text-xs font-medium text-muted-foreground" data-testid="forwarded-label">{label}</span>
+            <GoToOriginal summary={summary} onJump={onJump} />
+          </span>
+          {body}
+          {children}
+        </div>
+      </div>
+    );
+  }
   const inner = (
     <>
       <span className={cn('block text-xs font-medium text-muted-foreground', onRemove && 'pr-10')} data-testid="forwarded-label">

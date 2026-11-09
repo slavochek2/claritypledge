@@ -1185,10 +1185,11 @@ describe('conversation', () => {
     expect(svc.getMessage).not.toHaveBeenCalledWith('src-ok');
     expect(svc.getMessage).not.toHaveBeenCalledWith('src-gone');
     // A source this reader can no longer read: a quiet note, and nowhere to go.
-    fireEvent.click(clarified);
+    // P1652: the jump is a separate "Go to original" control (the words hold links, so they are not pressable).
+    fireEvent.click(within(clarified).getByTestId('go-to-original'));
     await waitFor(() => expect(toastFn).toHaveBeenCalledWith("The original isn't available to you any more."));
     expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats\/c\/dm1$/);
-    fireEvent.click(forwarded);
+    fireEvent.click(within(forwarded).getByTestId('go-to-original'));
     await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/g1?m=src-ok'));
   });
 
@@ -2070,7 +2071,8 @@ describe('review round 3', () => {
     await screen.findByText('still here');
     const cards = [...screen.getAllByTestId('forwarded-card'), ...screen.getAllByTestId('clarified-card')];
     expect(cards).toHaveLength(4);
-    const withButton = cards.filter((c) => c.tagName === 'BUTTON' && c.getAttribute('aria-label')?.startsWith('Go to original message') === true);
+    // P1652: the jump is a separate control inside the card.
+    const withButton = cards.filter((c) => c.querySelector('[data-testid="go-to-original"]')?.getAttribute('aria-label')?.startsWith('Go to original message') === true);
     expect(withButton).toHaveLength(1);
     expect(withButton[0]).toHaveTextContent('still here');
   });
@@ -2187,7 +2189,7 @@ describe('review round 3', () => {
       expect(classesOf(bar)).not.toContain('flex-wrap');
       expect(classesOf(bar)).toContain('flex-nowrap');
       const buttons = within(bar).getAllByRole('button');
-      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with your mirror agent"]);
+      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Reply', 'React', 'Forward', 'Thread', "Clarify with your mirror agent", 'More actions']);
       // Icons only, except Clarify (the mirror's face and the word, which drops out below 360px so the row keeps one line at 320).
       for (const b of buttons.filter((x) => x.getAttribute('data-testid') !== 'clarify-button')) expect(b.textContent).toBe('');
       for (const b of buttons) expect(classesOf(b)).toContain('shrink-0');
@@ -2960,25 +2962,25 @@ describe('message actions: toolbar and More', () => {
   const names = (bar: HTMLElement) => within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label'));
   const menuNames = () => within(screen.getByRole('menu')).getAllByRole('menuitem').map((i) => i.textContent);
 
-  it('in a channel the toolbar reads Reply, Forward, Thread, Clarify', async () => {
+  it('in a channel the toolbar reads Reply, React, Forward, Thread, Clarify, More (Copy text lives in More)', async () => {
     renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', 'p-grace', 'a channel post', { id: 'cp' })] });
     await screen.findByText('a channel post');
     fireEvent.pointerUp(screen.getByText('a channel post'));
-    expect(names(toolbarOf('a channel post'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with your mirror agent"]);
+    expect(names(toolbarOf('a channel post'))).toEqual(['Reply', 'React', 'Forward', 'Thread', "Clarify with your mirror agent", 'More actions']);
   });
 
   it('on my own channel post More joins the toolbar (Edit and Delete live there)', async () => {
     renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', ME.id, 'my own post', { id: 'op' })] });
     await screen.findByText('my own post');
     fireEvent.pointerUp(screen.getByText('my own post'));
-    expect(names(toolbarOf('my own post'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with your mirror agent", 'More actions']);
+    expect(names(toolbarOf('my own post'))).toEqual(['Reply', 'React', 'Forward', 'Thread', "Clarify with your mirror agent", 'More actions']);
   });
 
   it('a 1:1 and the mirror offer Thread (P1546), and in the mirror no Clarify', async () => {
     const { unmount } = renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'a plain message')] });
     await screen.findByText('a plain message');
     fireEvent.pointerUp(screen.getByText('a plain message'));
-    expect(names(toolbarOf('a plain message'))).toEqual(['Reply', 'Forward', 'Thread', "Clarify with your mirror agent"]);
+    expect(names(toolbarOf('a plain message'))).toEqual(['Reply', 'React', 'Forward', 'Thread', "Clarify with your mirror agent", 'More actions']);
     unmount();
 
     renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'a note to self')] });
@@ -2987,29 +2989,32 @@ describe('message actions: toolbar and More', () => {
     expect(names(toolbarOf('a note to self'))).toEqual(['Reply', 'Forward', 'Thread', 'More actions']);
   });
 
-  it('More holds only Edit and Delete, on my own messages; on someone else\'s message there is no More', async () => {
+  it('More holds Copy text on anyone\'s message, plus Edit and Delete on my own', async () => {
     renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'theirs'), msg('dm1', ME.id, 'mine')] });
     await screen.findByText('mine');
     fireEvent.pointerUp(screen.getByText('theirs'));
-    expect(within(toolbarOf('theirs')).queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
+    fireEvent.click(within(toolbarOf('theirs')).getByRole('button', { name: 'More actions' }));
+    expect(menuNames()).toEqual(['Copy text']);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
 
     fireEvent.pointerUp(screen.getByText('mine'));
     fireEvent.click(within(toolbarOf('mine')).getByRole('button', { name: 'More actions' }));
-    expect(menuNames()).toEqual(['Edit', 'Delete']);
+    expect(menuNames()).toEqual(['Copy text', 'Edit', 'Delete']);
   });
 
   it('a right-click opens the full list (no Mark as unread: that marks the whole chat, so it lives on the chat)', async () => {
     renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', ME.id, 'my channel post')] });
     await screen.findByText('my channel post');
     await menuOn('my channel post');
-    expect(menuNames()).toEqual(['Reply', 'Reply in thread', 'Forward', 'Clarify', 'Edit', 'Delete']);
+    expect(menuNames()).toEqual(['Reply', 'React', 'Reply in thread', 'Forward', 'Clarify', 'Copy text', 'Edit', 'Delete']);
   });
 
   it('no message menu offers Mark as unread (right-click on someone else\'s message), while the chat menus still do', async () => {
     renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', 'p-grace', 'not mine')] });
     await screen.findByText('not mine');
     await menuOn('not mine');
-    expect(menuNames()).toEqual(['Reply', 'Reply in thread', 'Forward', 'Clarify']);
+    expect(menuNames()).toEqual(['Reply', 'React', 'Reply in thread', 'Forward', 'Clarify', 'Copy text']);
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: 'More' }));

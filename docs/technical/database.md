@@ -708,6 +708,17 @@ Spec: `features/p1536_canvas_first_draft_from_owner_material.md`, "Design v6" (t
 - **Reads:** `get_canvas` gains `from_seq` on every version entry and, for the owner, `revision`, `focus` and `changed_boxes` (computed, never stored). `trg_points_updated_at` has a `WHEN` clause so tag-only changes (a point entering or leaving a draft, a supersede link at Publish) do not move `updated_at`.
 - **Tests:** `src/tests/p1536-v6-engine-migration.test.ts` (source contract), `src/tests/integration/p1536-v6-engine.test.ts` (test database).
 
+### chat_message_reactions (P1652, migration `20261109120000`)
+
+One emoji reaction per (message, person, emoji). Columns: `id uuid` PK (generated), `message_id` (FK `chat_messages`, `CASCADE`), `profile_id` (FK `profiles`, `CASCADE`, so account erasure removes a person's reactions), `emoji text` (CHECK: one of `👍 ❤️ 😂 😮 😢 🙏`; the client constant is `REACTION_EMOJI`), `created_at`. `UNIQUE (message_id, profile_id, emoji)`; index on `profile_id`.
+
+- **Surrogate key on purpose:** Realtime sends a DELETE's primary key to every subscriber without applying RLS, so a natural key would leak who reacted to what. `REPLICA IDENTITY` stays DEFAULT. The table is in the `supabase_realtime` publication.
+- **RLS:** on. `authenticated` has SELECT only (no client writes). The select policy is true when the reader can see the message (it asks `chat_messages`, so conversation access and the late-joiner `since` rule are inherited).
+- **`add_chat_reaction(p_message uuid, p_emoji text)` returns the row** (`SECURITY DEFINER`, `authenticated` only): person from `auth.uid()`, idempotent (never a toggle), refuses an emoji outside the set (22023), a deleted or unreadable message (42501), any message of a `mirror` conversation (42501, so private mirror rows shown in a channel are covered), and a blocked 1:1 or a person with no posting right (`_chat_assert_can_post`). Locks the message `FOR SHARE`.
+- **`remove_chat_reaction(p_message uuid, p_emoji text)` returns void** (`SECURITY DEFINER`, `authenticated` only): deletes only the caller's own row, needs no access check, repeating it changes nothing.
+- **Trigger `chat_messages_clear_reactions`** (function `_chat_reactions_clear_on_delete`, no client EXECUTE): after `deleted_at` goes from NULL to set on a message, deletes its reactions. Covers every soft-delete path without redefining `delete_chat_message` or `erase_chat_data_for` (neither is touched).
+- Reactions never touch `chat_messages`, `chat_member_state` or `last_message_at`: no unread count, list order or notification changes. Covered by `e2e/integration/20261109120000_p1652_chat_reactions.spec.ts`.
+
 ## Row Level Security (RLS)
 
 ### Start every RLS audit with the live drift check (P1048)

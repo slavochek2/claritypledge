@@ -5,12 +5,12 @@
  * unread badge, selection and the one primary action per view.
  */
 import { Skeleton } from '@/components/ui/skeleton';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { CalendarDays, Lock, User, type LucideIcon } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
 import { cn, getInitials } from '@/lib/utils';
-import { useDismiss } from './chat-hooks';
+import { useMenuBehavior } from './chat-hooks';
 import { chatTitle, mirrorRole } from './chat-view-model';
 import { useMirror } from './mirror-state';
 import { AGENT_TINT_STYLE } from '@/app/components/shared/banner/agent-tint';
@@ -231,27 +231,11 @@ export interface MenuItem {
 export function PopMenu({ at, items, label, onClose }: { at: { x: number; y: number }; items: MenuItem[]; label: string; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   // Focus goes back to whatever opened the menu (the ⋯ button, or the message), as a real menu does.
-  const opener = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null));
-  useDismiss(onClose, true, [ref]);
-  useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-    const back = opener.current;
-    return () => {
-      if (back && back !== document.body && back.isConnected) back.focus({ preventScroll: true });
-    };
-  }, []);
+  const move = useMenuBehavior(ref, onClose);
   const width = 208;
   const height = items.length * 44 + 8;
   const x = Math.max(8, Math.min(at.x, (typeof window !== 'undefined' ? window.innerWidth : 1024) - width - 8));
   const y = Math.max(8, Math.min(at.y, (typeof window !== 'undefined' ? window.innerHeight : 768) - height - 8));
-  const move = (e: React.KeyboardEvent) => {
-    const nodes = [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
-    const i = nodes.indexOf(document.activeElement as HTMLElement);
-    const to = e.key === 'ArrowDown' ? i + 1 : e.key === 'ArrowUp' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? nodes.length - 1 : null;
-    if (to === null) return;
-    e.preventDefault();
-    nodes[(to + nodes.length) % nodes.length]?.focus();
-  };
   return (
     <div
       ref={ref}

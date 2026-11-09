@@ -122,6 +122,11 @@ export function ArtifactAttachmentCard({ kind, id, viewerId, compact = false }: 
       </p>
     );
   }
+  return <ArtifactCardView kind={kind} artifact={artifact} compact={compact} />;
+}
+
+/** The drawn card of an artifact the viewer can see (also used by a pasted link's quiet card, which draws nothing until it has this). */
+export function ArtifactCardView({ kind, artifact, compact = false }: { kind: ArtifactKind; artifact: Extract<ChatArtifact, { available: true }>; compact?: boolean }) {
   const Icon = kind === 'canvas' ? LayoutGrid : Mail; // the letter's envelope is the Artifacts list's too
   const title = (artifact.kind === 'canvas' ? canvasDisplayTitle(artifact.title, artifact.name) : artifact.title) || (kind === 'canvas' ? 'Untitled canvas' : 'Untitled letter');
   const body = (

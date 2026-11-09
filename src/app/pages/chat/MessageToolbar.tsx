@@ -4,7 +4,7 @@
  * Floats on a desktop hover, or sits in line under a tapped message. Split out of MessageRow.tsx,
  * unchanged in behaviour: MessageRow decides WHETHER it shows; this decides what it carries.
  */
-import { Forward, MessageSquareText, MoreHorizontal, Reply } from 'lucide-react';
+import { Forward, MessageSquareText, MoreHorizontal, Reply, SmilePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/app/data/chat-service';
 import { ClarifyButton, ToolButton } from './MessageParts';
@@ -23,11 +23,15 @@ interface Props {
   onDone: () => void;
   /** Open the ⋯ menu at this point. */
   onMore: (at: { x: number; y: number }) => void;
+  /** Below 360px Forward is in the ⋯ menu instead (six buttons do not fit one row at 320). */
+  narrow?: boolean;
+  /** P1652: present only when this message takes reactions; opens the emoji picker at this point. */
+  onReact?: (at: { x: number; y: number }) => void;
 }
 
 const ICON = 'h-[18px] w-[18px]';
 
-export function MessageToolbar({ message, selected, noCopy, ownerOnly, mirror, actions, hasMore, onDone, onMore }: Props) {
+export function MessageToolbar({ message, selected, noCopy, ownerOnly, mirror, actions, hasMore, onDone, onMore, narrow = false, onReact }: Props) {
   return (
     <div
       role="toolbar"
@@ -42,7 +46,12 @@ export function MessageToolbar({ message, selected, noCopy, ownerOnly, mirror, a
       <ToolButton label="Reply" onClick={() => { onDone(); actions.onReply(message); }}>
         <Reply className={ICON} aria-hidden="true" />
       </ToolButton>
-      {!noCopy && (
+      {onReact && (
+        <ToolButton label="React" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); onDone(); onReact({ x: r.left - 40, y: r.bottom + 4 }); }}>
+          <SmilePlus className={ICON} aria-hidden="true" />
+        </ToolButton>
+      )}
+      {!noCopy && !narrow && (
         <ToolButton label="Forward" onClick={() => { onDone(); actions.onForward(message); }}>
           <Forward className={ICON} aria-hidden="true" />
         </ToolButton>

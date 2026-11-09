@@ -7,7 +7,8 @@
  *    the owner's workspace.
  * Everything else is the body as it was.
  */
-import { Fragment, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { ChatWords } from './ChatLinks';
 import { CANVAS_CHIP } from '@/app/components/canvas/canvas-pill-styles';
 import { useCanvasWorkspace } from '@/app/components/canvas/canvas-workspace-context';
 import { Button } from '@/components/ui/button';
@@ -17,11 +18,15 @@ import { cn } from '@/lib/utils';
 const TAG_BY_TITLE = new Map<string, string>(CANVAS_BOXES.map(b => [b.title, b.tag]));
 const UPDATED = /^Updated: ([^\n]+?)\.(\n[\s\S]*)?$/;
 
-/** The words with each "[Title]" of a tagged box drawn as a chip. */
-function withChips(body: string, refs: readonly string[]): ReactNode {
-  return body.split(/(\[[^\]]+\])/).map((part, i) => {
-    const tag = TAG_BY_TITLE.get(part.slice(1, -1));
-    return tag && refs.includes(tag) ? <span key={i} className={`${CANVAS_CHIP} mx-0.5 inline-block`} data-testid="message-box-chip">{part.slice(1, -1)}</span> : <Fragment key={i}>{part}</Fragment>;
+/**
+ * The words with each "[Title]" of a tagged box drawn as a chip. Chips are never links and a link never sits inside a chip. The split keeps a
+ * markdown link token (`[label](address)`) whole, so it stays plain whichever way the words are cut; the rest is linked as in any message.
+ */
+function withChips(body: string, refs: readonly string[], spoken: boolean): ReactNode {
+  return body.split(/(\[[^\]]+\](?:\([^)]*\))?)/).map((part, i) => {
+    const tag = part.endsWith(']') ? TAG_BY_TITLE.get(part.slice(1, -1)) : undefined;
+    if (tag && refs.includes(tag)) return <span key={i} className={`${CANVAS_CHIP} mx-0.5 inline-block`} data-testid="message-box-chip">{part.slice(1, -1)}</span>;
+    return <ChatWords key={i} text={part} spoken={spoken} />;
   });
 }
 
@@ -38,14 +43,14 @@ function replyChips(body: string, showBox: (tag: string) => void): ReactNode {
           {title}
         </Button>
       ))}
-      {m[2]}
+      {m[2] && <ChatWords text={m[2]} />}
     </>
   );
 }
 
-export function CanvasMessageBody({ body, boxRefs, agent }: { body: string; boxRefs?: string[] | null; /** The message is the mirror agent's (kind `agent`). */ agent: boolean }) {
+export function CanvasMessageBody({ body, boxRefs, agent, spoken = false }: { body: string; boxRefs?: string[] | null; /** The message is the mirror agent's (kind `agent`). */ agent: boolean; /** A transcription: spoken words. */ spoken?: boolean }) {
   const { showBox } = useCanvasWorkspace();
-  if (boxRefs?.length) return <>{withChips(body, boxRefs)}</>;
+  if (boxRefs?.length) return <>{withChips(body, boxRefs, spoken)}</>;
   const chips = showBox && agent ? replyChips(body, showBox) : null;
-  return <>{chips ?? body}</>;
+  return <>{chips ?? <ChatWords text={body} spoken={spoken} />}</>;
 }

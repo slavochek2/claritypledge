@@ -35,7 +35,8 @@ import {
   type ChatSummary,
 } from '@/app/data/chat-service';
 import { getChatAuthors, type ChatAuthor } from '@/app/data/chat-ui-helpers';
-import { clearDraftsExcept, useChatNavigate } from './chat-hooks';
+import { useChatNavigate } from './chat-hooks';
+import { useUserScopedReset } from './use-user-scoped-reset';
 import { ChatContext, type ChatContextValue, type ChatEvent, type LocalMessage, type SendInput } from './chat-state';
 import { chatErrorText, compareTimestamps, HOME, unreadChatCount } from './chat-view-model';
 import { MirrorProvider } from './mirror-provider';
@@ -98,9 +99,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const userId = current.userId;
   const embedded = new URLSearchParams(search).get('embed') === 'true' || /^\/(live|transcribe)(\/|$)/.test(pathname);
 
-  useEffect(() => {
-    clearDraftsExcept(userId);
-  }, [userId]);
+  useUserScopedReset(userId);
 
   // A different person is a different provider (key = epoch): nothing carries over.
   return (

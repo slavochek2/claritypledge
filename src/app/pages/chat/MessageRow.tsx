@@ -13,7 +13,9 @@ import { ForwardedBody, MessageNote, QuoteBlock, TranscriptionMark } from './Mes
 import { MessageToolbar } from './MessageToolbar';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Forward, MessageSquareText, MessagesSquare, Pencil, Reply, Trash2 } from 'lucide-react';
+import { MessageReactions } from './MessageReactions';
+import { buildMenuItems } from './message-menu-items';
+import { useMessageReactions } from './use-message-reactions';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, ThreadStats } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
@@ -22,8 +24,8 @@ import { RepliesLink } from './RepliesLink';
 import { TranscriptRootContent } from './TranscriptRootContent';
 import { MessageHeader, PrivateLine, SendFailedNote } from './MessageRowLines';
 import { VoiceBubble } from './VoiceBubble';
-import { FOCUS_RING, PersonMark, PopMenu, MirrorMark, type MenuItem } from './chat-kit';
-import { DESKTOP_HOVER_QUERY, useDismiss, useMediaQuery } from './chat-hooks';
+import { FOCUS_RING, PersonMark, PopMenu, MirrorMark } from './chat-kit';
+import { DESKTOP_HOVER_QUERY, NARROW_QUERY, useDismiss, useMediaQuery } from './chat-hooks';
 import { useChat } from './chat-state';
 import { isLocal, type LocalMessage, type Row } from './use-conversation';
 import { messageTime, mirrorName, mirrorRole } from './chat-view-model';
@@ -114,7 +116,9 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   const ignoreOpenUntil = useRef(0);
 
   const desktopHover = useMediaQuery(DESKTOP_HOVER_QUERY);
-  const { chats } = useChat();
+  /** Below 360px the toolbar has no room for Forward: it moves into the ⋯ menu. */
+  const narrow = useMediaQuery(NARROW_QUERY);
+  const { chats, status: chatsStatus } = useChat();
   const mirrorChat = chats.find((c) => c.kind === 'mirror');
   const mirror = mirrorName(mirrorChat);
   /** The mirror as the author of its own replies: its name, else "Your mirror". */
@@ -142,31 +146,11 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
     press.current = null;
   };
 
-  // Every action once. `items` is the full list (right-click, long press); `moreItems` is what the toolbar
-  // does not carry, so the ⋯ menu never repeats a toolbar button.
-  const items: MenuItem[] = [];
-  const moreItems: MenuItem[] = [];
-  // A private row shown in a channel takes no actions there; a mirror reply can only be quoted (never forwarded,
-  // clarified, edited or deleted: it is its owner's alone, and the server refuses any copy of it).
-  if (server && live && !privateHere) {
-    items.push({ key: 'reply', label: 'Reply', Icon: Reply, onSelect: () => actions.onReply(server) });
-  }
-  if (server && live && !privateHere && !agent) {
-    if (actions.onThread && !server.threadRootId && !ownerOnly) {
-      const open = actions.onThread;
-      items.push({ key: 'thread', label: 'Reply in thread', Icon: MessageSquareText, onSelect: () => open(server) });
-    }
-    if (!noCopy) items.push({ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => actions.onForward(server) });
-    if (actions.onClarify && !noCopy) {
-      const clarify = actions.onClarify;
-      items.push({ key: 'clarify', label: 'Clarify', Icon: MessagesSquare, onSelect: () => clarify(server) });
-    }
-    if (mine) {
-      if (!voiceNote) moreItems.push({ key: 'edit', label: 'Edit', Icon: Pencil, onSelect: () => { setEditError(null); setDraft(server.body ?? ''); } });
-      moreItems.push({ key: 'delete', label: 'Delete', Icon: Trash2, onSelect: () => actions.onDelete(server), danger: true });
-    }
-    items.push(...moreItems);
-  }
+  // Every action once (message-menu-items.ts): `items` is the full list, `moreItems` what the toolbar does not carry.
+  // P1652: reactions take the message's ACTUAL chat (never the mirror; a private mirror row is a mirror row), and never a private row or an unsent one.
+  // Not before the chats have loaded: until then the mirror chat is unknown, and a mirror row must never get a control or a read.
+  const rx = useMessageReactions(server?.id, chatsStatus === 'ready' && live && !privateHere && server?.conversationId !== mirrorChat?.conversationId, viewerId);
+  const { items, moreItems } = buildMenuItems({ server, live, privateHere, agent, mine, ownerOnly, noCopy, voiceNote: !!voiceNote, narrow, actions, menuAt: menuAt, react: rx.enabled ? rx.openPicker : undefined, startEdit: (b) => { setEditError(null); setDraft(b); } });
 
   const save = async () => {
     if (!server || draft === null) return;
@@ -202,6 +186,8 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
         mirror={mirror}
         actions={actions}
         hasMore={moreItems.length > 0}
+        narrow={narrow}
+        onReact={rx.enabled ? rx.openPicker : undefined}
         onDone={() => setSelected(false)}
         onMore={(at) => { setSelected(false); setMenuAt({ ...at, more: true }); }}
       />
@@ -212,7 +198,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   const authorPending = !!authorId && !author && !missingAuthors.has(authorId);
   const time = rowTime(local, msg.createdAt);
 
-  const noteEl = msg.body && <MessageNote body={msg.body} editedAt={server?.editedAt ?? null} system={system} boxRefs={msg.boxRefs} agent={agent} />;
+  const noteEl = msg.body && <MessageNote body={msg.body} editedAt={server?.editedAt ?? null} system={system} boxRefs={msg.boxRefs} agent={agent} spoken={!!server?.isTranscription} />;
   return (
     <li ref={row} data-msg={msg.id} data-testid="message">
       {/* Right-click and long press are pointer shortcuts only: every item they offer is also reachable by keyboard, on the toolbar or in its ⋯ menu. */}
@@ -287,17 +273,20 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
         </div>}
         <div className="min-w-0 flex-1">
           {transcriptRoot && server && actions.onThread ? (
-            <TranscriptRootContent
-              root={transcriptRoot}
-              server={server}
-              stat={stat}
-              authors={authors}
-              viewerId={viewerId}
-              onThread={actions.onThread}
-              onOpen={() => {
-                if (Date.now() >= ignoreOpenUntil.current) actions.onThread?.(server);
-              }}
-            />
+            <>
+              <TranscriptRootContent
+                root={transcriptRoot}
+                server={server}
+                stat={stat}
+                authors={authors}
+                viewerId={viewerId}
+                onThread={actions.onThread}
+                onOpen={() => {
+                  if (Date.now() >= ignoreOpenUntil.current) actions.onThread?.(server);
+                }}
+              />
+              <MessageReactions rx={rx} authors={authors} />
+            </>
           ) : <>
           {showHeader && (
             <MessageHeader agent={agent} mirrorDisplay={mirrorDisplay} mirrorSubtitle={mirrorChat?.title ? mirrorRole() : null} author={author} authorId={authorId} pending={authorPending} time={time} msg={server} continuesTranscription={continuesTranscription} />
@@ -323,6 +312,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
               {/* A Clarify's own note sits under its quote; a forward's note sits above it. */}
               {draft === null && server?.kind === 'clarify' && noteEl}
               <MessageAttachment msg={msg} server={server} viewerId={viewerId} stat={stat} />
+              <MessageReactions rx={rx} authors={authors} />
             </>
           )}
           {server && mine && !server.isDeleted && <MirrorReplyState messageId={server.id} name={mirrorDisplay} />}

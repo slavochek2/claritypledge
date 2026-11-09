@@ -118,9 +118,12 @@ describe('P1520 mirror reply rows', () => {
     expect(screen.queryByTestId('mirror-reading')).not.toBeInTheDocument(); // P1554: the footer is gone
     const bar = screen.getByRole('toolbar', { name: 'Message actions' });
     expect(within(bar).getByRole('button', { name: 'Reply' })).toBeInTheDocument();
-    for (const name of ['Forward', 'Thread', /Clarify/, 'More actions']) {
+    for (const name of ['Forward', 'Thread', /Clarify/]) {
       expect(within(bar).queryByRole('button', { name })).not.toBeInTheDocument();
     }
+    // P1652: Copy text is now offered on a mirror reply, so More exists, and holds only that.
+    fireEvent.click(within(bar).getByRole('button', { name: 'More actions' }));
+    expect(within(screen.getByRole('menu')).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Copy text']);
   });
 
   it('CONTROL: an ordinary own message still offers Forward, Clarify and More actions', () => {

@@ -123,6 +123,34 @@ export function hasFinePointer(): boolean {
 
 export { useMediaQuery, DESKTOP_QUERY } from '@/app/hooks/use-media-query';
 
+/**
+ * The behaviour of a menu opened at a point (PopMenu, the reaction picker): Escape and an outside press close it, the first item takes
+ * focus, arrows / Home / End move between items, and focus goes back to whatever opened it (or to `fallback` when that is gone,
+ * e.g. an inline toolbar that unmounted). Returns the menu's `onKeyDown`.
+ */
+export function useMenuBehavior(ref: RefObject<HTMLElement | null>, onClose: () => void, fallback?: () => HTMLElement | null) {
+  const opener = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null));
+  const fallbackRef = useLatest(fallback);
+  useDismiss(onClose, true, [ref]);
+  useEffect(() => {
+    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    const back = opener.current;
+    return () => {
+      if (back && back !== document.body && back.isConnected) back.focus({ preventScroll: true });
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- a latest-value holder, not a DOM ref: the newest callback is wanted at cleanup
+      else fallbackRef.current?.()?.focus({ preventScroll: true });
+    };
+  }, [ref, fallbackRef]);
+  return (e: { key: string; preventDefault: () => void }) => {
+    const nodes = [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+    const i = nodes.indexOf(document.activeElement as HTMLElement);
+    const next = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? nodes.length - 1 : null;
+    if (next === null) return;
+    e.preventDefault();
+    nodes[(next + nodes.length) % nodes.length]?.focus();
+  };
+}
+
 /** A ref that always holds the latest `value` (assigned during render), for handlers and effects that must not re-subscribe on every change. */
 export function useLatest<T>(value: T): { current: T } {
   const ref = useRef(value);
@@ -132,6 +160,11 @@ export function useLatest<T>(value: T): { current: T } {
 
 /** A wide screen with a real hover: the only place the message toolbar floats over the text. */
 export const DESKTOP_HOVER_QUERY = '(min-width: 1024px) and (hover: hover)';
+/**
+ * P1652: below 400px the toolbar (five 40px buttons plus Clarify with its word, about 307px) does not fit the row, whose chrome takes
+ * 78px (margin 16, padding 16, avatar 36, gap 10): it needs 385px of viewport. Forward then moves into the ⋯ menu.
+ */
+export const NARROW_QUERY = '(max-width: 399px)';
 
 /**
  * Runs a navigation at most once per history entry: a double tap lands twice before the screen has

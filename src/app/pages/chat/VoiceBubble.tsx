@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import type { ChatAudio, ChatMessage } from '@/app/data/chat-mappers';
 import { useVoicePlayer, type VoicePlayer } from '@/hooks/use-voice-player';
 import { FOCUS_RING, ROUND } from './chat-kit';
+import { ChatWords } from './ChatLinks';
 import { VoiceWaveform } from './VoiceWaveform';
 import { formatClock, formatDuration, transcriptView, TRANSCRIPT_STALE_MS } from './voice-view';
 
@@ -57,7 +58,7 @@ function Transcript({ audio, createdAt }: { audio: ChatAudio; createdAt: string 
       <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className={cn('min-h-10 rounded-lg text-sm font-semibold text-blue-700', FOCUS_RING)}>
         {open ? 'Hide transcript' : 'Show transcript'}
       </button>
-      {open && <p className="whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground" data-testid="voice-transcript">{view.text}</p>}
+      {open && <p className="whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground" data-testid="voice-transcript"><ChatWords text={view.text} spoken /></p>}
     </div>
   );
 }

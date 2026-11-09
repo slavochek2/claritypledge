@@ -169,7 +169,9 @@ describe('P1592 a forwarded round root can be jumped to', () => {
 
   it('a forward copy whose body is just "Round 2" is a button to the original, titled alone', () => {
     show(copy('forward', { author_name: 'Deleted user', body: 'Round 2', created_at: 'x', system_kind: 'round_thread' }));
-    const card = screen.getByRole('button', { name: /Go to original message/ });
+    // P1652: the jump is the separate "Go to original" control; the card around it carries the words.
+    expect(screen.getByRole('button', { name: /Go to original message/ })).toBeInTheDocument();
+    const card = screen.getByTestId('forwarded-card');
     expect(card).toHaveTextContent('Round 2');
     expect(card).not.toHaveTextContent('Deleted user');
   });

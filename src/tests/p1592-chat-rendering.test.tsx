@@ -5,7 +5,7 @@
  * preview and a forward / clarify copy; a transcription is typed-style text with a "Transcribed" pill beside the author and time,
  * survives a forward, and shows no "edited" mark unless edited_at is set.
  */
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
@@ -115,7 +115,9 @@ describe('P1592 round thread root', () => {
     const bar = screen.getByRole('toolbar', { name: 'Message actions' });
     expect(within(bar).getByRole('button', { name: 'Reply' })).toBeInTheDocument();
     expect(within(bar).getByRole('button', { name: 'Thread' })).toBeInTheDocument();
-    expect(within(bar).queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument();
+    // P1652: Copy text is offered on a system post too, so More exists; it holds no Edit or Delete.
+    fireEvent.click(within(bar).getByRole('button', { name: 'More actions' }));
+    expect(within(screen.getByRole('menu')).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Copy text']);
   });
 
   it('the list preview is the title alone, no "Deleted user" prefix', () => {

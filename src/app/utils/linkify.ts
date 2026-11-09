@@ -1,5 +1,6 @@
 import { createElement } from 'react';
 import type { ReactNode } from 'react';
+import { hasConfusableHost, scanUrls } from './link-scan';
 
 /**
  * Parses plain text and returns ReactNode[] with URLs converted to <a> elements.
@@ -36,26 +37,7 @@ import type { ReactNode } from 'react';
  * from what the reader actually sees.
  */
 
-/** Latin plus the marks that legitimately decorate it. Anything else is another script. */
-const LATIN_SAFE_HOST = /^[a-z0-9.-]+$/;
-
-/**
- * A destination host that mixes scripts, or is written in a non-Latin script at
- * all, cannot be judged by matching: a Cyrillic `а` in `аpple.com` is
- * byte-identical in label and href and passes any match rule. This is a
- * separate check because matching structurally cannot express it.
- */
-export function hasConfusableHost(href: string): boolean {
-  let host: string;
-  try {
-    host = new URL(href).hostname.toLowerCase();
-  } catch {
-    return true;
-  }
-  // `URL` punycodes non-Latin hosts on parse; both forms are rejected.
-  if (host.startsWith('xn--') || host.includes('.xn--')) return true;
-  return !LATIN_SAFE_HOST.test(host);
-}
+export { hasConfusableHost };
 
 /** Normalizes a parsed URL down to what a reader would call "the same place". */
 function urlIdentity(raw: string): string | null {
@@ -181,7 +163,8 @@ export function linkifyText(text: string): ReactNode[] {
             href: segment.href,
             target: '_blank',
             rel: 'noopener noreferrer',
-            className: 'text-blue-500 hover:underline',
+            dir: 'ltr',
+            className: 'text-blue-500 hover:underline [unicode-bidi:isolate]',
           }, segment.label)
         );
       }
@@ -198,88 +181,22 @@ export function linkifyText(text: string): ReactNode[] {
 
 /**
  * Auto-detects raw URLs in plain text and returns ReactNode[].
- * Internal helper — called per text segment after markdown extraction.
+ * Internal helper — called per text segment after markdown extraction. The scanning itself is shared with the
+ * chat (link-scan.ts); this only draws the segments as anchors.
  */
 function linkifyUrls(text: string, keyOffset: number): ReactNode[] {
-  // Allowlist pattern: https?:// URLs OR bare domain.tld patterns
-  // Bare domains: word.tld optionally followed by path
-  // No negative-lookbehind assertion here (Safari < 16.4 throws SyntaxError at
-  // construction when one is present — P983). The word-char-adjacency check a
-  // lookbehind would have done is replicated in the match loop below instead
-  // (see "Skip bare domains glued to a preceding word char").
-  const URL_PATTERN = /(?:https?:\/\/[^\s]+|[\w-]+\.(?:com|org|net|io|co|me|dev|app|ai|uk|de|fr|au|ca|edu|gov|info|biz|tv|fm|ly|gl|gg|pm|club)(?:\/[^\s]*)?)/gi;
-  // P1141 (d): `>` joins the trailing set. An autolink `<https://example.com>`
-  // otherwise emits an href carrying the closing bracket — a link that renders
-  // as correct and resolves to a 404. Confirmed by test, not by assumption.
-  const TRAILING_PUNCT = /[.,;:!?)>]+$/;
-
-  const nodes: ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  URL_PATTERN.lastIndex = 0;
-
-  while ((match = URL_PATTERN.exec(text)) !== null) {
-    let url = match[0];
-    const start = match.index;
-
-    // Strip trailing punctuation (e.g. "example.com." → "example.com")
-    const trailingMatch = url.match(TRAILING_PUNCT);
-    if (trailingMatch) {
-      url = url.slice(0, url.length - trailingMatch[0].length);
-    }
-
-    // Skip matches embedded in dangerous schemes (e.g. blob:https://...)
-    if (start > 0 && text[start - 1] === ':') {
-      if (start > lastIndex) {
-        nodes.push(text.slice(lastIndex, start + url.length));
-      }
-      lastIndex = start + url.length;
-      continue;
-    }
-
-    // Skip bare domains glued to a preceding word char (e.g. "xfoo.com") — this
-    // used to be enforced by a negative-lookbehind assertion in URL_PATTERN,
-    // removed for Safari < 16.4 compat (P983). Full http(s):// URLs are exempt.
-    const isBareDomain = !/^https?:\/\//i.test(url);
-    if (isBareDomain && start > 0 && /\w/.test(text[start - 1] ?? '')) {
-      // start can equal lastIndex here (no gap — this match is glued directly
-      // onto the previous one's tail), so guard on the full slice length, not
-      // just the gap, or the glued text silently disappears from output.
-      if (start + url.length > lastIndex) {
-        nodes.push(text.slice(lastIndex, start + url.length));
-      }
-      lastIndex = start + url.length;
-      continue;
-    }
-
-    // Add preceding plain text
-    if (start > lastIndex) {
-      nodes.push(text.slice(lastIndex, start));
-    }
-
-    // Build href: prefix bare domains with https://
-    const href = url.match(/^https?:\/\//i) ? url : `https://${url}`;
-
-    nodes.push(
-      createElement('a', {
-        key: `url-${keyOffset + start}`,
-        href,
-        target: '_blank',
-        rel: 'noopener noreferrer',
-        className: 'text-blue-500 hover:underline',
-      }, url)
-    );
-
-    lastIndex = start + url.length;
-  }
-
-  // Add remaining plain text
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
-  }
-
-  return nodes;
+  return scanUrls(text).map((segment) =>
+    segment.type === 'text'
+      ? segment.value
+      : createElement('a', {
+          key: `url-${keyOffset + segment.start}`,
+          href: segment.href,
+          target: '_blank',
+          rel: 'noopener noreferrer',
+          dir: 'ltr',
+          className: 'text-blue-500 hover:underline [unicode-bidi:isolate]',
+        }, segment.text)
+  );
 }
 
 /**

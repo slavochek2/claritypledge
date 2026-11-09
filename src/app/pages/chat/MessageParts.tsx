@@ -14,6 +14,7 @@ import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { AuthorNameSkeleton, QuoteSkeleton } from './MessageRowPlaceholders';
 import { MessageAttachment } from './MessageAttachment';
 import { CanvasMessageBody } from './CanvasMessageBody';
+import { ChatWords } from './ChatLinks';
 import { Quote } from './Quote';
 import { FOCUS_RING, MirrorMark } from './chat-kit';
 import { useChatNavigate } from './chat-hooks';
@@ -41,13 +42,13 @@ export function TranscriptionMark({ msg, grouped = false, continues = false }: {
 }
 
 /** A message's words: plain (a transcription is set like a typed message), or a bold title for a system post; "(edited)" only from edited_at. */
-export function MessageNote({ body, editedAt, system, boxRefs, agent = false }: { body: string; editedAt: string | null; system: boolean; boxRefs?: string[] | null; agent?: boolean }) {
+export function MessageNote({ body, editedAt, system, boxRefs, agent = false, spoken = false }: { body: string; editedAt: string | null; system: boolean; boxRefs?: string[] | null; agent?: boolean; /** A transcription: spoken words. */ spoken?: boolean }) {
   return (
     <p
       data-testid={system ? 'system-title' : undefined}
       className={cn('whitespace-pre-wrap break-words text-[15px] leading-[22px] text-foreground', system && 'font-semibold')}
     >
-      <CanvasMessageBody body={body} boxRefs={boxRefs} agent={agent} />
+      <CanvasMessageBody body={body} boxRefs={boxRefs} agent={agent} spoken={spoken} />
       {editedAt && <span className="ml-1.5 text-xs text-muted-foreground" data-testid="edited-mark">(edited)</span>}
     </p>
   );
@@ -166,7 +167,7 @@ function SnapshotWords({ snap, clarify, clarifiedAuthor }: { snap: Snapshot; cla
           {clarifiedAuthor}
         </span>
       )}
-      {snap.body && <span className={cn('mt-1 block', words)}>{snap.body}</span>}
+      {snap.body && <span className={cn('mt-1 block', words)}><ChatWords text={snap.body} spoken={!!snap.isTranscription} /></span>}
     </>
   );
 }
@@ -184,7 +185,7 @@ function ForwardedThread({ thread }: { thread: Snapshot['thread'] }) {
             <>
               {!t.systemKind && <span className="text-muted-foreground">: </span>}
               {t.isTranscription && <TranscriptionTag className="mr-1 align-middle" />}
-              <span className={cn('whitespace-pre-wrap break-words text-foreground', t.systemKind && 'font-semibold')}>{t.body}</span>
+              <span className={cn('whitespace-pre-wrap break-words text-foreground', t.systemKind && 'font-semibold')}><ChatWords text={t.body} spoken={!!t.isTranscription} /></span>
             </>
           )}
         </span>
@@ -220,6 +221,7 @@ export function ForwardedBody({ msg, viewerId }: { msg: ChatMessage; viewerId: s
         </>
       }
       onJump={hasOriginal ? () => void jump() : undefined}
+      splitJump
       body={<SnapshotWords snap={snap} clarify={clarify} clarifiedAuthor={clarifiedAuthor} />}
     >
       <MessageAttachment msg={msg} server={null} viewerId={viewerId} compact />

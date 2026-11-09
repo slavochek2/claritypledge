@@ -1,17 +1,17 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 116
 workstream: clarity-chat
 created_date: '2026-11-09'
 tags: [chat, links, reactions, clarity-chat]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
-spec_review_hash: df7914f400d08f8426f27e8472bca94596658d9ab30b527dd79ef0eba0ef742c
+spec_review_hash: 9f52221a715c5b89277f9dcc2324bc4b0f4f3bee0fed8e46557c2f3b1d4b3c4c
 spec_review_vendors: [codex, gemini, openrouter]
 ---
 
@@ -81,11 +81,11 @@ Any member of a chat who can read a message can react to it, including the agent
 
 - One person may hold several different reactions on a message (one row per message, person and emoji). Tapping a pill removes only that reaction.
 - Under the message: a pill per emoji with its count, highlighted when the viewer's own. Tapping a pill toggles it. Hover or long press on a pill shows who reacted, and releasing that long press does not toggle. People with no loaded profile show as "Unknown member".
-- Reached from a Reaction icon on the toolbar and an item in the long-press menu. Six buttons do not fit one row at 320px, so below 360px Forward moves into the ⋯ menu.
+- Reached from a Reaction icon on the toolbar and an item in the long-press menu. Six buttons do not fit one row at 320px, so where the row does not fit (about 400px) Forward moves into the ⋯ menu.
 - Live: other open sessions see changes without reloading, including removals.
 - Writes follow the chat schema's rule of no direct client writes: separate add and remove database functions that take the person from the session, are safe to repeat (never a toggle), and refuse a deleted message, an excluded chat, a message the person cannot read, or someone who can no longer post. A failed tap rolls back and shows an error.
 - Reading mirrors message access exactly, including the rule that a late joiner cannot see earlier messages.
-- The client keeps each reaction's id with its message and emoji so a removal can be applied. An unknown id, and every reconnect, re-reads the reactions from the server.
+- The client keeps each reaction's id with its message and emoji so a removal can be applied. A removal with an unknown id is ignored, because it cannot match anything drawn. Every reconnect re-reads the reactions from the server, one read at a time and only while the tab is visible.
 - The table's primary key is a meaningless generated id with a separate uniqueness rule. Live delivery does not apply access rules to removals and sends the removed row's key to every subscriber (P1512 migration notes), so a natural key would leak who reacted to what.
 - Deleting a message removes its reaction rows, even though the message row itself stays. A deleted message shows no reactions. Copies (forward, clarify) do not carry them. They do not change unread counts, reorder the chat list, or notify anyone. Existing reactions stay after a block; a person who can no longer post in a chat cannot add one.
 - An erased account's reactions are removed with the account.
@@ -98,6 +98,8 @@ Any member of a chat who can read a message can react to it, including the agent
 | A reaction reveals membership or message existence to a non-member | MITIGATE | Read rule mirrors message access; tested with a non-member, a removed member and a late joiner |
 | Live updates leak reactions across chats, or removals do not arrive | MITIGATE | Generated-id key; a test asserts a removal's live payload to a non-member holds only that id |
 | Pasted-link cards cause many reads in long chats | MITIGATE | One card per message; only drawn rows load |
+| Any person can generate reaction removals seen by all online clients, with no rate limit | ACCEPT | Delivery of an opaque id only and no reads; revisit with per-conversation delivery if traffic grows |
+| A reaction removal in the moments right after subscribing can be missed live (seen in 2 of 6 test runs), leaving a stale pill | ACCEPT | Corrected by the re-read on the next reconnect or chat open; a person who sees it can reopen the chat |
 | Typed `let.me` becomes a link | ACCEPT | Matches other messengers on typed text; spoken words are stricter |
 | A prose-labelled link typed in markdown no longer links in chat | ACCEPT | It never linked here; this is the anti-disguise rule |
 | Agent output using markdown links shows raw markdown with no link | ACCEPT | Readable and honest about the destination; revisit only if real output does this often |
@@ -107,6 +109,22 @@ Any member of a chat who can read a message can react to it, including the agent
 - Do NOT build read receipts or typing indicators. Rejected for this product, not deferred: they turn a reflection tool into surveillance.
 - Do NOT build photo upload, pinned messages, report, message requests, or previews of outside websites.
 - Do NOT add a Clarity Live invite card, or store cards as attachments at send time.
+
+## Cost Budget
+
+M = messages loaded in an open chat (a page holds at most a few hundred), V = chat opens per user per hour, R = reactions a user adds or removes per hour, C = own-app cards near the viewport per open.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | Open or reconnect: `ceil(M / 80)` reads. Cards: `C x 1` (30s cache). Taps: `1 RPC x R` | `V x (ceil(M / 80) + C) + R` | `10 tests x about 5 RPCs = about 50`, plus `5 users created and deleted x the existing helper's calls` |
+| Realtime messages | One subscription; each reaction change reaches subscribers: `1 x subscribers` | `reaction changes per hour x online clients` | `about 4` |
+| Egress (bytes) | `about 150 bytes per row x rows read` | same formula as requests x row size | negligible |
+| Log lines | One per failed read, at most 3 retries per reconnect: `3 x reconnects` | `3 x reconnects per hour` | `0 expected` |
+| Service unit x price | None: no paid API | none | none |
+
+1. **Fits the plan limit today?** Fits, on the Supabase row (realtime messages, egress). Monthly: `reaction changes per hour x online clients x 730`, and `reads per hour x active users x 730`. A foreign removal causes no read, so a burst costs delivery only.
+2. **Fits at 10x?** Fits on reads. Realtime grows with `changes x online clients`, because removals reach every subscriber; the Supabase row's cap is the first limit to watch.
+3. **If either answer is no:** the Supabase Pro row in the registry, from $25/month. Before that, per-conversation delivery would remove the fan-out.
 
 ## Acceptance Criteria
 
