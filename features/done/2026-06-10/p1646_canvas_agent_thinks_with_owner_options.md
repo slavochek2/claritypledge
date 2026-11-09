@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 110
 workstream: canvas
 created_date: '2026-11-06'
 tags: [canvas, mirror-agent]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 5af58fafd2e2f699ef486c98ddb597d37f378d13858a4ec0b2c8b161ab9c0aa8
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-09
 ---
 
 # P1646: Canvas agent thinks with the owner instead of refusing
@@ -118,7 +118,7 @@ How the numbers were reached, so they can be checked: runs 1 to 3 surfaced harne
 
 ## Cost Budget
 
-Per [metered-services.md](../docs/technical/metered-services.md): this design calls Gemini (one model call per offer or re-offer), calls Supabase (a stored-choice table, two new SQL functions, two cleanup triggers) and its real-model e2e creates and deletes test users, so it applies. Registry rows used: Gemini API, `gemini-3.8-flash` (the draft model, `MIRROR_MODEL`), and Supabase Free plan, both read 2026-10-27 and 2026-10-21 in the registry. Prices: $0.75 input and $3.75 output per 1M tokens through 2026-12-31, then $1.50 and $7.50.
+Per [metered-services.md](../../../docs/technical/metered-services.md): this design calls Gemini (one model call per offer or re-offer), calls Supabase (a stored-choice table, two new SQL functions, two cleanup triggers) and its real-model e2e creates and deletes test users, so it applies. Registry rows used: Gemini API, `gemini-3.8-flash` (the draft model, `MIRROR_MODEL`), and Supabase Free plan, both read 2026-10-27 and 2026-10-21 in the registry. Prices: $0.75 input and $3.75 output per 1M tokens through 2026-12-31, then $1.50 and $7.50.
 
 **Where a number is an estimate:** the prompt size and the typical output size are estimates, not measurements (marked "est."). The ceilings are the code's own limits: output `MAX_OUT_TOKENS = 16_000`, thinking included (`canvas-draft.ts`); input est. 8,000 tokens = about 5,900 for the rules (the whole `canvas-prompt.ts` is 23,592 bytes, divided by 4, which over-counts because the file also holds code) plus about 2,100 for the data block (est.). Typical output est. 1,500 tokens. The seed message is a first draft of nine boxes and may output more than that.
 
