@@ -40,6 +40,15 @@ type ChoicePayload =
 
 const baseOf = (s: Step): Map<string, BasePoint> => new Map(s.run.draft_points.map((p) => [p.id, p]));
 
+type WriteAnswer = { status?: string; code?: string };
+
+/** What the server's answer to a run write means when it already closed the run; null when the caller reads it further. */
+export function closedRun(answered: WriteAnswer): RunSummary | null {
+  if (answered.status === 'gone') return { state: 'failed', code: 'gone' };
+  if (answered.status === 'failed') return { state: 'failed', code: answered.code ?? 'failed' };
+  return null;
+}
+
 /** One write of a choice run. 'stale' (apply only) fails the run with a reply that asks for the pick again. */
 async function complete(s: Step, t: RunTools, choice: ChoicePayload, reply: string, usd: number | null): Promise<RunSummary> {
   const { run, p, deps } = s;
@@ -50,9 +59,9 @@ async function complete(s: Step, t: RunTools, choice: ChoicePayload, reply: stri
     console.error('canvas-draft: choice write failed', { code: error?.code, mode: choice.mode });
     return await t.failRun(deps, run, p, 'write', CHOICE_WRITE_REPLY, usd);
   }
-  const answered = data as { status?: string; code?: string };
-  if (answered.status === 'gone') return { state: 'failed', code: 'gone' };
-  if (answered.status === 'failed') return { state: 'failed', code: answered.code ?? 'failed' };
+  const answered = data as WriteAnswer;
+  const closed = closedRun(answered);
+  if (closed) return closed;
   if (answered.status === 'stale') return await t.failRun(deps, run, p, 'choice_stale', APPLY_STALE_REPLY, usd);
   if (answered.status !== 'ok') {
     // an answer this engine does not know is never read as done: the run fails and says nothing changed

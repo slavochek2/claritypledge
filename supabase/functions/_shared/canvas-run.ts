@@ -25,7 +25,7 @@ import { costUsd, type GeminiRequest, type GeminiUsage, type TokenCounter } from
 import { buildDraftRequest, choiceAllowed } from './canvas-prompt.ts';
 import { parseDraft } from './canvas-parse.ts';
 import { buildDraftReply, withCutNote } from './canvas-reply.ts';
-import { choiceRun, draftOffer, type RunTools } from './canvas-choice-run.ts';
+import { choiceRun, closedRun, draftOffer, type RunTools } from './canvas-choice-run.ts';
 import { draftReplyOf, offersToAdd } from './canvas-run-reply.ts';
 import type { LinkResult } from './canvas-material.ts';
 import { frameOf, scopeOf } from './canvas-frame.ts';
@@ -247,9 +247,8 @@ async function completeDraft(s: Step, out: Parsed, usd: number | null, truncated
     console.error('canvas-draft: write failed', { code: error?.code });
     return await failRun(deps, run, p, 'write', 'I drafted your canvas but could not save it. Please try again.', usd);
   }
-  const answered = data as { status?: string; code?: string };
-  if (answered.status === 'gone') return { state: 'failed', code: 'gone' };
-  if (answered.status === 'failed') return { state: 'failed', code: answered.code ?? 'failed' };
+  const closed = closedRun(data as { status?: string; code?: string });
+  if (closed) return closed;
   console.log('canvas-draft: done', { points: out.total, dropped: out.droppedUnverified + out.droppedNames + out.droppedScope, cost: out.costUsd });
   return { state: 'done' };
 }
