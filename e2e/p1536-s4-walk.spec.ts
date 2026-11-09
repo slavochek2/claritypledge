@@ -57,7 +57,13 @@ async function shot(page: Page, vp: number, name: string, ms = 600): Promise<str
 }
 
 const composer = (page: Page) => page.getByTestId('composer').getByRole('textbox').first();
-const composerValue = (page: Page) => composer(page).inputValue();
+/** P1621: tags show as pills above the field, not inside it. What the composer holds = each pill as "[Box]" (a point pill "Box · words" as "[Box]"), then the typed words. */
+const composerValue = async (page: Page): Promise<string> => {
+  const pills = await page.getByTestId('composer').getByTestId('composer-tag-pill-label').allTextContents().catch(() => [] as string[]);
+  const words = await composer(page).inputValue();
+  // each pill as the token the composer stores (MARK [Box] MARK), so the token counts below still read the same
+  return [...pills.map(p => `${MARK}[${p.split(' · ')[0]!.trim()}]${MARK}`), words].filter(Boolean).join(' ');
+};
 /**
  * The nine boxes, by tag: the ids of the cards shown (what "the same points" means: an unchanged box keeps its point ids; its text can differ between a published view
  * and a draft view, e.g. an empty box reads "Empty" in one and may carry the agent's question in the other), the "See all N" count, and the text, kept for the log.
@@ -68,7 +74,7 @@ async function boxes(page: Page): Promise<Record<string, { ids: string; more: st
     const ids = [...(el?.querySelectorAll('[data-testid^="canvas-point-card-"]') ?? [])].map(c => (c as HTMLElement).dataset.testid!.replace('canvas-point-card-', '')).join(',');
     const more = el?.querySelector('[data-testid="canvas-box-more"]')?.textContent ?? '';
     const clone = el?.cloneNode(true) as HTMLElement | undefined;
-    clone?.querySelectorAll('[data-testid^="canvas-add-to-chat-"], [data-testid="canvas-box-changed"], [data-testid="canvas-box-removed"]').forEach(n => n.remove());
+    clone?.querySelectorAll('[data-testid^="canvas-mention-in-chat-"], [data-testid^="canvas-card-mention-"], [data-testid="canvas-box-changed"], [data-testid="canvas-box-removed"]').forEach(n => n.remove());
     return [t, { ids, more, text: (clone?.innerText ?? '').replace(/\s+/g, ' ').trim() }];
   })), BOXES);
 }
@@ -117,8 +123,18 @@ async function sendTyped(page: Page, text: string) {
   await page.keyboard.type(text);
   await page.locator('[data-composer-send]').first().click();
 }
+/**
+ * P1621 (rounds 1 to 3): "Add to chat" is "Mention in chat", and it shows only on a SELECTED box: the box's own button (published view, an empty box), or the card's (a draft or a pending Clone
+ * whose box holds a card). Select the box by its title (unless it already is), then find whichever Mention button the box has.
+ */
+async function mentionOf(page: Page, tag: string) {
+  const title = page.getByTestId(`canvas-box-title-${tag}`);
+  await title.scrollIntoViewIfNeeded();
+  if ((await title.getAttribute('aria-pressed')) !== 'true') await title.click();
+  return page.getByTestId(`canvas-box-${tag}`).getByRole('button', { name: /^(Mention in chat|Mentioned)/ }).first();
+}
 async function addToChat(page: Page, tag: string) {
-  const b = page.getByTestId(`canvas-add-to-chat-${tag}`);
+  const b = await mentionOf(page, tag);
   await b.scrollIntoViewIfNeeded();
   await b.click();
 }
@@ -164,10 +180,11 @@ async function walk(browser: Browser, vp: number, height: number) {
 
     // ------------------------------------------------------------ B: one tag on a published version
     const s1 = await boxes(page);
-    await step(vp, 'B', 'nine Add to chat buttons, 44px, on the published version', async () => {
-      const hs = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="canvas-add-to-chat-"]')].map(b => Math.round(b.getBoundingClientRect().height)));
-      const f = await shot(page, vp, 'B-1-published-add-to-chat-buttons');
-      rec(vp, 'B', 'owner sees nine Add to chat, each >=44px tall', hs.length === 9 && hs.every(h => h >= 44), `heights=${JSON.stringify(hs)}`, f);
+    await step(vp, 'B', 'a Mention in chat button on each box once it is selected, 40px, on the published version', async () => {
+      const hs: number[] = [];
+      for (const tag of BOXES) hs.push(Math.round((await (await mentionOf(page, tag)).boundingBox())?.height ?? 0));
+      const f = await shot(page, vp, 'B-1-published-mention-buttons');
+      rec(vp, 'B', 'owner sees Mention in chat on each of the nine boxes when selected, each >=40px tall', hs.length === 9 && hs.every(h => h >= 40), `heights=${JSON.stringify(hs)}`, f);
       const sw = await page.evaluate(() => document.documentElement.scrollWidth);
       rec(vp, 'B', 'no horizontal page overflow', sw <= vp, `scrollWidth=${sw} innerWidth=${vp}`, f);
       const broken = await brokenTitleWords(page);
@@ -175,7 +192,7 @@ async function walk(browser: Browser, vp: number, height: number) {
     });
     await step(vp, 'B', 'tap on a published box: nothing written, pending Clone, tag in the composer', async () => {
       // The click is dispatched from the page and the focus read in the same task: where the focus is when the handler has returned (the phone's keyboard needs it inside).
-      const inHandler = await page.getByTestId('canvas-add-to-chat-canvas:revenue').evaluate((b: HTMLElement) => {
+      const inHandler = await (await mentionOf(page, 'canvas:revenue')).evaluate((b: HTMLElement) => {
         b.click();
         const a = document.activeElement as HTMLElement | null;
         return { tag: a?.tagName ?? null, inComposer: !!a?.closest('[data-testid="composer"]'), hasToken: (a as HTMLTextAreaElement | null)?.value?.includes('Offers & Pricing') ?? false };
@@ -185,7 +202,7 @@ async function walk(browser: Browser, vp: number, height: number) {
       rec(vp, 'B', 'published tap: focus when the click handler returns (informational)', null, JSON.stringify(inHandler));
       await expect(page.getByTestId('workspace-chat-empty')).toBeVisible({ timeout: 20_000 }).catch(async (e) => {
         // a tap that did nothing: say whether the owner was told (the dropped-tag sentence) and what the page looked like
-        const told = await page.locator('[data-sonner-toast]').filter({ hasText: 'Could not add that box to the chat' }).count();
+        const told = await page.locator('[data-sonner-toast]').filter({ hasText: 'Could not mention that box in the chat' }).count();
         rec(vp, 'B', 'diagnostic: the published tap did not open the pending Clone', null, `owner told=${told > 0} url=${page.url()} clone button=${await page.getByTestId('canvas-clone').count()} spot=${await spotState(page)}`, await shot(page, vp, 'B-2-FAILED-published-tap-did-nothing'));
         throw e;
       });
@@ -224,7 +241,7 @@ async function walk(browser: Browser, vp: number, height: number) {
       await page.keyboard.type('and the solution: also mention gluten free and vegan options. ');
       await toView(page, wide, 'canvas');
       // a tap on a DRAFT: the composer is already mounted, so the tag and the focus are in place when the click handler returns (S4.2; the phone's keyboard needs it)
-      const inHandler = await page.getByTestId('canvas-add-to-chat-canvas:solution').evaluate((b: HTMLElement) => {
+      const inHandler = await (await mentionOf(page, 'canvas:solution')).evaluate((b: HTMLElement) => {
         b.click();
         const a = document.activeElement as HTMLTextAreaElement | null;
         return { tag: a?.tagName ?? null, inComposer: !!a?.closest('[data-testid="composer"]'), hasToken: a?.value?.includes('Solution') ?? false };
@@ -296,7 +313,7 @@ async function walk(browser: Browser, vp: number, height: number) {
     await step(vp, 'F', 'same base: Add to chat on v1 while a draft from v1 is open, no sheet, tag goes into the draft', async () => {
       await page.goto(`${base}?v=${v1}`);
       await expect(page.getByTestId('canvas-grid')).toBeVisible({ timeout: 30_000 });
-      await expect(page.getByTestId('canvas-add-to-chat-canvas:problem')).toBeVisible({ timeout: 20_000 });
+      await expect(await mentionOf(page, 'canvas:problem')).toBeVisible({ timeout: 20_000 });
       await addToChat(page, 'canvas:problem');
       await expect.poll(() => composerValue(page), { timeout: 20_000, intervals: [300] }).toContain('[Problem]').catch(() => undefined); // the draft's thread is read first (the tag waits for it, up to 15 s)
       const sheet = await page.getByTestId('clone-draft-sheet').count();
@@ -320,7 +337,7 @@ async function walk(browser: Browser, vp: number, height: number) {
     });
     await step(vp, 'F', 'other base with a message: the sheet appears on Add to chat on v1', async () => {
       await page.goto(`${base}?v=${v1}`);
-      await expect(page.getByTestId('canvas-add-to-chat-canvas:revenue')).toBeVisible({ timeout: 60_000 }).catch(async (e) => { await shot(page, vp, 'F-2-FAILED-no-add-to-chat-on-v1'); throw e; });
+      await expect(await mentionOf(page, 'canvas:revenue')).toBeVisible({ timeout: 60_000 }).catch(async (e) => { await shot(page, vp, 'F-2-FAILED-no-add-to-chat-on-v1'); throw e; });
       await addToChat(page, 'canvas:revenue');
       const sheet = page.getByTestId('clone-draft-sheet');
       await expect(sheet).toBeVisible({ timeout: 15_000 });
@@ -337,7 +354,7 @@ async function walk(browser: Browser, vp: number, height: number) {
       // clear the composer first so a leftover tag from the step above cannot be mistaken for a new one
       await composer(page).fill('');
       await page.goto(`${base}?v=${v1}`);
-      await expect(page.getByTestId('canvas-add-to-chat-canvas:metrics')).toBeVisible({ timeout: 30_000 });
+      await expect(await mentionOf(page, 'canvas:metrics')).toBeVisible({ timeout: 30_000 });
       await addToChat(page, 'canvas:metrics');
       await expect(page.getByTestId('clone-draft-sheet')).toBeVisible({ timeout: 15_000 });
       await page.keyboard.press('Escape');
@@ -355,7 +372,7 @@ async function walk(browser: Browser, vp: number, height: number) {
       await addToChat(page, 'canvas:problem');
       await expect.poll(() => composerValue(page), { timeout: 20_000 }).toContain('[Problem]').catch(async (e) => {
         await shot(page, vp, 'G-FAILED-tag-not-in-composer');
-        rec(vp, 'G', 'diagnostic: where the page was when the tag did not land', null, `after ${Date.now() - tTap}ms url=${page.url()} value="${await composerValue(page)}" sheet=${await page.getByTestId('clone-draft-sheet').count()} buttons=${await page.locator('[data-testid^="canvas-add-to-chat-"]').count()}`);
+        rec(vp, 'G', 'diagnostic: where the page was when the tag did not land', null, `after ${Date.now() - tTap}ms url=${page.url()} value="${await composerValue(page)}" sheet=${await page.getByTestId('clone-draft-sheet').count()} buttons=${await page.locator('[data-testid^="canvas-mention-in-chat-"], [data-testid^="canvas-card-mention-"]').count()}`);
         throw e;
       });
       const box = page.getByTestId('composer');
@@ -377,11 +394,11 @@ async function walk(browser: Browser, vp: number, height: number) {
     await step(vp, 'H', 'a tap while the read hangs: no tag appears, and the owner is told after 15 s', async () => {
       await page.route(/rpc\/get_canvas(\?|$)/, () => undefined); // a request that is never answered
       await page.goto(`${base}?v=${v1}`);
-      await expect(page.getByTestId('canvas-add-to-chat-canvas:revenue')).toBeVisible({ timeout: 30_000 });
+      await expect(await mentionOf(page, 'canvas:revenue')).toBeVisible({ timeout: 30_000 });
       const t0 = Date.now();
       await addToChat(page, 'canvas:revenue');
       await shot(page, vp, 'H-1-tapped-while-read-hangs');
-      const toast = page.locator('[data-sonner-toast]').filter({ hasText: 'Could not add that box to the chat. Tap Add to chat again.' }).first();
+      const toast = page.locator('[data-sonner-toast]').filter({ hasText: 'Could not mention that box in the chat. Tap Mention in chat again.' }).first();
       await toast.waitFor({ timeout: 25_000 });
       const waited = Date.now() - t0;
       const f = await shot(page, vp, 'H-2-dropped-with-a-sentence');

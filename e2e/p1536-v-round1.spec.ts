@@ -167,6 +167,14 @@ async function publishedV1(api: SupabaseClient, user: TestUser, title = TITLE) {
 }
 
 const q = (page: Page, id: string) => page.getByTestId(id);
+/** P1621: "Add to chat" is "Mention in chat" and shows only on a SELECTED box (the box's own button, or its card's when it holds a card on a draft). Select the box, then find whichever the box has. */
+async function mentionOf(page: Page, tag: string) {
+  const title = page.getByTestId(`canvas-box-title-${tag}`);
+  await title.waitFor({ timeout: 40_000 });
+  await title.scrollIntoViewIfNeeded();
+  if ((await title.getAttribute('aria-pressed')) !== 'true') await title.click();
+  return page.getByTestId(`canvas-box-${tag}`).getByRole('button', { name: /^(Mention in chat|Mentioned)/ }).first();
+}
 // below 360px the pencil gives way to the name itself (canvas-rename-name), so a tap on the pencil would never land at 320
 const startRename = async (p: Page) => { const pen = q(p, 'canvas-rename'); if (await pen.isVisible()) await pen.click(); else await q(p, 'canvas-rename-name').click(); };
 const vis = (page: Page, id: string, timeout = 40_000) => q(page, id).first().waitFor({ state: 'visible', timeout });
@@ -230,7 +238,7 @@ test('B1 chrome: panel, tabs, picker, Discard, rename, stance, Changed and Remov
     await cap(cs, 'picker-open', `${fx}; the version picker tapped`, async (p, w) => { await p.goto(`${path}?v=${dr.version_name}&ws=1`); await inWorkspace(p, w); await q(p, 'canvas-version-picker').click(); }, async (p) => { await p.getByRole('listbox').or(p.getByRole('menu')).or(p.getByTestId('canvas-version-select')).or(p.getByTestId('canvas-version-results')).first().waitFor({ state: 'visible', timeout: 15_000 }); });
     await cap(cs, 'discard-confirm', `${fx}; Discard tapped (the confirm is open, nothing discarded)`, async (p, w) => { await p.goto(`${path}?v=${dr.version_name}&ws=1`); await inWorkspace(p, w); await q(p, 'canvas-discard').click(); }, async (p) => { await p.getByRole('alertdialog').or(p.getByRole('dialog')).first().waitFor({ state: 'visible', timeout: 15_000 }); }, { after: async (p) => { await p.keyboard.press('Escape'); } });
     await cap(cs, 'rename-editing', `${fx}; the ✎ tapped (the name field open, nothing saved)`, async (p, w) => { await p.goto(`${path}?v=${dr.version_name}&ws=1`); await inWorkspace(p, w); await startRename(p); }, async (p) => { await vis(p, 'canvas-title-input', 15_000); });
-    await cap(cs, 'stance-control-d20', `${fx}; the first point card tapped: its panel with the owner's position control`, async (p, w) => { await p.goto(`${path}?v=${dr.version_name}&ws=1`); await inWorkspace(p, w); await toTab(p, w, 'canvas'); await p.locator('[data-testid^="canvas-point-card-"]').first().click(); }, async (p) => { await vis(p, 'canvas-point-panel', 15_000); await p.getByRole('button', { name: /agree|position/i }).first().waitFor({ state: 'visible', timeout: 8_000 }).catch(async () => { throw new Error('point panel open, no point-positions-block; panel text: ' + ((await q(p, 'canvas-point-panel').innerText()).replace(/\s+/g, ' ').slice(0, 160))); }); });
+    await cap(cs, 'stance-control-d20', `${fx}; the first point card tapped: its panel with the owner's position control`, async (p, w) => { await p.goto(`${path}?v=${dr.version_name}&ws=1`); await inWorkspace(p, w); await toTab(p, w, 'canvas'); await p.locator('[data-testid^="canvas-point-card-"]').first().click(); /* P1621: on a draft the card selects its box; its Open button opens the panel */ await p.locator('[data-testid^="canvas-card-open-"]').first().click(); }, async (p) => { await vis(p, 'canvas-point-panel', 15_000); await p.getByRole('button', { name: /agree|position/i }).first().waitFor({ state: 'visible', timeout: 8_000 }).catch(async () => { throw new Error('point panel open, no point-positions-block; panel text: ' + ((await q(p, 'canvas-point-panel').innerText()).replace(/\s+/g, ' ').slice(0, 160))); }); });
     // Removed: take one base point out of the draft, so a box that had a point in v1 reads Empty against it
     const prob = (await supabaseAdmin.from('points').select('id,system_tags').eq('first_validator_id', user.user.id).contains('system_tags', ['canvas:problem', `canvas_${dr.version_name}`]).limit(1).maybeSingle()).data;
     if (!prob) notReached('changed-and-removed-boxes', fx, 'fixture: the draft holds no problem point to remove');
@@ -391,7 +399,7 @@ test('D model: reply chips with Undo, Add to chat with tags, a chip tap, Undone'
     await cap(cs, 'chip-tap-highlight', `${fx}; the first reply chip tapped: the box it names shows with its 2-second highlight ring`, async (p, w) => { await p.goto(url); await inWorkspace(p, w).catch(() => barReady(p, w)); await toTab(p, w, 'chat'); await vis(p, 'canvas-undo', 30_000); await p.locator('[data-box]').last().click(); }, async (p) => { await p.waitForFunction(() => !!document.querySelector('[data-highlight]'), undefined, { timeout: 5000 }); });
     await cap(cs, 'add-to-chat-tags', `${fx}; Add to chat tapped on two boxes: both tags sit in the composer (on a phone the view switches to Thread)`, async (p, w) => {
       await p.goto(url); await inWorkspace(p, w).catch(() => barReady(p, w)); await toTab(p, w, 'canvas');
-      for (const t of ['canvas:segments', 'canvas:problem']) { const b = q(p, `canvas-add-to-chat-${t}`); await b.scrollIntoViewIfNeeded(); await b.click(); await p.waitForTimeout(400); if (w < 1280 && t === 'canvas:segments') await toTab(p, w, 'canvas'); }
+      for (const t of ['canvas:segments', 'canvas:problem']) { const b = await mentionOf(p, t); await b.scrollIntoViewIfNeeded(); await b.click(); await p.waitForTimeout(400); if (w < 1280 && t === 'canvas:segments') await toTab(p, w, 'canvas'); }
     }, async (p) => { await p.waitForFunction(() => /\[[^\]]+\].*\[[^\]]+\]/s.test((document.querySelector('[data-testid="composer"] textarea, [data-testid="composer"] [role="textbox"]') as HTMLTextAreaElement | null)?.value ?? (document.querySelector('[data-testid="composer"]') as HTMLElement | null)?.innerText ?? ''), undefined, { timeout: 10_000 }); });
     // Undo the second run once: the reply reads Undone., and the first run's reply carries Undo
     if (KEEP && process.env.P1536_D_UNDO !== '1' && !(process.env.P1536_STATES ?? '').includes('undone')) return;
@@ -489,7 +497,7 @@ test('F1 chat: chat list, + menu, cards, read-only threads, J4 sheet', async ({ 
     await publish(api, e2);
     const e3 = await withPoint(e2.version_id, 'E3: a third version');
     await reply(e3, 'a message in the draft from v2');
-    await cap(cs, 'j4-sheet', 'fixture: a canvas with v1 and v2 published and an open draft from v2 holding one message (service-role reply); v1 opened and Add to chat tapped on a box', async (p) => { await p.goto(`${e1.path}?v=${e1.v1}`); const b = q(p, 'canvas-add-to-chat-canvas:problem'); await b.waitFor({ timeout: 40_000 }); await b.scrollIntoViewIfNeeded(); await b.click(); }, async (p) => { await vis(p, 'clone-draft-sheet', 15_000); }, { after: async (p) => { await p.keyboard.press('Escape'); } });
+    await cap(cs, 'j4-sheet', 'fixture: a canvas with v1 and v2 published and an open draft from v2 holding one message (service-role reply); v1 opened and Add to chat tapped on a box', async (p) => { await p.goto(`${e1.path}?v=${e1.v1}`); const b = await mentionOf(p, 'canvas:problem'); await b.waitFor({ timeout: 40_000 }); await b.scrollIntoViewIfNeeded(); await b.click(); }, async (p) => { await vis(p, 'clone-draft-sheet', 15_000); }, { after: async (p) => { await p.keyboard.press('Escape'); } });
   } finally {
     await closeAll(cs);
     await deleteTestUser(user.user.id).catch((e) => console.error('cleanup failed', e));

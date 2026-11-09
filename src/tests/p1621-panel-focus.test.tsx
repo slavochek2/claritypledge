@@ -25,4 +25,40 @@ describe('P1621 PointPanel closing', () => {
     expect(document.activeElement).toBe(title);
     title.remove();
   });
+
+  it('a box list (See all) returns focus to what opened it, not the title', () => {
+    const title = document.createElement('button');
+    title.setAttribute('data-testid', 'canvas-box-title-canvas:problem');
+    const opener = document.createElement('button');
+    document.body.append(title, opener);
+    opener.focus();
+    const { unmount } = render(
+      <MemoryRouter>
+        <PointPanel onClose={() => undefined} label="Problem" viewKey="box:canvas:problem" step={{ box: 'Problem', boxTag: 'canvas:problem' }}>
+          <p>list</p>
+        </PointPanel>
+      </MemoryRouter>,
+    );
+    unmount();
+    expect(document.activeElement).toBe(opener);
+    title.remove();
+    opener.remove();
+  });
+
+  it('a box list opened from the address (no opener) returns focus to its box title', () => {
+    const title = document.createElement('button');
+    title.setAttribute('data-testid', 'canvas-box-title-canvas:problem');
+    document.body.appendChild(title);
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    const { unmount } = render(
+      <MemoryRouter>
+        <PointPanel onClose={() => undefined} label="Problem" viewKey="box:canvas:problem" step={{ box: 'Problem', boxTag: 'canvas:problem' }}>
+          <p>list</p>
+        </PointPanel>
+      </MemoryRouter>,
+    );
+    unmount();
+    expect(document.activeElement).toBe(title);
+    title.remove();
+  });
 });

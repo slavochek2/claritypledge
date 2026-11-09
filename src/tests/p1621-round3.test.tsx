@@ -6,7 +6,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState, type ReactNode } from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PointWithUserPosition } from '@/app/types';
 
@@ -124,7 +124,7 @@ describe('2: Remove lives in the point panel', () => {
   const page = (boxes: Boxes, edit: PointEditConfig, open: PointWithUserPosition | null, onRemoved: () => void = () => undefined): ReactNode => (
     <>
       {grid(boxes, edit)}
-      {open && <PanelPointEdit point={open} boxes={boxes} edit={edit} onSaved={() => undefined} onRemoved={onRemoved}><p>the card</p></PanelPointEdit>}
+      {open && <MemoryRouter><PanelPointEdit point={open} boxes={boxes} edit={edit} onSaved={() => undefined} onRemoved={onRemoved}><p>the card</p></PanelPointEdit></MemoryRouter>}
     </>
   );
   const panelRemove = (id: string) => screen.queryByTestId(`canvas-panel-remove-${id}`);
@@ -179,7 +179,30 @@ describe('2: Remove lives in the point panel', () => {
     await waitFor(() => expect(svc.remove).toHaveBeenCalledWith('new-d', 'p1', 7));
     expect(ensure).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(moveTo).toHaveBeenCalled());
-    expect(onRemoved).toHaveBeenCalled();
+    expect(onRemoved, 'a pending clone drops the panel from the live address instead (see the next test)').not.toHaveBeenCalled();
+  });
+
+  it('on a pending clone a successful Remove does not call onRemoved: it navigates to the live address without `point`, keeping the new `v`', async () => {
+    const moveTo = vi.fn();
+    const ensure = vi.fn(async () => ({ ok: true as const, draftId: 'new-d', revision: 7, versionName: 'v_d1', moveTo }));
+    pointRows.rows = [{ id: 'p1', statement: 'They are thirsty', system_tags: [PROB, 'canvas_v_d1'] }];
+    svc.remove.mockResolvedValue({ ok: true, revision: 8 });
+    // by now the page has moved to the draft: the live address names the new version and still the opened point
+    window.history.pushState({}, '', '/p/ana/canvas/plan?v=v_d1&ws=1&point=p1');
+    const seen: string[] = [];
+    function Probe() { const l = useLocation(); seen.push(`${l.pathname}${l.search}`); return null; }
+    const onRemoved = vi.fn();
+    render(
+      <MemoryRouter initialEntries={['/p/ana/canvas/plan?v=v2&ws=1&point=p1']}>
+        <Probe />
+        <PanelPointEdit point={pt('p1', 'They are thirsty', PROB)} boxes={ONE} edit={cfg({ draftId: '', revision: 0, ensure: ensure as unknown as EnsureDraft })} onSaved={() => undefined} onRemoved={onRemoved}><p>the card</p></PanelPointEdit>
+      </MemoryRouter>,
+    );
+    fireEvent.click(panelRemove('p1')!);
+    await waitFor(() => expect(svc.remove).toHaveBeenCalledWith('new-d', 'p1', 7));
+    await waitFor(() => expect(seen.at(-1)).toBe('/p/ana/canvas/plan?v=v_d1&ws=1'));
+    expect(onRemoved).not.toHaveBeenCalled();
+    window.history.pushState({}, '', '/');
   });
 
   it('after removal focus goes to the next card\'s first action once the card is gone', async () => {
@@ -218,7 +241,7 @@ describe('review round 3: Remove in the panel', () => {
   const panelFor = (boxes: Boxes, edit: PointEditConfig, point: PointWithUserPosition | null, onRemoved: () => void = () => undefined): ReactNode => (
     <>
       {grid(boxes, edit)}
-      {point && <PanelPointEdit point={point} boxes={boxes} edit={edit} onSaved={() => undefined} onRemoved={onRemoved}><p>the card</p></PanelPointEdit>}
+      {point && <MemoryRouter><PanelPointEdit point={point} boxes={boxes} edit={edit} onSaved={() => undefined} onRemoved={onRemoved}><p>the card</p></PanelPointEdit></MemoryRouter>}
     </>
   );
   const P1 = pt('p1', 'They are thirsty', PROB);

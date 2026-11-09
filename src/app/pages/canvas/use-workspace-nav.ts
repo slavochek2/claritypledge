@@ -10,6 +10,12 @@ import { CANVAS_WORKSPACE_PARAM } from '@/app/components/layout/bottom-nav-route
 import type { WorkspaceView } from '@/app/components/canvas/canvas-workspace-layout';
 import { workspaceBackTarget } from './canvas-workspace-back';
 
+function withoutPanelBack(state: Location['state']): Location['state'] {
+  if (!state || typeof state !== 'object' || !('canvasPanel' in state)) return state;
+  const { canvasPanel: _dropped, ...rest } = state as Record<string, unknown>;
+  return rest;
+}
+
 export function useWorkspaceNav(args: {
   setParams: (next: (prev: URLSearchParams) => URLSearchParams, options: { replace?: boolean; state: Location['state'] }) => void;
   state: Location['state'];
@@ -30,7 +36,8 @@ export function useWorkspaceNav(args: {
       next.set(CANVAS_WORKSPACE_PARAM, '1');
       next.delete('with');
       return next;
-    }, { replace: !comparing, state });
+    // P1621: an open point's "close = Back" mark is dropped: the entry behind it is the published version, and closing the panel must stay on the draft.
+    }, { replace: !comparing, state: withoutPanelBack(state) });
   }, [setParams, state, openPanel, comparing]);
   const openExistingDraft = useCallback((versionName: string) => { setView('canvas'); openedDraft(versionName); }, [setView, openedDraft]);
   const pickVersion = useCallback((version: string) => {

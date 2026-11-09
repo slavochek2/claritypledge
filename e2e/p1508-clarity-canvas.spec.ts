@@ -196,8 +196,9 @@ test.describe('P1508: Clarity Canvas', () => {
     for (const gone of ['Unique Value Proposition', 'Unfair Advantage', 'Cost Structure', 'What I love']) {
       await expect(page.getByText(gone, { exact: true })).toHaveCount(0);
     }
-    // P1535: three layers, named, in order, the core bet first; no other frames.
-    await expect(page.getByTestId('canvas-layer-name')).toHaveText(['Core assumptions', 'Profitability assumptions', 'Founder-fit assumptions']);
+    // P1535 three layers, P1621 (founder-approved): the layers carry no names or numbers any more; a gap separates the rows
+    await expect(page.getByTestId('canvas-layer-name')).toHaveCount(0);
+    await expect(page.getByTestId('canvas-layer-gap')).toHaveCount(2);
     await expect(page.getByText(/^(Ikigai|Lean Canvas)$/)).toHaveCount(0);
     // R2, P1535: one card, then "See all N", which opens the whole box in the panel — the grid stays put.
     const problem = page.getByTestId('canvas-box-canvas:problem');
@@ -537,9 +538,10 @@ test.describe('P1508: Clarity Canvas', () => {
 
   test('P1535: three layers in reading order, core bet first — three columns from 1024px, two from 640px, one below', async ({ page }) => {
     const ORDER = [
+      // P1621 (founder-approved display order): Offers & Pricing, then Go-to-market, then My next milestone; the last row reads challenge, falsified, values
       'canvas:segments', 'canvas:problem', 'canvas:solution',
-      'canvas:channels', 'canvas:revenue', 'canvas:metrics',
-      'canvas:love', 'canvas:good-at', 'canvas:world-needs',
+      'canvas:revenue', 'canvas:channels', 'canvas:metrics',
+      'canvas:good-at', 'canvas:world-needs', 'canvas:love',
     ];
     for (const [width, columns] of [[1440, 3], [1024, 3], [1023, 2], [640, 2], [639, 1], [375, 1]] as const) {
       await page.setViewportSize({ width, height: 900 });
@@ -555,11 +557,7 @@ test.describe('P1508: Clarity Canvas', () => {
         const [p, c] = [rects[i - 1], rects[i]];
         expect(c.y > p.y || (c.y === p.y && c.x > p.x), `box ${i} follows box ${i - 1} at ${width}px`).toBe(true);
       }
-      // Each layer's label sits above its first box.
-      const labels = await page.getByTestId('canvas-layer-title').evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().bottom)));
-      for (const [layer, firstBox] of [[0, 0], [1, 3], [2, 6]] as const) {
-        expect(labels[layer] <= rects[firstBox].y, `layer ${layer} label above its boxes at ${width}px`).toBe(true);
-      }
+      // P1621: the layer labels are gone; the gap between rows is checked in the 'layers carry no names or numbers' test below.
     }
   });
 

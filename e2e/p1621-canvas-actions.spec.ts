@@ -107,7 +107,8 @@ for (const vp of [1440, 375, 320]) {
 
       // 1. first visit: the first box with a card opens selected (Customer Segments); the layer names and numbers are gone
       await expect(page.getByTestId(`canvas-box-title-${SEG}`)).toHaveAttribute('aria-pressed', 'true');
-      await expect(page.getByTestId(`canvas-mention-in-chat-${SEG}`)).toBeVisible();
+      // Round 2: a box holding a card mentions per card (the box keeps its own button only while empty)
+      await expect(page.getByTestId(`canvas-box-${SEG}`).getByRole('button', { name: /^Mention in chat/ })).toBeVisible();
       await expect(page.getByText('Core assumptions')).toHaveCount(0);
       await expect(page.getByTestId('canvas-layer-title')).toHaveCount(0);
       const order = await page.locator('[data-canvas-box]').evaluateAll(els => els.map(e => e.getAttribute('data-testid')));
@@ -131,7 +132,9 @@ for (const vp of [1440, 375, 320]) {
       await expect(page.getByTestId(`canvas-box-title-${PROB}`)).toHaveAttribute('aria-pressed', 'true');
       await expect(page.locator('[data-canvas-box][data-selected]')).toHaveCount(1);
       const box = page.getByTestId(`canvas-box-${PROB}`);
-      await expect(box.getByTestId(`canvas-mention-in-chat-${PROB}`)).toBeVisible();
+      await expect(box.getByRole('button', { name: /^Mention in chat/ })).toBeVisible();
+      await expect(box.getByTestId(`canvas-mention-in-chat-${PROB}`), 'the box has a card: no box-level Mention').toHaveCount(0);
+      await expect(box.getByRole('button', { name: /^Remove/ }), 'Remove is in the point panel, not on the card').toHaveCount(0);
       await expect(box.getByRole('button', { name: /^Edit:/ })).toBeVisible();
       await expect(box.getByRole('button', { name: /^Open:/ })).toBeVisible();
       await expect(box.getByTestId(`canvas-box-add-${PROB}`)).toBeVisible();
@@ -142,7 +145,7 @@ for (const vp of [1440, 375, 320]) {
       await expect(page.locator('[data-canvas-box][data-selected]')).toHaveCount(0);
       await expect(page.getByTestId(`canvas-box-title-${PROB}`)).toBeFocused();
 
-      // 3. keyboard alone: Enter selects, Tab walks Mention, Edit, Open, Add card
+      // 3. keyboard alone: Enter selects, Tab walks Edit, Open, Mention in chat (per card), Add card
       await page.keyboard.press('Enter');
       await expect(page.getByTestId(`canvas-box-title-${PROB}`)).toHaveAttribute('aria-pressed', 'true');
       const seen: string[] = [];
@@ -150,9 +153,9 @@ for (const vp of [1440, 375, 320]) {
         await page.keyboard.press('Tab');
         seen.push(await page.evaluate(() => document.activeElement?.getAttribute('data-testid') ?? ''));
       }
-      expect(seen[0]).toBe(`canvas-mention-in-chat-${PROB}`);
-      expect(seen[1]).toMatch(/^canvas-card-edit-/);
-      expect(seen[2]).toMatch(/^canvas-card-open-/);
+      expect(seen[0]).toMatch(/^canvas-card-edit-/);
+      expect(seen[1]).toMatch(/^canvas-card-open-/);
+      expect(seen[2]).toMatch(/^canvas-card-mention-/);
       expect(seen[3]).toBe(`canvas-box-add-${PROB}`);
       await page.keyboard.press('Enter');
       await expect(page.getByTestId('canvas-new-card-text')).toBeFocused();
@@ -229,3 +232,167 @@ for (const vp of [1440, 375, 320]) {
     }
   });
 }
+
+// ---- rounds 2 and 3 (founder decisions): real flows, by keyboard, at one width (1440) --------------------------------------------------------------------------------------------
+const WIDE = 1440;
+const key = async (page: Page, testId: string) => { const el = page.getByTestId(testId); await el.focus(); await expect(el).toBeFocused(); await page.keyboard.press('Enter'); };
+/** A published v1 (Customer Segments and Problem hold a card each) and no open draft: its owner's `?v=<v1>&ws=1` page is the pending Clone. */
+async function publishedCanvas(c: SupabaseClient, ownerId: string, slug: string) {
+  const first = await cycle(c, ownerId, {}, [pt(SEG, 'Founders who cannot get a straight answer'), pt(PROB, 'Nobody says what they mean')], [SEG, PROB]);
+  await ok(c, 'canvas_draft_publish', { p_draft: first.draft_id, p_expected_revision: await revisionOf(first.draft_id) });
+  const v1 = (await supabaseAdmin.from('canvas_versions').select('id').eq('canvas_id', first.canvas_id).eq('name', first.version_name).single()).data as Row;
+  return { canvasId: first.canvas_id as string, canvasName: first.canvas_name as string, v1Name: first.version_name as string, v1Id: v1.id as string, pendingUrl: `/p/${slug}/canvas/${first.canvas_name}?v=${first.version_name}&ws=1` };
+}
+async function openDrafts(canvasId: string): Promise<Row[]> {
+  return ((await supabaseAdmin.from('canvas_drafts').select('id,version_name,revision').eq('canvas_id', canvasId).eq('state', 'open')).data ?? []) as Row[];
+}
+async function openWorkspace(page: Page, email: string, url: string) {
+  await setTestSession(page, email);
+  await page.goto(url);
+  await showCanvas(page);
+  await expect(page.getByTestId('canvas-grid')).toHaveAttribute('aria-busy', 'false', { timeout: 30_000 });
+}
+
+test(`P1621 round 2-3: the clone's pending page acts like a draft; the first hand save makes the draft and the page moves (keyboard, ${WIDE})`, async ({ browser }) => {
+  const user = await createTestUser({ name: 'P1621 clone walk' });
+  const ownerId = user.user.id;
+  const ctx = await browser.newContext({ viewport: { width: WIDE, height: 900 } });
+  try {
+    const c = await api(user.email);
+    const cv = await publishedCanvas(c, ownerId, user.slug);
+    expect(await openDrafts(cv.canvasId), 'a clone is pending: no draft exists yet').toHaveLength(0);
+    const page = await ctx.newPage();
+    await openWorkspace(page, user.email, cv.pendingUrl);
+    // Edit, Open, Mention in chat and Add card show on the pending page (no Remove on the card: it lives in the panel)
+    await key(page, `canvas-box-title-${SEG}`).catch(async () => undefined);
+    if ((await page.getByTestId(`canvas-box-title-${SEG}`).getAttribute('aria-pressed')) !== 'true') await key(page, `canvas-box-title-${SEG}`);
+    const seg = page.getByTestId(`canvas-box-${SEG}`);
+    await expect(seg.getByRole('button', { name: /^Edit:/ })).toBeVisible();
+    await expect(seg.getByRole('button', { name: /^Open:/ })).toBeVisible();
+    await expect(seg.getByRole('button', { name: /^Mention in chat/ })).toBeVisible();
+    await expect(seg.getByTestId(`canvas-box-add-${SEG}`)).toBeVisible();
+    // empty boxes ask: the fixed question of the box
+    await expect(page.getByTestId(`canvas-box-${SOL}`).getByTestId('canvas-box-question')).toBeVisible();
+    // Add card by keyboard: the FIRST hand save creates the draft (one), writes the card to it, and the page moves to the draft
+    await key(page, `canvas-box-add-${SEG}`);
+    await expect(page.getByTestId('canvas-new-card-text')).toBeFocused();
+    await page.getByTestId('canvas-new-card-text').fill('They want one honest sentence');
+    await page.keyboard.press('Tab'); await page.keyboard.press('Tab');   // Cancel, then Save
+    await expect(page.getByTestId('canvas-new-card-save')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/[?&]v=[^&]+/, { timeout: 40_000 });
+    await expect.poll(async () => (await openDrafts(cv.canvasId)).length, { timeout: 40_000 }).toBe(1);
+    const draft = (await openDrafts(cv.canvasId))[0]!;
+    await expect(page, 'the page moved onto the new draft').toHaveURL(new RegExp(`[?&]v=${draft.version_name}(&|$)`), { timeout: 40_000 });
+    expect(await boxPoints(ownerId, draft.version_name as string, SEG)).toContain('They want one honest sentence');
+    expect(await boxPoints(ownerId, cv.v1Name, SEG), 'the published version is unchanged').toEqual(['Founders who cannot get a straight answer']);
+    await expect(page.getByText('They want one honest sentence')).toBeVisible({ timeout: 30_000 });
+    expect(await runCount(draft.id as string), 'no run was made').toBe(0);
+    expect(await page.evaluate(() => document.activeElement !== document.body), 'focus is not on the page').toBe(true);
+  } finally {
+    await ctx.close();
+    await deleteTestUser(ownerId);
+  }
+});
+
+test(`P1621 round 3: Remove in the point panel on a clone (makes the draft first) and on a draft; focus follows (keyboard, ${WIDE})`, async ({ browser }) => {
+  const user = await createTestUser({ name: 'P1621 remove walk' });
+  const ownerId = user.user.id;
+  const ctx = await browser.newContext({ viewport: { width: WIDE, height: 900 } });
+  try {
+    const c = await api(user.email);
+    const cv = await publishedCanvas(c, ownerId, user.slug);
+    const page = await ctx.newPage();
+    await openWorkspace(page, user.email, cv.pendingUrl);
+    // on the clone: select Problem, Open its card (Enter), Remove in the panel (Enter): the draft is made, the point is off it, the page moves, published v1 keeps it
+    if ((await page.getByTestId(`canvas-box-title-${PROB}`).getAttribute('aria-pressed')) !== 'true') await key(page, `canvas-box-title-${PROB}`);
+    const openBtn = page.getByTestId(`canvas-box-${PROB}`).getByRole('button', { name: /^Open:/ });
+    await openBtn.focus();
+    await page.keyboard.press('Enter');
+    const panel = page.getByTestId('canvas-point-panel');
+    await expect(panel).toBeVisible();
+    await expect(page.getByTestId(`canvas-box-${PROB}`).getByRole('button', { name: /^Remove/ }), 'not on the card').toHaveCount(0);
+    const remove = panel.getByRole('button', { name: /^Remove/ });
+    await remove.focus();
+    await page.keyboard.press('Enter');
+    await expect(panel).toHaveCount(0, { timeout: 40_000 });
+    await expect.poll(async () => (await openDrafts(cv.canvasId)).length, { timeout: 40_000 }).toBe(1);
+    const draft = (await openDrafts(cv.canvasId))[0]!;
+    await expect.poll(async () => boxPoints(ownerId, draft.version_name as string, PROB), { timeout: 40_000 }).toEqual([]);
+    expect(await boxPoints(ownerId, cv.v1Name, PROB), 'a point of a published version stays there').toEqual(['Nobody says what they mean']);
+    expect(await page.evaluate(() => document.activeElement !== document.body), 'focus never drops to the page').toBe(true);
+    expect(await runCount(draft.id as string), 'no run was made').toBe(0);
+    await expect(page, 'Remove on a clone moved the page onto the new draft').toHaveURL(new RegExp(`[?&]v=${draft.version_name}(&|$)`), { timeout: 40_000 });
+
+    // on the draft now: add a second card to Customer Segments by the API, re-read, open the FIRST card and Remove: focus goes to the next card's first action (else Add card, else the title)
+    await ok(c, 'canvas_draft_add_point', { p_draft: draft.id, p_box: SEG, p_statement: 'A second segment card', p_expected_revision: await revisionOf(draft.id as string), p_client_id: randomUUID() });
+    await page.reload();
+    await showCanvas(page);
+    await expect(page.getByTestId('canvas-grid')).toHaveAttribute('aria-busy', 'false', { timeout: 30_000 });
+    if ((await page.getByTestId(`canvas-box-title-${SEG}`).getAttribute('aria-pressed')) !== 'true') await key(page, `canvas-box-title-${SEG}`);
+    await page.getByTestId('canvas-box-more').first().click();   // See all 2
+    await page.getByTestId(`canvas-box-${SEG}`).getByRole('button', { name: /^Open: Founders/ }).focus();
+    await page.keyboard.press('Enter');
+    await expect(panel).toBeVisible();
+    await panel.getByRole('button', { name: /^Remove/ }).focus();
+    await page.keyboard.press('Enter');
+    await expect(panel).toHaveCount(0, { timeout: 40_000 });
+    await expect.poll(async () => boxPoints(ownerId, draft.version_name as string, SEG), { timeout: 40_000 }).toEqual(['A second segment card']);
+    await expect(page.locator(':focus')).toHaveAttribute('data-testid', /^(canvas-card-edit-|canvas-card-open-|canvas-box-add-|canvas-box-title-)/, { timeout: 15_000 });
+  } finally {
+    await ctx.close();
+    await deleteTestUser(ownerId);
+  }
+});
+
+test(`P1621 round 2-3: mention a point (pill, sent as [Box] "text") and Undo goes off after a hand save (keyboard, ${WIDE})`, async ({ browser }) => {
+  const user = await createTestUser({ name: 'P1621 mention walk' });
+  const ownerId = user.user.id;
+  const ctx = await browser.newContext({ viewport: { width: WIDE, height: 900 } });
+  try {
+    const c = await api(user.email);
+    const first = await cycle(c, ownerId, {}, [pt(SEG, 'Founders who cannot get a straight answer'), pt(PROB, 'Nobody says what they mean')], [SEG, PROB]);
+    const page = await ctx.newPage();
+    await openWorkspace(page, user.email, `/p/${user.slug}/canvas/${first.canvas_name}?v=${first.version_name}&ws=1`);
+    await settled(page);
+    // Undo is on the newest reply (the run applied two cards)
+    await expect(page.getByTestId('canvas-undo')).toBeVisible({ timeout: 40_000 });
+    // 1. Mention the Problem card by keyboard: a pill reads "Box · words"; sent, it is [Box] "words" and then what was typed (the send is intercepted: no run, no model)
+    if ((await page.getByTestId(`canvas-box-title-${PROB}`).getAttribute('aria-pressed')) !== 'true') await key(page, `canvas-box-title-${PROB}`);
+    const mention = page.getByTestId(`canvas-box-${PROB}`).getByRole('button', { name: /^(Mention in chat|Mentioned)/ });
+    await mention.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('composer-tag-pill')).toHaveCount(1, { timeout: 15_000 });
+    await expect(page.getByTestId('composer-tag-pill-label')).toHaveText('Problem · Nobody says what they mean');
+    await expect(mention).toHaveText('Mentioned');
+    await mention.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('composer-tag-pill'), 'one pill per point').toHaveCount(1);
+    const sent: string[] = [];
+    await page.route('**/rest/v1/rpc/canvas_workspace_send', async route => {
+      sent.push(route.request().postData() ?? '');
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'refused', code: 'busy', revision: 0 }) });
+    });
+    const field = page.getByTestId('composer').getByRole('textbox');
+    await field.fill('make this shorter');
+    await field.press('Enter');
+    await expect.poll(() => sent.length, { timeout: 20_000 }).toBeGreaterThan(0);
+    const body = JSON.parse(sent[0]!) as Row;
+    expect(String(body.p_body).split('⁣').join('')).toBe('[Problem] "Nobody says what they mean" make this shorter');
+    expect(body.p_box_refs, 'the run scope stays the box').toEqual([PROB]);
+    await page.unroute('**/rest/v1/rpc/canvas_workspace_send');
+    await expect(page.getByTestId('composer-tag-pill'), 'the sent mention leaves the composer').toHaveCount(0);
+
+    // 2. a hand save closes Undo: the button goes, and the same spot says why, with no reload
+    await key(page, `canvas-box-add-${PROB}`);
+    await page.getByTestId('canvas-new-card-text').fill('Hand written card');
+    await page.keyboard.press('Tab'); await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('canvas-undo-off')).toHaveText('Undo is off because you edited by hand.', { timeout: 40_000 });
+    await expect(page.getByTestId('canvas-undo')).toHaveCount(0);
+    expect(await page.getByTestId('canvas-undo-off').getAttribute('role') ?? await page.getByTestId('canvas-undo-off').evaluate(e => e.getAttribute('role'))).toBe('status');
+  } finally {
+    await ctx.close();
+    await deleteTestUser(ownerId);
+  }
+});

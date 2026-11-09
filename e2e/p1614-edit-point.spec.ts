@@ -169,7 +169,8 @@ for (const vp of [1440, 375, 320]) {
       await expect(page.getByTestId('canvas-discard'), 'Discard after reload').toBeVisible();
       await expect(page.getByTestId('canvas-draft-publish'), 'Publish after reload').toBeVisible();
       await selectBox(page, SEG);
-      await expect(page.getByTestId(`canvas-mention-in-chat-${SEG}`), 'Mention in chat after reload (on the selected box)').toBeVisible();
+      // Round 2: a box holding a card mentions per card (the box's own button is for an empty box)
+      await expect(page.getByTestId(`canvas-box-${SEG}`).getByRole('button', { name: /^Mention in chat/ }).first(), 'Mention in chat after reload (on the selected box)').toBeVisible();
       if (vp < 1280) await expect(page.getByTestId('workspace-view-canvas'), 'the Canvas/Thread toggle after reload').toBeVisible();
       expect(page.url(), 'ws=1 survives the reload').toContain('ws=1');
       await shot(page, vp, 'saved-after-reload');

@@ -149,6 +149,9 @@ Falsifier: a Save that triggers more than one re-read on TEST.
 - If the re-read after a hand write fails, the old Undo button can stay until the next action. Tapping it is refused with a sentence and nothing changes; the refusal re-reads and the button is replaced.
 - On a slow re-read after Remove from the panel, focus can land on the box title instead of the next card's Edit. It never falls to the page.
 - If the newest run changed nothing and an older run held Undo, "Undo is off" shows under the newest reply, not where the button was.
+- A reader who opens a box list straight from a link and closes it gets no focus target: a reader's box title is plain text.
+- After Remove from the panel on a clone, the browser's Back goes to the published version the clone came from, not back onto the draft.
+- On a pending clone, Remove from a point opened inside a box list (See all, then a card) can leave Back stepping through one extra entry.
 - A new canvas with nothing published gets its draft when the canvas is made, so it has no pending state; only a clone's pending page uses the hand-write opener.
 
 ## Founder Review

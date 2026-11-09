@@ -406,7 +406,7 @@ describe('review round 1', () => {
     svc.edit.mockResolvedValue({ ok: true, changed: true, pointId: 'p1', revision: 8 });
     const onSaved = vi.fn();
     render(
-      <PanelPointEdit point={pt('p1', 'They are thirsty', PROB)} boxes={ONE} edit={pcfg(m.ensure)} onSaved={onSaved} onRemoved={vi.fn()}><p>card</p></PanelPointEdit>,
+      <MemoryRouter><PanelPointEdit point={pt('p1', 'They are thirsty', PROB)} boxes={ONE} edit={pcfg(m.ensure)} onSaved={onSaved} onRemoved={vi.fn()}><p>card</p></PanelPointEdit></MemoryRouter>,
     );
     fireEvent.click(screen.getByTestId('canvas-panel-edit-p1'));
     fireEvent.change(screen.getByLabelText('Point text'), { target: { value: 'Panel edit' } });

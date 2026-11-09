@@ -19,6 +19,20 @@ import { takeRemovalFocus } from './use-card-remove';
  * FocusHeader's back arrow); focus moves in and back. Previous / Next walk the canvas without
  * closing it.
  */
+/**
+ * Where focus goes when the panel closes. A point on the owner's draft: its Open button, else (the card is a div) its box's title. A reader's card is itself a button.
+ * Otherwise what opened the panel; a box list (See all) opened from the address has none, so its box's title.
+ */
+function closeFocusTarget(viewKey: string, boxTag: string | null | undefined, fromOpener: HTMLElement | null): HTMLElement | null {
+  const byTestId = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
+  const isBox = viewKey.startsWith('box:');
+  const title = boxTag ? byTestId(`canvas-box-title-${boxTag}`) : null;
+  const card = byTestId(`canvas-point-card-${viewKey}`);
+  const cardButton = card?.tagName === 'BUTTON' ? card : null;
+  const ownerTarget = byTestId(`canvas-card-open-${viewKey}`) ?? (!isBox && !cardButton ? title : null);
+  return ownerTarget ?? cardButton ?? fromOpener ?? (isBox ? title : null);
+}
+
 export function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Close point', step, covered = false }: {
   children: ReactNode;
   onClose: () => void;
@@ -97,14 +111,9 @@ export function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Cl
       // screen at close (a box's list: none); else whatever opened the panel, such as "N more" (never <body>, which is what a panel opened from the address starts with).
       const viewKey = viewKeyRef.current;
       if (takeRemovalFocus(viewKey)) return;   // a Remove just done: its focus rule (next card, else Add card, else title) wins over this restore
-      const byTestId = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
-      const card = byTestId(`canvas-point-card-${viewKey}`);
-      // On the owner's draft the card is not focusable (a div): its Open button, else its box's title.
-      const ownerTarget = byTestId(`canvas-card-open-${viewKey}`)
-        ?? (card?.tagName !== 'BUTTON' && boxTagRef.current ? byTestId(`canvas-box-title-${boxTagRef.current}`) : null);
       const reopened = openerSelector ? document.querySelector<HTMLElement>(openerSelector) : null;
-      const target = ownerTarget ?? (card?.tagName === 'BUTTON' ? card : null) ?? (opener?.isConnected && opener !== document.body ? opener : reopened);
-      target?.focus?.();
+      const fromOpener = opener?.isConnected && opener !== document.body ? opener : reopened;
+      closeFocusTarget(viewKey, boxTagRef.current, fromOpener)?.focus?.();
     };
     // Opened once per panel; stepping to another point keeps it open (and keeps the opener).
   }, []);

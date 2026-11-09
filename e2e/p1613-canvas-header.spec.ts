@@ -118,10 +118,11 @@ test('P1613 real route: Compare in the bar, Mention in chat, Clone from a compar
     const statusBorder = await page.getByTestId('publish-spot').evaluate(el => [el, ...el.querySelectorAll('*')].some(e => getComputedStyle(e).borderTopWidth !== '0px'));
     expect(statusBorder, 'the status text beside Cancel has no outline').toBe(false);
 
-    // 6. the real Mention in chat in a narrow box (the panel is open): P1621 removed the icon-only form; the label always shows and wraps, the button stays inside its box
+    // 6. the real (per-card) Mention in chat in a narrow box (the panel is open): P1621 removed the icon-only form; the label always shows and wraps, the button stays inside its box
     await page.getByTestId('canvas-box-title-canvas:world-needs').scrollIntoViewIfNeeded();
     await page.getByTestId('canvas-box-title-canvas:world-needs').click();
-    const narrow = page.getByTestId('canvas-mention-in-chat-canvas:world-needs');
+    // Round 2: on a pending Clone the box holds a card, and its Mention in chat is the card's own (the box keeps its button only while empty)
+    const narrow = page.getByTestId(`canvas-card-mention-${pointIds[2]}`);
     await expect(narrow).toBeVisible();
     const n = await narrow.evaluate(b => {
       const r = b.getBoundingClientRect(); const box = b.closest('[data-canvas-box]')!.getBoundingClientRect(); const s = b.querySelector('span')!;
@@ -135,7 +136,7 @@ test('P1613 real route: Compare in the bar, Mention in chat, Clone from a compar
     expect(n.name).toContain('Mention in chat');
     await page.screenshot({ path: `${DIR}/3-mention-in-chat-narrow-1440.png` });
 
-    // 7. a tap puts the box's pill in the composer; the button reads Mentioned; a repeat tap adds no second pill
+    // 7. a tap puts the card's pill (box, a dot, the card's words) in the composer; the button reads Mentioned; a repeat tap adds no second pill
     await narrow.click();
     await expect(page.getByTestId('composer-tag-pill')).toHaveCount(1, { timeout: 15_000 });
     await expect(page.getByTestId('composer-tag-pill').first()).toContainText('Hypotheses');

@@ -5,6 +5,7 @@
  * Readers, published versions and a draft with no edit config get the card as it was.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { canvasBoxOf } from '@/lib/canvas-boxes';
@@ -27,6 +28,7 @@ export function PanelPointEdit({ point, boxes, edit, onSaved, onRemoved, childre
   /** the point's card */
   children: ReactNode;
 }) {
+  const navigate = useNavigate();
   const tag = canvasBoxOf(point.systemTags ?? []) ?? '';
   const boxPoints = boxes?.get(tag) ?? [];
   const entry = usePointEdits().get(pointEditKey(edit?.canvasId ?? '', point.id));
@@ -46,7 +48,15 @@ export function PanelPointEdit({ point, boxes, edit, onSaved, onRemoved, childre
     void removePoint(edit, tag, point, boxPoints).then(done => {
       if (!mounted.current) return;
       setRemoving(false);
-      if (done && shownId.current === removedId) onRemoved();
+      if (!done || shownId.current !== removedId) return;
+      if (!edit.ensure) { onRemoved(); return; }
+      // A pending clone: this removal just moved the page to its new draft in the same instant, and the page's own close still holds the published address from its last render.
+      // Drop the panel from the live address instead; `point` is the only level a card's panel adds.
+      const live = new URLSearchParams(window.location.search);
+      live.delete('point');
+      // keep the entry's other state (the workspace's way back); React Router keeps it in history.state.usr
+      const kept = (window.history.state as { usr?: unknown } | null)?.usr;
+      navigate(`${window.location.pathname}?${live.toString()}`, { replace: true, state: kept });
     });
   };
   if (!edit) return <>{children}</>;

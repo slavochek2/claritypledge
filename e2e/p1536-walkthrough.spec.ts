@@ -153,7 +153,7 @@ async function snap(page: Page) {
         return `${probe?.tagName.toLowerCase()}${probe?.getAttribute('data-testid') ? '[' + probe.getAttribute('data-testid') + ']' : ''} shell=${shell ? shell.tagName.toLowerCase() : 'none'} text="${((probe as HTMLElement)?.innerText ?? '').slice(0, 30)}"`;
       })(),
       updatingCount: (document.body.innerText.match(/Updating…/g) ?? []).length,
-      firstHeadingY: (() => { const h = document.querySelector('[data-testid="canvas-layer-title"]'); return h ? Math.round(h.getBoundingClientRect().top * 10) / 10 : null; })(),
+      firstHeadingY: (() => { const h = document.querySelector('[data-testid^="canvas-box-title-"]'); /* P1621: the layer names are gone: the first box's title is the first section heading */ return h ? Math.round(h.getBoundingClientRect().top * 10) / 10 : null; })(),
       barRows: (() => {
         if (!bar) return null;
         const tops: number[] = [];
@@ -461,7 +461,8 @@ async function sample(page: Page, vp: number, label: string) {
 /** The Publish spot's place relative to the bar: its right-edge gap, its top and its size. (An absolute x moves by the page scrollbar's 15px.) */
 const spotSig = (s: Snap) => (s.barBox && s.spotBox ? { gap: Math.round(((s.barBox.x + s.barBox.w) - (s.spotBox.x + s.spotBox.w)) * 10) / 10, y: s.spotBox.y, w: s.spotBox.w, h: s.spotBox.h } : null);
 const sameSig = (a: ReturnType<typeof spotSig>, b: ReturnType<typeof spotSig>) => !!a && !!b && (['gap', 'y', 'w', 'h'] as const).every(k => Math.abs(a[k] - b[k]) <= 1);
-const primariesOf = (s: Snap) => s.blue.filter(n => n !== 'Send' && n !== 'Record a voice message');
+// P1621: an empty box on the owner's draft opens its new-card editor at once, and Save there is "the only filled button in a box" (founder-approved), so it is not a stray primary.
+const primariesOf = (s: Snap) => s.blue.filter(n => n !== 'Send' && n !== 'Record a voice message' && n !== 'canvas-new-card-save');
 
 async function walk(browser: Browser, vp: number, height: number) {
   const { user, ctx, page, cur } = await newOwner(browser, vp, height, `P1536 Walk ${vp}`);

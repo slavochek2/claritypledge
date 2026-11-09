@@ -805,7 +805,7 @@ describe('a reader sees none of the owner actions (AC 20)', () => {
 describe('Edit and Open on the opened point (AC 13, 17)', () => {
   const point = pt('p1', 'They are thirsty', PROB);
   const panel = (edit: PointEditConfig | undefined, onSaved = vi.fn()) => (
-    <PanelPointEdit point={point} boxes={ONE} edit={edit} onSaved={onSaved} onRemoved={vi.fn()}><div data-testid="the-card">card</div></PanelPointEdit>
+    <MemoryRouter><PanelPointEdit point={point} boxes={ONE} edit={edit} onSaved={onSaved} onRemoved={vi.fn()}><div data-testid="the-card">card</div></PanelPointEdit></MemoryRouter>
   );
 
   it('the owner on a draft gets Edit beside the card; a save reports the new id so the panel can follow it', async () => {
@@ -837,7 +837,7 @@ describe('Edit and Open on the opened point (AC 13, 17)', () => {
     fireEvent.click(screen.getByTestId('canvas-point-editor-save'));
     await waitFor(() => expect(svc.edit).toHaveBeenCalled());
     // the grid draws no box here; any box's effect hands focus over, so mount one beside the panel
-    rerender(<>{<PanelPointEdit point={pt('p9', 'new words', PROB)} boxes={ONE} edit={cfg({ revision: 5 })} onSaved={vi.fn()} onRemoved={vi.fn()}><div /></PanelPointEdit>}</>);
+    rerender(<MemoryRouter><PanelPointEdit point={pt('p9', 'new words', PROB)} boxes={ONE} edit={cfg({ revision: 5 })} onSaved={vi.fn()} onRemoved={vi.fn()}><div /></PanelPointEdit></MemoryRouter>);
     expect(screen.getByTestId('canvas-panel-edit-p9')).toBeTruthy();
   });
 });
