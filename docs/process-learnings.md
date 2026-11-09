@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 311
+**Next ID:** 312
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3693,5 +3693,16 @@ The canvas agent offers the choice and writes neither, so the owner must repeat 
 **due:** week
 
 The P1646 Cost Budget cannot compare its log row because the registry has no log-ingestion limit; read it from the Supabase usage page and record it. Gemini is about $0.012 per offer and needs the founder's acceptance. Done when both are recorded; droppable if P1646 is reverted.
+
+---
+
+## P1650 follow-ups: People list ranking, blocked pairs, stale share specs
+
+**ID:** INBOX-311
+**Date:** 2026-11-09
+**Status:** proposed
+**due:** month
+
+Public-letter readers rank in the on-focus Share People list and can push out real relationships; rank self-enrolled deliveries lower (older sent rows have no created_by_sender marker, so this needs a backfill decision). Blocked pairs also appear in that list. The stale p1515 Phase 4 canvas-byline e2e blocks its 320/375 panel checks, and the p1515 AC1 and p1536 A5 live failures are untraced. Droppable if members do not report the list as wrong and the specs are fixed elsewhere.
 
 ---
