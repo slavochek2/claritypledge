@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 116
 workstream: clarity-chat
@@ -128,23 +128,25 @@ M = messages loaded in an open chat (a page holds at most a few hundred), V = ch
 
 ## Acceptance Criteria
 
-- [ ] A person sends `https://example.com/a`, `www.example.com` and `google.com`: all three are tappable, open in a new tab, and the row's toolbar does not open
-- [ ] A person sends full own-app addresses for `/live/CODE`, `/events/x` and `/p/x`: each opens in the same tab, Back returns to the chat, and none shows a card
-- [ ] The markdown form of "click here" pointing at `https://example.com` shows as typed, with no link, including in a message with chips
-- [ ] A full address with a lookalike host (Cyrillic `а`) or embedded credentials (a trusted-looking name, then an at sign, then the real host) is not a link, in chat and on a story, and `аpple.com` links no part of itself
-- [ ] Links work in a thread, a mirror agent message, a voice transcript, a transcription, a forwarded copy and a Clarify copy; the forwarded copy still reaches its original through its own control
-- [ ] A spoken `let.me think` is not a link; a spoken `https://example.com` is
-- [ ] A story, a point and a letter overview link each show the right card to a reader with access, and two such links in a message show one card; a recipient `/letter/:id` link shows only the link
-- [ ] A reader without access sees the plain link, with no skeleton, notice or reserved gap
-- [ ] Editing a message's link updates its link and card
-- [ ] Copy text shows an error if the browser refuses; otherwise it puts the exact words on the clipboard and confirms, for a typed message, a pure forward, a ready voice transcript and a mirror message
-- [ ] Reacting shows the pill and count in a second open session without a reload, and removing it clears there too; deleting the message removes its reactions there too; long press on a pill shows who reacted and does not toggle
-- [ ] A non-member cannot read or write a reaction (tested against the database, not only the screen), a removal's live payload to a non-member holds only a meaningless id, and a person cannot remove someone else's
-- [ ] A late joiner cannot read or add a reaction on an earlier message, and a person who can no longer post cannot add one (database test)
-- [ ] Repeating an add or a remove changes nothing further; one person can hold two emoji on a message; a session that was offline during a removal shows the right count after reconnecting; an erased account's reactions disappear
-- [ ] No reaction control appears in the mirror chat or on private rows; a deleted message shows no reactions; reacting changes no unread count, list order or notification
-- [ ] Message rows pass `.claude/rules/visual-qa.md` at 320px, 375px and desktop, with the toolbar on one row at 320px
-- [ ] Migration applied to the active TEST server; existing chat tests pass
+- [x] A person sends `https://example.com/a`, `www.example.com` and `google.com`: all three are tappable, open in a new tab, and the row's toolbar does not open
+- [x] A person sends full own-app addresses for `/live/CODE`, `/events/x` and `/p/x`: each opens in the same tab, Back returns to the chat, and none shows a card
+- [x] The markdown form of "click here" pointing at `https://example.com` shows as typed, with no link, including in a message with chips
+- [x] A full address with a lookalike host (Cyrillic `а`) or embedded credentials (a trusted-looking name, then an at sign, then the real host) is not a link, in chat and on a story, and `аpple.com` links no part of itself
+- [x] Links work in a thread, a mirror agent message, a voice transcript, a transcription, a forwarded copy and a Clarify copy; the forwarded copy still reaches its original through its own control
+- [x] A spoken `let.me think` is not a link; a spoken `https://example.com` is
+- [x] A story, a point and a letter overview link each show the right card to a reader with access, and two such links in a message show one card; a recipient `/letter/:id` link shows only the link
+- [x] A reader without access sees the plain link, with no skeleton, notice or reserved gap
+- [x] Editing a message's link updates its link and card
+- [x] Copy text shows an error if the browser refuses; otherwise it puts the exact words on the clipboard and confirms, for a typed message, a pure forward, a ready voice transcript and a mirror message
+- [x] Reacting shows the pill and count in a second open session without a reload, and removing it clears there too; deleting the message removes its reactions there too; long press on a pill shows who reacted and does not toggle
+- [x] A non-member cannot read or write a reaction (tested against the database, not only the screen), a removal's live payload to a non-member holds only a meaningless id, and a person cannot remove someone else's
+- [x] A late joiner cannot read or add a reaction on an earlier message, and a person who can no longer post cannot add one (database test)
+- [x] Repeating an add or a remove changes nothing further; one person can hold two emoji on a message; a session that was offline during a removal shows the right count after reconnecting; an erased account's reactions disappear
+- [x] No reaction control appears in the mirror chat or on private rows; a deleted message shows no reactions; reacting changes no unread count, list order or notification
+- [x] Message rows pass `.claude/rules/visual-qa.md` at 320px, 375px and desktop, with the toolbar on one row at 320px
+- [x] Migration applied to the active TEST server; existing chat tests pass
+
+**Evidence and limits, 2026-11-09:** 12,207 unit tests, 10 database tests on TEST, and 13 browser tests in `e2e/p1652-chat-links.spec.ts` pass. Lookalike rules on a story and links in a chip message are proved by unit tests, not in a browser. The toolbar and long press ran with a mouse and emulated touch, not on a real phone. A card for the author's own just-sent story link failed to draw in about 2 of 22 runs in the build's browser tests, cause unknown.
 
 ## Related
 

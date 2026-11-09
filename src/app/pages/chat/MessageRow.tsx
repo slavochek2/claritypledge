@@ -130,7 +130,14 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   // The inline toolbar goes away when the reader scrolls on (any scroll container, hence capture).
   useEffect(() => {
     if (!selected) return;
-    const close = () => setSelected(false);
+    // The toolbar itself adds height, and a list pinned to the bottom scrolls to follow it: that is not the reader scrolling on (P1652).
+    const openedAt = performance.now();
+    const close = (e: Event) => {
+      const el = e.target instanceof Element ? e.target : null;
+      const pinned = !!el && el.scrollHeight > el.clientHeight && el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+      if (pinned && performance.now() - openedAt < 300) return;
+      setSelected(false);
+    };
     window.addEventListener('scroll', close, true);
     return () => window.removeEventListener('scroll', close, true);
   }, [selected]);
