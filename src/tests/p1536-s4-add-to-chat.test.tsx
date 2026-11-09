@@ -226,7 +226,7 @@ describe('S4.1 who sees Mention in chat (P1621: only on the selected box)', () =
     const title = screen.getByTestId('canvas-box-title-canvas:problem');
     if (title.getAttribute('aria-pressed') !== 'true') fireEvent.click(title);
     // Round 2: a box holding a card mentions per card; the box's own button is for an empty box
-    const b = within(screen.getByTestId('canvas-box-canvas:problem')).getAllByTestId(/^canvas-card-mention-/)[0];
+    const b = within(screen.getByTestId('canvas-box-canvas:problem')).getAllByTestId(/^canvas-card-mention-/)[0]!;
     expect(b).toHaveTextContent('Mention in chat');
     expect(b.className).toContain('min-h-10');
     expect(screen.getAllByText('Mention in chat')).toHaveLength(1);

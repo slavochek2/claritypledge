@@ -6,7 +6,7 @@
  *  - `CanvasUndoneMark`: the owner message whose run was undone stays in the thread, marked (J6); it is never material again.
  */
 import { CANVAS_CANCEL_TEXT, CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
-import { UNDONE_MARK, UNDO_LABEL, UNDO_LOAD_FAILED_TEXT, UNDO_RETRY_LABEL, UNDO_WAITS_LABEL } from './canvas-thread-copy';
+import { UNDONE_MARK, UNDO_LABEL, UNDO_OFF_BY_HAND_TEXT, UNDO_LOAD_FAILED_TEXT, UNDO_RETRY_LABEL, UNDO_WAITS_LABEL } from './canvas-thread-copy';
 
 /** A message row's text starts 62px in (its margin and padding, the avatar column and the gap): Undo and its mark line up under the words, not under the avatar. */
 const TEXT_COLUMN = 'pl-[62px] pr-4';
@@ -17,6 +17,15 @@ export function CanvasUndoButton({ busy, onUndo }: { busy: boolean; onUndo: () =
       <button type="button" className={CANVAS_SECONDARY_PILL} aria-busy={busy} data-testid="canvas-undo" onClick={onUndo}>
         {UNDO_LABEL}
       </button>
+    </div>
+  );
+}
+
+/** Round 3: Undo was closed by a hand save, Edit or Remove: the same spot says so, as a status (never a dead button). */
+export function CanvasUndoOff() {
+  return (
+    <div className={TEXT_COLUMN} data-testid="canvas-undo-spot">
+      <p role="status" className="-ml-2 flex min-h-11 items-center px-2 text-sm text-muted-foreground" data-testid="canvas-undo-off">{UNDO_OFF_BY_HAND_TEXT}</p>
     </div>
   );
 }

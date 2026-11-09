@@ -53,6 +53,7 @@ import { boxHasOwnMention } from '@/app/components/canvas/canvas-box-model';
 import { pendingEditOf } from '@/app/components/canvas/canvas-page-data';
 import { PanelPointEdit } from '@/app/components/canvas/canvas-panel-point-edit';
 import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
+import { removePoint } from '@/app/components/canvas/use-card-remove';
 import { CANVAS_LAYERS, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import { Composer } from '@/app/pages/chat/Composer';
 import { ComposerTagContext, createComposerTagBus } from '@/app/pages/chat/composer-tag-bus';
@@ -66,9 +67,8 @@ const PROB = 'canvas:problem' as CanvasBoxTag;
 const SEG = 'canvas:segments' as CanvasBoxTag;
 const pt = (id: string, statement: string, box: CanvasBoxTag) => ({ id, statement, tags: [], systemTags: [box], visibility: 'private', userPosition: null } as unknown as PointWithUserPosition);
 type Boxes = Map<CanvasBoxTag, PointWithUserPosition[]>;
+const P1 = pt('p1', 'They are thirsty', PROB);
 const boxesOf = (o: Partial<Record<CanvasBoxTag, PointWithUserPosition[]>>): Boxes => new Map(CANVAS_LAYERS.flatMap(l => l.boxes).map(t => [t, o[t] ?? []]));
-const TWO = boxesOf({ [PROB]: [pt('p1', 'They are thirsty', PROB), pt('p2', 'They are angry', PROB)] });
-const ONE_P2 = boxesOf({ [PROB]: [pt('p2', 'They are angry', PROB)] });
 const ONE = boxesOf({ [PROB]: [pt('p1', 'They are thirsty', PROB)] });
 const EMPTY = boxesOf({});
 const cfg = (o: Partial<PointEditConfig> = {}): PointEditConfig => ({ canvasId: 'c1', draftId: 'd1', revision: 4, runActive: false, ...o });
@@ -99,68 +99,7 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-describe('item 3: Remove', () => {
-  it('removes with no confirmation, passing the draft, the point and the revision; keyboard Enter works; focus goes to the next card\'s first action', async () => {
-    const user = userEvent.setup();
-    svc.remove.mockResolvedValue({ ok: true, revision: 5 });
-    const { rerender } = render(view(TWO, cfg()));
-    select(PROB);
-    expect(screen.getByTestId('canvas-card-remove-p1')).toHaveTextContent('Remove');
-    screen.getByTestId('canvas-card-remove-p1').focus();
-    await user.keyboard('{Enter}');
-    expect(svc.remove).toHaveBeenCalledWith('d1', 'p1', 4);
-    expect(screen.queryByRole('dialog'), 'no confirmation').toBeNull();
-    // the re-read lands: the card is gone and the next one shows
-    rerender(view(ONE_P2, cfg({ revision: 5 })));
-    await waitFor(() => expect(document.activeElement).toBe(byId('canvas-card-edit-p2')));
-  });
-
-  it('with no next card, focus goes to Add card (exactly), and a double click removes once', async () => {
-    svc.remove.mockResolvedValue({ ok: true, revision: 5 });
-    const { rerender } = render(view(TWO, cfg()));
-    select(PROB);
-    fireEvent.click(screen.getByText('See all 2'));   // expanded in place: both cards show
-    const btn = screen.getByTestId('canvas-card-remove-p2');
-    btn.focus();
-    fireEvent.click(btn); fireEvent.click(btn);
-    await waitFor(() => expect(svc.remove).toHaveBeenCalledTimes(1));
-    rerender(view(ONE, cfg({ revision: 5 })));
-    await waitFor(() => expect(document.activeElement).toBe(byId('canvas-box-add-canvas:problem')));
-  });
-
-  it('removing the last card of a box leaves focus inside that box (its text field, as selecting an empty box does), never on the page', async () => {
-    svc.remove.mockResolvedValue({ ok: true, revision: 5 });
-    const { rerender } = render(view(ONE, cfg()));
-    select(PROB);
-    screen.getByTestId('canvas-card-remove-p1').focus();
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
-    await waitFor(() => expect(svc.remove).toHaveBeenCalledTimes(1));
-    rerender(view(EMPTY, cfg({ revision: 5 })));
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('New card')));
-  });
-
-  it('refusals use the existing sentences; not_found is done', async () => {
-    render(view(TWO, cfg()));
-    select(PROB);
-    svc.remove.mockResolvedValueOnce({ ok: false, refused: 'stale_view' });
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
-    await waitFor(() => expect(toastError).toHaveBeenLastCalledWith(STALE_POINT_TEXT));
-    svc.remove.mockResolvedValueOnce({ ok: false, refused: 'busy' });
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
-    await waitFor(() => expect(toastError).toHaveBeenLastCalledWith(BUSY_POINT_TEXT));
-    toastError.mockReset();
-    svc.remove.mockResolvedValueOnce({ ok: false, refused: 'not_found' });
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
-    await waitFor(() => expect(svc.remove).toHaveBeenCalledTimes(3));
-    expect(toastError).not.toHaveBeenCalled();
-  });
-
-  it('is absent while a run is active', () => {
-    render(view(TWO, cfg({ runActive: true })));
-    select(PROB);
-    expect(byId('canvas-card-remove-p1')).toBeNull();
-  });
-});
+// item 3 (Remove) moved to the point panel in round 3: see p1621-round3.test.tsx
 
 describe('item 2: Mention in chat per point', () => {
   const bus = createComposerTagBus();
@@ -237,10 +176,11 @@ describe('item 1: a pending page (no draft yet)', () => {
   const pcfg = (ensure: EnsureDraft) => cfg({ draftId: '', revision: 0, userId: 'owner-1', ensure });
   const typeNew = (v: string) => fireEvent.change(screen.getByLabelText('New card'), { target: { value: v } });
 
-  it('shows Edit, Open, Mention in chat, Remove and Add card', () => {
+  it('shows Edit, Open, Mention in chat and Add card (Remove is in the point panel)', () => {
     render(view(ONE, pcfg(made().ensure)));
     ensureSelected(PROB);
-    for (const id of ['canvas-card-edit-p1', 'canvas-card-open-p1', 'canvas-card-mention-p1', 'canvas-card-remove-p1', 'canvas-box-add-canvas:problem']) expect(byId(id), id).not.toBeNull();
+    for (const id of ['canvas-card-edit-p1', 'canvas-card-open-p1', 'canvas-card-mention-p1', 'canvas-box-add-canvas:problem']) expect(byId(id), id).not.toBeNull();
+    expect(byId('canvas-card-remove-p1'), 'Remove moved to the point panel').toBeNull();
   });
 
   it('the first new-card Save makes exactly one draft, writes against it with its revision, then the page moves', async () => {
@@ -306,18 +246,6 @@ describe('item 1: a pending page (no draft yet)', () => {
     expect((screen.getByLabelText('Point text') as HTMLTextAreaElement).value).toBe('Edited');
     expect(getPointEdits().get(pointEditKey('c1', 'p1'))?.text).toBe('Edited');
     expect(svc.edit).not.toHaveBeenCalled();
-  });
-
-  it('Remove on a pending page makes the draft first, then removes', async () => {
-    const m = made();
-    svc.remove.mockResolvedValue({ ok: true, revision: 8 });
-    pointRows.rows = [{ id: 'p1', statement: 'They are thirsty', system_tags: [PROB, 'canvas_v_d1'] }];
-    render(view(ONE, pcfg(m.ensure)));
-    ensureSelected(PROB);
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
-    await waitFor(() => expect(svc.remove).toHaveBeenCalledWith('new-d', 'p1', 7));
-    expect(m.ensureFn).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(m.moveTo).toHaveBeenCalled());
   });
 });
 
@@ -404,9 +332,7 @@ describe('review round 1', () => {
     const m = made();
     svc.remove.mockRejectedValue(new Error('lost'));
     pointRows.rows = [{ id: 'p1', statement: 'They are thirsty', system_tags: [PROB, 'canvas_v_d1'] }];
-    render(view(ONE, pcfg(m.ensure)));
-    ensureSelected(PROB);
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
+    void removePoint(pcfg(m.ensure), PROB, P1, [P1]);   // Remove is asked from the point panel; the call is the same
     await waitFor(() => expect(m.moveTo).toHaveBeenCalledTimes(1));
     expect(toastError).toHaveBeenCalled();
   });
@@ -461,9 +387,7 @@ describe('review round 1', () => {
     pointRows.rows = [{ id: 'p1', statement: 'They are thirsty', system_tags: [PROB, 'canvas_v_d1'] }, { id: 'c2', statement: 'They are thirsty', system_tags: [PROB, 'canvas_v_d1'] }];
     svc.remove.mockResolvedValue({ ok: true, revision: 8 });
     cleanup(); resetPointEdits();
-    render(view(ONE, pcfg(made().ensure)));
-    ensureSelected(PROB);
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
+    void removePoint(pcfg(made().ensure), PROB, P1, [P1]);   // Remove is asked from the point panel; the call is the same
     await waitFor(() => expect(svc.remove).toHaveBeenCalledWith('new-d', 'p1', 7));
   });
 
@@ -482,7 +406,7 @@ describe('review round 1', () => {
     svc.edit.mockResolvedValue({ ok: true, changed: true, pointId: 'p1', revision: 8 });
     const onSaved = vi.fn();
     render(
-      <PanelPointEdit point={pt('p1', 'They are thirsty', PROB)} boxes={ONE} edit={pcfg(m.ensure)} onSaved={onSaved}><p>card</p></PanelPointEdit>,
+      <PanelPointEdit point={pt('p1', 'They are thirsty', PROB)} boxes={ONE} edit={pcfg(m.ensure)} onSaved={onSaved} onRemoved={vi.fn()}><p>card</p></PanelPointEdit>,
     );
     fireEvent.click(screen.getByTestId('canvas-panel-edit-p1'));
     fireEvent.change(screen.getByLabelText('Point text'), { target: { value: 'Panel edit' } });

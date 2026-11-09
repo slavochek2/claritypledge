@@ -45,8 +45,11 @@ export function CanvasBox({ tag, title, points, renderCard, onMore, question, ch
   const { flags } = box;
   useFocusRequest();
   const headingId = `canvas-box-${tag.replace(':', '-')}`;
+  // Round 3: an empty box's Mention in chat sits at the left of its editor's Cancel and Save row; with no editor on screen (a run is going) it stays at the top right so it is never lost.
+  const mention = <MentionInChatButton tag={tag} title={title} card testId={`canvas-mention-in-chat-${tag}`} />;
+  const inEditor = selected && flags.empty && box.editorVisible && !!edit;
   const editor = box.editorVisible && edit
-    ? <CanvasNewCardEditor tag={tag} edit={edit} count={flags.count} autoFocus={box.autoFocus} onSaved={box.savedCard} onCancel={box.cancelEditor} onEscape={box.escapeEditor} />
+    ? <CanvasNewCardEditor tag={tag} edit={edit} count={flags.count} autoFocus={box.autoFocus} onSaved={box.savedCard} onCancel={box.cancelEditor} onEscape={box.escapeEditor} mention={inEditor ? mention : undefined} />
     : null;
   return (
     // The click and Escape handlers are a mouse and touch convenience on top of the title button (a real button: Enter or Space selects), never the only way in.
@@ -66,7 +69,7 @@ export function CanvasBox({ tag, title, points, renderCard, onMore, question, ch
       <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-x-2">
         <BoxTitle tag={tag} title={title} headingId={headingId} empty={flags.empty} selectable={selectable} selected={selected} onToggle={onToggle} buttonRef={box.titleRef} />
         {/* Round 2: where the cards carry their own Mention in chat (the draft, a pending Clone), the box keeps its own only while it is empty. */}
-        {boxHasOwnMention(selected, edit, points) && <MentionInChatButton tag={tag} title={title} />}
+        {boxHasOwnMention(selected, edit, points) && !inEditor && <MentionInChatButton tag={tag} title={title} />}
         {!selected && flags.hasText && <span className="ml-auto text-xs text-foreground/60" data-testid="canvas-box-unsaved">{UNSAVED_TEXT_LABEL}</span>}
       </div>
       {changed && (

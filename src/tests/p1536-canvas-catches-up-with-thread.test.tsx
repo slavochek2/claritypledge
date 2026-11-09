@@ -405,7 +405,7 @@ describe('Add to chat after Publish, before the page has read again', () => {
     // Round 2: a box holding cards mentions per card (the box's own button stays for an empty box).
     const mentionBtn = () => within(screen.getByTestId('canvas-box-canvas:problem')).queryAllByTestId(/^canvas-card-mention-|^canvas-mention-in-chat-/)[0];
     if (!mentionBtn()) fireEvent.click(screen.getByTestId('canvas-box-title-canvas:problem'));
-    fireEvent.click(mentionBtn());
+    fireEvent.click(mentionBtn()!);
     await settle();
     await act(async () => { after.resolve(publishedAfter()); });
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('ws=1'));

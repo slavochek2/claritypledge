@@ -21,11 +21,12 @@ export function ComposerTagPills({ tags, onRemove }: { tags: string[]; onRemove:
     <TooltipProvider delayDuration={200}>
       <ul className="flex flex-wrap items-center gap-1.5 px-2 pt-1" data-testid="composer-tag-pills">
         {tags.map(key => {
+          const box = keyBox(key);
           const text = keyText(key);
           const name = text ? `${tagTitle(key)} · ${text}` : tagTitle(key);
           return (
             <li key={key} className={cn(CANVAS_CHIP, 'flex min-w-0 max-w-full items-center gap-1 py-0 pl-1 pr-0')} data-testid="composer-tag-pill">
-              {isBoxTag(keyBox(key)) ? <BoxIcon tag={keyBox(key)} className="h-6 w-6" /> : <span className="w-2" aria-hidden />}
+              {isBoxTag(box) ? <BoxIcon tag={box} className="h-6 w-6" /> : <span className="w-2" aria-hidden />}
               {text ? (
                 <Tooltip>
                   <TooltipTrigger asChild>

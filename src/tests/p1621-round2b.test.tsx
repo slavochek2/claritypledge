@@ -49,6 +49,7 @@ import { BUSY_POINT_TEXT, STALE_POINT_TEXT, type PointEditConfig } from '@/app/c
 import { ensureNewCard, getNewCards, newCardKey, patchNewCard, resetNewCards } from '@/app/components/canvas/canvas-new-card-store';
 import { claimPanelBox, getPointEdits, openPointEdit, pointEditKey, resetPointEdits } from '@/app/components/canvas/canvas-point-edit-store';
 import { dropFocusRequest } from '@/app/components/canvas/canvas-focus-request';
+import { removePoint } from '@/app/components/canvas/use-card-remove';
 import { CANVAS_LAYERS, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import { FULL_BOX_TEXT } from '@/app/components/canvas/canvas-new-card-copy';
 import { bufferCanvasId } from '@/app/components/canvas/canvas-page-data';
@@ -63,6 +64,7 @@ const PROB = 'canvas:problem' as CanvasBoxTag;
 const SEG = 'canvas:segments' as CanvasBoxTag;
 const pt = (id: string, statement: string, box: CanvasBoxTag) => ({ id, statement, tags: [], systemTags: [box], visibility: 'private', userPosition: null } as unknown as PointWithUserPosition);
 type Boxes = Map<CanvasBoxTag, PointWithUserPosition[]>;
+const P1 = pt('p1', 'They are thirsty', PROB);
 const boxesOf = (o: Partial<Record<CanvasBoxTag, PointWithUserPosition[]>>): Boxes => new Map(CANVAS_LAYERS.flatMap(l => l.boxes).map(t => [t, o[t] ?? []]));
 const ONE = boxesOf({ [PROB]: [pt('p1', 'They are thirsty', PROB)] });
 const cfg = (o: Partial<PointEditConfig> = {}): PointEditConfig => ({ canvasId: 'c1', draftId: 'd1', revision: 4, runActive: false, userId: 'owner-1', ...o });
@@ -166,9 +168,7 @@ describe('5-7: Remove', () => {
 
   it('5: when the draft cannot be made there is one toast: the reason, not also the generic failure', async () => {
     const ensure = vi.fn(async () => ({ ok: false as const, text: 'Could not start a canvas. Try again.' }));
-    render(view(ONE, pcfg(ensure as unknown as EnsureDraft)));
-    ensureSelected(PROB);
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
+    void removePoint(pcfg(ensure as unknown as EnsureDraft), PROB, P1, [P1]);   // Remove is asked from the point panel; the call is the same
     await waitFor(() => expect(toastError).toHaveBeenCalled());
     await act(async () => {});
     expect(toastError.mock.calls).toEqual([['Could not start a canvas. Try again.']]);
@@ -180,9 +180,7 @@ describe('5-7: Remove', () => {
       { id: 'c1', statement: 'They are thirsty', system_tags: [PROB, 'canvas_v_d1'] },
       { id: 'c2', statement: 'They are thirsty', system_tags: [PROB, 'canvas_v_d1'] },
     ];
-    render(view(ONE, pcfg(m.ensure)));
-    ensureSelected(PROB);
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
+    void removePoint(pcfg(m.ensure), PROB, P1, [P1]);   // Remove is asked from the point panel; the call is the same
     await waitFor(() => expect(toastError).toHaveBeenCalledWith(REMOVE_AMBIGUOUS_TEXT));
     expect(REMOVE_AMBIGUOUS_TEXT).toBe('This point changed. Try Remove again.');
     expect(svc.remove).not.toHaveBeenCalled();
@@ -193,9 +191,7 @@ describe('5-7: Remove', () => {
     svc.remove.mockResolvedValue({ ok: true, revision: 5 });
     const un = claimPanelBox(PROB);   // the panel holds the box's editors: the grid draws the card, and the buffer waits
     openPointEdit({ canvasId: 'c1', box: PROB, originId: 'p1', text: 'half typed' });
-    render(view(ONE, cfg()));
-    ensureSelected(PROB);
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
+    void removePoint(cfg(), PROB, P1, [P1]);   // Remove is asked from the point panel; the call is the same
     await waitFor(() => expect(svc.remove).toHaveBeenCalled());
     await waitFor(() => expect(getPointEdits().get(pointEditKey('c1', 'p1'))).toBeUndefined());
     un();
@@ -208,9 +204,7 @@ describe('8: the points lookup', () => {
     const ensure = (async () => ({ ok: true as const, draftId: 'new-d', revision: 7, versionName: 'v_d1', moveTo })) as unknown as EnsureDraft;
     pointRows.rows = [{ id: 'p1', statement: 'They are thirsty', system_tags: [PROB, 'canvas_v_d1'] }];
     svc.remove.mockResolvedValue({ ok: true, revision: 8 });
-    render(view(ONE, cfg({ draftId: '', revision: 0, ensure })));
-    ensureSelected(PROB);
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
+    void removePoint(cfg({ draftId: '', revision: 0, ensure }), PROB, P1, [P1]);   // Remove is asked from the point panel; the call is the same
     await waitFor(() => expect(svc.remove).toHaveBeenCalled());
     expect(pointRows.contains).toContainEqual(['system_tags', ['canvas_v_d1', PROB]]);
     expect(pointRows.eq).toContainEqual(['first_validator_id', 'owner-1']);
@@ -377,9 +371,7 @@ describe('r6-1: a late success never deletes a buffer it did not send', () => {
     svc.remove.mockReturnValue(new Promise(r => { answer = r; }));
     const un = claimPanelBox(PROB);
     openPointEdit({ canvasId: 'c1', box: PROB, originId: 'p1', text: 'old buffer' });
-    render(view(ONE, cfg()));
-    ensureSelected(PROB);
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
+    void removePoint(cfg(), PROB, P1, [P1]);   // Remove is asked from the point panel; the call is the same
     await waitFor(() => expect(svc.remove).toHaveBeenCalled());
     act(() => { resetPointEdits(); });
     act(() => openPointEdit({ canvasId: 'c1', box: PROB, originId: 'p1', text: 'new buffer' }));
@@ -434,9 +426,7 @@ describe('r6-5: Remove on a clone closes the buffer at the mapped id too', () =>
     const un = claimPanelBox(PROB);
     openPointEdit({ canvasId: 'c1', box: PROB, originId: 'p1', text: 'a' });
     openPointEdit({ canvasId: 'c1', box: PROB, originId: 'copy-1', text: 'b' });
-    render(view(ONE, clonePage(m.ensure)));
-    ensureSelected(PROB);
-    fireEvent.click(screen.getByTestId('canvas-card-remove-p1'));
+    void removePoint(clonePage(m.ensure), PROB, P1, [P1]);   // Remove is asked from the point panel; the call is the same
     await waitFor(() => expect(svc.remove).toHaveBeenCalledWith('new-d', 'copy-1', 7));
     await waitFor(() => expect(getPointEdits().size).toBe(0));
     un();

@@ -8,6 +8,7 @@
  *  - (Clone, W3, replaced "New version": its tests are p1536-w3-clone.test.tsx)
  * Each "only" has a control showing the same thing present where it should be.
  */
+import { FIXED_BOX_QUESTIONS } from '@/lib/canvas-box-questions';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -170,8 +171,8 @@ describe('Publish and the questions are the owner\'s, on the draft only', () => 
     expect(screen.queryByTestId('canvas-draft-revise')).toBeNull(); // D4: "Revise in chat" is gone with the pane gate
     const box = screen.getByTestId('canvas-box-canvas:love');
     expect(within(box).getByTestId('canvas-box-question')).toHaveTextContent(/^What do you keep doing even when it costs you\?$/); // the question alone, no "Question for you" label
-    // an empty box with no question is a plain empty box
-    expect(within(screen.getByTestId('canvas-box-canvas:metrics')).queryByTestId('canvas-box-question')).toBeNull();
+    // round 3: an empty box with no agent question shows the box's fixed question instead of a plain empty box
+    expect(within(screen.getByTestId('canvas-box-canvas:metrics')).getByTestId('canvas-box-question')).toHaveTextContent(FIXED_BOX_QUESTIONS['canvas:metrics']);
     expect(screen.queryByTestId('canvas-clone')).toBeNull(); // not while looking at a draft (W3)
   });
 

@@ -79,7 +79,7 @@ export function useCanvasParts(args: CanvasPartsArgs): CanvasParts {
     leading: live?.draft.state === 'open' ? <UploadSpot waiting={!!slot.waiting} busy={uploader.busy} onPick={(f) => void uploader.upload(f)} /> : undefined,
     replyHint: live?.draft.state === 'open' && !slot.waiting ? CANVAS_REPLY_HINT : undefined,
     trailing: canvasRetryTrailing(live, args) ?? publishReplyOpen(args),
-    after: withOfferRows(canvasUndoAfter(undo, undo.failed ? newestMirrorMessageId(args.messages, args.userId, args.rootId) : null), offerRows),
+    after: withOfferRows(canvasUndoAfter(undo, undo.failed || undo.handClosed ? newestMirrorMessageId(args.messages, args.userId, args.rootId) : null), offerRows),
     closedLine: closedThreadLine(live, args),
     /** A run is going, or a file is being added (D15: Publish waits): the workspace's Publish spot reads "Updating…" meanwhile. */
     runActive: slot.active,

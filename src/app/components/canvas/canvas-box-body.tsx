@@ -6,6 +6,8 @@
 import type { ReactNode } from 'react';
 import type { PointWithUserPosition } from '@/app/types';
 import { CanvasBoxPlaceholder } from '@/app/pages/canvas-page-placeholders';
+import { FIXED_BOX_QUESTIONS } from '@/lib/canvas-box-questions';
+import type { CanvasBoxTag } from '@/lib/canvas-boxes';
 import { BoxEdits, type PointEditConfig } from './canvas-point-edit';
 import { CanvasGoneNewCards } from './canvas-new-card-gone';
 import { BOX_LIMIT } from './use-box-editor';
@@ -29,6 +31,8 @@ export function CanvasBoxBody({ tag, points, edit, renderCard, expanded, questio
   canvasId?: string;
 }) {
   if (points === null) return <CanvasBoxPlaceholder empty={false} />;
+  // Round 3: where hand edits are possible (the owner's draft, a pending Clone) an empty box always asks: the agent's question, else the box's fixed one. Readers read "Empty".
+  const ask = question ?? (edit ? FIXED_BOX_QUESTIONS[tag as CanvasBoxTag] : undefined);
   if (points.length > 0) {
     return (
       <div className="flex flex-col gap-2" data-testid="canvas-box-list">
@@ -44,8 +48,8 @@ export function CanvasBoxBody({ tag, points, edit, renderCard, expanded, questio
   return (
     <div className="flex flex-col gap-2">
       <BoxEdits tag={tag} points={points} edit={edit} renderCard={renderCard} limit={BOX_LIMIT} />
-      {question
-        ? <p className="break-words rounded-md border border-dashed border-blue-300 bg-background p-2 text-sm italic text-foreground/70" data-testid="canvas-box-question">{question}</p>
+      {ask
+        ? <p className="break-words rounded-md border border-dashed border-blue-300 bg-background p-2 text-sm italic text-foreground/70" data-testid="canvas-box-question">{ask}</p>
         : !editorVisible && <CanvasBoxPlaceholder empty />}
       {editor}
       {showGone && <CanvasGoneNewCards tag={tag} canvasId={canvasId} editing={!!edit} openDraftId={openDraftId} />}

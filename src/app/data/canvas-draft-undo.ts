@@ -24,6 +24,8 @@ export interface CanvasUndoTarget {
   replyMessageId: string | null;
   /** The owner messages whose run was undone: marked "Undone", never material again. */
   undoneMessageIds: string[];
+  /** P1621: Undo is gone because the owner's own hand-write (edit, add, remove) closed it, not because no run changed a box. False until a hand-write deleted a step; false again once a run with steps completes. */
+  handClosed: boolean;
   /** Run id to the mirror's reply message, and run id to its owner message, for every run the answer lists: what lets the screen move Undo to the next run the moment an undo succeeds (`nextTargetAfterUndo`), before the next read lands. */
   replies: Record<string, string>;
   triggers: Record<string, string>;
@@ -41,14 +43,14 @@ export async function readCanvasUndoTarget(canvasId: string, draftId: string): P
   // (J6): `closed_undone` lists them by closed draft. A server without that key (before its migration) just has no marks, never an error.
   if (!d || d.id !== draftId || typeof d.revision !== 'number') {
     const marks = (data.closed_undone as Record<string, unknown> | undefined)?.[draftId];
-    return { draftId, revision: 0, runId: null, replyMessageId: null, undoneMessageIds: Array.isArray(marks) ? marks.map(String) : [], replies: {}, triggers: {} };
+    return { draftId, revision: 0, runId: null, replyMessageId: null, undoneMessageIds: Array.isArray(marks) ? marks.map(String) : [], handClosed: false, replies: {}, triggers: {} };
   }
   const runs = (Array.isArray(d.runs) ? d.runs : []) as Row[];
   const runId = typeof d.undo_run_id === 'string' ? d.undo_run_id : null;
   const reply = runs.find(r => r.id === runId)?.reply_message_id;
   const undone = runs.filter(r => r.state === 'undone' && typeof r.trigger_message_id === 'string').map(r => String(r.trigger_message_id));
   const pick = (col: string): Record<string, string> => Object.fromEntries(runs.filter(r => typeof r.id === 'string' && typeof r[col] === 'string').map(r => [String(r.id), String(r[col])]));
-  return { draftId, revision: d.revision, runId, replyMessageId: typeof reply === 'string' ? reply : null, undoneMessageIds: undone, replies: pick('reply_message_id'), triggers: pick('trigger_message_id') };
+  return { draftId, revision: d.revision, runId, replyMessageId: typeof reply === 'string' ? reply : null, undoneMessageIds: undone, handClosed: d.undo_closed_by_hand === true, replies: pick('reply_message_id'), triggers: pick('trigger_message_id') };
 }
 
 export type UndoResult = { ok: true; revision: number; undoneRunId: string; nextUndoRunId: string | null } | CanvasRefused;

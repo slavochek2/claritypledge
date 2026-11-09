@@ -530,7 +530,7 @@ export function CanvasPage() {
           {/* Keyed by the point only: a re-read after a vote must not remount the card under the
               viewer's hand (a second tap adjusts the level of the position just taken). Stories
               start folded, as in the feed; the card shows the owner's story only (D5). */}
-          <PanelPointEdit point={openPoint} boxes={boxes} edit={pointEdit} onSaved={followEditedPoint}>
+          <PanelPointEdit point={openPoint} boxes={boxes} edit={pointEdit} onSaved={followEditedPoint} onRemoved={closePanel}>
           <FeedPointCard
             key={openPoint.id}
             point={openPoint}

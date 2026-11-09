@@ -107,6 +107,15 @@ Founder, after trying the build:
 4. **Upload button:** the secondary blue outline, as Undo.
 Still pending: the wording in Founder Review.
 
+## Founder Decisions (round 3)
+
+Founder accepted these recommendations:
+1. **Guiding questions:** every empty box on the owner's draft or clone's pending page shows a question: the agent's if it wrote one, else a fixed one for that box. [FOUNDER DECISION: wording of the nine fixed questions, drafted for approval.]
+2. **Remove:** moves from the card into the point panel (Open), with no confirmation and the quiet style. Replaces the card placement in round 2 item 3. Remove on a clone still creates the draft.
+3. **Mention:** stays in the card's action row. In an empty box it moves to the left of the Cancel and Save row.
+4. **Undo:** stays in the chat. As soon as a hand save, Edit or Remove closes it, the button goes away and the same spot says "Undo is off because you edited by hand." Undo and Redo arrows in the header are a separate later spec.
+5. **Accepted:** unsaved text carries into the next draft of the same canvas; a running hand save finishes in a hidden tab; both round-2 sentences as written.
+
 ## Cost Budget
 
 Applies because the migration adds a per-request function and the tests create and delete users. No timer, poll, retry loop or model call: one Save is one write and one re-read, the shape P1614 measured.
@@ -123,7 +132,7 @@ Applies because the migration adds a per-request function and the tests create a
 
 Falsifier: a Save that triggers more than one re-read on TEST.
 
-**Round 2 additions** (arithmetic, not measured): one Remove = `canvas_draft_remove_point` plus the same re-read = 4 requests. The first hand write on a pending clone adds the opener the first message already uses: 1 version-list read + 1 `canvas_draft_open` + 1 revision read, and for Edit or Remove 1 point-mapping read, so at most 4 extra requests once per clone. Integration adds the remove-point file: about 9 cases x 3 calls = 27 requests and up to 9 owners created and deleted (plus a second signed-in user for the refusal case). The open-replacing integration file (Start over in one transaction) has 7 cases with 9 owners created and deleted (five single-owner cases, two cases with two owners), about 9 fixtures x 8 requests = 72 requests plus about 14 calls, sign-ins and cleanups = about 86. Totals per test run become about 185 requests and 31 users created and deleted (counted from the test files, not measured). Start over itself is one call where the first message's path already makes one, so per-user traffic is unchanged. At 20 Removes a month per owner the egress budget above roughly doubles at worst, still under 1% of the 5 GB.
+**Round 2 additions** (arithmetic, not measured): one Remove = `canvas_draft_remove_point` plus the same re-read = 4 requests. The first hand write on a pending clone adds the opener the first message already uses: 1 version-list read + 1 `canvas_draft_open` + 1 revision read, and for Edit or Remove 1 point-mapping read, so at most 4 extra requests once per clone. Integration adds the remove-point file: about 9 cases x 3 calls = 27 requests and up to 9 owners created and deleted (plus a second signed-in user for the refusal case). The open-replacing integration file (Start over in one transaction) has 7 cases with 9 owners created and deleted (five single-owner cases, two cases with two owners), about 9 fixtures x 8 requests = 72 requests plus about 14 calls, sign-ins and cleanups = about 86. Totals per test run become about 185 requests and 31 users created and deleted (counted from the test files, not measured). Round 3 adds the undo-closed-by-hand integration file: 8 owners created and deleted and about 8 x 8 = 64 fixture requests plus about 16 calls = about 80, so totals become about 265 requests and 39 users. Each hand write in a visible tab now also makes one thread re-read and one Undo read (the thread re-read is two calls, so 3 more requests per write, 7 instead of 4), and each run end one redundant thread re-read; a hidden tab waits until it is visible. At 10 owners x 20 writes a month that is 600 more requests, under 1% of the free allowance on the same assumption as above. Start over itself is one call where the first message's path already makes one, so per-user traffic is unchanged. At 20 Removes a month per owner the egress budget above roughly doubles at worst, still under 1% of the 5 GB.
 
 ## Known Limitations
 
@@ -136,6 +145,10 @@ Falsifier: a Save that triggers more than one re-read on TEST.
 - On a clone, an unsaved Edit of a legacy public point (one the draft copies under a new id) shows read-only with its text kept if a different write (Add card, another Edit, or the first message) creates the draft first. Its text can be copied into the card's new Edit. An Edit whose own save created the draft follows the point.
 - A voice note sent with a point mention scopes the run to that box but does not carry the point's words; only typed messages send `[Box] "point text"`.
 - A hand save that is already running finishes when the tab is hidden, as a typed message does. Hidden-tab silence applies to reads and polls; aborting an action the owner started would lose their intent.
+- "Undo is off" is not shown in two cases: after hand edit, new run, then Undo of that run (the earlier run stays closed with no sentence), and on drafts closed by hand before this shipped.
+- If the re-read after a hand write fails, the old Undo button can stay until the next action. Tapping it is refused with a sentence and nothing changes; the refusal re-reads and the button is replaced.
+- On a slow re-read after Remove from the panel, focus can land on the box title instead of the next card's Edit. It never falls to the page.
+- If the newest run changed nothing and an older run held Undo, "Undo is off" shows under the newest reply, not where the button was.
 - A new canvas with nothing published gets its draft when the canvas is made, so it has no pending state; only a clone's pending page uses the hand-write opener.
 
 ## Founder Review

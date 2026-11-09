@@ -9,6 +9,7 @@ import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Button } from '@/components/ui/button';
 import type { CanvasBoxTag } from '@/lib/canvas-boxes';
 import { BoxIcon } from './canvas-box-icon';
+import { takeRemovalFocus } from './use-card-remove';
 
 /**
  * The open point: a side panel on desktop, a full-screen sheet on mobile — modal on both. The
@@ -95,6 +96,7 @@ export function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Cl
       // P1621, on the owner's draft: that point's Open button while its box is selected, otherwise the box's title. Otherwise the card of the point on
       // screen at close (a box's list: none); else whatever opened the panel, such as "N more" (never <body>, which is what a panel opened from the address starts with).
       const viewKey = viewKeyRef.current;
+      if (takeRemovalFocus(viewKey)) return;   // a Remove just done: its focus rule (next card, else Add card, else title) wins over this restore
       const byTestId = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
       const card = byTestId(`canvas-point-card-${viewKey}`);
       // On the owner's draft the card is not focusable (a div): its Open button, else its box's title.

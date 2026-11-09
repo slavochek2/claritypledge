@@ -25,7 +25,7 @@ const encodeWords = (words: string): string => words.replace(/%/g, '%25').split(
 const decodeWords = (stored: string): string => stored.replace(/%(25|E2|E3)/g, (_m, c: string) => (c === '25' ? '%' : c === 'E2' ? TAG_MARK : POINT_MARK));
 
 /** The box a key names, and the point's exact words (empty for a whole-box mention). */
-export const keyBox = (key: string): string => key.split(POINT_MARK)[0];
+export const keyBox = (key: string): string => key.split(POINT_MARK, 1)[0] ?? '';
 export const keyText = (key: string): string => decodeWords(key.split(POINT_MARK).slice(1).join(POINT_MARK));
 /** The key for one point: the box and the owner's exact words, escaped so they cannot end the token. */
 export const pointKey = (tag: string, words: string): string => `${tag}${POINT_MARK}${encodeWords(words)}`;
@@ -39,7 +39,7 @@ interface Tok { start: number; end: number; key: string | undefined }
 /** Every token in `value`, with the key it names (undefined: a damaged one). */
 function tokens(value: string): Tok[] {
   return [...value.matchAll(TOKEN)].map(m => {
-    const tag = TAG_BY_TITLE.get(m[1]);
+    const tag = TAG_BY_TITLE.get(m[1] ?? '');
     return { start: m.index ?? 0, end: (m.index ?? 0) + m[0].length, key: tag ? (m[2] ? `${tag}${POINT_MARK}${m[2]}` : tag) : undefined };
   });
 }
@@ -101,7 +101,7 @@ export function decodeTagged(value: string): { text: string; refs: string[] } {
   let at = 0;
   for (const m of value.matchAll(TOKEN)) {
     const start = m.index ?? 0;
-    const label = m[1];
+    const label = m[1] ?? '';
     const tag = TAG_BY_TITLE.get(label);
     if (tag) refs.add(tag);
     text += clean(value.slice(at, start)) + (m[2] ? `[${label}] "${decodeWords(m[2])}"` : `[${label}]`);

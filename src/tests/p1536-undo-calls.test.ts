@@ -41,7 +41,16 @@ describe('D7: readCanvasUndoTarget', () => {
     sb.rpc.mockResolvedValue(state(draftWith()));
     const t = await readCanvasUndoTarget('cv-1', 'draft-1');
     expect(sb.rpc).toHaveBeenCalledWith('get_canvas_draft_state', { p_canvas: 'cv-1' });
-    expect(t).toEqual({ draftId: 'draft-1', revision: 7, runId: 'r2', replyMessageId: 'a-2', undoneMessageIds: [], replies: { r1: 'a-1', r2: 'a-2' }, triggers: { r1: 'm-1', r2: 'm-2' } });
+    expect(t).toEqual({ draftId: 'draft-1', revision: 7, runId: 'r2', replyMessageId: 'a-2', undoneMessageIds: [], handClosed: false, replies: { r1: 'a-1', r2: 'a-2' }, triggers: { r1: 'm-1', r2: 'm-2' } });
+  });
+
+  it('P1621: handClosed is true only when the server says the owner closed Undo by hand', async () => {
+    sb.rpc.mockResolvedValue(state(draftWith({ undo_run_id: null, undo_closed_by_hand: true })));
+    expect((await readCanvasUndoTarget('cv-1', 'draft-1')).handClosed).toBe(true);
+    sb.rpc.mockResolvedValue(state(draftWith({ undo_closed_by_hand: false })));
+    expect((await readCanvasUndoTarget('cv-1', 'draft-1')).handClosed).toBe(false);
+    sb.rpc.mockResolvedValue(state(draftWith()));   // a server before the migration: no key
+    expect((await readCanvasUndoTarget('cv-1', 'draft-1')).handClosed).toBe(false);
   });
 
   it('the owner messages of undone runs are returned, to be marked "Undone"', async () => {
@@ -51,7 +60,7 @@ describe('D7: readCanvasUndoTarget', () => {
 
   it('no run has a step (undo_run_id null): nothing to undo, but the undone marks are still there', async () => {
     sb.rpc.mockResolvedValue(state(draftWith({ undo_run_id: null, runs: [run({ id: 'r1', state: 'undone', trigger_message_id: 'm-1' })] })));
-    expect(await readCanvasUndoTarget('cv-1', 'draft-1')).toEqual({ draftId: 'draft-1', revision: 7, runId: null, replyMessageId: null, undoneMessageIds: ['m-1'], replies: { r1: 'a-r' }, triggers: { r1: 'm-1' } });
+    expect(await readCanvasUndoTarget('cv-1', 'draft-1')).toEqual({ draftId: 'draft-1', revision: 7, runId: null, replyMessageId: null, undoneMessageIds: ['m-1'], handClosed: false, replies: { r1: 'a-r' }, triggers: { r1: 'm-1' } });
   });
 
   it('the run has no reply message: the target has a run and no reply (nothing to hang Undo on)', async () => {
@@ -90,7 +99,7 @@ describe('J6 review: the undone marks of a CLOSED draft (published or discarded)
 });
 
 describe('D7 review: nextTargetAfterUndo (Undo moves on with no read)', () => {
-  const t = { draftId: 'draft-1', revision: 7, runId: 'r2', replyMessageId: 'a-2', undoneMessageIds: [] as string[], replies: { r1: 'a-1', r2: 'a-2' }, triggers: { r1: 'm-1', r2: 'm-2' } };
+  const t = { draftId: 'draft-1', revision: 7, runId: 'r2', replyMessageId: 'a-2', undoneMessageIds: [] as string[], handClosed: false, replies: { r1: 'a-1', r2: 'a-2' }, triggers: { r1: 'm-1', r2: 'm-2' } };
   it('the next run is the one the undo call named: its reply, the new revision, and the undone run\'s owner message marked', () => {
     expect(nextTargetAfterUndo(t, { revision: 8, undoneRunId: 'r2', nextUndoRunId: 'r1' })).toMatchObject({ runId: 'r1', replyMessageId: 'a-1', revision: 8, undoneMessageIds: ['m-2'] });
   });

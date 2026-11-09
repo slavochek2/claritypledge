@@ -30,7 +30,7 @@ export const pointEditKey = (canvasId: string, pointId: string): string => `${ca
 
 /** The test id of a card's Edit action (P1621), where focus returns when its editor closes; and of the same action on the opened point in the panel. */
 export const cardEditTestId = (pointId: string): string => `canvas-card-edit-${pointId}`;
-export const cardRemoveTestId = (pointId: string): string => `canvas-card-remove-${pointId}`;
+export const panelRemoveTestId = (pointId: string): string => `canvas-panel-remove-${pointId}`;
 export const panelEditTestId = (pointId: string): string => `canvas-panel-edit-${pointId}`;
 
 let entries: ReadonlyMap<string, PointEditEntry> = new Map();

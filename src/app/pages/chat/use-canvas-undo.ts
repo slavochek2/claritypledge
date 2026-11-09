@@ -14,6 +14,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { subscribeCanvasDraftEvents } from '@/app/data/canvas-draft-events';
 import { nextTargetAfterUndo, readCanvasUndoTarget, undoCanvasRun, type CanvasUndoTarget } from '@/app/data/canvas-draft-undo';
 import { DRAFT_ERROR_TEXT, UNDO_STALE_TEXT } from './canvas-thread-copy';
 import { usePageVisible } from './chat-hooks';
@@ -28,6 +29,8 @@ export interface CanvasUndoView {
   undo: () => void;
   /** The owner messages whose run was undone (marked "Undone"). */
   undoneIds: string[];
+  /** A hand save, Edit or Remove closed Undo (the server says so): no button, and the spot says why. */
+  handClosed: boolean;
   /** The read that says where Undo goes failed (and nothing known stands in for it): Try again shows. */
   failed: boolean;
   retry: () => void;
@@ -98,9 +101,39 @@ function useUndoTarget(thread: CanvasThread | null): UndoTarget {
 /** What a refused Undo says: busy and busy_elsewhere in the existing sentence, stale_view (another tab acted) in its own. */
 const refusedText = (code: string): string => (code === 'stale_view' ? UNDO_STALE_TEXT : (DRAFT_ERROR_TEXT.BUSY ?? DRAFT_ERROR_TEXT.FAILED ?? ''));
 
+/** The server says a hand save, Edit or Remove closed Undo, and nothing is left to undo, for a read that is about the draft as it is now. */
+const handClosedOf = (target: CanvasUndoTarget | null, settledRead: boolean, thread: CanvasThread | null): boolean =>
+  !!target?.handClosed && !target.runId && settledRead && thread?.draft.state === 'open';
+
+/**
+ * A hand save, Edit or Remove closes Undo on the server and asks the page to re-read ('updated'); the thread does not hear its own kind of event, so this makes it re-read once, and the revision
+ * that brings is what makes the one Undo read (its key): the button goes promptly, not only after a stale tap. No timer; a closed draft or another draft's event does nothing, and a hidden tab waits for its return.
+ */
+function useReloadOnHandWrite(thread: CanvasThread | null): void {
+  const reloadNow = useRef(thread?.reload);
+  reloadNow.current = thread?.reload;
+  const openDraftId = thread && thread.draft.state === 'open' ? thread.draft.id : null;
+  useEffect(() => {
+    if (!openDraftId) return;
+    // A hidden tab reads nothing (metered-services rule 3): writes made meanwhile are remembered, and the tab's return re-reads once for all of them.
+    let waiting = false;
+    const hidden = () => document.visibilityState === 'hidden';
+    const run = () => { waiting = false; void reloadNow.current?.().catch(() => undefined); };
+    const off = subscribeCanvasDraftEvents(e => {
+      if (e.kind !== 'updated' || e.draftId !== openDraftId) return;
+      if (hidden()) waiting = true;
+      else run();
+    });
+    const onShown = () => { if (waiting && !hidden()) run(); };
+    document.addEventListener('visibilitychange', onShown);
+    return () => { off(); document.removeEventListener('visibilitychange', onShown); };
+  }, [openDraftId]);
+}
+
 export function useCanvasUndo(thread: CanvasThread | null): CanvasUndoView {
   const { target, settledRead, failed, askAgain, provide } = useUndoTarget(thread);
   const [busy, setBusy] = useState(false);
+  useReloadOnHandWrite(thread);
   const waiting = !!thread && thread.draft.state === 'open' && !!thread.run && !isSettled(thread) && !!target?.runId;
 
   const undo = useCallback(() => {
@@ -133,6 +166,7 @@ export function useCanvasUndo(thread: CanvasThread | null): CanvasUndoView {
     busy,
     undo,
     undoneIds: target?.undoneMessageIds ?? [],
+    handClosed: handClosedOf(target, settledRead, thread),
     failed,
     retry: askAgain,
   };

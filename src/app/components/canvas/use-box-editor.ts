@@ -15,7 +15,7 @@ import { requestFocus, useKeepFocus } from './canvas-focus-request';
 import { SAVED_CARD_HOLD_MS, closeNewCard, getNewCards, hasNewCardText, markSavedCard, newCardKey, useNewCards, useSavedCard } from './canvas-new-card-store';
 import type { PointEditConfig } from './canvas-point-edit';
 import { getPointEdits, openPointEdit, useHiddenCount } from './canvas-point-edit-store';
-import { useCardRemove } from './use-card-remove';
+import { useRemovalFocus } from './use-card-remove';
 
 /** The canvas stays small: a box shows this many cards, and says how many more it holds (R2). P1535 (founder): one card per box, so the whole canvas fits one screen at the event. */
 export const BOX_LIMIT = 1;
@@ -79,13 +79,13 @@ export function useBoxEditor(tag: CanvasBoxTag, points: PointWithUserPosition[] 
   // Deselecting collapses the box and forgets the transient parts. The typed text stays in its buffer.
   useEffect(() => { if (!selected) { setAdding(false); setExpanded(false); } }, [selected]);
   // Remove (round 2): asks for focus once the removed card is gone; called before useKeepFocus so its request is in place when the fallback looks.
-  const onRemove = useCardRemove(tag, points, edit);
+  useRemovalFocus(tag, points);
   // Focus never falls to the page: if what held it in this box is removed (Edit or Add card when a run starts, a Cancel that closed its editor), the title takes it.
   useKeepFocus(sectionRef, () => titleRef.current?.focus());
 
   const cardValue = useMemo<BoxCardValue | null>(() => (edit
-    ? { selected, runActive: flags.runActive, tag, onRemove, onEdit: p => openPointEdit({ canvasId: edit.canvasId, box: tag, originId: p.id, text: p.statement }) }
-    : null), [edit, selected, flags.runActive, tag, onRemove]);
+    ? { selected, runActive: flags.runActive, tag, onEdit: p => openPointEdit({ canvasId: edit.canvasId, box: tag, originId: p.id, text: p.statement }) }
+    : null), [edit, selected, flags.runActive, tag]);
 
   /** Escape, or the end of an editor: the box deselects and focus returns to its title (never the page). */
   const leaveBox = () => { onDeselect(); titleRef.current?.focus(); };

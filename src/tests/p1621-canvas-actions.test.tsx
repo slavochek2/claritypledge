@@ -4,6 +4,7 @@
  * @description P1621: the canvas draft shows content first and its actions when a box is selected. Expectations are typed from the spec's acceptance criteria, not read back
  * from the code. jsdom has no layout, so the 40px targets, the 320/375px widths and the row growing are checked in a browser (e2e/p1621-canvas-actions.spec.ts), not here.
  */
+import { FIXED_BOX_QUESTIONS } from '@/lib/canvas-box-questions';
 import { pointKey } from '@/app/pages/chat/composer-tags';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
@@ -89,7 +90,6 @@ const q = (tag: string, id: string) => within(box(tag)).queryByTestId(id);
 const mention = (tag: string) => q(tag, `canvas-mention-in-chat-${tag}`);
 // Round 2: Mention in chat is per card (the box keeps its own button only while empty); Remove sits after it.
 const cardMention = (id: string) => screen.queryByTestId(`canvas-card-mention-${id}`);
-const removeBtn = (id: string) => screen.queryByTestId(`canvas-card-remove-${id}`);
 const addBtn = (tag: string) => q(tag, `canvas-box-add-${tag}`);
 const editBtn = (id: string) => screen.queryByTestId(`canvas-card-edit-${id}`);
 const openBtn = (id: string) => screen.queryByTestId(`canvas-card-open-${id}`);
@@ -177,11 +177,11 @@ describe('at rest and selecting (AC 1, 3, 4)', () => {
     expect(selectedTags()).toEqual([]);
   });
 
-  it('a selected filled box shows Edit, Open, Mention in chat and Remove on its card, then Add card and See all N, in that order (the box keeps no Mention of its own)', () => {
+  it('a selected filled box shows Edit, Open and Mention in chat on its card, then Add card and See all N, in that order (the box keeps no Mention of its own)', () => {
     render(view({ boxes: TWO, edit: cfg() }));
     select(PROB);
     expect(mention(PROB), 'the cards carry the mention').toBeNull();
-    const order = [editBtn('p1'), openBtn('p1'), cardMention('p1'), removeBtn('p1'), addBtn(PROB), q(PROB, 'canvas-box-more')];
+    const order = [editBtn('p1'), openBtn('p1'), cardMention('p1'), addBtn(PROB), q(PROB, 'canvas-box-more')];
     for (const el of order) expect(el, 'every control is there').not.toBeNull();
     for (let i = 1; i < order.length; i++) {
       expect(order[i - 1]!.compareDocumentPosition(order[i]!) & Node.DOCUMENT_POSITION_FOLLOWING, `visual order, step ${i}`).toBeTruthy();
@@ -207,7 +207,6 @@ describe('at rest and selecting (AC 1, 3, 4)', () => {
     select(PROB);
     expect(editBtn('p1')).toBeNull();
     expect(addBtn(PROB)).toBeNull();
-    expect(removeBtn('p1'), 'Remove is hidden while a run is active, like Edit').toBeNull();
     expect(openBtn('p1')).not.toBeNull();
     expect(cardMention('p1')).not.toBeNull();
   });
@@ -279,11 +278,12 @@ describe('an empty box (AC 6)', () => {
     expect(addBtn(SEG), 'there is no Add card step').toBeNull();
   });
 
-  it('a box with no question shows just the editor', () => {
+  it('a box with no agent question shows the fixed question above the editor (round 3)', () => {
     render(view({ boxes: EMPTY, edit: cfg() }));
     select(SEG);
-    expect(within(box(SEG)).queryByTestId('canvas-box-question')).toBeNull();
-    expect(newText()).toBeTruthy();
+    const q = within(box(SEG)).getByTestId('canvas-box-question');
+    expect(q.textContent).toBe(FIXED_BOX_QUESTIONS[SEG]);
+    expect(q.compareDocumentPosition(newText()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('Cancel closes the editor, deselects, discards the text, and returns focus to the title', () => {
@@ -638,8 +638,8 @@ describe('keyboard alone (AC 21)', () => {
     title(PROB).focus();
     await user.keyboard('{Enter}');
     const seen: Element[] = [];
-    for (let i = 0; i < 6; i++) { await user.tab(); seen.push(document.activeElement!); }
-    expect(seen).toEqual([editBtn('p1'), openBtn('p1'), cardMention('p1'), removeBtn('p1'), addBtn(PROB), q(PROB, 'canvas-box-more')]);
+    for (let i = 0; i < 5; i++) { await user.tab(); seen.push(document.activeElement!); }
+    expect(seen).toEqual([editBtn('p1'), openBtn('p1'), cardMention('p1'), addBtn(PROB), q(PROB, 'canvas-box-more')]);
     // See all (focused) by keyboard, then Show less
     await user.keyboard('{Enter}');
     expect(screen.getByTestId('canvas-box-less')).toBe(document.activeElement);
@@ -805,7 +805,7 @@ describe('a reader sees none of the owner actions (AC 20)', () => {
 describe('Edit and Open on the opened point (AC 13, 17)', () => {
   const point = pt('p1', 'They are thirsty', PROB);
   const panel = (edit: PointEditConfig | undefined, onSaved = vi.fn()) => (
-    <PanelPointEdit point={point} boxes={ONE} edit={edit} onSaved={onSaved}><div data-testid="the-card">card</div></PanelPointEdit>
+    <PanelPointEdit point={point} boxes={ONE} edit={edit} onSaved={onSaved} onRemoved={vi.fn()}><div data-testid="the-card">card</div></PanelPointEdit>
   );
 
   it('the owner on a draft gets Edit beside the card; a save reports the new id so the panel can follow it', async () => {
@@ -837,7 +837,7 @@ describe('Edit and Open on the opened point (AC 13, 17)', () => {
     fireEvent.click(screen.getByTestId('canvas-point-editor-save'));
     await waitFor(() => expect(svc.edit).toHaveBeenCalled());
     // the grid draws no box here; any box's effect hands focus over, so mount one beside the panel
-    rerender(<>{<PanelPointEdit point={pt('p9', 'new words', PROB)} boxes={ONE} edit={cfg({ revision: 5 })} onSaved={vi.fn()}><div /></PanelPointEdit>}</>);
+    rerender(<>{<PanelPointEdit point={pt('p9', 'new words', PROB)} boxes={ONE} edit={cfg({ revision: 5 })} onSaved={vi.fn()} onRemoved={vi.fn()}><div /></PanelPointEdit>}</>);
     expect(screen.getByTestId('canvas-panel-edit-p9')).toBeTruthy();
   });
 });

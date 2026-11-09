@@ -26,7 +26,7 @@ export interface HandReplace { id: string; revision: number }
 // A refusal of Start over because the draft changed: the sentence the editors already use.
 const STALE_TEXT = 'This draft changed while you were editing. Save again to apply your text.';
 
-export function useHandDraft(pending: { version: string; replace?: HandReplace | null } | null, projectTag: string | undefined, onOpened: (versionName: string) => void): EnsureDraft | null {
+export function useHandDraft(pending: { version: string; replace?: HandReplace | null } | null, projectTag: string | null | undefined, onOpened: (versionName: string) => void): EnsureDraft | null {
   const inflight = useRef<{ clone: string; promise: Promise<HandDraftResult> } | null>(null);
   // One entry per clone: a late answer for one never overwrites another's.
   const made = useRef(new Map<string, Made>());

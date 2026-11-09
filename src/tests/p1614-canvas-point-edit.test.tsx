@@ -51,7 +51,7 @@ describe('P1614 the editor', () => {
   it('P1621: on the owner\'s draft the card is not a button, so its Edit and Open actions are never nested inside one', () => {
     const point = { ...pt('p1', 'Old words'), tags: [], userPosition: null } as unknown as PointWithUserPosition;
     render(
-      <BoxCardContext.Provider value={{ selected: true, runActive: false, onEdit: () => undefined }}>
+      <BoxCardContext.Provider value={{ selected: true, runActive: false, tag: TAG, onEdit: () => undefined }}>
         <CanvasCard point={point} positions={null} compare={null} selected={false} sharedLabel={null} onOpen={() => undefined} />
       </BoxCardContext.Provider>,
     );
@@ -324,7 +324,7 @@ describe('P1614 fix 5: Cancel and Escape are off while a save is in flight', () 
 });
 
 describe('P1614 final round', () => {
-  it('1. an empty box still draws an orphan editor (the agent removed the last point) beside its Empty state', () => {
+  it('1. an empty box still draws an orphan editor (the agent removed the last point) beside its guiding question (round 3: the empty box of an owner asks)', () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} });
     const withPoints = new Map<CanvasBoxTag, PointWithUserPosition[]>([[TAG as CanvasBoxTag, [pt('p1', 'One')]]]);
     const emptied = new Map<CanvasBoxTag, PointWithUserPosition[]>([[TAG as CanvasBoxTag, []]]);
@@ -334,7 +334,7 @@ describe('P1614 final round', () => {
     rerender(grid(emptied));
     expect(area().value, 'the text is still on screen').toBe('half typed');
     expect(screen.getByTestId('canvas-point-editor-notice').textContent).toContain(GONE_POINT_TEXT);
-    expect(within(screen.getByTestId(`canvas-box-${TAG}`)).getByText('Empty'), 'beside the box\'s Empty state').toBeTruthy();
+    expect(within(screen.getByTestId(`canvas-box-${TAG}`)).getByTestId('canvas-box-question'), 'beside the box\'s question').toBeTruthy();
     fireEvent.click(screen.getByTestId('canvas-point-editor-dismiss'));
     expect(screen.queryByLabelText('Point text')).toBeNull();
     vi.unstubAllGlobals();

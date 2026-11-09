@@ -5,7 +5,7 @@
  * selecting another box or a run starting never loses it; Cancel is the only way to discard it, and Escape closes the editor keeping the text.
  * A refusal keeps the text and says why; a full box says so and offers no Save (absent, not disabled); empty text is stopped with a sentence.
  */
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,7 +27,7 @@ function refusalText(refused: string): string {
   return STALE_POINT_TEXT;
 }
 
-export function CanvasNewCardEditor({ tag, edit, count, autoFocus, onSaved, onCancel, onEscape }: {
+export function CanvasNewCardEditor({ tag, edit, count, autoFocus, onSaved, onCancel, onEscape, mention }: {
   tag: string;
   edit: PointEditConfig;
   /** how many cards the box holds now */
@@ -40,6 +40,8 @@ export function CanvasNewCardEditor({ tag, edit, count, autoFocus, onSaved, onCa
   onCancel: () => void;
   /** Escape: the editor closes, the text stays */
   onEscape: () => void;
+  /** an empty box's Mention in chat: drawn at the left of the Cancel and Save row (round 3) */
+  mention?: ReactNode;
 }) {
   const key = newCardKey(edit.canvasId, tag);
   const entry = useNewCards().get(key);
@@ -114,6 +116,7 @@ export function CanvasNewCardEditor({ tag, edit, count, autoFocus, onSaved, onCa
         ? <p id={noteId} role="alert" className="break-words text-sm text-red-800 dark:text-red-300" data-testid="canvas-new-card-problem">{notice}</p>
         : <Notice id={noteId} testId="canvas-new-card-problem" text={notice} />)}
       <div className="flex flex-wrap items-center justify-end gap-2">
+        {mention && <div className="mr-auto">{mention}</div>}
         <Button
           type="button"
           variant="ghost"

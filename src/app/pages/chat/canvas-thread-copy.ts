@@ -134,6 +134,8 @@ export const UNDONE_MARK = 'Undone';
 export const UNDO_LOAD_FAILED_TEXT = 'Undo did not load.';
 export const UNDO_RETRY_LABEL = 'Try again';
 /** The two-tab case: this tab's Undo named a run or a revision that is no longer the draft's. [FOUNDER DECISION: wording] */
+/** P1621 round 3: said in the Undo spot, as a status, when a hand save, Edit or Remove closed Undo. [FOUNDER DECISION: wording approved in the round 3 review.] */
+export const UNDO_OFF_BY_HAND_TEXT = 'Undo is off because you edited by hand.';
 export const UNDO_STALE_TEXT = 'This draft changed since you last looked. Check it, then try Undo again.';
 /** The server's cap on used runs of one draft (`cap_reached`, the 30th used run); `runCount` counts them. */
 /**
