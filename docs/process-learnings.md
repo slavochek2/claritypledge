@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 312
+**Next ID:** 313
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3704,5 +3704,16 @@ The P1646 Cost Budget cannot compare its log row because the registry has no log
 **due:** month
 
 Public-letter readers rank in the on-focus Share People list and can push out real relationships; rank self-enrolled deliveries lower (older sent rows have no created_by_sender marker, so this needs a backfill decision). Blocked pairs also appear in that list. The stale p1515 Phase 4 canvas-byline e2e blocks its 320/375 panel checks, and the p1515 AC1 and p1536 A5 live failures are untraced. Droppable if members do not report the list as wrong and the specs are fixed elsewhere.
+
+---
+
+## Decide on chat alerts and mute for new messages
+
+**ID:** INBOX-312
+**Date:** 2026-11-09
+**Status:** proposed
+**due:** month
+
+P1652 deferred new-message alerts and mute to a later founder decision. Decide whether and when to build them. Drop this if people do not miss alerts once chat has regular use.
 
 ---
