@@ -1,18 +1,18 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 116
 workstream: clarity-chat
 created_date: '2026-11-09'
 tags: [chat, links, reactions, clarity-chat]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 spec_review_hash: 9f52221a715c5b89277f9dcc2324bc4b0f4f3bee0fed8e46557c2f3b1d4b3c4c
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-09
 ---
 
 # P1652: Chat links and basics
