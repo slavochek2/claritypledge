@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-09 [product]: A canvas block gives a way forward with fixed buttons, and a tap never counts as the owner's words (P1653)
+
+**Context:** After P1646 reached prod, three first messages on TEST ("airbnb.com - make canvas", the full link, "its a car selling buisness") got one identical refusal. The founder: "it still feels like a wall."
+**Decision:** Audit every block and give each a cause, what is unchanged and a next step. A question counts as a finished run, so earlier words stay (1 of 30 updates). With only a link, state an assumption in the page's own words and offer A/B/C, recommended first, or ask plainly if none can be sourced. Buttons have fixed labels and send a fixed token. A bare domain counts as a link. The product composes questions, not the model.
+**Alternatives rejected:** "A model for mine": link text counts as the owner's words, so another company's facts could land on the canvas. Remembering refused messages: they would feed every later draft. Sending option text as a message: one tap would turn agent words into owner evidence.
+**Consequences:** Not built; UNTESTED until the replay in the spec. Correction: the 2026-11-05 entry's "5-run cap" is wrong, the code's cap is 30 used runs, and failed runs do not count toward it. **Falsifier:** owners still stop after a refusal once replies differ by cause, or a tap adds a point the owner never stated.
+**References:** [P1653](../features/p1653_canvas_agent_never_a_wall.md) · P1646 · P1639 · P1625
+
 ## 2026-11-07 [technical]: A series short link reaches a hidden event; the public key may ask only "where does alias X point" (P1649)
 
 **Context:** Every series short link (`/hike`, `/night`, `/next`, `/ai-run`, `/aisafety`, `/spiritual-revolution`, plus the new `/drum` and `/sales`) used to read `events` with the public key and `is_hidden=eq.false`, so none of them could land on a hidden event (P1603). Two hidden events already exist on prod, a sales mastermind test and a drum circle. The founder's call (2026-11-06): for a series alias, "hidden" means not listed, not secret from anyone who knows the series word.
