@@ -139,22 +139,22 @@ return). Reversibility: medium. Decision density: low after the founder answers 
 
 ## Acceptance Criteria
 
-- [ ] As a member with relationships, on a 320px phone, focusing the Share field shows those people above Events
+- [x] As a member with relationships, on a 320px phone, focusing the Share field shows those people above Events
       and Groups before typing, and no row overlaps another; the admin sees their own relationships, not everyone.
-- [ ] Every person in that list can be added (the server accepts them).
-- [ ] As a non-admin with fixtures "Ana Maria Lopez", "Jean-Luc Picard" and "Sean O'Brien" in scope: "lop", "mar",
+- [x] Every person in that list can be added (the server accepts them).
+- [x] As a non-admin with fixtures "Ana Maria Lopez", "Jean-Luc Picard" and "Sean O'Brien" in scope: "lop", "mar",
       "luc", "brien" and "ana m" each find their person; "%an" and "a_a" match only literally.
-- [ ] A non-admin searching a word of a profile outside their scope finds no one (the admin row excepted).
-- [ ] A finished event that started 8 days ago is not offered and `share_canvas` refuses it; a 10-day event that
+- [x] A non-admin searching a word of a profile outside their scope finds no one (the admin row excepted).
+- [x] A finished event that started 8 days ago is not offered and `share_canvas` refuses it; a 10-day event that
       started 8 days ago, and one that started yesterday, are offered; an older event already on a canvas still
       admits attendees and shows its date.
 - [ ] Sealing a one-to-many letter with two invited recipients who share a reason with the sender puts one card in
       each 1:1, including a recipient with no shared reason; a reader opening the public link creates no message;
       sealing succeeds if posting fails, and the confirmation names a blocked recipient as not sent to chat.
-- [ ] Adding a person with no chat and no shared reason opens the 1:1 with the canvas card; inviting such a person
+- [x] Adding a person with no chat and no shared reason opens the 1:1 with the canvas card; inviting such a person
       to a letter does the same; a blocked pair gets no card and the panel says "Added. Not sent to chat."
-- [ ] Neither person can start a new 1:1 with a stranger through plain New message (rule unchanged).
-- [ ] In a 1:1 with someone directly on a published canvas, the paperclip lists it and attaching sends a canvas
+- [x] Neither person can start a new 1:1 with a stranger through plain New message (rule unchanged).
+- [x] In a 1:1 with someone directly on a published canvas, the paperclip lists it and attaching sends a canvas
       card that opens for them; a canvas they reach only through a group or event, a link-only, an unpublished and
       a not-shared canvas are not listed.
 
