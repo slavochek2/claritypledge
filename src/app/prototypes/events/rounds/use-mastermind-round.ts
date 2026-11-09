@@ -18,6 +18,7 @@ import {
   type NextVersionOffer,
   type RoundCanvas,
 } from '@/app/data/event-mastermind-service';
+import { canvasService, type SharedCanvasRef } from '@/app/data/canvas-service';
 import { getCanvasDraftState, publishCanvasDraft, retryCanvasRun } from '@/app/data/canvas-draft-service';
 import {
   NOTE_FAILED,
@@ -59,6 +60,24 @@ export function useRoundCanvas(roundId: string | null): { canvas: RoundCanvas | 
   const retry = useCallback(() => { setRead(null); setAttempt(n => n + 1); }, []);
   const mine = read && read.roundId === roundId ? read : null;
   return { canvas: mine?.canvas ?? null, loaded: !!mine, failed: !!mine?.failed, retry };
+}
+
+/**
+ * Every canvas shared with the event: the same read behind EventSharedCanvases (no new RPC). Read once per event for a
+ * seated person. A failed read is `failed`: the card then shows the table's canvas alone, with no selector.
+ */
+export function useEventCanvasChoices(eventId: string, enabled: boolean, roundId: string | null): { list: SharedCanvasRef[]; failed: boolean } {
+  const [read, setRead] = useState<{ eventId: string; list: SharedCanvasRef[]; failed: boolean } | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let live = true;
+    canvasService.listSharedWithEvent(eventId)
+      .then(list => { if (live) setRead({ eventId, list, failed: false }); })
+      .catch(() => { if (live) setRead({ eventId, list: [], failed: true }); });
+    return () => { live = false; };
+  }, [eventId, enabled, roundId]); // re-read each round: canvases shared or published meanwhile
+  const mine = read && read.eventId === eventId ? read : null;
+  return { list: mine?.list ?? [], failed: !mine || mine.failed };
 }
 
 /** The update step the host started: re-read when the rounds change (starting it ends the round; the next round ends it). */

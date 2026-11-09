@@ -591,8 +591,11 @@ export function EventRoomMeet() {
             <RoomPreparation event={event} roundsStarted={roundsStarted} />
           </div>
         )}
-        {/* P1515, moved here from the event page (founder): the canvases shared with this event, for the people the room admits. */}
-        {!seated && event && event.status !== 'cancelled' && <EventSharedCanvases eventId={event.id} viewerId={user?.id} enabled={!!user} />}
+        {/* P1515, moved here from the event page (founder): the canvases shared with this event, for the people the room admits.
+            P1529: on the Table step only while not seated; a room with no Table step (a hike's) keeps it on the Principle view. */}
+        {!seated && event && event.status !== 'cancelled' && viewing === (hiddenSteps.includes('table') ? 'principle' : 'table') && (
+          <EventSharedCanvases eventId={event.id} viewerId={user?.id} enabled={!!user} />
+        )}
         {transcriptionFailed && (
           // P1307 Part 1: the join RPC failed or timed out. The person still lands here, with no
           // bar and nothing captured, and is told so. [FOUNDER DECISION: copy — PROPOSED, build

@@ -98,7 +98,7 @@ import { countedRounds, nextRoundLabel, roundLabel } from '@/lib/round-numbering
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { ClockNumber, PhaseStrip, groupByTable, useBell, useClock, useRoundBell, useViewport, Avatar, tableSeats } from './host-screen-parts';
 import { EventFlowRow } from './EventFlowRow';
-import { CanvasUpdateOwners, CanvasUpdateStart, MastermindPeople, MastermindWarning, RecordingMark, SilentTablesBanner } from './MastermindHostPanel';
+import { CanvasUpdateOwners, CanvasUpdateStart, MastermindPeople, MastermindWarning, RecordingMark, SilentTablesBanner, SkipUpdateConfirm } from './MastermindHostPanel';
 import { EventWaitlistList } from '../components/EventWaitlistList';
 import { MastermindPreviewNotes } from './MastermindPreviewNotes';
 import { MastermindScreen } from './MastermindScreen';
@@ -830,6 +830,8 @@ export function EventHostPage() {
   // Walkthrough 8: "End the evening" asks once, inline (no browser dialog), before every phone moves to Close.
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [confirmNext, setConfirmNext] = useState(false);
+  // Skipping the canvas update asks once: it leaves the owners no time to update.
+  const [confirmSkip, setConfirmSkip] = useState(false);
   const [lifted, setLifted] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<{ roundId: string; seats: Seat[]; label: string }[]>([]);
   const [busy, setBusy] = useState<null | 'grouping' | 'saving'>(null);
@@ -1521,7 +1523,10 @@ export function EventHostPage() {
           {updateRound && !justStarted && (
             <CanvasUpdateStart round={updateRound} busy={!!busy} onStart={() => void run(() => mm.startUpdate())} />
           )}
-          {primary && (!justStarted || busy) && !(round && confirmNext && clock && clock.phase !== 'over') && (
+          {primaryIsSkip && confirmSkip && primary && (
+            <SkipUpdateConfirm busy={!!busy} onKeep={() => setConfirmSkip(false)} onSkip={() => { setConfirmSkip(false); primary.action(); }} />
+          )}
+          {primary && (!justStarted || busy) && !(round && confirmNext && clock && clock.phase !== 'over') && !(primaryIsSkip && confirmSkip) && (
             <Button
               type="button"
               variant={primaryIsSkip ? 'ghost' : undefined}
@@ -1531,7 +1536,7 @@ export function EventHostPage() {
                   ? 'mt-1 min-h-11 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground'
                   : 'mt-4 min-h-12 text-base',
               )}
-              onClick={round && clock && clock.phase !== 'over' ? () => setConfirmNext(true) : primary.action}
+              onClick={primaryIsSkip ? () => setConfirmSkip(true) : round && clock && clock.phase !== 'over' ? () => setConfirmNext(true) : primary.action}
               disabled={!!busy || !loaded || pendingNo !== null}
               data-testid="host-primary"
             >

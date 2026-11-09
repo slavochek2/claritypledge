@@ -113,7 +113,7 @@ describe('canvas step states', () => {
     renderStep();
     expect((await screen.findByRole('heading')).textContent).toBe('Share your Clarity Canvas');
     expect(screen.getByTestId('event-canvas-body').textContent).toBe('“Launch plan” is ready. Share it with this event\'s attendees.');
-    expect(primaryButtons().map(b => b.textContent)).toEqual(['Share with this event']);
+    expect(primaryButtons().map(b => b.textContent)).toEqual(['Share with event attendees']);
     expect(within(screen.getByTestId('event-canvas-secondary')).getByRole('button').textContent).toBe('Make a different one');
     expect(screen.getByTestId('event-canvas-secondary').querySelector('button')!.className).toContain('underline'); // the same secondary treatment as Skip and proceed
     expect(h.setCanvas).not.toHaveBeenCalled();
@@ -129,9 +129,9 @@ describe('canvas step states', () => {
     const options = screen.getAllByTestId('event-canvas-option') as HTMLInputElement[];
     expect(options).toHaveLength(2);
     expect(options.map(o => o.checked)).toEqual([true, false]);
-    expect(primaryButtons().map(b => b.textContent)).toEqual(['Share with this event']);
+    expect(primaryButtons().map(b => b.textContent)).toEqual(['Share with event attendees']);
     fireEvent.click(options[1]!);
-    expect(primaryButtons()[0]!.textContent).toBe('Share with this event');
+    expect(primaryButtons()[0]!.textContent).toBe('Share with event attendees');
     expect(within(screen.getByTestId('event-canvas-secondary')).getByRole('button').textContent).toBe('Continue your draft'); // canvas_9 is an open draft
     fireEvent.click(primaryButtons()[0]!);
     await waitFor(() => expect(h.setCanvas).toHaveBeenCalledWith('ev-1', 'canvas_2'));
@@ -211,19 +211,19 @@ describe('busy and failure feedback', () => {
     const make = await screen.findByRole('button', { name: 'Make a different one' });
     fireEvent.click(make);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Opening…' })).toBeTruthy());
-    expect((screen.getByRole('button', { name: 'Share with this event' }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Share with this event' }));
+    expect((screen.getByRole('button', { name: 'Share with event attendees' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Share with event attendees' }));
     expect(h.setCanvas).not.toHaveBeenCalled();
     release();
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Share with this event' })).toBeTruthy());
-    expect((screen.getByRole('button', { name: 'Share with this event' }) as HTMLButtonElement).disabled).toBe(false);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Share with event attendees' })).toBeTruthy());
+    expect((screen.getByRole('button', { name: 'Share with event attendees' }) as HTMLButtonElement).disabled).toBe(false);
   });
   it('sharing shows its busy label', async () => {
     let release: (v: unknown) => void = () => {};
     h.setCanvas.mockImplementation(() => new Promise(r => { release = r; }));
     h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01')];
     renderStep();
-    fireEvent.click(await screen.findByRole('button', { name: 'Share with this event' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Share with event attendees' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Sharing…' })).toBeTruthy());
     expect((screen.getByRole('button', { name: 'Make a different one' }) as HTMLButtonElement).disabled).toBe(true);
     release({ status: 'ok', name: 'canvas_1' });
@@ -232,7 +232,7 @@ describe('busy and failure feedback', () => {
     h.setCanvas.mockRejectedValueOnce(new Error('boom'));
     h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01')];
     renderStep();
-    fireEvent.click(await screen.findByRole('button', { name: 'Share with this event' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Share with event attendees' }));
     await waitFor(() => expect(h.toastError).toHaveBeenCalledWith("Couldn't share your Clarity Canvas. Try again."));
   });
 });

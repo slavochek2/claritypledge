@@ -639,7 +639,7 @@ test('AC4 + AC5 (before round 1): pick, share as its own tap, no Change from the
     await expect(card).toBeVisible({ timeout: 90_000 });
     // round 2: several published canvases and none shared is state D: a picker, the newest preselected, one primary in the bar
     await expect(card.getByTestId('event-canvas-option')).toHaveCount(2);
-    await expect(page.getByTestId('event-canvas-primary')).toContainText('with this event');
+    await expect(page.getByTestId('event-canvas-primary')).toContainText('Share with event attendees');
     await expect(page.getByText('Continue without a canvas')).toHaveCount(0);
     await shots(page, 'room', 'canvas-card-pick');
     await shots(page, 'prep', 'canvas-pick');
@@ -804,49 +804,58 @@ test('WALK1 (round 1): host before round 1, the real preview, round 1 starts; th
     return { ctx, pg, card: pg.getByTestId('mastermind-round-card') };
   };
 
-  await ac('7a', 'round screen, owner: table, role, partner, rule line; no canvas link; asks for nothing', async () => {
+  const people = (pg: Page) => pg.getByTestId('round-card-person');
+  const peopleText = async (pg: Page) => (await people(pg).allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
+
+  await ac('7a', 'round screen, owner: table, canvas headline, one line per person in role order; no Open; no controls', async () => {
     const { ctx, pg, card } = await roomAs(ownerP);
     await expect(pg.getByTestId('round-card-table')).toHaveText(`Table ${tNo1}`);
     await expect(card).toHaveAttribute('data-role', 'owner');
-    await expect(pg.getByTestId('round-card-role')).toHaveText(`You're the Clarity Canvas owner: ${first(partnerP)} Q. is your partner`);
-    await expect(pg.getByTestId('round-card-rule')).toContainText('Say your number out loud');
+    const lines = await peopleText(pg);
+    expect(lines[0], 'the owner line is first and says You').toBe('You: owner');
+    expect(lines[1]).toBe(`${first(partnerP)} Q.: partner`);
     await expect(pg.getByTestId('round-canvas-link')).toHaveCount(0);
-    expect(await card.locator('button, input, textarea, select').count(), 'the owner card has nothing to tap').toBe(0);
+    for (const gone of ['round-card-role', 'round-card-with', 'round-card-rule', 'round-canvas-card-toggle']) await expect(pg.getByTestId(gone)).toHaveCount(0);
+    // the owner sees the selector only when another canvas is shared with the event; with it, Open still appears only after choosing
+    expect(await card.locator('button, input, textarea').count(), 'the owner card has no buttons').toBe(0);
     await expect(pg.getByTestId('round-card-confirm')).toHaveCount(0);
     await shots(pg, 'round', 'owner');
     await ctx.close();
-    return 'Table, role line "You\'re the Clarity Canvas owner: <partner> is your partner", rule line, no link, 0 controls in the card';
+    return `Table, lines ${JSON.stringify(lines)}, no Open, no buttons`;
   });
 
-  await ac('7b', 'round screen, partner: whose canvas, rule line, canvas link; only the quiet canvas-card toggle to tap', async () => {
+  await ac('7b', 'round screen, partner: canvas headline, one line per person in role order, Open the canvas; selector lists the other shared canvases', async () => {
     const { ctx, pg, card } = await roomAs(partnerP);
     await expect(card).toHaveAttribute('data-role', 'partner');
-    await expect(pg.getByTestId('round-card-role')).toContainText(`${first(ownerP)} Q.'s partner`);
-    await expect(pg.getByTestId('round-card-rule')).toContainText('Explain it back');
-    const withText = (await pg.getByTestId('round-card-with').innerText()).replace(/\s+/g, ' ');
+    const lines = await peopleText(pg);
     const tableMates = [...t1.get(tNo1)!.observers, t1.get(tNo1)!.owner!].map((id) => `${label(id)} Q.`);
     const others = [...t1].filter(([n]) => n !== tNo1).flatMap(([, t]) => [t.owner!, t.partner!, ...t.observers]).map((id) => `${label(id)} Q.`);
-    for (const n of tableMates) expect(withText, `table-mates only: ${n}`).toContain(n);
-    for (const n of others) expect(withText, `nobody from another table: ${n} (table ${tNo1}, text "${withText}")`).not.toContain(n);
+    const joined = lines.join(' | ');
+    expect(lines).toContain('You: partner');
+    expect(lines).toContain(`${first(ownerP)} Q.: owner`);
+    for (const n of tableMates) expect(joined, `table-mates only: ${n}`).toContain(n);
+    for (const n of others) expect(joined, `nobody from another table: ${n} (table ${tNo1}, text "${joined}")`).not.toContain(n);
     await expect(pg.getByTestId('round-canvas-link')).toBeVisible({ timeout: 60_000 });
-    await expect(pg.getByTestId('round-canvas-link')).toContainText(`Open ${first(ownerP)}`);
-    const controls = card.locator('button, input, textarea, select');
-    expect(await controls.count()).toBe(1);
-    await expect(controls.first()).toHaveAttribute('data-testid', 'round-canvas-card-toggle');
+    await expect(pg.getByTestId('round-canvas-link')).toHaveText('Open the canvas');
+    await expect(pg.getByTestId('round-canvas-select')).toHaveCount(1); // every other owner has shared a canvas with this event
+    await expect(pg.getByTestId('round-canvas-select').locator('option').first()).toContainText(first(ownerP));
+    expect(await card.locator('button, input, textarea').count()).toBe(0);
     await shots(pg, 'round', 'partner');
     await ctx.close();
-    return 'role "<owner>\'s partner", rule line, link "Open <owner>\'s Clarity Canvas", one control: the canvas-card toggle';
+    return `lines ${JSON.stringify(lines)}, "Open the canvas", selector present`;
   });
 
-  await ac('7c', 'round screen, observer: observing line with both names, rule line, canvas link', async () => {
+  await ac('7c', 'round screen, observer: one line per person with You, Open the canvas', async () => {
     const { ctx, pg, card } = await roomAs(obsP);
     await expect(card).toHaveAttribute('data-role', 'observer');
-    await expect(pg.getByTestId('round-card-role')).toContainText(`observing ${first(obsOwnerP)} Q.'s Clarity Canvas with ${first(obsPartnerP)} Q.`);
-    await expect(pg.getByTestId('round-card-rule')).toContainText('Keep the pair to the rules');
+    const lines = await peopleText(pg);
+    expect(lines).toContain('You: observer');
+    expect(lines).toContain(`${first(obsOwnerP)} Q.: owner`);
+    expect(lines).toContain(`${first(obsPartnerP)} Q.: partner`);
     await expect(pg.getByTestId('round-canvas-link')).toBeVisible({ timeout: 60_000 });
     await shots(pg, 'round', 'observer');
     await ctx.close();
-    return 'role "You\'re observing <owner>\'s Clarity Canvas with <partner>", rule line, link';
+    return `lines ${JSON.stringify(lines)}, "Open the canvas"`;
   });
 
   await ac('7d', 'the partner opens the canvas link: the open is recorded (version, round, owner, reader); on the canvas page the partner sets a position and opens Compare', async () => {
@@ -984,17 +993,15 @@ test('WALK2: after round 1 (flow and canvas fixed), round 2, round 1 transcripts
     const pg = await ctx.newPage();
     await asUser(pg, person, `/events/${E1.slug}/meet`);
     await expect(pg.getByTestId('mastermind-round-card')).toBeVisible({ timeout: 120_000 });
-    await pg.getByTestId('round-canvas-card-toggle').click();
-    await expect(pg.getByTestId('event-canvas-chosen')).toBeVisible({ timeout: 60_000 });
+    // The round card no longer carries the canvas card (the in-room "Change" is gone for everyone): only the server's refusal is checked.
     await expect(pg.getByTestId('event-canvas-change')).toHaveCount(0);
     const mine = (await supabaseAdmin.from('event_canvases').select('canvas_id, canvases(name)').eq('event_id', E1.id).eq('profile_id', A[5].user.user.id).single()).data as unknown as { canvases: { name: string } };
     const other = mine.canvases.name === 'canvas' ? 'canvas_2' : 'canvas';
     const swap = await shareForEvent(A[5], E1.id, other).catch((e) => ({ status: `error:${(e as Error).message}`, code: undefined }));
     expect(swap.status).toBe('refused');
     expect(swap.code).toBe('fixed_after_round_1');
-    await shots(pg, 'room', 'canvas-card-after-round-1');
-    await ctx.close();
-    return `${first(person)}'s card: chosen shown, event-canvas-change count 0; set_event_canvas("${other}") by A6 (chosen "${mine.canvases.name}") -> {"status":"refused","code":"fixed_after_round_1"}`;
+        await ctx.close();
+    return `${first(person)}'s round card: no canvas card, event-canvas-change count 0; set_event_canvas("${other}") by A6 (chosen "${mine.canvases.name}") -> {"status":"refused","code":"fixed_after_round_1"}`;
   });
 
   // ── round 2, through the real host screen ──────────────────────────────────────────────────────────────────────────
@@ -1483,21 +1490,15 @@ test('AC11 (a first canvas after round 1): the ready line, the host\'s ready mar
   note(`E11 ROUND 1: ${tableLine(seats1, 1)}`);
 
   const pub = await publishCanvas(ledger, O1, 'Gus first canvas');
-  await ac('11a', 'after round 1 started: the first canvas is shared as its own tap and the room says "You\'re ready. The host can add you to a coming round."', async () => {
+  await ac('11a', 'after round 1 started: the first canvas is shared (through the RPC; the round card has no canvas card now)', async () => {
     const ctx = await browser.newContext();
     const pg = await ctx.newPage();
     await asUser(pg, O1, `/events/${E11.slug}/meet`);
     await expect(pg.getByTestId('mastermind-round-card')).toBeVisible({ timeout: 120_000 });
-    await pg.getByTestId('round-canvas-card-toggle').click();
-    const card = pg.getByTestId('event-canvas-card');
-    await expect(card).toBeVisible();
-    await expect(card.getByTestId('event-canvas-share')).toHaveCount(1);
-    await card.getByTestId('event-canvas-share').click(); // the room's card keeps its inline button
-    await expect(card.getByTestId('event-canvas-chosen')).toBeVisible({ timeout: 60_000 });
-    await expect(card.getByTestId('event-canvas-ready')).toHaveText("You're ready. The host can add you to a coming round.");
-    await shots(pg, 'room', 'ready-line-after-round-1');
+    await expect(pg.getByTestId('event-canvas-card')).toHaveCount(0);
+    expect((await shareForEvent(O1, E11.id, pub.name)).status).toBe('ok');
     await ctx.close();
-    return `chosen canvas "${pub.name}" shared after round 1; ready line shown`;
+    return `chosen canvas "${pub.name}" shared after round 1 through set_event_canvas; no canvas card on the round card`;
   });
 
   await ac('11b', 'the host sees the ready mark on that person', async () => {

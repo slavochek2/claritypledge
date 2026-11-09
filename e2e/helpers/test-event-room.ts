@@ -146,6 +146,9 @@ export async function startTranscribingInRoom(page: Page, eventSlug: string): Pr
  */
 export async function openHostPreview(page: Page): Promise<void> {
   await page.getByTestId('host-primary').click();
+  // While round 2 runs the primary is "Skip the update...", which asks once first ("Owners won't get time to update their canvas.").
+  const skip = page.getByTestId('mm-skip-yes');
+  if (await skip.waitFor({ state: 'visible', timeout: 500 }).then(() => true, () => false)) await skip.click();
   const yes = page.getByTestId('host-next-yes');
   if (await yes.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) await yes.click();
   await expect(page.getByTestId('host-preview')).toBeVisible({ timeout: 15_000 });

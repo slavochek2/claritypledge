@@ -613,6 +613,10 @@ Founder's asks after testing `/events/<slug>/prepare`; built on this branch.
 
 ## Known Limitations
 
+- **(2026-11-09) After the bell, until the host acts, mics keep capturing into that round.** Nothing at clock expiry ends a round; only Next round, the update step or the end of the evening does. Talk in that gap reaches the owner's next version, and until the host acts the owner's task reads "No recording from your last round". FOUNDER DECISION pending: an End round control, which also needs a phone state between rounds (a round ended with no update step reads as "The rounds are over").
+- **(2026-11-09) Round card:** the rules are off the phone (spoken, on the lanyard card and the projector line). A seated person shares a canvas through Learn and prepare; the room's canvas card is gone. The canvas selector never changes seating, and only the table's assigned canvas records the open as evidence.
+- **(2026-11-09) Point wording, FOUNDER DECISION pending:** mirror-written points often describe rather than claim, so Agree and Disagree read oddly on them. Whether the mirror writes claims, and whether the card says "Mark anything you'd bet against", are open together.
+
 - Joining a group cannot skip the video or the positions, by design (P1549 decision 19): the join gate counts the cmp7 part, which only a finished step records. So an unloadable video in the join flow cannot be passed as "not watched" without leaving the person at Part 1: the one place a video that fails to load still traps. `[FOUNDER DECISION: record it as watched when the clip cannot load, or keep the gate.]`
 - Join positions stay required (the same gate); making them skippable needs the gate to stop counting them.
 - A shared canvas cannot be changed from step 4 or the room card any more; the person who wants another one has no in-product way before round 1.

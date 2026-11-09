@@ -598,6 +598,26 @@ describe('the canvas-update step (§7)', () => {
     await waitFor(() => expect(h.hostStartCanvasUpdate).toHaveBeenCalledWith('ev-1'));
   });
 
+  it('skipping the update asks once inline ("Owners won\'t get time to update their canvas."), Keep puts it back, Skip proceeds', async () => {
+    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, startedAt: ago(5 * MIN) })]);
+    renderHost({ flow: MM });
+    await screen.findByTestId('mm-update-start');
+    fireEvent.click(screen.getByTestId('host-primary'));
+    expect(screen.getByTestId('mm-skip-confirm').textContent).toContain("Owners won't get time to update their canvas.");
+    expect(screen.getByTestId('mm-skip-yes').textContent).toBe('Skip the update');
+    expect(screen.getByTestId('mm-skip-keep').textContent).toBe('Keep');
+    expect(screen.queryByTestId('host-primary')).toBeNull();
+    expect(h.hostStartCanvasUpdate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('mm-skip-keep'));
+    expect(screen.queryByTestId('mm-skip-confirm')).toBeNull();
+    expect(screen.getByTestId('host-primary').textContent).toBe('Skip the update, preview round 3 tables');
+    fireEvent.click(screen.getByTestId('host-primary'));
+    fireEvent.click(screen.getByTestId('mm-skip-yes'));
+    expect(screen.queryByTestId('mm-skip-confirm')).toBeNull();
+    // One confirm is enough: the preview that follows saves nothing, and the round runs until Start now.
+    expect(screen.queryByTestId('host-next-confirm')).toBeNull();
+  });
+
   it('is offered in round 2 only: not before it is counted, and not in round 3 or 4', async () => {
     setRounds([round({ startedAt: ago(5 * MIN) })]);
     const { unmount } = renderHost({ flow: MM });

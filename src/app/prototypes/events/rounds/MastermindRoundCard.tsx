@@ -1,8 +1,9 @@
 /**
  * @file MastermindRoundCard.tsx
- * @description P1529 §5 (D1, D3, D5, D19): the sales mastermind's round screen. A seated person sees the table, who they are
- * with, their role, whose Clarity Canvas the table is about, one rule line for the role, and (for their partner and the
- * observers) a link to that canvas. It asks for nothing: no confirm, no half-time swap, no phase, no sliders. The two
+ * @description P1529 §5 (D1, D3, D5, D19): the sales mastermind's round screen. A seated person sees the table, whose Clarity
+ * Canvas it is discussing (a native select that can show any canvas shared with the event, and never changes seating), one
+ * line per person at the table in role order, and (for their partner, the observers, and an owner who chose another canvas)
+ * one "Open the canvas". It asks for nothing: no confirm, no half-time swap, no phase, no sliders. The two
  * contracts the room page depends on are kept from RoundCard: it owns the round poll, and it reports the moment upward.
  * Two differences in the moment, on purpose: `atTable` is never true (there is no "we're seated" tap, and no statement
  * Compare step for this flow), and the host's canvas-update step is not "the evening is over". Sibling of RoundCard.tsx,
@@ -11,7 +12,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { EventCanvasCard } from '../prep/EventCanvasCard';
 import { currentRound, EMPTY_ROUNDS_STATE, type EventRoundsState } from '@/app/data/event-rounds-service';
 import { recordCanvasOpen } from '@/app/data/event-mastermind-service';
 import { canvasPageHref } from '@/app/pages/chat/canvas-links';
@@ -20,10 +20,10 @@ import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import type { RoundMoment } from './RoundCard';
 import { roundsPolling, shortName, useEventRounds } from './use-event-rounds';
-import { useOwnerUpdate, useRoundCanvas, useUpdateStep } from './use-mastermind-round';
+import { useEventCanvasChoices, useOwnerUpdate, useRoundCanvas, useUpdateStep } from './use-mastermind-round';
 import { MastermindUpdateTask } from './MastermindUpdateTask';
 import { useTaskOpen } from './task-open-store';
-import { RULE_LINE, mastermindTable, roleLine, taskFace, updateStepOn, withLine } from './mastermind-round-helpers';
+import { MISSING_NAME, mastermindTable, tableLines, taskFace, updateStepOn } from './mastermind-round-helpers';
 
 export function MastermindRoundCard({
   eventId,
@@ -71,13 +71,15 @@ export function MastermindRoundCard({
 
   const owner = useOwnerUpdate(eventId, !!self, roundsKey);
   const isOwner = mine?.role === 'first';
-  const { canvas, loaded, failed: canvasFailed, retry: retryCanvas } = useRoundCanvas(seated && !isOwner ? round?.id ?? null : null);
-  const [canvasOpen, setCanvasOpen] = useState(false);
+  const { canvas, loaded, failed: canvasFailed, retry: retryCanvas } = useRoundCanvas(seated ? round?.id ?? null : null);
+  const choices = useEventCanvasChoices(eventId, seated, round?.id ?? null);
+  // The canvas chosen in the selector for one round; null (or another round's) is the table's own. Never seating.
+  const [pick, setPick] = useState<{ roundId: string; ownerId: string } | null>(null);
   const [taskOpen, setTaskOpen] = useTaskOpen(`${eventId}:${owner.offer?.roundId ?? ''}`);
 
   if (!self) return null;
 
-  const name = (id: string | undefined) => shortName(roster.find(m => m.id === id)?.displayName ?? '');
+  const name = (id: string | undefined) => shortName(roster.find(m => m.id === id)?.displayName ?? '') || MISSING_NAME;
   const face = taskFace(owner.offer, owner.update);
   const offerRound = state.rounds.find(r => r.id === owner.offer?.roundId);
   const mySlug = roster.find(m => m.id === self.id)?.profileSlug ?? self.profileSlug;
@@ -120,56 +122,81 @@ export function MastermindRoundCard({
   }
   if (view === 'hidden') return <>{task}</>;
 
-  const table = mastermindTable((state.seatsByRound.get(round.id) ?? []).filter(s => s.table === mine.table), mine);
+  const tableSeats = (state.seatsByRound.get(round.id) ?? []).filter(s => s.table === mine.table);
+  const table = mastermindTable(tableSeats, mine);
+  const tableOwnerId = roster.find(m => m.id === table.owner?.id)?.profileId ?? canvas?.ownerProfileId ?? null;
   const ownerName = name(table.owner?.id);
-  const link = canvas?.shared && canvas.canvasName ? canvasPageHref(canvas.ownerSlug, canvas.canvasName) : null;
+  const defaultLabel = isOwner ? 'Discussing your Clarity Canvas' : `Discussing ${ownerName}\u2019s Clarity Canvas`;
+  // Every other canvas shared with the event. A failed read leaves none: the table's canvas alone, no selector.
+  const others = choices.failed || !tableOwnerId ? [] : choices.list.filter(c => c.ownerId !== tableOwnerId);
+  const chosen = pick && pick.roundId === round.id ? others.find(c => c.ownerId === pick.ownerId) ?? null : null;
+  const tableLink = canvas?.shared && canvas.canvasName ? canvasPageHref(canvas.ownerSlug, canvas.canvasName) : null;
+  const chosenLink = chosen ? canvasPageHref(chosen.ownerSlug ?? chosen.ownerId, chosen.name) : null;
+  const showOpen = table.role !== 'owner' || !!chosen;
 
   return (
     <>
       <section className="rounded-xl border border-blue-200 bg-card p-4 shadow-sm" data-testid="mastermind-round-card" data-role={table.role}>
         <h2 className="text-3xl font-semibold" data-testid="round-card-table">Table {mine.table}</h2>
-        <p className="mt-1 text-base font-medium break-words" data-testid="round-card-role">
-          {table.owner ? roleLine(table.role, ownerName, name(table.partner?.id)) : 'The host is still setting up your table'}
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground break-words" data-testid="round-card-with">{withLine(table.others.map(s => name(s.id)))}</p>
-        <p className="mt-3 rounded-lg bg-muted px-4 py-3 text-sm" data-testid="round-card-rule">{RULE_LINE[table.role]}</p>
-
-        {table.role !== 'owner' && loaded && canvas && (
-          link ? (
-            <Link
-              to={link}
-              className="mt-3 inline-flex min-h-10 items-center break-words text-sm font-medium text-blue-600"
-              // Evidence, never a gate: the open is recorded beside the navigation, which it can never stop.
-              onClick={() => { try { recordCanvasOpen(round.id, canvas.ownerProfileId); } catch { /* not a gate */ } }}
-              data-testid="round-canvas-link"
+        {table.owner ? (
+          others.length > 0 ? (
+            <>
+            <p className="mt-3 text-sm text-muted-foreground" aria-hidden="true">Discussing</p>
+            <select
+              aria-label="Clarity Canvas being discussed"
+              className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-base font-semibold"
+              value={chosen?.ownerId ?? ''}
+              onChange={e => setPick(e.target.value ? { roundId: round.id, ownerId: e.target.value } : null)}
+              data-testid="round-canvas-select"
             >
-              Open {ownerName}&rsquo;s Clarity Canvas
-            </Link>
+              <option value="">{defaultLabel.replace('Discussing y', 'Y').replace('Discussing ', '')}</option>
+              {others.map(c => (
+                <option key={c.ownerId} value={c.ownerId}>{shortName(c.ownerName) || MISSING_NAME}&rsquo;s Clarity Canvas</option>
+              ))}
+            </select>
+            </>
+          ) : (
+            <p className="mt-3 text-lg font-semibold break-words" data-testid="round-card-headline">{defaultLabel}</p>
+          )
+        ) : (
+          <p className="mt-1 text-base font-medium break-words" data-testid="round-card-setup">The host is still setting up your table</p>
+        )}
+
+        <ul className="mt-3 space-y-1 text-sm" data-testid="round-card-people">
+          {tableLines(tableSeats, mine.id, id => name(id)).map(l => (
+            <li key={l.id} className="break-words" data-testid="round-card-person">{l.text}</li>
+          ))}
+        </ul>
+
+        {table.owner && showOpen && (chosen ? (
+          chosenLink ? (
+            <Button asChild className="mt-4 min-h-12 w-full text-base">
+              <Link to={chosenLink} data-testid="round-canvas-link">Open the canvas</Link>
+            </Button>
           ) : (
             <p className="mt-3 text-sm text-muted-foreground" data-testid="round-canvas-unshared">This Clarity Canvas is no longer shared</p>
           )
-        )}
+        ) : table.role !== 'owner' && loaded && canvas && (
+          tableLink ? (
+            <Button asChild className="mt-4 min-h-12 w-full text-base">
+              <Link
+                to={tableLink}
+                // Evidence, never a gate: recorded only for the table's assigned canvas, beside the navigation, which it can never stop.
+                onClick={() => { try { recordCanvasOpen(round.id, canvas.ownerProfileId); } catch { /* not a gate */ } }}
+                data-testid="round-canvas-link"
+              >
+                Open the canvas
+              </Link>
+            </Button>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground" data-testid="round-canvas-unshared">This Clarity Canvas is no longer shared</p>
+          )
+        ))}
 
-        {table.role !== 'owner' && canvasFailed && (
+        {table.role !== 'owner' && !chosen && canvasFailed && (
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground" role="alert" data-testid="round-canvas-error">
             <span>Could not load this Clarity Canvas.</span>
             <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={retryCanvas} data-testid="round-canvas-retry">Retry</Button>
-          </div>
-        )}
-
-        {table.role !== 'owner' && (
-          <div className="mt-2">
-            {/* D5, D9, D17: observers and people with no canvas yet reach their own canvas card from here, one quiet tap. */}
-            <button
-              type="button"
-              className="inline-flex min-h-10 items-center text-sm text-muted-foreground underline"
-              aria-expanded={canvasOpen}
-              onClick={() => setCanvasOpen(o => !o)}
-              data-testid="round-canvas-card-toggle"
-            >
-              Your Clarity Canvas{/* [FOUNDER DECISION: copy, proposed] */}
-            </button>
-            {canvasOpen && <div className="mt-2"><EventCanvasCard eventId={eventId} /></div>}
           </div>
         )}
       </section>

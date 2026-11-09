@@ -14,7 +14,7 @@ import { RegistrationQuestions, PlacesLeftLine, missingLines, missingKeys } from
 import { ROUND_UPDATE_CONSENT } from '@/app/components/session/capture-copy';
 import { formatDoorsTime, formatStartTime } from '@/app/prototypes/events/event-doors';
 
-const NEW = 'Table mics capture conversations, and Google Gemini transcribes them into the event chat for the host and registered attendees. The peer whose Clarity Canvas you discuss can use AI to draft an update from that transcript.';
+const NEW = 'At the event we use a microphone to capture conversations. Google Gemini turns them into text that the host and attendees can read. The Clarity Canvas owner can use it to improve their canvas with AI.';
 const DATETIME = '2026-11-14T11:30:00+00:00'; // 18:30 in Bangkok, doors 18:00
 const base = { datetime: DATETIME, timezone: 'Asia/Bangkok', busy: false, onCancel: vi.fn() };
 const open = (over: Partial<Parameters<typeof RegistrationQuestions>[0]> = {}) =>

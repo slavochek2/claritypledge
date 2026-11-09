@@ -1,8 +1,7 @@
 /**
  * @file mastermind-round-helpers.ts
  * @description P1529 §5 and §6: the words and the small rules of the sales mastermind's round screen, apart from any
- * component. Every attendee sentence here is a draft: [FOUNDER DECISION: copy]. Attendee copy says "Clarity Canvas owner",
- * "their partner" and "observer", never a bare "owner" or "reader" (D12).
+ * component. Every attendee sentence here is a draft: [FOUNDER DECISION: copy]. The table's lines name roles as the founder asked: owner, partner, observer.
  */
 import type { CanvasUpdateStep, MyUpdateState, NextVersionOffer, NextVersionResult } from '@/app/data/event-mastermind-service';
 import type { RoundSeat } from '@/app/data/event-rounds-service';
@@ -12,42 +11,29 @@ export type MastermindRole = 'owner' | 'partner' | 'observer';
 
 export const MASTERMIND_ROLE: Record<RoundSeat['role'], MastermindRole> = { first: 'owner', second: 'partner', observer: 'observer' };
 
-/** Everyone at the caller's table, by what they are. */
+/** What the viewer is at their table, and who owns the Clarity Canvas the table discusses. */
 export interface MastermindTable {
   role: MastermindRole;
   owner: RoundSeat | undefined;
-  partner: RoundSeat | undefined;
-  observers: RoundSeat[];
-  /** Everyone at the table except the caller. */
-  others: RoundSeat[];
 }
 
 export function mastermindTable(table: RoundSeat[], mine: RoundSeat): MastermindTable {
-  return {
-    role: MASTERMIND_ROLE[mine.role],
-    owner: table.find(s => s.role === 'first'),
-    partner: table.find(s => s.role === 'second'),
-    observers: table.filter(s => s.role === 'observer'),
-    others: table.filter(s => s.id !== mine.id),
-  };
+  return { role: MASTERMIND_ROLE[mine.role], owner: table.find(s => s.role === 'first') };
 }
 
-/** D3, §5: who they are and whose canvas the table is about. */
-export function roleLine(role: MastermindRole, ownerName: string, partnerName: string): string {
-  if (role === 'owner') return partnerName ? `You're the Clarity Canvas owner: ${partnerName} is your partner` : "You're the Clarity Canvas owner";
-  if (role === 'partner') return `You're ${ownerName}'s partner`;
-  return partnerName ? `You're observing ${ownerName}'s Clarity Canvas with ${partnerName}` : `You're observing ${ownerName}'s Clarity Canvas`;
+const ROLE_WORD: Record<MastermindRole, string> = { owner: 'owner', partner: 'partner', observer: 'observer' };
+const ROLE_ORDER: Record<RoundSeat['role'], number> = { first: 0, second: 1, observer: 2 };
+
+/** One line per person at the table, in role order: "Chiara: owner". The viewer's own line says You. [FOUNDER DECISION: copy] */
+export function tableLines(table: RoundSeat[], mineId: string, nameOf: (id: string) => string): Array<{ id: string; text: string }> {
+  return table
+    .map((s, i) => ({ s, i }))
+    .sort((a, b) => ROLE_ORDER[a.s.role] - ROLE_ORDER[b.s.role] || a.i - b.i)
+    .map(({ s }) => ({ id: s.id, text: `${s.id === mineId ? 'You' : nameOf(s.id)}: ${ROLE_WORD[MASTERMIND_ROLE[s.role]]}` }));
 }
 
-/** D3, D19: one line per role. The lower number decides; above 8 the partner may challenge. The app asks for nothing. */
-export const RULE_LINE: Record<MastermindRole, string> = {
-  owner: 'Say your number out loud. The lower number between you and your partner decides; above 8 your partner may challenge.',
-  partner: 'Explain it back, then say your number out loud. The lower number decides; above 8 you may challenge.',
-  observer: 'Keep the pair to the rules: the lower number decides, and above 8 the partner may challenge. Give your feedback at the end.',
-};
-
-/** §5: only the people the card names; the faces are the lanyard card's job. */
-export const withLine = (names: string[]): string => (names.length ? `With ${names.join(', ')}` : '');
+/** The name shown when the roster has none for a seat (the host's screens say the same). */
+export const MISSING_NAME = 'Someone';
 
 /** The host's canvas-update step is on while its round is still the newest and that round has ended. */
 export function updateStepOn(step: CanvasUpdateStep | null, rounds: ReadonlyArray<{ id: string; endedAt: string | null }>): boolean {

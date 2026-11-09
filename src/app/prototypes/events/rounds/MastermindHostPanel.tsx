@@ -40,6 +40,9 @@ const COPY = {
   updateConfirm: (label: string, left: string) => `${label} has ${left} left. Starting the canvas update ends it now.`,
   updateEnd: (label: string) => `End ${label} & start update`,
   updateKeep: 'Keep going',
+  skipConfirm: "Owners won't get time to update their canvas.",
+  skipYes: 'Skip the update',
+  skipKeep: 'Keep',
   updateNoOwners: 'No Clarity Canvases are shared with this event.',
   retry: 'Retry',
 };
@@ -115,6 +118,19 @@ export function CanvasUpdateStart({ round, onStart, busy }: {
     >
       {COPY.updateStart}
     </Button>
+  );
+}
+
+/** The quiet "skip the update" asks once, inline, like CanvasUpdateStart: skipping gives the owners no time. [FOUNDER DECISION: copy, proposed] */
+export function SkipUpdateConfirm({ onSkip, onKeep, busy }: { onSkip: () => void; onKeep: () => void; busy: boolean }) {
+  return (
+    <div className="mt-4 rounded-lg border border-border p-3 text-sm" data-testid="mm-skip-confirm">
+      <p>{COPY.skipConfirm}</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button type="button" className="min-h-11" disabled={busy} onClick={onSkip} data-testid="mm-skip-yes">{COPY.skipYes}</Button>
+        <Button type="button" variant="ghost" className="min-h-11" onClick={onKeep} data-testid="mm-skip-keep">{COPY.skipKeep}</Button>
+      </div>
+    </div>
   );
 }
 

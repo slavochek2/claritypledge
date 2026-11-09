@@ -23,6 +23,7 @@ const h = vi.hoisted(() => ({
   retryCanvasRun: vi.fn(),
   getCanvasDraftState: vi.fn(),
   classicProps: vi.fn(),
+  listSharedWithEvent: vi.fn(),
 }));
 
 vi.mock('@/app/prototypes/events/rounds/use-event-rounds', async importOriginal => {
@@ -39,6 +40,7 @@ vi.mock('@/app/data/event-mastermind-service', () => ({
   getMyDraftRef: h.getMyDraftRef,
   getMyEventCanvas: h.getMyEventCanvas,
 }));
+vi.mock('@/app/data/canvas-service', () => ({ canvasService: { listSharedWithEvent: h.listSharedWithEvent } }));
 vi.mock('@/app/data/canvas-draft-service', () => ({
   publishCanvasDraft: h.publishCanvasDraft,
   retryCanvasRun: h.retryCanvasRun,
@@ -97,7 +99,9 @@ beforeEach(() => {
   h.server = {
     canvas: { ownerProfileId: 'p-owner', ownerSlug: 'haru', canvasName: 'launch_plan', shared: true },
     offer: OPEN, update: NOT_TAPPED, step: null,
+    shared: [{ ownerId: 'p-owner', ownerName: 'Haru Tanaka', ownerSlug: 'haru', name: 'launch_plan' }],
   };
+  h.listSharedWithEvent.mockResolvedValue(h.server.shared);
   h.getMyRoundCanvas.mockImplementation(async () => h.server.canvas);
   h.getMyNextVersionOffer.mockImplementation(async () => h.server.offer);
   h.getMyUpdateState.mockImplementation(async () => h.server.update);
@@ -109,19 +113,21 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); });
 
+const lines = () => screen.getAllByTestId('round-card-person').map(li => li.textContent);
+
 describe('P1529 round screen: what each role sees', () => {
   it.each([
-    [OWNER, "You're the Clarity Canvas owner: Erin W. is your partner", /lower number between you and your partner decides; above 8 your partner may challenge/],
-    [PARTNER, "You're Haru T.'s partner", /lower number decides; above 8 you may challenge/],
-    [OBSERVER, "You're observing Haru T.'s Clarity Canvas with Erin W.", /lower number decides, and above 8 the partner may challenge/],
-  ])('%#: role line and one rule line', async (who, line, rule) => {
+    [OWNER, ['You: owner', 'Erin W.: partner', 'Sam L.: observer'], false],
+    [PARTNER, ['Haru T.: owner', 'You: partner', 'Sam L.: observer'], true],
+    [OBSERVER, ['Haru T.: owner', 'Erin W.: partner', 'You: observer'], true],
+  ])('%#: the table, the canvas headline, one line per person in role order, Open only for partner and observer', async (who, people, open) => {
     renderCard(who);
-    expect((await screen.findByTestId('round-card-role')).textContent).toBe(line);
-    expect(screen.getByTestId('round-card-table').textContent).toBe('Table 1');
-    expect(screen.getByTestId('round-card-rule').textContent).toMatch(rule);
-    expect(screen.getByTestId('round-card-with').textContent).toBe(
-      who === OWNER ? 'With Erin W., Sam L.' : who === PARTNER ? 'With Haru T., Sam L.' : 'With Haru T., Erin W.',
-    );
+    expect((await screen.findByTestId('round-card-table')).textContent).toBe('Table 1');
+    expect((await screen.findByTestId('round-card-headline')).textContent).toBe(who === OWNER ? 'Discussing your Clarity Canvas' : 'Discussing Haru T.\u2019s Clarity Canvas');
+    expect(lines()).toEqual(people);
+    if (open) expect((await screen.findByTestId('round-canvas-link')).textContent).toBe('Open the canvas');
+    else expect(screen.queryByTestId('round-canvas-link')).toBeNull();
+    for (const gone of ['round-card-role', 'round-card-with', 'round-card-rule', 'round-canvas-card-toggle']) expect(screen.queryByTestId(gone)).toBeNull();
   });
 
   it('shows only the person\'s own table when the round has several', async () => {
@@ -130,32 +136,32 @@ describe('P1529 round screen: what each role sees', () => {
       seat('r1', 'm-owner', 'first', 2), seat('r1', 'm-partner', 'second', 2), seat('r1', 'm-obs', 'observer', 2),
     ] });
     renderCard(PARTNER);
-    expect((await screen.findByTestId('round-card-role')).textContent).toBe("You're Haru T.'s partner");
+    expect((await screen.findByTestId('round-card-headline')).textContent).toBe('Discussing Haru T.\u2019s Clarity Canvas');
     expect(screen.getByTestId('round-card-table').textContent).toBe('Table 2');
-    expect(screen.getByTestId('round-card-with').textContent).toBe('With Haru T., Sam L.');
+    expect(lines()).toEqual(['Haru T.: owner', 'You: partner', 'Sam L.: observer']);
   });
 
-  it('never uses a bare "owner" or "reader" in attendee words', async () => {
+  it('a person the roster has no name for shows the fallback name', async () => {
+    liveRound([round()], { r1: [seat('r1', 'm-ghost', 'first'), seat('r1', 'm-partner', 'second')] });
     renderCard(PARTNER);
-    await screen.findByTestId('round-card-role');
-    const text = document.body.textContent ?? '';
-    expect(text).not.toMatch(/\breader\b/i);
-    expect(text.replace(/Clarity Canvas owner/g, '')).not.toMatch(/\bowner\b/i);
+    expect((await screen.findByTestId('round-card-headline')).textContent).toBe('Discussing Someone\u2019s Clarity Canvas');
+    expect(lines()).toEqual(['Someone: owner', 'You: partner']);
   });
 
-  it('asks for nothing during a round: no confirm, swap, phase, compare, slider or score', async () => {
+  it('asks for nothing during a round: no confirm, swap, phase, compare, slider or score; the owner has no button', async () => {
     renderCard(OWNER);
-    await screen.findByTestId('round-card-role');
+    await screen.findByTestId('round-card-headline');
     expect(screen.queryAllByRole('button')).toHaveLength(0);
     expect(screen.queryAllByRole('slider')).toHaveLength(0);
     expect(screen.queryByTestId('round-card-confirm')).toBeNull();
     expect(document.body.textContent).not.toMatch(/swap|seated —|compare|score|stance/i);
   });
 
-  it("a partner's only control is the quiet link to their own canvas card", async () => {
+  it("a partner's only control is Open the canvas (no card toggle)", async () => {
     renderCard(PARTNER);
-    await screen.findByTestId('round-card-role');
-    expect(screen.getAllByRole('button').map(b => b.getAttribute('data-testid'))).toEqual(['round-canvas-card-toggle']);
+    await screen.findByTestId('round-canvas-link');
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    expect(screen.queryByTestId('round-canvas-select')).toBeNull();
   });
 });
 
@@ -166,7 +172,7 @@ describe('P1529 round screen: the canvas link', () => {
       const { unmount } = renderCard(who);
       const link = (await screen.findByTestId('round-canvas-link')) as HTMLAnchorElement;
       expect(link.getAttribute('href')).toBe('/p/haru/canvas/launch_plan');
-      expect(link.textContent).toMatch(/Open Haru T.’s Clarity Canvas/);
+      expect(link.textContent).toBe('Open the canvas');
       fireEvent.click(link);
       expect(h.recordCanvasOpen).toHaveBeenCalledWith('r1', 'p-owner');
       expect(screen.getByTestId('where').textContent).toBe('/p/haru/canvas/launch_plan');
@@ -182,11 +188,11 @@ describe('P1529 round screen: the canvas link', () => {
     expect(screen.getByTestId('where').textContent).toBe('/p/haru/canvas/launch_plan');
   });
 
-  it('the Clarity Canvas owner has no link to their own canvas, and the server is not asked for one', async () => {
+  it('the Clarity Canvas owner has no Open for their own canvas', async () => {
     renderCard(OWNER);
-    await screen.findByTestId('round-card-role');
+    await screen.findByTestId('round-card-headline');
+    await waitFor(() => expect(h.getMyRoundCanvas).toHaveBeenCalled());
     expect(screen.queryByTestId('round-canvas-link')).toBeNull();
-    expect(h.getMyRoundCanvas).not.toHaveBeenCalled();
   });
 
   it('says the canvas is no longer shared, with no link', async () => {
@@ -207,12 +213,68 @@ describe('P1529 round screen: the canvas link', () => {
     expect(screen.queryByTestId('round-canvas-error')).toBeNull();
   });
 
-  it('an observer reaches their own canvas card from the room, collapsed until asked', async () => {
+  it('no "Your Clarity Canvas" toggle and no canvas card on the round card', async () => {
     renderCard(OBSERVER);
-    const toggle = await screen.findByTestId('round-canvas-card-toggle');
+    await screen.findByTestId('round-canvas-link');
+    expect(screen.queryByTestId('round-canvas-card-toggle')).toBeNull();
     expect(screen.queryByTestId('event-canvas-card')).toBeNull();
-    fireEvent.click(toggle);
-    expect(screen.getByTestId('event-canvas-card')).toBeTruthy();
+  });
+});
+
+describe('P1529 round screen: the failure-safe canvas selector', () => {
+  const MIA = { ownerId: 'p-mia', ownerName: 'Mia Long', ownerSlug: 'mia', name: 'pitch' };
+  const withOthers = () => { h.listSharedWithEvent.mockResolvedValue([...(h.server.shared as unknown[]), MIA]); };
+
+  it('is a native select defaulting to the table\'s canvas, listing every other canvas shared with the event', async () => {
+    withOthers();
+    renderCard(PARTNER);
+    const select = (await screen.findByTestId('round-canvas-select')) as HTMLSelectElement;
+    expect(select.tagName).toBe('SELECT');
+    expect(select.value).toBe('');
+    expect(Array.from(select.options).map(o => o.textContent)).toEqual(['Haru T.\u2019s Clarity Canvas', 'Mia L.\u2019s Clarity Canvas']);
+    expect(select.className).toContain('min-h-11');
+    expect(h.listSharedWithEvent).toHaveBeenCalledWith('e1');
+  });
+
+  it('choosing another changes where Open goes, records no evidence for it, never touches seating, and re-choosing comes back', async () => {
+    withOthers();
+    renderCard(PARTNER);
+    const select = (await screen.findByTestId('round-canvas-select')) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'p-mia' } });
+    const link = screen.getByTestId('round-canvas-link') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/p/mia/canvas/pitch');
+    fireEvent.click(link);
+    expect(h.recordCanvasOpen).not.toHaveBeenCalled();
+    expect(lines()).toEqual(['Haru T.: owner', 'You: partner', 'Sam L.: observer']);
+    expect(screen.getByTestId('round-card-table').textContent).toBe('Table 1');
+    fireEvent.change(select, { target: { value: '' } });
+    expect(((await screen.findByTestId('round-canvas-link')) as HTMLAnchorElement).getAttribute('href')).toBe('/p/haru/canvas/launch_plan');
+  });
+
+  it('shows the owner the selector, and Open appears once another canvas is chosen', async () => {
+    withOthers();
+    renderCard(OWNER);
+    const select = (await screen.findByTestId('round-canvas-select')) as HTMLSelectElement;
+    expect(select.options[0]!.textContent).toBe('Your Clarity Canvas');
+    expect(screen.queryByTestId('round-canvas-link')).toBeNull();
+    fireEvent.change(select, { target: { value: 'p-mia' } });
+    expect((screen.getByTestId('round-canvas-link') as HTMLAnchorElement).getAttribute('href')).toBe('/p/mia/canvas/pitch');
+    fireEvent.change(select, { target: { value: '' } });
+    expect(screen.queryByTestId('round-canvas-link')).toBeNull();
+  });
+
+  it('a failed read of the shared canvases falls back to the table\'s canvas with no selector', async () => {
+    h.listSharedWithEvent.mockRejectedValue(new Error('offline'));
+    renderCard(PARTNER);
+    expect((await screen.findByTestId('round-canvas-link')).getAttribute('href')).toBe('/p/haru/canvas/launch_plan');
+    expect(screen.queryByTestId('round-canvas-select')).toBeNull();
+    expect(screen.getByTestId('round-card-headline').textContent).toBe('Discussing Haru T.\u2019s Clarity Canvas');
+  });
+
+  it('with no other canvas shared there is nothing to choose, so no selector', async () => {
+    renderCard(PARTNER);
+    await screen.findByTestId('round-canvas-link');
+    expect(screen.queryByTestId('round-canvas-select')).toBeNull();
   });
 });
 

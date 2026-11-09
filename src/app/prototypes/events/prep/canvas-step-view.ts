@@ -70,10 +70,10 @@ function shareView(i: StepInput): StepView {
   const only = published.length === 1 ? published[0] : undefined;
   if (only) {
     return done('C', 'Share your Clarity Canvas', `“${only.label}” is ready. Share it with this event's attendees.`,
-      mk('share', 'Share with this event', 'Sharing…', () => go.share(only.name)), makeAnother(i, 'Make a different one'));
+      mk('share', 'Share with event attendees', 'Sharing…', () => go.share(only.name)), makeAnother(i, 'Make a different one'));
   }
   return done('D', 'Share a Clarity Canvas', 'Pick the one to share with this event.',
-    mk('share', 'Share with this event', 'Sharing…', () => selected && go.share(selected)), makeAnother(i, 'Make a new one'));
+    mk('share', 'Share with event attendees', 'Sharing…', () => selected && go.share(selected)), makeAnother(i, 'Make a new one'));
 }
 
 export function buildStepView(i: StepInput): StepView {
