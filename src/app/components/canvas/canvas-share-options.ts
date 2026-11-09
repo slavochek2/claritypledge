@@ -29,12 +29,19 @@ interface Inputs {
   has: (kind: Option['kind'], id: string) => boolean;
 }
 
-const WORD_BREAK = /[\s\-'’.]+/;
+const SEPARATOR = /[\s\-'’.]/;
 
-/** The server's rule (search_profiles): a prefix of the whole name, of any word of it, or of the handle. Never a substring. */
+/**
+ * The server's rule (search_profiles): a prefix of the UNSPLIT name that starts at its start or right after any
+ * separator (space, hyphen, apostrophe, period), or a prefix of the handle. So "o'brien", "jean-luc" and "maria l"
+ * match, and a mid-word "rien" does not.
+ */
 function matchesPerson(p: ProfileSearchResult, needle: string): boolean {
   const name = p.name.toLowerCase();
-  return name.startsWith(needle) || name.split(WORD_BREAK).some(w => w.startsWith(needle)) || (p.slug ?? '').toLowerCase().startsWith(needle);
+  for (let i = 0; i < name.length; i++) {
+    if ((i === 0 || SEPARATOR.test(name.charAt(i - 1))) && name.startsWith(needle, i)) return true;
+  }
+  return (p.slug ?? '').toLowerCase().startsWith(needle);
 }
 
 /**

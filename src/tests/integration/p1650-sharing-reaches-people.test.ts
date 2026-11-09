@@ -183,6 +183,23 @@ describe('P1650 search_profiles: any word of the name', () => {
     // control: the same words DO find the person for a caller who has them in scope (X witnesses O's own scope would not matter)
     expect((await find(cX, 'lop')).map(r => r.name), 'X has no scope: no Ana').not.toContain('Ana Maria Lopez');
   });
+  it('the admin and non-admin branches of the newest definition match by the identical predicate (so the non-admin tests cover both)', () => {
+    const predicates = (body: string): string[] =>
+      [...body.matchAll(/AND \(starts_with\(lower\(p\.name\), v_query\)[\s\S]*?(?=\n\s*ORDER BY)/g)]
+        .map(m => m[0].replace(/--[^\n]*/g, '').replace(/\s+/g, ' ').trim());
+    const assertSame = (body: string) => {
+      const p = predicates(body);
+      expect(p, 'exactly two branches carry the match predicate').toHaveLength(2);
+      expect(p[0], 'the predicate includes the word-boundary clause').toContain("IN (' ', '''', '.', '’', '-')");
+      expect(p[0]).toBe(p[1]);
+    };
+    const body = newestDefinition('search_profiles').body;
+    expect(() => assertSame(body)).not.toThrow();
+    // control: change the boundary set in ONE branch only and the check must fail
+    const mutated = body.replace("IN (' ', '''', '.', '’', '-')", "IN (' ', '-')");
+    expect(mutated, 'the mutation changed the text').not.toBe(body);
+    expect(() => assertSame(mutated)).toThrow();
+  });
   it('the minimum of three characters still holds', async () => {
     const r = await cO.rpc('search_profiles', { p_query: 'ma' });
     expect(r.error?.message).toMatch(/at least 3 characters/);
@@ -437,6 +454,32 @@ describe('P1650 letters: the sender\'s invitation reaches chat, a reader\'s open
   // raises on an ordinary post, and a test-only trigger would be DDL on a table every concurrent run uses. So the
   // "never fails because of chat" guarantee is asserted on the NEWEST definition of each function (what the database
   // runs), with a control that shows the assertion can fail. The block and 20-a-day paths ARE exercised live above.
+  const POST_CALL: Record<string, string> = {
+    seal_and_send_letter: ':= public._chat_post_letter_delivery(',
+    add_recipient_to_sealed_letter: ':= public._chat_post_letter_delivery(',
+    share_canvas: ':= public._chat_post_canvas_share(',
+  };
+  /** The chat post call must sit inside its own BEGIN ... EXCEPTION WHEN OTHERS block, not in the function's top level. */
+  const callInsideHandler = (body: string, call: string) => {
+    const c = body.indexOf(call);
+    expect(c, `the post call ${call} exists`).toBeGreaterThan(-1);
+    const topBegin = body.indexOf('BEGIN', body.indexOf('AS $$'));
+    const b = body.lastIndexOf('BEGIN', c);
+    const e = body.indexOf('EXCEPTION WHEN OTHERS THEN', c);
+    expect(b, 'a BEGIN precedes the call and it is not the function\'s own').toBeGreaterThan(topBegin);
+    expect(e, 'the handler follows the call').toBeGreaterThan(c);
+    expect(body.slice(b, e), 'one block: no END; between its BEGIN and its handler').not.toMatch(/\bEND;/);
+  };
+  /** The same text with the post call moved to just above the BEGIN of its block. */
+  const moveCallAboveBegin = (body: string, call: string) => {
+    const c = body.indexOf(call);
+    const lineStart = body.lastIndexOf('\n', c) + 1;
+    const lineEnd = body.indexOf('\n', c);
+    const line = body.slice(lineStart, lineEnd);
+    const without = body.slice(0, lineStart) + body.slice(lineEnd + 1);
+    const b = without.lastIndexOf('BEGIN', lineStart);
+    return without.slice(0, b) + line + '\n' + without.slice(b);
+  };
   it.each(['seal_and_send_letter', 'add_recipient_to_sealed_letter', 'share_canvas'])(
     'chat never makes %s fail: the newest definition wraps the post and reports a skip', (fn) => {
       const wrapped = new RegExp(`EXCEPTION WHEN OTHERS THEN\\s+RAISE WARNING '${fn}: chat message not posted`);
@@ -445,6 +488,13 @@ describe('P1650 letters: the sender\'s invitation reaches chat, a reader\'s open
       expect(() => check(newest.body), `${fn} as defined in ${newest.file}`).not.toThrow();
       // control: the same check fails for the definition that predates this feature
       expect(() => check(newestDefinition(fn, '20261109').body)).toThrow();
+      // the post call itself sits between its block's BEGIN and EXCEPTION WHEN OTHERS
+      const call = POST_CALL[fn]!;
+      expect(() => callInsideHandler(newest.body, call), `${fn}: call inside its handler`).not.toThrow();
+      // control: the same text with the call moved above BEGIN is caught
+      const moved = moveCallAboveBegin(newest.body, call);
+      expect(moved, 'the mutation changed the text').not.toBe(newest.body);
+      expect(() => callInsideHandler(moved, call), `${fn}: a call above BEGIN must be detected`).toThrow();
     });
 });
 

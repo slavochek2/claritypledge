@@ -52,6 +52,14 @@ describe('the client matches like the server: word or handle prefix, never a sub
   it('the whole name, with a space', () => {
     expect(rows('ana m')).toEqual(['Ana Maria Lopez']);
   });
+  it('a prefix of the unsplit name that starts at its start or right after any separator, so it may span a separator', () => {
+    expect(rows("o'brien")).toEqual(["Sean O'Brien"]);
+    expect(rows('jean-luc')).toEqual(['Jean-Luc Picard']);
+    expect(rows('maria l')).toEqual(['Ana Maria Lopez']);
+    expect(rows('luc p')).toEqual(['Jean-Luc Picard']);
+    expect(rows('rien')).toEqual([]); // CONTROL: mid-word, after no separator
+    expect(rows("n o'")).toEqual([]); // CONTROL: starts mid-word ("Sean O'" has "n" before the space)
+  });
   it('a handle prefix', () => {
     expect(rows('jl')).toEqual(['Jean-Luc Picard']);
     expect(rows('ana-')).toEqual(['Ana Maria Lopez']);
