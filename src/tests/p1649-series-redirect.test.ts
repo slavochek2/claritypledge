@@ -25,7 +25,7 @@ beforeEach(() => {
   errorSpy.mockClear();
 });
 
-const ALIASES = ['hike', 'night', 'next', 'ai-run', 'aisafety', 'spiritual-revolution', 'sales', 'drum'];
+const ALIASES = ['hike', 'night', 'next', 'ai-run', 'aisafety', 'spiritual-revolution', 'sales'];
 
 describe('every alias resolves through the key-only function', () => {
   it.each(ALIASES)('%s → the slug the function returns', async (alias) => {
@@ -62,7 +62,7 @@ describe('a failure is distinguishable from "no match"', () => {
 
   it('an unexpected shape (the old row array) is reported, not followed', async () => {
     fetchMock.mockImplementation(() => reply([{ slug: 'x' }]));
-    expect(await run('drum')).toEqual([307, '/events']);
+    expect(await run('hike')).toEqual([307, '/events']);
     expect(errorSpy).toHaveBeenCalledTimes(1);
   });
 

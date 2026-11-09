@@ -152,4 +152,4 @@ get_event_by_slug(text)                       # a signed-out visitor opens a hid
 # --- 2026-11-06, P1649: a series short link reaches the next event of its series, hidden or not ---
 # Alias KEY in, one slug out. The rule behind each key lives in public.series_aliases, which anon cannot read or
 # write; the caller supplies no pattern, series value or cutoff, so it cannot become a search over hidden events.
-resolve_series_alias(text)                    # a signed-out visitor follows /hike, /night, /next, /sales, /drum etc. (P1649) — api/series-redirect.ts:39
+resolve_series_alias(text)                    # a signed-out visitor follows /hike, /night, /next, /sales etc. (P1649) — api/series-redirect.ts:39
