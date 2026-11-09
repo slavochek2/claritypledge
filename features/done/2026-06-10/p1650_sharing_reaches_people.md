@@ -1,12 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 114
 workstream: clarity-chat
 created_date: '2026-11-06'
 tags: [sharing, canvas, letters, chat]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 7322b4cd02f7476db6dcb865858ec173c23f3dc1093c726a8c8e880b2cb14bc8
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-09
 ---
 
 # P1650: Sharing reaches people: people before typing, any-word search, current events, and invited letter recipients in chat
