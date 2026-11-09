@@ -15,10 +15,13 @@ import { MemoryRouter } from 'react-router-dom';
 
 const rpc = vi.hoisted(() => vi.fn());
 const loadMine = vi.hoisted(() => vi.fn());
+const logDbError = vi.hoisted(() => vi.fn());
+const fail = vi.hoisted(() => (message: string): never => { throw new Error(message); });
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc, auth: { getSession: async () => ({ data: { session: { user: { id: 'u1' } } } }) } } }));
 vi.mock('@/app/data/db-error-logger', () => ({
-  logDbError: vi.fn(), noteNoSessionSuppression: vi.fn(),
-  throwDbError: (_what: string, error: { message?: string } | null, message: string) => { throw new Error(error?.message ?? message); },
+  logDbError, noteNoSessionSuppression: vi.fn(),
+  // Same contract as the real one: report first, then throw.
+  throwDbError: (what: string, error: { message?: string } | null, message: string): never => { logDbError(what, error); return fail(error?.message ?? message); },
 }));
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
 vi.mock('@/auth', () => ({ useAuth: () => ({ session: null, user: null }) }));
@@ -54,7 +57,7 @@ function mockRpc(o: Setup = {}) {
 }
 const called = (fn: string) => rpc.mock.calls.filter(c => c[0] === fn);
 
-beforeEach(() => { rpc.mockReset(); loadMine.mockReset(); loadMine.mockResolvedValue([]); });
+beforeEach(() => { rpc.mockReset(); logDbError.mockReset(); loadMine.mockReset(); loadMine.mockResolvedValue([]); });
 afterEach(() => { cleanup(); });
 
 describe('services read the P1650 shapes', () => {
@@ -75,9 +78,9 @@ describe('services read the P1650 shapes', () => {
     expect((await canvasService.shareCanvas('x', 'person', 'p1')).skipped).toEqual([]);
   });
 
-  it('getAudience carries an event entry\'s date and null for a person', async () => {
+  it('getAccess (what the panel reads) carries an event entry\'s date and null for a person', async () => {
     mockRpc({ entries: [{ kind: 'event', id: 'e1', name: 'Old hike', datetime: '2026-01-02T10:00:00Z' }, { kind: 'person', id: 'p1', name: 'Pia' }] });
-    const entries = await canvasService.getAudience('x');
+    const { entries } = await canvasService.getAccess('x');
     expect(entries[0]!.datetime).toBe('2026-01-02T10:00:00Z');
     expect(entries[1]!.datetime).toBeNull();
   });
@@ -212,6 +215,75 @@ describe('the Share field', () => {
     expect(await screen.findByText('Zed Lopez')).toBeInTheDocument();
   });
 
+  it('the people list failing to load is reported through the db-error logger (fail-soft, but never silent); CONTROL: a loading list reports nothing', async () => {
+    await open();
+    expect(logDbError).not.toHaveBeenCalled();
+    cleanup();
+    rpc.mockImplementation(async (fn: string) => {
+      if (fn === 'get_canvas_share_people') return { data: null, error: { message: 'boom' } };
+      if (fn === 'get_canvas_audience') return { data: { general_access: 'restricted', link_token: null, entries: [] }, error: null };
+      if (fn === 'get_canvas_share_targets') return { data: TARGETS, error: null };
+      return { data: true, error: null };
+    });
+    render(<CanvasShareControl name="x" visibility="private" entries={[]} link={LINK} onChanged={() => undefined} />);
+    fireEvent.click(screen.getByTestId('canvas-share-control'));
+    await screen.findByTestId('canvas-share-owner');
+    expect(logDbError).toHaveBeenCalledWith('getSharePeople', expect.anything());
+  });
+
+  it('"Added. Not sent to chat." does not survive closing and reopening the panel', async () => {
+    await open({ share: { shared: true, skipped: [{ kind: 'person', id: 'p2', name: 'Jean-Luc Picard' }] } });
+    focus();
+    fireEvent.click(await screen.findByText('Jean-Luc Picard'));
+    expect(await screen.findByTestId('canvas-share-not-sent')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByTestId('canvas-share-panel')).toBeNull());
+    fireEvent.click(screen.getByTestId('canvas-share-control'));
+    await screen.findByTestId('canvas-share-owner');
+    expect(screen.queryByTestId('canvas-share-not-sent')).toBeNull();
+  });
+
+  it('the list is grouped: People, Events and Groups are labelled groups of options, and the highlight still follows the arrow keys; CONTROL: each option is inside its own group', async () => {
+    await open();
+    focus();
+    await screen.findByTestId('canvas-share-list');
+    const people = screen.getByRole('group', { name: 'People' });
+    expect(within(people).getAllByRole('option').map(o => o.textContent)).toEqual([expect.stringContaining('Ana Maria Lopez'), expect.stringContaining('Jean-Luc Picard')]);
+    expect(within(screen.getByRole('group', { name: 'Events' })).getAllByRole('option')).toHaveLength(1);
+    expect(within(screen.getByRole('group', { name: 'Groups' })).getAllByRole('option')).toHaveLength(1);
+    expect(within(people).queryByText('Founders')).toBeNull();
+    const input = screen.getByTestId('canvas-share-invite');
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const active = input.getAttribute('aria-activedescendant')!;
+    expect(document.getElementById(active)).toHaveTextContent('Jean-Luc Picard'); // the second option of ALL, across groups
+    expect(document.getElementById(active)!.closest('[role="group"]')).toBe(people);
+    const all = within(screen.getByRole('listbox')).getAllByRole('option'); // the list's own options (the access <select> has some too)
+    expect(all).toHaveLength(4);
+    expect(all.every(o => o.closest('[role="group"]') !== null)).toBe(true);
+  });
+
+  it('on the third character the loaded people stay while the search is out, then the answer comes; no "Nothing matches yet."', async () => {
+    await open({ search: [PERSON_ROW('p3', 'Maria Zed', 'zed')] });
+    focus();
+    type('ma');
+    expect(labels()).toContain('Ana Maria Lopez');
+    type('mar');
+    expect(labels()).toContain('Ana Maria Lopez'); // the search has not answered yet (300 ms debounce)
+    expect(screen.queryByTestId('canvas-share-nothing-to-add')).toBeNull();
+    await waitFor(() => expect(labels()).toContain('Maria Zed'));
+    expect(labels().slice(0, 2)).toEqual(['Maria Zed', 'Ana Maria Lopez']);
+  });
+
+  it('an empty answer still shows the loaded person who matches', async () => {
+    await open({ search: [] });
+    focus();
+    type('mar');
+    await waitFor(() => expect(called('search_profiles')).toHaveLength(1));
+    await idle();
+    expect(labels()).toContain('Ana Maria Lopez');
+  });
+
   it('an event already on the canvas shows its OWN date, even though it is no longer offered', async () => {
     await open({ entries: [{ kind: 'event', id: 'old', name: 'Spring hike', owner_admitted: true, count: 3, datetime: '2026-03-14T10:00:00Z' }] });
     expect(await screen.findByTestId('canvas-share-entry-date')).toHaveTextContent(/Mar/);
@@ -259,6 +331,18 @@ describe('the paperclip', () => {
     fireEvent.click(await screen.findByRole('tab', { name: 'Canvases' }));
     expect(await screen.findByText(/Could not load your canvases/)).toBeInTheDocument();
     expect(screen.queryByText(/Share the canvas first/)).toBeNull();
+  });
+
+  it('on the Canvases tab the search says canvases and does not offer #tags, and its no-match text does not mention them; CONTROL: Points keeps both', async () => {
+    rpc.mockResolvedValue({ data: [{ canvas_id: 'c1', name: 'sales', title: 'Sales map' }], error: null });
+    wrap('conv-1');
+    expect(await screen.findByRole('textbox', { name: 'Search points and stories' })).toHaveAttribute('placeholder', 'Search words or #tags');
+    fireEvent.click(screen.getByRole('tab', { name: 'Canvases' }));
+    const box = await screen.findByRole('textbox', { name: 'Search canvases' });
+    expect(box).toHaveAttribute('placeholder', 'Search words');
+    fireEvent.change(box, { target: { value: 'zzz' } });
+    expect(await screen.findByText('Nothing matches. Try fewer words.')).toBeInTheDocument();
+    expect(screen.queryByText(/#tag/)).toBeNull();
   });
 
   it('without a conversation (a mirror chat) there is no Canvases tab and no canvas read; CONTROL: with one there is', async () => {

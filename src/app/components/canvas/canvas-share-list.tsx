@@ -4,10 +4,9 @@
  * Split out of canvas-share-control.tsx. Rows wrap their text to at most two lines, so a long title never runs into the
  * next row at 320px. Keyboard use stays on the combobox input (ArrowUp/ArrowDown/Enter), which owns focus.
  */
-import { Fragment } from 'react';
 import { CalendarDays, Loader2, Users, type LucideIcon } from 'lucide-react';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
-import { SECTION_HEADING, type Option } from './canvas-share-options';
+import { SECTION_HEADING, sectionsOf, type Option } from './canvas-share-options';
 
 const KIND_ICON: Record<'event' | 'group', LucideIcon> = { event: CalendarDays, group: Users };
 
@@ -56,34 +55,37 @@ export function CanvasShareList({ options, listId, optionId, activeIndex, busy, 
         aria-label="People, events and groups you can add"
         data-testid="canvas-share-options"
       >
-        {options.map((o, i) => {
-          const key = `${o.kind}:${o.id}`;
-          return (
-            <Fragment key={key}>
-              {options[i - 1]?.kind !== o.kind && (
-                <li role="presentation" className="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground" data-testid="canvas-share-section">{SECTION_HEADING[o.kind]}</li>
-              )}
-              {/* Keyboard users act on options through the combobox, which keeps focus in the field. */}
-              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events */}
-              <li
-                id={optionId(i)}
-                role="option"
-                aria-selected={i === activeIndex}
-                aria-disabled={busy || undefined}
-                onClick={() => { if (!busy) onPick(o); }}
-                className={`flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-md px-2 py-1 text-left text-sm hover:bg-muted ${i === activeIndex ? 'bg-muted' : ''} ${busy ? 'opacity-50' : ''}`}
-                data-testid="canvas-share-option"
-              >
-                <RowMark kind={o.kind} name={o.label} avatar={o.avatar} />
-                {/* At most two lines, then an ellipsis: a long title never runs into the next row. */}
-                <span className="line-clamp-2 min-w-0 flex-1 break-words font-medium text-foreground" title={o.label} data-testid="canvas-share-option-label">{o.label}</span>
-                {/* A long @handle gives way (ellipsis), never the name. */}
-                <span className="max-w-[45%] shrink truncate text-xs text-muted-foreground" title={o.sub} data-testid="canvas-share-option-sub">{o.sub}</span>
-                {pending === key && <Loader2 aria-hidden className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" data-testid="canvas-share-row-spinner" />}
-              </li>
-            </Fragment>
-          );
-        })}
+        {sectionsOf(options).map(({ kind, items }) => (
+          <li key={kind} role="group" aria-labelledby={`${listId}-${kind}`}>
+            <span id={`${listId}-${kind}`} className="block px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground" data-testid="canvas-share-section">{SECTION_HEADING[kind]}</span>
+            <ul role="presentation" className="flex flex-col">
+              {items.map(({ o, i }) => {
+                const key = `${o.kind}:${o.id}`;
+                return (
+                  // Keyboard users act on options through the combobox, which keeps focus in the field.
+                  // eslint-disable-next-line jsx-a11y/click-events-have-key-events
+                  <li
+                    key={key}
+                    id={optionId(i)}
+                    role="option"
+                    aria-selected={i === activeIndex}
+                    aria-disabled={busy || undefined}
+                    onClick={() => { if (!busy) onPick(o); }}
+                    className={`flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-md px-2 py-1 text-left text-sm hover:bg-muted ${i === activeIndex ? 'bg-muted' : ''} ${busy ? 'opacity-50' : ''}`}
+                    data-testid="canvas-share-option"
+                  >
+                    <RowMark kind={o.kind} name={o.label} avatar={o.avatar} />
+                    {/* At most two lines, then an ellipsis: a long title never runs into the next row. */}
+                    <span className="line-clamp-2 min-w-0 flex-1 break-words font-medium text-foreground" title={o.label} data-testid="canvas-share-option-label">{o.label}</span>
+                    {/* A long @handle gives way (ellipsis), never the name. */}
+                    <span className="max-w-[45%] shrink truncate text-xs text-muted-foreground" title={o.sub} data-testid="canvas-share-option-sub">{o.sub}</span>
+                    {pending === key && <Loader2 aria-hidden className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" data-testid="canvas-share-row-spinner" />}
+                  </li>
+                );
+              })}
+            </ul>
+          </li>
+        ))}
       </ul>
       {isSearching && <p className="px-3 py-2 text-sm text-muted-foreground" data-testid="canvas-share-searching">Searching…</p>}
       {options.length === 0 && !isSearching && emptyText !== null && (

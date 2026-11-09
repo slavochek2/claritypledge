@@ -34,7 +34,6 @@ import {
 } from '@/app/utils/letter-prediction-policy';
 import type { ClarityDoc, DocStory, LetterMode } from '@/app/types';
 import { ARTIFACTS_LETTERS_DRAFTS } from '@/app/pages/artifacts/legacy-redirect-targets';
-import { withNotInChat } from '@/app/data/letter-chat-skipped';
 import { useSealedLetter } from '@/app/hooks/use-sealed-letter';
 
 type ComposePhase = 'modal' | 'predict' | 'review' | 'seal-confirm' | 'sealing' | 'confirmation';
@@ -257,7 +256,8 @@ export function LetterComposePage() {
       });
 
       markSealed(letter.id, result.skipped);
-      toast.success(withNotInChat(mode === 'one-to-many' ? 'Letter sealed!' : 'Letter sealed and sent!', result.skipped));
+      // The not-sent-to-chat line stays on the confirmation screen only (it persists there); the toast is the plain message.
+      toast.success(mode === 'one-to-many' ? 'Letter sealed!' : 'Letter sealed and sent!');
       setPhase('confirmation');
     } catch (err) {
       console.error('Seal failed:', err);

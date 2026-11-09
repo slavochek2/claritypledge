@@ -2,8 +2,9 @@
  * @file canvas-share-options.ts
  * @description P1650: the rows of the Share field's list, in the founder's order (D1): people, then events, then groups.
  * People are the owner's own relationships before anything is typed (`get_canvas_share_people`), the server's
- * `search_profiles` answer once the query is searchable (3+ characters, no '@'), and a client-side narrowing of those
- * same relationships for one or two characters. A query with '@' is an email: no person rows, as before.
+ * `search_profiles` answer once the query is searchable (3+ characters, no '@') and has been answered, and a
+ * client-side narrowing of those same relationships (same prefix rule as the server) otherwise. A query with '@' is an
+ * email: no person rows, as before.
  */
 import type { ProfileSearchResult } from '@/app/data/agreements-service';
 import type { ShareTargets } from '@/app/data/canvas-service';
@@ -21,23 +22,40 @@ interface Inputs {
   query: string;
   people: ProfileSearchResult[];
   found: ProfileSearchResult[];
+  /** the search has answered the CURRENT query (`found` is then its answer) */
+  hasSearched: boolean;
   targets: ShareTargets;
   /** is this target already on the canvas */
   has: (kind: Option['kind'], id: string) => boolean;
 }
 
-function peopleFor(query: string, people: ProfileSearchResult[], found: ProfileSearchResult[]): ProfileSearchResult[] {
-  const needle = query.trim().toLowerCase();
-  if (needle === '') return people;
-  if (isSearchableQuery(query)) return found;
-  if (needle.includes('@')) return [];
-  return people.filter(p => p.name.toLowerCase().includes(needle) || (p.slug ?? '').toLowerCase().includes(needle));
+const WORD_BREAK = /[\s\-'’.]+/;
+
+/** The server's rule (search_profiles): a prefix of the whole name, of any word of it, or of the handle. Never a substring. */
+function matchesPerson(p: ProfileSearchResult, needle: string): boolean {
+  const name = p.name.toLowerCase();
+  return name.startsWith(needle) || name.split(WORD_BREAK).some(w => w.startsWith(needle)) || (p.slug ?? '').toLowerCase().startsWith(needle);
 }
 
-export function buildOptions({ query, people, found, targets, has }: Inputs): Option[] {
+/**
+ * The people rows. The loaded people that match always stay: they carry the rows through the debounce after the third
+ * character (no blank, no "Nothing matches yet.") and survive an empty or throttled server answer. Once the server has
+ * answered THIS query its people come first, then any loaded person it left out.
+ */
+function peopleFor(query: string, people: ProfileSearchResult[], found: ProfileSearchResult[], hasSearched: boolean): ProfileSearchResult[] {
+  const needle = query.trim().toLowerCase();
+  if (needle === '') return people;
+  if (needle.includes('@')) return [];
+  const near = people.filter(p => matchesPerson(p, needle));
+  if (!hasSearched || !isSearchableQuery(query)) return near;
+  const answered = new Set(found.map(f => f.profileId));
+  return [...found, ...near.filter(p => !answered.has(p.profileId))];
+}
+
+export function buildOptions({ query, people, found, hasSearched, targets, has }: Inputs): Option[] {
   const needle = query.trim().toLowerCase();
   return [
-    ...peopleFor(query, people, found)
+    ...peopleFor(query, people, found, hasSearched)
       .filter(p => !has('person', p.profileId))
       .map(p => ({ kind: 'person' as const, id: p.profileId, label: p.name, sub: p.slug ? `@${p.slug}` : 'Person', avatar: { photoUrl: p.avatarUrl ?? undefined, color: p.avatarColor } })),
     ...targets.events
@@ -47,6 +65,17 @@ export function buildOptions({ query, people, found, targets, has }: Inputs): Op
       .filter(g => !has('group', g.id) && g.name.toLowerCase().includes(needle))
       .map(g => ({ kind: 'group' as const, id: g.id, label: g.name, sub: 'Group' })),
   ];
+}
+
+/** The options cut into their sections (people, events, groups: they arrive in that order), each row keeping its place `i` in the WHOLE list, which is what the keyboard highlight and the option ids use. */
+export function sectionsOf(options: Option[]): { kind: Option['kind']; items: { o: Option; i: number }[] }[] {
+  const sections: { kind: Option['kind']; items: { o: Option; i: number }[] }[] = [];
+  options.forEach((o, i) => {
+    const last = sections[sections.length - 1];
+    if (last?.kind === o.kind) last.items.push({ o, i });
+    else sections.push({ kind: o.kind, items: [{ o, i }] });
+  });
+  return sections;
 }
 
 export const SECTION_HEADING: Record<Option['kind'], string> = { person: 'People', event: 'Events', group: 'Groups' };

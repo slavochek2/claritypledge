@@ -10,6 +10,13 @@ export function useShareIds() {
   return { listId: useId(), stateId: useId(), titleId: useId(), inviteId: useId(), peopleId: useId(), generalId: useId() };
 }
 
+/** The timer behind the "Copied" status, cleared when the panel unmounts. */
+export function useCopiedTimer() {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  return timer;
+}
+
 const SHEET_QUERY = '(max-width: 639px)';
 
 export function shortDate(iso: string): string {

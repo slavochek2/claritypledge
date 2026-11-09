@@ -135,10 +135,26 @@ afterAll(async () => {
   for (const u of users) await deleteTestUser(u.user.id);
 }, 300_000);
 
-const NOT_ADMIN = (rows: Row[]) => rows; // the single admin row may appear for any query; fixtures never match it
+/** The body of the NEWEST migration that defines `fn` (optionally only files before `before`): what the database runs now. */
+function newestDefinition(fn: string, before?: string): { file: string; body: string } {
+  const rx = new RegExp(`CREATE\\s+OR\\s+REPLACE\\s+FUNCTION\\s+(?:public\\.)?${fn}\\s*\\(`, 'gi');
+  const files = readdirSync(MIG).filter(n => /^\d{14}_.*\.sql$/.test(n) && (!before || n < before)).sort();
+  for (let i = files.length - 1; i >= 0; i--) {
+    const sql = readFileSync(join(MIG, files[i]!), 'utf8');
+    const hits = [...sql.matchAll(rx)];
+    if (hits.length) {
+      const rest = sql.slice(hits[hits.length - 1]!.index);
+      const end = rest.indexOf('\n$$;');
+      if (end < 0) throw new Error(`${fn}: no body end in ${files[i]}`);
+      return { file: files[i]!, body: rest.slice(0, end) };
+    }
+  }
+  throw new Error(`no migration defines ${fn}`);
+}
 
 describe('P1650 search_profiles: any word of the name', () => {
-  const find = async (c: SupabaseClient, q: string): Promise<Row[]> => NOT_ADMIN(await ok<Row[]>(c, 'search_profiles', { p_query: q }, `search ${q}`));
+  // the single admin row can appear for any query; the fixtures never match it, and every assertion names a fixture
+  const find = (c: SupabaseClient, q: string): Promise<Row[]> => ok<Row[]>(c, 'search_profiles', { p_query: q }, `search ${q}`);
   it.each([['lop', 'Ana Maria Lopez'], ['mar', 'Ana Maria Lopez'], ['luc', 'Jean-Luc Picard'], ['brien', "Sean O'Brien"], ['ana m', 'Ana Maria Lopez']])(
     '"%s" finds %s', async (q, name) => {
       const rows = await find(cO, q);
@@ -149,9 +165,11 @@ describe('P1650 search_profiles: any word of the name', () => {
     expect(names.indexOf('Maria Zed'), 'whole-name prefix').toBeGreaterThanOrEqual(0);
     expect(names.indexOf('Maria Zed')).toBeLessThan(names.indexOf('Ana Maria Lopez'));
   });
-  it('a query with a space still matches only from the start of the whole name', async () => {
-    expect((await find(cO, 'maria l')).map(r => r.name), 'second and third word are not a phrase').not.toContain('Ana Maria Lopez');
+  it('a query with a space keeps matching the whole name, and (review fix) also a phrase that starts at a later word', async () => {
     expect((await find(cO, 'ana maria')).map(r => r.name)).toContain('Ana Maria Lopez');
+    // The review fix reads "any word" off the unsplit name, so "maria l" now finds "Ana Maria Lopez"; it used to be refused.
+    expect((await find(cO, 'maria l')).map(r => r.name)).toContain('Ana Maria Lopez');
+    expect((await find(cO, 'maria x')).map(r => r.name), 'control: a phrase that is not in the name').not.toContain('Ana Maria Lopez');
   });
   it('wildcards are literal', async () => {
     expect((await find(cO, '%an')).map(r => r.name)).not.toContain('Ana Maria Lopez');
@@ -210,12 +228,12 @@ describe('P1650 people before typing: get_canvas_share_people', () => {
       expect(res.shared).toBe(true);
     }
   });
-  it('is closed to anon and does not branch on the admin flag (relationships only, for everyone)', async () => {
-    const f = readdirSync(MIG).filter(n => /^20261109\d{6}_p1650.*\.sql$/.test(n))[0];
-    const sql = readFileSync(join(MIG, f!), 'utf8');
-    const body = sql.slice(sql.indexOf('FUNCTION public.get_canvas_share_people'), sql.indexOf('FUNCTION public.get_canvas_share_people') + 6000).split('$$')[1] ?? '';
-    expect(body.length).toBeGreaterThan(200);
-    expect(body).not.toMatch(/is_admin/);
+  it('does not branch on the admin flag: the newest definition reads the relationship scope and never is_admin', () => {
+    const def = newestDefinition('get_canvas_share_people');
+    expect(def.body, 'control: the extracted text is this function and uses the scope helper').toContain('p878_relationship_scope(v_uid)');
+    expect(def.body).not.toMatch(/is_admin/);
+    // control that the check can fail: search_profiles legitimately branches on it
+    expect(newestDefinition('search_profiles').body).toMatch(/is_admin/);
   });
 });
 
@@ -415,12 +433,19 @@ describe('P1650 letters: the sender\'s invitation reaches chat, a reader\'s open
     await ok(cO, 'seal_and_send_letter', { p_letter_id: letter.id, p_predictions: [], p_deliveries: [{ receiver_profile_id: J.user.id, receiver_name: 'J' }], p_responses_mode: 'invite' }, 'seal 1:1');
     expect(await cards(await dmOf(O.user.id, J.user.id), 'letter', letter.id)).toHaveLength(1);
   });
-  it('chat never makes sealing fail: the post is wrapped, and the limit path is a skip, not an error', () => {
-    const f = readdirSync(MIG).filter(n => /^20261109\d{6}_p1650.*\.sql$/.test(n))[0];
-    const sql = readFileSync(join(MIG, f!), 'utf8');
-    expect(sql).toMatch(/EXCEPTION WHEN OTHERS THEN\s+RAISE WARNING 'seal_and_send_letter: chat message not posted/);
-    expect(sql).toMatch(/EXCEPTION WHEN OTHERS THEN\s+RAISE WARNING 'add_recipient_to_sealed_letter: chat message not posted/);
-  });
+  // A raised chat error cannot be forced on the shared TEST server from a fixture: no chat_messages trigger or constraint
+  // raises on an ordinary post, and a test-only trigger would be DDL on a table every concurrent run uses. So the
+  // "never fails because of chat" guarantee is asserted on the NEWEST definition of each function (what the database
+  // runs), with a control that shows the assertion can fail. The block and 20-a-day paths ARE exercised live above.
+  it.each(['seal_and_send_letter', 'add_recipient_to_sealed_letter', 'share_canvas'])(
+    'chat never makes %s fail: the newest definition wraps the post and reports a skip', (fn) => {
+      const wrapped = new RegExp(`EXCEPTION WHEN OTHERS THEN\\s+RAISE WARNING '${fn}: chat message not posted`);
+      const check = (b: string) => { expect(b).toMatch(wrapped); expect(b).toMatch(/v_skipped/); };
+      const newest = newestDefinition(fn);
+      expect(() => check(newest.body), `${fn} as defined in ${newest.file}`).not.toThrow();
+      // control: the same check fails for the definition that predates this feature
+      expect(() => check(newestDefinition(fn, '20261109').body)).toThrow();
+    });
 });
 
 describe('P1650 paperclip: list_attachable_canvases', () => {
@@ -470,6 +495,83 @@ describe('P1650 paperclip: list_attachable_canvases', () => {
   it('is owner-only: a person who is not in the conversation gets nothing, and so does the other member (their own canvases)', async () => {
     expect(await ok<Row[]>(cX, 'list_attachable_canvases', { p_conversation: dmAO }, 'outsider')).toEqual([]);
     expect(await ok<Row[]>(cA, 'list_attachable_canvases', { p_conversation: dmAO }, 'other member')).toEqual([]);
+  });
+});
+
+describe('P1650 review fixes', () => {
+  let BN: TestUser;
+  beforeAll(async () => {
+    BN = await mk(`P1650 Blank ${RUN}`);
+    await witness(O.user.id, BN.user.id);
+    const blk = await supabaseAdmin.from('chat_blocks').insert({ blocker_id: BN.user.id, blocked_id: O.user.id });
+    expect(blk.error).toBeNull();
+    // a profile whose name is only whitespace: the skipped label must still be a readable word
+    const upd = await supabaseAdmin.from('profiles').update({ name: '   ' }).eq('id', BN.user.id);
+    expect(upd.error).toBeNull();
+  }, 60_000);
+
+  describe('search: a name typed as written', () => {
+    const find = (q: string) => ok<Row[]>(cO, 'search_profiles', { p_query: q }, `search ${q}`);
+    it.each([["o'brien", "Sean O'Brien"], ["o'b", "Sean O'Brien"], ['jean-luc', 'Jean-Luc Picard'], ['jean-l', 'Jean-Luc Picard'], ['sean o', "Sean O'Brien"]])(
+      '"%s" finds %s', async (q, name) => {
+        expect((await find(q)).map(r => r.name), q).toContain(name);
+      });
+    it('stays literal and anchored at word starts', async () => {
+      expect((await find("%'b")).map(r => r.name)).not.toContain("Sean O'Brien");
+      expect((await find("'br")).map(r => r.name), 'a query that starts inside a word does not match').not.toContain("Sean O'Brien");
+      expect((await find('n-l')).map(r => r.name)).not.toContain('Jean-Luc Picard');
+    });
+  });
+
+  describe('add recipient matches the account by email without regard to case', () => {
+    it('an upper-cased email still finds the account: the card is posted', async () => {
+      const { letterId } = await sealOneToMany(cO, O, []);
+      const r = await ok<Row>(cO, 'add_recipient_to_sealed_letter', { p_letter_id: letterId, p_email: R1.user.email.toUpperCase(), p_receiver_name: null, p_receiver_profile_id: null }, 'add upper-cased');
+      const { data } = await supabaseAdmin.from('letter_deliveries').select('receiver_profile_id').eq('id', r.delivery_id).single();
+      expect(data!.receiver_profile_id, 'bound to the account').toBe(R1.user.id);
+      expect(await cards(await dmOf(O.user.id, R1.user.id), 'letter', letterId)).toHaveLength(1);
+    });
+    it('a blocked account added by an upper-cased email is reported as skipped (not silently dropped)', async () => {
+      const { letterId } = await sealOneToMany(cO, O, []);
+      const r = await ok<Row>(cO, 'add_recipient_to_sealed_letter', { p_letter_id: letterId, p_email: B.user.email.toUpperCase(), p_receiver_name: null, p_receiver_profile_id: null }, 'add upper-cased blocked');
+      expect(r.skipped).toHaveLength(1);
+      expect(r.skipped[0].name).toBe(B.user.email.toUpperCase());
+    });
+  });
+
+  describe('a whitespace-only typed name is an empty name', () => {
+    it('seal, email path', async () => {
+      const { res } = await sealOneToMany(cO, O, [{ receiver_email: B.user.email, receiver_name: '   ' }]);
+      expect(res.skipped[0].name).toBe(B.user.email);
+    });
+    it('add recipient, email path', async () => {
+      const { letterId } = await sealOneToMany(cO, O, []);
+      const r = await ok<Row>(cO, 'add_recipient_to_sealed_letter', { p_letter_id: letterId, p_email: B.user.email, p_receiver_name: '  ', p_receiver_profile_id: null }, 'add');
+      expect(r.skipped[0].name).toBe(B.user.email);
+    });
+    it('add recipient, picker path', async () => {
+      const { letterId } = await sealOneToMany(cO, O, []);
+      const r = await ok<Row>(cO, 'add_recipient_to_sealed_letter', { p_letter_id: letterId, p_email: null, p_receiver_name: '  ', p_receiver_profile_id: B.user.id }, 'add');
+      expect(r.skipped[0].name).toBe(B.name);
+    });
+  });
+
+  describe('a skipped label is never empty', () => {
+    it('seal, picker path, a profile whose name is blank', async () => {
+      const { res } = await sealOneToMany(cO, O, [{ receiver_profile_id: BN.user.id }]);
+      expect(res.skipped).toHaveLength(1);
+      expect(res.skipped[0].name).toBe('this recipient');
+    });
+    it('add recipient, picker path, a profile whose name is blank', async () => {
+      const { letterId } = await sealOneToMany(cO, O, []);
+      const r = await ok<Row>(cO, 'add_recipient_to_sealed_letter', { p_letter_id: letterId, p_email: null, p_receiver_name: null, p_receiver_profile_id: BN.user.id }, 'add');
+      expect(r.skipped[0].name).toBe('this recipient');
+    });
+    it('share_canvas, a person whose name is blank', async () => {
+      const res = await ok<Row>(cO, 'share_canvas', { p_name: NAME, p_kind: 'person', p_target: BN.user.id }, 'share with the blank-named blocker');
+      expect(res.skipped).toHaveLength(1);
+      expect(res.skipped[0]).toMatchObject({ kind: 'person', id: BN.user.id, name: 'this person' });
+    });
   });
 });
 

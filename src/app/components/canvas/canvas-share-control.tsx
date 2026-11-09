@@ -34,7 +34,7 @@ import type { ProfileSearchResult } from '@/app/data/agreements-service';
 import { useProfileSearch } from '@/app/hooks/use-profile-search';
 import { ownerLockLabel } from '@/lib/canvas-audience-copy';
 import { canvasCopyAddress } from '@/lib/canvas-copy-address';
-import { COPIED_MS, shortDate, useIsSheet, useOpenSignal, useShareIds } from './canvas-share-helpers';
+import { COPIED_MS, shortDate, useCopiedTimer, useIsSheet, useOpenSignal, useShareIds } from './canvas-share-helpers';
 import { CanvasShareList, RowMark } from './canvas-share-list';
 import { buildOptions, emptyText, type Option } from './canvas-share-options';
 
@@ -91,12 +91,10 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
   const [linkClosed, setLinkClosed] = useState(false);
   // Which address the last copy attempt was for ('' = none could be built): its status shows only while that is still the address to copy.
   const [copied, setCopied] = useState<{ ok: boolean; target: string } | null>(null);
-  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copiedTimer = useCopiedTimer();
   const inviteRef = useRef<HTMLInputElement>(null);
   const { results: found, isSearching, hasSearched } = useProfileSearch(open ? query : '');
   const access = panel?.generalAccess ?? generalAccess;
-
-  useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
 
   // Each read is numbered; only the newest may set the panel, so a slow earlier read (an open, then
   // a change) never puts back the list from before the change.
@@ -115,6 +113,7 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
 
   const openPanel = () => {
     setError(null);
+    setNotSent(false);
     setQuery('');
     setCopied(null);
     setLinkClosed(false);
@@ -224,7 +223,7 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
   const has = (kind: Option['kind'], id: string) => !!panel?.entries.some(x => x.kind === kind && x.id === id);
   const needle = query.trim().toLowerCase();
   // People first (D1): the owner's relationships before typing, the search once typed; then events, then groups.
-  const options: Option[] = panel ? buildOptions({ query, people: panel.people, found, targets: panel.targets, has }) : [];
+  const options: Option[] = panel ? buildOptions({ query, people: panel.people, found, hasSearched, targets: panel.targets, has }) : [];
   const listOpen = !!panel && !listDismissed && (listFocused || needle !== '');
   const optionKey = (o: Option) => `${o.kind}:${o.id}`;
   const activeIndex = activeKey === null ? -1 : options.findIndex(o => optionKey(o) === activeKey);

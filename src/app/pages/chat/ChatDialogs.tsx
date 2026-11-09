@@ -14,7 +14,7 @@ import { forwardMessage, renameMirror, type ChatMessage, type ChatSummary } from
 import { filterShareables, loadMyShareables, type Shareable } from '@/app/data/chat-ui-helpers';
 import { ChannelMark, ChatRowTitle, FOCUS_RING, HOVER, InlineError, MirrorMark, PRIMARY_CLASS, PersonMark } from './chat-kit';
 import { chatErrorText, chatTitle, messageSummary } from './chat-view-model';
-import { ATTACH_TABS, ATTACH_TAB_LABEL, attachEmptyText, loadAttachableCanvasShareables, type AttachTab } from './attach-canvases';
+import { ATTACH_SEARCH, ATTACH_TABS, ATTACH_TAB_LABEL, attachEmptyText, loadAttachableCanvasShareables, type AttachTab } from './attach-canvases';
 
 /** Phone dialogs float with a side margin and rounded corners all round (the base only rounds from sm up). */
 const DIALOG = 'w-[calc(100vw-2rem)] rounded-lg sm:max-w-sm';
@@ -283,8 +283,8 @@ export function AttachDialog({ viewerId, conversationId, onPick, onClose }: { vi
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search words or #tags"
-              aria-label="Search points and stories"
+              placeholder={ATTACH_SEARCH[kind === 'canvas' ? 'canvas' : 'item'].placeholder}
+              aria-label={ATTACH_SEARCH[kind === 'canvas' ? 'canvas' : 'item'].label}
               className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none md:text-sm"
             />
           </label>

@@ -11,6 +11,12 @@ export type AttachTab = 'point' | 'story' | 'canvas';
 export const ATTACH_TABS: readonly AttachTab[] = ['point', 'story', 'canvas'];
 export const ATTACH_TAB_LABEL: Record<AttachTab, string> = { point: 'Points', story: 'Stories', canvas: 'Canvases' };
 
+/** The search box of the attach dialog: points and stories have #tags, canvases do not. */
+export const ATTACH_SEARCH = {
+  item: { placeholder: 'Search words or #tags', label: 'Search points and stories' },
+  canvas: { placeholder: 'Search words', label: 'Search canvases' },
+};
+
 /** The conversation the attach dialog asks about: none for a mirror chat (no Canvases tab there). */
 export function attachConversationId(summary: { kind: string; conversationId: string }): string | undefined {
   return summary.kind === 'mirror' ? undefined : summary.conversationId;
@@ -33,7 +39,7 @@ export async function loadAttachableCanvasShareables(conversationId: string | un
  */
 export function attachEmptyText(tab: AttachTab, hasAny: boolean, canvasesFailed: boolean): string {
   if (tab === 'canvas' && canvasesFailed) return 'Could not load your canvases. Close this and try again.';
-  if (hasAny) return 'Nothing matches. Try fewer words or another #tag.';
+  if (hasAny) return tab === 'canvas' ? 'Nothing matches. Try fewer words.' : 'Nothing matches. Try fewer words or another #tag.';
   if (tab === 'canvas') return 'No canvas of yours is shared with this chat yet. Share the canvas first, then attach it here.';
   return `You have no ${tab === 'point' ? 'points' : 'stories'} to attach yet.`;
 }
