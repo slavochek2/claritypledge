@@ -148,9 +148,10 @@ return). Reversibility: medium. Decision density: low after the founder answers 
 - [x] A finished event that started 8 days ago is not offered and `share_canvas` refuses it; a 10-day event that
       started 8 days ago, and one that started yesterday, are offered; an older event already on a canvas still
       admits attendees and shows its date.
-- [ ] Sealing a one-to-many letter with two invited recipients who share a reason with the sender puts one card in
-      each 1:1, including a recipient with no shared reason; a reader opening the public link creates no message;
-      sealing succeeds if posting fails, and the confirmation names a blocked recipient as not sent to chat.
+- [x] Inviting two recipients to a sealed one-to-many letter (the confirmation's invite, since compose seals these
+      letters with none; founder 2026-11-09, verified hands-on) puts one card in each 1:1, including a recipient with
+      no shared reason; a reader opening the public link creates no message; sealing and inviting succeed if posting
+      fails, and the invite's confirmation names a blocked recipient as not sent to chat.
 - [x] Adding a person with no chat and no shared reason opens the 1:1 with the canvas card; inviting such a person
       to a letter does the same; a blocked pair gets no card and the panel says "Added. Not sent to chat."
 - [x] Neither person can start a new 1:1 with a stranger through plain New message (rule unchanged).
