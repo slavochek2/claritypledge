@@ -146,7 +146,9 @@ test.describe('P1549 join learning', () => {
     await expect(page.getByTestId('prepare-why')).not.toContainText(WHY);
     await expect(page.getByRole('button', { name: 'Start here' })).toBeVisible();
     await page.getByRole('button', { name: 'Start here' }).click();
+    // videos are required here too: Play is the only way on, there is no skip
     await expect(page.getByRole('button', { name: 'Play the video' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Continue without video' })).toHaveCount(0);
   });
 
   const callbackUrl = () => `/auth/callback?action=join-org&redirect=${encodeURIComponent(joinUrl())}`;

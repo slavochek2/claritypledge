@@ -51,7 +51,11 @@ async function tagPointIds(tag: string): Promise<string[]> {
   return (data ?? []).map((r) => r.id as string);
 }
 
-const continueWithoutVideo = (page: Page) => page.getByRole('button', { name: 'Continue without video' }).click();
+/** Videos are required: Play, then Continue (the clip need not finish). There is no skip. */
+const continueWithoutVideo = async (page: Page) => {
+  await page.getByRole('button', { name: 'Play the video' }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+};
 
 /** P1386: a returning person (all videos done, no positions) walked to the mic question. */
 async function toMicQuestion(page: Page, ev: TestEvent, u: TestUser) {
@@ -155,7 +159,7 @@ test.describe('P1336 registration preparation', () => {
     await expect(page.getByRole('heading', { name: 'How this event is different' })).toBeVisible();
     await expect(page.getByTestId('welcome-intro')).toHaveText('In our events, we reward revealing gaps in cognitive understanding.');
     // P1402 (founder UAT 2026-10-04): the transcript is always on screen, no toggle.
-    await expect(page.getByTestId('transcript-welcome')).toContainText('So when I invited people to this event');
+    await expect(page.getByTestId('transcript-welcome')).toContainText('When I invited people to this event');
     await continueWithoutVideo(page);
 
     // Step 2 — then reload: resume lands on the same step (DB-backed, not localStorage).

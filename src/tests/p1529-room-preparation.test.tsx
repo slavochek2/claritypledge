@@ -63,10 +63,11 @@ describe('EventCanvasCard', () => {
     h.getMine.mockImplementation(async () => h.mine);
     h.setCanvas.mockResolvedValue({ status: 'ok', name: 'canvas_1' });
   });
-  it('names the chosen canvas by its title, with an alternative button at least 44px tall (one published: make a different one)', async () => {
+  it('names the chosen canvas by its title and offers nothing to change it (no Change, no Make a different one)', async () => {
     render(<MemoryRouter initialEntries={['/events/x']}><EventCanvasCard eventId="ev-1" /></MemoryRouter>);
     expect((await screen.findByTestId('event-canvas-chosen')).textContent).toBe('Your Clarity Canvas for this event: Launch plan');
-    expect(screen.getByTestId('event-canvas-make').className).toContain('min-h-11');
+    expect(screen.queryByTestId('event-canvas-make')).toBeNull();
+    expect(screen.queryByTestId('event-canvas-change')).toBeNull();
   });
   it('falls back to the raw name when the canvas has no title', async () => {
     h.canvases = [{ canvasId: 'c2', name: 'canvas_2', title: null }];
@@ -153,11 +154,12 @@ describe('EventCanvasCard states', () => {
     card();
     expect((await screen.findByTestId('event-canvas-continue-draft')).textContent).toBe('Continue your draft');
   });
-  it('E: names the canvas and offers Change, no Continue', async () => {
+  it('E: names the canvas, no Change and no Continue', async () => {
     h.mine = { name: 'canvas_2', shared: true, fixed: false };
     h.canvases = [{ name: 'canvas_2', title: 'Launch plan' }, { name: 'canvas_3', title: 'Other' }];
     card();
-    expect(await screen.findByTestId('event-canvas-change')).toBeTruthy();
+    expect(await screen.findByTestId('event-canvas-chosen')).toBeTruthy();
+    expect(screen.queryByTestId('event-canvas-change')).toBeNull();
     expect(screen.queryByText('Continue')).toBeNull();
   });
   it('F: names the canvas, no Change and no Continue', async () => {
@@ -216,12 +218,6 @@ describe('EventCanvasCard test ids and button variants', () => {
     expect(radios.every(r => !r.disabled)).toBe(true);
     fireEvent.click(await screen.findByTestId('event-canvas-share'));
     await waitFor(() => expect((screen.getAllByTestId('event-canvas-option') as HTMLInputElement[]).every(r => r.disabled)).toBe(true));
-  });
-  it('event-canvas-change is only Change', async () => {
-    h.mine = { name: 'canvas_2', shared: true, fixed: false };
-    h.canvases = [{ name: 'canvas_2', title: 'A' }, { name: 'canvas_3', title: 'B' }];
-    card();
-    expect((await screen.findByTestId('event-canvas-change')).textContent).toBe('Change');
   });
   it('A: Create keeps the make id and is filled; the quiet link has no pill', async () => {
     card();

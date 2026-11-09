@@ -157,13 +157,16 @@ for (const phone of PHONES) {
       await page.getByRole('button', { name: 'Start now' }).click();
       await expect(page.getByRole('heading', { name: 'How this event is different' })).toBeVisible();
       await check('welcome');
-      await page.getByRole('button', { name: 'Continue without video' }).click();
+      await page.getByRole('button', { name: 'Play the video' }).click(); // videos are required: Play, then Continue
+      await page.getByRole('button', { name: 'Continue', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'What is cognitive understanding?' })).toBeVisible();
       await check('story');
-      await page.getByRole('button', { name: 'Continue without video' }).click();
+      await page.getByRole('button', { name: 'Play the video' }).click(); // videos are required: Play, then Continue
+      await page.getByRole('button', { name: 'Continue', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Introducing the Clarity Meeting Principle' })).toBeVisible();
       await check('principle intro');
-      await page.getByRole('button', { name: 'Continue without video' }).click();
+      await page.getByRole('button', { name: 'Play the video' }).click(); // videos are required: Play, then Continue
+      await page.getByRole('button', { name: 'Continue', exact: true }).click();
       await expect(page.getByTestId('principle-decision-question')).toBeVisible();
       await check('principle decision', 0.35, false);
       await expect(page.getByRole('button', { name: 'Opt in' })).toBeInViewport();

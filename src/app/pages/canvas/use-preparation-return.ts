@@ -5,12 +5,20 @@
  * the mark mid-edit, but another canvas (a different `canvasKey`, the route's handle + projectTag) forgets it, so its banner and Publish never jump to preparation.
  */
 import { useState } from 'react';
-import { afterPublishPath } from '@/lib/canvas-hrefs';
+import { afterPublishPath, prepStepOf, type PrepStep } from '@/lib/canvas-hrefs';
 
-export function usePreparationReturn(state: unknown, canvasKey = ''): string | null {
-  const now = afterPublishPath(state);
+function useRemembered<T>(now: T | null, canvasKey: string, same: (a: T, b: T) => boolean): T | null {
   const [seen, setSeen] = useState(() => ({ key: canvasKey, path: now }));
   const sameCanvas = seen.key === canvasKey;
-  if (!sameCanvas || (now && now !== seen.path)) setSeen({ key: canvasKey, path: now ?? (sameCanvas ? seen.path : null) }); // adjusting state during render (React's documented pattern), not a ref write
+  if (!sameCanvas || (now && !(seen.path && same(now, seen.path)))) setSeen({ key: canvasKey, path: now ?? (sameCanvas ? seen.path : null) }); // adjusting state during render (React's documented pattern), not a ref write
   return sameCanvas ? (now ?? seen.path) : now;
+}
+
+export function usePreparationReturn(state: unknown, canvasKey = ''): string | null {
+  return useRemembered(afterPublishPath(state), canvasKey, (a, b) => a === b);
+}
+
+/** The step the preparation said the canvas belongs to (banner: "Step N of M"), remembered like the return path; null when the state carries none. */
+export function usePreparationStep(state: unknown, canvasKey = ''): PrepStep | null {
+  return useRemembered(prepStepOf(state), canvasKey, (a, b) => a.step === b.step && a.total === b.total);
 }

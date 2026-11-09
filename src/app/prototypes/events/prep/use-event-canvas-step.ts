@@ -30,18 +30,17 @@ const SHARE_FAILED_TEXT = "Couldn't share your Clarity Canvas. Try again."; // [
 
 const failed = (e: unknown) => toast.error(e instanceof NetworkBlipError || isNetworkBlip(e as Error) ? NETWORK_TEXT : SHARE_FAILED_TEXT);
 
-export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?: boolean; onContinue?: () => void; onSkip?: () => void }) {
-  const { returnToPreparation = false, onContinue, onSkip } = opts;
+export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?: boolean; onContinue?: () => void; prepStep?: { step: number; total: number } }) {
+  const { returnToPreparation = false, onContinue, prepStep } = opts;
   const [mine, setMine] = useState<MyEventCanvas | null>(null);
   const [published, setPublished] = useState<PublishedCanvas[]>([]);
   const [openDraft, setOpenDraft] = useState<OpenCanvasDraft | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [readFailed, setReadFailed] = useState(false);
-  const [changing, setChanging] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
-  const { start, dialog } = useStartCanvas(returnToPreparation ? { returnAfterPublish: true } : undefined);
+  const { start, dialog } = useStartCanvas(returnToPreparation ? { returnAfterPublish: true, prepStep } : undefined);
   const chat = useChat();
   const navigate = useNavigate();
   const location = useLocation();
@@ -77,14 +76,13 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
     if (!openDraft) return;
     await chat.refresh().catch(() => null); // the workspace's chat needs the mirror in the list, as use-start-canvas does
     if (!slug) { toast.error(canvasStartErrorText(null)); return; }
-    navigate(workspaceHref(slug, openDraft.canvasName, openDraft.versionName), { state: { from: here, ...(returnToPreparation ? { afterPublish: here } : {}) } });
-  }, [openDraft, slug, chat, navigate, here, returnToPreparation]);
+    navigate(workspaceHref(slug, openDraft.canvasName, openDraft.versionName), { state: { from: here, ...(returnToPreparation ? { afterPublish: here, ...(prepStep ? { prepStep } : {}) } : {}) } });
+  }, [openDraft, slug, chat, navigate, here, returnToPreparation, prepStep]);
 
   const share = useCallback(async (name: string) => {
     try {
       const result = await setEventCanvas(eventId, name);
       if (result.status === 'refused') toast.error('Your Clarity Canvas is fixed now that round 1 has started.');
-      setChanging(false);
       await read();
     } catch (e) { failed(e); }
   }, [eventId, read]);
@@ -96,7 +94,7 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
     await read();
   }, [eventId, read]);
 
-  const mk: MakeAction = (id, label, busyLabel, run, quiet) => ({
+  const mk: MakeAction = (id, label, busyLabel, run) => ({
     id,
     label: pending === id && busyLabel ? busyLabel : label,
     run: () => {
@@ -106,17 +104,14 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
       void Promise.resolve(run()).finally(() => setPending(null));
     },
     disabled: pending !== null,
-    quiet,
   });
 
-  const chosenName = mine?.shared ? mine.name : null;
-  const candidates = chosenName && changing ? published.filter(p => p.name !== chosenName) : published;
-  const selected = candidates.find(p => p.name === picked)?.name ?? candidates[0]?.name ?? null; // newest preselected
+  const selected = published.find(p => p.name === picked)?.name ?? published[0]?.name ?? null; // newest preselected
   const sharedLabel = mine?.shared ? published.find(p => p.name === mine.name)?.label || mine.name : '';
   const view = !loaded || readFailed ? null : buildStepView({
-    mine, candidates, published, hasOpenDraft: !!openDraft, changing, wide, selected, onContinue, onSkip, mk,
-    go: { start, continueDraft, share, shareAgain, change: () => setChanging(true), keep: () => setChanging(false) },
+    mine, published, hasOpenDraft: !!openDraft, wide, selected, onContinue, mk,
+    go: { start, continueDraft, share, shareAgain },
   });
 
-  return { loaded, readFailed, retry, busy: pending !== null, view, published: candidates, selected, setPicked, sharedLabel, chosen: mine?.shared ? mine : null, dialog };
+  return { loaded, readFailed, retry, busy: pending !== null, view, published, selected, setPicked, sharedLabel, chosen: mine?.shared ? mine : null, dialog };
 }

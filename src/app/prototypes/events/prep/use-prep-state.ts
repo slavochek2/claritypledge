@@ -38,6 +38,7 @@ import { shareInFlight } from '@/lib/share-in-flight';
 import { whenVisible } from '../when-visible';
 import { offersPreparation, recipeForEvent } from '../series-recipes';
 import { useMyRegistrationArrivalRead, type MyArrival } from '../use-my-arrival';
+import { planTotalMinutes } from './prep-resume';
 import { OBSERVER_PREP_MINUTES, OWNER_PREP_MINUTES } from '../components/registration-copy';
 
 /** StakePage's page size and fetch arguments, so "N points" equals the cards it shows. */
@@ -67,8 +68,10 @@ export interface PrepState {
   /** Cards still to answer, per step (all cards for a new person: the promise never shrinks). */
   cards: CardCounts;
   /** "Do you have N minutes": the rows still to do; null until the points have loaded. In the mastermind, before anything is done,
-   *  the role's own time (15 for an owner, 7 for an observer) and null until the role is known. */
+   *  the role's own time (OWNER_PREP_MINUTES / OBSERVER_PREP_MINUTES), null until the role is known, and null once started. */
   minutes: number | null;
+  /** The mastermind's plan shows one total and no row minutes: its total is the role's own time, not the rows' sum. */
+  totalOnly: boolean;
   /** P1529: the person's role and arrival in a flow that asks; null elsewhere and until it is read. */
   arrival: MyArrival | null;
   /** The registration read failed twice: the plan is empty (never derived from it) and the page offers Retry. */
@@ -213,8 +216,9 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
       : null;
     // The mastermind says the real time by role before anything is done (founder, 2026-11-06); the role is unknown until read.
     const untouched = !startedAt && stepsDone.length === 0;
-    const minutes = mastermind && untouched ? (arrival ? (arrival.owner ? OWNER_PREP_MINUTES : OBSERVER_PREP_MINUTES) : null) : computed;
-    return { plan, stepsDone, progress, withPrincipleIntro, cards, minutes, learned: hasLearned(parts, prep?.completedAt) };
+    // Sales mastermind, one rule: before starting, one total for the role and no row minutes; once started, neither (founder, 2026-11-09).
+    const minutes = planTotalMinutes({ mastermind, untouched, roleMinutes: arrival ? (arrival.owner ? OWNER_PREP_MINUTES : OBSERVER_PREP_MINUTES) : null, computed });
+    return { plan, stepsDone, progress, withPrincipleIntro, cards, minutes, totalOnly: mastermind, learned: hasLearned(parts, prep?.completedAt) };
   }, [parts, prep, tag, eventPoints, cmp7Points, event?.seriesSlug, arrival, arrivalError]);
 
   return {

@@ -151,7 +151,7 @@ export function Transcript({ clip }: { clip: ClipKey }) {
   );
 }
 
-export function Clip({ clip, pulse = false, onPlay, playRequest = 0 }: { clip: ClipKey; pulse?: boolean; onPlay?: () => void; playRequest?: number }) {
+export function Clip({ clip, pulse = false, onPlay, onError, playRequest = 0 }: { clip: ClipKey; pulse?: boolean; onPlay?: () => void; onError?: () => void; playRequest?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   // The bar's "Play the video" bumps playRequest; the poster's own button starts it.
   useEffect(() => {
@@ -169,6 +169,7 @@ export function Clip({ clip, pulse = false, onPlay, playRequest = 0 }: { clip: C
           durationSeconds={watchSeconds(clip)}
           pulse={pulse}
           onPlay={onPlay}
+          onError={onError}
           playbackRate={PLAYBACK_RATE}
         />
       </div>

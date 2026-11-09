@@ -25,12 +25,12 @@ export function consentAgreedLabel(forEvent: boolean): string {
 }
 
 /**
- * P1529 D13, D24: the recording consent of a Sales Mastermind. The founder's wording (2026-11-09), with its scope kept to what the product does:
- * only the discussed peer, and AI drafts (Argon and GLM reviewed; they prefer a factual opening over "You're OK with", founder's call). The Terms/Privacy line under the registration's Continue
+ * P1529 D13, D24: the recording consent of a Sales Mastermind. The founder's approved wording (a factual opening: table mics capture, Google Gemini
+ * transcribes, the discussed peer can use AI to draft an update from that transcript). The Terms/Privacy line under the registration's Continue
  * button was removed: terms are accepted at sign-up, and Argon found this a just-in-time notice that needs no re-acceptance. The
  * registration checkbox says it; the room's Transcribe text and the /transcribe consent reuse the same sentences.
  */
-export const ROUND_UPDATE_CONSENT = "You're OK with table conversations being captured with a microphone. Google Gemini turns the audio into text in the event chat, which the host and registered attendees can read. The peer whose Clarity Canvas you discuss can use AI to draft an update from these transcripts.";
+export const ROUND_UPDATE_CONSENT = "Table mics capture conversations, and Google Gemini transcribes them into the event chat for the host and registered attendees. The peer whose Clarity Canvas you discuss can use AI to draft an update from that transcript.";
 
 /** [FOUNDER DECISION: copy, proposed] When a person's clean text reaches the event's chat: the full sentence, on the live text page and behind the info icon. */
 export const EVENT_TEXT_ARRIVES = "If you're at a table, your text reaches its chat about 2 minutes after the round ends.";

@@ -25,7 +25,7 @@ import { CloneDraftSheet } from './clone-draft-sheet';
 import { useCloneCanvas } from './use-clone-canvas';
 import { useCloneIntent } from './use-clone-intent';
 import { withoutCloneIntent } from '@/lib/canvas-hrefs';
-import { PreparationBanner } from './PreparationBanner';
+import { WorkspacePreparationBanner } from './PreparationBanner';
 import { useCloseThread, useWorkspacePanel } from './use-workspace-panel';
 import { useCanvasRename } from './use-canvas-rename';
 import { useWorkspacePublish } from './use-workspace-publish';
@@ -94,7 +94,7 @@ export function CanvasWithThread() {
     <WorkspaceProviders value={workspace} bus={add.bus}>
       <CanvasWorkspaceLayout
         active={active}
-        banner={backTo ? <PreparationBanner to={backTo} /> : null}
+        banner={backTo ? <WorkspacePreparationBanner to={backTo} state={navState} canvasKey={`${handle}/${projectTag}`} /> : null}
         view={view}
         panelOpen={panelOpen}
         bar={ownerBar ? (

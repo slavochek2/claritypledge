@@ -102,6 +102,7 @@ import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { RoomPreparation } from '../prep/RoomPreparation';
+import { EventSharedCanvases } from '@/app/components/canvas/event-shared-canvases';
 import { feedbackAlwaysOpen, defaultRoomStep, recipeForEvent } from '../series-recipes';
 import { usePrepState, type PrepState } from '../prep/use-prep-state';
 import { ClarityContentLoader, ClarityPageLoader } from '@/components/ui/clarity-loader';
@@ -590,6 +591,8 @@ export function EventRoomMeet() {
             <RoomPreparation event={event} roundsStarted={roundsStarted} />
           </div>
         )}
+        {/* P1515, moved here from the event page (founder): the canvases shared with this event, for the people the room admits. */}
+        {!seated && event && event.status !== 'cancelled' && <EventSharedCanvases eventId={event.id} viewerId={user?.id} enabled={!!user} />}
         {transcriptionFailed && (
           // P1307 Part 1: the join RPC failed or timed out. The person still lands here, with no
           // bar and nothing captured, and is told so. [FOUNDER DECISION: copy — PROPOSED, build

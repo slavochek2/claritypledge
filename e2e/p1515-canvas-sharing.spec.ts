@@ -14,7 +14,7 @@
  *   AC16 nothing A does on the canvas goes to the ordinary point, story or position loaders
  *   AC17 a story A linked straight to O's private point is not on the canvas
  *   AC15 the panel lists entries with counts, names for events and public groups, a count only for a private group; only O has it
- *   AC18 the event page lists the canvas to E's admitted people only
+ *   AC18 the event room lists the canvas to E's admitted people only
  *   AC14 access removed while A is on the canvas: the next refetch (focus, or opening the side panel) shows not-found,
  *        and Back after that does not serve the revoked canvas from the cache (control: before removal it does)
  *   AC6  O stops sharing with E in the panel: A loses it, G (through Y) keeps it
@@ -383,10 +383,10 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     }
   });
 
-  test('AC18: the event page lists the canvas to the event\'s admitted people (and its host) and to no one else', async ({ page, browser }) => {
+  test('AC18: the event ROOM (/meet) lists the canvas to the event\'s admitted people (and its host) and to no one else; the event page no longer does', async ({ page, browser }) => {
     for (const [who, user] of [['A (registered in time)', A], ['O (the host)', O]] as const) {
       await setTestSession(page, user.email);
-      await page.goto(`/events/${E.slug}`);
+      await page.goto(`/events/${E.slug}/meet`);
       const section = page.getByTestId('event-shared-canvases');
       await expect(section, who).toBeVisible({ timeout: 30_000 });
       await expect(section.getByTestId('event-shared-canvas-link')).toHaveText(`${O.name} · ${NAME}`);
@@ -396,17 +396,23 @@ test.describe('P1515: sharing a canvas with events and groups', () => {
     await expect(page).toHaveURL(new RegExp(`/p/${O.slug}/canvas/${NAME}$`));
     await waitForCanvas(page);
 
-    // L is registered but too late; N never registered; V is signed out: no section, no hint.
+    // The event page itself no longer lists it, for anyone (it moved to the room).
+    await setTestSession(page, A.email);
+    await page.goto(`/events/${E.slug}`);
+    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('event-shared-canvases')).toHaveCount(0);
+
+    // L is registered but too late; N never registered; V is signed out: no section, no hint (the server answers an empty list; the room gate keeps N and V out).
     for (const [who, user] of [['L (late)', L], ['N', N]] as const) {
       await setTestSession(page, user.email);
-      await page.goto(`/events/${E.slug}`);
-      await expect(page.getByRole('heading', { level: 1 }).first(), `${who}: the event page itself loads`).toBeVisible({ timeout: 30_000 });
+      await page.goto(`/events/${E.slug}/meet`);
+      await page.waitForTimeout(4000);
       await expect(page.getByTestId('event-shared-canvases'), who).toHaveCount(0);
     }
     const anon = await browser.newContext();
     const visitor = await anon.newPage();
-    await visitor.goto(`/events/${E.slug}`);
-    await expect(visitor.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 30_000 });
+    await visitor.goto(`/events/${E.slug}/meet`);
+    await visitor.waitForTimeout(4000);
     await expect(visitor.getByTestId('event-shared-canvases')).toHaveCount(0);
     await anon.close();
   });

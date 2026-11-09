@@ -5,7 +5,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createRef } from 'react';
 
 const h = vi.hoisted(() => ({
   rows: [] as unknown[],
@@ -25,7 +24,7 @@ import { EventCanvasStep } from '@/app/prototypes/events/prep/EventCanvasStep';
 
 const row = (n: number, run: number, rev: number, base: string | null = null, id = `d${n}`) => ({ base_version_id: base, id, canvas_id: `c${n}`, canvas_name: `canvas_${n}`, version_name: `canvas_d${n}`, conversation_id: 'cv', thread_root_id: 't', revision: rev, run_count: run });
 const Where = () => <div data-testid="where">{useLocation().pathname}</div>;
-const renderStep = () => render(<MemoryRouter initialEntries={['/events/x/prepare']}><EventCanvasStep eventId="ev-1" barRef={createRef()} onContinue={vi.fn()} onSkip={vi.fn()} /><Where /></MemoryRouter>);
+const renderStep = () => render(<MemoryRouter initialEntries={['/events/x/prepare']}><EventCanvasStep eventId="ev-1" onContinue={vi.fn()} /><Where /></MemoryRouter>);
 
 beforeEach(() => { vi.clearAllMocks(); h.rows = []; });
 

@@ -42,6 +42,14 @@ export function withoutCloneIntent<T>(state: T): T {
   return rest as T;
 }
 
+/** P1529: the preparation step the canvas was started from (`prepStep` in the navigation state), for the banner's "Step N of M"; null when absent or not whole numbers. */
+export interface PrepStep { step: number; total: number }
+export function prepStepOf(state: unknown): PrepStep | null {
+  const v = (state as { prepStep?: Partial<PrepStep> } | null)?.prepStep;
+  const step = v?.step, total = v?.total;
+  return typeof step === 'number' && typeof total === 'number' && Number.isInteger(step) && Number.isInteger(total) && step >= 1 && total >= step ? { step, total } : null;
+}
+
 /** P1529: the navigation state's `afterPublish` when it is a same-origin app path ("/x", never "//host" or "/\host"); otherwise null. */
 export function afterPublishPath(state: unknown): string | null {
   const v = (state as { afterPublish?: unknown } | null)?.afterPublish;

@@ -29,6 +29,8 @@ export interface Mp4VideoFacadeProps {
   captions?: string;
   /** Called once, on the first play. */
   onPlay?: () => void;
+  /** Called when the video cannot load or play, so the caller can give the person a way forward. */
+  onError?: () => void;
   look?: 'landing' | 'story';
   /** A pulsing ring behind the play button while the poster shows. Default false. */
   pulse?: boolean;
@@ -50,6 +52,7 @@ export function Mp4VideoFacade({
   playLabel,
   captions,
   onPlay,
+  onError,
   look = 'landing',
   pulse = false,
   durationSeconds,
@@ -82,6 +85,7 @@ export function Mp4VideoFacade({
             }
           }}
           controls
+          onError={onError}
           autoPlay
           playsInline
           className="absolute inset-0 h-full w-full object-cover"

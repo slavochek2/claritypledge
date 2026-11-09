@@ -1,8 +1,8 @@
 /**
  * @file EventCanvasCard.tsx
  * @description P1529 §2 (D9, D17): the canvas for this event, in the live room (no bottom bar there, so the primary stays inline).
- * The state and copy come from `useEventCanvasStep`, which preparation's step 4 (EventCanvasStep) draws with its primary in the bottom bar.
- * Change is gone once round 1 starts; a first canvas can still arrive later. Nothing is shared in the background.
+ * The state and copy come from `useEventCanvasStep`, which preparation's step 4 (EventCanvasStep) draws as a centred column.
+ * A shared canvas is only named here (no Change); a first canvas can still arrive later. Nothing is shared in the background.
  * Wording is DRAFT: [FOUNDER DECISION: copy].
  */
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ export function CanvasStepBody({ body, published, selected, onSelect, showList, 
         <fieldset className="space-y-1" data-testid="event-canvas-picker">
           <legend className="sr-only">Clarity Canvas to share</legend>
           {published.map(c => (
-            <label key={c.name} className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+            <label key={c.name} className="flex min-h-11 cursor-pointer items-center gap-3 text-left text-sm">
               <input type="radio" name="event-canvas" className="h-4 w-4" disabled={locked} checked={selected === c.name} onChange={() => onSelect(c.name)} data-testid="event-canvas-option" />
               <span className="min-w-0 flex-1 break-words">{c.label}</span>
             </label>
@@ -46,7 +46,7 @@ export function CanvasStepError({ onRetry }: { onRetry: () => void }) {
 /** The test id names the action, never the slot it sits in. */
 const TEST_IDS: Record<string, string> = {
   share: 'event-canvas-share', 'share-again': 'event-canvas-share-again', create: 'event-canvas-make', make: 'event-canvas-make',
-  'continue-draft': 'event-canvas-continue-draft', change: 'event-canvas-change', continue: 'event-canvas-continue',
+  'continue-draft': 'event-canvas-continue-draft', continue: 'event-canvas-continue',
 };
 const testIdOf = (a: StepAction) => TEST_IDS[a.id] ?? `event-canvas-${a.id}`;
 
@@ -63,9 +63,6 @@ export function EventCanvasCard({ eventId }: { eventId: string }) {
       {shared ? (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span data-testid="event-canvas-chosen">Your Clarity Canvas for this event: <strong>{step.sharedLabel}</strong></span>
-          {view.secondary && (
-            <Button variant="outline" size="sm" className="min-h-11" disabled={view.secondary.disabled} onClick={view.secondary.run} data-testid={testIdOf(view.secondary)}>{view.secondary.label}</Button>
-          )}
           {view.state === 'F' && <p className="w-full text-muted-foreground" data-testid="event-canvas-ready">{view.body}</p>}
         </div>
       ) : (
@@ -82,9 +79,6 @@ export function EventCanvasCard({ eventId }: { eventId: string }) {
               <Button variant="outline" size="sm" className="min-h-11" disabled={view.secondary.disabled} onClick={view.secondary.run} data-testid={testIdOf(view.secondary)}>{view.secondary.label}</Button>
             )}
           </div>
-          {view.quiet && (
-            <button type="button" className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline underline-offset-4 disabled:opacity-50" disabled={view.quiet.disabled} onClick={view.quiet.run} data-testid="event-canvas-quiet">{view.quiet.label}</button>
-          )}
         </div>
       )}
       {dialog}

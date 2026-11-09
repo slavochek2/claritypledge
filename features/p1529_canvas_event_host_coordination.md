@@ -450,6 +450,7 @@ then repeated with five with canvases.
       canvas exists (otherwise "Make a different one", or "Continue your draft" with an open draft); after round 1,
       Change is gone, and a chosen canvas no longer shared offers "Share again". Evidence 2026-11-07: e2e walk step 4b
       on TEST, unit tests per state A-G, screenshots at 320/375/1280 reviewed by an independent QA pass.
+      Superseded by UAT round 3: step 4 no longer offers Change (see that section).
 - [x] An attendee without a canvas is told they will observe and is not blocked by preparation; the host
       flips an observer with a shared canvas to participant; flipping one without a canvas is refused
       with a reason.
@@ -576,19 +577,49 @@ From the founder trying the round-1 build on localhost (seeded room). Founder's 
 - **The empty round 2 preview** was a stale seeded room, not a bug: 13 room members, 1 with a profile, 0 canvases
   (an earlier seed's users were cleaned up and the room was left). The next seed's room had 12 registrations and 7
   canvases and read correctly.
-- **Preparation step 4** is one action at the bottom by state: no canvas (Create), an open draft only (Continue your
-  draft, which reopens that draft), one or several published (Share, with a picker), shared (Continue, Change until
-  round 1), and after round 1 an unshared choice (Share again). Share never shows without a published canvas.
+- **Preparation step 4** is one action by state: no canvas (Create), an open draft only (Continue your
+  draft, which reopens that draft), one or several published (Share, with a picker), shared (Done), and after round 1
+  an unshared choice (Share again). Share never shows without a published canvas. Superseded in part by the UAT round 3
+  section below (no Skip, no Change, one centred column).
   Inside the canvas workspace a banner says the person is preparing and that Publish finishes the step; Publish
   returns to the preparation, also with a panel open, only for the canvas owner and only for that canvas.
 - Reviews (Gemini 4 Argon, GLM, Codex, Opus) ran on the whole round and on each fix round; every verified finding
   was fixed or is listed below.
 
+## UAT round 3: preparation, step 4, banner, time, consent (2026-11-09)
+
+Founder's asks after testing `/events/<slug>/prepare`; built on this branch.
+
+- **Videos are required in every preparation flow** (event preparation, `/prepare`, joining a group). "Play the video" is the
+  only way on; once Play has been pressed, Continue appears (the clip need not finish). A clip that cannot load offers
+  Continue (recorded as not watched) and "Try the video again".
+- **Position steps stay optional** ("Skip and proceed") everywhere except joining a group (see Known Limitations).
+- **Gut-feel nudge** on every position step, one shared component: 6 seconds with no position set shows a non-blocking card
+  ("Don't overthink it. Go with your gut: agree, disagree or unsure. ... Can you do these in 2 minutes?", button "Yes, 2 minutes");
+  the button swaps it for a sticky m:ss countdown, which says "Time's up. Finish when you're ready." at zero and blocks nothing.
+- **Step 4**: no "Skip for now"; content, picker and actions are one centred column with the actions directly under it (no pinned
+  bar); the alternatives (Make a new one, Make a different one, Continue your draft) are drawn like "Skip and proceed"; a
+  shared canvas reads "Your Clarity Canvas is shared", the named canvas and one primary, "Done". Changing a shared canvas from
+  the step is no longer offered (the live room's card lost "Change" with it; the server still allows it before round 1).
+- **Workspace banner**: blue like the Transcribe bar, a back arrow ("Back to preparation") and one line,
+  "Step N of M · Publish your canvas, then share it" with the real step from the preparation (no number if the navigation state lacks it).
+- **Time (sales mastermind only)**: before starting, one total by role (about 25 min owners, 10 min observers) and no row minutes;
+  after starting, neither. The canvas step keeps "About 12 minutes with your mirror." Other flows are unchanged.
+- **Consent wording** (founder's): "Table mics capture conversations, and Google Gemini transcribes them into the event chat for the host
+  and registered attendees. The peer whose Clarity Canvas you discuss can use AI to draft an update from that transcript."
+- **"Canvases shared with this event"** moved from the event page into the room (every flow has a room; admitted people and the host see it).
+- **Publish return** checked in a real browser (Continue your draft and Create your canvas, at 1280 and 375): Publish lands on
+  `/events/<slug>/prepare` on the canvas step with the step header. The founder's report did not reproduce; `e2e/p1529-publish-return.spec.ts` keeps it checked.
+
 ## Known Limitations
 
+- Joining a group cannot skip the video or the positions, by design (P1549 decision 19): the join gate counts the cmp7 part, which only a finished step records. So an unloadable video in the join flow cannot be passed as "not watched" without leaving the person at Part 1: the one place a video that fails to load still traps. `[FOUNDER DECISION: record it as watched when the clip cannot load, or keep the gate.]`
+- Join positions stay required (the same gate); making them skippable needs the gate to stop counting them.
+- A shared canvas cannot be changed from step 4 or the room card any more; the person who wants another one has no in-product way before round 1.
+
 - The one-tap post-signup RSVP (Clarity Night, Social Hike) counts an RSVP that already existed as a new completion: `rsvpToEvent` returns true for an existing one (P1640, main's code, not changed here). `[FOUNDER DECISION: fix in P1640's area, or leave.]`
-- The preparation banner is lost on a reload while a point or box panel is open, and still says "Publish" when the person picks an already published version.
-- After "Make a different one" and Publish, the step shows the earlier canvas as shared; sharing the new one is Change, then Share.
+- The preparation banner is lost on a reload while a point or box panel is open, and still says "Publish" when the person picks an already published version. Publish returning with the real step number has been checked with a seeded draft (no model call); a draft worked through the real model run is not covered.
+- After "Make a different one" and Publish, the step shows the earlier canvas as shared, and there is no Change: the new canvas stays unshared with the event.
 - Share again cannot succeed for someone no longer admitted to the event (registered after the grace window, removed, or cancelled event); they see the error each time.
 - Argon on the consent checkbox: because it is required to register, it is a transparency notice, not GDPR consent; the Privacy Policy should rest this processing on contract (Art. 6(1)(b)) or legitimate interest (6(1)(f)). `[FOUNDER DECISION: check the Privacy Policy's stated basis.]`
 - The registration questions' labels float inside their outline (`float-left` legend); checked in Chromium screenshots at 320, 375 and 1280 only, not in Safari or Firefox.

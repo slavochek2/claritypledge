@@ -44,6 +44,8 @@ import type { PointWithUserPosition, Profile } from '@/app/types';
 import { CMP7_TAG, isPartDone, PART_VERSIONS, PRINCIPLE_LEVEL, SECONDS_PER_DECISION, STEP_LABELS, stepMinutes } from './prep-plan';
 import { localPartRows, markLocalPart, readLocalParts, syncLocalPrepParts } from './prep-local-parts';
 import { ActionRow, Clip, StatementsActions, StepActions, Title, useMeasuredHeight, type StatementsCount } from './prep-ui';
+import { useClipState, VideoActions } from './prep-video-actions';
+import { GutFeelNudge } from './GutFeelNudge';
 import { loadTagPoints } from './use-prep-state';
 import { PrepWhy } from './PrepWhy';
 import { WHY_PREPARE } from './prep-why';
@@ -236,7 +238,7 @@ function PrepareFlow({
   // Joining has no list to go back to: step Back retraces the steps taken this visit.
   const [trail, setTrail] = useState<StandaloneStep[]>([]);
   const [playRequest, setPlayRequest] = useState(0);
-  const [played, setPlayed] = useState<Record<'story' | 'principle', boolean>>({ story: false, principle: false });
+  const clips = useClipState<'story' | 'principle'>();
   // Principle: (a) intro + clip, (b) the decision, (c) the follow-up, (d) the 0-10 — the event
   // preparation's sequence. Nothing is recorded: without an event there is no one to promise it to.
   const [principleIntroDone, setPrincipleIntroDone] = useState(false);
@@ -325,17 +327,8 @@ function PrepareFlow({
   const contentPadding = { paddingBottom: barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
 
   const videoBar = (clip: 'story' | 'principle', onContinue: (watched: boolean) => void) => (
-    <StepActions ref={barRef}>
-      {played[clip] ? (
-        <LetterPrimaryCta label="Continue" onClick={() => onContinue(true)} />
-      ) : (
-        <>
-          <LetterPrimaryCta label="Play the video" onClick={() => setPlayRequest((n) => n + 1)} />
-        </>
-      )}
-    </StepActions>
+    <VideoActions ref={barRef} played={!!clips.played[clip]} failed={!!clips.failed[clip]} onPlay={() => setPlayRequest((n) => n + 1)} onContinue={onContinue} onRetry={() => { clips.retry(clip); setPlayRequest((n) => n + 1); }} />
   );
-  const markPlayed = (clip: 'story' | 'principle') => () => setPlayed((p) => ({ ...p, [clip]: true }));
 
   const askerAvatar = (size: 'sm' | 'xl') => (
     <GravatarAvatar
@@ -498,7 +491,7 @@ function PrepareFlow({
                   It&apos;s not agreement, and it&apos;s not feeling what you feel.
                 </p>
               </div>
-              <Clip clip="story" pulse={!played.story} onPlay={markPlayed('story')} playRequest={playRequest} />
+              <Clip key={clips.attempt.story ?? 0} clip="story" pulse={!clips.played.story} onPlay={clips.markPlayed('story')} onError={clips.markFailed('story')} playRequest={playRequest} />
               {videoBar('story', (watched) => {
                 if (watched) complete('cognitive_video');
                 go(after('story'));
@@ -514,7 +507,7 @@ function PrepareFlow({
                   {join ? 'One question anyone may ask you, and your promise to answer it.' : 'One question anyone may ask you, and your promise to answer it. Watch the video, then decide.'}
                 </p>
               </div>
-              <Clip clip="principle" onPlay={markPlayed('principle')} playRequest={playRequest} />
+              <Clip key={clips.attempt.principle ?? 0} clip="principle" onPlay={clips.markPlayed('principle')} onError={clips.markFailed('principle')} playRequest={playRequest} />
               {/* P1549: joining shows the video and the text it talks about together, with no question after. */}
               {join && (
                 <div data-testid="join-principle-text">
@@ -556,6 +549,7 @@ function PrepareFlow({
               <Title>
                 {screen === 'cmp7' ? 'What is your value perception of the Clarity Meeting Principle?' : COPY.misunderstandingTitle}
               </Title>
+              <GutFeelNudge key={screen} answered={statementsCount(screen).answered} loaded={!!shownIds[screen]} />
               {shownIds[screen] && (
                 // Positions save on tap (signed out: in this browser, moved to the account at sign-in).
                 // Two re-reads: the position write has no ordering guarantee against the first one.

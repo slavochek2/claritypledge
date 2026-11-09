@@ -314,7 +314,7 @@ describe('P1542 visual review round 5', () => {
   it('learning from Join shows the join context, not the room bar; per-step minutes only with the total', () => {
     expect(prep).toMatch(/Part 1 of 2 · Short introduction/);
     expect(prep).toMatch(/inRoom && !thenJoin/);
-    expect(prep).toMatch(/state\.minutes !== null && \(\s*<span[^>]*agenda-minutes/);
+    expect(prep).toMatch(/state\.minutes !== null && (?:!state\.totalOnly && )?\(\s*<span[^>]*agenda-minutes/);
   });
 });
 

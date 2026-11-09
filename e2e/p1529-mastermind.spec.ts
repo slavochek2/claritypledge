@@ -476,6 +476,67 @@ test('SETUP E1: event, registrations through the real RPC, room members, five ca
   note(`E1 ${E1.slug} ready (${E1.id})`);
 });
 
+test('AC4d: the gut-feel nudge, step 4 state A and the workspace banner (screenshots at 1280, 375, 320)', async ({ page }) => {
+  const F = await makeEvent(ledger, host.user, `P1529 QA step 4 shots ${RUN_TAG()}`, { startsInMs: 2 * 86_400_000 });
+  const P = await makeUser(ledger, 'Pia Qatest');
+  await register(P, F.slug);
+  const prep = async (done: string[]) => {
+    await supabaseAdmin.from('event_preparations').delete().eq('event_id', F.id).eq('profile_id', P.user.user.id);
+    const r = await supabaseAdmin.from('event_preparations').insert({ event_id: F.id, profile_id: P.user.user.id, started_at: new Date().toISOString(), steps_done: done });
+    expect(r.error, 'prep seed').toBeNull();
+  };
+  await ac('4d-nudge', 'on a position step with no position set, the gut-feel card shows after 6 seconds; "Yes, 2 minutes" starts the countdown', async () => {
+    await prep(['story', 'principle']); // resumes on the cmp7 position step
+    await asUser(page, P, `/events/${F.slug}/prepare`);
+    await expect(page.getByTestId('answered-count')).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByTestId('gut-nudge')).toHaveCount(0);
+    await expect(page.getByTestId('gut-nudge')).toBeVisible({ timeout: 20_000 });
+    await shots(page, 'prep', 'gut-nudge');
+    await page.getByTestId('gut-nudge-yes').click();
+    await expect(page.getByTestId('gut-countdown')).toHaveText(/^\d:\d\d$/);
+    await shots(page, 'prep', 'gut-countdown');
+    return 'card shown, countdown shown';
+  }, page);
+  await ac('4d-create', 'step 4 state A: one centred column, Create your canvas, no Skip for now', async () => {
+    await prep(['story', 'principle', 'cmp7']);
+    await page.goto(`/events/${F.slug}/prepare`);
+    await expect(page.getByTestId('prep-canvas-step')).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByTestId('event-canvas-card')).toHaveAttribute('data-state', 'A');
+    await expect(page.getByText('Skip for now')).toHaveCount(0);
+    await shots(page, 'prep', 'canvas-create');
+    return 'state A';
+  }, page);
+  await ac('4d-banner', 'the workspace banner: back arrow and "Step N of M" line; it reads the real step', async () => {
+    const opened = await P.client.rpc('canvas_draft_open', { p_from_version: null });
+    expect(opened.error).toBeNull();
+    const d = (await supabaseAdmin.from('canvas_drafts').select('id,version_name,canvas_id').eq('owner_id', P.user.user.id).eq('state', 'open').order('created_at', { ascending: false }).limit(1).maybeSingle()).data!;
+    ledger.canvases.push(d.canvas_id as string);
+    const pt = await supabaseAdmin.from('points').insert({ statement: `Draft point ${RUN_TAG()}`, first_validator_id: P.user.user.id, visibility: 'private', tags: [], system_tags: ['canvas:segments', `canvas_${d.version_name}`] }).select('id').single();
+    ledger.points.push(pt.data!.id as string);
+    await supabaseAdmin.from('canvas_draft_points').insert({ draft_id: d.id, point_id: pt.data!.id });
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, OPTIONS' };
+    await page.route('**/functions/v1/canvas-draft', async (route) => { // availability only (the TEST function may not boot); nothing else is stubbed
+      const req = route.request();
+      if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+      if (req.method() === 'POST' && (req.postData() ?? '').includes('"availability"')) return route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'application/json' }, body: JSON.stringify({ enabled: true }) });
+      return route.continue();
+    });
+    await page.goto(`/events/${F.slug}/prepare`);
+    await page.getByRole('button', { name: 'Continue your draft' }).click();
+    await expect(page).toHaveURL(/\/p\/.+\/canvas\//, { timeout: 90_000 });
+    const banner = page.getByTestId('preparation-banner');
+    await expect(banner).toHaveText('Step 4 of 4 · Publish, then share', { timeout: 40_000 });
+    await expect(page.getByRole('button', { name: 'Back to preparation' })).toBeVisible();
+    await shots(page, 'canvas', 'prep-banner');
+    for (const w of [375, 320]) {
+      await page.setViewportSize({ width: w, height: 812 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth), `banner page scroll width at ${w}`).toBeLessThanOrEqual(w);
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    return 'banner shown with the real step';
+  }, page);
+});
+
 test('AC3 (before round 1): the flow row, Undo, switching back restores selections and overrides; refused with unanswered registrations', async ({ page, browser }) => {
   const F = await makeEvent(ledger, host.user, `P1529 QA flow switch ${RUN_TAG()}`, { series: null, startsInMs: 3_600_000 });
   // F is a Clarity Night event with one registration that never answered the mastermind questions
@@ -566,7 +627,7 @@ async function seedMember(eventId: string, p: Person) {
   p.room.set(eventId, m.id);
 }
 
-test('AC4 + AC5 (before round 1): pick, share as its own tap, Change replaces; observer line; host flips', async ({ page, browser }) => {
+test('AC4 + AC5 (before round 1): pick, share as its own tap, no Change from the step; observer line; host flips', async ({ page, browser }) => {
   // A6 has two published canvases and has shared neither: its card offers both
   // founder, UAT round 1: the canvas is step 4 of an OWNER's preparation. The three learning steps are marked done so the
   // preparation resumes on the canvas step (current_step cannot hold 'canvas', so resume falls to the first unfinished step).
@@ -574,7 +635,7 @@ test('AC4 + AC5 (before round 1): pick, share as its own tap, Change replaces; o
   expect(prepSeed.error, 'seeding the three learning steps as done').toBeNull();
   await asUser(page, A[5], `/events/${E1.slug}/prepare`);
   const card = page.getByTestId('prep-canvas-step').getByTestId('event-canvas-card');
-  await ac('4a', 'a canvas is picked and shared as its own tap; the step then reads "Your canvas for this event: {name} · Change"', async () => {
+  await ac('4a', 'a canvas is picked and shared as its own tap; the step then reads "Your Clarity Canvas is shared" with the named canvas and Done', async () => {
     await expect(card).toBeVisible({ timeout: 90_000 });
     // round 2: several published canvases and none shared is state D: a picker, the newest preselected, one primary in the bar
     await expect(card.getByTestId('event-canvas-option')).toHaveCount(2);
@@ -585,36 +646,31 @@ test('AC4 + AC5 (before round 1): pick, share as its own tap, Change replaces; o
     const before = (await supabaseAdmin.from('canvas_audience').select('canvas_id').eq('event_id', E1.id).eq('kind', 'event')).data!.length;
     await page.getByTestId('event-canvas-primary').getByRole('button').click();
     await expect(card).toHaveAttribute('data-state', 'E', { timeout: 60_000 });
-    await expect(page.getByTestId('event-canvas-secondary')).toHaveText('Change');
+    await expect(page.getByTestId('event-canvas-secondary')).toHaveCount(0); // no Change from this step any more
     const chosen = (await card.getByTestId('event-canvas-body').innerText()).replace(/\s+/g, ' ');
     expect(chosen).toMatch(/^“.+” is shared with this event\.$/);
     const after = (await supabaseAdmin.from('canvas_audience').select('canvas_id').eq('event_id', E1.id).eq('kind', 'event')).data!.length;
     expect(after, 'one more canvas is shared with the event after the tap').toBe(before + 1);
     await shots(page, 'room', 'canvas-card-chosen');
     await shots(page, 'prep', 'canvas-shared');
-    return `"${chosen}" + Change button; canvas_audience event rows ${before} -> ${after}`;
+    return `"${chosen}" + Done; canvas_audience event rows ${before} -> ${after}`;
   }, page);
 
-  await ac('4b', 'Change before round 1 replaces the shared canvas in one step (old unshared, new shared)', async () => {
+  await ac('4b', 'a shared canvas cannot be changed from the step: no Change, no Make a different one; "Done" is the one primary and the shared choice stays', async () => {
     const mine = async () => (await supabaseAdmin.from('event_canvases').select('canvas_id').eq('event_id', E1.id).eq('profile_id', A[5].user.user.id).single()).data!.canvas_id as string;
     const sharedIds = async () => ((await supabaseAdmin.from('canvas_audience').select('canvas_id').eq('event_id', E1.id).eq('kind', 'event').in('canvas_id', [A6firstCanvasId, A6second.canvasId])).data ?? []).map((r) => r.canvas_id as string);
     const first = await mine();
     expect(await sharedIds()).toEqual([first]);
-    await page.getByTestId('event-canvas-secondary').getByRole('button').click();
-    // UAT round 2 review: Change offers only the OTHER published canvases (never the one already shared), so with two
-    // published canvases it opens state C on the other one, with a quiet "Keep …" to back out, and no picker list.
-    await expect(card).toHaveAttribute('data-state', 'C', { timeout: 30_000 });
-    await expect(card.getByTestId('event-canvas-option')).toHaveCount(0);
-    await expect(page.getByTestId('event-canvas-quiet')).toContainText('Keep');
-    await shots(page, 'prep', 'canvas-change-to-other');
-    await page.getByTestId('event-canvas-primary').getByRole('button').click();
-    await expect(card).toHaveAttribute('data-state', 'E', { timeout: 60_000 });
-    const second = await mine();
-    expect(second).not.toBe(first);
-    const shared = await sharedIds();
-    expect(shared, 'only the new canvas is shared with the event').toEqual([second]);
-    expect(second, 'the new choice is the canvas titled Flo canvas (the first one)').toBe(A6firstCanvasId);
-    return `selection ${first.slice(0, 8)} -> ${second.slice(0, 8)}; shared with the event: only the new one`;
+    await expect(card.getByRole('heading')).toHaveText('Your Clarity Canvas is shared');
+    await expect(page.getByTestId('event-canvas-primary')).toHaveText('Done');
+    await expect(page.getByTestId('event-canvas-secondary')).toHaveCount(0);
+    await expect(page.getByTestId('event-canvas-quiet')).toHaveCount(0);
+    await expect(page.getByText('Change', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Make a different one')).toHaveCount(0);
+    await shots(page, 'prep', 'canvas-shared-done-only');
+    expect(await mine(), 'the choice is unchanged').toBe(first);
+    expect(await sharedIds(), 'the shared canvas is still the only one shared').toEqual([first]);
+    return `Done is the only action; chosen ${first.slice(0, 8)} stays shared`;
   }, page);
 
   const ctxO = await browser.newContext();

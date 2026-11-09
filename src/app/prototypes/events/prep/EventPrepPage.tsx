@@ -63,6 +63,9 @@ import {
 } from './prep-plan';
 import { EventBox, seriesLabel, SocialProof, socialProofLine } from './PrepPieces';
 import { type StatementsCount, ActionRow, Clip, StatementsActions, StepActions, Title, useMeasuredHeight } from './prep-ui';
+import { resumeScreenOf } from './prep-resume';
+import { useClipState, VideoActions } from './prep-video-actions';
+import { GutFeelNudge } from './GutFeelNudge';
 import { isAnswered, usePrepState, type PrepState } from './use-prep-state';
 import { defaultRoomStep, feedbackAlwaysOpen, offersPreparation, recipeForEvent } from '../series-recipes';
 import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
@@ -198,6 +201,9 @@ const joinNames = (names: string[]) =>
 
 // ─── flow ──────────────────────────────────────────────────────────────────────────────
 
+/** A statements step is on screen once its points and the cards it asks have both been read. */
+const isLoaded = (points: unknown, ids: unknown) => !!(points && ids);
+
 type Screen = 'plan' | PlanStep | 'end';
 type VideoKey = 'welcome' | 'story' | 'principle';
 
@@ -252,15 +258,7 @@ export function PrepFlow({
 
   // P1542 decision (A): a hike's finished steps open again from the list at any time, not only once all is finished.
   const keepFinished = recipeForEvent(event).prepare.keepFinished === true;
-  const resumeScreen = (): Screen => {
-    if (prep?.completedAt) return 'end';
-    if (!prep?.startedAt) return 'plan';
-    const done = state.stepsDone; // P1542 (A): finished elsewhere counts too (a hike's recipe)
-    const current = prep.currentStep as PlanStep | null;
-    if (current && plan.includes(current) && !done.includes(current)) return current;
-    // P1542 (A): everything finished elsewhere but not recorded → the list, which records it at once (useAutoFinish).
-    return plan.find((s) => !done.includes(s)) ?? (keepFinished ? 'plan' : 'end');
-  };
+  const resumeScreen = (): Screen => resumeScreenOf({ completedAt: prep?.completedAt, startedAt: prep?.startedAt, currentStep: prep?.currentStep, plan, stepsDone: state.stepsDone, keepFinished }); // P1542 (A): finished elsewhere counts too (a hike's recipe)
   const [screen, setScreen] = useState<Screen>(resumeScreen);
   // P1542 VQA round 5: a hike's end of learning is a destination: the app menu comes back (Clarity Night's end stays
   // immersive, P1387). The route rule only sees the URL, so the page declares it.
@@ -282,7 +280,7 @@ export function PrepFlow({
   }, [embedded, screen, searchParams, setSearchParams, location.state]);
   const [stepsDone, setStepsDone] = useStepsDone(plan, state.stepsDone);
   const [playRequest, setPlayRequest] = useState(0);
-  const [clipPlayed, setClipPlayed] = useState<Record<VideoKey, boolean>>({ welcome: false, story: false, principle: false });
+  const clips = useClipState<VideoKey>();
   // Principle: (a) intro + clip (once per person), (b) the decision, (c) host line, (d) 0-10.
   const [principleIntroDone, setPrincipleIntroDone] = useState(!state.withPrincipleIntro);
   const [answer, setAnswer] = useState<PrincipleAnswer>(null);
@@ -384,8 +382,8 @@ export function PrepFlow({
   useEffect(() => () => { refreshCancels.current.forEach((c) => c()); refreshCancels.current = []; }, []);
   const { parts } = state;
   const markPart = useCallback((part: keyof typeof PART_VERSIONS, outcome: 'completed' | 'skipped') => {
-    // Round 8f: a skip never downgrades a part already completed at this version (a refresher's "Continue without
-    // video" would otherwise null completed_at — event-prep-service markPrepPart). Skip just moves on.
+    // Round 8f: a skip never downgrades a part already completed at this version (a refresher whose clip could not load
+    // would otherwise null completed_at — event-prep-service markPrepPart). Skip just moves on.
     if (outcome === 'skipped' && parts.some((r) => r.part === part && r.contentVersion === PART_VERSIONS[part] && !!r.completedAt)) return;
     markPrepPart(viewerId, part, PART_VERSIONS[part], outcome)
       .then(() => {
@@ -624,20 +622,8 @@ export function PrepFlow({
   );
 
   const videoBar = (clip: VideoKey, onContinue: (played: boolean) => void) => (
-    <StepActions ref={barRef}>
-      {clipPlayed[clip] ? (
-        <LetterPrimaryCta label="Continue" onClick={() => onContinue(true)} />
-      ) : (
-        // Founder (2026-10-02): Play the video on top, the skip as a small link under it — the link
-        // reads as the fallback, not an equal choice, so more people play the clip.
-        <>
-          <LetterPrimaryCta label="Play the video" onClick={() => setPlayRequest((n) => n + 1)} />
-          <LetterPrimaryCta label="Continue without video" onClick={() => onContinue(false)} variant="secondary" />
-        </>
-      )}
-    </StepActions>
+    <VideoActions ref={barRef} played={!!clips.played[clip]} failed={!!clips.failed[clip]} onPlay={() => setPlayRequest((n) => n + 1)} onContinue={onContinue} onRetry={() => { clips.retry(clip); setPlayRequest((n) => n + 1); }} />
   );
-  const markPlayed = (clip: VideoKey) => () => setClipPlayed((p) => ({ ...p, [clip]: true }));
 
   const hostAvatar = (size: 'sm' | 'md' | 'xl') => <HostAvatar event={event} size={size} />;
 
@@ -814,7 +800,7 @@ export function PrepFlow({
                         </p>
                         {/* Visual review round 5 (item 5): until the statements have loaded the card counts are 0, so a
                             row read "1 min" while the total was still missing. Rows and total now appear together. */}
-                        {state.minutes !== null && (
+                        {state.minutes !== null && !state.totalOnly && (
                           <span className="shrink-0 pt-0.5 text-sm tabular-nums text-muted-foreground" data-testid={`agenda-minutes-${i + 1}`}>
                             {stepMinutes(s, state.cards, state.withPrincipleIntro)} min
                           </span>
@@ -844,7 +830,7 @@ export function PrepFlow({
                   In our events, we reward revealing gaps in cognitive understanding.
                 </p>
               </div>
-              <Clip clip="welcome" pulse={!clipPlayed.welcome} onPlay={markPlayed('welcome')} playRequest={playRequest} />
+              <Clip key={clips.attempt.welcome ?? 0} clip="welcome" pulse={!clips.played.welcome} onPlay={clips.markPlayed('welcome')} onError={clips.markFailed('welcome')} playRequest={playRequest} />
               {videoBar('welcome', (played) => next(played ? 'completed' : 'skipped'))}
             </section>
           )}
@@ -858,7 +844,7 @@ export function PrepFlow({
                   It&apos;s not agreement, and it&apos;s not feeling what you feel.
                 </p>
               </div>
-              <Clip clip="story" pulse={!clipPlayed.story} onPlay={markPlayed('story')} playRequest={playRequest} />
+              <Clip key={clips.attempt.story ?? 0} clip="story" pulse={!clips.played.story} onPlay={clips.markPlayed('story')} onError={clips.markFailed('story')} playRequest={playRequest} />
               {videoBar('story', (played) => next(played ? 'completed' : 'skipped'))}
             </section>
           )}
@@ -873,7 +859,7 @@ export function PrepFlow({
                   are completely fine. Watch the video, then decide.
                 </p>
               </div>
-              <Clip clip="principle" onPlay={markPlayed('principle')} playRequest={playRequest} />
+              <Clip key={clips.attempt.principle ?? 0} clip="principle" onPlay={clips.markPlayed('principle')} onError={clips.markFailed('principle')} playRequest={playRequest} />
               {videoBar('principle', (played) => {
                 markPart('principle_intro', played ? 'completed' : 'skipped');
                 setPrincipleIntroDone(true);
@@ -907,6 +893,7 @@ export function PrepFlow({
           {screen === 'cmp7' && (
             <section className="space-y-4">
               <Title>What is your value perception of the Clarity Meeting Principle?</Title>
+              <GutFeelNudge key="cmp7" answered={cmp7Count.answered} loaded={isLoaded(state.cmp7Points, shownIds[CMP7_TAG])} />
               {state.cmp7Points && shownIds[CMP7_TAG] && (
                 <StakeStep
                   tag={CMP7_TAG}
@@ -916,7 +903,7 @@ export function PrepFlow({
                   onCountChange={setCmp7Count}
                 />
               )}
-              {statementsBar(cmp7Count, !!(state.cmp7Points && shownIds[CMP7_TAG]), firstUnanswered(state.cmp7Points, shownIds[CMP7_TAG]))}
+              {statementsBar(cmp7Count, isLoaded(state.cmp7Points, shownIds[CMP7_TAG]), firstUnanswered(state.cmp7Points, shownIds[CMP7_TAG]))}
             </section>
           )}
 
@@ -932,6 +919,7 @@ export function PrepFlow({
                   Your positions help us pair you with someone who sees it differently at the event.
                 </p>
               </div>
+              <GutFeelNudge key="stake" answered={stakeCount.answered} loaded={isLoaded(state.eventPoints, shownIds[tag])} />
               {state.eventPoints && shownIds[tag] && (
                 <StakeStep
                   tag={tag}
@@ -941,7 +929,7 @@ export function PrepFlow({
                   onCountChange={setStakeCount}
                 />
               )}
-              {statementsBar(stakeCount, !!(state.eventPoints && shownIds[tag]), firstUnanswered(state.eventPoints, shownIds[tag]))}
+              {statementsBar(stakeCount, isLoaded(state.eventPoints, shownIds[tag]), firstUnanswered(state.eventPoints, shownIds[tag]))}
             </section>
           )}
 
@@ -1088,8 +1076,8 @@ export function PrepFlow({
           )}
 
           {screen === 'canvas' && (
-            // P1529 UAT round 2: step 4 of an owner's preparation; its one primary is in the bottom bar (EventCanvasStep).
-            <EventCanvasStep eventId={event.id} barRef={barRef} onContinue={() => next('completed')} onSkip={() => next('skipped')} />
+            // P1529 UAT round 2: step 4 of an owner's preparation; its one primary sits under the centred content (EventCanvasStep).
+            <EventCanvasStep eventId={event.id} onContinue={() => next('completed')} position={{ step: stepIndex + 1, total: plan.length }} />
           )}
 
           {screen === 'end' && roomRow && words && (

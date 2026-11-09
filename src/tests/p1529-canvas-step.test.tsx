@@ -1,10 +1,9 @@
 /**
- * P1529 UAT round 2: preparation's canvas step (A..F), its one primary in the bottom bar, and the preparation banner in the canvas workspace.
+ * P1529 UAT round 2: preparation's canvas step (A..G) as one centred column (no skip, no change of a shared canvas), and the preparation banner in the canvas workspace.
  */
 import { renderHook, act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createRef } from 'react';
 import type React from 'react';
 
 const h = vi.hoisted(() => ({
@@ -40,15 +39,13 @@ import { EventCanvasStep } from '@/app/prototypes/events/prep/EventCanvasStep';
 import { useEventCanvasStep } from '@/app/prototypes/events/prep/use-event-canvas-step';
 import { PreparationBanner } from '@/app/pages/canvas/PreparationBanner';
 import { CanvasWorkspaceLayout } from '@/app/components/canvas/canvas-workspace-layout';
-import { usePreparationReturn } from '@/app/pages/canvas/use-preparation-return';
-import { afterPublishPath } from '@/lib/canvas-hrefs';
+import { usePreparationReturn, usePreparationStep } from '@/app/pages/canvas/use-preparation-return';
+import { afterPublishPath, prepStepOf } from '@/lib/canvas-hrefs';
 
 const pub = (name: string, title: string | null, at: string) => ({ canvasName: name, canvasTitle: title, publishedAt: at });
 const cont = vi.fn();
-const skip = vi.fn();
 const Where = () => { const l = useLocation(); return <div data-testid="where" data-state={JSON.stringify(l.state)}>{l.pathname}{l.search}</div>; };
-const renderStep = () => render(<MemoryRouter initialEntries={['/events/x/prepare?step=4']}><EventCanvasStep eventId="ev-1" barRef={createRef()} onContinue={cont} onSkip={skip} /><Where /></MemoryRouter>);
-const bar = () => screen.getByTestId('step-actions');
+const renderStep = () => render(<MemoryRouter initialEntries={['/events/x/prepare?step=4']}><EventCanvasStep eventId="ev-1" onContinue={cont} /><Where /></MemoryRouter>);
 const primaryButtons = () => within(screen.getByTestId('event-canvas-primary')).getAllByRole('button');
 
 beforeEach(() => {
@@ -67,12 +64,16 @@ describe('canvas step states', () => {
     expect(screen.getByTestId('event-canvas-body').textContent).toBe('About 12 minutes with your mirror.');
     expect(primaryButtons()).toHaveLength(1);
     expect(primaryButtons()[0]!.textContent).toBe('Create your canvas');
-    expect(within(bar()).getByTestId('event-canvas-primary')).toBeTruthy(); // the primary is in the bottom bar
+    // One centred column: the actions sit directly under the content, there is no pinned bar.
+    expect(screen.queryByTestId('step-actions')).toBeNull();
+    const column = screen.getByTestId('prep-canvas-step');
+    expect(column.className).toContain('max-w-sm');
+    expect(column.className).toContain('justify-center');
+    expect(within(column).getByTestId('event-canvas-primary')).toBeTruthy();
     fireEvent.click(primaryButtons()[0]!);
     expect(h.start).toHaveBeenCalled();
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Skip for now' }).hasAttribute('disabled')).toBe(false)); // the start settled
-    fireEvent.click(within(screen.getByTestId('event-canvas-quiet')).getByRole('button', { name: 'Skip for now' }));
-    expect(skip).toHaveBeenCalled();
+    expect(screen.queryByText('Skip for now')).toBeNull(); // Skip for now is gone
+    expect(screen.queryByTestId('event-canvas-quiet')).toBeNull();
     expect(screen.queryByText(/Share/)).toBeNull();
     expect(screen.queryByText('Continue without a canvas')).toBeNull();
     expect(screen.queryByText(/join as an observer/)).toBeNull();
@@ -96,11 +97,12 @@ describe('canvas step states', () => {
     expect(where.textContent).toBe('/p/ana/canvas/canvas_1?v=canvas_d111&ws=1');
     expect(JSON.parse(where.getAttribute('data-state')!)).toEqual({ from: '/events/x/prepare?step=4', afterPublish: '/events/x/prepare?step=4' });
   });
-  it('B also has the quiet Skip for now', async () => {
+  it('B has no Skip for now either', async () => {
     h.drafts = [{ canvasName: 'canvas_1', versionName: 'canvas_d111' }];
     renderStep();
-    fireEvent.click(within(await screen.findByTestId('event-canvas-quiet')).getByRole('button', { name: 'Skip for now' }));
-    expect(skip).toHaveBeenCalled();
+    await screen.findByRole('button', { name: 'Continue your draft' });
+    expect(screen.queryByText('Skip for now')).toBeNull();
+    expect(screen.queryByTestId('event-canvas-quiet')).toBeNull();
   });
   it('an old tag-only canvas with no open draft is state A, not B', async () => {
     renderStep(); // drafts empty: no open canvas_drafts row
@@ -113,7 +115,7 @@ describe('canvas step states', () => {
     expect(screen.getByTestId('event-canvas-body').textContent).toBe('“Launch plan” is ready. Share it with this event\'s attendees.');
     expect(primaryButtons().map(b => b.textContent)).toEqual(['Share with this event']);
     expect(within(screen.getByTestId('event-canvas-secondary')).getByRole('button').textContent).toBe('Make a different one');
-    expect(screen.getByTestId('event-canvas-secondary').querySelector('button')!.className).toContain('border'); // outline, not the quiet link
+    expect(screen.getByTestId('event-canvas-secondary').querySelector('button')!.className).toContain('underline'); // the same secondary treatment as Skip and proceed
     expect(h.setCanvas).not.toHaveBeenCalled();
     fireEvent.click(primaryButtons()[0]!);
     await waitFor(() => expect(h.setCanvas).toHaveBeenCalledWith('ev-1', 'canvas_1'));
@@ -134,52 +136,38 @@ describe('canvas step states', () => {
     fireEvent.click(primaryButtons()[0]!);
     await waitFor(() => expect(h.setCanvas).toHaveBeenCalledWith('ev-1', 'canvas_2'));
   });
-  it('D in change mode: two or more other canvases use the replacement framing', async () => {
-    h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01'), pub('canvas_2', 'Other', '2026-10-01'), pub('canvas_3', 'Third', '2026-09-01')];
-    h.mine = { name: 'canvas_1', shared: true, fixed: false };
-    renderStep();
-    fireEvent.click(within(await screen.findByTestId('event-canvas-secondary')).getByRole('button', { name: 'Change' }));
-    expect((await screen.findByRole('heading')).textContent).toBe('Share a different canvas');
-    expect(screen.getByTestId('event-canvas-body').textContent).toBe('Pick the one to replace “Launch plan” for this event.');
-    expect(screen.getAllByTestId('event-canvas-option')).toHaveLength(2);
-  });
-  it('E: shared before round 1 has Continue and Change; Change reopens the choice', async () => {
+  it('E: shared before round 1 is the named canvas and one primary, Done; there is no Change and no Make a different one', async () => {
     h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01'), pub('canvas_2', 'Other', '2026-10-01')];
     h.mine = { name: 'canvas_1', shared: true, fixed: false };
     renderStep();
     expect((await screen.findByRole('heading')).textContent).toBe('Your Clarity Canvas is shared');
     expect(screen.getByTestId('event-canvas-body').textContent).toBe('“Launch plan” is shared with this event.');
-    expect(primaryButtons().map(b => b.textContent)).toEqual(['Continue']);
+    expect(primaryButtons().map(b => b.textContent)).toEqual(['Done']);
+    expect(screen.queryByTestId('event-canvas-secondary')).toBeNull();
+    expect(screen.queryByText('Change')).toBeNull();
+    expect(screen.queryByText('Make a different one')).toBeNull();
     fireEvent.click(primaryButtons()[0]!);
-    expect(cont).toHaveBeenCalled();
-    fireEvent.click(within(screen.getByTestId('event-canvas-secondary')).getByRole('button', { name: 'Change' }));
-    // the shared canvas is never offered again as if new: only the OTHER one is, with a quiet way back
-    expect((await screen.findByRole('heading')).textContent).toBe('Share a different canvas');
-    expect(screen.getByTestId('event-canvas-body').textContent).toBe('“Other” will replace “Launch plan” for this event.');
-    fireEvent.click(within(screen.getByTestId('event-canvas-quiet')).getByRole('button', { name: 'Keep “Launch plan”' }));
-    expect((await screen.findByRole('heading')).textContent).toBe('Your Clarity Canvas is shared');
+    expect(cont).toHaveBeenCalled(); // Done finishes the preparation, as Continue did
   });
-  it('real alternatives are outline buttons; only Skip and Keep are the quiet back-out style', async () => {
+  it('the alternatives (Make a new one, Make a different one, Continue your draft) are drawn like Skip and proceed: variant secondary, a text link', async () => {
     h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01')];
     const { unmount } = renderStep();
     const alt = within(await screen.findByTestId('event-canvas-secondary')).getByRole('button');
-    expect(alt.className).toContain('border-border');
-    expect(alt.className).not.toContain('underline');
+    expect(alt.className).toContain('underline');
+    expect(alt.className).not.toContain('border-border');
     unmount();
-    h.versions = []; h.drafts = [];
+    h.versions = []; h.drafts = []; // A has no alternative at all
     renderStep();
-    const quiet = within(await screen.findByTestId('event-canvas-quiet')).getByRole('button');
-    expect(quiet.className).toContain('underline');
+    await screen.findByTestId('event-canvas-primary');
+    expect(screen.queryByTestId('event-canvas-secondary')).toBeNull();
   });
-  it('E with only the shared canvas published: no Change; the alternative is making a different one', async () => {
+  it('E with only the shared canvas published: still just Done', async () => {
     h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01')];
     h.mine = { name: 'canvas_1', shared: true, fixed: false };
     renderStep();
-    const alt = await screen.findByTestId('event-canvas-secondary');
-    expect(within(alt).getByRole('button').textContent).toBe('Make a different one');
-    expect(screen.queryByText('Change')).toBeNull();
-    fireEvent.click(within(alt).getByRole('button'));
-    expect(h.start).toHaveBeenCalled();
+    await screen.findByTestId('event-canvas-primary');
+    expect(screen.queryByTestId('event-canvas-secondary')).toBeNull();
+    expect(h.start).not.toHaveBeenCalled();
   });
   it('G: round 1 started and the chosen canvas is no longer shared: Share again through share_canvas, not set_event_canvas', async () => {
     h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01')];
@@ -195,12 +183,12 @@ describe('canvas step states', () => {
     await waitFor(() => expect(h.shareCanvas).toHaveBeenCalledWith('canvas_1', 'event', 'ev-1'));
     expect(h.setCanvas).not.toHaveBeenCalled();
   });
-  it('F: shared after round 1 started has Continue and no Change', async () => {
+  it('F: shared after round 1 started has Done and no Change', async () => {
     h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01')];
     h.mine = { name: 'canvas_1', shared: true, fixed: true };
     renderStep();
     expect((await screen.findByTestId('event-canvas-body')).textContent).toBe("You're ready. The host can add you to a coming round.");
-    expect(primaryButtons().map(b => b.textContent)).toEqual(['Continue']);
+    expect(primaryButtons().map(b => b.textContent)).toEqual(['Done']);
     expect(screen.queryByTestId('event-canvas-secondary')).toBeNull();
     expect(screen.queryByText('Change')).toBeNull();
   });
@@ -268,9 +256,30 @@ describe('afterPublishPath and PreparationBanner', () => {
         </Routes>
       </MemoryRouter>,
     );
-    expect(screen.getByTestId('preparation-banner').textContent).toContain("You're preparing for the event. Draft your canvas with your mirror and publish it, then share it with the event back in your preparation.");
-    fireEvent.click(screen.getByTestId('preparation-banner-back'));
+    const banner = screen.getByTestId('preparation-banner');
+    expect(banner.textContent).toBe('Your Clarity Canvas · Publish, then share'); // no step in the state: no number
+    expect(banner.className).toContain('bg-blue-50'); // the Transcribe bar's blue
+    const back = screen.getByRole('button', { name: 'Back to preparation' });
+    expect(back.className).toContain('h-11');
+    expect(back.className).toContain('w-11');
+    expect(banner.querySelector('a, u')).toBeNull(); // no underlined link at the right
+    fireEvent.click(back);
     expect(screen.getByTestId('where').textContent).toBe('/events/x/prepare');
+  });
+});
+
+describe('the banner names the real step when the navigation state carries it', () => {
+  it('Step N of M from prepStep; invalid or missing values show no number', () => {
+    expect(prepStepOf({ prepStep: { step: 3, total: 3 } })).toEqual({ step: 3, total: 3 });
+    for (const bad of [null, {}, { prepStep: { step: 0, total: 3 } }, { prepStep: { step: 4, total: 3 } }, { prepStep: { step: 1.5, total: 3 } }, { prepStep: { step: '4', total: '4' } }]) expect(prepStepOf(bad)).toBeNull();
+    render(<MemoryRouter><PreparationBanner to="/x" step={{ step: 3, total: 3 }} /></MemoryRouter>);
+    expect(screen.getByTestId('preparation-banner').textContent).toBe('Step 3 of 3 · Publish, then share');
+  });
+  it('the step is remembered for the canvas it was seen on, like the return path', () => {
+    const { result, rerender } = renderHook(({ state }: { state: unknown }) => usePreparationStep(state, 'k'), { initialProps: { state: { prepStep: { step: 2, total: 3 } } as unknown }, wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter> });
+    expect(result.current).toEqual({ step: 2, total: 3 });
+    rerender({ state: { canvasPanel: true } });
+    expect(result.current).toEqual({ step: 2, total: 3 });
   });
 });
 
@@ -294,17 +303,13 @@ describe('the banner shows only for a valid afterPublish', () => {
 const draft = { canvasName: 'canvas_9', versionName: 'canvas_d9' };
 
 describe('P1529 review round fixes', () => {
-  it('3: with an open draft, C and D and E offer Continue your draft, never a new canvas', async () => {
+  it('3: with an open draft, C and D offer Continue your draft, never a new canvas', async () => {
     h.drafts = [draft];
     h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01')];
-    const c = renderStep();
+    renderStep();
     fireEvent.click(within(await screen.findByTestId('event-canvas-secondary')).getByRole('button', { name: 'Continue your draft' }));
     expect(h.start).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/p/ana/canvas/canvas_9?v=canvas_d9&ws=1'));
-    c.unmount();
-    h.mine = { name: 'canvas_1', shared: true, fixed: false }; // E, one published
-    renderStep();
-    expect(within(await screen.findByTestId('event-canvas-secondary')).getByRole('button').textContent).toBe('Continue your draft');
   });
   it('4: Continue your draft refreshes the chat first and shows its busy label meanwhile', async () => {
     let release: (v: null) => void = () => {};
@@ -359,9 +364,9 @@ describe('P1529 review round fixes', () => {
     await waitFor(() => expect(h.toastError).toHaveBeenCalledWith("Couldn't share your Clarity Canvas. Try again."));
     await waitFor(() => expect(h.getMine.mock.calls.length).toBe(reads + 1));
   });
-  it('9: the bar passes no secondary when there is neither a secondary nor a quiet action', async () => {
+  it('9: the actions pass no secondary when the state has none', async () => {
     h.versions = [pub('canvas_1', 'Launch plan', '2026-11-01')];
-    h.mine = { name: 'canvas_1', shared: true, fixed: true }; // F: Continue only
+    h.mine = { name: 'canvas_1', shared: true, fixed: true }; // F: Done only
     renderStep();
     await screen.findByTestId('event-canvas-primary');
     expect(h.rows.at(-1)!.secondary).toBeUndefined();
