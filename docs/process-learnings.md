@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 309
+**Next ID:** 311
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -3671,5 +3671,27 @@ Seen in the founder's P1646 test (2026-11-06): a message describing a different 
 **due:** week
 
 After /push applies 20261106164500_p1649_series_alias_resolution.sql to prod (it must land before the redirect deploys), curl -sI claritypledge.com/sales, /drum, /next and /hike and record which event each one 307s to. Under public-wins, /sales should reach the hidden sales mastermind test while no public session exists, and /drum the hidden 24 Nov drum circle. Also re-run scripts/function-grant-drift-check.py so resolve_series_alias no longer reads as test-only. Droppable once all four resolve as expected on prod.
+
+---
+
+## P1646 follow-up: a message that both contradicts a point and adds a new fact loses the new fact
+
+**ID:** INBOX-309
+**Date:** 2026-11-09
+**Status:** proposed
+**due:** week
+
+The canvas agent offers the choice and writes neither, so the owner must repeat the new fact. Decide after real use: write the non-conflicting facts in the same run, or accept it. Droppable if no owner hits this within a month of P1646 reaching prod.
+
+---
+
+## P1646 before prod: read the log-ingestion figure and accept the Gemini spend
+
+**ID:** INBOX-310
+**Date:** 2026-11-09
+**Status:** proposed
+**due:** week
+
+The P1646 Cost Budget cannot compare its log row because the registry has no log-ingestion limit; read it from the Supabase usage page and record it. Gemini is about $0.012 per offer and needs the founder's acceptance. Done when both are recorded; droppable if P1646 is reverted.
 
 ---
