@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 101
 workstream: clarity-chat
 created_date: '2026-11-05'
 tags: [clarity-chat, mirror-agent, points, drafting, transcription, live]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 driver: heuristic
 spec_review_hash: 6a988b7461b2c28e2a6c3ea9b7ec0f8241173efd6cf95912a1b30736e042e6c0
 spec_review_vendors: [gemini]
