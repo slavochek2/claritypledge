@@ -29,7 +29,7 @@ const mockJoin = vi.fn();
 const mockOnList = vi.fn();
 vi.mock('@/app/data/events-service', () => ({
   eventsService: {
-    getSeriesContent: vi.fn().mockResolvedValue({ reviews: [], photos: [] }),
+    getSeriesContent: vi.fn().mockResolvedValue(null),
     getEventBySlug: (...args: unknown[]) => mockGetEventBySlug(...args),
     isUserRsvpd: (...args: unknown[]) => mockIsUserRsvpd(...args),
     isEventFull: (...args: unknown[]) => mockIsFull(...args),
