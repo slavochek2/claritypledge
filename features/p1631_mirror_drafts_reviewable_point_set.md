@@ -9,7 +9,7 @@ disclosure: public
 delivery_stage: create-spec
 pipeline_ran: [create-spec]
 driver: heuristic
-spec_review_hash: 5356641baae1ea4ef20edf4041037c743996abe7d0c9942dff02820a76e55b3f
+spec_review_hash: 6a988b7461b2c28e2a6c3ea9b7ec0f8241173efd6cf95912a1b30736e042e6c0
 spec_review_vendors: [gemini]
 ---
 
@@ -53,35 +53,33 @@ Blast radius: high. Private speech from people who may have no account, an AI mo
 
 ## Solution
 
-### The moment (founder-approved interaction, 2026-11-07)
+### The moment (founder-approved interaction, 2026-11-09)
 
-Visual reference: the clickable prototype at `/tree/make-point/v2` on branch `feature/p1643-make-point-prototypes` (built from the product's own message toolbar, composer, point card and thread header; screenshots in that worktree's `tmp/make-point-shots-v3/`). Where the prototype and this text differ, this text wins.
+Visual reference: `/tree/make-point/v2` on branch `feature/p1643-make-point-prototypes`, screenshots in that worktree's `tmp/make-point-shots-v5/`. Where the prototype and this text differ, this text wins. Build in the product's real components. The Mirror thread is the product's real thread, not the prototype's panel content.
 
-**Entry: one verb, "Clarify", always with the owner's Mirror photo as its icon.** Each entry has a fixed scope that cannot be changed afterwards:
-- the existing hover action on a message (long-press on phone): that message;
-- the same action on a thread's root message, inside the thread: that thread;
-- right-click (long-press on phone) on a chat's row in the chat list: "Clarify", the whole chat with that person or channel;
-- the existing live transcribe banner at the top of the chat: a "Clarify" button styled like its pause and stop buttons. Scope: the running recording up to that moment, a snapshot labelled with its time.
+**Entry. One verb, "Clarify", with the owner's Mirror photo as its icon.** Each entry has a fixed scope:
+- the existing message action (hover on desktop, behind tapping a message on phone, unchanged): that message;
+- the same action on a thread's root message: that thread;
+- the existing right-click menu on a chat's row (long-press on phone is new): the whole chat;
+- a "Clarify" button on the existing live banner at the top of the chat, styled like pause and stop: the running recording up to that moment, labelled with its time.
 
-There is no "Clarify chat" header button, no Mark, and no scope selector.
+Also: **New point** in the composer's + menu, in the Mirror and in any chat (confirm the + menu exists in ordinary chats; add it if not). It opens a new Mirror thread where the owner types or speaks what the point is about. From a chat it posts back there; from the Mirror itself Publish asks which chat. Clarify arrives with Point preselected in the same + menu, which is where stories and letters join later.
 
-**This changes today's Clarify.** Today Clarify stages the message above the main Mirror chat's composer and waits for a note (`use-message-actions.tsx`). It now opens a new Mirror thread and starts a point at once. Right-click on a chat row already opens a menu (`ChatList.tsx`); long-press on phone is new.
+No Mark, no "Clarify chat" header button, no scope selector.
 
-**Drafting happens in a new thread in the owner's Mirror chat, never in the shared chat.** The item arrives attached, and making a point starts at once, with no extra Send. Desktop: the Mirror opens as the right panel and the source stays visible on the left. From a thread, the thread slides to the left slot with "← Chat" at its top left (this also closes the thread). The Mirror panel has × only, which restores the previous layout exactly and keeps the draft in the Mirror. Below 1280 px, and on phone, the Mirror is full screen with the existing Back, a distinct tint, and the header "Your Mirror · Only you see this". A banner reads "From chat with {name}". [FOUNDER DECISION: copy]
+**This changes today's Clarify,** which stages a message above the main Mirror composer and waits (`use-message-actions.tsx`). It now opens a new Mirror thread and starts at once. Pressing the banner's Clarify again during the same recording reuses that recording's thread and adds a draft from the conversation so far, so threads do not pile up. A press while a draft is being made does nothing further.
 
-**One point at a time.** The Mirror proposes one point as the product's own point card with a "Draft" pill. The owner can:
-- edit its text directly while it is a draft (the same behaviour as canvas drafts, P1614);
-- refine it by chatting ("sharper", "about pricing instead"). This revises the current draft and never adds a new point;
-- set their own position (no hint that it is optional);
-- press **Publish** (the one primary button) or **Another point** (secondary) for the next draft.
+**Layout.** Desktop: the Mirror opens on the right and the source stays on the left. From a thread, the thread moves left with "← Chat". × restores the previous layout and keeps the draft. Below 1280 px and on phone: full screen with the existing Back. Names: "Your Mirror", "Only you see this", banner "Posts to chat with {name}" (long names truncate). [FOUNDER DECISION: copy]
 
-Clarify always starts an attempt at once. If that attempt finds no real disagreement and the owner gave no instruction, it returns two or three tap choices of what to test in place of a draft; tapping one drafts that. An explicit instruction always drafts.
+**Drafts.** Each is the product's point card with a "Draft" pill and the product's private icon, which is informational and not a control. Every point here is private and cannot be made public; a public option is out of scope. Each draft has its own Edit (same as canvas drafts), Delete (with the product's confirmation dialog) and Publish. Drafts are stored from creation as the owner's private rows, so they survive close and reload. Editing needs an owner-only write, since P1614's `canvas_draft_edit_point` works only inside a canvas draft.
 
-**Every point is private and stored from its first draft.** A draft is a private point row owned by the owner, so × keeps it, editing changes it, and nobody else can read it. Visibility is fixed at creation, so there is no toggle. Editing a draft's text needs its own owner-only write: P1614's `canvas_draft_edit_point` works only inside a canvas draft, so either reuse it by making the chat's set a canvas (Open Question 1) or add an equivalent. Failures appear in the Mirror thread with Retry. Cited lines show only in the Mirror draft, marked as possibly wrong, never on the shared card.
+Typing in the composer changes the latest draft, unless the owner asks for another ("another point about pricing"), which adds one. The model decides, and when unclear it changes the latest draft. The **Another point** button adds a draft with no chat bubble and no agent line. If the attempt finds no real disagreement and there is no instruction, it returns two or three tappable suggestions of what to test instead of a draft; a tap is sent as the owner's instruction. An explicit instruction always drafts. Clarify knows the points already drafted or published in this chat and does not repeat them. Failures appear in the thread with Retry. Cited lines show only in the Mirror, marked as possibly wrong.
 
-**Publish posts that one point into the source chat or thread** as the product's point card, with the same header, actions ("…" menu, Details, Add story) and position buttons as on a person's profile. There is no "Asked by" line. For each viewer, the header shows the other person's position the way a profile does (`point-owner-header.tsx`): before the viewer has a position, "{name} took a position · set yours to see it"; after, "{name} · Disagrees"; if they have none, the existing "No position". The viewer's own position is on the buttons. Hiding until the viewer answers is new: today the profile shows it to everyone, and the hiding must happen on the server, not only in the page. In a group: before, "{n} took a position · set yours to see them"; after, the card's existing spread row plus Details for who said what. The "…" menu adds "Copy link" for someone who is not a user yet. [FOUNDER DECISION: copy]
+**Buttons.** Sizes match the Mirror and canvas surface; a full-page button never goes in a panel. Publish is required to have the owner's position: it is always visible, uses the product's standard disabled look until then, and a tap shows a short disappearing toast, "Set your position first". At most one filled primary per view. Another point uses the product's bordered secondary style.
 
-**Artifacts.** A new first item in the chat's three-dot menu lists what has been shared in this chat: "Points in this chat (N)", canvases sent here, and rounds (the existing "My rounds" moves here). Points open a `/stake`-like page with the real point cards in published order. Right-hand panels push the chat aside, never cover it. Media is a later idea, not this spec.
+**Published card.** Publish posts one point into the source chat or thread as the product's profile card: a row above the point with the other person's avatar, name, badge, position and "…" menu (from `point-owner-header.tsx`), then the point, spread row and position buttons, then Add a story and Details. Details opens the normal point page. Positions are not hidden. If the other person has no position there is no row. In a channel there is no single person's row: the spread shows, and Details lists everyone. The "…" menu has Copy link for someone who is not yet a user.
+
+**Artifacts.** A new item in the chat's three-dot menu lists what has been shared in this chat: "Points in this chat (N)", opening a `/stake`-like page of real cards, and canvases sent here. "My rounds" stays where it is. Panels push the chat aside. Media is later.
 
 ### How the agent writes a point
 
@@ -111,7 +109,7 @@ All points published in one chat form that chat's private set, shown under Artif
 
 ### Later parts of this spec
 
-- **Part 2, after the live part: upload.** An upload control in the main Mirror chat for a transcript or document, using the same point drafting. The `+` menu gets a point entry and the paperclip still means attach an existing artifact. Founder order, 2026-11-05: live first, then upload and share. Until then, a letter after a meeting is built by hand.
+- **Part 2, after the live part: upload.** An upload control in the main Mirror chat for a transcript or document, using the same point drafting. The paperclip still means attach an existing artifact. Founder order, 2026-11-05: live first, then upload and share. Until then, a letter after a meeting is built by hand.
 - **P1632 and P1431 follow** for stories and letters. Neither is needed for the live experience.
 - **If the Done-When run shows points need better text:** clean continuously in the background, in pieces of a few minutes, and draft from cleaned text plus the rough last minutes. Existing cleanup transcribes 60 s pieces per mic but runs only after a round or Stop, so this is a change to when it runs. It needs its own numbers: extra cost per hour, unless the end-of-session clean reuses its work.
 
@@ -135,31 +133,33 @@ All points published in one chat form that chat's private set, shown under Artif
 ## Acceptance Criteria
 
 **Entry and drafting**
-- [ ] Clarify on a message, a thread root, a chat row (right-click or long-press) and the live banner each opens a new thread in the owner's Mirror with that item attached, and the first draft starts without another tap. Every entry is labelled "Clarify" with the Mirror's photo.
+- [ ] Clarify on a message, a thread root, a chat row (right-click or long-press) and the live banner each opens a new thread in the owner's Mirror with that item attached, and the first draft starts without another tap. Every entry is labelled "Clarify" with the Mirror's photo; phone Clarify on messages is unchanged.
 - [ ] Desktop: the Mirror opens on the right and the source stays visible on the left. From a thread, the thread moves left with "← Chat". × restores the previous layout exactly. Phone and below 1280 px: full screen with Back, tinted, "Your Mirror · Only you see this".
-- [ ] The Mirror shows one draft point at a time as the product's point card with a "Draft" pill. The owner can edit its text directly, refine it by chatting (which revises the same draft), set a position, Publish it, or ask for Another point.
+- [ ] Each request makes one draft, shown as the product's point card with a "Draft" pill. A thread can hold several. The owner can Edit each, refine the latest by chatting, set a position, Publish or Delete each, or ask for Another point.
 - [ ] On a conversation with no real disagreement and no instruction, the Mirror proposes nothing and offers two or three tap choices of what to test. An explicit instruction always produces a draft.
 - [ ] Each draft cites the transcript or chat lines it came from, with no names, and quote text is read from those rows, not from the model.
 - [ ] Every point is created private and stays private. A draft survives × and reload, and only its owner can read or edit it.
-- [ ] Before a viewer has a position, the server returns only whether each other person has a position and how many do, never which position. A test asserts this at the database read, not only on screen.
 
 **In the chat**
-- [ ] Publish posts one point card into the source chat or thread, with the profile card's header, actions and position buttons, and no "Asked by" line.
-- [ ] A group chat's card shows "{n} took a position · set yours to see them" before, and the spread row after. A publisher with no position shows "No position".
-- [ ] Before the viewer has a position, the header reads "{name} took a position · set yours to see it". After, it reads "{name} · {position}". Both people see the other's position this way.
-- [ ] Artifacts is the first item in the three-dot menu. It lists "Points in this chat (N)", canvases sent here and rounds, and "My rounds" no longer appears separately. Points open a list of the real cards in published order. Panels push the chat aside.
+- [ ] Publish posts one point card into the source with the profile card's row, actions and buttons. With no position from the other person there is no row. In a channel there is no single person's row, and Details lists everyone.
+- [ ] Publish is disabled in the product's standard way until the owner has a position, and a tap shows the "Set your position first" toast.
+- [ ] Delete asks for confirmation. Another point adds no chat bubble. Pressing the banner's Clarify twice in one recording uses one thread.
+- [ ] New point from any chat's + menu opens a Mirror thread and posts back to that chat. From the Mirror, Publish asks which chat.
+- [ ] Artifacts lists "Points in this chat (N)" and canvases sent here; "My rounds" is unchanged; panels push the chat aside.
 
 **Safety and limits**
 - [ ] Across at least 20 adversarial transcripts run against the real model, no draft follows an instruction spoken in the room, and at most 1 in 10 embedded claims becomes a draft [FOUNDER DECISION: bar; agent-proposed]. A stubbed model does not count.
 - [ ] At an event, Clarify on the live banner reads only the presser's own round and table. A test seeds another table's speech and asserts it never reaches the model.
 - [ ] A failed generation shows a message, keeps recording, and charges no more than the spend rule allows.
-- [ ] The time from Clarify to the first draft is measured on a phone and recorded here.
+- [ ] The time from Clarify to the first draft is measured on a phone and recorded here (a measurement for the founder, not a pass bar).
 - [ ] A person outside the chat cannot read the points. A not-yet-user receives a link, and sees counts, not names, until signed in.
 
 ## Done-When
 
+The 3-conversation test is run by the founder after the build; the build agent stops at its readiness, with the flow on prod for the founder's account only after the policy notice.
+
 - [ ] **First, run the pipeline on stored material, before building.** An agent runs the near-unchanged skill on real transcripts and on public videos it finds, whole and cut to the first 10 minutes: at least one conversation with real disagreement, one friendly conversation with none, and one where a single speaker argues both sides. It runs each on the rough live text and on cleaned text, and with speaker labels and without. This shows whether a press needs a better transcription of recent minutes first, and whether speaker splitting (P1601) has to come first. **Return to the founder before building if** it invents points on the no-disagreement cases or the points on real disagreements are not ones he would use. The founder's part is reading a short result.
-- [ ] **Build the whole flow in this spec, in this order:** Open Question 1; a Mirror draft from one message, owner-only, with no Publish; Publish into the chat; the hidden-until-you-answer header; Clarify from a thread root and the chat list; Artifacts; Clarify from the live banner last. The terms and policy update is announced before it is switched on in prod for any account.
+- [ ] **Build the whole flow in this spec, in this order:** Open Question 1; a Mirror draft from one message, owner-only, with no Publish; Publish into the chat; Clarify from a thread root and the chat list; Artifacts; Clarify from the live banner last. The terms and policy update is announced before it is switched on in prod for any account.
 - [ ] **Then 3 real conversations on prod with the real flow,** at least one with someone the host has not met. Founder, 2026-11-05: it runs on prod because random people cannot use test or localhost. **Pass, set before the first run:** in at least 2 of 3, someone points at a specific word without being prompted, the sentence was usable without a rewrite (founder accepted, 2026-11-05), and at least two people took different sides (added because pointing at a word alone can pass on a merely confusing sentence). Record delay, cost per point and capture quality here. One group event rehearsal follows.
 
 ## Open Questions
