@@ -32,7 +32,7 @@ describe('P1529 D13: the sentence', () => {
     expect(TERMS_CHANGES[CURRENT_TERMS_VERSION]?.headline).toContain("Clarity Canvas owner's AI mirror to draft their next version");
   });
   it('is the reviewed text without its links line, and the room\'s Transcribe text says it too', () => {
-    expect(SENTENCE).toBe('We capture table conversations with a mic, and Google Gemini turns them into text in the event chat for the host and registered attendees. The peer whose Clarity Canvas you discuss can use AI to draft an update from that text, without quoting you.');
+    expect(SENTENCE).toBe('We capture table conversations with a mic, and Google Gemini turns them into text in the event chat for the host and registered attendees. The peer whose Clarity Canvas you discuss can use AI to draft an update from your conversation transcript.');
     render(<RoomTranscribeIdleBar eventId="ev-1" displayName="Ana" roundUpdates onFailed={() => {}} />);
     expect(screen.getByTestId('room-transcribe-start')).toHaveAccessibleDescription(expect.stringContaining(SENTENCE));
   });

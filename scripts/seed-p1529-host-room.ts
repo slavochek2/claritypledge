@@ -5,9 +5,9 @@
  * Usage:  SEED_HOST_EMAIL=<an existing account's email> npx tsx scripts/seed-p1529-host-room.ts
  *         npx tsx scripts/seed-p1529-host-room.ts --cleanup <ledger.json>
  *
- * The host is NOT created: the account must exist (profile looked up by email). The event starts about 2 hours from now with a limit of 24 (12 registered, so seats stay open).
+ * The host is NOT created: the account must exist (profile looked up by email). The event starts 7 days from now with a limit of 24 (12 registered, so seats stay open).
  * Registered: 8 owners (7 with a canvas shared to the event, mixed canvas_before / canvas_at_doors; 1 registered but not shared yet) and
- * 4 observers (home / doors), so the room is full; then 3 people join the waiting list through the real RPC. Phones mix usbc / lightning / other.
+ * 4 observers (home / doors), with seats left, so no waiting list. Phones mix usbc / lightning / other.
  * The ledger (everything created) is written so --cleanup removes exactly that, to the OS temp folder (SEED_LEDGER_DIR overrides),
  * never into the repo. --join <ledger> puts every registered person into the event's room (the host screen lists room members).
  */
@@ -41,16 +41,11 @@ const PLAN: Array<{ name: string; kind: 'owner' | 'owner-unshared' | 'observer';
   { name: 'Kira Test', kind: 'observer', participation: 'observer', phone: 'other', prep: 'home' },
   { name: 'Leo Test', kind: 'observer', participation: 'observer', phone: 'usbc', prep: 'doors' },
 ];
-const WAITING = [
-  { name: 'Mira Test', participation: 'canvas_before', phone: 'usbc', prep: null },
-  { name: 'Nils Test', participation: 'observer', phone: 'lightning', prep: 'home' },
-  { name: 'Olga Test', participation: 'canvas_at_doors', phone: 'other', prep: null },
-];
 
 type Helpers = typeof import('../e2e/helpers/p1529-mastermind.ts');
 type Admin = (typeof import('../e2e/helpers/supabase-admin.ts'))['supabaseAdmin'];
 
-/** Everyone registered for the event joins its room; people on the waiting list stay out. */
+/** Everyone registered for the event joins its room. */
 async function joinAll(H: Helpers, admin: Admin, ledger: import('../e2e/helpers/p1529-mastermind.ts').Ledger, ev: { id: string }): Promise<void> {
   const { data, error } = await admin.from('event_rsvps').select('profile_id').eq('event_id', ev.id);
   if (error) throw new Error(`rsvps: ${error.message}`);
@@ -104,7 +99,7 @@ async function main() {
   const save = () => writeFileSync(LEDGER_PATH, JSON.stringify(ledger, null, 2));
   try {
     const ev = await H.makeEvent(ledger, { user: { id: hostId } } as never, `Sales Mastermind (seed ${H.RUN})`, {
-      series: 'sales-mastermind', startsInMs: 2 * 3600_000, maxAttendees: 24,
+      series: 'sales-mastermind', startsInMs: 7 * 24 * 3600_000, maxAttendees: 24,
     });
     save();
     for (const p of PLAN) {
@@ -120,14 +115,6 @@ async function main() {
       });
       if (error || data !== 'ok') throw new Error(`register ${p.name}: ${error?.message ?? data}`);
       if (p.kind === 'owner') await H.shareForEvent(person, ev.id);
-    }
-    for (const w of WAITING) {
-      const person = await H.makeUser(ledger, w.name);
-      save();
-      const { data, error } = await person.client.rpc('join_event_waitlist', {
-        p_slug: ev.slug, p_participation: w.participation, p_phone: w.phone, p_hope: null, p_recording_accepted: true, p_observer_prep: w.prep,
-      });
-      if (error || data !== 'ok') throw new Error(`waiting list ${w.name}: ${error?.message ?? data}`);
     }
     save();
     await joinAll(H, supabaseAdmin, ledger, ev);
