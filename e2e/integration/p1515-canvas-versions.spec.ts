@@ -137,7 +137,7 @@ test.afterAll(async () => {
 test('AC1: O shares the canvas ONCE with person P: P reads both versions and switches; a third version added afterwards needs no new share', async () => {
   // CONTROL: before any share P reads nothing, on either version.
   expectNothing(await get(cP, V1), 'P before the share (v1)');
-  expect(await ok(cO, 'share_canvas', { p_name: V1, p_kind: 'person', p_target: P.user.id }, 'share with P')).toBe(true);
+  expect(await ok(cO, 'share_canvas', { p_name: V1, p_kind: 'person', p_target: P.user.id }, 'share with P')).toMatchObject({ shared: true }); // P1650: share_canvas returns { shared, skipped }
   const rec = await supabaseAdmin.from('canvases').select('id').eq('owner_id', O.user.id).eq('name', V1).single();
   canvasId = rec.data!.id as string;
   // The canvas record created its own first version.
@@ -185,8 +185,8 @@ test('AC3: the link, an event and a group admit EVERY version; closing the link 
     expectNothing(await get(c, V2, null), `${who} v2 without the token`);
   }
   // an event and a group
-  expect(await ok(cO, 'share_canvas', { p_name: V1, p_kind: 'event', p_target: E.id }, 'share event')).toBe(true);
-  expect(await ok(cO, 'share_canvas', { p_name: V1, p_kind: 'group', p_target: G.id }, 'share group')).toBe(true);
+  expect(await ok(cO, 'share_canvas', { p_name: V1, p_kind: 'event', p_target: E.id }, 'share event')).toMatchObject({ shared: true });
+  expect(await ok(cO, 'share_canvas', { p_name: V1, p_kind: 'group', p_target: G.id }, 'share group')).toMatchObject({ shared: true });
   for (const [who, c] of [['X (event)', cX], ['M (group)', cM]] as const) {
     for (const [v, want] of [[V1, [p1a, p1b].sort()], [V2, [p2a]], [V3, [p3a]]] as const) expect(ids(await get(c, v)), `${who} ${v}`).toEqual(want);
   }
@@ -229,7 +229,7 @@ test('AC4: positions and added stories are per version; a write on a version of 
 });
 
 test('AC5: a canvas with ONE version behaves exactly as before (same address, same rows, the version list names it)', async () => {
-  expect(await ok(cO, 'share_canvas', { p_name: OTHER, p_kind: 'person', p_target: P.user.id }, 'share the other canvas')).toBe(true);
+  expect(await ok(cO, 'share_canvas', { p_name: OTHER, p_kind: 'person', p_target: P.user.id }, 'share the other canvas')).toMatchObject({ shared: true });
   const c = await get(cP, null, null, OTHER);
   expect(ids(c)).toEqual([pOther]);
   expect(c.access.version).toBe(OTHER);

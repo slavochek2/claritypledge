@@ -219,7 +219,7 @@ describe('P1520 @ picker and private mode', () => {
     expect(screen.getByTestId('private-mode')).toHaveTextContent('Private: only you see this');
     expect(screen.getByTestId('composer').querySelector('form')).toHaveAttribute('data-private', 'true');
     expect(screen.getByRole('textbox', { name: 'Ask Mira privately' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Attach a point or story' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Attach' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Stop asking privately' }));
     expect(onPrivateChange).toHaveBeenCalledWith(null);
   });

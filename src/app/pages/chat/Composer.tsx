@@ -170,7 +170,7 @@ export function Composer({ draftKey, placeholder, onSend, onAttach, staged = nul
         )}
         <div className="flex items-end gap-0.5">
           {slots.attach && (
-            <button type="button" aria-label="Attach a point or story" title="Attach a point or story" onClick={onAttach} className={cn(ROUND, 'text-muted-foreground', HOVER, FOCUS_RING)}>
+            <button type="button" aria-label="Attach" title="Attach" onClick={onAttach} className={cn(ROUND, 'text-muted-foreground', HOVER, FOCUS_RING)}>
               <Paperclip className="h-5 w-5" aria-hidden="true" />
             </button>
           )}

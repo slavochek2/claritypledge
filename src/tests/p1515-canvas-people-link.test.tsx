@@ -42,6 +42,8 @@ afterEach(() => { cleanup(); });
 
 const eventEntry = (over: Partial<AudienceEntry> = {}): AudienceEntry => ({
   kind: 'event', id: 'e1', name: 'Sales mastermind', slug: 'sales-mastermind', public: true,
+  // P1650: an event entry carries its own date (get_canvas_audience), no longer read from the offered list.
+  datetime: '2026-10-21T10:00:00Z',
   ownerAdmitted: true, count: 2, names: [{ id: 'a', name: 'Ana', slug: 'ana' }, { id: 'b', name: 'Ben', slug: 'ben' }], ...over,
 });
 const personEntry = (over: Partial<AudienceEntry> = {}): AudienceEntry => ({

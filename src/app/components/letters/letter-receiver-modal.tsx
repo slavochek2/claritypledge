@@ -33,8 +33,9 @@ import { agreementsService } from '@/app/data/agreements-service';
 import type { AgreementParty, ProfileSearchResult } from '@/app/data/agreements-service';
 import { ProfilePickerInput } from '@/app/components/shared/profile-picker-input';
 import { analytics } from '@/lib/mixpanel';
-import { addRecipientToSealed } from '@/app/data/letters-service';
+import { sendAddRecipients } from './add-recipients';
 import { invokeLetterEmails } from '@/lib/letter-emails';
+import { withNotInChat } from '@/app/data/letter-chat-skipped';
 import { toast } from 'sonner';
 import type { LetterMode } from '@/app/types';
 
@@ -445,30 +446,8 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
     if (isAddRecipientMode) {
       setSubmitting(true);
 
-      const sendResults = await Promise.all(
-        filledRows.map(async (row, i) => {
-          const built = builtRecipients[i];
-          if (!built) {
-            return { id: row.id, email: '', success: false as const, error: 'Failed to send' };
-          }
-          try {
-            await addRecipientToSealed(
-              props.letterId,
-              built.profileId ? null : built.email,
-              built.name,
-              built.profileId
-            );
-            return { id: row.id, email: built.email || built.name, success: true as const };
-          } catch (err) {
-            return {
-              id: row.id,
-              email: built.email,
-              success: false as const,
-              error: err instanceof Error ? err.message : 'Failed to send',
-            };
-          }
-        })
-      );
+      // P1650: notInChat = recipients whose letter card was not posted to chat (the letter itself was added and sent).
+      const { sendResults, notInChat } = await sendAddRecipients(props.letterId, filledRows, builtRecipients);
 
       setSubmitting(false);
 
@@ -484,9 +463,7 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
         // All succeeded
         const count = succeeded.length;
         toast.success(
-          count === 1
-            ? `Invitation sent to ${succeeded[0]?.email}`
-            : `Invitations sent to ${count} people`
+          withNotInChat(count === 1 ? `Invitation sent to ${succeeded[0]?.email}` : `Invitations sent to ${count} people`, notInChat)
         );
         resetForm();
         onOpenChange(false);
@@ -516,7 +493,7 @@ export function LetterReceiverModal(props: LetterReceiverModalProps) {
             })
         );
         toast.warning(
-          `Sent ${succeeded.length} of ${filledRows.length} invitations. Fix the rows marked in red and try again.`
+          withNotInChat(`Sent ${succeeded.length} of ${filledRows.length} invitations. Fix the rows marked in red and try again.`, notInChat)
         );
       }
       return;

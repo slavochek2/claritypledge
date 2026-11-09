@@ -52,7 +52,7 @@ test('hint and icon at 1440, 375 and 320', async ({ browser }) => {
       await page.screenshot({ path: `${DIR}/${vp}-canvas-thread.png` });
 
       await page.goto(`/chats/c/${draft.conversation_id}`);
-      const clip = page.getByRole('button', { name: 'Attach a point or story' });
+      const clip = page.getByRole('button', { name: 'Attach', exact: true });
       await clip.first().waitFor({ timeout: 40_000 });
       await expect(clip.first().locator('svg.lucide-paperclip')).toHaveCount(1);
       await page.waitForTimeout(400);

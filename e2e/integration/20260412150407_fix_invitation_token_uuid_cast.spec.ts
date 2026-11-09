@@ -111,7 +111,7 @@ test.describe('Migration fix: invitation_token UUID cast', () => {
     const { data: delivery } = await supabaseAdmin
       .from('letter_deliveries')
       .select('invitation_token')
-      .eq('id', deliveryId)
+      .eq('id', (deliveryId as { delivery_id: string }).delivery_id) // P1650: add_recipient returns { delivery_id, skipped }
       .single();
 
     expect(delivery).toBeTruthy();

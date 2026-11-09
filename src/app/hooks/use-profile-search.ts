@@ -11,14 +11,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { ProfileSearchResult } from '@/app/data/agreements-service';
+import { isSearchableQuery } from './profile-search-query';
 
 const DEBOUNCE_MS = 300;
-const MIN_QUERY_LENGTH = 3;
 
-export function isSearchableQuery(query: string): boolean {
-  const trimmed = query.trim();
-  return trimmed.length >= MIN_QUERY_LENGTH && !trimmed.includes('@');
-}
+export { isSearchableQuery };
 
 export function useProfileSearch(query: string): {
   results: ProfileSearchResult[];

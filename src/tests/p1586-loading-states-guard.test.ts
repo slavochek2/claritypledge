@@ -190,8 +190,12 @@ const ALLOWLIST: Record<string, { counts: Partial<Record<Kind, number>>; why: st
     why: 'Classified at :161: pulsing icon inside the submit Button while "Accepting…" (isSubmitting). Operation in a control.',
   },
   'src/app/components/canvas/canvas-share-control.tsx': {
-    counts: { 'loose-spinner': 3 },
-    why: 'Three per-row save spinners (a share option, an access entry, the general-access select) beside the row control that is saving. Operation, one row at a time.',
+    counts: { 'loose-spinner': 2 },
+    why: 'Two per-row save spinners (an access entry, the general-access select) beside the row control that is saving. Operation, one row at a time. (P1650: the third, a share option, moved with its list to canvas-share-list.tsx.)',
+  },
+  'src/app/components/canvas/canvas-share-list.tsx': {
+    counts: { 'loose-spinner': 1 },
+    why: 'P1650: the per-row save spinner of a share option (moved here from canvas-share-control.tsx, same markup), beside the row that is saving. Operation, one row at a time.',
   },
   'src/app/components/canvas/canvas-publish-spot.tsx': {
     counts: { 'loose-spinner': 1 },

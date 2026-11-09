@@ -108,7 +108,7 @@ test('X3: the + on the mirror chat (1440, 375, 320), Clone a version, Cancel wri
         // the + sits right after the paperclip, in the main composer, and nothing overflows
         const geometry = await page.evaluate(() => {
           const comp = document.querySelector('[data-testid="composer"]') as HTMLElement;
-          const clip = comp.querySelector('button[aria-label="Attach a point or story"]') as HTMLElement | null;
+          const clip = comp.querySelector('button[aria-label="Attach"]') as HTMLElement | null;
           const p = comp.querySelector('[data-testid="composer-plus"]') as HTMLElement | null;
           const field = comp.querySelector('textarea') as HTMLElement | null;
           const r = (e: HTMLElement | null) => (e ? e.getBoundingClientRect() : null);
@@ -129,7 +129,7 @@ test('X3: the + on the mirror chat (1440, 375, 320), Clone a version, Cancel wri
         await page.keyboard.press('Escape');
 
         // the paperclip: Points and Stories only
-        await page.getByRole('button', { name: 'Attach a point or story' }).click();
+        await page.getByRole('button', { name: 'Attach', exact: true }).click();
         const tabs = await page.getByRole('tab').allTextContents();
         rec(vp, 'the paperclip dialog has no Canvases tab', JSON.stringify(tabs.map(s => s.trim())) === JSON.stringify(['Points', 'Stories']), JSON.stringify(tabs), await shot(page, vp, 'paperclip-dialog'));
         await page.keyboard.press('Escape');

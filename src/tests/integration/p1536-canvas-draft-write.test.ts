@@ -279,7 +279,7 @@ describe('P1536 WP1: draft versions (test database)', () => {
     expect((await rpc(cX, 'canvas_set_position', { p_owner: O.user.id, p_name: canvasName, p_point: p1, p_position: 'agree', p_reasoning: null, p_link_token: null })).error).toBeNull();
     // D20: the engine gave the owner no stance on p1; the owner marks it, and it must carry into the next draft like X's
     expect((await rpc(cO, 'canvas_set_position', { p_owner: O.user.id, p_name: canvasName, p_point: p1, p_position: 'agree', p_reasoning: null, p_link_token: null })).error).toBeNull();
-    expect(await ok(cO, 'share_canvas', { p_name: canvasName, p_kind: 'event', p_target: E.id }), 'CONTROL: sharing now works').toBe(true);
+    expect(await ok(cO, 'share_canvas', { p_name: canvasName, p_kind: 'event', p_target: E.id }), 'CONTROL: sharing now works').toMatchObject({ shared: true }); // P1650: share_canvas returns { shared, skipped }
   });
 
   it('a change request in a published thread gets no mirror job (the client asks "Start a new version?")', async () => {

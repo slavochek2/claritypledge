@@ -1208,7 +1208,7 @@ describe('conversation', () => {
     helpers.loadMyShareables.mockResolvedValue([{ kind: 'point', id: 'pt-1', title: 'Clarity beats cleverness', tags: ['clarity'], point: { id: 'pt-1', statement: 'Clarity beats cleverness' } }]);
     svc.sendMessage.mockResolvedValue(msg('dm1', ME.id, null, { id: 'sent-at', attachmentKind: 'point', attachmentId: 'pt-1' }));
     renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [] });
-    fireEvent.click(await screen.findByRole('button', { name: 'Attach a point or story' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Attach' }));
     fireEvent.click(await screen.findByRole('button', { name: /Attach Clarity beats cleverness/ }));
     expect(await within(await screen.findByTestId('staged-attachment')).findByTestId('point-card')).toHaveTextContent('Clarity beats cleverness');
     // The card is inert, so the attachment is named outside it for screen readers, and in the Remove button.
@@ -2215,7 +2215,7 @@ describe('review round 3', () => {
       view.unmount();
       // Attach (a sheet) and Rename on the mirror.
       renderChat('/chats/c/c-mirror', [mirror('c-mirror', { ownerFirstName: 'Mia' }), dmChat], { 'c-mirror': [] });
-      fireEvent.click(await screen.findByRole('button', { name: 'Attach a point or story' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Attach' }));
       check(await screen.findByRole('dialog'));
       fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -3433,13 +3433,13 @@ describe('a pending Clarify (review fixes)', () => {
     stageClarify('c-mirror', { message: src('with attachment'), authorName: 'Ada Lovelace' });
     renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
     await screen.findByTestId('clarify-pending');
-    fireEvent.click(screen.getByRole('button', { name: 'Attach a point or story' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
     fireEvent.click(await screen.findByRole('button', { name: /Attach Alpha/ }));
     await screen.findByText('Attached point: Alpha');
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await waitFor(() => expect(svc.clarifyMessage).toHaveBeenCalled());
     // While the send is out, another attachment is picked.
-    fireEvent.click(screen.getByRole('button', { name: 'Attach a point or story' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
     fireEvent.click(await screen.findByRole('button', { name: /Attach Beta/ }));
     await screen.findByText('Attached point: Beta');
     await act(async () => { land(msg('c-mirror', ME.id, null, { id: 'cl-f4', kind: 'clarify' })); await new Promise((r) => setTimeout(r, 30)); });

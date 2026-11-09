@@ -69,6 +69,8 @@ export interface Shareable {
   linkedPoints?: PointSummary[];
   /** P1536: a canvas version (the draft thread's first row): its label and where it opens. */
   canvasVersion?: CanvasVersionCardData;
+  /** P1650: a canvas the paperclip offers (kind 'canvas'): its name and the owner's display title (null: never renamed). */
+  canvas?: { name: string; title: string | null };
 }
 
 const STORY_TITLE_MAX = 80;

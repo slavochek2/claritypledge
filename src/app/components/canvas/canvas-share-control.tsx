@@ -21,43 +21,22 @@
  */
 import { CanvasShareFallback } from './canvas-share-fallback';
 import { ShareTrigger } from './canvas-share-trigger';
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import { Check, CalendarDays, Globe, Link2, Loader2, Lock, Users, X, type LucideIcon } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { Check, Globe, Link2, Loader2, Lock, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/app/components/shared/confirm-dialog';
 import {
   canvasService, type AudienceEntry, type CanvasGeneralAccess, type CanvasVisibility, type ShareTargets,
 } from '@/app/data/canvas-service';
+import type { ProfileSearchResult } from '@/app/data/agreements-service';
 import { useProfileSearch } from '@/app/hooks/use-profile-search';
 import { ownerLockLabel } from '@/lib/canvas-audience-copy';
 import { canvasCopyAddress } from '@/lib/canvas-copy-address';
-import { COPIED_MS, shortDate, useIsSheet, useOpenSignal } from './canvas-share-helpers';
-
-interface Option {
-  kind: 'person' | 'event' | 'group';
-  id: string;
-  label: string;
-  sub: string;
-  avatar?: { photoUrl?: string; color?: string };
-}
-
-const KIND_ICON: Record<'event' | 'group', LucideIcon> = { event: CalendarDays, group: Users };
-
-/** The leading mark of a row: a person's avatar, or an icon tile for an event or a group. */
-function RowMark({ kind, name, avatar }: { kind: Option['kind']; name: string; avatar?: Option['avatar'] }) {
-  if (kind === 'person') {
-    return <GravatarAvatar name={name} size="sm" avatarColor={avatar?.color} photoUrl={avatar?.photoUrl} isPledger={false} showRing={false} />;
-  }
-  const Icon = KIND_ICON[kind];
-  return (
-    <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700">
-      <Icon className="h-4 w-4" />
-    </span>
-  );
-}
+import { COPIED_MS, shortDate, useIsSheet, useOpenSignal, useShareIds } from './canvas-share-helpers';
+import { CanvasShareList, RowMark } from './canvas-share-list';
+import { buildOptions, emptyText, type Option } from './canvas-share-options';
 
 const SHEET_CLASS =
   'left-0 top-auto bottom-0 flex max-h-[85dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-b-none rounded-t-2xl border-x-0 border-b-0 p-0 pb-[env(safe-area-inset-bottom)] ' +
@@ -89,10 +68,12 @@ interface CanvasShareControlProps {
 export function CanvasShareControl({ name, visibility, generalAccess = 'restricted', entries, link, onChanged, hideTrigger, openSignal, displayTitle, main = false }: CanvasShareControlProps) {
   const sheet = useIsSheet();
   const [open, setOpen] = useState(false);
-  const [panel, setPanel] = useState<{ entries: AudienceEntry[]; generalAccess: CanvasGeneralAccess; linkToken: string | null; targets: ShareTargets } | null>(null);
+  const [panel, setPanel] = useState<{ entries: AudienceEntry[]; generalAccess: CanvasGeneralAccess; linkToken: string | null; targets: ShareTargets; people: ProfileSearchResult[] } | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // P1650: the last share was made but its chat message was not written (a block, the daily limit).
+  const [notSent, setNotSent] = useState(false);
   // Which row a change in flight belongs to (`kind:id`, or 'general'): it wears the spinner.
   const [pending, setPending] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -104,12 +85,7 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
   // Where focus goes once a removal's re-read has rendered: the next row's remove button, else the invite input.
   const focusAfter = useRef<{ index: number } | null>(null);
   const entriesRef = useRef<HTMLUListElement>(null);
-  const listId = useId();
-  const stateId = useId();
-  const titleId = useId();
-  const inviteId = useId();
-  const peopleId = useId();
-  const generalId = useId();
+  const { listId, stateId, titleId, inviteId, peopleId, generalId } = useShareIds();
   const [confirmOpen, setConfirmOpen] = useState(false);
   // The owner has just switched the link off in this panel: the line says the old link stops working.
   const [linkClosed, setLinkClosed] = useState(false);
@@ -129,8 +105,9 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
     const read = ++latestRead.current;
     setLoadError(false);
     try {
-      const [access, targets] = await Promise.all([canvasService.getAccess(name), canvasService.getShareTargets()]);
-      if (read === latestRead.current) setPanel({ entries: access.entries, generalAccess: access.generalAccess, linkToken: access.linkToken, targets });
+      // The people list is a convenience: if it cannot load, typing still finds people, so it never fails the panel.
+      const [access, targets, people] = await Promise.all([canvasService.getAccess(name), canvasService.getShareTargets(), canvasService.getSharePeople().catch(() => [])]);
+      if (read === latestRead.current) setPanel({ entries: access.entries, generalAccess: access.generalAccess, linkToken: access.linkToken, targets, people });
     } catch {
       if (read === latestRead.current) setLoadError(true);
     }
@@ -157,6 +134,7 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
     setBusy(true);
     setPending(key);
     setError(null);
+    setNotSent(false);
     try {
       await run();
     } catch {
@@ -184,7 +162,8 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
 
   const pick = async (o: Option) => {
     // The list closes with the pick (the new entry is then in view under it); a failure leaves it open to try again.
-    const ok = await change(`${o.kind}:${o.id}`, () => canvasService.shareCanvas(name, o.kind, o.id), 'Could not share. Nothing changed.');
+    // The share is made either way; `notSent` says only the chat message was not written (change() cleared it first).
+    const ok = await change(`${o.kind}:${o.id}`, () => canvasService.shareCanvas(name, o.kind, o.id).then(r => setNotSent(r.skipped.length > 0)), 'Could not share. Nothing changed.');
     if (ok) {
       setQuery('');
       setActiveKey(null);
@@ -244,20 +223,8 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
 
   const has = (kind: Option['kind'], id: string) => !!panel?.entries.some(x => x.kind === kind && x.id === id);
   const needle = query.trim().toLowerCase();
-  // The owner's own events and groups, narrowed by what is typed; people come from the search.
-  const options: Option[] = panel
-    ? [
-      ...found
-        .filter(p => !has('person', p.profileId))
-        .map(p => ({ kind: 'person' as const, id: p.profileId, label: p.name, sub: p.slug ? `@${p.slug}` : 'Person', avatar: { photoUrl: p.avatarUrl ?? undefined, color: p.avatarColor } })),
-      ...panel.targets.events
-        .filter(e => !has('event', e.id) && e.title.toLowerCase().includes(needle))
-        .map(e => ({ kind: 'event' as const, id: e.id, label: e.title, sub: 'Event' })),
-      ...panel.targets.groups
-        .filter(g => !has('group', g.id) && g.name.toLowerCase().includes(needle))
-        .map(g => ({ kind: 'group' as const, id: g.id, label: g.name, sub: 'Group' })),
-    ]
-    : [];
+  // People first (D1): the owner's relationships before typing, the search once typed; then events, then groups.
+  const options: Option[] = panel ? buildOptions({ query, people: panel.people, found, targets: panel.targets, has }) : [];
   const listOpen = !!panel && !listDismissed && (listFocused || needle !== '');
   const optionKey = (o: Option) => `${o.kind}:${o.id}`;
   const activeIndex = activeKey === null ? -1 : options.findIndex(o => optionKey(o) === activeKey);
@@ -345,60 +312,22 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
           className="h-10 w-full rounded-md border border-input bg-background px-3 text-base placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 md:text-sm"
           data-testid="canvas-share-invite"
         />
-        {listOpen && (
-          // A dropdown over the sections below, never pushing them: closing it (the field loses focus on a pointer
-          // press elsewhere) must not shift what the press was aimed at.
-          <div
-            role="presentation"
-            className="absolute inset-x-0 top-full z-10 mt-1 rounded-md border border-border bg-background shadow-md"
-            data-testid="canvas-share-list"
-            // Keeps the field focused through a pointer pick, so the list does not close under the click.
-            onMouseDown={e => e.preventDefault()}
-          >
-            <ul
-              id={listId}
-              role="listbox"
-              className="flex max-h-56 flex-col overflow-y-auto p-1"
-              aria-label="People, events and groups you can add"
-              data-testid="canvas-share-options"
-            >
-              {options.map((o, i) => {
-                const key = optionKey(o);
-                return (
-                  // Keyboard users act on options through the combobox (ArrowUp/ArrowDown/Enter), which keeps focus in the field.
-                  // eslint-disable-next-line jsx-a11y/click-events-have-key-events
-                  <li
-                    key={key}
-                    id={optionId(i)}
-                    role="option"
-                    aria-selected={i === activeIndex}
-                    aria-disabled={busy || undefined}
-                    onClick={() => { if (!busy) void pick(o); }}
-                    className={`flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-md px-2 text-left text-sm hover:bg-muted ${i === activeIndex ? 'bg-muted' : ''} ${busy ? 'opacity-50' : ''}`}
-                    data-testid="canvas-share-option"
-                  >
-                    <RowMark kind={o.kind} name={o.label} avatar={o.avatar} />
-                    <span className="min-w-0 flex-1 break-words font-medium text-foreground" data-testid="canvas-share-option-label">{o.label}</span>
-                    {/* A long @handle gives way (ellipsis), never the name. */}
-                    <span className="max-w-[45%] shrink truncate text-xs text-muted-foreground" title={o.sub} data-testid="canvas-share-option-sub">{o.sub}</span>
-                    {pending === key && <Loader2 aria-hidden className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" data-testid="canvas-share-row-spinner" />}
-                  </li>
-                );
-              })}
-            </ul>
-            {isSearching && <p className="px-3 py-2 text-sm text-muted-foreground" data-testid="canvas-share-searching">Searching…</p>}
-            {options.length === 0 && !isSearching && (
-              <p className="px-3 py-2 text-sm text-muted-foreground" data-testid="canvas-share-nothing-to-add">
-                {needle !== ''
-                  ? (hasSearched ? 'No one found. You can add people you already have a letter or an agreement with.' : 'Nothing matches yet.')
-                  : panel.targets.events.length === 0 && panel.targets.groups.length === 0
-                    ? 'You have no events or groups to share with yet. Register for an event or join a group first, or type a name to add a person.'
-                    : 'That is all of your events and groups. Type a name to add a person.'}
-              </p>
-            )}
-          </div>
+        {listOpen && panel && (
+          <CanvasShareList
+            options={options}
+            listId={listId}
+            optionId={optionId}
+            activeIndex={activeIndex}
+            busy={busy}
+            pending={pending}
+            isSearching={isSearching}
+            emptyText={emptyText(needle, hasSearched, panel.targets)}
+            onPick={o => void pick(o)}
+          />
         )}
       </div>
+
+      {notSent && <p role="status" className="text-sm text-muted-foreground" data-testid="canvas-share-not-sent">Added. Not sent to chat.</p>}
 
       {loadError || !panel ? (
         <CanvasShareFallback loadError={loadError} onRetry={() => void load()} />
@@ -418,7 +347,7 @@ export function CanvasShareControl({ name, visibility, generalAccess = 'restrict
               </li>
               {panel.entries.map((entry, index) => {
                 const key = `${entry.kind}:${entry.id}`;
-                const date = entry.kind === 'event' ? shortDate(panel.targets.events.find(e => e.id === entry.id)?.datetime ?? '') : '';
+                const date = entry.kind === 'event' ? shortDate(entry.datetime ?? '') : '';
                 return (
                   <li key={key} className="flex items-start gap-3 py-1" data-testid="canvas-share-entry">
                     <span className="mt-1"><RowMark kind={entry.kind} name={entry.name} /></span>

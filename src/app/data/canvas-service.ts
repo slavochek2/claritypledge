@@ -20,6 +20,7 @@ import { clearListReturnCache } from '@/lib/list-return-cache';
 import { throwDbError } from './db-error-logger';
 import { mapPointFromDb, mapPositionFromDb, mapPositionWithUserFromDb } from './points-service-real';
 import { mapStoryFromDb } from './stories-service-real';
+import { getSharePeople, listAttachableCanvases, type ShareSkipped } from './canvas-share-reads';
 import { listMyCanvases, listSharedWithMe, listSharedWithEvent, markCanvasRead, getChatArtifact, renameCanvas } from './canvas-artifacts';
 import type {
   PointPositionWithUser,
@@ -117,6 +118,8 @@ export interface AudienceEntry {
   public: boolean;
   /** the owner is still admitted to this entry (false: it admits no one right now) */
   ownerAdmitted: boolean;
+  /** P1650: an event entry's date (null for a person or group), so an event no longer offered still shows it */
+  datetime?: string | null;
   /** people it admits besides the owner */
   count: number;
   /** named for events and public groups; null for a private group (count only) */
@@ -292,6 +295,7 @@ async function getAccess(name: string): Promise<{ entries: AudienceEntry[]; gene
     slug: e.slug ?? null,
     public: !!e.public,
     ownerAdmitted: !!e.owner_admitted,
+    datetime: typeof e.datetime === 'string' ? e.datetime : null,
     count: Number(e.count ?? 0),
     names: Array.isArray(e.names) ? e.names.map((n: Json) => ({ id: n.id, name: n.name, slug: n.slug ?? null })) : null,
   })) as AudienceEntry[];
@@ -311,10 +315,13 @@ async function getShareTargets(): Promise<ShareTargets> {
   return { events: raw.events ?? [], groups: raw.groups ?? [] };
 }
 
-async function shareCanvas(name: string, kind: 'person' | 'event' | 'group', targetId: string): Promise<void> {
+/** P1650: the share is made either way; `skipped` names who got no chat message (empty on success and on a re-share). */
+async function shareCanvas(name: string, kind: 'person' | 'event' | 'group', targetId: string): Promise<{ skipped: ShareSkipped[] }> {
   try {
-    const { error } = await supabase.rpc('share_canvas', { p_name: name, p_kind: kind, p_target: targetId });
+    const { data, error } = await supabase.rpc('share_canvas', { p_name: name, p_kind: kind, p_target: targetId });
     if (error) throwDbError('canvas.share', error, `Could not share this canvas: ${error.message}`);
+    const skipped = (data as Json | null)?.skipped;
+    return { skipped: Array.isArray(skipped) ? (skipped as ShareSkipped[]) : [] };
   } finally {
     clearListReturnCache();
   }
@@ -355,6 +362,7 @@ async function removeEventAttendee(eventId: string, userId: string): Promise<voi
 }
 
 export type { MyCanvasRow, CanvasSharedWithMe, ChatArtifact, SharedCanvasRef } from './canvas-artifacts';
+export type { AttachableCanvas, ShareSkipped } from './canvas-share-reads';
 
 export const canvasService = {
   getCanvas,
@@ -375,5 +383,7 @@ export const canvasService = {
   listSharedWithMe,
   markCanvasRead,
   getChatArtifact,
+  getSharePeople,
+  listAttachableCanvases,
 };
 export type CanvasService = typeof canvasService;

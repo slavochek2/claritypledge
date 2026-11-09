@@ -25,6 +25,7 @@ import { predictionsForMode } from '@/app/utils/letter-prediction-policy';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { DELIVERY_COLUMNS } from './letter-delivery-columns';
 import { requireAuth } from './letters-require-auth';
+import * as skipped from './letter-chat-skipped';
 import { mapInboxRow } from './letters-received';
 
 import { log } from './letters-log';
@@ -88,7 +89,7 @@ export async function sealLetter(
   deliveries: Array<{ receiver_email?: string; receiver_name?: string; receiver_profile_id?: string }> = [],
   // P952: author-chosen response intensity; defaults to 'off' if not passed
   responsesMode: 'off' | 'invite' | 'push' = 'off'
-): Promise<{ success: boolean; error?: string }> {
+): Promise<skipped.SealResult> {
   await requireAuth();
   log('sealLetter:', { letterId, predictions, deliveries, responsesMode });
 
@@ -847,7 +848,7 @@ export async function addRecipientToSealed(
   email: string | null,
   receiverName?: string,
   receiverProfileId?: string
-): Promise<string> {
+): Promise<skipped.AddedRecipient> {
   await requireAuth();
   log('addRecipientToSealed:', { letterId, email, receiverName, receiverProfileId });
 
@@ -871,7 +872,7 @@ export async function addRecipientToSealed(
     throwDbError('addRecipientToSealed', error, `Failed to add recipient: ${error.message}`);
   }
 
-  return data as string;
+  return skipped.readAddedRecipient(data);
 }
 
 // ============================================================================

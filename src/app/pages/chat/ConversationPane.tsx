@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { clarifyMessage, type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
 import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { AttachDialog, ConfirmDialog, RenameMirrorDialog } from './ChatDialogs';
+import { attachConversationId } from './attach-canvases';
 import { Composer, type MentionEntry } from './Composer';
 import { MessageList } from './MessageList';
 import { ConversationTop } from './MyRounds';
@@ -323,6 +324,7 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
       {attaching && (
         <AttachDialog
           viewerId={chat.userId}
+          conversationId={attachConversationId(summary)}
           onClose={() => setAttaching(false)}
           onPick={(s) => {
             setStaged(s);

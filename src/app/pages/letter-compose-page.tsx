@@ -34,6 +34,8 @@ import {
 } from '@/app/utils/letter-prediction-policy';
 import type { ClarityDoc, DocStory, LetterMode } from '@/app/types';
 import { ARTIFACTS_LETTERS_DRAFTS } from '@/app/pages/artifacts/legacy-redirect-targets';
+import { withNotInChat } from '@/app/data/letter-chat-skipped';
+import { useSealedLetter } from '@/app/hooks/use-sealed-letter';
 
 type ComposePhase = 'modal' | 'predict' | 'review' | 'seal-confirm' | 'sealing' | 'confirmation';
 
@@ -73,7 +75,8 @@ export function LetterComposePage() {
   );
   const [predictions, setPredictions] = useState<Map<string, number>>(new Map());
   const [sealing, setSealing] = useState(false);
-  const [sealedLetterId, setSealedLetterId] = useState<string | null>(null);
+  // P1650: the sealed letter's id and the recipients whose letter card was not posted to chat (sealed and sent regardless).
+  const { sealed, markSealed } = useSealedLetter();
   const sealingRef = useRef(false);
   // P952: author-chosen response intensity; default 'off'
   const [responsesMode, setResponsesMode] = useState<'off' | 'invite'>('off');
@@ -253,8 +256,8 @@ export function LetterComposePage() {
         prediction_count: predictionsArray.length,
       });
 
-      setSealedLetterId(letter.id);
-      toast.success(mode === 'one-to-many' ? 'Letter sealed!' : 'Letter sealed and sent!');
+      markSealed(letter.id, result.skipped);
+      toast.success(withNotInChat(mode === 'one-to-many' ? 'Letter sealed!' : 'Letter sealed and sent!', result.skipped));
       setPhase('confirmation');
     } catch (err) {
       console.error('Seal failed:', err);
@@ -262,7 +265,7 @@ export function LetterComposePage() {
       sealingRef.current = false;
       setSealing(false);
     }
-  }, [docId, user?.id, mode, predictions, emails, receiverName, recipientsList, stories, responsesMode]);
+  }, [docId, user?.id, mode, predictions, emails, receiverName, recipientsList, stories, responsesMode, markSealed]);
 
   const handlePredictionComplete = useCallback(() => {
     // P1379: route on MODE. Only one-to-one reaches the walk now; a one-to-one letter
@@ -386,7 +389,7 @@ export function LetterComposePage() {
         receiverName={receiverName}
         mode={mode}
         storyCount={stories.length}
-        letterId={sealedLetterId ?? undefined}
+        {...sealed}
         isPublicDoc={doc.visibility === 'public'}
         openedFromDoc={routeState?.fromDoc === true}
       />

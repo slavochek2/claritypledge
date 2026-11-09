@@ -138,7 +138,7 @@ describe('the recorder bar', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(dictateButton()).not.toBeInTheDocument();
     expect(sendButton()).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Attach a point or story' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Attach' })).not.toBeInTheDocument();
   });
 
   it('the red recording dot stops pulsing for people who ask for less motion', async () => {

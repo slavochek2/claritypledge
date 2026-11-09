@@ -427,7 +427,7 @@ test('A attaches a point and a story; B sees both cards; a private attachment sh
 
   await pageA.goto('/chats');
   await row(pageA, B_NAME).getByRole('button').first().click();
-  await pageA.getByRole('button', { name: 'Attach a point or story' }).click();
+  await pageA.getByRole('button', { name: 'Attach', exact: true }).click();
   const dialog = pageA.getByRole('dialog');
   await expect(dialog.getByRole('button', { name: new RegExp(`Attach Attach point ${RUN}`) })).toBeVisible();
   await expect(dialog.getByText(`Private point ${RUN}`)).toHaveCount(0); // private items are never offered
@@ -435,7 +435,7 @@ test('A attaches a point and a story; B sees both cards; a private attachment sh
   await expect(pageA.getByTestId('staged-attachment')).toContainText(`Attach point ${RUN}`);
   await pageA.getByRole('button', { name: 'Send' }).click();
 
-  await pageA.getByRole('button', { name: 'Attach a point or story' }).click();
+  await pageA.getByRole('button', { name: 'Attach', exact: true }).click();
   await pageA.getByRole('dialog').getByRole('tab', { name: 'Stories' }).click();
   await pageA.getByRole('dialog').getByRole('button', { name: new RegExp(`Attach Attach story ${RUN}`) }).click();
   await pageA.getByRole('button', { name: 'Send' }).click();
@@ -607,7 +607,7 @@ test('QA shots 2: list, 1:1, channel + thread, forward, mirror rename, block, at
       await expect(composer(pageA)).toBeVisible();
 
       // Attach picker
-      await pageA.getByRole('button', { name: 'Attach a point or story' }).click();
+      await pageA.getByRole('button', { name: 'Attach', exact: true }).click();
       await expect(pageA.getByRole('dialog').getByRole('button', { name: new RegExp(`Attach Attach point ${RUN}`) })).toBeVisible();
       await pageA.waitForTimeout(500);
       await dialogShape(pageA, w);

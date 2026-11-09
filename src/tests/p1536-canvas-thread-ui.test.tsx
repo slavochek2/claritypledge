@@ -803,7 +803,7 @@ describe('v2: the top of the thread', () => {
 describe('v2: the input row order', () => {
   it('paperclip first, then Upload, then the text field', () => {
     render(<Composer draftKey="order" placeholder="Reply" onSend={vi.fn()} onAttach={vi.fn()} leading={<CanvasUploadButton busy={false} onPick={vi.fn()} />} />);
-    const clip = screen.getByRole('button', { name: 'Attach a point or story' });
+    const clip = screen.getByRole('button', { name: 'Attach' });
     const upload = screen.getByTestId('canvas-upload');
     const field = screen.getByRole('textbox');
     const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
@@ -813,7 +813,7 @@ describe('v2: the input row order', () => {
 
   it('the gate fixture\'s composer has the same order', () => {
     render(<MemoryRouter initialEntries={['/tree/_gate/canvas-thread?phase=empty']}><GateFixture /></MemoryRouter>);
-    const clip = screen.getByRole('button', { name: 'Attach a point or story' });
+    const clip = screen.getByRole('button', { name: 'Attach' });
     expect(clip.compareDocumentPosition(screen.getByTestId('canvas-upload')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

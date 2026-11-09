@@ -3,7 +3,12 @@
  * @description Helpers for CanvasShareControl (canvas-share-control.tsx): the sheet/popover switch, the short
  * date, and P1545's outside-open signal and invisible trigger.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+
+/** The ids the panel's parts point at (list, state line, title, invite field, people section, general access), one hook so the panel's own body stays short. */
+export function useShareIds() {
+  return { listId: useId(), stateId: useId(), titleId: useId(), inviteId: useId(), peopleId: useId(), generalId: useId() };
+}
 
 const SHEET_QUERY = '(max-width: 639px)';
 

@@ -329,7 +329,7 @@ test('Founder ruling: a stranger gets nothing from get_canvas even when a canvas
 });
 
 test('AC2: O shares with event E1: A, A2 and the host read everything with the reason line; L, N and V do not', async () => {
-  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: E1.id }, 'share E1')).toBe(true);
+  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: E1.id }, 'share E1')).toMatchObject({ shared: true }); // P1650: share_canvas returns { shared, skipped }
   const rec = await supabaseAdmin.from('canvases').select('id').eq('owner_id', O.user.id).eq('name', NAME);
   expect(rec.data).toHaveLength(1); // created on first share
   const aud = await supabaseAdmin.from('canvas_audience').select('kind,event_id').eq('canvas_id', rec.data![0].id);
@@ -507,7 +507,7 @@ test('AC10: canvas admission grants no base access: REST returns the attendee no
 });
 
 test('AC4: O adds group Y: G reads everything; after G leaves Y the next request is not-found; events come before groups', async () => {
-  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'group', p_target: Y.id }, 'share Y')).toBe(true);
+  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'group', p_target: Y.id }, 'share Y')).toMatchObject({ shared: true });
   const g = await getCanvas(cG);
   expectAdmitted(g, 'G', { kind: 'group', id: Y.id });
   expect(g.access.via.name).toBe(Y.name);
@@ -611,7 +611,7 @@ test('AC6 + AC11: unsharing E1 ends A\'s access, G2 keeps access; O keeps A\'s s
 });
 
 test('Deleting the event cascades its entry: access through it ends at once', async () => {
-  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: E2.id }, 'share E2')).toBe(true);
+  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: E2.id }, 'share E2')).toMatchObject({ shared: true });
   expectAdmitted(await getCanvas(cA), 'A through E2', { kind: 'event', id: E2.id });
   const del = await supabaseAdmin.from('events').delete().eq('id', E2.id);
   expect(del.error).toBeNull();
@@ -620,7 +620,7 @@ test('Deleting the event cascades its entry: access through it ends at once', as
   expectNothing(await getCanvas(cA), 'A after E2 was deleted');
   expectAdmitted(await getCanvas(cG2), 'G2 unaffected', { kind: 'group', id: Y.id });
   // Re-share E1: access returns on the next request (live, nothing copied), and A's stories come back for other readers.
-  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: E1.id }, 're-share E1')).toBe(true);
+  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: E1.id }, 're-share E1')).toMatchObject({ shared: true });
   expectAdmitted(await getCanvas(cA), 'A after re-share', { kind: 'event', id: E1.id });
   expect(stIds(await getCanvas(cA2))).toContain(addedPriv);
 });
@@ -642,7 +642,7 @@ test('AC8: the owner can add only events they host or are admitted to and groups
   // CONTROL for the refusals: an event the owner HOSTS is allowed, and so is removing it again.
   const E4 = await createTestEvent(O.user.id, new Date(Date.now() + DAY), { title: `P1515 hosted by O ${RUN}` });
   events.push(E4);
-  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: E4.id }, 'share hosted event')).toBe(true);
+  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: E4.id }, 'share hosted event')).toMatchObject({ shared: true });
   expect(await okRpc(cO, 'unshare_canvas', { p_name: NAME, p_kind: 'event', p_target: E4.id }, 'unshare hosted event')).toBe(true);
 
   // Nothing was added by the refused calls.
@@ -720,7 +720,7 @@ test('Sharing: a canvas that still holds a PUBLIC point cannot be shared, and ne
   const toCancelled = await rpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: cancelled.id });
   expect(toCancelled.error?.code).toBe('42501');
   expect(toCancelled.error?.message).toBe('not authorized for this canvas');
-  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: hosted.id }, 'share hosted upcoming')).toBe(true);
+  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: hosted.id }, 'share hosted upcoming')).toMatchObject({ shared: true });
   expect(await okRpc(cO, 'unshare_canvas', { p_name: NAME, p_kind: 'event', p_target: hosted.id }, 'unshare hosted upcoming')).toBe(true);
   const left = await supabaseAdmin.from('canvas_audience').select('id').eq('event_id', cancelled.id);
   expect(left.data).toEqual([]);
@@ -736,7 +736,7 @@ test('Visibility reads Private again when no entry admits the owner (the entries
 
   const empty = await getCanvas(cO, NAME_SOLO);
   expect(empty.visibility, 'no entries').toBe('private');
-  expect(await okRpc(cO, 'share_canvas', { p_name: NAME_SOLO, p_kind: 'group', p_target: Zo.id }, 'share solo')).toBe(true);
+  expect(await okRpc(cO, 'share_canvas', { p_name: NAME_SOLO, p_kind: 'group', p_target: Zo.id }, 'share solo')).toMatchObject({ shared: true });
   expect((await getCanvas(cO, NAME_SOLO)).visibility, 'an entry admits the owner').toBe('shared');
   const g = await getCanvas(cG, NAME_SOLO);
   expect(g.visibility).toBe('shared');
@@ -771,7 +771,7 @@ test('Signed out gets the same empty answer as a signed-in stranger (no error, n
 });
 
 test('Panel: the audience shows each entry with its count, names for events and public groups, a count only for a private group; only O', async () => {
-  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'group', p_target: Yp.id }, 'share Yp')).toBe(true);
+  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'group', p_target: Yp.id }, 'share Yp')).toMatchObject({ shared: true });
   const aud = await okRpc<{ entries: Row[] }>(cO, 'get_canvas_audience', { p_name: NAME }, 'audience');
   expect(aud.entries.map((e) => e.kind)).toEqual(['event', 'group', 'group']); // events before groups
 
@@ -825,7 +825,7 @@ test('Share targets: the owner is offered the events they host or are admitted t
   expect((await rpc(V, 'get_canvas_share_targets', {})).error, 'signed out has no grant').not.toBeNull();
 });
 
-test('Share targets: an event of any age is offered (no 90-day cutoff), newest first, and exactly what share_canvas accepts; a cancelled one is not', async () => {
+test('Share targets (P1650 D2, reverses P1515 3k): a long-finished event is NOT offered and share_canvas refuses it; the recent one is; a cancelled one is not', async () => {
   const targets = (c: SupabaseClient) => okRpc<{ events: Row[]; groups: Row[] }>(c, 'get_canvas_share_targets', {}, 'share targets');
   const longAgo = new Date(Date.now() - 200 * DAY); // well past the old 90-day cutoff
   const old = await createTestEvent(H.user.id, longAgo, { title: `P1515 old event ${RUN}`, status: 'completed' });
@@ -836,13 +836,11 @@ test('Share targets: an event of any age is offered (no 90-day cutoff), newest f
   await rsvp(oldCancelled.id, O.user.id, early);
   const ids = (await targets(cO)).events.map((e) => e.id);
   expect(ids, 'CONTROL: the recent event is still offered').toContain(E1.id);
-  expect(ids, 'an event 200 days old is offered').toContain(old.id);
-  expect(ids.indexOf(E1.id), 'newest first: the recent event comes before the old one').toBeLessThan(ids.indexOf(old.id));
+  expect(ids, 'an event 200 days old is no longer offered (P1650 D2)').not.toContain(old.id);
   expect(ids, 'a cancelled event is not offered').not.toContain(oldCancelled.id);
-  // The list is exactly what the server accepts: the offered old event shares, the cancelled one is refused.
-  expect(await okRpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: old.id }, 'share the old event')).toBe(true);
+  // The list is exactly what the server accepts: the old event is refused too, and so is the cancelled one.
+  expect((await rpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: old.id })).error, 'old: refused').not.toBeNull();
   expect((await rpc(cO, 'share_canvas', { p_name: NAME, p_kind: 'event', p_target: oldCancelled.id })).error, 'cancelled: refused').not.toBeNull();
-  expect(await okRpc(cO, 'unshare_canvas', { p_name: NAME, p_kind: 'event', p_target: old.id }, 'unshare the old event')).toBe(true);
 });
 
 test('Event page: the canvases shared with E1 are listed to E1\'s admitted people (and the owner) and to no one else', async () => {

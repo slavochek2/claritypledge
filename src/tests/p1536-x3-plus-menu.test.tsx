@@ -143,7 +143,7 @@ describe('S3c.3 (X3): the + on the owner\'s mirror chat', () => {
   it('shows beside the paperclip on the main composer while drafting is on, after it and before the field', async () => {
     await mount(pane(MIRROR), [MIRROR], `/chats/c/${CONV}`);
     const button = await screen.findByTestId('composer-plus');
-    const paperclip = within(screen.getByTestId('composer')).getByRole('button', { name: 'Attach a point or story' });
+    const paperclip = within(screen.getByTestId('composer')).getByRole('button', { name: 'Attach' });
     expect(paperclip.nextElementSibling).toBe(button);
     expect(button).toHaveAccessibleName('Create');
     expect(button.getAttribute('type')).toBe('button');
@@ -189,7 +189,7 @@ describe('S3c.3 (X3): the paperclip attaches and the "..." menu opens no canvas'
   it('the paperclip dialog has Points and Stories only, with drafting ON', async () => {
     await mount(pane(MIRROR), [MIRROR], `/chats/c/${CONV}`);
     await screen.findByTestId('composer-plus'); // CONTROL: drafting really is on
-    fireEvent.click(screen.getByRole('button', { name: 'Attach a point or story' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
     const tabs = within(await screen.findByRole('tablist', { name: 'Kind' })).getAllByRole('tab').map(t => t.textContent);
     expect(tabs).toEqual(['Points', 'Stories']);
   });

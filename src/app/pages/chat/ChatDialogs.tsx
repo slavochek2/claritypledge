@@ -14,6 +14,7 @@ import { forwardMessage, renameMirror, type ChatMessage, type ChatSummary } from
 import { filterShareables, loadMyShareables, type Shareable } from '@/app/data/chat-ui-helpers';
 import { ChannelMark, ChatRowTitle, FOCUS_RING, HOVER, InlineError, MirrorMark, PRIMARY_CLASS, PersonMark } from './chat-kit';
 import { chatErrorText, chatTitle, messageSummary } from './chat-view-model';
+import { ATTACH_TABS, ATTACH_TAB_LABEL, attachEmptyText, loadAttachableCanvasShareables, type AttachTab } from './attach-canvases';
 
 /** Phone dialogs float with a side margin and rounded corners all round (the base only rounds from sm up). */
 const DIALOG = 'w-[calc(100vw-2rem)] rounded-lg sm:max-w-sm';
@@ -228,23 +229,30 @@ export function ForwardDialog({
 // ---------------------------------------------------------------------------
 // Attach
 // ---------------------------------------------------------------------------
-export function AttachDialog({ viewerId, onPick, onClose }: { viewerId: string; onPick: (s: Shareable) => void; onClose: () => void }) {
-  const [state, setState] = useState<{ status: 'loading' } | { status: 'error' } | { status: 'ready'; items: Shareable[] }>({ status: 'loading' });
-  const [kind, setKind] = useState<'point' | 'story'>('point');
+/**
+ * P1650: with a `conversationId` the dialog also has a Canvases tab: the sender's published canvases this chat may
+ * carry (the server decides which, `list_attachable_canvases`). Without one (a mirror chat) it has no such tab.
+ * Attaching never shares: a canvas not listed has to be shared first.
+ */
+export function AttachDialog({ viewerId, conversationId, onPick, onClose }: { viewerId: string; conversationId?: string; onPick: (s: Shareable) => void; onClose: () => void }) {
+  const [state, setState] = useState<{ status: 'loading' } | { status: 'error' } | { status: 'ready'; items: Shareable[]; canvasesFailed: boolean }>({ status: 'loading' });
+  const [kind, setKind] = useState<AttachTab>('point');
   const [query, setQuery] = useState('');
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let live = true;
     setState({ status: 'loading' });
-    loadMyShareables(viewerId).then(
-      (items) => live && setState({ status: 'ready', items }),
+    // A canvas list that cannot load must not hide points and stories: that tab alone says so.
+    Promise.all([loadMyShareables(viewerId), loadAttachableCanvasShareables(conversationId)]).then(
+      ([items, canvases]) => live && setState({ status: 'ready', items: [...items, ...(canvases ?? [])], canvasesFailed: canvases === null }),
       () => live && setState({ status: 'error' }),
     );
     return () => {
       live = false;
     };
-  }, [viewerId, attempt]);
+  }, [viewerId, conversationId, attempt]);
+  const tabs = conversationId ? ATTACH_TABS : ATTACH_TABS.filter((t) => t !== 'canvas');
 
   const items = state.status === 'ready' ? filterShareables(state.items, query, kind) : [];
 
@@ -252,12 +260,12 @@ export function AttachDialog({ viewerId, onPick, onClose }: { viewerId: string; 
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className={cn(SHEET, 'sm:max-w-lg')}>
         <DialogHeader className={SHEET_HEAD}>
-          <DialogTitle className="text-base">Attach a point or story</DialogTitle>
-          <DialogDescription className="sr-only">Pick one of your own points or stories to send.</DialogDescription>
+          <DialogTitle className="text-base">Attach</DialogTitle>
+          <DialogDescription className="sr-only">Pick one of your own points, stories or canvases to send.</DialogDescription>
         </DialogHeader>
         <div className="shrink-0 space-y-2 px-3 pt-3">
           <div role="tablist" aria-label="Kind" className="flex gap-1 border-b">
-            {(['point', 'story'] as const).map((k) => (
+            {tabs.map((k) => (
               <button
                 key={k}
                 type="button"
@@ -266,7 +274,7 @@ export function AttachDialog({ viewerId, onPick, onClose }: { viewerId: string; 
                 onClick={() => setKind(k)}
                 className={cn('min-h-11 border-b-2 px-4 text-sm font-medium', FOCUS_RING, kind === k ? 'border-blue-600 text-blue-700' : 'border-transparent text-muted-foreground hover:text-foreground')}
               >
-                {k === 'point' ? 'Points' : 'Stories'}
+                {ATTACH_TAB_LABEL[k]}
               </button>
             ))}
           </div>
@@ -307,7 +315,7 @@ export function AttachDialog({ viewerId, onPick, onClose }: { viewerId: string; 
               ))}
               {items.length === 0 && (
                 <li className="px-3 py-8 text-center text-sm text-muted-foreground">
-                  {state.items.some((s) => s.kind === kind) ? 'Nothing matches. Try fewer words or another #tag.' : `You have no ${kind === 'point' ? 'points' : 'stories'} to attach yet.`}
+                  {attachEmptyText(kind, state.items.some((s) => s.kind === kind), state.canvasesFailed)}
                 </li>
               )}
             </ul>

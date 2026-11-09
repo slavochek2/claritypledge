@@ -324,7 +324,7 @@ test.describe('P1486: the scope-gated RPCs follow the same rule', () => {
     const letterId = await draftBy(creator);
     const { data, error } = await seal(creator, letterId, [{ receiver_profile_id: partner.user.id }]);
     expect(error, error?.message).toBeNull();
-    expect(data).toBe(true);
+    expect(data).toMatchObject({ sealed: true }); // P1650: seal returns { sealed, skipped }
     const rows = await deliveriesOf(letterId);
     expect(rows).toHaveLength(1);
     expect(rows[0].receiver_profile_id).toBe(partner.user.id);
@@ -348,7 +348,7 @@ test.describe('P1486: the scope-gated RPCs follow the same rule', () => {
       p_receiver_profile_id: receiver.user.id,
     });
     expect(error, error?.message).toBeNull();
-    expect(typeof data).toBe('string');
+    expect(typeof (data as { delivery_id: string }).delivery_id).toBe('string'); // P1650: add_recipient returns { delivery_id, skipped }
     const rows = await deliveriesOf(letterId);
     expect(rows.map((r) => r.receiver_profile_id)).toEqual([receiver.user.id]);
   });

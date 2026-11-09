@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { copyToClipboard } from '@/lib/utils';
 import { LetterReceiverModal } from './letter-receiver-modal';
+import { notSentToChatText } from '@/app/data/letter-chat-skipped';
 import type { LetterMode } from '@/app/types';
 
 interface LetterSealConfirmationProps {
@@ -25,6 +26,8 @@ interface LetterSealConfirmationProps {
   isPublicDoc?: boolean;
   /** The doc page opened compose (it marks the route state). Only then is the entry below the doc. */
   openedFromDoc?: boolean;
+  /** P1650: recipients whose letter card was not posted to chat; the line names them. Empty or missing: no line. */
+  notInChat?: { name: string }[];
 }
 
 export function LetterSealConfirmation({
@@ -35,6 +38,7 @@ export function LetterSealConfirmation({
   letterId,
   isPublicDoc,
   openedFromDoc = false,
+  notInChat,
 }: LetterSealConfirmationProps) {
   // "Back to Doc" goes to the doc. When the doc page opened compose (it marks the route state) that is a POP, so
   // the doc's own Back does not land on compose again. Opened from the Drafts list (drafts-tab goes straight
@@ -71,6 +75,11 @@ export function LetterSealConfirmation({
           <p className="text-sm text-muted-foreground">
             {storyCount} {storyCount === 1 ? 'story' : 'stories'}
           </p>
+          {notSentToChatText(notInChat) && (
+            <p role="status" className="text-sm text-muted-foreground" data-testid="letter-not-sent-to-chat">
+              {notSentToChatText(notInChat)}
+            </p>
+          )}
         </div>
 
         {/* Public link block — hero link, primary CTA, tertiary invite link */}

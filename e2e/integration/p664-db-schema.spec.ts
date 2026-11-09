@@ -91,7 +91,7 @@ test.describe('P664 Migration — add_recipient_to_sealed_letter receiver_name',
     const token = await signIn(sender.email);
     const userClient = makeUserClient(token);
 
-    const { data: deliveryId, error } = await userClient.rpc('add_recipient_to_sealed_letter', {
+    const { data: deliveryRes, error } = await userClient.rpc('add_recipient_to_sealed_letter', {
       p_letter_id: letterId,
       p_email: 'p664-named-recipient@gmail.com',
       p_receiver_name: 'Alex Rivera',
@@ -103,7 +103,7 @@ test.describe('P664 Migration — add_recipient_to_sealed_letter receiver_name',
     const { data: delivery } = await supabaseAdmin
       .from('letter_deliveries')
       .select('id, receiver_email, receiver_name, status')
-      .eq('id', deliveryId as string)
+      .eq('id', (deliveryRes as { delivery_id: string }).delivery_id) // P1650: add_recipient returns { delivery_id, skipped }
       .single();
 
     expect(delivery).not.toBeNull();
@@ -117,7 +117,7 @@ test.describe('P664 Migration — add_recipient_to_sealed_letter receiver_name',
     const token = await signIn(sender.email);
     const userClient = makeUserClient(token);
 
-    const { data: deliveryId, error } = await userClient.rpc('add_recipient_to_sealed_letter', {
+    const { data: deliveryRes, error } = await userClient.rpc('add_recipient_to_sealed_letter', {
       p_letter_id: letterId,
       p_email: 'p664-anon-recipient@gmail.com',
       // p_receiver_name omitted — should default to NULL
@@ -129,7 +129,7 @@ test.describe('P664 Migration — add_recipient_to_sealed_letter receiver_name',
     const { data: delivery } = await supabaseAdmin
       .from('letter_deliveries')
       .select('id, receiver_name')
-      .eq('id', deliveryId as string)
+      .eq('id', (deliveryRes as { delivery_id: string }).delivery_id) // P1650: add_recipient returns { delivery_id, skipped }
       .single();
 
     expect(delivery!.receiver_name).toBeNull();
@@ -140,7 +140,7 @@ test.describe('P664 Migration — add_recipient_to_sealed_letter receiver_name',
     const token = await signIn(sender.email);
     const userClient = makeUserClient(token);
 
-    const { data: deliveryId, error } = await userClient.rpc('add_recipient_to_sealed_letter', {
+    const { data: deliveryRes, error } = await userClient.rpc('add_recipient_to_sealed_letter', {
       p_letter_id: letterId,
       p_email: 'p664-null-name-recipient@gmail.com',
       p_receiver_name: null,
@@ -151,7 +151,7 @@ test.describe('P664 Migration — add_recipient_to_sealed_letter receiver_name',
     const { data: delivery } = await supabaseAdmin
       .from('letter_deliveries')
       .select('id, receiver_name')
-      .eq('id', deliveryId as string)
+      .eq('id', (deliveryRes as { delivery_id: string }).delivery_id) // P1650: add_recipient returns { delivery_id, skipped }
       .single();
 
     expect(delivery!.receiver_name).toBeNull();

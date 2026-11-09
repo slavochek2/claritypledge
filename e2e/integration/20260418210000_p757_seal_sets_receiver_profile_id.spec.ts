@@ -116,7 +116,7 @@ test.describe('P757: seal_and_send_letter sets receiver_profile_id', () => {
     });
 
     expect(error, `seal_and_send_letter failed: ${error?.message}`).toBeNull();
-    expect(data).toBe(true);
+    expect(data).toMatchObject({ sealed: true }); // P1650: seal returns { sealed, skipped }
 
     const { data: delivery, error: deliveryError } = await supabaseAdmin
       .from('letter_deliveries')
@@ -164,7 +164,7 @@ test.describe('P757: seal_and_send_letter sets receiver_profile_id', () => {
       });
 
       expect(error, `seal_and_send_letter failed: ${error?.message}`).toBeNull();
-      expect(data).toBe(true);
+      expect(data).toMatchObject({ sealed: true });
 
       const { data: delivery, error: deliveryError } = await supabaseAdmin
         .from('letter_deliveries')
