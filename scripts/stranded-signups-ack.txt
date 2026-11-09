@@ -4,3 +4,5 @@
 047ca4f1-eaca-435c-94e4-3590e31110de   # signed up 2026-10-09; founder followed up (told 2026-10-13)
 53bf7593-f101-4499-89a4-2fff79f86fe1   # signed up 2026-10-21; founder emailed 2026-10-23
 92d6b1e2-bc9f-44a3-838f-db94beccf6c6   # signed up 2026-10-24; founder emailed 2026-10-26
+643c972a-b425-42b1-b768-ab33c842dfa3  # founder own plus-address test sign-up, 2026-11-07
+25d5bda6-bd8f-4684-9d67-07bbdb60543b   # signed up 2026-11-07; founder emailed 2026-11-09
