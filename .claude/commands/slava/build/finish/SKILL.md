@@ -83,7 +83,7 @@ For each review type, check for existing artifacts. Skip reviews that already co
 |---|---|
 | `uat` | `features/uat/p{N}.md` exists with passing marks in Test Execution Log |
 | `privacy` | `.claude/.privacy-reviewed` OR `$(git rev-parse --git-common-dir)/.privacy-reviewed` stamp exists AND its SHA covers all watched-path commits since `git rev-list --count origin/main..HEAD -- WATCHED_PATHS` returns 0 uncovered commits |
-| `code` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"code",...}` entry whose **`sha` equals the current `HEAD`** — see the P1203 note below |
+| `code` | `scripts/finish-skip-check.sh <pN>` exits 0: a `{"type":"code",...}` entry for this `pN` whose **`sha` equals the current `HEAD`**, **and** a working tree and index with no change of any kind (modified, staged, deleted, renamed, new untracked file). Any other exit means the review runs. See the P1203 and P1662 notes below |
 | `skills` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"skills","branch":"<current branch>",...}` entry newer than last commit |
 | `rules` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"rules","branch":"<current branch>",...}` entry newer than last commit |
 | `migrations` | `$(git rev-parse --git-common-dir)/.finish-reviewed` has a `{"type":"migrations","branch":"<current branch>",...}` entry newer than last commit |
@@ -93,11 +93,17 @@ For each review type, check for existing artifacts. Skip reviews that already co
 > **P1203 — why `code` keys on `sha` and not on branch + recency.** On `main` the branch matches every
 > entry, so "an entry for this branch, newer than the last commit" is satisfied by a **co-tenant's
 > review of entirely unrelated work** from minutes ago — and `/finish` would then skip the code review
-> altogether. Direct-to-main is routine, not exceptional. Keying on the reviewed `sha` is exact in both
-> directions: same `HEAD` ⟹ the same tree was reviewed, so skipping is correct; `HEAD` moved ⟹ the
-> review is stale and must re-run. Entries predating P1203 carry no `sha`, so they never match and the
-> review simply runs — the safe direction. Apply the same reasoning before extending this to the other
-> review types; they are not fixed here because only `code` gates a ship.
+> altogether. Direct-to-main is routine, not exceptional. Keying on the reviewed `sha` catches a moved
+> `HEAD`: the review is stale and must re-run. Entries predating P1203 carry no `sha`, so they never
+> match and the review simply runs — the safe direction. Apply the same reasoning before extending this
+> to the other review types; they are not fixed here because only `code` gates a ship.
+>
+> **P1662 — `sha` alone is not enough.** "Same `HEAD` ⟹ same tree" is false for uncommitted work, which
+> `/finish` reviews: review, edit a file without committing, re-run, and a `sha`-only check skipped the
+> review, so the edit shipped unreviewed. The skip now also requires a completely clean tree, which
+> `scripts/finish-skip-check.sh` checks (canary: `scripts/test-p1662-finish-skip-check.sh`). A content
+> receipt was tried and rejected in review: deleted files, a staged-versus-worktree split and unreadable
+> files all passed it. The cost is deliberate: a re-run on a dirty tree always reviews again.
 
 **File-argument mode never skips** (`/finish <file>...`, which the Stop-hook gate asks for): a
 `.finish-reviewed` stamp is not a review receipt, so skipping would leave the gate blocking with
@@ -159,7 +165,10 @@ for Opus, an `Agent`. When `/dev` or `/fix` dispatch `/finish code` as a subagen
 the criteria review only. The caller runs Step 4b and Step 6b in parallel with it.
 
 **0. Snapshot first.** Before any reviewer starts, run
-`python3 scripts/review_receipt.py snapshot -- <CHANGED_FILES>` and keep the printed path. The receipt
+`python3 scripts/review_receipt.py snapshot -- <CHANGED_FILES>` and keep the printed path. At the same moment run
+`echo "REVIEWED_SHA=$(git rev-parse HEAD) REVIEWED_CLEAN=$(scripts/finish-skip-check.sh --tree-state)"` and keep both
+printed values: the stamp copies them literally (a shell variable does not survive to a later tool call), so it
+describes the tree the reviewers read, not the tree when the stamp is written (P1662). The receipt
 records exactly what the reviewers saw, and nothing written later.
 
 | Reviewer | Runs when | How |
@@ -313,14 +322,17 @@ After review completes, write the shared stamp at `<git-common-dir>/.finish-revi
 ```bash
 GIT_COMMON_DIR="$(git rev-parse --path-format=absolute --git-common-dir)"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-SHA="$(git rev-parse HEAD)"
+# Copied from what the Step 4b snapshot printed: shell variables do not survive between tool
+# calls, and HEAD or the tree may have moved since the review (P1505, P1662).
+SHA="<REVIEWED_SHA printed at the Step 4b snapshot>"
+CLEAN="<true|false printed at the Step 4b snapshot>"
 PN="p{N}"   # the spec reviewed; "-" only when there genuinely is none
-echo "{\"type\":\"code\",\"pn\":\"$PN\",\"branch\":\"$BRANCH\",\"sha\":\"$SHA\",\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"issues_found\":2,\"issues_fixed\":2}" >> "$GIT_COMMON_DIR/.finish-reviewed"
+echo "{\"type\":\"code\",\"pn\":\"$PN\",\"branch\":\"$BRANCH\",\"sha\":\"$SHA\",\"clean\":$CLEAN,\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"issues_found\":2,\"issues_fixed\":2}" >> "$GIT_COMMON_DIR/.finish-reviewed"
 ```
 
 **Write the JSON compactly — no space after the colons.** The ship gate now tolerates `"type": "code"` as well, but three writers and one reader sharing an unspecified literal is what produced the defect: a real review of `feature/p1197-navtrace` (4 issues found, 3 fixed) failed gate 2.7 for months purely because its entry was written with spaces. Match this template exactly.
 
-JSON-lines format — one line per review type, each carrying the `pn` it reviewed (P1203), the `sha` that was HEAD at review time, and the `branch` it was reviewed on (the file is shared across every worktree, so `branch` lets gate 2.7 distinguish this branch's review from a concurrent worktree's review of an unrelated feature — P1002). **`sha` is not read by gate 2.7's matching logic at all** — gate 2.7 matches on `branch` (feature-branch arm) or `pn` (no-branch arm) only. `sha` is consumed by two separate freshness checks: this skill's own Step 3 skip-detection (`sha == HEAD`), and gate 2.7b's warn-only staleness check, which on the no-branch path compares the entry's `sha` against current `HEAD` via `git merge-base --is-ancestor` (added alongside this note — the no-branch arm previously had no staleness signal at all). Append (don't overwrite) so partial runs are preserved.
+JSON-lines format — one line per review type, each carrying the `pn` it reviewed (P1203), the `sha` that was HEAD at review time, and the `branch` it was reviewed on (the file is shared across every worktree, so `branch` lets gate 2.7 distinguish this branch's review from a concurrent worktree's review of an unrelated feature — P1002). **`sha` is not read by gate 2.7's matching logic at all** — gate 2.7 matches on `branch` (feature-branch arm) or `pn` (no-branch arm) only. `sha` is consumed by two separate freshness checks: this skill's own Step 3 skip-detection (`sha == HEAD` plus a clean tree, via `scripts/finish-skip-check.sh`, P1662), and gate 2.7b's warn-only staleness check, which on the no-branch path compares the entry's `sha` against current `HEAD` via `git merge-base --is-ancestor` (added alongside this note — the no-branch arm previously had no staleness signal at all). Append (don't overwrite) so partial runs are preserved.
 
 ### Step 6b: Review receipt (P1505; written by whoever ran Step 4b)
 
