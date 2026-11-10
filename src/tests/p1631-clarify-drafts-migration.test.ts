@@ -16,6 +16,7 @@ import { join } from 'node:path';
 const MIG = join(__dirname, '..', '..', 'supabase', 'migrations');
 const FILE = '20261110153000_p1631_clarify_drafts.sql';
 const OLD = '20261029100000_p1536_canvas_draft_versions.sql';
+const FIX = '20261110170000_p1631_review_fixes.sql';
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
 const stripComments = (sql: string) => sql.replace(/--[^\n]*/g, '');
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -72,7 +73,8 @@ describe('P1631 migration: header and file', () => {
     const all = readdirSync(MIG).filter((f) => /^\d{14}_.*\.sql$/.test(f)).sort();
     for (const name of ['mirror_request_reply', '_mirror_voice_start_reply']) {
       const defs = all.filter((f) => re(name).test(stripComments(read(f))));
-      expect(defs[defs.length - 1]).toBe(FILE);
+      // the review-fix migration (20261110170000) restates both again, keyed on the thread marker: it is the newest definition now
+      expect(defs.slice(-2)).toEqual([FILE, FIX]);
     }
   });
 });
@@ -224,5 +226,80 @@ describe('P1631 follow-up migration: the erasure cleanup runs inside erase_chat_
     const body = fnBody(fu, 'erase_chat_data_for');
     expect(body).toContain(lock);
     expect(body.indexOf('_clarify_erase_person')).toBeGreaterThan(body.indexOf(lock));
+  });
+});
+
+
+describe('P1631 review-fix migration (20261110170000)', () => {
+  const fix = read(FIX);
+  const code = stripComments(fix);
+  // Lines that CHANGE an old line (not pure insertions) are listed with the old text they replace, exactly as p1536 lists its substitutions.
+  const CHANGED: Array<[string, string]> = [
+    [`RETURN jsonb_build_object('status', 'busy', 'reason', 'locked'); -- P1631`, `RETURN jsonb_build_object('status', 'busy');`],
+    [`DELETE FROM public.points p WHERE p.id = ANY (v_points) AND p.visibility = 'private'::public.content_visibility\n     AND NOT EXISTS`, `DELETE FROM public.points p WHERE p.id = ANY (v_points) AND p.visibility = 'private'::public.content_visibility;\n     AND NOT EXISTS`],
+  ];
+  const marked = (sql: string) => {
+    let t = sql;
+    for (const [from, to] of CHANGED) t = t.split(from).join(to);
+    // the erase DELETE: its added condition continues the statement on a marked line; restore the old terminator
+    return t.split('\n').filter((l) => !l.includes('-- P1631')).join('\n').replace("content_visibility\n", "content_visibility;\n");
+  };
+  it('names what it was diffed against, and each named source is the newest definition before this file', () => {
+    const header = fix.slice(0, fix.indexOf('CREATE TABLE'));
+    for (const f of ['mirror_request_reply', '_mirror_voice_start_reply', 'clarify_start', '_clarify_begin', '_clarify_erase_person']) {
+      expect(header).toContain(f);
+      expect(newestBefore(f, FIX), f).toBe(f === '_clarify_erase_person' ? '20261110160000_p1631_erase_cleanup_in_erase_fn.sql' : FILE);
+    }
+    expect(fix).toMatch(/^-- client-safe:/m);
+  });
+  it('every restated body is the newest previous body plus ONLY lines marked -- P1631', () => {
+    for (const f of ['clarify_start', '_clarify_begin', '_clarify_erase_person']) {
+      const src = f === '_clarify_erase_person' ? read('20261110160000_p1631_erase_cleanup_in_erase_fn.sql') : raw;
+      expect(fnBody(marked(fix), f), f).toBe(fnBody(src, f));
+    }
+    // the two quiet-rule functions: the previous P1631 block is replaced by marked lines, so compare with the P1536 body they both come from
+    for (const f of ['mirror_request_reply', '_mirror_voice_start_reply']) expect(fnBody(marked(fix), f), f).toBe(fnBody(read(OLD), f));
+  });
+  it('the quiet rule reads the thread marker, never the draft rows (deleting the last draft must not turn the reply on)', () => {
+    for (const f of ['mirror_request_reply', '_mirror_voice_start_reply']) {
+      const body = fnBody(fix, f);
+      expect(body).toContain('public.clarify_threads ct');
+      expect(body).not.toContain('public.clarify_drafts');
+    }
+    expect(fnBody(fix, 'clarify_start')).toContain('INSERT INTO public.clarify_threads');
+    expect(code).toContain('ALTER TABLE public.clarify_threads ENABLE ROW LEVEL SECURITY;');
+    expect(code).toContain('REVOKE ALL ON TABLE public.clarify_threads FROM PUBLIC, anon, authenticated;');
+    expect(code).not.toMatch(/GRANT[^;]*clarify_threads/);
+  });
+  it('the workers take a run token, the old signatures are dropped, and grants stay service_role alone', () => {
+    expect(code).toContain('DROP FUNCTION IF EXISTS public._clarify_complete(uuid, jsonb, numeric);');
+    expect(code).toContain('DROP FUNCTION IF EXISTS public._clarify_fail(uuid, text, numeric);');
+    for (const sig of ['_clarify_complete(uuid, jsonb, numeric, uuid)', '_clarify_fail(uuid, text, numeric, uuid)']) {
+      const e = sig.replace(/[()]/g, '\\$&');
+      expect(code).toMatch(new RegExp(`REVOKE ALL ON FUNCTION public\\.${e} FROM PUBLIC, anon, authenticated;`));
+      expect(code).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${e} TO service_role;`));
+    }
+    expect(fnBody(fix, '_clarify_complete')).toContain('v_d.spend_id IS DISTINCT FROM p_run');
+    expect(fnBody(fix, '_clarify_fail')).toContain('v_d.spend_id IS DISTINCT FROM p_run');
+    expect(fnBody(fix, '_clarify_begin')).toContain(`'run_token', v_spend`);
+  });
+  it('H1, L1, cap, locked, erase settle and keep, dedupe and the empty refusal are in the bodies', () => {
+    const b = fnBody(fix, '_clarify_begin');
+    expect(b).toContain('unnest(d2.derived_refs)');
+    expect(b).toContain(`v_d.updated_at < now() - interval '5 minutes'`);
+    expect(b.split(`'reason', 'locked'`).length - 1).toBe(2);
+    expect(fnBody(fix, '_clarify_fail')).toContain(`CASE WHEN p_code = 'cap' THEN 'capped' ELSE 'failed' END`);
+    const e = fnBody(fix, '_clarify_erase_person');
+    expect(e).toContain(`state = 'settled'`);
+    expect(e).toContain('pp.user_id IS DISTINCT FROM p.first_validator_id');
+    const c = fnBody(fix, '_clarify_complete');
+    expect(c).toContain('GROUP BY btrim(e #>> ');
+    expect(c).toContain('jsonb_array_length(v_sugg) = 0');
+  });
+  it('CONTROL: dropping one marked line of a restated body is caught by the same comparison', () => {
+    const mutated = fix.replace("INSERT INTO public.clarify_threads (root_id, owner_id) VALUES (v_row.id, v_uid) ON CONFLICT (root_id) DO NOTHING; -- P1631\n", '');
+    expect(fnBody(marked(mutated), 'clarify_start')).toBe(fnBody(raw, 'clarify_start')); // still equal: the line was marked, so removing it changes nothing in the diff
+    const unmarked = fix.replace("DO NOTHING; -- P1631", 'DO NOTHING;');
+    expect(fnBody(marked(unmarked), 'clarify_start')).not.toBe(fnBody(raw, 'clarify_start'));
   });
 });

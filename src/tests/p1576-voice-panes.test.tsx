@@ -17,7 +17,7 @@ vi.setConfig({ testTimeout: 30_000 });
 const ME = vi.hoisted(() => ({ id: 'me', name: 'Mia Maker', slug: 'mia', isVerified: true, avatarColor: '#10b981', avatarUrl: undefined as string | undefined }));
 const svc = vi.hoisted(() => ({
   getMyChats: vi.fn(), listMessages: vi.fn(), listThread: vi.fn(), getMessage: vi.fn(), sendMessage: vi.fn(), editMessage: vi.fn(),
-  deleteMessage: vi.fn(), forwardMessage: vi.fn(), clarifyMessage: vi.fn(), markRead: vi.fn(), setChatState: vi.fn(), renameMirror: vi.fn(),
+  deleteMessage: vi.fn(), forwardMessage: vi.fn(), markRead: vi.fn(), setChatState: vi.fn(), renameMirror: vi.fn(),
   blockUser: vi.fn(), unblockUser: vi.fn(), getMyBlocks: vi.fn(), searchPeople: vi.fn(), searchMessages: vi.fn(), startDm: vi.fn(),
   subscribeToChat: vi.fn(), getThreadStats: vi.fn(), sendVoiceNote: vi.fn(), getVoicePlaybackUrl: vi.fn(),
 }));

@@ -10,8 +10,9 @@ const OWNER = '11111111-1111-4111-8111-111111111111';
 const DRAFT = '22222222-2222-4222-8222-222222222222';
 const R1 = '33333333-3333-4333-8333-333333333333';
 const R2 = '44444444-4444-4444-8444-444444444444';
+const TOKEN = '66666666-6666-4666-8666-666666666666';
 const RUN: ClarifyRun = {
-  status: 'run', draft_id: DRAFT, owner_id: OWNER, reserved_usd: 0.27, owner_instruction: null,
+  status: 'run', draft_id: DRAFT, run_token: TOKEN, owner_id: OWNER, reserved_usd: 0.27, owner_instruction: null,
   source_message: { id: R1, text: 'We should ship the pricing change on Monday.', is_pressed: true },
   thread: [], surrounding_chat: [{ id: R2, text: 'I think we should wait a month.' }], already_drafted: [],
 };
@@ -144,6 +145,45 @@ describe('clarify-draft outcomes', () => {
     expect(r.body.code).toBe('BAD_OUTPUT');
     expect(names(calls)).toEqual(['_clarify_begin', '_clarify_fail']);
     expect(calls[1]!.args).toMatchObject({ p_code: 'bad_output' });
+  });
+  it('every complete and fail carries the run token begin issued (a stale run cannot touch a newer one)', async () => {
+    const ok: Call[] = [];
+    await run(deps({}, RUN, ok));
+    expect(ok.find((c) => c.name === '_clarify_complete')!.args.p_run).toBe(TOKEN);
+    for (const model of [async () => ({ status: 500, body: null }), async () => { throw new Error('boom'); }]) {
+      const calls: Call[] = [];
+      await run(deps({ callModel: model }, RUN, calls));
+      expect(calls.find((c) => c.name === '_clarify_fail')!.args.p_run).toBe(TOKEN);
+    }
+  });
+  it('begin that meets lock contention is retried (bounded, with backoff) and then runs; a busy run in progress is not retried', async () => {
+    const waits: number[] = [];
+    let n = 0;
+    const calls: Call[] = [];
+    const flaky: Partial<ClarifyDeps> = {
+      sleep: async (ms) => { waits.push(ms); },
+      rpc: async (name, args) => {
+        calls.push({ name, args });
+        if (name === '_clarify_begin') return { data: ++n < 3 ? { status: 'busy', reason: 'locked' } : RUN, error: null };
+        return { data: { status: 'done' }, error: null };
+      },
+    };
+    const r = await run(deps(flaky));
+    expect(r.body.state).toBe('done');
+    expect(calls.filter((c) => c.name === '_clarify_begin')).toHaveLength(3);
+    expect(waits).toEqual([250, 750]);
+    // always locked: exactly three tries, then the 'ask again' answer, no model call
+    const always: Call[] = [];
+    let called = false;
+    const stuck = await run(deps({ sleep: async () => {}, callModel: async () => { called = true; return { status: 200, body: {} }; },
+      rpc: async (name, args) => { always.push({ name, args }); return { data: { status: 'busy', reason: 'locked' }, error: null }; } }));
+    expect(always).toHaveLength(3);
+    expect(stuck.status).toBe(202);
+    expect(called).toBe(false);
+    // a run in progress elsewhere answers busy without a reason: one attempt
+    const plain: Call[] = [];
+    await run(deps({ sleep: async () => {}, rpc: async (name, args) => { plain.push({ name, args }); return { data: { status: 'busy' }, error: null }; } }));
+    expect(plain).toHaveLength(1);
   });
   it('a request too large for the budget fails released (never charged) before any model call', async () => {
     const calls: Call[] = [];

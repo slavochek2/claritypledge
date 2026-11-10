@@ -20,6 +20,9 @@ export function useClarifyThread(threadRootId: string | null): ClarifyThreadStat
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const alive = useRef(true);
+  // the thread this hook currently shows; an answer for another root (the pane moved on) is dropped
+  const currentRoot = useRef(threadRootId);
+  currentRoot.current = threadRootId;
   useEffect(() => {
     alive.current = true;
     return () => { alive.current = false; };
@@ -29,19 +32,20 @@ export function useClarifyThread(threadRootId: string | null): ClarifyThreadStat
     if (!threadRootId) return;
     try {
       const next = await getClarifyThread(threadRootId);
-      if (!alive.current) return;
+      if (!alive.current || currentRoot.current !== threadRootId) return;
       setDrafts(next);
       setFailed(false);
     } catch {
-      if (alive.current) setFailed(true);
+      if (alive.current && currentRoot.current === threadRootId) setFailed(true);
     } finally {
-      if (alive.current) setLoaded(true);
+      if (alive.current && currentRoot.current === threadRootId) setLoaded(true);
     }
   }, [threadRootId]);
 
   useEffect(() => {
     setDrafts([]);
     setLoaded(false);
+    setFailed(false);
     void reload();
   }, [reload]);
 

@@ -172,6 +172,11 @@ const gateFixtures = [
     label: 'Gate fixture: canvas draft',
     description: 'The canvas page header and boxes in each draft state (?phase=)'
   },
+  {
+    path: '/tree/_gate/clarify-thread',
+    label: 'Gate fixture: Clarify thread',
+    description: 'A Clarify thread in the Mirror in its draft states (?phase=)'
+  },
 ];
 
 const notFoundVariants = [

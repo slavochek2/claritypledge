@@ -233,7 +233,7 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
           leading={mirrorPlus(summary, privateTo)}
           staged={staged}
           onUnstage={() => setStaged(null)}
-          quote={<PendingQuote clarify={null} replyTo={replyTo} authors={chat.authors} onClearClarify={() => undefined} onClearReply={() => setReplyTo(null)} />}
+          quote={<PendingQuote replyTo={replyTo} authors={chat.authors} onClearReply={() => setReplyTo(null)} />}
           mentions={mentions}
           onVoiceNote={sendVoice}
           privateTo={privateTo}

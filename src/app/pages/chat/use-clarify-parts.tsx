@@ -2,7 +2,7 @@
  * P1631: what makes a mirror thread a Clarify thread: its root is a Clarify copy. Then the thread shows the drafts under that copy,
  * names itself "Your Mirror" / "Only you see this", and takes no composer in this step (refining by chatting is a later step).
  */
-import type { ReactNode } from 'react';
+import { useLayoutEffect, type ReactNode } from 'react';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-service';
 import { ClarifyDrafts } from './ClarifyDrafts';
 import { registerClarifyThread } from './clarify-run';
@@ -19,7 +19,8 @@ export function useClarifyParts(summary: ChatSummary, root: ChatMessage | undefi
 } {
   const isClarify = isClarifyRoot(summary, root);
   const rootId = isClarify ? root?.id : undefined;
-  if (rootId) registerClarifyThread(rootId);
+  // Registered in a layout effect: it runs in the commit, before paint and before any realtime callback can run, and render stays pure.
+  useLayoutEffect(() => { if (rootId) registerClarifyThread(rootId); }, [rootId]);
   if (!isClarify || !root) return { isClarify: false, headerTitle: null, trailing: null };
   return {
     isClarify,

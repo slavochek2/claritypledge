@@ -20,4 +20,6 @@ export const NO_SPLIT_TEXT = 'Nothing here to test yet. Pick what to test instea
 export const FAILED_TEXT = 'Could not make a point from this.';
 export const CAPPED_TEXT = 'Out of drafts for today. Try again tomorrow.';
 export const CLARIFY_FAILED_TOAST = 'Could not start Clarify. Try again.';
+export const LOAD_FAILED_TEXT = 'Could not load your drafts.';
+export const DELETE_FAILED_TEXT = 'Could not delete this draft. Try again.';
 export const DRAFT_MAX = 300;

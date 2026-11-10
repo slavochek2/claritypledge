@@ -27,7 +27,9 @@ export type StartClarifyResult =
   | { status: 'busy'; draftId: string | null; threadRootId: string | null; mirrorConversationId: string | null };
 
 export type AnotherPointResult = { status: 'started'; draftId: string } | { status: 'busy'; draftId: string | null };
-export type RetryResult = { status: 'started' } | { status: 'busy' };
+export type RetryResult = { status: 'started' } | { status: 'busy' } | { status: 'refused'; code: string };
+/** The server refusing a change is an answer, not a failure of the call: callers keep what the user typed and say so. */
+export type ClarifyChangeResult = { status: 'ok' } | { status: 'refused'; code: string };
 export type InvokeResult = { ok: true } | { ok: false; reason: 'capped' | 'failed' };
 
 type Row = Record<string, unknown>;
@@ -64,17 +66,20 @@ export async function anotherPoint(threadRoot: string, instruction?: string | nu
 export async function retryClarify(draftId: string): Promise<RetryResult> {
   const r = await call('clarify_retry', { p_draft: draftId });
   if (r.status === 'busy') return { status: 'busy' };
+  if (r.status === 'refused') return { status: 'refused', code: str(r.code) ?? 'refused' };
   return { status: 'started' };
 }
 
-/** Owner only. A refusal (someone else has a position) throws with the server's words; the card shows them. */
-export async function editClarifyDraft(draftId: string, statement: string): Promise<void> {
-  await call('clarify_draft_edit', { p_draft: draftId, p_statement: statement });
+const changeResult = (r: Row): ClarifyChangeResult => (r.status === 'refused' ? { status: 'refused', code: str(r.code) ?? 'refused' } : { status: 'ok' });
+
+/** Owner only. Refused (someone else has a position, or there is no point) comes back as a value; a call that cannot be made throws. */
+export async function editClarifyDraft(draftId: string, statement: string): Promise<ClarifyChangeResult> {
+  return changeResult(await call('clarify_draft_edit', { p_draft: draftId, p_statement: statement }));
 }
 
-/** Owner only; refused while the draft is queued or running. */
-export async function deleteClarifyDraft(draftId: string): Promise<void> {
-  await call('clarify_draft_delete', { p_draft: draftId });
+/** Owner only; refused while the draft is queued or running (a value, not a throw). */
+export async function deleteClarifyDraft(draftId: string): Promise<ClarifyChangeResult> {
+  return changeResult(await call('clarify_draft_delete', { p_draft: draftId }));
 }
 
 const STATES: ClarifyDraftState[] = ['queued', 'running', 'done', 'refused', 'failed', 'capped'];
@@ -104,7 +109,8 @@ function mapDraft(raw: unknown): ClarifyDraft | null {
     id,
     state,
     point: p && pid && typeof p.statement === 'string' ? { id: pid, statement: p.statement, ownerPosition: (str(p.owner_position) as OwnerPosition) } : null,
-    suggestions: Array.isArray(d.suggestions) ? d.suggestions.filter((s): s is string => typeof s === 'string' && s.trim() !== '') : [],
+    // distinct, so a chip's key (its text) is unique
+    suggestions: Array.isArray(d.suggestions) ? [...new Set(d.suggestions.filter((s): s is string => typeof s === 'string' && s.trim() !== '').map((s) => s.trim()))] : [],
     errorCode: str(d.error_code),
     cited: citedOf(d.cited),
   };

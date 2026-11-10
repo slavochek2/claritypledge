@@ -47,7 +47,12 @@ const msgs: Row[] = [];
 const draftRow = async (id: string) => (await admin.from('clarify_drafts').select('*').eq('id', id).single()).data as Row;
 const spendOf = async (id: string) => (await admin.from('mirror_ai_spend').select('*').eq('id', (await draftRow(id)).spend_id).single()).data as Row;
 const begin = (id: string) => ok(A, '_clarify_begin', { p_draft: id });
-const complete = (id: string, result: Row, usd: number | null) => ok(A, '_clarify_complete', { p_draft: id, p_result: result, p_usd: usd });
+// the run token is the draft's current spend (P1631 review fix M1/M2); a test that means a stale run passes its own token
+const token = async (id: string) => (await draftRow(id)).spend_id as string | null;
+const complete = async (id: string, result: Row, usd: number | null, run?: string | null) =>
+  ok(A, '_clarify_complete', { p_draft: id, p_result: result, p_usd: usd, p_run: run === undefined ? await token(id) : run });
+const failRun = async (id: string, code: string, usd: number | null, run?: string | null) =>
+  ok(A, '_clarify_fail', { p_draft: id, p_code: code, p_usd: usd, p_run: run === undefined ? await token(id) : run });
 const goodResult = (stmt: string, ids: { a?: string[]; b?: string[] } = {}) => ({ decision: 'draft', statement: stmt, cited: { a: ids.a ?? [], b: ids.b ?? [] } });
 
 async function finishActive(owner = a): Promise<void> {
@@ -55,7 +60,7 @@ async function finishActive(owner = a): Promise<void> {
   const act = (await admin.from('clarify_drafts').select('id, state').eq('owner_id', owner.id).in('state', ['queued', 'running'])).data ?? [];
   for (const d of act) {
     if (d.state === 'queued') await begin(d.id);
-    await ok(A, '_clarify_fail', { p_draft: d.id, p_code: 'test_cleanup', p_usd: 0 });
+    await failRun(d.id, 'test_cleanup', 0);
   }
 }
 
@@ -284,7 +289,7 @@ describe('P1631 clarify drafts', () => {
     await finishActive();
     const r = await ok(a.c, 'clarify_another', { p_thread_root: root });
     await begin(r.draft_id);
-    expect(await ok(A, '_clarify_fail', { p_draft: r.draft_id, p_code: 'too_large', p_usd: null })).toBe(true);
+    expect(await failRun(r.draft_id, 'too_large', null)).toBe(true);
     expect(await spendOf(r.draft_id)).toMatchObject({ state: 'released' });
     expect(await ok(a.c, 'clarify_retry', { p_draft: r.draft_id })).toMatchObject({ status: 'started' });
     expect(await ok(a.c, 'clarify_retry', { p_draft: r.draft_id })).toMatchObject({ status: 'refused', code: 'not_retryable' });
@@ -313,5 +318,127 @@ describe('P1631 clarify drafts', () => {
     expect(er.error).toBeNull();
     expect((await admin.from('points').select('id').eq('id', done.point_id)).data, 'the point').toHaveLength(0);
     expect(await draftRow(s.draft_id)).toMatchObject({ state: 'failed', error_code: 'erased', point_id: null, suggestions: null, cited: null, derived_refs: [], sent_ids: [] });
+  });
+});
+
+describe('P1631 review fixes (migration 20261110170000)', () => {
+  let conv2 = '';
+  const said: Row[] = [];
+  const refOf = async (id: string) => ((await admin.from('clarify_drafts').select('derived_refs').eq('id', id).single()).data as Row).derived_refs as string[];
+
+  beforeAll(async () => {
+    const [lo, hi] = [a.id, c3.id].sort();
+    const made = await admin.from('chat_conversations').insert({ kind: 'dm', dm_user_a: lo, dm_user_b: hi, created_by: a.id }).select('id').single();
+    if (made.error) throw new Error(`fixture dm2: ${made.error.message}`);
+    conv2 = made.data.id as string;
+    said.push(await ok(c3.c, 'send_chat_message', { p_conversation: conv2, p_body: `${TAG} C says: ship the trial now.`, p_client_id: randomUUID() }));
+    said.push(await ok(a.c, 'send_chat_message', { p_conversation: conv2, p_body: `${TAG} A says: not yet.`, p_client_id: randomUUID() }));
+  });
+
+  it('H1: a new draft inherits the derived_refs of the earlier drafts whose statements it receives as already_drafted', async () => {
+    await finishActive();
+    const s1 = await ok(a.c, 'clarify_start', { p_source: said[0]!.id });
+    await begin(s1.draft_id);
+    await complete(s1.draft_id, goodResult(`${TAG} H1 first.`, { a: [said[0]!.id] }), 0.01);
+    await admin.from('clarify_drafts').update({ derived_refs: ['ref:h1-former-author'] }).eq('id', s1.draft_id);
+    const s2 = await ok(a.c, 'clarify_another', { p_thread_root: s1.thread_root_id });
+    const run = await begin(s2.draft_id);
+    expect(run.already_drafted).toContain(`${TAG} H1 first.`);
+    expect(await refOf(s2.draft_id), 'refs of the drafts it was told about').toContain('ref:h1-former-author');
+    await complete(s2.draft_id, goodResult(`${TAG} H1 second.`, { a: [said[1]!.id] }), 0.01);
+  });
+
+  it('H2: deleting the last draft of a thread does not turn the generic Mirror reply on', async () => {
+    await finishActive();
+    const s = await ok(a.c, 'clarify_start', { p_source: said[1]!.id });
+    await begin(s.draft_id);
+    await failRun(s.draft_id, 'x', 0);
+    expect((await admin.from('clarify_threads').select('root_id').eq('root_id', s.thread_root_id)).data).toHaveLength(1);
+    expect(await ok(a.c, 'clarify_draft_delete', { p_draft: s.draft_id })).toMatchObject({ status: 'ok' });
+    const r = await rpc(a.c, 'mirror_request_reply', { p_message: s.thread_root_id });
+    expect(r.error).toBeNull();
+    expect(r.data ?? []).toHaveLength(0);
+    expect((await admin.from('mirror_jobs').select('id').eq('trigger_message_id', s.thread_root_id)).data).toHaveLength(0);
+  });
+
+  it('M1/M2: a stale run token neither completes nor settles the newer run of the same draft', async () => {
+    await finishActive();
+    const s = await ok(a.c, 'clarify_start', { p_source: said[0]!.id });
+    await begin(s.draft_id);
+    const old = (await token(s.draft_id))!;
+    await failRun(s.draft_id, 'boom', 0.01);
+    await ok(a.c, 'clarify_retry', { p_draft: s.draft_id });
+    await begin(s.draft_id);
+    const fresh = (await token(s.draft_id))!;
+    expect(fresh).not.toBe(old);
+    expect(await complete(s.draft_id, goodResult(`${TAG} stale`, { a: [said[0]!.id] }), 0.05, old)).toMatchObject({ status: 'gone' });
+    expect(await failRun(s.draft_id, 'stale', 0.05, old)).toBe(false);
+    expect(await draftRow(s.draft_id)).toMatchObject({ state: 'running', spend_id: fresh });
+    expect(await spendOf(s.draft_id)).toMatchObject({ state: 'reserved' });
+    expect((await admin.from('points').select('id').eq('statement', `${TAG} stale`)).data).toHaveLength(0);
+    expect(await complete(s.draft_id, goodResult(`${TAG} fresh`, { a: [said[0]!.id] }), 0.02, fresh)).toMatchObject({ status: 'done' });
+    expect(await complete(s.draft_id, goodResult(`${TAG} nul`), 0.02, null)).toMatchObject({ status: 'gone' });
+  });
+
+  it('L1: a queued draft older than five minutes is failed abandoned by begin, never started', async () => {
+    await finishActive();
+    const s = await ok(a.c, 'clarify_start', { p_source: said[0]!.id });
+    await admin.from('clarify_drafts').update({ updated_at: new Date(Date.now() - 6 * 60_000).toISOString() }).eq('id', s.draft_id);
+    expect((await begin(s.draft_id)).status).toBe('failed');
+    expect(await draftRow(s.draft_id)).toMatchObject({ state: 'failed', error_code: 'abandoned', spend_id: null });
+  });
+
+  it('busy from lock contention carries reason locked; a run in progress does not', async () => {
+    await finishActive();
+    const s = await ok(a.c, 'clarify_start', { p_source: said[0]!.id });
+    await begin(s.draft_id);
+    const again = await begin(s.draft_id);
+    expect(again).toMatchObject({ status: 'busy' });
+    expect(again.reason).toBeUndefined();
+    await finishActive();
+  });
+
+  it('(Codex 9) a provider cap is stored as state capped, and Retry accepts it', async () => {
+    await finishActive();
+    const s = await ok(a.c, 'clarify_start', { p_source: said[0]!.id });
+    await begin(s.draft_id);
+    await failRun(s.draft_id, 'cap', 0);
+    expect(await draftRow(s.draft_id)).toMatchObject({ state: 'capped', error_code: 'cap' });
+    expect(await ok(a.c, 'clarify_retry', { p_draft: s.draft_id })).toMatchObject({ status: 'started' });
+    await finishActive();
+  });
+
+  it('(GLM 8, 19) a refusal dedupes its suggestions; one with nothing left after filtering is bad_output and settles at the actual cost', async () => {
+    await finishActive();
+    const s = await ok(a.c, 'clarify_start', { p_source: said[0]!.id });
+    await begin(s.draft_id);
+    await complete(s.draft_id, { decision: 'refuse', suggestions: ['one', ' one ', 'two', 'one', 'three', 'four'] }, 0.01);
+    expect((await draftRow(s.draft_id)).suggestions).toEqual(['one', 'two', 'three']);
+    const n = await ok(a.c, 'clarify_another', { p_thread_root: s.thread_root_id });
+    await begin(n.draft_id);
+    expect(await complete(n.draft_id, { decision: 'refuse', suggestions: ['  ', 7] }, 0.01)).toMatchObject({ status: 'failed', code: 'bad_output' });
+    expect(await draftRow(n.draft_id)).toMatchObject({ state: 'failed', error_code: 'bad_output' });
+    expect(await spendOf(n.draft_id)).toMatchObject({ state: 'settled' });
+  });
+
+  it('(GLM 1) erasing a person settles the reservation of a draft that was running on their words; (Gemini 7) a point another user holds a position on survives', async () => {
+    await finishActive();
+    const kept = await ok(a.c, 'clarify_start', { p_source: said[0]!.id });
+    await begin(kept.draft_id);
+    const done = await complete(kept.draft_id, goodResult(`${TAG} kept by position.`, { a: [said[0]!.id] }), 0.01);
+    await admin.from('point_positions').insert({ point_id: done.point_id, user_id: b.id, position: 'agree' });
+    const live = await ok(a.c, 'clarify_another', { p_thread_root: kept.thread_root_id });
+    await begin(live.draft_id);
+    const spendId = (await token(live.draft_id))!;
+    expect((await admin.from('mirror_ai_spend').select('state').eq('id', spendId).single()).data).toMatchObject({ state: 'reserved' });
+    const er = await admin.rpc('erase_chat_data_for', { p_uid: c3.id });
+    expect(er.error).toBeNull();
+    expect(await draftRow(live.draft_id)).toMatchObject({ state: 'failed', error_code: 'erased' });
+    const spend = (await admin.from('mirror_ai_spend').select('*').eq('id', spendId).single()).data as Row;
+    expect(spend.state, 'the reservation no longer counts against the caps').toBe('settled');
+    expect(Number(spend.actual_usd)).toBeCloseTo(Number(spend.reserved_usd), 6);
+    expect((await admin.from('points').select('id').eq('id', done.point_id)).data, 'a point with someone else\'s position').toHaveLength(1);
+    await admin.from('point_positions').delete().eq('point_id', done.point_id);
+    await admin.from('points').delete().eq('id', done.point_id);
   });
 });

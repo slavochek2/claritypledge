@@ -1,7 +1,6 @@
 /**
  * P1512: small hooks shared by the chat components.
  */
-import type { ChatMessage } from '@/app/data/chat-service';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { backPlan, chatNav, HOME, leavePlan, routeLevel, type NavIntent, type NavPlan } from './chat-view-model';
@@ -303,11 +302,4 @@ export function takeComposerFocus(conversationId: string): boolean {
 /** The composer of the conversation that is open right now, if any. */
 export function focusOpenComposer() {
   document.querySelector<HTMLTextAreaElement>('[data-testid="composer"] textarea')?.focus();
-}
-
-// A Clarify that waited above the composer for a note is gone (P1631): Clarify now opens a Mirror thread and drafts at once.
-// The type stays for PendingQuote, which still draws a pending quote it is handed.
-export interface StagedClarify {
-  message: ChatMessage;
-  authorName: string;
 }

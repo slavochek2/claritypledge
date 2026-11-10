@@ -19,13 +19,18 @@ const svc = vi.hoisted(() => ({
   getClarifyThread: vi.fn(),
   invokeClarifyDraft: vi.fn(),
 }));
-const toastFn = vi.hoisted(() => Object.assign(vi.fn(), { error: vi.fn() }));
+const toastFn = vi.hoisted(() => Object.assign(vi.fn(), { error: vi.fn(), loading: vi.fn(), dismiss: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toastFn }));
+const pos = vi.hoisted(() => ({
+  sendPositionWrite: vi.fn(async (..._a: unknown[]) => undefined),
+  settlePositionWrite: vi.fn(async (..._a: unknown[]) => ({ kind: 'confirmed' as string })),
+  recordConfirmedPosition: vi.fn(),
+  isLatestPositionWrite: vi.fn((..._a: unknown[]) => true),
+}));
 vi.mock('@/app/data/position-write-outcome', () => ({
   beginPositionWrite: vi.fn(() => 1),
   endPositionWrite: vi.fn(),
-  isLatestPositionWrite: vi.fn(() => true),
-  sendPositionWrite: vi.fn(async () => undefined),
+  ...pos,
 }));
 
 import * as realService from '@/app/data/clarify-service';
@@ -139,7 +144,7 @@ describe('ClarifyDraftCard', () => {
 
   it('Edit opens the text in place; an unchanged Save writes nothing; a changed Save is one call and re-reads', async () => {
     const changed = vi.fn();
-    svc.editClarifyDraft.mockResolvedValue(undefined);
+    svc.editClarifyDraft.mockResolvedValue({ status: 'ok' });
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={changed} />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit this point' }));
     fireEvent.click(screen.getByTestId('clarify-draft-editor-save'));
@@ -153,7 +158,7 @@ describe('ClarifyDraftCard', () => {
   });
 
   it('empty text is stopped with a sentence; a refused save keeps the text and says so; Cancel closes', async () => {
-    svc.editClarifyDraft.mockRejectedValue(new Error('someone has a position'));
+    svc.editClarifyDraft.mockResolvedValue({ status: 'refused', code: 'fixed' }); // the real shape of a refusal: a value, not a rejection
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit this point' }));
     fireEvent.change(screen.getByLabelText('Point text'), { target: { value: '   ' } });
@@ -170,7 +175,7 @@ describe('ClarifyDraftCard', () => {
 
   it('Delete asks first (the product confirm dialog) and deletes only on confirm', async () => {
     const changed = vi.fn();
-    svc.deleteClarifyDraft.mockResolvedValue(undefined);
+    svc.deleteClarifyDraft.mockResolvedValue({ status: 'ok' });
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={changed} />);
     fireEvent.click(screen.getByRole('button', { name: 'Delete this draft' }));
     const dialog = await screen.findByRole('dialog');
@@ -324,5 +329,130 @@ describe('Clarify threads and the generic mirror reply', () => {
   it('the thread names itself "Your Mirror" and "Only you see this"', () => {
     expect(CLARIFY_TITLE).toBe('Your Mirror');
     expect(CLARIFY_SUBTITLE).toBe('Only you see this');
+  });
+});
+
+
+describe('P1631 review fixes: client', () => {
+  it('(Gemini 1) the service maps a refusal to a value: edit, delete and retry never resolve a refusal as success', async () => {
+    const realService = await vi.importActual<typeof import('@/app/data/clarify-service')>('@/app/data/clarify-service');
+    rpc.mockResolvedValueOnce({ data: { status: 'refused', code: 'fixed' }, error: null });
+    expect(await realService.editClarifyDraft('d1', 'x')).toEqual({ status: 'refused', code: 'fixed' });
+    rpc.mockResolvedValueOnce({ data: { status: 'refused', code: 'busy' }, error: null });
+    expect(await realService.deleteClarifyDraft('d1')).toEqual({ status: 'refused', code: 'busy' });
+    rpc.mockResolvedValueOnce({ data: { status: 'refused', code: 'not_retryable' }, error: null });
+    expect(await realService.retryClarify('d1')).toEqual({ status: 'refused', code: 'not_retryable' });
+    rpc.mockResolvedValueOnce({ data: { status: 'ok', changed: true }, error: null });
+    expect(await realService.editClarifyDraft('d1', 'x')).toEqual({ status: 'ok' });
+  });
+
+  it('(Gemini 5/19) the service drops duplicate suggestions', async () => {
+    const realService = await vi.importActual<typeof import('@/app/data/clarify-service')>('@/app/data/clarify-service');
+    rpc.mockResolvedValueOnce({ data: { drafts: [{ id: 'd1', state: 'refused', suggestions: ['a', ' a ', 'b', 'a'] }] }, error: null });
+    expect((await realService.getClarifyThread('r1'))[0]!.suggestions).toEqual(['a', 'b']);
+  });
+
+  it('(Gemini 1) a refused Save keeps the editor open with the text and toasts', async () => {
+    svc.editClarifyDraft.mockResolvedValue({ status: 'refused', code: 'fixed' });
+    render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit this point' }));
+    fireEvent.change(screen.getByLabelText('Point text'), { target: { value: 'my words' } });
+    fireEvent.click(screen.getByTestId('clarify-draft-editor-save'));
+    await waitFor(() => expect(toastFn.error).toHaveBeenCalledWith('Could not save this point. Try again.'));
+    expect(screen.getByLabelText('Point text')).toHaveValue('my words');
+  });
+
+  it('(Gemini 4) a Delete that fails or is refused toasts and closes the dialog; the draft is not reloaded away', async () => {
+    for (const outcome of [() => Promise.reject(new Error('offline')), () => Promise.resolve({ status: 'refused', code: 'busy' })]) {
+      const changed = vi.fn();
+      svc.deleteClarifyDraft.mockImplementationOnce(outcome);
+      render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={changed} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Delete this draft' }));
+      fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
+      await waitFor(() => expect(toastFn.error).toHaveBeenCalledWith('Could not delete this draft. Try again.'));
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(changed).not.toHaveBeenCalled();
+      toastFn.error.mockClear();
+      cleanup();
+    }
+  });
+
+  it('(Gemini 3, Codex 5) the thread shows a loading skeleton, then a load-failure line with a retry that reads again', async () => {
+    let release: (v: ClarifyDraft[]) => void = () => undefined;
+    svc.getClarifyThread.mockImplementationOnce(() => new Promise<ClarifyDraft[]>((go) => { release = go; }));
+    render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    expect(screen.getByTestId('clarify-drafts-loading')).toBeInTheDocument();
+    await act(async () => { release([]); });
+    cleanup();
+    svc.getClarifyThread.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce([draft()]);
+    render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    expect(await screen.findByTestId('clarify-load-failed')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('clarify-reload'));
+    expect(await screen.findByText(DRAFT_PILL)).toBeInTheDocument();
+    expect(screen.queryByTestId('clarify-load-failed')).not.toBeInTheDocument();
+  });
+
+  it('(Codex 5) Another point and Retry that fail toast; a refused Retry is not a start', async () => {
+    svc.getClarifyThread.mockResolvedValue([draft()]);
+    svc.anotherPoint.mockRejectedValueOnce(new Error('offline'));
+    render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    fireEvent.click(await screen.findByTestId('clarify-another'));
+    await waitFor(() => expect(toastFn.error).toHaveBeenCalledWith(expect.stringContaining('Clarify')));
+    cleanup();
+    toastFn.error.mockClear();
+    svc.getClarifyThread.mockResolvedValue([draft({ state: 'failed', point: null, cited: [] })]);
+    svc.retryClarify.mockResolvedValueOnce({ status: 'refused', code: 'not_retryable' });
+    render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    fireEvent.click(await screen.findByTestId('clarify-retry'));
+    await waitFor(() => expect(toastFn.error).toHaveBeenCalled());
+    expect(svc.invokeClarifyDraft).not.toHaveBeenCalled();
+  });
+
+  it('(Gemini 5) the owner position follows a changed server value while no write is pending', async () => {
+    const { rerender } = render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
+    expect(screen.queryByRole('button', { name: 'Disagree', pressed: true })).toBeNull();
+    rerender(<ClarifyDraftCard draft={draft({ point: { id: 'pt1', statement: 'Deadlines should be set by the team', ownerPosition: 'disagree' } })} userId="me" onChanged={() => undefined} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Disagree', pressed: true })).toBeInTheDocument());
+  });
+
+  it('(Codex 6) a position write whose answer was lost is settled, not rolled back at once: confirmed keeps it, rejected rolls back and toasts', async () => {
+    const lost = () => Object.assign(new Error('lost'), { name: 'NetworkBlipError' });
+    pos.sendPositionWrite.mockRejectedValueOnce(lost());
+    pos.settlePositionWrite.mockResolvedValueOnce({ kind: 'confirmed' });
+    render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Disagree' }));
+    await waitFor(() => expect(pos.settlePositionWrite).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(pos.recordConfirmedPosition).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Disagree', pressed: true })).toBeInTheDocument();
+    expect(toastFn.error).not.toHaveBeenCalled();
+    cleanup();
+    pos.sendPositionWrite.mockRejectedValueOnce(lost());
+    pos.settlePositionWrite.mockResolvedValueOnce({ kind: 'rejected' });
+    render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Agree' }));
+    await waitFor(() => expect(toastFn.error).toHaveBeenCalledWith('Your position was not saved. Try again.'));
+    expect(screen.queryByRole('button', { name: 'Agree', pressed: true })).toBeNull();
+  });
+
+  it('(Codex 7) an answer for a previous thread root never shows under the new one', async () => {
+    let first: (v: ClarifyDraft[]) => void = () => undefined;
+    svc.getClarifyThread.mockImplementationOnce(() => new Promise<ClarifyDraft[]>((go) => { first = go; }));
+    svc.getClarifyThread.mockResolvedValueOnce([draft({ id: 'new', point: { id: 'p2', statement: 'the new thread point', ownerPosition: null } })]);
+    const { rerender } = render(<ClarifyDrafts rootId="old" name="Mirror" userId="me" />);
+    rerender(<ClarifyDrafts rootId="new" name="Mirror" userId="me" />);
+    expect(await screen.findByText('the new thread point')).toBeInTheDocument();
+    await act(async () => { first([draft({ id: 'old', point: { id: 'p1', statement: 'the old thread point', ownerPosition: null } })]); });
+    expect(screen.queryByText('the old thread point')).not.toBeInTheDocument();
+    expect(screen.getByText('the new thread point')).toBeInTheDocument();
+  });
+
+  it('(GLM 9) the Clarify thread is registered from an effect, not during render (no side effect in a render that is discarded)', async () => {
+    const { useClarifyParts } = await import('@/app/pages/chat/use-clarify-parts');
+    const { renderHook } = await import('@testing-library/react');
+    const summary = { kind: 'mirror', title: null, other: null } as never;
+    const root = { id: 'root-effect', kind: 'clarify', threadRootId: null, isDeleted: false } as never;
+    expect(isClarifyThread('root-effect')).toBe(false);
+    renderHook(() => useClarifyParts(summary, root, 'me'));
+    expect(isClarifyThread('root-effect')).toBe(true);
   });
 });

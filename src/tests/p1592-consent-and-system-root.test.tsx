@@ -121,19 +121,14 @@ const eventChat: ChatSummary = {
 
 describe('P1592 a round root never reads "Deleted user"', () => {
   it('the reply bar says just "Reply"', () => {
-    render(<PendingQuote clarify={null} replyTo={root()} authors={{}} onClearClarify={() => undefined} onClearReply={() => undefined} />);
+    render(<PendingQuote replyTo={root()} authors={{}} onClearReply={() => undefined} />);
     expect(screen.getByTestId('reply-bar')).toHaveTextContent('Reply');
     expect(screen.getByTestId('reply-bar')).not.toHaveTextContent('Deleted user');
     expect(screen.getByTestId('reply-bar')).toHaveTextContent('Round 1');
   });
   it('CONTROL: an authorless message that is not a system post still says "Deleted user"', () => {
-    render(<PendingQuote clarify={null} replyTo={mapMessageRow({ ...baseRow, system_kind: null })} authors={{}} onClearClarify={() => undefined} onClearReply={() => undefined} />);
+    render(<PendingQuote replyTo={mapMessageRow({ ...baseRow, system_kind: null })} authors={{}} onClearReply={() => undefined} />);
     expect(screen.getByTestId('reply-bar')).toHaveTextContent('Deleted user');
-  });
-  it('the clarify staging bar shows the title with no author line', () => {
-    render(<PendingQuote clarify={{ message: root(), authorName: 'Deleted user' }} replyTo={null} authors={{}} onClearClarify={() => undefined} onClearReply={() => undefined} />);
-    expect(screen.getByTestId('clarify-bar')).toHaveTextContent('Round 1');
-    expect(screen.getByTestId('clarify-bar')).not.toHaveTextContent('Deleted user');
   });
   it('the forward dialog preview says "Forwarded" and the title', () => {
     render(<ForwardDialog source={root()} authorName="Deleted user" chats={[eventChat]} revalidate={async () => [eventChat]} onClose={() => undefined} onForwarded={() => undefined} />);

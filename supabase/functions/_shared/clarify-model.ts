@@ -27,6 +27,8 @@ export interface Row { id: string; text: string }
 export interface ClarifyRun {
   status: 'run';
   draft_id: string;
+  /** The run's identity (its spend id): complete and fail must present it, so a stale run cannot touch a newer one. */
+  run_token: string;
   owner_id: string;
   reserved_usd: number;
   owner_instruction: string | null;

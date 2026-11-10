@@ -37,6 +37,8 @@ export interface ClarifyDeps {
   /** The service-role worker functions. */
   rpc(name: string, args: Record<string, unknown>): Promise<RpcResult>;
   callModel: ClarifyCaller;
+  /** Waits between begin attempts that met lock contention (tests pass a spy; the default is a real timer). */
+  sleep?: (ms: number) => Promise<void>;
   /** Overrides for the request builder (tests). */
   system?: string;
   inputLimit?: number;
@@ -47,9 +49,9 @@ function json(body: unknown, status: number, cors: Cors): Response {
 }
 
 /** Record a failure: p_usd null releases the reservation (the model never ran), a number charges it. */
-async function failRun(d: ClarifyDeps, draftId: string, code: string, usd: number | null): Promise<void> {
+async function failRun(d: ClarifyDeps, draftId: string, code: string, usd: number | null, token: string | null): Promise<void> {
   try {
-    const { error } = await d.rpc('_clarify_fail', { p_draft: draftId, p_code: code, p_usd: usd });
+    const { error } = await d.rpc('_clarify_fail', { p_draft: draftId, p_code: code, p_usd: usd, p_run: token });
     if (error) console.error('clarify-draft: fail record failed', { code: error.code });
   } catch (e) {
     console.error('clarify-draft: fail record threw', { error: (e as Error).name });
@@ -83,11 +85,11 @@ async function buildOrFail(d: ClarifyDeps, draftId: string, begunRun: ClarifyRun
   try {
     const built = buildClarifyRequest(begunRun, { system: d.system, limit: d.inputLimit });
     if (built) return { request: built.request };
-    await failRun(d, draftId, 'too_large', null);
+    await failRun(d, draftId, 'too_large', null, begunRun.run_token);
     return { response: json(failedBody(draftId, 'TOO_LARGE'), 422, d.cors) };
   } catch (e) {
     console.error('clarify-draft: build failed', { error: (e as Error).name });
-    await failRun(d, draftId, 'build', null);
+    await failRun(d, draftId, 'build', null, begunRun.run_token);
     return { response: json(failedBody(draftId, 'BUILD'), 500, d.cors) };
   }
 }
@@ -99,13 +101,13 @@ async function modelFailed(d: ClarifyDeps, draftId: string, begunRun: ClarifyRun
   const capped = httpStatus === 429 || httpStatus === 403;
   const refusedUpfront = httpStatus >= 400 && httpStatus < 500;
   if (httpStatus) console.error('clarify-draft: model error', { status: httpStatus });
-  await failRun(d, draftId, capped ? 'cap' : httpStatus ? `http_${httpStatus}` : 'network', refusedUpfront ? 0 : begunRun.reserved_usd);
+  await failRun(d, draftId, capped ? 'cap' : httpStatus ? `http_${httpStatus}` : 'network', refusedUpfront ? 0 : begunRun.reserved_usd, begunRun.run_token);
   return json({ state: capped ? 'capped' : 'failed', draft_id: draftId, code: capped ? 'CAPPED' : 'MODEL_ERROR' }, capped ? 429 : 502, d.cors);
 }
 
 /** The body came back but is not a usable answer. */
 async function outputRejected(d: ClarifyDeps, draftId: string, begunRun: ClarifyRun, outcome: BadOutcome): Promise<Response> {
-  await failRun(d, draftId, outcome.code, outcome.costUsd ?? begunRun.reserved_usd);
+  await failRun(d, draftId, outcome.code, outcome.costUsd ?? begunRun.reserved_usd, begunRun.run_token);
   const codes: Record<string, string> = { blocked: 'BLOCKED', empty: 'EMPTY' };
   return json(failedBody(draftId, codes[outcome.code] ?? 'BAD_OUTPUT'), 502, d.cors);
 }
@@ -113,10 +115,10 @@ async function outputRejected(d: ClarifyDeps, draftId: string, begunRun: Clarify
 /** Store the answer and say what state the draft ended in. */
 async function storeAnswer(d: ClarifyDeps, draftId: string, begunRun: ClarifyRun, outcome: GoodOutcome): Promise<Response> {
   const usd = outcome.costUsd ?? begunRun.reserved_usd;
-  const { data: done, error: completeError } = await d.rpc('_clarify_complete', { p_draft: draftId, p_result: outcome.result, p_usd: usd });
+  const { data: done, error: completeError } = await d.rpc('_clarify_complete', { p_draft: draftId, p_result: outcome.result, p_usd: usd, p_run: begunRun.run_token });
   if (completeError || !done) {
     console.error('clarify-draft: complete failed', { code: completeError?.code });
-    await failRun(d, draftId, 'complete', usd);
+    await failRun(d, draftId, 'complete', usd, begunRun.run_token);
     return json(failedBody(draftId, 'MODEL_ERROR'), 502, d.cors);
   }
   const result = done as { status: string; code?: string };
@@ -136,13 +138,29 @@ async function callAndStore(d: ClarifyDeps, draftId: string, begunRun: ClarifyRu
   } catch (e) {
     console.error('clarify-draft: run threw', { error: (e as Error).name });
     // the model may have been called: charge the reservation
-    await failRun(d, draftId, 'error', begunRun.reserved_usd);
+    await failRun(d, draftId, 'error', begunRun.reserved_usd, begunRun.run_token);
     return json(failedBody(draftId, 'MODEL_ERROR'), 502, d.cors);
   }
 }
 
+/** begin makes up to this many attempts when it meets lock contention (an erase or an edit holds a row it needs), pausing between them. */
+const BEGIN_ATTEMPTS = 3;
+const BEGIN_BACKOFF_MS = [250, 750];
+
+async function beginWithRetry(d: ClarifyDeps, draftId: string): Promise<RpcResult> {
+  const sleep = d.sleep ?? ((ms: number) => new Promise<void>((go) => setTimeout(go, ms)));
+  let result = await d.rpc('_clarify_begin', { p_draft: draftId });
+  for (let attempt = 1; attempt < BEGIN_ATTEMPTS; attempt += 1) {
+    const b = result.data as { status?: string; reason?: string } | null;
+    if (result.error || b?.status !== 'busy' || b.reason !== 'locked') break;
+    await sleep(BEGIN_BACKOFF_MS[attempt - 1] ?? 750);
+    result = await d.rpc('_clarify_begin', { p_draft: draftId });
+  }
+  return result;
+}
+
 async function run(d: ClarifyDeps, draftId: string): Promise<Response> {
-  const { data: begun, error: beginError } = await d.rpc('_clarify_begin', { p_draft: draftId });
+  const { data: begun, error: beginError } = await beginWithRetry(d, draftId);
   if (beginError || !begun) {
     console.error('clarify-draft: begin failed', { code: beginError?.code });
     return json({ error: 'Service temporarily unavailable' }, 503, d.cors);

@@ -4,7 +4,7 @@
  * statement, the owner's own position buttons, Edit (a pencil that opens the text in place, as canvas drafts do), Delete (the product's confirm
  * dialog) and a collapsed "Cited lines (may be wrong)" list. No Publish in this step.
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Lock, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -12,32 +12,69 @@ import { Textarea } from '@/components/ui/textarea';
 import { PointCardShell } from '@/app/components/shared/presentational/point-card-shell';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
 import { deleteClarifyDraft, editClarifyDraft, type ClarifyDraft, type OwnerPosition } from '@/app/data/clarify-service';
-import { beginPositionWrite, endPositionWrite, isLatestPositionWrite, sendPositionWrite } from '@/app/data/position-write-outcome';
+import { UNRESOLVED_WRITE_MESSAGE, isNetworkWriteFailure } from '@/app/hooks/use-online-write-guard';
+import { networkMark } from '@/lib/network-outcome';
+import {
+  beginPositionWrite, endPositionWrite, isLatestPositionWrite, recordConfirmedPosition, sendPositionWrite, settlePositionWrite,
+} from '@/app/data/position-write-outcome';
 import type { PositionType } from '@/app/types';
 import { ConfirmDialog } from './ChatDialogs';
-import { CITED_LABEL, DELETE_DESCRIPTION, DELETE_TITLE, DRAFT_MAX, DRAFT_PILL, DRAFT_PRIVATE_LABEL, EMPTY_DRAFT_TEXT, SAVE_FAILED_TEXT } from './clarify-copy';
+import { CITED_LABEL, DELETE_DESCRIPTION, DELETE_FAILED_TEXT, DELETE_TITLE, DRAFT_MAX, DRAFT_PILL, DRAFT_PRIVATE_LABEL, EMPTY_DRAFT_TEXT, SAVE_FAILED_TEXT } from './clarify-copy';
 
 const NO_COUNTS: SevenPointCounts = {
   strongly_agree: 0, agree: 0, somewhat_agree: 0, unsure: 0, somewhat_disagree: 0, disagree: 0, strongly_disagree: 0,
 };
 
-/** The owner's own position write, the way every point card writes it (checked in order, bounded bookkeeping). */
-function useOwnerPosition(userId: string, pointId: string, initial: OwnerPosition) {
-  const [position, setPosition] = useState<OwnerPosition>(initial);
-  const [saved, setSaved] = useState<OwnerPosition>(initial);
+/**
+ * The owner's own position write, the way every point card writes it (P1420): checked in order, an unanswered write is settled by asking the
+ * server (never rolled back at once), a newer click owns the display, and a changed server value is taken once no write is pending.
+ */
+function useOwnerPosition(userId: string, pointId: string, serverValue: OwnerPosition) {
+  const [position, setPosition] = useState<OwnerPosition>(serverValue);
+  const saved = useRef<OwnerPosition>(serverValue);
+  const pendingWrites = useRef(0);
+  const unmounted = useRef(new AbortController());
+  useEffect(() => {
+    const controller = new AbortController();
+    unmounted.current = controller;
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
+    if (pendingWrites.current > 0) return;
+    saved.current = serverValue;
+    setPosition(serverValue);
+  }, [serverValue]);
   const choose = async (picked: PositionType | null) => {
     const next = picked === position ? null : picked;
     const generation = beginPositionWrite(userId, pointId);
+    const isLatest = () => isLatestPositionWrite(userId, pointId, generation);
+    pendingWrites.current += 1;
     setPosition(next);
     try {
-      await sendPositionWrite(userId, pointId, next, generation);
-      setSaved(next);
-    } catch {
-      if (isLatestPositionWrite(userId, pointId, generation)) {
-        setPosition(saved);
-        toast.error('Failed to save position.');
+      const sentAt = networkMark();
+      try {
+        await sendPositionWrite(userId, pointId, next, generation);
+        saved.current = next;
+      } catch (err) {
+        if (!isNetworkWriteFailure(err, sentAt)) {
+          if (!isLatest()) return;
+          setPosition(saved.current);
+          toast.error('Failed to save position.');
+          return;
+        }
+        // sent, never answered: it may have landed. Ask the server.
+        const outcome = await settlePositionWrite({ userId, pointId, generation, expected: next, signal: unmounted.current.signal });
+        if (outcome.kind === 'superseded') return;
+        if (outcome.kind === 'confirmed') {
+          saved.current = next;
+          recordConfirmedPosition(userId, pointId, generation, next);
+          return;
+        }
+        setPosition(saved.current);
+        toast.error(outcome.kind === 'rejected' ? 'Your position was not saved. Try again.' : UNRESOLVED_WRITE_MESSAGE);
       }
     } finally {
+      pendingWrites.current -= 1;
       endPositionWrite(userId, pointId);
     }
   };
@@ -91,12 +128,20 @@ function DraftEditor({ draft, onClose, onSaved }: { draft: ClarifyDraft; onClose
     setSaving(true);
     setProblem(null);
     try {
-      await editClarifyDraft(draft.id, next);
+      const r = await editClarifyDraft(draft.id, next);
+      if (r.status === 'refused') {
+        // the editor stays open with what was typed
+        setSaving(false);
+        setProblem(SAVE_FAILED_TEXT);
+        toast.error(SAVE_FAILED_TEXT);
+        return;
+      }
       onSaved();
       onClose();
     } catch {
       setSaving(false);
       setProblem(SAVE_FAILED_TEXT);
+      toast.error(SAVE_FAILED_TEXT);
     }
   };
   return (
@@ -115,8 +160,8 @@ function DraftEditor({ draft, onClose, onSaved }: { draft: ClarifyDraft; onClose
       />
       {problem && <p role="alert" className="break-words text-sm text-red-800 dark:text-red-300" data-testid="clarify-draft-editor-problem">{problem}</p>}
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button type="button" variant="ghost" className="min-h-10" disabled={saving} onClick={onClose} data-testid="clarify-draft-editor-cancel">Cancel</Button>
-        <Button type="button" className="min-h-10" disabled={saving} onClick={() => void save()} data-testid="clarify-draft-editor-save">{saving ? 'Saving' : 'Save'}</Button>
+        <Button type="button" variant="ghost" className="h-11 min-h-11" disabled={saving} onClick={onClose} data-testid="clarify-draft-editor-cancel">Cancel</Button>
+        <Button type="button" className="h-11 min-h-11" disabled={saving} onClick={() => void save()} data-testid="clarify-draft-editor-save">{saving ? 'Saving' : 'Save'}</Button>
       </div>
     </div>
   );
@@ -146,10 +191,10 @@ export function ClarifyDraftCard({ draft, userId, onChanged }: { draft: ClarifyD
         statement={<p className="min-w-0 flex-1 break-words text-base font-medium text-foreground" data-testid="clarify-draft-statement">{point.statement}</p>}
         footer={
           <div className="flex items-center justify-end gap-1 px-2 pb-2">
-            <Button type="button" variant="ghost" className="h-10 w-10 p-0 text-foreground/70" aria-label="Edit this point" data-testid={`clarify-edit-${draft.id}`} onClick={() => setEditing(true)}>
+            <Button type="button" variant="ghost" className="h-11 w-11 p-0 text-foreground/70" aria-label="Edit this point" data-testid={`clarify-edit-${draft.id}`} onClick={() => setEditing(true)}>
               <Pencil className="h-4 w-4" aria-hidden />
             </Button>
-            <Button type="button" variant="ghost" className="h-10 w-10 p-0 text-foreground/70" aria-label="Delete this draft" data-testid={`clarify-delete-${draft.id}`} onClick={() => setDeleting(true)}>
+            <Button type="button" variant="ghost" className="h-11 w-11 p-0 text-foreground/70" aria-label="Delete this draft" data-testid={`clarify-delete-${draft.id}`} onClick={() => setDeleting(true)}>
               <Trash2 className="h-4 w-4" aria-hidden />
             </Button>
           </div>
@@ -165,7 +210,16 @@ export function ClarifyDraftCard({ draft, userId, onChanged }: { draft: ClarifyD
           title={DELETE_TITLE}
           description={DELETE_DESCRIPTION}
           confirmLabel="Delete"
-          onConfirm={async () => { await deleteClarifyDraft(draft.id); onChanged(); }}
+          onConfirm={async () => {
+            // a failure or a refusal says so and closes the dialog; the draft stays where it is
+            try {
+              const r = await deleteClarifyDraft(draft.id);
+              if (r.status === 'refused') toast.error(DELETE_FAILED_TEXT);
+              else onChanged();
+            } catch {
+              toast.error(DELETE_FAILED_TEXT);
+            }
+          }}
           onClose={() => setDeleting(false)}
         />
       )}
