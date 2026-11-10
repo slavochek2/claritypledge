@@ -1,12 +1,11 @@
 ---
-status: week
+status: all-done
 type: task
 rank: 119
 workstream: infrastructure
 created_date: '2026-11-10'
 tags: [day, budgets, fingerprints, noise]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: sonnet
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: e7f1f30dddde39865dc1eb1c2c63a205d4cce0257e22a04936bb231582d357ff
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-10
 ---
 
 # P1655: /day raises cards that ask the founder for nothing
@@ -126,5 +126,5 @@ Revert the commit. Records filed against the new LinkedIn fingerprints stop matc
 
 ## Related
 
-- [P1605](done/2026-06-10/p1605_day_accepted_until_record.md) (evaluated records)
+- [P1605](p1605_day_accepted_until_record.md) (evaluated records)
 - decisions.md 2026-11-03 "Why /day findings keep coming back after an answer"
