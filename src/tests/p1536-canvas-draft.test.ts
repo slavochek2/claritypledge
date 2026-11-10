@@ -849,8 +849,8 @@ describe('P1536 edge function wiring', () => {
     const all = src + handlers + ['run', 'fail', 'nothing'].map((n) => read(`supabase/functions/_shared/canvas-${n}.ts`)).join('\n');
     const rpcs = new Set([...all.matchAll(/'(_canvas_draft_[a-z_]+)'/g)].map((m) => m[1]));
     expect([...rpcs].sort()).toEqual([
-      '_canvas_draft_add_material', '_canvas_draft_choice_latest', '_canvas_draft_fail_reply', '_canvas_draft_newest_reply', '_canvas_draft_remove_material',
-      '_canvas_draft_run_begin', '_canvas_draft_run_complete', '_canvas_draft_run_complete_question', '_canvas_draft_run_fail',
+      '_canvas_draft_add_material', '_canvas_draft_fail_reply', '_canvas_draft_remove_material', '_canvas_draft_run_begin', '_canvas_draft_run_complete',
+      '_canvas_draft_run_complete_question', '_canvas_draft_run_fail', '_canvas_draft_tap_state',
     ]);
     expect(src + handlers).not.toMatch(/\.from\('(points|stories|canvas_versions|canvases|chat_messages)'\)/);
     expect(src).not.toMatch(/\.from\(/); // v6: the function reads no table at all; begin proves ownership of the run

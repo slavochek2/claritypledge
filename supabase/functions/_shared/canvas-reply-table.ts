@@ -176,11 +176,11 @@ export const rowOf = (code: string): ReplyRow | null =>
   CANVAS_REPLY_TABLE[code] ?? (/^http_\d+$/.test(code) ? CANVAS_REPLY_TABLE['http_*'] ?? null : null);
 
 /**
- * Does a failed run show Try again? Read from the run's own code. A file run never does (its file is not kept). A run with no code (an older read)
- * and a code with no row keep the button, as before this table.
+ * Does a failed run show Try again? Read from the run's own code. A file run never does (its file is not kept). A run with no code (an older read) keeps the
+ * button, as before this table; a code with NO ROW hides it (fail closed: the coverage test fails on a code with no row, so it never happens unseen).
  */
 export function retryShownFor(code: string | null | undefined, inputKind?: string | null): boolean {
   if (inputKind === 'file') return false;
-  const r = code ? rowOf(code) : null;
-  return r ? r.retry === 'show' : true;
+  if (!code) return true; // an older read with no code keeps the button, as before
+  return rowOf(code)?.retry === 'show'; // a code with no row hides it: a missed code never offers Try again silently (a test fails on a code with no row)
 }

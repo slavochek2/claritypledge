@@ -15,7 +15,9 @@ import { sendCanvasWorkspaceMessage, type CanvasRefusalCode } from '@/app/data/c
 import { sendCanvasVoiceNote } from '@/app/data/canvas-voice-service';
 import { VoiceNoteError } from '@/app/data/chat-voice-service';
 import type { VoiceSender } from '@/hooks/use-voice-note';
-import { DRAFT_ERROR_TEXT, STALE_VIEW_TEXT, startRefusedText } from './canvas-thread-copy';
+import { CanvasTapRefused } from '@/app/data/canvas-mark-tap';
+import type { LinkTap } from './canvas-link-confirm';
+import { DRAFT_ERROR_TEXT, STALE_BUTTON_TEXT, STALE_VIEW_TEXT, startRefusedText } from './canvas-thread-copy';
 import { decodeTagged } from './composer-tags';
 import { createUnresolvedClientIds } from './unresolved-client-ids';
 import type { CanvasThread } from './use-canvas-thread';
@@ -31,7 +33,7 @@ export function sendRefusedText(code: CanvasRefusalCode): string {
   return DRAFT_ERROR_TEXT.FAILED ?? 'That did not go through. Try again.';
 }
 
-export function useCanvasActions({ thread, available, onBusyElsewhere }: { thread: CanvasThread | null; available: boolean | null; onBusyElsewhere?: () => void }): { onSend: ((body: string) => Promise<boolean>) | null; onVoice: VoiceSender | null; sending: boolean } {
+export function useCanvasActions({ thread, available, onBusyElsewhere }: { thread: CanvasThread | null; available: boolean | null; onBusyElsewhere?: () => void }): { onSend: ((body: string, tap?: LinkTap) => Promise<boolean>) | null; onVoice: VoiceSender | null; sending: boolean } {
   const draftId = thread?.draft.id ?? null;
   const latest = useRef({ thread, onBusyElsewhere });
   latest.current = { thread, onBusyElsewhere };
@@ -61,22 +63,28 @@ export function useCanvasActions({ thread, available, onBusyElsewhere }: { threa
   }, []);
   if (!thread || available !== true || thread.draft.state !== 'open') return { onSend: null, onVoice: null, sending: false };
   const { draft, reload } = thread;
-  const onSend = async (body: string): Promise<boolean> => {
-    const key = `${draft.id}|${body}`; // the body as the composer made it: the same words with other tags are another message
+  /** `tap`: only a button of the link-confirm reply passes it (P1653 F3). The composer calls `onSend(body)` alone, so typed words are never marked. */
+  const onSend = async (body: string, tap?: LinkTap): Promise<boolean> => {
+    const key = `${draft.id}|${tap ?? ''}|${body}`; // the body as the composer made it: the same words with other tags are another message
     const { text, refs } = decodeTagged(body); // S4: tag tokens become "[Title]" in the words, and the boxes go as their own list
     setSendingFor(draft.id);
     try {
-      const r = await sendCanvasWorkspaceMessage({ canvasId: draft.canvasId, expectedDraftId: draft.id, expectedRevision: draft.revision, body: text, ...(refs.length ? { boxRefs: refs } : {}), clientId: unresolved.idFor(key) });
+      const r = await sendCanvasWorkspaceMessage({ canvasId: draft.canvasId, expectedDraftId: draft.id, expectedRevision: draft.revision, body: text, ...(refs.length ? { boxRefs: refs } : {}), ...(tap ? { tap } : {}), clientId: unresolved.idFor(key) });
       unresolved.settle(key); // an answer, a refusal included: the next Send of these words is a new message
       if (!r.ok && r.refused === 'busy_elsewhere' && onBusyElsewhere) onBusyElsewhere(); // the send slot says it (§2); no toast
       else if (!r.ok) toast.error(sendRefusedText(r.refused));
       else if (r.start && !r.start.ok) {
-        const said = startRefusedText(r.start.code, thread.run?.inputKind);
+        const said = startRefusedText(r.start.code, 'text'); // the run this Send just made is a text run, whatever the previous one was
         if (said) toast.error(said);
       }
       await reload(); // a refusal means the screen is behind: the next Send carries the revision read here
       return r.ok;
-    } catch {
+    } catch (e) {
+      if (e instanceof CanvasTapRefused) {
+        toast.error(STALE_BUTTON_TEXT); // the question is no longer open: nothing ran; the screen is re-read
+        await reload().catch(() => undefined);
+        return false;
+      }
       toast.error(DRAFT_ERROR_TEXT.FAILED);
       return false;
     } finally {

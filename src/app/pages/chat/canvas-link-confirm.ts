@@ -11,6 +11,8 @@ export const LINK_NO_LABEL = PAGE_BUTTONS.no.label;
 export const LINK_CONFIRM_QUESTION = PAGE_BUTTONS.question;
 export const LINK_YES_TOKEN = PAGE_BUTTONS.yes.token;
 export const LINK_NO_TOKEN = PAGE_BUTTONS.no.token;
+/** Which button sent the token: the structured marker a tap carries and the composer never does. */
+export type LinkTap = 'yes' | 'no';
 
 /** The reply carries the buttons: a message the mirror AGENT wrote (kind `agent`; a forwarded or typed human message never does) whose last line is the fixed question. */
 export function carriesLinkConfirm(m: ChatMessage, userId: string): boolean {

@@ -4,7 +4,7 @@
  * Pure: no Deno or esm.sh imports.
  */
 
-import { MAX_LINKS_PER_RUN, extractUrls, linkFailureText } from './canvas-material.ts';
+import { MAX_LINKS_PER_RUN, extractUrls, linkFailureText, linkKey } from './canvas-material.ts';
 import type { CanvasRun, RunDeps, RunParams, ThreadItem } from './canvas-run.ts';
 import type { CopyInput } from './canvas-types.ts';
 
@@ -26,8 +26,10 @@ export async function gatherLinks(deps: RunDeps, p: RunParams, run: CanvasRun): 
   const trigger = triggerOf(run.thread);
   const source = trigger ? [trigger] : ownerItems(run.thread); // a run without a trigger message reads every owner message
   // a rejected page ("Not mine", P1653) is a tombstone that keeps its label: its URL is known, so no retry, fork or run without a trigger message reads it again
-  const known = new Set(run.material.filter((m) => m.kind === 'link' || m.kind === 'link_rejected').map((m) => m.label));
-  const fresh = source.flatMap((t) => extractUrls(textOf(t))).filter((u, i, all) => !known.has(u) && all.indexOf(u) === i);
+  // compared by ONE identity (linkKey), so another spelling of the same page ("Airbnb.com", "www.airbnb.com", a trailing slash) is the same page
+  const known = new Set(run.material.filter((m) => m.kind === 'link' || m.kind === 'link_rejected').map((m) => linkKey(m.label)));
+  const keys = new Set<string>();
+  const fresh = source.flatMap((t) => extractUrls(textOf(t))).filter((u) => { const k = linkKey(u); if (known.has(k) || keys.has(k)) return false; keys.add(k); return true; });
   for (const url of fresh.slice(MAX_LINKS_PER_RUN)) unreadable.push(`${url.slice(0, 200)} (more than ${MAX_LINKS_PER_RUN} links in one go; send the rest again)`);
   for (const url of fresh.slice(0, MAX_LINKS_PER_RUN)) {
     const r = await deps.readLink(url, deps.signal);

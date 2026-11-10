@@ -105,37 +105,45 @@ export function emptyAnswer(s: Step, t: RunTools, out: Extract<DraftOutcome, { o
 
 // ── the two fixed buttons ───────────────────────────────────────────────────────────────────────────────────────────────────
 
-const isToken = (t: ThreadItem) => t.kind === 'owner_message' && typeof t.text === 'string' && pageTokenOf(t.text) !== null;
-/** The thread without any button tap: a tap is never owner material (it adds no evidence), here or in any later run. `keep` is a message that is not a tap (typed during an open choice). */
-export const withoutTaps = (thread: ThreadItem[], keep?: ThreadItem | null): ThreadItem[] => thread.filter((t) => t === keep || !isToken(t));
-/** The run's own message when its text is one of the two tokens, else null. */
-export const tokenTrigger = (thread: ThreadItem[]): ThreadItem | null => thread.find((t) => t.is_trigger && t.kind === 'owner_message' && typeof t.text === 'string' && pageTokenOf(t.text) !== null) ?? null;
-
+const isTokenText = (t: ThreadItem) => t.kind === 'owner_message' && typeof t.text === 'string' && pageTokenOf(t.text) !== null;
 /**
- * What a message equal to a token is. It is a tap only when the newest agent reply before it is the redirect question and the draft is still a first draft;
- * a run with no such question open is a stale tap ('stale': it says so, changes nothing, uses no update and settles no cost). A message typed while an A/B/C
- * choice is open is an ordinary message (null), read by the pick reader or drafted, never answered as a stale button. A failed lookup is stale, never a tap.
+ * The thread without the messages that are button taps. A tap is identified by the MARKER the client set when it sent the message (`canvas_mark_tap`), never by
+ * its text: typed words equal to a label are an ordinary owner message, remembered and used as material. A real tap adds no evidence, here or in any later run.
  */
-export async function resolveTap(deps: Pick<RunDeps, 'rpc'>, p: RunParams, run: CanvasRun, kind: string): Promise<{ tap: 'yes' | 'no' | 'stale' | null; trigger: ThreadItem | null }> {
-  const trigger = tokenTrigger(run.thread);
-  if (!trigger || kind !== 'message') return { tap: null, trigger: null };
-  const which = pageTokenOf(String(trigger.text)) as 'yes' | 'no';
+export const withoutTaps = (thread: ThreadItem[], taps: ReadonlySet<string>): ThreadItem[] => thread.filter((t) => !(t.message_id && taps.has(t.message_id)));
+
+type TapState = { taps?: unknown; newest_reply?: unknown; owner_after?: unknown };
+async function tapStateOf(deps: Pick<RunDeps, 'rpc'>, p: RunParams, run: CanvasRun): Promise<TapState | null> {
   try {
-    if (run.first_draft === true) {
-      const { data, error } = await deps.rpc('_canvas_draft_newest_reply', { p_run: run.run_id, p_owner: p.ownerId });
-      return { tap: !error && typeof data === 'string' && pageButtonsFor(data) ? which : 'stale', trigger };
-    }
-    const { data, error } = await deps.rpc('_canvas_draft_choice_latest', { p_run: run.run_id, p_owner: p.ownerId });
-    const latest = data as { status?: string; choice?: { state?: string } } | null;
-    return !error && latest?.status === 'ok' && latest.choice?.state === 'open' ? { tap: null, trigger } : { tap: 'stale', trigger };
-  } catch {
-    return { tap: 'stale', trigger };
-  }
+    const { data, error } = await deps.rpc('_canvas_draft_tap_state', { p_run: run.run_id, p_owner: p.ownerId });
+    return error || !data || typeof data !== 'object' ? null : (data as TapState);
+  } catch { return null; }
 }
 
-/** A stale tap: the run fails (never counts as one of the 30, its message is not remembered) with the approved words. No model call was made, so no cost beyond an upload's own. */
-export const staleTap = (deps: Pick<RunDeps, 'rpc' | 'signal'>, run: CanvasRun, p: RunParams, t: RunTools): Promise<RunSummary> =>
-  t.failRun(deps, run, p, 'stale_button', WORDS.staleButton, p.extraUsd ?? 0);
+export type TapResolution ={ tap: 'yes' | 'no' | 'stale' | 'error' | null; taps: ReadonlySet<string> };
+const NO_TAPS: ReadonlySet<string> = new Set();
+
+/**
+ * Is the run's own message a tap that still counts? Only when the client marked it as one (and its text still equals the token), the draft is still a first
+ * draft, the newest agent reply before it is the redirect question, and nobody wrote in the thread between that reply and the tap. A marked tap that fails any of
+ * those is 'stale': it says so, changes nothing, uses no update, and reads no page. A message with no marker is never a tap (null), whatever it says. A failed
+ * lookup is 'error' (the run fails as internal and Try again works). The database is asked only when some message of the thread equals a token.
+ */
+export async function resolveTap(deps: Pick<RunDeps, 'rpc'>, p: RunParams, run: CanvasRun, kind: string): Promise<TapResolution> {
+  if (!run.thread.some(isTokenText)) return { tap: null, taps: NO_TAPS };
+  const state = await tapStateOf(deps, p, run);
+  if (!state) return { tap: 'error', taps: NO_TAPS };
+  const taps = new Set(Array.isArray(state.taps) ? state.taps.filter((x): x is string => typeof x === 'string') : []);
+  const trigger = run.thread.find((t) => t.is_trigger && t.kind === 'owner_message');
+  const which = trigger && typeof trigger.text === 'string' ? pageTokenOf(trigger.text) : null;
+  if (kind !== 'message' || !trigger?.message_id || !taps.has(trigger.message_id) || !which) return { tap: null, taps };
+  const open = run.first_draft === true && typeof state.newest_reply === 'string' && pageButtonsFor(state.newest_reply) !== null && state.owner_after !== true;
+  return { tap: open ? which : 'stale', taps };
+}
+
+/** A stale tap: the run fails (never counts as one of the 30, its message is not remembered) with the approved words. No model call was made: the ledger settles it like every other early exit. */
+export const staleTap = (deps: Pick<RunDeps, 'rpc' | 'signal'>, run: CanvasRun, p: RunParams, t: RunTools, usd: number | null): Promise<RunSummary> =>
+  t.failRun(deps, run, p, 'stale_button', WORDS.staleButton, usd);
 
 /**
  * "Not mine" (a tap that counted) answers without a model call: it turns the redirect page into a tombstone in the draft's material (so no later run reads it,
@@ -145,7 +153,7 @@ export const staleTap = (deps: Pick<RunDeps, 'rpc' | 'signal'>, run: CanvasRun, 
 export function tapRun(s: Step, t: RunTools, tapped: 'yes' | 'no'): Promise<RunSummary> | null {
   if (tapped === 'yes') return null;
   const pages = s.run.material.filter((m) => m.kind === 'link' && isThinRedirect(m.text));
-  return pages.length === 0 ? staleTap(s.deps, s.run, s.p, t) : removePages(s, t, pages.flatMap((m) => (m.id ? [m.id] : [])));
+  return pages.length === 0 ? staleTap(s.deps, s.run, s.p, t, s.ledger.usd) : removePages(s, t, pages.flatMap((m) => (m.id ? [m.id] : [])));
 }
 
 async function removePages(s: Step, t: RunTools, ids: string[]): Promise<RunSummary> {

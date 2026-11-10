@@ -5,10 +5,10 @@
 import type { ReactNode } from 'react';
 import type { ChatMessage } from '@/app/data/chat-service';
 import { CanvasLinkConfirm } from './CanvasLinkConfirm';
-import { linkConfirmTargets } from './canvas-link-confirm';
+import { linkConfirmTargets, type LinkTap } from './canvas-link-confirm';
 import type { CanvasThread } from './use-canvas-thread';
 
-export function withLinkConfirm(after: Record<string, ReactNode>, args: { live: CanvasThread | null; messages: ChatMessage[]; userId: string; rootId: string; send: ((body: string) => Promise<boolean>) | null }): Record<string, ReactNode> {
+export function withLinkConfirm(after: Record<string, ReactNode>, args: { live: CanvasThread | null; messages: ChatMessage[]; userId: string; rootId: string; send: ((body: string, tap: LinkTap) => Promise<boolean>) | null }): Record<string, ReactNode> {
   if (!args.live || args.live.draft.state !== 'open') return after;
   const out = { ...after };
   for (const t of linkConfirmTargets(args.messages, args.userId, args.rootId)) {

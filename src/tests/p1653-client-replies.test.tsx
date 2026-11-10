@@ -135,12 +135,12 @@ describe('P1653 F3 buttons', () => {
     render(<CanvasLinkConfirm live send={send} />);
     fireEvent.click(screen.getByTestId('canvas-link-yes'));
     await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
-    expect(send).toHaveBeenCalledWith(LINK_YES_TOKEN);
+    expect(send).toHaveBeenCalledWith(LINK_YES_TOKEN, 'yes'); // the structured marker rides with the token
     cleanup();
     render(<CanvasLinkConfirm live send={send} />);
     fireEvent.click(screen.getByTestId('canvas-link-no'));
     await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
-    expect(send).toHaveBeenLastCalledWith(LINK_NO_TOKEN);
+    expect(send).toHaveBeenLastCalledWith(LINK_NO_TOKEN, 'no');
     // evidence: the tokens carry no digits, no link and no name, so a tap cannot add a fact
     for (const t of [LINK_YES_TOKEN, LINK_NO_TOKEN]) expect(t).toMatch(/^[A-Za-z, ]+$/);
   });

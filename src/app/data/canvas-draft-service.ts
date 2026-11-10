@@ -218,7 +218,8 @@ export async function listCanvasMaterial(draftId: string): Promise<CanvasMateria
     .eq('draft_id', draftId)
     .order('created_at', { ascending: true });
   if (error) throwDbError('listCanvasMaterial', error, 'Could not read this draft');
-  return ((data ?? []) as Row[]).map((r) => ({ id: r.id, kind: r.kind === 'link' ? 'link' : 'file', label: r.label, chars: Number(r.chars ?? 0), createdAt: r.created_at }));
+  // P1653: "Not mine" leaves a tombstone (kind `link_rejected`, no text) so the page is never read again; it is not something the owner gave, so it is not listed.
+  return ((data ?? []) as Row[]).filter((r) => r.kind !== 'link_rejected').map((r) => ({ id: r.id, kind: r.kind === 'link' ? 'link' : 'file', label: r.label, chars: Number(r.chars ?? 0), createdAt: r.created_at }));
 }
 
 /**

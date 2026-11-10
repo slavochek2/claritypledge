@@ -253,6 +253,20 @@ describe('an OPEN draft\'s thread: one block under the newest message', () => {
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/p/ana/canvas/canvas_5?v=canvas_v5&ws=1'));
   });
 
+  it.each([['BUSY', 'I could not start that a moment ago. Try again.'], ['NOT_READY', 'Send the file again.']])('P1653: Make it about this, run start refused %s, says the approved sentence', async (code, said) => {
+    svc.switchCanvasFocus.mockResolvedValue({ ok: true, runId: 'run-s', revision: 8, replayed: false, start: { ok: false, code } });
+    mountOpen(thread());
+    fireEvent.click(await screen.findByRole('button', { name: 'Make it about this' }));
+    await waitFor(() => expect(svc.toastError).toHaveBeenCalledWith(said));
+  });
+
+  it('P1653: Start a canvas, run start refused NOT_READY, says the approved sentence', async () => {
+    svc.forkCanvasFromOffer.mockResolvedValue({ ok: true, alreadyStarted: false, canvasId: 'cv-new', canvasName: 'canvas_5', versionName: 'canvas_v5', draftId: 'draft-new', threadRootId: 'root-new', runId: 'run-f', start: { ok: false, code: 'NOT_READY' } });
+    mountOpen(thread());
+    fireEvent.click(await screen.findByRole('button', { name: 'Start a canvas' }));
+    await waitFor(() => expect(svc.toastError).toHaveBeenCalledWith('Send the file again.'));
+  });
+
   it('a lost answer (the call throws) is said, and the retry carries the SAME client id (never a second canvas)', async () => {
     svc.forkCanvasFromOffer.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ ok: false, refused: 'busy', revision: 7 });
     mountOpen(thread());

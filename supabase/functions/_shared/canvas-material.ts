@@ -142,6 +142,25 @@ const THIN_PAGE_CHARS = 100;
 const REDIRECT_NOTICE = /^\s*(?:redirecting|you are being redirected)\s+to\b/i;
 export const isThinRedirect = (text: string): boolean => text.trim().length < THIN_PAGE_CHARS && REDIRECT_NOTICE.test(text);
 
+/** The label a link is kept under: its text cut at 200 characters (the database's own limit on a material label). */
+export const LINK_LABEL_CHARS = 200;
+
+/**
+ * ONE identity for a link, used wherever "is this page already known (or rejected)?" is asked: the text is cut at the label's 200 characters first (the same cut the
+ * label is stored with), then the host is lowercased, `www.` and a trailing slash dropped, a bare domain given its https form, and the fragment dropped. So
+ * "Airbnb.com", "www.airbnb.com", "https://airbnb.com/" and a 250-character URL compared with its own 200-character label are each one page.
+ */
+export function linkKey(raw: string): string {
+  const cut = raw.trim().slice(0, LINK_LABEL_CHARS);
+  try {
+    const u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(cut) ? cut : `https://${cut}`);
+    const path = u.pathname.replace(/\/+$/, '');
+    return `https://${u.host.replace(/^www\./i, '')}${path}${u.search}`.slice(0, LINK_LABEL_CHARS); // the parser has lowercased the host; the path keeps its case
+  } catch {
+    return cut.toLowerCase();
+  }
+}
+
 export type LinkFailure =
   | 'invalid' | 'not_https' | 'blocked' | 'too_many_redirects' | 'unreachable' | 'http_error' | 'not_text' | 'empty';
 

@@ -244,6 +244,7 @@ Applies because the replays call Gemini. Figures per `docs/technical/metered-ser
 | Gemini spend | A few cents at most per run, from two runs logged on TEST 2026-11-09 (figures in the registry) | Same | 101 runs at the upper per-run figure, plus retries: a small fixed test cost. Bound by per-person limits (kept in the registry); spread across test accounts if a replay is capped |
 | Edge invocations | Unchanged per message | Unchanged | Self-hosted TEST: 0 of the hosted plan |
 | Log lines | A temporary counts-only line per parsed run during the replay, removed before ship. None in the shipped product unless a cause log is added (at most 1 per refusal) | Unchanged | 101 at most |
+| Database reads (product) | One read of the newest agent reply per button tap, to tell an open question from a stale one; a tap makes no model call | Grows only with taps, at most one per redirect question | A few, one per tapped fixture |
 | Database reads (harness only) | None in the product | None | Up to about 16 run-row reads per try plus material, reply and spend reads, against self-hosted TEST, which is not metered |
 
 **Verdict:** fits, no plan limit is approached. The product adds no browser timer, loop or retry path. The replay harness polls TEST's database while it waits for each run; that loop is test-only and unmetered.

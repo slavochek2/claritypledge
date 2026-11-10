@@ -104,6 +104,9 @@ export const NEW_CANVAS_LABEL = 'New canvas';
 export const CLONE_VERSION_LABEL = 'Clone a version';
 export const CREATE_LABEL = 'Create';
 
+/** A button tapped after its question closed (the server refused the mark, or answers a stale tap): the approved sentence, the server's. */
+export const STALE_BUTTON_TEXT: string = WORDS.staleButton;
+
 /** The screen is behind (`stale_view`) on a send and on offers: one sentence (P1653 table C). */
 export const STALE_VIEW_TEXT = 'This draft changed since you last looked. Check it, then try again.';
 

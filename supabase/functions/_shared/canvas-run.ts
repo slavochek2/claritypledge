@@ -250,13 +250,15 @@ const isOwnMessages = (m: MaterialRow) => m.kind === 'messages' && m.label === O
 export async function executeRun(deps: RunDeps, p: RunParams, run: CanvasRun): Promise<RunSummary> {
   const ledger: { usd: number | null } = { usd: p.extraUsd ?? 0 };
   try {
+    // P1653: a tap on one of the two fixed buttons (marked by the client at send time, never recognised by its text) adds no evidence, here or in any later run.
+    // The tap is resolved FIRST, so a stale tap reads no page.
+    const { tap: tapped, taps } = await resolveTap(deps, p, run, run.kind ?? 'message');
+    if (tapped === 'error') return await failRun(deps, run, p, 'internal', WORDS.internal, ledger.usd);
+    if (tapped === 'stale') return await staleTap(deps, run, p, TOOLS, ledger.usd); // no open question to answer: says so, no model call, no update used
     const { unreadable, rows, gone } = await gatherLinks(deps, p, run);
     if (gone) return { state: 'failed', code: 'gone' };
     if (deps.signal?.aborted) return await failRun(deps, run, p, 'timeout', TIMEOUT_REPLY, ledger.usd);
-    // P1653: a tap on one of the two fixed buttons adds no evidence, here or in any later run: it is never in the material
-    const { tap: tapped, trigger: tapMessage } = await resolveTap(deps, p, run, run.kind ?? 'message');
-    if (tapped === 'stale') return await staleTap(deps, run, p, TOOLS); // no open question to answer: says so, no model call, no update used
-    const thread = withoutTaps(run.thread, tapped ? null : tapMessage); // a token typed while a choice is open is the owner's own message
+    const thread = withoutTaps(run.thread, taps);
     const trigger = triggerOf(thread);
     const input: MaterialInput = {
       trigger: trigger ? { text: textOf(trigger), tagged: trigger.box_refs ?? null } : null,

@@ -11,6 +11,7 @@ import { clearListReturnCache } from '@/lib/list-return-cache';
 import { throwDbError } from './db-error-logger';
 import { emitCanvasDraftEvent } from './canvas-draft-events';
 import { openedResultOf } from './canvas-draft-opened';
+import { markCanvasTap } from './canvas-mark-tap';
 
 /** `open_elsewhere`: the canvas already has an open draft, in another thread. Nothing new was made. */
 export type OpenDraftResult = {
@@ -210,6 +211,8 @@ export interface SendCanvasMessageArgs {
   boxRefs?: string[] | null;
   /** `{kind:'file', label}` (post the file with `uploadCanvasMaterial` next). A voice note is not sent here: it goes through chat-voice (canvas-voice-service), which the database requires. */
   attachment?: { kind: 'file'; label: string } | null;
+  /** P1653 F3: set only by a link-confirm button (marked on the server); the composer never sets it. */
+  tap?: 'yes' | 'no';
   /** Makes the send idempotent: a repeat returns the first result. */
   clientId: string;
   /** Called with the thread's root as soon as the database has answered OK, before the run is started (that request can be slow). */
@@ -264,6 +267,7 @@ export async function sendCanvasWorkspaceMessage(a: SendCanvasMessageArgs): Prom
     if (refused) return refused;
     const sent = canvasSentOf(r);
     a.onThreadKnown?.(sent.threadRootId);
+    if (a.tap) await markCanvasTap(sent.messageId, a.tap); // before the run starts: a refusal means no run
     if (!a.attachment && !sent.replayed) sent.start = await startCanvasRun(sent.runId);
     return sent;
   } finally {

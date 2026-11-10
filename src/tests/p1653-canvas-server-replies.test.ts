@@ -25,10 +25,12 @@ const text = (r: GeminiRequest) => r.contents[0]!.parts[0]!.text;
 const PAGE = { id: 'mat1', kind: 'link' as const, label: 'https://airbnb.com', text: 'Redirecting to www.airbnb.com.sg' };
 
 type RpcFake = (name: string, args: Record<string, unknown>) => RpcResult | undefined;
-const REDIRECT_REPLY = `${WORDS.redirectPage('airbnb.com')}\n${WORDS.pageQuestion}`;
+const pageButtonsOf = (t: unknown) => (t === PAGE_BUTTONS.yes.token || t === PAGE_BUTTONS.no.token ? t : null);
+const REDIRECT_REPLY =`${WORDS.redirectPage('airbnb.com')}\n${WORDS.pageQuestion}`;
 type LinkRead = Awaited<ReturnType<RunDeps['readLink']>>;
-function harness(over: Partial<CanvasRun> & { trigger?: string | null; earlier?: string[]; newest?: string | null; read?: LinkRead; choice?: unknown } = {}, model?: RunDeps['model'], rpcFake?: RpcFake) {
-  const { trigger = 'its a car selling business', earlier = [], newest = REDIRECT_REPLY, read = { ok: false, reason: 'unreachable' } as LinkRead, choice = null, ...rest } = over;
+/** `marked`: which thread messages carry the client's tap marker. Default: every message whose text equals a token (a real tap). `[]`: all of them are typed words. */
+function harness(over: Partial<CanvasRun> & { trigger?: string | null; earlier?: string[]; newest?: string | null; read?: LinkRead; marked?: string[]; ownerAfter?: boolean; params?: { extraUsd?: number } } = {}, model?: RunDeps['model'], rpcFake?: RpcFake) {
+  const { trigger = 'its a car selling business', earlier = [], newest = REDIRECT_REPLY, read = { ok: false, reason: 'unreachable' } as LinkRead, marked, ownerAfter = false, params = {}, ...rest } = over;
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const requests: GeminiRequest[] = [];
   const reads: string[] = [];
@@ -46,8 +48,10 @@ function harness(over: Partial<CanvasRun> & { trigger?: string | null; earlier?:
       calls.push({ name, args });
       const faked = rpcFake?.(name, args);
       if (faked) return faked;
-      if (name === '_canvas_draft_newest_reply') return { data: newest, error: null }; // the newest agent reply before this run's message
-      if (name === '_canvas_draft_choice_latest') return { data: choice ? { status: 'ok', stale: false, choice } : { status: 'none' }, error: null };
+      if (name === '_canvas_draft_tap_state') { // what the database says: the marked taps, the newest agent reply before this run's message, whether anyone wrote since
+        const ids = marked ?? run.thread.filter((t) => pageButtonsOf(t.text)).map((t) => String(t.message_id));
+        return { data: { taps: ids, newest_reply: newest, owner_after: ownerAfter }, error: null };
+      }
       return { data: { status: 'ok' }, error: null };
     },
     model: async (c) => { requests.push(c.request as GeminiRequest); return model ? model(c) : stubCaller()(c); },
@@ -55,7 +59,7 @@ function harness(over: Partial<CanvasRun> & { trigger?: string | null; earlier?:
   };
   const by = (n: string) => calls.find((c) => c.name === n)?.args;
   return {
-    calls, requests, reads, run, deps, params: { ownerId: 'owner-1' }, by,
+    calls, requests, reads, run, deps, params: { ownerId: 'owner-1', ...params }, by,
     names: () => calls.map((c) => c.name),
     asked: () => by('_canvas_draft_run_complete_question'), done: () => by('_canvas_draft_run_complete'), failed: () => by('_canvas_draft_run_fail'),
   };
@@ -208,19 +212,42 @@ describe('P1653 F2: a link that came back as a redirect notice', () => {
     await executeRun(h.deps, h.params, h.run);
     expect(h.failed()).toMatchObject({ p_code: 'stale_button' });
   });
-  it('a failed lookup of the newest reply is stale, never a tap', async () => {
-    const h = harness({ ...links, trigger: PAGE_BUTTONS.no.token }, answering({}), (n) => (n === '_canvas_draft_newest_reply' ? { data: null, error: { code: 'x' } } : undefined));
+  it('a failed lookup of the tap state fails the run as internal (Try again works), never a tap and never a stale reply', async () => {
+    const h = harness({ ...links, trigger: PAGE_BUTTONS.no.token }, answering({}), (n) => (n === '_canvas_draft_tap_state' ? { data: null, error: { code: 'x' } } : undefined));
     await executeRun(h.deps, h.params, h.run);
-    expect(h.failed()).toMatchObject({ p_code: 'stale_button' });
+    expect(h.failed()).toMatchObject({ p_code: 'internal', p_reply: WORDS.internal });
     expect(h.names()).not.toContain('_canvas_draft_remove_material');
   });
-  it('typed "Not mine" while an A/B/C choice is open is an ordinary message (a draft), never a stale-button reply', async () => {
-    const open = { id: 'c1', state: 'open', request: 'We charge more', request_message_id: 'm0', conflicts_with: [], options: [], recommended: 'keep', reason: '' };
-    const h = harness({ trigger: PAGE_BUTTONS.no.token, first_draft: false, focus: 'used car buyers', draft_points: [{ id: 'p1', box: SEGMENTS, statement: 'Families buying used cars' }], newest: 'I am not sure about this.\nReply A, B or C.', choice: open }, answering({ scope: [] }));
+  it('typed words equal to a button label are ALWAYS an ordinary owner message: no marker, no tap, never stale, remembered and used as material', async () => {
+    for (const first_draft of [true, false]) {
+      for (const token of [PAGE_BUTTONS.no.token, PAGE_BUTTONS.yes.token]) {
+        const h = harness({ trigger: token, marked: [], first_draft, focus: first_draft ? null : 'used car buyers', draft_points: first_draft ? [] : [{ id: 'p1', box: SEGMENTS, statement: 'Families buying used cars' }], newest: 'Draft ready: 4 of 9 boxes.' }, answering({ scope: [] }));
+        await executeRun(h.deps, h.params, h.run);
+        expect(h.failed()?.p_code, `${token} first_draft=${first_draft}`).not.toBe('stale_button');
+        expect(h.names()).not.toContain('_canvas_draft_remove_material');
+        expect(h.requests).toHaveLength(1);
+        expect(text(h.requests[0]!)).toContain(token); // the owner's own words, in the material
+      }
+    }
+  });
+  it('an earlier typed message equal to a label stays in later runs; an earlier MARKED tap does not', async () => {
+    const h = harness({ trigger: 'We sell used cars to families', earlier: [PAGE_BUTTONS.no.token, PAGE_BUTTONS.yes.token], marked: ['e1'] }, answering({}));
     await executeRun(h.deps, h.params, h.run);
-    expect(h.failed()?.p_code).not.toBe('stale_button');
-    expect(h.requests).toHaveLength(1);
-    expect(text(h.requests[0]!)).toContain(PAGE_BUTTONS.no.token); // kept as the owner's own words, not stripped
+    expect(text(h.requests[0]!)).toContain(PAGE_BUTTONS.no.token); // e0: typed, remembered
+    expect(text(h.requests[0]!)).not.toContain(PAGE_BUTTONS.yes.token); // e1: a real tap, never material
+  });
+  it('a tap counts only if nobody wrote in the thread between the question and the tap: otherwise stale', async () => {
+    const h = harness({ ...links, trigger: PAGE_BUTTONS.no.token, ownerAfter: true }, answering({}));
+    expect(await executeRun(h.deps, h.params, h.run)).toEqual({ state: 'failed', code: 'stale_button' });
+    expect(h.names()).not.toContain('_canvas_draft_remove_material');
+    expect(h.requests).toHaveLength(0);
+  });
+  it('the stale check runs before any page is read, and a stale tap settles through the ledger like every other early exit', async () => {
+    const h = harness({ ...links, trigger: PAGE_BUTTONS.no.token, newest: 'Draft ready: 4 of 9 boxes.', read: { ok: true, text: PAGE.text }, params: { extraUsd: 0.05 } }, answering({}));
+    await executeRun(h.deps, h.params, h.run);
+    expect(h.names()[0]).toBe('_canvas_draft_tap_state'); // before anything else, gatherLinks included
+    expect(h.reads).toEqual([]);
+    expect(h.failed()).toMatchObject({ p_code: 'stale_button', p_actual_usd: 0.05 });
   });
   it('"Yes" does not make the next thin message ask the same question again for the same page (no loop)', async () => {
     const h = harness({ material: [PAGE], trigger: 'ok so what now', earlier: ['airbnb.com - make canvas', PAGE_BUTTONS.yes.token] }, answering({}));
@@ -230,6 +257,33 @@ describe('P1653 F2: a link that came back as a redirect notice', () => {
     await executeRun(again.deps, again.params, again.run);
     expect(String(again.asked()!.p_reply)).toBe(WORDS.fallbackQuestion); // the page is known: not read now, so not asked about now
     expect(again.reads).toEqual([]);
+  });
+  it('every spelling of the rejected page stays rejected: Airbnb.com, www.airbnb.com, https://airbnb.com/ and a 250-character URL against its 200-character label', async () => {
+    const tomb = { id: 'mat1', kind: 'link_rejected' as const, label: 'https://airbnb.com', text: '' };
+    for (const said of ['Airbnb.com is a platform I list on', 'see www.airbnb.com please', 'https://airbnb.com/ again', 'https://www.Airbnb.com/']) {
+      const h = harness({ material: [tomb], trigger: said, read: { ok: true, text: PAGE.text } }, answering({}));
+      await executeRun(h.deps, h.params, h.run);
+      expect(h.reads, said).toEqual([]);
+      expect(String(h.asked()!.p_reply), said).toBe(WORDS.fallbackQuestion);
+    }
+    for (const label of ['https://www.airbnb.com/', 'https://Airbnb.com', 'https://airbnb.com/']) { // the label as an older run stored it: the same page, written another way
+      const stored = harness({ material: [{ id: 'mat1', kind: 'link_rejected', label, text: '' }], trigger: 'airbnb.com - make canvas', read: { ok: true, text: PAGE.text } }, answering({}));
+      await executeRun(stored.deps, stored.params, stored.run);
+      expect(stored.reads, label).toEqual([]);
+    }
+    const long = `https://shop.example.com/${'a'.repeat(225)}`; // 250 characters
+    expect(long).toHaveLength(250);
+    const h = harness({ material: [{ id: 'mat9', kind: 'link_rejected', label: long.slice(0, 200), text: '' }], trigger: `look at ${long}`, read: { ok: true, text: PAGE.text } }, answering({}));
+    await executeRun(h.deps, h.params, h.run);
+    expect(h.reads).toEqual([]);
+    const other = harness({ material: [tomb], trigger: 'see airbnb.com/rooms/1', read: { ok: true, text: PAGE.text } }, answering({})); // control: another page of the same site is a different page
+    await executeRun(other.deps, other.params, other.run);
+    expect(other.reads).toEqual(['https://airbnb.com/rooms/1']);
+  });
+  it('the same page written two ways in one message is read once', async () => {
+    const h = harness({ trigger: 'airbnb.com and https://www.airbnb.com/', read: { ok: true, text: 'We run a marketplace for stays and give hosts tools to list them every day.' } }, answering({}));
+    await executeRun(h.deps, h.params, h.run);
+    expect(h.reads).toHaveLength(1);
   });
   it('after "Not mine" a retry or a run with no trigger does not read the page again, and does not include it', async () => {
     const tomb = { id: 'mat1', kind: 'link_rejected' as const, label: 'https://airbnb.com', text: '' };
@@ -369,6 +423,35 @@ describe('P1653 the instructions and the migration', () => {
     for (const g of ["m.kind = 'link'", 'm.owner_id = p_owner', 'm.draft_id = v_run.draft_id']) expect(r, g).toContain(g);
     expect(fix).toMatch(/CHECK \(kind IN \('file', 'link', 'messages', 'link_rejected'\)\)/);
     expect(sql, 'the applied migration is untouched by this fix').toContain('DELETE FROM public.canvas_draft_material m');
+  });
+  const tapSql = read('supabase/migrations/20261110120000_p1653_structured_tap.sql');
+  const tapFn = (name: string) => new RegExp(`CREATE OR REPLACE FUNCTION public\\.${name}\\([\\s\\S]*?\\n\\$\\$;`).exec(tapSql)?.[0] ?? '';
+  it('the tap marker: a closed table, written only by canvas_mark_tap for the caller\'s own message with exactly the token text, in an open draft of theirs', () => {
+    expect(tapSql).toContain('ALTER TABLE public.canvas_draft_taps ENABLE ROW LEVEL SECURITY;');
+    expect(tapSql).toContain('REVOKE ALL ON TABLE public.canvas_draft_taps FROM PUBLIC, anon, authenticated;');
+    expect(tapSql).not.toMatch(/CREATE POLICY[^;]*canvas_draft_taps/);
+    const m = tapFn('canvas_mark_tap');
+    for (const g of ['auth.uid()', 'm.author_id = v_uid', "m.kind = 'message'", 'm.deleted_at IS NULL', "'Yes, this is my business'", "'Not mine'", "d.state = 'open'", 'd.owner_id = v_uid', "jsonb_build_object('status', 'refused')"]) expect(m, g).toContain(g);
+    expect(m).not.toMatch(/RAISE EXCEPTION/); // a refusal is typed, never an error
+    expect(tapSql).toMatch(/GRANT EXECUTE ON FUNCTION public\.canvas_mark_tap\(uuid, text\) TO authenticated;/);
+    expect(tapSql).toMatch(/REVOKE ALL ON FUNCTION public\.canvas_mark_tap\(uuid, text\) FROM PUBLIC, anon;/);
+    // the SQL's fixed texts are the TS tokens
+    expect(m).toContain(`'${PAGE_BUTTONS.yes.token}'`);
+    expect(m).toContain(`'${PAGE_BUTTONS.no.token}'`);
+  });
+  it('the tap state is service-role only and says: marked taps whose text still equals the token, the newest agent reply, and whether anyone wrote since', () => {
+    const s = tapFn('_canvas_draft_tap_state');
+    for (const g of ['v_run.owner_id IS DISTINCT FROM p_owner', "m.kind = 'agent'", 'm.created_at < v_trig.created_at', "m.kind <> 'agent'", 'm.created_at > v_at', 'm.id <> v_trig.id', "'owner_after'"]) expect(s, g).toContain(g);
+    expect(tapSql).toMatch(/GRANT EXECUTE ON FUNCTION public\._canvas_draft_tap_state\(uuid, uuid\)\s+TO service_role;/);
+    expect(tapSql).toMatch(/REVOKE ALL ON FUNCTION public\._canvas_draft_tap_state\(uuid, uuid\) FROM PUBLIC, anon, authenticated;/);
+  });
+  it('a fork never copies a rejected page: the selector leaves link_rejected out when called for a fork (p_run IS NULL), and a run still gets it', () => {
+    const e = tapFn('_canvas_draft_effective_input');
+    expect(e).toContain("(p_run IS NOT NULL OR x.kind <> 'link_rejected')");
+    const original = /CREATE OR REPLACE FUNCTION public\._canvas_draft_effective_input\([\s\S]*?\n\$\$;/.exec(read('supabase/migrations/20261030080000_p1536_v6_engine.sql'))?.[0] ?? '';
+    // the restated body is the v6 body plus that one condition and nothing else
+    expect(e.replace("       AND (p_run IS NOT NULL OR x.kind <> 'link_rejected')\n", '')).toBe(original);
+    expect(read('supabase/migrations/20261030080000_p1536_v6_engine.sql')).toMatch(/_canvas_draft_effective_input\(v_src\.id, NULL\)/); // the fork's call
   });
   it('the newest-reply lookup is service-role only, owner-checked, and reads only agent replies of the run\'s own thread before its message', () => {
     const r = fixFn('_canvas_draft_newest_reply');

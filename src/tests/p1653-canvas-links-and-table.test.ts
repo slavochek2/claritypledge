@@ -4,7 +4,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { extractUrls, isThinRedirect } from '../../supabase/functions/_shared/canvas-material';
+import { LINK_LABEL_CHARS, extractUrls, isThinRedirect, linkKey } from '../../supabase/functions/_shared/canvas-material';
 import {
   CANVAS_REPLY_TABLE, CANVAS_RETRY_BY_CODE, PAGE_BUTTONS, WORDS, pageButtonsFor, pageTokenOf, retryShownFor, rowOf,
 } from '../../supabase/functions/_shared/canvas-reply-table';
@@ -42,6 +42,21 @@ describe('P1653 F4: a bare domain counts as a link', () => {
   });
 });
 
+describe('P1653: one identity for a link (linkKey)', () => {
+  it('every spelling of one page is one key', () => {
+    const k = linkKey('https://airbnb.com');
+    for (const s of ['airbnb.com', 'Airbnb.com', 'www.airbnb.com', 'https://airbnb.com/', 'https://www.Airbnb.com/', 'HTTPS://AIRBNB.COM//', 'https://airbnb.com#top']) expect(linkKey(s), s).toBe(k);
+  });
+  it('another page of the same site, or a query, is another key', () => {
+    expect(linkKey('airbnb.com/rooms/1')).not.toBe(linkKey('airbnb.com'));
+    expect(linkKey('airbnb.com/a?x=1')).not.toBe(linkKey('airbnb.com/a?x=2'));
+  });
+  it('compares on the 200-character cut the label is stored with', () => {
+    const long = `https://shop.example.com/${'a'.repeat(225)}`;
+    expect(linkKey(long)).toBe(linkKey(long.slice(0, LINK_LABEL_CHARS)));
+  });
+});
+
 describe('P1653 F2: a thin redirect page is decided from the text the reader returned', () => {
   it('the replay page (a 32 character redirect notice) is thin', () => {
     expect(isThinRedirect('Redirecting to www.airbnb.com.sg')).toBe(true);
@@ -76,12 +91,14 @@ describe('P1653 the retry table', () => {
     for (const c of ['nothing_supported', 'no_readable_material', 'blocked', 'too_large', 'choice_read', 'choice_stale', 'transcript_failed', 'not_offered', 'cap']) expect(CANVAS_RETRY_BY_CODE[c], c).toBe('hide');
     for (const c of ['unparsable', 'empty', 'timeout', 'capped', 'network', 'write', 'internal', 'choice_write', 'abandoned']) expect(CANVAS_RETRY_BY_CODE[c], c).toBe('show');
   });
-  it('http_* is one family, shown; an unknown code keeps the button as before', () => {
+  it('http_* is one family, shown; a run with no code (an older read) keeps the button, but an UNKNOWN code hides it (a missed code never offers Try again silently)', () => {
     expect(retryShownFor('http_500')).toBe(true);
     expect(retryShownFor('http_400')).toBe(true);
     expect(rowOf('http_503')).toBe(CANVAS_REPLY_TABLE['http_*']);
     expect(retryShownFor(null)).toBe(true);
-    expect(retryShownFor('never_heard_of_it')).toBe(true);
+    expect(retryShownFor(undefined)).toBe(true);
+    expect(retryShownFor('never_heard_of_it')).toBe(false);
+    expect(retryShownFor('http_')).toBe(false); // not a status
   });
   it('the daily limit never shows it, and a file run never does', () => {
     expect(retryShownFor('cap')).toBe(false);

@@ -186,7 +186,7 @@ afterEach(() => {
 import { retryTargetId } from '@/app/pages/chat/canvas-retry-target';
 import { lacksSecondaryPill } from './p1536-pill-assert';
 
-const failedRun = { id: 'run-failed', kind: 'message', state: 'failed', errorCode: 'model', createdAt: '2026-10-28T09:00:00.000Z', startedAt: '2026-10-28T09:00:00.000Z' };
+const failedRun = { id: 'run-failed', kind: 'message', state: 'failed', errorCode: 'timeout', createdAt: '2026-10-28T09:00:00.000Z', startedAt: '2026-10-28T09:00:00.000Z' };
 const retries = () => rpc.mock.calls.filter(c => c[0] === 'canvas_draft_retry');
 const retryOk = { status: 'ok', run_id: 'run-new', revision: 5, draft_id: 'draft-1', replayed: false };
 const refused = (code: string) => ({ data: { status: 'refused', code, revision: 4 }, error: null });
