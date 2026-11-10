@@ -246,6 +246,8 @@ describe('the grants and the restated overloads', () => {
     for (const f of later) {
       const c = read(f);
       for (const name of ['_canvas_draft_run_complete', '_canvas_draft_run_begin', 'canvas_draft_retry', 'canvas_draft_undo', 'erase_chat_data_for', '_canvas_draft_merge_offers', '_canvas_draft_other_names']) {
+        // P1631 restates erase_chat_data_for as this file's body plus two `-- P1631` lines; p1631-clarify-drafts-migration.test.ts pins that byte for byte.
+        if (name === 'erase_chat_data_for' && f === '20261110160000_p1631_erase_cleanup_in_erase_fn.sql') continue;
         expect(c.includes(`FUNCTION public.${name}(`), `${f} redefines ${name}`).toBe(false);
       }
     }

@@ -8,7 +8,10 @@ import { type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
 import { ConfirmDialog, ForwardDialog } from './ChatDialogs';
 import type { ListActions } from './MessageList';
 import { useChat } from './chat-state';
-import { requestComposerFocus, stageClarify, useLeaveChat } from './chat-hooks';
+import { startClarify } from '@/app/data/clarify-service';
+import { CLARIFY_FAILED_TOAST } from './clarify-copy';
+import { runClarifyDraft, trackClarifyStart } from './clarify-run';
+import { useLeaveChat } from './chat-hooks';
 import { chatPath, isChatVisibleInList } from './chat-view-model';
 import type { ConversationApi } from './MessageList';
 
@@ -45,19 +48,23 @@ export function useMessageActions({ summary, conv, onReply, onThread }: Options)
         summary.kind === 'mirror'
           ? undefined
           : (m: ChatMessage) => {
-              // Nothing is sent yet: the message is staged above the mirror's composer, where a note can be added
-              // and where × cancels. The mirror opens on top of here (its Back returns here).
-              const target = chats.find((c) => c.kind === 'mirror');
-              if (!target) {
-                toast.error('Could not open your mirror agent.');
-                return;
-              }
-              stageClarify(target.conversationId, { message: m, authorName: m.authorId ? authors[m.authorId]?.name ?? 'Unknown member' : 'Deleted user' });
-              requestComposerFocus(target.conversationId);
-              goToChat(chatPath(target.conversationId), 'follow');
+              // P1631: a new Mirror thread opens and the first draft starts at once. The thread opens on top of here (its Back returns
+              // here). A press while a draft is being made is answered `busy` and does nothing further.
+              void trackClarifyStart(async (threadKnown) => {
+                const r = await startClarify(m.id);
+                if (r.status === 'started') threadKnown(r.threadRootId);
+                return r;
+              }).then(
+                (r) => {
+                  if (r.status !== 'started') return;
+                  goToChat(chatPath(r.mirrorConversationId, { rootId: r.threadRootId }), 'follow');
+                  void runClarifyDraft(r.draftId);
+                },
+                () => toast.error(CLARIFY_FAILED_TOAST),
+              );
             },
     }),
-    [onReply, onThread, leave, goToChat, setManualUnread, conversationId, summary.kind, chats, authors],
+    [onReply, onThread, leave, goToChat, setManualUnread, conversationId, summary.kind],
   );
 
   const forwardTargets = useMemo(

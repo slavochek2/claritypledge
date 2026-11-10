@@ -305,29 +305,9 @@ export function focusOpenComposer() {
   document.querySelector<HTMLTextAreaElement>('[data-testid="composer"] textarea')?.focus();
 }
 
-// A Clarify that has been pressed but not sent: the message waits above the mirror's composer for a note. Module-level
-// like the composer-focus request, so it survives the navigation to the mirror; it expires so a forgotten one cannot
-// resurface much later, and it is consumed when the mirror reads it.
+// A Clarify that waited above the composer for a note is gone (P1631): Clarify now opens a Mirror thread and drafts at once.
+// The type stays for PendingQuote, which still draws a pending quote it is handed.
 export interface StagedClarify {
   message: ChatMessage;
   authorName: string;
-}
-const CLARIFY_TTL_MS = 10 * 60_000;
-let stagedClarify: { for: string; at: number; value: StagedClarify } | null = null;
-const stagedListeners = new Set<() => void>();
-/** For a mirror pane that is already open when a Clarify is staged for it (no navigation, so no new mount). */
-export function onClarifyStaged(listener: () => void): () => void {
-  stagedListeners.add(listener);
-  return () => void stagedListeners.delete(listener);
-}
-export function stageClarify(mirrorConversationId: string, value: StagedClarify) {
-  stagedClarify = { for: mirrorConversationId, at: Date.now(), value };
-  stagedListeners.forEach((l) => l());
-}
-/** Read once: a staged clarify that was not sent (or cancelled) must not come back on a later visit. */
-export function takeStagedClarify(mirrorConversationId: string): StagedClarify | null {
-  if (!stagedClarify || stagedClarify.for !== mirrorConversationId) return null;
-  const { at, value } = stagedClarify;
-  stagedClarify = null;
-  return Date.now() - at > CLARIFY_TTL_MS ? null : value;
 }

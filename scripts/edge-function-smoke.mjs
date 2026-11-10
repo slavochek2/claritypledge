@@ -162,6 +162,11 @@ export const EDGE_FUNCTION_EXPECTATIONS = {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },
   },
+  // P1631. Same shape as canvas-draft: OPTIONS answers before the enabled gate, the gateway refuses an unauthenticated POST.
+  'clarify-draft': {
+    options: { status: 200, expectCors: true },
+    deny: { status: 401, bodyIncludes: 'Missing authorization header' },
+  },
   'mirror-portrait': {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },

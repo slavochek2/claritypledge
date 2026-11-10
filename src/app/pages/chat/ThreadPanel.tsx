@@ -4,7 +4,7 @@
  * A right-hand panel from lg up; the whole screen on a phone. Every chat has threads (P1546: 1:1s
  * and the mirror too); in the mirror, the mirror agent answers inside the thread it was asked in.
  */
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-service';
 import { canvasThreadFlags } from './canvas-thread-flags';
 import type { CanvasWorkspaceProps } from './canvas-send-slot';
@@ -15,6 +15,7 @@ import { useBack } from './chat-hooks';
 import { useChat } from './chat-state';
 import { useRestoreMirrorStatuses } from './mirror-state';
 import { useCanvasParts } from './use-canvas-parts';
+import { useClarifyParts } from './use-clarify-parts';
 import { useReportRunActive } from './use-canvas-pane';
 import { useRetiredCanvasThread } from './use-retired-canvas-thread';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,6 +38,37 @@ function RetiredThread() {
       <Skeleton className="h-5 w-2/3" />
       <span className="sr-only">Opening your canvas</span>
     </section>
+  );
+}
+
+/** The thread's bottom: why it takes no replies, the canvas's own closed/cap line, or the composer. */
+function ThreadFooter({ blockedReason, canvas, draftKey, focusToken, focusable, sendPlain, sendVoice }: {
+  blockedReason: string | null;
+  canvas: ReturnType<typeof useCanvasParts>;
+  draftKey: string;
+  focusToken: number;
+  focusable: boolean;
+  sendPlain: (body: string | null) => void;
+  sendVoice: ComponentProps<typeof Composer>['onVoiceNote'];
+}) {
+  if (blockedReason) {
+    return (
+      <div className="shrink-0 border-t px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-testid="thread-composer-blocked">
+        <p className="text-sm text-muted-foreground">{blockedReason}</p>
+      </div>
+    );
+  }
+  return canvas.closedLine ?? canvas.capNotice ?? (
+    <Composer
+      waiting={canvas.waiting}
+      draftKey={draftKey}
+      placeholder={canvas.replyHint ?? 'Reply in thread'}
+      focusToken={focusToken}
+      autoFocus={focusable}
+      onSend={(body) => (canvas.send && body ? canvas.send(body) : sendPlain(body))}
+      onVoiceNote={sendVoice}
+      leading={canvas.leading}
+    />
   );
 }
 
@@ -90,6 +122,8 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   // P1576: a voice note sent here is a reply in this thread; in a canvas draft's thread (3c X9) it is the draft's update (use-thread-voice).
   const sendVoice = useThreadVoice(conversationId, rootId, canvasRoot, rootPending, canvas.voice);
   const blockedReason = threadBlockedReason(summary.canSend, rootDeleted);
+  // P1631: a Clarify thread shows its drafts under the source copy and takes no composer in this step.
+  const clarify = useClarifyParts(summary, root, chat.userId);
 
   if (retired) return <RetiredThread />;
 
@@ -100,7 +134,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
       className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col bg-background' : 'flex min-h-0 min-w-0 flex-1 flex-col bg-background lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]'}
     >
       <ThreadHeader onClose={close} menu={<><EventRoomLink chat={summary} />{headerActions}</>} workspace={fill ? 'draft' : undefined}>
-        {panelTitle ?? canvas.headerTitle ?? (
+        {panelTitle ?? canvas.headerTitle ?? clarify.headerTitle ?? (
           <>
             <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
             <p className="truncate text-xs text-muted-foreground">{chatTitle(summary)}</p>
@@ -118,24 +152,19 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
         inThread
         earlierLabel="Load earlier replies"
         {...canvas.list}
-        trailing={canvas.trailing}
+        trailing={canvas.trailing ?? clarify.trailing}
         after={canvas.after}
       />
       {canvas.readState}
-      {blockedReason ? (
-        <div className="shrink-0 border-t px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-testid="thread-composer-blocked">
-          <p className="text-sm text-muted-foreground">{blockedReason}</p>
-        </div>
-      ) : canvas.closedLine ?? canvas.capNotice ?? (
-        <Composer
-          waiting={canvas.waiting}
+      {clarify.isClarify ? null : (
+        <ThreadFooter
+          blockedReason={blockedReason}
+          canvas={canvas}
           draftKey={`${chat.userId}:${conversationId}:${rootId}`}
-          placeholder={canvas.replyHint ?? 'Reply in thread'}
           focusToken={focusToken}
-          autoFocus={focusable}
-          onSend={(body) => (canvas.send && body ? canvas.send(body) : sendPlain(body))}
-          onVoiceNote={sendVoice}
-          leading={canvas.leading}
+          focusable={focusable}
+          sendPlain={sendPlain}
+          sendVoice={sendVoice}
         />
       )}
       {dialogs}

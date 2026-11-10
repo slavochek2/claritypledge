@@ -28,6 +28,7 @@ import { ChatContext, type ChatContextValue } from './chat-state';
 import { voiceStatus } from './mirror-voice';
 import { MirrorContext, type MirrorContextValue, type MirrorReplyStatus, type PortraitStatus } from './mirror-state';
 import { canvasSendsSettled, isCanvasThread } from './canvas-thread-registry';
+import { clarifyStartsSettled, isClarifyThread } from './clarify-run';
 
 /** A job still "running" this long after it was created died with its request: offer Try again. */
 const STALE_RUNNING_MS = 3 * 60_000;
@@ -295,13 +296,14 @@ function MirrorEngine({ chat, onValue }: { chat: ChatContextValue; onValue: (v: 
           setStatus(m.replyToId, undefined);
           return;
         }
-        if (!isAskable(m, userId, mirrorIdRef.current) || asked.current.has(m.id) || isCanvasThread(m.threadRootId)) return;
+        if (!isAskable(m, userId, mirrorIdRef.current) || asked.current.has(m.id) || isCanvasThread(m.threadRootId) || isClarifyThread(m.threadRootId) || isClarifyThread(m.id)) return;
         // A threaded message may belong to a canvas thread this tab has not heard of yet (a send is opening its draft right now, and its
-        // answer, which names the thread, can come after this realtime copy): decide when that send is over.
-        const settled = m.threadRootId ? canvasSendsSettled() : null;
+        // answer, which names the thread, can come after this realtime copy): decide when that send is over. The same for a Clarify
+        // copy (P1631): it is the root of a draft thread while this tab's Clarify press is still starting it.
+        const settled = m.threadRootId ? canvasSendsSettled() : m.kind === 'clarify' ? clarifyStartsSettled() : null;
         if (!settled) return answerOwnMessage(m);
         void settled.then(() => {
-          if (mounted.current && !isCanvasThread(m.threadRootId) && !asked.current.has(m.id)) answerOwnMessage(m);
+          if (mounted.current && !isCanvasThread(m.threadRootId) && !isClarifyThread(m.id) && !asked.current.has(m.id)) answerOwnMessage(m);
         });
       }),
     [subscribe, userId, answerOwnMessage, showTranscriptUpdate, setStatus],

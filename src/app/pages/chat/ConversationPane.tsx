@@ -5,11 +5,11 @@
  * The URL owns which conversation (and thread) is open, so Back works. Opening a conversation marks
  * it read (while the tab is visible) and keeps marking it read as messages arrive.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { clarifyMessage, type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
+import { type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
 import type { Shareable } from '@/app/data/chat-ui-helpers';
 import { AttachDialog, ConfirmDialog, RenameMirrorDialog } from './ChatDialogs';
 import { attachConversationId } from './attach-canvases';
@@ -24,7 +24,7 @@ import { useMirrorAsks } from './use-mirror-asks';
 import { conversationCopy, readThroughId } from './conversation-derived';
 import { useOpenHitThread } from './use-open-hit-thread';
 import { CanvasPlusMenu } from './CanvasPlusMenu';
-import { isLeavingChat, takeStagedClarify, onClarifyStaged, takeComposerFocus, type StagedClarify, useBack, useChatNavigate, useLeaveChat, usePageVisible } from './chat-hooks';
+import { isLeavingChat, takeComposerFocus, useBack, useChatNavigate, useLeaveChat, usePageVisible } from './chat-hooks';
 import { useChat } from './chat-state';
 import { chatErrorText, chatPath, hasWayBackElsewhere, isChannel, mirrorRole } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
@@ -122,29 +122,6 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
   }, [conversationId]);
   const [attaching, setAttaching] = useState(false);
   const [staged, setStaged] = useState<Shareable | null>(null);
-  // A Clarify waiting for its note (the mirror only): nothing has been sent until Send.
-  const [clarify, setClarify] = useState<StagedClarify | null>(null);
-  const [clarifyBusy, setClarifyBusy] = useState(false);
-  const clarifying = useRef(false);
-  const location = useLocation();
-  // Take a staged Clarify when it is there: on arrival, when the address changes, and when one is staged for a mirror pane
-  // that is already open. Only ever sets (never clears) so a StrictMode replay, which finds nothing left, cannot wipe it.
-  const readStaged = useCallback(() => {
-    if (summary.kind !== 'mirror') return;
-    const waiting = takeStagedClarify(summary.conversationId);
-    if (!waiting) return;
-    setClarify(waiting);
-    setReplyTo(null); // a reply and a Clarify are never pending together
-  }, [summary.kind, summary.conversationId]);
-  const shownFor = useRef(summary.conversationId);
-  useEffect(() => {
-    if (shownFor.current !== summary.conversationId) {
-      shownFor.current = summary.conversationId;
-      setClarify(null); // the pane was reused for another conversation
-    }
-    readStaged();
-  }, [summary.conversationId, location.key, readStaged]);
-  useEffect(() => onClarifyStaged(readStaged), [readStaged]);
   const [renaming, setRenaming] = useState(false);
   const [blocking, setBlocking] = useState(false);
   const [target, setTarget] = useState<string | null>(highlightId);
@@ -161,7 +138,6 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
   useEffect(() => setTarget(highlightId), [highlightId]);
 
   const onReply = useCallback((m: ChatMessage) => {
-    setClarify(null); // a reply and a Clarify are never pending together
     setReplyTo(m);
     setFocusToken((t) => t + 1);
   }, []);
@@ -257,9 +233,7 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
           leading={mirrorPlus(summary, privateTo)}
           staged={staged}
           onUnstage={() => setStaged(null)}
-          quote={<PendingQuote clarify={clarify} replyTo={replyTo} authors={chat.authors} onClearClarify={() => setClarify(null)} onClearReply={() => setReplyTo(null)} />}
-          quoteSendable={!!clarify}
-          sendDisabled={clarifyBusy}
+          quote={<PendingQuote clarify={null} replyTo={replyTo} authors={chat.authors} onClearClarify={() => undefined} onClearReply={() => setReplyTo(null)} />}
           mentions={mentions}
           onVoiceNote={sendVoice}
           privateTo={privateTo}
@@ -271,35 +245,6 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
             }
           }}
           onSend={(body, attachment) => {
-            if (clarify) {
-              // ONE message in the mirror: the copy with the note as its body. Nothing is cleared until it landed,
-              // so a failure leaves the quote staged and (through the Composer) the typed note back in the field.
-              if (clarifying.current) return false;
-              clarifying.current = true;
-              setClarifyBusy(true);
-              const submitted = attachment;
-              return clarifyMessage(clarify.message.id, body).then(
-                async (row) => {
-                  mirror?.requestReply(row.id); // the mirror answers a Clarify (P1520)
-                  setClarify(null);
-                  await conv.reload();
-                  // An attached point or story cannot ride on the copy: it follows as its own message.
-                  if (attachment) {
-                    void conv.send({ body: null, attachment: { kind: attachment.kind, id: attachment.id } });
-                    // Only the attachment that was submitted: one picked while the send was out stays.
-                    setStaged((now) => (now === submitted ? null : now));
-                  }
-                  return true;
-                },
-                (e) => {
-                  toast.error(chatErrorText(e, 'Could not send this to your mirror agent.'));
-                  return false;
-                },
-              ).finally(() => {
-                clarifying.current = false;
-                setClarifyBusy(false);
-              });
-            }
             if (privateTo && mirror && body) {
               // P1520: a private question to the viewer's own mirror. Nothing is written to this channel.
               return mirror.ask(conversationId, body).then(

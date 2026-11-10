@@ -182,8 +182,17 @@ const sqlCodesOf = (sql: string): string[] => {
   return out;
 };
 const MIG = 'supabase/migrations/';
-const migrationFiles = (): string[] => readdirSync(resolve(process.cwd(), MIG)).filter((f) => f.endsWith('.sql')).map((f) => MIG + f);
-const sqlCodes = (): string[] => [...new Set(migrationFiles().flatMap((f) => sqlCodesOf(read(f))))];
+/**
+ * Scope seed: P1631's migrations write the codes of Clarify drafts and published points (clarify_drafts, publish answers), which no canvas run can carry,
+ * so they are left out rather than given canvas rows: a canvas row for `bad_output` would let a future canvas run with that code pass with no words.
+ */
+const NOT_CANVAS = /_p1631_/;
+const migrationFiles = (): string[] => readdirSync(resolve(process.cwd(), MIG)).filter((f) => f.endsWith('.sql') && !NOT_CANVAS.test(f)).map((f) => MIG + f);
+/** In a file left out by the scope seed, the statements that still touch a canvas object (an erasure cancelling canvas runs) are scanned all the same. */
+const canvasStatements = (sql: string): string =>
+  sql.replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '').split(';').filter((st) => /canvas/i.test(st)).join(';');
+const notCanvasFiles = (): string[] => readdirSync(resolve(process.cwd(), MIG)).filter((f) => f.endsWith('.sql') && NOT_CANVAS.test(f)).map((f) => MIG + f);
+const sqlCodes = (): string[] => [...new Set([...migrationFiles().flatMap((f) => sqlCodesOf(read(f))), ...notCanvasFiles().flatMap((f) => sqlCodesOf(canvasStatements(read(f))))])];
 const thrown = (): string[] => [...(/readonly code: ([^)]+)\)/.exec(calls)?.[1] ?? '').matchAll(/'([A-Z_]+)'/g)].map((m) => m[1]!);
 const clientCodes = (): string[] => [...new Set([...union(calls, 'CanvasDraftErrorCode'), ...union(calls, 'CanvasRefusalCode'), ...thrown()])];
 
@@ -194,6 +203,9 @@ describe('P1653 Done-When: every failure code has a row in the reply table', () 
     expect(fr.filter((c) => c.startsWith('UNRESOLVED:')), 'every failRun argument is resolved').toEqual([]);
     expect(fr, 'failCode family').toContain('http_*');
     expect(fr, 'upload call sites').toContain('unsupported');
+    expect(notCanvasFiles().length, 'the scope seed leaves out real files').toBeGreaterThan(0);
+    expect(sqlCodesOf(canvasStatements("UPDATE public.canvas_draft_runs SET error_code = 'canvas_only'; -- unlike canvas runs\n UPDATE public.clarify_drafts SET error_code = 'clarify_only';")), 'a canvas statement in a left-out file is still read').toEqual(['canvas_only']);
+    expect(migrationFiles(), 'the scope seed keeps the canvas migrations').toContain(MIG + '20261110100000_p1653_never_a_wall.sql');
     const sql = sqlCodes(); expect(sql, 'SQL literal').toContain('abandoned'); expect(sql, 'SQL refusal').toContain('stale_view');
     const mine = sqlCodesOf(read(MIG + '20261110100000_p1653_never_a_wall.sql'));
     expect(mine, 'SQL CASE branch (this file alone)').toEqual(expect.arrayContaining(['abandoned', 'transcript_failed']));

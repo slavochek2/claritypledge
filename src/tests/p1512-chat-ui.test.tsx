@@ -28,7 +28,6 @@ const svc = vi.hoisted(() => ({
   editMessage: vi.fn(),
   deleteMessage: vi.fn(),
   forwardMessage: vi.fn(),
-  clarifyMessage: vi.fn(),
   markRead: vi.fn(),
   setChatState: vi.fn(),
   renameMirror: vi.fn(),
@@ -41,6 +40,23 @@ const svc = vi.hoisted(() => ({
   subscribeToChat: vi.fn(),
   getThreadStats: vi.fn(),
 }));
+// P1631: Clarify calls the database and the edge function through clarify-service; the tests answer in its place.
+const clarifySvc = vi.hoisted(() => ({
+  startClarify: vi.fn(),
+  invokeClarifyDraft: vi.fn(),
+  getClarifyThread: vi.fn(),
+  anotherPoint: vi.fn(),
+  retryClarify: vi.fn(),
+  editClarifyDraft: vi.fn(),
+  deleteClarifyDraft: vi.fn(),
+}));
+vi.mock('@/app/data/clarify-service', () => clarifySvc);
+/** The next Clarify press starts a draft in a new thread of the mirror. */
+function clarifyStarts(threadRootId: string, draftId = 'd-1') {
+  clarifySvc.startClarify.mockResolvedValue({ status: 'started', draftId, threadRootId, mirrorConversationId: 'c-mirror' });
+  clarifySvc.invokeClarifyDraft.mockResolvedValue({ ok: true });
+  clarifySvc.getClarifyThread.mockResolvedValue([]);
+}
 const helpers = vi.hoisted(() => ({
   getChatAuthors: vi.fn(),
   loadMyShareables: vi.fn(),
@@ -69,7 +85,6 @@ import { MirrorMark } from '@/app/pages/chat/chat-kit';
 import ChatHomePage from '@/app/pages/chat/ChatHomePage';
 import { useChat } from '@/app/pages/chat/chat-state';
 import { MirrorContext, type MirrorContextValue } from '@/app/pages/chat/mirror-state';
-import { stageClarify } from '@/app/pages/chat/chat-hooks';
 import { Composer } from '@/app/pages/chat/Composer';
 import { AttachmentCard, ATTACHMENT_TIMEOUT_MS } from '@/app/pages/chat/AttachmentCard';
 import {
@@ -177,13 +192,11 @@ let handlers: { onMessage: (e: ChatMessageEvent) => void; onState: (s: ChatMembe
 
 // What a browser's own back button does, for tests that prove a Back in the app popped or replaced.
 let historyBack: () => void = () => undefined;
-let historyForward: () => void = () => undefined;
 
 function Probe() {
   const l = useLocation();
   const navigate = useNavigate();
   historyBack = () => navigate(-1);
-  historyForward = () => navigate(1);
   // data-nav: how the router arrived here (PUSH, POP or REPLACE).
   return <div data-testid="loc" data-nav={useNavigationType()} data-state={JSON.stringify(l.state)}>{l.pathname}{l.search}</div>;
 }
@@ -1120,42 +1133,33 @@ describe('conversation', () => {
     expect(toastFn).toHaveBeenCalledWith('Forwarded', expect.objectContaining({ action: expect.objectContaining({ label: 'Open' }) }));
   });
 
-  it('clarify: opens the mirror with the message staged and the composer focused, sending nothing until Send; the mirror itself has no Clarify', async () => {
+  it('clarify (P1631): starts at once and opens the new Mirror thread, staging nothing and sending no message; a busy press does nothing further; the mirror itself has no Clarify', async () => {
     const theirs = msg('dm1', 'p-dm1', 'clarify this', { id: 'cl1' });
-    svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl2', kind: 'clarify' }));
-    svc.sendMessage.mockResolvedValue(msg('c-mirror', ME.id, 'because it is vague', { id: 'cl3' }));
+    clarifyStarts('cl2', 'd1');
     const { unmount } = renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [theirs], 'c-mirror': [] });
     await screen.findByText('clarify this');
     await menuOn('clarify this');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/c-mirror'));
-    const pending = await screen.findByTestId('clarify-pending');
-    expect(pending).toHaveTextContent('Clarify');
-    expect(pending).toHaveTextContent('clarify this');
-    expect(svc.clarifyMessage).not.toHaveBeenCalled();
-    expect(toastFn).not.toHaveBeenCalled();
-    expect(await screen.findByRole('textbox', { name: 'Write to your mirror agent' })).toHaveFocus();
-    // Cancel (x): nothing is posted, and the staged message is gone.
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel clarify' }));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/c-mirror/t/cl2'));
+    expect(clarifySvc.startClarify).toHaveBeenCalledWith('cl1');
+    await waitFor(() => expect(clarifySvc.invokeClarifyDraft).toHaveBeenCalledWith('d1'));
+    // Nothing is staged above a composer and no message is sent by the press.
     expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();
-    expect(svc.clarifyMessage).not.toHaveBeenCalled();
-    expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument();
+    expect(svc.sendMessage).not.toHaveBeenCalled();
+    expect(toastFn).not.toHaveBeenCalled();
     unmount();
 
-    // Stage again, add a note, send: ONE clarify message carrying the note.
+    // A press while a draft is being made: busy, so no navigation and no run.
+    clarifySvc.invokeClarifyDraft.mockClear();
+    clarifySvc.startClarify.mockResolvedValue({ status: 'busy', draftId: 'd1', threadRootId: 'cl2', mirrorConversationId: 'c-mirror' });
     const again = renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [theirs], 'c-mirror': [] });
     await screen.findByText('clarify this');
     await menuOn('clarify this');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    await screen.findByTestId('clarify-pending');
-    fireEvent.change(screen.getByRole('textbox', { name: 'Write to your mirror agent' }), { target: { value: 'because it is vague' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    await waitFor(() => expect(svc.clarifyMessage).toHaveBeenCalledTimes(1));
-    // ONE message: the copy carries the note; no second message is sent.
-    expect(svc.clarifyMessage).toHaveBeenCalledWith('cl1', 'because it is vague');
-    await waitFor(() => expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument());
-    expect(svc.sendMessage).not.toHaveBeenCalled();
-    expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();
+    await waitFor(() => expect(clarifySvc.startClarify).toHaveBeenCalledTimes(2));
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/dm1');
+    expect(clarifySvc.invokeClarifyDraft).not.toHaveBeenCalled();
     again.unmount();
 
     const own = msg('c-mirror', ME.id, 'a note to self', { id: 'n1' });
@@ -2842,14 +2846,14 @@ describe('Back goes back', () => {
   });
 
   it('list -> chat -> Clarify -> mirror -> select another chat: Back goes to the list, not into the chat', async () => {
-    svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl20', kind: 'clarify' }));
+    clarifyStarts('cl20');
     renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat, channel], { dm1: [msg('dm1', 'p-dm1', 'clarify then switch')], g1: [] });
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
     fireEvent.click(rowButton('Ada Lovelace'));
     await screen.findByText('clarify then switch');
     await menuOn('clarify then switch');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    await waitFor(() => expect(where()).toBe('/chats/c/c-mirror'));
+    await waitFor(() => expect(where()).toBe('/chats/c/c-mirror/t/cl20'));
     fireEvent.click(rowButton('Builders · General'));
     expect(where()).toBe('/chats/c/g1');
     fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
@@ -2857,13 +2861,13 @@ describe('Back goes back', () => {
   });
 
   it('a chat reached from a group page -> Clarify -> mirror: the mirror cannot be archived (P1604, founder), and Back returns to the group page chat', async () => {
-    svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl21', kind: 'clarify' }));
+    clarifyStarts('cl21');
     renderChat({ entries: ['/feed', '/groups/cm', '/chats/c/g1'], index: 2 }, [mirror(), channel], { g1: [msg('g1', 'p-grace', 'clarify from group')] });
     await screen.findByText('clarify from group');
     await menuOn('clarify from group');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    await waitFor(() => expect(where()).toBe('/chats/c/c-mirror'));
-    await userEvent.click(screen.getByRole('button', { name: 'More' }));
+    await waitFor(() => expect(where()).toBe('/chats/c/c-mirror/t/cl21'));
+    await userEvent.click(screen.getAllByRole('button', { name: 'More' })[0]);
     await screen.findByRole('menuitem', { name: /mark as unread/i });
     expect(screen.queryByRole('menuitem', { name: 'Archive' }), 'the mirror offers no Archive').not.toBeInTheDocument();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
@@ -2871,21 +2875,7 @@ describe('Back goes back', () => {
     await waitFor(() => expect(where()).toBe('/chats/c/g1'));
   });
 
-  it('the composer focus Clarify asks for is spent once: going back and forward again does not take focus', async () => {
-    svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl22', kind: 'clarify' }));
-    renderChat({ entries: ['/feed', '/chats/c/dm1'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify once')] });
-    await screen.findByText('clarify once');
-    await menuOn('clarify once');
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    expect(await screen.findByRole('textbox', { name: 'Write to your mirror agent' })).toHaveFocus();
-    act(() => historyBack());
-    await screen.findByRole('textbox', { name: 'Message Ada' });
-    (document.activeElement as HTMLElement | null)?.blur();
-    act(() => historyForward());
-    const composer = await screen.findByRole('textbox', { name: 'Write to your mirror agent' });
-    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
-    expect(composer).not.toHaveFocus();
-  });
+  // P1631: "the composer focus Clarify asks for is spent once" is gone with the focus request: Clarify opens a thread, not the composer.
 
   it('a double tap on Back pops once, not twice out of the app', async () => {
     renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat], threadMsgs);
@@ -3040,7 +3030,7 @@ describe('message actions: toolbar and More', () => {
 
   it('a renamed mirror is named by its title, in the button and the clarified card', async () => {
     const renamed = mirror('c-mirror', { title: 'Thinking out loud' });
-    svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl9', kind: 'clarify' }));
+    clarifyStarts('cl9');
     renderChat('/chats/c/dm1', [renamed, dmChat], {
       dm1: [msg('dm1', 'p-dm1', 'rename test', { id: 'rn1' })],
       'c-mirror': [msg('c-mirror', ME.id, null, { id: 'cl9', kind: 'clarify', forwardSnapshot: { authorName: 'Ada Lovelace', body: 'words', createdAt: iso(5), conversationKind: 'dm', conversationTitle: 'Ada Lovelace', thread: [] } })],
@@ -3049,7 +3039,9 @@ describe('message actions: toolbar and More', () => {
     fireEvent.pointerUp(screen.getByText('rename test'));
     fireEvent.click(within(toolbarOf('rename test')).getByRole('button', { name: 'Clarify with Thinking out loud' }));
     await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/c-mirror'));
-    expect(await screen.findByTestId('clarified-card')).toHaveTextContent('Sent to Thinking out loud to clarify');
+    // The copy shows in the mirror's list and as the root of the new thread (P1631).
+    const cards = await screen.findAllByTestId('clarified-card');
+    expect(cards[0]).toHaveTextContent('Sent to Thinking out loud to clarify');
   });
 
   describe('Clarify jumps to the mirror', () => {
@@ -3060,7 +3052,7 @@ describe('message actions: toolbar and More', () => {
       await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/c-mirror'));
     };
     beforeEach(() => {
-      svc.clarifyMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'cl7', kind: 'clarify' }));
+      clarifyStarts('cl7');
     });
 
     it('pushes the mirror, and its Back returns to the chat clarified from', async () => {
@@ -3068,6 +3060,10 @@ describe('message actions: toolbar and More', () => {
       await screen.findByText('clarify back');
       await clarifyIt('clarify back');
       expect(nav()).toBe('PUSH');
+      // P1631: Clarify opens the new thread of the mirror, so Back leaves the thread for the mirror, and Back again returns to the chat.
+      expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/c-mirror/t/cl7');
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Back' }))[0]);
+      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats\/c\/c-mirror$/));
       fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
       expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats\/c\/dm1$/);
       expect(nav()).toBe('POP');
@@ -3084,19 +3080,15 @@ describe('message actions: toolbar and More', () => {
       expect(screen.queryByRole('menuitem', { name: 'Archive' })).not.toBeInTheDocument();
     });
 
-    it('a failed clarify shows an error toast, keeps the quote staged and puts the typed note back', async () => {
-      svc.clarifyMessage.mockRejectedValue(new Error('chat clarify failed: chat: not available'));
+    it('a Clarify that could not start shows an error toast and stays on the chat (P1631: nothing is staged any more)', async () => {
+      clarifySvc.startClarify.mockRejectedValue(new Error('clarify_start failed: not available'));
       renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify fail')], 'c-mirror': [] });
       await screen.findByText('clarify fail');
       await menuOn('clarify fail');
       fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-      await screen.findByTestId('clarify-pending');
-      const field = screen.getByRole('textbox', { name: 'Write to your mirror agent' });
-      fireEvent.change(field, { target: { value: 'my reason' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Send' }));
       await waitFor(() => expect(toastFn.error).toHaveBeenCalled());
-      expect(screen.getByTestId('clarify-pending')).toBeInTheDocument();
-      await waitFor(() => expect(field).toHaveValue('my reason'));
+      expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats\/c\/dm1$/);
+      expect(clarifySvc.invokeClarifyDraft).not.toHaveBeenCalled();
     });
   });
 });
@@ -3378,41 +3370,8 @@ describe('freshness fixes', () => {
 });
 
 describe('a pending Clarify (review fixes)', () => {
-  const dmChat = dm('dm1', 'Ada Lovelace');
-  const src = (text = 'to clarify') => msg('dm1', 'p-dm1', text, { id: 'src1' });
-
-  it('F6: one staged for a mirror pane that is already open appears without a navigation', async () => {
-    renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
-    await screen.findByRole('textbox', { name: 'Write to your mirror agent' });
-    expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();
-    act(() => stageClarify('c-mirror', { message: src('late clarify'), authorName: 'Ada Lovelace' }));
-    expect(await screen.findByTestId('clarify-pending')).toHaveTextContent('late clarify');
-  });
-
-  it('F5: it is taken once: after the pane is closed and opened again it does not come back', async () => {
-    stageClarify('c-mirror', { message: src('only once'), authorName: 'Ada Lovelace' });
-    const first = renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
-    expect(await screen.findByTestId('clarify-pending')).toBeInTheDocument();
-    first.unmount();
-    renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
-    await screen.findByRole('textbox', { name: 'Write to your mirror agent' });
-    expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();
-  });
-
-  it('F7: Reply and Clarify are never pending together', async () => {
-    stageClarify('c-mirror', { message: src('stage first'), authorName: 'Ada Lovelace' });
-    renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'a note to self', { id: 'n9' })] });
-    await screen.findByTestId('clarify-pending');
-    await menuOn('a note to self');
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Reply' }));
-    expect(await screen.findByTestId('reply-pending')).toBeInTheDocument();
-    expect(screen.queryByTestId('clarify-pending')).not.toBeInTheDocument();
-    // ...and a Clarify staged later replaces the reply.
-    act(() => stageClarify('c-mirror', { message: src('stage second'), authorName: 'Ada Lovelace' }));
-    expect(await screen.findByTestId('clarify-pending')).toHaveTextContent('stage second');
-    expect(screen.queryByTestId('reply-pending')).not.toBeInTheDocument();
-  });
-
+  // P1631: F4 to F7 tested the staged Clarify (a quote waiting above the composer for a note), which Clarify no longer has: it opens a Mirror
+  // thread and drafts at once. Their replacements are in p1631-clarify-client.test.tsx.
   it('F3: a send that is refused at once gives the typed note back, and Send waits while one is in flight', async () => {
     const onSend = vi.fn().mockReturnValue(false);
     const { rerender } = render(<MemoryRouter><Composer draftKey="k-f3" placeholder="Write" onSend={onSend} /></MemoryRouter>);
@@ -3425,29 +3384,5 @@ describe('a pending Clarify (review fixes)', () => {
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
     fireEvent.submit(field.closest('form')!);
     expect(onSend).toHaveBeenCalledTimes(1);
-  });
-
-  it('F4: only the attachment that was submitted is cleared when the clarify lands', async () => {
-    helpers.loadMyShareables.mockResolvedValue([
-      { kind: 'point', id: 'pt-a', title: 'Alpha', tags: [], point: { id: 'pt-a', statement: 'Alpha' } },
-      { kind: 'point', id: 'pt-b', title: 'Beta', tags: [], point: { id: 'pt-b', statement: 'Beta' } },
-    ]);
-    let land!: (m: ChatMessage) => void;
-    svc.clarifyMessage.mockImplementation(() => new Promise<ChatMessage>((r) => { land = r; }));
-    svc.sendMessage.mockResolvedValue(msg('c-mirror', ME.id, null, { id: 'x1' }));
-    stageClarify('c-mirror', { message: src('with attachment'), authorName: 'Ada Lovelace' });
-    renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [] });
-    await screen.findByTestId('clarify-pending');
-    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
-    fireEvent.click(await screen.findByRole('button', { name: /Attach Alpha/ }));
-    await screen.findByText('Attached point: Alpha');
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
-    await waitFor(() => expect(svc.clarifyMessage).toHaveBeenCalled());
-    // While the send is out, another attachment is picked.
-    fireEvent.click(screen.getByRole('button', { name: 'Attach' }));
-    fireEvent.click(await screen.findByRole('button', { name: /Attach Beta/ }));
-    await screen.findByText('Attached point: Beta');
-    await act(async () => { land(msg('c-mirror', ME.id, null, { id: 'cl-f4', kind: 'clarify' })); await new Promise((r) => setTimeout(r, 30)); });
-    expect(screen.getByText('Attached point: Beta')).toBeInTheDocument();
   });
 });

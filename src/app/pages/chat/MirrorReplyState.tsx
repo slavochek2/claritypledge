@@ -7,6 +7,16 @@ import { Button } from '@/components/ui/button';
 import { MirrorMark } from './chat-kit';
 import { useMirror } from './mirror-state';
 
+/** The mirror's thinking line, shared by a reply in progress and a Clarify draft being made. */
+export function MirrorThinking({ name, testId, className = 'mt-1' }: { name: string; testId: string; className?: string }) {
+  return (
+    <p role="status" data-testid={testId} className={`${className} flex items-center gap-1.5 text-sm text-muted-foreground`}>
+      <MirrorMark size="xs" />
+      <span className="animate-pulse">{name} is thinking…</span>
+    </p>
+  );
+}
+
 /**
  * P1520: what the mirror is doing about this message of its owner: thinking, could not answer (Try again), or out of
  * today's allowance. Nothing once it has answered. A voice note still being transcribed shows nothing here:
@@ -16,14 +26,7 @@ export function MirrorReplyState({ messageId, name }: { messageId: string; name:
   const mirror = useMirror();
   const status = mirror?.statusFor(messageId);
   if (!mirror || !status) return null;
-  if (status === 'thinking') {
-    return (
-      <p role="status" data-testid="mirror-thinking" className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-        <MirrorMark size="xs" />
-        <span className="animate-pulse">{name} is thinking…</span>
-      </p>
-    );
-  }
+  if (status === 'thinking') return <MirrorThinking name={name} testId="mirror-thinking" />;
   if (status === 'transcribing') return null;
   if (status === 'transcript_failed') {
     return (
