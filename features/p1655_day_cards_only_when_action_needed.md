@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-11-10'
 tags: [day, budgets, fingerprints, noise]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
