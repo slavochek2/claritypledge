@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { isSystemTag } from '@/lib/feed-utils'
+import { URL_RUN } from '@/lib/linkify'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -181,21 +182,53 @@ export function formatRelativeTime(dateString: string): string {
  * @param content - Text that may contain #hashtag patterns
  * @returns Array of unique lowercase tag names (without the # prefix)
  */
+// P1660: a `#` inside a link is a fragment, not a tag. Links are masked before any
+// tag is read, for extraction (tags are SAVED from this — create-story-page) and for
+// stripping alike. The placeholder is `\uE000<index>\uE001`: no `#`, and the private-use brackets keep its digits from joining a neighbouring word.
+// The http(s) half is linkify's own URL_RUN, so what is protected is exactly what the app
+// renders as a link (brackets in a query included); `www.` uses the same character class.
+// A markdown target may carry a title
+// (`[x](#a "Title")`), so it runs to the first `)` on its line.
+const LINK_SPAN = new RegExp(`\\b${URL_RUN.source}|\\bwww\\.[^\\s<>"']+|\\]\\([^)\\n]*\\)`, 'gi');
+function maskLinks(content: string): { text: string; restore: (s: string) => string } {
+  // Text that already holds the placeholder characters is left unmasked rather than risk
+  // restoring the wrong span (they come only from pasted private-use glyphs).
+  if (/[\uE000\uE001]/.test(content)) return { text: content, restore: (s) => s };
+  const spans: string[] = [];
+  const text = content.replace(LINK_SPAN, (span) => {
+    spans.push(span);
+    return `\uE000${spans.length - 1}\uE001`;
+  });
+  return { text, restore: (s) => s.replace(/\uE000(\d+)\uE001/g, (_, i: string) => spans[Number(i)] ?? "") };
+}
+// A tag starts a token (P1660): not after a letter, combining mark, digit, `_`, `#` or `/` in any script
+// (`issue#12`, `café#x`, and a scheme-less link such as `example.com/#x`). Extraction and
+// stripping share this start rule and the rule that `#node.js`, `#a/#b` and `#a#b` are not tags. A
+// typed `#canvas:problem` still extracts `canvas` (P1508 pins it: a typed tag never becomes the
+// `canvas:problem` box tag); stripping leaves such a token whole.
+// Their END rules still differ for `-`, `'`, `*`, quotes and brackets (`#ai-powered`,
+// `#trust's`): those are extracted but not stripped, as before this fix.
+// The start rule is a CAPTURED prefix, never a lookbehind: Safari/iOS before 16.4 throws on a
+// regex lookbehind at construction and takes every page that loads this module down with it
+// (P983, decisions.md 2026-07-08; pinned by src/tests/no-regex-lookbehind.test.ts). Group 1
+// is the prefix (or empty at the start of the text); callers keep it.
+const TAG_START = '(^|[^\\p{L}\\p{M}\\p{N}_#/])';
+const TAG_IN_TEXT = new RegExp(`${TAG_START}#(\\w+)(?!\\w|\\.\\w|[/#])`, 'gu');
+
+/** Lowercased, de-duplicated tags in `content`, links masked first (P1660). */
+function tagsInText(content: string): string[] {
+  const tags = [...maskLinks(content).text.matchAll(TAG_IN_TEXT)].map(m => (m[2] ?? '').toLowerCase());
+  return [...new Set(tags)];
+}
+
 export function extractHashtags(content: string): string[] {
-  const matches = content.match(/#(\w+)/g);
-  if (!matches) return [];
-  const tags = matches.map(m => m.slice(1).toLowerCase());
-  const unique = [...new Set(tags)];
   // P630: Filter out system tags — only user tags flow through auto-extraction
-  return unique.filter(t => !isSystemTag(t));
+  return tagsInText(content).filter(t => !isSystemTag(t));
 }
 
 /** Extract ALL hashtags including system tags — used by stripHashtags fallback only. */
 function extractAllHashtags(content: string): string[] {
-  const matches = content.match(/#(\w+)/g);
-  if (!matches) return [];
-  const tags = matches.map(m => m.slice(1).toLowerCase());
-  return [...new Set(tags)];
+  return tagsInText(content);
 }
 
 export function stripHashtags(content: string, tags?: string[]): string {
@@ -206,13 +239,16 @@ export function stripHashtags(content: string, tags?: string[]): string {
   const effectiveTags = [...new Set([...userTags, ...systemTagsInText])];
   if (effectiveTags.length === 0) return content;
 
-  let result = content;
+  const masked = maskLinks(content);
+  let result = masked.text;
   for (const tag of effectiveTags) {
-    // Match #tag followed by word boundary (whitespace, punctuation, or end-of-string)
-    // The (?=[\\s.,;:!?)]|$) lookahead ensures we don't strip partial matches like #st7 from #st77
-    const pattern = new RegExp(`#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=[\\s.,;:!?)]|$)`, 'gi');
-    result = result.replace(pattern, '');
+    // `#tag` at the start of a token (TAG_START, P1660), ending at
+    // whitespace, `,;!?)`, end of text, or `.`/`:` NOT followed by a word character
+    // (P1660: `#node.js` is one token). Partial matches like #st7 inside #st77 are excluded.
+    const pattern = new RegExp(`${TAG_START}#${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\s|[,;!?)]|[.:](?!\\w)|$)`, 'giu');
+    result = result.replace(pattern, '$1');
   }
+  result = masked.restore(result);
 
   // Tidy the gaps the removed tags leave behind — WITHOUT touching line structure.
   // `\s{2,}` used to do this, and `\s` includes `\n`: a blank line between two
