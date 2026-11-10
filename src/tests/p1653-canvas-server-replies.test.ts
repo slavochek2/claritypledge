@@ -12,7 +12,7 @@ import { executeRun, type CanvasRun, type RpcResult, type RunDeps } from '../../
 import { handleUpload, type HandlerCtx } from '../../supabase/functions/_shared/canvas-handlers';
 import { PAGE_BUTTONS, WORDS, pageButtonsFor } from '../../supabase/functions/_shared/canvas-reply-table';
 import { stubCaller } from '../../supabase/functions/_shared/canvas-model';
-import { boxVocabulary } from '../../supabase/functions/_shared/canvas-nothing';
+import { PLAIN_BOX_WORDS, boxVocabulary } from '../../supabase/functions/_shared/canvas-nothing';
 import { contentWords } from '../../supabase/functions/_shared/canvas-support';
 import type { GeminiRequest } from '../../supabase/functions/_shared/mirror-agent';
 
@@ -101,7 +101,41 @@ describe('P1653 F5 + F1: a first draft the model wrote nothing for asks a follow
     }
     const vocab = boxVocabulary();
     for (const b of BOX_DEFINITIONS) for (const w of contentWords(b.title)) expect(vocab.has(w), `${b.title}: ${w}`).toBe(true);
-    expect([...vocab].sort()).toEqual([...contentWords(BOX_DEFINITIONS.map((b) => b.title).join(' '))].sort());
+    // the vocabulary is exactly the titles plus the one fixed list of plain box words, nothing else
+    expect([...vocab].sort()).toEqual([...new Set([...contentWords(BOX_DEFINITIONS.map((b) => b.title).join(' ')), ...contentWords(PLAIN_BOX_WORDS.join(' '))])].sort());
+  });
+  it('F5 plain box words (founder decision A): a guess-question may say what it thinks the box is, in the product\'s plain words', async () => {
+    const ask = async (q: string, owner = 'its a car selling buisness') => {
+      const h = harness({ trigger: owner }, answering({ questions: [{ box: SEGMENTS, question: q }] }));
+      await executeRun(h.deps, h.params, h.run);
+      return String(h.asked()!.p_reply);
+    };
+    expect(await ask('This sounds like what you sell: who are your customers?')).toBe('Nothing changed on the canvas.\nThis sounds like what you sell: who are your customers?');
+    for (const q of ['Do your customers in Tallinn pay 8000 euros?', 'Do young families buy?', 'Which dealership customers do you serve?']) expect(await ask(q), q).toBe(WORDS.fallbackQuestion);
+    // the list stays what the founder approved: plain nouns and verbs, no adjectives, numbers, places or names
+    expect(PLAIN_BOX_WORDS.length).toBeLessThanOrEqual(32);
+    expect(Object.isFrozen(PLAIN_BOX_WORDS)).toBe(true); // nothing can add a word at run time
+    for (const w of PLAIN_BOX_WORDS) expect(w, w).toMatch(/^[a-z]+$/);
+    for (const banned of ['young', 'families', 'family', 'tallinn', 'euros', 'dealership', 'tesla', 'cheap', 'premium', 'small', 'riga']) expect(PLAIN_BOX_WORDS, banned).not.toContain(banned);
+  });
+  it('a model question that is exactly the redirect question is never shown, so it can never bring the buttons', async () => {
+    const reply = async (q: string) => {
+      const h = harness({ trigger: 'its a car selling business' }, answering({ questions: [{ box: SEGMENTS, question: q }] }));
+      await executeRun(h.deps, h.params, h.run);
+      return String(h.asked()!.p_reply);
+    };
+    // exactly the question, alone or as the last line of a multi-line question (the model's raw text, before it is flattened to one line): refused
+    for (const q of ['Is this your business?', '  Is this your business?  ', 'Who is your car selling business for?\nIs this your business?', 'Who buys?\n\nIs this your business?\n']) {
+      expect(await reply(q), q).toBe(WORDS.fallbackQuestion);
+    }
+    // whatever the model sends, the reply never ends in the question: a longer question that merely mentions it, another case, a very long text, a cut
+    const attempts = ['Is this your business?', 'is this your business', 'IS THIS YOUR BUSINESS?', `Is this your business? ${'car selling business '.repeat(40)}`, `${'car selling business '.repeat(40)}Is this your business?`,
+      'Who is your car selling business for? Is this your business?'];
+    for (const q of attempts) expect(pageButtonsFor(await reply(q)), q).toBeNull();
+    // control: a different question about the business is shown
+    const ok = harness({ trigger: 'its a car selling business' }, answering({ questions: [{ box: SEGMENTS, question: 'Is this your car selling business?' }] }));
+    await executeRun(ok.deps, ok.params, ok.run);
+    expect(String(ok.asked()!.p_reply)).toBe('Nothing changed on the canvas.\nIs this your car selling business?');
   });
   it('the box vocabulary is derived from the box definitions: a changed title flows through', async () => {
     const defs = BOX_DEFINITIONS as unknown as Array<{ title: string }>;

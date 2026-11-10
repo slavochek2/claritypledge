@@ -37,12 +37,23 @@ export function modelQuestionsOf(response: unknown): Array<{ box: string; questi
 }
 
 /**
- * The product's own box vocabulary, derived from the source each call (never a hand list): the words of the nine box TITLES, and nothing else. Definition
- * words are not allowed: a definition carries mechanism claims (per unit, renew, refer) that a question could present as the owner's own business.
- * A question may name its box with these words.
+ * The plain box words a guess-question may use besides the owner's own words (founder decision A). FOUNDER-APPROVED SCOPE: box vocabulary only, generic
+ * nouns and verbs that NAME a box ("who are your customers", "what you sell", "what it costs"), never a fact about a business: no adjectives, numbers, places
+ * or names. The last two ("sound", "like") are the connective of "this sounds like ...". Plural forms are listed; the screen reads each word the way it reads
+ * the owner's (a plural "s" never decides a match). Anything not here and not a box title must still be the owner's own word.
+ */
+export const PLAIN_BOX_WORDS: readonly string[] = Object.freeze([
+  'customer', 'customers', 'buyer', 'buyers', 'client', 'clients', 'sell', 'sells', 'offer', 'offers', 'price', 'prices', 'cost', 'costs',
+  'problem', 'problems', 'solution', 'solutions', 'channel', 'channels', 'reach', 'measure', 'partner', 'partners', 'sound', 'sounds', 'like',
+]);
+
+/**
+ * The product's own box vocabulary, derived from the source each call (never a hand list for the titles): the words of the nine box TITLES, plus the one fixed
+ * list of plain box words above. Definition words are not allowed: a definition carries mechanism claims (per unit, renew, refer) that a question could
+ * present as the owner's own business. A question may name its box with these words.
  */
 export function boxVocabulary(): Set<string> {
-  return contentWords(BOX_DEFINITIONS.map((b) => b.title).join('\n'));
+  return contentWords(`${BOX_DEFINITIONS.map((b) => b.title).join('\n')}\n${PLAIN_BOX_WORDS.join(' ')}`);
 }
 
 /**
@@ -58,7 +69,11 @@ export function showableQuestion(s: Step, response: unknown): string | null {
     const text = cleanFreeText(question, MAX_QUESTION_CHARS * 4);
     const words = contentWords(text);
     if (!text || words.size === 0 || namesOther(text) || ![...words].every((w) => theirs.has(w)) || !numbersSupported([text], numbersIn(typed))) continue;
-    return cutAtWord(text, MAX_QUESTION_CHARS);
+    const shown = cutAtWord(text, MAX_QUESTION_CHARS);
+    // A question whose last line is the redirect question would bring the two buttons to a reply that is not about a page. Asked of the model's raw text (a
+    // last line of its own, before it is flattened to one line) AND of the text actually shown (after the cut), with the one function the client uses to show buttons.
+    if (pageButtonsFor(question) || pageButtonsFor(shown)) continue;
+    return shown;
   }
   return null;
 }

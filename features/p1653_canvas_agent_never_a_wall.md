@@ -62,6 +62,7 @@ High blast radius: every owner who hits a failure, including first messages. Git
 
 **Founder decision, 2026-11-10 (after the replay showed the model writes nothing on all three messages, every time):**
 - **F5. An empty answer gets the model's own question, in the owner's words only.** Founder, on scripted follow-ups: "It cannot always be scripted what comes after... based on what I said, there is a creative freedom to help me guess on which kind of box am I talking to." When a run writes nothing, the reply shows ONE of the questions the model already returns, chosen for the box it judges most likely, and only if every content word of the question appears in the owner's message (the same screen as points). Otherwise a plain fixed question. The instructions gain one line: when nothing fits a box, ask about the most likely box and name it. That line is about questions only; "never guess to fill it" stays word for word. This narrows Solution 3 ("the model's `questions` ... are not promoted") for this case; since it changes the instructions, the after-build real-model runs must show no question with a word outside the owner's message.
+  - **F5 amendment, founder 2026-11-10 ("yes A"):** the after-build replay showed the guess-question never appeared (0 of 15: every model question used a word such as "customers" the owner had not typed, so the fixed fallback showed each time). Besides the owner's words and the nine box titles, the screen also accepts one short fixed list of plain box words (nouns and verbs that name a box, such as customers, sell, price, problem), never an adjective, number, place or name. The rule "no fact the owner did not say" is unchanged; a box word names where a fact would go and states none.
 
 **1. The inventory (first deliverable, founder checks it before replies are built).** One table of every way the agent blocks an owner, read from the code at build time: trigger, today's words, whether the owner sees anything at all, retry policy, proposed words and options. Covered set, to extend if more is found:
 
@@ -177,6 +178,19 @@ Read from the code, then corrected against the pre-build replay (Done-When). Eve
 - Links: `canvas-material.ts` (`URL_FIND`, `FAILURE_TEXT`), `canvas-thread.ts` (`gatherLinks`).
 - SQL: `supabase/migrations/20261030080000_p1536_v6_engine.sql` (`_canvas_draft_expire`, `_canvas_draft_run_fail`, refusals, `c_cap`) and `20261103010000_p1536_server_review_fixes.sql` (begin, complete, retry, `first_draft`).
 - Client: `src/app/data/canvas-draft-calls.ts` (codes), `src/app/pages/chat/canvas-thread-copy.ts` (`DRAFT_ERROR_TEXT`), `CanvasRetry.tsx` and `canvas-retry-trailing.tsx` (retry), `canvas-offer-copy.ts`, `use-canvas-actions.ts`, `use-canvas-uploads.ts`.
+
+## Known limitations (accepted after review, 2026-11-10)
+
+Raised by the build reviews; none lets a word the owner did not say reach the canvas.
+- A tap replayed with a reused client id could mark that earlier message as a tap (client ids are fresh per send; only a client bug reaches it).
+- Two tabs tapping in the same instant can both pass the open-question check; the busy rule covers most of it, the worst case is a reply with outdated wording.
+- A tap later edited into real content stays marked, so a fork leaves it out.
+- A fork forgets that a page was rejected; mentioning the domain again inside the fork reads it again.
+- Pages that differ only after `#` count as one link.
+- Long link labels stored before the final link-key change (TEST only, nothing shipped) may not match their new key.
+- A redirect notice worded differently from "Redirecting to..." or "You are being redirected to..." gets the plain question path, not the redirect question.
+- A bare domain with capital letters in its ending ("Airbnb.Com") is not read as a link, the price of not reading "shoes.It" as one.
+- "One more card here they are angry" was added in 1 of 3 replay runs: the unchanged evidence check is strict on short messages.
 
 ## Risks / Non-Goals
 

@@ -31,6 +31,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isTestProjectUrl } from '../scripts/sweep-e2e-test-users';
 import { PAGE_BUTTONS, WORDS } from '../supabase/functions/_shared/canvas-reply-table.ts';
+import { PLAIN_BOX_WORDS } from '../supabase/functions/_shared/canvas-nothing.ts';
 
 test.skip(process.env.P1653_REPLAY !== '1', 'P1653 replay runs only with P1653_REPLAY=1');
 test.skip(!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? ''), 'not a TEST project');
@@ -43,7 +44,12 @@ const AFTER = process.env.P1653_MODE === 'after';
  * its known cost in claims (a group stops, recorded as budget_stopped, rather than start a try it cannot afford), and the ceiling is ENFORCED at the end (the file
  * fails if it was exceeded). It does not bound the attempts inside a single send, so the end check is the real guard. Sends are counted separately.
  */
-const MAX_ATTEMPTS = AFTER ? 50 : 30;
+const MAX_ATTEMPTS = (() => {
+  const raw = process.env.P1653_MAX_CLAIMS; // a deliberate, recorded raise of the cap by the person who owns it (written into the output as maxClaimAttempts)
+  const n = raw === undefined ? (AFTER ? 50 : 30) : Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 200) throw new Error(`P1653_MAX_CLAIMS must be a whole number from 1 to 200, got "${raw}"`);
+  return n;
+})();
 type Plan = { id: string; tries: number; cost: number };
 /** Fixtures in run order with their default tries and the claims one try costs. After mode defaults fit the 50-claim cap (5 each would need about 75). */
 const PLAN: Plan[] = AFTER
@@ -150,7 +156,10 @@ const PRIOR_CLAIMS = (() => {
 })();
 const ONLY = process.env.P1653_ONLY ? process.env.P1653_ONLY.split(',').map((s) => s.trim()) : null;
 const claimAttemptsNow = () => PRIOR_CLAIMS + records.flatMap((r) => r.runs as Row[]).reduce((s, x) => s + (Number(x.attempts) || 0), 0);
-const functionChecks: { start?: Check; end?: Check; serverLogRead?: string; incompleteAtEnd?: string[]; controlProven?: boolean; cleanup?: string } = {};
+class BudgetStop extends Error {}
+/** For gating only: the larger of the recorded claims and one claim per send, so a step whose run row was never recorded (a hang) still counts. */
+const claimsEstimate = () => Math.max(claimAttemptsNow(), PRIOR_CLAIMS + sends);
+const functionChecks: { start?: Check; end?: Check; serverLogRead?: string; incompleteAtEnd?: string[]; controlProven?: boolean; cleanup?: string; budgetStopped?: string[] } = {};
 let harnessStart = Date.now();
 
 const flush = () => {
@@ -233,18 +242,24 @@ const wordsOf = (t: string): string[] => (t.toLowerCase().match(/[a-z0-9]+/g) ??
 const FIXED_VOCAB = new Set(wordsOf([
   ...Object.values(WORDS).map((v) => (typeof v === 'function' ? (v as (d: string) => string)('x') : String(v))),
   PAGE_BUTTONS.question, PAGE_BUTTONS.yes.label, PAGE_BUTTONS.no.label,
+  ...PLAIN_BOX_WORDS, // founder F5 amendment: box vocabulary is allowed in a guess-question, so it is not a flag here either
   'Draft ready boxes Updated I added from your words I left out points could not tie Nothing changed on the canvas noted reworded moved dropped kept because replaced box point see all',
 ].join(' ')));
 
 /** The flags of one step: every word outside what the owner said, the box titles, the fixed text and (while allowed) the page's own words. Never an auto-pass. */
-function flagsOf(ctx: Ctx, reply: string | null, lists: Record<string, string>, titles: string): Row {
+type FlagCtx = { sent: string[]; pageAllowed: boolean; pageText: string };
+/**
+ * `checked` is false when there was nothing to check (no reply and no box text) or a box could not be read: flagCount 0 then means NOT CHECKED, never clean.
+ * afterAll recomputes the flags of every re-read step from its final reply, with the inputs step() stored in `flagInputs`.
+ */
+function flagsOf(ctx: FlagCtx, reply: string | null, lists: Record<string, string>, titles: string, unreadBoxes: string[] = []): Row {
   const allowed = new Set([...wordsOf(ctx.sent.join(' ')), ...wordsOf(titles), ...wordsOf('box boxes canvas'), ...FIXED_VOCAB, ...(ctx.pageAllowed ? wordsOf(ctx.pageText) : [])]);
   const out: { word: string; in: string }[] = [];
   const seen = new Set<string>();
   const scan = (where: string, text: string) => { for (const w of wordsOf(text)) if (!allowed.has(w) && !seen.has(`${where}|${w}`)) { seen.add(`${where}|${w}`); out.push({ word: w, in: where }); } };
   if (reply) scan('reply', reply);
   for (const [tag, text] of Object.entries(lists)) scan(`box:${tag.replace('canvas:', '')}`, text);
-  return { allowedFrom: { ownerMessages: ctx.sent.length, pageWordsAllowed: ctx.pageAllowed, pageWords: ctx.pageAllowed ? wordsOf(ctx.pageText).length : 0 }, flaggedWords: out, flagCount: out.length };
+  return { allowedFrom: { ownerMessages: ctx.sent.length, pageWordsAllowed: ctx.pageAllowed, pageWords: ctx.pageAllowed ? wordsOf(ctx.pageText).length : 0 }, flaggedWords: out, flagCount: out.length, checked: (reply !== null || Object.keys(lists).length > 0) && unreadBoxes.length === 0, unreadBoxes };
 }
 
 // ── one canvas, one try ─────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -264,17 +279,24 @@ async function openTry(p: Page, userId: string): Promise<Ctx> {
   return { p, userId, canvas, canvasName, draftId: null, seenRunIds: new Set(), sent: [], pageText: '', pageAllowed: true };
 }
 
-async function boxes(p: Page): Promise<{ lists: Record<string, string>; titles: string }> {
-  const tags = await p.locator('[data-testid^="canvas-box-canvas:"]').evaluateAll((els) => els.map((e) => (e.getAttribute('data-testid') ?? '').replace('canvas-box-', '')));
+type Boxes = { lists: Record<string, string>; titles: string; errors: string[] };
+/** Each box is read on its own, bounded: a box that cannot be read is named in `errors` (and makes the step's flags unchecked), it never blanks the other boxes. */
+async function boxes(p: Page): Promise<Boxes> {
+  const tags = await bounded(p.locator('[data-testid^="canvas-box-canvas:"]').evaluateAll((els) => els.map((e) => (e.getAttribute('data-testid') ?? '').replace('canvas-box-', ''))), 10_000, 'list the boxes');
   const lists: Record<string, string> = {};
   const titles: string[] = [];
+  const errors: string[] = [];
   for (const tag of tags) {
-    const section = p.getByTestId(`canvas-box-${tag}`);
-    const list = section.getByTestId('canvas-box-list');
-    lists[tag] = (await list.count()) === 0 ? '' : norm(await list.innerText());
-    titles.push(norm((await section.innerText()).split('\n')[0] ?? ''));
+    try {
+      const section = p.getByTestId(`canvas-box-${tag}`);
+      const list = section.getByTestId('canvas-box-list');
+      lists[tag] = await bounded((async () => ((await list.count()) === 0 ? '' : norm(await list.innerText({ timeout: 5_000 }))))(), 8_000, `read box ${tag}`);
+      titles.push(norm((await bounded(section.innerText({ timeout: 5_000 }), 8_000, `read title ${tag}`)).split('\n')[0] ?? ''));
+    } catch (e) {
+      errors.push(`${tag}: ${String((e as Error).message).split('\n')[0]}`);
+    }
   }
-  return { lists, titles: titles.join(' ') };
+  return { lists, titles: titles.join(' '), errors };
 }
 
 /** What the reply wording says about the evidence checks (inference from canvas-reply.ts failedLine, labelled as such). */
@@ -397,7 +419,9 @@ async function inputOf(draftId: string, runId: string, ctx: Ctx): Promise<Row> {
 /** The structured result of one step. `act` is typing a message or tapping a button by test id. */
 async function step(ctx: Ctx, meta: { fixture: string; n: number; name: string }, act: { text?: string; click?: string }, opts: { control?: boolean; expectParsed?: boolean } = {}): Promise<Row> {
   const p = ctx.p;
-  if (claimAttemptsNow() >= MAX_ATTEMPTS) throw new Error(`P1653 harness: ceiling of ${MAX_ATTEMPTS} claim attempts reached; refusing to send`);
+  // The cap is checked before EVERY step that can claim (not only a try's first), against the conservative estimate (a send is one claim even when its
+  // run row was never recorded). A step the cap cannot cover stops the group gracefully (BudgetStop), never mid-way through an unrecorded send.
+  if (claimsEstimate() + 1 > MAX_ATTEMPTS) throw new BudgetStop(`ceiling of ${MAX_ATTEMPTS} claims: ${claimsEstimate()} used or sent, refusing the next step (${meta.fixture} try ${meta.n} ${meta.name})`);
   // Every page call below is bounded: the actions by the page's default timeout (set in group()), the counts and reads by bounded().
   const before = await bounded(messages(p).count(), 20_000, 'messages count before send').catch(async (e) => { await diagnose(p, 'before send'); throw e; });
   if (act.text !== undefined) {
@@ -438,8 +462,8 @@ async function step(ctx: Ctx, meta: { fixture: string; n: number; name: string }
   const closed = p.isClosed();
   // What the owner sees: read in one bounded block per item. A read that fails or hangs is recorded as such in `observationErrors`, never as an empty screen.
   const observationErrors: string[] = [];
-  const see = async <T,>(label: string, work: () => Promise<T>, fallback: T): Promise<T> => {
-    try { return await bounded(work(), 20_000, label); } catch (e) { observationErrors.push(`${label}: ${String((e as Error).message).split('\n')[0]}`); if (e instanceof Hang) await diagnose(p, label); return fallback; }
+  const see = async <T,>(label: string, work: () => Promise<T>, fallback: T, ms = 20_000): Promise<T> => {
+    try { return await bounded(work(), ms, label); } catch (e) { observationErrors.push(`${label}: ${String((e as Error).message).split('\n')[0]}`); if (e instanceof Hang) await diagnose(p, label); return fallback; }
   };
   const ui = closed ? null : {
     linkYes: await see('count canvas-link-yes', () => p.getByTestId('canvas-link-yes').count(), -1),
@@ -448,7 +472,7 @@ async function step(ctx: Ctx, meta: { fixture: string; n: number; name: string }
     tryAgain: await see('count canvas-retry-button', () => p.getByTestId('canvas-retry-button').count(), -1),
     replyEndsWithPageQuestion: got.reply ? got.reply.endsWith(PAGE_BUTTONS.question) : false,
   };
-  const bx = closed ? { lists: {}, titles: '' } : await see('boxes', () => boxes(p), { lists: {}, titles: '' });
+  const bx: Boxes = closed ? { lists: {}, titles: '', errors: ['page closed'] } : await see('boxes', () => boxes(p), { lists: {}, titles: '', errors: ['boxes could not be read (see observationErrors)'] }, 120_000);
   const uiReply = wait.replyArrived && !closed ? norm(await see('last message text', () => messages(p).last().innerText({ timeout: 5_000 }), '')) : null;
 
   const rec: Row = {
@@ -467,7 +491,9 @@ async function step(ctx: Ctx, meta: { fixture: string; n: number; name: string }
     observationErrors,
     linkMaterial: got.material.map((m) => ({ kind: m.kind, label: m.label, chars: m.chars, textHead: norm(String(m.text)).slice(0, 300) })),
     boxes: closed ? null : bx.lists,
-    flags: flagsOf(ctx, got.reply, bx.lists, bx.titles),
+    flagInputs: { sent: [...ctx.sent], pageText: ctx.pageText, pageAllowed: ctx.pageAllowed, titles: bx.titles, boxErrors: bx.errors },
+    fixedFallbackShown: got.reply === WORDS.fallbackQuestion, // F3: true means the model's own question was NOT shown (the fixed fallback was)
+    flags: flagsOf(ctx, got.reply, bx.lists, bx.titles, bx.errors),
     evidenceChecksDropped: got.reply ? inferDrops(got.reply) : 'no reply',
     serverLog: null,
     rawModelOutput: null,
@@ -484,6 +510,24 @@ async function step(ctx: Ctx, meta: { fixture: string; n: number; name: string }
 }
 
 const lastRunId = (rec: Row): string | null => ((rec.runs as Row[]).at(-1)?.id as string | undefined) ?? null;
+
+/**
+ * The engine's input for a step's newest run, recorded on the step. A missing draft or run, or a read that fails (a busy TEST server), marks the step
+ * `inputUnresolved` with the reason and returns null: the group goes on, and afterAll fails the file for it. It never aborts the group.
+ */
+async function readInput(rec: Row, ctx: Ctx): Promise<Row | null> {
+  const runId = lastRunId(rec);
+  if (!ctx.draftId || !runId) { rec.inputUnresolved = true; rec.input = { error: 'no draft or run to read the input of' }; return null; }
+  try {
+    const input = await inputOf(ctx.draftId, runId, ctx);
+    rec.input = input;
+    return input;
+  } catch (e) {
+    rec.inputUnresolved = true;
+    rec.input = { error: String((e as Error).message ?? e).split('\n')[0] };
+    return null;
+  }
+}
 
 // ── the scenarios, one function per fixture, one fresh canvas per call ────────────────────────────────────────────────────────
 const single = (text: string, control = false) => async (p: Page, userId: string, fixture: string, n: number) => {
@@ -505,10 +549,8 @@ async function followup(p: Page, userId: string, fixture: string, n: number) {
   const ctx = await openTry(p, userId);
   await step(ctx, { fixture, n, name: 'first' }, { text: F3 });
   const rec = await step(ctx, { fixture, n, name: 'answer' }, { text: ANSWER });
-  const runId = lastRunId(rec);
-  if (!ctx.draftId || !runId) { proofs.push({ fixture, try: n, claim: 'second run read both messages', ok: false, detail: 'no draft or run to read the input of' }); return; }
-  const input = await inputOf(ctx.draftId, runId, ctx);
-  rec.input = input;
+  const input = await readInput(rec, ctx);
+  if (!input) { proofs.push({ fixture, try: n, claim: 'the second run read BOTH messages (F1)', ok: false, detail: `input unresolved: ${JSON.stringify(rec.input)}` }); return; }
   const msgs = input.messages as string[];
   const ok = msgs.includes(norm(F3)) && msgs.includes(norm(ANSWER));
   proofs.push({ fixture, try: n, claim: 'the second run read BOTH messages (F1)', ok, detail: ok ? 'both messages are in the run input' : `input messages: ${JSON.stringify(msgs)}` });
@@ -525,17 +567,11 @@ async function linkTap(which: 'yes' | 'no', p: Page, userId: string, fixture: st
     return;
   }
   const tap = await step(ctx, { fixture, n, name: `tap-${which}` }, { click: which === 'yes' ? 'canvas-link-yes' : 'canvas-link-no' }, { expectParsed: which === 'yes' });
-  const tapRun = lastRunId(tap);
-  if (which === 'yes') {
-    if (ctx.draftId && tapRun) tap.input = await inputOf(ctx.draftId, tapRun, ctx);
-    return;
-  }
+  if (which === 'yes') { await readInput(tap, ctx); return; } // an unreadable input marks the step (inputUnresolved), it does not abort the group
   ctx.pageAllowed = false; // after "Not mine" the page's words are no longer allowed anywhere
   const later = await step(ctx, { fixture, n, name: 'later' }, { text: LATER });
-  const runId = lastRunId(later);
-  if (!ctx.draftId || !runId) { proofs.push({ fixture, try: n, claim: 'a later run read no page', ok: false, detail: 'no draft or run' }); return; }
-  const input = await inputOf(ctx.draftId, runId, ctx);
-  later.input = input;
+  const input = await readInput(later, ctx);
+  if (!input) { proofs.push({ fixture, try: n, claim: 'after "Not mine" a later run read no page', ok: false, detail: `input unresolved: ${JSON.stringify(later.input)}` }); return; }
   const mats = input.materials as { kind: string; hasPageWords: boolean }[];
   const outputWords = new Set(wordsOf(`${later.reply ?? ''} ${Object.values((later.boxes as Record<string, string> | null) ?? {}).join(' ')}`));
   const pageInOutput = (input.pageOnlyWords as string[]).filter((w) => outputWords.has(w));
@@ -567,12 +603,17 @@ async function group(page: Page, name: string, id: string, run: Runner) {
     await page.setViewportSize({ width: 1440, height: 900 });
     await setTestSession(page, user.email);
     for (let i = 1; i <= tries; i++) {
-      if (claimAttemptsNow() + plan.cost > MAX_ATTEMPTS) { status.budgetStopped = true; break; } // never start a try the cap cannot cover
+      if (claimsEstimate() + plan.cost > MAX_ATTEMPTS) { status.budgetStopped = true; break; } // never start a try the cap cannot cover
       await run(page, uid, id, i);
       status.triesRecorded = i;
     }
     status.status = status.budgetStopped ? 'budget_stopped' : 'done';
   } catch (e) {
+    if (e instanceof BudgetStop) { // a step inside a try could not be covered: stop this group, keep what was recorded, and say so
+      Object.assign(status, { status: 'budget_stopped', budgetStopped: true, error: e.message });
+      flush();
+      return;
+    }
     // An integrity throw skips the remaining tries (and, in serial mode, every later fixture): say so in the output, so the JSON explains itself.
     Object.assign(status, { status: 'aborted', aborted: true, error: String((e as Error).message ?? e).split('\n')[0] });
     flush();
@@ -622,6 +663,12 @@ test.afterAll(async () => {
           r.evidenceChecksDropped = got.reply ? inferDrops(got.reply) : 'no reply';
           r.linkMaterial = got.material.map((m) => ({ kind: m.kind, label: m.label, chars: m.chars, textHead: norm(String(m.text)).slice(0, 300) }));
           r.failureCode = last?.error_code ?? null;
+          // The flags are recomputed from the FINAL reply (and the final link material), never left as the 0 computed while the reply was still null.
+          const inp = r.flagInputs as { sent: string[]; pageText: string; pageAllowed: boolean; titles: string; boxErrors: string[] };
+          const links = got.material.filter((m) => m.kind === 'link');
+          const flagCtx: FlagCtx = { sent: inp.sent, pageAllowed: inp.pageAllowed, pageText: links.length ? norm(links.map((m) => String(m.text)).join(' ')) : inp.pageText };
+          r.flags = flagsOf(flagCtx, got.reply, (r.boxes as Record<string, string> | null) ?? {}, inp.titles, r.boxes ? inp.boxErrors : [...inp.boxErrors, 'no boxes were read at step time']);
+          r.fixedFallbackShown = got.reply === WORDS.fallbackQuestion;
           r.unresolved = false;
           r.incomplete = got.runs.some((x) => !TERMINAL.has(String(x.state)));
           r.outcome = r.incomplete ? 'INCOMPLETE (a run was not terminal after the re-read)' : last?.state ?? r.outcome;
@@ -629,6 +676,10 @@ test.afterAll(async () => {
           r.unresolved = true; // still empty while a send happened: never complete
         }
       }
+      // A record that is still unresolved or incomplete was never checked: say so on its flags, so flagCount 0 cannot be read as clean.
+      for (const r of records.filter((x) => x.incomplete || x.unresolved)) r.flags = { ...(r.flags as Row), checked: false, note: 'NOT CHECKED: the step is unresolved or incomplete' };
+      for (const r of records.filter((x) => x.inputUnresolved)) failures.push(`the engine input of ${r.fixture} try ${r.try} ${r.step} could not be read (${JSON.stringify(r.input)}); its proof is unresolved`);
+      functionChecks.budgetStopped = groups.filter((g) => g.status === 'budget_stopped').map((g) => String(g.fixture));
       const still = records.filter((x) => x.incomplete && !x.unresolved).map((x) => `${x.fixture} try ${x.try} ${x.step}`);
       const empty = records.filter((x) => x.unresolved).map((x) => `${x.fixture} try ${x.try} ${x.step}`);
       functionChecks.incompleteAtEnd = [...still, ...empty.map((e) => `${e} (unresolved)`)];
