@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-10 [product]: Hand actions on a published canvas work on a clone, and a hand edit turns Undo off (P1621)
+
+**Context:** P1621 redesigned the canvas so content shows first and actions appear on a selected box. Three rounds of founder decisions settled how hand actions (add, edit, remove, mention) behave on a published version, where no draft exists yet.
+**Decision:** On a published version, actions run against a pending clone; the first hand save creates the draft and the page moves to it. Remove takes effect with no confirmation and lives inside the point's Open panel. Each empty box shows one fixed guiding question. Mention puts a per-point pill ("Box · text") in the composer, sent as `[Box] "text"`. A hand save after a run turns the run's Undo off, and the chat says so ("Undo is off because you edited by hand") rather than hiding the button. Unsaved typed text carries into the new draft.
+**Alternatives rejected:** forcing "Start a draft" before any action (an extra step before the first edit); confirm-before-remove (founder chose no confirmation in round 2); hiding Undo silently after a hand edit (the person cannot tell why it vanished); per-box generated prompts (fixed questions are cheaper and steadier).
+**Consequences:** Hand writes cost about 7 requests each (budget in the spec). Undo is reachable only until the first hand save after a run. Falsifier: if testers repeatedly lose points to the confirm-free Remove, add an undo toast rather than a confirmation.
+**References:** [p1621 spec](../features/done/2026-06-10/p1621_canvas_draft_actions_redesign.md)
+
 ## 2026-11-09 [technical]: Chat reactions use a generated row id and a server-side emoji list; chat links are decided by one shared scanner (P1652)
 
 **Context:** The founder reported that chat links were not clickable and asked for the standard messenger basics in one go. Links arrive from strangers, and reactions are the first chat row that every client hears about in realtime.
