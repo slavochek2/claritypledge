@@ -26,11 +26,14 @@ export type StartClarifyResult =
   | { status: 'started'; draftId: string; threadRootId: string; mirrorConversationId: string }
   | { status: 'busy'; draftId: string | null; threadRootId: string | null; mirrorConversationId: string | null };
 
-export type AnotherPointResult = { status: 'started'; draftId: string } | { status: 'busy'; draftId: string | null };
+export type AnotherPointResult = { status: 'started'; draftId: string } | { status: 'busy'; draftId: string | null } | { status: 'refused'; code: string };
+/** A message typed in the Clarify thread: posted and a run queued in one call. */
+export type ClarifyMessageResult = { status: 'started'; draftId: string } | { status: 'busy' };
 export type RetryResult = { status: 'started' } | { status: 'busy' } | { status: 'refused'; code: string };
 /** The server refusing a change is an answer, not a failure of the call: callers keep what the user typed and say so. */
 export type ClarifyChangeResult = { status: 'ok' } | { status: 'refused'; code: string };
-export type InvokeResult = { ok: true } | { ok: false; reason: 'capped' | 'failed' };
+/** `pending`: the function answered that the draft is still being made (another call has it, or its context was locked): ask again. */
+export type InvokeResult = { ok: true; pending?: true } | { ok: false; reason: 'capped' | 'failed' };
 
 type Row = Record<string, unknown>;
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
@@ -60,7 +63,21 @@ export async function anotherPoint(threadRoot: string, instruction?: string | nu
   const draftId = str(r.draft_id);
   if (r.status === 'started' && draftId) return { status: 'started', draftId };
   if (r.status === 'busy') return { status: 'busy', draftId };
+  if (r.status === 'refused') return { status: 'refused', code: str(r.code) ?? 'refused' };
   throw new Error('clarify_another: unexpected answer');
+}
+
+export async function clarifyMessage(threadRoot: string, text: string): Promise<ClarifyMessageResult> {
+  const r = await call('clarify_message', { p_thread_root: threadRoot, p_text: text });
+  const draftId = str(r.draft_id);
+  if (r.status === 'started' && draftId) return { status: 'started', draftId };
+  if (r.status === 'busy') return { status: 'busy' };
+  throw new Error('clarify_message: unexpected answer');
+}
+
+/** A queued draft whose run never started (the invoke failed): the server fails it, so it shows Retry. A draft already started or finished is left alone. */
+export async function markClarifyFailed(draftId: string): Promise<void> {
+  await call('clarify_mark_failed', { p_draft: draftId });
 }
 
 export async function retryClarify(draftId: string): Promise<RetryResult> {
@@ -136,6 +153,7 @@ export async function invokeClarifyDraft(draftId: string): Promise<InvokeResult>
     const state = (data as Row | null)?.state;
     if (state === 'capped') return { ok: false, reason: 'capped' };
     if (state === 'failed') return { ok: false, reason: 'failed' };
+    if (state === 'running' || state === 'queued') return { ok: true, pending: true };
     return { ok: true };
   } catch {
     return { ok: false, reason: 'failed' };

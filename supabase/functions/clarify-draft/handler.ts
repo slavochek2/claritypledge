@@ -39,6 +39,8 @@ export interface ClarifyDeps {
   callModel: ClarifyCaller;
   /** Waits between begin attempts that met lock contention (tests pass a spy; the default is a real timer). */
   sleep?: (ms: number) => Promise<void>;
+  /** Jitter source for the begin backoff, in [0, 1) (tests pass a fixed value; the default is Math.random). */
+  random?: () => number;
   /** Overrides for the request builder (tests). */
   system?: string;
   inputLimit?: number;
@@ -153,7 +155,8 @@ async function beginWithRetry(d: ClarifyDeps, draftId: string): Promise<RpcResul
   for (let attempt = 1; attempt < BEGIN_ATTEMPTS; attempt += 1) {
     const b = result.data as { status?: string; reason?: string } | null;
     if (result.error || b?.status !== 'busy' || b.reason !== 'locked') break;
-    await sleep(BEGIN_BACKOFF_MS[attempt - 1] ?? 750);
+    // jitter: each wait is the base scaled by 0.5..1.5, so callers that collided do not retry in step
+    await sleep(Math.round((BEGIN_BACKOFF_MS[attempt - 1] ?? 750) * (0.5 + (d.random ?? Math.random)())));
     result = await d.rpc('_clarify_begin', { p_draft: draftId });
   }
   return result;

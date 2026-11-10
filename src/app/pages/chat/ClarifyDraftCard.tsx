@@ -33,6 +33,9 @@ function useOwnerPosition(userId: string, pointId: string, serverValue: OwnerPos
   const [position, setPosition] = useState<OwnerPosition>(serverValue);
   const saved = useRef<OwnerPosition>(serverValue);
   const pendingWrites = useRef(0);
+  // a server value that arrived while a write was pending: applied when the write settles, never lost
+  const latestServer = useRef<OwnerPosition>(serverValue);
+  const serverMovedDuringWrite = useRef(false);
   const unmounted = useRef(new AbortController());
   useEffect(() => {
     const controller = new AbortController();
@@ -40,7 +43,11 @@ function useOwnerPosition(userId: string, pointId: string, serverValue: OwnerPos
     return () => controller.abort();
   }, []);
   useEffect(() => {
-    if (pendingWrites.current > 0) return;
+    latestServer.current = serverValue;
+    if (pendingWrites.current > 0) {
+      serverMovedDuringWrite.current = true;
+      return;
+    }
     saved.current = serverValue;
     setPosition(serverValue);
   }, [serverValue]);
@@ -54,7 +61,7 @@ function useOwnerPosition(userId: string, pointId: string, serverValue: OwnerPos
       const sentAt = networkMark();
       try {
         await sendPositionWrite(userId, pointId, next, generation);
-        saved.current = next;
+        if (isLatest()) saved.current = next; // an older write's late success is not the baseline
       } catch (err) {
         if (!isNetworkWriteFailure(err, sentAt)) {
           if (!isLatest()) return;
@@ -62,20 +69,31 @@ function useOwnerPosition(userId: string, pointId: string, serverValue: OwnerPos
           toast.error('Failed to save position.');
           return;
         }
-        // sent, never answered: it may have landed. Ask the server.
-        const outcome = await settlePositionWrite({ userId, pointId, generation, expected: next, signal: unmounted.current.signal });
-        if (outcome.kind === 'superseded') return;
-        if (outcome.kind === 'confirmed') {
-          saved.current = next;
-          recordConfirmedPosition(userId, pointId, generation, next);
-          return;
+        // sent, never answered: it may have landed. Ask the server. Nothing thrown here may escape the click.
+        try {
+          const outcome = await settlePositionWrite({ userId, pointId, generation, expected: next, signal: unmounted.current.signal });
+          if (outcome.kind === 'superseded') return;
+          if (outcome.kind === 'confirmed') {
+            saved.current = next;
+            recordConfirmedPosition(userId, pointId, generation, next);
+            return;
+          }
+          setPosition(saved.current);
+          toast.error(outcome.kind === 'rejected' ? 'Your position was not saved. Try again.' : UNRESOLVED_WRITE_MESSAGE);
+        } catch {
+          if (!isLatest()) return;
+          setPosition(saved.current);
+          toast.error(UNRESOLVED_WRITE_MESSAGE);
         }
-        setPosition(saved.current);
-        toast.error(outcome.kind === 'rejected' ? 'Your position was not saved. Try again.' : UNRESOLVED_WRITE_MESSAGE);
       }
     } finally {
       pendingWrites.current -= 1;
       endPositionWrite(userId, pointId);
+      if (pendingWrites.current === 0 && serverMovedDuringWrite.current) {
+        serverMovedDuringWrite.current = false;
+        saved.current = latestServer.current;
+        setPosition(latestServer.current);
+      }
     }
   };
   return { position, choose };
@@ -133,7 +151,6 @@ function DraftEditor({ draft, onClose, onSaved }: { draft: ClarifyDraft; onClose
         // the editor stays open with what was typed
         setSaving(false);
         setProblem(SAVE_FAILED_TEXT);
-        toast.error(SAVE_FAILED_TEXT);
         return;
       }
       onSaved();
@@ -141,7 +158,6 @@ function DraftEditor({ draft, onClose, onSaved }: { draft: ClarifyDraft; onClose
     } catch {
       setSaving(false);
       setProblem(SAVE_FAILED_TEXT);
-      toast.error(SAVE_FAILED_TEXT);
     }
   };
   return (

@@ -88,10 +88,11 @@ describe('clarify-draft outcomes', () => {
     expect(sent.decision).toBe('refuse');
     expect(sent.suggestions).toHaveLength(3);
   });
-  it('the model free text never reaches the server: only decision, statement, cited ids, suggestions', async () => {
+  it('the model free text never reaches the server: only decision, statement, cited ids, suggestions and the target token (step 1b: the one-word choice the server validates)', async () => {
     const calls: Call[] = [];
     await run(deps({}, RUN, calls));
-    expect(Object.keys(calls.find((c) => c.name === '_clarify_complete')!.args.p_result as object).sort()).toEqual(['cited', 'decision', 'statement']);
+    expect(Object.keys(calls.find((c) => c.name === '_clarify_complete')!.args.p_result as object).sort()).toEqual(['cited', 'decision', 'statement', 'target']);
+    expect((calls.find((c) => c.name === '_clarify_complete')!.args.p_result as { target: unknown }).target, 'no instruction, no target').toBeNull();
   });
   it('bad ids: the server answers failed bad_output and the handler reports it (settled at actual cost, not released)', async () => {
     const calls: Call[] = [];
@@ -162,6 +163,7 @@ describe('clarify-draft outcomes', () => {
     const calls: Call[] = [];
     const flaky: Partial<ClarifyDeps> = {
       sleep: async (ms) => { waits.push(ms); },
+      random: () => 0.5,
       rpc: async (name, args) => {
         calls.push({ name, args });
         if (name === '_clarify_begin') return { data: ++n < 3 ? { status: 'busy', reason: 'locked' } : RUN, error: null };
@@ -172,6 +174,15 @@ describe('clarify-draft outcomes', () => {
     expect(r.body.state).toBe('done');
     expect(calls.filter((c) => c.name === '_clarify_begin')).toHaveLength(3);
     expect(waits).toEqual([250, 750]);
+    // jitter: the waits follow the random source (0 -> half the base, 0.999 -> about 1.5x)
+    const lo: number[] = []; const hi: number[] = [];
+    for (const [out, r] of [[lo, 0], [hi, 0.999]] as const) {
+      let k = 0;
+      await run(deps({ sleep: async (ms) => { out.push(ms); }, random: () => r,
+        rpc: async (name) => name === '_clarify_begin' ? { data: ++k < 3 ? { status: 'busy', reason: 'locked' } : RUN, error: null } : { data: { status: 'done' }, error: null } }));
+    }
+    expect(lo).toEqual([125, 375]);
+    expect(hi).toEqual([375, 1124]);
     // always locked: exactly three tries, then the 'ask again' answer, no model call
     const always: Call[] = [];
     let called = false;
@@ -234,5 +245,46 @@ describe('request building and parsing', () => {
     expect(parseClarifyResponse({ promptFeedback: { blockReason: 'SAFETY' } })).toMatchObject({ ok: false, code: 'blocked' });
     expect(parseClarifyResponse(wrap('[1]'))).toMatchObject({ ok: false, code: 'bad_output' });
     expect(parseClarifyResponse(wrap('{"decision":"draft"}'))).toMatchObject({ ok: false, code: 'bad_output' });
+  });
+});
+
+describe('which side the pressed message is on (P1631 step 1b)', () => {
+  it('the pressed_author flag, the owner messages and the latest draft are sent to the model; never a name', () => {
+    const run3 = { ...RUN, owner_instruction: 'sharper', owner_messages: ['make it about money', 'sharper'], latest_draft: 'Deadlines are the team\'s call',
+      source_message: { ...RUN.source_message, pressed_author: 'other' as const } };
+    const { request } = buildClarifyRequest(run3)!;
+    const text = request.contents[0]!.parts[0]!.text;
+    const payload = JSON.parse(text.slice(text.indexOf('\n') + 1));
+    expect(payload.pressed_author).toBe('other');
+    expect(payload.owner_messages).toEqual(['make it about money', 'sharper']);
+    expect(payload.latest_draft).toBe('Deadlines are the team\'s call');
+    // CONTROL: a run from before the field existed sends nulls and an empty list, never undefined keys
+    const old = JSON.parse(buildClarifyRequest(RUN)!.request.contents[0]!.parts[0]!.text.split('\n')[1]!);
+    expect(old).toMatchObject({ pressed_author: null, owner_messages: [], latest_draft: null });
+    expect(buildClarifyRequest({ ...RUN, source_message: { ...RUN.source_message, pressed_author: 'owner' } })!.request.contents[0]!.parts[0]!.text).toContain('"pressed_author":"owner"');
+  });
+  it('the model prompt tells it to aim the wording at the pressed message\'s author and to choose a target', async () => {
+    const { CLARIFY_SYSTEM_PROMPT } = await import('../../supabase/functions/_shared/clarify-prompt.generated');
+    expect(CLARIFY_SYSTEM_PROMPT).toContain('pressed_author');
+    expect(CLARIFY_SYSTEM_PROMPT).toContain('the author of the pressed message would agree with it');
+    expect(CLARIFY_SYSTEM_PROMPT).toContain('It never records anyone\'s position');
+    expect(CLARIFY_SYSTEM_PROMPT).toContain('"target": "latest" | "new" | null');
+    expect(CLARIFY_SYSTEM_PROMPT).toContain('When it is unclear, use "latest"');
+  });
+  it('the parser passes the model\'s target through for the server to validate; absent is null', () => {
+    const body = (extra: object) => ({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ decision: 'draft', point: { statement: 'S', side_a: { row_ids: [] }, side_b: { row_ids: [] } }, ...extra }) }] } }], usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 } });
+    expect((parseClarifyResponse(body({ target: 'new' })) as { result: { target: unknown } }).result.target).toBe('new');
+    expect((parseClarifyResponse(body({})) as { result: { target: unknown } }).result.target).toBeNull();
+    expect((parseClarifyResponse(body({ target: 7 })) as { result: { target: unknown } }).result.target).toBe(7);
+  });
+  it('the stub answers "another" with a new draft and any other instruction with a refine', async () => {
+    const ask = async (instruction: string) => {
+      const { request } = buildClarifyRequest({ ...RUN, owner_instruction: instruction })!;
+      const out = await clarifyStub()(request);
+      const parsed = parseClarifyResponse(out.body) as { result: { target: unknown } };
+      return parsed.result.target;
+    };
+    expect(await ask('another point about money')).toBe('new');
+    expect(await ask('make it sharper')).toBe('latest');
   });
 });

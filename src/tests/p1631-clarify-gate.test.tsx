@@ -7,7 +7,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { GateFixture } from '@/app/tree/_gate/clarify-thread/GateFixture';
-import { assertNoDeadDisabled, assertNoOverflow320, assertOnePrimary, assertTouchTargets44 } from './p955-gate.test';
+import { assertNoDeadDisabled, assertNoOverflow320, assertOnePrimary, assertTouchTargets44 } from './p955-assertions';
 
 const mount = (phase: string | null) => {
   const url = `/tree/_gate/clarify-thread${phase ? `?phase=${phase}` : ''}`;

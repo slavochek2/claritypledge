@@ -2,9 +2,13 @@
  * P1631: starting the model run of a Clarify draft, once per draft per tab, and telling the open thread when a run ended so it
  * reads the drafts again. The run itself is the `clarify-draft` edge function; what it ended in is read back from the database.
  */
-import { invokeClarifyDraft, type InvokeResult } from '@/app/data/clarify-service';
+import { invokeClarifyDraft, markClarifyFailed, type InvokeResult } from '@/app/data/clarify-service';
 
 const started = new Set<string>();
+
+/** Re-invokes after a pending (202) answer, and the wait before each: 1 to 3 seconds. */
+export const REINVOKES = 2;
+const reinvokeDelayMs = () => 1_000 + Math.random() * 2_000;
 const threads = new Set<string>();
 
 /** A Clarify press holds the generic reply for its copy at most this long, whatever the press does. */
@@ -55,6 +59,16 @@ export function isClarifyThread(rootId: string | null | undefined): boolean {
   return !!rootId && threads.has(rootId);
 }
 const listeners = new Set<(draftId: string) => void>();
+const touched = new Set<(rootId: string) => void>();
+
+/** The thread changed under the open screen (a message and its draft were just made): it reads the drafts again. */
+export function touchClarifyThread(rootId: string): void {
+  touched.forEach((l) => l(rootId));
+}
+export function onClarifyThreadTouched(listener: (rootId: string) => void): () => void {
+  touched.add(listener);
+  return () => void touched.delete(listener);
+}
 
 /** Called when a run this tab started has ended (whatever it ended in). */
 export function onClarifyRunEnded(listener: (draftId: string) => void): () => void {
@@ -66,7 +80,18 @@ export function onClarifyRunEnded(listener: (draftId: string) => void): () => vo
 export async function runClarifyDraft(draftId: string): Promise<InvokeResult | null> {
   if (started.has(draftId)) return null;
   started.add(draftId);
-  const result = await invokeClarifyDraft(draftId);
+  let result = await invokeClarifyDraft(draftId);
+  // 202 (the context was locked, or another call has the draft): ask again after a short jittered pause, at most twice, so the draft
+  // is not left "thinking" until the server's 5-minute abandon sweep. A call another device is really running just answers pending again.
+  for (let again = 0; again < REINVOKES && result.ok && result.pending; again += 1) {
+    await new Promise<void>((go) => setTimeout(go, reinvokeDelayMs()));
+    result = await invokeClarifyDraft(draftId);
+  }
+  // A call that could not start the run (network, 5xx, boot error) leaves the draft queued: the server fails it now, so the thread
+  // shows Retry on its next read and not "thinking" until the 5-minute sweep. A cap and a still-pending answer are not this case.
+  if (!result.ok && result.reason === 'failed') {
+    try { await markClarifyFailed(draftId); } catch { /* the sweep is the backstop */ }
+  }
   listeners.forEach((l) => l(draftId));
   return result;
 }
@@ -83,4 +108,5 @@ export function resetClarifyRuns(): void {
   startsInFlight = 0;
   startWaiters = [];
   listeners.clear();
+  touched.clear();
 }

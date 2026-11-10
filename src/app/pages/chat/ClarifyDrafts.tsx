@@ -13,7 +13,7 @@ import { ClarifyDraftCard } from './ClarifyDraftCard';
 import { MirrorThinking } from './MirrorReplyState';
 import { ANOTHER_POINT_LABEL, CAPPED_TEXT, CLARIFY_FAILED_TOAST, FAILED_TEXT, LOAD_FAILED_TEXT, NO_SPLIT_TEXT, RETRY_LABEL } from './clarify-copy';
 import { forgetClarifyRun, runClarifyDraft } from './clarify-run';
-import { useClarifyThread } from './use-clarify-thread';
+import { useClarifyThread, type ClarifyThreadState } from './use-clarify-thread';
 
 function Refused({ draft, onPick }: { draft: ClarifyDraft; onPick: (text: string) => void }) {
   return (
@@ -34,7 +34,10 @@ function Failed({ draft, onRetry }: { draft: ClarifyDraft; onRetry: () => void }
   return (
     <div role="alert" data-testid={`clarify-failed-${draft.id}`} className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
       <span>{draft.state === 'capped' ? CAPPED_TEXT : FAILED_TEXT}</span>
-      <Button type="button" variant="ghost" className="h-11 min-h-11 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={onRetry} data-testid="clarify-retry">{RETRY_LABEL}</Button>
+      {/* a capped draft cannot be retried: the cap is the answer */}
+      {draft.state !== 'capped' && (
+        <Button type="button" variant="ghost" className="h-11 min-h-11 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={onRetry} data-testid="clarify-retry">{RETRY_LABEL}</Button>
+      )}
     </div>
   );
 }
@@ -63,7 +66,8 @@ export function ClarifyDraftsView({ drafts, loaded, failed, name, userId, onPick
     );
   }
   const last = drafts[drafts.length - 1];
-  const canAddAnother = !!last && (last.state === 'done' || last.state === 'refused');
+  // with every draft deleted, "Another point" is the way to start again
+  const canAddAnother = !last || last.state === 'done' || last.state === 'refused';
   return (
     <div className="space-y-3 px-3 py-2" data-testid="clarify-drafts">
       {failed && (
@@ -87,8 +91,10 @@ export function ClarifyDraftsView({ drafts, loaded, failed, name, userId, onPick
   );
 }
 
-export function ClarifyDrafts({ rootId, name, userId }: { rootId: string; name: string; userId: string }) {
-  const { drafts, loaded, failed, reload } = useClarifyThread(rootId);
+/** `thread`: the thread's drafts when its owner already reads them (the panel shares one read with the composer); without it this reads its own. */
+export function ClarifyDrafts({ rootId, name, userId, thread }: { rootId: string; name: string; userId: string; thread?: ClarifyThreadState }) {
+  const own = useClarifyThread(thread ? null : rootId);
+  const { drafts, loaded, failed, reload } = thread ?? own;
   const [pending, setPending] = useState(false);
 
   // One action at a time; busy is a value and changes nothing on screen. Anything else that goes wrong says so.

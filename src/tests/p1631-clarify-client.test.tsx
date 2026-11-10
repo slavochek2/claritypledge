@@ -257,11 +257,11 @@ describe('ClarifyDrafts (the thread under the source copy)', () => {
     await waitFor(() => expect(svc.invokeClarifyDraft).toHaveBeenCalledWith('d1'));
   });
 
-  it('a capped draft says so with Retry', async () => {
+  it('a capped draft says so and offers no Retry', async () => {
     svc.getClarifyThread.mockResolvedValue([draft({ state: 'capped', point: null, cited: [] })]);
     render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
     expect(await screen.findByTestId('clarify-failed-d1')).toHaveTextContent(CAPPED_TEXT);
-    expect(screen.getByRole('button', { name: RETRY_LABEL })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: RETRY_LABEL })).not.toBeInTheDocument();
   });
 
   it('has at most one filled primary: the only button of its own is the bordered Another point', async () => {
@@ -358,7 +358,8 @@ describe('P1631 review fixes: client', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit this point' }));
     fireEvent.change(screen.getByLabelText('Point text'), { target: { value: 'my words' } });
     fireEvent.click(screen.getByTestId('clarify-draft-editor-save'));
-    await waitFor(() => expect(toastFn.error).toHaveBeenCalledWith('Could not save this point. Try again.'));
+    expect(await screen.findByTestId('clarify-draft-editor-problem')).toHaveTextContent('Could not save this point. Try again.');
+    expect(toastFn.error).not.toHaveBeenCalled(); // one signal: inline only
     expect(screen.getByLabelText('Point text')).toHaveValue('my words');
   });
 
@@ -454,5 +455,110 @@ describe('P1631 review fixes: client', () => {
     expect(isClarifyThread('root-effect')).toBe(false);
     renderHook(() => useClarifyParts(summary, root, 'me'));
     expect(isClarifyThread('root-effect')).toBe(true);
+  });
+
+  // ---- round 2 ----
+  it('(Gemini 1, r2) anotherPoint maps a refusal to a value, and the thread toasts it', async () => {
+    const s = await vi.importActual<typeof import('@/app/data/clarify-service')>('@/app/data/clarify-service');
+    rpc.mockResolvedValueOnce({ data: { status: 'refused', code: 'cap' }, error: null });
+    expect(await s.anotherPoint('r1')).toEqual({ status: 'refused', code: 'cap' });
+    svc.getClarifyThread.mockResolvedValue([draft()]);
+    svc.anotherPoint.mockResolvedValueOnce({ status: 'refused', code: 'cap' });
+    render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    fireEvent.click(await screen.findByTestId('clarify-another'));
+    await waitFor(() => expect(toastFn.error).toHaveBeenCalled());
+    expect(svc.invokeClarifyDraft).not.toHaveBeenCalled();
+  });
+
+  it('(Opus N4, r2) a pending (202) answer is asked again after a pause, at most twice, then the run ends', async () => {
+    vi.useFakeTimers();
+    try {
+      svc.invokeClarifyDraft.mockResolvedValue({ ok: true, pending: true });
+      const ended = runClarifyDraft('dp');
+      await vi.advanceTimersByTimeAsync(10_000);
+      await ended;
+      expect(svc.invokeClarifyDraft).toHaveBeenCalledTimes(3); // the first call and two re-invokes
+      svc.invokeClarifyDraft.mockClear();
+      svc.invokeClarifyDraft.mockResolvedValueOnce({ ok: true, pending: true }).mockResolvedValue({ ok: true });
+      const second = runClarifyDraft('dq');
+      await vi.advanceTimersByTimeAsync(10_000);
+      await second;
+      expect(svc.invokeClarifyDraft).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('(r2) invokeClarifyDraft reports a running or queued answer as pending', async () => {
+    const s = await vi.importActual<typeof import('@/app/data/clarify-service')>('@/app/data/clarify-service');
+    invoke.mockResolvedValueOnce({ data: { state: 'running' }, error: null });
+    expect(await s.invokeClarifyDraft('d1')).toEqual({ ok: true, pending: true });
+  });
+
+  it('(GLM 1, r2) with every draft deleted the thread offers Another point and nothing else new', async () => {
+    svc.getClarifyThread.mockResolvedValue([]);
+    render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    fireEvent.click(await screen.findByTestId('clarify-another'));
+    await waitFor(() => expect(svc.anotherPoint).toHaveBeenCalledWith('r1'));
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('(Gemini 2, r2) no thread root is an empty loaded thread, not a skeleton', async () => {
+    const { renderHook } = await import('@testing-library/react');
+    const { useClarifyThread } = await import('@/app/pages/chat/use-clarify-thread');
+    const { result } = renderHook(() => useClarifyThread(null));
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(result.current.drafts).toEqual([]);
+    expect(svc.getClarifyThread).not.toHaveBeenCalled();
+  });
+
+  it('(Codex 3, r2) an older read of the same root never overwrites a newer one', async () => {
+    const { renderHook } = await import('@testing-library/react');
+    const { useClarifyThread } = await import('@/app/pages/chat/use-clarify-thread');
+    let older: (v: ClarifyDraft[]) => void = () => undefined;
+    svc.getClarifyThread.mockResolvedValueOnce([]); // the mount read
+    const { result } = renderHook(() => useClarifyThread('r1'));
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    svc.getClarifyThread.mockImplementationOnce(() => new Promise<ClarifyDraft[]>((go) => { older = go; }));
+    svc.getClarifyThread.mockResolvedValueOnce([draft({ id: 'newer' })]);
+    let first: Promise<void> = Promise.resolve();
+    act(() => { first = result.current.reload(); });
+    await act(async () => { await result.current.reload(); });
+    expect(result.current.drafts.map((d) => d.id)).toEqual(['newer']);
+    await act(async () => { older([draft({ id: 'older' })]); await first; });
+    expect(result.current.drafts.map((d) => d.id)).toEqual(['newer']);
+  });
+
+  it('(Codex 4, GLM 5, r2) a server value that arrives during a pending write is applied when the write settles', async () => {
+    let finish: () => void = () => undefined;
+    pos.sendPositionWrite.mockImplementationOnce(() => new Promise<undefined>((go) => { finish = () => go(undefined); }));
+    const { rerender } = render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Agree' }));
+    rerender(<ClarifyDraftCard draft={draft({ point: { id: 'pt1', statement: 'Deadlines should be set by the team', ownerPosition: 'disagree' } })} userId="me" onChanged={() => undefined} />);
+    expect(screen.getByRole('button', { name: 'Agree', pressed: true })).toBeInTheDocument(); // still showing the pending write
+    await act(async () => { finish(); });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Disagree', pressed: true })).toBeInTheDocument());
+  });
+
+  it('(Codex 5, r2) a stale successful response does not become the baseline, and a settle that throws is caught', async () => {
+    const lost = () => Object.assign(new Error('lost'), { name: 'NetworkBlipError' });
+    pos.sendPositionWrite.mockRejectedValueOnce(lost());
+    pos.settlePositionWrite.mockRejectedValueOnce(new Error('settle blew up'));
+    render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Agree' }));
+    await waitFor(() => expect(toastFn.error).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: 'Agree', pressed: true })).toBeNull();
+    cleanup();
+    toastFn.error.mockClear();
+    pos.sendPositionWrite.mockClear();
+    pos.isLatestPositionWrite.mockReturnValueOnce(false);
+    pos.sendPositionWrite.mockResolvedValueOnce(undefined);
+    pos.sendPositionWrite.mockRejectedValueOnce(new Error('rejected'));
+    render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Agree' })); // succeeds, but no longer the latest: not the baseline
+    await waitFor(() => expect(pos.sendPositionWrite).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Disagree' })); // fails: rolls back to the original baseline (none)
+    await waitFor(() => expect(toastFn.error).toHaveBeenCalledWith('Failed to save position.'));
+    expect(screen.queryByRole('button', { name: 'Agree', pressed: true })).toBeNull();
   });
 });

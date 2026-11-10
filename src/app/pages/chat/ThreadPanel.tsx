@@ -122,7 +122,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   // P1576: a voice note sent here is a reply in this thread; in a canvas draft's thread (3c X9) it is the draft's update (use-thread-voice).
   const sendVoice = useThreadVoice(conversationId, rootId, canvasRoot, rootPending, canvas.voice);
   const blockedReason = threadBlockedReason(summary.canSend, rootDeleted);
-  // P1631: a Clarify thread shows its drafts under the source copy and takes no composer in this step.
+  // P1631: a Clarify thread shows its drafts under the source copy; its composer refines the latest draft or adds another.
   const clarify = useClarifyParts(summary, root, chat.userId);
 
   if (retired) return <RetiredThread />;
@@ -156,7 +156,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
         after={canvas.after}
       />
       {canvas.readState}
-      {clarify.isClarify ? null : (
+      {clarify.isClarify && !blockedReason ? clarify.footer : (
         <ThreadFooter
           blockedReason={blockedReason}
           canvas={canvas}

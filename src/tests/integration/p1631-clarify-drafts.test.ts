@@ -136,11 +136,12 @@ describe('P1631 clarify drafts', () => {
     const late = await ok(b.c, 'send_chat_message', { p_conversation: conv, p_body: `${TAG} written after the press`, p_client_id: randomUUID() });
     const r = await begin(draft);
     expect(r.status).toBe('run');
-    expect(r.source_message).toMatchObject({ id: msgs[2]!.id, is_pressed: true });
+    // the pressed row was written by b and a pressed Clarify: the author is "other", a flag and never a name
+    expect(r.source_message).toMatchObject({ id: msgs[2]!.id, is_pressed: true, pressed_author: 'other' });
     const chatIds = r.surrounding_chat.map((x: Row) => x.id);
     expect(chatIds).toEqual([msgs[0]!.id, msgs[1]!.id, msgs[3]!.id]);   // oldest first; every line before the press, never the pressed one
     expect(chatIds).not.toContain(late.id);
-    for (const row of [r.source_message, ...r.surrounding_chat, ...r.thread]) expect(Object.keys(row).filter((k) => !['id', 'text', 'is_pressed'].includes(k))).toEqual([]);
+    for (const row of [r.source_message, ...r.surrounding_chat, ...r.thread]) expect(Object.keys(row).filter((k) => !['id', 'text', 'is_pressed', 'pressed_author'].includes(k))).toEqual([]);
     const text = JSON.stringify(r);
     expect(text).not.toContain(a.name);
     expect(text).not.toContain(b.name);
@@ -421,7 +422,7 @@ describe('P1631 review fixes (migration 20261110170000)', () => {
     expect(await spendOf(n.draft_id)).toMatchObject({ state: 'settled' });
   });
 
-  it('(GLM 1) erasing a person settles the reservation of a draft that was running on their words; (Gemini 7) a point another user holds a position on survives', async () => {
+  it('(GLM 1) erasing a person settles the reservation of a draft that was running on their words; (r2, security) the derived point goes with the erased words even when another user holds a position on it', async () => {
     await finishActive();
     const kept = await ok(a.c, 'clarify_start', { p_source: said[0]!.id });
     await begin(kept.draft_id);
@@ -437,8 +438,178 @@ describe('P1631 review fixes (migration 20261110170000)', () => {
     const spend = (await admin.from('mirror_ai_spend').select('*').eq('id', spendId).single()).data as Row;
     expect(spend.state, 'the reservation no longer counts against the caps').toBe('settled');
     expect(Number(spend.actual_usd)).toBeCloseTo(Number(spend.reserved_usd), 6);
-    expect((await admin.from('points').select('id').eq('id', done.point_id)).data, 'a point with someone else\'s position').toHaveLength(1);
-    await admin.from('point_positions').delete().eq('point_id', done.point_id);
-    await admin.from('points').delete().eq('id', done.point_id);
+    expect((await admin.from('points').select('id').eq('id', done.point_id)).data, 'derived from erased words: gone whoever holds a position').toHaveLength(0);
+    expect((await admin.from('point_positions').select('point_id').eq('point_id', done.point_id)).data, 'positions go with the point').toHaveLength(0);
+  });
+
+  it('(r2, Opus N1, Gemini 3, GLM 2) a completion or failure for a vanished draft settles or releases its own spend, once', async () => {
+    await finishActive();
+    // complete for a deleted draft: the reservation is settled, not left held
+    const s1 = await ok(a.c, 'clarify_start', { p_source: said[1]!.id });
+    await begin(s1.draft_id);
+    const run1 = (await token(s1.draft_id))!;
+    await admin.from('clarify_drafts').delete().eq('id', s1.draft_id);
+    expect(await complete(s1.draft_id, goodResult(`${TAG} vanished`), 0.03, run1)).toMatchObject({ status: 'gone' });
+    const sp1 = (await admin.from('mirror_ai_spend').select('*').eq('id', run1).single()).data as Row;
+    expect(sp1.state).toBe('settled');
+    expect(Number(sp1.actual_usd)).toBeCloseTo(0.03, 6);
+    // a second report for the same run never settles it again
+    await complete(s1.draft_id, goodResult(`${TAG} vanished`), 0.9, run1);
+    expect(Number(((await admin.from('mirror_ai_spend').select('actual_usd').eq('id', run1).single()).data as Row).actual_usd)).toBeCloseTo(0.03, 6);
+    // fail with usd null for a deleted draft: released
+    const s2 = await ok(a.c, 'clarify_start', { p_source: said[1]!.id });
+    await begin(s2.draft_id);
+    const run2 = (await token(s2.draft_id))!;
+    await admin.from('clarify_drafts').delete().eq('id', s2.draft_id);
+    expect(await failRun(s2.draft_id, 'boom', null, run2)).toBe(false);
+    expect((await admin.from('mirror_ai_spend').select('state').eq('id', run2).single()).data).toMatchObject({ state: 'released' });
+    // a stale fail with null usd releases a still-reserved stale spend, and leaves the newer run alone
+    const s3 = await ok(a.c, 'clarify_start', { p_source: said[1]!.id });
+    await begin(s3.draft_id);
+    const old = (await token(s3.draft_id))!;
+    await failRun(s3.draft_id, 'boom', 0.01);
+    await ok(a.c, 'clarify_retry', { p_draft: s3.draft_id });
+    await begin(s3.draft_id);
+    const fresh = (await token(s3.draft_id))!;
+    expect(await failRun(s3.draft_id, 'stale', null, old)).toBe(false);
+    expect(await spendOf(s3.draft_id)).toMatchObject({ id: fresh, state: 'reserved' });
+    await failRun(s3.draft_id, 'done', 0);
+  });
+});
+
+describe('P1631 step 1b: refine by chatting, and a draft that never started (migration 20261110200000)', () => {
+  let src: Row;
+  let dd: Awaited<ReturnType<typeof mk>>;
+  let thread = '';
+  let first = '';
+  const mkDone = async (stmt: string) => {
+    const s = await ok(a.c, 'clarify_start', { p_source: src.id });
+    thread = s.thread_root_id;
+    await begin(s.draft_id);
+    await complete(s.draft_id, goodResult(`${TAG} ${stmt}`), 0.01);
+    return s.draft_id as string;
+  };
+  const statementOf = async (draftId: string) => {
+    const d = await draftRow(draftId);
+    return d.point_id ? (((await admin.from('points').select('statement').eq('id', d.point_id).single()).data as Row).statement as string) : null;
+  };
+  const answer = (target: unknown, stmt: string) => ({ decision: 'draft', statement: `${TAG} ${stmt}`, cited: { a: [], b: [] }, target });
+
+  beforeAll(async () => {
+    dd = await mk('D');
+    const [lo, hi] = [a.id, dd.id].sort();
+    const made = await admin.from('chat_conversations').insert({ kind: 'dm', dm_user_a: lo, dm_user_b: hi, created_by: a.id }).select('id').single();
+    if (made.error) throw new Error(`fixture dm3: ${made.error.message}`);
+    src = await ok(dd.c, 'send_chat_message', { p_conversation: made.data.id, p_body: `${TAG} 1b: ship the trial now.`, p_client_id: randomUUID() });
+  });
+
+  it('clarify_message posts the owner text in the thread and queues a run carrying it; the run context holds the owner messages and the latest draft', async () => {
+    await finishActive();
+    first = await mkDone('first point');
+    const sent = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: '  make it sharper  ' });
+    expect(sent.status).toBe('started');
+    const msg = (await admin.from('chat_messages').select('body, author_id, thread_root_id, kind').eq('id', sent.message_id).single()).data as Row;
+    expect(msg).toMatchObject({ body: 'make it sharper', author_id: a.id, thread_root_id: thread, kind: 'message' });
+    expect(await draftRow(sent.draft_id)).toMatchObject({ state: 'queued', instruction: 'make it sharper' });
+    // busy: nothing is posted for a refused message
+    const before = (await admin.from('chat_messages').select('id').eq('thread_root_id', thread)).data!.length;
+    expect((await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'second while busy' })).status).toBe('busy');
+    expect((await admin.from('chat_messages').select('id').eq('thread_root_id', thread)).data!.length).toBe(before);
+    const run = await begin(sent.draft_id);
+    expect(run.owner_messages).toEqual(['make it sharper']);
+    expect(run.latest_draft).toBe(`${TAG} first point`);
+    // the generic Mirror reply stays silent for the owner's message in the thread
+    const quiet = await rpc(a.c, 'mirror_request_reply', { p_message: sent.message_id });
+    expect(quiet.data ?? []).toHaveLength(0);
+    await failRun(sent.draft_id, 'test_cleanup', 0);
+  });
+
+  it('pressed_author is "owner" when the presser wrote the pressed row', async () => {
+    await finishActive();
+    const own = await ok(a.c, 'clarify_start', { p_source: msgs[1]!.id }); // msgs[1] was written by a
+    const r = await begin(own.draft_id);
+    expect(r.source_message.pressed_author).toBe('owner');
+    expect(JSON.stringify(r.source_message)).not.toContain(a.name);
+    await failRun(own.draft_id, 'test_cleanup', 0);
+  });
+
+  it('clarify_message: only the owner of the thread; text 1..500', async () => {
+    await finishActive();
+    expect((await rpc(b.c, 'clarify_message', { p_thread_root: thread, p_text: 'hijack' })).error?.code).toBe('42501');
+    expect((await rpc(a.c, 'clarify_message', { p_thread_root: thread, p_text: '   ' })).error?.code).toBe('22023');
+    expect((await rpc(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'x'.repeat(501) })).error?.code).toBe('22023');
+  });
+
+  it('refine (target latest): the latest draft keeps its row, gets a new point row, the owner position carries over, the old point and the run row are gone', async () => {
+    await finishActive();
+    const before = await draftRow(first);
+    await admin.from('point_positions').insert({ point_id: before.point_id, user_id: a.id, position: 'agree' });
+    const sent = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'make it about the quarter' });
+    await begin(sent.draft_id);
+    const r = await complete(sent.draft_id, answer('latest', 'refined point'), 0.02);
+    expect(r).toMatchObject({ status: 'done', refined: first });
+    const after = await draftRow(first);
+    expect(after.point_id).not.toBe(before.point_id);
+    expect(await statementOf(first)).toBe(`${TAG} refined point`);
+    expect((await admin.from('points').select('id').eq('id', before.point_id)).data, 'old point').toHaveLength(0);
+    expect((await admin.from('point_positions').select('position').eq('point_id', after.point_id).eq('user_id', a.id)).data).toEqual([{ position: 'agree' }]);
+    expect((await admin.from('clarify_drafts').select('id').eq('id', sent.draft_id)).data, 'run row').toHaveLength(0);
+    const t = await ok(a.c, 'get_clarify_thread', { p_thread_root: thread });
+    expect(t.drafts.filter((d: Row) => d.state === 'done')).toHaveLength(1);
+    expect(t.drafts[0].point.owner_position).toBe('agree');
+    expect((await admin.from('mirror_ai_spend').select('state').eq('id', after.spend_id ?? sent.draft_id).maybeSingle()).error).toBeNull();
+  });
+
+  it('refine without a target field defaults to the latest; an invalid target fails bad_output and settles', async () => {
+    await finishActive();
+    const s1 = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'reword it' });
+    await begin(s1.draft_id);
+    expect(await complete(s1.draft_id, { decision: 'draft', statement: `${TAG} reworded`, cited: { a: [], b: [] } }, 0.01)).toMatchObject({ status: 'done', refined: first });
+    expect(await statementOf(first)).toBe(`${TAG} reworded`);
+    const s2 = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'whatever' });
+    await begin(s2.draft_id);
+    const run = (await token(s2.draft_id))!;
+    expect(await complete(s2.draft_id, answer('sideways', 'bad target'), 0.03)).toMatchObject({ status: 'failed', code: 'bad_output' });
+    expect((await admin.from('mirror_ai_spend').select('state').eq('id', run).single()).data).toMatchObject({ state: 'settled' });
+    expect(await statementOf(first)).toBe(`${TAG} reworded`);
+    await ok(a.c, 'clarify_draft_delete', { p_draft: s2.draft_id });
+  });
+
+  it('target new: the run row becomes a second draft and the first is untouched', async () => {
+    await finishActive();
+    const sent = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'another point about who decides' });
+    await begin(sent.draft_id);
+    expect(await complete(sent.draft_id, answer('new', 'second point'), 0.02)).toMatchObject({ status: 'done' });
+    expect(await draftRow(sent.draft_id)).toMatchObject({ state: 'done' });
+    expect(await statementOf(first)).toBe(`${TAG} reworded`);
+    expect((await ok(a.c, 'get_clarify_thread', { p_thread_root: thread })).drafts.filter((d: Row) => d.state === 'done')).toHaveLength(2);
+  });
+
+  it('refine when someone else has a position on the latest point: a new draft is added, the fixed point stays', async () => {
+    await finishActive();
+    const latest = (await ok(a.c, 'get_clarify_thread', { p_thread_root: thread })).drafts.filter((d: Row) => d.state === 'done').pop();
+    await admin.from('point_positions').insert({ point_id: latest.point.id, user_id: dd.id, position: 'disagree' });
+    const sent = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'sharpen it' });
+    await begin(sent.draft_id);
+    const r = await complete(sent.draft_id, answer('latest', 'sharpened'), 0.02);
+    expect(r.status).toBe('done');
+    expect(r.refined ?? null).toBeNull();
+    expect(await draftRow(sent.draft_id)).toMatchObject({ state: 'done' });
+    expect(((await admin.from('points').select('statement').eq('id', latest.point.id).single()).data as Row).statement, 'fixed point unchanged').toBe(latest.point.statement);
+    expect((await ok(a.c, 'get_clarify_thread', { p_thread_root: thread })).drafts.filter((d: Row) => d.state === 'done')).toHaveLength(3);
+  });
+
+  it('clarify_mark_failed: a queued draft that never started is failed not_started and can be retried; a started one, a finished one and a stranger are left alone', async () => {
+    await finishActive();
+    const q = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'try this' });
+    expect((await rpc(b.c, 'clarify_mark_failed', { p_draft: q.draft_id })).error?.code, 'not the owner').toBe('42501');
+    expect(await ok(a.c, 'clarify_mark_failed', { p_draft: q.draft_id })).toMatchObject({ status: 'failed' });
+    expect(await draftRow(q.draft_id)).toMatchObject({ state: 'failed', error_code: 'not_started' });
+    expect((await ok(a.c, 'get_clarify_thread', { p_thread_root: thread })).drafts.find((d: Row) => d.id === q.draft_id)).toMatchObject({ state: 'failed', error_code: 'not_started' });
+    expect((await ok(a.c, 'clarify_retry', { p_draft: q.draft_id })).status).toBe('started');
+    await begin(q.draft_id);
+    expect(await ok(a.c, 'clarify_mark_failed', { p_draft: q.draft_id }), 'running').toMatchObject({ status: 'unchanged', state: 'running' });
+    await complete(q.draft_id, answer('new', 'late point'), 0.01);
+    expect(await ok(a.c, 'clarify_mark_failed', { p_draft: q.draft_id }), 'done').toMatchObject({ status: 'unchanged', state: 'done' });
   });
 });

@@ -16,6 +16,7 @@ import { FOCUS_RING, HOVER, PersonMark } from './chat-kit';
 import { isCanvasThreadRoot } from './canvas-root';
 import { rootLinkTarget } from './canvas-root-link';
 import { ChatContext } from './chat-state';
+import { CLARIFY_OPEN_LABEL } from './clarify-copy';
 import { useCanvasRootSlot } from './use-canvas-root-slot';
 
 interface Props {
@@ -102,6 +103,14 @@ function CanvasRepliesLink({ server, stat, authors, onThread, viewerId }: { serv
 
 export function RepliesLink({ inThread, server, stat, authors, onThread, viewerId }: Props) {
   if (inThread || !onThread || !server) return null;
+  // P1631: a Clarify copy is the root of its owner's drafts thread, which can exist with no replies: it is always a way in.
+  if ((!stat || stat.count <= 0) && server.kind === 'clarify' && !server.threadRootId && !server.isDeleted) {
+    return (
+      <button type="button" data-testid="clarify-open-link" onClick={() => onThread(server)} className={LINK}>
+        {CLARIFY_OPEN_LABEL}
+      </button>
+    );
+  }
   if (!stat || stat.count <= 0) return null;
   if (isCanvasThreadRoot(server)) return <CanvasRepliesLink server={server} stat={stat} authors={authors} onThread={onThread} viewerId={viewerId} />;
   return (

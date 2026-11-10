@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getClarifyThread, type ClarifyDraft } from '@/app/data/clarify-service';
-import { onClarifyRunEnded } from './clarify-run';
+import { onClarifyRunEnded, onClarifyThreadTouched } from './clarify-run';
 
 const POLL_MS = 3_000;
 
@@ -28,11 +28,17 @@ export function useClarifyThread(threadRootId: string | null): ClarifyThreadStat
     return () => { alive.current = false; };
   }, []);
 
+  // Requests are numbered; an answer older than one already applied is dropped, so a slow poll never overwrites a newer read.
+  const issued = useRef(0);
+  const applied = useRef(0);
+
   const reload = useCallback(async () => {
     if (!threadRootId) return;
+    const seq = ++issued.current;
     try {
       const next = await getClarifyThread(threadRootId);
-      if (!alive.current || currentRoot.current !== threadRootId) return;
+      if (!alive.current || currentRoot.current !== threadRootId || seq < applied.current) return;
+      applied.current = seq;
       setDrafts(next);
       setFailed(false);
     } catch {
@@ -44,12 +50,14 @@ export function useClarifyThread(threadRootId: string | null): ClarifyThreadStat
 
   useEffect(() => {
     setDrafts([]);
-    setLoaded(false);
     setFailed(false);
+    // no root: nothing to read, which is an empty thread, never a skeleton that never resolves
+    setLoaded(!currentRoot.current);
     void reload();
   }, [reload]);
 
   useEffect(() => onClarifyRunEnded(() => void reload()), [reload]);
+  useEffect(() => onClarifyThreadTouched((root) => { if (root === threadRootId) void reload(); }), [reload, threadRootId]);
 
   const working = drafts.some((d) => d.state === 'queued' || d.state === 'running');
   useEffect(() => {

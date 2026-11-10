@@ -236,13 +236,13 @@ describe('P1631 review-fix migration (20261110170000)', () => {
   // Lines that CHANGE an old line (not pure insertions) are listed with the old text they replace, exactly as p1536 lists its substitutions.
   const CHANGED: Array<[string, string]> = [
     [`RETURN jsonb_build_object('status', 'busy', 'reason', 'locked'); -- P1631`, `RETURN jsonb_build_object('status', 'busy');`],
-    [`DELETE FROM public.points p WHERE p.id = ANY (v_points) AND p.visibility = 'private'::public.content_visibility\n     AND NOT EXISTS`, `DELETE FROM public.points p WHERE p.id = ANY (v_points) AND p.visibility = 'private'::public.content_visibility;\n     AND NOT EXISTS`],
+    // the erase DELETE: the previous text is ONE statement ending at the first semicolon; the new one adds a marked NOT EXISTS line before its terminator
+    [`DELETE FROM public.points p WHERE p.id = ANY (v_points) AND p.visibility = 'private'::public.content_visibility\n     AND NOT EXISTS (SELECT 1 FROM public.point_positions pp WHERE pp.point_id = p.id AND pp.user_id IS DISTINCT FROM p.first_validator_id); -- P1631`, `DELETE FROM public.points p WHERE p.id = ANY (v_points) AND p.visibility = 'private'::public.content_visibility;`],
   ];
   const marked = (sql: string) => {
     let t = sql;
     for (const [from, to] of CHANGED) t = t.split(from).join(to);
-    // the erase DELETE: its added condition continues the statement on a marked line; restore the old terminator
-    return t.split('\n').filter((l) => !l.includes('-- P1631')).join('\n').replace("content_visibility\n", "content_visibility;\n");
+    return t.split('\n').filter((l) => !l.includes('-- P1631')).join('\n');
   };
   it('names what it was diffed against, and each named source is the newest definition before this file', () => {
     const header = fix.slice(0, fix.indexOf('CREATE TABLE'));
@@ -301,5 +301,111 @@ describe('P1631 review-fix migration (20261110170000)', () => {
     expect(fnBody(marked(mutated), 'clarify_start')).toBe(fnBody(raw, 'clarify_start')); // still equal: the line was marked, so removing it changes nothing in the diff
     const unmarked = fix.replace("DO NOTHING; -- P1631", 'DO NOTHING;');
     expect(fnBody(marked(unmarked), 'clarify_start')).not.toBe(fnBody(raw, 'clarify_start'));
+  });
+});
+
+describe('P1631 review-fix migration 2 (20261110180000)', () => {
+  const FIX2 = '20261110180000_p1631_review_fixes_2.sql';
+  const fix2 = read(FIX2);
+  const code2 = stripComments(fix2);
+  // lines that CHANGE an old line: [start of the new (marked) line, the old text it replaces]
+  const CHANGED2: Array<[string, string]> = [
+    [`    IF p_run IS NOT NULL THEN -- P1631 r2: NULL p_usd releases`, `    IF p_run IS NOT NULL AND p_usd IS NOT NULL THEN`],
+    [`  DELETE FROM public.points p WHERE p.id = ANY (v_points) AND p.visibility = 'private'::public.content_visibility; -- P1631 r2`,
+      `  DELETE FROM public.points p WHERE p.id = ANY (v_points) AND p.visibility = 'private'::public.content_visibility\n     AND NOT EXISTS (SELECT 1 FROM public.point_positions pp WHERE pp.point_id = p.id AND pp.user_id IS DISTINCT FROM p.first_validator_id);`],
+  ];
+  const marked2 = (sql: string) => sql.split('\n').flatMap((l) => {
+    const hit = CHANGED2.find(([from]) => l.startsWith(from));
+    if (hit) return [hit[1]];
+    return l.includes('-- P1631 r2') ? [] : [l];
+  }).join('\n');
+  it('names what it was diffed against, and each source is the newest definition before this file', () => {
+    const header = fix2.slice(0, fix2.indexOf('CREATE OR REPLACE'));
+    expect(header).toMatch(/^-- client-safe:/m);
+    for (const f of ['_clarify_complete', '_clarify_fail', '_clarify_erase_person']) {
+      expect(header).toContain(f);
+      expect(newestBefore(f, FIX2), f).toBe(FIX);
+    }
+  });
+  it('every restated body is the newest previous body plus ONLY lines marked -- P1631 r2', () => {
+    for (const f of ['_clarify_complete', '_clarify_fail', '_clarify_erase_person']) {
+      expect(fnBody(marked2(fix2), f), f).toBe(fnBody(read(FIX), f));
+    }
+  });
+  it('grants stay service_role alone, and the erase function stays closed to every client', () => {
+    for (const sig of ['_clarify_complete(uuid, jsonb, numeric, uuid)', '_clarify_fail(uuid, text, numeric, uuid)']) {
+      const e = sig.replace(/[()]/g, '\\$&');
+      expect(code2).toMatch(new RegExp(`REVOKE ALL ON FUNCTION public\\.${e} FROM PUBLIC, anon, authenticated;`));
+      expect(code2).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${e} TO service_role;`));
+    }
+    expect(code2).toMatch(/REVOKE ALL ON FUNCTION public\._clarify_erase_person\(uuid\) FROM PUBLIC, anon, authenticated;/);
+    expect(code2).not.toMatch(/GRANT EXECUTE[^;]*_clarify_erase_person/);
+  });
+  it('erasure deletes the derived point whoever holds a position; a vanished draft settles its own spend', () => {
+    const e = fnBody(fix2, '_clarify_erase_person');
+    expect(e).not.toContain('point_positions');
+    expect(e).toContain(`DELETE FROM public.points p WHERE p.id = ANY (v_points) AND p.visibility = 'private'::public.content_visibility;`);
+    const gone = (f: string) => fnBody(fix2, f).slice(0, fnBody(fix2, f).indexOf('IF NOT FOUND THEN') + 220);
+    expect(gone('_clarify_complete')).toContain('_mirror_settle(p_run');
+    expect(gone('_clarify_fail')).toContain('_mirror_settle(p_run, p_usd)');
+  });
+  it('CONTROL: an unmarked change to a restated body is caught by the same comparison', () => {
+    const unmarked = fix2.replace(`PERFORM public._mirror_settle(p_run, p_usd); -- P1631 r2`, `PERFORM public._mirror_settle(p_run, p_usd);`);
+    expect(fnBody(marked2(unmarked), '_clarify_fail')).not.toBe(fnBody(read(FIX), '_clarify_fail'));
+  });
+});
+
+describe('P1631 step 1b migration (20261110200000)', () => {
+  const FIX3 = '20261110200000_p1631_refine.sql';
+  const FIX2 = '20261110180000_p1631_review_fixes_2.sql';
+  const fix3 = read(FIX3);
+  const code3 = stripComments(fix3);
+  // lines that CHANGE an old line: [start of the new line, the old text it replaces]
+  const CHANGED3: Array<[string, string]> = [
+    [`  v_source := jsonb_build_object('id', v_src.id, 'text', left(v_text, 4000), 'is_pressed', true,`, `  v_source := jsonb_build_object('id', v_src.id, 'text', left(v_text, 4000), 'is_pressed', true);`],
+    [`    'already_drafted', v_already,`, `    'already_drafted', v_already);`],
+  ];
+  const marked3 = (sql: string) => sql.split('\n').flatMap((l) => {
+    const hit = CHANGED3.find(([from]) => l.startsWith(from));
+    if (hit) return [hit[1]];
+    return l.includes('-- P1631 r3') ? [] : [l];
+  }).join('\n');
+  it('names what it was diffed against, and each source is the newest definition before this file', () => {
+    const header = fix3.slice(0, fix3.indexOf('CREATE OR REPLACE'));
+    expect(header).toMatch(/^-- client-safe:/m);
+    expect(newestBefore('_clarify_begin', FIX3)).toBe(FIX);
+    expect(newestBefore('_clarify_complete', FIX3)).toBe(FIX2);
+    expect(header).toContain('20261110170000_p1631_review_fixes.sql');
+    expect(header).toContain('20261110180000_p1631_review_fixes_2.sql');
+  });
+  it('begin and complete are the newest previous bodies plus ONLY lines marked -- P1631 r3', () => {
+    expect(fnBody(marked3(fix3), '_clarify_begin')).toBe(fnBody(read(FIX), '_clarify_begin'));
+    expect(fnBody(marked3(fix3), '_clarify_complete')).toBe(fnBody(read(FIX2), '_clarify_complete'));
+  });
+  it('CONTROL: an unmarked change to a restated body is caught by the same comparison', () => {
+    const unmarked = fix3.replace(`v_target := p_result ->> 'target'; -- P1631 r3: validated here; absent or null means the latest`, `v_target := p_result ->> 'target';`);
+    expect(fnBody(marked3(unmarked), '_clarify_complete')).not.toBe(fnBody(read(FIX2), '_clarify_complete'));
+  });
+  it('the workers stay service_role alone; the two new functions are for signed-in users only (the owner is read from the session)', () => {
+    for (const sig of ['_clarify_begin(uuid)', '_clarify_complete(uuid, jsonb, numeric, uuid)']) {
+      const e = sig.replace(/[()]/g, '\\$&');
+      expect(code3).toMatch(new RegExp(`REVOKE ALL ON FUNCTION public\\.${e} FROM PUBLIC, anon, authenticated;`));
+      expect(code3).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${e} TO service_role;`));
+    }
+    for (const sig of ['clarify_message(uuid, text)', 'clarify_mark_failed(uuid)']) {
+      const e = sig.replace(/[()]/g, '\\$&');
+      expect(code3).toMatch(new RegExp(`REVOKE ALL ON FUNCTION public\\.${e} FROM PUBLIC, anon, authenticated;`));
+      expect(code3).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${e} TO authenticated;`));
+    }
+    for (const f of ['clarify_message', 'clarify_mark_failed']) expect(fnBody(fix3, f), f).toContain('auth.uid()');
+  });
+  it('the target is validated, a refine needs the owner alone on the point, and the message goes through the product send function', () => {
+    const c = fnBody(fix3, '_clarify_complete');
+    expect(c).toContain(`v_target NOT IN ('latest', 'new')`);
+    expect(c).toContain(`COALESCE(v_target, 'latest') = 'latest'`);
+    expect(c).toContain('pp.user_id IS DISTINCT FROM v_d.owner_id');
+    expect(fnBody(fix3, 'clarify_message')).toContain('public.send_chat_message(');
+    expect(fnBody(fix3, 'clarify_message')).toContain(`d.state IN ('queued', 'running')`);
+    expect(fnBody(fix3, 'clarify_mark_failed')).toContain(`v_d.state <> 'queued' OR v_d.spend_id IS NOT NULL OR v_d.started_at IS NOT NULL`);
   });
 });
