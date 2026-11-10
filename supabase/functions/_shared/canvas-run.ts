@@ -24,6 +24,7 @@ import { DeadlineExceeded } from './canvas-deadline.ts';
 import { costUsd, type GeminiRequest, type GeminiUsage, type TokenCounter } from './mirror-agent.ts';
 import { buildDraftRequest, choiceAllowed } from './canvas-prompt.ts';
 import { parseDraft } from './canvas-parse.ts';
+import { parsedLine } from './canvas-measure.ts';
 import { buildDraftReply, withCutNote } from './canvas-reply.ts';
 import { choiceRun, closedRun, draftOffer, type RunTools } from './canvas-choice-run.ts';
 import { draftReplyOf, offersToAdd } from './canvas-run-reply.ts';
@@ -193,8 +194,10 @@ function keepsOffers(run: CanvasRun, kind: RunKind, out: Parsed): boolean {
 }
 
 /** The failure a parsed answer amounts to (unusable, or nothing supported), or null when there is something to write. */
-async function failureOf(s: Step, out: ReturnType<typeof parseDraft>, usd: number | null, cut: (reply: string) => string): Promise<RunSummary | null> {
+async function failureOf(s: Step, out: ReturnType<typeof parseDraft>, usd: number | null, cut: (reply: string) => string, response: unknown): Promise<RunSummary | null> {
   const { run, p, deps } = s;
+  // P1653 TEMPORARY measurement line (counts only, never model text or owner words); remove after the replay.
+  try { console.log(parsedLine(run.run_id, out, response)); } catch { /* measurement must never change a run */ }
   if (!out.ok) return await failRun(deps, run, p, out.code, cut('I could not draft your canvas from that. Nothing was changed. Try again, or add more about what you sell and to whom.'), usd);
   const drops = out.droppedUnverified + out.droppedNames;
   if (out.scope.length > 0 && out.total === 0 && (drops > 0 || s.kind !== 'message' || run.first_draft) && !keepsOffers(run, s.kind, out)) {
@@ -228,7 +231,7 @@ async function runDraft(s: Step): Promise<RunSummary> {
   });
   const usd = out.costUsd !== null ? out.costUsd + s.extra : run.reserved_usd ?? null;
   // P1646: a message that contradicts current points offers options and writes nothing until the owner picks
-  return (await draftOffer(s, TOOLS, out, cut, usd)) ?? (await failureOf(s, out, usd, cut)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));
+  return (await draftOffer(s, TOOLS, out, cut, usd)) ?? (await failureOf(s, out, usd, cut, asked.response)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));
 }
 
 type Parsed = Extract<ReturnType<typeof parseDraft>, { ok: true }>;

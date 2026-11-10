@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 117
 workstream: canvas
 created_date: '2026-11-09'
 tags: [canvas, mirror-agent, ux]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -120,12 +120,15 @@ Applies because the replays call Gemini. Figures per `docs/technical/metered-ser
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Gemini calls | No new call per refusal: the reply uses the run that already ran. A tap that needs drafting = 1 run, as typing does | Grows only with owners' messages | Before: 3 messages + 1 control = 4 x 5 = 20. After: 4 + 1 control + follow-up of 2 messages + link then tap = 9 x 5 = 45. Total 65 |
-| Gemini spend | A few cents at most per run, from two runs logged on TEST 2026-11-09 (figures in the registry) | Same | 65 runs at the upper per-run figure, plus retries: a small fixed test cost. Bound by per-person limits (kept in the registry); spread across test accounts if a replay is capped |
+| Gemini calls | No new call per refusal: the reply uses the run that already ran. A tap that needs drafting = 1 run, as typing does | Grows only with owners' messages | Before: 3 messages + 1 control + 1 staged unreadable link = 5 x 5 = 25 per pass. Spent so far: 26 (a first pass whose run reads were blind, plus a 2-run probe check); the measured re-run is capped by the harness at 30 model attempts. After: 4 + 1 control + follow-up of 2 messages + link then tap = 9 x 5 = 45. Total at most 26 + 30 + 45 = 101 |
+| Gemini spend | A few cents at most per run, from two runs logged on TEST 2026-11-09 (figures in the registry) | Same | 101 runs at the upper per-run figure, plus retries: a small fixed test cost. Bound by per-person limits (kept in the registry); spread across test accounts if a replay is capped |
 | Edge invocations | Unchanged per message | Unchanged | Self-hosted TEST: 0 of the hosted plan |
-| Log lines | At most 1 new per refusal, if the cause is logged | Unchanged | 65 at most |
+| Log lines | A temporary counts-only line per parsed run during the replay, removed before ship. None in the shipped product unless a cause log is added (at most 1 per refusal) | Unchanged | 101 at most |
+| Database reads (harness only) | None in the product | None | Up to about 16 run-row reads per try plus material, reply and spend reads, against self-hosted TEST, which is not metered |
 
-**Verdict:** fits, no plan limit is approached. No browser timer, loop or new retry path is added.
+**Verdict:** fits, no plan limit is approached. The product adds no browser timer, loop or retry path. The replay harness polls TEST's database while it waits for each run; that loop is test-only and unmetered.
+
+- [ ] Remove the temporary `canvas-draft: parsed` measurement line from `canvas-run.ts` before ship
 
 ## Open Questions
 
