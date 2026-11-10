@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
 import { retryCanvasRun, type CanvasDraft, type CanvasDraftRun } from '@/app/data/canvas-draft-service';
-import { DRAFT_ERROR_TEXT, notReadyText, notRetryableText } from './canvas-thread-copy';
+import { DRAFT_ERROR_TEXT, notRetryableText, startRefusedText } from './canvas-thread-copy';
 import { sendRefusedText } from './use-canvas-actions';
 
 // [FOUNDER DECISION: wording] The spec quotes "Try again" (the button) and "Send the file again." (the bubble after not_retryable).
@@ -27,7 +27,7 @@ export function CanvasRetry({ draft, run, reload }: { draft: Pick<CanvasDraft, '
         if (r.refused === 'not_retryable') setGone(run.id);
         else toast.error(sendRefusedText(r.refused));
       } else if (r.start && !r.start.ok) {
-        toast.error(r.start.code === 'NOT_READY' ? notReadyText(run.inputKind) : (DRAFT_ERROR_TEXT[r.start.code] ?? DRAFT_ERROR_TEXT.FAILED));
+        toast.error(startRefusedText(r.start.code, run.inputKind) ?? DRAFT_ERROR_TEXT.FAILED);
       }
       await reload().catch(() => undefined); // the run is going now (or the screen was behind): the thread shows what is true
     } catch {

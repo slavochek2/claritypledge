@@ -7,6 +7,8 @@
 import {
   BOX_DEFINITIONS, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, NAMING_RULE, copyPromptSection, globalRulesText,
 } from '../../../../supabase/functions/_shared/canvas-box-definitions.ts';
+// The approved reply sentences are the server's (one source).
+import { WORDS } from '../../../../supabase/functions/_shared/canvas-reply-table.ts';
 
 /**
  * What opens a canvas thread: one message that says what the mirror will do, and a steps card. The steps are founder-approved
@@ -109,15 +111,15 @@ export const STALE_VIEW_TEXT = 'This draft changed since you last looked. Check 
 export const DRAFT_ERROR_TEXT: Record<string, string> = {
   STALE_VIEW: STALE_VIEW_TEXT,
   BUSY: 'A draft is already being written. It will show here when it is done.',
-  // P1653 inventory (founder approved 2026-11-10): the upload rows say what happened, that the canvas is unchanged, and the next step.
-  LIMIT: 'This draft already holds 10 files. Nothing changed on the canvas. Start a new draft to add more.',
+  // P1653 inventory (founder approved 2026-11-10): the sentences are the server's WORDS (one source); the client keeps none of its own.
+  LIMIT: WORDS.fileLimit,
   REVISION_CAP: 'This draft has used all its revisions. Publish it, or discard it and start a new draft.',
   TERMS_NOT_ACCEPTED: 'Accept the updated terms to use your mirror agent.',
   DISABLED: 'Canvas drafting is not available right now.',
   NOT_AVAILABLE: 'This draft is not available.',
-  TOO_LARGE: 'That file is over 8 MB. Nothing changed on the canvas. Send a smaller file.',
-  UNSUPPORTED: 'I cannot read that kind of file. Nothing changed on the canvas. Try a PDF, a Word document, a deck, an image or a text file.',
-  UNREADABLE: 'I found no text in that file. Nothing changed on the canvas. Try another copy, or paste the text here.',
+  TOO_LARGE: WORDS.fileTooLarge,
+  UNSUPPORTED: WORDS.unsupported,
+  UNREADABLE: WORDS.unreadable,
   DRAFT_CLOSED: 'This draft is closed.',
   CAPPED: 'Canvas drafting has reached today\'s limit. Try again tomorrow.',
   BAD_REQUEST: 'That did not go through. Try again.',
@@ -130,23 +132,34 @@ export const DRAFT_ERROR_TEXT: Record<string, string> = {
  * `READING_FAILED` is the reading service failing on a file that may be fine.
  */
 export const UPLOAD_ERROR_TEXT: Record<string, string> = {
-  TIMEOUT: 'Reading that file took too long. Nothing changed on the canvas. Send it again.',
-  READING_LIMITED: 'The reading service is limited right now. Nothing changed on the canvas. Send the file again in a few minutes.',
-  READING_FAILED: 'I could not read the file because the reading service had a problem. Nothing changed on the canvas. Send the file again.',
+  TIMEOUT: WORDS.fileTimeout,
+  READING_LIMITED: WORDS.fileCapped,
+  READING_FAILED: WORDS.fileModelError,
 };
 
 /** `not_retryable`: one sentence per kind of run (P1653 table C). */
-export const NOT_RETRYABLE_FILE_TEXT = 'Send the file again.';
-export const NOT_RETRYABLE_VOICE_TEXT = 'Record it again or type it.';
-export const NOT_RETRYABLE_OTHER_TEXT = 'That cannot be tried again. Send your message again.';
+export const NOT_RETRYABLE_FILE_TEXT: string = WORDS.notRetryableFile;
+export const NOT_RETRYABLE_VOICE_TEXT: string = WORDS.notRetryableVoice;
+export const NOT_RETRYABLE_OTHER_TEXT: string = WORDS.notRetryableOther;
 export function notRetryableText(inputKind: string | null | undefined): string {
   return inputKind === 'file' ? NOT_RETRYABLE_FILE_TEXT : inputKind === 'voice' ? NOT_RETRYABLE_VOICE_TEXT : NOT_RETRYABLE_OTHER_TEXT;
 }
 
 /** `NOT_READY` (P1653 table C): a voice note still being transcribed, or a retried upload with no file kept. */
-export const NOT_READY_VOICE_TEXT = 'Still preparing that. It will run when it is ready.';
-export const NOT_READY_FILE_TEXT = 'Send the file again.';
+export const NOT_READY_VOICE_TEXT: string = WORDS.notReadyVoice;
+export const NOT_READY_FILE_TEXT: string = WORDS.notReadyFile;
 export const notReadyText = (inputKind: string | null | undefined): string => (inputKind === 'voice' ? NOT_READY_VOICE_TEXT : NOT_READY_FILE_TEXT);
+
+/**
+ * What a refused START of a run says (`r.start.code`): `BUSY` from the edge does not prove a draft is being written (WORDS.busyStart), `NOT_READY`
+ * is a voice note still preparing or a retried upload with no file (by the run's input kind), every other code its DRAFT_ERROR_TEXT sentence
+ * (undefined: nothing to say).
+ */
+export function startRefusedText(code: string, inputKind?: string | null): string | undefined {
+  if (code === 'BUSY') return WORDS.busyStart;
+  if (code === 'NOT_READY') return notReadyText(inputKind);
+  return DRAFT_ERROR_TEXT[code];
+}
 
 /**
  * §2 "Composer send slot". [FOUNDER DECISION F1: the four sentences below; the spec quotes them.]

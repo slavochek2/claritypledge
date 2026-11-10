@@ -249,7 +249,7 @@ describe('an OPEN draft\'s thread: one block under the newest message', () => {
     svc.forkCanvasFromOffer.mockResolvedValue({ ok: true, alreadyStarted: false, canvasId: 'cv-new', canvasName: 'canvas_5', versionName: 'canvas_v5', draftId: 'draft-new', threadRootId: 'root-new', runId: 'run-f', start: { ok: false, code: 'BUSY' } });
     mountOpen(thread());
     fireEvent.click(await screen.findByRole('button', { name: 'Start a canvas' }));
-    await waitFor(() => expect(svc.toastError).toHaveBeenCalledWith(expect.stringContaining('A draft is already being written')));
+    await waitFor(() => expect(svc.toastError).toHaveBeenCalledWith('I could not start that a moment ago. Try again.'));
     await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/p/ana/canvas/canvas_5?v=canvas_v5&ws=1'));
   });
 

@@ -25,7 +25,8 @@ export async function gatherLinks(deps: RunDeps, p: RunParams, run: CanvasRun): 
   const rows: Array<{ url: string; text: string }> = [];
   const trigger = triggerOf(run.thread);
   const source = trigger ? [trigger] : ownerItems(run.thread); // a run without a trigger message reads every owner message
-  const known = new Set(run.material.filter((m) => m.kind === 'link').map((m) => m.label));
+  // a rejected page ("Not mine", P1653) is a tombstone that keeps its label: its URL is known, so no retry, fork or run without a trigger message reads it again
+  const known = new Set(run.material.filter((m) => m.kind === 'link' || m.kind === 'link_rejected').map((m) => m.label));
   const fresh = source.flatMap((t) => extractUrls(textOf(t))).filter((u, i, all) => !known.has(u) && all.indexOf(u) === i);
   for (const url of fresh.slice(MAX_LINKS_PER_RUN)) unreadable.push(`${url.slice(0, 200)} (more than ${MAX_LINKS_PER_RUN} links in one go; send the rest again)`);
   for (const url of fresh.slice(0, MAX_LINKS_PER_RUN)) {

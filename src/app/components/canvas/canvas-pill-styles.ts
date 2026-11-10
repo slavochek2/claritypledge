@@ -47,3 +47,6 @@ export const CANVAS_QUIET_ACTION =
  * thread is recognisably the marker on the box it names. Shape and colour only: the caller sets spacing and, for a tappable one, the 40px height.
  */
 export const CANVAS_CHIP = 'rounded-full border border-blue-300 bg-background px-2 py-0.5 text-xs font-medium text-blue-700';
+
+/** A message row's text starts 62px in (its margin and padding, the avatar column and the gap): controls under a mirror reply line up under the words, not under the avatar. */
+export const CANVAS_THREAD_TEXT_COLUMN = 'pl-[62px] pr-4';

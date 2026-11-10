@@ -98,7 +98,7 @@ const DOMAIN_ENDINGS = new Set((
   'tech shop store online site xyz cloud agency design studio live life world today digital page link blog news media group ltd inc'
 ).split(' '));
 /** A bare domain: labels of letters, digits and hyphens, a letters-only ending, an optional port and path. Not after a letter, digit, "@" (an email), "/" or ".". */
-const BARE_DOMAIN = /(?<![\p{L}\p{N}@./:_-])((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24})(?::\d{1,5})?(\/[^\s<>"'`]*)?(?![\p{L}\p{N}@])/giu;
+const BARE_DOMAIN = /(?<![\p{L}\p{N}@./:_-])((?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[a-z]{2,24})(\/[^\s<>"'`]*)?(?![\p{L}\p{N}@]|:\d)/gu;
 
 /** Links in a piece of text, in order of first appearance, without trailing punctuation. */
 export function extractUrls(text: string): string[] {
@@ -114,7 +114,8 @@ export function extractUrls(text: string): string[] {
     const at = m.index ?? 0;
     if (found.some((f) => at >= f.at && at < f.end)) continue; // inside a link already found
     const host = m[1] ?? '';
-    if (!DOMAIN_ENDINGS.has(host.slice(host.lastIndexOf('.') + 1).toLowerCase())) continue;
+    // all lowercase as the owner wrote it (no `i` flag): "shoes.It" is a missing space after a full stop, not a link. A port is refused by the pattern, never dropped.
+    if (!DOMAIN_ENDINGS.has(host.slice(host.lastIndexOf('.') + 1))) continue;
     let rest = m[2] ?? '';
     let end = rest.length;
     while (end > 0 && '.,;:!?)]}'.includes(rest.charAt(end - 1))) end--;
@@ -133,11 +134,13 @@ export function extractUrls(text: string): string[] {
 
 /**
  * P1653 F2: a page that came back as only a redirect notice ("Redirecting to www.airbnb.com.sg", 32 characters in the replay). Decided only from what the reader
- * returned: the text is under 100 characters (too short to hold a business description) AND says "redirect". A short page that does not say so, and a long page
- * that mentions a redirect, are not thin: the reply claims "a redirect page", so it is made only when the text itself says it.
+ * returned: the text is under 100 characters (too short to hold a business description) AND has the shape of a redirect notice, which starts "Redirecting to" or
+ * "You are being redirected to". A short real page that merely mentions a redirect ("We redirect surplus stock to families"), a short page that says nothing of
+ * one, and a long page, are not thin: the reply claims "a redirect page", so it is made only when the text itself has that shape.
  */
 const THIN_PAGE_CHARS = 100;
-export const isThinRedirect = (text: string): boolean => text.trim().length < THIN_PAGE_CHARS && /redirect/i.test(text);
+const REDIRECT_NOTICE = /^\s*(?:redirecting|you are being redirected)\s+to\b/i;
+export const isThinRedirect = (text: string): boolean => text.trim().length < THIN_PAGE_CHARS && REDIRECT_NOTICE.test(text);
 
 export type LinkFailure =
   | 'invalid' | 'not_https' | 'blocked' | 'too_many_redirects' | 'unreachable' | 'http_error' | 'not_text' | 'empty';

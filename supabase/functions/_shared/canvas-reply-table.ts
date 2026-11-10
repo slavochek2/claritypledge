@@ -110,6 +110,7 @@ export const CANVAS_REPLY_TABLE: Readonly<Record<string, ReplyRow>> = {
   choice_write: row(WORDS.choiceWrite, 'show'),
   choice_read: row(WORDS.choiceRead, 'hide'),
   choice_stale: row(WORDS.choiceStale, 'hide'),
+  stale_button: row(WORDS.staleButton, 'hide'), // a tap on a button whose question is no longer open: it fails, uses no update, remembers nothing
   // uploads
   unsupported: row(WORDS.unsupported, 'hide'),
   unreadable: row(WORDS.unreadable, 'hide'),

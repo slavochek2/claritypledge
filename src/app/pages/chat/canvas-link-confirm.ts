@@ -12,9 +12,9 @@ export const LINK_CONFIRM_QUESTION = PAGE_BUTTONS.question;
 export const LINK_YES_TOKEN = PAGE_BUTTONS.yes.token;
 export const LINK_NO_TOKEN = PAGE_BUTTONS.no.token;
 
-/** The reply carries the buttons: the mirror's own message (not the owner's, not deleted) whose last line is the fixed question. */
+/** The reply carries the buttons: a message the mirror AGENT wrote (kind `agent`; a forwarded or typed human message never does) whose last line is the fixed question. */
 export function carriesLinkConfirm(m: ChatMessage, userId: string): boolean {
-  return !m.isDeleted && m.authorId !== userId && pageButtonsFor(m.body) !== null;
+  return !m.isDeleted && m.kind === 'agent' && m.authorId !== userId && pageButtonsFor(m.body) !== null;
 }
 
 /**
@@ -23,6 +23,7 @@ export function carriesLinkConfirm(m: ChatMessage, userId: string): boolean {
  * are gone. A stale tap that still arrives (a second tab) is answered by the server and changes nothing. Empty when no reply carries them.
  */
 export function linkConfirmTargets(messages: ChatMessage[], userId: string, rootId: string): { afterId: string; live: boolean }[] {
+  // Newest = latest createdAt; on equal timestamps the one LATER in the list (the thread's own order) wins, so the live reply is never ambiguous.
   let newest: ChatMessage | null = null;
   const carriers: ChatMessage[] = [];
   for (const m of messages) {

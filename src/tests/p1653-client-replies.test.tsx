@@ -9,6 +9,8 @@ import type { ChatMessage } from '@/app/data/chat-service';
 import { CanvasLinkConfirm } from '@/app/pages/chat/CanvasLinkConfirm';
 import { canvasRetryTrailing } from '@/app/pages/chat/canvas-retry-trailing';
 import { retryShownFor } from '@/app/pages/chat/canvas-retry-policy';
+import { withLinkConfirm } from '@/app/pages/chat/canvas-link-confirm-after';
+import { WORDS } from '../../supabase/functions/_shared/canvas-reply-table';
 import { OFFER_STALE_TEXT, offerRefusedText } from '@/app/pages/chat/canvas-offer-copy';
 import * as copy from '@/app/pages/chat/canvas-thread-copy';
 import {
@@ -52,6 +54,30 @@ describe('P1653 approved words, verbatim', () => {
     expect(copy.notRetryableText(null)).toBe('That cannot be tried again. Send your message again.');
     expect(copy.notReadyText('voice')).toBe('Still preparing that. It will run when it is ready.');
     expect(copy.notReadyText('file')).toBe('Send the file again.');
+  });
+
+  it('client sentences ARE the server WORDS (one source)', () => {
+    expect(copy.DRAFT_ERROR_TEXT.UNSUPPORTED).toBe(WORDS.unsupported);
+    expect(copy.DRAFT_ERROR_TEXT.UNREADABLE).toBe(WORDS.unreadable);
+    expect(copy.DRAFT_ERROR_TEXT.TOO_LARGE).toBe(WORDS.fileTooLarge);
+    expect(copy.DRAFT_ERROR_TEXT.LIMIT).toBe(WORDS.fileLimit);
+    expect(copy.UPLOAD_ERROR_TEXT.TIMEOUT).toBe(WORDS.fileTimeout);
+    expect(copy.UPLOAD_ERROR_TEXT.READING_LIMITED).toBe(WORDS.fileCapped);
+    expect(copy.UPLOAD_ERROR_TEXT.READING_FAILED).toBe(WORDS.fileModelError);
+    expect(copy.notRetryableText('file')).toBe(WORDS.notRetryableFile);
+    expect(copy.notRetryableText('voice')).toBe(WORDS.notRetryableVoice);
+    expect(copy.notRetryableText(null)).toBe(WORDS.notRetryableOther);
+    expect(copy.notReadyText('voice')).toBe(WORDS.notReadyVoice);
+    expect(copy.notReadyText('file')).toBe(WORDS.notReadyFile);
+  });
+
+  it('start refusals: BUSY says busyStart, NOT_READY says the voice or file text, lowercase busy keeps its words', () => {
+    expect(copy.startRefusedText('BUSY')).toBe('I could not start that a moment ago. Try again.');
+    expect(copy.startRefusedText('NOT_READY', 'voice')).toBe('Still preparing that. It will run when it is ready.');
+    expect(copy.startRefusedText('NOT_READY', 'file')).toBe('Send the file again.');
+    expect(copy.startRefusedText('NOT_READY', null)).toBe('Send the file again.');
+    expect(copy.startRefusedText('NOPE')).toBeUndefined();
+    expect(sendRefusedText('busy')).toBe('A draft is already being written. It will show here when it is done.');
   });
 
   it('stale_view on a send says what the offers say', () => {
@@ -130,6 +156,36 @@ describe('P1653 F3 buttons', () => {
     await waitFor(() => expect(screen.getByTestId('canvas-link-confirm')).toBeInTheDocument());
   });
 
+  it('two fast taps send once', async () => {
+    let done: (v: boolean) => void = () => {};
+    const send = vi.fn(() => new Promise<boolean>((r) => { done = r; }));
+    render(<CanvasLinkConfirm live send={send} />);
+    const yes = screen.getByTestId('canvas-link-yes');
+    fireEvent.click(yes);
+    fireEvent.click(yes); // same tick, before React swaps the buttons for the status
+    done(true);
+    await waitFor(() => expect(screen.getByTestId('canvas-link-confirm')).toBeInTheDocument());
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('withLinkConfirm: the buttons come before Undo or the offer rows under the same reply, and nothing is drawn while a run is live', () => {
+    const body = `x\n${LINK_CONFIRM_QUESTION}`;
+    const messages = [msg({ id: 'a1', authorId: 'mirror-agent', kind: 'agent', body })];
+    const open = (running: boolean) => ({ draft: { id: 'd', state: 'open' }, running }) as unknown as CanvasThread;
+    const args = (running: boolean) => ({ live: open(running), messages, userId: ME, rootId: ROOT, send: async () => true });
+    const after = withLinkConfirm({ a1: <p data-testid="undo-under">Undo</p> }, args(false));
+    const { container } = render(<>{after.a1}</>);
+    const order = Array.from(container.querySelectorAll('[data-testid]')).map((e) => e.getAttribute('data-testid'));
+    expect(order.indexOf('canvas-link-confirm')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('canvas-link-confirm')).toBeLessThan(order.indexOf('undo-under'));
+    cleanup();
+    const running = render(<>{withLinkConfirm({}, args(true)).a1}</>);
+    expect(running.container).toBeEmptyDOMElement();
+    cleanup();
+    const closed = withLinkConfirm({}, { ...args(false), live: { draft: { id: 'd', state: 'published' }, running: false } as unknown as CanvasThread });
+    expect(closed.a1).toBeUndefined();
+  });
+
   it('a stale reply (the canvas moved on) draws no buttons, so nothing can be tapped and nothing is sent', () => {
     const send = vi.fn(async () => true);
     const { container } = render(<CanvasLinkConfirm live={false} send={send} />);
@@ -146,8 +202,23 @@ describe('P1653 F3 buttons', () => {
     expect(screen.getByTestId('canvas-link-confirm')).toBeInTheDocument();
   });
 
+  it('a human or forwarded message ending in the question never carries buttons; only a mirror AGENT reply does', () => {
+    const body = `I could only read a redirect page from airbnb.com.\n\n${LINK_CONFIRM_QUESTION}`;
+    expect(linkConfirmTargets([msg({ id: 'f1', authorId: 'someone-else', kind: 'forward', body })], ME, ROOT)).toEqual([]);
+    expect(linkConfirmTargets([msg({ id: 'f2', authorId: 'someone-else', kind: 'message', body })], ME, ROOT)).toEqual([]);
+    expect(linkConfirmTargets([msg({ id: 'a1', authorId: 'mirror-agent', kind: 'agent', body })], ME, ROOT)).toEqual([{ afterId: 'a1', live: true }]);
+  });
+
+  it('equal timestamps: the later message in the thread order is the newest, in either order', () => {
+    const t = '2026-11-10T08:00:00.000Z';
+    const reply = msg({ id: 'a1', authorId: 'mirror-agent', kind: 'agent', createdAt: t, body: `x\n${LINK_CONFIRM_QUESTION}` });
+    const mine = msg({ id: 'm1', createdAt: t });
+    expect(linkConfirmTargets([mine, reply], ME, ROOT)).toEqual([{ afterId: 'a1', live: true }]);
+    expect(linkConfirmTargets([reply, mine], ME, ROOT)).toEqual([{ afterId: 'a1', live: false }]);
+  });
+
   it('only a mirror reply ending with the fixed question carries buttons, and only the newest message is live', () => {
-    const reply = msg({ id: 'a1', authorId: 'mirror-agent', body: `I could only read a redirect page from airbnb.com.\n\n${LINK_CONFIRM_QUESTION}`, createdAt: '2026-11-10T08:01:00.000Z' });
+    const reply = msg({ id: 'a1', authorId: 'mirror-agent', kind: 'agent', body: `I could only read a redirect page from airbnb.com.\n\n${LINK_CONFIRM_QUESTION}`, createdAt: '2026-11-10T08:01:00.000Z' });
     const mine = msg({ id: 'm1', body: `airbnb.com ${LINK_CONFIRM_QUESTION}`, createdAt: '2026-11-10T08:00:00.000Z' });
     expect(linkConfirmTargets([mine, reply], ME, ROOT)).toEqual([{ afterId: 'a1', live: true }]);
     const later = msg({ id: 'm2', body: 'a car business', createdAt: '2026-11-10T08:02:00.000Z' });

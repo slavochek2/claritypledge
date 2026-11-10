@@ -55,8 +55,8 @@ function failedLines(f: ReplyFacts): string[] {
   return [WORDS.fallbackQuestion];
 }
 
-function headline(f: ReplyFacts): string[] {
-  const outcome = f.outcome ?? (f.total === 0 ? 'failed' : 'draft');
+/** The first line of a run that finished (a failed one has `failedLines`): total over its three outcomes. */
+function headline(f: ReplyFacts, outcome: 'draft' | 'updated' | 'unchanged'): string[] {
   if (outcome === 'draft') return [`Draft ready: ${f.filledBoxes ?? 0} of ${BOX_DEFINITIONS.length} boxes.`];
   if (outcome === 'updated') return [`Updated: ${(f.changedBoxes ?? []).map(titleOf).join(', ')}.`];
   // The note is model text: it is shown as quoted words after a fixed lead-in, so it never reads as the system speaking. [FOUNDER DECISION: wording]
@@ -123,6 +123,7 @@ function unreadableLines(unreadable: string[]): string[] {
 }
 
 export function buildDraftReply(f: ReplyFacts): string {
-  if ((f.outcome ?? (f.total === 0 ? 'failed' : 'draft')) === 'failed') return failedLines(f).join('\n');
-  return [...foundLine(f), ...headline(f), ...leftOutLines(f), ...unreadableLines(f.unreadable)].join('\n');
+  const outcome = f.outcome ?? (f.total === 0 ? 'failed' : 'draft');
+  if (outcome === 'failed') return failedLines(f).join('\n');
+  return [...foundLine(f), ...headline(f, outcome), ...leftOutLines(f), ...unreadableLines(f.unreadable)].join('\n');
 }

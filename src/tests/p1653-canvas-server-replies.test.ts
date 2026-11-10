@@ -12,6 +12,8 @@ import { executeRun, type CanvasRun, type RpcResult, type RunDeps } from '../../
 import { handleUpload, type HandlerCtx } from '../../supabase/functions/_shared/canvas-handlers';
 import { PAGE_BUTTONS, WORDS, pageButtonsFor } from '../../supabase/functions/_shared/canvas-reply-table';
 import { stubCaller } from '../../supabase/functions/_shared/canvas-model';
+import { boxVocabulary } from '../../supabase/functions/_shared/canvas-nothing';
+import { contentWords } from '../../supabase/functions/_shared/canvas-support';
 import type { GeminiRequest } from '../../supabase/functions/_shared/mirror-agent';
 
 const read = (rel: string) => readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -23,10 +25,13 @@ const text = (r: GeminiRequest) => r.contents[0]!.parts[0]!.text;
 const PAGE = { id: 'mat1', kind: 'link' as const, label: 'https://airbnb.com', text: 'Redirecting to www.airbnb.com.sg' };
 
 type RpcFake = (name: string, args: Record<string, unknown>) => RpcResult | undefined;
-function harness(over: Partial<CanvasRun> & { trigger?: string | null; earlier?: string[] } = {}, model?: RunDeps['model'], rpcFake?: RpcFake) {
-  const { trigger = 'its a car selling business', earlier = [], ...rest } = over;
+const REDIRECT_REPLY = `${WORDS.redirectPage('airbnb.com')}\n${WORDS.pageQuestion}`;
+type LinkRead = Awaited<ReturnType<RunDeps['readLink']>>;
+function harness(over: Partial<CanvasRun> & { trigger?: string | null; earlier?: string[]; newest?: string | null; read?: LinkRead; choice?: unknown } = {}, model?: RunDeps['model'], rpcFake?: RpcFake) {
+  const { trigger = 'its a car selling business', earlier = [], newest = REDIRECT_REPLY, read = { ok: false, reason: 'unreachable' } as LinkRead, choice = null, ...rest } = over;
   const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
   const requests: GeminiRequest[] = [];
+  const reads: string[] = [];
   const run: CanvasRun = {
     status: 'run', run_id: 'run-1', kind: 'message', first_draft: true, reserved_usd: 0.27, base_label: null, focus: null,
     draft_points: [], material: [], other_names: [],
@@ -37,13 +42,20 @@ function harness(over: Partial<CanvasRun> & { trigger?: string | null; earlier?:
     ...rest,
   };
   const deps: RunDeps = {
-    rpc: async (name, args): Promise<RpcResult> => { calls.push({ name, args }); return rpcFake?.(name, args) ?? { data: { status: 'ok' }, error: null }; },
+    rpc: async (name, args): Promise<RpcResult> => {
+      calls.push({ name, args });
+      const faked = rpcFake?.(name, args);
+      if (faked) return faked;
+      if (name === '_canvas_draft_newest_reply') return { data: newest, error: null }; // the newest agent reply before this run's message
+      if (name === '_canvas_draft_choice_latest') return { data: choice ? { status: 'ok', stale: false, choice } : { status: 'none' }, error: null };
+      return { data: { status: 'ok' }, error: null };
+    },
     model: async (c) => { requests.push(c.request as GeminiRequest); return model ? model(c) : stubCaller()(c); },
-    readLink: async () => ({ ok: false, reason: 'unreachable' }),
+    readLink: async (url) => { reads.push(url); return read; },
   };
   const by = (n: string) => calls.find((c) => c.name === n)?.args;
   return {
-    calls, requests, run, deps, params: { ownerId: 'owner-1' }, by,
+    calls, requests, reads, run, deps, params: { ownerId: 'owner-1' }, by,
     names: () => calls.map((c) => c.name),
     asked: () => by('_canvas_draft_run_complete_question'), done: () => by('_canvas_draft_run_complete'), failed: () => by('_canvas_draft_run_fail'),
   };
@@ -76,6 +88,16 @@ describe('P1653 F5 + F1: a first draft the model wrote nothing for asks a follow
       await executeRun(bad.deps, bad.params, bad.run);
       expect(String(bad.asked()!.p_reply), fact).toBe(WORDS.fallbackQuestion);
     }
+  });
+  it('the exemption is the nine box titles only: definition words carry no weight (a question of definition words alone falls back)', async () => {
+    for (const q of ['Do partners refer and renew?', 'Do customers pay per unit, and do partners renew?']) {
+      const h = harness({}, answering({ questions: [{ box: SEGMENTS, question: q }] }));
+      await executeRun(h.deps, h.params, h.run);
+      expect(String(h.asked()!.p_reply), q).toBe(WORDS.fallbackQuestion);
+    }
+    const vocab = boxVocabulary();
+    for (const b of BOX_DEFINITIONS) for (const w of contentWords(b.title)) expect(vocab.has(w), `${b.title}: ${w}`).toBe(true);
+    expect([...vocab].sort()).toEqual([...contentWords(BOX_DEFINITIONS.map((b) => b.title).join(' '))].sort());
   });
   it('the box vocabulary is derived from the box definitions: a changed title flows through', async () => {
     const defs = BOX_DEFINITIONS as unknown as Array<{ title: string }>;
@@ -134,8 +156,9 @@ describe('P1653 F1: the answer run is a first draft and uses both messages', () 
 
 describe('P1653 F2: a link that came back as a redirect notice', () => {
   const links = { material: [PAGE], trigger: 'airbnb.com - make canvas' } as Partial<CanvasRun> & { trigger: string };
+  const fresh = { read: { ok: true, text: PAGE.text } as LinkRead, trigger: 'airbnb.com - make canvas' };
   it('says what it read and asks "Is this your business?", and the reply carries the two buttons', async () => {
-    const h = harness(links, answering({}));
+    const h = harness(fresh, answering({}));
     expect(await executeRun(h.deps, h.params, h.run)).toEqual({ state: 'done' });
     const reply = String(h.asked()!.p_reply);
     expect(reply).toBe('I could only read a redirect page from airbnb.com.\nIs this your business?');
@@ -170,12 +193,56 @@ describe('P1653 F2: a link that came back as a redirect notice', () => {
     expect(h.done()).toBeUndefined();
     expect(h.failed()).toMatchObject({ p_code: 'nothing_supported' });
   });
-  it('a stale tap (the draft has points now) says so and changes nothing', async () => {
-    const h = harness({ ...links, trigger: PAGE_BUTTONS.no.token, first_draft: false, focus: 'used car buyers', draft_points: [{ id: 'p1', box: SEGMENTS, statement: 'Families buying used cars' }] }, answering({}));
+  it('a stale tap (the newest reply is no longer the question) says so, changes nothing, uses no update and settles no model cost', async () => {
+    for (const trigger of [PAGE_BUTTONS.no.token, PAGE_BUTTONS.yes.token]) {
+      const h = harness({ ...links, trigger, newest: 'Draft ready: 4 of 9 boxes.' }, answering({}));
+      expect(await executeRun(h.deps, h.params, h.run)).toEqual({ state: 'failed', code: 'stale_button' });
+      expect(h.failed()).toMatchObject({ p_code: 'stale_button', p_reply: WORDS.staleButton, p_actual_usd: 0 });
+      expect(h.names()).not.toContain('_canvas_draft_run_complete_question'); // a finished run would count 1 of the 30
+      expect(h.names()).not.toContain('_canvas_draft_remove_material');
+      expect(h.requests).toHaveLength(0);
+    }
+  });
+  it('a tap with no earlier agent reply at all is stale too', async () => {
+    const h = harness({ ...links, trigger: PAGE_BUTTONS.no.token, newest: null }, answering({}));
     await executeRun(h.deps, h.params, h.run);
-    expect(String(h.asked()!.p_reply)).toBe(WORDS.staleButton);
+    expect(h.failed()).toMatchObject({ p_code: 'stale_button' });
+  });
+  it('a failed lookup of the newest reply is stale, never a tap', async () => {
+    const h = harness({ ...links, trigger: PAGE_BUTTONS.no.token }, answering({}), (n) => (n === '_canvas_draft_newest_reply' ? { data: null, error: { code: 'x' } } : undefined));
+    await executeRun(h.deps, h.params, h.run);
+    expect(h.failed()).toMatchObject({ p_code: 'stale_button' });
     expect(h.names()).not.toContain('_canvas_draft_remove_material');
-    expect(h.requests).toHaveLength(0);
+  });
+  it('typed "Not mine" while an A/B/C choice is open is an ordinary message (a draft), never a stale-button reply', async () => {
+    const open = { id: 'c1', state: 'open', request: 'We charge more', request_message_id: 'm0', conflicts_with: [], options: [], recommended: 'keep', reason: '' };
+    const h = harness({ trigger: PAGE_BUTTONS.no.token, first_draft: false, focus: 'used car buyers', draft_points: [{ id: 'p1', box: SEGMENTS, statement: 'Families buying used cars' }], newest: 'I am not sure about this.\nReply A, B or C.', choice: open }, answering({ scope: [] }));
+    await executeRun(h.deps, h.params, h.run);
+    expect(h.failed()?.p_code).not.toBe('stale_button');
+    expect(h.requests).toHaveLength(1);
+    expect(text(h.requests[0]!)).toContain(PAGE_BUTTONS.no.token); // kept as the owner's own words, not stripped
+  });
+  it('"Yes" does not make the next thin message ask the same question again for the same page (no loop)', async () => {
+    const h = harness({ material: [PAGE], trigger: 'ok so what now', earlier: ['airbnb.com - make canvas', PAGE_BUTTONS.yes.token] }, answering({}));
+    await executeRun(h.deps, h.params, h.run);
+    expect(String(h.asked()!.p_reply)).toBe(WORDS.fallbackQuestion);
+    const again = harness({ material: [PAGE], trigger: 'airbnb.com - make canvas', read: { ok: true, text: PAGE.text } }, answering({}));
+    await executeRun(again.deps, again.params, again.run);
+    expect(String(again.asked()!.p_reply)).toBe(WORDS.fallbackQuestion); // the page is known: not read now, so not asked about now
+    expect(again.reads).toEqual([]);
+  });
+  it('after "Not mine" a retry or a run with no trigger does not read the page again, and does not include it', async () => {
+    const tomb = { id: 'mat1', kind: 'link_rejected' as const, label: 'https://airbnb.com', text: '' };
+    const retry = harness({ material: [tomb], trigger: 'airbnb.com - make canvas', read: { ok: true, text: PAGE.text } }, answering({}));
+    await executeRun(retry.deps, retry.params, retry.run);
+    expect(retry.reads).toEqual([]);
+    expect(retry.calls.filter((c) => c.name === '_canvas_draft_add_material')).toHaveLength(0);
+    expect(String(retry.asked()!.p_reply)).toBe(WORDS.fallbackQuestion);
+    expect(JSON.stringify(retry.requests[0])).not.toContain('Redirecting');
+    const noTrigger = harness({ kind: 'focus', target_group: 'x', trigger: null, earlier: ['airbnb.com - make canvas'], material: [tomb, { id: 'f1', kind: 'file', label: 'a.md', text: 'We sell used cars to families.' }], read: { ok: true, text: PAGE.text } }, answering({}));
+    await executeRun(noTrigger.deps, noTrigger.params, noTrigger.run);
+    expect(noTrigger.reads).toEqual([]);
+    expect(JSON.stringify(noTrigger.requests[0])).not.toContain('Redirecting');
   });
   it('the thin-page decision comes from the text the reader returned, not from the link', async () => {
     const real = { ...PAGE, text: 'We sell used cars to families in Riga and give a warranty on every car.' };
@@ -292,10 +359,33 @@ describe('P1653 the instructions and the migration', () => {
     expect(sql).toMatch(/^-- diffed against: /m);
     expect(sql).toMatch(/^-- client-safe: /m);
   });
-  it('remove_material deletes link rows of the run\'s own draft only', () => {
-    const r = fn('_canvas_draft_remove_material');
-    expect(r).toContain("m.kind = 'link'");
-    expect(r).toContain('m.owner_id = p_owner');
-    expect(r).toContain('m.draft_id = v_run.draft_id');
+  const fix = read('supabase/migrations/20261110110000_p1653_fix_batch.sql');
+  const fixFn = (name: string) => new RegExp(`CREATE OR REPLACE FUNCTION public\\.${name}\\([\\s\\S]*?\\n\\$\\$;`).exec(fix)?.[0] ?? '';
+  it('"Not mine" keeps the row as a tombstone (kind link_rejected, no text) in a NEW migration, so the URL stays known and the page\'s words are gone', () => {
+    const r = fixFn('_canvas_draft_remove_material');
+    expect(r.length).toBeGreaterThan(300);
+    expect(r).toContain("SET kind = 'link_rejected', text = '', chars = 0");
+    expect(r).not.toMatch(/DELETE FROM/);
+    for (const g of ["m.kind = 'link'", 'm.owner_id = p_owner', 'm.draft_id = v_run.draft_id']) expect(r, g).toContain(g);
+    expect(fix).toMatch(/CHECK \(kind IN \('file', 'link', 'messages', 'link_rejected'\)\)/);
+    expect(sql, 'the applied migration is untouched by this fix').toContain('DELETE FROM public.canvas_draft_material m');
+  });
+  it('the newest-reply lookup is service-role only, owner-checked, and reads only agent replies of the run\'s own thread before its message', () => {
+    const r = fixFn('_canvas_draft_newest_reply');
+    for (const g of ["m.kind = 'agent'", 'm.deleted_at IS NULL', 'm.thread_root_id = v_d.thread_root_id', 'v_run.owner_id IS DISTINCT FROM p_owner', 'm.created_at < v_trig.created_at']) expect(r, g).toContain(g);
+    expect(fix).toMatch(/REVOKE ALL ON FUNCTION public\._canvas_draft_newest_reply\(uuid, uuid\) FROM PUBLIC, anon, authenticated;/);
+    expect(fix).toMatch(/GRANT EXECUTE ON FUNCTION public\._canvas_draft_newest_reply\(uuid, uuid\)\s+TO service_role;/);
+    expect(fix).toMatch(/^-- diffed against: /m);
+    expect(fix).toMatch(/^-- client-safe: /m);
+  });
+  it('the question completion matches the existing completion on a deleted trigger message: neither re-checks it at complete (only begin does)', () => {
+    const existing = /CREATE OR REPLACE FUNCTION public\._canvas_draft_run_complete\(\s*p_run uuid, p_owner uuid, p_actions jsonb[\s\S]*?\n\$\$;/.exec(read('supabase/migrations/20261103010000_p1536_server_review_fixes.sql'))?.[0] ?? '';
+    expect(existing.length).toBeGreaterThan(5000);
+    expect(existing).not.toContain('deleted_at');
+    expect(fn('_canvas_draft_run_complete_question')).not.toContain('deleted_at');
+  });
+  it('the question completion writes scope as the same text[] the column and every other completion use', () => {
+    expect(read('supabase/migrations/20261030080000_p1536_v6_engine.sql')).toContain('ADD COLUMN IF NOT EXISTS scope              text[]');
+    expect(fn('_canvas_draft_run_complete_question')).toContain("scope = '{}'"); // an untyped literal assigned to text[]: an empty array, not an object
   });
 });

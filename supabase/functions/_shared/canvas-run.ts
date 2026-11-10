@@ -21,7 +21,7 @@
 import { assembleMaterial } from './canvas-source.ts';
 import { failRun } from './canvas-fail.ts';
 import { WORDS, providerFailureReply, unusableAnswerReply } from './canvas-reply-table.ts';
-import { emptyAnswer, postFailReply, tapRun, tappedBy, withoutTaps } from './canvas-nothing.ts';
+import { emptyAnswer, postFailReply, resolveTap, staleTap, tapRun, withoutTaps } from './canvas-nothing.ts';
 import { RequestTooLarge, fitRequest } from './canvas-fit.ts';
 import { DeadlineExceeded } from './canvas-deadline.ts';
 import { costUsd, type GeminiRequest, type GeminiUsage, type TokenCounter } from './mirror-agent.ts';
@@ -59,7 +59,8 @@ export interface ThreadItem {
  * kind (files and links among them): it is not the owner's typed words, so it is read as a file (Opus 4). The label is the database's own literal (canvas_draft_fork).
  */
 export const OWN_MESSAGES_LABEL = 'Your messages';
-export interface MaterialRow { id?: string; kind: 'file' | 'link' | 'messages'; label: string; text: string; message_id?: string | null; origin?: string }
+/** `link_rejected` is the tombstone of a page the owner said is not theirs (P1653): its URL stays known so it is never read again, and it is in no input. */
+export interface MaterialRow { id?: string; kind: 'file' | 'link' | 'messages' | 'link_rejected'; label: string; text: string; message_id?: string | null; origin?: string }
 
 /** The `run` row `_canvas_draft_run_begin` returns when it starts a run (status 'run'). */
 export interface CanvasRun {
@@ -123,8 +124,8 @@ const failCode = (status: number) => (status === 429 || status === 403 ? 'capped
 export interface Step {
   deps: RunDeps; run: CanvasRun; p: RunParams; input: MaterialInput; material: Material; unreadable: string[];
   stub: Record<string, unknown>; kind: RunKind; extra: number;
-  /** P1653: the run's own message is one of the two fixed buttons (it is left out of the material). */
-  tapped?: 'yes' | 'no' | null;
+  /** P1653: the links this run read itself (not the ones already in the draft's material): only a page read now is asked about. */
+  fresh?: Array<{ url: string; text: string }>;
   /** What the run has spent so far, to settle if it ends here: an upload's extraction, then (once a model call is out) the reservation or the reported cost. */
   ledger: { usd: number | null };
 }
@@ -214,7 +215,7 @@ async function runDraft(s: Step): Promise<RunSummary> {
   const offered = draftOffer(s, TOOLS, out, cut, usd);
   if (offered) return await offered;
   // P1653 F1/F5: a first draft the model wrote nothing for asks its follow-up as a finished run (emptyAnswer); every other empty answer fails as before
-  const asks = out.ok ? emptyAnswer(s, TOOLS, out, asked.response, usd, cut, s.tapped ?? null) : null;
+  const asks = out.ok ? emptyAnswer(s, TOOLS, out, asked.response, usd, cut) : null;
   if (asks) { try { console.log(parsedLine(run.run_id, out, asked.response)); } catch { /* P1653 TEMPORARY measurement (same line as failureOf): must never change a run */ } return await asks; }
   return (await failureOf(s, out, usd, cut, asked.response)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));
 }
@@ -253,8 +254,9 @@ export async function executeRun(deps: RunDeps, p: RunParams, run: CanvasRun): P
     if (gone) return { state: 'failed', code: 'gone' };
     if (deps.signal?.aborted) return await failRun(deps, run, p, 'timeout', TIMEOUT_REPLY, ledger.usd);
     // P1653: a tap on one of the two fixed buttons adds no evidence, here or in any later run: it is never in the material
-    const tapped = tappedBy(run.thread);
-    const thread = withoutTaps(run.thread);
+    const { tap: tapped, trigger: tapMessage } = await resolveTap(deps, p, run, run.kind ?? 'message');
+    if (tapped === 'stale') return await staleTap(deps, run, p, TOOLS); // no open question to answer: says so, no model call, no update used
+    const thread = withoutTaps(run.thread, tapped ? null : tapMessage); // a token typed while a choice is open is the owner's own message
     const trigger = triggerOf(thread);
     const input: MaterialInput = {
       trigger: trigger ? { text: textOf(trigger), tagged: trigger.box_refs ?? null } : null,
@@ -267,7 +269,7 @@ export async function executeRun(deps: RunDeps, p: RunParams, run: CanvasRun): P
     const material = assembleMaterial(input);
     const kind: RunKind = run.kind ?? 'message';
     const step: Step = {
-      deps, run, p, input, material, unreadable, kind, extra: p.extraUsd ?? 0, ledger, tapped,
+      deps, run, p, input, material, unreadable, kind, extra: p.extraUsd ?? 0, ledger, fresh: rows,
       stub: { material, basePoints: run.draft_points, otherNames: run.other_names },
     };
     const tap = tapped ? tapRun(step, TOOLS, tapped) : null; // "Not mine", or a stale tap: no model call

@@ -15,7 +15,7 @@ import { sendCanvasWorkspaceMessage, type CanvasRefusalCode } from '@/app/data/c
 import { sendCanvasVoiceNote } from '@/app/data/canvas-voice-service';
 import { VoiceNoteError } from '@/app/data/chat-voice-service';
 import type { VoiceSender } from '@/hooks/use-voice-note';
-import { DRAFT_ERROR_TEXT, STALE_VIEW_TEXT } from './canvas-thread-copy';
+import { DRAFT_ERROR_TEXT, STALE_VIEW_TEXT, startRefusedText } from './canvas-thread-copy';
 import { decodeTagged } from './composer-tags';
 import { createUnresolvedClientIds } from './unresolved-client-ids';
 import type { CanvasThread } from './use-canvas-thread';
@@ -70,7 +70,10 @@ export function useCanvasActions({ thread, available, onBusyElsewhere }: { threa
       unresolved.settle(key); // an answer, a refusal included: the next Send of these words is a new message
       if (!r.ok && r.refused === 'busy_elsewhere' && onBusyElsewhere) onBusyElsewhere(); // the send slot says it (§2); no toast
       else if (!r.ok) toast.error(sendRefusedText(r.refused));
-      else if (r.start && !r.start.ok && DRAFT_ERROR_TEXT[r.start.code]) toast.error(DRAFT_ERROR_TEXT[r.start.code]);
+      else if (r.start && !r.start.ok) {
+        const said = startRefusedText(r.start.code, thread.run?.inputKind);
+        if (said) toast.error(said);
+      }
       await reload(); // a refusal means the screen is behind: the next Send carries the revision read here
       return r.ok;
     } catch {

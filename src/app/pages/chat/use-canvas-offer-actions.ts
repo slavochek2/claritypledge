@@ -16,7 +16,7 @@ import { dismissCanvasOffer, forkCanvasFromOffer, switchCanvasFocus, type Canvas
 import { canvasStartErrorText } from './canvas-start';
 import { canvasPageHref, workspaceHref } from './canvas-links';
 import { registerCanvasThread } from './canvas-thread-registry';
-import { DRAFT_ERROR_TEXT } from './canvas-thread-copy';
+import { DRAFT_ERROR_TEXT, startRefusedText } from './canvas-thread-copy';
 import { offerRefusedText } from './canvas-offer-copy';
 import { useChat } from './chat-state';
 import { createUnresolvedClientIds } from './unresolved-client-ids';
@@ -94,7 +94,7 @@ export function useCanvasOfferActions(a: {
     const res = await switchCanvasFocus({ draftId: r.draftId, offerId, expectedRevision: r.revision, clientId: unresolved.idFor(key) });
     unresolved.settle(key); // an answer, a refusal included: the next switch is a new one
     if (!res.ok) return { refused: res.refused };
-    if (res.start && !res.start.ok && DRAFT_ERROR_TEXT[res.start.code]) toast.error(DRAFT_ERROR_TEXT[res.start.code]); // the run is made; the thread's own restart tries again
+    if (res.start && !res.start.ok) { const said = startRefusedText(res.start.code); if (said) toast.error(said); } // the run is made; the thread's own restart tries again
     return { refused: null };
   }), [run]);
 
@@ -104,7 +104,7 @@ export function useCanvasOfferActions(a: {
     unresolved.settle(key);
     if (!res.ok) return { refused: res.refused };
     if (res.threadRootId) registerCanvasThread(res.threadRootId); // the mirror stays silent in the new canvas's thread
-    if (res.start && !res.start.ok && DRAFT_ERROR_TEXT[res.start.code]) toast.error(DRAFT_ERROR_TEXT[res.start.code]); // the run is made; the new canvas's own thread starts it again
+    if (res.start && !res.start.ok) { const said = startRefusedText(res.start.code); if (said) toast.error(said); } // the run is made; the new canvas's own thread starts it again
     return {
       refused: null,
       leave: () => {

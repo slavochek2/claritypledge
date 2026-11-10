@@ -19,8 +19,8 @@ import { readJson } from './canvas-read.ts';
 import { BOX_TAGS } from './canvas-draft.ts';
 import { BOX_DEFINITIONS } from './canvas-box-definitions.ts';
 import { isThinRedirect } from './canvas-material.ts';
-import { PAGE_BUTTONS, WORDS, pageTokenOf } from './canvas-reply-table.ts';
-import type { RunSummary, Step, ThreadItem } from './canvas-run.ts';
+import { PAGE_BUTTONS, WORDS, pageButtonsFor, pageTokenOf } from './canvas-reply-table.ts';
+import type { CanvasRun, RunDeps, RunParams, RunSummary, Step, ThreadItem } from './canvas-run.ts';
 import type { DraftOutcome } from './canvas-types.ts';
 
 const MAX_QUESTION_CHARS = 300;
@@ -37,11 +37,12 @@ export function modelQuestionsOf(response: unknown): Array<{ box: string; questi
 }
 
 /**
- * The product's own box vocabulary, derived from the source each call (never a hand list): the words of every box's title, type, voice and definition.
- * Examples (`good`, `not`, `shape`) are left out on purpose, since they hold sample facts. A question may name its box with these words.
+ * The product's own box vocabulary, derived from the source each call (never a hand list): the words of the nine box TITLES, and nothing else. Definition
+ * words are not allowed: a definition carries mechanism claims (per unit, renew, refer) that a question could present as the owner's own business.
+ * A question may name its box with these words.
  */
 export function boxVocabulary(): Set<string> {
-  return contentWords(BOX_DEFINITIONS.map((b) => `${b.title} ${b.type} ${b.voice} ${b.definition}`).join('\n'));
+  return contentWords(BOX_DEFINITIONS.map((b) => b.title).join('\n'));
 }
 
 /**
@@ -91,10 +92,11 @@ export async function completeQuestion(s: Step, t: RunTools, reply: string, usd:
 }
 
 /** The model wrote nothing on a first draft: the redirect-page question, the model's own question, or the fixed one. Always ends the run as finished. */
-export function emptyAnswer(s: Step, t: RunTools, out: Extract<DraftOutcome, { ok: true }>, response: unknown, usd: number | null, cut: (r: string) => string, tapped: 'yes' | 'no' | null): Promise<RunSummary> | null {
+export function emptyAnswer(s: Step, t: RunTools, out: Extract<DraftOutcome, { ok: true }>, response: unknown, usd: number | null, cut: (r: string) => string): Promise<RunSummary> | null {
   // droppedNames also counts a question, a note or a focus the names screen refused: that is not a point refused for want of evidence, so it does not make this a refusal
   if (!(out.scope.length > 0 && out.total === 0 && out.droppedUnverified === 0) || s.kind !== 'message' || s.run.first_draft !== true || s.unreadable.length > 0) return null;
-  const domain = tapped === 'yes' ? null : thinRedirectDomain(s.input.links);
+  // only a page read in THIS run is asked about: a page already in the material (the owner tapped Yes, or sent another message) is never asked about again, so there is no loop
+  const domain = thinRedirectDomain(s.fresh ?? []);
   // no cut note here: the buttons are shown when the reply's LAST line is the question, and a page that was only a redirect notice was not cut
   if (domain) return completeQuestion(s, t, `${WORDS.redirectPage(domain)}\n${PAGE_BUTTONS.question}`, usd);
   const asked = showableQuestion(s, response);
@@ -104,25 +106,46 @@ export function emptyAnswer(s: Step, t: RunTools, out: Extract<DraftOutcome, { o
 // ── the two fixed buttons ───────────────────────────────────────────────────────────────────────────────────────────────────
 
 const isToken = (t: ThreadItem) => t.kind === 'owner_message' && typeof t.text === 'string' && pageTokenOf(t.text) !== null;
-/** The thread without any button tap: a tap is never owner material (it adds no evidence), here or in any later run. */
-export const withoutTaps = (thread: ThreadItem[]): ThreadItem[] => thread.filter((t) => !isToken(t));
-/** Which button the run's own message is, or null. */
-export const tappedBy = (thread: ThreadItem[]): 'yes' | 'no' | null => {
-  const trigger = thread.find((t) => t.is_trigger && t.kind === 'owner_message');
-  return trigger && typeof trigger.text === 'string' ? pageTokenOf(trigger.text) : null;
-};
+/** The thread without any button tap: a tap is never owner material (it adds no evidence), here or in any later run. `keep` is a message that is not a tap (typed during an open choice). */
+export const withoutTaps = (thread: ThreadItem[], keep?: ThreadItem | null): ThreadItem[] => thread.filter((t) => t === keep || !isToken(t));
+/** The run's own message when its text is one of the two tokens, else null. */
+export const tokenTrigger = (thread: ThreadItem[]): ThreadItem | null => thread.find((t) => t.is_trigger && t.kind === 'owner_message' && typeof t.text === 'string' && pageTokenOf(t.text) !== null) ?? null;
 
 /**
- * A run whose message is "Not mine" (or a tap that is stale) answers without a model call. "Not mine" takes the redirect page out of the draft's material
- * and asks what the business does, so no later run reads the page. A tap on a draft that has moved on (it has points or a focus), or with no such page left,
- * says so and changes nothing. "Yes" on a first draft goes on to the draft, with the tap itself left out. Null: not a tap this function answers.
+ * What a message equal to a token is. It is a tap only when the newest agent reply before it is the redirect question and the draft is still a first draft;
+ * a run with no such question open is a stale tap ('stale': it says so, changes nothing, uses no update and settles no cost). A message typed while an A/B/C
+ * choice is open is an ordinary message (null), read by the pick reader or drafted, never answered as a stale button. A failed lookup is stale, never a tap.
+ */
+export async function resolveTap(deps: Pick<RunDeps, 'rpc'>, p: RunParams, run: CanvasRun, kind: string): Promise<{ tap: 'yes' | 'no' | 'stale' | null; trigger: ThreadItem | null }> {
+  const trigger = tokenTrigger(run.thread);
+  if (!trigger || kind !== 'message') return { tap: null, trigger: null };
+  const which = pageTokenOf(String(trigger.text)) as 'yes' | 'no';
+  try {
+    if (run.first_draft === true) {
+      const { data, error } = await deps.rpc('_canvas_draft_newest_reply', { p_run: run.run_id, p_owner: p.ownerId });
+      return { tap: !error && typeof data === 'string' && pageButtonsFor(data) ? which : 'stale', trigger };
+    }
+    const { data, error } = await deps.rpc('_canvas_draft_choice_latest', { p_run: run.run_id, p_owner: p.ownerId });
+    const latest = data as { status?: string; choice?: { state?: string } } | null;
+    return !error && latest?.status === 'ok' && latest.choice?.state === 'open' ? { tap: null, trigger } : { tap: 'stale', trigger };
+  } catch {
+    return { tap: 'stale', trigger };
+  }
+}
+
+/** A stale tap: the run fails (never counts as one of the 30, its message is not remembered) with the approved words. No model call was made, so no cost beyond an upload's own. */
+export const staleTap = (deps: Pick<RunDeps, 'rpc' | 'signal'>, run: CanvasRun, p: RunParams, t: RunTools): Promise<RunSummary> =>
+  t.failRun(deps, run, p, 'stale_button', WORDS.staleButton, p.extraUsd ?? 0);
+
+/**
+ * "Not mine" (a tap that counted) answers without a model call: it turns the redirect page into a tombstone in the draft's material (so no later run reads it,
+ * from any thread or retry) and asks what the business does. With no such page left it is stale. "Yes" goes on to the draft with the tap itself left out.
+ * Null: nothing to answer here.
  */
 export function tapRun(s: Step, t: RunTools, tapped: 'yes' | 'no'): Promise<RunSummary> | null {
-  if (s.kind !== 'message') return null;
-  const pages = s.run.material.filter((m) => m.kind === 'link' && isThinRedirect(m.text));
-  if (s.run.first_draft !== true || (tapped === 'no' && pages.length === 0)) return completeQuestion(s, t, WORDS.staleButton, s.extra);
   if (tapped === 'yes') return null;
-  return removePages(s, t, pages.flatMap((m) => (m.id ? [m.id] : [])));
+  const pages = s.run.material.filter((m) => m.kind === 'link' && isThinRedirect(m.text));
+  return pages.length === 0 ? staleTap(s.deps, s.run, s.p, t) : removePages(s, t, pages.flatMap((m) => (m.id ? [m.id] : [])));
 }
 
 async function removePages(s: Step, t: RunTools, ids: string[]): Promise<RunSummary> {
