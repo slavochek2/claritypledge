@@ -21,7 +21,7 @@
 import { assembleMaterial } from './canvas-source.ts';
 import { failRun } from './canvas-fail.ts';
 import { WORDS, providerFailureReply, unusableAnswerReply } from './canvas-reply-table.ts';
-import { emptyAnswer, postFailReply, resolveTap, staleTap, tapRun, withoutTaps } from './canvas-nothing.ts';
+import { emptyAnswer, postFailReply, screenQuestions, resolveTap, staleTap, tapRun, withoutTaps } from './canvas-nothing.ts';
 import { RequestTooLarge, fitRequest } from './canvas-fit.ts';
 import { DeadlineExceeded } from './canvas-deadline.ts';
 import { costUsd, type GeminiRequest, type GeminiUsage, type TokenCounter } from './mirror-agent.ts';
@@ -216,7 +216,7 @@ async function runDraft(s: Step): Promise<RunSummary> {
   if (offered) return await offered;
   // P1653 F1/F5: a first draft the model wrote nothing for asks its follow-up as a finished run (emptyAnswer); every other empty answer fails as before
   const asks = out.ok ? emptyAnswer(s, TOOLS, out, asked.response, usd, cut) : null;
-  if (asks) { try { console.log(parsedLine(run.run_id, out, asked.response)); } catch { /* P1653 TEMPORARY measurement (same line as failureOf): must never change a run */ } return await asks; }
+  if (asks) { try { console.log(parsedLine(run.run_id, out, asked.response, screenQuestions(s, asked.response).stats)); } catch { /* P1653 TEMPORARY measurement (same line as failureOf): must never change a run */ } return await asks; }
   return (await failureOf(s, out, usd, cut, asked.response)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));
 }
 

@@ -62,20 +62,62 @@ export function boxVocabulary(): Set<string> {
  * number in it is one they typed, and it names nobody else. Anything else is not shown: the fixed question is.
  */
 export function showableQuestion(s: Step, response: unknown): string | null {
+  return screenQuestions(s, response).shown;
+}
+
+/**
+ * P1653 TEMPORARY measurement (counts and fixed labels only, never a question or a word): why the model's own questions were refused. `raw` is how many
+ * questions the MODEL wrote (the parse's own `questions` count is always nine, because it adds the module's fixed question for every empty box). Per question the
+ * FIRST rule it failed: `shape` (empty, no content word, or the redirect question), `names`, `word` (a content word the owner never said and the box vocabulary does
+ * not hold), `number`. For a word refusal, `off` is the count of offending words per question and `cats` counts the offending words by fixed category:
+ * `plural` (the word with an s added or taken off is allowed: a stemming gap such as "cars" against "car"), `near_owner` (a one-edit typo, or the first four
+ * letters, of a word the owner typed: "business" against "buisness", "sell" against "selling"), `other`.
+ */
+export interface F5Stats { raw: number; tried: number; shape: number; names: number; word: number; number: number; shown: number; off: number[]; cats: { plural: number; near_owner: number; other: number }; ownerWords: number }
+
+const oneEdit = (a: string, b: string): boolean => {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  const [x, y] = [a.slice(i), b.slice(i)];
+  return x.slice(1) === y.slice(1) || x === y.slice(1) || x.slice(1) === y || (x[0] === y[1] && x[1] === y[0] && x.slice(2) === y.slice(2));
+};
+function wordCategory(w: string, allowed: ReadonlySet<string>, owner: ReadonlySet<string>): 'plural' | 'near_owner' | 'other' {
+  if (allowed.has(`${w}s`) || (w.endsWith('s') && allowed.has(w.slice(0, -1)))) return 'plural';
+  for (const o of owner) if (w.length >= 4 && o.length >= 4 && (w.slice(0, 4) === o.slice(0, 4) || oneEdit(w, o))) return 'near_owner';
+  return 'other';
+}
+
+/** The first showable question and the counts of why the others were not (the screen itself: every rule, in its order, unchanged). */
+export function screenQuestions(s: Step, response: unknown): { shown: string | null; stats: F5Stats } {
   const typed = s.material.items.filter((i) => i.owner && i.kind === 'note').map((i) => i.text).join('\n\n');
-  const theirs = new Set([...contentWords(typed), ...boxVocabulary()]);
+  const ownerWords = contentWords(typed);
+  const theirs = new Set([...ownerWords, ...boxVocabulary()]);
   const namesOther = namesMatcher(s.run.other_names, derivedNames(s.material, s.run.owner_name));
-  for (const { question } of modelQuestionsOf(response)) {
+  const asked = modelQuestionsOf(response);
+  const stats: F5Stats = { raw: asked.length, tried: 0, shape: 0, names: 0, word: 0, number: 0, shown: 0, off: [], cats: { plural: 0, near_owner: 0, other: 0 }, ownerWords: ownerWords.size };
+  for (const { question } of asked) {
+    stats.tried += 1;
     const text = cleanFreeText(question, MAX_QUESTION_CHARS * 4);
     const words = contentWords(text);
-    if (!text || words.size === 0 || namesOther(text) || ![...words].every((w) => theirs.has(w)) || !numbersSupported([text], numbersIn(typed))) continue;
+    if (!text || words.size === 0) { stats.shape += 1; continue; }
+    if (namesOther(text)) { stats.names += 1; continue; }
+    const offending = [...words].filter((w) => !theirs.has(w));
+    if (offending.length) {
+      stats.word += 1;
+      stats.off.push(offending.length);
+      for (const w of offending) stats.cats[wordCategory(w, theirs, ownerWords)] += 1;
+      continue;
+    }
+    if (!numbersSupported([text], numbersIn(typed))) { stats.number += 1; continue; }
     const shown = cutAtWord(text, MAX_QUESTION_CHARS);
     // A question whose last line is the redirect question would bring the two buttons to a reply that is not about a page. Asked of the model's raw text (a
     // last line of its own, before it is flattened to one line) AND of the text actually shown (after the cut), with the one function the client uses to show buttons.
-    if (pageButtonsFor(question) || pageButtonsFor(shown)) continue;
-    return shown;
+    if (pageButtonsFor(question) || pageButtonsFor(shown)) { stats.shape += 1; continue; }
+    stats.shown += 1;
+    return { shown, stats };
   }
-  return null;
+  return { shown: null, stats };
 }
 
 /** The domain of the last link whose page was only a redirect notice, as the owner wrote the link; null when there is none. */

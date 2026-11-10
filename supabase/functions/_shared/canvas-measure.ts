@@ -20,10 +20,10 @@ export function actionsOf(response: unknown): { rawActions: number | null; actio
 }
 
 /** The measurement line as ONE string (a multi-key object prints across many lines in the log, and a line filter then never sees the run id). */
-export function parsedLine(runId: string, out: DraftOutcome, response: unknown): string {
+export function parsedLine(runId: string, out: DraftOutcome, response: unknown, f5?: unknown): string {
   const sent = actionsOf(response);
   const body = out.ok
-    ? { run_id: runId, ok: true, ...sent, total: out.total, resolvedActions: out.actions.length, droppedUnverified: out.droppedUnverified, droppedNames: out.droppedNames, droppedScope: out.droppedScope, droppedCap: out.droppedCap, droppedPoints: out.droppedPoints.length, questions: Object.keys(out.questions).length, note: out.note.length > 0, scope: out.scope.length, guessed: out.guessed.length }
+    ? { run_id: runId, ok: true, ...sent, ...(f5 ? { f5 } : {}), total: out.total, resolvedActions: out.actions.length, droppedUnverified: out.droppedUnverified, droppedNames: out.droppedNames, droppedScope: out.droppedScope, droppedCap: out.droppedCap, droppedPoints: out.droppedPoints.length, questions: Object.keys(out.questions).length, note: out.note.length > 0, scope: out.scope.length, guessed: out.guessed.length }
     : { run_id: runId, ok: false, code: out.code, ...sent };
   return `canvas-draft: parsed ${JSON.stringify(body)}`;
 }
