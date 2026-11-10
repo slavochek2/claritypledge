@@ -7,6 +7,7 @@
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { failRpc, readOpenedDraft, refusalOf, staleToEvent, type CanvasRefused, type OpenDraftResult, type Row } from './canvas-draft-calls';
+import { openedResultOf } from './canvas-draft-opened';
 
 /**
  * Opens a fresh draft from `fromVersionId` in place of the open draft `replaceDraftId`, which the person last saw at `replaceRevision`. The discard and
@@ -25,18 +26,7 @@ export async function openCanvasDraftReplacing(
     const refused = refusalOf(data as Row | null);
     if (refused) return staleToEvent(refused, replaceDraftId);
     const r = data as Row;
-    const { revision, canvasId, versionName } = await readOpenedDraft(String(r.draft_id));
-    return {
-      status: 'opened',
-      revision,
-      canvasId,
-      versionName,
-      draftId: String(r.draft_id),
-      conversationId: String(r.conversation_id),
-      threadRootId: String(r.thread_root_id),
-      canvasName: String(r.canvas_name ?? ''),
-      fromSeq: typeof r.from_seq === 'number' ? r.from_seq : null,
-    };
+    return openedResultOf(r, 'opened', await readOpenedDraft(String(r.draft_id)));
   } finally {
     clearListReturnCache();
   }

@@ -5,20 +5,8 @@
  */
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
-import { emitCanvasDraftEvent } from './canvas-draft-events';
 import { failRpc, refusalOf, type CanvasRefused, type Row } from './canvas-draft-calls';
-import { whenVisible } from '@/app/prototypes/events/when-visible';
-
-/** The follow-up re-read waits for a visible tab (same helper and coalescing as the edit call). */
-const pendingReReads = new Set<string>();
-function reReadWhenVisible(draftId: string): void {
-  if (pendingReReads.has(draftId)) return;
-  pendingReReads.add(draftId);
-  whenVisible(() => {
-    pendingReReads.delete(draftId);
-    emitCanvasDraftEvent({ kind: 'updated', draftId });
-  });
-}
+import { reReadWhenVisible } from './canvas-draft-reread';
 
 /**
  * P1621: the owner adds a point to a box with no model call and no run. `clientId` makes a retry safe: a repeat returns the first result with

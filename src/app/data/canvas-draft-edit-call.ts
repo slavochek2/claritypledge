@@ -5,23 +5,8 @@
  */
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
-import { emitCanvasDraftEvent } from './canvas-draft-events';
 import { failRpc, refusalOf, type CanvasRefused, type Row } from './canvas-draft-calls';
-import { whenVisible } from '@/app/prototypes/events/when-visible';
-
-/**
- * The page's follow-up re-read waits for a visible tab (metered-services rule 3, decisions.md 2026-10-30 [technical]; the helper is the one the event room uses), and
- * several outcomes for one draft while the tab is hidden coalesce into one re-read when it returns.
- */
-const pendingReReads = new Set<string>();
-function reReadWhenVisible(draftId: string): void {
-  if (pendingReReads.has(draftId)) return;
-  pendingReReads.add(draftId);
-  whenVisible(() => {
-    pendingReReads.delete(draftId);
-    emitCanvasDraftEvent({ kind: 'updated', draftId });
-  });
-}
+import { reReadWhenVisible } from './canvas-draft-reread';
 
 /**
  * P1614: the owner changes a point's text on their open draft, with no model call and no run. `changed: false` means the text matched and nothing was

@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { throwDbError } from './db-error-logger';
 import { emitCanvasDraftEvent } from './canvas-draft-events';
+import { openedResultOf } from './canvas-draft-opened';
 
 /** `open_elsewhere`: the canvas already has an open draft, in another thread. Nothing new was made. */
 export type OpenDraftResult = {
@@ -279,18 +280,7 @@ export async function openCanvasDraft(fromVersionId: string | null = null): Prom
     const { data, error } = await supabase.rpc('canvas_draft_open', { p_from_version: fromVersionId });
     if (error || !data) failRpc('openCanvasDraft', error, 'Could not start a canvas draft');
     const r = data as Row;
-    const { revision, canvasId, versionName } = await readOpenedDraft(String(r.draft_id));
-    return {
-      status: r.status === 'open_elsewhere' ? 'open_elsewhere' : 'opened',
-      revision,
-      canvasId,
-      versionName,
-      draftId: String(r.draft_id),
-      conversationId: String(r.conversation_id),
-      threadRootId: String(r.thread_root_id),
-      canvasName: String(r.canvas_name ?? ''),
-      fromSeq: typeof r.from_seq === 'number' ? r.from_seq : null,
-    };
+    return openedResultOf(r, r.status === 'open_elsewhere' ? 'open_elsewhere' : 'opened', await readOpenedDraft(String(r.draft_id)));
   } finally {
     clearListReturnCache();
   }

@@ -5,20 +5,8 @@
  */
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
-import { emitCanvasDraftEvent } from './canvas-draft-events';
 import { failRpc, refusalOf, type Row } from './canvas-draft-calls';
-import { whenVisible } from '@/app/prototypes/events/when-visible';
-
-/** The follow-up re-read waits for a visible tab (same helper and coalescing as the add call). */
-const pendingReReads = new Set<string>();
-function reReadWhenVisible(draftId: string): void {
-  if (pendingReReads.has(draftId)) return;
-  pendingReReads.add(draftId);
-  whenVisible(() => {
-    pendingReReads.delete(draftId);
-    emitCanvasDraftEvent({ kind: 'updated', draftId });
-  });
-}
+import { reReadWhenVisible } from './canvas-draft-reread';
 
 export type RemoveCanvasDraftPointResult =
   | { ok: true; revision: number }
