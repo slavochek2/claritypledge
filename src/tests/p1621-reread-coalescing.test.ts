@@ -5,7 +5,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const pending: Array<() => void> = [];
-vi.mock('@/app/prototypes/events/when-visible', () => ({ whenVisible: (fn: () => void) => { pending.push(fn); } }));
+let visible = false;
+vi.mock('@/app/prototypes/events/when-visible', () => ({ whenVisible: (fn: () => void) => { if (visible) fn(); else pending.push(fn); } }));
 const emit = vi.fn();
 vi.mock('@/app/data/canvas-draft-events', () => ({ emitCanvasDraftEvent: (e: unknown) => emit(e) }));
 
@@ -14,7 +15,14 @@ import { reReadWhenVisible } from '@/app/data/canvas-draft-reread';
 const showTab = () => { while (pending.length) pending.shift()!(); };
 
 describe('reReadWhenVisible', () => {
-  beforeEach(() => { showTab(); emit.mockClear(); });
+  // Draining (not discarding) the queue clears the helper's module-level pending set between tests.
+  beforeEach(() => { visible = false; showTab(); emit.mockClear(); });
+
+  it('on a visible tab re-reads at once, every time (nothing left pending)', () => {
+    visible = true;
+    reReadWhenVisible('d3'); reReadWhenVisible('d3');
+    expect(emit).toHaveBeenCalledTimes(2);
+  });
 
   it('coalesces several outcomes for one draft while hidden into one re-read', () => {
     reReadWhenVisible('d1'); reReadWhenVisible('d1'); reReadWhenVisible('d1');
