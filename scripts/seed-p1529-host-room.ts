@@ -3,6 +3,7 @@
  * refuses any other server before a request goes out. Obviously fake people ("Alma Test", ...; first names first, so the host screen tiles read differently).
  *
  * Usage:  SEED_HOST_EMAIL=<an existing account's email> npx tsx scripts/seed-p1529-host-room.ts
+ *         SEED_HOST_EMAIL=<email> npx tsx scripts/seed-p1529-host-room.ts --event <existing slug>   (7 owners + 3 observers into it)
  *         npx tsx scripts/seed-p1529-host-room.ts --cleanup <ledger.json>
  *
  * The host is NOT created: the account must exist (profile looked up by email). The event starts 7 days from now with a limit of 24 (12 registered, so seats stay open).
@@ -98,11 +99,23 @@ async function main() {
   const ledger = H.newLedger();
   const save = () => writeFileSync(LEDGER_PATH, JSON.stringify(ledger, null, 2));
   try {
-    const ev = await H.makeEvent(ledger, { user: { id: hostId } } as never, `Sales Mastermind (seed ${H.RUN})`, {
-      series: 'sales-mastermind', startsInMs: 7 * 24 * 3600_000, maxAttendees: 24,
-    });
+    // --event <slug>: fill an EXISTING event (never added to the ledger, so --cleanup leaves it and removes only the seeded people).
+    const ei = process.argv.indexOf('--event');
+    const existing = ei > -1 ? process.argv[ei + 1] : null;
+    let ev: { id: string; slug: string };
+    if (existing) {
+      const found = await supabaseAdmin.from('events').select('id, slug, max_attendees').eq('slug', existing).maybeSingle();
+      if (found.error || !found.data) throw new Error(`event ${existing}: ${found.error?.message ?? 'not found'}`);
+      ev = found.data as { id: string; slug: string };
+    } else {
+      ev = await H.makeEvent(ledger, { user: { id: hostId } } as never, `Sales Mastermind (seed ${H.RUN})`, {
+        series: 'sales-mastermind', startsInMs: 7 * 24 * 3600_000, maxAttendees: 24,
+      });
+    }
     save();
-    for (const p of PLAN) {
+    // An existing event keeps one place free: 7 canvas owners and 3 observers.
+    const plan = existing ? PLAN.filter(p => p.kind !== 'owner-unshared' && p.name !== 'Leo Test') : PLAN;
+    for (const p of plan) {
       const person = await H.makeUser(ledger, p.name);
       save();
       if (p.kind !== 'observer') {
