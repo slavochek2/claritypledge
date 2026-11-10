@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-10 [process]: A /day card must ask for an action; folds live in the render, on evidence the finding carries (P1655)
+
+**Context:** Of 9 /day items on 2026-11-10, 4 ended in "no change" (budgets under a verified cap, a deliberate test-server deploy, a stall the founder accepted) and 3 returned only because a check renamed its fingerprint. Founder: "improve the procedure so I'm only dealing with things that we need fixing".
+**Decision:** (1) A budget projection folds when the same run verified the key's hard cap; a key marked `retiring` in the key registry folds only its projection, never its 80% or cap warning, since it may still serve prod. (2) Evaluated records also match through an explicit alias map of renamed fingerprints. (3) The LinkedIn stall card carries its cause in the fingerprint, and a crash outranks a stale "out of credits" title, so accepting one cause cannot hide another. Folds happen in the render, never by a check dropping a finding, and missing evidence shows the card.
+**Alternatives rejected:** Dropping findings inside each check (breaks P1605's "hidden stays in the report"). Deriving stable keys automatically (not provable on the three real renames).
+**Consequences:** The rename guard covers only literal keys in this repo's check prose; global /day keys are unguarded. Reviews (Gemini, GLM, Opus) caught two ways a fold could hide a real card; both fixed with tests seen failing. UNTESTED live: falsifier is a /day run that still raises a projected-over card for a cap-verified key, or hides one with no flag. (Status: proposed)
+**References:** [p1655](../features/done/2026-06-10/p1655_day_cards_only_when_action_needed.md) · P1605
+
+---
+
 ## 2026-11-10 [product]: Hand actions on a published canvas work on a clone, and a hand edit turns Undo off (P1621)
 
 **Context:** P1621 redesigned the canvas so content shows first and actions appear on a selected box. Three rounds of founder decisions settled how hand actions (add, edit, remove, mention) behave on a published version, where no draft exists yet.
