@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 330
 severity: medium
@@ -10,7 +10,6 @@ exec_model: sonnet
 exec_effort: medium
 tags: [hashtags, story-display, links, p1638]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1660-strip-hashtags.test.ts
@@ -24,7 +23,7 @@ spec_review_vendors: [gemini, openrouter]
 date_resolved: 2026-11-11
 root_cause: "stripHashtags matched #tag with no leading boundary and a lookahead that accepted . and : mid-token, and the extractors used /#(\\w+)/ with no link masking, so URL fragments were stripped from links and saved as story tags"
 resolution: "One link mask (linkify's URL_RUN, www., markdown targets) for extraction and stripping; a whole-token rule shared by both, as a captured prefix (no regex lookbehind, P983); pinned inline-deletion behaviour unchanged"
-
+completed_at: 2026-11-10
 ---
 
 # P1660: stripHashtags breaks links and cuts tokens it should not touch
