@@ -20,6 +20,8 @@ import {
 } from './canvas-material.ts';
 import { buildExtractRequest, extractedText, type ModelCaller } from './canvas-model.ts';
 import { RUN_DEADLINE_MS, makeDeadline } from './canvas-deadline.ts';
+import { WORDS } from './canvas-reply-table.ts';
+import { postFailReply } from './canvas-nothing.ts';
 import { executeRun, failRun, type CanvasRun, type MaterialRow, type RpcResult, type RunDeps } from './canvas-run.ts';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -68,7 +70,11 @@ async function beginRun(c: HandlerCtx, runId: string, hasFile: boolean): Promise
     console.error('canvas-draft: begin failed', { code: (error as { code?: string } | null)?.code });
     return { refuse: unavailable(c) };
   }
-  if (begin.status !== 'run' || !begin.run_id) return { refuse: refuseBegin(c, begin, runId) };
+  if (begin.status !== 'run' || !begin.run_id) {
+    // P1653: the database failed a voice note's run for want of a transcript without a word; the thread gets the approved one (posted once, only on an open draft)
+    if (begin.error_code === 'transcript_failed') await postFailReply(c.service.rpc, runId, c.userId, WORDS.transcriptFailed);
+    return { refuse: refuseBegin(c, begin, runId) };
+  }
   return { begin };
 }
 
@@ -92,8 +98,13 @@ function extractUsd(response: unknown, status: number): number {
 }
 
 /** Ends the claimed run with a reason and answers the caller with the matching refusal. */
+/** P1653: one approved sentence per cause of a failed upload (the reply names what failed and what to do; it used to be one sentence for all of them). */
+const UPLOAD_WORDS: Record<string, string> = {
+  unsupported: WORDS.unsupported, unreadable: WORDS.unreadable, too_large: WORDS.fileTooLarge, timeout: WORDS.fileTimeout, capped: WORDS.fileCapped,
+  model_error: WORDS.fileModelError, limit: WORDS.fileLimit, write: WORDS.fileWrite, denied: WORDS.fileDenied, internal: WORDS.fileInternal,
+};
 async function failUpload(c: HandlerCtx, runId: string, code: string, label: string, usd: number, answer: { error: string; code: string; status: number }): Promise<Response> {
-  await failRun(c.service, { run_id: runId }, { ownerId: c.userId }, code, 'I could not read that file. Nothing was changed.', usd);
+  await failRun(c.service, { run_id: runId }, { ownerId: c.userId }, code, UPLOAD_WORDS[code] ?? WORDS.fileInternal, usd);
   return respond(c, { error: answer.error, code: answer.code, label }, answer.status);
 }
 
@@ -115,7 +126,9 @@ async function readUploadText(c: HandlerCtx, runId: string, file: File, label: s
   const capped = status === 429 || status === 403;
   // The deadline cut the call: it was sent, so it may have been billed. It is settled at the extraction's reservation (extractUsd: no response, no 4xx).
   if (!response && signal.aborted) return { refuse: await failUpload(c, runId, 'timeout', label, usd, { error: 'That took too long', code: 'TIMEOUT', status: 504 }) };
-  const answer = capped ? { error: 'I could not read that file', code: 'CAPPED', status: 429 } : { error: 'I could not read that file', code: 'UNREADABLE', status: 422 };
+  // P1653: a provider limit is READING_LIMITED (not the owner's daily limit, CAPPED), and a failed reading service is READING_FAILED (not the file's fault, UNREADABLE)
+  const answer = capped ? { error: 'I could not read that file', code: 'READING_LIMITED', status: 429 }
+    : response ? { error: 'I could not read that file', code: 'UNREADABLE', status: 422 } : { error: 'I could not read that file', code: 'READING_FAILED', status: 502 };
   return { refuse: await failUpload(c, runId, response ? 'unreadable' : capped ? 'capped' : 'model_error', label, usd, answer) };
 }
 
@@ -162,7 +175,7 @@ export async function handleUpload(c: HandlerCtx, req: Request): Promise<Respons
     } catch (e) {
       // Every way out after the claim ends the run: a throw (an unreadable body, a failing model call) must not leave it running with its spend reserved.
       console.error('canvas-draft: upload crashed', { error: (e as Error).name });
-      await failRun(c.service, { run_id: runId }, { ownerId: c.userId }, 'internal', 'I could not read that file. Nothing was changed.', spent.usd); // what was actually spent: nothing before the extraction call, its cost after
+      await failRun(c.service, { run_id: runId }, { ownerId: c.userId }, 'internal', WORDS.fileInternal, spent.usd); // what was actually spent: nothing before the extraction call, its cost after
       return unavailable(c);
     }
   } finally {

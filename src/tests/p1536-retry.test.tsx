@@ -276,12 +276,24 @@ describe('Try again: the call', () => {
     expect(toastError).not.toHaveBeenCalled();
   });
 
-  it('not_retryable (an upload whose file was never kept): the bubble reads "Send the file again." and there is no button', async () => {
+  it('a failed FILE run shows no Try again at all (its file is not kept; the thread reply says to send it again)', async () => {
+    st.latestRun = { ...failedRun, inputKind: 'file' };
+    mount(DRAFT_AT);
+    await threadReady();
+    expect(screen.queryByTestId('canvas-retry-button')).toBeNull();
+  });
+
+  it.each([
+    ['voice', 'Record it again or type it.'],
+    ['text', 'That cannot be tried again. Send your message again.'],
+    [null, 'That cannot be tried again. Send your message again.'],
+  ])('not_retryable (P1653, one sentence per run kind): a %s run reads its own words and there is no button', async (inputKind, words) => {
+    st.latestRun = { ...failedRun, inputKind };
     rpc.mockImplementation(async (name: string) => (name === 'canvas_draft_retry' ? refused('not_retryable') : { data: null, error: null }));
     mount(DRAFT_AT);
     await threadReady();
     fireEvent.click(await screen.findByTestId('canvas-retry-button'));
-    expect(await screen.findByText('Send the file again.')).toBeInTheDocument();
+    expect(await screen.findByText(words)).toBeInTheDocument();
     expect(screen.queryByTestId('canvas-retry-button')).toBeNull();
     expect(toastError).not.toHaveBeenCalled();
     expect(invoke.mock.calls.some(c => (c[1] as { body?: { run_id?: string } } | undefined)?.body?.run_id)).toBe(false); // nothing was started
@@ -291,7 +303,7 @@ describe('Try again: the call', () => {
     ['busy', 'A draft is already being written. It will show here when it is done.'],
     ['busy_elsewhere', 'A draft is already being written. It will show here when it is done.'],
     ['cap_reached', 'This draft has used all its revisions. Publish it, or discard it and start a new draft.'],
-    ['stale_view', 'That did not go through. Try again.'],
+    ['stale_view', 'This draft changed since you last looked. Check it, then try again.'],
   ])('%s: the existing sentence, once, and the button stays', async (code, sentence) => {
     rpc.mockImplementation(async (name: string) => (name === 'canvas_draft_retry' ? refused(code) : { data: null, error: null }));
     mount(DRAFT_AT);

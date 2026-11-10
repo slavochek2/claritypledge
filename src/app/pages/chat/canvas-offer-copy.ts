@@ -5,7 +5,7 @@
  * [FOUNDER DECISION F1: the row labels. Defaults, built as written: J8's row is `<Group>  [Make it about this] [Start a canvas]  ×`, one wording for every group, so no article
  * ("a" or "an") is ever chosen for a model-written name.]
  */
-import { DRAFT_ERROR_TEXT, SEND_SLOT_ELSEWHERE, SEND_SLOT_UPDATING } from './canvas-thread-copy';
+import { DRAFT_ERROR_TEXT, SEND_SLOT_ELSEWHERE, SEND_SLOT_UPDATING, STALE_VIEW_TEXT } from './canvas-thread-copy';
 
 export const OFFER_MAKE_LABEL = 'Make it about this';
 export const OFFER_START_LABEL = 'Start a canvas';
@@ -19,7 +19,7 @@ export const OFFER_EXPIRED_LINE = 'Send the material again to start this canvas.
 export const OFFER_LOAD_FAILED_TEXT = 'The other canvases did not load.';
 export const OFFER_RETRY_LABEL = 'Try again';
 /** Two tabs, or a read that is behind: this tap named an offer or a revision that is not the draft's any more. */
-export const OFFER_STALE_TEXT = 'This draft changed since you last looked. Check it, then try again.';
+export const OFFER_STALE_TEXT = STALE_VIEW_TEXT;
 export const OFFER_UNAVAILABLE_TEXT = 'That canvas can no longer be started from here.';
 
 export const offerStartedLine = (group: string): string => `${group} canvas started`;

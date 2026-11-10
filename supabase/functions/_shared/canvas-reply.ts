@@ -10,6 +10,7 @@
 
 import { titleOf } from './canvas-draft.ts';
 import { BOX_DEFINITIONS } from './canvas-box-definitions.ts';
+import { WORDS } from './canvas-reply-table.ts';
 import type { DraftCounts, FocusReason, Guessed } from './canvas-types.ts';
 
 export interface ReplyFacts {
@@ -43,21 +44,19 @@ export const withCutNote = (reply: string, truncated: boolean): string => (trunc
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-const RETRY_HINT = 'Tell me in your own words who you sell to, what you sell and what it costs, then try again.';
-
 /**
- * Nothing drafted: one account of why (never "nothing saved" beside "left out N points"). No count and no names cause:
- * droppedNames also counts conflict notes and drop reasons, so it cannot say how many points were refused, or why (Opus r9).
+ * Nothing drafted (P1653, approved wording in canvas-reply-table.ts): one account of why, each with its own next step. A dropped point means the evidence
+ * check refused it; an unreadable link names the link and says what to send instead; otherwise the model wrote nothing and the fixed question is asked. No
+ * count and no names cause: droppedNames also counts conflict notes and drop reasons, so it cannot say how many points were refused, or why (Opus r9).
  */
-function failedLine(f: ReplyFacts): string {
-  return f.droppedUnverified > 0
-    ? 'I could not draft a canvas from that: I could not tie what I found to your own words, so nothing was changed.'
-    : 'I could not draft a canvas from that, so nothing was changed.';
+function failedLines(f: ReplyFacts): string[] {
+  if (f.droppedUnverified > 0) return [WORDS.evidence, ...unreadableLines(f.unreadable)];
+  if (f.unreadable.length) return [WORDS.nothingChanged, ...unreadableLines(f.unreadable)];
+  return [WORDS.fallbackQuestion];
 }
 
 function headline(f: ReplyFacts): string[] {
   const outcome = f.outcome ?? (f.total === 0 ? 'failed' : 'draft');
-  if (outcome === 'failed') return [failedLine(f)];
   if (outcome === 'draft') return [`Draft ready: ${f.filledBoxes ?? 0} of ${BOX_DEFINITIONS.length} boxes.`];
   if (outcome === 'updated') return [`Updated: ${(f.changedBoxes ?? []).map(titleOf).join(', ')}.`];
   // The note is model text: it is shown as quoted words after a fixed lead-in, so it never reads as the system speaking. [FOUNDER DECISION: wording]
@@ -124,8 +123,6 @@ function unreadableLines(unreadable: string[]): string[] {
 }
 
 export function buildDraftReply(f: ReplyFacts): string {
-  const failed = (f.outcome ?? (f.total === 0 ? 'failed' : 'draft')) === 'failed';
-  // One next step per reply: an unreadable input already says what to send instead.
-  const retry = failed && !f.unreadable.length ? [RETRY_HINT] : [];
-  return [...foundLine(f), ...headline(f), ...leftOutLines(f), ...unreadableLines(f.unreadable), ...retry].join('\n');
+  if ((f.outcome ?? (f.total === 0 ? 'failed' : 'draft')) === 'failed') return failedLines(f).join('\n');
+  return [...foundLine(f), ...headline(f), ...leftOutLines(f), ...unreadableLines(f.unreadable)].join('\n');
 }

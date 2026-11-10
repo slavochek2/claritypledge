@@ -89,21 +89,55 @@ export function htmlToText(html: string): string {
 
 const URL_FIND = /\bhttps?:\/\/[^\s<>"'`]+|\bwww\.[^\s<>"'`]+/gi;
 
+/**
+ * P1653 F4: the endings a bare domain may have ("airbnb.com", "airbnb.co.uk"). A word with a dot is a link only when its last label is one of these, so
+ * "node.js", "e.g." and a file name ("notes.md") are not. Deliberately without endings that are also file or language extensions (md, sh, py, js, ts, rs, pl, cc).
+ */
+const DOMAIN_ENDINGS = new Set((
+  'com org net io co ai app dev edu gov info biz me tv us uk de fr es it nl eu ca au nz in jp ee lv lt ru ch at be se no dk fi pt ie br mx ar cl za sg hk th cn kr ' +
+  'tech shop store online site xyz cloud agency design studio live life world today digital page link blog news media group ltd inc'
+).split(' '));
+/** A bare domain: labels of letters, digits and hyphens, a letters-only ending, an optional port and path. Not after a letter, digit, "@" (an email), "/" or ".". */
+const BARE_DOMAIN = /(?<![\p{L}\p{N}@./:_-])((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24})(?::\d{1,5})?(\/[^\s<>"'`]*)?(?![\p{L}\p{N}@])/giu;
+
 /** Links in a piece of text, in order of first appearance, without trailing punctuation. */
 export function extractUrls(text: string): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
+  const found: Array<{ at: number; end: number; url: string }> = [];
   for (const m of text.matchAll(URL_FIND)) {
     let end = m[0].length;
     while (end > 0 && '.,;:!?)]}'.includes(m[0].charAt(end - 1))) end--;   // trailing punctuation, one backward scan (a regex here retries from every start of a long run)
     let u = m[0].slice(0, end);
     if (/^www\./i.test(u)) u = `https://${u}`;
-    if (u.length > 2000 || seen.has(u)) continue;
-    seen.add(u);
-    out.push(u);
+    found.push({ at: m.index ?? 0, end: (m.index ?? 0) + m[0].length, url: u });
+  }
+  for (const m of text.matchAll(BARE_DOMAIN)) {
+    const at = m.index ?? 0;
+    if (found.some((f) => at >= f.at && at < f.end)) continue; // inside a link already found
+    const host = m[1] ?? '';
+    if (!DOMAIN_ENDINGS.has(host.slice(host.lastIndexOf('.') + 1).toLowerCase())) continue;
+    let rest = m[2] ?? '';
+    let end = rest.length;
+    while (end > 0 && '.,;:!?)]}'.includes(rest.charAt(end - 1))) end--;
+    rest = rest.slice(0, end);
+    found.push({ at, end: at + m[0].length, url: `https://${host}${rest}` });
+  }
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const f of found.sort((a, b) => a.at - b.at)) {
+    if (f.url.length > 2000 || seen.has(f.url)) continue;
+    seen.add(f.url);
+    out.push(f.url);
   }
   return out;
 }
+
+/**
+ * P1653 F2: a page that came back as only a redirect notice ("Redirecting to www.airbnb.com.sg", 32 characters in the replay). Decided only from what the reader
+ * returned: the text is under 100 characters (too short to hold a business description) AND says "redirect". A short page that does not say so, and a long page
+ * that mentions a redirect, are not thin: the reply claims "a redirect page", so it is made only when the text itself says it.
+ */
+const THIN_PAGE_CHARS = 100;
+export const isThinRedirect = (text: string): boolean => text.trim().length < THIN_PAGE_CHARS && /redirect/i.test(text);
 
 export type LinkFailure =
   | 'invalid' | 'not_https' | 'blocked' | 'too_many_redirects' | 'unreachable' | 'http_error' | 'not_text' | 'empty';

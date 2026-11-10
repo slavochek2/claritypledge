@@ -66,6 +66,7 @@ Actions:
 When unsure whether a point is the same claim, use "new". Never link what you are not sure of: a wrong link points earlier supporters at a claim they never backed.
 "questions": for a box you may change that stays empty or only partly supported, one short question for the owner, as {"box":TAG,"question":...}. No names of other people.
 "note": one short plain sentence at most, only when it helps the owner (why nothing changed, what you need). Empty otherwise.
+- When nothing fits a box, ask your question about the most likely box and name that box in it: put it first in "questions". This is about questions only.
 
 The owner's own words:
 - What the owner says in their messages (the item marked this_run above all, then their other messages) is evidence about their own canvas, newer than anything else. Never refuse it, or call it unsupported, because a file, a link, an older message or the canvas does not mention it or says something else: their message is the support, so quote it. Think with the owner, not against them.

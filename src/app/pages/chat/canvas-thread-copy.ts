@@ -102,22 +102,51 @@ export const NEW_CANVAS_LABEL = 'New canvas';
 export const CLONE_VERSION_LABEL = 'Clone a version';
 export const CREATE_LABEL = 'Create';
 
+/** The screen is behind (`stale_view`) on a send and on offers: one sentence (P1653 table C). */
+export const STALE_VIEW_TEXT = 'This draft changed since you last looked. Check it, then try again.';
+
 /** One sentence per refusal of a run or an upload. */
 export const DRAFT_ERROR_TEXT: Record<string, string> = {
+  STALE_VIEW: STALE_VIEW_TEXT,
   BUSY: 'A draft is already being written. It will show here when it is done.',
-  LIMIT: 'This draft has all the files it can hold.',
+  // P1653 inventory (founder approved 2026-11-10): the upload rows say what happened, that the canvas is unchanged, and the next step.
+  LIMIT: 'This draft already holds 10 files. Nothing changed on the canvas. Start a new draft to add more.',
   REVISION_CAP: 'This draft has used all its revisions. Publish it, or discard it and start a new draft.',
   TERMS_NOT_ACCEPTED: 'Accept the updated terms to use your mirror agent.',
   DISABLED: 'Canvas drafting is not available right now.',
   NOT_AVAILABLE: 'This draft is not available.',
-  TOO_LARGE: 'That file is over 8 MB.',
-  UNSUPPORTED: 'That kind of file cannot be read. Try a PDF, a Word document, a deck, an image or a text file.',
-  UNREADABLE: 'That file could not be read. Try another copy, or paste the text into the thread.',
+  TOO_LARGE: 'That file is over 8 MB. Nothing changed on the canvas. Send a smaller file.',
+  UNSUPPORTED: 'I cannot read that kind of file. Nothing changed on the canvas. Try a PDF, a Word document, a deck, an image or a text file.',
+  UNREADABLE: 'I found no text in that file. Nothing changed on the canvas. Try another copy, or paste the text here.',
   DRAFT_CLOSED: 'This draft is closed.',
   CAPPED: 'Canvas drafting has reached today\'s limit. Try again tomorrow.',
   BAD_REQUEST: 'That did not go through. Try again.',
   FAILED: 'That did not go through. Try again.',
 };
+
+/**
+ * P1653: texts that belong to a FILE only (the same code on a message run means something else, so they stay out of DRAFT_ERROR_TEXT, which
+ * every start refusal reads). `READING_LIMITED` is a provider limit on reading the file (never the owner's daily limit, which is CAPPED) and
+ * `READING_FAILED` is the reading service failing on a file that may be fine.
+ */
+export const UPLOAD_ERROR_TEXT: Record<string, string> = {
+  TIMEOUT: 'Reading that file took too long. Nothing changed on the canvas. Send it again.',
+  READING_LIMITED: 'The reading service is limited right now. Nothing changed on the canvas. Send the file again in a few minutes.',
+  READING_FAILED: 'I could not read the file because the reading service had a problem. Nothing changed on the canvas. Send the file again.',
+};
+
+/** `not_retryable`: one sentence per kind of run (P1653 table C). */
+export const NOT_RETRYABLE_FILE_TEXT = 'Send the file again.';
+export const NOT_RETRYABLE_VOICE_TEXT = 'Record it again or type it.';
+export const NOT_RETRYABLE_OTHER_TEXT = 'That cannot be tried again. Send your message again.';
+export function notRetryableText(inputKind: string | null | undefined): string {
+  return inputKind === 'file' ? NOT_RETRYABLE_FILE_TEXT : inputKind === 'voice' ? NOT_RETRYABLE_VOICE_TEXT : NOT_RETRYABLE_OTHER_TEXT;
+}
+
+/** `NOT_READY` (P1653 table C): a voice note still being transcribed, or a retried upload with no file kept. */
+export const NOT_READY_VOICE_TEXT = 'Still preparing that. It will run when it is ready.';
+export const NOT_READY_FILE_TEXT = 'Send the file again.';
+export const notReadyText = (inputKind: string | null | undefined): string => (inputKind === 'voice' ? NOT_READY_VOICE_TEXT : NOT_READY_FILE_TEXT);
 
 /**
  * §2 "Composer send slot". [FOUNDER DECISION F1: the four sentences below; the spec quotes them.]

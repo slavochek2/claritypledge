@@ -527,28 +527,30 @@ describe('P1536 reply text', () => {
     expect(t.split('\n').slice(0, 2)).toEqual(['I found two businesses: cafe owners and agencies. This canvas is about cafe owners.', 'Draft ready: 5 of 9 boxes.']);
   });
   it('says plainly when nothing could be drafted', () => {
-    expect(buildDraftReply({ ...facts, total: 0 })).toMatch(/could not draft/i);
+    expect(buildDraftReply({ ...facts, total: 0 })).toMatch(/nothing changed on the canvas/i); // P1653 approved wording
   });
   it('a draft refused because nothing tied to the owner\'s words is one account with one next step, with no count or cause the engine cannot vouch for (visual QA; Opus r9 F1, F2)', () => {
     const fail = (over: Partial<typeof facts>) => buildDraftReply({ ...facts, total: 0, unreadable: [], droppedUnverified: 0, droppedNames: 0, ...over });
-    const HINT = 'Tell me in your own words who you sell to, what you sell and what it costs, then try again.';
-    expect(fail({ droppedUnverified: 5 })).toBe(`I could not draft a canvas from that: I could not tie what I found to your own words, so nothing was changed.\n${HINT}`);
-    expect(fail({})).toBe(`I could not draft a canvas from that, so nothing was changed.\n${HINT}`);
+    // P1653: the approved sentences (inventory table A), one per cause
+    const EVIDENCE = 'I could not tie what I found to your own words. Nothing changed on the canvas. Tell me in your own words who you sell to and what you sell.';
+    const FALLBACK = 'I could not draft a canvas from that. Nothing changed on the canvas. Who do you sell to, and what do you sell?';
+    expect(fail({ droppedUnverified: 5 })).toBe(EVIDENCE);
+    expect(fail({})).toBe(FALLBACK);
     // droppedNames also counts conflict notes and drop reasons, not only refused points: it is never given as the cause, nor
     // as a count, and "points I tried" carries no number (names refusals are tried points too)
-    expect(fail({ droppedNames: 2 })).toBe(`I could not draft a canvas from that, so nothing was changed.\n${HINT}`);
-    expect(fail({ droppedUnverified: 3, droppedNames: 2 })).toBe(`I could not draft a canvas from that: I could not tie what I found to your own words, so nothing was changed.\n${HINT}`);
-    // an unreadable link carries its own next step, so the general hint is not added after it (one instruction per reply)
+    expect(fail({ droppedNames: 2 })).toBe(FALLBACK);
+    expect(fail({ droppedUnverified: 3, droppedNames: 2 })).toBe(EVIDENCE);
+    // an unreadable link carries its own next step, so no general hint is added after it (one instruction per reply)
     expect(fail({ unreadable: ['https://x.example/a (it did not answer in time)'] }).split('\n')).toEqual([
-      'I could not draft a canvas from that, so nothing was changed.',
+      'Nothing changed on the canvas.',
       'I could not read:', '- https://x.example/a (it did not answer in time)', 'Send a PDF export or paste the text and I will use it.',
     ]);
   });
   it('no failure reply claims "nothing was saved" (P1420: a failed Update leaves the draft as it was, and a write may have landed); the write failure claims nothing either way (Gemini r10)', () => {
-    const run = read('supabase/functions/_shared/canvas-run.ts') + read('supabase/functions/_shared/canvas-reply.ts');
+    const run = read('supabase/functions/_shared/canvas-run.ts') + read('supabase/functions/_shared/canvas-reply.ts') + read('supabase/functions/_shared/canvas-reply-table.ts');
     expect(run).not.toMatch(/othing was saved/);
-    expect(run).toMatch(/othing was changed/); // CONTROL: the failure replies are in these files
-    expect(run).toContain("'I drafted your canvas but could not save it. Please try again.'");
+    expect(run).toMatch(/othing changed on the canvas/); // CONTROL: the failure replies are in these files (P1653 approved wording)
+    expect(run).toContain("'I could not save that draft, so nothing changed on the canvas. Try again.'");
   });
   it('questions are keyed by box tag', () => {
     expect(questionsFor(['canvas:love'])).toEqual({ 'canvas:love': "What does your business choose over something else it cares about, and why? Write it as 'X over Y, because Z'." });
@@ -844,10 +846,11 @@ describe('P1536 edge function wiring', () => {
     }
   });
   it('the only writes go through the service-role draft functions', () => {
-    const all = src + handlers + read('supabase/functions/_shared/canvas-run.ts');
+    const all = src + handlers + ['run', 'fail', 'nothing'].map((n) => read(`supabase/functions/_shared/canvas-${n}.ts`)).join('\n');
     const rpcs = new Set([...all.matchAll(/'(_canvas_draft_[a-z_]+)'/g)].map((m) => m[1]));
     expect([...rpcs].sort()).toEqual([
-      '_canvas_draft_add_material', '_canvas_draft_run_begin', '_canvas_draft_run_complete', '_canvas_draft_run_fail',
+      '_canvas_draft_add_material', '_canvas_draft_fail_reply', '_canvas_draft_remove_material', '_canvas_draft_run_begin', '_canvas_draft_run_complete',
+      '_canvas_draft_run_complete_question', '_canvas_draft_run_fail',
     ]);
     expect(src + handlers).not.toMatch(/\.from\('(points|stories|canvas_versions|canvases|chat_messages)'\)/);
     expect(src).not.toMatch(/\.from\(/); // v6: the function reads no table at all; begin proves ownership of the run
@@ -1364,6 +1367,7 @@ describe('P1536 run by id: the handler begins the run the database made', () => 
     expect(res.status).toBe(status);
     expect(await res.json()).toMatchObject({ code });
     await h.settle();
-    expect(h.rpcs.map((r) => r.name)).toEqual(['_canvas_draft_run_begin']);
+    // P1653: a voice note whose transcript failed also gets its approved words posted once (the database failed the run without a word)
+    expect(h.rpcs.map((r) => r.name)).toEqual((begin as { error_code?: string }).error_code === 'transcript_failed' ? ['_canvas_draft_run_begin', '_canvas_draft_fail_reply'] : ['_canvas_draft_run_begin']);
   });
 });

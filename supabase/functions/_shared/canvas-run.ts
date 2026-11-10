@@ -19,6 +19,9 @@
  */
 
 import { assembleMaterial } from './canvas-source.ts';
+import { failRun } from './canvas-fail.ts';
+import { WORDS, providerFailureReply, unusableAnswerReply } from './canvas-reply-table.ts';
+import { emptyAnswer, postFailReply, tapRun, tappedBy, withoutTaps } from './canvas-nothing.ts';
 import { RequestTooLarge, fitRequest } from './canvas-fit.ts';
 import { DeadlineExceeded } from './canvas-deadline.ts';
 import { costUsd, type GeminiRequest, type GeminiUsage, type TokenCounter } from './mirror-agent.ts';
@@ -120,12 +123,14 @@ const failCode = (status: number) => (status === 429 || status === 403 ? 'capped
 export interface Step {
   deps: RunDeps; run: CanvasRun; p: RunParams; input: MaterialInput; material: Material; unreadable: string[];
   stub: Record<string, unknown>; kind: RunKind; extra: number;
+  /** P1653: the run's own message is one of the two fixed buttons (it is left out of the material). */
+  tapped?: 'yes' | 'no' | null;
   /** What the run has spent so far, to settle if it ends here: an upload's extraction, then (once a model call is out) the reservation or the reported cost. */
   ledger: { usd: number | null };
 }
 
-const TIMEOUT_REPLY = 'That took too long, so nothing was changed. Please try again.';
-const TOO_LARGE_REPLY = 'That is more than I can read in one go. Nothing was changed. Try a shorter file, or fewer files.';
+const TIMEOUT_REPLY = WORDS.timeout;
+const TOO_LARGE_REPLY = WORDS.tooLarge;
 
 /** The request, with the material cut until the model's own count fits the reserved input; or the run's failure. */
 export async function fitOrFail<T extends { request: GeminiRequest }>(s: Step, build: (cap: number) => T): Promise<(T & { tokens: number; counted: boolean }) | RunSummary> {
@@ -138,33 +143,7 @@ export async function fitOrFail<T extends { request: GeminiRequest }>(s: Step, b
   }
 }
 
-/** The pause before the one retry of a fail write: 200 to 600 ms, random so many failing writes do not retry together. It ends early when the invocation's deadline fires. */
-const RETRY_PAUSE_MIN_MS = 200;
-const RETRY_PAUSE_SPAN_MS = 400;
-function pauseBeforeRetry(signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    if (signal?.aborted) return resolve();
-    const pending: { timer?: ReturnType<typeof setTimeout> } = {};
-    const done = () => { clearTimeout(pending.timer); signal?.removeEventListener('abort', done); resolve(); };
-    pending.timer = setTimeout(done, RETRY_PAUSE_MIN_MS + Math.random() * RETRY_PAUSE_SPAN_MS);
-    signal?.addEventListener('abort', done, { once: true });
-  });
-}
-
-export async function failRun(deps: Pick<RunDeps, 'rpc' | 'signal'>, run: Pick<CanvasRun, 'run_id'>, p: RunParams, code: string, reply: string | null, usd: number | null): Promise<RunSummary> {
-  // One more try if the write fails: a run that stays 'running' blocks the owner until its lease runs out.
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const { error } = await deps.rpc('_canvas_draft_run_fail', { p_run: run.run_id, p_owner: p.ownerId, p_code: code, p_reply: reply, p_actual_usd: usd });
-      if (!error) break;
-      console.error('canvas-draft: fail write failed', { code: error.code, attempt });
-    } catch (e) {
-      console.error('canvas-draft: fail write threw', { error: (e as Error).name, attempt });
-    }
-    if (attempt === 1) await pauseBeforeRetry(deps.signal);
-  }
-  return { state: 'failed', code };
-}
+export { failRun };
 
 const zeroFacts = (s: Step) => ({ total: 0, unreadable: s.unreadable, droppedUnverified: 0, droppedNames: 0 });
 
@@ -182,7 +161,8 @@ export async function askModel(s: Step, fit: Fitted, cut: (reply: string) => str
     return { response };
   }
   if (deps.signal?.aborted) return await failRun(deps, run, p, 'timeout', TIMEOUT_REPLY, run.reserved_usd ?? null); // cut while in flight: it may have been billed
-  return await failRun(deps, run, p, failCode(status), cut('I could not draft your canvas just now. Nothing was changed. Please try again in a few minutes.'), failureUsd(status, run, s.extra));
+  const code = failCode(status);
+  return await failRun(deps, run, p, code, cut(providerFailureReply(code)), failureUsd(status, run, s.extra));
 }
 
 /**
@@ -198,7 +178,7 @@ async function failureOf(s: Step, out: ReturnType<typeof parseDraft>, usd: numbe
   const { run, p, deps } = s;
   // P1653 TEMPORARY measurement line (counts only, never model text or owner words); remove after the replay.
   try { console.log(parsedLine(run.run_id, out, response)); } catch { /* measurement must never change a run */ }
-  if (!out.ok) return await failRun(deps, run, p, out.code, cut('I could not draft your canvas from that. Nothing was changed. Try again, or add more about what you sell and to whom.'), usd);
+  if (!out.ok) return await failRun(deps, run, p, out.code, cut(unusableAnswerReply(out.code)), usd);
   const drops = out.droppedUnverified + out.droppedNames;
   if (out.scope.length > 0 && out.total === 0 && (drops > 0 || s.kind !== 'message' || run.first_draft) && !keepsOffers(run, s.kind, out)) {
     return await failRun(deps, run, p, 'nothing_supported', cut(buildDraftReply({ ...zeroFacts(s), outcome: 'failed', droppedUnverified: out.droppedUnverified, droppedPoints: out.droppedPoints, droppedNames: out.droppedNames })), usd);
@@ -231,7 +211,12 @@ async function runDraft(s: Step): Promise<RunSummary> {
   });
   const usd = out.costUsd !== null ? out.costUsd + s.extra : run.reserved_usd ?? null;
   // P1646: a message that contradicts current points offers options and writes nothing until the owner picks
-  return (await draftOffer(s, TOOLS, out, cut, usd)) ?? (await failureOf(s, out, usd, cut, asked.response)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));
+  const offered = draftOffer(s, TOOLS, out, cut, usd);
+  if (offered) return await offered;
+  // P1653 F1/F5: a first draft the model wrote nothing for asks its follow-up as a finished run (emptyAnswer); every other empty answer fails as before
+  const asks = out.ok ? emptyAnswer(s, TOOLS, out, asked.response, usd, cut, s.tapped ?? null) : null;
+  if (asks) { try { console.log(parsedLine(run.run_id, out, asked.response)); } catch { /* P1653 TEMPORARY measurement (same line as failureOf): must never change a run */ } return await asks; }
+  return (await failureOf(s, out, usd, cut, asked.response)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));
 }
 
 type Parsed = Extract<ReturnType<typeof parseDraft>, { ok: true }>;
@@ -248,10 +233,13 @@ async function completeDraft(s: Step, out: Parsed, usd: number | null, truncated
   });
   if (error || !data) {
     console.error('canvas-draft: write failed', { code: error?.code });
-    return await failRun(deps, run, p, 'write', 'I drafted your canvas but could not save it. Please try again.', usd);
+    return await failRun(deps, run, p, 'write', WORDS.write, usd);
   }
   const closed = closedRun(data as { status?: string; code?: string });
-  if (closed) return closed;
+  if (closed) {
+    if (closed.code === 'not_offered') await postFailReply(deps.rpc, run.run_id, p.ownerId, WORDS.notOffered); // the database failed the run without a word
+    return closed;
+  }
   console.log('canvas-draft: done', { points: out.total, dropped: out.droppedUnverified + out.droppedNames + out.droppedScope, cost: out.costUsd });
   return { state: 'done' };
 }
@@ -264,27 +252,32 @@ export async function executeRun(deps: RunDeps, p: RunParams, run: CanvasRun): P
     const { unreadable, rows, gone } = await gatherLinks(deps, p, run);
     if (gone) return { state: 'failed', code: 'gone' };
     if (deps.signal?.aborted) return await failRun(deps, run, p, 'timeout', TIMEOUT_REPLY, ledger.usd);
-    const trigger = triggerOf(run.thread);
+    // P1653: a tap on one of the two fixed buttons adds no evidence, here or in any later run: it is never in the material
+    const tapped = tappedBy(run.thread);
+    const thread = withoutTaps(run.thread);
+    const trigger = triggerOf(thread);
     const input: MaterialInput = {
       trigger: trigger ? { text: textOf(trigger), tagged: trigger.box_refs ?? null } : null,
       // a fork's "Your messages" seed row is the owner's own typed words: it comes first, then the messages of this thread
-      messages: [...run.material.filter(isOwnMessages).map((m) => m.text), ...ownerItems(run.thread).filter((t) => t !== trigger).map(textOf)],
-      copies: toCopies(run.thread),
+      messages: [...run.material.filter(isOwnMessages).map((m) => m.text), ...ownerItems(thread).filter((t) => t !== trigger).map(textOf)],
+      copies: toCopies(thread),
       links: [...run.material.filter((m) => m.kind === 'link').map((m) => ({ url: m.label, text: m.text })), ...rows],
       files: run.material.filter((m) => m.kind === 'file' || (m.kind === 'messages' && !isOwnMessages(m))).map((m) => ({ name: m.label, text: m.text })),
     };
     const material = assembleMaterial(input);
     const kind: RunKind = run.kind ?? 'message';
     const step: Step = {
-      deps, run, p, input, material, unreadable, kind, extra: p.extraUsd ?? 0, ledger,
+      deps, run, p, input, material, unreadable, kind, extra: p.extraUsd ?? 0, ledger, tapped,
       stub: { material, basePoints: run.draft_points, otherNames: run.other_names },
     };
+    const tap = tapped ? tapRun(step, TOOLS, tapped) : null; // "Not mine", or a stale tap: no model call
+    if (tap) return await tap;
     if (!material.items.some((i) => i.owner)) {
-      return await failRun(deps, run, p, 'no_readable_material', buildDraftReply({ ...zeroFacts(step), outcome: 'failed' }), step.extra);
+      return await failRun(deps, run, p, 'no_readable_material', unreadable.length ? buildDraftReply({ ...zeroFacts(step), outcome: 'failed' }) : WORDS.nothingFromYou, step.extra);
     }
     return await (choiceRun(step, TOOLS) ?? runDraft(step)); // P1646: a short reply that picks from the latest choice, else a draft
   } catch (e) {
     console.error('canvas-draft: run crashed', { error: (e as Error).name });
-    return await failRun(deps, run, p, 'internal', 'Something went wrong and nothing was changed. Please try again.', ledger.usd);
+    return await failRun(deps, run, p, 'internal', WORDS.internal, ledger.usd);
   }
 }

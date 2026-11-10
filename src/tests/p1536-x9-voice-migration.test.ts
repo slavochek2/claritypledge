@@ -149,7 +149,7 @@ describe('migration 20261102100100: voice notes in every canvas thread', () => {
     expect(defs('canvas_workspace_send')).toEqual([V6, NEW]);
     expect(defs('canvas_voice_send')).toEqual([NEW, FIX]); // the FIX body is pinned in p1536-x9-review-migration.test.ts
     expect(defs('_canvas_voice_transcript_settled')).toEqual([NEW, FIX]);
-    expect(defs('_canvas_draft_expire').pop(), 'the expire step the trigger calls: the review-fixes lease').toBe(FIX);
+    expect(defs('_canvas_draft_expire').slice(-2), 'the expire step the trigger calls: the review-fixes lease, then P1653 (its body plus two reply sentences)').toEqual([FIX, '20261110100000_p1653_never_a_wall.sql']);
     expect(NEW > V6, 'it runs after the v6 engine').toBe(true);
   });
 

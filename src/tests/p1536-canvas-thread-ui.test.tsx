@@ -250,7 +250,7 @@ describe('AC15: the upload control', () => {
     await act(async () => {
       fireEvent.change(input, { target: { files: [new File(['x'], 'scan.pdf')] } });
     });
-    expect(toastFn.error).toHaveBeenCalledWith(expect.stringContaining('could not be read'));
+    expect(toastFn.error).toHaveBeenCalledWith(expect.stringContaining('I found no text in that file'));
   });
 
   it('a file over 8 MB is refused before it is sent; a server refusal is named', async () => {
@@ -262,13 +262,13 @@ describe('AC15: the upload control', () => {
       fireEvent.change(input, { target: { files: [big] } });
     });
     expect(svc.uploadCanvasMaterial).not.toHaveBeenCalled();
-    expect(toastFn.error).toHaveBeenCalledWith('That file is over 8 MB.');
+    expect(toastFn.error).toHaveBeenCalledWith('That file is over 8 MB. Nothing changed on the canvas. Send a smaller file.');
 
     svc.uploadCanvasMaterial.mockResolvedValueOnce({ ok: false, code: 'UNREADABLE' });
     await act(async () => {
       fireEvent.change(input, { target: { files: [new File(['x'], 'scan.pdf')] } });
     });
-    expect(toastFn.error).toHaveBeenLastCalledWith(expect.stringContaining('could not be read'));
+    expect(toastFn.error).toHaveBeenLastCalledWith(expect.stringContaining('I found no text in that file'));
   });
 });
 

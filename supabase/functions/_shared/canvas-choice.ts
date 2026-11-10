@@ -20,6 +20,7 @@ import { clean, cleanFreeText, cutAtWord, cutChars, normalizeForQuote } from './
 import { numbersSupported } from './canvas-support.ts';
 import { vetEvidence } from './canvas-guess.ts';
 import { groundPriceTerms, type PriceWords } from './canvas-price.ts';
+import { WORDS } from './canvas-reply-table.ts';
 import type { BasePoint, ParseContext } from './canvas-types.ts';
 
 const REVENUE = 'canvas:revenue';
@@ -379,6 +380,6 @@ export const reofferNoneReply = (lead: string): string =>
 export const refusedPickReply = (letter: string): string =>
   `I could not apply ${letter}: it holds something you have not said, so nothing changed.`;
 /** [FOUNDER DECISION: wording] The canvas changed between reading the choice and applying it. */
-export const APPLY_STALE_REPLY = 'The canvas changed while I was applying your pick, so nothing changed. Reply with your pick again.';
-/** [FOUNDER DECISION: wording] The choice could not be read or saved. */
-export const CHOICE_WRITE_REPLY = 'I could not save that just now, so nothing changed. Please try again.';
+export const APPLY_STALE_REPLY = WORDS.choiceStale;
+/** The choice could not be saved (P1653 approved wording; the read failure has its own sentence, WORDS.choiceRead). */
+export const CHOICE_WRITE_REPLY = WORDS.choiceWrite;

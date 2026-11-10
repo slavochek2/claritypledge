@@ -88,7 +88,8 @@ describe('migration 20261102110100: X9 review fixes', () => {
   it('is the newest definition of each function it changes, after the applied X9 migration', () => {
     const files = readdirSync(MIG).filter((f) => /^\d{14}_.*\.sql$/.test(f)).sort();
     const defs = (name: string) => files.filter((f) => new RegExp(`CREATE (OR REPLACE )?FUNCTION public\\.${name}\\(`).test(stripComments(read(f))));
-    expect(defs('_canvas_draft_expire').pop()).toBe(FIX);
+    // P1653 later restates the expire step with its body plus the two reply sentences (pinned in p1653-canvas-server-replies.test.ts): FIX is the one before it
+    expect(defs('_canvas_draft_expire').slice(-2)).toEqual([FIX, '20261110100000_p1653_never_a_wall.sql']);
     expect(defs('_canvas_voice_transcript_settled').pop()).toBe(FIX);
     expect(defs('canvas_voice_send').pop()).toBe(FIX);
     expect(defs('canvas_workspace_send').pop(), 'the send itself is not touched here').toBe(X9);

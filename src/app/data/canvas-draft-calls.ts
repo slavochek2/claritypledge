@@ -33,7 +33,7 @@ export type OpenDraftResult = {
 export type CanvasDraftErrorCode =
   | 'BUSY' | 'LIMIT' | 'REVISION_CAP' | 'TERMS_NOT_ACCEPTED' | 'DISABLED' | 'NOT_AVAILABLE'
   | 'TOO_LARGE' | 'UNSUPPORTED' | 'UNREADABLE' | 'DRAFT_CLOSED' | 'CAPPED' | 'BAD_REQUEST' | 'FAILED'
-  | 'NOT_READY' | 'GONE' | 'TIMEOUT';
+  | 'NOT_READY' | 'GONE' | 'TIMEOUT' | 'READING_LIMITED' | 'READING_FAILED';
 
 export type RunStart = { ok: true; runId: string; kind: 'tensions' | 'draft' | 'message' | 'focus' | 'fork_first' } | { ok: false; code: CanvasDraftErrorCode };
 
@@ -83,7 +83,7 @@ export function failRpc(context: string, error: { code?: string } | null, messag
 
 const CODES: ReadonlySet<string> = new Set([
   'BUSY', 'LIMIT', 'REVISION_CAP', 'TERMS_NOT_ACCEPTED', 'DISABLED', 'NOT_AVAILABLE',
-  'TOO_LARGE', 'UNSUPPORTED', 'UNREADABLE', 'DRAFT_CLOSED', 'CAPPED', 'BAD_REQUEST', 'NOT_READY', 'GONE', 'TIMEOUT',
+  'TOO_LARGE', 'UNSUPPORTED', 'UNREADABLE', 'DRAFT_CLOSED', 'CAPPED', 'BAD_REQUEST', 'NOT_READY', 'GONE', 'TIMEOUT', 'READING_LIMITED', 'READING_FAILED',
 ]);
 
 function asCode(v: unknown, status: number): CanvasDraftErrorCode {

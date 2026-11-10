@@ -235,7 +235,7 @@ describe('1: ownership is the exact slug, then the server read', () => {
 // ── 2: a failed first upload after Clone ─────────────────────────────────────────────────────────────────────────
 
 describe('2: the first upload after Clone says so when the file did not go through', () => {
-  const UNREADABLE = 'That file could not be read. Try another copy, or paste the text into the thread.';
+  const UNREADABLE = 'I found no text in that file. Nothing changed on the canvas. Try another copy, or paste the text here.';
   async function cloneThenPick() {
     mount('/p/ana/canvas/canvas?v=canvas_d111111');
     await grid();

@@ -26,6 +26,7 @@ import {
   type Choice, type ChoiceOption, type ChoicePick, type StoredChoice,
 } from './canvas-choice.ts';
 import { derivedNames, namesMatcher } from './canvas-names.ts';
+import { WORDS, unusableAnswerReply } from './canvas-reply-table.ts';
 import { ownerItems, textOf } from './canvas-thread.ts';
 import type { askModel, failRun, fitOrFail, RunSummary, Step } from './canvas-run.ts';
 import type { BasePoint, DraftOutcome, Material, RunFrame } from './canvas-types.ts';
@@ -167,8 +168,8 @@ async function reoffer(s: Step, t: RunTools, c: StoredChoice, lead: string): Pro
     currentFocus: run.focus ?? null, acceptFocus: false, listOffers: false, allowChoice: choiceAllowed(frame, fit.material),
   });
   const usd = out.costUsd !== null ? out.costUsd + s.extra : run.reserved_usd ?? null;
-  // [FOUNDER DECISION: wording] the model's answer could not be read
-  if (!out.ok) return await t.failRun(deps, run, p, out.code, cut('I could not check that just now. Nothing was changed. Please try again.'), usd);
+  // P1653: the model's answer could not be read: the words of the draft row for that cause (inventory: "share the draft rows' per-cause words")
+  if (!out.ok) return await t.failRun(deps, run, p, out.code, cut(unusableAnswerReply(out.code)), usd);
   if (!out.choice) return await hold(s, t, cut(reofferNoneReply(lead)), usd);
   logDropped(out);
   return await offerChoice(s, t, out.choice, { text: c.request, messageId: c.request_message_id }, cut(`${lead}\n${choiceReply(out.choice, baseOf(s))}`), usd);
@@ -194,7 +195,7 @@ export async function runPick(s: Step, t: RunTools, pick: ChoicePick): Promise<R
   const { data, error } = await deps.rpc('_canvas_draft_choice_latest', { p_run: run.run_id, p_owner: p.ownerId });
   if (error || !data) {
     console.error('canvas-draft: choice read failed', { code: error?.code });
-    return await t.failRun(deps, run, p, 'choice_read', CHOICE_WRITE_REPLY, s.extra);
+    return await t.failRun(deps, run, p, 'choice_read', WORDS.choiceRead, s.extra);
   }
   const latest = data as { status?: string; stale?: boolean; choice?: unknown };
   if (latest.status === 'gone') return { state: 'failed', code: 'gone' };

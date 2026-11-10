@@ -15,7 +15,7 @@ import { sendCanvasWorkspaceMessage, type CanvasRefusalCode } from '@/app/data/c
 import { sendCanvasVoiceNote } from '@/app/data/canvas-voice-service';
 import { VoiceNoteError } from '@/app/data/chat-voice-service';
 import type { VoiceSender } from '@/hooks/use-voice-note';
-import { DRAFT_ERROR_TEXT } from './canvas-thread-copy';
+import { DRAFT_ERROR_TEXT, STALE_VIEW_TEXT } from './canvas-thread-copy';
 import { decodeTagged } from './composer-tags';
 import { createUnresolvedClientIds } from './unresolved-client-ids';
 import type { CanvasThread } from './use-canvas-thread';
@@ -27,6 +27,7 @@ const unresolved = createUnresolvedClientIds();
 export function sendRefusedText(code: CanvasRefusalCode): string {
   if (code === 'busy' || code === 'busy_elsewhere') return DRAFT_ERROR_TEXT.BUSY ?? 'That did not go through. Try again.';
   if (code === 'cap_reached') return DRAFT_ERROR_TEXT.REVISION_CAP ?? 'That did not go through. Try again.';
+  if (code === 'stale_view') return STALE_VIEW_TEXT; // P1653: a send that was behind says what the offers say
   return DRAFT_ERROR_TEXT.FAILED ?? 'That did not go through. Try again.';
 }
 

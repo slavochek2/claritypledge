@@ -11,6 +11,7 @@ import { CanvasThreadReadState } from './CanvasReadState';
 import { CanvasCapNotice } from './CanvasCapNotice';
 import { sendSlotOf, type CanvasWorkspaceProps } from './canvas-send-slot';
 import { canvasRetryTrailing } from './canvas-retry-trailing';
+import { withLinkConfirm } from './canvas-link-confirm-after';
 import { canvasUndoAfter, newestMirrorMessageId } from './canvas-undo-after';
 import { useCanvasUndo } from './use-canvas-undo';
 import { useOpenOfferRows, withOfferRows } from './use-canvas-open-offers';
@@ -79,7 +80,7 @@ export function useCanvasParts(args: CanvasPartsArgs): CanvasParts {
     leading: live?.draft.state === 'open' ? <UploadSpot waiting={!!slot.waiting} busy={uploader.busy} onPick={(f) => void uploader.upload(f)} /> : undefined,
     replyHint: live?.draft.state === 'open' && !slot.waiting ? CANVAS_REPLY_HINT : undefined,
     trailing: canvasRetryTrailing(live, args) ?? publishReplyOpen(args),
-    after: withOfferRows(canvasUndoAfter(undo, undo.failed || undo.handClosed ? newestMirrorMessageId(args.messages, args.userId, args.rootId) : null), offerRows),
+    after: withLinkConfirm(withOfferRows(canvasUndoAfter(undo, undo.failed || undo.handClosed ? newestMirrorMessageId(args.messages, args.userId, args.rootId) : null), offerRows), { live, messages: args.messages, userId: args.userId, rootId: args.rootId, send: pane.onSend }),
     closedLine: closedThreadLine(live, args),
     /** A run is going, or a file is being added (D15: Publish waits): the workspace's Publish spot reads "Updating…" meanwhile. */
     runActive: slot.active,

@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { sendCanvasWorkspaceMessage, uploadCanvasMaterial, type CanvasDraft, type CanvasDraftErrorCode, type CanvasRefusalCode } from '@/app/data/canvas-draft-service';
-import { DRAFT_ERROR_TEXT, MAX_UPLOAD_BYTES } from './canvas-thread-copy';
+import { DRAFT_ERROR_TEXT, MAX_UPLOAD_BYTES, UPLOAD_ERROR_TEXT } from './canvas-thread-copy';
 import { createUnresolvedClientIds } from './unresolved-client-ids';
 
 /** The client id of each file announcement whose outcome is not known (a lost response), by draft and file: the retry replays the same run. */
@@ -27,7 +27,8 @@ export const UPLOAD_WAIT_TEXT = 'The file did not go through. Wait a minute, the
 
 /** What a file that was announced but not read says: the wait sentence for a post that never landed, the refusal's own sentence otherwise. */
 export function uploadRefusalText(code: CanvasDraftErrorCode): string {
-  return code === 'FAILED' ? UPLOAD_WAIT_TEXT : (DRAFT_ERROR_TEXT[code] ?? 'That did not go through. Try again.');
+  if (code === 'FAILED') return UPLOAD_WAIT_TEXT;
+  return UPLOAD_ERROR_TEXT[code] ?? DRAFT_ERROR_TEXT[code] ?? 'That did not go through. Try again.';
 }
 
 /** Posts the file; a failed post (the network) is tried once more after a short random pause, because the announced run is already waiting for it. */
@@ -46,7 +47,7 @@ export async function postFile(runId: string, file: File): Promise<Awaited<Retur
 }
 
 /** The error code a refused announcement of a file reads as (the sentences are DRAFT_ERROR_TEXT's). */
-const refusedCode = (c: CanvasRefusalCode) => (c === 'busy' || c === 'busy_elsewhere' ? 'BUSY' : c === 'cap_reached' ? 'REVISION_CAP' : 'FAILED');
+const refusedCode = (c: CanvasRefusalCode) => (c === 'busy' || c === 'busy_elsewhere' ? 'BUSY' : c === 'cap_reached' ? 'REVISION_CAP' : c === 'stale_view' ? 'STALE_VIEW' : 'FAILED');
 
 export function useCanvasUploads(draft: Pick<CanvasDraft, 'id' | 'canvasId' | 'revision'> | null, onSettled: () => Promise<void>): CanvasUploads {
   const [busy, setBusy] = useState(false);

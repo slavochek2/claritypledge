@@ -8,17 +8,16 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
 import { retryCanvasRun, type CanvasDraft, type CanvasDraftRun } from '@/app/data/canvas-draft-service';
-import { DRAFT_ERROR_TEXT } from './canvas-thread-copy';
+import { DRAFT_ERROR_TEXT, notReadyText, notRetryableText } from './canvas-thread-copy';
 import { sendRefusedText } from './use-canvas-actions';
 
 // [FOUNDER DECISION: wording] The spec quotes "Try again" (the button) and "Send the file again." (the bubble after not_retryable).
-export const TRY_AGAIN_LABEL = 'Try again';
-export const SEND_FILE_AGAIN_TEXT = 'Send the file again.';
+const TRY_AGAIN_LABEL = 'Try again';
 
-export function CanvasRetry({ draft, run, reload }: { draft: Pick<CanvasDraft, 'id' | 'revision'>; run: Pick<CanvasDraftRun, 'id'>; reload: () => Promise<void> }) {
+export function CanvasRetry({ draft, run, reload }: { draft: Pick<CanvasDraft, 'id' | 'revision'>; run: Pick<CanvasDraftRun, 'id'> & { inputKind?: string | null }; reload: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [gone, setGone] = useState<string | null>(null); // the run that could not be retried
-  if (gone === run.id) return <p className="px-4 py-1 text-sm text-muted-foreground" data-testid="canvas-retry-unavailable">{SEND_FILE_AGAIN_TEXT}</p>;
+  if (gone === run.id) return <p className="px-4 py-1 text-sm text-muted-foreground" data-testid="canvas-retry-unavailable">{notRetryableText(run.inputKind)}</p>;
   const retry = async () => {
     if (busy) return;
     setBusy(true);
@@ -28,7 +27,7 @@ export function CanvasRetry({ draft, run, reload }: { draft: Pick<CanvasDraft, '
         if (r.refused === 'not_retryable') setGone(run.id);
         else toast.error(sendRefusedText(r.refused));
       } else if (r.start && !r.start.ok) {
-        toast.error(DRAFT_ERROR_TEXT[r.start.code] ?? DRAFT_ERROR_TEXT.FAILED);
+        toast.error(r.start.code === 'NOT_READY' ? notReadyText(run.inputKind) : (DRAFT_ERROR_TEXT[r.start.code] ?? DRAFT_ERROR_TEXT.FAILED));
       }
       await reload().catch(() => undefined); // the run is going now (or the screen was behind): the thread shows what is true
     } catch {
