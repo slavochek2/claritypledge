@@ -121,7 +121,7 @@ Applies because the replays call Gemini. Figures per `docs/technical/metered-ser
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
 | Gemini calls | No new call per refusal: the reply uses the run that already ran. A tap that needs drafting = 1 run, as typing does | Grows only with owners' messages | Before: 3 messages + 1 control = 4 x 5 = 20. After: 4 + 1 control + follow-up of 2 messages + link then tap = 9 x 5 = 45. Total 65 |
-| Gemini spend | About $0.012 to $0.019 per run, from two runs logged on TEST 2026-11-09 | Same | 65 x $0.019 = $1.24, plus retries. Bound by per-person limits (kept in the registry); spread across test accounts if a replay is capped |
+| Gemini spend | A few cents at most per run, from two runs logged on TEST 2026-11-09 (figures in the registry) | Same | 65 runs at the upper per-run figure, plus retries: a small fixed test cost. Bound by per-person limits (kept in the registry); spread across test accounts if a replay is capped |
 | Edge invocations | Unchanged per message | Unchanged | Self-hosted TEST: 0 of the hosted plan |
 | Log lines | At most 1 new per refusal, if the cause is logged | Unchanged | 65 at most |
 
