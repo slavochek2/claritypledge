@@ -59,10 +59,14 @@ describe('P1307 D2/D12 after P1337 walkthrough 7: consent is the room bar\'s "Tr
   it('D12: the idle bar starts capture only from the tap (onClick), never on render or in an effect', () => {
     const s = read(IDLE_BAR);
     const bar = s.slice(s.indexOf('export function RoomTranscribeIdleBar'));
-    const calls = bar.match(/startCapture\(/g) ?? [];
-    expect(calls.length, 'exactly one startCapture call in the idle bar').toBe(1);
-    expect(/onClick:\s*\(\)\s*=>\s*\{[\s\S]{0,200}startCapture\(/.test(bar), 'the one call sits inside the button\'s onClick').toBe(true);
-    expect(/useEffect\([\s\S]{0,300}startCapture/.test(bar), 'no effect starts capture').toBe(false);
+    // The start itself lives in ONE shared hook (the room's Transcribe tap and the mastermind's "Start your mic" both use it).
+    expect(bar.match(/startCapture\(/g) ?? [], 'the bar calls no startCapture itself').toHaveLength(0);
+    expect(/onClick:\s*start\b/.test(bar), 'the button\'s onClick is the shared start').toBe(true);
+    expect(/useEffect\([\s\S]{0,300}\bstart\b/.test(bar), 'no effect starts capture').toBe(false);
+    const hook = read(R('src/app/components/session/use-start-room-capture.ts'));
+    expect(hook.match(/startCapture\(/g) ?? [], 'exactly one startCapture call in the shared hook').toHaveLength(1);
+    expect(/const start = useCallback\(\(\) => \{[\s\S]{0,200}startCapture\(/.test(hook), 'the one call sits inside the returned start').toBe(true);
+    expect(/useEffect/.test(hook), 'the hook has no effect').toBe(false);
   });
 });
 

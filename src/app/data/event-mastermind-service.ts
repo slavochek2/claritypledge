@@ -222,6 +222,16 @@ export async function getCanvasUpdateStep(eventId: string): Promise<CanvasUpdate
   return row ? { afterRoundId: row.after_round_id, startedAt: row.started_at } : null;
 }
 
+/**
+ * P1529: when the host ended the evening (host_end_rounds stamps it), or null. A round that ended while this is older than the
+ * round's start is "between rounds", not the end of the evening. Throws on failure: callers keep what they show.
+ */
+export async function getEveningEnd(eventId: string): Promise<string | null> {
+  const { data, error } = await supabase.from('event_evening_ends').select('ended_at').eq('event_id', eventId).maybeSingle();
+  if (error) throwDbError('getEveningEnd', error, 'Could not read whether the evening has ended');
+  return (data as { ended_at: string } | null)?.ended_at ?? null;
+}
+
 /** The open draft's own address parts: its canvas (what the expire read names) and its version (the workspace's `?v=`). Owner read. */
 export async function getMyDraftRef(draftId: string): Promise<{ canvasId: string; versionName: string | null } | null> {
   const { data, error } = await supabase.from('canvas_drafts').select('canvas_id, version_name').eq('id', draftId).maybeSingle();

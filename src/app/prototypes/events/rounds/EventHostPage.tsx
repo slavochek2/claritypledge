@@ -894,7 +894,7 @@ export function EventHostPage() {
   const names = useMemo(() => new Map(roster.map(m => [m.id, m.displayName])), [roster]);
   const byId = useMemo(() => new Map(roster.map(m => [m.id, m])), [roster]);
   const profileIds = useMemo(() => members.map(m => m.profileId).filter((p): p is string => !!p), [members]);
-  const mm = useMastermindHost({ eventId, active: flow === MASTERMIND_FLOW, screen: isScreen, rounds: state.rounds, seatsByRound: state.seatsByRound, members });
+  const mm = useMastermindHost({ eventId, active: flow === MASTERMIND_FLOW, screen: isScreen, rounds: state.rounds, seatsByRound: state.seatsByRound, members, refreshRounds: refresh });
   // The waiting list re-reads only when its set changes, not on every host-state poll (spec Cost Budget).
   const waitingKey = useMemo(() => waitingSetKey(mm.people), [mm.people]);
   // Showcase (founder walkthrough 6, option 7C), called the Demo since P1430: the host chooses who
@@ -1102,7 +1102,8 @@ export function EventHostPage() {
     );
   }
 
-  const ended = evening === 'ended' && !mm.stepOn;
+  // The mastermind's evening ends only when the host ends it: a round that ended on its own is "between rounds" (no Evening ended, no Reopen).
+  const ended = evening === 'ended' && !mm.stepOn && (!mm.active || mm.eveningOver);
 
   if (isCompare) {
     const shown = round ?? lastRound ?? null;
@@ -1306,14 +1307,17 @@ export function EventHostPage() {
   const withoutHost = <T extends { id: string }>(list: T[]): T[] => (mm.active && hostSeatIds.size > 0 ? list.filter(s => !hostSeatIds.has(s.id)) : list);
   const shownSeats = withoutHost(seats);
   const silentNos = mm.active && round && timing ? silentTables(shownSeats, id => mm.recordingOf(id) === 'words', new Date(round.startedAt).getTime() + timing.seatingMs, now) : [];
-  // The canvas-update step is offered only in the counted round 2 (spec §7: after round 2), while it runs; starting it ends that round.
-  const updateRound = mm.active && !mm.stepOn && round && !round.showcase && countedRounds(state.rounds) === 2
-    ? { label: roundLabel(state.rounds, round), leftMs: clock && clock.phase !== 'over' ? roundLeftMs : null }
-    : null;
+  // The canvas-update step is offered once the counted round 2 has ended (spec §7: after round 2); the round is ended by "End round 2", never by this.
+  const updateRound = mm.active && !mm.stepOn && !round && !ended && lastRound && !lastRound.showcase && countedRounds(state.rounds) === 2;
   // The canvas-update step's owners (the people who hold a canvas in it) and how many have published.
   const updateOwners = mm.stepOn ? members.filter(m => m.profileId && mm.updateStates.has(m.profileId)) : [];
   const updatePublished = updateOwners.filter(m => mm.updateStates.get(m.profileId as string) === 'published').length;
   const mmBefore = mm.active && !round && !mm.stepOn && !ended;
+  // A round has ended, the evening has not: what is offered is the next round's tables, the update after round 2, or the evening's end.
+  const mmBetween = mmBefore && state.rounds.length > 0;
+  // The evening can also be ended during the canvas-update step (its stamp then wins over the step).
+  const canEndEvening = !!round || (mm.active && state.rounds.length > 0 && !ended);
+  const roundTitle = ended ? 'Evening ended' : round ? roundLabel(state.rounds, round) : mmBetween && lastRound ? `${roundLabel(state.rounds, lastRound)} ended` : null;
 
   const extend = () => {
     if (!round || !clock || clock.phase === 'over') return;
@@ -1365,8 +1369,11 @@ export function EventHostPage() {
   const nextLabel = nextRoundLabel(state.rounds, !!chosen);
   const startLabel = chosen ? 'Start the Demo' : `Start ${nextLabel.toLowerCase()}`;
   // The mastermind's button says what it does: it opens a proposal, and the running round keeps running until "Start now".
-  const primaryLabel = mm.active ? (round ? 'Preview next round' : `Preview ${nextLabel.toLowerCase()} tables`) : round ? 'Next round' : startLabel;
-  const primary = hasNext ? { label: primaryLabel, action: openPreview } : null;
+  // ONE primary slot whose label follows the state: End round N while a round runs, then the next round's tables. The cap never hides End round.
+  const primaryLabel = mm.active ? (round ? `End ${roundLabel(state.rounds, round).toLowerCase()}` : `Preview ${nextLabel.toLowerCase()} tables`) : round ? 'Next round' : startLabel;
+  const primary = mm.active && round
+    ? { label: primaryLabel, action: () => void run(() => mm.endRound()) }
+    : hasNext ? { label: primaryLabel, action: openPreview } : null;
   // While round 2 runs, the canvas update is the way on; previewing round 3 without it is the quiet way round.
   const primaryIsSkip = !!updateRound;
   const pastRounds = state.rounds.filter(r => r.id !== round?.id);
@@ -1409,8 +1416,8 @@ export function EventHostPage() {
             </p>
           ) : (
           <p className="text-sm font-medium text-muted-foreground">
-            {(ended || round) && <span data-testid="host-round-title">{ended ? 'Evening ended' : round ? roundLabel(state.rounds, round) : ''}</span>}
-            {(ended || round) && !ended && ' · '}
+            {roundTitle && <span data-testid="host-round-title">{roundTitle}</span>}
+            {roundTitle && !ended && ' · '}
             {!ended && <span data-testid="host-room-count">{here.length} in the room</span>}
           </p>
           )}
@@ -1501,7 +1508,7 @@ export function EventHostPage() {
             <div className="mt-4 rounded-lg border border-border p-3 text-sm" data-testid="host-next-confirm">
               <p>
                 {mm.active
-                  ? `${formatClock(roundLeftMs)} left in this round. Preview the next round's tables now? This round keeps running until you tap Start now.`
+                  ? `${formatClock(roundLeftMs)} left in this round. End it now? Talk after this is not part of it.`
                   : `${formatClock(roundLeftMs)} left in this round. Set up the next one now?`}
               </p>
               <div className="mt-2 flex gap-2">
@@ -1512,7 +1519,7 @@ export function EventHostPage() {
                   onClick={() => { setConfirmNext(false); primary.action(); }}
                   data-testid="host-next-yes"
                 >
-                  {mm.active ? 'Preview next round' : 'Yes, next round'}
+                  {mm.active ? primary.label : 'Yes, next round'}
                 </Button>
                 <Button type="button" variant="ghost" className="min-h-11" onClick={() => setConfirmNext(false)}>
                   Keep going
@@ -1521,7 +1528,7 @@ export function EventHostPage() {
             </div>
           )}
           {updateRound && !justStarted && (
-            <CanvasUpdateStart round={updateRound} busy={!!busy} onStart={() => void run(() => mm.startUpdate())} />
+            <CanvasUpdateStart busy={!!busy} onStart={() => void run(() => mm.startUpdate())} />
           )}
           {primaryIsSkip && confirmSkip && primary && (
             <SkipUpdateConfirm busy={!!busy} onKeep={() => setConfirmSkip(false)} onSkip={() => { setConfirmSkip(false); primary.action(); }} />
@@ -1554,10 +1561,10 @@ export function EventHostPage() {
               {notice}
             </p>
           )}
-          {round && !preview && (
+          {canEndEvening && !preview && (
             // Walkthrough 9 (founder): small and centred right under Next round, behind its confirm.
             <div className="mt-1 text-center" data-testid="host-end-area">
-          {round && !confirmEnd && (
+          {canEndEvening && !confirmEnd && (
             <button
               type="button"
               onClick={() => setConfirmEnd(true)}
@@ -1568,7 +1575,7 @@ export function EventHostPage() {
               End the evening
             </button>
           )}
-          {round && confirmEnd && (
+          {canEndEvening && confirmEnd && (
             <div className="mt-2 rounded-lg border border-border p-3 text-left text-sm" data-testid="host-end-confirm">
               <p>End the evening? Every phone moves to the closing screen.</p>
               <div className="mt-2 flex gap-2">
@@ -1579,7 +1586,7 @@ export function EventHostPage() {
                   disabled={!!busy}
                   onClick={() => {
                     setConfirmEnd(false);
-                    void run(() => hostEndRounds(event.id));
+                    void run(() => (mm.active ? mm.endEvening() : hostEndRounds(event.id)));
                   }}
                   data-testid="host-end-yes"
                 >

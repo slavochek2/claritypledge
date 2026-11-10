@@ -11,7 +11,7 @@
  * lives here, and the recorder must see it is paused); an automatic pause (/live, letters) still
  * renders nothing, as D3/D13 asked.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowRight, Mic, Pause, Play, Square } from 'lucide-react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import type { SliceDestination } from '@/app/data/transcribe-slice-destination';
@@ -24,6 +24,7 @@ import { SHORT, useCaptureStatus } from './capture-status';
 import { CaptureLevelMeter } from './capture-level-meter';
 import { useConnectivity, useOfflineStripShown } from '@/app/contexts/offline-status-context';
 import { useRoomBarClaimed } from './room-bar-owner';
+import { useStartRoomCapture } from './use-start-room-capture';
 
 const VISIBLE_PHASES = new Set(['capturing', 'stalled', 'observing', 'paused']);
 
@@ -286,7 +287,6 @@ export function RoomTranscribeIdleBar({
 }) {
   const capture = useRoomCapture();
   const { offline } = useConnectivity();
-  const [starting, setStarting] = useState(false);
   // Stopping leaves the person asking "did it work?": say when the text comes (founder, solo test 2026-11-02).
   const capturing = capture.isCapturingForEvent(eventId);
   const [stopped, setStopped] = useState(false);
@@ -296,6 +296,9 @@ export function RoomTranscribeIdleBar({
     if (capturing) setStopped(false);
     wasCapturing.current = capturing;
   }, [capturing]);
+  // The mic never opened: there is no text to promise.
+  const failed = useCallback(() => { setStopped(false); onFailed(); }, [onFailed]);
+  const { start, starting } = useStartRoomCapture(eventId, displayName, failed);
   const busyPhase = capture.phase === 'starting' || capture.phase === 'ending';
   // Founder, solo test 2026-11-02: one bar on screen. Whatever capture is running (this event's or any other),
   // the running bar is the bar; the idle one never shows beside it.
@@ -306,22 +309,7 @@ export function RoomTranscribeIdleBar({
     description: roundUpdates ? `${EVENT_TRANSCRIBE_FIRST_SENTENCE} ${ROUND_UPDATE_CONSENT} Transcription follows our Terms and Privacy Policy.` : IDLE_DETAIL,
     disabled: starting,
     testId: 'room-transcribe-start',
-    onClick: () => {
-      setStarting(true);
-      void capture
-        .startCapture({ eventId, displayName })
-        .then(result => {
-          if (!result.started) {
-            setStopped(false); // the mic never opened: there is no text to promise
-            onFailed();
-          }
-        })
-        .catch(() => {
-          setStopped(false);
-          onFailed();
-        })
-        .finally(() => setStarting(false));
-    },
+    onClick: start,
   };
   return (
     <SessionBar

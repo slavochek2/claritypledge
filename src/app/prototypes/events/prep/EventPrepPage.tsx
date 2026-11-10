@@ -67,7 +67,7 @@ import { resumeScreenOf } from './prep-resume';
 import { useClipState, VideoActions } from './prep-video-actions';
 import { GutFeelNudge } from './GutFeelNudge';
 import { isAnswered, usePrepState, type PrepState } from './use-prep-state';
-import { defaultRoomStep, feedbackAlwaysOpen, offersPreparation, recipeForEvent } from '../series-recipes';
+import { defaultRoomStep, feedbackAlwaysOpen, feedbackOpenAnytime, offersPreparation, recipeForEvent } from '../series-recipes';
 import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
 import type { PrepRoomEmbed } from './prep-room-embed';
 import { getMyRoomStatus } from '@/app/data/event-room-service';
@@ -674,6 +674,7 @@ export function PrepFlow({
               <RoomSteps
                 className="min-w-0 flex-1"
                 current={feedbackAlwaysOpen(event) ? 'close' : 'principle'}
+                closeOpen={feedbackOpenAnytime(event)}
                 viewing={null}
                 onSelect={toRoom}
                 hidden={[...(roomRecipe.room.readiness ? [] : ['ready' as const]), ...(roomRecipe.room.rounds ? [] : ['table' as const, 'compare' as const])]}

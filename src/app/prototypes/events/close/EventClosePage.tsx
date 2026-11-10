@@ -56,7 +56,7 @@ import {
 } from '@/app/data/event-close-service';
 import type { EventAttendee, EventWithHost, PointWithUserPosition } from '@/app/types';
 import { CMP7_TAG } from '../prep/prep-plan';
-import { feedbackAlwaysOpen, quoteConsentWords, recipeForEvent, resolveCloseSteps, type ResolvedCloseStep, type SeriesRecipe } from '../series-recipes';
+import { feedbackOpenAnytime, quoteConsentWords, recipeForEvent, resolveCloseSteps, type ResolvedCloseStep, type SeriesRecipe } from '../series-recipes';
 /** The three statements about opting in (P1055's triad), asked after the seven. */
 const CMP3_TAG = 'cmp3';
 import { EventBox, GroupChatOffer, JoinOffer, SocialProof } from '../prep/PrepPieces';
@@ -197,8 +197,8 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
   // here again; a cold arrival (the QR code: /close is the only entry) goes to the event, replaced.
   const recipe = recipeForEvent(event);
   const appreciate = quoteConsentWords(event); // P1529: the server's consent rule follows the series
-  // Founder 2026-10-26: a hike's feedback is open before the hike; opened before its start, the score step says so.
-  const beforeHikeStart = feedbackAlwaysOpen(event) && Date.now() < new Date(event.datetime).getTime();
+  // Founder 2026-10-26: a hike's feedback is open before the hike (P1529: and the mastermind's, at any time); opened before the start, the score step says so.
+  const beforeStart = feedbackOpenAnytime(event) && Date.now() < new Date(event.datetime).getTime();
   // P1542 VQA round 4 (founder: the app menu on every page): a hike's feedback steps keep the app menu.
   useDeclareAppMenu(!!recipe.prepare.offer);
   const backToEvent = useGoBack(`/events/${event.slug}`);
@@ -657,7 +657,7 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
           <section className={cn(STACK, 'items-center gap-4 max-[519px]:justify-start max-[519px]:gap-3')} data-testid="step-score">
             {/* Founder 2026-10-26: before a hike has started nobody has participated yet — no thanks line then (the
                 early-feedback line below explains). After the start, and for Clarity Night, unchanged. */}
-            {!beforeHikeStart && <Context>Thank you for participating</Context>}
+            {!beforeStart && <Context>Thank you for participating</Context>}
             <div className="w-full max-w-md"><EventReminder event={event} card /></div>
             <Question>How likely would you recommend this event to a friend or colleague?</Question>
             {/* Round 10b: the scale sits under the question like every other answer; the bar keeps

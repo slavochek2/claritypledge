@@ -35,10 +35,45 @@ export function tableLines(table: RoundSeat[], mineId: string, nameOf: (id: stri
 /** The name shown when the roster has none for a seat (the host's screens say the same). */
 export const MISSING_NAME = 'Someone';
 
-/** The host's canvas-update step is on while its round is still the newest and that round has ended. */
-export function updateStepOn(step: CanvasUpdateStep | null, rounds: ReadonlyArray<{ id: string; endedAt: string | null }>): boolean {
+/**
+ * How often a screen reads what can change while no round runs (the evening's end stamp, and the canvas-update step after round 2):
+ * only while the newest round has ended, the evening is not over, and the tab is visible. 3600 / 8 = 450 requests an hour per
+ * screen in that window, 0 outside it (spec Cost Budget).
+ */
+export const GAP_POLL_MS = 8000;
+
+/**
+ * The host's canvas-update step is on while its round is still the newest and that round has ended, unless the host ended the
+ * evening after the step started: the evening's stamp wins over the step. `eveningEndedAt` is the stamp (null: none).
+ */
+export function updateStepOn(
+  step: CanvasUpdateStep | null,
+  rounds: ReadonlyArray<{ id: string; endedAt: string | null }>,
+  eveningEndedAt: string | null = null,
+): boolean {
   const last = rounds[rounds.length - 1];
-  return !!step && !!last && !!last.endedAt && step.afterRoundId === last.id;
+  if (!step || !last || !last.endedAt || step.afterRoundId !== last.id) return false;
+  return !(eveningEndedAt && new Date(eveningEndedAt).getTime() >= new Date(step.startedAt).getTime());
+}
+
+/**
+ * The host's "End the evening" stamp (see getEveningEnd) is at or after the newest round's start. A Reopen starts a newer round, so an
+ * older stamp never ends it. A round that ended without this stamp is "between rounds".
+ */
+export function eveningEndedAfter(eveningEndedAt: string | null, rounds: ReadonlyArray<{ startedAt: string }>): boolean {
+  const last = rounds[rounds.length - 1];
+  return !!eveningEndedAt && !!last && new Date(eveningEndedAt).getTime() >= new Date(last.startedAt).getTime();
+}
+
+/** What a person who is not seated reads while no round is on (before round 1, between rounds, or while a round runs without them). [FOUNDER DECISION: copy, proposed] */
+export function waitingWords(args: { runningLabel: string | null; showcase: boolean; betweenLabel: string | null; nextLabel: string }): { title: string; body: string } {
+  if (args.runningLabel !== null) {
+    return args.showcase
+      ? { title: 'Demo · You watch', body: 'Your table appears here when the next round starts.' }
+      : { title: `${args.runningLabel} · You join the next round`, body: 'Your table appears here when the next round starts.' };
+  }
+  if (args.betweenLabel !== null) return { title: `${args.betweenLabel} is over`, body: 'The next round starts soon.' };
+  return { title: `${args.nextLabel} starts soon`, body: 'The host starts it. Your table and role appear here.' };
 }
 
 /** What the owner's task shows. `make` and `pending` both carry the Make button; `pending` adds the "still arriving" sentence. */

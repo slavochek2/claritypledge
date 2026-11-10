@@ -2,7 +2,7 @@
  * P1529 §1, §3, §4, §7 and §5's projector: the sales mastermind's host screen. The server and the polls are a fake the
  * test sets; what is under test is what the host sees and which call each tap makes, with Clarity Night beside it.
  */
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EventRoomMember } from '@/app/types';
@@ -27,6 +27,11 @@ const h = vi.hoisted(() => ({
   getCanvasUpdateStep: vi.fn(),
   getMastermindUpdateStates: vi.fn(),
   hostStartRound: vi.fn(),
+  hostEndRound: vi.fn(),
+  hostEndRounds: vi.fn(),
+  refreshRounds: vi.fn(),
+  eveningEnd: null as null | string,
+  getEveningEnd: vi.fn(),
   hostSetRoundSeats: vi.fn(),
   getWaitlistPublic: vi.fn(),
   hostAddFromWaitlist: vi.fn(),
@@ -56,7 +61,7 @@ vi.mock('@/app/prototypes/events/rounds/use-tag-positions', async importOriginal
 }));
 vi.mock('@/app/prototypes/events/rounds/use-event-rounds', async importOriginal => ({
   ...(await importOriginal<typeof import('@/app/prototypes/events/rounds/use-event-rounds')>()),
-  useEventRounds: () => ({ state: h.state, loaded: true, refresh: async () => {} }),
+  useEventRounds: () => ({ state: h.state, loaded: true, refresh: h.refreshRounds }),
 }));
 vi.mock('@/app/data/event-rounds-service', async importOriginal => ({
   ...(await importOriginal<typeof import('@/app/data/event-rounds-service')>()),
@@ -65,6 +70,8 @@ vi.mock('@/app/data/event-rounds-service', async importOriginal => ({
   getTranscribingNow: vi.fn().mockResolvedValue(new Set()),
   getRoundSeatKeys: vi.fn().mockResolvedValue(null),
   hostStartRound: h.hostStartRound,
+  hostEndRound: h.hostEndRound,
+  hostEndRounds: h.hostEndRounds,
   hostSetRoundSeats: h.hostSetRoundSeats,
 }));
 vi.mock('@/app/data/event-mastermind-service', async importOriginal => ({
@@ -75,6 +82,7 @@ vi.mock('@/app/data/event-mastermind-service', async importOriginal => ({
   hostSetEventFlow: h.hostSetEventFlow,
   hostStartCanvasUpdate: h.hostStartCanvasUpdate,
   getCanvasUpdateStep: h.getCanvasUpdateStep,
+  getEveningEnd: h.getEveningEnd,
   getMastermindUpdateStates: h.getMastermindUpdateStates,
 }));
 vi.mock('@/app/data/event-waitlist', async importOriginal => ({
@@ -135,6 +143,7 @@ beforeEach(() => {
   try { localStorage.clear(); } catch { /* none */ }
   h.roster = ROSTER;
   h.step = null;
+  h.eveningEnd = null;
   h.updateStates = new Map();
   h.previous = [];
   h.planOverride = null;
@@ -143,6 +152,10 @@ beforeEach(() => {
   h.getMastermindHostState.mockImplementation(async () => h.hostState);
   h.getPreviousSessionPartners.mockImplementation(async () => h.previous);
   h.getCanvasUpdateStep.mockImplementation(async () => h.step);
+  h.getEveningEnd.mockImplementation(async () => h.eveningEnd);
+  h.hostEndRound.mockResolvedValue(true);
+  h.refreshRounds.mockResolvedValue(undefined);
+  h.hostEndRounds.mockResolvedValue(undefined);
   h.getMastermindUpdateStates.mockImplementation(async () => h.updateStates);
   h.hostSetObserver.mockResolvedValue({ status: 'ok' });
   h.hostSetEventFlow.mockResolvedValue(undefined);
@@ -280,6 +293,7 @@ describe('observers (§3)', () => {
 
   it('has no switches once the evening has ended', async () => {
     setRounds([round({ endedAt: ago(MIN) })]);
+    h.eveningEnd = ago(MIN); // the host's "End the evening" stamp
     renderHost({ flow: MM });
     await screen.findByText('Evening ended');
     await roomRead();
@@ -401,19 +415,18 @@ describe('seating through the mastermind plan (§4)', () => {
 describe('labels and touch targets while a round runs and the next is previewed (§7)', () => {
   it('names the running round\'s grid and the proposed one, so two grids are never unlabelled', async () => {
     setRounds([round({ startedAt: ago(10 * MIN) })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
-    h.planOverride = () => plan([['m-c', 1, 'first'], ['m-d', 1, 'second']]);
     renderHost({ flow: MM });
-    await screen.findByTestId('round-grid');
+    expect((await screen.findByTestId('round-grid-title')).textContent).toBe('Round 1: tables now');
+    // The proposal opens only once the round has ended (End round 1 first), so it never sits beside a running round.
+    cleanup();
+    h.planOverride = () => plan([['m-c', 1, 'first'], ['m-d', 1, 'second']]);
+    setRounds([round({ startedAt: ago(30 * MIN), endedAt: ago(MIN) })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    renderHost({ flow: MM });
     await roomRead();
-    expect((await screen.findByTestId('host-primary')).textContent).toBe('Preview next round');
+    expect((await screen.findByTestId('host-primary')).textContent).toBe('Preview round 2 tables');
     fireEvent.click(screen.getByTestId('host-primary'));
-    const confirm = await screen.findByTestId('host-next-confirm');
-    expect(confirm.textContent).toMatch(/Preview the next round's tables now\? This round keeps running until you tap Start now\./);
-    expect(screen.getByTestId('host-next-yes').textContent).toBe('Preview next round');
-    fireEvent.click(screen.getByTestId('host-next-yes'));
     await screen.findByTestId('host-preview');
-    // The preview sits in the controls column, which comes first in the page.
-    expect(screen.getAllByTestId('round-grid-title').map(e => e.textContent)).toEqual(['Round 2: proposed tables', 'Round 1: tables now']);
+    expect(screen.getAllByTestId('round-grid-title').map(e => e.textContent)).toEqual(['Round 2: proposed tables']);
   });
 
   it('titles no grid on Clarity Night, and keeps its minute buttons at 40px', async () => {
@@ -441,14 +454,14 @@ describe('labels and touch targets while a round runs and the next is previewed 
 
 describe('review fixes batch 2: preview lock and the owners list', () => {
   it('while a seating preview is open, the unseated list shows one line instead of the observer switch and Mark out', async () => {
-    setRounds([round({ startedAt: ago(10 * MIN) })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    // The preview opens only with no round running now: here, at the canvas-update step (the owners' list, then everyone else).
+    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, endedAt: ago(MIN) })]);
+    h.step = { afterRoundId: 'r2', startedAt: ago(MIN) };
     h.planOverride = () => plan([['m-c', 1, 'first'], ['m-d', 1, 'second']]);
     renderHost({ flow: MM });
-    await screen.findByTestId('round-grid');
     await roomRead();
-    expect(screen.getAllByTestId('mm-mark-out').length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.getAllByTestId('mm-mark-out').length).toBeGreaterThan(0));
     fireEvent.click(await screen.findByTestId('host-primary'));
-    fireEvent.click(await screen.findByTestId('host-next-yes'));
     await screen.findByTestId('host-preview');
     const people = screen.getByTestId('mm-people');
     expect(within(people).queryByTestId('mm-set-observer')).toBeNull();
@@ -581,25 +594,22 @@ describe('the canvas-update step (§7)', () => {
     expect(h.getMastermindUpdateStates).not.toHaveBeenCalled();
   });
 
-  it('is offered while round 2 runs, asks once because it ends the round, then starts through host_start_canvas_update', async () => {
-    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, startedAt: ago(5 * MIN) })]);
+  it('is offered once round 2 has ended (End round 2 does that), then starts through host_start_canvas_update with nothing to confirm', async () => {
+    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, startedAt: ago(10 * MIN), endedAt: ago(MIN) })]);
     renderHost({ flow: MM });
     // The update is the one blue button; previewing round 3 without it is a quiet link below.
     const start = await screen.findByTestId('mm-update-start');
     expect(start.textContent).toBe('Start canvas update');
     expect(screen.getByTestId('host-primary').textContent).toBe('Skip the update, preview round 3 tables');
     expect(screen.getByTestId('host-primary').className).not.toContain('bg-blue-600');
-    fireEvent.click(start);
-    expect((await screen.findByTestId('mm-update-confirm')).textContent).toMatch(/Round 2 has .* left\. Starting the canvas update ends it now/);
-    // The confirm names what the tap ends.
-    expect(screen.getByTestId('mm-update-yes').textContent).toBe('End Round 2 & start update');
     expect(h.hostStartCanvasUpdate).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByTestId('mm-update-yes'));
+    fireEvent.click(start);
+    expect(screen.queryByTestId('mm-update-confirm')).toBeNull();
     await waitFor(() => expect(h.hostStartCanvasUpdate).toHaveBeenCalledWith('ev-1'));
   });
 
   it('skipping the update asks once inline ("Owners won\'t get time to update their canvas."), Keep puts it back, Skip proceeds', async () => {
-    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, startedAt: ago(5 * MIN) })]);
+    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, startedAt: ago(10 * MIN), endedAt: ago(MIN) })]);
     renderHost({ flow: MM });
     await screen.findByTestId('mm-update-start');
     fireEvent.click(screen.getByTestId('host-primary'));
@@ -614,28 +624,151 @@ describe('the canvas-update step (§7)', () => {
     fireEvent.click(screen.getByTestId('host-primary'));
     fireEvent.click(screen.getByTestId('mm-skip-yes'));
     expect(screen.queryByTestId('mm-skip-confirm')).toBeNull();
-    // One confirm is enough: the preview that follows saves nothing, and the round runs until Start now.
+    // One confirm is enough: the preview that follows saves nothing.
     expect(screen.queryByTestId('host-next-confirm')).toBeNull();
   });
 
-  it('is offered in round 2 only: not before it is counted, and not in round 3 or 4', async () => {
+  it('is offered after round 2 only: not while any round runs, not after round 1, and not after round 3 or 4', async () => {
     setRounds([round({ startedAt: ago(5 * MIN) })]);
     const { unmount } = renderHost({ flow: MM });
     await screen.findByTestId('host-controls');
     await roomRead();
     expect(screen.queryByTestId('mm-update-start')).toBeNull();
-    expect(screen.getByTestId('host-primary').textContent).toBe('Preview next round');
+    expect(screen.getByTestId('host-primary').textContent).toBe('End round 1');
     unmount();
+    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, startedAt: ago(5 * MIN) })]);
+    const running2 = renderHost({ flow: MM });
+    await screen.findByTestId('host-controls');
+    await roomRead();
+    expect(screen.queryByTestId('mm-update-start'), 'round 2 still running: End round 2 first').toBeNull();
+    expect(screen.getByTestId('host-primary').textContent).toBe('End round 2');
+    running2.unmount();
+    setRounds([round({ endedAt: ago(MIN) })]);
+    const after1 = renderHost({ flow: MM });
+    await screen.findByTestId('host-controls');
+    await roomRead();
+    expect(screen.queryByTestId('mm-update-start')).toBeNull();
+    expect(screen.getByTestId('host-primary').textContent).toBe('Preview round 2 tables');
+    after1.unmount();
     for (const no of [3, 4]) {
       const earlier = Array.from({ length: no - 1 }, (_, i) => round({ id: `r${i + 1}`, roundNo: i + 1, endedAt: ago((no - i) * 20 * MIN) }));
-      setRounds([...earlier, round({ id: `r${no}`, roundNo: no, startedAt: ago(5 * MIN) })]);
+      setRounds([...earlier, round({ id: `r${no}`, roundNo: no, startedAt: ago(5 * MIN), endedAt: ago(MIN) })]);
       const view = renderHost({ flow: MM });
       await screen.findByTestId('host-controls');
       await roomRead();
       expect(screen.queryByTestId('mm-update-start')).toBeNull();
+      expect(screen.getByTestId('host-primary').textContent).toBe(`Preview round ${no + 1} tables`);
       expect(screen.getByTestId('host-primary').className).toContain('bg-blue-600');
       view.unmount();
     }
+  });
+});
+
+describe('End round: the one primary slot follows the state (founder 2026-11-10)', () => {
+  const renderHook_ = () => renderHost({ flow: MM });
+  const seats = { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] };
+  const primary = async () => (await screen.findByTestId('host-primary')).textContent;
+
+  it('during a round the primary is "End round N"; with time left it asks inline, and only that round ends', async () => {
+    setRounds([round({ startedAt: ago(10 * MIN) })], seats);
+    renderHost({ flow: MM });
+    await roomRead();
+    expect(await primary()).toBe('End round 1');
+    fireEvent.click(screen.getByTestId('host-primary'));
+    expect((await screen.findByTestId('host-next-confirm')).textContent).toMatch(/left in this round\. End it now\?/);
+    expect(screen.getByTestId('host-next-yes').textContent).toBe('End round 1');
+    expect(h.hostEndRound).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('host-next-yes'));
+    await waitFor(() => expect(h.hostEndRound).toHaveBeenCalledWith('ev-1'));
+    expect(h.hostEndRounds, 'not the evening').not.toHaveBeenCalled();
+    await waitFor(() => expect(h.refreshRounds).toHaveBeenCalled());
+    expect(h.hostStartCanvasUpdate).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('host-preview')).toBeNull();
+  });
+
+  it('"Keep going" calls nothing, and there is never a second primary', async () => {
+    setRounds([round({ startedAt: ago(10 * MIN) })], seats);
+    renderHost({ flow: MM });
+    await roomRead();
+    fireEvent.click(await screen.findByTestId('host-primary'));
+    fireEvent.click(await screen.findByText('Keep going'));
+    expect(screen.queryByTestId('host-next-confirm')).toBeNull();
+    expect(h.hostEndRound).not.toHaveBeenCalled();
+    expect(screen.getAllByTestId('host-primary')).toHaveLength(1);
+    expect(screen.queryByTestId('mm-update-start')).toBeNull();
+  });
+
+  it('once the clock is over, one tap ends the round, with nothing to ask', async () => {
+    setRounds([round({ startedAt: ago(60 * MIN) })], seats);
+    renderHost({ flow: MM });
+    await roomRead();
+    fireEvent.click(await screen.findByTestId('host-primary'));
+    await waitFor(() => expect(h.hostEndRound).toHaveBeenCalledWith('ev-1'));
+    expect(screen.queryByTestId('host-next-confirm')).toBeNull();
+  });
+
+  it('the nine-round cap does not hide "End round 9"', async () => {
+    const before = Array.from({ length: 8 }, (_, i) => round({ id: `r${i + 1}`, roundNo: i + 1, startedAt: ago((20 - i) * 30 * MIN), endedAt: ago((19 - i) * 30 * MIN) }));
+    setRounds([...before, round({ id: 'r9', roundNo: 9, startedAt: ago(10 * MIN) })], { r9: [seat('r9', 'm-a', 'first', 1), seat('r9', 'm-b', 'second', 1)] });
+    renderHost({ flow: MM });
+    await roomRead();
+    expect(await primary()).toBe('End round 9');
+  });
+
+  it('an ended round is "between rounds": next tables, the evening\'s end offered, no "Evening ended", no Reopen', async () => {
+    setRounds([round({ startedAt: ago(30 * MIN), endedAt: ago(MIN) })], seats);
+    renderHost({ flow: MM });
+    await roomRead();
+    expect(await primary()).toBe('Preview round 2 tables');
+    expect((await screen.findByTestId('host-round-title')).textContent).toBe('Round 1 ended');
+    expect(screen.queryByText('Evening ended')).toBeNull();
+    expect(screen.queryByTestId('host-reopen')).toBeNull();
+    expect(screen.queryByTestId('mm-people')).not.toBeNull();
+    fireEvent.click(screen.getByTestId('host-end-evening'));
+    fireEvent.click(screen.getByTestId('host-end-yes'));
+    await waitFor(() => expect(h.hostEndRounds).toHaveBeenCalledWith('ev-1'));
+  });
+
+  it('the host\'s stamp ends the evening (Evening ended, Reopen); a stamp older than the newest round does not (a Reopen started it)', async () => {
+    setRounds([round({ startedAt: ago(30 * MIN), endedAt: ago(MIN) })], seats);
+    h.eveningEnd = ago(MIN);
+    const over = renderHost({ flow: MM });
+    await screen.findByText('Evening ended');
+    expect(screen.getByTestId('host-reopen')).toBeTruthy();
+    expect(screen.queryByTestId('host-end-evening')).toBeNull();
+    over.unmount();
+    h.eveningEnd = ago(90 * MIN);
+    renderHost({ flow: MM });
+    await roomRead();
+    expect(await primary()).toBe('Preview round 2 tables');
+    expect(screen.queryByText('Evening ended')).toBeNull();
+  });
+
+  it('the evening can be ended DURING the canvas-update step, and its stamp then wins over the step', async () => {
+    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, startedAt: ago(20 * MIN), endedAt: ago(10 * MIN) })]);
+    h.step = { afterRoundId: 'r2', startedAt: ago(5 * MIN) };
+    const during = renderHook_();
+    await screen.findByTestId('host-update-title');
+    expect(screen.getByTestId('host-end-evening')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('host-end-evening'));
+    fireEvent.click(screen.getByTestId('host-end-yes'));
+    await waitFor(() => expect(h.hostEndRounds).toHaveBeenCalledWith('ev-1'));
+    during.unmount();
+    h.eveningEnd = ago(MIN); // after the step started (5 minutes ago)
+    renderHost({ flow: MM });
+    await screen.findByText('Evening ended');
+    expect(screen.queryByTestId('host-update-title')).toBeNull();
+    expect(screen.queryAllByTestId('mm-update-owner')).toHaveLength(0);
+    expect(screen.getByTestId('host-reopen')).toBeTruthy();
+  });
+
+  it('Clarity Night is unchanged: Next round, no End round, and the evening\'s end is never read', async () => {
+    setRounds([round({ startedAt: ago(10 * MIN), splitSpeakers: true })], seats);
+    renderHost();
+    expect(await primary()).toBe('Next round');
+    await settle();
+    expect(h.getEveningEnd).not.toHaveBeenCalled();
+    expect(h.hostEndRound).not.toHaveBeenCalled();
   });
 });
 
@@ -925,6 +1058,7 @@ describe('one representation of every person, per phase', () => {
 
   it('after the evening: no list, no live switches, no "Here"', async () => {
     setRounds([round({ endedAt: ago(MIN) })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    h.eveningEnd = ago(MIN); // the host's "End the evening" stamp
     renderHost({ flow: MM });
     await screen.findByText('Evening ended');
     await roomRead();

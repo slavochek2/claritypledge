@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   getCanvasUpdateStep,
+  getEveningEnd,
   getMastermindHostState,
   getMastermindUpdateStates,
   getPreviousSessionPartners,
@@ -22,7 +23,7 @@ import {
   type RecordingState,
   type UpdateState,
 } from '@/app/data/event-mastermind-service';
-import { ROUNDS_POLL_MS, seatKeys, type EventRound, type RoundSeat } from '@/app/data/event-rounds-service';
+import { ROUNDS_POLL_MS, hostEndRound, hostEndRounds, seatKeys, type EventRound, type RoundSeat } from '@/app/data/event-rounds-service';
 import { planMastermindRound, type MastermindSeatingPlan } from '@/lib/mastermind-seating';
 import { checkMastermindSeats, type SeatingProblem } from '@/lib/mastermind-seating-check';
 import { countedRounds } from '@/lib/round-numbering';
@@ -31,7 +32,7 @@ import type { Seat } from '@/lib/round-grouping';
 import type { EventRoomMember } from '@/app/types';
 import { eventFlow, type EventFlow, type FlowEvent } from '../series-recipes';
 import { describeProblem, isUnregistered, PLAN_NOT_READY } from './mastermind-host-helpers';
-import { updateStepOn } from './mastermind-round-helpers';
+import { GAP_POLL_MS, eveningEndedAfter, updateStepOn } from './mastermind-round-helpers';
 
 /** The same cadence as the page's "transcribing now" read: words can show this long after they are written, at most. */
 export const HOST_STATE_POLL_MS = 15_000;
@@ -74,6 +75,12 @@ export interface MastermindHost {
   stepOn: boolean;
   updateStates: Map<string, UpdateState>;
   startUpdate: () => Promise<void>;
+  /** The host's "End the evening" stamp is at or after the newest round's start. A round ended with no stamp is "between rounds". */
+  eveningOver: boolean;
+  /** Ends the newest round only ("End round N"). */
+  endRound: () => Promise<void>;
+  /** Ends the evening and reads the stamp at once (a phone between rounds waits on it). */
+  endEvening: () => Promise<void>;
 }
 
 interface Args {
@@ -86,9 +93,11 @@ interface Args {
   seatsByRound: Map<string, RoundSeat[]>;
   /** The people who can be seated (the host is not one). */
   members: EventRoomMember[];
+  /** Reads the rounds now: the host's own taps wait for it, so the screen never shows the state before the tap. */
+  refreshRounds?: () => Promise<void>;
 }
 
-export function useMastermindHost({ eventId, active, screen, rounds, seatsByRound, members }: Args): MastermindHost {
+export function useMastermindHost({ eventId, active, screen, rounds, seatsByRound, members, refreshRounds }: Args): MastermindHost {
   const [hostState, setHostState] = useState<Map<string, MastermindPerson> | null>(null);
   const [readAt, setReadAt] = useState(0);
   const [previous, setPrevious] = useState<[string, string][] | null>(null);
@@ -135,16 +144,36 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
     if (!eventId) return;
     try { setStep(await getCanvasUpdateStep(eventId)); } catch { /* keep what is shown */ }
   }, [eventId]);
-  // The step exists only after round 2. The host reads it when the rounds change; the projector, which has no other
-  // trigger, reads it on the rounds' own cadence.
+  const [eveningEnd, setEveningEnd] = useState<string | null>(null);
+  const readEvening = useCallback(async () => {
+    if (!eventId) return;
+    try { setEveningEnd(await getEveningEnd(eventId)); } catch { /* keep what is shown */ }
+  }, [eventId]);
+  // The host's stamp: the evening is over when it is at or after the newest round's start, and it wins over a step it came after.
+  const eveningOver = eveningEndedAfter(eveningEnd, rounds);
+  const stepOn = updateStepOn(step, rounds, eveningEnd);
+
+  // The step exists only after round 2: read when the rounds change (a visible tab only). Starting it AFTER "End round 2" changes
+  // nothing in the rounds, so the host's own tap reads it (startUpdate) and, for another device or the projector, it is also read
+  // every GAP_POLL_MS in that gap only: newest round ended, counted round 2, step not on, evening not over.
   useEffect(() => {
     if (!host || counted < 2) return;
     if (visibleNow()) void readStep();
-    if (!screen) return;
-    return startVisiblePoll(() => void readStep(), ROUNDS_POLL_MS);
-  }, [host, screen, counted, lastRound?.id, lastRound?.endedAt, readStep]);
+  }, [host, counted, lastRound?.id, lastRound?.endedAt, readStep]);
+  const watchStep = host && counted === 2 && !!lastRound?.endedAt && !stepOn && !eveningOver;
+  useEffect(() => {
+    if (!watchStep) return;
+    return startVisiblePoll(() => void readStep(), GAP_POLL_MS);
+  }, [watchStep, readStep]);
 
-  const stepOn = updateStepOn(step, rounds);
+  // Whether the host ended the evening: read only in the gap (newest round ended) and only until it is over, on the host's screen and
+  // the projector alike: once over, nothing polls. A running round needs no read: ending the evening ends it, and the gap that follows reads.
+  const watchEvening = host && !!lastRound?.endedAt && !eveningOver;
+  useEffect(() => {
+    if (!watchEvening) return;
+    if (visibleNow()) void readEvening();
+    return startVisiblePoll(() => void readEvening(), GAP_POLL_MS);
+  }, [watchEvening, readEvening]);
   // The owners' states are read only while the step is on.
   useEffect(() => {
     if (!host || screen || !stepOn || !eventId) return;
@@ -254,10 +283,24 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
     await readStep();
   }, [eventId, readStep]);
 
+  // The tap's own result is read before the host's button comes back (the rounds, then the gap reads start on their own).
+  const endRound = useCallback(async () => {
+    if (!eventId) return;
+    await hostEndRound(eventId);
+    await refreshRounds?.();
+  }, [eventId, refreshRounds]);
+
+  const endEvening = useCallback(async () => {
+    if (!eventId) return;
+    await hostEndRounds(eventId);
+    await readEvening();
+    await refreshRounds?.();
+  }, [eventId, readEvening, refreshRounds]);
+
   const people = useMemo(() => [...(hostState?.values() ?? [])], [hostState]);
 
   return {
     active, ready: !!hostState && previous !== null, warning, refresh: refreshState, previousFailed, personOf, people, recordingOf, isReady, setObserver, plan, check, guardOpen,
-    step, stepOn, updateStates, startUpdate,
+    step, stepOn, updateStates, startUpdate, eveningOver, endRound, endEvening,
   };
 }

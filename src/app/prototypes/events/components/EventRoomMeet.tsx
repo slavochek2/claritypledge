@@ -103,7 +103,7 @@ import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { RoomPreparation } from '../prep/RoomPreparation';
 import { EventSharedCanvases } from '@/app/components/canvas/event-shared-canvases';
-import { feedbackAlwaysOpen, defaultRoomStep, recipeForEvent } from '../series-recipes';
+import { feedbackAlwaysOpen, feedbackOpenAnytime, defaultRoomStep, recipeForEvent } from '../series-recipes';
 import { usePrepState, type PrepState } from '../prep/use-prep-state';
 import { ClarityContentLoader, ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { PrepFlow } from '../prep/EventPrepPage';
@@ -484,6 +484,7 @@ export function EventRoomMeet() {
       viewing={learning ? null : feedback ? 'close' : viewing}
       onSelect={onStep}
       hidden={hiddenSteps}
+      closeOpen={feedbackOpenAnytime(event)}
       labels={roomRecipe.room.steps ? { principle: roomRecipe.room.steps.principle, close: roomRecipe.room.steps.close } : undefined}
       learn={learnsInBar && event
         // Round 6 (G): moving between the room's own steps REPLACES, so the room is one history entry and Back

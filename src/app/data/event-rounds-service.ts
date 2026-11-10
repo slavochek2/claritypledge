@@ -242,6 +242,16 @@ export async function hostEndRounds(eventId: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * P1529: ends the newest round only (the Sales Mastermind's "End round N"); its transcript is cut there. Idempotent: true when
+ * this call ended it, false when there was nothing open. The evening stays on: phones read the gap as "between rounds".
+ */
+export async function hostEndRound(eventId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('host_end_round', { p_event: eventId });
+  if (error) throw error;
+  return data === true;
+}
+
 export interface RoundPresence {
   memberId: string;
   leftAt: string | null;

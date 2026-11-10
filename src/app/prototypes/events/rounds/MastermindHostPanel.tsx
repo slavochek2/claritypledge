@@ -15,7 +15,6 @@ import { AudioLines, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { EventRoomMember } from '@/app/types';
-import { formatClock } from '@/lib/round-clock';
 import { comesAtDoors } from '@/app/data/registration-answer-model';
 import { MIC_HINTS } from '../prep/PrepMarks';
 import { Avatar } from './host-screen-parts';
@@ -37,9 +36,6 @@ const COPY = {
   updateTitle: 'Canvas update',
   updatePublished: (done: number, all: number) => `${done} of ${all} published`,
   updateStart: 'Start canvas update',
-  updateConfirm: (label: string, left: string) => `${label} has ${left} left. Starting the canvas update ends it now.`,
-  updateEnd: (label: string) => `End ${label} & start update`,
-  updateKeep: 'Keep going',
   skipConfirm: "Owners won't get time to update their canvas.",
   skipYes: 'Skip the update',
   skipKeep: 'Keep',
@@ -85,37 +81,12 @@ export function SilentTablesBanner({ nos }: { nos: number[] }) {
 }
 
 /**
- * The canvas-update step's start (the primary action while round 2 runs). The server ends the running round when the step starts
- * (its transcript is cut there): a round with time on the clock asks once, inline, and the button says what it ends.
+ * The canvas-update step's start, offered once round 2 has ended (the host ends the round with "End round 2"; starting the step
+ * does not end anything that is still running). A round that is still on never reaches here.
  */
-export function CanvasUpdateStart({ round, onStart, busy }: {
-  round: { label: string; leftMs: number | null };
-  onStart: () => void;
-  busy: boolean;
-}) {
-  const [confirm, setConfirm] = useState(false);
-  const ask = round.leftMs !== null && round.leftMs > 0;
-  if (confirm && ask) {
-    return (
-      <div className="mt-4 rounded-lg border border-border p-3 text-sm" data-testid="mm-update-confirm">
-        <p>{COPY.updateConfirm(round.label, formatClock(round.leftMs as number))}</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Button type="button" className="min-h-11" disabled={busy} onClick={() => { setConfirm(false); onStart(); }} data-testid="mm-update-yes">
-            {COPY.updateEnd(round.label)}
-          </Button>
-          <Button type="button" variant="ghost" className="min-h-11" onClick={() => setConfirm(false)}>{COPY.updateKeep}</Button>
-        </div>
-      </div>
-    );
-  }
+export function CanvasUpdateStart({ onStart, busy }: { onStart: () => void; busy: boolean }) {
   return (
-    <Button
-      type="button"
-      className="mt-4 min-h-12 w-full text-base"
-      disabled={busy}
-      onClick={ask ? () => setConfirm(true) : onStart}
-      data-testid="mm-update-start"
-    >
+    <Button type="button" className="mt-4 min-h-12 w-full text-base" disabled={busy} onClick={onStart} data-testid="mm-update-start">
       {COPY.updateStart}
     </Button>
   );

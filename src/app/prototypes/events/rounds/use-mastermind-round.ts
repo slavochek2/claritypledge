@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getCanvasUpdateStep,
+  getEveningEnd,
   getMyDraftRef,
   getMyEventCanvas,
   getMyNextVersionOffer,
@@ -18,15 +19,22 @@ import {
   type NextVersionOffer,
   type RoundCanvas,
 } from '@/app/data/event-mastermind-service';
+import { startVisiblePoll } from '@/lib/visible-poll';
+import { whenVisible } from '../when-visible';
+import { countedRounds } from '@/lib/round-numbering';
+import type { EventRound } from '@/app/data/event-rounds-service';
 import { canvasService, type SharedCanvasRef } from '@/app/data/canvas-service';
 import { getCanvasDraftState, publishCanvasDraft, retryCanvasRun } from '@/app/data/canvas-draft-service';
 import {
   NOTE_FAILED,
   PUBLISH_REFUSED,
   RETRY_REFUSED,
+  GAP_POLL_MS,
+  eveningEndedAfter,
   nextVersionNote,
   offerCanChange,
   updateCanChange,
+  updateStepOn,
   type TaskNote,
 } from './mastermind-round-helpers';
 
@@ -80,16 +88,73 @@ export function useEventCanvasChoices(eventId: string, enabled: boolean, roundId
   return { list: mine?.list ?? [], failed: !mine || mine.failed };
 }
 
-/** The update step the host started: re-read when the rounds change (starting it ends the round; the next round ends it). */
-export function useUpdateStep(eventId: string, enabled: boolean, roundsKey: string): CanvasUpdateStep | null {
+/**
+ * The update step the host started: re-read when the rounds change (a round that ends with the step starting changes them). Starting the
+ * step after "End round 2" changes nothing in the rounds, so `watch` (the gap after counted round 2, step not seen yet, evening not over)
+ * also reads it every GAP_POLL_MS, on a visible tab only.
+ */
+export function useUpdateStep(eventId: string, enabled: boolean, roundsKey: string, watch = false, rounds: ReadonlyArray<{ id: string; endedAt: string | null }> = []): CanvasUpdateStep | null {
   const [step, setStep] = useState<CanvasUpdateStep | null>(null);
+  const read = useCallback(async () => {
+    try { setStep(await getCanvasUpdateStep(eventId)); } catch { /* keep what is shown */ }
+  }, [eventId]);
+  // A hidden tab makes no request: the read waits for the tab to be shown (when-visible.ts).
   useEffect(() => {
     if (!enabled) return;
-    let live = true;
-    getCanvasUpdateStep(eventId).then(s => { if (live) setStep(s); }).catch(() => { /* keep what is shown */ });
-    return () => { live = false; };
-  }, [eventId, enabled, roundsKey]);
+    return whenVisible(() => void read());
+  }, [enabled, read, roundsKey]);
+  const seen = updateStepOn(step, rounds);
+  useEffect(() => {
+    if (!enabled || !watch || seen) return;
+    return startVisiblePoll(() => void read(), GAP_POLL_MS);
+  }, [enabled, watch, seen, read]);
   return step;
+}
+
+/**
+ * When the host ended the evening (null: not ended; undefined: not read yet). Read only while `watch` (no round on, rounds behind us,
+ * event not closed) and the evening is not over: once over it is never read again; a round running needs no read (ending the evening
+ * ends it, and the next watch starts with a read). The first read and the poll both wait for a visible tab (startVisiblePoll's own
+ * rule). Cost: GAP_POLL_MS (3600 / 8 = 450 an hour per visible phone between rounds, 0 otherwise).
+ */
+export function useEveningEnd(eventId: string, enabled: boolean, rounds: ReadonlyArray<{ startedAt: string }>, watch: boolean): string | null | undefined {
+  // undefined: not read yet (the card then shows neither "between rounds" nor "over"); a failed first read counts as not ended.
+  // Stored with its event: a value read for another event is never this one's (switching events carries no stamp across).
+  const [read0, setRead0] = useState<{ eventId: string; endedAt: string | null } | null>(null);
+  const endedAt = read0 && read0.eventId === eventId ? read0.endedAt : undefined;
+  const read = useCallback(async () => {
+    try { setRead0({ eventId, endedAt: await getEveningEnd(eventId) }); } catch { setRead0(prev => (prev && prev.eventId === eventId ? prev : { eventId, endedAt: null })); }
+  }, [eventId]);
+  const active = enabled && watch && !eveningEndedAfter(endedAt ?? null, rounds);
+  useEffect(() => {
+    if (!active) return;
+    if (document.visibilityState !== 'hidden') void read();
+    return startVisiblePoll(() => void read(), GAP_POLL_MS);
+  }, [active, read]);
+  return endedAt;
+}
+
+/**
+ * The gap between rounds, as a phone reads it: the evening's stamp and the update step (see the two hooks above), and what follows.
+ * The stamp wins over a step it came after, so the host ending the evening during the step ends it for the phones too.
+ */
+export function useRoundsGap({ eventId, enabled, rounds, round, ended, roundsKey }: {
+  eventId: string;
+  enabled: boolean;
+  rounds: readonly EventRound[];
+  /** The round that is on, if any. */
+  round: unknown;
+  /** The event itself has closed. */
+  ended: boolean;
+  roundsKey: string;
+}) {
+  const gap = !ended && !round && rounds.length > 0;
+  const eveningEnd = useEveningEnd(eventId, enabled, rounds, gap);
+  const stampOver = eveningEndedAfter(eveningEnd ?? null, rounds);
+  const step = useUpdateStep(eventId, enabled, roundsKey, gap && !stampOver && countedRounds(rounds) === 2, rounds);
+  const stepOn = updateStepOn(step, rounds, eveningEnd ?? null);
+  const idle = gap && !stepOn;
+  return { eveningEnd, stepOn, eveningOver: idle && stampOver, betweenRounds: idle && eveningEnd !== undefined && !stampOver, idle };
 }
 
 export interface OwnerUpdate {

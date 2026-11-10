@@ -8,7 +8,9 @@
  *   - Steps behind you can be tapped, to look back; steps ahead cannot (they come with the moment).
  *   - Close stays greyed until the host ends the evening; then it is the current step and opens
  *     the closing sequence (P1389 — until that is built, a plain end screen). Inside Close,
- *     progress reads "2 of 8", never a second bar.
+ *     progress reads "2 of 8", never a second bar. A series whose Feedback is open at any time (the
+ *     sales mastermind, `closeOpen`) lets it be tapped before then; it still becomes the current step
+ *     only when the host ends the evening.
  */
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -36,8 +38,9 @@ const order = (step: RoomStep) => ROOM_STEPS.findIndex(s => s.key === step);
  * ends. Table and Compare belong to a running round — once the evening has closed there is no
  * table to go back to, and no readiness to prepare.
  */
-export function canOpenStep(step: RoomStep, current: RoomStep): boolean {
-  if (step === 'close') return current === 'close';
+export function canOpenStep(step: RoomStep, current: RoomStep, closeOpen = false): boolean {
+  // `closeOpen`: this series' Feedback can be opened at any time (feedbackOpenAnytime), though the current step is still the round's.
+  if (step === 'close') return closeOpen || current === 'close';
   // P1542 review: nor readiness — the evening is over (frozen, or the host ended it), as the room's Back says.
   if (current === 'close' && (step === 'ready' || step === 'table' || step === 'compare')) return false;
   return order(step) <= order(current);
@@ -52,6 +55,7 @@ export function RoomSteps({
   labels,
   learn,
   done: doneOverride,
+  closeOpen = false,
 }: {
   /** Where the evening has the person now. */
   current: RoomStep;
@@ -78,6 +82,8 @@ export function RoomSteps({
    *  A hike ticks Opt in only once it was answered and Give feedback once it is finished. A step given here carries
    *  its tick even while it is the one on screen (the tick means "done", not "behind you"). */
   done?: Partial<Record<RoomStep, boolean>>;
+  /** P1529: Feedback is open before it is the current step (the mastermind's, open at any time). Absent = only when current. */
+  closeOpen?: boolean;
 }) {
   // P1430 (founder walkthrough 9): done steps carry a check and a muted label, the step on screen
   // is bold with a thicker bar, steps ahead are grey. A step that cannot open says so (aria-disabled)
@@ -125,10 +131,10 @@ export function RoomSteps({
         )}
         {ROOM_STEPS.filter(({ key }) => !hidden.includes(key)).map(({ key, label: shared }) => {
           const label = labels?.[key] ?? shared;
-          const open = canOpenStep(key, current);
+          const open = canOpenStep(key, current, closeOpen);
           const explicit = doneOverride?.[key];
           const done = explicit ?? order(key) < order(current);
-          const reached = order(key) <= order(current);
+          const reached = order(key) <= order(current) || (key === 'close' && closeOpen);
           const shown = key === viewing;
           return (
             <li key={key}>

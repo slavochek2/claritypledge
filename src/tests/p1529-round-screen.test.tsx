@@ -24,6 +24,9 @@ const h = vi.hoisted(() => ({
   getCanvasDraftState: vi.fn(),
   classicProps: vi.fn(),
   listSharedWithEvent: vi.fn(),
+  getEveningEnd: vi.fn(),
+  // The room capture context, as the round card reads it: capturing by default (the mic step has its own tests, p1529-round-mic.test.tsx).
+  capture: {} as Record<string, unknown>,
 }));
 
 vi.mock('@/app/prototypes/events/rounds/use-event-rounds', async importOriginal => {
@@ -39,7 +42,9 @@ vi.mock('@/app/data/event-mastermind-service', () => ({
   getCanvasUpdateStep: h.getCanvasUpdateStep,
   getMyDraftRef: h.getMyDraftRef,
   getMyEventCanvas: h.getMyEventCanvas,
+  getEveningEnd: h.getEveningEnd,
 }));
+vi.mock('@/app/contexts/room-capture-context', () => ({ useRoomCapture: () => h.capture }));
 vi.mock('@/app/data/canvas-service', () => ({ canvasService: { listSharedWithEvent: h.listSharedWithEvent } }));
 vi.mock('@/app/data/canvas-draft-service', () => ({
   publishCanvasDraft: h.publishCanvasDraft,
@@ -96,6 +101,8 @@ function renderCard(selfMember: EventRoomMember, props: { view?: 'table' | 'comp
 beforeEach(() => {
   resetTaskOpen();
   vi.clearAllMocks();
+  h.capture = { phase: 'capturing', isCapturingForEvent: () => true, micLost: false, tapDown: false, stopping: false, startCapture: vi.fn(), reconnectMic: vi.fn() };
+  h.getEveningEnd.mockResolvedValue(null);
   h.server = {
     canvas: { ownerProfileId: 'p-owner', ownerSlug: 'haru', canvasName: 'launch_plan', shared: true },
     offer: OPEN, update: NOT_TAPPED, step: null,
@@ -293,7 +300,7 @@ describe('P1529 round screen: the moment the room page reads', () => {
     expect(onMoment).toHaveBeenCalledWith(expect.objectContaining({ seated: false, waiting: true }));
   });
 
-  it('the host\'s canvas-update step is not "the evening is over"; without it, rounds that ended are', async () => {
+  it('the host\'s canvas-update step is not "the evening is over"; a round that ended is "between rounds" until the host ends the evening', async () => {
     betweenRounds();
     h.server.step = { afterRoundId: 'r1', startedAt: new Date().toISOString() };
     const onMoment = vi.fn();
@@ -301,9 +308,20 @@ describe('P1529 round screen: the moment the room page reads', () => {
     await waitFor(() => expect(onMoment).toHaveBeenLastCalledWith(expect.objectContaining({ eveningOver: false, waiting: true })));
     unmount();
     h.server.step = null;
+    // No stamp from the host: the round ended on its own, the evening goes on.
+    const between = vi.fn();
+    const second = renderCard(OWNER, { onMoment: between });
+    expect((await screen.findByTestId('mastermind-between')).textContent).toBe('Round 1 is overThe next round starts soon.');
+    expect(between).toHaveBeenLastCalledWith(expect.objectContaining({ eveningOver: false, waiting: true }));
+    expect(screen.queryByTestId('mastermind-over')).toBeNull();
+    second.unmount();
+    // The host ended the evening: the stamp is at or after the newest round's start.
+    h.getEveningEnd.mockResolvedValue(new Date(Date.now() + 1000).toISOString());
     const again = vi.fn();
     renderCard(OWNER, { onMoment: again });
     await waitFor(() => expect(again).toHaveBeenLastCalledWith(expect.objectContaining({ eveningOver: true })));
+    expect(screen.queryByTestId('mastermind-between')).toBeNull();
+    expect(screen.getByTestId('mastermind-over').textContent).toBe('The rounds are over');
   });
 });
 
@@ -591,12 +609,51 @@ describe('P1529: Clarity Night and Social Hike keep their round card', () => {
 });
 
 describe('P1529: the step bar', () => {
-  it('the mastermind room has Principle and Table only; Clarity Night and the hike keep theirs', async () => {
+  it('the mastermind room has Principle, Table and Feedback (open at any time); Clarity Night and the hike keep theirs', async () => {
     const { hiddenRoomSteps } = await import('@/app/prototypes/events/rounds/hidden-room-steps');
     const { SALES_MASTERMIND_RECIPE, CLARITY_NIGHT_RECIPE, SOCIAL_HIKE_RECIPE } = await import('@/app/prototypes/events/series-recipes');
-    expect(hiddenRoomSteps(SALES_MASTERMIND_RECIPE).sort()).toEqual(['close', 'compare', 'ready']);
+    expect(hiddenRoomSteps(SALES_MASTERMIND_RECIPE).sort()).toEqual(['compare', 'ready']);
     expect(hiddenRoomSteps(CLARITY_NIGHT_RECIPE)).toEqual([]);
     expect(hiddenRoomSteps(SOCIAL_HIKE_RECIPE).sort()).toEqual(['compare', 'ready', 'table']);
   });
 });
 
+
+describe('P1529 round screen: the gap after round 2 (End round 2 first, then the step or the evening\'s end)', () => {
+  const twoEnded = () => liveRound(
+    [round({ id: 'r1', endedAt: new Date(Date.now() - 120_000).toISOString() }), round({ id: 'r2', roundNo: 2, startedAt: new Date(Date.now() - 60_000).toISOString(), endedAt: new Date(Date.now() - 30_000).toISOString() })],
+    { r1: [], r2: [] },
+  );
+
+  it('a step the host starts AFTER the round ended (nothing in the rounds changes) is picked up by the gap read', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    twoEnded();
+    renderCard(OWNER);
+    expect((await screen.findByTestId('mastermind-between')).textContent).toContain('Round 2 is over');
+    h.server.step = { afterRoundId: 'r2', startedAt: new Date().toISOString() };
+    await act(async () => { await vi.advanceTimersByTimeAsync(8200); });
+    await waitFor(() => expect(screen.queryByTestId('mastermind-between')).toBeNull());
+  });
+
+  it('the host ending the evening DURING the step wins over the step: the evening is over, the step is not on', async () => {
+    twoEnded();
+    h.server.step = { afterRoundId: 'r2', startedAt: new Date(Date.now() - 20_000).toISOString() };
+    h.getEveningEnd.mockResolvedValue(new Date(Date.now() - 5_000).toISOString());
+    const onMoment = vi.fn();
+    renderCard(OWNER, { onMoment });
+    await waitFor(() => expect(onMoment).toHaveBeenLastCalledWith(expect.objectContaining({ eveningOver: true })));
+    expect(screen.getByTestId('mastermind-over')).toBeTruthy();
+    expect(screen.queryByTestId('mastermind-between')).toBeNull();
+  });
+
+  it('a stamp from before the step started does not end it: the step stays on', async () => {
+    twoEnded();
+    h.server.step = { afterRoundId: 'r2', startedAt: new Date(Date.now() - 5_000).toISOString() };
+    h.getEveningEnd.mockResolvedValue(new Date(Date.now() - 50_000).toISOString());
+    const onMoment = vi.fn();
+    renderCard(OWNER, { onMoment });
+    await waitFor(() => expect(h.getCanvasUpdateStep).toHaveBeenCalled());
+    await waitFor(() => expect(onMoment).toHaveBeenLastCalledWith(expect.objectContaining({ eveningOver: false })));
+    expect(screen.queryByTestId('mastermind-over')).toBeNull();
+  });
+});

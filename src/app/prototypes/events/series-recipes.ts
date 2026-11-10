@@ -88,8 +88,6 @@ export interface SeriesRecipe {
   /** P1529: tables are about one canvas; seating, round words and host screen follow the mastermind's rules. */
   mastermind?: boolean;
   room: {
-    /** P1529: false = no Close step in the room (the exit card is on paper). Absent = the room has one. */
-    closeInApp?: boolean;
     /** The "how up for thinking are you" step before the room (and the Ready step in the bar). */
     readiness: boolean;
     /** The rounds: Table and Compare. */
@@ -97,6 +95,9 @@ export interface SeriesRecipe {
     /** Feedback is open to anyone registered at any time — before, during and after the event — with no host
      *  "End the evening" (founder 2026-10-26: a hike's Give feedback is never greyed out). False = the host ends it. */
     feedbackAlwaysOpen: boolean;
+    /** P1529: Feedback can be opened at any time, but the room's CURRENT step stays the round's until the host ends the evening, when
+     *  the phones land on it (a hike's `feedbackAlwaysOpen` makes it the current step always: it has no rounds). Absent = false. */
+    feedbackAnytime?: boolean;
     /** The principle decision's question, in the room and in the preparation. */
     principleQuestion: { room: string; prepare: string };
     /** The step bar's words where they differ from the shared ones, plus an optional "Learn" step first
@@ -216,14 +217,24 @@ export const SOCIAL_HIKE_RECIPE: SeriesRecipe = {
 
 /**
  * P1529: the sales mastermind. Preparation is the learning, optional at the room's door so nobody without a
- * canvas is turned away (D5, D20). The room is Principle · Table; no statement Compare, no Ready, no close in
- * the app for session 1 (the exit card is on paper). Registration asks its questions before the seat (D16).
+ * canvas is turned away (D5, D20). The room is Principle · Table · Feedback; no statement Compare, no Ready.
+ * Feedback is the hikes' step: open at any time (`feedbackAnytime`), the room lands on it when the host ends the evening, its
+ * card is the intro (`closeIntro: false`) and the CMP re-check is one step. What stays the Clarity Night's: the quote box
+ * (`appreciate`, the server derives consent by series, so the box is right here) and the personal asks. Registration asks its
+ * questions before the seat (D16).
  */
 export const SALES_MASTERMIND_RECIPE: SeriesRecipe = {
   ...CLARITY_NIGHT_RECIPE,
+  // No topic vote, as after a hike. [FOUNDER DECISION: copy and steps, proposed]
+  close: ['score', 'positions', 'stance', 'improve', 'appreciate', 'asks'],
+  closeIntro: false,
+  cmpOneStep: true,
+  roomClose: { title: null, body: 'Takes 2 minutes', heading: 'How was the evening?', cta: 'Start now', finished: 'Thanks, your feedback is in.' },
+  // The thank-you's next-event invitation is Clarity Night's ("Join the next Clarity Night"): not offered here.
+  next: null,
   prepare: { ...CLARITY_NIGHT_RECIPE.prepare, steps: ['story', 'principle', 'cmp7', 'canvas'], optional: true, keepFinished: true },
   // Founder UAT round 1: "Learn and prepare" stays in the room's step bar for everyone, done or not, as on the hikes (their pattern).
-  room: { ...CLARITY_NIGHT_RECIPE.room, readiness: false, closeInApp: false, steps: { learn: 'Learn and prepare', principle: 'Principle', close: 'Feedback' } },
+  room: { ...CLARITY_NIGHT_RECIPE.room, readiness: false, feedbackAnytime: true, steps: { learn: 'Learn and prepare', principle: 'Principle', close: 'Feedback' } },
   registrationQuestions: true,
   mastermind: true,
 };
@@ -295,6 +306,12 @@ export function resolveCloseSteps(recipe: SeriesRecipe, c: CloseConditions): Res
  *  "End the evening". Submitting early is fine: the submit time is recorded. */
 export function feedbackAlwaysOpen(event: Pick<Event, 'seriesSlug' | 'flow'> | null | undefined): boolean {
   return !!event && recipeForEvent(event).room.feedbackAlwaysOpen;
+}
+
+/** P1529: Feedback can be opened at any time: a hike's always-open, or a rounds room's `feedbackAnytime` (the sales mastermind). */
+export function feedbackOpenAnytime(event: Pick<Event, 'seriesSlug' | 'flow'> | null | undefined): boolean {
+  const room = event ? recipeForEvent(event).room : null;
+  return !!room && (room.feedbackAlwaysOpen || room.feedbackAnytime === true);
 }
 
 /** The room offers the preparation: required by the event's flag, or optional by the series' recipe. */

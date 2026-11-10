@@ -145,8 +145,16 @@ export async function startTranscribingInRoom(page: Page, eventSlug: string): Pr
  * starts the proposed tables.
  */
 export async function openHostPreview(page: Page): Promise<void> {
+  // P1529: the sales mastermind's primary is "End round N" while a round runs (it ends only that round, asking once when time is left);
+  // the next round's tables are previewed once it has ended.
+  if ((await page.getByTestId('host-primary').textContent())?.startsWith('End round')) {
+    await page.getByTestId('host-primary').click();
+    const end = page.getByTestId('host-next-yes');
+    if (await end.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) await end.click();
+    await expect(page.getByTestId('host-primary')).not.toHaveText(/^End round/, { timeout: 30_000 });
+  }
   await page.getByTestId('host-primary').click();
-  // While round 2 runs the primary is "Skip the update...", which asks once first ("Owners won't get time to update their canvas.").
+  // Once round 2 has ended the primary is "Skip the update...", which asks once first ("Owners won't get time to update their canvas.").
   const skip = page.getByTestId('mm-skip-yes');
   if (await skip.waitFor({ state: 'visible', timeout: 500 }).then(() => true, () => false)) await skip.click();
   const yes = page.getByTestId('host-next-yes');

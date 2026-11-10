@@ -78,6 +78,7 @@ test('migration objects exist and are not client-callable where they must not be
     ['get_mastermind_host_state', { p_event: nobody }],
     ['get_my_update_state', { p_event: nobody }],
     ['record_event_canvas_open', { p_round: nobody, p_owner: nobody }],
+    ['host_end_round', { p_event: nobody }],
   ];
   for (const [fn, args] of calls) {
     const r = await supabaseAdmin.rpc(fn, args as never);
@@ -271,6 +272,59 @@ test('seat guard: an unregistered room member cannot be seated in a mastermind e
   await register(Z, SG.slug);
   const r2 = await host.client.rpc('host_start_round', { p_event_id: SG.id, p_round_no: 2, p_group_size: 3, p_seats: [seat(X, 1, 'first'), seat(Z, 1, 'second')] });
   expect(r2.error, `after registering: ${r2.error?.message}`).toBeNull();
+});
+
+test('end round: host only, the newest round only, idempotent, Sales Mastermind only; the evening has its own stamp (20261110090000)', async () => {
+  const ER = await makeEvent(ledger, host.user, `P1529 QA db end round ${randomUUID().slice(0, 4)}`, { startsInMs: 0 });
+  const erRoom = await makeTranscribeRoom(ledger, ER);
+  stoppers.push(await keepRoomOpen(ledger, host.user, erRoom));
+  await register(X, ER.slug); await register(Y, ER.slug);
+  for (const p of [X, Y]) await joinRoom(ledger, p, ER, { transcribeRoom: erRoom });
+  expect((await shareForEvent(X, ER.id)).status).toBe('ok');
+  expect((await shareForEvent(Y, ER.id)).status).toBe('ok');
+  const sit = (p: Person, t: number, r: string) => ({ m: p.room.get(ER.id), t, r });
+  const start = async (no: number, owner: Person, partner: Person) => {
+    const res = await host.client.rpc('host_start_round', { p_event_id: ER.id, p_round_no: no, p_group_size: 3, p_seats: [sit(owner, 1, 'first'), sit(partner, 1, 'second')] });
+    expect(res.error, `round ${no}: ${res.error?.message}`).toBeNull();
+    return res.data as string;
+  };
+  const endedAt = async (round: string) => (await supabaseAdmin.from('event_rounds').select('ended_at').eq('id', round).single()).data!.ended_at as string | null;
+  const r1 = await start(1, X, Y);
+  // host only
+  expect((await X.client.rpc('host_end_round', { p_event: ER.id })).error?.code, 'an attendee').toBe('42501');
+  expect(await endedAt(r1), 'refused: still open').toBeNull();
+  // ends the round; idempotent
+  expect((await host.client.rpc('host_end_round', { p_event: ER.id })).data, 'ended it').toBe(true);
+  const first = await endedAt(r1);
+  expect(first).not.toBeNull();
+  expect((await host.client.rpc('host_end_round', { p_event: ER.id })).data, 'a second call has nothing to end').toBe(false);
+  expect(await endedAt(r1), 'and changes nothing').toBe(first);
+  // no stamp: a round that ended is "between rounds", not the evening's end
+  expect((await supabaseAdmin.from('event_evening_ends').select('*', { count: 'exact', head: true }).eq('event_id', ER.id)).count).toBe(0);
+  // the newest round only
+  const r2 = await start(2, Y, X);
+  expect((await host.client.rpc('host_end_round', { p_event: ER.id })).data).toBe(true);
+  expect(await endedAt(r2)).not.toBeNull();
+  expect(await endedAt(r1), 'round 1 was not touched').toBe(first);
+  // the evening: host_end_rounds stamps it, at or after the newest round's start; a member of the event reads the stamp
+  const r3 = await start(3, X, Y);
+  expect((await host.client.rpc('host_end_rounds', { p_event_id: ER.id })).error).toBeNull();
+  const stamp = await supabaseAdmin.from('event_evening_ends').select('ended_at').eq('event_id', ER.id).single();
+  expect(new Date(stamp.data!.ended_at).getTime()).toBeGreaterThanOrEqual(new Date((await supabaseAdmin.from('event_rounds').select('started_at').eq('id', r3).single()).data!.started_at).getTime());
+  expect(await endedAt(r3)).not.toBeNull();
+  const read = await X.client.from('event_evening_ends').select('ended_at').eq('event_id', ER.id);
+  expect(read.error).toBeNull();
+  expect(read.data, 'the stamp is readable with the rounds (can_see_event_rounds)').toHaveLength(1);
+  // Z never registered or joined this event's room: not a reader (the gate is the rounds', not "any visible event")
+  const outsider = await Z.client.from('event_evening_ends').select('ended_at').eq('event_id', ER.id);
+  expect(outsider.error).toBeNull();
+  expect(outsider.data, 'a non-member reads no stamp').toEqual([]);
+  // a client cannot write it
+  expect((await X.client.from('event_evening_ends').insert({ event_id: ER.id })).error, 'no client write').not.toBeNull();
+  // Clarity Night: the function refuses by flow
+  const CN = await createTestEvent(host.user.user.id, new Date(), { title: `P1529 QA db end round CN ${randomUUID().slice(0, 4)}` });
+  ledger.events.push(CN);
+  expect((await host.client.rpc('host_end_round', { p_event: CN.id })).error?.code).toBe('22023');
 });
 
 test('waiting list: only when full; not a seat; once; the host reads it in order; others cannot; leaving', async () => {

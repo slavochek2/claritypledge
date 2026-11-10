@@ -16,14 +16,17 @@ import { currentRound, EMPTY_ROUNDS_STATE, type EventRoundsState } from '@/app/d
 import { recordCanvasOpen } from '@/app/data/event-mastermind-service';
 import { canvasPageHref } from '@/app/pages/chat/canvas-links';
 import { workspaceHref } from '@/lib/canvas-hrefs';
-import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
+import { roundLabel } from '@/lib/round-numbering';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import type { RoundMoment } from './RoundCard';
 import { roundsPolling, shortName, useEventRounds } from './use-event-rounds';
-import { useEventCanvasChoices, useOwnerUpdate, useRoundCanvas, useUpdateStep } from './use-mastermind-round';
+import { useEventCanvasChoices, useOwnerUpdate, useRoundCanvas, useRoundsGap } from './use-mastermind-round';
+import { useRoundMic } from './use-round-mic';
+import { MastermindMicStep } from './MastermindMicStep';
 import { MastermindUpdateTask } from './MastermindUpdateTask';
 import { useTaskOpen } from './task-open-store';
-import { MISSING_NAME, mastermindTable, tableLines, taskFace, updateStepOn } from './mastermind-round-helpers';
+import { MISSING_NAME, mastermindTable, tableLines, taskFace } from './mastermind-round-helpers';
+import { MastermindWaiting } from './MastermindWaiting';
 
 export function MastermindRoundCard({
   eventId,
@@ -58,14 +61,10 @@ export function MastermindRoundCard({
   const last = state.rounds[state.rounds.length - 1];
   const roundsKey = `${last?.id ?? ''}:${last?.endedAt ?? ''}`;
 
-  const step = useUpdateStep(eventId, !!self, roundsKey);
-  const stepOn = updateStepOn(step, state.rounds);
-  const eveningOver = !ended && !round && state.rounds.length > 0 && !stepOn;
+  // The gap between rounds: the evening's stamp and the update step, and what follows (the stamp wins over a step it came after).
+  const { eveningEnd, stepOn, eveningOver, betweenRounds, idle } = useRoundsGap({ eventId, enabled: !!self, rounds: state.rounds, round, ended, roundsKey });
   const waiting = !seated && !eveningOver && !(ended && !live);
-  useEffect(() => {
-    onMoment?.({ seated, atTable: false, eveningOver, live, waiting });
-  }, [onMoment, seated, eveningOver, live, waiting]);
-
+  useEffect(() => { onMoment?.({ seated, atTable: false, eveningOver, live, waiting }); }, [onMoment, seated, eveningOver, live, waiting]);
   const started = state.rounds.length > 0;
   useEffect(() => { onRoundsStarted?.(started); }, [onRoundsStarted, started]);
 
@@ -76,6 +75,8 @@ export function MastermindRoundCard({
   // The canvas chosen in the selector for one round; null (or another round's) is the table's own. Never seating.
   const [pick, setPick] = useState<{ roundId: string; ownerId: string } | null>(null);
   const [taskOpen, setTaskOpen] = useTaskOpen(`${eventId}:${owner.offer?.roundId ?? ''}`);
+  // Mic first: a seated person whose mic is not capturing sees only the mic step (hooks stay above every return).
+  const mic = useRoundMic({ eventId, roundId: round?.id ?? null, displayName: self?.displayName ?? 'Participant', seated });
 
   if (!self) return null;
 
@@ -98,27 +99,19 @@ export function MastermindRoundCard({
   );
 
   if (!seated || !mine) {
-    const card = waiting && view === 'table' && (
-      <section className="rounded-xl border border-border bg-card p-5" data-testid="mastermind-waiting">
-        <h2 className="text-xl font-semibold">
-          {!round
-            ? `${nextRoundLabel(state.rounds, false)} starts soon`
-            : round.showcase
-              ? 'Demo · You watch'
-              : `${roundLabel(state.rounds, round)} · You join the next round`}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {!round ? 'The host starts it. Your table and role appear here.' : 'Your table appears here when the next round starts.'}
-        </p>
-      </section>
+    return (
+      <MastermindWaiting
+        rounds={state.rounds}
+        round={round ?? undefined}
+        view={view}
+        // While the evening's end has not been read yet, neither "between rounds" nor "over" is said.
+        showWaiting={waiting && !(idle && eveningEnd === undefined)}
+        between={betweenRounds}
+        over={eveningOver || (ended && !live)}
+        updateStepOn={stepOn}
+        task={task}
+      />
     );
-    // No close in the app for this flow (the exit card is on paper): the room just says the rounds are done.
-    const over = (eveningOver || (ended && !live)) && view === 'table' && (
-      <section className="rounded-xl border border-border bg-card p-5" data-testid="mastermind-over">
-        <h2 className="text-xl font-semibold">The rounds are over</h2>
-      </section>
-    );
-    return stepOn ? <>{task}{card}</> : <>{over}{card}{task}</>;
   }
   if (view === 'hidden') return <>{task}</>;
 
@@ -133,6 +126,7 @@ export function MastermindRoundCard({
   const tableLink = canvas?.shared && canvas.canvasName ? canvasPageHref(canvas.ownerSlug, canvas.canvasName) : null;
   const chosenLink = chosen ? canvasPageHref(chosen.ownerSlug ?? chosen.ownerId, chosen.name) : null;
   const showOpen = table.role !== 'owner' || !!chosen;
+  if (mic.needsStep) return <><MastermindMicStep table={mine.table} discussing={table.owner ? defaultLabel : null} mic={mic} />{task}</>;
 
   return (
     <>

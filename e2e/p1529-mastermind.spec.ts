@@ -25,6 +25,19 @@ import {
 } from './helpers/p1529-mastermind';
 import { pressHostPrimary, openHostPreview } from './helpers/test-event-room';
 
+/** P1529: the round card asks for the mic first; a test browser has none, so it continues without ("Continue without mic"). */
+async function continueWithoutMic(pg: Page): Promise<void> {
+  const without = pg.getByTestId('round-mic-without');
+  if (await without.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) await without.click();
+}
+
+/** The round card, or the mic step that comes first (its own test id), then the card once the person continues without a mic. */
+async function waitForRoundCard(pg: Page): Promise<void> {
+  await expect(pg.getByTestId('mastermind-round-card').or(pg.getByTestId('mastermind-mic-step'))).toBeVisible({ timeout: 120_000 });
+  await continueWithoutMic(pg);
+  await expect(pg.getByTestId('mastermind-round-card')).toBeVisible({ timeout: 30_000 });
+}
+
 test.describe.configure({ mode: 'serial', timeout: 900_000, retries: 0 });
 test.use({ actionTimeout: 30_000, navigationTimeout: 90_000 });
 
@@ -800,7 +813,7 @@ test('WALK1 (round 1): host before round 1, the real preview, round 1 starts; th
     const ctx = await browser.newContext();
     const pg = await ctx.newPage();
     await asUser(pg, who, `/events/${E1.slug}/meet`);
-    await expect(pg.getByTestId('mastermind-round-card')).toBeVisible({ timeout: 120_000 });
+    await waitForRoundCard(pg);
     return { ctx, pg, card: pg.getByTestId('mastermind-round-card') };
   };
 
@@ -992,7 +1005,7 @@ test('WALK2: after round 1 (flow and canvas fixed), round 2, round 1 transcripts
     const ctx = await browser.newContext();
     const pg = await ctx.newPage();
     await asUser(pg, person, `/events/${E1.slug}/meet`);
-    await expect(pg.getByTestId('mastermind-round-card')).toBeVisible({ timeout: 120_000 });
+    await waitForRoundCard(pg);
     // The round card no longer carries the canvas card (the in-room "Change" is gone for everyone): only the server's refusal is checked.
     await expect(pg.getByTestId('event-canvas-change')).toHaveCount(0);
     const mine = (await supabaseAdmin.from('event_canvases').select('canvas_id, canvases(name)').eq('event_id', E1.id).eq('profile_id', A[5].user.user.id).single()).data as unknown as { canvases: { name: string } };
@@ -1221,16 +1234,34 @@ test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partne
   await hostEvent(page, E1);
   await expect(page.getByTestId('host-panel')).toBeVisible({ timeout: 90_000 }); // rounds are on: the before-round list (mm-people) is not drawn
 
-  await ac('9a', 'the host starts the canvas-update step (asks once while time is on the clock); it shows each owner\'s state', async () => {
+  await ac('9a0', 'the host\'s one primary during round 2 is "End round 2" (asks once while time is on the clock); it ends only that round and the phones read "between rounds"', async () => {
+    await expect(page.getByTestId('host-primary')).toHaveText('End round 2', { timeout: 60_000 });
+    await expect(page.getByTestId('mm-update-start'), 'the update is not offered while the round runs').toHaveCount(0);
+    await page.getByTestId('host-primary').click();
+    const yes = page.getByTestId('host-next-yes');
+    if (await yes.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) await yes.click();
+    await expect.poll(async () => (await supabaseAdmin.from('event_rounds').select('ended_at').eq('id', round2).single()).data!.ended_at, { timeout: 30_000 }).not.toBeNull();
+    expect((await supabaseAdmin.from('event_evening_ends').select('*', { count: 'exact', head: true }).eq('event_id', E1.id)).count, 'not the evening').toBe(0);
+    const ctx = await browser.newContext();
+    const pg = await ctx.newPage();
+    await asUser(pg, ownerP, `/events/${E1.slug}/meet`);
+    await expect(pg.getByTestId('mastermind-between')).toContainText('Round 2 is over', { timeout: 60_000 });
+    await expect(pg.getByTestId('mastermind-between')).toContainText('The next round starts soon.');
+    await expect(pg.getByText('The rounds are over')).toHaveCount(0);
+    await expect(pg.getByTestId('room-step-close'), 'Feedback is open at any time').toBeEnabled();
+    await ctx.close();
+    return 'round 2 ended_at set by End round 2, no evening stamp; the owner\'s phone: "Round 2 is over" + "The next round starts soon.", no "The rounds are over", Feedback step enabled';
+  }, page);
+
+  await ac('9a', 'the host starts the canvas-update step (round 2 has ended, nothing to confirm); it shows each owner\'s state', async () => {
     await expect(page.getByTestId('mm-update-start')).toBeVisible({ timeout: 60_000 });
     await page.getByTestId('mm-update-start').click();
-    await expect(page.getByTestId('mm-update-confirm')).toBeVisible();
-    await page.getByTestId('mm-update-yes').click();
+    await expect(page.getByTestId('mm-update-confirm')).toHaveCount(0);
     await expect(page.getByTestId('mm-update-step')).toBeVisible({ timeout: 60_000 });
     const step = (await supabaseAdmin.from('event_canvas_update_steps').select('after_round_id').eq('event_id', E1.id).single()).data!;
     expect(step.after_round_id).toBe(round2);
     const ended = (await supabaseAdmin.from('event_rounds').select('ended_at').eq('id', round2).single()).data!;
-    expect(ended.ended_at, 'starting the step ends round 2').not.toBeNull();
+    expect(ended.ended_at, 'round 2 was ended by End round 2').not.toBeNull();
     return `step row after_round = round 2, round 2 ended_at set`;
   }, page);
 
@@ -1318,7 +1349,7 @@ test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partne
     const ctx = await browser.newContext();
     const pg = await ctx.newPage();
     await asUser(pg, who, `/events/${E1.slug}/meet`);
-    await expect(pg.getByTestId('mastermind-round-card')).toBeVisible({ timeout: 120_000 });
+    await waitForRoundCard(pg);
     return { ctx, pg };
   };
   const checkNextPartner = async (roundNo: number) => {
@@ -1494,7 +1525,7 @@ test('AC11 (a first canvas after round 1): the ready line, the host\'s ready mar
     const ctx = await browser.newContext();
     const pg = await ctx.newPage();
     await asUser(pg, O1, `/events/${E11.slug}/meet`);
-    await expect(pg.getByTestId('mastermind-round-card')).toBeVisible({ timeout: 120_000 });
+    await waitForRoundCard(pg);
     await expect(pg.getByTestId('event-canvas-card')).toHaveCount(0);
     expect((await shareForEvent(O1, E11.id, pub.name)).status).toBe('ok');
     await ctx.close();
