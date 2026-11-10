@@ -103,7 +103,7 @@ import { EventWaitlistList } from '../components/EventWaitlistList';
 import { MastermindPreviewNotes } from './MastermindPreviewNotes';
 import { MastermindScreen } from './MastermindScreen';
 import { useHostFlow, useMastermindHost } from './use-mastermind-host';
-import { COLUMN_LABELS, MASTERMIND_FLOW, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, MASTERMIND_MINUTES_VERSION, dropStaleMastermindMinutes, seatGuardRefusal, silentTables, tablesNowTitle, tablesProposedTitle, waitingSetKey, READY_HINT, READY_LABEL } from './mastermind-host-helpers';
+import { COLUMN_LABELS, MASTERMIND_FLOW, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, MASTERMIND_MINUTES_VERSION, dropStaleMastermindMinutes, extendRefusal, seatGuardRefusal, silentTables, tablesNowTitle, tablesProposedTitle, waitingSetKey, READY_HINT, READY_LABEL } from './mastermind-host-helpers';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
 
 const START_LOCK_MS = 10_000;
@@ -1036,7 +1036,7 @@ export function EventHostPage() {
             return false;
           });
         }
-        if (!saved) setError(seatGuardRefusal(e) ?? 'That didn’t save. Try again.');
+        if (!saved) setError(seatGuardRefusal(e) ?? extendRefusal(e) ?? 'That didn’t save. Try again.');
       } finally {
         clearTimeout(timer);
         save.abort();
@@ -1129,6 +1129,10 @@ export function EventHostPage() {
     setTimeout(() => {
       try {
         build();
+      } catch (e) {
+        // A throw here used to leave no trace: the button came back and nothing opened. Say so, and keep the cause for Sentry.
+        console.error('[host] building the seating preview failed', e);
+        setError('Could not work out the tables. Try again, or press Shuffle.');
       } finally {
         setBusy(null);
       }
@@ -1319,9 +1323,10 @@ export function EventHostPage() {
   const canEndEvening = !!round || (mm.active && state.rounds.length > 0 && !ended);
   const roundTitle = ended ? 'Evening ended' : round ? roundLabel(state.rounds, round) : mmBetween && lastRound ? `${roundLabel(state.rounds, lastRound)} ended` : null;
 
+  // After time is up the host may still give more time while the round is open: the server extends the round's last part (observer, else the talking part's end) so one minute remains; the part named here is the same one.
   const extend = () => {
-    if (!round || !clock || clock.phase === 'over') return;
-    const phase = clock.phase;
+    if (!round || !clock || (clock.phase === 'over' && !mm.active)) return;
+    const phase = clock.phase === 'over' ? (hasObserver && (timing?.observerMs ?? 0) > 0 ? 'observer' : 'second') : clock.phase;
     void run(signal => hostExtendRound(round.id, phase, signal));
   };
   // "−1 min" (founder walkthrough 6): the server takes a minute off the part running now, never
@@ -1430,8 +1435,8 @@ export function EventHostPage() {
                 <div className={mm.active ? 'shrink-0' : 'min-w-0'}>
                   <ClockNumber clock={clock} />
                 </div>
-                {clock.phase !== 'over' && (
-                  <div className="flex shrink-0 gap-1.5">
+                <div className="flex shrink-0 gap-1.5">
+                  {clock.phase !== 'over' && (
                     <Button
                       type="button"
                       variant="outline"
@@ -1443,6 +1448,8 @@ export function EventHostPage() {
                     >
                       −1 min
                     </Button>
+                  )}
+                  {(clock.phase !== 'over' || mm.active) && (
                     <Button
                       type="button"
                       variant="outline"
@@ -1454,8 +1461,8 @@ export function EventHostPage() {
                     >
                       +1 min
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
               {clock.phase !== 'over' && (
                 <p className="text-sm" data-testid="host-part">

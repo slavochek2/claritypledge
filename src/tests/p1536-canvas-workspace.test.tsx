@@ -284,11 +284,11 @@ describe('S3.1/S3.2: the frame', () => {
     expect(bar.className).toContain('shrink-0');
     expect(bar.className).not.toMatch(/\bh-\d/);
     expect(bar.className).not.toMatch(/\b(?:sm|md|lg|xl):(?:py|pt|mt)-/); // no band above its content
-    expect(bar.nextElementSibling).toBe(panes); // nothing between the bar and the panes
+    expect(bar.parentElement!.nextElementSibling).toBe(panes); // nothing between the bar's head wrapper (display: contents) and the panes
     expect(panes.className).toContain('flex-1'); // they take what is left of the box ...
     expect(panes.className).toContain('min-h-0'); // ... and may shrink to it
     expect(panes.className).not.toMatch(/\b(?:mt|pt|my|py)-/);
-    expect(box.firstElementChild).toBe(bar);
+    expect(box.firstElementChild?.firstElementChild).toBe(bar); // inside the head wrapper (display: contents), which comes first
   });
 
   it('the page inside the workspace has no Back of its own and drops the bottom-nav room', async () => {

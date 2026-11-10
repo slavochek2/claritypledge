@@ -97,7 +97,8 @@ export function PauseResumeButton() {
 }
 
 /** `forEvent`: the capture belongs to an event, so its words are posted to the event's channel. */
-export function CaptureInfoButton({ forEvent = false }: { forEvent?: boolean } = {}) {
+/** `onOpenRoom`: where the bar hides its arrow to the transcribe room (this event's own room), the popover keeps one quiet way there. */
+export function CaptureInfoButton({ forEvent = false, onOpenRoom }: { forEvent?: boolean; onOpenRoom?: () => void } = {}) {
   return (
     <Popover>
       <PopoverTrigger
@@ -114,6 +115,10 @@ export function CaptureInfoButton({ forEvent = false }: { forEvent?: boolean } =
         {forEvent && <p data-testid="capture-info-arrives"><span className="font-medium">When:</span> {EVENT_TEXT_ARRIVES}</p>}
         <p><span className="font-medium">Your part:</span> you’re the one recording, so let the people around you know, and pause whenever someone asks.</p>
         <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy policy</a>
+        {/* [FOUNDER DECISION: copy, proposed] */}
+        {onOpenRoom && (
+          <button type="button" onClick={onOpenRoom} className="block text-blue-600 hover:underline" data-testid="capture-info-open-room">Open the live text</button>
+        )}
       </PopoverContent>
     </Popover>
   );

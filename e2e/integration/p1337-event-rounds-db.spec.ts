@@ -285,9 +285,23 @@ test.describe('P1337: rounds, seats, topics, presence', () => {
     expect((await h.rpc('host_extend_round', { p_round_id: round1, p_phase: 'first' })).error).toBeNull();
     expect((await h.rpc('host_extend_round', { p_round_id: round1, p_phase: 'nonsense' })).error?.code).toBe('22023');
     expect(await read()).toEqual({ seating_s: 60, first_s: 360, second_s: 420, observer_s: 180 });
-    // Past the end of the round there is nothing to extend.
-    await supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - 60 * 60_000).toISOString() }).eq('id', round1);
-    expect((await h.rpc('host_extend_round', { p_round_id: round1, p_phase: 'observer' })).error?.code).toBe('22023');
+    // P1529 (migration 20261110153500, +1 min after time is up): past the end of a round that is still OPEN the observer's part is extended so
+    // one minute remains from now (here 20 s over: 180 + 20 + 60 = 260). It used to be refused (22023).
+    await supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - (60 + 360 + 420 + 180 + 20) * 1000).toISOString() }).eq('id', round1);
+    expect((await h.rpc('host_extend_round', { p_round_id: round1, p_phase: 'observer' })).error).toBeNull();
+    const over = await read();
+    expect(over.observer_s).toBeGreaterThanOrEqual(260);
+    expect(over.observer_s).toBeLessThanOrEqual(262);
+    // Far past the end (two hours: 261 s part + ~6100 s over > 3600) a minute cannot make the clock run again within the part's 3600 s maximum: a distinct refusal (54000), nothing changes.
+    await supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - 120 * 60_000).toISOString() }).eq('id', round1);
+    expect((await h.rpc('host_extend_round', { p_round_id: round1, p_phase: 'observer' })).error?.code).toBe('54000');
+    expect((await read()).observer_s).toBe(over.observer_s);
+    // A running part already at its maximum is refused the same way, never a silent success.
+    await supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - 30 * 1000).toISOString(), seating_s: 1800 }).eq('id', round1);
+    expect((await h.rpc('host_extend_round', { p_round_id: round1, p_phase: 'seating' })).error?.code).toBe('54000');
+    await supabaseAdmin.from('event_rounds').update({ seating_s: 60 }).eq('id', round1);
+    // A stranger is still refused.
+    expect((await ca.rpc('host_extend_round', { p_round_id: round1, p_phase: 'observer' })).error?.code).toBe('42501');
   });
 
   test('no direct client writes to any round table', async () => {

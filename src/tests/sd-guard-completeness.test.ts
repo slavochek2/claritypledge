@@ -63,6 +63,12 @@ const CRITICAL_TOKENS: ReadonlyArray<string> = ['p878_relationship_scope'];
  *             "<functionName>:token:<tokenString>" for token guards.
  */
 const KNOWN_INTENTIONAL_REMOVALS = new Set<string>([
+  // P1529 (20261110153500_p1529_extend_round_after_time_up.sql), founder 2026-11-10: the host may give a round more
+  // time after its clock has run out, while the round is still open. A product rule, not an access guard: host-only
+  // (42501), the round's own event, an ended round is still refused ('this round is over', 22023), and past the
+  // part's 3600 s maximum the extension is refused (54000). Pinned by e2e/integration/p1337-event-rounds-db.spec.ts.
+  'host_extend_round:time is up for this round',
+
   // P1576 (20261027120600_p1576_mirror_voice_and_waveform.sql), founder 2026-10-27: voice notes are
   // allowed in the owner's Mirror chat. A product rule, not an access guard: posting still goes through
   // _chat_assert_can_post (a non-owner gets 42501), private @mirror asks still cannot carry audio

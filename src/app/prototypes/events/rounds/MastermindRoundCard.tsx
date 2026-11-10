@@ -9,12 +9,12 @@
  * chosen by FlowRoundCard.tsx. Wording is a draft: [FOUNDER DECISION: copy].
  */
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { currentRound, EMPTY_ROUNDS_STATE, type EventRoundsState } from '@/app/data/event-rounds-service';
 import { recordCanvasOpen } from '@/app/data/event-mastermind-service';
 import { canvasPageHref } from '@/app/pages/chat/canvas-links';
-import { workspaceHref } from '@/lib/canvas-hrefs';
+import { tableLinkState, workspaceHref } from '@/lib/canvas-hrefs';
 import { roundLabel } from '@/lib/round-numbering';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import type { RoundMoment } from './RoundCard';
@@ -52,6 +52,9 @@ export function MastermindRoundCard({
   const polling = roundsPolling({ ended, liveSeen, state: rounds, now: Date.now() });
   const { state } = useEventRounds(eventId, !!self, polling.active, polling);
   useEffect(() => { setRounds(state); }, [state]);
+  const { pathname } = useLocation();
+  // The canvas opened from here says where the table is, so its page can offer "Back to your table".
+  const fromRoom = tableLinkState(pathname, eventId);
   const round = currentRound(state);
   const live = !!round;
   useEffect(() => { setLiveSeen(live); }, [live]);
@@ -164,7 +167,7 @@ export function MastermindRoundCard({
         {table.owner && (chosen ? (
           chosenLink ? (
             <Button asChild className="mt-4 min-h-12 w-full text-base">
-              <Link to={chosenLink} data-testid="round-canvas-link">Open the canvas</Link>
+              <Link to={chosenLink} state={fromRoom} data-testid="round-canvas-link">Open the canvas</Link>
             </Button>
           ) : (
             <p className="mt-3 text-sm text-muted-foreground" data-testid="round-canvas-unshared">This Clarity Canvas is no longer shared</p>
@@ -174,6 +177,7 @@ export function MastermindRoundCard({
             <Button asChild className="mt-4 min-h-12 w-full text-base">
               <Link
                 to={tableLink}
+                state={fromRoom}
                 // Evidence, never a gate: recorded only for the table's assigned canvas, and only when a reader opens it (the owner opening their own is not a reading), beside the navigation, which it can never stop.
                 onClick={table.role === 'owner' ? undefined : () => { try { recordCanvasOpen(round.id, canvas.ownerProfileId); } catch { /* not a gate */ } }}
                 data-testid="round-canvas-link"

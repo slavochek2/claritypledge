@@ -58,7 +58,7 @@ describe('the workspace fixture shows what the app shows', () => {
     const frame = within(c).getByTestId('canvas-workspace');
     expect(frame.className).toContain('h-[calc(100dvh-3.5rem)]');
     const bar = within(c).getByTestId('workspace-bar');
-    expect(frame.firstElementChild).toBe(bar);
+    expect(frame.firstElementChild?.firstElementChild).toBe(bar); // inside the head wrapper (display: contents), which comes first
     expect(bar.className).toContain('shrink-0'); // W8: as tall as its rows (one line from 1280px, two below), never squeezed
     expect(bar.className).not.toMatch(/\b(?:pt|mt)-/); // nothing above its content
   });

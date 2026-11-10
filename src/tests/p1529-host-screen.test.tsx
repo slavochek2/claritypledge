@@ -685,6 +685,53 @@ describe('End round: the one primary slot follows the state (founder 2026-11-10)
     expect(screen.queryByTestId('host-preview')).toBeNull();
   });
 
+  it('after End round in this very page (running, then ended), the primary opens the preview', async () => {
+    setRounds([round({ startedAt: ago(10 * MIN) })], seats);
+    h.planOverride = () => plan([['m-c', 1, 'first'], ['m-d', 1, 'second']]);
+    h.hostEndRound.mockImplementation(async () => { setRounds([round({ startedAt: ago(10 * MIN), endedAt: new Date().toISOString() })], seats); return true; });
+    renderHost({ flow: MM });
+    await roomRead();
+    fireEvent.click(await screen.findByTestId('host-primary'));
+    fireEvent.click(await screen.findByTestId('host-next-yes'));
+    await waitFor(() => expect(screen.getByTestId('host-primary').textContent).toBe('Preview round 2 tables'));
+    await waitFor(() => expect((screen.getByTestId('host-primary') as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId('host-primary'));
+    expect(await screen.findByTestId('host-preview', {}, { timeout: 3000 })).toBeTruthy();
+  });
+
+  it('REPRO: 8 people, 6 shared canvases, 2 observers, after End round 1, the REAL planner opens the preview', async () => {
+    const keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    h.roster = keys.map(k => member(k, `Person ${k.toUpperCase()}`));
+    setHostState([
+      ...['a', 'b', 'c', 'd', 'e', 'f'].map(k => person(k)),
+      person('g', { canvasName: null, canvasShared: false, participation: 'observer_only' as never }),
+      person('h', { canvasName: null, canvasShared: false }),
+    ]);
+    setRounds([round({ startedAt: ago(30 * MIN), endedAt: ago(MIN), groupSize: 4 })], {
+      r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1), seat('r1', 'm-g', 'observer', 1), seat('r1', 'm-c', 'first', 2), seat('r1', 'm-d', 'second', 2), seat('r1', 'm-h', 'observer', 2)],
+    });
+    renderHost({ flow: MM });
+    await roomRead();
+    await waitFor(() => expect((screen.getByTestId('host-primary') as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByTestId('host-primary'));
+    expect(await screen.findByTestId('host-preview', {}, { timeout: 3000 })).toBeTruthy();
+  });
+
+  it('a throw while Shuffle works the tables out is said, not swallowed: the preview stays, the button comes back, the line names the failure', async () => {
+    setRounds([round({ startedAt: ago(30 * MIN), endedAt: ago(MIN) })], seats);
+    h.planOverride = () => plan([['m-c', 1, 'first'], ['m-d', 1, 'second']]);
+    renderHost({ flow: MM });
+    await openPreview();
+    h.planOverride = () => { throw new Error('planner exploded'); }; // a plan not planned before: the cache cannot answer
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    fireEvent.click(screen.getByTestId('host-preview-shuffle'));
+    expect((await screen.findByText(/Could not work out the tables/)).textContent).toMatch(/Try again/);
+    expect(screen.queryByTestId('host-preview')).not.toBeNull();
+    await waitFor(() => expect((screen.getByTestId('host-preview-shuffle') as HTMLButtonElement).disabled).toBe(false));
+    expect(spy).toHaveBeenCalledWith('[host] building the seating preview failed', expect.any(Error));
+    spy.mockRestore();
+  });
+
   it('"Keep going" calls nothing, and there is never a second primary', async () => {
     setRounds([round({ startedAt: ago(10 * MIN) })], seats);
     renderHost({ flow: MM });

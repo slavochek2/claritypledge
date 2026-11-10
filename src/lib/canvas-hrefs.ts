@@ -50,8 +50,28 @@ export function prepStepOf(state: unknown): PrepStep | null {
   return typeof step === 'number' && typeof total === 'number' && Number.isInteger(step) && Number.isInteger(total) && step >= 1 && total >= step ? { step, total } : null;
 }
 
-/** P1529: the navigation state's `afterPublish` when it is a same-origin app path ("/x", never "//host" or "/\host"); otherwise null. */
-export function afterPublishPath(state: unknown): string | null {
-  const v = (state as { afterPublish?: unknown } | null)?.afterPublish;
+/** A same-origin app path ("/x", never "//host" or "/\host"); otherwise null. */
+function appPath(v: unknown): string | null {
   return typeof v === 'string' && v.startsWith('/') && !v.startsWith('//') && !v.startsWith('/\\') ? v : null;
+}
+
+/** P1529: the navigation state's `afterPublish` when it is a same-origin app path; otherwise null. */
+export function afterPublishPath(state: unknown): string | null {
+  return appPath((state as { afterPublish?: unknown } | null)?.afterPublish);
+}
+
+/** P1529: a canvas opened from the event room's round card or waiting list carries the room's path (`backToTable`) and the event's id (`tableEvent`), so the canvas page can offer "Back to your table". */
+export function tableLinkState(roomPath: string, eventId: string): { backToTable: string; tableEvent: string } {
+  return { backToTable: roomPath, tableEvent: eventId };
+}
+
+/** P1529: the room path in the navigation state's `backToTable` when it is a same-origin app path; otherwise null. */
+export function backToTablePath(state: unknown): string | null {
+  return appPath((state as { backToTable?: unknown } | null)?.backToTable);
+}
+
+/** P1529: the event the table belongs to (`tableEvent`), a string or null. */
+export function tableEventOf(state: unknown): string | null {
+  const v = (state as { tableEvent?: unknown } | null)?.tableEvent;
+  return typeof v === 'string' && v ? v : null;
 }

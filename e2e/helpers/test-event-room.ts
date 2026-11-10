@@ -147,11 +147,16 @@ export async function startTranscribingInRoom(page: Page, eventSlug: string): Pr
 export async function openHostPreview(page: Page): Promise<void> {
   // P1529: the sales mastermind's primary is "End round N" while a round runs (it ends only that round, asking once when time is left);
   // the next round's tables are previewed once it has ended.
+  // A freshly opened host page shows its primary disabled until the rounds have loaded; its label is only meaningful after that.
+  await expect(page.getByTestId('host-primary')).toBeEnabled({ timeout: 30_000 });
   if ((await page.getByTestId('host-primary').textContent())?.startsWith('End round')) {
     await page.getByTestId('host-primary').click();
     const end = page.getByTestId('host-next-yes');
     if (await end.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) await end.click();
     await expect(page.getByTestId('host-primary')).not.toHaveText(/^End round/, { timeout: 30_000 });
+    // Ending saves and then re-reads the rounds; the button reads "Saving…" (disabled) until both land, so wait for the next label.
+    await expect(page.getByTestId('host-primary')).not.toHaveText(/…$/, { timeout: 30_000 });
+    await expect(page.getByTestId('host-primary')).toBeEnabled({ timeout: 30_000 });
   }
   await page.getByTestId('host-primary').click();
   // Once round 2 has ended the primary is "Skip the update...", which asks once first ("Owners won't get time to update their canvas.").

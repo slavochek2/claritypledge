@@ -295,8 +295,11 @@ describe('the banner shows only for a valid afterPublish', () => {
   it('the workspace layout draws the banner as the first row of the box', () => {
     render(<MemoryRouter><CanvasWorkspaceLayout active bar={<div data-testid="bar" />} banner={<div data-testid="b" />} canvas={null} chat={null} view="canvas" /></MemoryRouter>);
     const box = screen.getByTestId('canvas-workspace');
-    expect(box.firstElementChild?.getAttribute('data-testid')).toBe('b');
-    expect(box.children[1]!.getAttribute('data-testid')).toBe('bar');
+    // banner and bar sit in ONE head wrapper (display: contents while the workspace is on), so toggling the workspace never remounts them
+    const head = box.firstElementChild!;
+    expect(head.getAttribute('data-testid')).toBe('canvas-sticky-head');
+    expect(head.children[0]!.getAttribute('data-testid')).toBe('b');
+    expect(head.children[1]!.getAttribute('data-testid')).toBe('bar');
   });
 });
 

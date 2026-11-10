@@ -26,6 +26,7 @@ import { useCloneCanvas } from './use-clone-canvas';
 import { useCloneIntent } from './use-clone-intent';
 import { withoutCloneIntent } from '@/lib/canvas-hrefs';
 import { WorkspacePreparationBanner } from './PreparationBanner';
+import { TableBanner } from './TableBanner';
 import { useCloseThread, useWorkspacePanel } from './use-workspace-panel';
 import { useCanvasRename } from './use-canvas-rename';
 import { useWorkspacePublish } from './use-workspace-publish';
@@ -76,10 +77,10 @@ export function CanvasWithThread() {
   // never shows owner controls. Everyone else keeps the reader header in the page.
   const ownerBar = showsOwnerBar(reported.ready ?? held, eligible);
   // `returnTo` is the event preparation this canvas was started from; the banner says so and Publish returns there.
-  const { closedDraftId, spot, publishing, publish, returnTo: backTo } = useWorkspacePublish({ ready: threadUnknown ? null : reported.ready, runActive: spotRunActive, pendingClone: !!clone.pending, setParams, state: navState, owner: ownerBar });
+  const { closedDraftId, spot, publishing, publish, returnTo: backTo, table } = useWorkspacePublish({ ready: threadUnknown ? null : reported.ready, runActive: spotRunActive, pendingClone: !!clone.pending, setParams, state: navState, owner: ownerBar });
   // S4: Add to chat (owner only: the tap exists only where Clone does) and the reply chips; the composer takes the tags from the bus.
   const add = useAddToChat(reported, held, params.get('v'), ownerBar, clone, panel, closedDraftId);
-  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...add.tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: clone.pending?.seq ?? null, cloning: !!clone.pending, ownerBar, runActive: spotRunActive }), [active, reportReady, reloads, showThread, add.tap, clone.clone, resolved, clone.pending, ownerBar, spotRunActive]);
+  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...add.tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: clone.pending?.seq ?? null, cloning: !!clone.pending, ownerBar, runActive: spotRunActive, tableBack: !backTo && !!table }), [active, reportReady, reloads, showThread, add.tap, clone.clone, resolved, clone.pending, ownerBar, spotRunActive, backTo, table]);
   // The bar shows the last read FOR this canvas (`held`), so name, version and state do not blink away while the page re-reads another version.
   const rename = useCanvasRename(held, projectTag);
   useWorkspaceMarker({ eligible: workspaceOk, resolved, params, setParams, state: navState, reported, closedDraftId });
@@ -94,12 +95,12 @@ export function CanvasWithThread() {
     <WorkspaceProviders value={workspace} bus={add.bus}>
       <CanvasWorkspaceLayout
         active={active}
-        banner={backTo ? <WorkspacePreparationBanner to={backTo} state={navState} canvasKey={`${handle}/${projectTag}`} /> : null}
+        banner={backTo ? <WorkspacePreparationBanner to={backTo} state={navState} canvasKey={`${handle}/${projectTag}`} /> : table ? <TableBanner to={table.to} eventId={table.eventId} /> : null}
         view={view}
         panelOpen={panelOpen}
         bar={ownerBar ? (
           <WorkspaceOwnerBar
-            ready={held} handle={handle} projectTag={projectTag} rename={rename} onPick={pickVersion} onChanged={() => setReloads(n => n + 1)} onBack={goBack}
+            ready={held} handle={handle} projectTag={projectTag} rename={rename} onPick={pickVersion} onChanged={() => setReloads(n => n + 1)} onBack={table && !backTo ? () => navigate(table.to) : goBack}
             active={active} view={view} onView={setView} panelOpen={panelOpen} onOpenPanel={openPanel} spot={{ state: spot, publishing, onPublish: publish }}
             onCancelClone={clone.cancel} onGoToDraft={openExistingDraft}
           />

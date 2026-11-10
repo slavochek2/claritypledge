@@ -53,8 +53,9 @@ export function CanvasWorkspaceLayout({ active, bar, banner = null, canvas, chat
   // The same elements in the same places whether or not the workspace is on, so the canvas page is never remounted by it.
   return (
     <div className={active ? WORKSPACE_BOX : undefined} data-testid={active ? 'canvas-workspace' : undefined}>
-      {banner}
-      {bar}
+      {/* ONE wrapper element always, so switching the workspace on or off never remounts the banner or the bar: only its classes change.
+          `contents` draws no box (the bar keeps sticking to the page); with a banner and no workspace it is the page's one sticky head. */}
+      <div className={banner && !active ? cn(STICKY_TOP, 'z-40 bg-background') : 'contents'} data-testid="canvas-sticky-head">{banner}{bar}</div>
       <div className={active ? 'relative min-h-0 flex-1 xl:flex' : undefined}>
         <div
           className={active ? panes.canvasClass : undefined}

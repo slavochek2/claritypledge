@@ -171,6 +171,13 @@ export function seatGuardRefusal(error: unknown): string | null {
   return `Not saved: ${message}${who}. Swap them out and try again.`;
 }
 
+/** [FOUNDER DECISION: copy, proposed] The server's refusal (errcode 54000) of a minute past a part's maximum. Null: not that refusal. */
+export const EXTEND_LIMIT_LINE = 'This round can’t be extended further.';
+export function extendRefusal(error: unknown): string | null {
+  const e = error as { code?: unknown; message?: unknown } | null;
+  return e?.code === '54000' || (typeof e?.message === 'string' && /cannot be extended further/i.test(e.message)) ? EXTEND_LIMIT_LINE : null;
+}
+
 // ── The canvas-update step (§7) ─────────────────────────────────────────────────────────────────────────────────────
 
 /** [FOUNDER DECISION: copy] */

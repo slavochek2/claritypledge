@@ -12,7 +12,7 @@ import { useCanvasPublish, type PublishedInfo } from '@/app/components/canvas/us
 import { getMessage } from '@/app/data/chat-service';
 import { chatPath } from '@/app/pages/chat/chat-view-model';
 import { CANVAS_WORKSPACE_PARAM } from '@/app/components/layout/bottom-nav-routes';
-import { usePreparationReturn } from './use-preparation-return';
+import { usePreparationReturn, useTableReturn } from './use-preparation-return';
 
 // [FOUNDER DECISION: wording, built as written in the spec's X15.]
 export const SEE_OFFER_LABEL = 'See offer';
@@ -48,6 +48,7 @@ export function useWorkspacePublish(args: {
   const { ready, runActive, pendingClone, setParams, state } = args;
   const { handle, projectTag } = useParams(); // the canvas on screen: the remembered return belongs to it alone
   const remembered = usePreparationReturn(state, `${handle}/${projectTag}`);
+  const table = useTableReturn(state, `${handle}/${projectTag}`); // the event room's table this canvas was opened from (its banner), not a Publish target
   const returnTo = args.owner === false ? null : args.returnTo === undefined ? remembered : args.returnTo;
   const navigate = useNavigate();
   const [closedDraftId, setClosedDraftId] = useState<string | null>(null);
@@ -68,5 +69,5 @@ export function useWorkspacePublish(args: {
     if (returnTo) navigate(returnTo, { replace: true });
   }, [ready, setParams, state, navigate, returnTo]);
   const { state: spot, publishing, publish } = useCanvasPublish(ready, runActive, published, pendingClone);
-  return { closedDraftId, spot, publishing, publish, returnTo };
+  return { closedDraftId, spot, publishing, publish, returnTo, table };
 }

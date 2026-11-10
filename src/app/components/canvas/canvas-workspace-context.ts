@@ -48,6 +48,8 @@ export interface CanvasWorkspaceValue {
   ownerBar: boolean;
   /** P1614: the owner's agent is working on the draft (or the page is catching up with the run that just ended): a point cannot be edited by hand meanwhile. Absent outside the workspace. */
   runActive?: boolean;
+  /** P1529: the page was opened from the event room and its head says "Back to your table": the reader's own Back is not drawn too (one header). */
+  tableBack?: boolean;
   /** Round 2: a Clone is pending on this page (no draft yet): makes the draft at the first hand write, as the first message does. Null when nothing is pending. */
   ensureDraft?: EnsureDraft | null;
 }

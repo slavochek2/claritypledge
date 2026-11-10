@@ -72,7 +72,7 @@ function CompactCaptureBar({ roomId, hideOpen = false }: { roomId: string; hideO
         {conversationId && !eventId && <CaptureChatLink roomId={roomId} conversationId={conversationId} className="min-w-0 flex-1 basis-0" />}
         {eventId && <span className="hidden min-w-0 flex-1 basis-0 truncate text-xs text-muted-foreground lg:block" title={EVENT_TEXT_ARRIVES_SHORT} data-testid="capture-event-hint">{EVENT_TEXT_ARRIVES_SHORT}</span>}
         {phase !== 'observing' && <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} />}
-        <CaptureInfoButton forEvent={!!eventId} />
+        <CaptureInfoButton forEvent={!!eventId} onOpenRoom={hideOpen ? open : undefined} />
         <div className="ml-auto flex items-center gap-2">
           {needsReconnect && (
             <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={() => void reconnectMic()}

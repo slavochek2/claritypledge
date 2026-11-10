@@ -23,10 +23,11 @@ export interface ScreenLayout {
 /** Cards never grow wider than this many type-widths: a lone table stays a card, not a banner. */
 export const SCREEN_CARD_MAX_EM = 18;
 
-export function screenLayout(tables: number, maxSeats: number, w: number, h: number): ScreenLayout {
+/** `header`: the height the page keeps above the tables (the mastermind projector's is taller: its strip has a row of its own). */
+export function screenLayout(tables: number, maxSeats: number, w: number, h: number, header = SCREEN_HEADER): ScreenLayout {
   const cap = tables <= 2 ? 56 : 34;
   const availW = w - 2 * SCREEN_PAD;
-  const availH = h - 2 * SCREEN_PAD - SCREEN_HEADER;
+  const availH = h - 2 * SCREEN_PAD - header;
   let best: ScreenLayout = { cols: 1, rows: Math.max(1, tables), fontPx: 0 };
   for (let cols = 1; cols <= Math.max(1, tables); cols++) {
     const rows = Math.max(1, Math.ceil(tables / cols));

@@ -876,6 +876,8 @@ test('WALK1 (round 1): host before round 1, the real preview, round 1 starts; th
     // the partner of table tNo1: record via the real link
     await pg.getByTestId('round-canvas-link').click();
     await expect(pg).toHaveURL(new RegExp(`/p/${ownerP.user.slug}/canvas/`), { timeout: 60_000 });
+    // opened from the table: the blue "Back to your table" row is the page's head (P1529 founder UAT)
+    await expect(pg.getByTestId('table-banner')).toContainText('Back to your table');
     await expect(pg.getByTestId('canvas-grid')).toHaveAttribute('aria-busy', 'false', { timeout: 90_000 });
     const chosen = (await supabaseAdmin.from('event_canvases').select('canvas_id').eq('event_id', E1.id).eq('profile_id', ownerP.user.user.id).single()).data!;
     const owned = await supabaseAdmin.from('canvases').select('id, name').eq('id', chosen.canvas_id).single();
@@ -906,6 +908,8 @@ test('WALK1 (round 1): host before round 1, the real preview, round 1 starts; th
     await expect(page.getByTestId('host-screen')).toBeVisible({ timeout: 90_000 });
     await expect(page.getByRole('heading', { name: 'Round 1' })).toBeVisible();
     await expect(page.getByTestId('round-clock')).toBeVisible();
+    // the time left in the part and what comes next, over the round's own parts (P1529 founder UAT)
+    await expect(page.getByTestId('screen-time-left')).toContainText(/\d+:\d\d left/);
     await expect(page.getByTestId('screen-table').first()).toBeVisible();
     expect(await page.getByTestId('screen-table').count()).toBe(t1.size);
     await expect(page.getByTestId('screen-rule-line')).toHaveCount(0);

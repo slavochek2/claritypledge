@@ -8,10 +8,11 @@
  */
 import { Skeleton } from '@/components/ui/skeleton';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { canvasPageHref } from '@/app/pages/chat/canvas-links';
+import { tableLinkState } from '@/lib/canvas-hrefs';
 import { shortName } from './use-event-rounds';
 import { useEventCanvasChoices } from './use-mastermind-round';
 import { MISSING_NAME } from './mastermind-round-helpers';
@@ -37,6 +38,7 @@ export function MastermindOtherCanvases({ eventId }: { eventId: string }) {
 }
 
 function CanvasPicker({ eventId }: { eventId: string }) {
+  const { pathname } = useLocation();
   const [ownerId, setOwnerId] = useState('');
   const { list, failed, loaded } = useEventCanvasChoices(eventId, true, null);
   const chosen = list.find(c => c.ownerId === ownerId) ?? null;
@@ -59,7 +61,7 @@ function CanvasPicker({ eventId }: { eventId: string }) {
       </select>
       {chosen && (
         <Button asChild className="mt-2 min-h-12 w-full text-base">
-          <Link to={canvasPageHref(chosen.ownerSlug ?? chosen.ownerId, chosen.name)} data-testid="mastermind-other-canvases-open">Open the canvas</Link>
+          <Link to={canvasPageHref(chosen.ownerSlug ?? chosen.ownerId, chosen.name)} state={tableLinkState(pathname, eventId)} data-testid="mastermind-other-canvases-open">Open the canvas</Link>
         </Button>
       )}
     </div>

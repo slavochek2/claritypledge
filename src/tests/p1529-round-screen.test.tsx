@@ -87,7 +87,8 @@ const OPEN = { state: 'none', roundId: null };
 const NOT_TAPPED = { state: 'not_tapped', draftId: null, revision: null, runId: null };
 const DRAFT = { draftId: 'd1', revision: 4, runId: 'run1' };
 
-const Where = () => <span data-testid="where">{useLocation().pathname}</span>;
+const Where = () => { const l = useLocation(); return <span data-testid="where" data-state={JSON.stringify(l.state)}>{l.pathname}</span>; };
+const FROM_ROOM = JSON.stringify({ backToTable: '/', tableEvent: 'e1' });
 
 function renderCard(selfMember: EventRoomMember, props: { view?: 'table' | 'compare' | 'hidden'; onMoment?: () => void } = {}) {
   return render(
@@ -195,6 +196,8 @@ describe('P1529 round screen: the canvas link', () => {
     fireEvent.click(await screen.findByTestId('round-canvas-link'));
     expect(h.recordCanvasOpen).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('where').textContent).toBe('/p/haru/canvas/launch_plan');
+    // the canvas page can offer "Back to your table" (P1529 UAT): the room's path and the event ride in the navigation state
+    expect(screen.getByTestId('where').getAttribute('data-state')).toBe(FROM_ROOM);
   });
 
   it('the Clarity Canvas owner can open their own canvas, and that open is not recorded as evidence', async () => {

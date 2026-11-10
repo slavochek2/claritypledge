@@ -34,8 +34,8 @@ import { eventFlow, type EventFlow, type FlowEvent } from '../series-recipes';
 import { describeProblem, isUnregistered, PLAN_NOT_READY } from './mastermind-host-helpers';
 import { GAP_POLL_MS, eveningEndedAfter, updateStepOn } from './mastermind-round-helpers';
 
-/** The same cadence as the page's "transcribing now" read: words can show this long after they are written, at most. */
-export const HOST_STATE_POLL_MS = 15_000;
+/** Anything a person is waiting for shows within about 4 seconds (spec Cost Budget): the host screen re-reads this often, on a visible tab only. */
+export const HOST_STATE_POLL_MS = 4_000;
 
 const visibleNow = () => document.visibilityState !== 'hidden';
 
