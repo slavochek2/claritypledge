@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 329
 severity: high
@@ -10,7 +10,6 @@ exec_model: sonnet
 exec_effort: high
 tags: [disagreement-pipeline, audio-check, quote-verification, p1638]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1659-audio-check-polarity.test.ts
@@ -24,7 +23,7 @@ spec_review_vendors: [gemini, openrouter]
 date_resolved: 2026-11-11
 root_cause: "run() checked quote polarity against the whole transcript one way only (quote ⊆ audio), with no negation canonicalization and an unencoded CLI entry check, so a dropped negation, a contraction and a spaced path all gave wrong verdicts"
 resolution: "Canonical negation forms on both sides; polarity read from the LCS alignment over candidate spans (best ratio + max-match) in both directions; clause-scoped negator lookbehind; realpath-based entry check with exit 2 on operator errors and REFUSE; dropped-negation control added"
-
+completed_at: 2026-11-10
 ---
 
 # P1659: audio-check confirms quotes that dropped or gained a negation
