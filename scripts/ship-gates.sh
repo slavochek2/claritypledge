@@ -134,14 +134,24 @@ fail=0
 # Authoritative source is the feature branch (specs evolve on the branch; main's
 # copy is stale until /ship completes — features.md, fix 60f4f4b). Fall back to
 # main disk when no feature branch exists (spec-only / already-merged path).
-feature_branch="$(cd "$REPO_ROOT" && git branch --list "feature/${pn}-*" | head -1 | tr -d ' *+')"
-# Gate 3.8 judges CODE on the branch /ship will cherry-pick, independent of where
-# the spec text is read from, so it resolves its own branch with git-ops.sh's
-# resolve_ship_branch patterns (feature/ AND fix/), not feature_branch above.
+# One branch list for every gate, with git-ops.sh resolve_ship_branch's patterns
+# (feature/ AND fix/). Before P1661 the spec gates read feature/ only, so on a fix/
+# branch they read main's copy of the spec (a stale or public stub) while git-ops
+# shipped the branch; only gate 3.8 resolved both prefixes.
 ratchet_branches="$(cd "$REPO_ROOT" && git for-each-ref --format='%(refname:short)' \
   "refs/heads/feature/${pn}-*" "refs/heads/fix/${pn}-*" 2>/dev/null || true)"
 ratchet_branch_count="$(printf '%s\n' "$ratchet_branches" | $GREP -c . || true)"
 ratchet_branch="$(printf '%s\n' "$ratchet_branches" | head -1)"
+feature_branch=""
+branch_ambiguous=""
+if [[ "${ratchet_branch_count:-0}" -gt 1 ]]; then
+  # Never guess which branch ships (git-ops refuses the same case). The refusal is raised
+  # inside each gate that reads the branch (2.5, 2.7; 3.8 has its own), never here: a
+  # --spec-file run or an --only run of an unrelated gate must not fail on local refs.
+  branch_ambiguous="$(printf '%s ' $ratchet_branches)"
+elif [[ "${ratchet_branch_count:-0}" -eq 1 ]]; then
+  feature_branch="$ratchet_branch"
+fi
 spec_content=""
 spec_source=""
 
@@ -362,7 +372,10 @@ disclosure_val="$(printf '%s\n' "$spec_content" \
   | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
   | sed "s/^'\\(.*\\)'$/\\1/; s/^\"\\(.*\\)\"$/\\1/")"
 
-if [[ "$disclosure_val" == "embargo" ]]; then
+if [[ -n "$branch_ambiguous" && -z "$spec_file_override" ]]; then
+  # No verdict from a copy that may not ship: gates 2.5 and 2.7 refuse this state.
+  echo "GATE 1.5 WARN: several branches match ${pn} (${branch_ambiguous% }); disclosure cannot be read from the copy that ships."
+elif [[ "$disclosure_val" == "embargo" ]]; then
   echo "GATE 1.5 EMBARGO: ${pn} is disclosure: embargo — the code merges, the spec does NOT."
   echo "  The spec stays branch-born; branch and worktree are retained by ship."
   echo "  After the prod apply, archive it privately from the main checkout:"
@@ -452,7 +465,10 @@ collect_completion() {
 }
 
 if gate_enabled "2.5"; then
-if [[ -n "$admin_ok" ]]; then
+if [[ -n "$branch_ambiguous" && -z "$spec_file_override" ]]; then
+  echo "[GATE 2.5] FAIL: several branches match ${pn} (${branch_ambiguous% }), cannot tell which spec copy ships"
+  fail=1
+elif [[ -n "$admin_ok" ]]; then
   echo "[GATE 2.5] SKIP: administrative closure; no completion asserted"
 elif [[ -z "$spec_content" ]]; then
   echo "[GATE 2.5] FAIL: spec not found for ${pn} on branch or disk"
@@ -638,7 +654,12 @@ _branch_entries() {
   $GREP -F -e "\"branch\":\"${feature_branch}\"" -e "\"branch\": \"${feature_branch}\""
 }
 
-if gate_enabled "2.7" && [[ -n "$admin_ok" ]]; then
+# Ambiguity first: two branches must refuse even when the spec looks administratively closable
+# (Opus review N1, P1661); git-ops refuses that state before any gate runs, and so does this.
+if gate_enabled "2.7" && [[ -n "$branch_ambiguous" && -z "$spec_file_override" ]]; then
+  echo "[GATE 2.7] FAIL: several branches match ${pn} (${branch_ambiguous% }), cannot tell which branch's review applies"
+  fail=1
+elif gate_enabled "2.7" && [[ -n "$admin_ok" ]]; then
   echo "[GATE 2.7] SKIP: administrative closure; no implementation review required"
 elif gate_enabled "2.7"; then
 git_common_dir="$(cd "$REPO_ROOT" && git rev-parse --path-format=absolute --git-common-dir)"
