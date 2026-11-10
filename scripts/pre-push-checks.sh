@@ -377,7 +377,15 @@ for line in "${PUSH_REFS[@]}"; do
   echo ""
   echo "  Ship to production? (y/N)"
 
-  # Require TTY — agents can't provide this, so they're blocked
+  # Require TTY — agents can't provide this, so they're blocked.
+  # P1654: say WHY when there is no terminal, instead of dying on "/dev/tty: Device not
+  # configured". Still refuses — this changes only the message, never the decision.
+  if ! { : < /dev/tty; } 2>/dev/null; then
+    echo "  ❌ Push refused: no valid push window and no terminal to confirm in." >&2
+    echo "     The push window was never opened, has lapsed, or was removed mid-push (see any warning above)." >&2
+    echo "     Fix: the founder runs 'push-on 60' in a terminal, then re-run the same push command." >&2
+    exit 1
+  fi
   exec < /dev/tty
   read -r answer
 
