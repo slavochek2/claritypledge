@@ -18,6 +18,8 @@ Concrete next steps in priority order. **Active on top; dormant/superseded compr
   - Founder-run public Clarity Nights: paused; public events have not spread the practice ([decisions.md](decisions.md) 2026-10-07 [product]).
 - **Structural channel bet:** [lean-canvas.md](lean-canvas.md) §Channels & Flywheel. Older blocks that used to sit here are under "Dormant / Superseded" below.
 
+**Goal:** Run sales mastermind session 1 on 16 Nov and decide if the features are ready to sell. *(founder, 2026-11-10)*
+
 **[2026-11-10: "then reach out" is on hold. Outreach is shelved until after session 1, and the founder decides after it whether to start; decisions.md 2026-11-06 [product].]** **Goal (2026-10-27):** run sales mastermind session 1 and decide from it whether the features are ready to sell; then reach out with one specific, written package (Clarity Chat + transcripts of important conversations + founder support, monthly, agreed before the first session). `UNTESTED` — [decisions.md](decisions.md) 2026-10-27 [product]. *Was: 3–7 paid pilots by 2026-12-11.*
 
 **[SUPERSEDED 2026-10-27 by founder choice, not falsified — free first sessions with no paid next step are free consulting]** Pilot price (founder, 2026-10-16): the first session with a champion's team is free, in exchange for a recorded debrief with the champion (with consent). What is paid is the follow-on: the workshop plus coaching ([decisions.md](decisions.md) 2026-10-12). A paid pilot counts toward the goal when the follow-on is bought.
