@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-11 [technical]: Hashtag extraction and stripping mask links first and share one whole-token rule (P1660)
+
+**Context:** P1638's triage re-proved that `stripHashtags` removed a `#tag` from inside a URL fragment (`https://a.com/p#climate` lost `#climate`) and from the front of a longer token (`#node.js` became `.js`), and that `extractHashtags`, which story creation **saves** as the story's tags, read URL fragments as tags.
+**Decision:** One link mask, built from linkify's own `URL_RUN` (so exactly what the app renders as a link) plus `www.` and markdown targets, runs before any tag is read, for extraction and stripping alike. A tag must be a whole token: it starts after no letter, combining mark, digit, `_`, `#` or `/`, as a **captured prefix**, never a regex lookbehind (Safari before 16.4 throws on lookbehind at construction, P983; `src/tests/no-regex-lookbehind.test.ts` caught one in review).
+**Alternatives rejected:** keeping inline tag words ("We need #climate action" → "We need climate action"), because `src/tests/stripHashtags.test.ts` pins deletion, so that is a product call, not a defect; masking scheme-less links (the app does not linkify them either); rejecting `#canvas:problem` as a tag, because P1508's test pins that a typed tag extracts as `canvas` so it can never become the `canvas:problem` box tag.
+**Consequences:** Pre-existing end-rule differences (`#ai-powered`, `#trust's`, `**#tag**`, `[#tag](url)` are saved but not stripped) are recorded in the spec's Known Limitations. Tags already saved from URL fragments before this fix stay on their stories; cleaning them is a prod data write and an open founder decision. Five review rounds; the full pre-commit suite caught one regression (the P1508 pin) that targeted runs missed.
+**References:** [p1660 spec](../features/done/2026-06-10/p1660_strip_hashtags_damages_text.md), `src/lib/utils.ts`, `src/tests/p1660-strip-hashtags.test.ts`
+
 ## 2026-11-11 [technical]: The quote-vs-audio guard reads polarity from the alignment, in both directions; clause structure stays a recorded limitation (P1659)
 
 **Context:** P1638's triage re-proved on main that `scripts/points/audio-check.mjs` CONFIRMed a quote that **dropped** the speaker's "not" ("the systems are open weights" against audio "the systems are not open weights", ratio 0.8). Its polarity guard only asked whether the quote's polarity words appeared *anywhere* in the transcript, so the most common inversion passed, and a polarity word in the next sentence vouched for this one. Its own control set could not see it: the planted near-miss *adds* a polarity word, the one direction the guard covered (the 2026-09-03 "a control discriminates only if the correct and the wrong test disagree on it" entry, again).
