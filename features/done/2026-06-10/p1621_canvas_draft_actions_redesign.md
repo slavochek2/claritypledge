@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 97
 workstream: canvas
 created_date: '2026-11-05'
 tags: [canvas, ux, design-system]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 650628a6f4626b0da9d138d5a3ec14988bccd904ce2131d1b5b90170558926ba
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-10
 ---
 
 # P1621: Canvas draft shows content first, and actions when a box is selected
