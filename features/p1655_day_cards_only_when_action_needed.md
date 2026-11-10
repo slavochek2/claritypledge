@@ -104,9 +104,9 @@ re-surfaced through a rename (rule 2).
 - [x] Fixture: projected-over with `CAP_VERIFIED` folds; the same without it shows; an 80% warning on a prod key still shows.
 - [x] Fixture: a key marked retiring folds its budget findings; an unreadable registry shows them.
 - [x] Replay: records under the three old fingerprints hide the renamed cards; a fixture with a different cause still shows.
-- [ ] A test fails when an emitted fault key changes without an alias (shown failing once, then passing).
+- [x] A test fails when an emitted fault key changes without an alias (shown failing once, then passing), for literal keys defined in this repo's check prose; global /day keys and `<placeholder>` keys are not covered (Known Limits).
 - [x] Fixtures: an out-of-credits stall, a crash stall and an unreadable state get three different fingerprints, each accepted by `day-evaluated.ts`.
-- [ ] Every new fold rule is shown failing on its known-bad fixture, and the existing /day tests pass.
+- [x] Every new fold rule is shown failing on its known-bad fixture, and the existing /day tests pass, except the two P1468 GOALS/SNAPSHOT tests that fail identically on main.
 
 ## Known Limits (build, 2026-11-10)
 
