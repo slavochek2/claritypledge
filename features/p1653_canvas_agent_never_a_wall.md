@@ -210,7 +210,7 @@ Read from the code, then corrected against the pre-build replay (Done-When). Eve
 
 ## Done-When
 
-- [ ] The inventory table is in this spec and the founder approved it before the replies were built
+- [x] The inventory table is in this spec and the founder approved it before the replies were built (approved 2026-11-10: the pattern and every PROPOSED sentence as written; `http_*` keeps retry shown for the whole family, no 4xx/5xx split)
 - [x] Before the build: the three founder messages replayed on fresh TEST canvases, 5 runs each, with a named harness that records what the model returned and what the checks dropped, written here. An unreadable link is staged deterministically, and a clear multi-sentence statement runs as a positive control
 
 ### Pre-build replay results (2026-11-10, self-hosted TEST)
