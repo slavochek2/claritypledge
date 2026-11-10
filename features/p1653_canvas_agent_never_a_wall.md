@@ -110,7 +110,26 @@ High blast radius: every owner who hits a failure, including first messages. Git
 ## Done-When
 
 - [ ] The inventory table is in this spec and the founder approved it before the replies were built
-- [ ] Before the build: the three founder messages replayed on fresh TEST canvases, 5 runs each, with a named harness that records what the model returned and what the checks dropped, written here. An unreadable link is staged deterministically, and a clear multi-sentence statement runs as a positive control
+- [x] Before the build: the three founder messages replayed on fresh TEST canvases, 5 runs each, with a named harness that records what the model returned and what the checks dropped, written here. An unreadable link is staged deterministically, and a clear multi-sentence statement runs as a positive control
+
+### Pre-build replay results (2026-11-10, self-hosted TEST)
+
+Harness `e2e/p1653-replay.spec.ts` (`P1653_REPLAY=1`), functions from this branch (`FUNCTIONS: trusted (start match, end match)`), 25 sends, 25 claims, 25 parsed log lines joined by run id, all 5 groups complete, control proven end to end. Counts come from the temporary counts-only log line, not from reply wording.
+
+| Fixture | Runs | Outcome | Model returned | Checks dropped |
+|---|---|---|---|---|
+| `airbnb.com - make canvas` | 5 | 5 of 5 failed, `nothing_supported` | 0 actions every time; a note and 9 questions every time | nothing |
+| `https://www.airbnb.com/ this canvas` | 5 | 5 of 5 failed, `nothing_supported` | 0 actions; a note and 9 questions | nothing |
+| `its a car selling buisness` | 5 | 5 of 5 failed, `nothing_supported` | 0 actions; a note and 9 questions | nothing |
+| Control (used cars to families, warranty, price range) | 5 | 5 of 5 drafted, 3 or 4 boxes | 4 actions every time | 1 point by the evidence check in 1 of 5 runs |
+| Staged unreadable link (`localhost`) | 5 | 5 of 5 failed, `nothing_supported`, reply names the unreadable link | 0 actions; a note and 9 questions | nothing |
+
+**Findings.**
+- Open Question 1 is answered: the model writes nothing on all three messages, every time, and the evidence checks drop nothing. The wall is the product's reply to an empty answer, not the checks.
+- The model does return a note and a question for each of the nine boxes on every failed run; `canvas-reply.ts` does not show them (by design, Solution 3).
+- `airbnb.com` is not read as a link (no link material): F4 confirmed.
+- `https://www.airbnb.com/` is read, but the page text is only "Redirecting to www.airbnb.com.sg" (32 characters), so the model has no business facts. F2's assumption with options cannot source an assumption from this page as read today; the inventory names this case.
+- The earlier missing reply on the staged link did not recur (5 of 5 replied).
 - [ ] After the build: the same set plus "one more card here they are angry", and the two-message follow-up, real model on TEST, 5 runs each, results recorded here, with no fact outside each fixture's allowed list in any point, question or option
 - [ ] A test fails if a failure code has no row in the reply table: codes derived from `failRun` call sites, SQL error codes and `canvas-draft-calls.ts`, with `http_*` as one family, one known member asserted per source
 
