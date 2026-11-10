@@ -42,8 +42,6 @@ export const MASTERMIND_GROUP_SIZE = 4;
 /** [FOUNDER DECISION: copy] The host grid's columns in this flow (the Clarity Night grid says Speaker 1 and 2). */
 export const COLUMN_LABELS: Record<SeatRole, string> = { first: 'Clarity Canvas owner', second: 'Partner', observer: 'Observer' };
 
-/** [FOUNDER DECISION: copy] The one fixed line on the projector (D3, D19). The app never shows a pair's phase. */
-export const SCREEN_RULE_LINE = 'Both say a number. The lower one counts. Above 8, the partner may challenge.';
 /** [FOUNDER DECISION: copy] The projector while the canvas-update step is on. */
 export const SCREEN_UPDATE_TITLE = 'Canvas update';
 export const SCREEN_UPDATE_LINE = 'Clarity Canvas owners: publish your next version in the event room.';

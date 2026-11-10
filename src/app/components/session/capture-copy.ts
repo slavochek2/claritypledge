@@ -30,7 +30,7 @@ export function consentAgreedLabel(forEvent: boolean): string {
  * button was removed: terms are accepted at sign-up, and Argon found this a just-in-time notice that needs no re-acceptance. The
  * registration checkbox says it; the room's Transcribe text and the /transcribe consent reuse the same sentences.
  */
-export const ROUND_UPDATE_CONSENT = "At the event we use a microphone to capture conversations. Google Gemini turns them into text that the host and attendees can read. The Clarity Canvas owner can use it to improve their canvas with AI.";
+export const ROUND_UPDATE_CONSENT = "At the event each participant uses a microphone to capture their conversations with peers. Google Gemini turns audio into text that all attendees can access. Peers gain value by using transcribed content to improve their Clarity Canvas with AI.";
 
 /** [FOUNDER DECISION: copy, proposed] When a person's clean text reaches the event's chat: the full sentence, on the live text page and behind the info icon. */
 export const EVENT_TEXT_ARRIVES = "If you're at a table, your text reaches its chat about 2 minutes after the round ends.";

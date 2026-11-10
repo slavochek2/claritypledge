@@ -111,11 +111,23 @@ export const COLLAPSED_LINE: Record<TaskFace, string> = {
   failed: 'Your next version: did not work',
   published: 'Your next version: published',
   make: 'Your next version: you can make it now',
-  pending: 'Your next version: the words are still arriving',
+  pending: 'Your next version: the words are being prepared',
   no_recording: 'No recording from your last round',
   no_canvas: 'Your next version: no Clarity Canvas shared',
   draft_open: 'Your next version: a draft is already open',
 };
+
+/**
+ * [FOUNDER DECISION: copy, proposed] The wait while a round's words are cleaned. The number is the schedule, not a measurement: the
+ * clean job is due 40 s after the round ends (p1596 migration, `ended_at + interval '40 seconds'`), a minute-by-minute cron
+ * dispatches it (0 to 60 s more), and the cleaning itself comes after. The app's own sentence for the same wait says
+ * "about 2 minutes" (capture-copy.ts EVENT_TEXT_ARRIVES).
+ */
+export const WORDS_PREPARING = "Your round's words are being prepared. This usually takes about 2 minutes.";
+
+/** [FOUNDER DECISION: copy, proposed] Which round and which version the next version is made from (see get_my_next_version_offer). */
+export const taskTitle = (roundName: string | null): string => (roundName ? `Your next version from ${roundName.toLowerCase()}` : 'Your next version');
+export const taskSource = (roundName: string): string => `Built from ${roundName.toLowerCase()}\u2019s conversation, starting from your latest published version.`;
 
 /** `face`: the task face that already says this, so the note is not shown twice once the state is re-read. */
 export interface TaskNote { kind: 'info' | 'error'; text: string; face?: TaskFace }
@@ -138,7 +150,7 @@ export function nextVersionNote(result: NextVersionResult): TaskNote | null {
       return result.start && !result.start.ok
         ? { kind: 'error', text: 'Your mirror could not start the draft. If it does not begin, it will offer Try again.' }
         : null;
-    case 'transcript_pending': return { kind: 'info', text: 'The words from this round are still arriving. Try again in a moment.', face: 'pending' };
+    case 'transcript_pending': return { kind: 'info', text: WORDS_PREPARING, face: 'pending' };
     case 'no_recording': return { kind: 'info', text: 'No recording from this round', face: 'no_recording' };
     case 'no_canvas': return { kind: 'error', text: 'You have no Clarity Canvas shared with this event, so there is nothing to update.', face: 'no_canvas' };
     case 'refused': return { kind: 'error', text: REFUSED[result.code] ?? GENERIC };

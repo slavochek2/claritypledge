@@ -70,4 +70,19 @@ describe('useEventRounds slow watch', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(REOPEN_POLL_MS); });
     expect(getEventRoundsState).toHaveBeenCalledTimes(1);
   });
+
+  it('a phone on the fast poll reads at once when the tab returns, and not when it goes hidden', async () => {
+    getEventRoundsState.mockResolvedValue(state([]));
+    renderHook(() => useEventRounds('ev', true, true));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    getEventRoundsState.mockClear();
+
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await vi.advanceTimersByTimeAsync(0); });
+    expect(getEventRoundsState).toHaveBeenCalledTimes(0);
+
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await vi.advanceTimersByTimeAsync(0); });
+    expect(getEventRoundsState).toHaveBeenCalledTimes(1);
+  });
 });

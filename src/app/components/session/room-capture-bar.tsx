@@ -57,7 +57,7 @@ const ICON_BUTTON =
  * and no remembered state: the full detail is one tap away in the room (→). It is sticky, so a
  * recorder scrolling the feed always sees that capture is running (P1307 D9).
  */
-function CompactCaptureBar({ roomId }: { roomId: string }) {
+function CompactCaptureBar({ roomId, hideOpen = false }: { roomId: string; hideOpen?: boolean }) {
   const { phase, open, endMyCapture, pauseMine, resumeMine, micLost, tapDown, stopping, reconnectMic, eventId, destination, conversationId } = useRoomCapture();
   const needsReconnect = micLost || tapDown;   // nothing is being recorded: the one way back is this tap
   const status = useCaptureStatus();
@@ -90,9 +90,12 @@ function CompactCaptureBar({ roomId }: { roomId: string }) {
             onClick={() => void endMyCapture(roomId)} aria-label="Stop transcribing" data-testid="room-capture-bar-end">
             <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
           </button>
-          <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={open} aria-label="Open the room" data-testid="room-capture-bar-open">
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </button>
+          {/* Inside the room of the event being captured the arrow would leave it for /transcribe/:code, and it sits where "Transcribe" was a moment ago. */}
+          {!hideOpen && (
+            <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={open} aria-label="Open the room" data-testid="room-capture-bar-open">
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -115,7 +118,7 @@ function CaptureDestination({ destination, className = '' }: { destination: Slic
   );
 }
 
-export function RoomCaptureBar({ short = false }: { short?: boolean }) {
+export function RoomCaptureBar({ short = false, roomEventId }: { short?: boolean; /** Drawn inside THIS event's room head: no "Open the room" for a capture that belongs to this event (another capture keeps it). */ roomEventId?: string }) {
   const { phase, roomId, open, endMyCapture, manualPaused, pausedByLiveRecord, eventId, destination } = useRoomCapture();
   const { offline } = useConnectivity();
   const status = useCaptureStatus();
@@ -127,7 +130,7 @@ export function RoomCaptureBar({ short = false }: { short?: boolean }) {
   // Of the pauses, only the two the person can see and undo render (D3/D13 for the rest).
   if (phase === 'paused' && !manualPaused && !pausedByLiveRecord) return null;
 
-  if (short && !offline) return <CompactCaptureBar roomId={roomId} />;
+  if (short && !offline) return <CompactCaptureBar roomId={roomId} hideOpen={!!roomEventId && eventId === roomEventId} />;
 
   if (offline) {
     return (
@@ -171,7 +174,7 @@ export function RoomCaptureBar({ short = false }: { short?: boolean }) {
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <PauseResumeButton />
           <StopCaptureButton onClick={() => void endMyCapture(roomId)} testId="room-capture-bar-end" />
-          <OpenRoomButton onClick={open} testId="room-capture-bar-open" />
+          {!(roomEventId && eventId === roomEventId) && <OpenRoomButton onClick={open} testId="room-capture-bar-open" />}
         </div>
       }
     />

@@ -820,21 +820,21 @@ test('WALK1 (round 1): host before round 1, the real preview, round 1 starts; th
   const people = (pg: Page) => pg.getByTestId('round-card-person');
   const peopleText = async (pg: Page) => (await people(pg).allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
 
-  await ac('7a', 'round screen, owner: table, canvas headline, one line per person in role order; no Open; no controls', async () => {
+  await ac('7a', 'round screen, owner: table, canvas headline, one line per person in role order; Open the canvas for their own; no controls', async () => {
     const { ctx, pg, card } = await roomAs(ownerP);
     await expect(pg.getByTestId('round-card-table')).toHaveText(`Table ${tNo1}`);
     await expect(card).toHaveAttribute('data-role', 'owner');
     const lines = await peopleText(pg);
     expect(lines[0], 'the owner line is first and says You').toBe('You: owner');
     expect(lines[1]).toBe(`${first(partnerP)} Q.: partner`);
-    await expect(pg.getByTestId('round-canvas-link')).toHaveCount(0);
+    await expect(pg.getByTestId('round-canvas-link')).toHaveText('Open the canvas'); // the owner can open their own canvas too
     for (const gone of ['round-card-role', 'round-card-with', 'round-card-rule', 'round-canvas-card-toggle']) await expect(pg.getByTestId(gone)).toHaveCount(0);
-    // the owner sees the selector only when another canvas is shared with the event; with it, Open still appears only after choosing
-    expect(await card.locator('button, input, textarea').count(), 'the owner card has no buttons').toBe(0);
+    // the owner sees the selector only when another canvas is shared with the event; Open is there for their own canvas and for a chosen one
+    expect(await card.locator('button, input, textarea').count(), 'the owner card has no buttons, inputs or textareas (Open is a link)').toBe(0);
     await expect(pg.getByTestId('round-card-confirm')).toHaveCount(0);
     await shots(pg, 'round', 'owner');
     await ctx.close();
-    return `Table, lines ${JSON.stringify(lines)}, no Open, no buttons`;
+    return `Table, lines ${JSON.stringify(lines)}, an Open link for their own canvas, no buttons`;
   });
 
   await ac('7b', 'round screen, partner: canvas headline, one line per person in role order, Open the canvas; selector lists the other shared canvases', async () => {
@@ -901,18 +901,18 @@ test('WALK1 (round 1): host before round 1, the real preview, round 1 starts; th
     return `open row: round ${round1.slice(0, 8)}, owner ${first(ownerP)}, reader ${first(partnerP)}, version ${open.version_id.slice(0, 8)} = newest published (seq ${latest.published_seq}); partner position "disagree" stored; Compare card visible`;
   });
 
-  await ac('14', 'projector: round, clock, tables, one rule line; no swap wording', async () => {
+  await ac('14', 'projector: round, clock, tables, no rule line; no swap wording', async () => {
     await asUser(page, host, `/events/${E1.slug}/host?view=screen`);
     await expect(page.getByTestId('host-screen')).toBeVisible({ timeout: 90_000 });
     await expect(page.getByRole('heading', { name: 'Round 1' })).toBeVisible();
     await expect(page.getByTestId('round-clock')).toBeVisible();
     await expect(page.getByTestId('screen-table').first()).toBeVisible();
     expect(await page.getByTestId('screen-table').count()).toBe(t1.size);
-    await expect(page.getByTestId('screen-rule-line')).toContainText('Both say a number');
+    await expect(page.getByTestId('screen-rule-line')).toHaveCount(0);
     const text = await page.getByTestId('host-screen').innerText();
     expect(text).not.toMatch(/swap/i);
     await shots(page, 'projector', 'round-1', [1280, 375]);
-    return `heading Round 1, round-clock, ${t1.size} tables, rule line "${(await page.getByTestId('screen-rule-line').innerText()).trim()}", no "swap" in ${text.length} chars of screen text`;
+    return `heading Round 1, round-clock, ${t1.size} tables, no rule line, no "swap" in ${text.length} chars of screen text`;
   }, page);
 
   let originalStart = '';

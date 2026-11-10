@@ -74,7 +74,7 @@ export function useRoundCanvas(roundId: string | null): { canvas: RoundCanvas | 
  * Every canvas shared with the event: the same read behind EventSharedCanvases (no new RPC). Read once per event for a
  * seated person. A failed read is `failed`: the card then shows the table's canvas alone, with no selector.
  */
-export function useEventCanvasChoices(eventId: string, enabled: boolean, roundId: string | null): { list: SharedCanvasRef[]; failed: boolean } {
+export function useEventCanvasChoices(eventId: string, enabled: boolean, roundId: string | null): { list: SharedCanvasRef[]; failed: boolean; loaded: boolean } {
   const [read, setRead] = useState<{ eventId: string; list: SharedCanvasRef[]; failed: boolean } | null>(null);
   useEffect(() => {
     if (!enabled) return;
@@ -85,7 +85,7 @@ export function useEventCanvasChoices(eventId: string, enabled: boolean, roundId
     return () => { live = false; };
   }, [eventId, enabled, roundId]); // re-read each round: canvases shared or published meanwhile
   const mine = read && read.eventId === eventId ? read : null;
-  return { list: mine?.list ?? [], failed: !mine || mine.failed };
+  return { list: mine?.list ?? [], failed: !mine || mine.failed, loaded: !!mine };
 }
 
 /**
@@ -216,7 +216,8 @@ export function useOwnerUpdate(eventId: string, enabled: boolean, roundsKey: str
     await readUpdate();
   }, [canvasId, readUpdate]);
   usePoll(readDrafting, enabled && drafting, UPDATE_POLL_MS);
-  usePoll(readOffer, enabled && offerCanChange(offer), OFFER_POLL_MS);
+  // While the round's words are being cleaned the wait is short and the button should follow it closely: the update cadence.
+  usePoll(readOffer, enabled && offerCanChange(offer), offer?.state === 'transcript_pending' ? UPDATE_POLL_MS : OFFER_POLL_MS);
 
   const guard = async (work: () => Promise<TaskNote | null>) => {
     setBusy(true);
@@ -226,13 +227,13 @@ export function useOwnerUpdate(eventId: string, enabled: boolean, roundsKey: str
     } catch {
       if (alive.current) setNote({ kind: 'error', text: NOTE_FAILED });
     } finally {
-      if (alive.current) setBusy(false);
-      await readBoth();
+      // Busy until the re-read has landed, so a started draft shows "drafting" instead of the button flashing back.
+      try { await readBoth(); } finally { if (alive.current) setBusy(false); }
     }
   };
 
   const make = () => guard(async () => {
-    if (!offer?.roundId) return null;
+    if (!offer?.roundId) return { kind: 'error', text: NOTE_FAILED };
     return nextVersionNote(await makeMyNextVersion(offer.roundId));
   });
 

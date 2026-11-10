@@ -531,6 +531,7 @@ export function EventRoomMeet() {
         tabs={stepBar}
       />
       <RoomHeadCapture
+        eventId={event?.id}
         idle={event && !isFrozen && !moment.eveningOver && roomRecipe.room.transcribe ? (
           <RoomTranscribeIdleBar
             eventId={event.id}
@@ -594,7 +595,8 @@ export function EventRoomMeet() {
         )}
         {/* P1515, moved here from the event page (founder): the canvases shared with this event, for the people the room admits.
             P1529: on the Table step only while not seated; a room with no Table step (a hike's) keeps it on the Principle view. */}
-        {!seated && event && event.status !== 'cancelled' && viewing === (hiddenSteps.includes('table') ? 'principle' : 'table') && (
+        {/* The mastermind's Table step shows them itself, collapsed at the bottom of the waiting state (MastermindOtherCanvases). */}
+        {!seated && !(roomRecipe.mastermind && viewing === 'table') && event && event.status !== 'cancelled' && viewing === (hiddenSteps.includes('table') ? 'principle' : 'table') && (
           <EventSharedCanvases eventId={event.id} viewerId={user?.id} enabled={!!user} />
         )}
         {transcriptionFailed && (

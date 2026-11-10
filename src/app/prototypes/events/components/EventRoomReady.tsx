@@ -155,7 +155,7 @@ export function EventRoomReady() {
           onBack={backToEvent}
           tabs={<RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="min-w-0 flex-1" />}
         />
-        <RoomHeadCapture />
+        <RoomHeadCapture eventId={event?.id} />
       </RoomStickyHead>
       {/* P1336: the preparation stays one tap away for someone who joined without it. */}
       <div className="mx-auto mt-2 flex w-full max-w-2xl justify-end">

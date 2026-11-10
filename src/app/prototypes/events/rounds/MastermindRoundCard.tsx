@@ -2,8 +2,7 @@
  * @file MastermindRoundCard.tsx
  * @description P1529 §5 (D1, D3, D5, D19): the sales mastermind's round screen. A seated person sees the table, whose Clarity
  * Canvas it is discussing (a native select that can show any canvas shared with the event, and never changes seating), one
- * line per person at the table in role order, and (for their partner, the observers, and an owner who chose another canvas)
- * one "Open the canvas". It asks for nothing: no confirm, no half-time swap, no phase, no sliders. The two
+ * line per person at the table in role order, and one "Open the canvas" for everyone (the owner too: their own, or the one they chose). It asks for nothing: no confirm, no half-time swap, no phase, no sliders. The two
  * contracts the room page depends on are kept from RoundCard: it owns the round poll, and it reports the moment upward.
  * Two differences in the moment, on purpose: `atTable` is never true (there is no "we're seated" tap, and no statement
  * Compare step for this flow), and the host's canvas-update step is not "the evening is over". Sibling of RoundCard.tsx,
@@ -101,6 +100,7 @@ export function MastermindRoundCard({
   if (!seated || !mine) {
     return (
       <MastermindWaiting
+        eventId={eventId}
         rounds={state.rounds}
         round={round ?? undefined}
         view={view}
@@ -125,7 +125,6 @@ export function MastermindRoundCard({
   const chosen = pick && pick.roundId === round.id ? others.find(c => c.ownerId === pick.ownerId) ?? null : null;
   const tableLink = canvas?.shared && canvas.canvasName ? canvasPageHref(canvas.ownerSlug, canvas.canvasName) : null;
   const chosenLink = chosen ? canvasPageHref(chosen.ownerSlug ?? chosen.ownerId, chosen.name) : null;
-  const showOpen = table.role !== 'owner' || !!chosen;
   if (mic.needsStep) return <><MastermindMicStep table={mine.table} discussing={table.owner ? defaultLabel : null} mic={mic} />{task}</>;
 
   return (
@@ -162,7 +161,7 @@ export function MastermindRoundCard({
           ))}
         </ul>
 
-        {table.owner && showOpen && (chosen ? (
+        {table.owner && (chosen ? (
           chosenLink ? (
             <Button asChild className="mt-4 min-h-12 w-full text-base">
               <Link to={chosenLink} data-testid="round-canvas-link">Open the canvas</Link>
@@ -170,13 +169,13 @@ export function MastermindRoundCard({
           ) : (
             <p className="mt-3 text-sm text-muted-foreground" data-testid="round-canvas-unshared">This Clarity Canvas is no longer shared</p>
           )
-        ) : table.role !== 'owner' && loaded && canvas && (
+        ) : loaded && canvas && (
           tableLink ? (
             <Button asChild className="mt-4 min-h-12 w-full text-base">
               <Link
                 to={tableLink}
-                // Evidence, never a gate: recorded only for the table's assigned canvas, beside the navigation, which it can never stop.
-                onClick={() => { try { recordCanvasOpen(round.id, canvas.ownerProfileId); } catch { /* not a gate */ } }}
+                // Evidence, never a gate: recorded only for the table's assigned canvas, and only when a reader opens it (the owner opening their own is not a reading), beside the navigation, which it can never stop.
+                onClick={table.role === 'owner' ? undefined : () => { try { recordCanvasOpen(round.id, canvas.ownerProfileId); } catch { /* not a gate */ } }}
                 data-testid="round-canvas-link"
               >
                 Open the canvas
@@ -187,7 +186,7 @@ export function MastermindRoundCard({
           )
         ))}
 
-        {table.role !== 'owner' && !chosen && canvasFailed && (
+        {!chosen && canvasFailed && (
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground" role="alert" data-testid="round-canvas-error">
             <span>Could not load this Clarity Canvas.</span>
             <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={retryCanvas} data-testid="round-canvas-retry">Retry</Button>

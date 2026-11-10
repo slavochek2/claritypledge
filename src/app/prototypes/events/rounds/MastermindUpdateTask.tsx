@@ -10,12 +10,14 @@ import { Check, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ARTIFACTS_CANVASES_DRAFTS } from '@/lib/canvas-hrefs';
 import type { OwnerUpdate } from './use-mastermind-round';
-import { COLLAPSED_LINE, type TaskFace } from './mastermind-round-helpers';
+import { COLLAPSED_LINE, WORDS_PREPARING, taskSource, taskTitle, type TaskFace } from './mastermind-round-helpers';
 
 const PRIMARY = 'mt-3 h-auto w-full min-h-12 whitespace-normal py-3 text-base bg-blue-500 hover:bg-blue-700 text-white';
 const LINK = 'inline-flex min-h-10 items-center text-sm font-medium text-blue-600';
 /** Faces with nothing to tap: in a round they stay a plain line, with no toggle. */
 const STATIC: ReadonlySet<TaskFace> = new Set(['no_recording', 'no_canvas', 'published']);
+/** Faces where the round is known to be the offer's. get_my_update_state carries no round (state, draftId, revision, runId), so an open draft may come from an earlier round: those faces name none. */
+const SOURCED: ReadonlySet<TaskFace> = new Set(['make', 'pending']);
 
 export function MastermindUpdateTask({
   face,
@@ -67,20 +69,18 @@ export function MastermindUpdateTask({
       data-testid="mastermind-task"
       data-face={face}
     >
-      <Heading className={inStep ? 'text-xl font-semibold' : 'text-base font-medium'}>Your next Clarity Canvas version</Heading>
+      <Heading className={inStep ? 'text-xl font-semibold' : 'text-base font-medium'} data-testid="mastermind-task-title">{taskTitle(SOURCED.has(face) ? roundName : null)}</Heading>
+      {roundName && SOURCED.has(face) && <p className="mt-1 text-sm text-muted-foreground" data-testid="mastermind-task-source">{taskSource(roundName)}</p>}
 
-      {(face === 'make' || face === 'pending') && (
-        <>
-          {roundName && <p className="mt-1 text-sm text-muted-foreground">From {roundName}</p>}
-          {face === 'pending' && (
-            <p className="mt-2 text-sm" role="status" data-testid="mastermind-task-pending">
-              The words from this round are still arriving. Try again in a moment.
-            </p>
-          )}
-          <Button type="button" className={PRIMARY} onClick={() => void owner.make()} disabled={busy} data-testid="mastermind-make">
-            {busy ? 'Making…' : 'Make my next version'}
-          </Button>
-        </>
+      {face === 'pending' && (
+        // The round's words are still being cleaned: the wait, and no button until they are ready (the offer is re-read while pending).
+        <p className="mt-2 text-sm" role="status" data-testid="mastermind-task-pending">{WORDS_PREPARING}</p>
+      )}
+
+      {face === 'make' && (
+        <Button type="button" className={PRIMARY} onClick={() => void owner.make()} disabled={busy} aria-busy={busy} data-testid="mastermind-make">
+          {busy ? 'Starting…' : 'Make my next version'}
+        </Button>
       )}
 
       {face === 'drafting' && (

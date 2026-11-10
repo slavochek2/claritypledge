@@ -91,12 +91,14 @@ export function useEventRounds(
     if (!live) return;
     const hidden = () => visibleOnly && document.visibilityState === 'hidden';
     const id = setInterval(() => { if (!hidden()) void refresh(); }, intervalMs);
-    // A watched tab coming back into view reads at once instead of waiting out the interval.
-    const onVisible = () => { if (!hidden()) void refresh(); };
-    if (visibleOnly) document.addEventListener('visibilitychange', onVisible);
+    // A tab coming back into view reads at once instead of waiting out the interval, in every mode: a phone unlocked mid-round
+    // would otherwise show the last state it had until the next tick (up to ROUNDS_POLL_MS, and a throttled timer can be later).
+    // Costs nothing while the tab stays as it is: one read per return, none on going hidden.
+    const onVisible = () => { if (document.visibilityState !== 'hidden') void refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       clearInterval(id);
-      if (visibleOnly) document.removeEventListener('visibilitychange', onVisible);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [eventId, enabled, live, intervalMs, visibleOnly, refresh]);
 

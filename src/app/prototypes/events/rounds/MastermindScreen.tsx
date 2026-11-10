@@ -2,7 +2,7 @@
  * @file MastermindScreen.tsx
  * @description P1529 §5: the sales mastermind's projector (`?view=screen` while the event's flow is the mastermind).
  * It shows the round's name, the clock, every table (its number, the Clarity Canvas owner, their partner and the
- * observers) and ONE fixed rule line. It never shows a pair's phase or a half-time swap, and has no swap bell: the
+ * observers). The rules are spoken and on the lanyard badges, so no rule line. It never shows a pair's phase or a half-time swap, and has no swap bell: the
  * round's end-of-round bell is the shared one. While the canvas-update step is on it says so. Readable from a distance.
  * Every sentence is a draft: [FOUNDER DECISION: copy].
  */
@@ -16,10 +16,8 @@ import { SCREEN_CARD_MAX_EM, SCREEN_GAP, SCREEN_HEADER, SCREEN_PAD, screenLayout
 import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
 import { Avatar, ClockNumber, groupByTable, tableSeats, useBell, useClock, useRoundBell, useViewport } from './host-screen-parts';
 import { firstName, shortName } from './use-event-rounds';
-import { COLUMN_LABELS, SCREEN_PART_CAPTION, SCREEN_RULE_LINE, SCREEN_UPDATE_LINE, SCREEN_UPDATE_TITLE } from './mastermind-host-helpers';
+import { COLUMN_LABELS, SCREEN_PART_CAPTION, SCREEN_UPDATE_LINE, SCREEN_UPDATE_TITLE } from './mastermind-host-helpers';
 
-/** Room the fixed rule line takes at the bottom of a wide screen. */
-const RULE_HEIGHT = 80;
 /** screenLayout counts 2.1 type-heights per seat; a role name above the face makes it about 3. */
 const SEAT_HEIGHT_WITH_ROLE = 3 / 2.1;
 
@@ -40,10 +38,9 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended, upda
   const tables = groupByTable(seats);
   const maxSeats = Math.max(2, ...tables.map(t => tableSeats(t).length));
   const wide = w >= 768;
-  // Each seat carries its role's name above the face (about 0.9 of a type-height more per seat), and the rule line sits
-  // below the cards with a gap.
+  // Each seat carries its role's name above the face (about 0.9 of a type-height more per seat).
   const layout = wide
-    ? screenLayout(tables.length, maxSeats * SEAT_HEIGHT_WITH_ROLE, w, h - RULE_HEIGHT - SCREEN_GAP)
+    ? screenLayout(tables.length, maxSeats * SEAT_HEIGHT_WITH_ROLE, w, h)
     : { cols: 1, rows: tables.length, fontPx: 20 };
   const crowded = layout.fontPx < 26;
   const gridStyle: CSSProperties = wide
@@ -56,12 +53,6 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended, upda
         marginInline: 'auto',
       }
     : {};
-  const rule = (
-    <p className={cn('shrink-0 text-center font-semibold text-foreground', wide ? 'text-3xl' : 'mt-6 text-2xl')} style={wide ? { height: RULE_HEIGHT, marginTop: SCREEN_GAP } : undefined} data-testid="screen-rule-line">
-      {SCREEN_RULE_LINE}
-    </p>
-  );
-
   return (
     <div
       className={cn('fixed inset-0 z-[100] bg-white print:static', wide ? 'flex flex-col overflow-hidden' : 'overflow-auto')}
@@ -128,7 +119,6 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended, upda
               </div>
             ))}
           </div>
-          {rule}
         </>
       ) : (
         <div className="grid min-h-[80vh] place-items-center text-center">

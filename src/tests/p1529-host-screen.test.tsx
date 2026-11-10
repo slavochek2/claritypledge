@@ -96,7 +96,6 @@ vi.mock('@/lib/mastermind-seating', async importOriginal => {
 });
 
 import { EventHostPage } from '@/app/prototypes/events/rounds/EventHostPage';
-import { SCREEN_RULE_LINE } from '@/app/prototypes/events/rounds/mastermind-host-helpers';
 
 const MIN = 60_000;
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
@@ -835,13 +834,14 @@ describe('the projector (§5)', () => {
     r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1), seat('r1', 'm-e', 'observer', 1), seat('r1', 'm-c', 'first', 2), seat('r1', 'm-d', 'second', 2)],
   };
 
-  it('shows the round, the clock, every table with its roles and one fixed rule line, and no swap or phase', async () => {
+  it('shows the round, the clock, every table with its roles and no rule line, and no swap or phase', async () => {
     setRounds([round({ startedAt: ago(10 * MIN) })], seats);
     renderHost({ flow: MM, search: '?view=screen' });
     expect((await screen.findByRole('heading', { name: 'Round 1' })).textContent).toBe('Round 1');
     expect(screen.getByTestId('round-clock')).toBeTruthy();
     expect(screen.getAllByTestId('screen-table')).toHaveLength(2);
-    expect(screen.getByTestId('screen-rule-line').textContent).toBe(SCREEN_RULE_LINE);
+    expect(screen.queryByTestId('screen-rule-line')).toBeNull();
+    expect(document.body.textContent ?? '').not.toContain('The lower one counts');
     expect(screen.getAllByTestId('screen-seat').map(s => s.getAttribute('data-role'))).toEqual(['first', 'second', 'observer', 'first', 'second']);
     const text = document.body.textContent ?? '';
     expect(text).toContain('Clarity Canvas owner');

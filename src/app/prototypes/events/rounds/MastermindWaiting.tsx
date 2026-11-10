@@ -1,15 +1,17 @@
 /**
  * @file MastermindWaiting.tsx
  * @description P1529: what the mastermind's round card shows to someone who is not seated: before round 1, "between rounds" (a round
- * ended, the host has not ended the evening), a round running without them, and the evening's end. Wording is a draft:
+ * ended, the host has not ended the evening), a round running without them, and the evening's end, in one order: the state, the owner's task, and the other canvases collapsed at the bottom. Wording is a draft:
  * [FOUNDER DECISION: copy, proposed].
  */
 import type { ReactNode } from 'react';
 import type { EventRound } from '@/app/data/event-rounds-service';
 import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
 import { waitingWords } from './mastermind-round-helpers';
+import { MastermindOtherCanvases } from './MastermindOtherCanvases';
 
-export function MastermindWaiting({ rounds, round, view, showWaiting, between, over, updateStepOn, task }: {
+export function MastermindWaiting({ eventId, rounds, round, view, showWaiting, between, over, updateStepOn, task }: {
+  eventId: string;
   rounds: EventRound[];
   /** The round that is on, if any. */
   round: EventRound | undefined;
@@ -42,5 +44,7 @@ export function MastermindWaiting({ rounds, round, view, showWaiting, between, o
       <h2 className="text-xl font-semibold">The rounds are over</h2>
     </section>
   );
-  return updateStepOn ? <>{task}{card}</> : <>{end}{card}{task}</>;
+  // One focus at a time: the state, then the owner's task, then (collapsed) the other canvases as a backup.
+  const backup = card && <MastermindOtherCanvases eventId={eventId} />;
+  return updateStepOn ? <>{task}{card}{backup}</> : <>{end}{card}{task}{backup}</>;
 }
