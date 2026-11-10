@@ -375,6 +375,9 @@ export interface Sidecar {
   cause?: string
   /** P1605: a number the check measured, higher = worse */
   reading?: number
+  /** P1655: evidence that lets the budget fold rules hide this finding */
+  cap_verified?: boolean
+  retiring?: boolean
 }
 
 /** A sidecar we can use, or null (then the finding is read as a plain one). */
@@ -399,6 +402,8 @@ export function readSidecar(raw: string): Sidecar | null {
   if (o.review === 'weekly' || o.review === 'monthly') s.review = o.review
   if (typeof o.cause === 'string' && CAUSE.test(o.cause)) s.cause = o.cause
   if (typeof o.reading === 'number' && Number.isFinite(o.reading)) s.reading = o.reading
+  if (o.cap_verified === true) s.cap_verified = true
+  if (o.retiring === true) s.retiring = true
   if (Array.isArray(o.options)) {
     const seen = new Set<string>()
     const opts: DayOption[] = []
@@ -500,6 +505,8 @@ export function buildIssues(input: BuildIssuesInput): { issues: DayIssue[]; unus
     }
     if (side?.cause) issue.cause = side.cause
     if (side?.reading !== undefined) issue.reading = side.reading
+    if (side?.cap_verified) issue.cap_verified = true
+    if (side?.retiring) issue.retiring = true
     if (check) issue.check = checkId
     if (side?.important ?? row.severity === 'high') issue.important = true
     if (side?.deadline) issue.deadline = side.deadline

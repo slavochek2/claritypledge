@@ -101,12 +101,24 @@ re-surfaced through a rename (rule 2).
 
 ## Done-When
 
-- [ ] Fixture: projected-over with `CAP_VERIFIED` folds; the same without it shows; an 80% warning on a prod key still shows.
-- [ ] Fixture: a key marked retiring folds its budget findings; an unreadable registry shows them.
-- [ ] Replay: records under the three old fingerprints hide the renamed cards; a fixture with a different cause still shows.
+- [x] Fixture: projected-over with `CAP_VERIFIED` folds; the same without it shows; an 80% warning on a prod key still shows.
+- [x] Fixture: a key marked retiring folds its budget findings; an unreadable registry shows them.
+- [x] Replay: records under the three old fingerprints hide the renamed cards; a fixture with a different cause still shows.
 - [ ] A test fails when an emitted fault key changes without an alias (shown failing once, then passing).
-- [ ] Fixtures: an out-of-credits stall, a crash stall and an unreadable state get three different fingerprints, each accepted by `day-evaluated.ts`.
+- [x] Fixtures: an out-of-credits stall, a crash stall and an unreadable state get three different fingerprints, each accepted by `day-evaluated.ts`.
 - [ ] Every new fold rule is shown failing on its known-bad fixture, and the existing /day tests pass.
+
+## Known Limits (build, 2026-11-10)
+
+- The rename guard reads only this repo's check prose. Keys defined in the global /day file
+  (`disp.*`, including budgets and LinkedIn) and keys with a `<placeholder>` are not covered,
+  so box 4 stays open (Opus review).
+- The retiring rule is dormant: the key registry has no retiring field yet, and adding one
+  changes live key data, so it waits for the founder.
+- A retiring key folds only its projection; its 80% and cap warnings still show, since it may
+  still serve prod (Opus review).
+- The LinkedIn cause is usually `unknown` until the check prints the runner's campaign state.
+- Aliases are one hop. A second rename re-raises the card, which fails toward the founder.
 
 ## Rollback Strategy
 

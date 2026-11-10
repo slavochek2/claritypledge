@@ -100,6 +100,10 @@ export interface DayIssue {
   fp: string
   /** P1605: a number the check measured, higher = worse; lets an "accepted" record break through when it worsens */
   reading?: number
+  /** P1655: the same run's ai-keys report printed CAP_VERIFIED for the key behind this budget finding */
+  cap_verified?: boolean
+  /** P1655: the key behind this budget finding is replaced and due for revoke */
+  retiring?: boolean
   /** small tag top-left: "Security", "Events" */
   topic: string
   /** no ages or counts in a title (spec §4) */
@@ -841,6 +845,8 @@ function readIssue(x: unknown): DayIssue | null {
   if (x.needs_yes === true) it.needs_yes = true
   const reading = num(x.reading)
   if (reading !== undefined) it.reading = reading
+  if (x.cap_verified === true) it.cap_verified = true
+  if (x.retiring === true) it.retiring = true
   if (typeof x.cause === 'string' && CAUSE.test(x.cause)) it.cause = x.cause
   const deadline = isoDay(x.deadline)
   if (deadline) it.deadline = deadline

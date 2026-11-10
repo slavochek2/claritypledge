@@ -39,6 +39,7 @@ import {
   type LoopResolved,
   type OutcomeLine,
 } from '../src/lib/day'
+import { FP_ALIASES } from './day-fp-aliases'
 
 const DAY_MS = 86_400_000
 /** The checks whose fault, owned by an open spec, is not raised as a card at all (spec D). */
@@ -271,22 +272,44 @@ export interface LoopInputs {
   evaluated?: EvaluatedLine[]
 }
 
+function checkRan(report: DayReport, v: DayIssue): boolean {
+  const down = new Set(report.connections.filter((c) => connectionBroken(c.state)).map((c) => c.id))
+  const check = report.checks.find((c) => c.id === (v.check ?? v.fp.split(':')[0]))
+  return !!check && (check.status === 'ok' || check.status === 'problem') && !(check.connection && down.has(check.connection))
+}
+
+/**
+ * P1655: a card that can never ask the founder for anything folds into the same "already evaluated"
+ * bucket, on evidence the finding carries (set from this run's own output; absent = the card shows):
+ *  - projected-over with a cap verified this run: the cap is the designed stop. An 80% warning is
+ *    not folded by it (the key may serve prod).
+ *  - any budget finding of a key marked retiring (replaced, due for revoke).
+ * The caller has already established that the check ran this pass.
+ */
+export function foldRule(report: DayReport, v: DayIssue, now: Date): LoopEvaluated | null {
+  if (v.check !== 'disp.budgets') return null
+  let rule: string | null = null
+  if (v.retiring === true && v.fp.startsWith('disp.budgets:budgets:projected-over:')) rule = 'retiring-key'
+  else if (v.cap_verified === true && v.fp.startsWith('disp.budgets:budgets:projected-over:')) rule = 'cap-verified'
+  if (!rule) return null
+  const cause = rule === 'cap-verified' ? 'a hard spend cap was verified this run and is the designed stop' : 'the key is replaced and due to be revoked'
+  return { id: `rule-${rule}`, cause, verdict: 'accepted', expires: new Date(report.started_at).toISOString().slice(0, 10), at: now.toISOString(), hidden: true }
+}
+
 /**
  * P1605: has an earlier record evaluated this issue's cause? Null (no annotation at all, the card
  * behaves exactly as before) when no record matches OR the issue's check did not run this pass:
  * "did not look" never satisfies a record. Otherwise the annotation says whether the card hides.
  */
 export function evaluate(report: DayReport, v: DayIssue, records: readonly EvaluatedLine[], now: Date): LoopEvaluated | null {
-  if (!records.length || v.fp.startsWith('check:')) return null
+  if (v.fp.startsWith('check:')) return null
   let rec: EvaluatedLine | undefined
   for (const r of records) {
-    if (!r.fps.includes(v.fp) || !(Date.parse(r.at) < now.getTime())) continue
+    if (!r.fps.some((f) => f === v.fp || FP_ALIASES[f] === v.fp) || !(Date.parse(r.at) < now.getTime())) continue
     if (!rec || Date.parse(r.at) > Date.parse(rec.at) || (Date.parse(r.at) === Date.parse(rec.at) && r.id > rec.id)) rec = r
   }
-  if (!rec) return null
-  const down = new Set(report.connections.filter((c) => connectionBroken(c.state)).map((c) => c.id))
-  const check = report.checks.find((c) => c.id === (v.check ?? v.fp.split(':')[0]))
-  const ran = !!check && (check.status === 'ok' || check.status === 'problem') && !(check.connection && down.has(check.connection))
+  const ran = checkRan(report, v)
+  if (!rec) return ran ? foldRule(report, v, now) : null
   if (!ran) return null
   let why: EvaluatedWhy | undefined
   if (rec.verdict === 'fixed') why = 'fixed-returned'
@@ -319,7 +342,7 @@ export function applyLoops(report: DayReport, inp: LoopInputs): { lines: Outcome
   const waits: { fp: string; owner: string }[] = []
   for (const v of views) {
     const card: DayLoop = {}
-    let ev = inp.evaluated ? evaluate(report, v, inp.evaluated, inp.now) : null
+    let ev = evaluate(report, v, inp.evaluated ?? [], inp.now)
     if (sent[v.fp]) card.sent = sent[v.fp]
     const hasWait = v.options.some((o) => o.id === 'wait')
     let owner = ownerFor(v, inp.git, inp.now)
