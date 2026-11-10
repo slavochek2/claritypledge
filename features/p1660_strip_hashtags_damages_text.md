@@ -10,8 +10,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [hashtags, story-display, links, p1638]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1660-strip-hashtags.test.ts
   root_cause: "stripHashtags builds #tag(?=[\\s.,;:!?)]|$) with no leading boundary and a lookahead that accepts . and : mid-token, so a tag inside a URL fragment or before .js/:3 is removed"
