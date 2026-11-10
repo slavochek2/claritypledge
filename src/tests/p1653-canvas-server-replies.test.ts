@@ -3,7 +3,7 @@
  * the approved words of every failure the run produces, and the migration that backs them. The model and the database are faked; the words are the
  * founder-approved ones in canvas-reply-table.ts.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { BOX_DEFINITIONS } from '../../supabase/functions/_shared/canvas-box-definitions';
@@ -452,6 +452,51 @@ describe('P1653 the instructions and the migration', () => {
     // the restated body is the v6 body plus that one condition and nothing else
     expect(e.replace("       AND (p_run IS NOT NULL OR x.kind <> 'link_rejected')\n", '')).toBe(original);
     expect(read('supabase/migrations/20261030080000_p1536_v6_engine.sql')).toMatch(/_canvas_draft_effective_input\(v_src\.id, NULL\)/); // the fork's call
+  });
+  const atomic = read('supabase/migrations/20261110130000_p1653_atomic_tap.sql');
+  const atomicFn = (name: string) => new RegExp(`CREATE OR REPLACE FUNCTION public\\.${name}\\([\\s\\S]*?\\n\\$\\$;`).exec(atomic)?.[0] ?? '';
+  it('a tap is sent and marked in ONE function (one transaction): the send is called inside it and the marker is inserted after it, so no token message exists unmarked', () => {
+    const t = atomicFn('canvas_workspace_send_tap');
+    expect(t.length).toBeGreaterThan(1500);
+    const send = t.indexOf('public.canvas_workspace_send(');
+    const mark = t.indexOf('INSERT INTO public.canvas_draft_taps');
+    expect(send).toBeGreaterThan(0);
+    expect(mark).toBeGreaterThan(send);
+    expect(t).not.toMatch(/COMMIT|SAVEPOINT|EXCEPTION WHEN/); // nothing that could keep the send while dropping the marker
+    // the text is fixed by the token, never taken from the caller (the function has no body argument)
+    expect(t).toContain("CASE p_token WHEN 'yes' THEN 'Yes, this is my business' ELSE 'Not mine' END");
+    expect(t).not.toMatch(/p_body/);
+    // not the open question: nothing is sent
+    expect(t.indexOf("'stale_button'")).toBeGreaterThan(0);
+    for (const g of ["LIKE '%' || chr(10) || 'Is this your business?'", "m.kind = 'agent'", "m.kind <> 'agent'", 'v_first', 'NOT v_after', 'v_replay']) expect(t, g).toContain(g);
+    // a refusal or error of the send is passed through and nothing is marked
+    expect(t).toContain("IF v_res ->> 'status' IS DISTINCT FROM 'ok' THEN\n    RETURN v_res;");
+    expect(atomic).toMatch(/GRANT EXECUTE ON FUNCTION public\.canvas_workspace_send_tap\(uuid, uuid, integer, text, uuid\) TO authenticated;/);
+    expect(atomic).toMatch(/REVOKE ALL ON FUNCTION public\.canvas_workspace_send_tap\(uuid, uuid, integer, text, uuid\) FROM PUBLIC, anon;/);
+    expect(atomic).toMatch(/^-- diffed against: /m);
+    expect(atomic).toMatch(/^-- client-safe: /m);
+  });
+  it('canvas_workspace_send is called, never restated or changed by this migration', () => {
+    expect(atomic).not.toMatch(/CREATE (OR REPLACE )?FUNCTION public\.canvas_workspace_send\(/);
+    expect(atomic).not.toMatch(/ALTER FUNCTION public\.canvas_workspace_send/);
+  });
+  it('canvas_mark_tap and _canvas_draft_newest_reply are dropped, and nothing but migrations and tests still names them', () => {
+    expect(atomic).toContain('DROP FUNCTION IF EXISTS public.canvas_mark_tap(uuid, text);');
+    expect(atomic).toContain('DROP FUNCTION IF EXISTS public._canvas_draft_newest_reply(uuid, uuid);');
+    const walk = (dir: string): string[] => readdirSync(resolve(process.cwd(), dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? (e.name === 'node_modules' ? [] : walk(`${dir}/${e.name}`)) : [`${dir}/${e.name}`]));
+    const callers = ['src/app', 'supabase/functions', 'scripts', 'e2e'].flatMap(walk).filter((f) => /\.(ts|tsx|mjs|cjs|js|sh)$/.test(f))
+      .filter((f) => /canvas_mark_tap|_canvas_draft_newest_reply|markCanvasTap/.test(read(f)));
+    expect(callers).toEqual([]);
+  });
+  it('a fork never carries a tap: the selector leaves marked tap messages out when called for a fork (p_run IS NULL), and a run still gets them', () => {
+    const e = atomicFn('_canvas_draft_effective_input');
+    expect(e).toContain('AND (p_run IS NOT NULL OR NOT EXISTS (SELECT 1 FROM public.canvas_draft_taps t WHERE t.message_id = m.id))');
+    // the restated body is the previous one plus that one condition and nothing else
+    expect(e.replace("       AND (p_run IS NOT NULL OR NOT EXISTS (SELECT 1 FROM public.canvas_draft_taps t WHERE t.message_id = m.id))\n", '')).toBe(tapFn('_canvas_draft_effective_input'));
+    // the fork's "Your messages" aggregation reads message ids from this selector, called with NULL
+    const fork = read('supabase/migrations/20261030080000_p1536_v6_engine.sql');
+    expect(fork).toContain('v_in := public._canvas_draft_effective_input(v_src.id, NULL);');
+    expect(fork).toContain("t.id IN (SELECT jsonb_array_elements_text(v_in -> 'message_ids')::uuid)");
   });
   it('the newest-reply lookup is service-role only, owner-checked, and reads only agent replies of the run\'s own thread before its message', () => {
     const r = fixFn('_canvas_draft_newest_reply');

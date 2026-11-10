@@ -107,7 +107,7 @@ export function emptyAnswer(s: Step, t: RunTools, out: Extract<DraftOutcome, { o
 
 const isTokenText = (t: ThreadItem) => t.kind === 'owner_message' && typeof t.text === 'string' && pageTokenOf(t.text) !== null;
 /**
- * The thread without the messages that are button taps. A tap is identified by the MARKER the client set when it sent the message (`canvas_mark_tap`), never by
+ * The thread without the messages that are button taps. A tap is identified by the MARKER the database wrote in the same transaction as the send (`canvas_workspace_send_tap`), never by
  * its text: typed words equal to a label are an ordinary owner message, remembered and used as material. A real tap adds no evidence, here or in any later run.
  */
 export const withoutTaps = (thread: ThreadItem[], taps: ReadonlySet<string>): ThreadItem[] => thread.filter((t) => !(t.message_id && taps.has(t.message_id)));

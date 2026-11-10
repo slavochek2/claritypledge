@@ -11,7 +11,7 @@ import { clearListReturnCache } from '@/lib/list-return-cache';
 import { throwDbError } from './db-error-logger';
 import { emitCanvasDraftEvent } from './canvas-draft-events';
 import { openedResultOf } from './canvas-draft-opened';
-import { markCanvasTap } from './canvas-mark-tap';
+import { CanvasTapRefused, callSendTap } from './canvas-mark-tap';
 
 /** `open_elsewhere`: the canvas already has an open draft, in another thread. Nothing new was made. */
 export type OpenDraftResult = {
@@ -250,24 +250,28 @@ export function canvasSentOf(r: Row): CanvasSent {
  */
 export async function sendCanvasWorkspaceMessage(a: SendCanvasMessageArgs): Promise<CanvasSent | CanvasRefused> {
   try {
-    const { data, error } = await supabase.rpc('canvas_workspace_send', {
-      p_canvas: a.canvasId,
-      p_from_version: a.fromVersionId ?? null,
-      p_expected_draft: a.expectedDraftId ?? null,
-      p_expected_revision: a.expectedRevision ?? null,
-      p_replace: a.replace === true,
-      p_body: a.body ?? null,
-      p_box_refs: a.boxRefs?.length ? a.boxRefs : null,
-      p_attachment: a.attachment ?? null,
-      p_client_id: a.clientId,
-    });
+    // A tap goes through ONE call that sends the token message and marks it in the same transaction: no token message ever exists unmarked, so nothing can
+    // start it as ordinary words. The server fixes its text from the token; a tap that is not the open question sends nothing (stale_button).
+    const { data, error } = a.tap
+      ? await callSendTap({ ...a, tap: a.tap })
+      : await supabase.rpc('canvas_workspace_send', {
+        p_canvas: a.canvasId,
+        p_from_version: a.fromVersionId ?? null,
+        p_expected_draft: a.expectedDraftId ?? null,
+        p_expected_revision: a.expectedRevision ?? null,
+        p_replace: a.replace === true,
+        p_body: a.body ?? null,
+        p_box_refs: a.boxRefs?.length ? a.boxRefs : null,
+        p_attachment: a.attachment ?? null,
+        p_client_id: a.clientId,
+      });
     if (error || !data) failRpc('sendCanvasWorkspaceMessage', error, 'Could not send this message');
     const r = data as Row;
+    if (a.tap && r.status === 'refused' && r.code === 'stale_button') throw new CanvasTapRefused();
     const refused = refusalOf(r);
     if (refused) return refused;
     const sent = canvasSentOf(r);
     a.onThreadKnown?.(sent.threadRootId);
-    if (a.tap) await markCanvasTap(sent.messageId, a.tap); // before the run starts: a refusal means no run
     if (!a.attachment && !sent.replayed) sent.start = await startCanvasRun(sent.runId);
     return sent;
   } finally {

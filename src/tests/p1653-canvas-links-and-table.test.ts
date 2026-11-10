@@ -54,6 +54,15 @@ describe('P1653: one identity for a link (linkKey)', () => {
   it('compares on the 200-character cut the label is stored with', () => {
     const long = `https://shop.example.com/${'a'.repeat(225)}`;
     expect(linkKey(long)).toBe(linkKey(long.slice(0, LINK_LABEL_CHARS)));
+    expect(linkKey(long)).toHaveLength(LINK_LABEL_CHARS);
+  });
+  it('is normalised BEFORE it is cut: a www spelling and a non-www spelling of a long URL are the same key, and the stored label (a key) matches itself', () => {
+    const path = 'p'.repeat(220);
+    const withWww = linkKey(`https://www.example.com/${path}`);
+    expect(withWww).toBe(linkKey(`https://example.com/${path}`));
+    expect(withWww).toBe(linkKey(`EXAMPLE.com/${path}/`));
+    expect(withWww).toHaveLength(LINK_LABEL_CHARS);
+    expect(linkKey(withWww)).toBe(withWww); // a label stored as its own key is found again
   });
 });
 

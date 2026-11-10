@@ -16,6 +16,7 @@ const MIGRATIONS = [
   '20261110100000_p1653_never_a_wall.sql',
   '20261110110000_p1653_fix_batch.sql',
   '20261110120000_p1653_structured_tap.sql',
+  '20261110130000_p1653_atomic_tap.sql',
 ];
 const read = (f: string) => readFileSync(resolve(process.cwd(), 'supabase/migrations', f), 'utf8');
 

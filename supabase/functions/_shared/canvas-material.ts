@@ -146,18 +146,19 @@ export const isThinRedirect = (text: string): boolean => text.trim().length < TH
 export const LINK_LABEL_CHARS = 200;
 
 /**
- * ONE identity for a link, used wherever "is this page already known (or rejected)?" is asked: the text is cut at the label's 200 characters first (the same cut the
- * label is stored with), then the host is lowercased, `www.` and a trailing slash dropped, a bare domain given its https form, and the fragment dropped. So
- * "Airbnb.com", "www.airbnb.com", "https://airbnb.com/" and a 250-character URL compared with its own 200-character label are each one page.
+ * ONE identity for a link, used wherever "is this page already known (or rejected)?" is asked: the host is lowercased, `www.` and a trailing slash dropped, a bare
+ * domain given its https form, and the fragment dropped, and THEN the result is cut at the label's 200 characters. So "Airbnb.com", "www.airbnb.com" and
+ * "https://airbnb.com/" are one page, and so are the www and non-www spellings of a URL longer than 200 characters (cutting first would keep four more characters
+ * of one than of the other). The label a link is kept under is its own key, so a stored label and the same page said again compare equal.
  */
 export function linkKey(raw: string): string {
-  const cut = raw.trim().slice(0, LINK_LABEL_CHARS);
+  const text = raw.trim();
   try {
-    const u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(cut) ? cut : `https://${cut}`);
+    const u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`);
     const path = u.pathname.replace(/\/+$/, '');
     return `https://${u.host.replace(/^www\./i, '')}${path}${u.search}`.slice(0, LINK_LABEL_CHARS); // the parser has lowercased the host; the path keeps its case
   } catch {
-    return cut.toLowerCase();
+    return text.slice(0, LINK_LABEL_CHARS).toLowerCase();
   }
 }
 

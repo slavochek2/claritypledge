@@ -1,20 +1,27 @@
 /**
- * P1653 F3: marks the message just sent as a tap of a link-confirm button. The server accepts the mark only when the body is exactly that button's
- * token and the message is the caller's own, in an open draft's thread. It runs after the send and before the run starts: the engine reads the mark.
- * Throws CanvasTapRefused on a refusal or a failed call, so nothing starts.
+ * P1653 F3: the refusal of a link-confirm button tap. A tap is sent and marked in ONE database call (`canvas_workspace_send_tap`, see
+ * `sendCanvasWorkspaceMessage`), so no token message ever exists without its marker. When the question is no longer open the server sends nothing and
+ * answers `stale_button`; the caller says so and reloads.
  */
+
+import { clearListReturnCache } from '@/lib/list-return-cache';
 import { supabase } from '@/lib/supabase';
 
-/** The server refused the mark (the question is no longer open, or the message is not that button's token): the caller says so and reloads. */
-export class CanvasTapRefused extends Error {
-  constructor() {
-    super('canvas_mark_tap refused');
-    this.name = 'CanvasTapRefused';
+/** The one call that sends a tap AND marks it (same transaction). The server fixes the message's text from the token; the caller passes no body. */
+export async function callSendTap(a: { canvasId: string | null; expectedDraftId?: string | null; expectedRevision?: number | null; tap: 'yes' | 'no'; clientId: string }) {
+  try {
+    return await supabase.rpc('canvas_workspace_send_tap', {
+      p_canvas: a.canvasId, p_expected_draft: a.expectedDraftId ?? null, p_expected_revision: a.expectedRevision ?? null, p_token: a.tap, p_client_id: a.clientId,
+    });
+  } finally {
+    clearListReturnCache(); // it writes a chat message, so the cached lists clear here too (the caller also clears)
   }
 }
 
-export async function markCanvasTap(messageId: string, token: 'yes' | 'no'): Promise<void> {
-  const { data, error } = await supabase.rpc('canvas_mark_tap', { p_message: messageId, p_token: token });
-  if (error) throw new CanvasTapRefused(); // a failed mark is treated like a refusal: nothing may start
-  if ((data as { status?: string } | null)?.status !== 'ok') throw new CanvasTapRefused();
+/** The server refused the tap (the question is no longer open): nothing was sent and nothing runs. */
+export class CanvasTapRefused extends Error {
+  constructor() {
+    super('canvas_workspace_send_tap refused');
+    this.name = 'CanvasTapRefused';
+  }
 }
