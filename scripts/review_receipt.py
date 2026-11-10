@@ -110,12 +110,16 @@ def fingerprint(path):
             try:
                 with open(path, "rb") as f:
                     body = hashlib.sha256(f.read()).hexdigest()
-            except FileNotFoundError:
+            except (FileNotFoundError, NotADirectoryError):
+                # The link itself exists (and is hashed by its target string); only the target
+                # is missing or runs through a file. Never a deletion (P1664 review round 2, Codex).
                 body = "dangling"
             return "link:" + target + ":" + body
         with open(path, "rb") as f:
             return hashlib.sha256(f.read()).hexdigest()
-    except FileNotFoundError:
+    except (FileNotFoundError, NotADirectoryError):
+        # NotADirectoryError: a parent directory was replaced by a file (a refactor), so the
+        # path no longer exists; it is a deletion, not an unreadable file (P1664 review, Codex).
         return DELETED
     except Exception:
         return None
@@ -148,6 +152,11 @@ def unreviewed(paths):
             continue
         h = fingerprint(p)
         if h == DELETED:
+            continue
+        if h is None:
+            # Unreadable (permissions, a directory, an I/O error). Never "reviewed as-is": a
+            # missing receipt is also None, and None == None used to pass it (P1664).
+            out.append(p)
             continue
         receipts_file, rel = loc
         if receipts_file not in cache:
