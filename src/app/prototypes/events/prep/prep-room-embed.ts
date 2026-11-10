@@ -19,4 +19,7 @@ export type PrepRoomEmbed = {
   /** P1542 review round 3 (D): a non-learner's Join started this learning — its finish goes straight to the group
    *  terms (onStep), never the ordinary "learned" end screen. */
   thenJoin?: boolean;
+  /** Where the finish of a flow without its own learning words continues: Table once the Principle decision is made
+   *  (and the room has a Table), else Principle. */
+  nextStep?: 'principle' | 'table';
 };

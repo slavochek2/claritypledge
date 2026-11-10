@@ -592,6 +592,9 @@ export function PrepFlow({
   const feedbackFinished = useFeedbackFinished(event.id, roomRow && !embedded && !!roomRecipe.roomClose.finished);
   // Round 6 (F): where the room would open now — Give feedback once it is open and its default, else Opt in.
   const roomNext: RoomStep = feedbackAlwaysOpen(event) && defaultRoomStep(event) === 'close' ? 'close' : 'principle';
+  // Founder UAT: preparation finished INSIDE the room of a flow without its own learning words (Sales Mastermind,
+  // Clarity Night) is already in the room, so the finish is the short one below, never the out-of-room confirmation.
+  const embeddedFinish = embedded && !words;
   const headerBack = () => {
     if (screen === 'plan' || screen === 'end') return leavePlan();
     // Round 8f: reviewing finished learning, the back arrow on any step returns to the ticked list (never out of the room).
@@ -1096,7 +1099,21 @@ export function PrepFlow({
               </div>
             </section>
           )}
-          {screen === 'end' && !roomRow && (() => {
+          {screen === 'end' && embeddedFinish && (
+            // [FOUNDER DECISION: copy, proposed] "You're ready"; ONE primary to the room's next step (Principle until its
+            // decision is made, then Table). No calendar, share, event card or secondary: the person is in the room.
+            <section className="flex flex-col items-center gap-3 pt-10 text-center" data-testid="prep-room-finish">
+              <Check className="h-8 w-8 text-green-600" aria-hidden="true" />
+              <h1 className="text-2xl font-bold leading-tight text-foreground text-balance">You&apos;re ready</h1>
+              <div className="w-full pt-3">
+                <LetterPrimaryCta
+                  label={room?.nextStep === 'table' ? 'Continue to your table' : 'Continue to Principle'}
+                  onClick={() => finishInRoom(room?.nextStep ?? 'principle')}
+                />
+              </div>
+            </section>
+          )}
+          {screen === 'end' && !roomRow && !embeddedFinish && (() => {
             const hasStories = !fromRoom && !!tag && !!experts && experts.length > 0;
             // Until the experts are read, the next action is not known: render no button rather than
             // one that changes under the person's finger.

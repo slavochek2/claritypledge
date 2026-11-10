@@ -559,6 +559,7 @@ export function EventRoomMeet() {
                 active: learning,
                 headSlot: learning ? learnHeadSlot : null,
                 thenJoin: learnThenJoin,
+                nextStep: answered && !hiddenSteps.includes('table') ? 'table' : 'principle',
                 // P1542 review G3: learning a non-learner's Join started ends on the group terms, still in the room.
                 // Round 4 (R5): a finish that lands after the person picked another view changes nothing.
                 onStep: (next) => {
