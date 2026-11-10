@@ -10,8 +10,8 @@ exec_model: sonnet
 exec_effort: high
 tags: [disagreement-pipeline, audio-check, quote-verification, p1638]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1659-audio-check-polarity.test.ts
   root_cause: "run() checks quote-polarity ⊆ whole-ASR-polarity only: one-way, not window-scoped, no negation canonicalization; CLI entry compares import.meta.url to an unencoded file:// string"
