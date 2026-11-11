@@ -80,7 +80,7 @@ the flow off returns an event to Clarity Night's flow.
 | D3 | **The rules are spoken, not in the app.** The lanyard card shows whose meaning the pair is focusing on (the Clarity Canvas owner's, or their partner's challenge), not who talks. Their partner explains back; the Clarity Canvas owner says a number out loud; above 8 their partner may challenge; the owner can switch the focus back at any time; in a challenge the owner explains it back until their partner says above 8. The observer keeps the rules. **No sliders, no scores, no "allow challenge", no phase in the app.** |
 | D4 | **Say your number out loud.** The transcript keeps the scores, so the evening is measured later from the round threads (P1390), not in the app. |
 | D5 | **Observers.** Anyone without a canvas shared with the event joins as an observer (the curious, mentors, the unprepared), and canvas holders observe a round when numbers are odd. The observer keeps the pair to the rules and gives critical feedback on content and communication at the end of the round (the round's existing observer time). The host can override who is an observer, per person. A table may have none, one or two. |
-| D6 | **A new version between rounds, in both sessions.** When their round ends the Clarity Canvas owner taps "Make my next version"; their round's words feed their mirror (P1536 engine). At the canvas-update step the owner **publishes the draft as it is**; marking a stance on changed boxes is optional and never blocks Publish ("He can just publish without putting the stance on boxes"). Owners do not refine with the mirror at the event; refining comes after it. The next partner opens the published version. |
+| D6 | **A new version between rounds, in both sessions.** When their round ends the Clarity Canvas owner taps "Make my next version"; their round's words feed their mirror (P1536 engine). At the canvas-update step the owner **publishes the draft as it is**; marking a stance on changed boxes is optional and never blocks Publish ("He can just publish without putting the stance on boxes"). Owners do not refine with the mirror at the event; refining comes after it. The next partner opens the published version. **Reversed 2026-11-11, see UAT round 2026-11-11** (one published version ends the task: now every owned round offers its own next version, and there is no host canvas-update step). **Amended 2026-11-11, see UAT round 2026-11-11** (the trigger is now the round card "Create next version", not "Make my next version"). |
 | D7 | **Stances are optional, before or after Publish.** On a draft (P1536 D20, being built) or on the published version. Engine-written new and reworded points start with no stance; a reworded box shows as changed, with no notification. Owned by P1536. |
 | D8 | **A third flow, not a changed Clarity Night.** The series chooses the flow by default (Clarity Night, Social Hike, Sales Mastermind); the host can switch it per event on the host screen **until round 1 starts**, never after. This deliberately overrides P1542's Non-Goal "no per-event overrides". |
 | D9 | **Preparation in the event room, every step visible.** Draft your canvas with your mirror (or pick one you already have), publish it, then share it with this event as its own tap. "Your canvas for this event" can be changed until round 1 starts; it is fixed from then. Nothing is shared in the background. |
@@ -96,9 +96,9 @@ the flow off returns an event to Clarity Night's flow.
 | D20 | **(2026-11-04) Everyone does the learning.** The principle, the opt-in or opt-out and the value survey, as on the hike; observers do these and skip the canvas. Without them a person still takes part, as with late arrivals at Clarity Night: the host sees who has not done them. |
 | D21 | **(2026-11-04) Recording: refusing rules you out; missing hardware does not.** Accepting recording is required for a seat. Everyone wears a mic, observers too. Someone whose hardware fails or who has none stays at the table; that table may have no new version. |
 | D22 | **(2026-11-04) Nothing about helpers in registration.** The founder asks people he knows, depending on who comes. A person walking between tables cannot take part, so that role is a briefed co-facilitator, not a registration option. |
-| D23 | **(2026-11-05) The next version is the agent's reasoned better version, not an accurate record.** It reasons from the whole round, whoever said what and however it was said; no acknowledgement from the owner is needed. Accuracy between sessions is P1500's job. The owner always sees the draft and can publish right away (the host encourages this) or look and tweak first. Amends D6 and D13. Kept: the canvas never quotes or names anyone, and numbers and prices still need the owner's own words (2026-11-04 ruling). Requires a round-update mode in P1536's owner-quote check; verified with one real transcript. |
+| D23 | **(2026-11-05) The next version is the agent's reasoned better version, not an accurate record.** It reasons from the whole round, whoever said what and however it was said; no acknowledgement from the owner is needed. Accuracy between sessions is P1500's job. The owner always sees the draft and can publish right away (the host encourages this) or look and tweak first. Amends D6 and D13. Kept: the canvas never quotes or names anyone, and numbers and prices still need the owner's own words (2026-11-04 ruling). Requires a round-update mode in P1536's owner-quote check; verified with one real transcript. **Amended 2026-11-11, see UAT round 2026-11-11** (the next version is drafted and published in one tap from the Clarity Canvas owner's round card; "Preview first" opens the draft). |
 | D24 | **(2026-11-05, founder) Answers before sign-up, a small waiting list, a two-step join question, the trigger wording.** (a) Register opens the form for a logged-out person too; its button is "Continue", the answers are kept in this browser for that event only, and the normal sign-up screen follows. Coming back signed in in the same browser registers them with the saved answers, clears them, and lands on the confirm screen. Another device, or nothing saved: the form opens as before. (b) A small waiting list **replaces D18's "no waitlist build"**: when the event is full the button is "Join the waiting list" (same form, same sign-in path); joining is not a seat, the host sees the names in order in the mastermind panel, raises the limit by hand, and nothing is emailed or promoted automatically. "Full? Message the host" is gone. (c) The join question has two steps: how the person wants to join (improve a business, or help others as an observer or mentor), then, depending on it, where they will prepare. An observer's second answer is stored (`observer_prep`) so the host can count who comes at the doors time. (d) The trigger message of "Make my next version" reads "Update my canvas from what was said in {round label}." (e) In this flow nobody is seated without a registration, as owner, partner or observer; the host is exempt. |
-| D14 | **The partner marks the boxes they'd bet against on the canvas itself**, with the canvas's existing position controls, during the silent reading; the canvas's existing Compare view then shows where they differ. The canvas page is theirs to use throughout the round; nothing new is built for marking. ("the Clarity Canvas has the compare feature already … if I look at the canvas I can click on anything and set my position.") |
+| D14 | **The partner marks the boxes they'd bet against on the canvas itself**, with the canvas's existing position controls, during the silent reading; the canvas's existing Compare view then shows where they differ. The canvas page is theirs to use throughout the round; nothing new is built for marking. **Amended 2026-11-11, see UAT round 2026-11-11:** the reading part is now a timed part at the start of every round, with positions listed in the room. ("the Clarity Canvas has the compare feature already … if I look at the canvas I can click on anything and set my position.") |
 
 ## Invariants
 
@@ -113,7 +113,7 @@ the flow off returns an event to Clarity Night's flow.
   effective flow through one function; a test fails if `recipeFor(` is called anywhere else. The flow
   selects the whole recipe: prepare, room and close.
 - **The event room never stands between two people talking.** During a round, the event room screen
-  shows who they are with, their role, the rule reminder and a link to the canvas, and asks for nothing.
+  shows who they are with, their role, the rule reminder and a link to the canvas, and asks for nothing. **Amended 2026-11-11, see UAT round 2026-11-11** (the room now also shows the reading part, a positions list, the observer line and the next-version card).
   The canvas page itself (positions, Compare) is the partner's and owner's to use at any time (D14).
 - **The flow, and any canvas already chosen for this event, are fixed once round 1 starts.** The server
   refuses a change after that. A person with no canvas yet may add a first one at any time (D17). "Round 1" means the first counted round everywhere, client and server (a host's
@@ -286,7 +286,7 @@ infeasible fixture, the expected output names the broken rule.
 
 ### 5. A round, as people see it (D1, D3, D14)
 
-The event room screen shows each seated person, and asks nothing:
+The event room screen shows each seated person, and asks nothing: **Amended 2026-11-11, see UAT round 2026-11-11** (the room now has a positions list and a next-version card).
 
 - **Their role and whose canvas it is**: "You're the Clarity Canvas owner: {partner} is your partner",
   "You're {owner}'s partner", or "You're observing {owner}'s Clarity Canvas with {partner}".
@@ -299,14 +299,14 @@ controls during the silent reading, and the pair can use Compare to see where th
 
 The half-time speaker swap does not apply in this flow: each pair moves between understanding and
 challenge by the lower number (D19). The host ends each round with the hands-up ritual, and the projector
-shows the round, the clock, who sits where and one fixed rule line; it never shows a pair's phase. The round's observer time is the observer's
+shows the round, the clock, who sits where and one fixed rule line; it never shows a pair's phase. The round's observer time is the observer's **Amended 2026-11-11, see UAT round 2026-11-11** (the projector shows phases and time left, and the rule line was removed earlier).
 feedback (about two minutes). Reusing the `first`/`second`/`observer` roles is `/dev`'s call.
 
 `[FOUNDER DECISION: the three role lines and the rule reminders.]`
 
 ### 6. The next version (D6, D7, D13)
 
-- **When it can be tapped.** "Make my next version" appears for a Clarity Canvas owner once their
+- **When it can be tapped.** "Make my next version" appears for a Clarity Canvas owner once their **Amended 2026-11-11, see UAT round 2026-11-11** (the button is now the round card "Create next version", one per owned round).
   round's clock is over or the next round has started, and stays until their next owning round starts.
   The event room's no-input rule applies to round time, not to this.
 - **What the tap does** (no new P1536 input path; confirmed by the P1536 session 2026-10-30 against its
@@ -322,7 +322,7 @@ feedback (about two minutes). Reusing the `first`/`second`/`observer` roles is `
   context; the mirror's reply says so (P1536).
 - **No recording at the table.** If the round has no thread or no transcribed line, the button is not
   shown; the owner sees "No recording from this round", and keeps their current version.
-- **At the canvas-update step**, the owner's screen shows one task: **publish your new version**,
+- **At the canvas-update step**, **Reversed 2026-11-11, see UAT round 2026-11-11** (no host step; each owned round offers its own update): the owner's screen shows one task: **publish your new version**,
   with its state: drafting · ready · failed ([Try again], P1536's retry) · published. Stances are
   optional afterwards (D7). An owner who does not publish keeps their current version, and their next
   partner reads that.
@@ -338,7 +338,7 @@ feedback (about two minutes). Reusing the `first`/`second`/`observer` roles is `
   arriving. Each table with nobody's words stands out. The host walks over and fixes it. `/dev` measures how
   soon words can show and records it here. No separate helper view for session 1.
 - A ready mark on anyone whose canvas is shared and who is not yet seated as an owner (D17).
-- **A canvas-update step**, started by the host after round 2, stored as its own state so talk during it
+- **A canvas-update step**, **Reversed 2026-11-11, see UAT round 2026-11-11** (the host flow no longer has this step): started by the host after round 2, stored as its own state so talk during it
   is not mistaken for round 2. It shows each owner's update state (not tapped · drafting · ready ·
   failed · published). The host starts round 3 when ready, and may start it with some owners still on
   their old version.
@@ -365,9 +365,9 @@ A founder-only results script (same pattern as `scripts/event-close-results.sh`)
 
 | Risk | Label | Note |
 |---|---|---|
-| Session 1 is ~11 days away and this sits on P1536 (in `/dev`, w1) and P1592 (in `/dev`, w5) | MITIGATE | Build order: flow resolver, observers and seating first (no dependency), then the round screen, then the next-version tap and update step. P1542's recipes shipped (`features/done/2026-06-10/p1542_series_prepare_close_recipes_social_hike.md`). |
+| Session 1 is ~11 days away and this sits on P1536 (in `/dev`, w1) and P1592 (in `/dev`, w5) | MITIGATE | Build order: flow resolver, observers and seating first (no dependency), then the round screen, then the next-version tap and update step. P1542's recipes shipped (`features/done/2026-06-10/p1542_series_prepare_close_recipes_social_hike.md`). **Amended 2026-11-11, see UAT round 2026-11-11** (there is no host canvas-update step now; each owned round offers its own update). |
 | P1592's channel posting ships off (`transcribe_channel_posting.enabled = false`) | MITIGATE | Done-When: posting enabled on prod before session 1, with P1592's own pre-deploy checks. |
-| Round 2's owners must draft and publish inside the 12-minute update step; ~12 runs at once; P1536 latency UNVERIFIED (its v6: "~30-60 s", runs over 5 minutes fail) | MITIGATE | Done-When measures end-to-end latency on TEST with a 24-minute thread and 12 parallel runs. The host sees per-owner states and may start round 3 without everyone. |
+| Round 2's owners must draft and publish inside the 12-minute update step; ~12 runs at once; P1536 latency UNVERIFIED (its v6: "~30-60 s", runs over 5 minutes fail) | MITIGATE | Done-When measures end-to-end latency on TEST with a 24-minute thread and 12 parallel runs. The host sees per-owner states and may start round 3 without everyone. **Amended 2026-11-11, see UAT round 2026-11-11** (there is no host canvas-update step now; each owned round offers its own update). |
 | Stances on drafts need P1536 S3 (D20, not started) | ACCEPT | Stances are optional (D6); publishing does not depend on them. |
 | The terms change (D13) is not live by session 1 | MITIGATE | Done-When; without it, the in-event update stays off for that event. |
 | People do not say their number out loud | MITIGATE | The opener, the observer and the lanyard card carry the line. |
@@ -380,7 +380,7 @@ A founder-only results script (same pattern as `scripts/event-close-results.sh`)
 - Do NOT add sliders, scores, an "allow challenge" control or any phase tracking to the round (D3).
 - Do NOT build a fullness bar or helper recruitment in registration (D18, D22). The waiting list is small and manual (D24): no automatic emails or promotion.
 - Do NOT ask about business stage at registration.
-- Do NOT build anything new for marking boxes; the canvas's position controls and Compare serve (D14).
+- Do NOT build anything new for marking boxes; the canvas's position controls and Compare serve (D14). **Amended 2026-11-11, see UAT round 2026-11-11** (positions are now listed inside the room card, see item 5).
 - Do NOT change Clarity Night's or Social Hike's room, host screen, seating, titles or close.
 - Do NOT pair by canvas content.
 - Do NOT score automatically from the transcript (P1390).
@@ -399,7 +399,7 @@ Inputs: 16 people including 12 owners; 2.4 h evening; a 24-minute round at about
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | registration 1 + emails 2 (confirmation, reminder) + canvas card 2 + 8 canvas opens + 2 next-version taps + update-state read every 10 s x 12 min = 72 → 87 per evening | host state every 4 s = 3600 / 4 = 900; owners during the update step 12 x 72 = 864 once per evening; opens and taps 16 x 10 / 2.4 h = 67 | seeded walk: 8 attendees x 87 = 696 |
+| Requests | registration 1 + emails 2 (confirmation, reminder) + canvas card 2 + 8 canvas opens + 2 next-version taps + update-state read every 10 s x 12 min = 72 → 87 per evening | host state every 4 s = 3600 / 4 = 900; owners during the update step 12 x 72 = 864 once per evening; opens and taps 16 x 10 / 2.4 h = 67 | seeded walk: 8 attendees x 87 = 696 **Amended 2026-11-11, see UAT round 2026-11-11** (there is no host canvas-update step now; each owned round offers its own update). |
 | Database rows written | 1 answers + 1 RSVP + 1 canvas + 8 opens + 2 runs + 2 trigger messages + copied lines 2 x 192 = 384 → 399 | 12 owners x 399 / 2.4 h = 1,995 | fixtures use short threads: 8 x (15 + 2 x 5) = 200 |
 | Egress (bytes) | card and answers about 2 KB x 87 requests = 174 KB | host state 16 people x 300 B = 4.8 KB x 900 = 4.3 MB | 8 x 174 KB = 1.4 MB |
 | Log lines | 0 on success; 1 warn per failed open record, at most 8 | 0 on success; at most 16 x 8 / 2.4 h = 53 if opens all fail | 0 expected |
@@ -407,9 +407,9 @@ Inputs: 16 people including 12 owners; 2.4 h evening; a 24-minute round at about
 
 **Host screen refresh (2026-11-10, founder UAT).** `HOST_STATE_POLL_MS` goes from 15 s to 4 s, on a visible tab only (`startVisiblePoll`): 3600 / 4 = **900 requests an hour for the host tab** (was 3600 / 15 = 240), 0 in a hidden tab; egress 4.8 KB x 900 = 4.3 MB an hour. Rule: what a person is waiting for on a running round shows within about 4 seconds. Which reads are 4 s: the rounds read (`ROUNDS_POLL_MS`) and the host state (`HOST_STATE_POLL_MS`). Which stay 8 s: the between-round reads (the evening's stamp and the canvas-update step, `GAP_POLL_MS`, below) and the owner's offer read while it is not pending. The pending-offer read is 5 s. A new waiting-for state is read at about 4 s and its request count is added here.
 
-**End round, and the evening's end (2026-11-10).** Between rounds nothing in the rounds changes when the host ends the evening, or starts the canvas-update step after "End round 2", so a screen reads two small things in that gap only. One tick every `GAP_POLL_MS` = 8 s, on a visible tab only (`startVisiblePoll`), only while the newest round has ended and the evening is not over:
+**End round, and the evening's end (2026-11-10).** Between rounds nothing in the rounds changes when the host ends the evening, or starts the canvas-update step after "End round 2", so a screen reads two small things in that gap only. One tick every `GAP_POLL_MS` = 8 s, on a visible tab only (`startVisiblePoll`), only while the newest round has ended and the evening is not over: **Amended 2026-11-11, see UAT round 2026-11-11** (there is no host canvas-update step now).
 - the evening's stamp (`event_evening_ends`, one row, about 60 B): 3600 / 8 = **450 requests an hour per phone, per host screen and per projector** while in the gap; 0 while a round runs (ending the evening ends it, and the gap that follows reads), 0 once the stamp says the evening is over, 0 in a hidden tab (the first read waits for the tab to be shown);
-- the update step (about 80 B), only in the gap after counted round 2 and only until the step is on: another 3600 / 8 = **450 an hour** in that window (900 an hour in all there), 0 otherwise.
+- the update step (about 80 B), only in the gap after counted round 2 and only until the step is on: another 3600 / 8 = **450 an hour** in that window (900 an hour in all there), 0 otherwise. **Amended 2026-11-11, see UAT round 2026-11-11** (there is no host canvas-update step now).
 Per phone per evening (gap lengths UNVERIFIED, `/dev` reads the real ones from a TEST walk): stamp gaps 3 min after round 1, 2 min after round 2 before the step, 12 min of step, 3 min after round 3, 3 min after round 4 = 23 min; 23 x 60 / 8 = 173 requests + 5 first reads = 178; the step read 2 min x 60 / 8 = 15; total about **193 per phone per evening**, so 16 phones = 3,088, and about 193 each for the host screen and the projector. Before this change the projector read the step every 4 s from round 2 on and the stamp every 4 s whenever rounds existed (3600 / 4 x 2 = 1,800 an hour, running after the evening too); it now reads neither once the evening is over. Egress: 450 x 60 B = 27 KB an hour per screen for the stamp. Tapping End round is 1 request plus 1 rounds read. Rows: no new rows per tap; one stamp row per event.
 
 **Pending-offer poll (2026-11-10).** While a round's words are being cleaned (offer state `transcript_pending`) the owner's phone reads the offer every 5 s instead of 8 s, on a visible tab only (`usePoll` skips a hidden tab): 3600 / 5 = **720 requests an hour per owner while pending**, 0 outside that window. The window is about 2 minutes per round (40 s job delay + up to 60 s cron + cleaning, UNVERIFIED, `/dev` reads the real one from a TEST walk): 120 / 5 = 24 requests per owner per round (15 at 8 s), so 4 rounds = 96 per owner per evening, +36 over the 8 s cadence.
@@ -467,16 +467,27 @@ then repeated with five with canvases.
       a partner, everyone owns once in rounds 1-2 and once in rounds 3-4. Five with canvases: one
       observes each round, rotated, and the preview names who owns only once.
 - [x] During a round the event room screen shows only role, whose canvas it is, the rule reminder and
-      the canvas link, and asks for nothing; on the canvas page their partner sets positions and opens
+      the canvas link, and asks for nothing; on the canvas page their partner sets positions and opens **Amended 2026-11-11, see UAT round 2026-11-11** (the room now also has the reading part, a positions list and a next-version card).
       Compare.
-- [x] An owner taps "Make my next version" after their round's clock is over; at the canvas-update
+- [x] An owner taps "Make my next version" after their round's clock is over; at the canvas-update **Amended 2026-11-11, see UAT round 2026-11-11** (see the next-version criteria below).
       step they publish the draft as it is; their next partner opens the published version.
 - [x] A table with no recording shows "No recording from this round" and no button.
-- [x] The host starts the canvas-update step, sees each owner's state, and can start round 3 with an
+- [x] (Reversed 2026-11-11, see UAT round 2026-11-11.) The host starts the canvas-update step, sees each owner's state, and can start round 3 with an
       owner still drafting.
 - [x] The mastermind round thread is titled "{round label} · {owner}'s canvas, with {partner}".
 - [x] Session 2, linked to session 1, avoids session-1 partners where the group allows, and the preview
       names each repeat.
+
+- [ ] With 0 shared canvases the host can seat tables ("Seat tables anyway") and start a round; a table with no canvas shows "Talk it through: no canvas".
+- [ ] With a failed next-version update the host can still start the next round.
+- [ ] The host can end the evening from any state (no canvas, failed update, missing transcript).
+- [ ] After every round a person owned, once its transcript is ready, the room offers "{round label} with <partner first name>: words ready" with "Create next version" (drafts and publishes in one tap) and "Preview first". Several rounds offer oldest first. While words are cleaned it says "The words from {round label} are being prepared (about 2 minutes)" with no button; no recording says so with no button; failed offers "Try again" and keeps the current canvas.
+- [ ] The host flow has no canvas-update step; the host says "if your update is ready, tap it" and starts the next round.
+- [ ] Every round starts with a reading part, default 3 minutes, settable in Next round settings, 0 means none; it shows on the projector phase strip. During it visitors set positions on the owner's points; the owner sets positions only on points changed since their last round (AI-rewritten points have no Clarity Canvas owner position); position history is kept.
+- [ ] Positions are one list inside the "what you do now" card, one tap per point (agree, unsure, disagree), no "agree with all", and a point without an owner position shows readers "The Clarity Canvas owner hasn't taken a position yet".
+- [ ] The observer's phone shows the one line for the current part (reading, talk, observer); owner and partner never see these lines.
+- [ ] The participant's room screen has exactly one focus per state: between rounds the update card or "{round label} is over, the next starts soon"; during a round the table card only, with no update card in any role; the recording bar is always present.
+- [ ] The extended seed script creates a fresh TEST event with the host (not registered) and 10 fake people (7 with shared canvases, 3 observers) and prints a sign-in link per person; it refuses to run off TEST.
 
 ## Done-When
 
@@ -505,7 +516,7 @@ An invented 15-minute transcript (`scripts/fixtures/p1529-round-transcript.json`
 - **Held in all four:** no person or firm named, the owner's own price kept, neither of the partner's prices (5,000 and 6,000) written.
 - **The partner's challenge reached the canvas in the round mode, in 4 of 4 runs:** the biggest challenge became the positioning (the offer sounds like a nice-to-have, or is pitched as video rather than ticket reduction), although the owner ended with "maybe, I need to think about that". The strict control left that out: its challenge box stayed on leads and channels.
 - **Fixed from this:** Try again now keeps the round mode. A retry keeps the failed run's trigger message, so the mode follows that message (`20261105231000`). An owner's later message on the draft keeps the strict rule.
-- **Fixed from the commit's security review, proven by controls first:** with no owner quote in front of them, "five hundred", "a dozen" and "half a million" passed on an unrelated "5", and a single name or firm from someone else's lines passed the name filter. Number words now carry their magnitude, and the round mode drops a Titlecase word someone else said in mid-sentence unless it is on the canvas, also when the owner repeated it. Two more real runs: same quality, no name, no partner price. Still a heuristic: a name the transcript wrote in lower case gets through. The owner sees every draft.
+- **Fixed from the commit's security review, proven by controls first:** with no owner quote in front of them, "five hundred", "a dozen" and "half a million" passed on an unrelated "5", and a single name or firm from someone else's lines passed the name filter. Number words now carry their magnitude, and the round mode drops a Titlecase word someone else said in mid-sentence unless it is on the canvas, also when the owner repeated it. Two more real runs: same quality, no name, no partner price. Still a heuristic: a name the transcript wrote in lower case gets through. The owner sees every draft. **Amended 2026-11-11, see UAT round 2026-11-11:** "The owner sees every draft" no longer holds. "Create next version" publishes in one tap with no review, because the canvas is shared with event attendees who can read the transcript anyway; "Preview first" is optional.
 - **One open weakness:** "paid by 7 clients" is the model's reading of "seven clients in total". Accepted under D23, since the owner always sees the draft.
 - **Trigger wording:** the founder set it on 2026-11-05 (D24): "Update my canvas from what was said in {round label}." The measured runs above used the earlier text, "... in my own words"; the wording is not re-measured.
 
@@ -620,13 +631,64 @@ Founder's asks after testing `/events/<slug>/prepare`; built on this branch.
 - **Publish return** checked in a real browser (Continue your draft and Create your canvas, at 1280 and 375): Publish lands on
   `/events/<slug>/prepare` on the canvas step with the step header. The founder's report did not reproduce; `e2e/p1529-publish-return.spec.ts` keeps it checked.
 
+## UAT round 2026-11-11: founder decisions
+
+Founder approved 2026-11-11. Where this reverses an older decision, that decision is marked in place. Copy marked `[FOUNDER DECISION: copy, proposed]` is a proposal, not final.
+
+**1. Fail-safe seating (D1, D5 unchanged otherwise).** The host can always seat tables, even when fewer than two Clarity Canvases are shared. Host button: "Seat tables anyway" `[FOUNDER DECISION: copy, proposed]`. A table with no canvas shows "Talk it through: no canvas" `[FOUNDER DECISION: copy, proposed]` and the round runs normally. Nothing in the room may block the host from running and ending the evening: no canvas, a failed AI update or a missing transcript never stops the host.
+
+**2. Next version after every round the person owned (reverses D6's one version per evening).** Each owned round whose transcript is cleaned and ready offers its own update, oldest first, usually one. `[FOUNDER DECISION: copy, proposed]`:
+- Card title: "{round label} with <partner first name>: words ready".
+- Primary button "Create next version": drafts and publishes in one tap, no review.
+- Small secondary link "Preview first": opens the canvas draft.
+- While the transcript is being cleaned: "The words from {round label} are being prepared (about 2 minutes)", no button.
+- No recording: say so, no button.
+- Failed: "Try again", and the current canvas stays.
+- Each owned round produces at most one next version. A second tap while a run exists shows that run's state, never a second run.
+- Each new version is drafted from the Clarity Canvas owner's latest published version, so an older round's update never overwrites newer work.
+- A transcript still not ready after 10 minutes shows "The words from {round label} did not arrive. Your canvas stays as it is." with no button. `[FOUNDER DECISION: copy, proposed]`
+- An owned round's offer does not expire when the next round ends. It stays until the evening ends.
+- "Preview first" opens the canvas draft with the existing back-to-table banner. Publishing there returns to the room.
+
+**3. No host canvas-update step.** The host flow loses its separate canvas-update step. The host says "if your update is ready, tap it" and starts the next round.
+
+**4. Reading part (amends D14).** A timed part at the start of every round. Default 3 minutes, settable in Next round settings, 0 allowed (0 means no reading part). It shows on the projector phase strip like the other parts.
+**Timing contract:** reading is the first phase of the round. Projector phase order: reading, talk, observer. Round length = reading + talk + observer. Default 3 minutes, 0 means no reading phase. Mastermind flow only; other flows are unchanged.
+- Visitors read the Clarity Canvas owner's canvas and can set positions on its points. This is a first impression. The round still starts with paraphrasing. Positions can change later and history is kept.
+- The Clarity Canvas owner sets their own positions on points that changed since their last round. Points the AI rewrote have no Clarity Canvas owner position.
+- If nothing changed, the owner does as they like (we observe).
+
+**5. Positions in the room.** One list of points with agree, unsure and disagree inline, one tap per point, no opening cards. It lives inside the one "what you do now" card, not a new menu item. No "agree with all" button: it invites agreeing without reading. Unsure is a normal position. A point the Clarity Canvas owner has not taken a position on shows readers "The Clarity Canvas owner hasn't taken a position yet" `[FOUNDER DECISION: copy, proposed]`.
+
+**6. Observer guidance.** During the round the observer's phone shows one short line per part `[FOUNDER DECISION: copy, proposed]`:
+- Reading: "Silent reading. No talking yet."
+- Talk part: "{partner} explains {owner}'s Clarity Canvas back to them. {partner} challenges only once {owner} rates their understanding 8 out of 10 or higher."
+- Observer part: "Your turn: what did you notice?"
+
+The Clarity Canvas owner and their partner do not see these lines. This flow has no half-time speaker swap (D19), so there is one talk part.
+
+**7. Attention rule for the participant's room screen.** Exactly one focus per state.
+- Between rounds: the update card if one is ready, else "{round label} is over, the next starts soon" `[FOUNDER DECISION: copy, proposed]`. Other canvases stay collapsed.
+- During a round: the table card (table, whose canvas, roles, open canvas, observer line). The update card is never shown during a round, in any role (reversed from an earlier fallback line, 2026-11-11). If the words are not ready when the next round starts, the offer waits for the next break or the end of the evening.
+- The recording bar is always present.
+
+**Founder answers to the open questions (2026-11-11).**
+- (a) One tap publishes, no review. Reason (founder): the canvas is shared with event attendees, who can read the round's transcript anyway. "Preview first" stays for anyone who wants to look. Residual risk: see Known Limitations.
+- (b) A table with no canvas keeps normal roles. The Clarity Canvas owner is the owner of a business idea that has no canvas yet, and their card says "No Clarity Canvas yet: talk about your business idea" `[FOUNDER DECISION: copy, proposed]`. The host changes roles with the existing "Tap two names to swap them" in the preview. No other special case.
+- (c) The update card is available only between rounds (after the host ends a round, before the next starts), never during a round, in any role. If the words are not ready when the next round starts, the offer waits for the next break or the end of the evening.
+- (d) The Clarity Canvas owner sets positions on changed points during the reading part of their next round as owner.
+
+**8. Deferred.** Positions at canvas publish outside the event (full list at first publish) wait until after session 1. Tracked in P1657.
+
+**9. Test support.** The existing seed script (`scripts/seed-p1529-host-room.ts`) is extended, not a new tool, to create a fresh test event with the host and 10 fake people: 7 with shared canvases, 3 observers. The host is not registered. It prints a sign-in link per fake person. TEST only.
+
 ## Known Limitations
 - **(2026-11-10) Host button label while loading:** for about a second after the host screen opens, its main button can show "Preview round 1 tables" (disabled) before the rounds have loaded, even when the evening is further on. It cannot be pressed in that state.
 - **(2026-11-10) Switching events in one open host tab** can show the previous event's step or evening stamp until the next read (the phones' evening read is scoped per event; the host hook's is not). Switching events in one tab without a page load is rare; recorded under the review stopping rule.
 
-- ~~**(2026-11-09) After the bell, until the host acts, mics keep capturing into that round.**~~ Resolved (2026-11-10) by **End round N** on the host screen (`host_end_round`, migration `20261110090000`): it ends the newest round only, its transcript is cut there, and the phones read the gap as "Round N is over. The next round starts soon." instead of "The rounds are over" (the evening has its own stamp, `event_evening_ends`). **Still true: nothing ends a round automatically.** If the host forgets, clock expiry ends nothing and mics keep capturing into that round until the host taps End round, starts the next round, starts the update or ends the evening.
+- ~~**(2026-11-09) After the bell, until the host acts, mics keep capturing into that round.**~~ Resolved (2026-11-10) by **End round N** on the host screen (`host_end_round`, migration `20261110090000`): it ends the newest round only, its transcript is cut there, and the phones read the gap as "{round label} is over. The next round starts soon." instead of "The rounds are over" (the evening has its own stamp, `event_evening_ends`). **Still true: nothing ends a round automatically.** If the host forgets, clock expiry ends nothing and mics keep capturing into that round until the host taps End round, starts the next round, starts the update or ends the evening.
 - **(2026-11-10) Events whose evening ended before `20261110090000` have no stamp.** There is no backfill: a round that ended with no stamp cannot be told from a round that ended between rounds. Such a Sales Mastermind event reads on the host screen and the phones as "between rounds" (primary "Preview round N+1 tables", "End the evening" offered); tapping End the evening once stamps it. Affects TEST events only until the migration is on prod.
-- **(2026-11-10) A late "End the evening" retry moves the stamp.** `host_end_rounds` upserts the stamp to now and ends any round open at that moment. A retry that lands after a Reopen (a newer round has started) ends that round and re-stamps, which is the same meaning said later; a retry after the evening already ended only moves the stamp later (phones have stopped reading it). The host can also end the evening during the canvas-update step: the stamp, set after the step started, wins over the step on the host screen, the projector and the phones; a stamp from before the step's start does not.
+- **(2026-11-10) A late "End the evening" retry moves the stamp.** `host_end_rounds` upserts the stamp to now and ends any round open at that moment. A retry that lands after a Reopen (a newer round has started) ends that round and re-stamps, which is the same meaning said later; a retry after the evening already ended only moves the stamp later (phones have stopped reading it). The host can also end the evening during the canvas-update step: the stamp, set after the step started, wins over the step on the host screen, the projector and the phones; a stamp from before the step's start does not. **Amended 2026-11-11, see UAT round 2026-11-11** (there is no host canvas-update step now).
 - **(2026-11-09) Round card:** the rules are off the phone (spoken, on the lanyard card and the projector line). A seated person shares a canvas through Learn and prepare; the room's canvas card is gone. The canvas selector never changes seating, and only the table's assigned canvas records the open as evidence.
 - **(2026-11-09) Point wording, FOUNDER DECISION pending:** mirror-written points often describe rather than claim, so Agree and Disagree read oddly on them. Whether the mirror writes claims, and whether the card says "Mark anything you'd bet against", are open together.
 
@@ -658,9 +720,10 @@ Founder's asks after testing `/events/<slug>/prepare`; built on this branch.
 - Seen in visual QA, older than this work: on the event page as the host, participant names collide with the "understood" caption at 320 px and truncate at 1280, and "Cancel Event" overhangs the "You're hosting" card at 320 px. Not changed here (not in this round's scope).
 - Terms wording and notice versus re-acceptance were reviewed by Gemini 4 Argon, at the founder's request, in place of the founder's approval. It replaced "never quotes or names you", because the name filter is a heuristic.
 - `share_canvas` and `unshare_canvas` have no round check: after round 1 an owner can share another canvas directly. Their partner's link still follows the chosen canvas and reads as no longer shared.
-- The round-mode name check is a heuristic: a name written in lower case by the transcript, or an unknown acronym, can get through. The owner sees every draft.
+- The round-mode name check is a heuristic: a name written in lower case by the transcript, or an unknown acronym, can get through. The owner sees every draft. **Amended 2026-11-11, see UAT round 2026-11-11:** "The owner sees every draft" no longer holds. "Create next version" publishes in one tap with no review, because the canvas is shared with event attendees who can read the transcript anyway; "Preview first" is optional.
+- **(2026-11-11) Residual risk of one-tap publish:** if the Clarity Canvas owner later shares that canvas beyond the event, a detail someone else said at the table can go with it. Removing or unsharing it is a follow-up.
 - Words with no digit value ("half our customers", "double") are not checked as numbers.
-- If the host ends the evening during the update step, the projector and room keep showing the step.
+- If the host ends the evening during the update step, the projector and room keep showing the step. **Amended 2026-11-11, see UAT round 2026-11-11** (there is no host canvas-update step now).
 - If a draft run fails to start, Try again appears only after the 3-minute lease.
 - A room that shrinks mid-session can make someone own twice in a part; the preview names it.
 - Other sessions' deploys to TEST overwrite this branch's shared function code until it lands on main.
