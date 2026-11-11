@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 117
 workstream: canvas
 created_date: '2026-11-09'
 tags: [canvas, mirror-agent, ux]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 0825e9cc32902a1b57510ca1ad2274c2ac8f623130330dd30fd52c19211d9741
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-11
 ---
 
 # P1653: The canvas agent is never a wall
@@ -291,4 +291,4 @@ Applies because the replays call Gemini. Figures per `docs/technical/metered-ser
 
 ## Related
 
-[P1646](done/2026-06-10/p1646_canvas_agent_thinks_with_owner_options.md) · [P1639](done/2026-06-10/p1639_canvas_refuses_owner_negatives_and_typos.md) · [P1625](done/2026-06-10/p1625_canvas_drops_short_true_points.md) · P1536
+[P1646](p1646_canvas_agent_thinks_with_owner_options.md) · [P1639](p1639_canvas_refuses_owner_negatives_and_typos.md) · [P1625](p1625_canvas_drops_short_true_points.md) · P1536
