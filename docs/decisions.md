@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-11 [product]: The canvas agent is never a wall: every block says why, that the canvas is unchanged, and one next step; an empty answer gets the model's own guess-question (P1653)
+
+**Context:** Owners' first messages ("its a car selling buisness", "airbnb.com - make canvas") got one fixed sentence every time. A real-model replay on TEST measured the cause: the model wrote 0 points on all three messages, 15 of 15, and the evidence checks dropped nothing. The wall was the product's reply to an empty answer, not the checks.
+**Decision:** One founder-approved reply table: each failure says what happened, "Nothing changed on the canvas.", and the one next step for that cause; Try again shows only where retrying can help (a per-code table, unknown codes hide it). A bare domain is a link. A page that returns only a redirect notice gets "Is this your business?" with fixed Yes / Not mine buttons; Not mine removes the page from every later run. A follow-up keeps the conversation (a question run completes as done with nothing changed). When the model writes nothing, the reply shows the model's own question for the box it judges most likely, screened for names, numbers and money the owner did not say (founder F5 and its two amendments, 2026-11-10/11: a word-by-word screen never passed a natural question on a short message, 32 non-owner words against 3 owner words).
+**Alternatives rejected:** A fixed question for every empty answer (the founder: "It cannot always be scripted what comes after"). A word-by-word screen with a box-word list (measured 0 of 15 shown). Telling the model to guess points (P1639's rejection stands; questions ask, they never reach the canvas).
+**Consequences:** Points keep every evidence check unchanged. A readable link is still drafted from directly, with no assumption and options first; that, and live TEST proof of the retry table and the no-reply paths, are INBOX-319 (descoped by the founder to ship). The status word "live" the box guide asks the model to append is INBOX-316. Known limitations are listed in the spec.
+**References:** [p1653](../features/p1653_canvas_agent_never_a_wall.md) · P1646 · P1639 · P1625
+
+## 2026-11-11 [technical]: A button tap is a row marked in the same transaction as its message; typed text never counts as a tap (P1653)
+
+**Context:** The first tap design sent the button label as an ordinary message, then marked it in a second call. Reviewers (Codex, Gemini) showed the gap: stranded-run recovery or another tab could start the run before the mark, so the label counted as the owner's words, and forks carried tap text as owner material.
+**Decision:** `canvas_workspace_send_tap` sends the token message and writes its marker in one transaction, refuses a stale tap without sending, and a tap counts only against the open question with nothing written since. Forks exclude marked taps. Typed text equal to a label is always an ordinary message. Link identity is one normalised key (lowercase host, no www, https form, cut at 200 characters after normalising).
+**Alternatives rejected:** Matching tap text (an owner typing "Not mine" became a tap). Send-then-mark (the gap above). A new parameter on `canvas_workspace_send` (would restate a pinned contract).
+**Consequences:** Any future fixed-token control should follow this pattern: the marker is written with the message, never after it.
+**References:** `supabase/migrations/20261110130000_p1653_atomic_tap.sql` · [p1653](../features/p1653_canvas_agent_never_a_wall.md)
+
 ## 2026-11-11 [product]: Founder calls on the P1659/P1660 follow-ups
 
 **Decision (founder, 2026-11-11, "yes to all" to the recommendations):** (1) Quotes stitched across two clauses stay a known limit of the audio check; no clause-aware checker for now (a human sees quotes before publishing). (2) Inline hashtags keep their word: "We need #climate action" should display "We need climate action". This reverses the deletion that `src/tests/stripHashtags.test.ts` pins, so it needs a spec that changes those assertions deliberately. (3) Tags saved from URL fragments before P1660 are left as they are; no prod data cleanup.
