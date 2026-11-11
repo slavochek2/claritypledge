@@ -432,7 +432,7 @@ For a Social Hike, set the skin fields on the event row — `series_slug`, `hike
 
 **Checklist — each line is a mistake the 2026-10-11 hike made before the founder caught it:**
 
-- [ ] **Route = the AllTrails GPX**, exported in the founder's Chrome (⋯ → *Export map file* → *GPX Track* → *Export*; it lands in `~/Downloads` on the first click). Never a stand-in or hand-drawn line. Render it with `node scripts/hike-route-map.mjs`, then compare the shape with the AllTrails map thumbnail (spurs and side trips included) before publishing.
+- [ ] **Route = the AllTrails GPX**, exported in the founder's Chrome (⋯ → *Export map file* → *GPX Track* → *Export*; it lands in `~/Downloads` on the first click). Always through Claude in Chrome in the founder's own Chrome (founder, 2026-11-11). **If the export shows a paid-plan wall** (2026-11-10: "Start your free trial, THB 800/year"), never start a trial: say so, then rebuild the loop over OpenStreetMap paths with brouter, following the AllTrails map shape, and show the founder the rendered map before it goes on the page. Never a stand-in or hand-drawn line. Render it with `node scripts/hike-route-map.mjs`, then compare the shape with the AllTrails map thumbnail (spurs and side trips included) before publishing.
 - [ ] **Cafe name in Latin script** everywhere (`meet_name`, description, blurb); the Thai name once, in brackets, in "Where we meet".
 - [ ] **Description repeats no number the page shows** (distance, climb, walking time, loop, difficulty) and does not call the day a "morning" hike.
 - [ ] **Banner at the standard height**, cropped 2880x512 / 1600x820, upscaled first if the source is under 2880px wide (step 8b).

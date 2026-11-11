@@ -32,6 +32,10 @@ Chat does not say: a two-paragraph pitch for each trail.
 
 ---
 
+## Lessons from the 2026-11-10/11 run (Mon Jing) — read before step 0
+
+Six founder corrections in one selection, each now a rule below or in `hike-preferences.json`: show **Google drive time**, not straight-line km (cap 1 h 30); a trail with **no real cafe at the start is not a candidate** — change the route, never split into two meeting points; a **walk-in must be a nice path**, not a road; **join the loop where it is nearest the cafe** and check the drawn map for doubled sections; **run the dinner step**; **open tabs, never a chat table** — every list in this run that was posted as chat text was re-asked for as tabs.
+
 ## Steps
 
 ### 0. Read the standing preferences — do not re-interrogate
@@ -166,6 +170,8 @@ Use `claude-in-chrome`. Search AllTrails filtered to the city and the constraint
 step 2. Gather candidates with: name, URL, distance, elevation gain, route type, difficulty,
 rating, review count, and drive time from the city centre.
 
+**Drive time is Google Maps driving time from Tha Phae Gate, read in the founder's Chrome, never straight-line km. Over 1 h 30 min is dropped before any tab opens, and every index line shows it (`55 min drive`).** Founder, 2026-11-10: *"it shoudl be not more than 1.30 horus"*, after the index showed straight-line "28 km out" and he had to check the drive himself.
+
 Apply step 1's exclusions **and step 1b's trail status** — a `blocked` or unmet-`conditional` trail never reaches the ranking. Then **rank by fit to the stated constraints, and cut to 3–5** —
 enough to choose from, few enough to actually look at. Ranking factors, in order: matches the
 stated shape (distance/difficulty/route type), rating and review count high enough to trust,
@@ -297,9 +303,13 @@ Once the cafe and GPX exist, and before the description is written:
 4. **Check the arrows on the drawn map match the planned direction, and pin every stop where the groups meet.**
 5. **Compare finish options:** where does the route end, what repeats, and how far is the walk back to the cafe? Prefer the effort first and the reward last. Draw any non-track link as a dashed `connector` with a `join` pin.
 
-Founder, 2026-11-01: *"of course we will not walk the trailhead"*. Found only when he read the map, and it cut about 40 minutes of road walking.
+Founder, 2026-11-01: *"of course we will not walk the trailhead"*.
+
+**Then re-order the loop to start at the join point, and look for doubled sections before showing the map.** If the drawn loop overlaps the cafe walk (the group would walk to the official start and back up the same path), rotate the coordinates so the loop begins at the point nearest the cafe, join there with a `join` pin, and let the official start be just a point the loop passes. Founder, 2026-11-11, on a Mon Jing map that sent the group to the reservoir and straight back: *"we go and start the cafe and then left, or we go forward and the other way around. But right now it's just wrong."* Found only when he read the map, and it cut about 40 minutes of road walking.
 
 ### 5b. Dinner on the way back — open it like the cafes
+
+**Never skip this step and never hand `Dinner: skipped` to publish-run unless the founder said skip.** On 2026-11-10 it was skipped silently, the event went live with no dinner section, and the founder caught it the next day. He wants a *chilled* place (garden, countryside lodge, resort restaurant) on the way back, open well past the finish time, offered as tabs with Sunday hours and its Google rating; the chosen place gets a rating + quote in the description like the cafe.
 
 The founder closes the hike with a dinner invitation. Prefer a restaurant **on the drive back to the
 city, or near the trailhead**, open at the expected finish time plus about 30 minutes (from the

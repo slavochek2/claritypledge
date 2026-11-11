@@ -59,7 +59,7 @@ runs into the afternoon. Walking time is the AllTrails estimate; breaks and the 
 the "Plan for up to …" sentence, not the stats.
 
 ```
-[DAY] day hike. Everyone welcome.
+Everyone welcome. Bring your friends and family.
 
 **[TRAIL NAME]**, [PARK NAME]
 [2-3 HIGHLIGHTS: where it starts, what you see]. "[BEST TRAIL QUOTE]" — one recent hiker ([RATING]★, [N] reviews).
@@ -74,9 +74,16 @@ We aim for the full loop, but the mountain decides. There are many paths here, a
 
 Up to about 15 people, we walk as one group, with someone at the back. If more come, we warm up together for 20 minutes, then split at the water break into a brisk group and a relaxed group, each with a volunteer at the front and back. Prefer your own pace? Go ahead, with the route on your phone, and tell someone.
 
-**Bring:** trail shoes, 2L water, snacks, [warm jacket (it gets cooler at altitude), ]rain jacket, cap, mosquito spray, some cash, and a charged phone with an offline map.
+## What to bring
 
-**Before Sunday, on wifi:** install AllTrails and Mapy.com, both free. We follow the route on AllTrails, from the link above. Signal drops on [most trails here / this trail], so as a backup open Offline maps in Mapy ([Android](https://play.google.com/store/apps/details?id=cz.seznam.mapy), [iPhone](https://apps.apple.com/app/id411411020)) and download [OFFLINE REGIONS, e.g. Chiang Mai and Mae Rim].
+- [x] Before Sunday: AllTrails for the route ([Android](https://play.google.com/store/apps/details?id=com.alltrails.alltrails), [iPhone](https://apps.apple.com/app/id405075943)) and Mapy.com with [OFFLINE REGIONS] saved offline ([Android](https://play.google.com/store/apps/details?id=cz.seznam.mapy), [iPhone](https://apps.apple.com/app/id411411020))
+- [x] Dog food for the hungry dogs on the way
+- [x] Grippy trail shoes
+- [x] 2L water and snacks
+- [x] [Warm layer — only at altitude]
+- [x] Change of clothes, swimwear
+- [x] Rain jacket, cap, mosquito spray
+- [x] Cash and a power bank
 
 The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total and to finish by [END TIME]. [WEATHER — only if actionable, e.g. "Rain likely, around 40 percent."]
 
@@ -91,6 +98,12 @@ The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total and to fin
 
 - **Reviews are ordered by predicted appeal to a newcomer, not by date.** Whenever a quote is added, re-rank all approved quotes and rewrite `series_reviews.sort_order`. Rank first what answers "why this group, and will I fit in?": concrete, warm, specific. Rank later anything abstract or that carries a complaint. This is a judgement, so name the order to the founder; no attendee data backs it yet. Founder, 2026-11-01.
 - **Gallery videos carry background music instead of their original audio**, old and new, faded out at the end. Upload under a new file name. Founder, 2026-11-01.
+- **Every video gets its own newly generated track that fits its mood, never reused across videos.** Generate it with Lyria (`lyria-3-clip-preview`, Gemini API key, an instrumental prompt describing the clip). Founder, 2026-11-10: *"each time its new track generated that fits ... otherwise boring always hear same part of same track under any video"*.
+- **Dog food is on every bring list.** Founder, 2026-11-11: *"dog food always because there are often dogs there"*.
+- **The opening is one line: "Everyone welcome. Bring your friends and family."** No "Sunday day hike" (the page shows the date) and no "Hosted by the Clarity Practice Community" or intro-call sentence (the page already says "Organized by"). Founder, 2026-11-11.
+- **"What to bring" is a tick-box list (`- [x]`), shortest wording, apps first, dog food second, the obvious last.** One app line, not a "Before Sunday, on wifi" paragraph that repeats itself; a power bank, not "a charged phone". Founder, 2026-11-11: *"Redundant, can we shorten to minimum?"*
+- **The dinner place gets a quote too**, with its Google rating and review count, exactly like the trail and the cafe. Founder, 2026-11-11: *"for the dinner maybe we should also say stars ... like we did for cafe"*.
+- **Few near-duplicates in the gallery.** One or two shots per scene, never several of the same waterfall. Founder, 2026-11-11.
 - **Every stop is a meeting point for all groups.** Groups split after the warm-up, meet at the break to hang out together, meet again at any further stop such as a waterfall, then at dinner. Name each stop in the group paragraph and pin it on the map. Founder, 2026-11-01.
 - **The closing section is headed "Dinner after the hike"** when there is a dinner.
 - **Route maps show walking direction with arrows.** `scripts/hike-route-map.mjs` draws them from the coordinate order, so check that order matches the planned direction. Founder, 2026-11-01.
