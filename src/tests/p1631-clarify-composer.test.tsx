@@ -41,6 +41,9 @@ describe('clarify-service: the new calls', () => {
     rpc.mockResolvedValueOnce({ data: { status: 'started', draft_id: 'd9', message_id: 'm9' }, error: null });
     expect(await s.clarifyMessage('r1', 'sharper')).toEqual({ status: 'started', draftId: 'd9' });
     expect(rpc).toHaveBeenLastCalledWith('clarify_message', { p_thread_root: 'r1', p_text: 'sharper' });
+    rpc.mockResolvedValueOnce({ data: { status: 'started', draft_id: 'd10' }, error: null });
+    await s.clarifyMessage('r1', 'sharper', 'card-2'); // a Mention in chat names the card
+    expect(rpc).toHaveBeenLastCalledWith('clarify_message', { p_thread_root: 'r1', p_text: 'sharper', p_target: 'card-2' });
     rpc.mockResolvedValueOnce({ data: { status: 'busy' }, error: null });
     expect(await s.clarifyMessage('r1', 'x')).toEqual({ status: 'busy' });
     rpc.mockResolvedValueOnce({ data: null, error: { message: 'nope' } });
@@ -95,8 +98,39 @@ describe('A: the composer of the Clarify thread', () => {
     render(<ClarifyComposer rootId="r1" userId="u1" working={false} />);
     type('make it about the quarter');
     send();
-    await waitFor(() => expect(svc.clarifyMessage).toHaveBeenCalledWith('r1', 'make it about the quarter'));
+    // no pill: no target, so the server refines the latest card
+    await waitFor(() => expect(svc.clarifyMessage).toHaveBeenCalledWith('r1', 'make it about the quarter', null));
     await waitFor(() => expect(svc.invokeClarifyDraft).toHaveBeenCalledWith('d7'));
+  });
+
+  it('with a Mention in chat pill it refines THAT card: the pill shows the card\'s words, its id goes as the target, and the pill clears once sent', async () => {
+    svc.clarifyMessage.mockResolvedValue({ status: 'started', draftId: 'd8' });
+    svc.invokeClarifyDraft.mockResolvedValue({ ok: true });
+    const clear = vi.fn();
+    render(<ClarifyComposer rootId="r1" userId="u1" working={false} mention={{ id: 'card-2', words: 'Deadlines are the manager\'s call' }} onClearMention={clear} />);
+    expect(screen.getByTestId('clarify-mention-pill')).toHaveTextContent('Deadlines are the manager\'s call');
+    type('sharper');
+    send();
+    await waitFor(() => expect(svc.clarifyMessage).toHaveBeenCalledWith('r1', 'sharper', 'card-2'));
+    await waitFor(() => expect(clear).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: /^Remove / }));
+    expect(clear).toHaveBeenCalledTimes(2);
+  });
+
+  it('a busy or failed send keeps the pill (nothing was sent)', async () => {
+    svc.clarifyMessage.mockResolvedValueOnce({ status: 'busy' });
+    const clear = vi.fn();
+    render(<ClarifyComposer rootId="r1" userId="u1" working={false} mention={{ id: 'card-2', words: 'x' }} onClearMention={clear} />);
+    type('one more');
+    send();
+    await waitFor(() => expect(toastFn).toHaveBeenCalledWith(CLARIFY_BUSY_TOAST));
+    expect(clear).not.toHaveBeenCalled();
+  });
+
+  it('the typing box keeps the microphone (dictation fills the field, Enter or Send sends it as the instruction) and has no paperclip and no plus', () => {
+    render(<ClarifyComposer rootId="r1" userId="u1" working={false} />);
+    expect(screen.queryByRole('button', { name: /attach/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^\+$|add|more/i })).toBeNull();
   });
 
   it('busy sends nothing further and the text stays; a failure toasts and the text stays', async () => {

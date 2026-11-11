@@ -63,15 +63,13 @@ describe('a voice note in the list', () => {
     expect(screen.getByRole('button', { name: 'Play voice message' })).toBeInTheDocument();
   });
 
-  it('a voice note by someone else offers Reply and Thread, never Forward or Clarify, and More holds only Copy text', () => {
+  it('a voice note by someone else offers Reply and Reply in thread, never Forward or Clarify, in the one menu (the bar has only the three dots)', () => {
     render(row(msg({ authorId: OTHER })));
-    expect(has('Reply')).toBeInTheDocument();
-    expect(has('Thread')).toBeInTheDocument();
     expect(has('Forward')).not.toBeInTheDocument();
     expect(has(/Clarify/)).not.toBeInTheDocument();
     fireEvent.click(has('More actions') as HTMLElement);
     const menu = screen.getByRole('menu', { name: 'Message menu' });
-    expect(within(menu).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Copy text']);
+    expect(within(menu).getAllByRole('menuitem').filter((i) => !i.closest('[data-testid="menu-reactions"]')).map((i) => i.textContent)).toEqual(['Reply', 'Reply in thread', 'Copy text']);
   });
 
   it('your own voice note has More actions with Delete and NO Edit', () => {
@@ -88,16 +86,19 @@ describe('a voice note in the list', () => {
     render(row(msg()));
     fireEvent.contextMenu(screen.getByTestId('voice-bubble'));
     const menu = screen.getByRole('menu', { name: 'Message menu' });
-    const names = within(menu).getAllByRole('menuitem').map((i) => i.textContent);
-    expect(names).toEqual(['Reply', 'React', 'Reply in thread', 'Copy text', 'Delete']);
+    const names = within(menu).getAllByRole('menuitem').filter((i) => !i.closest('[data-testid="menu-reactions"]')).map((i) => i.textContent);
+    expect(names).toEqual(['Reply', 'Reply in thread', 'Copy text', 'Delete']);
   });
 
-  it('CONTROL: an ordinary own message still offers Forward, Clarify and Edit', () => {
+  it('CONTROL: an ordinary own message still offers Clarify on the bar, and Forward and Edit in the menu', () => {
     render(row(msg({ body: 'plain words', audio: null })));
-    expect(has('Forward')).toBeInTheDocument();
     expect(has(/Clarify/)).toBeInTheDocument();
+    expect(has('Forward')).not.toBeInTheDocument();
     fireEvent.click(has('More actions') as HTMLElement);
-    expect(within(screen.getByRole('menu', { name: 'Message menu' })).getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
+    const menu = screen.getByRole('menu', { name: 'Message menu' });
+    expect(within(menu).getByRole('menuitem', { name: 'Forward' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Clarify' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
   });
 
   it('a deleted voice note is just "Message deleted": no bubble, no actions', () => {
@@ -109,7 +110,8 @@ describe('a voice note in the list', () => {
 
   it('pressing Reply on a voice note calls the same reply action', () => {
     render(row(msg({ authorId: OTHER })));
-    fireEvent.click(has('Reply') as HTMLElement);
+    fireEvent.click(has('More actions') as HTMLElement);
+    fireEvent.click(within(screen.getByRole('menu', { name: 'Message menu' })).getByRole('menuitem', { name: 'Reply' }));
     expect(actions.onReply).toHaveBeenCalledTimes(1);
   });
 });

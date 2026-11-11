@@ -251,6 +251,11 @@ export function ToolButton({ label, onClick, children }: { label: string; onClic
  * Clarify: the mirror's face and the word. The name and tip say whose mirror ("Clarify with Ada's mirror").
  * Below 360px the word drops out (face only, still 40px) so the five buttons keep one row at 320.
  */
+/** The same face as the hover bar's Clarify button, for the menu's Clarify item: one Clarify icon everywhere. */
+export function ClarifyMenuIcon() {
+  return <MirrorMark size="xs" className="shrink-0" />;
+}
+
 export function ClarifyButton({ mirror, onClick }: { mirror: string; onClick: () => void }) {
   const label = `Clarify with ${mirror}`;
   return (

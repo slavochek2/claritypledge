@@ -1,37 +1,34 @@
 /**
  * @file MessageToolbar.tsx
- * @description P1512: the action toolbar of one message (Reply, Forward, Thread, Clarify, ⋯).
- * Floats on a desktop hover, or sits in line under a tapped message. Split out of MessageRow.tsx,
- * unchanged in behaviour: MessageRow decides WHETHER it shows; this decides what it carries.
+ * @description The action bar of one message: Clarify (where it is offered) and ⋯, nothing else. ⋯ opens the message's one menu (message-menu-items.ts), the same list a
+ * right-click or a long press opens. Floats on a desktop hover, or sits in line under a tapped message. MessageRow decides WHETHER it shows; this decides what it carries.
  */
-import { Forward, MessageSquareText, MoreHorizontal, Reply, SmilePlus } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/app/data/chat-service';
 import { ClarifyButton, ToolButton } from './MessageParts';
 import type { MessageActions } from './MessageRow';
+import { menuWidth } from './menu-width';
 
 interface Props {
   message: ChatMessage;
   selected: boolean;
   noCopy: boolean;
-  ownerOnly: boolean;
   mirror: string;
   actions: MessageActions;
-  /** The ⋯ button shows only when there is something the toolbar does not carry. */
-  hasMore: boolean;
+  /** The ⋯ button shows when the message has a menu. */
+  hasMenu: boolean;
+  /** The menu carries the reactions strip (it is wider): where the dots anchor it depends on that. */
+  hasReactions: boolean;
   /** Close the in-line toolbar (a button was used). */
   onDone: () => void;
-  /** Open the ⋯ menu at this point. */
+  /** Open the menu at this point. */
   onMore: (at: { x: number; y: number }) => void;
-  /** Below 360px Forward is in the ⋯ menu instead (six buttons do not fit one row at 320). */
-  narrow?: boolean;
-  /** P1652: present only when this message takes reactions; opens the emoji picker at this point. */
-  onReact?: (at: { x: number; y: number }) => void;
 }
 
 const ICON = 'h-[18px] w-[18px]';
 
-export function MessageToolbar({ message, selected, noCopy, ownerOnly, mirror, actions, hasMore, onDone, onMore, narrow = false, onReact }: Props) {
+export function MessageToolbar({ message, selected, noCopy, mirror, actions, hasMenu, hasReactions, onDone, onMore }: Props) {
   return (
     <div
       role="toolbar"
@@ -43,31 +40,13 @@ export function MessageToolbar({ message, selected, noCopy, ownerOnly, mirror, a
           : 'pointer-events-none absolute -top-5 right-3 z-10 opacity-0 transition-opacity focus-within:pointer-events-auto focus-within:opacity-100 lg:[@media(hover:hover)]:group-hover:pointer-events-auto lg:[@media(hover:hover)]:group-hover:opacity-100',
       )}
     >
-      <ToolButton label="Reply" onClick={() => { onDone(); actions.onReply(message); }}>
-        <Reply className={ICON} aria-hidden="true" />
-      </ToolButton>
-      {onReact && (
-        <ToolButton label="React" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); onDone(); onReact({ x: r.left - 40, y: r.bottom + 4 }); }}>
-          <SmilePlus className={ICON} aria-hidden="true" />
-        </ToolButton>
-      )}
-      {!noCopy && !narrow && (
-        <ToolButton label="Forward" onClick={() => { onDone(); actions.onForward(message); }}>
-          <Forward className={ICON} aria-hidden="true" />
-        </ToolButton>
-      )}
-      {!ownerOnly && actions.onThread && !message.threadRootId && (
-        <ToolButton label="Thread" onClick={() => { onDone(); actions.onThread?.(message); }}>
-          <MessageSquareText className={ICON} aria-hidden="true" />
-        </ToolButton>
-      )}
       {!noCopy && actions.onClarify && <ClarifyButton mirror={mirror} onClick={() => { onDone(); actions.onClarify?.(message); }} />}
-      {hasMore && (
+      {hasMenu && (
         <ToolButton
           label="More actions"
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
-            onMore({ x: r.right - 208, y: r.bottom + 4 });
+            onMore({ x: r.right - menuWidth(hasReactions), y: r.bottom + 4 });
           }}
         >
           <MoreHorizontal className={ICON} aria-hidden="true" />

@@ -62,6 +62,9 @@ async function finishActive(owner = a): Promise<void> {
     if (d.state === 'queued') await begin(d.id);
     await failRun(d.id, 'test_cleanup', 0);
   }
+  // The suite's throwaway user makes more runs than one person's daily cap (per_person count) allows. With nothing active,
+  // its settled spend rows can go, so later scenarios test their own rule rather than the cap (the cap has its own case).
+  await admin.from('mirror_ai_spend').delete().eq('owner_id', owner.id).eq('bucket', 'canvas');
 }
 
 beforeAll(async () => {
@@ -234,7 +237,8 @@ describe('P1631 clarify drafts', () => {
     // the owner's own position does not fix it; another person's does
     await admin.from('point_positions').insert({ point_id: d.point.id, user_id: a.id, position: 'agree' });
     expect(await ok(a.c, 'clarify_draft_edit', { p_draft: d.id, p_statement: `${TAG} Pricing needs a short trial.` })).toMatchObject({ changed: true });
-    expect(((await ok(a.c, 'get_clarify_thread', { p_thread_root: root })).drafts.find((x: Row) => x.id === d.id)).point.owner_position).toBe('agree');
+    // 20261111160000: a hand edit clears the owner's own position (new words, so the old stance no longer stands)
+    expect(((await ok(a.c, 'get_clarify_thread', { p_thread_root: root })).drafts.find((x: Row) => x.id === d.id)).point.owner_position).toBeNull();
     await admin.from('point_positions').insert({ point_id: d.point.id, user_id: b.id, position: 'disagree' });
     expect(await ok(a.c, 'clarify_draft_edit', { p_draft: d.id, p_statement: `${TAG} changed again` })).toMatchObject({ status: 'refused', code: 'fixed' });
     // delete keeps a point someone else has a position on; the draft row still goes
@@ -540,52 +544,91 @@ describe('P1631 step 1b: refine by chatting, and a draft that never started (mig
     expect((await rpc(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'x'.repeat(501) })).error?.code).toBe('22023');
   });
 
-  it('refine (target latest): the latest draft keeps its row, gets a new point row, the owner position carries over, the old point and the run row are gone', async () => {
+  // 20261111160000 (thread redesign): a refine is a NEW card. The old card, its point and its position stay; the new card has no position and names the card it refined.
+  let second = '';
+  let third = '';
+
+  it('refine (target latest): the run row is a NEW card with its own new point and no position; the old card, its point and the owner position are untouched, and the new card names the one it refined', async () => {
     await finishActive();
     const before = await draftRow(first);
+    const oldStatement = await statementOf(first);
     await admin.from('point_positions').insert({ point_id: before.point_id, user_id: a.id, position: 'agree' });
     const sent = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'make it about the quarter' });
     await begin(sent.draft_id);
     const r = await complete(sent.draft_id, answer('latest', 'refined point'), 0.02);
-    expect(r).toMatchObject({ status: 'done', refined: first });
-    const after = await draftRow(first);
+    expect(r.status).toBe('done');
+    expect(r.refined ?? null, 'nothing is refined in place any more').toBeNull();
+    second = sent.draft_id;
+    const after = await draftRow(second);
+    expect(after).toMatchObject({ state: 'done', refine_target_id: first });
     expect(after.point_id).not.toBe(before.point_id);
-    expect(await statementOf(first)).toBe(`${TAG} refined point`);
-    expect((await admin.from('points').select('id').eq('id', before.point_id)).data, 'old point').toHaveLength(0);
-    expect((await admin.from('point_positions').select('position').eq('point_id', after.point_id).eq('user_id', a.id)).data).toEqual([{ position: 'agree' }]);
-    expect((await admin.from('clarify_drafts').select('id').eq('id', sent.draft_id)).data, 'run row').toHaveLength(0);
+    expect(await statementOf(second)).toBe(`${TAG} refined point`);
+    // the old card is exactly as it was
+    expect((await draftRow(first)).point_id).toBe(before.point_id);
+    expect(await statementOf(first)).toBe(oldStatement);
+    expect((await admin.from('points').select('id').eq('id', before.point_id)).data, 'old point stays').toHaveLength(1);
+    expect((await admin.from('point_positions').select('position').eq('point_id', before.point_id).eq('user_id', a.id)).data).toEqual([{ position: 'agree' }]);
+    // the position is NOT copied
+    expect((await admin.from('point_positions').select('position').eq('point_id', after.point_id)).data).toHaveLength(0);
     const t = await ok(a.c, 'get_clarify_thread', { p_thread_root: thread });
-    expect(t.drafts.filter((d: Row) => d.state === 'done')).toHaveLength(1);
-    expect(t.drafts[0].point.owner_position).toBe('agree');
-    expect((await admin.from('mirror_ai_spend').select('state').eq('id', after.spend_id ?? sent.draft_id).maybeSingle()).error).toBeNull();
+    expect(t.drafts.filter((d: Row) => d.state === 'done')).toHaveLength(2);
+    expect(t.drafts.find((d: Row) => d.id === first)).toMatchObject({ refine_target_id: null, point: { owner_position: 'agree' } });
+    expect(t.drafts.find((d: Row) => d.id === second)).toMatchObject({ refine_target_id: first, point: { owner_position: null } });
   });
 
-  it('refine without a target field defaults to the latest; an invalid target fails bad_output and settles', async () => {
+  it('refine without a target field defaults to the latest (a new card naming the previous latest); an invalid target fails bad_output and settles', async () => {
     await finishActive();
     const s1 = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'reword it' });
     await begin(s1.draft_id);
-    expect(await complete(s1.draft_id, { decision: 'draft', statement: `${TAG} reworded`, cited: { a: [], b: [] } }, 0.01)).toMatchObject({ status: 'done', refined: first });
-    expect(await statementOf(first)).toBe(`${TAG} reworded`);
+    expect(await complete(s1.draft_id, { decision: 'draft', statement: `${TAG} reworded`, cited: { a: [], b: [] } }, 0.01)).toMatchObject({ status: 'done' });
+    third = s1.draft_id;
+    expect(await draftRow(third)).toMatchObject({ state: 'done', refine_target_id: second });
+    expect(await statementOf(third)).toBe(`${TAG} reworded`);
+    expect(await statementOf(second), 'the card it refined is untouched').toBe(`${TAG} refined point`);
     const s2 = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'whatever' });
     await begin(s2.draft_id);
     const run = (await token(s2.draft_id))!;
     expect(await complete(s2.draft_id, answer('sideways', 'bad target'), 0.03)).toMatchObject({ status: 'failed', code: 'bad_output' });
     expect((await admin.from('mirror_ai_spend').select('state').eq('id', run).single()).data).toMatchObject({ state: 'settled' });
-    expect(await statementOf(first)).toBe(`${TAG} reworded`);
+    expect(await statementOf(third)).toBe(`${TAG} reworded`);
     await ok(a.c, 'clarify_draft_delete', { p_draft: s2.draft_id });
   });
 
-  it('target new: the run row becomes a second draft and the first is untouched', async () => {
+  it('target new: the run row is another card that refines nothing (refine_target_id null) and the others are untouched', async () => {
     await finishActive();
     const sent = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'another point about who decides' });
     await begin(sent.draft_id);
-    expect(await complete(sent.draft_id, answer('new', 'second point'), 0.02)).toMatchObject({ status: 'done' });
-    expect(await draftRow(sent.draft_id)).toMatchObject({ state: 'done' });
-    expect(await statementOf(first)).toBe(`${TAG} reworded`);
-    expect((await ok(a.c, 'get_clarify_thread', { p_thread_root: thread })).drafts.filter((d: Row) => d.state === 'done')).toHaveLength(2);
+    expect(await complete(sent.draft_id, answer('new', 'fourth point'), 0.02)).toMatchObject({ status: 'done' });
+    expect(await draftRow(sent.draft_id)).toMatchObject({ state: 'done', refine_target_id: null });
+    expect(await statementOf(third)).toBe(`${TAG} reworded`);
+    expect((await ok(a.c, 'get_clarify_thread', { p_thread_root: thread })).drafts.filter((d: Row) => d.state === 'done')).toHaveLength(4);
   });
 
-  it('refine when someone else has a position on the latest point: a new draft is added, the fixed point stays', async () => {
+  it('an "Another point" run (no instruction) never records a refine target: not while running, not when it fails, not when it is done (20261111183000)', async () => {
+    await finishActive();
+    const failed = await ok(a.c, 'clarify_another', { p_thread_root: thread });
+    await begin(failed.draft_id);
+    expect(await draftRow(failed.draft_id), 'running').toMatchObject({ state: 'running', refine_target_id: null });
+    await failRun(failed.draft_id, 'test_cleanup', 0);
+    expect(await draftRow(failed.draft_id), 'failed').toMatchObject({ state: 'failed', refine_target_id: null });
+    await ok(a.c, 'clarify_draft_delete', { p_draft: failed.draft_id });
+    const n = await ok(a.c, 'clarify_another', { p_thread_root: thread });
+    await begin(n.draft_id);
+    expect(await complete(n.draft_id, goodResult(`${TAG} fifth point`), 0.01)).toMatchObject({ status: 'done' });
+    expect(await draftRow(n.draft_id)).toMatchObject({ state: 'done', refine_target_id: null });
+  });
+
+  it('a run WITH an instruction still records the card it refines while it runs (and a failed one keeps it, which the screen ignores unless a newer card is done)', async () => {
+    await finishActive();
+    const sent = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'a failing refine' });
+    await begin(sent.draft_id);
+    const running = await draftRow(sent.draft_id);
+    expect(running.refine_target_id).not.toBeNull();
+    await failRun(sent.draft_id, 'test_cleanup', 0);
+    await ok(a.c, 'clarify_draft_delete', { p_draft: sent.draft_id });
+  });
+
+  it('refine when someone else has a position on the latest point: a new card is added and the fixed point stays', async () => {
     await finishActive();
     const latest = (await ok(a.c, 'get_clarify_thread', { p_thread_root: thread })).drafts.filter((d: Row) => d.state === 'done').pop();
     await admin.from('point_positions').insert({ point_id: latest.point.id, user_id: dd.id, position: 'disagree' });
@@ -594,9 +637,49 @@ describe('P1631 step 1b: refine by chatting, and a draft that never started (mig
     const r = await complete(sent.draft_id, answer('latest', 'sharpened'), 0.02);
     expect(r.status).toBe('done');
     expect(r.refined ?? null).toBeNull();
-    expect(await draftRow(sent.draft_id)).toMatchObject({ state: 'done' });
+    expect(await draftRow(sent.draft_id)).toMatchObject({ state: 'done', refine_target_id: latest.id });
     expect(((await admin.from('points').select('statement').eq('id', latest.point.id).single()).data as Row).statement, 'fixed point unchanged').toBe(latest.point.statement);
-    expect((await ok(a.c, 'get_clarify_thread', { p_thread_root: thread })).drafts.filter((d: Row) => d.state === 'done')).toHaveLength(3);
+    expect((await ok(a.c, 'get_clarify_thread', { p_thread_root: thread })).drafts.filter((d: Row) => d.state === 'done')).toHaveLength(6);
+  });
+
+  it('Mention in chat: clarify_message with p_target stores that card as the one to refine, begin sends THAT card as latest_draft (already_drafted still lists every card), and the new card names it', async () => {
+    await finishActive();
+    const sent = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'about the first one', p_target: first });
+    expect(await draftRow(sent.draft_id)).toMatchObject({ refine_target_id: first });
+    const run = await begin(sent.draft_id);
+    expect(run.latest_draft).toBe(await statementOf(first));
+    expect(run.already_drafted, 'the refined card stays listed: the run may still answer `new`').toContain(await statementOf(first));
+    expect(run.already_drafted).toContain(`${TAG} reworded`);
+    expect(await complete(sent.draft_id, answer('latest', 'first, sharper'), 0.02)).toMatchObject({ status: 'done' });
+    expect(await draftRow(sent.draft_id)).toMatchObject({ refine_target_id: first });
+    expect(await draftRow(first)).toMatchObject({ state: 'done' }); // still there, still an earlier version
+  });
+
+  it('p_target is validated: a draft of another thread, an unknown id and a stranger asking are all refused, and no message is posted', async () => {
+    await finishActive();
+    const mainThread = thread;
+    const foreign = await mkDone('another thread'); // mkDone starts a second thread of the same owner and moves `thread` to it
+    thread = mainThread;
+    await finishActive();
+    const posted = async () => (await admin.from('chat_messages').select('id').eq('thread_root_id', mainThread)).data!.length;
+    const n = await posted();
+    expect((await rpc(a.c, 'clarify_message', { p_thread_root: mainThread, p_text: 'x', p_target: foreign })).error?.code, 'a draft of another thread').toBe('42501');
+    expect((await rpc(a.c, 'clarify_message', { p_thread_root: mainThread, p_text: 'x', p_target: randomUUID() })).error?.code, 'an unknown id').toBe('42501');
+    expect((await rpc(b.c, 'clarify_message', { p_thread_root: mainThread, p_text: 'x', p_target: first })).error?.code, 'a stranger').toBe('42501');
+    expect(await posted(), 'nothing was posted').toBe(n);
+  });
+
+  it('a hand edit clears the owner\'s position on that point, and an unchanged text does not', async () => {
+    await finishActive();
+    const d = await draftRow(first);
+    const pid = d.point_id as string;
+    const text = await statementOf(first);
+    const has = async () => (await admin.from('point_positions').select('position').eq('point_id', pid).eq('user_id', a.id)).data!.length;
+    expect(await has()).toBe(1);
+    expect(await ok(a.c, 'clarify_draft_edit', { p_draft: first, p_statement: text! })).toMatchObject({ status: 'ok', changed: false });
+    expect(await has(), 'unchanged text writes nothing').toBe(1);
+    expect(await ok(a.c, 'clarify_draft_edit', { p_draft: first, p_statement: `${TAG} edited by hand` })).toMatchObject({ status: 'ok', changed: true });
+    expect(await has(), 'a changed text clears the position').toBe(0);
   });
 
   it('clarify_mark_failed: a queued draft that never started is failed not_started and can be retried; a started one, a finished one and a stranger are left alone', async () => {
@@ -636,7 +719,7 @@ describe('P1631 step 1b review fixes (migration 20261110210000)', () => {
     src = await ok(ee.c, 'send_chat_message', { p_conversation: made.data.id, p_body: `${TAG} r4: move the deadline.`, p_client_id: randomUUID() });
   });
 
-  // each case attaches ONE kind of reference to the old point, refines, and expects: refined, a NEW point on the draft, the OLD row kept, the spend settled
+  // 20261111160000: a refine never deletes or edits anything. Each case attaches ONE kind of reference to the old point, refines, and expects: a NEW card with its own new point, the OLD card and point exactly as they were, the spend settled
   const keeps: Array<[string, (pid: string) => Promise<() => Promise<void>>]> = [
     ['a letter response (a foreign key with no ON DELETE action: the delete would raise)', async (pid) => {
       const doc = (await admin.from('clarity_docs').insert({ owner_id: a.id, title: `${TAG} doc` }).select('id').single()).data as Row;
@@ -665,7 +748,7 @@ describe('P1631 step 1b review fixes (migration 20261110210000)', () => {
     }],
   ];
   for (const [label, attach] of keeps) {
-    it(`refine keeps the old point row when it has ${label}`, async () => {
+    it(`refine adds a new card and leaves the old card and its point alone when the point has ${label}`, async () => {
       await finishActive();
       const { draft, thread } = await mkDone(`keep ${label.slice(0, 12)}`);
       const old = await pointOf(draft);
@@ -675,12 +758,14 @@ describe('P1631 step 1b review fixes (migration 20261110210000)', () => {
         await begin(sent.draft_id);
         const run = (await token(sent.draft_id))!;
         const r = await complete(sent.draft_id, answer('sharper'), 0.02);
-        expect(r).toMatchObject({ status: 'done', refined: draft });
-        const now = await pointOf(draft);
-        expect(now).not.toBe(old);
+        expect(r.status).toBe('done');
+        expect(r.refined ?? null).toBeNull();
+        expect(await pointOf(draft), 'the old card keeps its point').toBe(old);
         expect(await exists(old), 'old row kept').toBe(true);
+        const now = await pointOf(sent.draft_id);
+        expect(now).not.toBe(old);
         expect(await exists(now), 'new row').toBe(true);
-        expect((await admin.from('clarify_drafts').select('id').eq('id', sent.draft_id)).data, 'run row').toHaveLength(0);
+        expect(await draftRow(sent.draft_id), 'the run row is the new card').toMatchObject({ state: 'done', refine_target_id: draft });
         expect((await admin.from('mirror_ai_spend').select('state').eq('id', run).single()).data).toMatchObject({ state: 'settled' }); // not rolled back
       } finally {
         await cleanup();
@@ -688,27 +773,31 @@ describe('P1631 step 1b review fixes (migration 20261110210000)', () => {
     });
   }
 
-  it('CONTROL: with no reference at all the old point row is deleted (the free branch)', async () => {
+  it('CONTROL: with no reference at all the old point row is STILL kept (nothing is deleted by a refine any more)', async () => {
     await finishActive();
     const { draft, thread } = await mkDone('free');
     const old = await pointOf(draft);
     const sent = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'sharper' });
     await begin(sent.draft_id);
-    expect(await complete(sent.draft_id, answer('sharper free'), 0.02)).toMatchObject({ refined: draft });
-    expect(await exists(old)).toBe(false);
+    const r = await complete(sent.draft_id, answer('sharper free'), 0.02);
+    expect(r.refined ?? null).toBeNull();
+    expect(await exists(old)).toBe(true);
+    expect(await pointOf(draft)).toBe(old);
   });
 
-  it('refine deduplicates sent_ids', async () => {
+  it('every refine card keeps its own deduplicated sent_ids, and the card it refined keeps its own', async () => {
     await finishActive();
     const { draft, thread } = await mkDone('dedupe');
+    const sentBefore = (await admin.from('clarify_drafts').select('sent_ids').eq('id', draft).single()).data!.sent_ids as string[];
     for (const t of ['one', 'two']) {
       const sent = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: t });
       await begin(sent.draft_id);
       await complete(sent.draft_id, answer(`dedupe ${t}`), 0.01);
+      const ids = (await admin.from('clarify_drafts').select('sent_ids').eq('id', sent.draft_id).single()).data!.sent_ids as string[];
+      expect(ids.length).toBeGreaterThan(0);
+      expect(new Set(ids).size).toBe(ids.length);
     }
-    const ids = (await admin.from('clarify_drafts').select('sent_ids').eq('id', draft).single()).data!.sent_ids as string[];
-    expect(ids.length).toBeGreaterThan(0);
-    expect(new Set(ids).size).toBe(ids.length);
+    expect((await admin.from('clarify_drafts').select('sent_ids').eq('id', draft).single()).data!.sent_ids).toEqual(sentBefore);
   });
 
   it('with every draft of the thread deleted, clarify_message and clarify_another start a new draft from the thread root; a stranger is still refused', async () => {
@@ -731,7 +820,7 @@ describe('P1631 step 1b review fixes (migration 20261110210000)', () => {
     await failRun(n.draft_id, 'test_cleanup', 0);
   });
 
-  it('a refine changes exactly the draft the run showed the model: a newer draft that appears in between is untouched, a target that is deleted in between means the run is added as a new draft', async () => {
+  it('a refine names exactly the draft the run showed the model and changes none: a newer draft that appears in between is untouched, and a target deleted in between still just adds the run as a new card', async () => {
     await finishActive();
     const { draft: first, thread } = await mkDone('target one');
     const sent = await ok(a.c, 'clarify_message', { p_thread_root: thread, p_text: 'sharper' });
@@ -743,8 +832,10 @@ describe('P1631 step 1b review fixes (migration 20261110210000)', () => {
     const d0 = await draftRow(first);
     const intruder = (await admin.from('clarify_drafts').insert({ owner_id: a.id, mirror_conversation_id: d0.mirror_conversation_id, thread_root_id: thread, source_conversation_id: d0.source_conversation_id,
       source_message_id: d0.source_message_id, point_id: np.id, state: 'done', created_at: new Date(Date.now() + 5000).toISOString() }).select('id').single()).data as Row;
-    expect(await complete(sent.draft_id, answer('refined the first'), 0.02)).toMatchObject({ status: 'done', refined: first });
-    expect(await statementOf(first)).toBe(`${TAG} refined the first`);
+    expect(await complete(sent.draft_id, answer('refined the first'), 0.02)).toMatchObject({ status: 'done' });
+    expect(await draftRow(sent.draft_id)).toMatchObject({ state: 'done', refine_target_id: first });
+    expect(await statementOf(sent.draft_id)).toBe(`${TAG} refined the first`);
+    expect(await statementOf(first), 'the card it refined is not edited').toBe(`${TAG} target one`);
     expect(((await admin.from('points').select('statement').eq('id', np.id).single()).data as Row).statement, 'intruder untouched').toBe(`${TAG} newer intruder`);
     // the target is deleted while the model works: the answer is added as a new draft, nothing else is refined
     await finishActive();
@@ -756,7 +847,7 @@ describe('P1631 step 1b review fixes (migration 20261110210000)', () => {
     expect(r2.status).toBe('done');
     expect(r2.refined ?? null).toBeNull();
     expect(await draftRow(s2.draft_id)).toMatchObject({ state: 'done' });
-    expect(await statementOf(first), 'the other draft is not the one that was shown').toBe(`${TAG} refined the first`);
+    expect(await statementOf(first), 'no card was edited').toBe(`${TAG} target one`);
   });
 
   it('clarify_draft_counts: the owner sees one count per thread root of the Mirror conversation, another user gets an empty object', async () => {
@@ -778,7 +869,7 @@ describe('P1631 step 1b review fixes (migration 20261110210000)', () => {
     await new Promise((r) => setTimeout(r, 50));
     await ok(a.c, 'send_chat_message', { p_conversation: conv, p_body: 'typed after queueing', p_thread_root: thread });
     const run = await begin(first.draft_id);
-    expect(run.owner_messages).toEqual(['direction one']);
+    expect(run.owner_messages, JSON.stringify(run).slice(0, 300)).toEqual(['direction one']);
     await failRun(first.draft_id, 'test_cleanup', 0);
   });
 });

@@ -20,6 +20,10 @@ export interface ClarifyDraft {
   errorCode: string | null;
   /** Lines the agent cited, resolved by the server from the chat itself, never model text, no names. */
   cited: ClarifyCitedLine[];
+  /** When the draft was queued (ISO): places it among the owner's own messages in the thread. */
+  createdAt: string;
+  /** The card this card replaced (a refine), or null. A card that a newer done card names here is an earlier version. */
+  refineTargetId: string | null;
 }
 
 export type StartClarifyResult =
@@ -67,8 +71,9 @@ export async function anotherPoint(threadRoot: string, instruction?: string | nu
   throw new Error('clarify_another: unexpected answer');
 }
 
-export async function clarifyMessage(threadRoot: string, text: string): Promise<ClarifyMessageResult> {
-  const r = await call('clarify_message', { p_thread_root: threadRoot, p_text: text });
+/** `targetDraftId`: the card a Mention in chat names; the message refines that card instead of the latest. */
+export async function clarifyMessage(threadRoot: string, text: string, targetDraftId?: string | null): Promise<ClarifyMessageResult> {
+  const r = await call('clarify_message', { p_thread_root: threadRoot, p_text: text, ...(targetDraftId ? { p_target: targetDraftId } : {}) });
   const draftId = str(r.draft_id);
   if (r.status === 'started' && draftId) return { status: 'started', draftId };
   if (r.status === 'busy') return { status: 'busy' };
@@ -130,6 +135,8 @@ function mapDraft(raw: unknown): ClarifyDraft | null {
     suggestions: Array.isArray(d.suggestions) ? [...new Set(d.suggestions.filter((s): s is string => typeof s === 'string' && s.trim() !== '').map((s) => s.trim()))] : [],
     errorCode: str(d.error_code),
     cited: citedOf(d.cited),
+    createdAt: str(d.created_at) ?? '',
+    refineTargetId: str(d.refine_target_id),
   };
 }
 

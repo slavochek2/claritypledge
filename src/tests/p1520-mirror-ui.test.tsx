@@ -109,7 +109,7 @@ beforeEach(() => {
 });
 
 describe('P1520 mirror reply rows', () => {
-  it('a reply renders as the mirror, with no reading footer, and offers only Reply', () => {
+  it('a reply renders as the mirror, with no reading footer, and its menu offers only Reply and Copy text', () => {
     wrap(row(msg({ id: 'agent-1', kind: 'agent', authorId: null, body: 'She may be tired.', replyToId: 'msg-1' })));
     const author = screen.getByTestId('mirror-author');
     expect(author).toHaveTextContent('Mira');
@@ -117,20 +117,21 @@ describe('P1520 mirror reply rows', () => {
     expect(screen.queryByText('Deleted user')).not.toBeInTheDocument();
     expect(screen.queryByTestId('mirror-reading')).not.toBeInTheDocument(); // P1554: the footer is gone
     const bar = screen.getByRole('toolbar', { name: 'Message actions' });
-    expect(within(bar).getByRole('button', { name: 'Reply' })).toBeInTheDocument();
-    for (const name of ['Forward', 'Thread', /Clarify/]) {
+    // The hover bar carries only Clarify (never on the mirror's own reply) and the three dots; Reply and Copy text are in the one menu.
+    for (const name of ['Reply', 'Forward', 'Thread', /Clarify/]) {
       expect(within(bar).queryByRole('button', { name })).not.toBeInTheDocument();
     }
-    // P1652: Copy text is now offered on a mirror reply, so More exists, and holds only that.
     fireEvent.click(within(bar).getByRole('button', { name: 'More actions' }));
-    expect(within(screen.getByRole('menu')).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Copy text']);
+    expect(within(screen.getByRole('menu')).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Reply', 'Copy text']);
   });
 
-  it('CONTROL: an ordinary own message still offers Forward, Clarify and More actions', () => {
+  it('CONTROL: an ordinary own message still offers Clarify and More actions on the bar, and Forward in the menu', () => {
     wrap(row(msg({ id: 'own-1' })));
     const bar = screen.getByRole('toolbar', { name: 'Message actions' });
-    expect(within(bar).getByRole('button', { name: 'Forward' })).toBeInTheDocument();
-    expect(within(bar).getByRole('button', { name: 'More actions' })).toBeInTheDocument();
+    expect(within(bar).getByRole('button', { name: /Clarify/ })).toBeInTheDocument();
+    expect(within(bar).queryByRole('button', { name: 'Forward' })).not.toBeInTheDocument();
+    fireEvent.click(within(bar).getByRole('button', { name: 'More actions' }));
+    expect(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Forward' })).toBeInTheDocument();
   });
 
   it('a private row shown in a channel is marked private and takes no actions', () => {

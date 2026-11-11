@@ -1,103 +1,31 @@
 /**
  * @file ClarifyDraftCard.tsx
- * @description P1631: one Clarify draft as the product's point card: a "Draft" pill with the private icon (informational, not a control), the
- * statement, the owner's own position buttons, Edit (a pencil that opens the text in place, as canvas drafts do), Delete (the product's confirm
- * dialog) and a collapsed "Cited lines (may be wrong)" list. No Publish in this step.
+ * @description P1631: one Clarify draft as the product's point card: a "Draft" pill with the private icon (informational, not a control), the statement, the owner's own
+ * position buttons under "Your position", then two quiet rows: "N cited" (collapsed lines) on the left with Edit, Delete and Mention in chat on the right, and a right-aligned
+ * Publish to chat. An earlier version (a newer card was made from it) shows a quiet label and no position and no Publish. Publishing itself is the next part: until then a
+ * tap on an enabled Publish says so.
  */
-import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Lock, Pencil, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { Check, ChevronRight, Lock, MessageSquare, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { PointCardShell } from '@/app/components/shared/presentational/point-card-shell';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
-import { deleteClarifyDraft, editClarifyDraft, type ClarifyDraft, type OwnerPosition } from '@/app/data/clarify-service';
-import { UNRESOLVED_WRITE_MESSAGE, isNetworkWriteFailure } from '@/app/hooks/use-online-write-guard';
-import { networkMark } from '@/lib/network-outcome';
-import {
-  beginPositionWrite, endPositionWrite, isLatestPositionWrite, recordConfirmedPosition, sendPositionWrite, settlePositionWrite,
-} from '@/app/data/position-write-outcome';
-import type { PositionType } from '@/app/types';
+import { MENTIONED_LABEL, MENTION_IN_CHAT_LABEL } from '@/app/components/canvas/canvas-mention-in-chat';
+import { CANVAS_QUIET_ACTION } from '@/app/components/canvas/canvas-pill-styles';
+import { deleteClarifyDraft, editClarifyDraft, type ClarifyDraft } from '@/app/data/clarify-service';
+import { cn } from '@/lib/utils';
 import { ConfirmDialog } from './ChatDialogs';
-import { CITED_LABEL, DELETE_DESCRIPTION, DELETE_FAILED_TEXT, DELETE_TITLE, DRAFT_MAX, DRAFT_PILL, DRAFT_PRIVATE_LABEL, EMPTY_DRAFT_TEXT, SAVE_FAILED_TEXT } from './clarify-copy';
+import { useOwnerPosition } from './use-owner-position';
+import {
+  CITED_LABEL, DELETE_DESCRIPTION, DELETE_FAILED_TEXT, DELETE_TITLE, DRAFT_MAX, DRAFT_PILL, DRAFT_PRIVATE_LABEL, EARLIER_LABEL, EMPTY_DRAFT_TEXT, POSITION_LABEL,
+  PUBLISH_COMING_TOAST, PUBLISH_LABEL, PUBLISH_NEEDS_POSITION_TOAST, SAVE_FAILED_TEXT, citedToggleLabel,
+} from './clarify-copy';
 
 const NO_COUNTS: SevenPointCounts = {
   strongly_agree: 0, agree: 0, somewhat_agree: 0, unsure: 0, somewhat_disagree: 0, disagree: 0, strongly_disagree: 0,
 };
-
-/**
- * The owner's own position write, the way every point card writes it (P1420): checked in order, an unanswered write is settled by asking the
- * server (never rolled back at once), a newer click owns the display, and a changed server value is taken once no write is pending.
- */
-function useOwnerPosition(userId: string, pointId: string, serverValue: OwnerPosition) {
-  const [position, setPosition] = useState<OwnerPosition>(serverValue);
-  const saved = useRef<OwnerPosition>(serverValue);
-  const pendingWrites = useRef(0);
-  // a server value that arrived while a write was pending: applied when the write settles, never lost
-  const latestServer = useRef<OwnerPosition>(serverValue);
-  const serverMovedDuringWrite = useRef(false);
-  const unmounted = useRef(new AbortController());
-  useEffect(() => {
-    const controller = new AbortController();
-    unmounted.current = controller;
-    return () => controller.abort();
-  }, []);
-  useEffect(() => {
-    latestServer.current = serverValue;
-    if (pendingWrites.current > 0) {
-      serverMovedDuringWrite.current = true;
-      return;
-    }
-    saved.current = serverValue;
-    setPosition(serverValue);
-  }, [serverValue]);
-  const choose = async (picked: PositionType | null) => {
-    const next = picked === position ? null : picked;
-    const generation = beginPositionWrite(userId, pointId);
-    const isLatest = () => isLatestPositionWrite(userId, pointId, generation);
-    pendingWrites.current += 1;
-    setPosition(next);
-    try {
-      const sentAt = networkMark();
-      try {
-        await sendPositionWrite(userId, pointId, next, generation);
-        if (isLatest()) saved.current = next; // an older write's late success is not the baseline
-      } catch (err) {
-        if (!isNetworkWriteFailure(err, sentAt)) {
-          if (!isLatest()) return;
-          setPosition(saved.current);
-          toast.error('Failed to save position.');
-          return;
-        }
-        // sent, never answered: it may have landed. Ask the server. Nothing thrown here may escape the click.
-        try {
-          const outcome = await settlePositionWrite({ userId, pointId, generation, expected: next, signal: unmounted.current.signal });
-          if (outcome.kind === 'superseded') return;
-          if (outcome.kind === 'confirmed') {
-            saved.current = next;
-            recordConfirmedPosition(userId, pointId, generation, next);
-            return;
-          }
-          setPosition(saved.current);
-          toast.error(outcome.kind === 'rejected' ? 'Your position was not saved. Try again.' : UNRESOLVED_WRITE_MESSAGE);
-        } catch {
-          if (!isLatest()) return;
-          setPosition(saved.current);
-          toast.error(UNRESOLVED_WRITE_MESSAGE);
-        }
-      }
-    } finally {
-      pendingWrites.current -= 1;
-      endPositionWrite(userId, pointId);
-      if (pendingWrites.current === 0 && serverMovedDuringWrite.current) {
-        serverMovedDuringWrite.current = false;
-        saved.current = latestServer.current;
-        setPosition(latestServer.current);
-      }
-    }
-  };
-  return { position, choose };
-}
 
 function DraftBadge() {
   return (
@@ -110,28 +38,33 @@ function DraftBadge() {
   );
 }
 
-function CitedLines({ draft }: { draft: ClarifyDraft }) {
-  const [open, setOpen] = useState(false);
-  if (draft.cited.length === 0) return null;
+/** The cited lines, once opened: from the server's text, never the model's. */
+function CitedList({ draft }: { draft: ClarifyDraft }) {
   return (
-    <div className="mt-2" data-testid="clarify-cited">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className="flex min-h-10 items-center gap-1 text-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-blue-500"
-      >
-        <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
-        {CITED_LABEL}
-      </button>
-      {open && (
-        <ul className="mt-1 space-y-1.5" data-testid="clarify-cited-list">
-          {draft.cited.map((l) => (
-            <li key={l.id} className="break-words border-l-2 border-border pl-2 text-sm text-muted-foreground">{l.text}</li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <ul className="mt-1 space-y-1.5" data-testid="clarify-cited-list" aria-label={CITED_LABEL}>
+      {draft.cited.map((l) => (
+        <li key={l.id} className="break-words border-l-2 border-border pl-2 text-sm text-muted-foreground">{l.text}</li>
+      ))}
+    </ul>
+  );
+}
+
+/** "Mention in chat", as the canvas card wears it: quiet grey, "Mentioned" with a tick while its pill is in the typing box. */
+function MentionButton({ mentioned, onClick, id }: { mentioned: boolean; onClick: () => void; id: string }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      onClick={onClick}
+      aria-pressed={mentioned}
+      aria-label={mentioned ? MENTIONED_LABEL : MENTION_IN_CHAT_LABEL}
+      data-testid={`clarify-mention-${id}`}
+      data-mentioned={mentioned || undefined}
+      className={`${CANVAS_QUIET_ACTION} h-auto shrink-0 whitespace-normal text-left`}
+    >
+      {mentioned ? <Check aria-hidden="true" /> : <MessageSquare aria-hidden="true" />}
+      <span>{mentioned ? MENTIONED_LABEL : MENTION_IN_CHAT_LABEL}</span>
+    </Button>
   );
 }
 
@@ -183,17 +116,68 @@ function DraftEditor({ draft, onClose, onSaved }: { draft: ClarifyDraft; onClose
   );
 }
 
-export function ClarifyDraftCard({ draft, userId, onChanged }: { draft: ClarifyDraft; userId: string; onChanged: () => void }) {
+/** Publish to chat: always visible; without the owner's position it wears the standard disabled look and a tap says why (aria-disabled, so it stays focusable and the tap is heard). */
+function PublishButton({ hasPosition, id }: { hasPosition: boolean; id: string }) {
+  return (
+    <Button
+      type="button"
+      aria-disabled={!hasPosition}
+      className={cn('h-11 min-h-11 px-4', !hasPosition && 'opacity-50')}
+      data-testid={`clarify-publish-${id}`}
+      onClick={() => toast(hasPosition ? PUBLISH_COMING_TOAST : PUBLISH_NEEDS_POSITION_TOAST)}
+    >
+      {PUBLISH_LABEL}
+    </Button>
+  );
+}
+
+function CardActions({ draft, open, onToggle, onEdit, onDelete, mentioned, onMention }: {
+  /** Absent on an earlier version: it is no longer edited by hand (Delete and Mention in chat stay). */
+  draft: ClarifyDraft; open: boolean; onToggle: () => void; onEdit?: () => void; onDelete: () => void; mentioned: boolean; onMention: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-1" data-testid={`clarify-actions-${draft.id}`}>
+      {draft.cited.length > 0 ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={onToggle}
+          data-testid="clarify-cited"
+          className={cn('flex min-h-10 items-center gap-1 rounded-md px-1 text-sm text-foreground/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-blue-500')}
+        >
+          <ChevronRight className={`h-4 w-4 transition-transform ${open ? 'rotate-90' : ''}`} aria-hidden />
+          {citedToggleLabel(draft.cited.length)}
+        </button>
+      ) : <span />}
+      <div className="flex flex-wrap items-center justify-end gap-x-1">
+        {onEdit && (
+          <Button type="button" variant="ghost" className={`${CANVAS_QUIET_ACTION} h-auto min-h-11`} aria-label="Edit this point" data-testid={`clarify-edit-${draft.id}`} onClick={onEdit}>
+            <Pencil className="h-4 w-4" aria-hidden />Edit
+          </Button>
+        )}
+        <Button type="button" variant="ghost" className={`${CANVAS_QUIET_ACTION} h-auto min-h-11 w-11 px-0`} aria-label="Delete this draft" data-testid={`clarify-delete-${draft.id}`} onClick={onDelete}>
+          <Trash2 className="h-4 w-4" aria-hidden />
+        </Button>
+        <MentionButton id={draft.id} mentioned={mentioned} onClick={onMention} />
+      </div>
+    </div>
+  );
+}
+
+export function ClarifyDraftCard({ draft, userId, onChanged, earlier = false, mentioned = false, onMention = () => undefined }: {
+  draft: ClarifyDraft; userId: string; onChanged: () => void; earlier?: boolean; mentioned?: boolean; onMention?: () => void;
+}) {
   const point = draft.point;
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const { position, choose } = useOwnerPosition(userId, point?.id ?? '', point?.ownerPosition ?? null);
+  const [citedOpen, setCitedOpen] = useState(false);
+  const { position, choose, reset } = useOwnerPosition(userId, point?.id ?? '', point?.ownerPosition ?? null);
   if (!point) return null;
   if (editing) {
     return (
       <div className="rounded-lg border border-border bg-card p-4" data-testid={`clarify-draft-${draft.id}`}>
         <DraftBadge />
-        <DraftEditor draft={draft} onClose={() => setEditing(false)} onSaved={onChanged} />
+        <DraftEditor draft={draft} onClose={() => setEditing(false)} onSaved={() => { reset(null); onChanged(); }} />
       </div>
     );
   }
@@ -203,23 +187,29 @@ export function ClarifyDraftCard({ draft, userId, onChanged }: { draft: ClarifyD
         aria-label={`Draft point: ${point.statement}`}
         data-testid={`clarify-draft-${draft.id}`}
         data-card="point"
+        data-earlier={earlier || undefined}
         header={<DraftBadge />}
         statement={<p className="min-w-0 flex-1 break-words text-base font-medium text-foreground" data-testid="clarify-draft-statement">{point.statement}</p>}
         footer={
-          <div className="flex items-center justify-end gap-1 px-2 pb-2">
-            <Button type="button" variant="ghost" className="h-11 w-11 p-0 text-foreground/70" aria-label="Edit this point" data-testid={`clarify-edit-${draft.id}`} onClick={() => setEditing(true)}>
-              <Pencil className="h-4 w-4" aria-hidden />
-            </Button>
-            <Button type="button" variant="ghost" className="h-11 w-11 p-0 text-foreground/70" aria-label="Delete this draft" data-testid={`clarify-delete-${draft.id}`} onClick={() => setDeleting(true)}>
-              <Trash2 className="h-4 w-4" aria-hidden />
-            </Button>
+          <div className="space-y-1 px-2 pb-2">
+            <CardActions draft={draft} open={citedOpen} onToggle={() => setCitedOpen((o) => !o)} onEdit={earlier ? undefined : () => setEditing(true)} onDelete={() => setDeleting(true)} mentioned={mentioned} onMention={onMention} />
+            {citedOpen && draft.cited.length > 0 && <CitedList draft={draft} />}
+            {earlier ? (
+              <p className="px-1 py-2 text-right text-sm text-muted-foreground" data-testid="clarify-earlier">{EARLIER_LABEL}</p>
+            ) : (
+              <div className="flex justify-end"><PublishButton id={draft.id} hasPosition={position !== null} /></div>
+            )}
           </div>
         }
       >
-        <div role="presentation" className="mt-2">
-          <PositionButtons userPosition={position} counts={NO_COUNTS} compact onPositionClick={(p) => void choose(p)} onClear={() => void choose(null)} />
-        </div>
-        <CitedLines draft={draft} />
+        {!earlier && (
+          <div className="mt-2">
+            <p className="mb-1 text-xs text-muted-foreground" data-testid="clarify-position-label">{POSITION_LABEL}</p>
+            <div role="presentation">
+              <PositionButtons userPosition={position} counts={NO_COUNTS} compact onPositionClick={(p) => void choose(p)} onClear={() => void choose(null)} />
+            </div>
+          </div>
+        )}
       </PointCardShell>
       {deleting && (
         <ConfirmDialog

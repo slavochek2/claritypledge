@@ -1,24 +1,38 @@
 /**
  * @file ClarifyDrafts.tsx
- * @description P1631: what a Clarify thread in the Mirror shows under its source copy: each draft by its state (thinking, a point card,
- * suggestions when the agent found nothing to test, a failure with Retry) and the "Another point" button under the last draft.
- * A press while a draft is being made does nothing further (the server answers busy and the screen stays as it is).
+ * @description P1631: what a Clarify thread draws for the Mirror agent's side of the conversation. Each draft is a message FROM the Mirror (its face and name, as its replies are shown
+ * everywhere): thinking, a point card, suggestions when the agent found nothing to test, or a failure with Try again. The view draws the drafts of ONE place in the thread
+ * (the ones that follow one owner message), so the thread reads in time order; the first place also carries the loading and load-failure lines, the last carries the
+ * "Another point" button under the latest card.
  */
-import { useState } from 'react';
-import { toast } from 'sonner';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { anotherPoint, retryClarify, type ClarifyDraft } from '@/app/data/clarify-service';
+import type { ClarifyDraft } from '@/app/data/clarify-service';
 import { ClarifyDraftCard } from './ClarifyDraftCard';
 import { MirrorThinking } from './MirrorReplyState';
-import { ANOTHER_POINT_LABEL, CAPPED_TEXT, CLARIFY_FAILED_TOAST, FAILED_TEXT, LOAD_FAILED_TEXT, NO_SPLIT_TEXT, RETRY_LABEL } from './clarify-copy';
-import { forgetClarifyRun, runClarifyDraft, touchClarifyThread } from './clarify-run';
-import { useClarifyThread, type ClarifyThreadState } from './use-clarify-thread';
+import { MirrorMark } from './chat-kit';
+import { ANOTHER_POINT_LABEL, CAPPED_TEXT, FAILED_TEXT, LOAD_FAILED_TEXT, NO_SPLIT_TEXT, RETRY_LABEL, UPDATED_LEAD } from './clarify-copy';
+import { earlierDraftIds, mayAddAnother } from './clarify-timeline';
+import type { ClarifyActions } from './use-clarify-actions';
+
+/** One Mirror message: its face, its name, then what it says. */
+function AgentTurn({ name, children, testId }: { name: string; children: ReactNode; testId?: string }) {
+  return (
+    <div className="mx-2 flex gap-2.5 px-2 pt-2.5" data-testid={testId ?? 'clarify-agent-turn'}>
+      <div className="w-9 shrink-0"><MirrorMark size="md" /></div>
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <p className="truncate text-[15px] font-semibold leading-6 text-foreground" data-testid="clarify-agent-name">{name}</p>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function Refused({ draft, onPick }: { draft: ClarifyDraft; onPick: (text: string) => void }) {
   return (
     <div data-testid={`clarify-refused-${draft.id}`} className="space-y-2">
-      <p className="text-sm text-muted-foreground">{NO_SPLIT_TEXT}</p>
+      <p className="text-sm text-foreground">{NO_SPLIT_TEXT}</p>
       <div className="flex flex-wrap gap-2">
         {draft.suggestions.slice(0, 3).map((s) => (
           <Button key={s} type="button" variant="outline" className="h-auto min-h-11 whitespace-normal rounded-2xl px-3 py-2 text-left text-sm font-normal" onClick={() => onPick(s)} data-testid="clarify-suggestion">
@@ -43,100 +57,72 @@ function Failed({ draft, onRetry }: { draft: ClarifyDraft; onRetry: () => void }
 }
 
 export interface ClarifyDraftsViewProps {
+  /** The drafts drawn here: the ones that follow one owner message. */
   drafts: ClarifyDraft[];
+  /** Every draft of the thread, for what only the whole shows (which cards are earlier versions, which is the latest). */
+  all: ClarifyDraft[];
   loaded: boolean;
   failed: boolean;
+  /** The Mirror's shown name. */
   name: string;
   userId: string;
-  onPick: (text: string) => void;
-  onRetry: (draft: ClarifyDraft) => void;
-  onAnother: () => void;
-  onChanged: () => void;
+  /** The card a Mention in chat names (its pill is in the typing box), or null. */
+  mentionedId: string | null;
+  onMention: (draftId: string) => void;
+  actions: ClarifyActions;
   onReload: () => void;
+  /** The first place: it also draws the loading skeleton and the load-failure line. */
+  first: boolean;
+  /** The last place: it draws "Another point" under the latest card. */
+  last: boolean;
 }
 
-/** What the thread draws for a set of drafts: pure, so every state can be rendered with no network (and by the P955 gate fixture). */
-export function ClarifyDraftsView({ drafts, loaded, failed, name, userId, onPick, onRetry, onAnother, onChanged, onReload }: ClarifyDraftsViewProps) {
+function DraftTurn({ draft, props, earlier }: { draft: ClarifyDraft; props: ClarifyDraftsViewProps; earlier: ReadonlySet<string> }) {
+  const { name, userId, actions, all, mentionedId, onMention } = props;
+  if (draft.state === 'queued' || draft.state === 'running') return <AgentTurn name={name}><MirrorThinking name={name} testId="clarify-thinking" className="" /></AgentTurn>;
+  if (draft.state === 'refused') return <AgentTurn name={name}><Refused draft={draft} onPick={actions.onPick} /></AgentTurn>;
+  if (draft.state !== 'done') return <AgentTurn name={name}><Failed draft={draft} onRetry={() => actions.onRetry(draft)} /></AgentTurn>;
+  const refines = !!draft.refineTargetId && all.some((d) => d.id === draft.refineTargetId);
+  return (
+    <AgentTurn name={name}>
+      {refines && <p className="text-sm text-muted-foreground" data-testid="clarify-updated-lead">{UPDATED_LEAD}</p>}
+      <ClarifyDraftCard draft={draft} userId={userId} onChanged={actions.onChanged} earlier={earlier.has(draft.id)} mentioned={mentionedId === draft.id} onMention={() => onMention(draft.id)} />
+    </AgentTurn>
+  );
+}
+
+/** What the thread draws at one place for a set of drafts: pure, so every state can be rendered with no network (and by the P955 gate fixture). */
+export function ClarifyDraftsView(props: ClarifyDraftsViewProps) {
+  const { drafts, all, loaded, failed, onReload, first, last, actions } = props;
   if (!loaded) {
-    return (
+    return first ? (
       <div role="status" aria-label="Drafts" className="px-3 py-2" data-testid="clarify-drafts-loading">
         <Skeleton className="h-20 w-full rounded-lg" />
         <span className="sr-only">Loading drafts</span>
       </div>
-    );
+    ) : null;
   }
-  const last = drafts[drafts.length - 1];
-  // with every draft deleted, "Another point" is the way to start again
-  const canAddAnother = !last || last.state === 'done' || last.state === 'refused';
+  const earlier = earlierDraftIds(all);
+  const another = last && mayAddAnother(all);
+  if (drafts.length === 0 && !another && !(first && failed)) return null;
   return (
-    <div className="space-y-3 px-3 py-2" data-testid="clarify-drafts">
-      {failed && (
-        <div role="alert" data-testid="clarify-load-failed" className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+    <div className="space-y-1" data-testid="clarify-drafts">
+      {first && failed && (
+        <div role="alert" data-testid="clarify-load-failed" className="flex flex-wrap items-center gap-x-2 px-3 text-sm text-muted-foreground">
           <span>{LOAD_FAILED_TEXT}</span>
           <Button type="button" variant="ghost" className="h-11 min-h-11 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={onReload} data-testid="clarify-reload">{RETRY_LABEL}</Button>
         </div>
       )}
-      {drafts.map((d) => {
-        if (d.state === 'queued' || d.state === 'running') return <MirrorThinking key={d.id} name={name} testId="clarify-thinking" className="" />;
-        if (d.state === 'done') return <ClarifyDraftCard key={d.id} draft={d} userId={userId} onChanged={onChanged} />;
-        if (d.state === 'refused') return <Refused key={d.id} draft={d} onPick={onPick} />;
-        return <Failed key={d.id} draft={d} onRetry={() => onRetry(d)} />;
-      })}
-      {canAddAnother && (
-        <Button type="button" variant="outline" className="h-11 min-h-11" onClick={onAnother} data-testid="clarify-another">
-          {ANOTHER_POINT_LABEL}
-        </Button>
+      {drafts.map((d) => <DraftTurn key={d.id} draft={d} props={props} earlier={earlier} />)}
+      {another && (
+        // under the latest card, in the card's column: the product's bordered secondary button
+        <div className="flex gap-2.5 px-4 pt-1">
+          <div className="w-9 shrink-0" aria-hidden="true" />
+          <Button type="button" variant="outline" className="h-11 min-h-11" onClick={actions.onAnother} data-testid="clarify-another">
+            {ANOTHER_POINT_LABEL}
+          </Button>
+        </div>
       )}
     </div>
-  );
-}
-
-/** `thread`: the thread's drafts when its owner already reads them (the panel shares one read with the composer); without it this reads its own. */
-export function ClarifyDrafts({ rootId, name, userId, thread }: { rootId: string; name: string; userId: string; thread?: ClarifyThreadState }) {
-  const own = useClarifyThread(thread ? null : rootId);
-  const { drafts, loaded, failed, reload } = thread ?? own;
-  const [pending, setPending] = useState(false);
-
-  // One action at a time; busy is a value and changes nothing on screen. Anything else that goes wrong says so.
-  const act = async (start: () => Promise<{ status: string; draftId?: string | null }>) => {
-    if (pending) return;
-    setPending(true);
-    try {
-      const r = await start();
-      if (r.status === 'started') {
-        if (r.draftId) void runClarifyDraft(r.draftId);
-        // one signal: this thread reloads (its own listener) and the conversation's reply counts follow
-        touchClarifyThread(rootId);
-      } else if (r.status !== 'busy') {
-        toast.error(CLARIFY_FAILED_TOAST); // refused: not started
-      }
-    } catch {
-      toast.error(CLARIFY_FAILED_TOAST);
-    } finally {
-      setPending(false);
-    }
-  };
-
-  return (
-    <ClarifyDraftsView
-      drafts={drafts}
-      loaded={loaded}
-      failed={failed}
-      name={name}
-      userId={userId}
-      onPick={(text) => void act(() => anotherPoint(rootId, text))}
-      onRetry={(d) => void act(async () => {
-        const r = await retryClarify(d.id);
-        // a new run of the same draft may start again only once the server has queued it
-        if (r.status === 'started') forgetClarifyRun(d.id);
-        return { status: r.status, draftId: d.id };
-      })}
-      onAnother={() => void act(() => anotherPoint(rootId))}
-      onChanged={() => {
-        // an edit or delete: one signal reloads this thread (its own listener) and the conversation's reply counts
-        touchClarifyThread(rootId);
-      }}
-      onReload={() => void reload()}
-    />
   );
 }

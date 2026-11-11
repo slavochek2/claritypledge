@@ -8,7 +8,7 @@ import type { ClarifyDraft } from '@/app/data/clarify-service';
 import { ClarifyDraftsView } from '@/app/pages/chat/ClarifyDrafts';
 
 const POINT = { id: 'point-id-1234', statement: 'Example bet: owners of two cafes will pay for monthly books (fake data).', ownerPosition: null };
-const base = (id: string, over: Partial<ClarifyDraft>): ClarifyDraft => ({ id, state: 'done', point: null, suggestions: [], errorCode: null, cited: [], ...over });
+const base = (id: string, over: Partial<ClarifyDraft>): ClarifyDraft => ({ id, state: 'done', point: null, suggestions: [], errorCode: null, cited: [], createdAt: '2026-01-01T00:00:00Z', refineTargetId: null, ...over });
 const DONE = base('draft-id-1', { point: POINT });
 const CITED = base('draft-id-2', { point: POINT, cited: [{ id: 'row-id-1', text: 'Example line one (fake data).', at: null }, { id: 'row-id-2', text: 'Example line two (fake data).', at: null }] });
 
@@ -22,9 +22,12 @@ const PHASES: Record<string, { drafts: ClarifyDraft[]; loaded?: boolean; failed?
   capped: { drafts: [base('draft-id-6', { state: 'capped', errorCode: 'cap' })] },
   'load-failed': { drafts: [], failed: true },
   'two-drafts': { drafts: [DONE, base('draft-id-7', { point: { ...POINT, id: 'point-id-5678' } })] },
+  // a refine: the second card replaced the first, which stays as an earlier version
+  refined: { drafts: [DONE, base('draft-id-8', { point: { ...POINT, id: 'point-id-9012' }, refineTargetId: 'draft-id-1' })] },
 };
 
 const noop = () => undefined;
+const ACTIONS = { onPick: noop, onRetry: noop, onAnother: noop, onChanged: noop };
 
 export function GateFixture() {
   const [params] = useSearchParams();
@@ -39,8 +42,8 @@ export function GateFixture() {
         ))}
       </nav>
       <ClarifyDraftsView
-        drafts={drafts} loaded={loaded} failed={failed} name="Test Owner" userId="user-id-1234"
-        onPick={noop} onRetry={noop} onAnother={noop} onChanged={noop} onReload={noop}
+        drafts={drafts} all={drafts} loaded={loaded} failed={failed} name="Test Owner" userId="user-id-1234"
+        mentionedId={null} onMention={noop} actions={ACTIONS} onReload={noop} first last
       />
     </div>
   );

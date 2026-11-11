@@ -1078,7 +1078,8 @@ describe('conversation', () => {
     fireEvent.pointerUp(text);
     expect(toolbar()).toHaveClass('inline-flex', 'flex-nowrap');
     expect(toolbar()).not.toHaveClass('absolute');
-    expect(within(toolbar()).getByRole('button', { name: 'Forward' })).toBeInTheDocument(); // icon-only, so the row can never wrap
+    expect(within(toolbar()).getByRole('button', { name: 'More actions' })).toBeInTheDocument(); // Forward and the rest are in the menu behind it
+    expect(within(toolbar()).queryByRole('button', { name: 'Forward' })).toBeNull();
     fireEvent.scroll(screen.getByTestId('message-scroller'));
     expect(toolbar()).toHaveClass('absolute');
     fireEvent.pointerUp(text);
@@ -2184,7 +2185,7 @@ describe('review round 3', () => {
 
   // ---- M: the phone action bar and phone dialogs ----
   describe('M: phone action bar and dialogs', () => {
-    it('the tapped message toolbar is one non-wrapping row: icon buttons with names, a labelled Clarify, and no More on someone else\'s message', async () => {
+    it('the tapped message toolbar is one non-wrapping row: a labelled Clarify and the three dots', async () => {
       const grp = group('g1', 'Builders');
       renderChat('/chats/c/g1', [mirrorChat, grp], { g1: [msg('g1', 'p-grace', 'a message to tap', { id: 'tap1' })] });
       const text = await screen.findByText('a message to tap');
@@ -2194,7 +2195,7 @@ describe('review round 3', () => {
       expect(classesOf(bar)).not.toContain('flex-wrap');
       expect(classesOf(bar)).toContain('flex-nowrap');
       const buttons = within(bar).getAllByRole('button');
-      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Reply', 'React', 'Forward', 'Thread', "Clarify with your mirror agent", 'More actions']);
+      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(["Clarify with your mirror agent", 'More actions']);
       // Icons only, except Clarify (the mirror's face and the word, which drops out below 360px so the row keeps one line at 320).
       for (const b of buttons.filter((x) => x.getAttribute('data-testid') !== 'clarify-button')) expect(b.textContent).toBe('');
       for (const b of buttons) expect(classesOf(b)).toContain('shrink-0');
@@ -2976,61 +2977,77 @@ describe('message actions: toolbar and More', () => {
   const classesOf = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/);
   const toolbarOf = (text: string) => within(screen.getByText(text).closest('li') as HTMLElement).getByRole('toolbar', { name: 'Message actions' });
   const names = (bar: HTMLElement) => within(bar).getAllByRole('button').map((b) => b.getAttribute('aria-label'));
-  const menuNames = () => within(screen.getByRole('menu')).getAllByRole('menuitem').map((i) => i.textContent);
+  // The reactions strip sits on top of the menu (its buttons are menu items too): the list below is the actions, in order.
+  const menuNames = () => within(screen.getByRole('menu')).getAllByRole('menuitem').filter((i) => !i.closest('[data-testid="menu-reactions"]')).map((i) => i.textContent);
 
-  it('in a channel the toolbar reads Reply, React, Forward, Thread, Clarify, More (Copy text lives in More)', async () => {
+  // Founder-approved 2026-11-11 (P1631 thread redesign): the hover bar carries only Clarify and the three dots; everything else is in ONE menu.
+  it('in a channel the toolbar reads Clarify, More (every other action is in the menu)', async () => {
     renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', 'p-grace', 'a channel post', { id: 'cp' })] });
     await screen.findByText('a channel post');
     fireEvent.pointerUp(screen.getByText('a channel post'));
-    expect(names(toolbarOf('a channel post'))).toEqual(['Reply', 'React', 'Forward', 'Thread', "Clarify with your mirror agent", 'More actions']);
+    expect(names(toolbarOf('a channel post'))).toEqual(["Clarify with your mirror agent", 'More actions']);
   });
 
-  it('on my own channel post More joins the toolbar (Edit and Delete live there)', async () => {
+  it('on my own channel post the toolbar is the same two buttons (Edit and Delete are in the menu)', async () => {
     renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', ME.id, 'my own post', { id: 'op' })] });
     await screen.findByText('my own post');
     fireEvent.pointerUp(screen.getByText('my own post'));
-    expect(names(toolbarOf('my own post'))).toEqual(['Reply', 'React', 'Forward', 'Thread', "Clarify with your mirror agent", 'More actions']);
+    expect(names(toolbarOf('my own post'))).toEqual(["Clarify with your mirror agent", 'More actions']);
   });
 
-  it('a 1:1 and the mirror offer Thread (P1546), and in the mirror no Clarify', async () => {
+  it('a 1:1 has Clarify and More; in the mirror itself there is no Clarify, so only More', async () => {
     const { unmount } = renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'a plain message')] });
     await screen.findByText('a plain message');
     fireEvent.pointerUp(screen.getByText('a plain message'));
-    expect(names(toolbarOf('a plain message'))).toEqual(['Reply', 'React', 'Forward', 'Thread', "Clarify with your mirror agent", 'More actions']);
+    expect(names(toolbarOf('a plain message'))).toEqual(["Clarify with your mirror agent", 'More actions']);
     unmount();
 
     renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'a note to self')] });
     await screen.findByText('a note to self');
     fireEvent.pointerUp(screen.getByText('a note to self'));
-    expect(names(toolbarOf('a note to self'))).toEqual(['Reply', 'Forward', 'Thread', 'More actions']);
+    expect(names(toolbarOf('a note to self'))).toEqual(['More actions']);
   });
 
-  it('More holds Copy text on anyone\'s message, plus Edit and Delete on my own', async () => {
+  it('the three dots open the same menu as a right-click: reactions on top, then Clarify, Reply, Reply in thread, Forward, Copy text, and Edit and Delete on my own', async () => {
     renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'theirs'), msg('dm1', ME.id, 'mine')] });
     await screen.findByText('mine');
     fireEvent.pointerUp(screen.getByText('theirs'));
     fireEvent.click(within(toolbarOf('theirs')).getByRole('button', { name: 'More actions' }));
-    expect(menuNames()).toEqual(['Copy text']);
+    expect(menuNames()).toEqual(['Clarify', 'Reply', 'Reply in thread', 'Forward', 'Copy text']);
+    const strip = within(screen.getByRole('menu')).getByTestId('menu-reactions');
+    expect(within(strip).getAllByRole('menuitem').map((i) => i.getAttribute('data-emoji'))).toEqual(['👍', '❤️', '😂', '😮', '😢', '🙏']);
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
 
     fireEvent.pointerUp(screen.getByText('mine'));
     fireEvent.click(within(toolbarOf('mine')).getByRole('button', { name: 'More actions' }));
-    expect(menuNames()).toEqual(['Copy text', 'Edit', 'Delete']);
+    expect(menuNames()).toEqual(['Clarify', 'Reply', 'Reply in thread', 'Forward', 'Copy text', 'Edit', 'Delete']);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    await menuOn('mine');
+    expect(menuNames()).toEqual(['Clarify', 'Reply', 'Reply in thread', 'Forward', 'Copy text', 'Edit', 'Delete']);
+  });
+
+  it('a reaction picked in the menu is that message\'s reaction toggle (one tap, the menu closes)', async () => {
+    renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', 'p-grace', 'react to me', { id: 'rx1' })] });
+    await screen.findByText('react to me');
+    await menuOn('react to me');
+    fireEvent.click(within(screen.getByTestId('menu-reactions')).getByRole('menuitem', { name: 'React 👍' }));
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
   });
 
   it('a right-click opens the full list (no Mark as unread: that marks the whole chat, so it lives on the chat)', async () => {
     renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', ME.id, 'my channel post')] });
     await screen.findByText('my channel post');
     await menuOn('my channel post');
-    expect(menuNames()).toEqual(['Reply', 'React', 'Reply in thread', 'Forward', 'Clarify', 'Copy text', 'Edit', 'Delete']);
+    expect(menuNames()).toEqual(['Clarify', 'Reply', 'Reply in thread', 'Forward', 'Copy text', 'Edit', 'Delete']);
   });
 
   it('no message menu offers Mark as unread (right-click on someone else\'s message), while the chat menus still do', async () => {
     renderChat('/chats/c/g1', [mirror(), channel], { g1: [msg('g1', 'p-grace', 'not mine')] });
     await screen.findByText('not mine');
     await menuOn('not mine');
-    expect(menuNames()).toEqual(['Reply', 'React', 'Reply in thread', 'Forward', 'Clarify', 'Copy text']);
+    expect(menuNames()).toEqual(['Clarify', 'Reply', 'Reply in thread', 'Forward', 'Copy text']);
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: 'More' }));

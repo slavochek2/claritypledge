@@ -5,12 +5,14 @@
  * unread badge, selection and the one primary action per view.
  */
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRef, useState, type ReactNode } from 'react';
-import { CalendarDays, Lock, User, type LucideIcon } from 'lucide-react';
+import { useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { CalendarDays, Lock, User } from 'lucide-react';
+import { REACTION_EMOJI } from '@/app/data/chat-reactions-service';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
 import { cn, getInitials } from '@/lib/utils';
 import { useMenuBehavior } from './chat-hooks';
+import { menuWidth } from './menu-width';
 import { chatTitle, mirrorRole } from './chat-view-model';
 import { useMirror } from './mirror-state';
 import { AGENT_TINT_STYLE } from '@/app/components/shared/banner/agent-tint';
@@ -219,21 +221,48 @@ export function Divider({ children }: { children: ReactNode }) {
 export interface MenuItem {
   key: string;
   label: string;
-  Icon: LucideIcon;
+  /** A lucide icon, or any component that takes a className (the Clarify item wears the mirror's face). */
+  Icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
   onSelect: () => void;
   danger?: boolean;
+}
+
+/** The reactions strip on top of a message's menu: the emoji of the React picker, one tap each; the viewer's own show blue. */
+export interface MenuReactions {
+  mine: ReadonlySet<string>;
+  onPick: (emoji: string) => void;
+}
+
+function ReactionStrip({ reactions, onClose }: { reactions: MenuReactions; onClose: () => void }) {
+  return (
+    <div role="group" aria-label="Add a reaction" className="flex gap-0 border-b pb-1" data-testid="menu-reactions">
+      {REACTION_EMOJI.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          role="menuitem"
+          aria-label={reactions.mine.has(emoji) ? `Remove ${emoji}` : `React ${emoji}`}
+          data-emoji={emoji}
+          onClick={() => { onClose(); reactions.onPick(emoji); }}
+          className={cn('flex h-10 w-10 items-center justify-center rounded-lg text-xl', reactions.mine.has(emoji) && 'bg-blue-50', HOVER, FOCUS_RING)}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 /**
  * A menu at a screen point: a right-click, a long press, or under the ⋯ button. Escape and an
  * outside press close it; arrow keys move; the first item takes focus.
  */
-export function PopMenu({ at, items, label, onClose }: { at: { x: number; y: number }; items: MenuItem[]; label: string; onClose: () => void }) {
+export function PopMenu({ at, items, label, onClose, reactions }: { at: { x: number; y: number }; items: MenuItem[]; label: string; onClose: () => void; reactions?: MenuReactions }) {
   const ref = useRef<HTMLDivElement>(null);
   // Focus goes back to whatever opened the menu (the ⋯ button, or the message), as a real menu does.
   const move = useMenuBehavior(ref, onClose);
-  const width = 208;
-  const height = items.length * 44 + 8;
+  const width = menuWidth(!!reactions);
+  const height = items.length * 44 + 8 + (reactions ? 45 : 0);
   const x = Math.max(8, Math.min(at.x, (typeof window !== 'undefined' ? window.innerWidth : 1024) - width - 8));
   const y = Math.max(8, Math.min(at.y, (typeof window !== 'undefined' ? window.innerHeight : 768) - height - 8));
   return (
@@ -246,6 +275,7 @@ export function PopMenu({ at, items, label, onClose }: { at: { x: number; y: num
       style={{ left: x, top: y, width }}
       className="fixed z-50 rounded-xl border bg-popover p-1 text-popover-foreground shadow-xl"
     >
+      {reactions && <ReactionStrip reactions={reactions} onClose={onClose} />}
       {items.map(({ key, label: text, Icon, onSelect, danger }) => (
         <button
           key={key}

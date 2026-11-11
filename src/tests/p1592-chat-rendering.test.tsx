@@ -110,14 +110,16 @@ describe('P1592 round thread root', () => {
     expect(screen.getByText('Deleted user')).toBeInTheDocument();
   });
 
-  it('still offers Reply and Thread, and no Edit or Delete (it is not a person\'s message)', () => {
+  it('still offers Reply and Reply in thread, and no Edit or Delete (it is not a person\'s message), in the one menu', () => {
     render(row(root()));
     const bar = screen.getByRole('toolbar', { name: 'Message actions' });
-    expect(within(bar).getByRole('button', { name: 'Reply' })).toBeInTheDocument();
-    expect(within(bar).getByRole('button', { name: 'Thread' })).toBeInTheDocument();
-    // P1652: Copy text is offered on a system post too, so More exists; it holds no Edit or Delete.
+    // the hover bar is Clarify and the three dots only; every other action is in the menu behind them
+    expect(within(bar).queryByRole('button', { name: 'Reply' })).not.toBeInTheDocument();
     fireEvent.click(within(bar).getByRole('button', { name: 'More actions' }));
-    expect(within(screen.getByRole('menu')).getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['Copy text']);
+    const items = within(screen.getByRole('menu')).getAllByRole('menuitem').filter((i) => !i.closest('[data-testid="menu-reactions"]'));
+    expect(items.map((i) => i.textContent)).toEqual(expect.arrayContaining(['Reply', 'Reply in thread', 'Copy text']));
+    expect(items.map((i) => i.textContent)).not.toContain('Edit');
+    expect(items.map((i) => i.textContent)).not.toContain('Delete');
   });
 
   it('the list preview is the title alone, no "Deleted user" prefix', () => {
@@ -178,12 +180,14 @@ describe('P1592 transcription message', () => {
     expect(screen.getByTestId('edited-mark')).toBeInTheDocument();
   });
 
-  it('keeps Reply, Forward and Clarify on the toolbar', () => {
+  it('keeps Clarify on the bar and Reply and Forward in the menu', () => {
     render(row(msg({ isTranscription: true, body: 'words' })));
     const bar = screen.getByRole('toolbar', { name: 'Message actions' });
-    expect(within(bar).getByRole('button', { name: 'Reply' })).toBeInTheDocument();
-    expect(within(bar).getByRole('button', { name: 'Forward' })).toBeInTheDocument();
     expect(within(bar).getByRole('button', { name: /Clarify/ })).toBeInTheDocument();
+    fireEvent.click(within(bar).getByRole('button', { name: 'More actions' }));
+    const menu = within(screen.getByRole('menu'));
+    expect(menu.getByRole('menuitem', { name: 'Reply' })).toBeInTheDocument();
+    expect(menu.getByRole('menuitem', { name: 'Forward' })).toBeInTheDocument();
   });
 
   it('a forwarded transcription keeps its pill and reads as plain text', () => {

@@ -123,7 +123,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   const sendVoice = useThreadVoice(conversationId, rootId, canvasRoot, rootPending, canvas.voice);
   const blockedReason = threadBlockedReason(summary.canSend, rootDeleted);
   // P1631: a Clarify thread shows its drafts under the source copy; its composer refines the latest draft or adds another.
-  const clarify = useClarifyParts(summary, root, chat.userId);
+  const clarify = useClarifyParts(summary, root, chat.userId, conv.server);
 
   if (retired) return <RetiredThread />;
 
@@ -152,8 +152,8 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
         inThread
         earlierLabel="Load earlier replies"
         {...canvas.list}
-        trailing={canvas.trailing ?? clarify.trailing}
-        after={canvas.after}
+        trailing={canvas.trailing}
+        after={clarify.after ?? canvas.after}
       />
       {canvas.readState}
       {clarify.isClarify && !blockedReason ? clarify.footer : (

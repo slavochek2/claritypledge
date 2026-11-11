@@ -476,3 +476,139 @@ describe('P1631 step 1b review-fix migration (20261110210000)', () => {
     }
   });
 });
+
+describe('P1631 thread redesign migration (20261111160000): a refine is a new card', () => {
+  const NEW = '20261111160000_p1631_refine_as_new_card.sql';
+  const FIX4 = '20261110210000_p1631_refine_fixes.sql';
+  const BASE = '20261110153000_p1631_clarify_drafts.sql';
+  const mig = read(NEW);
+  const code = stripComments(mig);
+  // lines of the new file that REPLACE an old line: [start of the new line, the old text]
+  const CHANGED5: Array<[string, string]> = [
+    [`CREATE OR REPLACE FUNCTION public.clarify_message(p_thread_root uuid, p_text text, p_target uuid DEFAULT NULL)`, `CREATE OR REPLACE FUNCTION public.clarify_message(p_thread_root uuid, p_text text)`],
+    [`  INSERT INTO public.clarify_drafts (owner_id, mirror_conversation_id, thread_root_id, source_conversation_id, source_message_id, instruction, refine_target_id)`,
+      `  INSERT INTO public.clarify_drafts (owner_id, mirror_conversation_id, thread_root_id, source_conversation_id, source_message_id, instruction)`],
+    [`  VALUES (v_uid, v_last.mirror_conversation_id, v_last.thread_root_id, v_last.source_conversation_id, v_last.source_message_id, v_text, p_target)`,
+      `  VALUES (v_uid, v_last.mirror_conversation_id, v_last.thread_root_id, v_last.source_conversation_id, v_last.source_message_id, v_text)`],
+  ];
+  const marked5 = (sql: string) => sql.split('\n').flatMap((l) => {
+    const hit = CHANGED5.find(([from]) => l.startsWith(from));
+    if (hit) return [hit[1]];
+    return l.includes('-- P1631 r5') ? [] : [l];
+  }).join('\n');
+
+  it('names its sources, is client-safe, and each source is the newest definition before this file', () => {
+    const header = mig.slice(0, mig.indexOf('DROP FUNCTION'));
+    expect(header).toMatch(/^-- client-safe:/m);
+    expect(header).toContain(FIX4);
+    expect(header).toContain(BASE);
+    for (const [f, src] of [['_clarify_begin', FIX4], ['_clarify_complete', FIX4], ['clarify_message', FIX4], ['clarify_draft_edit', BASE], ['get_clarify_thread', BASE]] as const) {
+      expect(newestBefore(f, NEW), f).toBe(src);
+    }
+  });
+  it('clarify_message, clarify_draft_edit and get_clarify_thread are the newest previous bodies plus ONLY lines marked -- P1631 r5', () => {
+    expect(fnBody(marked5(mig), 'clarify_message')).toBe(fnBody(read(FIX4), 'clarify_message'));
+    expect(fnBody(marked5(mig), 'clarify_draft_edit')).toBe(fnBody(read(BASE), 'clarify_draft_edit'));
+    expect(fnBody(marked5(mig), 'get_clarify_thread')).toBe(fnBody(read(BASE), 'get_clarify_thread'));
+  });
+  it('CONTROL: an unmarked change to a restated body is caught by the same comparison', () => {
+    const unmarked = mig.replace(`  DELETE FROM public.point_positions pp WHERE pp.point_id = v_p.id AND pp.user_id = v_uid; -- P1631 r5: new words, so the owner's earlier position on the old words no longer stands`,
+      `  DELETE FROM public.point_positions pp WHERE pp.point_id = v_p.id AND pp.user_id = v_uid;`);
+    expect(unmarked).not.toBe(mig);
+    expect(fnBody(marked5(unmarked), 'clarify_draft_edit')).not.toBe(fnBody(read(BASE), 'clarify_draft_edit'));
+  });
+  it('complete: no refine in place. Nothing is deleted, no position is copied, no old card is updated; the new row names the card it refined only for an instruction that refined the latest', () => {
+    const c = fnBody(mig, '_clarify_complete');
+    expect(c).not.toContain('DELETE FROM public.points');
+    expect(c).not.toContain('INSERT INTO public.point_positions');
+    expect(c).not.toContain('refine_target_id AND'); // no re-selection of the target row
+    expect(c).not.toContain("'refined'");
+    expect(c).not.toContain('v_lp');
+    expect(c).toContain(`refine_target_id = CASE WHEN v_d.instruction IS NOT NULL AND COALESCE(v_target, 'latest') = 'latest' THEN v_d.refine_target_id ELSE NULL END`);
+    // the validation, the settle and the other outcomes are the previous body's
+    const old = fnBody(read(FIX4), '_clarify_complete');
+    for (const keep of ['v_d.spend_id IS DISTINCT FROM p_run', `v_target NOT IN ('latest', 'new')`, `'bad_output'`, `state = 'refused'`]) {
+      expect(c, keep).toContain(keep);
+      expect(old, keep).toContain(keep);
+    }
+  });
+  it('begin: the card shown as latest is the one a Mention named (when the run has an instruction), else the newest; already_drafted leaves it out on a refine', () => {
+    const b = fnBody(mig, '_clarify_begin');
+    expect(b).toContain('ORDER BY (v_d.instruction IS NOT NULL AND d3.id IS NOT DISTINCT FROM v_d.refine_target_id) DESC, d3.created_at DESC, d3.id DESC LIMIT 1');
+    expect(b).toContain('NOT (v_d.instruction IS NOT NULL AND d2.id IS NOT DISTINCT FROM v_latest_id)');
+    expect(b).toContain('refine_target_id = v_latest_id');
+    // the latest read comes before the already_drafted read that uses its id
+    expect(b.indexOf('INTO v_latest, v_latest_id')).toBeLessThan(b.indexOf('INTO v_already'));
+  });
+  it('message: the two-argument function is dropped (a defaulted third argument would make a two-argument call ambiguous), the three-argument one validates the target and is granted to authenticated alone', () => {
+    expect(code).toContain('DROP FUNCTION IF EXISTS public.clarify_message(uuid, text);');
+    const m = fnBody(mig, 'clarify_message');
+    expect(m).toContain('p_target uuid DEFAULT NULL');
+    expect(m).toContain(`d.id = p_target AND d.owner_id = v_uid AND d.thread_root_id = p_thread_root AND d.state = 'done' AND d.point_id IS NOT NULL`);
+    expect(code).toMatch(/REVOKE ALL ON FUNCTION public\.clarify_message\(uuid, text, uuid\) FROM PUBLIC, anon, authenticated;/);
+    expect(code).toMatch(/GRANT EXECUTE ON FUNCTION public\.clarify_message\(uuid, text, uuid\) TO authenticated;/);
+    expect(code).not.toMatch(/GRANT[^;]*clarify_message\(uuid, text\)\s/);
+  });
+  it('edit clears the owner\'s position only when the text changed; the thread read carries refine_target_id; the workers keep service_role alone', () => {
+    const e = fnBody(mig, 'clarify_draft_edit');
+    expect(e.indexOf('DELETE FROM public.point_positions')).toBeGreaterThan(e.indexOf('UPDATE public.points p SET statement'));
+    expect(e.indexOf('DELETE FROM public.point_positions')).toBeGreaterThan(e.indexOf(`'changed', false`)); // the unchanged return comes first
+    expect(fnBody(mig, 'get_clarify_thread')).toContain(`'refine_target_id', d.refine_target_id`);
+    for (const sig of ['_clarify_begin(uuid)', '_clarify_complete(uuid, jsonb, numeric, uuid)']) {
+      const s = sig.replace(/[()]/g, '\\$&');
+      expect(code).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${s} TO service_role;`));
+      expect(code).not.toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${s} TO (authenticated|anon)`));
+    }
+  });
+});
+
+describe('P1631 thread redesign fix (20261111171500): already_drafted keeps every done card', () => {
+  const FIXN = '20261111171500_p1631_refine_as_new_card_fixes.sql';
+  const PREV = '20261111160000_p1631_refine_as_new_card.sql';
+  const EXCLUSION = ' AND NOT (v_d.instruction IS NOT NULL AND d2.id IS NOT DISTINCT FROM v_latest_id)';
+  const fixn = read(FIXN);
+  it('names its source, is client-safe, and the source is the newest definition before this file', () => {
+    expect(fixn.slice(0, fixn.indexOf('CREATE OR REPLACE'))).toMatch(/^-- client-safe:/m);
+    expect(fixn).toContain(PREV);
+    expect(newestBefore('_clarify_begin', FIXN)).toBe(PREV);
+  });
+  it('the body is the previous one with ONLY the already_drafted exclusion removed (the named-card-first latest read stays)', () => {
+    const prev = fnBody(read(PREV), '_clarify_begin');
+    expect(prev).toContain(EXCLUSION.trim());
+    expect(fnBody(fixn, '_clarify_begin')).toBe(prev.replace(EXCLUSION, ''));
+    expect(fnBody(fixn, '_clarify_begin')).toContain('ORDER BY (v_d.instruction IS NOT NULL AND d3.id IS NOT DISTINCT FROM v_d.refine_target_id) DESC');
+  });
+  it('grants stay service_role alone', () => {
+    const code = stripComments(fixn);
+    expect(code).toMatch(/GRANT EXECUTE ON FUNCTION public\._clarify_begin\(uuid\) TO service_role;/);
+    expect(code).not.toMatch(/GRANT[^;]*_clarify_begin[^;]*(authenticated|anon)/);
+  });
+});
+
+describe('P1631 thread redesign review fix (20261111183000): only a run with an instruction records a refine target', () => {
+  const FIXR = '20261111183000_p1631_refine_target_only_for_refines.sql';
+  const PREV = '20261111171500_p1631_refine_as_new_card_fixes.sql';
+  const OLD_LINE = 'refine_target_id = v_latest_id';
+  const NEW_LINE = 'refine_target_id = CASE WHEN v_d.instruction IS NOT NULL THEN v_latest_id ELSE NULL END';
+  const fixr = read(FIXR);
+  it('names its source, is client-safe, and the source is the newest definition before this file', () => {
+    expect(fixr.slice(0, fixr.indexOf('CREATE OR REPLACE'))).toMatch(/^-- client-safe:/m);
+    expect(fixr).toContain(PREV);
+    expect(newestBefore('_clarify_begin', FIXR)).toBe(PREV);
+  });
+  it('the body is the previous one with ONLY the refine_target_id assignment changed', () => {
+    const prev = fnBody(read(PREV), '_clarify_begin');
+    expect(prev).toContain(OLD_LINE);
+    expect(fnBody(fixr, '_clarify_begin')).toBe(prev.replace(OLD_LINE, NEW_LINE));
+  });
+  it('CONTROL: the comparison fails when another line of the body changes', () => {
+    const prev = fnBody(read(PREV), '_clarify_begin');
+    const mutated = fnBody(fixr, '_clarify_begin').replace(`d2.state = 'done'`, `d2.state = 'failed'`);
+    expect(mutated).not.toBe(prev.replace(OLD_LINE, NEW_LINE));
+  });
+  it('grants stay service_role alone', () => {
+    const code = stripComments(fixr);
+    expect(code).toMatch(/GRANT EXECUTE ON FUNCTION public\._clarify_begin\(uuid\) TO service_role;/);
+    expect(code).not.toMatch(/GRANT[^;]*_clarify_begin[^;]*(authenticated|anon)/);
+  });
+});

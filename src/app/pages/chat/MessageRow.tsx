@@ -25,7 +25,7 @@ import { TranscriptRootContent } from './TranscriptRootContent';
 import { MessageHeader, PrivateLine, SendFailedNote } from './MessageRowLines';
 import { VoiceBubble } from './VoiceBubble';
 import { FOCUS_RING, PersonMark, PopMenu, MirrorMark } from './chat-kit';
-import { DESKTOP_HOVER_QUERY, NARROW_QUERY, useDismiss, useMediaQuery } from './chat-hooks';
+import { DESKTOP_HOVER_QUERY, useDismiss, useMediaQuery } from './chat-hooks';
 import { useChat } from './chat-state';
 import { isLocal, type LocalMessage, type Row } from './use-conversation';
 import { messageTime, mirrorName, mirrorRole } from './chat-view-model';
@@ -104,8 +104,8 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   const voiceNote = server?.audio ? server : null;
   const noCopy = ownerOnly || !!voiceNote;
   const [selected, setSelected] = useState(false);
-  // `more` is the ⋯ menu (what the toolbar lacks); otherwise the full list at the pointer.
-  const [menuAt, setMenuAt] = useState<{ x: number; y: number; more?: boolean } | null>(null);
+  // The one menu, at the pointer (right-click, long press) or under the ⋯ button.
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
   const [draft, setDraft] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -116,8 +116,6 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   const ignoreOpenUntil = useRef(0);
 
   const desktopHover = useMediaQuery(DESKTOP_HOVER_QUERY);
-  /** Below 360px the toolbar has no room for Forward: it moves into the ⋯ menu. */
-  const narrow = useMediaQuery(NARROW_QUERY);
   const { chats, status: chatsStatus } = useChat();
   const mirrorChat = chats.find((c) => c.kind === 'mirror');
   const mirror = mirrorName(mirrorChat);
@@ -153,11 +151,13 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
     press.current = null;
   };
 
-  // Every action once (message-menu-items.ts): `items` is the full list, `moreItems` what the toolbar does not carry.
+  // Every action once, in one list (message-menu-items.ts): right-click, ⋯ and long press open it; the toolbar carries only Clarify and ⋯.
   // P1652: reactions take the message's ACTUAL chat (never the mirror; a private mirror row is a mirror row), and never a private row or an unsent one.
   // Not before the chats have loaded: until then the mirror chat is unknown, and a mirror row must never get a control or a read.
   const rx = useMessageReactions(server?.id, chatsStatus === 'ready' && live && !privateHere && server?.conversationId !== mirrorChat?.conversationId, viewerId);
-  const { items, moreItems } = buildMenuItems({ server, live, privateHere, agent, mine, ownerOnly, noCopy, voiceNote: !!voiceNote, narrow, actions, menuAt: menuAt, react: rx.enabled ? rx.openPicker : undefined, startEdit: (b) => { setEditError(null); setDraft(b); } });
+  const items = buildMenuItems({ server, live, privateHere, agent, mine, ownerOnly, noCopy, voiceNote: !!voiceNote, actions, startEdit: (b) => { setEditError(null); setDraft(b); } });
+  // The reactions strip on top of the menu: the React picker's emoji, the viewer's own marked.
+  const menuReactions = rx.enabled ? { mine: new Set(rx.reactions.filter((r) => r.profileId === viewerId).map((r) => r.emoji)), onPick: rx.toggle } : undefined;
 
   const save = async () => {
     if (!server || draft === null) return;
@@ -189,14 +189,12 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
         message={server}
         selected={selected}
         noCopy={noCopy}
-        ownerOnly={ownerOnly}
         mirror={mirror}
         actions={actions}
-        hasMore={moreItems.length > 0}
-        narrow={narrow}
-        onReact={rx.enabled ? rx.openPicker : undefined}
+        hasMenu={items.length > 0}
+        hasReactions={!!menuReactions}
         onDone={() => setSelected(false)}
-        onMore={(at) => { setSelected(false); setMenuAt({ ...at, more: true }); }}
+        onMore={(at) => { setSelected(false); setMenuAt(at); }}
       />
     ) : null;
 
@@ -332,7 +330,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
         </div>
         {!selected && toolbar}
       </div>
-      {menuAt && <PopMenu at={menuAt} items={menuAt.more ? moreItems : items} label="Message menu" onClose={() => setMenuAt(null)} />}
+      {menuAt && <PopMenu at={menuAt} items={items} reactions={menuReactions} label="Message menu" onClose={() => setMenuAt(null)} />}
     </li>
   );
 }
