@@ -111,6 +111,11 @@ export const CANVAS_REPLY_TABLE: Readonly<Record<string, ReplyRow>> = {
   choice_read: row(WORDS.choiceRead, 'hide'),
   choice_stale: row(WORDS.choiceStale, 'hide'),
   stale_button: row(WORDS.staleButton, 'hide'), // a tap on a button whose question is no longer open: it fails, uses no update, remembers nothing
+  // P1621 hand actions (add or remove a card by hand): no agent run and no agent reply. The card editor says its own sentences
+  // (FULL_BOX_TEXT, DUPLICATE_POINT_TEXT; not_found re-reads silently), so these rows carry no words here.
+  box_full: row(null, 'hide', false),
+  duplicate: row(null, 'hide', false),
+  not_found: row(null, 'hide', false),
   // uploads
   unsupported: row(WORDS.unsupported, 'hide'),
   unreadable: row(WORDS.unreadable, 'hide'),
