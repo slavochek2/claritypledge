@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 329
 workstream: infrastructure
 created_date: '2026-11-11'
 tags: [tests, ci, vitest, env]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
@@ -14,6 +13,7 @@ exec_effort: medium
 driver: anomaly
 spec_review_hash: d9c9935ab37236b60fced38c6d99bda13c66c017f00375a7e11ec02eb90ca5ca
 spec_review_vendors: [gemini]
+completed_at: 2026-11-11
 ---
 
 # P1666: Unit tests read the developer's env files, so the local gate and CI test different things
