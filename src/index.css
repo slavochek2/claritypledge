@@ -507,10 +507,12 @@ body {
   margin: 0 0.0625rem;
   /* Founder 2026-10-04: outlined, not a black pill — a black pill read as a second primary
      button competing with the blue RSVP (Opus + Gemini visual review). */
-  border: 1px solid hsl(var(--border));
+  /* Founder 2026-11-11: a secondary button with a blue border, same look as "Add to Calendar". */
+  /* Tailwind blue-500 border / blue-600 text: the RSVP button's blue (bg-blue-500), outlined. */
+  border: 1px solid rgb(59 130 246);
   border-radius: 9999px;
   background-color: hsl(var(--card));
-  color: hsl(var(--foreground));
+  color: rgb(37 99 235);
   font-weight: 600;
   text-decoration: none;
   line-height: 1.6;
@@ -518,8 +520,7 @@ body {
 }
 
 .event-description a.link-chip:hover {
-  background-color: hsl(var(--muted));
-  border-color: hsl(var(--foreground) / 0.4);
+  background-color: rgb(59 130 246 / 0.08);
 }
 
 /* The chip drops the underline, so a keyboard user has no affordance left except

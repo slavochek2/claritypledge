@@ -998,7 +998,7 @@ export function EventDetail() {
                     variant="outline"
                     size="sm"
                     onClick={() => setCalendarMenuOpen(!calendarMenuOpen)}
-                    className="gap-2"
+                    className="gap-2 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                   >
                     <CalendarPlus className="w-4 h-4" />
                     Add to Calendar
