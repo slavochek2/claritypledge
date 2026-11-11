@@ -20,7 +20,29 @@ import { tmpdir } from 'node:os';
 import * as dotenv from 'dotenv';
 
 const LEDGER_DIR = process.env.SEED_LEDGER_DIR ?? tmpdir();
-const LEDGER_PATH = join(LEDGER_DIR, 'seed-p1529-ledger.json');
+// One ledger file per run, so a new run never overwrites an earlier run's entries.
+const LEDGER_PATH = join(LEDGER_DIR, `seed-p1529-ledger-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+
+/** Network-level failures only (never an HTTP error response): fetch failed / connection reset. */
+function isNetworkError(e: unknown): boolean {
+  const c = (e as { cause?: { code?: string } })?.cause;
+  return (e instanceof TypeError && /fetch failed/i.test(e.message)) || c?.code === 'ECONNRESET' || /ECONNRESET/.test(String((e as Error)?.message));
+}
+
+/** Wraps the global fetch (every Supabase client resolves it per call): up to 4 attempts, 2s/4s/8s backoff, each retry logged. */
+function installRetryingFetch(): void {
+  const base = globalThis.fetch;
+  globalThis.fetch = (async (...args: Parameters<typeof fetch>) => {
+    for (let attempt = 1; ; attempt++) {
+      try { return await base(...args); } catch (e) {
+        if (!isNetworkError(e) || attempt >= 4) throw e;
+        const wait = 2000 * 2 ** (attempt - 1);
+        console.log(`[retry] network error (${(e as Error).message}), attempt ${attempt} of 4, waiting ${wait / 1000}s`);
+        await new Promise(r => setTimeout(r, wait));
+      }
+    }
+  }) as typeof fetch;
+}
 
 /** .env.test.local from here or the nearest parent (a worktree has none of its own). */
 function loadEnv(): void {
@@ -109,6 +131,7 @@ async function seedFresh(H: Helpers, admin: Admin, ledger: import('../e2e/helper
 
 async function main() {
   loadEnv();
+  installRetryingFetch();
   const H = await import('../e2e/helpers/p1529-mastermind.ts');
   const { supabaseAdmin } = await import('../e2e/helpers/supabase-admin.ts');
 
