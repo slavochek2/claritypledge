@@ -303,6 +303,34 @@ test('seat guard: an unregistered room member cannot be seated in a mastermind e
   expect(r2.error, `after registering: ${r2.error?.message}`).toBeNull();
 });
 
+test('seat anyway (20261111170000): with fewer than two canvases shared an owner may have no canvas; with two or more the guard still refuses', async () => {
+  // One canvas shared (X's): the host seats two people who have none, owner included.
+  const SA = await makeEvent(ledger, host.user, `P1529 QA db seat anyway ${randomUUID().slice(0, 4)}`, { startsInMs: 0 });
+  const saRoom = await makeTranscribeRoom(ledger, SA);
+  stoppers.push(await keepRoomOpen(ledger, host.user, saRoom));
+  for (const p of [X, Y, Z]) await register(p, SA.slug);
+  for (const p of [X, Y, Z]) await joinRoom(ledger, p, SA, { transcribeRoom: saRoom });
+  expect((await shareForEvent(X, SA.id)).status).toBe('ok');
+  const seatA = (p: Person, t: number, r: string) => ({ m: p.room.get(SA.id), t, r });
+  const anyway = await host.client.rpc('host_start_round', { p_event_id: SA.id, p_round_no: 1, p_group_size: 4, p_seats: [seatA(Y, 1, 'first'), seatA(Z, 1, 'second')] });
+  expect(anyway.error, `seat anyway: ${anyway.error?.message}`).toBeNull();
+  expect((await supabaseAdmin.from('event_round_seats').select('*', { count: 'exact', head: true }).eq('round_id', anyway.data as string)).count).toBe(2);
+  // Two canvases shared (X's and Y's): the same seating is refused again, naming the person (control: the guard is not gone).
+  const SB = await makeEvent(ledger, host.user, `P1529 QA db seat guard two ${randomUUID().slice(0, 4)}`, { startsInMs: 0 });
+  const sbRoom = await makeTranscribeRoom(ledger, SB);
+  stoppers.push(await keepRoomOpen(ledger, host.user, sbRoom));
+  for (const p of [X, Y, Z]) await register(p, SB.slug);
+  for (const p of [X, Y, Z]) await joinRoom(ledger, p, SB, { transcribeRoom: sbRoom });
+  expect((await shareForEvent(X, SB.id)).status).toBe('ok');
+  expect((await shareForEvent(Y, SB.id)).status).toBe('ok');
+  const seatB = (p: Person, t: number, r: string) => ({ m: p.room.get(SB.id), t, r });
+  const refused = await host.client.rpc('host_start_round', { p_event_id: SB.id, p_round_no: 1, p_group_size: 4, p_seats: [seatB(Z, 1, 'first'), seatB(X, 1, 'second')] });
+  expect(refused.error?.code).toBe('22023');
+  expect(refused.error?.message).toMatch(/owner needs a canvas/);
+  const ok = await host.client.rpc('host_start_round', { p_event_id: SB.id, p_round_no: 1, p_group_size: 4, p_seats: [seatB(X, 1, 'first'), seatB(Z, 1, 'second')] });
+  expect(ok.error, `owner with a canvas: ${ok.error?.message}`).toBeNull();
+});
+
 test('end round: host only, the newest round only, idempotent, Sales Mastermind only; the evening has its own stamp (20261110090000)', async () => {
   const ER = await makeEvent(ledger, host.user, `P1529 QA db end round ${randomUUID().slice(0, 4)}`, { startsInMs: 0 });
   const erRoom = await makeTranscribeRoom(ledger, ER);

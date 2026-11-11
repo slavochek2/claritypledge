@@ -132,6 +132,7 @@ const MIC_LETTER = { usbc: 'C', lightning: 'L', other: '?' } as const;
 /** The name of the part running now, beside the host's clock. */
 const PART_NAME: Record<Exclude<RoundPhase, 'over'>, string> = {
   seating: 'Finding tables',
+  reading: 'Reading',
   first: 'Speaker 1',
   second: 'Speaker 2',
   observer: 'Observer',
@@ -169,6 +170,8 @@ const DEFAULT_SETTINGS: Settings = {
  * the step (P1430: finding a table steps in 30 s — a Demo table is found in 30 s). */
 const MINUTE_FIELDS: { key: keyof RoundMinutes; label: string; min: number; max: number; step: number }[] = [
   { key: 'seatingS', label: 'Tables', min: 0, max: 30 * 60, step: 30 },
+  // The sales mastermind's silent reading part; 0 = none (shown for that flow only).
+  { key: 'readingS', label: 'Reading', min: 0, max: 30 * 60, step: 60 },
   { key: 'speakerS', label: 'Speaker', min: 60, max: 60 * 60, step: 60 },
   { key: 'observerS', label: 'Observer', min: 0, max: 60 * 60, step: 60 },
 ];
@@ -1148,7 +1151,7 @@ export function EventHostPage() {
       setError(chosen ? 'Choose at least two people to sit.' : 'Waiting for at least two people in the room.');
       return;
     }
-    const stop = chosen ? null : mm.guardOpen(roundNo, ids);
+    const stop = chosen ? null : mm.guardOpen();
     if (stop) {
       setError(stop);
       return;
@@ -1309,7 +1312,7 @@ export function EventHostPage() {
   const hostSeatIds = new Set(roster.filter(m => m.profileId === event.hostId).map(m => m.id));
   const withoutHost = <T extends { id: string }>(list: T[]): T[] => (mm.active && hostSeatIds.size > 0 ? list.filter(s => !hostSeatIds.has(s.id)) : list);
   const shownSeats = withoutHost(seats);
-  const silentNos = mm.active && round && timing ? silentTables(shownSeats, id => mm.recordingOf(id) === 'words', new Date(round.startedAt).getTime() + timing.seatingMs, now) : [];
+  const silentNos = mm.active && round && timing ? silentTables(shownSeats, id => mm.recordingOf(id) === 'words', new Date(round.startedAt).getTime() + timing.seatingMs + timing.readingMs, now) : [];
   const mmBefore = mm.active && !round && !ended;
   // A round has ended, the evening has not: what is offered is the next round's tables or the evening's end.
   const mmBetween = mmBefore && state.rounds.length > 0;
@@ -1368,7 +1371,9 @@ export function EventHostPage() {
   const startLabel = chosen ? 'Start the Demo' : `Start ${nextLabel.toLowerCase()}`;
   // The mastermind's button says what it does: it opens a proposal, and the running round keeps running until "Start now".
   // ONE primary slot whose label follows the state: End round N while a round runs, then the next round's tables. The cap never hides End round.
-  const primaryLabel = mm.active ? (round ? `End ${roundLabel(state.rounds, round).toLowerCase()}` : `Preview ${nextLabel.toLowerCase()} tables`) : round ? 'Next round' : startLabel;
+  // [FOUNDER DECISION: copy, proposed] With fewer than two canvases shared the button says "Seat tables anyway".
+  const seatAnyway = mm.active && mm.ready && mm.canvasCount < 2;
+  const primaryLabel = mm.active ? (round ? `End ${roundLabel(state.rounds, round).toLowerCase()}` : seatAnyway ? 'Seat tables anyway' : `Preview ${nextLabel.toLowerCase()} tables`) : round ? 'Next round' : startLabel;
   const primary = mm.active && round
     ? { label: primaryLabel, action: () => void run(() => mm.endRound()) }
     : hasNext ? { label: primaryLabel, action: openPreview } : null;
@@ -1725,13 +1730,13 @@ export function EventHostPage() {
                     }}
                   />}
                   <div className="space-y-1" data-testid="host-minutes">
-                    {MINUTE_FIELDS.filter(f => f.key !== 'observerS' || settings.groupSize > 2 || mm.active).map(f => {
+                    {MINUTE_FIELDS.filter(f => (f.key !== 'observerS' || settings.groupSize > 2 || mm.active) && (f.key !== 'readingS' || (mm.active && !chosen))).map(f => {
                       // One talk: the speaker row is the whole talk — both halves, stored as two equal
                       // parts so the round clock and the server keep one shape (roundTiming adds them).
                       const factor = f.key === 'speakerS' && !swapAtHalf ? 2 : 1;
                       // The mastermind's clock and phase strip call this part "Finding tables".
                       const label = factor === 2 ? 'Talk' : mm.active && f.key === 'seatingS' ? 'Finding tables' : f.label;
-                      const value = minutes[f.key] * factor;
+                      const value = (minutes[f.key] ?? 0) * factor;
                       const set = (next: number) =>
                         setMinutes({ ...minutes, [f.key]: Math.min(f.max * factor, Math.max(f.min * factor, next)) / factor });
                       const unit = f.step < 60 ? `${f.step} seconds` : 'one minute';

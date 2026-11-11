@@ -143,3 +143,71 @@ export const RETRY_REFUSED: Record<string, string> = {
   not_retryable: 'This run cannot be tried again. Open your draft to continue.',
   expired: 'This draft has expired. Open your drafts to continue.',
 };
+
+// ── The round card per phase (UAT 2026-11-11, items 1, 4, 5, 6) ─────────────────────────────────────────────────────
+
+/** The part of the round as the card tells them apart: the clock's own phase names (round-clock.ts). */
+export type CardPhase = 'seating' | 'reading' | 'first' | 'second' | 'observer' | 'over';
+
+/**
+ * [FOUNDER DECISION: copy, proposed] The observer's one line per part of the round. The owner and the partner never see these.
+ * `partner` and `owner` are first names. Null where the observer has nothing to do yet (finding the table) or any more.
+ */
+export function observerLine(phase: CardPhase, partner: string, owner: string): string | null {
+  if (phase === 'reading') return 'Silent reading. No talking yet.';
+  if (phase === 'first' || phase === 'second') {
+    return `${partner} explains ${owner}’s Clarity Canvas back to them. ${partner} challenges only once ${owner} rates their understanding 8 out of 10 or higher.`;
+  }
+  if (phase === 'observer') return 'Your turn: what did you notice?';
+  return null;
+}
+
+/** [FOUNDER DECISION: copy, proposed] A table whose Clarity Canvas owner has no canvas (founder (b): roles stay as usual). */
+export const NO_CANVAS_OWNER_LINE = 'No Clarity Canvas yet: talk about your business idea';
+export const NO_CANVAS_TABLE_LINE = 'Talk it through: no canvas';
+/** [FOUNDER DECISION: copy, proposed] Under a point the Clarity Canvas owner has not taken a position on, for readers. */
+export const NO_OWNER_POSITION_LINE = 'The Clarity Canvas owner hasn’t taken a position yet';
+/** [FOUNDER DECISION: copy, proposed] The owner's reading part when no point changed since their last version (or none lacks a position). */
+export const OWNER_NOTHING_TO_SET_LINE = 'Nothing changed since your last round. Read your canvas as you like.';
+/** [FOUNDER DECISION: copy, proposed] The owner's reading part: what the list is for. */
+export const OWNER_SET_POSITIONS_LINE = 'These points changed since your last version. Where do you stand on them?';
+/** [FOUNDER DECISION: copy, proposed] A reader's reading part: what the list is for. */
+export const READER_SET_POSITIONS_LINE = 'Where do you stand on each point? This is a first impression.';
+
+/** The three taps of a point and the stored position each writes. */
+export const POSITION_TAPS = [
+  { value: 'agree', label: 'Agree' },
+  { value: 'unsure', label: 'Unsure' },
+  { value: 'disagree', label: 'Disagree' },
+] as const;
+export type PositionTap = (typeof POSITION_TAPS)[number]['value'];
+
+/** Which tap a stored position shows as: its side (the seven levels fold to agree, unsure, disagree); null when none. */
+export function tapOf(position: string | null | undefined): PositionTap | null {
+  if (!position) return null;
+  if (position === 'unsure') return 'unsure';
+  return position.includes('disagree') ? 'disagree' : position.includes('agree') ? 'agree' : null;
+}
+
+const norm = (s: string): string => s.trim().replace(/\s+/g, ' ').toLowerCase();
+
+/**
+ * Points of the current version that the previous published version did not have as they are now (by statement text: a rewritten
+ * point is a new point). No previous version (a first version) has nothing to differ from: none changed. Pure.
+ */
+export function changedPoints<T extends { statement: string }>(current: readonly T[], previous: readonly { statement: string }[] | null): T[] {
+  if (!previous) return [];
+  const before = new Set(previous.map(p => norm(p.statement)));
+  return current.filter(p => !before.has(norm(p.statement)));
+}
+
+/** What the reading part lists. The owner: changed points they have no position on. A reader: every point. */
+export function readingPoints<T extends { id: string; statement: string }>(args: {
+  isOwner: boolean;
+  points: readonly T[];
+  previous: readonly { statement: string }[] | null;
+  ownerPositionOf: (pointId: string) => string | null;
+}): T[] {
+  if (!args.isOwner) return [...args.points];
+  return changedPoints(args.points, args.previous).filter(p => !args.ownerPositionOf(p.id));
+}

@@ -26,7 +26,7 @@ import { startVisiblePoll } from '@/lib/visible-poll';
 import type { Seat } from '@/lib/round-grouping';
 import type { EventRoomMember } from '@/app/types';
 import { eventFlow, type EventFlow, type FlowEvent } from '../series-recipes';
-import { describeProblem, isUnregistered, PLAN_NOT_READY } from './mastermind-host-helpers';
+import { isUnregistered, PLAN_NOT_READY } from './mastermind-host-helpers';
 import { GAP_POLL_MS, eveningEndedAfter } from './mastermind-round-helpers';
 
 /** Anything a person is waiting for shows within about 4 seconds (spec Cost Budget): the host screen re-reads this often, on a visible tab only. */
@@ -65,7 +65,9 @@ export interface MastermindHost {
   plan: (roundNo: number, poolIds: string[], shuffle: number) => MastermindSeatingPlan;
   check: (seats: Seat[], roundNo: number, poolIds: string[]) => SeatingProblem[];
   /** Why a round cannot be proposed at all (nobody can own a table yet), or null. */
-  guardOpen: (roundNo: number, poolIds: string[]) => string | null;
+  guardOpen: () => string | null;
+  /** People with a canvas shared who are not marked observer. */
+  canvasCount: number;
   /** The host's "End the evening" stamp is at or after the newest round's start. A round ended with no stamp is "between rounds". */
   eveningOver: boolean;
   /** Ends the newest round only ("End round N"). */
@@ -211,14 +213,12 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
     [inputsFor],
   );
   const guardOpen = useCallback(
-    (roundNo: number, poolIds: string[]) => {
+    () => {
       if (!active) return null;
-      if (!hostState || previous === null) return PLAN_NOT_READY;
-      const { seats, unmet } = plan(roundNo, poolIds, 0);
-      const few = unmet.find(u => u.rule === 'too-few-canvases');
-      return seats.length === 0 && few ? describeProblem(few, () => '') : null;
+      // Seat anyway: nothing but "not read yet" stops the host (fewer than two people is stopped by the caller).
+      return !hostState || previous === null ? PLAN_NOT_READY : null;
     },
-    [active, hostState, previous, plan],
+    [active, hostState, previous],
   );
 
   const setObserver = useCallback(
@@ -251,9 +251,11 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
   }, [eventId, readEvening, refreshRounds]);
 
   const people = useMemo(() => [...(hostState?.values() ?? [])], [hostState]);
+  /** How many people have a canvas shared and are not marked observer: under two, the host's button says "Seat tables anyway". */
+  const canvasCount = useMemo(() => people.filter(p => isCanvasHolder(p)).length, [people]);
 
   return {
     active, ready: !!hostState && previous !== null, warning, refresh: refreshState, previousFailed, personOf, people, recordingOf, isReady, setObserver, plan, check, guardOpen,
-    eveningOver, endRound, endEvening,
+    eveningOver, endRound, endEvening, canvasCount,
   };
 }

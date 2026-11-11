@@ -373,13 +373,14 @@ describe('seating through the mastermind plan (§4)', () => {
     expect(screen.getByTestId('mm-swap-note').textContent).toMatch(/Later rounds are not re-checked/);
   });
 
-  it('does not propose a round when fewer than two canvases are shared, and says so', async () => {
+  it('seats anyway when fewer than two canvases are shared: the button says so and the proposal opens', async () => {
     setHostState([person('a'), person('b', { canvasName: null, canvasShared: false }), person('c', { canvasName: null, canvasShared: false })]);
     renderHost({ flow: MM });
     await screen.findByText('Clarity Canvas shared: canvas_a');
-    fireEvent.click(await screen.findByTestId('host-primary'));
-    expect((await screen.findByRole('alert')).textContent).toMatch(/Fewer than two Clarity Canvases/);
-    expect(screen.queryByTestId('host-preview')).toBeNull();
+    await waitFor(() => expect(screen.getByTestId('host-primary').textContent).toBe('Seat tables anyway'));
+    fireEvent.click(screen.getByTestId('host-primary'));
+    expect(await screen.findByTestId('host-preview')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('starts with the mastermind\'s own minutes, no swap and a table that holds four, and shows the seat guard\'s message', async () => {
@@ -393,7 +394,7 @@ describe('seating through the mastermind plan (§4)', () => {
     expect(alert.textContent).toContain('Eva F.');
     const args = h.hostStartRound.mock.calls[0] as unknown[];
     expect(args[2]).toBe(4);
-    expect(args[4]).toEqual({ seatingS: 120, speakerS: 450, observerS: 180 });
+    expect(args[4]).toEqual({ seatingS: 120, speakerS: 450, observerS: 180, readingS: 180 });
     expect(args[5]).toBe(false);
   });
 });

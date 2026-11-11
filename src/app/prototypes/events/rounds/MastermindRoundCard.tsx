@@ -18,12 +18,15 @@ import { tableLinkState, workspaceHref } from '@/lib/canvas-hrefs';
 import { roundLabel } from '@/lib/round-numbering';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import type { RoundMoment } from './RoundCard';
-import { firstName, roundsPolling, shortName, useEventRounds } from './use-event-rounds';
+import { roundClock, roundTiming } from '@/lib/round-clock';
+import { firstName, roundsPolling, shortName, useEventRounds, useNow } from './use-event-rounds';
 import { useEventCanvasChoices, useOwnerUpdate, useRoundCanvas, useRoundsGap } from './use-mastermind-round';
 import { useRoundMic } from './use-round-mic';
 import { MastermindMicStep } from './MastermindMicStep';
 import { MastermindUpdateTask } from './MastermindUpdateTask';
-import { MISSING_NAME, mastermindTable, tableLines, taskFace } from './mastermind-round-helpers';
+import { MISSING_NAME, NO_CANVAS_OWNER_LINE, NO_CANVAS_TABLE_LINE, mastermindTable, observerLine, tableLines, taskFace } from './mastermind-round-helpers';
+import { useReadingPoints } from './use-reading-points';
+import { MastermindReadingList } from './MastermindReadingList';
 import { MastermindWaiting } from './MastermindWaiting';
 
 export function MastermindRoundCard({
@@ -79,6 +82,18 @@ export function MastermindRoundCard({
   // Mic first: a seated person whose mic is not capturing sees only the mic step (hooks stay above every return).
   const mic = useRoundMic({ eventId, roundId: round?.id ?? null, displayName: self?.displayName ?? 'Participant', seated });
 
+  // The part of the round now, from the round's own clock (the same one the host and the projector read): the reading part lists points.
+  const tableHasObserver = !!round && !!mine && (state.seatsByRound.get(round.id) ?? []).some(s => s.table === mine.table && s.role === 'observer');
+  const now = useNow(seated);
+  const phase = round && seated ? roundClock(round.startedAt, now, tableHasObserver, roundTiming(round)).phase : null;
+  const reading = useReadingPoints({
+    enabled: phase === 'reading' && !!canvas?.shared,
+    ownerId: canvas?.ownerProfileId ?? null,
+    name: canvas?.canvasName ?? null,
+    viewerId: self?.profileId ?? null,
+    isOwner,
+  });
+
   if (!self) return null;
 
   const name = (id: string | undefined) => shortName(roster.find(m => m.id === id)?.displayName ?? '') || MISSING_NAME;
@@ -127,7 +142,14 @@ export function MastermindRoundCard({
   const table = mastermindTable(tableSeats, mine);
   const tableOwnerId = roster.find(m => m.id === table.owner?.id)?.profileId ?? canvas?.ownerProfileId ?? null;
   const ownerName = name(table.owner?.id);
-  const defaultLabel = isOwner ? 'Discussing your Clarity Canvas' : `Discussing ${ownerName}\u2019s Clarity Canvas`;
+  // A table whose owner has no canvas (seated anyway): roles stay as usual, the card says what to do instead.
+  const noCanvas = loaded && !!canvas && !canvas.shared;
+  const defaultLabel = noCanvas
+    ? (isOwner ? NO_CANVAS_OWNER_LINE : NO_CANVAS_TABLE_LINE)
+    : isOwner ? 'Discussing your Clarity Canvas' : `Discussing ${ownerName}\u2019s Clarity Canvas`;
+  const partnerName = firstName(roster.find(m => m.id === tableSeats.find(s => s.role === 'second')?.id)?.displayName ?? '') || MISSING_NAME;
+  const ownerFirst = firstName(roster.find(m => m.id === table.owner?.id)?.displayName ?? '') || MISSING_NAME;
+  const watchLine = table.role === 'observer' && phase ? observerLine(phase, partnerName, ownerFirst) : null;
   // Every other canvas shared with the event. A failed read leaves none: the table's canvas alone, no selector.
   const others = choices.failed || !tableOwnerId ? [] : choices.list.filter(c => c.ownerId !== tableOwnerId);
   const chosen = pick && pick.roundId === round.id ? others.find(c => c.ownerId === pick.ownerId) ?? null : null;
@@ -163,11 +185,15 @@ export function MastermindRoundCard({
           <p className="mt-1 text-base font-medium break-words" data-testid="round-card-setup">The host is still setting up your table</p>
         )}
 
+        {watchLine && <p className="mt-3 text-base font-medium" data-testid="round-card-observer-line">{watchLine}</p>}
+
         <ul className="mt-3 space-y-1 text-sm" data-testid="round-card-people">
           {tableLines(tableSeats, mine.id, id => name(id)).map(l => (
             <li key={l.id} className="break-words" data-testid="round-card-person">{l.text}</li>
           ))}
         </ul>
+
+        {phase === 'reading' && !chosen && canvas?.shared && <MastermindReadingList reading={reading} isOwner={isOwner} />}
 
         {table.owner && (chosen ? (
           chosenLink ? (
@@ -190,7 +216,7 @@ export function MastermindRoundCard({
                 Open the canvas
               </Link>
             </Button>
-          ) : (
+          ) : noCanvas ? null : (
             <p className="mt-3 text-sm text-muted-foreground" data-testid="round-canvas-unshared">This Clarity Canvas is no longer shared</p>
           )
         ))}

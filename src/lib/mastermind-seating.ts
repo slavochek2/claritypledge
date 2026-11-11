@@ -286,13 +286,18 @@ export function planMastermindRound(input: MastermindSeatingInput): MastermindSe
   const start = tallyHistory(history);
   const rand = rng(`${seed}:${roundNo}`);
 
-  if (holders.length < MIN_CANVASES_FOR_A_TABLE) {
-    const unseated: UnmetRule[] = [...holders, ...observers].map(person => ({ rule: 'unseated', person }));
-    return { seats: [], unmet: [{ rule: 'too-few-canvases', canvases: holders.length }, ...unseated] };
-  }
+  // Seat anyway (founder, 2026-11-11): with fewer than two canvases there is nothing to choose from, so everyone who can be seated
+  // takes part with the usual roles and an owner may have no canvas yet. Only fewer than two people at all leaves no table.
+  const noCanvasTables = holders.length < MIN_CANVASES_FOR_A_TABLE;
+  const players = noCanvasTables ? [...holders, ...observers] : holders;
+  const watchers = noCanvasTables ? [] : observers;
   const tooFew: UnmetRule[] = holders.length < RECOMMENDED_MIN_CANVASES ? [{ rule: 'too-few-canvases', canvases: holders.length }] : [];
-  const plan = bestPlan(holders, roundNo, start, previous, rand);
-  const { seats, unseated } = seatRound(plan[0] as PlannedRound, observers, rand);
+  if (players.length < MIN_CANVASES_FOR_A_TABLE) {
+    const unseated: UnmetRule[] = players.map(person => ({ rule: 'unseated', person }));
+    return { seats: [], unmet: [...tooFew, ...unseated] };
+  }
+  const plan = bestPlan(players, roundNo, start, previous, rand);
+  const { seats, unseated } = seatRound(plan[0] as PlannedRound, watchers, rand);
   const named: UnmetRule[] = unseated.map(person => ({ rule: 'unseated', person }));
-  return { seats, unmet: [...tooFew, ...named, ...namedBreaks(start, plan, roundNo, holders, previous)] };
+  return { seats, unmet: [...tooFew, ...named, ...namedBreaks(start, plan, roundNo, players, previous)] };
 }

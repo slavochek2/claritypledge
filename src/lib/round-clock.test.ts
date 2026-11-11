@@ -51,9 +51,27 @@ describe('liveRole', () => {
 describe('round minutes (stored with each round)', () => {
   it('reads a round row\'s seconds, and falls back to 1 / 6 / 6 / 3 for rounds without them', () => {
     expect(roundTiming({ seatingS: 120, firstS: 300, secondS: 300, observerS: 0 })).toEqual({
-      seatingMs: 120_000, firstMs: 300_000, secondMs: 300_000, observerMs: 0, split: true,
+      seatingMs: 120_000, readingMs: 0, firstMs: 300_000, secondMs: 300_000, observerMs: 0, split: true,
     });
     expect(roundTiming({})).toEqual(DEFAULT_TIMING);
+  });
+
+  it('puts the reading part between finding tables and the talk, and counts it in the round', () => {
+    const timing = roundTiming({ seatingS: 120, readingS: 180, firstS: 300, secondS: 300, observerS: 120 });
+    expect(timing.readingMs).toBe(180_000);
+    expect(roundClock(START, at(119_000), true, timing).phase).toBe('seating');
+    const reading = roundClock(START, at(120_000 + 10_000), true, timing);
+    expect(reading.phase).toBe('reading');
+    expect(reading.phaseRemainingMs).toBe(170_000);
+    expect(reading.talkRemainingMs).toBe(170_000 + 600_000 + 120_000);
+    expect(roundClock(START, at(120_000 + 180_000 + 1), true, timing).phase).toBe('first');
+    expect(roundClock(START, at(120_000 + 180_000 + 600_000 + 120_000 + 5_000), true, timing).phase).toBe('over');
+  });
+
+  it('a round with no reading part (0, or a column that does not exist) runs exactly as before', () => {
+    expect(roundTiming({ readingS: 0 }).readingMs).toBe(0);
+    expect(roundTiming({ readingS: null }).readingMs).toBe(0);
+    expect(roundClock(START, at(SEATING_MS + 1), true, roundTiming({ readingS: 0 })).phase).toBe('first');
   });
 
   it('runs on the round\'s own minutes', () => {

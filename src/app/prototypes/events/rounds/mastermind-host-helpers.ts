@@ -27,9 +27,9 @@ export const FLOW_NAMES: Record<EventFlow, string> = {
  * as `speakerS` x 2 (host_start_round writes the same seconds into first_s and second_s; a no-split round adds them), so
  * 450 s is a 15-minute talk. No swap at half time, so no "second" part ever runs.
  */
-export const MASTERMIND_MINUTES: RoundMinutes = { seatingS: 120, speakerS: 450, observerS: 180 };
+export const MASTERMIND_MINUTES: RoundMinutes = { seatingS: 120, speakerS: 450, observerS: 180, readingS: 180 };
 /** Version of the stored mastermind minutes: bump when the defaults change, so minutes a host saved earlier are not kept. */
-export const MASTERMIND_MINUTES_VERSION = 2;
+export const MASTERMIND_MINUTES_VERSION = 3;
 /** Pure: saved host settings without mastermind minutes that were stored under an older version (Clarity Night's are untouched). */
 export function dropStaleMastermindMinutes<T extends { mastermindMinutes?: unknown; mastermindMinutesV?: number }>(saved: T): T {
   if (saved.mastermindMinutesV === MASTERMIND_MINUTES_VERSION) return saved;
@@ -43,7 +43,7 @@ export const MASTERMIND_GROUP_SIZE = 4;
 export const COLUMN_LABELS: Record<SeatRole, string> = { first: 'Clarity Canvas owner', second: 'Partner', observer: 'Observer' };
 
 /** [FOUNDER DECISION: copy] The part of the round the projector names; the long talk needs no name. */
-export const SCREEN_PART_CAPTION: Record<string, string> = { seating: 'Find your table', observer: 'Observer feedback' };
+export const SCREEN_PART_CAPTION: Record<string, string> = { seating: 'Find your table', reading: 'Silent reading', observer: 'Observer feedback' };
 
 /** The round's silent reading (4 minutes) cannot have words: a table is only said to be silent after it. */
 export const SILENT_TABLE_GRACE_MS = 5 * 60_000;
@@ -140,7 +140,7 @@ export function describeProblem(p: SeatingProblem, name: (id: string) => string)
       return `${name(p.person)} would be a Clarity Canvas owner without a Clarity Canvas shared with this event. Starting is refused until someone with a canvas owns here.`;
     case 'too-few-canvases':
       return p.canvases < 2
-        ? 'Fewer than two Clarity Canvases are shared with this event, so there is no table to seat.'
+        ? 'Fewer than two Clarity Canvases are shared with this event. Tables are seated anyway; a Clarity Canvas owner may have no canvas yet.'
         : `Only ${p.canvases} Clarity Canvases are shared. The format works from 5, so some partners will repeat.`;
   }
 }

@@ -22,6 +22,8 @@ const h = vi.hoisted(() => ({
   getCanvasDraftState: vi.fn(),
   classicProps: vi.fn(),
   listSharedWithEvent: vi.fn(),
+  getCanvas: vi.fn(),
+  setPosition: vi.fn(),
   getEveningEnd: vi.fn(),
   // The room capture context, as the round card reads it: capturing by default (the mic step has its own tests, p1529-round-mic.test.tsx).
   capture: {} as Record<string, unknown>,
@@ -41,7 +43,7 @@ vi.mock('@/app/data/event-mastermind-service', () => ({
   getEveningEnd: h.getEveningEnd,
 }));
 vi.mock('@/app/contexts/room-capture-context', () => ({ useRoomCapture: () => h.capture }));
-vi.mock('@/app/data/canvas-service', () => ({ canvasService: { listSharedWithEvent: h.listSharedWithEvent } }));
+vi.mock('@/app/data/canvas-service', () => ({ canvasService: { listSharedWithEvent: h.listSharedWithEvent, getCanvas: h.getCanvas, setPosition: h.setPosition } }));
 vi.mock('@/app/data/canvas-draft-service', () => ({
   publishCanvasDraft: h.publishCanvasDraft,
   retryCanvasRun: h.retryCanvasRun,
@@ -201,11 +203,19 @@ describe('P1529 round screen: the canvas link', () => {
     expect(h.recordCanvasOpen).not.toHaveBeenCalled();
   });
 
-  it('says the canvas is no longer shared, with no link', async () => {
+  it('a table with no canvas keeps its roles: the partner is told to talk it through, the owner to talk about their idea', async () => {
     h.server.canvas = { ownerProfileId: 'p-owner', ownerSlug: 'haru', canvasName: null, shared: false };
     renderCard(PARTNER);
-    expect((await screen.findByTestId('round-canvas-unshared')).textContent).toBe('This Clarity Canvas is no longer shared');
+    expect((await screen.findByTestId('round-card-headline')).textContent).toBe('Talk it through: no canvas');
     expect(screen.queryByTestId('round-canvas-link')).toBeNull();
+    expect(screen.getByTestId('mastermind-round-card').getAttribute('data-role')).toBe('partner');
+  });
+
+  it('the owner of a table with no canvas reads "No Clarity Canvas yet: talk about your business idea"', async () => {
+    h.server.canvas = { ownerProfileId: 'p-owner', ownerSlug: 'haru', canvasName: null, shared: false };
+    renderCard(OWNER);
+    expect((await screen.findByTestId('round-card-headline')).textContent).toBe('No Clarity Canvas yet: talk about your business idea');
+    expect(screen.getByTestId('mastermind-round-card').getAttribute('data-role')).toBe('owner');
   });
 
   it('a failed read of the canvas says so with a Retry, and Retry brings the link back', async () => {
@@ -687,5 +697,115 @@ describe('P1529 round screen: the gap after round 2 (End round 2, then the next 
     await waitFor(() => expect(onMoment).toHaveBeenLastCalledWith(expect.objectContaining({ eveningOver: true })));
     expect(screen.getByTestId('mastermind-over')).toBeTruthy();
     expect(screen.queryByTestId('mastermind-between')).toBeNull();
+  });
+});
+
+// ── The reading part and the observer's lines (UAT 2026-11-11, items 4, 5, 6 and decision (d)) ───────────────────────
+
+/** A round that started `secondsAgo` ago, with a 60 s finding minute, a 180 s reading part, 360 s of talk and 180 s of observer. */
+const startedAgo = (secondsAgo: number) =>
+  liveRound([round({ startedAt: new Date(Date.now() - secondsAgo * 1000).toISOString(), readingS: 180, firstS: 180, secondS: 180 })]);
+
+type Pos = { userId: string; position: string };
+function canvasView(args: { points: [string, string][]; positions?: Record<string, Pos[]>; version: string; versions: { name: string; seq: number | null; draft: boolean }[] }) {
+  return {
+    points: args.points.map(([id, statement]) => ({ id, statement })),
+    positions: new Map(Object.entries(args.positions ?? {})),
+    version: args.version,
+    versions: args.versions,
+  };
+}
+const V2 = [{ name: 'v2', seq: 2, draft: false }, { name: 'v1', seq: 1, draft: false }];
+
+describe('P1529 round screen: the reading part', () => {
+  beforeEach(() => {
+    h.setPosition.mockResolvedValue(undefined);
+    h.getCanvas.mockImplementation(async (_o: string, _n: string, _v: string, _t: unknown, version?: string) =>
+      version === 'v1'
+        ? canvasView({ points: [['a', 'Same point']], version: 'v1', versions: V2 })
+        : canvasView({
+          points: [['a', 'Same point'], ['b', 'Rewritten point'], ['c', 'Another rewritten point']],
+          positions: { a: [{ userId: 'p-owner', position: 'agree' }], c: [{ userId: 'p-owner', position: 'unsure' }] },
+          version: 'v2',
+          versions: V2,
+        }));
+  });
+
+  it('a visitor lists every point, one tap writes the canvas\'s own position, and a point without the owner\'s position says so', async () => {
+    startedAgo(70);
+    renderCard(PARTNER);
+    const rows = await screen.findAllByTestId('reading-point');
+    expect(rows.map(r => r.textContent)).toEqual([expect.stringContaining('Same point'), expect.stringContaining('Rewritten point'), expect.stringContaining('Another rewritten point')]);
+    expect(screen.getAllByTestId('reading-no-owner-position').map(n => n.textContent)).toEqual(['The Clarity Canvas owner hasn\u2019t taken a position yet']);
+    expect(screen.queryByText(/agree with all/i)).toBeNull();
+    fireEvent.click(rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement);
+    await waitFor(() => expect(h.setPosition).toHaveBeenCalledWith('p-owner', 'launch_plan', 'b', 'agree'));
+    await waitFor(() => expect((rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement).getAttribute('aria-pressed')).toBe('true'));
+    expect(screen.getByTestId('round-canvas-link')).toBeTruthy();
+  });
+
+  it('the owner lists only the points changed since their previous version that they hold no position on', async () => {
+    startedAgo(70);
+    renderCard(OWNER);
+    const rows = await screen.findAllByTestId('reading-point');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain('Rewritten point');
+    expect(screen.queryByTestId('reading-no-owner-position')).toBeNull();
+  });
+
+  it('the owner with nothing changed gets one short line and no list', async () => {
+    startedAgo(70);
+    h.getCanvas.mockImplementation(async () => canvasView({ points: [['a', 'Same point']], version: 'v1', versions: [{ name: 'v1', seq: 1, draft: false }] }));
+    renderCard(OWNER);
+    expect((await screen.findByTestId('reading-owner-nothing')).textContent).toMatch(/Nothing changed/);
+    expect(screen.queryByTestId('reading-list')).toBeNull();
+  });
+
+  it('there is no list outside the reading part, and nothing is read then', async () => {
+    startedAgo(30);
+    renderCard(PARTNER);
+    await screen.findByTestId('round-card-table');
+    startedAgo(300);
+    renderCard(PARTNER);
+    await screen.findAllByTestId('round-card-table');
+    expect(screen.queryByTestId('reading-list')).toBeNull();
+    expect(h.getCanvas).not.toHaveBeenCalled();
+  });
+
+  it('a round with no reading part (0) never shows the list', async () => {
+    liveRound([round({ startedAt: new Date(Date.now() - 70_000).toISOString(), readingS: 0 })]);
+    renderCard(PARTNER);
+    await screen.findByTestId('round-card-table');
+    expect(screen.queryByTestId('reading-list')).toBeNull();
+  });
+});
+
+describe('P1529 round screen: the observer\'s line per part', () => {
+  it.each([
+    [70, 'Silent reading. No talking yet.'],
+    [300, 'Erin explains Haru\u2019s Clarity Canvas back to them. Erin challenges only once Haru rates their understanding 8 out of 10 or higher.'],
+    [60 + 180 + 360 + 10, 'Your turn: what did you notice?'],
+  ])('%#: the observer reads the line for the part now', async (secondsAgo, line) => {
+    startedAgo(secondsAgo);
+    renderCard(OBSERVER);
+    expect((await screen.findByTestId('round-card-observer-line')).textContent).toBe(line);
+  });
+
+  it('the owner and the partner never see the observer lines', async () => {
+    startedAgo(70);
+    renderCard(OWNER);
+    await screen.findByTestId('round-card-table');
+    expect(screen.queryByTestId('round-card-observer-line')).toBeNull();
+    startedAgo(70);
+    renderCard(PARTNER);
+    await screen.findAllByTestId('round-card-table');
+    expect(screen.queryByTestId('round-card-observer-line')).toBeNull();
+  });
+
+  it('finding the table has no observer line yet', async () => {
+    startedAgo(20);
+    renderCard(OBSERVER);
+    await screen.findByTestId('round-card-table');
+    expect(screen.queryByTestId('round-card-observer-line')).toBeNull();
   });
 });

@@ -32,6 +32,8 @@ export interface EventRound {
   endedAt: string | null;
   /** Seconds per part of this round (migration 20261004183000); null on rounds started before it. */
   seatingS: number | null;
+  /** Seconds of silent reading after seating (migration 20261111170000); 0 = none, and null on rounds started before it. */
+  readingS?: number | null;
   firstS: number | null;
   secondS: number | null;
   observerS: number | null;
@@ -73,6 +75,7 @@ interface DbRound {
   started_at: string;
   ended_at: string | null;
   seating_s: number | null;
+  reading_s?: number | null;
   first_s: number | null;
   second_s: number | null;
   observer_s: number | null;
@@ -93,7 +96,7 @@ interface DbSeat {
 export async function getEventRoundsState(eventId: string): Promise<EventRoundsState> {
   const { data: rounds, error } = await supabase
     .from('event_rounds')
-    .select('id, round_no, group_size, started_at, ended_at, seating_s, first_s, second_s, observer_s, split_speakers, match_tag, showcase')
+    .select('id, round_no, group_size, started_at, ended_at, seating_s, reading_s, first_s, second_s, observer_s, split_speakers, match_tag, showcase')
     .eq('event_id', eventId)
     .order('round_no', { ascending: true });
   if (error) throw error;
@@ -104,6 +107,7 @@ export async function getEventRoundsState(eventId: string): Promise<EventRoundsS
     startedAt: r.started_at,
     endedAt: r.ended_at,
     seatingS: r.seating_s,
+    readingS: r.reading_s ?? null,
     firstS: r.first_s,
     secondS: r.second_s,
     observerS: r.observer_s,
@@ -154,6 +158,8 @@ export interface RoundMinutes {
   seatingS: number;
   speakerS: number;
   observerS: number;
+  /** The sales mastermind's silent reading part. Left out (undefined) by every other flow: the start then sends no reading time at all. */
+  readingS?: number;
 }
 
 export const DEFAULT_ROUND_MINUTES: RoundMinutes = { seatingS: 60, speakerS: 360, observerS: 180 };
@@ -169,6 +175,7 @@ export async function hostStartRound(
   options: { matchTag?: string | null; showcase?: boolean } = {},
 ): Promise<string> {
   const call = supabase.rpc('host_start_round', {
+    ...(minutes.readingS !== undefined ? { p_reading_s: minutes.readingS } : {}),
     p_event_id: eventId,
     p_round_no: roundNo,
     p_group_size: groupSize,
@@ -216,7 +223,7 @@ export function seatKeys(seats: Seat[]): string[] {
 /** "+1 min" on the running round: one more minute on the part running now. */
 export async function hostExtendRound(
   roundId: string,
-  phase: 'seating' | 'first' | 'second' | 'observer',
+  phase: 'seating' | 'reading' | 'first' | 'second' | 'observer',
   signal?: AbortSignal,
 ): Promise<void> {
   const call = supabase.rpc('host_extend_round', { p_round_id: roundId, p_phase: phase });

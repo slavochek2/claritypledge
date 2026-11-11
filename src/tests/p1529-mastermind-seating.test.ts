@@ -181,11 +181,26 @@ describe('P1529 mastermind seating', () => {
     expect(realRepeats).toBeLessThanOrEqual(2);
   });
 
-  it('fewer than two canvases: no tables, the rule and everyone named', () => {
+  it('fewer than two canvases: seated anyway with the usual roles, the advice kept', () => {
     const plan = planMastermindRound({ holders: ['a'], observers: ['b'], history: [], seed: 'x' });
-    expect(plan.seats).toEqual([]);
+    expect(plan.seats.map(s => s.role).sort()).toEqual(['first', 'second']);
+    expect(plan.seats.map(s => s.id).sort()).toEqual(['a', 'b']);
     expect(plan.unmet).toContainEqual({ rule: 'too-few-canvases', canvases: 1 });
-    expect(plan.unmet.filter(u => u.rule === 'unseated')).toHaveLength(2);
+    expect(plan.unmet.filter(u => u.rule === 'unseated')).toHaveLength(0);
+  });
+
+  it('zero canvases: everyone is seated, two to a table, an odd one observes', () => {
+    const plan = planMastermindRound({ holders: [], observers: ['a', 'b', 'c', 'd', 'e'], history: [], seed: 'x' });
+    expect(plan.seats.filter(s => s.role === 'first')).toHaveLength(2);
+    expect(plan.seats.filter(s => s.role === 'second')).toHaveLength(2);
+    expect(plan.seats.filter(s => s.role === 'observer')).toHaveLength(1);
+    expect(plan.unmet).toContainEqual({ rule: 'too-few-canvases', canvases: 0 });
+  });
+
+  it('fewer than two people at all: no table, everyone named', () => {
+    const plan = planMastermindRound({ holders: [], observers: ['a'], history: [], seed: 'x' });
+    expect(plan.seats).toEqual([]);
+    expect(plan.unmet.filter(u => u.rule === 'unseated')).toHaveLength(1);
   });
 
   it('is deterministic for a seed and changes with Shuffle', () => {

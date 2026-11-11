@@ -21,16 +21,20 @@ function talkingParts(timing: RoundTiming): { phase: RoundPhase; label: string; 
   // Walkthrough 8: the table-finding minute is its own labelled part, so the clock always says
   // what it counts (it read as a bare "25 seconds" on the projector).
   const seating = { phase: 'seating' as const, label: 'Find your table', ms: timing.seatingMs };
+  // The reading part (the sales mastermind's, 0 = none and then dropped by the strip) follows seating and comes before the talk.
+  const reading = { phase: 'reading' as const, label: 'Reading', ms: timing.readingMs };
   // No swap at half time: the speakers' time is one part, "Talk" (secondMs is 0 and drops out).
   if (!timing.split) {
     return [
       seating,
+      reading,
       { phase: 'first', label: 'Talk', ms: timing.firstMs },
       { phase: 'observer', label: 'Observer', ms: timing.observerMs },
     ];
   }
   return [
     seating,
+    reading,
     { phase: 'first', label: 'Speaker 1', ms: timing.firstMs },
     { phase: 'second', label: 'Speaker 2', ms: timing.secondMs },
     { phase: 'observer', label: 'Observer', ms: timing.observerMs },
@@ -253,6 +257,6 @@ export function useRoundBell(round: EventRound | null, phase: RoundPhase | undef
     if (!bell.on || !round || !phase) return;
     if (prev.roundId && prev.roundId !== round.id) return bell.ring(3);
     if (prev.roundId !== round.id) return;
-    if ((prev.phase === 'first' && phase === 'second') || (prev.phase === 'second' && phase === 'observer')) bell.ring(1);
+    if ((prev.phase === 'reading' && (phase === 'first' || phase === 'second')) || (prev.phase === 'first' && phase === 'second') || (prev.phase === 'second' && phase === 'observer')) bell.ring(1);
   }, [round, phase, bell]);
 }

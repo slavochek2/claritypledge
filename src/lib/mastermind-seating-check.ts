@@ -9,6 +9,7 @@
  * own in a part once its last round (2 or 4) is seated. What the LATER rounds will break is only known to the planner, so it is not recomputed here.
  */
 import {
+  MIN_CANVASES_FOR_A_TABLE,
   RECOMMENDED_MIN_CANVASES,
   half,
   key,
@@ -32,10 +33,12 @@ export interface SeatingCheckInput {
 
 /** What one table breaks: an owner with no canvas, a repeat partner, a partner from the session this one continues. */
 function tableProblems(table: Seat[], holders: ReadonlySet<string>, met: ReadonlySet<string>, previous: ReadonlySet<string>): SeatingProblem[] {
+  // Seat anyway: below two canvases an owner may have no canvas (the server allows it only then).
+  const ownerNeedsCanvas = holders.size >= MIN_CANVASES_FOR_A_TABLE;
   const owner = table.find(s => s.role === 'first')?.id;
   const partner = table.find(s => s.role === 'second')?.id;
   const out: SeatingProblem[] = [];
-  if (owner && !holders.has(owner)) out.push({ rule: 'owner-without-canvas', person: owner });
+  if (ownerNeedsCanvas && owner && !holders.has(owner)) out.push({ rule: 'owner-without-canvas', person: owner });
   if (owner && partner && met.has(key(owner, partner))) out.push({ rule: 'repeat-partner', people: [owner, partner] });
   if (owner && partner && previous.has(key(owner, partner))) out.push({ rule: 'previous-session-partner', people: [owner, partner] });
   return out;

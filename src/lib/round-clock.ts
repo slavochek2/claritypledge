@@ -13,7 +13,7 @@
  */
 import type { SeatRole } from './round-grouping';
 
-export type RoundPhase = 'seating' | 'first' | 'second' | 'observer' | 'over';
+export type RoundPhase = 'seating' | 'reading' | 'first' | 'second' | 'observer' | 'over';
 
 export const SEATING_MS = 60_000;
 export const SPEAKER_MS = 6 * 60_000;
@@ -23,6 +23,8 @@ export const OBSERVER_MS = 3 * 60_000;
  * of minutes for the next round never moves a round already running; "+1 min" adds to one part. */
 export interface RoundTiming {
   seatingMs: number;
+  /** Silent reading after seating and before the talk (the sales mastermind); 0 = none, and every other flow's. */
+  readingMs: number;
   firstMs: number;
   secondMs: number;
   observerMs: number;
@@ -33,6 +35,7 @@ export interface RoundTiming {
 
 export const DEFAULT_TIMING: RoundTiming = {
   seatingMs: SEATING_MS,
+  readingMs: 0,
   firstMs: SPEAKER_MS,
   secondMs: SPEAKER_MS,
   observerMs: OBSERVER_MS,
@@ -42,6 +45,7 @@ export const DEFAULT_TIMING: RoundTiming = {
 /** A round row's stored seconds → timing; rounds started before the columns existed use the defaults. */
 export function roundTiming(round: {
   seatingS?: number | null;
+  readingS?: number | null;
   firstS?: number | null;
   secondS?: number | null;
   observerS?: number | null;
@@ -53,6 +57,7 @@ export function roundTiming(round: {
   const split = round.splitSpeakers !== false;
   return {
     seatingMs: ms(round.seatingS, SEATING_MS),
+    readingMs: ms(round.readingS, 0),
     firstMs: split ? first : first + second,
     secondMs: split ? second : 0,
     observerMs: ms(round.observerS, OBSERVER_MS),
@@ -72,10 +77,11 @@ export interface RoundClock {
   overByMs: number;
 }
 
-/** The parts of one round in order, with their length — seating first, observer only with one. */
+/** The parts of one round in order, with their length — seating first, then the reading part (0 = none), observer only with one. */
 export function roundSegments(hasObserver: boolean, timing: RoundTiming = DEFAULT_TIMING): [RoundPhase, number][] {
   return [
     ['seating', timing.seatingMs],
+    ['reading', timing.readingMs],
     ['first', timing.firstMs],
     ['second', timing.secondMs],
     ...(hasObserver ? [['observer', timing.observerMs] as [RoundPhase, number]] : []),

@@ -377,4 +377,46 @@ test.describe('P1337: rounds, seats, topics, presence', () => {
     expect((await h.rpc('host_shorten_round', { p_round_id: id })).error?.code).toBe('22023');
     expect((await ca.rpc('set_round_topic', { p_round_id: id, p_table_no: 1, p_point_id: null })).error?.code).toBe('22023');
   });
+  test('reading part (20261111170000): stored with the round, counted in every part\'s arithmetic, extended and shortened while it runs', async () => {
+    const h = await clientFor(host);
+    const pair = [{ m: member.a, t: 1, r: 'first' }, { m: member.b, t: 1, r: 'second' }];
+    const base = { p_event_id: eventId, p_group_size: 2, p_seats: pair, p_seating_s: 60, p_speaker_s: 300, p_observer_s: 60, p_split_speakers: false, p_match_tag: null, p_showcase: false };
+    // Out-of-range reading time is refused by the column check; nothing is written.
+    expect((await h.rpc('host_start_round', { ...base, p_round_no: 5, p_reading_s: 4000 })).error).not.toBeNull();
+    const started = await h.rpc('host_start_round', { ...base, p_round_no: 5, p_reading_s: 120 });
+    expect(started.error).toBeNull();
+    const id = started.data as string;
+    const read = async () => (await supabaseAdmin.from('event_rounds').select('reading_s, first_s, second_s, observer_s').eq('id', id).single()).data!;
+    expect(await read()).toEqual({ reading_s: 120, first_s: 300, second_s: 300, observer_s: 60 });
+    const setStart = (secondsAgo: number) => supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - secondsAgo * 1000).toISOString() }).eq('id', id);
+    // 30 s into the reading part (60 s of seating first): a stale tap naming the talk still extends the READING part.
+    await setStart(60 + 30);
+    expect((await h.rpc('host_extend_round', { p_round_id: id, p_phase: 'first' })).error).toBeNull();
+    expect(await read()).toEqual({ reading_s: 180, first_s: 300, second_s: 300, observer_s: 60 });
+    expect((await h.rpc('host_extend_round', { p_round_id: id, p_phase: 'reading' })).error).toBeNull();
+    expect((await read()).reading_s).toBe(240);
+    // A minute off the reading part never moves time passed: 30 s in, 240 - 60 = 180.
+    expect((await h.rpc('host_shorten_round', { p_round_id: id })).error).toBeNull();
+    expect((await read()).reading_s).toBe(180);
+    // Once the talk runs (10 s into it) the minute goes on the talk, the reading part keeps its length.
+    await setStart(60 + 180 + 10);
+    expect((await h.rpc('host_extend_round', { p_round_id: id, p_phase: 'reading' })).error).toBeNull();
+    expect(await read()).toEqual({ reading_s: 180, first_s: 300, second_s: 360, observer_s: 60 });
+    // Past the end (no observer seated): the arithmetic counts the reading part. Ends at 60+180+300+360 = 900 s; 920 s in is 20 s over,
+    // so the talk's end becomes 360 + 20 + 60 = 440 (and not what it would be had the reading time been left out).
+    await setStart(920);
+    expect((await h.rpc('host_extend_round', { p_round_id: id, p_phase: 'second' })).error).toBeNull();
+    const over = (await read()).second_s;
+    expect(over).toBeGreaterThanOrEqual(440);
+    expect(over).toBeLessThanOrEqual(442);
+    // A reading part at its maximum is refused like any other part (54000).
+    await supabaseAdmin.from('event_rounds').update({ reading_s: 3600, started_at: new Date(Date.now() - 100 * 1000).toISOString() }).eq('id', id);
+    expect((await h.rpc('host_extend_round', { p_round_id: id, p_phase: 'reading' })).error?.code).toBe('54000');
+    // A round started the old way (no reading argument) has none, and its clock is the old one.
+    expect((await h.rpc('host_end_rounds', { p_event_id: eventId })).error).toBeNull();
+    const old = await h.rpc('host_start_round', { p_event_id: eventId, p_round_no: 6, p_group_size: 2, p_seats: pair, p_seating_s: 60, p_speaker_s: 300, p_observer_s: 0 });
+    expect(old.error).toBeNull();
+    expect((await supabaseAdmin.from('event_rounds').select('reading_s').eq('id', old.data as string).single()).data).toEqual({ reading_s: 0 });
+    expect((await h.rpc('host_end_rounds', { p_event_id: eventId })).error).toBeNull();
+  });
 });
