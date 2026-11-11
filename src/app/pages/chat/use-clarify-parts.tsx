@@ -31,7 +31,7 @@ export function useClarifyParts(summary: ChatSummary, root: ChatMessage | undefi
   useLayoutEffect(() => { if (rootId) registerClarifyThread(rootId); }, [rootId]);
   // one read of the drafts, shared by the list and the composer (which waits while a draft is being made)
   const thread = useClarifyThread(rootId ?? null);
-  const actions = useClarifyActions(rootId ?? '');
+  const actions = useClarifyActions(rootId ?? '', thread.markQueued);
   // the card a Mention in chat names: held here because the card (in the list) and the pill (in the composer) both show it
   const [mentionId, setMentionId] = useState<string | null>(null);
   const clearMention = useCallback(() => setMentionId(null), []);

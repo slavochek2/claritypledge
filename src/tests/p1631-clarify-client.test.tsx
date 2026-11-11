@@ -18,6 +18,7 @@ const svc = vi.hoisted(() => ({
   deleteClarifyDraft: vi.fn(),
   getClarifyThread: vi.fn(),
   invokeClarifyDraft: vi.fn(),
+  markClarifyFailed: vi.fn(async () => undefined),
 }));
 const toastFn = vi.hoisted(() => Object.assign(vi.fn(), { error: vi.fn(), loading: vi.fn(), dismiss: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toastFn }));
@@ -69,8 +70,8 @@ const draft = (over: Partial<ClarifyDraft> = {}): ClarifyDraft => ({
  */
 function ClarifyDrafts({ rootId, name, userId, thread }: { rootId: string; name: string; userId: string; thread?: ClarifyThreadState }) {
   const own = useClarifyThread(thread ? null : rootId);
-  const { drafts, loaded, failed, reload } = thread ?? own;
-  const actions = useClarifyActions(rootId);
+  const { drafts, loaded, failed, reload, markQueued } = thread ?? own;
+  const actions = useClarifyActions(rootId, markQueued);
   return (
     <ClarifyDraftsView
       drafts={drafts} all={drafts} loaded={loaded} failed={failed} name={name} userId={userId}
@@ -168,6 +169,43 @@ describe('ClarifyDraftCard', () => {
     expect(screen.getByRole('button', { name: 'Delete this draft' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: MENTION_IN_CHAT_LABEL })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: PUBLISH_LABEL })).toBeInTheDocument();
+  });
+
+  // jsdom has no layout (every width is 0), so "no element wider than the card at 320px" cannot be measured here. This is the STRUCTURAL assertion instead: what made the card
+  // grow in a 370px side panel, and what made the position row drop its words, must be absent. The width itself is checked in a real browser (report).
+  it('320px structure: the position row sits in the card footer across the card (not in the pin column), its segments shrink (min-w-0, no 90px floor), and the card chain can shrink', () => {
+    render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
+    const card = screen.getByTestId('clarify-draft-d1');
+    const row = within(card).getByTestId('clarify-position-row');
+    expect(within(screen.getByTestId('clarify-card-footer-d1')).getByTestId('clarify-position-row')).toBe(row);
+    expect(row.closest('[data-testid="clarify-draft-statement"]')).toBeNull();
+    // the three position segments carry their words and may shrink; no segment has a fixed floor of 90px
+    for (const name of ['Disagree', 'Unsure', 'Agree']) expect(within(row).getByRole('button', { name })).toBeInTheDocument();
+    const segments = Array.from(row.querySelectorAll<HTMLElement>('[class*="flex-1"]'));
+    expect(segments.length).toBeGreaterThanOrEqual(3);
+    for (const s of segments) {
+      expect(s.className).toContain('min-w-0');
+      expect(s.className).not.toMatch(/min-w-\[90px\]/);
+    }
+    expect(row.className).toContain('min-w-0');
+    // nothing in the footer has a fixed width wider than a 320px screen can hold
+    for (const el of Array.from(card.querySelectorAll<HTMLElement>('[class*="w-["], [class*="min-w-["]'))) {
+      const px = /(?:^|\s)(?:min-)?w-\[(\d+)px\]/.exec(el.className);
+      if (px) expect(Number(px[1]), el.className).toBeLessThanOrEqual(120);
+    }
+  });
+
+  it('320px structure: the Mirror\'s turn lets its content shrink (min-w-0, max-w-full) and puts the card under the face, across the whole width', async () => {
+    svc.getClarifyThread.mockResolvedValue([draft()]);
+    render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    const turn = await screen.findByTestId('clarify-agent-turn');
+    expect(turn.className).toMatch(/min-w-0/);
+    expect(turn.className).toMatch(/max-w-full/);
+    expect(screen.getByTestId('clarify-drafts').className).toMatch(/min-w-0/);
+    // the face and the name are one line ABOVE the card, not a column beside it (that column cost 46px)
+    const name = within(turn).getByTestId('clarify-agent-name');
+    expect(turn.firstElementChild?.contains(name)).toBe(true);
+    expect(turn.firstElementChild?.contains(within(turn).getByTestId('clarify-draft-d1'))).toBe(false);
   });
 
   it('Publish to chat is always shown: without a position it is aria-disabled (still focusable) and a tap says "Set your position first"; with one it is enabled and says "Publishing comes next"', () => {
@@ -331,6 +369,48 @@ describe('ClarifyDrafts (the thread under the source copy)', () => {
     fireEvent.click(screen.getByRole('button', { name: RETRY_LABEL }));
     await waitFor(() => expect(svc.retryClarify).toHaveBeenCalledWith('d1'));
     await waitFor(() => expect(svc.invokeClarifyDraft).toHaveBeenCalledWith('d1'));
+  });
+
+  it('Try again on a failed draft switches to "thinking" at once and then shows the result, with no reload (a draft whose run was already started in this tab)', async () => {
+    // the first run of d1 started in this tab and failed to start (not_started); the server then answers the thread by what it holds now
+    let serverState: 'failed' | 'queued' | 'done' = 'failed';
+    svc.getClarifyThread.mockImplementation(async () => [
+      serverState === 'done' ? draft() : draft({ state: serverState === 'queued' ? 'queued' : 'failed', point: null, cited: [], errorCode: serverState === 'failed' ? 'not_started' : null }),
+    ]);
+    svc.retryClarify.mockImplementation(async () => { serverState = 'queued'; return { status: 'started' }; });
+    let finish: () => void = () => undefined;
+    svc.invokeClarifyDraft.mockImplementation(() => new Promise((go) => { finish = () => { serverState = 'done'; go({ ok: true }); }; }));
+    svc.invokeClarifyDraft.mockImplementationOnce(async () => ({ ok: false, reason: 'failed' })); // the first run's call (never started)
+    svc.markClarifyFailed.mockResolvedValue(undefined);
+    await act(async () => { await runClarifyDraft('d1'); }); // this tab already ran d1 once
+    render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    fireEvent.click(await screen.findByRole('button', { name: RETRY_LABEL }));
+    expect(await screen.findByTestId('clarify-thinking')).toHaveTextContent('Mirror is thinking');
+    expect(screen.queryByTestId('clarify-failed-d1')).not.toBeInTheDocument();
+    await act(async () => { finish(); await new Promise((r) => setTimeout(r, 10)); });
+    expect(await screen.findByTestId('clarify-draft-d1')).toBeInTheDocument();
+    expect(screen.queryByTestId('clarify-thinking')).not.toBeInTheDocument();
+  });
+
+  it('Try again shows "thinking" the moment the server has queued the draft, even while the next read of the thread is slow or lost', async () => {
+    svc.getClarifyThread.mockResolvedValueOnce([draft({ state: 'failed', point: null, cited: [], errorCode: 'not_started' })]);
+    svc.getClarifyThread.mockImplementation(() => new Promise(() => undefined)); // every later read hangs
+    svc.retryClarify.mockResolvedValue({ status: 'started' });
+    svc.invokeClarifyDraft.mockImplementation(() => new Promise(() => undefined));
+    render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    fireEvent.click(await screen.findByRole('button', { name: RETRY_LABEL }));
+    expect(await screen.findByTestId('clarify-thinking')).toBeInTheDocument();
+    expect(screen.queryByTestId('clarify-failed-d1')).not.toBeInTheDocument();
+  });
+
+  it('a Try again the server refuses or finds busy leaves the failure line as it was', async () => {
+    svc.getClarifyThread.mockResolvedValue([draft({ state: 'failed', point: null, cited: [], errorCode: 'not_started' })]);
+    svc.retryClarify.mockResolvedValue({ status: 'busy' });
+    render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    fireEvent.click(await screen.findByRole('button', { name: RETRY_LABEL }));
+    await waitFor(() => expect(svc.retryClarify).toHaveBeenCalled());
+    expect(screen.getByTestId('clarify-failed-d1')).toBeInTheDocument();
+    expect(screen.queryByTestId('clarify-thinking')).not.toBeInTheDocument();
   });
 
   it('a capped draft says so and offers no Retry', async () => {

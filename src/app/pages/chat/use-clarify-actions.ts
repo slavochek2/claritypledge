@@ -17,7 +17,8 @@ export interface ClarifyActions {
 
 type Start = () => Promise<{ status: string; draftId?: string | null }>;
 
-export function useClarifyActions(rootId: string): ClarifyActions {
+/** `onRetryStarted`: told when the server has queued a failed draft again, so the screen can show it being made at once. */
+export function useClarifyActions(rootId: string, onRetryStarted?: (draftId: string) => void): ClarifyActions {
   // a ref, not state: a second press in the same tick must see the first
   const pending = useRef(false);
   const act = useCallback(async (start: Start) => {
@@ -44,11 +45,14 @@ export function useClarifyActions(rootId: string): ClarifyActions {
     onRetry: (d) => void act(async () => {
       const r = await retryClarify(d.id);
       // a new run of the same draft may start again only once the server has queued it
-      if (r.status === 'started') forgetClarifyRun(d.id);
+      if (r.status === 'started') {
+        forgetClarifyRun(d.id);
+        onRetryStarted?.(d.id);
+      }
       return { status: r.status, draftId: d.id };
     }),
     onAnother: () => void act(() => anotherPoint(rootId)),
     // an edit or delete: one signal reloads this thread (its own listener) and the conversation's reply counts
     onChanged: () => touchClarifyThread(rootId),
-  }), [act, rootId]);
+  }), [act, rootId, onRetryStarted]);
 }

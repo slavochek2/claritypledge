@@ -191,7 +191,16 @@ export function ClarifyDraftCard({ draft, userId, onChanged, earlier = false, me
         header={<DraftBadge />}
         statement={<p className="min-w-0 flex-1 break-words text-base font-medium text-foreground" data-testid="clarify-draft-statement">{point.statement}</p>}
         footer={
-          <div className="space-y-1 px-2 pb-2">
+          <div className="min-w-0 space-y-1 px-2 pb-2" data-testid={`clarify-card-footer-${draft.id}`}>
+            {/* The position row sits here, across the whole card, not in the statement column beside the pin: below 270px it drops its words, and 76px of chrome would cost that in a side panel. */}
+            {!earlier && (
+              <div className="min-w-0 pt-1" data-testid="clarify-position-row">
+                <p className="mb-1 text-xs text-muted-foreground" data-testid="clarify-position-label">{POSITION_LABEL}</p>
+                <div role="presentation" className="min-w-0">
+                  <PositionButtons userPosition={position} counts={NO_COUNTS} compact narrow onPositionClick={(p) => void choose(p)} onClear={() => void choose(null)} />
+                </div>
+              </div>
+            )}
             <CardActions draft={draft} open={citedOpen} onToggle={() => setCitedOpen((o) => !o)} onEdit={earlier ? undefined : () => setEditing(true)} onDelete={() => setDeleting(true)} mentioned={mentioned} onMention={onMention} />
             {citedOpen && draft.cited.length > 0 && <CitedList draft={draft} />}
             {earlier ? (
@@ -201,16 +210,7 @@ export function ClarifyDraftCard({ draft, userId, onChanged, earlier = false, me
             )}
           </div>
         }
-      >
-        {!earlier && (
-          <div className="mt-2">
-            <p className="mb-1 text-xs text-muted-foreground" data-testid="clarify-position-label">{POSITION_LABEL}</p>
-            <div role="presentation">
-              <PositionButtons userPosition={position} counts={NO_COUNTS} compact onPositionClick={(p) => void choose(p)} onClear={() => void choose(null)} />
-            </div>
-          </div>
-        )}
-      </PointCardShell>
+      />
       {deleting && (
         <ConfirmDialog
           title={DELETE_TITLE}

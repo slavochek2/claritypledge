@@ -16,15 +16,18 @@ import { ANOTHER_POINT_LABEL, CAPPED_TEXT, FAILED_TEXT, LOAD_FAILED_TEXT, NO_SPL
 import { earlierDraftIds, mayAddAnother } from './clarify-timeline';
 import type { ClarifyActions } from './use-clarify-actions';
 
-/** One Mirror message: its face, its name, then what it says. */
+/**
+ * One Mirror message: its face and name on one line, then what it says UNDER them across the whole width. Beside the face the card would lose 46px, and the
+ * position row (which drops its words below 270px) would show icons only in a 370px side panel; under it, the row keeps its words from a 320px screen up.
+ */
 function AgentTurn({ name, children, testId }: { name: string; children: ReactNode; testId?: string }) {
   return (
-    <div className="mx-2 flex gap-2.5 px-2 pt-2.5" data-testid={testId ?? 'clarify-agent-turn'}>
-      <div className="w-9 shrink-0"><MirrorMark size="md" /></div>
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <p className="truncate text-[15px] font-semibold leading-6 text-foreground" data-testid="clarify-agent-name">{name}</p>
-        {children}
+    <div className="min-w-0 max-w-full space-y-1.5 px-3 pt-2.5" data-testid={testId ?? 'clarify-agent-turn'}>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <MirrorMark size="md" />
+        <p className="min-w-0 truncate text-[15px] font-semibold leading-6 text-foreground" data-testid="clarify-agent-name">{name}</p>
       </div>
+      {children}
     </div>
   );
 }
@@ -106,7 +109,7 @@ export function ClarifyDraftsView(props: ClarifyDraftsViewProps) {
   const another = last && mayAddAnother(all);
   if (drafts.length === 0 && !another && !(first && failed)) return null;
   return (
-    <div className="space-y-1" data-testid="clarify-drafts">
+    <div className="min-w-0 max-w-full space-y-1" data-testid="clarify-drafts">
       {first && failed && (
         <div role="alert" data-testid="clarify-load-failed" className="flex flex-wrap items-center gap-x-2 px-3 text-sm text-muted-foreground">
           <span>{LOAD_FAILED_TEXT}</span>
@@ -116,8 +119,7 @@ export function ClarifyDraftsView(props: ClarifyDraftsViewProps) {
       {drafts.map((d) => <DraftTurn key={d.id} draft={d} props={props} earlier={earlier} />)}
       {another && (
         // under the latest card, in the card's column: the product's bordered secondary button
-        <div className="flex gap-2.5 px-4 pt-1">
-          <div className="w-9 shrink-0" aria-hidden="true" />
+        <div className="flex px-3 pt-1">
           <Button type="button" variant="outline" className="h-11 min-h-11" onClick={actions.onAnother} data-testid="clarify-another">
             {ANOTHER_POINT_LABEL}
           </Button>

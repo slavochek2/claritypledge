@@ -13,6 +13,8 @@ export interface ClarifyThreadState {
   loaded: boolean;
   failed: boolean;
   reload: () => Promise<void>;
+  /** The server has just queued this draft again (a Try again): show it as being made at once, before the next read confirms it. */
+  markQueued: (draftId: string) => void;
 }
 
 export function useClarifyThread(threadRootId: string | null): ClarifyThreadState {
@@ -87,5 +89,12 @@ export function useClarifyThread(threadRootId: string | null): ClarifyThreadStat
     return () => clearInterval(t);
   }, [working, reload]);
 
-  return { drafts, loaded, failed, reload };
+  const markQueued = useCallback((draftId: string) => {
+    // Never older than a read already applied: bump `applied` so a read that was issued before this moment cannot put the failure back.
+    // one past the newest request issued so far: every read already in flight is older, and is dropped
+    applied.current = issued.current + 1;
+    setDrafts((all) => all.map((d) => (d.id === draftId ? { ...d, state: 'queued', errorCode: null } : d)));
+  }, []);
+
+  return { drafts, loaded, failed, reload, markQueued };
 }
