@@ -25,8 +25,6 @@ vi.mock('@/app/data/event-mastermind-service', () => ({
   makeMyNextVersion: vi.fn(),
   getMyRoundCanvas: vi.fn().mockResolvedValue({ ownerProfileId: 'p-owner', ownerSlug: 'haru', canvasName: 'launch_plan', shared: true }),
   getMyNextVersionOffer: vi.fn().mockResolvedValue({ state: 'none', roundId: null }),
-  getMyUpdateState: vi.fn().mockResolvedValue({ state: 'not_tapped', draftId: null, revision: null, runId: null }),
-  getCanvasUpdateStep: vi.fn().mockResolvedValue(null),
   getMyDraftRef: vi.fn().mockResolvedValue(null),
   getMyEventCanvas: vi.fn().mockResolvedValue(null),
   getEveningEnd: vi.fn().mockResolvedValue(null),
@@ -38,7 +36,6 @@ vi.mock('@/app/contexts/room-capture-context', () => ({ useRoomCapture: () => h.
 
 import { MastermindRoundCard } from '@/app/prototypes/events/rounds/MastermindRoundCard';
 import { RESTORE_WAIT_MS } from '@/app/prototypes/events/rounds/use-round-mic';
-import { resetTaskOpen } from '@/app/prototypes/events/rounds/task-open-store';
 
 const round = (over: Partial<EventRound> = {}): EventRound => ({
   id: 'r1', roundNo: 1, groupSize: 3, startedAt: new Date().toISOString(), endedAt: null,
@@ -67,7 +64,6 @@ const element = (self: EventRoomMember) => (
 const renderCard = (self: EventRoomMember = PARTNER) => render(element(self));
 
 beforeEach(() => {
-  resetTaskOpen();
   vi.clearAllMocks();
   try { sessionStorage.clear(); localStorage.clear(); } catch { /* none */ }
   h.startCapture.mockResolvedValue({ started: true });

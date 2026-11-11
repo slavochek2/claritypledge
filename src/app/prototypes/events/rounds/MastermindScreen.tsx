@@ -3,7 +3,7 @@
  * @description P1529 §5: the sales mastermind's projector (`?view=screen` while the event's flow is the mastermind).
  * It shows the round's name, the clock, every table (its number, the Clarity Canvas owner, their partner and the
  * observers). The rules are spoken and on the lanyard badges, so no rule line. It never shows a pair's phase or a half-time swap, and has no swap bell: the
- * round's end-of-round bell is the shared one. While the canvas-update step is on it says so. Readable from a distance.
+ * round's end-of-round bell is the shared one. Readable from a distance.
  * Every sentence is a draft: [FOUNDER DECISION: copy].
  */
 import { type CSSProperties } from 'react';
@@ -18,7 +18,7 @@ import { SCREEN_CARD_MAX_EM, SCREEN_GAP, SCREEN_PAD, screenLayout } from '@/lib/
 import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
 import { Avatar, ClockNumber, PhaseStrip, groupByTable, tableSeats, useBell, useClock, useRoundBell, useViewport } from './host-screen-parts';
 import { firstName, shortName } from './use-event-rounds';
-import { COLUMN_LABELS, SCREEN_PART_CAPTION, SCREEN_UPDATE_LINE, SCREEN_UPDATE_TITLE } from './mastermind-host-helpers';
+import { COLUMN_LABELS, SCREEN_PART_CAPTION } from './mastermind-host-helpers';
 
 /** The header: the round name, the time left and the clock on one row, the phase strip full width on a row under it. */
 const MASTERMIND_HEADER = 190;
@@ -26,15 +26,13 @@ const MASTERMIND_HEADER = 190;
 /** screenLayout counts 2.1 type-heights per seat; a role name above the face makes it about 3. */
 const SEAT_HEIGHT_WITH_ROLE = 3 / 2.1;
 
-export function MastermindScreen({ round, rounds, seats, byId, room, ended, updateOn }: {
+export function MastermindScreen({ round, rounds, seats, byId, room, ended }: {
   round: EventRound | null;
   rounds: EventRound[];
   seats: Seat[];
   byId: Map<string, EventRoomMember>;
   room: EventRoomMember[];
   ended: boolean;
-  /** The host's canvas-update step is on. */
-  updateOn: boolean;
 }) {
   const clock = useClock(round, seats);
   const hasObserver = seats.some(s => s.role === 'observer');
@@ -78,14 +76,7 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended, upda
       >
         {bell.on ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
       </button>
-      {updateOn ? (
-        <div className="grid min-h-[80vh] flex-1 place-items-center text-center" data-testid="screen-update-on">
-          <div>
-            <h1 className="text-5xl font-semibold sm:text-7xl">{SCREEN_UPDATE_TITLE}</h1>
-            <p className="mx-auto mt-8 max-w-4xl text-2xl text-muted-foreground sm:text-4xl">{SCREEN_UPDATE_LINE}</p>
-          </div>
-        </div>
-      ) : round && clock && timing ? (
+      {round && clock && timing ? (
         <>
           <div className={cn('flex flex-col justify-center gap-3', wide && 'overflow-hidden')} style={wide ? { height: MASTERMIND_HEADER - SCREEN_GAP } : undefined}>
             <div className={cn('flex gap-x-10 gap-y-4', wide ? 'items-center' : 'flex-col')}>

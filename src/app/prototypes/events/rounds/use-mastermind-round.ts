@@ -6,22 +6,16 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  getCanvasUpdateStep,
   getEveningEnd,
   getMyDraftRef,
   getMyEventCanvas,
   getMyNextVersionOffer,
   getMyRoundCanvas,
-  getMyUpdateState,
   makeMyNextVersion,
-  type CanvasUpdateStep,
-  type MyUpdateState,
   type NextVersionOffer,
   type RoundCanvas,
 } from '@/app/data/event-mastermind-service';
 import { startVisiblePoll } from '@/lib/visible-poll';
-import { whenVisible } from '../when-visible';
-import { countedRounds } from '@/lib/round-numbering';
 import type { EventRound } from '@/app/data/event-rounds-service';
 import { canvasService, type SharedCanvasRef } from '@/app/data/canvas-service';
 import { getCanvasDraftState, publishCanvasDraft, retryCanvasRun } from '@/app/data/canvas-draft-service';
@@ -33,13 +27,10 @@ import {
   eveningEndedAfter,
   nextVersionNote,
   offerCanChange,
-  updateCanChange,
-  updateStepOn,
   type TaskNote,
 } from './mastermind-round-helpers';
 
-const OFFER_POLL_MS = 8000;
-const UPDATE_POLL_MS = 5000;
+const OFFER_POLL_MS = 5000;
 
 /** Runs `read` now, and again every `ms` while `active`; a tab returning to view reads at once. Stops on unmount. */
 function usePoll(read: () => Promise<void>, active: boolean, ms: number) {
@@ -89,29 +80,6 @@ export function useEventCanvasChoices(eventId: string, enabled: boolean, roundId
 }
 
 /**
- * The update step the host started: re-read when the rounds change (a round that ends with the step starting changes them). Starting the
- * step after "End round 2" changes nothing in the rounds, so `watch` (the gap after counted round 2, step not seen yet, evening not over)
- * also reads it every GAP_POLL_MS, on a visible tab only.
- */
-export function useUpdateStep(eventId: string, enabled: boolean, roundsKey: string, watch = false, rounds: ReadonlyArray<{ id: string; endedAt: string | null }> = []): CanvasUpdateStep | null {
-  const [step, setStep] = useState<CanvasUpdateStep | null>(null);
-  const read = useCallback(async () => {
-    try { setStep(await getCanvasUpdateStep(eventId)); } catch { /* keep what is shown */ }
-  }, [eventId]);
-  // A hidden tab makes no request: the read waits for the tab to be shown (when-visible.ts).
-  useEffect(() => {
-    if (!enabled) return;
-    return whenVisible(() => void read());
-  }, [enabled, read, roundsKey]);
-  const seen = updateStepOn(step, rounds);
-  useEffect(() => {
-    if (!enabled || !watch || seen) return;
-    return startVisiblePoll(() => void read(), GAP_POLL_MS);
-  }, [enabled, watch, seen, read]);
-  return step;
-}
-
-/**
  * When the host ended the evening (null: not ended; undefined: not read yet). Read only while `watch` (no round on, rounds behind us,
  * event not closed) and the evening is not over: once over it is never read again; a round running needs no read (ending the evening
  * ends it, and the next watch starts with a read). The first read and the poll both wait for a visible tab (startVisiblePoll's own
@@ -134,11 +102,8 @@ export function useEveningEnd(eventId: string, enabled: boolean, rounds: Readonl
   return endedAt;
 }
 
-/**
- * The gap between rounds, as a phone reads it: the evening's stamp and the update step (see the two hooks above), and what follows.
- * The stamp wins over a step it came after, so the host ending the evening during the step ends it for the phones too.
- */
-export function useRoundsGap({ eventId, enabled, rounds, round, ended, roundsKey }: {
+/** The gap between rounds, as a phone reads it: the evening's stamp, and what follows. */
+export function useRoundsGap({ eventId, enabled, rounds, round, ended }: {
   eventId: string;
   enabled: boolean;
   rounds: readonly EventRound[];
@@ -146,78 +111,100 @@ export function useRoundsGap({ eventId, enabled, rounds, round, ended, roundsKey
   round: unknown;
   /** The event itself has closed. */
   ended: boolean;
-  roundsKey: string;
 }) {
   const gap = !ended && !round && rounds.length > 0;
   const eveningEnd = useEveningEnd(eventId, enabled, rounds, gap);
-  const stampOver = eveningEndedAfter(eveningEnd ?? null, rounds);
-  const step = useUpdateStep(eventId, enabled, roundsKey, gap && !stampOver && countedRounds(rounds) === 2, rounds);
-  const stepOn = updateStepOn(step, rounds, eveningEnd ?? null);
-  const idle = gap && !stepOn;
-  return { eveningEnd, stepOn, eveningOver: idle && stampOver, betweenRounds: idle && eveningEnd !== undefined && !stampOver, idle };
+  const eveningOver = gap && eveningEndedAfter(eveningEnd ?? null, rounds);
+  return { eveningEnd, eveningOver, betweenRounds: gap && eveningEnd !== undefined && !eveningOver, idle: gap };
 }
 
 export interface OwnerUpdate {
   offer: NextVersionOffer | null;
-  update: MyUpdateState | null;
-  /** The address parts of the open draft, for "look at it and tweak first". */
+  /** The address parts of the open draft, for "Preview first". */
   draft: { canvasId: string; canvasName: string | null; versionName: string | null } | null;
   note: TaskNote | null;
   busy: boolean;
+  /** The one-tap chain's publish was refused: the finished draft offers Try again. */
+  publishFailed: boolean;
+  /** "Create next version": drafts and publishes. */
   make: () => Promise<void>;
+  /** "Preview first": drafts without publishing, then hands the draft's address to `open`. */
+  preview: (open: (draft: { canvasName: string | null; versionName: string | null } | null) => void) => Promise<void>;
   publish: () => Promise<void>;
   retry: () => Promise<void>;
 }
 
-export function useOwnerUpdate(eventId: string, enabled: boolean, roundsKey: string): OwnerUpdate {
-  const [offer, setOffer] = useState<NextVersionOffer | null>(null);
-  const [update, setUpdate] = useState<MyUpdateState | null>(null);
-  const [draft, setDraft] = useState<OwnerUpdate['draft']>(null);
-  const [note, setNote] = useState<TaskNote | null>(null);
-  const [busy, setBusy] = useState(false);
-  const alive = useRef(true);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-
+/** Reads the offer on mount, when the rounds move and when the tab returns. */
+function useOfferReads(
+  eventId: string,
+  enabled: boolean,
+  roundsKey: string,
+  setOffer: (offer: NextVersionOffer) => void,
+  alive: { current: boolean },
+) {
   const readOffer = useCallback(async () => {
     try { const next = await getMyNextVersionOffer(eventId); if (alive.current) setOffer(next); } catch { /* keep what is shown */ }
-  }, [eventId]);
-  const readUpdate = useCallback(async () => {
-    try { const next = await getMyUpdateState(eventId); if (alive.current) setUpdate(next); } catch { /* keep what is shown */ }
-  }, [eventId]);
-  const readBoth = useCallback(async () => { await Promise.all([readOffer(), readUpdate()]); }, [readOffer, readUpdate]);
-
+  }, [eventId, setOffer, alive]);
   useEffect(() => {
-    if (enabled) void readBoth();
-  }, [enabled, roundsKey, readBoth]);
+    if (enabled) void readOffer();
+  }, [enabled, roundsKey, readOffer]);
   useEffect(() => {
     if (!enabled) return;
-    const onVisible = () => { if (document.visibilityState === 'visible') void readBoth(); };
+    const onVisible = () => { if (document.visibilityState === 'visible') void readOffer(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [enabled, readBoth]);
+  }, [enabled, readOffer]);
+  return { readOffer };
+}
 
-  // The draft's address parts, once it exists; the expire read below needs its canvas.
-  const draftId = update?.draftId ?? null;
+/** The open draft's address parts, once it exists (for "Preview first" and the expire read). */
+function useDraftAddress(eventId: string, draftId: string | null): OwnerUpdate['draft'] {
+  const [draft, setDraft] = useState<OwnerUpdate['draft']>(null);
   useEffect(() => {
     if (!draftId) { setDraft(null); return; }
     let live = true;
     Promise.all([getMyDraftRef(draftId), getMyEventCanvas(eventId)])
       .then(([d, c]) => { if (live) setDraft(d ? { ...d, canvasName: c?.name ?? null } : null); })
-      .catch(() => { /* the tweak link just stays hidden */ });
+      .catch(() => { /* the preview link just stays hidden */ });
     return () => { live = false; };
   }, [draftId, eventId]);
+  return draft;
+}
 
-  // While a draft is being written: the database fails a run past its lease only when asked (get_canvas_draft_state), so
-  // each poll asks, then reads the state.
-  const drafting = updateCanChange(update);
+/** One tap of "Create next version" (autoPublish) or "Preview first": the sentence to show, and the draft it made. */
+async function startRun(offer: NextVersionOffer | null, autoPublish: boolean): Promise<{ note: TaskNote | null; draftId: string | null }> {
+  if (!offer?.roundId) return { note: { kind: 'error', text: NOTE_FAILED }, draftId: null };
+  const result = await makeMyNextVersion(offer.roundId, autoPublish);
+  return { note: nextVersionNote(result), draftId: result.status === 'started' ? result.draftId : null };
+}
+
+/**
+ * The owner's current next version, one owned round at a time (see get_my_next_version_offer). Publishing is chained here, not on the
+ * server: publish_canvas_draft acts as the signed-in owner (auth.uid()), so a service-side hook has no caller to act as. The tap stores
+ * its intent (`autoPublish`) in the database, so any read that finds a finished draft of a one-tap round publishes it, however slow or
+ * closed the phone was meanwhile, and each draft is tried once per mount (a refusal shows Try again).
+ */
+export function useOwnerUpdate(eventId: string, enabled: boolean, roundsKey: string): OwnerUpdate {
+  const [offer, setOffer] = useState<NextVersionOffer | null>(null);
+  const [note, setNote] = useState<TaskNote | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failedDraft, setFailedDraft] = useState<string | null>(null);
+  const alive = useRef(true);
+  const attempted = useRef(new Set<string>());
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+
+  const { readOffer } = useOfferReads(eventId, enabled, roundsKey, setOffer, alive);
+  const draft = useDraftAddress(eventId, offer?.draftId ?? null);
+  const draftId = offer?.draftId ?? null;
+
+  // While a draft is being written: the database fails a run past its lease only when asked (get_canvas_draft_state), so each poll asks.
   const canvasId = draft?.canvasId ?? null;
+  const drafting = offer?.state === 'drafting';
   const readDrafting = useCallback(async () => {
-    if (canvasId) { try { await getCanvasDraftState(canvasId); } catch { /* the plain read below still tells */ } }
-    await readUpdate();
-  }, [canvasId, readUpdate]);
-  usePoll(readDrafting, enabled && drafting, UPDATE_POLL_MS);
-  // While the round's words are being cleaned the wait is short and the button should follow it closely: the update cadence.
-  usePoll(readOffer, enabled && offerCanChange(offer), offer?.state === 'transcript_pending' ? UPDATE_POLL_MS : OFFER_POLL_MS);
+    if (canvasId && drafting) { try { await getCanvasDraftState(canvasId); } catch { /* the plain read below still tells */ } }
+    await readOffer();
+  }, [canvasId, drafting, readOffer]);
+  usePoll(readDrafting, enabled && offerCanChange(offer), OFFER_POLL_MS);
 
   const guard = async (work: () => Promise<TaskNote | null>) => {
     setBusy(true);
@@ -227,28 +214,50 @@ export function useOwnerUpdate(eventId: string, enabled: boolean, roundsKey: str
     } catch {
       if (alive.current) setNote({ kind: 'error', text: NOTE_FAILED });
     } finally {
-      // Busy until the re-read has landed, so a started draft shows "drafting" instead of the button flashing back.
-      try { await readBoth(); } finally { if (alive.current) setBusy(false); }
+      // Busy until the re-read has landed, so a started draft shows its state instead of the button flashing back.
+      try { await readOffer(); } finally { if (alive.current) setBusy(false); }
     }
   };
 
-  const make = () => guard(async () => {
-    if (!offer?.roundId) return { kind: 'error', text: NOTE_FAILED };
-    return nextVersionNote(await makeMyNextVersion(offer.roundId));
-  });
+  const doPublish = async (): Promise<TaskNote | null> => {
+    if (!offer?.draftId || offer.revision === null) return null;
+    const r = await publishCanvasDraft(offer.draftId, offer.revision);
+    if (r.ok) { setFailedDraft(null); return null; }
+    setFailedDraft(offer.draftId);
+    return { kind: 'error', text: PUBLISH_REFUSED[r.refused] ?? NOTE_FAILED };
+  };
 
-  const publish = () => guard(async () => {
-    if (!update?.draftId || update.revision === null) return null;
-    const r = await publishCanvasDraft(update.draftId, update.revision);
-    return r.ok ? null : { kind: 'error', text: PUBLISH_REFUSED[r.refused] ?? NOTE_FAILED };
-  });
+  // The chain: a finished draft of a one-tap round is published once, by whichever screen reads it first.
+  const chainKey = offer?.state === 'ready' && offer.autoPublish && offer.draftId ? `${offer.draftId}:${offer.revision}` : null;
+  useEffect(() => {
+    if (!enabled || !chainKey || attempted.current.has(chainKey)) return;
+    attempted.current.add(chainKey);
+    void guard(async () => {
+      try { return await doPublish(); } catch { setFailedDraft(offer?.draftId ?? null); return { kind: 'error', text: NOTE_FAILED }; }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one attempt per finished draft (chainKey), not per render
+  }, [enabled, chainKey]);
+
+  const make = () => guard(async () => (await startRun(offer, true)).note);
+
+  const preview: OwnerUpdate['preview'] = async open => {
+    let made: string | null = null;
+    await guard(async () => { const r = await startRun(offer, false); made = r.draftId; return r.note; });
+    if (!made) return;
+    try {
+      const [d, c] = await Promise.all([getMyDraftRef(made), getMyEventCanvas(eventId)]);
+      open(d ? { canvasName: c?.name ?? null, versionName: d.versionName } : null);
+    } catch { open(null); }
+  };
+
+  const publish = () => guard(doPublish);
 
   const retry = () => guard(async () => {
-    if (!update?.draftId || update.revision === null || !update.runId) return null;
-    const r = await retryCanvasRun({ draftId: update.draftId, failedRunId: update.runId, expectedRevision: update.revision, clientId: crypto.randomUUID() });
+    if (!offer?.draftId || offer.revision === null || !offer.runId) return null;
+    const r = await retryCanvasRun({ draftId: offer.draftId, failedRunId: offer.runId, expectedRevision: offer.revision, clientId: crypto.randomUUID() });
     if (!r.ok) return { kind: 'error', text: RETRY_REFUSED[r.refused] ?? NOTE_FAILED };
     return r.start && !r.start.ok ? { kind: 'error', text: 'Your mirror could not start the draft. Try again in a moment.' } : null;
   });
 
-  return { offer, update, draft, note, busy, make, publish, retry };
+  return { offer, draft, note, busy, publishFailed: !!draftId && failedDraft === draftId, make, preview, publish, retry };
 }

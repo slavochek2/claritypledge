@@ -3,7 +3,7 @@
  * @description P1529 §5 and §6: the words and the small rules of the sales mastermind's round screen, apart from any
  * component. Every attendee sentence here is a draft: [FOUNDER DECISION: copy]. The table's lines name roles as the founder asked: owner, partner, observer.
  */
-import type { CanvasUpdateStep, MyUpdateState, NextVersionOffer, NextVersionResult } from '@/app/data/event-mastermind-service';
+import type { NextVersionOffer, NextVersionResult } from '@/app/data/event-mastermind-service';
 import type { RoundSeat } from '@/app/data/event-rounds-service';
 
 /** The seat roles the mastermind reuses (§5): `first` is the Clarity Canvas owner, `second` their partner. */
@@ -36,25 +36,11 @@ export function tableLines(table: RoundSeat[], mineId: string, nameOf: (id: stri
 export const MISSING_NAME = 'Someone';
 
 /**
- * How often a screen reads what can change while no round runs (the evening's end stamp, and the canvas-update step after round 2):
+ * How often a screen reads what can change while no round runs (the evening's end stamp):
  * only while the newest round has ended, the evening is not over, and the tab is visible. 3600 / 8 = 450 requests an hour per
  * screen in that window, 0 outside it (spec Cost Budget).
  */
 export const GAP_POLL_MS = 8000;
-
-/**
- * The host's canvas-update step is on while its round is still the newest and that round has ended, unless the host ended the
- * evening after the step started: the evening's stamp wins over the step. `eveningEndedAt` is the stamp (null: none).
- */
-export function updateStepOn(
-  step: CanvasUpdateStep | null,
-  rounds: ReadonlyArray<{ id: string; endedAt: string | null }>,
-  eveningEndedAt: string | null = null,
-): boolean {
-  const last = rounds[rounds.length - 1];
-  if (!step || !last || !last.endedAt || step.afterRoundId !== last.id) return false;
-  return !(eveningEndedAt && new Date(eveningEndedAt).getTime() >= new Date(step.startedAt).getTime());
-}
 
 /**
  * The host's "End the evening" stamp (see getEveningEnd) is at or after the newest round's start. A Reopen starts a newer round, so an
@@ -76,66 +62,51 @@ export function waitingWords(args: { runningLabel: string | null; showcase: bool
   return { title: `${args.nextLabel} starts soon`, body: 'The host starts it. Your table and role appear here.' };
 }
 
-/** What the owner's task shows. `make` and `pending` both carry the Make button; `pending` adds the "still arriving" sentence. */
+/** What the owner's round card shows. `make` has the two taps; the rest are states of one round's offer. */
 export type TaskFace =
-  | 'drafting' | 'ready' | 'failed' | 'published'
-  | 'make' | 'pending' | 'no_recording' | 'no_canvas' | 'draft_open';
+  | 'make' | 'pending' | 'missing' | 'creating' | 'ready' | 'failed' | 'published'
+  | 'no_recording' | 'no_canvas' | 'draft_open';
 
-/** Which face (if any) the Clarity Canvas owner's task has, from the two server reads. Pure. */
-export function taskFace(offer: NextVersionOffer | null, update: MyUpdateState | null): TaskFace | null {
-  const u = update?.state;
-  if (u === 'drafting' || u === 'ready' || u === 'failed') return u;
-  // A published version this evening is the end of the task: the button does not come back (a second draft is the
-  // owner's own choice, in their workspace).
-  if (u === 'published') return 'published';
+/**
+ * Which face (if any) the round card has, from the server's current offer. Pure. `publishFailed`: the one-tap chain's publish was
+ * refused, so a finished draft shows "Try again" instead of the creating state.
+ */
+export function taskFace(offer: NextVersionOffer | null, publishFailed = false): TaskFace | null {
   switch (offer?.state) {
     case 'offer': return 'make';
     case 'transcript_pending': return 'pending';
+    case 'transcript_missing': return 'missing';
+    case 'drafting': return 'creating';
+    // A finished draft of a one-tap round is being published by the chain; a "Preview first" draft waits for the owner.
+    case 'ready': return offer.autoPublish && !publishFailed ? 'creating' : 'ready';
+    case 'failed': return 'failed';
+    case 'published': return 'published';
     case 'no_recording': return 'no_recording';
     case 'no_canvas': return 'no_canvas';
     case 'draft_open': return 'draft_open';
-    case 'started': return 'drafting';
     default: return null;
   }
 }
 
-/** True while a read of either state can still change by itself: drafting, the round's clock running, the words arriving. */
+/** True while a read of the offer can still change by itself: the words arriving, a draft being written or published. */
 export const offerCanChange = (offer: NextVersionOffer | null): boolean =>
-  !offer || offer.state === 'round_on' || offer.state === 'transcript_pending';
-export const updateCanChange = (update: MyUpdateState | null): boolean => update?.state === 'drafting';
-
-/** The one quiet line the task shrinks to while the person is seated in a round. */
-export const COLLAPSED_LINE: Record<TaskFace, string> = {
-  drafting: 'Your next version: being drafted',
-  ready: 'Your next version: ready to publish',
-  failed: 'Your next version: did not work',
-  published: 'Your next version: published',
-  make: 'Your next version: you can make it now',
-  pending: 'Your next version: the words are being prepared',
-  no_recording: 'No recording from your last round',
-  no_canvas: 'Your next version: no Clarity Canvas shared',
-  draft_open: 'Your next version: a draft is already open',
-};
+  !offer || offer.state === 'transcript_pending' || offer.state === 'drafting' || (offer.state === 'ready' && offer.autoPublish);
 
 /**
- * [FOUNDER DECISION: copy, proposed] The wait while a round's words are cleaned. The number is the schedule, not a measurement: the
- * clean job is due 40 s after the round ends (p1596 migration, `ended_at + interval '40 seconds'`), a minute-by-minute cron
- * dispatches it (0 to 60 s more), and the cleaning itself comes after. The app's own sentence for the same wait says
- * "about 2 minutes" (capture-copy.ts EVENT_TEXT_ARRIVES).
+ * [FOUNDER DECISION: copy, proposed] The card's words. `label` is the round's label (roundLabel, D12 wording); `partner` the partner's first
+ * name, or null when the table had none.
  */
-export const WORDS_PREPARING = "Your round's words are being prepared. This usually takes about 2 minutes.";
-
-/** [FOUNDER DECISION: copy, proposed] Which round and which version the next version is made from (see get_my_next_version_offer). */
-export const taskTitle = (roundName: string | null): string => (roundName ? `Your next version from ${roundName.toLowerCase()}` : 'Your next version');
-export const taskSource = (roundName: string): string => `Built from ${roundName.toLowerCase()}\u2019s conversation, starting from your latest published version.`;
+export const taskTitle = (label: string, partner: string | null): string => (partner ? `${label} with ${partner}: words ready` : `${label}: words ready`);
+export const wordsPreparing = (label: string): string => `The words from ${label} are being prepared (about 2 minutes)`;
+export const wordsMissing = (label: string): string => `The words from ${label} did not arrive. Your canvas stays as it is.`;
 
 /** `face`: the task face that already says this, so the note is not shown twice once the state is re-read. */
 export interface TaskNote { kind: 'info' | 'error'; text: string; face?: TaskFace }
 
 const REFUSED: Record<string, string> = {
   demo_round: 'A Demo round does not make a next version.',
-  round_still_on: 'Your round is still on. Try again when its clock is over.',
-  next_owning_round_started: 'Your next round has started, so this version can no longer be made.',
+  round_still_on: 'Your round is still on. Try again when the host has ended it.',
+  round_already_used: 'This round already made its next version.',
   draft_already_open: 'You already have a draft open. Publish it or discard it in your drafts first.',
   cap_reached: 'You have used all the mirror runs this Clarity Canvas allows.',
   busy: 'Your mirror is busy with another run. Try again in a moment.',
@@ -150,8 +121,9 @@ export function nextVersionNote(result: NextVersionResult): TaskNote | null {
       return result.start && !result.start.ok
         ? { kind: 'error', text: 'Your mirror could not start the draft. If it does not begin, it will offer Try again.' }
         : null;
-    case 'transcript_pending': return { kind: 'info', text: WORDS_PREPARING, face: 'pending' };
+    case 'transcript_pending': return { kind: 'info', text: 'The words are still being prepared (about 2 minutes)', face: 'pending' };
     case 'no_recording': return { kind: 'info', text: 'No recording from this round', face: 'no_recording' };
+    case 'published': return null;
     case 'no_canvas': return { kind: 'error', text: 'You have no Clarity Canvas shared with this event, so there is nothing to update.', face: 'no_canvas' };
     case 'refused': return { kind: 'error', text: REFUSED[result.code] ?? GENERIC };
   }

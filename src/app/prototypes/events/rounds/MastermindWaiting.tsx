@@ -10,7 +10,7 @@ import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
 import { waitingWords } from './mastermind-round-helpers';
 import { MastermindOtherCanvases } from './MastermindOtherCanvases';
 
-export function MastermindWaiting({ eventId, rounds, round, view, showWaiting, between, over, updateStepOn, task }: {
+export function MastermindWaiting({ eventId, rounds, round, view, showWaiting, between, over, task }: {
   eventId: string;
   rounds: EventRound[];
   /** The round that is on, if any. */
@@ -22,7 +22,6 @@ export function MastermindWaiting({ eventId, rounds, round, view, showWaiting, b
   between: boolean;
   /** The evening is over (the host ended it, or the event closed). */
   over: boolean;
-  updateStepOn: boolean;
   task: ReactNode;
 }) {
   const last = rounds[rounds.length - 1];
@@ -32,7 +31,8 @@ export function MastermindWaiting({ eventId, rounds, round, view, showWaiting, b
     betweenLabel: between && last ? roundLabel(rounds, last) : null,
     nextLabel: nextRoundLabel(rounds, false),
   });
-  const card = showWaiting && view === 'table' && (
+  // One focus between rounds: the owner's card if there is one, else "{round} is over".
+  const card = showWaiting && view === 'table' && !task && (
     <section className="rounded-xl border border-border bg-card p-5" data-testid={between ? 'mastermind-between' : 'mastermind-waiting'}>
       <h2 className="text-xl font-semibold">{words.title}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{words.body}</p>
@@ -45,6 +45,6 @@ export function MastermindWaiting({ eventId, rounds, round, view, showWaiting, b
     </section>
   );
   // One focus at a time: the state, then the owner's task, then (collapsed) the other canvases as a backup.
-  const backup = card && <MastermindOtherCanvases eventId={eventId} />;
-  return updateStepOn ? <>{task}{card}{backup}</> : <>{end}{card}{task}{backup}</>;
+  const backup = (card || (showWaiting && view === 'table' && task)) && <MastermindOtherCanvases eventId={eventId} />;
+  return <>{end}{card}{task}{backup}</>;
 }

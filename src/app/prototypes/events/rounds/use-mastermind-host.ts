@@ -2,28 +2,23 @@
  * @file use-mastermind-host.ts
  * @description P1529 §1, §3, §4, §7: what the host screen and the projector read for the sales mastermind, apart from
  * the Clarity Night page: the event's flow (a switch is followed without a reload), the per-person host state
- * (canvas, observer, phone, recording), the seating plan and its check, the ready mark and the canvas-update step.
+ * (canvas, observer, phone, recording), the seating plan and its check, and the ready mark. The host has no canvas-update step: each owner updates from their own round card.
  *
  * Nothing here runs for another flow: every read starts only while the mastermind is the flow, so Clarity Night and
  * Social Hike make no new calls.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  getCanvasUpdateStep,
   getEveningEnd,
   getMastermindHostState,
-  getMastermindUpdateStates,
   getPreviousSessionPartners,
   hostSetObserver,
-  hostStartCanvasUpdate,
   isCanvasHolder,
   recordingState,
-  type CanvasUpdateStep,
   type MastermindPerson,
   type RecordingState,
-  type UpdateState,
 } from '@/app/data/event-mastermind-service';
-import { ROUNDS_POLL_MS, hostEndRound, hostEndRounds, seatKeys, type EventRound, type RoundSeat } from '@/app/data/event-rounds-service';
+import { hostEndRound, hostEndRounds, seatKeys, type EventRound, type RoundSeat } from '@/app/data/event-rounds-service';
 import { planMastermindRound, type MastermindSeatingPlan } from '@/lib/mastermind-seating';
 import { checkMastermindSeats, type SeatingProblem } from '@/lib/mastermind-seating-check';
 import { countedRounds } from '@/lib/round-numbering';
@@ -32,7 +27,7 @@ import type { Seat } from '@/lib/round-grouping';
 import type { EventRoomMember } from '@/app/types';
 import { eventFlow, type EventFlow, type FlowEvent } from '../series-recipes';
 import { describeProblem, isUnregistered, PLAN_NOT_READY } from './mastermind-host-helpers';
-import { GAP_POLL_MS, eveningEndedAfter, updateStepOn } from './mastermind-round-helpers';
+import { GAP_POLL_MS, eveningEndedAfter } from './mastermind-round-helpers';
 
 /** Anything a person is waiting for shows within about 4 seconds (spec Cost Budget): the host screen re-reads this often, on a visible tab only. */
 export const HOST_STATE_POLL_MS = 4_000;
@@ -71,10 +66,6 @@ export interface MastermindHost {
   check: (seats: Seat[], roundNo: number, poolIds: string[]) => SeatingProblem[];
   /** Why a round cannot be proposed at all (nobody can own a table yet), or null. */
   guardOpen: (roundNo: number, poolIds: string[]) => string | null;
-  step: CanvasUpdateStep | null;
-  stepOn: boolean;
-  updateStates: Map<string, UpdateState>;
-  startUpdate: () => Promise<void>;
   /** The host's "End the evening" stamp is at or after the newest round's start. A round ended with no stamp is "between rounds". */
   eveningOver: boolean;
   /** Ends the newest round only ("End round N"). */
@@ -87,7 +78,7 @@ interface Args {
   eventId: string | undefined;
   /** The event's flow is the mastermind. */
   active: boolean;
-  /** The projector: it needs only the update step. */
+  /** The projector. */
   screen: boolean;
   rounds: EventRound[];
   seatsByRound: Map<string, RoundSeat[]>;
@@ -103,8 +94,6 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
   const [previous, setPrevious] = useState<[string, string][] | null>(null);
   const [previousFailed, setPreviousFailed] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
-  const [step, setStep] = useState<CanvasUpdateStep | null>(null);
-  const [updateStates, setUpdateStates] = useState<Map<string, UpdateState>>(new Map());
   const host = active && !!eventId;
 
   const refreshState = useCallback(async () => {
@@ -140,31 +129,13 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
 
   const counted = countedRounds(rounds);
   const lastRound = rounds[rounds.length - 1];
-  const readStep = useCallback(async () => {
-    if (!eventId) return;
-    try { setStep(await getCanvasUpdateStep(eventId)); } catch { /* keep what is shown */ }
-  }, [eventId]);
   const [eveningEnd, setEveningEnd] = useState<string | null>(null);
   const readEvening = useCallback(async () => {
     if (!eventId) return;
     try { setEveningEnd(await getEveningEnd(eventId)); } catch { /* keep what is shown */ }
   }, [eventId]);
-  // The host's stamp: the evening is over when it is at or after the newest round's start, and it wins over a step it came after.
+  // The host's stamp: the evening is over when it is at or after the newest round's start.
   const eveningOver = eveningEndedAfter(eveningEnd, rounds);
-  const stepOn = updateStepOn(step, rounds, eveningEnd);
-
-  // The step exists only after round 2: read when the rounds change (a visible tab only). Starting it AFTER "End round 2" changes
-  // nothing in the rounds, so the host's own tap reads it (startUpdate) and, for another device or the projector, it is also read
-  // every GAP_POLL_MS in that gap only: newest round ended, counted round 2, step not on, evening not over.
-  useEffect(() => {
-    if (!host || counted < 2) return;
-    if (visibleNow()) void readStep();
-  }, [host, counted, lastRound?.id, lastRound?.endedAt, readStep]);
-  const watchStep = host && counted === 2 && !!lastRound?.endedAt && !stepOn && !eveningOver;
-  useEffect(() => {
-    if (!watchStep) return;
-    return startVisiblePoll(() => void readStep(), GAP_POLL_MS);
-  }, [watchStep, readStep]);
 
   // Whether the host ended the evening: read only in the gap (newest round ended) and only until it is over, on the host's screen and
   // the projector alike: once over, nothing polls. A running round needs no read: ending the evening ends it, and the gap that follows reads.
@@ -174,18 +145,6 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
     if (visibleNow()) void readEvening();
     return startVisiblePoll(() => void readEvening(), GAP_POLL_MS);
   }, [watchEvening, readEvening]);
-  // The owners' states are read only while the step is on.
-  useEffect(() => {
-    if (!host || screen || !stepOn || !eventId) return;
-    let cancelled = false;
-    const read = () => getMastermindUpdateStates(eventId)
-      .then(states => { if (!cancelled) setUpdateStates(states); })
-      .catch(() => { /* keep what is shown */ });
-    if (visibleNow()) void read();
-    const stop = startVisiblePoll(() => void read(), ROUNDS_POLL_MS);
-    return () => { cancelled = true; stop(); };
-  }, [host, screen, stepOn, eventId]);
-
   const byMember = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
   const personOf = useCallback(
     (memberId: string) => {
@@ -277,12 +236,6 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
     [eventId, byMember, refreshState],
   );
 
-  const startUpdate = useCallback(async () => {
-    if (!eventId) return;
-    await hostStartCanvasUpdate(eventId);
-    await readStep();
-  }, [eventId, readStep]);
-
   // The tap's own result is read before the host's button comes back (the rounds, then the gap reads start on their own).
   const endRound = useCallback(async () => {
     if (!eventId) return;
@@ -301,6 +254,6 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
 
   return {
     active, ready: !!hostState && previous !== null, warning, refresh: refreshState, previousFailed, personOf, people, recordingOf, isReady, setObserver, plan, check, guardOpen,
-    step, stepOn, updateStates, startUpdate, eveningOver, endRound, endEvening,
+    eveningOver, endRound, endEvening,
   };
 }

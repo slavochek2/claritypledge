@@ -10,8 +10,6 @@ import type { EventRoomMember } from '@/app/types';
 const h = vi.hoisted(() => ({
   getMastermindHostState: vi.fn(),
   getPreviousSessionPartners: vi.fn(),
-  getCanvasUpdateStep: vi.fn(),
-  getMastermindUpdateStates: vi.fn(),
   getEveningEnd: vi.fn(),
 }));
 vi.mock('@/app/data/event-mastermind-service', async importOriginal => ({
@@ -32,7 +30,7 @@ const round = (id: string, no: number, ended: boolean): EventRound => ({
   id, roundNo: no, groupSize: 4, startedAt: new Date(0).toISOString(), endedAt: ended ? new Date(1).toISOString() : null,
   seatingS: 120, firstS: 450, secondS: 450, observerS: 180, splitSpeakers: false, matchTag: null, showcase: false,
 });
-// Round 2 has ended and the host's canvas-update step is on: every repeating read is live.
+// Round 2 has ended and the evening has not: every repeating read is live.
 const ROUNDS = [round('r1', 1, true), round('r2', 2, true)];
 const SEATS = new Map<string, RoundSeat[]>();
 const MEMBERS: EventRoomMember[] = [];
@@ -45,51 +43,39 @@ beforeEach(() => {
   setVisibility('visible');
   h.getMastermindHostState.mockReset().mockResolvedValue(new Map());
   h.getPreviousSessionPartners.mockReset().mockResolvedValue([]);
-  h.getCanvasUpdateStep.mockReset().mockResolvedValue({ afterRoundId: 'r2', startedAt: new Date().toISOString() });
-  h.getMastermindUpdateStates.mockReset().mockResolvedValue(new Map());
   h.getEveningEnd.mockReset().mockResolvedValue(null);
 });
 afterEach(() => { setVisibility('visible'); vi.useRealTimers(); });
 
 describe('hidden tab: no requests, and one read when it returns', () => {
-  it('the host state, the owners\' update states', async () => {
+  it('the host state', async () => {
     mount(false);
     await tick(100);
     const state0 = h.getMastermindHostState.mock.calls.length;
-    const owners0 = h.getMastermindUpdateStates.mock.calls.length;
     expect(state0).toBeGreaterThan(0);
-    expect(owners0).toBeGreaterThan(0);
     setVisibility('hidden');
     await tick(HOST_STATE_POLL_MS * 4);
     expect(h.getMastermindHostState, 'host state while hidden').toHaveBeenCalledTimes(state0);
-    expect(h.getMastermindUpdateStates, 'owner states while hidden').toHaveBeenCalledTimes(owners0);
     setVisibility('visible');
     await tick(10);
     expect(h.getMastermindHostState).toHaveBeenCalledTimes(state0 + 1);
-    expect(h.getMastermindUpdateStates).toHaveBeenCalledTimes(owners0 + 1);
   });
 
-  it('the projector\'s reads in the gap after round 2 (the step not started, the evening not ended): none while hidden, one when shown', async () => {
-    h.getCanvasUpdateStep.mockResolvedValue(null);
+  it('the projector\'s reads in the gap after round 2 (the evening not ended): none while hidden, one when shown', async () => {
     mount(true);
     await tick(100);
-    const step0 = h.getCanvasUpdateStep.mock.calls.length;
     const evening0 = h.getEveningEnd.mock.calls.length;
-    expect(step0).toBeGreaterThan(0);
     expect(evening0).toBeGreaterThan(0);
     setVisibility('hidden');
     await tick(60_000);
-    expect(h.getCanvasUpdateStep, 'step while hidden').toHaveBeenCalledTimes(step0);
     expect(h.getEveningEnd, 'evening stamp while hidden').toHaveBeenCalledTimes(evening0);
     expect(h.getMastermindHostState).not.toHaveBeenCalled();
     setVisibility('visible');
     await tick(10);
-    expect(h.getCanvasUpdateStep).toHaveBeenCalledTimes(step0 + 1);
     expect(h.getEveningEnd).toHaveBeenCalledTimes(evening0 + 1);
   });
 
   it('the gap is read every GAP_POLL_MS and no faster: 450 an hour per visible screen', async () => {
-    h.getCanvasUpdateStep.mockResolvedValue(null);
     mount(true);
     await tick(100);
     const before = h.getEveningEnd.mock.calls.length;
@@ -98,18 +84,15 @@ describe('hidden tab: no requests, and one read when it returns', () => {
     expect(3600_000 / GAP_POLL_MS).toBe(450);
   });
 
-  it('once the evening is over nothing polls: the stamp is read once, the step is not read again, on the host and on the projector', async () => {
+  it('once the evening is over nothing polls: the stamp is read once, then never again, on the host and on the projector', async () => {
     h.getEveningEnd.mockResolvedValue(new Date(Date.now() + 1000).toISOString());
     for (const screen of [false, true]) {
       h.getEveningEnd.mockClear();
-      h.getCanvasUpdateStep.mockClear();
       const view = mount(screen);
       await tick(100);
       expect(h.getEveningEnd, 'read once').toHaveBeenCalledTimes(1);
-      const step0 = h.getCanvasUpdateStep.mock.calls.length;
       await tick(GAP_POLL_MS * 10);
       expect(h.getEveningEnd, `no stamp poll once over (screen ${screen})`).toHaveBeenCalledTimes(1);
-      expect(h.getCanvasUpdateStep, `no step poll once over (screen ${screen})`).toHaveBeenCalledTimes(step0);
       view.unmount();
     }
   });
@@ -133,27 +116,18 @@ describe('hidden tab: no requests, and one read when it returns', () => {
     await tick(HOST_STATE_POLL_MS * 2);
     expect(h.getMastermindHostState).not.toHaveBeenCalled();
     expect(h.getPreviousSessionPartners).not.toHaveBeenCalled();
-    expect(h.getMastermindUpdateStates).not.toHaveBeenCalled();
     setVisibility('visible');
     await tick(10);
     expect(h.getMastermindHostState).toHaveBeenCalled();
   });
 });
 
-describe('the evening\'s stamp wins over the canvas-update step it came after', () => {
-  it('a stamp at or after the step\'s start ends the step; a stamp from before it does not', async () => {
-    const stepStart = new Date(Date.now() - 60_000).toISOString();
-    h.getCanvasUpdateStep.mockResolvedValue({ afterRoundId: 'r2', startedAt: stepStart });
+describe('the host\'s End the evening', () => {
+  it('a stamp at or after the newest round\'s start ends the evening', async () => {
     h.getEveningEnd.mockResolvedValue(new Date(Date.now() - 1000).toISOString());
     const after = mount(false);
     await tick(100);
     expect(after.result.current.eveningOver).toBe(true);
-    expect(after.result.current.stepOn, 'the evening ended during the step').toBe(false);
-    after.unmount();
-    h.getEveningEnd.mockResolvedValue(new Date(10).toISOString());
-    const before = mount(false);
-    await tick(100);
-    expect(before.result.current.stepOn, 'a stamp from before the step does not end it').toBe(true);
   });
 
   it('the host\'s End the evening reads the stamp and the rounds before it returns', async () => {

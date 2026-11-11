@@ -16,16 +16,11 @@ const h = vi.hoisted(() => ({
   event: {} as Record<string, unknown>,
   hostState: new Map<string, unknown>(),
   previous: [] as [string, string][],
-  step: null as null | { afterRoundId: string | null; startedAt: string },
-  updateStates: new Map<string, string>(),
   planOverride: null as null | ((input: MastermindSeatingInput) => MastermindSeatingPlan),
   getMastermindHostState: vi.fn(),
   getPreviousSessionPartners: vi.fn(),
   hostSetObserver: vi.fn(),
   hostSetEventFlow: vi.fn(),
-  hostStartCanvasUpdate: vi.fn(),
-  getCanvasUpdateStep: vi.fn(),
-  getMastermindUpdateStates: vi.fn(),
   hostStartRound: vi.fn(),
   hostEndRound: vi.fn(),
   hostEndRounds: vi.fn(),
@@ -80,10 +75,7 @@ vi.mock('@/app/data/event-mastermind-service', async importOriginal => ({
   getPreviousSessionPartners: h.getPreviousSessionPartners,
   hostSetObserver: h.hostSetObserver,
   hostSetEventFlow: h.hostSetEventFlow,
-  hostStartCanvasUpdate: h.hostStartCanvasUpdate,
-  getCanvasUpdateStep: h.getCanvasUpdateStep,
   getEveningEnd: h.getEveningEnd,
-  getMastermindUpdateStates: h.getMastermindUpdateStates,
 }));
 vi.mock('@/app/data/event-waitlist', async importOriginal => ({
   ...(await importOriginal<typeof import('@/app/data/event-waitlist')>()),
@@ -141,24 +133,19 @@ beforeEach(() => {
   vi.clearAllMocks();
   try { localStorage.clear(); } catch { /* none */ }
   h.roster = ROSTER;
-  h.step = null;
   h.eveningEnd = null;
-  h.updateStates = new Map();
   h.previous = [];
   h.planOverride = null;
   setRounds([]);
   defaultPeople();
   h.getMastermindHostState.mockImplementation(async () => h.hostState);
   h.getPreviousSessionPartners.mockImplementation(async () => h.previous);
-  h.getCanvasUpdateStep.mockImplementation(async () => h.step);
   h.getEveningEnd.mockImplementation(async () => h.eveningEnd);
   h.hostEndRound.mockResolvedValue(true);
   h.refreshRounds.mockResolvedValue(undefined);
   h.hostEndRounds.mockResolvedValue(undefined);
-  h.getMastermindUpdateStates.mockImplementation(async () => h.updateStates);
   h.hostSetObserver.mockResolvedValue({ status: 'ok' });
   h.hostSetEventFlow.mockResolvedValue(undefined);
-  h.hostStartCanvasUpdate.mockResolvedValue(undefined);
   h.hostStartRound.mockResolvedValue('r-new');
   h.hostSetRoundSeats.mockResolvedValue(undefined);
   h.getWaitlistPublic.mockResolvedValue([]);
@@ -441,41 +428,19 @@ describe('labels and touch targets while a round runs and the next is previewed 
     expect(screen.getByTestId('host-shorten').className).toContain('min-h-11');
   });
 
-  it('words the owners\' first state "Hasn\'t started"', async () => {
-    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, endedAt: ago(MIN) })]);
-    h.step = { afterRoundId: 'r2', startedAt: ago(MIN) };
-    h.updateStates = new Map([['p-a', 'not_tapped']]);
-    renderHost({ flow: MM });
-    await waitFor(() => expect(screen.getAllByTestId('mm-update-owner')).toHaveLength(1));
-    expect(screen.getByTestId('mm-update-owner').textContent).toContain("Hasn't started");
-  });
 });
 
-describe('review fixes batch 2: preview lock and the owners list', () => {
-  it('while a seating preview is open, the unseated list shows one line instead of the observer switch and Mark out', async () => {
-    // The preview opens only with no round running now: here, at the canvas-update step (the owners' list, then everyone else).
+describe('review fixes batch 2: preview lock', () => {
+  it('while a seating preview is open, the people list gives way to the preview (no live switches to change who observes)', async () => {
     setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, endedAt: ago(MIN) })]);
-    h.step = { afterRoundId: 'r2', startedAt: ago(MIN) };
     h.planOverride = () => plan([['m-c', 1, 'first'], ['m-d', 1, 'second']]);
     renderHost({ flow: MM });
     await roomRead();
     await waitFor(() => expect(screen.getAllByTestId('mm-mark-out').length).toBeGreaterThan(0));
     fireEvent.click(await screen.findByTestId('host-primary'));
     await screen.findByTestId('host-preview');
-    const people = screen.getByTestId('mm-people');
-    expect(within(people).queryByTestId('mm-set-observer')).toBeNull();
-    expect(within(people).queryByTestId('mm-mark-out')).toBeNull();
-    expect(within(people).getAllByTestId('mm-locked')[0]?.textContent).toBe('Close the seating preview to change who observes.');
-  });
-
-  it('the update step does not list an owner who is marked out', async () => {
-    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, endedAt: ago(MIN) })]);
-    h.step = { afterRoundId: 'r2', startedAt: ago(MIN) };
-    h.updateStates = new Map([['p-a', 'not_tapped'], ['p-b', 'drafting'], ['p-c', 'ready'], ['p-d', 'failed'], ['p-e', 'published']]);
-    h.presence = new Map([['m-e', { memberId: 'm-e', leftAt: new Date().toISOString(), sitsOutRound: null }]]);
-    renderHost({ flow: MM });
-    await waitFor(() => expect(screen.getAllByTestId('mm-update-owner')).toHaveLength(4));
-    expect(screen.getAllByTestId('mm-update-owner').map(li => li.textContent).join(' ')).not.toContain('Eva');
+    expect(screen.queryByTestId('mm-people')).toBeNull();
+    expect(screen.queryByTestId('mm-set-observer')).toBeNull();
   });
 });
 
@@ -550,114 +515,30 @@ describe('recording states (§7)', () => {
   });
 });
 
-describe('the canvas-update step (§7)', () => {
-  const afterRound2 = () => {
-    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, endedAt: ago(MIN) })]);
-    h.step = { afterRoundId: 'r2', startedAt: ago(MIN) };
-  };
-
-  it('lists each owner\'s state while the step is on, and Start round 3 stays available with someone still drafting', async () => {
-    afterRound2();
-    h.updateStates = new Map([['p-a', 'not_tapped'], ['p-b', 'drafting'], ['p-c', 'ready'], ['p-d', 'failed'], ['p-e', 'published']]);
-    renderHost({ flow: MM });
-    await waitFor(() => expect(screen.getAllByTestId('mm-update-owner')).toHaveLength(5));
-    // Whoever needs the host first is on top: failed, hasn't started, drafting, ready, published.
-    const byState = screen.getAllByTestId('mm-update-owner').map(li => li.getAttribute('data-state'));
-    expect(byState).toEqual(['failed', 'not_tapped', 'drafting', 'ready', 'published']);
-    // The owners' update is the screen: titled, counted, and the one button previews round 3.
-    expect(screen.getByTestId('host-round-title').textContent).toBe('Canvas update');
-    expect(screen.getByTestId('host-update-title').textContent).toBe('Canvas update · 1 of 5 published');
-    const start = screen.getByTestId('host-primary') as HTMLButtonElement;
-    expect(start.textContent).toBe('Preview round 3 tables');
-    expect(start.disabled).toBe(false);
-    expect(screen.queryByText('Evening ended')).toBeNull();
-    // Nobody is listed a second time as "Here".
-    expect(screen.queryAllByTestId('host-member')).toHaveLength(0);
-    expect(screen.queryByTestId('host-waiting')).toBeNull();
-  });
-
-  it('reads the owners only while the step is on, and the step only after round 2', async () => {
-    setRounds([round({ endedAt: ago(MIN) })]);
-    const { unmount } = renderHost({ flow: MM });
-    await roomRead();
-    await settle();
-    expect(h.getCanvasUpdateStep).not.toHaveBeenCalled();
-    expect(h.getMastermindUpdateStates).not.toHaveBeenCalled();
-    unmount();
-    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, endedAt: ago(MIN) })]);
-    h.step = null;
-    renderHost({ flow: MM });
-    await roomRead();
-    await settle();
-    expect(h.getCanvasUpdateStep).toHaveBeenCalled();
-    expect(h.getMastermindUpdateStates).not.toHaveBeenCalled();
-  });
-
-  it('is offered once round 2 has ended (End round 2 does that), then starts through host_start_canvas_update with nothing to confirm', async () => {
+describe('no host canvas-update step (2026-11-11): owners update from their own round cards', () => {
+  it('after round 2 ends the host sees the same primary as after any round: Preview round 3 tables, no update button, no skip, no owners list', async () => {
     setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, startedAt: ago(10 * MIN), endedAt: ago(MIN) })]);
     renderHost({ flow: MM });
-    // The update is the one blue button; previewing round 3 without it is a quiet link below.
-    const start = await screen.findByTestId('mm-update-start');
-    expect(start.textContent).toBe('Start canvas update');
-    expect(screen.getByTestId('host-primary').textContent).toBe('Skip the update, preview round 3 tables');
-    expect(screen.getByTestId('host-primary').className).not.toContain('bg-blue-600');
-    expect(h.hostStartCanvasUpdate).not.toHaveBeenCalled();
-    fireEvent.click(start);
-    expect(screen.queryByTestId('mm-update-confirm')).toBeNull();
-    await waitFor(() => expect(h.hostStartCanvasUpdate).toHaveBeenCalledWith('ev-1'));
+    const primary = await screen.findByTestId('host-primary');
+    expect(primary.textContent).toBe('Preview round 3 tables');
+    expect(primary.className).toContain('bg-blue-600');
+    for (const gone of ['mm-update-start', 'mm-skip-confirm', 'mm-update-step', 'mm-update-owner', 'host-update-title']) expect(screen.queryByTestId(gone)).toBeNull();
   });
 
-  it('skipping the update asks once inline ("Owners won\'t get time to update their canvas."), Keep puts it back, Skip proceeds', async () => {
-    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, startedAt: ago(10 * MIN), endedAt: ago(MIN) })]);
-    renderHost({ flow: MM });
-    await screen.findByTestId('mm-update-start');
-    fireEvent.click(screen.getByTestId('host-primary'));
-    expect(screen.getByTestId('mm-skip-confirm').textContent).toContain("Owners won't get time to update their canvas.");
-    expect(screen.getByTestId('mm-skip-yes').textContent).toBe('Skip the update');
-    expect(screen.getByTestId('mm-skip-keep').textContent).toBe('Keep');
-    expect(screen.queryByTestId('host-primary')).toBeNull();
-    expect(h.hostStartCanvasUpdate).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByTestId('mm-skip-keep'));
-    expect(screen.queryByTestId('mm-skip-confirm')).toBeNull();
-    expect(screen.getByTestId('host-primary').textContent).toBe('Skip the update, preview round 3 tables');
-    fireEvent.click(screen.getByTestId('host-primary'));
-    fireEvent.click(screen.getByTestId('mm-skip-yes'));
-    expect(screen.queryByTestId('mm-skip-confirm')).toBeNull();
-    // One confirm is enough: the preview that follows saves nothing.
-    expect(screen.queryByTestId('host-next-confirm')).toBeNull();
-  });
-
-  it('is offered after round 2 only: not while any round runs, not after round 1, and not after round 3 or 4', async () => {
+  it('the primary follows the round: End round N while it runs, Preview next round tables after every round', async () => {
     setRounds([round({ startedAt: ago(5 * MIN) })]);
     const { unmount } = renderHost({ flow: MM });
     await screen.findByTestId('host-controls');
     await roomRead();
-    expect(screen.queryByTestId('mm-update-start')).toBeNull();
     expect(screen.getByTestId('host-primary').textContent).toBe('End round 1');
     unmount();
-    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, startedAt: ago(5 * MIN) })]);
-    const running2 = renderHost({ flow: MM });
-    await screen.findByTestId('host-controls');
-    await roomRead();
-    expect(screen.queryByTestId('mm-update-start'), 'round 2 still running: End round 2 first').toBeNull();
-    expect(screen.getByTestId('host-primary').textContent).toBe('End round 2');
-    running2.unmount();
-    setRounds([round({ endedAt: ago(MIN) })]);
-    const after1 = renderHost({ flow: MM });
-    await screen.findByTestId('host-controls');
-    await roomRead();
-    expect(screen.queryByTestId('mm-update-start')).toBeNull();
-    expect(screen.getByTestId('host-primary').textContent).toBe('Preview round 2 tables');
-    after1.unmount();
-    for (const no of [3, 4]) {
+    for (const no of [1, 2, 3, 4]) {
       const earlier = Array.from({ length: no - 1 }, (_, i) => round({ id: `r${i + 1}`, roundNo: i + 1, endedAt: ago((no - i) * 20 * MIN) }));
       setRounds([...earlier, round({ id: `r${no}`, roundNo: no, startedAt: ago(5 * MIN), endedAt: ago(MIN) })]);
       const view = renderHost({ flow: MM });
       await screen.findByTestId('host-controls');
       await roomRead();
-      expect(screen.queryByTestId('mm-update-start')).toBeNull();
       expect(screen.getByTestId('host-primary').textContent).toBe(`Preview round ${no + 1} tables`);
-      expect(screen.getByTestId('host-primary').className).toContain('bg-blue-600');
       view.unmount();
     }
   });
@@ -681,7 +562,6 @@ describe('End round: the one primary slot follows the state (founder 2026-11-10)
     await waitFor(() => expect(h.hostEndRound).toHaveBeenCalledWith('ev-1'));
     expect(h.hostEndRounds, 'not the evening').not.toHaveBeenCalled();
     await waitFor(() => expect(h.refreshRounds).toHaveBeenCalled());
-    expect(h.hostStartCanvasUpdate).not.toHaveBeenCalled();
     expect(screen.queryByTestId('host-preview')).toBeNull();
   });
 
@@ -741,7 +621,6 @@ describe('End round: the one primary slot follows the state (founder 2026-11-10)
     expect(screen.queryByTestId('host-next-confirm')).toBeNull();
     expect(h.hostEndRound).not.toHaveBeenCalled();
     expect(screen.getAllByTestId('host-primary')).toHaveLength(1);
-    expect(screen.queryByTestId('mm-update-start')).toBeNull();
   });
 
   it('once the clock is over, one tap ends the round, with nothing to ask', async () => {
@@ -790,21 +669,18 @@ describe('End round: the one primary slot follows the state (founder 2026-11-10)
     expect(screen.queryByText('Evening ended')).toBeNull();
   });
 
-  it('the evening can be ended DURING the canvas-update step, and its stamp then wins over the step', async () => {
+  it('the evening can be ended between rounds, and its stamp then shows Evening ended with Reopen', async () => {
     setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, startedAt: ago(20 * MIN), endedAt: ago(10 * MIN) })]);
-    h.step = { afterRoundId: 'r2', startedAt: ago(5 * MIN) };
     const during = renderHook_();
-    await screen.findByTestId('host-update-title');
+    await screen.findByTestId('host-end-evening');
     expect(screen.getByTestId('host-end-evening')).toBeTruthy();
     fireEvent.click(screen.getByTestId('host-end-evening'));
     fireEvent.click(screen.getByTestId('host-end-yes'));
     await waitFor(() => expect(h.hostEndRounds).toHaveBeenCalledWith('ev-1'));
     during.unmount();
-    h.eveningEnd = ago(MIN); // after the step started (5 minutes ago)
+    h.eveningEnd = ago(MIN); // after round 2 ended
     renderHost({ flow: MM });
     await screen.findByText('Evening ended');
-    expect(screen.queryByTestId('host-update-title')).toBeNull();
-    expect(screen.queryAllByTestId('mm-update-owner')).toHaveLength(0);
     expect(screen.getByTestId('host-reopen')).toBeTruthy();
   });
 
@@ -897,14 +773,6 @@ describe('the projector (§5)', () => {
     expect(screen.queryAllByTestId('screen-bell')).toHaveLength(1);
   });
 
-  it('says the canvas update is on while the step is on', async () => {
-    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, endedAt: ago(MIN) })]);
-    h.step = { afterRoundId: 'r2', startedAt: ago(MIN) };
-    renderHost({ flow: MM, search: '?view=screen' });
-    expect((await screen.findByTestId('screen-update-on')).textContent).toMatch(/Canvas update/);
-    expect(screen.queryByText('Evening ended')).toBeNull();
-  });
-
   it('leaves Clarity Night\'s projector as it was: role cards and the speakers\' parts, no rule line', async () => {
     setRounds([round({ splitSpeakers: true, startedAt: ago(MIN) })], seats);
     renderHost({ search: '?view=screen' });
@@ -913,7 +781,6 @@ describe('the projector (§5)', () => {
     expect(screen.queryByTestId('screen-update-on')).toBeNull();
     expect(screen.getByText(/Speaker 1/)).toBeTruthy();
     expect(screen.getByText(/Speaker 2/)).toBeTruthy();
-    expect(h.getCanvasUpdateStep).not.toHaveBeenCalled();
   });
 });
 
@@ -1041,7 +908,7 @@ describe('one representation of every person, per phase', () => {
   /** The first names that stand for a person anywhere on the page's people area. */
   const shown = () => {
     const out: string[] = [];
-    for (const el of screen.getAllByTestId('host-people').flatMap(s => [...s.querySelectorAll('[data-testid="mm-person"], [data-testid="round-grid-name"], [data-testid="host-member"], [data-testid="mm-update-owner"]')])) {
+    for (const el of screen.getAllByTestId('host-people').flatMap(s => [...s.querySelectorAll('[data-testid="mm-person"], [data-testid="round-grid-name"], [data-testid="host-member"]')])) {
       const name = el.textContent?.match(/(Ana|Ben|Cat|Dan|Eva|Hugo)/)?.[0];
       if (name) out.push(name);
     }
@@ -1086,21 +953,6 @@ describe('one representation of every person, per phase', () => {
     const rest = screen.getByTestId('mm-people');
     expect(grid.compareDocumentPosition(rest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryAllByTestId('host-member')).toHaveLength(0);
-  });
-
-  it('at the update step: the owners\' update first, then only the people who are not owners; nobody twice', async () => {
-    setRounds([round({ id: 'r1', endedAt: ago(30 * MIN) }), round({ id: 'r2', roundNo: 2, endedAt: ago(MIN) })]);
-    h.step = { afterRoundId: 'r2', startedAt: ago(MIN) };
-    h.updateStates = new Map([['p-a', 'drafting'], ['p-b', 'published'], ['p-c', 'ready'], ['p-d', 'failed']]);
-    renderHost({ flow: MM });
-    await waitFor(() => expect(screen.getAllByTestId('mm-update-owner')).toHaveLength(4));
-    const names = shown();
-    unique(names);
-    expect(names.sort()).toEqual(['Ana', 'Ben', 'Cat', 'Dan', 'Eva']);
-    // Eva has no canvas: she is the one person under "Observers", with her switch.
-    expect(screen.getAllByTestId('mm-person')).toHaveLength(1);
-    expect(screen.getByTestId('mm-people').textContent).toContain('Eva F.');
-    expect(screen.getByTestId('mm-update-step').compareDocumentPosition(screen.getByTestId('mm-people')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('after the evening: no list, no live switches, no "Here"', async () => {

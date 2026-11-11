@@ -42,9 +42,6 @@ export const MASTERMIND_GROUP_SIZE = 4;
 /** [FOUNDER DECISION: copy] The host grid's columns in this flow (the Clarity Night grid says Speaker 1 and 2). */
 export const COLUMN_LABELS: Record<SeatRole, string> = { first: 'Clarity Canvas owner', second: 'Partner', observer: 'Observer' };
 
-/** [FOUNDER DECISION: copy] The projector while the canvas-update step is on. */
-export const SCREEN_UPDATE_TITLE = 'Canvas update';
-export const SCREEN_UPDATE_LINE = 'Clarity Canvas owners: publish your next version in the event room.';
 /** [FOUNDER DECISION: copy] The part of the round the projector names; the long talk needs no name. */
 export const SCREEN_PART_CAPTION: Record<string, string> = { seating: 'Find your table', observer: 'Observer feedback' };
 
@@ -177,17 +174,6 @@ export function extendRefusal(error: unknown): string | null {
   const e = error as { code?: unknown; message?: unknown } | null;
   return e?.code === '54000' || (typeof e?.message === 'string' && /cannot be extended further/i.test(e.message)) ? EXTEND_LIMIT_LINE : null;
 }
-
-// ── The canvas-update step (§7) ─────────────────────────────────────────────────────────────────────────────────────
-
-/** [FOUNDER DECISION: copy] */
-export const UPDATE_STATE_WORDS: Record<string, string> = {
-  not_tapped: "Hasn't started",
-  drafting: 'Drafting',
-  ready: 'Ready',
-  failed: 'Failed',
-  published: 'Published',
-};
 
 /** [FOUNDER DECISION: copy] D17: the mark on a person whose canvas is shared and who has not owned a table yet, and its hint. One
  * source for the people list and the table tile. */

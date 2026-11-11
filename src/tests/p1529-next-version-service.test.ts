@@ -23,9 +23,15 @@ describe('makeMyNextVersion', () => {
   it('starts the new run by its id after the database queued it', async () => {
     h.rpc.mockResolvedValue({ data: { status: 'ok', replayed: false, run_id: 'run1', draft_id: 'd1' }, error: null });
     const r = await makeMyNextVersion('round1');
-    expect(h.rpc).toHaveBeenCalledWith('make_my_next_version', { p_round: 'round1' });
+    expect(h.rpc).toHaveBeenCalledWith('make_my_next_version', { p_round: 'round1', p_auto_publish: true });
     expect(h.startCanvasRun).toHaveBeenCalledWith('run1');
     expect(r).toEqual({ status: 'started', draftId: 'd1', runId: 'run1', repeat: false, start: STARTED });
+  });
+
+  it('"Preview first" sends auto publish off', async () => {
+    h.rpc.mockResolvedValue({ data: { status: 'ok', run_id: 'run1', draft_id: 'd1' }, error: null });
+    await makeMyNextVersion('round1', false);
+    expect(h.rpc).toHaveBeenCalledWith('make_my_next_version', { p_round: 'round1', p_auto_publish: false });
   });
 
   it('a repeat tap starts nothing new but picks up a run a lost start left queued', async () => {
@@ -36,7 +42,7 @@ describe('makeMyNextVersion', () => {
     expect(r).toMatchObject({ status: 'started', draftId: 'd1', repeat: true });
   });
 
-  it.each([['transcript_pending'], ['no_recording'], ['no_canvas']])('%s is its own typed outcome and starts nothing', async status => {
+  it.each([['transcript_pending'], ['no_recording'], ['no_canvas'], ['published']])('%s is its own typed outcome and starts nothing', async status => {
     h.rpc.mockResolvedValue({ data: { status }, error: null });
     expect(await makeMyNextVersion('round1')).toEqual({ status });
     expect(h.startCanvasRun).not.toHaveBeenCalled();
@@ -66,8 +72,10 @@ describe('the two reads', () => {
 
   it('reads the offer before any tap, and an unknown state is none', async () => {
     h.rpc.mockResolvedValueOnce({ data: { state: 'no_recording', round_id: 'r1' }, error: null });
-    expect(await getMyNextVersionOffer('e1')).toEqual({ state: 'no_recording', roundId: 'r1' });
+    expect(await getMyNextVersionOffer('e1')).toEqual({ state: 'no_recording', roundId: 'r1', draftId: null, revision: null, runId: null, autoPublish: false });
+    h.rpc.mockResolvedValueOnce({ data: { state: 'ready', round_id: 'r2', draft_id: 'd1', revision: 4, run_id: 'run1', auto_publish: true }, error: null });
+    expect(await getMyNextVersionOffer('e1')).toEqual({ state: 'ready', roundId: 'r2', draftId: 'd1', revision: 4, runId: 'run1', autoPublish: true });
     h.rpc.mockResolvedValueOnce({ data: { state: 'mystery' }, error: null });
-    expect(await getMyNextVersionOffer('e1')).toEqual({ state: 'none', roundId: null });
+    expect(await getMyNextVersionOffer('e1')).toEqual({ state: 'none', roundId: null, draftId: null, revision: null, runId: null, autoPublish: false });
   });
 });

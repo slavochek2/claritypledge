@@ -4,9 +4,8 @@
  * phase of the evening (one list, never a list beside a grid):
  *   - before round 1: `MastermindPeople`, one row per person (canvas, mic, recording, Doors badge, participant or observer, mark out);
  *   - during a round: the tables (the page's grid), and `MastermindPeople` only for people with no table yet;
- *   - at the canvas-update step: `CanvasUpdateOwners` (the primary content), and `MastermindPeople` for the people who are not owners;
  *   - after the evening: nothing.
- * Also the one read-failure line, the silent-tables banner and the update step's start button.
+ * Also the one read-failure line and the silent-tables banner.
  * Every sentence is a draft: [FOUNDER DECISION: copy]. The page owns the round and the seating; this only shows and asks.
  * No sliders, scores or phases (D3).
  */
@@ -21,7 +20,7 @@ import { Avatar } from './host-screen-parts';
 import { shortName } from './use-event-rounds';
 import type { MastermindHost } from './use-mastermind-host';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
-import { NOT_REGISTERED_LINE, PREVIEW_LOCK_LINE, RECORDING_WORDS, UPDATE_STATE_WORDS, canvasLine, isObserver, isUnregistered, observerRefusal, READY_LABEL, READY_HINT } from './mastermind-host-helpers';
+import { NOT_REGISTERED_LINE, PREVIEW_LOCK_LINE, RECORDING_WORDS, canvasLine, isObserver, isUnregistered, observerRefusal, READY_LABEL, READY_HINT } from './mastermind-host-helpers';
 
 /** [FOUNDER DECISION: copy] */
 const COPY = {
@@ -33,13 +32,6 @@ const COPY = {
   doorsHint: 'Comes at the doors time to make their Clarity Canvas (or to prepare as an observer).',
   markOut: 'Mark out',
   silentTables: (nos: number[]) => `No words yet at table ${nos.join(', ')}`,
-  updateTitle: 'Canvas update',
-  updatePublished: (done: number, all: number) => `${done} of ${all} published`,
-  updateStart: 'Start canvas update',
-  skipConfirm: "Owners won't get time to update their canvas.",
-  skipYes: 'Skip the update',
-  skipKeep: 'Keep',
-  updateNoOwners: 'No Clarity Canvases are shared with this event.',
   retry: 'Retry',
 };
 
@@ -77,71 +69,6 @@ export function SilentTablesBanner({ nos }: { nos: number[] }) {
     <p role="status" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" data-testid="mm-silent-tables">
       {COPY.silentTables(nos)}
     </p>
-  );
-}
-
-/**
- * The canvas-update step's start, offered once round 2 has ended (the host ends the round with "End round 2"; starting the step
- * does not end anything that is still running). A round that is still on never reaches here.
- */
-export function CanvasUpdateStart({ onStart, busy }: { onStart: () => void; busy: boolean }) {
-  return (
-    <Button type="button" className="mt-4 min-h-12 w-full text-base" disabled={busy} onClick={onStart} data-testid="mm-update-start">
-      {COPY.updateStart}
-    </Button>
-  );
-}
-
-/** The quiet "skip the update" asks once, inline, like CanvasUpdateStart: skipping gives the owners no time. [FOUNDER DECISION: copy, proposed] */
-export function SkipUpdateConfirm({ onSkip, onKeep, busy }: { onSkip: () => void; onKeep: () => void; busy: boolean }) {
-  return (
-    <div className="mt-4 rounded-lg border border-border p-3 text-sm" data-testid="mm-skip-confirm">
-      <p>{COPY.skipConfirm}</p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        <Button type="button" className="min-h-11" disabled={busy} onClick={onSkip} data-testid="mm-skip-yes">{COPY.skipYes}</Button>
-        <Button type="button" variant="ghost" className="min-h-11" onClick={onKeep} data-testid="mm-skip-keep">{COPY.skipKeep}</Button>
-      </div>
-    </div>
-  );
-}
-
-const UPDATE_TONE: Record<string, string> = {
-  failed: 'font-semibold text-red-600',
-  published: 'text-green-700',
-  ready: 'font-medium text-blue-700',
-  drafting: 'text-blue-700',
-  not_tapped: 'text-muted-foreground',
-};
-/** Who needs the host first: a failed run, then someone who has not started, drafting, ready, and published last. */
-const UPDATE_ORDER: Record<string, number> = { failed: 0, not_tapped: 1, drafting: 2, ready: 3, published: 4 };
-
-/** The owners of a Clarity Canvas and where each one is in the update: the whole content of the screen at the step. */
-export function CanvasUpdateOwners({ host, members }: { host: MastermindHost; members: EventRoomMember[] }) {
-  const owners = members
-    .filter(m => m.profileId && host.updateStates.has(m.profileId))
-    .map((m, i) => ({ m, i, state: host.updateStates.get(m.profileId as string) ?? 'not_tapped' }))
-    .sort((a, b) => (UPDATE_ORDER[a.state] ?? 1) - (UPDATE_ORDER[b.state] ?? 1) || a.i - b.i);
-  return (
-    <section className="rounded-xl border border-border bg-card p-4" data-testid="mm-update-step">
-      <h2 className="text-sm font-semibold">
-        {COPY.updateTitle}
-        {owners.length > 0 && (
-          <span className="font-normal text-muted-foreground" data-testid="mm-update-count"> · {COPY.updatePublished(owners.filter(o => o.state === 'published').length, owners.length)}</span>
-        )}
-      </h2>
-      {owners.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">{COPY.updateNoOwners}</p>
-      ) : (
-        <ul className="mt-2 divide-y divide-border" data-testid="mm-update-states">
-          {owners.map(({ m, state }) => (
-            <li key={m.id} className="flex min-h-10 items-center justify-between gap-3 text-sm" data-testid="mm-update-owner" data-state={state}>
-              <span className="min-w-0 truncate">{shortName(m.displayName)}</span>
-              <span className={cn('shrink-0', UPDATE_TONE[state])}>{UPDATE_STATE_WORDS[state]}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }
 

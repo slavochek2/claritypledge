@@ -1,10 +1,10 @@
 /**
- * P1529 walk: "the expanded update task folds back on about half of first clicks". The task's open flag is held by the round
- * card, so only a REMOUNT of the card can lose it. EventRoomMeet replaces the whole page (and so the card) with the page loader
+ * P1529 walk: "the expanded update task folds back on about half of first clicks". A REMOUNT of the round card can lose
+ * anything it holds. EventRoomMeet replaces the whole page (and so the card) with the page loader
  * whenever `useEventRoomSelf` reports `loading`, and that hook set `loading` again every time the event OBJECT changed, even for
  * the same event with the person's row already read: a slower read of the same event landing after the first (the access
  * check's "late" answer) is enough. These tests pin the two halves: the hook does not report loading for the same event, and
- * the card keeps the task open across a remount anyway.
+ * the card shows the same state again after a remount (it holds none: the next version is read from the server).
  */
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -40,8 +40,6 @@ vi.mock('@/app/data/event-mastermind-service', () => ({
   makeMyNextVersion: vi.fn(),
   getMyRoundCanvas: vi.fn().mockResolvedValue(null),
   getMyNextVersionOffer: async () => h.server.offer,
-  getMyUpdateState: async () => h.server.update,
-  getCanvasUpdateStep: async () => null,
   getMyDraftRef: vi.fn().mockResolvedValue(null),
   getMyEventCanvas: vi.fn().mockResolvedValue(null),
 }));
@@ -51,7 +49,6 @@ vi.mock('@/app/prototypes/events/prep/EventCanvasCard', () => ({ EventCanvasCard
 import { useEventRoomSelf } from '@/app/prototypes/events/components/EventRoomAccess';
 import { MastermindRoundCard } from '@/app/prototypes/events/rounds/MastermindRoundCard';
 import { useState } from 'react';
-import { resetTaskOpen } from '@/app/prototypes/events/rounds/task-open-store';
 
 const SELF_ROW = { id: 'm-owner', eventId: 'ev-1', displayName: 'Haru' };
 const eventObj = () => ({ id: 'ev-1', slug: 'mm' }) as never;
@@ -86,16 +83,14 @@ const round = (over: Partial<EventRound> = {}): EventRound => ({
 const seat = (roundId: string, id: string, role: RoundSeat['role']): RoundSeat => ({ roundId, id, table: 1, role, confirmedAt: null });
 const OWNER = { id: 'm-owner', displayName: 'Haru Tanaka', profileId: 'p-owner', profileSlug: 'haru' } as unknown as EventRoomMember;
 
-describe('the round card keeps the task open when it is remounted', () => {
-  it('a tap on the collapsed line stays open across a remount of the card (the page loader swap)', async () => {
-    resetTaskOpen();
+describe('the round card after a remount (the page loader swap)', () => {
+  it('shows the between-rounds next-version card again, read from the server', async () => {
     h.state = {
-      rounds: [round(), round({ id: 'r2', roundNo: 2, endedAt: null })],
-      seatsByRound: new Map([['r1', [seat('r1', 'm-owner', 'first')]], ['r2', [seat('r2', 'm-owner', 'second')]]]),
+      rounds: [round()],
+      seatsByRound: new Map([['r1', [seat('r1', 'm-owner', 'first')]]]),
       topics: new Map(),
     } satisfies EventRoundsState;
-    h.server.offer = { state: 'offer', roundId: 'r1' };
-    h.server.update = { state: 'not_tapped', draftId: null, revision: null, runId: null };
+    h.server.offer = { state: 'offer', roundId: 'r1', draftId: null, revision: null, runId: null, autoPublish: false };
     function Page() {
       const [mounted, setMounted] = useState(true);
       return (
@@ -106,10 +101,8 @@ describe('the round card keeps the task open when it is remounted', () => {
       );
     }
     render(<Page />);
-    fireEvent.click(await screen.findByTestId('mastermind-task-line'));
-    expect(screen.getByTestId('mastermind-make')).toBeTruthy();
+    expect(await screen.findByTestId('mastermind-make')).toBeTruthy();
     await act(async () => { fireEvent.click(screen.getByTestId('swap')); await new Promise(r => setTimeout(r, 20)); });
     expect(await screen.findByTestId('mastermind-make')).toBeTruthy();
-    expect(screen.queryByTestId('mastermind-task-line')).toBeNull();
   });
 });

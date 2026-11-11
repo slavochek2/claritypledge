@@ -4,6 +4,8 @@
  *
  * Usage:  SEED_HOST_EMAIL=<an existing account's email> npx tsx scripts/seed-p1529-host-room.ts
  *         SEED_HOST_EMAIL=<email> npx tsx scripts/seed-p1529-host-room.ts --event <existing slug>   (7 owners + 3 observers into it)
+ *         SEED_HOST_EMAIL=<email> npx tsx scripts/seed-p1529-host-room.ts --fresh   (NEW event sales-mastermind-test-<MMDD-HHMM>, starts in ~1 h, limit 12,
+ *             host not registered; 7 canvas owners shared to it + 3 observers; prints the event/host URLs and one sign-in link per person)
  *         npx tsx scripts/seed-p1529-host-room.ts --cleanup <ledger.json>
  *
  * The host is NOT created: the account must exist (profile looked up by email). The event starts 7 days from now with a limit of 24 (12 registered, so seats stay open).
@@ -61,6 +63,50 @@ async function joinAll(H: Helpers, admin: Admin, ledger: import('../e2e/helpers/
   console.log(`Joined the room: ${n}`);
 }
 
+const FRESH_BASE = process.env.SEED_BASE_URL ?? 'http://localhost:5001';
+
+/** One magic link per person (admin generateLink, redirected to the event page), labelled by role. */
+async function printLinks(admin: Admin, ledger: import('../e2e/helpers/p1529-mastermind.ts').Ledger, slug: string, roles: Map<string, string>): Promise<void> {
+  console.log('\nSign-in links (each logs the browser in as that person; use a separate browser profile per person):');
+  for (const u of ledger.users) {
+    const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email: u.email, options: { redirectTo: `${FRESH_BASE}/events/${slug}` } });
+    if (error || !data?.properties?.action_link) throw new Error(`magic link ${u.name}: ${error?.message ?? 'no link'}`);
+    console.log(`  ${u.name} (${roles.get(u.email)}): ${data.properties.action_link}`);
+  }
+}
+
+/** --fresh: a brand-new event for a from-the-start test run. The host is not registered; 7 canvas owners + 3 observers are. */
+async function seedFresh(H: Helpers, admin: Admin, ledger: import('../e2e/helpers/p1529-mastermind.ts').Ledger, hostId: string, save: () => void): Promise<void> {
+  const ev = await H.makeEvent(ledger, { user: { id: hostId } } as never, 'Sales Mastermind (test run)', {
+    series: 'sales-mastermind', startsInMs: 3600_000, maxAttendees: 12,
+  });
+  const d = new Date();
+  const two = (n: number) => String(n).padStart(2, '0');
+  const slug = `sales-mastermind-test-${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}`;
+  const upd = await admin.from('events').update({ slug }).eq('id', ev.id);
+  if (upd.error) throw new Error(`slug: ${upd.error.message}`);
+  ev.slug = slug; // the ledger entry carries the new slug, so --cleanup still finds the event
+  save();
+  const roles = new Map<string, string>();
+  for (const p of PLAN.filter(x => (x.kind === 'owner' || x.kind === 'observer') && x.name !== 'Leo Test')) {
+    const person = await H.makeUser(ledger, p.name);
+    save();
+    if (p.kind === 'owner') { await H.publishCanvas(ledger, person, `${p.name.replace(' Test', '')}'s business`); save(); }
+    const { data, error } = await person.client.rpc('register_for_event', {
+      p_slug: slug, p_participation: p.participation, p_phone: p.phone, p_hope: null, p_recording_accepted: true, p_observer_prep: p.prep ?? null,
+    });
+    if (error || data !== 'ok') throw new Error(`register ${p.name}: ${error?.message ?? data}`);
+    if (p.kind === 'owner') await H.shareForEvent(person, ev.id);
+    roles.set(person.user.email, p.kind === 'owner' ? 'canvas owner' : 'observer');
+  }
+  save();
+  console.log(`Event page:  ${FRESH_BASE}/events/${slug}`);
+  console.log(`Host screen: ${FRESH_BASE}/events/${slug}/host`);
+  await printLinks(admin, ledger, slug, roles);
+  console.log(`\nLedger:      ${LEDGER_PATH}`);
+  console.log(`Cleanup:     npx tsx scripts/seed-p1529-host-room.ts --cleanup ${LEDGER_PATH}`);
+}
+
 async function main() {
   loadEnv();
   const H = await import('../e2e/helpers/p1529-mastermind.ts');
@@ -100,6 +146,7 @@ async function main() {
   const save = () => writeFileSync(LEDGER_PATH, JSON.stringify(ledger, null, 2));
   try {
     // --event <slug>: fill an EXISTING event (never added to the ledger, so --cleanup leaves it and removes only the seeded people).
+    if (process.argv.includes('--fresh')) { await seedFresh(H, supabaseAdmin, ledger, hostId, save); return; }
     const ei = process.argv.indexOf('--event');
     const existing = ei > -1 ? process.argv[ei + 1] : null;
     let ev: { id: string; slug: string };

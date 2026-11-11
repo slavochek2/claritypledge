@@ -5,11 +5,11 @@
  * line per person at the table in role order, and one "Open the canvas" for everyone (the owner too: their own, or the one they chose). It asks for nothing: no confirm, no half-time swap, no phase, no sliders. The two
  * contracts the room page depends on are kept from RoundCard: it owns the round poll, and it reports the moment upward.
  * Two differences in the moment, on purpose: `atTable` is never true (there is no "we're seated" tap, and no statement
- * Compare step for this flow), and the host's canvas-update step is not "the evening is over". Sibling of RoundCard.tsx,
+ * Compare step for this flow). Between rounds it also shows the owner's next-version card (one per owned round, never during a running round). Sibling of RoundCard.tsx,
  * chosen by FlowRoundCard.tsx. Wording is a draft: [FOUNDER DECISION: copy].
  */
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { currentRound, EMPTY_ROUNDS_STATE, type EventRoundsState } from '@/app/data/event-rounds-service';
 import { recordCanvasOpen } from '@/app/data/event-mastermind-service';
@@ -18,12 +18,11 @@ import { tableLinkState, workspaceHref } from '@/lib/canvas-hrefs';
 import { roundLabel } from '@/lib/round-numbering';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import type { RoundMoment } from './RoundCard';
-import { roundsPolling, shortName, useEventRounds } from './use-event-rounds';
+import { firstName, roundsPolling, shortName, useEventRounds } from './use-event-rounds';
 import { useEventCanvasChoices, useOwnerUpdate, useRoundCanvas, useRoundsGap } from './use-mastermind-round';
 import { useRoundMic } from './use-round-mic';
 import { MastermindMicStep } from './MastermindMicStep';
 import { MastermindUpdateTask } from './MastermindUpdateTask';
-import { useTaskOpen } from './task-open-store';
 import { MISSING_NAME, mastermindTable, tableLines, taskFace } from './mastermind-round-helpers';
 import { MastermindWaiting } from './MastermindWaiting';
 
@@ -63,8 +62,8 @@ export function MastermindRoundCard({
   const last = state.rounds[state.rounds.length - 1];
   const roundsKey = `${last?.id ?? ''}:${last?.endedAt ?? ''}`;
 
-  // The gap between rounds: the evening's stamp and the update step, and what follows (the stamp wins over a step it came after).
-  const { eveningEnd, stepOn, eveningOver, betweenRounds, idle } = useRoundsGap({ eventId, enabled: !!self, rounds: state.rounds, round, ended, roundsKey });
+  // The gap between rounds: the evening's stamp, and what follows.
+  const { eveningEnd, eveningOver, betweenRounds, idle } = useRoundsGap({ eventId, enabled: !!self, rounds: state.rounds, round, ended });
   const waiting = !seated && !eveningOver && !(ended && !live);
   useEffect(() => { onMoment?.({ seated, atTable: false, eveningOver, live, waiting }); }, [onMoment, seated, eveningOver, live, waiting]);
   const started = state.rounds.length > 0;
@@ -76,27 +75,34 @@ export function MastermindRoundCard({
   const choices = useEventCanvasChoices(eventId, seated, round?.id ?? null);
   // The canvas chosen in the selector for one round; null (or another round's) is the table's own. Never seating.
   const [pick, setPick] = useState<{ roundId: string; ownerId: string } | null>(null);
-  const [taskOpen, setTaskOpen] = useTaskOpen(`${eventId}:${owner.offer?.roundId ?? ''}`);
+  const navigate = useNavigate();
   // Mic first: a seated person whose mic is not capturing sees only the mic step (hooks stay above every return).
   const mic = useRoundMic({ eventId, roundId: round?.id ?? null, displayName: self?.displayName ?? 'Participant', seated });
 
   if (!self) return null;
 
   const name = (id: string | undefined) => shortName(roster.find(m => m.id === id)?.displayName ?? '') || MISSING_NAME;
-  const face = taskFace(owner.offer, owner.update);
+  // The next-version card is shown only between rounds (after the host ends a round, before the next starts, and after the evening ends).
+  const face = round ? null : taskFace(owner.offer, owner.publishFailed);
   const offerRound = state.rounds.find(r => r.id === owner.offer?.roundId);
   const mySlug = roster.find(m => m.id === self.id)?.profileSlug ?? self.profileSlug;
-  const tweakHref = mySlug && owner.draft?.canvasName ? workspaceHref(mySlug, owner.draft.canvasName, owner.draft.versionName) : null;
-  const task = face && (
+  const draftHref = (d: { canvasName: string | null; versionName: string | null } | null) => (mySlug && d?.canvasName ? workspaceHref(mySlug, d.canvasName, d.versionName) : null);
+  const tweakHref = draftHref(owner.draft);
+  const partnerOf = (roundId: string): string | null => {
+    const seats = state.seatsByRound.get(roundId) ?? [];
+    const mineAt = seats.find(s => s.id === self.id && s.role === 'first');
+    const partner = mineAt ? seats.find(s => s.table === mineAt.table && s.role === 'second') : undefined;
+    return partner ? firstName(roster.find(m => m.id === partner.id)?.displayName ?? '') || null : null;
+  };
+  const task = face && offerRound && (
     <MastermindUpdateTask
       face={face}
       owner={owner}
-      inStep={stepOn && !seated}
-      collapsed={seated}
-      roundName={offerRound ? roundLabel(state.rounds, offerRound) : null}
+      roundName={roundLabel(state.rounds, offerRound)}
+      partner={partnerOf(offerRound.id)}
       tweakHref={tweakHref}
-      open={taskOpen}
-      setOpen={setTaskOpen}
+      linkState={fromRoom}
+      onPreview={() => void owner.preview(d => { const to = draftHref(d); if (to) navigate(to, { state: fromRoom }); })}
     />
   );
 
@@ -111,12 +117,11 @@ export function MastermindRoundCard({
         showWaiting={waiting && !(idle && eveningEnd === undefined)}
         between={betweenRounds}
         over={eveningOver || (ended && !live)}
-        updateStepOn={stepOn}
         task={task}
       />
     );
   }
-  if (view === 'hidden') return <>{task}</>;
+  if (view === 'hidden') return null;
 
   const tableSeats = (state.seatsByRound.get(round.id) ?? []).filter(s => s.table === mine.table);
   const table = mastermindTable(tableSeats, mine);
@@ -128,7 +133,7 @@ export function MastermindRoundCard({
   const chosen = pick && pick.roundId === round.id ? others.find(c => c.ownerId === pick.ownerId) ?? null : null;
   const tableLink = canvas?.shared && canvas.canvasName ? canvasPageHref(canvas.ownerSlug, canvas.canvasName) : null;
   const chosenLink = chosen ? canvasPageHref(chosen.ownerSlug ?? chosen.ownerId, chosen.name) : null;
-  if (mic.needsStep) return <><MastermindMicStep table={mine.table} discussing={table.owner ? defaultLabel : null} mic={mic} />{task}</>;
+  if (mic.needsStep) return <MastermindMicStep table={mine.table} discussing={table.owner ? defaultLabel : null} mic={mic} />;
 
   return (
     <>
@@ -197,7 +202,6 @@ export function MastermindRoundCard({
           </div>
         )}
       </section>
-      {task}
     </>
   );
 }

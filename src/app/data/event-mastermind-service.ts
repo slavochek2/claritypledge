@@ -142,18 +142,39 @@ export async function getMyRoundCanvas(roundId: string): Promise<RoundCanvas | n
   };
 }
 
-/** What a tap on "Make my next version" would answer, read before the tap (the card never learns "no recording" by tapping). */
+/**
+ * The caller's CURRENT next-version item (P1529 D6 reversed 2026-11-11): the oldest round they owned that can still move, read before
+ * any tap. `drafting`, `ready` and `failed` carry the round's draft and run; `autoPublish` is the tap's intent ("Create next version"
+ * publishes when the run is done, "Preview first" does not).
+ */
 export type NextVersionOfferState =
-  | 'none' | 'round_on' | 'offer' | 'transcript_pending' | 'no_recording' | 'no_canvas' | 'started' | 'draft_open';
-export interface NextVersionOffer { state: NextVersionOfferState; roundId: string | null }
-const OFFER_STATES: ReadonlySet<string> = new Set(['none', 'round_on', 'offer', 'transcript_pending', 'no_recording', 'no_canvas', 'started', 'draft_open']);
+  | 'none' | 'offer' | 'transcript_pending' | 'transcript_missing' | 'no_recording' | 'no_canvas' | 'draft_open'
+  | 'drafting' | 'ready' | 'failed' | 'published';
+export interface NextVersionOffer {
+  state: NextVersionOfferState;
+  roundId: string | null;
+  draftId: string | null;
+  revision: number | null;
+  runId: string | null;
+  autoPublish: boolean;
+}
+const OFFER_STATES: ReadonlySet<string> = new Set([
+  'none', 'offer', 'transcript_pending', 'transcript_missing', 'no_recording', 'no_canvas', 'draft_open', 'drafting', 'ready', 'failed', 'published',
+]);
 
 export async function getMyNextVersionOffer(eventId: string): Promise<NextVersionOffer> {
   const { data, error } = await supabase.rpc('get_my_next_version_offer', { p_event: eventId });
   if (error) throwDbError('getMyNextVersionOffer', error, 'Could not read your next version');
   const r = (data ?? {}) as Record<string, unknown>;
-  const state = typeof r.state === 'string' && OFFER_STATES.has(r.state) ? (r.state as NextVersionOfferState) : 'none';
-  return { state, roundId: typeof r.round_id === 'string' ? r.round_id : null };
+  const str = (v: unknown) => (typeof v === 'string' ? v : null);
+  return {
+    state: typeof r.state === 'string' && OFFER_STATES.has(r.state) ? (r.state as NextVersionOfferState) : 'none',
+    roundId: str(r.round_id),
+    draftId: str(r.draft_id),
+    revision: typeof r.revision === 'number' ? r.revision : null,
+    runId: str(r.run_id),
+    autoPublish: r.auto_publish === true,
+  };
 }
 
 /**
@@ -163,16 +184,17 @@ export async function getMyNextVersionOffer(eventId: string): Promise<NextVersio
  */
 export type NextVersionResult =
   | { status: 'started'; draftId: string; runId: string | null; repeat: boolean; start: RunStart | null }
-  | { status: 'transcript_pending' | 'no_recording' | 'no_canvas' }
+  | { status: 'transcript_pending' | 'no_recording' | 'no_canvas' | 'published' }
   | { status: 'refused'; code: string };
 
-export async function makeMyNextVersion(roundId: string): Promise<NextVersionResult> {
+/** `autoPublish`: "Create next version" (true) publishes when the run is done; "Preview first" (false) leaves the draft for the owner. */
+export async function makeMyNextVersion(roundId: string, autoPublish = true): Promise<NextVersionResult> {
   try {
-    const { data, error } = await supabase.rpc('make_my_next_version', { p_round: roundId });
+    const { data, error } = await supabase.rpc('make_my_next_version', { p_round: roundId, p_auto_publish: autoPublish });
     if (error) throwDbError('makeMyNextVersion', error, 'Could not make your next version');
     const r = (data ?? {}) as Record<string, unknown>;
     const status = String(r.status ?? '');
-    if (status === 'transcript_pending' || status === 'no_recording' || status === 'no_canvas') return { status };
+    if (status === 'transcript_pending' || status === 'no_recording' || status === 'no_canvas' || status === 'published') return { status };
     if (status === 'refused') return { status: 'refused', code: String(r.code ?? 'unknown') };
     if ((status === 'ok' || status === 'started') && typeof r.draft_id === 'string') {
       const repeat = status === 'started' || r.replayed === true;

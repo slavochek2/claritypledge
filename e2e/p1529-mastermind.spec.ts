@@ -1128,7 +1128,7 @@ test('WALK2: after round 1 (flow and canvas fixed), round 2, round 1 transcripts
     await expect(pg.getByTestId('mastermind-make')).toBeVisible({ timeout: 60_000 });
     await shots(pg, 'update-task', 'make-offer');
     await pg.getByTestId('mastermind-make').click();
-    await expect(pg.getByTestId('mastermind-task-drafting')).toBeVisible({ timeout: 90_000 });
+    await expect(pg.getByTestId('mastermind-task-creating')).toBeVisible({ timeout: 90_000 });
     await shots(pg, 'update-task', 'drafting');
     const runs = await runsOf(walk.ownerA!);
     expect(runs).toHaveLength(1);
@@ -1240,7 +1240,6 @@ test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partne
 
   await ac('9a0', 'the host\'s one primary during round 2 is "End round 2" (asks once while time is on the clock); it ends only that round and the phones read "between rounds"', async () => {
     await expect(page.getByTestId('host-primary')).toHaveText('End round 2', { timeout: 60_000 });
-    await expect(page.getByTestId('mm-update-start'), 'the update is not offered while the round runs').toHaveCount(0);
     await page.getByTestId('host-primary').click();
     const yes = page.getByTestId('host-next-yes');
     if (await yes.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) await yes.click();
@@ -1257,16 +1256,14 @@ test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partne
     return 'round 2 ended_at set by End round 2, no evening stamp; the owner\'s phone: "Round 2 is over" + "The next round starts soon.", no "The rounds are over", Feedback step enabled';
   }, page);
 
-  await ac('9a', 'the host starts the canvas-update step (round 2 has ended, nothing to confirm); it shows each owner\'s state', async () => {
-    await expect(page.getByTestId('mm-update-start')).toBeVisible({ timeout: 60_000 });
-    await page.getByTestId('mm-update-start').click();
-    await expect(page.getByTestId('mm-update-confirm')).toHaveCount(0);
-    await expect(page.getByTestId('mm-update-step')).toBeVisible({ timeout: 60_000 });
-    const step = (await supabaseAdmin.from('event_canvas_update_steps').select('after_round_id').eq('event_id', E1.id).single()).data!;
-    expect(step.after_round_id).toBe(round2);
-    const ended = (await supabaseAdmin.from('event_rounds').select('ended_at').eq('id', round2).single()).data!;
-    expect(ended.ended_at, 'round 2 was ended by End round 2').not.toBeNull();
-    return `step row after_round = round 2, round 2 ended_at set`;
+  // 2026-11-11: the host has no canvas-update step any more; after End round 2 the primary is "Preview round 3 tables" and each owner
+  // updates from their own round card. The owner steps below (8x) still assume the old step: rework pending (see the spec's UAT round 2026-11-11).
+  await ac('9a', 'after End round 2 the host has no canvas-update button, step row or owners list; the primary previews round 3', async () => {
+    await expect(page.getByTestId('host-primary')).toHaveText('Preview round 3 tables', { timeout: 60_000 });
+    await expect(page.getByTestId('mm-update-start')).toHaveCount(0);
+    await expect(page.getByTestId('mm-update-step')).toHaveCount(0);
+    expect((await supabaseAdmin.from('event_canvas_update_steps').select('*', { count: 'exact', head: true }).eq('event_id', E1.id)).count).toBe(0);
+    return 'no update step for the host';
   }, page);
 
   // round 2's words (a clean job per table, made when the step ended it)
@@ -1277,18 +1274,6 @@ test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partne
     await completeJobEmpty(round2, r2Nos[2]);
     return `posted ${a} and ${b}; table ${r2Nos[2]} empty`;
   });
-
-  await ac('9b', 'host during the update step: each owner\'s state (A, B ready; others not tapped)', async () => {
-    await page.reload();
-    await expect(page.getByTestId('mm-update-step')).toBeVisible({ timeout: 90_000 });
-    await expect.poll(async () => await page.getByTestId('mm-update-owner').evaluateAll((els) => els.length), { timeout: 60_000 }).toBe(6);
-    const states = async () => Object.fromEntries(await page.getByTestId('mm-update-owner').evaluateAll((els) => els.map((e) => [e.textContent?.split(/Not tapped|Drafting|Ready|Failed|Published/)[0], e.getAttribute('data-state')])));
-    await expect.poll(async () => JSON.stringify(await states())).toContain('ready');
-    const st = await states();
-    note(`update states ${JSON.stringify(st)}`);
-    await shots(page, 'host', 'update-step');
-    return JSON.stringify(st);
-  }, page);
 
   // Owner A and B publish "as it is" (their drafts are ready); the room shows the full task now that nobody is seated
   for (const [i, who] of [walk.ownerA!, walk.ownerB!].entries()) {
@@ -1334,13 +1319,12 @@ test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partne
     await asUser(holdPg, ownerP, `/events/${E1.slug}/meet`);
     await expect(holdPg.getByTestId('mastermind-make')).toBeVisible({ timeout: 120_000 });
     await holdPg.getByTestId('mastermind-make').click();
-    await expect(holdPg.getByTestId('mastermind-task-drafting')).toBeVisible({ timeout: 90_000 });
+    await expect(holdPg.getByTestId('mastermind-task-creating')).toBeVisible({ timeout: 90_000 });
     await shots(holdPg, 'update-task', 'drafting-at-step');
     await page.reload();
-    await expect.poll(async () => await page.locator('[data-testid=mm-update-owner][data-state=drafting]').count(), { timeout: 60_000 }).toBe(1);
-    expect(await page.locator('[data-testid=mm-update-owner][data-state=published]').count()).toBe(2);
-    await shots(page, 'host', 'update-step-mixed');
-    const states = await page.getByTestId('mm-update-owner').evaluateAll((els) => els.map((e) => e.getAttribute('data-state')));
+    // The host has no owners list now: the same facts come from the database (the owner's tap row and its draft).
+    const taps = (await supabaseAdmin.from('event_next_version_taps').select('round_id, profile_id').eq('round_id', round2)).data ?? [];
+    const states = taps.map((t) => t.profile_id as string);
     await pressHostPrimary(page);
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 3', { timeout: 60_000 });
     const seats = await savedSeats(E1.id);
