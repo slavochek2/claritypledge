@@ -17,6 +17,9 @@ const rpc = vi.hoisted(() => vi.fn());
 const loadMine = vi.hoisted(() => vi.fn());
 const logDbError = vi.hoisted(() => vi.fn());
 const fail = vi.hoisted(() => (message: string): never => { throw new Error(message); });
+// The service picks mock vs real from VITE_USE_REAL_AGREEMENTS_API, which only a developer's .env.local sets;
+// pin the real one so this test reads the same in CI as on a laptop.
+vi.mock('@/app/data/agreements-service', async () => ({ agreementsService: (await import('@/app/data/agreements-service-real')).realAgreementsService }));
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc, auth: { getSession: async () => ({ data: { session: { user: { id: 'u1' } } } }) } } }));
 vi.mock('@/app/data/db-error-logger', () => ({
   logDbError, noteNoSessionSuppression: vi.fn(),
