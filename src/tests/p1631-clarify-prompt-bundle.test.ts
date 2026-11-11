@@ -15,7 +15,7 @@ describe('P1631 clarify prompt bundle', () => {
     expect(readFileSync(join(ROOT, OUT), 'utf8')).toBe(buildClarifyPromptFile());
   });
   it('carries all three sources, the adapter last so its overrides win, and no skill front matter', async () => {
-    const { CLARIFY_SYSTEM_PROMPT } = await import('../../supabase/functions/_shared/clarify-prompt.generated');
+    const { CLARIFY_SYSTEM_PROMPT } = await import('../../supabase/functions/clarify-draft/clarify-prompt.generated');
     expect(SOURCES).toHaveLength(3);
     const adapter = readFileSync(join(ROOT, SOURCES[2]), 'utf8').trim();
     expect(CLARIFY_SYSTEM_PROMPT.trim().endsWith(adapter)).toBe(true);

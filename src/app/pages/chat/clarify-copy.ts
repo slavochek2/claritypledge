@@ -25,6 +25,8 @@ export const DELETE_FAILED_TEXT = 'Could not delete this draft. Try again.';
 export const CLARIFY_COMPOSER_HINT = 'Tell the Mirror what to change';
 export const CLARIFY_WAITING_TEXT = 'Drafting…';
 export const CLARIFY_TOO_LONG_TOAST = 'Keep it under 500 characters.';
+// [FOUNDER DECISION: copy] shown when a message is refused because a draft is already being made
+export const CLARIFY_BUSY_TOAST = 'A draft is already being made. Try again when it is done.';
 export const CLARIFY_OPEN_LABEL = 'Open';
 export const DRAFT_MAX = 300;
 export const CLARIFY_MESSAGE_MAX = 500;

@@ -22,7 +22,7 @@ vi.mock('@/app/data/clarify-service', async () => ({ ...(await vi.importActual<o
 import { ClarifyComposer } from '@/app/pages/chat/ClarifyComposer';
 import { RepliesLink } from '@/app/pages/chat/RepliesLink';
 import { resetClarifyRuns, runClarifyDraft } from '@/app/pages/chat/clarify-run';
-import { CLARIFY_COMPOSER_HINT, CLARIFY_OPEN_LABEL } from '@/app/pages/chat/clarify-copy';
+import { CLARIFY_BUSY_TOAST, CLARIFY_COMPOSER_HINT, CLARIFY_OPEN_LABEL } from '@/app/pages/chat/clarify-copy';
 import type { ChatMessage } from '@/app/data/chat-service';
 
 beforeEach(() => {
@@ -105,6 +105,8 @@ describe('A: the composer of the Clarify thread', () => {
     send();
     await waitFor(() => expect(svc.clarifyMessage).toHaveBeenCalledTimes(1));
     expect(svc.invokeClarifyDraft).not.toHaveBeenCalled();
+    // busy says so (never a silent no-op): a toast, naming the wait
+    await waitFor(() => expect(toastFn).toHaveBeenCalledWith(CLARIFY_BUSY_TOAST));
     await waitFor(() => expect(field).toHaveValue('one more'));
     svc.clarifyMessage.mockRejectedValueOnce(new Error('offline'));
     send();

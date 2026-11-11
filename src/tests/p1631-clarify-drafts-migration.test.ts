@@ -409,3 +409,70 @@ describe('P1631 step 1b migration (20261110200000)', () => {
     expect(fnBody(fix3, 'clarify_mark_failed')).toContain(`v_d.state <> 'queued' OR v_d.spend_id IS NOT NULL OR v_d.started_at IS NOT NULL`);
   });
 });
+
+describe('P1631 step 1b review-fix migration (20261110210000)', () => {
+  const FIX4 = '20261110210000_p1631_refine_fixes.sql';
+  const FIX3 = '20261110200000_p1631_refine.sql';
+  const BASE = '20261110153000_p1631_clarify_drafts.sql';
+  const fix4 = read(FIX4);
+  const code4 = stripComments(fix4);
+  const THREAD_RAISE = `IF NOT FOUND THEN RAISE EXCEPTION 'clarify: thread not available' USING ERRCODE = '42501'; END IF;`;
+  // lines that CHANGE an old line: [start of the new line, the old text it replaces]
+  const CHANGED4: Array<[string, string]> = [
+    [`               derived_refs = ARRAY(SELECT DISTINCT u FROM unnest(l.derived_refs || v_d.derived_refs) u), sent_ids = ARRAY(`, `               derived_refs = ARRAY(SELECT DISTINCT u FROM unnest(l.derived_refs || v_d.derived_refs) u), sent_ids = l.sent_ids || v_d.sent_ids, updated_at = now()`],
+    [`        DELETE FROM public.points p WHERE p.id = v_lp.id`, `        DELETE FROM public.points p WHERE p.id = v_lp.id;`],
+    [`  IF NOT FOUND THEN -- P1631 r4`, `  ${THREAD_RAISE}`],
+    [`  SELECT p.statement, d3.id INTO v_latest, v_latest_id FROM`, `  SELECT p.statement INTO v_latest FROM public.clarify_drafts d3 JOIN public.points p ON p.id = d3.point_id`],
+    [`         derived_refs = COALESCE(v_refs, '{}'), sent_ids = v_all, updated_at = now(),`, `         derived_refs = COALESCE(v_refs, '{}'), sent_ids = v_all, updated_at = now()`],
+    [`     WHERE l.id = v_d.refine_target_id`, `     WHERE l.thread_root_id = v_d.thread_root_id AND l.owner_id = v_d.owner_id AND l.id <> v_d.id AND l.state = 'done' AND l.point_id IS NOT NULL`],
+    [`     FOR UPDATE; -- P1631 r4`, `     ORDER BY l.created_at DESC, l.id DESC LIMIT 1 FOR UPDATE;`],
+  ];
+  const marked4 = (sql: string) => sql.split('\n').flatMap((l) => {
+    const hit = CHANGED4.find(([from]) => l.startsWith(from));
+    if (hit) return [hit[1]];
+    return l.includes('-- P1631 r4') ? [] : [l];
+  }).join('\n');
+  it('each source is the newest definition before this file', () => {
+    expect(newestBefore('_clarify_begin', FIX4)).toBe(FIX3);
+    expect(newestBefore('_clarify_complete', FIX4)).toBe(FIX3);
+    expect(newestBefore('clarify_message', FIX4)).toBe(FIX3);
+    expect(newestBefore('clarify_another', FIX4)).toBe(BASE);
+    expect(fix4.slice(0, fix4.indexOf('CREATE OR REPLACE'))).toMatch(/^-- client-safe:/m);
+  });
+  it('all four bodies are the newest previous bodies plus ONLY lines marked -- P1631 r4', () => {
+    expect(fnBody(marked4(fix4), '_clarify_begin')).toBe(fnBody(read(FIX3), '_clarify_begin'));
+    expect(fnBody(marked4(fix4), '_clarify_complete')).toBe(fnBody(read(FIX3), '_clarify_complete'));
+    expect(fnBody(marked4(fix4), 'clarify_message')).toBe(fnBody(read(FIX3), 'clarify_message'));
+    expect(fnBody(marked4(fix4), 'clarify_another')).toBe(fnBody(read(BASE), 'clarify_another'));
+  });
+  it('CONTROL: an unmarked change to a restated body is caught by the same comparison', () => {
+    const unmarked = fix4.replace(`AND NOT EXISTS (SELECT 1 FROM public.story_points sp WHERE sp.point_id = p.id) -- P1631 r4`, `AND NOT EXISTS (SELECT 1 FROM public.story_points sp WHERE sp.point_id = p.id)`);
+    expect(fnBody(marked4(unmarked), '_clarify_complete')).not.toBe(fnBody(read(FIX3), '_clarify_complete'));
+  });
+  it('a refine deletes the old point only when nothing references it', () => {
+    const c = fnBody(fix4, '_clarify_complete');
+    for (const ref of ['public.story_points', 'public.canvas_added_stories', 'public.canvas_draft_points', 'public.letter_point_responses', 'public.badge_points',
+      'public.clarify_drafts od', 'p.superseded_by IS NULL', 's.superseded_by = p.id', `t LIKE 'canvas\\_%'`, 'p.first_validator_id = v_d.owner_id', `p.visibility = 'private'`,
+      'pp.user_id IS DISTINCT FROM v_d.owner_id']) expect(c, ref).toContain(ref);
+    expect(c).toContain('sent_ids = ARRAY(SELECT DISTINCT u FROM unnest(l.sent_ids || v_d.sent_ids) u)');
+  });
+  it('begin records the draft it showed as latest, and complete refines exactly that one (no re-selection)', () => {
+    expect(code4).toContain('ADD COLUMN IF NOT EXISTS refine_target_id uuid');
+    expect(fnBody(fix4, '_clarify_begin')).toContain('refine_target_id = v_latest_id');
+    const c = fnBody(fix4, '_clarify_complete');
+    expect(c).toContain('l.id = v_d.refine_target_id');
+    expect(c).not.toContain('ORDER BY l.created_at DESC, l.id DESC LIMIT 1 FOR UPDATE');
+  });
+  it('the owner messages are bounded to the run, and the message and another entrances survive a thread with no drafts', () => {
+    expect(fnBody(fix4, '_clarify_begin')).toContain('m.created_at <= v_d.created_at');
+    for (const f of ['clarify_message', 'clarify_another']) {
+      const b = fnBody(fix4, f);
+      expect(b, f).toContain('t.root_id = p_thread_root AND t.owner_id = v_uid');
+      expect(b, f).toContain('forwarded_from_message_id');
+    }
+    for (const sig of ['clarify_message(uuid, text)', 'clarify_another(uuid, text)']) {
+      const e = sig.replace(/[()]/g, '\\$&');
+      expect(code4).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${e} TO authenticated;`));
+    }
+  });
+});

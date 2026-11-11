@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { handleClarifyDraft, type ClarifyDeps } from '../../supabase/functions/clarify-draft/handler';
-import { buildClarifyRequest, clarifyStub, parseClarifyResponse, type ClarifyRun } from '../../supabase/functions/_shared/clarify-model';
+import { buildClarifyRequest, clarifyStub, newestWithin, parseClarifyResponse, type ClarifyRun } from '../../supabase/functions/clarify-draft/clarify-model';
 
 const OWNER = '11111111-1111-4111-8111-111111111111';
 const DRAFT = '22222222-2222-4222-8222-222222222222';
@@ -248,6 +248,40 @@ describe('request building and parsing', () => {
   });
 });
 
+describe('the owner messages and already-drafted points are bounded (P1631 step 1b review)', () => {
+  const payloadOf = (r: ReturnType<typeof buildClarifyRequest>) => { const t = r!.request.contents[0]!.parts[0]!.text; return JSON.parse(t.slice(t.indexOf('\n') + 1)); };
+  it('newestWithin keeps the newest entries inside the budget, always the newest one', () => {
+    expect(newestWithin(['aaaa', 'bbbb', 'cc'], 7)).toEqual(['bbbb', 'cc']);
+    expect(newestWithin(['aaaa', 'bbbb', 'cc'], 100)).toEqual(['aaaa', 'bbbb', 'cc']);
+    expect(newestWithin(['x'.repeat(50)], 10)).toEqual(['x'.repeat(10)]);
+    expect(newestWithin([], 10)).toEqual([]);
+  });
+  it('a long refine conversation is cut to the newest messages and drafts, and the request still fits; the latest draft and the newest direction survive', () => {
+    const msgs = Array.from({ length: 20 }, (_, i) => `direction ${i} ${'m'.repeat(480)}`);
+    const drafted = Array.from({ length: 80 }, (_, i) => `point ${i} ${'d'.repeat(290)}`);
+    const big = { ...RUN, owner_instruction: msgs[19]!, owner_messages: msgs, already_drafted: drafted, latest_draft: 'The latest statement' };
+    const built = buildClarifyRequest(big);
+    expect(built).not.toBeNull();
+    const p = payloadOf(built);
+    expect(p.earlier_owner_messages.length).toBeLessThan(19);
+    expect(p.earlier_owner_messages.at(-1)).toBe(msgs[18]); // the newest earlier direction is kept, the oldest ones are what goes
+    expect(p.already_drafted.length).toBeLessThan(80);
+    expect(p.already_drafted.at(-1)).toBe(drafted[79]);
+    expect(p.latest_draft).toBe('The latest statement');
+    expect(p.owner_instruction).toBe(msgs[19]);
+    // CONTROL: a short conversation is sent whole
+    const small = payloadOf(buildClarifyRequest({ ...RUN, owner_instruction: 'b', owner_messages: ['a', 'b'], already_drafted: ['p1', 'p2'] }));
+    expect(small).toMatchObject({ earlier_owner_messages: ['a'], already_drafted: ['p1', 'p2'] });
+  });
+  it('when chat and thread are gone and the lists still do not fit, the lists shrink before the request is refused', () => {
+    const msgs = Array.from({ length: 20 }, (_, i) => `d${i} ${'m'.repeat(480)}`);
+    const tight = buildClarifyRequest({ ...RUN, owner_instruction: 'x', owner_messages: msgs, already_drafted: [] }, { system: 'sys', limit: 700 });
+    expect(tight).not.toBeNull();
+    expect(payloadOf(tight).earlier_owner_messages.length).toBeLessThan(20);
+    expect(buildClarifyRequest({ ...RUN }, { system: 'sys', limit: 10 })).toBeNull();
+  });
+});
+
 describe('which side the pressed message is on (P1631 step 1b)', () => {
   it('the pressed_author flag, the owner messages and the latest draft are sent to the model; never a name', () => {
     const run3 = { ...RUN, owner_instruction: 'sharper', owner_messages: ['make it about money', 'sharper'], latest_draft: 'Deadlines are the team\'s call',
@@ -256,15 +290,22 @@ describe('which side the pressed message is on (P1631 step 1b)', () => {
     const text = request.contents[0]!.parts[0]!.text;
     const payload = JSON.parse(text.slice(text.indexOf('\n') + 1));
     expect(payload.pressed_author).toBe('other');
-    expect(payload.owner_messages).toEqual(['make it about money', 'sharper']);
+    // the newest owner message is the instruction itself; earlier ones go as context only, and the old key is gone
+    expect(payload.earlier_owner_messages).toEqual(['make it about money']);
+    expect(payload.owner_messages).toBeUndefined();
+    // CONTROL: an instruction that is not the owner's last message (a tapped suggestion) keeps every message as earlier context
+    const tapped = buildClarifyRequest({ ...run3, owner_instruction: 'Test the timing' })!.request.contents[0]!.parts[0]!.text;
+    expect(JSON.parse(tapped.slice(tapped.indexOf('\n') + 1)).earlier_owner_messages).toEqual(['make it about money', 'sharper']);
+    // the latest draft is marked as data, never as the owner's direction
+    expect(text).toContain('`latest_draft` were made from other people');
     expect(payload.latest_draft).toBe('Deadlines are the team\'s call');
     // CONTROL: a run from before the field existed sends nulls and an empty list, never undefined keys
     const old = JSON.parse(buildClarifyRequest(RUN)!.request.contents[0]!.parts[0]!.text.split('\n')[1]!);
-    expect(old).toMatchObject({ pressed_author: null, owner_messages: [], latest_draft: null });
+    expect(old).toMatchObject({ pressed_author: null, earlier_owner_messages: [], latest_draft: null });
     expect(buildClarifyRequest({ ...RUN, source_message: { ...RUN.source_message, pressed_author: 'owner' } })!.request.contents[0]!.parts[0]!.text).toContain('"pressed_author":"owner"');
   });
   it('the model prompt tells it to aim the wording at the pressed message\'s author and to choose a target', async () => {
-    const { CLARIFY_SYSTEM_PROMPT } = await import('../../supabase/functions/_shared/clarify-prompt.generated');
+    const { CLARIFY_SYSTEM_PROMPT } = await import('../../supabase/functions/clarify-draft/clarify-prompt.generated');
     expect(CLARIFY_SYSTEM_PROMPT).toContain('pressed_author');
     expect(CLARIFY_SYSTEM_PROMPT).toContain('the author of the pressed message would agree with it');
     expect(CLARIFY_SYSTEM_PROMPT).toContain('It never records anyone\'s position');

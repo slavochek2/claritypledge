@@ -18,7 +18,7 @@
 
 import { TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS } from '../_shared/terms-gate.ts';
 import type { GeminiRequest } from '../_shared/mirror-agent.ts';
-import { buildClarifyRequest, parseClarifyResponse, type ClarifyCaller, type ClarifyRun } from '../_shared/clarify-model.ts';
+import { buildClarifyRequest, parseClarifyResponse, type ClarifyCaller, type ClarifyRun } from './clarify-model.ts';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

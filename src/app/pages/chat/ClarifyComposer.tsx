@@ -8,7 +8,7 @@ import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { clarifyMessage } from '@/app/data/clarify-service';
 import { Composer } from './Composer';
-import { CLARIFY_COMPOSER_HINT, CLARIFY_FAILED_TOAST, CLARIFY_MESSAGE_MAX, CLARIFY_TOO_LONG_TOAST, CLARIFY_WAITING_TEXT } from './clarify-copy';
+import { CLARIFY_BUSY_TOAST, CLARIFY_COMPOSER_HINT, CLARIFY_FAILED_TOAST, CLARIFY_MESSAGE_MAX, CLARIFY_TOO_LONG_TOAST, CLARIFY_WAITING_TEXT } from './clarify-copy';
 import { runClarifyDraft, touchClarifyThread } from './clarify-run';
 
 export function ClarifyComposer({ rootId, userId, working }: { rootId: string; userId: string; working: boolean }) {
@@ -22,7 +22,12 @@ export function ClarifyComposer({ rootId, userId, working }: { rootId: string; u
     }
     try {
       const r = await clarifyMessage(rootId, text);
-      if (r.status !== 'started') return false; // busy: the send slot already says a draft is being made
+      if (r.status !== 'started') {
+        // busy: say so, and reread the thread so the send slot shows the draft being made
+        toast(CLARIFY_BUSY_TOAST);
+        touchClarifyThread(rootId);
+        return false;
+      }
       void runClarifyDraft(r.draftId);
       touchClarifyThread(rootId);
       return true;

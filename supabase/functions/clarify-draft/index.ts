@@ -19,7 +19,7 @@ import { createClient } from '@supabase/supabase-js';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { callerHasCurrentTerms } from '../_shared/terms-gate.ts';
 import { STUB_HEADER, resolveEnabled, stubAllowed } from '../_shared/canvas-model.ts';
-import { clarifyStub, geminiClarifyCaller } from '../_shared/clarify-model.ts';
+import { clarifyStub, geminiClarifyCaller } from './clarify-model.ts';
 import { handleClarifyDraft, type ClarifyDeps } from './handler.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';

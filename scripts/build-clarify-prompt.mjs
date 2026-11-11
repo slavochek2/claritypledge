@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * P1631 D5: bundles the Clarify drafting prompt into supabase/functions/_shared/clarify-prompt.generated.ts, so the
+ * P1631 D5: bundles the Clarify drafting prompt into supabase/functions/clarify-draft/clarify-prompt.generated.ts, so the
  * edge function (which cannot read the repo at run time) carries ONE copy of each source:
  *   .claude/commands/slava/disagreement/prepare.md   (front matter dropped)
  *   docs/story-point-model.md
- *   supabase/functions/_shared/clarify-adapter.md    (the live-conversation overrides, last so they win)
+ *   supabase/functions/clarify-draft/clarify-adapter.md    (the live-conversation overrides, last so they win)
  *
  * Usage:  node scripts/build-clarify-prompt.mjs          writes the generated file
  *         node scripts/build-clarify-prompt.mjs --check  exits 1 when the file differs from a fresh build
@@ -19,9 +19,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const SOURCES = [
   '.claude/commands/slava/disagreement/prepare.md',
   'docs/story-point-model.md',
-  'supabase/functions/_shared/clarify-adapter.md',
+  'supabase/functions/clarify-draft/clarify-adapter.md',
 ];
-export const OUT = 'supabase/functions/_shared/clarify-prompt.generated.ts';
+export const OUT = 'supabase/functions/clarify-draft/clarify-prompt.generated.ts';
 
 const sha = (s) => createHash('sha256').update(s).digest('hex').slice(0, 12);
 
