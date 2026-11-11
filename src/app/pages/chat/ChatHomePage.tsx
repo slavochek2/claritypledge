@@ -51,9 +51,11 @@ export default function ChatHomePage() {
   // Escape closes the thread panel the way its Back does (a dialog or menu that handled Escape marked it as taken).
   // P1631: Clarify opens the Mirror's thread beside the chat the person is in (?clarify=<root>); closing only removes the parameter.
   const { clarifyRoot, closeClarify } = useClarifyPanel();
-  const threadOpen = !!route.rootId || !!clarifyRoot;
+  // open only when a panel will really render: a ?clarify= with no Mirror to show it in must not capture Escape
+  const clarifyShown = !!clarifyRoot && !!ctx?.chats.some((c) => c.kind === 'mirror');
+  const threadOpen = !!route.rootId || clarifyShown;
   const back = useBack();
-  const closeThread = clarifyRoot ? closeClarify : back;
+  const closeThread = clarifyShown ? closeClarify : back;
   useFinishLeave();
   useEffect(() => {
     if (!threadOpen) return;
