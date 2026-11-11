@@ -8,6 +8,11 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-11 [product]: Founder calls on the P1659/P1660 follow-ups
+
+**Decision (founder, 2026-11-11, "yes to all" to the recommendations):** (1) Quotes stitched across two clauses stay a known limit of the audio check; no clause-aware checker for now (a human sees quotes before publishing). (2) Inline hashtags keep their word: "We need #climate action" should display "We need climate action". This reverses the deletion that `src/tests/stripHashtags.test.ts` pins, so it needs a spec that changes those assertions deliberately. (3) Tags saved from URL fragments before P1660 are left as they are; no prod data cleanup.
+**Consequences:** (2) is filed in the task inbox for a session to spec and build.
+
 ## 2026-11-11 [technical]: Hashtag extraction and stripping mask links first and share one whole-token rule (P1660)
 
 **Context:** P1638's triage re-proved that `stripHashtags` removed a `#tag` from inside a URL fragment (`https://a.com/p#climate` lost `#climate`) and from the front of a longer token (`#node.js` became `.js`), and that `extractHashtags`, which story creation **saves** as the story's tags, read URL fragments as tags.
