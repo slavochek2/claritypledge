@@ -124,6 +124,21 @@ staging-hop runs after the push, so the founder can decide.
   `VITE_USE_REAL_API=true`. With `VITEST=1`: `envDir=false`, 0 keys.
 - CI conditions: in an env-free `git archive` copy, the P1666 and P1650 test files pass (38 tests).
 
+**Review round 1 (Gemini, GLM, Codex, code criteria; 4 of 4 received) and what changed:**
+- Shell-exported `VITE_*` values still reached unit tests (reproduced: `VITE_P1666_SHELL=leaked` was visible).
+  `vite.config.ts` now drops every `VITE_*` key not in `src/tests/unit-test-env.ts` under vitest, with a stderr
+  line. Control: with the drop removed, the canary fails naming `VITE_P1666_SHELL` (exit 1); with it, 16 passed
+  and `[P1666] unit run ignores shell-exported VITE_P1666_SHELL` is printed.
+- The canary parsed `vite.config.ts` as text. Now `UNIT_TEST_ENV` is one module read by both `test.env` and the canary.
+- CI could not catch removal of the fix, since CI has no env file (Codex). `p1666-env-dir-regression.test.ts`
+  writes its own `.env.local` into a temp root and resolves the real config in a child process; its control
+  shows the same config loads the file outside vitest. With the suppression removed, it fails in the env-free
+  copy (exit 1, 1 failed of 18).
+- No test of the absent flag (the unit and CI default). The table-driven switch tests now include it.
+  Control: changing the agreements switch to `!== 'false'` fails "absent … selects the mock implementation" (exit 1).
+- Dropped after checking: "the integration lane inherits `envDir`" (its config is standalone and imports
+  nothing from `vite.config.ts`); "real modules have import side effects" (full suite green, file runs in 0.5 s).
+
 ## Alternatives Considered
 
 - **Pin the service in each test file (what `daa5aad0c` did).** It covers one file. The next test

@@ -9,6 +9,16 @@ import { runtimeCaching, createShellPrecache } from './src/pwa/workbox-config'
 import { appBuildFingerprintPlugin } from './src/pwa/app-build-fingerprint'
 import { worktreeSlot, portForSlot } from './scripts/lib/worktree-port.mjs'
 import { refuseHostedTestRun } from './scripts/lib/hosted-test-guard.mjs'
+import { UNIT_TEST_ENV } from './src/tests/unit-test-env'
+
+// P1666: a unit run sees the same VITE_* values on a laptop as in CI, which has no env file and
+// no exports. envDir:false (below) keeps env files out; this drops VITE_* values exported in the
+// shell, which Vite would otherwise pass straight into import.meta.env. A test that needs one stubs it.
+if (process.env.VITEST) {
+  const dropped = Object.keys(process.env).filter((k) => k.startsWith('VITE_') && !(k in UNIT_TEST_ENV))
+  for (const k of dropped) Reflect.deleteProperty(process.env, k)
+  if (dropped.length) console.warn(`[P1666] unit run ignores shell-exported ${dropped.join(', ')}`)
+}
 
 // ES Module equivalent of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -41,10 +51,10 @@ const shellPrecache = createShellPrecache()
 // https://vite.dev/config/
 export default defineConfig({
   cacheDir: getCacheDir(),
-  // P1666: a unit run loads no env file, so it sees exactly what CI sees (CI has none). A developer's
-  // .env.local once made a test pass locally and fail in CI for two days. Unit tests take their
-  // VITE_* values from test.env below; the dev server, build and integration lane are unaffected.
-  envDir: process.env.VITEST ? false : undefined,
+  // P1666: a unit run loads no env file, since CI has none. A developer's .env.local once made a
+  // test pass locally and fail in CI for two days. Unit tests take their VITE_* values from
+  // test.env below; the dev server and build keep the default (the integration lane has its own config).
+  ...(process.env.VITEST ? { envDir: false as const } : {}),
   // Pre-bundle all heavy deps so Vite never re-optimizes mid-session (prevents 504 "Outdated Optimize Dep")
   optimizeDeps: {
     // Crawl lazy-loaded entry points so their deps are discovered before any request arrives.
@@ -257,12 +267,7 @@ export default defineConfig({
     // 5000ms default while the same test passes alone; 15s absorbs harness load, a real hang still fails.
     testTimeout: 15000,
     setupFiles: './src/tests/setup.tsx',
-    env: {
-      // Prevent supabase.ts from throwing at module load in test environments.
-      // Actual Supabase calls are mocked at the service level in each test.
-      VITE_SUPABASE_URL: 'http://localhost:54321',
-      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
-    },
+    env: { ...UNIT_TEST_ENV }, // P1666: the only VITE_* values a unit run sees
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

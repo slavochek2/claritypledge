@@ -1,11 +1,12 @@
 /**
- * P1666: a unit run must see exactly the VITE_* values vite.config.ts `test.env` supplies, never a
+ * P1666: a unit run must see exactly the VITE_* values in src/tests/unit-test-env.ts, never a
  * developer env file or shell export. The canary catches a leak; the switch tests prove each
- * module-load mock/real switch follows its flag, so a leaked flag would be a real behaviour change.
+ * module-load mock/real switch follows its flag and picks the mock when the flag is absent, which
+ * is the unit (and CI) default. Scope: VITE_* only. Unprefixed process.env values (TEST_*, etc.)
+ * are not covered here. p1666-env-dir-regression.test.ts proves the env-file half in CI too.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { UNIT_TEST_ENV } from './unit-test-env';
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -13,12 +14,8 @@ afterEach(() => {
 });
 
 describe('P1666 canary: unit env is hermetic', () => {
-  it('import.meta.env VITE_* keys equal vite.config.ts test.env keys', () => {
-    // Importing vite.config under jsdom breaks esbuild (TextEncoder invariant), so read it as text.
-    const src = readFileSync(resolve(__dirname, '../../vite.config.ts'), 'utf8');
-    const testBlock = src.slice(src.indexOf('test: {'));
-    const envBody = /\benv:\s*\{([^}]*)\}/.exec(testBlock)?.[1] ?? '';
-    const expected = [...envBody.matchAll(/^\s*(VITE_[A-Z0-9_]+)\s*:/gm)].map((m) => m[1]).sort();
+  it('import.meta.env carries exactly the VITE_* keys in unit-test-env.ts', () => {
+    const expected = Object.keys(UNIT_TEST_ENV).sort();
     // A broken derivation must not pass green.
     expect(expected).toContain('VITE_SUPABASE_URL');
 
@@ -28,104 +25,110 @@ describe('P1666 canary: unit env is hermetic', () => {
     const extra = actual.filter((k) => !expected.includes(k));
     const missing = expected.filter((k) => !actual.includes(k));
     expect(
-      { extra, missing },
-      `Extra VITE_ keys in the unit run: ${extra.join(', ') || '(none)'}; missing: ${missing.join(', ') || '(none)'}. ` +
-        'a developer env file or shell export reached the unit run — see P1666',
-    ).toEqual({ extra: [], missing: [] });
-    expect(actual).toEqual(expected);
+      extra,
+      `Extra VITE_ keys reached the unit run: ${extra.join(', ')}. An env file or shell export leaked in; ` +
+        'vite.config.ts should drop both under vitest (P1666). Stub a value in the test with vi.stubEnv instead.',
+    ).toEqual([]);
+    expect(
+      missing,
+      `VITE_ keys from unit-test-env.ts are missing from the unit run: ${missing.join(', ')}. ` +
+        'vite.config.ts test.env stopped passing UNIT_TEST_ENV (P1666).',
+    ).toEqual([]);
+    // Values too, not just names: a shell export of an allowed key must not override it.
+    expect(import.meta.env).toMatchObject(UNIT_TEST_ENV);
   });
 });
 
-/** Stub the flag, reload modules, import the switch module and the two implementations. */
-async function load<T>(flag: string, value: string, imports: () => Promise<T>): Promise<T> {
-  vi.stubEnv(flag, value);
-  vi.resetModules();
-  return imports();
-}
+/**
+ * One row per module-load switch. `pick` reads what identifies the chosen implementation: the
+ * service object itself, or for stories and points (which wrap the chosen service in a Proxy or
+ * spread) a read method that passes through unwrapped.
+ */
+type Mod = Record<string, unknown>;
+const SWITCHES: Array<{
+  name: string;
+  flag: string;
+  load: () => Promise<[Mod, Mod, Mod]>;
+  pick: (sw: Mod, real: Mod, mock: Mod) => [unknown, unknown, unknown];
+}> = [
+  {
+    name: 'agreements-service',
+    flag: 'VITE_USE_REAL_AGREEMENTS_API',
+    load: async () => [
+      await import('@/app/data/agreements-service'),
+      await import('@/app/data/agreements-service-real'),
+      await import('@/app/data/agreements-service-mock'),
+    ],
+    pick: (sw, real, mock) => [sw.agreementsService, real.realAgreementsService, mock.mockAgreementsService],
+  },
+  {
+    name: 'events-service',
+    flag: 'VITE_USE_REAL_EVENTS_API',
+    load: async () => [
+      await import('@/app/data/events-service'),
+      await import('@/app/data/events-service-real'),
+      await import('@/app/data/events-service-mock'),
+    ],
+    pick: (sw, real, mock) => [sw.eventsService, real.realEventsService, mock.mockEventsService],
+  },
+  {
+    name: 'calibration-service',
+    flag: 'VITE_USE_REAL_API',
+    load: async () => [
+      await import('@/app/data/calibration-service'),
+      await import('@/app/data/calibration-service-real'),
+      await import('@/app/data/calibration-service-mock'),
+    ],
+    pick: (sw, real, mock) => [sw.calibrationService, real.realCalibrationService, mock.mockCalibrationService],
+  },
+  {
+    name: 'stories-service',
+    flag: 'VITE_USE_REAL_API',
+    load: async () => [
+      await import('@/app/data/stories-service'),
+      await import('@/app/data/stories-service-real'),
+      await import('@/app/data/stories-service-mock'),
+    ],
+    pick: (sw, real, mock) => [
+      (sw.storiesService as Mod).getStory,
+      (real.realStoriesService as Mod).getStory,
+      (mock.mockStoriesService as Mod).getStory,
+    ],
+  },
+  {
+    name: 'points-service',
+    flag: 'VITE_USE_REAL_API',
+    load: async () => [
+      await import('@/app/data/points-service'),
+      await import('@/app/data/points-service-real'),
+      await import('@/app/data/points-service-mock'),
+    ],
+    pick: (sw, real, mock) => [
+      (sw.pointsService as Mod).getPoint,
+      (real.realPointsService as Mod).getPoint,
+      (mock.mockPointsService as Mod).getPoint,
+    ],
+  },
+];
 
-describe('agreements-service switch (VITE_USE_REAL_AGREEMENTS_API)', () => {
-  const run = (v: string) =>
-    load('VITE_USE_REAL_AGREEMENTS_API', v, async () => ({
-      sw: await import('@/app/data/agreements-service'),
-      real: await import('@/app/data/agreements-service-real'),
-      mock: await import('@/app/data/agreements-service-mock'),
-    }));
+describe.each(SWITCHES)('$name switch ($flag)', ({ flag, load, pick }) => {
+  const chosen = async (value: string | undefined) => {
+    if (value !== undefined) vi.stubEnv(flag, value);
+    vi.resetModules();
+    return pick(...(await load()));
+  };
+
   it('true selects the real implementation', async () => {
-    const { sw, real } = await run('true');
-    expect(sw.agreementsService).toBe(real.realAgreementsService);
+    const [sw, real] = await chosen('true');
+    expect(sw).toBe(real);
   });
   it('false selects the mock implementation', async () => {
-    const { sw, mock } = await run('false');
-    expect(sw.agreementsService).toBe(mock.mockAgreementsService);
+    const [sw, , mock] = await chosen('false');
+    expect(sw).toBe(mock);
   });
-});
-
-describe('events-service switch (VITE_USE_REAL_EVENTS_API)', () => {
-  const run = (v: string) =>
-    load('VITE_USE_REAL_EVENTS_API', v, async () => ({
-      sw: await import('@/app/data/events-service'),
-      real: await import('@/app/data/events-service-real'),
-      mock: await import('@/app/data/events-service-mock'),
-    }));
-  it('true selects the real implementation', async () => {
-    const { sw, real } = await run('true');
-    expect(sw.eventsService).toBe(real.realEventsService);
-  });
-  it('false selects the mock implementation', async () => {
-    const { sw, mock } = await run('false');
-    expect(sw.eventsService).toBe(mock.mockEventsService);
-  });
-});
-
-describe('calibration-service switch (VITE_USE_REAL_API)', () => {
-  const run = (v: string) =>
-    load('VITE_USE_REAL_API', v, async () => ({
-      sw: await import('@/app/data/calibration-service'),
-      real: await import('@/app/data/calibration-service-real'),
-      mock: await import('@/app/data/calibration-service-mock'),
-    }));
-  it('true selects the real implementation', async () => {
-    const { sw, real } = await run('true');
-    expect(sw.calibrationService).toBe(real.realCalibrationService);
-  });
-  it('false selects the mock implementation', async () => {
-    const { sw, mock } = await run('false');
-    expect(sw.calibrationService).toBe(mock.mockCalibrationService);
-  });
-});
-
-// stories and points wrap the chosen service in a Proxy / spread; a READ method passes through
-// unwrapped, so its identity proves which implementation was picked.
-describe('stories-service switch (VITE_USE_REAL_API)', () => {
-  const run = (v: string) =>
-    load('VITE_USE_REAL_API', v, async () => ({
-      sw: await import('@/app/data/stories-service'),
-      real: await import('@/app/data/stories-service-real'),
-      mock: await import('@/app/data/stories-service-mock'),
-    }));
-  it('true selects the real implementation', async () => {
-    const { sw, real } = await run('true');
-    expect(sw.storiesService.getStory).toBe(real.realStoriesService.getStory);
-  });
-  it('false selects the mock implementation', async () => {
-    const { sw, mock } = await run('false');
-    expect(sw.storiesService.getStory).toBe(mock.mockStoriesService.getStory);
-  });
-});
-
-describe('points-service switch (VITE_USE_REAL_API)', () => {
-  const run = (v: string) =>
-    load('VITE_USE_REAL_API', v, async () => ({
-      sw: await import('@/app/data/points-service'),
-      real: await import('@/app/data/points-service-real'),
-      mock: await import('@/app/data/points-service-mock'),
-    }));
-  it('true selects the real implementation', async () => {
-    const { sw, real } = await run('true');
-    expect(sw.pointsService.getPoint).toBe(real.realPointsService.getPoint);
-  });
-  it('false selects the mock implementation', async () => {
-    const { sw, mock } = await run('false');
-    expect(sw.pointsService.getPoint).toBe(mock.mockPointsService.getPoint);
+  it('absent (the unit and CI default) selects the mock implementation', async () => {
+    expect(import.meta.env[flag]).toBeUndefined();
+    const [sw, , mock] = await chosen(undefined);
+    expect(sw).toBe(mock);
   });
 });
