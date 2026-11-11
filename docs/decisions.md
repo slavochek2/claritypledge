@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-11 [process]: A unit run loads no env file and no shell VITE_ export, so the local hook and CI judge the same code (P1666)
+
+**Context:** The CI unit job was red on `main` for two days (22 of the last 40 runs) while every local pre-commit run was green. One test (P1650's Share field) passed only because the founder's `.env.local` set `VITE_USE_REAL_AGREEMENTS_API=true`; vitest loads `.env`, `.env.local`, `.env.test` and `.env.test.local`, and `agreements-service.ts` picks real or mock from that flag at module load. CI has no env file, so the mock answered and the test failed. Nothing connected the two results, and the job is not a required check (P1635), so promotes went ahead with a printed warning.
+**Decision:** Under vitest, `vite.config.ts` sets `envDir: false` and drops every `VITE_*` value exported in the shell that is not in `src/tests/unit-test-env.ts`, the one list of values a unit run sees (`test.env` reads it). Guarded by a canary (the run's `VITE_*` keys and values equal that list), a child-process test that resolves the real config against its own `.env.local` and shell export so CI catches removal of either half, and switch tests for each `VITE_USE_REAL_*` switch including the absent flag. A unit test that needs another value stubs it.
+**Alternatives rejected:** Pinning the service per test file (the first fix, `daa5aad0c`): covers one file, the next test repeats it. Setting every flag in `test.env`: today's flags only, and it picks real-vs-mock globally. Making the job required at once: the founder's P1635 ruling waits for a reliable green streak, and it would not have explained why the hook was green.
+**Consequences:** Local and CI unit runs now see the same `VITE_*` env by construction, so the precondition the P1635 ruling waits on is a green streak, not a known leak. The remaining divergence is selection (the hook runs related tests only), not env. Process learnings from the build: a reviewer's "passes in CI" claim needs a CI-condition control, since the first canary stayed green in an env-free copy with the fix removed (Codex); and re-running `git-ops.sh ship pN` after a successful landing re-seeds the closed spec onto main (refused by the duplicate-spec check, nothing committed), so a retained worktree is cleaned up, not re-shipped. Follow-ups filed: INBOX-322 (report the green streak and the required-check recommendation after the push), INBOX-321 (a production build that would ship a mock should fail, not log).
+**References:** [P1666](../features/done/2026-06-10/p1666_unit_tests_read_developer_env_files.md), [P1635](../features/done/2026-06-10/p1635_precommit_suite_contention.md), `vite.config.ts`, `src/tests/unit-test-env.ts`
+
+---
+
 ## 2026-11-11 [product]: The /builders visual redesign stays a dev-only prototype until more readers back it (P1665)
 
 **Context:** A visual redesign of /builders (same copy, new layout, a hero drawing of one line splitting into five) was built at `/tree/landing-fable`. The founder liked it. One outside reader preferred the old style: it felt a bit less readable, and they did not understand the hero drawing (divergence and convergence of opinions). The founder also needed time to read the drawing.

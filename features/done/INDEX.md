@@ -456,6 +456,7 @@ Last updated: 2026-11-11
 
 ## Infrastructure / Process
 
+- **P1666** (Nov 11) Unit tests read the developer's env files — vitest loads `.env.local`, so a test passed locally and failed in CI for two days; unit runs now load no env file and drop shell `VITE_*` exports, and a child-process test proves it in CI (a canary alone stays green where no env file exists)
 - **P1648** (Nov 26) /live prod smoke false alarm — a page that stops the recorder on mount can prove only "bundle loaded and ran", never "/record posted"; "requested", "downloaded ok" and regex drift guards each passed a broken recorder in review — see decisions.md 2026-11-06 [technical]
 - **P1641** (Nov 26) Privacy scan refused branch deletes after P1623 made it fail closed — skip only an all-zero LOCAL SHA, before the range is built; a new fail-closed gate must run the pipeline's own cleanup step (gate 7c)
 - **P1628** (Nov 26) Tag automation traffic in Mixpanel — switching recording off blinds smokes to recorder outages; smokes must opt in and prove upload.
