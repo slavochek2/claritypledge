@@ -1,13 +1,11 @@
 /**
- * P1653 F5 diagnosis (TEMPORARY with the measurement line): which realistic model questions pass the screen for "its a car selling buisness", and why the
- * others do not; and that the measurement of the refusals is counts and fixed labels only, never a question or a word. The screen's rules are NOT changed here:
- * these tests document what it does today.
+ * P1653 F5 (second amendment, founder 2026-11-11): the guess-question has NO word-by-word screen. These tests pin what is screened (shape, names, money, numbers,
+ * the redirect question) and the TEMPORARY counters of why a question was refused (counts only, never a question or a word).
  */
 import { describe, expect, it } from 'vitest';
 import { screenQuestions } from '../../supabase/functions/_shared/canvas-nothing';
 import { parsedLine } from '../../supabase/functions/_shared/canvas-measure';
 import { assembleMaterial } from '../../supabase/functions/_shared/canvas-source';
-import { contentWords } from '../../supabase/functions/_shared/canvas-support';
 import type { Step } from '../../supabase/functions/_shared/canvas-run';
 
 const OWNER = 'its a car selling buisness';
@@ -16,48 +14,64 @@ const step = (owner = OWNER, names: string[] = []): Step =>
 const answer = (questions: Array<{ box: string; question: string }>) => ({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ scope: [], actions: [], questions }) }] } }] });
 const ask = (...qs: string[]) => screenQuestions(step(), answer(qs.map((question) => ({ box: 'canvas:segments', question }))));
 
-describe('P1653 F5 diagnosis: realistic questions for "its a car selling buisness"', () => {
-  it('the owner\'s content words are car, selling and buisness (the typo is what the screen holds)', () => {
-    expect([...contentWords(OWNER)].sort()).toEqual(['buisness', 'car', 'selling']);
-  });
-
+describe('P1653 F5: realistic questions for "its a car selling buisness" all pass (no word screen)', () => {
   it.each([
-    ['Who are your customers?', true],
-    ['What do you sell and what does it cost?', true],
-    ['What problem do your customers have?', true],
-    ['Who buys the cars you sell?', false], // "buys" is not a plain word ("buyers" is), "cars" is not "car" (a plural s is cut only from words over four letters)
-    ['What do you charge for a car?', false], // "charge" is not a box word
-    ['Which customers do you sell cars to?', false], // "cars" again
-    ['Who are the customers of your car selling business?', false], // "business" is not the owner's "buisness"
-    ['What is the main problem your customers face?', false], // "main", "face"
-    ['What does your business choose over something else it cares about, and why?', false], // the module's own wording: five fact-like words
-  ])('%s -> passes: %s', (q, passes) => {
+    'Who are your customers?',
+    'Who buys the cars you sell?',
+    'What do you charge for a car?',
+    'Which customers do you sell cars to?',
+    'Who usually buys the cars you sell, and how do they find you?',
+    'What does your business choose over something else it cares about, and why?',
+    'Who are the customers of your car selling business?',
+  ])('%s -> shown', (q) => {
     const r = ask(q);
-    expect(r.shown !== null, q).toBe(passes);
-    expect(r.stats.tried).toBe(1);
+    expect(r.shown).toBe(q);
+    expect(r.stats).toMatchObject({ raw: 1, tried: 1, shown: 1, word: 0, shape: 0, names: 0, money: 0, number: 0 });
   });
+});
 
-  it('the refusal reasons are counted per rule, offending words per question, and by fixed category (never the word)', () => {
-    const r = ask('Who buys the cars you sell?', 'Who are the customers of your car selling business?', 'What is the main problem your customers face?', 'Which dealership customers do you serve?');
-    expect(r.shown).toBeNull();
-    expect(r.stats).toMatchObject({ raw: 4, tried: 4, shape: 0, names: 0, word: 4, number: 0, shown: 0, ownerWords: 3 });
-    expect(r.stats.off).toEqual([2, 1, 2, 2]);
-    // "cars" is a stemming gap, "business" a near miss of the typo, "buys" "main" "face" "dealership" "serve" nothing of the owner's
-    expect(r.stats.cats.plural).toBe(1);
-    expect(r.stats.cats.near_owner).toBe(1);
-    expect(r.stats.cats.plural + r.stats.cats.near_owner + r.stats.cats.other).toBe(r.stats.off.reduce((a, b) => a + b, 0));
-  });
-
-  it('counts the other rules too: names, numbers, shape', () => {
-    const s = step('its a car selling business', ['Bob Marley']); // here the owner spelt "business" right
+describe('P1653 F5: what is still screened, and the counters', () => {
+  it('counts each rule once per question, the FIRST it fails; `word` is always 0 now', () => {
+    const s = step('its a car selling business', ['Bob Marley']);
     const r = screenQuestions(s, answer([
       { box: 'canvas:segments', question: 'Does Bob Marley buy your car selling business?' }, // names
-      { box: 'canvas:segments', question: 'Is your car selling business 5?' }, // every word allowed, a number the owner never typed
+      { box: 'canvas:segments', question: 'Is your car selling business 5?' }, // a number the owner never said
       { box: 'canvas:segments', question: '??' }, // no content word: shape
       { box: 'canvas:segments', question: 'Is this your business?' }, // the redirect question itself: shape
-      { box: 'canvas:segments', question: 'Is your car selling business 5 years old?' }, // words first: "years", "old"
+      { box: 'canvas:segments', question: 'Is the price in dollars?' }, // money
+      { box: 'canvas:segments', question: 'Who usually buys the cars you sell?' }, // shown
     ]));
-    expect(r.stats).toMatchObject({ raw: 5, tried: 5, names: 1, number: 1, shape: 2, word: 1, shown: 0 });
+    expect(r.shown).toBe('Who usually buys the cars you sell?');
+    expect(r.stats).toMatchObject({ raw: 6, tried: 6, names: 1, number: 1, shape: 2, money: 1, word: 0, shown: 1 });
+  });
+
+  it('a currency or a figure the owner did say is theirs; one they did not say is refused', () => {
+    expect(screenQuestions(step('its a car selling business, a car costs 8000 euros'), answer([{ box: 'canvas:revenue', question: 'Do your cars cost 8000 euros?' }])).shown).toBe('Do your cars cost 8000 euros?');
+    expect(ask('Do your cars cost 8000 euros?').shown).toBeNull();
+    expect(ask('What do you charge in euros?').stats.money).toBe(1);
+    expect(ask('Do you charge in $ or €?').stats.money).toBe(1);
+  });
+
+  it('money is checked PER currency: only the currencies the owner typed are allowed, not any currency once one is typed', () => {
+    const typed = (owner: string, q: string) => screenQuestions(step(owner), answer([{ box: 'canvas:revenue', question: q }]));
+    const euros = 'its a car selling buisness, we charge in euros';
+    expect(typed(euros, 'Do you charge euros or dollars?').shown).toBeNull();
+    expect(typed(euros, 'Do you charge euros or dollars?').stats.money).toBe(1);
+    expect(typed(euros, 'Is the price in USD?').shown).toBeNull();
+    expect(typed(euros, 'Do you charge in euros?').shown).toBe('Do you charge in euros?'); // the same currency, said again
+    expect(typed(euros, 'Do you charge in €?').shown).toBe('Do you charge in €?'); // a symbol, the same currency as the word
+    expect(typed(`${euros} and dollars`, 'Do you charge euros or dollars?').shown).toBe('Do you charge euros or dollars?'); // both typed
+    expect(typed('its a car selling buisness, we charge in $', 'Do you charge in dollars?').shown).toBe('Do you charge in dollars?'); // $ and dollars are one
+    expect(typed('its a car selling buisness, we charge in $', 'Do you charge in euros?').shown).toBeNull();
+  });
+
+  it('the yen sign and sub-unit words (cent, cents, pence, penny) count as money too, per currency; "per cent" and "percent" are not money', () => {
+    const q = (text: string, owner = OWNER) => screenQuestions(step(owner), answer([{ box: 'canvas:revenue', question: text }]));
+    for (const unsaid of ['Do you charge in ¥?', 'Is it a few cents each?', 'Is it 50 pence?', 'Is it a penny a car?', 'Do you take yen?']) expect(q(unsaid).stats.money, unsaid).toBe(1);
+    expect(q('Do you charge in cents?', 'its a car selling buisness, we charge in cents').shown).toBe('Do you charge in cents?');
+    expect(q('Do you charge in pence?', 'its a car selling buisness, we charge in cents').shown).toBeNull();
+    expect(q('What per cent of your customers are repeat buyers?').shown).not.toBeNull();
+    expect(q('What percent of your customers are repeat buyers?').shown).not.toBeNull();
   });
 
   it('raw is how many questions the MODEL wrote: none is none, even though the parse always adds nine fixed ones', () => {
@@ -66,12 +80,12 @@ describe('P1653 F5 diagnosis: realistic questions for "its a car selling buisnes
   });
 
   it('the measurement line carries the counts and no question text, no word and no owner text', () => {
-    const qs = ['Who buys the cars you sell?', 'Who are the customers of your car selling business?'];
+    const qs = ['Do your cars cost 8000 euros?', 'Do you sell 5 cars a day?'];
     const r = screenQuestions(step(), answer(qs.map((question) => ({ box: 'canvas:segments', question }))));
     const out = { ok: true, actions: [], total: 0, droppedUnverified: 0, droppedNames: 0, droppedScope: 0, droppedCap: 0, droppedPoints: [], questions: { a: 'x' }, note: '', scope: ['a'], guessed: [] } as never;
     const line = parsedLine('run-1', out, answer([]), r.stats);
     expect(line).toContain('"f5":{"raw":2,"tried":2');
-    for (const text of [...qs, OWNER, 'buys', 'cars', 'business', 'buisness', 'selling', 'customers']) expect(line, text).not.toContain(text);
+    for (const text of [...qs, OWNER, 'buys', 'cars', 'euros', 'buisness', 'selling']) expect(line, text).not.toContain(text);
     expect(parsedLine('run-1', out, answer([]))).not.toContain('f5'); // a run that asked nothing logs no f5
   });
 });

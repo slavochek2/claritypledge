@@ -3,8 +3,8 @@
  *
  *   F1  A run that asks a follow-up completes as a FINISHED run with nothing changed (`_canvas_draft_run_complete_question`: no Undo step, no focus, no
  *       point), so the owner's message stays in later runs; it uses 1 of the draft's 30 updates. The next run is a first draft again.
- *   F5  The question is one of the questions the model already returned, for the box it judged most likely, shown only if every content word of it is in the
- *       owner's own typed words (the same word screen as a point, plus the names screen and the numbers rule). Otherwise the approved fixed question.
+ *   F5  The question is one of the questions the model already returned, for the box it judged most likely: screened for shape, names, money and numbers, and
+ *       never the redirect question; not word by word (second amendment). Otherwise the approved fixed question. A point keeps every evidence check.
  *   F2  A link that was read but only gave a redirect notice: the reply says so and asks "Is this your business?" (two fixed buttons). A tap sends only a
  *       fixed token (canvas-reply-table.ts), never agent text, and a tap adds no evidence: the token message is left out of the material.
  *
@@ -17,7 +17,7 @@ import { contentWords, numbersIn, numbersSupported } from './canvas-support.ts';
 import { derivedNames, namesMatcher } from './canvas-names.ts';
 import { readJson } from './canvas-read.ts';
 import { BOX_TAGS } from './canvas-draft.ts';
-import { BOX_DEFINITIONS } from './canvas-box-definitions.ts';
+import { currenciesIn } from './canvas-price.ts';
 import { isThinRedirect } from './canvas-material.ts';
 import { PAGE_BUTTONS, WORDS, pageButtonsFor, pageTokenOf } from './canvas-reply-table.ts';
 import type { CanvasRun, RunDeps, RunParams, RunSummary, Step, ThreadItem } from './canvas-run.ts';
@@ -37,78 +37,36 @@ export function modelQuestionsOf(response: unknown): Array<{ box: string; questi
 }
 
 /**
- * The plain box words a guess-question may use besides the owner's own words (founder decision A). FOUNDER-APPROVED SCOPE: box vocabulary only, generic
- * nouns and verbs that NAME a box ("who are your customers", "what you sell", "what it costs"), never a fact about a business: no adjectives, numbers, places
- * or names. The last two ("sound", "like") are the connective of "this sounds like ...". Plural forms are listed; the screen reads each word the way it reads
- * the owner's (a plural "s" never decides a match). Anything not here and not a box title must still be the owner's own word.
- */
-export const PLAIN_BOX_WORDS: readonly string[] = Object.freeze([
-  'customer', 'customers', 'buyer', 'buyers', 'client', 'clients', 'sell', 'sells', 'offer', 'offers', 'price', 'prices', 'cost', 'costs',
-  'problem', 'problems', 'solution', 'solutions', 'channel', 'channels', 'reach', 'measure', 'partner', 'partners', 'sound', 'sounds', 'like',
-]);
-
-/**
- * The product's own box vocabulary, derived from the source each call (never a hand list for the titles): the words of the nine box TITLES, plus the one fixed
- * list of plain box words above. Definition words are not allowed: a definition carries mechanism claims (per unit, renew, refer) that a question could
- * present as the owner's own business. A question may name its box with these words.
- */
-export function boxVocabulary(): Set<string> {
-  return contentWords(`${BOX_DEFINITIONS.map((b) => b.title).join('\n')}\n${PLAIN_BOX_WORDS.join(' ')}`);
-}
-
-/**
- * The first of the model's questions that may be shown. Every content word of it is a word the owner typed (their notes in this thread, never a file, a
- * link or another person's words) or a word of the product's own box vocabulary (so it can name the box it asks about; F5 follow-up, main session), every
- * number in it is one they typed, and it names nobody else. Anything else is not shown: the fixed question is.
+ * The first of the model's questions that may be shown (F5, second amendment, founder 2026-11-11). A question only ASKS: it is never written to the canvas, so
+ * it has no word-by-word screen (a natural question about a short message holds words the owner never typed, and a word screen can never pass it). It passes when
+ * it has a shape (not empty, at least one content word), names nobody else, carries no currency the owner never typed (checked per currency) and no number or price figure they never
+ * said, and is never the redirect question. Otherwise the fixed question is shown. A POINT keeps every evidence check, unchanged.
  */
 export function showableQuestion(s: Step, response: unknown): string | null {
   return screenQuestions(s, response).shown;
 }
 
 /**
- * P1653 TEMPORARY measurement (counts and fixed labels only, never a question or a word): why the model's own questions were refused. `raw` is how many
- * questions the MODEL wrote (the parse's own `questions` count is always nine, because it adds the module's fixed question for every empty box). Per question the
- * FIRST rule it failed: `shape` (empty, no content word, or the redirect question), `names`, `word` (a content word the owner never said and the box vocabulary does
- * not hold), `number`. For a word refusal, `off` is the count of offending words per question and `cats` counts the offending words by fixed category:
- * `plural` (the word with an s added or taken off is allowed: a stemming gap such as "cars" against "car"), `near_owner` (a one-edit typo, or the first four
- * letters, of a word the owner typed: "business" against "buisness", "sell" against "selling"), `other`.
+ * P1653 TEMPORARY measurement (counts only, never a question or a word): why the model's own questions were refused. `raw` is how many questions the MODEL
+ * wrote (the parse's own `questions` count is always nine, because it adds the module's fixed question for every empty box). Per question the FIRST rule it
+ * failed: `shape` (empty, no content word, or the redirect question), `names`, `money` (a currency the owner never said), `number`. `word` stays in the line
+ * and is always 0: there is no word screen any more.
  */
-export interface F5Stats { raw: number; tried: number; shape: number; names: number; word: number; number: number; shown: number; off: number[]; cats: { plural: number; near_owner: number; other: number }; ownerWords: number }
+export interface F5Stats { raw: number; tried: number; shape: number; names: number; money: number; number: number; word: number; shown: number }
 
-const oneEdit = (a: string, b: string): boolean => {
-  if (Math.abs(a.length - b.length) > 1) return false;
-  let i = 0;
-  while (i < a.length && a[i] === b[i]) i++;
-  const [x, y] = [a.slice(i), b.slice(i)];
-  return x.slice(1) === y.slice(1) || x === y.slice(1) || x.slice(1) === y || (x[0] === y[1] && x[1] === y[0] && x.slice(2) === y.slice(2));
-};
-function wordCategory(w: string, allowed: ReadonlySet<string>, owner: ReadonlySet<string>): 'plural' | 'near_owner' | 'other' {
-  if (allowed.has(`${w}s`) || (w.endsWith('s') && allowed.has(w.slice(0, -1)))) return 'plural';
-  for (const o of owner) if (w.length >= 4 && o.length >= 4 && (w.slice(0, 4) === o.slice(0, 4) || oneEdit(w, o))) return 'near_owner';
-  return 'other';
-}
-
-/** The first showable question and the counts of why the others were not (the screen itself: every rule, in its order, unchanged). */
+/** The first showable question and the counts of why the others were not. */
 export function screenQuestions(s: Step, response: unknown): { shown: string | null; stats: F5Stats } {
   const typed = s.material.items.filter((i) => i.owner && i.kind === 'note').map((i) => i.text).join('\n\n');
-  const ownerWords = contentWords(typed);
-  const theirs = new Set([...ownerWords, ...boxVocabulary()]);
+  const ownerCurrencies = currenciesIn(typed);
   const namesOther = namesMatcher(s.run.other_names, derivedNames(s.material, s.run.owner_name));
   const asked = modelQuestionsOf(response);
-  const stats: F5Stats = { raw: asked.length, tried: 0, shape: 0, names: 0, word: 0, number: 0, shown: 0, off: [], cats: { plural: 0, near_owner: 0, other: 0 }, ownerWords: ownerWords.size };
+  const stats: F5Stats = { raw: asked.length, tried: 0, shape: 0, names: 0, money: 0, number: 0, word: 0, shown: 0 };
   for (const { question } of asked) {
     stats.tried += 1;
     const text = cleanFreeText(question, MAX_QUESTION_CHARS * 4);
-    const words = contentWords(text);
-    if (!text || words.size === 0) { stats.shape += 1; continue; }
+    if (!text || contentWords(text).size === 0) { stats.shape += 1; continue; }
     if (namesOther(text)) { stats.names += 1; continue; }
-    const offending = [...words].filter((w) => !theirs.has(w));
-    if (offending.length) {
-      stats.word += 1;
-      stats.off.push(offending.length);
-      for (const w of offending) stats.cats[wordCategory(w, theirs, ownerWords)] += 1;
-      continue;
-    }
+    if ([...currenciesIn(text)].some((c) => !ownerCurrencies.has(c))) { stats.money += 1; continue; } // each currency must be one the owner typed
     if (!numbersSupported([text], numbersIn(typed))) { stats.number += 1; continue; }
     const shown = cutAtWord(text, MAX_QUESTION_CHARS);
     // A question whose last line is the redirect question would bring the two buttons to a reply that is not about a page. Asked of the model's raw text (a

@@ -17,6 +17,20 @@ import { PRICE_GAP_QUESTION } from './canvas-box-definitions.ts';
 import type { Material, ResolvedAction } from './canvas-types.ts';
 
 const CURRENCY = '(?:euros?|eur|€|usd|dollars?|\\$|pounds?|gbp|£|baht|chf|francs?|yen|rupees?|zloty|krona|kronor)';
+/**
+ * The currencies a text names, one canonical key each (euro, "euros", "eur" and "€" are one; dollar, "$" and "usd" are one; the yen sign and "yen"; "cent" and "cents";
+ * "pence" and "penny"). The guess-question screen (P1653 F5) allows a question only the currencies the owner typed themselves, per currency: money is a fact only they
+ * can give. The yen sign and the sub-unit words are added HERE ONLY, to the list the price checks already use (CURRENCY stays as it is: its other callers read prices
+ * and rates, and "50 cents a month" would start to read as a price there). "per cent" and "percent" are not money.
+ */
+const QUESTION_CURRENCY = new RegExp(`(?<![\\p{L}])(?<!per\\s)(?:${CURRENCY}|¥|cents?|pence|penny)(?![\\p{L}])`, 'giu');
+const CURRENCY_KEYS: Array<[RegExp, string]> = [
+  [/^(euros?|eur|€)$/i, 'eur'], [/^(dollars?|usd|\$)$/i, 'usd'], [/^(pounds?|gbp|£)$/i, 'gbp'], [/^(yen|¥)$/i, 'jpy'], [/^(francs?|chf)$/i, 'chf'],
+  [/^rupees?$/i, 'inr'], [/^cents?$/i, 'cent'], [/^(pence|penny)$/i, 'pence'],
+];
+export function currenciesIn(text: string): Set<string> {
+  return new Set([...text.matchAll(QUESTION_CURRENCY)].map((m) => CURRENCY_KEYS.find(([re]) => re.test(m[0]))?.[1] ?? m[0].toLowerCase()));
+}
 const WORD = '[\\p{L}-]+';
 
 const PERIODS: Record<string, readonly string[]> = {

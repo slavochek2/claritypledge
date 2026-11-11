@@ -31,7 +31,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isTestProjectUrl } from '../scripts/sweep-e2e-test-users';
 import { PAGE_BUTTONS, WORDS } from '../supabase/functions/_shared/canvas-reply-table.ts';
-import { PLAIN_BOX_WORDS } from '../supabase/functions/_shared/canvas-nothing.ts';
 
 test.skip(process.env.P1653_REPLAY !== '1', 'P1653 replay runs only with P1653_REPLAY=1');
 test.skip(!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? ''), 'not a TEST project');
@@ -242,7 +241,6 @@ const wordsOf = (t: string): string[] => (t.toLowerCase().match(/[a-z0-9]+/g) ??
 const FIXED_VOCAB = new Set(wordsOf([
   ...Object.values(WORDS).map((v) => (typeof v === 'function' ? (v as (d: string) => string)('x') : String(v))),
   PAGE_BUTTONS.question, PAGE_BUTTONS.yes.label, PAGE_BUTTONS.no.label,
-  ...PLAIN_BOX_WORDS, // founder F5 amendment: box vocabulary is allowed in a guess-question, so it is not a flag here either
   'Draft ready boxes Updated I added from your words I left out points could not tie Nothing changed on the canvas noted reworded moved dropped kept because replaced box point see all',
 ].join(' ')));
 

@@ -12,8 +12,6 @@ import { executeRun, type CanvasRun, type RpcResult, type RunDeps } from '../../
 import { handleUpload, type HandlerCtx } from '../../supabase/functions/_shared/canvas-handlers';
 import { PAGE_BUTTONS, WORDS, pageButtonsFor } from '../../supabase/functions/_shared/canvas-reply-table';
 import { stubCaller } from '../../supabase/functions/_shared/canvas-model';
-import { PLAIN_BOX_WORDS, boxVocabulary } from '../../supabase/functions/_shared/canvas-nothing';
-import { contentWords } from '../../supabase/functions/_shared/canvas-support';
 import type { GeminiRequest } from '../../supabase/functions/_shared/mirror-agent';
 
 const read = (rel: string) => readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -73,50 +71,35 @@ describe('P1653 F5 + F1: a first draft the model wrote nothing for asks a follow
     expect(h.names()).not.toContain('_canvas_draft_run_complete'); // that function inserts the Undo step on an empty first draft
     expect(h.names()).not.toContain('_canvas_draft_run_fail');
   });
-  it('shows the fixed question when the model\'s question holds a word the owner never said', async () => {
-    const h = harness({}, answering({ questions: [{ box: SEGMENTS, question: 'Which dealership customers do you serve?' }] }));
-    await executeRun(h.deps, h.params, h.run);
-    expect(String(h.asked()!.p_reply)).toBe(WORDS.fallbackQuestion);
+  it('F5 second amendment: a natural question with words the owner never typed is SHOWN (there is no word-by-word screen)', async () => {
+    for (const q of ['Who usually buys the cars you sell, and how do they find you?', 'Which dealership customers do you serve?', 'Are families the customer segments of your car selling business?']) {
+      const h = harness({}, answering({ questions: [{ box: SEGMENTS, question: q }] }));
+      expect(await executeRun(h.deps, h.params, h.run)).toEqual({ state: 'done' });
+      expect(String(h.asked()!.p_reply), q).toBe(`Nothing changed on the canvas.\n${q}`);
+    }
+  });
+  it('a question that names someone, holds a number the owner never said, or carries a currency or a price falls back', async () => {
+    const reply = async (q: string, over: Parameters<typeof harness>[0] = {}) => {
+      const h = harness({ trigger: 'its a car selling buisness', ...over }, answering({ questions: [{ box: SEGMENTS, question: q }] }));
+      await executeRun(h.deps, h.params, h.run);
+      return String(h.asked()!.p_reply);
+    };
+    expect(await reply('Does Bob Marley buy the cars you sell?', { other_names: ['Bob Marley'] })).toBe(WORDS.fallbackQuestion); // a name
+    for (const q of ['Do you sell 8000 cars a year?', 'Do you sell twenty cars a month?', 'Is 5 the number of cars you sell?']) expect(await reply(q), q).toBe(WORDS.fallbackQuestion); // a number the owner never said
+    for (const q of ['Do your cars cost 8000 euros?', 'What do you charge in euros?', 'Is the price in dollars?', 'Do you charge €?', 'Are your cars about $ territory?', 'Do you take payment in pounds or GBP?']) expect(await reply(q), q).toBe(WORDS.fallbackQuestion); // money
+    // control: a question about the price that names no currency and no figure is a question like any other
+    expect(await reply('What do you charge for a car?')).toBe('Nothing changed on the canvas.\nWhat do you charge for a car?');
+    // a currency or a figure the owner DID say is theirs
+    expect(await reply('Do your cars cost 8000 euros?', { trigger: 'its a car selling buisness, a car costs 8000 euros' })).toBe('Nothing changed on the canvas.\nDo your cars cost 8000 euros?');
   });
   it('shows the fixed question when the model asked nothing (the module\'s own box questions are never promoted)', async () => {
     const h = harness({}, answering({}));
     await executeRun(h.deps, h.params, h.run);
     expect(String(h.asked()!.p_reply)).toBe(WORDS.fallbackQuestion);
   });
-  it('a question may name its box: box vocabulary plus the owner\'s words passes; one fact word the owner never said falls back', async () => {
-    const ok = harness({}, answering({ questions: [{ box: SEGMENTS, question: 'Who are the customer segments of your car selling business?' }] }));
-    await executeRun(ok.deps, ok.params, ok.run);
-    expect(String(ok.asked()!.p_reply)).toBe('Nothing changed on the canvas.\nWho are the customer segments of your car selling business?');
-    for (const fact of ['families', 'Tesla']) {
-      const bad = harness({}, answering({ questions: [{ box: SEGMENTS, question: `Are ${fact} the customer segments of your car selling business?` }] }));
-      await executeRun(bad.deps, bad.params, bad.run);
-      expect(String(bad.asked()!.p_reply), fact).toBe(WORDS.fallbackQuestion);
-    }
-  });
-  it('the exemption is the nine box titles only: definition words carry no weight (a question of definition words alone falls back)', async () => {
-    for (const q of ['Do partners refer and renew?', 'Do customers pay per unit, and do partners renew?']) {
-      const h = harness({}, answering({ questions: [{ box: SEGMENTS, question: q }] }));
-      await executeRun(h.deps, h.params, h.run);
-      expect(String(h.asked()!.p_reply), q).toBe(WORDS.fallbackQuestion);
-    }
-    const vocab = boxVocabulary();
-    for (const b of BOX_DEFINITIONS) for (const w of contentWords(b.title)) expect(vocab.has(w), `${b.title}: ${w}`).toBe(true);
-    // the vocabulary is exactly the titles plus the one fixed list of plain box words, nothing else
-    expect([...vocab].sort()).toEqual([...new Set([...contentWords(BOX_DEFINITIONS.map((b) => b.title).join(' ')), ...contentWords(PLAIN_BOX_WORDS.join(' '))])].sort());
-  });
-  it('F5 plain box words (founder decision A): a guess-question may say what it thinks the box is, in the product\'s plain words', async () => {
-    const ask = async (q: string, owner = 'its a car selling buisness') => {
-      const h = harness({ trigger: owner }, answering({ questions: [{ box: SEGMENTS, question: q }] }));
-      await executeRun(h.deps, h.params, h.run);
-      return String(h.asked()!.p_reply);
-    };
-    expect(await ask('This sounds like what you sell: who are your customers?')).toBe('Nothing changed on the canvas.\nThis sounds like what you sell: who are your customers?');
-    for (const q of ['Do your customers in Tallinn pay 8000 euros?', 'Do young families buy?', 'Which dealership customers do you serve?']) expect(await ask(q), q).toBe(WORDS.fallbackQuestion);
-    // the list stays what the founder approved: plain nouns and verbs, no adjectives, numbers, places or names
-    expect(PLAIN_BOX_WORDS.length).toBeLessThanOrEqual(32);
-    expect(Object.isFrozen(PLAIN_BOX_WORDS)).toBe(true); // nothing can add a word at run time
-    for (const w of PLAIN_BOX_WORDS) expect(w, w).toMatch(/^[a-z]+$/);
-    for (const banned of ['young', 'families', 'family', 'tallinn', 'euros', 'dealership', 'tesla', 'cheap', 'premium', 'small', 'riga']) expect(PLAIN_BOX_WORDS, banned).not.toContain(banned);
+  it('the word screen and its box vocabulary are gone: nothing exports them any more', () => {
+    const src = read('supabase/functions/_shared/canvas-nothing.ts');
+    for (const gone of ['PLAIN_BOX_WORDS', 'boxVocabulary', 'wordCategory']) expect(src, gone).not.toContain(gone);
   });
   it('a model question that is exactly the redirect question is never shown, so it can never bring the buttons', async () => {
     const reply = async (q: string) => {
@@ -137,24 +120,8 @@ describe('P1653 F5 + F1: a first draft the model wrote nothing for asks a follow
     await executeRun(ok.deps, ok.params, ok.run);
     expect(String(ok.asked()!.p_reply)).toBe('Nothing changed on the canvas.\nIs this your car selling business?');
   });
-  it('the box vocabulary is derived from the box definitions: a changed title flows through', async () => {
-    const defs = BOX_DEFINITIONS as unknown as Array<{ title: string }>;
-    const original = defs[0]!.title;
-    const ask = async () => { const h = harness({}, answering({ questions: [{ box: SEGMENTS, question: 'Is zebra crossing about your car selling business?' }] })); await executeRun(h.deps, h.params, h.run); return String(h.asked()!.p_reply); };
-    expect(await ask()).toBe(WORDS.fallbackQuestion); // control: "zebra" is nowhere yet
-    try { defs[0]!.title = 'Zebra Crossing'; expect(await ask()).toBe('Nothing changed on the canvas.\nIs zebra crossing about your car selling business?'); }
-    finally { defs[0]!.title = original; }
-  });
-  it('applies the names screen and the numbers rule to the question', async () => {
-    const named = harness({ trigger: 'its a car selling business', other_names: ['Bob Marley'] }, answering({ questions: [{ box: SEGMENTS, question: 'Does Bob Marley buy from your car selling business?' }] }));
-    await executeRun(named.deps, named.params, named.run);
-    expect(String(named.asked()!.p_reply)).toBe(WORDS.fallbackQuestion);
-    const num = harness({}, answering({ questions: [{ box: SEGMENTS, question: 'Is your car selling business 5 years old?' }] }));
-    await executeRun(num.deps, num.params, num.run);
-    expect(String(num.asked()!.p_reply)).toBe(WORDS.fallbackQuestion);
-  });
-  it('takes the first of the model\'s questions that passes, in the order it wrote them', async () => {
-    const h = harness({}, answering({ questions: [{ box: SEGMENTS, question: 'Which dealership customers do you serve?' }, { box: SEGMENTS, question: 'What is your car selling business about?' }] }));
+  it('takes the first of the model\'s questions that passes, in the order it wrote them (the box it judges most likely comes first)', async () => {
+    const h = harness({}, answering({ questions: [{ box: SEGMENTS, question: 'Do you sell 5 cars a day?' }, { box: SEGMENTS, question: 'What is your car selling business about?' }, { box: SEGMENTS, question: 'Who are your customers?' }] }));
     await executeRun(h.deps, h.params, h.run);
     expect(String(h.asked()!.p_reply)).toBe('Nothing changed on the canvas.\nWhat is your car selling business about?');
   });
