@@ -4,7 +4,7 @@
  * line and ends up on five (hero), and the close mirrors it back into one.
  */
 import type { ReactNode } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { CalendarIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -32,7 +32,7 @@ export function RefSup({ n, tone = "light" }: { n: number; tone?: Tone }) {
   const color = tone === "dark" ? "text-blue-300 hover:text-blue-200" : "text-blue-500 hover:text-blue-600";
   return (
     <sup className="ml-0.5 text-[0.6em] font-normal">
-      <a href="#references" className={`inline-block px-2 py-5 -mx-2 -my-5 ${color}`}>
+      <a href="#references" aria-label={`Reference ${n}`} className={`inline-block px-2 py-5 -mx-2 -my-5 ${color}`}>
         {n}
       </a>
     </sup>
@@ -43,12 +43,12 @@ export function RefSup({ n, tone = "light" }: { n: number; tone?: Tone }) {
 export function AuditCTA({ tone = "primary" }: { tone?: "primary" | "inverse" }) {
   const color =
     tone === "inverse"
-      ? "bg-white text-blue-700 hover:bg-blue-50 shadow-xl shadow-blue-950/30"
-      : "bg-blue-500 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/25";
+      ? "bg-white text-blue-700 hover:bg-blue-50 shadow-xl shadow-blue-950/30 focus-visible:ring-white focus-visible:ring-offset-blue-600"
+      : "bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/25 focus-visible:ring-blue-600 focus-visible:ring-offset-background";
   return (
     <Link
       to="/intro"
-      className={`inline-flex items-center justify-center gap-2.5 max-w-full rounded-full px-5 sm:px-9 py-4 sm:py-5 text-[0.9375rem] sm:text-lg font-semibold transition-colors ${color}`}
+      className={`inline-flex items-center justify-center gap-2.5 max-w-full rounded-full px-5 sm:px-9 py-4 sm:py-5 text-[0.9375rem] sm:text-lg font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${color}`}
     >
       <CalendarIcon className="w-5 h-5 shrink-0" />
       Book a 15-min discovery call
@@ -108,7 +108,7 @@ export function DotStat({ value, denom, children }: { value: number; denom: numb
     >
       <p className="sm:col-span-3 text-5xl sm:text-7xl font-semibold tracking-tighter tabular-nums leading-none">
         {value}
-        <span className="text-foreground/25">/{denom}</span>
+        <span className="text-foreground/50">/{denom}</span>
       </p>
       <div className="sm:col-span-4 flex min-w-0 justify-end sm:justify-start gap-1 sm:gap-2" aria-hidden>
         {Array.from({ length: denom }, (_, i) => (
@@ -118,7 +118,7 @@ export function DotStat({ value, denom, children }: { value: number; denom: numb
           />
         ))}
       </div>
-      <p className="col-span-2 sm:col-span-5 text-base sm:text-lg leading-snug text-muted-foreground">{children}</p>
+      <p className="col-span-2 sm:col-span-5 text-base sm:text-lg leading-snug text-muted-foreground text-balance">{children}</p>
     </motion.li>
   );
 }
@@ -135,9 +135,11 @@ const ENDS: [number, number][] = [[380, 34], [380, 368], [384, 118], [150, 374],
 
 /**
  * The hero figure: lines that leave one point together and end up facing different ways.
- * `mirror` flips it for the close, where the same lines read as arriving at one point.
+ * `mirror` flips it for the close and draws the lines from their five ends into the point.
  */
 export function DivergenceGraphic({ tone = "light", mirror = false, className = "" }: { tone?: Tone; mirror?: boolean; className?: string }) {
+  // MotionConfig reducedMotion="user" does not stop pathLength drawing, so skip it by hand.
+  const reduce = useReducedMotion();
   const dark = tone === "dark";
   const line = dark ? "stroke-white" : "stroke-blue-500";
   const back = dark ? "stroke-white/60" : "stroke-foreground";
@@ -152,8 +154,8 @@ export function DivergenceGraphic({ tone = "light", mirror = false, className = 
           strokeWidth={i > 2 ? 2 : 2.5}
           strokeLinecap="round"
           className={i > 2 ? back : line}
-          initial={{ pathLength: 0, opacity: 0 }}
-          whileInView={{ pathLength: 1, opacity: i === 2 ? 0.45 : 1 }}
+          initial={reduce ? false : { pathLength: 0, pathOffset: mirror ? 1 : 0, opacity: 0 }}
+          whileInView={{ pathLength: 1, pathOffset: 0, opacity: i === 2 ? 0.45 : 1 }}
           viewport={{ once: true, amount: 0.3 }}
           transition={{ duration: 1.5, delay: 0.5 + i * 0.14, ease: [0.65, 0, 0.35, 1] }}
         />
@@ -165,10 +167,10 @@ export function DivergenceGraphic({ tone = "light", mirror = false, className = 
           cy={cy}
           r="5"
           className={i > 2 ? (dark ? "fill-white/60" : "fill-foreground") : dot}
-          initial={{ scale: 0, opacity: 0 }}
+          initial={reduce ? false : { scale: 0, opacity: 0 }}
           whileInView={{ scale: 1, opacity: i === 2 ? 0.45 : 1 }}
           viewport={{ once: true, amount: 0.3 }}
-          transition={{ duration: 0.3, delay: 1.9 + i * 0.14 }}
+          transition={{ duration: 0.3, delay: (mirror ? 0.2 : 1.9) + i * 0.14 }}
         />
       ))}
       <circle cx="24" cy="200" r="7" className={dark ? "fill-white" : "fill-foreground"} />

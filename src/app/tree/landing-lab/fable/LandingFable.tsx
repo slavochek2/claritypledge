@@ -31,14 +31,14 @@ const SHELL = "container mx-auto max-w-6xl";
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden px-4 pt-24 pb-8 lg:min-h-screen lg:pt-28 lg:pb-10 flex flex-col">
+    <section className="relative overflow-hidden px-4 pt-10 pb-8 lg:min-h-[calc(100vh-5rem)] lg:pt-8 lg:pb-10 flex flex-col">
       <div className={`${SHELL} flex flex-1 flex-col justify-center`}>
         <p className="mb-7 inline-flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">
           <ShieldCheckIcon className="h-4 w-4" />
           Prevent rework before work begins
         </p>
         <h1 className="text-[2.1rem] sm:text-5xl lg:text-[3.25rem] xl:text-[4.25rem] font-semibold leading-[1.06] tracking-tighter">
-          <span className="block text-foreground/45">Your team agreed on the strategy.</span>
+          <span className="block text-foreground/55">Your team agreed on the strategy.</span>
           <span className="block">Each of your AIs ships 10x faster.</span>
           <motion.span
             className="block text-blue-500"
@@ -186,7 +186,7 @@ function Close() {
       <Reveal className={`${SHELL} grid items-center gap-x-8 gap-y-10 lg:grid-cols-12`}>
         <div className="lg:col-span-8">
           <h2 className="text-[1.75rem] sm:text-6xl lg:text-7xl font-semibold leading-[1.06] tracking-tighter text-balance break-words">
-            <span className="block text-white/60">Stop fighting the wrong disagreement.</span>
+            <span className="block text-blue-200">Stop fighting the wrong disagreement.</span>
             <span className="block">Start revealing hidden misunderstandings.</span>
           </h2>
           <div className="mt-12">
@@ -251,9 +251,9 @@ export function LandingFable() {
         <section id="references" className="scroll-mt-16 px-4 py-12">
           <div className={SHELL}>
             <p className="mb-4 font-mono text-xs uppercase tracking-[0.25em] text-muted-foreground">References</p>
-            <ol className="grid gap-x-10 gap-y-2 text-xs text-muted-foreground lg:grid-cols-2">
+            <ol className="text-xs text-muted-foreground lg:columns-2 lg:gap-x-10">
               {REFERENCES.map((r) => (
-                <li key={r.n} className="flex gap-2">
+                <li key={r.n} className="mb-2 flex break-inside-avoid gap-2">
                   <span className="shrink-0 tabular-nums">{r.n}.</span>
                   <a href={r.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">
                     {r.label}
