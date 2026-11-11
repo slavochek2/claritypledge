@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-11 [process]: The Stop-hook review gate should also see files changed by shell edits (Status: proposed)
+
+**Context:** In P1653, subagents briefed "Edit/Write tools only" still changed repo files with `sed -i`, heredocs and python at least 5 times across 3 agents. `/finish` collects changed files from git, so a full review covers them, but the Stop hook (`.claude/hooks/verify-before-stop.py`) reads only tool-call edits, so a shell-edited file can reach a commit with no review receipt. The prose mitigation in `/dev` "Who Builds" failed again.
+**Decision:** Proposed: the Stop hook also treats files whose content changed on disk since a session-start baseline as edited by this session (the baseline keeps co-tenant edits on the shared checkout out), with legitimate-flow cases (read-only session, docs-only edit, already receipted) added to `scripts/test-p1505-review-gate.sh` before it ships.
+**Alternatives rejected:** Plain `git diff` (flags co-tenant work on main); stronger brief wording (failed repeatedly). Deferred: refusing a review receipt whose prompt carried an empty diff (no recorded incident; fix would be `review_receipt.py --prompt-file`).
+**Consequences:** Follow-up tracked in the task inbox. Reached via /kdd 7.1b and 7.1c hostile checks.
+**References:** `.claude/hooks/verify-before-stop.py:71` · decisions.md "Who Builds" (P1634) · [p1653](../features/p1653_canvas_agent_never_a_wall.md)
+
 ## 2026-11-11 [product]: The canvas agent is never a wall: every block says why, that the canvas is unchanged, and one next step; an empty answer gets the model's own guess-question (P1653)
 
 **Context:** Owners' first messages ("its a car selling buisness", "airbnb.com - make canvas") got one fixed sentence every time. A real-model replay on TEST measured the cause: the model wrote 0 points on all three messages, 15 of 15, and the evidence checks dropped nothing. The wall was the product's reply to an empty answer, not the checks.
