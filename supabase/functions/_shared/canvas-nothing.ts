@@ -43,39 +43,21 @@ export function modelQuestionsOf(response: unknown): Array<{ box: string; questi
  * said, and is never the redirect question. Otherwise the fixed question is shown. A POINT keeps every evidence check, unchanged.
  */
 export function showableQuestion(s: Step, response: unknown): string | null {
-  return screenQuestions(s, response).shown;
-}
-
-/**
- * P1653 TEMPORARY measurement (counts only, never a question or a word): why the model's own questions were refused. `raw` is how many questions the MODEL
- * wrote (the parse's own `questions` count is always nine, because it adds the module's fixed question for every empty box). Per question the FIRST rule it
- * failed: `shape` (empty, no content word, or the redirect question), `names`, `money` (a currency the owner never said), `number`. `word` stays in the line
- * and is always 0: there is no word screen any more.
- */
-export interface F5Stats { raw: number; tried: number; shape: number; names: number; money: number; number: number; word: number; shown: number }
-
-/** The first showable question and the counts of why the others were not. */
-export function screenQuestions(s: Step, response: unknown): { shown: string | null; stats: F5Stats } {
   const typed = s.material.items.filter((i) => i.owner && i.kind === 'note').map((i) => i.text).join('\n\n');
   const ownerCurrencies = currenciesIn(typed);
   const namesOther = namesMatcher(s.run.other_names, derivedNames(s.material, s.run.owner_name));
-  const asked = modelQuestionsOf(response);
-  const stats: F5Stats = { raw: asked.length, tried: 0, shape: 0, names: 0, money: 0, number: 0, word: 0, shown: 0 };
-  for (const { question } of asked) {
-    stats.tried += 1;
+  for (const { question } of modelQuestionsOf(response)) {
     const text = cleanFreeText(question, MAX_QUESTION_CHARS * 4);
-    if (!text || contentWords(text).size === 0) { stats.shape += 1; continue; }
-    if (namesOther(text)) { stats.names += 1; continue; }
-    if ([...currenciesIn(text)].some((c) => !ownerCurrencies.has(c))) { stats.money += 1; continue; } // each currency must be one the owner typed
-    if (!numbersSupported([text], numbersIn(typed))) { stats.number += 1; continue; }
+    if (!text || contentWords(text).size === 0 || namesOther(text)) continue;
+    if ([...currenciesIn(text)].some((c) => !ownerCurrencies.has(c))) continue; // each currency must be one the owner typed
+    if (!numbersSupported([text], numbersIn(typed))) continue;
     const shown = cutAtWord(text, MAX_QUESTION_CHARS);
     // A question whose last line is the redirect question would bring the two buttons to a reply that is not about a page. Asked of the model's raw text (a
     // last line of its own, before it is flattened to one line) AND of the text actually shown (after the cut), with the one function the client uses to show buttons.
-    if (pageButtonsFor(question) || pageButtonsFor(shown)) { stats.shape += 1; continue; }
-    stats.shown += 1;
-    return { shown, stats };
+    if (pageButtonsFor(question) || pageButtonsFor(shown)) continue;
+    return shown;
   }
-  return { shown: null, stats };
+  return null;
 }
 
 /** The domain of the last link whose page was only a redirect notice, as the owner wrote the link; null when there is none. */

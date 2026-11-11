@@ -264,7 +264,7 @@ Applies because the replays call Gemini. Figures per `docs/technical/metered-ser
 
 **Verdict:** fits, no plan limit is approached. The product adds no browser timer, loop or retry path. The replay harness polls TEST's database while it waits for each run; that loop is test-only and unmetered.
 
-- [ ] Remove the temporary `canvas-draft: parsed` measurement line from `canvas-run.ts` before ship
+- [x] Remove the temporary `canvas-draft: parsed` measurement line from `canvas-run.ts` before ship (removed with canvas-measure.ts after the 2026-11-11 confirmation run)
 
 ## Open Questions
 

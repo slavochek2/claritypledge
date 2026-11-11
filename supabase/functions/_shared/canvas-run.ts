@@ -21,13 +21,12 @@
 import { assembleMaterial } from './canvas-source.ts';
 import { failRun } from './canvas-fail.ts';
 import { WORDS, providerFailureReply, unusableAnswerReply } from './canvas-reply-table.ts';
-import { emptyAnswer, postFailReply, screenQuestions, resolveTap, staleTap, tapRun, withoutTaps } from './canvas-nothing.ts';
+import { emptyAnswer, postFailReply, resolveTap, staleTap, tapRun, withoutTaps } from './canvas-nothing.ts';
 import { RequestTooLarge, fitRequest } from './canvas-fit.ts';
 import { DeadlineExceeded } from './canvas-deadline.ts';
 import { costUsd, type GeminiRequest, type GeminiUsage, type TokenCounter } from './mirror-agent.ts';
 import { buildDraftRequest, choiceAllowed } from './canvas-prompt.ts';
 import { parseDraft } from './canvas-parse.ts';
-import { parsedLine } from './canvas-measure.ts';
 import { buildDraftReply, withCutNote } from './canvas-reply.ts';
 import { choiceRun, closedRun, draftOffer, type RunTools } from './canvas-choice-run.ts';
 import { draftReplyOf, offersToAdd } from './canvas-run-reply.ts';
@@ -175,10 +174,8 @@ function keepsOffers(run: CanvasRun, kind: RunKind, out: Parsed): boolean {
 }
 
 /** The failure a parsed answer amounts to (unusable, or nothing supported), or null when there is something to write. */
-async function failureOf(s: Step, out: ReturnType<typeof parseDraft>, usd: number | null, cut: (reply: string) => string, response: unknown): Promise<RunSummary | null> {
+async function failureOf(s: Step, out: ReturnType<typeof parseDraft>, usd: number | null, cut: (reply: string) => string): Promise<RunSummary | null> {
   const { run, p, deps } = s;
-  // P1653 TEMPORARY measurement line (counts only, never model text or owner words); remove after the replay.
-  try { console.log(parsedLine(run.run_id, out, response)); } catch { /* measurement must never change a run */ }
   if (!out.ok) return await failRun(deps, run, p, out.code, cut(unusableAnswerReply(out.code)), usd);
   const drops = out.droppedUnverified + out.droppedNames;
   if (out.scope.length > 0 && out.total === 0 && (drops > 0 || s.kind !== 'message' || run.first_draft) && !keepsOffers(run, s.kind, out)) {
@@ -216,8 +213,8 @@ async function runDraft(s: Step): Promise<RunSummary> {
   if (offered) return await offered;
   // P1653 F1/F5: a first draft the model wrote nothing for asks its follow-up as a finished run (emptyAnswer); every other empty answer fails as before
   const asks = out.ok ? emptyAnswer(s, TOOLS, out, asked.response, usd, cut) : null;
-  if (asks) { try { console.log(parsedLine(run.run_id, out, asked.response, screenQuestions(s, asked.response).stats)); } catch { /* P1653 TEMPORARY measurement (same line as failureOf): must never change a run */ } return await asks; }
-  return (await failureOf(s, out, usd, cut, asked.response)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));
+  if (asks) return await asks;
+  return (await failureOf(s, out, usd, cut)) ?? (await completeDraft(s, out as Parsed, usd, fit.material.truncated));
 }
 
 type Parsed = Extract<ReturnType<typeof parseDraft>, { ok: true }>;

@@ -20,8 +20,11 @@
  * Run (TEST only; skipped unless P1653_REPLAY=1; retries must be 0 so a retry cannot double the model calls):
  *   E2E_REQUIRE_FUNCTIONS=1 P1653_REPLAY=1 P1653_MODE=after P1653_OUT=test-results/p1653-replay-after.json \
  *     npx playwright test e2e/p1653-replay.spec.ts --retries=0 --workers=1 --reporter=list > run.log 2>&1
- * Env: P1653_TRIES (1 to 5, all fixtures) or P1653_TRIES_<FIXTURE> (e.g. P1653_TRIES_LINK_NO); P1653_LOGS=0 skips the server log read (and so the join and the
- * control proof); P1653_GCP_PROJECT, P1653_GCP_ZONE, P1653_GCP_VM, P1653_FUNCS_CONTAINER (defaults: the self-hosted TEST server of scripts/e2e-load-test.mjs).
+ * NOTE (cleanup): the counts-only measurement line (`canvas-draft: parsed`, canvas-measure.ts) was removed from the product after the 2026-11 replays. The parsed-log
+ * join below is therefore OFF by default and only runs with P1653_LOGS=1 against a build that still logs the line; without it the records carry no `serverLog`
+ * and the "control proves the chain" check is not made. Everything else (replies, run rows, buttons, material, flags, spec proofs) is unchanged.
+ * Env: P1653_TRIES (1 to 5, all fixtures) or P1653_TRIES_<FIXTURE> (e.g. P1653_TRIES_LINK_NO); P1653_LOGS=1 turns the server log read, the join and the
+ * control proof ON (default off); P1653_GCP_PROJECT, P1653_GCP_ZONE, P1653_GCP_VM, P1653_FUNCS_CONTAINER (defaults: the self-hosted TEST server of scripts/e2e-load-test.mjs).
  */
 import { test, expect, type Page } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -687,7 +690,9 @@ test.afterAll(async () => {
       failures.push(`end re-read failed: ${(err as Error).message}`);
     }
 
-    if (process.env.P1653_LOGS !== '0' && records.length > 0) {
+    // OFF by default: the counts-only `canvas-draft: parsed` line was removed from the product after the 2026-11 replays, so there is nothing to read or join.
+    // P1653_LOGS=1 is kept only for a build that still carries a measurement line (it then fails its own checks if no line is found, as before).
+    if (process.env.P1653_LOGS === '1' && records.length > 0) {
       const log = await readServerLog(Math.ceil((Date.now() - harnessStart) / 60_000) + 5);
       functionChecks.serverLogRead = log.ok ? `ok, ${log.lines.length} parsed line(s)` : `unavailable: ${log.why}`;
       if (!log.ok) failures.push(`the server log could not be read (${log.why}); counts are unmeasured`);
