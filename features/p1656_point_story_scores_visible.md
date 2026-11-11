@@ -33,7 +33,7 @@ Blast radius: medium. It touches every point and story card, and a wrong score o
 
 ## Prior rulings this reverses or builds on
 
-- **P550 (2026-03-18, rejected 2026-03-21, superseded by P563):** the same idea ("visual quality indicators for points and stories") was rejected because quality should emerge from how people engage, not from an AI score; engagement depth ("4 verified · 6 unverified") was to replace AI quality scores (decisions.md 2026-03-21). P563 is also `status: rejected`; no engagement-depth display was found in the card components (searched 2026-11-10, UNVERIFIED as complete). **This spec reverses that 2026-03-21 ruling by founder request (2026-11-10).** The founder's reason is the 2026-11-09 UAT: without any signal, weak points reach people who then cannot take a position, and engagement only shows that after the fact. `[FOUNDER DECISION: confirm the reversal of the 2026-03-21 ruling]`
+- **P550 (2026-03-18, rejected 2026-03-21, superseded by P563):** the same idea ("visual quality indicators for points and stories") was rejected because quality should emerge from how people engage, not from an AI score; engagement depth ("4 verified · 6 unverified") was to replace AI quality scores (decisions.md 2026-03-21). P563 is also `status: rejected`; no engagement-depth display was found in the card components (searched 2026-11-10, UNVERIFIED as complete). **This spec reverses that 2026-03-21 ruling by founder request (2026-11-10).** The founder's reason is the 2026-11-09 UAT: without any signal, weak points reach people who then cannot take a position, and engagement only shows that after the fact. Founder confirmed the reversal, 2026-11-11.
 - **The 2026-03-18 ruling** put scores in front of authors and "optionally" readers. Showing them to everyone goes beyond it (Open Question 1).
 - **P618** (archived, "Operationalize point falsifiability") asked the same question; read before `/dev`.
 - **P544 / decisions.md 2026-03-18:** "Quality criteria are feedback signals, not publication gates." "Gating contradicts the epistemology — Popper doesn't gate conjectures." This survives and is an Invariant here.
@@ -47,7 +47,7 @@ Blast radius: medium. It touches every point and story card, and a wrong score o
 
 ## Solution
 
-1. **Two scores on every point and story card, everywhere they render, to the audience Open Question 1 decides.** Initial inventory (UNVERIFIED as complete; `/dev` extends it and the extended list is added to this spec before building): the feed's point and story cards, point detail, story detail, Clarity Canvas boxes, point cards in chats (P1631), the event room's statements, profile Points and Stories tabs. A surface left out needs `[FOUNDER DECISION: scope]`.
+1. **Two scores on every point and story card, everywhere they render, shown to the item's author only at launch** (founder, 2026-11-11). Readers see them only if Decision Criterion 1 is met and the founder then decides so. Initial inventory (UNVERIFIED as complete; `/dev` extends it and the extended list is added to this spec before building): the feed's point and story cards, point detail, story detail, Clarity Canvas boxes, point cards in chats (P1631), the event room's statements, profile Points and Stories tabs. A surface left out needs `[FOUNDER DECISION: scope]`.
    - **Unit:** a stored point or story is scored as one move. The model scores conversational moves, "not a whole speaking turn"; a long story may need its own treatment `[FOUNDER DECISION]`.
    - **Low on both** shows "Not scored: a question, greeting or request" rather than two low numbers (the model's exit, not a verdict).
    - **High on both** shows the model's own suggestion: split it into a point and a story.
@@ -96,10 +96,14 @@ Not yet filled, and required before `/dev` starts: `docs/technical/metered-servi
 
 ## Open Questions
 
-1. Who sees scores at launch: everyone, or only the author? (Founder decision above.)
+1. ~~Who sees scores at launch?~~ Decided 2026-11-11: the author only.
 2. Numbers, words ("strong point"), or a small two-axis marker?
-3. Confirm the reversal of the 2026-03-21 ruling (above).
+3. ~~Confirm the reversal of the 2026-03-21 ruling.~~ Confirmed 2026-11-11.
 4. Score existing items once, or only new ones?
+
+## Priority
+
+Founder, 2026-11-11: low urgency, medium importance, medium confidence. Not before the first Sales Mastermind session, and after P1658 (canvas points written as claims), since scoring descriptions would mostly label every canvas low.
 
 ## Related
 
