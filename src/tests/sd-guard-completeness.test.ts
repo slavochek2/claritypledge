@@ -63,6 +63,12 @@ const CRITICAL_TOKENS: ReadonlyArray<string> = ['p878_relationship_scope'];
  *             "<functionName>:token:<tokenString>" for token guards.
  */
 const KNOWN_INTENTIONAL_REMOVALS = new Set<string>([
+  // P1529 (20261111180000_p1529_owner_without_canvas_always_allowed.sql), founder 2026-11-11 (decision (b), "the host is never blocked"):
+  // a person without a canvas can be the Clarity Canvas owner of a business idea at any canvas count, so the host's role swap always works.
+  // A product rule, not an access guard: the registration guard (unregistered people are never seated) is a different function and stays.
+  // Pinned by e2e/integration/p1529-db-schema.spec.ts ("seat anyway").
+  '_event_round_seats_owner_has_canvas:a Clarity Canvas owner needs a canvas shared with this event',
+
   // P1529 (20261110153500_p1529_extend_round_after_time_up.sql), founder 2026-11-10: the host may give a round more
   // time after its clock has run out, while the round is still open. A product rule, not an access guard: host-only
   // (42501), the round's own event, an ended round is still refused ('this round is over', 22023), and past the

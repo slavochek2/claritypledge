@@ -137,7 +137,7 @@ export function describeProblem(p: SeatingProblem, name: (id: string) => string)
     case 'observes-twice': return `${name(p.person)} would observe a second time.`;
     case 'unseated': return `${name(p.person)} has no seat in this round.`;
     case 'owner-without-canvas':
-      return `${name(p.person)} would be a Clarity Canvas owner without a Clarity Canvas shared with this event. Starting is refused until someone with a canvas owns here.`;
+      return `${name(p.person)} would be a Clarity Canvas owner without a Clarity Canvas shared with this event. The host may still start.`;
     case 'too-few-canvases':
       return p.canvases < 2
         ? 'Fewer than two Clarity Canvases are shared with this event. Tables are seated anyway; a Clarity Canvas owner may have no canvas yet.'

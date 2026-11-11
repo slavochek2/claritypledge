@@ -471,7 +471,16 @@ let E1: Awaited<ReturnType<typeof makeEvent>>;
 let E1room = '';
 let A6second: { name: string; canvasId: string; versionId: string };
 let A6firstCanvasId = '';
-const hostEvent = (page: Page, ev: { slug: string }) => asUser(page, host, `/events/${ev.slug}/host`);
+/**
+ * The host's saved settings for an event (read on load, per browser): the mastermind's next-round minutes with the reading part at `readingS`
+ * (0 = none, which keeps the walk short; the settings screen's own default is 3 minutes, exercised in AC11). Seeded before the page loads.
+ */
+async function seedReading(page: Page, ev: { id: string }, readingS: number): Promise<void> {
+  await page.addInitScript(([key, secs]) => {
+    try { localStorage.setItem(key as string, JSON.stringify({ mastermindMinutes: { seatingS: 120, speakerS: 450, observerS: 180, readingS: secs }, mastermindMinutesV: 3 })); } catch { /* defaults */ }
+  }, [`p1337-host-settings:${ev.id}`, readingS] as const);
+}
+const hostEvent = async (page: Page, ev: { slug: string; id: string }) => { await seedReading(page, ev, 0); await asUser(page, host, `/events/${ev.slug}/host`); };
 
 test('SETUP E1: event, registrations through the real RPC, room members, five canvases shared', async () => {
   E1 = await makeEvent(ledger, host.user, `P1529 QA mastermind session 1 ${RUN_TAG()}`, { startsInMs: 0 });
@@ -961,6 +970,13 @@ async function startRunViaEdge(p: Person, runId: string): Promise<number> {
   });
   return r.status;
 }
+/** The newest published version of the canvas this person shared with E1. */
+async function latestPublished(who: Person): Promise<{ id: string; seq: number }> {
+  const chosen = (await supabaseAdmin.from('event_canvases').select('canvas_id').eq('event_id', E1.id).eq('profile_id', who.user.user.id).single()).data!.canvas_id as string;
+  const v = (await supabaseAdmin.from('canvas_versions').select('id, published_seq').eq('canvas_id', chosen).not('published_seq', 'is', null).order('published_seq', { ascending: false }).limit(1).single()).data!;
+  return { id: v.id as string, seq: v.published_seq as number };
+}
+
 async function runsOf(owner: Person) {
   const { data } = await supabaseAdmin.from('canvas_draft_runs').select('id, draft_id, state, error_code, created_at, started_at, finished_at, spend_id').eq('owner_id', owner.user.user.id).order('created_at');
   return data ?? [];
@@ -983,7 +999,7 @@ const walk: { ownerA?: Person; ownerB?: Person; ownerC?: Person; v2: Map<string,
 
 const ownerOfTable = (n: number) => byProfile(r1Tables.get(n)!.owner!);
 
-test('WALK2: after round 1 (flow and canvas fixed), round 2, round 1 transcripts, "Make my next version" on the real model', async ({ page, browser }) => {
+test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: round 1 transcripts, "Create next version" and "Preview first" on the real model, then round 2', async ({ page, browser }) => {
   const seats1 = await savedSeats(E1.id);
   r1Tables = tablesOf(seats1, 1);
   const round1 = await roundIdByNo(E1.id, 1);
@@ -1021,17 +1037,21 @@ test('WALK2: after round 1 (flow and canvas fixed), round 2, round 1 transcripts
     return `${first(person)}'s round card: no canvas card, event-canvas-change count 0; set_event_canvas("${other}") by A6 (chosen "${mine.canvases.name}") -> {"status":"refused","code":"fixed_after_round_1"}`;
   });
 
-  // ── round 2, through the real host screen ──────────────────────────────────────────────────────────────────────────
+  // ── the break after round 1: the host ends ONLY round 1 (2026-11-11: the next-version card shows between rounds, never during one) ──
   await hostEvent(page, E1);
-  await expect(page.getByTestId('host-primary')).toBeVisible({ timeout: 90_000 });
-  await pressHostPrimary(page);
-  await expect(page.getByTestId('host-round-title')).toHaveText('Round 2', { timeout: 60_000 });
+  await expect(page.getByTestId('host-primary')).toHaveText('End round 1', { timeout: 90_000 });
+  await page.getByTestId('host-primary').click();
+  const endYes = page.getByTestId('host-next-yes');
+  if (await endYes.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)) await endYes.click();
+  await expect.poll(async () => (await supabaseAdmin.from('event_rounds').select('ended_at').eq('id', round1).single()).data!.ended_at, { timeout: 30_000 }).not.toBeNull();
+  await expect(page.getByTestId('host-primary')).toHaveText('Preview round 2 tables', { timeout: 60_000 });
+  expect((await supabaseAdmin.from('event_canvas_update_steps').select('*', { count: 'exact', head: true }).eq('event_id', E1.id)).count, 'the host has no canvas-update step').toBe(0);
   const tmOf = (id: string) => byProfile(id).tmember.get(E1.id)!;
   const tableMembers = (n: number) => {
     const t = r1Tables.get(n)!;
     return { owner: tmOf(t.owner!), partner: tmOf(t.partner!), observer: t.observers[0] ? tmOf(t.observers[0]) : undefined };
   };
-  // Round 1's words are posted right after the cut, before the cleaner's 40 s window (a clean job per table): table a (192 lines),
+  // Round 1's words are posted right after the host ends it, before the cleaner's 40 s window (a clean job per table): table a (192 lines),
   // table b (128 lines), and table c has no recording (its job finishes empty).
   const posted: Record<number, number> = {};
   await ac('8a', 'round 1 transcripts posted into the round threads (192 and 128 line rows); one table has no recording', async () => {
@@ -1078,54 +1098,37 @@ test('WALK2: after round 1 (flow and canvas fixed), round 2, round 1 transcripts
     await asUser(pg, who, `/events/${E1.slug}/meet`);
     return { ctx, pg };
   };
-  const expandTask = async (pg: Page) => {
-    const line = pg.getByTestId('mastermind-task-line');
-    await expect(line.or(pg.getByTestId('mastermind-task')).first()).toBeVisible({ timeout: 120_000 });
-    // does the expanded task stay expanded while the page's own polling runs? (a remount would fold it back to one line)
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      if (await line.count()) await line.first().click();
-      await expect(pg.getByTestId('mastermind-task')).toBeVisible();
-      const timeline: string[] = [];
-      for (let i = 0; i < 8; i++) { await pg.waitForTimeout(500); timeline.push((await pg.getByTestId('mastermind-task').count()) ? 'open' : 'FOLDED'); }
-      note(`expand attempt ${attempt}: task stays open over 4 s? ${timeline.join(',')}`);
-      if (!timeline.includes('FOLDED')) return;
-    }
-  };
-
-  await ac('8x', 'the one-line update task stays open on its FIRST click, over six fresh page loads', async () => {
-    const results: string[] = [];
-    for (const [i, who] of [walk.ownerA!, walk.ownerB!, walk.ownerA!, walk.ownerB!, walk.ownerA!, walk.ownerB!].entries()) {
+  await ac('8x', 'between rounds the owner\'s phone shows the next-version card as its one focus: its own title, no folded one-line task, no round card', async () => {
+    const seen: string[] = [];
+    for (const who of [walk.ownerA!, walk.ownerB!]) {
       const { ctx, pg } = await roomPage(who);
-      const line = pg.getByTestId('mastermind-task-line');
-      await expect(line.first()).toBeVisible({ timeout: 120_000 });
-      await line.first().click();
-      const seen: string[] = [];
-      for (let k = 0; k < 6; k++) { await pg.waitForTimeout(500); seen.push((await pg.getByTestId('mastermind-task').count()) ? 'open' : 'FOLDED'); }
-      results.push(`${i + 1}:${first(who)}:${seen.includes('FOLDED') ? 'FOLDED' : 'open'}`);
+      await expect(pg.getByTestId('mastermind-task')).toBeVisible({ timeout: 120_000 });
+      await expect(pg.getByTestId('mastermind-task-title')).toContainText('Round 1 with');
+      await expect(pg.getByTestId('mastermind-task-line')).toHaveCount(0);
+      await expect(pg.getByTestId('mastermind-round-card')).toHaveCount(0);
+      seen.push(`${first(who)}: "${(await pg.getByTestId('mastermind-task-title').innerText()).trim()}"`);
       await ctx.close();
     }
-    note(`FIRST-CLICK TRIES ${results.join(' ')}`);
-    expect(results.filter((r) => r.endsWith('FOLDED')), `first clicks that folded back: ${results.join(' ')}`).toEqual([]);
-    return results.join(' ');
+    return seen.join(' | ');
   });
 
   await ac('8b', 'table without a recording: "No recording from this round" and no button', async () => {
     const { ctx, pg } = await roomPage(walk.ownerC!);
-    await expect(pg.getByTestId('mastermind-task-line')).toContainText('No recording from your last round', { timeout: 120_000 });
+    await expect(pg.getByTestId('mastermind-task-no-recording')).toHaveText('No recording from this round', { timeout: 120_000 });
     await expect(pg.getByTestId('mastermind-make')).toHaveCount(0);
     const offer = await walk.ownerC!.client.rpc('get_my_next_version_offer', { p_event: E1.id });
     expect(offer.data.state).toBe('no_recording');
     await ctx.close();
-    return `get_my_next_version_offer -> ${JSON.stringify(offer.data)}; card line "No recording from your last round", 0 Make buttons (the full "No recording from this round" face is shot at the update step)`;
+    return `get_my_next_version_offer -> ${JSON.stringify(offer.data)}; card reads "No recording from this round", 0 Make buttons`;
   });
 
   // ── owner A: tap with the drafting call held (drafting shot), forced failure (failed shot), Try again on the real model ───
   let runTap = '', runRetry = '';
-  await ac('8c', 'owner taps Make my next version: copies land in the draft (line rows), the run is queued; screen reads drafting', async () => {
+  await ac('8c', 'owner taps Create next version: copies land in the draft (line rows), the run is queued; screen reads drafting', async () => {
     const { ctx, pg } = await roomPage(walk.ownerA!);
     await pg.route('**/functions/v1/canvas-draft**', (route) => route.fulfill({ status: 202, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ run_id: 'qa-held', kind: 'message' }) })); // answered, never started: the run stays queued
-    await expandTask(pg);
-    await expect(pg.getByTestId('mastermind-make')).toBeVisible({ timeout: 60_000 });
+    await expect(pg.getByTestId('mastermind-make')).toBeVisible({ timeout: 120_000 });
+    await expect(pg.getByTestId('mastermind-make')).toHaveText('Create next version');
     await shots(pg, 'update-task', 'make-offer');
     await pg.getByTestId('mastermind-make').click();
     await expect(pg.getByTestId('mastermind-task-creating')).toBeVisible({ timeout: 90_000 });
@@ -1170,32 +1173,38 @@ test('WALK2: after round 1 (flow and canvas fixed), round 2, round 1 transcripts
     return `forced run ${runTap.slice(0, 8)} failed (error_code QA_FORCED); retry run ${runRetry.slice(0, 8)} created by the UI's Try again; _canvas_run_is_round_update(retry) = ${retryMode}`;
   });
 
-  await ac('8e', 'the retried run finishes on the real model: the screen reads ready', async () => {
+  await ac('8e', 'the retried run finishes on the real model and is published by the one tap, with no review: the card reads published', async () => {
     const pg = (walk as Record<string, unknown>).holdPage as Page;
     const t0 = Date.now();
-    await expect(pg.getByTestId('mastermind-task-ready')).toBeVisible({ timeout: 240_000 });
+    await expect(pg.getByTestId('mastermind-task-published')).toBeVisible({ timeout: 300_000 });
     const secs = Math.round((Date.now() - t0) / 1000);
     const runs = await runsOf(walk.ownerA!);
     const last = runs[runs.length - 1];
     expect(last.state).toBe('done');
     const cost = await costOf([last.id as string]);
-    await shots(pg, 'update-task', 'ready');
-    return `retry run state done in about ${secs}s after the retry (page-observed); cost $${cost.toFixed(4)}`;
+    await shots(pg, 'update-task', 'published');
+    const v = await latestPublished(walk.ownerA!);
+    expect(v.seq, 'one more published version: the second').toBe(2);
+    walk.v2.set(walk.ownerA!.user.user.id, v.id);
+    return `retry run done and published about ${secs}s after the retry (page-observed); published_seq ${v.seq}; cost $${cost.toFixed(4)}`;
   });
 
   // ── owner B: a plain tap on the real model ─────────────────────────────────────────────────────────────────────────
-  await ac('8f', 'owner B taps once; the real model drafts; ready', async () => {
+  await ac('8f', 'owner B taps "Preview first": the draft opens with the back-to-table banner; the real model drafts; the room shows it ready (not published); Publish publishes it', async () => {
     const { ctx, pg } = await roomPage(walk.ownerB!);
-    await expandTask(pg);
-    await expect(pg.getByTestId('mastermind-make')).toBeVisible({ timeout: 60_000 });
+    await expect(pg.getByTestId('mastermind-preview')).toBeVisible({ timeout: 120_000 });
     await withModelTerms(walk.ownerB!, async () => {
       const started = pg.waitForResponse((r) => /functions\/v1\/canvas-draft/.test(r.url()) && r.request().method() === 'POST', { timeout: 60_000 });
-      await pg.getByTestId('mastermind-make').click();
+      await pg.getByTestId('mastermind-preview').click();
       await started;
     });
+    await expect(pg.getByTestId('table-banner')).toContainText('Back to your table', { timeout: 90_000 });
+    await shots(pg, 'update-task', 'preview-first-draft');
+    expect((await latestPublished(walk.ownerB!)).seq, 'Preview first publishes nothing').toBe(1);
+    await pg.goto(`/events/${E1.slug}/meet`);
     const t0 = Date.now();
     try {
-      await expect(pg.getByTestId('mastermind-task-ready')).toBeVisible({ timeout: 240_000 });
+      await expect(pg.getByTestId('mastermind-task-ready')).toBeVisible({ timeout: 300_000 });
     } catch (e) {
       note(`8f runs: ${JSON.stringify(await runsOf(walk.ownerB!))} note=${await pg.getByTestId('mastermind-task-note').allInnerTexts()}`);
       throw e;
@@ -1219,15 +1228,28 @@ test('WALK2: after round 1 (flow and canvas fixed), round 2, round 1 transcripts
     expect(guessed, 'no "best guess" line in a round draft').toEqual([]);
     const cost = await costOf([runs.at(-1)!.id as string]);
     expect(cost).toBeLessThan(0.5);
-    (walk as Record<string, unknown>).bCtx = ctx;
-    return `done in about ${Math.round((Date.now() - t0) / 1000)}s; cost $${cost.toFixed(4)}; round-update mode true`;
+    await shots(pg, 'update-task', 'ready');
+    await pg.getByTestId('mastermind-publish').click();
+    await expect(pg.getByTestId('mastermind-task-published')).toBeVisible({ timeout: 90_000 });
+    const v = await latestPublished(walk.ownerB!);
+    expect(v.seq, 'Publish makes the second version').toBe(2);
+    walk.v2.set(walk.ownerB!.user.user.id, v.id);
+    await ctx.close();
+    return `done in about ${Math.round((Date.now() - t0) / 1000)}s; cost $${cost.toFixed(4)}; round-update mode true; published_seq ${v.seq} after Publish`;
   });
+
+  // ── the host starts round 2 once the owners have had their break ──
+  await ac('R2', 'the host previews and starts round 2 after the break', async () => {
+    await pressHostPrimary(page);
+    await expect(page.getByTestId('host-round-title')).toHaveText('Round 2', { timeout: 60_000 });
+    return `round 2 started: ${tableLine(await savedSeats(E1.id), 2)}`;
+  }, page);
 });
 
 
 import { execFileSync } from 'node:child_process';
 
-test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partner opens the published version', async ({ page, browser }) => {
+test('WALK3: round 2 ends (no host update step), the break, rounds 3 and 4, the next partner opens the published version', async ({ page, browser }) => {
   const round2 = await roundIdByNo(E1.id, 2);
   const seats2 = await savedSeats(E1.id);
   const r2Tables = tablesOf(seats2, 2);
@@ -1237,6 +1259,21 @@ test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partne
 
   await hostEvent(page, E1);
   await expect(page.getByTestId('host-panel')).toBeVisible({ timeout: 90_000 }); // rounds are on: the before-round list (mm-people) is not drawn
+
+  await ac('8y', 'during round 2 no phone shows the next-version card, in any role (owners of round 1 are seated or waiting; the offer waits for the break)', async () => {
+    const seen: string[] = [];
+    for (const who of [walk.ownerA!, walk.ownerB!, ownerP]) {
+      const ctx = await browser.newContext();
+      const pg = await ctx.newPage();
+      await asUser(pg, who, `/events/${E1.slug}/meet`);
+      await expect(pg.getByTestId('mastermind-round-card').or(pg.getByTestId('mastermind-mic-step')).or(pg.getByTestId('mastermind-waiting'))).toBeVisible({ timeout: 120_000 });
+      await pg.waitForTimeout(3000); // the offer read lands within a poll; the card must still not appear
+      await expect(pg.getByTestId('mastermind-task')).toHaveCount(0);
+      seen.push(`${first(who)}: no task card`);
+      await ctx.close();
+    }
+    return seen.join(' | ');
+  });
 
   await ac('9a0', 'the host\'s one primary during round 2 is "End round 2" (asks once while time is on the clock); it ends only that round and the phones read "between rounds"', async () => {
     await expect(page.getByTestId('host-primary')).toHaveText('End round 2', { timeout: 60_000 });
@@ -1248,16 +1285,21 @@ test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partne
     const ctx = await browser.newContext();
     const pg = await ctx.newPage();
     await asUser(pg, ownerP, `/events/${E1.slug}/meet`);
-    await expect(pg.getByTestId('mastermind-between')).toContainText('Round 2 is over', { timeout: 60_000 });
-    await expect(pg.getByTestId('mastermind-between')).toContainText('The next round starts soon.');
+    // Between rounds the phone shows ONE focus: the owner's update card when there is one (round 2's words are still being prepared), else the break line.
+    await expect(pg.getByTestId('mastermind-between').or(pg.getByTestId('mastermind-task'))).toBeVisible({ timeout: 60_000 });
+    if (await pg.getByTestId('mastermind-between').count()) {
+      await expect(pg.getByTestId('mastermind-between')).toContainText('Round 2 is over');
+      await expect(pg.getByTestId('mastermind-between')).toContainText('The next round starts soon.');
+    } else {
+      await expect(pg.getByTestId('mastermind-task-title')).toContainText('Round 2 with');
+    }
     await expect(pg.getByText('The rounds are over')).toHaveCount(0);
     await expect(pg.getByTestId('room-step-close'), 'Feedback is open at any time').toBeEnabled();
     await ctx.close();
     return 'round 2 ended_at set by End round 2, no evening stamp; the owner\'s phone: "Round 2 is over" + "The next round starts soon.", no "The rounds are over", Feedback step enabled';
   }, page);
 
-  // 2026-11-11: the host has no canvas-update step any more; after End round 2 the primary is "Preview round 3 tables" and each owner
-  // updates from their own round card. The owner steps below (8x) still assume the old step: rework pending (see the spec's UAT round 2026-11-11).
+  // 2026-11-11: the host has no canvas-update step; after End round 2 the primary is "Preview round 3 tables" and each owner updates from their own round card.
   await ac('9a', 'after End round 2 the host has no canvas-update button, step row or owners list; the primary previews round 3', async () => {
     await expect(page.getByTestId('host-primary')).toHaveText('Preview round 3 tables', { timeout: 60_000 });
     await expect(page.getByTestId('mm-update-start')).toHaveCount(0);
@@ -1275,30 +1317,6 @@ test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partne
     return `posted ${a} and ${b}; table ${r2Nos[2]} empty`;
   });
 
-  // Owner A and B publish "as it is" (their drafts are ready); the room shows the full task now that nobody is seated
-  for (const [i, who] of [walk.ownerA!, walk.ownerB!].entries()) {
-    await ac(`8h${i}`, `${first(who)} publishes the draft as it is at the canvas-update step`, async () => {
-      const ctx = await browser.newContext();
-      const pg = await ctx.newPage();
-      await asUser(pg, who, `/events/${E1.slug}/meet`);
-      await expect(pg.getByTestId('mastermind-task')).toBeVisible({ timeout: 120_000 });
-      await expect(pg.getByTestId('mastermind-task-ready')).toBeVisible({ timeout: 60_000 });
-      await expect(pg.getByTestId('mastermind-publish')).toBeVisible();
-      if (i === 0) await shots(pg, 'update-task', 'ready-at-step');
-      // the canvas CHOSEN for this event (a person may own other canvases: Flo has two)
-      const chosenCanvas = (await supabaseAdmin.from('event_canvases').select('canvas_id').eq('event_id', E1.id).eq('profile_id', who.user.user.id).single()).data!.canvas_id as string;
-      const before = (await supabaseAdmin.from('canvas_versions').select('id, published_seq').eq('canvas_id', chosenCanvas).not('published_seq', 'is', null)).data!.length;
-      await pg.getByTestId('mastermind-publish').click();
-      await expect(pg.getByTestId('mastermind-task-published')).toBeVisible({ timeout: 90_000 });
-      const vs = (await supabaseAdmin.from('canvas_versions').select('id, published_seq').eq('canvas_id', chosenCanvas).not('published_seq', 'is', null).order('published_seq', { ascending: false })).data!;
-      expect(vs.length, 'one more published version').toBe(before + 1);
-      walk.v2.set(who.user.user.id, vs[0].id as string);
-      if (i === 0) await shots(pg, 'update-task', 'published');
-      await ctx.close();
-      return `published versions ${before} -> ${vs.length}; newest published_seq ${vs[0].published_seq} (${(vs[0].id as string).slice(0, 8)})`;
-    });
-  }
-
   // the table with no recording, as the owner sees it at the step (the full face)
   await ac('8i', 'update step, owner whose table had no recording: "No recording from this round", no button', async () => {
     const ctx = await browser.newContext();
@@ -1314,7 +1332,7 @@ test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partne
   // owner P taps and is left DRAFTING (the start call is held); owner Q never taps: the host starts round 3 anyway (AC9)
   const holdCtx = await browser.newContext();
   const holdPg = await holdCtx.newPage();
-  await ac('9c', 'one owner is drafting and one has not tapped; the host starts round 3 anyway', async () => {
+  await ac('9c', 'one owner is drafting and one has not tapped; the host starts round 3 anyway; the card is gone from that owner\'s phone while round 3 runs', async () => {
     await holdPg.route('**/functions/v1/canvas-draft**', (route) => route.fulfill({ status: 202, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ run_id: 'qa-held', kind: 'message' }) }));
     await asUser(holdPg, ownerP, `/events/${E1.slug}/meet`);
     await expect(holdPg.getByTestId('mastermind-make')).toBeVisible({ timeout: 120_000 });
@@ -1329,6 +1347,11 @@ test('WALK3: the canvas-update step, publishing, rounds 3 and 4, the next partne
     await expect(page.getByTestId('host-round-title')).toHaveText('Round 3', { timeout: 60_000 });
     const seats = await savedSeats(E1.id);
     note(`ROUND 3: ${tableLine(seats, 3)}`);
+    // Round 3 is running: P's phone (drafting, start held) shows no update card now, whether P is seated or waiting.
+    await holdPg.reload();
+    await expect(holdPg.getByTestId('mastermind-round-card').or(holdPg.getByTestId('mastermind-mic-step')).or(holdPg.getByTestId('mastermind-waiting'))).toBeVisible({ timeout: 120_000 });
+    await holdPg.waitForTimeout(3000);
+    await expect(holdPg.getByTestId('mastermind-task')).toHaveCount(0);
     return `states at the moment of starting round 3: ${JSON.stringify(states)}; round 3 started (${tableLine(seats, 3)})`;
   }, page);
 
@@ -1451,7 +1474,7 @@ test('AC6 (five with canvases): one observes each round, rotated; the preview na
     return 'mastermind-waiting reads "Round 1 starts soon"';
   });
 
-  await asUser(page, host, `/events/${E5.slug}/host`);
+  await hostEvent(page, E5);
   await expect(page.getByTestId('mm-people')).toBeVisible({ timeout: 90_000 });
   let preview1 = '';
   await ac('6c', 'the round 1 preview with five canvases names who owns only once', async () => {
@@ -1501,12 +1524,61 @@ test('AC6 (five with canvases): one observes each round, rotated; the preview na
 
 test('AC11 (a first canvas after round 1): the ready line, the host\'s ready mark, seated as owner at the next round; a chosen canvas cannot be swapped', async ({ page, browser }) => {
   const { ev: E11 } = await eventWithPeople('P1529 QA late canvas', [A[0], A[1]], [O1, O2]);
+  // The ONE round with a reading part: the host's settings (not seeded here) open at the default of 3 minutes and the host sets 2.
   await asUser(page, host, `/events/${E11.slug}/host`);
   await expect(page.getByTestId('mm-people')).toBeVisible({ timeout: 90_000 });
+  await page.getByTestId('host-settings').locator('summary').click();
+  await expect(page.getByTestId('host-minutes-readingS')).toHaveText('3 min');
+  await page.getByRole('button', { name: 'Reading: one minute less' }).click();
+  await expect(page.getByTestId('host-minutes-readingS')).toHaveText('2 min');
   await pressHostPrimary(page);
   await expect(page.getByTestId('host-round-title')).toHaveText('Round 1', { timeout: 60_000 });
   const seats1 = await savedSeats(E11.id);
   note(`E11 ROUND 1: ${tableLine(seats1, 1)}`);
+
+  await ac('7e', 'reading part: set in the host settings and stored with the round; the host strip names it; the observer reads the silent-reading line; a visitor lists the owner\'s points and one tap saves a position; the owner has nothing changed to set; owner and partner see no observer line', async () => {
+    const rid = await roundIdByNo(E11.id, 1);
+    expect((await supabaseAdmin.from('event_rounds').select('reading_s').eq('id', rid).single()).data!.reading_s, 'the 2 minutes the host set').toBe(120);
+    // Put the clock inside the reading part (2 minutes of finding the table come first), and keep the part open for the page loads below.
+    await supabaseAdmin.from('event_rounds').update({ reading_s: 900, started_at: new Date(Date.now() - 125_000).toISOString() }).eq('id', rid);
+    await expect(page.getByTestId('host-part')).toContainText('Reading', { timeout: 30_000 });
+    const table = [...tablesOf(seats1, 1).values()][0];
+    const room = async (who: Person) => {
+      const ctx = await browser.newContext();
+      const pg = await ctx.newPage();
+      await asUser(pg, who, `/events/${E11.slug}/meet`);
+      await waitForRoundCard(pg);
+      return { ctx, pg };
+    };
+    const obs = await room(byProfile(table.observers[0]));
+    await expect(obs.pg.getByTestId('round-card-observer-line')).toHaveText('Silent reading. No talking yet.', { timeout: 60_000 });
+    await shots(obs.pg, 'round', 'reading-observer');
+    await obs.ctx.close();
+
+    const partnerP = byProfile(table.partner!), ownerP = byProfile(table.owner!);
+    const partner = await room(partnerP);
+    await expect(partner.pg.getByTestId('reading-list')).toBeVisible({ timeout: 90_000 });
+    await expect(partner.pg.getByTestId('round-card-observer-line')).toHaveCount(0);
+    await expect(partner.pg.getByTestId('round-canvas-link')).toBeVisible();
+    const rows = partner.pg.getByTestId('reading-point');
+    expect(await rows.count(), 'the owner\'s canvas points are listed').toBeGreaterThan(0);
+    expect(await partner.pg.getByText(/agree with all/i).count(), 'no agree-with-all').toBe(0);
+    const row = rows.first();
+    const statement = (await row.locator('p').first().innerText()).trim();
+    await shots(partner.pg, 'round', 'reading-partner');
+    await row.getByTestId('reading-agree').click();
+    await expect(row.getByTestId('reading-agree')).toHaveAttribute('aria-pressed', 'true', { timeout: 30_000 });
+    const pt = (await supabaseAdmin.from('points').select('id').eq('first_validator_id', ownerP.user.user.id).eq('statement', statement).limit(1).single()).data!;
+    await expect.poll(async () => (await supabaseAdmin.from('point_positions').select('position').eq('point_id', pt.id).eq('user_id', partnerP.user.user.id).maybeSingle()).data?.position ?? null, { timeout: 30_000 }).toBe('agree');
+    await partner.ctx.close();
+
+    const owner = await room(ownerP);
+    await expect(owner.pg.getByTestId('reading-owner-nothing')).toBeVisible({ timeout: 90_000 });
+    await expect(owner.pg.getByTestId('reading-list')).toHaveCount(0);
+    await expect(owner.pg.getByTestId('round-card-observer-line')).toHaveCount(0);
+    await owner.ctx.close();
+    return `reading_s 120 stored; observer line shown; ${statement.slice(0, 40)}... saved as "agree" through the canvas's own position write; owner (one published version) sees "nothing changed", no list`;
+  }, page);
 
   const pub = await publishCanvas(ledger, O1, 'Gus first canvas');
   await ac('11a', 'after round 1 started: the first canvas is shared (through the RPC; the round card has no canvas card now)', async () => {
@@ -1569,7 +1641,7 @@ test('AC12 (session 2): linked to session 1, the preview avoids session-1 partne
   const { ev: S2 } = await eventWithPeople('P1529 QA session two', A, [O1, O2], { previous: E1.id });
   const linked = (await supabaseAdmin.from('events').select('previous_session_event_id').eq('id', S2.id).single()).data!;
   expect(linked.previous_session_event_id).toBe(E1.id);
-  await asUser(page, host, `/events/${S2.slug}/host`);
+  await hostEvent(page, S2);
   await expect(page.getByTestId('mm-people')).toBeVisible({ timeout: 90_000 });
   await ac('12a', 'the round 1 preview of session 2 avoids session-1 partners where it can, and names every repeat it keeps', async () => {
     await expect(page.getByTestId('mm-people')).toBeVisible({ timeout: 60_000 });

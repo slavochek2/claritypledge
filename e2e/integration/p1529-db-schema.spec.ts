@@ -303,7 +303,7 @@ test('seat guard: an unregistered room member cannot be seated in a mastermind e
   expect(r2.error, `after registering: ${r2.error?.message}`).toBeNull();
 });
 
-test('seat anyway (20261111170000): with fewer than two canvases shared an owner may have no canvas; with two or more the guard still refuses', async () => {
+test('seat anyway (20261111170000, 20261111180000): an owner may have no canvas at any canvas count', async () => {
   // One canvas shared (X's): the host seats two people who have none, owner included.
   const SA = await makeEvent(ledger, host.user, `P1529 QA db seat anyway ${randomUUID().slice(0, 4)}`, { startsInMs: 0 });
   const saRoom = await makeTranscribeRoom(ledger, SA);
@@ -315,7 +315,7 @@ test('seat anyway (20261111170000): with fewer than two canvases shared an owner
   const anyway = await host.client.rpc('host_start_round', { p_event_id: SA.id, p_round_no: 1, p_group_size: 4, p_seats: [seatA(Y, 1, 'first'), seatA(Z, 1, 'second')] });
   expect(anyway.error, `seat anyway: ${anyway.error?.message}`).toBeNull();
   expect((await supabaseAdmin.from('event_round_seats').select('*', { count: 'exact', head: true }).eq('round_id', anyway.data as string)).count).toBe(2);
-  // Two canvases shared (X's and Y's): the same seating is refused again, naming the person (control: the guard is not gone).
+  // Two canvases shared (X's and Y's): an owner without a canvas is still seated (founder ruling, 20261111180000).
   const SB = await makeEvent(ledger, host.user, `P1529 QA db seat guard two ${randomUUID().slice(0, 4)}`, { startsInMs: 0 });
   const sbRoom = await makeTranscribeRoom(ledger, SB);
   stoppers.push(await keepRoomOpen(ledger, host.user, sbRoom));
@@ -325,10 +325,15 @@ test('seat anyway (20261111170000): with fewer than two canvases shared an owner
   expect((await shareForEvent(Y, SB.id)).status).toBe('ok');
   const seatB = (p: Person, t: number, r: string) => ({ m: p.room.get(SB.id), t, r });
   const refused = await host.client.rpc('host_start_round', { p_event_id: SB.id, p_round_no: 1, p_group_size: 4, p_seats: [seatB(Z, 1, 'first'), seatB(X, 1, 'second')] });
-  expect(refused.error?.code).toBe('22023');
-  expect(refused.error?.message).toMatch(/owner needs a canvas/);
-  const ok = await host.client.rpc('host_start_round', { p_event_id: SB.id, p_round_no: 1, p_group_size: 4, p_seats: [seatB(X, 1, 'first'), seatB(Z, 1, 'second')] });
-  expect(ok.error, `owner with a canvas: ${ok.error?.message}`).toBeNull();
+  expect(refused.error, `owner without a canvas at two canvases: ${refused.error?.message}`).toBeNull();
+  // Control: the registration guard is still there (an unregistered person is refused).
+  const SC = await makeEvent(ledger, host.user, `P1529 QA db seat guard reg ${randomUUID().slice(0, 4)}`, { startsInMs: 0 });
+  const scRoom = await makeTranscribeRoom(ledger, SC);
+  stoppers.push(await keepRoomOpen(ledger, host.user, scRoom));
+  await register(X, SC.slug);
+  for (const p of [X, Z]) await joinRoom(ledger, p, SC, { transcribeRoom: scRoom });
+  const unreg = await host.client.rpc('host_start_round', { p_event_id: SC.id, p_round_no: 1, p_group_size: 4, p_seats: [{ m: X.room.get(SC.id), t: 1, r: 'first' }, { m: Z.room.get(SC.id), t: 1, r: 'second' }] });
+  expect(unreg.error?.message).toMatch(/not registered for this event/);
 });
 
 test('end round: host only, the newest round only, idempotent, Sales Mastermind only; the evening has its own stamp (20261110090000)', async () => {
