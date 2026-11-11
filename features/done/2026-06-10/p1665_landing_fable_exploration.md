@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 1
 workstream: landing
 created_date: '2026-11-11'
 tags: [landing, design-exploration, prototype]
 disclosure: public
-delivery_stage: create-spec
 pipeline_ran: [dev, create-spec]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-11-11
 ---
 
 # P1665: Keep the /tree/landing-fable design exploration on main
