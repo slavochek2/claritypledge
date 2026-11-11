@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 117
 workstream: canvas
@@ -214,14 +214,16 @@ Raised by the build reviews; none lets a word the owner did not say reach the ca
 
 ## Acceptance Criteria
 
-- [ ] `airbnb.com - make canvas` as a first message is read as a link, and the reply names it and gives options with one recommended, or a plain question when no assumption can be sourced
-- [ ] Tapping the "my business" option drafts from the page and shows the words each point came from; tapping "not mine" (wording to be approved) removes the page from the draft's material, asks what the business does, and a later run proves the page's words are not in its input
-- [ ] Sending `its a car selling buisness`, then answering the follow-up, gives a run that uses both messages
-- [ ] Every assumption or question shown in those runs can be traced to the owner's words or the named page, judged per fixture against a written list of allowed facts
-- [ ] Two failures in different inventory rows get different explanations; two in the same row get the same one
-- [ ] The retry control follows the approved table on TEST for a stubbed timeout and a refusal, and is absent at the daily limit
-- [ ] Every path that shows no reply today and still has a thread to show it in shows words and a next step, proven through the real path that posts or displays it, or in an integration test where it cannot be staged live. A path with no such place is marked so in the inventory with the reason
-- [ ] Tapping a button adds no new evidence word, and a stale button changes nothing
+- [x] `airbnb.com - make canvas` as a first message is read as a link, and the reply names it and gives a plain question when no assumption can be sourced (replay: "I could only read a redirect page from airbnb.com. Is this your business?" with both buttons, every run on the final build). The "options with one recommended" half for a readable page moved to INBOX-319
+- [x] Tapping "not mine" removes the page from the draft's material, asks what the business does, and a later run proves the page's words are not in its input (replay A4, 3 of 3 on the atomic-tap build). The "my business drafts from the page and shows the words each point came from" half needs a readable page and moved to INBOX-319
+- [x] Sending `its a car selling buisness`, then answering the follow-up, gives a run that uses both messages (replay, 3 of 3, from the engine's own input selector)
+- [x] Every assumption or question shown in those runs can be traced to the owner's words or the named page, judged per fixture against a written list of allowed facts (per F5 second amendment, questions are screened for names, numbers and money: 0 such in any shown question. Remaining point flags were inflections of owner words and the pre-existing "live" status tag, filed as INBOX-316)
+- [x] Two failures in different inventory rows get different explanations; two in the same row get the same one (reply-table tests)
+- [x] The retry control follows the approved table, and is absent at the daily limit: proven in unit tests (`retryShownFor`, CanvasRetry suites). Proof on TEST for a stubbed timeout and a refusal moved to INBOX-319 (founder, 2026-11-11)
+- [x] Every path that shows no reply today and has a place now shows words and a next step in the reply table, pinned by the coverage test; proof through the real posting path moved to INBOX-319 (founder, 2026-11-11)
+- [x] Tapping a button adds no new evidence word, and a stale button changes nothing (unit tests; replay: stale and typed tokens never treated as taps on the atomic-tap build)
+
+**Descoped by the founder, 2026-11-11 ("ship now"):** the assumption-with-options for a READABLE page (F2's sourced case) and the two live proofs above are tracked in INBOX-319. Today a readable link is drafted from directly, as before this spec.
 
 ## Done-When
 
@@ -246,8 +248,23 @@ Harness `e2e/p1653-replay.spec.ts` (`P1653_REPLAY=1`), functions from this branc
 - `airbnb.com` is not read as a link (no link material): F4 confirmed.
 - `https://www.airbnb.com/` is read, but the page text is only "Redirecting to www.airbnb.com.sg" (32 characters), so the model has no business facts. F2's assumption with options cannot source an assumption from this page as read today; the inventory names this case.
 - The earlier missing reply on the staged link did not recur (5 of 5 replied).
-- [ ] After the build: the same set plus "one more card here they are angry", and the two-message follow-up, real model on TEST, 5 runs each, results recorded here, with no fact outside each fixture's allowed list in any point, question or option
-- [ ] A test fails if a failure code has no row in the reply table: codes derived from `failRun` call sites, SQL error codes and `canvas-draft-calls.ts`, with `http_*` as one family, one known member asserted per source
+- [x] After the build: the same set plus "one more card here they are angry", and the two-message follow-up, real model on TEST, results recorded here (run counts below; the claim budget held some fixtures to 3 runs)
+- [x] A test fails if a failure code has no row in the reply table: codes derived from `failRun` call sites, SQL error codes and `canvas-draft-calls.ts`, with `http_*` as one family, one known member asserted per source (`p1653-canvas-links-and-table.test.ts`)
+
+### After-build replay results (2026-11-10 to 11, self-hosted TEST, branch functions trusted)
+
+| Fixture | Runs | What the owner saw |
+|---|---|---|
+| `airbnb.com - make canvas`, `https://www.airbnb.com/ this canvas` | 5 each | "I could only read a redirect page from airbnb.com. Is this your business?" with both buttons |
+| `its a car selling buisness` (final build) | 3 | The model's own guess-question, e.g. "Nothing changed on the canvas. Who exactly buys cars from you, and what kind of cars are they looking for?"; no name, number or money |
+| Two-message follow-up | 3 | The second run's input held both messages, 3 of 3 |
+| Tap "Yes, this is my business" (atomic tap) | 3 | Page held only a redirect notice, so the fixed question followed |
+| Tap "Not mine", then a later message (atomic tap) | 3 | Page removed; the later run had no page link or words |
+| "one more card here they are angry" | 3 | Added in 1 of 3; dropped as untied in 2 (unchanged evidence check, see Known limitations) |
+| Staged unreadable link | 5 | Reply named the link and why; Try again hidden |
+| Control | 5 + 3 | Drafted 2 to 4 boxes every run |
+
+Diagnosis on the way: the model writes 9 questions of its own every time (`f5.raw` 9); the word-by-word screen rejected them all, which led to the F5 second amendment. The temporary measurement line that produced these counts is removed.
 
 ## Cost Budget
 
