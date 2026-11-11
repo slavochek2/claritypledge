@@ -8,6 +8,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-11 [product]: The /builders visual redesign stays a dev-only prototype until more readers back it (P1665)
+
+**Context:** A visual redesign of /builders (same copy, new layout, a hero drawing of one line splitting into five) was built at `/tree/landing-fable`. The founder liked it. One outside reader preferred the old style: it felt a bit less readable, and they did not understand the hero drawing (divergence and convergence of opinions). The founder also needed time to read the drawing.
+**Decision:** Merge it to main as a dev-only prototype and do not adopt it. Do not restyle the other use-case pages (/hospitals, /change-managers) yet. Ask more people first, and ask which version makes them want to book a call rather than which looks nicer, since the copy is identical and only the look differs.
+**Alternatives rejected:** Adopting it now (one founder vote against one reader vote is a tie, not a decision). Discarding it (the reader's objection names one fixable element, the unlabelled drawing, rather than the whole layout).
+**Consequences:** Two process facts surfaced. (1) `/tree/*` routes are DEV-gated, so merging a prototype to main does not make it viewable by anyone else. Sharing it needs screenshots or a deliberate unlisted prod route. (2) `/ship` gate 2.5 needs a spec, so an exploration built without one is blocked at merge; P1665's spec was filed retroactively. Open: `[FOUNDER DECISION: label for the hero drawing, or remove it]`. If adopted, analytics and the `?referrer`/`?login` redirects must be carried over.
+**Falsifier:** UNTESTED. If most of the next few target readers prefer the redesign once the drawing is labelled, adopt it and extend it to the use-case pages.
+**References:** [p1665](../features/done/2026-06-10/p1665_landing_fable_exploration.md)
+
 ## 2026-11-11 [process]: The Stop-hook review gate should also see files changed by shell edits (Status: proposed)
 
 **Context:** In P1653, subagents briefed "Edit/Write tools only" still changed repo files with `sed -i`, heredocs and python at least 5 times across 3 agents. `/finish` collects changed files from git, so a full review covers them, but the Stop hook (`.claude/hooks/verify-before-stop.py`) reads only tool-call edits, so a shell-edited file can reach a commit with no review receipt. The prose mitigation in `/dev` "Who Builds" failed again.
