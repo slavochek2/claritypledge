@@ -16,7 +16,8 @@ import { FOCUS_RING, HOVER, PersonMark } from './chat-kit';
 import { isCanvasThreadRoot } from './canvas-root';
 import { rootLinkTarget } from './canvas-root-link';
 import { ChatContext } from './chat-state';
-import { CLARIFY_OPEN_LABEL } from './clarify-copy';
+import { useClarifyDraftCount } from './use-clarify-draft-counts';
+import { CLARIFY_EMPTY_THREAD_LABEL } from './clarify-copy';
 import { useCanvasRootSlot } from './use-canvas-root-slot';
 
 interface Props {
@@ -101,15 +102,33 @@ function CanvasRepliesLink({ server, stat, authors, onThread, viewerId }: { serv
   );
 }
 
-export function RepliesLink({ inThread, server, stat, authors, onThread, viewerId }: Props) {
-  if (inThread || !onThread || !server) return null;
-  // P1631: a Clarify copy is the root of its owner's drafts thread, which can exist with no replies: it is always a way in.
-  if ((!stat || stat.count <= 0) && server.kind === 'clarify' && !server.threadRootId && !server.isDeleted) {
+/** P1631: the standard replies link for a Clarify copy; the count is the larger of its chat replies and its drafts, the face the owner's. */
+function ClarifyRepliesLink({ server, stat, authors, onThread, viewerId }: { server: ChatMessage; stat: ThreadStats | undefined; authors: Record<string, ChatAuthor>; onThread: (m: ChatMessage) => void; viewerId: string }) {
+  const drafts = useClarifyDraftCount(server.id);
+  // first read still out and no chat replies: show nothing yet rather than a zero that jumps to "1 reply"
+  if (drafts === null && !stat?.count) return null;
+  const count = Math.max(stat?.count ?? 0, drafts ?? 0);
+  // No drafts known (all deleted, or the count read failed): still a way into the thread and its composer, in the product's own words.
+  if (count <= 0) {
     return (
-      <button type="button" data-testid="clarify-open-link" onClick={() => onThread(server)} className={LINK}>
-        {CLARIFY_OPEN_LABEL}
+      <button type="button" data-testid="replies-link" onClick={() => onThread(server)} className={LINK}>
+        {CLARIFY_EMPTY_THREAD_LABEL}
       </button>
     );
+  }
+  const shown: ThreadStats = { ...stat, count, authorIds: stat?.authorIds.length ? stat.authorIds : [viewerId] };
+  return (
+    <button type="button" data-testid="replies-link" onClick={() => onThread(server)} className={LINK}>
+      <LinkBody stat={shown} authors={authors} />
+    </button>
+  );
+}
+
+export function RepliesLink({ inThread, server, stat, authors, onThread, viewerId }: Props) {
+  if (inThread || !onThread || !server) return null;
+  // P1631: a Clarify copy is the root of its owner's drafts thread: its drafts are its replies, shown like any thread's.
+  if (server.kind === 'clarify' && !server.threadRootId && !server.isDeleted) {
+    return <ClarifyRepliesLink server={server} stat={stat} authors={authors} onThread={onThread} viewerId={viewerId} />;
   }
   if (!stat || stat.count <= 0) return null;
   if (isCanvasThreadRoot(server)) return <CanvasRepliesLink server={server} stat={stat} authors={authors} onThread={onThread} viewerId={viewerId} />;

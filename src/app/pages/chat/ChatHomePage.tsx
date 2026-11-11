@@ -25,6 +25,7 @@ import { ThreadPanel } from './ThreadPanel';
 import { ChatContext } from './chat-state';
 import { DESKTOP_QUERY, useBack, useFinishLeave, useMediaQuery } from './chat-hooks';
 import { parseChatRoute } from './chat-view-model';
+import { useClarifyPanel } from './use-clarify-panel';
 
 /** Once stopped, Mixpanel stays stopped for the rest of the page's life; later visits render at once. */
 let sessionRecordingStopped = false;
@@ -48,8 +49,11 @@ export default function ChatHomePage() {
   }, []);
 
   // Escape closes the thread panel the way its Back does (a dialog or menu that handled Escape marked it as taken).
-  const threadOpen = !!route.rootId;
-  const closeThread = useBack();
+  // P1631: Clarify opens the Mirror's thread beside the chat the person is in (?clarify=<root>); closing only removes the parameter.
+  const { clarifyRoot, closeClarify } = useClarifyPanel();
+  const threadOpen = !!route.rootId || !!clarifyRoot;
+  const back = useBack();
+  const closeThread = clarifyRoot ? closeClarify : back;
   useFinishLeave();
   useEffect(() => {
     if (!threadOpen) return;
@@ -63,7 +67,8 @@ export default function ChatHomePage() {
   if (!ctx || !recordingOff) return <ClarityPageLoader />;
 
   const conversationOpen = !!route.conversationId;
-  const showThread = !!(route.rootId && route.conversationId && summary);
+  const side = sidePanelOf(ctx.chats, summary, route.rootId, clarifyRoot);
+  const showThread = side !== null;
   // Below lg an open thread hides the conversation behind it: what is hidden has not been seen.
   const conversationVisible = !showThread || isDesktop;
 
@@ -85,9 +90,18 @@ export default function ChatHomePage() {
           </div>
         )}
       </div>
-      {showThread && summary && route.rootId && (
-        <ThreadPanel key={route.rootId} summary={summary} rootId={route.rootId} highlightId={highlightId} />
-      )}
+      {side?.clarify && <ThreadPanel key={`clarify:${side.rootId}`} summary={side.summary} rootId={side.rootId} highlightId={null} onClose={closeClarify} />}
+      {side && !side.clarify && <ThreadPanel key={side.rootId} summary={side.summary} rootId={side.rootId} highlightId={highlightId} />}
     </div>
   );
+}
+
+type ChatSummary = NonNullable<React.ContextType<typeof ChatContext>>['chats'][number];
+
+/** The right-hand panel: the Mirror's Clarify thread beside this chat (P1631) wins over the chat's own open thread; null when neither. */
+function sidePanelOf(chats: ChatSummary[], summary: ChatSummary | undefined, rootId: string | null | undefined, clarifyRoot: string | null): { summary: ChatSummary; rootId: string; clarify: boolean } | null {
+  if (!summary) return null;
+  const mirror = clarifyRoot ? chats.find((c) => c.kind === 'mirror') : undefined;
+  if (clarifyRoot && mirror) return { summary: mirror, rootId: clarifyRoot, clarify: true };
+  return rootId ? { summary, rootId, clarify: false } : null;
 }

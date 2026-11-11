@@ -2,7 +2,7 @@
  * P1512: what pressing Forward, Clarify, Delete or the chat's Mark as unread does — shared by the
  * conversation and its thread panel so the two can never disagree.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
 import { ConfirmDialog, ForwardDialog } from './ChatDialogs';
@@ -10,7 +10,9 @@ import type { ListActions } from './MessageList';
 import { useChat } from './chat-state';
 import { startClarify } from '@/app/data/clarify-service';
 import { CLARIFY_FAILED_TOAST } from './clarify-copy';
-import { runClarifyDraft, trackClarifyStart } from './clarify-run';
+import { runClarifyDraft, touchClarifyThread, trackClarifyStart } from './clarify-run';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { clarifyPanelPushed, clarifyPushState, withClarifyPanel } from './clarify-panel';
 import { useLeaveChat } from './chat-hooks';
 import { chatPath, isChatVisibleInList } from './chat-view-model';
 import type { ConversationApi } from './MessageList';
@@ -29,6 +31,16 @@ export function useMessageActions({ summary, conv, onReply, onThread }: Options)
   const [forwardSource, setForwardSource] = useState<ChatMessage | null>(null);
   const [deleteSource, setDeleteSource] = useState<ChatMessage | null>(null);
   const { chats, authors, setManualUnread, refresh, goToChat } = chat;
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { pathname } = location;
+  const locationRef = useRef(location);
+  locationRef.current = location;
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const { remove } = conv;
   const conversationId = summary.conversationId;
 
@@ -57,14 +69,23 @@ export function useMessageActions({ summary, conv, onReply, onThread }: Options)
               }).then(
                 (r) => {
                   if (r.status !== 'started') return;
-                  goToChat(chatPath(r.mirrorConversationId, { rootId: r.threadRootId }), 'follow');
+                  // Stay in this chat: the Mirror opens beside it on the Clarify thread. A push, so the phone's Back closes the panel; the pushed entry is a
+                  // 'skip' level for the chat's own Back plan. Moved to another chat meanwhile: no navigation, the draft run goes on.
+                  const here = locationRef.current;
+                  // also still mounted: switching chats unmounts this pane and freezes the ref on the old chat.
+                  if (mounted.current && here.pathname === pathname) {
+                    const already = clarifyPanelPushed(here.state);
+                    navigate({ pathname, search: withClarifyPanel(here.search, r.threadRootId) }, already ? { replace: true, state: here.state } : { state: clarifyPushState(here.state) });
+                  }
+                  // the new thread's first draft exists now: an open Mirror shows "1 reply" without waiting for the run
+                  touchClarifyThread(r.threadRootId);
                   void runClarifyDraft(r.draftId);
                 },
                 () => toast.error(CLARIFY_FAILED_TOAST),
               );
             },
     }),
-    [onReply, onThread, leave, goToChat, setManualUnread, conversationId, summary.kind],
+    [onReply, onThread, leave, navigate, pathname, setManualUnread, conversationId, summary.kind],
   );
 
   const forwardTargets = useMemo(

@@ -759,6 +759,17 @@ describe('P1631 step 1b review fixes (migration 20261110210000)', () => {
     expect(await statementOf(first), 'the other draft is not the one that was shown').toBe(`${TAG} refined the first`);
   });
 
+  it('clarify_draft_counts: the owner sees one count per thread root of the Mirror conversation, another user gets an empty object', async () => {
+    await finishActive();
+    const { draft, thread } = await mkDone('counted');
+    const conv = (await draftRow(draft)).mirror_conversation_id as string;
+    const mine = await ok(a.c, 'clarify_draft_counts', { p_conversation: conv });
+    const n = (await admin.from('clarify_drafts').select('id').eq('thread_root_id', thread).eq('owner_id', a.id)).data!.length;
+    expect(mine[thread]).toBe(n);
+    expect(n).toBeGreaterThan(0);
+    expect(await ok(b.c, 'clarify_draft_counts', { p_conversation: conv }), 'someone else asking').toEqual({});
+  });
+
   it('owner_messages holds only messages sent at or before the draft was queued', async () => {
     await finishActive();
     const { thread } = await mkDone('bounded');

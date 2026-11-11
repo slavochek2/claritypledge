@@ -12,7 +12,7 @@ import { anotherPoint, retryClarify, type ClarifyDraft } from '@/app/data/clarif
 import { ClarifyDraftCard } from './ClarifyDraftCard';
 import { MirrorThinking } from './MirrorReplyState';
 import { ANOTHER_POINT_LABEL, CAPPED_TEXT, CLARIFY_FAILED_TOAST, FAILED_TEXT, LOAD_FAILED_TEXT, NO_SPLIT_TEXT, RETRY_LABEL } from './clarify-copy';
-import { forgetClarifyRun, runClarifyDraft } from './clarify-run';
+import { forgetClarifyRun, runClarifyDraft, touchClarifyThread } from './clarify-run';
 import { useClarifyThread, type ClarifyThreadState } from './use-clarify-thread';
 
 function Refused({ draft, onPick }: { draft: ClarifyDraft; onPick: (text: string) => void }) {
@@ -105,7 +105,8 @@ export function ClarifyDrafts({ rootId, name, userId, thread }: { rootId: string
       const r = await start();
       if (r.status === 'started') {
         if (r.draftId) void runClarifyDraft(r.draftId);
-        await reload();
+        // one signal: this thread reloads (its own listener) and the conversation's reply counts follow
+        touchClarifyThread(rootId);
       } else if (r.status !== 'busy') {
         toast.error(CLARIFY_FAILED_TOAST); // refused: not started
       }
@@ -131,7 +132,10 @@ export function ClarifyDrafts({ rootId, name, userId, thread }: { rootId: string
         return { status: r.status, draftId: d.id };
       })}
       onAnother={() => void act(() => anotherPoint(rootId))}
-      onChanged={() => void reload()}
+      onChanged={() => {
+        // an edit or delete: one signal reloads this thread (its own listener) and the conversation's reply counts
+        touchClarifyThread(rootId);
+      }}
       onReload={() => void reload()}
     />
   );

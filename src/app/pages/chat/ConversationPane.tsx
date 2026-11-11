@@ -29,6 +29,7 @@ import { useChat } from './chat-state';
 import { chatErrorText, chatPath, hasWayBackElsewhere, isChannel, mirrorRole } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
+import { ClarifyCountsScope } from './ClarifyCountsScope';
 import { useVoiceSender } from './use-voice-sender';
 
 interface Props {
@@ -73,7 +74,11 @@ export function ConversationPane({ conversationId, highlightId, paneVisible, thr
     if (chat.status === 'error') return <InlineError what="this chat" onRetry={() => void chat.refresh()} />;
     return <Unavailable />;
   }
-  return <ConversationBody key={conversationId} summary={summary} highlightId={highlightId} paneVisible={paneVisible} threadOpen={threadOpen} />;
+  return (
+    <ClarifyCountsScope key={conversationId} conversationId={conversationId} enabled={summary.kind === 'mirror'}>
+      <ConversationBody key={conversationId} summary={summary} highlightId={highlightId} paneVisible={paneVisible} threadOpen={threadOpen} />
+    </ClarifyCountsScope>
+  );
 }
 
 interface BodyProps { summary: ChatSummary; highlightId: string | null; paneVisible: boolean; threadOpen: boolean }

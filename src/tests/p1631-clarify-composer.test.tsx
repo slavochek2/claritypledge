@@ -21,8 +21,9 @@ vi.mock('@/app/data/clarify-service', async () => ({ ...(await vi.importActual<o
 
 import { ClarifyComposer } from '@/app/pages/chat/ClarifyComposer';
 import { RepliesLink } from '@/app/pages/chat/RepliesLink';
-import { resetClarifyRuns, runClarifyDraft } from '@/app/pages/chat/clarify-run';
-import { CLARIFY_BUSY_TOAST, CLARIFY_COMPOSER_HINT, CLARIFY_OPEN_LABEL } from '@/app/pages/chat/clarify-copy';
+import { ClarifyCountsContext, useClarifyDraftCounts } from '@/app/pages/chat/use-clarify-draft-counts';
+import { resetClarifyRuns, runClarifyDraft, touchClarifyThread } from '@/app/pages/chat/clarify-run';
+import { CLARIFY_BUSY_TOAST, CLARIFY_COMPOSER_HINT } from '@/app/pages/chat/clarify-copy';
 import type { ChatMessage } from '@/app/data/chat-service';
 
 beforeEach(() => {
@@ -137,14 +138,16 @@ describe('A: the composer of the Clarify thread', () => {
 const root = (over: Partial<ChatMessage> = {}): ChatMessage => ({ id: 'root1', kind: 'clarify', threadRootId: null, isDeleted: false, ...over } as ChatMessage);
 
 describe('B: the Clarify copy opens its thread, with or without replies', () => {
-  const view = (server: ChatMessage, count: number | null, onThread = vi.fn()) =>
-    render(<MemoryRouter><RepliesLink inThread={false} server={server} stat={count === null ? undefined : { count, authorIds: [], lastAt: null } as never} authors={{}} onThread={onThread} viewerId="u1" /></MemoryRouter>);
+  const view = (server: ChatMessage, count: number | null, onThread = vi.fn(), counts: Record<string, number> = {}) =>
+    render(<MemoryRouter><ClarifyCountsContext.Provider value={counts}><RepliesLink inThread={false} server={server} stat={count === null ? undefined : { count, authorIds: [], lastAt: null } as never} authors={{}} onThread={onThread} viewerId="u1" /></ClarifyCountsContext.Provider></MemoryRouter>);
 
-  it('a Clarify copy with no replies shows Open and a click opens the thread', () => {
+  it('a Clarify copy with no chat replies shows its drafts as "N replies" (never "Open") and a click opens the thread', async () => {
     const onThread = vi.fn();
-    view(root(), null, onThread);
-    fireEvent.click(screen.getByTestId('clarify-open-link'));
-    expect(screen.getByTestId('clarify-open-link')).toHaveTextContent(CLARIFY_OPEN_LABEL);
+    view(root(), null, onThread, { root1: 2 });
+    const link = await screen.findByTestId('replies-link');
+    expect(link).toHaveTextContent('2 replies');
+    expect(screen.queryByText('Open')).toBeNull();
+    fireEvent.click(link);
     expect(onThread).toHaveBeenCalledWith(expect.objectContaining({ id: 'root1' }));
   });
   it('with replies the usual replies link stays and there is one way in, not two', () => {
@@ -164,6 +167,53 @@ describe('B: the Clarify copy opens its thread, with or without replies', () => 
     cleanup();
     render(<MemoryRouter><RepliesLink inThread server={root()} stat={undefined} authors={{}} onThread={vi.fn()} viewerId="u1" /></MemoryRouter>);
     expect(screen.queryByTestId('clarify-open-link')).toBeNull();
+  });
+});
+
+describe('C: one batched count read per open Mirror conversation', () => {
+  function Probe() {
+    const counts = useClarifyDraftCounts('mirror-1', true);
+    return (
+      <ClarifyCountsContext.Provider value={counts}>
+        {['r1', 'r2', 'r3'].map((id) => (
+          <RepliesLink key={id} inThread={false} server={root({ id })} stat={undefined} authors={{}} onThread={vi.fn()} viewerId="u1" />
+        ))}
+      </ClarifyCountsContext.Provider>
+    );
+  }
+  it('3 Clarify roots make exactly 1 counts call and 0 get_clarify_thread calls on mount; one run ending is one more call, not one per row', async () => {
+    rpc.mockImplementation(async (name: string) => (name === 'clarify_draft_counts' ? { data: { r1: 2, r2: 1 }, error: null } : { data: null, error: null }));
+    render(<MemoryRouter><Probe /></MemoryRouter>);
+    // two roots with drafts show their counts; the third (no drafts known) still has a way in: "Reply in thread"
+    await waitFor(() => expect(screen.getAllByTestId('replies-link').map((b) => b.textContent)).toEqual([expect.stringMatching(/2 replies/), expect.stringMatching(/1 reply/), 'Reply in thread']));
+    const names = () => rpc.mock.calls.map((c) => c[0]);
+    expect(names().filter((n) => n === 'clarify_draft_counts')).toHaveLength(1);
+    expect(names().filter((n) => n === 'get_clarify_thread')).toHaveLength(0);
+    expect(rpc).toHaveBeenCalledWith('clarify_draft_counts', { p_conversation: 'mirror-1' });
+    invoke.mockResolvedValue({ data: { state: 'done' }, error: null });
+    await act(async () => { await runClarifyDraft('dx'); });
+    await waitFor(() => expect(names().filter((n) => n === 'clarify_draft_counts')).toHaveLength(2));
+    expect(names().filter((n) => n === 'get_clarify_thread')).toHaveLength(0);
+  });
+
+  it('shows nothing while the first read is out, then the counts; a touched thread reads again; an older answer never overwrites a newer one', async () => {
+    const answers: Array<(v: unknown) => void> = [];
+    rpc.mockImplementation((name: string) => (name === 'clarify_draft_counts' ? new Promise((res) => answers.push(res)) : Promise.resolve({ data: null, error: null })));
+    render(<MemoryRouter><Probe /></MemoryRouter>);
+    await waitFor(() => expect(answers).toHaveLength(1));
+    expect(screen.queryAllByTestId('replies-link')).toHaveLength(0); // no flash of "Reply in thread" before the count is known
+    act(() => touchClarifyThread('r1')); // e.g. a draft deleted: a second read starts
+    await waitFor(() => expect(answers).toHaveLength(2));
+    await act(async () => { answers[1]!({ data: { r1: 3 }, error: null }); });
+    await act(async () => { answers[0]!({ data: { r1: 1 }, error: null }); }); // the older, slower answer arrives last
+    expect(screen.getAllByTestId('replies-link')[0]!.textContent).toMatch(/3 replies/);
+  });
+
+  it('a failed count read still leaves every Clarify root a way into its thread', async () => {
+    rpc.mockImplementation(async (name: string) => (name === 'clarify_draft_counts' ? { data: null, error: { message: 'down' } } : { data: null, error: null }));
+    render(<MemoryRouter><Probe /></MemoryRouter>);
+    // the hook's own failure path settles: all three roots get the way in, none stays hidden
+    expect(await screen.findAllByText('Reply in thread')).toHaveLength(3);
   });
 });
 

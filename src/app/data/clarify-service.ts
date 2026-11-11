@@ -143,6 +143,17 @@ export async function getClarifyThread(threadRoot: string): Promise<ClarifyDraft
   return list.map(mapDraft).filter((d): d is ClarifyDraft => d !== null);
 }
 
+/** One read for a whole Mirror conversation: Clarify root id -> how many of the caller's drafts it holds. Only the caller's own; anyone else gets {}. */
+export async function getClarifyDraftCounts(conversationId: string): Promise<Record<string, number>> {
+  const { data, error } = await supabase.rpc('clarify_draft_counts', { p_conversation: conversationId });
+  if (error) {
+    throw new Error(`clarify_draft_counts failed: ${error.message}`);
+  }
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries((data ?? {}) as Row)) if (typeof v === 'number' && v > 0) out[k] = v;
+  return out;
+}
+
 /** Starts the model run for a queued draft. Anything but a clean answer is a value: capped, or failed (the draft itself holds the error). */
 export async function invokeClarifyDraft(draftId: string): Promise<InvokeResult> {
   try {

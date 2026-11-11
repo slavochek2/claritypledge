@@ -42,7 +42,8 @@ export function useClarifyThread(threadRootId: string | null): ClarifyThreadStat
       setDrafts(next);
       setFailed(false);
     } catch {
-      if (alive.current && currentRoot.current === threadRootId) setFailed(true);
+      // an older read failing after a newer one succeeded is not news
+      if (alive.current && currentRoot.current === threadRootId && seq >= applied.current) setFailed(true);
     } finally {
       if (alive.current && currentRoot.current === threadRootId) setLoaded(true);
     }
@@ -56,8 +57,26 @@ export function useClarifyThread(threadRootId: string | null): ClarifyThreadStat
     void reload();
   }, [reload]);
 
-  useEffect(() => onClarifyRunEnded(() => void reload()), [reload]);
-  useEffect(() => onClarifyThreadTouched((root) => { if (root === threadRootId) void reload(); }), [reload, threadRootId]);
+  // Event-driven reads wait while the tab is hidden and catch up once when it is shown again.
+  const missed = useRef(false);
+  const reloadIfVisible = useCallback(() => {
+    if (document.visibilityState === 'hidden') {
+      missed.current = true;
+      return;
+    }
+    void reload();
+  }, [reload]);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'hidden' || !missed.current) return;
+      missed.current = false;
+      void reload();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [reload]);
+  useEffect(() => onClarifyRunEnded(() => reloadIfVisible()), [reloadIfVisible]);
+  useEffect(() => onClarifyThreadTouched((root) => { if (root === threadRootId) reloadIfVisible(); }), [reloadIfVisible, threadRootId]);
 
   const working = drafts.some((d) => d.state === 'queued' || d.state === 'running');
   useEffect(() => {

@@ -45,6 +45,7 @@ const clarifySvc = vi.hoisted(() => ({
   startClarify: vi.fn(),
   invokeClarifyDraft: vi.fn(),
   getClarifyThread: vi.fn(),
+  getClarifyDraftCounts: vi.fn(async () => ({})),
   anotherPoint: vi.fn(),
   retryClarify: vi.fn(),
   editClarifyDraft: vi.fn(),
@@ -1140,7 +1141,7 @@ describe('conversation', () => {
     await screen.findByText('clarify this');
     await menuOn('clarify this');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/c-mirror/t/cl2'));
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/dm1?clarify=cl2'));
     expect(clarifySvc.startClarify).toHaveBeenCalledWith('cl1');
     await waitFor(() => expect(clarifySvc.invokeClarifyDraft).toHaveBeenCalledWith('d1'));
     // Nothing is staged above a composer and no message is sent by the press.
@@ -2845,7 +2846,7 @@ describe('Back goes back', () => {
     expect(where()).toBe('/feed');
   });
 
-  it('list -> chat -> Clarify -> mirror -> select another chat: Back goes to the list, not into the chat', async () => {
+  it('list -> chat -> Clarify (panel beside the chat) -> select another chat: Back goes to the list, not into the chat', async () => {
     clarifyStarts('cl20');
     renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat, channel], { dm1: [msg('dm1', 'p-dm1', 'clarify then switch')], g1: [] });
     await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
@@ -2853,26 +2854,51 @@ describe('Back goes back', () => {
     await screen.findByText('clarify then switch');
     await menuOn('clarify then switch');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    await waitFor(() => expect(where()).toBe('/chats/c/c-mirror/t/cl20'));
+    await waitFor(() => expect(where()).toBe('/chats/c/dm1?clarify=cl20'));
     fireEvent.click(rowButton('Builders · General'));
     expect(where()).toBe('/chats/c/g1');
     fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
     expect(where()).toBe('/chats');
   });
 
-  it('a chat reached from a group page -> Clarify -> mirror: the mirror cannot be archived (P1604, founder), and Back returns to the group page chat', async () => {
+  it('a chat reached from a group page -> Clarify: the Mirror opens beside the chat, and Escape closes it in place', async () => {
     clarifyStarts('cl21');
     renderChat({ entries: ['/feed', '/groups/cm', '/chats/c/g1'], index: 2 }, [mirror(), channel], { g1: [msg('g1', 'p-grace', 'clarify from group')] });
     await screen.findByText('clarify from group');
     await menuOn('clarify from group');
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-    await waitFor(() => expect(where()).toBe('/chats/c/c-mirror/t/cl21'));
-    await userEvent.click(screen.getAllByRole('button', { name: 'More' })[0]);
-    await screen.findByRole('menuitem', { name: /mark as unread/i });
-    expect(screen.queryByRole('menuitem', { name: 'Archive' }), 'the mirror offers no Archive').not.toBeInTheDocument();
-    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
-    act(() => historyBack());
+    await waitFor(() => expect(where()).toBe('/chats/c/g1?clarify=cl21'));
+    fireEvent.keyDown(document.body, { key: 'Escape' });
     await waitFor(() => expect(where()).toBe('/chats/c/g1'));
+  });
+
+  it('Clarify opens the panel with a push: the browser Back closes the panel and stays on the chat; the chat then still goes Back to the list', async () => {
+    clarifyStarts('cl22');
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify then back')] });
+    await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
+    fireEvent.click(rowButton('Ada Lovelace'));
+    await screen.findByText('clarify then back');
+    await menuOn('clarify then back');
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
+    await waitFor(() => expect(where()).toBe('/chats/c/dm1?clarify=cl22'));
+    expect(nav()).toBe('PUSH');
+    act(() => historyBack());
+    await waitFor(() => expect(where()).toBe('/chats/c/dm1'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
+    expect(where()).toBe('/chats');
+  });
+
+  it('with the Clarify panel open, the chat\'s own Back steps over the panel entry to the list', async () => {
+    clarifyStarts('cl23');
+    renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify then chat back')] });
+    await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
+    fireEvent.click(rowButton('Ada Lovelace'));
+    await screen.findByText('clarify then chat back');
+    await menuOn('clarify then chat back');
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
+    await waitFor(() => expect(where()).toBe('/chats/c/dm1?clarify=cl23'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Back to chats' }));
+    await waitFor(() => expect(where()).toBe('/chats'));
   });
 
   // P1631: "the composer focus Clarify asks for is spent once" is gone with the focus request: Clarify opens a thread, not the composer.
@@ -3038,46 +3064,43 @@ describe('message actions: toolbar and More', () => {
     await screen.findByText('rename test');
     fireEvent.pointerUp(screen.getByText('rename test'));
     fireEvent.click(within(toolbarOf('rename test')).getByRole('button', { name: 'Clarify with Thinking out loud' }));
-    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/c-mirror'));
-    // The copy shows in the mirror's list and as the root of the new thread (P1631).
+    // Founder: Clarify stays in the chat; the Mirror opens beside it on the new thread.
+    await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/dm1?clarify=cl9'));
+    // The copy shows as the root of the new thread in the panel (P1631).
     const cards = await screen.findAllByTestId('clarified-card');
     expect(cards[0]).toHaveTextContent('Sent to Thinking out loud to clarify');
   });
 
-  describe('Clarify jumps to the mirror', () => {
+  describe('Clarify opens the mirror beside the chat', () => {
     const nav = () => screen.getByTestId('loc').getAttribute('data-nav');
     const clarifyIt = async (text: string) => {
       await menuOn(text);
       fireEvent.click(await screen.findByRole('menuitem', { name: 'Clarify' }));
-      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/c-mirror'));
+      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent('?clarify=cl7'));
     };
     beforeEach(() => {
       clarifyStarts('cl7');
     });
 
-    it('pushes the mirror, and its Back returns to the chat clarified from', async () => {
+    it('opens the Mirror panel beside the chat (same chat address, one pushed entry so phone Back closes it), and closing it leaves the chat open', async () => {
       renderChat({ entries: ['/feed', '/chats/c/dm1'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify back')] });
       await screen.findByText('clarify back');
       await clarifyIt('clarify back');
       expect(nav()).toBe('PUSH');
-      // P1631: Clarify opens the new thread of the mirror, so Back leaves the thread for the mirror, and Back again returns to the chat.
-      expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/c-mirror/t/cl7');
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Back' }))[0]);
-      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats\/c\/c-mirror$/));
-      fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
-      expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats\/c\/dm1$/);
-      expect(nav()).toBe('POP');
+      expect(screen.getByTestId('loc')).toHaveTextContent('/chats/c/dm1?clarify=cl7');
+      expect(await screen.findByTestId('thread-panel')).toBeInTheDocument();
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Close thread' }))[0]);
+      await waitFor(() => expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats\/c\/dm1$/));
+      expect(screen.queryByTestId('thread-panel')).toBeNull();
     });
 
-    it('the mirror offers no Archive (P1604, founder), so it is left with Back, which returns to the chat clarified from', async () => {
+    it('the chat stays open under the panel; the panel is closed with the chat still in place (never lands on the list)', async () => {
       renderChat({ entries: ['/feed', '/chats'], index: 1 }, [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'clarify deep')] });
       await screen.findByText('Ada Lovelace', { selector: '[data-testid="row-title"]' });
       fireEvent.click(rowButton('Ada Lovelace'));
       await screen.findByText('clarify deep');
       await clarifyIt('clarify deep');
-      await userEvent.click(screen.getByRole('button', { name: 'More' }));
-      await screen.findByRole('menuitem', { name: /mark as unread/i });
-      expect(screen.queryByRole('menuitem', { name: 'Archive' })).not.toBeInTheDocument();
+      expect(screen.getByTestId('loc')).toHaveTextContent(/^\/chats\/c\/dm1\?clarify=cl7$/);
     });
 
     it('a Clarify that could not start shows an error toast and stays on the chat (P1631: nothing is staged any more)', async () => {

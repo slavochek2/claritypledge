@@ -27,6 +27,7 @@ export const CLARIFY_WAITING_TEXT = 'Drafting…';
 export const CLARIFY_TOO_LONG_TOAST = 'Keep it under 500 characters.';
 // [FOUNDER DECISION: copy] shown when a message is refused because a draft is already being made
 export const CLARIFY_BUSY_TOAST = 'A draft is already being made. Try again when it is done.';
-export const CLARIFY_OPEN_LABEL = 'Open';
+// [FOUNDER DECISION: copy] the way into a Clarify thread that has no drafts and no replies (all deleted, or the count could not be read); the product's own thread wording
+export const CLARIFY_EMPTY_THREAD_LABEL = 'Reply in thread';
 export const DRAFT_MAX = 300;
 export const CLARIFY_MESSAGE_MAX = 500;
