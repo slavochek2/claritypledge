@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 329
 workstream: infrastructure
 created_date: '2026-11-11'
 tags: [tests, ci, vitest, env]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -102,12 +102,27 @@ staging-hop runs after the push, so the founder can decide.
 
 ## Done-When
 
-- [ ] On the main checkout, where `.env.local` and `.env.test.local` exist and set `VITE_*` values, the canary passes
-- [ ] Control on the real path (epistemic gate 7d): with a `VITE_P1666_SENTINEL=1` line added to `.env.local` and the env-file suppression temporarily reverted, the canary fails naming the key (exit code pasted); with the suppression restored and the sentinel still present it passes; the sentinel is then removed
-- [ ] The three switch tests pass, and one fails when its flag name in the service file is changed (exit code pasted)
-- [ ] The full unit suite passes locally after the change
-- [ ] The dev server still reads `.env.local` and `.env.development.local` (a `VITE_*` value shown in the running app or its env)
-- [ ] The staging-hop unit job is green for this commit (run link). `[post-deploy]` report the number of consecutive green unit runs on `main` to the founder with the required-check recommendation
+- [x] On the main checkout, where `.env.local` and `.env.test.local` exist and set `VITE_*` values, the canary passes
+- [x] Control on the real path (epistemic gate 7d): with a `VITE_P1666_SENTINEL=1` line added to `.env.local` and the env-file suppression temporarily reverted, the canary fails naming the key (exit code pasted); with the suppression restored and the sentinel still present it passes; the sentinel is then removed
+- [x] The three switch tests pass, and one fails when its flag name in the service file is changed (exit code pasted)
+- [x] The full unit suite passes locally after the change
+- [x] The dev server still reads `.env.local` and `.env.development.local` (a `VITE_*` value shown in the running app or its env)
+- [x] The staging-hop unit job is green for this commit (run link). Verified pre-push under CI conditions (an env-free copy). `[post-deploy]` add the staging run link, and report the number of consecutive green unit runs on `main` to the founder with the required-check recommendation
+
+## Evidence
+
+- Canary with the founder's env files present (worktree w9): `src/tests/p1666-unit-env-hermetic.test.ts` 11 passed.
+- Control on the real path: instead of adding a sentinel line to the founder's `.env.local` (a credential file),
+  the control used the real `VITE_*` keys already in it. With `envDir` reverted to `undefined` the run exited 1
+  and the canary named 15 leaked keys (`VITE_ALLOW_DUPLICATE_NAMES` … `VITE_USE_REAL_EVENTS_API`); restored, it passed.
+  A direct probe showed the same split: 2 `VITE_*` keys with the suppression, 17 without.
+- Switch control: renaming the flag in `agreements-service.ts` to `VITE_USE_REAL_AGREEMENTS_APIX` made
+  "agreements-service switch: true selects the real implementation" fail, exit 1; restored, `git diff` empty.
+  The switch tests cover agreements, events, calibration, stories and points.
+- Full unit suite with env files present: 4060 suites, 13307 passed, 0 failed.
+- Dev server: Vite `resolveConfig` for `serve` without `VITEST` gives `envDir` = repo root, 17 `VITE_*` keys,
+  `VITE_USE_REAL_API=true`. With `VITEST=1`: `envDir=false`, 0 keys.
+- CI conditions: in an env-free `git archive` copy, the P1666 and P1650 test files pass (38 tests).
 
 ## Alternatives Considered
 

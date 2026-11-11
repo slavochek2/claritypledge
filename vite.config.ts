@@ -41,6 +41,10 @@ const shellPrecache = createShellPrecache()
 // https://vite.dev/config/
 export default defineConfig({
   cacheDir: getCacheDir(),
+  // P1666: a unit run loads no env file, so it sees exactly what CI sees (CI has none). A developer's
+  // .env.local once made a test pass locally and fail in CI for two days. Unit tests take their
+  // VITE_* values from test.env below; the dev server, build and integration lane are unaffected.
+  envDir: process.env.VITEST ? false : undefined,
   // Pre-bundle all heavy deps so Vite never re-optimizes mid-session (prevents 504 "Outdated Optimize Dep")
   optimizeDeps: {
     // Crawl lazy-loaded entry points so their deps are discovered before any request arrives.
