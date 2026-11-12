@@ -1,16 +1,16 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 332
 workstream: website
 created_date: '2026-11-12'
 tags: [landing, design, animation, prototype]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
+completed_at: 2026-11-12
 ---
 
 # P1670: Landing fable hero: a near-wordless animation instead of the text card
