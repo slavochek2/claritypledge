@@ -8,6 +8,13 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-12 [technical]: Product analytics live in five public Mixpanel boards that count only bot-proof signals; the in-house Analytics tab is replaced (P1669)
+
+**Context:** The kanban Analytics tab (P1640) was not informative. A Mixpanel read on 2026-11-12 showed why: of 3,204 unique page viewers in 30 days, about 260 ever clicked or scrolled. US and Singapore desktop traffic also fires the app's own events (about 400 of 459 `signup_page_viewed` users), and the P1628 `is_automation` tag does not catch it. 74 of 87 new accounts show `$direct`, and the median session reads 1 second.
+**Decision:** Five Mixpanel boards (Pulse, Path to value, Come back, Friction, What they use). Each counts only signals bots do not produce: clicks, accounts, RSVPs and practice events. Key events got plain display names in Lexicon. The boards are public with no passcode, because a passcode would have to be typed into the kanban. Their links live only in `.env.local` (`MIXPANEL_BOARD_*`), never in committed code. Path tables exclude personal pages (profiles, letters, chats, stories, agreements, admin, rooms), because a public board would otherwise list members by name. Embeds must use `https://eu.mixpanel.com/public/<id>`: the `/p/<id>` short link redirects through a `SAMEORIGIN` response. P1640 insights move to /day cards, shown only when something changed. P1669 carries the code: bot filter, UTM, visit length, events for the pages people use, and the tab.
+**Alternatives rejected:** Rebuilding the in-house tab (it duplicates Mixpanel with worse data). Links instead of embeds (the founder chose embeds). Passcode-protected embeds (the passcode is typed on every view, with no gain once links stay out of the repo).
+**Consequences:** Anyone holding a link can view that board read-only. A leaked link is turned off in Mixpanel Project Settings → Public Boards. Any new board report with a path breakdown must keep the personal-page exclusions. The two Flows reports on board 5 were not checked as an outsider sees them. UNTESTED falsifier: a board report shows a member's name or a private page path.
+
 ## 2026-11-12 [product]: The Clarity Group Terms get a use-case page for community organizers, /communities, not a standalone terms page
 
 **Context:** A community organizer asked which guidelines their community should have, and why. There was no single link to send: the terms appeared only inside landing pages and inside one group's join flow, and nothing explained why they exist. A first build, a standalone /group-terms page (terms, then why, then how), was rejected by the founder as too much at once.
