@@ -631,6 +631,17 @@ Founder's asks after testing `/events/<slug>/prepare`; built on this branch.
 - **Publish return** checked in a real browser (Continue your draft and Create your canvas, at 1280 and 375): Publish lands on
   `/events/<slug>/prepare` on the canvas step with the step header. The founder's report did not reproduce; `e2e/p1529-publish-return.spec.ts` keeps it checked.
 
+## UAT round 2026-11-12 (b): the Clarity Canvas moves to the event
+
+Founder: "We decided that everybody will come and I will help them make the [canvas] on the spot ... I guide them through the experience." Reason for keeping preparation required: "if they didn't watch the videos then they don't know how communication works ... I would have to perform on stage." Reason the canvas leaves preparation: "I don't know if the interface is good enough and simple enough to guide them so they do it by themselves at home."
+
+- **E1 Event setting "Clarity Canvas: before the event / at the event"**, per event, default *at the event*. *Before* keeps today's flow (canvas as preparation step 4, shared to the event). Nothing is deleted; a future event flips the setting.
+- **E2 Preparation stays required** and is the communication part only when the canvas is at the event: the Clarity Meeting Principle, the two videos, the Clarity Meeting Principle points (agree/disagree), and the #misunderstanding page (the one "join as a member" uses).
+- **E3 Registration** keeps the role question ("stress-test my riskiest business assumptions" / "help others succeed, as an observer or mentor"; no "peer": partners are owners from other tables), the transcription agreement, phone and the optional hope. The prepare question becomes "When will you do the 15-minute preparation?" with "At home, before the event" / "I'll come 15 minutes early and do it there", for every role.
+- **E4 Emails and reminders** say preparation is required (about 15 minutes, at home or 15 minutes early at the venue) and that the Clarity Canvas is made together at the event. No "if you have 10 minutes".
+- **E5 Canvas setup part (option A)**: when the canvas is at the event, the host runs a "Make your Clarity Canvas" part before round 1 (default 20 minutes, settable). The projector shows it; each phone opens the mirror agent to make the canvas and share it to the event. Round 1 starts after it. Someone still without a canvas owns round 1 and talks about the idea (unchanged rule).
+- **Correction (2026-11-12):** an owner with no canvas gets no next version from a round (the server answers `no_canvas`). A first canvas from a round transcript is a possible later feature, not built.
+
 ## UAT round 2026-11-12: founder decisions
 
 - **Table card:** "Table N" + time + the projector's part bar; "You're the Clarity Canvas owner / partner / observer" with an info tap; one instruction box (Talk shows two numbered steps; none while finding the table; none for owner/partner in the observer's turn); everyone at the table listed with photos, my row "You"; the canvas button is always the primary, centred; "See other Clarity Canvases →" opens a list of links and never changes the main button.
