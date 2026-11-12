@@ -40,7 +40,7 @@ describe('the opener', () => {
     expect(items).toHaveLength(3);
     expect(items[0]).toHaveTextContent('1');
     expect(within(items[0] as HTMLElement).getByRole('button', { name: 'Copy prompt' })).toBeInTheDocument();
-    expect(items[1]).toHaveTextContent('2Paste it into ChatGPT, Gemini or Claude');
+    expect(items[1]).toHaveTextContent('2Paste it into the AI chat that knows your business best (ChatGPT, Claude…)');
     expect(items[2]).toHaveTextContent('3Upload the answer here');
     // one message, not two: there is no second opener message
     expect(screen.queryByTestId('canvas-opener-prompt')).not.toBeInTheDocument();

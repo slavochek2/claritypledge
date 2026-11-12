@@ -201,7 +201,7 @@ describe('AC15: the upload control', () => {
     );
     const steps = screen.getByTestId('canvas-opener-steps');
     expect(steps).toHaveTextContent('Want to save time?');
-    expect(steps).toHaveTextContent('Paste it into ChatGPT, Gemini or Claude');
+    expect(steps).toHaveTextContent('Paste it into the AI chat that knows your business best (ChatGPT, Claude…)');
     expect(steps).toHaveTextContent('Upload the answer here');
     expect(within(steps).getByRole('button', { name: 'Copy prompt' })).toBeInTheDocument();
   });

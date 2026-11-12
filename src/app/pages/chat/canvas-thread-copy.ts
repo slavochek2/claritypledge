@@ -18,7 +18,7 @@ import { WORDS } from '../../../../supabase/functions/_shared/canvas-reply-table
  */
 export const CANVAS_OPENER_ASK = 'Give your mirror agent anything about your business: files, links, a few lines. It drafts your canvas.';
 export const CANVAS_STEPS_TITLE = 'Want to save time?';
-export const CANVAS_STEP_PASTE = 'Paste it into ChatGPT, Gemini or Claude';
+export const CANVAS_STEP_PASTE = 'Paste it into the AI chat that knows your business best (ChatGPT, Claude…)';
 export const CANVAS_STEP_UPLOAD = 'Upload the answer here';
 export const PROMPT_PREVIEW_LABEL = 'What gets copied';
 export const COPY_PROMPT_LABEL = 'Copy prompt';
