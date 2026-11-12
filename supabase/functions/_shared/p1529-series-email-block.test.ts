@@ -34,3 +34,15 @@ Deno.test('canvas before the event keeps today\'s block: laptop line for an owne
   const observer = withSeriesBlock(email, { ...base, flow: 'sales-mastermind', canvas_timing: 'before' }, { observer: true });
   assertFalse(observer.text.includes('laptop'));
 });
+
+Deno.test('observer hero payoff swaps the canvas line; reminder text carries the payoff', async () => {
+  const { buildReminder } = await import('./email-helpers.ts');
+  const ev = { ...base, flow: 'sales-mastermind', preparation_enabled: true } as EventRow;
+  const r = buildReminder(ev, 'A', { prep: 'not_started', prepareUrl: 'https://x' });
+  assert(r.text.includes('We make your Clarity Canvas together at the event.'));
+  assert(r.html.includes('We make your Clarity Canvas together at the event.'));
+  const o = withSeriesBlock(r, ev, { observer: true });
+  assertFalse(o.html.includes('Clarity Canvas together'));
+  assertFalse(o.text.includes('Clarity Canvas together'));
+  assert(o.html.includes('help others make theirs at the start'));
+});

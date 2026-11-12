@@ -405,7 +405,7 @@ export function buildReminder(
     });
     const text = done
       ? `${hi}${event.title} is tomorrow. You're prepared ✓\n\n${onTimeLine(event)}\n${details}\n\nSee you there!\nClarity Pledge`
-      : `${hi}${event.title} is tomorrow.\n\n${PREP_WHY_TITLE}. ${PREP_WHY_BODY}\n${question}${target ? `\n${label}: ${target}` : ''}\n\n${onTimeLine(event)}\n${details}\n\nSee you there!\nClarity Pledge`;
+      : `${hi}${event.title} is tomorrow.\n\n${PREP_WHY_TITLE}. ${PREP_WHY_BODY}\n${question}\n${prepPayoffOf(event)}${target ? `\n${label}: ${target}` : ''}\n\n${onTimeLine(event)}\n${details}\n\nSee you there!\nClarity Pledge`;
     return { subject, html, text };
   }
   const subject = `Tomorrow: ${event.title}`;

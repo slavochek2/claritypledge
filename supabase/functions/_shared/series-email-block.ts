@@ -5,7 +5,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { escapeHtml, type EventRow } from './email-helpers.ts';
-import { mastermindPrepAtEvent } from './mastermind-prep-email.ts';
+import { MM_CANVAS_LINE, MM_CANVAS_LINE_OBSERVER, mastermindPrepAtEvent } from './mastermind-prep-email.ts';
 
 /** The event columns that choose the block; selected by the senders. */
 export type SeriesEventRow = EventRow & { series_slug?: string | null; flow?: string | null; canvas_timing?: string | null };
@@ -42,6 +42,8 @@ export function withSeriesBlock<T extends { html: string; text: string }>(
   const key = event.flow ?? event.series_slug ?? '';
   const lines = SERIES_EMAIL_LINES[key]?.({ ...ctx, canvasAtEvent: mastermindPrepAtEvent(event) });
   if (!lines) return email;
+  // The hero payoff says "We make your Clarity Canvas together"; an observer does not make one.
+  if (ctx.observer) email = { ...email, html: email.html.replace(MM_CANVAS_LINE, MM_CANVAS_LINE_OBSERVER), text: email.text.replace(MM_CANVAS_LINE, MM_CANVAS_LINE_OBSERVER) };
   const items = lines.map((l) => `<li style="margin:0 0 4px;">${escapeHtml(l)}</li>`).join('');
   const block = `<ul style="margin:16px 0 0;padding-left:20px;font-size:14px;color:#4b5563;">${items}</ul>`;
   const marker = '<!-- Footer -->';
