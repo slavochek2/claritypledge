@@ -6,8 +6,8 @@ workstream: landing
 created_date: '2026-11-12'
 tags: [landing, design-exploration, prototype]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
