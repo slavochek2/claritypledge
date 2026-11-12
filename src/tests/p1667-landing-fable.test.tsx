@@ -160,31 +160,50 @@ describe('P1667 change managers page: sections', () => {
  * checks read the production sources, so a later edit there fails here instead of drifting.
  */
 describe('P1667 the copied copy is still the production copy', () => {
-  const builders = read('src/app/pages/build-right-thing-landing.tsx');
-  const change = read('src/app/pages/change-managers-page.tsx');
-  const norm = read('src/app/components/landing/team-norm-section.tsx');
-  const why = read('src/app/components/landing/why-nobody-verifies.tsx');
-  const missing = (source: string, strings: string[]) => strings.filter((s) => !source.includes(s));
+  // Whitespace is flattened so a record written on one line or over several compares the same.
+  const flat = (p: string) => read(p).replace(/\s+/g, ' ');
+  const builders = flat('src/app/pages/build-right-thing-landing.tsx');
+  const change = flat('src/app/pages/change-managers-page.tsx');
+  const norm = flat('src/app/components/landing/team-norm-section.tsx');
+  const why = flat('src/app/components/landing/why-nobody-verifies.tsx');
+  const missing = (source: string, records: string[]) => records.filter((s) => !source.includes(s));
+  // Each record is compared whole, as the production file writes it: the words, the numbers and
+  // which citation they point at. Comparing the words alone would miss a changed number.
+  const reference = (r: { n: number; label: string; url: string }) => `n: ${r.n}, label: "${r.label}", url: "${r.url}"`;
 
-  it('control: a string that is not in the production page is reported', () => {
+  it('control: a changed number or a reworded line is reported', () => {
+    const stat = ASSUMED_STATS[0]!;
+    expect(missing(builders, [`value: ${stat.value + 1}, denom: ${stat.denom}, label: "${stat.label}", ref: ${stat.ref}`])).toHaveLength(1);
     expect(missing(builders, ['Tap a song’s rhythm, reworded'])).toHaveLength(1);
+    expect(missing(change, [reference({ ...CHANGE_REFERENCES[0]!, n: 2 })])).toHaveLength(1);
   });
 
-  it('builders: references, stats and reasons', () => {
-    expect(missing(builders, REFERENCES.flatMap((r) => [r.label, r.url]))).toEqual([]);
-    expect(missing(builders, ASSUMED_STATS.map((s) => s.label))).toEqual([]);
-    expect(missing(builders, REASONS_NOBODY_CHECKS.flatMap((r) => [r.title, r.text]))).toEqual([]);
+  it('builders: references, stats and reasons, with their numbers and citations', () => {
+    expect(missing(builders, REFERENCES.map(reference))).toEqual([]);
+    expect(missing(builders, ASSUMED_STATS.map((s) => `value: ${s.value}, denom: ${s.denom}, label: "${s.label}", ref: ${s.ref}`))).toEqual([]);
+    expect(missing(builders, REASONS_NOBODY_CHECKS.map((r) => `title: "${r.title}", text: "${r.text}", ref: ${r.refs[0]}${r.refs[1] ? `, ref2: ${r.refs[1]}` : ''} }`))).toEqual([]);
     expect(REFERENCES).toHaveLength(7);
+    expect(ASSUMED_STATS).toHaveLength(3);
+    expect(REASONS_NOBODY_CHECKS).toHaveLength(3);
   });
 
-  it('change managers: references and reasons', () => {
-    expect(missing(change, CHANGE_REFERENCES.flatMap((r) => [r.label, r.url]))).toEqual([]);
-    expect(missing(why, CHANGE_REASONS.flatMap((r) => [r.title, r.text]))).toEqual([]);
+  it('change managers: references and reasons, with their citations', () => {
+    expect(missing(change, CHANGE_REFERENCES.map(reference))).toEqual([]);
+    // Hierarchy is passed in by the page (the imported constant), so only its title is a literal there.
+    const [hierarchy, ...cited] = CHANGE_REASONS;
+    expect(missing(why, [`title: "${hierarchy!.title}", text: hierarchyText`])).toEqual([]);
+    expect(missing(why, cited.map((r) => `title: "${r.title}", text: "${r.text}"`))).toEqual([]);
+    // The page maps the two cited reasons to references 2 and 3; hierarchy carries none.
+    expect(change).toContain('{ newton: 2, camerer: 3 }');
+    expect(CHANGE_REASONS.map((r) => r.refs)).toEqual([[], [2], [3]]);
     expect(CHANGE_REFERENCES).toHaveLength(3);
   });
 
-  it('the five-step norm path', () => {
-    expect(missing(norm, NORM_PATH.flatMap((p) => [`title: "${p.title}"`, p.text]))).toEqual([]);
+  it('the five-step norm path, with who has picked it up at each step', () => {
+    const strip = (s: { blue: number[]; questions?: number[]; plus?: boolean }) =>
+      `strip: { blue: [${s.blue.join(', ')}]${s.questions ? `, questions: [${s.questions.join(', ')}]` : ''}${s.plus ? ', plus: true' : ''} }`;
+    const steps = NORM_PATH.map((p) => `title: "${p.title}", text: ${p.title === 'Maintain' ? 'maintainText' : `"${p.text}"`}, ${strip(p.strip)}`);
+    expect(missing(norm, steps)).toEqual([]);
     expect(NORM_PATH.map((p) => p.title)).toEqual(['See the cost', 'Find champions', 'Spread', 'Norm', 'Maintain']);
   });
 });

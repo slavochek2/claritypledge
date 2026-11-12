@@ -5,10 +5,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.cwd();
-// Comments are dropped first, so a commented-out route or hub entry is not counted as a live one.
+// Comments are dropped first, so a commented-out route or hub entry is not counted as a live one:
+// block comments, whole-line comments and a comment trailing code. A `//` counts as a comment only
+// at the start of a line or after whitespace, so the `//` inside a URL is left alone.
 // Known limit of reading source text: a path built from a constant or a template is not seen.
 // Both files write every path as a plain string today; the floors below catch a parser gone blind.
-const stripComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const stripComments =(source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
 const routesSource = stripComments(readFileSync(join(root, 'src/app/tree/tree-routes.tsx'), 'utf8'));
 const hubSource = stripComments(readFileSync(join(root, 'src/app/pages/TreePage.tsx'), 'utf8'));
 
@@ -17,6 +19,15 @@ const registered = [...routesSource.matchAll(/path=["'](\/tree[^"']*)["']/g)].ma
 const listed = [...hubSource.matchAll(/path:\s*["'](\/tree[^"']*)["']/g)].map((m) => m[1]);
 
 describe('P1667: the /tree hub lists every /tree route', () => {
+  it('does not count a commented-out entry, whatever kind of comment hides it', () => {
+    const paths = (source: string) => [...stripComments(source).matchAll(/path:\s*["'](\/tree[^"']*)["']/g)].map((m) => m[1]);
+    expect(paths("  // { path: '/tree/gone' },")).toEqual([]);
+    expect(paths("const entries = []; // path: '/tree/gone'")).toEqual([]);
+    expect(paths("/* path: '/tree/gone' */ { path: '/tree/kept' }")).toEqual(['/tree/kept']);
+    // A URL keeps its `//`, and the entry on the same line is still read.
+    expect(paths("{ path: '/tree/kept', description: 'see https://example.com/x' },")).toEqual(['/tree/kept']);
+  });
+
   it('parses the registered routes (a parser that finds nothing cannot pass)', () => {
     for (const known of ['/tree/landing-fable', '/tree/landing-fable-change', '/tree/_gate/example', '/tree/404-drift']) {
       expect(registered).toContain(known);
