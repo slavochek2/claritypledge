@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 329
 workstream: landing
 created_date: '2026-11-12'
 tags: [landing, design-exploration, prototype]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-11-12
 ---
 
 # P1667: Second pass on the landing redesign: a hero picture people can read, on both main use-case pages
@@ -19,7 +19,7 @@ driver: heuristic
 ## Problem
 
 **Situation:** P1665 put a visual redesign of `/builders` on main as a dev-only prototype at `/tree/landing-fable`. Its hero shows an unlabelled drawing of one line splitting into five.
-**Complication:** Readers do not understand the drawing, and on a phone the hero is 949px tall on a 740px screen, so the first screen ends in the middle of the drawing. The prototype is also missing from the `/tree` hub, and a signed-in viewer sees the app sidebar around it, not the public site menu. Last, it restyles `/builders` only, while the active market focus ([lean-canvas.md](../docs/lean-canvas.md) §Customer Segments) is served by `/change-managers`.
+**Complication:** Readers do not understand the drawing, and on a phone the hero is 949px tall on a 740px screen, so the first screen ends in the middle of the drawing. The prototype is also missing from the `/tree` hub, and a signed-in viewer sees the app sidebar around it, not the public site menu. Last, it restyles `/builders` only, while the active market focus ([lean-canvas.md](../../../docs/lean-canvas.md) §Customer Segments) is served by `/change-managers`.
 **Question:** Make a second version that a first-time reader understands without explanation, on a phone as well as a desktop, for both pages, still dev-only.
 
 > Founder, verbatim (2026-11-12): "people don't understand the visualization. And I think also on mobile, one has to scroll down and it's a bit weird that I scroll down and then I see the rest."
@@ -97,6 +97,6 @@ Set aside, with the reason:
 
 ## Related
 
-- [p1665](done/2026-06-10/p1665_landing_fable_exploration.md): the first pass.
-- [p1558](done/2026-06-10/p1558_change_leads_use_case_page.md): the `/change-managers` page whose sections are reused.
+- [p1665](p1665_landing_fable_exploration.md): the first pass.
+- [p1558](p1558_change_leads_use_case_page.md): the `/change-managers` page whose sections are reused.
 - decisions.md 2026-11-11 [product] (the redesign stays dev-only until readers back it) and 2026-10-28 [product] (change managers page; the unbuilt claim in "How the platform works").
