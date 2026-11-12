@@ -6,8 +6,8 @@ workstream: website
 created_date: '2026-11-12'
 tags: [landing, design, animation, prototype]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -82,7 +82,7 @@ Superseded the `?v=` variants brief. Fable 5.2 gets a loose brief: one concept, 
 - [x] A screen reader still gets the sentence, who agreed, what each person did, and the punchline
 - [x] No horizontal overflow at 320px, 375px or desktop
 - [x] No new package, and no visible copy added
-- [ ] Founder views both pages and judges whether the visual reads; the verdict is recorded in this spec
+- [x] Founder views both pages and judges whether the visual reads; the verdict is recorded in this spec. **Verdict 2026-11-12:** adopted. The founder asked to bring all use cases into this style ("we bring it from tree to the real page"), standardised on 5 people per picture, and approved going live on /builders and /change-managers first (follow-up spec).
 
 ## Known limitations
 
