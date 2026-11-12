@@ -133,24 +133,33 @@ Create the case entry at step 2 and append each step's result the moment it comp
 can resume. At the end, check it holds to `.private/docs/gdpr-requests.md`: received, deadline, rights, identity evidence, footprint before,
 actions and results, controls, tickets, reply date. Retention: [FOUNDER DECISION, default 3 years].
 
-## 7. Reply — dry, legal, short. The founder sends it.
+## 7. Reply — minimal, dry. The founder sends it.
 
-No warmth, no marketing, no em dashes. Keep only true lines. Use "requested" for any pending ticket.
+Every sentence is a claim the requester can test, so write the fewest that answer what was asked. Rules:
+
+- **Claim only what this run verified.** Never say a provider erased or was asked to erase anything unless a
+  deletion request was actually filed and confirmed. Never say data was "not shared with anyone" or "only"
+  processed by X: event attendees, chat members and email-delivery logs make that hard to prove.
+- **Recipients:** point to the provider list in the privacy policy. Do not enumerate, do not assert outcomes.
+- **No extras:** no list of data we never held, no complaint-rights line (required only when refusing or not
+  acting), no warmth, no feedback question, no em dashes.
+- Anything pending → say what is done and what is pending, never "completed".
+
+Erasure template (founder-approved 2026-11-12). Name what was deleted and what remains; never "all data":
 
 ---
-Subject: Your GDPR request of <date>
+Subject: Your GDPR request
 
 Dear <Name>,
 
-We confirm <completion | the status> of your request under Articles <list> GDPR, received on <date>.
+<Your request has been completed. | We have processed your request; <provider> deletion is still pending.> We have deleted your account and the following personal data: <items actually deleted, e.g. profile, email address, sign-in data, event registration>. All consents are withdrawn.
 
-Erased: <items>. <Erasure: All consents are withdrawn and your data is no longer used for any purpose except as stated under Retained. | Objection or withdrawal: Your data is no longer processed for <purposes>.>
+What remains: a record of your request and its completion, kept as evidence that it was carried out (Art. 17(3)(e) GDPR)<, and delivery logs of emails we sent you, which our email provider deletes automatically><, payment records kept under accounting law><, content you shared with others, kept without your name>.
 
-Recipients (Art. 19): your data was processed only by our service providers acting on our behalf (<list>). <Erasure was requested from X | X held no data relating to you.> We did not disclose it to any other third party.
-
-Retained: <a record containing only a pseudonymous account identifier and the date of erasure>, and our internal record of this request, as evidence that it was carried out (Art. 5(2) and 17(3)(e) GDPR), kept for <period>. <Shared content that stays, without your name: ...> <Payment records, kept under accounting law for 7 years> Copies in encrypted database backups are deleted automatically when those backups expire.
-
-<If anything is retained or not done: You may lodge a complaint with the Estonian Data Protection Inspectorate (www.aki.ee) and seek a judicial remedy.>
+The service providers that process data on our behalf are listed in our privacy policy (claritypledge.com/privacy).
 
 TechSalesBox OÜ
 ---
+
+Objection or withdrawal: same shape, first paragraph names exactly what stopped ("We no longer use your data
+for <purposes>."), and keep the "What remains" line (the case log is always retained).
