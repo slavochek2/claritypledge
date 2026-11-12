@@ -479,7 +479,7 @@ This handles: Mixpanel session check → login if needed → Supabase user healt
 
 ### 2.9.0 Weekly Product Read (P1640; runs every /weekly, however few users there were)
 
-Fills the Analytics tab on the Day page. Query Mixpanel project `3968494` through `mcp__mixpanel__Run-Query`, and run the fixed list below for two absolute windows: the last 7 days and the 7 before. Filter every query with `is_automation` boolean `false` (absent counts as false; checked 2026-11-05: filtered + tagged = total). Anonymous events carry no `is_internal`, and third-party bots that hide webdriver are not caught, so these are not yet proven real visitors.
+Fills the Analytics tab on the Day page. Query Mixpanel project `3968494` through `mcp__mixpanel__Run-Query`, and run the fixed list below for two absolute windows: the last 7 days and the 7 before. Filter every query with `is_automation` boolean `false` (absent counts as false; checked 2026-11-05: filtered + tagged = total) and, from P1669, `is_bot` boolean `false` (absent counts as false): `is_bot` also catches headless browsers that hide webdriver and crawler user agents. Keep both filters; `is_bot` exists only on events after P1669 is live. Anonymous events carry no `is_internal`, and a stealth bot with a normal window still gets through, so these are not yet proven real visitors. Since P1669 the read's insights show as cards on the Day page's Report tab, and the Analytics tab embeds the Mixpanel boards.
 
 **If `tools/kanban/scripts/weekly-analytics.ts` is missing from this checkout, skip this step and report it.** Otherwise:
 
