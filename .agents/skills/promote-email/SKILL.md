@@ -33,6 +33,8 @@ Report: "Ready to email N contacts."
 
 If `subject` or `body` not provided: ask. Show a preview with `[firstname]` resolved for the first contact.
 
+**Channel tag (P1669):** every claritypledge.com link in the body carries `utm_source=email&utm_medium=newsletter&utm_campaign=<series short_link or event slug>`, after `?d=` when there is one. A body reused from WhatsApp or another channel is re-tagged for email, never sent with another channel's tag. Add it before the preview so the founder sees the exact link. Rule: `promote-all.md` § "Channel tag (UTM)".
+
 Ask: "Good to send, or any changes?"
 
 ### 3. Send test

@@ -139,7 +139,8 @@ email_sent_at: —
 5. **Messenger card** (`/slava:events:messenger-card`): offer it before drafting. Attach it ONLY to
    messages that already contain the link. A "may I send the link?" ask goes as text; whoever says
    yes gets the link + card as the reply.
-6. Re-read the sheet immediately before sending; send only `Final list = DM/organiser` rows whose
+6. **Channel tag (P1669), per recipient's platform:** every claritypledge.com link carries `utm_source=<whatsapp | messenger | telegram | email>&utm_medium=dm&utm_campaign=<series short_link or event slug>` (email: `utm_medium=newsletter`), after `?d=` when there is one. The same copy sent on two platforms gets two different tags. Rule: `promote-all.md` § "Channel tag (UTM)".
+7. Re-read the sheet immediately before sending; send only `Final list = DM/organiser` rows whose
    Status is empty; write SENT + (card|text) back per row.
 
 ## Step 6 — WhatsApp (always first)
