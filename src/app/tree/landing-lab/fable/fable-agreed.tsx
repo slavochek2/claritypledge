@@ -1,88 +1,163 @@
 /**
- * The hero example of the /tree/landing-fable* explorations (P1667): the sentence a team agreed
- * on, everyone's yes, and what each person then did. It replaces an unlabelled drawing of
- * diverging lines that readers could not decode: every beat here is plain text, read top to
- * bottom, and the "Illustration" label says the example is invented.
+ * The hero example of the /tree/landing-fable* explorations (P1670), as a picture with no words:
+ * people agree, yet they do not mean the same thing.
  *
- * The marks are a checklist, because that needs no legend: a ticked circle is "did it", an empty
- * one is "did not". Direction arrows and minus signs were tried and read as generic UI icons.
+ * One person per row of the example, drawn in line. What each of them SAID is a speech bubble
+ * with a tick: the same bubble for everyone, and the only blue. What each of them MEANT is a
+ * shape inside their head, and no two heads hold the same shape. Same on the outside, different
+ * on the inside.
+ *
+ * One pass, never a loop (WCAG 2.2.2), then the final frame is held:
+ *   reset  the people
+ *   agree  every bubble pops, almost at once: a unanimous yes
+ *   later  the shapes show inside the heads, one after another
+ *   close  nothing new: the final frame
+ *
+ * Screen readers get the story as text instead, in order: the sentence, who agreed, what each
+ * person did, the closing line. The drawing is hidden from them.
  */
-import { motion, useReducedMotion, type Variants } from "framer-motion";
-import { CheckIcon, ThumbsUpIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { motion, useInView, useReducedMotion, type Transition } from "framer-motion";
 import type { AgreedExample } from "./fable-content";
+import { AGREED_DWELL_MS, type AgreedPhase } from "./fable-motion";
 
-// The beats land one after another, in reading order: sentence, yeses, each outcome, punchline.
-const SEQUENCE: Variants = { hidden: {}, show: { transition: { delayChildren: 0.25, staggerChildren: 0.22 } } };
-const BEAT: Variants = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } } };
+type Person = AgreedExample["people"][number];
 
-function OutcomeMark({ done }: { done: boolean }) {
+/** Outlines first: these are told apart before they are looked at. A sixth different picture would reuse the first. */
+const SHAPES = ["triangle", "circle", "square", "diamond", "half"] as const;
+type Shape = (typeof SHAPES)[number];
+
+/** The shape in each person's head: the same picture is always the same shape, in order of first appearance. */
+function shapesFor(people: Person[]): Shape[] {
+  const byPicture = new Map<string, Shape>();
+  return people.map((p) => {
+    const shape = byPicture.get(p.picture) ?? SHAPES[byPicture.size % SHAPES.length] ?? "circle";
+    byPicture.set(p.picture, shape);
+    return shape;
+  });
+}
+
+// The stage is drawn in viewBox units and scales to its column, so nothing here is a pixel.
+// One person is drawn in a 56 x 80 box; with fewer people each one is drawn a little larger.
+const W = 280;
+const BOX = { width: 56, height: 80 };
+const HEAD = { y: 40, r: 14 };
+const sizeFor = (count: number) => Math.min(1.25, W / count / BOX.width);
+
+const STILL: Transition = { duration: 0 };
+
+/** Plays the phases once while the graphic is on screen. With reduced motion it is the final frame from the start, and no timer is ever set. */
+function usePhase(inView: boolean, reduce: boolean): AgreedPhase {
+  const [live, setLive] = useState<AgreedPhase>("reset");
+  useEffect(() => {
+    if (reduce || !inView || live === "close") return;
+    const next: AgreedPhase = live === "reset" ? "agree" : live === "agree" ? "later" : "close";
+    const timer = window.setTimeout(() => setLive(next), AGREED_DWELL_MS[live]);
+    return () => window.clearTimeout(timer);
+  }, [reduce, inView, live]);
+  return reduce ? "close" : live;
+}
+
+/** What one person has in mind, centred on their head. The stroke only rounds the corners. */
+function Meaning({ shape }: { shape: Shape }) {
+  const soft = { fill: "currentColor", stroke: "currentColor", strokeWidth: 1.5, strokeLinejoin: "round" as const };
+  if (shape === "circle") return <circle r={6} {...soft} />;
+  if (shape === "square") return <rect x={-5} y={-5} width={10} height={10} rx={1} {...soft} />;
+  if (shape === "half") return <path d="M-7.2 3.6a7.2 7.2 0 0 1 14.4 0z" {...soft} />;
+  return <polygon points={shape === "triangle" ? "0,-6 6.4,4.6 -6.4,4.6" : "0,-6.8 6.8,0 0,6.8 -6.8,0"} {...soft} />;
+}
+
+/** What everyone said: yes. One blue speech bubble with a tick, the same for each person. */
+function Yes() {
   return (
-    <span
-      aria-hidden
-      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${done ? "bg-blue-600 text-white" : "border-[1.5px] border-foreground/30"}`}
+    <g transform="translate(15 15)" className="text-blue-600">
+      <rect x={-9} y={-7} width={18} height={14} rx={5} fill="currentColor" />
+      <path d="M-7 5.5-9.5 11.5-2.5 6.5z" fill="currentColor" />
+      <path d="M-3.6 0.3l2.4 2.4 4.6-5" fill="none" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="stroke-white" />
+    </g>
+  );
+}
+
+type Beat = { said: boolean; seen: boolean; still: boolean };
+
+function PersonMark({ person, shape, x, size, index, beat }: { person: Person; shape: Shape; x: number; size: number; index: number; beat: Beat }) {
+  const line = { fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const };
+  // The yeses land almost together; the meanings are given time to be seen as different.
+  const say: Transition = beat.still ? STILL : { duration: 0.4, delay: index * 0.07, ease: "backOut" };
+  const show: Transition = beat.still ? STILL : { duration: 0.55, delay: 0.1 + index * 0.28, ease: [0.2, 0.8, 0.2, 1] };
+  return (
+    <g
+      transform={`translate(${x} 0) scale(${size})`}
+      data-figure={person.name}
+      data-outcome={person.outcome}
+      data-picture={person.picture}
+      data-shape={shape}
+      data-reveal={beat.seen ? "shown" : "hidden"}
     >
-      {done && <CheckIcon className="h-3 w-3" strokeWidth={3} />}
-    </span>
+      {/* Meaning-carrying greys stay at or above 3:1 on the page: the foreground colour at half strength and up. */}
+      <g className="text-foreground" opacity={0.5}>
+        <circle cy={HEAD.y} r={HEAD.r} {...line} />
+        <path d="M-19 77a19 19 0 0 1 38 0" {...line} />
+      </g>
+      <g transform={`translate(0 ${HEAD.y})`} className="text-foreground" opacity={0.6}>
+        <motion.g initial={false} animate={{ opacity: beat.seen ? 1 : 0, scale: beat.seen ? 1 : 0.5 }} transition={show}>
+          <Meaning shape={shape} />
+        </motion.g>
+      </g>
+      <motion.g data-yes initial={false} animate={{ opacity: beat.said ? 1 : 0, scale: beat.said ? 1 : 0.6 }} transition={say}>
+        <Yes />
+      </motion.g>
+    </g>
+  );
+}
+
+/** Everything a screen reader needs, in story order. Each string is in the DOM once, so nothing is said twice. */
+function Story({ example }: { example: AgreedExample }) {
+  return (
+    <div className="sr-only">
+      <p>{example.when}</p>
+      <blockquote>{`“${example.said}”`}</blockquote>
+      <p>{example.agreed}</p>
+      <ul aria-label="Who agreed">
+        {example.people.map((p) => (
+          <li key={p.name}>{p.name}</li>
+        ))}
+      </ul>
+      <p>{example.later}</p>
+      {/* No aria-label: the line above already introduces the list, and a label would be read twice. */}
+      <ol>
+        {example.people.map((p) => (
+          <li key={p.name}>
+            <span>{p.name}</span> {p.did}
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
 export function AgreedGraphic({ example, className = "" }: { example: AgreedExample; className?: string }) {
-  // MotionConfig reducedMotion="user" drops the rise but would still fade each beat in over a
-  // second and a half. With reduced motion the card is simply there.
-  const reduce = useReducedMotion();
+  const ref = useRef<HTMLElement>(null);
+  const inView = useInView(ref, { amount: 0.35 });
+  // MotionConfig reducedMotion="user" only drops transforms; the fades would still run.
+  const reduce = useReducedMotion() ?? false;
+  const phase = usePhase(inView, reduce);
+  const beat: Beat = { said: phase !== "reset", seen: phase === "later" || phase === "close", still: reduce };
+  const { people } = example;
+  const size = sizeFor(people.length);
+  const shapes = shapesFor(people);
+
   return (
     // No aria-label: the figcaption (the closing line) already names the figure, and a label
-    // would make a screen reader say that line twice. "Illustration" is read as visible text.
-    <motion.figure
-      data-testid="agreed-graphic"
-      className={`rounded-2xl border border-border/70 bg-card p-5 text-left text-[0.9375rem] sm:p-6 ${className}`}
-      variants={SEQUENCE}
-      initial={reduce ? false : "hidden"}
-      whileInView="show"
-      viewport={{ once: true, amount: 0.2 }}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground/55">{example.when}</p>
-        <span className="shrink-0 text-xs text-foreground/50">Illustration</span>
-      </div>
-
-      <motion.blockquote variants={BEAT} className="mt-3 rounded-xl bg-muted px-4 py-3 text-base leading-snug text-foreground/85">
-        &ldquo;{example.said}&rdquo;
-      </motion.blockquote>
-
-      <motion.div variants={BEAT} className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <ul className="flex flex-wrap gap-x-2 text-sm text-foreground/60" aria-label="Who agreed">
-          {example.people.map((p) => (
-            <li key={p.name} className="inline-flex items-center gap-1">
-              <ThumbsUpIcon className="h-3 w-3" aria-hidden />
-              {p.name}
-            </li>
-          ))}
-        </ul>
-        <p className="text-sm text-foreground/60">{example.agreed}</p>
-      </motion.div>
-
-      {/* The turn of the story, so a step larger than the small-caps label at the top. */}
-      <motion.p variants={BEAT} className="mt-5 text-xs font-semibold uppercase tracking-[0.12em] text-foreground/55">
-        {example.later}
-      </motion.p>
-      {/* The rail: one line coming down from the agreement, one branch per person. The list has no
-          aria-label: the line above already introduces it, and a label would be read twice. */}
-      <ol className="ml-2.5 mt-2 border-l border-foreground/10">
-        {example.people.map((p) => (
-          <motion.li key={p.name} variants={BEAT} className="relative flex items-center gap-3 py-1.5 pl-6">
-            <span className="absolute left-0 top-1/2 h-px w-4 bg-foreground/10" aria-hidden />
-            <OutcomeMark done={p.outcome !== "stalled"} />
-            <span className={`leading-snug ${p.outcome === "stalled" ? "text-foreground/60" : "text-foreground"}`}>
-              <span className="font-medium">{p.name}</span> {p.did}
-            </span>
-          </motion.li>
+    // would make a screen reader say that line twice.
+    <figure ref={ref} data-testid="agreed-graphic" data-phase={phase} className={`relative ${className}`}>
+      <Story example={example} />
+      <svg viewBox={`0 0 ${W} ${Math.ceil(BOX.height * size)}`} className="mx-auto block h-auto w-full max-w-[26rem]" aria-hidden focusable="false">
+        {people.map((p, i) => (
+          <PersonMark key={p.name} person={p} shape={shapes[i] ?? "circle"} x={(W / people.length) * (i + 0.5)} size={size} index={i} beat={beat} />
         ))}
-      </ol>
-
-      <motion.figcaption variants={BEAT} className="mt-4 border-t border-border pt-4 text-lg font-semibold leading-snug tracking-tight">
-        {example.punchline}
-      </motion.figcaption>
-    </motion.figure>
+      </svg>
+      <figcaption className="sr-only">{example.punchline}</figcaption>
+    </figure>
   );
 }

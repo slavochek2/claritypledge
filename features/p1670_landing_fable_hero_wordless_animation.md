@@ -30,20 +30,30 @@ Blast radius: low. Two dev-only `/tree` routes, one shared component, not reacha
 
 ## Invariants
 
-- **Readable without decoding** (ruling 2026-11-11, P1665): an unlabelled drawing of one line splitting into five was not understood by an outside reader, and the founder needed time to read it. The visual must carry short labels saying what it shows. Abstract shape alone fails this.
-- **The story comes from the data**, never hard-coded per page. Each person's `outcome` in `AgreedExample` (`stalled` / `diverged` / `changed`) decides their motion, so the builders page (4 agree, 4 ship different things) and the change page (5 say yes, 1 changes) each tell their own story.
+Founder-approved rewrite 2026-11-12 (after round 3 and review): the two invariants filed with this spec were removed with the founder's OK. They were (1) "the visual must carry short labels" (from the P1665 reader test, 2026-11-11) and (2) "each person's `outcome` decides their motion". The founder replaced both with "same yes, different understanding, almost no text". The P1665 risk now sits in Risks as a founder-judged MITIGATE.
+
+- **The story comes from the data**, never hard-coded per page: one figure per person in the page's `AgreedExample`, and each person's `picture` decides the shape in their head. Two people with the same picture get the same shape.
+- **The full story stays available to screen readers** (the sentence, who agreed, each person's `did`, the punchline) while the drawing itself is hidden from them.
 
 ## Solution
 
-Replace the card's body with an animated figure built from SVG and framer-motion, which are already dependencies:
+Replace the text card with one wordless drawing built from SVG and framer-motion, which are already dependencies. One line-drawn person per person in the example, with no card frame. Each gets an identical blue speech bubble with a white tick (the same yes), the only blue in the picture. Then a different solid grey shape fades in inside each head (a different understanding). No visible words at all: no sentence, names, count, punchline or "Illustration" marker.
 
-1. **Agreement beat.** One figure per person in a row, each showing a thumbs-up. Label: `example.agreed` (existing copy, e.g. "5 of 5 said yes").
-2. **Later beat.** Label: `example.later`. Each figure moves by its outcome: `changed` keeps moving forward in blue, `stalled` stops and fades to grey, `diverged` drifts off in its own direction. Names appear as small labels on the figures.
-3. **Close.** `example.punchline` in the existing bold closing line.
+The drawing plays once when it comes into view (about 4.5 seconds) and then holds the final frame for good: no loop (WCAG 2.2.2, and a looping version showed a visible rewind). Under `prefers-reduced-motion` the final frame is shown from the first paint and no timer is set. Meaningful parts keep at least 3:1 contrast on the page (measured: outlines 3.7:1, shapes 5.2:1, bubble 5.0:1). No new copy: the screen-reader text uses existing `AgreedExample` fields.
 
-The animation loops slowly with a pause on the final frame. Under `prefers-reduced-motion`, only the final frame is shown and nothing moves. The "Illustration" marker stays. Screen readers get the same facts as text: the sentence, who agreed, what each person did, and the punchline. The sentence and the per-person `did` lines are no longer visible text but stay available to screen readers.
+[FOUNDER DECISION: a line under the picture, or none. Proposals are in the session; the current recommendation is none, since the headline already says it.]
 
-No new copy: every visible word is an existing `AgreedExample` field.
+## Founder feedback, round 2 (2026-11-12)
+
+> "The animation says, what changed? As if it's clear what it means, changed ... it's not about one changed, it's about the other [ones] didn't understand ... And why does it say illustration? That's weird."
+
+Re-brief: the visual must show **same yes, different understanding**, not who complied. Build 2 or 3 concepts switchable by `?v=` on both pages, default to the strongest; remove the "Illustration" label. The punchline wording is unclear to the founder: `[FOUNDER DECISION: punchline for each page, from proposals]`. The page keeps the current punchline until then.
+
+## Founder feedback, round 3 (2026-11-12)
+
+> "it's too much text, too many icons, it's not clear and one has to read five of I've said yes and so on ... is there not like something more simpler with almost no text"
+
+Superseded the `?v=` variants brief. Fable 5.2 gets a loose brief: one concept, people agree yet don't mean the same thing, near-zero visible text, calm and premium. Hard limits unchanged (no new package, plays once then holds, reduced motion static, screen-reader story kept, greys and blue only, 3:1 contrast, no overflow).
 
 ## Alternatives Considered
 
@@ -54,24 +64,29 @@ No new copy: every visible word is an existing `AgreedExample` field.
 
 | Risk | Label | Note |
 |---|---|---|
-| The animation is as undecodable as the P1665 drawing | MITIGATE | Labels on each beat. Founder judges at review; fallback is A |
-| Motion distracts from the headline, the same failure as the black box | MITIGATE | Slow, low-contrast, one pass then a long pause; only the `changed` figure keeps colour |
-| Builders "diverged" reads as random scatter | ACCEPT | Founder judges at review; the per-person `did` stays available to screen readers |
+| A wordless drawing is as undecodable as the P1665 drawing | MITIGATE | One idea only (same tick, different shape), next to a headline that states it. Founder judges; fallback is A |
+| Motion distracts from the headline | MITIGATE | Plays once in about 4.5s, then still; greys plus a single blue accent |
+| Turning reduced motion off mid-visit replays the drawing once | ACCEPT | Rare, harmless (review round 4) |
+| A sixth person would reuse the first shape | ACCEPT | Both examples have five people or fewer |
 
 **Non-Goals**
 - Do NOT add a dependency (no three.js, Lottie or Rive).
-- Do NOT change headline, CTA, the sections below, or any `AgreedExample` copy.
+- Do NOT change headline, CTA, the sections below, or any `AgreedExample` copy (a non-visible `picture` field per person is allowed).
 - Do NOT touch the production `/builders` or `/change-managers` pages.
 
 ## Acceptance Criteria
 
-- [ ] On both `/tree/landing-fable` and `/tree/landing-fable-change`, the right side shows figures and short labels, with no per-person sentences visible
-- [ ] The change page shows 5 figures agreeing, then 4 stopping and greying and 1 moving forward; the builders page shows 4 figures agreeing, then each drifting a different way
-- [ ] Every visible word comes from the page's `AgreedExample`, with no new copy
-- [ ] With reduced motion turned on, the final frame shows and nothing animates
-- [ ] A screen reader still gets the sentence, who agreed, each person's outcome and the punchline
-- [ ] No horizontal overflow at 320px, 375px or desktop
+- [x] On both `/tree/landing-fable` and `/tree/landing-fable-change`, the right side shows one figure per person with the same blue yes and a different shape each, and no visible words (screenshots at desktop and 375px)
+- [x] The drawing plays once and then holds; nothing loops (unit test; a mutation restoring the loop fails it)
+- [x] With reduced motion turned on, the final frame shows and nothing animates
+- [x] A screen reader still gets the sentence, who agreed, what each person did, and the punchline
+- [x] No horizontal overflow at 320px, 375px or desktop
+- [x] No new package, and no visible copy added
 - [ ] Founder views both pages and judges whether the visual reads; the verdict is recorded in this spec
+
+## Known limitations
+
+- The unit tests assert phases, shapes and the screen-reader text through data attributes and DOM text, not the rendered SVG opacity or scale, and `useInView` is mocked (review rounds 2 and 4). The rendered drawing and final frame were checked by browser screenshots instead.
 
 ## Related
 

@@ -54,28 +54,29 @@ describe.each([
     }
   });
 
-  it('labels the example as an illustration in visible text, and names the figure once, by its closing line', () => {
+  // P1670 dropped the "Illustration" marker (founder: it read as odd on a drawing).
+  it('names the figure once, by its closing line, and carries no "Illustration" marker', () => {
     renderPage();
     const card = screen.getByTestId('agreed-graphic');
     expect(card.tagName).toBe('FIGURE');
-    expect(within(card).getByText('Illustration')).toBeVisible();
+    expect(card.textContent).not.toContain('Illustration');
     // An aria-label repeating the closing line would be announced on top of the figcaption.
     expect(card).not.toHaveAttribute('aria-label');
     expect(card.querySelector('figcaption')?.textContent).toBe(example.punchline);
   });
 
-  it('marks who did it with a tick and who did not with an empty circle', () => {
+  // P1670 replaced the tick / empty-circle rows with a drawn figure per person. The two lists stay
+  // for screen readers; what each person did is now carried by the figure's outcome.
+  it('keeps both lists for screen readers and draws one figure per person, marked with that person\'s outcome', () => {
     renderPage();
-    // Two lists in the card: who agreed (named), then the outcomes (introduced by the visible line above it).
-    const [agreed, outcomes] = within(screen.getByTestId('agreed-graphic')).getAllByRole('list');
+    const card = screen.getByTestId('agreed-graphic');
+    // Two lists in the card: who agreed (named), then the outcomes (introduced by the line above it).
+    const [agreed, outcomes] = within(card).getAllByRole('list');
     expect(agreed).toHaveAccessibleName('Who agreed');
     expect(outcomes).not.toHaveAttribute('aria-label');
-    const rows = within(outcomes!).getAllByRole('listitem');
-    expect(rows).toHaveLength(example.people.length);
-    example.people.forEach((p, i) => {
-      const ticked = rows[i]!.querySelector('svg') !== null;
-      expect(`${p.name}: ${ticked ? 'ticked' : 'empty'}`).toBe(`${p.name}: ${p.outcome === 'stalled' ? 'empty' : 'ticked'}`);
-    });
+    expect(within(outcomes!).getAllByRole('listitem')).toHaveLength(example.people.length);
+    const figures = [...card.querySelectorAll<SVGGElement>('[data-figure]')];
+    expect(figures.map((f) => `${f.dataset.figure}: ${f.dataset.outcome}`)).toEqual(example.people.map((p) => `${p.name}: ${p.outcome}`));
   });
 
   it('phone first screen ends at a cue that points at the example block, which holds the card', () => {
@@ -107,7 +108,7 @@ describe('P1667 builders page: sections', () => {
       'Everybody assumes they understand',
       'Why almost nobody verifies understanding',
       'The illusion of shared understanding',
-      'Reveal a gap, then close it',
+      'Reveal a gap in understanding, then bridge it',
       'Make it normal to admit “I don’t understand”',
       'How revealing gaps becomes a team norm',
       'Paid for the lesson',
@@ -131,7 +132,7 @@ describe('P1667 change managers page: sections', () => {
     render(<MemoryRouter><LandingFableChange /></MemoryRouter>);
     const order = [
       'Why almost nobody verifies understanding',
-      'Reveal a gap, then close it',
+      'Reveal a gap in understanding, then bridge it',
       'Make it normal to ask how well we understand each other',
       'How revealing gaps becomes a team norm',
       'Paid for the lesson',
@@ -193,11 +194,12 @@ describe('P1667 the copied copy is still the production copy', () => {
 
   it('change managers: references and reasons, with their citations', () => {
     expect(missing(change, CHANGE_REFERENCES.map(reference))).toEqual([]);
-    // Each reason is compared with the source it cites in production. Hierarchy's text is passed
-    // in by the page (the imported constant), so only its title and source are literals there.
+    // Each reason is compared with the source it cites in production. Hierarchy's title and text
+    // are props there (/communities overrides them), so the default title is the literal to match.
     const [hierarchy, transparency, curse] = CHANGE_REASONS;
     expect(missing(why, [
-      `title: "${hierarchy!.title}", text: hierarchyText, source: "ha" as const`,
+      `hierarchyTitle = "${hierarchy!.title}",`,
+      'title: hierarchyTitle, text: hierarchyText, source: "ha" as const',
       `title: "${transparency!.title}", text: "${transparency!.text}", source: "newton" as const`,
       `title: "${curse!.title}", text: "${curse!.text}", source: "camerer" as const`,
     ])).toEqual([]);

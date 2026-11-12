@@ -64,19 +64,22 @@ export const NORM_PATH: { title: string; text: string; strip: { blue: number[]; 
 export const FABLE_CAST: ExchangeCast = { ...TEAM_CAST, viewEvent: "tree_landing_fable_exchange_viewed", surface: "tree-landing-fable-exchange" };
 
 /**
- * The hero example: one sentence everyone agreed to, then what each person did.
- * `diverged`: shipped their own reading of the sentence (ticked). `stalled`: did not change (empty
- * circle). `changed`: did (ticked).
- * Invented, and labelled "Illustration" where it renders.
- * [FOUNDER DECISION: the example sentences, names and outcomes are drafted placeholders]
+ * The hero example: one sentence everyone said yes to, and what each person understood by it.
+ * `diverged`: shipped their own reading of the sentence. `stalled`: understood something else and
+ * did not change. `changed`: understood what was meant.
+ * `picture`: what that person had in mind, as a name. It is derived from `did`, and the graphic
+ * draws each name as a shape, so two people with the same picture get the same shape.
+ * Invented. The graphic shows none of these words; screen readers get all of them.
+ * [FOUNDER DECISION: the example sentences, names, outcomes and pictures are drafted placeholders]
  */
 type AgreedOutcome = "diverged" | "stalled" | "changed";
+export type AgreedPicture = "steps" | "guide" | "options" | "screen" | "pen" | "once" | "wait" | "mail" | "report";
 export type AgreedExample = {
   when: string;
   said: string;
   agreed: string;
   later: string;
-  people: { name: string; did: string; outcome: AgreedOutcome }[];
+  people: { name: string; did: string; outcome: AgreedOutcome; picture: AgreedPicture }[];
   punchline: string;
 };
 
@@ -88,12 +91,12 @@ export const AGREED_BUILDERS: AgreedExample = {
   people: [
     // Two opposing pairs, each a fair reading of "simpler": fewer steps against more guidance,
     // fewer options against everything in one place.
-    { name: "Maya", did: "shipped fewer steps", outcome: "diverged" },
-    { name: "Jon", did: "shipped more guidance", outcome: "diverged" },
-    { name: "Priya", did: "shipped fewer options", outcome: "diverged" },
-    { name: "Sam", did: "shipped everything on one screen", outcome: "diverged" },
+    { name: "Maya", did: "shipped fewer steps", outcome: "diverged", picture: "steps" },
+    { name: "Jon", did: "shipped more guidance", outcome: "diverged", picture: "guide" },
+    { name: "Priya", did: "shipped fewer options", outcome: "diverged", picture: "options" },
+    { name: "Sam", did: "shipped everything on one screen", outcome: "diverged", picture: "screen" },
   ],
-  // Says outright what the four ticks do not: everyone delivered, and no two delivered the same thing.
+  // Says outright what the four figures do not: everyone delivered, and no two delivered the same thing.
   punchline: "One sentence. Four meanings. All four shipped.",
 };
 
@@ -103,11 +106,11 @@ export const AGREED_CHANGE: AgreedExample = {
   agreed: "5 of 5 said yes",
   later: "Three weeks later",
   people: [
-    { name: "Marco", did: "still writes reports the old way", outcome: "stalled" },
-    { name: "Lena", did: "tried it once, then stopped", outcome: "stalled" },
-    { name: "Tom", did: "is still waiting for a walkthrough", outcome: "stalled" },
-    { name: "Ana", did: "uses it for emails, not reports", outcome: "stalled" },
-    { name: "Kim", did: "uses it for every report", outcome: "changed" },
+    { name: "Marco", did: "still writes reports the old way", outcome: "stalled", picture: "pen" },
+    { name: "Lena", did: "tried it once, then stopped", outcome: "stalled", picture: "once" },
+    { name: "Tom", did: "is still waiting for a walkthrough", outcome: "stalled", picture: "wait" },
+    { name: "Ana", did: "uses it for emails, not reports", outcome: "stalled", picture: "mail" },
+    { name: "Kim", did: "uses it for every report", outcome: "changed", picture: "report" },
   ],
   punchline: "Five said yes. One changed.",
 };
