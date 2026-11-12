@@ -89,12 +89,12 @@ export async function makeUser(ledger: Ledger, name: string): Promise<Person> {
 /** A mastermind event in the sales-mastermind series (the series is set by the service role only, P1403). */
 export async function makeEvent(
   ledger: Ledger, host: TestUser, title: string,
-  o: { series?: string | null; startsInMs?: number; maxAttendees?: number | null; previous?: string | null } = {},
+  o: { series?: string | null; startsInMs?: number; maxAttendees?: number | null; previous?: string | null; canvasTiming?: 'before' | 'at_event' } = {},
 ): Promise<TestEvent> {
   assertSelfHostedTest();
   const ev = await createTestEvent(host.user.id, new Date(Date.now() + (o.startsInMs ?? 0)), { title });
   ledger.events.push(ev);
-  const patch: Record<string, unknown> = { preparation_enabled: true };
+  const patch: Record<string, unknown> = { preparation_enabled: true, canvas_timing: o.canvasTiming ?? 'before' };
   if (o.series !== null) patch.series_slug = o.series ?? 'sales-mastermind';
   if (o.maxAttendees !== undefined) patch.max_attendees = o.maxAttendees;
   const { error } = await supabaseAdmin.from('events').update(patch).eq('id', ev.id);

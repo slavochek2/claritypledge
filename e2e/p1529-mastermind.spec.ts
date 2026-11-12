@@ -854,7 +854,9 @@ test('WALK1 (round 1): host before round 1, the real preview, round 1 starts; th
     for (const n of others) expect(joined, `nobody from another table: ${n} (table ${tNo1}, text "${joined}")`).not.toContain(n);
     await expect(pg.getByTestId('round-canvas-link')).toBeVisible({ timeout: 60_000 });
     await expect(pg.getByTestId('round-canvas-link')).toHaveText(`Open ${first(ownerP)} Q.\u2019s canvas`);
-    await expect(pg.getByTestId('round-card-my-role')).toContainText('You\u2019re the partner');
+    await expect(pg.getByTestId('round-canvas-link')).toHaveAttribute('data-variant', 'outline'); // live round, mic not recording
+
+    await expect(pg.getByTestId('round-card-my-role')).toContainText('You\u2019re the peer');
     await expect(pg.getByTestId('round-canvas-others')).toHaveCount(0); // the list is behind the toggle
     await pg.getByTestId('round-canvas-others-toggle').click(); // "See other canvases" (every other owner has shared a canvas with this event)
     await expect(pg.getByTestId('round-canvas-others')).toBeVisible();
@@ -1425,7 +1427,7 @@ test('WALK3: round 2 ends (no host update step), the break, rounds 3 and 4, the 
         expect(t.partner, `round ${n} table ${no}: one partner`).toBeTruthy();
         expect(holders, 'an owner holds a canvas').toContain(t.owner);
         const k = [t.owner!, t.partner!].sort().join('|');
-        expect(met.has(k), `round ${n}: ${label(t.owner!)} and ${label(t.partner!)} have already been partners`).toBe(false);
+        expect(met.has(k), `round ${n}: ${label(t.owner!)} and ${label(t.partner!)} have already been peers`).toBe(false);
         met.add(k);
         const m = n <= 2 ? ownedFirst : ownedSecond;
         m.set(t.owner!, (m.get(t.owner!) ?? 0) + 1);
@@ -1717,6 +1719,64 @@ test('AC13: a Clarity Night event opens as before (room, host screen with half-t
     expect(root.body, 'the unchanged Clarity Night shape: first names, "A, B & C"').toMatch(/^Round 1 · [A-Za-z]+(, [A-Za-z]+)* & [A-Za-z]+$/);
     expect(root.body).not.toMatch(/canvas/i);
     return `title: "${root.body}"`;
+  }, page);
+});
+
+test('AC-CS (canvas made at the event): Start canvas setup, projector, Canvas tab and mirror agent card, observer line, End setup', async ({ page, browser }) => {
+  const CS = await makeEvent(ledger, host.user, `P1529 QA canvas at event ${RUN_TAG()}`, { startsInMs: 0, canvasTiming: 'at_event' });
+  const room = await makeTranscribeRoom(ledger, CS);
+  stoppers.push(await keepRoomOpen(ledger, host.user, room));
+  const owner = O2; // no canvas yet: registers to make it at the event
+  const holders = A.slice(0, 4);
+  for (const p of holders) await register(p, CS.slug, 'canvas_before', 'usbc');
+  await register(owner, CS.slug, 'canvas_at_doors', 'usbc');
+  await register(O1, CS.slug, 'observer', 'usbc');
+  for (const p of [...holders, owner, O1]) await joinRoom(ledger, p, CS, { transcribeRoom: room });
+  for (const p of holders) expect((await shareForEvent(p, CS.id, 'canvas')).status).toBe('ok');
+  await asUser(page, host, `/events/${CS.slug}/host`);
+  await page.evaluate((id) => localStorage.setItem(`p1337-host-settings:${id}`, JSON.stringify({ canvasSetupS: 120 })), CS.id);
+  await page.reload();
+  await ac('CS1', 'host: first primary is "Start canvas setup"; pressing it starts the part (End setup)', async () => {
+    await expect(page.getByTestId('host-primary')).toHaveText('Start canvas setup', { timeout: 90_000 });
+    await page.getByTestId('host-primary').click();
+    await expect(page.getByTestId('host-primary')).toHaveText('End setup', { timeout: 60_000 });
+    await expect(page.getByTestId('host-canvas-setup')).toBeVisible();
+    await shots(page, 'canvas-setup', 'host-running', [1280, 375]);
+    return 'Start canvas setup -> End setup; host status line visible';
+  }, page);
+  await ac('CS2', 'projector shows "Make your Clarity Canvas" with the clock', async () => {
+    const pr = await (await browser.newContext()).newPage();
+    await asUser(pr, host, `/events/${CS.slug}/host?view=screen`);
+    await expect(pr.getByTestId('screen-part')).toHaveText('Make your Clarity Canvas', { timeout: 90_000 });
+    await expect(pr.getByTestId('screen-canvas-setup-clock')).toBeVisible();
+    await shots(pr, 'canvas-setup', 'projector', [1280, 375]);
+    await pr.context().close();
+    return 'screen-part + clock';
+  });
+  await ac('CS3', 'participant room: Canvas tab and "Open your mirror agent" card', async () => {
+    const pg = await (await browser.newContext()).newPage();
+    await asUser(pg, owner, `/events/${CS.slug}/meet`);
+    await expect(pg.getByTestId('room-step-canvas')).toBeVisible({ timeout: 120_000 });
+    if (!(await pg.getByTestId('canvas-setup-primary').isVisible().catch(() => false))) await pg.getByTestId('room-step-canvas').click();
+    await expect(pg.getByTestId('canvas-setup-primary')).toHaveText('Open your mirror agent', { timeout: 60_000 });
+    await shots(pg, 'canvas-setup', 'room-owner', [1280, 375]);
+    await pg.context().close();
+    return 'room-step-canvas + canvas-setup-primary';
+  });
+  await ac('CS4', 'observer room shows the help line', async () => {
+    const pg = await (await browser.newContext()).newPage();
+    await asUser(pg, O1, `/events/${CS.slug}/meet`);
+    await expect(pg.getByTestId('room-step-canvas')).toBeVisible({ timeout: 120_000 });
+    if (!(await pg.getByTestId('canvas-setup-observer').isVisible().catch(() => false))) await pg.getByTestId('room-step-canvas').click();
+    await expect(pg.getByTestId('canvas-setup-observer')).toHaveText('Help the people next to you make their canvas', { timeout: 60_000 });
+    await shots(pg, 'canvas-setup', 'room-observer', [1280, 375]);
+    await pg.context().close();
+    return 'canvas-setup-observer';
+  });
+  await ac('CS5', 'host ends setup; primary becomes "Preview round 1 tables"', async () => {
+    await page.getByTestId('host-primary').click();
+    await expect(page.getByTestId('host-primary')).toHaveText('Preview round 1 tables', { timeout: 60_000 });
+    return 'End setup -> Preview round 1 tables';
   }, page);
 });
 
