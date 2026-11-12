@@ -153,6 +153,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** Filed as INBOX-334 (deploy script), INBOX-335 (vitest wipes test-results), INBOX-336 (bucket CORS not in the repo), INBOX-338 (transcription failures are silent). localhost:6300 was added to the bucket's CORS by hand with the founder's OK.
 **References:** P1529 spec, scripts/selfhosted/deploy-functions.sh, scripts/selfhosted/branch-functions-check.sh
 
+## 2026-11-12 [technical]: A private point published to a chat is readable by exactly the people who can read its card (P1631)
+
+**Context:** P1631 Publish posts a private Clarify point into the chat it came from. Chat members must read it and set a position; nobody else may, and there is no link (founder, 2026-11-11).
+**Decision:** a closed share record per point (`point_chat_shares`), no canvas. Read and position access are derived from the chat's own history rule (`_chat_access_since`): readable exactly when the live card message is readable. Wording is frozen once published; a thread reply publishes into its thread; forwarding is refused for everyone and the author's re-share (`point_share_to_chat`) is revoked until the founder decides how positions behave across chats (a re-share would show a DM partner's position to a new chat; recommended: allow it only while nobody else holds a position). Read policies are added `TO authenticated` only, so anonymous reads are untouched.
+**Alternatives rejected:** one canvas per conversation (canvas audiences ignore the chat history rule, canvas tags undo the draft-has-no-tags check, versions would need to mutate, and the Details page needs the RLS change anyway); access derived from the chat message itself (forward and Mirror copies duplicate attachments without checks).
+**Consequences:** a policy that calls a SECURITY DEFINER function per row runs before the query's own filters (security barrier), so it ran on every private row the feed scan passed: measured 176 ms; a set computed per statement from `chat_my_access()` cost 25 ms; a set built from the share rows costs about 0.002 ms. Rule: after any change to who can read points, measure the feed with EXPLAIN ANALYZE as a signed-in user. Known limit: the set grows with published cards product-wide. Open: the letter-link position bypass (security review M2).
+**References:** [P1631 spec](../features/p1631_mirror_drafts_reviewable_point_set.md) · `supabase/migrations/20261112150000`–`20261112190000_p1631_*.sql`
+
+## 2026-11-12 [process]: Founder asks are a ticked ledger in the spec, and a link is tested before it is handed over
+
+**Context:** In P1631 the founder had to repeat on-screen asks (a voice send button, Publish that worked) because hand-overs were checked against what the agent built, not against what the founder asked; a placeholder Publish button was shown that did nothing; a sign-in link was handed over untested and failed.
+**Decision:** every on-screen ask goes into a "Founder asks ledger" in the spec, in the founder's words, one line each; before hand-over each line is ticked against a screenshot of the running app next to the surface it must match, and unticked lines are listed first as "not done". No control is shown that does not work yet. Any link, command or steps given to the founder are run by the agent first.
+**Alternatives rejected:** relying on the agent's own build list (it cannot show what was dropped or deferred).
+**Consequences:** applies to /dev hand-overs generally; P1631 carries the first ledger (A1–A10).
+**References:** [P1631 spec](../features/p1631_mirror_drafts_reviewable_point_set.md) "Founder asks ledger"
+
 ## 2026-11-12 [product]: The Clarity Group Terms get a use-case page for community organizers, /communities, not a standalone terms page
 
 **Context:** A community organizer asked which guidelines their community should have, and why. There was no single link to send: the terms appeared only inside landing pages and inside one group's join flow, and nothing explained why they exist. A first build, a standalone /group-terms page (terms, then why, then how), was rejected by the founder as too much at once.
