@@ -1,12 +1,12 @@
 /**
  * @file mastermind-round-helpers.ts
  * @description P1529 §5 and §6: the words and the small rules of the sales mastermind's round screen, apart from any
- * component. Every attendee sentence here is a draft: [FOUNDER DECISION: copy]. The table's lines name roles as the founder asked: owner, partner, observer.
+ * component. Every attendee sentence here is a draft: [FOUNDER DECISION: copy]. The table's lines name roles as the founder asked: owner, peer, observer.
  */
 import type { NextVersionOffer, NextVersionResult } from '@/app/data/event-mastermind-service';
 import type { RoundSeat } from '@/app/data/event-rounds-service';
 
-/** The seat roles the mastermind reuses (§5): `first` is the Clarity Canvas owner, `second` their partner. */
+/** The seat roles the mastermind reuses (§5): `first` is the Clarity Canvas owner, `second` their peer. */
 export type MastermindRole = 'owner' | 'partner' | 'observer';
 
 export const MASTERMIND_ROLE: Record<RoundSeat['role'], MastermindRole> = { first: 'owner', second: 'partner', observer: 'observer' };
@@ -32,10 +32,10 @@ export function tableFaces(table: RoundSeat[], mineId: string): Array<{ seat: Ro
 }
 
 /** [FOUNDER DECISION: copy] Each role in a sentence ("You're the …") and as the muted word beside a name. */
-export const ROLE_WORD: Record<MastermindRole, string> = { owner: 'Clarity Canvas owner', partner: 'partner', observer: 'observer' };
+export const ROLE_WORD: Record<MastermindRole, string> = { owner: 'Clarity Canvas owner', partner: 'peer', observer: 'observer' };
 /** [FOUNDER DECISION: copy] The (i) popover under each role pill (the table-ux.md copy). */
 export const ROLE_EXPLAINER: Record<MastermindRole, string> = {
-  owner: 'Your partner explains your canvas back. At 8 or more, they can challenge it.',
+  owner: 'Your peer explains your canvas back. At 8 or more, they can challenge it.',
   partner: 'You explain the owner\u2019s canvas back. You challenge only at 8 or more.',
   observer: 'You keep the listener in their role and the talking time balanced, with a bell. At the end you suggest what to do better.',
 };
@@ -101,7 +101,7 @@ export const offerCanChange = (offer: NextVersionOffer | null): boolean =>
   !offer || offer.state === 'transcript_pending' || offer.state === 'drafting' || (offer.state === 'ready' && offer.autoPublish);
 
 /**
- * [FOUNDER DECISION: copy, proposed] The card's words. `label` is the round's label (roundLabel, D12 wording); `partner` the partner's first
+ * [FOUNDER DECISION: copy, proposed] The card's words. `label` is the round's label (roundLabel, D12 wording); `partner` the peer's first
  * name, or null when the table had none.
  */
 export const taskTitle = (label: string, partner: string | null): string => (partner ? `${label} with ${partner}: transcript ready` : `${label}: transcript ready`);
@@ -171,7 +171,7 @@ const READ_LINE = (owner: string) => `Read ${owner}\u2019s canvas quietly. Set y
 
 /**
  * [FOUNDER DECISION: copy, approved] The instruction for my role in the current part, as numbered steps (one entry = one plain line; two = steps 1, 2).
- * Names are the first names at the table. Null while finding the table (the header says it) and once the time is up, and for the owner and the partner in the observer's part (they just listen).
+ * Names are the first names at the table. Null while finding the table (the header says it) and once the time is up, and for the owner and the peer in the observer's part (they just listen).
  */
 export function instructionLine(role: MastermindRole, phase: CardPhase, n: TableNames): string[] | null {
   const own = role === 'owner';

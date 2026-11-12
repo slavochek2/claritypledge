@@ -27,6 +27,7 @@ import { buildFaces, CanvasOpen, InstructionBox, MyRole, OtherCanvases, TablePeo
 import { useReadingPoints } from './use-reading-points';
 import { MastermindReadingList } from './MastermindReadingList';
 import { MastermindWaiting } from './MastermindWaiting';
+import { useRoomCapture } from '@/app/contexts/room-capture-context';
 
 export function MastermindRoundCard({
   eventId,
@@ -66,6 +67,8 @@ export function MastermindRoundCard({
   const fromRoom = tableLinkState(pathname, eventId);
   const round = currentRound(state);
   const live = !!round;
+  // Founder 2026-11-12 (option B): while seated in a live round with the mic not running, "Start your mic" is the one filled primary.
+  const capturing = useRoomCapture().isCapturingForEvent(eventId);
   useEffect(() => { setLiveSeen(live); }, [live]);
   const mine = round && self ? (state.seatsByRound.get(round.id) ?? []).find(s => s.id === self.id) : undefined;
   const seated = !!round && !!mine;
@@ -158,7 +161,7 @@ export function MastermindRoundCard({
 
         {table.owner && (unshared
           ? <p className="mt-3 text-sm text-muted-foreground" data-testid="round-canvas-unshared">This Clarity Canvas is no longer shared</p>
-          : loaded && canvas && <CanvasOpen offer={phase ? canvasOffer(table.role, phase) : 'primary'} target={target} linkState={fromRoom} />)}
+          : loaded && canvas && <CanvasOpen micFirst={live && !capturing} offer={phase ? canvasOffer(table.role, phase) : 'primary'} target={target} linkState={fromRoom} />)}
 
         {canvasFailed && (
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground" role="alert" data-testid="round-canvas-error">

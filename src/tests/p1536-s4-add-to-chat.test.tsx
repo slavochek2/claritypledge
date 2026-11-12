@@ -227,9 +227,9 @@ describe('S4.1 who sees Mention in chat (P1621: only on the selected box)', () =
     if (title.getAttribute('aria-pressed') !== 'true') fireEvent.click(title);
     // Round 2: a box holding a card mentions per card; the box's own button is for an empty box
     const b = within(screen.getByTestId('canvas-box-canvas:problem')).getAllByTestId(/^canvas-card-mention-/)[0]!;
-    expect(b).toHaveTextContent('Mention in chat');
+    expect(b).toHaveTextContent('Mention');
     expect(b.className).toContain('min-h-10');
-    expect(screen.getAllByText('Mention in chat')).toHaveLength(1);
+    expect(screen.getAllByText('Mention')).toHaveLength(1);
     expect(screen.queryByText('Add to chat')).toBeNull();
   });
 
@@ -238,7 +238,7 @@ describe('S4.1 who sees Mention in chat (P1621: only on the selected box)', () =
     await grid();
     const title = await screen.findByTestId('canvas-box-title-canvas:problem');
     if (title.getAttribute('aria-pressed') !== 'true') fireEvent.click(title);
-    await waitFor(() => expect(screen.getAllByText('Mention in chat')).toHaveLength(1));
+    await waitFor(() => expect(screen.getAllByText('Mention')).toHaveLength(1));
     expect(screen.queryByTestId('canvas-box-add-canvas:problem')).toBeNull();
   });
 
@@ -248,14 +248,14 @@ describe('S4.1 who sees Mention in chat (P1621: only on the selected box)', () =
     mount('/p/ana/canvas/canvas');
     await grid();
     await act(async () => {});
-    expect(screen.queryByText('Mention in chat')).toBeNull();
+    expect(screen.queryByText('Mention')).toBeNull();
     expect(screen.queryByTestId('canvas-box-title-canvas:problem')).toBeNull(); // no title button either: a reader has nothing to select
     cleanup();
     st.signedIn = false;
     mount('/p/ana/canvas/canvas');
     await grid();
     await act(async () => {});
-    expect(screen.queryByText('Mention in chat')).toBeNull();
+    expect(screen.queryByText('Mention')).toBeNull();
   });
 });
 

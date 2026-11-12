@@ -84,13 +84,13 @@ export function TablePeople({ faces }: { faces: TableFace[] }) {
 
 export interface CanvasTarget { to: string | null; label: string; onOpen?: () => void }
 
-/** The table's canvas: always the primary filled button, centred; nothing for the observer in their own part. */
-export function CanvasOpen({ offer, target, linkState }: { offer: 'primary' | 'none'; target: CanvasTarget; linkState: unknown }) {
+/** The table's canvas: the primary filled button (outline while seated in a live round with the mic not running), centred; nothing for the observer in their own part. */
+export function CanvasOpen({ offer, target, linkState, micFirst = false }: { micFirst?: boolean; offer: 'primary' | 'none'; target: CanvasTarget; linkState: unknown }) {
   if (!target.to || offer === 'none') return null;
   return (
     <div className="mt-4 flex justify-center">
-      <Button asChild className="min-h-12 w-full text-base sm:w-auto">
-        <Link to={target.to} state={linkState} onClick={target.onOpen} data-testid="round-canvas-link">{target.label}</Link>
+      <Button asChild variant={micFirst ? "outline" : "default"} className="min-h-12 w-full text-base sm:w-auto">
+        <Link data-variant={micFirst ? "outline" : "primary"} to={target.to} state={linkState} onClick={target.onOpen} data-testid="round-canvas-link">{target.label}</Link>
       </Button>
     </div>
   );

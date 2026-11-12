@@ -139,7 +139,7 @@ describe('P1529 round screen: what each role sees', () => {
     renderCard(who);
     expect((await screen.findByTestId('round-card-table')).textContent).toBe('Table 1');
     expect(screen.queryByTestId('round-card-instruction')).toBeNull(); // the header already says "find your table"
-    expect(screen.getByTestId('round-card-my-role').textContent).toBe(`You\u2019re the ${({ owner: 'Clarity Canvas owner', partner: 'partner', observer: 'observer' } as Record<string, string>)[people.find(l => l.startsWith('You'))!.split(': ')[1]]}`);
+    expect(screen.getByTestId('round-card-my-role').textContent).toBe(`You\u2019re the ${({ owner: 'Clarity Canvas owner', partner: 'peer', observer: 'observer' } as Record<string, string>)[people.find(l => l.startsWith('You'))!.split(": ")[1]]}`);
     // everyone at the table, me first, then the others in role order
     expect(lines()).toEqual([people.find(l => l.startsWith('You'))!, ...people.filter(l => !l.startsWith('You'))]);
     if (open) expect((await screen.findByTestId('round-canvas-link')).textContent).toBe(who === OWNER ? 'Open your canvas' : 'Open Haru T.\u2019s canvas');
@@ -185,6 +185,16 @@ describe('P1529 round screen: what each role sees', () => {
 });
 
 describe('P1529 round screen: the canvas link', () => {
+  it('the canvas button is the outline while my mic is not running in a live round, and the filled primary once it runs', async () => {
+    h.capture = { ...h.capture, isCapturingForEvent: () => false };
+    const { unmount } = renderCard(PARTNER);
+    expect((await screen.findByTestId('round-canvas-link')).getAttribute('data-variant')).toBe('outline');
+    unmount();
+    h.capture = { ...h.capture, isCapturingForEvent: () => true };
+    renderCard(PARTNER);
+    expect((await screen.findByTestId('round-canvas-link')).getAttribute('data-variant')).toBe('primary');
+  });
+
   it('shows the partner and the observer a link to the owner\'s newest version; the click records the open and goes there', async () => {
     for (const who of [PARTNER, OBSERVER]) {
       h.recordCanvasOpen.mockClear();

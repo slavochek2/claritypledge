@@ -513,7 +513,7 @@ function TablesGrid({
   canSwap?: (id: string) => boolean;
   actions?: ReactNode;
   onTap?: (id: string) => void;
-  /** The mastermind's column names (Clarity Canvas owner, Partner, Observer); no S / L card, no swap. */
+  /** The mastermind's column names (Clarity Canvas owner, Peer, Observer); no S / L card, no swap. */
   labels?: Record<SeatRole, string>;
   /** Tables with nobody's words: their number stands out. */
   silentTableNos?: number[];

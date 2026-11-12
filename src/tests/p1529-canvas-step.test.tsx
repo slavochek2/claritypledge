@@ -174,7 +174,7 @@ describe('canvas step states', () => {
     h.mine = { name: 'canvas_1', shared: false, fixed: true };
     renderStep();
     expect((await screen.findByRole('heading')).textContent).toBe("Your Clarity Canvas isn't shared any more");
-    expect(screen.getByTestId('event-canvas-body').textContent).toBe('Share “Launch plan” again so your partners can read it.');
+    expect(screen.getByTestId('event-canvas-body').textContent).toBe('Share “Launch plan” again so your peers can read it.');
     expect(primaryButtons().map(b => b.textContent)).toEqual(['Share again']);
     expect(within(screen.getByTestId('event-canvas-secondary')).getByRole('button').textContent).toBe('Continue');
     fireEvent.click(within(screen.getByTestId('event-canvas-secondary')).getByRole('button'));

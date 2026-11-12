@@ -459,7 +459,7 @@ export function buildStartingSoon(
   const subject = venue ? `At ${venue}? Tap "I'm here"` : `Arrived? Tap "I'm here"`;
   const here = links.arrivedUrl ?? fallback;
   const notYet = links.notYetUrl ?? fallback;
-  const benefit = 'Tap when you walk in. The app then guides your evening: your partners, the rounds, your positions.';
+  const benefit = 'Tap when you walk in. The app then guides your evening: your peers, the rounds, your positions.';
   const address = event.location
     ? `<p style="margin:26px 0 0;font-size:14px;color:#4b5563;text-align:center;">📍 ${escapeHtml(event.location)}<br>
         <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" style="color:#2563eb;">Directions</a></p>`

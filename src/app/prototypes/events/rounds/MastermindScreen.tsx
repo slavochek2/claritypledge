@@ -1,7 +1,7 @@
 /**
  * @file MastermindScreen.tsx
  * @description P1529 §5: the sales mastermind's projector (`?view=screen` while the event's flow is the mastermind).
- * It shows the round's name, the clock, every table (its number, the Clarity Canvas owner, their partner and the
+ * It shows the round's name, the clock, every table (its number, the Clarity Canvas owner, their peer and the
  * observers). The rules are spoken and on the lanyard badges, so no rule line. It never shows a pair's phase or a half-time swap, and has no swap bell: the
  * round's end-of-round bell is the shared one. Readable from a distance.
  * Every sentence is a draft: [FOUNDER DECISION: copy].
@@ -25,7 +25,7 @@ const MASTERMIND_HEADER = 190;
 
 /** screenLayout counts 2.1 type-heights per seat; a role word under the name makes it about 2.7. */
 /** The small lowercase role word under each name. */
-const SEAT_ROLE_WORD: Record<Seat['role'], string> = { first: 'Clarity Canvas owner', second: 'partner', observer: 'observer' };
+const SEAT_ROLE_WORD: Record<Seat['role'], string> = { first: 'Clarity Canvas owner', second: 'peer', observer: 'observer' };
 
 const SEAT_HEIGHT_WITH_ROLE = 2.7 / 2.1;
 

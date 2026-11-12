@@ -49,7 +49,7 @@ function makeAnother(i: StepInput, label: string): StepAction {
 /** Round 1 has started and the chosen canvas lost its grant: set_event_canvas refuses it now, so the same canvas is shared again through share_canvas. */
 function reshareView(i: StepInput, mine: MyEventCanvas): StepView {
   const { mk, go, onContinue, published } = i;
-  return done('G', "Your Clarity Canvas isn't shared any more", `Share “${labelOf(published, mine.name)}” again so your partners can read it.`,
+  return done('G', "Your Clarity Canvas isn't shared any more", `Share “${labelOf(published, mine.name)}” again so your peers can read it.`,
     mk('share-again', 'Share again', 'Sharing…', () => go.shareAgain(mine.name)),
     onContinue ? mk('continue', 'Continue', null, onContinue) : null);
 }

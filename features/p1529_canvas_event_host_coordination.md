@@ -642,6 +642,7 @@ Founder: "We decided that everybody will come and I will help them make the [can
 - **E3 Registration** keeps the role question ("stress-test my riskiest business assumptions" / "help others succeed, as an observer or mentor"; no "peer": partners are owners from other tables), the transcription agreement, phone and the optional hope. The prepare question becomes "When will you do the 15-minute preparation?" with "At home, before the event" / "I'll come 15 minutes early and do it there", for every role.
 - **E4 Emails and reminders** say preparation is required (about 15 minutes, at home or 15 minutes early at the venue) and that the Clarity Canvas is made together at the event. No "if you have 10 minutes".
 - **E5 Canvas setup part (option A)**: when the canvas is at the event, the host runs a "Make your Clarity Canvas" part before round 1 (default 20 minutes, settable). The projector shows it; each phone opens the mirror agent to make the canvas and share it to the event. Round 1 starts after it. Someone still without a canvas owns round 1 and talks about the idea (unchanged rule).
+- **E6 Role word:** the explaining role is called **peer** in every screen (was partner), matching the published event page.
 - **Correction (2026-11-12):** an owner with no canvas gets no next version from a round (the server answers `no_canvas`). A first canvas from a round transcript is a possible later feature, not built.
 
 ## UAT round 2026-11-12: founder decisions

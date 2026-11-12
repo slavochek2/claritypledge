@@ -15,7 +15,7 @@ import { requestFocus, useKeepFocus } from './canvas-focus-request';
 import { SAVED_CARD_HOLD_MS, closeNewCard, getNewCards, hasNewCardText, markSavedCard, newCardKey, useNewCards, useSavedCard } from './canvas-new-card-store';
 import type { PointEditConfig } from './canvas-point-edit';
 import { getPointEdits, openPointEdit, useHiddenCount } from './canvas-point-edit-store';
-import { useRemovalFocus } from './use-card-remove';
+import { removePoint, useRemovalFocus } from './use-card-remove';
 
 /** The canvas stays small: a box shows this many cards, and says how many more it holds (R2). P1535 (founder): one card per box, so the whole canvas fits one screen at the event. */
 export const BOX_LIMIT = 1;
@@ -42,7 +42,6 @@ export interface BoxEditor {
   expanded: boolean;
   toggle: BoxToggle | null;
   showAdd: boolean;
-  showFull: boolean;
   cardValue: BoxCardValue | null;
   titleRef: RefObject<HTMLButtonElement | null>;
   sectionRef: RefObject<HTMLElement | null>;
@@ -84,8 +83,8 @@ export function useBoxEditor(tag: CanvasBoxTag, points: PointWithUserPosition[] 
   useKeepFocus(sectionRef, () => titleRef.current?.focus());
 
   const cardValue = useMemo<BoxCardValue | null>(() => (edit
-    ? { selected, runActive: flags.runActive, tag, onEdit: p => openPointEdit({ canvasId: edit.canvasId, box: tag, originId: p.id, text: p.statement }) }
-    : null), [edit, selected, flags.runActive, tag]);
+    ? { selected, runActive: flags.runActive, tag, onRemove: edit.ensure ? undefined : p => removePoint(edit, tag, p, points ?? []), onEdit: p => openPointEdit({ canvasId: edit.canvasId, box: tag, originId: p.id, text: p.statement }) }
+    : null), [edit, selected, flags.runActive, tag, points]);
 
   /** Escape, or the end of an editor: the box deselects and focus returns to its title (never the page). */
   const leaveBox = () => { onDeselect(); titleRef.current?.focus(); };
@@ -142,7 +141,6 @@ export function useBoxEditor(tag: CanvasBoxTag, points: PointWithUserPosition[] 
     expanded,
     toggle,
     showAdd: selected && flags.canAdd && !editorVisible,
-    showFull: selected && flags.ownerDraft && !flags.runActive && !editorVisible && flags.full,
     cardValue,
     titleRef,
     sectionRef,

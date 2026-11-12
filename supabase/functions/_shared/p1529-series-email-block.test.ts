@@ -44,5 +44,5 @@ Deno.test('observer hero payoff swaps the canvas line; reminder text carries the
   const o = withSeriesBlock(r, ev, { observer: true });
   assertFalse(o.html.includes('Clarity Canvas together'));
   assertFalse(o.text.includes('Clarity Canvas together'));
-  assert(o.html.includes('help others make theirs at the start'));
+  assert(o.html.includes('help others make their Clarity Canvas at the start'));
 });

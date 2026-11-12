@@ -328,10 +328,10 @@ describe('seating through the mastermind plan (§4)', () => {
     const items = screen.getAllByTestId('mm-unmet');
     expect(items.map(i => i.getAttribute('data-rule'))).toEqual(['repeat-partner', 'owns-once', 'observes-twice', 'previous-session-partner', 'unseated', 'too-few-canvases']);
     const text = items.map(i => i.textContent).join(' | ');
-    expect(text).toContain('Ana B. and Ben C. have already been partners');
+    expect(text).toContain('Ana B. and Ben C. have already been peers');
     expect(text).toContain("Cat D. won't get a turn as Clarity Canvas owner in rounds 1-2");
     expect(text).toContain('Dan E. would observe a second time');
-    expect(text).toContain('Ana B. and Eva F. were partners in the previous session');
+    expect(text).toContain('Ana B. and Eva F. were peers in the previous session');
     expect(text).toContain('Eva F. has no seat in this round');
     expect(text).toContain('Only 4 Clarity Canvases are shared');
   });
@@ -364,7 +364,7 @@ describe('seating through the mastermind plan (§4)', () => {
     fireEvent.click(tile('Ben'));
     fireEvent.click(tile('Cat'));
     await waitFor(() => expect(screen.getByTestId('mm-preview-notes').getAttribute('data-swapped')).toBe('true'));
-    expect(screen.getAllByTestId('mm-unmet').map(i => i.textContent).join(' | ')).toContain('Ana B. and Cat D. have already been partners');
+    expect(screen.getAllByTestId('mm-unmet').map(i => i.textContent).join(' | ')).toContain('Ana B. and Cat D. have already been peers');
     // Eva (no canvas) now trades with Ana: Eva would own a table.
     fireEvent.click(tile('Eva'));
     fireEvent.click(tile('Ana'));
@@ -744,7 +744,7 @@ describe('Clarity Night controls with no meaning here (§4, §7)', () => {
     await screen.findByTestId('round-grid');
     // Clarity Night's headers carry the printed S / L / O card before the name.
     const roles = () => screen.getAllByTestId('round-grid-role').map(e => e.textContent?.replace(/^[SLO](?=[A-Z])/, ''));
-    expect(roles()).toEqual(['Clarity Canvas owner', 'Partner', 'Observer']);
+    expect(roles()).toEqual(['Clarity Canvas owner', 'Peer', 'Observer']);
     unmount();
     setRounds([round({ splitSpeakers: true })], seats);
     renderHost();
@@ -769,7 +769,7 @@ describe('the projector (§5)', () => {
     expect(screen.getAllByTestId('screen-seat').map(s => s.getAttribute('data-role'))).toEqual(['first', 'second', 'observer', 'first', 'second']);
     const text = document.body.textContent ?? '';
     // UAT 2026-11-11: a small lowercase role word under each name; the caps headings and the "then N min" line are gone.
-    expect(screen.getAllByTestId('screen-seat-role').map(r => r.textContent)).toEqual(['Clarity Canvas owner', 'partner', 'observer', 'Clarity Canvas owner', 'partner']);
+    expect(screen.getAllByTestId('screen-seat-role').map(r => r.textContent)).toEqual(['Clarity Canvas owner', 'peer', 'observer', 'Clarity Canvas owner', 'peer']);
     expect(screen.queryByTestId('screen-time-left')).toBeNull();
     expect(text).not.toMatch(/swap|speaker 1|speaker 2|listener|challenge phase|understanding/i);
     expect(screen.queryAllByTestId('screen-bell')).toHaveLength(1);

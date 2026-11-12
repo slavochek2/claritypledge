@@ -2,7 +2,7 @@
  * @file mastermind-host-helpers.ts
  * @description P1529 §1, §3, §4, §7: the host screen's and the projector's words and small rules for the sales
  * mastermind, apart from any component. Every sentence here is a draft: [FOUNDER DECISION: copy]. Host copy names a
- * Clarity Canvas owner, their partner and an observer (D12), and names people, not "someone".
+ * Clarity Canvas owner, their peer and an observer (D12), and names people, not "someone".
  */
 import type { MastermindPerson, RecordingState } from '@/app/data/event-mastermind-service';
 import type { RoundMinutes } from '@/app/data/event-rounds-service';
@@ -22,7 +22,7 @@ export const FLOW_NAMES: Record<EventFlow, string> = {
 
 /**
  * One round is 15 minutes at the table plus 3 of observer feedback (founder, 2026-11-06), with finding the table (2) apart,
- * as the run-of-show lists Seating separately: 2 to find the new partner and table, then one talk part of 15 that holds the
+ * as the run-of-show lists Seating separately: 2 to find the new peer and table, then one talk part of 15 that holds the
  * 4 minutes of silent reading and the conversation, then 3 of observer feedback (20 minutes in the app). The talk is stored
  * as `speakerS` x 2 (host_start_round writes the same seconds into first_s and second_s; a no-split round adds them), so
  * 450 s is a 15-minute talk. No swap at half time, so no "second" part ever runs.
@@ -40,7 +40,7 @@ export function dropStaleMastermindMinutes<T extends { mastermindMinutes?: unkno
 export const MASTERMIND_GROUP_SIZE = 4;
 
 /** [FOUNDER DECISION: copy] The host grid's columns in this flow (the Clarity Night grid says Speaker 1 and 2). */
-export const COLUMN_LABELS: Record<SeatRole, string> = { first: 'Clarity Canvas owner', second: 'Partner', observer: 'Observer' };
+export const COLUMN_LABELS: Record<SeatRole, string> = { first: 'Clarity Canvas owner', second: 'Peer', observer: 'Observer' };
 
 /** [FOUNDER DECISION: copy] The part of the round the projector names; the long talk needs no name. */
 export const SCREEN_PART_CAPTION: Record<string, string> = { seating: 'Find your table', reading: 'Silent reading', observer: 'Observer feedback' };
@@ -128,8 +128,8 @@ export function silentTables(
 /** [FOUNDER DECISION: copy] One plain sentence per broken rule, with people's names. */
 export function describeProblem(p: SeatingProblem, name: (id: string) => string): string {
   switch (p.rule) {
-    case 'repeat-partner': return `${name(p.people[0])} and ${name(p.people[1])} have already been partners tonight.`;
-    case 'previous-session-partner': return `${name(p.people[0])} and ${name(p.people[1])} were partners in the previous session.`;
+    case 'repeat-partner': return `${name(p.people[0])} and ${name(p.people[1])} have already been peers tonight.`;
+    case 'previous-session-partner': return `${name(p.people[0])} and ${name(p.people[1])} were peers in the previous session.`;
     case 'owns-once':
       return `${name(p.person)} won't get a turn as Clarity Canvas owner in rounds ${p.part === 'first' ? '1-2' : '3-4'}.`;
     case 'owns-twice':
@@ -141,7 +141,7 @@ export function describeProblem(p: SeatingProblem, name: (id: string) => string)
     case 'too-few-canvases':
       return p.canvases < 2
         ? 'Fewer than two Clarity Canvases are shared with this event. Tables are seated anyway; a Clarity Canvas owner may have no canvas yet.'
-        : `Only ${p.canvases} Clarity Canvases are shared. The format works from 5, so some partners will repeat.`;
+        : `Only ${p.canvases} Clarity Canvases are shared. The format works from 5, so some peers will repeat.`;
   }
 }
 
@@ -152,8 +152,8 @@ export const tablesProposedTitle = (round: string): string => `${round}: propose
 /** [FOUNDER DECISION: copy] After a manual swap only this round is re-checked. */
 export const SWAP_RECHECK_NOTE = 'Checked again after your swap. Later rounds are not re-checked.';
 export const PLAN_OK_LINE = 'This seating breaks no rule.';
-/** [FOUNDER DECISION: copy] Shown when the previous session's partners could not be read, so "no rule broken" is never read as "checked". */
-export const PREVIOUS_UNREAD = "Could not read the previous session's partners, so repeats from it are not checked. Trying again.";
+/** [FOUNDER DECISION: copy] Shown when the previous session's peers could not be read, so "no rule broken" is never read as "checked". */
+export const PREVIOUS_UNREAD = "Could not read the previous session's peers, so repeats from it are not checked. Trying again.";
 export const PLAN_NOT_READY = 'Still reading who has a Clarity Canvas. Try again in a moment.';
 
 /**

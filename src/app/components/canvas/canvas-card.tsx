@@ -32,6 +32,9 @@ function stanceLabel(position: PositionType | undefined, firstPerson: boolean): 
  * side. When Compare is set, two people's positions in the compare page's columns, small (D8); a
  * person with no position reads "No position", and the card stays where it is.
  */
+/** Delete exists only where the box offers a Remove (the owner's open draft, not a pending Clone) */
+const removeOf = (remove: ((p: PointWithUserPosition) => Promise<boolean>) | undefined, point: PointWithUserPosition) => (remove ? () => remove(point) : undefined);
+
 export function CanvasCard({ point, viewerId, positions, compare, selected, sharedLabel, onOpen }: {
   point: PointWithUserPosition;
   viewerId?: string;
@@ -76,7 +79,7 @@ export function CanvasCard({ point, viewerId, positions, compare, selected, shar
     return (
       <div data-testid={`canvas-point-card-${point.id}`} data-selected={selected || undefined} className={cardClass}>
         <div className="p-2.5">{text}{compareBlock}</div>
-        {box.selected && <CanvasCardActions point={point} canEdit={!box.runActive} tag={box.tag} onEdit={() => box.onEdit(point)} onOpen={onOpen} />}
+        {box.selected && <CanvasCardActions point={point} canEdit={!box.runActive} tag={box.tag} onEdit={() => box.onEdit(point)} onRemove={removeOf(box.onRemove, point)} onOpen={onOpen} />}
       </div>
     );
   }

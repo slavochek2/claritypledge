@@ -110,7 +110,7 @@ export const RESEARCH_QA: { q: string; a: ReactNode }[] = [
     a: 'All people who are part of the recorded conversation at the event. Clarity Pledge, as a research programme, reads the conversation transcripts, analysed with AI, for research, and doesn\'t listen to the audio. Event organisers and hosts don\'t read them.',
   },
   {
-    q: 'Will my partner be recorded too?',
+    q: 'Will my peer be recorded too?',
     a: 'Your microphone is a directional lavalier microphone. It picks up mostly you, but it can record some background sound around you.',
   },
   {

@@ -40,7 +40,7 @@ export function CanvasNewCardEditor({ tag, edit, count, autoFocus, onSaved, onCa
   onCancel: () => void;
   /** Escape: the editor closes, the text stays */
   onEscape: () => void;
-  /** an empty box's Mention in chat: drawn at the left of the Cancel and Save row (round 3) */
+  /** an empty box's Mention in chat: drawn at the left of the Cancel and Save row, all on one row */
   mention?: ReactNode;
 }) {
   const key = newCardKey(edit.canvasId, tag);
@@ -115,24 +115,26 @@ export function CanvasNewCardEditor({ tag, edit, count, autoFocus, onSaved, onCa
       {notice && (isError
         ? <p id={noteId} role="alert" className="break-words text-sm text-red-800 dark:text-red-300" data-testid="canvas-new-card-problem">{notice}</p>
         : <Notice id={noteId} testId="canvas-new-card-problem" text={notice} />)}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {mention && <div className="mr-auto">{mention}</div>}
-        <Button
-          type="button"
-          variant="ghost"
-          className="min-h-10"
-          disabled={entry.saving}
-          onClick={() => { closeNewCard(key); onCancel(); }}
-          data-testid="canvas-new-card-cancel"
-        >
-          Cancel
-        </Button>
-        {/* Save is the only filled button in a box. Absent (not disabled) when the box is full or the agent is working. */}
-        {!full && !running && (
-          <Button type="button" className="min-h-10" disabled={entry.saving} onClick={() => void save()} aria-busy={entry.saving || undefined} data-testid="canvas-new-card-save">
-            {entry.saving ? 'Saving' : 'Save'}
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">{mention}</div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-10"
+            disabled={entry.saving}
+            onClick={() => { closeNewCard(key); onCancel(); }}
+            data-testid="canvas-new-card-cancel"
+          >
+            Cancel
           </Button>
-        )}
+          {/* Save is the only filled button in a box. Absent (not disabled) when the box is full or the agent is working. */}
+          {!full && !running && (
+            <Button type="button" className="min-h-10" disabled={entry.saving} onClick={() => void save()} aria-busy={entry.saving || undefined} data-testid="canvas-new-card-save">
+              {entry.saving ? 'Saving' : 'Save'}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

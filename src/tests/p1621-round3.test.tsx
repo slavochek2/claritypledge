@@ -102,7 +102,7 @@ describe('3: the empty box\'s Mention sits left of the Cancel and Save row', () 
     const box = screen.getByTestId(`canvas-box-${SEG}`);
     const mention = within(box).getByTestId(`canvas-mention-in-chat-${SEG}`);
     const cancel = within(box).getByTestId('canvas-new-card-cancel');
-    expect(cancel.parentElement!.contains(mention)).toBe(true);
+    expect(cancel.parentElement!.parentElement!.contains(mention), 'one row: Mention left, Cancel and Save right').toBe(true);
     expect(mention.compareDocumentPosition(cancel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(box).getAllByTestId(`canvas-mention-in-chat-${SEG}`)).toHaveLength(1);
     fireEvent.click(mention);

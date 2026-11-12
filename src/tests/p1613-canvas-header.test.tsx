@@ -182,10 +182,10 @@ describe('P1621: Mention in chat replaces P1613 Add to chat', () => {
   it('always shows its label, is at least 40px tall, wraps instead of collapsing, and taps through', () => {
     const tap = vi.fn();
     render(<CanvasWorkspaceContext.Provider value={ctx(tap)}><MentionInChatButton tag="canvas:problem" title="Problem" /></CanvasWorkspaceContext.Provider>);
-    const b = screen.getByRole('button', { name: 'Mention in chat, Problem' });
+    const b = screen.getByRole('button', { name: 'Mention, Problem' });
     expect(b.className).toContain('min-h-10');
     expect(b.className).toContain('whitespace-normal');
-    expect(screen.getByText('Mention in chat').className).not.toContain('sr-only');
+    expect(screen.getByText('Mention').className).not.toContain('sr-only');
     fireEvent.click(b);
     expect(tap).toHaveBeenCalledWith('canvas:problem');
   });

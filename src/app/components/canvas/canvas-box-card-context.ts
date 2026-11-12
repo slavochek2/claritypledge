@@ -13,6 +13,8 @@ export interface BoxCardValue {
   /** the agent is working on the draft: Edit is absent */
   runActive: boolean;
   onEdit: (point: PointWithUserPosition) => void;
+  /** Delete (the draft's own Remove): true once the point is off the draft. Absent on a pending Clone (no draft yet): no Delete there. */
+  onRemove?: (point: PointWithUserPosition) => Promise<boolean>;
   /** the box's tag: what a mention of one of its points names */
   tag: string;
 }

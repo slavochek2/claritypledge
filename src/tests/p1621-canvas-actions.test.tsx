@@ -18,6 +18,8 @@ vi.mock('@/app/data/canvas-draft-service', () => ({
   addCanvasDraftPoint: (...a: unknown[]) => svc.add(...a),
   editCanvasDraftPoint: (...a: unknown[]) => svc.edit(...a),
 }));
+const rm = vi.hoisted(() => ({ remove: vi.fn() }));
+vi.mock('@/app/components/canvas/use-card-remove', async orig => ({ ...(await orig<typeof import('@/app/components/canvas/use-card-remove')>()), removePoint: (...a: unknown[]) => rm.remove(...a) }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 const mentioned = vi.hoisted(() => ({ set: new Set<string>() as ReadonlySet<string> }));
 vi.mock('@/app/pages/chat/use-mentioned-boxes', () => ({ useMentionedBoxes: () => mentioned.set }));
@@ -177,11 +179,11 @@ describe('at rest and selecting (AC 1, 3, 4)', () => {
     expect(selectedTags()).toEqual([]);
   });
 
-  it('a selected filled box shows Edit, Open and Mention in chat on its card, then Add card and See all N, in that order (the box keeps no Mention of its own)', () => {
+  it('a selected filled box shows Mention, Edit, Delete and Open on its one action row, then Add card and See all N, in that order (the box keeps no Mention of its own)', () => {
     render(view({ boxes: TWO, edit: cfg() }));
     select(PROB);
     expect(mention(PROB), 'the cards carry the mention').toBeNull();
-    const order = [editBtn('p1'), openBtn('p1'), cardMention('p1'), addBtn(PROB), q(PROB, 'canvas-box-more')];
+    const order = [cardMention('p1'), editBtn('p1'), q(PROB, 'canvas-card-delete-p1'), openBtn('p1'), addBtn(PROB), q(PROB, 'canvas-box-more')];
     for (const el of order) expect(el, 'every control is there').not.toBeNull();
     for (let i = 1; i < order.length; i++) {
       expect(order[i - 1]!.compareDocumentPosition(order[i]!) & Node.DOCUMENT_POSITION_FOLLOWING, `visual order, step ${i}`).toBeTruthy();
@@ -190,16 +192,68 @@ describe('at rest and selecting (AC 1, 3, 4)', () => {
     expect(editBtn('p2'), 'only the first card is shown until See all').toBeNull();
   });
 
-  it('a box holding one card has no See all; at 3 cards Add card is absent and the box says it is full', () => {
+  it('a box holding one card has no See all; at 3 cards Add card is absent and nothing says the box is full', () => {
     const { rerender } = render(view({ boxes: ONE, edit: cfg() }));
     select(PROB);
     expect(q(PROB, 'canvas-box-more')).toBeNull();
     expect(addBtn(PROB)).not.toBeNull();
     rerender(view({ boxes: THREE, edit: cfg() }));
     expect(addBtn(PROB)).toBeNull();
-    expect(within(box(PROB)).getByText(FULL_BOX_TEXT)).toBeTruthy();
+    expect(within(box(PROB)).queryByText(FULL_BOX_TEXT), 'the full line is gone').toBeNull();
     expect(FULL_BOX_TEXT).toBe('This box is full. It holds 3 cards.');
     expect(within(box(PROB)).queryAllByRole('button').filter(b => b.hasAttribute('disabled')), 'no dead control').toEqual([]);
+  });
+
+  const del = () => q(PROB, 'canvas-card-delete-p1');
+  const askDelete = async (user: ReturnType<typeof userEvent.setup>) => { await user.click(del()!); return screen.getByRole('dialog'); };
+  it('Delete asks in the confirm dialog; Keep closes it and nothing was removed', async () => {
+    render(view({ boxes: ONE, edit: cfg() }));
+    select(PROB);
+    const user = userEvent.setup();
+    const dlg = await askDelete(user);
+    expect(within(dlg).getByRole('button', { name: 'Delete this card' })).toBeTruthy();
+    await user.click(within(dlg).getByRole('button', { name: 'Keep' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(del(), 'focus returns to Delete').toBe(document.activeElement));
+    expect(rm.remove).not.toHaveBeenCalled();
+  });
+  it('confirming removes once, both buttons are disabled meanwhile (Deleting…), and the card actions go', async () => {
+    let finish!: (v: boolean) => void;
+    rm.remove.mockImplementation(() => new Promise<boolean>(r => { finish = r; }));
+    const { rerender } = render(view({ boxes: ONE, edit: cfg() }));
+    select(PROB);
+    const user = userEvent.setup();
+    const dlg = await askDelete(user);
+    await user.click(within(dlg).getByRole('button', { name: 'Delete this card' }));
+    expect(within(dlg).getByRole('button', { name: 'Deleting…' }).hasAttribute('disabled')).toBe(true);
+    expect(within(dlg).getByRole('button', { name: 'Keep' }).hasAttribute('disabled')).toBe(true);
+    finish(true);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(rm.remove).toHaveBeenCalledTimes(1);
+    rerender(view({ boxes: boxesOf({}), edit: cfg() }));
+    expect(q(PROB, 'canvas-card-actions-p1')).toBeNull();
+  });
+  it('a failed or throwing removal closes the dialog, says so, and the actions stay', async () => {
+    rm.remove.mockRejectedValueOnce(new Error('boom'));
+    render(view({ boxes: ONE, edit: cfg() }));
+    select(PROB);
+    const user = userEvent.setup();
+    const dlg = await askDelete(user);
+    await user.click(within(dlg).getByRole('button', { name: 'Delete this card' }));
+    await waitFor(() => expect(screen.getByTestId('canvas-card-delete-error-p1')).toBeTruthy());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(del()).not.toBeNull();
+  });
+  it('the dialog closes when a run starts, and Delete is absent on a pending Clone', async () => {
+    const { rerender } = render(view({ boxes: ONE, edit: cfg() }));
+    select(PROB);
+    await askDelete(userEvent.setup());
+    rerender(view({ boxes: ONE, edit: cfg({ runActive: true }) }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(del()).toBeNull();
+    rerender(view({ boxes: ONE, edit: cfg({ draftId: '', ensure: (async () => ({ ok: false })) as never }) }));
+    expect(del(), 'a pending Clone has no draft').toBeNull();
+    expect(editBtn('p1')).not.toBeNull();
   });
 
   it('while the agent works, Edit and Add card are absent and Open stays', () => {
@@ -638,8 +692,8 @@ describe('keyboard alone (AC 21)', () => {
     title(PROB).focus();
     await user.keyboard('{Enter}');
     const seen: Element[] = [];
-    for (let i = 0; i < 5; i++) { await user.tab(); seen.push(document.activeElement!); }
-    expect(seen).toEqual([editBtn('p1'), openBtn('p1'), cardMention('p1'), addBtn(PROB), q(PROB, 'canvas-box-more')]);
+    for (let i = 0; i < 6; i++) { await user.tab(); seen.push(document.activeElement!); }
+    expect(seen).toEqual([cardMention('p1'), editBtn('p1'), q(PROB, 'canvas-card-delete-p1'), openBtn('p1'), addBtn(PROB), q(PROB, 'canvas-box-more')]);
     // See all (focused) by keyboard, then Show less
     await user.keyboard('{Enter}');
     expect(screen.getByTestId('canvas-box-less')).toBe(document.activeElement);
@@ -752,7 +806,7 @@ describe('Mention in chat (AC 14)', () => {
     expect(addToChat, 'with the thread hidden the tap must still bring it into view').toHaveBeenCalledTimes(2);
     mentioned.set = new Set();
     rerender(view({ boxes: TWO, edit: cfg() }));
-    expect(cardMention('p1')!.textContent).toBe('Mention in chat');
+    expect(cardMention('p1')!.textContent).toBe('Mention');
   });
 
   it('a card and an empty box make two taps, each its own key; the empty box keeps the box-level button', () => {

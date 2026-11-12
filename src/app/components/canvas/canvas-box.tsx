@@ -79,7 +79,7 @@ export function CanvasBox({ tag, title, points, renderCard, onMore, question, ch
       <BoxCardContext.Provider value={box.cardValue}>
         <CanvasBoxBody tag={tag} points={points} edit={edit} renderCard={renderCard} expanded={box.expanded} question={question} editorVisible={box.editorVisible} editor={editor} showGone={selectable} openDraftId={openDraftId} canvasId={canvasId} />
       </BoxCardContext.Provider>
-      {points !== null && !flags.empty && <CanvasBoxFooter tag={tag} showAdd={box.showAdd} onAdd={box.onAdd} full={box.showFull} toggle={box.toggle} />}
+      {points !== null && !flags.empty && <CanvasBoxFooter tag={tag} showAdd={box.showAdd} onAdd={box.onAdd} toggle={box.toggle} />}
     </section>
   );
 }

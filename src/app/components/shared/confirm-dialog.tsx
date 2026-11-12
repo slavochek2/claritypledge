@@ -21,6 +21,8 @@ interface ConfirmDialogProps {
   confirmClassName?: string;
   onConfirm: () => void;
   isLoading?: boolean;
+  /** the confirm button's words while `isLoading` (default 'Please wait...') */
+  loadingLabel?: string;
 }
 
 export function ConfirmDialog({
@@ -34,6 +36,7 @@ export function ConfirmDialog({
   confirmClassName,
   onConfirm,
   isLoading = false,
+  loadingLabel = 'Please wait...',
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -79,7 +82,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={isLoading}
           >
-            {isLoading ? 'Please wait...' : confirmLabel}
+            {isLoading ? loadingLabel : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

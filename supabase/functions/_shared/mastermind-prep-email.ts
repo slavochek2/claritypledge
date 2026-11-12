@@ -18,7 +18,7 @@ export function mastermindPrepAtEvent(event: EventRow): boolean {
 const MM_PREP_QUESTION = 'Do your 15-minute preparation';
 export const MM_CANVAS_LINE = 'We make your Clarity Canvas together at the event.';
 // [FOUNDER DECISION: copy, proposed] observers help others make theirs.
-export const MM_CANVAS_LINE_OBSERVER = "You'll help others make theirs at the start.";
+export const MM_CANVAS_LINE_OBSERVER = "You'll help others make their Clarity Canvas at the start.";
 const MM_PREP_PAYOFF = `Preparation is required: at home before the event, or 15 minutes early at the venue. ${MM_CANVAS_LINE}`;
 export const prepQuestionOf = (e: EventRow) => (mastermindPrepAtEvent(e) ? MM_PREP_QUESTION : PREP_QUESTION);
 export const prepPayoffOf = (e: EventRow) => (mastermindPrepAtEvent(e) ? MM_PREP_PAYOFF : PREP_PAYOFF);
