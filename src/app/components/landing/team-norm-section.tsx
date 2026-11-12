@@ -8,7 +8,7 @@ export const HOSPITAL_MAINTAIN_TEXT = "New staff onboard fast, digitally.";
 export const NEUTRAL_MAINTAIN_TEXT = "New joiners onboard fast, digitally.";
 
 /** Workshop-impact-fades vs team-norm chart, with a text alternative. */
-function NormChart() {
+export function NormChart() {
   // MotionConfig's reducedMotion only skips transforms; pathLength would still animate, so skip it here.
   const reduce = useReducedMotion();
   const draw = (duration: number, delay = 0) => ({

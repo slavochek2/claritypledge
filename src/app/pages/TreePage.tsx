@@ -10,6 +10,16 @@ const productionPages = [
 
 const devPages = [
   {
+    path: '/tree/landing-fable-change',
+    label: 'Landing redesign: change managers',
+    description: 'The /change-managers page in the redesigned look, with the labelled hero example.'
+  },
+  {
+    path: '/tree/landing-fable',
+    label: 'Landing redesign: builders',
+    description: 'The /builders page in the redesigned look, with the labelled hero example.'
+  },
+  {
     path: '/tree/landing-watch',
     label: 'Landing lab: Watch',
     description: 'Cinematic, video first. The st1 story and the five barriers as moving type.'
@@ -94,6 +104,74 @@ const devPages = [
     label: 'P1307: Event Room Transcription',
     description: 'Clickable prototype — transcribe toggle on /ready, cross-page bar, transcript view, practice session. Mock state only.'
   },
+  {
+    path: '/tree/design-blue',
+    label: 'Design decisions: primary blue',
+    description: 'Three candidate primary blues (light, medium, dark navy) shown on the same mock screens'
+  },
+  {
+    path: '/tree/compare-positions',
+    label: 'Compare positions',
+    description: 'Compare view for two people sharing one phone: where do we disagree most on the statements'
+  },
+  {
+    path: '/tree/host-controls',
+    label: 'Host controls',
+    description: 'Three ways for an event host to override table seating, on the same mock room'
+  },
+  {
+    path: '/tree/compare-entry',
+    label: 'Compare entry on a profile',
+    description: 'Two placements for the "Compare with me" button on a profile: header or Points tab'
+  },
+  {
+    path: '/tree/p1336',
+    label: 'P1336: Onboarding prototype',
+    description: 'Clickable prototype of registration onboarding, default variant. Mock state only.'
+  },
+  {
+    path: '/tree/p1336-c',
+    label: 'P1336: Onboarding prototype (variant C)',
+    description: 'The same onboarding prototype with the prepare-choice variant C'
+  },
+  {
+    path: '/tree/p1336-d',
+    label: 'P1336: Onboarding prototype (variant D)',
+    description: 'The same onboarding prototype with variant D'
+  },
+  {
+    path: '/tree/admin-users',
+    label: 'Admin users lookup',
+    description: 'Founder-only user search: find a person and open their profile. Mock data only.'
+  },
+];
+
+const gateFixtures = [
+  {
+    path: '/tree/_gate/example',
+    label: 'Gate fixture: example',
+    description: 'Reference pattern for gate fixtures, with a URL-driven phase switch'
+  },
+  {
+    path: '/tree/_gate/terms-update',
+    label: 'Gate fixture: terms update',
+    description: 'The terms-update popup, or the notice banner with ?phase=notice'
+  },
+  {
+    path: '/tree/_gate/canvas-thread',
+    label: 'Gate fixture: canvas thread',
+    description: 'A canvas draft thread panel in its states (?phase=)'
+  },
+  {
+    path: '/tree/_gate/canvas-workspace',
+    label: 'Gate fixture: canvas workspace',
+    description: 'The canvas workspace frame in its states (?phase=)'
+  },
+  {
+    path: '/tree/_gate/canvas-draft',
+    label: 'Gate fixture: canvas draft',
+    description: 'The canvas page header and boxes in each draft state (?phase=)'
+  },
 ];
 
 const notFoundVariants = [
@@ -114,6 +192,32 @@ const notFoundVariants = [
   },
 ];
 
+type RouteEntry = { path: string; label: string; description: string };
+
+function RouteList({ routes }: { routes: RouteEntry[] }) {
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-border divide-y divide-gray-100 mb-6">
+      {routes.map((route) => (
+        <Link
+          key={route.path}
+          to={route.path}
+          className="block px-4 py-3 hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="font-medium text-gray-900">{route.label}</span>
+              <p className="text-sm text-gray-500 mt-0.5">{route.description}</p>
+            </div>
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export function TreePage() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -127,73 +231,25 @@ export function TreePage() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
           Production Pages
         </h2>
-        <div className="bg-white rounded-lg shadow-sm border border-border divide-y divide-gray-100 mb-6">
-          {productionPages.map((route) => (
-            <Link
-              key={route.path}
-              to={route.path}
-              className="block px-4 py-3 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-medium text-gray-900">{route.label}</span>
-                  <p className="text-sm text-gray-500 mt-0.5">{route.description}</p>
-                </div>
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <RouteList routes={productionPages} />
 
         {/* Dev Tools */}
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
           Dev Tools
         </h2>
-        <div className="bg-white rounded-lg shadow-sm border border-border divide-y divide-gray-100 mb-6">
-          {devPages.map((route) => (
-            <Link
-              key={route.path}
-              to={route.path}
-              className="block px-4 py-3 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-medium text-gray-900">{route.label}</span>
-                  <p className="text-sm text-gray-500 mt-0.5">{route.description}</p>
-                </div>
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <RouteList routes={devPages} />
+
+        {/* Gate Fixtures */}
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          Gate fixtures
+        </h2>
+        <RouteList routes={gateFixtures} />
 
         {/* 404 Variants */}
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
           404 Page Variants
         </h2>
-        <div className="bg-white rounded-lg shadow-sm border border-border divide-y divide-gray-100 mb-6">
-          {notFoundVariants.map((route) => (
-            <Link
-              key={route.path}
-              to={route.path}
-              className="block px-4 py-3 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-medium text-gray-900">{route.label}</span>
-                  <p className="text-sm text-gray-500 mt-0.5">{route.description}</p>
-                </div>
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <RouteList routes={notFoundVariants} />
 
         <div className="mt-6 text-center">
           <Link to="/" className="text-sm text-blue-600 hover:underline">

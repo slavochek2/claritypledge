@@ -114,8 +114,12 @@ const PUBLIC_SITE_PATHS: readonly string[] = [
   "/about",
   "/pledgers",
 ];
+// Dev-only landing prototypes are marketing pages and should draw the public menu. The routes do
+// not exist in a production build, so the list only grows when DEV is true.
+const DEV_PUBLIC_SITE_PATHS: readonly string[] = ["/tree/landing-fable", "/tree/landing-fable-change"];
 export function isPublicSitePath(pathname: string): boolean {
-  return PUBLIC_SITE_PATHS.includes(pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname);
+  const path = pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname;
+  return PUBLIC_SITE_PATHS.includes(path) || (import.meta.env.DEV && DEV_PUBLIC_SITE_PATHS.includes(path));
 }
 
 /**

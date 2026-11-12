@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 329
 workstream: landing
 created_date: '2026-11-12'
 tags: [landing, design-exploration, prototype]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
