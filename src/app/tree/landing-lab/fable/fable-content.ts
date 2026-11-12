@@ -93,7 +93,8 @@ export const AGREED_BUILDERS: AgreedExample = {
     { name: "Priya", did: "shipped fewer options", outcome: "diverged" },
     { name: "Sam", did: "shipped everything on one screen", outcome: "diverged" },
   ],
-  punchline: "One sentence. Four different products.",
+  // Says outright what the four ticks do not: everyone delivered, and no two delivered the same thing.
+  punchline: "One sentence. Four meanings. All four shipped.",
 };
 
 export const AGREED_CHANGE: AgreedExample = {
