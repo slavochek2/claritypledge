@@ -62,11 +62,13 @@ export function AgreedGraphic({ example, className = "" }: { example: AgreedExam
         <p className="font-semibold">{example.agreed}</p>
       </motion.div>
 
-      <motion.p variants={BEAT} className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-foreground/70">
+      {/* The turn of the story, so a step larger than the small-caps label at the top. */}
+      <motion.p variants={BEAT} className="mt-6 text-[0.8125rem] font-semibold uppercase tracking-[0.12em] text-foreground/70">
         {example.later}
       </motion.p>
-      {/* The rail: one line coming down from the agreement, one branch per person. */}
-      <ol aria-label={example.later} className="ml-3 mt-3 border-l-2 border-foreground/15">
+      {/* The rail: one line coming down from the agreement, one branch per person. The list has no
+          aria-label: the line above already introduces it, and a label would be read twice. */}
+      <ol className="ml-3 mt-3 border-l-2 border-foreground/15">
         {example.people.map((p) => (
           <motion.li key={p.name} variants={BEAT} className="relative flex items-center gap-3 py-2 pl-6">
             <span className="absolute left-0 top-1/2 h-0.5 w-4 bg-foreground/15" aria-hidden />

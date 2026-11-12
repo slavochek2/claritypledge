@@ -66,7 +66,11 @@ describe.each([
 
   it('marks who did it with a tick and who did not with an empty circle', () => {
     renderPage();
-    const rows = within(screen.getByRole('list', { name: example.later })).getAllByRole('listitem');
+    // Two lists in the card: who agreed (named), then the outcomes (introduced by the visible line above it).
+    const [agreed, outcomes] = within(screen.getByTestId('agreed-graphic')).getAllByRole('list');
+    expect(agreed).toHaveAccessibleName('Who agreed');
+    expect(outcomes).not.toHaveAttribute('aria-label');
+    const rows = within(outcomes!).getAllByRole('listitem');
     expect(rows).toHaveLength(example.people.length);
     example.people.forEach((p, i) => {
       const ticked = rows[i]!.querySelector('svg') !== null;
@@ -189,14 +193,38 @@ describe('P1667 the copied copy is still the production copy', () => {
 
   it('change managers: references and reasons, with their citations', () => {
     expect(missing(change, CHANGE_REFERENCES.map(reference))).toEqual([]);
-    // Hierarchy is passed in by the page (the imported constant), so only its title is a literal there.
-    const [hierarchy, ...cited] = CHANGE_REASONS;
-    expect(missing(why, [`title: "${hierarchy!.title}", text: hierarchyText`])).toEqual([]);
-    expect(missing(why, cited.map((r) => `title: "${r.title}", text: "${r.text}"`))).toEqual([]);
-    // The page maps the two cited reasons to references 2 and 3; hierarchy carries none.
+    // Each reason is compared with the source it cites in production. Hierarchy's text is passed
+    // in by the page (the imported constant), so only its title and source are literals there.
+    const [hierarchy, transparency, curse] = CHANGE_REASONS;
+    expect(missing(why, [
+      `title: "${hierarchy!.title}", text: hierarchyText, source: "ha" as const`,
+      `title: "${transparency!.title}", text: "${transparency!.text}", source: "newton" as const`,
+      `title: "${curse!.title}", text: "${curse!.text}", source: "camerer" as const`,
+    ])).toEqual([]);
+    // The page maps newton and camerer to references 2 and 3, and gives hierarchy ("ha") none.
     expect(change).toContain('{ newton: 2, camerer: 3 }');
     expect(CHANGE_REASONS.map((r) => r.refs)).toEqual([[], [2], [3]]);
     expect(CHANGE_REFERENCES).toHaveLength(3);
+  });
+
+  it.each([
+    ['builders', 'src/app/tree/landing-lab/fable/LandingFable.tsx', 'src/app/pages/build-right-thing-landing.tsx', [
+      'Prevent rework before work begins', 'Get your team off the treadmill.', 'failed startups built something the market never wanted.',
+    ]],
+    ['change managers', 'src/app/tree/landing-lab/fable/LandingFableChange.tsx', 'src/app/pages/change-managers-page.tsx', [
+      'For change managers', 'AI rollouts, new processes, reorganisations. People say yes in the meeting and mean different things.',
+      'of change projects missed at least one objective or failed entirely. The top obstacle was changing mindsets and attitudes, not technology.',
+      'Reveal gaps in understanding',
+    ]],
+  ] as const)('%s: the hero lines, the stat sentence and the whole chat story', (_name, prototypePath, productionPath, lines) => {
+    const prototype = read(prototypePath);
+    const production = flat(productionPath);
+    // Every prop of the chat story, taken from the prototype's own source so a new prop is covered too.
+    const chatProps = [...prototype.matchAll(/^\s+((?:variant|heading|contact|subtitle|received|honest|sent|consequence|thoughtTitle|thoughtBody)=.+)$/gm)].map((m) => m[1]!.trim());
+    expect(chatProps.length, 'the chat props were parsed').toBe(10);
+    expect(missing(production, chatProps)).toEqual([]);
+    expect(missing(production, [...lines])).toEqual([]);
+    expect(missing(flat(prototypePath), [...lines])).toEqual([]);
   });
 
   it('the five-step norm path, with who has picked it up at each step', () => {
