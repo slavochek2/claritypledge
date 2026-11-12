@@ -381,11 +381,13 @@ test.describe('P1337: rounds, seats, topics, presence', () => {
     const h = await clientFor(host);
     const pair = [{ m: member.a, t: 1, r: 'first' }, { m: member.b, t: 1, r: 'second' }];
     const base = { p_event_id: eventId, p_group_size: 2, p_seats: pair, p_seating_s: 60, p_speaker_s: 300, p_observer_s: 60, p_split_speakers: false, p_match_tag: null, p_showcase: false };
-    // Out-of-range reading time is refused by the column check; nothing is written.
-    expect((await h.rpc('host_start_round', { ...base, p_round_no: 5, p_reading_s: 4000 })).error).not.toBeNull();
+    // (The out-of-range refusal needs a mastermind event: see p1529-db-schema.spec.ts.)
     const started = await h.rpc('host_start_round', { ...base, p_round_no: 5, p_reading_s: 120 });
     expect(started.error).toBeNull();
     const id = started.data as string;
+    // A reading part belongs to the sales mastermind only: any other flow stores 0 (L2). The arithmetic below is exercised with the column set directly.
+    expect((await supabaseAdmin.from('event_rounds').select('reading_s').eq('id', id).single()).data).toEqual({ reading_s: 0 });
+    await supabaseAdmin.from('event_rounds').update({ reading_s: 120 }).eq('id', id);
     const read = async () => (await supabaseAdmin.from('event_rounds').select('reading_s, first_s, second_s, observer_s').eq('id', id).single()).data!;
     expect(await read()).toEqual({ reading_s: 120, first_s: 300, second_s: 300, observer_s: 60 });
     const setStart = (secondsAgo: number) => supabaseAdmin.from('event_rounds').update({ started_at: new Date(Date.now() - secondsAgo * 1000).toISOString() }).eq('id', id);
@@ -412,6 +414,15 @@ test.describe('P1337: rounds, seats, topics, presence', () => {
     // A reading part at its maximum is refused like any other part (54000).
     await supabaseAdmin.from('event_rounds').update({ reading_s: 3600, started_at: new Date(Date.now() - 100 * 1000).toISOString() }).eq('id', id);
     expect((await h.rpc('host_extend_round', { p_round_id: id, p_phase: 'reading' })).error?.code).toBe('54000');
+    // Split off during the talk (the mastermind's shape): "-1 min" takes a minute off the shared part, never below what has passed (finding 2).
+    await supabaseAdmin.from('event_rounds').update({ reading_s: 0, split_speakers: false, first_s: 300, second_s: 300, seating_s: 60, observer_s: 0, started_at: new Date(Date.now() - (60 + 100) * 1000).toISOString() }).eq('id', id);
+    expect((await h.rpc('host_shorten_round', { p_round_id: id })).error).toBeNull();
+    expect(await read()).toMatchObject({ first_s: 300, second_s: 240 });
+    await setStart(60 + 530);
+    expect((await h.rpc('host_shorten_round', { p_round_id: id })).error).toBeNull();
+    const shared = await read();
+    expect(shared.second_s).toBeGreaterThanOrEqual(230);
+    expect(shared.second_s).toBeLessThan(240);
     // A round started the old way (no reading argument) has none, and its clock is the old one.
     expect((await h.rpc('host_end_rounds', { p_event_id: eventId })).error).toBeNull();
     const old = await h.rpc('host_start_round', { p_event_id: eventId, p_round_no: 6, p_group_size: 2, p_seats: pair, p_seating_s: 60, p_speaker_s: 300, p_observer_s: 0 });

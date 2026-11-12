@@ -13,7 +13,7 @@ export function PreparationBanner({ to, step }: { to: string; step?: PrepStep | 
   return <BackBanner to={to} ariaLabel="Back to preparation" testId="preparation-banner" line={step ? `Step ${step.step} of ${step.total} · Publish, then share` : 'Your Clarity Canvas · Publish, then share'} />;
 }
 
-/** One blue row: a back arrow on the left and one line. The preparation's banner and the room's "Back to your table" are this row. */
+/** One blue row: a back arrow on the left and one line. The preparation banner is this row. */
 export function BackBanner({ to, ariaLabel, testId, line }: { to: string; ariaLabel: string; testId: string; line: string }) {
   const navigate = useNavigate();
   return (

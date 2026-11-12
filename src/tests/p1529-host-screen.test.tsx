@@ -768,8 +768,9 @@ describe('the projector (§5)', () => {
     expect(document.body.textContent ?? '').not.toContain('The lower one counts');
     expect(screen.getAllByTestId('screen-seat').map(s => s.getAttribute('data-role'))).toEqual(['first', 'second', 'observer', 'first', 'second']);
     const text = document.body.textContent ?? '';
-    expect(text).toContain('Clarity Canvas owner');
-    expect(text).toContain('Partner');
+    // UAT 2026-11-11: a small lowercase role word under each name; the caps headings and the "then N min" line are gone.
+    expect(screen.getAllByTestId('screen-seat-role').map(r => r.textContent)).toEqual(['Clarity Canvas owner', 'partner', 'observer', 'Clarity Canvas owner', 'partner']);
+    expect(screen.queryByTestId('screen-time-left')).toBeNull();
     expect(text).not.toMatch(/swap|speaker 1|speaker 2|listener|challenge phase|understanding/i);
     expect(screen.queryAllByTestId('screen-bell')).toHaveLength(1);
   });

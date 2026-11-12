@@ -18,6 +18,8 @@ export interface SessionBarAction {
   testId?: string;
   /** Read by assistive tech and shown on hover; keeps the bar to one line (P1388). */
   description?: string;
+  /** Idle bar only: the filled primary instead of the outline (the moment the action matters). */
+  emphasis?: boolean;
 }
 
 export interface SessionBarProps {
@@ -50,6 +52,16 @@ export interface SessionBarProps {
 
 const END_BUTTON_CLASS =
   'flex items-center gap-1.5 whitespace-nowrap text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/5 focus-visible:text-destructive focus-visible:bg-destructive/5 rounded-lg h-9 px-3 transition-colors disabled:opacity-50 sm:ml-0 ml-auto';
+
+const textRowClass = (idle: boolean) => (idle ? 'flex min-w-0 items-center gap-2' : 'flex items-center gap-2');
+const textClass = (idle: boolean) => (idle ? 'min-w-0 truncate text-sm font-medium text-slate-700' : 'text-sm font-medium text-blue-900');
+const actionsClass = (idle: boolean) => `flex flex-wrap items-center gap-x-4 gap-y-1 sm:flex-row sm:flex-nowrap${idle ? ' shrink-0' : ''}`;
+
+function primaryButtonClass(idle: boolean, emphasis?: boolean): string {
+  if (idle && emphasis) return 'shrink-0 whitespace-nowrap bg-blue-600 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-700 transition-colors disabled:opacity-50';
+  if (idle) return 'shrink-0 whitespace-nowrap border border-blue-300 bg-white text-blue-700 text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-50 transition-colors disabled:opacity-50';
+  return 'w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-700 transition-colors disabled:opacity-50';
+}
 
 export function SessionBar({
   text,
@@ -97,20 +109,20 @@ export function SessionBar({
             {detail && <div className="text-xs text-slate-600">{detail}</div>}
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className={textRowClass(idle)}>
             {showDot && !idle && (
               <span
                 aria-hidden="true"
                 className="inline-block h-2 w-2 rounded-full bg-blue-500 motion-safe:animate-pulse motion-reduce:animate-none"
               />
             )}
-            <span className={idle ? 'text-sm font-medium text-slate-700' : 'text-sm font-medium text-blue-900'}>{text}</span>
+            <span className={textClass(idle)}>{text}</span>
             {adornment}
           </div>
         )}
 
         {hasActions && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:flex-row sm:flex-nowrap">
+          <div className={actionsClass(idle)}>
             {/* P1388: wraps rather than overflows — at 320px Pause + Open + Stop transcribing do
                 not fit one row, and the stop control was pushed off-screen. */}
             {extra}
@@ -122,11 +134,7 @@ export function SessionBar({
                 data-testid={primary.testId}
                 title={primary.description}
                 aria-describedby={primary.description ? descriptionId : undefined}
-                className={
-                  idle
-                    ? 'shrink-0 border border-blue-300 bg-white text-blue-700 text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-50 transition-colors disabled:opacity-50'
-                    : 'w-full sm:w-auto bg-blue-500 text-white text-sm font-medium rounded-md h-8 px-4 hover:bg-blue-700 transition-colors disabled:opacity-50'
-                }
+                className={primaryButtonClass(idle, primary.emphasis)}
               >
                 {primary.label}
               </button>

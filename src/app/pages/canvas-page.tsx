@@ -73,13 +73,14 @@ import {
   type CanvasData, adoptionSkipsRead,
 } from '@/app/components/canvas/canvas-page-data';
 import { composerVisibilityCopy, sharedIconLabel } from '@/lib/canvas-audience-copy';
-import { CANVAS_BOXES, CANVAS_LAYERS, canvasBoxOf, canvasPath, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
+import { CANVAS_BOXES, CANVAS_LAYERS, canvasPath, groupPointsByBox, normalizeProjectTag, type CanvasBoxTag } from '@/lib/canvas-boxes';
 import type { PointWithUserPosition } from '@/app/types';
 import { CanvasPageBack } from '@/app/components/canvas/canvas-page-back';
 import { useCompareSetup, useMarkCanvasRead } from './canvas/canvas-page-read';
 import { useCanvasDraftSync } from './canvas/use-canvas-draft-sync';
 import { cardOwnerOf, useOwnerIdentity } from './canvas/use-owner-identity';
 import { useEditedPointFollow } from './canvas/use-edited-point-follow';
+import { openPointStep } from './canvas/canvas-point-position';
 import { canvasPageClass, useCanvasWorkspace, useReportCanvasReady, useWorkspaceReload } from '@/app/components/canvas/canvas-workspace-context';
 
 /** Reading order: layer by layer, box by box (sixth round R1). The same order at every width (a
@@ -513,12 +514,7 @@ export function CanvasPage() {
           closeLabel={openPoint ? 'Close point' : 'Close box'}
           covered={storyDialog !== null || readerStoryDialog !== null}
           step={openPoint
-            ? {
-              box: BOX_TITLES.get(canvasBoxOf(openPoint.systemTags) as CanvasBoxTag),
-              boxTag: canvasBoxOf(openPoint.systemTags) as CanvasBoxTag,
-              onPrevious: previousPoint ? () => openPanel(previousPoint.id) : undefined,
-              onNext: nextPoint ? () => openPanel(nextPoint.id) : undefined,
-            }
+            ? openPointStep(openPoint, boxes, previousPoint?.id, nextPoint?.id, openPanel)
             : { box: openBoxTitle, boxTag: openBox ?? undefined }}
         >
           {!openPoint && openBox ? (

@@ -76,17 +76,19 @@ export function CanvasOwnerBar({ ready, handle, projectTag, title, canRename, on
   // While the page is still reading nothing is known, so the second row's room is kept (most owners have one): the bar does not grow when the read lands.
   // Compare makes a second row too (P1613): beside the version there is no room for it below 1280px.
   const oneRow = !!row && row.items.length === 0 && !active && !row.compare;
+  // Phones (below sm), a published version whose only items are Clone and Share: row 1 is `← name ✎ [vN ▾]` grouped left and `Clone Share` right, Compare takes row 2 alone.
+  const phoneInline = !!row && !oneRow && row.spot === 'share' && row.items.every(i => i === 'clone');
   const actions = (
     <BarActions
-      oneRow={oneRow} row={row} ready={ready} slots={{ onOpenPanel, onGoToDraft, cancel, discard }}
+      oneRow={oneRow} phoneInline={phoneInline} row={row} ready={ready} slots={{ onOpenPanel, onGoToDraft, cancel, discard }}
       handle={handle} projectTag={projectTag} title={title} onChanged={onChanged} spotState={spotState} publishing={publishing} onPublish={onPublish}
     />
   );
   return (
     <div className={cn(BAR, !active && STICKY_TOP)} data-testid="workspace-bar" data-owner-bar="">
-      <BarRow1 ready={ready} row={row} title={title} canRename={canRename} onRename={onRename} onPick={onPick} onBack={onBack}>{oneRow && actions}</BarRow1>
+      <BarRow1 phoneInline={phoneInline} ready={ready} row={row} title={title} canRename={canRename} onRename={onRename} onPick={onPick} onBack={onBack}>{oneRow && actions}</BarRow1>
       {row?.compare && compare && (
-        <div className="order-5 flex min-w-0 max-w-full items-center xl:order-2 xl:max-w-[18rem]" data-testid="canvas-bar-compare">
+        <div className="order-5 flex min-w-0 max-w-full items-center max-sm:basis-full max-sm:[&>div]:w-full max-sm:[&_label]:w-full xl:order-2 xl:max-w-[18rem]" data-testid="canvas-bar-compare">
           <ComparePicker {...compare} />
         </div>
       )}

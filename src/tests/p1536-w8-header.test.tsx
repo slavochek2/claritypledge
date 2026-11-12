@@ -345,10 +345,10 @@ describe('S3b.7: the owner\'s header, draft and published', () => {
     await grid();
     await screen.findByTestId('canvas-clone');
     // the placement is the sticky offset and its inside-the-shell variant (review fix 9: no empty band above the header there)
-    const strip = (c: string) => c.split(/\s+/).filter(t => !['sticky', 'top-14'].includes(t) && !t.startsWith('[[data-shell-top-nav=none]_&]:top-')).sort().join(' ');
+    const strip = (c: string) => c.split(/\s+/).filter(t => !['sticky', 'top-[calc(3.5rem+var(--canvas-banner-h,0px))]'].includes(t) && !t.startsWith('[[data-shell-top-nav=none]_&]:top-')).sort().join(' ');
     expect(strip(bar().className)).toBe(strip(draftClass));
     expect(bar().className).toContain('sticky'); // sticky as the workspace is: under the shell's top bar
-    expect(bar().className).toContain('top-14');
+    expect(bar().className).toContain('top-[calc(3.5rem+var(--canvas-banner-h,0px))]');
   });
 
   it('there is one ← and one h1 on a published owner view (the page\'s own Back is not drawn twice)', async () => {

@@ -17,7 +17,7 @@ import { CanvasWorkspaceLayout } from '@/app/components/canvas/canvas-workspace-
 import { CanvasPage } from '@/app/pages/canvas-page';
 import { CloneDraftSheet } from './clone-draft-sheet';
 import { WorkspacePreparationBanner } from './PreparationBanner';
-import { TableBanner } from './TableBanner';
+import { RoundReturnBar, RoundReturnLive } from './RoundReturnBar';
 import { WorkspaceChat } from './workspace-chat';
 import { WorkspaceOwnerBar } from './workspace-owner-bar';
 import { WorkspaceProviders } from './workspace-providers';
@@ -30,9 +30,11 @@ export function CanvasWithThread() {
   const { spot, publishing: isPublishing, publish } = publishing;
   return (
     <WorkspaceProviders value={w.workspace} bus={w.bus}>
+      <RoundReturnLive bar={w.roundBar} />
       <CanvasWorkspaceLayout
         active={active}
-        banner={backTo ? <WorkspacePreparationBanner to={backTo} state={navState} canvasKey={`${handle}/${projectTag}`} /> : table ? <TableBanner to={table.to} eventId={table.eventId} /> : null}
+        roundBar={w.roundBar ? <RoundReturnBar {...w.roundBar} /> : null}
+        banner={backTo ? <WorkspacePreparationBanner to={backTo} state={navState} canvasKey={`${handle}/${projectTag}`} /> : null}
         view={view}
         panelOpen={panelOpen}
         bar={ownerBar ? (

@@ -242,10 +242,13 @@ export function compareSetup(
   viewerId: string | undefined,
   handle: string | undefined,
   requestedWith: string | null,
+  /** P1529: the table's counterpart: always listed, positions or not. */
+  extra: CanvasPerson | null = null,
 ): { baseId: string; others: CanvasPerson[]; withPerson: CanvasPerson | null; basePerson: Person | null } {
   const baseId = viewerId ?? ready?.ownerId ?? '';
   if (!ready) return { baseId, others: [], withPerson: null, basePerson: null };
   const people = peopleOf(ready, handle);
+  if (extra && !people.has(extra.id)) people.set(extra.id, extra);
   const others = isViewingDraft(ready)
     ? []
     : [...people.values()]

@@ -127,11 +127,14 @@ export function PhaseStrip({
   timing,
   hasObserver,
   large,
+  noLabels,
 }: {
   clock: RoundClock;
   timing: RoundTiming;
   hasObserver: boolean;
   large?: boolean;
+  /** The projector of the mastermind: bars only, the top line names the part. */
+  noLabels?: boolean;
 }) {
   const parts = talkingParts(timing).filter(p => (hasObserver || p.phase !== 'observer') && p.ms > 0);
   const current = parts.findIndex(p => p.phase === clock.phase);
@@ -147,7 +150,7 @@ export function PhaseStrip({
             key={p.phase}
             className="min-w-0"
             // On the projector every part keeps room for its label ("Find your table" is one minute).
-            style={{ flexGrow: p.ms / 60_000, flexBasis: 0, minWidth: large ? '11em' : undefined }}
+            style={{ flexGrow: p.ms / 60_000, flexBasis: 0, minWidth: large && !noLabels ? '11em' : undefined }}
             aria-current={active ? 'step' : undefined}
           >
             <div className={cn('overflow-hidden rounded-full bg-gray-200', large ? 'h-5' : 'h-2')}>
@@ -155,7 +158,7 @@ export function PhaseStrip({
             </div>
             {/* Labelled on the projector only: on the host panel the part's name sits beside the
                 clock, and "Obser…" truncated at 320px (visual QA). */}
-            {large && (
+            {large && !noLabels && (
               <p className={cn('mt-1 truncate text-lg sm:text-xl', active ? 'font-semibold text-blue-700' : 'text-muted-foreground')}>
                 {p.label}
                 {/* The finding minute needs no "· 1 min": the clock beside the strip counts it. */}

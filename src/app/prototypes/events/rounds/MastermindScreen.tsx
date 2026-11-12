@@ -8,7 +8,6 @@
  */
 import { type CSSProperties } from 'react';
 import { roundTiming } from '@/lib/round-clock';
-import { screenTimeLeft } from './screen-time-left';
 import { Bell, BellOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EventRoomMember } from '@/app/types';
@@ -18,13 +17,16 @@ import { SCREEN_CARD_MAX_EM, SCREEN_GAP, SCREEN_PAD, screenLayout } from '@/lib/
 import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
 import { Avatar, ClockNumber, PhaseStrip, groupByTable, tableSeats, useBell, useClock, useRoundBell, useViewport } from './host-screen-parts';
 import { firstName, shortName } from './use-event-rounds';
-import { COLUMN_LABELS, SCREEN_PART_CAPTION } from './mastermind-host-helpers';
+import { SCREEN_PART_CAPTION } from './mastermind-host-helpers';
 
 /** The header: the round name, the time left and the clock on one row, the phase strip full width on a row under it. */
 const MASTERMIND_HEADER = 190;
 
-/** screenLayout counts 2.1 type-heights per seat; a role name above the face makes it about 3. */
-const SEAT_HEIGHT_WITH_ROLE = 3 / 2.1;
+/** screenLayout counts 2.1 type-heights per seat; a role word under the name makes it about 2.7. */
+/** The small lowercase role word under each name. */
+const SEAT_ROLE_WORD: Record<Seat['role'], string> = { first: 'Clarity Canvas owner', second: 'partner', observer: 'observer' };
+
+const SEAT_HEIGHT_WITH_ROLE = 2.7 / 2.1;
 
 export function MastermindScreen({ round, rounds, seats, byId, room, ended }: {
   round: EventRound | null;
@@ -37,14 +39,13 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended }: {
   const clock = useClock(round, seats);
   const hasObserver = seats.some(s => s.role === 'observer');
   const timing = round ? roundTiming(round) : null;
-  const left = clock && timing ? screenTimeLeft(clock, timing, hasObserver) : null;
   const bell = useBell();
   useRoundBell(round, clock?.phase, bell);
   const { w, h } = useViewport();
   const tables = groupByTable(seats);
   const maxSeats = Math.max(2, ...tables.map(t => tableSeats(t).length));
   const wide = w >= 768;
-  // Each seat carries its role's name above the face (about 0.9 of a type-height more per seat).
+  // Each seat carries a small role word under the name.
   const layout = wide
     ? screenLayout(tables.length, maxSeats * SEAT_HEIGHT_WITH_ROLE, w, h, MASTERMIND_HEADER)
     : { cols: 1, rows: tables.length, fontPx: 20 };
@@ -57,6 +58,7 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended }: {
         maxWidth: layout.cols * SCREEN_CARD_MAX_EM * layout.fontPx + SCREEN_GAP * (layout.cols - 1),
         width: '100%',
         marginInline: 'auto',
+        alignItems: 'start', // each table card is as tall as its people: no empty bottom
       }
     : {};
   return (
@@ -80,23 +82,16 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended }: {
         <>
           <div className={cn('flex flex-col justify-center gap-3', wide && 'overflow-hidden')} style={wide ? { height: MASTERMIND_HEADER - SCREEN_GAP } : undefined}>
             <div className={cn('flex gap-x-10 gap-y-4', wide ? 'items-center' : 'flex-col')}>
-              <h1 className="shrink-0 text-3xl font-semibold text-muted-foreground sm:text-4xl">{roundLabel(rounds, round)}</h1>
-              <div className="min-w-0 flex-1 space-y-1 print:hidden">
-                <p className="truncate text-2xl text-muted-foreground sm:text-3xl" data-testid="screen-part">
-                  {SCREEN_PART_CAPTION[clock.phase] ?? ''}
-                </p>
-                {left && (
-                  <p className="truncate text-2xl font-medium sm:text-3xl" data-testid="screen-time-left">
-                    {left.left} <span className="font-normal text-muted-foreground">· {left.next}</span>
-                  </p>
-                )}
-              </div>
+              <h1 className="min-w-0 flex-1 truncate text-3xl font-semibold text-foreground sm:text-4xl" data-testid="screen-part">
+                {roundLabel(rounds, round)}
+                {SCREEN_PART_CAPTION[clock.phase] ? ` \u00b7 ${SCREEN_PART_CAPTION[clock.phase]}` : ''}
+              </h1>
               <div className="shrink-0 print:hidden">
                 <ClockNumber clock={clock} large />
               </div>
             </div>
             {/* Full width on its own row; below 1024px the parts give up their label room (the labels truncate) instead of overflowing. */}
-            {wide && <div className="min-w-0 print:hidden [&_li]:!min-w-0"><PhaseStrip clock={clock} timing={timing} hasObserver={hasObserver} large /></div>}
+            {wide && <div className="min-w-0 print:hidden [&_li]:!min-w-0"><PhaseStrip clock={clock} timing={timing} hasObserver={hasObserver} large noLabels /></div>}
           </div>
           <div className={cn('grid', wide ? 'min-h-0 flex-1' : 'mt-6')} style={{ ...gridStyle, gap: SCREEN_GAP, marginTop: wide ? SCREEN_GAP : undefined }}>
             {tables.map(table => (
@@ -112,12 +107,14 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended }: {
                     const m = byId.get(s.id);
                     return (
                       <li key={s.id} data-testid="screen-seat" data-role={s.role}>
-                        <p className="text-[0.75em] font-semibold uppercase leading-tight tracking-wide text-gray-700">{COLUMN_LABELS[s.role]}</p>
                         <div className="flex items-center gap-[0.5em]">
                           <span className="shrink-0 [&>div]:!block [&>div]:!h-full [&>div]:!w-full" style={{ width: '2.67em', height: '2.67em', fontSize: '0.6em' }}>
                             <Avatar member={m} className="!h-full !w-full !text-[1em] !ring-offset-1" />
                           </span>
-                          <span className="min-w-0 font-medium leading-tight">{crowded ? shortName(m?.displayName ?? '—') : m?.displayName ?? '—'}</span>
+                          <span className="min-w-0 leading-tight">
+                            <span className="block font-medium" style={{ fontSize: '1.75rem' }}>{crowded ? shortName(m?.displayName ?? '—') : m?.displayName ?? '—'}</span>
+                            <span className="block text-foreground/70" style={{ fontSize: '1.25rem' }} data-testid="screen-seat-role">{SEAT_ROLE_WORD[s.role]}</span>
+                          </span>
                         </div>
                       </li>
                     );

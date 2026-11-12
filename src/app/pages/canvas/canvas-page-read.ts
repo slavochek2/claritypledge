@@ -15,10 +15,10 @@ import { useCanvasDraftsOff } from '@/app/pages/chat/use-canvas-availability';
  * yet, so `with` is ignored for both. The owner's bar (which draws Compare beside the version) reads the same rule through `screenOf`, so no box compares with no control to end it.
  */
 export function useCompareSetup(ready: CanvasReady | null, viewerId: string | undefined, handle: string | undefined, requestedWith: string | null) {
-  const { active, cloneSeq, cloning } = useCanvasWorkspace();
+  const { active, cloneSeq, cloning, tableCounterpart } = useCanvasWorkspace();
   const drafting = !useCanvasDraftsOff();
   const published = !ready || screenOf({ ready, drafting, workspace: active, pendingSeq: cloneSeq, cloning }) === 'published';
-  return compareSetup(ready, viewerId, handle, published ? requestedWith : null);
+  return compareSetup(ready, viewerId, handle, published ? requestedWith : null, tableCounterpart);
 }
 
 /**

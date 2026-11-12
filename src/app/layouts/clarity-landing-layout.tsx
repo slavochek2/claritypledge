@@ -289,12 +289,13 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly, roomS
           extends over the iOS status-bar inset (viewport-fit=cover). Resolves to 4rem/5rem
           on Android/desktop where the inset is 0. */}
       <main className={`flex-1 min-h-0 ${isLivePage ? "overflow-hidden" : ""} ${isChatHome ? "flex flex-col overflow-hidden" : ""} ${topPadding} ${bottomPadding}`}>
+        {/* UAT 2026-11-12: the running recording banner is the very top of the page content, above the shell's Back and the page header. */}
+        {!isLivePage && !isImmersiveLetterRoute && <RoomCaptureBarSlot topNav={signedInShell ? shellTopNav : "all"} />}
         {showShellTopBar && <ShellTopBar />}
         {hasActiveSession && !isLivePage && !isImmersiveLetterRoute && <ActiveSessionBanner />}
         {/* P1307: mounted wherever this layout has room for a bar. On /live and /transcribe
             (own sticky header) and immersive letter screens it is not mounted here — /transcribe
             mounts its own slot, and capture pauses on the other two. */}
-        {!isLivePage && !isImmersiveLetterRoute && <RoomCaptureBarSlot topNav={signedInShell ? shellTopNav : "all"} />}
         <InShellContentContext.Provider value={shellFrame}>{children}</InShellContentContext.Provider>
       </main>
       {/* P1016: /terms is a focus surface shown to a stranger before a meeting, with a

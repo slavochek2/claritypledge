@@ -4,7 +4,7 @@
  * same rules `planMastermindRound` plans by. Pure, no I/O.
  *
  * This looks at THIS round only: repeat partners, partners from the session this one continues, a Clarity Canvas owner
- * with no canvas (the server refuses that one at Start), a canvas holder observing twice, people with no seat, too few
+ * with no canvas (advice only: the server no longer refuses it), a canvas holder observing twice, people with no seat, too few
  * canvases, an owner who owns again in a part, and the one forward-looking rule that is certain by now: nobody can still
  * own in a part once its last round (2 or 4) is seated. What the LATER rounds will break is only known to the planner, so it is not recomputed here.
  */

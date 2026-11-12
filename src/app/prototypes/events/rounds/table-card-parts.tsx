@@ -1,0 +1,122 @@
+/**
+ * @file table-card-parts.tsx
+ * @description P1529: the pieces of the participant's Table card, apart from the round poll that feeds them: the header (table left, time right, the part bar under), my role (bold, with an (i) button), everyone at the table (avatar, name, role), and the canvas actions (a real button, primary
+ * only while reading; "See other canvases" as a blue link). Wording is a draft: [FOUNDER DECISION: copy].
+ */
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Info } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { PersonAvatar } from '@/components/ui/person-avatar';
+import { formatClock, type RoundClock, type RoundTiming } from '@/lib/round-clock';
+import { PhaseStrip } from './host-screen-parts';
+import type { PersonRef, EventRoomMember } from '@/app/types';
+import type { RoundSeat } from '@/app/data/event-rounds-service';
+import { MISSING_NAME, ROLE_EXPLAINER, ROLE_WORD, tableFaces, type MastermindRole } from './mastermind-round-helpers';
+
+/** Table name large on the left, the time left on the right; under them the projector's own part bar (no labels). */
+export function TableStatus({ table, clock, timing, hasObserver }: { table: number; clock: RoundClock | null; timing: RoundTiming; hasObserver: boolean }) {
+  return (
+    <div data-testid="round-card-status">
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="text-3xl font-semibold" data-testid="round-card-table">Table {table}</h2>
+        {clock && <p className="text-3xl font-semibold tabular-nums" data-testid="round-card-time">{clock.phase === 'over' ? 'Time\u2019s up' : formatClock(clock.phaseRemainingMs)}</p>}
+      </div>
+      {clock && <div className="mt-2" data-testid="round-card-parts"><PhaseStrip clock={clock} timing={timing} hasObserver={hasObserver} noLabels /></div>}
+    </div>
+  );
+}
+
+export interface TableFace { id: string; you: boolean; role: MastermindRole; name: string; person: PersonRef }
+
+/** The table's seats as faces (You first), each with the roster's avatar and pledge ring. */
+export function buildFaces(seats: RoundSeat[], mineId: string, roster: EventRoomMember[], nameOf: (id: string) => string): TableFace[] {
+  return tableFaces(seats, mineId).map(f => {
+    const m = roster.find(r => r.id === f.seat.id);
+    const person = { name: m?.displayName || MISSING_NAME, slug: m?.profileSlug ?? undefined, avatarColor: m?.profileAvatarColor ?? undefined, avatarUrl: m?.profileAvatarUrl, hasPledged: m?.profileHasPledged ?? false };
+    return { id: f.seat.id, you: f.you, role: f.role, name: nameOf(f.seat.id), person };
+  });
+}
+
+/** My own role, bold on one line; the (i) is a small icon button that opens the role's explanation. */
+export function MyRole({ role }: { role: MastermindRole }) {
+  return (
+    <p className="mt-2 flex items-center gap-1 text-lg font-bold" data-testid="round-card-my-role">
+      <span>You&rsquo;re the {ROLE_WORD[role]}</span>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button type="button" variant="ghost" size="icon" aria-label={`What the ${ROLE_WORD[role]} does`} className="h-10 w-10 text-muted-foreground" data-testid="role-info">
+            <Info className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="text-sm font-normal" data-testid="role-info-text">{ROLE_EXPLAINER[role]}</PopoverContent>
+      </Popover>
+    </p>
+  );
+}
+
+/** The blue instruction box: one plain line, or numbered steps. */
+export function InstructionBox({ steps }: { steps: string[] }) {
+  return (
+    <div className="mt-3 rounded-lg bg-blue-50 p-3 text-base font-medium" data-testid="round-card-instruction">
+      {steps.length > 1
+        ? <ol className="list-decimal space-y-2 pl-5">{steps.map(t => <li key={t}>{t}</li>)}</ol>
+        : <p>{steps[0]}</p>}
+    </div>
+  );
+}
+
+/** Everyone at the table, me included: a 32px avatar (pledge ring) and the name ("You" for me, bold, no role: the heading says it); the others' role, muted. */
+export function TablePeople({ faces }: { faces: TableFace[] }) {
+  return (
+    <ul className="mt-2 space-y-2" data-testid="round-card-others">
+      {faces.map(f => (
+        <li key={f.id} className="flex items-center gap-2 text-base" data-testid="round-card-person" data-name={f.you ? 'You' : f.name} data-role={f.role}>
+          <PersonAvatar person={f.person} size="sm" className="!h-8 !w-8" />
+          <span className={f.you ? 'font-bold' : 'font-medium'}>{f.you ? 'You' : f.name}</span>
+          {!f.you && <span className="text-sm text-muted-foreground">{ROLE_WORD[f.role]}</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export interface CanvasTarget { to: string | null; label: string; onOpen?: () => void }
+
+/** The table's canvas: always the primary filled button, centred; nothing for the observer in their own part. */
+export function CanvasOpen({ offer, target, linkState }: { offer: 'primary' | 'none'; target: CanvasTarget; linkState: unknown }) {
+  if (!target.to || offer === 'none') return null;
+  return (
+    <div className="mt-4 flex justify-center">
+      <Button asChild className="min-h-12 w-full text-base sm:w-auto">
+        <Link to={target.to} state={linkState} onClick={target.onOpen} data-testid="round-canvas-link">{target.label}</Link>
+      </Button>
+    </div>
+  );
+}
+
+export interface OtherLink { id: string; label: string; to: string | null }
+
+const LINK = 'inline-flex min-h-10 items-center text-sm font-medium text-blue-600 underline';
+
+/** "See other canvases": a centred blue text link that opens a list; each row is its own blue underlined link. The main button never changes. */
+export function OtherCanvases({ others, linkState }: { others: OtherLink[]; linkState: unknown }) {
+  const [open, setOpen] = useState(false);
+  const linkable = others.filter(o => o.to);
+  if (linkable.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-col items-center">
+      <button type="button" className={LINK} aria-expanded={open} onClick={() => setOpen(o => !o)} data-testid="round-canvas-others-toggle">
+        See other Clarity Canvases &rarr;
+      </button>
+      {open && (
+        <ul className="mt-1 w-full space-y-1 text-center" data-testid="round-canvas-others">
+          {linkable.map(o => (
+            <li key={o.id}><Link to={o.to!} state={linkState} className={LINK} data-testid="round-canvas-other-link">{o.label}</Link></li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

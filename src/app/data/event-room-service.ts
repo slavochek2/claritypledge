@@ -199,6 +199,11 @@ export async function getRoomRoster(eventId: string): Promise<EventRoomMember[]>
   return (await fetchRoomRoster(eventId)) ?? [];
 }
 
+/** One roster read that says when it FAILED (null), unlike `getRoomRoster`, whose `[]` cannot tell a failed read from an empty room. Never rejects. */
+export function tryRoomRoster(eventId: string): Promise<EventRoomMember[] | null> {
+  return fetchRoomRoster(eventId);
+}
+
 /** Longest a single roster fetch may take before it counts as failed. */
 export const ROSTER_FETCH_TIMEOUT_MS = 10_000;
 

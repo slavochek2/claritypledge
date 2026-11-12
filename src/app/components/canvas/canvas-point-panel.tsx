@@ -40,7 +40,7 @@ export function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Cl
   /** what the panel shows: a point's id, or `box:<tag>` for a box's list */
   viewKey: string;
   closeLabel?: string;
-  step: { box?: string; boxTag?: CanvasBoxTag; onPrevious?: () => void; onNext?: () => void };
+  step: { box?: string; boxTag?: CanvasBoxTag; position?: { index: number; total: number }; onPrevious?: () => void; onNext?: () => void };
   /** A dialog the page opened over the panel (the story composer): its keys are its own. */
   covered?: boolean;
 }) {
@@ -154,7 +154,15 @@ export function PointPanel({ children, onClose, label, viewKey, closeLabel = 'Cl
           <span className="flex min-w-0 flex-1 items-center gap-2.5 px-2" data-testid="canvas-panel-box">
             {step.boxTag && <BoxIcon tag={step.boxTag} />}
             {/* P1535: box titles run to 35 characters; two lines fit them at 320px. */}
-            <span className="line-clamp-2 break-words text-base font-semibold tracking-tight text-foreground">{step.box}</span>
+            <span className="flex min-w-0 flex-col">
+              <span className="line-clamp-2 break-words text-base font-semibold tracking-tight text-foreground">{step.box}</span>
+              {step.position && (
+                // Phones: the sheet is full screen, so say where Next / Previous has brought you.
+                <span className="text-xs text-muted-foreground lg:hidden" data-testid="canvas-panel-position">
+                  {step.position.index} of {step.position.total}
+                </span>
+              )}
+            </span>
           </span>
           <button
             type="button"

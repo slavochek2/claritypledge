@@ -54,7 +54,9 @@ export function isBottomNavHiddenRoute(pathname: string, search: string): boolea
     // who's-here list at 375px.
     // P1387: /confirm too — the 'Do you have 10 minutes to prepare?' screen is the first step of
     // the preparation, and its pinned Prepare now must not compete with the menu.
-    || /^\/(ready|events\/[^/]+\/(prepare|confirm|host))\/?$/.test(pathname)
+    // P1529 (founder, 2026-11-12): inside an event's room (/room, /ready, /meet incl. ?view=feedback) the tabs and the
+    // Today's-event strip are hidden on phones; "← Event" is the way out. Reverses the P1542 "tabs stay" note above.
+    || /^\/(ready|events\/[^/]+\/(prepare|confirm|host|room|ready|meet))\/?$/.test(pathname)
     // P1389: the evening close is focused while its steps run; its thank-you (?done=1) has the menus.
     || (/^\/events\/[^/]+\/close\/?$/.test(pathname) && !letterDone)
     // P1402: the standalone /prepare is focused while its steps run; its end screen (?done=1) is a

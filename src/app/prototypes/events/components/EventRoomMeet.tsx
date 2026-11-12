@@ -318,6 +318,8 @@ export function EventRoomMeet() {
   const [learnMounted, setLearnMounted] = useState(false);
   // Round 8b (Gemini MED 4): the learning's step header is portalled into the room's sticky head, so it stays pinned.
   const [learnHeadSlot, setLearnHeadSlot] = useState<HTMLDivElement | null>(null);
+  // After the Feedback tab's block: the mastermind's next-version card is portalled here, so feedback comes first in DOM and focus order.
+  const [afterFeedbackSlot, setAfterFeedbackSlot] = useState<HTMLDivElement | null>(null);
   const barObserver = useRef<ResizeObserver | null>(null);
   const setBarRef = useCallback((node: HTMLDivElement | null) => {
     barObserver.current?.disconnect();
@@ -525,11 +527,7 @@ export function EventRoomMeet() {
       {/* Founder, solo test 2026-11-02 (supersedes P1562 §1 and UAT 2026-10-29): "← Event" on the tabs row, always to the
           event, the arrow alone below 360px; the transcription bar (running, or idle for a series that transcribes; a
           hike has none) directly under that row, full width, on desktop and phones. */}
-      <RoomHeadRow
-        className="mx-auto w-full max-w-2xl px-4 pt-3 pb-2 lg:max-w-none lg:px-8"
-        onBack={roomBack.backToEvent}
-        tabs={stepBar}
-      />
+      {/* UAT 2026-11-11 (supersedes the line above): the recording banner, running or idle, is the very top, so starting swaps one for the other in place: the recording banner is the very top, full width, with no navigation in it; the Back and the tabs sit under it. */}
       <RoomHeadCapture
         eventId={event?.id}
         idle={event && !isFrozen && !moment.eveningOver && roomRecipe.room.transcribe ? (
@@ -538,8 +536,14 @@ export function EventRoomMeet() {
             displayName={user?.name || user?.email || 'Participant'}
             onFailed={() => setStartFailed(true)}
             roundUpdates={roomRecipe.mastermind}
+            emphasize={moment.live && moment.seated}
           />
         ) : undefined}
+      />
+      <RoomHeadRow
+        className="mx-auto w-full max-w-2xl px-4 pt-3 pb-2 lg:max-w-none lg:px-8"
+        onBack={roomBack.backToEvent}
+        tabs={stepBar}
       />
       {/* Round 8b: the embedded learning's step header (step name + progress) lands here, inside the sticky head. */}
       {(learnsInBar || feedback) && <div ref={setLearnHeadSlot} data-testid="room-learn-head" />}
@@ -628,6 +632,7 @@ export function EventRoomMeet() {
               view={viewing === 'table' || viewing === 'compare' ? viewing : 'hidden'}
               onMoment={setMoment}
               onRoundsStarted={setRoundsStarted}
+              feedbackSlot={viewing === 'close' ? afterFeedbackSlot : null}
             />
           )}
           {viewing === 'close' && (
@@ -640,6 +645,7 @@ export function EventRoomMeet() {
               onLearnFirst={() => openLearn(true)}
             />
           )}
+          <div ref={setAfterFeedbackSlot} className="empty:hidden" data-testid="room-after-feedback-slot" />
           {showAnswered && step === 'answered' && (
             <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border bg-card px-4" data-testid="room-principle-folded">
               <button

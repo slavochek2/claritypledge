@@ -21,16 +21,24 @@ export function mastermindTable(table: RoundSeat[], mine: RoundSeat): Mastermind
   return { role: MASTERMIND_ROLE[mine.role], owner: table.find(s => s.role === 'first') };
 }
 
-const ROLE_WORD: Record<MastermindRole, string> = { owner: 'owner', partner: 'partner', observer: 'observer' };
 const ROLE_ORDER: Record<RoundSeat['role'], number> = { first: 0, second: 1, observer: 2 };
 
-/** One line per person at the table, in role order: "Chiara: owner". The viewer's own line says You. [FOUNDER DECISION: copy] */
-export function tableLines(table: RoundSeat[], mineId: string, nameOf: (id: string) => string): Array<{ id: string; text: string }> {
+/** The table's seats as faces: the viewer first (the face row leads with You), then the others in role order. */
+export function tableFaces(table: RoundSeat[], mineId: string): Array<{ seat: RoundSeat; you: boolean; role: MastermindRole }> {
   return table
-    .map((s, i) => ({ s, i }))
-    .sort((a, b) => ROLE_ORDER[a.s.role] - ROLE_ORDER[b.s.role] || a.i - b.i)
-    .map(({ s }) => ({ id: s.id, text: `${s.id === mineId ? 'You' : nameOf(s.id)}: ${ROLE_WORD[MASTERMIND_ROLE[s.role]]}` }));
+    .map((seat, i) => ({ seat, i }))
+    .sort((a, b) => Number(b.seat.id === mineId) - Number(a.seat.id === mineId) || ROLE_ORDER[a.seat.role] - ROLE_ORDER[b.seat.role] || a.i - b.i)
+    .map(({ seat }) => ({ seat, you: seat.id === mineId, role: MASTERMIND_ROLE[seat.role] }));
 }
+
+/** [FOUNDER DECISION: copy] Each role in a sentence ("You're the …") and as the muted word beside a name. */
+export const ROLE_WORD: Record<MastermindRole, string> = { owner: 'Clarity Canvas owner', partner: 'partner', observer: 'observer' };
+/** [FOUNDER DECISION: copy] The (i) popover under each role pill (the table-ux.md copy). */
+export const ROLE_EXPLAINER: Record<MastermindRole, string> = {
+  owner: 'Your partner explains your canvas back. At 8 or more, they can challenge it.',
+  partner: 'You explain the owner\u2019s canvas back. You challenge only at 8 or more.',
+  observer: 'You keep the listener in their role and the talking time balanced, with a bell. At the end you suggest what to do better.',
+};
 
 /** The name shown when the roster has none for a seat (the host's screens say the same). */
 export const MISSING_NAME = 'Someone';
@@ -96,12 +104,18 @@ export const offerCanChange = (offer: NextVersionOffer | null): boolean =>
  * [FOUNDER DECISION: copy, proposed] The card's words. `label` is the round's label (roundLabel, D12 wording); `partner` the partner's first
  * name, or null when the table had none.
  */
-export const taskTitle = (label: string, partner: string | null): string => (partner ? `${label} with ${partner}: words ready` : `${label}: words ready`);
-export const wordsPreparing = (label: string): string => `The words from ${label} are being prepared (about 2 minutes)`;
+export const taskTitle = (label: string, partner: string | null): string => (partner ? `${label} with ${partner}: transcript ready` : `${label}: transcript ready`);
+export const TASK_MAKE_BODY = 'Make your next version from what was said.';
+export const TASK_WORKING = 'Making your next version\u2026';
+export const TASK_FAILED = 'Could not make your next version.';
+const roundWith = (label: string, partner: string | null): string => (partner ? `${label} with ${partner}` : label);
+export const wordsPreparing = (label: string, partner: string | null = null): string => `${roundWith(label, partner)}: the transcript is on its way. Usually 1 to 3 minutes.`;
 export const wordsMissing = (label: string): string => `The words from ${label} did not arrive. Your canvas stays as it is.`;
+export const nothingToAdd = (label: string, partner: string | null): string => `${roundWith(label, partner)}: nothing to add. What was said didn\u2019t change your canvas.`;
+export const publishedLine = (seq: number | null): string => (seq ? `Version ${seq} is published.` : 'Your next version is published.');
 
 /** `face`: the task face that already says this, so the note is not shown twice once the state is re-read. */
-export interface TaskNote { kind: 'info' | 'error'; text: string; face?: TaskFace }
+export interface TaskNote { kind: 'info' | 'error' | 'nothing_new'; text: string; face?: TaskFace }
 
 const REFUSED: Record<string, string> = {
   demo_round: 'A Demo round does not make a next version.',
@@ -134,7 +148,7 @@ export const PUBLISH_REFUSED: Record<string, string> = {
   stale_view: 'The draft just changed. Look at it again, then publish.',
   busy: 'Your mirror is still working on it. Try again in a moment.',
   draft_empty: 'There is nothing to publish yet.',
-  no_changes: 'Nothing is different from your current version, so there is nothing new to publish.',
+  no_changes: 'Nothing to add. What was said didn\u2019t change your canvas.', // shown as the calm "nothing to add" state, never as an error
 };
 export const RETRY_REFUSED: Record<string, string> = {
   busy: 'Your mirror is busy. Try again in a moment.',
@@ -149,30 +163,49 @@ export const RETRY_REFUSED: Record<string, string> = {
 /** The part of the round as the card tells them apart: the clock's own phase names (round-clock.ts). */
 export type CardPhase = 'seating' | 'reading' | 'first' | 'second' | 'observer' | 'over';
 
+/** First names of the people the instruction speaks of (any may be the fallback name). */
+export interface TableNames { owner: string; partner: string }
+
+const ZERO_TO_TEN = 'from 0 to 10';
+const READ_LINE = (owner: string) => `Read ${owner}\u2019s canvas quietly. Set your position on each point, especially where you disagree.`;
+
 /**
- * [FOUNDER DECISION: copy, proposed] The observer's one line per part of the round. The owner and the partner never see these.
- * `partner` and `owner` are first names. Null where the observer has nothing to do yet (finding the table) or any more.
+ * [FOUNDER DECISION: copy, approved] The instruction for my role in the current part, as numbered steps (one entry = one plain line; two = steps 1, 2).
+ * Names are the first names at the table. Null while finding the table (the header says it) and once the time is up, and for the owner and the partner in the observer's part (they just listen).
  */
-export function observerLine(phase: CardPhase, partner: string, owner: string): string | null {
-  if (phase === 'reading') return 'Silent reading. No talking yet.';
-  if (phase === 'first' || phase === 'second') {
-    return `${partner} explains ${owner}’s Clarity Canvas back to them. ${partner} challenges only once ${owner} rates their understanding 8 out of 10 or higher.`;
+export function instructionLine(role: MastermindRole, phase: CardPhase, n: TableNames): string[] | null {
+  const own = role === 'owner';
+  switch (phase) {
+    case 'reading': return [own ? 'Check your canvas: set your position on every point if not already.' : READ_LINE(n.owner)];
+    case 'first':
+    case 'second':
+      if (role === 'observer') return ['Make sure the listener stays in their role: no disagreeing, no own point of view yet. Keep talking time balanced: no more than 1 minute per person. Ring the bell to remind people of their roles and the time.'];
+      return own
+        ? [
+          `${n.partner} explains your canvas back. Then ask: \u201CHow well do you think you understand my canvas, ${ZERO_TO_TEN}?\u201D`,
+          `At 8 or more, ${n.partner} challenges your canvas. They ask you: \u201CHow well do you think you understand my challenge, ${ZERO_TO_TEN}?\u201D`,
+        ]
+        : [
+          `Explain ${n.owner}\u2019s canvas back in your own words. Then answer: how well you think you understand their canvas, ${ZERO_TO_TEN}.`,
+          `At 8 or more, challenge their canvas: explain where and why you disagree with their points. Then ask ${n.owner}: \u201CHow well do you think you understand my challenge, ${ZERO_TO_TEN}?\u201D`,
+        ];
+    case 'observer':
+      return role === 'observer'
+        ? [`Say what they can do better. If you like, say how well you think you understood the canvas, ${ZERO_TO_TEN}, and what was unclear.`]
+        : null;
+    default: return null;
   }
-  if (phase === 'observer') return 'Your turn: what did you notice?';
-  return null;
+}
+
+/** The canvas button: always offered (primary), except to the observer in their own part. */
+export function canvasOffer(role: MastermindRole, phase: CardPhase): 'primary' | 'none' {
+  return phase === 'observer' && role === 'observer' ? 'none' : 'primary';
 }
 
 /** [FOUNDER DECISION: copy, proposed] A table whose Clarity Canvas owner has no canvas (founder (b): roles stay as usual). */
 export const NO_CANVAS_OWNER_LINE = 'No Clarity Canvas yet: talk about your business idea';
 export const NO_CANVAS_TABLE_LINE = 'Talk it through: no canvas';
-/** [FOUNDER DECISION: copy, proposed] Under a point the Clarity Canvas owner has not taken a position on, for readers. */
-export const NO_OWNER_POSITION_LINE = 'The Clarity Canvas owner hasn’t taken a position yet';
 /** [FOUNDER DECISION: copy, proposed] The owner's reading part when no point changed since their last version (or none lacks a position). */
-export const OWNER_NOTHING_TO_SET_LINE = 'Nothing changed since your last round. Read your canvas as you like.';
-/** [FOUNDER DECISION: copy, proposed] The owner's reading part: what the list is for. */
-export const OWNER_SET_POSITIONS_LINE = 'These points changed since your last version. Where do you stand on them?';
-/** [FOUNDER DECISION: copy, proposed] A reader's reading part: what the list is for. */
-export const READER_SET_POSITIONS_LINE = 'Where do you stand on each point? This is a first impression.';
 
 /** The three taps of a point and the stored position each writes. */
 export const POSITION_TAPS = [
@@ -201,7 +234,8 @@ export function changedPoints<T extends { statement: string }>(current: readonly
   return current.filter(p => !before.has(norm(p.statement)));
 }
 
-/** What the reading part lists. The owner: changed points they have no position on. A reader: every point. */
+/** What the reading part lists. The owner: every point they hold no position on yet (founder, UAT 2026-11-12: "Check your canvas:
+ *  set your position on every point if not already"). A reader: every point. `previous` is no longer used for the owner. */
 export function readingPoints<T extends { id: string; statement: string }>(args: {
   isOwner: boolean;
   points: readonly T[];
@@ -209,5 +243,5 @@ export function readingPoints<T extends { id: string; statement: string }>(args:
   ownerPositionOf: (pointId: string) => string | null;
 }): T[] {
   if (!args.isOwner) return [...args.points];
-  return changedPoints(args.points, args.previous).filter(p => !args.ownerPositionOf(p.id));
+  return args.points.filter(p => !args.ownerPositionOf(p.id));
 }

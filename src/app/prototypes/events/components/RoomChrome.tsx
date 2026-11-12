@@ -51,7 +51,7 @@ export function RoomHeadRow({ onBack, tabs, className }: { onBack: () => void; t
 }
 
 /**
- * The transcription bar of the room, directly under the tabs row, in the sticky head: the running bar (the room takes the
+ * The transcription bar of the room, above the tabs row, in the sticky head: the running bar (the room takes the
  * shell's slot, so it is drawn once, here) or, while nothing is running, the page's own idle bar. The idle bar hides itself
  * while any capture is running, so there is never more than one bar on screen.
  */

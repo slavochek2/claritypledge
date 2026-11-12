@@ -417,14 +417,14 @@ describe('12: ?ws=1 with no version lands on the open draft (W0)', () => {
 // ── 9 / 10: the band above the header, the header's height ───────────────────────────────────────────────────────
 
 describe('9: no empty band above the owner header inside the signed-in shell', () => {
-  const SHELL_TOP = '[[data-shell-top-nav=none]_&]:top-[env(safe-area-inset-top)]';
+  const SHELL_TOP = '[[data-shell-top-nav=none]_&]:top-[calc(env(safe-area-inset-top)+var(--canvas-banner-h,0px))]';
   it('the workspace box sticks at the shell edge (not 56px down) and takes the whole screen there', async () => {
     openDraftState();
     mount(DRAFT_AT);
     await grid();
     const box = await screen.findByTestId('canvas-workspace');
     expect(box.className).toContain(SHELL_TOP);
-    expect(box.className).toContain('[[data-shell-top-nav=none]_&]:h-[calc(100dvh-env(safe-area-inset-top))]');
+    expect(box.className).toContain('[[data-shell-top-nav=none]_&]:h-[calc(100dvh-env(safe-area-inset-top)-var(--canvas-banner-h,0px))]');
   });
 
   it('the owner bar of a published view (sticky, no workspace box) too', async () => {

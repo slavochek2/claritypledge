@@ -17,7 +17,7 @@ import { isViewingDraft, type CanvasReady } from './canvas-page-data';
 import { useCanvasWorkspace } from './canvas-workspace-context';
 
 /** P1613: below 400px the bar's phone row (Compare, Clone, Share) must fit one line at 375, so Clone gives back 8px of padding and 2px of gap there only. */
-const MOBILE_TIGHT = 'max-[399px]:gap-1 max-[399px]:px-3';
+const MOBILE_TIGHT = 'max-[399px]:gap-1 max-[399px]:px-3 max-sm:h-11 max-sm:w-11 max-sm:px-0';
 
 /** Whether this page could offer Clone, drafting and the route's `clone` aside: the owner's published version, not editing. */
 function cloneApplies(ready: CanvasReady, active: boolean): boolean {
@@ -32,14 +32,14 @@ export function CloneButton({ ready }: { ready: CanvasReady }) {
     return (
       <span aria-hidden="true" className={cn(CANVAS_SECONDARY_PILL, MOBILE_TIGHT, 'invisible')} data-testid="canvas-clone-reserve">
         <Copy className="h-4 w-4" aria-hidden />
-        Clone
+        <span className="max-sm:sr-only">Clone</span>
       </span>
     );
   }
   return (
-    <button type="button" className={cn(CANVAS_SECONDARY_PILL, MOBILE_TIGHT)} onClick={clone} data-testid="canvas-clone">
+    <button type="button" className={cn(CANVAS_SECONDARY_PILL, MOBILE_TIGHT)} onClick={clone} aria-label="Clone" data-testid="canvas-clone">
       <Copy className="h-4 w-4" aria-hidden />
-      Clone
+      <span className="max-sm:sr-only">Clone</span>
     </button>
   );
 }

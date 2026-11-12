@@ -64,4 +64,14 @@ describe('the idle transcription banner', () => {
     render(<RoomTranscribeIdleBar eventId="ev-1" displayName="Ana" onFailed={() => {}} />);
     expect(screen.queryByTestId('room-transcribe-idle')).toBeNull();
   });
+
+  it('a round event: "Not recording · Text arrives after the round", "Start your mic"; filled while a round runs and I am seated, outline otherwise', () => {
+    const view = render(<RoomTranscribeIdleBar eventId="ev-1" displayName="Ana" onFailed={() => {}} roundUpdates />);
+    expect(screen.getByTestId('room-transcribe-idle')).toHaveTextContent('Not recording · Text arrives after the round');
+    expect(screen.getByTestId('room-transcribe-start')).toHaveTextContent('Start your mic');
+    expect(screen.getByTestId('room-transcribe-start').className).toContain('border');
+    view.rerender(<RoomTranscribeIdleBar eventId="ev-1" displayName="Ana" onFailed={() => {}} roundUpdates emphasize />);
+    expect(screen.getByTestId('room-transcribe-start').className).toContain('bg-blue-600');
+    expect(screen.getByTestId('room-transcribe-start').className).not.toContain('border');
+  });
 });

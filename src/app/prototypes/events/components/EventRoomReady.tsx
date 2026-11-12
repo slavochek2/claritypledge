@@ -148,14 +148,14 @@ export function EventRoomReady() {
           Back line (UAT 2026-10-01). */}
       {/* P1562 §1: the shell top bar's "Back to the event" (in place when there is no shell), the step bar under it, in
           the room's sticky head — the same head and offset as /meet, so the step bar sits at one y on every room view. */}
-      <RoomStickyHead className="-mx-4 px-4 pt-3 pb-2">
-        {/* Founder, solo test 2026-11-02: "← Event" on the tabs row, the transcription bar (if running) under it. */}
+      <RoomStickyHead className="-mx-4 px-4">
+        {/* UAT 2026-11-11: the recording banner (if running) is the very top, full width; the Back and the tabs sit under it. */}
+        <RoomHeadCapture eventId={event?.id} />
         <RoomHeadRow
-          className="mx-auto w-full max-w-2xl"
+          className="mx-auto w-full max-w-2xl pt-3 pb-2"
           onBack={backToEvent}
           tabs={<RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="min-w-0 flex-1" />}
         />
-        <RoomHeadCapture eventId={event?.id} />
       </RoomStickyHead>
       {/* P1336: the preparation stays one tap away for someone who joined without it. */}
       <div className="mx-auto mt-2 flex w-full max-w-2xl justify-end">

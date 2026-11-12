@@ -126,10 +126,10 @@ describe('§1/§1a: one header in the shell', () => {
     const back = within(head).getByRole('button', { name: 'Back to the event' });
     expect(back).toHaveTextContent('Event');
     expect(within(head).queryByRole('button', { name: 'Back to readiness' })).toBeNull();
-    // The transcription bar sits directly under the tabs row.
+    // The idle transcription bar sits ABOVE the tabs row, where the running banner is (starting swaps it in place).
     const row = within(head).getByTestId('room-head-row');
     expect(row.contains(back)).toBe(true);
-    expect(row.compareDocumentPosition(within(head).getByTestId('room-transcribe-idle')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(row.compareDocumentPosition(within(head).getByTestId('room-transcribe-idle')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
     expect(within(head).getByTestId('room-transcribe-idle')).toHaveTextContent('Not transcribing');
     expect(within(head).getByTestId('room-transcribe-start')).toHaveTextContent('Transcribe');
     expect(within(head).getByTestId('capture-info')).toBeInTheDocument();

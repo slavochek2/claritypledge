@@ -18,6 +18,7 @@ const h = vi.hoisted(() => ({
   getMyDraftRef: vi.fn(),
   getMyEventCanvas: vi.fn(),
   publishCanvasDraft: vi.fn(),
+  discardCanvasDraft: vi.fn(),
   retryCanvasRun: vi.fn(),
   getCanvasDraftState: vi.fn(),
   classicProps: vi.fn(),
@@ -46,6 +47,7 @@ vi.mock('@/app/contexts/room-capture-context', () => ({ useRoomCapture: () => h.
 vi.mock('@/app/data/canvas-service', () => ({ canvasService: { listSharedWithEvent: h.listSharedWithEvent, getCanvas: h.getCanvas, setPosition: h.setPosition } }));
 vi.mock('@/app/data/canvas-draft-service', () => ({
   publishCanvasDraft: h.publishCanvasDraft,
+  discardCanvasDraft: h.discardCanvasDraft,
   retryCanvasRun: h.retryCanvasRun,
   getCanvasDraftState: h.getCanvasDraftState,
 }));
@@ -77,6 +79,10 @@ function liveRound(rounds: EventRound[] = [round()], seats: Record<string, Round
 }) {
   h.state = { rounds, seatsByRound: new Map(Object.entries(seats)), topics: new Map() } satisfies EventRoundsState;
 }
+
+/** A round that started `secondsAgo` ago, with a 60 s finding minute, a 180 s reading part, 360 s of talk and 180 s of observer. */
+const startedAgo = (secondsAgo: number) =>
+  liveRound([round({ startedAt: new Date(Date.now() - secondsAgo * 1000).toISOString(), readingS: 180, firstS: 180, secondS: 180 })]);
 /** Round 1 is over and nobody is seated: the owner between rounds. */
 const betweenRounds = () => liveRound([round({ endedAt: new Date().toISOString() })]);
 
@@ -89,10 +95,10 @@ const DRAFT = { draftId: 'd1', revision: 4, runId: 'run1' };
 const Where = () => { const l = useLocation(); return <span data-testid="where" data-state={JSON.stringify(l.state)}>{l.pathname}</span>; };
 const FROM_ROOM = JSON.stringify({ backToTable: '/', tableEvent: 'e1' });
 
-function renderCard(selfMember: EventRoomMember, props: { view?: 'table' | 'compare' | 'hidden'; onMoment?: () => void } = {}) {
+function renderCard(selfMember: EventRoomMember, props: { view?: 'table' | 'compare' | 'hidden'; onMoment?: () => void; feedbackSlot?: HTMLElement | null } = {}) {
   return render(
     <MemoryRouter>
-      <MastermindRoundCard eventId="e1" self={selfMember} roster={ROSTER} view={props.view ?? 'table'} onMoment={props.onMoment} />
+      <MastermindRoundCard eventId="e1" self={selfMember} roster={ROSTER} view={props.view ?? 'table'} onMoment={props.onMoment} feedbackSlot={props.feedbackSlot} />
       <Where />
     </MemoryRouter>,
   );
@@ -113,25 +119,30 @@ beforeEach(() => {
   h.getMyDraftRef.mockResolvedValue({ canvasId: 'c1', versionName: 'v3-draft' });
   h.getMyEventCanvas.mockResolvedValue({ name: 'launch_plan', shared: true, fixed: true });
   h.getCanvasDraftState.mockResolvedValue(undefined);
+  h.discardCanvasDraft.mockResolvedValue({ ok: true, discarded: true });
   liveRound();
 });
 afterEach(() => { vi.useRealTimers(); });
 
 /** Every button but the waiting state's collapsed "Other Clarity Canvases" backup. */
 const taskButtons = () => screen.queryAllByRole('button').filter(b => b.getAttribute('data-testid') !== 'mastermind-other-canvases-toggle');
-const lines = () => screen.getAllByTestId('round-card-person').map(li => li.textContent);
+const lines = () => screen.getAllByTestId('round-card-person').map(li => `${li.getAttribute('data-name')}: ${li.getAttribute('data-role')}`);
+/** The role (i) buttons are the only buttons the table card has (the canvas actions are links). */
+const cardButtons = () => screen.queryAllByRole('button').filter(b => b.getAttribute('data-testid') !== 'role-info');
 
 describe('P1529 round screen: what each role sees', () => {
   it.each([
     [OWNER, ['You: owner', 'Erin W.: partner', 'Sam L.: observer'], true],
     [PARTNER, ['Haru T.: owner', 'You: partner', 'Sam L.: observer'], true],
     [OBSERVER, ['Haru T.: owner', 'Erin W.: partner', 'You: observer'], true],
-  ])('%#: the table, the canvas headline, one line per person in role order, Open for every role', async (who, people, open) => {
+  ])('%#: the table, my role, the others, no instruction while finding the table, Open for every role', async (who, people, open) => {
     renderCard(who);
     expect((await screen.findByTestId('round-card-table')).textContent).toBe('Table 1');
-    expect((await screen.findByTestId('round-card-headline')).textContent).toBe(who === OWNER ? 'Discussing your Clarity Canvas' : 'Discussing Haru T.\u2019s Clarity Canvas');
-    expect(lines()).toEqual(people);
-    if (open) expect((await screen.findByTestId('round-canvas-link')).textContent).toBe('Open the canvas');
+    expect(screen.queryByTestId('round-card-instruction')).toBeNull(); // the header already says "find your table"
+    expect(screen.getByTestId('round-card-my-role').textContent).toBe(`You\u2019re the ${({ owner: 'Clarity Canvas owner', partner: 'partner', observer: 'observer' } as Record<string, string>)[people.find(l => l.startsWith('You'))!.split(': ')[1]]}`);
+    // everyone at the table, me first, then the others in role order
+    expect(lines()).toEqual([people.find(l => l.startsWith('You'))!, ...people.filter(l => !l.startsWith('You'))]);
+    if (open) expect((await screen.findByTestId('round-canvas-link')).textContent).toBe(who === OWNER ? 'Open your canvas' : 'Open Haru T.\u2019s canvas');
     else expect(screen.queryByTestId('round-canvas-link')).toBeNull();
     for (const gone of ['round-card-role', 'round-card-with', 'round-card-rule', 'round-canvas-card-toggle']) expect(screen.queryByTestId(gone)).toBeNull();
   });
@@ -142,31 +153,33 @@ describe('P1529 round screen: what each role sees', () => {
       seat('r1', 'm-owner', 'first', 2), seat('r1', 'm-partner', 'second', 2), seat('r1', 'm-obs', 'observer', 2),
     ] });
     renderCard(PARTNER);
-    expect((await screen.findByTestId('round-card-headline')).textContent).toBe('Discussing Haru T.\u2019s Clarity Canvas');
-    expect(screen.getByTestId('round-card-table').textContent).toBe('Table 2');
-    expect(lines()).toEqual(['Haru T.: owner', 'You: partner', 'Sam L.: observer']);
+    expect((await screen.findByTestId('round-card-table')).textContent).toBe('Table 2');
+    expect(screen.getByTestId('round-card-others').textContent).toMatch(/You.*Haru T\..*Sam L\./);
+    expect(lines()).toEqual(['You: partner', 'Haru T.: owner', 'Sam L.: observer']);
   });
 
   it('a person the roster has no name for shows the fallback name', async () => {
     liveRound([round()], { r1: [seat('r1', 'm-ghost', 'first'), seat('r1', 'm-partner', 'second')] });
     renderCard(PARTNER);
-    expect((await screen.findByTestId('round-card-headline')).textContent).toBe('Discussing Someone\u2019s Clarity Canvas');
-    expect(lines()).toEqual(['Someone: owner', 'You: partner']);
+    expect((await screen.findByTestId('round-canvas-link')).textContent).toBe('Open Someone\u2019s canvas');
+    expect(lines()).toEqual(['You: partner', 'Someone: owner']);
   });
 
   it('asks for nothing during a round: no confirm, swap, phase, compare, slider or score; the owner has no button', async () => {
     renderCard(OWNER);
-    await screen.findByTestId('round-card-headline');
-    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    await screen.findByTestId('round-card-my-role');
+    expect(cardButtons()).toHaveLength(0);
+    // one recording control, in the room's bar above the tabs: the card has no mic block
+    for (const gone of ['round-mic-start', 'round-mic-consent', 'round-mic-without']) expect(screen.queryByTestId(gone)).toBeNull();
     expect(screen.queryAllByRole('slider')).toHaveLength(0);
     expect(screen.queryByTestId('round-card-confirm')).toBeNull();
     expect(document.body.textContent).not.toMatch(/swap|seated —|compare|score|stance/i);
   });
 
-  it("a partner's only control is Open the canvas (no card toggle)", async () => {
+  it("a partner's only control is Open the canvas (no card toggle; the role (i) is information, not a control)", async () => {
     renderCard(PARTNER);
     await screen.findByTestId('round-canvas-link');
-    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    expect(cardButtons()).toHaveLength(0);
     expect(screen.queryByTestId('round-canvas-select')).toBeNull();
   });
 });
@@ -178,7 +191,7 @@ describe('P1529 round screen: the canvas link', () => {
       const { unmount } = renderCard(who);
       const link = (await screen.findByTestId('round-canvas-link')) as HTMLAnchorElement;
       expect(link.getAttribute('href')).toBe('/p/haru/canvas/launch_plan');
-      expect(link.textContent).toBe('Open the canvas');
+      expect(link.textContent).toBe('Open Haru T.\u2019s canvas');
       fireEvent.click(link);
       expect(h.recordCanvasOpen).toHaveBeenCalledWith('r1', 'p-owner');
       expect(screen.getByTestId('where').textContent).toBe('/p/haru/canvas/launch_plan');
@@ -205,16 +218,19 @@ describe('P1529 round screen: the canvas link', () => {
 
   it('a table with no canvas keeps its roles: the partner is told to talk it through, the owner to talk about their idea', async () => {
     h.server.canvas = { ownerProfileId: 'p-owner', ownerSlug: 'haru', canvasName: null, shared: false };
+    // the no-canvas line replaces the instruction once the table is seated (reading onward)
+    startedAgo(70);
     renderCard(PARTNER);
-    expect((await screen.findByTestId('round-card-headline')).textContent).toBe('Talk it through: no canvas');
+    expect((await screen.findAllByTestId('round-card-instruction')).at(-1)!.textContent).toMatch(/Talk it through: no canvas/);
     expect(screen.queryByTestId('round-canvas-link')).toBeNull();
     expect(screen.getByTestId('mastermind-round-card').getAttribute('data-role')).toBe('partner');
   });
 
   it('the owner of a table with no canvas reads "No Clarity Canvas yet: talk about your business idea"', async () => {
     h.server.canvas = { ownerProfileId: 'p-owner', ownerSlug: 'haru', canvasName: null, shared: false };
+    startedAgo(70);
     renderCard(OWNER);
-    expect((await screen.findByTestId('round-card-headline')).textContent).toBe('No Clarity Canvas yet: talk about your business idea');
+    expect((await screen.findAllByTestId('round-card-instruction')).at(-1)!.textContent).toMatch(/No Clarity Canvas yet: talk about your business idea/);
     expect(screen.getByTestId('mastermind-round-card').getAttribute('data-role')).toBe('owner');
   });
 
@@ -237,60 +253,59 @@ describe('P1529 round screen: the canvas link', () => {
   });
 });
 
-describe('P1529 round screen: the failure-safe canvas selector', () => {
+describe('P1529 round screen: the other canvases', () => {
+  /** "See other canvases" is a centred link that opens a list; each row is its own link. */
+  const openList = async () => {
+    expect((await screen.findByTestId('round-canvas-others-toggle')).textContent).toBe('See other Clarity Canvases \u2192');
+    expect(screen.queryByTestId('round-canvas-others')).toBeNull();
+    fireEvent.click(screen.getByTestId('round-canvas-others-toggle'));
+    return screen.findByTestId('round-canvas-others');
+  };
   const MIA = { ownerId: 'p-mia', ownerName: 'Mia Long', ownerSlug: 'mia', name: 'pitch' };
   const withOthers = () => { h.listSharedWithEvent.mockResolvedValue([...(h.server.shared as unknown[]), MIA]); };
 
-  it('is a native select defaulting to the table\'s canvas, listing every other canvas shared with the event', async () => {
+  it('lists every other canvas shared with the event as its own link, without the table\'s own', async () => {
     withOthers();
     renderCard(PARTNER);
-    const select = (await screen.findByTestId('round-canvas-select')) as HTMLSelectElement;
-    expect(select.tagName).toBe('SELECT');
-    expect(select.value).toBe('');
-    expect(Array.from(select.options).map(o => o.textContent)).toEqual(['Haru T.\u2019s Clarity Canvas', 'Mia L.\u2019s Clarity Canvas']);
-    expect(select.className).toContain('min-h-11');
+    const list = await openList();
+    const links = Array.from(list.querySelectorAll('a')) as HTMLAnchorElement[];
+    expect(links.map(a => a.textContent)).toEqual(['Open Mia L.\u2019s canvas']);
+    expect(links[0]!.getAttribute('href')).toBe('/p/mia/canvas/pitch');
     expect(h.listSharedWithEvent).toHaveBeenCalledWith('e1');
+    expect(screen.queryByTestId('round-canvas-select')).toBeNull();
   });
 
-  it('choosing another changes where Open goes, records no evidence for it, never touches seating, and re-choosing comes back', async () => {
+  it('the main button keeps opening the table\'s canvas; another canvas records no evidence and never touches seating', async () => {
     withOthers();
     renderCard(PARTNER);
-    const select = (await screen.findByTestId('round-canvas-select')) as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'p-mia' } });
-    const link = screen.getByTestId('round-canvas-link') as HTMLAnchorElement;
-    expect(link.getAttribute('href')).toBe('/p/mia/canvas/pitch');
-    fireEvent.click(link);
+    const list = await openList();
+    const main = screen.getByTestId('round-canvas-link') as HTMLAnchorElement;
+    expect(main.getAttribute('href')).toBe('/p/haru/canvas/launch_plan');
+    expect(main.textContent).toBe('Open Haru T.\u2019s canvas');
+    fireEvent.click(list.querySelector('a')!);
     expect(h.recordCanvasOpen).not.toHaveBeenCalled();
-    expect(lines()).toEqual(['Haru T.: owner', 'You: partner', 'Sam L.: observer']);
-    expect(screen.getByTestId('round-card-table').textContent).toBe('Table 1');
-    fireEvent.change(select, { target: { value: '' } });
-    expect(((await screen.findByTestId('round-canvas-link')) as HTMLAnchorElement).getAttribute('href')).toBe('/p/haru/canvas/launch_plan');
+    expect(screen.getByTestId('where').textContent).toBe('/p/mia/canvas/pitch');
   });
 
-  it('shows the owner the selector, with Open for their own canvas and for any other they choose', async () => {
+  it('the owner gets the same: their own canvas on the button, the others in the list', async () => {
     withOthers();
     renderCard(OWNER);
-    const select = (await screen.findByTestId('round-canvas-select')) as HTMLSelectElement;
-    expect(select.options[0]!.textContent).toBe('Your Clarity Canvas');
-    expect(((await screen.findByTestId('round-canvas-link')) as HTMLAnchorElement).getAttribute('href')).toBe('/p/haru/canvas/launch_plan');
-    fireEvent.change(select, { target: { value: 'p-mia' } });
-    expect((screen.getByTestId('round-canvas-link') as HTMLAnchorElement).getAttribute('href')).toBe('/p/mia/canvas/pitch');
-    fireEvent.change(select, { target: { value: '' } });
-    expect((screen.getByTestId('round-canvas-link') as HTMLAnchorElement).getAttribute('href')).toBe('/p/haru/canvas/launch_plan');
+    const list = await openList();
+    expect((screen.getByTestId('round-canvas-link') as HTMLAnchorElement).textContent).toBe('Open your canvas');
+    expect(list.querySelectorAll('a')).toHaveLength(1);
   });
 
-  it('a failed read of the shared canvases falls back to the table\'s canvas with no selector', async () => {
+  it('a failed read of the shared canvases leaves the table\'s canvas alone, with no "See other Clarity Canvases"', async () => {
     h.listSharedWithEvent.mockRejectedValue(new Error('offline'));
     renderCard(PARTNER);
     expect((await screen.findByTestId('round-canvas-link')).getAttribute('href')).toBe('/p/haru/canvas/launch_plan');
-    expect(screen.queryByTestId('round-canvas-select')).toBeNull();
-    expect(screen.getByTestId('round-card-headline').textContent).toBe('Discussing Haru T.\u2019s Clarity Canvas');
+    expect(screen.queryByTestId('round-canvas-others-toggle')).toBeNull();
   });
 
-  it('with no other canvas shared there is nothing to choose, so no selector', async () => {
+  it('with no other canvas shared there is nothing to list, so no "See other Clarity Canvases"', async () => {
     renderCard(PARTNER);
     await screen.findByTestId('round-canvas-link');
-    expect(screen.queryByTestId('round-canvas-select')).toBeNull();
+    expect(screen.queryByTestId('round-canvas-others-toggle')).toBeNull();
   });
 });
 
@@ -406,14 +421,15 @@ describe('P1529 round screen: whether any round has started (the optional prepar
 describe('P1529 §6 (2026-11-11): a next version after every owned round, between rounds only', () => {
   beforeEach(() => { betweenRounds(); });
 
-  it('the card says "{round} with {partner}: words ready"; "Create next version" makes and publishes in one tap, for that round', async () => {
+  it('the card says "{round} with {partner} is in"; "Create next version" makes and publishes in one tap, for that round', async () => {
     h.server.offer = offerOf('offer');
     h.makeMyNextVersion.mockImplementation(async () => {
       h.server.offer = offerOf('drafting', DRAFT);
       return { status: 'started', draftId: 'd1', runId: 'run1', repeat: false, start: { ok: true, runId: 'run1', kind: 'message' } };
     });
     renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-task-title')).textContent).toBe('Round 1 with Erin: words ready');
+    expect((await screen.findByTestId('mastermind-task-title')).textContent).toBe('Round 1 with Erin: transcript ready');
+    expect(screen.getByTestId('mastermind-task-body').textContent).toBe('Make your next version from what was said.');
     expect(screen.getByTestId('mastermind-make').textContent).toBe('Create next version');
     expect(screen.getByTestId('mastermind-preview').textContent).toBe('Preview first');
     fireEvent.click(screen.getByTestId('mastermind-make'));
@@ -464,10 +480,14 @@ describe('P1529 §6 (2026-11-11): a next version after every owned round, betwee
   it('while the words are prepared: the sentence with the usual wait, no button; the button appears when they are ready', async () => {
     h.server.offer = offerOf('transcript_pending');
     renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-task-pending')).textContent).toBe('The words from Round 1 are being prepared (about 2 minutes)');
+    expect((await screen.findByTestId('mastermind-task-pending')).textContent).toBe('Round 1 with Erin: the transcript is on its way. Usually 1 to 3 minutes.');
     expect(screen.queryByTestId('mastermind-make')).toBeNull();
     h.server.offer = offerOf('offer');
-    fireEvent(document, new Event('visibilitychange'));
+    // The tab goes away and comes back (a real visibility change, not a bare event).
+    for (const v of ['hidden', 'visible']) {
+      Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+      fireEvent(document, new Event('visibilitychange'));
+    }
     expect(await screen.findByTestId('mastermind-make')).toBeTruthy();
   });
 
@@ -571,10 +591,156 @@ describe('P1529 §6: the states of one round\'s version', () => {
     h.server.offer = offerOf('failed', DRAFT);
     h.retryCanvasRun.mockImplementation(async () => { h.server.offer = offerOf('drafting', DRAFT); return { ok: true, start: { ok: true } }; });
     renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-task-failed')).textContent).toMatch(/canvas stays/);
+    expect((await screen.findByTestId('mastermind-task-failed')).textContent).toBe('Could not make your next version.');
     fireEvent.click(screen.getByTestId('mastermind-retry'));
     await waitFor(() => expect(h.retryCanvasRun).toHaveBeenCalledWith({ draftId: 'd1', failedRunId: 'run1', expectedRevision: 4, clientId: expect.any(String) }));
     expect(await screen.findByTestId('mastermind-task-creating')).toBeTruthy();
+  });
+
+  it('nothing new: a draft that changes nothing says so in calm grey, with no Try again and no button', async () => {
+    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
+    h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
+    renderCard(OWNER);
+    const card = await screen.findByTestId('mastermind-task-nothing-new');
+    expect(card.textContent).toBe('Round 1 with Erin: nothing to add. What was said didn\u2019t change your canvas.');
+    expect(card.querySelector('.text-destructive')).toBeNull();
+    expect(screen.queryByTestId('mastermind-publish')).toBeNull();
+    expect(screen.queryByTestId('mastermind-task-note')).toBeNull();
+    expect(taskButtons()).toHaveLength(0);
+    expect(document.body.textContent).not.toMatch(/Nothing is different|Try again|words ready/);
+  });
+
+  it('nothing new closes the unchanged draft (so the offer moves on) and reads the offer again', async () => {
+    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
+    h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
+    h.discardCanvasDraft.mockImplementation(async () => { h.server.offer = offerOf('offer'); return { ok: true, discarded: true }; });
+    renderCard(OWNER);
+    await waitFor(() => expect(h.discardCanvasDraft).toHaveBeenCalledWith('d1', 4));
+    expect(await screen.findByTestId('mastermind-make')).toBeTruthy();
+    expect(screen.getByTestId('mastermind-task-note').textContent).toMatch(/Nothing to add/);
+  });
+
+  it('after the discard, an offer of none still shows the round\u2019s "nothing to add" card until another offer arrives', async () => {
+    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
+    h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
+    h.discardCanvasDraft.mockImplementation(async () => { h.server.offer = offerOf('none'); return { ok: true, discarded: true }; });
+    renderCard(OWNER);
+    const card = await screen.findByTestId('mastermind-task-nothing-new');
+    await waitFor(() => expect(h.discardCanvasDraft).toHaveBeenCalled());
+    await waitFor(() => expect(h.getMyNextVersionOffer.mock.calls.length).toBeGreaterThan(1));
+    expect((await screen.findByTestId('mastermind-task-nothing-new')).textContent).toBe('Round 1 with Erin: nothing to add. What was said didn\u2019t change your canvas.');
+    expect(card).toBeTruthy();
+    h.server.offer = offerOf('offer');
+    for (const v of ['hidden', 'visible']) {
+      Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+      await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+    }
+    expect(await screen.findByTestId('mastermind-make')).toBeTruthy();
+    expect(screen.queryByTestId('mastermind-task-nothing-new')).toBeNull();
+  });
+
+  it('"Version N is published." only when this card made that round\u2019s publish; a published offer read fresh says no number', async () => {
+    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
+    h.publishCanvasDraft.mockImplementation(async () => { h.server.offer = offerOf('published'); return { ok: true, seq: 3 }; });
+    const first = renderCard(OWNER);
+    expect((await screen.findByTestId('mastermind-task-published')).textContent).toMatch(/Version 3 is published\./);
+    first.unmount();
+    renderCard(OWNER);
+    expect((await screen.findByTestId('mastermind-task-published')).textContent).toMatch(/Your next version is published\./);
+  });
+
+  it('a failed close keeps the calm note and offers "Close this", which tries the discard again', async () => {
+    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
+    h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
+    h.discardCanvasDraft.mockRejectedValueOnce(new Error('offline'));
+    renderCard(OWNER);
+    fireEvent.click(await screen.findByTestId('mastermind-task-close'));
+    await waitFor(() => expect(h.discardCanvasDraft).toHaveBeenCalledTimes(2));
+  });
+
+  it('a settled state whose first refresh fails shows Try again at once (it is not polled)', async () => {
+    h.server.offer = offerOf('published');
+    renderCard(OWNER);
+    await screen.findByTestId('mastermind-task-published');
+    h.getMyNextVersionOffer.mockRejectedValueOnce(new Error('offline'));
+    for (const v of ['hidden', 'visible']) {
+      Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+      await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+    }
+    expect(await screen.findByTestId('mastermind-offer-failed')).toBeTruthy();
+  });
+
+  it('a real publish failure says "Could not make your next version." with a secondary Try again', async () => {
+    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
+    h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'stale_view' });
+    renderCard(OWNER);
+    expect((await screen.findByTestId('mastermind-task-ready')).textContent).toBe('Could not make your next version.');
+    expect(screen.getByTestId('mastermind-publish').textContent).toBe('Try again');
+  });
+
+  it('on the Feedback tab the card is AFTER the feedback in the DOM, under "Before you go: your next version"', async () => {
+    h.server.offer = offerOf('offer');
+    const host = document.createElement('div');
+    host.innerHTML = '<div data-testid="feedback-block">How was the evening?</div><div data-testid="slot"></div>';
+    document.body.appendChild(host);
+    const slot = host.querySelector('[data-testid="slot"]') as HTMLElement;
+    renderCard(OWNER, { view: 'hidden', feedbackSlot: slot });
+    const after = await screen.findByTestId('mastermind-task-after-feedback');
+    expect(slot.contains(after)).toBe(true);
+    const feedback = host.querySelector('[data-testid="feedback-block"]')!;
+    expect(feedback.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(after.querySelector('h3')!.textContent).toBe('Before you go: your next version');
+    expect(after.querySelector('[data-testid="mastermind-make"]')).toBeTruthy();
+    host.remove();
+  });
+
+  it('nothing new is bound to the draft revision: a hand-edited draft is NOT auto-published again, it waits for the Publish tap', async () => {
+    const D9 = { draftId: 'd9', revision: 4, runId: 'run1' };
+    h.server.offer = offerOf('ready', { ...D9, autoPublish: true });
+    h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
+    renderCard(OWNER);
+    await screen.findByTestId('mastermind-task-nothing-new');
+    expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1);
+    // the server keeps saying autoPublish: true for every later revision (the owner edited by hand)
+    h.server.offer = offerOf('ready', { ...D9, revision: 5, autoPublish: true });
+    for (const v of ['hidden', 'visible']) {
+      Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+      await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+    }
+    expect((await screen.findByTestId('mastermind-publish')).textContent).toBe('Publish');
+    expect(screen.queryByTestId('mastermind-task-nothing-new')).toBeNull();
+    await new Promise(r => setTimeout(r, 60));
+    expect(h.publishCanvasDraft).not.toHaveBeenCalledWith('d9', 5);
+    expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it('auto-publish waits for the break: nothing is published while a round is running, then it publishes', async () => {
+    h.server.offer = offerOf('ready', { draftId: 'd11', revision: 4, runId: 'run1', autoPublish: true });
+    h.publishCanvasDraft.mockResolvedValue({ ok: true, seq: 3 });
+    startedAgo(70);
+    const running = renderCard(OWNER);
+    await screen.findByTestId('round-card-my-role');
+    await new Promise(r => setTimeout(r, 80));
+    expect(h.publishCanvasDraft).not.toHaveBeenCalled();
+    running.unmount();
+    betweenRounds();
+    renderCard(OWNER);
+    await waitFor(() => expect(h.publishCanvasDraft).toHaveBeenCalledWith('d11', 4));
+  });
+
+  it('a "draft just changed" refusal while the offer is already published (another open room did it) shows the published state, not the error', async () => {
+    h.server.offer = offerOf('ready', { draftId: 'd12', revision: 4, runId: 'run1', autoPublish: true });
+    h.publishCanvasDraft.mockImplementation(async () => { h.server.offer = offerOf('published'); return { ok: false, refused: 'stale_view' }; });
+    renderCard(OWNER);
+    expect((await screen.findByTestId('mastermind-task-open'))).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/draft just changed/i);
+  });
+
+  it('published: "Open it" goes to the published canvas page, with no open draft needed', async () => {
+    h.server.offer = offerOf('published');
+    renderCard(OWNER);
+    const open = (await screen.findByTestId('mastermind-task-open')) as HTMLAnchorElement;
+    expect(open.getAttribute('href')).toBe('/p/haru/canvas/launch_plan');
   });
 
   it('published: a line, and no button', async () => {
@@ -702,10 +868,6 @@ describe('P1529 round screen: the gap after round 2 (End round 2, then the next 
 
 // ── The reading part and the observer's lines (UAT 2026-11-11, items 4, 5, 6 and decision (d)) ───────────────────────
 
-/** A round that started `secondsAgo` ago, with a 60 s finding minute, a 180 s reading part, 360 s of talk and 180 s of observer. */
-const startedAgo = (secondsAgo: number) =>
-  liveRound([round({ startedAt: new Date(Date.now() - secondsAgo * 1000).toISOString(), readingS: 180, firstS: 180, secondS: 180 })]);
-
 type Pos = { userId: string; position: string };
 function canvasView(args: { points: [string, string][]; positions?: Record<string, Pos[]>; version: string; versions: { name: string; seq: number | null; draft: boolean }[] }) {
   return {
@@ -731,12 +893,13 @@ describe('P1529 round screen: the reading part', () => {
         }));
   });
 
-  it('a visitor lists every point, one tap writes the canvas\'s own position, and a point without the owner\'s position says so', async () => {
+  it('a visitor lists every point, one tap writes the canvas\'s own position, with no grey prompt and no "owner hasn\'t taken a position" line', async () => {
     startedAgo(70);
     renderCard(PARTNER);
     const rows = await screen.findAllByTestId('reading-point');
     expect(rows.map(r => r.textContent)).toEqual([expect.stringContaining('Same point'), expect.stringContaining('Rewritten point'), expect.stringContaining('Another rewritten point')]);
-    expect(screen.getAllByTestId('reading-no-owner-position').map(n => n.textContent)).toEqual(['The Clarity Canvas owner hasn\u2019t taken a position yet']);
+    expect(screen.queryByTestId('reading-no-owner-position')).toBeNull(); // the line is gone
+    expect(screen.queryByText(/first impression|hasn.t taken a position/)).toBeNull();
     expect(screen.queryByText(/agree with all/i)).toBeNull();
     fireEvent.click(rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement);
     await waitFor(() => expect(h.setPosition).toHaveBeenCalledWith('p-owner', 'launch_plan', 'b', 'agree'));
@@ -753,11 +916,12 @@ describe('P1529 round screen: the reading part', () => {
     expect(screen.queryByTestId('reading-no-owner-position')).toBeNull();
   });
 
-  it('the owner with nothing changed gets one short line and no list', async () => {
+  it('the owner with nothing changed gets the one reading line in the box and no list', async () => {
     startedAgo(70);
     h.getCanvas.mockImplementation(async () => canvasView({ points: [['a', 'Same point']], version: 'v1', versions: [{ name: 'v1', seq: 1, draft: false }] }));
     renderCard(OWNER);
-    expect((await screen.findByTestId('reading-owner-nothing')).textContent).toMatch(/Nothing changed/);
+    expect((await screen.findByTestId('round-card-instruction')).textContent).toBe('Check your canvas: set your position on every point if not already.');
+    expect(screen.queryByTestId('reading-owner-nothing')).toBeNull();
     expect(screen.queryByTestId('reading-list')).toBeNull();
   });
 
@@ -778,34 +942,194 @@ describe('P1529 round screen: the reading part', () => {
     await screen.findByTestId('round-card-table');
     expect(screen.queryByTestId('reading-list')).toBeNull();
   });
-});
 
-describe('P1529 round screen: the observer\'s line per part', () => {
-  it.each([
-    [70, 'Silent reading. No talking yet.'],
-    [300, 'Erin explains Haru\u2019s Clarity Canvas back to them. Erin challenges only once Haru rates their understanding 8 out of 10 or higher.'],
-    [60 + 180 + 360 + 10, 'Your turn: what did you notice?'],
-  ])('%#: the observer reads the line for the part now', async (secondsAgo, line) => {
-    startedAgo(secondsAgo);
-    renderCard(OBSERVER);
-    expect((await screen.findByTestId('round-card-observer-line')).textContent).toBe(line);
+  it('two quick taps on one point are saved in order: the second waits for the first (finding 12)', async () => {
+    startedAgo(70);
+    let release: () => void = () => {};
+    h.setPosition.mockImplementationOnce(() => new Promise<void>(r => { release = () => r(); }));
+    renderCard(PARTNER);
+    const rows = await screen.findAllByTestId('reading-point');
+    fireEvent.click(rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement);
+    await waitFor(() => expect(h.setPosition).toHaveBeenCalledTimes(1));
+    fireEvent.click(rows[1]?.querySelector('[data-testid="reading-unsure"]') as HTMLElement);
+    await new Promise(r => setTimeout(r, 60));
+    expect(h.setPosition).toHaveBeenCalledTimes(1);
+    release();
+    await waitFor(() => expect(h.setPosition).toHaveBeenCalledTimes(2));
+    expect(h.setPosition).toHaveBeenLastCalledWith('p-owner', 'launch_plan', 'b', 'unsure');
   });
 
-  it('the owner and the partner never see the observer lines', async () => {
-    startedAgo(70);
-    renderCard(OWNER);
-    await screen.findByTestId('round-card-table');
-    expect(screen.queryByTestId('round-card-observer-line')).toBeNull();
+  it('the chosen position uses the default Button variant, with no hand-typed colour (finding 10)', async () => {
     startedAgo(70);
     renderCard(PARTNER);
-    await screen.findAllByTestId('round-card-table');
-    expect(screen.queryByTestId('round-card-observer-line')).toBeNull();
+    const rows = await screen.findAllByTestId('reading-point');
+    fireEvent.click(rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement);
+    await waitFor(() => expect((rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement).getAttribute('aria-pressed')).toBe('true'));
+    const cls = (rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement).className;
+    expect(cls).toContain('bg-blue-600');
+    expect(cls).not.toContain('bg-blue-500');
+  });
+});
+
+describe('P1529 round screen: review fixes (2026-11-11)', () => {
+  const setVisibility = (v: 'visible' | 'hidden') => {
+    Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+  afterEach(() => { setVisibility('visible'); });
+
+  it('a canvas the owner chose and then unshared says "no longer shared", not "no canvas yet" (finding 9)', async () => {
+    h.server.canvas = { ownerProfileId: 'p-owner', ownerSlug: 'haru', canvasName: null, shared: false, hadCanvas: true };
+    renderCard(PARTNER);
+    expect((await screen.findByTestId('round-canvas-unshared')).textContent).toMatch(/no longer shared/);
+    expect(screen.queryByTestId('round-card-headline')?.textContent ?? '').not.toMatch(/no canvas/i);
   });
 
-  it('finding the table has no observer line yet', async () => {
+  it('a hidden tab reads nothing on mount; coming back reads at once (finding 13)', async () => {
+    setVisibility('hidden');
+    renderCard(PARTNER);
+    await new Promise(r => setTimeout(r, 60));
+    expect(h.getMyRoundCanvas).not.toHaveBeenCalled();
+    expect(h.getMyNextVersionOffer).not.toHaveBeenCalled();
+    expect(h.listSharedWithEvent).not.toHaveBeenCalled();
+    setVisibility('visible');
+    await waitFor(() => expect(h.getMyRoundCanvas).toHaveBeenCalled());
+    expect(h.getMyNextVersionOffer).toHaveBeenCalled();
+    expect(h.listSharedWithEvent).toHaveBeenCalled();
+    await new Promise(r => setTimeout(r, 80));
+    expect(h.getMyNextVersionOffer, 'one read on return, not two (finding D)').toHaveBeenCalledTimes(1);
+  });
+
+  it('a remounted card awaits the publish already in flight and shows its refusal (finding B)', async () => {
+    betweenRounds();
+    h.server.offer = offerOf('ready', { ...DRAFT, draftId: 'd-remount', autoPublish: true });
+    let done: (v: unknown) => void = () => {};
+    h.publishCanvasDraft.mockImplementation(() => new Promise(r => { done = r; }));
+    const first = renderCard(OWNER);
+    await waitFor(() => expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1));
+    first.unmount();
+    renderCard(OWNER);
+    await new Promise(r => setTimeout(r, 60));
+    expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1);
+    done({ ok: false, refused: 'stale_view' });
+    expect((await screen.findByTestId('mastermind-task-note')).textContent).toMatch(/just changed/);
+    expect((await screen.findByTestId('mastermind-publish')).textContent).toBe('Try again');
+  });
+
+  it('later offer reads that keep failing back off and stop after three, with Try again (finding C)', async () => {
+    betweenRounds();
+    h.server.offer = offerOf('drafting', { ...DRAFT, autoPublish: true });
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderCard(OWNER);
+    await screen.findByTestId('mastermind-task-creating');
+    h.getMyNextVersionOffer.mockRejectedValue(new Error('offline'));
+    // One second per act, so React commits each failure before the next tick (one act around the whole span would batch them).
+    for (let t = 0; t < 120; t++) await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    const calls = h.getMyNextVersionOffer.mock.calls.length;
+    expect(screen.getByTestId('mastermind-offer-failed')).toBeTruthy();
+    for (let t = 0; t < 120; t++) await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(h.getMyNextVersionOffer.mock.calls.length, 'polling has stopped').toBe(calls);
+    expect(calls).toBeLessThanOrEqual(1 + 3 + 1);
+  });
+
+  it('a failed offer read says so with Try again, polls nothing, and Try again reads once more (finding 14)', async () => {
+    betweenRounds();
+    h.getMyNextVersionOffer.mockRejectedValueOnce(new Error('offline'));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderCard(OWNER);
+    expect((await screen.findByTestId('mastermind-offer-failed')).textContent).toMatch(/Could not read your next version/);
+    const calls = h.getMyNextVersionOffer.mock.calls.length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(h.getMyNextVersionOffer.mock.calls.length, 'no endless polling after a failure').toBe(calls);
+    h.server.offer = offerOf('published');
+    fireEvent.click(screen.getByTestId('mastermind-offer-retry'));
+    expect((await screen.findByTestId('mastermind-task-published'))).toBeTruthy();
+    expect(screen.queryByTestId('mastermind-offer-failed')).toBeNull();
+  });
+
+  it('a first read still pending does not start a poll of its own (finding 14)', async () => {
+    betweenRounds();
+    h.getMyNextVersionOffer.mockImplementation(() => new Promise(() => {}));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderCard(OWNER);
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(h.getMyNextVersionOffer).toHaveBeenCalledTimes(1);
+  });
+
+  it('a finished one-tap draft is published once even when the card remounts while it publishes (finding 11)', async () => {
+    betweenRounds();
+    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
+    let done: (v: { ok: true }) => void = () => {};
+    h.publishCanvasDraft.mockImplementation(() => new Promise(r => { done = r as typeof done; }));
+    const first = renderCard(OWNER);
+    await waitFor(() => expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1));
+    first.unmount();
+    renderCard(OWNER);
+    await new Promise(r => setTimeout(r, 80));
+    expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1);
+    h.server.offer = offerOf('published');
+    done({ ok: true });
+  });
+});
+
+describe('P1529 round screen: the one instruction per part', () => {
+  const Q = (what: string) => `\u201CHow well do you think you understand my ${what}, from 0 to 10?\u201D`;
+  const READ = 'Read Haru\u2019s canvas quietly. Set your position on each point, especially where you disagree.';
+  it.each([
+    [OBSERVER, 70, [READ]],
+    [OBSERVER, 300, ['Make sure the listener stays in their role: no disagreeing, no own point of view yet. Keep talking time balanced: no more than 1 minute per person. Ring the bell to remind people of their roles and the time.']],
+    [OBSERVER, 60 + 180 + 360 + 10, ['Say what they can do better. If you like, say how well you think you understood the canvas, from 0 to 10, and what was unclear.']],
+    [OWNER, 70, ['Check your canvas: set your position on every point if not already.']],
+    [OWNER, 300, [`Erin explains your canvas back. Then ask: ${Q('canvas')}`, `At 8 or more, Erin challenges your canvas. They ask you: ${Q('challenge')}`]],
+    [PARTNER, 70, [READ]],
+    [PARTNER, 300, ['Explain Haru\u2019s canvas back in your own words. Then answer: how well you think you understand their canvas, from 0 to 10.', `At 8 or more, challenge their canvas: explain where and why you disagree with their points. Then ask Haru: ${Q('challenge')}`]],
+  ])('%#: the role reads its steps for the part now (two numbered steps in Talk for owner and partner)', async (who, secondsAgo, steps) => {
+    startedAgo(secondsAgo);
+    renderCard(who);
+    const box = await screen.findByTestId('round-card-instruction');
+    expect(Array.from(box.querySelectorAll('p, li')).map(e => e.textContent)).toEqual(steps);
+    expect(box.querySelectorAll('ol > li')).toHaveLength(steps.length > 1 ? 2 : 0);
+  });
+
+  it.each([[OWNER], [PARTNER]])('%#: in the observer\'s part the owner and the partner have no instruction box', async who => {
+    startedAgo(60 + 180 + 360 + 10);
+    renderCard(who);
+    await screen.findByTestId('round-card-my-role');
+    expect(screen.queryByTestId('round-card-instruction')).toBeNull();
+  });
+
+  it('the header is the table (left), the time left (right) and the projector\'s part bar under it; no part word', async () => {
+    startedAgo(70);
+    renderCard(OWNER);
+    expect((await screen.findByTestId('round-card-table')).textContent).toBe('Table 1');
+    expect(screen.getByTestId('round-card-time').textContent).toMatch(/^\d+:\d\d$/);
+    expect(screen.getByTestId('round-card-parts').querySelector('ol[aria-label="Round"]')).toBeTruthy();
+    expect(screen.queryByTestId('round-card-part')).toBeNull();
+    expect(screen.getByTestId('round-card-instruction').className).toContain('bg-blue-50');
+    expect(screen.getByTestId('round-card-instruction').textContent).not.toContain('\u25B6');
+  });
+
+  it('finding the table: the time and the part bar show, no instruction', async () => {
     startedAgo(20);
     renderCard(OBSERVER);
-    await screen.findByTestId('round-card-table');
-    expect(screen.queryByTestId('round-card-observer-line')).toBeNull();
+    expect((await screen.findByTestId('round-card-table')).textContent).toBe('Table 1');
+    expect(screen.getByTestId('round-card-time').textContent).toMatch(/^\d+:\d\d$/);
+    expect(screen.getByTestId('round-card-parts')).toBeTruthy();
+    expect(screen.queryByTestId('round-card-instruction')).toBeNull();
+  });
+
+  it('the canvas is always the primary filled button, centred; none for the observer in their own part', async () => {
+    for (const ago of [70, 300, 60 + 180 + 360 + 10]) {
+      startedAgo(ago);
+      const view = renderCard(PARTNER);
+      const link = await screen.findByTestId('round-canvas-link');
+      expect(link.closest('[class*="bg-blue-600"]')).toBeTruthy();
+      expect(link.closest('[class*="justify-center"]')).toBeTruthy();
+      view.unmount();
+    }
+    startedAgo(60 + 180 + 360 + 10);
+    renderCard(OBSERVER);
+    await screen.findByTestId('round-card-my-role');
+    expect(screen.queryByTestId('round-canvas-link')).toBeNull();
   });
 });

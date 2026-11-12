@@ -11,21 +11,22 @@
  * invisible and inert. Pure layout: the real canvas and chat are handed in as nodes, so the P955 gate fixture renders this same frame
  * around fake panes.
  */
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useMediaQuery } from '@/app/pages/chat/chat-hooks';
 import { cn } from '@/lib/utils';
 import { CANVAS_WORKSPACE_WIDE_QUERY } from './canvas-workspace-context';
+import { useCaptureBannerHeight } from './use-capture-banner-height';
 
 export type WorkspaceView = 'canvas' | 'chat';
 
 /**
- * Where the owner's header sticks, and how tall the workspace box is. Outside the signed-in shell a top bar of 3.5rem sits above it. INSIDE the shell
+ * Where the owner's header sticks, and how tall the workspace box is. Both also give way to the running recording banner (`--canvas-banner-h`, set on the layout's root from the banner's measured height; 0px with none), so the header sticks directly below it. Outside the signed-in shell a top bar of 3.5rem sits above it. INSIDE the shell
  * (the layout marks it `data-shell-top-nav`) there is no fixed bar: the shell's own top bar is in the flow and hidden while empty, so a 3.5rem sticky
  * offset would push the whole box 3.5rem down and leave an empty band above the header. There it sticks at the screen edge and the box takes the
  * whole screen. Scoped to these two canvas elements: no other page's offsets change.
  */
-export const STICKY_TOP = 'sticky top-14 [[data-shell-top-nav=none]_&]:top-[env(safe-area-inset-top)]';
-export const WORKSPACE_BOX = `${STICKY_TOP} flex h-[calc(100dvh-3.5rem)] flex-col [[data-shell-top-nav=none]_&]:h-[calc(100dvh-env(safe-area-inset-top))]`;
+export const STICKY_TOP = 'sticky top-[calc(3.5rem+var(--canvas-banner-h,0px))] [[data-shell-top-nav=none]_&]:top-[calc(env(safe-area-inset-top)+var(--canvas-banner-h,0px))]';
+export const WORKSPACE_BOX = `${STICKY_TOP} flex h-[calc(100dvh-3.5rem-var(--canvas-banner-h,0px))] flex-col [[data-shell-top-nav=none]_&]:h-[calc(100dvh-env(safe-area-inset-top)-var(--canvas-banner-h,0px))]`;
 
 /** Which pane is out of reach, and the classes that keep the other one stacked or out of the flow. Pure, so the layout reads as markup. */
 function panesOf(wide: boolean, view: WorkspaceView, panelOpen: boolean) {
@@ -47,15 +48,16 @@ function panesOf(wide: boolean, view: WorkspaceView, panelOpen: boolean) {
  * `bar` is drawn whether or not the workspace is on (W8: the owner's header is the same bar on a published view): inside the box it is the box's first
  * child, outside it sits above the page and sticks under the shell's top bar. Null for anyone but the owner (they get the reader header in the page).
  */
-export function CanvasWorkspaceLayout({ active, bar, banner = null, canvas, chat, view, panelOpen = true }: { active: boolean; bar: ReactNode | null; banner?: ReactNode | null; canvas: ReactNode; chat: ReactNode; view: WorkspaceView; panelOpen?: boolean }) {
+export function CanvasWorkspaceLayout({ active, bar, banner = null, roundBar = null, canvas, chat, view, panelOpen = true }: { active: boolean; bar: ReactNode | null; banner?: ReactNode | null; /** P1529: the host moved the rounds: the bar above the banner, in the same sticky head. */ roundBar?: ReactNode | null; canvas: ReactNode; chat: ReactNode; view: WorkspaceView; panelOpen?: boolean }) {
   const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
   const panes = panesOf(wide, view, panelOpen);
+  const bannerHeight = useCaptureBannerHeight();
   // The same elements in the same places whether or not the workspace is on, so the canvas page is never remounted by it.
   return (
-    <div className={active ? WORKSPACE_BOX : undefined} data-testid={active ? 'canvas-workspace' : undefined}>
+    <div className={active ? WORKSPACE_BOX : undefined} style={{ '--canvas-banner-h': bannerHeight } as CSSProperties} data-testid={active ? 'canvas-workspace' : undefined}>
       {/* ONE wrapper element always, so switching the workspace on or off never remounts the banner or the bar: only its classes change.
           `contents` draws no box (the bar keeps sticking to the page); with a banner and no workspace it is the page's one sticky head. */}
-      <div className={banner && !active ? cn(STICKY_TOP, 'z-40 bg-background') : 'contents'} data-testid="canvas-sticky-head">{banner}{bar}</div>
+      <div className={(banner || roundBar) && !active ? cn(STICKY_TOP, 'z-40 bg-background') : 'contents'} data-testid="canvas-sticky-head">{roundBar}{banner}{bar}</div>
       <div className={active ? 'relative min-h-0 flex-1 xl:flex' : undefined}>
         <div
           className={active ? panes.canvasClass : undefined}

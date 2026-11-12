@@ -277,8 +277,8 @@ describe('S3.1/S3.2: the frame', () => {
     const bar = screen.getByTestId('workspace-bar');
     const panes = screen.getByTestId('workspace-canvas-pane').parentElement!;
     expect(box.className).toContain('sticky');
-    expect(box.className).toContain('top-14'); // under the shell's 3.5rem bar
-    expect(box.className).toContain('h-[calc(100dvh-3.5rem)]'); // the rest of the screen
+    expect(box.className).toContain('top-[calc(3.5rem+var(--canvas-banner-h,0px))]'); // under the shell's 3.5rem bar
+    expect(box.className).toContain('h-[calc(100dvh-3.5rem-var(--canvas-banner-h,0px))]'); // the rest of the screen
     expect(box.className).toContain('flex-col');
     // W8 (supersedes the fixed h-12): the bar is as tall as its rows and never shrinks; the same markup for a draft and a published version
     expect(bar.className).toContain('shrink-0');

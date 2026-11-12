@@ -281,12 +281,15 @@ export function RoomTranscribeIdleBar({
   displayName,
   onFailed,
   roundUpdates = false,
+  emphasize = false,
 }: {
   eventId: string;
   displayName: string;
   onFailed: () => void;
   /** P1529 D13: this event's round words feed the owner's next version, so the tap says so. */
   roundUpdates?: boolean;
+  /** Round events: a round is running and I am seated, so "Start your mic" is the filled primary. */
+  emphasize?: boolean;
 }) {
   const capture = useRoomCapture();
   const { offline } = useConnectivity();
@@ -308,7 +311,8 @@ export function RoomTranscribeIdleBar({
   const running = VISIBLE_PHASES.has(capture.phase);
   if (offline || busyPhase || capturing || running) return null;
   const primary = {
-    label: starting ? 'Starting…' : 'Transcribe',
+    label: starting ? 'Starting…' : roundUpdates ? 'Start your mic' : 'Transcribe',
+    emphasis: roundUpdates && emphasize,
     description: roundUpdates ? `${EVENT_TRANSCRIBE_FIRST_SENTENCE} ${ROUND_UPDATE_CONSENT} Transcription follows our Terms and Privacy Policy.` : IDLE_DETAIL,
     disabled: starting,
     testId: 'room-transcribe-start',
@@ -319,7 +323,7 @@ export function RoomTranscribeIdleBar({
       tone="idle"
       testId="room-transcribe-idle"
       ariaLabel="Room transcription"
-      text={stopped ? <>{idleLabel}. {EVENT_TEXT_ARRIVES_SHORT}</> : idleLabel}
+      text={roundUpdates ? <><span className="whitespace-nowrap">Not recording</span> <span className="hidden sm:inline"> &middot; {EVENT_TEXT_ARRIVES_SHORT}</span></> : stopped ? <>{idleLabel}. {EVENT_TEXT_ARRIVES_SHORT}</> : idleLabel}
       // Walkthrough 9: the same ⓘ as the running bar — what is recorded and where it goes, one tap
       // away before anyone starts, without a line of small print on every page.
       adornment={<CaptureInfoButton forEvent />}

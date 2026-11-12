@@ -19,6 +19,7 @@ export function FlowRoundCard({
   view,
   onMoment,
   onRoundsStarted,
+  feedbackSlot,
 }: {
   event: EventWithHost;
   self: EventRoomSelf | null;
@@ -28,9 +29,11 @@ export function FlowRoundCard({
   onMoment?: (moment: RoundMoment) => void;
   /** Mastermind only: whether any round has started. */
   onRoundsStarted?: (started: boolean) => void;
+  /** Mastermind only: the Feedback tab's slot after the feedback block (the next-version card goes there). */
+  feedbackSlot?: HTMLElement | null;
 }) {
   return recipeForEvent(event).mastermind ? (
-    <MastermindRoundCard eventId={event.id} self={self} roster={roster} ended={ended} view={view} onMoment={onMoment} onRoundsStarted={onRoundsStarted} />
+    <MastermindRoundCard eventId={event.id} self={self} roster={roster} ended={ended} view={view} onMoment={onMoment} onRoundsStarted={onRoundsStarted} feedbackSlot={feedbackSlot} />
   ) : (
     <RoundCard
       eventId={event.id}

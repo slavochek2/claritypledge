@@ -5,7 +5,8 @@
  * Usage:  SEED_HOST_EMAIL=<an existing account's email> npx tsx scripts/seed-p1529-host-room.ts
  *         SEED_HOST_EMAIL=<email> npx tsx scripts/seed-p1529-host-room.ts --event <existing slug>   (7 owners + 3 observers into it)
  *         SEED_HOST_EMAIL=<email> npx tsx scripts/seed-p1529-host-room.ts --fresh   (NEW event sales-mastermind-test-<MMDD-HHMM>, starts in ~1 h, limit 12,
- *             host not registered; 7 canvas owners shared to it + 3 observers; prints the event/host URLs and one sign-in link per person)
+ *             host not registered; 7 canvas owners shared to it + 3 observers, all in the room; prints the event/host URLs and one sign-in link per person)
+ *         npx tsx scripts/seed-p1529-host-room.ts --links <ledger.json>   (new sign-in links for that run's people)
  *         npx tsx scripts/seed-p1529-host-room.ts --cleanup <ledger.json>
  *
  * The host is NOT created: the account must exist (profile looked up by email). The event starts 7 days from now with a limit of 24 (12 registered, so seats stay open).
@@ -29,15 +30,15 @@ function isNetworkError(e: unknown): boolean {
   return (e instanceof TypeError && /fetch failed/i.test(e.message)) || c?.code === 'ECONNRESET' || /ECONNRESET/.test(String((e as Error)?.message));
 }
 
-/** Wraps the global fetch (every Supabase client resolves it per call): up to 4 attempts, 2s/4s/8s backoff, each retry logged. */
+/** Wraps the global fetch (every Supabase client resolves it per call): up to 4 attempts, 2s/4s/8s backoff plus up to 1s of random jitter, each retry logged. */
 function installRetryingFetch(): void {
   const base = globalThis.fetch;
   globalThis.fetch = (async (...args: Parameters<typeof fetch>) => {
     for (let attempt = 1; ; attempt++) {
       try { return await base(...args); } catch (e) {
         if (!isNetworkError(e) || attempt >= 4) throw e;
-        const wait = 2000 * 2 ** (attempt - 1);
-        console.log(`[retry] network error (${(e as Error).message}), attempt ${attempt} of 4, waiting ${wait / 1000}s`);
+        const wait = 2000 * 2 ** (attempt - 1) + Math.floor(Math.random() * 1000);
+        console.log(`[retry] network error (${(e as Error).message}), attempt ${attempt} of 4, waiting ${(wait / 1000).toFixed(1)}s`);
         await new Promise(r => setTimeout(r, wait));
       }
     }
@@ -87,13 +88,16 @@ async function joinAll(H: Helpers, admin: Admin, ledger: import('../e2e/helpers/
 
 const FRESH_BASE = process.env.SEED_BASE_URL ?? 'http://localhost:5001';
 
-/** One magic link per person (admin generateLink, redirected to the event page), labelled by role. */
+/** One sign-in link per person, labelled by role. The app's client is PKCE, which refuses generateLink's implicit action_link
+ *  (it lands signed out), so the link is the app's own /auth/verify page redeeming hashed_token (AuthVerifyPage, P1257). */
 async function printLinks(admin: Admin, ledger: import('../e2e/helpers/p1529-mastermind.ts').Ledger, slug: string, roles: Map<string, string>): Promise<void> {
   console.log('\nSign-in links (each logs the browser in as that person; use a separate browser profile per person):');
   for (const u of ledger.users) {
-    const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email: u.email, options: { redirectTo: `${FRESH_BASE}/events/${slug}` } });
-    if (error || !data?.properties?.action_link) throw new Error(`magic link ${u.name}: ${error?.message ?? 'no link'}`);
-    console.log(`  ${u.name} (${roles.get(u.email)}): ${data.properties.action_link}`);
+    const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email: u.email });
+    const hash = data?.properties?.hashed_token;
+    if (error || !hash) throw new Error(`magic link ${u.name}: ${error?.message ?? 'no token'}`);
+    const link = `${FRESH_BASE}/auth/verify?token_hash=${encodeURIComponent(hash)}&type=magiclink&redirect=${encodeURIComponent(`/events/${slug}`)}`;
+    console.log(`  ${u.name} (${roles.get(u.email) ?? 'registered'}): ${link}`);
   }
 }
 
@@ -122,6 +126,8 @@ async function seedFresh(H: Helpers, admin: Admin, ledger: import('../e2e/helper
     roles.set(person.user.email, p.kind === 'owner' ? 'canvas owner' : 'observer');
   }
   save();
+  await joinAll(H, admin, ledger, ev);
+  save();
   console.log(`Event page:  ${FRESH_BASE}/events/${slug}`);
   console.log(`Host screen: ${FRESH_BASE}/events/${slug}/host`);
   await printLinks(admin, ledger, slug, roles);
@@ -142,6 +148,20 @@ async function main() {
     const ledger = JSON.parse(readFileSync(resolve(file), 'utf8')) as import('../e2e/helpers/p1529-mastermind.ts').Ledger;
     for (const r of await H.cleanup(ledger)) console.log(`${r.step}: ${r.count}`);
     console.log('left over:', await H.leftovers(ledger));
+    return;
+  }
+
+  // --links <ledger>: print new sign-in links for an earlier run's people (links are single-use and expire).
+  const li = process.argv.indexOf('--links');
+  if (li > -1) {
+    H.assertSelfHostedTest();
+    const file = process.argv[li + 1];
+    if (!file) throw new Error('--links needs the ledger file');
+    const ledger = JSON.parse(readFileSync(resolve(file), 'utf8')) as import('../e2e/helpers/p1529-mastermind.ts').Ledger;
+    const roles = new Map(ledger.users.map(u => [u.email, PLAN.find(p => p.name === u.name)?.kind === 'observer' ? 'observer' : 'canvas owner']));
+    const slug = (ledger.events?.[0] as { slug?: string } | undefined)?.slug;
+    if (!slug) throw new Error('--links: the ledger holds no event');
+    await printLinks(supabaseAdmin, ledger, slug, roles);
     return;
   }
 

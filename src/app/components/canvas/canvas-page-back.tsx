@@ -10,5 +10,6 @@ import { useCanvasWorkspace } from './canvas-workspace-context';
 export function CanvasPageBack() {
   // The owner's bar has its own ← (W8): one Back on screen.
   const { active, ownerBar, tableBack } = useCanvasWorkspace();
-  return active || ownerBar || tableBack ? null : <FocusHeader fallback={ARTIFACTS_CANVASES_MINE} />;
+  if (active || ownerBar) return null;
+  return <FocusHeader fallback={tableBack ?? ARTIFACTS_CANVASES_MINE} />;
 }

@@ -17,27 +17,28 @@ import { useWorkspaceNav } from './use-workspace-nav';
 import { useReportedCanvas, useThreadOnPending } from './use-reported-canvas';
 import { useAddToChat } from './use-add-to-chat';
 import { useHandDraft } from '@/app/pages/chat/use-hand-draft';
+import { scopedReady, useTableCanvasForViewer } from './use-table-canvas';
 
 /** W8: once the canvas read has answered, it decides; before that, the signed-in owner of a canvas with a mirror chat gets the bar. */
 function showsOwnerBar(answered: { isOwner: boolean } | null | undefined, eligible: boolean): boolean {
   return answered ? answered.isOwner : eligible;
 }
 
-type WorkspaceValueArgs = Pick<CanvasWorkspaceValue, 'active' | 'reportReady' | 'reloads' | 'showThread' | 'ownerBar'> & {
+type WorkspaceValueArgs = Pick<CanvasWorkspaceValue, 'active' | 'reportReady' | 'reloads' | 'showThread' | 'ownerBar' | 'tableCounterpart'> & {
   tap: ReturnType<typeof useAddToChat>['tap'];
   clone: ReturnType<typeof useCloneCanvas>;
   resolved: boolean;
   spotRunActive: boolean;
-  tableBack: boolean;
+  tableBack: string | undefined;
   projectTag: Parameters<typeof useHandDraft>[1];
   openedDraft: Parameters<typeof useHandDraft>[2];
 };
 
 /** The workspace context value. Round 2: a pending Clone's first hand write makes the draft through the same opener, and the page moves to it as after the first message. */
 function useWorkspaceValue(a: WorkspaceValueArgs): CanvasWorkspaceValue {
-  const { active, reportReady, reloads, showThread, tap, clone, resolved, ownerBar, spotRunActive, tableBack, projectTag, openedDraft } = a;
+  const { active, reportReady, reloads, showThread, tap, clone, resolved, ownerBar, spotRunActive, tableBack, tableCounterpart, projectTag, openedDraft } = a;
   const ensureDraft = useHandDraft(clone.pending, projectTag, openedDraft);
-  return useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: clone.pending?.seq ?? null, cloning: !!clone.pending, ownerBar, runActive: spotRunActive, tableBack, ensureDraft }), [ensureDraft, active, reportReady, reloads, showThread, tap, clone.clone, resolved, clone.pending, ownerBar, spotRunActive, tableBack]);
+  return useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: clone.pending?.seq ?? null, cloning: !!clone.pending, ownerBar, runActive: spotRunActive, tableBack, tableCounterpart, ensureDraft }), [ensureDraft, tableCounterpart, active, reportReady, reloads, showThread, tap, clone.clone, resolved, clone.pending, ownerBar, spotRunActive, tableBack]);
 }
 
 /** Access, the page's own read, the panel, navigation and the Clone: everything the later hooks and the render build on. */
@@ -86,7 +87,9 @@ export function useCanvasWorkspacePage() {
   const { closedDraftId, returnTo: backTo, table } = publishing;
   // S4: Add to chat (owner only: the tap exists only where Clone does) and the reply chips; the composer takes the tags from the bus.
   const add = useAddToChat(reported, held, params.get('v'), ownerBar, clone, panel, closedDraftId);
-  const workspace = useWorkspaceValue({ active, reportReady, reloads, showThread: panel.showThread, tap: add.tap, clone, resolved, ownerBar, spotRunActive, tableBack: !backTo && !!table, projectTag, openedDraft: nav.openedDraft });
+  // P1529: a canvas opened from the table opens in Compare with the table's counterpart, and follows the host's rounds back to the table.
+  const { counterpart, roundBar } = useTableCanvasForViewer({ table, ready: scopedReady(reported.ready, held), editing: ownerBar && (active || !!held?.draft), params, setParams, canvasKey: `${access.handle}/${projectTag}`, state: navState });
+  const workspace = useWorkspaceValue({ active, reportReady, reloads, showThread: panel.showThread, tap: add.tap, clone, resolved, ownerBar, spotRunActive, tableBack: !backTo ? table?.to : undefined, tableCounterpart: counterpart, projectTag, openedDraft: nav.openedDraft });
   // The bar shows the last read FOR this canvas (`held`), so name, version and state do not blink away while the page re-reads another version.
   const rename = useCanvasRename(held, projectTag);
   useWorkspaceMarker({ eligible: workspaceOk, resolved, params, setParams, state: navState, reported, closedDraftId });
@@ -95,5 +98,5 @@ export function useCanvasWorkspacePage() {
   // A pending Clone over another base's draft must not be dragged onto that draft by its own first Send.
   useFollowDraft(runActive, clone.pending ? null : reported.ready, nav.openedDraft);
   const closeThread = useCloseThread(wide, !!clone.pending, clone.cancel, panel.setPanelOpen, panel.setView);
-  return { ...b, ...access, workspace, bus: add.bus, dismissSheet: add.dismissSheet, rename, ownerBar, publishing, closeThread, openPanel, backTo, table, goBack: nav.goBack, pickVersion: nav.pickVersion, openExistingDraft: nav.openExistingDraft, openedDraft: nav.openedDraft, navigate };
+  return { ...b, ...access, roundBar, workspace, bus: add.bus, dismissSheet: add.dismissSheet, rename, ownerBar, publishing, closeThread, openPanel, backTo, table, goBack: nav.goBack, pickVersion: nav.pickVersion, openExistingDraft: nav.openExistingDraft, openedDraft: nav.openedDraft, navigate };
 }

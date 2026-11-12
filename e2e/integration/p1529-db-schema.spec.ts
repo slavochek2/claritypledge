@@ -138,11 +138,11 @@ test('round 2 ends round 1: the offer follows the clean job (transcript_pending,
   // the cleaner's own worker may claim a pending job; hold it in 'pending' for a deterministic read
   await supabaseAdmin.from('transcribe_round_clean_jobs').update({ status: 'pending', not_before: new Date(Date.now() + 3_600_000).toISOString() }).eq('id', job.data!.id);
   expect(await offer(X)).toMatchObject({ state: 'transcript_pending', round_id: round1 });
+  // Round 2 runs: no next version for round 1 meanwhile, whatever the words say (M1).
   const pending = await tap(X, round1);
-  expect(pending.data).toMatchObject({ status: 'transcript_pending' });
+  expect(pending.data).toMatchObject({ status: 'refused', code: 'round_still_on' });
   await completeJobEmpty(round1, 1);
   expect(await offer(X)).toMatchObject({ state: 'no_recording' });
-  expect((await tap(X, round1)).data).toMatchObject({ status: 'no_recording' });
   const none = await supabaseAdmin.from('event_next_version_taps').select('*', { count: 'exact', head: true }).eq('round_id', round1);
   expect(none.count).toBe(0);
   // lines arrive (the cleaner's post), the job completes
@@ -150,7 +150,9 @@ test('round 2 ends round 1: the offer follows the clean job (transcript_pending,
   const n = await postRoundLines(round1, 1, { owner: X.tmember.get(E.id)!, partner: Y.tmember.get(E.id)! }, fixtureLines(40));
   expect(n).toBeGreaterThan(0);
   expect(await offer(X)).toMatchObject({ state: 'offer', round_id: round1 });
-  const started = await tap(X, round1);
+  // The break: round 2 ends, and the tap now reads the words.
+  expect((await host.client.rpc('host_end_round', { p_event: E.id })).data).toBe(true);
+  const started = await X.client.rpc('make_my_next_version', { p_round: round1, p_auto_publish: true });
   expect(started.error).toBeNull();
   expect(started.data).toMatchObject({ status: 'ok' });
   expect(started.data.draft_id).toBeTruthy();
@@ -219,7 +221,7 @@ test('a round makes at most one next version: after its draft is discarded the r
 
 test('round 3: the earlier round no longer closes; a showcase round is refused; a Clarity Night event has no next version', async () => {
   round3 = await startRound(3, [seat(X, 1, 'first'), seat(Y, 1, 'second')]);
-  expect((await tap(X, round1)).data, 'round 3 starting does not close round 1 any more').toMatchObject({ status: 'refused', code: 'round_already_used' });
+  expect((await tap(X, round1)).data, 'while round 3 runs no next version is made, whichever round it is for (M1)').toMatchObject({ status: 'refused', code: 'round_still_on' });
   expect((await offer(X)).state, 'round 3 is running: nothing is offered').toBe('none');
   // a Demo round
   await supabaseAdmin.from('event_rounds').update({ showcase: true }).eq('id', round1);
@@ -251,9 +253,10 @@ test('round 3 ended: each owned round offers its own next version (oldest first)
   expect(await offer(Y)).toMatchObject({ state: 'transcript_pending', round_id: r2 });
   await supabaseAdmin.from('event_rounds').update({ ended_at: new Date(Date.now() - 11 * 60_000).toISOString() }).eq('id', r2);
   expect(await offer(Y), 'not ready 10 minutes after the round ended').toMatchObject({ state: 'transcript_missing', round_id: r2 });
-  expect((await tap(Y, r2)).data, 'the tap still waits for the words').toMatchObject({ status: 'transcript_pending' });
+  expect((await tap(Y, r2)).data, 'round 3 still runs: refused (M1)').toMatchObject({ status: 'refused', code: 'round_still_on' });
   // Round 3 ends; X owned it. Its words arrive.
   expect((await host.client.rpc('host_end_round', { p_event: E.id })).data).toBe(true);
+  expect((await tap(Y, r2)).data, 'the tap still waits for the words').toMatchObject({ status: 'transcript_pending' });
   const n = await postRoundLines(round3, 1, { owner: X.tmember.get(E.id)!, partner: Y.tmember.get(E.id)! }, fixtureLines(40));
   expect(n).toBeGreaterThan(0);
   expect(await offer(X), 'round 1 is used; round 3 is the next one').toMatchObject({ state: 'offer', round_id: round3 });
@@ -278,6 +281,47 @@ test('round 3 ended: each owned round offers its own next version (oldest first)
   // a second tap shows that run, never a second one
   expect((await tap(X, round3)).data).toMatchObject({ status: 'started', repeat: true, draft_id: row.draft_id });
   expect((await supabaseAdmin.from('event_next_version_taps').select('*', { count: 'exact', head: true }).eq('round_id', round3)).count).toBe(1);
+});
+
+test('review fixes (20261111190000): oldest first, fail-safe default, stale base, reading only in the mastermind, no seat changes after the round', async () => {
+  // Round 4: Y owns it. r2 (Y's older round) is still without words (transcript_missing past 10 minutes).
+  const r2 = (await supabaseAdmin.from('event_rounds').select('id').eq('event_id', E.id).eq('round_no', 2).single()).data!.id as string;
+  const seats4 = [seat(Y, 1, 'first'), seat(X, 1, 'second')];
+  expect((await host.client.rpc('host_start_round', { p_event_id: E.id, p_round_no: 4, p_group_size: 3, p_seats: [seat(Y, 1, 'first'), seat(X, 1, 'second')], p_seating_s: 60, p_speaker_s: 300, p_observer_s: 0, p_split_speakers: false, p_match_tag: null, p_showcase: false, p_reading_s: 4000 })).error, 'reading_s over 3600').not.toBeNull();
+  const started = await host.client.rpc('host_start_round', { p_event_id: E.id, p_round_no: 4, p_group_size: 3, p_seats: seats4, p_seating_s: 60, p_speaker_s: 300, p_observer_s: 0, p_split_speakers: false, p_match_tag: null, p_showcase: false, p_reading_s: 120 });
+  expect(started.error, `round 4: ${started.error?.message}`).toBeNull();
+  const round4 = started.data as string;
+  expect((await supabaseAdmin.from('event_rounds').select('reading_s').eq('id', round4).single()).data, 'the mastermind keeps its reading part (L2)').toEqual({ reading_s: 120 });
+  // M1: a running round (any) refuses a tap for an ended round.
+  expect((await tap(Y, r2)).data).toMatchObject({ status: 'refused', code: 'round_still_on' });
+  expect((await host.client.rpc('host_end_round', { p_event: E.id })).data).toBe(true);
+  // L4: an ended round takes no seat changes.
+  const reseat = await host.client.rpc('host_set_round_seats', { p_round_id: round4, p_seats: [{ m: X.room.get(E.id), t: 1, r: 'first' }, { m: Y.room.get(E.id), t: 1, r: 'second' }] });
+  expect(reseat.error?.code).toBe('22023');
+  expect(reseat.error?.message).toMatch(/round is over/);
+  expect((await supabaseAdmin.from('event_round_seats').select('role').eq('round_id', round4).eq('room_member_id', Y.room.get(E.id)!).single()).data).toEqual({ role: 'first' });
+  expect(await postRoundLines(round4, 1, { owner: Y.tmember.get(E.id)!, partner: X.tmember.get(E.id)! }, fixtureLines(40))).toBeGreaterThan(0);
+  // L1: no argument means no auto-publish.
+  const noArg = await tap(Y, round4);
+  expect(noArg.error, `round 4 tap: ${noArg.error?.message}`).toBeNull();
+  expect(noArg.data).toMatchObject({ status: 'ok' });
+  const row = (await supabaseAdmin.from('event_next_version_taps').select('auto_publish, draft_id').eq('round_id', round4).single()).data!;
+  expect(row.auto_publish, 'the default is a preview').toBe(false);
+  // M3: the older round's words arrive late. Its tap is refused, and the offer never goes back to it.
+  expect(await postRoundLines(r2, 1, { owner: Y.tmember.get(E.id)!, partner: X.tmember.get(E.id)! }, fixtureLines(40))).toBeGreaterThan(0);
+  expect((await tap(Y, r2)).data).toMatchObject({ status: 'refused', code: 'newer_round_used' });
+  expect((await offer(Y)).round_id, 'the offer follows the newer round').toBe(round4);
+  // Stale base: a one-tap round whose draft does not start from the latest published version is not auto-published.
+  await supabaseAdmin.from('event_next_version_taps').update({ auto_publish: true }).eq('round_id', round4);
+  const live = await offer(Y) as { state: string; auto_publish?: boolean };
+  expect(live.auto_publish, 'base is the latest published version: one-tap stays').toBe(true);
+  await supabaseAdmin.from('canvas_drafts').update({ base_version_id: null }).eq('id', row.draft_id);
+  expect(((await offer(Y)) as { auto_publish?: boolean }).auto_publish, 'an older base is left as a draft').toBe(false);
+  // M4: with the draft open, a second tap for a DIFFERENT round of the same owner can never attach to it (the open-draft refusal).
+  const latest = (await supabaseAdmin.from('canvas_versions').select('id').eq('canvas_id', Y.canvasId!).not('published_seq', 'is', null).order('published_seq', { ascending: false }).limit(1).single()).data!;
+  const elsewhere = await Y.client.rpc('canvas_draft_open', { p_from_version: latest.id });
+  expect((elsewhere.data as { status: string }).status, 'canvas_draft_open names the open draft').toBe('open_elsewhere');
+  expect((await supabaseAdmin.from('event_next_version_taps').select('*', { count: 'exact', head: true }).eq('profile_id', Y.user.user.id).eq('round_id', round4)).count).toBe(1);
 });
 
 test('seat guard: an unregistered room member cannot be seated in a mastermind event, and the refusal names them; Clarity Night is unchanged', async () => {

@@ -100,11 +100,6 @@ export async function hostSetEventFlow(eventId: string, flow: string): Promise<v
   if (error) throwDbError('hostSetEventFlow', error, error.message);
 }
 
-export async function hostStartCanvasUpdate(eventId: string): Promise<void> {
-  const { error } = await supabase.rpc('host_start_canvas_update', { p_event: eventId });
-  if (error) throwDbError('hostStartCanvasUpdate', error, 'Could not start the canvas update');
-}
-
 export async function getPreviousSessionPartners(eventId: string): Promise<[string, string][]> {
   const { data, error } = await supabase.rpc('get_previous_session_partners', { p_event: eventId });
   if (error) throwDbError('getPreviousSessionPartners', error, 'Could not read the previous session');
@@ -126,6 +121,8 @@ export interface RoundCanvas {
   ownerSlug: string | null;
   canvasName: string | null;
   shared: boolean;
+  /** A canvas was chosen for the event (it may have been unshared since): "no longer shared" is not "no canvas yet". */
+  hadCanvas: boolean;
 }
 
 /** Null when the caller is not seated in that round, or the round has no owner. */
@@ -139,6 +136,7 @@ export async function getMyRoundCanvas(roundId: string): Promise<RoundCanvas | n
     ownerSlug: typeof r.owner_slug === 'string' ? r.owner_slug : null,
     canvasName: typeof r.canvas_name === 'string' ? r.canvas_name : null,
     shared: r.shared === true,
+    hadCanvas: r.had_canvas === true,
   };
 }
 
@@ -187,8 +185,8 @@ export type NextVersionResult =
   | { status: 'transcript_pending' | 'no_recording' | 'no_canvas' | 'published' }
   | { status: 'refused'; code: string };
 
-/** `autoPublish`: "Create next version" (true) publishes when the run is done; "Preview first" (false) leaves the draft for the owner. */
-export async function makeMyNextVersion(roundId: string, autoPublish = true): Promise<NextVersionResult> {
+/** `autoPublish`: "Create next version" (true) publishes when the run is done; "Preview first" (false, the default: fail-safe) leaves the draft for the owner. Every caller says which. */
+export async function makeMyNextVersion(roundId: string, autoPublish = false): Promise<NextVersionResult> {
   try {
     const { data, error } = await supabase.rpc('make_my_next_version', { p_round: roundId, p_auto_publish: autoPublish });
     if (error) throwDbError('makeMyNextVersion', error, 'Could not make your next version');
@@ -206,42 +204,6 @@ export async function makeMyNextVersion(roundId: string, autoPublish = true): Pr
   } finally {
     clearListReturnCache(); // a draft now exists: the Artifacts lists change
   }
-}
-
-export type UpdateState = 'not_tapped' | 'drafting' | 'ready' | 'failed' | 'published';
-const UPDATE_STATES: ReadonlySet<string> = new Set(['not_tapped', 'drafting', 'ready', 'failed', 'published']);
-
-/** The caller's own update state. `draftId`, `revision` and `runId` are set while a draft from this evening's tap is open. */
-export interface MyUpdateState { state: UpdateState; draftId: string | null; revision: number | null; runId: string | null }
-
-export async function getMyUpdateState(eventId: string): Promise<MyUpdateState> {
-  const { data, error } = await supabase.rpc('get_my_update_state', { p_event: eventId });
-  if (error) throwDbError('getMyUpdateState', error, 'Could not read your next version');
-  const r = (data ?? {}) as Record<string, unknown>;
-  return {
-    state: typeof r.state === 'string' && UPDATE_STATES.has(r.state) ? (r.state as UpdateState) : 'not_tapped',
-    draftId: typeof r.draft_id === 'string' ? r.draft_id : null,
-    revision: typeof r.revision === 'number' ? r.revision : null,
-    runId: typeof r.run_id === 'string' ? r.run_id : null,
-  };
-}
-
-/** Host only: every canvas owner's update state, keyed by profile id. */
-export async function getMastermindUpdateStates(eventId: string): Promise<Map<string, UpdateState>> {
-  const { data, error } = await supabase.rpc('get_mastermind_update_states', { p_event: eventId });
-  if (error) throwDbError('getMastermindUpdateStates', error, 'Could not read the owners\' next versions');
-  const rows = Object.entries((data ?? {}) as Record<string, unknown>);
-  return new Map(rows.map(([id, s]) => [id, typeof s === 'string' && UPDATE_STATES.has(s) ? (s as UpdateState) : 'not_tapped']));
-}
-
-/** The host's canvas-update step: on while its `afterRoundId` is still the newest round (the next round ends it by starting). */
-export interface CanvasUpdateStep { afterRoundId: string | null; startedAt: string }
-
-export async function getCanvasUpdateStep(eventId: string): Promise<CanvasUpdateStep | null> {
-  const { data, error } = await supabase.from('event_canvas_update_steps').select('after_round_id, started_at').eq('event_id', eventId).maybeSingle();
-  if (error) throwDbError('getCanvasUpdateStep', error, 'Could not read the canvas update step');
-  const row = data as { after_round_id: string | null; started_at: string } | null;
-  return row ? { afterRoundId: row.after_round_id, startedAt: row.started_at } : null;
 }
 
 /**

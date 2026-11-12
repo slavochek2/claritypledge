@@ -9,7 +9,7 @@ vi.mock('@/lib/supabase', () => ({ supabase: { rpc: h.rpc, from: vi.fn() } }));
 vi.mock('@/lib/list-return-cache', () => ({ clearListReturnCache: vi.fn() }));
 vi.mock('@/app/data/canvas-draft-calls', () => ({ startCanvasRun: h.startCanvasRun, startQueuedCanvasRun: h.startQueuedCanvasRun }));
 
-import { getMyNextVersionOffer, getMyUpdateState, makeMyNextVersion } from '@/app/data/event-mastermind-service';
+import { getMyNextVersionOffer, makeMyNextVersion } from '@/app/data/event-mastermind-service';
 
 const STARTED = { ok: true, runId: 'run1', kind: 'message' };
 
@@ -22,7 +22,7 @@ beforeEach(() => {
 describe('makeMyNextVersion', () => {
   it('starts the new run by its id after the database queued it', async () => {
     h.rpc.mockResolvedValue({ data: { status: 'ok', replayed: false, run_id: 'run1', draft_id: 'd1' }, error: null });
-    const r = await makeMyNextVersion('round1');
+    const r = await makeMyNextVersion('round1', true);
     expect(h.rpc).toHaveBeenCalledWith('make_my_next_version', { p_round: 'round1', p_auto_publish: true });
     expect(h.startCanvasRun).toHaveBeenCalledWith('run1');
     expect(r).toEqual({ status: 'started', draftId: 'd1', runId: 'run1', repeat: false, start: STARTED });
@@ -56,20 +56,19 @@ describe('makeMyNextVersion', () => {
     expect(h.startCanvasRun).not.toHaveBeenCalled();
   });
 
+  it('an omitted autoPublish is a preview: false goes to the database (finding F)', async () => {
+    h.rpc.mockResolvedValue({ data: { status: 'no_recording' }, error: null });
+    await makeMyNextVersion('round1');
+    expect(h.rpc).toHaveBeenCalledWith('make_my_next_version', { p_round: 'round1', p_auto_publish: false });
+  });
+
   it('a database error throws, so the card can say so', async () => {
     h.rpc.mockResolvedValue({ data: null, error: { message: 'nope', code: '42501' } });
     await expect(makeMyNextVersion('round1')).rejects.toBeTruthy();
   });
 });
 
-describe('the two reads', () => {
-  it('reads an update state, with a safe default for a shape it does not know', async () => {
-    h.rpc.mockResolvedValueOnce({ data: { state: 'ready', draft_id: 'd1', revision: 4, run_id: 'run1' }, error: null });
-    expect(await getMyUpdateState('e1')).toEqual({ state: 'ready', draftId: 'd1', revision: 4, runId: 'run1' });
-    h.rpc.mockResolvedValueOnce({ data: { state: 'mystery' }, error: null });
-    expect((await getMyUpdateState('e1')).state).toBe('not_tapped');
-  });
-
+describe('the offer read', () => {
   it('reads the offer before any tap, and an unknown state is none', async () => {
     h.rpc.mockResolvedValueOnce({ data: { state: 'no_recording', round_id: 'r1' }, error: null });
     expect(await getMyNextVersionOffer('e1')).toEqual({ state: 'no_recording', roundId: 'r1', draftId: null, revision: null, runId: null, autoPublish: false });
