@@ -67,13 +67,13 @@ function Failed({ draft, onRetry }: { draft: ClarifyDraft; onRetry: () => void }
 function publishable(all: ClarifyDraft[], earlier: ReadonlySet<string>): ClarifyDraft | null {
   for (let i = all.length - 1; i >= 0; i--) {
     const d = all[i];
-    if (d.state === 'done' && d.point && !earlier.has(d.id)) return d;
+    if (d && d.state === 'done' && d.point && !earlier.has(d.id)) return d;
   }
   return null;
 }
 
 /** A right-aligned row: Another point (the product's blue-outline secondary) and/or Publish to chat (the filled primary, right-most). */
-function LatestRow({ latest, onAnother }: { latest: ClarifyDraft | null; onAnother?: () => void }) {
+function LatestRow({ latest, onAnother, onPublished }: { latest: ClarifyDraft | null; onAnother?: () => void; onPublished?: ClarifyActions['onPublished'] }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2 px-3 pt-1" data-testid="clarify-latest-row">
       {onAnother && (
@@ -81,7 +81,12 @@ function LatestRow({ latest, onAnother }: { latest: ClarifyDraft | null; onAnoth
           {ANOTHER_POINT_LABEL}
         </Button>
       )}
-      {latest?.point && <ClarifyPublishButton id={latest.id} pointId={latest.point.id} serverHasPosition={latest.point.ownerPosition !== null} />}
+      {latest?.point && (
+        <ClarifyPublishButton
+          id={latest.id} pointId={latest.point.id} serverHasPosition={latest.point.ownerPosition !== null}
+          published={latest.published.length > 0} sourceKind={latest.sourceKind} onPublished={onPublished}
+        />
+      )}
     </div>
   );
 }
@@ -151,7 +156,7 @@ export function ClarifyDraftsView(props: ClarifyDraftsViewProps) {
       {drafts.map((d) => (
         <Fragment key={d.id}>
           <DraftTurn draft={d} props={props} earlier={earlier} />
-          {here?.id === d.id && <LatestRow latest={here} onAnother={shared ? actions.onAnother : undefined} />}
+          {here?.id === d.id && <LatestRow latest={here} onAnother={shared ? actions.onAnother : undefined} onPublished={actions.onPublished} />}
         </Fragment>
       ))}
       {another && !shared && <LatestRow latest={null} onAnother={actions.onAnother} />}

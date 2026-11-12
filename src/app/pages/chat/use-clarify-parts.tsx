@@ -3,8 +3,9 @@
  * Mirror's drafts drawn right after the message each follows (as `after` nodes of the message list). It names itself "Your Mirror" / "Only you see this", and takes a composer:
  * a message there refines the latest draft, or the card a "Mention in chat" pill names.
  */
-import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-service';
+import type { PublishResult } from '@/app/data/clarify-service';
 import { ClarifyComposer } from './ClarifyComposer';
 import { ClarifyDraftsView } from './ClarifyDrafts';
 import { useClarifyThread } from './use-clarify-thread';
@@ -17,7 +18,7 @@ import { CLARIFY_SUBTITLE, CLARIFY_TITLE } from './clarify-copy';
 export const isClarifyRoot = (summary: Pick<ChatSummary, 'kind'>, root: ChatMessage | undefined): boolean =>
   summary.kind === 'mirror' && root?.kind === 'clarify' && !root.threadRootId && !root.isDeleted;
 
-export function useClarifyParts(summary: ChatSummary, root: ChatMessage | undefined, userId: string, messages: ChatMessage[]): {
+export function useClarifyParts(summary: ChatSummary, root: ChatMessage | undefined, userId: string, messages: ChatMessage[], onPublished?: (result: PublishResult) => void): {
   isClarify: boolean;
   headerTitle: ReactNode;
   /** The drafts drawn under the messages they follow, by message id; null when this is not a Clarify thread. */
@@ -31,7 +32,9 @@ export function useClarifyParts(summary: ChatSummary, root: ChatMessage | undefi
   useLayoutEffect(() => { if (rootId) registerClarifyThread(rootId); }, [rootId]);
   // one read of the drafts, shared by the list and the composer (which waits while a draft is being made)
   const thread = useClarifyThread(rootId ?? null);
-  const actions = useClarifyActions(rootId ?? '', thread.markQueued);
+  const baseActions = useClarifyActions(rootId ?? '', thread.markQueued);
+  // a published point: the caller gets the answer (which chat, which message, which thread) and shows the new card
+  const actions = useMemo(() => ({ ...baseActions, onPublished }), [baseActions, onPublished]);
   // the card a Mention in chat names: held here because the card (in the list) and the pill (in the composer) both show it
   const [mentionId, setMentionId] = useState<string | null>(null);
   const clearMention = useCallback(() => setMentionId(null), []);

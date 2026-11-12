@@ -24,6 +24,10 @@ export interface ClarifyDraft {
   createdAt: string;
   /** The card this card replaced (a refine), or null. A card that a newer done card names here is an earlier version. */
   refineTargetId: string | null;
+  /** Kind of the chat the pressed message was in ('mirror' has no chat to publish into), or null when unknown. */
+  sourceKind: string | null;
+  /** The live cards of this point in chats (none: not published, or its cards were deleted). */
+  published: { conversationId: string; messageId: string }[];
 }
 
 export type StartClarifyResult =
@@ -104,6 +108,29 @@ export async function deleteClarifyDraft(draftId: string): Promise<ClarifyChange
   return changeResult(await call('clarify_draft_delete', { p_draft: draftId }));
 }
 
+export type PublishResult =
+  | { status: 'published' | 'already'; messageId: string; conversationId: string; threadRootId: string | null }
+  | { status: 'refused'; code: string };
+
+/** Owner only. Posts the card's point into the chat it came from; a refusal is an answer (a value), a call that cannot be made throws. */
+export async function publishClarify(draftId: string): Promise<PublishResult> {
+  const r = await call('clarify_publish', { p_draft: draftId, p_client_id: crypto.randomUUID() });
+  if (r.status === 'refused') return { status: 'refused', code: str(r.code) ?? 'refused' };
+  const messageId = str(r.message_id);
+  const conversationId = str(r.conversation_id);
+  if ((r.status === 'published' || r.status === 'already') && messageId && conversationId) {
+    return { status: r.status, messageId, conversationId, threadRootId: str(r.thread_root_id) };
+  }
+  throw new Error('clarify_publish: unexpected answer');
+}
+
+/** True when the caller can read this private point and a live chat card of it exists (the point has no link and takes no story). A failed call throws. */
+export async function isPointChatShared(pointId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('point_chat_shared', { p_point: pointId });
+  if (error) throw new Error(`point_chat_shared failed: ${error.message}`);
+  return data === true;
+}
+
 const STATES: ClarifyDraftState[] = ['queued', 'running', 'done', 'refused', 'failed', 'capped'];
 
 function citedOf(v: unknown): ClarifyCitedLine[] {
@@ -137,7 +164,19 @@ function mapDraft(raw: unknown): ClarifyDraft | null {
     cited: citedOf(d.cited),
     createdAt: str(d.created_at) ?? '',
     refineTargetId: str(d.refine_target_id),
+    sourceKind: str(d.source_kind),
+    published: publishedOf(d.published),
   };
+}
+
+function publishedOf(v: unknown): ClarifyDraft['published'] {
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((raw) => {
+    const x = (raw ?? {}) as Row;
+    const conversationId = str(x.conversation_id);
+    const messageId = str(x.message_id);
+    return conversationId && messageId ? [{ conversationId, messageId }] : [];
+  });
 }
 
 /** The drafts of one Clarify thread, oldest first. Owner only: anyone else gets none. */

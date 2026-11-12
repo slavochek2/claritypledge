@@ -21,5 +21,5 @@ export function MessageAttachment({ msg, server, viewerId, compact = false, stat
   }
   if (compact) return <AttachmentCard kind={msg.attachmentKind} id={msg.attachmentId} viewerId={viewerId} compact />;
   if (server && server.kind !== 'message') return null;
-  return <AttachmentCard kind={msg.attachmentKind} id={msg.attachmentId} viewerId={viewerId} rootId={canvasRootId(server)} count={stat?.count} />;
+  return <AttachmentCard kind={msg.attachmentKind} id={msg.attachmentId} viewerId={viewerId} rootId={canvasRootId(server)} count={stat?.count} conversationId={server?.conversationId} />;
 }

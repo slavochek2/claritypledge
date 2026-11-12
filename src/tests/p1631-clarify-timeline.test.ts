@@ -7,7 +7,7 @@ import type { ClarifyDraft } from '@/app/data/clarify-service';
 import { draftsByMessage, earlierDraftIds, mayAddAnother } from '@/app/pages/chat/clarify-timeline';
 
 const d = (id: string, createdAt: string, over: Partial<ClarifyDraft> = {}): ClarifyDraft => ({
-  id, state: 'done', point: { id: `p-${id}`, statement: id, ownerPosition: null }, suggestions: [], errorCode: null, cited: [], createdAt, refineTargetId: null, ...over,
+  id, state: 'done', point: { id: `p-${id}`, statement: id, ownerPosition: null }, suggestions: [], errorCode: null, cited: [], createdAt, refineTargetId: null, sourceKind: 'dm', published: [], ...over,
 });
 const msgs = [
   { id: 'root', createdAt: '2026-11-10T10:00:00Z' },

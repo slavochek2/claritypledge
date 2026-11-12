@@ -4,7 +4,7 @@
  */
 import { useCallback, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
-import { anotherPoint, retryClarify, type ClarifyDraft } from '@/app/data/clarify-service';
+import { anotherPoint, retryClarify, type ClarifyDraft, type PublishResult } from '@/app/data/clarify-service';
 import { CLARIFY_FAILED_TOAST } from './clarify-copy';
 import { forgetClarifyRun, runClarifyDraft, touchClarifyThread } from './clarify-run';
 
@@ -13,6 +13,8 @@ export interface ClarifyActions {
   onRetry: (draft: ClarifyDraft) => void;
   onAnother: () => void;
   onChanged: () => void;
+  /** A point was published (or already was): the panel closes and the chat shows the card. Absent where the thread has no panel. */
+  onPublished?: (result: PublishResult) => void;
 }
 
 type Start = () => Promise<{ status: string; draftId?: string | null }>;

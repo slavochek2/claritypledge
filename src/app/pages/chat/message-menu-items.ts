@@ -9,6 +9,7 @@ import type { ChatMessage } from '@/app/data/chat-service';
 import type { MenuItem } from './chat-kit';
 import { ClarifyMenuIcon } from './MessageParts';
 import { copyableText, copyMessageText } from './message-copy';
+import { isKnownPrivatePoint } from './private-point-cache';
 import type { MessageActions } from './MessageRow';
 
 export interface MenuContext {
@@ -36,7 +37,8 @@ function pushActionItems(c: MenuContext, server: NonNullable<MenuContext['server
     const open = actions.onThread;
     items.push({ key: 'thread', label: 'Reply in thread', Icon: MessageSquareText, onSelect: () => open(server) });
   }
-  if (!c.agent && !c.noCopy) items.push({ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => actions.onForward(server) });
+  const privatePoint = server.attachmentKind === 'point' && isKnownPrivatePoint(server.attachmentId); // P1631: a private point is never forwarded
+  if (!c.agent && !c.noCopy && !privatePoint) items.push({ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => actions.onForward(server) });
 }
 
 export function buildMenuItems(c: MenuContext): MenuItem[] {

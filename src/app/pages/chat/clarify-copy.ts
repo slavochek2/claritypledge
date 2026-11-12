@@ -11,7 +11,8 @@ export const UPDATED_LEAD = 'Updated:';
 export const EARLIER_LABEL = 'Earlier version';
 export const PUBLISH_LABEL = 'Publish to chat';
 export const PUBLISH_NEEDS_POSITION_TOAST = 'Set your position first';
-export const PUBLISH_COMING_TOAST = 'Publishing comes next';
+export const PUBLISH_PUBLISHED_TEXT = 'Published';
+export const PUBLISH_NOT_AVAILABLE_TOAST = 'You can no longer post in this chat';
 export const ANOTHER_POINT_LABEL = 'Another point';
 export const CLARIFY_LABEL = 'Clarify';
 

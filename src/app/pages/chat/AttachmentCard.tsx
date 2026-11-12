@@ -11,7 +11,10 @@ import { FeedStoryCard } from '@/app/components/feed/feed-story-card';
 import { loadAttachment, type Shareable } from '@/app/data/chat-ui-helpers';
 import type { ChatAttachmentKind } from '@/app/data/chat-mappers';
 import { Button } from '@/components/ui/button';
+import type { PointWithUserPosition } from '@/app/types';
 import { ArtifactAttachmentCard } from './ArtifactAttachmentCard';
+import { PrivatePointAttachment } from './PrivatePointAttachment';
+import { notePrivatePoint } from './private-point-cache';
 import { AttachmentSkeleton } from './AttachmentSkeleton';
 import { CanvasRootCard } from './CanvasRootCard';
 import { CanvasVersionCard } from './CanvasVersionCard';
@@ -63,14 +66,25 @@ function swapIn(now: State, item: Shareable | null, latest: boolean): State {
  * `compact`: drawn inside a quote block (a forwarded or clarified message): the compact standard card, no vote buttons
  * and no Retry button (a quote can itself be a button, and buttons do not nest).
  */
-export function AttachmentCard(props: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean; rootId?: string; count?: number }) {
+export function AttachmentCard(props: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean; rootId?: string; count?: number; conversationId?: string }) {
   if (props.kind === 'canvas_version' && props.rootId && !props.compact) return <CanvasRootCard rootId={props.rootId} versionId={props.id} viewerId={props.viewerId} count={props.count} />;
   // P1545: canvases and letters have their own reader-judged card; points and stories keep the feed cards.
   if (props.kind === 'canvas' || props.kind === 'letter') return <ArtifactAttachmentCard {...props} kind={props.kind} />;
   return <FeedItemAttachmentCard {...props} />;
 }
 
-function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean }) {
+/** A public point is the feed card; a private one (published from Clarify) is the chat's own card, and is never forwarded. */
+function PointAttachmentBody({ point, compact, conversationId }: { point: PointWithUserPosition; compact: boolean; conversationId?: string }) {
+  const isPrivate = point.visibility === 'private';
+  // noted from an effect, not render: a render may run twice or be discarded; the compact quote path notes it too (the menu on a quoted card leaves Forward out)
+  useEffect(() => {
+    if (isPrivate) notePrivatePoint(point.id);
+  }, [isPrivate, point.id]);
+  if (!isPrivate || compact) return <FeedPointCard point={point} compact={compact} />;
+  return <PrivatePointAttachment point={point} conversationId={conversationId} />;
+}
+
+function FeedItemAttachmentCard({ kind, id, viewerId, compact = false, conversationId }: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean; conversationId?: string }) {
   const [state, setState] = useState<State>({ status: 'loading' });
   const online = useOnline();
   // One generation per card: every read takes the next number, and only the read holding the current
@@ -135,7 +149,7 @@ function FeedItemAttachmentCard({ kind, id, viewerId, compact = false }: { kind:
     if (item.kind === 'canvas_version' && item.canvasVersion) return <CanvasVersionCard data={item.canvasVersion} compact={compact} />;
     return (
       <div className={`mt-1 w-full max-w-md ${HIDE_CARD_CHROME}`} data-testid={`attachment-${kind}`}>
-        {item.kind === 'point' && item.point && <FeedPointCard point={item.point} compact={compact} />}
+        {item.kind === 'point' && item.point && <PointAttachmentBody point={item.point} compact={compact} conversationId={conversationId} />}
         {item.kind === 'story' && item.story && <FeedStoryCard story={item.story} linkedPoints={item.linkedPoints} currentUserId={viewerId} compact={compact} />}
       </div>
     );

@@ -612,3 +612,96 @@ describe('P1631 thread redesign review fix (20261111183000): only a run with an 
     expect(code).not.toMatch(/GRANT[^;]*_clarify_begin[^;]*(authenticated|anon)/);
   });
 });
+
+describe('P1631 A9 publish to chat (20261112150000)', () => {
+  const PUB = '20261112150000_p1631_publish_to_chat.sql';
+  const pub = read(PUB);
+  const pubCode = stripComments(pub);
+  const unmarked = (sql: string) => sql.split('\n').filter((l) => !l.includes('P1631 publish')).join('\n');
+  const REPLACED: [string, string][] = [
+    ['clarify_draft_edit', '20261111160000_p1631_refine_as_new_card.sql'],
+    ['clarify_draft_delete', '20261110153000_p1631_clarify_drafts.sql'],
+    ['_clarify_draft_drop_point', '20261110153000_p1631_clarify_drafts.sql'],
+    ['get_clarify_thread', '20261111160000_p1631_refine_as_new_card.sql'],
+    ['forward_chat_message', '20261030090000_p1536_p1592_merge_erase_forward.sql'],
+    ['erase_chat_data_for', '20261110160000_p1631_erase_cleanup_in_erase_fn.sql'],
+  ];
+  it.each(REPLACED)('%s: names its source, the source is the newest definition before this file, and the body is that body plus ONLY the marked lines', (name, from) => {
+    expect(pub).toMatch(new RegExp(`${name}\\s+${from.replace('.', '\\.')}`));
+    expect(newestBefore(name, PUB)).toBe(from);
+    expect(fnBody(unmarked(pub), name)).toBe(fnBody(read(from), name));
+    expect(fnBody(pub, name)).not.toBe(fnBody(read(from), name)); // the marked lines are really there
+  });
+  it('CONTROL: the comparison fails when an unmarked line of a copied body changes', () => {
+    const mutated = unmarked(pub).replace(`'code', 'busy'`, `'code', 'busy2'`);
+    expect(fnBody(mutated, 'clarify_draft_delete')).not.toBe(fnBody(read('20261110153000_p1631_clarify_drafts.sql'), 'clarify_draft_delete'));
+  });
+  it('every function is SECURITY DEFINER with an empty or public,pg_temp search_path, and its grants are revoked from PUBLIC, anon and authenticated', () => {
+    const NEW = ['chat_shared_point_ids', '_chat_point_readable', '_point_has_live_share', '_point_position_write_ok', '_point_chat_publish', 'clarify_publish', 'point_share_to_chat', 'list_chat_points', '_point_chat_erase_author'];
+    for (const name of [...NEW, ...REPLACED.map(([n]) => n)]) {
+      const body = fnBody(pub, name);
+      expect(body, name).toContain('SECURITY DEFINER');
+      expect(body, name).toMatch(/SET search_path = ('' |public, pg_temp )/);
+      expect(pubCode, name).toMatch(new RegExp(`REVOKE ALL ON FUNCTION public\\.${name}\\([^)]*\\) FROM PUBLIC, anon, authenticated;`));
+    }
+  });
+  it('only the client functions are granted, to authenticated alone; the internal ones have no grant', () => {
+    for (const name of ['chat_shared_point_ids', '_point_position_write_ok', 'clarify_publish', 'point_share_to_chat', 'list_chat_points']) {
+      expect(pubCode, name).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${name}\\([^)]*\\) TO authenticated;`));
+    }
+    for (const name of ['_chat_point_readable', '_point_has_live_share', '_point_chat_publish', '_point_chat_erase_author']) {
+      expect(pubCode, name).not.toMatch(new RegExp(`GRANT[^;]*public\\.${name}\\(`));
+    }
+    expect(pubCode).not.toMatch(/GRANT EXECUTE[^;]* TO (anon|PUBLIC)/);
+  });
+  it('the share table is closed and the position-write policies are restrictive and scoped to authenticated', () => {
+    expect(pubCode).toMatch(/REVOKE ALL ON TABLE public\.point_chat_shares FROM PUBLIC, anon, authenticated;/);
+    expect(pubCode).not.toMatch(/GRANT[^;]*TABLE public\.point_chat_shares/);
+    expect(pubCode).toMatch(/point_positions_insert_chat_shared ON public\.point_positions AS RESTRICTIVE FOR INSERT TO authenticated/);
+    expect(pubCode).toMatch(/point_positions_update_chat_shared ON public\.point_positions AS RESTRICTIVE FOR UPDATE TO authenticated/);
+    for (const t of ['points', 'point_positions', 'point_position_history']) expect(pubCode).toMatch(new RegExp(`ON public\\.${t} FOR SELECT TO authenticated`));
+  });
+});
+
+describe('P1631 A9 publish read cost (20261112180000)', () => {
+  const RC = '20261112180000_p1631_publish_read_cost.sql';
+  const rc = read(RC);
+  const rcCode = stripComments(rc);
+  it('_point_position_write_ok: names its source, the source is the newest before this file, and the body is that body plus ONLY the marked line', () => {
+    const from = '20261112170000_p1631_publish_fixes.sql';
+    expect(rc).toMatch(/_point_position_write_ok\s+20261112170000_p1631_publish_fixes\.sql/);
+    expect(newestBefore('_point_position_write_ok', RC)).toBe(from);
+    const body = fnBody(rc, '_point_position_write_ok');
+    expect(body).not.toBe(fnBody(read(from), '_point_position_write_ok'));
+    expect(body).not.toContain('chat_shared_point_ids');
+    expect(body).toContain('public._point_chat_readable_by_me(p_point)');
+    // swapping the one changed line back gives the previous body: nothing else differs
+    const restored = rc.replace('public._point_chat_readable_by_me(p_point) -- P1631 read cost', 'p_point IN (SELECT x.point_id FROM public.chat_shared_point_ids() x) -- P1631 publish fixes');
+    expect(fnBody(restored, '_point_position_write_ok')).toBe(fnBody(read(from), '_point_position_write_ok'));
+  });
+  it('the readability function is a definer with an empty search_path, index-driven, and equals chat_shared_point_ids on the rule', () => {
+    const body = fnBody(rc, '_point_chat_readable_by_me');
+    expect(body).toContain('SECURITY DEFINER');
+    expect(body).toContain(`SET search_path = ''`);
+    expect(body).toContain('s.point_id = p_point');
+    expect(body).toContain(`m.deleted_at IS NULL AND m.attachment_kind = 'point' AND m.attachment_id = s.point_id`);
+    expect(body).toMatch(/m\.created_at >= COALESCE\(public\._chat_access_since\(s\.conversation_id, \(SELECT auth\.uid\(\)\)\), 'infinity'::timestamptz\)/);
+    expect(body).not.toContain('chat_my_access');
+    expect(rcCode).toMatch(/REVOKE ALL ON FUNCTION public\._point_chat_readable_by_me\(uuid\) FROM PUBLIC, anon;/);
+    expect(rcCode).toMatch(/GRANT EXECUTE ON FUNCTION public\._point_chat_readable_by_me\(uuid\) TO authenticated;/);
+    expect(rcCode).not.toMatch(/GRANT[^;]*_point_chat_readable_by_me[^;]*TO (anon|PUBLIC)/);
+  });
+  it('the three read policies are recreated TO authenticated on the per-row function, with no hashed subplan', () => {
+    for (const t of ['points', 'point_positions', 'point_position_history']) {
+      expect(rcCode).toMatch(new RegExp(`DROP POLICY IF EXISTS ${t}_select_chat_shared ON public\\.${t};`));
+      expect(rcCode).toMatch(new RegExp(`CREATE POLICY ${t}_select_chat_shared ON public\\.${t} FOR SELECT TO authenticated`));
+    }
+    expect(norm(rcCode)).toContain(`USING (visibility = 'private' AND public._point_chat_readable_by_me(id))`);
+    expect(rcCode.match(/USING \(public\._point_chat_readable_by_me\(point_id\)\)/g)?.length).toBe(2);
+    expect(rcCode).not.toContain('chat_shared_point_ids');
+  });
+  it('CONTROL: the body check fails when the new function is swapped back to the per-statement set', () => {
+    const mutated = rc.replace('public._point_chat_readable_by_me(p_point) -- P1631 read cost', 'p_point IN (SELECT x.point_id FROM public.chat_shared_point_ids() x) -- P1631 read cost');
+    expect(fnBody(mutated, '_point_position_write_ok')).toContain('chat_shared_point_ids');
+  });
+});

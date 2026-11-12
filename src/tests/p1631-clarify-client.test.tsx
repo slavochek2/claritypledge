@@ -18,6 +18,7 @@ const svc = vi.hoisted(() => ({
   deleteClarifyDraft: vi.fn(),
   getClarifyThread: vi.fn(),
   invokeClarifyDraft: vi.fn(),
+  publishClarify: vi.fn(),
   markClarifyFailed: vi.fn(async () => undefined),
 }));
 const toastFn = vi.hoisted(() => Object.assign(vi.fn(), { error: vi.fn(), loading: vi.fn(), dismiss: vi.fn() }));
@@ -43,7 +44,7 @@ import { isClarifyThread, registerClarifyThread, resetClarifyRuns, runClarifyDra
 import { isClarifyRoot } from '@/app/pages/chat/use-clarify-parts';
 import {
   ANOTHER_POINT_LABEL, CAPPED_TEXT, CLARIFY_SUBTITLE, CLARIFY_TITLE, DELETE_TITLE, DRAFT_PILL, EARLIER_LABEL, FAILED_TEXT, NO_SPLIT_TEXT,
-  PUBLISH_COMING_TOAST, PUBLISH_LABEL, PUBLISH_NEEDS_POSITION_TOAST, RETRY_LABEL, UPDATED_LEAD,
+  CLARIFY_FAILED_TOAST, PUBLISH_LABEL, PUBLISH_NEEDS_POSITION_TOAST, PUBLISH_NOT_AVAILABLE_TOAST, PUBLISH_PUBLISHED_TEXT, RETRY_LABEL, UPDATED_LEAD,
 } from '@/app/pages/chat/clarify-copy';
 import { ClarifyPublishButton } from '@/app/pages/chat/ClarifyPublishButton';
 import { MENTIONED_LABEL, MENTION_IN_CHAT_LABEL } from '@/app/components/canvas/canvas-mention-in-chat';
@@ -62,6 +63,8 @@ const draft = (over: Partial<ClarifyDraft> = {}): ClarifyDraft => ({
   cited: [{ id: 'm1', text: 'we never agreed on a date', at: '2026-11-10T10:00:00Z' }],
   createdAt: '2026-11-10T10:00:00Z',
   refineTargetId: null,
+  sourceKind: 'dm',
+  published: [],
   ...over,
 });
 
@@ -224,8 +227,69 @@ describe('ClarifyDraftCard', () => {
     render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
     const ready = await screen.findByRole('button', { name: PUBLISH_LABEL });
     expect(ready).toHaveAttribute('aria-disabled', 'false');
+    svc.publishClarify.mockResolvedValue({ status: 'published', messageId: 'm9', conversationId: 'c1', threadRootId: null });
     fireEvent.click(ready);
-    expect(toastFn).toHaveBeenLastCalledWith(PUBLISH_COMING_TOAST);
+    await waitFor(() => expect(svc.publishClarify).toHaveBeenCalledWith('d1'));
+  });
+
+  describe('Publish to chat (A9)', () => {
+    const props = { id: 'd1', pointId: 'pt-a9', serverHasPosition: true };
+
+    it('no position: a tap says why and publishes nothing', () => {
+      render(<ClarifyPublishButton {...props} serverHasPosition={false} />);
+      fireEvent.click(screen.getByRole('button', { name: PUBLISH_LABEL }));
+      expect(toastFn).toHaveBeenLastCalledWith(PUBLISH_NEEDS_POSITION_TOAST);
+      expect(svc.publishClarify).not.toHaveBeenCalled();
+    });
+
+    it('published: the panel is told (onPublished gets the answer)', async () => {
+      svc.publishClarify.mockResolvedValue({ status: 'published', messageId: 'm9', conversationId: 'c1', threadRootId: null });
+      const onPublished = vi.fn();
+      render(<ClarifyPublishButton {...props} onPublished={onPublished} />);
+      fireEvent.click(screen.getByRole('button', { name: PUBLISH_LABEL }));
+      await waitFor(() => expect(onPublished).toHaveBeenCalledWith(expect.objectContaining({ status: 'published', messageId: 'm9' })));
+    });
+
+    it('already published by an earlier tap: the same close', async () => {
+      svc.publishClarify.mockResolvedValue({ status: 'already', messageId: 'm9', conversationId: 'c1', threadRootId: null });
+      const onPublished = vi.fn();
+      render(<ClarifyPublishButton {...props} onPublished={onPublished} />);
+      fireEvent.click(screen.getByRole('button', { name: PUBLISH_LABEL }));
+      await waitFor(() => expect(onPublished).toHaveBeenCalled());
+    });
+
+    it('refused not_available: a toast, the panel stays', async () => {
+      svc.publishClarify.mockResolvedValue({ status: 'refused', code: 'not_available' });
+      const onPublished = vi.fn();
+      render(<ClarifyPublishButton {...props} onPublished={onPublished} />);
+      fireEvent.click(screen.getByRole('button', { name: PUBLISH_LABEL }));
+      await waitFor(() => expect(toastFn).toHaveBeenLastCalledWith(PUBLISH_NOT_AVAILABLE_TOAST));
+      expect(onPublished).not.toHaveBeenCalled();
+    });
+
+    it('a double tap sends one request', async () => {
+      let release: (v: unknown) => void = () => undefined;
+      svc.publishClarify.mockReturnValue(new Promise((r) => { release = r; }));
+      render(<ClarifyPublishButton {...props} />);
+      const b = screen.getByRole('button', { name: PUBLISH_LABEL });
+      fireEvent.click(b);
+      fireEvent.click(b);
+      expect(svc.publishClarify).toHaveBeenCalledTimes(1);
+      release({ status: 'refused', code: 'earlier_version' });
+      await waitFor(() => expect(toastFn).toHaveBeenLastCalledWith(CLARIFY_FAILED_TOAST));
+    });
+
+    it('already published card: quiet "Published" text, no button', () => {
+      render(<ClarifyPublishButton {...props} published />);
+      expect(screen.queryByRole('button', { name: PUBLISH_LABEL })).not.toBeInTheDocument();
+      expect(screen.getByTestId('clarify-published-d1')).toHaveTextContent(PUBLISH_PUBLISHED_TEXT);
+    });
+
+    it('a Mirror-sourced card has no Publish control at all', () => {
+      render(<ClarifyPublishButton {...props} sourceKind="mirror" />);
+      expect(screen.queryByRole('button', { name: PUBLISH_LABEL })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('clarify-published-d1')).not.toBeInTheDocument();
+    });
   });
 
   it('a hand edit that is saved clears the shown position at once (the server clears it; an unchanged null never reaches the sync)', async () => {

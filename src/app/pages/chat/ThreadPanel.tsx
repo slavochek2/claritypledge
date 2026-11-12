@@ -12,6 +12,7 @@ import { Composer } from './Composer';
 import { MessageList } from './MessageList';
 import { ThreadHeader } from './ThreadHeader';
 import { useBack } from './chat-hooks';
+import { useRevealPublished } from './use-reveal-published';
 import { useChat } from './chat-state';
 import { useRestoreMirrorStatuses } from './mirror-state';
 import { useCanvasParts } from './use-canvas-parts';
@@ -123,7 +124,8 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   const sendVoice = useThreadVoice(conversationId, rootId, canvasRoot, rootPending, canvas.voice);
   const blockedReason = threadBlockedReason(summary.canSend, rootDeleted);
   // P1631: a Clarify thread shows its drafts under the source copy; its composer refines the latest draft or adds another.
-  const clarify = useClarifyParts(summary, root, chat.userId, conv.server);
+  const reveal = useRevealPublished(); // after a publish: the chat or thread with the new card focused; the Clarify panel closes with it
+  const clarify = useClarifyParts(summary, root, chat.userId, conv.server, reveal);
 
   if (retired) return <RetiredThread />;
 

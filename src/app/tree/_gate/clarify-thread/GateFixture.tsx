@@ -8,7 +8,7 @@ import type { ClarifyDraft } from '@/app/data/clarify-service';
 import { ClarifyDraftsView } from '@/app/pages/chat/ClarifyDrafts';
 
 const POINT = { id: 'point-id-1234', statement: 'Example bet: owners of two cafes will pay for monthly books (fake data).', ownerPosition: null };
-const base = (id: string, over: Partial<ClarifyDraft>): ClarifyDraft => ({ id, state: 'done', point: null, suggestions: [], errorCode: null, cited: [], createdAt: '2026-01-01T00:00:00Z', refineTargetId: null, ...over });
+const base = (id: string, over: Partial<ClarifyDraft>): ClarifyDraft => ({ id, state: 'done', point: null, suggestions: [], errorCode: null, cited: [], createdAt: '2026-01-01T00:00:00Z', refineTargetId: null, sourceKind: 'dm', published: [], ...over });
 const DONE = base('draft-id-1', { point: POINT });
 const CITED = base('draft-id-2', { point: POINT, cited: [{ id: 'row-id-1', text: 'Example line one (fake data).', at: null }, { id: 'row-id-2', text: 'Example line two (fake data).', at: null }] });
 

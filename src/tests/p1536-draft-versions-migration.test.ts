@@ -435,7 +435,12 @@ describe('P1536 migrations: replaced bodies', () => {
       } else {
         expect(V6_SUBST[name], `${name}: a newer migration than ${V6} redefines it`).toBeUndefined();
       }
-      expect(newest, `${name} in ${newestFile}`).toContain(want);
+      // P1631 Publish restates forward_chat_message with one added refusal (a private point is never forwarded) between the canvas_version refusal and
+      // the note; p1631-clarify-drafts-migration.test.ts pins that restatement byte for byte. Read the P1536 edits with that one line taken out.
+      const body = newestFile === '20261112150000_p1631_publish_to_chat.sql' && name === 'forward_chat_message'
+        ? newest.replace(/IF v_src\.attachment_kind = 'point' AND EXISTS \(SELECT 1 FROM public\.points x WHERE x\.id = v_src\.attachment_id AND x\.visibility = 'private'\) THEN RAISE EXCEPTION 'chat: attachment not available' USING ERRCODE = '22023'; END IF; /, '')
+        : newest;
+      expect(body, `${name} in ${newestFile}`).toContain(want);
     }
   });
   it('the grants of the replaced client functions are restated exactly as before', () => {

@@ -767,6 +767,19 @@ An event's flow is `events.flow` (`clarity-night` | `social-hike` | `sales-maste
 
 **Round material.** `make_my_next_version` copies the round thread's lines the owner can read into the draft's thread as owner-authored `forward` copies. `forward_author_id` keeps the original author, so account erasure reaches the copy. One copy per line: a 24-minute round is about 192 rows.
 
+### point_chat_shares (P1631 A9, migrations `20261112150000` and `20261112170000`)
+
+A private Clarify point published into a chat. The point stays `visibility = 'private'` (no tags, no link); the card is an ordinary chat message (`attachment_kind = 'point'`) and the point is readable and positionable by exactly the people who can read that live card under the chat's history rule (`chat_my_access`, `created_at >= since`).
+
+- **Table:** `message_id uuid` PK (FK `chat_messages`, `CASCADE`), `point_id` (FK `points`, `CASCADE`), `conversation_id` (FK `chat_conversations`, `CASCADE`), `shared_by` (FK `profiles`, `CASCADE`), `draft_id` (FK `clarify_drafts`, `SET NULL`), `created_at`. Closed like `clarify_threads`: RLS on, no grants, no policies. A row outlives its card's deletion and means "was published once" (wording frozen).
+- **Reads (permissive, `TO authenticated`):** `points_select_chat_shared`, `point_positions_select_chat_shared`, `point_position_history_select_chat_shared`, all through `chat_shared_point_ids()` (`SECURITY DEFINER`, one set per statement). Existing policies are untouched, so anon readers see no change. Internal twins without client grant: `_chat_point_readable(point, uid)`, `_point_has_live_share(point)`.
+- **Writes (RESTRICTIVE):** `point_positions_insert_chat_shared`, `point_positions_update_chat_shared` and `story_points_insert_chat_shared` all call `_point_position_write_ok(point)` (granted to `authenticated`): true for a point never published, for its owner, and for a reader of the live card. The story policy exists because `enforce_story_point_visibility_constraint` is `SECURITY INVOKER` and cannot see a private point the caller cannot read.
+- **`point_position_history`:** `INSERT, UPDATE, DELETE, TRUNCATE` are revoked from `anon` and `authenticated`; only the definer trigger `log_position_change` and `erase_my_account` write it. SELECT is unchanged.
+- **RPCs (`authenticated`):** `clarify_publish(draft, client_id)` (statuses `published`, `already`, `refused` with `no_point`, `no_position`, `earlier_version`, `needs_target`, `not_available`, `client_id_reused`), `list_chat_points(conversation)`, `point_chat_shared(point)` (true when the caller can read the point and a live card exists; the details page hides Share and Add a story on it). `_point_chat_publish` and `_point_chat_erase_author` have no client grant.
+- **`point_share_to_chat(point, conversation, thread_root, client_id)`:** exists, locked and checked like `clarify_publish`, but EXECUTE is revoked from `authenticated`: re-share is off until the founder decides how positions behave across chats (positions belong to the point, so a re-share would show a DM partner's position to the new chat).
+- **Changed functions:** `clarify_draft_edit` (refused `published` once any share row exists), `clarify_draft_delete` (refused `published` while a card is live), `_clarify_draft_drop_point` (keeps a point with a live card), `get_clarify_thread` (adds `source_kind`, `published`), `forward_chat_message` (a private point is never forwarded), `erase_chat_data_for` (deletes the private points the person published).
+- **Tests:** `src/tests/p1631-clarify-drafts-migration.test.ts` (source contract), `src/tests/integration/p1631-publish.test.ts` (test database, includes a group fixture).
+
 ## Row Level Security (RLS)
 
 ### Start every RLS audit with the live drift check (P1048)

@@ -29,7 +29,10 @@ const TITLE = '20261101180000_p1536_canvas_title.sql';
 const SERVER_REVIEW = '20261103010000_p1536_server_review_fixes.sql';
 // P1631 restates erase_chat_data_for from SERVER_REVIEW's body plus two `-- P1631` lines (pinned in p1631-clarify-drafts-migration.test.ts);
 // the P1536 and P1592 markers below must still hold in it.
-const P1631_ERASE = '20261110160000_p1631_erase_cleanup_in_erase_fn.sql';
+// P1631 Publish restates erase_chat_data_for and forward_chat_message byte for byte plus its marked lines (pinned by
+// p1631-clarify-drafts-migration.test.ts against the previous bodies), so it holds the newest definition of both.
+const P1631_ERASE = '20261112150000_p1631_publish_to_chat.sql';
+const P1631_PUBLISH = P1631_ERASE;
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
 const stripComments = (sql: string) => sql.replace(/--[^\n]*/g, '');
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -255,7 +258,7 @@ describe('P1536 + P1592: the newest erase_chat_data_for and forward_chat_message
   it.each(Object.keys(P1592_MARKERS))('%s: the newest definition holds every P1536 marker and every P1592 marker', (name) => {
     const newest = newestDefinition(name);
     const body = fnBody(read(newest), name);
-    expect(newest).toBe(name === 'erase_chat_data_for' ? P1631_ERASE : MERGE);
+    expect(newest).toBe(name === 'erase_chat_data_for' || name === 'forward_chat_message' ? P1631_PUBLISH : MERGE);
     expect(missing(body, P1536_MARKERS[name]!), `${name}: P1536 markers missing in ${newest}`).toEqual([]);
     expect(missing(body, P1592_MARKERS[name]!), `${name}: P1592 markers missing in ${newest}`).toEqual([]);
   });
@@ -814,7 +817,7 @@ describe(`P1536 + P1592 merge: whole deltas, lock order and grants of the newest
     expect(newestDefinition('erase_chat_data_for')).toBe(P1631_ERASE);
     expect(newestDefinition('erase_my_account')).toBe(MERGE);
     expect(newestDefinition('_erase_lock_canvas_owners')).toBe(MERGE);
-    expect(newestDefinition('forward_chat_message')).toBe(MERGE);
+    expect(newestDefinition('forward_chat_message')).toBe(P1631_PUBLISH);
   });
   it('both sides\' whole deltas are present in each newest body', () => expect(mergeFacts.deltaParity(sql)).toBe(true));
   it('each newest body equals P1592\'s complete body plus the P1536 hunks at their anchors, exactly', () => expect(mergeFacts.fullBodies(sql)).toBe(true));

@@ -157,7 +157,15 @@ export function useMenuBehavior(ref: RefObject<HTMLElement | null>, onClose: () 
       else fallbackRef.current?.()?.focus({ preventScroll: true });
     };
   }, [ref, fallbackRef]);
+  const closeRef = useLatest(onClose);
   return (e: { key: string; preventDefault: () => void }) => {
+    // Escape inside the menu closes only the menu: marking it taken here, before the page's own document listeners run, keeps a side panel
+    // (the thread or Clarify panel) from closing with it.
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeRef.current();
+      return;
+    }
     const nodes = [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
     const i = nodes.indexOf(document.activeElement as HTMLElement);
     // Focus on the menu itself (opened by pointer): Down goes to the first item, Up to the last.

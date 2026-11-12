@@ -24,7 +24,6 @@ import { PointVersionHistory } from '@/app/components/social/point-version-histo
 import { SEO } from '@/app/components/seo';
 import {
   PositionButtons,
-  ShareButton,
   type PositionFilter,
 } from '@/app/components/shared';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
@@ -41,6 +40,7 @@ import { AnonPositionCTA } from '@/app/components/shared/anon-position-cta';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useReturnState } from '@/app/hooks/use-return-state';
+import { PointDetailFooter } from './PointDetailFooter';
 import { readThrough } from '@/lib/offline-read-cache';
 import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
@@ -601,20 +601,7 @@ export function PointDetailPage() {
           </div>
         </div>
 
-        {/* Footer: story CTA (left) + share (right) — matches profile story card pattern */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-          {user && !viewerStory ? (
-            <button
-              onClick={() => navigate(`/create?pointId=${id}`)}
-              className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors whitespace-nowrap"
-            >
-              + Add a story
-            </button>
-          ) : (
-            <span />
-          )}
-          <ShareButton type="point" id={point.id} description={point.statement.slice(0, 100)} />
-        </div>
+        <PointDetailFooter point={point} signedIn={!!user} hasOwnStory={!!viewerStory} />
       </div>
 
 
