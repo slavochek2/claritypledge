@@ -273,7 +273,7 @@ export function PopMenu({ at, items, label, onClose, reactions }: { at: { x: num
       aria-label={label}
       onKeyDown={move}
       style={{ left: x, top: y, width }}
-      className="fixed z-50 rounded-xl border bg-popover p-1 text-popover-foreground shadow-xl"
+      className="fixed z-50 rounded-xl border bg-popover p-1 text-popover-foreground shadow-xl outline-none"
     >
       {reactions && <ReactionStrip reactions={reactions} onClose={onClose} />}
       {items.map(({ key, label: text, Icon, onSelect, danger }) => (

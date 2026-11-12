@@ -6,6 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import type { ComponentProps } from 'react';
 
 const rpc = vi.hoisted(() => vi.fn());
 const invoke = vi.hoisted(() => vi.fn());
@@ -19,11 +20,20 @@ vi.mock('@/app/data/room-transcription-state', () => ({ getChatTranscriptionProc
 const svc = vi.hoisted(() => ({ clarifyMessage: vi.fn(), markClarifyFailed: vi.fn(), invokeClarifyDraft: vi.fn(), getClarifyThread: vi.fn() }));
 vi.mock('@/app/data/clarify-service', async () => ({ ...(await vi.importActual<object>('@/app/data/clarify-service')), ...svc }));
 
+// The real Composer, wrapped only to capture the props ClarifyComposer hands it (onVoiceNote), so the voice path is reached without a recorder.
+const seen = vi.hoisted(() => ({ props: null as null | { onVoiceNote?: (wav: Blob) => Promise<void> } }));
+vi.mock('@/app/pages/chat/Composer', async () => {
+  const actual = await vi.importActual<typeof import('@/app/pages/chat/Composer')>('@/app/pages/chat/Composer');
+  return { ...actual, Composer: (p: ComponentProps<typeof actual.Composer>) => { seen.props = p as never; return <actual.Composer {...p} />; } };
+});
+const transcribe = vi.hoisted(() => vi.fn());
+vi.mock('@/app/data/transcribe-clip-service', async () => ({ ...(await vi.importActual<object>('@/app/data/transcribe-clip-service')), transcribeClip: transcribe }));
+
 import { ClarifyComposer } from '@/app/pages/chat/ClarifyComposer';
 import { RepliesLink } from '@/app/pages/chat/RepliesLink';
 import { ClarifyCountsContext, useClarifyDraftCounts } from '@/app/pages/chat/use-clarify-draft-counts';
 import { resetClarifyRuns, runClarifyDraft, touchClarifyThread } from '@/app/pages/chat/clarify-run';
-import { CLARIFY_BUSY_TOAST, CLARIFY_COMPOSER_HINT } from '@/app/pages/chat/clarify-copy';
+import { CLARIFY_BUSY_TOAST, CLARIFY_COMPOSER_HINT, CLARIFY_FAILED_TOAST, CLARIFY_NO_SPEECH_TOAST } from '@/app/pages/chat/clarify-copy';
 import type { ChatMessage } from '@/app/data/chat-service';
 
 beforeEach(() => {
@@ -166,6 +176,57 @@ describe('A: the composer of the Clarify thread', () => {
     expect(svc.clarifyMessage).not.toHaveBeenCalled();
     expect(screen.getByRole('textbox')).toHaveValue('quick');
     expect(screen.getByTestId('composer-send-status')).toBeInTheDocument();
+  });
+});
+
+describe('A2: the round voice button of the Clarify composer (onVoiceNote)', () => {
+  // jsdom's Blob has no arrayBuffer(); the recording only needs to be a distinct Blob object.
+  const clip = () => Object.assign(new Blob(['x']), { arrayBuffer: async () => new ArrayBuffer(2) });
+  const voice = (working = false) => {
+    render(<ClarifyComposer rootId="r1" userId="u1" working={working} />);
+    return seen.props!.onVoiceNote!;
+  };
+
+  it('while a draft is being made it toasts the busy line, throws and transcribes nothing', async () => {
+    const onVoiceNote = voice(true);
+    await expect(onVoiceNote(clip())).rejects.toThrow();
+    expect(toastFn).toHaveBeenCalledWith(CLARIFY_BUSY_TOAST);
+    expect(transcribe).not.toHaveBeenCalled();
+  });
+
+  it('a transcription that fails toasts the failure line and rethrows', async () => {
+    transcribe.mockRejectedValue(new Error('down'));
+    const onVoiceNote = voice();
+    await expect(onVoiceNote(clip())).rejects.toThrow('down');
+    expect(toastFn.error).toHaveBeenCalledWith(CLARIFY_FAILED_TOAST);
+  });
+
+  it('a recording with no speech toasts the no-speech line, throws and sends nothing', async () => {
+    transcribe.mockResolvedValue('   ');
+    const onVoiceNote = voice();
+    await expect(onVoiceNote(clip())).rejects.toThrow();
+    expect(toastFn).toHaveBeenCalledWith(CLARIFY_NO_SPEECH_TOAST);
+    expect(svc.clarifyMessage).not.toHaveBeenCalled();
+  });
+
+  it('the heard words go as the instruction, trimmed, with no target when no card is mentioned', async () => {
+    transcribe.mockResolvedValue('  make it shorter  ');
+    svc.clarifyMessage.mockResolvedValue({ status: 'started', draftId: 'd1' });
+    svc.invokeClarifyDraft.mockResolvedValue({ ok: true });
+    const onVoiceNote = voice();
+    await onVoiceNote(clip());
+    expect(svc.clarifyMessage).toHaveBeenCalledWith('r1', 'make it shorter', null);
+  });
+
+  it('a Retry of the SAME recording after a failed send reuses its words: transcribed once', async () => {
+    transcribe.mockResolvedValue('sharper');
+    svc.clarifyMessage.mockResolvedValueOnce({ status: 'busy' }).mockResolvedValue({ status: 'started', draftId: 'd2' });
+    svc.invokeClarifyDraft.mockResolvedValue({ ok: true });
+    const onVoiceNote = voice();
+    const wav = clip();
+    await expect(onVoiceNote(wav)).rejects.toThrow(); // the send was refused: the recorder bar offers Retry
+    await onVoiceNote(wav);
+    expect(transcribe).toHaveBeenCalledTimes(1);
   });
 });
 

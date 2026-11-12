@@ -154,6 +154,18 @@ All points published in one chat form that chat's private set, shown under Artif
 - [ ] The time from Clarify to the first draft is measured on a phone and recorded here (a measurement for the founder, not a pass bar).
 - [ ] A person outside the chat cannot read the points. A not-yet-user receives a link, and sees counts, not names, until signed in.
 
+**Founder asks ledger (2026-11-12).** Every ask the founder made on screen, in his words, one line each. Before any hand-over, each line is ticked against a screenshot of the running app next to the surface it must match (the chat input, the canvas card). An unticked line is listed as "not done" at the top of the hand-over. No control is shown that does not work yet.
+- [ ] A1. Hover shows only Clarify and ⋯; Clarify also stays in the menu (right-click, ⋯, long-press). The menu opens with no focus box on 👍.
+- [ ] A2. The draft's lock shows the product's private hint, "Only people you share with can see this.", on hover and tap, as on canvas.
+- [ ] A3. No "Your position" label. The position buttons line up with the point's text column, as on the canvas card.
+- [ ] A4. Edit is an icon with a tooltip, like Delete beside it.
+- [ ] A5. No "N cited" row on the card.
+- [ ] A6. Another point uses the product's secondary style with the blue outline.
+- [ ] A7. The card holds the point, the position buttons and the small icons (edit, delete, mention). Under the latest card, right-aligned in one row: Another point, then Publish to chat. Earlier versions show neither.
+- [ ] A8. The Mirror input has the same round blue voice send button as the chat input; no paperclip or +.
+- [ ] A9. Publish to chat posts the point card into the source chat and closes the Mirror. Chat members can read it; nobody else can.
+- [ ] A10. Drafts are messages from the Mirror; typing refines; a refine is a new card, the old one reads "Earlier version"; Try again only on errors (founder, 2026-11-11, built).
+
 ## Done-When
 
 The 3-conversation test is run by the founder after the build; the build agent stops at its readiness, with the flow on prod for the founder's account only after the policy notice.
@@ -188,5 +200,7 @@ The 3-conversation test is run by the founder after the build; the build agent s
 - [P1457](p1457_clarity_chat_data_import.md) — later source integrations.
 
 ## Cost Budget
+
+**Voice instruction in the Mirror (A8).** It reuses the existing dictation endpoint `transcribe-clip` (Gemini transcription, about $0.003 per audio minute plus $0.002 per text minute, so about $0.005 per minute, per `docs/technical/metered-services.md`, read 2026-11-12). A clip is at most 3 minutes, so at most about $0.015, and the endpoint's existing per-user limit of 6 clips a minute caps one user at about $0.09 a minute whatever the client does. This is the same endpoint and cap as the "Aa" dictation already in the box, so it adds no new ceiling. Per use: a typical 15-second instruction costs about $0.00125; 100 a day is about $0.13 a day, or about $3.75 a month, and 10× that is about $37.50 a month. A Retry of the same recording reuses its words, and nothing is transcribed while a draft is being made, so retries do not multiply the cost. Known limit: a spoken instruction over 500 characters is refused and cannot be edited down; the owner records again or types.
 
 Before release, measure input and output tokens on representative consented transcripts, including rejected candidates. Each request sends the whole conversation so far, so cost grows with length: report cost per point at 10, 30 and 60 minutes, using verified provider prices. Do not reuse P1536's canvas estimate.

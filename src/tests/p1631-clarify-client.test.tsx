@@ -42,9 +42,10 @@ import { useClarifyThread, type ClarifyThreadState } from '@/app/pages/chat/use-
 import { isClarifyThread, registerClarifyThread, resetClarifyRuns, runClarifyDraft } from '@/app/pages/chat/clarify-run';
 import { isClarifyRoot } from '@/app/pages/chat/use-clarify-parts';
 import {
-  ANOTHER_POINT_LABEL, CAPPED_TEXT, CITED_LABEL, CLARIFY_SUBTITLE, CLARIFY_TITLE, DELETE_TITLE, DRAFT_PILL, EARLIER_LABEL, FAILED_TEXT, NO_SPLIT_TEXT, POSITION_LABEL,
-  PUBLISH_COMING_TOAST, PUBLISH_LABEL, PUBLISH_NEEDS_POSITION_TOAST, RETRY_LABEL, UPDATED_LEAD, citedToggleLabel,
+  ANOTHER_POINT_LABEL, CAPPED_TEXT, CLARIFY_SUBTITLE, CLARIFY_TITLE, DELETE_TITLE, DRAFT_PILL, EARLIER_LABEL, FAILED_TEXT, NO_SPLIT_TEXT,
+  PUBLISH_COMING_TOAST, PUBLISH_LABEL, PUBLISH_NEEDS_POSITION_TOAST, RETRY_LABEL, UPDATED_LEAD,
 } from '@/app/pages/chat/clarify-copy';
+import { ClarifyPublishButton } from '@/app/pages/chat/ClarifyPublishButton';
 import { MENTIONED_LABEL, MENTION_IN_CHAT_LABEL } from '@/app/components/canvas/canvas-mention-in-chat';
 
 vi.mock('@/app/data/clarify-service', async () => {
@@ -152,33 +153,35 @@ describe('clarify-service (the contract names and shapes)', () => {
 });
 
 describe('ClarifyDraftCard', () => {
-  it('shows the statement with a "Draft" pill and the private icon (informational, not a control), "Your position" over the position buttons, and the quiet action row', () => {
+  it('shows the statement with a "Draft" pill and the private icon (informational, not a control), the position buttons with no label, and one row of small icons (Publish and "N cited" are not in the card)', () => {
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
     expect(screen.getByTestId('clarify-draft-statement')).toHaveTextContent('Deadlines should be set by the team');
     expect(screen.getByTestId('clarify-draft-pill')).toHaveTextContent(DRAFT_PILL);
     const lock = screen.getByTestId('clarify-draft-lock');
     expect(lock.tagName).not.toBe('BUTTON');
     expect(lock.closest('button')).toBeNull();
-    // The owner's position buttons are the product's own, under their label.
-    expect(screen.getByTestId('clarify-position-label')).toHaveTextContent(POSITION_LABEL);
+    // The lock carries the product's private hint (VisibilityBadge): "Only people you share with can see this."
+    expect(within(lock).getByRole('img')).toHaveAccessibleName(/Only people you share with can see this\./);
+    // The owner's position buttons are the product's own, with no label over them.
+    expect(screen.queryByText('Your position')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Agree' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Disagree' })).toBeInTheDocument();
-    // Row 1: "N cited" on the left; Edit, Delete and Mention in chat on the right. Row 2: Publish to chat.
-    expect(screen.getByTestId('clarify-cited')).toHaveTextContent(citedToggleLabel(1));
-    expect(screen.getByRole('button', { name: 'Edit this point' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete this draft' })).toBeInTheDocument();
+    // One row of small icons: Edit, Delete, Mention in chat. No "N cited", no Publish.
+    expect(screen.queryByText(/cited/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit' })).toHaveTextContent('');
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: MENTION_IN_CHAT_LABEL })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: PUBLISH_LABEL })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: PUBLISH_LABEL })).not.toBeInTheDocument();
   });
 
   // jsdom has no layout (every width is 0), so "no element wider than the card at 320px" cannot be measured here. This is the STRUCTURAL assertion instead: what made the card
   // grow in a 370px side panel, and what made the position row drop its words, must be absent. The width itself is checked in a real browser (report).
-  it('320px structure: the position row sits in the card footer across the card (not in the pin column), its segments shrink (min-w-0, no 90px floor), and the card chain can shrink', () => {
+  it('320px structure: the position row sits in the statement column (its left edge is the text\'s, as on the canvas card), its segments shrink (min-w-0, no 90px floor), and the card chain can shrink', () => {
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
     const card = screen.getByTestId('clarify-draft-d1');
     const row = within(card).getByTestId('clarify-position-row');
-    expect(within(screen.getByTestId('clarify-card-footer-d1')).getByTestId('clarify-position-row')).toBe(row);
-    expect(row.closest('[data-testid="clarify-draft-statement"]')).toBeNull();
+    expect(row.parentElement).toBe(screen.getByTestId('clarify-draft-statement').parentElement?.parentElement);
+    expect(within(screen.getByTestId('clarify-card-footer-d1')).queryByTestId('clarify-position-row')).toBeNull();
     // the three position segments carry their words and may shrink; no segment has a fixed floor of 90px
     for (const name of ['Disagree', 'Unsure', 'Agree']) expect(within(row).getByRole('button', { name })).toBeInTheDocument();
     const segments = Array.from(row.querySelectorAll<HTMLElement>('[class*="flex-1"]'));
@@ -208,15 +211,18 @@ describe('ClarifyDraftCard', () => {
     expect(turn.firstElementChild?.contains(within(turn).getByTestId('clarify-draft-d1'))).toBe(false);
   });
 
-  it('Publish to chat is always shown: without a position it is aria-disabled (still focusable) and a tap says "Set your position first"; with one it is enabled and says "Publishing comes next"', () => {
-    const { rerender } = render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
-    const publish = screen.getByRole('button', { name: PUBLISH_LABEL });
+  it('Publish to chat is under the latest card, in a row with Another point: without a position it is aria-disabled (still focusable) and a tap says "Set your position first"; with one it is enabled and says "Publishing comes next"', async () => {
+    svc.getClarifyThread.mockResolvedValue([draft({ point: { id: 'pt-pub', statement: 'S', ownerPosition: null } })]);
+    const first = render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    const publish = await screen.findByRole('button', { name: PUBLISH_LABEL });
     expect(publish).toHaveAttribute('aria-disabled', 'true');
     expect(publish).not.toBeDisabled();
     fireEvent.click(publish);
     expect(toastFn).toHaveBeenLastCalledWith(PUBLISH_NEEDS_POSITION_TOAST);
-    rerender(<ClarifyDraftCard draft={draft({ point: { id: 'pt1', statement: 'Deadlines should be set by the team', ownerPosition: 'agree' } })} userId="me" onChanged={() => undefined} />);
-    const ready = screen.getByRole('button', { name: PUBLISH_LABEL });
+    first.unmount();
+    svc.getClarifyThread.mockResolvedValue([draft({ point: { id: 'pt-pub2', statement: 'S', ownerPosition: 'agree' } })]);
+    render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    const ready = await screen.findByRole('button', { name: PUBLISH_LABEL });
     expect(ready).toHaveAttribute('aria-disabled', 'false');
     fireEvent.click(ready);
     expect(toastFn).toHaveBeenLastCalledWith(PUBLISH_COMING_TOAST);
@@ -225,9 +231,9 @@ describe('ClarifyDraftCard', () => {
   it('a hand edit that is saved clears the shown position at once (the server clears it; an unchanged null never reaches the sync)', async () => {
     svc.editClarifyDraft.mockResolvedValue({ status: 'ok' });
     // the props keep saying 'agree', as a card whose thread has not been re-read yet does: only the local reset can clear it
-    render(<ClarifyDraftCard draft={draft({ point: { id: 'pt1', statement: 'Deadlines should be set by the team', ownerPosition: 'agree' } })} userId="me" onChanged={() => undefined} />);
+    render(<><ClarifyDraftCard draft={draft({ point: { id: 'pt1', statement: 'Deadlines should be set by the team', ownerPosition: 'agree' } })} userId="me" onChanged={() => undefined} /><ClarifyPublishButton id="d1" pointId="pt1" serverHasPosition /></>);
     expect(screen.getByRole('button', { name: PUBLISH_LABEL })).toHaveAttribute('aria-disabled', 'false'); // a position is set
-    fireEvent.click(screen.getByRole('button', { name: 'Edit this point' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.change(screen.getByLabelText('Point text'), { target: { value: 'Deadlines are the manager\'s call' } });
     fireEvent.click(screen.getByTestId('clarify-draft-editor-save'));
     await waitFor(() => expect(screen.queryByTestId('clarify-draft-editor')).not.toBeInTheDocument());
@@ -236,12 +242,11 @@ describe('ClarifyDraftCard', () => {
 
   it('an earlier version (a newer card was made from it) shows a quiet label and no Publish, no position and no Edit; Delete and Mention stay', () => {
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} earlier />);
-    expect(screen.queryByRole('button', { name: 'Edit this point' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete this draft' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
     expect(screen.getByTestId('clarify-earlier')).toHaveTextContent(EARLIER_LABEL);
     expect(screen.queryByRole('button', { name: PUBLISH_LABEL })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Agree' })).not.toBeInTheDocument();
-    expect(screen.queryByTestId('clarify-position-label')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: MENTION_IN_CHAT_LABEL })).toBeInTheDocument();
   });
 
@@ -258,10 +263,10 @@ describe('ClarifyDraftCard', () => {
     const changed = vi.fn();
     svc.editClarifyDraft.mockResolvedValue({ status: 'ok' });
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={changed} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Edit this point' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.click(screen.getByTestId('clarify-draft-editor-save'));
     expect(svc.editClarifyDraft).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit this point' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.change(screen.getByLabelText('Point text'), { target: { value: 'Deadlines are the manager\'s call' } });
     fireEvent.click(screen.getByTestId('clarify-draft-editor-save'));
     await waitFor(() => expect(svc.editClarifyDraft).toHaveBeenCalledWith('d1', 'Deadlines are the manager\'s call'));
@@ -272,7 +277,7 @@ describe('ClarifyDraftCard', () => {
   it('empty text is stopped with a sentence; a refused save keeps the text and says so; Cancel closes', async () => {
     svc.editClarifyDraft.mockResolvedValue({ status: 'refused', code: 'fixed' }); // the real shape of a refusal: a value, not a rejection
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Edit this point' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.change(screen.getByLabelText('Point text'), { target: { value: '   ' } });
     fireEvent.click(screen.getByTestId('clarify-draft-editor-save'));
     expect(screen.getByTestId('clarify-draft-editor-problem')).toHaveTextContent('A point needs some words.');
@@ -289,7 +294,7 @@ describe('ClarifyDraftCard', () => {
     const changed = vi.fn();
     svc.deleteClarifyDraft.mockResolvedValue({ status: 'ok' });
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={changed} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Delete this draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     const dialog = await screen.findByRole('dialog');
     expect(dialog).toHaveTextContent(DELETE_TITLE);
     expect(svc.deleteClarifyDraft).not.toHaveBeenCalled();
@@ -298,18 +303,13 @@ describe('ClarifyDraftCard', () => {
     await waitFor(() => expect(changed).toHaveBeenCalled());
   });
 
-  it('the cited lines are collapsed behind "N cited" (labelled "Cited lines") and read from the server text', () => {
-    render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
+  it('the card shows no "N cited" row, with or without cited lines (the data is kept, not drawn)', () => {
+    const { unmount } = render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
+    expect(screen.queryByTestId('clarify-cited')).not.toBeInTheDocument();
     expect(screen.queryByText('we never agreed on a date')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: citedToggleLabel(1) }));
-    expect(screen.getByText('we never agreed on a date')).toBeInTheDocument();
-    expect(screen.getByRole('list', { name: CITED_LABEL })).toBeInTheDocument();
-  });
-
-  it('no cited lines: no toggle and no list at all', () => {
+    unmount();
     render(<ClarifyDraftCard draft={draft({ cited: [] })} userId="me" onChanged={() => undefined} />);
     expect(screen.queryByTestId('clarify-cited')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('clarify-cited-list')).not.toBeInTheDocument();
   });
 });
 
@@ -424,7 +424,9 @@ describe('ClarifyDrafts (the thread under the source copy)', () => {
     svc.getClarifyThread.mockResolvedValue([draft()]);
     render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
     const another = await screen.findByTestId('clarify-another');
-    expect(another.className).toMatch(/border/);
+    expect(another.className).toMatch(/border-blue-600/);
+    expect(another.parentElement).toBe((await screen.findByRole('button', { name: PUBLISH_LABEL })).parentElement); // one row, Publish right-most
+    expect(another.nextElementSibling).toBe(screen.getByRole('button', { name: PUBLISH_LABEL }));
     expect(another.className).not.toMatch(/bg-primary|bg-blue-600/);
     expect(screen.getByRole('button', { name: PUBLISH_LABEL }).className).toMatch(/bg-blue-600/);
   });
@@ -439,7 +441,8 @@ describe('ClarifyDrafts (the thread under the source copy)', () => {
     // the old card stays, as an earlier version with no Publish; only the newest has Publish; Another point sits under the newest card alone
     expect(within(screen.getByTestId('clarify-draft-d1')).getByTestId('clarify-earlier')).toHaveTextContent(EARLIER_LABEL);
     expect(within(screen.getByTestId('clarify-draft-d1')).queryByRole('button', { name: PUBLISH_LABEL })).not.toBeInTheDocument();
-    expect(within(screen.getByTestId('clarify-draft-d2')).getByRole('button', { name: PUBLISH_LABEL })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: PUBLISH_LABEL })).toHaveLength(1);
+    expect(screen.getByTestId('clarify-publish-d2')).toBeInTheDocument();
     expect(screen.getAllByTestId('clarify-another')).toHaveLength(1);
   });
 
@@ -534,7 +537,7 @@ describe('P1631 review fixes: client', () => {
   it('(Gemini 1) a refused Save keeps the editor open with the text and toasts', async () => {
     svc.editClarifyDraft.mockResolvedValue({ status: 'refused', code: 'fixed' });
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Edit this point' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.change(screen.getByLabelText('Point text'), { target: { value: 'my words' } });
     fireEvent.click(screen.getByTestId('clarify-draft-editor-save'));
     expect(await screen.findByTestId('clarify-draft-editor-problem')).toHaveTextContent('Could not save this point. Try again.');
@@ -547,7 +550,7 @@ describe('P1631 review fixes: client', () => {
       const changed = vi.fn();
       svc.deleteClarifyDraft.mockImplementationOnce(outcome);
       render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={changed} />);
-      fireEvent.click(screen.getByRole('button', { name: 'Delete this draft' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
       fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
       await waitFor(() => expect(toastFn.error).toHaveBeenCalledWith('Could not delete this draft. Try again.'));
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -739,5 +742,50 @@ describe('P1631 review fixes: client', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Disagree' })); // fails: rolls back to the original baseline (none)
     await waitFor(() => expect(toastFn.error).toHaveBeenCalledWith('Failed to save position.'));
     expect(screen.queryByRole('button', { name: 'Agree', pressed: true })).toBeNull();
+  });
+});
+
+describe('ClarifyDraftsView: where Publish and Another point are drawn when the drafts are spread over several places', () => {
+  const noop = () => undefined;
+  const actions = { onPick: noop, onRetry: noop, onAnother: noop, onChanged: noop };
+  const view = (drafts: ClarifyDraft[], all: ClarifyDraft[], last: boolean, first = false) => (
+    <ClarifyDraftsView drafts={drafts} all={all} loaded failed={false} name="Mira" userId="me" mentionedId={null} onMention={noop} actions={actions} onReload={noop} first={first} last={last} />
+  );
+  const d1 = draft();
+  const turnOf = (id: string) => screen.getByTestId(`clarify-draft-${id}`).closest('[data-testid="clarify-agent-turn"]') as HTMLElement;
+  const later = (state: ClarifyDraft['state']) => draft({ id: 'd2', state, point: null, cited: [], suggestions: state === 'refused' ? ['Try this'] : [], createdAt: '2026-11-10T10:05:00Z' });
+
+  it('Publish renders right after the card it publishes', () => {
+    render(view([d1], [d1], false));
+    expect(turnOf('d1').nextElementSibling).toContainElement(screen.getByTestId('clarify-publish-d1'));
+  });
+
+  it.each(['running', 'failed', 'refused'] as const)('a newest draft that is %s leaves Publish under the done card in the earlier view, and no Another point anywhere', (state) => {
+    const all = [d1, later(state)];
+    render(<>{view([d1], all, false)}{view([all[1]], all, true)}</>);
+    expect(turnOf('d1').nextElementSibling).toContainElement(screen.getByTestId('clarify-publish-d1'));
+    expect(screen.queryByTestId('clarify-another')).not.toBeInTheDocument();
+  });
+
+  it('when the current card is the last thing drawn, Another point and Publish share one row, Another first', () => {
+    render(view([d1], [d1], true));
+    const row = screen.getByTestId('clarify-latest-row');
+    expect(row.firstElementChild).toBe(screen.getByTestId('clarify-another'));
+    expect(row.lastElementChild).toBe(screen.getByTestId('clarify-publish-d1'));
+  });
+
+  it('with a done card in an earlier view and nothing after it drawn in the last view, Another point is the end row alone and Publish stays under the card', () => {
+    render(<>{view([d1], [d1], false)}{view([], [d1], true)}</>);
+    expect(turnOf('d1').nextElementSibling).toContainElement(screen.getByTestId('clarify-publish-d1'));
+    expect(screen.getAllByTestId('clarify-another')).toHaveLength(1);
+    expect(screen.getAllByTestId('clarify-latest-row')).toHaveLength(2);
+  });
+
+  it('an earlier version, refined by a later done draft, shows no Publish; only the newest card has it', () => {
+    const d2 = draft({ id: 'd2', point: { id: 'pt2', statement: 'The manager sets deadlines', ownerPosition: null }, refineTargetId: 'd1', createdAt: '2026-11-10T10:05:00Z' });
+    const all = [d1, d2];
+    render(<>{view([d1], all, false)}{view([d2], all, true)}</>);
+    expect(screen.queryByTestId('clarify-publish-d1')).not.toBeInTheDocument();
+    expect(screen.getByTestId('clarify-publish-d2')).toBeInTheDocument();
   });
 });

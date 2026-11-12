@@ -3,13 +3,14 @@
  * @description P1631: what a Clarify thread draws for the Mirror agent's side of the conversation. Each draft is a message FROM the Mirror (its face and name, as its replies are shown
  * everywhere): thinking, a point card, suggestions when the agent found nothing to test, or a failure with Try again. The view draws the drafts of ONE place in the thread
  * (the ones that follow one owner message), so the thread reads in time order; the first place also carries the loading and load-failure lines, the last carries the
- * "Another point" button under the latest card.
+ * row under the latest card: "Another point" and "Publish to chat".
  */
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ClarifyDraft } from '@/app/data/clarify-service';
 import { ClarifyDraftCard } from './ClarifyDraftCard';
+import { ClarifyPublishButton } from './ClarifyPublishButton';
 import { MirrorThinking } from './MirrorReplyState';
 import { MirrorMark } from './chat-kit';
 import { ANOTHER_POINT_LABEL, CAPPED_TEXT, FAILED_TEXT, LOAD_FAILED_TEXT, NO_SPLIT_TEXT, RETRY_LABEL, UPDATED_LEAD } from './clarify-copy';
@@ -55,6 +56,32 @@ function Failed({ draft, onRetry }: { draft: ClarifyDraft; onRetry: () => void }
       {draft.state !== 'capped' && (
         <Button type="button" variant="ghost" className="h-11 min-h-11 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={onRetry} data-testid="clarify-retry">{RETRY_LABEL}</Button>
       )}
+    </div>
+  );
+}
+
+/**
+ * The card Publish belongs to: the newest finished point that is not an earlier version. A refine or Another point that failed, was capped or
+ * found nothing to split leaves the card before it current, so that card keeps its Publish.
+ */
+function publishable(all: ClarifyDraft[], earlier: ReadonlySet<string>): ClarifyDraft | null {
+  for (let i = all.length - 1; i >= 0; i--) {
+    const d = all[i];
+    if (d.state === 'done' && d.point && !earlier.has(d.id)) return d;
+  }
+  return null;
+}
+
+/** A right-aligned row: Another point (the product's blue-outline secondary) and/or Publish to chat (the filled primary, right-most). */
+function LatestRow({ latest, onAnother }: { latest: ClarifyDraft | null; onAnother?: () => void }) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2 px-3 pt-1" data-testid="clarify-latest-row">
+      {onAnother && (
+        <Button type="button" variant="outline" className="h-11 min-h-11 border-blue-600 text-blue-600 hover:bg-blue-50 hover:text-blue-700" onClick={onAnother} data-testid="clarify-another">
+          {ANOTHER_POINT_LABEL}
+        </Button>
+      )}
+      {latest?.point && <ClarifyPublishButton id={latest.id} pointId={latest.point.id} serverHasPosition={latest.point.ownerPosition !== null} />}
     </div>
   );
 }
@@ -107,6 +134,11 @@ export function ClarifyDraftsView(props: ClarifyDraftsViewProps) {
   }
   const earlier = earlierDraftIds(all);
   const another = last && mayAddAnother(all);
+  // Publish sits right under the card it publishes, wherever that card is drawn (a newer run that is thinking, failed or found nothing comes
+  // after it). Another point sits at the end of the thread; when the current card is the last thing drawn, the two share one row.
+  const current = publishable(all, earlier);
+  const here = current && drafts.some((d) => d.id === current.id) ? current : null;
+  const shared = another && here !== null && drafts[drafts.length - 1]?.id === here.id;
   if (drafts.length === 0 && !another && !(first && failed)) return null;
   return (
     <div className="min-w-0 max-w-full space-y-1" data-testid="clarify-drafts">
@@ -116,15 +148,13 @@ export function ClarifyDraftsView(props: ClarifyDraftsViewProps) {
           <Button type="button" variant="ghost" className="h-11 min-h-11 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={onReload} data-testid="clarify-reload">{RETRY_LABEL}</Button>
         </div>
       )}
-      {drafts.map((d) => <DraftTurn key={d.id} draft={d} props={props} earlier={earlier} />)}
-      {another && (
-        // under the latest card, in the card's column: the product's bordered secondary button
-        <div className="flex px-3 pt-1">
-          <Button type="button" variant="outline" className="h-11 min-h-11" onClick={actions.onAnother} data-testid="clarify-another">
-            {ANOTHER_POINT_LABEL}
-          </Button>
-        </div>
-      )}
+      {drafts.map((d) => (
+        <Fragment key={d.id}>
+          <DraftTurn draft={d} props={props} earlier={earlier} />
+          {here?.id === d.id && <LatestRow latest={here} onAnother={shared ? actions.onAnother : undefined} />}
+        </Fragment>
+      ))}
+      {another && !shared && <LatestRow latest={null} onAnother={actions.onAnother} />}
     </div>
   );
 }

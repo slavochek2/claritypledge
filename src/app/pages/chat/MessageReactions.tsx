@@ -89,7 +89,7 @@ function Picker({ at, mine, messageId, onPick, onClose }: { at: { x: number; y: 
   const x = Math.max(8, Math.min(at.x, window.innerWidth - width - 8));
   const y = Math.max(8, Math.min(at.y, window.innerHeight - 56));
   return (
-    <div ref={ref} role="menu" tabIndex={-1} aria-label="Add a reaction" onKeyDown={onKeyDown} style={{ left: x, top: y }} className="fixed z-50 flex gap-0 rounded-xl border bg-popover p-1 shadow-xl">
+    <div ref={ref} role="menu" tabIndex={-1} aria-label="Add a reaction" onKeyDown={onKeyDown} style={{ left: x, top: y }} className="fixed z-50 flex gap-0 rounded-xl border bg-popover p-1 shadow-xl outline-none">
       {REACTION_EMOJI.map((emoji) => (
         <button
           key={emoji}

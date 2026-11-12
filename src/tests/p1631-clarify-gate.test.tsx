@@ -43,7 +43,7 @@ describe('P1631 clarify thread: P955 gate over every draft state', () => {
   });
   it('CONTROL: the touch-target check fires on a mutated copy of the real draft card (a 32px edit button)', () => {
     const { container } = mount('draft');
-    const edit = container.querySelector<HTMLElement>('[aria-label="Edit this point"]')!;
+    const edit = container.querySelector<HTMLElement>('[aria-label="Edit"]')!;
     edit.className += ' h-8';
     expect(() => assertTouchTargets44(container)).toThrow(/touch-target-44/);
   });

@@ -145,11 +145,14 @@ describe('item 13: the picker', () => {
     render(<MessageReactions rx={state} authors={authors} />);
     return state;
   };
-  it('the first emoji takes focus; arrows, Home and End move; Escape closes', () => {
+  // P1631 A1 (founder, 2026-11-12): a picker opened by pointer shows no focus box on 👍, so the menu itself takes focus; the first arrow reaches 👍.
+  it('opened by pointer, the menu takes focus; arrows, Home and End move; Escape closes', () => {
     const state = open();
     const items = screen.getAllByRole('menuitem');
-    expect(document.activeElement).toBe(items[0]);
     const menu = screen.getByRole('menu');
+    expect(document.activeElement).toBe(menu);
+    fireEvent.keyDown(menu, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(items[0]);
     fireEvent.keyDown(menu, { key: 'ArrowRight' });
     expect(document.activeElement).toBe(items[1]);
     fireEvent.keyDown(menu, { key: 'End' });
@@ -191,6 +194,16 @@ describe('item 13: the picker', () => {
     expect(document.activeElement?.closest('[data-msg="m1"]')).not.toBeNull();
     expect(document.activeElement).not.toBe(document.body);
   });
+  it('opened by pointer, ArrowUp from the menu itself focuses the LAST item', () => {
+    open();
+    const items = screen.getAllByRole('menuitem');
+    const menu = screen.getByRole('menu');
+    expect(document.activeElement).toBe(menu);
+    fireEvent.keyDown(menu, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(items[items.length - 1]);
+  });
+  // The keyboard-open path (opener matches :focus-visible, first item focused) is not tested here: jsdom does not implement :focus-visible
+  // for a script-focused element (matches() throws or answers false), so a test would only exercise the fallback, not the real heuristic.
   it('a scroll closes the picker', () => {
     const state = open();
     fireEvent.scroll(window);

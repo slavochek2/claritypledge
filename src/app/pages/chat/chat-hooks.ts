@@ -127,17 +127,29 @@ export function hasFinePointer(): boolean {
 
 export { useMediaQuery, DESKTOP_QUERY } from '@/app/hooks/use-media-query';
 
+/** True when the element that opened the menu shows a keyboard focus ring (or when that cannot be told: the keyboard path is the safe one). */
+function openedByKeyboard(opener: HTMLElement | null): boolean {
+  if (!opener || opener === document.body) return false;
+  try {
+    return opener.matches(':focus-visible');
+  } catch {
+    return true;
+  }
+}
+
 /**
- * The behaviour of a menu opened at a point (PopMenu, the reaction picker): Escape and an outside press close it, the first item takes
- * focus, arrows / Home / End move between items, and focus goes back to whatever opened it (or to `fallback` when that is gone,
- * e.g. an inline toolbar that unmounted). Returns the menu's `onKeyDown`.
+ * The behaviour of a menu opened at a point (PopMenu, the reaction picker): Escape and an outside press close it, a keyboard opener's
+ * first item takes focus (a pointer opener's menu takes it itself, so no ring shows), arrows / Home / End move between items, and focus
+ * goes back to whatever opened it (or to `fallback` when that is gone, e.g. an inline toolbar that unmounted). Returns the menu's `onKeyDown`.
  */
 export function useMenuBehavior(ref: RefObject<HTMLElement | null>, onClose: () => void, fallback?: () => HTMLElement | null) {
   const opener = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null));
   const fallbackRef = useLatest(fallback);
   useDismiss(onClose, true, [ref]);
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    // A menu opened with a mouse or touch puts focus on the menu itself, so no ring shows on the first item; a keyboard opener keeps the first item focused.
+    if (openedByKeyboard(opener.current)) ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    else ref.current?.focus({ preventScroll: true });
     const back = opener.current;
     return () => {
       if (back && back !== document.body && back.isConnected) back.focus({ preventScroll: true });
@@ -148,7 +160,8 @@ export function useMenuBehavior(ref: RefObject<HTMLElement | null>, onClose: () 
   return (e: { key: string; preventDefault: () => void }) => {
     const nodes = [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
     const i = nodes.indexOf(document.activeElement as HTMLElement);
-    const next = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? nodes.length - 1 : null;
+    // Focus on the menu itself (opened by pointer): Down goes to the first item, Up to the last.
+    const next = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? (i < 0 ? nodes.length - 1 : i - 1) : e.key === 'Home' ? 0 : e.key === 'End' ? nodes.length - 1 : null;
     if (next === null) return;
     e.preventDefault();
     nodes[(next + nodes.length) % nodes.length]?.focus();
