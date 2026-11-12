@@ -77,5 +77,3 @@ export function LandingFableChange() {
     </MotionConfig>
   );
 }
-
-export default LandingFableChange;

@@ -5,11 +5,16 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.cwd();
-const routesSource = readFileSync(join(root, 'src/app/tree/tree-routes.tsx'), 'utf8');
-const hubSource = readFileSync(join(root, 'src/app/pages/TreePage.tsx'), 'utf8');
+// Comments are dropped first, so a commented-out route or hub entry is not counted as a live one.
+// Known limit of reading source text: a path built from a constant or a template is not seen.
+// Both files write every path as a plain string today; the floors below catch a parser gone blind.
+const stripComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const routesSource = stripComments(readFileSync(join(root, 'src/app/tree/tree-routes.tsx'), 'utf8'));
+const hubSource = stripComments(readFileSync(join(root, 'src/app/pages/TreePage.tsx'), 'utf8'));
 
-const registered = [...routesSource.matchAll(/path="(\/tree[^"]*)"/g)].map((m) => m[1]);
-const listed = [...hubSource.matchAll(/path:\s*'(\/tree[^']*)'/g)].map((m) => m[1]);
+// Either quote style on both sides, so an entry written with the other quote is still read.
+const registered = [...routesSource.matchAll(/path=["'](\/tree[^"']*)["']/g)].map((m) => m[1]);
+const listed = [...hubSource.matchAll(/path:\s*["'](\/tree[^"']*)["']/g)].map((m) => m[1]);
 
 describe('P1667: the /tree hub lists every /tree route', () => {
   it('parses the registered routes (a parser that finds nothing cannot pass)', () => {
@@ -17,6 +22,13 @@ describe('P1667: the /tree hub lists every /tree route', () => {
       expect(registered).toContain(known);
     }
     expect(registered.length).toBeGreaterThan(30);
+  });
+
+  it('parses the hub entries (same floor, same reason)', () => {
+    for (const known of ['/tree/landing-fable', '/tree/landing-fable-change', '/tree/_gate/example', '/tree/404-drift']) {
+      expect(listed).toContain(known);
+    }
+    expect(listed.length).toBeGreaterThan(30);
   });
 
   it('lists every registered route except the hub itself', () => {

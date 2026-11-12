@@ -70,7 +70,7 @@ export const FABLE_CAST: ExchangeCast = { ...TEAM_CAST, viewEvent: "tree_landing
  * Invented, and labelled "Illustration" where it renders.
  * [FOUNDER DECISION: the example sentences, names and outcomes are drafted placeholders]
  */
-export type AgreedOutcome = "diverged" | "stalled" | "changed";
+type AgreedOutcome = "diverged" | "stalled" | "changed";
 export type AgreedExample = {
   when: string;
   said: string;

@@ -21,7 +21,9 @@ vi.mock('@/app/components/seo', () => ({ SEO: ({ noIndex }: { noIndex?: boolean 
 
 import { LandingFable } from '@/app/tree/landing-lab/fable/LandingFable';
 import { LandingFableChange } from '@/app/tree/landing-lab/fable/LandingFableChange';
-import { AGREED_BUILDERS, AGREED_CHANGE } from '@/app/tree/landing-lab/fable/fable-content';
+import {
+  AGREED_BUILDERS, AGREED_CHANGE, ASSUMED_STATS, CHANGE_REASONS, CHANGE_REFERENCES, NORM_PATH, REASONS_NOBODY_CHECKS, REFERENCES,
+} from '@/app/tree/landing-lab/fable/fable-content';
 
 const read = (p: string) => readFileSync(`${process.cwd()}/${p}`, 'utf8');
 const h2s = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
@@ -52,11 +54,24 @@ describe.each([
     }
   });
 
-  it('labels the example as an illustration, visibly and for screen readers', () => {
+  it('labels the example as an illustration in visible text, and names the figure once, by its closing line', () => {
     renderPage();
     const card = screen.getByTestId('agreed-graphic');
-    expect(within(card).getByText('Illustration')).toBeInTheDocument();
-    expect(card.getAttribute('aria-label')).toMatch(/^Illustration\./);
+    expect(card.tagName).toBe('FIGURE');
+    expect(within(card).getByText('Illustration')).toBeVisible();
+    // An aria-label repeating the closing line would be announced on top of the figcaption.
+    expect(card).not.toHaveAttribute('aria-label');
+    expect(card.querySelector('figcaption')?.textContent).toBe(example.punchline);
+  });
+
+  it('marks who did it with a tick and who did not with an empty circle', () => {
+    renderPage();
+    const rows = within(screen.getByRole('list', { name: example.later })).getAllByRole('listitem');
+    expect(rows).toHaveLength(example.people.length);
+    example.people.forEach((p, i) => {
+      const ticked = rows[i]!.querySelector('svg') !== null;
+      expect(`${p.name}: ${ticked ? 'ticked' : 'empty'}`).toBe(`${p.name}: ${p.outcome === 'stalled' ? 'empty' : 'ticked'}`);
+    });
   });
 
   it('phone first screen ends at a cue that points at the example block, which holds the card', () => {
@@ -137,6 +152,40 @@ describe('P1667 change managers page: sections', () => {
     expect(AGREED_CHANGE.people).toHaveLength(5);
     expect(AGREED_CHANGE.people.filter((p) => p.outcome === 'changed').map((p) => p.name)).toEqual(['Kim']);
     expect(AGREED_CHANGE.people.filter((p) => p.outcome === 'stalled')).toHaveLength(4);
+  });
+});
+
+/**
+ * fable-content.ts copies production copy because the production files do not export it. These
+ * checks read the production sources, so a later edit there fails here instead of drifting.
+ */
+describe('P1667 the copied copy is still the production copy', () => {
+  const builders = read('src/app/pages/build-right-thing-landing.tsx');
+  const change = read('src/app/pages/change-managers-page.tsx');
+  const norm = read('src/app/components/landing/team-norm-section.tsx');
+  const why = read('src/app/components/landing/why-nobody-verifies.tsx');
+  const missing = (source: string, strings: string[]) => strings.filter((s) => !source.includes(s));
+
+  it('control: a string that is not in the production page is reported', () => {
+    expect(missing(builders, ['Tap a song’s rhythm, reworded'])).toHaveLength(1);
+  });
+
+  it('builders: references, stats and reasons', () => {
+    expect(missing(builders, REFERENCES.flatMap((r) => [r.label, r.url]))).toEqual([]);
+    expect(missing(builders, ASSUMED_STATS.map((s) => s.label))).toEqual([]);
+    expect(missing(builders, REASONS_NOBODY_CHECKS.flatMap((r) => [r.title, r.text]))).toEqual([]);
+    expect(REFERENCES).toHaveLength(7);
+  });
+
+  it('change managers: references and reasons', () => {
+    expect(missing(change, CHANGE_REFERENCES.flatMap((r) => [r.label, r.url]))).toEqual([]);
+    expect(missing(why, CHANGE_REASONS.flatMap((r) => [r.title, r.text]))).toEqual([]);
+    expect(CHANGE_REFERENCES).toHaveLength(3);
+  });
+
+  it('the five-step norm path', () => {
+    expect(missing(norm, NORM_PATH.flatMap((p) => [`title: "${p.title}"`, p.text]))).toEqual([]);
+    expect(NORM_PATH.map((p) => p.title)).toEqual(['See the cost', 'Find champions', 'Spread', 'Norm', 'Maintain']);
   });
 });
 

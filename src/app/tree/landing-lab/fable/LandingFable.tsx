@@ -17,11 +17,9 @@ import { FounderCredibility } from "@/app/components/landing/founder-credibility
 import { MisunderstandingVenn } from "@/app/components/landing/misunderstanding-venn";
 import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
 import { AGREED_BUILDERS, ASSUMED_STATS, REASONS_NOBODY_CHECKS, REFERENCES, SHELL } from "./fable-content";
+import { STAGGER, VIEWPORT_ONCE } from "./fable-motion";
 import { DotStat, Indented, RefSup, Reveal, SectionHeading } from "./fable-parts";
 import { CloseSection, ExchangeSection, FableHero, NormSection, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "./fable-sections";
-
-const VIEWPORT_ONCE = { once: true, amount: 0.25 } as const;
-const STAGGER = { hidden: {}, show: { transition: { staggerChildren: 0.12 } } };
 
 function Assumption() {
   return (

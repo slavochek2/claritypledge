@@ -7,8 +7,7 @@ import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import { CalendarIcon } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const VIEWPORT_ONCE = { once: true, amount: 0.25 } as const;
+import { RISE, VIEWPORT_ONCE } from "./fable-motion";
 
 export type Tone = "light" | "dark";
 
@@ -107,7 +106,7 @@ export function Indented({ children, className = "" }: { children: ReactNode; cl
 export function DotStat({ value, denom, children }: { value: number; denom: number; children: ReactNode }) {
   return (
     <motion.li
-      variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } } }}
+      variants={RISE}
       className="grid grid-cols-[auto_1fr] sm:grid-cols-12 items-center gap-x-4 sm:gap-x-6 gap-y-4 border-t border-foreground/15 py-7 sm:py-9"
     >
       <p className="sm:col-span-3 text-5xl sm:text-6xl font-semibold tracking-tight tabular-nums leading-none">

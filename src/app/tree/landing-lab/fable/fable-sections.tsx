@@ -17,11 +17,8 @@ import { TemplateStamp } from "@/app/components/agreements/template-stamp";
 import { COA_VERSIONS, CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import { AgreedGraphic } from "./fable-agreed";
 import { FABLE_CAST, NORM_PATH, SHELL, type AgreedExample, type Reason, type Reference } from "./fable-content";
+import { RISE, STAGGER, VIEWPORT_ONCE } from "./fable-motion";
 import { AuditCTA, Indented, RefSup, Reveal, SectionHeading } from "./fable-parts";
-
-const VIEWPORT_ONCE = { once: true, amount: 0.25 } as const;
-const STAGGER = { hidden: {}, show: { transition: { staggerChildren: 0.12 } } };
-const RISE = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0, transition: { duration: 0.45 } } };
 
 /**
  * Hero. On a phone the text column fills the first screen and ends at the scroll cue, so the
@@ -48,6 +45,8 @@ export function FableHero({
   return (
     <section className="relative flex flex-col overflow-hidden px-4 lg:min-h-[calc(100vh-5rem)]">
       <div className={`${SHELL} grid gap-x-12 lg:flex-1 lg:grid-cols-12 lg:items-center lg:py-8`}>
+        {/* 4rem is the site menu's height below `lg`. If the menu grows or shrinks, the browser test
+            (e2e/p1667-landing-fable.spec.ts) fails on the card's position rather than this drifting. */}
         <div className="flex min-h-[calc(100svh-4rem)] flex-col pt-8 lg:col-span-7 lg:min-h-0 lg:pt-0">
           <div className="my-auto">
             <p className="mb-6 inline-flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.12em] sm:tracking-[0.2em] text-blue-700">

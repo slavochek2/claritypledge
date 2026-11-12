@@ -100,7 +100,7 @@ function landingRoutes(LazyRoute: LazyRouteComponent) {
       {import.meta.env.DEV && <Route path="/tree/landing-do" element={<LazyRoute><LandingDo /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/landing-fable" element={<ClarityLandingLayout surface="public"><LazyRoute><LandingFable /></LazyRoute></ClarityLandingLayout>} />}
       {import.meta.env.DEV && <Route path="/tree/landing-fable-change" element={<ClarityLandingLayout surface="public"><LazyRoute><LandingFableChange /></LazyRoute></ClarityLandingLayout>} />}
-      {import.meta.env.DEV && <Route path="/tree/landing-wild"element={<LazyRoute><LandingWild /></LazyRoute>} />}
+      {import.meta.env.DEV && <Route path="/tree/landing-wild" element={<LazyRoute><LandingWild /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/landing-first" element={<LazyRoute><LandingFirst /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout surface="public"><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
       {import.meta.env.DEV && <Route path="/tree/404-drift" element={<ClarityLandingLayout surface="public"><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />}
