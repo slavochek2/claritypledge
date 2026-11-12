@@ -47,7 +47,7 @@ Blast radius: medium. It touches analytics init and track call sites on many pag
 2. **Sources:** adopt a UTM convention for every link the founder shares, applied by the event-promotion skills, so new accounts show their real channel. Carry first-touch UTM onto the account at sign-up.
 3. **Visit length:** a session timeout alone will not fix the median, because a visitor who reads without clicking emits no events. Add a light engagement heartbeat on visible pages, or a page-leave event that carries time on page, then set the session definition.
 4. **Coverage:** add named events for the pages listed in Problem. Events for viewing the feed, viewing a group, completing a group join, opening a chat, and viewing the event prepare and confirm steps. Then add them to the "Path to value" board. For dead taps, review session replays on `/cm` and the hike pages and file what people expected to be tappable.
-5. **Kanban Analytics tab:** replace the in-house tab with links to the four boards. `[FOUNDER DECISION: link (recommended, nothing public) vs embed (requires enabling Mixpanel Public Boards in project settings, owner-only)]`
+5. **Kanban Analytics tab:** replace the in-house tab with the five Mixpanel boards, embedded from their public links, with no passcode (founder decision 2026-11-12). The links live only in `.env.local` as `MIXPANEL_BOARD_*` and never in committed code. The founder enables Public Boards in Mixpanel Project Settings, which only the owner can do. The current P1640 insights section is removed from the tab. Insights move to `/day` as cards, shown only when something changed, and each card says what happened, how many people, and where to look.
 6. Update `docs/technical/analytics.md` (Dashboards section) to point at the new boards. The founder approved removing the empty old boards on 2026-11-12 ("fix yes").
 
 ## Risks / Non-Goals
@@ -71,7 +71,7 @@ Blast radius: medium. It touches analytics init and track call sites on many pag
 - [ ] Each new event appears in Mixpanel Live Events from a real prod visit, and the Path to value board includes them
 - [ ] The promotion skills append UTM parameters to shared event links (one sample link pasted)
 - [ ] Dead-tap replay findings filed (inbox note or spec)
-- [ ] Kanban Analytics tab links or embeds the four boards: [Pulse](https://eu.mixpanel.com/project/3968494/app/boards#id=11645736), [Path](https://eu.mixpanel.com/project/3968494/app/boards#id=11645737), [Return](https://eu.mixpanel.com/project/3968494/app/boards#id=11645738), [Friction](https://eu.mixpanel.com/project/3968494/app/boards#id=11645741)
+- [ ] Kanban Analytics tab embeds the five public boards (no passcode; links read from `.env.local` `MIXPANEL_BOARD_*`, never committed); the old insights section is gone and insights appear as `/day` cards. Boards: [Pulse](https://eu.mixpanel.com/project/3968494/app/boards#id=11645736), [Path](https://eu.mixpanel.com/project/3968494/app/boards#id=11645737), [Return](https://eu.mixpanel.com/project/3968494/app/boards#id=11645738), [Friction](https://eu.mixpanel.com/project/3968494/app/boards#id=11645741), [Use](https://eu.mixpanel.com/project/3968494/app/boards#id=11646127)
 - [ ] `docs/technical/analytics.md` points at the new boards; the old empty boards are deleted
 
 ## Related
