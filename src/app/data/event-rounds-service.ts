@@ -14,6 +14,7 @@
  * Standalone module like event-room-service.ts: no mock variant, every table here is new.
  */
 import { supabase } from '@/lib/supabase';
+import { getCanvasSetupEnd } from './event-canvas-setup-service';
 import type { Seat, SeatRole } from '@/lib/round-grouping';
 
 export const ROUNDS_POLL_MS = 4000;
@@ -56,6 +57,12 @@ export interface EventRoundsState {
   seatsByRound: Map<string, RoundSeat[]>;
   /** `${roundId}:${table}` → point id the table marked. */
   topics: Map<string, string>;
+  /**
+   * P1529 E5: when the "Make your Clarity Canvas" part ends (epoch ms); null = never started; undefined = not asked for, or the read failed
+   * (`canvasSetupReadFailed`). Only read before the first round and only when asked for (`withCanvasSetup`).
+   */
+  canvasSetupEnd?: number | null;
+  canvasSetupReadFailed?: boolean;
 }
 
 export const EMPTY_ROUNDS_STATE: EventRoundsState = { rounds: [], seatsByRound: new Map(), topics: new Map() };
@@ -93,7 +100,7 @@ interface DbSeat {
 }
 
 /** Throws on failure — callers keep the last good state rather than painting an empty room. */
-export async function getEventRoundsState(eventId: string): Promise<EventRoundsState> {
+export async function getEventRoundsState(eventId: string, opts: { withCanvasSetup?: boolean } = {}): Promise<EventRoundsState> {
   const { data: rounds, error } = await supabase
     .from('event_rounds')
     .select('id, round_no, group_size, started_at, ended_at, seating_s, reading_s, first_s, second_s, observer_s, split_speakers, match_tag, showcase')
@@ -115,7 +122,17 @@ export async function getEventRoundsState(eventId: string): Promise<EventRoundsS
     matchTag: r.match_tag ?? null,
     showcase: r.showcase === true,
   }));
-  if (mapped.length === 0) return EMPTY_ROUNDS_STATE;
+  if (mapped.length === 0) {
+    if (!opts.withCanvasSetup) return EMPTY_ROUNDS_STATE;
+    // The canvas setup rides this tick: one extra select, only once the rounds read found no round (zero after round 1), and never from a
+    // hidden tab (the last value is kept by the caller).
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return EMPTY_ROUNDS_STATE;
+    try {
+      return { ...EMPTY_ROUNDS_STATE, canvasSetupEnd: await getCanvasSetupEnd(eventId) };
+    } catch {
+      return { ...EMPTY_ROUNDS_STATE, canvasSetupReadFailed: true };
+    }
+  }
 
   const ids = mapped.map(r => r.id);
   const [seatsRes, topicsRes] = await Promise.all([

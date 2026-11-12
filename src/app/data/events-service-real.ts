@@ -13,6 +13,8 @@ import { hiddenSlugEnding } from './event-hidden-slug';
 import { rsvpToHiddenEvent } from './event-hidden-rsvp';
 import { eventUpdateColumns } from './event-write-columns';
 import { eventFlowFields, type EventFlowRow } from './event-flow-row';
+import { eventOptionalCreateColumns } from './event-create-columns';
+import { canvasTimingOf } from '@/app/types/event-fields';
 import { attachRsvpCounts, failListRead, fetchViewerRsvpEventIds, selectPastEventRows, type ListReadOptions } from './event-list-reads';
 
 // `status` is NOT auto-managed (no trigger, no cron — intentional).
@@ -93,6 +95,7 @@ interface DbEventWithHost extends EventFlowRow {
   links: { tag: string; label?: string }[] | null;
   has_group_chat?: boolean | null;
   is_hidden?: boolean | null; // P1603
+  canvas_timing?: string | null; // P1529 E1
   /** P1336 */
   preparation_enabled?: boolean | null;
   statement_tag?: string | null;
@@ -196,6 +199,7 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     links: Array.isArray(row.links) ? row.links : [],
     hasGroupChat: row.has_group_chat ?? false, // P1194
     isHidden: row.is_hidden === true, // P1603
+    canvasTiming: canvasTimingOf(row.canvas_timing), // P1529 E1
     preparationEnabled: row.preparation_enabled ?? false, // P1336
     statementTag: row.statement_tag ?? undefined,
     researchPlaces: row.research_places ?? 6,
@@ -551,10 +555,8 @@ export const realEventsService: EventsService = {
         // NULL, but writing it makes the standalone case visible at the call site.
         // The DB trigger rejects a non-null org_id the host does not organize.
         org_id: data.orgId ?? null,
-        is_hidden: data.isHidden === true, // P1603
-        // P1336: the series default is decided by the form; absent = the column default (off).
-        ...(data.preparationEnabled !== undefined ? { preparation_enabled: data.preparationEnabled } : {}),
-        ...(data.statementTag !== undefined ? { statement_tag: data.statementTag || null } : {}),
+        // P1603 is_hidden, P1336 preparation/statement, P1529 canvas_timing: absent = the column default.
+        ...eventOptionalCreateColumns(data),
       })
       .select(`
         *,
@@ -669,7 +671,7 @@ export const realEventsService: EventsService = {
 
     // Fire-and-forget: send update emails — skip for banner-only changes
     // P1336: preparation settings change nothing an attendee was told, so they mail nobody either.
-    const SILENT_KEYS = ['banner_url', 'preparation_enabled', 'statement_tag', 'is_hidden'];
+    const SILENT_KEYS = ['banner_url', 'preparation_enabled', 'statement_tag', 'is_hidden', 'canvas_timing'];
     const isBannerOnly = Object.keys(updateData).length > 0 && Object.keys(updateData).every(k => SILENT_KEYS.includes(k));
     if (!isBannerOnly) {
       invokeEventEmails('update', eventId);

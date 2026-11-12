@@ -5,14 +5,18 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { escapeHtml, type EventRow } from './email-helpers.ts';
+import { mastermindPrepAtEvent } from './mastermind-prep-email.ts';
 
 /** The event columns that choose the block; selected by the senders. */
-export type SeriesEventRow = EventRow & { series_slug?: string | null; flow?: string | null };
+export type SeriesEventRow = EventRow & { series_slug?: string | null; flow?: string | null; canvas_timing?: string | null };
 
-const SERIES_EMAIL_LINES: Record<string, (ctx: { observer: boolean }) => string[]> = {
-  'sales-mastermind': ({ observer }) => [
+const SERIES_EMAIL_LINES: Record<string, (ctx: { observer: boolean; canvasAtEvent: boolean }) => string[]> = {
+  // P1529 E4 [FOUNDER DECISION: copy, builder's wording from the spec]: canvas at the event (default) = preparation is required and the canvas is made together there.
+  'sales-mastermind': ({ observer, canvasAtEvent }) => [
+    ...(canvasAtEvent ? ['Preparation is required: about 15 minutes, at home or 15 minutes early at the venue.'] : []),
+    ...(canvasAtEvent && !observer ? ['We make your Clarity Canvas together at the event.'] : []),
     'Bring your phone, charged.',
-    ...(observer ? [] : ['Bring a laptop if you are making your Clarity Canvas at the event.']),
+    ...(observer || canvasAtEvent ? [] : ['Bring a laptop if you are making your Clarity Canvas at the event.']),
     'Doors open 30 minutes before the start.',
     "Places are limited. If you can't come, please cancel so someone else can have your place.",
   ],
@@ -36,7 +40,7 @@ export function withSeriesBlock<T extends { html: string; text: string }>(
   ctx: { observer: boolean } = { observer: false },
 ): T {
   const key = event.flow ?? event.series_slug ?? '';
-  const lines = SERIES_EMAIL_LINES[key]?.(ctx);
+  const lines = SERIES_EMAIL_LINES[key]?.({ ...ctx, canvasAtEvent: mastermindPrepAtEvent(event) });
   if (!lines) return email;
   const items = lines.map((l) => `<li style="margin:0 0 4px;">${escapeHtml(l)}</li>`).join('');
   const block = `<ul style="margin:16px 0 0;padding-left:20px;font-size:14px;color:#4b5563;">${items}</ul>`;

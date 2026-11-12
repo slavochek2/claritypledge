@@ -181,6 +181,14 @@ publicly-readable `events` query.
 the pre-renumber P-number; see its header)
 **Integration test:** `e2e/integration/p1193-db-schema.spec.ts` (10 cases, live RLS)
 
+### Canvas timing (P1529 E1)
+
+`events.canvas_timing text NOT NULL DEFAULT 'at_event' CHECK (canvas_timing IN ('before','at_event'))`: where the Clarity Canvas is made for a sales mastermind. `at_event` (default): preparation is the communication part only (the two videos, the Clarity Meeting Principle and its points, the misunderstanding statements) and the host guides the canvas at the event; `before`: today's flow, the canvas is a preparation step at home. Read by the sales mastermind flow only; other flows ignore it. The host changes it through the ordinary events UPDATE policy (`updateEvent`, the Edit event form); no function or grant changed. Client: `Event.canvasTiming` (`src/app/types/event-fields.ts`), `eventUpdateColumns`. Edge functions read it to word the confirmation and reminder emails (`send-event-emails`, `dispatch-event-emails`). Migration: `20261112191500_p1529_canvas_timing.sql`. Test: `src/tests/p1529-canvas-timing.test.ts`.
+
+### Canvas setup part (P1529 E5)
+
+`event_canvas_setups(event_id uuid PK -> events ON DELETE CASCADE, started_at timestamptz, ends_at timestamptz)`: one row per event, when the sales mastermind's "Make your Clarity Canvas" part before round 1 ends. RLS on; ALL revoked, SELECT granted to `authenticated`, policy "visible with the rounds" = `can_see_event_rounds(event_id)` (a member of the room, the host); no client write. Written only by `host_start_canvas_setup(p_event uuid, p_seconds int)` (host only `42501`; Sales Mastermind only, `events.canvas_timing` must be `at_event`, 1..7200 seconds, and no round may exist, all `22023`; returns the end) and `host_end_canvas_setup(p_event uuid)` (host only; moves the end to now; idempotent). Nothing else reads the row: time running out blocks nothing. Client: `getCanvasSetupEnd` (read inside `getEventRoundsState` with `withCanvasSetup`, no poll of its own), `hostStartCanvasSetup`, `hostEndCanvasSetup` in `src/app/data/event-canvas-setup-service.ts`. Migrations: `20261112193000_p1529_canvas_setup.sql`, `20261112194500_p1529_canvas_setup_timing_check.sql`. Tests: `src/tests/p1529-canvas-setup.test.tsx`, `src/tests/p1529-canvas-setup-fold.test.ts`, `e2e/integration/p1529-db-schema.spec.ts` ("canvas setup").
+
 ### Hidden events (P1603 — "visible only with the link")
 
 `events.is_hidden boolean NOT NULL DEFAULT false`. The database refuses a hidden event to strangers; no screen filters it.

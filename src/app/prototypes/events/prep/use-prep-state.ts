@@ -39,7 +39,8 @@ import { whenVisible } from '../when-visible';
 import { offersPreparation, recipeForEvent } from '../series-recipes';
 import { useMyRegistrationArrivalRead, type MyArrival } from '../use-my-arrival';
 import { planTotalMinutes } from './prep-resume';
-import { OBSERVER_PREP_MINUTES, OWNER_PREP_MINUTES } from '../components/registration-copy';
+import { canvasAtEvent, prepareStepsFor, prepStatementTag } from './prep-timing';
+import { OBSERVER_PREP_MINUTES, OWNER_PREP_MINUTES, PREP_MINUTES } from '../components/registration-copy';
 
 /** StakePage's page size and fetch arguments, so "N points" equals the cards it shows. */
 const TAG_POINTS_LIMIT = 50;
@@ -92,7 +93,7 @@ const scoped = <T,>(s: Scoped<T>, key: string, fallback: T): T => (s && s.key ==
 export function usePrepState(event: EventWithHost | null, viewerId: string | undefined): PrepState {
   const [loading, setLoading] = useState(true);
   const eventId = event?.id;
-  const tag = event?.statementTag;
+  const tag = prepStatementTag(event) ?? undefined; // P1529 E2: the mastermind with its canvas at the event reads the misunderstanding points
   // P1542: required by the flag, or optional by the series' recipe (hikes).
   const enabled = offersPreparation(event);
 
@@ -192,7 +193,8 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
   const { arrival, failed: arrivalError, retry: retryArrival } = useMyRegistrationArrivalRead(event, viewerId, !idle);
   const derived = useMemo(() => {
     const startedAt = prep?.startedAt ?? null;
-    const { steps, keepFinished } = recipeForEvent(event).prepare;
+    const { keepFinished } = recipeForEvent(event).prepare;
+    const steps = prepareStepsFor(event);
     const mastermind = !!recipeForEvent(event).mastermind;
     // A failed arrival read leaves the owner's canvas step unknown: no plan is derived from it (the page shows Retry).
     const plan = arrivalError ? [] : buildPlan({
@@ -217,9 +219,9 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
     // The mastermind says the real time by role before anything is done (founder, 2026-11-06); the role is unknown until read.
     const untouched = !startedAt && stepsDone.length === 0;
     // Sales mastermind, one rule: before starting, one total for the role and no row minutes; once started, neither (founder, 2026-11-09).
-    const minutes = planTotalMinutes({ mastermind, untouched, roleMinutes: arrival ? (arrival.owner ? OWNER_PREP_MINUTES : OBSERVER_PREP_MINUTES) : null, computed });
+    const minutes = planTotalMinutes({ mastermind, untouched, roleMinutes: arrival ? (canvasAtEvent(event) ? PREP_MINUTES : arrival.owner ? OWNER_PREP_MINUTES : OBSERVER_PREP_MINUTES) : null, computed });
     return { plan, stepsDone, progress, withPrincipleIntro, cards, minutes, totalOnly: mastermind, learned: hasLearned(parts, prep?.completedAt) };
-  }, [parts, prep, tag, eventPoints, cmp7Points, event?.seriesSlug, arrival, arrivalError]);
+  }, [parts, prep, tag, eventPoints, cmp7Points, event?.seriesSlug, event?.flow, event?.canvasTiming, arrival, arrivalError]);
 
   return {
     // Disabled inputs (no event, no viewer, preparation off) answer "idle" on the same render — never one extra

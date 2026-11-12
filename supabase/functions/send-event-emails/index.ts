@@ -62,7 +62,7 @@ async function handleRsvpFor(supabase: SupabaseClient, eventId: string, caller: 
 async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: string) {
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled, series_slug, flow')
+    .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled, series_slug, flow, canvas_timing')
     .eq('id', eventId)
     .single();
 

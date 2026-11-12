@@ -120,6 +120,8 @@ export interface CreateEventInput {
   statementTag?: string;
   /** P1603: hidden = not listed, readable only with the link (plus its host and the registered). */
   isHidden?: boolean;
+  /** P1529 E1: where the Clarity Canvas is made (sales mastermind). */
+  canvasTiming?: import('@/app/types/event-fields').CanvasTiming;
 }
 
 export interface UpdateEventInput extends Partial<Omit<CreateEventInput, 'maxAttendees'>> {

@@ -152,3 +152,18 @@ Deno.test('starting soon: HTML in the title is escaped', () => {
   const m = buildStartingSoon({ ...night, title: '<script>x</script>' }, null, { arrivedUrl: 'a', notYetUrl: 'n', roomUrl: null });
   assertFalse(m.html.includes('<script>x'));
 });
+
+// P1529 E4: the sales mastermind with its canvas at the event says preparation is required, 15 minutes, never "10 minutes".
+Deno.test('mastermind confirmation and reminder: required 15-minute preparation, canvas at the event', () => {
+  const mm = { ...night, series_slug: 'sales-mastermind' };
+  const c = buildConfirmation(mm, 'Ann', 'https://x/p');
+  assertEquals(c.subject.startsWith('Your 15-minute preparation for'), true);
+  assertStringIncludes(c.html, 'Do your 15-minute preparation');
+  assertStringIncludes(c.html, '15 minutes early at the venue');
+  assertEquals(c.html.includes('Do you have 10 minutes'), false);
+  const r = buildReminder(mm, 'Ann', { prep: 'not_started', prepareUrl: 'https://x/p' });
+  assertStringIncludes(r.subject, 'your 15-minute preparation');
+  assertEquals(r.html.includes('10 minutes'), false);
+  const before = buildConfirmation({ ...mm, canvas_timing: 'before' }, 'Ann', 'https://x/p');
+  assertStringIncludes(before.html, 'Do you have 10 minutes to prepare for the event?');
+});

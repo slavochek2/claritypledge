@@ -184,6 +184,8 @@ with the saved answers, clears them, and lands on the confirm screen. If the eve
 event just filled up." and the waiting list, with the answers kept. Saved answers are never sent for another
 event, and expire (3 hours). They are not bound to a person, because nobody is signed in when they are written.
 
+**Canvas setup part (E5, 2026-11-12).** No poll of its own: the setup's end (`event_canvas_setups`, one row, about 40 B) is read in the SAME tick as the rounds read each surface already makes (every 4 s, visible-tab rule unchanged), as one extra select, only while no round exists and only for a mastermind whose canvas is made at the event. Per surface before round 1 that is **15 extra selects a minute (900 an hour)**, 0 once round 1 starts, 0 for every other flow and for canvas before. The first build's separate 10 s poller plus its role and canvas reads is gone. Start or End setup is 1 request plus 1 rounds read. 18 surfaces x 900 = 16,200 selects an hour, only in the waiting window before round 1 (UNVERIFIED length; `/dev` reads the real one from a TEST walk).
+
 **Waiting list (D24).** When the event is full in this flow, the button is "Join the waiting list" and opens
 the same form (logged out: the same sign-in path). After joining: "You're on the waiting list. The host will
 email you if a place opens." with a quiet "Leave the waiting list" link. Joining is not a seat: a table

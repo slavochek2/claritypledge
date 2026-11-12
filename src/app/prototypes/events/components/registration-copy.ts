@@ -3,6 +3,7 @@
  * @description P1529 D24: the words of the sales mastermind's registration form, as the founder gave them (2026-11-05). One
  * place, so the form, its tests and the waiting-list variants cannot drift. No dashes.
  */
+import type { CanvasTiming } from '@/app/types/event-fields';
 import type { JoinChoice, PhoneKind, PrepChoice } from '@/app/data/registration-answer-model';
 
 export const FORM_TITLE = 'Register';
@@ -18,20 +19,24 @@ export const JOIN_OPTIONS: { value: JoinChoice; label: string }[] = [
 export const OWNER_PREP_MINUTES = 25;
 export const OBSERVER_PREP_MINUTES = 10;
 
+/** The preparation is the communication part for every role, about 15 minutes (founder, 2026-11-12, E3). */
+export const PREP_MINUTES = 15;
 /**
- * The second question asks WHEN. [FOUNDER DECISION: the observer wording is the owner's with 10 minutes and "to prepare",
- * adapted by the builder; the spec gives only the owner's.]
+ * The second question asks WHEN. With the canvas at the event (E3, approved 2026-11-12) it is the same for every role: the
+ * 15-minute communication preparation. With the canvas before the event, the earlier words stay, because they include making the
+ * canvas. [FOUNDER DECISION: the observer wording of the earlier question is the owner's with 10 minutes, adapted by the builder.]
  */
-export function prepQuestion(join: JoinChoice): string {
+export function prepQuestion(join: JoinChoice, timing: CanvasTiming = 'at_event'): string {
+  if (timing === 'at_event') return `When will you do the ${PREP_MINUTES}-minute preparation?`;
   return join === 'improve'
     ? `When will you invest ${OWNER_PREP_MINUTES} minutes to prepare and create your Clarity Canvas?`
     : `When will you invest ${OBSERVER_PREP_MINUTES} minutes to prepare?`;
 }
-/** `doors` is formatted from the event (18:00 for the test event), never typed. Stored values stay home / event. */
-export function prepOptions(_join: JoinChoice, doors: string): { value: PrepChoice; label: string }[] {
+/** `doors` is formatted from the event (never typed), only read when the canvas is before the event. Stored values stay home / event. */
+export function prepOptions(_join: JoinChoice, doors: string, timing: CanvasTiming = 'at_event'): { value: PrepChoice; label: string }[] {
   return [
     { value: 'home', label: 'At home, before the event' },
-    { value: 'event', label: `I'll come earlier, at ${doors}, and prepare there` },
+    { value: 'event', label: timing === 'at_event' ? `I'll come ${PREP_MINUTES} minutes early and do it there` : `I'll come earlier, at ${doors}, and prepare there` },
   ];
 }
 

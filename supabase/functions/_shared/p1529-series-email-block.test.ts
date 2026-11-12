@@ -13,12 +13,24 @@ Deno.test('every other series stays byte-identical', () => {
   }
 });
 
-Deno.test('the mastermind gets the block; only someone making a canvas gets the laptop line', () => {
+Deno.test('canvas at the event (default): preparation is required, the canvas is made there, no laptop or "10 minutes"', () => {
   const owner = withSeriesBlock(email, { ...base, series_slug: 'sales-mastermind' });
-  assert(owner.text.includes('laptop'));
-  assert(owner.html.indexOf('laptop') < owner.html.indexOf('<!-- Footer -->'));
+  assert(owner.text.includes('Preparation is required: about 15 minutes, at home or 15 minutes early at the venue.'));
+  assert(owner.text.includes('We make your Clarity Canvas together at the event.'));
+  assertFalse(owner.text.includes('laptop'));
+  assertFalse(owner.text.includes('10 minutes'));
+  assert(owner.html.indexOf('Preparation is required') < owner.html.indexOf('<!-- Footer -->'));
   const observer = withSeriesBlock(email, { ...base, flow: 'sales-mastermind' }, { observer: true });
-  assertFalse(observer.text.includes('laptop'));
+  assert(observer.text.includes('Preparation is required'));
+  assertFalse(observer.text.includes('Clarity Canvas together'));
   assert(observer.text.includes('Bring your phone'));
   assertEquals(observer.subject, 'S');
+});
+
+Deno.test('canvas before the event keeps today\'s block: laptop line for an owner, no required-preparation line', () => {
+  const owner = withSeriesBlock(email, { ...base, series_slug: 'sales-mastermind', canvas_timing: 'before' });
+  assert(owner.text.includes('laptop'));
+  assertFalse(owner.text.includes('Preparation is required'));
+  const observer = withSeriesBlock(email, { ...base, flow: 'sales-mastermind', canvas_timing: 'before' }, { observer: true });
+  assertFalse(observer.text.includes('laptop'));
 });

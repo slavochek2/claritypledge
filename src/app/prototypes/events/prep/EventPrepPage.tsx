@@ -24,7 +24,7 @@ import { ClarityContentLoader, ClarityPageLoader } from '@/components/ui/clarity
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { isOnlineLocation, onTimeLine } from '../arrival/arrival-text';
-import { ownTimeLine } from '../event-doors';
+import { arrivalLeadMinutes, ownTimeLine } from '../event-doors';
 import { EventCanvasStep } from './EventCanvasStep';
 import { useAutoFinish, useStepsDone } from './use-auto-finish';
 import { useEventCommunityName } from '../use-event-community';
@@ -61,6 +61,7 @@ import {
   stepMinutes,
   type PlanStep,
 } from './prep-plan';
+import { MISUNDERSTANDING_LABEL, MISUNDERSTANDING_TAG, MISUNDERSTANDING_TITLE, prepStatementTag } from './prep-timing';
 import { EventBox, seriesLabel, SocialProof, socialProofLine } from './PrepPieces';
 import { type StatementsCount, ActionRow, Clip, StatementsActions, StepActions, Title, useMeasuredHeight } from './prep-ui';
 import { resumeScreenOf } from './prep-resume';
@@ -254,7 +255,8 @@ export function PrepFlow({
   }, [onRoomStep, thenJoin, navigate, event.slug, openedByEvent, location.state]);
   const { timeLine } = recipeForEvent(event);
   const community = useEventCommunityName(event, !!words);
-  const tag = event.statementTag ?? null;
+  const tag = prepStatementTag(event); // P1529 E2
+  const labelOf = (s: PlanStep) => (s === 'stake' && tag === MISUNDERSTANDING_TAG ? MISUNDERSTANDING_LABEL : stepLabel(s, eventPointCount, topic));
 
   // P1542 decision (A): a hike's finished steps open again from the list at any time, not only once all is finished.
   const keepFinished = recipeForEvent(event).prepare.keepFinished === true;
@@ -312,7 +314,7 @@ export function PrepFlow({
 
   // Experts = agents with stories on the event tag, from data (never hardcoded).
   useEffect(() => {
-    if (!tag) {
+    if (!tag || tag === MISUNDERSTANDING_TAG) {
       setExperts([]);
       return;
     }
@@ -704,7 +706,7 @@ export function PrepFlow({
             ) : (
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-sm font-semibold leading-snug text-foreground" data-testid="step-name">
-                {stepLabel(screen as PlanStep, eventPointCount, topic)}
+                {labelOf(screen as PlanStep)}
               </p>
               <LetterProgressBar
                 currentChapter={stepIndex}
@@ -782,7 +784,7 @@ export function PrepFlow({
                         <button
                           type="button"
                           className="absolute inset-0 z-10 rounded-md hover:bg-muted/40"
-                          aria-label={`Open again: ${stepLabel(s, eventPointCount, topic)}`}
+                          aria-label={`Open again: ${labelOf(s)}`}
                           onClick={() => reviewStep(s)}
                           data-testid={`agenda-open-${i + 1}`}
                         />
@@ -800,7 +802,7 @@ export function PrepFlow({
                       </div>
                       <div className={cn('flex min-w-0 flex-1 items-start justify-between gap-3 pt-1', !last && 'pb-6')}>
                         <p className={cn('min-w-0 text-base font-medium leading-snug text-foreground', done && 'text-muted-foreground')}>
-                          {stepLabel(s, eventPointCount, topic)}
+                          {labelOf(s)}
                         </p>
                         {/* Visual review round 5 (item 5): until the statements have loaded the card counts are 0, so a
                             row read "1 min" while the total was still missing. Rows and total now appear together. */}
@@ -914,14 +916,20 @@ export function PrepFlow({
           {screen === 'stake' && tag && (
             <section className="space-y-4">
               <div className="space-y-2">
-                <Title>
-                  Set your positions on {shownIds[tag]?.length ?? (state.eventPoints ?? []).filter((p) => !isAnswered(p)).length} points
-                  about “{topic}”
-                </Title>
-                {/* [DRAFT] */}
-                <p className="text-base text-muted-foreground">
-                  Your positions help us pair you with someone who sees it differently at the event.
-                </p>
+                {tag === MISUNDERSTANDING_TAG ? (
+                  <Title>{MISUNDERSTANDING_TITLE}</Title>
+                ) : (
+                  <>
+                    <Title>
+                      Set your positions on {shownIds[tag]?.length ?? (state.eventPoints ?? []).filter((p) => !isAnswered(p)).length} points
+                      about “{topic}”
+                    </Title>
+                    {/* [DRAFT] */}
+                    <p className="text-base text-muted-foreground">
+                      Your positions help us pair you with someone who sees it differently at the event.
+                    </p>
+                  </>
+                )}
               </div>
               <GutFeelNudge key="stake" answered={stakeCount.answered} loaded={isLoaded(state.eventPoints, shownIds[tag])} />
               {state.eventPoints && shownIds[tag] && (
@@ -1114,7 +1122,7 @@ export function PrepFlow({
             </section>
           )}
           {screen === 'end' && !roomRow && !embeddedFinish && (() => {
-            const hasStories = !fromRoom && !!tag && !!experts && experts.length > 0;
+            const hasStories = !fromRoom && !!tag && tag !== MISUNDERSTANDING_TAG && !!experts && experts.length > 0;
             // Until the experts are read, the next action is not known: render no button rather than
             // one that changes under the person's finger.
             const actionsReady = fromRoom || experts !== null;
@@ -1132,7 +1140,7 @@ export function PrepFlow({
                       line is not repeated (Clarity Night keeps its "We start at … sharp"). */}
                   {timeLine === 'meet' ? null : !isOnlineLocation(event.location) && (
                     <p className="text-sm text-foreground" data-testid="end-on-time">
-                      {state.arrival ? ownTimeLine(event.datetime, state.arrival.atDoors, event.timezone) : onTimeLine(event.datetime)}
+                      {state.arrival ? ownTimeLine(event.datetime, state.arrival.atDoors, event.timezone, arrivalLeadMinutes(event)) : onTimeLine(event.datetime)}
                     </p>
                   )}
                   {(micSetup === 'usbc' || micSetup === 'own' || micSetup === 'lightning' || micSetup === 'other') && (

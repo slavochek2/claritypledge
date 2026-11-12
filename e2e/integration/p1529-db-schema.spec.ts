@@ -12,6 +12,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../helpers/supabase-admin';
 import { createTestEvent } from '../helpers/test-event';
 import {
@@ -431,6 +432,49 @@ test('end round: host only, the newest round only, idempotent, Sales Mastermind 
   const CN = await createTestEvent(host.user.user.id, new Date(), { title: `P1529 QA db end round CN ${randomUUID().slice(0, 4)}` });
   ledger.events.push(CN);
   expect((await host.client.rpc('host_end_round', { p_event: CN.id })).error?.code).toBe('22023');
+});
+
+test('canvas setup: host only, refused once a round exists or the canvas is made before, range checked, readable with the rounds only', async () => {
+  const CS = await makeEvent(ledger, host.user, `P1529 QA db canvas setup ${randomUUID().slice(0, 4)}`, { startsInMs: 0 });
+  const csRoom = await makeTranscribeRoom(ledger, CS);
+  await register(X, CS.slug); await register(Y, CS.slug);
+  for (const p of [X, Y]) await joinRoom(ledger, p, CS, { transcribeRoom: csRoom });
+  const count = async () => (await supabaseAdmin.from('event_canvas_setups').select('*', { count: 'exact', head: true }).eq('event_id', CS.id)).count;
+  // host only: an attendee can neither start nor end it, and nothing is written
+  expect((await X.client.rpc('host_start_canvas_setup', { p_event: CS.id, p_seconds: 600 })).error?.code, 'attendee start').toBe('42501');
+  expect((await X.client.rpc('host_end_canvas_setup', { p_event: CS.id })).error?.code, 'attendee end').toBe('42501');
+  expect(await count()).toBe(0);
+  // range: 1..7200 seconds
+  for (const bad of [0, -5, 7201]) expect((await host.client.rpc('host_start_canvas_setup', { p_event: CS.id, p_seconds: bad })).error?.code, `${bad} s`).toBe('22023');
+  expect(await count()).toBe(0);
+  // the host starts it; a member of the event reads it, a signed-out reader and a non-member do not
+  const started = await host.client.rpc('host_start_canvas_setup', { p_event: CS.id, p_seconds: 600 });
+  expect(started.error).toBeNull();
+  const read = await X.client.from('event_canvas_setups').select('ends_at').eq('event_id', CS.id);
+  expect(read.data, 'a room member reads it (can_see_event_rounds)').toHaveLength(1);
+  const anon = createClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
+  const anonRead = await anon.from('event_canvas_setups').select('ends_at').eq('event_id', CS.id);
+  expect(anonRead.error !== null || (anonRead.data ?? []).length === 0, 'anon reads nothing').toBe(true);
+  expect((await Z.client.from('event_canvas_setups').select('ends_at').eq('event_id', CS.id)).data, 'a non-member reads nothing').toEqual([]);
+  expect((await X.client.from('event_canvas_setups').insert({ event_id: CS.id, ends_at: new Date().toISOString() })).error, 'no client write').not.toBeNull();
+  // end: moves the end to now; a second call changes nothing
+  expect((await host.client.rpc('host_end_canvas_setup', { p_event: CS.id })).error).toBeNull();
+  const ended = (await supabaseAdmin.from('event_canvas_setups').select('ends_at').eq('event_id', CS.id).single()).data!.ends_at as string;
+  expect(new Date(ended).getTime()).toBeLessThanOrEqual(Date.now());
+  expect((await host.client.rpc('host_end_canvas_setup', { p_event: CS.id })).error).toBeNull();
+  expect((await supabaseAdmin.from('event_canvas_setups').select('ends_at').eq('event_id', CS.id).single()).data!.ends_at, 'idempotent').toBe(ended);
+  // refused once a round exists
+  const seats = [{ m: X.room.get(CS.id)!, t: 1, r: 'first' }, { m: Y.room.get(CS.id)!, t: 1, r: 'second' }];
+  expect((await host.client.rpc('host_start_round', { p_event_id: CS.id, p_round_no: 1, p_group_size: 3, p_seats: seats })).error).toBeNull();
+  expect((await host.client.rpc('host_start_canvas_setup', { p_event: CS.id, p_seconds: 600 })).error?.code, 'after a round').toBe('22023');
+  // refused when the canvas is made before the event
+  const BF = await makeEvent(ledger, host.user, `P1529 QA db canvas before ${randomUUID().slice(0, 4)}`, { startsInMs: 0 });
+  expect((await supabaseAdmin.from('events').update({ canvas_timing: 'before' }).eq('id', BF.id)).error).toBeNull();
+  expect((await host.client.rpc('host_start_canvas_setup', { p_event: BF.id, p_seconds: 600 })).error?.code, 'canvas before').toBe('22023');
+  // Clarity Night: refused by flow
+  const CN = await createTestEvent(host.user.user.id, new Date(), { title: `P1529 QA db canvas setup CN ${randomUUID().slice(0, 4)}` });
+  ledger.events.push(CN);
+  expect((await host.client.rpc('host_start_canvas_setup', { p_event: CN.id, p_seconds: 600 })).error?.code).toBe('22023');
 });
 
 test('waiting list: only when full; not a seat; once; the host reads it in order; others cannot; leaving', async () => {

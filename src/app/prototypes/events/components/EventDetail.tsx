@@ -39,7 +39,7 @@ import { canvasService } from '@/app/data/canvas-service';
 import { REMOVE_ATTENDEE_COPY } from '../remove-attendee-copy';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { useAuth } from '@/auth';
-import { calendarWindow } from '../event-doors';
+import { arrivalLeadMinutes, calendarWindow } from '../event-doors';
 import { useMyRegistrationArrival } from '../use-my-arrival';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { extractBannerKeywords } from '../banner-utils';
@@ -721,7 +721,7 @@ export function EventDetail() {
     location: event.location,
     slug: event.slug,
     // A person who prepares at the event gets the invite from the doors time (P1529).
-    ...(myArrival?.atDoors ? calendarWindow(event.datetime, event.durationMinutes, true) : { startDate: eventDate, endDate }),
+    ...(myArrival?.atDoors ? calendarWindow(event.datetime, event.durationMinutes, true, arrivalLeadMinutes(event)) : { startDate: eventDate, endDate }),
   };
 
   const locationInfo = classifyLocation(event.location);
@@ -1356,6 +1356,7 @@ export function EventDetail() {
           open={registration.asking}
           datetime={event.datetime}
           timezone={event.timezone}
+          canvasTiming={event.canvasTiming}
           busy={registration.busy}
           mode={isFull && !isRsvpd ? 'waitlist' : 'register'}
           signedIn={isLoggedIn}

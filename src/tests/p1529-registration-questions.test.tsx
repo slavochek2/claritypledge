@@ -43,26 +43,37 @@ describe('P1529 D24 registration form: copy', () => {
     expect(screen.queryByTestId('prep-question')).toBeNull();
   });
 
-  it('branch 1, owners: the second question asks WHEN (25 minutes); the doors time is formatted from the event', () => {
+  const EARLY = "I'll come 15 minutes early and do it there";
+
+  it('E3, owners: the second question is the 15-minute preparation, at home or 15 minutes early', () => {
     open();
     fireEvent.click(screen.getByTestId('join-improve'));
-    expect(screen.getByText('When will you invest 25 minutes to prepare and create your Clarity Canvas?')).toBeTruthy();
+    expect(screen.getByText('When will you do the 15-minute preparation?')).toBeTruthy();
     expect(screen.getByLabelText('At home, before the event')).toBeTruthy();
-    expect(screen.getByLabelText("I'll come earlier, at 18:00, and prepare there")).toBeTruthy();
+    expect(screen.getByLabelText(EARLY)).toBeTruthy();
   });
 
-  it('the doors time follows the event, never a typed 18:00', () => {
-    open({ datetime: '2026-11-14T12:00:00+00:00' }); // 19:00 in Bangkok, doors 18:30
+  it('E3: the early option names no typed or computed time', () => {
+    open({ datetime: '2026-11-14T12:00:00+00:00' });
     fireEvent.click(screen.getByTestId('join-improve'));
-    expect(screen.getByLabelText("I'll come earlier, at 18:30, and prepare there")).toBeTruthy();
+    expect(screen.getByLabelText(EARLY)).toBeTruthy();
   });
 
-  it('branch 2, observers: the same question with 10 minutes and the same two options', () => {
+  it('E3, observers: the very same question and options', () => {
     open();
     fireEvent.click(screen.getByTestId('join-help'));
-    expect(screen.getByText('When will you invest 10 minutes to prepare?')).toBeTruthy();
+    expect(screen.getByText('When will you do the 15-minute preparation?')).toBeTruthy();
     expect(screen.getByLabelText('At home, before the event')).toBeTruthy();
+    expect(screen.getByLabelText(EARLY)).toBeTruthy();
+  });
+
+  it('E3 mode-aware: with the canvas before the event the earlier words stay', () => {
+    open({ canvasTiming: 'before' });
+    fireEvent.click(screen.getByTestId('join-improve'));
+    expect(screen.getByText('When will you invest 25 minutes to prepare and create your Clarity Canvas?')).toBeTruthy();
     expect(screen.getByLabelText("I'll come earlier, at 18:00, and prepare there")).toBeTruthy();
+    fireEvent.click(screen.getByTestId('join-help'));
+    expect(screen.getByText('When will you invest 10 minutes to prepare?')).toBeTruthy();
   });
 
   it('changing the first answer clears the second', () => {

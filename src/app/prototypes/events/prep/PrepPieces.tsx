@@ -22,7 +22,7 @@ import { classifyGroupChat } from '../group-chat-utils';
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { formatDate, formatTime } from '../utils';
 import { EventShareRow } from '../components/EventShareRow';
-import { calendarWindow } from '../event-doors';
+import { arrivalLeadMinutes, calendarWindow } from '../event-doors';
 import { useMyRegistrationArrival } from '../use-my-arrival';
 import type { Progress } from './prep-plan';
 import { isHikeLayout, parseHikeDetails } from '../hike/hike-utils';
@@ -217,7 +217,7 @@ export function RegisteredBlock({ event, groupChatUrl, viewerId, surface = 'regi
     location: event.location,
     slug: event.slug,
     // The invite starts at this person's own arrival (the doors time for someone preparing at the event).
-    ...calendarWindow(event.datetime, event.durationMinutes, !!arrival?.atDoors),
+    ...calendarWindow(event.datetime, event.durationMinutes, !!arrival?.atDoors, arrivalLeadMinutes(event)),
   };
   // On a phone, Share opens the share sheet (every app is there); elsewhere it opens the share row in place.
   const share = async () => {
@@ -368,7 +368,7 @@ export function EventBox({
     description: event.description,
     location: event.location,
     slug: event.slug,
-    ...calendarWindow(event.datetime, event.durationMinutes, !!arrival?.atDoors),
+    ...calendarWindow(event.datetime, event.durationMinutes, !!arrival?.atDoors, arrivalLeadMinutes(event)),
   };
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-4 text-center shadow-sm" data-testid={testId}>
@@ -468,7 +468,10 @@ export function PrepBlock({
   proof,
   onPrepare,
   onRemind,
+  required = false,
 }: {
+  /** P1529 E4: the mastermind's preparation is required, not asked about; its words say so. */
+  required?: boolean;
   progress: Progress;
   minutes: number | null;
   reminded: boolean;
@@ -481,7 +484,7 @@ export function PrepBlock({
   const actions = (
       <div className="flex flex-col items-center gap-1" data-testid="confirm-actions">
         <LetterPrimaryCta label={notStarted ? 'Prepare now' : 'Continue your preparation'} onClick={onPrepare} />
-        {notStarted &&
+        {notStarted && !required &&
           (reminded ? (
             <p
               aria-live="polite"
@@ -504,7 +507,7 @@ export function PrepBlock({
           <>
             {/* Rendered at once: 10 stands in until the points load. */}
             <h1 className="text-2xl font-bold leading-tight text-foreground" data-testid="prep-question" data-ready={minutes !== null}>
-              {`Do you have ${minutes ?? 10} minutes to prepare for the event?`}
+              {required ? `Do your ${minutes ?? 15}-minute preparation` : `Do you have ${minutes ?? 10} minutes to prepare for the event?`}
             </h1>
           </>
         ) : (
@@ -514,7 +517,9 @@ export function PrepBlock({
         )}
         {/* The why is always shown (P1336), in both states. */}
         <p className="text-base leading-relaxed text-muted-foreground" data-testid="prep-why">
-          Our events have a special structure. A short preparation makes the discussions more meaningful.
+          {required
+            ? 'Preparation is required: at home before the event, or 15 minutes early at the venue. We make your Clarity Canvas together at the event.'
+            : 'Our events have a special structure. A short preparation makes the discussions more meaningful.'}
         </p>
       </section>
       {/* On a phone the decision is pinned with its social proof (as the opt-in step does), and

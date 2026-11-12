@@ -40,7 +40,7 @@ describe('the limit field validation', () => {
 describe('the thank-you line uses the event time zone', () => {
   it('EventPrepPage passes event.timezone to ownTimeLine', () => {
     const src = readFileSync('src/app/prototypes/events/prep/EventPrepPage.tsx', 'utf8');
-    expect(src).toContain('ownTimeLine(event.datetime, state.arrival.atDoors, event.timezone)');
+    expect(src).toContain('ownTimeLine(event.datetime, state.arrival.atDoors, event.timezone, arrivalLeadMinutes(event))');
   });
 });
 

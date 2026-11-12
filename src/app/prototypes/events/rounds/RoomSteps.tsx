@@ -15,7 +15,7 @@
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type RoomStep = 'ready' | 'principle' | 'table' | 'compare' | 'close';
+export type RoomStep = 'ready' | 'principle' | 'canvas' | 'table' | 'compare' | 'close';
 
 
 /** Round 7b: ONE tick for every done step (Learn included): the same blue and the same stroke everywhere. */
@@ -31,7 +31,10 @@ export const ROOM_STEPS: { key: RoomStep; label: string }[] = [
   { key: 'close', label: 'Feedback' },
 ];
 
-const order = (step: RoomStep) => ROOM_STEPS.findIndex(s => s.key === step);
+/** P1529 E5: the mastermind's Canvas step (canvas made at the event) sits between Principle and Table; only a room that asks for it shows it. */
+const CANVAS_STEP = { key: 'canvas' as RoomStep, label: 'Canvas' };
+const ALL_STEPS = [...ROOM_STEPS.slice(0, 2), CANVAS_STEP, ...ROOM_STEPS.slice(2)];
+const order = (step: RoomStep) => ALL_STEPS.findIndex(s => s.key === step);
 
 /**
  * Which steps a tap may open. Close is never a look-back: it is reached only when the evening
@@ -56,6 +59,8 @@ export function RoomSteps({
   learn,
   done: doneOverride,
   closeOpen = false,
+  withCanvas = false,
+  canvasDone,
 }: {
   /** Where the evening has the person now. */
   current: RoomStep;
@@ -84,13 +89,18 @@ export function RoomSteps({
   done?: Partial<Record<RoomStep, boolean>>;
   /** P1529: Feedback is open before it is the current step (the mastermind's, open at any time). Absent = only when current. */
   closeOpen?: boolean;
+  /** P1529 E5: show the Canvas step (the mastermind with the canvas made at the event). */
+  withCanvas?: boolean;
+  /** With the Canvas step: whether this person's canvas is shared with the event (its tick). */
+  canvasDone?: boolean;
 }) {
+  const steps = (withCanvas ? ALL_STEPS : ROOM_STEPS).filter(({ key }) => !hidden.includes(key));
   // P1430 (founder walkthrough 9): done steps carry a check and a muted label, the step on screen
   // is bold with a thicker bar, steps ahead are grey. A step that cannot open says so (aria-disabled)
   // and looks it. At 360px and below only the shown step keeps its label; the rest are bars.
   return (
     <nav aria-label="Your evening" className={className} data-testid="room-steps" data-current={current}>
-      <ol className={cn('grid gap-1', labels && 'border-b border-border')} style={{ gridTemplateColumns: `repeat(${ROOM_STEPS.length - hidden.length + (learn ? 1 : 0)}, minmax(0, 1fr))` }}>
+      <ol className={cn('grid gap-1', labels && 'border-b border-border')} style={{ gridTemplateColumns: `repeat(${steps.length + (learn ? 1 : 0)}, minmax(0, 1fr))` }}>
         {learn && (
           <li key="learn">
             <button
@@ -129,10 +139,10 @@ export function RoomSteps({
             </button>
           </li>
         )}
-        {ROOM_STEPS.filter(({ key }) => !hidden.includes(key)).map(({ key, label: shared }) => {
+        {steps.map(({ key, label: shared }) => {
           const label = labels?.[key] ?? shared;
           const open = canOpenStep(key, current, closeOpen);
-          const explicit = doneOverride?.[key];
+          const explicit = key === 'canvas' && withCanvas ? canvasDone : doneOverride?.[key];
           const done = explicit ?? order(key) < order(current);
           const reached = order(key) <= order(current) || (key === 'close' && closeOpen);
           const shown = key === viewing;

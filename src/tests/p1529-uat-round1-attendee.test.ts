@@ -49,8 +49,8 @@ describe('the person\'s own arrival', () => {
     expect(arrivalOf({ participation: 'observer', observerPrep: 'home' })).toEqual({ owner: false, atDoors: false });
     expect(arrivalOf(null)).toBeNull();
   });
-  it('the registration option formats the doors time from the event', () => {
-    expect(prepOptions('improve', '18:30')[1]!.label).toBe("I'll come earlier, at 18:30, and prepare there");
+  it('the registration options are the same for every role (E3)', () => {
+    expect(prepOptions('improve', '18:30')[1]!.label).toBe("I'll come 15 minutes early and do it there");
     expect(prepOptions('help', '18:00').map(o => o.value)).toEqual(['home', 'event']);
   });
 });

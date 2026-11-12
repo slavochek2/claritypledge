@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { savePreparation } from '@/app/data/event-prep-service';
 import type { EventWithHost } from '@/app/types';
+import { canvasAtEvent } from './prep-timing';
 import { EventBox, PrepBlock, PrepStatus, RegisteredBlock, seriesLabel, socialProofLine } from './PrepPieces';
 import { usePrepState } from './use-prep-state';
 import { recipeForEvent } from '../series-recipes';
@@ -71,6 +72,7 @@ export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; gro
         <PrepBlock
           progress={state.progress}
           minutes={state.minutes}
+          required={canvasAtEvent(event)}
           reminded={reminded}
           proof={{ line: proofLine, people: proof?.preparedPeople ?? [] }}
           onPrepare={() => navigate(`/events/${event.slug}/prepare`)}

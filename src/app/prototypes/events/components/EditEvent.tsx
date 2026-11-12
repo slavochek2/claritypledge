@@ -18,6 +18,9 @@ import { eventsService } from '@/app/data/events-service';
 import type { EventWithHost } from '@/app/types';
 import { DURATIONS, TIMEZONES } from '../utils';
 import { HiddenEventField } from './HiddenEventField';
+import { CanvasTimingField } from './CanvasTimingField';
+import { canvasTimingOf, type CanvasTiming } from '@/app/types/event-fields';
+import { eventFlow } from '../series-recipes';
 import { PrepSettingsFields, normalizeStatementTag, validateStatementTag } from '../prep/PrepSettingsFields';
 
 export function EditEvent() {
@@ -42,6 +45,7 @@ export function EditEvent() {
   const [preparationEnabled, setPreparationEnabled] = useState(false);
   const [statementTag, setStatementTag] = useState('');
   const [isHidden, setIsHidden] = useState(false); // P1603
+  const [canvasTiming, setCanvasTiming] = useState<CanvasTiming>('at_event'); // P1529 E1
   // P1194: true when the existing link could not be READ. An empty field then means
   // "unknown", not "the host cleared it" — and the two must not submit the same value.
   const [groupChatLoadFailed, setGroupChatLoadFailed] = useState(false);
@@ -73,6 +77,7 @@ export function EditEvent() {
         setPreparationEnabled(eventData.preparationEnabled ?? false);
         setStatementTag(eventData.statementTag ?? '');
         setIsHidden(eventData.isHidden === true);
+        setCanvasTiming(canvasTimingOf(eventData.canvasTiming));
         // P1194: the group chat link lives in the RLS-gated side table, not on the
         // event row. The host passes that gate, so this returns their own value.
         if (eventData.hasGroupChat) {
@@ -206,6 +211,7 @@ export function EditEvent() {
       preparationEnabled,
       statementTag: normalizeStatementTag(statementTag),
       isHidden,
+      ...(event && eventFlow(event) === 'sales-mastermind' ? { canvasTiming } : {}), // P1529 E1
     });
 
     setIsSubmitting(false);
@@ -397,6 +403,8 @@ export function EditEvent() {
             onTagChange={setStatementTag}
             tagError={errors.statementTag}
           />
+
+          {event && eventFlow(event) === 'sales-mastermind' && <CanvasTimingField value={canvasTiming} onChange={setCanvasTiming} />}
 
           {/* Description */}
           <div>

@@ -11,4 +11,14 @@ export interface EventGroupFields {
   orgId?: string | null;
   /** P1603: a hidden event: not in any global list, readable only by its host, the registered, and whoever holds the link. */
   isHidden?: boolean;
+  /** P1529 E1: where the Clarity Canvas is made: 'before' (a preparation step at home) or 'at_event' (together at the event, default). */
+  canvasTiming?: CanvasTiming;
+}
+
+export type CanvasTiming = 'before' | 'at_event';
+export const DEFAULT_CANVAS_TIMING: CanvasTiming = 'at_event';
+
+/** The column's value as the app holds it; anything unknown reads as the default. */
+export function canvasTimingOf(raw: string | null | undefined): CanvasTiming {
+  return raw === 'before' ? 'before' : DEFAULT_CANVAS_TIMING;
 }

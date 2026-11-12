@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import type { CanvasTiming } from '@/app/types/event-fields';
 import { formatDoorsTime } from '../event-doors';
 import { choicesOf, participationOf, type JoinChoice, type PhoneKind, type PrepChoice, type RegistrationAnswers } from '@/app/data/registration-answer-model';
 import { ROUND_UPDATE_CONSENT } from '@/app/components/session/capture-copy';
@@ -66,11 +67,13 @@ function useFocusFirstMissing(form: React.RefObject<HTMLElement | null>, attempt
 }
 
 export function RegistrationQuestions({
-  open, datetime, timezone, busy, onCancel, onSubmit, mode = 'register', signedIn = true, initial = null,
+  open, datetime, timezone, canvasTiming = 'at_event', busy, onCancel, onSubmit, mode = 'register', signedIn = true, initial = null,
 }: {
   open: boolean;
   datetime: string;
   timezone?: string | null;
+  /** E3: where the canvas is made; wording of the prepare question follows it. */
+  canvasTiming?: CanvasTiming;
   busy: boolean;
   onCancel: () => void;
   onSubmit: (answers: RegistrationAnswers) => void;
@@ -129,7 +132,7 @@ export function RegistrationQuestions({
     onSubmit({ ...participationOf(join, prep), phone, hope, recordingAccepted: true });
   };
 
-  const doors = formatDoorsTime(datetime, timezone);
+  const doors = formatDoorsTime(datetime, timezone, 30);
   const buttonLabel = !signedIn ? copy.CONTINUE_LABEL : busy ? (waitlist ? 'Joining...' : 'Registering...') : waitlist ? copy.WAITLIST_BUTTON : copy.FORM_TITLE;
 
   return (
@@ -151,9 +154,9 @@ export function RegistrationQuestions({
           </fieldset>
           {join && (
             <fieldset className={`${ring('prep')}`} data-testid="prep-question" data-question="prep">
-              <legend className="float-left mb-3 w-full p-0 text-sm font-medium">{copy.prepQuestion(join)}</legend>
+              <legend className="float-left mb-3 w-full p-0 text-sm font-medium">{copy.prepQuestion(join, canvasTiming)}</legend>
               <div className="clear-both space-y-2">
-                {copy.prepOptions(join, doors).map(o => (
+                {copy.prepOptions(join, doors, canvasTiming).map(o => (
                   <ChoiceRow key={o.value} name={`${id}-p-${join}`} checked={prep === o.value} label={o.label} onSelect={() => setPrep(o.value)} testId={`prep-${o.value}`} errorId={rowError('prep')} />
                 ))}
                 {errorLine('prep', copy.MISSING.prep)}

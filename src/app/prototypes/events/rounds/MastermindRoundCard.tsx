@@ -37,6 +37,7 @@ export function MastermindRoundCard({
   onMoment,
   onRoundsStarted,
   feedbackSlot = null,
+  canvasSetup,
 }: {
   eventId: string;
   self: EventRoomSelf | null;
@@ -49,12 +50,16 @@ export function MastermindRoundCard({
   onRoundsStarted?: (started: boolean) => void;
   /** The room's Feedback tab: the slot after the feedback block, where the next-version card is portalled (null: in place). */
   feedbackSlot?: HTMLElement | null;
+  /** P1529 E5: set when the canvas is made at the event: this card's rounds read also returns the setup's end, reported here (true: read, report nowhere). */
+  canvasSetup?: true | ((endsAt: number | null | undefined) => void);
 }) {
   // The same poll as RoundCard: a round the host still runs outlives the clock's close.
   const [liveSeen, setLiveSeen] = useState(false);
   const [rounds, setRounds] = useState<EventRoundsState>(EMPTY_ROUNDS_STATE);
   const polling = roundsPolling({ ended, liveSeen, state: rounds, now: Date.now() });
-  const { state } = useEventRounds(eventId, !!self, polling.active, polling);
+  const { state } = useEventRounds(eventId, !!self, polling.active, { ...polling, withCanvasSetup: !!canvasSetup });
+  const reportSetup = typeof canvasSetup === 'function' ? canvasSetup : undefined;
+  useEffect(() => { reportSetup?.(state.canvasSetupEnd); }, [reportSetup, state.canvasSetupEnd]);
   useEffect(() => { setRounds(state); }, [state]);
   const { pathname } = useLocation();
   // The canvas opened from here says where the table is, so its page can offer "Back to your table".

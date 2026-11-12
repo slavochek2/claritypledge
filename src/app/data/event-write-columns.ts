@@ -20,5 +20,6 @@ export function eventUpdateColumns(data: UpdateEventInput): Record<string, unkno
   // P1603: [FOUNDER DECISION: label "Hidden event", helper "Only people with the link can see it. It won't appear in
   // event lists."] The slug is NOT changed when an existing event is switched to hidden: links already sent keep working.
   if (data.isHidden !== undefined) out.is_hidden = data.isHidden;
+  if (data.canvasTiming !== undefined) out.canvas_timing = data.canvasTiming; // P1529 E1
   return out;
 }

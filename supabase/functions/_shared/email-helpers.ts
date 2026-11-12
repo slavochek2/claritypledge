@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { isOnlineLocation, onTimeLine, venueName } from './event-links.ts';
+import { PREP_WHY_BODY, PREP_WHY_TITLE, prepPayoffOf, prepQuestionOf, prepReminderSubject, prepSubject } from './mastermind-prep-email.ts';
 
 // ── Environment (callers pass these in via module-level constants) ─────────────
 // Callers must set these before calling any helper that uses Mailgun.
@@ -50,6 +51,10 @@ export interface EventRow {
   host_id: string | null;
   /** P1336/P1380: preparation flow + room gate on. Absent on older selects = off. */
   preparation_enabled?: boolean | null;
+  /** P1529 E4: which flow the event runs and where its Clarity Canvas is made; absent on older selects. */
+  series_slug?: string | null;
+  flow?: string | null;
+  canvas_timing?: string | null;
 }
 
 export interface LogEmailSendOpts {
@@ -259,12 +264,6 @@ const startTime = (event: EventRow) => shortDate(event).split(' · ')[1] ?? '';
 /** P1380: preparation state of one registrant, as the 24h reminder needs it. */
 export type ReminderPrep = 'not_started' | 'started' | 'complete';
 
-/** The app's own words for why we ask (src/app/prototypes/events/prep/PrepPieces.tsx PrepBlock). */
-const PREP_WHY_TITLE = 'Our events are different';
-const PREP_WHY_BODY = 'We use a special structure, and we ask every participant to prepare.';
-const PREP_QUESTION = 'Do you have 10 minutes to prepare for the event?';
-const PREP_PAYOFF = 'Your short preparation will make the event discussions more meaningful.';
-
 /**
  * P1380: the layout every preparation-event email shares, mirroring the app's registration
  * screen: a small status line, the ONE question big, its button centred, and everything else
@@ -325,20 +324,20 @@ export function buildConfirmation(
   const details = `${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}`;
   if (event.preparation_enabled && prepareUrl) {
     // P1380 founder review 2026-10-02: "registered" is small; the question is the big thing.
-    const subject = `10 minutes to prepare for ${event.title}?`;
+    const subject = prepSubject(event);
     const html = focusEmail({
       title: subject,
       preheader: `You're registered. ${PREP_WHY_BODY}`,
       greetingName: name,
       status: `✓ You're registered for ${event.title}`,
       why: { title: PREP_WHY_TITLE, body: PREP_WHY_BODY },
-      question: PREP_QUESTION,
-      payoff: PREP_PAYOFF,
+      question: prepQuestionOf(event),
+      payoff: prepPayoffOf(event),
       actions: center(emailButton('Prepare now', prepareUrl)),
       event,
       startLine: true,
     });
-    const text = `${hi}You're registered for ${event.title}.\n\n${PREP_WHY_TITLE}. ${PREP_WHY_BODY}\n${PREP_QUESTION}\nPrepare now: ${prepareUrl}\n\n${onTimeLine(event)}\n${details}\n\nSee you there!\nClarity Pledge`;
+    const text = `${hi}You're registered for ${event.title}.\n\n${PREP_WHY_TITLE}. ${PREP_WHY_BODY}\n${prepQuestionOf(event)}\n${prepPayoffOf(event)}\nPrepare now: ${prepareUrl}\n\n${onTimeLine(event)}\n${details}\n\nSee you there!\nClarity Pledge`;
     return { subject, html, text };
   }
   const subject = `You're in: ${event.title}`;
@@ -385,8 +384,8 @@ export function buildReminder(
       ? `See you tomorrow ${at} · ${place}`
       : started
         ? `Tomorrow ${at} · finish your preparation`
-        : `Tomorrow ${at} · 10 minutes to prepare?`;
-    const question = done ? 'See you tomorrow' : started ? 'Finish your preparation' : PREP_QUESTION;
+        : prepReminderSubject(event, at);
+    const question = done ? 'See you tomorrow' : started ? 'Finish your preparation' : prepQuestionOf(event);
     const label = started ? 'Continue your preparation' : 'Prepare now';
     const arriveNote = isOnlineLocation(event.location)
       ? null
@@ -399,7 +398,7 @@ export function buildReminder(
       status: done ? `✓ You're prepared for ${event.title}` : `${event.title} is tomorrow at ${at}`,
       why: done ? null : { title: PREP_WHY_TITLE, body: PREP_WHY_BODY },
       question,
-      payoff: done ? null : PREP_PAYOFF,
+      payoff: done ? null : prepPayoffOf(event),
       actions: done || !target ? '' : center(emailButton(label, target)),
       event,
       startLine: true,

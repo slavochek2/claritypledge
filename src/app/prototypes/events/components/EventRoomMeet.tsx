@@ -113,6 +113,8 @@ import { SHOW_PRACTICE_ROOMS } from './practice-rooms-switch';
 import { FlowRoundCard, type RoundMoment } from '../rounds/FlowRoundCard';
 import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
 import { hiddenRoomSteps } from '../rounds/hidden-room-steps';
+import { eventCanvasTiming, useMyCanvasShared, useSetupPhase } from '../rounds/canvas-setup';
+import { CanvasSetupPhoneCard } from '../rounds/CanvasSetupParts';
 import { useFeedbackFinished } from '../use-feedback-finished';
 import { CloseInRoom } from '../close/CloseInRoom';
 import { RoomCloseView } from './RoomCloseView';
@@ -300,9 +302,14 @@ export function EventRoomMeet() {
   const [moment, setMoment] = useState<RoundMoment>({ seated: false, atTable: false, eveningOver: false, live: false, waiting: false });
   const seated = moment.seated;
   const [roundsStarted, setRoundsStarted] = useState(false);
+  // P1529 E5: a sales mastermind whose canvas is made at the event has a Canvas tab; the host's setup part lands everyone on it.
+  const canvasTab = !!event && recipeForEvent(event).mastermind && eventCanvasTiming(event) === 'at_event';
+  const [setupEnd, setSetupEnd] = useState<number | null | undefined>(undefined); // from the round card's own rounds read: no poll here
+  const setupRunning = useSetupPhase(setupEnd, canvasTab && !roundsStarted && granted).phase === 'running';
   // A step behind the current one the person tapped back to; null = follow the evening.
   // P1542 round 5: the learning (shown inside the room's frame) returns here on a named step (its finish: Opt in).
   const [viewingBack, setViewingBack] = useState<RoomStep | null>(() => (location.state as { roomStep?: RoomStep } | null)?.roomStep ?? null);
+  const [canvasShared, setCanvasShared] = useMyCanvasShared(event?.id, canvasTab && granted, viewingBack);
   // Founder 2026-10-26 (item 4): the Learn step is drawn INSIDE this page, under the same mounted "Back to the event"
   // and step bar. It used to navigate to /prepare?from=room and back through /room → /meet: three route changes, each
   // remounting the page (LazyRoute keys on the pathname) and reloading its data, so the chrome flashed on every tab.
@@ -444,7 +451,9 @@ export function EventRoomMeet() {
   const currentStep: RoomStep =
     ((isFrozen || moment.eveningOver) && !hiddenSteps.includes('close')) || feedbackAlwaysOpen(event)
       ? 'close'
-      : moment.seated
+      : canvasTab && setupRunning && !moment.seated && !roundsStarted // never back to Canvas once any round exists
+        ? 'canvas'
+        : moment.seated
         ? moment.atTable ? 'compare' : 'table'
         : step === 'answered' && !writeFailed && roomRecipe.room.rounds ? 'table' : 'principle'; // walkthrough 9: answered → wait at Table (a failed save stays to show it)
   // A room with no rounds that opened Feedback at the start still opens on the principle and roster (the
@@ -487,6 +496,7 @@ export function EventRoomMeet() {
       onSelect={onStep}
       hidden={hiddenSteps}
       closeOpen={feedbackOpenAnytime(event)}
+      withCanvas={canvasTab}
       labels={roomRecipe.room.steps ? { principle: roomRecipe.room.steps.principle, close: roomRecipe.room.steps.close } : undefined}
       learn={learnsInBar && event
         // Round 6 (G): moving between the room's own steps REPLACES, so the room is one history entry and Back
@@ -501,6 +511,7 @@ export function EventRoomMeet() {
         : undefined}
       // Round 6: a tick means this person did it — Opt in once answered, Give feedback once finished.
       done={shellBack ? { principle: answered, close: feedbackFinished === true } : undefined}
+      canvasDone={canvasTab ? canvasShared : undefined}
       className="min-w-0 flex-1"
     />
   );
@@ -632,9 +643,11 @@ export function EventRoomMeet() {
               view={viewing === 'table' || viewing === 'compare' ? viewing : 'hidden'}
               onMoment={setMoment}
               onRoundsStarted={setRoundsStarted}
+              onSetupEnd={setSetupEnd}
               feedbackSlot={viewing === 'close' ? afterFeedbackSlot : null}
             />
           )}
+          {viewing === 'canvas' && canvasTab && !learning && !feedback && self && <CanvasSetupPhoneCard eventId={event.id} event={event} self={self} onShared={setCanvasShared} />}
           {viewing === 'close' && (
             <RoomCloseView
               closeCopy={closeCopy}

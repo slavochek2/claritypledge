@@ -102,6 +102,8 @@ import { MastermindPeople, MastermindWarning, RecordingMark, SilentTablesBanner 
 import { EventWaitlistList } from '../components/EventWaitlistList';
 import { MastermindPreviewNotes } from './MastermindPreviewNotes';
 import { MastermindScreen } from './MastermindScreen';
+import { CANVAS_SETUP_COPY, CANVAS_SETUP_SECONDS, eventCanvasTiming, setupApplies, setupCounts, useCanvasSetupActions, useSetupPhase } from './canvas-setup';
+import { CanvasSetupHostStatus, CanvasSetupReadFailed, CanvasSetupSetting } from './CanvasSetupParts';
 import { useHostFlow, useMastermindHost } from './use-mastermind-host';
 import { COLUMN_LABELS, MASTERMIND_FLOW, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, MASTERMIND_MINUTES_VERSION, dropStaleMastermindMinutes, extendRefusal, seatGuardRefusal, silentTables, tablesNowTitle, tablesProposedTitle, waitingSetKey, READY_HINT, READY_LABEL } from './mastermind-host-helpers';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
@@ -154,6 +156,8 @@ interface Settings {
   mastermindMinutesV?: number;
   /** "Match on #tag": the tag the next round is grouped on (empty = the event's statement tag). */
   matchTag: string;
+  /** The mastermind's "Make your Clarity Canvas" part, in seconds; 0 skips it. Absent = the default (older saved settings). */
+  canvasSetupS?: number;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -827,7 +831,8 @@ export function EventHostPage() {
   const [presence, setPresence] = useState<Map<string, RoundPresence>>(new Map());
   const [prepRows, setPrepRows] = useState<HostPrepRow[]>([]);
   const [transcribing, setTranscribing] = useState<Set<string>>(new Set());
-  const { state, loaded, refresh } = useEventRounds(eventId);
+  // P1529 E5: the canvas setup's end rides the rounds read (no poll of its own) for a mastermind whose canvas is made at the event.
+  const { state, loaded, refresh } = useEventRounds(eventId, true, true, { withCanvasSetup: flow === MASTERMIND_FLOW && eventCanvasTiming(event) === 'at_event' });
   const [settings, setSettings] = useSettings(eventId);
   const matchOptions = useMatchTagOptions(event?.statementTag);
   // Walkthrough 8: "End the evening" asks once, inline (no browser dialog), before every phone moves to Close.
@@ -897,6 +902,15 @@ export function EventHostPage() {
   const byId = useMemo(() => new Map(roster.map(m => [m.id, m])), [roster]);
   const profileIds = useMemo(() => members.map(m => m.profileId).filter((p): p is string => !!p), [members]);
   const mm = useMastermindHost({ eventId, active: flow === MASTERMIND_FLOW, screen: isScreen, rounds: state.rounds, seatsByRound: state.seatsByRound, members, refreshRounds: refresh });
+  // P1529 E5: the "Make your Clarity Canvas" part before round 1, when the canvas is made at the event.
+  const setupSeconds = settings.canvasSetupS ?? CANVAS_SETUP_SECONDS;
+  const setupOn = mm.active && setupApplies({ mastermind: true, timing: eventCanvasTiming(event), roundsStarted: state.rounds.length > 0 });
+  const [skipSetup, setSkipSetup] = useState(false);
+  useEffect(() => { setSkipSetup(false); }, [eventId]);
+  const setup = useCanvasSetupActions(eventId, refresh);
+  // A first setup read that failed: the host is not sent on to round 1 by it; Retry is the primary until a read succeeds, or the host skips on purpose.
+  const setupUnread = setupOn && setupSeconds > 0 && !skipSetup && !!state.canvasSetupReadFailed && state.canvasSetupEnd === undefined;
+  const { phase: setupPhase, leftMs: setupLeftMs } = useSetupPhase(state.canvasSetupEnd, setupOn, setupSeconds === 0 || skipSetup);
   // The waiting list re-reads only when its set changes, not on every host-state poll (spec Cost Budget).
   const waitingKey = useMemo(() => waitingSetKey(mm.people), [mm.people]);
   // Showcase (founder walkthrough 6, option 7C), called the Demo since P1430: the host chooses who
@@ -1121,7 +1135,7 @@ export function EventHostPage() {
     );
   }
   if (isScreen) {
-    if (mm.active) return <MastermindScreen round={round} rounds={state.rounds} seats={seats} byId={byId} room={members.filter(m => !presence.get(m.id)?.leftAt)} ended={ended} />;
+    if (mm.active) return <MastermindScreen round={round} rounds={state.rounds} seats={seats} byId={byId} room={members.filter(m => !presence.get(m.id)?.leftAt)} ended={ended} setupLeftMs={setupPhase === 'running' ? setupLeftMs : null} />;
     return <ScreenView round={round} rounds={state.rounds} seats={seats} byId={byId} room={members.filter(m => !presence.get(m.id)?.leftAt)} ended={ended} />;
   }
 
@@ -1374,9 +1388,15 @@ export function EventHostPage() {
   // [FOUNDER DECISION: copy, proposed] With fewer than two canvases shared the button says "Seat tables anyway".
   const seatAnyway = mm.active && mm.ready && mm.canvasCount < 2;
   const primaryLabel = mm.active ? (round ? `End ${roundLabel(state.rounds, round).toLowerCase()}` : seatAnyway ? 'Seat tables anyway' : `Preview ${nextLabel.toLowerCase()} tables`) : round ? 'Next round' : startLabel;
+  // P1529 E5: before round 1 the primary is the canvas setup (start it, then end it); time running out never blocks the host.
+  const setupStep = setupUnread
+    ? { label: CANVAS_SETUP_COPY.retryPrimary, action: () => void refresh() }
+    : setupPhase === 'before'
+    ? { label: CANVAS_SETUP_COPY.start, action: () => void run(() => setup.start(setupSeconds)) }
+    : setupPhase === 'running' ? { label: CANVAS_SETUP_COPY.end, action: () => void run(() => setup.end()) } : null;
   const primary = mm.active && round
     ? { label: primaryLabel, action: () => void run(() => mm.endRound()) }
-    : hasNext ? { label: primaryLabel, action: openPreview } : null;
+    : setupStep ?? (hasNext ? { label: primaryLabel, action: openPreview } : null);
   const pastRounds = state.rounds.filter(r => r.id !== round?.id);
   // The table's 9 rounds count every Demo and every Reopen (spec Non-Goal: the cap stays).
   const atCap = nextNo > MAX_ROUNDS;
@@ -1522,6 +1542,8 @@ export function EventHostPage() {
               </div>
             </div>
           )}
+          {setupUnread && <CanvasSetupReadFailed onSkip={() => setSkipSetup(true)} />}
+          {setupPhase === 'running' && <CanvasSetupHostStatus leftMs={setupLeftMs} {...setupCounts(mm.people)} />}
           {primary && (!justStarted || busy) && !(round && confirmNext && clock && clock.phase !== 'over') && (
             <Button
               type="button"
@@ -1757,6 +1779,7 @@ export function EventHostPage() {
                         </div>
                       );
                     })}
+                    {setupOn && !chosen && <CanvasSetupSetting seconds={setupSeconds} onChange={v => setSettings({ ...settings, canvasSetupS: v })} />}
                   </div>
                 </SettingsGroup>
 
