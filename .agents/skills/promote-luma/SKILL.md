@@ -76,6 +76,8 @@ Read the page interactively (`mcp__claude-in-chrome__read_page` with `filter: "i
 | Visibility | dropdown | leave default (Public) |
 | Require Approval | toggle | leave default (off) unless user requested approval-gated RSVPs |
 
+**Channel tag (P1669):** every claritypledge.com link this skill posts — from the blurb, a fallback or a booking/URL field — carries `utm_source=luma&utm_medium=event-listing&utm_campaign=<series short_link or event slug>`, after `?d=` when there is one. Add it here even when this skill runs standalone; a blurb from `promote-all` already carries it. A length-capped field keeps `utm_source` only. Rule: `promote-all.md` § "Channel tag (UTM)".
+
 **Description text source:** use the canonical promo blurb passed from `promote-all` (step 3b) verbatim — it already carries the register CTA + series short link + moderated-discussion line, and is plain text (Luma's markdown rendering is unverified, so plain text is the safe default). Fallback only if no blurb was passed: short plain-text description from `description` — the registration link (`claritypledge.com/events/<slug>`) right after the first hook line AND again as the closing `Register:` CTA.
 
 **Write→wait→re-read after the cover-photo upload.** Luma's UI can show a write as applied for one frame and then silently revert it (this is the exact failure mode that hit the date field — see step 5). After `file_upload`, wait briefly for the thumbnail to render, then re-read the page (`read_page` or a screenshot) and confirm the cover-photo thumbnail is still present before moving to the next field. Do not trust the immediate post-call state as final.

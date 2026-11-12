@@ -468,6 +468,7 @@ audience reflection. End the run by listing the phase-2 steps as next, never by 
 2. Resolve placeholders against the event being promoted:
    - `{date}` → the event date as "MMM D" (e.g. "May 31") in `Asia/Bangkok`
    - `{n}` → the `#N` parsed from the event title (regex `/#(\d+)/`)
+   - every claritypledge.com link in it gets the group channel tag (`utm_source=whatsapp`, or `telegram` for a Telegram group, `&utm_medium=community-group&utm_campaign=<short_link or slug>`, after `?d=`), § "Channel tag (UTM)"
 3. Show the resolved blurb:
    > Here's the blurb from the series doc — paste it or reply with an edited version:
    > ```

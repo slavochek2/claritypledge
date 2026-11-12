@@ -100,6 +100,8 @@ Read with `find` (resilient when `read_page` is flaky). Behaviors observed:
 | Host | — | defaults to your profile — leave |
 | **Display** | radio (in form / More Settings) | **select "Public Event"** so it's open to the public, not just group members |
 
+**Channel tag (P1669):** every claritypledge.com link this skill posts — from the blurb, a fallback or a booking/URL field — carries `utm_source=sola&utm_medium=event-listing&utm_campaign=<series short_link or event slug>`, after `?d=` when there is one. Add it here even when this skill runs standalone; a blurb from `promote-all` already carries it. A length-capped field keeps `utm_source` only. Rule: `promote-all.md` § "Channel tag (UTM)".
+
 **Description source:** the canonical promo blurb passed from `/promote-all` (step 3b) — register CTA + event link near the top and at the end, plain text. Fallback if none passed: short plain-text description from `description` — registration link (`claritypledge.com/events/<slug>`) right after the hook line AND as the closing `Register:` CTA. (The early link also triggers the cover auto-unfurl.)
 
 ### 4. Stop — user verifies and creates

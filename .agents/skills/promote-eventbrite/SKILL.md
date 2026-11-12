@@ -97,6 +97,8 @@ Screenshot the form and the Preview. Quote date/time read from the screen vs exp
 ## Conventions
 
 - **Account**: the operator from `.private/event-operator.json` (default: Vyacheslav Ladischenski) — verify the Eventbrite session is the operator's.
+**Channel tag (P1669):** every claritypledge.com link this skill posts — from the blurb, a fallback or a booking/URL field — carries `utm_source=eventbrite&utm_medium=event-listing&utm_campaign=<series short_link or event slug>`, after `?d=` when there is one. Add it here even when this skill runs standalone; a blurb from `promote-all` already carries it. A length-capped field keeps `utm_source` only. Rule: `promote-all.md` § "Channel tag (UTM)".
+
 - **One link in description**: the series short link (`claritypledge.com/events/<short_link>?d=<YYMMDD event date>`, cache-buster mandatory — see `promote-all.md` § "Short-link cache-buster").
 - **Free event**: ticket type set Free in the Add tickets step by the user.
 - **Time zone**: `Asia/Bangkok` for CNX / Ko Phangan events.

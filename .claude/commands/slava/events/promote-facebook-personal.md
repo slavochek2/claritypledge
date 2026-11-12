@@ -113,6 +113,8 @@ verbatim. It already carries the register CTA + series short link + moderated-di
 - FB autolinks plain URLs — the blurb is already plain text (no markdown), so it pastes cleanly.
 - The series short link (`claritypledge.com/events/<short_link>?d=<YYMMDD event date>`, cache-buster mandatory — see `promote-all.md` § "Short-link cache-buster") is the one link. No other URLs.
 
+**Channel tag (P1669):** every claritypledge.com link this skill posts — from the blurb, a fallback or a booking/URL field — carries `utm_source=facebook&utm_medium=personal-post&utm_campaign=<series short_link or event slug>`, after `?d=` when there is one. Add it here even when this skill runs standalone; a blurb from `promote-all` already carries it. A length-capped field keeps `utm_source` only. Rule: `promote-all.md` § "Channel tag (UTM)".
+
 **Fallback only if no promo blurb was passed** (no series doc): build a plain-text description from `description` — registration link (`claritypledge.com/events/<slug>`) right after the hook line AND as the closing "Register:" CTA with "Registration is required."
 
 ### 6. Stop — user creates

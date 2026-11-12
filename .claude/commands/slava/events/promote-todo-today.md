@@ -159,6 +159,8 @@ moderated-discussion line. Paste it verbatim into More Details.
 - The series short link is the one link. No WhatsApp / AllTrails / other URLs.
 - todo.today's editor may auto-unfurl the link and re-format on blur — that's expected; verify the moderated-discussion line and short link survive (read the textarea value back).
 
+**Channel tag (P1669):** every claritypledge.com link this skill posts — from the blurb, a fallback or a booking/URL field — carries `utm_source=todo-today&utm_medium=event-listing&utm_campaign=<series short_link or event slug>`, after `?d=` when there is one. Add it here even when this skill runs standalone; a blurb from `promote-all` already carries it. A length-capped field keeps `utm_source` only. Rule: `promote-all.md` § "Channel tag (UTM)".
+
 **Fallback only if no promo blurb was passed** (no series doc): build a short plain-text description from `description` — registration link (`claritypledge.com/events/<slug>`) right after the hook line AND as the closing "Register:" CTA with "Registration is required." Truncate body to fit 1000 chars while preserving BOTH link lines.
 
 After filling date/time fields, wait briefly, then re-read the displayed values from the form before continuing — treat any date/time write the same as the photo upload above: confirm it holds, don't trust the immediate post-entry state.
