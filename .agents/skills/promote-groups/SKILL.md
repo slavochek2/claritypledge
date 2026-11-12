@@ -142,6 +142,13 @@ Because route, meeting point, duration, and difficulty change every event, the h
   silently lengthening them is an unrequested copy change.
   **Date:** the event's date in `Asia/Bangkok` as `YYMMDD` — the same timezone `{date}` above uses,
   not the raw UTC date.
+  **Channel tag (P1669):** then append, per target group, `utm_source=<the target's platform:
+  whatsapp|telegram>&utm_medium=community-group&utm_campaign=<short_link or event slug>`, after `?d=`
+  (or as the query when there is no `?d=`), e.g. `claritypledge.com/hike?d=260913&utm_source=telegram&utm_medium=community-group&utm_campaign=hike`.
+  A WhatsApp group and a Telegram group posted from the same blurb therefore get different links.
+  The same applies to any claritypledge.com link hardcoded in a config blurb. Rule:
+  `promote-all.md` § "Channel tag (UTM)". The `?d=` token checks below are unaffected: the tag
+  comes after it.
 
   The `?d=` cache-buster is mandatory on every series short link — canonical rule and rationale in
   `promote-all.md` § "Short-link cache-buster". **A config blurb that hardcodes a short link

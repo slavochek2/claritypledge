@@ -200,7 +200,7 @@ This is what makes every platform's description consistent — no per-platform d
 3. Resolve placeholders:
    - `{short_url}` → `claritypledge.com/events/<short_link>?d=<YYMMDD event date>` (the series short link auto-redirects to the latest event — never hardcode a per-event slug here). **The `?d=` suffix is not decoration and is never dropped** — see "Short-link cache-buster" below.
    - `{register_cta}` → the `register_cta` value
-4. The result is the **canonical promo blurb**. Pass it verbatim to every platform sub-skill in step 4.
+4. The result is the **canonical promo blurb**. Pass it verbatim to every platform sub-skill in step 4, with one change per platform: its channel tag on every claritypledge.com link (§ "Channel tag (UTM)" below).
 
 **If `series_doc` is null or has no `## Promo blurb`:** generate the canonical blurb here, so every platform gets the same link discipline.
 
@@ -288,7 +288,7 @@ through the Vercel redirect into `api/series-redirect`, which reads only `series
 changes is the cache key.
 
 **One premise here is UNVERIFIED, and it is the load-bearing one.** `api/series-redirect.ts`
-drops the query string on its final hop (`res.redirect(307, '/events/' + slug)`), so the OG tags
+drops `?d=` on its final hop (`res.redirect(307, '/events/' + slug)`; since P1669 it forwards only the `utm_*` keys), so the OG tags
 are fetched from a URL that no longer carries `?d=`. The fix therefore assumes each platform
 keys its preview cache on the **posted** URL, not the final resolved one. That is the documented
 behaviour of every major unfurler and is almost certainly right, but it has NOT been observed
@@ -300,6 +300,42 @@ unfurl as evidence and do not claim the mechanism is proven.
 **Guard:** any resolved blurb containing `claritypledge.com/events/<series>` **without** a `?d=`
 query is a hard stop — re-resolve `{short_url}` before posting. Copy a short link out of a previous
 week's post and you have reintroduced the bug.
+
+**Channel tag (UTM) — canonical rule (P1669), referenced by every platform sub-skill.**
+
+74 of 87 new accounts in the 90 days to 2026-11-12 showed no source at all: WhatsApp and Messenger
+pass no referrer. So every claritypledge.com link posted anywhere carries the channel it was
+posted in. The canonical blurb stays untagged; each platform's copy appends its own tag to every
+claritypledge.com link in it, after `?d=` (or as the query when there is none):
+
+`claritypledge.com/hike?d=260913&utm_source=telegram&utm_medium=community-group&utm_campaign=hike`
+
+| Posted in | `utm_source` | `utm_medium` |
+|---|---|---|
+| todo.today | `todo-today` | `event-listing` |
+| Facebook personal post | `facebook` | `personal-post` |
+| Facebook group | `facebook` | `community-group` |
+| Luma | `luma` | `event-listing` |
+| Social Layer (Sola) | `sola` | `event-listing` |
+| Eventbrite | `eventbrite` | `event-listing` |
+| WhatsApp group | `whatsapp` | `community-group` |
+| Telegram group | `telegram` | `community-group` |
+| WhatsApp or Messenger 1:1 | `whatsapp` or `messenger` | `dm` |
+| Email | `email` | `newsletter` |
+
+`utm_campaign` is the series `short_link`, or the event slug when there is none. Values are lower
+case letters, digits and `-` only. The full convention lives in `docs/technical/analytics.md`
+§ Channel Attribution — add a new channel there before using it.
+
+- **A length-capped field** (Eventbrite's 140-character Summary, todo.today truncation) keeps
+  `utm_source` only. If it still does not fit, shorten the prose, as for `?d=`. Never drop `?d=` for
+  the tag.
+- **Links copied verbatim** from a series doc, `.private/event-channels.json` or a past post get
+  the tag too; a hardcoded link is not exempt.
+- **Only claritypledge.com links.** Never tag another site's link.
+- **The tag survives the short link** only once P1669 is live: before it, `api/series-redirect`
+  dropped every query parameter on its last hop, so a tagged short link lost its channel. P1669
+  forwards the five `utm_*` keys (and only those) to the event page.
 
 ### 4. Fan out — fill every platform, publish none, then ONE review sweep
 
@@ -448,10 +484,10 @@ Output a generated fallback:
 ```
 🌱 [TITLE]
 [ONE-LINE HOOK — first non-empty line of description, trimmed to ~80 chars]
-Register: claritypledge.com/events/[SLUG]
+Register: claritypledge.com/events/[SLUG]?utm_source=whatsapp&utm_medium=community-group&utm_campaign=[SLUG]
 ```
 
-The user pastes this into chat groups. No automatic sending.
+The user pastes this into chat groups. The tag is for WhatsApp groups; for a Telegram group use `utm_source=telegram` (§ "Channel tag (UTM)"). No automatic sending.
 
 To post this into configured group chats (WhatsApp/Telegram groups that auto-match by event type), run `/slava:events:promote-groups <slug>`.
 

@@ -40,6 +40,11 @@ month's photo and trail name under this month's message. Rule and rationale: `pr
 This path takes free-text `message` rather than resolving `{short_url}`, so nothing upstream
 adds the suffix for you — check it here or it does not get checked.
 
+**Channel tag.** Every claritypledge.com link in the message also carries
+`utm_source=whatsapp&utm_medium=dm&utm_campaign=<series short_link or event slug>`, after `?d=` when
+there is one (`claritypledge.com/hike?d=260913&utm_source=whatsapp&utm_medium=dm&utm_campaign=hike`).
+Add it before the preview so the founder sees the exact link. Rule: `promote-all.md` § "Channel tag (UTM)".
+
 Ask: "Good to send, or any changes?"
 
 ### 3. Send test
