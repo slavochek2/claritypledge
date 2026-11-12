@@ -1,18 +1,18 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 331
 workstream: analytics
 created_date: '2026-11-12'
 tags: [analytics, mixpanel, bots, tracking]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: anomaly
-spec_review_hash: 1c86ecc06f781e3966479efef51631135e4ecf0c3c433a58f3b5b11ed3016c42
+spec_review_hash: 059fd04098766feb956453050c3191fb3fecc0504d0e7b223820e7bfaa17d1e6
 spec_review_vendors: [gemini, openrouter]
 ---
 
@@ -39,22 +39,24 @@ Blast radius: medium. It touches analytics init and track call sites on many pag
 ## Invariants
 
 - Recorder and smoke behaviour from P1628 and P1648 (decisions 2026-11-05 and 2026-11-06) stay as they are. Bot filtering must not stop the health and CSP smokes from proving a real `/record`.
-- No PII or capability tokens in new event properties. Paths only, never full query strings (same rule as `not_found_page_viewed`). The one exception is the named `utm_*` parameters.
+- No PII or capability tokens in new event properties. Paths only, never full query strings (same rule as `not_found_page_viewed`). The one exception is the named `utm_*` parameters, and their values are cut to a safe set (letters, digits, `-`, `_`, `.`, at most 64 characters) before they are stored. New events on `/chats` carry no conversation or message id.
+- The public boards hold aggregate reports only: no person lists, no per-user breakdowns, no `utm_*` breakdown below the channel level. Anyone with a link can read them.
+- `is_bot` is the one tag boards filter on. P1628's `is_automation` traffic also carries `is_bot: true`, so a board never has to know both names.
 
 ## Solution
 
-1. **Bot traffic:** keep known non-human traffic out of every count, using signals readable in the browser (user agent, headless traits, no interaction before leaving). Geography is evidence for checking the result, never the rule. Prefer tagging (`is_bot`) over dropping unless tagging leaves the boards unusable. Choose by CLAUDE.md's ranked reasons (user outcome, correctness, ...) and record why.
+1. **Bot traffic:** keep known non-human traffic out of every count, using signals readable in the browser (user agent, headless traits, no interaction before leaving). Geography is evidence for checking the result, never the rule. Prefer tagging (`is_bot`) over dropping unless tagging leaves the boards unusable. Choose by CLAUDE.md's ranked reasons (user outcome, correctness, ...) and record why. "No interaction before leaving" cannot be a send-time tag: page views flush within 1 second (P881), before anyone has interacted or left. It becomes a separate super property, `has_interacted`, registered on the first tap, scroll or key press, so a board can count "interacted, not a bot" without the bot tag guessing. Bots tagged `is_bot` are not session-recorded unless the P1628 smoke opt-in is set.
 2. **Sources:** adopt a UTM convention for every link the founder shares, applied by the event-promotion skills, so new accounts show their real channel. Carry first-touch UTM onto the account at sign-up.
-3. **Visit length:** a session timeout alone will not fix the median, because a visitor who reads without clicking emits no events. Add a light engagement heartbeat on visible pages, or a page-leave event that carries time on page, then set the session definition.
-4. **Coverage:** add named events for the pages listed in Problem. Events for viewing the feed, viewing a group, completing a group join, opening a chat, and viewing the event prepare and confirm steps. Then add them to the "Path to value" board. For dead taps, review session replays on `/cm` and the hike pages and file what people expected to be tappable.
-5. **Kanban Analytics tab:** replace the in-house tab with the five Mixpanel boards, embedded from their public links, with no passcode (founder decision 2026-11-12). The links live only in `.env.local` as `MIXPANEL_BOARD_*` and never in committed code. The founder enables Public Boards in Mixpanel Project Settings, which only the owner can do. The current P1640 insights section is removed from the tab. Insights move to `/day` as cards, shown only when something changed, and each card says what happened, how many people, and where to look.
+3. **Visit length:** a session timeout alone will not fix the median, because a visitor who reads without clicking emits no events. Add a light engagement heartbeat on visible pages, or a page-leave event that carries time on page, then set the session definition. Heartbeat: `page_engaged` while the tab is visible, at a fixed interval, capped per page so an idle tab cannot run up event volume. Crawler user agents send no heartbeat. Keep the session definition timeout-based; confirm the current setting rather than assume it.
+4. **Coverage:** add named events for the pages listed in Problem. Events for viewing the feed (`/feed`), viewing a group (`/groups/:slug`), completing a group join (`/groups/:slug/join`), opening a chat (`/chats`), and viewing the event prepare (`/events/:slug/prepare`) and RSVP confirm (`/events/:slug/confirm`) steps. Then add them to the "Path to value" board. For dead taps, review session replays on `/cm` and on hike-type event pages (`/events/:slug`) and file what people expected to be tappable.
+5. **Kanban Analytics tab:** replace the in-house tab with the five Mixpanel boards, embedded from their public links, with no passcode (founder decision 2026-11-12). The links live only in `.env.local` as `MIXPANEL_BOARD_*` and never in committed code. The founder enables Public Boards in Mixpanel Project Settings, which only the owner can do. The current P1640 insights section is removed from the tab. Insights move to `/day` as cards, shown only when something changed, and each card says what happened, how many people, and where to look. The cards keep Confirm and Dismiss, which write the same P1640 ledger. The tab's seven-question sections go too, since the boards replace them; the weekly read script, gate and stored reads are unchanged. The embed link is each board's public share link (`https://eu.mixpanel.com/p/<token>`). The internal board links in Done-When need a login and cannot be embedded. If a `MIXPANEL_BOARD_*` value is set but is not a public link, the tab names it rather than showing nothing.
 6. Update `docs/technical/analytics.md` (Dashboards section) to point at the new boards. The founder approved removing the empty old boards on 2026-11-12 ("fix yes").
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| A bot filter drops real people (e.g. privacy browsers) | MITIGATE | Compare clicked-user counts before and after; any drop in real people is a fail |
+| A bot filter drops real people (e.g. privacy browsers) | MITIGATE | Before ship: unit fixtures for privacy browsers (Brave, Firefox, Safari, DuckDuckGo, Samsung Internet, in-app WhatsApp and Messenger browsers) must classify as human. After ship: any account whose `profile_created` carries `is_bot: true` is a false positive and a fail. A before/after count cannot separate the filter from normal traffic swings |
 | Historical data stays polluted | ACCEPT | Boards already use bot-proof signals; clean data starts at ship |
 | Session settings are project-wide and change old reports | ACCEPT | Old session numbers are meaningless anyway |
 
@@ -64,7 +66,7 @@ Blast radius: medium. It touches analytics init and track call sites on many pag
 
 ## Done-When
 
-- [ ] Bot filter proven by controls: a headless browser and a known crawler user agent produce no counted (or a tagged) event, while a real phone visit is counted untagged (Live Events screenshot)
+- [ ] Bot filter proven by controls: a headless browser and a known crawler user agent produce events tagged `is_bot: true`, while a real phone visit is counted untagged (Live Events screenshot)
 - [ ] Health and CSP smokes still pass and still prove a real `/record` after the bot filter
 - [ ] A test sign-up through a UTM-tagged link shows that `utm_source` on its `profile_created` event and on its user profile
 - [ ] A scripted 60-second visit shows a session of 50 seconds or more in Mixpanel
