@@ -19,9 +19,9 @@ function OutcomeMark({ done }: { done: boolean }) {
   return (
     <span
       aria-hidden
-      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${done ? "bg-blue-600 text-white" : "border-2 border-foreground/55"}`}
+      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${done ? "bg-blue-600 text-white" : "border-[1.5px] border-foreground/30"}`}
     >
-      {done && <CheckIcon className="h-3.5 w-3.5" strokeWidth={3} />}
+      {done && <CheckIcon className="h-3 w-3" strokeWidth={3} />}
     </span>
   );
 }
@@ -35,46 +35,46 @@ export function AgreedGraphic({ example, className = "" }: { example: AgreedExam
     // would make a screen reader say that line twice. "Illustration" is read as visible text.
     <motion.figure
       data-testid="agreed-graphic"
-      className={`rounded-2xl border border-border bg-card p-5 text-left shadow-sm sm:p-6 ${className}`}
+      className={`rounded-2xl border border-border/70 bg-card p-5 text-left text-[0.9375rem] sm:p-6 ${className}`}
       variants={SEQUENCE}
       initial={reduce ? false : "hidden"}
       whileInView="show"
       viewport={{ once: true, amount: 0.2 }}
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground/70">{example.when}</p>
-        <span className="shrink-0 rounded-full border border-border px-2.5 py-0.5 text-xs font-medium text-foreground/70">Illustration</span>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-foreground/55">{example.when}</p>
+        <span className="shrink-0 text-xs text-foreground/50">Illustration</span>
       </div>
 
-      <motion.blockquote variants={BEAT} className="mt-3 rounded-2xl rounded-tl-md bg-slate-950 px-4 py-3.5 text-lg font-semibold leading-snug text-white">
+      <motion.blockquote variants={BEAT} className="mt-3 rounded-xl bg-muted px-4 py-3 text-base leading-snug text-foreground/85">
         &ldquo;{example.said}&rdquo;
       </motion.blockquote>
 
       <motion.div variants={BEAT} className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <ul className="flex flex-wrap gap-1.5" aria-label="Who agreed">
+        <ul className="flex flex-wrap gap-x-2 text-sm text-foreground/60" aria-label="Who agreed">
           {example.people.map((p) => (
-            <li key={p.name} className="inline-flex items-center gap-1.5 rounded-full bg-blue-600/10 px-2.5 py-1 text-sm font-medium text-blue-800">
-              <ThumbsUpIcon className="h-3.5 w-3.5" aria-hidden />
+            <li key={p.name} className="inline-flex items-center gap-1">
+              <ThumbsUpIcon className="h-3 w-3" aria-hidden />
               {p.name}
             </li>
           ))}
         </ul>
-        <p className="font-semibold">{example.agreed}</p>
+        <p className="text-sm text-foreground/60">{example.agreed}</p>
       </motion.div>
 
       {/* The turn of the story, so a step larger than the small-caps label at the top. */}
-      <motion.p variants={BEAT} className="mt-6 text-[0.8125rem] font-semibold uppercase tracking-[0.12em] text-foreground/70">
+      <motion.p variants={BEAT} className="mt-5 text-xs font-semibold uppercase tracking-[0.12em] text-foreground/55">
         {example.later}
       </motion.p>
       {/* The rail: one line coming down from the agreement, one branch per person. The list has no
           aria-label: the line above already introduces it, and a label would be read twice. */}
-      <ol className="ml-3 mt-3 border-l-2 border-foreground/15">
+      <ol className="ml-2.5 mt-2 border-l border-foreground/10">
         {example.people.map((p) => (
-          <motion.li key={p.name} variants={BEAT} className="relative flex items-center gap-3 py-2 pl-6">
-            <span className="absolute left-0 top-1/2 h-0.5 w-4 bg-foreground/15" aria-hidden />
+          <motion.li key={p.name} variants={BEAT} className="relative flex items-center gap-3 py-1.5 pl-6">
+            <span className="absolute left-0 top-1/2 h-px w-4 bg-foreground/10" aria-hidden />
             <OutcomeMark done={p.outcome !== "stalled"} />
-            <span className={`leading-snug ${p.outcome === "stalled" ? "text-foreground/70" : "text-foreground"}`}>
-              <b className="font-semibold text-foreground">{p.name}</b> {p.did}
+            <span className={`leading-snug ${p.outcome === "stalled" ? "text-foreground/60" : "text-foreground"}`}>
+              <span className="font-medium">{p.name}</span> {p.did}
             </span>
           </motion.li>
         ))}
