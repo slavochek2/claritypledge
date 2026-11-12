@@ -35,12 +35,12 @@ import {
   FileTextIcon,
   UserPlusIcon,
   HistoryIcon,
-  GlobeIcon,
   DownloadIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { useInstallMenuAction } from '@/hooks/use-pwa-install';
-import { EVENTS_NAV_TO, PUBLIC_NAV_GROUPS, PUBLIC_SITE_HOME, isEventsNavActive } from './nav-links';
+import { UseCasesDropdownEntry, UseCasesMobileEntry } from './use-cases-entry';
+import { EVENTS_NAV_TO, PUBLIC_NAV_GROUPS, isEventsNavActive } from './nav-links';
 
 /** The signed-in account block. Not part of PUBLIC_NAV_GROUPS: these three carry test
  *  ids, a sign-out handler and no icon-from-data, so they stay hand-written — the same
@@ -203,8 +203,9 @@ interface NavigationMenuItemsProps {
       leaves them out rather than repeat the nav beside it. Callers derive the list from the shell entries
       (shellNavDestinations); the public top nav passes nothing and keeps every item. */
   omitDestinations?: readonly string[];
-  /** P1512: one "ClarityPledge website" row (the public landing) after the sections. The signed-in shell's
-      menus pass it in place of the public sections they leave out. */
+  /** P1512: the public-site entry after the sections, in place of the public groups the signed-in shell's menus
+      leave out. Since 2026-11-12 it is a "Use cases" submenu (use-cases-entry.tsx), not a "ClarityPledge website"
+      row that silently opened /builders. */
   websiteLink?: boolean;
   /** P1512: the signed-in shell's menus draw no public group headings: what survives the omissions is plain rows. */
   flat?: boolean;
@@ -304,12 +305,7 @@ export function NavigationMenuItems({
           </div>
         ))}
 
-        {websiteLink && (
-          <Link to={PUBLIC_SITE_HOME} className={mobileLinkClass} onClick={handleItemClick}>
-            <GlobeIcon className={iconClass} />
-            ClarityPledge website
-          </Link>
-        )}
+        {websiteLink && <UseCasesMobileEntry linkClass={mobileLinkClass} iconClass={iconClass} onItemClick={handleItemClick} />}
 
         {/* Signed-out account actions */}
         {showPublicCTAs && (
@@ -402,14 +398,7 @@ export function NavigationMenuItems({
         </DropdownMenuGroup>
       ))}
 
-      {websiteLink && (
-        <DropdownMenuItem asChild>
-          <Link to={PUBLIC_SITE_HOME} className="cursor-pointer">
-            <GlobeIcon className="w-4 h-4 mr-2" />
-            ClarityPledge website
-          </Link>
-        </DropdownMenuItem>
-      )}
+      {websiteLink && <UseCasesDropdownEntry onItemClick={handleItemClick} />}
 
       {/* Signed-out account actions */}
       {showPublicCTAs && (

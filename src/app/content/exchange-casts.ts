@@ -23,3 +23,14 @@ export const TEAM_CAST: ExchangeCast = {
   surface: "change-managers-exchange",
   avatars: { other: "/change-managers/teammate-a.jpg", me: "/change-managers/teammate-b.jpg" },
 };
+export const COMMUNITY_CAST: ExchangeCast = {
+  other: "Alex",
+  otherRole: "Member",
+  meLabel: "You",
+  intro: "You send Alex a voice message explaining something.",
+  close: "To close it, Alex explains back what they understood and you correct. Or move on if the stakes are low.",
+  viewEvent: "communities_exchange_viewed",
+  surface: "communities-exchange",
+  // Same illustrated colleagues as /change-managers: generic people, nobody real.
+  avatars: { other: "/change-managers/teammate-a.jpg", me: "/change-managers/teammate-b.jpg" },
+};

@@ -146,7 +146,7 @@ test.describe('P1549 join learning', () => {
     await expect(page.getByTestId('prepare-why')).not.toContainText(WHY);
     await expect(page.getByRole('button', { name: 'Start here' })).toBeVisible();
     await page.getByRole('button', { name: 'Start here' }).click();
-    await expect(page.getByRole('button', { name: 'Continue without video' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Play the video' })).toBeVisible();
   });
 
   const callbackUrl = () => `/auth/callback?action=join-org&redirect=${encodeURIComponent(joinUrl())}`;

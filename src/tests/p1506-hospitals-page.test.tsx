@@ -54,7 +54,7 @@ describe('P1506 /hospitals — content', () => {
     expect(screen.getByText('Patient safety starts with understanding')).toBeInTheDocument();
     const order = [
       'Why almost nobody verifies understanding',
-      'Reveal a gap, then close it',
+      'Reveal a gap in understanding, then bridge it',
       'The value for the hospital',
       'Make it normal to ask how well we understand each other',
       'How revealing gaps becomes a team norm',

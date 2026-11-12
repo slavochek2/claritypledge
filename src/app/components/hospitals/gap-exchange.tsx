@@ -35,7 +35,7 @@ function Heading() {
     <SectionHeader
       title={
         <span className="inline-block text-balance">
-          Reveal a gap, then <span className="text-blue-500">close it</span>
+          Reveal a gap in understanding, then <span className="text-blue-500">bridge it</span>
         </span>
       }
     />
@@ -146,7 +146,9 @@ export function GapExchange({ cast = HOSPITAL_CAST }: { cast?: ExchangeCast }) {
   });
 
   return (
-    <div data-testid="gap-exchange" ref={ref} className="container mx-auto max-w-xl">
+    // max-w-3xl, not max-w-xl: the heading shared the chat's narrow column and wrapped to 3 lines even on desktop
+    // (founder 2026-11-12). The chat keeps its own max-w-md below.
+    <div data-testid="gap-exchange" ref={ref} className="container mx-auto max-w-3xl">
       <Heading />
       <Transcript cast={cast} className="sr-only" />
       <div aria-hidden="true" data-testid="exchange-visual" data-phase={phase}>

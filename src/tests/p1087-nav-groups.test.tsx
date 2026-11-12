@@ -234,7 +234,7 @@ describe('P1087 — the public nav is one grouped structure', () => {
   it('carries every audience landing, unfiltered', () => {
     const useCases = PUBLIC_NAV_GROUPS[0].items.map((i) => i.to);
     expect(useCases).toEqual(AUDIENCE_LINKS.map((a) => a.to));
-    expect(useCases).toEqual(['/change-managers', '/builders', '/hiring', '/hospitals', '/founder', '/coach']); // P1506 adds /hospitals after /hiring; P1558 puts /change-managers first
+    expect(useCases).toEqual(['/builders', '/change-managers', '/communities', '/hiring', '/founder', '/hospitals', '/coach']); // founder order 2026-11-12
   });
 
   it('lists no destination twice across groups', () => {

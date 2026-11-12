@@ -18,14 +18,17 @@ export const NEUTRAL_HIERARCHY_TEXT = "Asking how much someone really understood
 export function WhyNobodyVerifiesSection({
   cite,
   hierarchyText = HOSPITAL_HIERARCHY_TEXT,
+  hierarchyTitle = "Hierarchy",
   muted = false,
 }: {
   cite: (source: ReasonSource) => ReactNode;
   hierarchyText?: string;
+  /** /communities has no hierarchy to speak of; the first reason there is social awkwardness. */
+  hierarchyTitle?: string;
   muted?: boolean;
 }) {
   const reasons = [
-    { icon: UsersIcon, title: "Hierarchy", text: hierarchyText, source: "ha" as const },
+    { icon: UsersIcon, title: hierarchyTitle, text: hierarchyText, source: "ha" as const },
     { icon: EyeOffIcon, title: "Illusion of transparency", text: "We think our meaning is obvious. People tapping a song expect half of listeners to name it; 2.5% do.", source: "newton" as const },
     { icon: BrainIcon, title: "Curse of knowledge", text: "Once you know something, it is hard to feel what the other person is missing.", source: "camerer" as const },
   ];

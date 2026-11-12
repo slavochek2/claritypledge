@@ -10,6 +10,7 @@ import {
   BookOpenIcon,
   InfoIcon,
   CalendarDaysIcon,
+  UsersRoundIcon,
   HeartPulseIcon,
   FlagIcon,
 } from "lucide-react";
@@ -35,14 +36,15 @@ import {
 // /founder have a link back to the main landing (the menu filters out the current pathname,
 // so it never shows a self-link).
 export const AUDIENCE_LINKS = [
-  // P1351 order (founder): builders, hiring, co-founders, coaches. P1506 adds hospitals after hiring.
-  // P1558: change managers leads the list.
+  // Founder order 2026-11-12: builders, change managers, community organizers, hiring, co-founders,
+  // hospitals, coaches. (Earlier: P1351, P1506 hospitals, P1558 change managers first.)
   // P1392: the builders landing left "/" (now the feed) for /builders.
-  { to: "/change-managers", label: "For change managers", Icon: FlagIcon },
   { to: "/builders", label: "For builders", Icon: TargetIcon },
+  { to: "/change-managers", label: "For change managers", Icon: FlagIcon },
+  { to: "/communities", label: "For community organizers", Icon: UsersRoundIcon },
   { to: "/hiring", label: "For hiring", Icon: BriefcaseIcon },
-  { to: "/hospitals", label: "For hospitals", Icon: HeartPulseIcon },
   { to: "/founder", label: "For co-founders", Icon: UsersIcon },
+  { to: "/hospitals", label: "For hospitals", Icon: HeartPulseIcon },
   { to: "/coach", label: "For coaches", Icon: GraduationCapIcon },
 ] as const;
 

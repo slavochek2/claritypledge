@@ -12,6 +12,7 @@ import { RoomCaptureProvider } from "@/app/contexts/room-capture-context";
 import { ChatProvider } from "@/app/pages/chat/chat-provider";
 import { treeRoutes } from "@/app/tree/tree-routes";
 import { codeRoutes } from "@/app/routes/code-routes";
+import { templateRoutes } from "@/app/routes/template-routes";
 import { RoomCaptureBarFallback } from "@/app/components/session/room-capture-bar";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { useClearListReturnCacheOnAuthChange } from "@/lib/list-return-cache";
@@ -80,7 +81,6 @@ const AgreementEmailConfirmationPage = lazy(() => import("@/app/pages/agreement-
 const DeclinedAgreementPage = lazy(() => import("@/app/pages/declined-agreement-page").then(m => ({ default: m.DeclinedAgreementPage })));
 const BlogSubscribedPage = lazy(() => import("@/app/pages/blog-subscribed-page").then(m => ({ default: m.BlogSubscribedPage })));
 const ProfileConnectionsPage = lazy(() => import("@/app/pages/profile-connections-page").then(m => ({ default: m.ProfileConnectionsPage })));
-const PartnerTemplatePage = lazy(() => import("@/app/pages/partner-template-page").then(m => ({ default: m.PartnerTemplatePage })));
 const DocDetailPage = lazy(() => import("@/app/pages/doc-detail-page").then(m => ({ default: m.DocDetailPage })));
 const ArtifactsPage = lazy(() => import("@/app/pages/artifacts/artifacts-page").then(m => ({ default: m.ArtifactsPage })));
 const LetterComposePage = lazy(() => import("@/app/pages/letter-compose-page").then(m => ({ default: m.LetterComposePage })));
@@ -617,18 +617,6 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P508: Public Partner Agreement Template — no auth required */}
-        <Route
-          path="/partner-template"
-          element={
-            <ClarityLandingLayout surface="public">
-              <LazyRoute>
-                <PartnerTemplatePage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-
         <Route
           path="/agreements/:id/declined"
           element={
@@ -1003,6 +991,7 @@ export default function ClarityPledgeApp() {
         <Route path="/transcribe" element={<ClarityLandingLayout surface="product"><LazyRoute><TranscribeRoomPage /></LazyRoute></ClarityLandingLayout>} />
         <Route path="/transcribe/:code" element={<ClarityLandingLayout surface="product"><LazyRoute><TranscribeRoomPage /></LazyRoute></ClarityLandingLayout>} />
         {codeRoutes(LazyRoute)}
+        {templateRoutes(LazyRoute)}
 
         {/* P1545 WP3: Artifacts — letters and canvases, tabs Yours / Shared with you. */}
         <Route

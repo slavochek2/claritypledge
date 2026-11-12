@@ -66,7 +66,7 @@ interface AppRoute { path: string; surface: 'product' | 'public'; compact: boole
 
 /** Every <Route path="..."> in App.tsx whose element mounts a ClarityLandingLayout, with that layout's props. */
 function appRoutes(): AppRoute[] {
-  const src = readFileSync(resolve(__dirname, '../App.tsx'), 'utf8');
+  const src = ['../App.tsx', '../app/routes/template-routes.tsx'].map((f) => readFileSync(resolve(__dirname, f), 'utf8')).join('\n');
   const out: AppRoute[] = [];
   for (const m of src.matchAll(/<Route\s+(?:[^>]*?\s)?path="([^"]+)"/gs)) {
     const start = (m.index ?? 0) + m[0].length;

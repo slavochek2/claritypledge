@@ -50,8 +50,13 @@ test.describe('P1402 standalone /prepare', () => {
 
     await page.getByRole('button', { name: 'Start here' }).click();
     await expect(page.getByText('Step 1 of 4')).toBeVisible();
-    await page.getByRole('button', { name: 'Continue without video' }).click();
-    await page.getByRole('button', { name: 'Continue without video' }).click();
+    // No skipping the video (founder 2026-11-12): play it; headless media cannot be relied on to start by itself.
+    for (let i = 0; i < 2; i++) {
+      await expect(page.getByRole('button', { name: 'Continue without video' })).toHaveCount(0);
+      await page.getByRole('button', { name: 'Play the video' }).click();
+      await page.locator('video').first().evaluate((v) => v.dispatchEvent(new Event('play')));
+      await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    }
     await expect(page.getByTestId('principle-decision-question')).toHaveText('Would you follow this principle in your important conversations?');
     // Opt out → "can I ask you one question?" → Back → change to opt in → Try it now → 0-10.
     await page.getByRole('button', { name: 'Opt out' }).click();
@@ -72,13 +77,11 @@ test.describe('P1402 standalone /prepare', () => {
     await expect(page.locator('[data-point-id]').first()).toBeVisible();
     await page.getByRole('button', { name: 'Skip and proceed' }).click();
     await expect(page.getByTestId('prepare-end')).toBeVisible();
-    // The end is a destination: the menus are back (?done=1) and it points on like the home page.
+    // The end is a destination: the menus are back (?done=1) and it points to the manifesto.
     await expect(page).toHaveURL(/\/prepare\?done=1$/);
     await expect(page.getByTestId('prepare-end').getByRole('button')).toHaveCount(1);
-    await expect(page.getByRole('button', { name: 'Explore events' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Read the manifesto' })).toBeVisible();
     await expect(page.getByRole('navigation').first()).toBeVisible();
-    // Skipping the videos completed nothing.
-    expect(await page.evaluate(() => localStorage.getItem('cp-prep-parts'))).toBeNull();
     expect(errors).toEqual([]);
   });
 

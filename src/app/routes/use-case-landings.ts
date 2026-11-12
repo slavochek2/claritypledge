@@ -7,5 +7,7 @@ import { lazy } from "react";
  */
 export const USE_CASE_LANDINGS = [
   { path: "/hospitals", Page: lazy(() => import("@/app/pages/hospitals-page").then((m) => ({ default: m.HospitalsPage }))) },
+  // /communities: for community organizers; unlisted, share-by-link. /group-terms redirects here.
+  { path: "/communities", Page: lazy(() => import("@/app/pages/communities-page").then((m) => ({ default: m.CommunitiesPage }))) },
   { path: "/change-managers", Page: lazy(() => import("@/app/pages/change-managers-page").then((m) => ({ default: m.ChangeManagersPage }))) },
 ] as const;

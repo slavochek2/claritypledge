@@ -22,14 +22,15 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { EVENTS_LIST_TO } from '@/app/components/layout/nav-links';
-import { FocusHeader } from '@/app/components/layout/focus-header';
 import { ArrowLeft, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { withDeadline } from '@/lib/with-deadline';
 import { useAuth } from '@/auth';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
+import { EVENTS_LIST_TO } from '@/app/components/layout/nav-links';
+import { FocusHeader } from '@/app/components/layout/focus-header';
+import { useShellBarSlot } from '@/app/components/layout/app-shell/shell-top-bar-context';
 import { LetterProgressBar } from '@/app/components/letters/letter-progress-bar';
 import { MeetingPrincipleView, PRINCIPLE_TITLE, type PrincipleAnswer } from '@/app/components/agreements/meeting-principle-view';
 import { CertificateFrame, CertificateOathBody } from '@/app/components/agreements/certificate-frame';
@@ -93,8 +94,8 @@ const COPY = {
     "Thank you. It's completely okay to opt out. It usually means something is unclear, or you disagree. Before you continue, can I ask you one question?",
   misunderstandingTitle: "Let's find out how you think understanding works between people",
   endTitle: 'Thank you',
-  endLine: 'You know what cognitive understanding is and how to check it. Try it with other attendees at an event.',
-  endPrimary: 'Explore events',
+  endLine: 'You know what cognitive understanding is and how to check it. The manifesto explains why it matters.',
+  endPrimary: 'Read the manifesto',
 };
 
 /** P1549: three shapes of one page: plain, joining a group (?then=join&group=) and reviewing (?review=). */
@@ -227,6 +228,8 @@ function PrepareFlow({
   review?: ReviewMode;
 }) {
   const navigate = useNavigate();
+  // Signed out there is no shell bar, so the end screen draws no Back (see the end screen).
+  const { inShell } = useShellBarSlot('left');
   const steps: readonly StandaloneStep[] = join || review ? JOIN_LEARNING_STEPS : STANDALONE_STEPS;
   const [principleAnswered, setPrincipleAnswered] = useState(false);
   const [screen, setScreen] = useState<Screen>(() => (join ? steps.find((s) => !isStepDone(s)) ?? 'story' : 'list'));
@@ -328,7 +331,6 @@ function PrepareFlow({
       ) : (
         <>
           <LetterPrimaryCta label="Play the video" onClick={() => setPlayRequest((n) => n + 1)} />
-          {!join && <LetterPrimaryCta label="Continue without video" onClick={() => onContinue(false)} variant="secondary" />}
         </>
       )}
     </StepActions>
@@ -361,9 +363,10 @@ function PrepareFlow({
 
   return (
     <div className="min-h-[100dvh] bg-background" data-testid="p1402-prepare">
-      {/* P1512: the end screen is a destination with the menus back: its Back is the shell top bar's. The step
-          screens keep their own pinned step-back header (a wizard step, not a page Back). */}
-      {screen === 'end' && <FocusHeader fallback={EVENTS_LIST_TO} />}
+      {/* P1512: the end screen is a destination with the menus back: its Back is the shell top bar's. Signed out there
+          is no shell bar, and the Back drew as a stray "← Back" at the page edge (founder 2026-11-12), so it is only
+          rendered in the shell. The step screens keep their own pinned step-back header (a wizard step, not a page Back). */}
+      {screen === 'end' && inShell && <FocusHeader fallback={EVENTS_LIST_TO} />}
       {screen !== 'end' && (
       <div ref={headerRef} className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-2" data-testid="step-header">
@@ -589,7 +592,7 @@ function PrepareFlow({
               <Title>{COPY.endTitle}</Title>
               <p className="text-base leading-relaxed text-muted-foreground">{COPY.endLine}</p>
               <div className="w-full max-w-sm pt-4">
-                <LetterPrimaryCta label={COPY.endPrimary} onClick={() => navigate(EVENTS_LIST_TO)} />
+                <LetterPrimaryCta label={COPY.endPrimary} onClick={() => navigate('/manifesto')} />
               </div>
             </section>
           )}

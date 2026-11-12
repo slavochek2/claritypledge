@@ -109,7 +109,7 @@ describe('P1223 — isSafeRedirectPath admits the documented happy paths', () =>
 
   it('every root is a route App.tsx actually declares', () => {
     // P1556: /connect lives in code-routes.tsx, which App.tsx renders (App.tsx is over its size limit and may not grow).
-    const app = ['../App.tsx', '../app/routes/code-routes.tsx']
+    const app = ['../App.tsx', '../app/routes/code-routes.tsx', '../app/routes/template-routes.tsx']
       .map((f) => readFileSync(resolve(__dirname, f), 'utf8'))
       .join('\n');
     const declared = new Set(

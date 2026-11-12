@@ -47,7 +47,7 @@ describe('P1558 /change-managers - content', () => {
     expect(document.getElementById(cue.dataset.target!)).toContainElement(screen.getByText('Sounds good 👍'));
     const order = [
       'Why almost nobody verifies understanding',
-      'Reveal a gap, then close it',
+      'Reveal a gap in understanding, then bridge it',
       'Make it normal to ask how well we understand each other',
       'How revealing gaps becomes a team norm',
       'Paid for the lesson',
@@ -139,6 +139,7 @@ describe('P1558 /change-managers - route, nav, preview', () => {
     expect(LANDING_REDIRECTS).toEqual([
       ['/hospital', '/hospitals'],
       ['/change-leads', '/change-managers'],
+      ['/group-terms', '/communities'],
       ['/program', '/pricing'],
       ['/offers', '/pricing'],
     ]);

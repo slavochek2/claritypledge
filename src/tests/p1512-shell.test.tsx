@@ -419,28 +419,29 @@ describe('P1512 shell — menus do not repeat the nav beside them', () => {
     expect(sheet.getByRole('link', { name: /^groups$/i })).toHaveAttribute('href', '/groups');
   });
 
-  it('the Me sheet has no Use cases or Learn group and no Pledgers; one "ClarityPledge website" row stands for them', () => {
+  it('the Me sheet has no Learn group and no Pledgers; one "Use cases" row expands to every audience landing', () => {
     renderLayout('/feed');
     fireEvent.click(screen.getByTestId('bottom-nav-me'));
     const sheet = within(screen.getByTestId('me-sheet'));
-    expect(sheet.queryByText('Use cases')).toBeNull();
     expect(sheet.queryByText('Learn')).toBeNull();
     for (const link of AUDIENCE_LINKS) expect(sheet.queryByRole('link', { name: link.label })).toBeNull();
     for (const name of [/^manifesto$/i, /^about$/i, /^pledgers$/i, /^blog$/i]) expect(sheet.queryByRole('link', { name })).toBeNull();
-    const website = sheet.getAllByRole('link', { name: 'ClarityPledge website' });
-    expect(website).toHaveLength(1);
-    expect(website[0]).toHaveAttribute('href', '/builders');
-    expect(website[0]!.querySelector('svg')!.getAttribute('class')).toContain('h-5');
+    expect(sheet.queryByRole('link', { name: 'ClarityPledge website' })).toBeNull();
+    const useCases = sheet.getAllByRole('button', { name: 'Use cases' });
+    expect(useCases).toHaveLength(1);
+    expect(useCases[0]!.querySelector('svg')!.getAttribute('class')).toContain('h-5');
+    fireEvent.click(useCases[0]!);
+    for (const link of AUDIENCE_LINKS) expect(sheet.getByRole('link', { name: link.label })).toHaveAttribute('href', link.to);
   });
 
   it('the Me sheet draws no public group headings: Groups is a plain row after Tools, the website row sits directly above the account block', async () => {
     renderLayout('/feed');
     fireEvent.click(screen.getByTestId('bottom-nav-me'));
     const sheet = screen.getByTestId('me-sheet');
-    for (const heading of ['Product', 'Use cases', 'Learn', 'Your account']) expect(within(sheet).queryByText(heading)).toBeNull();
+    for (const heading of ['Product', 'Learn', 'Your account']) expect(within(sheet).queryByText(heading)).toBeNull();
     const rows = Array.from(sheet.querySelectorAll('nav[aria-label="Account"] a, nav[aria-label="Account"] button')).filter(el => !el.hasAttribute('data-badge'));
     const names = rows.map(el => (el.getAttribute('aria-label') ?? el.textContent ?? '').trim());
-    expect(names).toEqual(['My Profile', 'Partners', 'Tools', 'Groups', 'ClarityPledge website', 'Session History', 'Settings', 'Log Out']);
+    expect(names).toEqual(['My Profile', 'Partners', 'Tools', 'Groups', 'Use cases', 'Session History', 'Settings', 'Log Out']);
   });
 
   it('the Me sheet derives what it omits from the bottom bar: no destination appears in both', () => {
@@ -504,8 +505,9 @@ describe('P1512 shell — menus do not repeat the nav beside them', () => {
     expect(menu.getByRole('menuitem', { name: /^partners/i })).toHaveAttribute('href', '/p/ada/partners');
     expect(menu.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument();
     expect(menu.getByRole('menuitem', { name: /log out/i })).toBeInTheDocument();
-    // No public group heading survives on desktop.
-    for (const group of PUBLIC_NAV_GROUPS) expect(menu.queryByText(group.label)).toBeNull();
+    // No public group heading survives on desktop; "Use cases" is a submenu entry (founder 2026-11-12), not a heading.
+    for (const group of PUBLIC_NAV_GROUPS.filter((g) => g.label !== 'Use cases')) expect(menu.queryByText(group.label)).toBeNull();
+    expect(menu.getByRole('menuitem', { name: 'Use cases' })).toHaveAttribute('aria-haspopup', 'menu');
   });
 
   it('the desktop avatar menu lists the website row first, directly above the "Your account" group', async () => {
@@ -514,24 +516,25 @@ describe('P1512 shell — menus do not repeat the nav beside them', () => {
     await user.click(within(sidebar(container) as HTMLElement).getByRole('button', { name: 'Menu' }));
     const menu = await screen.findByRole('menu');
     const items = Array.from(menu.querySelectorAll('[role="menuitem"]')).map(el => el.textContent?.trim());
-    expect(items).toEqual(['Partners', 'Groups', 'ClarityPledge website', 'Session History', 'Settings', 'Log Out']);
-    const website = within(menu).getByRole('menuitem', { name: 'ClarityPledge website' });
+    expect(items).toEqual(['Partners', 'Groups', 'Use cases', 'Session History', 'Settings', 'Log Out']);
+    const website = within(menu).getByRole('menuitem', { name: 'Use cases' });
     const account = within(menu).getByText('Your account');
     expect(website.compareDocumentPosition(account) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('the desktop avatar menu has no Use cases or Learn group and no Pledgers; one "ClarityPledge website" row stands for them', async () => {
+  it('the desktop avatar menu has no Learn group and no Pledgers; one "Use cases" submenu lists every audience landing', async () => {
     const user = userEvent.setup();
     const { container } = renderLayout('/feed');
     await user.click(within(sidebar(container) as HTMLElement).getByRole('button', { name: 'Menu' }));
     const menu = within(await screen.findByRole('menu'));
-    expect(menu.queryByText('Use cases')).toBeNull();
     expect(menu.queryByText('Learn')).toBeNull();
     for (const link of AUDIENCE_LINKS) expect(menu.queryByRole('menuitem', { name: link.label })).toBeNull();
     for (const name of [/^manifesto$/i, /^about$/i, /^pledgers$/i, /^blog$/i]) expect(menu.queryByRole('menuitem', { name })).toBeNull();
-    const website = menu.getAllByRole('menuitem', { name: 'ClarityPledge website' });
-    expect(website).toHaveLength(1);
-    expect(website[0]).toHaveAttribute('href', '/builders');
+    expect(menu.queryByRole('menuitem', { name: 'ClarityPledge website' })).toBeNull();
+    const trigger = menu.getAllByRole('menuitem', { name: 'Use cases' });
+    expect(trigger).toHaveLength(1);
+    await user.click(trigger[0]!);
+    for (const link of AUDIENCE_LINKS) expect(await screen.findByRole('menuitem', { name: link.label })).toHaveAttribute('href', link.to);
   });
 
   it('3c X1: the Partners row in the avatar menu carries its pending-invitation badge, as the phone Me sheet does', async () => {
