@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 329
 workstream: landing
@@ -70,14 +70,30 @@ Blast radius: low. Both routes are registered only under `import.meta.env.DEV`; 
 
 ## Done-When
 
-- [ ] `/tree/landing-fable` and `/tree/landing-fable-change` render in dev with no console errors.
-- [ ] At 375px and 320px width: no horizontal overflow on either page, and the first screen ends below the call button with no part of the picture visible above the fold.
-- [ ] The hero picture shows the agreed sentence, the yes count and each person's outcome as readable text, plus the "Illustration" label, at 320px, 375px and desktop width.
-- [ ] `/tree/landing-fable` no longer renders "How the platform works" and does render the gap exchange and the team-norm section.
-- [ ] The `/tree` hub links to both pages, and a test fails when a route registered in `tree-routes.tsx` is missing from the hub (failure path shown once).
-- [ ] Signed in, both pages show the public site menu and no app sidebar.
-- [ ] Both routes are DEV-guarded on the same line, and the existing tests for `/change-managers`, `/hospitals` and the shell route audit pass unchanged.
-- [ ] A separate visual check (screenshots only, no code) at 320px, 375px and desktop reports no open overflow, clipping or contrast finding.
+- [x] `/tree/landing-fable` and `/tree/landing-fable-change` render in dev with no console errors. Evidence: `e2e/p1667-landing-fable.spec.ts` smoke test on both pages (10 of 10 passed), plus a browser console read after scrolling each page end to end (empty; the same read returned a planted error, so the probe is not blind).
+- [x] At 375px and 320px width: no horizontal overflow on either page, and the first screen ends below the call button with no part of the picture visible above the fold. Evidence: the same e2e file measures it at 320x640, 375x740 and 430x932. Failure path: with the full-screen column removed the 430px test fails (card at 735, expected 932 or lower).
+- [x] The hero picture shows the agreed sentence, the yes count and each person's outcome as readable text, plus the "Illustration" label, at 320px, 375px and desktop width. Evidence: `src/tests/p1667-landing-fable.test.tsx` (text and tick-or-empty mark per person, both pages) and the screenshot review below.
+- [x] `/tree/landing-fable` no longer renders "How the platform works" and does render the gap exchange and the team-norm section. Evidence: same unit test, section order asserted.
+- [x] The `/tree` hub links to both pages, and a test fails when a route registered in `tree-routes.tsx` is missing from the hub (failure path shown once). Evidence: `src/tests/p1667-tree-hub-lists-every-route.test.ts`; with the builders entry removed it exits 1 and names `/tree/landing-fable`. The hub now lists all 35 `/tree` routes.
+- [x] Signed in, both pages show the public site menu and no app sidebar. Evidence: `src/tests/p1667-tree-landing-signed-in-chrome.test.tsx` renders the real layout signed in. Control: `/tree/old-landing` keeps the sidebar. Failure path: with one page taken off the list the test exits 1 and the sidebar is back. Not checked by eye in a signed-in browser.
+- [x] Both routes are DEV-guarded on the same line, and the existing tests for `/change-managers`, `/hospitals` and the shell route audit pass unchanged. Evidence: 154 of 154 across the seven test files; the production build's always-loaded chunk does not contain either path.
+- [x] A separate visual check (screenshots only, no code) at 320px, 375px and desktop reports no open overflow, clipping or contrast finding. Evidence: two passes by a reviewer who saw screenshots only. Pass 1: 17 findings, the one HIGH a capture artifact (the phone image exceeded the browser's maximum height and repeated). Pass 2 on whole captures: "Nothing is broken, missing, overflowing or unreadable", 7 polish notes. Exception, stated so it is not read as clean: the shared pledger strip cuts off its avatar initials. That clipping is in a production component and shows on the live pages too, so it is filed in the task inbox, not fixed here.
+
+## Review
+
+Reviewers: Gemini ok (4 runs) · GLM ok (2 runs; 15 findings, 8 verified and fixed, 0 unverified, 7 dropped or set aside) · Codex ok (3 runs) · criteria reviewer ok · Opus not triggered · 10 of 10 received. The closing Gemini run on the final code reports no HIGH or MEDIUM defect.
+
+Set aside, with the reason:
+- The numbered sections and the shared chat sections use two heading sizes on one page. The shared sections are production components and keep their own headings; restyle only if the design is adopted.
+- Under reduced motion the reasons, stats and norm rows still fade in, as every production landing does. Only the new example card was changed to appear at once.
+- The pledger strip is left-aligned here with an override on the shared component. A proper alignment option on that component is part of adopting the design.
+- The 12px small-caps label at the top of the example card stays; the time-turn label below it was raised.
+
+## Known limitations
+
+- The hub test reads source text. It does not see a path built from a constant or a template, or a comment glued to code with no space before `//`. Both files write every path as a plain string today.
+- From 640px to 1023px the hero keeps the phone layout: a full-screen text column, then the example. It is clean but leaves a lot of empty space on a tablet held upright.
+- The example's sentences, names and outcomes are drafted placeholders `[FOUNDER DECISION]`.
 
 ## Related
 
