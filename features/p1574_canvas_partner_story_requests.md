@@ -3,7 +3,7 @@ status: backlog
 type: story
 rank: 324
 workstream: clarity-canvas
-blocked_by: [p1536]
+blocked_by: [p1390]
 created_date: '2026-10-26'
 tags: [recognition-chain, canvas, mirror, stories, sales-mastermind]
 disclosure: public
