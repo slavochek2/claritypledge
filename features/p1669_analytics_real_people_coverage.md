@@ -91,15 +91,21 @@ Monthly upper bound added by P1669 = `P x (20 + 4 + 1) = 25P` (every page view o
 
 ## Done-When
 
+- [x] The promotion skills append UTM parameters to shared event links (one sample link pasted)
+- [x] Dead-tap replay findings filed (inbox note or spec)
+- [x] `docs/technical/analytics.md` points at the new boards; the old empty boards are deleted
+
+
+## Post-deploy verification
+
+Founder decision 2026-11-13: these can only be shown on the live site (or need the founder's public board links), so they are checked right after deploy, before the spec counts as verified.
+
 - [ ] Bot filter proven by controls: a headless browser and a known crawler user agent produce events tagged `is_bot: true`, while a real phone visit is counted untagged (Live Events screenshot)
 - [ ] Health and CSP smokes still pass and still prove a real `/record` after the bot filter
 - [ ] A test sign-up through a UTM-tagged link shows that `utm_source` on its `profile_created` event and on its user profile
 - [ ] A scripted 60-second visit shows a session of 50 seconds or more in Mixpanel
 - [ ] Each new event appears in Mixpanel Live Events from a real prod visit, and the Path to value board includes them
-- [x] The promotion skills append UTM parameters to shared event links (one sample link pasted)
-- [x] Dead-tap replay findings filed (inbox note or spec)
 - [ ] Kanban Analytics tab embeds the five public boards (no passcode; links read from `.env.local` `MIXPANEL_BOARD_*`, never committed); the old insights section is gone and insights appear as `/day` cards. Boards: [Pulse](https://eu.mixpanel.com/project/3968494/app/boards#id=11645736), [Path](https://eu.mixpanel.com/project/3968494/app/boards#id=11645737), [Return](https://eu.mixpanel.com/project/3968494/app/boards#id=11645738), [Friction](https://eu.mixpanel.com/project/3968494/app/boards#id=11645741), [Use](https://eu.mixpanel.com/project/3968494/app/boards#id=11646127)
-- [x] `docs/technical/analytics.md` points at the new boards; the old empty boards are deleted
 
 ## Related
 
