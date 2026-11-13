@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 338
 workstream: infrastructure
 created_date: '2026-11-13'
 tags: [offline, analytics, mixpanel, observability]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
