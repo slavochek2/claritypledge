@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 337
 workstream: infrastructure
 created_date: '2026-11-13'
 tags: [testing, vitest, concurrency, local-dev]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 1fe1fbc1add2b522b2feb7c120a6af7ddcb3a0ea2a24fb750506f35c02ce3ef3
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-13
 ---
 
 # P1676: Unit test runs size themselves to the machine at start, with a per-run ceiling
@@ -239,9 +239,9 @@ Git revert. The design is stateless, so nothing is left behind.
 
 ## Related
 
-- [P1635](done/2026-06-10/p1635_precommit_suite_contention.md): commit-time related tests and the
+- [P1635](p1635_precommit_suite_contention.md): commit-time related tests and the
   3-worker cap; its invariants are carried above.
-- [P1394](done/2026-06-10/p1394_two_ui_tests_fail_only_under_full_suite_load.md), P1570: tests that
+- [P1394](p1394_two_ui_tests_fail_only_under_full_suite_load.md), P1570: tests that
   failed only under load.
-- [P1672](p1672_isolated_test_environments_for_concurrent_branches.md): the same kind of collision on
+- [P1672](../../p1672_isolated_test_environments_for_concurrent_branches.md): the same kind of collision on
   the remote test server. Not this spec.
