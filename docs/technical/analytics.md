@@ -1009,14 +1009,16 @@ episodes and biases criteria 2 and 3 toward "no change".
 | `last_state` | string | Same values: what the strip said last |
 | `duration_ms` | number | How long the strip was on screen |
 | `ended_by` | string | `cleared` (it went away) or `unmount` (the strip component left while showing) |
-| `start_route` / `end_route` | string | Known top-level route (`/story`, `/feed`, ...), `/` for the root, `other` for anything else. Never a raw path, id or query |
+| `start_route` / `end_route` | string | Known top-level route (`/story`, `/feed`, ...), `/` for the root, `other` for anything else. The event's own properties never carry a raw path, id or query. Mixpanel's automatic `$current_url` on every event still carries the page URL (with the P1669 chat-id scrubbing), as it does for every other event |
 | `navigator_online` | boolean | `navigator.onLine` when the episode ended |
 
 **Cap:** at most 5 episodes per document load (a module-level counter, so navigation does not reset
 it). A flapping connection therefore undercounts frequency, and a capped load still shows 5.
+An episode that ends while the tab is hidden is sent when the tab is next visible (metered-services
+rule 3), with its properties fixed at the moment it ended, and is lost if the tab is closed first.
 
 **Known-route set:** `KNOWN_TOP_LEVEL_SEGMENTS` is checked against the `path="..."` values in
-`src/App.tsx` by `src/tests/p1677-offline-strip-routes.test.ts`. Adding a top-level route fails
+`src/App.tsx` and `src/app/routes/*.tsx`, plus `USE_CASE_LANDINGS`, by `src/tests/p1677-offline-strip-routes.test.ts`. Adding a top-level route fails
 that test until the list is updated, so it cannot silently become `other`.
 
 ### Queries for the Decision Criteria (P1677 spec)

@@ -4,7 +4,8 @@
  * and are not in App.tsx.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { USE_CASE_LANDINGS } from '@/app/routes/use-case-landings';
 import { resolve } from 'node:path';
 import {
   KNOWN_TOP_LEVEL_SEGMENTS,
@@ -13,24 +14,39 @@ import {
 } from '@/app/components/offline/offline-strip-episodes';
 import { STRIP_OFFLINE_TEXT, STRIP_SLOW_TEXT, stripCachedText } from '@/app/contexts/offline-status-context';
 
-function appTopLevelSegments(): Set<string> {
-  const source = readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8');
+function firstSegment(path: string): string {
+  return path === '*' ? '' : (path.split('/')[1] ?? '');
+}
+
+/** First segments of every `path="..."` in the given source files. */
+function segmentsFromFiles(files: string[]): Set<string> {
   const segments = new Set<string>();
-  for (const match of source.matchAll(/path="([^"]*)"/g)) {
-    const path = match[1] ?? '';
-    if (path === '*') continue;
-    const segment = path.split('/')[1] ?? '';
-    if (segment !== '') segments.add(segment);
+  for (const file of files) {
+    const source = readFileSync(resolve(process.cwd(), file), 'utf8');
+    for (const match of source.matchAll(/path="([^"]*)"/g)) {
+      const segment = firstSegment(match[1] ?? '');
+      if (segment !== '') segments.add(segment);
+    }
   }
   return segments;
 }
 
+const ROUTES_DIR = 'src/app/routes';
+const routeFiles = readdirSync(resolve(process.cwd(), ROUTES_DIR))
+  .filter((f) => f.endsWith('.tsx'))
+  .map((f) => `${ROUTES_DIR}/${f}`);
+
 describe('P1677 known top-level routes', () => {
-  it('equals the set of first path segments in src/App.tsx', () => {
-    const derived = appTopLevelSegments();
-    // An empty or broken parse must not pass.
-    expect(derived.has('story')).toBe(true);
-    expect(derived.size).toBeGreaterThan(30);
+  it('equals the first path segments in src/App.tsx, src/app/routes/*.tsx and USE_CASE_LANDINGS', () => {
+    const fromApp = segmentsFromFiles(['src/App.tsx']);
+    const fromRouteFiles = segmentsFromFiles(routeFiles);
+    const fromLandings = new Set(USE_CASE_LANDINGS.map((l) => firstSegment(l.path)));
+    // An empty or broken parse of any one source must not pass.
+    expect(fromApp.has('story')).toBe(true);
+    expect(fromApp.size).toBeGreaterThan(30);
+    expect(fromRouteFiles.has('partner-template')).toBe(true);
+    expect(fromLandings.has('hospitals')).toBe(true);
+    const derived = new Set([...fromApp, ...fromRouteFiles, ...fromLandings]);
     expect([...derived].sort()).toEqual([...KNOWN_TOP_LEVEL_SEGMENTS].sort());
   });
 

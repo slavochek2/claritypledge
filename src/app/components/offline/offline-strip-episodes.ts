@@ -27,6 +27,8 @@ export const KNOWN_TOP_LEVEL_SEGMENTS: readonly string[] = [
   'letters', 'live', 'login', 'machines', 'manifesto', 'me', 'meet', 'org', 'p', 'pledgers', 'point', 'prepare',
   'pricing', 'privacy-policy', 'ready', 's', 'sessions', 'settings', 'sign-pledge', 'signup', 'stake', 'story',
   'terms-of-service', 'topics', 'transcribe', 'understanding-champions', 'video',
+  // Declared outside App.tsx: src/app/routes/code-routes.tsx, template-routes.tsx, use-case-landings.ts.
+  'connect', 'partner-template', 'hospitals', 'communities', 'change-managers',
 ];
 
 const CACHED_PREFIX = stripCachedText('just now');
@@ -47,11 +49,17 @@ export function reduceRoute(pathname: string): string {
   return KNOWN_TOP_LEVEL_SEGMENTS.includes(segment) ? `/${segment}` : 'other';
 }
 
+type EpisodeProps = Record<string, string | number | boolean>;
+
 let sentThisLoad = 0;
+/** Events that ended while the tab was hidden; sent when it is next visible (metered-services rule 3). */
+let hiddenQueue: EpisodeProps[] = [];
+let visibilityListenerAdded = false;
 
 /** Test-only. */
 export function _resetEpisodeCountForTesting(): void {
   sentThisLoad = 0;
+  hiddenQueue = [];
 }
 
 interface Episode {
@@ -95,10 +103,17 @@ export function useOfflineStripEpisode(text: string | null): void {
   );
 }
 
+function flushWhenVisible(): void {
+  if (document.visibilityState !== 'visible') return;
+  const queued = hiddenQueue;
+  hiddenQueue = [];
+  for (const props of queued) analytics.track(STRIP_EPISODE_EVENT, props);
+}
+
 function sendEpisode(episode: Episode, endedBy: EpisodeEnd, endRoute: string): void {
   if (sentThisLoad >= MAX_EPISODES_PER_LOAD) return;
   sentThisLoad += 1;
-  analytics.track(STRIP_EPISODE_EVENT, {
+  const props: EpisodeProps = {
     first_state: episode.firstState,
     last_state: episode.lastState,
     duration_ms: Date.now() - episode.startedAt,
@@ -106,5 +121,14 @@ function sendEpisode(episode: Episode, endedBy: EpisodeEnd, endRoute: string): v
     start_route: episode.startRoute,
     end_route: endRoute,
     navigator_online: typeof navigator !== 'undefined' ? navigator.onLine : true,
-  });
+  };
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    hiddenQueue.push(props);
+    if (!visibilityListenerAdded) {
+      visibilityListenerAdded = true;
+      document.addEventListener('visibilitychange', flushWhenVisible);
+    }
+    return;
+  }
+  analytics.track(STRIP_EPISODE_EVENT, props);
 }

@@ -185,6 +185,59 @@ describe('offline strip episodes (P1677)', () => {
     expect(track).toHaveBeenCalledTimes(5);
   });
 
+  describe('tab hidden when the episode ends (metered-services rule 3)', () => {
+    let visibility: 'visible' | 'hidden' = 'visible';
+    const setVisibility = (value: 'visible' | 'hidden') => {
+      visibility = value;
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+    beforeEach(() => {
+      visibility = 'visible';
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
+    });
+    afterEach(() => {
+      delete (document as unknown as Record<string, unknown>).visibilityState;
+    });
+
+    it('sends nothing while hidden; flushes one event on visible with duration from the END', () => {
+      const v = mount(null, '/feed');
+      v.set(slowCopy());
+      advance(4_000);
+      visibility = 'hidden';
+      v.set(null);
+      expect(track).not.toHaveBeenCalled();
+      advance(60_000); // clock moves between the end and the flush
+      act(() => setVisibility('visible'));
+      expect(track).toHaveBeenCalledTimes(1);
+      expect(sent()).toMatchObject({ duration_ms: 4_000, ended_by: 'cleared', end_route: '/feed' });
+      act(() => setVisibility('visible'));
+      expect(track).toHaveBeenCalledTimes(1);
+    });
+
+    it('two episodes ending while hidden flush in order', () => {
+      const v = mount(null, '/feed');
+      visibility = 'hidden';
+      v.set(slowCopy());
+      advance(1_000);
+      v.set(null);
+      v.set(slowCopy());
+      advance(2_000);
+      v.set(null);
+      expect(track).not.toHaveBeenCalled();
+      act(() => setVisibility('visible'));
+      expect(track).toHaveBeenCalledTimes(2);
+      expect(track.mock.calls.map((c) => (c[1] as Record<string, unknown>).duration_ms)).toEqual([1_000, 2_000]);
+    });
+
+    it('an episode ending while visible still sends immediately', () => {
+      const v = mount(null, '/feed');
+      v.set(slowCopy());
+      advance(500);
+      v.set(null);
+      expect(track).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('route reduction: /story/<uuid> -> /story, / -> /, /<random-token> -> other; no property carries the id or token', () => {
     const cases: Array<[string, string]> = [
       ['/story/' + UUID, '/story'],
