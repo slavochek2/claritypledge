@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useReducedMotion, type Transition } from "framer-motion";
 import type { AgreedExample } from "./fable-content";
 import { AGREED_DWELL_MS, type AgreedPhase } from "./fable-motion";
+import { BOX, W, layoutFor } from "./fable-agreed-layout";
 
 type Person = AgreedExample["people"][number];
 
@@ -37,13 +38,7 @@ function shapesFor(people: Person[]): Shape[] {
   });
 }
 
-// The stage is drawn in viewBox units and scales to its column, so nothing here is a pixel.
-// One person is drawn in a 56 x 80 box; with fewer people each one is drawn a little larger.
-const W = 280;
-const BOX = { width: 56, height: 80 };
 const HEAD = { y: 40, r: 14 };
-const sizeFor = (count: number) => Math.min(1.25, W / count / BOX.width);
-
 const STILL: Transition = { duration: 0 };
 
 /** Plays the phases once while the graphic is on screen. With reduced motion it is the final frame from the start, and no timer is ever set. */
@@ -144,7 +139,7 @@ export function AgreedGraphic({ example, className = "" }: { example: AgreedExam
   const phase = usePhase(inView, reduce);
   const beat: Beat = { said: phase !== "reset", seen: phase === "later" || phase === "close", still: reduce };
   const { people } = example;
-  const size = sizeFor(people.length);
+  const { size, xs } = layoutFor(people.length);
   const shapes = shapesFor(people);
 
   return (
@@ -154,7 +149,7 @@ export function AgreedGraphic({ example, className = "" }: { example: AgreedExam
       <Story example={example} />
       <svg viewBox={`0 0 ${W} ${Math.ceil(BOX.height * size)}`} className="mx-auto block h-auto w-full max-w-[26rem]" aria-hidden focusable="false">
         {people.map((p, i) => (
-          <PersonMark key={p.name} person={p} shape={shapes[i] ?? "circle"} x={(W / people.length) * (i + 0.5)} size={size} index={i} beat={beat} />
+          <PersonMark key={p.name} person={p} shape={shapes[i] ?? "circle"} x={xs[i]} size={size} index={i} beat={beat} />
         ))}
       </svg>
       <figcaption className="sr-only">{example.punchline}</figcaption>

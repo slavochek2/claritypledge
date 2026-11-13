@@ -39,6 +39,7 @@ import { HospitalsPage } from '@/app/pages/hospitals-page';
 import { CommunitiesPage } from '@/app/pages/communities-page';
 import { HOSPITALS_OG } from '@/app/content/hospitals-og';
 import { AGREED_COACH, AGREED_COMMUNITIES, AGREED_FOUNDER, AGREED_HIRING, AGREED_HOSPITALS, COACH_CAST, FOUNDER_CAST, HIRING_CAST } from '@/app/components/landing/fable/fable-content';
+import { layoutFor } from '@/app/components/landing/fable/fable-agreed-layout';
 import { WEBINAR_CTA_LABEL, WEBINAR_REGISTER_URL } from '@/app/content/webinar';
 
 const CALL = 'Book a 15-min discovery call';
@@ -445,6 +446,44 @@ describe('P1674 the hero drawing', () => {
     // Its cues: the phone cue to the drawing, and the page's own.
     expect(screen.getByRole('button', { name: 'See an example' }).dataset.target).toBe('example');
     expect(screen.getByRole('button', { name: nextLabel }).dataset.target).toBe(nextId);
+  });
+
+  it('the five-person drawing keeps its row layout; the two-person drawing is larger, closer and does not overlap', () => {
+    const read = () => {
+      const card = screen.getByTestId('agreed-graphic');
+      const xs = [...card.querySelectorAll<SVGGElement>('[data-figure]')]
+        .map((f) => Number(/translate\((-?[\d.]+) 0\)/.exec(f.getAttribute('transform') ?? '')![1]));
+      const svg = card.querySelector('svg')!;
+      const scale = Number(/scale\(([\d.]+)\)/.exec(card.querySelector('[data-figure]')!.getAttribute('transform') ?? '')![1]);
+      return { xs, viewBox: svg.getAttribute('viewBox'), scale };
+    };
+    renderAt('/hospitals');
+    expect(read().xs).toEqual([28, 84, 140, 196, 252]);
+    expect(read().viewBox).toBe('0 0 280 80');
+    expect(read().scale).toBe(1);
+    expect(layoutFor(5).size).toBe(1);
+    cleanup();
+    renderAt('/hiring');
+    const two = read();
+    expect(two.xs).toHaveLength(2);
+    expect(two.xs[0]).toBeCloseTo(90.72, 2);
+    expect(two.xs[1]).toBeCloseTo(189.28, 2);
+    expect(two.viewBox).toBe('0 0 280 128');
+    expect(two.scale).toBe(1.6);
+    expect(layoutFor(2).size).toBe(1.6);
+    expect(two.xs[1] - two.xs[0]).toBeGreaterThan(43.75 * 1.6);
+  });
+
+  it('layoutFor keeps every figure inside the stage, overshoot included, for any count', () => {
+    expect(layoutFor(0)).toEqual({ size: 1, xs: [] });
+    for (const count of [1, 2, 3, 4, 5, 6, 7]) {
+      const { size, xs } = layoutFor(count);
+      expect(xs).toHaveLength(count);
+      for (const x of xs) {
+        expect(x - 19.75 * size * 1.08).toBeGreaterThanOrEqual(0);
+        expect(x + 24 * size * 1.08).toBeLessThanOrEqual(280);
+      }
+    }
   });
 
   it.each(['/hospitals', '/communities'] as const)('%s: under reduced motion the drawing is its final frame and stays there', (path) => {
