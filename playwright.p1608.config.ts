@@ -1,3 +1,4 @@
+import './scripts/lib/test-lane-apply.mjs';
 import { defineConfig, devices } from '@playwright/test';
 import * as dotenv from 'dotenv';
 import * as path from 'path';

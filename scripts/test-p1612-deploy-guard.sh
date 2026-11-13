@@ -112,6 +112,7 @@ STUB
     mkdir -p scripts/selfhosted/lib supabase/functions/_shared supabase/functions/fn-a supabase/functions/fn-b \
              supabase/selfhosted/functions-main
     cp "$SRC_ROOT/scripts/selfhosted/deploy-functions.sh" scripts/selfhosted/
+    cp "$SRC_ROOT/scripts/selfhosted/lane.py" scripts/selfhosted/   # P1672: a plain deploy asks the resolver beside it
     cp "$SRC_ROOT/scripts/selfhosted/deploy-drift.sh" scripts/selfhosted/
     cp "$SRC_ROOT/scripts/selfhosted/lib/deploy-guard.sh" "$SRC_ROOT/scripts/selfhosted/lib/deploy-on-land.sh" "$SRC_ROOT/scripts/selfhosted/lib/land-job.sh" scripts/selfhosted/lib/
     printf '#!/bin/bash\nexit 0\n' > scripts/check-edge-function-secrets.sh

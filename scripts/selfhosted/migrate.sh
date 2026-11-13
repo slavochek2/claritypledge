@@ -8,7 +8,7 @@
 #
 # Output contract (shell-safety.md): status lines never contain a bare redirect token.
 #
-# How it applies: psql inside the supabase-db container on the VM, over an IAP SSH session, as the
+# How it applies: psql inside the target's db container on the VM, over an IAP SSH session, as the
 # `postgres` role over the container's local socket. SQL travels on stdin, never in argv. Each
 # migration and its ledger row are ONE transaction (psql --single-transaction, ON_ERROR_STOP), so a
 # failed file leaves neither a partial schema nor a ledger row. That is stricter than the hosted
@@ -31,13 +31,11 @@
 
 set -euo pipefail
 
-# --- The one target. Changing these is a decision, not a flag. ---
+# --- The VM is fixed. WHICH environment on it (the main lane, or this worktree's own lane) is asked
+# of the resolver, scripts/selfhosted/lane.py (P1672); nothing here decides it. ---
 GCP_PROJECT="gen-lang-client-0869694595"
 VM="cp-test-supabase"
 ZONE="asia-southeast1-a"
-EXPECTED_URL="https://136-85-1-126.sslip.io"
-DB_CONTAINER="supabase-db"
-MAC_ENV="$HOME/.config/cp-selfhosted-test/env"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="$(dirname "$SCRIPT_DIR")/lib"
@@ -54,6 +52,7 @@ LIST_ONLY=false
 APPLIED_ONLY=false
 ALLOW_EMPTY_LEDGER=false
 SAW_ENV=false
+MAIN_LANE=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --env)
@@ -64,6 +63,8 @@ while [ $# -gt 0 ]; do
     --list) LIST_ONLY=true; shift ;;
     --applied) APPLIED_ONLY=true; LIST_ONLY=true; shift ;;
     --allow-empty-ledger) ALLOW_EMPTY_LEDGER=true; shift ;;
+    --main-lane) MAIN_LANE=true; shift ;;
+    --lane|--lane=*|--gen|--gen=*) die "$1 cannot be combined with anything: this script takes its lane from the resolver, or --main-lane." ;;
     --only|--expect-sha)
       die "$1 is the prod /push mode (committed blobs) and is not supported for selfhosted." ;;
     *) die "unknown argument '$1'." ;;
@@ -71,7 +72,64 @@ while [ $# -gt 0 ]; do
 done
 [ "$SAW_ENV" = true ] || die "run through './scripts/migrate.sh --env selfhosted'."
 
-# --- Refuse unless the target is the self-hosted host ---
+# --- Ask the resolver which environment this worktree uses (P1672). Listing is a read; applying is
+# a write (a worktree on a branch that holds a lane may not write to the main lane). Exit 2 = refused:
+# stop with its message, never fall back. The output is eval-safe (shell-quoted) and only evaluated
+# after a zero exit. ---
+RESOLVE_PURPOSE=write
+[ "$LIST_ONLY" = true ] && RESOLVE_PURPOSE=run
+if [ "$MAIN_LANE" = true ]; then
+  # --main-lane (the landing hook invariant): the MAIN lane with its fixed constants, never lane.py. The
+  # landing job runs this from a `git archive` extract of main's tip, which is not a git checkout: the tree
+  # is the one this script sits in, and nothing below needs git. A lane context in the environment is
+  # refused rather than ignored.
+  if [ -n "${CP_TEST_LANE:-}" ] || [ -n "${CP_TEST_GEN:-}" ] || [ -n "${CP_TEST_LANECTL:-}" ] || [ "${CP_TEST_TARGET:-main}" != main ]; then
+    die "--main-lane cannot be combined with a lane context (CP_TEST_LANE, CP_TEST_GEN, CP_TEST_LANECTL or CP_TEST_TARGET is set). Nothing was applied."
+  fi
+  PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+  MIGRATIONS_DIR="$PROJECT_DIR/supabase/migrations"
+  # Allowed only from a non-git extract (the landing job) or the MAIN checkout. A feature worktree, claimed or
+  # not, must not push its branch schema to the main lane with this flag. Unreadable git state is refused too.
+  # "Not a checkout" is decided by the ABSENCE of any .git above the tree, never by a git command failing:
+  # a broken or refused .git (safe.directory, permissions) must refuse, not pass as an extract.
+  in_checkout=false; d="$PROJECT_DIR"
+  while [ "$d" != / ] && [ -n "$d" ]; do [ -e "$d/.git" ] && { in_checkout=true; break; }; d="$(dirname "$d")"; done
+  if [ "$in_checkout" = true ]; then
+    main_top="$(git -C "$PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null)" &&
+      main_common="$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" ||
+      die "--main-lane: $PROJECT_DIR is inside a git checkout whose state cannot be read. Nothing was applied."
+    [ "$(dirname "$main_common")" = "$main_top" ] ||
+      die "--main-lane runs only from the main checkout or a non-git extract; $main_top is a linked worktree. Nothing was applied."
+    # From the main checkout, only landed migrations: on main, at a commit, with nothing uncommitted or untracked
+    # in supabase/migrations (the landing job itself always runs from an extract of main's tip).
+    [ "$(git -C "$main_top" symbolic-ref --short -q HEAD)" = main ] ||
+      die "--main-lane from the main checkout needs it on branch main. Nothing was applied."
+    [ -z "$(git -C "$main_top" status --porcelain --untracked-files=all -- supabase/migrations)" ] ||
+      die "--main-lane: supabase/migrations in the main checkout has uncommitted or untracked files; only landed migrations go to the main lane. Nothing was applied."
+  fi
+  CP_TEST_TARGET=main; CP_TEST_LANE=""; CP_TEST_GEN=""; CP_TEST_LANECTL=""
+  CP_TEST_ORIGIN="https://136-85-1-126.sslip.io"
+  CP_TEST_DB_CONTAINER="supabase-db"
+  CP_TEST_KEYS_FILE="$HOME/.config/cp-selfhosted-test/env"
+else
+command -v python3 >/dev/null 2>&1 || die "python3 not found: cannot resolve the TEST target. Nothing was applied."
+resolve_rc=0
+resolved="$(python3 "$SCRIPT_DIR/lane.py" resolve --purpose "$RESOLVE_PURPOSE" --format shell --worktree "$PROJECT_DIR")" || resolve_rc=$?
+if [ "$resolve_rc" -ne 0 ]; then
+  echo "ERROR: the TEST target could not be resolved (exit $resolve_rc, message above). Nothing was applied." >&2
+  exit "$resolve_rc"
+fi
+eval "$resolved"
+fi
+EXPECTED_URL="$CP_TEST_ORIGIN"
+DB_CONTAINER="$CP_TEST_DB_CONTAINER"
+MAC_ENV="$CP_TEST_KEYS_FILE"
+IS_LANE=false
+[ "$CP_TEST_TARGET" = "lane" ] && IS_LANE=true
+TARGET_LABEL="self-hosted TEST"
+[ "$IS_LANE" = true ] && TARGET_LABEL="self-hosted TEST lane $CP_TEST_LANE generation $CP_TEST_GEN"
+
+# --- Refuse unless the target is the self-hosted host: the keys file must name the resolved origin ---
 [ -f "$MAC_ENV" ] || die "$MAC_ENV not found: cannot confirm the target identity. Nothing was applied."
 mac_url="$(grep '^SUPABASE_URL=' "$MAC_ENV" | head -1 | cut -d= -f2- | tr -d '"'"'" || true)"
 [ "$mac_url" = "$EXPECTED_URL" ] || die "SUPABASE_URL in $MAC_ENV is not $EXPECTED_URL (found: ${mac_url:-empty}). Refusing; nothing was applied."
@@ -83,19 +141,54 @@ gcloud auth print-access-token >/dev/null 2>&1 || die "gcloud login expired: run
 
 GCLOUD_COMMON=(--project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet)
 PSQL_REMOTE="sudo docker exec -i $DB_CONTAINER psql -U postgres -d postgres -X -q -v ON_ERROR_STOP=1"
+LANE_ARGS="--lane $CP_TEST_LANE --gen $CP_TEST_GEN"
 
 # Run psql on the VM with its stdin taken from the file in $2, remote psql flags in $1.
+# Main lane: psql in the main db container. Lane: the same through lanectl, which refuses a stale
+# generation. The callers' -At / -tA both mean lanectl's --at.
 remote_psql() {
-  gcloud compute ssh "$VM" "${GCLOUD_COMMON[@]}" --command "$PSQL_REMOTE $1" < "$2" \
+  local cmd="$PSQL_REMOTE $1"
+  if [ "$IS_LANE" = true ]; then
+    local flags=""
+    case "$1" in
+      -At|-tA) flags=" --at" ;;
+      --single-transaction) flags=" --single-transaction" ;;
+      "") ;;
+      *) die "internal: unmapped psql flags '$1' for a lane." ;;
+    esac
+    cmd="sudo $CP_TEST_LANECTL psql $LANE_ARGS$flags"
+  fi
+  gcloud compute ssh "$VM" "${GCLOUD_COMMON[@]}" --command "$cmd" < "$2" \
     2> >(grep -v -i -E 'numpy|increasing_the_tcp|^WARNING:|^$' >&2)
 }
+
+# lanectl lifecycle step on the VM (no stdin). Returns lanectl's exit code.
+remote_lanectl() {
+  gcloud compute ssh "$VM" "${GCLOUD_COMMON[@]}" --command "sudo $CP_TEST_LANECTL $1 $LANE_ARGS" < /dev/null \
+    2> >(grep -v -i -E 'numpy|increasing_the_tcp|^WARNING:|^$' >&2)
+}
+
+# Lift the quarantine (outbound check). A failure keeps the lane quarantined and fails this script.
+lift_lane() {
+  if remote_lanectl lift; then
+    echo "Lane $CP_TEST_LANE lifted: outbound check passed."
+  else
+    echo "ERROR: the lane $CP_TEST_LANE outbound check did not pass (lift failed). The lane STAYS QUARANTINED: functions stopped, cron off, no route. Fix the cause, then re-run." >&2
+    exit 1
+  fi
+}
+
+# Applying to a lane: extend the lease first (a dead lease refuses here, before anything is touched).
+if [ "$IS_LANE" = true ] && [ "$LIST_ONLY" != true ]; then
+  (cd "$PROJECT_DIR" && python3 "$SCRIPT_DIR/lane.py" heartbeat) || die "lane heartbeat failed. Nothing was applied."
+fi
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 if [ "$APPLIED_ONLY" = true ]; then
   # stdout carries only versions; the banner goes to stderr.
-  echo ">>> Target: self-hosted TEST ($EXPECTED_URL), container $DB_CONTAINER on $VM" >&2
+  echo ">>> Target: $TARGET_LABEL ($EXPECTED_URL), container $DB_CONTAINER on $VM" >&2
   cat > "$WORK/ledger.sql" <<'SQL'
 SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;
 SQL
@@ -103,7 +196,7 @@ SQL
   cat "$WORK/applied.txt"
   exit 0
 fi
-echo ">>> Target: self-hosted TEST ($EXPECTED_URL), container $DB_CONTAINER on $VM"
+echo ">>> Target: $TARGET_LABEL ($EXPECTED_URL), container $DB_CONTAINER on $VM"
 
 # --- P1042 guard 1 (in-tree version collision): same script migrate.sh runs ---
 if ! "$LIB_DIR/check-duplicate-migration-versions.sh" "$MIGRATIONS_DIR" --label "env: selfhosted"; then
@@ -163,6 +256,9 @@ done
 
 if [ ${#PENDING[@]} -eq 0 ]; then
   echo "No pending migrations: the self-hosted schema matches the local migration files."
+  # A lane may have been left quarantined by an earlier failed run: lifting is idempotent. Never on
+  # --list/--applied, which must stay read-only.
+  [ "$IS_LANE" = true ] && [ "$LIST_ONLY" != true ] && lift_lane
   exit 0
 fi
 echo "Pending migrations (${#PENDING[@]}) for the self-hosted TEST database:"
@@ -172,6 +268,11 @@ if [ "$LIST_ONLY" = true ]; then
   exit 0
 fi
 echo ""
+
+# --- A lane is quarantined (cron off, functions stopped, no route) while schema changes ---
+if [ "$IS_LANE" = true ]; then
+  remote_lanectl quarantine || die "could not quarantine lane $CP_TEST_LANE. Nothing was applied."
+fi
 
 # --- Apply, in order, stopping at the first failure ---
 APPLIED_COUNT=0
@@ -217,6 +318,7 @@ for BASE in "${PENDING[@]}"; do
   fi
 done
 
+[ "$IS_LANE" = true ] && lift_lane
 echo ""
 echo "Applied $APPLIED_COUNT new migration(s) to the self-hosted TEST database."
 echo "Deploy manifest not stamped: it records hosted deployments only."

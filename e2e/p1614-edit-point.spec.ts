@@ -13,7 +13,7 @@ import { supabaseAdmin } from './helpers/supabase-admin';
 import { createTestUser, deleteTestUser, setTestSession, TEST_PASSWORD } from './helpers/test-user';
 import { isTestProjectUrl } from '../scripts/sweep-e2e-test-users';
 
-test.skip(!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? '') && !/sslip\.io/.test(process.env.VITE_SUPABASE_URL ?? ''), 'p1614: not a TEST server. Nothing was run.');
+test.skip(!isTestProjectUrl(process.env.VITE_SUPABASE_URL ?? ''),'p1614: not a TEST server. Nothing was run.');
 const DIR = process.env.P1614_DIR ?? 'test-results/p1614';
 fs.mkdirSync(DIR, { recursive: true });
 test.use({ actionTimeout: 20_000 });

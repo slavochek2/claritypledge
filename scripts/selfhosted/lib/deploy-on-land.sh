@@ -15,6 +15,10 @@
 source "$(dirname "${BASH_SOURCE[0]}")/deploy-guard.sh"
 
 DEPLOY_ON_LAND_PATHS=(supabase/functions supabase/selfhosted/functions-main/index.ts supabase/no-verify-jwt-functions.txt)
+# P1672: a landing also brings the MAIN lane's schema forward. Before lanes, the main lane received
+# landed migrations only because branches applied them while being built; once branches migrate their
+# own lanes, nothing else would.
+MIGRATE_ON_LAND_PATHS=(supabase/migrations)
 
 # deploy_land_baseline <repo> <journal-start-head>: where a ship's "before" is measured from. The
 # journal's start_head when it is a real commit that main still contains (so a resumed ship keeps
@@ -30,14 +34,19 @@ deploy_land_baseline() {
 }
 
 deploy_test_on_land() {
-  local repo="$1" before="$2" after="$3" changed target wait="${CP_LAND_LOCK_WAIT:-300}"
+  local repo="$1" before="$2" after="$3" changed migs fn_changed=0 mig_changed=0 target wait="${CP_LAND_LOCK_WAIT:-300}"
   changed="$(git -C "$repo" diff --name-only "$before" "$after" -- "${DEPLOY_ON_LAND_PATHS[@]}" 2>/dev/null)" || {
     echo "TEST functions: could not diff ${before:0:9}..${after:0:9}; not deploying. Run scripts/deploy-functions.sh by hand if functions changed." >&2
     return 0
   }
   changed="$(printf '%s\n' "$changed" | dg_filter_deployed_repo_paths)"
-  [ -n "$changed" ] || return 0
-  echo "TEST functions: this landing changed deployed edge-function inputs; deploying main's tip to the self-hosted TEST server." >&2
+  [ -n "$changed" ] && fn_changed=1
+  # Added or modified migration files only: a deleted file has nothing to apply.
+  migs="$(git -C "$repo" diff --name-only --diff-filter=AM "$before" "$after" -- "${MIGRATE_ON_LAND_PATHS[@]}" 2>/dev/null | grep -E '^supabase/migrations/[0-9][^/]*\.sql$' || true)"
+  [ -n "$migs" ] && mig_changed=1
+  [ "$fn_changed" = 1 ] || [ "$mig_changed" = 1 ] || return 0
+  [ "$mig_changed" = 1 ] && echo "TEST migrations: this landing added or changed migrations; applying main's tip to the self-hosted TEST main lane." >&2
+  [ "$fn_changed" = 1 ] && echo "TEST functions: this landing changed deployed edge-function inputs; deploying main's tip to the self-hosted TEST server." >&2
   # Fail closed: the deploy goes out only when the active TEST server is positively self-hosted.
   # A resolver that cannot be loaded, fails, or answers anything else skips the deploy.
   # shellcheck source=../../lib/active-test.sh
@@ -79,7 +88,7 @@ deploy_test_on_land() {
       setsid();
       open(STDIN, "<", "/dev/null"); open(STDOUT, ">>", $log) or exit 1; open(STDERR, ">&", \*STDOUT);
       exec @cmd; exit 127;
-    ' "$log" bash "$tmp/scripts/selfhosted/lib/land-job.sh" "$tmp" "$repo" "$after" "$wait" "${CP_LAND_JOB_DEADLINE:-1200}"; then
+    ' "$log" bash "$tmp/scripts/selfhosted/lib/land-job.sh" "$tmp" "$repo" "$after" "$wait" "${CP_LAND_JOB_DEADLINE:-1200}" "$fn_changed" "$mig_changed"; then
     echo "TEST functions: could not start the background deploy; run scripts/deploy-functions.sh by hand." >&2
     rm -rf "$tmp"; return 0
   fi

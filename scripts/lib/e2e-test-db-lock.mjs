@@ -7,16 +7,17 @@
  *
  * Lifecycle (measured on Playwright 1.64, not assumed): the config is evaluated in the main runner
  * BEFORE the dev server starts and before global setup, and again in every worker. So the lock is
- * taken at config load in the main runner only (workers, --list, --ui and CI skip it), and released
+ * taken at config load in the main runner only (workers, --list and --ui skip it), and released
  * when that process exits, which is after global teardown and its user sweep.
  *
- * P1607: hosted TEST keeps this one-run-at-a-time lock unchanged. The self-hosted server instead admits
- * a fixed number of runs at once (scripts/lib/e2e-slot-lock.mjs); a run that touches server-wide state
- * takes the whole server. guardTestDbRun picks between the two with lockPlan.
+ * P1607: hosted TEST keeps this one-run-at-a-time lock. P1672: the self-hosted server's admission is decided
+ * on the VM (scripts/lib/e2e-slot-lock.mjs is its client, scripts/selfhosted/lanes/vm/admit.py the authority):
+ * one VM-wide capacity, exclusivity per environment (main lane or a lane). guardTestDbRun picks between the two
+ * with lockPlan. CI is no longer exempt: a CI job against self-hosted TEST is admitted like any other run.
  *
- * The lock is a directory (mkdir is atomic) in the git common dir, so every worktree of this repository
+ * The hosted lock is a directory (mkdir is atomic) in the git common dir, so every worktree of this repository
  * shares it. A separate clone of the repository has its own lock and is not held off (P1572: no such
- * clone exists here; moving the lock would let old and new checkouts run at once during the switch).
+ * clone exists here).
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -26,7 +27,9 @@ import { testRefForUrl, SELFHOSTED_TEST_REF } from './test-target.mjs';
 import {
   processStart, readOwner, isStale, describeOwner, tryAcquire, reclaim, sleepSync,
 } from './e2e-lock-primitives.mjs';
-import { slotPaths, slotLimit, acquireSlot, otherRunsLive } from './e2e-slot-lock.mjs';
+import {
+  acquireSlot, otherRunsLive, admitEnv, admitCommand, AdmissionUnavailable, SWEEP_QUERY_TIMEOUT_MS,
+} from './e2e-slot-lock.mjs';
 import { detectForArgv } from './e2e-exclusive-specs.mjs';
 import { NOT_A_RUN } from './hosted-test-guard.mjs';
 
@@ -34,11 +37,12 @@ import { NOT_A_RUN } from './hosted-test-guard.mjs';
 export { isStale, describeOwner, reclaim };
 
 export const LOCK_WAIT_EXIT_CODE = 75; // EX_TEMPFAIL: try again later, not an app failure
+// P1672: admission could not be decided (VM unreachable, lanectl without admit). Configuration to fix, not load.
+export const ADMISSION_UNAVAILABLE_EXIT_CODE = 1;
 const LOCK_NAME = 'e2e-test-db.lock';
 // P1557: one lock per database. Hosted TEST keeps the name every session already uses; the
-// self-hosted server is a different database, so its runs never queue behind hosted ones.
-// P1607: this name is now the "whole server" gate of the slot lock (see e2e-slot-lock.mjs), kept so
-// worktrees still running the older script keep waiting for newer runs.
+// self-hosted server is a different database, so its runs never queue behind hosted ones (P1672: and
+// its admission lives on the VM, not here).
 const DEFAULT_WAIT_MS = 10 * 60_000;
 const POLL_MS = 5_000;
 const REPORT_EVERY_MS = 30_000;
@@ -47,7 +51,7 @@ const REPORT_EVERY_MS = 30_000;
 export function lockSkipReason({ argv = process.argv, env = process.env, isTestDb }) {
   if (env.TEST_WORKER_INDEX !== undefined || env.TEST_PARALLEL_INDEX !== undefined) return 'worker process';
   if (env.E2E_TEST_DB_LOCK_HELD && heldBy(env.E2E_TEST_DB_LOCK_HELD)) return 'lock already held by the parent run';
-  if (env.CI) return 'CI runs on its own machine';
+  // P1672: no CI exemption. CI shares the self-hosted VM's CPU like any other client.
   if (!isTestDb) return 'not the TEST database';
   const args = argv.slice(2);
   // `test` is a subcommand, never the default (Playwright 1.64). Global flags may stand before it
@@ -74,59 +78,39 @@ export function parseWaitMs(value) {
   return Number.isFinite(n) && n >= 0 ? n : DEFAULT_WAIT_MS;
 }
 
+/** The hosted TEST lock directory; null for the self-hosted server, whose admission lives on the VM (P1672). */
 export function lockDirFor(repoDir, url, env = process.env) {
   const plan = lockPlan(repoDir, url, env);
-  return plan.mode === 'slots' ? plan.paths.legacy : plan.dir;
+  return plan.mode === 'single' ? plan.dir : null;
 }
 
 /**
- * E2E_SLOT_LOCK_BASE (with E2E_SLOT_LOCK_PROOF=<what is proved>) moves the self-hosted slot lock to another
- * directory, for proving the lock between two checkouts without touching the real lock directory. Only a directory that already exists under the
- * operating system's temp directory is accepted, and anything else throws, so it cannot be pointed at (or
- * away from) the real lock. Hosted TEST never reads it. The override is announced on stderr.
+ * Hosted TEST: one lock directory in the git common dir. Self-hosted: admission on the VM, in this run's
+ * environment (CP_TEST_LANE, else the main lane). No git directory is read for the self-hosted server.
  */
-export function slotLockBase(common, env = process.env) {
-  const raw = env.E2E_SLOT_LOCK_BASE;
-  if (!raw) return common;
-  if (!env.E2E_SLOT_LOCK_PROOF || !env.E2E_SLOT_LOCK_PROOF.trim()) {
-    throw new Error('[P1607] E2E_SLOT_LOCK_BASE is for proving the lock between checkouts and needs E2E_SLOT_LOCK_PROOF=<what is being proved>');
-  }
-  let real;
-  try { real = fs.realpathSync(raw); } catch { throw new Error(`[P1607] E2E_SLOT_LOCK_BASE ${raw} does not exist`); }
-  const roots = [os.tmpdir(), '/tmp', '/private/tmp'].flatMap(r => { try { return [fs.realpathSync(r)]; } catch { return []; } });
-  if (!roots.some(r => real === r ? false : real.startsWith(r + path.sep))) {
-    throw new Error(`[P1607] E2E_SLOT_LOCK_BASE must be an existing directory under the temp directory, got ${real}`);
-  }
-  if (!fs.statSync(real).isDirectory()) throw new Error(`[P1607] E2E_SLOT_LOCK_BASE ${raw} is not a directory`);
-  process.stderr.write(`[P1607] slot lock base overridden for a test: ${real} (the real lock directory is not used)\n`);
-  return real;
-}
-
-/** Hosted TEST: one lock directory. Self-hosted: slot paths (P1607). Both live in the git common dir. */
 export function lockPlan(repoDir, url, env = process.env) {
-  const gitCommon = () => execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: repoDir, stdio: ['ignore', 'pipe', 'ignore'] })
+  if (testRefForUrl(url, env) === SELFHOSTED_TEST_REF) return { mode: 'vm', env: admitEnv(env) };
+  const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: repoDir, stdio: ['ignore', 'pipe', 'ignore'] })
     .toString().trim();
-  if (testRefForUrl(url, env) === SELFHOSTED_TEST_REF) {
-    // A test checkout that is not a git repository needs no git directory when the base is overridden.
-    return { mode: 'slots', paths: slotPaths(env.E2E_SLOT_LOCK_BASE ? slotLockBase(null, env) : gitCommon()) };
-  }
-  return { mode: 'single', dir: path.join(gitCommon(), LOCK_NAME) };
+  return { mode: 'single', dir: path.join(common, LOCK_NAME) };
 }
 
 /**
- * Decision 6: who else is on the server right now, as a list of descriptions (empty = nobody). The
- * older-leftovers sweep deletes users other runs may still be using, so it runs only when this is empty.
- * Fails safe: when the lock state cannot be read, the answer is "someone", so the sweep is skipped.
+ * Decision 6, per environment since P1672: who else is using THIS run's database right now, as descriptions
+ * (empty = nobody). The older-leftovers sweep deletes users other runs may still be using, so it runs only when
+ * this is empty. Runs in other environments (other lanes, the main lane) use other databases and never block it.
+ * This run's own ticket (CP_E2E_ADMIT_TICKET, set by guardTestDbRun) is not "someone else".
+ * Fails safe: when the VM cannot be asked, the answer is "someone", so the sweep is skipped.
  */
-export function sweepBlockers({ repoDir, url, env = process.env, pid = process.pid, now = Date.now }) {
-  if (env.CI) return []; // CI runs on its own machine
+export function sweepBlockers({ repoDir, url, env = process.env, timeoutMs = SWEEP_QUERY_TIMEOUT_MS }) {
   if (env.E2E_LOADTEST) return ['a load-test run (other runs on this server are not tracked)'];
   try {
     const plan = lockPlan(repoDir, url, env);
     if (plan.mode === 'single') return []; // hosted TEST: one run at a time, and it is this one
-    return otherRunsLive(plan.paths, { pid, now });
+    // Bounded (30 s by default): this runs in global teardown, and an unreachable VM means "skip the sweep".
+    return otherRunsLive({ envName: plan.env, ticket: env.CP_E2E_ADMIT_TICKET ?? '', env, timeoutMs });
   } catch (err) {
-    return [`the lock state could not be read (${err.message})`];
+    return [`the admission state could not be read (${err.message})`];
   }
 }
 
@@ -209,31 +193,54 @@ export function guardTestDbRun({
   })();
   const me = {
     pid: process.pid, processStart: processStart(process.pid), acquiredAt: Date.now(),
-    worktree: path.basename(repoDir), branch, port,
+    worktree: path.basename(repoDir), branch, port, machine: os.hostname(),
   };
   const waitMs = parseWaitMs(env.E2E_TEST_DB_LOCK_WAIT_MS);
   let release_ = () => {};
   let extra = {};
   let heldDesc = '';
-  if (plan.mode === 'slots') {
-    const limit = slotLimit(env);
+  if (plan.mode === 'vm') {
     const det = detect({ repoDir, argv: argv.slice(2), env });
+    let via;
+    try {
+      via = admitCommand(env); // refuses CP_E2E_ADMIT_CMD without its proof variable
+    } catch (err) {
+      if (!(err instanceof AdmissionUnavailable)) throw err;
+      console.error(`[P1672][infra] ${err.message}`);
+      exit(ADMISSION_UNAVAILABLE_EXIT_CODE);
+      return { gaveUp: true, unavailable: true };
+    }
+    if (!via.viaVm) process.stderr.write(`[P1672] E2E admission goes through ${via.label}, NOT the TEST VM: a test seam\n`);
     if (det.exclusive) {
       const why = det.forced ? `${'E2E_SELFHOSTED_EXCLUSIVE'} is set`
         : det.error ? `the run's specs could not be listed (${det.error}), so it is treated as server-wide`
           : `it covers ${det.serverWideFiles.length} server-wide spec(s): ${det.serverWideFiles.slice(0, 4).map(f => path.relative(repoDir, f)).join(', ')}${det.serverWideFiles.length > 4 ? ', ...' : ''}`;
-      console.log(`[P1607] this run takes the whole self-hosted server and runs alone: ${why}`);
+      console.log(`[P1672] this run takes the ${plan.env} environment and runs alone in it (other environments keep running): ${why}`);
     }
-    const handle = acquireSlot(plan.paths, me, { limit, exclusive: !!det.exclusive, waitMs });
+    let handle;
+    try {
+      handle = acquireSlot(me, { envName: plan.env, exclusive: !!det.exclusive, waitMs, env });
+    } catch (err) {
+      if (!(err instanceof AdmissionUnavailable)) throw err;
+      console.error(`[P1672][infra] ${err.message}`);
+      exit(ADMISSION_UNAVAILABLE_EXIT_CODE);
+      return { gaveUp: true, unavailable: true };
+    }
     if (!handle.held) {
-      console.error(`[P1607][infra] the self-hosted TEST server is in use by ${handle.blockers.join('; ') || 'another run'}; gave up after ${Math.round(waitMs / 1000)}s. ` +
+      console.error(`[P1672][infra] the self-hosted TEST server has no room for this run in ${plan.env}: held by ${handle.blockers.join('; ') || 'another run'}; gave up after ${Math.round(waitMs / 1000)}s. ` +
         'Not an app failure. Retry later, run the command in the background, or raise E2E_TEST_DB_LOCK_WAIT_MS.');
       exit(LOCK_WAIT_EXIT_CODE);
       return { gaveUp: true };
     }
     release_ = () => handle.release();
-    extra = { exclusive: !!det.exclusive, serverWideFiles: det.serverWideFiles ?? [], unknown: !!det.unknown, slot: handle.slot };
-    heldDesc = det.exclusive ? 'whole server' : `slot ${handle.slot} of ${limit}`;
+    if (register) handle.startHeartbeat();
+    env.CP_E2E_ADMIT_TICKET = handle.ticket; // global teardown's sweep gate excludes this run's own ticket
+    extra = {
+      exclusive: !!det.exclusive, serverWideFiles: det.serverWideFiles ?? [], unknown: !!det.unknown,
+      slot: handle.ticket, ticket: handle.ticket, env: plan.env,
+    };
+    heldDesc = det.exclusive ? `${plan.env} to itself (ticket ${handle.ticket})`
+      : `a place in ${plan.env} (${handle.used ?? '?'} of ${handle.capacity ?? '?'} on the VM, ticket ${handle.ticket})`;
   } else {
     const held = acquire(plan.dir, me, { waitMs });
     // Hosted TEST is one run at a time already; the detection here only feeds the one-worker project for the

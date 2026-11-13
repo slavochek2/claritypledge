@@ -112,7 +112,7 @@ STUB
     cd "$R" && git init -q && git config user.email t@t && git config user.name t && git config commit.gpgsign false
     mkdir -p scripts/selfhosted/lib scripts/lib supabase/functions/_shared supabase/functions/fn-a supabase/functions/fn-b \
              supabase/selfhosted/functions-main
-    cp "$SRC_ROOT/scripts/selfhosted/deploy-functions.sh" "$SRC_ROOT/scripts/selfhosted/branch-functions-check.sh" "$SRC_ROOT/scripts/selfhosted/flip-test-env.py" scripts/selfhosted/
+    cp "$SRC_ROOT/scripts/selfhosted/deploy-functions.sh" "$SRC_ROOT/scripts/selfhosted/branch-functions-check.sh" "$SRC_ROOT/scripts/selfhosted/flip-test-env.py" "$SRC_ROOT/scripts/selfhosted/lane.py" scripts/selfhosted/   # P1672: lane.py is the resolver both scripts ask
     cp "$SRC_ROOT/scripts/selfhosted/lib/deploy-guard.sh" scripts/selfhosted/lib/
     cp "$SRC_ROOT/scripts/lib/active-test.sh" scripts/lib/
     printf '#!/bin/bash\nexit 0\n' > scripts/check-edge-function-secrets.sh

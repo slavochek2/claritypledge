@@ -23,3 +23,5 @@ src/tests/p1557-test-target.test.ts
 src/tests/p1565-nonprod-image-guard.test.ts
 # The guard's own canary: it must name the hosted ref to prove the resolver ignores it.
 scripts/test-p1591-active-test.sh
+# P1672: asserts that clearing stale lane values never touches a hosted TEST value (it must name one).
+src/tests/p1672-test-lane.test.ts

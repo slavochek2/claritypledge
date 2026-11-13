@@ -1,395 +1,516 @@
 /**
  * @file p1607-e2e-slot-lock.test.ts
- * @description P1607: the self-hosted TEST server admits a fixed number of e2e runs at once (slots),
- * a run touching server-wide state takes the whole server, and the old single-directory lock stays
- * respected during the switch. Real directories and real child processes; no mock of the lock itself.
+ * @description P1607 + P1672: self-hosted TEST admission is decided on the VM (scripts/selfhosted/lanes/vm/admit.py):
+ * one VM-wide capacity across every environment, exclusivity per environment, one dev-server port per machine,
+ * tickets that expire unless heartbeated, and no CI exemption. Every test runs the REAL admit.py against a temp
+ * state directory through the real Node client (CP_E2E_ADMIT_CMD is the hermetic seam); nothing is mocked.
  * Hosted TEST keeps exactly one run at a time (P1541's measured limit): tested here too.
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn, spawnSync, execFileSync, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import {
-  MAX_SLOTS, SELFHOSTED_SLOT_LIMIT, slotLimit, slotPaths, acquireSlot,
+  SELFHOSTED_SLOT_LIMIT, acquireSlot, otherRunsLive, admitEnv, admitCommand, AdmissionUnavailable, SWEEP_QUERY_TIMEOUT_MS,
 } from '../../scripts/lib/e2e-slot-lock.mjs';
 import { TEST_PROJECT_REF } from '../../scripts/lib/test-target.mjs';
-import { acquire, guardTestDbRun, lockPlan, slotLockBase, sweepBlockers, lockSkipReason } from '../../scripts/lib/e2e-test-db-lock.mjs';
+import { guardTestDbRun, lockPlan, sweepBlockers, lockSkipReason } from '../../scripts/lib/e2e-test-db-lock.mjs';
 
 const HOSTED_URL = `https://${TEST_PROJECT_REF}.supabase.co`; // from the one definition, never typed (P1591)
+const SELF = 'https://test-db.example.org';
+const ADMIT_PY = path.resolve('scripts/selfhosted/lanes/vm/admit.py');
+const ADMIT_CMD = `python3 ${ADMIT_PY}`;
+
 const dirs: string[] = [];
-const kids: ChildProcess[] = [];
 const tmp = () => {
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'p1607-'));
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'p1672-admit-'));
   dirs.push(d);
   return d;
 };
-afterEach(() => {
-  for (const k of kids.splice(0)) { try { k.kill('SIGKILL'); } catch { /* gone */ } }
-  for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
-});
+afterEach(() => { for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true }); });
 
-const startOf = (pid: number) => spawnSync('ps', ['-p', String(pid), '-o', 'lstart=']).stdout.toString().trim();
-/** A distinct, genuinely live process id per simulated run. */
-function runner(worktree: string, over: Record<string, unknown> = {}) {
-  const k = spawn('sleep', ['120'], { stdio: 'ignore' });
-  kids.push(k);
-  return {
-    pid: k.pid!, processStart: startOf(k.pid!), acquiredAt: Date.now() + kids.length, // distinct, ordered
-    worktree, branch: `feature/${worktree}`, port: 5000 + kids.length * 100, ...over,
-  };
-}
-/** A run that has already exited: its pid is gone. */
-function deadRunner(worktree: string, over: Record<string, unknown> = {}) {
-  const r = spawnSync('sh', ['-c', 'echo $$']);
-  return { pid: Number(r.stdout.toString().trim()), processStart: 'Mon Jan  1 00:00:00 2001', acquiredAt: 1, worktree, branch: 'x', port: 1, ...over };
-}
-const opts = (over: Record<string, unknown> = {}) => ({ waitMs: 0, pollMs: 10, log: () => {}, limit: 2, ...over });
-const ownerOf = (dir: string) => JSON.parse(fs.readFileSync(path.join(dir, 'owner.json'), 'utf8'));
-const plant = (dir: string, owner: object) => {
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'owner.json'), JSON.stringify(owner));
-};
+/**
+ * process.env without anything that selects a lane, a TEST origin or an admission path. vite.config.ts applies this
+ * worktree's TEST lane to process.env when it loads (P1672 test-lane-apply), so a claimed worktree's unit run would
+ * otherwise carry SELFHOSTED_TEST_ORIGIN / CP_TEST_LANE into every scenario below.
+ */
+const AMBIENT = ['SELFHOSTED_TEST_ORIGIN', 'CP_TEST_LANE', 'CP_TEST_LANE_GENERATION', 'CP_E2E_ADMIT_CMD', 'CP_E2E_ADMIT_CMD_PROOF',
+  'CP_ADMIT_STATE_DIR', 'CP_E2E_ADMIT_TICKET', 'E2E_TEST_DB_LOCK_HELD', 'E2E_LOADTEST', 'CI', 'VITE_SUPABASE_URL'];
+const base = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !AMBIENT.includes(k))) as NodeJS.ProcessEnv;
+/** The hermetic seam is honoured only with this (scripts/lib/e2e-slot-lock.mjs ADMIT_CMD_PROOF_VALUE). */
+const PROOF = { CP_E2E_ADMIT_CMD_PROOF: 'hermetic-test' };
 
-const ADMIT = path.resolve('scripts/lib/e2e-slot-lock.mjs');
-/** A child process that tries once to get a slot and reports HELD/WAIT, holding the slot for holdMs. */
-function racer(base: string, name: string, acquiredAt: number, port: number, opts2: { pauseMs?: number; holdMs?: number; limit?: number; waitMs?: number } = {}) {
-  return new Promise<{ name: string; out: string; t: number }>((resolve) => {
-    const file = path.join(base, `racer-${name}.mjs`);
-    fs.writeFileSync(file, `
-      import { acquireSlot, slotPaths } from ${JSON.stringify(ADMIT)};
-      import { execFileSync } from 'node:child_process';
-      const start = execFileSync('ps', ['-p', String(process.pid), '-o', 'lstart=']).toString().trim();
-      const sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-      const h = acquireSlot(slotPaths(${JSON.stringify(base)}), { pid: process.pid, processStart: start, acquiredAt: ${acquiredAt}, worktree: ${JSON.stringify(name)}, branch: 'b', port: ${port} },
-        { limit: ${opts2.limit ?? 2}, waitMs: ${opts2.waitMs ?? 0}, pollMs: 20, log: () => {},
-          onScanned: ${opts2.pauseMs ? `() => sleep(${opts2.pauseMs})` : 'undefined'} });
-      console.log(h.held ? 'HELD' : 'WAIT');
-      if (h.held) setTimeout(() => process.exit(0), ${opts2.holdMs ?? 1200});
-    `);
-    const t = Date.now();
-    const c = spawn(process.execPath, [file], { stdio: ['ignore', 'pipe', 'inherit'] });
-    let out = '';
-    c.stdout.on('data', d => { out += d; });
-    c.on('exit', () => resolve({ name, out: out.trim(), t: Date.now() - t }));
-  });
+/** A fresh, empty VM admission state, reached the way a Mac client reaches it. */
+function vm(extra: Record<string, string> = {}) {
+  const state = tmp();
+  const env = { ...base(), ...PROOF, CP_E2E_ADMIT_CMD: ADMIT_CMD, CP_ADMIT_STATE_DIR: state, ...extra } as NodeJS.ProcessEnv;
+  const admit = (...args: string[]) => spawnSync('python3', [ADMIT_PY, ...args], { env, encoding: 'utf8' });
+  const tickets = () => JSON.parse(admit('admit-status', '--json').stdout).tickets as Array<Record<string, string>>;
+  return { state, env, admit, tickets };
 }
+let n = 0;
+const me = (worktree: string, over: Record<string, unknown> = {}) =>
+  ({ pid: 40_000 + (n++), worktree, branch: `feature/${worktree}`, port: 5000 + n, machine: 'mac-a', ...over });
+const opts = (env: NodeJS.ProcessEnv, over: Record<string, unknown> = {}) => ({ env, waitMs: 0, log: () => {}, ...over });
 
-describe('the limit is one setting', () => {
-  it('has a default, an env override, and ignores junk', () => {
-    expect(slotLimit({})).toBe(SELFHOSTED_SLOT_LIMIT);
-    expect(slotLimit({ E2E_SELFHOSTED_SLOTS: '3' })).toBe(3);
-    expect(slotLimit({ E2E_SELFHOSTED_SLOTS: '1' })).toBe(1);
-    for (const junk of ['0', '-1', 'two', '', '2.5', String(MAX_SLOTS + 1)]) {
-      expect(slotLimit({ E2E_SELFHOSTED_SLOTS: junk })).toBe(SELFHOSTED_SLOT_LIMIT);
+describe('one VM-wide capacity across every environment', () => {
+  it('three runs in three environments are admitted; a fourth, in any environment, waits and names every holder', () => {
+    const v = vm();
+    const a = acquireSlot(me('w1'), opts(v.env, { envName: 'main' }));
+    const b = acquireSlot(me('w2'), opts(v.env, { envName: 'lane1' }));
+    const c = acquireSlot(me('w3'), opts(v.env, { envName: 'lane2' }));
+    expect([a.held, b.held, c.held]).toEqual([true, true, true]);
+    for (const envName of ['main', 'lane1', 'lane2']) {
+      const lines: string[] = [];
+      const d = acquireSlot(me('w4'), opts(v.env, { envName, log: (l: string) => lines.push(l) }));
+      expect(d.held).toBe(false);
+      expect(lines.join('\n')).toMatch(/capacity 3 in use.*w1 \(feature\/w1.*w2 \(feature\/w2.*w3 \(feature\/w3/);
     }
   });
-});
 
-describe('slots: runs share the server up to the limit', () => {
-  it('two runs hold slots at once; a third waits and names every holder', () => {
-    const p = slotPaths(tmp());
-    const a = acquireSlot(p, runner('w1'), opts());
-    const b = acquireSlot(p, runner('w4'), opts());
-    expect(a.held && b.held).toBe(true);
-    const lines: string[] = [];
-    const c = acquireSlot(p, runner('w5'), opts({ log: (l: string) => lines.push(l) }));
-    expect(c.held).toBe(false);
-    const said = lines.join('\n');
-    expect(said).toMatch(/w1 \(feature\/w1, pid \d+/);
-    expect(said).toMatch(/w4 \(feature\/w4, pid \d+/);
-  });
-
-  it('with the limit at 1 the second run waits: the old behaviour is one setting away', () => {
-    const p = slotPaths(tmp());
-    expect(acquireSlot(p, runner('w1'), opts({ limit: 1 })).held).toBe(true);
-    expect(acquireSlot(p, runner('w4'), opts({ limit: 1 })).held).toBe(false);
-  });
-
-  it('a slot freed by a release admits the waiter', () => {
-    const p = slotPaths(tmp());
-    const a = acquireSlot(p, runner('w1'), opts({ limit: 1 }));
-    // The wait blocks this process, so the release comes from another one, as it does for real.
-    spawn(process.execPath, ['-e', `setTimeout(() => require('fs').rmSync(${JSON.stringify(p.slot(1))}, { recursive: true, force: true }), 200)`]);
-    const t0 = Date.now();
-    const b = acquireSlot(p, runner('w4'), opts({ limit: 1, waitMs: 5000, pollMs: 20 }));
+  it('control: below the capacity a run is admitted; the default matches SELFHOSTED_SLOT_LIMIT', () => {
+    const v = vm();
+    const a = acquireSlot(me('w1'), opts(v.env));
     expect(a.held).toBe(true);
-    expect(b.held).toBe(true);
-    expect(Date.now() - t0).toBeLessThan(4000);
+    expect(a.capacity).toBe(SELFHOSTED_SLOT_LIMIT);
+    expect(a.used).toBe(1);
   });
 
-  it('release frees exactly this run slot and never another run slot', () => {
-    const p = slotPaths(tmp());
-    const a = acquireSlot(p, runner('w1'), opts());
-    const b = acquireSlot(p, runner('w4'), opts());
-    a.release();
-    expect(fs.existsSync(p.slot(1))).toBe(false);
-    expect(ownerOf(p.slot(2)).worktree).toBe('w4');
-    b.release();
-    expect(fs.existsSync(p.slot(2))).toBe(false);
+  it('the capacity is the one setting in admit.conf on the VM; junk falls back to the default', () => {
+    const v = vm();
+    fs.writeFileSync(path.join(v.state, 'admit.conf'), 'capacity=1\n');
+    expect(acquireSlot(me('w1'), opts(v.env, { envName: 'main' })).held).toBe(true);
+    expect(acquireSlot(me('w2'), opts(v.env, { envName: 'lane1' })).held).toBe(false);
+    fs.writeFileSync(path.join(v.state, 'admit.conf'), 'capacity=lots\n');
+    expect(acquireSlot(me('w2'), opts(v.env, { envName: 'lane1' })).held).toBe(true); // default 3
   });
 
-  it('a lowered limit still counts slots held under the higher one (count-based, not index-based)', () => {
-    const p = slotPaths(tmp());
-    for (const i of [1, 2, 3]) plant(p.slot(i), runner(`w${i}`));
-    expect(acquireSlot(p, runner('w9'), opts({ limit: 2 })).held).toBe(false);
-    expect(acquireSlot(p, runner('w9'), opts({ limit: 3 })).held).toBe(false);
-    expect(acquireSlot(p, runner('w9'), opts({ limit: 4 })).held).toBe(true);
+  it('a client can no longer choose the limit for itself (E2E_SELFHOSTED_SLOTS is ignored)', () => {
+    const v = vm({ E2E_SELFHOSTED_SLOTS: '16' });
+    fs.writeFileSync(path.join(v.state, 'admit.conf'), 'capacity=1\n');
+    expect(acquireSlot(me('w1'), opts(v.env)).held).toBe(true);
+    expect(acquireSlot(me('w2'), opts(v.env)).held).toBe(false);
   });
 
-  it('a dead holder never blocks: its slot is reclaimed', () => {
-    const p = slotPaths(tmp());
-    plant(p.slot(1), deadRunner('wdead'));
-    plant(p.slot(2), runner('w4'));
-    const lines: string[] = [];
-    const h = acquireSlot(p, runner('w5'), opts({ log: (l: string) => lines.push(l) }));
-    expect(h.held).toBe(true);
-    expect(lines.join('\n')).toMatch(/reclaiming a stale e2e slot from wdead/);
-    expect(ownerOf(p.slot(1)).worktree).toBe('w5');
-  });
-
-  it('two racing runs never exceed the limit (separate processes, one free slot)', () => {
-    const base = tmp();
-    plant(slotPaths(base).slot(1), runner('w1'));
-    return Promise.all([
-      racer(base, 'wA', 100, 7001, { holdMs: 7000 }), racer(base, 'wB', 101, 7002, { holdMs: 7000 }), racer(base, 'wC', 102, 7003, { holdMs: 7000 }),
-    ]).then((rs) => {
-      expect(rs.filter(r => r.out === 'HELD').length).toBe(1); // limit 2, slot 1 held: exactly one place
-      expect(rs.filter(r => r.out === 'WAIT').length).toBe(2);
+  it('racing processes never exceed the capacity (6 separate processes, capacity 2)', async () => {
+    const v = vm();
+    fs.writeFileSync(path.join(v.state, 'admit.conf'), 'capacity=2\n');
+    const one = (i: number) => new Promise<number>((resolve) => {
+      const c = spawn('python3', [ADMIT_PY, 'admit', '--env', i % 2 ? 'main' : 'lane1', '--mode', 'shared', '--holder', `r${i}`, '--ttl', '60'],
+        { env: v.env, stdio: 'ignore' });
+      c.on('exit', code => resolve(code ?? -1));
     });
-  });
-});
-
-describe('admission is serialized: occupied never exceeds the limit (review: rank recount admitted an older waiter beside two newer holders)', () => {
-  const liveSlotCount = (base: string) => fs.readdirSync(base).filter(f => /slot-\d+\.lock$/.test(f)).length;
-  const sleepMs = (ms: number) => new Promise(r => setTimeout(r, ms));
-
-  it('reverse ordering: the OLDEST-started run is slow to publish while newer runs arrive; never more than the limit at once', async () => {
-    const base = tmp();
-    // The oldest run enters the admission first and stays in the scan-and-take for 1.5 s; two newer runs
-    // arrive during that time. Before the fix the newer ones were admitted beside it and it was kept by rank.
-    const oldest = racer(base, 'old', 1, 7001, { pauseMs: 1500, holdMs: 7000, waitMs: 0 });
-    await sleepMs(150);
-    const newer = [racer(base, 'new1', 1000, 7002, { holdMs: 7000, waitMs: 0 }), racer(base, 'new2', 2000, 7003, { holdMs: 7000, waitMs: 0 })];
-    let peak = 0;
-    const sampler = setInterval(() => { peak = Math.max(peak, liveSlotCount(base)); }, 20);
-    const results = await Promise.all([oldest, ...newer]);
-    clearInterval(sampler);
-    expect(peak).toBeLessThanOrEqual(2);
-    expect(results.filter(r => r.out === 'HELD').length).toBeLessThanOrEqual(2);
-    expect(results.find(r => r.name === 'old')!.out).toBe('HELD'); // it got its place first
+    const codes = await Promise.all([0, 1, 2, 3, 4, 5].map(one));
+    expect(codes.filter(c => c === 0).length).toBe(2);
+    expect(codes.filter(c => c === 5).length).toBe(4);
+    expect(v.tickets().length).toBe(2);
   }, 30_000);
 
-  it('failing control: a run cannot scan while another is between its scan and its take (the mutex is what serializes them)', async () => {
-    const base = tmp();
-    const first = racer(base, 'a', 1, 7001, { pauseMs: 1500, holdMs: 7000, limit: 1, waitMs: 0 });
-    await sleepMs(200);
-    const second = await racer(base, 'b', 2, 7002, { limit: 1, waitMs: 0 }); // arrives mid-attempt, limit 1
-    const firstResult = await first;
-    expect(firstResult.out).toBe('HELD');
-    expect(second.out).toBe('WAIT');
-    // ...and without waiting at all it would have been told "busy" at the mutex, not given a second slot:
-    expect(liveSlotCount(base)).toBeLessThanOrEqual(1);
-  }, 30_000);
-
-  it('many racers, several rounds: held is never above the limit and the oldest-started publishing last changes nothing', async () => {
-    for (let round = 0; round < 3; round++) {
-      const base = tmp();
-      const rs = [6, 5, 4, 3, 2, 1].map((n, i) => racer(base, `r${n}`, n, 7100 + i, { holdMs: 7000, waitMs: 0, pauseMs: i === 5 ? 300 : 0 }));
-      let peak = 0;
-      const sampler = setInterval(() => { peak = Math.max(peak, liveSlotCount(base)); }, 15);
-      const results = await Promise.all(rs);
-      clearInterval(sampler);
-      expect(peak).toBeLessThanOrEqual(2);
-      expect(results.filter(r => r.out === 'HELD').length).toBeLessThanOrEqual(2);
-    }
-  }, 60_000);
-
-  it('a dead admission holder is reclaimed like any other owner (a crash inside the scan-and-take blocks nobody)', () => {
-    const p = slotPaths(tmp());
-    plant(p.admission, deadRunner('wdead'));
-    const lines: string[] = [];
-    const h = acquireSlot(p, runner('w4'), opts({ log: (l: string) => lines.push(l) }));
-    expect(h.held).toBe(true);
-    expect(lines.join('\n')).toMatch(/reclaiming a stale e2e admission lock from wdead/);
-    expect(fs.existsSync(p.admission)).toBe(false); // released after the attempt
-  });
-
-  it('the admission mutex is released after every attempt: granted, refused or exclusive', () => {
-    const p = slotPaths(tmp());
-    acquireSlot(p, runner('w1'), opts({ limit: 1 }));
-    expect(acquireSlot(p, runner('w2'), opts({ limit: 1 })).held).toBe(false);
-    expect(fs.existsSync(p.admission)).toBe(false);
-    expect(acquireSlot(p, runner('w3'), opts({ exclusive: true })).held).toBe(false);
-    expect(fs.existsSync(p.admission)).toBe(false);
-  });
-});
-
-describe('a dev-server port is held by one run (a shared server dies with the run that started it)', () => {
-  it('a second run on the same port waits although a slot is free, and says why', () => {
-    const p = slotPaths(tmp());
-    expect(acquireSlot(p, runner('w1', { port: 5100 }), opts()).held).toBe(true);
-    const lines: string[] = [];
-    const same = acquireSlot(p, runner('w1b', { port: 5100 }), opts({ log: (l: string) => lines.push(l) }));
-    expect(same.held).toBe(false);
-    expect(lines.join('\n')).toMatch(/port 5100/);
-    expect(acquireSlot(p, runner('w4', { port: 5400 }), opts()).held).toBe(true);
-  });
-});
-
-describe('exclusive runs take the whole server', () => {
-  it('waits for slot holders to finish, naming them, then runs alone', () => {
-    const p = slotPaths(tmp());
-    const a = acquireSlot(p, runner('w1'), opts());
-    const lines: string[] = [];
-    const x = acquireSlot(p, runner('w4'), opts({ exclusive: true, log: (l: string) => lines.push(l) }));
-    expect(x.held).toBe(false);
-    expect(lines.join('\n')).toMatch(/w1 \(feature\/w1/);
+  it('release frees exactly that run, and releasing twice is harmless', () => {
+    const v = vm();
+    const a = acquireSlot(me('w1'), opts(v.env));
+    const b = acquireSlot(me('w2'), opts(v.env));
     a.release();
-    // The failed attempt gave up its claim: nothing is left behind.
-    expect(fs.existsSync(p.claim)).toBe(false);
-    expect(acquireSlot(p, runner('w4'), opts({ exclusive: true })).held).toBe(true);
+    a.release();
+    expect(v.tickets().map(t => t.ticket)).toEqual([b.ticket]);
+    expect(JSON.parse(v.admit('admit-release', '--ticket', a.ticket!).stdout)).toEqual({ released: false });
+  });
+});
+
+describe('exclusivity is per environment', () => {
+  it('an exclusive run in lane1 does not block a main-lane run', () => {
+    const v = vm();
+    expect(acquireSlot(me('wx'), opts(v.env, { envName: 'lane1', exclusive: true })).held).toBe(true);
+    expect(acquireSlot(me('wm'), opts(v.env, { envName: 'main' })).held).toBe(true);
+    // ...and a second exclusive run elsewhere is not blocked by either of them.
+    expect(acquireSlot(me('wl2'), opts(v.env, { envName: 'lane2', exclusive: true })).held).toBe(true);
   });
 
-  it('while an exclusive run holds the server nobody else enters, and the wait names it', () => {
-    const p = slotPaths(tmp());
-    const x = acquireSlot(p, runner('w4'), opts({ exclusive: true }));
+  it('an exclusive run blocks a second run in the SAME environment, shared or exclusive, and names itself', () => {
+    const v = vm();
+    const x = acquireSlot(me('wx'), opts(v.env, { envName: 'lane1', exclusive: true }));
     expect(x.held).toBe(true);
     const lines: string[] = [];
-    expect(acquireSlot(p, runner('w5'), opts({ log: (l: string) => lines.push(l) })).held).toBe(false);
-    expect(lines.join('\n')).toMatch(/w4 \(feature\/w4.*alone/);
-    expect(acquireSlot(p, runner('w6'), opts({ exclusive: true })).held).toBe(false);
+    expect(acquireSlot(me('w2'), opts(v.env, { envName: 'lane1', log: (l: string) => lines.push(l) })).held).toBe(false);
+    expect(lines.join('\n')).toMatch(/wx \(feature\/wx.*exclusive in lane1/);
+    expect(acquireSlot(me('w3'), opts(v.env, { envName: 'lane1', exclusive: true })).held).toBe(false);
     x.release();
-    expect(acquireSlot(p, runner('w5'), opts()).held).toBe(true);
+    expect(acquireSlot(me('w2'), opts(v.env, { envName: 'lane1' })).held).toBe(true); // control: freed
   });
 
-  it('an exclusive waiter blocks new one-slot runs from taking free slots while it drains (no starvation)', () => {
-    const p = slotPaths(tmp());
-    expect(acquireSlot(p, runner('w1'), opts()).held).toBe(true);        // one of two slots used
-    plant(p.claim, runner('wX', { exclusive: true }));                    // an exclusive run is queued behind it
+  it('an exclusive run waits for runs already in its environment, never for runs elsewhere', () => {
+    const v = vm();
+    const other = acquireSlot(me('wm'), opts(v.env, { envName: 'main' }));
+    expect(acquireSlot(me('wx'), opts(v.env, { envName: 'lane1', exclusive: true })).held).toBe(true);
+    const inLane2 = acquireSlot(me('wl'), opts(v.env, { envName: 'lane2' }));
+    expect(acquireSlot(me('wy'), opts(v.env, { envName: 'lane2', exclusive: true })).held).toBe(false);
+    inLane2.release();
+    expect(acquireSlot(me('wy'), opts(v.env, { envName: 'lane2', exclusive: true })).held).toBe(true);
+    expect(other.held).toBe(true);
+  });
+
+  it('a waiting exclusive run claims its environment: a new shared run there is refused while it drains (no starvation)', async () => {
+    const v = vm();
+    const holder = acquireSlot(me('w1'), opts(v.env, { envName: 'lane1' }));
+    // The exclusive waiter is another process, waiting on the VM for up to 6 s.
+    const waiter = new Promise<{ code: number; out: string }>((resolve) => {
+      const c = spawn('python3', [ADMIT_PY, 'admit', '--env', 'lane1', '--mode', 'exclusive', '--holder', 'wX', '--ttl', '60', '--wait', '6'],
+        { env: v.env, stdio: ['ignore', 'pipe', 'ignore'] });
+      let out = '';
+      c.stdout.on('data', d => { out += d; });
+      c.on('exit', code => resolve({ code: code ?? -1, out }));
+    });
+    for (let i = 0; i < 40 && !v.tickets().some(t => t.phase === 'waiting'); i++) await new Promise(r => setTimeout(r, 50));
     const lines: string[] = [];
-    const late = acquireSlot(p, runner('w5'), opts({ log: (l: string) => lines.push(l) }));
-    expect(late.held).toBe(false);                                        // a slot was free; still refused
-    expect(lines.join('\n')).toMatch(/wX/);
-  });
-
-  it('a dead exclusive claim goes stale like any other owner', () => {
-    const p = slotPaths(tmp());
-    plant(p.claim, deadRunner('wX', { exclusive: true }));
-    expect(acquireSlot(p, runner('w5'), opts()).held).toBe(true);
-    const q = slotPaths(tmp());
-    plant(q.claim, deadRunner('wX', { exclusive: true }));
-    expect(acquireSlot(q, runner('w5'), opts({ exclusive: true })).held).toBe(true);
-  });
+    expect(acquireSlot(me('w5'), opts(v.env, { envName: 'lane1', log: (l: string) => lines.push(l) })).held).toBe(false);
+    expect(lines.join('\n')).toMatch(/wX \(waiting to run alone in lane1/);
+    expect(acquireSlot(me('w6'), opts(v.env, { envName: 'main' })).held).toBe(true); // control: other envs unaffected
+    holder.release();
+    const w = await waiter;
+    expect(w.code).toBe(0);
+    expect(JSON.parse(w.out.trim()).mode).toBe('exclusive');
+  }, 20_000);
 
   it('an exclusive waiter that gives up leaves no claim behind', () => {
-    const p = slotPaths(tmp());
-    acquireSlot(p, runner('w1'), opts());
-    expect(acquireSlot(p, runner('w4'), opts({ exclusive: true })).held).toBe(false);
-    expect(fs.existsSync(p.claim)).toBe(false);
+    const v = vm();
+    acquireSlot(me('w1'), opts(v.env, { envName: 'lane1' }));
+    const r = v.admit('admit', '--env', 'lane1', '--mode', 'exclusive', '--holder', 'wX', '--ttl', '60', '--wait', '1');
+    expect(r.status).toBe(5);
+    expect(v.tickets().filter(t => t.phase === 'waiting')).toEqual([]);
+    expect(acquireSlot(me('w2'), opts(v.env, { envName: 'lane1' })).held).toBe(true); // control: not blocked by a leftover
   });
 });
 
-describe('the old single-directory lock: read, counted, never written', () => {
-  const oldOwner = (name = 'w1') => { const r = runner(name, { port: undefined }); return { pid: r.pid, processStart: r.processStart, acquiredAt: r.acquiredAt, worktree: name, branch: 'feature/p1536' }; };
-  const bytes = (dir: string) => fs.readFileSync(path.join(dir, 'owner.json'), 'utf8');
+describe('a dev-server port is held by one run per machine (a shared server dies with the run that started it)', () => {
+  it('the same machine and port waits even in another environment; another port or another machine does not', () => {
+    const v = vm();
+    expect(acquireSlot(me('w1', { port: 5100 }), opts(v.env, { envName: 'main' })).held).toBe(true);
+    const lines: string[] = [];
+    expect(acquireSlot(me('w1b', { port: 5100 }), opts(v.env, { envName: 'lane1', log: (l: string) => lines.push(l) })).held).toBe(false);
+    expect(lines.join('\n')).toMatch(/same dev-server port 5100 on mac-a/);
+    expect(acquireSlot(me('w4', { port: 5400 }), opts(v.env, { envName: 'lane1' })).held).toBe(true);
+    expect(acquireSlot(me('w1c', { port: 5100, machine: 'ci-runner' }), opts(v.env, { envName: 'lane2' })).held).toBe(true);
+  });
+});
 
-  it('a live old-style owner is ONE occupied slot: with a limit of 2 exactly one new run fits, and the wait names it', () => {
-    const p = slotPaths(tmp());
-    plant(p.legacy, oldOwner());
-    expect(acquireSlot(p, runner('w4'), opts({ limit: 2 })).held).toBe(true);
-    const lines: string[] = [];
-    expect(acquireSlot(p, runner('w5'), opts({ limit: 2, log: (l: string) => lines.push(l) })).held).toBe(false);
-    expect(lines.join('\n')).toMatch(/w1 \(feature\/p1536.*older checkout/);
+describe('tickets expire unless heartbeated', () => {
+  it('an un-heartbeated ticket is swept after its TTL, freeing the place; heartbeat for it is refused (exit 4)', () => {
+    const v = vm();
+    fs.writeFileSync(path.join(v.state, 'admit.conf'), 'capacity=1\n');
+    const a = acquireSlot(me('w1'), opts(v.env, { ttlS: 1 }));
+    expect(acquireSlot(me('w2'), opts(v.env)).held).toBe(false);        // control: it is held now
+    execFileSync('sleep', ['1.3']);
+    expect(acquireSlot(me('w2'), opts(v.env)).held).toBe(true);
+    expect(v.admit('admit-heartbeat', '--ticket', a.ticket!, '--ttl', '60').status).toBe(4);
   });
-  it('with a limit of 1 a live old-style owner admits nobody', () => {
-    const p = slotPaths(tmp());
-    plant(p.legacy, oldOwner());
-    expect(acquireSlot(p, runner('w4'), opts({ limit: 1 })).held).toBe(false);
+
+  it('the client heartbeat keeps a ticket alive past its TTL; without it the same ticket expires (control)', async () => {
+    const v = vm();
+    const kept = acquireSlot(me('w1'), opts(v.env, { ttlS: 2 }));
+    const dropped = acquireSlot(me('w2'), opts(v.env, { ttlS: 2 }));
+    const lost: string[] = [];
+    kept.startHeartbeat({ everyMs: 300, onLost: (t: string) => lost.push(t) }); // never SIGINT the test worker
+    await new Promise(r => setTimeout(r, 3_000));
+    const live = v.tickets().map(t => t.ticket);
+    kept.release();
+    expect(live).toContain(kept.ticket);
+    expect(live).not.toContain(dropped.ticket);
+    expect(lost).toEqual([]); // a live ticket is never reported lost
+  }, 15_000);
+
+  it('a hung heartbeat is killed at its timeout, so the next beat still runs', async () => {
+    const v = vm();
+    const pids = path.join(v.state, 'hung-pids');
+    const hang = path.join(v.state, 'hang.sh');
+    fs.writeFileSync(hang, `echo $$ >> ${pids}\nexec sleep 30\n`);
+    const lost: string[] = [];
+    // Admitted normally; the handle keeps this env object and reads the command from it at every beat, so swapping
+    // the command afterwards makes every heartbeat hang, as a stalled IAP SSH would.
+    const live = acquireSlot(me('w1'), opts(v.env));
+    v.env.CP_E2E_ADMIT_CMD = `sh ${hang}`;
+    live.startHeartbeat({ everyMs: 150, timeoutMs: 400, onLost: (t: string) => lost.push(t) });
+    await new Promise(r => setTimeout(r, 2_000));
+    v.env.CP_E2E_ADMIT_CMD = ADMIT_CMD;
+    live.release();
+    await new Promise(r => setTimeout(r, 800)); // the beat in flight at stop() reaches its 400 ms bound too
+    const started = fs.readFileSync(pids, 'utf8').trim().split('\n').map(Number);
+    expect(started.length).toBeGreaterThanOrEqual(2); // a later beat ran: the first hung one did not stall it
+    const alive = started.filter(p => { try { process.kill(p, 0); return true; } catch { return false; } });
+    expect(alive).toEqual([]);                          // every hung heartbeat was killed
+    expect(lost).toEqual([]);                           // a timeout is not a lost ticket
+  }, 15_000);
+});
+
+describe('a lost ticket stops the run (fail closed); a live one does not', () => {
+  const LIB = path.resolve('scripts/lib/e2e-slot-lock.mjs');
+  /** A stand-in for the Playwright main runner: admitted, heartbeating, and otherwise idle until something stops it. */
+  function runner(v: ReturnType<typeof vm>, mode: 'plain' | 'swallow-sigint',
+    { ttlS = 240, env = v.env, waitMs = 0 }: { ttlS?: number; env?: NodeJS.ProcessEnv; waitMs?: number } = {}) {
+    const file = path.join(v.state, `runner-${mode}.mjs`);
+    fs.writeFileSync(file, `
+      import { acquireSlot, terminateLostRun } from ${JSON.stringify(LIB)};
+      ${mode === 'swallow-sigint' ? "process.on('SIGINT', () => console.log('SIGINT-SWALLOWED'));" : ''}
+      const h = acquireSlot({ pid: process.pid, worktree: 'wR', branch: 'b', port: 5999, machine: 'mac-r' }, { waitMs: ${waitMs}, ttlS: ${ttlS}, log: () => {} });
+      console.log('TICKET ' + h.ticket);
+      h.startHeartbeat({ everyMs: 150, onLost: (t, why) => terminateLostRun(t, { why, backstopMs: 600 }) });
+      setInterval(() => {}, 1000); // keeps the process alive, as a running suite does
+    `);
+    const c = spawn(process.execPath, [file], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = ''; let err = '';
+    c.stdout.on('data', d => { out += d; });
+    c.stderr.on('data', d => { err += d; });
+    const exited = new Promise<{ code: number | null; signal: string | null }>(r => c.on('exit', (code, signal) => r({ code, signal })));
+    const ticket = async () => {
+      for (let i = 0; i < 100 && !/TICKET \S+/.test(out); i++) await new Promise(r => setTimeout(r, 50));
+      return /TICKET (\S+)/.exec(out)![1];
+    };
+    return { c, exited, ticket, output: () => ({ out, err }) };
+  }
+  const within = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<'still running'>(r => setTimeout(() => r('still running'), ms))]);
+
+  it('the VM dropping the ticket ends the run by SIGINT (Playwright interrupt: teardown, exit 130) with an [infra] line', async () => {
+    const v = vm();
+    const r = runner(v, 'plain');
+    const t = await r.ticket();
+    v.admit('admit-release', '--ticket', t); // the VM no longer holds it (as after an expiry)
+    const res = await within(r.exited, 5_000);
+    if (res === 'still running') r.c.kill('SIGKILL');
+    expect(res).toEqual({ code: null, signal: 'SIGINT' });
+    expect(r.output().err).toMatch(new RegExp(`\\[P1672\\]\\[infra\\] admission ticket ${t} was lost`));
+  }, 15_000);
+
+  it('if SIGINT is swallowed, the backstop still ends the run, non-zero (75)', async () => {
+    const v = vm();
+    const r = runner(v, 'swallow-sigint');
+    const t = await r.ticket();
+    v.admit('admit-release', '--ticket', t);
+    const res = await within(r.exited, 5_000);
+    if (res === 'still running') r.c.kill('SIGKILL');
+    expect(r.output().out).toMatch(/SIGINT-SWALLOWED/);
+    expect(res).toEqual({ code: 75, signal: null });
+  }, 15_000);
+
+  /** An admission command that fails (no answer, exit 1) while a flag file exists, as an SSH to a down VM would. */
+  function flaky(v: ReturnType<typeof vm>) {
+    const flag = path.join(v.state, 'vm-down');
+    const wrapper = path.join(v.state, 'flaky.sh');
+    fs.writeFileSync(wrapper, `[ -e ${flag} ] && exit 1\nexec python3 ${ADMIT_PY} "$@"\n`);
+    return { flag, env: { ...v.env, CP_E2E_ADMIT_CMD: `sh ${wrapper}` } as NodeJS.ProcessEnv };
+  }
+
+  it('heartbeats that stop REACHING the VM for TTL minus the margin end the run the same way (SIGINT, [infra] line)', async () => {
+    const v = vm();
+    const f = flaky(v);
+    const r = runner(v, 'plain', { ttlS: 2, env: f.env }); // limit: 2 s minus a quarter = 1.5 s of silence
+    const t = await r.ticket();
+    fs.writeFileSync(f.flag, '');                          // the VM stops answering; no exit 4 ever arrives
+    const res = await within(r.exited, 6_000);
+    if (res === 'still running') r.c.kill('SIGKILL');
+    expect(res).toEqual({ code: null, signal: 'SIGINT' });
+    expect(r.output().err).toMatch(new RegExp(`\\[P1672\\]\\[infra\\] admission ticket ${t} was lost: no heartbeat has reached the VM for \\d+s`));
+  }, 15_000);
+
+  it('control: an outage shorter than the margin does not stop the run', async () => {
+    const v = vm();
+    const f = flaky(v);
+    const r = runner(v, 'plain', { ttlS: 2, env: f.env });
+    const t = await r.ticket();
+    fs.writeFileSync(f.flag, '');
+    await new Promise(res => setTimeout(res, 500));        // well under the 1.5 s limit
+    fs.rmSync(f.flag);
+    const res = await within(r.exited, 3_000);
+    r.c.kill('SIGKILL');
+    expect(res).toBe('still running');
+    expect(r.output().err).not.toMatch(/was lost/);
+    expect(v.tickets().map(x => x.ticket)).toContain(t);   // beats resumed and kept it past its 2 s TTL
+  }, 15_000);
+
+  /** Capacity 1, held by another run that leaves after `holdMs`: the runner's admit call waits on the VM that long. */
+  function queuedBehind(v: ReturnType<typeof vm>, holdMs: number) {
+    fs.writeFileSync(path.join(v.state, 'admit.conf'), 'capacity=1\n');
+    const other = acquireSlot(me('wQ'), opts(v.env));
+    setTimeout(() => other.release(), holdMs);
+  }
+
+  it('a run that waited in the queue longer than its reach limit is NOT stopped once admitted (the clock starts at admission)', async () => {
+    const v = vm();
+    queuedBehind(v, 2_200);                                 // longer than the 1.5 s limit of a 2 s TTL
+    const r = runner(v, 'plain', { ttlS: 2, waitMs: 10_000 });
+    const t = await r.ticket();                             // returns only once admitted, about 2.2 s in
+    const res = await within(r.exited, 3_000);              // heartbeats reach the VM: it must keep running
+    r.c.kill('SIGKILL');
+    expect(res).toBe('still running');
+    expect(r.output().err).not.toMatch(/was lost/);
+    expect(v.tickets().map(x => x.ticket)).toContain(t);
+  }, 20_000);
+
+  it('control: the same long-waited admission whose heartbeats then go silent is still stopped', async () => {
+    const v = vm();
+    const f = flaky(v);
+    queuedBehind(v, 2_200);
+    const r = runner(v, 'plain', { ttlS: 2, waitMs: 10_000, env: f.env });
+    const t = await r.ticket();
+    fs.writeFileSync(f.flag, '');                           // silence starts after admission
+    const res = await within(r.exited, 6_000);
+    if (res === 'still running') r.c.kill('SIGKILL');
+    expect(res).toEqual({ code: null, signal: 'SIGINT' });
+    expect(r.output().err).toMatch(new RegExp(`admission ticket ${t} was lost: no heartbeat has reached the VM`));
+  }, 20_000);
+
+  it('the reach limit is the TTL minus a quarter of it, never more than 60 s early', async () => {
+    const { unreachableLimitMs } = await import('../../scripts/lib/e2e-slot-lock.mjs');
+    expect(unreachableLimitMs(240)).toBe(180_000);
+    expect(unreachableLimitMs(2)).toBe(1_500);
+    expect(unreachableLimitMs(3600)).toBe(3_540_000);
   });
-  it('a live old-style owner blocks an exclusive run, and names it', () => {
-    const p = slotPaths(tmp());
-    plant(p.legacy, oldOwner());
-    const lines: string[] = [];
-    expect(acquireSlot(p, runner('w4'), opts({ exclusive: true, log: (l: string) => lines.push(l) })).held).toBe(false);
-    expect(lines.join('\n')).toMatch(/w1 \(feature\/p1536.*older checkout/);
-    expect(fs.existsSync(p.claim)).toBe(false); // the failed attempt leaves no claim behind
+
+  it('control: with the ticket still held, the same runner keeps running', async () => {
+    const v = vm();
+    const r = runner(v, 'plain');
+    const t = await r.ticket();
+    const res = await within(r.exited, 2_000);
+    r.c.kill('SIGKILL');
+    expect(res).toBe('still running');
+    expect(r.output().err).not.toMatch(/was lost/);
+    expect(v.tickets().map(x => x.ticket)).toContain(t);
+  }, 15_000);
+});
+
+describe('an unreachable VM fails admission; it never runs unadmitted', () => {
+  const bad = (cmd: string) => ({ ...base(), ...PROOF, CP_E2E_ADMIT_CMD: cmd } as NodeJS.ProcessEnv);
+  it.each([
+    ['a command that fails', 'false'],
+    ['a command that does not exist', '/nonexistent/admit-cmd'],
+    ['an answer that is not JSON', 'echo garbage'],
+  ])('%s throws AdmissionUnavailable', (_what, cmd) => {
+    expect(() => acquireSlot(me('w1'), opts(bad(cmd)))).toThrow(AdmissionUnavailable);
   });
-  it('a dead old-style owner is ignored AND left exactly as it was (a new run never reclaims it)', () => {
-    const p = slotPaths(tmp());
-    plant(p.legacy, deadRunner('wold'));
-    const before = bytes(p.legacy);
-    const h = acquireSlot(p, runner('w4'), opts({ limit: 1 }));
-    expect(h.held).toBe(true);
-    expect(bytes(p.legacy)).toBe(before);
-    h.release();
-    expect(bytes(p.legacy)).toBe(before);
+
+  it('guardTestDbRun exits 1 with an [infra] line, with or without CI set, and is never "held" or "skipped"', () => {
+    for (const ci of [{}, { CI: '1' }]) {
+      let code: number | null = null;
+      const r = guardTestDbRun({
+        repoDir: tmp(), isTestDb: true, url: SELF, anonKey: 'k', port: 5900, register: false,
+        env: { SELFHOSTED_TEST_ORIGIN: SELF, E2E_TEST_DB_LOCK_WAIT_MS: '0', ...PROOF, CP_E2E_ADMIT_CMD: 'false', ...ci } as NodeJS.ProcessEnv,
+        argv: ['node', 'playwright', 'test', 'e2e/x.spec.ts'], probe: () => ({ ok: true, ms: 1 }),
+        exit: (c: number) => { code = c; }, detect: () => ({ exclusive: false, serverWideFiles: [] }),
+      });
+      expect(code).toBe(1);
+      expect(r).toMatchObject({ gaveUp: true, unavailable: true });
+    }
   });
-  it('failing control for "never written": with no old directory, none is created by admission or release', () => {
-    const p = slotPaths(tmp());
-    const a = acquireSlot(p, runner('w1'), opts());
-    const x = acquireSlot(slotPaths(tmp()), runner('w4'), opts({ exclusive: true }));
-    expect(a.held && x.held).toBe(true);
-    expect(fs.existsSync(p.legacy)).toBe(false);
-    a.release(); x.release();
-    expect(fs.existsSync(p.legacy)).toBe(false);
+
+  it('CP_E2E_ADMIT_CMD without CP_E2E_ADMIT_CMD_PROOF=hermetic-test is refused, and nothing reaches the state', () => {
+    const v = vm();
+    for (const proof of [undefined, '', 'yes', 'hermetic']) {
+      const env = { ...v.env, CP_E2E_ADMIT_CMD_PROOF: proof } as NodeJS.ProcessEnv;
+      if (proof === undefined) delete env.CP_E2E_ADMIT_CMD_PROOF;
+      expect(() => admitCommand(env)).toThrow(/CP_E2E_ADMIT_CMD_PROOF=hermetic-test/);
+      expect(() => acquireSlot(me('w1'), opts(env))).toThrow(AdmissionUnavailable);
+    }
+    expect(v.tickets()).toEqual([]);
+    expect(acquireSlot(me('w1'), opts(v.env)).held).toBe(true); // control: with the proof the same command admits
   });
-  it('a live old-style owner is byte-identical after a new run is admitted, runs and releases', () => {
-    const p = slotPaths(tmp());
-    plant(p.legacy, oldOwner());
-    const before = bytes(p.legacy);
-    const h = acquireSlot(p, runner('w4'), opts({ limit: 3 }));
-    expect(h.held).toBe(true);
-    expect(bytes(p.legacy)).toBe(before);
-    h.release();
-    expect(bytes(p.legacy)).toBe(before);
+
+  it('guardTestDbRun refuses a proof-less seam with exit 1 and an [infra] line; the teardown sweep is skipped', () => {
+    const v = vm();
+    const env = { ...v.env, SELFHOSTED_TEST_ORIGIN: SELF, E2E_TEST_DB_LOCK_WAIT_MS: '0' } as NodeJS.ProcessEnv;
+    delete env.CP_E2E_ADMIT_CMD_PROOF;
+    const errs: string[] = [];
+    const orig = console.error;
+    console.error = (...a: unknown[]) => { errs.push(a.join(' ')); };
+    let code: number | null = null;
+    let r;
+    try {
+      r = guardTestDbRun({
+        repoDir: tmp(), isTestDb: true, url: SELF, anonKey: 'k', port: 5900, register: false, env,
+        argv: ['node', 'playwright', 'test', 'e2e/x.spec.ts'], probe: () => ({ ok: true, ms: 1 }),
+        exit: (c: number) => { code = c; }, detect: () => ({ exclusive: false, serverWideFiles: [] }),
+      });
+    } finally { console.error = orig; }
+    expect(code).toBe(1);
+    expect(r).toMatchObject({ gaveUp: true, unavailable: true });
+    expect(errs.join('\n')).toMatch(/\[P1672\]\[infra\] CP_E2E_ADMIT_CMD is set .* without CP_E2E_ADMIT_CMD_PROOF=hermetic-test/);
+    expect(v.tickets()).toEqual([]);
+    expect(sweepBlockers({ repoDir: process.cwd(), url: SELF, env }).join(' ')).toMatch(/could not be read.*CP_E2E_ADMIT_CMD_PROOF/);
   });
-  it('KNOWN LIMITATION, pinned: the OLD algorithm does not see new slots, so an older-script run can overlap new runs', () => {
-    const p = slotPaths(tmp());
-    expect(acquireSlot(p, runner('w1'), opts()).held).toBe(true);
-    expect(acquire(p.legacy, runner('wold'), { waitMs: 0, log: () => {} })).toBe(true);
-    // ...and from then on the new side counts it.
-    expect(acquireSlot(p, runner('w4'), opts({ limit: 2 })).held).toBe(false);
+
+  it('the default transport is lane.py vm (the real VM), not a local file', () => {
+    const c = admitCommand({} as NodeJS.ProcessEnv);
+    expect(c.viaVm).toBe(true);
+    expect(c.argv.slice(-2)).toEqual(['vm', '--']);
+    expect(c.argv[1].endsWith(path.join('scripts', 'selfhosted', 'lane.py'))).toBe(true);
+  });
+});
+
+describe('guardTestDbRun: every client, CI included, is admitted in its own environment', () => {
+  const guard = (env: NodeJS.ProcessEnv, exclusive = false) => {
+    let code: number | null = null;
+    const r = guardTestDbRun({
+      repoDir: tmp(), isTestDb: true, url: SELF, anonKey: 'k', port: 5900 + (n++), register: false, env,
+      argv: ['node', 'playwright', 'test', 'e2e/x.spec.ts'], probe: () => ({ ok: true, ms: 1 }),
+      exit: (c: number) => { code = c; }, detect: () => ({ exclusive, serverWideFiles: [] }),
+    });
+    return { r, code };
+  };
+
+  it('a CI=1 run takes a ticket on the VM like any other, in the lane named by CP_TEST_LANE', () => {
+    const v = vm();
+    const env = { ...v.env, SELFHOSTED_TEST_ORIGIN: SELF, E2E_TEST_DB_LOCK_WAIT_MS: '0', CI: '1', CP_TEST_LANE: 'lane1' } as NodeJS.ProcessEnv;
+    const { r } = guard(env);
+    expect(r).toMatchObject({ held: true, env: 'lane1' });
+    expect(env.CP_E2E_ADMIT_TICKET).toBe(r.ticket);
+    expect(v.tickets()).toEqual([expect.objectContaining({ ticket: r.ticket, env: 'lane1', mode: 'shared' })]);
+  });
+
+  it('two independent clients, one with CI=1, share the one capacity: the second gives up with 75 (control: room admits it)', () => {
+    const v = vm();
+    fs.writeFileSync(path.join(v.state, 'admit.conf'), 'capacity=1\n');
+    const base = { SELFHOSTED_TEST_ORIGIN: SELF, E2E_TEST_DB_LOCK_WAIT_MS: '0' };
+    const first = guard({ ...v.env, ...base, CI: '1' } as NodeJS.ProcessEnv);
+    expect(first.r).toMatchObject({ held: true });
+    const second = guard({ ...v.env, ...base, CP_TEST_LANE: 'lane2' } as NodeJS.ProcessEnv);
+    expect(second.code).toBe(75);
+    fs.writeFileSync(path.join(v.state, 'admit.conf'), 'capacity=2\n');
+    expect(guard({ ...v.env, ...base, CP_TEST_LANE: 'lane2' } as NodeJS.ProcessEnv).r).toMatchObject({ held: true });
+  });
+
+  it('admitEnv: the claimed lane, else the main lane', () => {
+    expect(admitEnv({} as NodeJS.ProcessEnv)).toBe('main');
+    expect(admitEnv({ CP_TEST_LANE: '' } as NodeJS.ProcessEnv)).toBe('main');
+    expect(admitEnv({ CP_TEST_LANE: 'lane2' } as NodeJS.ProcessEnv)).toBe('lane2');
   });
 });
 
 describe('hosted TEST is unchanged: one run at a time, on the shared name every session uses', () => {
-  it('lockPlan: hosted gets the single lock, self-hosted gets slots', () => {
-    const env = { SELFHOSTED_TEST_ORIGIN: 'https://test-db.example.org' };
+  it('lockPlan: hosted gets the single git-dir lock, self-hosted goes to the VM in its environment', () => {
+    const env = { SELFHOSTED_TEST_ORIGIN: SELF, CP_TEST_LANE: 'lane1' };
     const hosted = lockPlan(process.cwd(), HOSTED_URL, env);
-    const self = lockPlan(process.cwd(), 'https://test-db.example.org', env);
     expect(hosted.mode).toBe('single');
-    expect(hosted.dir.endsWith(path.join('.git', 'e2e-test-db.lock'))).toBe(true);
-    expect(self.mode).toBe('slots');
-    expect(self.paths.legacy.endsWith(path.join('.git', 'e2e-test-db-selfhosted.lock'))).toBe(true);
+    expect(hosted.dir!.endsWith(path.join('.git', 'e2e-test-db.lock'))).toBe(true);
+    expect(lockPlan(process.cwd(), SELF, env)).toEqual({ mode: 'vm', env: 'lane1' });
+    expect(lockPlan(process.cwd(), SELF, { SELFHOSTED_TEST_ORIGIN: SELF })).toEqual({ mode: 'vm', env: 'main' });
   });
 
-  it('a hosted run still waits for the one holder; a second self-hosted run does not wait for the first', () => {
+  it('a hosted run still waits for the one holder and gives up with 75', () => {
     const repo = tmp();
     execFileSync('git', ['init', '-q', repo]);
-    const env = (extra: Record<string, string> = {}) => ({ SELFHOSTED_TEST_ORIGIN: 'https://test-db.example.org', E2E_TEST_DB_LOCK_WAIT_MS: '0', ...extra });
-    const run = (url: string, e: Record<string, string>) => {
-      let exitCode: number | null = null;
-      const r = guardTestDbRun({
-        repoDir: repo, isTestDb: true, url, anonKey: 'k', env: e as NodeJS.ProcessEnv,
-        argv: ['node', 'playwright', 'test', 'e2e/x.spec.ts'], port: 5900,
-        probe: () => ({ ok: true, ms: 1 }), exit: (c: number) => { exitCode = c; throw new Error(`exit ${c}`); },
-        detect: () => ({ exclusive: false, serverWideFiles: [] }), register: false,
+    const env = { E2E_TEST_DB_LOCK_WAIT_MS: '0' };
+    const dir = lockPlan(repo, HOSTED_URL, env).dir!;
+    const holder = spawn('sleep', ['30'], { stdio: 'ignore' });
+    try {
+      const start = spawnSync('ps', ['-p', String(holder.pid), '-o', 'lstart=']).stdout.toString().trim();
+      fs.mkdirSync(dir);
+      fs.writeFileSync(path.join(dir, 'owner.json'), JSON.stringify({ pid: holder.pid, processStart: start, acquiredAt: Date.now(), worktree: 'w1', branch: 'b' }));
+      let code: number | null = null;
+      guardTestDbRun({
+        repoDir: repo, isTestDb: true, url: HOSTED_URL, anonKey: 'k', env: env as NodeJS.ProcessEnv, register: false,
+        argv: ['node', 'playwright', 'test', 'e2e/x.spec.ts'], port: 5900, probe: () => ({ ok: true, ms: 1 }),
+        exit: (c: number) => { code = c; }, detect: () => ({ exclusive: false, serverWideFiles: [] }),
       });
-      return { r, exitCode };
-    };
-    // Hosted: the first run holds; the second gives up with 75.
-    const url = HOSTED_URL;
-    const other = runner('w1');
-    plant(lockPlan(repo, url, env()).dir, other);
-    let code: number | null = null;
-    try { run(url, env()); } catch (e) { code = Number(/exit (\d+)/.exec((e as Error).message)?.[1]); }
-    expect(code).toBe(75);
-    // Self-hosted: an existing slot holder does not stop a second run.
-    const self = 'https://test-db.example.org';
-    const paths = lockPlan(repo, self, env()).paths;
-    plant(paths.slot(1), other);
-    expect(run(self, env()).r).toMatchObject({ held: true });
+      expect(code).toBe(75);
+    } finally { holder.kill('SIGKILL'); }
   });
 
   it('hosted --list and --ui runs still never take a lock', () => {
@@ -403,69 +524,75 @@ describe('hosted TEST is unchanged: one run at a time, on the shared name every 
   });
 });
 
-describe('E2E_SLOT_LOCK_BASE: a test-only way to prove the lock without the real lock directory', () => {
-  it('is unset: the git common dir; set to a temp directory: that directory', () => {
-    expect(slotLockBase('/real/common', {})).toBe('/real/common');
-    const d = tmp();
-    expect(slotLockBase('/real/common', { E2E_SLOT_LOCK_BASE: d, E2E_SLOT_LOCK_PROOF: 'overlap proof' })).toBe(fs.realpathSync(d));
-  });
-  it('failing controls: a directory outside the temp directory, the temp root, a missing path and a file are refused', () => {
-    expect(() => slotLockBase('/c', { E2E_SLOT_LOCK_BASE: process.cwd(), E2E_SLOT_LOCK_PROOF: 'x' })).toThrow(/under the temp directory/);
-    expect(() => slotLockBase('/c', { E2E_SLOT_LOCK_BASE: os.tmpdir(), E2E_SLOT_LOCK_PROOF: 'x' })).toThrow(/under the temp directory/);
-    expect(() => slotLockBase('/c', { E2E_SLOT_LOCK_BASE: path.join(tmp(), 'nope'), E2E_SLOT_LOCK_PROOF: 'x' })).toThrow(/does not exist/);
-    const f = path.join(tmp(), 'f'); fs.writeFileSync(f, 'x');
-    expect(() => slotLockBase('/c', { E2E_SLOT_LOCK_BASE: f, E2E_SLOT_LOCK_PROOF: 'x' })).toThrow();
-  });
-  it('failing control: a valid temp directory WITHOUT the proof marker is refused (and a blank marker too)', () => {
-    const d = tmp();
-    expect(() => slotLockBase('/c', { E2E_SLOT_LOCK_BASE: d })).toThrow(/E2E_SLOT_LOCK_PROOF/);
-    expect(() => slotLockBase('/c', { E2E_SLOT_LOCK_BASE: d, E2E_SLOT_LOCK_PROOF: '  ' })).toThrow(/E2E_SLOT_LOCK_PROOF/);
-  });
-  it('lockPlan moves only the self-hosted slots; hosted TEST ignores it', () => {
-    const d = tmp();
-    const env = { SELFHOSTED_TEST_ORIGIN: 'https://test-db.example.org', E2E_SLOT_LOCK_BASE: d, E2E_SLOT_LOCK_PROOF: 'overlap proof' };
-    const self = lockPlan(process.cwd(), 'https://test-db.example.org', env);
-    expect(path.dirname(self.paths.slot(1))).toBe(fs.realpathSync(d));
-    const hosted = lockPlan(process.cwd(), HOSTED_URL, env);
-    expect(hosted.dir.endsWith(path.join('.git', 'e2e-test-db.lock'))).toBe(true);
-  });
-});
+describe('decision 6, per environment: the older-leftovers sweep runs only when nobody else uses THIS database', () => {
+  const blockers = (env: NodeJS.ProcessEnv) => sweepBlockers({ repoDir: process.cwd(), url: SELF, env: { SELFHOSTED_TEST_ORIGIN: SELF, ...env } as NodeJS.ProcessEnv });
 
-describe('decision 6: the older-leftovers sweep runs only when nobody else is on the server', () => {
-  const env = (base: string) => ({ SELFHOSTED_TEST_ORIGIN: 'https://test-db.example.org', E2E_SLOT_LOCK_BASE: base, E2E_SLOT_LOCK_PROOF: 'sweep gate' });
-  const blockers = (repo: string, base: string, extra: Record<string, string> = {}, pid = process.pid) =>
-    sweepBlockers({ repoDir: repo, url: 'https://test-db.example.org', env: { ...env(base), ...extra } as NodeJS.ProcessEnv, pid });
-  it('nobody else: the sweep may run (legitimate input)', () => {
-    const base = fs.realpathSync(tmp());
-    expect(blockers(process.cwd(), base)).toEqual([]);
-    const own = acquireSlot(slotPaths(base), { ...runner('w4'), pid: process.pid, processStart: startOf(process.pid) }, opts());
-    expect(own.held).toBe(true);
-    expect(blockers(process.cwd(), base)).toEqual([]); // this run's own slot is not "someone else"
+  it('nobody else in this environment: the sweep may run, and this run own ticket is not "someone else"', () => {
+    const v = vm();
+    expect(blockers({ ...v.env, CP_TEST_LANE: 'lane1' })).toEqual([]);
+    const own = acquireSlot(me('w4'), opts(v.env, { envName: 'lane1' }));
+    expect(blockers({ ...v.env, CP_TEST_LANE: 'lane1', CP_E2E_ADMIT_TICKET: own.ticket! })).toEqual([]);
   });
-  it('another live slot, another run exclusive claim, or a live old-style owner each block the sweep', () => {
-    const base = fs.realpathSync(tmp());
-    const p = slotPaths(base);
-    plant(p.slot(1), runner('w1'));
-    expect(blockers(process.cwd(), base).join(' ')).toMatch(/w1/);
-    const base2 = fs.realpathSync(tmp());
-    plant(slotPaths(base2).claim, runner('wX', { exclusive: true }));
-    expect(blockers(process.cwd(), base2).join(' ')).toMatch(/wX/);
-    const base3 = fs.realpathSync(tmp());
-    plant(slotPaths(base3).legacy, runner('wOld'));
-    expect(blockers(process.cwd(), base3).join(' ')).toMatch(/wOld.*older checkout/);
+
+  it('another run in the same environment blocks it; the same run in another environment does not (control)', () => {
+    const v = vm();
+    acquireSlot(me('w1'), opts(v.env, { envName: 'lane1' }));
+    expect(blockers({ ...v.env, CP_TEST_LANE: 'lane1' }).join(' ')).toMatch(/w1 \(feature\/w1/);
+    expect(blockers({ ...v.env })).toEqual([]);                       // main lane: other database
+    expect(blockers({ ...v.env, CP_TEST_LANE: 'lane2' })).toEqual([]);
   });
-  it('a dead holder does not block it', () => {
-    const base = fs.realpathSync(tmp());
-    plant(slotPaths(base).slot(1), deadRunner('wdead'));
-    expect(blockers(process.cwd(), base)).toEqual([]);
+
+  it('a waiting exclusive claim in the same environment blocks it too', () => {
+    const v = vm();
+    acquireSlot(me('w1'), opts(v.env, { envName: 'main' }));
+    const own = acquireSlot(me('w2'), opts(v.env, { envName: 'main' }));
+    own.release();
+    v.admit('admit', '--env', 'lane1', '--mode', 'shared', '--holder', 'wS', '--ttl', '60');
+    // Plant a waiting claim in lane1 by starting an exclusive waiter that cannot get in while wS runs.
+    const c = spawn('python3', [ADMIT_PY, 'admit', '--env', 'lane1', '--mode', 'exclusive', '--holder', 'wX', '--ttl', '60', '--wait', '3'], { env: v.env, stdio: 'ignore' });
+    try {
+      let seen: string[] = [];
+      for (let i = 0; i < 40; i++) {
+        seen = blockers({ ...v.env, CP_TEST_LANE: 'lane1' });
+        if (seen.join(' ').includes('wX')) break;
+        execFileSync('sleep', ['0.05']);
+      }
+      expect(seen.join(' ')).toMatch(/wX \(waiting to run alone in lane1\)/);
+    } finally { c.kill('SIGKILL'); }
   });
-  it('a load-test run never sweeps; an unreadable lock state never sweeps; CI and hosted are unaffected', () => {
-    const base = fs.realpathSync(tmp());
-    expect(blockers(process.cwd(), base, { E2E_LOADTEST: '1' }).join(' ')).toMatch(/load-test/);
-    expect(sweepBlockers({ repoDir: process.cwd(), url: 'https://test-db.example.org', env: { SELFHOSTED_TEST_ORIGIN: 'https://test-db.example.org', E2E_SLOT_LOCK_BASE: base } as NodeJS.ProcessEnv }).join(' ')).toMatch(/could not be read/);
-    expect(blockers(process.cwd(), base, { CI: 'true' })).toEqual([]);
+
+  it('a load-test run never sweeps; an unreachable VM never sweeps; CI is not exempt; hosted is unaffected', () => {
+    const v = vm();
+    expect(blockers({ ...v.env, E2E_LOADTEST: '1' }).join(' ')).toMatch(/load-test/);
+    expect(blockers({ ...v.env, CP_E2E_ADMIT_CMD: 'false' }).join(' ')).toMatch(/could not be read/);
+    acquireSlot(me('w1'), opts(v.env));
+    expect(blockers({ ...v.env, CI: 'true' }).join(' ')).toMatch(/w1/);
     expect(sweepBlockers({ repoDir: process.cwd(), url: HOSTED_URL, env: {} as NodeJS.ProcessEnv })).toEqual([]);
   });
+
+  it('otherRunsLive throws (never answers "nobody") when the VM cannot be asked', () => {
+    expect(() => otherRunsLive({ envName: 'main', env: { ...base(), ...PROOF, CP_E2E_ADMIT_CMD: 'false' } as NodeJS.ProcessEnv })).toThrow(AdmissionUnavailable);
+  });
+
+  it('a VM that hangs cannot hold teardown: the query is bounded (30 s by default) and a timeout skips the sweep', () => {
+    expect(SWEEP_QUERY_TIMEOUT_MS).toBe(30_000);
+    const hang = path.join(tmp(), 'hang.sh');
+    fs.writeFileSync(hang, 'exec sleep 60\n'); // ignores the admit arguments, as a stalled SSH would
+    const t0 = Date.now();
+    const b = sweepBlockers({ repoDir: process.cwd(), url: SELF, timeoutMs: 1_000,
+      env: { ...base(), ...PROOF, SELFHOSTED_TEST_ORIGIN: SELF, CP_E2E_ADMIT_CMD: `sh ${hang}` } as NodeJS.ProcessEnv });
+    const took = Date.now() - t0;
+    expect(took).toBeGreaterThanOrEqual(900); // it really asked and waited for the bound, not refused up front
+    expect(took).toBeLessThan(5_000);
+    expect(b.join(' ')).toMatch(/could not be read/);
+  });
+
+  it('control: a VM that answers inside the bound is read normally', () => {
+    const v = vm();
+    acquireSlot(me('w1'), opts(v.env));
+    expect(sweepBlockers({ repoDir: process.cwd(), url: SELF, timeoutMs: 10_000, env: { ...v.env, SELFHOSTED_TEST_ORIGIN: SELF } as NodeJS.ProcessEnv }).join(' ')).toMatch(/w1/);
+  });
+
   it('the teardown asks before it sweeps, and the own-ledger cleanup stays ahead of the question', () => {
     const text = fs.readFileSync('e2e/global-teardown.ts', 'utf8');
     const iLedger = text.indexOf('purgeUserIds(ids');

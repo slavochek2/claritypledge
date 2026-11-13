@@ -22,6 +22,10 @@
 # Output contract (shell-safety.md): no redirect or pipe tokens in the status line.
 set -uo pipefail
 
+# P1672: MAIN-LANE target, explicit and deliberately not resolver-driven. The question here is "does the
+# shared server hold main's functions", which has no meaning for a lane (a lane holds its branch's code
+# on purpose); /day and the landing hook run it from anywhere. A lane's own functions are checked by
+# branch-functions-check.sh, which asks the resolver.
 GCP_PROJECT="gen-lang-client-0869694595"; VM="cp-test-supabase"; ZONE="asia-southeast1-a"
 MANIFEST_PATH="/opt/supabase/docker/deploy-manifest.tsv"
 FUNCTIONS_VOL="/opt/supabase/docker/volumes/functions"
@@ -34,12 +38,19 @@ source "$SCRIPT_DIR/lib/deploy-guard.sh"
 # What the server comparison cannot see, read locally: the latest landing deploy that failed (until a
 # later deploy of main succeeds) and a stuck deploy lock. Appended to whatever the answer is.
 extras() {
-  local f line ep sha rc log lk
+  local f line ep sha rc log lk mf
   if [ -n "$REPO" ]; then
     f="$(dg_land_failed_file "$REPO")"
     if [ -n "$f" ] && [ -s "$f" ]; then
       IFS=$'\t' read -r ep sha rc log < "$f"
       echo "WARNING: the latest landing deploy failed $(dg_lock_age "$ep") ago (exit $rc, landed ${sha:0:9}), see ${log:-the landing log}"
+    fi
+    # The landing's TEST MIGRATION failure record (same one-line TSV, written by the landing job), kept
+    # apart from the functions record above: either can be the only one that failed.
+    mf="$(dg_land_failed_file "$REPO" | sed 's/cp-test-deploy-land\.failed$/cp-test-migrate-land.failed/')"
+    if [ -n "$mf" ] && [ -s "$mf" ]; then
+      IFS=$'\t' read -r ep sha rc log < "$mf"
+      echo "WARNING: a landing's TEST migration failed $(dg_lock_age "$ep") ago (exit $rc, landed ${sha:0:9}), see ${log:-the landing log}"
     fi
     lk="$(dg_lock_stuck "$REPO")" && echo "WARNING: $lk"
   fi

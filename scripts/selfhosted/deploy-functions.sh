@@ -79,6 +79,40 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+# --- Which environment (P1672). The constants above describe the MAIN lane. ---
+# These always target the main lane and NEVER ask the resolver, so a worktree that holds a lane cannot
+# redirect the landing hook (the landing invariant): --from-commit, --from-main-tip, --record-landing.
+# --setup, --secrets and --check-secrets are main-lane operations too; in a worktree that holds a
+# lane they refuse (a lane's function env is derived on the VM from main's, not pushed from here).
+# Only a plain deploy follows the resolver: its lane when this worktree holds one, else main as before.
+IS_LANE=0
+LANE_ARGS=""
+resolve_target() { # purpose; evals the resolver's shell output only after a zero exit
+  local rc=0 out
+  out="$(python3 "$SCRIPT_DIR/lane.py" resolve --purpose "$1" --format shell --worktree "$PROJECT_DIR")" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "ERROR: the TEST target could not be resolved (exit $rc, message above). Nothing was deployed." >&2
+    exit "$rc"
+  fi
+  eval "$out"
+}
+if [ -n "$FROM_COMMIT" ] || [ "$FROM_MAIN_TIP" = 1 ] || [ -n "$RECORD_LANDING" ]; then
+  :   # main lane, explicitly
+elif [ "$MODE" != deploy ]; then
+  resolve_target run
+  [ "$CP_TEST_TARGET" != lane ] || die "--$MODE targets the main lane and this worktree holds $CP_TEST_LANE: a lane's function env is derived on the VM. Run it from the main checkout, or release the lane first."
+else
+  resolve_target write
+  if [ "$CP_TEST_TARGET" = lane ]; then
+    IS_LANE=1
+    EXPECTED_URL="$CP_TEST_ORIGIN"
+    MAC_ENV="$CP_TEST_KEYS_FILE"
+    STACK_DIR="$CP_TEST_STACK_DIR"
+    FUNCTIONS_VOL="$CP_TEST_FUNCTIONS_VOL"
+    LANE_ARGS="--lane $CP_TEST_LANE --gen $CP_TEST_GEN"
+  fi
+fi
+
 # --- --from-commit: ship exactly one commit, extracted here (P1612) ---
 # The commit is checked against main by the same guard as any other source, and the files come from
 # `git archive`, never from a working tree. No file written by a caller can change what is shipped.
@@ -344,7 +378,9 @@ STAGE="$(mktemp -d)"
 SRC_BRANCH=""
 git -C "$SRC_REPO" rev-parse --git-dir >/dev/null 2>&1 || die "$SRC_REPO is not a git checkout: cannot compare against main. Nothing was deployed."
 SRC_REF="${FROM_COMMIT:-HEAD}"
-dg_guard_begin "$SRC_REPO" "$SRC_REF" || exit 1
+# The ancestry guard and the TEST deploy lock protect the shared MAIN lane. A lane belongs to one
+# branch and lanectl serializes per lane, so neither applies there.
+if [ "$IS_LANE" = 0 ]; then dg_guard_begin "$SRC_REPO" "$SRC_REF" || exit 1; fi
 SRC_COMMIT="$(git -C "$SRC_REPO" rev-parse "$SRC_REF^{commit}")"
 if [ -n "$FROM_COMMIT" ]; then SRC_BRANCH="main"; else SRC_BRANCH="$(git -C "$SRC_REPO" symbolic-ref --short -q HEAD || echo detached)"; fi
 SRC_DIRTY=0
@@ -382,6 +418,18 @@ TARBALL="$STAGE/functions.tgz"
 COPYFILE_DISABLE=1 tar --no-xattrs -C "$STAGE/functions" -czf "$TARBALL" .
 echo "Deploying ${#copy_set[@]} function dir(s) + router to $VM ($EXPECTED_URL)..."
 vm_scp "$TARBALL" "$REMOTE_TGZ"
+
+if [ "$IS_LANE" = 1 ]; then
+  # Lane: lanectl extracts into the lane volume, merges the manifest, recreates the lane's functions
+  # container (unless quarantined) and probes every function itself. The caller does not probe.
+  (cd "$PROJECT_DIR" && python3 "$SCRIPT_DIR/lane.py" heartbeat) || die "lane heartbeat failed. Nothing was deployed."
+  full_flag=""; [ -n "$FUNCTION_NAME" ] || full_flag=" --full"
+  lane_rc=0
+  vm_ssh "sudo $CP_TEST_LANECTL deploy $LANE_ARGS --tarball $(printf '%q' "$REMOTE_TGZ")$full_flag; rc=\$?; rm -f $(printf '%q' "$REMOTE_TGZ"); exit \$rc" || lane_rc=$?
+  [ "$lane_rc" -eq 0 ] || die "lanectl deploy failed on $CP_TEST_LANE (exit $lane_rc). The files may be on the lane; the deploy is not verified."
+  echo "Deployed to lane $CP_TEST_LANE generation $CP_TEST_GEN ($EXPECTED_URL). Self-hosted lane only: main lane, hosted project and deploy manifest untouched."
+  exit 0
+fi
 
 vm_run <<'REMOTE'
 set -euo pipefail

@@ -64,13 +64,28 @@ if [ ! -s "$T/changed.repo" ]; then say 0 "no changed functions"; fi
 : > "$T/changed.rel"
 while IFS= read -r p; do dg_rel_of_repo_path "$p"; done < "$T/changed.repo" | LC_ALL=C sort -u > "$T/changed.rel"
 
+# ---- 1b. which environment (P1672) ----
+# The main lane unless this worktree holds a lane. A refused claim is unknown, never a pass and never
+# a quiet look at the main lane. The constants above describe the main lane; a lane overrides them.
+IS_LANE=0; LANECTL=""; LANE_ARGS=""; FN_CONTAINER="supabase-edge-functions"
+resolved="$(python3 "$SCRIPT_DIR/lane.py" resolve --purpose run --format shell --worktree "$REPO" 2> "$T/resolve.err")" ||
+  unknown "the TEST target could not be resolved: $(tail -1 "$T/resolve.err" | cut -c1-200)"
+eval "$resolved"
+if [ "$CP_TEST_TARGET" = lane ]; then
+  IS_LANE=1; LANECTL="$CP_TEST_LANECTL"; LANE_ARGS="--lane $CP_TEST_LANE --gen $CP_TEST_GEN"
+  EXPECTED_URL="$CP_TEST_ORIGIN"; STACK_DIR="$CP_TEST_STACK_DIR"; FUNCTIONS_VOL="$CP_TEST_FUNCTIONS_VOL"
+  FN_CONTAINER="$CP_TEST_FUNCTIONS_CONTAINER"
+fi
+
 # ---- 2. local reasons for unknown ----
-landf="$(dg_land_failed_file "$REPO")"
+# A failed landing and the TEST deploy lock concern the shared MAIN lane; a lane deploys without either.
+landf=""; lockd=""
+if [ "$IS_LANE" = 0 ]; then landf="$(dg_land_failed_file "$REPO")"; fi
 if [ -n "$landf" ] && [ -s "$landf" ]; then
   IFS=$'\t' read -r ep sha rc log < "$landf"
   unknown "the latest landing deploy failed $(dg_lock_age "$ep") ago (exit $rc, landed ${sha:0:9}), so TEST may hold a half-deployed main. It clears when main's own code deploys successfully: run scripts/selfhosted/deploy-functions.sh from a clean checkout of main"
 fi
-lockd="$(dg_lock_dir_of "$REPO")"
+if [ "$IS_LANE" = 0 ]; then lockd="$(dg_lock_dir_of "$REPO")"; fi
 if [ -n "$lockd" ] && [ -d "$lockd" ]; then
   # A lock whose owner is dead (or ownerless for 10 minutes) is stuck, and the message names the command that clears it.
   stuck="$(dg_lock_stuck "$REPO")" && unknown "$stuck"
@@ -94,12 +109,16 @@ dg_deadline "$(remaining)" gcloud auth print-access-token >/dev/null 2>&1; rc=$?
 IFS= read -r -d '' REMOTE <<'REMOTE_EOF' || true
 set -eo pipefail
 M="$STACK_DIR/deploy-manifest.tsv"
-if [ -f "$M" ]; then echo BFC:MANIFEST_BEGIN; cat "$M"; echo BFC:MANIFEST_END; else echo BFC:NOMANIFEST; fi
+if [ -n "$LANECTL" ]; then
+  # A lane's manifest is read through lanectl, which refuses a stale generation (the session then fails).
+  mf="$("$LANECTL" manifest $LANE_ARGS </dev/null)" || { echo "lanectl manifest failed" >&2; exit 1; }
+  echo BFC:MANIFEST_BEGIN; printf '%s\n' "$mf"; echo BFC:MANIFEST_END
+elif [ -f "$M" ]; then echo BFC:MANIFEST_BEGIN; cat "$M"; echo BFC:MANIFEST_END; else echo BFC:NOMANIFEST; fi
 echo BFC:SUMS_BEGIN
 ( cd "$FUNCTIONS_VOL" && find . -type f -exec sha256sum {} + </dev/null )
 echo BFC:SUMS_END
-echo "BFC:HEALTH $(docker inspect -f '{{.State.Health.Status}}' supabase-edge-functions 2>/dev/null </dev/null || echo missing)"
-started="$(docker inspect -f '{{.State.StartedAt}}' supabase-edge-functions 2>/dev/null </dev/null || echo '')"
+echo "BFC:HEALTH $(docker inspect -f '{{.State.Health.Status}}' "$FN_CONTAINER" 2>/dev/null </dev/null || echo missing)"
+started="$(docker inspect -f '{{.State.StartedAt}}' "$FN_CONTAINER" 2>/dev/null </dev/null || echo '')"
 python3 - "$FUNCTIONS_VOL" "$started" <<'PY'
 import os, re, sys, datetime
 vol, s = sys.argv[1], sys.argv[2]
@@ -127,7 +146,8 @@ print('BFC:NEWEST %d' % newest)
 PY
 echo BFC:END
 REMOTE_EOF
-{ printf 'STACK_DIR=%q\nFUNCTIONS_VOL=%q\n' "$STACK_DIR" "$FUNCTIONS_VOL"; printf '%s\n' "$REMOTE"; } |
+{ printf 'STACK_DIR=%q\nFUNCTIONS_VOL=%q\nFN_CONTAINER=%q\nLANECTL=%q\nLANE_ARGS=%q\n' \
+    "$STACK_DIR" "$FUNCTIONS_VOL" "$FN_CONTAINER" "$LANECTL" "$LANE_ARGS"; printf '%s\n' "$REMOTE"; } |
   dg_deadline "$(remaining)" gcloud compute ssh "$VM" --project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet \
     --command 'sudo bash -s' > "$T/server.out" 2> "$T/ssh.err"
 rc=$?

@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 333
 workstream: infrastructure
 created_date: '2026-11-13'
 tags: [test-server, self-hosted, edge-functions, concurrency]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -96,6 +96,30 @@ founder's hand at the time they run:
   agent or CI job cannot use a lane unless its machine joins the network.
 - **D3: the word is "lane", not "slot".** "Slot" already means a worktree (`wN`) and a P1607 E2E admission
   slot (`scripts/lib/e2e-slot-lock.mjs`).
+- **D4 (/dev, 2026-11-13): a lane's origin is the VM's Tailscale name plus a per-lane port.** Lane 1 is
+  `https://<vm>.<tailnet>.ts.net:8443`, read from `tailscale status` at provisioning, never hard-coded. The tailnet issues one certificate per machine, so a
+  second hostname is not available; the port is.
+  - The existing Caddy serves it, bound to the VM's Tailscale address only, with a `tailscale cert`
+    certificate kept in Caddy's data volume.
+  - Lane sites live in their own files, pulled in by one `import` line, so adding or removing a lane
+    never edits the main site.
+  - The TEST-origin allowlist (`scripts/lib/test-target.mjs`) now accepts a port only when the
+    configured origin itself carries it, still by exact match.
+- **D5 (/dev, 2026-11-13): quarantine is structural for the database, not a timed state.**
+  - A lane's database sits only on an internal docker network, so `pg_net` and triggers can reach
+    nothing outside the lane, during a migration or ever.
+  - A host firewall stops the lane's edge network (gateway and functions) from opening connections to
+    the main lane's address, the VM's other addresses, other docker networks, the VPC and other tailnet
+    machines.
+  - The quarantine state adds the rest on top: cron off, functions stopped, no client route.
+- **D6 (/dev, 2026-11-13): the copy is physical.** An online copy uses Postgres's low-level backup API
+  inside the main database container, so the main lane's configuration does not change. Owners, ACLs,
+  default privileges, policies and security-definer functions come across unchanged. `lanectl
+  catalog-diff` proves it: 2263 catalog rows, 0 differing. A planted grant is caught (exit 6).
+- **D7 (/dev, 2026-11-13): lane mail is a Mailgun sandbox domain with its own domain sending key.** It
+  is separate from the main lane's EU sending domain. Setting it up needs the account key, which is a
+  locked keychain credential, so it is the founder's dialog. The recipient confirmation is the
+  founder's click.
 
 ## Invariants
 
@@ -235,6 +259,22 @@ own uploads work, and tests create their own fixtures.
 **First user.** The P1529 session's next deploy or test runs through a claim of lane 1. The agent in
 that session rebases onto the resolver commit, claims, and restarts its dev server. The founder does
 nothing (D1).
+
+**First-user handoff: the steps the P1529 session runs (worktree w13), once P1672 stage 1 is on main.**
+1. Rebase onto main: `git rebase main`. The claim refuses a branch without
+   `scripts/selfhosted/lanes/PROTOCOL`.
+2. Claim the lane: `python3 scripts/selfhosted/lane.py claim`. This allocates lane 1, copies the main
+   lane fresh, deploys this branch's functions, applies this branch's migrations, and lifts the lane
+   once the outbound check passes. It also restarts the worktree's running dev server, and prints the
+   lane's ledger diff against the branch.
+3. Confirm the answer: `python3 scripts/selfhosted/lane.py resolve --format json` shows
+   `"target": "lane"`. From here, a plain `npm run dev`, `npx playwright test`,
+   `./scripts/migrate.sh --env selfhosted` and `scripts/selfhosted/deploy-functions.sh` all target
+   lane 1. No wrapper is needed.
+4. When done, or before shipping: `python3 scripts/selfhosted/lane.py release`. The worktree returns to
+   the main lane. The landing of P1529 then migrates and deploys the main lane as usual.
+
+Do not claim from w1 (P1631) while w13's branch holds the lane. P1631 stays on the main lane in stage 1.
 
 ### Stage 2: second lane, clean baseline, protected main lane
 

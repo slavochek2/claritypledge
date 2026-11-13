@@ -1,3 +1,6 @@
+// P1672: first import, so this worktree's TEST lane (if it holds one) is in process.env before dotenv or any
+// other module reads it. A refused claim throws here: Playwright does not start.
+import './scripts/lib/test-lane-apply.mjs';
 import { defineConfig, devices } from '@playwright/test';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';

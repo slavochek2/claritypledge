@@ -13,14 +13,13 @@
 # Any other status is "could not run": a degraded server must never read as a refusal.
 set -euo pipefail
 
-# Same constants as scripts/selfhosted/migrate.sh and scripts/supabase-readonly-sql.py; change all three.
+# The VM is fixed (same constants as scripts/selfhosted/migrate.sh and scripts/supabase-readonly-sql.py).
+# WHICH environment on it (main lane, or this worktree's lane) comes from the resolver, lane.py (P1672).
 GCP_PROJECT="gen-lang-client-0869694595"
 VM="cp-test-supabase"
 ZONE="asia-southeast1-a"
-META_CONTAINER="supabase-meta"
-EXPECTED_URL="https://136-85-1-126.sslip.io"
-MAC_ENV="$HOME/.config/cp-selfhosted-test/env"
 STATUS_MARKER="P1606STATUS:"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 die() { echo "run-test-sql: $*" >&2; exit 1; }
 
@@ -30,6 +29,19 @@ case "${1:-}" in
   "") ;;
   *) die "unknown argument '$1'." ;;
 esac
+
+# Exit 2 from the resolver = refused (a claim that is revoked, failed, expired or unreadable): stop,
+# never fall back to the main lane. Its output is evaluated only after a zero exit.
+resolve_rc=0
+RESOLVE_PURPOSE=write   # a plain run may write; only --read-only is a read (one branch, one lane applies to writes)
+[ "$READ_ONLY" = true ] && RESOLVE_PURPOSE=run
+resolved="$(python3 "$SCRIPT_DIR/lane.py" resolve --purpose "$RESOLVE_PURPOSE" --format shell \
+  --worktree "$(git rev-parse --show-toplevel 2>/dev/null || dirname "$(dirname "$SCRIPT_DIR")")")" || resolve_rc=$?
+[ "$resolve_rc" -eq 0 ] || { echo "run-test-sql: the TEST target could not be resolved (exit $resolve_rc, message above). Nothing was run." >&2; exit "$resolve_rc"; }
+eval "$resolved"
+META_CONTAINER="$CP_TEST_META_CONTAINER"
+EXPECTED_URL="$CP_TEST_ORIGIN"
+MAC_ENV="$CP_TEST_KEYS_FILE"
 
 [ -f "$MAC_ENV" ] || die "$MAC_ENV not found: cannot confirm the target identity. Nothing was run."
 mac_url="$(grep '^SUPABASE_URL=' "$MAC_ENV" | head -1 | cut -d= -f2- | tr -d '"'"'" || true)"
@@ -57,9 +69,15 @@ NODE_SCRIPT='let b="";process.stdin.on("data",d=>b+=d).on("end",async()=>{const 
 # One shared SSH connection per user: a fresh IAP session costs seconds, and specs make many calls.
 # A short fixed path: SSH refuses a control socket path over about 104 characters, and TMPDIR can be long.
 MUX_DIR="/tmp/cp-iap-$(id -u)"; mkdir -p "$MUX_DIR"; [ -O "$MUX_DIR" ] || die "$MUX_DIR is not owned by this user."; chmod 700 "$MUX_DIR"
+# Main lane: node inside the main postgres-meta container. Lane: lanectl runs the same call in the lane's
+# meta container and refuses a stale generation. Same JSON payload in, same status line plus body out.
+REMOTE_CMD="sudo docker exec -i $META_CONTAINER node -e '$NODE_SCRIPT'"
+if [ "$CP_TEST_TARGET" = lane ]; then
+  REMOTE_CMD="sudo $CP_TEST_LANECTL sql --lane $CP_TEST_LANE --gen $CP_TEST_GEN"
+fi
 if ! gcloud compute ssh "$VM" --project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet \
       --ssh-flag="-o ControlMaster=auto" --ssh-flag="-o ControlPath=$MUX_DIR/%C" --ssh-flag="-o ControlPersist=120" --ssh-flag="-o ConnectTimeout=30" \
-      --command "sudo docker exec -i $META_CONTAINER node -e '$NODE_SCRIPT'" \
+      --command "$REMOTE_CMD" \
       < "$WORK/payload.json" > "$WORK/out" 2> "$WORK/err"; then
   die "could not reach the self-hosted TEST database: $(tail -n 3 "$WORK/err" | tr '\n' ' ')"
 fi

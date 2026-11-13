@@ -9,8 +9,10 @@
  * 2. P1522: sweep a bounded batch of older leftovers (crashed runs, other worktrees): users older
  *    than 6h only, so a concurrent run never loses a live user.
  *
- * P1607: step 2 runs only when no other run is live on the server (a live slot, an exclusive claim, a live
- * holder of the old lock); step 1 always runs, because it only touches this run's own users.
+ * P1607/P1672: step 2 runs only when no other run is live in THIS run's environment (the main lane or the
+ * claimed lane), as the VM's admission state says: an admitted run or a waiting exclusive claim there, other than
+ * this run's own ticket. Runs in other environments use other databases and do not block it. Step 1 always
+ * runs, because it only touches this run's own users.
  *
  * Both share one 60 s budget. A failure here is logged, never fails the run, with ONE exception:
  *
@@ -83,7 +85,7 @@ async function cleanup(): Promise<void> {
     url: process.env.VITE_SUPABASE_URL ?? '',
   });
   if (blockers.length) {
-    console.log(`[P1607] older-leftovers sweep skipped: other runs are live on this server: ${blockers.join('; ')}`);
+    console.log(`[P1607] older-leftovers sweep skipped: other runs are live in this environment: ${blockers.join('; ')}`);
     return;
   }
   try {

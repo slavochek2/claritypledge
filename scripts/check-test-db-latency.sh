@@ -32,6 +32,19 @@ esac
 envval() { grep -m1 "^$1=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d "\"'\r"; }
 URL="${TESTDB_URL:-$(envval VITE_SUPABASE_URL)}"
 KEY="$(envval VITE_SUPABASE_ANON_KEY)"
+# P1672: a worktree that holds a TEST lane is measured against its lane, not the main lane. Asked of the
+# resolver (vite-env is {} for an unclaimed worktree, so nothing changes); a refused claim is not-run.
+# Skipped when a test seam names the target. The key travels on stdin, never argv.
+if [ -z "${TESTDB_URL:-}" ] && [ -z "${TESTDB_ENV_FILE:-}" ]; then
+  lane_json="$(python3 "$(dirname "$0")/selfhosted/lane.py" resolve --format vite-env \
+    --worktree "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)" 2>/dev/null)" || {
+    echo "TESTDB: not-run this worktree's TEST lane claim is refused (run scripts/selfhosted/lane.py status)"; exit 2; }
+  lane_url="$(printf '%s' "$lane_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("VITE_SUPABASE_URL",""))')"
+  if [ -n "$lane_url" ]; then
+    URL="$lane_url"
+    KEY="$(printf '%s' "$lane_json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("VITE_SUPABASE_ANON_KEY",""))')"
+  fi
+fi
 if [ -z "$URL" ] || [ -z "$KEY" ]; then
   echo "TESTDB: not-run the test server URL or anon key is not in .env.test.local"
   exit 2

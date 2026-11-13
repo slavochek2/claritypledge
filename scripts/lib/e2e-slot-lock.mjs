@@ -1,92 +1,262 @@
 /**
- * e2e-slot-lock.mjs — P1607: the self-hosted TEST server admits a fixed number of e2e runs at once.
+ * e2e-slot-lock.mjs — the self-hosted TEST server's E2E admission, decided on the VM (P1672; was P1607's
+ * git-dir slot lock).
  *
- * Hosted TEST stays at one run at a time (P1541's measured limit; see e2e-test-db-lock.mjs). The
- * self-hosted server is a different, larger machine, so its lock is a set of slots:
+ * WHY THE VM. P1607's slots were directories in one checkout's git common dir and P1541's lock skipped itself
+ * whenever CI was set, so a run from another machine or a CI job was never held off. CPU is one pool for the whole
+ * VM; databases are per environment (the main lane and each lane, P1672). So admission now lives in
+ * scripts/selfhosted/lanes/vm/admit.py on the VM, and this module is only its client:
  *
- *   e2e-test-db-selfhosted.slot-<n>.lock     one directory per running one-slot run (atomic, like P1541's)
- *   e2e-test-db-selfhosted.exclusive.lock    the claim of a run that touches server-wide state
- *   e2e-test-db-selfhosted.lock              the OLD single lock, see "Compatibility"
+ *   - ONE VM-WIDE CAPACITY across every environment. Default 3 (P1607's load test: 3 runs kept the 4-CPU server near
+ *     half its CPU; a 4th reached its limit). The one setting is `capacity=N` in admit.conf on the VM;
+ *     SELFHOSTED_SLOT_LIMIT below mirrors admit.py's default for documentation and tests. A client can no longer
+ *     raise or lower it for itself (E2E_SELFHOSTED_SLOTS is gone): a per-client limit on a shared pool is no limit.
+ *   - EXCLUSIVITY PER ENVIRONMENT. A run whose specs change server-wide state runs alone in ITS environment
+ *     (env = process.env.CP_TEST_LANE || 'main'); runs in other environments keep going, because they use other
+ *     databases. A waiting exclusive run holds a claim that keeps new runs out of its environment (no starvation).
+ *   - ONE DEV-SERVER PORT PER MACHINE: a run whose machine and port match a live run waits (P1234/P1607).
+ *   - A TICKET, not a process id, is the proof of admission. It expires after DEFAULT_TTL_S unless heartbeated, so a
+ *     run killed outright frees its place within the TTL (P1607 reclaimed by noticing the pid had died; the VM cannot
+ *     see a Mac's pids).
  *
- * THE LIMIT is SELFHOSTED_SLOT_LIMIT below, the one setting. E2E_SELFHOSTED_SLOTS=<n> overrides it for
- * one run (the load test uses this). Slots are counted, not indexed: a checkout with a lower limit
- * still sees slots held under a higher one.
- *
- * ADMISSION is serialized by a short mutex directory (e2e-test-db-selfhosted.admission.lock) held only for the
- * scan-and-take of one attempt: scan the claim, the slots and the old lock, decide, take, release. Every
- * decision therefore sees every earlier decision, so occupied never exceeds the limit through a race between
- * two new runs (an earlier version re-counted after taking and could admit an older-started waiter beside two
- * newer holders). A mutex holder that dies is reclaimed like any other owner.
- *
- * EXCLUSIVE runs (they change server-wide state, so they cannot overlap anything): take the claim
- * first, which stops new one-slot runs entering while the slot holders drain (otherwise a stream of
- * one-slot runs starves it), then run only when no slot is held. A one-slot run takes its slot and THEN
- * re-checks the claim (the exclusive run does the reverse: claim, then look at slots), so whichever
- * order a race falls in, one of them sees the other and the one-slot run backs off.
- *
- * ONE DEV-SERVER PORT PER RUN: a shared dev server dies with the run that started it (P1234), so a run
- * whose port is already held waits.
- *
- * COMPATIBILITY (older worktrees run their own copy of this script against the single old directory):
- *  - A new run NEVER writes the old directory (no create, no rewrite, no reclaim). It only reads it.
- *  - A live owner of the old directory counts as ONE occupied slot for a one-slot run, and as the whole
- *    server for an exclusive run, so new runs wait for it. A stale old directory is ignored and left alone.
- *  - Known limitation, accepted for the switch: an older script does not read the new slots, so an
- *    older-script run can start while new runs hold slots. The one exposure that matters is an older-script
- *    run starting during an EXCLUSIVE run (server-wide specs then overlap it). The load test ran 5 runs at
- *    once on the server without a failure, so the overlap is tolerable for the time the older scripts last;
- *    it ends when every worktree runs this script.
+ * TRANSPORT. Every call is `python3 scripts/selfhosted/lane.py vm -- admit...` (IAP SSH to lanectl). A hermetic test
+ * sets CP_E2E_ADMIT_CMD to another command (`python3 <repo>/scripts/selfhosted/lanes/vm/admit.py` with
+ * CP_ADMIT_STATE_DIR=<tmp>); it is split on whitespace. There is NO CI skip and no fallback: a VM that cannot be
+ * reached, or an answer that cannot be read, throws AdmissionUnavailable and the run does not start.
  */
-import fs from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
-import {
-  readOwner, isStale, describeOwner, tryAcquire, reclaim, sameOwner, sleepSync, uniq,
-} from './e2e-lock-primitives.mjs';
+import { fileURLToPath } from 'node:url';
 
-/**
- * The one setting: how many one-slot runs may share the self-hosted server. Set from the load test in the
- * P1607 spec: 3 runs at once kept the 4-CPU server near half its CPU; a 4th reached its limit. Re-measure with
- * scripts/e2e-load-test.mjs when the machine changes.
- */
+/** admit.py's default VM-wide capacity. The live value is `capacity=N` in admit.conf on the VM. */
 export const SELFHOSTED_SLOT_LIMIT = 3;
-export const MAX_SLOTS = 16;
-const POLL_MS = 5_000;
-const REPORT_EVERY_MS = 30_000;
+export const ADMIT_EXIT_REFUSED = 4;   // heartbeat for a ticket the VM no longer holds
+export const ADMIT_EXIT_TIMEOUT = 5;   // wait ran out: busy, not broken
+export const DEFAULT_TTL_S = 240;      // a dead run's place comes back within this
+export const HEARTBEAT_EVERY_MS = 60_000;
+const CHUNK_WAIT_S = 60;               // one IAP call waits at most this long on the VM, then reports and asks again
+const CALL_SLACK_S = 120;              // IAP SSH set-up on top of the wait
 const DEFAULT_WAIT_MS = 10 * 60_000;
 
-/** The limit for this run: E2E_SELFHOSTED_SLOTS when it is a whole number from 1 to MAX_SLOTS, else the default. */
-export function slotLimit(env = process.env) {
-  const raw = env.E2E_SELFHOSTED_SLOTS;
-  if (raw === undefined || !/^\d+$/.test(raw.trim())) return SELFHOSTED_SLOT_LIMIT;
-  const n = Number(raw);
-  return n >= 1 && n <= MAX_SLOTS ? n : SELFHOSTED_SLOT_LIMIT;
+// path.dirname, not `new URL('..', import.meta.url)`: Vite rewrites the latter into an asset URL under vitest.
+const LANE_PY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../selfhosted/lane.py');
+
+/** Admission could not be decided (VM unreachable, lanectl missing, garbled answer). The run must not start. */
+export class AdmissionUnavailable extends Error {}
+
+/** The environment this run uses: the claimed lane (set by the resolver's vite-env overrides) or the main lane. */
+export function admitEnv(env = process.env) {
+  const v = (env.CP_TEST_LANE ?? '').trim();
+  return v || 'main';
 }
 
-export function slotPaths(base) {
+/**
+ * CP_E2E_ADMIT_CMD sends admission somewhere other than the VM, so it is honoured only together with
+ * CP_E2E_ADMIT_CMD_PROOF=hermetic-test (the hermetic tests set both). Set alone, or with any other value, it is refused
+ * (AdmissionUnavailable): a stray export must never quietly take a real run off the VM's admission.
+ */
+export const ADMIT_CMD_PROOF_VALUE = 'hermetic-test';
+
+/** The command that reaches admit.py: the VM through lane.py, or CP_E2E_ADMIT_CMD (hermetic tests, with the proof). */
+export function admitCommand(env = process.env) {
+  const custom = (env.CP_E2E_ADMIT_CMD ?? '').trim();
+  if (custom) {
+    if (env.CP_E2E_ADMIT_CMD_PROOF !== ADMIT_CMD_PROOF_VALUE) {
+      throw new AdmissionUnavailable(`CP_E2E_ADMIT_CMD is set (${custom}) without CP_E2E_ADMIT_CMD_PROOF=${ADMIT_CMD_PROOF_VALUE}. ` +
+        'It is a hermetic-test seam that takes admission off the TEST VM, so it is refused: unset CP_E2E_ADMIT_CMD for a real run. ' +
+        'The run was NOT started.');
+    }
+    return { argv: custom.split(/\s+/), viaVm: false, label: `CP_E2E_ADMIT_CMD (${custom})` };
+  }
+  return { argv: ['python3', LANE_PY, 'vm', '--'], viaVm: true, label: 'the TEST VM (lane.py vm)' };
+}
+
+const childEnv = env => (env === process.env ? process.env : { ...process.env, ...env });
+
+/** One synchronous call. Never throws on a non-zero exit: the caller reads `status`. */
+export function runAdmit(args, { env = process.env, timeoutMs = (CALL_SLACK_S * 1000) } = {}) {
+  const { argv } = admitCommand(env);
+  const r = spawnSync(argv[0], [...argv.slice(1), ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'], env: childEnv(env), timeout: timeoutMs, encoding: 'utf8',
+  });
+  return { status: r.status, signal: r.signal, stdout: r.stdout ?? '', stderr: r.stderr ?? '', error: r.error };
+}
+
+function lastJson(text) {
+  const line = text.trim().split('\n').filter(Boolean).pop();
+  if (!line) return null;
+  try { return JSON.parse(line); } catch { return null; }
+}
+
+function failure(what, r, env) {
+  const how = r.error ? r.error.message : r.signal ? `killed by ${r.signal}` : `exit ${r.status}`;
+  const tail = r.stderr.trim().split('\n').slice(-3).join(' / ');
+  const via = admitCommand(env);
+  const hint = via.viaVm
+    ? ' Check that gcloud is logged in and the VM answers (python3 scripts/selfhosted/lane.py vm -- admit-status), and that lanectl is installed with admit support (lane.py vm-install).'
+    : '';
+  return new AdmissionUnavailable(`E2E admission could not ${what} through ${via.label} (${how})${tail ? `: ${tail}` : ''}. ` +
+    `The run was NOT started: an unadmitted run could overload the shared TEST server.${hint}`);
+}
+
+export function holderText(me) {
+  return `${me.worktree} (${me.branch}, pid ${me.pid}${me.machine ? ` on ${me.machine}` : ''})`;
+}
+
+/**
+ * What a run does when the VM says its ticket is gone: it is no longer admitted, so another run (an exclusive one in
+ * this environment, or one past the capacity) may already be in. It must stop, never continue unadmitted.
+ *
+ * Mechanism: SIGINT to this process, which in a Playwright run is the main runner (the config, and so this module,
+ * loads there). Playwright 1.64 treats SIGINT as an interrupt (runner SigIntWatcher): it stops the workers, runs
+ * global teardown, and exits 130 (cli/testActions.js: "interrupted" maps to 130). If the process is still alive
+ * after LOST_BACKSTOP_MS (the signal was swallowed, or teardown hangs), it exits LOST_TICKET_EXIT_CODE outright.
+ */
+export const LOST_TICKET_EXIT_CODE = 75; // [infra], not an app failure: report it, never retry-loop it
+export const LOST_BACKSTOP_MS = 120_000;
+export function terminateLostRun(ticket, { why = 'the VM no longer holds it (expired or revoked)', pid = process.pid, backstopMs = LOST_BACKSTOP_MS } = {}) {
+  process.stderr.write(`[P1672][infra] admission ticket ${ticket} was lost: ${why}, ` +
+    'so this run is no longer admitted and another run may already be using its environment. Stopping the run. Not an app failure.\n');
+  const backstop = setTimeout(() => process.exit(LOST_TICKET_EXIT_CODE), backstopMs);
+  backstop.unref();
+  try { process.kill(pid, 'SIGINT'); } catch { process.exit(LOST_TICKET_EXIT_CODE); }
+}
+
+/** A heartbeat subprocess is killed after this long, so a hung SSH never stalls the next beat. */
+export const HEARTBEAT_TIMEOUT_MS = 45_000;
+
+/**
+ * How long before the ticket's TTL runs out, with no heartbeat having reached the VM, the run gives itself up: a
+ * quarter of the TTL, at most 60 s (TTL 240 s: after 180 s without a successful beat). By then the VM is about to expire
+ * the ticket, or has (clocks differ), and the run must not carry on unadmitted.
+ */
+export const unreachableLimitMs = ttlS => ttlS * 1000 - Math.min(60_000, (ttlS * 1000) / 4);
+
+/**
+ * Keep a ticket alive while the run lasts. Asynchronous and unref'd, so it never holds the process open. Returns stop().
+ * The run is stopped (onLost(ticket, why), terminateLostRun by default) when
+ *   - the VM refuses a heartbeat (exit 4: ticket expired or unknown), or
+ *   - no heartbeat has REACHED the VM for unreachableLimitMs(ttlS) since admission or the last successful beat
+ *     (SSH errors, timeouts, a VM that is down): the VM expires the ticket at its TTL whether or not we hear about it.
+ * A shorter outage is retried on the next beat. `admittedAt` is when the VM last extended the ticket.
+ */
+function startHeartbeat(ticket, { env, ttlS, everyMs, admittedAt, timeoutMs = HEARTBEAT_TIMEOUT_MS, onLost = terminateLostRun, now = Date.now }) {
+  let inflight = false;
+  let stopped = false;
+  let lastOk = admittedAt;
+  const limit = unreachableLimitMs(ttlS);
+  const lose = (why) => {
+    if (stopped) return;
+    stopped = true;
+    clearInterval(timer);
+    onLost(ticket, why);
+  };
+  const checkReach = () => {
+    const silent = now() - lastOk;
+    if (silent >= limit) {
+      lose(`no heartbeat has reached the VM for ${Math.round(silent / 1000)}s and the ticket's TTL is ${ttlS}s, so the VM expires it`);
+    }
+  };
+  const beat = () => {
+    if (stopped) return;
+    checkReach();
+    if (inflight || stopped) return;
+    let argv;
+    try { ({ argv } = admitCommand(env)); } catch { checkReach(); return; }
+    inflight = true;
+    const c = spawn(argv[0], [...argv.slice(1), 'admit-heartbeat', '--ticket', ticket, '--ttl', String(ttlS)],
+      { stdio: 'ignore', env: childEnv(env), timeout: timeoutMs, killSignal: 'SIGKILL' });
+    c.on('error', () => { inflight = false; checkReach(); });
+    c.on('exit', (code) => {
+      inflight = false;
+      if (code === 0) { lastOk = now(); return; }
+      if (code === ADMIT_EXIT_REFUSED) { lose('the VM no longer holds it (expired or revoked)'); return; }
+      checkReach();
+    });
+    c.unref();
+  };
+  const timer = setInterval(beat, everyMs);
+  timer.unref();
+  return () => { stopped = true; clearInterval(timer); };
+}
+
+function makeHandle(ans, { env, exclusive, ttlS, log, admittedAt }) {
+  let done = false;
+  let stop = () => {};
   return {
-    slot: i => path.join(base, `e2e-test-db-selfhosted.slot-${i}.lock`),
-    claim: path.join(base, 'e2e-test-db-selfhosted.exclusive.lock'),
-    admission: path.join(base, 'e2e-test-db-selfhosted.admission.lock'),
-    legacy: path.join(base, 'e2e-test-db-selfhosted.lock'),
+    held: true, exclusive, ticket: ans.ticket, env: ans.env, used: ans.used, capacity: ans.capacity,
+    slot: ans.ticket, // P1607 callers read `slot`; it is now the ticket
+    startHeartbeat({ everyMs = HEARTBEAT_EVERY_MS, timeoutMs = HEARTBEAT_TIMEOUT_MS, onLost = terminateLostRun } = {}) {
+      stop();
+      stop = startHeartbeat(ans.ticket, { env, ttlS, everyMs, timeoutMs, onLost, admittedAt });
+    },
+    release() {
+      if (done) return;
+      done = true;
+      stop();
+      const r = runAdmit(['admit-release', '--ticket', ans.ticket], { env, timeoutMs: 60_000 });
+      if (r.status !== 0) {
+        log(`[P1672] could not release admission ticket ${ans.ticket} (${r.error?.message ?? `exit ${r.status}`}); the VM frees it within ${ttlS}s.`);
+      }
+    },
   };
 }
 
 /**
- * Everyone else on the server, read-only: live slot holders, another run's exclusive claim, a live holder of
- * the old single lock. Descriptions, empty when nobody. Nothing is reclaimed or written.
+ * Wait, bounded, for admission. Returns a handle ({ held: true, ticket, release(), startHeartbeat() }) or
+ * { held: false, blockers } when the wait ran out. Throws AdmissionUnavailable when the VM cannot decide.
+ * The first attempt never waits, so a busy server is reported at once with every holder named; after that each
+ * call waits up to CHUNK_WAIT_S on the VM and the wait is reported after each one.
  */
-export function otherRunsLive(paths, { pid = process.pid, now = Date.now } = {}) {
-  const out = [];
-  const mine = o => o && o.pid === pid;
-  for (let i = 1; i <= MAX_SLOTS; i++) {
-    const o = peekLive(paths.slot(i), now);
-    if (o && !mine(o)) out.push(describeHolder(o, 'slot', now()));
+export function acquireSlot(me, {
+  envName = 'main', exclusive = false, waitMs = DEFAULT_WAIT_MS, ttlS = DEFAULT_TTL_S, weight = 1,
+  log = console.log, env = process.env, now = Date.now,
+} = {}) {
+  const started = now();
+  let first = true;
+  for (;;) {
+    const remainingS = Math.max(0, Math.ceil((waitMs - (now() - started)) / 1000));
+    const chunk = first ? 0 : Math.min(remainingS, CHUNK_WAIT_S);
+    first = false;
+    const args = ['admit', '--env', envName, '--mode', exclusive ? 'exclusive' : 'shared', '--holder', holderText(me),
+      '--ttl', String(ttlS), '--wait', String(chunk), '--weight', String(weight)];
+    if (me.machine && me.port) args.push('--machine', me.machine, '--port', String(me.port));
+    const r = runAdmit(args, { env, timeoutMs: (chunk + CALL_SLACK_S) * 1000 });
+    if (r.status === 0) {
+      // The reach window counts from the RETURN of the successful call, not its send: a call can wait on the VM for up
+      // to CHUNK_WAIT_S before admission, and counting that wait would spend a healthy run's window before it starts.
+      // The VM started the TTL at admission, a little before this return; the margin in unreachableLimitMs (TTL/4, at
+      // most 60 s) covers that return latency.
+      const admittedAt = Date.now();
+      const ans = lastJson(r.stdout);
+      if (!ans || typeof ans.ticket !== 'string' || !ans.ticket) throw failure('read the admission answer', { ...r, stderr: `unreadable answer: ${r.stdout.trim().slice(0, 200)}` }, env);
+      return makeHandle(ans, { env, exclusive, ttlS, log, admittedAt });
+    }
+    if (r.status !== ADMIT_EXIT_TIMEOUT) throw failure('admit this run', r, env);
+    const ans = lastJson(r.stdout);
+    const blockers = Array.isArray(ans?.blockers) && ans.blockers.length ? ans.blockers : [r.stderr.trim() || 'another run'];
+    const waited = now() - started;
+    const what = exclusive ? `${envName} to itself (this run changes server-wide state)` : `a place on the VM in ${envName}`;
+    log(`[P1672] self-hosted TEST busy: waiting for ${what}; held by ${blockers.join('; ')}; waited ${Math.round(waited / 1000)}s of ${Math.round(waitMs / 1000)}s`);
+    if (waited >= waitMs || remainingS === 0) return { held: false, blockers };
   }
-  const claim = peekLive(paths.claim, now);
-  if (claim && !mine(claim)) out.push(describeHolder(claim, 'claim', now()));
-  const legacy = peekLive(paths.legacy, now);
-  if (legacy && !mine(legacy)) out.push(describeHolder(legacy, 'legacy', now()));
-  return out;
+}
+
+/**
+ * Every other run in `envName`, as descriptions (empty = nobody else): admitted runs and waiting exclusive claims,
+ * except this run's own ticket. Runs in other environments use other databases and are not listed.
+ * Throws AdmissionUnavailable when the VM cannot be asked (the caller treats that as "someone"). The query is bounded
+ * by `timeoutMs` (SWEEP_QUERY_TIMEOUT_MS): it runs in global teardown, which an unreachable VM must not hold up.
+ */
+export const SWEEP_QUERY_TIMEOUT_MS = 30_000;
+export function otherRunsLive({ envName = 'main', ticket = '', env = process.env, timeoutMs = SWEEP_QUERY_TIMEOUT_MS } = {}) {
+  const r = runAdmit(['admit-status', '--json'], { env, timeoutMs });
+  if (r.status !== 0) throw failure('read who is running', r, env);
+  const ans = lastJson(r.stdout);
+  if (!ans || !Array.isArray(ans.tickets)) throw failure('read who is running', { ...r, stderr: 'unreadable status' }, env);
+  return ans.tickets
+    .filter(t => t.env === envName && t.ticket !== ticket)
+    .map(t => `${t.holder} (${t.phase === 'waiting' ? 'waiting to run alone' : t.mode} in ${t.env})`);
 }
 
 /**
@@ -99,164 +269,4 @@ export function workersFor({ requested, serverWideCount, unknown = false, fallba
   if (unknown || serverWideCount >= 1) return 1;
   const n = Number.parseInt(requested ?? '', 10);
   return Number.isInteger(n) && n > 0 ? n : fallback;
-}
-
-function describeHolder(owner, kind, now) {
-  if (!owner || owner.unknown) return 'a run whose lock cannot be read yet';
-  const base = describeOwner(owner, now).slice(0, -1); // drop ")"
-  const parts = [base];
-  if (owner.port) parts.push(`port ${owner.port}`);
-  if (kind === 'claim') parts.push(owner.phase === 'draining' ? 'waiting to run alone' : 'running alone');
-  if (kind === 'legacy') parts.push('older checkout holding the whole server');
-  return `${parts.join(', ')})`;
-}
-
-/**
- * The live owner of a lock directory, or null when it is absent. A stale lock is reclaimed first
- * (and logged), so a dead run never blocks anyone. An unreadable owner inside the grace window counts
- * as a live, unknown holder.
- */
-function liveOwner(dir, label, log, now) {
-  for (let i = 0; i < 3; i++) {
-    let ageMs;
-    try { ageMs = now() - fs.statSync(dir).mtimeMs; } catch { return null; }
-    const owner = readOwner(dir);
-    if (!isStale(owner, { dirAgeMs: ageMs })) return owner ?? { unknown: true };
-    log(`[P1607] reclaiming a stale e2e ${label} from ${describeOwner(owner, now())}`);
-    reclaim(dir, owner);
-  }
-  return null;
-}
-
-function liveSlots(paths, log, now) {
-  const out = [];
-  for (let i = 1; i <= MAX_SLOTS; i++) {
-    const o = liveOwner(paths.slot(i), 'slot', log, now);
-    if (o) out.push({ i, owner: o });
-  }
-  return out;
-}
-
-/** Replace owner.json inside a held directory atomically (same filesystem rename). */
-function rewriteOwner(dir, owner) {
-  const tmp = path.join(dir, `owner.json.${uniq()}`);
-  fs.writeFileSync(tmp, JSON.stringify(owner));
-  fs.renameSync(tmp, path.join(dir, 'owner.json'));
-}
-
-function removeIfMine(dir, me) {
-  if (!sameOwner(readOwner(dir), me)) return false;
-  fs.rmSync(dir, { recursive: true, force: true });
-  return true;
-}
-
-function makeHandle(paths, me, { exclusive, slot }) {
-  let done = false;
-  return {
-    held: true, exclusive, slot,
-    release() {
-      if (done) return;
-      done = true;
-      if (exclusive) removeIfMine(paths.claim, me); else removeIfMine(paths.slot(slot), me);
-    },
-  };
-}
-
-/**
- * The live owner of a directory this run must only READ (the old single lock): null when absent or when its
- * owner has ended. Nothing is moved, created or removed.
- */
-function peekLive(dir, now) {
-  let ageMs;
-  try { ageMs = now() - fs.statSync(dir).mtimeMs; } catch { return null; }
-  const owner = readOwner(dir);
-  return isStale(owner, { dirAgeMs: ageMs }) ? null : (owner ?? { unknown: true });
-}
-
-/** One attempt. Returns { handle } or { blockers: string[] } (empty when it lost a race and should simply retry). */
-function attempt(paths, me, { limit, exclusive, log, now, onScanned }) {
-  const blockers = [];
-  const legacy = peekLive(paths.legacy, now);
-  const legacyDesc = legacy ? describeHolder(legacy, 'legacy', now()) : null;
-
-  const claim = liveOwner(paths.claim, 'exclusive claim', log, now);
-  const otherClaim = !!claim && !sameOwner(claim, me);
-  if (otherClaim) blockers.push(describeHolder(claim, 'claim', now()));
-
-  if (exclusive) {
-    if (otherClaim) return { blockers };
-    if (!claim && !tryAcquire(paths.claim, { ...me, exclusive: true, phase: 'draining' })) return { blockers: [] };
-    const slots = liveSlots(paths, log, now);
-    for (const s of slots) blockers.push(describeHolder(s.owner, 'slot', now()));
-    if (legacyDesc) blockers.push(legacyDesc);
-    if (legacy || slots.length) return { blockers };
-    rewriteOwner(paths.claim, { ...me, exclusive: true, phase: 'running' });
-    return { handle: makeHandle(paths, me, { exclusive: true, slot: 0 }) };
-  }
-
-  if (otherClaim) return { blockers };
-  const slots = liveSlots(paths, log, now);
-  const samePort = slots.filter(s => me.port && s.owner.port === me.port);
-  if (samePort.length) {
-    for (const s of samePort) blockers.push(`${describeHolder(s.owner, 'slot', now())} (same dev-server port ${me.port}: a shared server dies with the run that started it)`);
-    return { blockers };
-  }
-  const legacyCount = legacy ? 1 : 0; // an older-script run holds one place
-  if (slots.length + legacyCount >= limit) {
-    for (const s of slots) blockers.push(describeHolder(s.owner, 'slot', now()));
-    if (legacyDesc) blockers.push(legacyDesc);
-    return { blockers };
-  }
-  const used = new Set(slots.map(s => s.i));
-  let mine = 0;
-  for (let i = 1; i <= MAX_SLOTS; i++) if (!used.has(i)) { mine = i; break; }
-  onScanned?.(); // test seam: runs between the scan and the take, inside the admission mutex
-  if (!mine || !tryAcquire(paths.slot(mine), me)) return { blockers: [] };
-  return { handle: makeHandle(paths, me, { exclusive: false, slot: mine }) };
-}
-
-const ADMISSION_WAIT_MS = 5_000;
-
-/**
- * Run one attempt inside the admission mutex. { busy: true } when the mutex could not be had in a few seconds
- * (the caller just tries again on its next poll). The mutex is released whatever the attempt does.
- */
-function underAdmission(paths, me, log, now, fn) {
-  const started = now();
-  for (;;) {
-    if (tryAcquire(paths.admission, { ...me, purpose: 'admission' })) break;
-    liveOwner(paths.admission, 'admission lock', log, now); // reclaims a dead holder, like any other owner
-    if (now() - started >= ADMISSION_WAIT_MS) return { blockers: [], busy: true };
-    sleepSync(10 + Math.floor(Math.random() * 30));
-  }
-  try { return fn(); } finally { removeIfMine(paths.admission, me); }
-}
-
-/**
- * Wait, bounded, for a slot (or the whole server when exclusive). Returns a handle with release(), or
- * { held: false, blockers } when the wait ran out. `log` receives every line meant for the person
- * running the suite; the first report is immediate and names every holder.
- */
-export function acquireSlot(paths, me, {
-  limit = SELFHOSTED_SLOT_LIMIT, exclusive = false, waitMs = DEFAULT_WAIT_MS, pollMs = POLL_MS,
-  log = console.log, now = Date.now, onScanned,
-} = {}) {
-  const started = now();
-  let lastReport = -Infinity;
-  for (;;) {
-    const r = underAdmission(paths, me, log, now, () => attempt(paths, me, { limit, exclusive, log, now, onScanned }));
-    if (r.handle) return r.handle;
-    const waited = now() - started;
-    if (r.blockers.length && now() - lastReport >= REPORT_EVERY_MS) {
-      lastReport = now();
-      const what = exclusive ? 'the whole server (this run changes server-wide state)' : `a slot (${limit} run${limit === 1 ? '' : 's'} at a time)`;
-      log(`[P1607] self-hosted TEST server busy: waiting for ${what}; held by ${r.blockers.join('; ')}; waited ${Math.round(waited / 1000)}s of ${Math.round(waitMs / 1000)}s`);
-    }
-    if (waited >= waitMs) {
-      if (exclusive) removeIfMine(paths.claim, me); // a waiter that gives up must not keep others out
-      return { held: false, blockers: r.blockers };
-    }
-    const jitter = r.blockers.length ? 0 : Math.random() * pollMs;
-    sleepSync(Math.max(1, Math.min(pollMs + jitter, waitMs - waited)));
-  }
 }

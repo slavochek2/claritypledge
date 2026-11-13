@@ -118,7 +118,41 @@ def resolve(env_name):
 SH_GCP_PROJECT = "gen-lang-client-0869694595"
 SH_VM = "cp-test-supabase"
 SH_ZONE = "asia-southeast1-a"
-SH_DB_CONTAINER = "supabase-db"
+
+def sh_target():
+    """Which self-hosted TEST environment this checkout uses (P1672): asked of lane.py resolve.
+
+    The main lane unless this worktree holds a lane. A refused claim (revoked, failed, expired,
+    unreadable) is exit 2 here, never a fall back to the main lane. The identity check: the keys
+    file the resolver names must carry the origin it resolved.
+    """
+    lane_py = os.path.join(os.path.dirname(os.path.abspath(__file__)), "selfhosted", "lane.py")
+    if not os.path.isfile(lane_py):
+        fail(f"test(selfhosted): resolver not found ({lane_py}); cannot tell which TEST environment this is")
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        top = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    r = subprocess.run([sys.executable, lane_py, "resolve", "--purpose", "run", "--format", "json", "--worktree", top],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        fail("test(selfhosted): the TEST target could not be resolved: " + (r.stderr.strip() or "no answer")[:300])
+    try:
+        ans = json.loads(r.stdout)
+    except json.JSONDecodeError:
+        fail("test(selfhosted): unparseable resolver answer")
+    keys_url = None
+    try:
+        with open(ans["keys_file"]) as f:
+            for line in f:
+                if line.startswith("SUPABASE_URL="):
+                    keys_url = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    break
+    except OSError:
+        fail(f"test(selfhosted): {ans['keys_file']} not found: cannot confirm the target identity")
+    if keys_url != ans["origin"]:
+        fail(f"test(selfhosted): SUPABASE_URL in {ans['keys_file']} is not {ans['origin']}. Refusing.")
+    return ans
 
 
 def active_test():
@@ -173,8 +207,14 @@ def selfhosted_query(sql):
     env = dict(os.environ)
     if not any(os.access(os.path.join(d, "gcloud"), os.X_OK) for d in env.get("PATH", "").split(os.pathsep)):
         env["PATH"] = "/opt/homebrew/share/google-cloud-sdk/bin:" + env.get("PATH", "")
-    remote = (f"sudo docker exec -i {SH_DB_CONTAINER} psql -U postgres -d postgres "
-              "-X -q -At -v ON_ERROR_STOP=1")
+    tgt = sh_target()
+    if tgt["target"] == "lane":
+        # Same psql (postgres, -X -q -At, ON_ERROR_STOP) in the lane's db container, through lanectl,
+        # which refuses a stale generation. The SQL travels on stdin exactly as for the main lane.
+        remote = f"sudo {tgt['lanectl']} psql --lane {tgt['lane']} --gen {tgt['generation']} --at"
+    else:
+        remote = (f"sudo docker exec -i {tgt['containers']['db']} psql -U postgres -d postgres "
+                  "-X -q -At -v ON_ERROR_STOP=1")
     cmd = ["gcloud", "compute", "ssh", SH_VM, f"--project={SH_GCP_PROJECT}", f"--zone={SH_ZONE}",
            "--tunnel-through-iap", "--quiet", "--command", remote]
     try:

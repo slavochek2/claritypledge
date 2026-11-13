@@ -41,13 +41,17 @@ describe('lockSkipReason: who must not take the lock', () => {
     expect(lockSkipReason({ argv: run, env: { E2E_TEST_DB_LOCK_HELD: '999999' }, isTestDb: true })).toBeNull();
     expect(lockSkipReason({ argv: run, env: { E2E_TEST_DB_LOCK_HELD: String(process.pid) }, isTestDb: true })).toMatch(/parent/);
   });
-  it('workers, --list, --ui, CI, a held parent and other databases never do', () => {
+  it('workers, --list, --ui, a held parent and other databases never do', () => {
     expect(lockSkipReason({ argv: run, env: { TEST_WORKER_INDEX: '0' }, isTestDb: true })).toMatch(/worker/);
     expect(lockSkipReason({ argv: [...run, '--list'], env: {}, isTestDb: true })).toMatch(/--list/);
     expect(lockSkipReason({ argv: [...run, '--ui'], env: {}, isTestDb: true })).toMatch(/--ui/);
-    expect(lockSkipReason({ argv: run, env: { CI: 'true' }, isTestDb: true })).toMatch(/CI/);
     expect(lockSkipReason({ argv: run, env: {}, isTestDb: false })).toMatch(/not the TEST/);
     expect(lockSkipReason({ argv: ['node', 'playwright', 'show-report'], env: {}, isTestDb: true })).toMatch(/not a test run/);
+  });
+  // P1672: CI shares the self-hosted VM's CPU with every other client, so it is admitted like any run.
+  it('CI is no longer exempt: a CI run against TEST takes admission like any other run', () => {
+    expect(lockSkipReason({ argv: run, env: { CI: 'true' }, isTestDb: true })).toBeNull();
+    expect(lockSkipReason({ argv: run, env: { CI: '1' }, isTestDb: true })).toBeNull();
   });
 });
 
@@ -173,7 +177,7 @@ it('E2E_TEST_DB_LOCK_WAIT_MS=0 means do not wait; junk falls back to the default
 });
 
 it('lockDirFor puts the lock in the git common dir, shared by every worktree', () => {
-  const d = lockDirFor(process.cwd());
+  const d = lockDirFor(process.cwd())!;
   expect(d.endsWith(path.join('.git', 'e2e-test-db.lock'))).toBe(true);
 });
 
@@ -195,12 +199,13 @@ describe('P1572: a TEST that refuses the request is configuration, not overload'
 
 // P1557: the lock protects one database. Hosted TEST keeps the shared lock every session already
 // uses (unchanged name, so older worktrees still coordinate with this one); the self-hosted server
-// is a different database and gets its own, so runs against it never queue behind hosted runs.
-it('lockDirFor keeps the shared hosted lock and gives the self-hosted server its own', () => {
+// is a different database, so runs against it never queue behind hosted runs. P1672: its admission
+// lives on the VM, so it has no lock directory in the git dir at all.
+it('lockDirFor keeps the shared hosted lock; the self-hosted server has no git-dir lock (admission is on the VM)', () => {
   const env = { SELFHOSTED_TEST_ORIGIN: 'https://test-db.example.org' };
   const hosted = lockDirFor(process.cwd(), 'https://ayibkeoyukulbsjpxgaw.supabase.co', env);
   const self = lockDirFor(process.cwd(), 'https://test-db.example.org', env);
-  expect(hosted.endsWith(path.join('.git', 'e2e-test-db.lock'))).toBe(true);
-  expect(self.endsWith(path.join('.git', 'e2e-test-db-selfhosted.lock'))).toBe(true);
+  expect(hosted!.endsWith(path.join('.git', 'e2e-test-db.lock'))).toBe(true);
+  expect(self).toBeNull();
   expect(lockDirFor(process.cwd())).toBe(hosted);
 });

@@ -73,7 +73,9 @@ describe('P1557 self-hosted TEST origin', () => {
   });
   it.each([
     'http://test-db.example.org',
-    'https://test-db.example.org:8443',
+    'https://test-db.example.org:443',
+    `https://user:pass${AT}test-db.example.org:8443`,
+    'https://test-db.example.org:8443/path',
     `https://user:pass${AT}test-db.example.org`,
     'https://test-db.example.org/path',
     'https://test-db.example.org?x=1',
@@ -84,6 +86,40 @@ describe('P1557 self-hosted TEST origin', () => {
   ])('malformed or unsafe env %s is ignored: the self-hosted origin is not TEST', (bad) => {
     expect(isTestProjectUrl(SELF, { SELFHOSTED_TEST_ORIGIN: bad })).toBe(false);
     expect(isTestProjectUrl(PROD, { SELFHOSTED_TEST_ORIGIN: bad })).toBe(false);
+  });
+});
+
+// P1672: a TEST lane is served on a port (https://host:8443). The port is admitted only when the env value
+// itself carries it, and the match stays exact-origin.
+describe('P1672 self-hosted lane origin with a port', () => {
+  const LANE = 'https://test-db.example.org:8443';
+  const withLane = { SELFHOSTED_TEST_ORIGIN: LANE };
+  it('the exact origin with its port is TEST when it is the env value', () => {
+    expect(testTargetConfigError(withLane)).toBeNull();
+    expect(isTestProjectUrl(LANE, withLane)).toBe(true);
+    expect(isTestProjectUrl(`${LANE}/functions/v1/x`, withLane)).toBe(true);
+  });
+  it('the same host without the port, or on another port, is not TEST', () => {
+    expect(isTestProjectUrl(SELF, withLane)).toBe(false);
+    expect(isTestProjectUrl('https://test-db.example.org:9443', withLane)).toBe(false);
+    expect(isTestProjectUrl('https://test-db.example.org:443', withLane)).toBe(false);
+  });
+  it('a port in the URL is not TEST when the env value has none, nor for hosted or prod hosts', () => {
+    expect(isTestProjectUrl(LANE, withSelf)).toBe(false);
+    expect(isTestProjectUrl(LANE, {})).toBe(false);
+    expect(isTestProjectUrl(`${HOSTED[0]!}:8443`, withLane)).toBe(false);
+    expect(isTestProjectUrl(`${PROD}:8443`, withLane)).toBe(false);
+  });
+  it('supabase hosts are still refused as the self-hosted origin, with or without a port', () => {
+    for (const bad of ['https://besjtuodziykmjidubzw.supabase.co:8443', 'https://ayibkeoyukulbsjpxgaw.supabase.co:8443']) {
+      const env = { SELFHOSTED_TEST_ORIGIN: bad };
+      expect(testTargetConfigError(env)).not.toBeNull();
+      expect(isTestProjectUrl(bad, env)).toBe(false);
+    }
+  });
+  it('testRefForUrl gives the synthetic self-hosted ref for the lane origin', async () => {
+    const t = await import('../../scripts/lib/test-target.mjs');
+    expect(t.testRefForUrl(LANE, withLane)).toBe('cpselfhostedtest01');
   });
 });
 

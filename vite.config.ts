@@ -1,3 +1,5 @@
+// P1672: first import, so this worktree's TEST lane (if it holds one) is in process.env before anything reads it.
+import './scripts/lib/test-lane-apply.mjs'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { sentryVitePlugin } from '@sentry/vite-plugin'

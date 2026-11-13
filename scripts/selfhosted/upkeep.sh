@@ -17,6 +17,8 @@
 # Output contract (shell-safety.md): no redirect or pipe tokens in status lines.
 set -uo pipefail
 
+# P1672: this is MAIN-LANE maintenance (the shared stack's images, OS and templates). Its target is explicit
+# here and deliberately NOT resolver-driven: a worktree that holds a lane must not redirect it.
 GCP_PROJECT="gen-lang-client-0869694595"; VM="cp-test-supabase"; ZONE="asia-southeast1-a"
 HOST="136-85-1-126.sslip.io"; PROD_REF="besjtuodziykmjidubzw"
 UPSTREAM_VERSIONS="${UPSTREAM_VERSIONS_URL:-https://raw.githubusercontent.com/supabase/supabase/master/docker/versions.md}"

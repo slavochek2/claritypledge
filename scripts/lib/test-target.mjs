@@ -4,7 +4,7 @@
  * An exact allowlist of ORIGINS, never a rule: the hosted TEST projects' `https://<ref>.supabase.co`
  * plus, when SELFHOSTED_TEST_ORIGIN is set, that one self-hosted origin. A URL passes only when its
  * origin is in the list, so another scheme, a port, embedded credentials, a host suffix or prefix
- * all fail. Production is never listed, and a self-hosted value that names a supabase.co host is
+ * all fail. (A port is accepted only when SELFHOSTED_TEST_ORIGIN itself carries that exact port.) Production is never listed, and a self-hosted value that names a supabase.co host is
  * refused, so the env var cannot be used to admit a hosted project.
  *
  * Plain .mjs so scripts can import it as well as the TypeScript helpers (e2e/helpers/e2e-namespace.ts
@@ -23,8 +23,8 @@ const HOSTED_ORIGINS = TEST_PROJECT_REFS.map((ref) => `https://${ref}.supabase.c
 
 /**
  * The self-hosted origin from the env: `{ state: 'unset' }`, `{ state: 'ok', origin }` or
- * `{ state: 'malformed', reason }`. Valid means exactly `https://host`: lowercase host as the URL
- * parser would write it, no port, path, query, fragment or credentials, and not a supabase.co host.
+ * `{ state: 'malformed', reason }`. Valid means exactly `https://host` or `https://host:port`: lowercase host
+ * as the URL parser would write it, no path, query, fragment or credentials, and not a supabase.co host.
  */
 export function selfHostedOrigin(env = process.env) {
   const raw = env[SELFHOSTED_ENV];
@@ -33,7 +33,9 @@ export function selfHostedOrigin(env = process.env) {
   try { u = new URL(raw); } catch { return { state: 'malformed', reason: 'not a URL' }; }
   if (u.protocol !== 'https:') return { state: 'malformed', reason: 'must be https' };
   if (u.username || u.password) return { state: 'malformed', reason: 'must not carry credentials' };
-  if (u.port) return { state: 'malformed', reason: 'must not carry a port' };
+  // A port is allowed here and only here (P1672: a TEST lane is served on https://host:8443). It is part of
+  // u.origin, so an exact-origin match below means a URL with a port passes only when the env value itself
+  // names that exact port; the same host without it, or on another port, is a different origin.
   // A trailing DNS dot is the same host to DNS but defeats a suffix check (review: prod admitted).
   if (u.hostname.endsWith('.')) return { state: 'malformed', reason: 'must not end in a dot' };
   // Any supabase.<tld> host (.co, .in, .com, ...) is hosted Supabase, and possibly prod.
@@ -60,7 +62,9 @@ export function testOrigins(env = process.env) {
 export function testRefForUrl(url, env = process.env) {
   let u;
   try { u = new URL(url ?? ''); } catch { return null; }
-  if (u.protocol !== 'https:' || u.port || u.username || u.password) return null;
+  if (u.protocol !== 'https:' || u.username || u.password) return null;
+  // u.origin carries a non-default port, so a port passes only when that exact origin is in the list
+  // (a hosted origin never has one; the self-hosted one has it only when the env value does).
   if (!testOrigins(env).includes(u.origin)) return null;
   const hosted = TEST_PROJECT_REFS.find((ref) => u.origin === `https://${ref}.supabase.co`);
   return hosted ?? SELFHOSTED_TEST_REF;

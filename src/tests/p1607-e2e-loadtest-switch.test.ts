@@ -139,7 +139,10 @@ process.stdout.write(JSON.stringify({ status: r.status, stdout: r.stdout, stderr
     expect(r.stderr).toMatch(/\[P1607\].*fixed workload/);
   }, 90_000);
 
-  it('failing control: the driver against hosted TEST does not start', () => {
+  // P1672: in a worktree that holds a TEST lane, the lane deliberately wins over any VITE_SUPABASE_URL, so this
+  // control's precondition (a driver pointed at hosted TEST) cannot be built there. It still runs in every unclaimed
+  // worktree and in CI; skipping it here keeps a claimed worktree able to commit.
+  it.skipIf(Boolean(process.env.CP_TEST_LANE))('failing control: the driver against hosted TEST does not start', () => {
     const r = viaScript('e2e-load-test.mjs', WORKLOAD, { VITE_SUPABASE_URL: HOSTED_URL });
     expect(r.status).not.toBe(0);
     expect(r.stderr).toMatch(/\[P1607\].*self-hosted TEST server/);

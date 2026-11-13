@@ -13,6 +13,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { createTestUser, deleteTestUsers, type TestUser } from '../../../e2e/helpers/test-user';
+import { selfHostedPsqlCommand } from '../../../e2e/helpers/test-psql';
 
 const SELFHOSTED_URL = 'https://136-85-1-126.sslip.io';
 const PROJECT = 'gen-lang-client-0869694595';
@@ -30,7 +31,7 @@ function gcloudLoginOk(): boolean {
 }
 function psql(sql: string): string {
   return execFileSync('gcloud', ['compute', 'ssh', VM, `--project=${PROJECT}`, `--zone=${ZONE}`, '--tunnel-through-iap', '--quiet',
-    '--command', 'sudo docker exec -i supabase-db psql -U postgres -d postgres -X -q -t -A -v ON_ERROR_STOP=1'],
+    '--command', selfHostedPsqlCommand()],
   { env, input: sql, encoding: 'utf8', timeout: 180_000, stdio: ['pipe', 'pipe', 'pipe'] });
 }
 

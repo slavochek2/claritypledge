@@ -21,19 +21,21 @@ import { createTestEvent, deleteTestEvent, rsvpToEvent, type TestEvent } from '.
 import { seedRoomMember } from '../helpers/test-event-room';
 import { signIn, ok, type SignedIn } from '../helpers/test-chat';
 import { postCleanSql, seatedRoster } from '../helpers/test-clean-post';
+import { selfHostedPsqlCommand } from '../helpers/test-psql';
 
 test.skip(process.env.P1592_INTERLEAVING !== '1', 'needs gcloud + the self-hosted TEST VM: run scripts/test-p1592-erasure-interleaving.sh');
 test.describe.configure({ mode: 'serial', timeout: 300_000 });
 
 const RUN = Math.random().toString(36).slice(2, 7).toUpperCase();
-const SSH = ['compute', 'ssh', 'cp-test-supabase', '--project=gen-lang-client-0869694595', '--zone=asia-southeast1-a',
-  '--tunnel-through-iap', '--quiet', '--command', 'sudo docker exec -i supabase-db psql -U postgres -d postgres -X -At -v ON_ERROR_STOP=1'];
+// Built at call time (never at module load), so the lane environment is read only when a session starts.
+const sshArgs = (): string[] => ['compute', 'ssh', 'cp-test-supabase', '--project=gen-lang-client-0869694595', '--zone=asia-southeast1-a',
+  '--tunnel-through-iap', '--quiet', '--command', selfHostedPsqlCommand()];
 const BARRIER_ERASE = 71592001;   // E waits on this before COMMIT
 const BARRIER_POST = 71592002;    // P waits on this before COMMIT
 
 interface Sess { proc: ChildProcess; out: string; done: Promise<number | null>; seen: (marker: string, ms?: number) => Promise<void>; }
 function psql(sql: string): Sess {
-  const proc = spawn('gcloud', SSH, { env: { ...process.env, PATH: `/opt/homebrew/share/google-cloud-sdk/bin:${process.env.PATH}` } });
+  const proc = spawn('gcloud', sshArgs(), { env: { ...process.env, PATH: `/opt/homebrew/share/google-cloud-sdk/bin:${process.env.PATH}` } });
   const s: Sess = { proc, out: '', done: new Promise((r) => proc.on('close', (c) => r(c))), seen: async () => {} };
   proc.stdout!.on('data', (d) => { s.out += d.toString(); });
   proc.stderr!.on('data', (d) => { s.out += d.toString(); });

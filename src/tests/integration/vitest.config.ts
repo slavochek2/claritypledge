@@ -23,9 +23,15 @@ import { defineConfig } from 'vitest/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import * as dotenv from 'dotenv';
+import { applyTestLaneEnv } from '../../../scripts/lib/test-lane.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../../..');
+
+// P1672: a worktree that holds a TEST lane runs these tests against its lane. This lane touches TEST, so a refused
+// claim THROWS (even though VITEST is set here) instead of quietly using the main lane. The overrides win over the
+// values parsed from the env file below, which are what the test workers receive.
+const laneOverrides = applyTestLaneEnv(REPO_ROOT, process.env, undefined, { throwOnRefusal: true });
 
 // Real credentials for the TEST project (ayibkeoyukulbsjpxgaw). Never prod.
 const parsed = dotenv.config({ path: path.resolve(REPO_ROOT, '.env.test.local') }).parsed ?? {};
@@ -53,6 +59,7 @@ export default defineConfig({
     fileParallelism: false,
     env: {
       ...parsed,
+      ...laneOverrides,
       // The services read this to pick real-vs-mock. This lane is only ever real.
       VITE_USE_REAL_API: 'true',
     },

@@ -28,7 +28,7 @@
  */
 import { test, expect, type Page } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -66,7 +66,23 @@ const GCP = {
   project: process.env.P1653_GCP_PROJECT ?? 'gen-lang-client-0869694595',
   zone: process.env.P1653_GCP_ZONE ?? 'asia-southeast1-a',
   vm: process.env.P1653_GCP_VM ?? 'cp-test-supabase',
-  container: process.env.P1653_FUNCS_CONTAINER ?? 'supabase-edge-functions',
+  /**
+   * The functions container whose logs are read (P1672): asked of the resolver, so a worktree that holds a lane reads
+   * cp-<lane>-functions and an unclaimed one reads the main lane's. A refused claim throws. P1653_FUNCS_CONTAINER may
+   * still name a container, but only when no lane is in play. Resolved on use, not at module load.
+   */
+  get container(): string {
+    // A refused claim stops here, before any override is honoured.
+    if (process.env.CP_TEST_LANE_REFUSED) throw new Error(`p1653: this worktree's TEST lane claim is refused; not reading any container's logs. ${process.env.CP_TEST_LANE_REFUSED}`);
+    const lane = process.env.CP_TEST_LANE;
+    if (process.env.P1653_FUNCS_CONTAINER && lane) console.error(`p1653: P1653_FUNCS_CONTAINER is ignored in a lane (${lane}); reading the lane's functions container.`);
+    if (process.env.P1653_FUNCS_CONTAINER && !lane) return process.env.P1653_FUNCS_CONTAINER;
+    const r = spawnSync('python3', [path.join(REPO, 'scripts/selfhosted/lane.py'), 'resolve', '--format', 'json', '--worktree', REPO], { encoding: 'utf8' });
+    if (r.error || r.status !== 0) throw new Error(`p1653: cannot resolve the functions container (${r.error?.message ?? `resolver exit ${r.status}`}): ${(r.stderr ?? '').trim()}`);
+    const name = JSON.parse(r.stdout).containers?.functions;
+    if (typeof name !== 'string' || !/^[a-z0-9-]+$/.test(name)) throw new Error('p1653: the resolver named no usable functions container');
+    return name;
+  },
 };
 const LOG_PREFIX = 'canvas-draft: parsed ';
 /**
