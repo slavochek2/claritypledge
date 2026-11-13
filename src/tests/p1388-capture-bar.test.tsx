@@ -131,13 +131,12 @@ describe('P1388: the short bar (the only form on ordinary pages)', () => {
 });
 
 describe('the short bar inside the event room', () => {
-  it('has no "Open the room" arrow there (it would leave the event room), and keeps it on every other page', () => {
+  it('keeps the "Open the room" arrow there too: one identical bar on every page (P1529 G7, reversed)', () => {
     mockUseRoomCapture.mockReturnValue(state({ eventId: 'ev-1' }));
     const inRoom = render(<RoomCaptureBar short roomEventId="ev-1" />);
-    expect(screen.queryByRole('button', { name: 'Open the room' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open the room' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Stop transcribing' })).toBeInTheDocument();
     inRoom.unmount();
-    // a capture of another event, or of no event, keeps its arrow
     const other = render(<RoomCaptureBar short roomEventId="ev-2" />);
     expect(screen.getByRole('button', { name: 'Open the room' })).toBeInTheDocument();
     other.unmount();

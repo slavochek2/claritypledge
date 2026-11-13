@@ -104,7 +104,7 @@ describe('waiting-state canvases list', () => {
 });
 
 describe('capture info popover', () => {
-  it('offers the live text link only when the bar hides its arrow', () => {
+  it('offers the live text link when the bar gives it a way to open the room (a round event\'s bar does, beside its arrow)', () => {
     const open = vi.fn();
     const { unmount } = render(<CaptureInfoButton forEvent />);
     fireEvent.click(screen.getByTestId('capture-info'));

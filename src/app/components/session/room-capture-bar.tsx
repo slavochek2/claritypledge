@@ -12,8 +12,6 @@
  * renders nothing, as D3/D13 asked.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useInRouterContext, useLocation } from 'react-router-dom';
-import { tableEventOf } from '@/lib/canvas-hrefs';
 import { ArrowRight, Mic, Pause, Play, Square } from 'lucide-react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import type { SliceDestination } from '@/app/data/transcribe-slice-destination';
@@ -29,17 +27,9 @@ import { useRoomBarClaimed } from './room-bar-owner';
 import { useStartRoomCapture } from './use-start-room-capture';
 import { isRoundEvent } from '@/lib/round-event-registry';
 
-/**
- * What the bar knows about the page it sits on: `isRound` (a round event's capture: the info says only where the words go) and `hideOpen` (no "open the room" arrow:
- * inside this event's own room, or on a canvas opened from it; every other page keeps it, P1529 G7).
- */
-function useBarScope(eventId: string | null, roomEventId: string | undefined, roundEvent: boolean, navState: unknown): { isRound: boolean; hideOpen: boolean } {
-  // A canvas opened from this event's table carries `tableEvent` in its navigation state.
-  const openedFromEvent = !!eventId && tableEventOf(navState) === eventId;
-  const inRoom = !!roomEventId && eventId === roomEventId;
-  const isRound = (roundEvent && inRoom) || isRoundEvent(eventId);
-  return { isRound, hideOpen: inRoom || (isRound && openedFromEvent) };
-}
+/** A round event's capture (the sales mastermind): the info says only where the table's words go. The bar itself is identical on every page (P1529 G7, reversed). */
+const isRoundBar = (eventId: string | null, roomEventId: string | undefined, roundEvent: boolean): boolean =>
+  (roundEvent && !!roomEventId && eventId === roomEventId) || isRoundEvent(eventId);
 
 const VISIBLE_PHASES = new Set(['capturing', 'stalled', 'observing', 'paused']);
 
@@ -72,7 +62,7 @@ const ICON_BUTTON =
  * and no remembered state: the full detail is one tap away in the room (→). It is sticky, so a
  * recorder scrolling the feed always sees that capture is running (P1307 D9).
  */
-function CompactCaptureBar({ roomId, hideOpen = false, roundEvent = false }: { roomId: string; hideOpen?: boolean; roundEvent?: boolean }) {
+function CompactCaptureBar({ roomId, roundEvent = false }: { roomId: string; roundEvent?: boolean }) {
   const { phase, open, endMyCapture, pauseMine, resumeMine, micLost, tapDown, stopping, reconnectMic, eventId, destination, conversationId } = useRoomCapture();
   const needsReconnect = micLost || tapDown;   // nothing is being recorded: the one way back is this tap
   const status = useCaptureStatus();
@@ -87,19 +77,16 @@ function CompactCaptureBar({ roomId, hideOpen = false, roundEvent = false }: { r
         {conversationId && !eventId && <CaptureChatLink roomId={roomId} conversationId={conversationId} className="min-w-0 flex-1 basis-0" />}
         {eventId && !roundEvent && <EventArrivalHint />}
         <LevelMeterFor phase={phase} />
-        <CaptureInfoButton forEvent={!!eventId} onOpenRoom={hideOpen ? open : undefined} message={roundEvent ? EVENT_IDLE_INFO : undefined} />
+        <CaptureInfoButton forEvent={!!eventId} onOpenRoom={roundEvent ? open : undefined} message={roundEvent ? EVENT_IDLE_INFO : undefined} />
         <div className="ml-auto flex items-center gap-2">
           <ReconnectOrPause needsReconnect={needsReconnect} observing={phase === 'observing'} paused={paused} stopping={stopping} onReconnect={() => void reconnectMic()} onToggle={paused ? resumeMine : pauseMine} />
           <button type="button" className={`${ICON_BUTTON} hover:text-destructive active:text-destructive active:bg-destructive/10`} disabled={stopping}
             onClick={() => void endMyCapture(roomId)} aria-label="Stop transcribing" data-testid="room-capture-bar-end">
             <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
           </button>
-          {/* Inside the room of the event being captured the arrow would leave it for /transcribe/:code, and it sits where "Transcribe" was a moment ago. */}
-          {!hideOpen && (
-            <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={open} aria-label="Open the room" data-testid="room-capture-bar-open">
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </button>
-          )}
+          <button type="button" className={ICON_BUTTON} disabled={stopping} onClick={open} aria-label="Open the room" data-testid="room-capture-bar-open">
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </button>
         </div>
       </div>
     </div>
@@ -175,36 +162,18 @@ function OfflineCaptureBar({ roomId }: { roomId: string }) {
   );
 }
 
-interface RoomCaptureBarProps {
-  short?: boolean;
-  /** Drawn inside THIS event's room head: no "Open the room" for a capture that belongs to this event (another capture keeps it). */
-  roomEventId?: string;
-  /** A round event (the sales mastermind): the info says only where the table's words go. */
-  roundEvent?: boolean;
-}
-
-/** The bar renders in the app's router and, bare, in tests: it reads the navigation state only where a router exists. */
-export function RoomCaptureBar(props: RoomCaptureBarProps) {
-  return useInRouterContext() ? <RoutedRoomCaptureBar {...props} /> : <RoomCaptureBarView {...props} navState={null} />;
-}
-
-function RoutedRoomCaptureBar(props: RoomCaptureBarProps) {
-  return <RoomCaptureBarView {...props} navState={useLocation().state} />;
-}
-
-function RoomCaptureBarView({ short = false, roomEventId, roundEvent = false, navState }: RoomCaptureBarProps & { navState: unknown }) {
+export function RoomCaptureBar({ short = false, roomEventId, roundEvent = false }: { short?: boolean; /** The event whose room draws this bar: with `roundEvent`, a round event's one-line info. */ roomEventId?: string; /** A round event (the sales mastermind): the info says only where the table's words go. */ roundEvent?: boolean }) {
   const { phase, roomId, open, endMyCapture, manualPaused, pausedByLiveRecord, eventId, destination } = useRoomCapture();
   const { offline } = useConnectivity();
   const status = useCaptureStatus();
   // A round event's bars (compact or full) say the same one-line info.
-  const { isRound, hideOpen } = useBarScope(eventId, roomEventId, roundEvent, navState);
+  const isRound = isRoundBar(eventId, roomEventId, roundEvent);
 
   if (!VISIBLE_PHASES.has(phase) || !roomId) return null;
   // Of the pauses, only the two the person can see and undo render (D3/D13 for the rest).
   if (phase === 'paused' && !manualPaused && !pausedByLiveRecord) return null;
 
-  // The arrow (it duplicates the page's own back) is gone inside this event's room and on a canvas opened from it, not on other pages (P1529 G7); the ⓘ keeps "Open the live text".
-  if (short && !offline) return <CompactCaptureBar roomId={roomId} hideOpen={hideOpen} roundEvent={isRound} />;
+  if (short && !offline) return <CompactCaptureBar roomId={roomId} roundEvent={isRound} />;
 
   if (offline) return <OfflineCaptureBar roomId={roomId} />;
 
@@ -222,14 +191,14 @@ function RoomCaptureBarView({ short = false, roomEventId, roundEvent = false, na
       adornment={
         <>
           <LevelMeterFor phase={phase} />
-          <CaptureInfoButton forEvent={!!eventId} onOpenRoom={hideOpen ? open : undefined} message={isRound ? EVENT_IDLE_INFO : undefined} />
+          <CaptureInfoButton forEvent={!!eventId} onOpenRoom={isRound ? open : undefined} message={isRound ? EVENT_IDLE_INFO : undefined} />
         </>
       }
       extra={
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <PauseResumeButton />
           <StopCaptureButton onClick={() => void endMyCapture(roomId)} testId="room-capture-bar-end" />
-          {!hideOpen && <OpenRoomButton onClick={open} testId="room-capture-bar-open" />}
+          <OpenRoomButton onClick={open} testId="room-capture-bar-open" />
         </div>
       }
     />

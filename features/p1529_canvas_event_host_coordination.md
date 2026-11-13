@@ -680,7 +680,7 @@ All approved by the founder on 2026-11-13 ("yes"), after testing F1 to F7. Found
 
 **G6. Two bars on the canvas page, not three (supersedes F6's banner).** When the canvas is opened from the event, the "Your Clarity Canvas · Publish, then share" bar is removed; the canvas header row carries the one back arrow (to the room or table) before the title: "← Canvas · Draft … Discard / Publish". The round-return countdown bar during a running round stays (it is the auto-return to the table) and then the header back is hidden, as before.
 
-**G7. No "→ open the room" arrow in the recording bar on event pages** (it duplicated the back). One recording bar everywhere; no per-page variants beyond that.
+**G7. Reversed 2026-11-13: the arrow shows on every page (founder: one identical bar).** The recording bar's "→ open the room" arrow is on every page, including the event room and canvases opened from the event; there is no per-page variant. The info popover of a round event's bar keeps "Open the live text".
 
 **G8. No "You" row in the table's people list** (the list shows the others with their role words).
 

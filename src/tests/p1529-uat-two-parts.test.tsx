@@ -115,7 +115,7 @@ describe('F5 non-round events keep their words', () => {
     h.capture = capturing({ eventId: 'e1' });
     render(<RoomCaptureBar short />);
     fireEvent.click(screen.getByTestId('capture-info'));
-    expect(screen.getByTestId('capture-info-sheet').textContent).toBe("Your table's words appear in your round's chat thread after the round.");
+    expect(screen.getByTestId('capture-info-sheet').textContent).toBe("Your table's words appear in your round's chat thread after the round.Open the live text"); // the one-line info, then the way to the live text (the arrow is on every page too)
     expect(screen.queryByTestId('capture-event-hint')).toBeNull();
   });
   it('the registry answers per event and survives a reload (sessionStorage)', () => {
@@ -415,7 +415,7 @@ describe('round-3 follow-ups', () => {
     h.capture = capturing({ eventId: 'e1' });
     render(<RoomCaptureBar />);
     fireEvent.click(screen.getByTestId('capture-info'));
-    expect(screen.getByTestId('capture-info-sheet').textContent).toBe("Your table's words appear in your round's chat thread after the round.");
+    expect(screen.getByTestId('capture-info-sheet').textContent).toBe("Your table's words appear in your round's chat thread after the round.Open the live text"); // the one-line info, then the way to the live text (the arrow is on every page too)
   });
   it('the share dialog\'s error is announced and drawn in the error colour', () => {
     render(<EventShareDialog open busy={false} error="Couldn't share your Clarity Canvas. Try again." onShare={() => {}} onNotNow={() => {}} />);
@@ -494,35 +494,26 @@ describe('UAT 2026-11-13 (c) G3: the recording bar\'s waveform is quiet', () => 
   });
 });
 
-describe('UAT 2026-11-13 (c) G7: no "open the room" arrow on pages inside the event', () => {
+describe('UAT 2026-11-13 (c) G7, reversed by the founder: the same bar on every page', () => {
   const at = (state: unknown, short: boolean, props: Record<string, unknown> = {}) => render(
     <MemoryRouter initialEntries={[{ pathname: '/someone/canvas', state }]}><RoomCaptureBar short={short} {...props} /></MemoryRouter>);
-  it.each([['short', true], ['full', false]])('%s bar, a canvas opened from the event: no arrow; the info keeps "Open the live text"', (_n, short) => {
+  it.each([['short', true], ['full', false]])('%s bar of a round event: the arrow shows on a canvas opened from the event, on other pages and inside the room, and the info still offers "Open the live text"', (_n, short) => {
     markRoundEvent('e1');
     const open = vi.fn();
     h.capture = capturing({ eventId: 'e1', open });
-    at({ backToTable: '/events/x/meet', tableEvent: 'e1' }, short);
-    expect(screen.queryByRole('button', { name: 'Open the room' })).toBeNull();
-    expect(screen.queryByTestId('room-capture-bar-open')).toBeNull();
-    fireEvent.click(screen.getByTestId('capture-info'));
-    fireEvent.click(screen.getByTestId('capture-info-open-room'));
-    expect(open).toHaveBeenCalledTimes(1);
-  });
-  it.each([['short', true], ['full', false]])('%s bar, any other page (home, sessions) while a round event captures: the arrow stays', (_n, short) => {
-    markRoundEvent('e1');
-    h.capture = capturing({ eventId: 'e1' });
-    at(null, short);
-    expect(screen.getByTestId('room-capture-bar-open')).toBeInTheDocument();
-    // a canvas opened from ANOTHER event's table keeps it too
-    cleanup();
-    at({ tableEvent: 'other' }, short);
-    expect(screen.getByTestId('room-capture-bar-open')).toBeInTheDocument();
-  });
-  it('inside the event\'s own room the arrow is gone as before', () => {
-    markRoundEvent('e1');
-    h.capture = capturing({ eventId: 'e1' });
-    at(null, true, { roomEventId: 'e1' });
-    expect(screen.queryByTestId('room-capture-bar-open')).toBeNull();
+    const places: Array<[unknown, Record<string, unknown>]> = [
+      [{ backToTable: '/events/x/meet', tableEvent: 'e1' }, {}], // a canvas opened from the event
+      [null, {}], // home, sessions
+      [null, { roomEventId: 'e1' }], // inside the event's own room
+    ];
+    for (const [state, props] of places) {
+      const view = at(state, short, props);
+      expect(screen.getByTestId('room-capture-bar-open')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('capture-info'));
+      fireEvent.click(screen.getByTestId('capture-info-open-room'));
+      view.unmount();
+    }
+    expect(open).toHaveBeenCalledTimes(places.length);
   });
 });
 
