@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-11-11
+Last updated: 2026-11-13
 
 ---
 
@@ -277,6 +277,7 @@ Last updated: 2026-11-11
 - **P602** (Mar 29) Feed Multi-Tag + Version Filter — fetch all then filter client-side (not server) when dataset is small; `isInternalTag()` must cover both `st\d+` and `v\d+`; tag cloud from ALL content not filtered subset (otherwise multi-select breaks); `searchParams.getAll()` for repeated URL params alongside comma-separated
 
 ## UI / Design System
+- **P1673** (Nov 26) Weekly insights became ordinary finding cards — the ledger refuses a second decision; analytics text never reaches the agent.
 - **P1618** (Nov 26) Canvas upload icon reads as attach — one icon, one meaning; users missed upload behind the attach paperclip.
 - **P1600** (Nov 26) Hike page reviews show in full — arrows follow pointer type, not width; jsdom needs mocked dimensions to reach them.
 - **P1593** (Oct 26) Install as app in avatar menu + return-visit nudge — gate on "not installed", never on beforeinstallprompt: dev has no SW, so it never fires
