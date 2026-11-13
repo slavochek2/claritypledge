@@ -127,29 +127,40 @@ control directory, both anon keys checked for 200 before the window).
 | Slow test-only rounds (test above 2.0 s, Google and prod both under 1.0 s) | **4** |
 | ...of which E2E-loaded | 0 |
 | ...both test requests slow / only one | 1 / 3 |
-| Rounds where this Mac reached nothing (HTTP 000, Google included) | 11 to 18 per endpoint |
+| Rounds where all four requests failed (HTTP 000, Google included) | 11 |
+| Rounds where at least one request failed | 19 |
 
 The 4 slow test-only rounds, phase holding the time:
 
 | Time | Test health | Test REST | Prod | Google |
 |---|---|---|---|---|
-| 19:03:09 | 0.25 s | 3.67 s, TCP 3.01 s | 0.17 s | 0.17 s |
-| 19:17:53 | 0.24 s | 8.93 s, TCP 8.69 s | 0.16 s | 0.20 s |
-| 19:19:17 | 8.88 s, TCP 8.68 s | 8.88 s, TCP 8.67 s | 0.14 s | 0.17 s |
-| 19:46:02 | 1.00 s | 2.54 s, TCP 2.29 s | 1.00 s | 0.95 s |
+| 19:03:09 | 0.248 s | 3.675 s, TCP 3.007 s | 0.170 s | 0.165 s |
+| 19:17:53 | 0.242 s | 8.932 s, TCP 8.690 s | 0.158 s | 0.197 s |
+| 19:19:17 | 8.875 s, TCP 8.675 s | 8.875 s, TCP 8.666 s | 0.143 s | 0.173 s |
+| 19:46:02 | 0.996 s | 2.535 s, TCP 2.287 s | 0.999 s | 0.950 s |
 
-Medians: test health 0.30 s, test REST 0.34 s, prod health 0.27 s, Google 0.23 s.
+Medians over all 214 rounds: test health 0.30 s, test REST 0.34 s, prod health 0.27 s, Google 0.23 s.
 
 **Outcome: criterion 1, not reproduced** (4 slow test-only rounds, below 5). What the data does say,
 without deciding anything from it:
 
-- E2E load is not the cause: 111 loaded rounds, none of them slow; criterion 2 had its 30 loaded rounds
-  and still 0 of the slow rounds were loaded.
-- Every slow test-only request spent its time in **TCP connect** (2.3 to 8.7 s), never in TLS or the
-  server. That is the network path from this Mac to the Singapore VM (lost connection attempts being
-  retried), not the server doing work.
-- This Mac's own connection dropped entirely 11 to 18 times in the window (Google itself timed out). Such
-  drops are what P1677's strip reports as "Saved copy · updating…" or "Offline".
+- No sign that E2E load causes it: 111 loaded rounds, none of them slow. But every loaded round held a
+  **single** slot (`1 0 0`); multi-slot or exclusive load never occurred in the window, so heavier load
+  is untested.
+- Every slow test-only request spent its time in **TCP connect** (2.3 to 8.7 s), never in TLS or in
+  GoTrue/PostgREST. That rules out the services; it does not separate the network path from the VM's
+  own network stack (a dropped connection attempt on either side looks the same).
+- In 11 rounds all four requests failed together (Google included): this Mac's connection was down. The
+  other 8 rounds with a failure are timeouts on a stalled connection that the requests with longer
+  limits survived (Google gives up at about 10 s, the test requests at 20 s). Such drops and stalls are
+  what P1677's strip reports as "Saved copy · updating…" or "Offline".
+- Sampler artifact: on a failed request curl reports `time_starttransfer` 0, so the sampler's server
+  delta is negative on those rows. It does not touch the 4 slow rounds, which all returned 200.
+
+Findings reviewed by Gemini from the raw data (2 HIGH, 3 MEDIUM): the median claim was false (recomputed:
+0.301, 0.336, 0.269, 0.227 s); the frontmatter claim does not apply (`features.md` does not require
+`title` or `p_number`); the failure count, the load claim, the TCP attribution and the rounding were
+corrected above.
 
 ## Time Box
 

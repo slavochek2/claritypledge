@@ -61,9 +61,14 @@ It blocks on each stop, and the status messages only add noise.
 
 Port the age-capped stand-down from `day-pass-guard.py` to gate 3 only. See docs/decisions.md 2026-11-05 "Review-gate stop check should stand down while background reviewers run".
 
+Also reword the gate's own block message (`verify-before-stop.py` ~line 883). It asks for every finding "as FIXED", and `fixed` is in `DONE_RE` (~line 77), so the reply to a block re-arms the gate. A stand-down alone does not cover that. Use a word outside the completion regexes and check it through `announces_completion`.
+
+**Second occurrence (2026-11-13, P1677):** 3 fires in one session while `/finish` reviewers ran in the background, same latch shape. Severity stays low (no work lost); the recurrence argues for rank, not severity.
+
 ## Acceptance Criteria
 
 - [ ] With a background reviewer outstanding, a status message after an earlier "committed" is not blocked
 - [ ] Once that work finishes with no receipt, the block fires
 - [ ] Past the age cap with no notification, the block fires
 - [ ] Edits with no review and no running reviewer still block, and the existing canary passes
+- [ ] A reply that follows the gate's own block message, as written, does not by itself announce completion (a canary case through `announces_completion`)

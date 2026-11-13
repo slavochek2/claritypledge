@@ -18,6 +18,8 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ## 2026-11-13 [technical]: The self-hosted TEST server's slow answers were the network path, not E2E load; not reproduced (P1678)
 
+**Reversed in part 2026-11-13, see the P1678 spec's Findings (reviewed from the raw data).** Still in force: not reproduced, no change to the VM, Caddy or the slot limit. Corrected: all four requests failed together in 11 rounds, not "11 to 18" (the higher counts were Google timing out sooner on stalls the other requests survived); only single-slot E2E load occurred, so heavier load is untested rather than ruled out; a slow TCP connect rules out the services but not the VM's own network stack.
+
 **Context:** The founder asked whether the slowness came from the test server rather than prod. In 45 rounds the test server alone was over 2 s in 6 rounds while Google and prod answered in about 0.2 s.
 **Decision:** A pre-registered 45-minute measurement (214 rounds, one every 10 s, phase deltas, E2E locks counted by the repo's own liveness rule) found 4 slow test-only rounds, under the threshold of 5: not reproduced. None of the 4 was under E2E load, though 111 rounds were; every slow request spent its time in TCP connect (2.3 to 8.7 s), never in TLS or the server. This Mac's own connection dropped entirely 11 to 18 times in the window.
 **Alternatives rejected:** Reading the first ad-hoc sample as proof of a server problem. Counting lock directories with `ls` (counts locks of crashed runs; the counter uses `isStale` and was proved on a control). Reading curl's cumulative `time_*` values as phases (they must be differenced).
