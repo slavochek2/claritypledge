@@ -104,7 +104,7 @@ async function printLinks(admin: Admin, ledger: import('../e2e/helpers/p1529-mas
 /** --fresh: a brand-new event for a from-the-start test run. The host is not registered; 7 canvas owners + 3 observers are. */
 async function seedFresh(H: Helpers, admin: Admin, ledger: import('../e2e/helpers/p1529-mastermind.ts').Ledger, hostId: string, save: () => void): Promise<void> {
   const ev = await H.makeEvent(ledger, { user: { id: hostId } } as never, 'Sales Mastermind (test run)', {
-    series: 'sales-mastermind', startsInMs: 3600_000, maxAttendees: 12,
+    series: 'sales-mastermind', startsInMs: 3600_000, maxAttendees: 12, canvasTiming: 'at_event',
   });
   const d = new Date();
   const two = (n: number) => String(n).padStart(2, '0');
