@@ -38,7 +38,9 @@
 # seed group already covers.
 #
 # GUARANTEES (the canary holds each of them):
-#   - every run is capped at PRECOMMIT_TEST_WORKERS workers (default 3), full runs included;
+#   - every run is capped at min(its share of the machine, PRECOMMIT_TEST_WORKERS) workers (the
+#     ceiling, default 3), full runs included; the share is computed by test-worker-share.mjs
+#     (P1676), and any failure there yields 1, never "unset";
 #   - the count of test files that ACTUALLY ran is printed OUTSIDE run_quiet, which hides output
 #     on success, and a run that ran zero says so in words;
 #   - nothing here adds a way to skip tests. PRECOMMIT_TEST_WORKERS only tunes the cap, and a
@@ -74,6 +76,29 @@ pct_workers() {
         w="$((10#$w))"
     fi
     printf '%s' "$w"
+}
+
+# P1676: the worker count the hook passes to vitest. PRECOMMIT_TEST_WORKERS (validated by pct_workers)
+# is now the CEILING; the count is min(share of the machine, ceiling), from the shared module that
+# also sizes flagless runs. The module prints its one stderr line (workers, other runs, budget,
+# ceiling) straight to the terminal. Any failure or non-integer answer is 1, never the ceiling and
+# never unset: vitest reads an unset/0 maxWorkers as cores - 1.
+pct_worker_share() {
+    local ceiling share
+    ceiling="$(pct_workers)"
+    share="$(node "$(dirname "${BASH_SOURCE[0]}")/test-worker-share.mjs" --ceiling "$ceiling")" || share=""
+    case "$share" in
+        ''|*[!0-9]*) share=1 ;;
+    esac
+    if [ "$((10#$share))" -lt 1 ]; then
+        share=1
+    else
+        share="$((10#$share))"
+    fi
+    if [ "$share" -gt "$ceiling" ]; then
+        share="$ceiling"
+    fi
+    printf '%s' "$share"
 }
 
 # Paths the vitest config names as setup files. Derived from the config so a rename there is
@@ -227,7 +252,7 @@ except Exception:
 pct_run_tests() {
     local root="$1" build_re="$2" docs_re="${3:-}" workers json rc ran failed f n_seed n_disk disk_out disk_why
     local -a cmd=() seeds=() disk=()
-    workers="$(pct_workers)"
+    workers="$(pct_worker_share)"
     json="$(mktemp)"
     pct_classify "$root" "$build_re" "$docs_re"
 

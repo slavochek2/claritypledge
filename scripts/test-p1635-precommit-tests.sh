@@ -231,6 +231,12 @@ exit "${STUB_RC:-0}"
 STUB
 chmod +x "$TMP/bin/npx"
 export STUB_ARGV="$TMP/argv"
+# P1676: the worker count is now min(share of the machine, ceiling). Pin the two inputs the machine
+# would otherwise decide: the budget, and a `ps` listing with NO other runs, so the assertions below
+# stay deterministic on a busy laptop. The seam can only change the count, never skip anything.
+export TEST_WORKER_BUDGET=8
+: > "$TMP/ps-empty"
+export TEST_WORKER_SHARE_PS_FILE="$TMP/ps-empty"
 
 run_step() { # run_step <stage-fn> ; output in STEP_OUT, rc in STEP_RC (hook cwd = the repo root)
     mk_repo s; "$1"
@@ -259,6 +265,28 @@ for v in 0 00 0000 abc -1 "" 3.5 " 2"; do
     PRECOMMIT_TEST_WORKERS="$v" run_step st_vercel
     grep -qx -- '--maxWorkers=3' "$STUB_ARGV" && ok "PRECOMMIT_TEST_WORKERS='$v' falls back to the default cap, never to uncapped" || bad "bad cap value '$v' escaped the cap"
 done
+
+# P1676: the count is min(share, ceiling); PRECOMMIT_TEST_WORKERS is the ceiling.
+# Three other run-mode coordinators (real `ps -axo pid=,ppid=,tty=,args=` shape) at budget 8 → 8/4 = 2.
+cat > "$TMP/ps-three" <<'PSF'
+  101     1 ??       node /x/w1/node_modules/.bin/vitest run --maxWorkers=3
+  102     1 ??       node /x/w2/node_modules/.bin/vitest run --maxWorkers=3
+  103     1 ??       node /x/w3/node_modules/.bin/vitest run
+  104   101 ??       /usr/local/bin/node --require /x/node_modules/vitest/suppress-warnings.cjs /x/node_modules/vitest/dist/workers/forks.js
+  105   101 ??       npm exec vitest run --maxWorkers=3
+PSF
+TEST_WORKER_SHARE_PS_FILE="$TMP/ps-three" PRECOMMIT_TEST_WORKERS=3 run_step st_vercel
+grep -qx -- '--maxWorkers=2' "$STUB_ARGV" && ok "3 other runs, budget 8, ceiling 3 → 2 workers (computed, not the fixed cap)" || bad "share not applied: $(tr '\n' ' ' < "$STUB_ARGV")"
+case "$STEP_OUT" in *"capped at 2 workers"*) ok "  the plan line shows the computed count (2)" ;; *) bad "  plan line does not show the computed count: $STEP_OUT" ;; esac
+case "$STEP_OUT" in *"test workers: 2 (3 other runs, budget 8, ceiling 3)"*) ok "  the sizing line is printed outside run_quiet" ;; *) bad "  no sizing line: $STEP_OUT" ;; esac
+# Scan failure (the ps listing cannot be read) → 1 worker: never the ceiling, never unset.
+TEST_WORKER_SHARE_PS_FILE="$TMP/does-not-exist" PRECOMMIT_TEST_WORKERS=3 run_step st_vercel
+grep -qx -- '--maxWorkers=1' "$STUB_ARGV" && ok "a failed process scan → 1 worker, never the ceiling and never unset" || bad "scan failure not 1: $(tr '\n' ' ' < "$STUB_ARGV")"
+# The module itself unrunnable (node cannot load it) → still 1.
+mkdir -p "$TMP/nonode-bin"; printf '#!/bin/bash\nexit 7\n' > "$TMP/nonode-bin/node"; chmod +x "$TMP/nonode-bin/node"
+mk_repo s; st_vercel
+STEP_OUT="$( cd "$R" && PATH="$TMP/nonode-bin:$TMP/bin:$PATH" pct_run_tests "$R" "$BUILD_RE" "$DOCS_RE" 2>&1 )"
+grep -qx -- '--maxWorkers=1' "$STUB_ARGV" && ok "a failing node call → 1 worker" || bad "node failure not 1: $(tr '\n' ' ' < "$STUB_ARGV")"
 
 # FAIL CLOSED on the disk-reading seed group: an error, an empty group, or a group without its known
 # member must run the FULL suite, never narrow on a group nobody can vouch for.

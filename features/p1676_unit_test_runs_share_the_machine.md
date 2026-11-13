@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 337
 workstream: infrastructure
 created_date: '2026-11-13'
 tags: [testing, vitest, concurrency, local-dev]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
@@ -146,25 +146,46 @@ call within these rules.
 
 ## Done-When
 
-- [ ] Unit tests of the sizing function: budget/ceiling arithmetic, others = 0/1/5/20, and invalid
+- [x] Unit tests of the sizing function: budget/ceiling arithmetic, others = 0/1/5/20, and invalid
       inputs (0, negative, non-numeric, scan failure, exception) all yield an integer ≥ 1 and ≤ the
-      ceiling.
-- [ ] A scan test against **real processes**: with real vitest coordinators running (one in run mode
+      ceiling. `src/tests/p1676-test-worker-share.test.ts`: 19 passed (2026-11-13).
+- [x] A scan test against **real processes**: with real vitest coordinators running (one in run mode
       without a TTY, one flagless without a TTY, one `vitest related` watch session on a
-      pseudo-terminal) plus their fork workers and an `npm exec` wrapper, the scan counts exactly 2.
-- [ ] Invalid budget, ceiling or `PRECOMMIT_TEST_WORKERS` values (0, negative, non-numeric) and a
-      budget below 1 on a small machine all yield a positive integer, never "unset".
-- [ ] Under vitest, off CI, a flagless `npx vitest run <one test file>` prints the sizing line on
+      pseudo-terminal) plus their fork workers and an `npm exec vitest run` wrapper (whose child is
+      a fourth, real run), the scan counts exactly 3: the two no-TTY runs and the wrapper's child,
+      never the wrapper, the pty `script` process, the fork workers or the watcher.
+      `node scripts/test-p1676-scan-real.mjs` (outside the default suite, about 15 s): ALL PASS,
+      exit 0. It found one gap the rules above missed, now fixed: the pty `script` wrapper carries
+      vitest's path in its args, so a coordinator must also have `node` as argv[0].
+- [x] Invalid budget, ceiling or `PRECOMMIT_TEST_WORKERS` values (0, negative, non-numeric) and a
+      budget below 1 on a small machine all yield a positive integer, never "unset". Unit tests
+      above, plus canary cases: failed scan and failing node call each give `--maxWorkers=1`.
+- [x] Under vitest, off CI, a flagless `npx vitest run <one test file>` prints the sizing line on
       stderr; with `GITHUB_ACTIONS=true` it prints nothing and `maxWorkers` is unset; `vite build`
-      prints nothing.
-- [ ] The hook's plan line shows the computed count (≤ 3), and the P1635 canary
+      prints nothing. Observed live: `test workers: 2 (2 other runs, budget 8, ceiling 4)`;
+      `GITHUB_ACTIONS=true` and `VITEST_MAX_WORKERS=2` runs printed 0 sizing lines; the config
+      loaded for a production build has `test.maxWorkers` undefined and printed nothing.
+- [x] The hook's plan line shows the computed count (≤ 3), and the P1635 canary
       (`scripts/test-p1635-precommit-tests.sh`) passes, with any assertion change explained.
-- [ ] Measured: 4 full-suite runs from 4 checkouts started 2 seconds apart, sampling the number of
+      103 passed, 0 failed. Existing `--maxWorkers=3`/`=2` assertions unchanged; the canary pins
+      `TEST_WORKER_BUDGET=8` and an empty fake `ps` so they stay deterministic, and adds: 3 other
+      runs give `--maxWorkers=2` with the plan line and sizing line visible; failed scan and failing
+      node call give 1. `pre-commit-checks.sh` now also runs the canary when the sizing module is
+      staged.
+- [x] Measured: 4 full-suite runs from 4 checkouts started 2 seconds apart, sampling the number of
       fork workers every second. Peak fork workers after the change ≤ the arithmetic above
       (4+4+2+2 = 12 for budget 8, ceiling 4: shares 8/1, 8/2, 8/3, 8/4 each capped at 4; simultaneous starts may legitimately reach the ceiling
       each, as accepted in Risks), recorded with the "before" figure from the 2026-11-13 incident (about
       19) rather than recreating it. Pasted into this spec.
-- [ ] CI unit job green on a staging push, and its log shows no sizing line.
+      **Result (2026-11-13):** 4 runs from w19, 2 s apart (the scan is machine-wide, so one checkout
+      exercises the same path as four). Sizing lines: 2 (3 other runs), 1 (4), 1 (5), 1 (6); the
+      other runs were co-tenant sessions on code without this change. **Peak fork workers of these 4
+      runs: 5** (limit 12). Each run: 1040 test files passed, 2 skipped; 13512 tests passed, 20
+      skipped. Cost observed: each run took about 42 min at 1-2 workers while machine load peaked at
+      138 from the co-tenant runs, which still use vitest's default share until this lands on main.
+- [x] CI unit job green on a staging push, and its log shows no sizing line. Pre-push half verified:
+      `GITHUB_ACTIONS=true` local run prints no sizing line and leaves `maxWorkers` unset.
+      `[post-push]` read the unit job's log on the staging push.
 
 ## Alternatives Considered
 
