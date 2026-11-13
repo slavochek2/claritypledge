@@ -312,17 +312,26 @@ describe('P1631 clarify drafts', () => {
     expect(await draftRow(s.draft_id)).toMatchObject({ state: 'failed', error_code: 'source_gone', spend_id: null });
   });
 
-  it('erasure: a person whose words a draft read takes the draft\'s point with them (erase_chat_data_for)', async () => {
+  // P1631 OQ9 decided 2026-11-13: a cited person is erased, the point stays (it is its author's sentence); only their ref and the citations of their rows go
+  it('erasure: a person whose words a draft read leaves the draft and its point in place, minus their ref and citations (erase_chat_data_for)', async () => {
     await finishActive();
     const s = await ok(a.c, 'clarify_start', { p_source: msgs[2]!.id });
     await begin(s.draft_id);
     const done = await complete(s.draft_id, goodResult(`${TAG} derived from B.`, { a: [msgs[2]!.id] }), 0.01);
     expect((await admin.from('points').select('id').eq('id', done.point_id)).data).toHaveLength(1);
+    const before = await draftRow(s.draft_id);
+    expect(before.derived_refs.length, 'premise: the draft read B').toBeGreaterThan(0);
+    expect(before.sent_ids).toContain(msgs[2]!.id);
     // the real erasure of B (the cleanup runs inside it, not as a trigger on chat_messages)
     const er = await admin.rpc('erase_chat_data_for', { p_uid: b.id });
     expect(er.error).toBeNull();
-    expect((await admin.from('points').select('id').eq('id', done.point_id)).data, 'the point').toHaveLength(0);
-    expect(await draftRow(s.draft_id)).toMatchObject({ state: 'failed', error_code: 'erased', point_id: null, suggestions: null, cited: null, derived_refs: [], sent_ids: [] });
+    expect((await admin.from('points').select('id').eq('id', done.point_id)).data, 'the point stays').toHaveLength(1);
+    const after = await draftRow(s.draft_id);
+    expect(after).toMatchObject({ state: 'done', point_id: done.point_id });
+    expect(after.error_code).not.toBe('erased');
+    expect(after.derived_refs.length, 'B\'s ref is gone').toBeLessThan(before.derived_refs.length);
+    expect(after.sent_ids, 'B\'s row is no longer a citation source').not.toContain(msgs[2]!.id);
+    expect(JSON.stringify(after.cited), 'nor is it cited').not.toContain(msgs[2]!.id);
   });
 });
 
@@ -426,7 +435,7 @@ describe('P1631 review fixes (migration 20261110170000)', () => {
     expect(await spendOf(n.draft_id)).toMatchObject({ state: 'settled' });
   });
 
-  it('(GLM 1) erasing a person settles the reservation of a draft that was running on their words; (r2, security) the derived point goes with the erased words even when another user holds a position on it', async () => {
+  it('(GLM 1) erasing a person settles the reservation of a draft that was running on their words; (r2, security, overturned by OQ9) the derived point is kept when another user holds a position on it', async () => {
     await finishActive();
     const kept = await ok(a.c, 'clarify_start', { p_source: said[0]!.id });
     await begin(kept.draft_id);
@@ -442,8 +451,11 @@ describe('P1631 review fixes (migration 20261110170000)', () => {
     const spend = (await admin.from('mirror_ai_spend').select('*').eq('id', spendId).single()).data as Row;
     expect(spend.state, 'the reservation no longer counts against the caps').toBe('settled');
     expect(Number(spend.actual_usd)).toBeCloseTo(Number(spend.reserved_usd), 6);
-    expect((await admin.from('points').select('id').eq('id', done.point_id)).data, 'derived from erased words: gone whoever holds a position').toHaveLength(0);
-    expect((await admin.from('point_positions').select('point_id').eq('point_id', done.point_id)).data, 'positions go with the point').toHaveLength(0);
+    // P1631 OQ9 decided 2026-11-13: a point others hold positions on is kept
+    expect((await admin.from('points').select('id').eq('id', done.point_id)).data, 'B holds a position on it: kept').toHaveLength(1);
+    expect((await admin.from('point_positions').select('user_id').eq('point_id', done.point_id)).data, 'B\'s position stays').toEqual([{ user_id: b.id }]);
+    expect(await draftRow(kept.draft_id), 'the draft keeps its point').toMatchObject({ point_id: done.point_id });
+    expect((await draftRow(kept.draft_id)).error_code, 'and is not failed as erased').not.toBe('erased');
   });
 
   it('(r2, Opus N1, Gemini 3, GLM 2) a completion or failure for a vanished draft settles or releases its own spend, once', async () => {

@@ -10,16 +10,17 @@ import { listPreview, searchHitHeading } from './chat-preview';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ChevronRight, MoreHorizontal, Plus, QrCode, Search, X, CircleDot, CheckCheck } from 'lucide-react';
+import { ChevronRight, Plus, QrCode, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { isChatUnread, searchMessages, searchPeople, startDm, type ChatPerson, type ChatSearchHit, type ChatSummary } from '@/app/data/chat-service';
-import { ArchiveMenuItem } from './ArchiveMenuItem';
+import { ChatRowMenu } from './ChatRowMenu';
+import { useClarifyChat } from './use-clarify-chat';
+import { useRowLongPress } from './use-row-long-press';
 import { ChannelMark, CountBadge, FOCUS_RING, HOVER, InlineError, ListSkeleton, MirrorMark, PersonMark } from './chat-kit';
 import { SECONDARY_PILL_COLOURS } from '@/app/components/canvas/canvas-pill-styles';
-import { useChatNavigate, useLeaveChat } from './chat-hooks';
+import { useChatNavigate } from './chat-hooks';
 import { NewMessageDialog } from './NewMessageDialog';
 import { ContactCodeSheet } from '@/app/components/chat/contact-code-sheet';
 import { useChat } from './chat-state';
@@ -49,27 +50,35 @@ function ChatMark({ chat, active }: { chat: ChatSummary; active: boolean }) {
   return <ChannelMark kind={chat.kind} size="list" selected={active} />;
 }
 
+function UnreadBadge({ chat }: { chat: ChatSummary }) {
+  if (chat.unreadCount > 0) return <CountBadge n={chat.unreadCount} />;
+  if (chat.manualUnread) return <span role="img" aria-label="Marked unread" className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600" />;
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // One row
 // ---------------------------------------------------------------------------
-function ChatRow({ chat, active, viewerId, onOpen }: { chat: ChatSummary; active: boolean; viewerId: string; onOpen: (c: ChatSummary) => void }) {
-  const { setArchived, setManualUnread, markRead } = useChat();
-  const leave = useLeaveChat();
+function ChatRow({ chat, active, viewerId, onOpen, onClarify }: { chat: ChatSummary; active: boolean; viewerId: string; onOpen: (c: ChatSummary) => void; onClarify: (conversationId: string) => void }) {
   const [menu, setMenu] = useState(false);
+  const longPress = useRowLongPress(() => setMenu(true));
   const title = chatTitle(chat);
   const unread = isChatUnread(chat);
   const preview = listPreview(chat, viewerId);
   const when = listTime(chat.lastMessage?.createdAt);
 
-  const leaveIfOpen = () => {
-    if (active) leave();
-  };
-
   return (
     <li data-chat={chat.conversationId} className="group relative">
       <button
         type="button"
-        onClick={() => onOpen(chat)}
+        {...longPress.handlers}
+        onClick={(e) => {
+          if (longPress.swallowClick()) {
+            e.preventDefault();
+            return;
+          }
+          onOpen(chat);
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
           setMenu(true);
@@ -101,56 +110,11 @@ function ChatRow({ chat, active, viewerId, onOpen }: { chat: ChatSummary; active
                 {preview.text || (chat.lastMessage ? '' : 'No messages yet')}
               </span>
             </span>
-            {chat.unreadCount > 0 ? (
-              <CountBadge n={chat.unreadCount} />
-            ) : chat.manualUnread ? (
-              <span role="img" aria-label="Marked unread" className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600" />
-            ) : null}
+            <UnreadBadge chat={chat} />
           </span>
         </span>
       </button>
-      <DropdownMenu open={menu} onOpenChange={setMenu} modal={false}>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={`Actions for ${title}`}
-            className={cn(
-              'absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-full opacity-0 transition-opacity',
-              'focus-visible:opacity-100 data-[state=open]:opacity-100 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:opacity-100',
-              active ? 'text-gray-700 hover:bg-blue-100' : 'text-muted-foreground hover:bg-accent',
-              FOCUS_RING,
-            )}
-          >
-            <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
-          <ArchiveMenuItem
-            chat={chat}
-            onSelect={() => {
-              if (!chat.archived) leaveIfOpen();
-              void setArchived(chat.conversationId, !chat.archived);
-            }}
-          />
-          {unread ? (
-            <DropdownMenuItem className="min-h-10" onSelect={() => void markRead(chat.conversationId, chat.lastMessage?.id)}>
-              <CheckCheck className="mr-2 h-4 w-4" aria-hidden="true" />
-              Mark as read
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem
-              className="min-h-10"
-              onSelect={() => {
-                leaveIfOpen();
-                void setManualUnread(chat.conversationId, true);
-              }}
-            >
-              <CircleDot className="mr-2 h-4 w-4" aria-hidden="true" />
-              Mark as unread
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ChatRowMenu chat={chat} active={active} title={title} open={menu} onOpenChange={setMenu} onClarify={onClarify} />
     </li>
   );
 }
@@ -323,6 +287,8 @@ function MiniMark({ chat }: { chat: ChatSummary }) {
 export function ChatList({ activeId }: { activeId: string | null }) {
   const chat = useChat();
   const go = useChatNavigate();
+  // one call for every row: a row that called it would re-render on each navigation (it reads the location)
+  const clarifyChat = useClarifyChat();
   const [tab, setTab] = useState<ChatTab>('inbox');
   const [query, setQuery] = useState('');
   const [archivedOpen, setArchivedOpen] = useState(false);
@@ -428,7 +394,7 @@ export function ChatList({ activeId }: { activeId: string | null }) {
           <>
             <ul aria-label="Chats">
               {split.active.map((c) => (
-                <ChatRow key={c.conversationId} chat={c} active={c.conversationId === activeId} viewerId={chat.userId} onOpen={(x) => open(x)} />
+                <ChatRow key={c.conversationId} chat={c} active={c.conversationId === activeId} viewerId={chat.userId} onOpen={(x) => open(x)} onClarify={clarifyChat} />
               ))}
             </ul>
             {split.active.length === 0 && (
@@ -455,7 +421,7 @@ export function ChatList({ activeId }: { activeId: string | null }) {
                 {archivedOpen && (
                   <ul aria-label="Archived chats">
                     {split.archived.map((c) => (
-                      <ChatRow key={c.conversationId} chat={c} active={c.conversationId === activeId} viewerId={chat.userId} onOpen={(x) => open(x)} />
+                      <ChatRow key={c.conversationId} chat={c} active={c.conversationId === activeId} viewerId={chat.userId} onOpen={(x) => open(x)} onClarify={clarifyChat} />
                     ))}
                   </ul>
                 )}

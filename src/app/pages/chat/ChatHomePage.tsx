@@ -12,23 +12,23 @@
  *
  * Desktop (lg+) is two panes: the list (360px) and the conversation; a thread opens as a third
  * pane and, below 2xl, takes the list's place so the conversation never gets narrower than a phone.
+ * P1631: from 1280px, Clarify from an open thread shows that thread where the conversation was ("← Chat" brings the conversation back) and the
+ * Mirror on the right; closing the Mirror leaves the thread open on the right again, as before.
  */
-import { useContext, useEffect, useState } from 'react';
+import { useContext } from 'react';
 import { useLocation } from 'react-router-dom';
 import { MessagesSquare } from 'lucide-react';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { cn } from '@/lib/utils';
-import { analytics } from '@/lib/mixpanel';
 import { ChatList } from './ChatList';
 import { ConversationPane } from './ConversationPane';
 import { ThreadPanel } from './ThreadPanel';
 import { ChatContext } from './chat-state';
-import { DESKTOP_QUERY, useBack, useFinishLeave, useMediaQuery } from './chat-hooks';
+import { DESKTOP_QUERY, WIDE_QUERY, useMediaQuery } from './chat-hooks';
 import { parseChatRoute } from './chat-view-model';
-import { useClarifyPanel } from './use-clarify-panel';
-
-/** Once stopped, Mixpanel stays stopped for the rest of the page's life; later visits render at once. */
-let sessionRecordingStopped = false;
+import { PointsPanel } from './PointsPanel';
+import { homeLayout } from './chat-home-layout';
+import { useKeepFresh, useLeftThread, useRecordingOff, useRouteClarify, useSidePanels } from './use-chat-home';
 
 export default function ChatHomePage() {
   const ctx = useContext(ChatContext);
@@ -38,44 +38,23 @@ export default function ChatHomePage() {
   const summary = ctx?.chats.find((c) => c.conversationId === route.conversationId);
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
 
-  // Chats show people's messages: never record them (privacy policy). index.html covers a page that
-  // loads on /chats; this covers in-app navigation into it. Unlike admin and /live, no chat content
-  // mounts until the recorder is stopped, so not even one frame of it can be captured.
-  const [recordingOff, setRecordingOff] = useState(sessionRecordingStopped);
-  useEffect(() => {
-    analytics.stopSessionRecording();
-    sessionRecordingStopped = true;
-    setRecordingOff(true);
-  }, []);
-
-  // Escape closes the thread panel the way its Back does (a dialog or menu that handled Escape marked it as taken).
-  // P1631: Clarify opens the Mirror's thread beside the chat the person is in (?clarify=<root>); closing only removes the parameter.
-  const { clarifyRoot, closeClarify } = useClarifyPanel();
-  // open only when a panel will really render: a ?clarify= with no Mirror to show it in must not capture Escape
-  const clarifyShown = !!clarifyRoot && !!ctx?.chats.some((c) => c.kind === 'mirror');
-  const threadOpen = !!route.rootId || clarifyShown;
-  const back = useBack();
-  const closeThread = clarifyShown ? closeClarify : back;
-  useFinishLeave();
-  useEffect(() => {
-    if (!threadOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented) closeThread();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [threadOpen, closeThread]);
+  // index.html covers a page that loads on /chats; this covers in-app navigation into it. Unlike admin and /live,
+  // no chat content mounts until the recorder is stopped, so not even one frame of it can be captured.
+  const recordingOff = useRecordingOff();
+  const { side, pointsShown, showThread, closeClarify, closePoints } = useSidePanels(ctx?.chats ?? [], summary, route, search);
+  // P1631: from 1280px, Clarify pressed from an open thread puts that thread on the left (with "← Chat") and the Mirror on the right.
+  const wide = useMediaQuery(WIDE_QUERY);
+  const { leftThread, backToChat, leaveThread } = useLeftThread(side, summary, route.rootId, wide);
+  useKeepFresh(!!leftThread); // the chat behind the left thread is not viewed, but stays fresh
+  const { routeClarify, routeClarifyUnknown, onClarifyThread } = useRouteClarify(side);
 
   if (!ctx || !recordingOff) return <ClarityPageLoader />;
 
-  const conversationOpen = !!route.conversationId;
-  const side = sidePanelOf(ctx.chats, summary, route.rootId, clarifyRoot);
-  const showThread = side !== null;
-  // Below lg an open thread hides the conversation behind it: what is hidden has not been seen.
-  const conversationVisible = !showThread || isDesktop;
-
-  const listClass = !conversationOpen ? 'flex' : showThread ? 'hidden 2xl:flex' : 'hidden lg:flex';
-  const paneClass = !conversationOpen ? 'hidden lg:flex' : showThread ? 'hidden lg:flex' : 'flex';
+  // P1631 (AC 137): the Clarify Mirror (beside its source, or a Clarify thread of the Mirror chat itself) is full screen below 1280px (xl), where an
+  // ordinary thread is full screen only below lg. A Mirror-chat thread whose root is not read yet may be one: it is treated as one until known, so a
+  // Clarify thread never flashes the side layout.
+  const clarifyOpen = !!side?.clarify || routeClarify || routeClarifyUnknown;
+  const { conversationVisible, listClass, paneClass } = homeLayout({ conversationOpen: !!route.conversationId, showThread, clarifyOpen, wide, isDesktop });
 
   return (
     <div className="flex min-h-0 w-full flex-1" data-testid="chat-home">
@@ -83,7 +62,9 @@ export default function ChatHomePage() {
         <ChatList activeId={route.conversationId} />
       </div>
       <div className={cn('min-h-0 min-w-0 flex-1 flex-col', paneClass)}>
-        {route.conversationId ? (
+        {leftThread ? (
+          <ThreadPanel key={`left:${leftThread.rootId}`} summary={leftThread.summary} rootId={leftThread.rootId} highlightId={highlightId} onBackToChat={backToChat} onClose={leaveThread} focusable={false} />
+        ) : route.conversationId ? (
           <ConversationPane conversationId={route.conversationId} highlightId={showThread ? null : highlightId} paneVisible={conversationVisible} threadOpen={showThread} />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground" data-testid="no-chat-selected">
@@ -92,18 +73,9 @@ export default function ChatHomePage() {
           </div>
         )}
       </div>
-      {side?.clarify && <ThreadPanel key={`clarify:${side.rootId}`} summary={side.summary} rootId={side.rootId} highlightId={null} onClose={closeClarify} />}
-      {side && !side.clarify && <ThreadPanel key={side.rootId} summary={side.summary} rootId={side.rootId} highlightId={highlightId} />}
+      {pointsShown && route.conversationId && <PointsPanel key={`points:${route.conversationId}`} conversationId={route.conversationId} onClose={closePoints} />}
+      {side?.clarify && <ThreadPanel key={`clarify:${side.rootId}`} summary={side.summary} rootId={side.rootId} highlightId={null} onClose={closeClarify} clarifyPanel />}
+      {side && !side.clarify && <ThreadPanel key={side.rootId} summary={side.summary} rootId={side.rootId} highlightId={highlightId} onClarifyThread={onClarifyThread} />}
     </div>
   );
-}
-
-type ChatSummary = NonNullable<React.ContextType<typeof ChatContext>>['chats'][number];
-
-/** The right-hand panel: the Mirror's Clarify thread beside this chat (P1631) wins over the chat's own open thread; null when neither. */
-function sidePanelOf(chats: ChatSummary[], summary: ChatSummary | undefined, rootId: string | null | undefined, clarifyRoot: string | null): { summary: ChatSummary; rootId: string; clarify: boolean } | null {
-  if (!summary) return null;
-  const mirror = clarifyRoot ? chats.find((c) => c.kind === 'mirror') : undefined;
-  if (clarifyRoot && mirror) return { summary: mirror, rootId: clarifyRoot, clarify: true };
-  return rootId ? { summary, rootId, clarify: false } : null;
 }

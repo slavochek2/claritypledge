@@ -33,6 +33,20 @@ export interface TermsChangeSummary {
 
 /** Newest first: termsPrompt reads this order to find what someone has not seen. */
 export const TERMS_CHANGES: Record<string, TermsChangeSummary> = {
+  'v1.9': {
+    // Notice, not re-acceptance (founder decision 2026-11-14, P1631: notice via the existing banner,
+    // no email): Clarify can now publish a point into a chat. Drafts stay private until published;
+    // privacy.md carries the full text.
+    requiresConsent: false,
+    kind: 'feature',
+    title: 'New feature: your mirror agent can draft a point from a chat',
+    headline: "With Clarify, your mirror agent can draft a point from a message, a conversation, a whole chat or what is being said live (at an event, only your own table's speech). The text goes to Google's Gemini without the authors' names. The draft is private to you until you publish it, and a published point is a card that only that chat's readers can read and take a position on.",
+    highlights: [
+      'Nobody can forward a published point card out of its chat. A story written from a card is readable by exactly the same readers as the card.',
+      'If you delete your account, a point card you published stays, without your name, when someone else has taken a position on it.',
+      "The text you give Clarify goes to Google without the authors' names, so only share what you have the right to share.",
+    ],
+  },
   'v1.8': {
     // P1529 D13, D23. Wording and notice (not re-acceptance) reviewed by Gemini 4 Argon at the founder's request: consent is also taken at registration and in the room.
     requiresConsent: false,

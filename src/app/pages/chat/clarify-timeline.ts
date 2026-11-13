@@ -41,3 +41,12 @@ export function mayAddAnother(drafts: ClarifyDraft[]): boolean {
   const last = drafts[drafts.length - 1];
   return !last || last.state === 'done';
 }
+
+/**
+ * The place the thread's last row (Another point, Publish) is drawn: the message the newest draft follows, else the newest message, else the root.
+ * Moved out of useClarifyParts unchanged.
+ */
+export function lastDraftPlace(places: TimedMessage[], placed: Map<string, ClarifyDraft[]>, drafts: ClarifyDraft[], rootId: string): string {
+  const lastDraft = drafts[drafts.length - 1];
+  return (lastDraft && [...placed.entries()].find(([, ds]) => ds.includes(lastDraft))?.[0]) ?? [...places].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)).at(-1)?.id ?? rootId;
+}

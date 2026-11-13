@@ -78,11 +78,11 @@ describe('the notice', () => {
     Object.defineProperty(window, 'location', { configurable: true, value: orig });
   });
   it('terms, but the client considers the acceptance current (server expects another version): the failure with Try again, reported, never Review terms', async () => {
-    h.accepted.mockResolvedValue('v1.8');
+    h.accepted.mockResolvedValue('v1.9');
     h.start.mockResolvedValue({ ok: true, runId: 'r1', kind: 'message' });
     render(<CanvasStartRefused runId="r1" code="TERMS_NOT_ACCEPTED" reload={async () => undefined} />);
     await waitFor(() => expect(h.capture).toHaveBeenCalled());
-    expect(h.capture.mock.calls[0][1].extra).toMatchObject({ code: 'TERMS_NOT_ACCEPTED', acceptedVersion: 'v1.8' });
+    expect(h.capture.mock.calls[0][1].extra).toMatchObject({ code: 'TERMS_NOT_ACCEPTED', acceptedVersion: 'v1.9' });
     expect(screen.queryByTestId('canvas-start-refused-terms')).toBeNull();
     expect(screen.getByTestId('canvas-start-refused-text').textContent).toBe('We couldn’t update your canvas.');
     await act(async () => { fireEvent.click(screen.getByTestId('canvas-start-refused-retry')); });

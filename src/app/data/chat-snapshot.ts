@@ -35,6 +35,11 @@ export interface ForwardSnapshot {
   /** P1592: the source was a transcription line / a system post (title alone, never "Deleted user"). */
   isTranscription?: boolean;
   systemKind?: ChatSystemKind | null;
+  /** Clarify on a whole chat: the copy shows the chat itself (no author, words or thread); `newPoint` is New point's copy. */
+  scope?: 'chat' | 'recording';
+  newPoint?: boolean;
+  /** Clarify on a live recording (scope 'recording'): when the read stopped (ISO), the press time. */
+  recordingUntil?: string | null;
   /** Clarify only: the replies of the thread the message sat in, oldest first. */
   thread: ForwardThreadEntry[];
 }
@@ -73,5 +78,7 @@ export function mapForwardSnapshot(raw: Record<string, unknown> | null): Forward
     isTranscription: raw.is_transcription === true,
     systemKind: asSystemKind(raw.system_kind),
     thread: mapThread(raw.thread),
+    ...(raw.scope === 'chat' ? { scope: 'chat' as const, newPoint: raw.new_point === true } : {}),
+    ...(raw.scope === 'recording' ? { scope: 'recording' as const, recordingUntil: asString(raw.recording_until) } : {}),
   };
 }

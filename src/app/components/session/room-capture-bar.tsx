@@ -26,6 +26,9 @@ import { useConnectivity, useOfflineStripShown } from '@/app/contexts/offline-st
 import { useRoomBarClaimed } from './room-bar-owner';
 import { useStartRoomCapture } from './use-start-room-capture';
 import { isRoundEvent } from '@/lib/round-event-registry';
+import { useClarifyDraftAvailability } from '@/app/pages/chat/use-clarify-availability';
+import { useClarifyRecording } from '@/app/pages/chat/use-clarify-recording';
+import { MirrorMark } from '@/app/pages/chat/chat-kit';
 
 /** A round event's capture (the sales mastermind): the info says only where the table's words go. The bar itself is identical on every page (P1529 G7, reversed). */
 const isRoundBar = (eventId: string | null, roomEventId: string | undefined, roundEvent: boolean): boolean =>
@@ -57,6 +60,35 @@ const ICON_BUTTON =
   'inline-flex items-center justify-center h-10 w-10 rounded-md border border-blue-300 bg-white text-blue-900 hover:bg-blue-100 disabled:opacity-50';
 
 /**
+ * P1631: Clarify on the live recording. Shown only when the server said drafting is on (exactly true), the capture belongs to a chat (a roomId and a conversationId) and it is
+ * capturing or paused; never offline (the offline bar has its own single control). The router-bound part is split out so the bar renders in places that have no router
+ * while none of the conditions hold.
+ */
+const CLARIFY_PHASES = new Set(['capturing', 'paused']);
+
+function RecordingClarifyPress({ roomId, conversationId, compact }: { roomId: string; conversationId: string; compact: boolean }) {
+  const { press, pending } = useClarifyRecording(roomId, conversationId);
+  return (
+    <button type="button" onClick={press} disabled={pending} aria-label="Clarify" title="Clarify" data-testid="room-capture-bar-clarify"
+      className={compact
+        ? 'inline-flex items-center justify-center gap-1.5 h-10 min-w-10 px-2 sm:px-3 whitespace-nowrap text-sm font-medium rounded-md border border-blue-300 bg-white text-blue-900 hover:bg-blue-100 disabled:opacity-50'
+        : 'flex items-center gap-1.5 whitespace-nowrap text-sm font-medium rounded-md h-10 px-3 border border-blue-300 bg-white text-blue-900 hover:bg-blue-100 transition-colors disabled:opacity-50'}>
+      <MirrorMark size="xs" />
+      {/* the word shows from 640 px up; on a narrow phone the five controls only fit as icons (the aria-label and title carry the name) */}
+      {compact ? <span data-testid="room-capture-bar-clarify-label" className="hidden sm:inline">Clarify</span> : 'Clarify'}
+    </button>
+  );
+}
+
+function RecordingClarifyButton({ compact }: { compact: boolean }) {
+  const { phase, roomId, conversationId } = useRoomCapture();
+  const eligible = !!roomId && !!conversationId && CLARIFY_PHASES.has(phase);
+  const available = useClarifyDraftAvailability(eligible);
+  if (!eligible || available !== true) return null;
+  return <RecordingClarifyPress roomId={roomId} conversationId={conversationId} compact={compact} />;
+}
+
+/**
  * The short bar — the ONLY form on ordinary pages (founder, 2026-10-02): the status in a few
  * words, the meter, ⓘ, and the three controls as icons. One look everywhere, no expand control
  * and no remembered state: the full detail is one tap away in the room (→). It is sticky, so a
@@ -70,16 +102,20 @@ function CompactCaptureBar({ roomId, roundEvent = false }: { roomId: string; rou
   const short = SHORT[status.kind];
   return (
     <div role="status" aria-label={`Room transcription: ${status.text}`} data-testid="room-capture-bar" data-form="short"
-      className="relative z-40 bg-blue-50 border-b border-blue-200 px-4 py-1 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200">
-      <div className="max-w-4xl mx-auto flex items-center gap-2">
-        <span data-warn={status.warn} className="text-sm font-medium text-blue-900 data-[warn=true]:text-red-800 shrink-0">{short}</span>
+      className="relative z-40 bg-blue-50 border-b border-blue-200 px-4 max-[359px]:px-2 py-1 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200">
+      <div className="max-w-4xl mx-auto flex items-center gap-2 max-[359px]:gap-1" data-testid="room-capture-bar-row">
+        {/* below 360 px the five controls and the word do not fit (320 px overflowed by 51 px): the word becomes a dot and keeps its text for assistive tech; the level meter steps aside */}
+        <span aria-hidden="true" data-testid="room-capture-bar-dot" data-warn={status.warn}
+          className="hidden max-[359px]:inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-blue-700 data-[warn=true]:bg-red-700" />
+        <span data-warn={status.warn} className="text-sm font-medium text-blue-900 data-[warn=true]:text-red-800 shrink-0 max-[359px]:sr-only">{short}</span>
         <CaptureDestination destination={eventId || conversationId ? null : destination} className="min-w-0 flex-1 basis-0" />
         {conversationId && !eventId && <CaptureChatLink roomId={roomId} conversationId={conversationId} className="min-w-0 flex-1 basis-0" />}
         {eventId && !roundEvent && <EventArrivalHint />}
-        <LevelMeterFor phase={phase} />
+        <LevelMeterFor phase={phase} compact />
         <CaptureInfoButton forEvent={!!eventId} onOpenRoom={roundEvent ? open : undefined} message={roundEvent ? EVENT_IDLE_INFO : undefined} />
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 max-[359px]:gap-1">
           <ReconnectOrPause needsReconnect={needsReconnect} observing={phase === 'observing'} paused={paused} stopping={stopping} onReconnect={() => void reconnectMic()} onToggle={paused ? resumeMine : pauseMine} />
+          <RecordingClarifyButton compact />
           <button type="button" className={`${ICON_BUTTON} hover:text-destructive active:text-destructive active:bg-destructive/10`} disabled={stopping}
             onClick={() => void endMyCapture(roomId)} aria-label="Stop transcribing" data-testid="room-capture-bar-end">
             <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
@@ -98,9 +134,11 @@ function EventArrivalHint() {
   return <span className="hidden min-w-0 flex-1 basis-0 truncate text-xs text-muted-foreground lg:block" title={EVENT_TEXT_ARRIVES_SHORT} data-testid="capture-event-hint">{EVENT_TEXT_ARRIVES_SHORT}</span>;
 }
 
-/** The level waveform, except in a tab that only observes (the capturing tab owns the microphone). */
-function LevelMeterFor({ phase }: { phase: string }) {
-  return phase !== 'observing' ? <CaptureLevelMeter quiet active={phase === 'capturing' || phase === 'stalled'} /> : null;
+/** The level waveform, except in a tab that only observes (the capturing tab owns the microphone). In the short bar it steps aside below 360 px (P1631: five controls). */
+function LevelMeterFor({ phase, compact = false }: { phase: string; compact?: boolean }) {
+  if (phase === 'observing') return null;
+  const meter = <CaptureLevelMeter quiet active={phase === 'capturing' || phase === 'stalled'} />;
+  return compact ? <span data-testid="room-capture-bar-meter" className="inline-flex max-[359px]:hidden">{meter}</span> : meter;
 }
 
 /** The one recorder control: Reconnect when nothing is being recorded, else Pause or Resume; none in an observing tab. */
@@ -197,6 +235,7 @@ export function RoomCaptureBar({ short = false, roomEventId, roundEvent = false 
       extra={
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <PauseResumeButton />
+          <RecordingClarifyButton compact={false} />
           <StopCaptureButton onClick={() => void endMyCapture(roomId)} testId="room-capture-bar-end" />
           <OpenRoomButton onClick={open} testId="room-capture-bar-open" />
         </div>

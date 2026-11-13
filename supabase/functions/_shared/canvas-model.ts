@@ -16,7 +16,7 @@ import { DRAFT_MODEL, MIN_QUOTE_CHARS } from './canvas-draft.ts';
 import { BOX_DEFINITIONS } from './canvas-box-definitions.ts';
 import type { BasePoint, Material } from './canvas-types.ts';
 import type { GeminiRequest } from './mirror-agent.ts';
-import { anySignal } from './abort-signals.ts';
+import { postGemini } from './gemini-post.ts';
 
 export const STUB_HEADER = 'x-canvas-draft-stub';
 export const CALL_TIMEOUT_MS = 90_000;
@@ -70,14 +70,8 @@ export function resolveEnabled(flag: boolean, hasKey: boolean, stubbed: boolean)
 export function geminiCaller(apiKey: string, fetchFn: typeof fetch = fetch, timeoutMs = CALL_TIMEOUT_MS): ModelCaller {
   return async ({ request, signal }) => {
     try {
-      const res = await fetchFn(`https://generativelanguage.googleapis.com/v1beta/models/${DRAFT_MODEL}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(request),
-        signal: anySignal(signal, AbortSignal.timeout(timeoutMs)),
-      });
-      if (!res.ok) { await res.body?.cancel(); return { response: null, status: res.status }; }
-      return { response: await res.json(), status: 200 };
+      const r = await postGemini(DRAFT_MODEL, apiKey, request, fetchFn, signal, timeoutMs);
+      return { response: r.body, status: r.status };
     } catch (e) {
       console.error('canvas-draft: model request failed', { error: (e as Error).name });
       return { response: null, status: 0 };

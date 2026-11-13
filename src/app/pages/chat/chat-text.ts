@@ -4,12 +4,15 @@
  */
 import type { ChatMessage } from '@/app/data/chat-mappers';
 
+/** A message that carries an attachment of a kind not known here (a quote's summary; P1631: a card in a Clarify's copy of a thread). */
+export const ATTACHMENT_LABEL = 'An attachment';
+
 /** One line for a quote bar or a forward preview. */
 export function messageSummary(m: Pick<ChatMessage, 'body' | 'isDeleted' | 'attachmentKind' | 'kind' | 'audio'>): string {
   if (m.isDeleted) return 'Message deleted';
   if (m.body) return m.body;
   if (m.audio) return 'Voice message';
-  if (m.attachmentKind) return { point: 'A point', story: 'A story', letter: 'A letter', canvas: 'A canvas', canvas_version: 'A canvas' }[m.attachmentKind] ?? 'An attachment';
+  if (m.attachmentKind) return { point: 'A point', story: 'A story', letter: 'A letter', canvas: 'A canvas', canvas_version: 'A canvas' }[m.attachmentKind] ?? ATTACHMENT_LABEL;
   return m.kind === 'message' ? '' : 'Forwarded message';
 }
 

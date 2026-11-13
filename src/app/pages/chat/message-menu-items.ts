@@ -38,7 +38,9 @@ function pushActionItems(c: MenuContext, server: NonNullable<MenuContext['server
     items.push({ key: 'thread', label: 'Reply in thread', Icon: MessageSquareText, onSelect: () => open(server) });
   }
   const privatePoint = server.attachmentKind === 'point' && isKnownPrivatePoint(server.attachmentId); // P1631: a private point is never forwarded
-  if (!c.agent && !c.noCopy && !privatePoint) items.push({ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => actions.onForward(server) });
+  // P1631: a whole-chat Clarify root holds no words of anyone's; a forward of it would arrive in another chat as a removed message
+  const chatScopeRoot = server.forwardSnapshot?.scope === 'chat' || server.forwardSnapshot?.scope === 'recording';
+  if (!c.agent && !c.noCopy && !privatePoint && !chatScopeRoot) items.push({ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => actions.onForward(server) });
 }
 
 export function buildMenuItems(c: MenuContext): MenuItem[] {

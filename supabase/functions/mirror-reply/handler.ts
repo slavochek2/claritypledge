@@ -15,6 +15,7 @@
  * Logging rule (as P1453): status codes and fixed codes only, never a prompt, a message, a reply or a key.
  */
 import { TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS } from '../_shared/terms-gate.ts';
+import { authUserOrResponse, availabilityOrDisabledResponse, gateRequest, readJsonBody } from '../_shared/user-call-gates.ts';
 import { MirrorRequestTooLarge, parseReply, type BeginRun, type GeminiRequest } from '../_shared/mirror-agent.ts';
 
 export const INTERNAL_SECRET_OFF = 'not-configured';
@@ -139,12 +140,8 @@ async function handleInternal(req: Request, d: MirrorDeps, header: string): Prom
   if (d.internalSecret === INTERNAL_SECRET_OFF || d.internalSecret === '' || !safeEqual(header, d.internalSecret)) {
     return json({ error: 'Unauthorized' }, 401, d.cors);
   }
-  let body: { job_id?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'Invalid request body' }, 400, d.cors);
-  }
+  const body = await readJsonBody<{ job_id?: unknown }>(req, d.cors);
+  if (body instanceof Response) return body;
   const jobId = typeof body.job_id === 'string' && UUID_RE.test(body.job_id) ? body.job_id : null;
   if (!jobId) return json({ error: 'job_id is required' }, 400, d.cors);
   if (!d.enabled) return json({ error: 'The mirror agent cannot answer yet', code: 'DISABLED' }, 503, d.cors);
@@ -155,22 +152,16 @@ async function handleInternal(req: Request, d: MirrorDeps, header: string): Prom
 }
 
 async function handleUser(req: Request, d: MirrorDeps): Promise<Response> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401, d.cors);
-  const token = authHeader.slice('Bearer '.length);
-  const userId = await d.authUser(token);
-  if (!userId) return json({ error: 'Unauthorized' }, 401, d.cors);
+  const auth = await authUserOrResponse(req, d);
+  if (auth instanceof Response) return auth;
+  const { userId, token } = auth;
 
-  let body: { message_id?: unknown; availability?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'Invalid request body' }, 400, d.cors);
-  }
+  const body = await readJsonBody<{ message_id?: unknown; availability?: unknown }>(req, d.cors);
+  if (body instanceof Response) return body;
   // The app asks once per session whether the mirror can answer here, so a project where it is off
   // (prod, until the privacy policy covers it) shows no AI controls and sends no further requests.
-  if (body.availability === true) return json({ enabled: d.enabled }, 200, d.cors);
-  if (!d.enabled) return json({ error: 'The mirror agent cannot answer yet', code: 'DISABLED' }, 503, d.cors);
+  const stopped = availabilityOrDisabledResponse(body, d, 'The mirror agent cannot answer yet');
+  if (stopped) return stopped;
   // P1544: no job, no reservation and no model call for a caller who has not accepted the current terms.
   if (!(await d.hasTerms(userId))) return json(TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS, d.cors);
   const messageId = typeof body.message_id === 'string' && UUID_RE.test(body.message_id) ? body.message_id : null;
@@ -185,9 +176,8 @@ async function handleUser(req: Request, d: MirrorDeps): Promise<Response> {
 }
 
 export async function handleMirrorReply(req: Request, d: MirrorDeps): Promise<Response> {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: d.cors });
-  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405, d.cors);
-  if (!d.envReady) return json({ error: 'Service temporarily unavailable' }, 500, d.cors);
+  const gate = gateRequest(req, d);
+  if (gate) return gate;
   const internal = req.headers.get(INTERNAL_HEADER);
   if (internal !== null) return await handleInternal(req, d, internal);
   return await handleUser(req, d);

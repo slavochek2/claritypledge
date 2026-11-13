@@ -54,6 +54,7 @@ import { ConversationPane } from '@/app/pages/chat/ConversationPane';
 import { ThreadPanel } from '@/app/pages/chat/ThreadPanel';
 import { ChatContext, type ChatContextValue } from '@/app/pages/chat/chat-state';
 import { resetCanvasAvailability } from '@/app/pages/chat/use-canvas-availability';
+import { resetClarifyAvailability, seedClarifyAvailability } from '@/app/pages/chat/use-clarify-availability';
 import { resetCanvasThreads } from '@/app/pages/chat/canvas-thread-registry';
 
 const summary = (over: Partial<ChatSummary>): ChatSummary => ({
@@ -115,6 +116,7 @@ beforeEach(() => {
   localStorage.clear();
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} });
   resetCanvasAvailability();
+  resetClarifyAvailability();
   resetCanvasThreads();
   state.available = true;
   who.slug = 'ana';
@@ -164,17 +166,25 @@ describe('S3c.3 (X3): the + on the owner\'s mirror chat', () => {
     expect(plus()).toBeNull();
   });
 
-  it('is not on a direct chat or a channel (CONTROL: the mirror\'s own composer in the same run does have it)', async () => {
-    await mount(pane(DIRECT), [DIRECT], `/chats/c/${DIRECT.conversationId}`);
-    await act(async () => {});
-    expect(plus()).toBeNull();
-    cleanup();
-    await mount(pane(CHANNEL), [CHANNEL], `/chats/c/${CHANNEL.conversationId}`);
-    await act(async () => {});
-    expect(plus()).toBeNull();
+  // P1631 supersedes P1536 X3 on this one point: an ordinary chat's + exists (Entry: "New point in the composer's + menu ... in any chat"). What stays true from X3:
+  // it carries no canvas item, "New canvas" and "Clone a version" are the mirror's alone, and its only item is "New point".
+  it('on a direct chat or a channel the + holds only "New point", no canvas items (CONTROL: the mirror\'s own + has them)', async () => {
+    seedClarifyAvailability(true);
+    for (const chat of [DIRECT, CHANNEL]) {
+      cleanup();
+      await mount(pane(chat), [chat], `/chats/c/${chat.conversationId}`);
+      fireEvent.pointerDown(await screen.findByTestId('composer-plus'), { button: 0, ctrlKey: false, pointerType: 'mouse' });
+      expect(await screen.findByTestId('plus-new-point')).toBeInTheDocument();
+      expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual(['New point']);
+      expect(screen.queryByTestId('plus-new-canvas')).toBeNull();
+      expect(screen.queryByTestId('plus-clone-version')).toBeNull();
+    }
     cleanup();
     await mount(pane(MIRROR), [MIRROR], `/chats/c/${CONV}`);
-    expect(await screen.findByTestId('composer-plus')).toBeInTheDocument();
+    fireEvent.pointerDown(await screen.findByTestId('composer-plus'), { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    expect(await screen.findByTestId('plus-new-canvas')).toBeInTheDocument();
+    expect(screen.getByTestId('plus-clone-version')).toBeInTheDocument();
+    expect(screen.queryByTestId('plus-new-point')).toBeNull();
   });
 
   it('is not on a thread composer of the mirror chat (plain thread and canvas thread)', async () => {

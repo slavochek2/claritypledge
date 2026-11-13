@@ -24,8 +24,8 @@ Deno.test('P1544: the current version passes, and the profile read is by the giv
   assertEquals(seen, ['u-1']);
 });
 
-Deno.test('P1592: v1.5 (the mirror consent) and v1.6, v1.7, v1.8 (the notice versions) all pass; the list is exactly those four', async () => {
-  assertEquals([...MIRROR_CONSENT_VERSIONS], ['v1.5', 'v1.6', 'v1.7', 'v1.8']);
+Deno.test('P1592: v1.5 (the mirror consent) and v1.6, v1.7, v1.8, v1.9 (the notice versions) all pass; the list is exactly those five', async () => {
+  assertEquals([...MIRROR_CONSENT_VERSIONS], ['v1.5', 'v1.6', 'v1.7', 'v1.8', 'v1.9']);
   for (const v of MIRROR_CONSENT_VERSIONS) {
     assertEquals(await callerHasCurrentTerms(stub({ data: { accepted_terms_version: v }, error: null }), 'u-1'), true, v);
   }

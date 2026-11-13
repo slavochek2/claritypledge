@@ -5,7 +5,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ROUND_UPDATE_CONSENT } from '@/app/components/session/capture-copy';
 import { TERMS_CHANGES } from '@/app/content/terms-changes';
-import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 
 const room = vi.hoisted(() => ({ eventId: 'e1' as string | null, row: { flow: null as string | null, series_slug: null as string | null } as object | null, fail: false }));
 vi.mock('@/app/data/transcribe-service', () => ({ getRoomByCode: async () => ({ eventId: room.eventId }) }));
@@ -28,8 +27,9 @@ describe('P1529 D13: the sentence', () => {
   it('the terms and the privacy policy say so', () => {
     for (const f of ['src/app/content/tos.md', 'src/app/content/privacy.md']) expect(readFileSync(f, 'utf8')).toMatch(/Clarity Canvas owner's AI mirror to draft their next/);
   });
-  it('the current terms notice says so without internal words', () => {
-    expect(TERMS_CHANGES[CURRENT_TERMS_VERSION]?.headline).toContain("Clarity Canvas owner's AI mirror to draft their next version");
+  // v1.8 is the notice that announced it; P1631's v1.9 notice came after it and is the current one.
+  it('the v1.8 terms notice says so without internal words', () => {
+    expect(TERMS_CHANGES['v1.8']?.headline).toContain("Clarity Canvas owner's AI mirror to draft their next version");
   });
   it('is the reviewed text without its links line, and the room\'s Transcribe text says it too', () => {
     expect(SENTENCE).toBe('At the event each participant uses a microphone to capture their conversations with peers. Google Gemini turns audio into text that all attendees can access. Peers gain value by using transcribed content to improve their Clarity Canvas with AI.');

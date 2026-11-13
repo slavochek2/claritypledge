@@ -248,7 +248,10 @@ describe('the grants and the restated overloads', () => {
       for (const name of ['_canvas_draft_run_complete', '_canvas_draft_run_begin', 'canvas_draft_retry', 'canvas_draft_undo', 'erase_chat_data_for', '_canvas_draft_merge_offers', '_canvas_draft_other_names']) {
         // P1631 restates erase_chat_data_for as this file's body plus two `-- P1631` lines; p1631-clarify-drafts-migration.test.ts pins that byte for byte.
         // P1631 Publish restates it again (that body plus `-- P1631 publish` lines), pinned the same way.
-        if (name === 'erase_chat_data_for' && (f === '20261110160000_p1631_erase_cleanup_in_erase_fn.sql' || f === '20261112150000_p1631_publish_to_chat.sql')) continue;
+        // P1631 erasure (OQ9) restates it twice more, each the previous body plus marked lines, pinned by
+        // p1631-erase-keeps-held-points-migration.test.ts and p1631-erase-last-holder-fix-migration.test.ts.
+        const P1631_ERASE_RESTATES = ['20261110160000_p1631_erase_cleanup_in_erase_fn.sql', '20261112150000_p1631_publish_to_chat.sql', '20261113130000_p1631_erase_keeps_held_points.sql', '20261113180000_p1631_erase_last_holder_fix.sql'];
+        if (name === 'erase_chat_data_for' && P1631_ERASE_RESTATES.includes(f)) continue;
         expect(c.includes(`FUNCTION public.${name}(`), `${f} redefines ${name}`).toBe(false);
       }
     }

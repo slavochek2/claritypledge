@@ -47,7 +47,7 @@ import { GapBanner } from '@/app/components/shared/gap-banner';
 import { PositionBadge } from '@/app/components/shared';
 import { ComprehensionRatingCard } from '@/app/components/shared/comprehension-rating-card';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
-import { storiesService } from '@/app/data/stories-service';
+import { getOwnStoriesForLiveSession } from '@/app/data/chat-point-stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { analytics } from '@/lib/mixpanel';
 
@@ -1222,7 +1222,7 @@ function IdleScreen({
     const fetchContent = async () => {
       try {
         const [fetchedStories, fetchedPoints] = await Promise.all([
-          storiesService.getStoriesByAuthorWithPoints(userId, userId),
+          getOwnStoriesForLiveSession(userId), // P1631: leaves out stories written on a shared chat card (for that card's readers only)
           pointsService.getPointsForProfileDisplay(userId, userId),
         ]);
         if (!cancelled) {

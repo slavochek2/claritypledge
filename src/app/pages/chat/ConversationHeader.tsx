@@ -6,7 +6,7 @@
  * (link to the live event page); the mirror always says whose mirror it is, also on a phone.
  */
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Ban, CircleDot, ExternalLink, MoreHorizontal, UserRound } from 'lucide-react';
+import { ArrowLeft, Ban, CircleDot, ExternalLink, MoreHorizontal, Pin, UserRound } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { ChatSummary } from '@/app/data/chat-service';
 import type { RoundThread } from '@/app/data/chat-round-threads';
@@ -132,9 +132,12 @@ interface HeaderProps {
   onOpenRound?: (rootMessageId: string) => void;
   /** P1604: opens the transcribe action for this chat (the first-time explanation, or a start). Absent for the mirror. */
   onTranscribe?: () => void;
+  /** P1631: how many live point cards this chat holds (null: not known yet), and the opener of their panel. The item shows only for a count above 0. */
+  pointsCount?: number | null;
+  onOpenPoints?: () => void;
 }
 
-export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere = false, rounds, onOpenRound, onTranscribe }: HeaderProps) {
+export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere = false, rounds, onOpenRound, onTranscribe, pointsCount, onOpenPoints }: HeaderProps) {
   const other = chat.other;
   const canBlock = chat.kind === 'dm' && !!other?.id;
   return (
@@ -158,6 +161,12 @@ export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere =
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-60">
           <MyRoundsMenuSection threads={rounds} onOpen={onOpenRound} />
+          {chat.kind !== 'mirror' && !!pointsCount && onOpenPoints && (
+            <DropdownMenuItem className="min-h-10" onSelect={onOpenPoints} data-testid="points-in-chat-item">
+              <Pin className="mr-2 h-4 w-4" aria-hidden="true" />
+              Points in this chat ({pointsCount})
+            </DropdownMenuItem>
+          )}
           <TranscribeMenuItem chat={chat} onTranscribe={onTranscribe} />
           {chat.kind === 'dm' && other?.slug && (
             <DropdownMenuItem asChild className="min-h-10">

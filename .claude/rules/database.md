@@ -19,6 +19,13 @@ Multiple files with the same 8-digit date (e.g., `20260206_a.sql`, `20260206_b.s
 
 Extracts DB password from `.env.local` automatically. Run this — don't ask.
 
+**Before `migrate.sh` applies a migration that creates or replaces a function to shared TEST, run it inside a rolled-back transaction that also calls each of those functions:** `BEGIN; <migration>; <calls>; ROLLBACK;`, then `migrate.sh`, then the integration canary that calls the function, which is still the last check before the work is reported done. A plpgsql body compiles clean and can still fail on every call (a bad setting name, a missing column), and applying it to shared TEST then breaks that path for everyone until the next migration. Three traps:
+- **The migration's own `BEGIN;`/`COMMIT;` must be removed first** (about 1 in 6 function migrations has them): an inner `COMMIT;` applies the migration for real and turns the closing `ROLLBACK` into a no-op. Afterwards, check the function's body on TEST is still the old one.
+- **Call as the real caller, not as `postgres`:** after the migration and before the calls, `SET LOCAL ROLE authenticated;` plus `SELECT set_config('request.jwt.claims', '{"sub":"<uuid>","role":"authenticated"}', true);` (or `anon`). The owner bypasses grants and RLS, and `auth.uid()` is NULL for it, so a call as `postgres` can pass while every real caller fails.
+- **Statements that cannot run in a transaction** (`CREATE INDEX CONCURRENTLY`, some `CREATE EXTENSION`): dry-run only the function part.
+
+Sources: [decisions.md](../../docs/decisions.md) 2026-09-08 "Applying a migration is not exercising what it creates" and 2026-09-09 "verify it in a rolled-back transaction — and control-probe the rollback in both directions first" (P1236); founder 2026-11-14, after P1631's invalid setting name broke every erasure on TEST.
+
 ## No New Public Media Buckets in Supabase Storage (P1385)
 
 A migration that creates a storage bucket for public media (video, posters, curated images) is the wrong host: prod CSP `media-src` allows only `storage.googleapis.com`, and the dev server sends no CSP, so it passes locally and is blocked on the live site. Upload to `gs://claritypledge-story-images` and build URLs with `publicMediaUrl()` (`src/lib/public-media.ts`).

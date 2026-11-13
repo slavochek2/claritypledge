@@ -106,3 +106,16 @@ export const TRANSCRIPT_FAILED = "Transcript couldn't be prepared";
  */
 export const START_TRANSCRIBING = 'Start transcribing';
 export const NOT_TRANSCRIBING = 'Not transcribing';
+
+// ─── P1631: Clarify from the live recording banner ───────────────────────────────────────────────────────
+
+/** [FOUNDER DECISION: copy, proposed] The toast when Clarify is pressed before anything was recorded for the person's read set. */
+export const RECORDING_NOTHING_YET_TOAST = 'Nothing recorded yet';
+
+/** [FOUNDER DECISION: copy, proposed] The Mirror root of a recording: "Recording · up to HH:MM" in the viewer's local time. */
+export function recordingRootLine(untilIso: string | null): string {
+  const at = untilIso ? new Date(untilIso) : null;
+  if (!at || Number.isNaN(at.getTime())) return 'Recording';
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `Recording · up to ${two(at.getHours())}:${two(at.getMinutes())}`;
+}

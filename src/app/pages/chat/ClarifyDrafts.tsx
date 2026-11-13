@@ -1,11 +1,11 @@
 /**
  * @file ClarifyDrafts.tsx
  * @description P1631: what a Clarify thread draws for the Mirror agent's side of the conversation. Each draft is a message FROM the Mirror (its face and name, as its replies are shown
- * everywhere): thinking, a point card, suggestions when the agent found nothing to test, or a failure with Try again. The view draws the drafts of ONE place in the thread
+ * everywhere): thinking, a point card (the lines it cites above it), suggestions when the agent found nothing to test, or a failure with Try again. The view draws the drafts of ONE place in the thread
  * (the ones that follow one owner message), so the thread reads in time order; the first place also carries the loading and load-failure lines, the last carries the
  * row under the latest card: "Another point" and "Publish to chat".
  */
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useId, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ClarifyDraft } from '@/app/data/clarify-service';
@@ -13,7 +13,7 @@ import { ClarifyDraftCard } from './ClarifyDraftCard';
 import { ClarifyPublishButton } from './ClarifyPublishButton';
 import { MirrorThinking } from './MirrorReplyState';
 import { MirrorMark } from './chat-kit';
-import { ANOTHER_POINT_LABEL, CAPPED_TEXT, FAILED_TEXT, LOAD_FAILED_TEXT, NO_SPLIT_TEXT, RETRY_LABEL, UPDATED_LEAD } from './clarify-copy';
+import { ANOTHER_POINT_LABEL, CAPPED_TEXT, CITED_LEAD, FAILED_TEXT, LOAD_FAILED_TEXT, MAKE_ANYWAY_INSTRUCTION, MAKE_ANYWAY_LABEL, NO_SPLIT_TEXT, RETRY_LABEL, UPDATED_LEAD } from './clarify-copy';
 import { earlierDraftIds, mayAddAnother } from './clarify-timeline';
 import type { ClarifyActions } from './use-clarify-actions';
 
@@ -33,7 +33,7 @@ function AgentTurn({ name, children, testId }: { name: string; children: ReactNo
   );
 }
 
-function Refused({ draft, onPick }: { draft: ClarifyDraft; onPick: (text: string) => void }) {
+function Refused({ draft, onPick, latest }: { draft: ClarifyDraft; onPick: (text: string) => void; latest: boolean }) {
   return (
     <div data-testid={`clarify-refused-${draft.id}`} className="space-y-2">
       <p className="text-sm text-foreground">{NO_SPLIT_TEXT}</p>
@@ -43,6 +43,12 @@ function Refused({ draft, onPick }: { draft: ClarifyDraft; onPick: (text: string
             {s}
           </Button>
         ))}
+        {/* only on the newest answer of the thread: it drafts from the pressed item although the Mirror found no split */}
+        {latest && (
+          <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal rounded-2xl px-3 py-2 text-left text-sm font-normal" onClick={() => onPick(MAKE_ANYWAY_INSTRUCTION)} data-testid="clarify-make-anyway">
+            {MAKE_ANYWAY_LABEL}
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -56,6 +62,26 @@ function Failed({ draft, onRetry }: { draft: ClarifyDraft; onRetry: () => void }
       {draft.state !== 'capped' && (
         <Button type="button" variant="ghost" className="h-11 min-h-11 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={onRetry} data-testid="clarify-retry">{RETRY_LABEL}</Button>
       )}
+    </div>
+  );
+}
+
+/**
+ * The lines a draft cites, in the Mirror only and never on the card (founder asks A5 and A7): the text the server read from the rows, with no names and
+ * no count, under a lead that marks them as possibly wrong (live text is rough). A published card in the chat carries none of this.
+ */
+function CitedLines({ draft }: { draft: ClarifyDraft }) {
+  const leadId = useId();
+  const lines = draft.cited.filter((l) => l.text.trim() !== ''); // a row with no words would draw an empty bordered line
+  if (lines.length === 0) return null;
+  return (
+    <div className="min-w-0 space-y-1" data-testid={`clarify-cited-${draft.id}`}>
+      <p id={leadId} className="text-xs text-muted-foreground">{CITED_LEAD}</p>
+      <ul className="space-y-1" aria-labelledby={leadId}>
+        {lines.map((l) => (
+          <li key={l.id} className="break-words border-l-2 border-border pl-2 text-sm text-muted-foreground">{l.text}</li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -115,11 +141,12 @@ export interface ClarifyDraftsViewProps {
 function DraftTurn({ draft, props, earlier }: { draft: ClarifyDraft; props: ClarifyDraftsViewProps; earlier: ReadonlySet<string> }) {
   const { name, userId, actions, all, mentionedId, onMention } = props;
   if (draft.state === 'queued' || draft.state === 'running') return <AgentTurn name={name}><MirrorThinking name={name} testId="clarify-thinking" className="" /></AgentTurn>;
-  if (draft.state === 'refused') return <AgentTurn name={name}><Refused draft={draft} onPick={actions.onPick} /></AgentTurn>;
+  if (draft.state === 'refused') return <AgentTurn name={name}><Refused draft={draft} onPick={actions.onPick} latest={all[all.length - 1]?.id === draft.id} /></AgentTurn>;
   if (draft.state !== 'done') return <AgentTurn name={name}><Failed draft={draft} onRetry={() => actions.onRetry(draft)} /></AgentTurn>;
   const refines = !!draft.refineTargetId && all.some((d) => d.id === draft.refineTargetId);
   return (
     <AgentTurn name={name}>
+      <CitedLines draft={draft} />
       {refines && <p className="text-sm text-muted-foreground" data-testid="clarify-updated-lead">{UPDATED_LEAD}</p>}
       <ClarifyDraftCard draft={draft} userId={userId} onChanged={actions.onChanged} earlier={earlier.has(draft.id)} mentioned={mentionedId === draft.id} onMention={() => onMention(draft.id)} />
     </AgentTurn>

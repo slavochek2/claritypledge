@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 340
+**Next ID:** 344
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -4043,5 +4043,27 @@ From the P1529 test on 2026-11-13 (event sales-mastermind-test-1113-1828, TEST):
 **due:** week
 
 In the P1674 session, ask-model openrouter (GLM) failed 5 of 5 review runs with verified=failed exit=5 and reasoning_tokens at the 16000 cap, empty output, on prompts from 20 KB to 260 KB (spec review round 2, code review, /finish). Gemini and Codex succeeded on the same prompts, so every review ran one lens short. Next step: read ask-model's openrouter path and model-defaults.env OPENROUTER_MODEL settings (reasoning budget / max tokens), reproduce with one 20 KB prompt, and either raise the output budget or lower the reasoning effort so GLM returns a review. Done when one /finish run shows GLM ok.
+
+---
+
+## Position buttons overflow a point card inside the 400 px thread panel (window 1024–1279 px)
+
+**ID:** INBOX-342
+**Date:** 2026-11-15
+**Status:** proposed
+**due:** week
+
+Found in the P1631 live re-test: in a group thread opened as the 400 px side panel at a 1100 px window, a point card's position row overflows its card (the last segment ends about 14 px past the card edge). Cause: `position-buttons.tsx` gives each segment `sm:min-w-[90px]`, a breakpoint that follows the window, not the panel, so 3 × 90 px is forced into a 240 px row. Pre-existing on main (P1445), not caused by P1631; P1631 makes it more visible because points now publish into threads. Fix shape: size the segments by container (container query or a prop from narrow hosts) instead of the window breakpoint.
+
+---
+
+## A ?m= link to an older card scrolls to its placeholder and then off screen
+
+**ID:** INBOX-343
+**Date:** 2026-11-15
+**Status:** proposed
+**due:** week
+
+Found in the P1631 live re-test: opening a chat with `?m=<id>` for an older point card scrolls to the card while it is still a small loading placeholder; the cards above it then load, grow, and push it off screen (the jump-down button shows). The jump code (`ensureLoaded` / `jumpTo`) is unchanged from main; publishing's own jump was fixed separately in P1631. Fix shape: re-anchor the jump target after the rows above it finish measuring (the list already observes sizes), or reserve card height before load.
 
 ---

@@ -31,13 +31,15 @@ function MentionPill({ words, onRemove }: { words: string; onRemove: () => void 
   );
 }
 
-export function ClarifyComposer({ rootId, userId, working, mention, onClearMention }: {
+export function ClarifyComposer({ rootId, userId, working, mention, onClearMention, autoFocus = false }: {
   rootId: string;
   userId: string;
   working: boolean;
   /** The card mentioned in this box (its id and its words), or null. */
   mention?: { id: string; words: string } | null;
   onClearMention?: () => void;
+  /** Takes focus on mount where a real pointer exists (the product's Composer rule): the Mirror's box, never the thread beside it (P1631). */
+  autoFocus?: boolean;
 }) {
   const targetId = mention?.id ?? null;
   // resolving false means nothing was sent and the composer gives the words back
@@ -99,6 +101,7 @@ export function ClarifyComposer({ rootId, userId, working, mention, onClearMenti
       quote={mention ? <MentionPill words={mention.words} onRemove={() => onClearMention?.()} /> : undefined}
       onSend={onSend}
       onVoiceNote={onVoiceNote}
+      autoFocus={autoFocus}
     />
   );
 }

@@ -5,6 +5,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
+import { mapDraft, str, type Row } from './clarify-draft-map';
 
 export type ClarifyDraftState = 'queued' | 'running' | 'done' | 'refused' | 'failed' | 'capped';
 export type OwnerPosition = import('@/app/types').PositionType | null;
@@ -43,8 +44,6 @@ export type ClarifyChangeResult = { status: 'ok' } | { status: 'refused'; code: 
 /** `pending`: the function answered that the draft is still being made (another call has it, or its context was locked): ask again. */
 export type InvokeResult = { ok: true; pending?: true } | { ok: false; reason: 'capped' | 'failed' };
 
-type Row = Record<string, unknown>;
-const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
 
 async function call(name: string, args: Record<string, unknown>): Promise<Row> {
   const { data, error } = await supabase.rpc(name, args);
@@ -64,6 +63,35 @@ export async function startClarify(sourceId: string): Promise<StartClarifyResult
   }
   if (r.status === 'busy') return { status: 'busy', draftId, threadRootId, mirrorConversationId };
   throw new Error('clarify_start: unexpected answer');
+}
+
+/** Clarify on a whole chat: `draftId` is null when no draft was asked for (New point); `empty` means the chat has nothing to clarify yet. */
+export type StartClarifyChatResult =
+  | { status: 'started'; draftId: string | null; threadRootId: string; mirrorConversationId: string }
+  | { status: 'busy' }
+  | { status: 'empty' };
+
+/** The answer of a start call on a whole chat or a live recording (both return the same shape). */
+function chatStartResult(r: Row, fn: string): StartClarifyChatResult {
+  const threadRootId = str(r.thread_root_id);
+  const mirrorConversationId = str(r.mirror_conversation_id);
+  if (r.status === 'started' && threadRootId && mirrorConversationId) {
+    return { status: 'started', draftId: str(r.draft_id), threadRootId, mirrorConversationId };
+  }
+  if (r.status === 'busy') return { status: 'busy' };
+  if (r.status === 'empty') return { status: 'empty' };
+  throw new Error(`${fn}: unexpected answer`);
+}
+
+export async function startClarifyChat(conversationId: string, { draft = true }: { draft?: boolean } = {}): Promise<StartClarifyChatResult> {
+  const r = await call('clarify_start_chat', { p_conversation: conversationId, p_draft: draft });
+  return chatStartResult(r, 'clarify_start_chat');
+}
+
+/** Clarify on the live recording of a room the caller holds a seat in: `empty` means nothing in their read set was recorded yet; `reused` is a second press in the same room. */
+export async function startRecordingClarify(roomId: string): Promise<StartClarifyChatResult> {
+  const r = await call('clarify_start_recording', { p_room: roomId });
+  return chatStartResult(r, 'clarify_start_recording');
 }
 
 export async function anotherPoint(threadRoot: string, instruction?: string | null): Promise<AnotherPointResult> {
@@ -131,54 +159,6 @@ export async function isPointChatShared(pointId: string): Promise<boolean> {
   return data === true;
 }
 
-const STATES: ClarifyDraftState[] = ['queued', 'running', 'done', 'refused', 'failed', 'capped'];
-
-function citedOf(v: unknown): ClarifyCitedLine[] {
-  const flat = Array.isArray(v) ? v : v && typeof v === 'object' ? Object.values(v as Row).flatMap((x) => (Array.isArray(x) ? x : [])) : [];
-  const seen = new Set<string>();
-  const out: ClarifyCitedLine[] = [];
-  for (const raw of flat) {
-    const l = (raw ?? {}) as Row;
-    const id = str(l.id);
-    if (!id || seen.has(id) || typeof l.text !== 'string') continue;
-    seen.add(id);
-    out.push({ id, text: l.text, at: str(l.at) });
-  }
-  return out;
-}
-
-function mapDraft(raw: unknown): ClarifyDraft | null {
-  const d = (raw ?? {}) as Row;
-  const id = str(d.id) ?? str(d.draft_id);
-  const state = STATES.find((s) => s === d.state);
-  if (!id || !state) return null;
-  const p = d.point as Row | null | undefined;
-  const pid = p ? str(p.id) : null;
-  return {
-    id,
-    state,
-    point: p && pid && typeof p.statement === 'string' ? { id: pid, statement: p.statement, ownerPosition: (str(p.owner_position) as OwnerPosition) } : null,
-    // distinct, so a chip's key (its text) is unique
-    suggestions: Array.isArray(d.suggestions) ? [...new Set(d.suggestions.filter((s): s is string => typeof s === 'string' && s.trim() !== '').map((s) => s.trim()))] : [],
-    errorCode: str(d.error_code),
-    cited: citedOf(d.cited),
-    createdAt: str(d.created_at) ?? '',
-    refineTargetId: str(d.refine_target_id),
-    sourceKind: str(d.source_kind),
-    published: publishedOf(d.published),
-  };
-}
-
-function publishedOf(v: unknown): ClarifyDraft['published'] {
-  if (!Array.isArray(v)) return [];
-  return v.flatMap((raw) => {
-    const x = (raw ?? {}) as Row;
-    const conversationId = str(x.conversation_id);
-    const messageId = str(x.message_id);
-    return conversationId && messageId ? [{ conversationId, messageId }] : [];
-  });
-}
-
 /** The drafts of one Clarify thread, oldest first. Owner only: anyone else gets none. */
 export async function getClarifyThread(threadRoot: string): Promise<ClarifyDraft[]> {
   const { data, error } = await supabase.rpc('get_clarify_thread', { p_thread_root: threadRoot });
@@ -198,6 +178,23 @@ export async function getClarifyDraftCounts(conversationId: string): Promise<Rec
   const out: Record<string, number> = {};
   for (const [k, v] of Object.entries((data ?? {}) as Row)) if (typeof v === 'number' && v > 0) out[k] = v;
   return out;
+}
+
+/**
+ * Whether Clarify drafting is on for this project: true or false when the server said so, null when the request failed or the answer is unknown (the caller may
+ * ask again; unknown is never "on"). The same probe the canvas uses, against the clarify-draft function.
+ */
+export async function getClarifyAvailability(): Promise<boolean | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('clarify-draft', { body: { availability: true } });
+    // The probe writes nothing, but the cache-drift guard (P1364) counts any call of this function as a writer; one clear per session is cheap.
+    clearListReturnCache();
+    if (error) return null;
+    const enabled = (data as Row | null)?.enabled;
+    return typeof enabled === 'boolean' ? enabled : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Starts the model run for a queued draft. Anything but a clean answer is a value: capped, or failed (the draft itself holds the error). */

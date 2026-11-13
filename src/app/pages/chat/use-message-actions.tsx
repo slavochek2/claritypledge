@@ -9,10 +9,9 @@ import { ConfirmDialog, ForwardDialog } from './ChatDialogs';
 import type { ListActions } from './MessageList';
 import { useChat } from './chat-state';
 import { startClarify } from '@/app/data/clarify-service';
-import { CLARIFY_FAILED_TOAST } from './clarify-copy';
-import { runClarifyDraft, touchClarifyThread, trackClarifyStart } from './clarify-run';
+import { pressClarify } from './clarify-press';
+import { useClarifyAvailable } from './use-clarify-availability';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { clarifyPanelPushed, clarifyPushState, withClarifyPanel } from './clarify-panel';
 import { useLeaveChat } from './chat-hooks';
 import { chatPath, isChatVisibleInList } from './chat-view-model';
 import type { ConversationApi } from './MessageList';
@@ -43,6 +42,7 @@ export function useMessageActions({ summary, conv, onReply, onThread }: Options)
   }, []);
   const { remove } = conv;
   const conversationId = summary.conversationId;
+  const clarifyOn = useClarifyAvailable(summary);
 
   const actions = useMemo<ListActions>(
     () => ({
@@ -56,36 +56,20 @@ export function useMessageActions({ summary, conv, onReply, onThread }: Options)
         leave();
         void setManualUnread(conversationId, true);
       },
-      onClarify:
-        summary.kind === 'mirror'
-          ? undefined
-          : (m: ChatMessage) => {
-              // P1631: a new Mirror thread opens and the first draft starts at once. The thread opens on top of here (its Back returns
-              // here). A press while a draft is being made is answered `busy` and does nothing further.
-              void trackClarifyStart(async (threadKnown) => {
+      onClarify: clarifyOn
+        ? (m: ChatMessage) => {
+            // P1631: a new Mirror thread opens beside this chat and the first draft starts at once. A press while a draft is being made is answered `busy` and does nothing further.
+            pressClarify({
+              start: async () => {
                 const r = await startClarify(m.id);
-                if (r.status === 'started') threadKnown(r.threadRootId);
-                return r;
-              }).then(
-                (r) => {
-                  if (r.status !== 'started') return;
-                  // Stay in this chat: the Mirror opens beside it on the Clarify thread. A push, so the phone's Back closes the panel; the pushed entry is a
-                  // 'skip' level for the chat's own Back plan. Moved to another chat meanwhile: no navigation, the draft run goes on.
-                  const here = locationRef.current;
-                  // also still mounted: switching chats unmounts this pane and freezes the ref on the old chat.
-                  if (mounted.current && here.pathname === pathname) {
-                    const already = clarifyPanelPushed(here.state);
-                    navigate({ pathname, search: withClarifyPanel(here.search, r.threadRootId) }, already ? { replace: true, state: here.state } : { state: clarifyPushState(here.state) });
-                  }
-                  // the new thread's first draft exists now: an open Mirror shows "1 reply" without waiting for the run
-                  touchClarifyThread(r.threadRootId);
-                  void runClarifyDraft(r.draftId);
-                },
-                () => toast.error(CLARIFY_FAILED_TOAST),
-              );
-            },
+                return r.status === 'started' ? { status: 'started', draftId: r.draftId, threadRootId: r.threadRootId, mirrorConversationId: r.mirrorConversationId } : { status: 'busy' };
+              },
+              navigate, here: () => locationRef.current, alive: () => mounted.current, startedAt: pathname, openOn: pathname, run: true,
+            });
+          }
+        : undefined,
     }),
-    [onReply, onThread, leave, navigate, pathname, setManualUnread, conversationId, summary.kind],
+    [onReply, onThread, leave, navigate, pathname, setManualUnread, conversationId, clarifyOn],
   );
 
   const forwardTargets = useMemo(

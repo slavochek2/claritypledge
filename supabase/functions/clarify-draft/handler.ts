@@ -16,6 +16,7 @@
  * Logging: fixed codes only, never a row, a statement or a key.
  */
 
+import { authUserOrResponse, availabilityOrDisabledResponse, gateRequest, readJsonBody } from '../_shared/user-call-gates.ts';
 import { TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS } from '../_shared/terms-gate.ts';
 import type { GeminiRequest } from '../_shared/mirror-agent.ts';
 import { buildClarifyRequest, parseClarifyResponse, type ClarifyCaller, type ClarifyRun } from './clarify-model.ts';
@@ -179,22 +180,16 @@ async function run(d: ClarifyDeps, draftId: string): Promise<Response> {
 }
 
 export async function handleClarifyDraft(req: Request, d: ClarifyDeps): Promise<Response> {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: d.cors });
-  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405, d.cors);
-  if (!d.envReady) return json({ error: 'Service temporarily unavailable' }, 500, d.cors);
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401, d.cors);
-  const userId = await d.authUser(authHeader.slice('Bearer '.length));
-  if (!userId) return json({ error: 'Unauthorized' }, 401, d.cors);
+  const gate = gateRequest(req, d);
+  if (gate) return gate;
+  const auth = await authUserOrResponse(req, d);
+  if (auth instanceof Response) return auth;
+  const { userId } = auth;
 
-  let body: { draft_id?: unknown; availability?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'Invalid request body' }, 400, d.cors);
-  }
-  if (body.availability === true) return json({ enabled: d.enabled }, 200, d.cors);
-  if (!d.enabled) return json({ error: 'Drafting is not available yet', code: 'DISABLED' }, 503, d.cors);
+  const body = await readJsonBody<{ draft_id?: unknown; availability?: unknown }>(req, d.cors);
+  if (body instanceof Response) return body;
+  const stopped = availabilityOrDisabledResponse(body, d, 'Drafting is not available yet');
+  if (stopped) return stopped;
   // P1544: no reservation and no model call for a caller who has not accepted the current terms.
   if (!(await d.hasTerms(userId))) return json(TERMS_NOT_ACCEPTED_BODY, TERMS_NOT_ACCEPTED_STATUS, d.cors);
   const draftId = typeof body.draft_id === 'string' && UUID_RE.test(body.draft_id) ? body.draft_id : null;

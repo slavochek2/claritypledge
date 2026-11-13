@@ -237,10 +237,9 @@ API. So a message you post in a group, event or direct chat can be read by anoth
 mirror agent when they ask it about the chat or copy your message into it. Your own mirror
 agent works the same way on what you can read. Nothing it reads is posted anywhere.
 
-**Clarify.** When you use Clarify on a message, we put a copy of it in your mirror agent chat. The copy holds
-the author's name, the text, the time, the name of the chat it came from, and the replies in its
-thread that you can read: up to 100, or up to 720 lines for a transcript session. Any note you add is saved with it. Nothing is posted in the original
-chat, and the other people in it are not told. Your mirror agent then answers the copy.
+**Clarify.** When you use Clarify on a message, a thread, a whole chat, or a recording that is running, your mirror agent reads what you can read there and drafts a point for you to consider. For a recording at an event it reads only your own table's speech in the current round, or only your own words outside a round. The text goes to Google's Gemini API without the authors' names. A draft is private to you, and nothing is posted in the original chat unless you publish it. A published point is a card in that chat: only the people who can read that chat can read it and take a position on it, and nobody can forward it.
+
+**Stories on a published point.** A story you write from a point card in a chat can be read by exactly the people who can read that card, and by nobody else.
 
 **Forwarding.** When someone forwards a message, the new chat gets a copy of its text, the
 author's name and the time.
@@ -293,7 +292,7 @@ deletes it or deletes their account. Deleting a group or an event deletes its ch
 **When you delete your account.** Your mirror agent chat and everything in it are deleted, with the
 records of its requests. Answers that other people's mirror agents gave using your words are
 cleared. Words already sent to Google cannot be recalled by us. Your messages in
-other chats lose their text and attachments and show as "Deleted user". Copies that other people
+other chats lose their text and attachments and show as "Deleted user". A point card you published stays in its chat, without your name and your position, if someone else has taken a position on that point; otherwise it is deleted. Copies that other people
 forwarded or clarified lose your words and your name too. Your read markers and blocks are deleted.
 Direct messages stay for the other person, without your words. A direct message is deleted once
 both people have deleted their accounts. The portrait of your mirror agent (see AI features) is
@@ -325,15 +324,14 @@ When you use one of the AI features below, or one of the same kind that writes, 
     with your later messages. So is a question you ask it about a group or event chat from that
     chat.
   - **What is sent.** Your message, and recent messages, up to a limit, with the names of their
-    authors, whether a message has a point or a story attached (its kind only, not its
-    content), your first name, the name you gave your mirror agent and, for a question about a
+    authors, whether a message has a point or a story attached (its kind and, for points already published in that chat, their sentence), your first name, the name you gave your mirror agent and, for a question about a
     group or event chat, the chat's title. For a question about a group or event chat, these
     are the recent messages of that chat that you can read. For a message in your mirror agent
     chat, they are the recent messages of that chat, including the copies you made with Clarify
     or by forwarding. A copy holds the author's name, the text, the name of the chat it came
     from and part of its thread. It can come from a direct message. A copy made before its
     original was deleted is still sent.
-  - **Who sees the answer.** Only you. Nothing is posted in the original chat, and an answer
+  - **Who sees the answer.** Only you. Nothing is posted in the original chat unless you publish a point you drafted (see Clarify), and an answer
     cannot be forwarded or Clarified in the app.
   - **Portrait.** Your mirror agent gets a painted portrait the first time you open it, and a
     new one when you press New portrait. What is sent to make it describes an invented person in the
@@ -535,7 +533,7 @@ Under the GDPR you can:
   mirror agent chat, the words and attachments of your Clarity Chat messages (including copies others
   forwarded or clarified), your read markers and blocks (see Clarity Chat for what remains), and
   your AI rate-limit records. What other people have built on stays, with your name removed
-  from it: points, events you hosted, group memberships, letters delivered to you, and a
+  from it: points that someone else has taken a position on (a private point only you took a position on is deleted; a public point stays, without your name), events you hosted, group memberships, letters delivered to you, and a
   session you shared with someone else — that session remains theirs, without your name and
   without its transcript. We keep one audit row holding the deleted account's identifier and
   nothing else, so that we can show an erasure was carried out. Two things this deletion does

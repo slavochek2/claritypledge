@@ -4,14 +4,13 @@
  * A right-hand panel from lg up; the whole screen on a phone. Every chat has threads (P1546: 1:1s
  * and the mirror too); in the mirror, the mirror agent answers inside the thread it was asked in.
  */
-import { useCallback, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import { useCallback, useState, type ComponentProps, type ReactNode } from 'react';
 import type { ChatMessage, ChatSummary } from '@/app/data/chat-service';
 import { canvasThreadFlags } from './canvas-thread-flags';
 import type { CanvasWorkspaceProps } from './canvas-send-slot';
 import { Composer } from './Composer';
 import { MessageList } from './MessageList';
 import { ThreadHeader } from './ThreadHeader';
-import { useBack } from './chat-hooks';
 import { useRevealPublished } from './use-reveal-published';
 import { useChat } from './chat-state';
 import { useRestoreMirrorStatuses } from './mirror-state';
@@ -25,6 +24,8 @@ import { useConversationMessages } from './use-conversation';
 import { useMessageActions } from './use-message-actions';
 import { useThreadVoice } from './use-thread-voice';
 import { EventRoomLink } from './EventRoomLink';
+import { useClarifyLayout } from './use-clarify-layout';
+import { useThreadClose } from './use-thread-close';
 
 /** Why this thread takes no replies, or null. */
 function threadBlockedReason(canSend: boolean, rootDeleted: boolean): string | null {
@@ -73,12 +74,21 @@ function ThreadFooter({ blockedReason, canvas, draftKey, focusToken, focusable, 
   );
 }
 
-export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = false, onRunActive, focusable = true, headerActions, canvasTitle, panelTitle, workspace }: {
+interface ThreadPanelProps {
   summary: ChatSummary;
   rootId: string;
   highlightId: string | null;
   /** Closes the panel where it is not the chat's own route (the canvas page): replaces the chat's Back. */
   onClose?: () => void;
+  /** P1631: the thread fills the left area beside the Clarify Mirror (from 1280px); its header's "← Chat" calls this, and so does a thread that turns out unavailable. */
+  onBackToChat?: () => void;
+  /**
+   * P1631 (AC 137): the Clarify Mirror beside its source: full screen with Back below 1280px, a 440px right panel from 1280px. Known before the root
+   * is read; a Clarify thread opened from the Mirror chat itself gets the same once its root is read.
+   */
+  clarifyPanel?: boolean;
+  /** P1631: told whether this thread is a Clarify thread: null while its root is being read, then true or false (the page covers itself behind one below 1280px). */
+  onClarifyThread?: (isClarify: boolean | null) => void;
   /** In the canvas workspace the pane is sized by its frame (full width below 1280px, 440px beside the canvas), not by this panel. */
   fill?: boolean;
   /** The workspace's Publish spot reads "Updating…" while a run goes: told whenever that changes. */
@@ -93,7 +103,9 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   panelTitle?: ReactNode;
   /** The canvas workspace's own props for the thread it hosts (its presence: a canvas draft's thread from the first render, before the root has loaded; and the cap's words). */
   workspace?: CanvasWorkspaceProps;
-}) {
+}
+
+export function ThreadPanel({ summary, rootId, highlightId, onClose, onBackToChat, clarifyPanel = false, onClarifyThread, fill = false, onRunActive, focusable = true, headerActions, canvasTitle, panelTitle, workspace }: ThreadPanelProps) {
   const chat = useChat();
   const conversationId = summary.conversationId;
   const conv = useConversationMessages({ conversationId, threadRootId: rootId });
@@ -103,12 +115,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   // Every Reply inside a thread is a reply to the thread: it just moves focus to the field.
   const onReply = useCallback((_m: ChatMessage) => setFocusToken((t) => t + 1), []);
   const { actions, dialogs } = useMessageActions({ summary, conv, onReply });
-  const back = useBack();
-  const close = onClose ?? back;
-  // A thread that does not exist for this person (a reply, a 1:1, another chat's message) closes itself, the way Back does.
-  useEffect(() => {
-    if (conv.status === 'unavailable') close();
-  }, [conv.status, close]);
+  const close = useThreadClose(conv.status, onClose, onBackToChat); // closes itself when the thread does not exist for this person
   const root = conv.server.find((m) => m.id === rootId);
   const rootDeleted = !!root?.isDeleted;
   // P1536: a thread that starts with a canvas version is a canvas draft's thread (the draft is read from the database).
@@ -125,7 +132,8 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
   const blockedReason = threadBlockedReason(summary.canSend, rootDeleted);
   // P1631: a Clarify thread shows its drafts under the source copy; its composer refines the latest draft or adds another.
   const reveal = useRevealPublished(); // after a publish: the chat or thread with the new card focused; the Clarify panel closes with it
-  const clarify = useClarifyParts(summary, root, chat.userId, conv.server, reveal);
+  const clarify = useClarifyParts(summary, root, chat.userId, conv.server, reveal, focusable);
+  const layout = useClarifyLayout({ summary, status: conv.status, isClarify: clarify.isClarify, clarifyPanel, fill, leftArea: !!onBackToChat, onClarifyThread });
 
   if (retired) return <RetiredThread />;
 
@@ -133,9 +141,9 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
     <section
       aria-label="Thread"
       data-testid="thread-panel"
-      className={fill ? 'flex min-h-0 min-w-0 flex-1 flex-col bg-background' : 'flex min-h-0 min-w-0 flex-1 flex-col bg-background lg:w-[400px] lg:flex-none lg:border-l xl:w-[440px]'}
+      className={layout.panelClass}
     >
-      <ThreadHeader onClose={close} menu={<><EventRoomLink chat={summary} />{headerActions}</>} workspace={fill ? 'draft' : undefined}>
+      <ThreadHeader onClose={close} onBackToChat={onBackToChat} clarifyPanel={layout.asClarify} menu={<><EventRoomLink chat={summary} />{headerActions}</>} workspace={fill ? 'draft' : undefined}>
         {panelTitle ?? canvas.headerTitle ?? clarify.headerTitle ?? (
           <>
             <h2 className="truncate text-base font-semibold text-foreground">Thread</h2>
@@ -156,6 +164,7 @@ export function ThreadPanel({ summary, rootId, highlightId, onClose, fill = fals
         {...canvas.list}
         trailing={canvas.trailing}
         after={clarify.after ?? canvas.after}
+        scrollerClassName={layout.scrollerClassName}
       />
       {canvas.readState}
       {clarify.isClarify && !blockedReason ? clarify.footer : (

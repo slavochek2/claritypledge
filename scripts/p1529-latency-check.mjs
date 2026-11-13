@@ -35,9 +35,9 @@ const OWNERS = Number(arg('owners', '12'));
 const LINES = Number(arg('lines', '192'));
 const TIMEOUT_S = Number(arg('timeout-s', '420'));
 const PASSWORD = crypto.randomUUID();
-// The accepted-terms version of the QA users' profiles (the canvas-draft function gates on profiles.accepted_terms_version). A function deployed before the v1.8 bump refuses v1.8 (TERMS_NOT_ACCEPTED);
-// run with --terms v1.7 against such a deployment and say so.
-const TERMS = arg('terms', 'v1.8');
+// The accepted-terms version of the QA users' profiles (the canvas-draft function gates on profiles.accepted_terms_version). A function deployed before the v1.9 bump refuses v1.9 (TERMS_NOT_ACCEPTED);
+// run with --terms v1.8 against such a deployment and say so.
+const TERMS = arg('terms', 'v1.9');
 const RUN = Math.random().toString(36).slice(2, 7);
 const MAX_RUN_COST = 0.5;
 

@@ -5,7 +5,7 @@
  * client cannot write, and each person's own signed-in client for every refusal. Covers: make_my_next_version's refusals and its
  * happy path; _canvas_run_is_round_update (true for the tap's run, true for a retry with the same trigger, false for an owner's later
  * message, service role only); get_my_round_canvas (nothing for someone not seated, no canvas name once unshared);
- * get_my_next_version_offer's states; the terms pin (consume_pending_terms_acceptance records v1.8 only).
+ * get_my_next_version_offer's states; the terms pin (consume_pending_terms_acceptance records v1.9 only).
  *
  * No model call is made: runs are only queued (their state is moved by the service role where a test needs it).
  * Run: npx playwright test --project=integration e2e/integration/p1529-db-schema.spec.ts --workers=1
@@ -545,35 +545,35 @@ test('waiting list promote: host only; registers with the stored answers past th
   expect((await host.client.rpc('host_add_from_waitlist', { p_event: W.id, p_user: X.user.user.id })).data, 'again').toBe('already');
 });
 
-test('terms pin: consume_pending_terms_acceptance records v1.8 only (a v1.7 intent is refused and consumed)', async () => {
+test('terms pin: consume_pending_terms_acceptance records v1.9 only (a v1.8 intent is refused and consumed)', async () => {
   const uid = X.user.user.id;
   const setPending = async (version: string, nonce: string) => {
     const { error } = await supabaseAdmin.auth.admin.updateUserById(uid, { app_metadata: { pending_terms: { nonce, version, issued_at: new Date().toISOString() } } });
     expect(error, `app_metadata: ${error?.message}`).toBeNull();
   };
   const accepted = async (v: string) => (await supabaseAdmin.from('terms_acceptances').select('terms_version').eq('user_id', uid).eq('terms_version', v)).data!.length;
-  await supabaseAdmin.from('terms_acceptances').delete().eq('user_id', uid).in('terms_version', ['v1.7', 'v1.8']);
+  await supabaseAdmin.from('terms_acceptances').delete().eq('user_id', uid).in('terms_version', ['v1.8', 'v1.9']);
   // control: the old version is refused
   const n7 = `${randomUUID()}${randomUUID()}`;
-  await setPending('v1.7', n7);
+  await setPending('v1.8', n7);
   const old = await X.client.rpc('consume_pending_terms_acceptance', { p_nonce: n7 });
   expect(old.error).toBeNull();
-  expect(old.data, 'a v1.7 intent records nothing').toBeNull();
-  expect(await accepted('v1.7')).toBe(0);
+  expect(old.data, 'a v1.8 intent records nothing').toBeNull();
   expect(await accepted('v1.8')).toBe(0);
+  expect(await accepted('v1.9')).toBe(0);
   const gone = (await supabaseAdmin.auth.admin.getUserById(uid)).data.user!.app_metadata as Record<string, unknown>;
   expect(gone.pending_terms, 'the refused intent is consumed').toBeUndefined();
   // the current version is recorded
   const n8 = `${randomUUID()}${randomUUID()}`;
-  await setPending('v1.8', n8);
+  await setPending('v1.9', n8);
   const cur = await X.client.rpc('consume_pending_terms_acceptance', { p_nonce: n8 });
   expect(cur.error).toBeNull();
-  expect(cur.data).toBe('v1.8');
-  expect(await accepted('v1.8')).toBe(1);
-  expect(await accepted('v1.7')).toBe(0);
+  expect(cur.data).toBe('v1.9');
+  expect(await accepted('v1.9')).toBe(1);
+  expect(await accepted('v1.8')).toBe(0);
   // a wrong nonce leaves the intent alone
   const n8b = `${randomUUID()}${randomUUID()}`;
-  await setPending('v1.8', n8b);
+  await setPending('v1.9', n8b);
   const wrong = await X.client.rpc('consume_pending_terms_acceptance', { p_nonce: `${randomUUID()}${randomUUID()}` });
   expect(wrong.data).toBeNull();
   const still = (await supabaseAdmin.auth.admin.getUserById(uid)).data.user!.app_metadata as Record<string, unknown>;

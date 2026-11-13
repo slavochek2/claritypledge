@@ -63,7 +63,7 @@ export async function withModelTerms<T>(p: Person, fn: () => Promise<T>): Promis
     if (error) throw new Error(`terms flip: ${error.message}`);
   };
   await set('v1.7');
-  try { return await fn(); } finally { await set('v1.8'); }
+  try { return await fn(); } finally { await set('v1.9'); }
 }
 
 export async function signedIn(user: TestUser): Promise<SupabaseClient> {

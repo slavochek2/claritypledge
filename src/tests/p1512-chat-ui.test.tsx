@@ -50,8 +50,11 @@ const clarifySvc = vi.hoisted(() => ({
   retryClarify: vi.fn(),
   editClarifyDraft: vi.fn(),
   deleteClarifyDraft: vi.fn(),
+  getClarifyAvailability: vi.fn(async () => true), // the server says drafting is on, so the Clarify entries show
 }));
 vi.mock('@/app/data/clarify-service', () => clarifySvc);
+// P1631: the chat header asks for the chat's published points ("Points in this chat (N)"); these tests answer none, offline.
+vi.mock('@/app/data/chat-points-service', () => ({ listChatPoints: vi.fn(async () => []) }));
 /** The next Clarify press starts a draft in a new thread of the mirror. */
 function clarifyStarts(threadRootId: string, draftId = 'd-1') {
   clarifySvc.startClarify.mockResolvedValue({ status: 'started', draftId, threadRootId, mirrorConversationId: 'c-mirror' });
@@ -1670,7 +1673,8 @@ describe('review round 2 (continued)', () => {
     svc.getMessage.mockImplementation(async (id: string) => (id === 'lost1' ? msg('dm1', 'p-dm1', 'a message paging cannot reach', { id: 'lost1', createdAt: new Date(NOW - 99999 * 1000).toISOString() }) : (pool.find((m) => m.id === id) ?? null)));
     render(treeFor('/chats/c/dm1'));
     await screen.findByText('quoting an old one');
-    expect(screen.queryByText('history 05')).not.toBeInTheDocument();
+    // the MESSAGE is not loaded (message bodies are <p>); the reply quote may already show its words (founder ok, P1631)
+    expect(screen.queryByText('history 05', { selector: 'p' })).not.toBeInTheDocument();
     const quotes = await screen.findAllByTestId('reply-quote');
     await waitFor(() => expect(quotes[0]).toHaveTextContent('history 05'));
     fireEvent.click(quotes[0] as HTMLElement);

@@ -546,6 +546,7 @@
     "src/app/pages/chat/pending-dictation.ts",
     "src/app/pages/chat/unresolved-client-ids.ts",
     "src/app/pages/chat/use-canvas-actions.ts",
+    "src/app/pages/chat/use-availability-probe.ts",
     "src/app/pages/chat/use-canvas-availability.ts",
     "src/app/pages/chat/use-canvas-offer-actions.ts",
     "src/app/pages/chat/use-canvas-offers.ts",

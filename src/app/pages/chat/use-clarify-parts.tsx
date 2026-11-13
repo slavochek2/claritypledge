@@ -11,14 +11,14 @@ import { ClarifyDraftsView } from './ClarifyDrafts';
 import { useClarifyThread } from './use-clarify-thread';
 import { useClarifyActions } from './use-clarify-actions';
 import { registerClarifyThread } from './clarify-run';
-import { draftsByMessage } from './clarify-timeline';
+import { draftsByMessage, lastDraftPlace } from './clarify-timeline';
 import { mirrorRole } from './chat-view-model';
-import { CLARIFY_SUBTITLE, CLARIFY_TITLE } from './clarify-copy';
+import { CLARIFY_NO_DRAFT_HINT, CLARIFY_SUBTITLE, CLARIFY_TITLE } from './clarify-copy';
 
 export const isClarifyRoot = (summary: Pick<ChatSummary, 'kind'>, root: ChatMessage | undefined): boolean =>
   summary.kind === 'mirror' && root?.kind === 'clarify' && !root.threadRootId && !root.isDeleted;
 
-export function useClarifyParts(summary: ChatSummary, root: ChatMessage | undefined, userId: string, messages: ChatMessage[], onPublished?: (result: PublishResult) => void): {
+export function useClarifyParts(summary: ChatSummary, root: ChatMessage | undefined, userId: string, messages: ChatMessage[], onPublished?: (result: PublishResult) => void, autoFocus = false): {
   isClarify: boolean;
   headerTitle: ReactNode;
   /** The drafts drawn under the messages they follow, by message id; null when this is not a Clarify thread. */
@@ -49,8 +49,7 @@ export function useClarifyParts(summary: ChatSummary, root: ChatMessage | undefi
   // the owner's own messages in this thread (and the root), the places a draft can follow
   const places = [root, ...messages.filter((m) => m.threadRootId === root.id && !m.isDeleted)];
   const placed = draftsByMessage(places, drafts);
-  const lastDraft = drafts[drafts.length - 1];
-  const lastPlace = (lastDraft && [...placed.entries()].find(([, ds]) => ds.includes(lastDraft))?.[0]) ?? [...places].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)).at(-1)?.id ?? root.id;
+  const lastPlace = lastDraftPlace(places, placed, drafts, root.id);
   const after: Record<string, ReactNode> = {};
   for (const id of new Set([root.id, lastPlace, ...placed.keys()])) {
     after[id] = (
@@ -72,10 +71,16 @@ export function useClarifyParts(summary: ChatSummary, root: ChatMessage | undefi
     ),
     after,
     footer: (
-      <ClarifyComposer
-        rootId={root.id} userId={userId} working={working} onClearMention={clearMention}
-        mention={mentioned?.point ? { id: mentioned.id, words: mentioned.point.statement } : null}
-      />
+      <>
+        {/* New point opens a thread with no draft: until the first one exists the box says what to type */}
+        {loaded && !thread.failed && drafts.length === 0 && (
+          <p className="px-3 pt-2 text-sm text-muted-foreground" data-testid="clarify-no-draft-hint">{CLARIFY_NO_DRAFT_HINT}</p>
+        )}
+        <ClarifyComposer
+          rootId={root.id} userId={userId} working={working} onClearMention={clearMention} autoFocus={autoFocus}
+          mention={mentioned?.point ? { id: mentioned.id, words: mentioned.point.statement } : null}
+        />
+      </>
     ),
   };
 }

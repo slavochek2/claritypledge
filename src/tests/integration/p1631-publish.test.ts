@@ -4,7 +4,7 @@
  * Fixtures: a 1:1 A-B (written directly, as p1631-clarify-drafts.test.ts does), a second 1:1 B-C, a stranger C to the first chat, and an anonymous client.
  * The model is not involved: drafts are begun and completed through the service-role worker functions with hand-written results.
  * A group block (organization + membership) covers a later joiner, a removed member, stories, history writes, re-share and client id reuse (migration 20261112170000_p1631_publish_fixes.sql).
- * Not built here (it.todo, each with its reason): an event chat (the fixture needs an event), a refine chain, and the EXPLAIN of the feed.
+ * Not built here (it.todo): the EXPLAIN of the feed (the main session measures it).
  */
 import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -196,9 +196,11 @@ describe('P1631 publish to chat: a group (history rule, removal, later joiner) a
     expect(r.error).toBeTruthy();
   });
 
-  it('(f) point_share_to_chat is not callable by its author (re-share is off)', async () => {
+  it('(f) point_share_to_chat no longer exists (dropped 20261113150000): calling it as its author is a missing-function error, not a permission error', async () => {
     const r = await rpc(a.c, 'point_share_to_chat', { p_point: card.point, p_conversation: gconv });
-    expect(r.error?.code).toBe('42501');
+    expect(r.error).toBeTruthy();
+    expect(r.error?.code).not.toBe('42501');
+    expect(['PGRST202', '42883']).toContain(r.error?.code);
   });
 
   it('(g) a client id already used by a text message is refused client_id_reused and writes no share', async () => {
@@ -209,6 +211,23 @@ describe('P1631 publish to chat: a group (history rule, removal, later joiner) a
     const r = await ok(a.c, 'clarify_publish', { p_draft: fresh.draft, p_client_id: cid });
     expect(r).toMatchObject({ status: 'refused', code: 'client_id_reused' });
     expect(await shares(fresh.point)).toHaveLength(0);
+  });
+
+  // Runs LAST in this describe: it removes the author from the group and does not restore them. The next describe uses DMs only.
+  it('(h) the author keeps their own point and their own position after leaving the chat; a removed member does not (AC "a person outside the chat")', async () => {
+    expect(await readable(a.c, card.point), 'the author reads the point before leaving').toHaveLength(1);
+    const before = await a.c.from('point_positions').select('position').eq('point_id', card.point).eq('user_id', a.id).single();
+    expect(before.error, 'the author held a position before leaving (publish requires one)').toBeNull();
+    const gone = await admin.from('membership').delete().eq('org_id', org).eq('user_id', a.id).select('user_id');
+    expect(gone.error).toBeNull();
+    expect(gone.data, 'exactly one membership row removed, so the author really left').toHaveLength(1);
+    expect(await readable(a.c, card.point), 'the author still reads the point').toHaveLength(1);
+    const mine = await a.c.from('point_positions').select('position').eq('point_id', card.point).eq('user_id', a.id).single();
+    expect(mine.error).toBeNull();
+    expect(mine.data?.position, 'and still sees their own position').toBe(before.data?.position);
+    // control, guarded so it cannot silently depend on (b): C is not a member, and the same probe reads nothing for them
+    expect((await admin.from('membership').select('user_id').eq('org_id', org).eq('user_id', c3.id)).data, 'C is outside the group').toHaveLength(0);
+    expect(await readable(c3.c, card.point), 'control: the removed member C reads nothing').toHaveLength(0);
   });
 });
 
@@ -279,8 +298,7 @@ describe('P1631 publish to chat', () => {
     await ok(A, '_clarify_fail', { p_draft: gone.draft_id, p_code: 'test_cleanup', p_usd: 0, p_run: (await draftRow(gone.draft_id)).spend_id });
     expect(await ok(a.c, 'clarify_publish', { p_draft: gone.draft_id })).toMatchObject({ status: 'refused', code: 'no_point' });
   });
-  it.todo('6: earlier_version needs a refine chain (a done refine naming the draft); needs_target needs a Mirror-sourced draft, which clarify_start does not make from a chat message');
-  it.todo('7: leaving a chat then publishing answers not_available (the group block above covers removal of a reader, not publishing after leaving)');
+  // 6 (needs_target, earlier_version) and 7 are in the describe at the end of the file ("fixtures of their own").
 
   it('8: edit and delete are refused as published; the wording is unchanged', async () => {
     expect(await ok(a.c, 'clarify_draft_edit', { p_draft: d1.draft, p_statement: `${TAG} reworded` })).toMatchObject({ status: 'refused', code: 'published' });
@@ -304,12 +322,12 @@ describe('P1631 publish to chat', () => {
     expect(r.error?.message).toMatch(/attachment not available/);
   });
 
-  it('14: a forward of the card fails for B and for A; point_share_to_chat by B is refused (42501)', async () => {
+  it('14: a forward of the card fails for B and for A; point_share_to_chat by B is a missing-function error', async () => {
     const fb = await rpc(b.c, 'forward_chat_message', { p_source: published.message_id, p_target_conversation: convBC });
     expect(fb.error?.message).toMatch(/attachment not available/);
     const fa = await rpc(a.c, 'forward_chat_message', { p_source: published.message_id, p_target_conversation: conv });
     expect(fa.error?.message).toMatch(/attachment not available/);
-    expect((await rpc(b.c, 'point_share_to_chat', { p_point: d1.point, p_conversation: convBC })).error?.code).toBe('42501');
+    expect(['PGRST202', '42883']).toContain((await rpc(b.c, 'point_share_to_chat', { p_point: d1.point, p_conversation: convBC })).error?.code);
   });
 
   it('15: B\'s Mirror copy of the card grants C nothing', async () => {
@@ -333,10 +351,21 @@ describe('P1631 publish to chat', () => {
     expect(del).toMatchObject({ status: 'ok', point_kept: true });
   });
 
-  it('19: a position on a private point that was never shared is still writable (letters rely on it)', async () => {
+  // 19 asserted this on an unpublished Clarify draft, which 20261112200000 (spec review, Codex 2 / Gemini 10) closes: a Clarify draft takes
+  // positions from its owner only until it is published. The letters guarantee it named holds for a private point that is not a Clarify draft.
+  it('19: a position on a private point that was never shared, and is not a Clarify draft, is still writable (letters rely on it)', async () => {
+    const lone = await admin.from('points').insert({ statement: `${TAG} letter-style private`, first_validator_id: a.id, visibility: 'private' }).select('id').single();
+    expect(lone.error).toBeNull();
+    const w = await b.c.from('point_positions').upsert({ point_id: lone.data!.id, user_id: b.id, position: 'agree' }, { onConflict: 'point_id,user_id' });
+    expect(w.error).toBeNull();
+  });
+  it('19b: an unpublished Clarify draft takes a position from its owner only', async () => {
     const lone = await madeDraft(msgs[1]!.id, 'never-shared', null);
     const w = await b.c.from('point_positions').upsert({ point_id: lone.point, user_id: b.id, position: 'agree' }, { onConflict: 'point_id,user_id' });
-    expect(w.error).toBeNull();
+    expect(w.error).not.toBeNull();
+    expect((await admin.from('point_positions').select('id').eq('point_id', lone.point).eq('user_id', b.id)).data).toHaveLength(0);
+    const own = await a.c.from('point_positions').upsert({ point_id: lone.point, user_id: a.id, position: 'agree' }, { onConflict: 'point_id,user_id' });
+    expect(own.error).toBeNull();
   });
 
   it('18: erasing the author deletes the private points they published, with their shares', async () => {
@@ -347,6 +376,139 @@ describe('P1631 publish to chat', () => {
     expect((await admin.from('points').select('id').eq('id', d.point)).data).toHaveLength(0);
     expect(await shares(d.point)).toHaveLength(0);
   });
-  it.todo('18b: erasing a cited third person deletes the point (existing _clarify_erase_person path); needs a second drafting user after A is erased');
+  // 18b is in the describe at the end of the file (its own users: A is erased above).
   it.todo('20: EXPLAIN of the feed query shows one subplan for chat_shared_point_ids; needs the plan text from a service-role SQL path that the test client does not have');
+});
+
+// Fixtures of their own: users and chats that nothing above touches (A is erased by test 18, so these cannot share A).
+describe('P1631 publish to chat: refusals, erasure of a cited person, an event chat', () => {
+  let x: Who;
+  let y: Who;
+  let z: Who;
+  let xy: string;
+  const orgs: string[] = [];
+  const eventIds: string[] = [];
+
+  const settleX = async (who: Who) => {
+    await admin.from('clarify_drafts').update({ state: 'failed', error_code: 'test_cleanup' }).eq('owner_id', who.id).in('state', ['queued', 'running']);
+    await admin.from('mirror_ai_spend').delete().eq('owner_id', who.id).eq('bucket', 'canvas');
+  };
+  /** `who`'s done draft on `source` with a position; `cited` ids go in the `b` side of the result */
+  async function draftBy(who: Who, source: string, label: string, cited: string[] = []) {
+    await settleX(who);
+    const s = await ok(who.c, 'clarify_start', { p_source: source });
+    if (s.status !== 'started') throw new Error(`clarify_start answered ${s.status}`);
+    await ok(A, '_clarify_begin', { p_draft: s.draft_id });
+    const done = await ok(A, '_clarify_complete', { p_draft: s.draft_id, p_result: goodResult(`${TAG} ${label}`, { a: [source], b: cited }), p_usd: 0.01, p_run: (await draftRow(s.draft_id)).spend_id });
+    if (done.status !== 'done') throw new Error(`complete answered ${JSON.stringify(done)}`);
+    const up = await who.c.from('point_positions').upsert({ point_id: done.point_id, user_id: who.id, position: 'agree' }, { onConflict: 'point_id,user_id' });
+    if (up.error) throw new Error(`position: ${up.error.message}`);
+    return { draft: s.draft_id as string, point: done.point_id as string, root: s.thread_root_id as string };
+  }
+  async function groupOf(members: Who[], slug: string): Promise<string> {
+    const o = await admin.from('organization').insert({ slug: `p1631-${slug}-${RUN}`, name: `${TAG} org ${slug}` }).select('id').single();
+    if (o.error) throw new Error(`fixture org: ${o.error.message}`);
+    orgs.push(o.data.id as string);
+    const old = new Date(Date.now() - 3_600_000).toISOString();
+    for (const m of members) {
+      const r = await admin.from('membership').insert({ org_id: o.data.id, user_id: m.id, accepted_at: old });
+      if (r.error) throw new Error(`fixture membership: ${r.error.message}`);
+    }
+    const have = await admin.from('chat_conversations').select('id').eq('kind', 'group').eq('org_id', o.data.id).maybeSingle();
+    if (have.data) return have.data.id as string;
+    const g = await admin.from('chat_conversations').insert({ kind: 'group', org_id: o.data.id }).select('id').single();
+    if (g.error) throw new Error(`fixture group chat: ${g.error.message}`);
+    return g.data.id as string;
+  }
+
+  beforeAll(async () => {
+    x = await mk('X');
+    y = await mk('Y');
+    z = await mk('Z');
+    xy = await dm(x, y);
+  });
+  afterAll(async () => {
+    for (const o of orgs) await admin.from('organization').delete().eq('id', o);
+    for (const e of eventIds) await admin.from('events').delete().eq('id', e);
+  });
+
+  it('6: needs_target when the draft\'s source conversation is the Mirror', async () => {
+    const src = await ok(x.c, 'send_chat_message', { p_conversation: xy, p_body: `${TAG} needs-target source`, p_client_id: randomUUID() });
+    const d = await draftBy(x, src.id, 'needs-target');
+    const row = await draftRow(d.draft);
+    const moved = await admin.from('clarify_drafts').update({ source_conversation_id: row.mirror_conversation_id }).eq('id', d.draft);
+    expect(moved.error).toBeNull();
+    expect(await ok(x.c, 'clarify_publish', { p_draft: d.draft })).toMatchObject({ status: 'refused', code: 'needs_target' });
+    expect(await shares(d.point)).toHaveLength(0);
+  });
+
+  it('6: earlier_version once a done refine names the draft', async () => {
+    const src = await ok(x.c, 'send_chat_message', { p_conversation: xy, p_body: `${TAG} earlier-version source`, p_client_id: randomUUID() });
+    const d = await draftBy(x, src.id, 'earlier-version');
+    await settleX(x);
+    const r = await ok(x.c, 'clarify_message', { p_thread_root: d.root, p_text: 'sharper please', p_target: d.draft });
+    expect(r.status).toBe('started');
+    await ok(A, '_clarify_begin', { p_draft: r.draft_id });
+    const done = await ok(A, '_clarify_complete', { p_draft: r.draft_id, p_result: goodResult(`${TAG} earlier-version refined`, { a: [src.id] }), p_usd: 0.01, p_run: (await draftRow(r.draft_id)).spend_id });
+    expect(done.status).toBe('done');
+    expect((await draftRow(r.draft_id)).refine_target_id).toBe(d.draft);
+    expect(await ok(x.c, 'clarify_publish', { p_draft: d.draft })).toMatchObject({ status: 'refused', code: 'earlier_version' });
+    expect(await shares(d.point)).toHaveLength(0);
+  });
+
+  it('7: after leaving a group chat, publishing answers refused not_available and writes nothing', async () => {
+    const g = await groupOf([x, y], 'leave');
+    const src = await ok(x.c, 'send_chat_message', { p_conversation: g, p_body: `${TAG} leave source`, p_client_id: randomUUID() });
+    const d = await draftBy(x, src.id, 'left-before-publish');
+    const before = (await admin.from('chat_messages').select('id').eq('conversation_id', g)).data!.length;
+    const org = orgs[orgs.length - 1]!;
+    expect((await admin.from('membership').delete().eq('org_id', org).eq('user_id', x.id)).error).toBeNull();
+    expect(await ok(x.c, 'clarify_publish', { p_draft: d.draft, p_client_id: randomUUID() })).toMatchObject({ status: 'refused', code: 'not_available' });
+    expect(await shares(d.point)).toHaveLength(0);
+    expect((await admin.from('chat_messages').select('id').eq('conversation_id', g)).data).toHaveLength(before);
+  });
+
+  // P1631 OQ9 decided 2026-11-13: a point others hold positions on is kept (X holds a position here, and X is not the erased person)
+  it('18b: erasing a cited third person keeps the point X holds a position on', async () => {
+    const theirs = await ok(y.c, 'send_chat_message', { p_conversation: xy, p_body: `${TAG} Y's words`, p_client_id: randomUUID() });
+    const mine = await ok(x.c, 'send_chat_message', { p_conversation: xy, p_body: `${TAG} X answers`, p_client_id: randomUUID() });
+    const d = await draftBy(x, mine.id, 'cites-y', [theirs.id]);
+    expect((await admin.from('points').select('id').eq('id', d.point)).data).toHaveLength(1);
+    await ok(A, 'erase_chat_data_for', { p_uid: y.id });
+    expect((await admin.from('points').select('id').eq('id', d.point)).data, 'X holds a position on it: kept').toHaveLength(1);
+  });
+
+  // P1631 OQ9 decided 2026-11-13: erasing a CITED person never deletes the point, with or without positions on it; only erasing its AUTHOR with nobody else holding a position does (test 18)
+  it('18c: a cited person is erased and no one holds a position on the point: it stays (the author\'s sentence)', async () => {
+    const theirs = await ok(y.c, 'send_chat_message', { p_conversation: xy, p_body: `${TAG} Y's other words`, p_client_id: randomUUID() });
+    const mine = await ok(x.c, 'send_chat_message', { p_conversation: xy, p_body: `${TAG} X answers again`, p_client_id: randomUUID() });
+    const d = await draftBy(x, mine.id, 'cites-y-nobody-holds', [theirs.id]);
+    await admin.from('point_positions').delete().eq('point_id', d.point);
+    await ok(A, 'erase_chat_data_for', { p_uid: y.id });
+    expect((await admin.from('points').select('id').eq('id', d.point)).data, 'cited, not the author: it stays').toHaveLength(1);
+  });
+
+  it('event chat: the host publishes; an RSVPed attendee reads the point, a non-attendee does not', async () => {
+    const e = await admin.from('events').insert({
+      slug: `p1631-ev-${RUN}`, title: `${TAG} event`, description: 'x', datetime: new Date(Date.now() + 86_400_000).toISOString(), location: 'x', host_id: x.id,
+    }).select('id').single();
+    if (e.error) throw new Error(`fixture event: ${e.error.message}`);
+    eventIds.push(e.data.id as string);
+    const r = await admin.from('event_rsvps').insert({ event_id: e.data.id, profile_id: y.id });
+    if (r.error) throw new Error(`fixture rsvp: ${r.error.message}`);
+    const have = await admin.from('chat_conversations').select('id').eq('kind', 'event').eq('event_id', e.data.id).maybeSingle();
+    let ec = have.data?.id as string | undefined;
+    if (!ec) {
+      const ins = await admin.from('chat_conversations').insert({ kind: 'event', event_id: e.data.id }).select('id').single();
+      if (ins.error) throw new Error(`fixture event chat: ${ins.error.message}`);
+      ec = ins.data.id as string;
+    }
+    const src = await ok(x.c, 'send_chat_message', { p_conversation: ec, p_body: `${TAG} event message`, p_client_id: randomUUID() });
+    const d = await draftBy(x, src.id, 'event card');
+    const pub = await ok(x.c, 'clarify_publish', { p_draft: d.draft, p_client_id: randomUUID() });
+    expect(pub).toMatchObject({ status: 'published', conversation_id: ec });
+    expect(await readable(y.c, d.point)).toHaveLength(1);
+    expect(await readable(z.c, d.point)).toHaveLength(0);
+    expect(await ok(y.c, 'list_chat_points', { p_conversation: ec }).then((l: Row[]) => l.map((q) => q.point_id))).toContain(d.point);
+  });
 });

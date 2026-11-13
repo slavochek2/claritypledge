@@ -30,9 +30,11 @@ const SERVER_REVIEW = '20261103010000_p1536_server_review_fixes.sql';
 // P1631 restates erase_chat_data_for from SERVER_REVIEW's body plus two `-- P1631` lines (pinned in p1631-clarify-drafts-migration.test.ts);
 // the P1536 and P1592 markers below must still hold in it.
 // P1631 Publish restates erase_chat_data_for and forward_chat_message byte for byte plus its marked lines (pinned by
-// p1631-clarify-drafts-migration.test.ts against the previous bodies), so it holds the newest definition of both.
-const P1631_ERASE = '20261112150000_p1631_publish_to_chat.sql';
-const P1631_PUBLISH = P1631_ERASE;
+// p1631-clarify-drafts-migration.test.ts against the previous bodies), so it holds the newest definition of forward_chat_message.
+// P1631 erasure (OQ9, 20261113130000 then 20261113180000) restates erase_chat_data_for again, byte for byte plus marked lines (pinned by
+// p1631-erase-keeps-held-points-migration.test.ts and p1631-erase-last-holder-fix-migration.test.ts); the markers below must still hold in it.
+const P1631_PUBLISH = '20261112150000_p1631_publish_to_chat.sql';
+const P1631_ERASE = '20261113180000_p1631_erase_last_holder_fix.sql';
 const read = (f: string) => readFileSync(join(MIG, f), 'utf8');
 const stripComments = (sql: string) => sql.replace(/--[^\n]*/g, '');
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -258,7 +260,7 @@ describe('P1536 + P1592: the newest erase_chat_data_for and forward_chat_message
   it.each(Object.keys(P1592_MARKERS))('%s: the newest definition holds every P1536 marker and every P1592 marker', (name) => {
     const newest = newestDefinition(name);
     const body = fnBody(read(newest), name);
-    expect(newest).toBe(name === 'erase_chat_data_for' || name === 'forward_chat_message' ? P1631_PUBLISH : MERGE);
+    expect(newest).toBe(name === 'erase_chat_data_for' ? P1631_ERASE : name === 'forward_chat_message' ? P1631_PUBLISH : MERGE);
     expect(missing(body, P1536_MARKERS[name]!), `${name}: P1536 markers missing in ${newest}`).toEqual([]);
     expect(missing(body, P1592_MARKERS[name]!), `${name}: P1592 markers missing in ${newest}`).toEqual([]);
   });
@@ -816,7 +818,9 @@ describe(`P1536 + P1592 merge: whole deltas, lock order and grants of the newest
     // erase_chat_data_for gained one step in the server review file (20261103010000: its edit is pinned by p1536-sr-migration.test.ts against THIS file's body); the other three end here
     expect(newestDefinition('erase_chat_data_for')).toBe(P1631_ERASE);
     expect(newestDefinition('erase_my_account')).toBe(MERGE);
-    expect(newestDefinition('_erase_lock_canvas_owners')).toBe(MERGE);
+    // P1631 erase scoped (20261113210000) restates the small owner-lock helper byte for byte plus three marked lines, and 20261113220000 replaces those three lines (the setting name; pinned by
+    // p1631-erase-scoped-sweep-migration.test.ts and p1631-erase-held-name-migration.test.ts); its lock loop stays as the merge file wrote it
+    expect(newestDefinition('_erase_lock_canvas_owners')).toBe('20261113220000_p1631_erase_held_name.sql');
     expect(newestDefinition('forward_chat_message')).toBe(P1631_PUBLISH);
   });
   it('both sides\' whole deltas are present in each newest body', () => expect(mergeFacts.deltaParity(sql)).toBe(true));

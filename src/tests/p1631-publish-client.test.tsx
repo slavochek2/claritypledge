@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({ positions: vi.fn() }));
 vi.mock('@/app/components/feed/feed-point-card', () => ({
   FeedPointCard: ({ owner }: { owner?: { id: string; position: string } }) => <div data-testid="feed-point">{owner ? <span data-testid="owner-row">{owner.id}:{owner.position}</span> : null}</div>,
 }));
+vi.mock('@/auth', () => ({ useAuth: () => ({ session: null }) }));
 vi.mock('@/app/data/points-service', () => ({ pointsService: { getPositionsForPoint: h.positions } }));
 
 import { ChatContext, type ChatContextValue } from '@/app/pages/chat/chat-state';

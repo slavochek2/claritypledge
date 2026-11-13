@@ -11,20 +11,23 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { type ChatMessage, type ChatSummary } from '@/app/data/chat-service';
 import type { Shareable } from '@/app/data/chat-ui-helpers';
-import { AttachDialog, ConfirmDialog, RenameMirrorDialog } from './ChatDialogs';
-import { attachConversationId } from './attach-canvases';
+import { ConversationDialogs } from './ConversationDialogs';
+import { useConversationDialogs } from './use-conversation-dialogs';
+import { ComposerBlocked } from './ComposerBlocked';
+import { useConversationRead } from './use-conversation-read';
 import { Composer, type MentionEntry } from './Composer';
 import { MessageList } from './MessageList';
 import { ConversationTop } from './MyRounds';
 import { PendingQuote } from './PendingQuote';
 import { InlineError, MessagesSkeleton, MirrorMark } from './chat-kit';
-import { MirrorInfoDialog } from './MirrorInfoDialog';
 import { useMirror, useRestoreMirrorStatuses } from './mirror-state';
 import { useMirrorAsks } from './use-mirror-asks';
-import { conversationCopy, readThroughId } from './conversation-derived';
+import { conversationCopy } from './conversation-derived';
 import { useOpenHitThread } from './use-open-hit-thread';
 import { CanvasPlusMenu } from './CanvasPlusMenu';
-import { isLeavingChat, takeComposerFocus, useBack, useChatNavigate, useLeaveChat, usePageVisible } from './chat-hooks';
+import { NewPointMenu } from './NewPointMenu';
+import { useClarifyAvailable } from './use-clarify-availability';
+import { takeComposerFocus, useBack, useChatNavigate, useLeaveChat } from './chat-hooks';
 import { useChat } from './chat-state';
 import { chatErrorText, chatPath, hasWayBackElsewhere, isChannel, mirrorRole } from './chat-view-model';
 import { useConversationMessages } from './use-conversation';
@@ -42,9 +45,69 @@ interface Props {
   threadOpen?: boolean;
 }
 
-/** 3c X3: the + of the owner's mirror chat's main composer. A private @mirror ask hides the paperclip, so it hides this too. */
-function mirrorPlus(summary: ChatSummary, privateTo: MentionEntry | null) {
-  return summary.kind === 'mirror' && !privateTo ? <CanvasPlusMenu /> : undefined;
+/** 3c X3: the + of the composer: the mirror's canvas menu, or New point elsewhere. A private @mirror ask hides the paperclip, so it hides this too. */
+function composerPlus(summary: ChatSummary, privateTo: MentionEntry | null, newPoint: boolean) {
+  if (privateTo) return undefined;
+  if (summary.kind === 'mirror') return <CanvasPlusMenu />;
+  // P1631: "New point" in an ordinary chat, once there is a message to clarify and Clarify drafting is on
+  return newPoint ? <NewPointMenu conversationId={summary.conversationId} /> : undefined;
+}
+
+/** A message clarify_start_chat can anchor on: a live top-level typed message, not a system post or a transcribed line (20261112240000). */
+const canAnchorPoint = (m: ChatMessage) =>
+  m.kind === 'message' && !m.isDeleted && !m.systemKind && !m.isTranscription && !m.threadRootId && !m.contextConversationId;
+
+/** P1520: a private question to the viewer's own mirror. Nothing is written to this channel. */
+function askMirror(mirror: NonNullable<ReturnType<typeof useMirror>>, conversationId: string, body: string) {
+  return mirror.ask(conversationId, body).then(
+    () => true,
+    (e) => {
+      toast.error(chatErrorText(e, 'Could not ask your mirror agent. Try again.'));
+      return false;
+    },
+  );
+}
+
+/** The @ picker's one entry: the viewer's own mirror (P1520). */
+function useMirrorMention(on: boolean, title: string | null | undefined) {
+  return useMemo<MentionEntry[] | undefined>(
+    () =>
+      on
+        ? [{
+            id: 'mirror',
+            label: title ?? mirrorRole(),
+            detail: title ? `${mirrorRole()} (private)` : 'private',
+            mark: <MirrorMark size="sm" />,
+            keywords: ['mirror', 'mirror agent', 'your mirror agent'],
+          }]
+        : undefined,
+    [on, title],
+  );
+}
+
+/** The list says who may send: canSend is false once either side blocked the other (never which), blockedByMe says it was this person (offer Unblock), and an erased account has no id. */
+function sendRestriction(summary: ChatSummary) {
+  const blocked = summary.kind === 'dm' && summary.blockedByMe;
+  const unavailable = summary.kind === 'dm' && !summary.other?.id;
+  const cannotSend = summary.kind === 'dm' && !summary.canSend && !blocked && !unavailable;
+  return { blocked, unavailable, cannotSend };
+}
+
+/** The mirror gets its face the first time its owner opens it; its statuses are restored from the rows shown. */
+function useMirrorOnOpen(summary: ChatSummary, mirror: ReturnType<typeof useMirror>, rows: Parameters<typeof useRestoreMirrorStatuses>[0], userId: string) {
+  const ensurePortrait = mirror?.ensurePortrait;
+  useEffect(() => {
+    if (summary.kind === 'mirror') ensurePortrait?.();
+  }, [summary.kind, ensurePortrait]);
+  useRestoreMirrorStatuses(rows, userId);
+}
+
+function unblockPerson(unblock: (id: string) => Promise<unknown>, other: ChatSummary['other']) {
+  if (!other?.id) return;
+  unblock(other.id).then(
+    () => toast(`Unblocked ${other.name}`),
+    (e) => toast.error(chatErrorText(e)),
+  );
 }
 
 /** A link to a chat the person cannot open (never existed, or access ended). */
@@ -89,35 +152,16 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
   const conversationId = summary.conversationId;
   const channel = isChannel(summary);
   const conv = useConversationMessages({ conversationId, withThreads: true });
-  const visible = usePageVisible();
+  const clarifyOn = useClarifyAvailable(summary);
   const mirror = useMirror();
   const mirrorOn = mirror?.enabled === true;
   // P1520: the viewer's own private asks in this channel (rows of their mirror), and the @ picker's one entry.
   const privateRows = useMirrorAsks(conversationId, channel && mirrorOn);
   const mirrorChat = chat.chats.find((c) => c.kind === 'mirror');
   const [privateTo, setPrivateTo] = useState<MentionEntry | null>(null);
-  const [infoOpen, setInfoOpen] = useState(false);
-  const mentions = useMemo<MentionEntry[] | undefined>(
-    () =>
-      channel && mirrorOn
-        ? [{
-            id: 'mirror',
-            label: mirrorChat?.title ?? mirrorRole(),
-            detail: mirrorChat?.title ? `${mirrorRole()} (private)` : 'private',
-            mark: <MirrorMark size="sm" />,
-            keywords: ['mirror', 'mirror agent', 'your mirror agent'],
-          }]
-        : undefined,
-    [channel, mirrorOn, mirrorChat?.title],
-  );
+  const mentions = useMirrorMention(channel && mirrorOn, mirrorChat?.title);
 
-  // The mirror gets its face the first time its owner opens it.
-  const ensurePortrait = mirror?.ensurePortrait;
-  useEffect(() => {
-    if (summary.kind === 'mirror') ensurePortrait?.();
-  }, [summary.kind, ensurePortrait]);
-
-  useRestoreMirrorStatuses(summary.kind === 'mirror' ? conv.server : channel ? privateRows : null, chat.userId);
+  useMirrorOnOpen(summary, mirror, summary.kind === 'mirror' ? conv.server : channel ? privateRows : null, chat.userId);
 
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [focusToken, setFocusToken] = useState(0);
@@ -125,19 +169,12 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
   useEffect(() => {
     if (takeComposerFocus(conversationId)) setFocusToken((t) => t + 1);
   }, [conversationId]);
-  const [attaching, setAttaching] = useState(false);
+  const d = useConversationDialogs();
   const [staged, setStaged] = useState<Shareable | null>(null);
-  const [renaming, setRenaming] = useState(false);
-  const [blocking, setBlocking] = useState(false);
   const [target, setTarget] = useState<string | null>(highlightId);
 
   const other = summary.other;
-  // The list says who may send: canSend is false once either side blocked the other (never which),
-  // blockedByMe says it was this person (offer Unblock), and an erased account has no id.
-  const blocked = summary.kind === 'dm' && summary.blockedByMe;
-  const unavailable = summary.kind === 'dm' && !other?.id;
-  const cannotSend = summary.kind === 'dm' && !summary.canSend && !blocked && !unavailable;
-  const blockId = other?.id ?? null;
+  const { blocked, unavailable, cannotSend } = sendRestriction(summary);
 
   useOpenHitThread(highlightId, conversationId, go);
   useEffect(() => setTarget(highlightId), [highlightId]);
@@ -151,21 +188,7 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
   const onThread = useCallback((m: ChatMessage) => go(chatPath(conversationId, { rootId: m.id })), [go, conversationId]);
   const { actions, dialogs } = useMessageActions({ summary, conv, onReply, onThread });
 
-  // Read state: while this chat is open, in front AND on screen, everything up to the newest message is read.
-  const through = readThroughId(conv.server, summary.lastMessage);
-  const { markRead, setViewing } = chat;
-  const unread = summary.unreadCount > 0 || summary.manualUnread;
-  const seen = visible && paneVisible;
-  useEffect(() => {
-    if (!seen || isLeavingChat()) return;
-    setViewing(conversationId);
-    return () => setViewing(null);
-  }, [seen, conversationId, setViewing]);
-  useEffect(() => {
-    // Not while it is being left for good: that is exactly when it was just marked unread.
-    if (conv.status !== 'ready' || !seen || !unread || isLeavingChat()) return;
-    void markRead(conversationId, through);
-  }, [conv.status, seen, unread, markRead, conversationId, through]);
+  useConversationRead(summary, conv, paneVisible);
 
   const { placeholder, empty } = conversationCopy(summary);
 
@@ -183,16 +206,10 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
       void chat.setArchived(conversationId, next);
     },
     onMarkUnread: actions.onMarkUnread,
-    onBlock: () => setBlocking(true),
-    onUnblock: () => {
-      if (!other?.id) return;
-      chat.unblock(other.id).then(
-        () => toast(`Unblocked ${other.name}`),
-        (e) => toast.error(chatErrorText(e)),
-      );
-    },
-    onRename: () => setRenaming(true),
-    onMirrorInfo: summary.kind === 'mirror' ? () => setInfoOpen(true) : undefined,
+    onBlock: () => d.setBlocking(true),
+    onUnblock: () => unblockPerson(chat.unblock, other),
+    onRename: () => d.setRenaming(true),
+    onMirrorInfo: summary.kind === 'mirror' ? () => d.setInfoOpen(true) : undefined,
   };
 
   return (
@@ -206,26 +223,11 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
         label="Messages"
         targetId={target}
         empty={empty}
-        lead={summary.kind === 'mirror' ? <MirrorGreeting title={summary.title} onName={() => setRenaming(true)} secondary={threadOpen} /> : undefined}
+        lead={summary.kind === 'mirror' ? <MirrorGreeting title={summary.title} onName={() => d.setRenaming(true)} secondary={threadOpen} /> : undefined}
         privateRows={channel && mirrorOn ? privateRows : undefined}
       />
       {blocked || unavailable || cannotSend ? (
-        <div className="shrink-0 border-t px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" data-testid="composer-blocked">
-          <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-3">
-            <p className="min-w-0 flex-1 text-sm text-muted-foreground">
-              {unavailable
-                ? 'This person is no longer available, so you cannot send new messages here.'
-                : cannotSend
-                  ? 'You cannot send messages in this chat.'
-                  : `You blocked ${other?.name}. Unblock to send messages.`}
-            </p>
-            {blocked && (
-              <Button variant="outline" className="min-h-10" onClick={headerActions.onUnblock}>
-                Unblock
-              </Button>
-            )}
-          </div>
-        </div>
+        <ComposerBlocked unavailable={unavailable} cannotSend={cannotSend} blocked={blocked} otherName={other?.name} onUnblock={headerActions.onUnblock} />
       ) : (
         <Composer
           // A private ask has its own draft: text typed for the mirror can never reappear in the channel's composer.
@@ -233,9 +235,9 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
           placeholder={placeholder}
           focusToken={focusToken}
           autoFocus
-          onAttach={privateTo ? undefined : () => setAttaching(true)}
+          onAttach={privateTo ? undefined : () => d.setAttaching(true)}
           // 3c X3: the owner's mirror chat's main composer only, hidden where the paperclip is hidden
-          leading={mirrorPlus(summary, privateTo)}
+          leading={composerPlus(summary, privateTo, clarifyOn && conv.server.some(canAnchorPoint))}
           staged={staged}
           onUnstage={() => setStaged(null)}
           quote={<PendingQuote replyTo={replyTo} authors={chat.authors} onClearReply={() => setReplyTo(null)} />}
@@ -250,16 +252,7 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
             }
           }}
           onSend={(body, attachment) => {
-            if (privateTo && mirror && body) {
-              // P1520: a private question to the viewer's own mirror. Nothing is written to this channel.
-              return mirror.ask(conversationId, body).then(
-                () => true,
-                (e) => {
-                  toast.error(chatErrorText(e, 'Could not ask your mirror agent. Try again.'));
-                  return false;
-                },
-              );
-            }
+            if (privateTo && mirror && body) return askMirror(mirror, conversationId, body);
             void conv.send({
               body,
               replyToId: replyTo?.id,
@@ -271,39 +264,14 @@ function ConversationBody({ summary, highlightId, paneVisible, threadOpen }: Bod
         />
       )}
       {dialogs}
-      {attaching && (
-        <AttachDialog
-          viewerId={chat.userId}
-          conversationId={attachConversationId(summary)}
-          onClose={() => setAttaching(false)}
-          onPick={(s) => {
-            setStaged(s);
-            setAttaching(false);
-            setFocusToken((t) => t + 1);
-          }}
-        />
-      )}
-      {infoOpen && <MirrorInfoDialog chat={summary} onRename={() => setRenaming(true)} onClose={() => setInfoOpen(false)} />}
-      {renaming && (
-        <RenameMirrorDialog
-          initial={summary.title ?? 'Mirror agent'}
-          role={mirrorRole(summary)}
-          onClose={() => setRenaming(false)}
-          onSaved={() => void chat.refresh()}
-        />
-      )}
-      {blocking && blockId && other && (
-        <ConfirmDialog
-          title={`Block ${other.name}?`}
-          description="They will not be able to message you, start a new chat with you or find you in search. Your existing messages stay. You can unblock them any time."
-          confirmLabel="Block"
-          onConfirm={async () => {
-            await chat.block(blockId);
-            toast(`Blocked ${other.name}`);
-          }}
-          onClose={() => setBlocking(false)}
-        />
-      )}
+      <ConversationDialogs
+        summary={summary}
+        d={d}
+        onPick={(s) => {
+          setStaged(s);
+          setFocusToken((t) => t + 1);
+        }}
+      />
     </div>
   );
 }

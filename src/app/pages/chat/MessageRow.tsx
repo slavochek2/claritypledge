@@ -34,7 +34,7 @@ import { MessageAttachment } from './MessageAttachment';
 
 /** A finger resting this long on a message opens its menu; drifting further than LONG_PRESS_DRIFT_PX is a scroll. */
 export const LONG_PRESS_MS = 500;
-const LONG_PRESS_DRIFT_PX = 10;
+export const LONG_PRESS_DRIFT_PX = 10;
 const INTERACTIVE = 'button,a,input,textarea,label,[role="menu"],[role="toolbar"]';
 const IGNORE_OPEN_MS = 700;
 const TRANSCRIPT_OPEN = '[data-testid="transcript-open"]';

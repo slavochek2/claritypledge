@@ -14,7 +14,7 @@
 import { MIRROR_MODEL, costUsd, estimateTokens, quoteData, type GeminiRequest, type GeminiUsage } from '../_shared/mirror-agent.ts';
 import type { RawGeminiResponse } from '../_shared/raw-gemini-response.ts';
 import { CLARIFY_SYSTEM_PROMPT } from './clarify-prompt.generated.ts';
-import { anySignal } from '../_shared/abort-signals.ts';
+import { postGemini } from '../_shared/gemini-post.ts';
 
 export const CLARIFY_CALL_TIMEOUT_MS = 90_000;
 /** canvas_max_usd reserves 63,000 input tokens; the handler stays under it by its own estimate, with margin. */
@@ -41,22 +41,29 @@ export interface ClarifyRun {
   owner_messages?: string[];
   /** The statement of the owner's newest draft in this thread, or null. */
   latest_draft?: string | null;
+  /** What the owner pressed: one message, a whole thread, a whole chat, or the live recording so far. Absent means 'message'. */
+  scope?: 'message' | 'thread' | 'chat' | 'recording';
 }
 
 interface PayloadRow extends Row { is_pressed?: true; in_pressed_thread?: true }
 
 /** The data block: rows in time order as the server returned them (thread and chat are each oldest first; merged by trimming order only). */
 function payloadOf(run: ClarifyRun, thread: Row[], chat: Row[]) {
+  const scope = run.scope ?? 'message';
   const rows: PayloadRow[] = [
     ...chat.map((r): PayloadRow => ({ id: r.id, text: r.text })),
     ...thread.map((r): PayloadRow => ({ id: r.id, text: r.text, in_pressed_thread: true })),
-    { id: run.source_message.id, text: run.source_message.text, is_pressed: true },
+    // a thread or a whole chat is the subject, so no row is marked as pressed (the trimmer keeps it anyway: it keys on run.source_message)
+    scope === 'message'
+      ? { id: run.source_message.id, text: run.source_message.text, is_pressed: true }
+      : { id: run.source_message.id, text: run.source_message.text },
   ];
   // the owner's newest message is the instruction; the ones before it were applied in earlier runs and go as context only
   const sent = run.owner_messages ?? [];
   const instr = run.owner_instruction?.trim() ?? null;
   const earlier = instr !== null && sent.length > 0 && sent[sent.length - 1]?.trim() === instr ? sent.slice(0, -1) : sent;
   return {
+    scope,
     owner_instruction: run.owner_instruction,
     earlier_owner_messages: earlier,
     latest_draft: run.latest_draft ?? null,
@@ -182,14 +189,7 @@ export type ClarifyCaller = (request: GeminiRequest, signal?: AbortSignal) => Pr
 export function geminiClarifyCaller(apiKey: string, fetchFn: typeof fetch = fetch, timeoutMs = CLARIFY_CALL_TIMEOUT_MS): ClarifyCaller {
   return async (request, signal) => {
     try {
-      const res = await fetchFn(`https://generativelanguage.googleapis.com/v1beta/models/${MIRROR_MODEL}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-        body: JSON.stringify(request),
-        signal: anySignal(signal, AbortSignal.timeout(timeoutMs)),
-      });
-      if (!res.ok) { await res.body?.cancel(); return { status: res.status, body: null }; }
-      return { status: 200, body: await res.json() };
+      return await postGemini(MIRROR_MODEL, apiKey, request, fetchFn, signal, timeoutMs);
     } catch (e) {
       console.error('clarify-draft: model request failed', { error: (e as Error).name });
       return { status: 0, body: null };

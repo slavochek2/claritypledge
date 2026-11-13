@@ -190,6 +190,8 @@ export const DESKTOP_HOVER_QUERY = '(min-width: 1024px) and (hover: hover)';
  * 78px (margin 16, padding 16, avatar 36, gap 10): it needs 385px of viewport. Forward then moves into the ⋯ menu.
  */
 export const NARROW_QUERY = '(max-width: 399px)';
+/** Tailwind's xl: from 1280px the Clarify Mirror sits beside its source, and a thread it came from moves to the left (P1631). */
+export const WIDE_QUERY = '(min-width: 1280px)';
 
 /**
  * Runs a navigation at most once per history entry: a double tap lands twice before the screen has

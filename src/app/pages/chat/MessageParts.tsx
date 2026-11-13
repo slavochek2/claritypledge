@@ -10,16 +10,20 @@ import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { cn } from '@/lib/utils';
 import { getMessage, type ChatMessage } from '@/app/data/chat-service';
+import { DELETED_USER_NAME } from '@/app/data/chat-mappers';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { AuthorNameSkeleton, QuoteSkeleton } from './MessageRowPlaceholders';
 import { MessageAttachment } from './MessageAttachment';
 import { CanvasMessageBody } from './CanvasMessageBody';
 import { ChatWords } from './ChatLinks';
 import { Quote } from './Quote';
+import { CLARIFY_LABEL, NEW_POINT_LABEL, chatScopeLine } from './clarify-copy';
+import { recordingRootLine } from '@/app/components/session/capture-copy';
 import { FOCUS_RING, MirrorMark } from './chat-kit';
 import { useChatNavigate } from './chat-hooks';
 import { useChat } from './chat-state';
 import { chatPath, messageSummary, mirrorName, sourceLabel } from './chat-view-model';
+import { ATTACHMENT_LABEL } from './chat-text';
 import type { MessageActions } from './MessageRow';
 
 /** P1592: the small "Transcribed" pill beside a transcription's author and time. Not a button, not a link. */
@@ -172,25 +176,64 @@ function SnapshotWords({ snap, clarify, clarifiedAuthor }: { snap: Snapshot; cla
   );
 }
 
+/**
+ * A row of a Clarify's copy of a thread with no words. The copy holds live rows only (clarify_chat_message), so this is a card or another attachment,
+ * unless erasure later rewrote the row to "Deleted user" with no words: only that is a removed message. The copy does not say what kind the
+ * attachment was, so it reads as a quote does for an attachment of unknown kind.
+ */
+const removedCopyRow = (t: Snapshot['thread'][number]): boolean => t.body === null && t.authorName === DELETED_USER_NAME && !t.systemKind;
+
+/** One row of a Clarify's copy of a thread: its words, the attachment label, or "Message removed". */
+function CopiedThreadRow({ t }: { t: Snapshot['thread'][number] }) {
+  if (removedCopyRow(t)) {
+    return <><span className="font-semibold text-foreground">{t.authorName}</span><span className="text-muted-foreground"> · Message removed</span></>;
+  }
+  return (
+    <>
+      {!t.systemKind && <span className="font-semibold text-foreground">{t.authorName}</span>}
+      {!t.systemKind && <span className="text-muted-foreground">: </span>}
+      {t.body === null ? <span className="text-muted-foreground" data-testid="forwarded-thread-attachment">{ATTACHMENT_LABEL}</span> : (
+        <>
+          {t.isTranscription && <TranscriptionTag className="mr-1 align-middle" />}
+          <span className={cn('whitespace-pre-wrap break-words text-foreground', t.systemKind && 'font-semibold')}><ChatWords text={t.body} spoken={!!t.isTranscription} /></span>
+        </>
+      )}
+    </>
+  );
+}
+
 /** A Clarify's copy of the thread the message sat in. */
 function ForwardedThread({ thread }: { thread: Snapshot['thread'] }) {
   return (
     <span className="mt-2 block space-y-1.5 border-t pt-2" data-testid="forwarded-thread">
       {thread.map((t, i) => (
-        <span key={`${t.createdAt}-${i}`} className="block text-sm">
-          {!t.systemKind && <span className="font-semibold text-foreground">{t.authorName}</span>}
-          {t.body === null ? (
-            <span className="text-muted-foreground"> · Message removed</span>
-          ) : (
-            <>
-              {!t.systemKind && <span className="text-muted-foreground">: </span>}
-              {t.isTranscription && <TranscriptionTag className="mr-1 align-middle" />}
-              <span className={cn('whitespace-pre-wrap break-words text-foreground', t.systemKind && 'font-semibold')}><ChatWords text={t.body} spoken={!!t.isTranscription} /></span>
-            </>
-          )}
-        </span>
+        <span key={`${t.createdAt}-${i}`} className="block text-sm"><CopiedThreadRow t={t} /></span>
       ))}
     </span>
+  );
+}
+
+/** P1631: the Mirror root of a Clarify on a whole chat: the chat itself, no author, no quoted words, no thread. */
+function ChatScopeCard({ snap }: { snap: Snapshot }) {
+  return (
+    <div data-testid="clarify-chat-card" className="mt-1 w-full max-w-md rounded-xl border bg-muted/40 p-3 text-left">
+      <p className="text-xs font-medium text-muted-foreground" data-testid="clarify-chat-kicker">
+        <MirrorMark size="xs" className="mr-1 align-text-bottom" />{snap.newPoint ? NEW_POINT_LABEL : CLARIFY_LABEL}
+      </p>
+      <p className="mt-1 break-words text-[15px] font-semibold leading-[22px] text-foreground" data-testid="clarify-chat-title">{chatScopeLine(snap.conversationKind, snap.conversationTitle)}</p>
+    </div>
+  );
+}
+
+/** P1631: the Mirror root of a Clarify on the live recording: "Recording · up to HH:MM", in the viewer's local time, no words of anyone's. */
+function RecordingScopeCard({ snap }: { snap: Snapshot }) {
+  return (
+    <div data-testid="clarify-recording-card" className="mt-1 w-full max-w-md rounded-xl border bg-muted/40 p-3 text-left">
+      <p className="text-xs font-medium text-muted-foreground" data-testid="clarify-recording-kicker">
+        <MirrorMark size="xs" className="mr-1 align-text-bottom" />{CLARIFY_LABEL}
+      </p>
+      <p className="mt-1 break-words text-[15px] font-semibold leading-[22px] text-foreground" data-testid="clarify-recording-title">{recordingRootLine(snap.recordingUntil ?? null)}</p>
+    </div>
   );
 }
 
@@ -203,6 +246,8 @@ export function ForwardedBody({ msg, viewerId }: { msg: ChatMessage; viewerId: s
   const hasOriginal = !!snap && !!msg.forwardedFromMessageId && !removed && (snap.authorName !== 'Deleted user' || !!snap.systemKind);
   const jump = useJumpToOriginal(hasOriginal ? msg.forwardedFromMessageId : null);
   if (!snap) return null;
+  if (snap.scope === 'chat') return <ChatScopeCard snap={snap} />;
+  if (snap.scope === 'recording') return <RecordingScopeCard snap={snap} />;
   const clarify = msg.kind === 'clarify';
   // The clarifier owns the mirror: their own words read "You". Decided by the original author's id, never by a name
   // (two people can share one). No id (erased account, or a row without it) means the snapshot's name, which erasure

@@ -12,6 +12,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type { ChatMessage } from '@/app/data/chat-service';
 import type { ChatAuthor } from '@/app/data/chat-ui-helpers';
 import { CountBadge, Divider, InlineError, MessagesSkeleton } from './chat-kit';
@@ -20,6 +21,7 @@ import { MessageRow, type MessageActions } from './MessageRow';
 import { compareMessages, describeGrouping, dayLabel } from './chat-view-model';
 import { isLocal, type useConversationMessages } from './use-conversation';
 import { continuesTranscription } from './transcription-run';
+import { claimPublishedCard, PUBLISHED_WAIT_MS } from './published-cards';
 
 export type ConversationApi = ReturnType<typeof useConversationMessages>;
 export type ListActions = Omit<MessageActions, 'onJumpTo' | 'lookup' | 'getLoaded' | 'version' | 'onRetry' | 'onDiscard' | 'onEdit'>;
@@ -56,9 +58,11 @@ interface Props {
   trailing?: { afterId: string; node: ReactNode } | null;
   /** P1536 D7: nodes drawn right under messages, by message id (Undo under the mirror's reply; the "Undone" mark under an owner message). */
   after?: Record<string, ReactNode>;
+  /** Classes the owner adds to the scrolling list (merged; P1631: the Clarify thread's tint below 1280px replaces the page background). */
+  scrollerClassName?: string;
 }
 
-export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages', privateRows, lead, hideId = null, leadAfterId = null, trailing = null, after }: Props) {
+export function MessageList({ conv, actions, viewerId, authors, label, targetId = null, empty, inThread = false, earlierLabel = 'Load earlier messages', privateRows, lead, hideId = null, leadAfterId = null, trailing = null, after, scrollerClassName }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
@@ -68,6 +72,8 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
   const [away, setAway] = useState(false);
   const [flashId, setFlashId] = useState<string | null>(null);
   const jumpedTo = useRef<string | null>(null);
+  /** P1631: a just-published card this list opened on before it held it (published-cards.ts). */
+  const [waitingFor, setWaitingFor] = useState<string | null>(null);
   /** The message under the reader's eye and where it sits, noted when an earlier page is requested. */
   const keepPlace = useRef<{ id: string; offset: number } | null>(null);
   const { status, messages: listed, stats, hasMore, loadingEarlier, loadEarlier, ensureLoaded, lookup, getLoaded, syncVersion, retrySend, discard, edit, reload } = conv;
@@ -184,12 +190,32 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
     return () => ro.disconnect();
   }, [status, measure]);
 
-  // A search hit: page back until it is loaded, scroll to it, flash it.
+  // A search hit: page back until it is loaded, scroll to it, flash it. P1631: a card a Publish just posted and this list does not hold yet is not
+  // paged for (it is newer than everything loaded): the list goes to the bottom once and waits for it (published-cards.ts).
   useEffect(() => {
     if (!targetId || status !== 'ready' || jumpedTo.current === targetId) return;
     jumpedTo.current = targetId;
+    if (claimPublishedCard(targetId) && !getLoaded(targetId)) {
+      setWaitingFor(targetId);
+      toBottom();
+      return;
+    }
     void jumpTo(targetId);
-  }, [targetId, status, jumpTo]);
+  }, [targetId, status, jumpTo, getLoaded, toBottom]);
+
+  // P1631: the awaited card arrived (the reveal's re-read or Realtime): jump to it unless the reader has scrolled away meanwhile. The wait ends with the
+  // target (another address, or this list unmounting) and after PUBLISHED_WAIT_MS; it never reports the card as missing.
+  const waiting = waitingFor !== null && waitingFor === targetId ? waitingFor : null;
+  useEffect(() => {
+    if (!waiting || !messages.some((m) => m.id === waiting)) return;
+    setWaitingFor(null);
+    if (stick.current) void jumpTo(waiting);
+  }, [waiting, messages, jumpTo]);
+  useEffect(() => {
+    if (!waiting) return;
+    const t = setTimeout(() => setWaitingFor(null), PUBLISHED_WAIT_MS);
+    return () => clearTimeout(t);
+  }, [waiting]);
 
   const onScroll = () => {
     const el = scroller.current;
@@ -218,7 +244,7 @@ export function MessageList({ conv, actions, viewerId, authors, label, targetId 
       <div
         ref={scroller}
         onScroll={onScroll}
-        className="h-full overflow-y-auto overscroll-contain bg-background py-2 [overflow-anchor:none]"
+        className={cn('h-full overflow-y-auto overscroll-contain bg-background py-2 [overflow-anchor:none]', scrollerClassName)}
         data-testid="message-scroller"
       >
         <div ref={content}>
