@@ -23,15 +23,16 @@ import { LandingFable } from '@/app/tree/landing-lab/fable/LandingFable';
 import { LandingFableChange } from '@/app/tree/landing-lab/fable/LandingFableChange';
 import {
   AGREED_BUILDERS, AGREED_CHANGE, ASSUMED_STATS, CHANGE_REASONS, CHANGE_REFERENCES, NORM_PATH, REASONS_NOBODY_CHECKS, REFERENCES,
-} from '@/app/tree/landing-lab/fable/fable-content';
+} from '@/app/components/landing/fable/fable-content';
 
 const read = (p: string) => readFileSync(`${process.cwd()}/${p}`, 'utf8');
 const h2s = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
 const CTA = 'Book a 15-min discovery call';
 
 describe.each([
-  ['builders', LandingFable, AGREED_BUILDERS, 'Your team agreed on the strategy.Each of your AIs ships 10x faster.In opposing directions.'],
-  ['change managers', LandingFableChange, AGREED_CHANGE, 'Everyone agreed.Then nothing changed.'],
+  ['builders', LandingFable, AGREED_BUILDERS, 'Your team agreed on the strategy. Each of your AIs ships 10x faster. In opposing directions.'],
+  // P1671: a space between the two lines, so the heading reads as two sentences (the live page's text).
+  ['change managers', LandingFableChange, AGREED_CHANGE, 'Everyone agreed. Then nothing changed.'],
 ] as const)('P1667 %s page: hero', (_name, Page, example, h1) => {
   const renderPage = () => render(<MemoryRouter><Page /></MemoryRouter>);
 
@@ -121,8 +122,9 @@ describe('P1667 builders page: sections', () => {
     expect(screen.getByText('failed startups built something the market never wanted.', { exact: false })).toBeInTheDocument();
   });
 
-  it('shows four people who all shipped, none marked as stalled', () => {
-    expect(AGREED_BUILDERS.people).toHaveLength(4);
+  // P1671: five people on both pictures (founder, 2026-11-12); was four.
+  it('shows five people who all shipped, none marked as stalled', () => {
+    expect(AGREED_BUILDERS.people).toHaveLength(5);
     expect(AGREED_BUILDERS.people.every((p) => p.outcome === 'diverged')).toBe(true);
   });
 });
@@ -161,41 +163,25 @@ describe('P1667 change managers page: sections', () => {
 });
 
 /**
- * fable-content.ts copies production copy because the production files do not export it. These
- * checks read the production sources, so a later edit there fails here instead of drifting.
+ * Since P1671 the live /builders and /change-managers render the fable layout, so the page copy has
+ * one home (fable-content.ts) and the old prototype-vs-production copy checks have nothing to
+ * compare. What is still copied is the wording of the shared sections other use-case pages render;
+ * these checks read those sources, so an edit there fails here instead of drifting.
  */
-describe('P1667 the copied copy is still the production copy', () => {
+describe('P1667 the copied copy is still the shared sections\' copy', () => {
   // Whitespace is flattened so a record written on one line or over several compares the same.
   const flat = (p: string) => read(p).replace(/\s+/g, ' ');
-  const builders = flat('src/app/pages/build-right-thing-landing.tsx');
-  const change = flat('src/app/pages/change-managers-page.tsx');
   const norm = flat('src/app/components/landing/team-norm-section.tsx');
   const why = flat('src/app/components/landing/why-nobody-verifies.tsx');
   const missing = (source: string, records: string[]) => records.filter((s) => !source.includes(s));
-  // Each record is compared whole, as the production file writes it: the words, the numbers and
-  // which citation they point at. Comparing the words alone would miss a changed number.
-  const reference = (r: { n: number; label: string; url: string }) => `n: ${r.n}, label: "${r.label}", url: "${r.url}"`;
 
-  it('control: a changed number or a reworded line is reported', () => {
-    const stat = ASSUMED_STATS[0]!;
-    expect(missing(builders, [`value: ${stat.value + 1}, denom: ${stat.denom}, label: "${stat.label}", ref: ${stat.ref}`])).toHaveLength(1);
-    expect(missing(builders, ['Tap a song’s rhythm, reworded'])).toHaveLength(1);
-    expect(missing(change, [reference({ ...CHANGE_REFERENCES[0]!, n: 2 })])).toHaveLength(1);
+  it('control: a reworded line is reported', () => {
+    const [, transparency] = CHANGE_REASONS;
+    expect(missing(why, [`title: "${transparency!.title}", text: "${transparency!.text} reworded", source: "newton" as const`])).toHaveLength(1);
   });
 
-  it('builders: references, stats and reasons, with their numbers and citations', () => {
-    expect(missing(builders, REFERENCES.map(reference))).toEqual([]);
-    expect(missing(builders, ASSUMED_STATS.map((s) => `value: ${s.value}, denom: ${s.denom}, label: "${s.label}", ref: ${s.ref}`))).toEqual([]);
-    expect(missing(builders, REASONS_NOBODY_CHECKS.map((r) => `title: "${r.title}", text: "${r.text}", ref: ${r.refs[0]}${r.refs[1] ? `, ref2: ${r.refs[1]}` : ''} }`))).toEqual([]);
-    expect(REFERENCES).toHaveLength(7);
-    expect(ASSUMED_STATS).toHaveLength(3);
-    expect(REASONS_NOBODY_CHECKS).toHaveLength(3);
-  });
-
-  it('change managers: references and reasons, with their citations', () => {
-    expect(missing(change, CHANGE_REFERENCES.map(reference))).toEqual([]);
-    // Each reason is compared with the source it cites in production. Hierarchy's title and text
-    // are props there (/communities overrides them), so the default title is the literal to match.
+  it('change managers: the reasons, as the shared section words them', () => {
+    // Hierarchy's title and text are props there (/communities overrides them), so the default title is the literal to match.
     const [hierarchy, transparency, curse] = CHANGE_REASONS;
     expect(missing(why, [
       `hierarchyTitle = "${hierarchy!.title}",`,
@@ -203,30 +189,12 @@ describe('P1667 the copied copy is still the production copy', () => {
       `title: "${transparency!.title}", text: "${transparency!.text}", source: "newton" as const`,
       `title: "${curse!.title}", text: "${curse!.text}", source: "camerer" as const`,
     ])).toEqual([]);
-    // The page maps newton and camerer to references 2 and 3, and gives hierarchy ("ha") none.
-    expect(change).toContain('{ newton: 2, camerer: 3 }');
+    // Newton and Camerer are references 2 and 3; hierarchy carries none.
     expect(CHANGE_REASONS.map((r) => r.refs)).toEqual([[], [2], [3]]);
     expect(CHANGE_REFERENCES).toHaveLength(3);
-  });
-
-  it.each([
-    ['builders', 'src/app/tree/landing-lab/fable/LandingFable.tsx', 'src/app/pages/build-right-thing-landing.tsx', [
-      'Prevent rework before work begins', 'Get your team off the treadmill.', 'failed startups built something the market never wanted.',
-    ]],
-    ['change managers', 'src/app/tree/landing-lab/fable/LandingFableChange.tsx', 'src/app/pages/change-managers-page.tsx', [
-      'For change managers', 'AI rollouts, new processes, reorganisations. People say yes in the meeting and mean different things.',
-      'of change projects missed at least one objective or failed entirely. The top obstacle was changing mindsets and attitudes, not technology.',
-      'Reveal gaps in understanding',
-    ]],
-  ] as const)('%s: the hero lines, the stat sentence and the whole chat story', (_name, prototypePath, productionPath, lines) => {
-    const prototype = read(prototypePath);
-    const production = flat(productionPath);
-    // Every prop of the chat story, taken from the prototype's own source so a new prop is covered too.
-    const chatProps = [...prototype.matchAll(/^\s+((?:variant|heading|contact|subtitle|received|honest|sent|consequence|thoughtTitle|thoughtBody)=.+)$/gm)].map((m) => m[1]!.trim());
-    expect(chatProps.length, 'the chat props were parsed').toBe(10);
-    expect(missing(production, chatProps)).toEqual([]);
-    expect(missing(production, [...lines])).toEqual([]);
-    expect(missing(flat(prototypePath), [...lines])).toEqual([]);
+    expect(REFERENCES).toHaveLength(7);
+    expect(ASSUMED_STATS).toHaveLength(3);
+    expect(REASONS_NOBODY_CHECKS).toHaveLength(3);
   });
 
   it('the five-step norm path, with who has picked it up at each step', () => {
@@ -250,11 +218,14 @@ describe('P1667 routes and production pages', () => {
     }
   });
 
-  it('leaves the production pages on their own sections', () => {
-    expect(read('src/app/pages/build-right-thing-landing.tsx')).toContain('<HowPlatformWorks />');
+  // P1671 reversed this: the production pages render the fable layout, never a /tree module.
+  it('the production pages render the fable layout, and import nothing from /tree', () => {
+    const builders = read('src/app/pages/build-right-thing-landing.tsx');
     const change = read('src/app/pages/change-managers-page.tsx');
-    expect(change).toContain('<TeamNormSection');
-    expect(change).not.toContain('landing-lab');
-    expect(read('src/app/pages/build-right-thing-landing.tsx')).not.toContain('landing-lab');
+    expect(builders).toContain('<BuildersFable');
+    expect(builders).not.toContain('<HowPlatformWorks');
+    expect(change).toContain('<ChangeFable');
+    expect(change).not.toContain('<TeamNormSection');
+    for (const page of [builders, change]) expect(page).not.toContain('app/tree/');
   });
 });

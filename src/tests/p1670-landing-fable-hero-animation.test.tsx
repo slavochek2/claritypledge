@@ -16,9 +16,9 @@ vi.mock('framer-motion', async (importOriginal) => ({
   useInView: () => env.inView,
 }));
 
-import { AgreedGraphic } from '@/app/tree/landing-lab/fable/fable-agreed';
-import { AGREED_DWELL_MS } from '@/app/tree/landing-lab/fable/fable-motion';
-import { AGREED_BUILDERS, AGREED_CHANGE, type AgreedExample } from '@/app/tree/landing-lab/fable/fable-content';
+import { AgreedGraphic } from '@/app/components/landing/fable/fable-agreed';
+import { AGREED_DWELL_MS } from '@/app/components/landing/fable/fable-motion';
+import { AGREED_BUILDERS, AGREED_CHANGE, type AgreedExample } from '@/app/components/landing/fable/fable-content';
 
 const EXAMPLES = [['builders', AGREED_BUILDERS], ['change managers', AGREED_CHANGE]] as const;
 

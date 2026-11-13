@@ -1,6 +1,6 @@
 /**
- * Presentational parts for the /tree/landing-fable* design explorations (P1665, P1667).
- * Pure presentation, no data access. The hero example lives in fable-agreed.tsx and the
+ * Presentational parts of the fable layout (P1665, P1667; live on /builders and /change-managers
+ * since P1671). Pure presentation, no data access; CTA analytics come from fable-tracking.ts. The hero example lives in fable-agreed.tsx and the
  * page sections in fable-sections.tsx.
  */
 import type { ReactNode } from "react";
@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { CalendarIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RISE, VIEWPORT_ONCE } from "./fable-motion";
+import { useFableTracking, type CtaLocation } from "./fable-tracking";
 
 export type Tone = "light" | "dark";
 
@@ -31,11 +32,11 @@ export function Reveal({ children, className, delay = 0 }: { children: ReactNode
  * opportunity, which let the number wrap alone under its paragraph. Padding on an inline box
  * widens the tap target without moving the lines around it.
  */
-export function RefSup({ n, tone = "light" }: { n: number; tone?: Tone }) {
+export function RefSup({ n, label, tone = "light" }: { n: number; label?: string; tone?: Tone }) {
   const color = tone === "dark" ? "text-blue-300 hover:text-blue-200" : "text-blue-600 hover:text-blue-700";
   return (
     <sup className="ml-0.5 text-[0.6em] font-normal">
-      <a href="#references" aria-label={`Reference ${n}`} className={`px-2 py-5 -mx-2 ${color}`}>
+      <a href="#references" aria-label={label ? `Reference ${n}: ${label}` : `Reference ${n}`} className={`px-2 py-5 -mx-2 ${color}`}>
         {n}
       </a>
     </sup>
@@ -43,7 +44,8 @@ export function RefSup({ n, tone = "light" }: { n: number; tone?: Tone }) {
 }
 
 /** The page's single primary action. `inverse` is the same action on the blue closing band. */
-export function AuditCTA({ tone = "primary" }: { tone?: "primary" | "inverse" }) {
+export function AuditCTA({ location, tone = "primary" }: { location: CtaLocation; tone?: "primary" | "inverse" }) {
+  const { cta } = useFableTracking();
   const color =
     tone === "inverse"
       ? "bg-white text-blue-700 hover:bg-blue-50 shadow-xl shadow-blue-950/30 focus-visible:ring-white focus-visible:ring-offset-blue-600"
@@ -51,6 +53,7 @@ export function AuditCTA({ tone = "primary" }: { tone?: "primary" | "inverse" })
   return (
     <Link
       to="/intro"
+      onClick={() => cta?.(location)}
       className={`inline-flex items-center justify-center gap-2.5 max-w-full rounded-full px-5 sm:px-9 py-4 sm:py-5 text-[0.9375rem] sm:text-lg font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${color}`}
     >
       <CalendarIcon className="w-5 h-5 shrink-0" />

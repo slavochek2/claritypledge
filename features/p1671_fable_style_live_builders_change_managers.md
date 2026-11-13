@@ -44,7 +44,7 @@ Blast radius: medium. Two live public pages, including `/builders`, which also h
 | /change-managers | `change_managers_cta_clicked` | `location` | each discovery-call CTA |
 | /change-managers | `change_managers_pledge_clicked` | none | the hero "Take the Pledge" link |
 
-  Any CTA or pledge link the fable layout adds fires the event its page already uses for that action. The `/tree` prototypes fire no analytics and no redirects.
+  Any CTA or pledge link the fable layout adds fires the event its page already uses for that action. The `/tree` prototypes fire none of these events and no redirects. Their gap exchange reports its view under a prototype-only name (`tree_landing_fable_exchange_viewed`, as since P1667); `/tree` routes do not exist in production and Mixpanel only sends from production builds, so nothing reaches analytics. (Clarified after code review, 2026-11-12.)
 - **SEO stays as it is**: /builders keeps its `SEO` props (title "Build the Right Thing", `url="/"`, indexed); /change-managers keeps `url="/change-managers"` and `noIndex`.
 - **The hero copy stays locked** (the P1004 UI Contract on /builders: eyebrow, headline and sub-line verbatim).
 - **Prod routes stay reachable and the `/tree` prototypes stay dev-only.**

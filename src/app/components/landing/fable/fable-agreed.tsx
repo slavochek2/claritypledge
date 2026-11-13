@@ -1,5 +1,5 @@
 /**
- * The hero example of the /tree/landing-fable* explorations (P1670), as a picture with no words:
+ * The hero example of the fable layout (P1670), as a picture with no words:
  * people agree, yet they do not mean the same thing.
  *
  * One person per row of the example, drawn in line. What each of them SAID is a speech bubble

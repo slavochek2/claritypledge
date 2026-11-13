@@ -1,9 +1,8 @@
 /**
- * Copy and citations for the /tree/landing-fable* design explorations (P1665, P1667).
- * Builders copy is a verbatim copy of the constants in src/app/pages/build-right-thing-landing.tsx,
- * and change-managers copy of src/app/pages/change-managers-page.tsx and the shared sections it
- * renders; neither exports them. If this design is adopted, the pages read the originals and this
- * file goes. The hero examples (AGREED_*) exist only here.
+ * Copy and citations of the fable layout (P1665, P1667), the one home of the /builders and
+ * /change-managers page copy since those pages adopted it (P1671). The reasons and the norm path
+ * still mirror the shared sections other use-case pages render (why-nobody-verifies.tsx,
+ * team-norm-section.tsx); src/tests/p1667-landing-fable.test.tsx checks they have not drifted.
  */
 import { NEUTRAL_HIERARCHY_TEXT } from "@/app/components/landing/why-nobody-verifies";
 import { NEUTRAL_MAINTAIN_TEXT } from "@/app/components/landing/team-norm-section";
@@ -62,6 +61,8 @@ export const NORM_PATH: { title: string; text: string; strip: { blue: number[]; 
 
 /** The office cast of the gap exchange, under prototype event names so a dev view never counts as a production one. */
 export const FABLE_CAST: ExchangeCast = { ...TEAM_CAST, viewEvent: "tree_landing_fable_exchange_viewed", surface: "tree-landing-fable-exchange" };
+/** /builders: the same office cast, reporting under its own page's name. /change-managers uses TEAM_CAST as before. */
+export const BUILDERS_CAST: ExchangeCast = { ...TEAM_CAST, viewEvent: "builders_exchange_viewed", surface: "builders-exchange" };
 
 /**
  * The hero example: one sentence everyone said yes to, and what each person understood by it.
@@ -73,7 +74,7 @@ export const FABLE_CAST: ExchangeCast = { ...TEAM_CAST, viewEvent: "tree_landing
  * [FOUNDER DECISION: the example sentences, names, outcomes and pictures are drafted placeholders]
  */
 type AgreedOutcome = "diverged" | "stalled" | "changed";
-export type AgreedPicture = "steps" | "guide" | "options" | "screen" | "pen" | "once" | "wait" | "mail" | "report";
+export type AgreedPicture = "steps" | "guide" | "options" | "screen" | "words" | "pen" | "once" | "wait" | "mail" | "report";
 export type AgreedExample = {
   when: string;
   said: string;
@@ -86,18 +87,19 @@ export type AgreedExample = {
 export const AGREED_BUILDERS: AgreedExample = {
   when: "Monday · planning",
   said: "Let's make onboarding simpler.",
-  agreed: "4 of 4 agreed",
+  agreed: "5 of 5 agreed",
   later: "By Friday · what “simpler” meant",
   people: [
     // Two opposing pairs, each a fair reading of "simpler": fewer steps against more guidance,
-    // fewer options against everything in one place.
+    // fewer options against everything in one place. The fifth reads it as plainer language.
     { name: "Maya", did: "shipped fewer steps", outcome: "diverged", picture: "steps" },
     { name: "Jon", did: "shipped more guidance", outcome: "diverged", picture: "guide" },
     { name: "Priya", did: "shipped fewer options", outcome: "diverged", picture: "options" },
     { name: "Sam", did: "shipped everything on one screen", outcome: "diverged", picture: "screen" },
+    { name: "Leo", did: "shipped plainer wording", outcome: "diverged", picture: "words" },
   ],
-  // Says outright what the four figures do not: everyone delivered, and no two delivered the same thing.
-  punchline: "One sentence. Four meanings. All four shipped.",
+  // Says outright what the five figures do not: everyone delivered, and no two delivered the same thing.
+  punchline: "One sentence. Five meanings. All five shipped.",
 };
 
 export const AGREED_CHANGE: AgreedExample = {

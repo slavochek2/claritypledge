@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-12 [product]: /builders and /change-managers adopt the fable layout, reversing the dev-only ruling of 2026-11-11 (P1670, P1671)
+
+**Context:** The 2026-11-11 [product] ruling "The /builders visual redesign stays a dev-only prototype until more readers back it (P1665)" kept the fable layout on `/tree` until more readers backed it. P1670 then replaced the hero drawing the outside reader did not understand with a wordless one: the same yes over every head, a different shape inside each. The founder wants the use-case pages in one style and the redesign brought from the prototypes to the real pages.
+**Decision:** Reversed by founder decision on 2026-11-12. /builders and /change-managers render the fable layout first; each other use-case page (co-founders, hiring, hospitals, communities, coaches) is decided one by one. Both pictures show five people; the builders closing line is "One sentence. Five meanings. All five shipped." The builders headline is unchanged until a champion conversation tests the alternative. The live pages keep their analytics events and properties, the /builders `?referrer` and `?login` redirects, their SEO and the locked P1004 hero copy. The layout moved from `src/app/tree/` to `src/app/components/landing/fable/`, so production imports nothing from `/tree`; the `/tree/landing-fable*` prototypes stay dev-only and render the same components with no tracking injected.
+**Alternatives rejected:** Waiting for more readers as the 2026-11-11 ruling said (the founder decided the pages should match now). Restyling every use-case page at once (each is decided on its own).
+**Consequences:** The outside reader who preferred the old style may be right; revert is one commit. On /builders the gap exchange now replaces "How the platform works" and reports its own view event, `builders_exchange_viewed`. Both /builders CTAs keep sending `location: "hero"`, as the old layout did. UNTESTED falsifier: discovery-call clicks per /builders view fall after the switch.
+**References:** [p1671](../features/p1671_fable_style_live_builders_change_managers.md), `src/app/components/landing/fable/`
+
 ## 2026-11-12 [technical]: Product analytics live in five public Mixpanel boards that count only bot-proof signals; the in-house Analytics tab is replaced (P1669)
 
 **Context:** The kanban Analytics tab (P1640) was not informative. A Mixpanel read on 2026-11-12 showed why: of 3,204 unique page viewers in 30 days, about 260 ever clicked or scrolled. US and Singapore desktop traffic also fires the app's own events (about 400 of 459 `signup_page_viewed` users), and the P1628 `is_automation` tag does not catch it. 74 of 87 new accounts show `$direct`, and the median session reads 1 second.

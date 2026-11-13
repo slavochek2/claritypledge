@@ -141,7 +141,9 @@ function ClarityLandingLayoutInner({ children, surface, compact, logoOnly, roomS
   // /founder's footer is a live question, not a spacing one. Add a route here only if its
   // hero has both properties; /coach has neither (content-height hero), so it is correctly
   // absent and keeps the padding.
-  const heroOwnsTopOffset = isLandingPage || location.pathname === "/founder";
+  // P1671: /builders now renders the fable hero, which does NOT carry its own nav offset, so it
+  // keeps main's padding like the other fable pages (it stays in isLandingPage for the footer).
+  const heroOwnsTopOffset = location.pathname === "/" || location.pathname === "/founder";
   const isAlternativeLandingPage = location.pathname === "/alternative";
   // P1149: /transcribe's room view uses the same technique as /live — its own sticky
   // top bar (rendered only in the room sub-state) overlaps this component's fixed

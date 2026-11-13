@@ -52,7 +52,8 @@ for (const path of PAGES) {
       page.on('pageerror', (e) => errors.push(String(e)));
       await page.goto(path);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-      await expect(page.getByTestId('agreed-graphic').getByText('Illustration')).toBeVisible();
+      // P1670: the hero drawing is wordless (no "Illustration" marker); it must render.
+      await expect(page.getByTestId('agreed-graphic')).toBeVisible();
       expect(errors).toEqual([]);
     });
 

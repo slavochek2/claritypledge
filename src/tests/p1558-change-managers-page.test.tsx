@@ -99,9 +99,13 @@ describe('P1558 /change-managers - content', () => {
     const cta = screen.getAllByRole('link', { name: /Book a 15-min discovery call/ });
     expect(cta).toHaveLength(2);
     for (const c of cta) expect(c).toHaveAttribute('href', '/intro');
-    expect(document.querySelectorAll('a.bg-blue-500, button.bg-blue-500')).toHaveLength(2);
+    // P1671: the fable layout's CTA is blue in the hero and white on the blue closing band; the
+    // one-filled-primary check is now one blue pill, plus the closing band's inverse of the same link.
+    expect(document.querySelectorAll('a.bg-blue-600, button.bg-blue-600')).toHaveLength(1);
+    expect(document.querySelectorAll('a.bg-white[href="/intro"]')).toHaveLength(1);
     expect(screen.getByRole('link', { name: 'Take the Pledge' })).toHaveAttribute('href', '/sign-pledge');
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['What nobody said']);
+    // P1671: the fable hero adds the phone cue to its example; still no button besides scroll cues.
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['See an example', 'What nobody said']);
   });
 });
 

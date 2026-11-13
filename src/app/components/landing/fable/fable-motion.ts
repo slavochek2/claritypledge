@@ -1,4 +1,4 @@
-/** Scroll-in motion shared by the /tree/landing-fable* pages (P1667). One definition, three users. */
+/** Scroll-in motion of the fable layout (P1667). One definition, three users. */
 import type { Variants } from "framer-motion";
 
 export const VIEWPORT_ONCE = { once: true, amount: 0.25 } as const;

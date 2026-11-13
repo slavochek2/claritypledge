@@ -1,6 +1,6 @@
 /**
- * The page sections shared by the two /tree/landing-fable* explorations (P1667): builders and
- * change managers render the same sections with their own copy. Text-argument sections are
+ * The sections of the fable layout (P1667; live since P1671): builders and change managers render
+ * the same sections with their own copy. Text-argument sections are
  * left-aligned and numbered; the two chat exhibits (HardTruthChat, the gap exchange) keep their
  * own centred headings, as on the production pages.
  */
@@ -16,9 +16,11 @@ import { CertificateFrame, CertificateOathBody } from "@/app/components/agreemen
 import { TemplateStamp } from "@/app/components/agreements/template-stamp";
 import { COA_VERSIONS, CURRENT_COA_VERSION } from "@/app/content/coa-versions";
 import { AgreedGraphic } from "./fable-agreed";
-import { FABLE_CAST, NORM_PATH, SHELL, type AgreedExample, type Reason, type Reference } from "./fable-content";
+import { NORM_PATH, SHELL, type AgreedExample, type Reason, type Reference } from "./fable-content";
+import type { ExchangeCast } from "@/app/content/exchange-casts";
 import { RISE, STAGGER, VIEWPORT_ONCE } from "./fable-motion";
 import { AuditCTA, Indented, RefSup, Reveal, SectionHeading } from "./fable-parts";
+import { useFableTracking } from "./fable-tracking";
 
 /**
  * Hero. On a phone the text column fills the first screen and ends at the scroll cue, so the
@@ -42,6 +44,7 @@ export function FableHero({
   nextId: string;
   nextLabel: string;
 }) {
+  const { pledge } = useFableTracking();
   return (
     <section className="relative flex flex-col overflow-hidden px-4 lg:min-h-[calc(100vh-5rem)]">
       <div className={`${SHELL} grid gap-x-12 lg:flex-1 lg:grid-cols-12 lg:items-center lg:py-8`}>
@@ -57,10 +60,10 @@ export function FableHero({
             <h1 className="text-[2.1rem] sm:text-5xl xl:text-[3.5rem] font-semibold leading-[1.08] tracking-tighter sm:tracking-tight [&>span]:text-balance">{title}</h1>
             <p className="mt-6 max-w-xl border-l-2 border-blue-600 pl-5 text-xl lg:text-2xl font-medium text-foreground/70">{sub}</p>
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2">
-              <AuditCTA />
+              <AuditCTA location="hero" />
               <p className="text-foreground/70">
                 or{" "}
-                <Link to="/sign-pledge" className="inline-flex min-h-10 items-center text-blue-600 underline underline-offset-4 hover:text-blue-700">
+                <Link to="/sign-pledge" onClick={() => pledge?.()} className="inline-flex min-h-10 items-center text-blue-600 underline underline-offset-4 hover:text-blue-700">
                   Take the Pledge
                 </Link>
               </p>
@@ -85,7 +88,7 @@ export function FableHero({
 /** A dark band for the one number that should stop the scroll. */
 export function StakesBand({ id, big, visual, children }: { id: string; big: ReactNode; visual: ReactNode; children: ReactNode }) {
   return (
-    <section id={id} className="scroll-mt-16 bg-slate-950 px-4 py-16 text-white lg:py-32">
+    <section id={id} data-testid="stat-card" className="scroll-mt-16 bg-slate-950 px-4 py-16 text-white lg:py-32">
       <Reveal className={`${SHELL} grid items-end gap-10 lg:grid-cols-12`}>
         <p className="whitespace-nowrap text-[24vw] font-semibold leading-[0.8] tracking-tighter lg:col-span-6 lg:text-[10rem] xl:text-[11rem]">{big}</p>
         <div className="space-y-7 lg:col-span-6">
@@ -97,8 +100,8 @@ export function StakesBand({ id, big, visual, children }: { id: string; big: Rea
   );
 }
 
-/** "Why almost nobody verifies understanding": three reasons, lettered. */
-export function ReasonsSection({ index, reasons, muted = false }: { index: string; reasons: Reason[]; muted?: boolean }) {
+/** "Why almost nobody verifies understanding": three reasons, lettered. `references` labels each citation for screen readers. */
+export function ReasonsSection({ index, reasons, references, muted = false }: { index: string; reasons: Reason[]; references: Reference[]; muted?: boolean }) {
   return (
     <section className={`border-t border-border px-4 py-16 lg:py-28 ${muted ? "bg-muted/40" : ""}`}>
       <div className={SHELL}>
@@ -116,7 +119,7 @@ export function ReasonsSection({ index, reasons, muted = false }: { index: strin
                 <p className="mt-3 leading-relaxed text-foreground/75">
                   {r.text}
                   {r.refs.map((n) => (
-                    <RefSup key={n} n={n} />
+                    <RefSup key={n} n={n} label={references.find((r) => r.n === n)?.label} />
                   ))}
                 </p>
               </motion.div>
@@ -128,11 +131,11 @@ export function ReasonsSection({ index, reasons, muted = false }: { index: strin
   );
 }
 
-/** The gap exchange, as on /change-managers: a centred chat exhibit with its own heading. */
-export function ExchangeSection({ muted = false }: { muted?: boolean }) {
+/** The gap exchange: a centred chat exhibit with its own heading. `cast` carries the view event, so each page reports its own. */
+export function ExchangeSection({ cast, muted = false }: { cast: ExchangeCast; muted?: boolean }) {
   return (
     <section className={`border-t border-border px-4 py-16 lg:py-28 ${muted ? "bg-muted/40" : ""}`}>
-      <GapExchangeSection cast={FABLE_CAST} />
+      <GapExchangeSection cast={cast} />
     </section>
   );
 }
@@ -203,7 +206,7 @@ export function CloseSection({ lead, title }: { lead?: string; title: string }) 
           <span className="block">{title}</span>
         </h2>
         <div className="mt-10">
-          <AuditCTA tone="inverse" />
+          <AuditCTA location="closing" tone="inverse" />
         </div>
       </Reveal>
     </section>
