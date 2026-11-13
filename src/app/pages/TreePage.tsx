@@ -10,6 +10,11 @@ const productionPages = [
 
 const devPages = [
   {
+    path: '/tree/landing-fable-examples',
+    label: 'Landing redesign: hero drawing examples',
+    description: 'The wordless hero drawing for four stories, each with its meaning printed beside it.'
+  },
+  {
     path: '/tree/landing-fable-change',
     label: 'Landing redesign: change managers',
     description: 'The /change-managers page in the redesigned look, with the labelled hero example.'

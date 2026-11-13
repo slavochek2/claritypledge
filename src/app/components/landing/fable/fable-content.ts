@@ -74,7 +74,8 @@ export const BUILDERS_CAST: ExchangeCast = { ...TEAM_CAST, viewEvent: "builders_
  * [FOUNDER DECISION: the example sentences, names, outcomes and pictures are drafted placeholders]
  */
 type AgreedOutcome = "diverged" | "stalled" | "changed";
-export type AgreedPicture = "steps" | "guide" | "options" | "screen" | "words" | "pen" | "once" | "wait" | "mail" | "report";
+export type AgreedPicture = "steps" | "guide" | "options" | "screen" | "words" | "pen" | "once" | "wait" | "mail" | "report"
+  | "phone" | "doctor" | "patient" | "notes" | "groups" | "talk" | "online" | "short" | "open";
 export type AgreedExample = {
   when: string;
   said: string;
@@ -115,4 +116,38 @@ export const AGREED_CHANGE: AgreedExample = {
     { name: "Kim", did: "uses it for every report", outcome: "changed", picture: "report" },
   ],
   punchline: "Five said yes. One changed.",
+};
+
+/**
+ * Founder-review drafts for /hospitals and /communities, shown only on /tree/landing-fable-examples.
+ * [FOUNDER DECISION: drafted placeholders]
+ */
+export const AGREED_HOSPITALS: AgreedExample = {
+  when: "Morning hand-over",
+  said: "Keep the family in the loop.",
+  agreed: "5 of 5 nodded",
+  later: "By evening · what “in the loop” meant",
+  people: [
+    { name: "Anna", did: "phoned the daughter", outcome: "diverged", picture: "phone" },
+    { name: "Ben", did: "waited for the family to ask", outcome: "diverged", picture: "wait" },
+    { name: "Clara", did: "left it for the doctor's round", outcome: "diverged", picture: "doctor" },
+    { name: "David", did: "told the patient, not the family", outcome: "diverged", picture: "patient" },
+    { name: "Eva", did: "wrote it in the notes", outcome: "diverged", picture: "notes" },
+  ],
+  punchline: "One hand-over. Five meanings.",
+};
+
+export const AGREED_COMMUNITIES: AgreedExample = {
+  when: "Last meetup · announcements",
+  said: "Next month we try a new format.",
+  agreed: "5 of 5 said “sounds good”",
+  later: "At the next meetup · what “new format” meant",
+  people: [
+    { name: "Ravi", did: "came ready for small groups", outcome: "diverged", picture: "groups" },
+    { name: "Jo", did: "prepared a short talk", outcome: "diverged", picture: "talk" },
+    { name: "Ines", did: "expected it to be online", outcome: "diverged", picture: "online" },
+    { name: "Ken", did: "planned for a shorter evening", outcome: "diverged", picture: "short" },
+    { name: "Lea", did: "came for open discussion", outcome: "diverged", picture: "open" },
+  ],
+  punchline: "Five said “sounds good”. Five different meetups.",
 };
