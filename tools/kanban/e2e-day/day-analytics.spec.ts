@@ -204,3 +204,15 @@ test('report: a double press sends one decision', async ({ page }) => {
   expect(posts).toBe(1)
   expect(ledger().map((e) => e.decision)).toEqual(['confirm'])
 })
+
+test('report: an empty note on an insight does not block Start fixing', async ({ page }) => {
+  putRead()
+  await openDay(page, {}, 1280)
+  const card = page.locator(INSIGHT)
+  await card.getByText('Your answer or question').click()
+  // the request only goes out if the page did not send the founder back to the empty note
+  const start = page.waitForResponse('**/api/day/start')
+  await page.locator('button[data-send-count]').click()
+  await start
+  await expect(page.getByText('Write your answer or question first')).toHaveCount(0)
+})

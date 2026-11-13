@@ -346,8 +346,9 @@ export function DayPage() {
             await postWeeklyDecision(key, optionId === INSIGHT_DISMISS ? 'dismiss' : 'confirm')
           } catch (e) {
             say(`Not saved: ${e instanceof Error && e.message ? e.message : 'Could not save the decision'}`)
-            // a refusal (409) means the card is stale: re-read, so a decided or replaced insight leaves the list
-            if (e instanceof HttpError && e.status === 409) await reload(runId)
+            // whatever failed, re-read: a refusal (409) means the card is stale, and a lost reply may have been saved
+            // anyway (the outcome of a write with no answer is unknown), so the page shows what the ledger holds
+            await reload(runId)
             return
           }
           // reload() reports its own failure on the page; a saved decision is never shown as "Not saved"
@@ -557,7 +558,8 @@ export function DayPage() {
     async (mode: 'start' | 'copy') => {
       if (!runId || readOnly || busy || !view) return
       // A custom answer with no text is not an answer: send the founder back to it.
-      const empty = view.issues.find((i) => freeEmpty(i))
+      // (not an insight's note: it is never sent, so an empty one has nothing to block)
+      const empty = view.issues.find((i) => !isInsightCard(i) && freeEmpty(i))
       if (empty) {
         say('Write your answer or question first, or pick another answer')
         jumpTo(empty.fp)
