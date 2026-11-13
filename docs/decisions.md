@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-13 [product]: Every use-case page shows the wordless hero drawing, sized to its story: five people for a group, two for a pair (P1674)
+
+**Context:** P1674 moved /hiring, /coach, /founder, /hospitals and /communities to the fable layout. The founder first put the picture only where the story is "everyone said yes, each understood something different" (/hospitals, /communities). Viewed on desktop, the three text-only heroes (/hiring, /coach, /founder) looked empty next to the others.
+**Decision:** All seven use-case pages show the drawing. Group stories get five people; /hiring (founder and new hire), /coach (coach and client) and /founder (two co-founders) get two, drawn larger and standing together. The story behind each drawing is screen-reader only, as on /builders, and is taken from the page's own chat. "How the platform works" (its unbuilt "agents flag" claim) is replaced by the 0-10 gap exchange on /hiring, /coach and /founder, each reporting its own view event.
+**Alternatives rejected:** Text-only hero (looked empty). Centred text (no motion, the only differently laid-out hero). Five people on a two-person story (tells a story the page does not tell).
+**Consequences:** The drawing's hidden wording is not a visible decision; do not ask the founder to judge it as one. A new use-case page picks a head count that matches its story.
+**References:** [p1674](../features/done/2026-06-10/p1674_fable_style_remaining_use_case_pages.md)
+
+## 2026-11-13 [technical]: Shared fable components take caller-owned options whose defaults reproduce /builders; small groups use their own layout (P1674)
+
+**Context:** The fable hero and closing band hardcoded the /builders discovery-call button and pledge link; reusing them on five more pages would have swapped each page's own button, event values (`location: "hero"` on both /hiring and /founder buttons) and links.
+**Decision:** FableHero, CloseSection, ReasonsSection, NormSection and PromiseSection take the page's actions, copy, stamp and ids as options; every default renders today's /builders and /change-managers output (verified by a rendered text-and-link diff against main). The drawing's `layoutFor(count)` (`fable-agreed-layout.ts`) keeps five or more people byte-identical and draws fewer than five larger and closer, with bounds tests for every count. Stat bands reuse `CountUpPercent` (new `unit` prop) rather than a second count-up.
+**Alternatives rejected:** Copying sections per page (drift, decisions 2026-10-28). Spreading two figures across the full width (read as two strangers).
+**Consequences:** /founder lost its layout nav-offset exemption, since its hero no longer carries one. The text-only FableHero branch is now unused.
+**References:** `src/app/components/landing/fable/`, `src/app/layouts/clarity-landing-layout.tsx`
+
 ## 2026-11-13 [technical]: Weekly insights are ordinary finding cards, added to the latest run by the server; Real problem and Not a problem still write only the insight ledger (P1673)
 
 **Context:** P1669 put the P1640 weekly insights on the Day page as their own block of cards (Numbers, Base, Comparison, Confidence, Next step, then Confirm, Dismiss and a link) above the normal finding cards. The founder said, 2026-11-13: "I have like two ways of handling cards now in the daily report… It should be like one kind of card. I don't understand it."

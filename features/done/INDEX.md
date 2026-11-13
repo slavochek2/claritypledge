@@ -277,6 +277,7 @@ Last updated: 2026-11-13
 - **P602** (Mar 29) Feed Multi-Tag + Version Filter — fetch all then filter client-side (not server) when dataset is small; `isInternalTag()` must cover both `st\d+` and `v\d+`; tag cloud from ALL content not filtered subset (otherwise multi-select breaks); `searchParams.getAll()` for repeated URL params alongside comma-separated
 
 ## UI / Design System
+- **P1674** (Nov 13) /hiring, /coach, /founder, /hospitals, /communities in the fable style — five-person picture where the story is a group, two-person pair where it is two people; each page keeps its own actions, exact event values, redirects, SEO and copy; shared fable components take caller-owned options that default to /builders' output
 - **P1673** (Nov 26) Weekly insights became ordinary finding cards — the ledger refuses a second decision; analytics text never reaches the agent.
 - **P1618** (Nov 26) Canvas upload icon reads as attach — one icon, one meaning; users missed upload behind the attach paperclip.
 - **P1600** (Nov 26) Hike page reviews show in full — arrows follow pointer type, not width; jsdom needs mocked dimensions to reach them.
