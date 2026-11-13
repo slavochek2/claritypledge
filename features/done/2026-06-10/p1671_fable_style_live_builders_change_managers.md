@@ -1,18 +1,18 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 332
 workstream: website
 created_date: '2026-11-12'
 tags: [landing, design, use-cases]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 spec_review_hash: 89c880cc66d433ff66ebbd5684f89b25bb105facd9a350de3889d016c39d7ea6
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-13
 ---
 
 # P1671: Live /builders and /change-managers move to the fable style, with the wordless hero drawing
