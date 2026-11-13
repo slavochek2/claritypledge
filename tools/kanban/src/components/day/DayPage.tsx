@@ -335,24 +335,31 @@ export function DayPage() {
         say('Still saving your first choice')
         return
       }
+      const key = i.insight_key
       insightInFlight.current.add(i.fp)
       setChoice((c) => ({ ...c, [i.fp]: optionId }))
-      try {
+      // one write and re-read at a time, in click order, like every other write on this page: two
+      // overlapping re-reads could land out of order and bring a decided card back
+      const job = chain.current.then(async () => {
         try {
-          await postWeeklyDecision(i.insight_key, optionId === INSIGHT_DISMISS ? 'dismiss' : 'confirm')
-        } catch (e) {
-          say(`Not saved: ${e instanceof Error && e.message ? e.message : 'Could not save the decision'}`)
-          // a refusal (409) means the card is stale: re-read, so a decided or replaced insight leaves the list
-          if (e instanceof HttpError && e.status === 409) await reload(runId)
-          return
+          try {
+            await postWeeklyDecision(key, optionId === INSIGHT_DISMISS ? 'dismiss' : 'confirm')
+          } catch (e) {
+            say(`Not saved: ${e instanceof Error && e.message ? e.message : 'Could not save the decision'}`)
+            // a refusal (409) means the card is stale: re-read, so a decided or replaced insight leaves the list
+            if (e instanceof HttpError && e.status === 409) await reload(runId)
+            return
+          }
+          // reload() reports its own failure on the page; a saved decision is never shown as "Not saved"
+          // (a retry would write the same decision into the ledger twice)
+          await reload(runId)
+        } finally {
+          insightInFlight.current.delete(i.fp)
+          setChoice((c) => Object.fromEntries(Object.entries(c).filter(([k]) => k !== i.fp)))
         }
-        // reload() reports its own failure on the page; a saved decision is never shown as "Not saved"
-        // (a retry would write the same decision into the ledger twice)
-        await reload(runId)
-      } finally {
-        insightInFlight.current.delete(i.fp)
-        setChoice((c) => Object.fromEntries(Object.entries(c).filter(([k]) => k !== i.fp)))
-      }
+      })
+      chain.current = job.catch(() => undefined)
+      await job
     },
     [runId, reload, say],
   )

@@ -139,10 +139,11 @@ function CardList(p: { issues: IssueView[]; index: number; cardOpen: boolean; se
       rows={p.issues.map((i, k) => ({
         key: i.fp,
         title: i.title,
-        done: isDone(states[k]),
+        // P1673: an insight is done only when decided, and then it is gone: a saved note never ticks its row
+        done: isDone(states[k]) && !isInsightCard(i),
         kind: states[k].kind,
         // P1463: a done row's ✓ already says it — the word is only for what is not done
-        word: isDone(states[k]) ? '' : isInsightCard(i) ? 'Insight' : STATE_WORD[states[k].kind],
+        word: isInsightCard(i) ? 'Insight' : isDone(states[k]) ? '' : STATE_WORD[states[k].kind],
         attrs: { 'data-list-card': i.fp, 'data-list-state': states[k].kind },
       }))}
       current={p.cardOpen ? Math.min(p.index, p.issues.length - 1) : -1}
@@ -530,7 +531,7 @@ function IssueCard(p: Props) {
           className="d-ftxt"
           maxLength={2000}
           aria-label="Your answer or question"
-          placeholder="Ending with ? makes it a question the agent answers first"
+          placeholder={issue.insight_key ? 'A note, saved here. It is not sent to the agent.' : 'Ending with ? makes it a question the agent answers first'}
           value={ownText}
           onChange={(e) => p.onDraft(issue, e.target.value)}
           onBlur={() => p.onDraftBlur(issue)}

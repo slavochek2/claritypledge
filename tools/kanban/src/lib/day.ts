@@ -1882,7 +1882,8 @@ export function groupByCause(sorted: IssueView[]): void {
 const reRaised = (i: IssueView) => (i.loop?.sent?.outcome === 'still-open' ? 0 : 1)
 
 export function compareIssues(a: IssueView, b: IssueView): number {
-  // P1673: weekly insights lead the list, whatever their tier
+  // P1673: weekly insights lead the list, whatever their tier, in the order the weekly read raised them (its priority)
+  if (isInsightCard(a) && isInsightCard(b)) return 0
   return Number(isInsightCard(b)) - Number(isInsightCard(a)) || rank(a) - rank(b) || reRaised(a) - reRaised(b) || whoActs(a) - whoActs(b) || byPresent(a.deadline, b.deadline) || byPresent(a.first_seen, b.first_seen) || a.title.localeCompare(b.title)
 }
 

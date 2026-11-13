@@ -415,7 +415,10 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       const dir = analyticsDir()
       // P1673: only an insight still waiting for a decision: a second press, a retry after a lost reply or a stale
       // second tab must not write a second line (a confirm is counted by the "keep the insights?" criterion)
-      if (!undecidedInsightsNow().insights.some((i) => i.key === body.key)) return res.status(409).json({ error: 'Not an undecided insight in the latest read' })
+      const open = undecidedInsightsNow()
+      // an unreadable ledger is a failure of ours, not a stale card: the page keeps the card and the retry
+      if (open.error) return res.status(500).json({ error: 'The insight ledger could not be read' })
+      if (!open.insights.some((i) => i.key === body.key)) return res.status(409).json({ error: 'Not an undecided insight in the latest read' })
       appendLedger(dir, body.key, body.decision, now())
       res.json({ success: true })
     } catch {

@@ -105,4 +105,25 @@ describe('an insight in the normal finding card', () => {
     expect(c.insight_link).toBe('https://eu.mixpanel.com/p/AAA111')
     expect(insightIssue(insight('b', { link: undefined })).insight_link).toBeUndefined()
   })
+
+  it('the note box on an insight says it is not sent to the agent', () => {
+    const report = withInsights(base(), [insight('a')])
+    const view = buildView(report, [])
+    const h = renderToStaticMarkup(
+      <DailyReport report={report} view={view} readOnly={false} issues={view.issues} index={0} agent={{ items: [], open: false, setOpen: noop, header: 'first' }} onJump={noop} selected={() => 'own'} draftOf={() => ''} onChoose={noop} onDraft={noop} onDraftBlur={noop} ownFocus={0} onFix={noop} onUndoFix={noop} onBringBack={noop} sent={{}} statements={{ rows: [], current: -1, open: 0, onPick: noop }} onCards={noop} />,
+    )
+    expect(h).toContain('A note, saved here. It is not sent to the agent.')
+    expect(h).not.toContain('question the agent answers first')
+  })
+
+  it('a saved note keeps the sidebar row labelled Insight', () => {
+    const report = withInsights(base(), [insight('a')])
+    const fp = insightIssue(insight('a')).fp
+    const view = buildView(report, [{ run_id: report.pass_id, at: '2026-10-04T08:00:00Z', kind: 'option', target: fp, option_id: 'own', text: 'Which page?' }])
+    const h = renderToStaticMarkup(
+      <DailyReport report={report} view={view} readOnly={false} issues={view.issues} index={0} agent={{ items: [], open: false, setOpen: noop, header: 'first' }} onJump={noop} selected={(i) => i.decision?.option_id ?? ''} draftOf={(i) => i.decision?.text ?? ''} onChoose={noop} onDraft={noop} onDraftBlur={noop} ownFocus={0} onFix={noop} onUndoFix={noop} onBringBack={noop} sent={{}} statements={{ rows: [], current: -1, open: 0, onPick: noop }} onCards={noop} />,
+    )
+    const row = h.slice(h.indexOf(`data-list-card="${fp}"`))
+    expect(row.slice(0, row.indexOf('</button>'))).toContain('<span class="d-clw">Insight</span>')
+  })
 })

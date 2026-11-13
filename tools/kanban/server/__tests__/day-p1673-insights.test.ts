@@ -16,6 +16,7 @@ import {
   insightIssue,
   isInsightCard,
   parseReport,
+  pendingPreselected,
   stillYours,
   validateDecisionInput,
   withInsights,
@@ -116,6 +117,15 @@ describe('P1673 insight cards in the view', () => {
     expect(collect(v).count).toBe(collect(viewOf([])).count)
     expect(collect(v).issues.some((x) => x.issue.fp === fp)).toBe(false)
     expect(cardState(v.issues.find((i: IssueView) => i.fp === fp) as IssueView).kind).toBe('answered')
+  })
+
+  it('insights keep the order the weekly read raised them in, not alphabetical', () => {
+    const v = viewOf([insight('zeta'), insight('alpha'), insight('mid')])
+    expect(v.issues.slice(0, 3).map((i) => i.insight_key)).toEqual(['zeta', 'alpha', 'mid'])
+  })
+
+  it('nothing else that counts the day treats an insight as work: no preselected write', () => {
+    expect(pendingPreselected(viewOf([insight('a')])).length).toBe(pendingPreselected(viewOf([])).length)
   })
 
   it('two insights with the same key are one card', () => {
@@ -232,6 +242,13 @@ describe('P1673 routes', () => {
     expect(insightCards(await getRun())).toHaveLength(0)
     // neither choice is a decision line in the run
     expect(await decisionsFile()).toBe('')
+  })
+
+  it('an unreadable ledger on a decision is a server error, not a stale card, and writes nothing', async () => {
+    await seedRuns({ [RUN]: synthReport() })
+    writeRead(dir, read([insight('a')]))
+    await mkdir(join(dir, 'ledger.jsonl')) // exists, cannot be read as a file
+    expect((await decideWeekly({ key: 'a', decision: 'confirm' })).status).toBe(500)
   })
 
   it('a second decision on the same insight is refused and writes nothing: no double count, no flip', async () => {
