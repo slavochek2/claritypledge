@@ -139,9 +139,9 @@ export const AGREED_HOSPITALS: AgreedExample = {
 
 export const AGREED_COMMUNITIES: AgreedExample = {
   when: "Last meetup · announcements",
-  said: "Next month we try a new format.",
+  said: "Next month we're changing the meetup format.",
   agreed: "5 of 5 said “sounds good”",
-  later: "At the next meetup · what “new format” meant",
+  later: "At the next meetup · what the new format meant",
   people: [
     { name: "Ravi", did: "came ready for small groups", outcome: "diverged", picture: "groups" },
     { name: "Jo", did: "prepared a short talk", outcome: "diverged", picture: "talk" },
