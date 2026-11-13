@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 337
 workstream: infrastructure
@@ -159,6 +159,11 @@ call within these rules.
   and it runs at vitest's default; nothing does this today.
 - `ps` args are split on whitespace, so a node binary or checkout path containing a space would not
   be recognised as a coordinator (undercount). Neither occurs on this machine.
+- Exotic argv shapes from the final review round (reproduced against vitest's parser, not used by
+  any workflow in this repo, recorded rather than fixed under the review stopping rule):
+  `--watch false` with a space (counted as a watcher, so an undercount); `vitest run --watch`
+  (vitest watches, counted as a run, so an overcount); a `--maxWorkers` flag after `--` (vitest
+  ignores it, but the config steps aside, so that run gets vitest's default).
 
 **Non-Goals**
 - Do NOT add a queue, lock, sleep or wait of any kind.
