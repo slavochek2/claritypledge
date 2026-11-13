@@ -361,14 +361,14 @@ metered exposure is what a lane's cron jobs and functions call outward.
 Each check is by effect, and its control must fail first.
 
 Stage 1
-- [ ] **Lane 1 serves only on Tailscale.** Lane 1 is `ready`. Over Tailscale with TLS, its gateway serves auth, REST, realtime, storage and functions, and the raw-SQL helper reaches its meta. A machine off Tailscale gets no answer (shown both ways).
+- [x] **Lane 1 serves only on Tailscale.** Lane 1 is `ready`. Over Tailscale with TLS, its gateway serves auth, REST, realtime, storage and functions, and the raw-SQL helper reaches its meta. A machine off Tailscale gets no answer (shown both ways).
 - [ ] **Every consumer of a claimed worktree hits lane 1.** A worktree claiming lane 1 has a plain `npm run dev`, `npx playwright test`, `migrate.sh`, the function deploy, the raw-SQL helper and the DB-latency check all hit lane 1. Shown by lane-1 access and SQL logs, not printed targets. A repo grep finds no consumer still reading the fixed main-lane origin or container names outside the resolver.
 - [ ] **Unclaimed worktrees are unchanged.** An unclaimed worktree runs an unchanged E2E on the main lane.
-- [ ] **Bad claims fail closed.** A worktree with a released, revoked or unknown claim refuses to run, deploy and migrate, and the main-lane access log shows nothing from it. A second worktree on a branch holding a lane refuses to deploy or migrate to the main lane. Control: the claimed worktree succeeds.
-- [ ] **Old checkouts cannot claim.** A worktree whose branch lacks the resolver commit is refused a claim. After a rebase it claims, and its already-running dev server is restarted onto lane 1.
-- [ ] **Lane 1 never calls the main lane.** During a full cycle of lane 1's cron jobs and a trigger-firing fixture, the main lane's gateway log shows zero requests from lane 1. Control: one deliberate request from lane 1 to the main lane appears in that log.
-- [ ] **Quarantine holds through migrations.** A branch migration that installs and immediately fires an HTTP trigger to an outside address produces no request, and leaves the lane quarantined until the check passes (negative control).
-- [ ] **The copy keeps permissions.** A fresh lane matches the main lane on owners, ACLs, default privileges, RLS policies and security-definer functions (catalog comparison output).
+- [x] **Bad claims fail closed.** A worktree with a released, revoked or unknown claim refuses to run, deploy and migrate, and the main-lane access log shows nothing from it. A second worktree on a branch holding a lane refuses to deploy or migrate to the main lane. Control: the claimed worktree succeeds.
+- [x] **Old checkouts cannot claim.** A worktree whose branch lacks the resolver commit is refused a claim. After a rebase it claims, and its already-running dev server is restarted onto lane 1.
+- [x] **Lane 1 never calls the main lane.** During a full cycle of lane 1's cron jobs and a trigger-firing fixture, the main lane's gateway log shows zero requests from lane 1. Control: one deliberate request from lane 1 to the main lane appears in that log.
+- [x] **Quarantine holds through migrations.** A branch migration that installs and immediately fires an HTTP trigger to an outside address produces no request, and leaves the lane quarantined until the check passes (negative control).
+- [x] **The copy keeps permissions.** A fresh lane matches the main lane on owners, ACLs, default privileges, RLS policies and security-definer functions (catalog comparison output).
 - [ ] **No inherited work runs.** After quarantine lifts, the lane's queues hold zero inherited runnable rows and zero inherited provider message IDs. A scheduled tick processes only a fixture created in the lane.
 - [ ] **Lane mail reaches only the founder.**
   - From each of the four mail senders, a message to a non-founder fixture address is not delivered (provider log), and one to the founder is delivered.
@@ -378,14 +378,14 @@ Stage 1
   - A migration-only landing whose version was absent from the main lane beforehand leaves it applied, with its schema effect observable.
   - An injected failing migration in a landing is recorded as a failure even when that landing's function deploy succeeds.
   - A landing during a lane-1 run changes neither lane 1's served functions nor its schema (hashes and catalog read before and after).
-- [ ] **Reuse starts clean.** After branch A releases lane 1 and branch B claims it, A's branch-only table, function and fixture are absent, and A's old keys and SQL generation are refused.
-- [ ] **Allocation is safe.**
+- [x] **Reuse starts clean.** After branch A releases lane 1 and branch B claims it, A's branch-only table, function and fixture are absent, and A's old keys and SQL generation are refused.
+- [x] **Allocation is safe.**
   - Two simultaneous claims never receive the same lane (race test).
   - A claim whose heartbeat stops is reclaimed after expiry, never on branch inventory.
-- [ ] **E2E admission is VM-wide.**
+- [x] **E2E admission is VM-wide.**
   - An exclusive E2E run in lane 1 does not block a main-lane run.
   - The VM-wide limit caps total concurrent runs across two independent clients, one with `CI=1` set.
-- [ ] **The proxy keeps serving the main lane.** Adding and removing lane 1's Caddy route leaves the main lane serving throughout (continuous probe log).
+- [x] **The proxy keeps serving the main lane.** Adding and removing lane 1's Caddy route leaves the main lane serving throughout (continuous probe log).
 - [ ] **The founder confirmed the lane mail recipient** on the provider (the one founder action in stage 1).
 
 Stage 2
