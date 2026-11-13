@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 334
 workstream: tooling
 created_date: '2026-11-13'
 tags: [kanban, day, ux, insights]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium

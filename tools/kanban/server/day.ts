@@ -17,6 +17,7 @@
 // page says so instead of quietly showing yesterday's run, and no decision can be recorded.
 
 import type { Express, Request, Response } from 'express'
+import type { Insight } from '../src/lib/weeklyRead'
 import { readFileSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
 import { fileURLToPath } from 'url'
@@ -24,7 +25,7 @@ import { KANBAN_CONFIG } from '../config'
 import { ackWaitMs, collectionHash, dayClock, dayLauncher, launchWorkdir, sweepLaunchDirs, waitForAck, writePromptFile } from './dayLaunch'
 import { appendDecisionLines, parseLines, readDecisionsText, Refusal } from './dayStore'
 import { ledgerOf, markLine, resendLine } from './dayStories'
-import { analyticsDir, appendLedger, latestRead, latestReadFileDate, readLedger } from './analyticsStore'
+import { analyticsDir, appendLedger, latestRead, latestReadFileDate, ledgerUnreadable, readLedger } from './analyticsStore'
 import {
   buildPrompt,
   buildView,
@@ -40,6 +41,7 @@ import {
   validateDecisionInput,
   validateStoryRequest,
   traceOf,
+  withInsights,
   type DayDecision,
   type LaunchReceipt,
   type RunStatements,
@@ -166,13 +168,37 @@ function readDecisions(dir: string): { lines: DayDecision[]; badLines: number } 
   }
 }
 
-/** The latest run, only when it is readable. Decisions and the prompt use this. */
+/**
+ * P1673: the weekly insights still waiting for a decision (the same rule the /api/day/analytics route
+ * applies). `error` is a read that could not be loaded, never the same as having nothing to decide.
+ * A read that was not collected raises no card: /day's own cp.analytics check reports that.
+ */
+function undecidedInsightsNow(): { insights: Insight[]; error: boolean } {
+  try {
+    const dir = analyticsDir()
+    const good = latestRead(dir)
+    if (!good || good.status !== 'collected' || latestReadFileDate(dir) !== good.date) return { insights: [], error: false }
+    // an unreadable ledger must not bring a dismissed insight back: that is a failed load, not "nothing"
+    if (ledgerUnreadable(dir)) return { insights: [], error: true }
+    // a dismiss hides its key for good; a confirm hides only the card of the read it was made on
+    const decided = new Set(
+      readLedger(dir)
+        .filter((e) => e.decision === 'dismiss' || (e.decision === 'confirm' && (e.at ?? '') >= good.date))
+        .map((e) => e.key),
+    )
+    return { insights: good.insights.filter((i) => !decided.has(i.key)), error: false }
+  } catch {
+    return { insights: [], error: true }
+  }
+}
+
+/** The latest run, only when it is readable. Decisions and the prompt use this. Its report carries the weekly insights (P1673). */
 function latestReadable(dir: string): { id: string; report: DayReport; history: RunTrace[]; statements: Record<string, RunStatements> } | { refused: string } {
   const list = listRuns(dir)
   const latest = list.runs[0]
   if (!latest) return { refused: 'No run to decide on' }
   if (latest.parsed.kind !== 'ok') return { refused: 'The latest run cannot be read' }
-  return { id: latest.id, report: latest.parsed.report, history: traces(list.runs), statements: statementsByRun(reportsOf(list.runs)) }
+  return { id: latest.id, report: withInsights(latest.parsed.report, undecidedInsightsNow().insights), history: traces(list.runs), statements: statementsByRun(reportsOf(list.runs)) }
 }
 
 /** P1440: every story of every run, with its state (open / sent / stuck / done). An unreadable file has none. */
@@ -277,7 +303,9 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       }
       if (run.parsed.kind !== 'ok') return res.json({ id, isLatest, kind: 'unreadable' })
       const { lines, badLines } = readDecisions(dir)
-      const view = buildView(run.parsed.report, lines, traces(list.runs))
+      // P1673: the latest run also shows the undecided weekly insights; an earlier run shows none
+      const weekly = isLatest ? undecidedInsightsNow() : { insights: [], error: false }
+      const view = buildView(withInsights(run.parsed.report, weekly.insights), lines, traces(list.runs))
       // An earlier run shows what was sent from it too (P1432); the bar's lastSentAt stays latest-only.
       const sent = sentForRun(dir, run.parsed.report)
       // P1440: the stories with their hashes — the page echoes a hash back to mark a story, never computes one.
@@ -288,6 +316,7 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
         kind: 'ok',
         report: run.parsed.report,
         view,
+        insightsError: weekly.error,
         droppedRows: run.parsed.droppedRows,
         decisionsBadLines: badLines,
         collectedCount: isLatest ? collect(view, sent.items, ledger).count : collect(view, new Set<string>()).count,

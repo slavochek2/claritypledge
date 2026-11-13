@@ -29,6 +29,8 @@
 //   - A story is a work item, not a record (P1440 A): it goes out until the agent marks that version
 //     done, or until 3 sends leave it stuck on the board. Editing it makes it a new version.
 
+import type { Insight } from './weeklyRead'
+
 export const DAY_SCHEMA = 2
 
 /**
@@ -43,6 +45,14 @@ export const OTHER = 'other'
 
 /** The ids a report may never offer: the page owns them. */
 const PAGE_ONLY = [OWN, ASK, OTHER]
+
+// P1673: weekly insights (P1640) are shown as ordinary finding cards. They are not in the report
+// file: the server adds them to the latest run when it reads it (`withInsights`). Their confirm /
+// dismiss go to the P1640 ledger, never to decisions.jsonl; only a free-text answer is a decision.
+export const INSIGHT_FP = 'insight:'
+export const INSIGHT_CONFIRM = 'confirm'
+export const INSIGHT_DISMISS = 'dismiss'
+export const isInsightCard = (i: { fp: string }) => i.fp.startsWith(INSIGHT_FP)
 
 /** A custom reply ending in "?" is a question for the agent; anything else is an answer. */
 const isQuestionText = (text: string | undefined) => (text ?? '').trim().endsWith('?')
@@ -149,6 +159,10 @@ export interface DayIssue {
    * are then the plain wording, and the original technical wording is kept here (More info).
    */
   technical?: { title: string; point_a: string; obstacle: string; point_b: string }
+  /** P1673: set only on a weekly-insight card the server added: the P1640 ledger key it decides */
+  insight_key?: string
+  /** P1673: the insight's own "where to look" link (More info, shown only when safe) */
+  insight_link?: string
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1321,6 +1335,8 @@ export function decisionTargetExists(report: DayReport, d: DecisionInput): boole
       const issue = allIssues(report).find((i) => i.fp === d.target)
       if (!issue) return false
       if (d.remove) return true
+      // P1673: an insight's confirm / dismiss are ledger writes, never a decision line: only a free-text answer is
+      if (isInsightCard(issue)) return d.option_id === OWN
       return PAGE_ONLY.includes(d.option_id ?? '') || issue.options.some((o) => o.id === d.option_id)
     }
     case 'reflection':
@@ -1740,8 +1756,49 @@ function toView(issue: DayIssue, report: DayReport, checks: Map<string, DayCheck
     urgent: deadlineSoon || notProven,
     important: synthetic ? check?.severity === 'high' : issue.important === true && check?.severity !== 'normal',
     came_back: false,
-    recommended_index: Math.max(0, recommended),
+    // P1673: an insight has no recommended answer (-1): nothing is preselected, and Accept is not offered
+    recommended_index: issue.insight_key ? -1 : Math.max(0, recommended),
   }
+}
+
+/** FNV-1a: a short, stable fingerprint part for an insight key (keys hold spaces; fps may not). */
+const fnv = (s: string): string => {
+  let h = 0x811c9dc5
+  for (let k = 0; k < s.length; k++) h = Math.imul(h ^ s.charCodeAt(k), 0x01000193) >>> 0
+  return h.toString(16).padStart(8, '0')
+}
+
+/**
+ * P1673: one weekly insight as a normal finding card (Point A / Obstacle / Point B, More info,
+ * numbered choices). Confirm and Dismiss are the page's to route to the P1640 ledger; no option is
+ * recommended and none hands work to the agent.
+ */
+export function insightIssue(i: Insight): DayIssue {
+  const before = i.seen_count > 0 ? `raised ${i.seen_count} time${i.seen_count === 1 ? '' : 's'} before` : 'first week it is raised'
+  const more = [`Base: ${i.base}`, `Comparison: ${i.comparison}`, `Confidence: ${i.confidence}`, ...(i.pattern ? [`Pattern: seen ${i.seen_count} times before`] : [])]
+  return {
+    fp: `${INSIGHT_FP}${fnv(i.key)}`,
+    topic: 'Weekly insight',
+    title: i.observation,
+    point_a: `${i.numbers}, ${before}`,
+    obstacle: `Not yet known whether this is a real user problem (confidence: ${i.confidence})`,
+    point_b: i.next_step,
+    more_info: more.join('\n'),
+    source: 'Weekly product read',
+    options: [
+      { id: INSIGHT_CONFIRM, label: 'Real problem' },
+      { id: INSIGHT_DISMISS, label: 'Not a problem' },
+    ],
+    insight_key: i.key,
+    ...(i.link ? { insight_link: i.link } : {}),
+  }
+}
+
+/** The report as the page reads it on the latest run: the undecided insights first, then its own issues. */
+export function withInsights(report: DayReport, insights: Insight[]): DayReport {
+  if (!insights.length) return report
+  const have = new Set(report.issues.map((x) => x.fp))
+  return { ...report, issues: [...insights.map(insightIssue).filter((x) => !have.has(x.fp)), ...report.issues] }
 }
 
 const NO_CHECKS = 'run:no-checks'
@@ -1822,7 +1879,8 @@ export function groupByCause(sorted: IssueView[]): void {
 const reRaised = (i: IssueView) => (i.loop?.sent?.outcome === 'still-open' ? 0 : 1)
 
 export function compareIssues(a: IssueView, b: IssueView): number {
-  return rank(a) - rank(b) || reRaised(a) - reRaised(b) || whoActs(a) - whoActs(b) || byPresent(a.deadline, b.deadline) || byPresent(a.first_seen, b.first_seen) || a.title.localeCompare(b.title)
+  // P1673: weekly insights lead the list, whatever their tier
+  return Number(isInsightCard(b)) - Number(isInsightCard(a)) || rank(a) - rank(b) || reRaised(a) - reRaised(b) || whoActs(a) - whoActs(b) || byPresent(a.deadline, b.deadline) || byPresent(a.first_seen, b.first_seen) || a.title.localeCompare(b.title)
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1977,7 +2035,8 @@ export function isAgentWork(issue: IssueView): boolean {
 
 /** Cards nobody has answered whose recommendation is not agent work: not sent, shown as "still yours". */
 export function stillYours(view: DayView): IssueView[] {
-  return view.issues.filter((i) => !i.decision && !isAgentWork(i))
+  // P1673: an undecided weekly insight is not a fix to send, so Start fixing never lists it as "still yours"
+  return view.issues.filter((i) => !i.decision && !isAgentWork(i) && !isInsightCard(i))
 }
 
 /**

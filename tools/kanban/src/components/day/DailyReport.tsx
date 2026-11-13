@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { evaluatedSummary, loopNotices, waitingText } from './loops'
-import { OWN, cardDetail, cardState, isAnswered, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
+import { OWN, cardDetail, cardState, isAnswered, isInsightCard, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, Phrases, StatusIcon } from './status'
 import { agentWord, checkStatus, connectionStatus, listSummary, type AgentHeader } from './statusWords'
 import { safeUrl } from './api'
@@ -96,7 +96,7 @@ function stateText(st: CardState, readOnly: boolean): string {
     case 'agent':
       return readOnly ? 'Not answered on this run' : `Goes with Start fixing · recommended: ${st.recommended}`
     case 'open':
-      return readOnly ? 'Not answered on this run' : `Not answered yet · recommended: ${st.recommended}`
+      return readOnly ? 'Not answered on this run' : st.recommended ? `Not answered yet · recommended: ${st.recommended}` : 'Not answered yet'
   }
 }
 
@@ -131,7 +131,8 @@ const listShown = (cards: number, parked: number, statements: number) => cards +
  */
 function CardList(p: { issues: IssueView[]; index: number; cardOpen: boolean; sent: Props['sent']; parked: number; onJump: (fp: string) => void; onParked: () => void; statements: StatementRows }) {
   const states = p.issues.map((i) => cardState(i, p.sent))
-  const need = states.filter((st) => !isDone(st)).length
+  // P1673: a weekly insight is listed first but is not one of the day's cards: it does not count in the totals
+  const need = states.filter((st, k) => !isDone(st) && !isInsightCard(p.issues[k])).length
   return (
     <ListPane
       label="Cards and stories"
@@ -145,7 +146,7 @@ function CardList(p: { issues: IssueView[]; index: number; cardOpen: boolean; se
         attrs: { 'data-list-card': i.fp, 'data-list-state': states[k].kind },
       }))}
       current={p.cardOpen ? Math.min(p.index, p.issues.length - 1) : -1}
-      summary={listSummary(need + p.statements.open, p.issues.length + p.statements.rows.length)}
+      summary={listSummary(need + p.statements.open, p.issues.filter((i) => !isInsightCard(i)).length + p.statements.rows.length)}
       onPick={(k) => p.onJump(p.issues[k].fp)}
       extra={p.parked > 0 ? { title: `${p.parked} parked`, word: 'Parked', attrs: { 'data-list-parked': '' }, onClick: p.onParked } : undefined}
       section={p.statements.rows.length ? { label: 'Stories', rows: p.statements.rows, current: p.statements.current, onPick: p.statements.onPick } : undefined}
@@ -457,6 +458,8 @@ function IssueCard(p: Props) {
   const sel = issue ? p.selected(issue) : null
   const tech = issue ? technicalDetail(issue) : null
   const detail = issue ? cardDetail(issue).show : {}
+  // P1673: a weekly insight's own link, only when it is a safe one
+  const insightHref = issue ? safeUrl(issue.insight_link) : null
 
   // Focus the custom answer's box only when it is picked — never when paging lands here.
   useEffect(() => {
@@ -538,7 +541,10 @@ function IssueCard(p: Props) {
   const head = (
     <div className="d-ihead">
       {/* P1463 round 3: the title says what it is about — the topic word only restated it */}
-      <span className="d-topic">{issue.review && <span className="d-runbadge sm">{reviewLabel(issue.review)}</span>}</span>
+      <span className="d-topic">
+        {issue.review && <span className="d-runbadge sm">{reviewLabel(issue.review)}</span>}
+        {issue.insight_key && <span className="d-runbadge sm" data-insight-tag>Weekly insight</span>}
+      </span>
       <span className="d-pills">
         {issue.came_back && <span className="d-back">Came back</span>}
         {/* a checked cause is the normal case: only the exception is worth a label */}
@@ -615,10 +621,12 @@ function IssueCard(p: Props) {
                 <dd>{issue.options[issue.recommended_index].why}</dd>
               </div>
             )}
-            <div>
-              <dt>First seen</dt>
-              <dd>{firstSeen(issue, report.started_at)}</dd>
-            </div>
+            {!issue.insight_key && (
+              <div>
+                <dt>First seen</dt>
+                <dd>{firstSeen(issue, report.started_at)}</dd>
+              </div>
+            )}
             {issue.source && (
               <div>
                 <dt>Source</dt>
@@ -634,7 +642,17 @@ function IssueCard(p: Props) {
             {detail.more_info && (
               <div>
                 <dt>Details</dt>
-                <dd>{detail.more_info}</dd>
+                <dd style={issue.insight_key ? { whiteSpace: 'pre-line' } : undefined}>{detail.more_info}</dd>
+              </div>
+            )}
+            {insightHref && (
+              <div>
+                <dt>Where to look</dt>
+                <dd>
+                  <a className="d-link sm d-tap" href={insightHref} target="_blank" rel="noopener noreferrer">
+                    Open the linked replay or report
+                  </a>
+                </dd>
               </div>
             )}
             {tech && (

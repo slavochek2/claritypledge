@@ -53,6 +53,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node', // Kanban tests are Node.js (not browser)
+    // P1673: no test reads the founder's real weekly-read folder
+    setupFiles: ['./server/__tests__/setup-analytics-dir.ts'],
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

@@ -2,7 +2,6 @@
 // receives is logged or put in browser storage (spec Invariants).
 
 import type { DayReport, DayView, DecisionInput, Review, RunState, StoryEntry, StoryRequest } from '../../lib/day'
-import type { StoredRead } from '../../lib/weeklyRead'
 
 export interface RunSummary {
   id: string
@@ -23,6 +22,8 @@ export type RunPayload =
       kind: 'ok'
       report: DayReport
       view: DayView
+      /** P1673: the weekly insights could not be loaded for this (latest) run: never the same as having none */
+      insightsError?: boolean
       droppedRows: number
       decisionsBadLines: number
       /** items not yet sent to a terminal */
@@ -136,13 +137,6 @@ export function safeUrl(url: string | undefined): string | null {
     return null
   }
 }
-
-/** P1640: the latest weekly product read, with the founder's confirm / dismiss keys. */
-export type WeeklyReadPayload =
-  | { status: 'none' }
-  | { status: 'collected' | 'not-collected'; read: StoredRead; dismissed: string[]; confirmed: string[] }
-
-export const getWeeklyRead = () => fetch('/api/day/analytics').then((r) => json<WeeklyReadPayload>(r))
 
 /** P1669: the public Mixpanel boards. `invalid` holds variable names only, never values. */
 export interface BoardsPayload {

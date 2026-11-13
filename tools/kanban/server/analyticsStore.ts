@@ -62,6 +62,19 @@ export function writeRead(dir: string, read: StoredRead): void {
   chmodSync(join(dir, 'reads', `${read.date}.json`), 0o600)
 }
 
+/**
+ * P1673: the ledger exists but cannot be read. readLedger answers [] for that, which would show an
+ * insight the founder already dismissed again; the Day page treats it as a failed load instead.
+ */
+export function ledgerUnreadable(dir: string): boolean {
+  try {
+    readFileSync(join(dir, 'ledger.jsonl'), 'utf-8')
+    return false
+  } catch (e) {
+    return (e as NodeJS.ErrnoException)?.code !== 'ENOENT'
+  }
+}
+
 export function readLedger(dir: string): LedgerEntry[] {
   let text: string
   try {

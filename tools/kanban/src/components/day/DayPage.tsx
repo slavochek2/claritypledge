@@ -14,12 +14,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
+  INSIGHT_CONFIRM,
+  INSIGHT_DISMISS,
   OWN,
   PARK,
   cardState,
   clearPosition,
   isAgentWork,
   isAnswered,
+  isInsightCard,
   pendingPreselected,
   statementRows,
   stillYours,
@@ -30,7 +33,7 @@ import {
   type IssueView,
   type StoryEntry,
 } from '../../lib/day'
-import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, postStory, startRun, type DayIndex, type RunPayload } from './api'
+import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, postStory, postWeeklyDecision, startRun, type DayIndex, type RunPayload } from './api'
 import { DailyReport } from './DailyReport'
 import { isAgentOnly } from './checklist'
 import { MonitoringTab } from './MonitoringTab'
@@ -38,7 +41,6 @@ import { ReflectionTab, BOARD_NOTE, EarlierStoriesOf } from './ReflectionTab'
 import { cycle, DEFAULT_POS, sideOf } from './positions'
 import { StatsTab } from './StatsTab'
 import { BoardsTab } from './BoardsTab'
-import { InsightCards } from './InsightCards'
 import './day.css'
 
 type Tab = 'report' | 'stats' | 'analytics' | 'monitoring'
@@ -318,14 +320,43 @@ export function DayPage() {
 
   const draftOf = useCallback((i: IssueView) => drafts[i.fp] ?? (i.decision?.option_id === OWN ? i.decision.text ?? '' : ''), [drafts])
 
+  /** P1673: weekly insights being saved to the P1640 ledger; a second press while one is in flight does nothing. */
+  const insightInFlight = useRef(new Set<string>())
+  /**
+   * P1673: Real problem / Not a problem on an insight card go to the P1640 ledger (not decisions.jsonl),
+   * then the run is re-read: a decided insight is no longer in it, so the card leaves. A failed save keeps
+   * the card, says why, and the same press can be tried again.
+   */
+  const decideInsight = useCallback(
+    async (i: IssueView, optionId: string) => {
+      if (!runId || !i.insight_key || insightInFlight.current.has(i.fp)) return
+      insightInFlight.current.add(i.fp)
+      setChoice((c) => ({ ...c, [i.fp]: optionId }))
+      try {
+        await postWeeklyDecision(i.insight_key, optionId === INSIGHT_DISMISS ? 'dismiss' : 'confirm')
+        await reload(runId)
+      } catch (e) {
+        say(`Not saved: ${e instanceof Error && e.message ? e.message : 'Could not save the decision'}`)
+      } finally {
+        insightInFlight.current.delete(i.fp)
+        setChoice((c) => Object.fromEntries(Object.entries(c).filter(([k]) => k !== i.fp)))
+      }
+    },
+    [runId, reload, say],
+  )
+
   const choose = useCallback(
     (i: IssueView, optionId: string) => {
       if (readOnly) return
+      if (isInsightCard(i) && (optionId === INSIGHT_CONFIRM || optionId === INSIGHT_DISMISS)) {
+        void decideInsight(i, optionId)
+        return
+      }
       setChoice((c) => ({ ...c, [i.fp]: optionId }))
       if (isFree(optionId)) setOwnFocus((n) => n + 1)
       else void write([{ kind: 'option', target: i.fp, option_id: optionId }])
     },
-    [readOnly, write],
+    [readOnly, write, decideInsight],
   )
 
   /** Custom-answer text not yet in the file (never a custom answer without text). */
@@ -583,7 +614,8 @@ export function DayPage() {
   /** The current card is an unanswered founder choice whose recommendation is not Park: Accept is offered. */
   const accepting = useMemo(() => {
     const cur = sec === 'cards' && !readOnly ? issues[nav?.i ?? -1] : undefined
-    return !!cur && !cur.decision && !isAgentWork(cur) && choice[cur.fp] === undefined && cur.options[cur.recommended_index]?.id !== PARK
+    // P1673: a card with no recommended answer (a weekly insight) has nothing to accept
+    return !!cur && !cur.decision && !isAgentWork(cur) && choice[cur.fp] === undefined && !!cur.options[cur.recommended_index] && cur.options[cur.recommended_index].id !== PARK
   }, [sec, readOnly, issues, nav, choice])
   /**
    * P1440 / spec E: on Reflection, Accept is offered when there is something to save. A position is
@@ -862,7 +894,11 @@ export function DayPage() {
           {ok && view && (
             <>
               {/* P1468: one layout for the queue — the card or the statement opens inside it */}
-              {tab === 'report' && <InsightCards />}
+              {tab === 'report' && ok.insightsError && !readOnly && (
+                <div className="d-note" role="alert" data-insights-error>
+                  Insights could not load
+                </div>
+              )}
               {tab === 'report' && (
                 <DailyReport
                   key={ok.id}

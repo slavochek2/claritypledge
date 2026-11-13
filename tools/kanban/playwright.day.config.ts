@@ -12,6 +12,8 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 
 export const DAY_E2E_DIR = process.env.DAY_E2E_DIR ?? join(tmpdir(), 'kanban-day-e2e')
+// P1673: the weekly-read folder the Day API gets, next to the day dir so a run on another dir never shares it
+export const DAY_E2E_ANALYTICS = `${DAY_E2E_DIR}-analytics`
 // DAY_E2E_PORT_BASE moves all four ports (default 9070–9073) when another board holds them.
 const BASE = Number(process.env.DAY_E2E_PORT_BASE ?? 9070)
 export const ON = { api: BASE + 1, web: BASE }
@@ -25,6 +27,8 @@ const env = (p: { api: number; web: number }, day: boolean): Record<string, stri
     KANBAN_DISABLE_WORKTREES: 'true',
     // Never open a real terminal from the suite: Start fixing takes its 502 → copy fallback.
     KANBAN_DAY_LAUNCH: 'off',
+    // P1673: the Day run reads the weekly insights; the suite never sees the founder's real read
+    KANBAN_ANALYTICS_DIR: DAY_E2E_ANALYTICS,
   }
   delete e.KANBAN_DAY_DIR
   if (day) e.KANBAN_DAY_DIR = DAY_E2E_DIR
