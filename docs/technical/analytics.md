@@ -50,6 +50,7 @@ Events are categorized by feature area:
 - [Session Transcripts](#session-transcripts) - Transcript nudge engagement (P578)
 - [Clarity Meeting Terms](#clarity-meeting-terms) - /meet level changes and acceptance (P1016, P1024)
 - [Clarity Organizations](#clarity-organizations) - Org join/leave and Events nav (P1010)
+- [Offline strip episodes](#offline-strip-episodes-p1677) - How often "Saved copy · updating…" shows, how long, whether it clears (P1677)
 
 ---
 
@@ -986,6 +987,54 @@ P1669: a group page (`/groups/:slug`) showed a group. A completed join is `org_j
 | `org_slug` | string | Organization slug |
 
 **Discrepancy from the originating audit:** the audit's assumed `source` values were `bottom_nav/desktop_dropdown/mobile_menu/footer`. A fifth real call site exists — the logged-in desktop icon nav row in `simple-navigation.tsx` (`StaticNavLinks`) — which doesn't match any of those four; it's tracked as `desktop_top_nav`.
+
+---
+
+## Offline strip episodes (P1677)
+
+One event per **episode**: the span from the offline strip appearing until it leaves the screen
+(`src/app/components/offline/offline-strip-episodes.ts`, called from `OfflineStrip`). The episode
+follows the strip's **state**, not its text (the saved-copy age changes every minute), so a change
+between states is not a new episode. It continues across route changes. If the strip goes away and
+comes back, that is two episodes. Embed mode renders no strip and records nothing.
+
+### `offline_strip_episode`
+Sent when the strip goes away, or when `OfflineStrip` unmounts while it shows. A tab closed while
+the strip shows sends nothing (no `pagehide` listener, by design), which removes the longest
+episodes and biases criteria 2 and 3 toward "no change".
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `first_state` | string | `slow` ("Saved copy · updating…"), `offline_cached` ("Offline · saved copy…") or `offline` ("Offline") |
+| `last_state` | string | Same values: what the strip said last |
+| `duration_ms` | number | How long the strip was on screen |
+| `ended_by` | string | `cleared` (it went away) or `unmount` (the strip component left while showing) |
+| `start_route` / `end_route` | string | Known top-level route (`/story`, `/feed`, ...), `/` for the root, `other` for anything else. Never a raw path, id or query |
+| `navigator_online` | boolean | `navigator.onLine` when the episode ended |
+
+**Cap:** at most 5 episodes per document load (a module-level counter, so navigation does not reset
+it). A flapping connection therefore undercounts frequency, and a capped load still shows 5.
+
+**Known-route set:** `KNOWN_TOP_LEVEL_SEGMENTS` is checked against the `path="..."` values in
+`src/App.tsx` by `src/tests/p1677-offline-strip-routes.test.ts`. Adding a top-level route fails
+that test until the list is updated, so it cannot silently become `other`.
+
+### Queries for the Decision Criteria (P1677 spec)
+
+Base filter for every query: `is_bot` not set **and** `is_internal` != true (see the `is_internal`
+caveat under User Properties: anonymous events carry none). Each criterion needs at least 30 episodes in its own
+subset; below 30, report counts and decide nothing. Thresholds are proposals
+`[FOUNDER DECISION: thresholds, proposed]`.
+
+1. **Real outages:** Insights, event `offline_strip_episode`, filter `first_state = slow`, count
+   segmented by `last_state`. Share with `last_state` in (`offline_cached`, `offline`) of the total. 20% or more: the strip is telling the truth.
+2. **Stalls that are not outages:** same filter, plus `duration_ms >= 15000`, count segmented by `last_state`.
+   Share with `last_state = slow` of all `first_state = slow` episodes. 20% or more: investigate the auth lock, then the sequential
+   round trips in the most frequent `start_route` (segment the same query by `start_route`).
+3. **Slow but short:** filter `first_state = slow` and `ended_by = cleared`,
+   aggregation: median of `duration_ms`. Above 8000: look at the sequential round trips.
+   **UNVERIFIED:** whether Mixpanel computes a median over this filtered set (the Mixpanel MCP did not connect when the spec was written). Fallback: export the events and compute the median outside Mixpanel.
+4. **None of the above:** report episodes per week, `start_route` breakdown and duration, and no change.
 
 ---
 

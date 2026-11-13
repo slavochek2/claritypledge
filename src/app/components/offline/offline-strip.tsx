@@ -13,10 +13,12 @@
  */
 import { WifiOff } from 'lucide-react';
 import { useOfflineStripText } from '@/app/contexts/offline-status-context';
+import { useOfflineStripEpisode } from './offline-strip-episodes';
 
 /** `className` lets the signed-in shell pull the strip left over the sidebar's column (P1539). */
 export function OfflineStrip({ className = '' }: { className?: string }) {
   const text = useOfflineStripText();
+  useOfflineStripEpisode(text); // P1677: one analytics event per episode
   if (!text) return null;
   return (
     <div
