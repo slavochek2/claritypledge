@@ -276,24 +276,7 @@ nothing (D1).
 
 Do not claim from w1 (P1631) while w13's branch holds the lane. P1631 stays on the main lane in stage 1.
 
-### Stage 2: second lane, clean baseline, protected main lane
-
-- **A second lane**, so a browser-only branch with function changes (P1631's kind) leaves the main lane.
-- **Main-lane baseline cleanup.** The main-lane ledger is made equal to main's migration files, in both
-  directions, and the branch-only objects behind removed versions are dropped.
-  - It runs only once no active branch depends on the main lane for unlanded schema.
-  - It waits for the founder's OK at the time it runs (db-access.md).
-- **Server-side refusal on the main lane.** The VM refuses a function deploy or migration aimed at the
-  main lane unless it comes from main's landing or an explicit main deploy. It holds whichever script
-  version a checkout runs.
-- **Capacity.** Measure two lanes plus the main lane under concurrent E2E. Recommend the VM upgrade to
-  the founder only if the measurement shows contention.
-
-**The acceptance demonstration, at the end of stage 2:**
-- Two branches run in two lanes at the same time.
-- One processes its own fixtures through its real scheduled dispatch.
-- The other runs a branch-only browser-called function.
-- A landing on main during both runs changes neither lane, and brings the main lane forward.
+Stage 2 moved to P1679 so stage 1 can ship.
 
 ## Alternatives Considered
 
@@ -388,12 +371,7 @@ Stage 1
 - [x] **The proxy keeps serving the main lane.** Adding and removing lane 1's Caddy route leaves the main lane serving throughout (continuous probe log).
 - [ ] **The founder confirmed the lane mail recipient** on the provider (the one founder action in stage 1).
 
-Stage 2
-- [ ] **Acceptance demonstration** (Solution): two lanes in use at once, one through its real scheduled dispatch and one through a branch-only browser-called function, while a main landing changes neither lane and brings the main lane forward.
-- [ ] **The baseline is clean.** After the cleanup, run with the founder's OK, the main-lane ledger equals main's migration files in both directions. A branch-only object seeded beforehand under an extra version is gone (catalog diff).
-- [ ] **The VM protects the main lane.** The VM refuses a branch's function deploy and migration aimed at the main lane, including from a checkout running pre-P1672 scripts. Control: a main landing deploy passes.
-- [ ] **Capacity is measured.** CPU, memory and timeouts measured under two concurrent lane E2E runs plus main-lane traffic, recorded privately, with an upgrade recommendation for the founder if contention shows.
-- [ ] **The docs record the change.** `docs/decisions.md` records the reversal of the 2026-11-05 "detect, do not prevent" deferral and the P1591 resolver change. The testing docs say how a lane is claimed, used and released.
+Stage 2 moved to P1679 so stage 1 can ship.
 
 ## Rollback Strategy
 
