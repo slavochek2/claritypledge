@@ -2,11 +2,10 @@
  * The hero of the fable layout (P1667, P1670; options added in P1674). Two shapes:
  *
  *   - with an `example`: the text beside the wordless drawing (/builders, /change-managers,
- *     /hospitals, /communities). On a phone the text column fills the first screen and ends at
+ *     /hospitals, /communities, and /hiring, /coach, /founder with two people). On a phone the text column fills the first screen and ends at
  *     the scroll cue, so the example starts on the second screen as its own band and is never cut
  *     by the fold. From `lg` up the example sits beside the text.
- *   - without one: text only, across the full content width (/hiring, /coach, /founder, whose
- *     stories are two people, not a group).
+ *   - without one: text only, across the full content width (no page uses it since P1674's two-person drawings).
  *
  * Every option defaults to what /builders and /change-managers render: the discovery-call button
  * with the "Take the Pledge" link, a plain sub-line, and the page's scroll cue.

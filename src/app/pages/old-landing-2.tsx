@@ -4,8 +4,8 @@
  * the SEO block: this file inherited `url="/"` from its origin at `/`, which would canonicalize this
  * page away. See features/p987_cp_front_door_realignment.md.
  *
- * Since P1674 it renders the fable layout of /builders and /change-managers, without the hero
- * drawing: its story is two co-founders, so the hero is text only, across the full width. Copy is
+ * Since P1674 it renders the fable layout of /builders and /change-managers, with the hero
+ * drawing, drawn with two people (the two co-founders). Copy is
  * unchanged; "How the platform works" became the gap exchange (it claimed an agent feature that is
  * not built, decisions.md 2026-10-28).
  *
@@ -28,7 +28,7 @@ import { FounderCredibility } from "@/app/components/landing/founder-credibility
 import { Testimonials } from "@/app/components/landing/offers-section";
 import { PROGRAM_FAQS } from "@/app/content/faqs";
 import type { EventWithHost } from "@/app/types";
-import { FOUNDER_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
+import { AGREED_FOUNDER, FOUNDER_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
 import { OrLink, PercentBar, RefSup } from "@/app/components/landing/fable/fable-parts";
 import { CloseSection, ExchangeSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
 import { AssumedSection, ChatSection, FablePage, FaqSection, IllusionSection, PartnerAgreementSpecimen, PlainSection, type AssumedStat } from "@/app/components/landing/fable/fable-use-case";
@@ -86,6 +86,7 @@ function FounderHero({ nextEvent }: { nextEvent: EventWithHost | null }) {
           <OrLink to="/sign-pledge">Take the Pledge</OrLink>
         </>
       }
+      example={AGREED_FOUNDER}
       nextId="stakes"
       nextLabel="Why it matters"
     />

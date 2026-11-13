@@ -3,8 +3,8 @@
  * when it was misunderstood; churn is the named consequence, not a promised outcome. Names are canon:
  * Clarity Letter, Clarity Session, Clarity Partner Agreement.
  *
- * Since P1674 it renders the fable layout of /builders and /change-managers, without the hero
- * drawing: its story is a coach and a client, so the hero is text only, across the full width. Copy
+ * Since P1674 it renders the fable layout of /builders and /change-managers, with the hero
+ * drawing, drawn with two people (a coach and a client). Copy
  * and section order are unchanged. The page keeps its own chat and Venn (coach-partnership-chat.tsx,
  * coach-partnership-venn.tsx), restyled in place. "How the platform works" became the gap exchange
  * (it claimed an agent feature that is not built, decisions.md 2026-10-28), keeping its #how anchor.
@@ -21,7 +21,7 @@ import { SEO } from "@/app/components/seo";
 import { useInviteRedirects } from "@/app/hooks/useInviteRedirects";
 import { SectionHeader } from "@/app/components/landing/section-header";
 import { FounderCredibility } from "@/app/components/landing/founder-credibility";
-import { COACH_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
+import { AGREED_COACH, COACH_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
 import { AuditCTA, OrLink } from "@/app/components/landing/fable/fable-parts";
 import { CloseSection, ExchangeSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection } from "@/app/components/landing/fable/fable-sections";
 import { AssumedSection, ChatSection, FablePage, FaqSection, IllusionSection, PartnerAgreementSpecimen, type AssumedStat } from "@/app/components/landing/fable/fable-use-case";
@@ -74,6 +74,7 @@ function CoachHero() {
           <span className="block text-blue-600">Make the hard truth safe to share.</span>
         </>
       }
+      example={AGREED_COACH}
     />
   );
 }

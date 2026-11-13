@@ -1,7 +1,7 @@
 /**
  * /hiring — the key-hire landing (P987; re-homed from "/" by P1004). Since P1674 it renders the
- * fable layout of /builders and /change-managers, without the hero drawing: its story is two people
- * (a founder and Katie, the new hire), so the hero is text only, across the full width.
+ * fable layout of /builders and /change-managers, with the two-person hero drawing
+ * (a founder and Katie, the new hire).
  *
  * Copy is unchanged; P1674 lifts P1004's freeze for style only. Stats are source-verified (lesson
  * #2): every citation resolves AND the wording matches. The stat stays in Leadership IQ's own words
@@ -26,7 +26,7 @@ import { MisunderstandingVenn } from "@/app/components/landing/misunderstanding-
 import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 import { KeyHireCalculator } from "@/app/components/stakes/key-hire-calculator";
 import { KEY_HIRE_FAQS } from "@/app/content/faqs";
-import { HIRING_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
+import { AGREED_HIRING, HIRING_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
 import { PercentBar, RefSup } from "@/app/components/landing/fable/fable-parts";
 import { CloseSection, ExchangeSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
 import { AssumedSection, ChatSection, FablePage, FaqSection, IllusionSection, PartnerAgreementSpecimen, type AssumedStat } from "@/app/components/landing/fable/fable-use-case";
@@ -80,6 +80,7 @@ function HiringHero() {
           <RefSup n={1} label={label(1)} />
         </>
       }
+      example={AGREED_HIRING}
       nextId="stakes"
       nextLabel="Why it matters"
     />

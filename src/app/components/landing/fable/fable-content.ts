@@ -82,7 +82,8 @@ export const FOUNDER_CAST: ExchangeCast = { ...TEAM_CAST, otherRole: "Co-founder
  */
 type AgreedOutcome = "diverged" | "stalled" | "changed";
 export type AgreedPicture = "steps" | "guide" | "options" | "screen" | "words" | "pen" | "once" | "wait" | "mail" | "report"
-  | "phone" | "doctor" | "patient" | "notes" | "groups" | "talk" | "online" | "short" | "open";
+  | "phone" | "doctor" | "patient" | "notes" | "groups" | "talk" | "online" | "short" | "open"
+  | "story" | "guess" | "kind" | "dropped" | "even" | "weighted";
 export type AgreedExample = {
   when: string;
   said: string;
@@ -154,4 +155,46 @@ export const AGREED_COMMUNITIES: AgreedExample = {
     { name: "Lea", did: "came for open discussion", outcome: "diverged", picture: "open" },
   ],
   punchline: "Five said “sounds good”. Five different meetups.",
+};
+
+/**
+ * The /hiring, /coach and /founder examples (P1674): two people, since these pages tell a
+ * two-person story. Each sentence is the page's own chat line; the screen-reader text agrees with it.
+ * Screen-reader only, like the others.
+ * [FOUNDER DECISION: drafted placeholders]
+ */
+export const AGREED_HIRING: AgreedExample = {
+  when: "Katie's first week",
+  said: "We're not going after enterprise.",
+  agreed: "2 of 2 agreed",
+  later: "Six months later · what the sentence meant",
+  people: [
+    { name: "Founder", did: "had a long story behind it", outcome: "diverged", picture: "story" },
+    { name: "Katie, the new Head of Sales,", did: "built on her own guess", outcome: "diverged", picture: "guess" },
+  ],
+  punchline: "One sentence. Two meanings.",
+};
+
+export const AGREED_COACH: AgreedExample = {
+  when: "The refund message",
+  said: "I'll process your refund today.",
+  agreed: "2 of 2 said yes",
+  later: "After the refund · what it meant",
+  people: [
+    { name: "Coach", did: "kept quiet that 1-on-1 would fix it", outcome: "diverged", picture: "kind" },
+    { name: "Client", did: "heard that no one tried to keep them", outcome: "diverged", picture: "dropped" },
+  ],
+  punchline: "One sentence. Two meanings.",
+};
+
+export const AGREED_FOUNDER: AgreedExample = {
+  when: "The equity chat",
+  said: "Let's just lock 50/50 and sort who does what as we go.",
+  agreed: "2 of 2 said yes",
+  later: "18 months later · what 50/50 meant",
+  people: [
+    { name: "Co-founder", did: "meant an even split", outcome: "diverged", picture: "even" },
+    { name: "You", did: "assumed 60/40, for the full-time one", outcome: "diverged", picture: "weighted" },
+  ],
+  punchline: "One sentence. Two meanings.",
 };

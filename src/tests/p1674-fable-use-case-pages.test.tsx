@@ -38,7 +38,7 @@ import { OldLanding2Page } from '@/app/pages/old-landing-2';
 import { HospitalsPage } from '@/app/pages/hospitals-page';
 import { CommunitiesPage } from '@/app/pages/communities-page';
 import { HOSPITALS_OG } from '@/app/content/hospitals-og';
-import { AGREED_COMMUNITIES, AGREED_HOSPITALS, COACH_CAST, FOUNDER_CAST, HIRING_CAST } from '@/app/components/landing/fable/fable-content';
+import { AGREED_COACH, AGREED_COMMUNITIES, AGREED_FOUNDER, AGREED_HIRING, AGREED_HOSPITALS, COACH_CAST, FOUNDER_CAST, HIRING_CAST } from '@/app/components/landing/fable/fable-content';
 import { WEBINAR_CTA_LABEL, WEBINAR_REGISTER_URL } from '@/app/content/webinar';
 
 const CALL = 'Book a 15-min discovery call';
@@ -422,7 +422,7 @@ describe('P1674 SEO (unchanged)', () => {
   });
 });
 
-describe('P1674 the hero drawing: only where the story is a group', () => {
+describe('P1674 the hero drawing', () => {
   it.each([
     ['/hospitals', AGREED_HOSPITALS, 'Why it matters', 'stakes'],
     ['/communities', AGREED_COMMUNITIES, "What a member didn't say", 'why'],
@@ -461,11 +461,42 @@ describe('P1674 the hero drawing: only where the story is a group', () => {
     }
   });
 
-  it.each(['/hiring', '/coach', '/founder'] as const)('%s has a text-only hero: no drawing and no cue to one', (path) => {
+  it.each([
+    ['/hiring', AGREED_HIRING],
+    ['/coach', AGREED_COACH],
+    ['/founder', AGREED_FOUNDER],
+  ] as const)('%s draws two people, two distinct shapes, both diverged; its story is screen-reader only', (path, example) => {
     renderAt(path);
-    expect(screen.queryByTestId('agreed-graphic')).toBeNull();
-    expect(document.getElementById('example')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'See an example' })).toBeNull();
+    const card = screen.getByTestId('agreed-graphic');
+    const figures = [...card.querySelectorAll<SVGGElement>('[data-figure]')];
+    expect(figures).toHaveLength(2);
+    expect(new Set(figures.map((f) => f.dataset.shape)).size).toBe(2);
+    expect(example.people).toHaveLength(2);
+    expect(new Set(example.people.map((p) => p.picture)).size).toBe(2);
+    expect(figures.every((f) => f.dataset.outcome === 'diverged')).toBe(true);
+    expect(card.querySelector('svg')).toHaveAttribute('aria-hidden');
+    const caption = card.querySelector('figcaption')!;
+    expect(caption.textContent).toBe(example.punchline);
+    expect(caption).toHaveClass('sr-only');
+    const story = within(card).getByText(`“${example.said}”`).closest('div')!;
+    expect(story).toHaveClass('sr-only');
+    for (const p of example.people) expect(story.textContent).toContain(`${p.name} ${p.did}`);
+    expect(document.getElementById('example')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'See an example' }).dataset.target).toBe('example');
+  });
+
+  it.each(['/hiring', '/coach', '/founder'] as const)('%s: under reduced motion the two-person drawing is its final frame and stays there', (path) => {
+    vi.useFakeTimers();
+    try {
+      motion.inView = true;
+      renderAt(path);
+      expect(screen.getByTestId('agreed-graphic')).toHaveAttribute('data-phase', 'close');
+      vi.advanceTimersByTime(10000);
+      expect(screen.getByTestId('agreed-graphic')).toHaveAttribute('data-phase', 'close');
+      for (const f of screen.getByTestId('agreed-graphic').querySelectorAll<SVGGElement>('[data-figure]')) expect(f.dataset.reveal).toBe('shown');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it.each(['/hiring', '/founder'] as const)('%s: the hero cue still reads "Why it matters" and targets #stakes', (path) => {
