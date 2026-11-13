@@ -591,9 +591,9 @@ echo ""
 # $STAGED_FILES, so a staged DELETION of the library or its canary is an error and not a skip (the
 # index-integrity block above spells out why).
 PCT_RAW=$(git diff --cached --name-only 2>/dev/null || true)
-PCT_STAGED=$(echo "$PCT_RAW" | grep -E '^scripts/(pre-commit-checks|test-p1635-precommit-tests|test-p1635-real)\.sh$|^scripts/lib/(precommit-tests|run-quiet)\.sh$|^scripts/lib/test-worker-share\.mjs$' || true)
+PCT_STAGED=$(echo "$PCT_RAW" | grep -E '^scripts/(pre-commit-checks|test-p1635-precommit-tests|test-p1635-real)\.sh$|^scripts/lib/(precommit-tests|run-quiet)\.sh$|^scripts/lib/test-worker-share\.(mjs|d\.mts)$' || true)
 PCT_DELETED=$(git diff --cached --name-only --diff-filter=D 2>/dev/null \
-    | grep -E '^scripts/(test-p1635-precommit-tests|lib/precommit-tests)\.sh$|^scripts/lib/test-worker-share\.mjs$' || true)
+    | grep -E '^scripts/(test-p1635-precommit-tests|lib/precommit-tests)\.sh$|^scripts/lib/test-worker-share\.(mjs|d\.mts)$' || true)
 if [ -n "$PCT_DELETED" ]; then
     echo -e "${RED}✗ Removing the Tests-step library or its canary is not a silent operation:${NC}"
     echo "$PCT_DELETED" | sed 's/^/    /'

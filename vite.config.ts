@@ -9,7 +9,7 @@ import { runtimeCaching, createShellPrecache } from './src/pwa/workbox-config'
 import { appBuildFingerprintPlugin } from './src/pwa/app-build-fingerprint'
 import { worktreeSlot, portForSlot } from './scripts/lib/worktree-port.mjs'
 import { refuseHostedTestRun } from './scripts/lib/hosted-test-guard.mjs'
-import { sizeTestWorkers, configShouldSize, invalidMaxWorkersEnv } from './scripts/lib/test-worker-share.mjs'
+import { sizeTestWorkers, configShouldSize, dropInvalidMaxWorkersEnv } from './scripts/lib/test-worker-share.mjs'
 import { UNIT_TEST_ENV } from './src/tests/unit-test-env'
 
 // P1666: a unit run sees the same VITE_* values on a laptop as in CI, which has no env file and
@@ -27,12 +27,9 @@ if (process.env.VITEST) {
 // Computed once per process: vitest may load this file more than once. Any failure yields 1 worker,
 // never "unset" (vitest reads a falsy maxWorkers as unset and uses cores - 1).
 function unitTestMaxWorkers(): { maxWorkers?: number } {
-  if (process.env.VITEST && invalidMaxWorkersEnv(process.env)) {
-    // vitest applies this env AFTER config and reads an invalid value as unset (cores - 1), so it
-    // must go before vitest resolves the config, or it would beat the share computed below.
-    console.warn(`[P1676] ignoring invalid VITEST_MAX_WORKERS=${JSON.stringify(process.env.VITEST_MAX_WORKERS)}`)
-    Reflect.deleteProperty(process.env, 'VITEST_MAX_WORKERS')
-  }
+  // An invalid VITEST_MAX_WORKERS would beat the share (vitest applies it after config, as unset);
+  // removed locally only, never on CI or in a worker. Unit-tested in p1676 tests.
+  dropInvalidMaxWorkersEnv(process.env)
   if (!configShouldSize(process.env, process.argv)) return {} // guards unit-tested in p1676 tests
   const g = globalThis as { __p1676Workers?: number }
   if (g.__p1676Workers === undefined) {

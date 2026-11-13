@@ -15,6 +15,10 @@ export function resolveCeiling(value: number | string | undefined, dflt?: number
 export function computeShare(input: { others: number; budget: number; ceiling: number }): number;
 export function configShouldSize(env: Record<string, string | undefined>, argv: string[]): boolean;
 export function invalidMaxWorkersEnv(env: Record<string, string | undefined>): boolean;
+export function dropInvalidMaxWorkersEnv(
+  env: Record<string, string | undefined>,
+  warn?: (s: string) => void,
+): string | null;
 export function readPsText(env?: Record<string, string | undefined>): string;
 export function sizeTestWorkers(opts?: {
   ceiling?: number | string;

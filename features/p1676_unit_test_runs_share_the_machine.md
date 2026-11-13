@@ -146,14 +146,17 @@ call within these rules.
 
 ### Known limitations (probable-watch heuristic and argv parsing)
 
-- An explicit watch session (`watch`, `dev`, `--watch`, `-w`) is a watcher with or without a
-  terminal (code review). A run attached to a terminal that disables watch another way
-  (`--no-watch`, `--watch=false`, `CI=true` in its env) one-shots but is treated as a watcher and
-  not counted (undercount). A positional filter literally named `run` makes a real watcher count.
-- A vitest started from inside a test file has no `--maxWorkers` and no config sizing of its own
-  beyond the normal path; nothing does this today.
-- An invalid `VITEST_MAX_WORKERS` on a flagless run is removed with a warning and the run is sized
-  normally (vitest would otherwise read it as unset and use cores - 1).
+- Watch detection reads vitest's own subcommand (the token right after its entry) and its watch
+  flags, never arbitrary words: `run` / `--run` mean one-shot; `watch` / `dev` subcommands and
+  `--watch`, `--watch=true`, `-w` mean watcher with or without a terminal; `--no-watch` /
+  `--watch=false` mean one-shot. Otherwise: terminal attached means watcher (code review, rounds
+  1-2). Not handled: a terminal run made one-shot only by `CI=true` in its own env (counted as a
+  watcher, so an undercount), and bundled short flags such as `-rw`.
+- `VITEST_MAX_WORKERS` counts as the caller's choice only as a plain positive integer: vitest reads
+  the variable with `parseInt`, so `50%` would mean 50 workers. Anything else is removed locally
+  with one warning. Only GitHub Actions is treated as CI.
+- A vitest started from inside a test worker inherits `VITEST_POOL_ID`, so its config skips sizing
+  and it runs at vitest's default; nothing does this today.
 - `ps` args are split on whitespace, so a node binary or checkout path containing a space would not
   be recognised as a coordinator (undercount). Neither occurs on this machine.
 
@@ -169,9 +172,10 @@ call within these rules.
 
 - [x] Unit tests of the sizing function: budget/ceiling arithmetic, others = 0/1/5/20, and invalid
       inputs (0, negative, non-numeric, scan failure, exception) all yield an integer ≥ 1 and ≤ the
-      ceiling. `src/tests/p1676-test-worker-share.test.ts`: 30 passed after the code-review fixes
-      (2026-11-13), including the config guards (`configShouldSize`), NaN inputs, an unusable
-      scan, explicit watch sessions and an invalid `VITEST_MAX_WORKERS`.
+      ceiling. `src/tests/p1676-test-worker-share.test.ts`: 36 passed after the code-review fixes
+      (2026-11-13), including the config guards (`configShouldSize`, `dropInvalidMaxWorkersEnv`),
+      NaN inputs, an unusable scan, watch-mode spellings, the CLI the hook calls, and an invalid
+      `VITEST_MAX_WORKERS`. Canary 111/0; removing the hook's `tail -n 1` or `env -u` turns it red.
 - [x] A scan test against **real processes**: with real vitest coordinators running (one in run mode
       without a TTY, one flagless without a TTY, one `vitest related` watch session on a
       pseudo-terminal) plus their fork workers and an `npm exec vitest run` wrapper (whose child is

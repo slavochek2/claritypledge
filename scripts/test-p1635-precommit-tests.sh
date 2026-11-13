@@ -289,6 +289,21 @@ mkdir -p "$TMP/nonode-bin"; printf '#!/bin/bash\nexit 7\n' > "$TMP/nonode-bin/no
 mk_repo s; st_vercel
 STEP_OUT="$( cd "$R" && PATH="$TMP/nonode-bin:$TMP/bin:$PATH" pct_run_tests "$R" "$BUILD_RE" "$DOCS_RE" 2>&1 )"
 grep -qx -- '--maxWorkers=1' "$STUB_ARGV" && ok "a failing node call → 1 worker" || bad "node failure not 1: $(tr '\n' ' ' < "$STUB_ARGV")"
+case "$STEP_OUT" in *"no usable answer"*) ok "  and the hook says so (never a silent fallback)" ;; *) bad "  silent fallback on node failure: $STEP_OUT" ;; esac
+# A loader line before the answer: the answer is the LAST stdout line, so it is still used.
+mkdir -p "$TMP/noisy-bin"; printf '#!/bin/bash\necho "loader noise"\necho 2\n' > "$TMP/noisy-bin/node"; chmod +x "$TMP/noisy-bin/node"
+mk_repo s; st_vercel
+STEP_OUT="$( cd "$R" && PATH="$TMP/noisy-bin:$TMP/bin:$PATH" pct_run_tests "$R" "$BUILD_RE" "$DOCS_RE" 2>&1 )"
+grep -qx -- '--maxWorkers=2' "$STUB_ARGV" && ok "noise before the answer is ignored: the last line (2) is used" || bad "noisy stdout not handled: $(tr '\n' ' ' < "$STUB_ARGV")"
+# A digit string too long for bash 3.2 arithmetic → 1 with the warning, never a negative count.
+mkdir -p "$TMP/huge-bin"; printf '#!/bin/bash\necho 99999999999999999999\n' > "$TMP/huge-bin/node"; chmod +x "$TMP/huge-bin/node"
+mk_repo s; st_vercel
+STEP_OUT="$( cd "$R" && PATH="$TMP/huge-bin:$TMP/bin:$PATH" pct_run_tests "$R" "$BUILD_RE" "$DOCS_RE" 2>&1 )"
+grep -qx -- '--maxWorkers=1' "$STUB_ARGV" && ok "an overflowing answer → 1 worker" || bad "overflowing answer not 1: $(tr '\n' ' ' < "$STUB_ARGV")"
+case "$STEP_OUT" in *"no usable answer"*) ok "  and the hook says so" ;; *) bad "  silent fallback on an overflowing answer: $STEP_OUT" ;; esac
+# A huge PRECOMMIT_TEST_WORKERS (the ceiling) falls back to 3, never a negative count.
+PRECOMMIT_TEST_WORKERS=99999999999999999999 run_step st_vercel
+grep -qx -- '--maxWorkers=3' "$STUB_ARGV" && ok "an overflowing PRECOMMIT_TEST_WORKERS falls back to 3" || bad "huge ceiling not 3: $(tr '\n' ' ' < "$STUB_ARGV")"
 
 # An inherited VITEST_MAX_WORKERS beats the CLI flag inside vitest, so the plan line would lie. The
 # hook strips it from the vitest process; control first: the stub does see a variable that is set.
@@ -298,6 +313,11 @@ VITEST_MAX_WORKERS=12 PRECOMMIT_TEST_WORKERS=3 run_step st_vercel
 grep -qx -- 'ENV_VITEST_MAX_WORKERS=UNSET' "$STUB_ARGV" && grep -qx -- '--maxWorkers=3' "$STUB_ARGV" \
     && ok "an inherited VITEST_MAX_WORKERS=12 never reaches the hook's vitest; --maxWorkers=3 stands" \
     || bad "inherited VITEST_MAX_WORKERS leaked into the hook's vitest: $(tr '\n' ' ' < "$STUB_ARGV")"
+# Same on the RELATED branch (the other of the two invocation sites).
+VITEST_MAX_WORKERS=12 PRECOMMIT_TEST_WORKERS=3 run_step st_src
+grep -qx -- 'related' "$STUB_ARGV" && grep -qx -- 'ENV_VITEST_MAX_WORKERS=UNSET' "$STUB_ARGV" \
+    && ok "  and on the related run too" \
+    || bad "inherited VITEST_MAX_WORKERS leaked into the related run: $(tr '\n' ' ' < "$STUB_ARGV")"
 
 # FAIL CLOSED on the disk-reading seed group: an error, an empty group, or a group without its known
 # member must run the FULL suite, never narrow on a group nobody can vouch for.

@@ -97,6 +97,11 @@ pct_worker_share() {
             echo "test workers: 1 (the sizing module gave no usable answer, so 1, never the ceiling)" >&2
             share=1 ;;
     esac
+    # Same bash 3.2 overflow guard as pct_workers: a long digit string is not a usable answer.
+    if [ "${#share}" -gt 4 ]; then
+        echo "test workers: 1 (the sizing module gave no usable answer, so 1, never the ceiling)" >&2
+        share=1
+    fi
     if [ "$((10#$share))" -lt 1 ]; then
         share=1
     else

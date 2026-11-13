@@ -1,11 +1,18 @@
-// P1676: unit-test runs size their workers to the machine. Pure-logic tests: no processes are started.
-// The scan against REAL vitest processes is scripts/test-p1676-scan-real.mjs (it starts real
-// coordinators, so it stays out of the default suite).
-import { describe, expect, it } from 'vitest'
+// P1676: unit-test runs size their workers to the machine. Mostly pure-logic tests; the CLI block
+// spawns the module itself (node, against a fake empty `ps` file). The scan against REAL vitest
+// processes is scripts/test-p1676-scan-real.mjs (it starts real coordinators, so it stays out of
+// the default suite).
+import { afterAll, describe, expect, it } from 'vitest'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   computeShare,
   configShouldSize,
   countOthers,
+  dropInvalidMaxWorkersEnv,
   invalidMaxWorkersEnv,
   scanLooksValid,
   isCoordinator,
@@ -16,6 +23,13 @@ import {
   sizeTestWorkers,
 } from '../../scripts/lib/test-worker-share.mjs'
 
+// Relative to this file, not the cwd (the p1244 pattern), so a run started from src/ still finds it.
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+const CLI = path.join(ROOT, 'scripts/lib/test-worker-share.mjs')
+const TMP_DIR = mkdtempSync(path.join(tmpdir(), 'p1676-'))
+const EMPTY_PS = path.join(TMP_DIR, 'ps-empty')
+writeFileSync(EMPTY_PS, '')
+afterAll(() => rmSync(TMP_DIR, { recursive: true, force: true }))
 const NODE = '/opt/homebrew/Cellar/node/26.9.0/bin/node'
 const coord = (pid: number, ppid: number, tty: string, tail: string, root = '/r/w1') =>
   `${pid} ${ppid} ${tty} node ${root}/node_modules/.bin/vitest ${tail}`
@@ -92,6 +106,39 @@ describe('explicit watch mode and invalid overrides', () => {
     }
     expect(isProbableWatch(parsePs(ps(coord(10, 1, '??', 'run')))[0])).toBe(false)
   })
+  it('a one-shot run whose test filter is named dev or watch is not a watcher', () => {
+    for (const tail of ['run dev', 'run watch', '--run dev', 'run --project dev']) {
+      expect(isProbableWatch(parsePs(ps(coord(10, 1, 'ttys001', tail)))[0]), tail).toBe(false)
+    }
+    // no TTY, no run marker, a filter/option value named dev: an agent's one-shot run, so it counts
+    for (const tail of ['--testNamePattern dev', '--project dev', 'src/dev']) {
+      expect(isProbableWatch(parsePs(ps(coord(10, 1, '??', tail)))[0]), tail).toBe(false)
+    }
+  })
+  it('watch flag spellings: --watch=true watches, --no-watch / --watch=false on a terminal do not', () => {
+    expect(isProbableWatch(parsePs(ps(coord(10, 1, '??', '--watch=true')))[0])).toBe(true)
+    expect(isProbableWatch(parsePs(ps(coord(10, 1, 'ttys001', '--no-watch')))[0])).toBe(false)
+    expect(isProbableWatch(parsePs(ps(coord(10, 1, 'ttys001', '--watch=false')))[0])).toBe(false)
+  })
+  it('only a plain positive integer VITEST_MAX_WORKERS is a choice (vitest parseInts the env: 50% is 50)', () => {
+    for (const v of ['50%', '   ', '0', 'abc', '2.5']) expect(invalidMaxWorkersEnv({ VITEST_MAX_WORKERS: v }), v).toBe(true)
+    expect(invalidMaxWorkersEnv({ VITEST_MAX_WORKERS: '12' })).toBe(false)
+  })
+  it('dropInvalidMaxWorkersEnv removes it locally, with one warning, and never on CI or in a worker', () => {
+    const lines: string[] = []
+    const local: Record<string, string | undefined> = { VITEST: 'true', VITEST_MAX_WORKERS: 'abc' }
+    expect(dropInvalidMaxWorkersEnv(local, (s) => lines.push(s))).toMatch(/ignoring invalid/)
+    expect(local.VITEST_MAX_WORKERS).toBeUndefined()
+    expect(lines).toHaveLength(1)
+    for (const extra of [{ GITHUB_ACTIONS: 'true' }, { VITEST_POOL_ID: '1' }, { VITEST: undefined }]) {
+      const env: Record<string, string | undefined> = { VITEST: 'true', VITEST_MAX_WORKERS: 'abc', ...extra }
+      expect(dropInvalidMaxWorkersEnv(env, () => {})).toBeNull()
+      expect(env.VITEST_MAX_WORKERS).toBe('abc')
+    }
+    const valid: Record<string, string | undefined> = { VITEST: 'true', VITEST_MAX_WORKERS: '3' }
+    expect(dropInvalidMaxWorkersEnv(valid, () => {})).toBeNull()
+    expect(valid.VITEST_MAX_WORKERS).toBe('3')
+  })
   it('an invalid VITEST_MAX_WORKERS does not make the config step aside', () => {
     const base = { VITEST: 'true' }
     for (const v of ['0', 'abc', '-2']) {
@@ -100,6 +147,26 @@ describe('explicit watch mode and invalid overrides', () => {
     }
     expect(invalidMaxWorkersEnv({ VITEST_MAX_WORKERS: '3' })).toBe(false)
     expect(invalidMaxWorkersEnv({})).toBe(false)
+  })
+})
+
+describe('CLI (what the hook calls)', () => {
+  const run = (args: string[]) =>
+    spawnSync(process.execPath, [CLI, ...args], {
+      encoding: 'utf8',
+      env: { ...process.env, TEST_WORKER_SHARE_PS_FILE: EMPTY_PS, TEST_WORKER_BUDGET: '8' },
+    })
+  it('prints a bare integer on stdout and one line on stderr', () => {
+    const r = run(['--ceiling', '3'])
+    expect(r.status).toBe(0)
+    expect(r.stdout).toBe('3\n')
+    expect(r.stderr.trim().split('\n')).toHaveLength(1)
+  })
+  it('accepts --ceiling=N, and warns on a --ceiling with no value', () => {
+    expect(run(['--ceiling=2']).stdout).toBe('2\n')
+    const r = run(['--ceiling'])
+    expect(r.stdout).toBe('4\n')
+    expect(r.stderr).toMatch(/not a positive integer/)
   })
 })
 

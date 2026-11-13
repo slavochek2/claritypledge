@@ -66,12 +66,19 @@ export function isCoordinator(row) {
 /** Attached to a terminal and no one-shot marker: vitest watches there. An idle watcher uses no CPU. */
 export function isProbableWatch(row) {
   const tokens = row.args.split(/\s+/)
-  // Asked for watch mode explicitly (`vitest watch`, `vitest dev`, `--watch`): a watcher with or
-  // without a terminal (P1676 review: background watchers were counted all day).
-  if (tokens.includes('watch') || tokens.includes('dev') || tokens.includes('--watch') || tokens.includes('-w')) return true
-  const hasTty = row.tty !== '??' && row.tty !== '?'
-  if (!hasTty) return false
-  return !tokens.includes('run') && !tokens.includes('--run')
+  // vitest's subcommand is the token right after its entry; every later word is a filter or an
+  // option value (`vitest run dev`, `--project dev`), never a mode (P1676 review, round 2).
+  const entry = tokens.findIndex((t) => t.endsWith('node_modules/.bin/vitest') || t.endsWith('vitest/vitest.mjs'))
+  const sub = entry === -1 ? undefined : tokens[entry + 1]
+  const flags = tokens.slice(entry + 1)
+  // A one-shot marker wins.
+  if (sub === 'run' || flags.includes('--run') || flags.includes('--run=true')) return false
+  // Asked for watch mode explicitly: a watcher with or without a terminal (background watchers
+  // were otherwise counted all day).
+  if (sub === 'watch' || sub === 'dev') return true
+  if (flags.includes('--watch') || flags.includes('--watch=true') || flags.includes('-w')) return true
+  if (flags.includes('--no-watch') || flags.includes('--watch=false')) return false
+  return row.tty !== '??' && row.tty !== '?'
 }
 
 /**
@@ -137,10 +144,28 @@ export function configShouldSize(env, argv) {
   )
 }
 
-/** VITEST_MAX_WORKERS is set but is not a positive integer (vitest would read it as unset). */
+/**
+ * VITEST_MAX_WORKERS is set but is not a plain positive integer. vitest reads this variable with
+ * Number.parseInt (never as a percentage): '0', 'abc' and '   ' become unset (cores - 1), and '50%'
+ * becomes 50 workers. Only a plain positive integer is a real choice (P1676 review, round 2).
+ */
 export function invalidMaxWorkersEnv(env) {
   const v = env.VITEST_MAX_WORKERS
   return v !== undefined && v !== '' && positiveInt(v) === null
+}
+
+/**
+ * Remove an invalid VITEST_MAX_WORKERS before vitest resolves its config (it is applied AFTER the
+ * config and would beat the computed share). Only locally: CI and fork workers are untouched.
+ * Returns the warning line it emitted, or null when it changed nothing.
+ */
+export function dropInvalidMaxWorkersEnv(env, warn = (s) => process.stderr.write(s + '\n')) {
+  const local = Boolean(env.VITEST) && env.GITHUB_ACTIONS !== 'true' && !env.VITEST_POOL_ID
+  if (!local || !invalidMaxWorkersEnv(env)) return null
+  const line = `[P1676] ignoring invalid VITEST_MAX_WORKERS=${JSON.stringify(env.VITEST_MAX_WORKERS)}`
+  Reflect.deleteProperty(env, 'VITEST_MAX_WORKERS')
+  warn(line)
+  return line
 }
 
 export function readPsText(env = process.env) {
