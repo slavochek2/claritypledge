@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 338
 workstream: infrastructure
@@ -168,25 +168,44 @@ figures assume 5 per unique viewer (UNVERIFIED) on 3,204 unique viewers in 30 da
 
 ## Done-When
 
-- [ ] Unit tests (fake timers) drive the strip through `slow → cleared`, `slow → offline_cached →
+- [x] Unit tests (fake timers) drive the strip through `slow → cleared`, `slow → offline_cached →
       cleared`, `offline` only, and a strip that stays up across a route change, and assert exactly
       one `offline_strip_episode` each, with the expected `first_state`, `last_state`, `ended_by`,
       `start_route`, `end_route`, `navigator_online`, and `duration_ms` equal to the faked elapsed time
-- [ ] A unit test keeps the strip on a saved copy while the clock passes several minutes (the text
-      changes from one age to the next) and asserts one episode, not one per minute
-- [ ] A unit test unmounts `OfflineStrip` while it shows and asserts one episode with
+- [x] A unit test keeps the strip on a saved copy while the clock passes several minutes (the text
+      changes from one age to the next) and asserts one episode, not one per minute. Control: an
+      exact-text state mapping fails it (and 2 others)
+- [x] A unit test unmounts `OfflineStrip` while it shows and asserts one episode with
       `ended_by: unmount`
-- [ ] A unit test shows the 5th episode in one document load is sent and the 6th is not, including
+- [x] A unit test shows the 5th episode in one document load is sent and the 6th is not, including
       across a route change
-- [ ] A unit test shows `/story/<uuid>` gives `/story`, `/` gives `/`, `/<random-token>` gives
+- [x] A unit test shows `/story/<uuid>` gives `/story`, `/` gives `/`, `/<random-token>` gives
       `other`, and no property contains the id or token
-- [ ] A test fails when a top-level `path` in `src/App.tsx` is missing from the known-route set
-      (proved by removing one entry and watching it fail)
-- [ ] The existing P1337 and P1369 tests pass unchanged
-- [ ] `docs/technical/analytics.md` lists the event, its properties, and the queries for the Decision
+- [x] A test fails when a top-level `path` in `src/App.tsx` is missing from the known-route set
+      (proved by removing one entry and watching it fail). Since review it also reads
+      `src/app/routes/*.tsx` and `USE_CASE_LANDINGS`, proved the same way
+- [x] The existing P1337 and P1369 tests pass unchanged (62/62 with the new tests)
+- [x] `docs/technical/analytics.md` lists the event, its properties, and the queries for the Decision
       Criteria. `[post-deploy]` confirm events arrive on prod by forcing one slow read on the live site
       (devtools network throttling on a page with a saved copy, from an `is_internal` account, which
       the criteria exclude)
+
+## Known Limitations
+
+Recorded from the code review (Codex, two rounds), verified and set aside rather than fixed:
+
+- **Mixpanel's 1 s batch window.** An episode that ends while the tab is visible is handed to the SDK,
+  which flushes within 1 s (`batch_flush_interval_ms: 1000`, `index.html`). If the tab is hidden inside
+  that second, the flush happens while hidden. This applies to every `analytics.track` call in the app,
+  and P881 chose the 1 s window to stop losing events when a page closes; changing it is an app-wide
+  call, not part of this spec. An episode that ENDS while hidden is held until the tab is visible.
+- **ML collector chosen when the held event is sent.** On `/live`, if the strip clears while the tab is
+  hidden and the recording stops before the tab is shown again, the held event reaches the next
+  collector (or none). The event carries no session content.
+- **StrictMode replay in development.** Mounting while the strip shows sends a ~0 ms `unmount` episode
+  in development only. Production builds never replay effects, and Mixpanel is off in development.
+- **A fourth strip wording.** `stripStateFromText` knows three wordings; a new one would end every
+  episode as `cleared`. The wording is fixed by the 2026-10-05 ruling (P1337).
 
 ## Alternatives Considered
 
